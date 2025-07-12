@@ -165,6 +165,7 @@ print("---")
 reverse_count = 0
 inverse_count = 0
 neither_count = 0
+total_count = int(len(binary_hexagrams)/2)
 
 for index in range(0, 64, 2):
     if(binary_hexagrams[index] == reverse_6bit(binary_hexagrams[index+1])):
@@ -192,14 +193,14 @@ for index in range(0, 64, 2):
 print("---")
 # Reverse
 print("Reverse count pairs: " + str(reverse_count).zfill(2), end="")
-print("/" + str(int(len(binary_hexagrams)/2)) + " (", end="")
-print(str(reverse_count/(len(binary_hexagrams)/2)*100) + "%)")
+print("/" + str(total_count) + " (", end="")
+print(str((reverse_count/total_count)*100) + "%)")
 # Inverse
 print("Inverse count pairs: " + str(inverse_count).zfill(2), end="")
-print("/" + str(int(len(binary_hexagrams)/2)) + " (", end="")
-print(str(inverse_count/(len(binary_hexagrams)/2)*100) + "%)")
+print("/" + str(total_count) + " (", end="")
+print(str((inverse_count/total_count)*100) + "%)")
 # Neither
 print("Neither count pairs: " + str(neither_count).zfill(2), end="")
-print("/" + str(int(len(binary_hexagrams)/2)) + " (", end="")
-print(str(neither_count/(len(binary_hexagrams)/2)*100) + "%)")
+print("/" + str(total_count) + " (", end="")
+print(str((neither_count/total_count)*100) + "%)")
 print("---")
