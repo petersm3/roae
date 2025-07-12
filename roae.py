@@ -168,27 +168,22 @@ neither_count = 0
 total_count = int(len(binary_hexagrams)/2)
 
 for index in range(0, 64, 2):
+    print(str(index+1).zfill(2) + " ", end="")
     if(binary_hexagrams[index] == reverse_6bit(binary_hexagrams[index+1])):
         reverse_count += 1
-        print(str(index+1).zfill(2) + " ", end="")
         print(unicode_hexagrams[index], end="")
         print(" Reverse ", end="")
-        print(str(index+2).zfill(2) + " ", end="")
-        print(unicode_hexagrams[index+1])
     elif (binary_hexagrams[index] == binary_hexagrams[index+1] ^ 0b00111111):
         inverse_count += 1
-        print(str(index+1).zfill(2) + " ", end="")
         print(unicode_hexagrams[index], end="")
         print(" Inverse ", end="")
-        print(str(index+2).zfill(2) + " ", end="")
-        print(unicode_hexagrams[index+1])
     else:
         neither_count += 1
-        print(str(index+1).zfill(2) + " ", end="")
         print(unicode_hexagrams[index], end="")
         print(" IS NOT A REVERSE OR INVERSE ", end="")
-        print(str(index+2).zfill(2) + " ", end="")
-        print(unicode_hexagrams[index+1])
+
+    print(str(index+2).zfill(2) + " ", end="")
+    print(unicode_hexagrams[index+1])
 
 print("---")
 # Reverse
