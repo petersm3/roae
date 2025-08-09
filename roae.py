@@ -216,7 +216,8 @@ for index in range(0, 63):
     diff = binary_hexagrams[index] ^ binary_hexagrams[index+1]
     diff_count = bin(diff).count("1")
     diff_array[diff_count] = diff_array[diff_count] + 1 
-    print(diff_count)
+    print(diff_count, end="")
+    print(" " + "*"*diff_count)
 
 print("---")
 # Print tally
