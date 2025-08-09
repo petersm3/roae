@@ -161,6 +161,7 @@ for index in range(64):
 print("---")
 print("Reverse (180 degree rotation) vs. Inverse pairs") 
 print("---")
+
 # Check for reverse and inverse pairs
 reverse_count = 0
 inverse_count = 0
@@ -198,4 +199,30 @@ print(str((inverse_count/total_count)*100) + "%)")
 print("Neither count pairs: " + str(neither_count).zfill(2), end="")
 print("/" + str(total_count) + " (", end="")
 print(str((neither_count/total_count)*100) + "%)")
+
 print("---")
+print("First order of difference")
+print("How many lines change between each hexagram")
+print("---")
+
+diff_array = [0, 0, 0, 0, 0, 0, 0]
+for index in range(0, 63):
+    print(str(index+1).zfill(2) + " ", end="")
+    print(unicode_hexagrams[index], end="")
+    print(" to ", end="")
+    print(str(index+2).zfill(2) + " ", end="")
+    print(unicode_hexagrams[index+1], end="")
+    print(" difference ", end="")
+    diff = binary_hexagrams[index] ^ binary_hexagrams[index+1]
+    diff_count = bin(diff).count("1")
+    diff_array[diff_count] = diff_array[diff_count] + 1 
+    print(diff_count)
+
+print("---")
+# Print tally
+# 0 changes total of 0 is expected
+# 5 changes total of 0 is observed by McKenna
+for diff_number in range(len(diff_array)):
+    print(diff_number, end="")
+    print(" line changes total ", end="")
+    print(diff_array[diff_number])
