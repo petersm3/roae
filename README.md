@@ -21,17 +21,17 @@ The King Wen sequence is not random, but it's also not optimized for any single 
 
 - **The pair structure is perfect** — every one of the 32 pairs is a reverse or inverse, and zero random permutations out of 10,000 achieved this.
 - **The no-5-line property is real but not astronomically rare** — about 1 in 550 random orderings share it. Notable, not miraculous.
-- **Combined constraints are extraordinary** — zero random permutations satisfy both the pair structure AND the no-5 property together.
-- **It's deliberately rough** — at 3.35x the Gray code minimum, King Wen is longer than 97% of random paths. It's not trying to be smooth.
+- **Combined constraints are extraordinary** — zero random permutations satisfy both the pair structure AND the no-5 property together (95% upper bound: less than 1 in 3,333).
 - **It's more structured than random** — entropy sits at the 13th percentile, meaning it's more ordered than 87% of random permutations.
-- **The wave has no strong periodicity** — autocorrelation drops off immediately, and the FFT shows no dominant frequency. Whatever structure exists isn't periodic.
-- **The Markov transitions show patterns** — 1-changes always precede 6-changes, and 6-changes always precede 2-changes. The wave isn't memoryless.
+- **The wave has no detectable periodicity** — autocorrelation drops off immediately, and the FFT shows no dominant frequency, though with only N=63 data points the statistical power to detect weak periodicity is limited.
+- **The Markov transition matrix is not unusual** — a permutation test shows King Wen's transition structure is at the 43rd percentile, indistinguishable from random orderings. Apparent patterns (e.g., "6 is always followed by 2") are based on small samples and are not statistically significant.
+- **The path length is typical for its structure** — compared against unconstrained random orderings, King Wen appears rough (97th percentile, 3.35x a Gray code). But compared against the correct null model (random orderings that also satisfy the pair constraint), it's at the 29th percentile — completely typical.
 - **The XOR algebra is clean** — 32 pairs produce only ~12 unique products, suggesting the pairing system has deeper algebraic regularity.
 - **King Wen is unique among known orderings** — neither Fu Xi nor Mawangdui avoids 5-line transitions.
-- **Perfect yin-yang balance** — exactly 192 yang lines and 192 yin lines across all 64 hexagrams.
-- **Upper and lower trigrams change independently** — mutual information between them is near zero.
 
-The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships, avoidance of certain transitions, algebraic regularity — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, ~3000 years ago) appear to have been working with a sophisticated understanding of combinatorial structure, even if they wouldn't have described it in those terms.
+The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships and avoidance of certain transitions — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, ~3000 years ago) appear to have been working with combinatorial rules, even if they wouldn't have described them in mathematical terms.
+
+Note: with 33 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](CRITIQUE.md) for a full mathematical review.
 
 See [MCKENNA.md](MCKENNA.md) for how these findings relate to Terence McKenna's Timewave Zero theory.
 
@@ -60,16 +60,16 @@ python3 roae.py --self-test  # Verify data integrity (20 checks)
 | `--palindromes` | Palindrome search in the difference wave |
 | `--canons` | Upper Canon (1-30) vs. Lower Canon (31-64) comparison |
 | `--hamming` | Full 64x64 Hamming distance matrix |
-| `--autocorrelation` | Autocorrelation (hidden periodicity) |
+| `--autocorrelation` | Autocorrelation with 95% confidence bands |
 | `--entropy` | Shannon entropy vs. random permutations |
-| `--path` | Graph theory path analysis |
+| `--path` | Graph theory path analysis (unconstrained and pair-constrained) |
 | `--stats` | Monte Carlo analysis of the no-5-line property |
-| `--fft` | Spectral analysis (DFT) of the wave |
-| `--markov` | Markov chain transition probabilities |
+| `--fft` | Spectral analysis (DFT) with noise floor |
+| `--markov` | Markov chain with permutation test |
 | `--graycode` | Gray code comparison |
 | `--symmetry` | XOR group algebra analysis |
 | `--sequences` | King Wen vs. Fu Xi vs. Mawangdui comparison |
-| `--constraints` | Combined constraint satisfaction testing |
+| `--constraints` | Combined constraint satisfaction with statistical bounds |
 | `--windowed-entropy` | Sliding window entropy across the wave |
 | `--mutual-info` | Mutual information between upper/lower trigram changes |
 | `--bootstrap` | Bootstrap confidence intervals for Monte Carlo estimates |
@@ -96,6 +96,7 @@ python3 roae.py --explain 1          # Step-by-step walkthrough of transition 1
 | `--wrap` | Include 64->1 wrap-around transition in wave |
 | `--order N` | Compute Nth order of difference (default: 1) |
 | `--trials N` | Number of Monte Carlo trials (default: 100000) |
+| `--seed N` | Random seed for reproducible results |
 | `--color` | Enable ANSI color output |
 
 ### Export formats

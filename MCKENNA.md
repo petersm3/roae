@@ -12,8 +12,8 @@ McKenna believed the King Wen sequence encoded a mathematical structure that des
 
 - **Why no 5-line transitions?** This was his entry point. He saw the absence of 5 as evidence of intentional design, not coincidence. This program's Monte Carlo analysis (`--stats`) confirms it's unusual (~1 in 550) but not impossible.
 - **The shape of the wave itself** — he treated the difference values (the wave this program computes with `--wave`) as raw data for his fractal transformation. The program shows the wave but stops short of his fractal expansion step (the Timewave Zero algorithm is excluded for copyright reasons relating to McKenna's estate).
-- **Hidden periodicity** — he believed the wave contained self-similar structure at multiple scales. The program's `--autocorrelation` and `--fft` analyses address this directly: the autocorrelation shows no strong periodic signal, and the FFT shows no dominant frequency. This is evidence *against* the kind of built-in periodicity McKenna's theory required.
-- **Deliberate design** — he was convinced the sequence was engineered, not accumulated randomly over time. The program's `--constraints` analysis actually supports this: zero random permutations satisfy King Wen's combined properties. Whether "engineered" means what McKenna thought it means is a separate question.
+- **Hidden periodicity** — he believed the wave contained self-similar structure at multiple scales. The program's `--autocorrelation` and `--fft` analyses address this directly: no significant periodicity is detected, though with only N=63 data points the statistical power to detect weak periodicity is limited.
+- **Deliberate design** — he was convinced the sequence was engineered, not accumulated randomly over time. The program's `--constraints` analysis supports this: zero random permutations satisfy King Wen's combined properties (95% upper bound: less than 1 in 3,333). Whether "engineered" means what McKenna thought it means is a separate question.
 
 ## Where ROAE supports McKenna
 
@@ -25,11 +25,11 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 
 1. **"The absence of 5 is extraordinary"** — McKenna treated the no-5-line-transition property as a smoking gun of deep intentional design. The Monte Carlo (`--stats`) shows it's ~1 in 550. Unusual, yes. Miraculous, no. It's roughly as likely as being dealt a specific two-pair hand in poker.
 
-2. **"The wave contains hidden periodic structure"** — McKenna believed the difference wave had self-similar, fractal-like properties at multiple scales. The `--autocorrelation` shows the correlation drops to near-zero after lag 1, and the `--fft` shows no dominant frequency. The wave is not periodic at any scale.
+2. **"The wave contains hidden periodic structure"** — McKenna believed the difference wave had self-similar, fractal-like properties at multiple scales. The `--autocorrelation` shows no significant lags outside the 95% noise band (+/-0.25 for N=63), and the `--fft` shows no frequencies above the white noise floor. However, the sequence is short enough that weak periodicity cannot be ruled out — absence of evidence is not evidence of absence at this sample size.
 
-3. **"The sequence encodes a sophisticated signal"** — The `--entropy` analysis places King Wen at the 13th percentile — more structured than random, but 1 in 8 random shuffles would be equally structured. The `--markov` analysis shows some transition patterns (6 is always followed by 2, 1 is always followed by 6), but these are consequences of the pair structure, not an independent signal.
+3. **"The sequence encodes a sophisticated signal"** — The `--entropy` analysis places King Wen at the 13th percentile — more structured than random, but 1 in 8 random shuffles would be equally structured. The `--markov` permutation test shows King Wen's transition matrix is at the 43rd percentile — indistinguishable from random orderings. The apparent Markov patterns (e.g., "6 is always followed by 2") are based on sample sizes of 2-8 observations and are not statistically significant.
 
-4. **"The ordering was optimized for smooth transitions"** — The `--path` analysis shows King Wen is *longer* than 97% of random paths and 3.35x rougher than a Gray code. Whatever the designers optimized for, it wasn't smoothness. This contradicts the idea that the wave was crafted to be a clean, intentional waveform.
+4. **"The ordering was optimized for smooth transitions"** — Compared against unconstrained random paths, King Wen is at the 97th percentile (3.35x a Gray code). But this is misleading: compared against the correct null model (random orderings that also satisfy the pair constraint), King Wen is at the ~29th percentile — completely typical. The pair constraint itself makes paths longer; King Wen is not unusually rough given its structure.
 
 ### Claims challenged by published researchers
 
@@ -45,18 +45,26 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 
 - **The wave's structure is local, not global** — `--windowed-entropy` shows entropy varies across the sequence, with some regions more structured than others. There is no uniform "signal" — the structure comes in patches.
 - **Upper and lower trigrams change independently** — `--mutual-info` shows near-zero mutual information between upper and lower trigram transitions. Whatever rules govern the sequence, they don't couple the two halves of each hexagram.
-- **Perfect yin-yang balance** — `--yinyang` confirms exactly 192 yang and 192 yin lines across all 64 hexagrams. This is a necessary consequence of containing all 64 possible hexagrams exactly once, not evidence of additional design.
+- **Yin-yang balance is a tautology** — `--yinyang` confirms exactly 192 yang and 192 yin lines across all 64 hexagrams. This is a necessary consequence of containing all 64 possible hexagrams exactly once, not evidence of additional design. The local balance (where yang or yin clusters) is a property of the ordering.
 - **The sequence is unique among historical orderings** — `--sequences` shows that neither the Fu Xi (binary) nor Mawangdui ordering avoids 5-line transitions. This property is specific to King Wen.
 
 ## What holds up
 
-- The pair structure is genuinely perfect and vanishingly unlikely by chance (`--constraints` shows 0/10,000 random permutations achieve it).
+- The pair structure is genuinely perfect and vanishingly unlikely by chance (`--constraints` shows 0/10,000 random permutations achieve it; 95% upper bound: less than 1 in 3,333).
 - The combined constraints (pairs + no-5) are extraordinary together.
 - The XOR algebraic regularity (`--symmetry`) is real and not well-explained.
 - The sequence was clearly designed with intentional mathematical structure by people ~3,000 years ago.
+
+## What does not hold up
+
+- The difference wave is not a "signal" in any meaningful sense — its Markov structure and path length are indistinguishable from random orderings that share the pair constraint.
+- There is no detectable periodicity, though the data is too short to be conclusive.
+- Several properties initially reported as findings (yin-yang balance, Markov patterns) are either tautological or statistically insignificant.
 
 The King Wen sequence is genuinely remarkable as a combinatorial object, but McKenna's specific claims about what it *encodes* and what the wave *means* don't survive mathematical scrutiny.
 
 ## What ROAE cannot answer
 
 The program cannot answer whether the wave "maps onto history" because that is an interpretive claim, not a mathematical one.
+
+See [CRITIQUE.md](CRITIQUE.md) for a full mathematical review of the program's methodology.
