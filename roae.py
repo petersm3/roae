@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import random
+import unicodedata
 
 # Reverse the bit order of a 6-bit value, equivalent to flipping a hexagram
 # upside down (180-degree rotation). Each hexagram has 6 lines (bits), so
@@ -97,6 +98,28 @@ def upper_trigram(val):
 def lower_trigram(val):
     return val & 0b111
 
+def display_width(s):
+    """Calculate terminal display width, accounting for wide Unicode characters.
+    Hexagram (U+4DC0–U+4DFF) and misc symbol characters are treated as wide
+    since most terminals render them at double width."""
+    w = 0
+    for c in s:
+        cp = ord(c)
+        eaw = unicodedata.east_asian_width(c)
+        if eaw in ('W', 'F'):
+            w += 2
+        elif 0x4DC0 <= cp <= 0x4DFF:  # I Ching hexagram symbols
+            w += 2
+        elif 0x2600 <= cp <= 0x26FF:  # Misc symbols (includes ☰☱☲☳☴☵☶☷)
+            w += 2
+        else:
+            w += 1
+    return w
+
+def pad(s, width):
+    """Pad a string with spaces to a target display width."""
+    return s + ' ' * (width - display_width(s))
+
 def trigram_label(t):
     symbol, pinyin, meaning = trigram_names[t]
     return f"{symbol} {pinyin:<4} {meaning}"
@@ -116,16 +139,17 @@ def print_header():
     print("---")
 
 def print_table():
-    print("Pos Hex Binary  Upper        Lower        Name")
+    print("Pos | Hex | Binary | Upper          | Lower          | Name")
+    print("----|-----|--------|----------------|----------------|----")
     for i in range(64):
         b = binary_hexagrams[i]
         upper = upper_trigram(b)
         lower = lower_trigram(b)
         bits = bin(b)[2:].zfill(6)
-        us, up, um = trigram_names[upper]
-        ls, lp, lm = trigram_names[lower]
-        print(f"{i+1:02}  {unicode_hexagrams[i]}  {bits}  "
-              f"{us} {up:<4} {um:<7}  {ls} {lp:<4} {lm:<7}  "
+        _, up, um = trigram_names[upper]
+        _, lp, lm = trigram_names[lower]
+        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | "
+              f"{up:<5}{um:<9} | {lp:<5}{lm:<9} | "
               f"{hexagram_names[i]}")
 
 def print_pairs():
