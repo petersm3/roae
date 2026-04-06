@@ -167,6 +167,17 @@ def trigram_label(t):
     _, pinyin, meaning = trigram_names[t]
     return f"{pinyin} {meaning}"
 
+def progress_bar(current, total, width=40):
+    """Print an in-place progress bar to stderr."""
+    pct = current / total
+    filled = int(width * pct)
+    bar = "#" * filled + "-" * (width - filled)
+    sys.stderr.write(f"\r  [{bar}] {pct*100:5.1f}%")
+    sys.stderr.flush()
+    if current >= total:
+        sys.stderr.write("\r" + " " * (width + 12) + "\r")
+        sys.stderr.flush()
+
 # Look up the King Wen sequence position (1–64) for a given binary value
 def binary_to_kw_position(val):
     for i, b in enumerate(binary_hexagrams):
@@ -886,7 +897,10 @@ def print_stats(trials=100000):
     # the King Wen property of having zero 5-line transitions.
     values = list(binary_hexagrams)
     no_five_count = 0
-    for _ in range(trials):
+    step = max(1, trials // 40)
+    for t in range(trials):
+        if t % step == 0:
+            progress_bar(t, trials)
         random.shuffle(values)
         has_five = False
         for i in range(63):
@@ -895,6 +909,7 @@ def print_stats(trials=100000):
                 break
         if not has_five:
             no_five_count += 1
+    progress_bar(trials, trials)
 
     pct = no_five_count / trials * 100
     print(f"Permutations with no 5-line transitions: {no_five_count:,}/{trials:,} ({pct:.2f}%)")
@@ -1674,17 +1689,21 @@ def print_bootstrap(trials=100000):
     # Run the base Monte Carlo
     values = list(binary_hexagrams)
     results = []  # 1 = no five, 0 = has five
-    for _ in range(trials):
+    step = max(1, trials // 40)
+    for t in range(trials):
+        if t % step == 0:
+            progress_bar(t, trials)
         random.shuffle(values)
         has_five = any(bit_diff(values[i], values[i+1]) == 5 for i in range(63))
         results.append(0 if has_five else 1)
+    progress_bar(trials, trials)
 
     base_rate = sum(results) / len(results) * 100
 
     # Bootstrap: resample with replacement 1000 times
     n_bootstrap = 1000
     boot_rates = []
-    for _ in range(n_bootstrap):
+    for b in range(n_bootstrap):
         sample = [results[random.randint(0, len(results)-1)] for _ in range(len(results))]
         boot_rates.append(sum(sample) / len(sample) * 100)
 
