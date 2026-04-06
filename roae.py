@@ -1517,6 +1517,660 @@ def print_help_sections():
         else:
             print()
 
+def print_windowed_entropy():
+    """Compute Shannon entropy over a sliding window of the difference wave."""
+    print("---")
+    print("Windowed entropy analysis")
+    print("Instead of one entropy value for the whole wave, we slide a window across it")
+    print("and compute entropy locally. This reveals WHERE in the sequence structure")
+    print("concentrates (low entropy = predictable) vs. dissolves (high entropy = varied).")
+    print("Dips in the curve mark regions with repetitive transition patterns.")
+    print("---")
+
+    diffs = compute_diffs(wrap=False)
+    window = 15  # Window size
+
+    def shannon_entropy(values):
+        counts = {}
+        for v in values:
+            counts[v] = counts.get(v, 0) + 1
+        total = len(values)
+        entropy = 0
+        for count in counts.values():
+            if count > 0:
+                p = count / total
+                entropy -= p * math.log2(p)
+        return entropy
+
+    print(f"Window size: {window}")
+    print(f"{'Center':>6} {'Entropy':>8} {'':>2} Visualization")
+    print(f"{'------':>6} {'-------':>8} {'':>2} -------------")
+
+    entropies = []
+    for i in range(len(diffs) - window + 1):
+        chunk = diffs[i:i + window]
+        e = shannon_entropy(chunk)
+        entropies.append(e)
+        center = i + window // 2 + 1
+        bar_len = int(e / math.log2(7) * 40)
+        bar = "#" * bar_len
+        print(f"{center:>6} {e:>8.4f}   {bar}")
+
+    mean_e = sum(entropies) / len(entropies)
+    min_e = min(entropies)
+    max_e = max(entropies)
+    min_pos = entropies.index(min_e) + window // 2 + 1
+    max_pos = entropies.index(max_e) + window // 2 + 1
+
+    print(f"\nMean windowed entropy: {mean_e:.4f}")
+    print(f"Min entropy: {min_e:.4f} at position {min_pos} (most structured)")
+    print(f"Max entropy: {max_e:.4f} at position {max_pos} (most varied)")
+
+    spark = ""
+    for e in entropies:
+        level = int(e / math.log2(7) * 6)
+        spark += SPARK[min(level, 6)]
+    print(f"\nEntropy spark: {spark}")
+
+def print_mutual_info():
+    """Mutual information between upper and lower trigram transitions."""
+    print("---")
+    print("Mutual information: upper vs. lower trigram transitions")
+    print("When two consecutive hexagrams differ, do the upper and lower trigrams change")
+    print("independently, or is knowing that the upper trigram changed informative about")
+    print("whether the lower trigram also changed? Mutual information quantifies this:")
+    print("  0 bits = completely independent (knowing one tells you nothing about the other)")
+    print("  higher = correlated (they tend to change together or stay together)")
+    print("---")
+
+    # For each transition, record whether upper and lower trigrams changed
+    upper_changed = []
+    lower_changed = []
+    for i in range(63):
+        uc = upper_trigram(binary_hexagrams[i]) != upper_trigram(binary_hexagrams[i+1])
+        lc = lower_trigram(binary_hexagrams[i]) != lower_trigram(binary_hexagrams[i+1])
+        upper_changed.append(1 if uc else 0)
+        lower_changed.append(1 if lc else 0)
+
+    n = len(upper_changed)
+
+    # Joint and marginal probabilities
+    joint = {}
+    for u, l in zip(upper_changed, lower_changed):
+        key = (u, l)
+        joint[key] = joint.get(key, 0) + 1
+
+    p_upper = [0, 0]
+    p_lower = [0, 0]
+    for u in upper_changed:
+        p_upper[u] += 1
+    for l in lower_changed:
+        p_lower[l] += 1
+
+    # Mutual information: I(U;L) = sum P(u,l) * log2(P(u,l) / (P(u)*P(l)))
+    mi = 0
+    for (u, l), count in joint.items():
+        p_ul = count / n
+        p_u = p_upper[u] / n
+        p_l = p_lower[l] / n
+        if p_ul > 0 and p_u > 0 and p_l > 0:
+            mi += p_ul * math.log2(p_ul / (p_u * p_l))
+
+    print("Joint distribution of trigram changes:")
+    print(f"  {'':>20} Lower unchanged  Lower changed")
+    for u_val, u_label in [(0, "Upper unchanged"), (1, "Upper changed  ")]:
+        row = f"  {u_label}     "
+        for l_val in [0, 1]:
+            count = joint.get((u_val, l_val), 0)
+            pct = count / n * 100
+            row += f"    {count:2} ({pct:5.1f}%)    "
+        print(row)
+
+    print(f"\nMutual information: {mi:.4f} bits")
+    # Maximum possible MI for binary variables
+    max_mi = min(-sum(p/n * math.log2(p/n) for p in p_upper if p > 0),
+                 -sum(p/n * math.log2(p/n) for p in p_lower if p > 0))
+    if max_mi > 0:
+        print(f"Normalized MI: {mi/max_mi:.4f} (0=independent, 1=perfectly correlated)")
+
+    # Compare against random permutations
+    trials = 5000
+    random_mis = []
+    values = list(binary_hexagrams)
+    for _ in range(trials):
+        random.shuffle(values)
+        r_joint = {}
+        for i in range(63):
+            uc = 1 if upper_trigram(values[i]) != upper_trigram(values[i+1]) else 0
+            lc = 1 if lower_trigram(values[i]) != lower_trigram(values[i+1]) else 0
+            key = (uc, lc)
+            r_joint[key] = r_joint.get(key, 0) + 1
+        r_pu = [sum(1 for i in range(63) if (upper_trigram(values[i]) != upper_trigram(values[i+1])) == bool(v)) for v in [0, 1]]
+        r_pl = [sum(1 for i in range(63) if (lower_trigram(values[i]) != lower_trigram(values[i+1])) == bool(v)) for v in [0, 1]]
+        r_mi = 0
+        for (u, l), count in r_joint.items():
+            p_ul = count / 63
+            p_u = r_pu[u] / 63
+            p_l = r_pl[l] / 63
+            if p_ul > 0 and p_u > 0 and p_l > 0:
+                r_mi += p_ul * math.log2(p_ul / (p_u * p_l))
+        random_mis.append(r_mi)
+
+    mean_rmi = sum(random_mis) / len(random_mis)
+    below = sum(1 for r in random_mis if r < mi)
+    print(f"\nMean MI of random permutations: {mean_rmi:.4f} bits")
+    print(f"King Wen percentile: {below/len(random_mis)*100:.1f}%")
+
+def print_bootstrap(trials=100000):
+    """Bootstrap confidence intervals for Monte Carlo results."""
+    print("---")
+    print("Bootstrap confidence intervals")
+    print("The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line")
+    print("transitions') are estimates based on sampling. Bootstrap resampling quantifies")
+    print("how precise those estimates are by repeatedly resampling from the results and")
+    print("computing confidence intervals. Narrower intervals = more reliable estimates.")
+    print("---")
+
+    # Run the base Monte Carlo
+    values = list(binary_hexagrams)
+    results = []  # 1 = no five, 0 = has five
+    for _ in range(trials):
+        random.shuffle(values)
+        has_five = any(bit_diff(values[i], values[i+1]) == 5 for i in range(63))
+        results.append(0 if has_five else 1)
+
+    base_rate = sum(results) / len(results) * 100
+
+    # Bootstrap: resample with replacement 1000 times
+    n_bootstrap = 1000
+    boot_rates = []
+    for _ in range(n_bootstrap):
+        sample = [results[random.randint(0, len(results)-1)] for _ in range(len(results))]
+        boot_rates.append(sum(sample) / len(sample) * 100)
+
+    boot_rates.sort()
+    ci_lower = boot_rates[int(n_bootstrap * 0.025)]
+    ci_upper = boot_rates[int(n_bootstrap * 0.975)]
+
+    print(f"Base trials: {trials:,}")
+    print(f"Bootstrap resamples: {n_bootstrap}")
+    print(f"\nNo-5-line-transition rate: {base_rate:.3f}%")
+    print(f"95% confidence interval: [{ci_lower:.3f}%, {ci_upper:.3f}%]")
+    print(f"Interval width: {ci_upper - ci_lower:.3f} percentage points")
+
+    if base_rate > 0:
+        approx_ratio = 100 / base_rate
+        ci_ratio_lower = 100 / ci_upper if ci_upper > 0 else float('inf')
+        ci_ratio_upper = 100 / ci_lower if ci_lower > 0 else float('inf')
+        print(f"\nApproximately 1 in {approx_ratio:.0f} random orderings")
+        print(f"95% CI: 1 in {ci_ratio_lower:.0f} to 1 in {ci_ratio_upper:.0f}")
+
+def print_yinyang():
+    """Track the running yin-yang balance through the sequence."""
+    print("---")
+    print("Yin-yang balance wave")
+    print("Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).")
+    print("As we move through the King Wen sequence, we track the running count of yang")
+    print("lines. A perfectly balanced sequence would hover around 3.0 yang lines per")
+    print("hexagram. Drift above or below reveals sections dominated by yang (active,")
+    print("creative energy) or yin (receptive, passive energy).")
+    print("---")
+
+    running_yang = []
+    cumulative = 0
+    for i in range(64):
+        yang_count = bin(binary_hexagrams[i]).count("1")
+        cumulative += yang_count
+        running_yang.append(yang_count)
+
+    total_yang = sum(running_yang)
+    total_yin = 64 * 6 - total_yang
+    mean_yang = total_yang / 64
+
+    print(f"Total yang lines: {total_yang} / {64*6} ({total_yang/(64*6)*100:.1f}%)")
+    print(f"Total yin lines:  {total_yin} / {64*6} ({total_yin/(64*6)*100:.1f}%)")
+    print(f"Mean yang per hexagram: {mean_yang:.2f}")
+    print()
+
+    # Running average over a window
+    window = 8
+    print(f"Running yang average (window={window}):")
+    print(f"{'Pos':>4} {'Yang':>5} {'RunAvg':>7}  {'':>2} Visualization")
+
+    running_avgs = []
+    for i in range(64):
+        start = max(0, i - window + 1)
+        avg = sum(running_yang[start:i+1]) / (i - start + 1)
+        running_avgs.append(avg)
+        bar_center = 20
+        bar_pos = int((avg - 0) / 6 * 40)
+        bar = [' '] * 41
+        bar[20] = '|'  # center line at 3.0
+        bar[min(40, bar_pos)] = '#'
+        bar_str = ''.join(bar)
+        print(f"{i+1:>4}   {running_yang[i]:>3}   {avg:>5.2f}   [{bar_str}]")
+
+    # Spark line of raw yang counts per hexagram
+    yang_spark = "".join(SPARK[min(y, 6)] for y in running_yang)
+    print(f"\nYang count spark: {yang_spark}")
+
+    # Check for runs of high-yang or high-yin
+    print(f"\n--- Yang/Yin dominance runs ---")
+    current_run = 0
+    current_type = None
+    runs = []
+    for i in range(64):
+        y = running_yang[i]
+        t = "yang" if y > 3 else ("yin" if y < 3 else "balanced")
+        if t == current_type:
+            current_run += 1
+        else:
+            if current_type and current_type != "balanced" and current_run >= 3:
+                runs.append((i - current_run, current_run, current_type))
+            current_run = 1
+            current_type = t
+    if current_type and current_type != "balanced" and current_run >= 3:
+        runs.append((64 - current_run, current_run, current_type))
+
+    if runs:
+        for start, length, rtype in runs:
+            print(f"  Positions {start+1:02}-{start+length:02}: {length} consecutive {rtype}-dominant hexagrams")
+    else:
+        print("  No runs of 3+ consecutive yang- or yin-dominant hexagrams found.")
+
+def print_neighborhoods():
+    """Show Hamming distance neighborhoods for each hexagram."""
+    print("---")
+    print("Hexagram neighborhoods")
+    print("For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?")
+    print("Dense neighborhoods mean a hexagram has many close relatives; sparse ones are")
+    print("more isolated. This also shows whether King Wen places neighbors near each")
+    print("other in the sequence or scatters them.")
+    print("---")
+
+    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
+    for i in range(64):
+        d1 = []  # Distance-1 neighbors
+        d2 = []  # Distance-2 neighbors
+        for j in range(64):
+            if i == j:
+                continue
+            d = bit_diff(binary_hexagrams[i], binary_hexagrams[j])
+            if d == 1:
+                d1.append(j)
+            elif d == 2:
+                d2.append(j)
+
+        d1_str = ", ".join(f"{j+1:02}" for j in d1)
+        d1_seq_dists = [abs(j - i) for j in d1]
+        mean_seq = sum(d1_seq_dists) / len(d1_seq_dists) if d1_seq_dists else 0
+
+        print(f"{i+1:02} {unicode_hexagrams[i]} {hexagram_names[i]:<28} "
+              f"d=1: [{d1_str}] ({len(d1)} neighbors, "
+              f"mean seq dist: {mean_seq:.1f})")
+
+    # Summary: how close are Hamming-1 neighbors in the sequence?
+    print(f"\n--- Neighborhood clustering in King Wen sequence ---")
+    all_seq_dists = []
+    for i in range(64):
+        for j in range(64):
+            if bit_diff(binary_hexagrams[i], binary_hexagrams[j]) == 1:
+                all_seq_dists.append(abs(j - i))
+
+    mean_d = sum(all_seq_dists) / len(all_seq_dists)
+
+    # Compare against random expectation
+    random_mean = sum(abs(i - j) for i in range(64) for j in range(64) if i != j) / (64 * 63)
+    print(f"Mean sequence distance between Hamming-1 neighbors: {mean_d:.1f}")
+    print(f"Mean sequence distance between any two hexagrams:   {random_mean:.1f}")
+    if mean_d < random_mean:
+        print("Hamming-1 neighbors are closer than average in the sequence (clustered).")
+    else:
+        print("Hamming-1 neighbors are NOT closer than average (not clustered).")
+
+def print_recurrence():
+    """Generate a recurrence plot of the difference wave."""
+    print("---")
+    print("Recurrence plot")
+    print("A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)")
+    print("is marked if the difference at position i equals the difference at position j.")
+    print("Diagonal lines indicate repeated sequences; vertical/horizontal lines indicate")
+    print("values that persist. Clusters of marks reveal recurring local patterns.")
+    print("---")
+
+    diffs = compute_diffs(wrap=False)
+    n = len(diffs)
+
+    # Print column headers (tens)
+    print("     ", end="")
+    for j in range(n):
+        if (j + 1) % 10 == 0:
+            print(str((j + 1) // 10), end="")
+        else:
+            print(" ", end="")
+    print()
+    # Print column headers (ones)
+    print("     ", end="")
+    for j in range(n):
+        print(str((j + 1) % 10), end="")
+    print()
+
+    for i in range(n):
+        print(f"{i+1:>3}  ", end="")
+        for j in range(n):
+            if diffs[i] == diffs[j]:
+                if i == j:
+                    print("+", end="")  # Diagonal
+                else:
+                    print("#", end="")
+            else:
+                print(".", end="")
+        print()
+
+    # Count recurrence rate
+    matches = sum(1 for i in range(n) for j in range(n) if i != j and diffs[i] == diffs[j])
+    total_pairs = n * (n - 1)
+    print(f"\nRecurrence rate: {matches}/{total_pairs} ({matches/total_pairs*100:.1f}%)")
+
+def print_casting():
+    """Simulate an I Ching reading using the three-coin method."""
+    print("---")
+    print("I Ching casting (three-coin method)")
+    print("In a traditional reading, three coins are tossed six times to generate a")
+    print("hexagram. Heads=3, Tails=2. The sum of three coins (6,7,8,9) determines each")
+    print("line: 6=old yin (changing), 7=young yang, 8=young yin, 9=old yang (changing).")
+    print("'Changing' lines transform to produce a second hexagram showing the situation's")
+    print("trajectory. This is a simulation — not a substitute for a real casting!")
+    print("---")
+
+    lines = []
+    changing = []
+    for line_num in range(6):
+        # Three coins: heads=3, tails=2
+        coins = [random.choice([2, 3]) for _ in range(3)]
+        total = sum(coins)
+        coin_str = "+".join(str(c) for c in coins)
+
+        if total == 6:
+            lines.append(0)  # old yin
+            changing.append(True)
+            line_type = "--- x --- old yin (changing)"
+        elif total == 7:
+            lines.append(1)  # young yang
+            changing.append(False)
+            line_type = "--------- young yang"
+        elif total == 8:
+            lines.append(0)  # young yin
+            changing.append(False)
+            line_type = "---   --- young yin"
+        else:  # 9
+            lines.append(1)  # old yang
+            changing.append(True)
+            line_type = "----o---- old yang (changing)"
+
+        print(f"  Line {line_num+1}: coins={coin_str}={total}  {line_type}")
+
+    # Build the primary hexagram (bits: line 1 = bit 0)
+    primary_val = sum(lines[i] << i for i in range(6))
+    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
+    if primary_val not in val_to_pos:
+        print(f"\nError: generated value {primary_val} not found in hexagram table.")
+        return
+
+    primary_pos = val_to_pos[primary_val]
+    print(f"\n  Primary hexagram: {primary_pos+1:02} {unicode_hexagrams[primary_pos]} "
+          f"{hexagram_names[primary_pos]}")
+
+    # Build the relating hexagram (change old yin->yang, old yang->yin)
+    has_changing = any(changing)
+    if has_changing:
+        relating_lines = list(lines)
+        for i in range(6):
+            if changing[i]:
+                relating_lines[i] = 1 - relating_lines[i]
+        relating_val = sum(relating_lines[i] << i for i in range(6))
+        relating_pos = val_to_pos[relating_val]
+        changing_positions = [i+1 for i in range(6) if changing[i]]
+        print(f"  Changing lines: {', '.join(str(p) for p in changing_positions)}")
+        print(f"  Relating hexagram: {relating_pos+1:02} {unicode_hexagrams[relating_pos]} "
+              f"{hexagram_names[relating_pos]}")
+    else:
+        print("  No changing lines — the situation is stable.")
+
+def print_explain(position):
+    """Walk through the binary math of a single transition step by step."""
+    pos = None
+    try:
+        pos = int(position)
+    except ValueError:
+        print(f"Expected a number (1-63), got: {position}")
+        return
+
+    if pos < 1 or pos > 63:
+        print(f"Position must be between 1 and 63 (there are 63 transitions).")
+        return
+
+    i = pos - 1  # 0-indexed
+    a = binary_hexagrams[i]
+    b = binary_hexagrams[i + 1]
+    bits_a = bin(a)[2:].zfill(6)
+    bits_b = bin(b)[2:].zfill(6)
+
+    print("---")
+    print(f"Step-by-step explanation of transition {pos}: "
+          f"hexagram {i+1} -> hexagram {i+2}")
+    print("---")
+
+    print(f"\n  Hexagram {i+1}: {unicode_hexagrams[i]} {hexagram_names[i]}")
+    print(f"  Hexagram {i+2}: {unicode_hexagrams[i+1]} {hexagram_names[i+1]}")
+
+    print(f"\n  Step 1: Binary representation")
+    print(f"  Each hexagram has 6 lines. We encode them as bits:")
+    print(f"  1 = solid line (yang), 0 = broken line (yin)")
+    print(f"  Bit positions: [top=bit5] [bit4] [bit3] [bit2] [bit1] [bottom=bit0]")
+    print()
+    print(f"  {unicode_hexagrams[i]}  = {bits_a}")
+    print(f"  {unicode_hexagrams[i+1]}  = {bits_b}")
+
+    # Show lines visually
+    print(f"\n  Visual comparison (top to bottom):")
+    for line in range(5, -1, -1):
+        bit_a = (a >> line) & 1
+        bit_b = (b >> line) & 1
+        sym_a = "---------" if bit_a else "---   ---"
+        sym_b = "---------" if bit_b else "---   ---"
+        changed = " <-- CHANGED" if bit_a != bit_b else ""
+        print(f"    Line {line+1}: {sym_a}  ->  {sym_b}{changed}")
+
+    print(f"\n  Step 2: XOR to find differences")
+    print(f"  XOR compares each bit: 1 if different, 0 if same")
+    xor = a ^ b
+    bits_xor = bin(xor)[2:].zfill(6)
+    print(f"    {bits_a}")
+    print(f"  ^ {bits_b}")
+    print(f"  = {bits_xor}")
+    print(f"  Each '1' in the result marks a line that changed.")
+
+    print(f"\n  Step 3: Count the 1s (popcount)")
+    diff = bit_diff(a, b)
+    ones = [i for i in range(6) if bits_xor[5-i] == '1']
+    print(f"  {bits_xor} has {diff} ones")
+    if ones:
+        print(f"  Changed line positions: {', '.join(str(o+1) for o in ones)}")
+
+    print(f"\n  Step 4: Trigram extraction")
+    print(f"  Lower trigram = bits 0-2, Upper trigram = bits 3-5")
+    _, up_a, um_a = trigram_names[upper_trigram(a)]
+    _, lp_a, lm_a = trigram_names[lower_trigram(a)]
+    _, up_b, um_b = trigram_names[upper_trigram(b)]
+    _, lp_b, lm_b = trigram_names[lower_trigram(b)]
+    print(f"  {unicode_hexagrams[i]}:  upper={up_a} ({um_a}), lower={lp_a} ({lm_a})")
+    print(f"  {unicode_hexagrams[i+1]}:  upper={up_b} ({um_b}), lower={lp_b} ({lm_b})")
+    upper_changed = upper_trigram(a) != upper_trigram(b)
+    lower_changed = lower_trigram(a) != lower_trigram(b)
+    print(f"  Upper trigram {'CHANGED' if upper_changed else 'unchanged'}, "
+          f"lower trigram {'CHANGED' if lower_changed else 'unchanged'}")
+
+    print(f"\n  Result: transition {pos} changes {diff} of 6 lines.")
+    print(f"  This contributes '{diff}' to the difference wave. {'*' * diff}")
+
+def print_codons():
+    """Map the 64 hexagrams to the 64 DNA codons and compare structures."""
+    print("---")
+    print("DNA codon mapping")
+    print("Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems")
+    print("of 64 elements built from binary-like pairs: yin/yang for hexagrams, and the")
+    print("base pairs A-T and G-C for DNA. Each codon is a sequence of 3 bases from the")
+    print("set {A, C, G, U}, giving 4^3 = 64 possibilities. While this is a numerical")
+    print("coincidence (both are 2^6 = 64), comparing their structural properties is")
+    print("instructive about combinatorial systems in general.")
+    print("---")
+
+    # Standard genetic code: map 6-bit values to codons
+    # Encoding: each pair of bits maps to a base
+    # Using the convention: 00=U, 01=C, 10=A, 11=G
+    bases = {0b00: 'U', 0b01: 'C', 0b10: 'A', 0b11: 'G'}
+
+    # Standard codon table (codon -> amino acid)
+    codon_table = {
+        "UUU": "Phe", "UUC": "Phe", "UUA": "Leu", "UUG": "Leu",
+        "UCU": "Ser", "UCC": "Ser", "UCA": "Ser", "UCG": "Ser",
+        "UAU": "Tyr", "UAC": "Tyr", "UAA": "Stop", "UAG": "Stop",
+        "UGU": "Cys", "UGC": "Cys", "UGA": "Stop", "UGG": "Trp",
+        "CUU": "Leu", "CUC": "Leu", "CUA": "Leu", "CUG": "Leu",
+        "CCU": "Pro", "CCC": "Pro", "CCA": "Pro", "CCG": "Pro",
+        "CAU": "His", "CAC": "His", "CAA": "Gln", "CAG": "Gln",
+        "CGU": "Arg", "CGC": "Arg", "CGA": "Arg", "CGG": "Arg",
+        "AUU": "Ile", "AUC": "Ile", "AUA": "Ile", "AUG": "Met",
+        "ACU": "Thr", "ACC": "Thr", "ACA": "Thr", "ACG": "Thr",
+        "AAU": "Asn", "AAC": "Asn", "AAA": "Lys", "AAG": "Lys",
+        "AGU": "Ser", "AGC": "Ser", "AGA": "Arg", "AGG": "Arg",
+        "GUU": "Val", "GUC": "Val", "GUA": "Val", "GUG": "Val",
+        "GCU": "Ala", "GCC": "Ala", "GCA": "Ala", "GCG": "Ala",
+        "GAU": "Asp", "GAC": "Asp", "GAA": "Glu", "GAG": "Glu",
+        "GGU": "Gly", "GGC": "Gly", "GGA": "Gly", "GGG": "Gly",
+    }
+
+    def val_to_codon(val):
+        """Convert a 6-bit value to a 3-base codon."""
+        b1 = bases[(val >> 4) & 0b11]
+        b2 = bases[(val >> 2) & 0b11]
+        b3 = bases[val & 0b11]
+        return b1 + b2 + b3
+
+    print("Pos | Hex | Binary | Codon | Amino Acid | Name")
+    print("----|-----|--------|-------|------------|----")
+    amino_acids = []
+    for i in range(64):
+        b = binary_hexagrams[i]
+        bits = bin(b)[2:].zfill(6)
+        codon = val_to_codon(b)
+        aa = codon_table.get(codon, "?")
+        amino_acids.append(aa)
+        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | {codon}  | {aa:<10} | {hexagram_names[i]}")
+
+    # How many unique amino acids does the King Wen sequence map to?
+    unique_aa = set(amino_acids)
+    print(f"\nUnique amino acids in King Wen order: {len(unique_aa)}")
+    print(f"Total possible amino acids + stop: 21")
+
+    # Structural comparison: in the genetic code, single-base mutations often
+    # preserve the amino acid (degeneracy). Is this true for single-line hexagram changes?
+    print(f"\n--- Degeneracy comparison ---")
+    print("In DNA, many single-base changes preserve the amino acid (the code is 'degenerate').")
+    print("Do single-line hexagram changes preserve the mapped amino acid?")
+
+    preserved = 0
+    total_neighbors = 0
+    for i in range(64):
+        for bit in range(6):
+            neighbor = binary_hexagrams[i] ^ (1 << bit)
+            codon_a = val_to_codon(binary_hexagrams[i])
+            codon_b = val_to_codon(neighbor)
+            aa_a = codon_table.get(codon_a, "?")
+            aa_b = codon_table.get(codon_b, "?")
+            total_neighbors += 1
+            if aa_a == aa_b:
+                preserved += 1
+
+    print(f"Single-line changes that preserve amino acid: {preserved}/{total_neighbors} "
+          f"({preserved/total_neighbors*100:.1f}%)")
+
+def export_midi():
+    """Export the difference wave as a MIDI file to stdout."""
+    # Write raw MIDI bytes (no external dependencies)
+    # Format: single track, map diff values 1-6 to notes
+
+    diffs = compute_diffs(wrap=False)
+
+    # MIDI note mapping: difference 1-6 mapped to a pentatonic scale
+    # Base note: middle C (60)
+    note_map = {1: 60, 2: 62, 3: 64, 4: 67, 5: 69, 6: 72}
+    velocity = 80
+    duration = 480  # quarter note in ticks
+
+    def var_length(value):
+        """Encode a variable-length quantity for MIDI."""
+        result = []
+        result.append(value & 0x7F)
+        value >>= 7
+        while value:
+            result.append((value & 0x7F) | 0x80)
+            value >>= 7
+        result.reverse()
+        return bytes(result)
+
+    def write_midi_bytes():
+        """Build MIDI file as bytes."""
+        # Track data
+        track_data = bytearray()
+
+        # Tempo: 120 BPM (500000 microseconds per beat)
+        track_data += var_length(0)  # delta time
+        track_data += bytes([0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20])
+
+        # Track name
+        name = b"King Wen Difference Wave"
+        track_data += var_length(0)
+        track_data += bytes([0xFF, 0x03, len(name)]) + name
+
+        for d in diffs:
+            note = note_map.get(d, 60)
+            # Note on
+            track_data += var_length(0)
+            track_data += bytes([0x90, note, velocity])
+            # Note off
+            track_data += var_length(duration)
+            track_data += bytes([0x80, note, 0])
+
+        # End of track
+        track_data += var_length(0)
+        track_data += bytes([0xFF, 0x2F, 0x00])
+
+        # Header chunk
+        header = bytearray()
+        header += b'MThd'
+        header += (6).to_bytes(4, 'big')  # chunk length
+        header += (0).to_bytes(2, 'big')   # format 0 (single track)
+        header += (1).to_bytes(2, 'big')   # 1 track
+        header += (480).to_bytes(2, 'big')  # 480 ticks per beat
+
+        # Track chunk
+        track = bytearray()
+        track += b'MTrk'
+        track += len(track_data).to_bytes(4, 'big')
+        track += track_data
+
+        return bytes(header + track)
+
+    midi_bytes = write_midi_bytes()
+
+    # Write to stdout as binary
+    sys.stdout.buffer.write(midi_bytes)
+    sys.stdout.buffer.flush()
+
 def export_svg():
     """Export hexagram line diagrams as an SVG image."""
     line_w = 30
@@ -1735,14 +2389,32 @@ def main():
                         help="Compare King Wen vs Fu Xi vs Mawangdui orderings")
     parser.add_argument("--constraints", action="store_true",
                         help="Constraint satisfaction analysis")
+    parser.add_argument("--windowed-entropy", action="store_true",
+                        help="Sliding window entropy across the wave")
+    parser.add_argument("--mutual-info", action="store_true",
+                        help="Mutual information between upper/lower trigram changes")
+    parser.add_argument("--bootstrap", action="store_true",
+                        help="Bootstrap confidence intervals for Monte Carlo")
+    parser.add_argument("--yinyang", action="store_true",
+                        help="Yin-yang balance wave through the sequence")
+    parser.add_argument("--neighborhoods", action="store_true",
+                        help="Hamming distance-1 neighborhoods for each hexagram")
+    parser.add_argument("--recurrence", action="store_true",
+                        help="Recurrence plot of the difference wave")
+    parser.add_argument("--codons", action="store_true",
+                        help="DNA codon mapping comparison")
     parser.add_argument("--all", action="store_true",
                         help="Run all analysis sections (default if no flags given)")
 
-    # Lookup and compare modes
+    # Interactive / special modes
     parser.add_argument("--lookup", type=str, default=None,
                         help="Look up a hexagram by number (1-64) or name")
     parser.add_argument("--compare", nargs=2, type=str, default=None,
                         help="Compare two hexagrams (by number or name)")
+    parser.add_argument("--cast", action="store_true",
+                        help="Simulate an I Ching reading (three-coin method)")
+    parser.add_argument("--explain", type=str, default=None,
+                        help="Walk through transition N step by step (1-63)")
 
     # Modifiers
     parser.add_argument("--wrap", action="store_true",
@@ -1765,6 +2437,8 @@ def main():
                         help="Export hexagram line diagrams as SVG")
     parser.add_argument("--html", action="store_true",
                         help="Generate self-contained HTML report")
+    parser.add_argument("--midi", action="store_true",
+                        help="Export difference wave as MIDI file (to stdout)")
 
     # Help
     parser.add_argument("--help-sections", action="store_true",
@@ -1784,6 +2458,14 @@ def main():
         print_header()
         print_compare(args.compare[0], args.compare[1])
         return
+    if args.cast:
+        print_header()
+        print_casting()
+        return
+    if args.explain:
+        print_header()
+        print_explain(args.explain)
+        return
     if args.json:
         export_json()
         return
@@ -1799,12 +2481,17 @@ def main():
     if args.html:
         export_html()
         return
+    if args.midi:
+        export_midi()
+        return
 
     all_sections = [args.table, args.pairs, args.wave, args.barchart, args.trigrams,
                     args.nuclear, args.lines, args.complements, args.palindromes,
                     args.canons, args.hamming, args.autocorrelation, args.entropy,
                     args.path, args.stats, args.fft, args.markov, args.graycode,
-                    args.symmetry, args.sequences, args.constraints]
+                    args.symmetry, args.sequences, args.constraints,
+                    args.windowed_entropy, args.mutual_info, args.bootstrap,
+                    args.yinyang, args.neighborhoods, args.recurrence, args.codons]
     run_all = args.all or not any(all_sections)
 
     print_header()
@@ -1827,8 +2514,15 @@ def main():
     if run_all or args.symmetry:        print_symmetry()
     if run_all or args.sequences:       print_sequences()
     if run_all or args.constraints:     print_constraints()
+    if run_all or args.windowed_entropy: print_windowed_entropy()
+    if run_all or args.mutual_info:     print_mutual_info()
+    if run_all or args.yinyang:         print_yinyang()
+    if run_all or args.neighborhoods:   print_neighborhoods()
+    if run_all or args.recurrence:      print_recurrence()
+    if run_all or args.codons:          print_codons()
     if run_all or args.entropy:         print_entropy()
     if run_all or args.path:            print_path()
+    if run_all or args.bootstrap:       print_bootstrap(trials=args.trials)
     if run_all or args.stats:           print_stats(trials=args.trials)
 
 if __name__ == "__main__":
