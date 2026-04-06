@@ -176,7 +176,7 @@ def progress_bar(current, total, label="", width=30):
     sys.stderr.write(display)
     sys.stderr.flush()
     if current >= total:
-        sys.stderr.write("\r" + " " * len(display) + "\r")
+        sys.stderr.write("\n")
         sys.stderr.flush()
 
 # Look up the King Wen sequence position (1–64) for a given binary value
