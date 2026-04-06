@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import cmath
 import json
 import math
 import random
@@ -91,6 +92,26 @@ trigram_names = {
     0b101: ("☲", "Li",    "Fire"),
     0b110: ("☱", "Dui",   "Lake"),
 }
+
+# Fu Xi (binary/natural) ordering: hexagrams ordered by their binary value 0–63.
+# This is the "mathematical" ordering, unlike King Wen which is the traditional one.
+# https://en.wikipedia.org/wiki/King_Wen_sequence#Fu_Xi_sequence
+fuxi_order = list(range(64))  # Binary values 0–63 in natural order
+
+# Mawangdui ordering: an alternative ancient sequence found on silk manuscripts
+# in the Mawangdui tomb (168 BCE). Upper trigrams cycle through Qian, Gen, Kan,
+# Zhen, Kun, Dui, Li, Xun, with each lower trigram cycling within.
+# Represented as King Wen index (0-based) for each position.
+mawangdui_kw_indices = [
+    0, 9, 5, 25, 11, 43, 13, 33,    # Qian upper: Qian,Dui,Li,Zhen,Kun,Gen,Kan,Xun lower
+    18, 60, 47, 3, 19, 52, 28, 57,   # Gen upper
+    6, 39, 29, 7, 15, 45, 63, 48,    # Kan upper
+    16, 31, 55, 50, 23, 27, 42, 17,  # Zhen upper
+    1, 12, 35, 24, 10, 44, 14, 34,   # Kun upper
+    8, 58, 37, 53, 20, 41, 61, 56,   # Dui upper
+    36, 30, 21, 54, 4, 22, 62, 49,   # Li upper
+    46, 59, 38, 26, 40, 32, 46, 2,   # Xun upper
+]
 
 # Spark line characters for visualizing difference values 0–6
 SPARK = " ▁▂▃▅▆█"
@@ -882,6 +903,724 @@ def print_stats(trials=100000):
     else:
         print(f"Approximately 1 in {trials // no_five_count} random orderings share this property.")
 
+def print_fft():
+    """Spectral analysis of the difference wave using Discrete Fourier Transform."""
+    print("---")
+    print("Spectral analysis (Discrete Fourier Transform)")
+    print("The DFT decomposes the difference wave into frequency components, like splitting")
+    print("white light into a rainbow. Each frequency represents a periodic pattern in the")
+    print("wave. A strong peak at frequency F means the wave has a repeating cycle every")
+    print("63/F transitions. If the King Wen ordering has hidden periodic structure, the")
+    print("spectrum will show clear peaks rather than flat noise.")
+    print("---")
+
+    diffs = compute_diffs(wrap=False)
+    n = len(diffs)
+    mean = sum(diffs) / n
+
+    # Compute DFT manually using cmath (stdlib)
+    # Subtract mean to focus on oscillations, not DC offset
+    centered = [d - mean for d in diffs]
+    magnitudes = []
+    for k in range(n // 2 + 1):
+        total = complex(0, 0)
+        for t in range(n):
+            angle = -2 * math.pi * k * t / n
+            total += centered[t] * cmath.exp(complex(0, angle))
+        mag = abs(total) / n
+        magnitudes.append((k, mag))
+
+    # DC component (frequency 0) is just the mean, skip it
+    print(f"Number of samples: {n}")
+    print(f"Mean (DC component): {mean:.3f}")
+    print()
+    print(f"{'Freq':>4} {'Period':>8} {'Magnitude':>10}  Spectrum")
+    print(f"{'----':>4} {'------':>8} {'---------':>10}  --------")
+
+    max_mag = max(m for _, m in magnitudes[1:]) if len(magnitudes) > 1 else 1
+    for k, mag in magnitudes[1:]:  # Skip DC
+        period = n / k if k > 0 else float('inf')
+        bar_len = int(mag / max_mag * 40) if max_mag > 0 else 0
+        bar = "#" * bar_len
+        print(f"{k:>4} {period:>8.1f} {mag:>10.4f}  {bar}")
+
+def print_markov():
+    """Markov chain analysis of the difference wave transitions."""
+    print("---")
+    print("Markov chain analysis")
+    print("If we treat each difference value as a 'state', we can ask: does the current")
+    print("difference predict the next one? In a random sequence, knowing that the last")
+    print("transition changed 2 lines tells you nothing about the next transition. But if")
+    print("certain patterns like '6 is always followed by 2' emerge, it reveals hidden")
+    print("rules in the King Wen ordering. The matrix shows the probability of each")
+    print("transition between difference values.")
+    print("---")
+
+    diffs = compute_diffs(wrap=False)
+
+    # Count transitions between consecutive difference values
+    # Only count states that actually appear (0 and 5 don't)
+    states = sorted(set(diffs))
+    transition_counts = {}
+    for s in states:
+        transition_counts[s] = {}
+        for t in states:
+            transition_counts[s][t] = 0
+
+    for i in range(len(diffs) - 1):
+        transition_counts[diffs[i]][diffs[i+1]] += 1
+
+    # Print transition probability matrix
+    print("Transition probability matrix (row = from, column = to)")
+    print(f"{'':>6}", end="")
+    for s in states:
+        print(f"  -> {s}  ", end="")
+    print()
+
+    for s_from in states:
+        row_total = sum(transition_counts[s_from].values())
+        print(f"  {s_from}   ", end="")
+        for s_to in states:
+            count = transition_counts[s_from][s_to]
+            if row_total > 0:
+                prob = count / row_total
+                print(f" {prob:5.2f}  ", end="")
+            else:
+                print(f"   -   ", end="")
+        print(f"  (n={row_total})")
+
+    # Highlight notable patterns
+    print("\n--- Notable transition patterns ---")
+    for s_from in states:
+        row_total = sum(transition_counts[s_from].values())
+        if row_total == 0:
+            continue
+        for s_to in states:
+            count = transition_counts[s_from][s_to]
+            prob = count / row_total
+            if prob >= 0.4 and count >= 3:
+                print(f"  {s_from} -> {s_to}: {prob:.0%} ({count}/{row_total} times)")
+
+def print_graycode():
+    """Compare the King Wen ordering against a Gray code."""
+    print("---")
+    print("Gray code comparison")
+    print("A Gray code is an ordering of binary values where each consecutive pair differs")
+    print("by exactly 1 bit. For 6-bit hexagrams, a Gray code path would change exactly 1")
+    print("line at every step — the smoothest possible sequence. The King Wen sequence does")
+    print("NOT follow a Gray code (most transitions change 2-6 lines). This comparison")
+    print("shows how much 'rougher' King Wen is than the theoretical minimum, suggesting")
+    print("the ordering prioritizes something other than smooth transitions.")
+    print("---")
+
+    # Generate standard 6-bit Gray code
+    def gray_code(n_bits):
+        if n_bits == 0:
+            return [0]
+        lower = gray_code(n_bits - 1)
+        return lower + [x | (1 << (n_bits - 1)) for x in reversed(lower)]
+
+    gray = gray_code(6)
+    gray_diffs = [bit_diff(gray[i], gray[i+1]) for i in range(63)]
+    kw_diffs = compute_diffs(wrap=False)
+
+    gray_total = sum(gray_diffs)
+    kw_total = sum(kw_diffs)
+
+    print(f"{'Metric':<35} {'Gray Code':>10} {'King Wen':>10}")
+    print(f"{'-'*35} {'-'*10} {'-'*10}")
+    print(f"{'Total path length':<35} {gray_total:>10} {kw_total:>10}")
+    print(f"{'Mean change per transition':<35} {gray_total/63:>10.2f} {kw_total/63:>10.2f}")
+    print(f"{'Max single transition':<35} {max(gray_diffs):>10} {max(kw_diffs):>10}")
+    print(f"{'Min single transition':<35} {min(gray_diffs):>10} {min(kw_diffs):>10}")
+    print(f"{'King Wen / Gray Code ratio':<35} {'':>10} {kw_total/gray_total:>10.2f}x")
+
+    gray_tally = [0] * 7
+    kw_tally = [0] * 7
+    for d in gray_diffs:
+        gray_tally[d] += 1
+    for d in kw_diffs:
+        kw_tally[d] += 1
+
+    print(f"\n{'Difference distribution:':<35} {'Gray Code':>10} {'King Wen':>10}")
+    for n in range(7):
+        if gray_tally[n] > 0 or kw_tally[n] > 0:
+            print(f"  {n} line changes{'':>20} {gray_tally[n]:>10} {kw_tally[n]:>10}")
+
+    gray_spark = "".join(SPARK[d] for d in gray_diffs)
+    kw_spark = "".join(SPARK[d] for d in kw_diffs)
+    print(f"\nGray code wave: {gray_spark}")
+    print(f"King Wen wave:  {kw_spark}")
+
+def print_symmetry():
+    """Analyze the XOR group structure of the King Wen sequence."""
+    print("---")
+    print("Symmetry group analysis (XOR algebra)")
+    print("The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams")
+    print("by toggling their differing lines always produces another valid hexagram. This is")
+    print("like mixing colors — every combination is itself a color. Under this algebra,")
+    print("certain sets of hexagrams form 'subgroups' (closed sets where combining any two")
+    print("members stays in the set). This section checks whether the King Wen pairs, inverse")
+    print("pairs, and the canonical divisions correspond to meaningful algebraic subgroups.")
+    print("---")
+
+    # Check which XOR subgroups exist among the 64 hexagrams
+    # The identity element under XOR is 0b000000 (The Receptive, hexagram 2)
+    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
+    print("XOR identity element: 0b000000 (hexagram 2, The Receptive)")
+    print()
+
+    # Self-inverse elements: hexagrams where XOR with themselves = identity (all of them!)
+    # More interesting: which hexagrams are their own complement?
+    # Under XOR, the complement is XOR with 0b111111
+    print("--- Fixed points under complement (XOR 0b111111) ---")
+    print("Hexagrams that are their own complement do not exist (since XOR with")
+    print("0b111111 always flips all bits, no 6-bit value equals its own complement).")
+    print()
+
+    # Check the 32 King Wen pairs: do they form a quotient group?
+    # Each pair {a, b} where b = reverse(a) or b = complement(a)
+    print("--- King Wen pair XOR products ---")
+    print("For each pair, XOR the two hexagrams to see what 'difference element' they produce.")
+    print("If many pairs produce the same XOR product, the pairing has algebraic regularity.")
+    print()
+    xor_products = {}
+    for index in range(0, 64, 2):
+        product = binary_hexagrams[index] ^ binary_hexagrams[index + 1]
+        product_pos = val_to_pos[product]
+        if product not in xor_products:
+            xor_products[product] = []
+        xor_products[product].append(index // 2)
+
+    print(f"{'XOR Product':<14} {'Hexagram':>10} {'Pair count':>11}  Pairs")
+    for product in sorted(xor_products.keys()):
+        pos = val_to_pos[product]
+        pairs_str = ", ".join(f"{p*2+1}-{p*2+2}" for p in xor_products[product])
+        print(f"  {bin(product)[2:].zfill(6)}   "
+              f"{pos+1:02} {unicode_hexagrams[pos]}   "
+              f"{len(xor_products[product]):>5}      {pairs_str}")
+
+    print(f"\nUnique XOR products: {len(xor_products)} (out of 32 pairs)")
+    print("If this number is small, the pairs share algebraic structure.")
+
+    # Check: do the 4 inverse pairs form a subgroup under XOR?
+    print("\n--- Inverse pair XOR closure test ---")
+    inverse_pairs = []
+    for index in range(0, 64, 2):
+        if binary_hexagrams[index] == binary_hexagrams[index+1] ^ 0b111111:
+            inverse_pairs.extend([binary_hexagrams[index], binary_hexagrams[index+1]])
+
+    # Test closure: XOR of any two members should be in the set
+    inverse_set = set(inverse_pairs)
+    closed = True
+    for a in inverse_pairs:
+        for b in inverse_pairs:
+            if (a ^ b) not in inverse_set:
+                closed = False
+                break
+        if not closed:
+            break
+    print(f"Inverse pair hexagrams ({len(inverse_pairs)} total): ", end="")
+    print(", ".join(f"{val_to_pos[v]+1:02}" for v in inverse_pairs))
+    print(f"Closed under XOR: {'Yes — forms a subgroup' if closed else 'No — not a subgroup'}")
+
+def print_sequences():
+    """Compare King Wen against alternative historical orderings."""
+    print("---")
+    print("Alternative sequence comparison")
+    print("The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi")
+    print("(binary) sequence orders them by numerical value (0-63), which is mathematically")
+    print("natural but has no traditional significance. The Mawangdui sequence was found on")
+    print("silk manuscripts in a 168 BCE tomb and may represent an independent tradition.")
+    print("Comparing the same analyses across orderings reveals what is unique to King Wen.")
+    print("---")
+
+    def analyze_ordering(order, name):
+        """Compute difference statistics for a given ordering of binary hexagram values."""
+        diffs = [bit_diff(order[i], order[i+1]) for i in range(len(order) - 1)]
+        tally = [0] * 7
+        for d in diffs:
+            tally[d] += 1
+        total = sum(diffs)
+        return {
+            "name": name,
+            "diffs": diffs,
+            "tally": tally,
+            "total": total,
+            "mean": total / len(diffs),
+            "spark": "".join(SPARK[d] for d in diffs),
+        }
+
+    # King Wen
+    kw = analyze_ordering(binary_hexagrams, "King Wen")
+
+    # Fu Xi (natural binary order)
+    fuxi_values = list(range(64))
+    fx = analyze_ordering(fuxi_values, "Fu Xi (binary)")
+
+    # Mawangdui
+    mw_values = [binary_hexagrams[i] for i in mawangdui_kw_indices]
+    mw = analyze_ordering(mw_values, "Mawangdui")
+
+    # Comparison table
+    orderings = [kw, fx, mw]
+    print(f"{'Metric':<25}", end="")
+    for o in orderings:
+        print(f" {o['name']:>16}", end="")
+    print()
+    print(f"{'-'*25}", end="")
+    for _ in orderings:
+        print(f" {'-'*16}", end="")
+    print()
+
+    print(f"{'Total path length':<25}", end="")
+    for o in orderings:
+        print(f" {o['total']:>16}", end="")
+    print()
+
+    print(f"{'Mean change':<25}", end="")
+    for o in orderings:
+        print(f" {o['mean']:>16.2f}", end="")
+    print()
+
+    for n in range(7):
+        has_any = any(o['tally'][n] > 0 for o in orderings)
+        if has_any:
+            print(f"{n}-line transitions{'':>7}", end="")
+            for o in orderings:
+                print(f" {o['tally'][n]:>16}", end="")
+            print()
+
+    print(f"\n{'Waves:'}")
+    for o in orderings:
+        print(f"  {o['name']:<20} {o['spark']}")
+
+    # Highlight what makes King Wen unique
+    print(f"\n--- What makes King Wen unique ---")
+    print(f"Zero 5-line transitions: King Wen={kw['tally'][5]}, "
+          f"Fu Xi={fx['tally'][5]}, Mawangdui={mw['tally'][5]}")
+    print(f"Zero 0-line transitions: King Wen={kw['tally'][0]}, "
+          f"Fu Xi={fx['tally'][0]}, Mawangdui={mw['tally'][0]}")
+
+def print_constraints():
+    """Estimate how many orderings satisfy the known King Wen constraints."""
+    print("---")
+    print("Constraint satisfaction analysis")
+    print("The King Wen sequence satisfies several constraints simultaneously:")
+    print("  1. All 32 consecutive pairs are either reverse or inverse (never unrelated)")
+    print("  2. No consecutive hexagrams differ by exactly 5 lines")
+    print("  3. No consecutive hexagrams are identical (0-line transitions)")
+    print("How rare is it for a random ordering to satisfy all these at once? We test")
+    print("random permutations against each constraint individually and combined.")
+    print("---")
+
+    trials = 10000
+    values = list(binary_hexagrams)
+    count_pairs_ok = 0
+    count_no_five = 0
+    count_both = 0
+
+    for _ in range(trials):
+        random.shuffle(values)
+
+        # Check pair constraint: every consecutive pair is reverse or inverse
+        pairs_ok = True
+        for j in range(0, 64, 2):
+            is_reverse = values[j] == reverse_6bit(values[j+1])
+            is_inverse = values[j] == values[j+1] ^ 0b111111
+            if not is_reverse and not is_inverse:
+                pairs_ok = False
+                break
+
+        # Check no-5 constraint
+        no_five = True
+        for j in range(63):
+            if bit_diff(values[j], values[j+1]) == 5:
+                no_five = False
+                break
+
+        if pairs_ok:
+            count_pairs_ok += 1
+        if no_five:
+            count_no_five += 1
+        if pairs_ok and no_five:
+            count_both += 1
+
+    print(f"Results from {trials:,} random permutations:")
+    print(f"  All pairs reverse/inverse:  {count_pairs_ok:>6,} ({count_pairs_ok/trials*100:.3f}%)")
+    print(f"  No 5-line transitions:      {count_no_five:>6,} ({count_no_five/trials*100:.2f}%)")
+    print(f"  Both constraints together:  {count_both:>6,} ({count_both/trials*100:.4f}%)")
+    if count_both == 0:
+        print("  No random permutation satisfied both — the King Wen ordering is highly unusual.")
+    else:
+        print(f"  Approximately 1 in {trials // count_both:,} random orderings satisfy both.")
+
+def print_barchart():
+    """Print an ASCII bar chart of the difference wave."""
+    print("---")
+    print("Difference wave bar chart")
+    print("A visual representation of the first-order difference wave. Each column shows")
+    print("how many lines changed in that transition. The horizontal axis is the position")
+    print("in the King Wen sequence (1-63), the vertical axis is the number of lines")
+    print("changed (1-6). This makes the wave pattern easier to see than a list of numbers.")
+    print("---")
+
+    diffs = compute_diffs(wrap=False)
+
+    # Print top-down, row by row (6 down to 1)
+    for level in range(6, 0, -1):
+        print(f"  {level} |", end="")
+        for d in diffs:
+            if d >= level:
+                print("#", end="")
+            else:
+                print(" ", end="")
+        print("|")
+
+    # X-axis
+    print(f"    +{'-'*63}+")
+    # Position markers every 10
+    print(f"     ", end="")
+    for i in range(63):
+        if (i + 1) % 10 == 0:
+            print(f"{i+1:>2}"[0], end="")
+        else:
+            print(" ", end="")
+    print()
+    print(f"     ", end="")
+    for i in range(63):
+        if (i + 1) % 10 == 0:
+            print(f"{i+1:>2}"[1], end="")
+        else:
+            print(" ", end="")
+    print()
+
+def print_lookup(query):
+    """Look up a specific hexagram by number or name."""
+    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
+    # Try to parse as number
+    idx = None
+    try:
+        num = int(query)
+        if 1 <= num <= 64:
+            idx = num - 1
+    except ValueError:
+        pass
+
+    # Try to match by name (case-insensitive substring)
+    if idx is None:
+        query_lower = query.lower()
+        matches = [(i, n) for i, n in enumerate(hexagram_names)
+                   if query_lower in n.lower()]
+        if len(matches) == 1:
+            idx = matches[0][0]
+        elif len(matches) > 1:
+            print(f"Multiple matches for '{query}':")
+            for i, n in matches:
+                print(f"  {i+1:02} {unicode_hexagrams[i]} {n}")
+            return
+        else:
+            print(f"No hexagram found matching '{query}'.")
+            return
+
+    b = binary_hexagrams[idx]
+    bits = bin(b)[2:].zfill(6)
+    upper = upper_trigram(b)
+    lower = lower_trigram(b)
+    _, up, um = trigram_names[upper]
+    _, lp, lm = trigram_names[lower]
+    nuc_val = nuclear_hexagram(b)
+    nuc_pos = val_to_pos[nuc_val]
+    comp_val = b ^ 0b111111
+    comp_pos = val_to_pos[comp_val]
+    rev_val = reverse_6bit(b)
+    rev_pos = val_to_pos[rev_val]
+
+    print(f"---")
+    print(f"Hexagram {idx+1}: {unicode_hexagrams[idx]}  {hexagram_names[idx]}")
+    print(f"---")
+    print(f"Binary:     {bits}")
+    print(f"Decimal:    {b}")
+    print()
+
+    # Draw the hexagram as lines
+    print("  Lines (top to bottom):")
+    for line in range(5, -1, -1):
+        bit = (b >> line) & 1
+        if bit:
+            print(f"    --------- (yang, line {line+1})")
+        else:
+            print(f"    ---   --- (yin,  line {line+1})")
+    print()
+
+    print(f"  Upper trigram: {up} ({um})")
+    print(f"  Lower trigram: {lp} ({lm})")
+    print(f"  Nuclear:       {nuc_pos+1:02} {unicode_hexagrams[nuc_pos]} {hexagram_names[nuc_pos]}")
+    print(f"  Complement:    {comp_pos+1:02} {unicode_hexagrams[comp_pos]} {hexagram_names[comp_pos]}")
+    print(f"  Reverse:       {rev_pos+1:02} {unicode_hexagrams[rev_pos]} {hexagram_names[rev_pos]}")
+
+    # Pair info
+    if idx % 2 == 0:
+        partner = idx + 1
+    else:
+        partner = idx - 1
+    pb = binary_hexagrams[partner]
+    if b == reverse_6bit(pb):
+        rel = "Reverse"
+    elif b == pb ^ 0b111111:
+        rel = "Inverse"
+    else:
+        rel = "Neither"
+    print(f"  Pair partner:  {partner+1:02} {unicode_hexagrams[partner]} "
+          f"{hexagram_names[partner]} ({rel})")
+
+    # Neighbors in sequence
+    print()
+    if idx > 0:
+        d = bit_diff(binary_hexagrams[idx-1], b)
+        print(f"  Previous: {idx:02} {unicode_hexagrams[idx-1]} "
+              f"{hexagram_names[idx-1]} (diff: {d})")
+    if idx < 63:
+        d = bit_diff(b, binary_hexagrams[idx+1])
+        print(f"  Next:     {idx+2:02} {unicode_hexagrams[idx+1]} "
+              f"{hexagram_names[idx+1]} (diff: {d})")
+
+def print_compare(a_query, b_query):
+    """Compare two specific hexagrams."""
+    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
+    def resolve(query):
+        try:
+            num = int(query)
+            if 1 <= num <= 64:
+                return num - 1
+        except ValueError:
+            pass
+        query_lower = query.lower()
+        matches = [i for i, n in enumerate(hexagram_names) if query_lower in n.lower()]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    idx_a = resolve(a_query)
+    idx_b = resolve(b_query)
+
+    if idx_a is None:
+        print(f"Could not find hexagram: {a_query}")
+        return
+    if idx_b is None:
+        print(f"Could not find hexagram: {b_query}")
+        return
+
+    a = binary_hexagrams[idx_a]
+    b = binary_hexagrams[idx_b]
+    bits_a = bin(a)[2:].zfill(6)
+    bits_b = bin(b)[2:].zfill(6)
+
+    print(f"---")
+    print(f"Comparing hexagram {idx_a+1} and {idx_b+1}")
+    print(f"---")
+    print(f"  {idx_a+1:02} {unicode_hexagrams[idx_a]} {hexagram_names[idx_a]:<30} {bits_a}")
+    print(f"  {idx_b+1:02} {unicode_hexagrams[idx_b]} {hexagram_names[idx_b]:<30} {bits_b}")
+    print()
+
+    # Hamming distance
+    d = bit_diff(a, b)
+    diff_bits = a ^ b
+    changed = [i+1 for i in range(6) if diff_bits & (1 << i)]
+    print(f"  Hamming distance: {d} line(s) differ")
+    if changed:
+        print(f"  Changed lines:    {', '.join(str(c) for c in changed)}")
+    print()
+
+    # Relationships
+    is_reverse = a == reverse_6bit(b)
+    is_inverse = a == b ^ 0b111111
+    is_complement = is_inverse
+    nuc_a = nuclear_hexagram(a)
+    nuc_b = nuclear_hexagram(b)
+
+    relationships = []
+    if is_reverse:
+        relationships.append("Reverse (one is the other flipped upside down)")
+    if is_inverse:
+        relationships.append("Inverse/Complement (every line toggled)")
+    if nuc_a == b:
+        relationships.append(f"{idx_a+1} contains {idx_b+1} as its nuclear hexagram")
+    if nuc_b == a:
+        relationships.append(f"{idx_b+1} contains {idx_a+1} as its nuclear hexagram")
+    if nuc_a == nuc_b:
+        nuc_pos = val_to_pos[nuc_a]
+        relationships.append(f"Share the same nuclear hexagram: "
+                           f"{nuc_pos+1:02} {hexagram_names[nuc_pos]}")
+    if upper_trigram(a) == upper_trigram(b):
+        _, p, m = trigram_names[upper_trigram(a)]
+        relationships.append(f"Share upper trigram: {p} ({m})")
+    if lower_trigram(a) == lower_trigram(b):
+        _, p, m = trigram_names[lower_trigram(a)]
+        relationships.append(f"Share lower trigram: {p} ({m})")
+
+    if relationships:
+        print("  Relationships:")
+        for r in relationships:
+            print(f"    - {r}")
+    else:
+        print("  No direct structural relationship found.")
+
+    # Distance in the sequence
+    seq_dist = abs(idx_a - idx_b)
+    print(f"\n  Distance in King Wen sequence: {seq_dist} positions apart")
+
+def print_help_sections():
+    """Print descriptions of all available sections without running them."""
+    sections = [
+        ("--table", "Hexagram reference table with binary encoding, trigrams, and names"),
+        ("--pairs", "Reverse vs. inverse pair analysis — tests the pairing structure"),
+        ("--wave", "First-order difference wave — the core 'signal' of the King Wen sequence"),
+        ("--trigrams", "Trigram frequency, transitions, and 8x8 transition matrices"),
+        ("--nuclear", "Nuclear hexagram chains — hidden inner hexagram derivations"),
+        ("--lines", "Line change positional analysis — which lines change most often"),
+        ("--complements", "Complement distance — where each hexagram's opposite sits"),
+        ("--palindromes", "Palindrome search in the difference wave"),
+        ("--canons", "Upper Canon (1-30) vs. Lower Canon (31-64) statistical comparison"),
+        ("--hamming", "Full 64x64 Hamming distance matrix"),
+        ("--autocorrelation", "Autocorrelation — tests for hidden periodicity"),
+        ("--entropy", "Shannon entropy — how structured vs. random the wave is"),
+        ("--path", "Graph theory path analysis — is King Wen an efficient route?"),
+        ("--stats", "Monte Carlo — probability of the 'no 5-line transitions' property"),
+        ("--fft", "Spectral analysis (DFT) — frequency decomposition of the wave"),
+        ("--markov", "Markov chain — do difference values predict the next value?"),
+        ("--graycode", "Gray code comparison — King Wen vs. theoretically smoothest path"),
+        ("--symmetry", "XOR group algebra — algebraic structure of the pairing system"),
+        ("--sequences", "Compare King Wen vs. Fu Xi vs. Mawangdui orderings"),
+        ("--constraints", "Constraint satisfaction — how rare is King Wen's combined properties?"),
+        ("--barchart", "ASCII bar chart visualization of the difference wave"),
+        ("", ""),
+        ("--lookup N", "Look up a hexagram by number (1-64) or name"),
+        ("--compare A B", "Compare two hexagrams (by number or name)"),
+        ("", ""),
+        ("--json", "Export all hexagram data as JSON"),
+        ("--csv", "Export hexagram data as CSV"),
+        ("--dot", "Export sequence as Graphviz DOT graph"),
+        ("--svg", "Export hexagram line diagrams as SVG"),
+        ("--html", "Generate self-contained HTML report with all analyses"),
+    ]
+    print("---")
+    print("Available analysis sections")
+    print("Run with no flags for all sections, or select specific ones.")
+    print("---")
+    for flag, desc in sections:
+        if flag:
+            print(f"  {flag:<22} {desc}")
+        else:
+            print()
+
+def export_svg():
+    """Export hexagram line diagrams as an SVG image."""
+    line_w = 30
+    line_h = 4
+    gap = 2
+    hex_h = 6 * (line_h + gap) - gap
+    hex_w = line_w + 10
+    cols = 8
+    rows = 8
+    margin = 40
+    label_h = 16
+
+    total_w = margin + cols * (hex_w + 10)
+    total_h = margin + rows * (hex_h + label_h + 15)
+
+    print(f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{total_h}"'
+          f' font-family="monospace" font-size="9">')
+    print(f'<rect width="100%" height="100%" fill="white"/>')
+
+    for i in range(64):
+        col = i % cols
+        row = i // cols
+        x = margin + col * (hex_w + 10)
+        y = margin + row * (hex_h + label_h + 15)
+
+        b = binary_hexagrams[i]
+
+        # Label
+        print(f'  <text x="{x + hex_w//2}" y="{y - 3}" text-anchor="middle">'
+              f'{i+1}. {unicode_hexagrams[i]}</text>')
+
+        # Draw 6 lines, top to bottom (bit 5 = top, bit 0 = bottom)
+        for line in range(6):
+            bit = (b >> (5 - line)) & 1
+            ly = y + line * (line_h + gap)
+            if bit:  # Yang - solid line
+                print(f'  <rect x="{x}" y="{ly}" width="{line_w}" height="{line_h}"'
+                      f' fill="black"/>')
+            else:  # Yin - broken line
+                seg_w = (line_w - gap * 2) // 2
+                print(f'  <rect x="{x}" y="{ly}" width="{seg_w}" height="{line_h}"'
+                      f' fill="black"/>')
+                print(f'  <rect x="{x + seg_w + gap * 2}" y="{ly}" width="{seg_w}"'
+                      f' height="{line_h}" fill="black"/>')
+
+    print('</svg>')
+
+def export_html():
+    """Generate a self-contained HTML report with all analyses."""
+    import io
+    from contextlib import redirect_stdout
+
+    print("<!DOCTYPE html>")
+    print("<html><head>")
+    print("<title>ROAE - King Wen Sequence Analysis</title>")
+    print("<style>")
+    print("  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; "
+          "max-width: 1000px; margin: 0 auto; padding: 20px; }")
+    print("  h1 { color: #e94560; }")
+    print("  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }")
+    print("  pre { background: #16213e; padding: 15px; overflow-x: auto; "
+          "border-left: 3px solid #e94560; }")
+    print("  .section { margin-bottom: 20px; }")
+    print("</style>")
+    print("</head><body>")
+    print("<h1>Received Order Analysis Engine</h1>")
+    print("<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>")
+
+    # Capture each section's output
+    sections = [
+        ("Hexagram Table", print_table),
+        ("Reverse/Inverse Pairs", print_pairs),
+        ("Difference Wave", lambda: print_wave(order=1, wrap=False)),
+        ("Bar Chart", print_barchart),
+        ("Trigram Analysis", print_trigrams),
+        ("Nuclear Hexagrams", print_nuclear),
+        ("Line Change Analysis", print_line_changes),
+        ("Complement Distance", print_complements),
+        ("Palindromes", print_palindromes),
+        ("Canon Comparison", print_canons),
+        ("Autocorrelation", print_autocorrelation),
+        ("Spectral Analysis", print_fft),
+        ("Markov Chain", print_markov),
+        ("Gray Code Comparison", print_graycode),
+        ("Symmetry Groups", print_symmetry),
+        ("Alternative Sequences", print_sequences),
+        ("Shannon Entropy", print_entropy),
+        ("Path Analysis", print_path),
+        ("Constraint Satisfaction", print_constraints),
+        ("Monte Carlo", lambda: print_stats(trials=10000)),
+    ]
+
+    for title, func in sections:
+        f = io.StringIO()
+        with redirect_stdout(f):
+            func()
+        output = f.getvalue()
+        print(f'<div class="section">')
+        print(f'<h2>{title}</h2>')
+        print(f'<pre>{output}</pre>')
+        print(f'</div>')
+
+    print("</body></html>")
+
 def print_graphviz():
     """Output a Graphviz DOT representation of the King Wen sequence as a
     directed graph, with edge weights showing the Hamming distance."""
@@ -960,6 +1699,8 @@ def main():
                         help="Print reverse/inverse pair classification")
     parser.add_argument("--wave", action="store_true",
                         help="Print difference wave between consecutive hexagrams")
+    parser.add_argument("--barchart", action="store_true",
+                        help="Print ASCII bar chart of the difference wave")
     parser.add_argument("--trigrams", action="store_true",
                         help="Print trigram frequency, transition, and matrix analysis")
     parser.add_argument("--nuclear", action="store_true",
@@ -982,8 +1723,26 @@ def main():
                         help="Graph theory path analysis vs greedy and random")
     parser.add_argument("--stats", action="store_true",
                         help="Run Monte Carlo statistical comparison")
+    parser.add_argument("--fft", action="store_true",
+                        help="Spectral analysis (DFT) of the difference wave")
+    parser.add_argument("--markov", action="store_true",
+                        help="Markov chain analysis of difference transitions")
+    parser.add_argument("--graycode", action="store_true",
+                        help="Compare King Wen against Gray code ordering")
+    parser.add_argument("--symmetry", action="store_true",
+                        help="XOR group algebra analysis of pair structure")
+    parser.add_argument("--sequences", action="store_true",
+                        help="Compare King Wen vs Fu Xi vs Mawangdui orderings")
+    parser.add_argument("--constraints", action="store_true",
+                        help="Constraint satisfaction analysis")
     parser.add_argument("--all", action="store_true",
                         help="Run all analysis sections (default if no flags given)")
+
+    # Lookup and compare modes
+    parser.add_argument("--lookup", type=str, default=None,
+                        help="Look up a hexagram by number (1-64) or name")
+    parser.add_argument("--compare", nargs=2, type=str, default=None,
+                        help="Compare two hexagrams (by number or name)")
 
     # Modifiers
     parser.add_argument("--wrap", action="store_true",
@@ -1002,10 +1761,29 @@ def main():
                         help="Export hexagram data as CSV")
     parser.add_argument("--dot", action="store_true",
                         help="Export sequence as Graphviz DOT graph")
+    parser.add_argument("--svg", action="store_true",
+                        help="Export hexagram line diagrams as SVG")
+    parser.add_argument("--html", action="store_true",
+                        help="Generate self-contained HTML report")
+
+    # Help
+    parser.add_argument("--help-sections", action="store_true",
+                        help="List all available analysis sections with descriptions")
 
     args = parser.parse_args()
 
-    # Export modes bypass the normal output
+    # Special modes that bypass normal output
+    if args.help_sections:
+        print_help_sections()
+        return
+    if args.lookup:
+        print_header()
+        print_lookup(args.lookup)
+        return
+    if args.compare:
+        print_header()
+        print_compare(args.compare[0], args.compare[1])
+        return
     if args.json:
         export_json()
         return
@@ -1015,29 +1793,43 @@ def main():
     if args.dot:
         print_graphviz()
         return
+    if args.svg:
+        export_svg()
+        return
+    if args.html:
+        export_html()
+        return
 
-    all_sections = [args.table, args.pairs, args.wave, args.trigrams,
+    all_sections = [args.table, args.pairs, args.wave, args.barchart, args.trigrams,
                     args.nuclear, args.lines, args.complements, args.palindromes,
                     args.canons, args.hamming, args.autocorrelation, args.entropy,
-                    args.path, args.stats]
+                    args.path, args.stats, args.fft, args.markov, args.graycode,
+                    args.symmetry, args.sequences, args.constraints]
     run_all = args.all or not any(all_sections)
 
     print_header()
     use_color = args.color
-    if run_all or args.table:          print_table(use_color=use_color)
-    if run_all or args.pairs:          print_pairs(use_color=use_color)
-    if run_all or args.wave:           print_wave(order=args.order, wrap=args.wrap)
-    if run_all or args.trigrams:       print_trigrams()
-    if run_all or args.nuclear:        print_nuclear()
-    if run_all or args.lines:          print_line_changes()
-    if run_all or args.complements:    print_complements()
-    if run_all or args.palindromes:    print_palindromes()
-    if run_all or args.canons:         print_canons()
-    if run_all or args.hamming:        print_hamming()
+    if run_all or args.table:           print_table(use_color=use_color)
+    if run_all or args.pairs:           print_pairs(use_color=use_color)
+    if run_all or args.wave:            print_wave(order=args.order, wrap=args.wrap)
+    if run_all or args.barchart:        print_barchart()
+    if run_all or args.trigrams:        print_trigrams()
+    if run_all or args.nuclear:         print_nuclear()
+    if run_all or args.lines:           print_line_changes()
+    if run_all or args.complements:     print_complements()
+    if run_all or args.palindromes:     print_palindromes()
+    if run_all or args.canons:          print_canons()
+    if run_all or args.hamming:         print_hamming()
     if run_all or args.autocorrelation: print_autocorrelation()
-    if run_all or args.entropy:        print_entropy()
-    if run_all or args.path:           print_path()
-    if run_all or args.stats:          print_stats(trials=args.trials)
+    if run_all or args.fft:             print_fft()
+    if run_all or args.markov:          print_markov()
+    if run_all or args.graycode:        print_graycode()
+    if run_all or args.symmetry:        print_symmetry()
+    if run_all or args.sequences:       print_sequences()
+    if run_all or args.constraints:     print_constraints()
+    if run_all or args.entropy:         print_entropy()
+    if run_all or args.path:            print_path()
+    if run_all or args.stats:           print_stats(trials=args.trials)
 
 if __name__ == "__main__":
     main()
