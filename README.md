@@ -1,6 +1,6 @@
 # ROAE — Received Order Analysis Engine
 
-Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) including observations by [Terence McKenna](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero).
+Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)
 
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇\
 ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
