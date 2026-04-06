@@ -708,6 +708,8 @@ def print_autocorrelation():
     print("near +1 means strong repetition, near -1 means strong alternation, and near 0")
     print("means no relationship. If the King Wen ordering contains hidden periodic")
     print("structure, it will show up as peaks in this analysis.")
+    print("Caveat: with only N=63 data points, the 95% noise threshold is +/-0.25.")
+    print("Values within that band are indistinguishable from random noise.")
     print("---")
 
     diffs = compute_diffs(wrap=False)
@@ -719,18 +721,27 @@ def print_autocorrelation():
         print("Variance is zero — cannot compute autocorrelation.")
         return
 
+    # 95% confidence band for white noise: +/- 1.96/sqrt(N)
+    noise_threshold = 1.96 / math.sqrt(n)
+
     # Compute normalized autocorrelation for lags 0 to n//2
     print(f"Mean difference: {mean:.3f}")
     print(f"Variance: {variance:.3f}")
+    print(f"95% noise threshold: +/-{noise_threshold:.3f} (values inside this are not significant)")
     print()
-    print(f"{'Lag':<5} {'Autocorrelation':>16} {'':>2} Visualization")
-    print(f"{'---':<5} {'---------------':>16} {'':>2} -------------")
+    print(f"{'Lag':<5} {'Autocorrelation':>16} {'Sig?':>5}  Visualization")
+    print(f"{'---':<5} {'---------------':>16} {'----':>5}  -------------")
 
+    significant_count = 0
     for lag in range(n // 2 + 1):
         autocorr = 0
         for i in range(n - lag):
             autocorr += (diffs[i] - mean) * (diffs[i + lag] - mean)
         autocorr /= (n * variance)
+
+        sig = "*" if abs(autocorr) > noise_threshold and lag > 0 else ""
+        if sig:
+            significant_count += 1
 
         # Visual bar: map -1..1 to a bar display
         bar_width = 30
@@ -738,12 +749,22 @@ def print_autocorrelation():
         bar_pos = int(autocorr * bar_center) + bar_center
         bar = [' '] * bar_width
         bar[bar_center] = '|'
+        # Mark noise threshold
+        thresh_pos_r = int(noise_threshold * bar_center) + bar_center
+        thresh_pos_l = int(-noise_threshold * bar_center) + bar_center
+        bar[max(0, min(bar_width-1, thresh_pos_r))] = ':'
+        bar[max(0, min(bar_width-1, thresh_pos_l))] = ':'
         if bar_pos != bar_center:
             marker_pos = max(0, min(bar_width - 1, bar_pos))
             bar[marker_pos] = '#'
         bar_str = ''.join(bar)
 
-        print(f"{lag:<5} {autocorr:>16.4f}   [{bar_str}]")
+        print(f"{lag:<5} {autocorr:>16.4f} {sig:>5}  [{bar_str}]")
+
+    print(f"\nSignificant lags (outside noise band): {significant_count}/{n//2}")
+    if significant_count == 0:
+        print("No significant autocorrelation detected — consistent with no hidden periodicity,")
+        print("but note that N=63 provides limited statistical power to detect weak periodicity.")
 
 def print_entropy():
     """Compare the Shannon entropy of the King Wen difference wave against
@@ -880,6 +901,40 @@ def print_path():
     print(f"Maximum possible (63 transitions of 6): 378")
     print(f"King Wen uses {kw_total/378*100:.1f}% of maximum path length")
 
+    # Pair-constrained comparison: the right null model
+    # Generate random orderings that preserve the pair structure (pairs stay adjacent)
+    print(f"\n--- Pair-constrained comparison ---")
+    print("The above compares against fully random orderings. A fairer comparison is")
+    print("against random orderings that also preserve the pair structure (each pair")
+    print("of hexagrams stays adjacent). This is the right null model for asking")
+    print("whether King Wen's path length is unusual GIVEN its pair constraint.")
+
+    pair_trials = 5000
+    pair_totals = []
+    pairs = [(2*i, 2*i+1) for i in range(32)]
+    for _ in range(pair_trials):
+        # Shuffle the 32 pairs, then optionally flip each pair
+        random.shuffle(pairs)
+        ordering = []
+        for a, b in pairs:
+            if random.random() < 0.5:
+                ordering.extend([a, b])
+            else:
+                ordering.extend([b, a])
+        total = sum(bit_diff(binary_hexagrams[ordering[i]],
+                             binary_hexagrams[ordering[i+1]]) for i in range(63))
+        pair_totals.append(total)
+
+    mean_pair = sum(pair_totals) / len(pair_totals)
+    pair_totals.sort()
+    below_pair = sum(1 for t in pair_totals if t < kw_total)
+    pair_pct = below_pair / len(pair_totals) * 100
+
+    print(f"Mean pair-constrained path length: {mean_pair:.1f}")
+    print(f"Min pair-constrained observed:     {min(pair_totals)}")
+    print(f"Max pair-constrained observed:     {max(pair_totals)}")
+    print(f"King Wen percentile (pair-constrained): {pair_pct:.1f}%")
+
 def print_stats(trials=100000):
     print("---")
     print(f"Monte Carlo analysis ({trials:,} random permutations)")
@@ -926,11 +981,14 @@ def print_fft():
     print("wave. A strong peak at frequency F means the wave has a repeating cycle every")
     print("63/F transitions. If the King Wen ordering has hidden periodic structure, the")
     print("spectrum will show clear peaks rather than flat noise.")
+    print("Caveat: with only 63 samples, each of the 31 frequency bins has wide")
+    print("uncertainty. A flat spectrum may indicate no periodicity, or insufficient data.")
     print("---")
 
     diffs = compute_diffs(wrap=False)
     n = len(diffs)
     mean = sum(diffs) / n
+    variance = sum((d - mean) ** 2 for d in diffs) / n
 
     # Compute DFT manually using cmath (stdlib)
     # Subtract mean to focus on oscillations, not DC offset
@@ -944,19 +1002,29 @@ def print_fft():
         mag = abs(total) / n
         magnitudes.append((k, mag))
 
+    # Expected magnitude for white noise: sqrt(variance / N)
+    noise_floor = math.sqrt(variance / n)
+
     # DC component (frequency 0) is just the mean, skip it
     print(f"Number of samples: {n}")
     print(f"Mean (DC component): {mean:.3f}")
+    print(f"White noise floor: {noise_floor:.4f} (magnitudes near this are not significant)")
     print()
-    print(f"{'Freq':>4} {'Period':>8} {'Magnitude':>10}  Spectrum")
-    print(f"{'----':>4} {'------':>8} {'---------':>10}  --------")
+    print(f"{'Freq':>4} {'Period':>8} {'Magnitude':>10} {'Sig?':>5}  Spectrum")
+    print(f"{'----':>4} {'------':>8} {'---------':>10} {'----':>5}  --------")
 
     max_mag = max(m for _, m in magnitudes[1:]) if len(magnitudes) > 1 else 1
+    sig_count = 0
     for k, mag in magnitudes[1:]:  # Skip DC
         period = n / k if k > 0 else float('inf')
         bar_len = int(mag / max_mag * 40) if max_mag > 0 else 0
         bar = "#" * bar_len
-        print(f"{k:>4} {period:>8.1f} {mag:>10.4f}  {bar}")
+        sig = "*" if mag > 2 * noise_floor else ""
+        if sig:
+            sig_count += 1
+        print(f"{k:>4} {period:>8.1f} {mag:>10.4f} {sig:>5}  {bar}")
+
+    print(f"\nFrequencies above 2x noise floor: {sig_count}/{n//2}")
 
 def print_markov():
     """Markov chain analysis of the difference wave transitions."""
@@ -1003,8 +1071,10 @@ def print_markov():
                 print(f"   -   ", end="")
         print(f"  (n={row_total})")
 
-    # Highlight notable patterns
+    # Highlight notable patterns with small-N caveat
     print("\n--- Notable transition patterns ---")
+    print("(Caveat: rows with small n are unreliable — patterns based on <5 observations")
+    print("are anecdotes, not statistically meaningful.)")
     for s_from in states:
         row_total = sum(transition_counts[s_from].values())
         if row_total == 0:
@@ -1013,7 +1083,45 @@ def print_markov():
             count = transition_counts[s_from][s_to]
             prob = count / row_total
             if prob >= 0.4 and count >= 3:
-                print(f"  {s_from} -> {s_to}: {prob:.0%} ({count}/{row_total} times)")
+                caveat = " [small sample]" if row_total < 5 else ""
+                print(f"  {s_from} -> {s_to}: {prob:.0%} ({count}/{row_total} times){caveat}")
+
+    # Permutation test: is the transition matrix more structured than random?
+    print("\n--- Permutation test ---")
+    print("Is the transition matrix more concentrated than random orderings produce?")
+
+    def matrix_concentration(diffs_seq):
+        """Sum of squared probabilities — higher = more concentrated."""
+        s = sorted(set(diffs_seq))
+        tc = {}
+        for sv in s:
+            tc[sv] = {}
+            for tv in s:
+                tc[sv][tv] = 0
+        for i in range(len(diffs_seq) - 1):
+            tc[diffs_seq[i]][diffs_seq[i+1]] += 1
+        total = 0
+        for sv in s:
+            rt = sum(tc[sv].values())
+            if rt > 0:
+                for tv in s:
+                    p = tc[sv][tv] / rt
+                    total += p * p
+        return total
+
+    kw_conc = matrix_concentration(diffs)
+    trials = 5000
+    values = list(binary_hexagrams)
+    more_concentrated = 0
+    for _ in range(trials):
+        random.shuffle(values)
+        rand_diffs = [bit_diff(values[i], values[i+1]) for i in range(63)]
+        if matrix_concentration(rand_diffs) >= kw_conc:
+            more_concentrated += 1
+
+    pct = more_concentrated / trials * 100
+    print(f"King Wen matrix concentration: {kw_conc:.4f}")
+    print(f"Random orderings equally or more concentrated: {more_concentrated}/{trials} ({pct:.1f}%)")
 
 def print_graycode():
     """Compare the King Wen ordering against a Gray code."""
@@ -1266,7 +1374,13 @@ def print_constraints():
     print(f"  No 5-line transitions:      {count_no_five:>6,} ({count_no_five/trials*100:.2f}%)")
     print(f"  Both constraints together:  {count_both:>6,} ({count_both/trials*100:.4f}%)")
     if count_both == 0:
-        print("  No random permutation satisfied both — the King Wen ordering is highly unusual.")
+        # Report the statistical upper bound: with 0 hits in N trials,
+        # the 95% CI upper bound is approximately 3/N (rule of three)
+        upper_bound = 3.0 / trials * 100
+        print(f"  No random permutation satisfied both constraints.")
+        print(f"  Statistical note: 0/{trials:,} gives a 95% upper bound of <{upper_bound:.4f}%")
+        print(f"  (i.e., the true rate is less than ~1 in {trials//3:,}, but we cannot")
+        print(f"  distinguish 'impossible' from 'extremely rare' with this sample size).")
     else:
         print(f"  Approximately 1 in {trials // count_both:,} random orderings satisfy both.")
 
@@ -1787,6 +1901,41 @@ def print_mutual_info():
     print(f"\nMean MI of random permutations: {mean_rmi:.4f} bits")
     print(f"King Wen percentile: {below/len(random_mis)*100:.1f}%")
 
+    # Full 8-state MI: use actual trigram identities, not just changed/unchanged
+    print(f"\n--- Full 8-state trigram mutual information ---")
+    print("Using actual trigram identities (8 possible values each) rather than")
+    print("binary changed/unchanged, which preserves more information.")
+
+    # For each transition, record the (upper_from, upper_to) and (lower_from, lower_to)
+    # Then compute MI between upper_to and lower_to conditioned on the transition
+    upper_vals = [upper_trigram(binary_hexagrams[i]) for i in range(64)]
+    lower_vals = [lower_trigram(binary_hexagrams[i]) for i in range(64)]
+
+    # MI between upper and lower trigram of each hexagram (static)
+    joint8 = {}
+    for i in range(64):
+        key = (upper_vals[i], lower_vals[i])
+        joint8[key] = joint8.get(key, 0) + 1
+
+    p_u8 = {}
+    p_l8 = {}
+    for i in range(64):
+        p_u8[upper_vals[i]] = p_u8.get(upper_vals[i], 0) + 1
+        p_l8[lower_vals[i]] = p_l8.get(lower_vals[i], 0) + 1
+
+    mi8 = 0
+    for (u, l), count in joint8.items():
+        p_ul = count / 64
+        p_u = p_u8[u] / 64
+        p_l = p_l8[l] / 64
+        if p_ul > 0 and p_u > 0 and p_l > 0:
+            mi8 += p_ul * math.log2(p_ul / (p_u * p_l))
+
+    # For a complete set of 64 hexagrams (all combinations), MI should be 0
+    print(f"MI(upper, lower) across all 64 hexagrams: {mi8:.6f} bits")
+    print("(Expected: 0.0 — since all 64 combinations appear exactly once,")
+    print("the trigrams are perfectly independent in the static set.)")
+
 def print_bootstrap(trials=100000):
     """Bootstrap confidence intervals for Monte Carlo results."""
     print("---")
@@ -1844,10 +1993,11 @@ def print_yinyang():
     print("---")
     print("Yin-yang balance wave")
     print("Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).")
-    print("As we move through the King Wen sequence, we track the running count of yang")
-    print("lines. A perfectly balanced sequence would hover around 3.0 yang lines per")
-    print("hexagram. Drift above or below reveals sections dominated by yang (active,")
-    print("creative energy) or yin (receptive, passive energy).")
+    print("Note: since the King Wen sequence contains all 64 possible hexagrams exactly")
+    print("once, the total yin-yang count is necessarily balanced (192 each). This is a")
+    print("mathematical tautology, not a property of the ordering. However, the LOCAL")
+    print("balance as you move through the sequence IS a property of the ordering — it")
+    print("shows where yang-dominant or yin-dominant hexagrams cluster together.")
     print("---")
 
     running_yang = []
@@ -2569,6 +2719,8 @@ def main():
                         help="Compute Nth order of difference (default: 1)")
     parser.add_argument("--trials", type=int, default=100000,
                         help="Number of Monte Carlo trials (default: 100000)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed for reproducible Monte Carlo results")
     parser.add_argument("--color", action="store_true",
                         help="Enable ANSI color output")
 
@@ -2644,6 +2796,9 @@ def main():
     run_all = args.all or (not args.quick and not any(all_sections))
     run_quick = args.quick
 
+    if args.seed is not None:
+        random.seed(args.seed)
+
     print_header()
     use_color = args.color
     # Quick mode runs: table, pairs, wave, barchart, trigrams, canons, graycode, stats
@@ -2676,6 +2831,17 @@ def main():
     if run_all or args.path:                 print_path()
     if run_all or args.bootstrap:            print_bootstrap(trials=args.trials)
     if run_all or q or args.stats:           print_stats(trials=args.trials)
+
+    if run_all:
+        print("\n---")
+        print("Note on multiple comparisons")
+        print("This report runs 33 analyses. When testing many properties, some will")
+        print("appear 'unusual' by chance alone. A result at the 5% level (p<0.05)")
+        print("is expected ~1.7 times out of 33 tests even for a purely random sequence.")
+        print("The strongest findings (pair structure, combined constraints) survive this")
+        print("correction easily. Weaker findings (specific Markov transitions, individual")
+        print("entropy percentiles) should be interpreted with this caveat in mind.")
+        print("---")
 
 if __name__ == "__main__":
     main()
