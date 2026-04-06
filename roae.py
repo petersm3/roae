@@ -17,140 +17,37 @@ print("observations by Terence McKenna")
 # https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero
 print("---")
 
-# Using Lists instead of Dictionaries for faster lookup
 # https://en.wikipedia.org/wiki/King_Wen_sequence#Structure_of_the_sequence
-unicode_hexagrams = []
-unicode_hexagrams.append("䷀"); # Element 0; sequence 1
-unicode_hexagrams.append("䷁");
-unicode_hexagrams.append("䷂");
-unicode_hexagrams.append("䷃");
-unicode_hexagrams.append("䷄");
-unicode_hexagrams.append("䷅");
-unicode_hexagrams.append("䷆");
-unicode_hexagrams.append("䷇");
-unicode_hexagrams.append("䷈");
-unicode_hexagrams.append("䷉");
-unicode_hexagrams.append("䷊");
-unicode_hexagrams.append("䷋");
-unicode_hexagrams.append("䷌");
-unicode_hexagrams.append("䷍");
-unicode_hexagrams.append("䷎");
-unicode_hexagrams.append("䷏");
-unicode_hexagrams.append("䷐");
-unicode_hexagrams.append("䷑");
-unicode_hexagrams.append("䷒");
-unicode_hexagrams.append("䷓");
-unicode_hexagrams.append("䷔");
-unicode_hexagrams.append("䷕");
-unicode_hexagrams.append("䷖");
-unicode_hexagrams.append("䷗");
-unicode_hexagrams.append("䷘");
-unicode_hexagrams.append("䷙");
-unicode_hexagrams.append("䷚");
-unicode_hexagrams.append("䷛");
-unicode_hexagrams.append("䷜");
-unicode_hexagrams.append("䷝");
-unicode_hexagrams.append("䷞");
-unicode_hexagrams.append("䷟");
-unicode_hexagrams.append("䷠");
-unicode_hexagrams.append("䷡");
-unicode_hexagrams.append("䷢");
-unicode_hexagrams.append("䷣");
-unicode_hexagrams.append("䷤");
-unicode_hexagrams.append("䷥");
-unicode_hexagrams.append("䷦");
-unicode_hexagrams.append("䷧");
-unicode_hexagrams.append("䷨");
-unicode_hexagrams.append("䷩");
-unicode_hexagrams.append("䷪");
-unicode_hexagrams.append("䷫");
-unicode_hexagrams.append("䷬");
-unicode_hexagrams.append("䷭");
-unicode_hexagrams.append("䷮");
-unicode_hexagrams.append("䷯");
-unicode_hexagrams.append("䷰");
-unicode_hexagrams.append("䷱");
-unicode_hexagrams.append("䷲");
-unicode_hexagrams.append("䷳");
-unicode_hexagrams.append("䷴");
-unicode_hexagrams.append("䷵");
-unicode_hexagrams.append("䷶");
-unicode_hexagrams.append("䷷");
-unicode_hexagrams.append("䷸");
-unicode_hexagrams.append("䷹");
-unicode_hexagrams.append("䷺");
-unicode_hexagrams.append("䷻");
-unicode_hexagrams.append("䷼");
-unicode_hexagrams.append("䷽");
-unicode_hexagrams.append("䷾");
-unicode_hexagrams.append("䷿"); # Element 63; sequence 64
+unicode_hexagrams = [  # Element 0–63; sequence 1–64
+    "䷀", "䷁", "䷂", "䷃", "䷄", "䷅", "䷆", "䷇",
+    "䷈", "䷉", "䷊", "䷋", "䷌", "䷍", "䷎", "䷏",
+    "䷐", "䷑", "䷒", "䷓", "䷔", "䷕", "䷖", "䷗",
+    "䷘", "䷙", "䷚", "䷛", "䷜", "䷝", "䷞", "䷟",
+    "䷠", "䷡", "䷢", "䷣", "䷤", "䷥", "䷦", "䷧",
+    "䷨", "䷩", "䷪", "䷫", "䷬", "䷭", "䷮", "䷯",
+    "䷰", "䷱", "䷲", "䷳", "䷴", "䷵", "䷶", "䷷",
+    "䷸", "䷹", "䷺", "䷻", "䷼", "䷽", "䷾", "䷿",
+]
 
 # https://oeis.org/A102241
-binary_hexagrams = []
-binary_hexagrams.append(0b111111) # ䷀ Element 0; sequence 1
-binary_hexagrams.append(0b000000) # ䷁
-binary_hexagrams.append(0b010001) # ䷂
-binary_hexagrams.append(0b100010) # ䷃
-binary_hexagrams.append(0b010111) # ䷄
-binary_hexagrams.append(0b111010) # ䷅
-binary_hexagrams.append(0b000010) # ䷆
-binary_hexagrams.append(0b010000) # ䷇
-binary_hexagrams.append(0b110111) # ䷈
-binary_hexagrams.append(0b111011) # ䷉
-binary_hexagrams.append(0b000111) # ䷊
-binary_hexagrams.append(0b111000) # ䷋
-binary_hexagrams.append(0b111101) # ䷌
-binary_hexagrams.append(0b101111) # ䷍
-binary_hexagrams.append(0b000100) # ䷎
-binary_hexagrams.append(0b001000) # ䷏
-binary_hexagrams.append(0b011001) # ䷐
-binary_hexagrams.append(0b100110) # ䷑
-binary_hexagrams.append(0b000011) # ䷒
-binary_hexagrams.append(0b110000) # ䷓
-binary_hexagrams.append(0b101001) # ䷔
-binary_hexagrams.append(0b100101) # ䷕
-binary_hexagrams.append(0b100000) # ䷖
-binary_hexagrams.append(0b000001) # ䷗
-binary_hexagrams.append(0b111001) # ䷘
-binary_hexagrams.append(0b100111) # ䷙
-binary_hexagrams.append(0b100001) # ䷚
-binary_hexagrams.append(0b011110) # ䷛
-binary_hexagrams.append(0b010010) # ䷜
-binary_hexagrams.append(0b101101) # ䷝
-binary_hexagrams.append(0b011100) # ䷞
-binary_hexagrams.append(0b001110) # ䷟
-binary_hexagrams.append(0b111100) # ䷠
-binary_hexagrams.append(0b001111) # ䷡
-binary_hexagrams.append(0b101000) # ䷢
-binary_hexagrams.append(0b000101) # ䷣
-binary_hexagrams.append(0b110101) # ䷤
-binary_hexagrams.append(0b101011) # ䷥
-binary_hexagrams.append(0b010100) # ䷦
-binary_hexagrams.append(0b001010) # ䷧
-binary_hexagrams.append(0b100011) # ䷨
-binary_hexagrams.append(0b110001) # ䷩
-binary_hexagrams.append(0b011111) # ䷪
-binary_hexagrams.append(0b111110) # ䷫
-binary_hexagrams.append(0b011000) # ䷬
-binary_hexagrams.append(0b000110) # ䷭
-binary_hexagrams.append(0b011010) # ䷮
-binary_hexagrams.append(0b010110) # ䷯
-binary_hexagrams.append(0b011101) # ䷰
-binary_hexagrams.append(0b101110) # ䷱
-binary_hexagrams.append(0b001001) # ䷲
-binary_hexagrams.append(0b100100) # ䷳
-binary_hexagrams.append(0b110100) # ䷴
-binary_hexagrams.append(0b001011) # ䷵
-binary_hexagrams.append(0b001101) # ䷶
-binary_hexagrams.append(0b101100) # ䷷
-binary_hexagrams.append(0b110110) # ䷸
-binary_hexagrams.append(0b011011) # ䷹
-binary_hexagrams.append(0b110010) # ䷺
-binary_hexagrams.append(0b010011) # ䷻
-binary_hexagrams.append(0b110011) # ䷼
-binary_hexagrams.append(0b001100) # ䷽
-binary_hexagrams.append(0b010101) # ䷾
-binary_hexagrams.append(0b101010) # ䷿ Element 63; sequence 64
+binary_hexagrams = [  # Element 0–63; sequence 1–64
+    0b111111, # ䷀  0b000000, # ䷁  0b010001, # ䷂  0b100010, # ䷃
+    0b010111, # ䷄  0b111010, # ䷅  0b000010, # ䷆  0b010000, # ䷇
+    0b110111, # ䷈  0b111011, # ䷉  0b000111, # ䷊  0b111000, # ䷋
+    0b111101, # ䷌  0b101111, # ䷍  0b000100, # ䷎  0b001000, # ䷏
+    0b011001, # ䷐  0b100110, # ䷑  0b000011, # ䷒  0b110000, # ䷓
+    0b101001, # ䷔  0b100101, # ䷕  0b100000, # ䷖  0b000001, # ䷗
+    0b111001, # ䷘  0b100111, # ䷙  0b100001, # ䷚  0b011110, # ䷛
+    0b010010, # ䷜  0b101101, # ䷝  0b011100, # ䷞  0b001110, # ䷟
+    0b111100, # ䷠  0b001111, # ䷡  0b101000, # ䷢  0b000101, # ䷣
+    0b110101, # ䷤  0b101011, # ䷥  0b010100, # ䷦  0b001010, # ䷧
+    0b100011, # ䷨  0b110001, # ䷩  0b011111, # ䷪  0b111110, # ䷫
+    0b011000, # ䷬  0b000110, # ䷭  0b011010, # ䷮  0b010110, # ䷯
+    0b011101, # ䷰  0b101110, # ䷱  0b001001, # ䷲  0b100100, # ䷳
+    0b110100, # ䷴  0b001011, # ䷵  0b001101, # ䷶  0b101100, # ䷷
+    0b110110, # ䷸  0b011011, # ䷹  0b110010, # ䷺  0b010011, # ䷻
+    0b110011, # ䷼  0b001100, # ䷽  0b010101, # ䷾  0b101010, # ䷿
+]
 
 print("Pos Hex Binary")
 for index in range(64):
