@@ -41,6 +41,13 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 
 8. **The end-date was moved** — McKenna originally calculated a different end-date, then shifted it to December 21, 2012 to coincide with the Maya calendar long count completion. This was a post-hoc adjustment, not a prediction derived from the mathematics.
 
+### Additional findings from ROAE
+
+- **The wave's structure is local, not global** — `--windowed-entropy` shows entropy varies across the sequence, with some regions more structured than others. There is no uniform "signal" — the structure comes in patches.
+- **Upper and lower trigrams change independently** — `--mutual-info` shows near-zero mutual information between upper and lower trigram transitions. Whatever rules govern the sequence, they don't couple the two halves of each hexagram.
+- **Perfect yin-yang balance** — `--yinyang` confirms exactly 192 yang and 192 yin lines across all 64 hexagrams. This is a necessary consequence of containing all 64 possible hexagrams exactly once, not evidence of additional design.
+- **The sequence is unique among historical orderings** — `--sequences` shows that neither the Fu Xi (binary) nor Mawangdui ordering avoids 5-line transitions. This property is specific to King Wen.
+
 ## What holds up
 
 - The pair structure is genuinely perfect and vanishingly unlikely by chance (`--constraints` shows 0/10,000 random permutations achieve it).
