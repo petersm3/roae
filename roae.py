@@ -103,18 +103,25 @@ fuxi_order = list(range(64))  # Binary values 0–63 in natural order
 # Zhen, Kun, Dui, Li, Xun, with each lower trigram cycling within.
 # Represented as King Wen index (0-based) for each position.
 mawangdui_kw_indices = [
-    0, 9, 5, 25, 11, 43, 13, 33,    # Qian upper: Qian,Dui,Li,Zhen,Kun,Gen,Kan,Xun lower
-    18, 60, 47, 3, 19, 52, 28, 57,   # Gen upper
-    6, 39, 29, 7, 15, 45, 63, 48,    # Kan upper
-    16, 31, 55, 50, 23, 27, 42, 17,  # Zhen upper
-    1, 12, 35, 24, 10, 44, 14, 34,   # Kun upper
-    8, 58, 37, 53, 20, 41, 61, 56,   # Dui upper
-    36, 30, 21, 54, 4, 22, 62, 49,   # Li upper
-    46, 59, 38, 26, 40, 32, 46, 2,   # Xun upper
+     0, 43, 12, 24, 11,  9,  5, 32,  # Qian upper
+    42, 27, 48, 16, 44, 57, 46, 30,  # Gen upper
+     4, 47, 62,  2,  7, 59, 28, 38,  # Kan upper
+    33, 31, 54, 50, 15, 53, 39, 61,  # Zhen upper
+    10, 45, 35, 23,  1, 18,  6, 14,  # Kun upper
+     8, 56, 36, 41, 19, 60, 58, 52,  # Dui upper
+    13, 49, 29, 20, 34, 37, 63, 55,  # Li upper
+    25, 17, 21, 26, 22, 40,  3, 51,  # Xun upper
 ]
+
+# Module-level lookup: binary value -> King Wen 0-based index
+VAL_TO_POS = {}
 
 # Spark line characters for visualizing difference values 0–6
 SPARK = " ▁▂▃▅▆█"
+
+# Build the value-to-position lookup
+for _i, _b in enumerate(binary_hexagrams):
+    VAL_TO_POS[_b] = _i
 
 # ANSI color codes
 COLOR_RESET = "\033[0m"
@@ -181,10 +188,8 @@ def progress_bar(current, total, label="", width=30):
 
 # Look up the King Wen sequence position (1–64) for a given binary value
 def binary_to_kw_position(val):
-    for i, b in enumerate(binary_hexagrams):
-        if b == val:
-            return i + 1
-    return None
+    pos = VAL_TO_POS.get(val)
+    return pos + 1 if pos is not None else None
 
 def colorize_binary(val, use_color):
     """Render a 6-bit value as a colored binary string."""
@@ -425,33 +430,29 @@ def print_nuclear():
     print("---")
 
     # Build a map from binary value to King Wen position
-    val_to_pos = {}
-    for i, b in enumerate(binary_hexagrams):
-        val_to_pos[b] = i
-
     # Count how often each hexagram appears as a nuclear hexagram
     nuclear_counts = [0] * 64
     for i in range(64):
         nuc_val = nuclear_hexagram(binary_hexagrams[i])
-        nuc_pos = val_to_pos[nuc_val]
+        nuc_pos = VAL_TO_POS[nuc_val]
         nuclear_counts[nuc_pos] += 1
 
     for i in range(64):
         b = binary_hexagrams[i]
         nuc_val = nuclear_hexagram(b)
-        nuc_pos = val_to_pos[nuc_val]
+        nuc_pos = VAL_TO_POS[nuc_val]
         # Trace the nuclear chain until it reaches a fixed point
         # Trace the nuclear chain until we hit a cycle or fixed point
         chain = [i]
         seen = {i}
         current = nuc_val
-        while val_to_pos[current] not in seen:
-            pos = val_to_pos[current]
+        while VAL_TO_POS[current] not in seen:
+            pos = VAL_TO_POS[current]
             chain.append(pos)
             seen.add(pos)
             current = nuclear_hexagram(current)
         # Append the cycle-closing element to show where it loops back
-        chain.append(val_to_pos[current])
+        chain.append(VAL_TO_POS[current])
         chain_str = " -> ".join(f"{c+1:02} {unicode_hexagrams[c]}" for c in chain)
         print(f"{i+1:02} {unicode_hexagrams[i]} nuclear: "
               f"{nuc_pos+1:02} {unicode_hexagrams[nuc_pos]}  chain: {chain_str}")
@@ -527,14 +528,11 @@ def print_complements():
     print("bookends for larger structural sections.")
     print("---")
 
-    val_to_pos = {}
-    for i, b in enumerate(binary_hexagrams):
-        val_to_pos[b] = i
 
     distances = []
     for i in range(64):
         complement = binary_hexagrams[i] ^ 0b111111
-        comp_pos = val_to_pos[complement]
+        comp_pos = VAL_TO_POS[complement]
         dist = abs(comp_pos - i)
         distances.append(dist)
         print(f"{i+1:02} {unicode_hexagrams[i]} <-> "
@@ -1082,7 +1080,7 @@ def print_symmetry():
 
     # Check which XOR subgroups exist among the 64 hexagrams
     # The identity element under XOR is 0b000000 (The Receptive, hexagram 2)
-    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
 
     print("XOR identity element: 0b000000 (hexagram 2, The Receptive)")
     print()
@@ -1104,14 +1102,14 @@ def print_symmetry():
     xor_products = {}
     for index in range(0, 64, 2):
         product = binary_hexagrams[index] ^ binary_hexagrams[index + 1]
-        product_pos = val_to_pos[product]
+        product_pos = VAL_TO_POS[product]
         if product not in xor_products:
             xor_products[product] = []
         xor_products[product].append(index // 2)
 
     print(f"{'XOR Product':<14} {'Hexagram':>10} {'Pair count':>11}  Pairs")
     for product in sorted(xor_products.keys()):
-        pos = val_to_pos[product]
+        pos = VAL_TO_POS[product]
         pairs_str = ", ".join(f"{p*2+1}-{p*2+2}" for p in xor_products[product])
         print(f"  {bin(product)[2:].zfill(6)}   "
               f"{pos+1:02} {unicode_hexagrams[pos]}   "
@@ -1138,7 +1136,7 @@ def print_symmetry():
         if not closed:
             break
     print(f"Inverse pair hexagrams ({len(inverse_pairs)} total): ", end="")
-    print(", ".join(f"{val_to_pos[v]+1:02}" for v in inverse_pairs))
+    print(", ".join(f"{VAL_TO_POS[v]+1:02}" for v in inverse_pairs))
     print(f"Closed under XOR: {'Yes — forms a subgroup' if closed else 'No — not a subgroup'}")
 
 def print_sequences():
@@ -1314,7 +1312,7 @@ def print_barchart():
 
 def print_lookup(query):
     """Look up a specific hexagram by number or name."""
-    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
 
     # Try to parse as number
     idx = None
@@ -1348,11 +1346,11 @@ def print_lookup(query):
     _, up, um = trigram_names[upper]
     _, lp, lm = trigram_names[lower]
     nuc_val = nuclear_hexagram(b)
-    nuc_pos = val_to_pos[nuc_val]
+    nuc_pos = VAL_TO_POS[nuc_val]
     comp_val = b ^ 0b111111
-    comp_pos = val_to_pos[comp_val]
+    comp_pos = VAL_TO_POS[comp_val]
     rev_val = reverse_6bit(b)
-    rev_pos = val_to_pos[rev_val]
+    rev_pos = VAL_TO_POS[rev_val]
 
     print(f"---")
     print(f"Hexagram {idx+1}: {unicode_hexagrams[idx]}  {hexagram_names[idx]}")
@@ -1405,7 +1403,7 @@ def print_lookup(query):
 
 def print_compare(a_query, b_query):
     """Compare two specific hexagrams."""
-    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
 
     def resolve(query):
         try:
@@ -1468,7 +1466,7 @@ def print_compare(a_query, b_query):
     if nuc_b == a:
         relationships.append(f"{idx_b+1} contains {idx_a+1} as its nuclear hexagram")
     if nuc_a == nuc_b:
-        nuc_pos = val_to_pos[nuc_a]
+        nuc_pos = VAL_TO_POS[nuc_a]
         relationships.append(f"Share the same nuclear hexagram: "
                            f"{nuc_pos+1:02} {hexagram_names[nuc_pos]}")
     if upper_trigram(a) == upper_trigram(b):
@@ -1513,15 +1511,26 @@ def print_help_sections():
         ("--sequences", "Compare King Wen vs. Fu Xi vs. Mawangdui orderings"),
         ("--constraints", "Constraint satisfaction — how rare is King Wen's combined properties?"),
         ("--barchart", "ASCII bar chart visualization of the difference wave"),
+        ("--windowed-entropy", "Sliding window entropy — where structure concentrates"),
+        ("--mutual-info", "Mutual information between upper/lower trigram changes"),
+        ("--bootstrap", "Bootstrap confidence intervals for Monte Carlo estimates"),
+        ("--yinyang", "Yin-yang balance wave through the sequence"),
+        ("--neighborhoods", "Hamming distance-1 neighborhoods for each hexagram"),
+        ("--recurrence", "Recurrence plot — where the difference wave repeats"),
+        ("--codons", "DNA codon mapping — structural comparison with genetics"),
         ("", ""),
         ("--lookup N", "Look up a hexagram by number (1-64) or name"),
         ("--compare A B", "Compare two hexagrams (by number or name)"),
+        ("--cast", "Simulate an I Ching reading (three-coin method)"),
+        ("--explain N", "Walk through transition N step by step (1-63)"),
+        ("--self-test", "Run mathematical invariant checks"),
         ("", ""),
         ("--json", "Export all hexagram data as JSON"),
         ("--csv", "Export hexagram data as CSV"),
         ("--dot", "Export sequence as Graphviz DOT graph"),
         ("--svg", "Export hexagram line diagrams as SVG"),
         ("--html", "Generate self-contained HTML report with all analyses"),
+        ("--midi", "Export difference wave as MIDI file (to stdout)"),
     ]
     print("---")
     print("Available analysis sections")
@@ -1532,6 +1541,107 @@ def print_help_sections():
             print(f"  {flag:<22} {desc}")
         else:
             print()
+
+def print_self_test():
+    """Run mathematical invariant checks to verify data integrity."""
+    print("---")
+    print("Self-test: mathematical invariant checks")
+    print("---")
+
+    passed = 0
+    failed = 0
+
+    def check(name, condition):
+        nonlocal passed, failed
+        status = "PASS" if condition else "FAIL"
+        if condition:
+            passed += 1
+        else:
+            failed += 1
+        print(f"  [{status}] {name}")
+
+    # Data integrity
+    check("64 unicode hexagrams", len(unicode_hexagrams) == 64)
+    check("64 binary hexagrams", len(binary_hexagrams) == 64)
+    check("64 hexagram names", len(hexagram_names) == 64)
+    check("8 trigram definitions", len(trigram_names) == 8)
+    check("64 Mawangdui indices", len(mawangdui_kw_indices) == 64)
+
+    # All binary values are valid 6-bit numbers
+    check("All binary values 0-63", all(0 <= b <= 63 for b in binary_hexagrams))
+
+    # All 64 binary values are unique (it's a permutation of some subset)
+    check("All binary values unique", len(set(binary_hexagrams)) == 64)
+
+    # All 64 possible 6-bit values are present
+    check("All 64 possible values present", set(binary_hexagrams) == set(range(64)))
+
+    # Mawangdui indices are valid
+    check("Mawangdui indices valid (0-63)", all(0 <= i <= 63 for i in mawangdui_kw_indices))
+    check("Mawangdui indices all unique", len(set(mawangdui_kw_indices)) == 64)
+
+    # Pair structure: every pair is reverse or inverse
+    all_pairs_ok = True
+    for i in range(0, 64, 2):
+        is_rev = binary_hexagrams[i] == reverse_6bit(binary_hexagrams[i+1])
+        is_inv = binary_hexagrams[i] == binary_hexagrams[i+1] ^ 0b111111
+        if not is_rev and not is_inv:
+            all_pairs_ok = False
+            break
+    check("All 32 pairs are reverse or inverse", all_pairs_ok)
+
+    # No 5-line transitions
+    no_five = True
+    for i in range(63):
+        if bit_diff(binary_hexagrams[i], binary_hexagrams[i+1]) == 5:
+            no_five = False
+            break
+    check("No 5-line transitions in sequence", no_five)
+
+    # No 0-line transitions (no duplicates adjacent)
+    no_zero = True
+    for i in range(63):
+        if binary_hexagrams[i] == binary_hexagrams[i+1]:
+            no_zero = False
+            break
+    check("No 0-line transitions (no adjacent duplicates)", no_zero)
+
+    # Yin-yang balance
+    total_yang = sum(bin(b).count("1") for b in binary_hexagrams)
+    total_yin = 64 * 6 - total_yang
+    check("Perfect yin-yang balance (192 each)", total_yang == 192 and total_yin == 192)
+
+    # Each trigram appears exactly 8 times in upper and lower positions
+    upper_ok = True
+    lower_ok = True
+    for t in trigram_names:
+        uc = sum(1 for b in binary_hexagrams if upper_trigram(b) == t)
+        lc = sum(1 for b in binary_hexagrams if lower_trigram(b) == t)
+        if uc != 8:
+            upper_ok = False
+        if lc != 8:
+            lower_ok = False
+    check("Each trigram appears 8 times as upper", upper_ok)
+    check("Each trigram appears 8 times as lower", lower_ok)
+
+    # VAL_TO_POS is consistent
+    check("VAL_TO_POS has 64 entries", len(VAL_TO_POS) == 64)
+    vtp_ok = all(binary_hexagrams[VAL_TO_POS[b]] == b for b in VAL_TO_POS)
+    check("VAL_TO_POS maps correctly", vtp_ok)
+
+    # reverse_6bit is its own inverse
+    rev_ok = all(reverse_6bit(reverse_6bit(b)) == b for b in range(64))
+    check("reverse_6bit is self-inverse", rev_ok)
+
+    # XOR complement is self-inverse
+    comp_ok = all((b ^ 0b111111) ^ 0b111111 == b for b in range(64))
+    check("XOR complement is self-inverse", comp_ok)
+
+    print(f"\n  {passed} passed, {failed} failed, {passed + failed} total")
+    if failed == 0:
+        print("  All checks passed.")
+    else:
+        print("  WARNING: some checks failed — data may be corrupted.")
 
 def print_windowed_entropy():
     """Compute Shannon entropy over a sliding window of the difference wave."""
@@ -1812,7 +1922,7 @@ def print_neighborhoods():
     print("other in the sequence or scatters them.")
     print("---")
 
-    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
+
 
     for i in range(64):
         d1 = []  # Distance-1 neighbors
@@ -1937,13 +2047,13 @@ def print_casting():
 
     # Build the primary hexagram (bits: line 1 = bit 0)
     primary_val = sum(lines[i] << i for i in range(6))
-    val_to_pos = {b: i for i, b in enumerate(binary_hexagrams)}
 
-    if primary_val not in val_to_pos:
+
+    if primary_val not in VAL_TO_POS:
         print(f"\nError: generated value {primary_val} not found in hexagram table.")
         return
 
-    primary_pos = val_to_pos[primary_val]
+    primary_pos = VAL_TO_POS[primary_val]
     print(f"\n  Primary hexagram: {primary_pos+1:02} {unicode_hexagrams[primary_pos]} "
           f"{hexagram_names[primary_pos]}")
 
@@ -1955,7 +2065,7 @@ def print_casting():
             if changing[i]:
                 relating_lines[i] = 1 - relating_lines[i]
         relating_val = sum(relating_lines[i] << i for i in range(6))
-        relating_pos = val_to_pos[relating_val]
+        relating_pos = VAL_TO_POS[relating_val]
         changing_positions = [i+1 for i in range(6) if changing[i]]
         print(f"  Changing lines: {', '.join(str(p) for p in changing_positions)}")
         print(f"  Relating hexagram: {relating_pos+1:02} {unicode_hexagrams[relating_pos]} "
@@ -2281,9 +2391,16 @@ def export_html():
         ("Gray Code Comparison", print_graycode),
         ("Symmetry Groups", print_symmetry),
         ("Alternative Sequences", print_sequences),
+        ("Windowed Entropy", print_windowed_entropy),
+        ("Mutual Information", print_mutual_info),
+        ("Yin-Yang Balance", print_yinyang),
+        ("Neighborhoods", print_neighborhoods),
+        ("Recurrence Plot", print_recurrence),
+        ("DNA Codons", print_codons),
         ("Shannon Entropy", print_entropy),
         ("Path Analysis", print_path),
         ("Constraint Satisfaction", print_constraints),
+        ("Bootstrap", lambda: print_bootstrap(trials=10000)),
         ("Monte Carlo", lambda: print_stats(trials=10000)),
     ]
 
@@ -2429,8 +2546,13 @@ def main():
                         help="DNA codon mapping comparison")
     parser.add_argument("--all", action="store_true",
                         help="Run all analysis sections (default if no flags given)")
+    parser.add_argument("--quick", action="store_true",
+                        help="Run core sections only (table, pairs, wave, barchart, "
+                             "trigrams, canons, graycode, stats)")
 
     # Interactive / special modes
+    parser.add_argument("--self-test", action="store_true",
+                        help="Run mathematical invariant checks")
     parser.add_argument("--lookup", type=str, default=None,
                         help="Look up a hexagram by number (1-64) or name")
     parser.add_argument("--compare", nargs=2, type=str, default=None,
@@ -2474,6 +2596,9 @@ def main():
     if args.help_sections:
         print_help_sections()
         return
+    if args.self_test:
+        print_self_test()
+        return
     if args.lookup:
         print_header()
         print_lookup(args.lookup)
@@ -2516,38 +2641,41 @@ def main():
                     args.symmetry, args.sequences, args.constraints,
                     args.windowed_entropy, args.mutual_info, args.bootstrap,
                     args.yinyang, args.neighborhoods, args.recurrence, args.codons]
-    run_all = args.all or not any(all_sections)
+    run_all = args.all or (not args.quick and not any(all_sections))
+    run_quick = args.quick
 
     print_header()
     use_color = args.color
-    if run_all or args.table:           print_table(use_color=use_color)
-    if run_all or args.pairs:           print_pairs(use_color=use_color)
-    if run_all or args.wave:            print_wave(order=args.order, wrap=args.wrap)
-    if run_all or args.barchart:        print_barchart()
-    if run_all or args.trigrams:        print_trigrams()
-    if run_all or args.nuclear:         print_nuclear()
-    if run_all or args.lines:           print_line_changes()
-    if run_all or args.complements:     print_complements()
-    if run_all or args.palindromes:     print_palindromes()
-    if run_all or args.canons:          print_canons()
-    if run_all or args.hamming:         print_hamming()
-    if run_all or args.autocorrelation: print_autocorrelation()
-    if run_all or args.fft:             print_fft()
-    if run_all or args.markov:          print_markov()
-    if run_all or args.graycode:        print_graycode()
-    if run_all or args.symmetry:        print_symmetry()
-    if run_all or args.sequences:       print_sequences()
-    if run_all or args.constraints:     print_constraints()
-    if run_all or args.windowed_entropy: print_windowed_entropy()
-    if run_all or args.mutual_info:     print_mutual_info()
-    if run_all or args.yinyang:         print_yinyang()
-    if run_all or args.neighborhoods:   print_neighborhoods()
-    if run_all or args.recurrence:      print_recurrence()
-    if run_all or args.codons:          print_codons()
-    if run_all or args.entropy:         print_entropy()
-    if run_all or args.path:            print_path()
-    if run_all or args.bootstrap:       print_bootstrap(trials=args.trials)
-    if run_all or args.stats:           print_stats(trials=args.trials)
+    # Quick mode runs: table, pairs, wave, barchart, trigrams, canons, graycode, stats
+    q = run_quick
+    if run_all or q or args.table:           print_table(use_color=use_color)
+    if run_all or q or args.pairs:           print_pairs(use_color=use_color)
+    if run_all or q or args.wave:            print_wave(order=args.order, wrap=args.wrap)
+    if run_all or q or args.barchart:        print_barchart()
+    if run_all or q or args.trigrams:        print_trigrams()
+    if run_all or args.nuclear:              print_nuclear()
+    if run_all or args.lines:                print_line_changes()
+    if run_all or args.complements:          print_complements()
+    if run_all or args.palindromes:          print_palindromes()
+    if run_all or q or args.canons:          print_canons()
+    if run_all or args.hamming:              print_hamming()
+    if run_all or args.autocorrelation:      print_autocorrelation()
+    if run_all or args.fft:                  print_fft()
+    if run_all or args.markov:               print_markov()
+    if run_all or q or args.graycode:        print_graycode()
+    if run_all or args.symmetry:             print_symmetry()
+    if run_all or args.sequences:            print_sequences()
+    if run_all or args.constraints:          print_constraints()
+    if run_all or args.windowed_entropy:     print_windowed_entropy()
+    if run_all or args.mutual_info:          print_mutual_info()
+    if run_all or args.yinyang:              print_yinyang()
+    if run_all or args.neighborhoods:        print_neighborhoods()
+    if run_all or args.recurrence:           print_recurrence()
+    if run_all or args.codons:               print_codons()
+    if run_all or args.entropy:              print_entropy()
+    if run_all or args.path:                 print_path()
+    if run_all or args.bootstrap:            print_bootstrap(trials=args.trials)
+    if run_all or q or args.stats:           print_stats(trials=args.trials)
 
 if __name__ == "__main__":
     main()
