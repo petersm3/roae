@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import argparse
+import random
 
 # Reverse the bit order of a 6-bit value, equivalent to flipping a hexagram
 # upside down (180-degree rotation). Each hexagram has 6 lines (bits), so
@@ -14,12 +16,9 @@ def reverse_6bit(n):
         ((n >> 5) & 1) << 0
     )
 
-print("---")
-print("Received Order Analysis Engine")
-print("of the King Wen sequence including")
-print("observations by Terence McKenna")
-# https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero
-print("---")
+# Count the number of bits that differ between two 6-bit values (popcount of XOR)
+def bit_diff(a, b):
+    return bin(a ^ b).count("1")
 
 # Unicode hexagram characters in King Wen sequence order (1–64)
 # https://en.wikipedia.org/wiki/King_Wen_sequence#Structure_of_the_sequence
@@ -56,88 +55,272 @@ binary_hexagrams = [
     0b110011, 0b001100, 0b010101, 0b101010,  # ䷼ ䷽ ䷾ ䷿
 ]
 
-print("Pos Hex Binary")
-for index in range(64):
-    print(str(index+1).zfill(2) + "  ", end="")
-    print(unicode_hexagrams[index] + "   ", end="")
-    print(str(bin(binary_hexagrams[index]))[2:].zfill(6))
+# English names in King Wen order (Wilhelm/Baynes translation)
+hexagram_names = [
+    "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
+    "Waiting", "Conflict", "The Army", "Holding Together",
+    "Small Taming", "Treading", "Peace", "Standstill",
+    "Fellowship", "Great Possession", "Modesty", "Enthusiasm",
+    "Following", "Work on the Decayed", "Approach", "Contemplation",
+    "Biting Through", "Grace", "Splitting Apart", "Return",
+    "Innocence", "Great Taming", "Nourishment", "Great Preponderance",
+    "The Abysmal", "The Clinging", "Influence", "Duration",
+    "Retreat", "Great Power", "Progress", "Darkening of the Light",
+    "The Family", "Opposition", "Obstruction", "Deliverance",
+    "Decrease", "Increase", "Breakthrough", "Coming to Meet",
+    "Gathering Together", "Pushing Upward", "Oppression", "The Well",
+    "Revolution", "The Cauldron", "The Arousing", "Keeping Still",
+    "Development", "The Marrying Maiden", "Abundance", "The Wanderer",
+    "The Gentle", "The Joyous", "Dispersion", "Limitation",
+    "Inner Truth", "Small Preponderance", "After Completion", "Before Completion",
+]
 
-print("---")
-print("Reverse (180 degree rotation) vs. Inverse pairs") 
-print("---")
+# The 8 trigrams (3-bit components), keyed by their binary value.
+# Each hexagram is composed of an upper trigram (bits 3–5) and a lower trigram (bits 0–2).
+trigram_names = {
+    0b111: ("☰", "Qian",  "Heaven"),
+    0b000: ("☷", "Kun",   "Earth"),
+    0b001: ("☳", "Zhen",  "Thunder"),
+    0b010: ("☵", "Kan",   "Water"),
+    0b011: ("☶", "Gen",   "Mountain"),
+    0b100: ("☴", "Xun",   "Wind"),
+    0b101: ("☲", "Li",    "Fire"),
+    0b110: ("☱", "Dui",   "Lake"),
+}
 
-# The King Wen sequence arranges hexagrams in pairs (1-2, 3-4, ..., 63-64).
-# Each pair is related by one of two transformations:
-#   Reverse: flip the hexagram upside down (reverse the 6 bits)
-#   Inverse: toggle every line, solid<->broken (XOR with 0b111111)
-# A key structural property is that EVERY pair is one or the other — never neither.
-reverse_count = 0
-inverse_count = 0
-neither_count = 0
-total_count = int(len(binary_hexagrams)/2)
+# Spark line characters for visualizing difference values 0–6
+SPARK = " ▁▂▃▅▆█"
 
-for index in range(0, 64, 2):
-    print(str(index+1).zfill(2) + " ", end="")
-    # Check if flipping the second hexagram upside down yields the first
-    if(binary_hexagrams[index] == reverse_6bit(binary_hexagrams[index+1])):
-        reverse_count += 1
-        print(unicode_hexagrams[index], end="")
-        print(" Reverse ", end="")
-    # Check if toggling all lines (XOR 0b111111) of the second yields the first
-    elif (binary_hexagrams[index] == binary_hexagrams[index+1] ^ 0b111111):
-        inverse_count += 1
-        print(unicode_hexagrams[index], end="")
-        print(" Inverse ", end="")
+def upper_trigram(val):
+    return (val >> 3) & 0b111
+
+def lower_trigram(val):
+    return val & 0b111
+
+def trigram_label(t):
+    symbol, pinyin, meaning = trigram_names[t]
+    return f"{symbol} {pinyin:<4} {meaning}"
+
+def trigram_short(t):
+    symbol, pinyin, _ = trigram_names[t]
+    return f"{symbol}{pinyin}"
+
+# ---------------------------------------------------------------------------
+
+def print_header():
+    print("---")
+    print("Received Order Analysis Engine")
+    print("of the King Wen sequence including")
+    print("observations by Terence McKenna")
+    # https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero
+    print("---")
+
+def print_table():
+    print("Pos Hex Binary  Upper        Lower        Name")
+    for i in range(64):
+        b = binary_hexagrams[i]
+        upper = upper_trigram(b)
+        lower = lower_trigram(b)
+        bits = bin(b)[2:].zfill(6)
+        us, up, um = trigram_names[upper]
+        ls, lp, lm = trigram_names[lower]
+        print(f"{i+1:02}  {unicode_hexagrams[i]}  {bits}  "
+              f"{us} {up:<4} {um:<7}  {ls} {lp:<4} {lm:<7}  "
+              f"{hexagram_names[i]}")
+
+def print_pairs():
+    print("---")
+    print("Reverse (180 degree rotation) vs. Inverse pairs")
+    print("---")
+
+    # The King Wen sequence arranges hexagrams in pairs (1-2, 3-4, ..., 63-64).
+    # Each pair is related by one of two transformations:
+    #   Reverse: flip the hexagram upside down (reverse the 6 bits)
+    #   Inverse: toggle every line, solid<->broken (XOR with 0b111111)
+    # A key structural property is that EVERY pair is one or the other — never neither.
+    reverse_count = 0
+    inverse_count = 0
+    neither_count = 0
+    total_count = len(binary_hexagrams) // 2
+
+    for index in range(0, 64, 2):
+        print(str(index+1).zfill(2) + " ", end="")
+        # Check if flipping the second hexagram upside down yields the first
+        if binary_hexagrams[index] == reverse_6bit(binary_hexagrams[index+1]):
+            reverse_count += 1
+            print(unicode_hexagrams[index], end="")
+            print(" Reverse ", end="")
+        # Check if toggling all lines (XOR 0b111111) of the second yields the first
+        elif binary_hexagrams[index] == binary_hexagrams[index+1] ^ 0b111111:
+            inverse_count += 1
+            print(unicode_hexagrams[index], end="")
+            print(" Inverse ", end="")
+        else:
+            neither_count += 1
+            print(unicode_hexagrams[index], end="")
+            print(" IS NOT A REVERSE OR INVERSE ", end="")
+
+        print(str(index+2).zfill(2) + " ", end="")
+        print(unicode_hexagrams[index+1])
+
+    print("---")
+    print(f"Reverse count pairs: {reverse_count:02}/{total_count} ({reverse_count/total_count*100}%)")
+    print(f"Inverse count pairs: {inverse_count:02}/{total_count} ({inverse_count/total_count*100}%)")
+    print(f"Neither count pairs: {neither_count:02}/{total_count} ({neither_count/total_count*100}%)")
+
+def compute_diffs(wrap=False):
+    """Compute the number of line changes between consecutive hexagrams."""
+    limit = 64 if wrap else 63
+    diffs = []
+    for i in range(limit):
+        diffs.append(bit_diff(binary_hexagrams[i], binary_hexagrams[(i+1) % 64]))
+    return diffs
+
+def print_wave(order=1, wrap=False):
+    print("---")
+    label = "difference" if order == 1 else f"order-{order} difference"
+    if wrap:
+        print(f"First order of {label} (with 64\u21921 wrap-around)")
     else:
-        neither_count += 1
-        print(unicode_hexagrams[index], end="")
-        print(" IS NOT A REVERSE OR INVERSE ", end="")
+        print(f"First order of difference")
+    print("How many lines change between each hexagram")
+    print("---")
 
-    print(str(index+2).zfill(2) + " ", end="")
-    print(unicode_hexagrams[index+1])
+    diffs = compute_diffs(wrap=wrap)
+    limit = len(diffs)
 
-print("---")
-# Reverse
-print("Reverse count pairs: " + str(reverse_count).zfill(2), end="")
-print("/" + str(total_count) + " (", end="")
-print(str((reverse_count/total_count)*100) + "%)")
-# Inverse
-print("Inverse count pairs: " + str(inverse_count).zfill(2), end="")
-print("/" + str(total_count) + " (", end="")
-print(str((inverse_count/total_count)*100) + "%)")
-# Neither
-print("Neither count pairs: " + str(neither_count).zfill(2), end="")
-print("/" + str(total_count) + " (", end="")
-print(str((neither_count/total_count)*100) + "%)")
+    # Tally of how many times each difference count (0–6) occurs
+    diff_array = [0] * 7
+    for i in range(limit):
+        j = (i + 1) % 64
+        print(f"{i+1:02} {unicode_hexagrams[i]} to {j+1:02} {unicode_hexagrams[j]} "
+              f"difference {diffs[i]} {'*'*diffs[i]}")
+        diff_array[diffs[i]] += 1
 
-print("---")
-print("First order of difference")
-print("How many lines change between each hexagram")
-print("---")
+    print("---")
+    # Summary: how often each difference count (0–6 line changes) occurs.
+    # Notable findings:
+    #   0 changes: 0 — no consecutive hexagrams are identical (expected)
+    #   5 changes: 0 — McKenna's observation; this never occurs in the sequence,
+    #                   which is statistically unlikely for a random ordering
+    for n in range(7):
+        print(f"{n} line changes total {diff_array[n]}")
 
-# Tally of how many times each difference count (0–6) occurs
-diff_array = [0, 0, 0, 0, 0, 0, 0]
-for index in range(0, 63):
-    print(str(index+1).zfill(2) + " ", end="")
-    print(unicode_hexagrams[index], end="")
-    print(" to ", end="")
-    print(str(index+2).zfill(2) + " ", end="")
-    print(unicode_hexagrams[index+1], end="")
-    print(" difference ", end="")
-    # XOR reveals which bits differ; popcount gives the number of changed lines
-    diff = binary_hexagrams[index] ^ binary_hexagrams[index+1]
-    diff_count = bin(diff).count("1")
-    diff_array[diff_count] = diff_array[diff_count] + 1 
-    print(diff_count, end="")
-    print(" " + "*"*diff_count)
+    # Compact spark line visualization of the wave
+    spark_line = "".join(SPARK[d] for d in diffs)
+    print(f"\nSpark line: {spark_line}")
 
-print("---")
-# Summary: how often each difference count (0–6 line changes) occurs.
-# Notable findings:
-#   0 changes: 0 — no consecutive hexagrams are identical (expected)
-#   5 changes: 0 — McKenna's observation; this never occurs in the sequence,
-#                   which is statistically unlikely for a random ordering
-for diff_number in range(len(diff_array)):
-    print(diff_number, end="")
-    print(" line changes total ", end="")
-    print(diff_array[diff_number])
+    # Higher orders of difference (difference of the difference)
+    if order > 1:
+        current = diffs
+        for o in range(2, order + 1):
+            current = [abs(current[i+1] - current[i]) for i in range(len(current) - 1)]
+            print(f"\n--- Order {o} of difference ---")
+            tally = [0] * 7
+            for val in current:
+                tally[val] += 1
+            for n in range(7):
+                if tally[n] > 0:
+                    print(f"{n} changes total {tally[n]}")
+            spark = "".join(SPARK[min(d, 6)] for d in current)
+            print(f"Spark line: {spark}")
+
+def print_trigrams():
+    print("---")
+    print("Trigram analysis")
+    print("---")
+
+    # Count how often each trigram appears in upper and lower positions
+    upper_counts = {}
+    lower_counts = {}
+    for t in trigram_names:
+        upper_counts[t] = 0
+        lower_counts[t] = 0
+
+    for b in binary_hexagrams:
+        upper_counts[upper_trigram(b)] += 1
+        lower_counts[lower_trigram(b)] += 1
+
+    print(f"{'Trigram':<20} Upper  Lower  Total")
+    for t in sorted(trigram_names.keys()):
+        symbol, pinyin, meaning = trigram_names[t]
+        u = upper_counts[t]
+        l = lower_counts[t]
+        print(f"{symbol} {pinyin:<4} {meaning:<12}   {u:2}     {l:2}     {u+l:2}")
+
+    # Consecutive trigram transitions: how often does the upper (or lower)
+    # trigram change between consecutive hexagrams?
+    print("\n--- Consecutive trigram transitions ---")
+    upper_changes = 0
+    lower_changes = 0
+    for i in range(63):
+        if upper_trigram(binary_hexagrams[i]) != upper_trigram(binary_hexagrams[i+1]):
+            upper_changes += 1
+        if lower_trigram(binary_hexagrams[i]) != lower_trigram(binary_hexagrams[i+1]):
+            lower_changes += 1
+    print(f"Upper trigram changes: {upper_changes}/63 transitions ({upper_changes/63*100:.1f}%)")
+    print(f"Lower trigram changes: {lower_changes}/63 transitions ({lower_changes/63*100:.1f}%)")
+
+def print_stats(trials=100000):
+    print("---")
+    print(f"Monte Carlo analysis ({trials:,} random permutations)")
+    print("How likely is the 'no 5-line transitions' property by chance?")
+    print("---")
+
+    # Shuffle the 64 binary hexagram values and check whether any consecutive
+    # pair differs by exactly 5 lines. Count how many random orderings share
+    # the King Wen property of having zero 5-line transitions.
+    values = list(binary_hexagrams)
+    no_five_count = 0
+    for _ in range(trials):
+        random.shuffle(values)
+        has_five = False
+        for i in range(63):
+            if bit_diff(values[i], values[i+1]) == 5:
+                has_five = True
+                break
+        if not has_five:
+            no_five_count += 1
+
+    pct = no_five_count / trials * 100
+    print(f"Permutations with no 5-line transitions: {no_five_count:,}/{trials:,} ({pct:.2f}%)")
+    if no_five_count == 0:
+        print("None observed — the King Wen property is extremely rare.")
+    else:
+        print(f"Approximately 1 in {trials // no_five_count} random orderings share this property.")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Received Order Analysis Engine of the King Wen sequence")
+    parser.add_argument("--table", action="store_true",
+                        help="Print hexagram table with trigrams and names")
+    parser.add_argument("--pairs", action="store_true",
+                        help="Print reverse/inverse pair classification")
+    parser.add_argument("--wave", action="store_true",
+                        help="Print difference wave between consecutive hexagrams")
+    parser.add_argument("--trigrams", action="store_true",
+                        help="Print trigram frequency and transition analysis")
+    parser.add_argument("--stats", action="store_true",
+                        help="Run Monte Carlo statistical comparison")
+    parser.add_argument("--all", action="store_true",
+                        help="Run all sections (default if no flags given)")
+    parser.add_argument("--wrap", action="store_true",
+                        help="Include 64->1 wrap-around transition in wave")
+    parser.add_argument("--order", type=int, default=1,
+                        help="Compute Nth order of difference (default: 1)")
+    parser.add_argument("--trials", type=int, default=100000,
+                        help="Number of Monte Carlo trials (default: 100000)")
+    args = parser.parse_args()
+
+    run_all = args.all or not any([args.table, args.pairs, args.wave,
+                                   args.trigrams, args.stats])
+
+    print_header()
+    if run_all or args.table:    print_table()
+    if run_all or args.pairs:    print_pairs()
+    if run_all or args.wave:     print_wave(order=args.order, wrap=args.wrap)
+    if run_all or args.trigrams: print_trigrams()
+    if run_all or args.stats:    print_stats(trials=args.trials)
+
+if __name__ == "__main__":
+    main()
