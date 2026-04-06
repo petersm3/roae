@@ -992,8 +992,8 @@ def main():
                         help="Compute Nth order of difference (default: 1)")
     parser.add_argument("--trials", type=int, default=100000,
                         help="Number of Monte Carlo trials (default: 100000)")
-    parser.add_argument("--no-color", action="store_true",
-                        help="Disable ANSI color output")
+    parser.add_argument("--color", action="store_true",
+                        help="Enable ANSI color output")
 
     # Export formats
     parser.add_argument("--json", action="store_true",
@@ -1023,7 +1023,7 @@ def main():
     run_all = args.all or not any(all_sections)
 
     print_header()
-    use_color = not args.no_color and sys.stdout.isatty()
+    use_color = args.color
     if run_all or args.table:          print_table(use_color=use_color)
     if run_all or args.pairs:          print_pairs(use_color=use_color)
     if run_all or args.wave:           print_wave(order=args.order, wrap=args.wrap)
