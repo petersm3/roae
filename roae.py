@@ -1703,9 +1703,13 @@ def print_bootstrap(trials=100000):
     # Bootstrap: resample with replacement 1000 times
     n_bootstrap = 1000
     boot_rates = []
+    boot_step = max(1, n_bootstrap // 40)
     for b in range(n_bootstrap):
+        if b % boot_step == 0:
+            progress_bar(b, n_bootstrap)
         sample = [results[random.randint(0, len(results)-1)] for _ in range(len(results))]
         boot_rates.append(sum(sample) / len(sample) * 100)
+    progress_bar(n_bootstrap, n_bootstrap)
 
     boot_rates.sort()
     ci_lower = boot_rates[int(n_bootstrap * 0.025)]
