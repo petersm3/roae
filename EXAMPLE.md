@@ -800,22 +800,22 @@ Comparing the same analyses across orderings reveals what is unique to King Wen.
 ---
 Metric                            King Wen   Fu Xi (binary)        Mawangdui
 ------------------------- ---------------- ---------------- ----------------
-Total path length                      211              120              188
-Mean change                           3.35             1.90             2.98
-1-line transitions                       2               32               10
-2-line transitions                      20               16               14
-3-line transitions                      13                8               18
-4-line transitions                      19                4                9
-5-line transitions                       0                2               12
+Total path length                      211              120              104
+Mean change                           3.35             1.90             1.65
+1-line transitions                       2               32               32
+2-line transitions                      20               16               24
+3-line transitions                      13                8                4
+4-line transitions                      19                4                3
+5-line transitions                       0                2                0
 6-line transitions                       9                1                0
 
 Waves:
   King Wen             █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
   Fu Xi (binary)       ▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁█▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁
-  Mawangdui            ▁▁▅▆▂▂▁▂▂▃▃▂▁▃▂▃▁▅▆▂▃▃▆▁▅▂▃▁▆▁▅▃▆▃▅▆▆▃▃▆▂▃▁▂▂▆▅▂▃▅▂▃▆▅▆▃▂▃▅▁▆▃▃
+  Mawangdui            ▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂
 
 --- What makes King Wen unique ---
-Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=12
+Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=0
 Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
 ---
 Constraint satisfaction analysis
@@ -828,7 +828,7 @@ random permutations against each constraint individually and combined.
 ---
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          20 (0.20%)
+  No 5-line transitions:          19 (0.19%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both — the King Wen ordering is highly unusual.
 ---
@@ -912,8 +912,8 @@ Joint distribution of trigram changes:
 Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
-Mean MI of random permutations: 0.0203 bits
-King Wen percentile: 7.5%
+Mean MI of random permutations: 0.0199 bits
+King Wen percentile: 7.6%
 ---
 Yin-yang balance wave
 Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).
@@ -1240,18 +1240,18 @@ unusually low, the sequence is more structured than random chance would produce.
 ---
 King Wen difference wave entropy: 2.0759 bits
 Maximum possible entropy (uniform): 2.8074 bits
-Mean entropy of random permutations: 2.1917 bits
-Min random entropy observed: 1.6293 bits
-Max random entropy observed: 2.4932 bits
-King Wen percentile: 12.7% (lower = more structured)
+Mean entropy of random permutations: 2.1911 bits
+Min random entropy observed: 1.7319 bits
+Max random entropy observed: 2.4851 bits
+King Wen percentile: 13.5% (lower = more structured)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
-  1             2                  5.9
-  2            20                 14.8
-  3            13                 20.1
-  4            19                 15.1
+  1             2                  6.0
+  2            20                 15.1
+  3            13                 20.0
+  4            19                 14.8
   5             0                  6.1
   6             9                  1.0
 ---
@@ -1266,10 +1266,10 @@ transitions or had other priorities.
 ---
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     192.2
-Min random observed:         153
-Max random observed:         228
-King Wen percentile:         97.7% (lower = shorter path)
+Mean random path length:     191.9
+Min random observed:         158
+Max random observed:         227
+King Wen percentile:         97.6% (lower = shorter path)
 
 --- Theoretical bounds ---
 Minimum possible (63 transitions of 1): 63
@@ -1285,12 +1285,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.180%
-95% confidence interval: [0.100%, 0.270%]
-Interval width: 0.170 percentage points
+No-5-line-transition rate: 0.110%
+95% confidence interval: [0.040%, 0.180%]
+Interval width: 0.140 percentage points
 
-Approximately 1 in 556 random orderings
-95% CI: 1 in 370 to 1 in 1000
+Approximately 1 in 909 random orderings
+95% CI: 1 in 556 to 1 in 2500
 ---
 Monte Carlo analysis (10,000 random permutations)
 The King Wen sequence has a striking property: no two consecutive hexagrams
@@ -1300,6 +1300,6 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the more
 likely the King Wen sequence was intentionally designed with this constraint.
 ---
-Permutations with no 5-line transitions: 19/10,000 (0.19%)
-Approximately 1 in 526 random orderings share this property.
+Permutations with no 5-line transitions: 20/10,000 (0.20%)
+Approximately 1 in 500 random orderings share this property.
 ```
