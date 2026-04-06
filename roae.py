@@ -167,15 +167,16 @@ def trigram_label(t):
     _, pinyin, meaning = trigram_names[t]
     return f"{pinyin} {meaning}"
 
-def progress_bar(current, total, width=40):
+def progress_bar(current, total, label="", width=30):
     """Print an in-place progress bar to stderr."""
     pct = current / total
     filled = int(width * pct)
     bar = "#" * filled + "-" * (width - filled)
-    sys.stderr.write(f"\r  [{bar}] {pct*100:5.1f}%")
+    display = f"\r  {label + ': ' if label else ''}[{bar}] {pct*100:5.1f}%"
+    sys.stderr.write(display)
     sys.stderr.flush()
     if current >= total:
-        sys.stderr.write("\r" + " " * (width + 12) + "\r")
+        sys.stderr.write("\r" + " " * len(display) + "\r")
         sys.stderr.flush()
 
 # Look up the King Wen sequence position (1–64) for a given binary value
@@ -900,7 +901,7 @@ def print_stats(trials=100000):
     step = max(1, trials // 40)
     for t in range(trials):
         if t % step == 0:
-            progress_bar(t, trials)
+            progress_bar(t, trials, "Shuffling")
         random.shuffle(values)
         has_five = False
         for i in range(63):
@@ -909,7 +910,7 @@ def print_stats(trials=100000):
                 break
         if not has_five:
             no_five_count += 1
-    progress_bar(trials, trials)
+    progress_bar(trials, trials, "Shuffling")
 
     pct = no_five_count / trials * 100
     print(f"Permutations with no 5-line transitions: {no_five_count:,}/{trials:,} ({pct:.2f}%)")
@@ -1692,11 +1693,11 @@ def print_bootstrap(trials=100000):
     step = max(1, trials // 40)
     for t in range(trials):
         if t % step == 0:
-            progress_bar(t, trials)
+            progress_bar(t, trials, "Sampling")
         random.shuffle(values)
         has_five = any(bit_diff(values[i], values[i+1]) == 5 for i in range(63))
         results.append(0 if has_five else 1)
-    progress_bar(trials, trials)
+    progress_bar(trials, trials, "Sampling")
 
     base_rate = sum(results) / len(results) * 100
 
@@ -1706,10 +1707,10 @@ def print_bootstrap(trials=100000):
     boot_step = max(1, n_bootstrap // 40)
     for b in range(n_bootstrap):
         if b % boot_step == 0:
-            progress_bar(b, n_bootstrap)
+            progress_bar(b, n_bootstrap, "Resampling")
         sample = [results[random.randint(0, len(results)-1)] for _ in range(len(results))]
         boot_rates.append(sum(sample) / len(sample) * 100)
-    progress_bar(n_bootstrap, n_bootstrap)
+    progress_bar(n_bootstrap, n_bootstrap, "Resampling")
 
     boot_rates.sort()
     ci_lower = boot_rates[int(n_bootstrap * 0.025)]
