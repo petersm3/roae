@@ -51,7 +51,7 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 ## What holds up
 
 - The pair structure is genuinely perfect and vanishingly unlikely by chance (`--constraints` shows 0/10,000 random permutations achieve it; 95% upper bound: less than 1 in 3,333).
-- The combined constraints (pairs + no-5) are extraordinary together.
+- The no-5 property is real but largely explained by the pair structure: ~4% of pair-constrained orderings also avoid 5-line transitions (~1 in 23), compared to ~1 in 550 for unconstrained orderings. Within reverse/inverse pairs, 5-line transitions are mathematically impossible (distances are always even or 6).
 - The XOR algebraic regularity (`--symmetry`) is real and not well-explained.
 - The sequence was clearly designed with intentional mathematical structure by people [~3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou).
 

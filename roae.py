@@ -330,6 +330,28 @@ def print_wave(order=1, wrap=False):
     spark_line = "".join(SPARK[d] for d in diffs)
     print(f"\nSpark line: {spark_line}")
 
+    # Wald-Wolfowitz runs test for randomness of the wave
+    median_d = sorted(diffs)[len(diffs) // 2]
+    binary_seq = [1 if d > median_d else 0 for d in diffs if d != median_d]
+    n1 = sum(binary_seq)
+    n2 = len(binary_seq) - n1
+    if n1 > 0 and n2 > 0:
+        runs = 1
+        for k in range(1, len(binary_seq)):
+            if binary_seq[k] != binary_seq[k-1]:
+                runs += 1
+        expected = 1 + 2 * n1 * n2 / (n1 + n2)
+        var = 2 * n1 * n2 * (2 * n1 * n2 - n1 - n2) / ((n1 + n2)**2 * (n1 + n2 - 1))
+        z_runs = (runs - expected) / math.sqrt(var) if var > 0 else 0
+        print(f"\n--- Wald-Wolfowitz runs test ---")
+        print(f"Tests whether the wave values are randomly ordered (vs. clustered or alternating).")
+        print(f"Values split at median ({median_d}): {n1} above, {n2} below ({len(diffs)-n1-n2} excluded ties)")
+        print(f"Observed runs: {runs}, expected: {expected:.1f}, Z = {z_runs:+.2f}")
+        if abs(z_runs) > 1.96:
+            print(f"Significant at 95% level: the wave shows {'clustering' if z_runs < 0 else 'alternation'}.")
+        else:
+            print(f"Not significant: no evidence of non-random ordering (|Z| < 1.96).")
+
     # Higher orders of difference (difference of the difference)
     if order > 1:
         current = diffs
@@ -800,7 +822,9 @@ def print_entropy():
         return entropy
 
     kw_entropy = shannon_entropy(diffs)
-    max_entropy = math.log2(7)  # 7 possible values (0–6)
+    max_entropy_all = math.log2(7)  # 7 possible values (0–6)
+    distinct_values = len(set(diffs))
+    max_entropy_obs = math.log2(distinct_values)  # only values actually observed
 
     # Compare against random permutations
     trials = 10000
@@ -819,7 +843,8 @@ def print_entropy():
     percentile = below / len(random_entropies) * 100
 
     print(f"King Wen difference wave entropy: {kw_entropy:.4f} bits")
-    print(f"Maximum possible entropy (uniform): {max_entropy:.4f} bits")
+    print(f"Maximum entropy (all 7 values): {max_entropy_all:.4f} bits")
+    print(f"Maximum entropy ({distinct_values} observed values): {max_entropy_obs:.4f} bits")
     print(f"Mean entropy of random permutations: {mean_random:.4f} bits")
     print(f"Min random entropy observed: {random_entropies[0]:.4f} bits")
     print(f"Max random entropy observed: {random_entropies[-1]:.4f} bits")
@@ -1388,6 +1413,75 @@ def print_constraints():
         print(f"  distinguish 'impossible' from 'extremely rare' with this sample size).")
     else:
         print(f"  Approximately 1 in {trials // count_both:,} random orderings satisfy both.")
+
+    # --- Conditional probability: P(no-5 | pair structure) ---
+    # The unconstrained test above conflates two probabilities. The critical
+    # question is: among orderings that already satisfy the pair constraint,
+    # how often does the no-5 property also hold?
+    #
+    # Within any reverse/inverse pair, the Hamming distance is always even
+    # (reverse pairs) or exactly 6 (inverse pairs), so 5-line transitions
+    # can NEVER occur within a pair. They can only occur at the 31 between-
+    # pair boundaries. This makes no-5 potentially much more common among
+    # pair-constrained orderings than among unconstrained ones.
+    print()
+    print("--- Conditional probability: P(no-5 | pair constraint) ---")
+    print("The pair structure constrains transitions within pairs (always even or 6),")
+    print("so 5-line transitions can only occur at the 31 between-pair boundaries.")
+    print("How often do pair-constrained orderings also avoid 5-line transitions?")
+
+    # Build the 32 natural reverse/inverse pairs from the hexagram values
+    paired = set()
+    pairs = []
+    for v in range(64):
+        if v in paired:
+            continue
+        rev = reverse_6bit(v)
+        inv = v ^ 0b111111
+        if rev != v:
+            partner = rev
+        else:
+            partner = inv
+        pairs.append((v, partner))
+        paired.add(v)
+        paired.add(partner)
+
+    cond_trials = 100000
+    cond_no_five = 0
+    for _ in range(cond_trials):
+        # Generate a random pair-constrained ordering:
+        # shuffle the 32 pairs, flip each pair with 50% probability
+        random.shuffle(pairs)
+        seq = []
+        for a, b in pairs:
+            if random.random() < 0.5:
+                seq.extend([a, b])
+            else:
+                seq.extend([b, a])
+
+        # Check no-5 at the 31 between-pair boundaries
+        has_five = False
+        for j in range(31):
+            if bit_diff(seq[2*j + 1], seq[2*j + 2]) == 5:
+                has_five = True
+                break
+        if not has_five:
+            cond_no_five += 1
+
+    cond_pct = cond_no_five / cond_trials * 100
+    print(f"  Pair-constrained trials: {cond_trials:,}")
+    print(f"  Also satisfy no-5:       {cond_no_five:,} ({cond_pct:.2f}%)")
+    if cond_no_five > 0:
+        print(f"  Approximately 1 in {cond_trials // cond_no_five:,} pair-constrained orderings avoid 5-line transitions.")
+    else:
+        print(f"  No pair-constrained orderings avoided 5-line transitions (0/{cond_trials:,}).")
+    if cond_pct > 10:
+        print(f"  The no-5 property is COMMON among pair-constrained orderings.")
+        print(f"  The pair structure alone largely explains the absence of 5-line transitions.")
+    elif cond_pct > 1:
+        print(f"  The no-5 property is uncommon but not extraordinary among pair-constrained orderings.")
+    else:
+        print(f"  The no-5 property remains rare even among pair-constrained orderings.")
 
 def print_barchart():
     """Print an ASCII bar chart of the difference wave."""
@@ -2318,6 +2412,10 @@ def print_codons():
     print("set {A, C, G, U}, giving 4^3 = 64 possibilities. While this is a numerical")
     print("coincidence (both are 2^6 = 64), comparing their structural properties is")
     print("instructive about combinatorial systems in general.")
+    print("Caveat: the mapping of bit pairs to DNA bases (00=U, 01=C, 10=A, 11=G) is one")
+    print("of 24 possible assignments. Different mappings produce different codon assignments")
+    print("and different degeneracy statistics. No mapping is privileged by either system.")
+    print("This analysis is illustrative, not evidence of a biological connection.")
     print("---")
 
     # Standard genetic code: map 6-bit values to codons
@@ -2901,9 +2999,12 @@ def main():
         print("This report runs 28 analyses. When testing many properties, some will")
         print("appear 'unusual' by chance alone. A result at the 5% level (p<0.05)")
         print("is expected ~1.4 times out of 28 tests even for a purely random sequence.")
-        print("The strongest findings (pair structure, combined constraints) survive this")
-        print("correction easily. Weaker findings (specific Markov transitions, individual")
-        print("entropy percentiles) should be interpreted with this caveat in mind.")
+        print("A Bonferroni-corrected significance threshold for 28 tests is")
+        print("p < 0.05/28 = 0.0018. Only findings below this threshold can be considered")
+        print("significant after correction. The pair structure (p < 0.0001) survives.")
+        print("The no-5 property (~1 in 550, p ~ 0.0018) is marginal. The entropy")
+        print("percentile (p ~ 0.13) does not survive. Weaker findings should be")
+        print("interpreted with this caveat in mind.")
         print("---")
 
 if __name__ == "__main__":
