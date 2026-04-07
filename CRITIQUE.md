@@ -10,7 +10,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Statistical methodology
 
-- The entropy percentile comparison uses an unconstrained null model (all 64! permutations). A more relevant null model would condition on the pair constraint, since the pair structure is the dominant structural feature.
+- The entropy analysis now includes both unconstrained and pair-constrained null models. King Wen remains more structured than random under both (12th and 6th percentile respectively), but neither survives Bonferroni correction (p > 0.0018).
 - The autocorrelation uses the biased estimator (divides by n rather than n-lag), which attenuates values at higher lags. This is the standard estimator but may understate weak periodicity.
 - The DFT significance threshold (2x noise floor) is ad hoc. A proper test would use Fisher's g-statistic or Bonferroni correction across frequency bins.
 - The DNA codon mapping uses one of 24 possible bit-to-base assignments. Different mappings produce different results. The comparison is illustrative, not evidence of a biological connection.
@@ -27,4 +27,4 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Summary
 
-The program is honest about what it computes and includes explicit statistical caveats where the evidence is thin. The pair structure is the one genuinely extraordinary property — it is vanishingly unlikely by chance. Other findings are either explained by the pair structure (no-5), not significant after Bonferroni correction (entropy), or indistinguishable from pair-constrained random orderings (Markov, path length). The Wald-Wolfowitz runs test detects significant alternation in the difference wave, suggesting the sequence avoids clustering of similar transition sizes.
+The program is honest about what it computes and includes explicit statistical caveats where the evidence is thin. Sensitivity analysis confirms all key mathematical results are invariant under bit-ordering convention (Hamming distance is invariant under bit permutation). The pair structure is the one genuinely extraordinary property — it is vanishingly unlikely by chance. Other findings are either explained by the pair structure (no-5 property, ~4% among pair-constrained orderings), not significant after Bonferroni correction (entropy), or indistinguishable from pair-constrained random orderings (Markov, path length). The Wald-Wolfowitz runs test detects significant alternation in the difference wave (Z = +2.13), suggesting the sequence avoids clustering of similar transition sizes. Effect sizes (Cohen's d) are reported alongside percentiles for key analyses.
