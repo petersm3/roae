@@ -868,6 +868,16 @@ How often do pair-constrained orderings also avoid 5-line transitions?
   Also satisfy no-5:       4,256 (4.26%)
   Approximately 1 in 23 pair-constrained orderings avoid 5-line transitions.
   The no-5 property is uncommon but not extraordinary among pair-constrained orderings.
+
+--- Sensitivity analysis: reversed bit convention ---
+What if bit 0 = top line instead of bottom? All binary values reverse,
+changing pair types and the difference wave. Key properties tested:
+  Pair structure preserved:  Yes
+  No-5 property preserved:   Yes
+  Difference wave identical: Yes
+  Original entropy: 2.0759, reversed: 2.0759
+  Original path length: 211, reversed: 211
+  All key properties are invariant under bit reversal.
 ---
 Windowed entropy analysis
 Instead of one entropy value for the whole wave, we slide a window across it
@@ -1285,6 +1295,9 @@ Entropy measures disorder: high entropy means the difference values are spread
 evenly across all possibilities (random-looking), low entropy means certain values
 dominate (structured). We compare the King Wen wave's entropy against thousands
 of random permutations of the same 64 hexagrams. If King Wen's entropy is
+  Sampling: [------------------------------]   0.0%  Sampling: [------------------------------]   2.5%  Sampling: [#-----------------------------]   5.0%  Sampling: [##----------------------------]   7.5%  Sampling: [###---------------------------]  10.0%  Sampling: [###---------------------------]  12.5%  Sampling: [####--------------------------]  15.0%  Sampling: [#####-------------------------]  17.5%  Sampling: [######------------------------]  20.0%  Sampling: [######------------------------]  22.5%  Sampling: [#######-----------------------]  25.0%  Sampling: [########----------------------]  27.5%  Sampling: [#########---------------------]  30.0%  Sampling: [#########---------------------]  32.5%  Sampling: [##########--------------------]  35.0%  Sampling: [###########-------------------]  37.5%  Sampling: [############------------------]  40.0%  Sampling: [############------------------]  42.5%  Sampling: [#############-----------------]  45.0%  Sampling: [##############----------------]  47.5%  Sampling: [###############---------------]  50.0%  Sampling: [###############---------------]  52.5%  Sampling: [################--------------]  55.0%  Sampling: [#################-------------]  57.5%  Sampling: [##################------------]  60.0%  Sampling: [##################------------]  62.5%  Sampling: [###################-----------]  65.0%  Sampling: [####################----------]  67.5%  Sampling: [#####################---------]  70.0%  Sampling: [#####################---------]  72.5%  Sampling: [######################--------]  75.0%  Sampling: [#######################-------]  77.5%  Sampling: [########################------]  80.0%  Sampling: [########################------]  82.5%  Sampling: [#########################-----]  85.0%  Sampling: [##########################----]  87.5%  Sampling: [###########################---]  90.0%  Sampling: [###########################---]  92.5%  Sampling: [############################--]  95.0%  Sampling: [#############################-]  97.5%  Sampling: [##############################] 100.0%
+  Resampling: [------------------------------]   0.0%  Resampling: [------------------------------]   2.5%  Resampling: [#-----------------------------]   5.0%  Resampling: [##----------------------------]   7.5%  Resampling: [###---------------------------]  10.0%  Resampling: [###---------------------------]  12.5%  Resampling: [####--------------------------]  15.0%  Resampling: [#####-------------------------]  17.5%  Resampling: [######------------------------]  20.0%  Resampling: [######------------------------]  22.5%  Resampling: [#######-----------------------]  25.0%  Resampling: [########----------------------]  27.5%  Resampling: [#########---------------------]  30.0%  Resampling: [#########---------------------]  32.5%  Resampling: [##########--------------------]  35.0%  Resampling: [###########-------------------]  37.5%  Resampling: [############------------------]  40.0%  Resampling: [############------------------]  42.5%  Resampling: [#############-----------------]  45.0%  Resampling: [##############----------------]  47.5%  Resampling: [###############---------------]  50.0%  Resampling: [###############---------------]  52.5%  Resampling: [################--------------]  55.0%  Resampling: [#################-------------]  57.5%  Resampling: [##################------------]  60.0%  Resampling: [##################------------]  62.5%  Resampling: [###################-----------]  65.0%  Resampling: [####################----------]  67.5%  Resampling: [#####################---------]  70.0%  Resampling: [#####################---------]  72.5%  Resampling: [######################--------]  75.0%  Resampling: [#######################-------]  77.5%  Resampling: [########################------]  80.0%  Resampling: [########################------]  82.5%  Resampling: [#########################-----]  85.0%  Resampling: [##########################----]  87.5%  Resampling: [###########################---]  90.0%  Resampling: [###########################---]  92.5%  Resampling: [############################--]  95.0%  Resampling: [#############################-]  97.5%  Resampling: [##############################] 100.0%
+  Shuffling: [------------------------------]   0.0%  Shuffling: [------------------------------]   2.5%  Shuffling: [#-----------------------------]   5.0%  Shuffling: [##----------------------------]   7.5%  Shuffling: [###---------------------------]  10.0%  Shuffling: [###---------------------------]  12.5%  Shuffling: [####--------------------------]  15.0%  Shuffling: [#####-------------------------]  17.5%  Shuffling: [######------------------------]  20.0%  Shuffling: [######------------------------]  22.5%  Shuffling: [#######-----------------------]  25.0%  Shuffling: [########----------------------]  27.5%  Shuffling: [#########---------------------]  30.0%  Shuffling: [#########---------------------]  32.5%  Shuffling: [##########--------------------]  35.0%  Shuffling: [###########-------------------]  37.5%  Shuffling: [############------------------]  40.0%  Shuffling: [############------------------]  42.5%  Shuffling: [#############-----------------]  45.0%  Shuffling: [##############----------------]  47.5%  Shuffling: [###############---------------]  50.0%  Shuffling: [###############---------------]  52.5%  Shuffling: [################--------------]  55.0%  Shuffling: [#################-------------]  57.5%  Shuffling: [##################------------]  60.0%  Shuffling: [##################------------]  62.5%  Shuffling: [###################-----------]  65.0%  Shuffling: [####################----------]  67.5%  Shuffling: [#####################---------]  70.0%  Shuffling: [#####################---------]  72.5%  Shuffling: [######################--------]  75.0%  Shuffling: [#######################-------]  77.5%  Shuffling: [########################------]  80.0%  Shuffling: [########################------]  82.5%  Shuffling: [#########################-----]  85.0%  Shuffling: [##########################----]  87.5%  Shuffling: [###########################---]  90.0%  Shuffling: [###########################---]  92.5%  Shuffling: [############################--]  95.0%  Shuffling: [#############################-]  97.5%  Shuffling: [##############################] 100.0%
 unusually low, the sequence is more structured than random chance would produce.
 ---
 King Wen difference wave entropy: 2.0759 bits
@@ -1294,19 +1307,25 @@ Mean entropy of random permutations: 2.1904 bits
 Min random entropy observed: 1.7195 bits
 Max random entropy observed: 2.4752 bits
 King Wen percentile: 13.8% (lower = more structured)
-  Sampling: [------------------------------]   0.0%  Sampling: [------------------------------]   2.5%  Sampling: [#-----------------------------]   5.0%  Sampling: [##----------------------------]   7.5%  Sampling: [###---------------------------]  10.0%  Sampling: [###---------------------------]  12.5%  Sampling: [####--------------------------]  15.0%  Sampling: [#####-------------------------]  17.5%  Sampling: [######------------------------]  20.0%  Sampling: [######------------------------]  22.5%  Sampling: [#######-----------------------]  25.0%  Sampling: [########----------------------]  27.5%  Sampling: [#########---------------------]  30.0%  Sampling: [#########---------------------]  32.5%  Sampling: [##########--------------------]  35.0%  Sampling: [###########-------------------]  37.5%  Sampling: [############------------------]  40.0%  Sampling: [############------------------]  42.5%  Sampling: [#############-----------------]  45.0%  Sampling: [##############----------------]  47.5%  Sampling: [###############---------------]  50.0%  Sampling: [###############---------------]  52.5%  Sampling: [################--------------]  55.0%  Sampling: [#################-------------]  57.5%  Sampling: [##################------------]  60.0%  Sampling: [##################------------]  62.5%  Sampling: [###################-----------]  65.0%  Sampling: [####################----------]  67.5%  Sampling: [#####################---------]  70.0%  Sampling: [#####################---------]  72.5%  Sampling: [######################--------]  75.0%  Sampling: [#######################-------]  77.5%  Sampling: [########################------]  80.0%  Sampling: [########################------]  82.5%  Sampling: [#########################-----]  85.0%  Sampling: [##########################----]  87.5%  Sampling: [###########################---]  90.0%  Sampling: [###########################---]  92.5%  Sampling: [############################--]  95.0%  Sampling: [#############################-]  97.5%  Sampling: [##############################] 100.0%
-  Resampling: [------------------------------]   0.0%  Resampling: [------------------------------]   2.5%  Resampling: [#-----------------------------]   5.0%  Resampling: [##----------------------------]   7.5%  Resampling: [###---------------------------]  10.0%  Resampling: [###---------------------------]  12.5%  Resampling: [####--------------------------]  15.0%  Resampling: [#####-------------------------]  17.5%  Resampling: [######------------------------]  20.0%  Resampling: [######------------------------]  22.5%  Resampling: [#######-----------------------]  25.0%  Resampling: [########----------------------]  27.5%  Resampling: [#########---------------------]  30.0%  Resampling: [#########---------------------]  32.5%  Resampling: [##########--------------------]  35.0%  Resampling: [###########-------------------]  37.5%  Resampling: [############------------------]  40.0%  Resampling: [############------------------]  42.5%  Resampling: [#############-----------------]  45.0%  Resampling: [##############----------------]  47.5%  Resampling: [###############---------------]  50.0%  Resampling: [###############---------------]  52.5%  Resampling: [################--------------]  55.0%  Resampling: [#################-------------]  57.5%  Resampling: [##################------------]  60.0%  Resampling: [##################------------]  62.5%  Resampling: [###################-----------]  65.0%  Resampling: [####################----------]  67.5%  Resampling: [#####################---------]  70.0%  Resampling: [#####################---------]  72.5%  Resampling: [######################--------]  75.0%  Resampling: [#######################-------]  77.5%  Resampling: [########################------]  80.0%  Resampling: [########################------]  82.5%  Resampling: [#########################-----]  85.0%  Resampling: [##########################----]  87.5%  Resampling: [###########################---]  90.0%  Resampling: [###########################---]  92.5%  Resampling: [############################--]  95.0%  Resampling: [#############################-]  97.5%  Resampling: [##############################] 100.0%
-  Shuffling: [------------------------------]   0.0%  Shuffling: [------------------------------]   2.5%  Shuffling: [#-----------------------------]   5.0%  Shuffling: [##----------------------------]   7.5%  Shuffling: [###---------------------------]  10.0%  Shuffling: [###---------------------------]  12.5%  Shuffling: [####--------------------------]  15.0%  Shuffling: [#####-------------------------]  17.5%  Shuffling: [######------------------------]  20.0%  Shuffling: [######------------------------]  22.5%  Shuffling: [#######-----------------------]  25.0%  Shuffling: [########----------------------]  27.5%  Shuffling: [#########---------------------]  30.0%  Shuffling: [#########---------------------]  32.5%  Shuffling: [##########--------------------]  35.0%  Shuffling: [###########-------------------]  37.5%  Shuffling: [############------------------]  40.0%  Shuffling: [############------------------]  42.5%  Shuffling: [#############-----------------]  45.0%  Shuffling: [##############----------------]  47.5%  Shuffling: [###############---------------]  50.0%  Shuffling: [###############---------------]  52.5%  Shuffling: [################--------------]  55.0%  Shuffling: [#################-------------]  57.5%  Shuffling: [##################------------]  60.0%  Shuffling: [##################------------]  62.5%  Shuffling: [###################-----------]  65.0%  Shuffling: [####################----------]  67.5%  Shuffling: [#####################---------]  70.0%  Shuffling: [#####################---------]  72.5%  Shuffling: [######################--------]  75.0%  Shuffling: [#######################-------]  77.5%  Shuffling: [########################------]  80.0%  Shuffling: [########################------]  82.5%  Shuffling: [#########################-----]  85.0%  Shuffling: [##########################----]  87.5%  Shuffling: [###########################---]  90.0%  Shuffling: [###########################---]  92.5%  Shuffling: [############################--]  95.0%  Shuffling: [#############################-]  97.5%  Shuffling: [##############################] 100.0%
+Effect size (Cohen's d): -1.10 (negative = more structured than random)
+
+--- Entropy conditioned on pair constraint ---
+The unconstrained comparison above may be misleading: the pair structure
+itself constrains the entropy. How does King Wen compare against random
+orderings that also satisfy the pair constraint?
+Mean pair-constrained entropy: 2.2346 bits
+King Wen percentile (pair-constrained): 5.8%
+(Similar to unconstrained percentile of 13.8%.)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
   1             2                  5.9
-  2            20                 15.0
-  3            13                 20.0
-  4            19                 15.1
+  2            20                 14.9
+  3            13                 20.1
+  4            19                 15.0
   5             0                  6.0
-  6             9                  1.0
+  6             9                  1.1
 ---
 Path analysis (graph theory)
 Imagine the 64 hexagrams as cities on a map, where the 'distance' between any
@@ -1320,9 +1339,10 @@ transitions or had other priorities.
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
 Mean random path length:     192.0
-Min random observed:         161
-Max random observed:         232
-King Wen percentile:         97.5% (lower = shorter path)
+Min random observed:         157
+Max random observed:         234
+King Wen percentile:         97.6% (lower = shorter path)
+Effect size (Cohen's d):     +2.03
 
 --- Theoretical bounds ---
 Minimum possible (63 transitions of 1): 63
@@ -1334,10 +1354,11 @@ The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.1
-Min pair-constrained observed:     190
-Max pair-constrained observed:     237
-King Wen percentile (pair-constrained): 29.4%
+Mean pair-constrained path length: 214.3
+Min pair-constrained observed:     189
+Max pair-constrained observed:     242
+King Wen percentile (pair-constrained): 28.2%
+Effect size (Cohen's d, pair-constrained): -0.50
 ---
 Bootstrap confidence intervals
 The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line
@@ -1348,12 +1369,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.110%
-95% confidence interval: [0.050%, 0.170%]
-Interval width: 0.120 percentage points
+No-5-line-transition rate: 0.190%
+95% confidence interval: [0.110%, 0.270%]
+Interval width: 0.160 percentage points
 
-Approximately 1 in 909 random orderings
-95% CI: 1 in 588 to 1 in 2000
+Approximately 1 in 526 random orderings
+95% CI: 1 in 370 to 1 in 909
 ---
 Monte Carlo analysis (10,000 random permutations)
 The King Wen sequence has a striking property: no two consecutive hexagrams
@@ -1363,8 +1384,9 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the more
 likely the King Wen sequence was intentionally designed with this constraint.
 ---
-Permutations with no 5-line transitions: 18/10,000 (0.18%)
-Approximately 1 in 555 random orderings share this property.
+Permutations with no 5-line transitions: 10/10,000 (0.10%)
+Approximately 1 in 1,000 random orderings share this property.
+Odds ratio against random: 999:1
 
 ---
 Note on multiple comparisons

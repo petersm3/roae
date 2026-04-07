@@ -849,6 +849,54 @@ def print_entropy():
     print(f"Min random entropy observed: {random_entropies[0]:.4f} bits")
     print(f"Max random entropy observed: {random_entropies[-1]:.4f} bits")
     print(f"King Wen percentile: {percentile:.1f}% (lower = more structured)")
+    # Effect size: Cohen's d — how many standard deviations from the random mean?
+    std_random = (sum((e - mean_random)**2 for e in random_entropies) / len(random_entropies))**0.5
+    if std_random > 0:
+        cohens_d = (kw_entropy - mean_random) / std_random
+        print(f"Effect size (Cohen's d): {cohens_d:+.2f} (negative = more structured than random)")
+
+    # Pair-constrained entropy comparison
+    print(f"\n--- Entropy conditioned on pair constraint ---")
+    print("The unconstrained comparison above may be misleading: the pair structure")
+    print("itself constrains the entropy. How does King Wen compare against random")
+    print("orderings that also satisfy the pair constraint?")
+
+    # Build pairs
+    paired_set = set()
+    ent_pairs = []
+    for v in range(64):
+        if v in paired_set:
+            continue
+        rev = reverse_6bit(v)
+        inv = v ^ 0b111111
+        partner = rev if rev != v else inv
+        ent_pairs.append((v, partner))
+        paired_set.add(v)
+        paired_set.add(partner)
+
+    pair_entropies = []
+    for _ in range(trials):
+        random.shuffle(ent_pairs)
+        seq = []
+        for a, b in ent_pairs:
+            if random.random() < 0.5:
+                seq.extend([a, b])
+            else:
+                seq.extend([b, a])
+        pair_diffs = [bit_diff(seq[i], seq[i+1]) for i in range(63)]
+        pair_entropies.append(shannon_entropy(pair_diffs))
+
+    pair_entropies.sort()
+    pair_below = sum(1 for e in pair_entropies if e < kw_entropy)
+    pair_percentile = pair_below / len(pair_entropies) * 100
+    pair_mean = sum(pair_entropies) / len(pair_entropies)
+    print(f"Mean pair-constrained entropy: {pair_mean:.4f} bits")
+    print(f"King Wen percentile (pair-constrained): {pair_percentile:.1f}%")
+    if abs(pair_percentile - percentile) > 10:
+        print(f"(Differs from unconstrained percentile of {percentile:.1f}% — the pair structure")
+        print(f" accounts for some of the entropy reduction.)")
+    else:
+        print(f"(Similar to unconstrained percentile of {percentile:.1f}%.)")
 
     # Distribution of difference values vs. random expectation
     print(f"\n--- Distribution comparison ---")
@@ -924,6 +972,9 @@ def print_path():
     print(f"Min random observed:         {min(random_totals)}")
     print(f"Max random observed:         {max(random_totals)}")
     print(f"King Wen percentile:         {percentile:.1f}% (lower = shorter path)")
+    std_rand = (sum((t - mean_random)**2 for t in random_totals) / len(random_totals))**0.5
+    if std_rand > 0:
+        print(f"Effect size (Cohen's d):     {(kw_total - mean_random) / std_rand:+.2f}")
 
     # Theoretical bounds
     print(f"\n--- Theoretical bounds ---")
@@ -964,6 +1015,9 @@ def print_path():
     print(f"Min pair-constrained observed:     {min(pair_totals)}")
     print(f"Max pair-constrained observed:     {max(pair_totals)}")
     print(f"King Wen percentile (pair-constrained): {pair_pct:.1f}%")
+    std_pair = (sum((t - mean_pair)**2 for t in pair_totals) / len(pair_totals))**0.5
+    if std_pair > 0:
+        print(f"Effect size (Cohen's d, pair-constrained): {(kw_total - mean_pair) / std_pair:+.2f}")
 
 def print_stats(trials=100000):
     print("---")
@@ -1000,7 +1054,10 @@ def print_stats(trials=100000):
     if no_five_count == 0:
         print("None observed — the King Wen property is extremely rare.")
     else:
-        print(f"Approximately 1 in {trials // no_five_count} random orderings share this property.")
+        ratio = trials // no_five_count
+        odds = (trials - no_five_count) / max(no_five_count, 1)
+        print(f"Approximately 1 in {ratio:,} random orderings share this property.")
+        print(f"Odds ratio against random: {odds:.0f}:1")
 
 def print_fft():
     """Spectral analysis of the difference wave using Discrete Fourier Transform."""
@@ -1482,6 +1539,65 @@ def print_constraints():
         print(f"  The no-5 property is uncommon but not extraordinary among pair-constrained orderings.")
     else:
         print(f"  The no-5 property remains rare even among pair-constrained orderings.")
+
+    # --- Sensitivity analysis: reversed bit convention ---
+    # What if bit 0 = top line instead of bottom? This reverses all 6-bit values,
+    # changing pair classifications, trigram assignments, and the difference wave.
+    # We test whether the key properties still hold under the alternative convention.
+    print()
+    print("--- Sensitivity analysis: reversed bit convention ---")
+    print("What if bit 0 = top line instead of bottom? All binary values reverse,")
+    print("changing pair types and the difference wave. Key properties tested:")
+    rev_hexagrams = [reverse_6bit(b) for b in binary_hexagrams]
+
+    # Check pair structure under reversed convention
+    rev_pairs_ok = True
+    for j in range(0, 64, 2):
+        is_rev = rev_hexagrams[j] == reverse_6bit(rev_hexagrams[j+1])
+        is_inv = rev_hexagrams[j] == rev_hexagrams[j+1] ^ 0b111111
+        if not is_rev and not is_inv:
+            rev_pairs_ok = False
+            break
+
+    # Check no-5 under reversed convention
+    rev_no_five = True
+    rev_diffs = [bit_diff(rev_hexagrams[i], rev_hexagrams[i+1]) for i in range(63)]
+    for d in rev_diffs:
+        if d == 5:
+            rev_no_five = False
+            break
+
+    # Entropy under reversed convention
+    def shannon_ent(values):
+        counts = {}
+        for v in values:
+            counts[v] = counts.get(v, 0) + 1
+        total = len(values)
+        ent = 0
+        for c in counts.values():
+            if c > 0:
+                p = c / total
+                ent -= p * math.log2(p)
+        return ent
+
+    orig_diffs = compute_diffs(wrap=False)
+    orig_ent = shannon_ent(orig_diffs)
+    rev_ent = shannon_ent(rev_diffs)
+    orig_path = sum(orig_diffs)
+    rev_path = sum(rev_diffs)
+    waves_identical = (orig_diffs == rev_diffs)
+
+    print(f"  Pair structure preserved:  {'Yes' if rev_pairs_ok else 'NO — CHANGES'}")
+    print(f"  No-5 property preserved:   {'Yes' if rev_no_five else 'NO — CHANGES'}")
+    print(f"  Difference wave identical: {'Yes' if waves_identical else 'No — wave changes'}")
+    print(f"  Original entropy: {orig_ent:.4f}, reversed: {rev_ent:.4f}")
+    print(f"  Original path length: {orig_path}, reversed: {rev_path}")
+    if rev_pairs_ok and rev_no_five and waves_identical:
+        print("  All key properties are invariant under bit reversal.")
+    elif rev_pairs_ok and rev_no_five:
+        print("  Key structural properties hold, but wave details differ.")
+    else:
+        print("  WARNING: Key properties change under the alternative convention.")
 
 def print_barchart():
     """Print an ASCII bar chart of the difference wave."""

@@ -4,7 +4,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Data correctness
 
-- The binary hexagram encodings claim to follow [OEIS A102241](https://oeis.org/A102241), but the bit ordering convention (bit 0 = bottom line) is one of several in use. Some sources use bit 0 = top line. If the convention is wrong, every analysis built on it (reverse pairs, trigram decomposition, nuclear hexagrams) produces different results. No sensitivity analysis is performed under the alternative convention.
+- The binary hexagram encodings follow [OEIS A102241](https://oeis.org/A102241) with bit 0 = bottom line. Sensitivity analysis confirms the difference wave, pair structure, and no-5 property are all invariant under bit reversal (since Hamming distance is invariant under bit permutation). Trigram assignments do change under reversal, affecting display labels but not mathematical results.
 - The hexagram names are attributed to the [Wilhelm/Baynes translation](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) but several are simplified or variant. A rigorous treatment would cite each name individually, not give a blanket attribution.
 - The [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering was recomputed from trigram cycling rules, but the actual silk manuscript ordering has scholarly disagreements. The program treats one reconstruction as definitive.
 
@@ -23,10 +23,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Missing analyses
 
-- No sensitivity analysis — how do results change if bit 0 = top line instead of bottom?
 - No comparison against other structured permutations (de Bruijn sequences, Costas arrays) — only random permutations are used as null models.
-- No entropy analysis conditioned on the pair constraint.
-- Effect sizes (Cohen's d, odds ratios) are not reported alongside percentiles.
 
 ## Summary
 
