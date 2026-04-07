@@ -31,7 +31,7 @@ The King Wen sequence is not random, but it's also not optimized for any single 
 
 The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships and avoidance of certain transitions — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, ~3000 years ago) appear to have been working with combinatorial rules, even if they wouldn't have described them in mathematical terms.
 
-Note: with 33 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](CRITIQUE.md) for a full mathematical review.
+Note: with 33 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](CRITIQUE.md) for known limitations.
 
 See [MCKENNA.md](MCKENNA.md) for how these findings relate to Terence McKenna's Timewave Zero theory.
 
@@ -104,10 +104,10 @@ python3 roae.py --explain 1          # Step-by-step walkthrough of transition 1
 ```
 python3 roae.py --json > hexagrams.json   # JSON data
 python3 roae.py --csv > hexagrams.csv     # CSV data
-python3 roae.py --dot > kw.dot            # Graphviz graph
+python3 roae.py --dot > wave.dot            # Graphviz graph
 python3 roae.py --svg > hexagrams.svg     # SVG line diagrams
 python3 roae.py --html > report.html      # Self-contained HTML report
-python3 roae.py --midi > kw.mid           # Difference wave as MIDI audio
+python3 roae.py --midi > wave.mid           # Difference wave as MIDI audio
 ```
 
 ### Verification

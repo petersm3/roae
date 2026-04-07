@@ -67,4 +67,4 @@ The King Wen sequence is genuinely remarkable as a combinatorial object, but McK
 
 The program cannot answer whether the wave "maps onto history" because that is an interpretive claim, not a mathematical one.
 
-See [CRITIQUE.md](CRITIQUE.md) for a full mathematical review of the program's methodology.
+See [CRITIQUE.md](CRITIQUE.md) for known limitations of the program's methodology.

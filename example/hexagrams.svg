@@ -1,0 +1,643 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="560" font-family="monospace" font-size="9">
+<rect width="100%" height="100%" fill="white"/>
+  <text x="60" y="37" text-anchor="middle">1. ䷀</text>
+  <rect x="40" y="40" width="30" height="4" fill="black"/>
+  <rect x="40" y="46" width="30" height="4" fill="black"/>
+  <rect x="40" y="52" width="30" height="4" fill="black"/>
+  <rect x="40" y="58" width="30" height="4" fill="black"/>
+  <rect x="40" y="64" width="30" height="4" fill="black"/>
+  <rect x="40" y="70" width="30" height="4" fill="black"/>
+  <text x="110" y="37" text-anchor="middle">2. ䷁</text>
+  <rect x="90" y="40" width="13" height="4" fill="black"/>
+  <rect x="107" y="40" width="13" height="4" fill="black"/>
+  <rect x="90" y="46" width="13" height="4" fill="black"/>
+  <rect x="107" y="46" width="13" height="4" fill="black"/>
+  <rect x="90" y="52" width="13" height="4" fill="black"/>
+  <rect x="107" y="52" width="13" height="4" fill="black"/>
+  <rect x="90" y="58" width="13" height="4" fill="black"/>
+  <rect x="107" y="58" width="13" height="4" fill="black"/>
+  <rect x="90" y="64" width="13" height="4" fill="black"/>
+  <rect x="107" y="64" width="13" height="4" fill="black"/>
+  <rect x="90" y="70" width="13" height="4" fill="black"/>
+  <rect x="107" y="70" width="13" height="4" fill="black"/>
+  <text x="160" y="37" text-anchor="middle">3. ䷂</text>
+  <rect x="140" y="40" width="13" height="4" fill="black"/>
+  <rect x="157" y="40" width="13" height="4" fill="black"/>
+  <rect x="140" y="46" width="30" height="4" fill="black"/>
+  <rect x="140" y="52" width="13" height="4" fill="black"/>
+  <rect x="157" y="52" width="13" height="4" fill="black"/>
+  <rect x="140" y="58" width="13" height="4" fill="black"/>
+  <rect x="157" y="58" width="13" height="4" fill="black"/>
+  <rect x="140" y="64" width="13" height="4" fill="black"/>
+  <rect x="157" y="64" width="13" height="4" fill="black"/>
+  <rect x="140" y="70" width="30" height="4" fill="black"/>
+  <text x="210" y="37" text-anchor="middle">4. ䷃</text>
+  <rect x="190" y="40" width="30" height="4" fill="black"/>
+  <rect x="190" y="46" width="13" height="4" fill="black"/>
+  <rect x="207" y="46" width="13" height="4" fill="black"/>
+  <rect x="190" y="52" width="13" height="4" fill="black"/>
+  <rect x="207" y="52" width="13" height="4" fill="black"/>
+  <rect x="190" y="58" width="13" height="4" fill="black"/>
+  <rect x="207" y="58" width="13" height="4" fill="black"/>
+  <rect x="190" y="64" width="30" height="4" fill="black"/>
+  <rect x="190" y="70" width="13" height="4" fill="black"/>
+  <rect x="207" y="70" width="13" height="4" fill="black"/>
+  <text x="260" y="37" text-anchor="middle">5. ䷄</text>
+  <rect x="240" y="40" width="13" height="4" fill="black"/>
+  <rect x="257" y="40" width="13" height="4" fill="black"/>
+  <rect x="240" y="46" width="30" height="4" fill="black"/>
+  <rect x="240" y="52" width="13" height="4" fill="black"/>
+  <rect x="257" y="52" width="13" height="4" fill="black"/>
+  <rect x="240" y="58" width="30" height="4" fill="black"/>
+  <rect x="240" y="64" width="30" height="4" fill="black"/>
+  <rect x="240" y="70" width="30" height="4" fill="black"/>
+  <text x="310" y="37" text-anchor="middle">6. ䷅</text>
+  <rect x="290" y="40" width="30" height="4" fill="black"/>
+  <rect x="290" y="46" width="30" height="4" fill="black"/>
+  <rect x="290" y="52" width="30" height="4" fill="black"/>
+  <rect x="290" y="58" width="13" height="4" fill="black"/>
+  <rect x="307" y="58" width="13" height="4" fill="black"/>
+  <rect x="290" y="64" width="30" height="4" fill="black"/>
+  <rect x="290" y="70" width="13" height="4" fill="black"/>
+  <rect x="307" y="70" width="13" height="4" fill="black"/>
+  <text x="360" y="37" text-anchor="middle">7. ䷆</text>
+  <rect x="340" y="40" width="13" height="4" fill="black"/>
+  <rect x="357" y="40" width="13" height="4" fill="black"/>
+  <rect x="340" y="46" width="13" height="4" fill="black"/>
+  <rect x="357" y="46" width="13" height="4" fill="black"/>
+  <rect x="340" y="52" width="13" height="4" fill="black"/>
+  <rect x="357" y="52" width="13" height="4" fill="black"/>
+  <rect x="340" y="58" width="13" height="4" fill="black"/>
+  <rect x="357" y="58" width="13" height="4" fill="black"/>
+  <rect x="340" y="64" width="30" height="4" fill="black"/>
+  <rect x="340" y="70" width="13" height="4" fill="black"/>
+  <rect x="357" y="70" width="13" height="4" fill="black"/>
+  <text x="410" y="37" text-anchor="middle">8. ䷇</text>
+  <rect x="390" y="40" width="13" height="4" fill="black"/>
+  <rect x="407" y="40" width="13" height="4" fill="black"/>
+  <rect x="390" y="46" width="30" height="4" fill="black"/>
+  <rect x="390" y="52" width="13" height="4" fill="black"/>
+  <rect x="407" y="52" width="13" height="4" fill="black"/>
+  <rect x="390" y="58" width="13" height="4" fill="black"/>
+  <rect x="407" y="58" width="13" height="4" fill="black"/>
+  <rect x="390" y="64" width="13" height="4" fill="black"/>
+  <rect x="407" y="64" width="13" height="4" fill="black"/>
+  <rect x="390" y="70" width="13" height="4" fill="black"/>
+  <rect x="407" y="70" width="13" height="4" fill="black"/>
+  <text x="60" y="102" text-anchor="middle">9. ䷈</text>
+  <rect x="40" y="105" width="30" height="4" fill="black"/>
+  <rect x="40" y="111" width="30" height="4" fill="black"/>
+  <rect x="40" y="117" width="13" height="4" fill="black"/>
+  <rect x="57" y="117" width="13" height="4" fill="black"/>
+  <rect x="40" y="123" width="30" height="4" fill="black"/>
+  <rect x="40" y="129" width="30" height="4" fill="black"/>
+  <rect x="40" y="135" width="30" height="4" fill="black"/>
+  <text x="110" y="102" text-anchor="middle">10. ䷉</text>
+  <rect x="90" y="105" width="30" height="4" fill="black"/>
+  <rect x="90" y="111" width="30" height="4" fill="black"/>
+  <rect x="90" y="117" width="30" height="4" fill="black"/>
+  <rect x="90" y="123" width="13" height="4" fill="black"/>
+  <rect x="107" y="123" width="13" height="4" fill="black"/>
+  <rect x="90" y="129" width="30" height="4" fill="black"/>
+  <rect x="90" y="135" width="30" height="4" fill="black"/>
+  <text x="160" y="102" text-anchor="middle">11. ䷊</text>
+  <rect x="140" y="105" width="13" height="4" fill="black"/>
+  <rect x="157" y="105" width="13" height="4" fill="black"/>
+  <rect x="140" y="111" width="13" height="4" fill="black"/>
+  <rect x="157" y="111" width="13" height="4" fill="black"/>
+  <rect x="140" y="117" width="13" height="4" fill="black"/>
+  <rect x="157" y="117" width="13" height="4" fill="black"/>
+  <rect x="140" y="123" width="30" height="4" fill="black"/>
+  <rect x="140" y="129" width="30" height="4" fill="black"/>
+  <rect x="140" y="135" width="30" height="4" fill="black"/>
+  <text x="210" y="102" text-anchor="middle">12. ䷋</text>
+  <rect x="190" y="105" width="30" height="4" fill="black"/>
+  <rect x="190" y="111" width="30" height="4" fill="black"/>
+  <rect x="190" y="117" width="30" height="4" fill="black"/>
+  <rect x="190" y="123" width="13" height="4" fill="black"/>
+  <rect x="207" y="123" width="13" height="4" fill="black"/>
+  <rect x="190" y="129" width="13" height="4" fill="black"/>
+  <rect x="207" y="129" width="13" height="4" fill="black"/>
+  <rect x="190" y="135" width="13" height="4" fill="black"/>
+  <rect x="207" y="135" width="13" height="4" fill="black"/>
+  <text x="260" y="102" text-anchor="middle">13. ䷌</text>
+  <rect x="240" y="105" width="30" height="4" fill="black"/>
+  <rect x="240" y="111" width="30" height="4" fill="black"/>
+  <rect x="240" y="117" width="30" height="4" fill="black"/>
+  <rect x="240" y="123" width="30" height="4" fill="black"/>
+  <rect x="240" y="129" width="13" height="4" fill="black"/>
+  <rect x="257" y="129" width="13" height="4" fill="black"/>
+  <rect x="240" y="135" width="30" height="4" fill="black"/>
+  <text x="310" y="102" text-anchor="middle">14. ䷍</text>
+  <rect x="290" y="105" width="30" height="4" fill="black"/>
+  <rect x="290" y="111" width="13" height="4" fill="black"/>
+  <rect x="307" y="111" width="13" height="4" fill="black"/>
+  <rect x="290" y="117" width="30" height="4" fill="black"/>
+  <rect x="290" y="123" width="30" height="4" fill="black"/>
+  <rect x="290" y="129" width="30" height="4" fill="black"/>
+  <rect x="290" y="135" width="30" height="4" fill="black"/>
+  <text x="360" y="102" text-anchor="middle">15. ䷎</text>
+  <rect x="340" y="105" width="13" height="4" fill="black"/>
+  <rect x="357" y="105" width="13" height="4" fill="black"/>
+  <rect x="340" y="111" width="13" height="4" fill="black"/>
+  <rect x="357" y="111" width="13" height="4" fill="black"/>
+  <rect x="340" y="117" width="13" height="4" fill="black"/>
+  <rect x="357" y="117" width="13" height="4" fill="black"/>
+  <rect x="340" y="123" width="30" height="4" fill="black"/>
+  <rect x="340" y="129" width="13" height="4" fill="black"/>
+  <rect x="357" y="129" width="13" height="4" fill="black"/>
+  <rect x="340" y="135" width="13" height="4" fill="black"/>
+  <rect x="357" y="135" width="13" height="4" fill="black"/>
+  <text x="410" y="102" text-anchor="middle">16. ䷏</text>
+  <rect x="390" y="105" width="13" height="4" fill="black"/>
+  <rect x="407" y="105" width="13" height="4" fill="black"/>
+  <rect x="390" y="111" width="13" height="4" fill="black"/>
+  <rect x="407" y="111" width="13" height="4" fill="black"/>
+  <rect x="390" y="117" width="30" height="4" fill="black"/>
+  <rect x="390" y="123" width="13" height="4" fill="black"/>
+  <rect x="407" y="123" width="13" height="4" fill="black"/>
+  <rect x="390" y="129" width="13" height="4" fill="black"/>
+  <rect x="407" y="129" width="13" height="4" fill="black"/>
+  <rect x="390" y="135" width="13" height="4" fill="black"/>
+  <rect x="407" y="135" width="13" height="4" fill="black"/>
+  <text x="60" y="167" text-anchor="middle">17. ䷐</text>
+  <rect x="40" y="170" width="13" height="4" fill="black"/>
+  <rect x="57" y="170" width="13" height="4" fill="black"/>
+  <rect x="40" y="176" width="30" height="4" fill="black"/>
+  <rect x="40" y="182" width="30" height="4" fill="black"/>
+  <rect x="40" y="188" width="13" height="4" fill="black"/>
+  <rect x="57" y="188" width="13" height="4" fill="black"/>
+  <rect x="40" y="194" width="13" height="4" fill="black"/>
+  <rect x="57" y="194" width="13" height="4" fill="black"/>
+  <rect x="40" y="200" width="30" height="4" fill="black"/>
+  <text x="110" y="167" text-anchor="middle">18. ䷑</text>
+  <rect x="90" y="170" width="30" height="4" fill="black"/>
+  <rect x="90" y="176" width="13" height="4" fill="black"/>
+  <rect x="107" y="176" width="13" height="4" fill="black"/>
+  <rect x="90" y="182" width="13" height="4" fill="black"/>
+  <rect x="107" y="182" width="13" height="4" fill="black"/>
+  <rect x="90" y="188" width="30" height="4" fill="black"/>
+  <rect x="90" y="194" width="30" height="4" fill="black"/>
+  <rect x="90" y="200" width="13" height="4" fill="black"/>
+  <rect x="107" y="200" width="13" height="4" fill="black"/>
+  <text x="160" y="167" text-anchor="middle">19. ䷒</text>
+  <rect x="140" y="170" width="13" height="4" fill="black"/>
+  <rect x="157" y="170" width="13" height="4" fill="black"/>
+  <rect x="140" y="176" width="13" height="4" fill="black"/>
+  <rect x="157" y="176" width="13" height="4" fill="black"/>
+  <rect x="140" y="182" width="13" height="4" fill="black"/>
+  <rect x="157" y="182" width="13" height="4" fill="black"/>
+  <rect x="140" y="188" width="13" height="4" fill="black"/>
+  <rect x="157" y="188" width="13" height="4" fill="black"/>
+  <rect x="140" y="194" width="30" height="4" fill="black"/>
+  <rect x="140" y="200" width="30" height="4" fill="black"/>
+  <text x="210" y="167" text-anchor="middle">20. ䷓</text>
+  <rect x="190" y="170" width="30" height="4" fill="black"/>
+  <rect x="190" y="176" width="30" height="4" fill="black"/>
+  <rect x="190" y="182" width="13" height="4" fill="black"/>
+  <rect x="207" y="182" width="13" height="4" fill="black"/>
+  <rect x="190" y="188" width="13" height="4" fill="black"/>
+  <rect x="207" y="188" width="13" height="4" fill="black"/>
+  <rect x="190" y="194" width="13" height="4" fill="black"/>
+  <rect x="207" y="194" width="13" height="4" fill="black"/>
+  <rect x="190" y="200" width="13" height="4" fill="black"/>
+  <rect x="207" y="200" width="13" height="4" fill="black"/>
+  <text x="260" y="167" text-anchor="middle">21. ䷔</text>
+  <rect x="240" y="170" width="30" height="4" fill="black"/>
+  <rect x="240" y="176" width="13" height="4" fill="black"/>
+  <rect x="257" y="176" width="13" height="4" fill="black"/>
+  <rect x="240" y="182" width="30" height="4" fill="black"/>
+  <rect x="240" y="188" width="13" height="4" fill="black"/>
+  <rect x="257" y="188" width="13" height="4" fill="black"/>
+  <rect x="240" y="194" width="13" height="4" fill="black"/>
+  <rect x="257" y="194" width="13" height="4" fill="black"/>
+  <rect x="240" y="200" width="30" height="4" fill="black"/>
+  <text x="310" y="167" text-anchor="middle">22. ䷕</text>
+  <rect x="290" y="170" width="30" height="4" fill="black"/>
+  <rect x="290" y="176" width="13" height="4" fill="black"/>
+  <rect x="307" y="176" width="13" height="4" fill="black"/>
+  <rect x="290" y="182" width="13" height="4" fill="black"/>
+  <rect x="307" y="182" width="13" height="4" fill="black"/>
+  <rect x="290" y="188" width="30" height="4" fill="black"/>
+  <rect x="290" y="194" width="13" height="4" fill="black"/>
+  <rect x="307" y="194" width="13" height="4" fill="black"/>
+  <rect x="290" y="200" width="30" height="4" fill="black"/>
+  <text x="360" y="167" text-anchor="middle">23. ䷖</text>
+  <rect x="340" y="170" width="30" height="4" fill="black"/>
+  <rect x="340" y="176" width="13" height="4" fill="black"/>
+  <rect x="357" y="176" width="13" height="4" fill="black"/>
+  <rect x="340" y="182" width="13" height="4" fill="black"/>
+  <rect x="357" y="182" width="13" height="4" fill="black"/>
+  <rect x="340" y="188" width="13" height="4" fill="black"/>
+  <rect x="357" y="188" width="13" height="4" fill="black"/>
+  <rect x="340" y="194" width="13" height="4" fill="black"/>
+  <rect x="357" y="194" width="13" height="4" fill="black"/>
+  <rect x="340" y="200" width="13" height="4" fill="black"/>
+  <rect x="357" y="200" width="13" height="4" fill="black"/>
+  <text x="410" y="167" text-anchor="middle">24. ䷗</text>
+  <rect x="390" y="170" width="13" height="4" fill="black"/>
+  <rect x="407" y="170" width="13" height="4" fill="black"/>
+  <rect x="390" y="176" width="13" height="4" fill="black"/>
+  <rect x="407" y="176" width="13" height="4" fill="black"/>
+  <rect x="390" y="182" width="13" height="4" fill="black"/>
+  <rect x="407" y="182" width="13" height="4" fill="black"/>
+  <rect x="390" y="188" width="13" height="4" fill="black"/>
+  <rect x="407" y="188" width="13" height="4" fill="black"/>
+  <rect x="390" y="194" width="13" height="4" fill="black"/>
+  <rect x="407" y="194" width="13" height="4" fill="black"/>
+  <rect x="390" y="200" width="30" height="4" fill="black"/>
+  <text x="60" y="232" text-anchor="middle">25. ䷘</text>
+  <rect x="40" y="235" width="30" height="4" fill="black"/>
+  <rect x="40" y="241" width="30" height="4" fill="black"/>
+  <rect x="40" y="247" width="30" height="4" fill="black"/>
+  <rect x="40" y="253" width="13" height="4" fill="black"/>
+  <rect x="57" y="253" width="13" height="4" fill="black"/>
+  <rect x="40" y="259" width="13" height="4" fill="black"/>
+  <rect x="57" y="259" width="13" height="4" fill="black"/>
+  <rect x="40" y="265" width="30" height="4" fill="black"/>
+  <text x="110" y="232" text-anchor="middle">26. ䷙</text>
+  <rect x="90" y="235" width="30" height="4" fill="black"/>
+  <rect x="90" y="241" width="13" height="4" fill="black"/>
+  <rect x="107" y="241" width="13" height="4" fill="black"/>
+  <rect x="90" y="247" width="13" height="4" fill="black"/>
+  <rect x="107" y="247" width="13" height="4" fill="black"/>
+  <rect x="90" y="253" width="30" height="4" fill="black"/>
+  <rect x="90" y="259" width="30" height="4" fill="black"/>
+  <rect x="90" y="265" width="30" height="4" fill="black"/>
+  <text x="160" y="232" text-anchor="middle">27. ䷚</text>
+  <rect x="140" y="235" width="30" height="4" fill="black"/>
+  <rect x="140" y="241" width="13" height="4" fill="black"/>
+  <rect x="157" y="241" width="13" height="4" fill="black"/>
+  <rect x="140" y="247" width="13" height="4" fill="black"/>
+  <rect x="157" y="247" width="13" height="4" fill="black"/>
+  <rect x="140" y="253" width="13" height="4" fill="black"/>
+  <rect x="157" y="253" width="13" height="4" fill="black"/>
+  <rect x="140" y="259" width="13" height="4" fill="black"/>
+  <rect x="157" y="259" width="13" height="4" fill="black"/>
+  <rect x="140" y="265" width="30" height="4" fill="black"/>
+  <text x="210" y="232" text-anchor="middle">28. ䷛</text>
+  <rect x="190" y="235" width="13" height="4" fill="black"/>
+  <rect x="207" y="235" width="13" height="4" fill="black"/>
+  <rect x="190" y="241" width="30" height="4" fill="black"/>
+  <rect x="190" y="247" width="30" height="4" fill="black"/>
+  <rect x="190" y="253" width="30" height="4" fill="black"/>
+  <rect x="190" y="259" width="30" height="4" fill="black"/>
+  <rect x="190" y="265" width="13" height="4" fill="black"/>
+  <rect x="207" y="265" width="13" height="4" fill="black"/>
+  <text x="260" y="232" text-anchor="middle">29. ䷜</text>
+  <rect x="240" y="235" width="13" height="4" fill="black"/>
+  <rect x="257" y="235" width="13" height="4" fill="black"/>
+  <rect x="240" y="241" width="30" height="4" fill="black"/>
+  <rect x="240" y="247" width="13" height="4" fill="black"/>
+  <rect x="257" y="247" width="13" height="4" fill="black"/>
+  <rect x="240" y="253" width="13" height="4" fill="black"/>
+  <rect x="257" y="253" width="13" height="4" fill="black"/>
+  <rect x="240" y="259" width="30" height="4" fill="black"/>
+  <rect x="240" y="265" width="13" height="4" fill="black"/>
+  <rect x="257" y="265" width="13" height="4" fill="black"/>
+  <text x="310" y="232" text-anchor="middle">30. ䷝</text>
+  <rect x="290" y="235" width="30" height="4" fill="black"/>
+  <rect x="290" y="241" width="13" height="4" fill="black"/>
+  <rect x="307" y="241" width="13" height="4" fill="black"/>
+  <rect x="290" y="247" width="30" height="4" fill="black"/>
+  <rect x="290" y="253" width="30" height="4" fill="black"/>
+  <rect x="290" y="259" width="13" height="4" fill="black"/>
+  <rect x="307" y="259" width="13" height="4" fill="black"/>
+  <rect x="290" y="265" width="30" height="4" fill="black"/>
+  <text x="360" y="232" text-anchor="middle">31. ䷞</text>
+  <rect x="340" y="235" width="13" height="4" fill="black"/>
+  <rect x="357" y="235" width="13" height="4" fill="black"/>
+  <rect x="340" y="241" width="30" height="4" fill="black"/>
+  <rect x="340" y="247" width="30" height="4" fill="black"/>
+  <rect x="340" y="253" width="30" height="4" fill="black"/>
+  <rect x="340" y="259" width="13" height="4" fill="black"/>
+  <rect x="357" y="259" width="13" height="4" fill="black"/>
+  <rect x="340" y="265" width="13" height="4" fill="black"/>
+  <rect x="357" y="265" width="13" height="4" fill="black"/>
+  <text x="410" y="232" text-anchor="middle">32. ䷟</text>
+  <rect x="390" y="235" width="13" height="4" fill="black"/>
+  <rect x="407" y="235" width="13" height="4" fill="black"/>
+  <rect x="390" y="241" width="13" height="4" fill="black"/>
+  <rect x="407" y="241" width="13" height="4" fill="black"/>
+  <rect x="390" y="247" width="30" height="4" fill="black"/>
+  <rect x="390" y="253" width="30" height="4" fill="black"/>
+  <rect x="390" y="259" width="30" height="4" fill="black"/>
+  <rect x="390" y="265" width="13" height="4" fill="black"/>
+  <rect x="407" y="265" width="13" height="4" fill="black"/>
+  <text x="60" y="297" text-anchor="middle">33. ䷠</text>
+  <rect x="40" y="300" width="30" height="4" fill="black"/>
+  <rect x="40" y="306" width="30" height="4" fill="black"/>
+  <rect x="40" y="312" width="30" height="4" fill="black"/>
+  <rect x="40" y="318" width="30" height="4" fill="black"/>
+  <rect x="40" y="324" width="13" height="4" fill="black"/>
+  <rect x="57" y="324" width="13" height="4" fill="black"/>
+  <rect x="40" y="330" width="13" height="4" fill="black"/>
+  <rect x="57" y="330" width="13" height="4" fill="black"/>
+  <text x="110" y="297" text-anchor="middle">34. ䷡</text>
+  <rect x="90" y="300" width="13" height="4" fill="black"/>
+  <rect x="107" y="300" width="13" height="4" fill="black"/>
+  <rect x="90" y="306" width="13" height="4" fill="black"/>
+  <rect x="107" y="306" width="13" height="4" fill="black"/>
+  <rect x="90" y="312" width="30" height="4" fill="black"/>
+  <rect x="90" y="318" width="30" height="4" fill="black"/>
+  <rect x="90" y="324" width="30" height="4" fill="black"/>
+  <rect x="90" y="330" width="30" height="4" fill="black"/>
+  <text x="160" y="297" text-anchor="middle">35. ䷢</text>
+  <rect x="140" y="300" width="30" height="4" fill="black"/>
+  <rect x="140" y="306" width="13" height="4" fill="black"/>
+  <rect x="157" y="306" width="13" height="4" fill="black"/>
+  <rect x="140" y="312" width="30" height="4" fill="black"/>
+  <rect x="140" y="318" width="13" height="4" fill="black"/>
+  <rect x="157" y="318" width="13" height="4" fill="black"/>
+  <rect x="140" y="324" width="13" height="4" fill="black"/>
+  <rect x="157" y="324" width="13" height="4" fill="black"/>
+  <rect x="140" y="330" width="13" height="4" fill="black"/>
+  <rect x="157" y="330" width="13" height="4" fill="black"/>
+  <text x="210" y="297" text-anchor="middle">36. ䷣</text>
+  <rect x="190" y="300" width="13" height="4" fill="black"/>
+  <rect x="207" y="300" width="13" height="4" fill="black"/>
+  <rect x="190" y="306" width="13" height="4" fill="black"/>
+  <rect x="207" y="306" width="13" height="4" fill="black"/>
+  <rect x="190" y="312" width="13" height="4" fill="black"/>
+  <rect x="207" y="312" width="13" height="4" fill="black"/>
+  <rect x="190" y="318" width="30" height="4" fill="black"/>
+  <rect x="190" y="324" width="13" height="4" fill="black"/>
+  <rect x="207" y="324" width="13" height="4" fill="black"/>
+  <rect x="190" y="330" width="30" height="4" fill="black"/>
+  <text x="260" y="297" text-anchor="middle">37. ䷤</text>
+  <rect x="240" y="300" width="30" height="4" fill="black"/>
+  <rect x="240" y="306" width="30" height="4" fill="black"/>
+  <rect x="240" y="312" width="13" height="4" fill="black"/>
+  <rect x="257" y="312" width="13" height="4" fill="black"/>
+  <rect x="240" y="318" width="30" height="4" fill="black"/>
+  <rect x="240" y="324" width="13" height="4" fill="black"/>
+  <rect x="257" y="324" width="13" height="4" fill="black"/>
+  <rect x="240" y="330" width="30" height="4" fill="black"/>
+  <text x="310" y="297" text-anchor="middle">38. ䷥</text>
+  <rect x="290" y="300" width="30" height="4" fill="black"/>
+  <rect x="290" y="306" width="13" height="4" fill="black"/>
+  <rect x="307" y="306" width="13" height="4" fill="black"/>
+  <rect x="290" y="312" width="30" height="4" fill="black"/>
+  <rect x="290" y="318" width="13" height="4" fill="black"/>
+  <rect x="307" y="318" width="13" height="4" fill="black"/>
+  <rect x="290" y="324" width="30" height="4" fill="black"/>
+  <rect x="290" y="330" width="30" height="4" fill="black"/>
+  <text x="360" y="297" text-anchor="middle">39. ䷦</text>
+  <rect x="340" y="300" width="13" height="4" fill="black"/>
+  <rect x="357" y="300" width="13" height="4" fill="black"/>
+  <rect x="340" y="306" width="30" height="4" fill="black"/>
+  <rect x="340" y="312" width="13" height="4" fill="black"/>
+  <rect x="357" y="312" width="13" height="4" fill="black"/>
+  <rect x="340" y="318" width="30" height="4" fill="black"/>
+  <rect x="340" y="324" width="13" height="4" fill="black"/>
+  <rect x="357" y="324" width="13" height="4" fill="black"/>
+  <rect x="340" y="330" width="13" height="4" fill="black"/>
+  <rect x="357" y="330" width="13" height="4" fill="black"/>
+  <text x="410" y="297" text-anchor="middle">40. ䷧</text>
+  <rect x="390" y="300" width="13" height="4" fill="black"/>
+  <rect x="407" y="300" width="13" height="4" fill="black"/>
+  <rect x="390" y="306" width="13" height="4" fill="black"/>
+  <rect x="407" y="306" width="13" height="4" fill="black"/>
+  <rect x="390" y="312" width="30" height="4" fill="black"/>
+  <rect x="390" y="318" width="13" height="4" fill="black"/>
+  <rect x="407" y="318" width="13" height="4" fill="black"/>
+  <rect x="390" y="324" width="30" height="4" fill="black"/>
+  <rect x="390" y="330" width="13" height="4" fill="black"/>
+  <rect x="407" y="330" width="13" height="4" fill="black"/>
+  <text x="60" y="362" text-anchor="middle">41. ䷨</text>
+  <rect x="40" y="365" width="30" height="4" fill="black"/>
+  <rect x="40" y="371" width="13" height="4" fill="black"/>
+  <rect x="57" y="371" width="13" height="4" fill="black"/>
+  <rect x="40" y="377" width="13" height="4" fill="black"/>
+  <rect x="57" y="377" width="13" height="4" fill="black"/>
+  <rect x="40" y="383" width="13" height="4" fill="black"/>
+  <rect x="57" y="383" width="13" height="4" fill="black"/>
+  <rect x="40" y="389" width="30" height="4" fill="black"/>
+  <rect x="40" y="395" width="30" height="4" fill="black"/>
+  <text x="110" y="362" text-anchor="middle">42. ䷩</text>
+  <rect x="90" y="365" width="30" height="4" fill="black"/>
+  <rect x="90" y="371" width="30" height="4" fill="black"/>
+  <rect x="90" y="377" width="13" height="4" fill="black"/>
+  <rect x="107" y="377" width="13" height="4" fill="black"/>
+  <rect x="90" y="383" width="13" height="4" fill="black"/>
+  <rect x="107" y="383" width="13" height="4" fill="black"/>
+  <rect x="90" y="389" width="13" height="4" fill="black"/>
+  <rect x="107" y="389" width="13" height="4" fill="black"/>
+  <rect x="90" y="395" width="30" height="4" fill="black"/>
+  <text x="160" y="362" text-anchor="middle">43. ䷪</text>
+  <rect x="140" y="365" width="13" height="4" fill="black"/>
+  <rect x="157" y="365" width="13" height="4" fill="black"/>
+  <rect x="140" y="371" width="30" height="4" fill="black"/>
+  <rect x="140" y="377" width="30" height="4" fill="black"/>
+  <rect x="140" y="383" width="30" height="4" fill="black"/>
+  <rect x="140" y="389" width="30" height="4" fill="black"/>
+  <rect x="140" y="395" width="30" height="4" fill="black"/>
+  <text x="210" y="362" text-anchor="middle">44. ䷫</text>
+  <rect x="190" y="365" width="30" height="4" fill="black"/>
+  <rect x="190" y="371" width="30" height="4" fill="black"/>
+  <rect x="190" y="377" width="30" height="4" fill="black"/>
+  <rect x="190" y="383" width="30" height="4" fill="black"/>
+  <rect x="190" y="389" width="30" height="4" fill="black"/>
+  <rect x="190" y="395" width="13" height="4" fill="black"/>
+  <rect x="207" y="395" width="13" height="4" fill="black"/>
+  <text x="260" y="362" text-anchor="middle">45. ䷬</text>
+  <rect x="240" y="365" width="13" height="4" fill="black"/>
+  <rect x="257" y="365" width="13" height="4" fill="black"/>
+  <rect x="240" y="371" width="30" height="4" fill="black"/>
+  <rect x="240" y="377" width="30" height="4" fill="black"/>
+  <rect x="240" y="383" width="13" height="4" fill="black"/>
+  <rect x="257" y="383" width="13" height="4" fill="black"/>
+  <rect x="240" y="389" width="13" height="4" fill="black"/>
+  <rect x="257" y="389" width="13" height="4" fill="black"/>
+  <rect x="240" y="395" width="13" height="4" fill="black"/>
+  <rect x="257" y="395" width="13" height="4" fill="black"/>
+  <text x="310" y="362" text-anchor="middle">46. ䷭</text>
+  <rect x="290" y="365" width="13" height="4" fill="black"/>
+  <rect x="307" y="365" width="13" height="4" fill="black"/>
+  <rect x="290" y="371" width="13" height="4" fill="black"/>
+  <rect x="307" y="371" width="13" height="4" fill="black"/>
+  <rect x="290" y="377" width="13" height="4" fill="black"/>
+  <rect x="307" y="377" width="13" height="4" fill="black"/>
+  <rect x="290" y="383" width="30" height="4" fill="black"/>
+  <rect x="290" y="389" width="30" height="4" fill="black"/>
+  <rect x="290" y="395" width="13" height="4" fill="black"/>
+  <rect x="307" y="395" width="13" height="4" fill="black"/>
+  <text x="360" y="362" text-anchor="middle">47. ䷮</text>
+  <rect x="340" y="365" width="13" height="4" fill="black"/>
+  <rect x="357" y="365" width="13" height="4" fill="black"/>
+  <rect x="340" y="371" width="30" height="4" fill="black"/>
+  <rect x="340" y="377" width="30" height="4" fill="black"/>
+  <rect x="340" y="383" width="13" height="4" fill="black"/>
+  <rect x="357" y="383" width="13" height="4" fill="black"/>
+  <rect x="340" y="389" width="30" height="4" fill="black"/>
+  <rect x="340" y="395" width="13" height="4" fill="black"/>
+  <rect x="357" y="395" width="13" height="4" fill="black"/>
+  <text x="410" y="362" text-anchor="middle">48. ䷯</text>
+  <rect x="390" y="365" width="13" height="4" fill="black"/>
+  <rect x="407" y="365" width="13" height="4" fill="black"/>
+  <rect x="390" y="371" width="30" height="4" fill="black"/>
+  <rect x="390" y="377" width="13" height="4" fill="black"/>
+  <rect x="407" y="377" width="13" height="4" fill="black"/>
+  <rect x="390" y="383" width="30" height="4" fill="black"/>
+  <rect x="390" y="389" width="30" height="4" fill="black"/>
+  <rect x="390" y="395" width="13" height="4" fill="black"/>
+  <rect x="407" y="395" width="13" height="4" fill="black"/>
+  <text x="60" y="427" text-anchor="middle">49. ䷰</text>
+  <rect x="40" y="430" width="13" height="4" fill="black"/>
+  <rect x="57" y="430" width="13" height="4" fill="black"/>
+  <rect x="40" y="436" width="30" height="4" fill="black"/>
+  <rect x="40" y="442" width="30" height="4" fill="black"/>
+  <rect x="40" y="448" width="30" height="4" fill="black"/>
+  <rect x="40" y="454" width="13" height="4" fill="black"/>
+  <rect x="57" y="454" width="13" height="4" fill="black"/>
+  <rect x="40" y="460" width="30" height="4" fill="black"/>
+  <text x="110" y="427" text-anchor="middle">50. ䷱</text>
+  <rect x="90" y="430" width="30" height="4" fill="black"/>
+  <rect x="90" y="436" width="13" height="4" fill="black"/>
+  <rect x="107" y="436" width="13" height="4" fill="black"/>
+  <rect x="90" y="442" width="30" height="4" fill="black"/>
+  <rect x="90" y="448" width="30" height="4" fill="black"/>
+  <rect x="90" y="454" width="30" height="4" fill="black"/>
+  <rect x="90" y="460" width="13" height="4" fill="black"/>
+  <rect x="107" y="460" width="13" height="4" fill="black"/>
+  <text x="160" y="427" text-anchor="middle">51. ䷲</text>
+  <rect x="140" y="430" width="13" height="4" fill="black"/>
+  <rect x="157" y="430" width="13" height="4" fill="black"/>
+  <rect x="140" y="436" width="13" height="4" fill="black"/>
+  <rect x="157" y="436" width="13" height="4" fill="black"/>
+  <rect x="140" y="442" width="30" height="4" fill="black"/>
+  <rect x="140" y="448" width="13" height="4" fill="black"/>
+  <rect x="157" y="448" width="13" height="4" fill="black"/>
+  <rect x="140" y="454" width="13" height="4" fill="black"/>
+  <rect x="157" y="454" width="13" height="4" fill="black"/>
+  <rect x="140" y="460" width="30" height="4" fill="black"/>
+  <text x="210" y="427" text-anchor="middle">52. ䷳</text>
+  <rect x="190" y="430" width="30" height="4" fill="black"/>
+  <rect x="190" y="436" width="13" height="4" fill="black"/>
+  <rect x="207" y="436" width="13" height="4" fill="black"/>
+  <rect x="190" y="442" width="13" height="4" fill="black"/>
+  <rect x="207" y="442" width="13" height="4" fill="black"/>
+  <rect x="190" y="448" width="30" height="4" fill="black"/>
+  <rect x="190" y="454" width="13" height="4" fill="black"/>
+  <rect x="207" y="454" width="13" height="4" fill="black"/>
+  <rect x="190" y="460" width="13" height="4" fill="black"/>
+  <rect x="207" y="460" width="13" height="4" fill="black"/>
+  <text x="260" y="427" text-anchor="middle">53. ䷴</text>
+  <rect x="240" y="430" width="30" height="4" fill="black"/>
+  <rect x="240" y="436" width="30" height="4" fill="black"/>
+  <rect x="240" y="442" width="13" height="4" fill="black"/>
+  <rect x="257" y="442" width="13" height="4" fill="black"/>
+  <rect x="240" y="448" width="30" height="4" fill="black"/>
+  <rect x="240" y="454" width="13" height="4" fill="black"/>
+  <rect x="257" y="454" width="13" height="4" fill="black"/>
+  <rect x="240" y="460" width="13" height="4" fill="black"/>
+  <rect x="257" y="460" width="13" height="4" fill="black"/>
+  <text x="310" y="427" text-anchor="middle">54. ䷵</text>
+  <rect x="290" y="430" width="13" height="4" fill="black"/>
+  <rect x="307" y="430" width="13" height="4" fill="black"/>
+  <rect x="290" y="436" width="13" height="4" fill="black"/>
+  <rect x="307" y="436" width="13" height="4" fill="black"/>
+  <rect x="290" y="442" width="30" height="4" fill="black"/>
+  <rect x="290" y="448" width="13" height="4" fill="black"/>
+  <rect x="307" y="448" width="13" height="4" fill="black"/>
+  <rect x="290" y="454" width="30" height="4" fill="black"/>
+  <rect x="290" y="460" width="30" height="4" fill="black"/>
+  <text x="360" y="427" text-anchor="middle">55. ䷶</text>
+  <rect x="340" y="430" width="13" height="4" fill="black"/>
+  <rect x="357" y="430" width="13" height="4" fill="black"/>
+  <rect x="340" y="436" width="13" height="4" fill="black"/>
+  <rect x="357" y="436" width="13" height="4" fill="black"/>
+  <rect x="340" y="442" width="30" height="4" fill="black"/>
+  <rect x="340" y="448" width="30" height="4" fill="black"/>
+  <rect x="340" y="454" width="13" height="4" fill="black"/>
+  <rect x="357" y="454" width="13" height="4" fill="black"/>
+  <rect x="340" y="460" width="30" height="4" fill="black"/>
+  <text x="410" y="427" text-anchor="middle">56. ䷷</text>
+  <rect x="390" y="430" width="30" height="4" fill="black"/>
+  <rect x="390" y="436" width="13" height="4" fill="black"/>
+  <rect x="407" y="436" width="13" height="4" fill="black"/>
+  <rect x="390" y="442" width="30" height="4" fill="black"/>
+  <rect x="390" y="448" width="30" height="4" fill="black"/>
+  <rect x="390" y="454" width="13" height="4" fill="black"/>
+  <rect x="407" y="454" width="13" height="4" fill="black"/>
+  <rect x="390" y="460" width="13" height="4" fill="black"/>
+  <rect x="407" y="460" width="13" height="4" fill="black"/>
+  <text x="60" y="492" text-anchor="middle">57. ䷸</text>
+  <rect x="40" y="495" width="30" height="4" fill="black"/>
+  <rect x="40" y="501" width="30" height="4" fill="black"/>
+  <rect x="40" y="507" width="13" height="4" fill="black"/>
+  <rect x="57" y="507" width="13" height="4" fill="black"/>
+  <rect x="40" y="513" width="30" height="4" fill="black"/>
+  <rect x="40" y="519" width="30" height="4" fill="black"/>
+  <rect x="40" y="525" width="13" height="4" fill="black"/>
+  <rect x="57" y="525" width="13" height="4" fill="black"/>
+  <text x="110" y="492" text-anchor="middle">58. ䷹</text>
+  <rect x="90" y="495" width="13" height="4" fill="black"/>
+  <rect x="107" y="495" width="13" height="4" fill="black"/>
+  <rect x="90" y="501" width="30" height="4" fill="black"/>
+  <rect x="90" y="507" width="30" height="4" fill="black"/>
+  <rect x="90" y="513" width="13" height="4" fill="black"/>
+  <rect x="107" y="513" width="13" height="4" fill="black"/>
+  <rect x="90" y="519" width="30" height="4" fill="black"/>
+  <rect x="90" y="525" width="30" height="4" fill="black"/>
+  <text x="160" y="492" text-anchor="middle">59. ䷺</text>
+  <rect x="140" y="495" width="30" height="4" fill="black"/>
+  <rect x="140" y="501" width="30" height="4" fill="black"/>
+  <rect x="140" y="507" width="13" height="4" fill="black"/>
+  <rect x="157" y="507" width="13" height="4" fill="black"/>
+  <rect x="140" y="513" width="13" height="4" fill="black"/>
+  <rect x="157" y="513" width="13" height="4" fill="black"/>
+  <rect x="140" y="519" width="30" height="4" fill="black"/>
+  <rect x="140" y="525" width="13" height="4" fill="black"/>
+  <rect x="157" y="525" width="13" height="4" fill="black"/>
+  <text x="210" y="492" text-anchor="middle">60. ䷻</text>
+  <rect x="190" y="495" width="13" height="4" fill="black"/>
+  <rect x="207" y="495" width="13" height="4" fill="black"/>
+  <rect x="190" y="501" width="30" height="4" fill="black"/>
+  <rect x="190" y="507" width="13" height="4" fill="black"/>
+  <rect x="207" y="507" width="13" height="4" fill="black"/>
+  <rect x="190" y="513" width="13" height="4" fill="black"/>
+  <rect x="207" y="513" width="13" height="4" fill="black"/>
+  <rect x="190" y="519" width="30" height="4" fill="black"/>
+  <rect x="190" y="525" width="30" height="4" fill="black"/>
+  <text x="260" y="492" text-anchor="middle">61. ䷼</text>
+  <rect x="240" y="495" width="30" height="4" fill="black"/>
+  <rect x="240" y="501" width="30" height="4" fill="black"/>
+  <rect x="240" y="507" width="13" height="4" fill="black"/>
+  <rect x="257" y="507" width="13" height="4" fill="black"/>
+  <rect x="240" y="513" width="13" height="4" fill="black"/>
+  <rect x="257" y="513" width="13" height="4" fill="black"/>
+  <rect x="240" y="519" width="30" height="4" fill="black"/>
+  <rect x="240" y="525" width="30" height="4" fill="black"/>
+  <text x="310" y="492" text-anchor="middle">62. ䷽</text>
+  <rect x="290" y="495" width="13" height="4" fill="black"/>
+  <rect x="307" y="495" width="13" height="4" fill="black"/>
+  <rect x="290" y="501" width="13" height="4" fill="black"/>
+  <rect x="307" y="501" width="13" height="4" fill="black"/>
+  <rect x="290" y="507" width="30" height="4" fill="black"/>
+  <rect x="290" y="513" width="30" height="4" fill="black"/>
+  <rect x="290" y="519" width="13" height="4" fill="black"/>
+  <rect x="307" y="519" width="13" height="4" fill="black"/>
+  <rect x="290" y="525" width="13" height="4" fill="black"/>
+  <rect x="307" y="525" width="13" height="4" fill="black"/>
+  <text x="360" y="492" text-anchor="middle">63. ䷾</text>
+  <rect x="340" y="495" width="13" height="4" fill="black"/>
+  <rect x="357" y="495" width="13" height="4" fill="black"/>
+  <rect x="340" y="501" width="30" height="4" fill="black"/>
+  <rect x="340" y="507" width="13" height="4" fill="black"/>
+  <rect x="357" y="507" width="13" height="4" fill="black"/>
+  <rect x="340" y="513" width="30" height="4" fill="black"/>
+  <rect x="340" y="519" width="13" height="4" fill="black"/>
+  <rect x="357" y="519" width="13" height="4" fill="black"/>
+  <rect x="340" y="525" width="30" height="4" fill="black"/>
+  <text x="410" y="492" text-anchor="middle">64. ䷿</text>
+  <rect x="390" y="495" width="30" height="4" fill="black"/>
+  <rect x="390" y="501" width="13" height="4" fill="black"/>
+  <rect x="407" y="501" width="13" height="4" fill="black"/>
+  <rect x="390" y="507" width="30" height="4" fill="black"/>
+  <rect x="390" y="513" width="13" height="4" fill="black"/>
+  <rect x="407" y="513" width="13" height="4" fill="black"/>
+  <rect x="390" y="519" width="30" height="4" fill="black"/>
+  <rect x="390" y="525" width="13" height="4" fill="black"/>
+  <rect x="407" y="525" width="13" height="4" fill="black"/>
+</svg>

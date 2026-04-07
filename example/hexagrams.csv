@@ -1,0 +1,65 @@
+position,unicode,binary,decimal,name,upper_pinyin,upper_meaning,lower_pinyin,lower_meaning,nuclear_position
+1,䷀,111111,63,The Creative,Qian,Heaven,Qian,Heaven,1
+2,䷁,000000,0,The Receptive,Kun,Earth,Kun,Earth,2
+3,䷂,010001,17,Difficulty at the Beginning,Kan,Water,Zhen,Thunder,23
+4,䷃,100010,34,Youthful Folly,Gen,Mountain,Kan,Water,24
+5,䷄,010111,23,Waiting,Kan,Water,Qian,Heaven,38
+6,䷅,111010,58,Conflict,Qian,Heaven,Kan,Water,37
+7,䷆,000010,2,The Army,Kun,Earth,Kan,Water,24
+8,䷇,010000,16,Holding Together,Kan,Water,Kun,Earth,23
+9,䷈,110111,55,Small Taming,Xun,Wind,Qian,Heaven,38
+10,䷉,111011,59,Treading,Qian,Heaven,Dui,Lake,37
+11,䷊,000111,7,Peace,Kun,Earth,Qian,Heaven,54
+12,䷋,111000,56,Standstill,Qian,Heaven,Kun,Earth,53
+13,䷌,111101,61,Fellowship,Qian,Heaven,Li,Fire,44
+14,䷍,101111,47,Great Possession,Li,Fire,Qian,Heaven,43
+15,䷎,000100,4,Modesty,Kun,Earth,Gen,Mountain,40
+16,䷏,001000,8,Enthusiasm,Zhen,Thunder,Kun,Earth,39
+17,䷐,011001,25,Following,Dui,Lake,Zhen,Thunder,53
+18,䷑,100110,38,Work on the Decayed,Gen,Mountain,Xun,Wind,54
+19,䷒,000011,3,Approach,Kun,Earth,Dui,Lake,24
+20,䷓,110000,48,Contemplation,Xun,Wind,Kun,Earth,23
+21,䷔,101001,41,Biting Through,Li,Fire,Zhen,Thunder,39
+22,䷕,100101,37,Grace,Gen,Mountain,Li,Fire,40
+23,䷖,100000,32,Splitting Apart,Gen,Mountain,Kun,Earth,2
+24,䷗,000001,1,Return,Kun,Earth,Zhen,Thunder,2
+25,䷘,111001,57,Innocence,Qian,Heaven,Zhen,Thunder,53
+26,䷙,100111,39,Great Taming,Gen,Mountain,Qian,Heaven,54
+27,䷚,100001,33,Nourishment,Gen,Mountain,Zhen,Thunder,2
+28,䷛,011110,30,Great Preponderance,Dui,Lake,Xun,Wind,1
+29,䷜,010010,18,The Abysmal,Kan,Water,Kan,Water,27
+30,䷝,101101,45,The Clinging,Li,Fire,Li,Fire,28
+31,䷞,011100,28,Influence,Dui,Lake,Gen,Mountain,44
+32,䷟,001110,14,Duration,Zhen,Thunder,Xun,Wind,43
+33,䷠,111100,60,Retreat,Qian,Heaven,Gen,Mountain,44
+34,䷡,001111,15,Great Power,Zhen,Thunder,Qian,Heaven,43
+35,䷢,101000,40,Progress,Li,Fire,Kun,Earth,39
+36,䷣,000101,5,Darkening of the Light,Kun,Earth,Li,Fire,40
+37,䷤,110101,53,The Family,Xun,Wind,Li,Fire,64
+38,䷥,101011,43,Opposition,Li,Fire,Dui,Lake,63
+39,䷦,010100,20,Obstruction,Kan,Water,Gen,Mountain,64
+40,䷧,001010,10,Deliverance,Zhen,Thunder,Kan,Water,63
+41,䷨,100011,35,Decrease,Gen,Mountain,Dui,Lake,24
+42,䷩,110001,49,Increase,Xun,Wind,Zhen,Thunder,23
+43,䷪,011111,31,Breakthrough,Dui,Lake,Qian,Heaven,1
+44,䷫,111110,62,Coming to Meet,Qian,Heaven,Xun,Wind,1
+45,䷬,011000,24,Gathering Together,Dui,Lake,Kun,Earth,53
+46,䷭,000110,6,Pushing Upward,Kun,Earth,Xun,Wind,54
+47,䷮,011010,26,Oppression,Dui,Lake,Kan,Water,37
+48,䷯,010110,22,The Well,Kan,Water,Xun,Wind,38
+49,䷰,011101,29,Revolution,Dui,Lake,Li,Fire,44
+50,䷱,101110,46,The Cauldron,Li,Fire,Xun,Wind,43
+51,䷲,001001,9,The Arousing,Zhen,Thunder,Zhen,Thunder,39
+52,䷳,100100,36,Keeping Still,Gen,Mountain,Gen,Mountain,40
+53,䷴,110100,52,Development,Xun,Wind,Gen,Mountain,64
+54,䷵,001011,11,The Marrying Maiden,Zhen,Thunder,Dui,Lake,63
+55,䷶,001101,13,Abundance,Zhen,Thunder,Li,Fire,28
+56,䷷,101100,44,The Wanderer,Li,Fire,Gen,Mountain,28
+57,䷸,110110,54,The Gentle,Xun,Wind,Xun,Wind,38
+58,䷹,011011,27,The Joyous,Dui,Lake,Dui,Lake,37
+59,䷺,110010,50,Dispersion,Xun,Wind,Kan,Water,27
+60,䷻,010011,19,Limitation,Kan,Water,Dui,Lake,27
+61,䷼,110011,51,Inner Truth,Xun,Wind,Dui,Lake,27
+62,䷽,001100,12,Small Preponderance,Zhen,Thunder,Gen,Mountain,28
+63,䷾,010101,21,After Completion,Kan,Water,Li,Fire,64
+64,䷿,101010,42,Before Completion,Li,Fire,Kan,Water,63

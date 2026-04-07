@@ -1,0 +1,1347 @@
+{
+  "description": "King Wen sequence hexagram data",
+  "source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+  "hexagrams": [
+    {
+      "position": 1,
+      "unicode": "䷀",
+      "binary": "111111",
+      "decimal": 63,
+      "name": "The Creative",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 1
+    },
+    {
+      "position": 2,
+      "unicode": "䷁",
+      "binary": "000000",
+      "decimal": 0,
+      "name": "The Receptive",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 2
+    },
+    {
+      "position": 3,
+      "unicode": "䷂",
+      "binary": "010001",
+      "decimal": 17,
+      "name": "Difficulty at the Beginning",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 23
+    },
+    {
+      "position": 4,
+      "unicode": "䷃",
+      "binary": "100010",
+      "decimal": 34,
+      "name": "Youthful Folly",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 24
+    },
+    {
+      "position": 5,
+      "unicode": "䷄",
+      "binary": "010111",
+      "decimal": 23,
+      "name": "Waiting",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 38
+    },
+    {
+      "position": 6,
+      "unicode": "䷅",
+      "binary": "111010",
+      "decimal": 58,
+      "name": "Conflict",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 37
+    },
+    {
+      "position": 7,
+      "unicode": "䷆",
+      "binary": "000010",
+      "decimal": 2,
+      "name": "The Army",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 24
+    },
+    {
+      "position": 8,
+      "unicode": "䷇",
+      "binary": "010000",
+      "decimal": 16,
+      "name": "Holding Together",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 23
+    },
+    {
+      "position": 9,
+      "unicode": "䷈",
+      "binary": "110111",
+      "decimal": 55,
+      "name": "Small Taming",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 38
+    },
+    {
+      "position": 10,
+      "unicode": "䷉",
+      "binary": "111011",
+      "decimal": 59,
+      "name": "Treading",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 37
+    },
+    {
+      "position": 11,
+      "unicode": "䷊",
+      "binary": "000111",
+      "decimal": 7,
+      "name": "Peace",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 54
+    },
+    {
+      "position": 12,
+      "unicode": "䷋",
+      "binary": "111000",
+      "decimal": 56,
+      "name": "Standstill",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 53
+    },
+    {
+      "position": 13,
+      "unicode": "䷌",
+      "binary": "111101",
+      "decimal": 61,
+      "name": "Fellowship",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 44
+    },
+    {
+      "position": 14,
+      "unicode": "䷍",
+      "binary": "101111",
+      "decimal": 47,
+      "name": "Great Possession",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 43
+    },
+    {
+      "position": 15,
+      "unicode": "䷎",
+      "binary": "000100",
+      "decimal": 4,
+      "name": "Modesty",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 40
+    },
+    {
+      "position": 16,
+      "unicode": "䷏",
+      "binary": "001000",
+      "decimal": 8,
+      "name": "Enthusiasm",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 39
+    },
+    {
+      "position": 17,
+      "unicode": "䷐",
+      "binary": "011001",
+      "decimal": 25,
+      "name": "Following",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 53
+    },
+    {
+      "position": 18,
+      "unicode": "䷑",
+      "binary": "100110",
+      "decimal": 38,
+      "name": "Work on the Decayed",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 54
+    },
+    {
+      "position": 19,
+      "unicode": "䷒",
+      "binary": "000011",
+      "decimal": 3,
+      "name": "Approach",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 24
+    },
+    {
+      "position": 20,
+      "unicode": "䷓",
+      "binary": "110000",
+      "decimal": 48,
+      "name": "Contemplation",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 23
+    },
+    {
+      "position": 21,
+      "unicode": "䷔",
+      "binary": "101001",
+      "decimal": 41,
+      "name": "Biting Through",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 39
+    },
+    {
+      "position": 22,
+      "unicode": "䷕",
+      "binary": "100101",
+      "decimal": 37,
+      "name": "Grace",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 40
+    },
+    {
+      "position": 23,
+      "unicode": "䷖",
+      "binary": "100000",
+      "decimal": 32,
+      "name": "Splitting Apart",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 2
+    },
+    {
+      "position": 24,
+      "unicode": "䷗",
+      "binary": "000001",
+      "decimal": 1,
+      "name": "Return",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 2
+    },
+    {
+      "position": 25,
+      "unicode": "䷘",
+      "binary": "111001",
+      "decimal": 57,
+      "name": "Innocence",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 53
+    },
+    {
+      "position": 26,
+      "unicode": "䷙",
+      "binary": "100111",
+      "decimal": 39,
+      "name": "Great Taming",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 54
+    },
+    {
+      "position": 27,
+      "unicode": "䷚",
+      "binary": "100001",
+      "decimal": 33,
+      "name": "Nourishment",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 2
+    },
+    {
+      "position": 28,
+      "unicode": "䷛",
+      "binary": "011110",
+      "decimal": 30,
+      "name": "Great Preponderance",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 1
+    },
+    {
+      "position": 29,
+      "unicode": "䷜",
+      "binary": "010010",
+      "decimal": 18,
+      "name": "The Abysmal",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 27
+    },
+    {
+      "position": 30,
+      "unicode": "䷝",
+      "binary": "101101",
+      "decimal": 45,
+      "name": "The Clinging",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 28
+    },
+    {
+      "position": 31,
+      "unicode": "䷞",
+      "binary": "011100",
+      "decimal": 28,
+      "name": "Influence",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 44
+    },
+    {
+      "position": 32,
+      "unicode": "䷟",
+      "binary": "001110",
+      "decimal": 14,
+      "name": "Duration",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 43
+    },
+    {
+      "position": 33,
+      "unicode": "䷠",
+      "binary": "111100",
+      "decimal": 60,
+      "name": "Retreat",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 44
+    },
+    {
+      "position": 34,
+      "unicode": "䷡",
+      "binary": "001111",
+      "decimal": 15,
+      "name": "Great Power",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 43
+    },
+    {
+      "position": 35,
+      "unicode": "䷢",
+      "binary": "101000",
+      "decimal": 40,
+      "name": "Progress",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 39
+    },
+    {
+      "position": 36,
+      "unicode": "䷣",
+      "binary": "000101",
+      "decimal": 5,
+      "name": "Darkening of the Light",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 40
+    },
+    {
+      "position": 37,
+      "unicode": "䷤",
+      "binary": "110101",
+      "decimal": 53,
+      "name": "The Family",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 64
+    },
+    {
+      "position": 38,
+      "unicode": "䷥",
+      "binary": "101011",
+      "decimal": 43,
+      "name": "Opposition",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 63
+    },
+    {
+      "position": 39,
+      "unicode": "䷦",
+      "binary": "010100",
+      "decimal": 20,
+      "name": "Obstruction",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 64
+    },
+    {
+      "position": 40,
+      "unicode": "䷧",
+      "binary": "001010",
+      "decimal": 10,
+      "name": "Deliverance",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 63
+    },
+    {
+      "position": 41,
+      "unicode": "䷨",
+      "binary": "100011",
+      "decimal": 35,
+      "name": "Decrease",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 24
+    },
+    {
+      "position": 42,
+      "unicode": "䷩",
+      "binary": "110001",
+      "decimal": 49,
+      "name": "Increase",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 23
+    },
+    {
+      "position": 43,
+      "unicode": "䷪",
+      "binary": "011111",
+      "decimal": 31,
+      "name": "Breakthrough",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "nuclear_position": 1
+    },
+    {
+      "position": 44,
+      "unicode": "䷫",
+      "binary": "111110",
+      "decimal": 62,
+      "name": "Coming to Meet",
+      "upper_trigram": {
+        "pinyin": "Qian",
+        "meaning": "Heaven"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 1
+    },
+    {
+      "position": 45,
+      "unicode": "䷬",
+      "binary": "011000",
+      "decimal": 24,
+      "name": "Gathering Together",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "nuclear_position": 53
+    },
+    {
+      "position": 46,
+      "unicode": "䷭",
+      "binary": "000110",
+      "decimal": 6,
+      "name": "Pushing Upward",
+      "upper_trigram": {
+        "pinyin": "Kun",
+        "meaning": "Earth"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 54
+    },
+    {
+      "position": 47,
+      "unicode": "䷮",
+      "binary": "011010",
+      "decimal": 26,
+      "name": "Oppression",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 37
+    },
+    {
+      "position": 48,
+      "unicode": "䷯",
+      "binary": "010110",
+      "decimal": 22,
+      "name": "The Well",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 38
+    },
+    {
+      "position": 49,
+      "unicode": "䷰",
+      "binary": "011101",
+      "decimal": 29,
+      "name": "Revolution",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 44
+    },
+    {
+      "position": 50,
+      "unicode": "䷱",
+      "binary": "101110",
+      "decimal": 46,
+      "name": "The Cauldron",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 43
+    },
+    {
+      "position": 51,
+      "unicode": "䷲",
+      "binary": "001001",
+      "decimal": 9,
+      "name": "The Arousing",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "nuclear_position": 39
+    },
+    {
+      "position": 52,
+      "unicode": "䷳",
+      "binary": "100100",
+      "decimal": 36,
+      "name": "Keeping Still",
+      "upper_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 40
+    },
+    {
+      "position": 53,
+      "unicode": "䷴",
+      "binary": "110100",
+      "decimal": 52,
+      "name": "Development",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 64
+    },
+    {
+      "position": 54,
+      "unicode": "䷵",
+      "binary": "001011",
+      "decimal": 11,
+      "name": "The Marrying Maiden",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 63
+    },
+    {
+      "position": 55,
+      "unicode": "䷶",
+      "binary": "001101",
+      "decimal": 13,
+      "name": "Abundance",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 28
+    },
+    {
+      "position": 56,
+      "unicode": "䷷",
+      "binary": "101100",
+      "decimal": 44,
+      "name": "The Wanderer",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 28
+    },
+    {
+      "position": 57,
+      "unicode": "䷸",
+      "binary": "110110",
+      "decimal": 54,
+      "name": "The Gentle",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "nuclear_position": 38
+    },
+    {
+      "position": 58,
+      "unicode": "䷹",
+      "binary": "011011",
+      "decimal": 27,
+      "name": "The Joyous",
+      "upper_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 37
+    },
+    {
+      "position": 59,
+      "unicode": "䷺",
+      "binary": "110010",
+      "decimal": 50,
+      "name": "Dispersion",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 27
+    },
+    {
+      "position": 60,
+      "unicode": "䷻",
+      "binary": "010011",
+      "decimal": 19,
+      "name": "Limitation",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 27
+    },
+    {
+      "position": 61,
+      "unicode": "䷼",
+      "binary": "110011",
+      "decimal": 51,
+      "name": "Inner Truth",
+      "upper_trigram": {
+        "pinyin": "Xun",
+        "meaning": "Wind"
+      },
+      "lower_trigram": {
+        "pinyin": "Dui",
+        "meaning": "Lake"
+      },
+      "nuclear_position": 27
+    },
+    {
+      "position": 62,
+      "unicode": "䷽",
+      "binary": "001100",
+      "decimal": 12,
+      "name": "Small Preponderance",
+      "upper_trigram": {
+        "pinyin": "Zhen",
+        "meaning": "Thunder"
+      },
+      "lower_trigram": {
+        "pinyin": "Gen",
+        "meaning": "Mountain"
+      },
+      "nuclear_position": 28
+    },
+    {
+      "position": 63,
+      "unicode": "䷾",
+      "binary": "010101",
+      "decimal": 21,
+      "name": "After Completion",
+      "upper_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "lower_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "nuclear_position": 64
+    },
+    {
+      "position": 64,
+      "unicode": "䷿",
+      "binary": "101010",
+      "decimal": 42,
+      "name": "Before Completion",
+      "upper_trigram": {
+        "pinyin": "Li",
+        "meaning": "Fire"
+      },
+      "lower_trigram": {
+        "pinyin": "Kan",
+        "meaning": "Water"
+      },
+      "nuclear_position": 63
+    }
+  ],
+  "transitions": [
+    {
+      "from": 1,
+      "to": 2,
+      "line_changes": 6
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "line_changes": 2
+    },
+    {
+      "from": 3,
+      "to": 4,
+      "line_changes": 4
+    },
+    {
+      "from": 4,
+      "to": 5,
+      "line_changes": 4
+    },
+    {
+      "from": 5,
+      "to": 6,
+      "line_changes": 4
+    },
+    {
+      "from": 6,
+      "to": 7,
+      "line_changes": 3
+    },
+    {
+      "from": 7,
+      "to": 8,
+      "line_changes": 2
+    },
+    {
+      "from": 8,
+      "to": 9,
+      "line_changes": 4
+    },
+    {
+      "from": 9,
+      "to": 10,
+      "line_changes": 2
+    },
+    {
+      "from": 10,
+      "to": 11,
+      "line_changes": 4
+    },
+    {
+      "from": 11,
+      "to": 12,
+      "line_changes": 6
+    },
+    {
+      "from": 12,
+      "to": 13,
+      "line_changes": 2
+    },
+    {
+      "from": 13,
+      "to": 14,
+      "line_changes": 2
+    },
+    {
+      "from": 14,
+      "to": 15,
+      "line_changes": 4
+    },
+    {
+      "from": 15,
+      "to": 16,
+      "line_changes": 2
+    },
+    {
+      "from": 16,
+      "to": 17,
+      "line_changes": 2
+    },
+    {
+      "from": 17,
+      "to": 18,
+      "line_changes": 6
+    },
+    {
+      "from": 18,
+      "to": 19,
+      "line_changes": 3
+    },
+    {
+      "from": 19,
+      "to": 20,
+      "line_changes": 4
+    },
+    {
+      "from": 20,
+      "to": 21,
+      "line_changes": 3
+    },
+    {
+      "from": 21,
+      "to": 22,
+      "line_changes": 2
+    },
+    {
+      "from": 22,
+      "to": 23,
+      "line_changes": 2
+    },
+    {
+      "from": 23,
+      "to": 24,
+      "line_changes": 2
+    },
+    {
+      "from": 24,
+      "to": 25,
+      "line_changes": 3
+    },
+    {
+      "from": 25,
+      "to": 26,
+      "line_changes": 4
+    },
+    {
+      "from": 26,
+      "to": 27,
+      "line_changes": 2
+    },
+    {
+      "from": 27,
+      "to": 28,
+      "line_changes": 6
+    },
+    {
+      "from": 28,
+      "to": 29,
+      "line_changes": 2
+    },
+    {
+      "from": 29,
+      "to": 30,
+      "line_changes": 6
+    },
+    {
+      "from": 30,
+      "to": 31,
+      "line_changes": 3
+    },
+    {
+      "from": 31,
+      "to": 32,
+      "line_changes": 2
+    },
+    {
+      "from": 32,
+      "to": 33,
+      "line_changes": 3
+    },
+    {
+      "from": 33,
+      "to": 34,
+      "line_changes": 4
+    },
+    {
+      "from": 34,
+      "to": 35,
+      "line_changes": 4
+    },
+    {
+      "from": 35,
+      "to": 36,
+      "line_changes": 4
+    },
+    {
+      "from": 36,
+      "to": 37,
+      "line_changes": 2
+    },
+    {
+      "from": 37,
+      "to": 38,
+      "line_changes": 4
+    },
+    {
+      "from": 38,
+      "to": 39,
+      "line_changes": 6
+    },
+    {
+      "from": 39,
+      "to": 40,
+      "line_changes": 4
+    },
+    {
+      "from": 40,
+      "to": 41,
+      "line_changes": 3
+    },
+    {
+      "from": 41,
+      "to": 42,
+      "line_changes": 2
+    },
+    {
+      "from": 42,
+      "to": 43,
+      "line_changes": 4
+    },
+    {
+      "from": 43,
+      "to": 44,
+      "line_changes": 2
+    },
+    {
+      "from": 44,
+      "to": 45,
+      "line_changes": 3
+    },
+    {
+      "from": 45,
+      "to": 46,
+      "line_changes": 4
+    },
+    {
+      "from": 46,
+      "to": 47,
+      "line_changes": 3
+    },
+    {
+      "from": 47,
+      "to": 48,
+      "line_changes": 2
+    },
+    {
+      "from": 48,
+      "to": 49,
+      "line_changes": 3
+    },
+    {
+      "from": 49,
+      "to": 50,
+      "line_changes": 4
+    },
+    {
+      "from": 50,
+      "to": 51,
+      "line_changes": 4
+    },
+    {
+      "from": 51,
+      "to": 52,
+      "line_changes": 4
+    },
+    {
+      "from": 52,
+      "to": 53,
+      "line_changes": 1
+    },
+    {
+      "from": 53,
+      "to": 54,
+      "line_changes": 6
+    },
+    {
+      "from": 54,
+      "to": 55,
+      "line_changes": 2
+    },
+    {
+      "from": 55,
+      "to": 56,
+      "line_changes": 2
+    },
+    {
+      "from": 56,
+      "to": 57,
+      "line_changes": 3
+    },
+    {
+      "from": 57,
+      "to": 58,
+      "line_changes": 4
+    },
+    {
+      "from": 58,
+      "to": 59,
+      "line_changes": 3
+    },
+    {
+      "from": 59,
+      "to": 60,
+      "line_changes": 2
+    },
+    {
+      "from": 60,
+      "to": 61,
+      "line_changes": 1
+    },
+    {
+      "from": 61,
+      "to": 62,
+      "line_changes": 6
+    },
+    {
+      "from": 62,
+      "to": 63,
+      "line_changes": 3
+    },
+    {
+      "from": 63,
+      "to": 64,
+      "line_changes": 6
+    }
+  ]
+}
