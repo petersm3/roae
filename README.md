@@ -35,52 +35,52 @@ The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is trad
 
 The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships and avoidance of certain transitions — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, [~3000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou)) appear to have been working with combinatorial rules, even if they wouldn't have described them in mathematical terms.
 
-Note: with 33 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](CRITIQUE.md) for known limitations.
+Note: with 28 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](CRITIQUE.md) for known limitations.
 
 See [MCKENNA.md](MCKENNA.md) for how these findings relate to [Terence McKenna's Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero).
 
 ## Usage
 
 ```
-python3 roae.py              # Run all 33 analyses (default)
+python3 roae.py              # Run all 28 analyses (default)
 python3 roae.py --quick      # Run core sections only (fast)
 python3 roae.py --table      # Run a specific section
 python3 roae.py --help-sections  # List all available sections
 python3 roae.py --self-test  # Verify data integrity (20 checks)
 ```
 
-### Analysis sections (33)
+### Analysis sections (28)
 
 | Flag | Description |
 |------|-------------|
 | `--table` | Hexagram reference table with binary encoding, trigrams, and names |
-| `--pairs` | Reverse vs. inverse pair analysis |
-| `--wave` | First-order difference wave (the core "signal") |
-| `--barchart` | ASCII bar chart of the difference wave |
+| `--pairs` | Reverse vs. inverse pair analysis — tests the pairing structure |
+| `--wave` | First-order difference wave — the core 'signal' of the King Wen sequence |
 | `--trigrams` | Trigram frequency, transitions, and 8x8 transition matrices |
-| `--nuclear` | Nuclear hexagram derivation chains |
-| `--lines` | Line change positional analysis |
-| `--complements` | Complement distance analysis |
+| `--nuclear` | Nuclear hexagram chains — hidden inner hexagram derivations |
+| `--lines` | Line change positional analysis — which lines change most often |
+| `--complements` | Complement distance — where each hexagram's opposite sits |
 | `--palindromes` | Palindrome search in the difference wave |
-| `--canons` | Upper Canon (1-30) vs. Lower Canon (31-64) comparison |
+| `--canons` | Upper Canon (1-30) vs. Lower Canon (31-64) statistical comparison |
 | `--hamming` | Full 64x64 Hamming distance matrix |
-| `--autocorrelation` | Autocorrelation with 95% confidence bands |
-| `--entropy` | Shannon entropy vs. random permutations |
-| `--path` | Graph theory path analysis (unconstrained and pair-constrained) |
-| `--stats` | Monte Carlo analysis of the no-5-line property |
-| `--fft` | Spectral analysis (DFT) with noise floor |
-| `--markov` | Markov chain with permutation test |
-| `--graycode` | Gray code comparison |
-| `--symmetry` | XOR group algebra analysis |
-| `--sequences` | King Wen vs. Fu Xi vs. Mawangdui comparison |
-| `--constraints` | Combined constraint satisfaction with statistical bounds |
-| `--windowed-entropy` | Sliding window entropy across the wave |
+| `--autocorrelation` | Autocorrelation — tests for hidden periodicity |
+| `--entropy` | Shannon entropy — how structured vs. random the wave is |
+| `--path` | Graph theory path analysis — is King Wen an efficient route? |
+| `--stats` | Monte Carlo — probability of the 'no 5-line transitions' property |
+| `--fft` | Spectral analysis (DFT) — frequency decomposition of the wave |
+| `--markov` | Markov chain — do difference values predict the next value? |
+| `--graycode` | Gray code comparison — King Wen vs. theoretically smoothest path |
+| `--symmetry` | XOR group algebra — algebraic structure of the pairing system |
+| `--sequences` | Compare King Wen vs. Fu Xi vs. Mawangdui orderings |
+| `--constraints` | Constraint satisfaction — how rare is King Wen's combined properties? |
+| `--barchart` | ASCII bar chart visualization of the difference wave |
+| `--windowed-entropy` | Sliding window entropy — where structure concentrates |
 | `--mutual-info` | Mutual information between upper/lower trigram changes |
 | `--bootstrap` | Bootstrap confidence intervals for Monte Carlo estimates |
 | `--yinyang` | Yin-yang balance wave through the sequence |
 | `--neighborhoods` | Hamming distance-1 neighborhoods for each hexagram |
-| `--recurrence` | Recurrence plot of the difference wave |
-| `--codons` | DNA codon mapping and structural comparison |
+| `--recurrence` | Recurrence plot — where the difference wave repeats |
+| `--codons` | DNA codon mapping — structural comparison with genetics |
 
 ### Interactive modes
 

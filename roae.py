@@ -1644,12 +1644,12 @@ def print_help_sections():
         ("--explain N", "Walk through transition N step by step (1-63)"),
         ("--self-test", "Run mathematical invariant checks"),
         ("", ""),
-        ("--json", "Export all hexagram data as JSON"),
-        ("--csv", "Export hexagram data as CSV"),
-        ("--dot", "Export sequence as Graphviz DOT graph"),
-        ("--svg", "Export hexagram line diagrams as SVG"),
-        ("--html", "Generate self-contained HTML report with all analyses"),
-        ("--midi", "Export difference wave as MIDI file (to stdout)"),
+        ("--json", "Export hexagram data (writes hexagrams.json)"),
+        ("--csv", "Export hexagram data (writes hexagrams.csv)"),
+        ("--dot", "Export Graphviz graph (writes wave.dot, + .png/.svg if Graphviz installed)"),
+        ("--svg", "Export hexagram line diagrams (writes hexagrams.svg)"),
+        ("--html", "Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)"),
+        ("--midi", "Export difference wave (writes wave.mid)"),
     ]
     print("---")
     print("Available analysis sections")
@@ -2898,9 +2898,9 @@ def main():
     if run_all:
         print("\n---")
         print("Note on multiple comparisons")
-        print("This report runs 33 analyses. When testing many properties, some will")
+        print("This report runs 28 analyses. When testing many properties, some will")
         print("appear 'unusual' by chance alone. A result at the 5% level (p<0.05)")
-        print("is expected ~1.7 times out of 33 tests even for a purely random sequence.")
+        print("is expected ~1.4 times out of 28 tests even for a purely random sequence.")
         print("The strongest findings (pair structure, combined constraints) survive this")
         print("correction easily. Weaker findings (specific Markov transitions, individual")
         print("entropy percentiles) should be interpreted with this caveat in mind.")
