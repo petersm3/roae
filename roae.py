@@ -2571,11 +2571,18 @@ def export_html(filename="report.html"):
         ("Monte Carlo", lambda: print_stats(trials=10000)),
     ]
 
+    import re
+    def fix_hexagram_spacing(text):
+        """In terminal output, hexagram chars (U+4DC0-4DFF) are double-width,
+        so they're followed by extra padding spaces. In HTML/PDF with fallback
+        fonts, this creates misalignment. Remove one trailing space after each."""
+        return re.sub(r'([\u4DC0-\u4DFF])   ', r'\1  ', text)
+
     for title, func in sections:
         f = io.StringIO()
         with redirect_stdout(f):
             func()
-        output = f.getvalue()
+        output = fix_hexagram_spacing(f.getvalue())
         _print(f'<div class="section">')
         _print(f'<h2>{title}</h2>')
         _print(f'<pre>{output}</pre>')
