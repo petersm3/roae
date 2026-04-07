@@ -1348,9 +1348,9 @@ Approximately 1 in 454 random orderings share this property.
 
 ---
 Note on multiple comparisons
-This report runs 33 analyses. When testing many properties, some will
+This report runs 28 analyses. When testing many properties, some will
 appear 'unusual' by chance alone. A result at the 5% level (p<0.05)
-is expected ~1.7 times out of 33 tests even for a purely random sequence.
+is expected ~1.4 times out of 28 tests even for a purely random sequence.
 The strongest findings (pair structure, combined constraints) survive this
 correction easily. Weaker findings (specific Markov transitions, individual
 entropy percentiles) should be interpreted with this caveat in mind.
