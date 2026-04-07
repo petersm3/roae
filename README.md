@@ -138,6 +138,10 @@ Python 3.6+ with no external dependencies (stdlib only).
 * [Genetic code](https://en.wikipedia.org/wiki/Genetic_code) — Wikipedia (64 codons, degeneracy)
 * [DNA and RNA codon tables](https://en.wikipedia.org/wiki/DNA_and_RNA_codon_tables) — Wikipedia (standard codon table)
 
+## Built with
+
+[Claude Code](https://claude.ai/code) (Anthropic)
+
 ## License
 
 Public domain ([Unlicense](https://unlicense.org)).

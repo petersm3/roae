@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Developed with AI assistance (Claude, Anthropic)
 import argparse
 import cmath
 import json
