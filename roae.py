@@ -2577,22 +2577,37 @@ def export_html():
 def print_graphviz():
     """Output a Graphviz DOT representation of the King Wen sequence as a
     directed graph, with edge weights showing the Hamming distance."""
-    print("// King Wen sequence as a Graphviz directed graph")
-    print("// Save as kw.dot and render with: dot -Tpng kw.dot -o kw.png")
-    print("digraph KingWen {")
-    print("    rankdir=LR;")
-    print("    node [shape=circle, fontsize=10];")
-    print("    edge [fontsize=8];")
-    print()
+    lines = []
+    lines.append("// King Wen sequence as a Graphviz directed graph")
+    lines.append("// Render with: dot -Tpng wave.dot -o wave.dot.png")
+    lines.append("digraph KingWen {")
+    lines.append("    rankdir=LR;")
+    lines.append("    node [shape=circle, fontsize=10];")
+    lines.append("    edge [fontsize=8];")
+    lines.append("")
     for i in range(64):
         bits = bin(binary_hexagrams[i])[2:].zfill(6)
         label = f"{i+1}\\n{unicode_hexagrams[i]}\\n{bits}"
-        print(f'    h{i+1} [label="{label}"];')
-    print()
+        lines.append(f'    h{i+1} [label="{label}"];')
+    lines.append("")
     for i in range(63):
         d = bit_diff(binary_hexagrams[i], binary_hexagrams[i+1])
-        print(f'    h{i+1} -> h{i+2} [label="{d}"];')
-    print("}")
+        lines.append(f'    h{i+1} -> h{i+2} [label="{d}"];')
+    lines.append("}")
+    dot_text = "\n".join(lines)
+    print(dot_text)
+    # Try to also generate PNG and SVG if Graphviz is installed
+    import subprocess
+    try:
+        for fmt, outfile in [("png", "wave.dot.png"), ("svg", "wave.dot.svg")]:
+            result = subprocess.run(
+                ["dot", f"-T{fmt}", "-o", outfile],
+                input=dot_text, capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                print(f"{fmt.upper()} written to {outfile}", file=sys.stderr)
+    except FileNotFoundError:
+        pass  # Graphviz not installed; skip image generation
 
 def export_json():
     """Export all hexagram data as JSON for use in other tools."""
