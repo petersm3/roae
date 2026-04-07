@@ -3,12 +3,11 @@
 <meta charset="UTF-8">
 <title>ROAE - King Wen Sequence Analysis</title>
 <style>
-  @font-face { font-family: 'HexFallback'; src: local('DejaVu Sans'), local('Segoe UI Symbol'), local('Arial Unicode MS'); }
-  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; max-width: 1000px; margin: 0 auto; padding: 20px; }
-  pre { font-family: 'DejaVu Sans Mono', 'Noto Sans Mono', 'Courier New', monospace, 'HexFallback'; background: #16213e; padding: 15px; overflow-x: auto; border-left: 3px solid #e94560; }
-  h1 { color: #e94560; }
-  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }
-  .section { margin-bottom: 20px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1f2328; max-width: 1000px; margin: 0 auto; padding: 20px; line-height: 1.5; }
+  pre { font-family: 'DejaVu Sans Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; background: #f6f8fa; padding: 16px; overflow-x: auto; border: 1px solid #d1d9e0; border-radius: 6px; }
+  h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }
+  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }
+  .section { margin-bottom: 16px; }
 </style>
 </head><body>
 <h1>Received Order Analysis Engine</h1>
@@ -720,7 +719,7 @@ are anecdotes, not statistically meaningful.)
 --- Permutation test ---
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2196/5000 (43.9%)
+Random orderings equally or more concentrated: 2145/5000 (42.9%)
 </pre>
 </div>
 <div class="section">
@@ -909,8 +908,8 @@ Joint distribution of trigram changes:
 Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
-Mean MI of random permutations: 0.0204 bits
-King Wen percentile: 7.2%
+Mean MI of random permutations: 0.0201 bits
+King Wen percentile: 7.4%
 
 --- Full 8-state trigram mutual information ---
 Using actual trigram identities (8 possible values each) rather than
@@ -1265,19 +1264,19 @@ unusually low, the sequence is more structured than random chance would produce.
 ---
 King Wen difference wave entropy: 2.0759 bits
 Maximum possible entropy (uniform): 2.8074 bits
-Mean entropy of random permutations: 2.1909 bits
-Min random entropy observed: 1.6800 bits
-Max random entropy observed: 2.4940 bits
-King Wen percentile: 13.8% (lower = more structured)
+Mean entropy of random permutations: 2.1919 bits
+Min random entropy observed: 1.6907 bits
+Max random entropy observed: 2.5096 bits
+King Wen percentile: 13.2% (lower = more structured)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
   1             2                  6.0
-  2            20                 14.9
-  3            13                 20.1
+  2            20                 15.2
+  3            13                 19.8
   4            19                 15.0
-  5             0                  6.0
+  5             0                  5.9
   6             9                  1.0
 </pre>
 </div>
@@ -1295,10 +1294,10 @@ transitions or had other priorities.
 ---
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     191.8
-Min random observed:         159
-Max random observed:         232
-King Wen percentile:         97.6% (lower = shorter path)
+Mean random path length:     192.1
+Min random observed:         158
+Max random observed:         226
+King Wen percentile:         97.5% (lower = shorter path)
 
 --- Theoretical bounds ---
 Minimum possible (63 transitions of 1): 63
@@ -1310,10 +1309,10 @@ The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.1
+Mean pair-constrained path length: 214.3
 Min pair-constrained observed:     190
 Max pair-constrained observed:     238
-King Wen percentile (pair-constrained): 29.0%
+King Wen percentile (pair-constrained): 28.3%
 </pre>
 </div>
 <div class="section">
@@ -1329,7 +1328,7 @@ random permutations against each constraint individually and combined.
 ---
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          13 (0.13%)
+  No 5-line transitions:          22 (0.22%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both constraints.
   Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
@@ -1349,12 +1348,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.170%
-95% confidence interval: [0.100%, 0.260%]
-Interval width: 0.160 percentage points
+No-5-line-transition rate: 0.140%
+95% confidence interval: [0.070%, 0.210%]
+Interval width: 0.140 percentage points
 
-Approximately 1 in 588 random orderings
-95% CI: 1 in 385 to 1 in 1000
+Approximately 1 in 714 random orderings
+95% CI: 1 in 476 to 1 in 1429
 </pre>
 </div>
 <div class="section">
@@ -1368,8 +1367,8 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the more
 likely the King Wen sequence was intentionally designed with this constraint.
 ---
-Permutations with no 5-line transitions: 17/10,000 (0.17%)
-Approximately 1 in 588 random orderings share this property.
+Permutations with no 5-line transitions: 19/10,000 (0.19%)
+Approximately 1 in 526 random orderings share this property.
 </pre>
 </div>
 </body></html>

@@ -2527,18 +2527,16 @@ def export_html(filename="report.html"):
     _print('<meta charset="UTF-8">')
     _print("<title>ROAE - King Wen Sequence Analysis</title>")
     _print("<style>")
-    _print("  @font-face { font-family: 'HexFallback'; "
-           "src: local('DejaVu Sans'), local('Segoe UI Symbol'), "
-           "local('Arial Unicode MS'); }")
-    _print("  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; "
-           "max-width: 1000px; margin: 0 auto; padding: 20px; }")
-    _print("  pre { font-family: 'DejaVu Sans Mono', 'Noto Sans Mono', "
-           "'Courier New', monospace, 'HexFallback'; "
-           "background: #16213e; padding: 15px; "
-           "overflow-x: auto; border-left: 3px solid #e94560; }")
-    _print("  h1 { color: #e94560; }")
-    _print("  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }")
-    _print("  .section { margin-bottom: 20px; }")
+    _print("  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', "
+           "Helvetica, Arial, sans-serif; color: #1f2328; "
+           "max-width: 1000px; margin: 0 auto; padding: 20px; line-height: 1.5; }")
+    _print("  pre { font-family: 'DejaVu Sans Mono', 'SFMono-Regular', Consolas, "
+           "'Liberation Mono', Menlo, monospace; font-size: 13px; "
+           "background: #f6f8fa; padding: 16px; overflow-x: auto; "
+           "border: 1px solid #d1d9e0; border-radius: 6px; }")
+    _print("  h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }")
+    _print("  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }")
+    _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
     _print("<h1>Received Order Analysis Engine</h1>")
