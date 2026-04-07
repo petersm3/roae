@@ -347,10 +347,13 @@ def print_wave(order=1, wrap=False):
         print(f"Tests whether the wave values are randomly ordered (vs. clustered or alternating).")
         print(f"Values split at median ({median_d}): {n1} above, {n2} below ({len(diffs)-n1-n2} excluded ties)")
         print(f"Observed runs: {runs}, expected: {expected:.1f}, Z = {z_runs:+.2f}")
+        p_runs = 2 * (1 - 0.5 * (1 + math.erf(abs(z_runs) / math.sqrt(2))))
         if abs(z_runs) > 1.96:
-            print(f"Significant at 95% level: the wave shows {'clustering' if z_runs < 0 else 'alternation'}.")
+            print(f"Significant at 95% level (p = {p_runs:.3f}): the wave shows {'clustering' if z_runs < 0 else 'alternation'}.")
+            if p_runs > 0.0018:
+                print(f"Note: does not survive Bonferroni correction for 28 tests (threshold p < 0.0018).")
         else:
-            print(f"Not significant: no evidence of non-random ordering (|Z| < 1.96).")
+            print(f"Not significant: no evidence of non-random ordering (p = {p_runs:.3f}).")
 
     # Higher orders of difference (difference of the difference)
     if order > 1:
@@ -491,6 +494,21 @@ def print_nuclear():
     for pos, count in targets:
         print(f"{pos+1:02} {unicode_hexagrams[pos]} {hexagram_names[pos]:<30} appears {count} times")
 
+    # --- Nuclear chain null model ---
+    # Nuclear hexagram derivation is a fixed function of binary value, independent
+    # of ordering. The chain structure (cycle lengths, number of distinct targets)
+    # is the SAME for any permutation of the 64 hexagrams. This is because the
+    # nuclear function maps binary values to binary values — it does not depend on
+    # position in the sequence. Therefore, the chain properties are not a feature
+    # of the King Wen ordering but of the 6-bit binary system itself.
+    print()
+    print("--- Null model note ---")
+    print("Nuclear hexagram derivation is a fixed function of binary value (lines 2-5),")
+    print("independent of the King Wen ordering. The chain structure, cycle lengths,")
+    print("and frequency distribution above are identical for ANY ordering of the 64")
+    print("hexagrams. These properties reflect the 6-bit binary system, not the")
+    print("King Wen sequence specifically.")
+
 def print_line_changes():
     """Analyze which specific lines (positions 1–6, bottom to top) change most
     often between consecutive hexagrams in the King Wen sequence."""
@@ -611,13 +629,44 @@ def print_palindromes():
         print(f"Length {length:2} at positions {positions}: [{values}] {spark}")
         shown += 1
 
-    # Statistical context: how many palindromes would a random sequence have?
     print(f"\n--- Palindrome count by length ---")
     by_length = {}
     for _, length, _ in found:
         by_length[length] = by_length.get(length, 0) + 1
     for length in sorted(by_length.keys(), reverse=True):
         print(f"Length {length:2}: {by_length[length]} found")
+
+    # Null model: compare against random permutations
+    print(f"\n--- Palindrome null model ---")
+    print("How many palindromes of length >= 3 do random permutations produce?")
+    kw_total = len(found)
+    kw_longest = found[0][1] if found else 0
+    values = list(binary_hexagrams)
+    rand_totals = []
+    rand_longests = []
+    for _ in range(1000):
+        random.shuffle(values)
+        rand_diffs = [bit_diff(values[i], values[i+1]) for i in range(63)]
+        count = 0
+        longest = 0
+        for length in range(len(rand_diffs), 2, -1):
+            for start in range(len(rand_diffs) - length + 1):
+                sub = rand_diffs[start:start+length]
+                if sub == sub[::-1]:
+                    count += 1
+                    if length > longest:
+                        longest = length
+        rand_totals.append(count)
+        rand_longests.append(longest)
+
+    mean_total = sum(rand_totals) / len(rand_totals)
+    mean_longest = sum(rand_longests) / len(rand_longests)
+    below_total = sum(1 for t in rand_totals if t < kw_total)
+    below_longest = sum(1 for t in rand_longests if t < kw_longest)
+    print(f"King Wen palindromes: {kw_total}, longest: {kw_longest}")
+    print(f"Random mean palindromes: {mean_total:.1f}, mean longest: {mean_longest:.1f}")
+    print(f"King Wen palindrome count percentile: {below_total/10:.1f}%")
+    print(f"King Wen longest palindrome percentile: {below_longest/10:.1f}%")
 
 def print_canons():
     """Compare the Upper Canon (hexagrams 1–30) and Lower Canon (31–64),
