@@ -7,6 +7,7 @@
   pre { font-family: 'DejaVu Sans Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; background: #f6f8fa; padding: 16px; overflow-x: auto; border: 1px solid #d1d9e0; border-radius: 6px; }
   h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }
   h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }
+  .hex { display: inline-block; width: 2ch; text-align: center; }
   .section { margin-bottom: 16px; }
 </style>
 </head><body>
@@ -24,70 +25,70 @@ Fire, Lake), giving 8x8 = 64 possible hexagrams.
 ---
 Pos | Hex | Binary | Upper          | Lower          | Name
 ----|-----|--------|----------------|----------------|----
-01  | ䷀ | 111111 | Qian Heaven    | Qian Heaven    | The Creative
-02  | ䷁ | 000000 | Kun  Earth     | Kun  Earth     | The Receptive
-03  | ䷂ | 010001 | Kan  Water     | Zhen Thunder   | Difficulty at the Beginning
-04  | ䷃ | 100010 | Gen  Mountain  | Kan  Water     | Youthful Folly
-05  | ䷄ | 010111 | Kan  Water     | Qian Heaven    | Waiting
-06  | ䷅ | 111010 | Qian Heaven    | Kan  Water     | Conflict
-07  | ䷆ | 000010 | Kun  Earth     | Kan  Water     | The Army
-08  | ䷇ | 010000 | Kan  Water     | Kun  Earth     | Holding Together
-09  | ䷈ | 110111 | Xun  Wind      | Qian Heaven    | Small Taming
-10  | ䷉ | 111011 | Qian Heaven    | Dui  Lake      | Treading
-11  | ䷊ | 000111 | Kun  Earth     | Qian Heaven    | Peace
-12  | ䷋ | 111000 | Qian Heaven    | Kun  Earth     | Standstill
-13  | ䷌ | 111101 | Qian Heaven    | Li   Fire      | Fellowship
-14  | ䷍ | 101111 | Li   Fire      | Qian Heaven    | Great Possession
-15  | ䷎ | 000100 | Kun  Earth     | Gen  Mountain  | Modesty
-16  | ䷏ | 001000 | Zhen Thunder   | Kun  Earth     | Enthusiasm
-17  | ䷐ | 011001 | Dui  Lake      | Zhen Thunder   | Following
-18  | ䷑ | 100110 | Gen  Mountain  | Xun  Wind      | Work on the Decayed
-19  | ䷒ | 000011 | Kun  Earth     | Dui  Lake      | Approach
-20  | ䷓ | 110000 | Xun  Wind      | Kun  Earth     | Contemplation
-21  | ䷔ | 101001 | Li   Fire      | Zhen Thunder   | Biting Through
-22  | ䷕ | 100101 | Gen  Mountain  | Li   Fire      | Grace
-23  | ䷖ | 100000 | Gen  Mountain  | Kun  Earth     | Splitting Apart
-24  | ䷗ | 000001 | Kun  Earth     | Zhen Thunder   | Return
-25  | ䷘ | 111001 | Qian Heaven    | Zhen Thunder   | Innocence
-26  | ䷙ | 100111 | Gen  Mountain  | Qian Heaven    | Great Taming
-27  | ䷚ | 100001 | Gen  Mountain  | Zhen Thunder   | Nourishment
-28  | ䷛ | 011110 | Dui  Lake      | Xun  Wind      | Great Preponderance
-29  | ䷜ | 010010 | Kan  Water     | Kan  Water     | The Abysmal
-30  | ䷝ | 101101 | Li   Fire      | Li   Fire      | The Clinging
-31  | ䷞ | 011100 | Dui  Lake      | Gen  Mountain  | Influence
-32  | ䷟ | 001110 | Zhen Thunder   | Xun  Wind      | Duration
-33  | ䷠ | 111100 | Qian Heaven    | Gen  Mountain  | Retreat
-34  | ䷡ | 001111 | Zhen Thunder   | Qian Heaven    | Great Power
-35  | ䷢ | 101000 | Li   Fire      | Kun  Earth     | Progress
-36  | ䷣ | 000101 | Kun  Earth     | Li   Fire      | Darkening of the Light
-37  | ䷤ | 110101 | Xun  Wind      | Li   Fire      | The Family
-38  | ䷥ | 101011 | Li   Fire      | Dui  Lake      | Opposition
-39  | ䷦ | 010100 | Kan  Water     | Gen  Mountain  | Obstruction
-40  | ䷧ | 001010 | Zhen Thunder   | Kan  Water     | Deliverance
-41  | ䷨ | 100011 | Gen  Mountain  | Dui  Lake      | Decrease
-42  | ䷩ | 110001 | Xun  Wind      | Zhen Thunder   | Increase
-43  | ䷪ | 011111 | Dui  Lake      | Qian Heaven    | Breakthrough
-44  | ䷫ | 111110 | Qian Heaven    | Xun  Wind      | Coming to Meet
-45  | ䷬ | 011000 | Dui  Lake      | Kun  Earth     | Gathering Together
-46  | ䷭ | 000110 | Kun  Earth     | Xun  Wind      | Pushing Upward
-47  | ䷮ | 011010 | Dui  Lake      | Kan  Water     | Oppression
-48  | ䷯ | 010110 | Kan  Water     | Xun  Wind      | The Well
-49  | ䷰ | 011101 | Dui  Lake      | Li   Fire      | Revolution
-50  | ䷱ | 101110 | Li   Fire      | Xun  Wind      | The Cauldron
-51  | ䷲ | 001001 | Zhen Thunder   | Zhen Thunder   | The Arousing
-52  | ䷳ | 100100 | Gen  Mountain  | Gen  Mountain  | Keeping Still
-53  | ䷴ | 110100 | Xun  Wind      | Gen  Mountain  | Development
-54  | ䷵ | 001011 | Zhen Thunder   | Dui  Lake      | The Marrying Maiden
-55  | ䷶ | 001101 | Zhen Thunder   | Li   Fire      | Abundance
-56  | ䷷ | 101100 | Li   Fire      | Gen  Mountain  | The Wanderer
-57  | ䷸ | 110110 | Xun  Wind      | Xun  Wind      | The Gentle
-58  | ䷹ | 011011 | Dui  Lake      | Dui  Lake      | The Joyous
-59  | ䷺ | 110010 | Xun  Wind      | Kan  Water     | Dispersion
-60  | ䷻ | 010011 | Kan  Water     | Dui  Lake      | Limitation
-61  | ䷼ | 110011 | Xun  Wind      | Dui  Lake      | Inner Truth
-62  | ䷽ | 001100 | Zhen Thunder   | Gen  Mountain  | Small Preponderance
-63  | ䷾ | 010101 | Kan  Water     | Li   Fire      | After Completion
-64  | ䷿ | 101010 | Li   Fire      | Kan  Water     | Before Completion
+01  | <span class="hex">䷀</span>   | 111111 | Qian Heaven    | Qian Heaven    | The Creative
+02  | <span class="hex">䷁</span>   | 000000 | Kun  Earth     | Kun  Earth     | The Receptive
+03  | <span class="hex">䷂</span>   | 010001 | Kan  Water     | Zhen Thunder   | Difficulty at the Beginning
+04  | <span class="hex">䷃</span>   | 100010 | Gen  Mountain  | Kan  Water     | Youthful Folly
+05  | <span class="hex">䷄</span>   | 010111 | Kan  Water     | Qian Heaven    | Waiting
+06  | <span class="hex">䷅</span>   | 111010 | Qian Heaven    | Kan  Water     | Conflict
+07  | <span class="hex">䷆</span>   | 000010 | Kun  Earth     | Kan  Water     | The Army
+08  | <span class="hex">䷇</span>   | 010000 | Kan  Water     | Kun  Earth     | Holding Together
+09  | <span class="hex">䷈</span>   | 110111 | Xun  Wind      | Qian Heaven    | Small Taming
+10  | <span class="hex">䷉</span>   | 111011 | Qian Heaven    | Dui  Lake      | Treading
+11  | <span class="hex">䷊</span>   | 000111 | Kun  Earth     | Qian Heaven    | Peace
+12  | <span class="hex">䷋</span>   | 111000 | Qian Heaven    | Kun  Earth     | Standstill
+13  | <span class="hex">䷌</span>   | 111101 | Qian Heaven    | Li   Fire      | Fellowship
+14  | <span class="hex">䷍</span>   | 101111 | Li   Fire      | Qian Heaven    | Great Possession
+15  | <span class="hex">䷎</span>   | 000100 | Kun  Earth     | Gen  Mountain  | Modesty
+16  | <span class="hex">䷏</span>   | 001000 | Zhen Thunder   | Kun  Earth     | Enthusiasm
+17  | <span class="hex">䷐</span>   | 011001 | Dui  Lake      | Zhen Thunder   | Following
+18  | <span class="hex">䷑</span>   | 100110 | Gen  Mountain  | Xun  Wind      | Work on the Decayed
+19  | <span class="hex">䷒</span>   | 000011 | Kun  Earth     | Dui  Lake      | Approach
+20  | <span class="hex">䷓</span>   | 110000 | Xun  Wind      | Kun  Earth     | Contemplation
+21  | <span class="hex">䷔</span>   | 101001 | Li   Fire      | Zhen Thunder   | Biting Through
+22  | <span class="hex">䷕</span>   | 100101 | Gen  Mountain  | Li   Fire      | Grace
+23  | <span class="hex">䷖</span>   | 100000 | Gen  Mountain  | Kun  Earth     | Splitting Apart
+24  | <span class="hex">䷗</span>   | 000001 | Kun  Earth     | Zhen Thunder   | Return
+25  | <span class="hex">䷘</span>   | 111001 | Qian Heaven    | Zhen Thunder   | Innocence
+26  | <span class="hex">䷙</span>   | 100111 | Gen  Mountain  | Qian Heaven    | Great Taming
+27  | <span class="hex">䷚</span>   | 100001 | Gen  Mountain  | Zhen Thunder   | Nourishment
+28  | <span class="hex">䷛</span>   | 011110 | Dui  Lake      | Xun  Wind      | Great Preponderance
+29  | <span class="hex">䷜</span>   | 010010 | Kan  Water     | Kan  Water     | The Abysmal
+30  | <span class="hex">䷝</span>   | 101101 | Li   Fire      | Li   Fire      | The Clinging
+31  | <span class="hex">䷞</span>   | 011100 | Dui  Lake      | Gen  Mountain  | Influence
+32  | <span class="hex">䷟</span>   | 001110 | Zhen Thunder   | Xun  Wind      | Duration
+33  | <span class="hex">䷠</span>   | 111100 | Qian Heaven    | Gen  Mountain  | Retreat
+34  | <span class="hex">䷡</span>   | 001111 | Zhen Thunder   | Qian Heaven    | Great Power
+35  | <span class="hex">䷢</span>   | 101000 | Li   Fire      | Kun  Earth     | Progress
+36  | <span class="hex">䷣</span>   | 000101 | Kun  Earth     | Li   Fire      | Darkening of the Light
+37  | <span class="hex">䷤</span>   | 110101 | Xun  Wind      | Li   Fire      | The Family
+38  | <span class="hex">䷥</span>   | 101011 | Li   Fire      | Dui  Lake      | Opposition
+39  | <span class="hex">䷦</span>   | 010100 | Kan  Water     | Gen  Mountain  | Obstruction
+40  | <span class="hex">䷧</span>   | 001010 | Zhen Thunder   | Kan  Water     | Deliverance
+41  | <span class="hex">䷨</span>   | 100011 | Gen  Mountain  | Dui  Lake      | Decrease
+42  | <span class="hex">䷩</span>   | 110001 | Xun  Wind      | Zhen Thunder   | Increase
+43  | <span class="hex">䷪</span>   | 011111 | Dui  Lake      | Qian Heaven    | Breakthrough
+44  | <span class="hex">䷫</span>   | 111110 | Qian Heaven    | Xun  Wind      | Coming to Meet
+45  | <span class="hex">䷬</span>   | 011000 | Dui  Lake      | Kun  Earth     | Gathering Together
+46  | <span class="hex">䷭</span>   | 000110 | Kun  Earth     | Xun  Wind      | Pushing Upward
+47  | <span class="hex">䷮</span>   | 011010 | Dui  Lake      | Kan  Water     | Oppression
+48  | <span class="hex">䷯</span>   | 010110 | Kan  Water     | Xun  Wind      | The Well
+49  | <span class="hex">䷰</span>   | 011101 | Dui  Lake      | Li   Fire      | Revolution
+50  | <span class="hex">䷱</span>   | 101110 | Li   Fire      | Xun  Wind      | The Cauldron
+51  | <span class="hex">䷲</span>   | 001001 | Zhen Thunder   | Zhen Thunder   | The Arousing
+52  | <span class="hex">䷳</span>   | 100100 | Gen  Mountain  | Gen  Mountain  | Keeping Still
+53  | <span class="hex">䷴</span>   | 110100 | Xun  Wind      | Gen  Mountain  | Development
+54  | <span class="hex">䷵</span>   | 001011 | Zhen Thunder   | Dui  Lake      | The Marrying Maiden
+55  | <span class="hex">䷶</span>   | 001101 | Zhen Thunder   | Li   Fire      | Abundance
+56  | <span class="hex">䷷</span>   | 101100 | Li   Fire      | Gen  Mountain  | The Wanderer
+57  | <span class="hex">䷸</span>   | 110110 | Xun  Wind      | Xun  Wind      | The Gentle
+58  | <span class="hex">䷹</span>   | 011011 | Dui  Lake      | Dui  Lake      | The Joyous
+59  | <span class="hex">䷺</span>   | 110010 | Xun  Wind      | Kan  Water     | Dispersion
+60  | <span class="hex">䷻</span>   | 010011 | Kan  Water     | Dui  Lake      | Limitation
+61  | <span class="hex">䷼</span>   | 110011 | Xun  Wind      | Dui  Lake      | Inner Truth
+62  | <span class="hex">䷽</span>   | 001100 | Zhen Thunder   | Gen  Mountain  | Small Preponderance
+63  | <span class="hex">䷾</span>   | 010101 | Kan  Water     | Li   Fire      | After Completion
+64  | <span class="hex">䷿</span>   | 101010 | Li   Fire      | Kan  Water     | Before Completion
 </pre>
 </div>
 <div class="section">
@@ -104,38 +105,38 @@ For each pair, we test two relationships:
 Key finding: EVERY pair in the King Wen sequence is one or the other — none are
 unrelated. This perfect pairing structure is unlikely to occur by chance.
 ---
-01 ䷀ Inverse 02 ䷁
-03 ䷂ Reverse 04 ䷃
-05 ䷄ Reverse 06 ䷅
-07 ䷆ Reverse 08 ䷇
-09 ䷈ Reverse 10 ䷉
-11 ䷊ Reverse 12 ䷋
-13 ䷌ Reverse 14 ䷍
-15 ䷎ Reverse 16 ䷏
-17 ䷐ Reverse 18 ䷑
-19 ䷒ Reverse 20 ䷓
-21 ䷔ Reverse 22 ䷕
-23 ䷖ Reverse 24 ䷗
-25 ䷘ Reverse 26 ䷙
-27 ䷚ Inverse 28 ䷛
-29 ䷜ Inverse 30 ䷝
-31 ䷞ Reverse 32 ䷟
-33 ䷠ Reverse 34 ䷡
-35 ䷢ Reverse 36 ䷣
-37 ䷤ Reverse 38 ䷥
-39 ䷦ Reverse 40 ䷧
-41 ䷨ Reverse 42 ䷩
-43 ䷪ Reverse 44 ䷫
-45 ䷬ Reverse 46 ䷭
-47 ䷮ Reverse 48 ䷯
-49 ䷰ Reverse 50 ䷱
-51 ䷲ Reverse 52 ䷳
-53 ䷴ Reverse 54 ䷵
-55 ䷶ Reverse 56 ䷷
-57 ䷸ Reverse 58 ䷹
-59 ䷺ Reverse 60 ䷻
-61 ䷼ Inverse 62 ䷽
-63 ䷾ Reverse 64 ䷿
+01 <span class="hex">䷀</span> Inverse 02 ䷁
+03 <span class="hex">䷂</span> Reverse 04 ䷃
+05 <span class="hex">䷄</span> Reverse 06 ䷅
+07 <span class="hex">䷆</span> Reverse 08 ䷇
+09 <span class="hex">䷈</span> Reverse 10 ䷉
+11 <span class="hex">䷊</span> Reverse 12 ䷋
+13 <span class="hex">䷌</span> Reverse 14 ䷍
+15 <span class="hex">䷎</span> Reverse 16 ䷏
+17 <span class="hex">䷐</span> Reverse 18 ䷑
+19 <span class="hex">䷒</span> Reverse 20 ䷓
+21 <span class="hex">䷔</span> Reverse 22 ䷕
+23 <span class="hex">䷖</span> Reverse 24 ䷗
+25 <span class="hex">䷘</span> Reverse 26 ䷙
+27 <span class="hex">䷚</span> Inverse 28 ䷛
+29 <span class="hex">䷜</span> Inverse 30 ䷝
+31 <span class="hex">䷞</span> Reverse 32 ䷟
+33 <span class="hex">䷠</span> Reverse 34 ䷡
+35 <span class="hex">䷢</span> Reverse 36 ䷣
+37 <span class="hex">䷤</span> Reverse 38 ䷥
+39 <span class="hex">䷦</span> Reverse 40 ䷧
+41 <span class="hex">䷨</span> Reverse 42 ䷩
+43 <span class="hex">䷪</span> Reverse 44 ䷫
+45 <span class="hex">䷬</span> Reverse 46 ䷭
+47 <span class="hex">䷮</span> Reverse 48 ䷯
+49 <span class="hex">䷰</span> Reverse 50 ䷱
+51 <span class="hex">䷲</span> Reverse 52 ䷳
+53 <span class="hex">䷴</span> Reverse 54 ䷵
+55 <span class="hex">䷶</span> Reverse 56 ䷷
+57 <span class="hex">䷸</span> Reverse 58 ䷹
+59 <span class="hex">䷺</span> Reverse 60 ䷻
+61 <span class="hex">䷼</span> Inverse 62 ䷽
+63 <span class="hex">䷾</span> Reverse 64 ䷿
 ---
 Reverse count pairs: 28/32 (87.5%)
 Inverse count pairs: 04/32 (12.5%)
@@ -152,69 +153,69 @@ The resulting 'wave' is central to analysis of the King Wen sequence.
 Key observation (McKenna, The Invisible Landscape, 1975): the value 5 never appears — no consecutive hexagrams
 differ by exactly 5 lines. The value 0 also never appears (no duplicates).
 ---
-01 ䷀ to 02 ䷁ difference 6 ******
-02 ䷁ to 03 ䷂ difference 2 **
-03 ䷂ to 04 ䷃ difference 4 ****
-04 ䷃ to 05 ䷄ difference 4 ****
-05 ䷄ to 06 ䷅ difference 4 ****
-06 ䷅ to 07 ䷆ difference 3 ***
-07 ䷆ to 08 ䷇ difference 2 **
-08 ䷇ to 09 ䷈ difference 4 ****
-09 ䷈ to 10 ䷉ difference 2 **
-10 ䷉ to 11 ䷊ difference 4 ****
-11 ䷊ to 12 ䷋ difference 6 ******
-12 ䷋ to 13 ䷌ difference 2 **
-13 ䷌ to 14 ䷍ difference 2 **
-14 ䷍ to 15 ䷎ difference 4 ****
-15 ䷎ to 16 ䷏ difference 2 **
-16 ䷏ to 17 ䷐ difference 2 **
-17 ䷐ to 18 ䷑ difference 6 ******
-18 ䷑ to 19 ䷒ difference 3 ***
-19 ䷒ to 20 ䷓ difference 4 ****
-20 ䷓ to 21 ䷔ difference 3 ***
-21 ䷔ to 22 ䷕ difference 2 **
-22 ䷕ to 23 ䷖ difference 2 **
-23 ䷖ to 24 ䷗ difference 2 **
-24 ䷗ to 25 ䷘ difference 3 ***
-25 ䷘ to 26 ䷙ difference 4 ****
-26 ䷙ to 27 ䷚ difference 2 **
-27 ䷚ to 28 ䷛ difference 6 ******
-28 ䷛ to 29 ䷜ difference 2 **
-29 ䷜ to 30 ䷝ difference 6 ******
-30 ䷝ to 31 ䷞ difference 3 ***
-31 ䷞ to 32 ䷟ difference 2 **
-32 ䷟ to 33 ䷠ difference 3 ***
-33 ䷠ to 34 ䷡ difference 4 ****
-34 ䷡ to 35 ䷢ difference 4 ****
-35 ䷢ to 36 ䷣ difference 4 ****
-36 ䷣ to 37 ䷤ difference 2 **
-37 ䷤ to 38 ䷥ difference 4 ****
-38 ䷥ to 39 ䷦ difference 6 ******
-39 ䷦ to 40 ䷧ difference 4 ****
-40 ䷧ to 41 ䷨ difference 3 ***
-41 ䷨ to 42 ䷩ difference 2 **
-42 ䷩ to 43 ䷪ difference 4 ****
-43 ䷪ to 44 ䷫ difference 2 **
-44 ䷫ to 45 ䷬ difference 3 ***
-45 ䷬ to 46 ䷭ difference 4 ****
-46 ䷭ to 47 ䷮ difference 3 ***
-47 ䷮ to 48 ䷯ difference 2 **
-48 ䷯ to 49 ䷰ difference 3 ***
-49 ䷰ to 50 ䷱ difference 4 ****
-50 ䷱ to 51 ䷲ difference 4 ****
-51 ䷲ to 52 ䷳ difference 4 ****
-52 ䷳ to 53 ䷴ difference 1 *
-53 ䷴ to 54 ䷵ difference 6 ******
-54 ䷵ to 55 ䷶ difference 2 **
-55 ䷶ to 56 ䷷ difference 2 **
-56 ䷷ to 57 ䷸ difference 3 ***
-57 ䷸ to 58 ䷹ difference 4 ****
-58 ䷹ to 59 ䷺ difference 3 ***
-59 ䷺ to 60 ䷻ difference 2 **
-60 ䷻ to 61 ䷼ difference 1 *
-61 ䷼ to 62 ䷽ difference 6 ******
-62 ䷽ to 63 ䷾ difference 3 ***
-63 ䷾ to 64 ䷿ difference 6 ******
+01 <span class="hex">䷀</span> to 02 <span class="hex">䷁</span> difference 6 ******
+02 <span class="hex">䷁</span> to 03 <span class="hex">䷂</span> difference 2 **
+03 <span class="hex">䷂</span> to 04 <span class="hex">䷃</span> difference 4 ****
+04 <span class="hex">䷃</span> to 05 <span class="hex">䷄</span> difference 4 ****
+05 <span class="hex">䷄</span> to 06 <span class="hex">䷅</span> difference 4 ****
+06 <span class="hex">䷅</span> to 07 <span class="hex">䷆</span> difference 3 ***
+07 <span class="hex">䷆</span> to 08 <span class="hex">䷇</span> difference 2 **
+08 <span class="hex">䷇</span> to 09 <span class="hex">䷈</span> difference 4 ****
+09 <span class="hex">䷈</span> to 10 <span class="hex">䷉</span> difference 2 **
+10 <span class="hex">䷉</span> to 11 <span class="hex">䷊</span> difference 4 ****
+11 <span class="hex">䷊</span> to 12 <span class="hex">䷋</span> difference 6 ******
+12 <span class="hex">䷋</span> to 13 <span class="hex">䷌</span> difference 2 **
+13 <span class="hex">䷌</span> to 14 <span class="hex">䷍</span> difference 2 **
+14 <span class="hex">䷍</span> to 15 <span class="hex">䷎</span> difference 4 ****
+15 <span class="hex">䷎</span> to 16 <span class="hex">䷏</span> difference 2 **
+16 <span class="hex">䷏</span> to 17 <span class="hex">䷐</span> difference 2 **
+17 <span class="hex">䷐</span> to 18 <span class="hex">䷑</span> difference 6 ******
+18 <span class="hex">䷑</span> to 19 <span class="hex">䷒</span> difference 3 ***
+19 <span class="hex">䷒</span> to 20 <span class="hex">䷓</span> difference 4 ****
+20 <span class="hex">䷓</span> to 21 <span class="hex">䷔</span> difference 3 ***
+21 <span class="hex">䷔</span> to 22 <span class="hex">䷕</span> difference 2 **
+22 <span class="hex">䷕</span> to 23 <span class="hex">䷖</span> difference 2 **
+23 <span class="hex">䷖</span> to 24 <span class="hex">䷗</span> difference 2 **
+24 <span class="hex">䷗</span> to 25 <span class="hex">䷘</span> difference 3 ***
+25 <span class="hex">䷘</span> to 26 <span class="hex">䷙</span> difference 4 ****
+26 <span class="hex">䷙</span> to 27 <span class="hex">䷚</span> difference 2 **
+27 <span class="hex">䷚</span> to 28 <span class="hex">䷛</span> difference 6 ******
+28 <span class="hex">䷛</span> to 29 <span class="hex">䷜</span> difference 2 **
+29 <span class="hex">䷜</span> to 30 <span class="hex">䷝</span> difference 6 ******
+30 <span class="hex">䷝</span> to 31 <span class="hex">䷞</span> difference 3 ***
+31 <span class="hex">䷞</span> to 32 <span class="hex">䷟</span> difference 2 **
+32 <span class="hex">䷟</span> to 33 <span class="hex">䷠</span> difference 3 ***
+33 <span class="hex">䷠</span> to 34 <span class="hex">䷡</span> difference 4 ****
+34 <span class="hex">䷡</span> to 35 <span class="hex">䷢</span> difference 4 ****
+35 <span class="hex">䷢</span> to 36 <span class="hex">䷣</span> difference 4 ****
+36 <span class="hex">䷣</span> to 37 <span class="hex">䷤</span> difference 2 **
+37 <span class="hex">䷤</span> to 38 <span class="hex">䷥</span> difference 4 ****
+38 <span class="hex">䷥</span> to 39 <span class="hex">䷦</span> difference 6 ******
+39 <span class="hex">䷦</span> to 40 <span class="hex">䷧</span> difference 4 ****
+40 <span class="hex">䷧</span> to 41 <span class="hex">䷨</span> difference 3 ***
+41 <span class="hex">䷨</span> to 42 <span class="hex">䷩</span> difference 2 **
+42 <span class="hex">䷩</span> to 43 <span class="hex">䷪</span> difference 4 ****
+43 <span class="hex">䷪</span> to 44 <span class="hex">䷫</span> difference 2 **
+44 <span class="hex">䷫</span> to 45 <span class="hex">䷬</span> difference 3 ***
+45 <span class="hex">䷬</span> to 46 <span class="hex">䷭</span> difference 4 ****
+46 <span class="hex">䷭</span> to 47 <span class="hex">䷮</span> difference 3 ***
+47 <span class="hex">䷮</span> to 48 <span class="hex">䷯</span> difference 2 **
+48 <span class="hex">䷯</span> to 49 <span class="hex">䷰</span> difference 3 ***
+49 <span class="hex">䷰</span> to 50 <span class="hex">䷱</span> difference 4 ****
+50 <span class="hex">䷱</span> to 51 <span class="hex">䷲</span> difference 4 ****
+51 <span class="hex">䷲</span> to 52 <span class="hex">䷳</span> difference 4 ****
+52 <span class="hex">䷳</span> to 53 <span class="hex">䷴</span> difference 1 *
+53 <span class="hex">䷴</span> to 54 <span class="hex">䷵</span> difference 6 ******
+54 <span class="hex">䷵</span> to 55 <span class="hex">䷶</span> difference 2 **
+55 <span class="hex">䷶</span> to 56 <span class="hex">䷷</span> difference 2 **
+56 <span class="hex">䷷</span> to 57 <span class="hex">䷸</span> difference 3 ***
+57 <span class="hex">䷸</span> to 58 <span class="hex">䷹</span> difference 4 ****
+58 <span class="hex">䷹</span> to 59 <span class="hex">䷺</span> difference 3 ***
+59 <span class="hex">䷺</span> to 60 <span class="hex">䷻</span> difference 2 **
+60 <span class="hex">䷻</span> to 61 <span class="hex">䷼</span> difference 1 *
+61 <span class="hex">䷼</span> to 62 <span class="hex">䷽</span> difference 6 ******
+62 <span class="hex">䷽</span> to 63 <span class="hex">䷾</span> difference 3 ***
+63 <span class="hex">䷾</span> to 64 <span class="hex">䷿</span> difference 6 ******
 ---
 0 line changes total 0
 1 line changes total 2
@@ -309,89 +310,89 @@ which points to its own nuclear hexagram, and so on until the chain loops.
 These chains reveal deep structural relationships between hexagrams that are
 not obvious from the surface arrangement.
 ---
-01 ䷀ nuclear: 01 ䷀  chain: 01 ䷀ -> 01 ䷀
-02 ䷁ nuclear: 02 ䷁  chain: 02 ䷁ -> 02 ䷁
-03 ䷂ nuclear: 23 ䷖  chain: 03 ䷂ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
-04 ䷃ nuclear: 24 ䷗  chain: 04 ䷃ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
-05 ䷄ nuclear: 38 ䷥  chain: 05 ䷄ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-06 ䷅ nuclear: 37 ䷤  chain: 06 ䷅ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-07 ䷆ nuclear: 24 ䷗  chain: 07 ䷆ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
-08 ䷇ nuclear: 23 ䷖  chain: 08 ䷇ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
-09 ䷈ nuclear: 38 ䷥  chain: 09 ䷈ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-10 ䷉ nuclear: 37 ䷤  chain: 10 ䷉ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-11 ䷊ nuclear: 54 ䷵  chain: 11 ䷊ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-12 ䷋ nuclear: 53 ䷴  chain: 12 ䷋ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-13 ䷌ nuclear: 44 ䷫  chain: 13 ䷌ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
-14 ䷍ nuclear: 43 ䷪  chain: 14 ䷍ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
-15 ䷎ nuclear: 40 ䷧  chain: 15 ䷎ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-16 ䷏ nuclear: 39 ䷦  chain: 16 ䷏ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-17 ䷐ nuclear: 53 ䷴  chain: 17 ䷐ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-18 ䷑ nuclear: 54 ䷵  chain: 18 ䷑ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-19 ䷒ nuclear: 24 ䷗  chain: 19 ䷒ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
-20 ䷓ nuclear: 23 ䷖  chain: 20 ䷓ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
-21 ䷔ nuclear: 39 ䷦  chain: 21 ䷔ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-22 ䷕ nuclear: 40 ䷧  chain: 22 ䷕ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-23 ䷖ nuclear: 02 ䷁  chain: 23 ䷖ -> 02 ䷁ -> 02 ䷁
-24 ䷗ nuclear: 02 ䷁  chain: 24 ䷗ -> 02 ䷁ -> 02 ䷁
-25 ䷘ nuclear: 53 ䷴  chain: 25 ䷘ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-26 ䷙ nuclear: 54 ䷵  chain: 26 ䷙ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-27 ䷚ nuclear: 02 ䷁  chain: 27 ䷚ -> 02 ䷁ -> 02 ䷁
-28 ䷛ nuclear: 01 ䷀  chain: 28 ䷛ -> 01 ䷀ -> 01 ䷀
-29 ䷜ nuclear: 27 ䷚  chain: 29 ䷜ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
-30 ䷝ nuclear: 28 ䷛  chain: 30 ䷝ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
-31 ䷞ nuclear: 44 ䷫  chain: 31 ䷞ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
-32 ䷟ nuclear: 43 ䷪  chain: 32 ䷟ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
-33 ䷠ nuclear: 44 ䷫  chain: 33 ䷠ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
-34 ䷡ nuclear: 43 ䷪  chain: 34 ䷡ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
-35 ䷢ nuclear: 39 ䷦  chain: 35 ䷢ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-36 ䷣ nuclear: 40 ䷧  chain: 36 ䷣ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-37 ䷤ nuclear: 64 ䷿  chain: 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-38 ䷥ nuclear: 63 ䷾  chain: 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-39 ䷦ nuclear: 64 ䷿  chain: 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-40 ䷧ nuclear: 63 ䷾  chain: 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-41 ䷨ nuclear: 24 ䷗  chain: 41 ䷨ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
-42 ䷩ nuclear: 23 ䷖  chain: 42 ䷩ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
-43 ䷪ nuclear: 01 ䷀  chain: 43 ䷪ -> 01 ䷀ -> 01 ䷀
-44 ䷫ nuclear: 01 ䷀  chain: 44 ䷫ -> 01 ䷀ -> 01 ䷀
-45 ䷬ nuclear: 53 ䷴  chain: 45 ䷬ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-46 ䷭ nuclear: 54 ䷵  chain: 46 ䷭ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-47 ䷮ nuclear: 37 ䷤  chain: 47 ䷮ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-48 ䷯ nuclear: 38 ䷥  chain: 48 ䷯ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-49 ䷰ nuclear: 44 ䷫  chain: 49 ䷰ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
-50 ䷱ nuclear: 43 ䷪  chain: 50 ䷱ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
-51 ䷲ nuclear: 39 ䷦  chain: 51 ䷲ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-52 ䷳ nuclear: 40 ䷧  chain: 52 ䷳ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-53 ䷴ nuclear: 64 ䷿  chain: 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-54 ䷵ nuclear: 63 ䷾  chain: 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-55 ䷶ nuclear: 28 ䷛  chain: 55 ䷶ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
-56 ䷷ nuclear: 28 ䷛  chain: 56 ䷷ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
-57 ䷸ nuclear: 38 ䷥  chain: 57 ䷸ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
-58 ䷹ nuclear: 37 ䷤  chain: 58 ䷹ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
-59 ䷺ nuclear: 27 ䷚  chain: 59 ䷺ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
-60 ䷻ nuclear: 27 ䷚  chain: 60 ䷻ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
-61 ䷼ nuclear: 27 ䷚  chain: 61 ䷼ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
-62 ䷽ nuclear: 28 ䷛  chain: 62 ䷽ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
-63 ䷾ nuclear: 64 ䷿  chain: 63 ䷾ -> 64 ䷿ -> 63 ䷾
-64 ䷿ nuclear: 63 ䷾  chain: 64 ䷿ -> 63 ䷾ -> 64 ䷿
+01 <span class="hex">䷀</span> nuclear: 01 <span class="hex">䷀</span>  chain: 01 <span class="hex">䷀</span> -> 01 ䷀
+02 <span class="hex">䷁</span> nuclear: 02 <span class="hex">䷁</span>  chain: 02 <span class="hex">䷁</span> -> 02 ䷁
+03 <span class="hex">䷂</span> nuclear: 23 <span class="hex">䷖</span>  chain: 03 <span class="hex">䷂</span> -> 23 <span class="hex">䷖</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+04 <span class="hex">䷃</span> nuclear: 24 <span class="hex">䷗</span>  chain: 04 <span class="hex">䷃</span> -> 24 <span class="hex">䷗</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+05 <span class="hex">䷄</span> nuclear: 38 <span class="hex">䷥</span>  chain: 05 <span class="hex">䷄</span> -> 38 <span class="hex">䷥</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+06 <span class="hex">䷅</span> nuclear: 37 <span class="hex">䷤</span>  chain: 06 <span class="hex">䷅</span> -> 37 <span class="hex">䷤</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+07 <span class="hex">䷆</span> nuclear: 24 <span class="hex">䷗</span>  chain: 07 <span class="hex">䷆</span> -> 24 <span class="hex">䷗</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+08 <span class="hex">䷇</span> nuclear: 23 <span class="hex">䷖</span>  chain: 08 <span class="hex">䷇</span> -> 23 <span class="hex">䷖</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+09 <span class="hex">䷈</span> nuclear: 38 <span class="hex">䷥</span>  chain: 09 <span class="hex">䷈</span> -> 38 <span class="hex">䷥</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+10 <span class="hex">䷉</span> nuclear: 37 <span class="hex">䷤</span>  chain: 10 <span class="hex">䷉</span> -> 37 <span class="hex">䷤</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+11 <span class="hex">䷊</span> nuclear: 54 <span class="hex">䷵</span>  chain: 11 <span class="hex">䷊</span> -> 54 <span class="hex">䷵</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+12 <span class="hex">䷋</span> nuclear: 53 <span class="hex">䷴</span>  chain: 12 <span class="hex">䷋</span> -> 53 <span class="hex">䷴</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+13 <span class="hex">䷌</span> nuclear: 44 <span class="hex">䷫</span>  chain: 13 <span class="hex">䷌</span> -> 44 <span class="hex">䷫</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+14 <span class="hex">䷍</span> nuclear: 43 <span class="hex">䷪</span>  chain: 14 <span class="hex">䷍</span> -> 43 <span class="hex">䷪</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+15 <span class="hex">䷎</span> nuclear: 40 <span class="hex">䷧</span>  chain: 15 <span class="hex">䷎</span> -> 40 <span class="hex">䷧</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+16 <span class="hex">䷏</span> nuclear: 39 <span class="hex">䷦</span>  chain: 16 <span class="hex">䷏</span> -> 39 <span class="hex">䷦</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+17 <span class="hex">䷐</span> nuclear: 53 <span class="hex">䷴</span>  chain: 17 <span class="hex">䷐</span> -> 53 <span class="hex">䷴</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+18 <span class="hex">䷑</span> nuclear: 54 <span class="hex">䷵</span>  chain: 18 <span class="hex">䷑</span> -> 54 <span class="hex">䷵</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+19 <span class="hex">䷒</span> nuclear: 24 <span class="hex">䷗</span>  chain: 19 <span class="hex">䷒</span> -> 24 <span class="hex">䷗</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+20 <span class="hex">䷓</span> nuclear: 23 <span class="hex">䷖</span>  chain: 20 <span class="hex">䷓</span> -> 23 <span class="hex">䷖</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+21 <span class="hex">䷔</span> nuclear: 39 <span class="hex">䷦</span>  chain: 21 <span class="hex">䷔</span> -> 39 <span class="hex">䷦</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+22 <span class="hex">䷕</span> nuclear: 40 <span class="hex">䷧</span>  chain: 22 <span class="hex">䷕</span> -> 40 <span class="hex">䷧</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+23 <span class="hex">䷖</span> nuclear: 02 <span class="hex">䷁</span>  chain: 23 <span class="hex">䷖</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+24 <span class="hex">䷗</span> nuclear: 02 <span class="hex">䷁</span>  chain: 24 <span class="hex">䷗</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+25 <span class="hex">䷘</span> nuclear: 53 <span class="hex">䷴</span>  chain: 25 <span class="hex">䷘</span> -> 53 <span class="hex">䷴</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+26 <span class="hex">䷙</span> nuclear: 54 <span class="hex">䷵</span>  chain: 26 <span class="hex">䷙</span> -> 54 <span class="hex">䷵</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+27 <span class="hex">䷚</span> nuclear: 02 <span class="hex">䷁</span>  chain: 27 <span class="hex">䷚</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+28 <span class="hex">䷛</span> nuclear: 01 <span class="hex">䷀</span>  chain: 28 <span class="hex">䷛</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+29 <span class="hex">䷜</span> nuclear: 27 <span class="hex">䷚</span>  chain: 29 <span class="hex">䷜</span> -> 27 <span class="hex">䷚</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+30 <span class="hex">䷝</span> nuclear: 28 <span class="hex">䷛</span>  chain: 30 <span class="hex">䷝</span> -> 28 <span class="hex">䷛</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+31 <span class="hex">䷞</span> nuclear: 44 <span class="hex">䷫</span>  chain: 31 <span class="hex">䷞</span> -> 44 <span class="hex">䷫</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+32 <span class="hex">䷟</span> nuclear: 43 <span class="hex">䷪</span>  chain: 32 <span class="hex">䷟</span> -> 43 <span class="hex">䷪</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+33 <span class="hex">䷠</span> nuclear: 44 <span class="hex">䷫</span>  chain: 33 <span class="hex">䷠</span> -> 44 <span class="hex">䷫</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+34 <span class="hex">䷡</span> nuclear: 43 <span class="hex">䷪</span>  chain: 34 <span class="hex">䷡</span> -> 43 <span class="hex">䷪</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+35 <span class="hex">䷢</span> nuclear: 39 <span class="hex">䷦</span>  chain: 35 <span class="hex">䷢</span> -> 39 <span class="hex">䷦</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+36 <span class="hex">䷣</span> nuclear: 40 <span class="hex">䷧</span>  chain: 36 <span class="hex">䷣</span> -> 40 <span class="hex">䷧</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+37 <span class="hex">䷤</span> nuclear: 64 <span class="hex">䷿</span>  chain: 37 <span class="hex">䷤</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+38 <span class="hex">䷥</span> nuclear: 63 <span class="hex">䷾</span>  chain: 38 <span class="hex">䷥</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+39 <span class="hex">䷦</span> nuclear: 64 <span class="hex">䷿</span>  chain: 39 <span class="hex">䷦</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+40 <span class="hex">䷧</span> nuclear: 63 <span class="hex">䷾</span>  chain: 40 <span class="hex">䷧</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+41 <span class="hex">䷨</span> nuclear: 24 <span class="hex">䷗</span>  chain: 41 <span class="hex">䷨</span> -> 24 <span class="hex">䷗</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+42 <span class="hex">䷩</span> nuclear: 23 <span class="hex">䷖</span>  chain: 42 <span class="hex">䷩</span> -> 23 <span class="hex">䷖</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+43 <span class="hex">䷪</span> nuclear: 01 <span class="hex">䷀</span>  chain: 43 <span class="hex">䷪</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+44 <span class="hex">䷫</span> nuclear: 01 <span class="hex">䷀</span>  chain: 44 <span class="hex">䷫</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+45 <span class="hex">䷬</span> nuclear: 53 <span class="hex">䷴</span>  chain: 45 <span class="hex">䷬</span> -> 53 <span class="hex">䷴</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+46 <span class="hex">䷭</span> nuclear: 54 <span class="hex">䷵</span>  chain: 46 <span class="hex">䷭</span> -> 54 <span class="hex">䷵</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+47 <span class="hex">䷮</span> nuclear: 37 <span class="hex">䷤</span>  chain: 47 <span class="hex">䷮</span> -> 37 <span class="hex">䷤</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+48 <span class="hex">䷯</span> nuclear: 38 <span class="hex">䷥</span>  chain: 48 <span class="hex">䷯</span> -> 38 <span class="hex">䷥</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+49 <span class="hex">䷰</span> nuclear: 44 <span class="hex">䷫</span>  chain: 49 <span class="hex">䷰</span> -> 44 <span class="hex">䷫</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+50 <span class="hex">䷱</span> nuclear: 43 <span class="hex">䷪</span>  chain: 50 <span class="hex">䷱</span> -> 43 <span class="hex">䷪</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+51 <span class="hex">䷲</span> nuclear: 39 <span class="hex">䷦</span>  chain: 51 <span class="hex">䷲</span> -> 39 <span class="hex">䷦</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+52 <span class="hex">䷳</span> nuclear: 40 <span class="hex">䷧</span>  chain: 52 <span class="hex">䷳</span> -> 40 <span class="hex">䷧</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+53 <span class="hex">䷴</span> nuclear: 64 <span class="hex">䷿</span>  chain: 53 <span class="hex">䷴</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+54 <span class="hex">䷵</span> nuclear: 63 <span class="hex">䷾</span>  chain: 54 <span class="hex">䷵</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+55 <span class="hex">䷶</span> nuclear: 28 <span class="hex">䷛</span>  chain: 55 <span class="hex">䷶</span> -> 28 <span class="hex">䷛</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+56 <span class="hex">䷷</span> nuclear: 28 <span class="hex">䷛</span>  chain: 56 <span class="hex">䷷</span> -> 28 <span class="hex">䷛</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+57 <span class="hex">䷸</span> nuclear: 38 <span class="hex">䷥</span>  chain: 57 <span class="hex">䷸</span> -> 38 <span class="hex">䷥</span> -> 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+58 <span class="hex">䷹</span> nuclear: 37 <span class="hex">䷤</span>  chain: 58 <span class="hex">䷹</span> -> 37 <span class="hex">䷤</span> -> 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
+59 <span class="hex">䷺</span> nuclear: 27 <span class="hex">䷚</span>  chain: 59 <span class="hex">䷺</span> -> 27 <span class="hex">䷚</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+60 <span class="hex">䷻</span> nuclear: 27 <span class="hex">䷚</span>  chain: 60 <span class="hex">䷻</span> -> 27 <span class="hex">䷚</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+61 <span class="hex">䷼</span> nuclear: 27 <span class="hex">䷚</span>  chain: 61 <span class="hex">䷼</span> -> 27 <span class="hex">䷚</span> -> 02 <span class="hex">䷁</span> -> 02 ䷁
+62 <span class="hex">䷽</span> nuclear: 28 <span class="hex">䷛</span>  chain: 62 <span class="hex">䷽</span> -> 28 <span class="hex">䷛</span> -> 01 <span class="hex">䷀</span> -> 01 ䷀
+63 <span class="hex">䷾</span> nuclear: 64 <span class="hex">䷿</span>  chain: 63 <span class="hex">䷾</span> -> 64 <span class="hex">䷿</span> -> 63 ䷾
+64 <span class="hex">䷿</span> nuclear: 63 <span class="hex">䷾</span>  chain: 64 <span class="hex">䷿</span> -> 63 <span class="hex">䷾</span> -> 64 ䷿
 
 --- Nuclear hexagram frequency ---
 How often each hexagram appears as another's nuclear hexagram
-01 ䷀ The Creative                   appears 4 times
-02 ䷁ The Receptive                  appears 4 times
-23 ䷖ Splitting Apart                appears 4 times
-24 ䷗ Return                         appears 4 times
-27 ䷚ Nourishment                    appears 4 times
-28 ䷛ Great Preponderance            appears 4 times
-37 ䷤ The Family                     appears 4 times
-38 ䷥ Opposition                     appears 4 times
-39 ䷦ Obstruction                    appears 4 times
-40 ䷧ Deliverance                    appears 4 times
-43 ䷪ Breakthrough                   appears 4 times
-44 ䷫ Coming to Meet                 appears 4 times
-53 ䷴ Development                    appears 4 times
-54 ䷵ The Marrying Maiden            appears 4 times
-63 ䷾ After Completion               appears 4 times
-64 ䷿ Before Completion              appears 4 times
+01 <span class="hex">䷀</span> The Creative                   appears 4 times
+02 <span class="hex">䷁</span> The Receptive                  appears 4 times
+23 <span class="hex">䷖</span> Splitting Apart                appears 4 times
+24 <span class="hex">䷗</span> Return                         appears 4 times
+27 <span class="hex">䷚</span> Nourishment                    appears 4 times
+28 <span class="hex">䷛</span> Great Preponderance            appears 4 times
+37 <span class="hex">䷤</span> The Family                     appears 4 times
+38 <span class="hex">䷥</span> Opposition                     appears 4 times
+39 <span class="hex">䷦</span> Obstruction                    appears 4 times
+40 <span class="hex">䷧</span> Deliverance                    appears 4 times
+43 <span class="hex">䷪</span> Breakthrough                   appears 4 times
+44 <span class="hex">䷫</span> Coming to Meet                 appears 4 times
+53 <span class="hex">䷴</span> Development                    appears 4 times
+54 <span class="hex">䷵</span> The Marrying Maiden            appears 4 times
+63 <span class="hex">䷾</span> After Completion               appears 4 times
+64 <span class="hex">䷿</span> Before Completion              appears 4 times
 </pre>
 </div>
 <div class="section">
@@ -435,70 +436,70 @@ are. If complements tend to be near each other, it suggests the sequence was
 deliberately organized around opposition; if far apart, they may serve as
 bookends for larger structural sections.
 ---
-01 ䷀ <-> 02 ䷁  distance:  1  The Creative <-> The Receptive
-02 ䷁ <-> 01 ䷀  distance:  1  The Receptive <-> The Creative
-03 ䷂ <-> 50 ䷱  distance: 47  Difficulty at the Beginning <-> The Cauldron
-04 ䷃ <-> 49 ䷰  distance: 45  Youthful Folly <-> Revolution
-05 ䷄ <-> 35 ䷢  distance: 30  Waiting <-> Progress
-06 ䷅ <-> 36 ䷣  distance: 30  Conflict <-> Darkening of the Light
-07 ䷆ <-> 13 ䷌  distance:  6  The Army <-> Fellowship
-08 ䷇ <-> 14 ䷍  distance:  6  Holding Together <-> Great Possession
-09 ䷈ <-> 16 ䷏  distance:  7  Small Taming <-> Enthusiasm
-10 ䷉ <-> 15 ䷎  distance:  5  Treading <-> Modesty
-11 ䷊ <-> 12 ䷋  distance:  1  Peace <-> Standstill
-12 ䷋ <-> 11 ䷊  distance:  1  Standstill <-> Peace
-13 ䷌ <-> 07 ䷆  distance:  6  Fellowship <-> The Army
-14 ䷍ <-> 08 ䷇  distance:  6  Great Possession <-> Holding Together
-15 ䷎ <-> 10 ䷉  distance:  5  Modesty <-> Treading
-16 ䷏ <-> 09 ䷈  distance:  7  Enthusiasm <-> Small Taming
-17 ䷐ <-> 18 ䷑  distance:  1  Following <-> Work on the Decayed
-18 ䷑ <-> 17 ䷐  distance:  1  Work on the Decayed <-> Following
-19 ䷒ <-> 33 ䷠  distance: 14  Approach <-> Retreat
-20 ䷓ <-> 34 ䷡  distance: 14  Contemplation <-> Great Power
-21 ䷔ <-> 48 ䷯  distance: 27  Biting Through <-> The Well
-22 ䷕ <-> 47 ䷮  distance: 25  Grace <-> Oppression
-23 ䷖ <-> 43 ䷪  distance: 20  Splitting Apart <-> Breakthrough
-24 ䷗ <-> 44 ䷫  distance: 20  Return <-> Coming to Meet
-25 ䷘ <-> 46 ䷭  distance: 21  Innocence <-> Pushing Upward
-26 ䷙ <-> 45 ䷬  distance: 19  Great Taming <-> Gathering Together
-27 ䷚ <-> 28 ䷛  distance:  1  Nourishment <-> Great Preponderance
-28 ䷛ <-> 27 ䷚  distance:  1  Great Preponderance <-> Nourishment
-29 ䷜ <-> 30 ䷝  distance:  1  The Abysmal <-> The Clinging
-30 ䷝ <-> 29 ䷜  distance:  1  The Clinging <-> The Abysmal
-31 ䷞ <-> 41 ䷨  distance: 10  Influence <-> Decrease
-32 ䷟ <-> 42 ䷩  distance: 10  Duration <-> Increase
-33 ䷠ <-> 19 ䷒  distance: 14  Retreat <-> Approach
-34 ䷡ <-> 20 ䷓  distance: 14  Great Power <-> Contemplation
-35 ䷢ <-> 05 ䷄  distance: 30  Progress <-> Waiting
-36 ䷣ <-> 06 ䷅  distance: 30  Darkening of the Light <-> Conflict
-37 ䷤ <-> 40 ䷧  distance:  3  The Family <-> Deliverance
-38 ䷥ <-> 39 ䷦  distance:  1  Opposition <-> Obstruction
-39 ䷦ <-> 38 ䷥  distance:  1  Obstruction <-> Opposition
-40 ䷧ <-> 37 ䷤  distance:  3  Deliverance <-> The Family
-41 ䷨ <-> 31 ䷞  distance: 10  Decrease <-> Influence
-42 ䷩ <-> 32 ䷟  distance: 10  Increase <-> Duration
-43 ䷪ <-> 23 ䷖  distance: 20  Breakthrough <-> Splitting Apart
-44 ䷫ <-> 24 ䷗  distance: 20  Coming to Meet <-> Return
-45 ䷬ <-> 26 ䷙  distance: 19  Gathering Together <-> Great Taming
-46 ䷭ <-> 25 ䷘  distance: 21  Pushing Upward <-> Innocence
-47 ䷮ <-> 22 ䷕  distance: 25  Oppression <-> Grace
-48 ䷯ <-> 21 ䷔  distance: 27  The Well <-> Biting Through
-49 ䷰ <-> 04 ䷃  distance: 45  Revolution <-> Youthful Folly
-50 ䷱ <-> 03 ䷂  distance: 47  The Cauldron <-> Difficulty at the Beginning
-51 ䷲ <-> 57 ䷸  distance:  6  The Arousing <-> The Gentle
-52 ䷳ <-> 58 ䷹  distance:  6  Keeping Still <-> The Joyous
-53 ䷴ <-> 54 ䷵  distance:  1  Development <-> The Marrying Maiden
-54 ䷵ <-> 53 ䷴  distance:  1  The Marrying Maiden <-> Development
-55 ䷶ <-> 59 ䷺  distance:  4  Abundance <-> Dispersion
-56 ䷷ <-> 60 ䷻  distance:  4  The Wanderer <-> Limitation
-57 ䷸ <-> 51 ䷲  distance:  6  The Gentle <-> The Arousing
-58 ䷹ <-> 52 ䷳  distance:  6  The Joyous <-> Keeping Still
-59 ䷺ <-> 55 ䷶  distance:  4  Dispersion <-> Abundance
-60 ䷻ <-> 56 ䷷  distance:  4  Limitation <-> The Wanderer
-61 ䷼ <-> 62 ䷽  distance:  1  Inner Truth <-> Small Preponderance
-62 ䷽ <-> 61 ䷼  distance:  1  Small Preponderance <-> Inner Truth
-63 ䷾ <-> 64 ䷿  distance:  1  After Completion <-> Before Completion
-64 ䷿ <-> 63 ䷾  distance:  1  Before Completion <-> After Completion
+01 <span class="hex">䷀</span> <-> 02 <span class="hex">䷁</span>  distance:  1  The Creative <-> The Receptive
+02 <span class="hex">䷁</span> <-> 01 <span class="hex">䷀</span>  distance:  1  The Receptive <-> The Creative
+03 <span class="hex">䷂</span> <-> 50 <span class="hex">䷱</span>  distance: 47  Difficulty at the Beginning <-> The Cauldron
+04 <span class="hex">䷃</span> <-> 49 <span class="hex">䷰</span>  distance: 45  Youthful Folly <-> Revolution
+05 <span class="hex">䷄</span> <-> 35 <span class="hex">䷢</span>  distance: 30  Waiting <-> Progress
+06 <span class="hex">䷅</span> <-> 36 <span class="hex">䷣</span>  distance: 30  Conflict <-> Darkening of the Light
+07 <span class="hex">䷆</span> <-> 13 <span class="hex">䷌</span>  distance:  6  The Army <-> Fellowship
+08 <span class="hex">䷇</span> <-> 14 <span class="hex">䷍</span>  distance:  6  Holding Together <-> Great Possession
+09 <span class="hex">䷈</span> <-> 16 <span class="hex">䷏</span>  distance:  7  Small Taming <-> Enthusiasm
+10 <span class="hex">䷉</span> <-> 15 <span class="hex">䷎</span>  distance:  5  Treading <-> Modesty
+11 <span class="hex">䷊</span> <-> 12 <span class="hex">䷋</span>  distance:  1  Peace <-> Standstill
+12 <span class="hex">䷋</span> <-> 11 <span class="hex">䷊</span>  distance:  1  Standstill <-> Peace
+13 <span class="hex">䷌</span> <-> 07 <span class="hex">䷆</span>  distance:  6  Fellowship <-> The Army
+14 <span class="hex">䷍</span> <-> 08 <span class="hex">䷇</span>  distance:  6  Great Possession <-> Holding Together
+15 <span class="hex">䷎</span> <-> 10 <span class="hex">䷉</span>  distance:  5  Modesty <-> Treading
+16 <span class="hex">䷏</span> <-> 09 <span class="hex">䷈</span>  distance:  7  Enthusiasm <-> Small Taming
+17 <span class="hex">䷐</span> <-> 18 <span class="hex">䷑</span>  distance:  1  Following <-> Work on the Decayed
+18 <span class="hex">䷑</span> <-> 17 <span class="hex">䷐</span>  distance:  1  Work on the Decayed <-> Following
+19 <span class="hex">䷒</span> <-> 33 <span class="hex">䷠</span>  distance: 14  Approach <-> Retreat
+20 <span class="hex">䷓</span> <-> 34 <span class="hex">䷡</span>  distance: 14  Contemplation <-> Great Power
+21 <span class="hex">䷔</span> <-> 48 <span class="hex">䷯</span>  distance: 27  Biting Through <-> The Well
+22 <span class="hex">䷕</span> <-> 47 <span class="hex">䷮</span>  distance: 25  Grace <-> Oppression
+23 <span class="hex">䷖</span> <-> 43 <span class="hex">䷪</span>  distance: 20  Splitting Apart <-> Breakthrough
+24 <span class="hex">䷗</span> <-> 44 <span class="hex">䷫</span>  distance: 20  Return <-> Coming to Meet
+25 <span class="hex">䷘</span> <-> 46 <span class="hex">䷭</span>  distance: 21  Innocence <-> Pushing Upward
+26 <span class="hex">䷙</span> <-> 45 <span class="hex">䷬</span>  distance: 19  Great Taming <-> Gathering Together
+27 <span class="hex">䷚</span> <-> 28 <span class="hex">䷛</span>  distance:  1  Nourishment <-> Great Preponderance
+28 <span class="hex">䷛</span> <-> 27 <span class="hex">䷚</span>  distance:  1  Great Preponderance <-> Nourishment
+29 <span class="hex">䷜</span> <-> 30 <span class="hex">䷝</span>  distance:  1  The Abysmal <-> The Clinging
+30 <span class="hex">䷝</span> <-> 29 <span class="hex">䷜</span>  distance:  1  The Clinging <-> The Abysmal
+31 <span class="hex">䷞</span> <-> 41 <span class="hex">䷨</span>  distance: 10  Influence <-> Decrease
+32 <span class="hex">䷟</span> <-> 42 <span class="hex">䷩</span>  distance: 10  Duration <-> Increase
+33 <span class="hex">䷠</span> <-> 19 <span class="hex">䷒</span>  distance: 14  Retreat <-> Approach
+34 <span class="hex">䷡</span> <-> 20 <span class="hex">䷓</span>  distance: 14  Great Power <-> Contemplation
+35 <span class="hex">䷢</span> <-> 05 <span class="hex">䷄</span>  distance: 30  Progress <-> Waiting
+36 <span class="hex">䷣</span> <-> 06 <span class="hex">䷅</span>  distance: 30  Darkening of the Light <-> Conflict
+37 <span class="hex">䷤</span> <-> 40 <span class="hex">䷧</span>  distance:  3  The Family <-> Deliverance
+38 <span class="hex">䷥</span> <-> 39 <span class="hex">䷦</span>  distance:  1  Opposition <-> Obstruction
+39 <span class="hex">䷦</span> <-> 38 <span class="hex">䷥</span>  distance:  1  Obstruction <-> Opposition
+40 <span class="hex">䷧</span> <-> 37 <span class="hex">䷤</span>  distance:  3  Deliverance <-> The Family
+41 <span class="hex">䷨</span> <-> 31 <span class="hex">䷞</span>  distance: 10  Decrease <-> Influence
+42 <span class="hex">䷩</span> <-> 32 <span class="hex">䷟</span>  distance: 10  Increase <-> Duration
+43 <span class="hex">䷪</span> <-> 23 <span class="hex">䷖</span>  distance: 20  Breakthrough <-> Splitting Apart
+44 <span class="hex">䷫</span> <-> 24 <span class="hex">䷗</span>  distance: 20  Coming to Meet <-> Return
+45 <span class="hex">䷬</span> <-> 26 <span class="hex">䷙</span>  distance: 19  Gathering Together <-> Great Taming
+46 <span class="hex">䷭</span> <-> 25 <span class="hex">䷘</span>  distance: 21  Pushing Upward <-> Innocence
+47 <span class="hex">䷮</span> <-> 22 <span class="hex">䷕</span>  distance: 25  Oppression <-> Grace
+48 <span class="hex">䷯</span> <-> 21 <span class="hex">䷔</span>  distance: 27  The Well <-> Biting Through
+49 <span class="hex">䷰</span> <-> 04 <span class="hex">䷃</span>  distance: 45  Revolution <-> Youthful Folly
+50 <span class="hex">䷱</span> <-> 03 <span class="hex">䷂</span>  distance: 47  The Cauldron <-> Difficulty at the Beginning
+51 <span class="hex">䷲</span> <-> 57 <span class="hex">䷸</span>  distance:  6  The Arousing <-> The Gentle
+52 <span class="hex">䷳</span> <-> 58 <span class="hex">䷹</span>  distance:  6  Keeping Still <-> The Joyous
+53 <span class="hex">䷴</span> <-> 54 <span class="hex">䷵</span>  distance:  1  Development <-> The Marrying Maiden
+54 <span class="hex">䷵</span> <-> 53 <span class="hex">䷴</span>  distance:  1  The Marrying Maiden <-> Development
+55 <span class="hex">䷶</span> <-> 59 <span class="hex">䷺</span>  distance:  4  Abundance <-> Dispersion
+56 <span class="hex">䷷</span> <-> 60 <span class="hex">䷻</span>  distance:  4  The Wanderer <-> Limitation
+57 <span class="hex">䷸</span> <-> 51 <span class="hex">䷲</span>  distance:  6  The Gentle <-> The Arousing
+58 <span class="hex">䷹</span> <-> 52 <span class="hex">䷳</span>  distance:  6  The Joyous <-> Keeping Still
+59 <span class="hex">䷺</span> <-> 55 <span class="hex">䷶</span>  distance:  4  Dispersion <-> Abundance
+60 <span class="hex">䷻</span> <-> 56 <span class="hex">䷷</span>  distance:  4  Limitation <-> The Wanderer
+61 <span class="hex">䷼</span> <-> 62 <span class="hex">䷽</span>  distance:  1  Inner Truth <-> Small Preponderance
+62 <span class="hex">䷽</span> <-> 61 <span class="hex">䷼</span>  distance:  1  Small Preponderance <-> Inner Truth
+63 <span class="hex">䷾</span> <-> 64 <span class="hex">䷿</span>  distance:  1  After Completion <-> Before Completion
+64 <span class="hex">䷿</span> <-> 63 <span class="hex">䷾</span>  distance:  1  Before Completion <-> After Completion
 
 --- Complement distance statistics ---
 Mean distance:   12.1
@@ -719,7 +720,7 @@ are anecdotes, not statistically meaningful.)
 --- Permutation test ---
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2176/5000 (43.5%)
+Random orderings equally or more concentrated: 2163/5000 (43.3%)
 </pre>
 </div>
 <div class="section">
@@ -774,13 +775,13 @@ For each pair, XOR the two hexagrams to see what 'difference element' they produ
 If many pairs produce the same XOR product, the pairing has algebraic regularity.
 
 XOR Product      Hexagram  Pair count  Pairs
-  001100   62 ䷽     4      9-10, 15-16, 21-22, 47-48
-  010010   29 ䷜     4      7-8, 13-14, 31-32, 41-42
-  011110   28 ䷛     4      25-26, 37-38, 39-40, 45-46
-  100001   27 ䷚     4      23-24, 43-44, 55-56, 59-60
-  101101   30 ䷝     4      5-6, 35-36, 51-52, 57-58
-  110011   61 ䷼     4      3-4, 19-20, 33-34, 49-50
-  111111   01 ䷀     8      1-2, 11-12, 17-18, 27-28, 29-30, 53-54, 61-62, 63-64
+  001100   62 <span class="hex">䷽</span>       4      9-10, 15-16, 21-22, 47-48
+  010010   29 <span class="hex">䷜</span>       4      7-8, 13-14, 31-32, 41-42
+  011110   28 <span class="hex">䷛</span>       4      25-26, 37-38, 39-40, 45-46
+  100001   27 <span class="hex">䷚</span>       4      23-24, 43-44, 55-56, 59-60
+  101101   30 <span class="hex">䷝</span>       4      5-6, 35-36, 51-52, 57-58
+  110011   61 <span class="hex">䷼</span>       4      3-4, 19-20, 33-34, 49-50
+  111111   01 <span class="hex">䷀</span>       8      1-2, 11-12, 17-18, 27-28, 29-30, 53-54, 61-62, 63-64
 
 Unique XOR products: 7 (out of 32 pairs)
 If this number is small, the pairs share algebraic structure.
@@ -909,7 +910,7 @@ Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
 Mean MI of random permutations: 0.0199 bits
-King Wen percentile: 8.3%
+King Wen percentile: 8.5%
 
 --- Full 8-state trigram mutual information ---
 Using actual trigram identities (8 possible values each) rather than
@@ -1016,70 +1017,70 @@ Dense neighborhoods mean a hexagram has many close relatives; sparse ones are
 more isolated. This also shows whether King Wen places neighbors near each
 other in the sequence or scatters them.
 ---
-01 ䷀ The Creative                 d=1: [09, 10, 13, 14, 43, 44] (6 neighbors, mean seq dist: 21.2)
-02 ䷁ The Receptive                d=1: [07, 08, 15, 16, 23, 24] (6 neighbors, mean seq dist: 13.5)
-03 ䷂ Difficulty at the Beginning  d=1: [08, 17, 24, 42, 60, 63] (6 neighbors, mean seq dist: 32.7)
-04 ䷃ Youthful Folly               d=1: [07, 18, 23, 41, 59, 64] (6 neighbors, mean seq dist: 31.3)
-05 ䷄ Waiting                      d=1: [09, 11, 43, 48, 60, 63] (6 neighbors, mean seq dist: 34.0)
-06 ䷅ Conflict                     d=1: [10, 12, 44, 47, 59, 64] (6 neighbors, mean seq dist: 33.3)
-07 ䷆ The Army                     d=1: [02, 04, 19, 29, 40, 46] (6 neighbors, mean seq dist: 19.0)
-08 ䷇ Holding Together             d=1: [02, 03, 20, 29, 39, 45] (6 neighbors, mean seq dist: 18.7)
-09 ䷈ Small Taming                 d=1: [01, 05, 26, 37, 57, 61] (6 neighbors, mean seq dist: 26.2)
-10 ䷉ Treading                     d=1: [01, 06, 25, 38, 58, 61] (6 neighbors, mean seq dist: 25.8)
-11 ䷊ Peace                        d=1: [05, 19, 26, 34, 36, 46] (6 neighbors, mean seq dist: 18.7)
-12 ䷋ Standstill                   d=1: [06, 20, 25, 33, 35, 45] (6 neighbors, mean seq dist: 17.3)
-13 ䷌ Fellowship                   d=1: [01, 25, 30, 33, 37, 49] (6 neighbors, mean seq dist: 20.2)
-14 ䷍ Great Possession             d=1: [01, 26, 30, 34, 38, 50] (6 neighbors, mean seq dist: 20.2)
-15 ䷎ Modesty                      d=1: [02, 36, 39, 46, 52, 62] (6 neighbors, mean seq dist: 28.8)
-16 ䷏ Enthusiasm                   d=1: [02, 35, 40, 45, 51, 62] (6 neighbors, mean seq dist: 27.8)
-17 ䷐ Following                    d=1: [03, 25, 45, 49, 51, 58] (6 neighbors, mean seq dist: 26.2)
-18 ䷑ Work on the Decayed          d=1: [04, 26, 46, 50, 52, 57] (6 neighbors, mean seq dist: 25.8)
-19 ䷒ Approach                     d=1: [07, 11, 24, 41, 54, 60] (6 neighbors, mean seq dist: 20.5)
-20 ䷓ Contemplation                d=1: [08, 12, 23, 42, 53, 59] (6 neighbors, mean seq dist: 19.5)
-21 ䷔ Biting Through               d=1: [25, 27, 30, 35, 38, 51] (6 neighbors, mean seq dist: 13.3)
-22 ䷕ Grace                        d=1: [26, 27, 30, 36, 37, 52] (6 neighbors, mean seq dist: 12.7)
-23 ䷖ Splitting Apart              d=1: [02, 04, 20, 27, 35, 52] (6 neighbors, mean seq dist: 14.7)
-24 ䷗ Return                       d=1: [02, 03, 19, 27, 36, 51] (6 neighbors, mean seq dist: 15.0)
-25 ䷘ Innocence                    d=1: [10, 12, 13, 17, 21, 42] (6 neighbors, mean seq dist: 11.5)
-26 ䷙ Great Taming                 d=1: [09, 11, 14, 18, 22, 41] (6 neighbors, mean seq dist: 11.8)
-27 ䷚ Nourishment                  d=1: [21, 22, 23, 24, 41, 42] (6 neighbors, mean seq dist: 7.8)
-28 ䷛ Great Preponderance          d=1: [31, 32, 43, 44, 47, 48] (6 neighbors, mean seq dist: 12.8)
-29 ䷜ The Abysmal                  d=1: [07, 08, 47, 48, 59, 60] (6 neighbors, mean seq dist: 23.5)
-30 ䷝ The Clinging                 d=1: [13, 14, 21, 22, 55, 56] (6 neighbors, mean seq dist: 16.8)
-31 ䷞ Influence                    d=1: [28, 33, 39, 45, 49, 62] (6 neighbors, mean seq dist: 12.7)
-32 ䷟ Duration                     d=1: [28, 34, 40, 46, 50, 62] (6 neighbors, mean seq dist: 12.7)
-33 ䷠ Retreat                      d=1: [12, 13, 31, 44, 53, 56] (6 neighbors, mean seq dist: 16.2)
-34 ䷡ Great Power                  d=1: [11, 14, 32, 43, 54, 55] (6 neighbors, mean seq dist: 15.8)
-35 ䷢ Progress                     d=1: [12, 16, 21, 23, 56, 64] (6 neighbors, mean seq dist: 19.7)
-36 ䷣ Darkening of the Light       d=1: [11, 15, 22, 24, 55, 63] (6 neighbors, mean seq dist: 19.7)
-37 ䷤ The Family                   d=1: [09, 13, 22, 42, 53, 63] (6 neighbors, mean seq dist: 19.0)
-38 ䷥ Opposition                   d=1: [10, 14, 21, 41, 54, 64] (6 neighbors, mean seq dist: 19.0)
-39 ䷦ Obstruction                  d=1: [08, 15, 31, 48, 53, 63] (6 neighbors, mean seq dist: 18.3)
-40 ䷧ Deliverance                  d=1: [07, 16, 32, 47, 54, 64] (6 neighbors, mean seq dist: 18.3)
-41 ䷨ Decrease                     d=1: [04, 19, 26, 27, 38, 61] (6 neighbors, mean seq dist: 18.5)
-42 ䷩ Increase                     d=1: [03, 20, 25, 27, 37, 61] (6 neighbors, mean seq dist: 19.5)
-43 ䷪ Breakthrough                 d=1: [01, 05, 28, 34, 49, 58] (6 neighbors, mean seq dist: 20.8)
-44 ䷫ Coming to Meet               d=1: [01, 06, 28, 33, 50, 57] (6 neighbors, mean seq dist: 21.2)
-45 ䷬ Gathering Together           d=1: [08, 12, 16, 17, 31, 47] (6 neighbors, mean seq dist: 23.8)
-46 ䷭ Pushing Upward               d=1: [07, 11, 15, 18, 32, 48] (6 neighbors, mean seq dist: 24.8)
-47 ䷮ Oppression                   d=1: [06, 28, 29, 40, 45, 58] (6 neighbors, mean seq dist: 16.3)
-48 ䷯ The Well                     d=1: [05, 28, 29, 39, 46, 57] (6 neighbors, mean seq dist: 17.0)
-49 ䷰ Revolution                   d=1: [13, 17, 31, 43, 55, 63] (6 neighbors, mean seq dist: 18.7)
-50 ䷱ The Cauldron                 d=1: [14, 18, 32, 44, 56, 64] (6 neighbors, mean seq dist: 18.7)
-51 ䷲ The Arousing                 d=1: [16, 17, 21, 24, 54, 55] (6 neighbors, mean seq dist: 22.2)
-52 ䷳ Keeping Still                d=1: [15, 18, 22, 23, 53, 56] (6 neighbors, mean seq dist: 22.5)
-53 ䷴ Development                  d=1: [20, 33, 37, 39, 52, 57] (6 neighbors, mean seq dist: 14.7)
-54 ䷵ The Marrying Maiden          d=1: [19, 34, 38, 40, 51, 58] (6 neighbors, mean seq dist: 15.3)
-55 ䷶ Abundance                    d=1: [30, 34, 36, 49, 51, 62] (6 neighbors, mean seq dist: 13.7)
-56 ䷷ The Wanderer                 d=1: [30, 33, 35, 50, 52, 62] (6 neighbors, mean seq dist: 14.3)
-57 ䷸ The Gentle                   d=1: [09, 18, 44, 48, 53, 59] (6 neighbors, mean seq dist: 19.2)
-58 ䷹ The Joyous                   d=1: [10, 17, 43, 47, 54, 60] (6 neighbors, mean seq dist: 20.2)
-59 ䷺ Dispersion                   d=1: [04, 06, 20, 29, 57, 61] (6 neighbors, mean seq dist: 30.2)
-60 ䷻ Limitation                   d=1: [03, 05, 19, 29, 58, 61] (6 neighbors, mean seq dist: 31.2)
-61 ䷼ Inner Truth                  d=1: [09, 10, 41, 42, 59, 60] (6 neighbors, mean seq dist: 24.2)
-62 ䷽ Small Preponderance          d=1: [15, 16, 31, 32, 55, 56] (6 neighbors, mean seq dist: 27.8)
-63 ䷾ After Completion             d=1: [03, 05, 36, 37, 39, 49] (6 neighbors, mean seq dist: 34.8)
-64 ䷿ Before Completion            d=1: [04, 06, 35, 38, 40, 50] (6 neighbors, mean seq dist: 35.2)
+01 <span class="hex">䷀</span> The Creative                 d=1: [09, 10, 13, 14, 43, 44] (6 neighbors, mean seq dist: 21.2)
+02 <span class="hex">䷁</span> The Receptive                d=1: [07, 08, 15, 16, 23, 24] (6 neighbors, mean seq dist: 13.5)
+03 <span class="hex">䷂</span> Difficulty at the Beginning  d=1: [08, 17, 24, 42, 60, 63] (6 neighbors, mean seq dist: 32.7)
+04 <span class="hex">䷃</span> Youthful Folly               d=1: [07, 18, 23, 41, 59, 64] (6 neighbors, mean seq dist: 31.3)
+05 <span class="hex">䷄</span> Waiting                      d=1: [09, 11, 43, 48, 60, 63] (6 neighbors, mean seq dist: 34.0)
+06 <span class="hex">䷅</span> Conflict                     d=1: [10, 12, 44, 47, 59, 64] (6 neighbors, mean seq dist: 33.3)
+07 <span class="hex">䷆</span> The Army                     d=1: [02, 04, 19, 29, 40, 46] (6 neighbors, mean seq dist: 19.0)
+08 <span class="hex">䷇</span> Holding Together             d=1: [02, 03, 20, 29, 39, 45] (6 neighbors, mean seq dist: 18.7)
+09 <span class="hex">䷈</span> Small Taming                 d=1: [01, 05, 26, 37, 57, 61] (6 neighbors, mean seq dist: 26.2)
+10 <span class="hex">䷉</span> Treading                     d=1: [01, 06, 25, 38, 58, 61] (6 neighbors, mean seq dist: 25.8)
+11 <span class="hex">䷊</span> Peace                        d=1: [05, 19, 26, 34, 36, 46] (6 neighbors, mean seq dist: 18.7)
+12 <span class="hex">䷋</span> Standstill                   d=1: [06, 20, 25, 33, 35, 45] (6 neighbors, mean seq dist: 17.3)
+13 <span class="hex">䷌</span> Fellowship                   d=1: [01, 25, 30, 33, 37, 49] (6 neighbors, mean seq dist: 20.2)
+14 <span class="hex">䷍</span> Great Possession             d=1: [01, 26, 30, 34, 38, 50] (6 neighbors, mean seq dist: 20.2)
+15 <span class="hex">䷎</span> Modesty                      d=1: [02, 36, 39, 46, 52, 62] (6 neighbors, mean seq dist: 28.8)
+16 <span class="hex">䷏</span> Enthusiasm                   d=1: [02, 35, 40, 45, 51, 62] (6 neighbors, mean seq dist: 27.8)
+17 <span class="hex">䷐</span> Following                    d=1: [03, 25, 45, 49, 51, 58] (6 neighbors, mean seq dist: 26.2)
+18 <span class="hex">䷑</span> Work on the Decayed          d=1: [04, 26, 46, 50, 52, 57] (6 neighbors, mean seq dist: 25.8)
+19 <span class="hex">䷒</span> Approach                     d=1: [07, 11, 24, 41, 54, 60] (6 neighbors, mean seq dist: 20.5)
+20 <span class="hex">䷓</span> Contemplation                d=1: [08, 12, 23, 42, 53, 59] (6 neighbors, mean seq dist: 19.5)
+21 <span class="hex">䷔</span> Biting Through               d=1: [25, 27, 30, 35, 38, 51] (6 neighbors, mean seq dist: 13.3)
+22 <span class="hex">䷕</span> Grace                        d=1: [26, 27, 30, 36, 37, 52] (6 neighbors, mean seq dist: 12.7)
+23 <span class="hex">䷖</span> Splitting Apart              d=1: [02, 04, 20, 27, 35, 52] (6 neighbors, mean seq dist: 14.7)
+24 <span class="hex">䷗</span> Return                       d=1: [02, 03, 19, 27, 36, 51] (6 neighbors, mean seq dist: 15.0)
+25 <span class="hex">䷘</span> Innocence                    d=1: [10, 12, 13, 17, 21, 42] (6 neighbors, mean seq dist: 11.5)
+26 <span class="hex">䷙</span> Great Taming                 d=1: [09, 11, 14, 18, 22, 41] (6 neighbors, mean seq dist: 11.8)
+27 <span class="hex">䷚</span> Nourishment                  d=1: [21, 22, 23, 24, 41, 42] (6 neighbors, mean seq dist: 7.8)
+28 <span class="hex">䷛</span> Great Preponderance          d=1: [31, 32, 43, 44, 47, 48] (6 neighbors, mean seq dist: 12.8)
+29 <span class="hex">䷜</span> The Abysmal                  d=1: [07, 08, 47, 48, 59, 60] (6 neighbors, mean seq dist: 23.5)
+30 <span class="hex">䷝</span> The Clinging                 d=1: [13, 14, 21, 22, 55, 56] (6 neighbors, mean seq dist: 16.8)
+31 <span class="hex">䷞</span> Influence                    d=1: [28, 33, 39, 45, 49, 62] (6 neighbors, mean seq dist: 12.7)
+32 <span class="hex">䷟</span> Duration                     d=1: [28, 34, 40, 46, 50, 62] (6 neighbors, mean seq dist: 12.7)
+33 <span class="hex">䷠</span> Retreat                      d=1: [12, 13, 31, 44, 53, 56] (6 neighbors, mean seq dist: 16.2)
+34 <span class="hex">䷡</span> Great Power                  d=1: [11, 14, 32, 43, 54, 55] (6 neighbors, mean seq dist: 15.8)
+35 <span class="hex">䷢</span> Progress                     d=1: [12, 16, 21, 23, 56, 64] (6 neighbors, mean seq dist: 19.7)
+36 <span class="hex">䷣</span> Darkening of the Light       d=1: [11, 15, 22, 24, 55, 63] (6 neighbors, mean seq dist: 19.7)
+37 <span class="hex">䷤</span> The Family                   d=1: [09, 13, 22, 42, 53, 63] (6 neighbors, mean seq dist: 19.0)
+38 <span class="hex">䷥</span> Opposition                   d=1: [10, 14, 21, 41, 54, 64] (6 neighbors, mean seq dist: 19.0)
+39 <span class="hex">䷦</span> Obstruction                  d=1: [08, 15, 31, 48, 53, 63] (6 neighbors, mean seq dist: 18.3)
+40 <span class="hex">䷧</span> Deliverance                  d=1: [07, 16, 32, 47, 54, 64] (6 neighbors, mean seq dist: 18.3)
+41 <span class="hex">䷨</span> Decrease                     d=1: [04, 19, 26, 27, 38, 61] (6 neighbors, mean seq dist: 18.5)
+42 <span class="hex">䷩</span> Increase                     d=1: [03, 20, 25, 27, 37, 61] (6 neighbors, mean seq dist: 19.5)
+43 <span class="hex">䷪</span> Breakthrough                 d=1: [01, 05, 28, 34, 49, 58] (6 neighbors, mean seq dist: 20.8)
+44 <span class="hex">䷫</span> Coming to Meet               d=1: [01, 06, 28, 33, 50, 57] (6 neighbors, mean seq dist: 21.2)
+45 <span class="hex">䷬</span> Gathering Together           d=1: [08, 12, 16, 17, 31, 47] (6 neighbors, mean seq dist: 23.8)
+46 <span class="hex">䷭</span> Pushing Upward               d=1: [07, 11, 15, 18, 32, 48] (6 neighbors, mean seq dist: 24.8)
+47 <span class="hex">䷮</span> Oppression                   d=1: [06, 28, 29, 40, 45, 58] (6 neighbors, mean seq dist: 16.3)
+48 <span class="hex">䷯</span> The Well                     d=1: [05, 28, 29, 39, 46, 57] (6 neighbors, mean seq dist: 17.0)
+49 <span class="hex">䷰</span> Revolution                   d=1: [13, 17, 31, 43, 55, 63] (6 neighbors, mean seq dist: 18.7)
+50 <span class="hex">䷱</span> The Cauldron                 d=1: [14, 18, 32, 44, 56, 64] (6 neighbors, mean seq dist: 18.7)
+51 <span class="hex">䷲</span> The Arousing                 d=1: [16, 17, 21, 24, 54, 55] (6 neighbors, mean seq dist: 22.2)
+52 <span class="hex">䷳</span> Keeping Still                d=1: [15, 18, 22, 23, 53, 56] (6 neighbors, mean seq dist: 22.5)
+53 <span class="hex">䷴</span> Development                  d=1: [20, 33, 37, 39, 52, 57] (6 neighbors, mean seq dist: 14.7)
+54 <span class="hex">䷵</span> The Marrying Maiden          d=1: [19, 34, 38, 40, 51, 58] (6 neighbors, mean seq dist: 15.3)
+55 <span class="hex">䷶</span> Abundance                    d=1: [30, 34, 36, 49, 51, 62] (6 neighbors, mean seq dist: 13.7)
+56 <span class="hex">䷷</span> The Wanderer                 d=1: [30, 33, 35, 50, 52, 62] (6 neighbors, mean seq dist: 14.3)
+57 <span class="hex">䷸</span> The Gentle                   d=1: [09, 18, 44, 48, 53, 59] (6 neighbors, mean seq dist: 19.2)
+58 <span class="hex">䷹</span> The Joyous                   d=1: [10, 17, 43, 47, 54, 60] (6 neighbors, mean seq dist: 20.2)
+59 <span class="hex">䷺</span> Dispersion                   d=1: [04, 06, 20, 29, 57, 61] (6 neighbors, mean seq dist: 30.2)
+60 <span class="hex">䷻</span> Limitation                   d=1: [03, 05, 19, 29, 58, 61] (6 neighbors, mean seq dist: 31.2)
+61 <span class="hex">䷼</span> Inner Truth                  d=1: [09, 10, 41, 42, 59, 60] (6 neighbors, mean seq dist: 24.2)
+62 <span class="hex">䷽</span> Small Preponderance          d=1: [15, 16, 31, 32, 55, 56] (6 neighbors, mean seq dist: 27.8)
+63 <span class="hex">䷾</span> After Completion             d=1: [03, 05, 36, 37, 39, 49] (6 neighbors, mean seq dist: 34.8)
+64 <span class="hex">䷿</span> Before Completion            d=1: [04, 06, 35, 38, 40, 50] (6 neighbors, mean seq dist: 35.2)
 
 --- Neighborhood clustering in King Wen sequence ---
 Mean sequence distance between Hamming-1 neighbors: 20.6
@@ -1178,70 +1179,70 @@ instructive about combinatorial systems in general.
 ---
 Pos | Hex | Binary | Codon | Amino Acid | Name
 ----|-----|--------|-------|------------|----
-01  | ䷀ | 111111 | GGG  | Gly        | The Creative
-02  | ䷁ | 000000 | UUU  | Phe        | The Receptive
-03  | ䷂ | 010001 | CUC  | Leu        | Difficulty at the Beginning
-04  | ䷃ | 100010 | AUA  | Ile        | Youthful Folly
-05  | ䷄ | 010111 | CCG  | Pro        | Waiting
-06  | ䷅ | 111010 | GAA  | Glu        | Conflict
-07  | ䷆ | 000010 | UUA  | Leu        | The Army
-08  | ䷇ | 010000 | CUU  | Leu        | Holding Together
-09  | ䷈ | 110111 | GCG  | Ala        | Small Taming
-10  | ䷉ | 111011 | GAG  | Glu        | Treading
-11  | ䷊ | 000111 | UCG  | Ser        | Peace
-12  | ䷋ | 111000 | GAU  | Asp        | Standstill
-13  | ䷌ | 111101 | GGC  | Gly        | Fellowship
-14  | ䷍ | 101111 | AGG  | Arg        | Great Possession
-15  | ䷎ | 000100 | UCU  | Ser        | Modesty
-16  | ䷏ | 001000 | UAU  | Tyr        | Enthusiasm
-17  | ䷐ | 011001 | CAC  | His        | Following
-18  | ䷑ | 100110 | ACA  | Thr        | Work on the Decayed
-19  | ䷒ | 000011 | UUG  | Leu        | Approach
-20  | ䷓ | 110000 | GUU  | Val        | Contemplation
-21  | ䷔ | 101001 | AAC  | Asn        | Biting Through
-22  | ䷕ | 100101 | ACC  | Thr        | Grace
-23  | ䷖ | 100000 | AUU  | Ile        | Splitting Apart
-24  | ䷗ | 000001 | UUC  | Phe        | Return
-25  | ䷘ | 111001 | GAC  | Asp        | Innocence
-26  | ䷙ | 100111 | ACG  | Thr        | Great Taming
-27  | ䷚ | 100001 | AUC  | Ile        | Nourishment
-28  | ䷛ | 011110 | CGA  | Arg        | Great Preponderance
-29  | ䷜ | 010010 | CUA  | Leu        | The Abysmal
-30  | ䷝ | 101101 | AGC  | Ser        | The Clinging
-31  | ䷞ | 011100 | CGU  | Arg        | Influence
-32  | ䷟ | 001110 | UGA  | Stop       | Duration
-33  | ䷠ | 111100 | GGU  | Gly        | Retreat
-34  | ䷡ | 001111 | UGG  | Trp        | Great Power
-35  | ䷢ | 101000 | AAU  | Asn        | Progress
-36  | ䷣ | 000101 | UCC  | Ser        | Darkening of the Light
-37  | ䷤ | 110101 | GCC  | Ala        | The Family
-38  | ䷥ | 101011 | AAG  | Lys        | Opposition
-39  | ䷦ | 010100 | CCU  | Pro        | Obstruction
-40  | ䷧ | 001010 | UAA  | Stop       | Deliverance
-41  | ䷨ | 100011 | AUG  | Met        | Decrease
-42  | ䷩ | 110001 | GUC  | Val        | Increase
-43  | ䷪ | 011111 | CGG  | Arg        | Breakthrough
-44  | ䷫ | 111110 | GGA  | Gly        | Coming to Meet
-45  | ䷬ | 011000 | CAU  | His        | Gathering Together
-46  | ䷭ | 000110 | UCA  | Ser        | Pushing Upward
-47  | ䷮ | 011010 | CAA  | Gln        | Oppression
-48  | ䷯ | 010110 | CCA  | Pro        | The Well
-49  | ䷰ | 011101 | CGC  | Arg        | Revolution
-50  | ䷱ | 101110 | AGA  | Arg        | The Cauldron
-51  | ䷲ | 001001 | UAC  | Tyr        | The Arousing
-52  | ䷳ | 100100 | ACU  | Thr        | Keeping Still
-53  | ䷴ | 110100 | GCU  | Ala        | Development
-54  | ䷵ | 001011 | UAG  | Stop       | The Marrying Maiden
-55  | ䷶ | 001101 | UGC  | Cys        | Abundance
-56  | ䷷ | 101100 | AGU  | Ser        | The Wanderer
-57  | ䷸ | 110110 | GCA  | Ala        | The Gentle
-58  | ䷹ | 011011 | CAG  | Gln        | The Joyous
-59  | ䷺ | 110010 | GUA  | Val        | Dispersion
-60  | ䷻ | 010011 | CUG  | Leu        | Limitation
-61  | ䷼ | 110011 | GUG  | Val        | Inner Truth
-62  | ䷽ | 001100 | UGU  | Cys        | Small Preponderance
-63  | ䷾ | 010101 | CCC  | Pro        | After Completion
-64  | ䷿ | 101010 | AAA  | Lys        | Before Completion
+01  | <span class="hex">䷀</span>   | 111111 | GGG  | Gly        | The Creative
+02  | <span class="hex">䷁</span>   | 000000 | UUU  | Phe        | The Receptive
+03  | <span class="hex">䷂</span>   | 010001 | CUC  | Leu        | Difficulty at the Beginning
+04  | <span class="hex">䷃</span>   | 100010 | AUA  | Ile        | Youthful Folly
+05  | <span class="hex">䷄</span>   | 010111 | CCG  | Pro        | Waiting
+06  | <span class="hex">䷅</span>   | 111010 | GAA  | Glu        | Conflict
+07  | <span class="hex">䷆</span>   | 000010 | UUA  | Leu        | The Army
+08  | <span class="hex">䷇</span>   | 010000 | CUU  | Leu        | Holding Together
+09  | <span class="hex">䷈</span>   | 110111 | GCG  | Ala        | Small Taming
+10  | <span class="hex">䷉</span>   | 111011 | GAG  | Glu        | Treading
+11  | <span class="hex">䷊</span>   | 000111 | UCG  | Ser        | Peace
+12  | <span class="hex">䷋</span>   | 111000 | GAU  | Asp        | Standstill
+13  | <span class="hex">䷌</span>   | 111101 | GGC  | Gly        | Fellowship
+14  | <span class="hex">䷍</span>   | 101111 | AGG  | Arg        | Great Possession
+15  | <span class="hex">䷎</span>   | 000100 | UCU  | Ser        | Modesty
+16  | <span class="hex">䷏</span>   | 001000 | UAU  | Tyr        | Enthusiasm
+17  | <span class="hex">䷐</span>   | 011001 | CAC  | His        | Following
+18  | <span class="hex">䷑</span>   | 100110 | ACA  | Thr        | Work on the Decayed
+19  | <span class="hex">䷒</span>   | 000011 | UUG  | Leu        | Approach
+20  | <span class="hex">䷓</span>   | 110000 | GUU  | Val        | Contemplation
+21  | <span class="hex">䷔</span>   | 101001 | AAC  | Asn        | Biting Through
+22  | <span class="hex">䷕</span>   | 100101 | ACC  | Thr        | Grace
+23  | <span class="hex">䷖</span>   | 100000 | AUU  | Ile        | Splitting Apart
+24  | <span class="hex">䷗</span>   | 000001 | UUC  | Phe        | Return
+25  | <span class="hex">䷘</span>   | 111001 | GAC  | Asp        | Innocence
+26  | <span class="hex">䷙</span>   | 100111 | ACG  | Thr        | Great Taming
+27  | <span class="hex">䷚</span>   | 100001 | AUC  | Ile        | Nourishment
+28  | <span class="hex">䷛</span>   | 011110 | CGA  | Arg        | Great Preponderance
+29  | <span class="hex">䷜</span>   | 010010 | CUA  | Leu        | The Abysmal
+30  | <span class="hex">䷝</span>   | 101101 | AGC  | Ser        | The Clinging
+31  | <span class="hex">䷞</span>   | 011100 | CGU  | Arg        | Influence
+32  | <span class="hex">䷟</span>   | 001110 | UGA  | Stop       | Duration
+33  | <span class="hex">䷠</span>   | 111100 | GGU  | Gly        | Retreat
+34  | <span class="hex">䷡</span>   | 001111 | UGG  | Trp        | Great Power
+35  | <span class="hex">䷢</span>   | 101000 | AAU  | Asn        | Progress
+36  | <span class="hex">䷣</span>   | 000101 | UCC  | Ser        | Darkening of the Light
+37  | <span class="hex">䷤</span>   | 110101 | GCC  | Ala        | The Family
+38  | <span class="hex">䷥</span>   | 101011 | AAG  | Lys        | Opposition
+39  | <span class="hex">䷦</span>   | 010100 | CCU  | Pro        | Obstruction
+40  | <span class="hex">䷧</span>   | 001010 | UAA  | Stop       | Deliverance
+41  | <span class="hex">䷨</span>   | 100011 | AUG  | Met        | Decrease
+42  | <span class="hex">䷩</span>   | 110001 | GUC  | Val        | Increase
+43  | <span class="hex">䷪</span>   | 011111 | CGG  | Arg        | Breakthrough
+44  | <span class="hex">䷫</span>   | 111110 | GGA  | Gly        | Coming to Meet
+45  | <span class="hex">䷬</span>   | 011000 | CAU  | His        | Gathering Together
+46  | <span class="hex">䷭</span>   | 000110 | UCA  | Ser        | Pushing Upward
+47  | <span class="hex">䷮</span>   | 011010 | CAA  | Gln        | Oppression
+48  | <span class="hex">䷯</span>   | 010110 | CCA  | Pro        | The Well
+49  | <span class="hex">䷰</span>   | 011101 | CGC  | Arg        | Revolution
+50  | <span class="hex">䷱</span>   | 101110 | AGA  | Arg        | The Cauldron
+51  | <span class="hex">䷲</span>   | 001001 | UAC  | Tyr        | The Arousing
+52  | <span class="hex">䷳</span>   | 100100 | ACU  | Thr        | Keeping Still
+53  | <span class="hex">䷴</span>   | 110100 | GCU  | Ala        | Development
+54  | <span class="hex">䷵</span>   | 001011 | UAG  | Stop       | The Marrying Maiden
+55  | <span class="hex">䷶</span>   | 001101 | UGC  | Cys        | Abundance
+56  | <span class="hex">䷷</span>   | 101100 | AGU  | Ser        | The Wanderer
+57  | <span class="hex">䷸</span>   | 110110 | GCA  | Ala        | The Gentle
+58  | <span class="hex">䷹</span>   | 011011 | CAG  | Gln        | The Joyous
+59  | <span class="hex">䷺</span>   | 110010 | GUA  | Val        | Dispersion
+60  | <span class="hex">䷻</span>   | 010011 | CUG  | Leu        | Limitation
+61  | <span class="hex">䷼</span>   | 110011 | GUG  | Val        | Inner Truth
+62  | <span class="hex">䷽</span>   | 001100 | UGU  | Cys        | Small Preponderance
+63  | <span class="hex">䷾</span>   | 010101 | CCC  | Pro        | After Completion
+64  | <span class="hex">䷿</span>   | 101010 | AAA  | Lys        | Before Completion
 
 Unique amino acids in King Wen order: 21
 Total possible amino acids + stop: 21
@@ -1264,20 +1265,20 @@ unusually low, the sequence is more structured than random chance would produce.
 ---
 King Wen difference wave entropy: 2.0759 bits
 Maximum possible entropy (uniform): 2.8074 bits
-Mean entropy of random permutations: 2.1917 bits
-Min random entropy observed: 1.7892 bits
-Max random entropy observed: 2.4953 bits
-King Wen percentile: 13.5% (lower = more structured)
+Mean entropy of random permutations: 2.1921 bits
+Min random entropy observed: 1.6476 bits
+Max random entropy observed: 2.4955 bits
+King Wen percentile: 13.4% (lower = more structured)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
-  1             2                  5.8
+  1             2                  6.1
   2            20                 15.0
-  3            13                 20.1
-  4            19                 14.9
-  5             0                  6.1
-  6             9                  1.0
+  3            13                 19.8
+  4            19                 15.1
+  5             0                  6.0
+  6             9                  1.1
 </pre>
 </div>
 <div class="section">
@@ -1294,9 +1295,9 @@ transitions or had other priorities.
 ---
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     191.9
-Min random observed:         159
-Max random observed:         228
+Mean random path length:     192.0
+Min random observed:         157
+Max random observed:         230
 King Wen percentile:         97.6% (lower = shorter path)
 
 --- Theoretical bounds ---
@@ -1311,8 +1312,8 @@ of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
 Mean pair-constrained path length: 214.1
 Min pair-constrained observed:     189
-Max pair-constrained observed:     236
-King Wen percentile (pair-constrained): 29.1%
+Max pair-constrained observed:     239
+King Wen percentile (pair-constrained): 28.9%
 </pre>
 </div>
 <div class="section">
@@ -1328,7 +1329,7 @@ random permutations against each constraint individually and combined.
 ---
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          15 (0.15%)
+  No 5-line transitions:          21 (0.21%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both constraints.
   Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
@@ -1348,12 +1349,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.200%
-95% confidence interval: [0.120%, 0.290%]
-Interval width: 0.170 percentage points
+No-5-line-transition rate: 0.160%
+95% confidence interval: [0.090%, 0.250%]
+Interval width: 0.160 percentage points
 
-Approximately 1 in 500 random orderings
-95% CI: 1 in 345 to 1 in 833
+Approximately 1 in 625 random orderings
+95% CI: 1 in 400 to 1 in 1111
 </pre>
 </div>
 <div class="section">
@@ -1367,8 +1368,8 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the more
 likely the King Wen sequence was intentionally designed with this constraint.
 ---
-Permutations with no 5-line transitions: 21/10,000 (0.21%)
-Approximately 1 in 476 random orderings share this property.
+Permutations with no 5-line transitions: 17/10,000 (0.17%)
+Approximately 1 in 588 random orderings share this property.
 </pre>
 </div>
 </body></html>

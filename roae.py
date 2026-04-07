@@ -2536,6 +2536,7 @@ def export_html(filename="report.html"):
            "border: 1px solid #d1d9e0; border-radius: 6px; }")
     _print("  h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }")
     _print("  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }")
+    _print("  .hex { display: inline-block; width: 2ch; text-align: center; }")
     _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
@@ -2576,9 +2577,11 @@ def export_html(filename="report.html"):
     import re
     def fix_hexagram_spacing(text):
         """In terminal output, hexagram chars (U+4DC0-4DFF) are double-width,
-        so they're followed by extra padding spaces. In HTML/PDF with fallback
-        fonts, this creates misalignment. Remove two trailing spaces after each."""
-        return re.sub(r'([\u4DC0-\u4DFF])   ', r'\1 ', text)
+        so they're followed by extra padding spaces. In HTML/PDF, wrap each
+        hexagram in a fixed-width span to ensure consistent alignment."""
+        def replace_hex(m):
+            return f'<span class="hex">{m.group(1)}</span>{m.group(2)}'
+        return re.sub(r'([\u4DC0-\u4DFF])( +)', replace_hex, text)
 
     for title, func in sections:
         f = io.StringIO()
