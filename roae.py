@@ -2536,7 +2536,7 @@ def export_html(filename="report.html"):
            "border: 1px solid #d1d9e0; border-radius: 6px; }")
     _print("  h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }")
     _print("  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }")
-    _print("  .hex { display: inline-block; width: 2ch; text-align: center; }")
+    _print("  .hex { display: inline-block; width: 1ch; overflow: hidden; }")
     _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
