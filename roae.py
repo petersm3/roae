@@ -2520,10 +2520,15 @@ def export_html(filename="report.html"):
 
     _print("<!DOCTYPE html>")
     _print("<html><head>")
+    _print('<meta charset="UTF-8">')
     _print("<title>ROAE - King Wen Sequence Analysis</title>")
     _print("<style>")
-    _print("  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; "
+    _print("  body { font-family: 'Droid Sans Fallback', 'Noto Sans CJK', "
+           "'Arial Unicode MS', 'Segoe UI Symbol', monospace; "
+           "background: #1a1a2e; color: #e0e0e0; "
            "max-width: 1000px; margin: 0 auto; padding: 20px; }")
+    _print("  pre { font-family: 'Droid Sans Fallback', 'Noto Sans Mono', "
+           "'Arial Unicode MS', 'Segoe UI Symbol', monospace; }")
     _print("  h1 { color: #e94560; }")
     _print("  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }")
     _print("  pre { background: #16213e; padding: 15px; overflow-x: auto; "
