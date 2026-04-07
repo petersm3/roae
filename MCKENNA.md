@@ -11,7 +11,7 @@
 ## What he was specifically looking for
 
 - **Why no 5-line transitions?** This was his entry point. He saw the absence of 5 as evidence of intentional design, not coincidence. This program's Monte Carlo analysis (`--stats`) confirms it's unusual (~1 in 550) but not impossible.
-- **The shape of the wave itself** — he treated the difference values (the wave this program computes with `--wave`) as raw data for his fractal transformation. The program shows the wave but stops short of his fractal expansion step (the Timewave Zero algorithm is excluded for copyright reasons relating to McKenna's estate).
+- **The shape of the wave itself** — he treated the difference values (the wave this program computes with `--wave`) as raw data for his fractal transformation. The program shows the wave but does not implement his fractal expansion step (the Timewave Zero algorithm is outside the scope of this project).
 - **Hidden periodicity** — he believed the wave contained self-similar structure at multiple scales. The program's `--autocorrelation` and `--fft` analyses address this directly: no significant periodicity is detected, though with only N=63 data points the statistical power to detect weak periodicity is limited.
 - **Deliberate design** — he was convinced the sequence was engineered, not accumulated randomly over time. The program's `--constraints` analysis supports this: zero random permutations satisfy King Wen's combined properties (95% upper bound: less than 1 in 3,333). Whether "engineered" means what McKenna thought it means is a separate question.
 

@@ -299,7 +299,7 @@ def print_wave(order=1, wrap=False):
     print("For each consecutive pair of hexagrams, count how many of the 6 lines change.")
     print("This produces a sequence of values from 0 (identical) to 6 (every line flipped).")
     print("The resulting 'wave' is central to analysis of the King Wen sequence.")
-    print("Key observation (McKenna): the value 5 never appears — no consecutive hexagrams")
+    print("Key observation (McKenna, The Invisible Landscape, 1975): the value 5 never appears — no consecutive hexagrams")
     print("differ by exactly 5 lines. The value 0 also never appears (no duplicates).")
     if wrap:
         print("(Including the 64->1 wrap-around transition to complete the cycle.)")
@@ -320,7 +320,7 @@ def print_wave(order=1, wrap=False):
     # Summary: how often each difference count (0–6 line changes) occurs.
     # Notable findings:
     #   0 changes: 0 — no consecutive hexagrams are identical (expected)
-    #   5 changes: 0 — McKenna's observation; this never occurs in the sequence,
+    #   5 changes: 0 — McKenna's observation (The Invisible Landscape, 1975); this never occurs in the sequence,
     #                   which is statistically unlikely for a random ordering
     for n in range(7):
         print(f"{n} line changes total {diff_array[n]}")
