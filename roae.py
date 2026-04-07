@@ -2510,26 +2510,29 @@ def export_svg():
 
     print('</svg>')
 
-def export_html():
+def export_html(filename="report.html"):
     """Generate a self-contained HTML report with all analyses."""
     import io
     from contextlib import redirect_stdout
 
-    print("<!DOCTYPE html>")
-    print("<html><head>")
-    print("<title>ROAE - King Wen Sequence Analysis</title>")
-    print("<style>")
-    print("  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; "
-          "max-width: 1000px; margin: 0 auto; padding: 20px; }")
-    print("  h1 { color: #e94560; }")
-    print("  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }")
-    print("  pre { background: #16213e; padding: 15px; overflow-x: auto; "
-          "border-left: 3px solid #e94560; }")
-    print("  .section { margin-bottom: 20px; }")
-    print("</style>")
-    print("</head><body>")
-    print("<h1>Received Order Analysis Engine</h1>")
-    print("<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>")
+    out = open(filename, "w")
+    _print = lambda *a, **k: print(*a, **k, file=out)
+
+    _print("<!DOCTYPE html>")
+    _print("<html><head>")
+    _print("<title>ROAE - King Wen Sequence Analysis</title>")
+    _print("<style>")
+    _print("  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; "
+           "max-width: 1000px; margin: 0 auto; padding: 20px; }")
+    _print("  h1 { color: #e94560; }")
+    _print("  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }")
+    _print("  pre { background: #16213e; padding: 15px; overflow-x: auto; "
+           "border-left: 3px solid #e94560; }")
+    _print("  .section { margin-bottom: 20px; }")
+    _print("</style>")
+    _print("</head><body>")
+    _print("<h1>Received Order Analysis Engine</h1>")
+    _print("<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>")
 
     # Capture each section's output
     sections = [
@@ -2567,12 +2570,26 @@ def export_html():
         with redirect_stdout(f):
             func()
         output = f.getvalue()
-        print(f'<div class="section">')
-        print(f'<h2>{title}</h2>')
-        print(f'<pre>{output}</pre>')
-        print(f'</div>')
+        _print(f'<div class="section">')
+        _print(f'<h2>{title}</h2>')
+        _print(f'<pre>{output}</pre>')
+        _print(f'</div>')
 
-    print("</body></html>")
+    _print("</body></html>")
+    out.close()
+    print(f"HTML report written to {filename}")
+    # Try to also generate a PDF if wkhtmltopdf is installed
+    import subprocess
+    pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
+    try:
+        result = subprocess.run(
+            ["wkhtmltopdf", "--quiet", filename, pdf_filename],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print(f"PDF written to {pdf_filename}")
+    except FileNotFoundError:
+        pass  # wkhtmltopdf not installed; skip PDF generation
 
 def print_graphviz():
     """Output a Graphviz DOT representation of the King Wen sequence as a
@@ -2757,7 +2774,7 @@ def main():
     parser.add_argument("--svg", action="store_true",
                         help="Export hexagram line diagrams as SVG")
     parser.add_argument("--html", action="store_true",
-                        help="Generate self-contained HTML report")
+                        help="Generate self-contained HTML report (writes report.html)")
     parser.add_argument("--midi", action="store_true",
                         help="Export difference wave as MIDI file (to stdout)")
 
