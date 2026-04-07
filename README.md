@@ -17,7 +17,7 @@ A single-file Python analysis engine (no external dependencies) that approaches 
 
 ## What the analyses reveal
 
-The King Wen sequence is not random, but it's also not optimized for any single obvious metric. The evidence stacks up:
+The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE). It is not random, but it's also not optimized for any single obvious metric. The evidence stacks up:
 
 - **The pair structure is perfect** — every one of the 32 pairs is a reverse or inverse, and zero random permutations out of 10,000 achieved this.
 - **The no-5-line property is real but not astronomically rare** — about 1 in 550 random orderings share it. Notable, not miraculous.
@@ -27,13 +27,13 @@ The King Wen sequence is not random, but it's also not optimized for any single 
 - **The Markov transition matrix is not unusual** — a permutation test shows King Wen's transition structure is at the 43rd percentile, indistinguishable from random orderings. Apparent patterns (e.g., "6 is always followed by 2") are based on small samples and are not statistically significant.
 - **The path length is typical for its structure** — compared against unconstrained random orderings, King Wen appears rough (97th percentile, 3.35x a Gray code). But compared against the correct null model (random orderings that also satisfy the pair constraint), it's at the 29th percentile — completely typical.
 - **The XOR algebra is clean** — 32 pairs produce only ~12 unique products, suggesting the pairing system has deeper algebraic regularity.
-- **King Wen is unique among known orderings** — neither Fu Xi nor Mawangdui avoids 5-line transitions.
+- **King Wen is unique among known orderings** — neither the [Fu Xi](https://en.wikipedia.org/wiki/Shao_Yong) (binary) ordering nor the [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) silk manuscript ordering avoids 5-line transitions.
 
-The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships and avoidance of certain transitions — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, ~3000 years ago) appear to have been working with combinatorial rules, even if they wouldn't have described them in mathematical terms.
+The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships and avoidance of certain transitions — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, [~3000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou)) appear to have been working with combinatorial rules, even if they wouldn't have described them in mathematical terms.
 
 Note: with 33 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](CRITIQUE.md) for known limitations.
 
-See [MCKENNA.md](MCKENNA.md) for how these findings relate to Terence McKenna's Timewave Zero theory.
+See [MCKENNA.md](MCKENNA.md) for how these findings relate to [Terence McKenna's Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero).
 
 ## Usage
 
@@ -124,9 +124,18 @@ Python 3.6+ with no external dependencies (stdlib only).
 
 ## References
 
-* https://en.wikipedia.org/wiki/King_Wen_sequence
-* https://oeis.org/A102241
-* https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero
+* [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
+* [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) — Wikipedia (traditional attribution, ~1000 BCE)
+* [OEIS A102241](https://oeis.org/A102241) — binary encoding of King Wen hexagrams
+* [Bagua (eight trigrams)](https://en.wikipedia.org/wiki/Bagua) — Wikipedia (trigram names and associations)
+* [Hexagram (I Ching)](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — Wikipedia (hexagram structure, nuclear trigrams)
+* [I Ching divination](https://en.wikipedia.org/wiki/I_Ching_divination) — Wikipedia (three-coin method)
+* [Shao Yong](https://en.wikipedia.org/wiki/Shao_Yong) — Wikipedia (Fu Xi binary ordering)
+* [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (alternative hexagram ordering, 168 BCE)
+* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (hexagram names)
+* [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia
+* [Genetic code](https://en.wikipedia.org/wiki/Genetic_code) — Wikipedia (64 codons, degeneracy)
+* [DNA and RNA codon tables](https://en.wikipedia.org/wiki/DNA_and_RNA_codon_tables) — Wikipedia (standard codon table)
 
 ## License
 

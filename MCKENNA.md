@@ -2,11 +2,11 @@
 
 ## What was Terence McKenna looking for?
 
-McKenna believed the King Wen sequence encoded a mathematical structure that described the ebb and flow of "novelty" — essentially, how much change or newness occurs over time. His theory (Timewave Zero) proposed that:
+[McKenna](https://en.wikipedia.org/wiki/Terence_McKenna) believed the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) encoded a mathematical structure that described the ebb and flow of "novelty" — essentially, how much change or newness occurs over time. His theory ([Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)) proposed that:
 
 1. The first-order difference wave of the King Wen sequence wasn't arbitrary — it was a deliberately constructed signal.
 2. That signal, when fractally expanded (folded onto itself at multiple scales and combined), produced a wave that mapped onto the rise and fall of novelty throughout human history.
-3. The wave would reach a point of infinite novelty (zero point) at a specific date, which he ultimately pegged to December 21, 2012.
+3. The wave would reach a point of infinite novelty (zero point) at a specific date, which he ultimately pegged to [December 21, 2012](https://en.wikipedia.org/wiki/2012_phenomenon).
 
 ## What he was specifically looking for
 
@@ -33,27 +33,27 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 
 ### Claims challenged by published researchers
 
-5. **McKenna's wave construction was arbitrary** — Mathematician Matthew Watkins showed that McKenna and his collaborator Royce Kelley made several unjustified choices when transforming the first-order difference into the Timewave: how the wave was "folded" onto itself, how many iterations of expansion were applied, and which mathematical operations combined the scales. Different (equally valid) choices produce completely different timewaves, meaning the output is not uniquely determined by the sequence.
+5. **McKenna's wave construction was arbitrary** — Mathematician [Matthew Watkins](https://empslocal.ex.ac.uk/people/staff/mrwatkin/) showed that McKenna and his collaborator Royce Kelley made several unjustified choices when transforming the first-order difference into the Timewave: how the wave was "folded" onto itself, how many iterations of expansion were applied, and which mathematical operations combined the scales. Different (equally valid) choices produce completely different timewaves, meaning the output is not uniquely determined by the sequence. ([The Watkins Objection](https://www.fourmilab.ch/rpkp/autopsy.html))
 
-6. **Errors in the original computation** — Peter Meyer, who programmed the original Timewave Zero software, and later Watkins independently confirmed that some of McKenna's hand calculations contained arithmetic errors that propagated into the published wave. When corrected, the wave shape changed.
+6. **Errors in the original computation** — [Peter Meyer](https://www.fractal-timewave.com/), who programmed the original Timewave Zero software ([history](https://fractal-timewave.com/articles/hist.html)), and later Watkins independently confirmed that some of McKenna's hand calculations contained arithmetic errors that propagated into the published wave. When corrected, the wave shape changed.
 
-7. **The 384-day period is assumed, not derived** — McKenna claimed the wave's base period was 384 days (6 lines x 64 hexagrams), which he connected to 13 lunar months. But this number is simply the count of lines in the sequence — it has no mathematical relationship to the wave's shape or properties. Any base period could be substituted.
+7. **The 384-day period is assumed, not derived** — McKenna claimed the wave's base period was 384 days (6 lines x 64 hexagrams), which he connected to 13 lunar months ([derivation](https://www.fractal-timewave.com/articles/derivation_10.htm)). But this number is simply the count of lines in the sequence — it has no mathematical relationship to the wave's shape or properties. Any base period could be substituted.
 
-8. **The end-date was moved** — McKenna originally calculated a different end-date, then shifted it to December 21, 2012 to coincide with the Maya calendar long count completion. This was a post-hoc adjustment, not a prediction derived from the mathematics.
+8. **The end-date was moved** — McKenna originally calculated a different end-date, then shifted it to [December 21, 2012](https://en.wikipedia.org/wiki/2012_phenomenon) to coincide with the Maya calendar long count completion ([zero date analysis](https://www.fractal-timewave.com/articles/zerodate_10.html)). This was a post-hoc adjustment, not a prediction derived from the mathematics.
 
 ### Additional findings from ROAE
 
 - **The wave's structure is local, not global** — `--windowed-entropy` shows entropy varies across the sequence, with some regions more structured than others. There is no uniform "signal" — the structure comes in patches.
 - **Upper and lower trigrams change independently** — `--mutual-info` shows near-zero mutual information between upper and lower trigram transitions. Whatever rules govern the sequence, they don't couple the two halves of each hexagram.
 - **Yin-yang balance is a tautology** — `--yinyang` confirms exactly 192 yang and 192 yin lines across all 64 hexagrams. This is a necessary consequence of containing all 64 possible hexagrams exactly once, not evidence of additional design. The local balance (where yang or yin clusters) is a property of the ordering.
-- **The sequence is unique among historical orderings** — `--sequences` shows that neither the Fu Xi (binary) nor Mawangdui ordering avoids 5-line transitions. This property is specific to King Wen.
+- **The sequence is unique among historical orderings** — `--sequences` shows that neither the [Fu Xi](https://en.wikipedia.org/wiki/Shao_Yong) (binary) nor [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering avoids 5-line transitions. This property is specific to King Wen.
 
 ## What holds up
 
 - The pair structure is genuinely perfect and vanishingly unlikely by chance (`--constraints` shows 0/10,000 random permutations achieve it; 95% upper bound: less than 1 in 3,333).
 - The combined constraints (pairs + no-5) are extraordinary together.
 - The XOR algebraic regularity (`--symmetry`) is real and not well-explained.
-- The sequence was clearly designed with intentional mathematical structure by people ~3,000 years ago.
+- The sequence was clearly designed with intentional mathematical structure by people [~3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou).
 
 ## What does not hold up
 

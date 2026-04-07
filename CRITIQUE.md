@@ -5,8 +5,8 @@ A review of the program's methodology, assumptions, and interpretive claims from
 ## Data correctness
 
 - The binary hexagram encodings claim to follow [OEIS A102241](https://oeis.org/A102241), but the bit ordering convention (bit 0 = bottom line) is one of several in use. Some sources use bit 0 = top line. If the convention is wrong, every analysis built on it (reverse pairs, trigram decomposition, nuclear hexagrams) produces different results. The program should state its convention explicitly and ideally verify against a second independent source.
-- The hexagram names are attributed to the "Wilhelm/Baynes translation" but several are simplified or variant. A rigorous treatment would cite each name individually, not give a blanket attribution.
-- The Mawangdui ordering was recomputed from trigram cycling rules, but the actual silk manuscript ordering has scholarly disagreements. The program treats one reconstruction as definitive.
+- The hexagram names are attributed to the [Wilhelm/Baynes translation](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) but several are simplified or variant. A rigorous treatment would cite each name individually, not give a blanket attribution.
+- The [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering was recomputed from trigram cycling rules, but the actual silk manuscript ordering has scholarly disagreements. The program treats one reconstruction as definitive.
 
 ## Statistical methodology
 

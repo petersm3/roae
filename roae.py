@@ -61,6 +61,7 @@ binary_hexagrams = [
 ]
 
 # English names in King Wen order (Wilhelm/Baynes translation)
+# https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes
 hexagram_names = [
     "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
     "Waiting", "Conflict", "The Army", "Holding Together",
@@ -82,6 +83,7 @@ hexagram_names = [
 
 # The 8 trigrams (3-bit components), keyed by their binary value.
 # Each hexagram is composed of an upper trigram (bits 3–5) and a lower trigram (bits 0–2).
+# https://en.wikipedia.org/wiki/Bagua
 trigram_names = {
     0b111: ("☰", "Qian",  "Heaven"),
     0b000: ("☷", "Kun",   "Earth"),
@@ -102,6 +104,7 @@ fuxi_order = list(range(64))  # Binary values 0–63 in natural order
 # in the Mawangdui tomb (168 BCE). Upper trigrams cycle through Qian, Gen, Kan,
 # Zhen, Kun, Dui, Li, Xun, with each lower trigram cycling within.
 # Represented as King Wen index (0-based) for each position.
+# https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts
 mawangdui_kw_indices = [
      0, 43, 12, 24, 11,  9,  5, 32,  # Qian upper
     42, 27, 48, 16, 44, 57, 46, 30,  # Gen upper
@@ -141,6 +144,7 @@ def lower_trigram(val):
 # Extract the nuclear (inner) hexagram: formed by lines 2-3-4 (lower nuclear
 # trigram) and lines 3-4-5 (upper nuclear trigram), where lines are numbered
 # 1–6 from bottom. This gives a 6-bit value from the inner 4 lines.
+# https://en.wikipedia.org/wiki/Hexagram_(I_Ching)
 def nuclear_hexagram(val):
     # Lines are bits 0–5 (bottom to top). Nuclear uses lines 2,3,4 and 3,4,5
     # (0-indexed: bits 1,2,3 and bits 2,3,4)
@@ -2158,7 +2162,8 @@ def print_recurrence():
     print(f"\nRecurrence rate: {matches}/{total_pairs} ({matches/total_pairs*100:.1f}%)")
 
 def print_casting():
-    """Simulate an I Ching reading using the three-coin method."""
+    """Simulate an I Ching reading using the three-coin method.
+    https://en.wikipedia.org/wiki/I_Ching_divination"""
     print("---")
     print("I Ching casting (three-coin method)")
     print("In a traditional reading, three coins are tossed six times to generate a")
@@ -2301,7 +2306,9 @@ def print_explain(position):
     print(f"  This contributes '{diff}' to the difference wave. {'*' * diff}")
 
 def print_codons():
-    """Map the 64 hexagrams to the 64 DNA codons and compare structures."""
+    """Map the 64 hexagrams to the 64 DNA codons and compare structures.
+    https://en.wikipedia.org/wiki/Genetic_code
+    https://en.wikipedia.org/wiki/DNA_and_RNA_codon_tables"""
     print("---")
     print("DNA codon mapping")
     print("Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems")
