@@ -2390,8 +2390,8 @@ def print_codons():
     print(f"Single-line changes that preserve amino acid: {preserved}/{total_neighbors} "
           f"({preserved/total_neighbors*100:.1f}%)")
 
-def export_midi():
-    """Export the difference wave as a MIDI file to stdout."""
+def export_midi(filename="wave.mid"):
+    """Export the difference wave as a MIDI file."""
     # Write raw MIDI bytes (no external dependencies)
     # Format: single track, map diff values 1-6 to notes
 
@@ -2459,11 +2459,11 @@ def export_midi():
 
     midi_bytes = write_midi_bytes()
 
-    # Write to stdout as binary
-    sys.stdout.buffer.write(midi_bytes)
-    sys.stdout.buffer.flush()
+    with open(filename, "wb") as f:
+        f.write(midi_bytes)
+    print(f"MIDI written to {filename}")
 
-def export_svg():
+def export_svg(filename="hexagrams.svg"):
     """Export hexagram line diagrams as an SVG image."""
     line_w = 30
     line_h = 4
@@ -2478,9 +2478,10 @@ def export_svg():
     total_w = margin + cols * (hex_w + 10)
     total_h = margin + rows * (hex_h + label_h + 15)
 
-    print(f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{total_h}"'
-          f' font-family="monospace" font-size="9">')
-    print(f'<rect width="100%" height="100%" fill="white"/>')
+    lines = []
+    lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{total_h}"'
+                 f' font-family="monospace" font-size="9">')
+    lines.append(f'<rect width="100%" height="100%" fill="white"/>')
 
     for i in range(64):
         col = i % cols
@@ -2491,24 +2492,27 @@ def export_svg():
         b = binary_hexagrams[i]
 
         # Label
-        print(f'  <text x="{x + hex_w//2}" y="{y - 3}" text-anchor="middle">'
-              f'{i+1}. {unicode_hexagrams[i]}</text>')
+        lines.append(f'  <text x="{x + hex_w//2}" y="{y - 3}" text-anchor="middle">'
+                     f'{i+1}. {unicode_hexagrams[i]}</text>')
 
         # Draw 6 lines, top to bottom (bit 5 = top, bit 0 = bottom)
         for line in range(6):
             bit = (b >> (5 - line)) & 1
             ly = y + line * (line_h + gap)
             if bit:  # Yang - solid line
-                print(f'  <rect x="{x}" y="{ly}" width="{line_w}" height="{line_h}"'
-                      f' fill="black"/>')
+                lines.append(f'  <rect x="{x}" y="{ly}" width="{line_w}" height="{line_h}"'
+                             f' fill="black"/>')
             else:  # Yin - broken line
                 seg_w = (line_w - gap * 2) // 2
-                print(f'  <rect x="{x}" y="{ly}" width="{seg_w}" height="{line_h}"'
-                      f' fill="black"/>')
-                print(f'  <rect x="{x + seg_w + gap * 2}" y="{ly}" width="{seg_w}"'
-                      f' height="{line_h}" fill="black"/>')
+                lines.append(f'  <rect x="{x}" y="{ly}" width="{seg_w}" height="{line_h}"'
+                             f' fill="black"/>')
+                lines.append(f'  <rect x="{x + seg_w + gap * 2}" y="{ly}" width="{seg_w}"'
+                             f' height="{line_h}" fill="black"/>')
 
-    print('</svg>')
+    lines.append('</svg>')
+    with open(filename, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"SVG written to {filename}")
 
 def export_html(filename="report.html"):
     """Generate a self-contained HTML report with all analyses."""
@@ -2604,12 +2608,11 @@ def export_html(filename="report.html"):
     except FileNotFoundError:
         pass  # wkhtmltopdf not installed; skip PDF generation
 
-def print_graphviz():
+def print_graphviz(filename="wave.dot"):
     """Output a Graphviz DOT representation of the King Wen sequence as a
     directed graph, with edge weights showing the Hamming distance."""
     lines = []
     lines.append("// King Wen sequence as a Graphviz directed graph")
-    lines.append("// Render with: dot -Tpng wave.dot -o wave.dot.png")
     lines.append("digraph KingWen {")
     lines.append("    rankdir=LR;")
     lines.append("    node [shape=circle, fontsize=10];")
@@ -2625,21 +2628,23 @@ def print_graphviz():
         lines.append(f'    h{i+1} -> h{i+2} [label="{d}"];')
     lines.append("}")
     dot_text = "\n".join(lines)
-    print(dot_text)
+    with open(filename, "w") as f:
+        f.write(dot_text + "\n")
+    print(f"DOT written to {filename}")
     # Try to also generate PNG and SVG if Graphviz is installed
     import subprocess
     try:
-        for fmt, outfile in [("png", "wave.dot.png"), ("svg", "wave.dot.svg")]:
+        for fmt, outfile in [("png", filename + ".png"), ("svg", filename + ".svg")]:
             result = subprocess.run(
                 ["dot", f"-T{fmt}", "-o", outfile],
                 input=dot_text, capture_output=True, text=True
             )
             if result.returncode == 0:
-                print(f"{fmt.upper()} written to {outfile}", file=sys.stderr)
+                print(f"{fmt.upper()} written to {outfile}")
     except FileNotFoundError:
         pass  # Graphviz not installed; skip image generation
 
-def export_json():
+def export_json(filename="hexagrams.json"):
     """Export all hexagram data as JSON for use in other tools."""
     data = {
         "description": "King Wen sequence hexagram data",
@@ -2671,20 +2676,24 @@ def export_json():
         for i in range(63)
     ]
 
-    print(json.dumps(data, indent=2, ensure_ascii=False))
+    with open(filename, "w") as f:
+        f.write(json.dumps(data, indent=2, ensure_ascii=False))
+    print(f"JSON written to {filename}")
 
-def export_csv():
+def export_csv(filename="hexagrams.csv"):
     """Export hexagram data as CSV."""
-    print("position,unicode,binary,decimal,name,upper_pinyin,upper_meaning,"
-          "lower_pinyin,lower_meaning,nuclear_position")
-    for i in range(64):
-        b = binary_hexagrams[i]
-        bits = bin(b)[2:].zfill(6)
-        _, up, um = trigram_names[upper_trigram(b)]
-        _, lp, lm = trigram_names[lower_trigram(b)]
-        nuc_pos = binary_to_kw_position(nuclear_hexagram(b))
-        name = hexagram_names[i].replace(",", ";")  # escape commas in names
-        print(f"{i+1},{unicode_hexagrams[i]},{bits},{b},{name},{up},{um},{lp},{lm},{nuc_pos}")
+    with open(filename, "w") as f:
+        f.write("position,unicode,binary,decimal,name,upper_pinyin,upper_meaning,"
+                "lower_pinyin,lower_meaning,nuclear_position\n")
+        for i in range(64):
+            b = binary_hexagrams[i]
+            bits = bin(b)[2:].zfill(6)
+            _, up, um = trigram_names[upper_trigram(b)]
+            _, lp, lm = trigram_names[lower_trigram(b)]
+            nuc_pos = binary_to_kw_position(nuclear_hexagram(b))
+            name = hexagram_names[i].replace(",", ";")  # escape commas in names
+            f.write(f"{i+1},{unicode_hexagrams[i]},{bits},{b},{name},{up},{um},{lp},{lm},{nuc_pos}\n")
+    print(f"CSV written to {filename}")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -2779,17 +2788,17 @@ def main():
 
     # Export formats
     parser.add_argument("--json", action="store_true",
-                        help="Export all hexagram data as JSON")
+                        help="Export hexagram data (writes hexagrams.json)")
     parser.add_argument("--csv", action="store_true",
-                        help="Export hexagram data as CSV")
+                        help="Export hexagram data (writes hexagrams.csv)")
     parser.add_argument("--dot", action="store_true",
-                        help="Export sequence as Graphviz DOT graph")
+                        help="Export Graphviz graph (writes wave.dot, + .png/.svg if Graphviz installed)")
     parser.add_argument("--svg", action="store_true",
-                        help="Export hexagram line diagrams as SVG")
+                        help="Export hexagram line diagrams (writes hexagrams.svg)")
     parser.add_argument("--html", action="store_true",
-                        help="Generate self-contained HTML report (writes report.html)")
+                        help="Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)")
     parser.add_argument("--midi", action="store_true",
-                        help="Export difference wave as MIDI file (to stdout)")
+                        help="Export difference wave (writes wave.mid)")
 
     # Help
     parser.add_argument("--help-sections", action="store_true",

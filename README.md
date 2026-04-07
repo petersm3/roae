@@ -106,12 +106,12 @@ python3 roae.py --explain 1          # Step-by-step walkthrough of transition 1
 ### Export formats
 
 ```
-python3 roae.py --json > hexagrams.json   # JSON data
-python3 roae.py --csv > hexagrams.csv     # CSV data
-python3 roae.py --dot > wave.dot            # Graphviz graph (+ .png/.svg if Graphviz installed)
-python3 roae.py --svg > hexagrams.svg     # SVG line diagrams
-python3 roae.py --html                    # Self-contained HTML report (writes report.html, + .pdf if wkhtmltopdf installed)
-python3 roae.py --midi > wave.mid           # Difference wave as MIDI audio
+python3 roae.py --json    # writes hexagrams.json
+python3 roae.py --csv     # writes hexagrams.csv
+python3 roae.py --dot     # writes wave.dot (+ wave.dot.png/.svg if Graphviz installed)
+python3 roae.py --svg     # writes hexagrams.svg
+python3 roae.py --html    # writes report.html (+ report.pdf if wkhtmltopdf installed)
+python3 roae.py --midi    # writes wave.mid
 ```
 
 ### Verification

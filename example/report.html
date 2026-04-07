@@ -720,7 +720,7 @@ are anecdotes, not statistically meaningful.)
 --- Permutation test ---
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2124/5000 (42.5%)
+Random orderings equally or more concentrated: 2196/5000 (43.9%)
 </pre>
 </div>
 <div class="section">
@@ -909,8 +909,8 @@ Joint distribution of trigram changes:
 Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
-Mean MI of random permutations: 0.0202 bits
-King Wen percentile: 7.7%
+Mean MI of random permutations: 0.0204 bits
+King Wen percentile: 7.2%
 
 --- Full 8-state trigram mutual information ---
 Using actual trigram identities (8 possible values each) rather than
@@ -1266,15 +1266,15 @@ unusually low, the sequence is more structured than random chance would produce.
 King Wen difference wave entropy: 2.0759 bits
 Maximum possible entropy (uniform): 2.8074 bits
 Mean entropy of random permutations: 2.1909 bits
-Min random entropy observed: 1.6186 bits
-Max random entropy observed: 2.4863 bits
-King Wen percentile: 13.5% (lower = more structured)
+Min random entropy observed: 1.6800 bits
+Max random entropy observed: 2.4940 bits
+King Wen percentile: 13.8% (lower = more structured)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
   1             2                  6.0
-  2            20                 15.0
+  2            20                 14.9
   3            13                 20.1
   4            19                 15.0
   5             0                  6.0
@@ -1295,9 +1295,9 @@ transitions or had other priorities.
 ---
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     192.0
+Mean random path length:     191.8
 Min random observed:         159
-Max random observed:         234
+Max random observed:         232
 King Wen percentile:         97.6% (lower = shorter path)
 
 --- Theoretical bounds ---
@@ -1310,10 +1310,10 @@ The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.2
+Mean pair-constrained path length: 214.1
 Min pair-constrained observed:     190
-Max pair-constrained observed:     237
-King Wen percentile (pair-constrained): 28.9%
+Max pair-constrained observed:     238
+King Wen percentile (pair-constrained): 29.0%
 </pre>
 </div>
 <div class="section">
@@ -1329,7 +1329,7 @@ random permutations against each constraint individually and combined.
 ---
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          12 (0.12%)
+  No 5-line transitions:          13 (0.13%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both constraints.
   Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
@@ -1349,12 +1349,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.220%
-95% confidence interval: [0.130%, 0.320%]
-Interval width: 0.190 percentage points
+No-5-line-transition rate: 0.170%
+95% confidence interval: [0.100%, 0.260%]
+Interval width: 0.160 percentage points
 
-Approximately 1 in 455 random orderings
-95% CI: 1 in 312 to 1 in 769
+Approximately 1 in 588 random orderings
+95% CI: 1 in 385 to 1 in 1000
 </pre>
 </div>
 <div class="section">
@@ -1368,8 +1368,8 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the more
 likely the King Wen sequence was intentionally designed with this constraint.
 ---
-Permutations with no 5-line transitions: 26/10,000 (0.26%)
-Approximately 1 in 384 random orderings share this property.
+Permutations with no 5-line transitions: 17/10,000 (0.17%)
+Approximately 1 in 588 random orderings share this property.
 </pre>
 </div>
 </body></html>
