@@ -87,10 +87,10 @@ trigram_names = {
     0b000: ("☷", "Kun",   "Earth"),
     0b001: ("☳", "Zhen",  "Thunder"),
     0b010: ("☵", "Kan",   "Water"),
-    0b011: ("☶", "Gen",   "Mountain"),
-    0b100: ("☴", "Xun",   "Wind"),
+    0b011: ("☱", "Dui",   "Lake"),
+    0b100: ("☶", "Gen",   "Mountain"),
     0b101: ("☲", "Li",    "Fire"),
-    0b110: ("☱", "Dui",   "Lake"),
+    0b110: ("☴", "Xun",   "Wind"),
 }
 
 # Fu Xi (binary/natural) ordering: hexagrams ordered by their binary value 0–63.

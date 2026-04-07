@@ -21,65 +21,65 @@ Pos | Hex | Binary | Upper          | Lower          | Name
 01  | ䷀   | 111111 | Qian Heaven    | Qian Heaven    | The Creative
 02  | ䷁   | 000000 | Kun  Earth     | Kun  Earth     | The Receptive
 03  | ䷂   | 010001 | Kan  Water     | Zhen Thunder   | Difficulty at the Beginning
-04  | ䷃   | 100010 | Xun  Wind      | Kan  Water     | Youthful Folly
+04  | ䷃   | 100010 | Gen  Mountain  | Kan  Water     | Youthful Folly
 05  | ䷄   | 010111 | Kan  Water     | Qian Heaven    | Waiting
 06  | ䷅   | 111010 | Qian Heaven    | Kan  Water     | Conflict
 07  | ䷆   | 000010 | Kun  Earth     | Kan  Water     | The Army
 08  | ䷇   | 010000 | Kan  Water     | Kun  Earth     | Holding Together
-09  | ䷈   | 110111 | Dui  Lake      | Qian Heaven    | Small Taming
-10  | ䷉   | 111011 | Qian Heaven    | Gen  Mountain  | Treading
+09  | ䷈   | 110111 | Xun  Wind      | Qian Heaven    | Small Taming
+10  | ䷉   | 111011 | Qian Heaven    | Dui  Lake      | Treading
 11  | ䷊   | 000111 | Kun  Earth     | Qian Heaven    | Peace
 12  | ䷋   | 111000 | Qian Heaven    | Kun  Earth     | Standstill
 13  | ䷌   | 111101 | Qian Heaven    | Li   Fire      | Fellowship
 14  | ䷍   | 101111 | Li   Fire      | Qian Heaven    | Great Possession
-15  | ䷎   | 000100 | Kun  Earth     | Xun  Wind      | Modesty
+15  | ䷎   | 000100 | Kun  Earth     | Gen  Mountain  | Modesty
 16  | ䷏   | 001000 | Zhen Thunder   | Kun  Earth     | Enthusiasm
-17  | ䷐   | 011001 | Gen  Mountain  | Zhen Thunder   | Following
-18  | ䷑   | 100110 | Xun  Wind      | Dui  Lake      | Work on the Decayed
-19  | ䷒   | 000011 | Kun  Earth     | Gen  Mountain  | Approach
-20  | ䷓   | 110000 | Dui  Lake      | Kun  Earth     | Contemplation
+17  | ䷐   | 011001 | Dui  Lake      | Zhen Thunder   | Following
+18  | ䷑   | 100110 | Gen  Mountain  | Xun  Wind      | Work on the Decayed
+19  | ䷒   | 000011 | Kun  Earth     | Dui  Lake      | Approach
+20  | ䷓   | 110000 | Xun  Wind      | Kun  Earth     | Contemplation
 21  | ䷔   | 101001 | Li   Fire      | Zhen Thunder   | Biting Through
-22  | ䷕   | 100101 | Xun  Wind      | Li   Fire      | Grace
-23  | ䷖   | 100000 | Xun  Wind      | Kun  Earth     | Splitting Apart
+22  | ䷕   | 100101 | Gen  Mountain  | Li   Fire      | Grace
+23  | ䷖   | 100000 | Gen  Mountain  | Kun  Earth     | Splitting Apart
 24  | ䷗   | 000001 | Kun  Earth     | Zhen Thunder   | Return
 25  | ䷘   | 111001 | Qian Heaven    | Zhen Thunder   | Innocence
-26  | ䷙   | 100111 | Xun  Wind      | Qian Heaven    | Great Taming
-27  | ䷚   | 100001 | Xun  Wind      | Zhen Thunder   | Nourishment
-28  | ䷛   | 011110 | Gen  Mountain  | Dui  Lake      | Great Preponderance
+26  | ䷙   | 100111 | Gen  Mountain  | Qian Heaven    | Great Taming
+27  | ䷚   | 100001 | Gen  Mountain  | Zhen Thunder   | Nourishment
+28  | ䷛   | 011110 | Dui  Lake      | Xun  Wind      | Great Preponderance
 29  | ䷜   | 010010 | Kan  Water     | Kan  Water     | The Abysmal
 30  | ䷝   | 101101 | Li   Fire      | Li   Fire      | The Clinging
-31  | ䷞   | 011100 | Gen  Mountain  | Xun  Wind      | Influence
-32  | ䷟   | 001110 | Zhen Thunder   | Dui  Lake      | Duration
-33  | ䷠   | 111100 | Qian Heaven    | Xun  Wind      | Retreat
+31  | ䷞   | 011100 | Dui  Lake      | Gen  Mountain  | Influence
+32  | ䷟   | 001110 | Zhen Thunder   | Xun  Wind      | Duration
+33  | ䷠   | 111100 | Qian Heaven    | Gen  Mountain  | Retreat
 34  | ䷡   | 001111 | Zhen Thunder   | Qian Heaven    | Great Power
 35  | ䷢   | 101000 | Li   Fire      | Kun  Earth     | Progress
 36  | ䷣   | 000101 | Kun  Earth     | Li   Fire      | Darkening of the Light
-37  | ䷤   | 110101 | Dui  Lake      | Li   Fire      | The Family
-38  | ䷥   | 101011 | Li   Fire      | Gen  Mountain  | Opposition
-39  | ䷦   | 010100 | Kan  Water     | Xun  Wind      | Obstruction
+37  | ䷤   | 110101 | Xun  Wind      | Li   Fire      | The Family
+38  | ䷥   | 101011 | Li   Fire      | Dui  Lake      | Opposition
+39  | ䷦   | 010100 | Kan  Water     | Gen  Mountain  | Obstruction
 40  | ䷧   | 001010 | Zhen Thunder   | Kan  Water     | Deliverance
-41  | ䷨   | 100011 | Xun  Wind      | Gen  Mountain  | Decrease
-42  | ䷩   | 110001 | Dui  Lake      | Zhen Thunder   | Increase
-43  | ䷪   | 011111 | Gen  Mountain  | Qian Heaven    | Breakthrough
-44  | ䷫   | 111110 | Qian Heaven    | Dui  Lake      | Coming to Meet
-45  | ䷬   | 011000 | Gen  Mountain  | Kun  Earth     | Gathering Together
-46  | ䷭   | 000110 | Kun  Earth     | Dui  Lake      | Pushing Upward
-47  | ䷮   | 011010 | Gen  Mountain  | Kan  Water     | Oppression
-48  | ䷯   | 010110 | Kan  Water     | Dui  Lake      | The Well
-49  | ䷰   | 011101 | Gen  Mountain  | Li   Fire      | Revolution
-50  | ䷱   | 101110 | Li   Fire      | Dui  Lake      | The Cauldron
+41  | ䷨   | 100011 | Gen  Mountain  | Dui  Lake      | Decrease
+42  | ䷩   | 110001 | Xun  Wind      | Zhen Thunder   | Increase
+43  | ䷪   | 011111 | Dui  Lake      | Qian Heaven    | Breakthrough
+44  | ䷫   | 111110 | Qian Heaven    | Xun  Wind      | Coming to Meet
+45  | ䷬   | 011000 | Dui  Lake      | Kun  Earth     | Gathering Together
+46  | ䷭   | 000110 | Kun  Earth     | Xun  Wind      | Pushing Upward
+47  | ䷮   | 011010 | Dui  Lake      | Kan  Water     | Oppression
+48  | ䷯   | 010110 | Kan  Water     | Xun  Wind      | The Well
+49  | ䷰   | 011101 | Dui  Lake      | Li   Fire      | Revolution
+50  | ䷱   | 101110 | Li   Fire      | Xun  Wind      | The Cauldron
 51  | ䷲   | 001001 | Zhen Thunder   | Zhen Thunder   | The Arousing
-52  | ䷳   | 100100 | Xun  Wind      | Xun  Wind      | Keeping Still
-53  | ䷴   | 110100 | Dui  Lake      | Xun  Wind      | Development
-54  | ䷵   | 001011 | Zhen Thunder   | Gen  Mountain  | The Marrying Maiden
+52  | ䷳   | 100100 | Gen  Mountain  | Gen  Mountain  | Keeping Still
+53  | ䷴   | 110100 | Xun  Wind      | Gen  Mountain  | Development
+54  | ䷵   | 001011 | Zhen Thunder   | Dui  Lake      | The Marrying Maiden
 55  | ䷶   | 001101 | Zhen Thunder   | Li   Fire      | Abundance
-56  | ䷷   | 101100 | Li   Fire      | Xun  Wind      | The Wanderer
-57  | ䷸   | 110110 | Dui  Lake      | Dui  Lake      | The Gentle
-58  | ䷹   | 011011 | Gen  Mountain  | Gen  Mountain  | The Joyous
-59  | ䷺   | 110010 | Dui  Lake      | Kan  Water     | Dispersion
-60  | ䷻   | 010011 | Kan  Water     | Gen  Mountain  | Limitation
-61  | ䷼   | 110011 | Dui  Lake      | Gen  Mountain  | Inner Truth
-62  | ䷽   | 001100 | Zhen Thunder   | Xun  Wind      | Small Preponderance
+56  | ䷷   | 101100 | Li   Fire      | Gen  Mountain  | The Wanderer
+57  | ䷸   | 110110 | Xun  Wind      | Xun  Wind      | The Gentle
+58  | ䷹   | 011011 | Dui  Lake      | Dui  Lake      | The Joyous
+59  | ䷺   | 110010 | Xun  Wind      | Kan  Water     | Dispersion
+60  | ䷻   | 010011 | Kan  Water     | Dui  Lake      | Limitation
+61  | ䷼   | 110011 | Xun  Wind      | Dui  Lake      | Inner Truth
+62  | ䷽   | 001100 | Zhen Thunder   | Gen  Mountain  | Small Preponderance
 63  | ䷾   | 010101 | Kan  Water     | Li   Fire      | After Completion
 64  | ䷿   | 101010 | Li   Fire      | Kan  Water     | Before Completion
 ---
@@ -240,10 +240,10 @@ Trigram              Upper  Lower  Total
 Kun  Earth             8      8     16
 Zhen Thunder           8      8     16
 Kan  Water             8      8     16
-Gen  Mountain          8      8     16
-Xun  Wind              8      8     16
-Li   Fire              8      8     16
 Dui  Lake              8      8     16
+Gen  Mountain          8      8     16
+Li   Fire              8      8     16
+Xun  Wind              8      8     16
 Qian Heaven            8      8     16
 
 --- Consecutive trigram transitions ---
@@ -252,26 +252,26 @@ Lower trigram changes: 58/63 transitions (92.1%)
 
 --- Upper trigram transition matrix ---
 Rows = from, Columns = to
-          Kun   Zhen  Kan   Gen   Xun   Li    Dui   Qian 
+          Kun   Zhen  Kan   Dui   Gen   Li    Xun   Qian 
 Kun       0     1     2     1     0     0     2     2     
 Zhen      0     1     1     1     2     2     0     1     
 Kan       0     1     0     1     1     2     2     1     
-Gen       1     1     2     0     1     1     1     1     
-Xun       2     0     1     1     2     0     2     0     
+Dui       1     1     2     0     1     1     1     1     
+Gen       2     0     1     1     2     0     2     0     
 Li        2     1     1     1     1     0     1     0     
-Dui       0     2     1     2     0     2     0     1     
+Xun       0     2     1     2     0     2     0     1     
 Qian      3     1     0     1     1     1     0     1     
 
 --- Lower trigram transition matrix ---
 Rows = from, Columns = to
-          Kun   Zhen  Kan   Gen   Xun   Li    Dui   Qian 
+          Kun   Zhen  Kan   Dui   Gen   Li    Xun   Qian 
 Kun       0     4     0     0     0     2     1     1     
 Zhen      0     1     1     0     1     1     2     2     
 Kan       1     0     1     2     0     1     1     1     
-Gen       1     1     1     1     2     1     0     1     
-Xun       1     0     1     1     1     1     2     1     
+Dui       1     1     1     1     2     1     0     1     
+Gen       1     0     1     1     1     1     2     1     
 Li        1     0     1     1     2     1     1     1     
-Dui       1     1     2     2     1     1     0     0     
+Xun       1     1     2     2     1     1     0     0     
 Qian      3     1     1     1     1     0     1     0     
 ---
 Nuclear hexagram analysis
