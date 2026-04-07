@@ -1,5 +1,5 @@
 // King Wen sequence as a Graphviz directed graph
-// Save as kw.dot and render with: dot -Tpng kw.dot -o kw.png
+// Render with: dot -Tpng wave.dot -o wave.dot.png
 digraph KingWen {
     rankdir=LR;
     node [shape=circle, fontsize=10];
