@@ -11,11 +11,11 @@ Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_W
 ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷\
 ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-## What this is
+## Summary
 
 A single-file Python analysis engine (no external dependencies) that approaches the King Wen sequence from nearly every mathematical angle available. It started as a script verifying a known structural property of the sequence and grew into a comprehensive toolkit for studying the combinatorial structure of an ancient Chinese ordering system.
 
-## What the analyses reveal
+## Observations
 
 The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE). It is not random, but it's also not optimized for any single obvious metric. The evidence stacks up:
 
