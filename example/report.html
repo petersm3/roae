@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html><head>
+<title>ROAE - King Wen Sequence Analysis</title>
+<style>
+  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; max-width: 1000px; margin: 0 auto; padding: 20px; }
+  h1 { color: #e94560; }
+  h2 { color: #0f3460; background: #e0e0e0; padding: 8px; margin-top: 30px; }
+  pre { background: #16213e; padding: 15px; overflow-x: auto; border-left: 3px solid #e94560; }
+  .section { margin-bottom: 20px; }
+</style>
+</head><body>
+<h1>Received Order Analysis Engine</h1>
+<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>
+<div class="section">
+<h2>Hexagram Table</h2>
+<pre>---
+Hexagram reference table
+Each hexagram is a stack of 6 lines, either solid (1/yang) or broken (0/yin).
+The 'binary' column encodes these 6 lines as bits (bottom line = rightmost bit).
+Each hexagram is also composed of two 3-line trigrams: an upper and a lower.
+There are 8 possible trigrams (Heaven, Earth, Thunder, Water, Mountain, Wind,
+Fire, Lake), giving 8x8 = 64 possible hexagrams.
+---
+Pos | Hex | Binary | Upper          | Lower          | Name
+----|-----|--------|----------------|----------------|----
+01  | ䷀   | 111111 | Qian Heaven    | Qian Heaven    | The Creative
+02  | ䷁   | 000000 | Kun  Earth     | Kun  Earth     | The Receptive
+03  | ䷂   | 010001 | Kan  Water     | Zhen Thunder   | Difficulty at the Beginning
+04  | ䷃   | 100010 | Gen  Mountain  | Kan  Water     | Youthful Folly
+05  | ䷄   | 010111 | Kan  Water     | Qian Heaven    | Waiting
+06  | ䷅   | 111010 | Qian Heaven    | Kan  Water     | Conflict
+07  | ䷆   | 000010 | Kun  Earth     | Kan  Water     | The Army
+08  | ䷇   | 010000 | Kan  Water     | Kun  Earth     | Holding Together
+09  | ䷈   | 110111 | Xun  Wind      | Qian Heaven    | Small Taming
+10  | ䷉   | 111011 | Qian Heaven    | Dui  Lake      | Treading
+11  | ䷊   | 000111 | Kun  Earth     | Qian Heaven    | Peace
+12  | ䷋   | 111000 | Qian Heaven    | Kun  Earth     | Standstill
+13  | ䷌   | 111101 | Qian Heaven    | Li   Fire      | Fellowship
+14  | ䷍   | 101111 | Li   Fire      | Qian Heaven    | Great Possession
+15  | ䷎   | 000100 | Kun  Earth     | Gen  Mountain  | Modesty
+16  | ䷏   | 001000 | Zhen Thunder   | Kun  Earth     | Enthusiasm
+17  | ䷐   | 011001 | Dui  Lake      | Zhen Thunder   | Following
+18  | ䷑   | 100110 | Gen  Mountain  | Xun  Wind      | Work on the Decayed
+19  | ䷒   | 000011 | Kun  Earth     | Dui  Lake      | Approach
+20  | ䷓   | 110000 | Xun  Wind      | Kun  Earth     | Contemplation
+21  | ䷔   | 101001 | Li   Fire      | Zhen Thunder   | Biting Through
+22  | ䷕   | 100101 | Gen  Mountain  | Li   Fire      | Grace
+23  | ䷖   | 100000 | Gen  Mountain  | Kun  Earth     | Splitting Apart
+24  | ䷗   | 000001 | Kun  Earth     | Zhen Thunder   | Return
+25  | ䷘   | 111001 | Qian Heaven    | Zhen Thunder   | Innocence
+26  | ䷙   | 100111 | Gen  Mountain  | Qian Heaven    | Great Taming
+27  | ䷚   | 100001 | Gen  Mountain  | Zhen Thunder   | Nourishment
+28  | ䷛   | 011110 | Dui  Lake      | Xun  Wind      | Great Preponderance
+29  | ䷜   | 010010 | Kan  Water     | Kan  Water     | The Abysmal
+30  | ䷝   | 101101 | Li   Fire      | Li   Fire      | The Clinging
+31  | ䷞   | 011100 | Dui  Lake      | Gen  Mountain  | Influence
+32  | ䷟   | 001110 | Zhen Thunder   | Xun  Wind      | Duration
+33  | ䷠   | 111100 | Qian Heaven    | Gen  Mountain  | Retreat
+34  | ䷡   | 001111 | Zhen Thunder   | Qian Heaven    | Great Power
+35  | ䷢   | 101000 | Li   Fire      | Kun  Earth     | Progress
+36  | ䷣   | 000101 | Kun  Earth     | Li   Fire      | Darkening of the Light
+37  | ䷤   | 110101 | Xun  Wind      | Li   Fire      | The Family
+38  | ䷥   | 101011 | Li   Fire      | Dui  Lake      | Opposition
+39  | ䷦   | 010100 | Kan  Water     | Gen  Mountain  | Obstruction
+40  | ䷧   | 001010 | Zhen Thunder   | Kan  Water     | Deliverance
+41  | ䷨   | 100011 | Gen  Mountain  | Dui  Lake      | Decrease
+42  | ䷩   | 110001 | Xun  Wind      | Zhen Thunder   | Increase
+43  | ䷪   | 011111 | Dui  Lake      | Qian Heaven    | Breakthrough
+44  | ䷫   | 111110 | Qian Heaven    | Xun  Wind      | Coming to Meet
+45  | ䷬   | 011000 | Dui  Lake      | Kun  Earth     | Gathering Together
+46  | ䷭   | 000110 | Kun  Earth     | Xun  Wind      | Pushing Upward
+47  | ䷮   | 011010 | Dui  Lake      | Kan  Water     | Oppression
+48  | ䷯   | 010110 | Kan  Water     | Xun  Wind      | The Well
+49  | ䷰   | 011101 | Dui  Lake      | Li   Fire      | Revolution
+50  | ䷱   | 101110 | Li   Fire      | Xun  Wind      | The Cauldron
+51  | ䷲   | 001001 | Zhen Thunder   | Zhen Thunder   | The Arousing
+52  | ䷳   | 100100 | Gen  Mountain  | Gen  Mountain  | Keeping Still
+53  | ䷴   | 110100 | Xun  Wind      | Gen  Mountain  | Development
+54  | ䷵   | 001011 | Zhen Thunder   | Dui  Lake      | The Marrying Maiden
+55  | ䷶   | 001101 | Zhen Thunder   | Li   Fire      | Abundance
+56  | ䷷   | 101100 | Li   Fire      | Gen  Mountain  | The Wanderer
+57  | ䷸   | 110110 | Xun  Wind      | Xun  Wind      | The Gentle
+58  | ䷹   | 011011 | Dui  Lake      | Dui  Lake      | The Joyous
+59  | ䷺   | 110010 | Xun  Wind      | Kan  Water     | Dispersion
+60  | ䷻   | 010011 | Kan  Water     | Dui  Lake      | Limitation
+61  | ䷼   | 110011 | Xun  Wind      | Dui  Lake      | Inner Truth
+62  | ䷽   | 001100 | Zhen Thunder   | Gen  Mountain  | Small Preponderance
+63  | ䷾   | 010101 | Kan  Water     | Li   Fire      | After Completion
+64  | ䷿   | 101010 | Li   Fire      | Kan  Water     | Before Completion
+</pre>
+</div>
+<div class="section">
+<h2>Reverse/Inverse Pairs</h2>
+<pre>---
+Reverse vs. Inverse pair analysis
+The 64 hexagrams are traditionally grouped into 32 pairs (1-2, 3-4, ..., 63-64).
+For each pair, we test two relationships:
+  Reverse: flip the hexagram upside down (read the lines top-to-bottom instead of
+           bottom-to-top). If the second hexagram upside-down equals the first,
+           they are a reverse pair.
+  Inverse: toggle every line (solid becomes broken, broken becomes solid).
+           If toggling all lines of one hexagram gives the other, they are inverse.
+Key finding: EVERY pair in the King Wen sequence is one or the other — none are
+unrelated. This perfect pairing structure is unlikely to occur by chance.
+---
+01 ䷀ Inverse 02 ䷁
+03 ䷂ Reverse 04 ䷃
+05 ䷄ Reverse 06 ䷅
+07 ䷆ Reverse 08 ䷇
+09 ䷈ Reverse 10 ䷉
+11 ䷊ Reverse 12 ䷋
+13 ䷌ Reverse 14 ䷍
+15 ䷎ Reverse 16 ䷏
+17 ䷐ Reverse 18 ䷑
+19 ䷒ Reverse 20 ䷓
+21 ䷔ Reverse 22 ䷕
+23 ䷖ Reverse 24 ䷗
+25 ䷘ Reverse 26 ䷙
+27 ䷚ Inverse 28 ䷛
+29 ䷜ Inverse 30 ䷝
+31 ䷞ Reverse 32 ䷟
+33 ䷠ Reverse 34 ䷡
+35 ䷢ Reverse 36 ䷣
+37 ䷤ Reverse 38 ䷥
+39 ䷦ Reverse 40 ䷧
+41 ䷨ Reverse 42 ䷩
+43 ䷪ Reverse 44 ䷫
+45 ䷬ Reverse 46 ䷭
+47 ䷮ Reverse 48 ䷯
+49 ䷰ Reverse 50 ䷱
+51 ䷲ Reverse 52 ䷳
+53 ䷴ Reverse 54 ䷵
+55 ䷶ Reverse 56 ䷷
+57 ䷸ Reverse 58 ䷹
+59 ䷺ Reverse 60 ䷻
+61 ䷼ Inverse 62 ䷽
+63 ䷾ Reverse 64 ䷿
+---
+Reverse count pairs: 28/32 (87.5%)
+Inverse count pairs: 04/32 (12.5%)
+Neither count pairs: 00/32 (0.0%)
+</pre>
+</div>
+<div class="section">
+<h2>Difference Wave</h2>
+<pre>---
+First order of difference (the 'wave')
+For each consecutive pair of hexagrams, count how many of the 6 lines change.
+This produces a sequence of values from 0 (identical) to 6 (every line flipped).
+The resulting 'wave' is central to analysis of the King Wen sequence.
+Key observation (McKenna, The Invisible Landscape, 1975): the value 5 never appears — no consecutive hexagrams
+differ by exactly 5 lines. The value 0 also never appears (no duplicates).
+---
+01 ䷀ to 02 ䷁ difference 6 ******
+02 ䷁ to 03 ䷂ difference 2 **
+03 ䷂ to 04 ䷃ difference 4 ****
+04 ䷃ to 05 ䷄ difference 4 ****
+05 ䷄ to 06 ䷅ difference 4 ****
+06 ䷅ to 07 ䷆ difference 3 ***
+07 ䷆ to 08 ䷇ difference 2 **
+08 ䷇ to 09 ䷈ difference 4 ****
+09 ䷈ to 10 ䷉ difference 2 **
+10 ䷉ to 11 ䷊ difference 4 ****
+11 ䷊ to 12 ䷋ difference 6 ******
+12 ䷋ to 13 ䷌ difference 2 **
+13 ䷌ to 14 ䷍ difference 2 **
+14 ䷍ to 15 ䷎ difference 4 ****
+15 ䷎ to 16 ䷏ difference 2 **
+16 ䷏ to 17 ䷐ difference 2 **
+17 ䷐ to 18 ䷑ difference 6 ******
+18 ䷑ to 19 ䷒ difference 3 ***
+19 ䷒ to 20 ䷓ difference 4 ****
+20 ䷓ to 21 ䷔ difference 3 ***
+21 ䷔ to 22 ䷕ difference 2 **
+22 ䷕ to 23 ䷖ difference 2 **
+23 ䷖ to 24 ䷗ difference 2 **
+24 ䷗ to 25 ䷘ difference 3 ***
+25 ䷘ to 26 ䷙ difference 4 ****
+26 ䷙ to 27 ䷚ difference 2 **
+27 ䷚ to 28 ䷛ difference 6 ******
+28 ䷛ to 29 ䷜ difference 2 **
+29 ䷜ to 30 ䷝ difference 6 ******
+30 ䷝ to 31 ䷞ difference 3 ***
+31 ䷞ to 32 ䷟ difference 2 **
+32 ䷟ to 33 ䷠ difference 3 ***
+33 ䷠ to 34 ䷡ difference 4 ****
+34 ䷡ to 35 ䷢ difference 4 ****
+35 ䷢ to 36 ䷣ difference 4 ****
+36 ䷣ to 37 ䷤ difference 2 **
+37 ䷤ to 38 ䷥ difference 4 ****
+38 ䷥ to 39 ䷦ difference 6 ******
+39 ䷦ to 40 ䷧ difference 4 ****
+40 ䷧ to 41 ䷨ difference 3 ***
+41 ䷨ to 42 ䷩ difference 2 **
+42 ䷩ to 43 ䷪ difference 4 ****
+43 ䷪ to 44 ䷫ difference 2 **
+44 ䷫ to 45 ䷬ difference 3 ***
+45 ䷬ to 46 ䷭ difference 4 ****
+46 ䷭ to 47 ䷮ difference 3 ***
+47 ䷮ to 48 ䷯ difference 2 **
+48 ䷯ to 49 ䷰ difference 3 ***
+49 ䷰ to 50 ䷱ difference 4 ****
+50 ䷱ to 51 ䷲ difference 4 ****
+51 ䷲ to 52 ䷳ difference 4 ****
+52 ䷳ to 53 ䷴ difference 1 *
+53 ䷴ to 54 ䷵ difference 6 ******
+54 ䷵ to 55 ䷶ difference 2 **
+55 ䷶ to 56 ䷷ difference 2 **
+56 ䷷ to 57 ䷸ difference 3 ***
+57 ䷸ to 58 ䷹ difference 4 ****
+58 ䷹ to 59 ䷺ difference 3 ***
+59 ䷺ to 60 ䷻ difference 2 **
+60 ䷻ to 61 ䷼ difference 1 *
+61 ䷼ to 62 ䷽ difference 6 ******
+62 ䷽ to 63 ䷾ difference 3 ***
+63 ䷾ to 64 ䷿ difference 6 ******
+---
+0 line changes total 0
+1 line changes total 2
+2 line changes total 20
+3 line changes total 13
+4 line changes total 19
+5 line changes total 0
+6 line changes total 9
+
+Spark line: █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
+</pre>
+</div>
+<div class="section">
+<h2>Bar Chart</h2>
+<pre>---
+Difference wave bar chart
+A visual representation of the first-order difference wave. Each column shows
+how many lines changed in that transition. The horizontal axis is the position
+in the King Wen sequence (1-63), the vertical axis is the number of lines
+changed (1-6). This makes the wave pattern easier to see than a list of numbers.
+---
+  6 |#         #     #         # #        #              #       # #|
+  5 |#         #     #         # #        #              #       # #|
+  4 |# ###  # ##  #  # #     # # #   ### ###  #  #   ### #   #   # #|
+  3 |# #### # ##  #  ####   ## # ## #### #### # ### #### #  ###  ###|
+  2 |################################################### ####### ###|
+  1 |###############################################################|
+    +---------------------------------------------------------------+
+              1         2         3         4         5         6   
+              0         0         0         0         0         0   
+</pre>
+</div>
+<div class="section">
+<h2>Trigram Analysis</h2>
+<pre>---
+Trigram analysis
+Each hexagram is built from two trigrams (3-line figures): an upper and a lower.
+There are 8 possible trigrams. This section counts how often each trigram appears
+in each position, checks how often the upper or lower trigram changes between
+consecutive hexagrams, and shows the full 8x8 transition matrix (which trigram
+follows which). A uniform distribution (8 of each) confirms that all 64 possible
+upper/lower combinations are used exactly once.
+---
+Trigram              Upper  Lower  Total
+Kun  Earth             8      8     16
+Zhen Thunder           8      8     16
+Kan  Water             8      8     16
+Dui  Lake              8      8     16
+Gen  Mountain          8      8     16
+Li   Fire              8      8     16
+Xun  Wind              8      8     16
+Qian Heaven            8      8     16
+
+--- Consecutive trigram transitions ---
+Upper trigram changes: 59/63 transitions (93.7%)
+Lower trigram changes: 58/63 transitions (92.1%)
+
+--- Upper trigram transition matrix ---
+Rows = from, Columns = to
+          Kun   Zhen  Kan   Dui   Gen   Li    Xun   Qian 
+Kun       0     1     2     1     0     0     2     2     
+Zhen      0     1     1     1     2     2     0     1     
+Kan       0     1     0     1     1     2     2     1     
+Dui       1     1     2     0     1     1     1     1     
+Gen       2     0     1     1     2     0     2     0     
+Li        2     1     1     1     1     0     1     0     
+Xun       0     2     1     2     0     2     0     1     
+Qian      3     1     0     1     1     1     0     1     
+
+--- Lower trigram transition matrix ---
+Rows = from, Columns = to
+          Kun   Zhen  Kan   Dui   Gen   Li    Xun   Qian 
+Kun       0     4     0     0     0     2     1     1     
+Zhen      0     1     1     0     1     1     2     2     
+Kan       1     0     1     2     0     1     1     1     
+Dui       1     1     1     1     2     1     0     1     
+Gen       1     0     1     1     1     1     2     1     
+Li        1     0     1     1     2     1     1     1     
+Xun       1     1     2     2     1     1     0     0     
+Qian      3     1     1     1     1     0     1     0     
+</pre>
+</div>
+<div class="section">
+<h2>Nuclear Hexagrams</h2>
+<pre>---
+Nuclear hexagram analysis
+Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by
+extracting the 4 middle lines (lines 2-3-4-5). Lines 2-3-4 form the lower
+nuclear trigram, and lines 3-4-5 form the upper nuclear trigram (sharing lines
+3 and 4). This creates a chain: each hexagram points to its nuclear hexagram,
+which points to its own nuclear hexagram, and so on until the chain loops.
+These chains reveal deep structural relationships between hexagrams that are
+not obvious from the surface arrangement.
+---
+01 ䷀ nuclear: 01 ䷀  chain: 01 ䷀ -> 01 ䷀
+02 ䷁ nuclear: 02 ䷁  chain: 02 ䷁ -> 02 ䷁
+03 ䷂ nuclear: 23 ䷖  chain: 03 ䷂ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
+04 ䷃ nuclear: 24 ䷗  chain: 04 ䷃ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
+05 ䷄ nuclear: 38 ䷥  chain: 05 ䷄ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+06 ䷅ nuclear: 37 ䷤  chain: 06 ䷅ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+07 ䷆ nuclear: 24 ䷗  chain: 07 ䷆ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
+08 ䷇ nuclear: 23 ䷖  chain: 08 ䷇ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
+09 ䷈ nuclear: 38 ䷥  chain: 09 ䷈ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+10 ䷉ nuclear: 37 ䷤  chain: 10 ䷉ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+11 ䷊ nuclear: 54 ䷵  chain: 11 ䷊ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+12 ䷋ nuclear: 53 ䷴  chain: 12 ䷋ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+13 ䷌ nuclear: 44 ䷫  chain: 13 ䷌ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
+14 ䷍ nuclear: 43 ䷪  chain: 14 ䷍ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
+15 ䷎ nuclear: 40 ䷧  chain: 15 ䷎ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+16 ䷏ nuclear: 39 ䷦  chain: 16 ䷏ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+17 ䷐ nuclear: 53 ䷴  chain: 17 ䷐ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+18 ䷑ nuclear: 54 ䷵  chain: 18 ䷑ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+19 ䷒ nuclear: 24 ䷗  chain: 19 ䷒ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
+20 ䷓ nuclear: 23 ䷖  chain: 20 ䷓ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
+21 ䷔ nuclear: 39 ䷦  chain: 21 ䷔ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+22 ䷕ nuclear: 40 ䷧  chain: 22 ䷕ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+23 ䷖ nuclear: 02 ䷁  chain: 23 ䷖ -> 02 ䷁ -> 02 ䷁
+24 ䷗ nuclear: 02 ䷁  chain: 24 ䷗ -> 02 ䷁ -> 02 ䷁
+25 ䷘ nuclear: 53 ䷴  chain: 25 ䷘ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+26 ䷙ nuclear: 54 ䷵  chain: 26 ䷙ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+27 ䷚ nuclear: 02 ䷁  chain: 27 ䷚ -> 02 ䷁ -> 02 ䷁
+28 ䷛ nuclear: 01 ䷀  chain: 28 ䷛ -> 01 ䷀ -> 01 ䷀
+29 ䷜ nuclear: 27 ䷚  chain: 29 ䷜ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
+30 ䷝ nuclear: 28 ䷛  chain: 30 ䷝ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
+31 ䷞ nuclear: 44 ䷫  chain: 31 ䷞ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
+32 ䷟ nuclear: 43 ䷪  chain: 32 ䷟ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
+33 ䷠ nuclear: 44 ䷫  chain: 33 ䷠ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
+34 ䷡ nuclear: 43 ䷪  chain: 34 ䷡ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
+35 ䷢ nuclear: 39 ䷦  chain: 35 ䷢ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+36 ䷣ nuclear: 40 ䷧  chain: 36 ䷣ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+37 ䷤ nuclear: 64 ䷿  chain: 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+38 ䷥ nuclear: 63 ䷾  chain: 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+39 ䷦ nuclear: 64 ䷿  chain: 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+40 ䷧ nuclear: 63 ䷾  chain: 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+41 ䷨ nuclear: 24 ䷗  chain: 41 ䷨ -> 24 ䷗ -> 02 ䷁ -> 02 ䷁
+42 ䷩ nuclear: 23 ䷖  chain: 42 ䷩ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
+43 ䷪ nuclear: 01 ䷀  chain: 43 ䷪ -> 01 ䷀ -> 01 ䷀
+44 ䷫ nuclear: 01 ䷀  chain: 44 ䷫ -> 01 ䷀ -> 01 ䷀
+45 ䷬ nuclear: 53 ䷴  chain: 45 ䷬ -> 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+46 ䷭ nuclear: 54 ䷵  chain: 46 ䷭ -> 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+47 ䷮ nuclear: 37 ䷤  chain: 47 ䷮ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+48 ䷯ nuclear: 38 ䷥  chain: 48 ䷯ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+49 ䷰ nuclear: 44 ䷫  chain: 49 ䷰ -> 44 ䷫ -> 01 ䷀ -> 01 ䷀
+50 ䷱ nuclear: 43 ䷪  chain: 50 ䷱ -> 43 ䷪ -> 01 ䷀ -> 01 ䷀
+51 ䷲ nuclear: 39 ䷦  chain: 51 ䷲ -> 39 ䷦ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+52 ䷳ nuclear: 40 ䷧  chain: 52 ䷳ -> 40 ䷧ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+53 ䷴ nuclear: 64 ䷿  chain: 53 ䷴ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+54 ䷵ nuclear: 63 ䷾  chain: 54 ䷵ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+55 ䷶ nuclear: 28 ䷛  chain: 55 ䷶ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
+56 ䷷ nuclear: 28 ䷛  chain: 56 ䷷ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
+57 ䷸ nuclear: 38 ䷥  chain: 57 ䷸ -> 38 ䷥ -> 63 ䷾ -> 64 ䷿ -> 63 ䷾
+58 ䷹ nuclear: 37 ䷤  chain: 58 ䷹ -> 37 ䷤ -> 64 ䷿ -> 63 ䷾ -> 64 ䷿
+59 ䷺ nuclear: 27 ䷚  chain: 59 ䷺ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
+60 ䷻ nuclear: 27 ䷚  chain: 60 ䷻ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
+61 ䷼ nuclear: 27 ䷚  chain: 61 ䷼ -> 27 ䷚ -> 02 ䷁ -> 02 ䷁
+62 ䷽ nuclear: 28 ䷛  chain: 62 ䷽ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
+63 ䷾ nuclear: 64 ䷿  chain: 63 ䷾ -> 64 ䷿ -> 63 ䷾
+64 ䷿ nuclear: 63 ䷾  chain: 64 ䷿ -> 63 ䷾ -> 64 ䷿
+
+--- Nuclear hexagram frequency ---
+How often each hexagram appears as another's nuclear hexagram
+01 ䷀ The Creative                   appears 4 times
+02 ䷁ The Receptive                  appears 4 times
+23 ䷖ Splitting Apart                appears 4 times
+24 ䷗ Return                         appears 4 times
+27 ䷚ Nourishment                    appears 4 times
+28 ䷛ Great Preponderance            appears 4 times
+37 ䷤ The Family                     appears 4 times
+38 ䷥ Opposition                     appears 4 times
+39 ䷦ Obstruction                    appears 4 times
+40 ䷧ Deliverance                    appears 4 times
+43 ䷪ Breakthrough                   appears 4 times
+44 ䷫ Coming to Meet                 appears 4 times
+53 ䷴ Development                    appears 4 times
+54 ䷵ The Marrying Maiden            appears 4 times
+63 ䷾ After Completion               appears 4 times
+64 ䷿ Before Completion              appears 4 times
+</pre>
+</div>
+<div class="section">
+<h2>Line Change Analysis</h2>
+<pre>---
+Line change positional analysis
+Each hexagram has 6 lines (positions 1-6, bottom to top). When consecutive
+hexagrams differ, which specific lines are changing? If the King Wen sequence
+were random, each line position would change about 50% of the time. Significant
+deviation from 50% would suggest the ordering favors changing certain positions.
+The co-change matrix shows which pairs of lines tend to flip together in the
+same transition — revealing correlated line movements.
+---
+Line 1: 37/63 ( 58.7%)  #####################################
+Line 2: 32/63 ( 50.8%)  ################################
+Line 3: 35/63 ( 55.6%)  ###################################
+Line 4: 34/63 ( 54.0%)  ##################################
+Line 5: 35/63 ( 55.6%)  ###################################
+Line 6: 38/63 ( 60.3%)  ######################################
+
+--- Line co-change frequency ---
+How often pairs of lines change together in the same transition
+      L1   L2   L3   L4   L5   L6   
+L1    .    18   20   19   19   30   
+L2    .    .    20   17   23   20   
+L3    .    .    .    25   16   21   
+L4    .    .    .    .    20   20   
+L5    .    .    .    .    .    20   
+L6    .    .    .    .    .    .    
+</pre>
+</div>
+<div class="section">
+<h2>Complement Distance</h2>
+<pre>---
+Complement distance analysis
+Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines
+(solid becomes broken, broken becomes solid). For example, The Creative (all
+solid) and The Receptive (all broken) are complements. This section finds where
+each hexagram's complement sits in the King Wen sequence and how far apart they
+are. If complements tend to be near each other, it suggests the sequence was
+deliberately organized around opposition; if far apart, they may serve as
+bookends for larger structural sections.
+---
+01 ䷀ <-> 02 ䷁  distance:  1  The Creative <-> The Receptive
+02 ䷁ <-> 01 ䷀  distance:  1  The Receptive <-> The Creative
+03 ䷂ <-> 50 ䷱  distance: 47  Difficulty at the Beginning <-> The Cauldron
+04 ䷃ <-> 49 ䷰  distance: 45  Youthful Folly <-> Revolution
+05 ䷄ <-> 35 ䷢  distance: 30  Waiting <-> Progress
+06 ䷅ <-> 36 ䷣  distance: 30  Conflict <-> Darkening of the Light
+07 ䷆ <-> 13 ䷌  distance:  6  The Army <-> Fellowship
+08 ䷇ <-> 14 ䷍  distance:  6  Holding Together <-> Great Possession
+09 ䷈ <-> 16 ䷏  distance:  7  Small Taming <-> Enthusiasm
+10 ䷉ <-> 15 ䷎  distance:  5  Treading <-> Modesty
+11 ䷊ <-> 12 ䷋  distance:  1  Peace <-> Standstill
+12 ䷋ <-> 11 ䷊  distance:  1  Standstill <-> Peace
+13 ䷌ <-> 07 ䷆  distance:  6  Fellowship <-> The Army
+14 ䷍ <-> 08 ䷇  distance:  6  Great Possession <-> Holding Together
+15 ䷎ <-> 10 ䷉  distance:  5  Modesty <-> Treading
+16 ䷏ <-> 09 ䷈  distance:  7  Enthusiasm <-> Small Taming
+17 ䷐ <-> 18 ䷑  distance:  1  Following <-> Work on the Decayed
+18 ䷑ <-> 17 ䷐  distance:  1  Work on the Decayed <-> Following
+19 ䷒ <-> 33 ䷠  distance: 14  Approach <-> Retreat
+20 ䷓ <-> 34 ䷡  distance: 14  Contemplation <-> Great Power
+21 ䷔ <-> 48 ䷯  distance: 27  Biting Through <-> The Well
+22 ䷕ <-> 47 ䷮  distance: 25  Grace <-> Oppression
+23 ䷖ <-> 43 ䷪  distance: 20  Splitting Apart <-> Breakthrough
+24 ䷗ <-> 44 ䷫  distance: 20  Return <-> Coming to Meet
+25 ䷘ <-> 46 ䷭  distance: 21  Innocence <-> Pushing Upward
+26 ䷙ <-> 45 ䷬  distance: 19  Great Taming <-> Gathering Together
+27 ䷚ <-> 28 ䷛  distance:  1  Nourishment <-> Great Preponderance
+28 ䷛ <-> 27 ䷚  distance:  1  Great Preponderance <-> Nourishment
+29 ䷜ <-> 30 ䷝  distance:  1  The Abysmal <-> The Clinging
+30 ䷝ <-> 29 ䷜  distance:  1  The Clinging <-> The Abysmal
+31 ䷞ <-> 41 ䷨  distance: 10  Influence <-> Decrease
+32 ䷟ <-> 42 ䷩  distance: 10  Duration <-> Increase
+33 ䷠ <-> 19 ䷒  distance: 14  Retreat <-> Approach
+34 ䷡ <-> 20 ䷓  distance: 14  Great Power <-> Contemplation
+35 ䷢ <-> 05 ䷄  distance: 30  Progress <-> Waiting
+36 ䷣ <-> 06 ䷅  distance: 30  Darkening of the Light <-> Conflict
+37 ䷤ <-> 40 ䷧  distance:  3  The Family <-> Deliverance
+38 ䷥ <-> 39 ䷦  distance:  1  Opposition <-> Obstruction
+39 ䷦ <-> 38 ䷥  distance:  1  Obstruction <-> Opposition
+40 ䷧ <-> 37 ䷤  distance:  3  Deliverance <-> The Family
+41 ䷨ <-> 31 ䷞  distance: 10  Decrease <-> Influence
+42 ䷩ <-> 32 ䷟  distance: 10  Increase <-> Duration
+43 ䷪ <-> 23 ䷖  distance: 20  Breakthrough <-> Splitting Apart
+44 ䷫ <-> 24 ䷗  distance: 20  Coming to Meet <-> Return
+45 ䷬ <-> 26 ䷙  distance: 19  Gathering Together <-> Great Taming
+46 ䷭ <-> 25 ䷘  distance: 21  Pushing Upward <-> Innocence
+47 ䷮ <-> 22 ䷕  distance: 25  Oppression <-> Grace
+48 ䷯ <-> 21 ䷔  distance: 27  The Well <-> Biting Through
+49 ䷰ <-> 04 ䷃  distance: 45  Revolution <-> Youthful Folly
+50 ䷱ <-> 03 ䷂  distance: 47  The Cauldron <-> Difficulty at the Beginning
+51 ䷲ <-> 57 ䷸  distance:  6  The Arousing <-> The Gentle
+52 ䷳ <-> 58 ䷹  distance:  6  Keeping Still <-> The Joyous
+53 ䷴ <-> 54 ䷵  distance:  1  Development <-> The Marrying Maiden
+54 ䷵ <-> 53 ䷴  distance:  1  The Marrying Maiden <-> Development
+55 ䷶ <-> 59 ䷺  distance:  4  Abundance <-> Dispersion
+56 ䷷ <-> 60 ䷻  distance:  4  The Wanderer <-> Limitation
+57 ䷸ <-> 51 ䷲  distance:  6  The Gentle <-> The Arousing
+58 ䷹ <-> 52 ䷳  distance:  6  The Joyous <-> Keeping Still
+59 ䷺ <-> 55 ䷶  distance:  4  Dispersion <-> Abundance
+60 ䷻ <-> 56 ䷷  distance:  4  Limitation <-> The Wanderer
+61 ䷼ <-> 62 ䷽  distance:  1  Inner Truth <-> Small Preponderance
+62 ䷽ <-> 61 ䷼  distance:  1  Small Preponderance <-> Inner Truth
+63 ䷾ <-> 64 ䷿  distance:  1  After Completion <-> Before Completion
+64 ䷿ <-> 63 ䷾  distance:  1  Before Completion <-> After Completion
+
+--- Complement distance statistics ---
+Mean distance:   12.1
+Median distance: 6
+Min distance:    1 (adjacent = pair is an inverse pair)
+Max distance:    47
+</pre>
+</div>
+<div class="section">
+<h2>Palindromes</h2>
+<pre>---
+Palindrome analysis of the difference wave
+A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding
+palindromic runs in the difference wave suggests the King Wen sequence contains
+deliberate mirror symmetry — sections where the pattern of change rises and falls
+in a balanced way. Longer palindromes are less likely to occur by chance and more
+likely to reflect intentional design.
+---
+Found 27 palindromic subsequences (showing longest 20)
+
+Length  7 at positions 11-17: [6,2,2,4,2,2,6] █▂▂▅▂▂█
+Length  7 at positions 19-25: [4,3,2,2,2,3,4] ▅▃▂▂▂▃▅
+Length  7 at positions 39-45: [4,3,2,4,2,3,4] ▅▃▂▅▂▃▅
+Length  5 at positions 12-16: [2,2,4,2,2] ▂▂▅▂▂
+Length  5 at positions 20-24: [3,2,2,2,3] ▃▂▂▂▃
+Length  5 at positions 40-44: [3,2,4,2,3] ▃▂▅▂▃
+Length  5 at positions 43-47: [2,3,4,3,2] ▂▃▅▃▂
+Length  5 at positions 45-49: [4,3,2,3,4] ▅▃▂▃▅
+Length  5 at positions 55-59: [2,3,4,3,2] ▂▃▅▃▂
+Length  3 at positions 03-05: [4,4,4] ▅▅▅
+Length  3 at positions 07-09: [2,4,2] ▂▅▂
+Length  3 at positions 08-10: [4,2,4] ▅▂▅
+Length  3 at positions 13-15: [2,4,2] ▂▅▂
+Length  3 at positions 18-20: [3,4,3] ▃▅▃
+Length  3 at positions 21-23: [2,2,2] ▂▂▂
+Length  3 at positions 26-28: [2,6,2] ▂█▂
+Length  3 at positions 27-29: [6,2,6] █▂█
+Length  3 at positions 30-32: [3,2,3] ▃▂▃
+Length  3 at positions 33-35: [4,4,4] ▅▅▅
+Length  3 at positions 35-37: [4,2,4] ▅▂▅
+
+--- Palindrome count by length ---
+Length  7: 3 found
+Length  5: 6 found
+Length  3: 18 found
+</pre>
+</div>
+<div class="section">
+<h2>Canon Comparison</h2>
+<pre>---
+Upper Canon (1-30) vs. Lower Canon (31-64) comparison
+The I Ching is traditionally divided into two books: the Upper Canon (hexagrams
+1-30) and Lower Canon (hexagrams 31-64). This division is ancient and may reflect
+different authorship, time periods, or thematic groupings. This section compares
+the mathematical properties of each half: do they have similar difference wave
+patterns? Similar yin/yang balance? Does the 'no 5-line transition' property hold
+in each half independently, or only in the whole?
+---
+Metric                         Upper (1-30)  Lower (31-64)
+------------------------------ ------------ --------------
+Hexagrams                                30             34
+Transitions                              29             33
+Mean line changes                      3.38           3.33
+Yang lines (total)                       86            106
+Yin lines (total)                        94             98
+
+Difference distribution:       Upper (1-30)  Lower (31-64)
+0 line changes                             0              0
+1 line changes                             0              2
+2 line changes                            12              8
+3 line changes                             4              8
+4 line changes                             8             11
+5 line changes                             0              0
+6 line changes                             5              4
+
+Upper Canon wave: █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█
+Lower Canon wave: ▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
+
+5-line transitions in Upper Canon: 0
+5-line transitions in Lower Canon: 0
+</pre>
+</div>
+<div class="section">
+<h2>Autocorrelation</h2>
+<pre>---
+Autocorrelation of the difference wave
+Autocorrelation measures whether the wave is correlated with a shifted copy of
+itself. A peak at lag N means the pattern tends to repeat every N steps. A value
+near +1 means strong repetition, near -1 means strong alternation, and near 0
+means no relationship. If the King Wen ordering contains hidden periodic
+structure, it will show up as peaks in this analysis.
+Caveat: with only N=63 data points, the 95% noise threshold is +/-0.25.
+Values within that band are indistinguishable from random noise.
+---
+Mean difference: 3.349
+Variance: 1.910
+95% noise threshold: +/-0.247 (values inside this are not significant)
+
+Lag    Autocorrelation  Sig?  Visualization
+---    ---------------  ----  -------------
+0               1.0000        [            :  |  :          #]
+1              -0.2469        [            #  |  :           ]
+2              -0.0098        [            :  |  :           ]
+3              -0.0491        [            :  |  :           ]
+4              -0.0447        [            :  |  :           ]
+5              -0.0457        [            :  |  :           ]
+6              -0.0218        [            :  |  :           ]
+7              -0.0644        [            :  |  :           ]
+8               0.1204        [            :  |# :           ]
+9              -0.1275        [            : #|  :           ]
+10              0.1375        [            :  | #:           ]
+11             -0.0290        [            :  |  :           ]
+12             -0.0221        [            :  |  :           ]
+13              0.0850        [            :  |# :           ]
+14             -0.1596        [            :# |  :           ]
+15             -0.0110        [            :  |  :           ]
+16              0.1015        [            :  |# :           ]
+17             -0.1514        [            :# |  :           ]
+18              0.0055        [            :  |  :           ]
+19              0.0851        [            :  |# :           ]
+20             -0.1403        [            :# |  :           ]
+21              0.0274        [            :  |  :           ]
+22             -0.1315        [            : #|  :           ]
+23             -0.0137        [            :  |  :           ]
+24              0.2263        [            :  |  #           ]
+25             -0.1595        [            :# |  :           ]
+26              0.1112        [            :  |# :           ]
+27             -0.1109        [            : #|  :           ]
+28              0.1649        [            :  | #:           ]
+29              0.0093        [            :  |  :           ]
+30             -0.0969        [            : #|  :           ]
+31             -0.0480        [            :  |  :           ]
+
+Significant lags (outside noise band): 0/31
+No significant autocorrelation detected — consistent with no hidden periodicity,
+but note that N=63 provides limited statistical power to detect weak periodicity.
+</pre>
+</div>
+<div class="section">
+<h2>Spectral Analysis</h2>
+<pre>---
+Spectral analysis (Discrete Fourier Transform)
+The DFT decomposes the difference wave into frequency components, like splitting
+white light into a rainbow. Each frequency represents a periodic pattern in the
+wave. A strong peak at frequency F means the wave has a repeating cycle every
+63/F transitions. If the King Wen ordering has hidden periodic structure, the
+spectrum will show clear peaks rather than flat noise.
+Caveat: with only 63 samples, each of the 31 frequency bins has wide
+uncertainty. A flat spectrum may indicate no periodicity, or insufficient data.
+---
+Number of samples: 63
+Mean (DC component): 3.349
+White noise floor: 0.1741 (magnitudes near this are not significant)
+
+Freq   Period  Magnitude  Sig?  Spectrum
+----   ------  ---------  ----  --------
+   1     63.0     0.0224        ##
+   2     31.5     0.1823        #################
+   3     21.0     0.0145        #
+   4     15.8     0.1359        ############
+   5     12.6     0.2021        ##################
+   6     10.5     0.1157        ##########
+   7      9.0     0.2399        ######################
+   8      7.9     0.1092        ##########
+   9      7.0     0.0553        #####
+  10      6.3     0.1630        ###############
+  11      5.7     0.2371        ######################
+  12      5.2     0.0473        ####
+  13      4.8     0.2326        #####################
+  14      4.5     0.0331        ###
+  15      4.2     0.1145        ##########
+  16      3.9     0.2204        ####################
+  17      3.7     0.1451        #############
+  18      3.5     0.1975        ##################
+  19      3.3     0.2197        ####################
+  20      3.1     0.2166        ####################
+  21      3.0     0.1611        ###############
+  22      2.9     0.0222        ##
+  23      2.7     0.1210        ###########
+  24      2.6     0.4266     *  ########################################
+  25      2.5     0.0306        ##
+  26      2.4     0.2297        #####################
+  27      2.3     0.0795        #######
+  28      2.2     0.0639        #####
+  29      2.2     0.2114        ###################
+  30      2.1     0.2129        ###################
+  31      2.0     0.2033        ###################
+
+Frequencies above 2x noise floor: 1/31
+</pre>
+</div>
+<div class="section">
+<h2>Markov Chain</h2>
+<pre>---
+Markov chain analysis
+If we treat each difference value as a 'state', we can ask: does the current
+difference predict the next one? In a random sequence, knowing that the last
+transition changed 2 lines tells you nothing about the next transition. But if
+certain patterns like '6 is always followed by 2' emerge, it reveals hidden
+rules in the King Wen ordering. The matrix shows the probability of each
+transition between difference values.
+---
+Transition probability matrix (row = from, column = to)
+        -> 1    -> 2    -> 3    -> 4    -> 6  
+  1     0.00    0.00    0.00    0.00    1.00    (n=2)
+  2     0.05    0.25    0.25    0.30    0.15    (n=20)
+  3     0.00    0.46    0.00    0.46    0.08    (n=13)
+  4     0.05    0.26    0.26    0.32    0.11    (n=19)
+  6     0.00    0.50    0.38    0.12    0.00    (n=8)
+
+--- Notable transition patterns ---
+(Caveat: rows with small n are unreliable — patterns based on <5 observations
+are anecdotes, not statistically meaningful.)
+  3 -> 2: 46% (6/13 times)
+  3 -> 4: 46% (6/13 times)
+  6 -> 2: 50% (4/8 times)
+
+--- Permutation test ---
+Is the transition matrix more concentrated than random orderings produce?
+King Wen matrix concentration: 2.3303
+Random orderings equally or more concentrated: 2200/5000 (44.0%)
+</pre>
+</div>
+<div class="section">
+<h2>Gray Code Comparison</h2>
+<pre>---
+Gray code comparison
+A Gray code is an ordering of binary values where each consecutive pair differs
+by exactly 1 bit. For 6-bit hexagrams, a Gray code path would change exactly 1
+line at every step — the smoothest possible sequence. The King Wen sequence does
+NOT follow a Gray code (most transitions change 2-6 lines). This comparison
+shows how much 'rougher' King Wen is than the theoretical minimum, suggesting
+the ordering prioritizes something other than smooth transitions.
+---
+Metric                               Gray Code   King Wen
+----------------------------------- ---------- ----------
+Total path length                           63        211
+Mean change per transition                1.00       3.35
+Max single transition                        1          6
+Min single transition                        1          1
+King Wen / Gray Code ratio                           3.35x
+
+Difference distribution:             Gray Code   King Wen
+  1 line changes                             63          2
+  2 line changes                              0         20
+  3 line changes                              0         13
+  4 line changes                              0         19
+  6 line changes                              0          9
+
+Gray code wave: ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+King Wen wave:  █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
+</pre>
+</div>
+<div class="section">
+<h2>Symmetry Groups</h2>
+<pre>---
+Symmetry group analysis (XOR algebra)
+The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams
+by toggling their differing lines always produces another valid hexagram. This is
+like mixing colors — every combination is itself a color. Under this algebra,
+certain sets of hexagrams form 'subgroups' (closed sets where combining any two
+members stays in the set). This section checks whether the King Wen pairs, inverse
+pairs, and the canonical divisions correspond to meaningful algebraic subgroups.
+---
+XOR identity element: 0b000000 (hexagram 2, The Receptive)
+
+--- Fixed points under complement (XOR 0b111111) ---
+Hexagrams that are their own complement do not exist (since XOR with
+0b111111 always flips all bits, no 6-bit value equals its own complement).
+
+--- King Wen pair XOR products ---
+For each pair, XOR the two hexagrams to see what 'difference element' they produce.
+If many pairs produce the same XOR product, the pairing has algebraic regularity.
+
+XOR Product      Hexagram  Pair count  Pairs
+  001100   62 ䷽       4      9-10, 15-16, 21-22, 47-48
+  010010   29 ䷜       4      7-8, 13-14, 31-32, 41-42
+  011110   28 ䷛       4      25-26, 37-38, 39-40, 45-46
+  100001   27 ䷚       4      23-24, 43-44, 55-56, 59-60
+  101101   30 ䷝       4      5-6, 35-36, 51-52, 57-58
+  110011   61 ䷼       4      3-4, 19-20, 33-34, 49-50
+  111111   01 ䷀       8      1-2, 11-12, 17-18, 27-28, 29-30, 53-54, 61-62, 63-64
+
+Unique XOR products: 7 (out of 32 pairs)
+If this number is small, the pairs share algebraic structure.
+
+--- Inverse pair XOR closure test ---
+Inverse pair hexagrams (16 total): 01, 02, 11, 12, 17, 18, 27, 28, 29, 30, 53, 54, 61, 62, 63, 64
+Closed under XOR: Yes — forms a subgroup
+</pre>
+</div>
+<div class="section">
+<h2>Alternative Sequences</h2>
+<pre>---
+Alternative sequence comparison
+The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi
+(binary) sequence orders them by numerical value (0-63), which is mathematically
+natural but has no traditional significance. The Mawangdui sequence was found on
+silk manuscripts in a 168 BCE tomb and may represent an independent tradition.
+Comparing the same analyses across orderings reveals what is unique to King Wen.
+---
+Metric                            King Wen   Fu Xi (binary)        Mawangdui
+------------------------- ---------------- ---------------- ----------------
+Total path length                      211              120              104
+Mean change                           3.35             1.90             1.65
+1-line transitions                       2               32               32
+2-line transitions                      20               16               24
+3-line transitions                      13                8                4
+4-line transitions                      19                4                3
+5-line transitions                       0                2                0
+6-line transitions                       9                1                0
+
+Waves:
+  King Wen             █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
+  Fu Xi (binary)       ▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁█▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁
+  Mawangdui            ▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂
+
+--- What makes King Wen unique ---
+Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=0
+Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
+</pre>
+</div>
+<div class="section">
+<h2>Windowed Entropy</h2>
+<pre>---
+Windowed entropy analysis
+Instead of one entropy value for the whole wave, we slide a window across it
+and compute entropy locally. This reveals WHERE in the sequence structure
+concentrates (low entropy = predictable) vs. dissolves (high entropy = varied).
+Dips in the curve mark regions with repetitive transition patterns.
+---
+Window size: 15
+Center  Entropy    Visualization
+------  -------    -------------
+     8   1.7056   ########################
+     9   1.5628   ######################
+    10   1.7056   ########################
+    11   1.8323   ##########################
+    12   1.8323   ##########################
+    13   1.8892   ##########################
+    14   1.7968   #########################
+    15   1.7968   #########################
+    16   1.7232   ########################
+    17   1.8295   ##########################
+    18   1.8295   ##########################
+    19   1.6729   #######################
+    20   1.8295   ##########################
+    21   1.8295   ##########################
+    22   1.8295   ##########################
+    23   1.8892   ##########################
+    24   1.8892   ##########################
+    25   1.8323   ##########################
+    26   1.8892   ##########################
+    27   1.8892   ##########################
+    28   1.8892   ##########################
+    29   1.8892   ##########################
+    30   1.9086   ###########################
+    31   1.9656   ############################
+    32   1.8892   ##########################
+    33   1.9656   ############################
+    34   1.9656   ############################
+    35   1.8892   ##########################
+    36   1.8892   ##########################
+    37   1.8062   #########################
+    38   1.7465   ########################
+    39   1.7465   ########################
+    40   1.7465   ########################
+    41   1.8062   #########################
+    42   1.8062   #########################
+    43   1.8062   #########################
+    44   1.7465   ########################
+    45   2.0226   ############################
+    46   2.0226   ############################
+    47   2.0662   #############################
+    48   2.0419   #############################
+    49   2.0662   #############################
+    50   2.0662   #############################
+    51   2.0419   #############################
+    52   2.0662   #############################
+    53   2.1736   ##############################
+    54   2.2566   ################################
+    55   2.2566   ################################
+    56   2.2892   ################################
+
+Mean windowed entropy: 1.8956
+Min entropy: 1.5628 at position 9 (most structured)
+Max entropy: 2.2892 at position 56 (most varied)
+
+Entropy spark: ▃▃▃▃▃▅▃▃▃▃▃▃▃▃▃▅▅▃▅▅▅▅▅▅▅▅▅▅▅▃▃▃▃▃▃▃▃▅▅▅▅▅▅▅▅▅▅▅▅
+</pre>
+</div>
+<div class="section">
+<h2>Mutual Information</h2>
+<pre>---
+Mutual information: upper vs. lower trigram transitions
+When two consecutive hexagrams differ, do the upper and lower trigrams change
+independently, or is knowing that the upper trigram changed informative about
+whether the lower trigram also changed? Mutual information quantifies this:
+  0 bits = completely independent (knowing one tells you nothing about the other)
+  higher = correlated (they tend to change together or stay together)
+---
+Joint distribution of trigram changes:
+                       Lower unchanged  Lower changed
+  Upper unchanged          0 (  0.0%)         4 (  6.3%)    
+  Upper changed            5 (  7.9%)        54 ( 85.7%)    
+
+Mutual information: 0.0078 bits
+Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
+
+Mean MI of random permutations: 0.0204 bits
+King Wen percentile: 7.0%
+
+--- Full 8-state trigram mutual information ---
+Using actual trigram identities (8 possible values each) rather than
+binary changed/unchanged, which preserves more information.
+MI(upper, lower) across all 64 hexagrams: 0.000000 bits
+(Expected: 0.0 — since all 64 combinations appear exactly once,
+the trigrams are perfectly independent in the static set.)
+</pre>
+</div>
+<div class="section">
+<h2>Yin-Yang Balance</h2>
+<pre>---
+Yin-yang balance wave
+Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).
+Note: since the King Wen sequence contains all 64 possible hexagrams exactly
+once, the total yin-yang count is necessarily balanced (192 each). This is a
+mathematical tautology, not a property of the ordering. However, the LOCAL
+balance as you move through the sequence IS a property of the ordering — it
+shows where yang-dominant or yin-dominant hexagrams cluster together.
+---
+Total yang lines: 192 / 384 (50.0%)
+Total yin lines:  192 / 384 (50.0%)
+Mean yang per hexagram: 3.00
+
+Running yang average (window=8):
+ Pos  Yang  RunAvg     Visualization
+   1     6    6.00   [                    |                   #]
+   2     0    3.00   [                    #                    ]
+   3     2    2.67   [                 #  |                    ]
+   4     2    2.50   [                #   |                    ]
+   5     4    2.80   [                  # |                    ]
+   6     4    3.00   [                    #                    ]
+   7     1    2.71   [                  # |                    ]
+   8     1    2.50   [                #   |                    ]
+   9     5    2.38   [               #    |                    ]
+  10     5    3.00   [                    #                    ]
+  11     3    3.12   [                    #                    ]
+  12     3    3.25   [                    |#                   ]
+  13     5    3.38   [                    | #                  ]
+  14     5    3.50   [                    |  #                 ]
+  15     1    3.50   [                    |  #                 ]
+  16     1    3.50   [                    |  #                 ]
+  17     3    3.25   [                    |#                   ]
+  18     3    3.00   [                    #                    ]
+  19     2    2.88   [                   #|                    ]
+  20     2    2.75   [                  # |                    ]
+  21     3    2.50   [                #   |                    ]
+  22     3    2.25   [               #    |                    ]
+  23     1    2.25   [               #    |                    ]
+  24     1    2.25   [               #    |                    ]
+  25     4    2.38   [               #    |                    ]
+  26     4    2.50   [                #   |                    ]
+  27     2    2.50   [                #   |                    ]
+  28     4    2.75   [                  # |                    ]
+  29     2    2.62   [                 #  |                    ]
+  30     4    2.75   [                  # |                    ]
+  31     3    3.00   [                    #                    ]
+  32     3    3.25   [                    |#                   ]
+  33     4    3.25   [                    |#                   ]
+  34     4    3.25   [                    |#                   ]
+  35     2    3.25   [                    |#                   ]
+  36     2    3.00   [                    #                    ]
+  37     4    3.25   [                    |#                   ]
+  38     4    3.25   [                    |#                   ]
+  39     2    3.12   [                    #                    ]
+  40     2    3.00   [                    #                    ]
+  41     3    2.88   [                   #|                    ]
+  42     3    2.75   [                  # |                    ]
+  43     5    3.12   [                    #                    ]
+  44     5    3.50   [                    |  #                 ]
+  45     2    3.25   [                    |#                   ]
+  46     2    3.00   [                    #                    ]
+  47     3    3.12   [                    #                    ]
+  48     3    3.25   [                    |#                   ]
+  49     4    3.38   [                    | #                  ]
+  50     4    3.50   [                    |  #                 ]
+  51     2    3.12   [                    #                    ]
+  52     2    2.75   [                  # |                    ]
+  53     3    2.88   [                   #|                    ]
+  54     3    3.00   [                    #                    ]
+  55     3    3.00   [                    #                    ]
+  56     3    3.00   [                    #                    ]
+  57     4    3.00   [                    #                    ]
+  58     4    3.00   [                    #                    ]
+  59     3    3.12   [                    #                    ]
+  60     3    3.25   [                    |#                   ]
+  61     4    3.38   [                    | #                  ]
+  62     2    3.25   [                    |#                   ]
+  63     3    3.25   [                    |#                   ]
+  64     3    3.25   [                    |#                   ]
+
+Yang count spark: █ ▂▂▅▅▁▁▆▆▃▃▆▆▁▁▃▃▂▂▃▃▁▁▅▅▂▅▂▅▃▃▅▅▂▂▅▅▂▂▃▃▆▆▂▂▃▃▅▅▂▂▃▃▃▃▅▅▃▃▅▂▃▃
+
+--- Yang/Yin dominance runs ---
+  Positions 02-04: 3 consecutive yin-dominant hexagrams
+</pre>
+</div>
+<div class="section">
+<h2>Neighborhoods</h2>
+<pre>---
+Hexagram neighborhoods
+For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?
+Dense neighborhoods mean a hexagram has many close relatives; sparse ones are
+more isolated. This also shows whether King Wen places neighbors near each
+other in the sequence or scatters them.
+---
+01 ䷀ The Creative                 d=1: [09, 10, 13, 14, 43, 44] (6 neighbors, mean seq dist: 21.2)
+02 ䷁ The Receptive                d=1: [07, 08, 15, 16, 23, 24] (6 neighbors, mean seq dist: 13.5)
+03 ䷂ Difficulty at the Beginning  d=1: [08, 17, 24, 42, 60, 63] (6 neighbors, mean seq dist: 32.7)
+04 ䷃ Youthful Folly               d=1: [07, 18, 23, 41, 59, 64] (6 neighbors, mean seq dist: 31.3)
+05 ䷄ Waiting                      d=1: [09, 11, 43, 48, 60, 63] (6 neighbors, mean seq dist: 34.0)
+06 ䷅ Conflict                     d=1: [10, 12, 44, 47, 59, 64] (6 neighbors, mean seq dist: 33.3)
+07 ䷆ The Army                     d=1: [02, 04, 19, 29, 40, 46] (6 neighbors, mean seq dist: 19.0)
+08 ䷇ Holding Together             d=1: [02, 03, 20, 29, 39, 45] (6 neighbors, mean seq dist: 18.7)
+09 ䷈ Small Taming                 d=1: [01, 05, 26, 37, 57, 61] (6 neighbors, mean seq dist: 26.2)
+10 ䷉ Treading                     d=1: [01, 06, 25, 38, 58, 61] (6 neighbors, mean seq dist: 25.8)
+11 ䷊ Peace                        d=1: [05, 19, 26, 34, 36, 46] (6 neighbors, mean seq dist: 18.7)
+12 ䷋ Standstill                   d=1: [06, 20, 25, 33, 35, 45] (6 neighbors, mean seq dist: 17.3)
+13 ䷌ Fellowship                   d=1: [01, 25, 30, 33, 37, 49] (6 neighbors, mean seq dist: 20.2)
+14 ䷍ Great Possession             d=1: [01, 26, 30, 34, 38, 50] (6 neighbors, mean seq dist: 20.2)
+15 ䷎ Modesty                      d=1: [02, 36, 39, 46, 52, 62] (6 neighbors, mean seq dist: 28.8)
+16 ䷏ Enthusiasm                   d=1: [02, 35, 40, 45, 51, 62] (6 neighbors, mean seq dist: 27.8)
+17 ䷐ Following                    d=1: [03, 25, 45, 49, 51, 58] (6 neighbors, mean seq dist: 26.2)
+18 ䷑ Work on the Decayed          d=1: [04, 26, 46, 50, 52, 57] (6 neighbors, mean seq dist: 25.8)
+19 ䷒ Approach                     d=1: [07, 11, 24, 41, 54, 60] (6 neighbors, mean seq dist: 20.5)
+20 ䷓ Contemplation                d=1: [08, 12, 23, 42, 53, 59] (6 neighbors, mean seq dist: 19.5)
+21 ䷔ Biting Through               d=1: [25, 27, 30, 35, 38, 51] (6 neighbors, mean seq dist: 13.3)
+22 ䷕ Grace                        d=1: [26, 27, 30, 36, 37, 52] (6 neighbors, mean seq dist: 12.7)
+23 ䷖ Splitting Apart              d=1: [02, 04, 20, 27, 35, 52] (6 neighbors, mean seq dist: 14.7)
+24 ䷗ Return                       d=1: [02, 03, 19, 27, 36, 51] (6 neighbors, mean seq dist: 15.0)
+25 ䷘ Innocence                    d=1: [10, 12, 13, 17, 21, 42] (6 neighbors, mean seq dist: 11.5)
+26 ䷙ Great Taming                 d=1: [09, 11, 14, 18, 22, 41] (6 neighbors, mean seq dist: 11.8)
+27 ䷚ Nourishment                  d=1: [21, 22, 23, 24, 41, 42] (6 neighbors, mean seq dist: 7.8)
+28 ䷛ Great Preponderance          d=1: [31, 32, 43, 44, 47, 48] (6 neighbors, mean seq dist: 12.8)
+29 ䷜ The Abysmal                  d=1: [07, 08, 47, 48, 59, 60] (6 neighbors, mean seq dist: 23.5)
+30 ䷝ The Clinging                 d=1: [13, 14, 21, 22, 55, 56] (6 neighbors, mean seq dist: 16.8)
+31 ䷞ Influence                    d=1: [28, 33, 39, 45, 49, 62] (6 neighbors, mean seq dist: 12.7)
+32 ䷟ Duration                     d=1: [28, 34, 40, 46, 50, 62] (6 neighbors, mean seq dist: 12.7)
+33 ䷠ Retreat                      d=1: [12, 13, 31, 44, 53, 56] (6 neighbors, mean seq dist: 16.2)
+34 ䷡ Great Power                  d=1: [11, 14, 32, 43, 54, 55] (6 neighbors, mean seq dist: 15.8)
+35 ䷢ Progress                     d=1: [12, 16, 21, 23, 56, 64] (6 neighbors, mean seq dist: 19.7)
+36 ䷣ Darkening of the Light       d=1: [11, 15, 22, 24, 55, 63] (6 neighbors, mean seq dist: 19.7)
+37 ䷤ The Family                   d=1: [09, 13, 22, 42, 53, 63] (6 neighbors, mean seq dist: 19.0)
+38 ䷥ Opposition                   d=1: [10, 14, 21, 41, 54, 64] (6 neighbors, mean seq dist: 19.0)
+39 ䷦ Obstruction                  d=1: [08, 15, 31, 48, 53, 63] (6 neighbors, mean seq dist: 18.3)
+40 ䷧ Deliverance                  d=1: [07, 16, 32, 47, 54, 64] (6 neighbors, mean seq dist: 18.3)
+41 ䷨ Decrease                     d=1: [04, 19, 26, 27, 38, 61] (6 neighbors, mean seq dist: 18.5)
+42 ䷩ Increase                     d=1: [03, 20, 25, 27, 37, 61] (6 neighbors, mean seq dist: 19.5)
+43 ䷪ Breakthrough                 d=1: [01, 05, 28, 34, 49, 58] (6 neighbors, mean seq dist: 20.8)
+44 ䷫ Coming to Meet               d=1: [01, 06, 28, 33, 50, 57] (6 neighbors, mean seq dist: 21.2)
+45 ䷬ Gathering Together           d=1: [08, 12, 16, 17, 31, 47] (6 neighbors, mean seq dist: 23.8)
+46 ䷭ Pushing Upward               d=1: [07, 11, 15, 18, 32, 48] (6 neighbors, mean seq dist: 24.8)
+47 ䷮ Oppression                   d=1: [06, 28, 29, 40, 45, 58] (6 neighbors, mean seq dist: 16.3)
+48 ䷯ The Well                     d=1: [05, 28, 29, 39, 46, 57] (6 neighbors, mean seq dist: 17.0)
+49 ䷰ Revolution                   d=1: [13, 17, 31, 43, 55, 63] (6 neighbors, mean seq dist: 18.7)
+50 ䷱ The Cauldron                 d=1: [14, 18, 32, 44, 56, 64] (6 neighbors, mean seq dist: 18.7)
+51 ䷲ The Arousing                 d=1: [16, 17, 21, 24, 54, 55] (6 neighbors, mean seq dist: 22.2)
+52 ䷳ Keeping Still                d=1: [15, 18, 22, 23, 53, 56] (6 neighbors, mean seq dist: 22.5)
+53 ䷴ Development                  d=1: [20, 33, 37, 39, 52, 57] (6 neighbors, mean seq dist: 14.7)
+54 ䷵ The Marrying Maiden          d=1: [19, 34, 38, 40, 51, 58] (6 neighbors, mean seq dist: 15.3)
+55 ䷶ Abundance                    d=1: [30, 34, 36, 49, 51, 62] (6 neighbors, mean seq dist: 13.7)
+56 ䷷ The Wanderer                 d=1: [30, 33, 35, 50, 52, 62] (6 neighbors, mean seq dist: 14.3)
+57 ䷸ The Gentle                   d=1: [09, 18, 44, 48, 53, 59] (6 neighbors, mean seq dist: 19.2)
+58 ䷹ The Joyous                   d=1: [10, 17, 43, 47, 54, 60] (6 neighbors, mean seq dist: 20.2)
+59 ䷺ Dispersion                   d=1: [04, 06, 20, 29, 57, 61] (6 neighbors, mean seq dist: 30.2)
+60 ䷻ Limitation                   d=1: [03, 05, 19, 29, 58, 61] (6 neighbors, mean seq dist: 31.2)
+61 ䷼ Inner Truth                  d=1: [09, 10, 41, 42, 59, 60] (6 neighbors, mean seq dist: 24.2)
+62 ䷽ Small Preponderance          d=1: [15, 16, 31, 32, 55, 56] (6 neighbors, mean seq dist: 27.8)
+63 ䷾ After Completion             d=1: [03, 05, 36, 37, 39, 49] (6 neighbors, mean seq dist: 34.8)
+64 ䷿ Before Completion            d=1: [04, 06, 35, 38, 40, 50] (6 neighbors, mean seq dist: 35.2)
+
+--- Neighborhood clustering in King Wen sequence ---
+Mean sequence distance between Hamming-1 neighbors: 20.6
+Mean sequence distance between any two hexagrams:   21.7
+Hamming-1 neighbors are closer than average in the sequence (clustered).
+</pre>
+</div>
+<div class="section">
+<h2>Recurrence Plot</h2>
+<pre>---
+Recurrence plot
+A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)
+is marked if the difference at position i equals the difference at position j.
+Diagonal lines indicate repeated sequences; vertical/horizontal lines indicate
+values that persist. Clusters of marks reveal recurring local patterns.
+---
+              1         2         3         4         5         6   
+     123456789012345678901234567890123456789012345678901234567890123
+  1  +.........#.....#.........#.#........#..............#.......#.#
+  2  .+....#.#..##.##....###..#.#..#....#....#.#...#......##...#....
+  3  ..+##..#.#...#....#.....#.......###.#.#..#..#...###.....#......
+  4  ..#+#..#.#...#....#.....#.......###.#.#..#..#...###.....#......
+  5  ..##+..#.#...#....#.....#.......###.#.#..#..#...###.....#......
+  6  .....+...........#.#...#.....#.#.......#...#.#.#.......#.#...#.
+  7  .#....+.#..##.##....###..#.#..#....#....#.#...#......##...#....
+  8  ..###..+.#...#....#.....#.......###.#.#..#..#...###.....#......
+  9  .#....#.+..##.##....###..#.#..#....#....#.#...#......##...#....
+ 10  ..###..#.+...#....#.....#.......###.#.#..#..#...###.....#......
+ 11  #.........+.....#.........#.#........#..............#.......#.#
+ 12  .#....#.#..+#.##....###..#.#..#....#....#.#...#......##...#....
+ 13  .#....#.#..#+.##....###..#.#..#....#....#.#...#......##...#....
+ 14  ..###..#.#...+....#.....#.......###.#.#..#..#...###.....#......
+ 15  .#....#.#..##.+#....###..#.#..#....#....#.#...#......##...#....
+ 16  .#....#.#..##.#+....###..#.#..#....#....#.#...#......##...#....
+ 17  #.........#.....+.........#.#........#..............#.......#.#
+ 18  .....#...........+.#...#.....#.#.......#...#.#.#.......#.#...#.
+ 19  ..###..#.#...#....+.....#.......###.#.#..#..#...###.....#......
+ 20  .....#...........#.+...#.....#.#.......#...#.#.#.......#.#...#.
+ 21  .#....#.#..##.##....+##..#.#..#....#....#.#...#......##...#....
+ 22  .#....#.#..##.##....#+#..#.#..#....#....#.#...#......##...#....
+ 23  .#....#.#..##.##....##+..#.#..#....#....#.#...#......##...#....
+ 24  .....#...........#.#...+.....#.#.......#...#.#.#.......#.#...#.
+ 25  ..###..#.#...#....#.....+.......###.#.#..#..#...###.....#......
+ 26  .#....#.#..##.##....###..+.#..#....#....#.#...#......##...#....
+ 27  #.........#.....#.........+.#........#..............#.......#.#
+ 28  .#....#.#..##.##....###..#.+..#....#....#.#...#......##...#....
+ 29  #.........#.....#.........#.+........#..............#.......#.#
+ 30  .....#...........#.#...#.....+.#.......#...#.#.#.......#.#...#.
+ 31  .#....#.#..##.##....###..#.#..+....#....#.#...#......##...#....
+ 32  .....#...........#.#...#.....#.+.......#...#.#.#.......#.#...#.
+ 33  ..###..#.#...#....#.....#.......+##.#.#..#..#...###.....#......
+ 34  ..###..#.#...#....#.....#.......#+#.#.#..#..#...###.....#......
+ 35  ..###..#.#...#....#.....#.......##+.#.#..#..#...###.....#......
+ 36  .#....#.#..##.##....###..#.#..#....+....#.#...#......##...#....
+ 37  ..###..#.#...#....#.....#.......###.+.#..#..#...###.....#......
+ 38  #.........#.....#.........#.#........+..............#.......#.#
+ 39  ..###..#.#...#....#.....#.......###.#.+..#..#...###.....#......
+ 40  .....#...........#.#...#.....#.#.......+...#.#.#.......#.#...#.
+ 41  .#....#.#..##.##....###..#.#..#....#....+.#...#......##...#....
+ 42  ..###..#.#...#....#.....#.......###.#.#..+..#...###.....#......
+ 43  .#....#.#..##.##....###..#.#..#....#....#.+...#......##...#....
+ 44  .....#...........#.#...#.....#.#.......#...+.#.#.......#.#...#.
+ 45  ..###..#.#...#....#.....#.......###.#.#..#..+...###.....#......
+ 46  .....#...........#.#...#.....#.#.......#...#.+.#.......#.#...#.
+ 47  .#....#.#..##.##....###..#.#..#....#....#.#...+......##...#....
+ 48  .....#...........#.#...#.....#.#.......#...#.#.+.......#.#...#.
+ 49  ..###..#.#...#....#.....#.......###.#.#..#..#...+##.....#......
+ 50  ..###..#.#...#....#.....#.......###.#.#..#..#...#+#.....#......
+ 51  ..###..#.#...#....#.....#.......###.#.#..#..#...##+.....#......
+ 52  ...................................................+.......#...
+ 53  #.........#.....#.........#.#........#..............+.......#.#
+ 54  .#....#.#..##.##....###..#.#..#....#....#.#...#......+#...#....
+ 55  .#....#.#..##.##....###..#.#..#....#....#.#...#......#+...#....
+ 56  .....#...........#.#...#.....#.#.......#...#.#.#.......+.#...#.
+ 57  ..###..#.#...#....#.....#.......###.#.#..#..#...###.....+......
+ 58  .....#...........#.#...#.....#.#.......#...#.#.#.......#.+...#.
+ 59  .#....#.#..##.##....###..#.#..#....#....#.#...#......##...+....
+ 60  ...................................................#.......+...
+ 61  #.........#.....#.........#.#........#..............#.......+.#
+ 62  .....#...........#.#...#.....#.#.......#...#.#.#.......#.#...+.
+ 63  #.........#.....#.........#.#........#..............#.......#.+
+
+Recurrence rate: 952/3906 (24.4%)
+</pre>
+</div>
+<div class="section">
+<h2>DNA Codons</h2>
+<pre>---
+DNA codon mapping
+Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems
+of 64 elements built from binary-like pairs: yin/yang for hexagrams, and the
+base pairs A-T and G-C for DNA. Each codon is a sequence of 3 bases from the
+set {A, C, G, U}, giving 4^3 = 64 possibilities. While this is a numerical
+coincidence (both are 2^6 = 64), comparing their structural properties is
+instructive about combinatorial systems in general.
+---
+Pos | Hex | Binary | Codon | Amino Acid | Name
+----|-----|--------|-------|------------|----
+01  | ䷀   | 111111 | GGG  | Gly        | The Creative
+02  | ䷁   | 000000 | UUU  | Phe        | The Receptive
+03  | ䷂   | 010001 | CUC  | Leu        | Difficulty at the Beginning
+04  | ䷃   | 100010 | AUA  | Ile        | Youthful Folly
+05  | ䷄   | 010111 | CCG  | Pro        | Waiting
+06  | ䷅   | 111010 | GAA  | Glu        | Conflict
+07  | ䷆   | 000010 | UUA  | Leu        | The Army
+08  | ䷇   | 010000 | CUU  | Leu        | Holding Together
+09  | ䷈   | 110111 | GCG  | Ala        | Small Taming
+10  | ䷉   | 111011 | GAG  | Glu        | Treading
+11  | ䷊   | 000111 | UCG  | Ser        | Peace
+12  | ䷋   | 111000 | GAU  | Asp        | Standstill
+13  | ䷌   | 111101 | GGC  | Gly        | Fellowship
+14  | ䷍   | 101111 | AGG  | Arg        | Great Possession
+15  | ䷎   | 000100 | UCU  | Ser        | Modesty
+16  | ䷏   | 001000 | UAU  | Tyr        | Enthusiasm
+17  | ䷐   | 011001 | CAC  | His        | Following
+18  | ䷑   | 100110 | ACA  | Thr        | Work on the Decayed
+19  | ䷒   | 000011 | UUG  | Leu        | Approach
+20  | ䷓   | 110000 | GUU  | Val        | Contemplation
+21  | ䷔   | 101001 | AAC  | Asn        | Biting Through
+22  | ䷕   | 100101 | ACC  | Thr        | Grace
+23  | ䷖   | 100000 | AUU  | Ile        | Splitting Apart
+24  | ䷗   | 000001 | UUC  | Phe        | Return
+25  | ䷘   | 111001 | GAC  | Asp        | Innocence
+26  | ䷙   | 100111 | ACG  | Thr        | Great Taming
+27  | ䷚   | 100001 | AUC  | Ile        | Nourishment
+28  | ䷛   | 011110 | CGA  | Arg        | Great Preponderance
+29  | ䷜   | 010010 | CUA  | Leu        | The Abysmal
+30  | ䷝   | 101101 | AGC  | Ser        | The Clinging
+31  | ䷞   | 011100 | CGU  | Arg        | Influence
+32  | ䷟   | 001110 | UGA  | Stop       | Duration
+33  | ䷠   | 111100 | GGU  | Gly        | Retreat
+34  | ䷡   | 001111 | UGG  | Trp        | Great Power
+35  | ䷢   | 101000 | AAU  | Asn        | Progress
+36  | ䷣   | 000101 | UCC  | Ser        | Darkening of the Light
+37  | ䷤   | 110101 | GCC  | Ala        | The Family
+38  | ䷥   | 101011 | AAG  | Lys        | Opposition
+39  | ䷦   | 010100 | CCU  | Pro        | Obstruction
+40  | ䷧   | 001010 | UAA  | Stop       | Deliverance
+41  | ䷨   | 100011 | AUG  | Met        | Decrease
+42  | ䷩   | 110001 | GUC  | Val        | Increase
+43  | ䷪   | 011111 | CGG  | Arg        | Breakthrough
+44  | ䷫   | 111110 | GGA  | Gly        | Coming to Meet
+45  | ䷬   | 011000 | CAU  | His        | Gathering Together
+46  | ䷭   | 000110 | UCA  | Ser        | Pushing Upward
+47  | ䷮   | 011010 | CAA  | Gln        | Oppression
+48  | ䷯   | 010110 | CCA  | Pro        | The Well
+49  | ䷰   | 011101 | CGC  | Arg        | Revolution
+50  | ䷱   | 101110 | AGA  | Arg        | The Cauldron
+51  | ䷲   | 001001 | UAC  | Tyr        | The Arousing
+52  | ䷳   | 100100 | ACU  | Thr        | Keeping Still
+53  | ䷴   | 110100 | GCU  | Ala        | Development
+54  | ䷵   | 001011 | UAG  | Stop       | The Marrying Maiden
+55  | ䷶   | 001101 | UGC  | Cys        | Abundance
+56  | ䷷   | 101100 | AGU  | Ser        | The Wanderer
+57  | ䷸   | 110110 | GCA  | Ala        | The Gentle
+58  | ䷹   | 011011 | CAG  | Gln        | The Joyous
+59  | ䷺   | 110010 | GUA  | Val        | Dispersion
+60  | ䷻   | 010011 | CUG  | Leu        | Limitation
+61  | ䷼   | 110011 | GUG  | Val        | Inner Truth
+62  | ䷽   | 001100 | UGU  | Cys        | Small Preponderance
+63  | ䷾   | 010101 | CCC  | Pro        | After Completion
+64  | ䷿   | 101010 | AAA  | Lys        | Before Completion
+
+Unique amino acids in King Wen order: 21
+Total possible amino acids + stop: 21
+
+--- Degeneracy comparison ---
+In DNA, many single-base changes preserve the amino acid (the code is 'degenerate').
+Do single-line hexagram changes preserve the mapped amino acid?
+Single-line changes that preserve amino acid: 100/384 (26.0%)
+</pre>
+</div>
+<div class="section">
+<h2>Shannon Entropy</h2>
+<pre>---
+Shannon entropy analysis
+Entropy measures disorder: high entropy means the difference values are spread
+evenly across all possibilities (random-looking), low entropy means certain values
+dominate (structured). We compare the King Wen wave's entropy against thousands
+of random permutations of the same 64 hexagrams. If King Wen's entropy is
+unusually low, the sequence is more structured than random chance would produce.
+---
+King Wen difference wave entropy: 2.0759 bits
+Maximum possible entropy (uniform): 2.8074 bits
+Mean entropy of random permutations: 2.1926 bits
+Min random entropy observed: 1.7452 bits
+Max random entropy observed: 2.4784 bits
+King Wen percentile: 13.4% (lower = more structured)
+
+--- Distribution comparison ---
+Value    King Wen Expected (random avg)
+  0             0                  0.0
+  1             2                  5.9
+  2            20                 15.1
+  3            13                 20.1
+  4            19                 15.0
+  5             0                  5.9
+  6             9                  1.0
+</pre>
+</div>
+<div class="section">
+<h2>Path Analysis</h2>
+<pre>---
+Path analysis (graph theory)
+Imagine the 64 hexagrams as cities on a map, where the 'distance' between any
+two is the number of lines that differ. The King Wen sequence is a route that
+visits all 64 cities. Is it a short, efficient route (nearby hexagrams placed
+next to each other), or a long, wandering one? We compare its total distance
+against random routes and a greedy 'always go to the nearest unvisited city'
+algorithm. This reveals whether the King Wen ordering was optimized for smooth
+transitions or had other priorities.
+---
+King Wen total path length:  211 (sum of all line changes)
+Greedy nearest-neighbor:     75
+Mean random path length:     192.1
+Min random observed:         154
+Max random observed:         227
+King Wen percentile:         97.7% (lower = shorter path)
+
+--- Theoretical bounds ---
+Minimum possible (63 transitions of 1): 63
+Maximum possible (63 transitions of 6): 378
+King Wen uses 55.8% of maximum path length
+
+--- Pair-constrained comparison ---
+The above compares against fully random orderings. A fairer comparison is
+against random orderings that also preserve the pair structure (each pair
+of hexagrams stays adjacent). This is the right null model for asking
+whether King Wen's path length is unusual GIVEN its pair constraint.
+Mean pair-constrained path length: 214.1
+Min pair-constrained observed:     184
+Max pair-constrained observed:     242
+King Wen percentile (pair-constrained): 29.0%
+</pre>
+</div>
+<div class="section">
+<h2>Constraint Satisfaction</h2>
+<pre>---
+Constraint satisfaction analysis
+The King Wen sequence satisfies several constraints simultaneously:
+  1. All 32 consecutive pairs are either reverse or inverse (never unrelated)
+  2. No consecutive hexagrams differ by exactly 5 lines
+  3. No consecutive hexagrams are identical (0-line transitions)
+How rare is it for a random ordering to satisfy all these at once? We test
+random permutations against each constraint individually and combined.
+---
+Results from 10,000 random permutations:
+  All pairs reverse/inverse:       0 (0.000%)
+  No 5-line transitions:          13 (0.13%)
+  Both constraints together:       0 (0.0000%)
+  No random permutation satisfied both constraints.
+  Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
+  (i.e., the true rate is less than ~1 in 3,333, but we cannot
+  distinguish 'impossible' from 'extremely rare' with this sample size).
+</pre>
+</div>
+<div class="section">
+<h2>Bootstrap</h2>
+<pre>---
+Bootstrap confidence intervals
+The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line
+transitions') are estimates based on sampling. Bootstrap resampling quantifies
+how precise those estimates are by repeatedly resampling from the results and
+computing confidence intervals. Narrower intervals = more reliable estimates.
+---
+Base trials: 10,000
+Bootstrap resamples: 1000
+
+No-5-line-transition rate: 0.140%
+95% confidence interval: [0.070%, 0.220%]
+Interval width: 0.150 percentage points
+
+Approximately 1 in 714 random orderings
+95% CI: 1 in 455 to 1 in 1429
+</pre>
+</div>
+<div class="section">
+<h2>Monte Carlo</h2>
+<pre>---
+Monte Carlo analysis (10,000 random permutations)
+The King Wen sequence has a striking property: no two consecutive hexagrams
+differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference
+values (0-6), is avoiding 5 remarkable or just a coincidence? To find out, we
+randomly shuffle the 64 hexagrams thousands of times and check how often a
+random ordering also avoids 5-line transitions. The rarer it is, the more
+likely the King Wen sequence was intentionally designed with this constraint.
+---
+Permutations with no 5-line transitions: 18/10,000 (0.18%)
+Approximately 1 in 555 random orderings share this property.
+</pre>
+</div>
+</body></html>
