@@ -126,6 +126,10 @@ Verifies data integrity, pair structure, no-5-line property, yin-yang balance, t
 
 Python 3.6+ with no external dependencies (stdlib only).
 
+Optional external programs for export formats:
+- [Graphviz](https://graphviz.org/) — `--dot` auto-generates PNG and SVG alongside the DOT file (`sudo apt install graphviz`)
+- [wkhtmltopdf](https://wkhtmltopdf.org/) — `--html` auto-generates a PDF alongside the HTML report (`sudo apt install wkhtmltopdf`)
+
 ## References
 
 * [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
