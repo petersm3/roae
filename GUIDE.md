@@ -20,6 +20,16 @@ Think of it this way: you have 64 unique tiles and someone arranged them in a sp
 
 The program answers these questions by treating each hexagram as a 6-digit binary number and analyzing the mathematical relationships between consecutive hexagrams in the sequence.
 
+## Quick start
+
+```
+python3 roae.py --quick          # 8 core analyses, runs in seconds
+python3 roae.py                  # All 28 analyses (a minute or two)
+python3 roae.py --seed 42        # Same as above, but reproducible
+python3 roae.py --lookup 1       # Look up a specific hexagram
+python3 roae.py --cast           # Simulate a traditional I Ching reading
+```
+
 ## What a hexagram looks like
 
 A hexagram is read bottom to top. Each line is either solid (yang, 1) or broken (yin, 0):
