@@ -2,6 +2,8 @@
 
 Can the King Wen sequence be reconstructed from a small set of rules?
 
+For a plain-language version, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md).
+
 ## The question
 
 The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is one specific ordering of 64 hexagrams out of 64! (~10^89) possibilities. ROAE's analysis has identified several mathematical constraints the sequence satisfies. This companion program (`solve.py`) asks: are those constraints sufficient to *reconstruct* the sequence from scratch?
