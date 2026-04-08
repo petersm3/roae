@@ -127,10 +127,40 @@ The local ordering rule remains undiscovered. It is:
 - **Not forced by the no-5 constraint** (nearly every pair can neighbor every other)
 - **Something more complex** — possibly involving multi-step lookahead, global optimization, or a principle not captured by pairwise boundary features
 
-The most likely candidates for further investigation:
-- Trigram *sequence* patterns (not just pairwise, but the path of trigrams across multiple boundaries)
-- Cosmological or philosophical ordering principles from the [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary
-- Optimization of a multi-objective function combining several weak preferences
+## Deep analysis
+
+Six additional analyses probe the structure more deeply (`--deep`):
+
+### Constrained enumeration (`--enumerate`)
+
+Backtracking search with all 6 rules finds **King Wen among the solutions**, but also finds thousands of other valid sequences. In a 30-second search (7.2M nodes), 16,248 solutions were found before budget exhaustion. **The six rules are NOT sufficient to uniquely determine King Wen.**
+
+The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
+
+### Information content (`--info`)
+
+The known rules remove ~176 of 296 bits needed to specify a permutation of 64, leaving ~120 bits of unknown information. This means roughly 2^120 sequences satisfy all known rules — the missing local rule must encode approximately 120 additional bits.
+
+### Trigram path analysis (`--trigram-paths`)
+
+Upper and lower trigram paths through the sequence are unremarkable:
+- Self-transitions: 4-5 per path (random mean: 3.5, ~53rd-73rd percentile)
+- Both trigrams change simultaneously in 54/63 transitions (86%), slightly below random (89%, 14th percentile)
+- Uses 46-49 of 56 possible trigram transitions
+
+No trigram path property distinguishes King Wen from random pair-constrained orderings.
+
+### Line-by-line decomposition (`--line-decomp`)
+
+Each line position traces a binary sequence through the 64 hexagrams. All 6 lines have exactly 32 ones and 32 zeros (forced by the complete permutation). Autocorrelation is slightly negative for all lines (typical of pair-constrained orderings). **Line 2 is anomalous**: its autocorrelation (-0.016) is at the 93rd percentile — much less negative than random. This could indicate that line 2 was given special treatment in the ordering, or it could be a chance finding among 6 tests.
+
+### Pair neighborhoods (`--pair-neighborhoods`)
+
+Within a window of 2 pairs, nearby pairs share a trigram 57% of the time. Complement pairs are a mean distance of 5.9 pair-positions apart (range 0-23).
+
+### Constraint residuals (`--residuals`)
+
+62 sequences satisfying Rules 1-4 were sampled from 1M trials. They differ substantially from King Wen: mean 2.0/32 pair positions match, 20.3/63 wave values match. The survivors have similar complement distances but very different local structure, confirming that Rules 1-4 constrain global properties but not local ordering.
 
 ## Usage
 
@@ -145,6 +175,14 @@ python3 solve.py --graph                      # Pair adjacency graph analysis
 python3 solve.py --boundaries                 # Boundary feature analysis
 python3 solve.py --construct                  # Sequential construction with heuristics
 python3 solve.py --local                      # All three local analyses
+python3 solve.py --enumerate                  # Backtracking enumeration (budget: 10M nodes, 60s)
+python3 solve.py --trigram-paths              # Trigram path analysis
+python3 solve.py --line-decomp                # Line-by-line decomposition
+python3 solve.py --pair-neighborhoods         # Pair clustering structure
+python3 solve.py --residuals                  # Compare constraint survivors vs King Wen
+python3 solve.py --info                       # Information content analysis
+python3 solve.py --deep                       # All six deep analyses
+python3 solve.py --enumerate --max-nodes 50000000 --time-limit 300  # Longer search
 ```
 
 ## Requirements

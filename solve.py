@@ -833,6 +833,591 @@ def print_sequential_construction():
     random_expected = testable_steps / (total_options / (n - 1))  # rough
     print(f"\nRandom choice expected: ~{random_expected:.0f}% per heuristic")
 
+def print_enumerate(max_nodes=10_000_000, time_limit=60):
+    """Backtracking enumeration with all constraints and a node/time budget."""
+    print("=" * 70)
+    print("CONSTRAINED ENUMERATION")
+    print("=" * 70)
+    print()
+    print(f"Backtracking search with Rules 1-6. Budget: {max_nodes:,} nodes, {time_limit}s.")
+    print("Attempts to count ALL sequences satisfying all known constraints.")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+
+    # King Wen's difference distribution (Rule 6)
+    kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
+    kw_dist = {}
+    for d in kw_diffs:
+        kw_dist[d] = kw_dist.get(d, 0) + 1
+
+    # King Wen complement distance (Rule 3)
+    kw_comp_dist = mean_complement_distance(binary_hexagrams)
+
+    # Rule 5: first pair must be Creative/Receptive
+    first_pair_idx = None
+    for i, (a, b) in enumerate(kw_pairs):
+        if (a == 0b111111 and b == 0b000000) or (b == 0b111111 and a == 0b000000):
+            first_pair_idx = i
+            break
+
+    solutions = []
+    nodes = [0]
+    start = time.time()
+    exhausted = [True]
+
+    def backtrack(seq, used, dist_budget):
+        nodes[0] += 1
+        if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+            exhausted[0] = False
+            return
+        if nodes[0] % 1000000 == 0:
+            elapsed = time.time() - start
+            print(f"  {nodes[0]:,} nodes, {len(solutions)} solutions, {elapsed:.1f}s",
+                  file=sys.stderr)
+
+        step = len(seq) // 2  # how many pairs placed
+
+        if step == n:
+            # Check Rule 3: complement distance
+            if mean_complement_distance(seq) <= kw_comp_dist:
+                solutions.append(list(seq))
+            return
+
+        for j in range(n):
+            if j in used:
+                continue
+            a, b = kw_pairs[j]
+            for first, second in [(a, b), (b, a)]:
+                # Rule 2: no 5-line transition at boundary
+                if seq and bit_diff(seq[-1], first) == 5:
+                    continue
+
+                # Rule 6: check difference distribution budget
+                new_budget = dict(dist_budget)
+                feasible = True
+                if seq:
+                    # Within-pair diff (second of prev pair -> first of this pair already checked)
+                    # But also check the boundary diff against budget
+                    bd = bit_diff(seq[-1], first)
+                    if new_budget.get(bd, 0) <= 0:
+                        continue
+                    new_budget[bd] -= 1
+
+                # Within-pair diff
+                wd = bit_diff(first, second)
+                if new_budget.get(wd, 0) <= 0:
+                    continue
+                new_budget[wd] -= 1
+
+                new_used = used | {j}
+                backtrack(seq + [first, second], new_used, new_budget)
+
+                if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+                    exhausted[0] = False
+                    return
+
+    # Start with Rule 5: Creative/Receptive first
+    if first_pair_idx is not None:
+        init_budget = dict(kw_dist)
+        # Account for the within-pair diff of first pair
+        fd = bit_diff(0b111111, 0b000000)
+        init_budget[fd] -= 1
+        backtrack([0b111111, 0b000000], {first_pair_idx}, init_budget)
+
+    elapsed = time.time() - start
+    print(f"\nSearch {'COMPLETE' if exhausted[0] else 'EXHAUSTED BUDGET'}: "
+          f"{nodes[0]:,} nodes, {elapsed:.1f}s")
+    print(f"Solutions found: {len(solutions)}")
+
+    if solutions:
+        kw_found = any(s == binary_hexagrams for s in solutions)
+        print(f"King Wen among solutions: {'YES' if kw_found else 'No'}")
+        print()
+        print("--- Solution comparison ---")
+        for i, sol in enumerate(solutions[:10]):
+            stats = compare_sequences(sol)
+            is_kw = "*** KING WEN ***" if stats['is_king_wen'] else ""
+            print(f"  #{i+1}: pair_pos={stats['pair_position_matches']}/32, "
+                  f"exact={stats['position_matches']}/64, "
+                  f"wave={stats['wave_matches']}/63 {is_kw}")
+    elif exhausted[0]:
+        print("\nSearch space fully explored. No sequence satisfies all 6 rules")
+        print("with complement distance <= King Wen's. The complement distance")
+        print("threshold may need adjustment, or King Wen may be unique under")
+        print("a slightly relaxed complement constraint.")
+
+def print_trigram_paths():
+    """Track upper and lower trigram paths through the sequence."""
+    print("=" * 70)
+    print("TRIGRAM PATH ANALYSIS")
+    print("=" * 70)
+    print()
+    print("Track the upper and lower trigram independently through the 64-step")
+    print("sequence. Each traces a path through the 8 possible trigrams.")
+    print()
+
+    upper_path = [upper_trigram(v) for v in binary_hexagrams]
+    lower_path = [lower_trigram(v) for v in binary_hexagrams]
+
+    # Transition matrices for each path
+    for name, path in [("Upper trigram", upper_path), ("Lower trigram", lower_path)]:
+        print(f"--- {name} path ---")
+        trans = {}
+        for i in range(len(path) - 1):
+            key = (path[i], path[i + 1])
+            trans[key] = trans.get(key, 0) + 1
+
+        # Self-transitions (staying on same trigram)
+        self_trans = sum(v for (a, b), v in trans.items() if a == b)
+        print(f"Self-transitions (same trigram consecutive): {self_trans}/63")
+
+        # Unique transitions used
+        print(f"Unique transitions used: {len(trans)}/56 possible (8x7)")
+
+        # Most common transitions
+        sorted_trans = sorted(trans.items(), key=lambda x: -x[1])
+        print("Top 5 transitions:")
+        for (a, b), count in sorted_trans[:5]:
+            print(f"  {TRIGRAM_NAMES[a]} -> {TRIGRAM_NAMES[b]}: {count}")
+
+        # Visit order: which trigrams appear in what order?
+        first_visit = {}
+        for i, t in enumerate(path):
+            if t not in first_visit:
+                first_visit[t] = i + 1
+        print(f"First visit order: ", end="")
+        visit_order = sorted(first_visit.items(), key=lambda x: x[1])
+        print(", ".join(f"{TRIGRAM_NAMES[t]}@{pos}" for t, pos in visit_order))
+
+        # Run lengths: consecutive same-trigram sequences
+        runs = []
+        current_run = 1
+        for i in range(1, len(path)):
+            if path[i] == path[i - 1]:
+                current_run += 1
+            else:
+                runs.append(current_run)
+                current_run = 1
+        runs.append(current_run)
+        max_run = max(runs)
+        mean_run = sum(runs) / len(runs)
+        print(f"Run lengths: mean={mean_run:.1f}, max={max_run}, total runs={len(runs)}")
+        print()
+
+    # Cross-path analysis: how do upper and lower relate?
+    print("--- Cross-path correlation ---")
+    both_change = 0
+    only_upper = 0
+    only_lower = 0
+    neither = 0
+    for i in range(63):
+        uc = upper_path[i] != upper_path[i + 1]
+        lc = lower_path[i] != lower_path[i + 1]
+        if uc and lc:
+            both_change += 1
+        elif uc:
+            only_upper += 1
+        elif lc:
+            only_lower += 1
+        else:
+            neither += 1
+    print(f"Both change:  {both_change}/63 ({both_change/63*100:.0f}%)")
+    print(f"Only upper:   {only_upper}/63 ({only_upper/63*100:.0f}%)")
+    print(f"Only lower:   {only_lower}/63 ({only_lower/63*100:.0f}%)")
+    print(f"Neither:      {neither}/63 ({neither/63*100:.0f}%)")
+
+    # Compare against random
+    print()
+    print("--- Null model: random pair-constrained orderings ---")
+    random.seed(42)
+    kw_pairs = king_wen_pairs()
+    trials = 10000
+    rand_self_upper = []
+    rand_self_lower = []
+    rand_both_change = []
+
+    for _ in range(trials):
+        pair_order = list(kw_pairs)
+        random.shuffle(pair_order)
+        orients = [random.randint(0, 1) for _ in range(32)]
+        seq = flatten_pairs(pair_order, orients)
+        up = [upper_trigram(v) for v in seq]
+        lo = [lower_trigram(v) for v in seq]
+        rand_self_upper.append(sum(1 for i in range(63) if up[i] == up[i+1]))
+        rand_self_lower.append(sum(1 for i in range(63) if lo[i] == lo[i+1]))
+        rand_both_change.append(sum(1 for i in range(63)
+                                    if up[i] != up[i+1] and lo[i] != lo[i+1]))
+
+    kw_self_upper = sum(1 for i in range(63) if upper_path[i] == upper_path[i+1])
+    kw_self_lower = sum(1 for i in range(63) if lower_path[i] == lower_path[i+1])
+
+    pct_su = sum(1 for x in rand_self_upper if x >= kw_self_upper) / trials * 100
+    pct_sl = sum(1 for x in rand_self_lower if x >= kw_self_lower) / trials * 100
+    pct_bc = sum(1 for x in rand_both_change if x >= both_change) / trials * 100
+
+    print(f"Upper self-transitions: KW={kw_self_upper}, random mean={sum(rand_self_upper)/trials:.1f}, "
+          f"percentile={100-pct_su:.1f}%")
+    print(f"Lower self-transitions: KW={kw_self_lower}, random mean={sum(rand_self_lower)/trials:.1f}, "
+          f"percentile={100-pct_sl:.1f}%")
+    print(f"Both-change rate: KW={both_change}, random mean={sum(rand_both_change)/trials:.1f}, "
+          f"percentile={100-pct_bc:.1f}%")
+
+def print_line_decomposition():
+    """Analyze each of the 6 line positions independently."""
+    print("=" * 70)
+    print("LINE-BY-LINE DECOMPOSITION")
+    print("=" * 70)
+    print()
+    print("Each line position (1-6) traces an independent binary sequence through")
+    print("the 64 hexagrams. Analyzing autocorrelation and run structure per line.")
+    print()
+
+    for line in range(6):
+        bits = [(binary_hexagrams[i] >> line) & 1 for i in range(64)]
+        ones = sum(bits)
+        zeros = 64 - ones
+
+        # Runs (consecutive same-value)
+        runs = 1
+        for i in range(1, 64):
+            if bits[i] != bits[i - 1]:
+                runs += 1
+
+        # Run length distribution
+        run_lengths = []
+        curr = 1
+        for i in range(1, 64):
+            if bits[i] == bits[i - 1]:
+                curr += 1
+            else:
+                run_lengths.append(curr)
+                curr = 1
+        run_lengths.append(curr)
+        max_run = max(run_lengths)
+        mean_run = sum(run_lengths) / len(run_lengths)
+
+        # Lag-1 autocorrelation
+        mean_b = ones / 64
+        var_b = sum((b - mean_b) ** 2 for b in bits) / 64
+        if var_b > 0:
+            autocorr = sum((bits[i] - mean_b) * (bits[i+1] - mean_b)
+                          for i in range(63)) / (64 * var_b)
+        else:
+            autocorr = 0
+
+        print(f"Line {line+1} ({'top' if line == 5 else 'bottom' if line == 0 else 'mid'}): "
+              f"1s={ones} 0s={zeros} runs={runs} "
+              f"max_run={max_run} mean_run={mean_run:.1f} "
+              f"autocorr={autocorr:+.3f}")
+
+        # Visual
+        visual = "".join(str(b) for b in bits)
+        print(f"         {visual}")
+        print()
+
+    # Compare against random pair-constrained orderings
+    print("--- Null model: line autocorrelation ---")
+    random.seed(42)
+    kw_pairs = king_wen_pairs()
+    trials = 10000
+    rand_autocorrs = [[] for _ in range(6)]
+
+    for _ in range(trials):
+        pair_order = list(kw_pairs)
+        random.shuffle(pair_order)
+        orients = [random.randint(0, 1) for _ in range(32)]
+        seq = flatten_pairs(pair_order, orients)
+        for line in range(6):
+            bits = [(seq[i] >> line) & 1 for i in range(64)]
+            mean_b = sum(bits) / 64
+            var_b = sum((b - mean_b) ** 2 for b in bits) / 64
+            if var_b > 0:
+                ac = sum((bits[i] - mean_b) * (bits[i+1] - mean_b)
+                        for i in range(63)) / (64 * var_b)
+            else:
+                ac = 0
+            rand_autocorrs[line].append(ac)
+
+    print(f"{'Line':>4} {'KW autocorr':>12} {'Random mean':>12} {'Percentile':>10}")
+    print(f"{'----':>4} {'-----------':>12} {'-----------':>12} {'----------':>10}")
+    for line in range(6):
+        bits = [(binary_hexagrams[i] >> line) & 1 for i in range(64)]
+        mean_b = sum(bits) / 64
+        var_b = sum((b - mean_b) ** 2 for b in bits) / 64
+        if var_b > 0:
+            kw_ac = sum((bits[i] - mean_b) * (bits[i+1] - mean_b)
+                       for i in range(63)) / (64 * var_b)
+        else:
+            kw_ac = 0
+        rand_mean = sum(rand_autocorrs[line]) / trials
+        pct = sum(1 for x in rand_autocorrs[line] if x <= kw_ac) / trials * 100
+        print(f"{line+1:>4} {kw_ac:>12.3f} {rand_mean:>12.3f} {pct:>9.1f}%")
+
+def print_pair_neighborhoods():
+    """Analyze pair neighborhood structure — which pairs cluster together?"""
+    print("=" * 70)
+    print("PAIR NEIGHBORHOOD STRUCTURE")
+    print("=" * 70)
+    print()
+    print("Instead of immediate adjacency, look at which pairs are within")
+    print("distance 2-3 of each other (nearby in the sequence).")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+
+    # Pair types based on Hamming distance
+    for radius in [2, 3, 4]:
+        print(f"--- Pairs within window of {radius} (positions within {radius*2} hexagrams) ---")
+
+        # For each pair, what other pairs are nearby?
+        neighborhood_dists = []  # Hamming distance between nearby pair members
+        for i in range(n):
+            for j in range(max(0, i - radius), min(n, i + radius + 1)):
+                if i == j:
+                    continue
+                a1, b1 = kw_pairs[i]
+                a2, b2 = kw_pairs[j]
+                # Min Hamming distance between any members
+                min_d = min(bit_diff(x, y) for x in [a1, b1] for y in [a2, b2])
+                neighborhood_dists.append(min_d)
+
+        if neighborhood_dists:
+            mean_d = sum(neighborhood_dists) / len(neighborhood_dists)
+            print(f"Mean min-Hamming between nearby pairs: {mean_d:.2f}")
+
+            # Count how many nearby pairs share a trigram
+            trigram_links = 0
+            total_nearby = 0
+            for i in range(n):
+                for j in range(max(0, i - radius), min(n, i + radius + 1)):
+                    if i == j:
+                        continue
+                    total_nearby += 1
+                    a1, b1 = kw_pairs[i]
+                    a2, b2 = kw_pairs[j]
+                    for x in [a1, b1]:
+                        for y in [a2, b2]:
+                            if (upper_trigram(x) == upper_trigram(y) or
+                                lower_trigram(x) == lower_trigram(y)):
+                                trigram_links += 1
+                                break
+                        else:
+                            continue
+                        break
+
+            print(f"Nearby pairs sharing a trigram: {trigram_links}/{total_nearby} "
+                  f"({trigram_links/total_nearby*100:.0f}%)")
+        print()
+
+    # Complement pairs: how close are they?
+    print("--- Complement pair proximity ---")
+    comp_dists = []
+    for i in range(n):
+        a, b = kw_pairs[i]
+        comp_a = a ^ 0b111111
+        # Find which pair contains comp_a
+        for j in range(n):
+            ca, cb = kw_pairs[j]
+            if comp_a in (ca, cb):
+                comp_dists.append(abs(i - j))
+                break
+    print(f"Mean pair-distance to complement pair: {sum(comp_dists)/len(comp_dists):.1f}")
+    print(f"Max: {max(comp_dists)}, Min: {min(comp_dists)}")
+
+def print_constraint_residuals():
+    """Compare Level 4 survivors against King Wen to find the missing rule."""
+    print("=" * 70)
+    print("CONSTRAINT RESIDUAL ANALYSIS")
+    print("=" * 70)
+    print()
+    print("Generate sequences satisfying Rules 1-4 (pair structure, no-5,")
+    print("complement distance, starting pair) and compare against King Wen.")
+    print("What distinguishes King Wen from other valid sequences?")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    kw_comp_dist = mean_complement_distance(binary_hexagrams)
+
+    random.seed(42)
+    trials = 1_000_000
+    survivors = []
+
+    print(f"Sampling {trials:,} pair-constrained sequences...")
+    start = time.time()
+
+    for t in range(trials):
+        if t % 200000 == 0 and t > 0:
+            print(f"  {t:,} trials, {len(survivors)} found...", file=sys.stderr)
+
+        pair_order = list(kw_pairs)
+        random.shuffle(pair_order)
+        orients = [random.randint(0, 1) for _ in range(32)]
+        seq = flatten_pairs(pair_order, orients)
+
+        # Rule 2: no-5
+        if not has_no_five(seq):
+            continue
+        # Rule 3: complement distance
+        if mean_complement_distance(seq) > kw_comp_dist:
+            continue
+        # Rule 5: starts with Creative/Receptive
+        if seq[0] != 0b111111 or seq[1] != 0b000000:
+            continue
+
+        survivors.append(seq)
+
+    elapsed = time.time() - start
+    print(f"\nFound {len(survivors)} survivors from {trials:,} trials ({elapsed:.1f}s)")
+    print()
+
+    if not survivors:
+        print("No survivors found. Try increasing trials.")
+        return
+
+    # Analyze what distinguishes survivors from King Wen
+    print("--- Feature comparison: King Wen vs survivors ---")
+    print()
+
+    # Compute features for King Wen
+    kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
+    kw_diff_dist = {}
+    for d in kw_diffs:
+        kw_diff_dist[d] = kw_diff_dist.get(d, 0) + 1
+
+    # Features for each survivor
+    features = {
+        "diff_dist_match": [],     # how many diff values match KW's distribution
+        "wave_correlation": [],     # correlation of difference waves
+        "pair_position_match": [],
+        "complement_distance": [],
+        "max_run_length": [],       # longest run of same diff value
+    }
+
+    for sol in survivors:
+        stats = compare_sequences(sol)
+        features["pair_position_match"].append(stats["pair_position_matches"])
+        features["complement_distance"].append(stats["complement_distance"])
+        features["wave_correlation"].append(stats["wave_matches"])
+
+        diffs = [bit_diff(sol[i], sol[i + 1]) for i in range(63)]
+        dist = {}
+        for d in diffs:
+            dist[d] = dist.get(d, 0) + 1
+        match = sum(min(dist.get(k, 0), kw_diff_dist.get(k, 0)) for k in set(list(dist) + list(kw_diff_dist)))
+        features["diff_dist_match"].append(match)
+
+        runs = 1
+        max_run = 1
+        for i in range(1, len(diffs)):
+            if diffs[i] == diffs[i-1]:
+                runs += 1
+                max_run = max(max_run, runs)
+            else:
+                runs = 1
+        features["max_run_length"].append(max_run)
+
+    # King Wen's values
+    kw_max_run = 1
+    r = 1
+    for i in range(1, len(kw_diffs)):
+        if kw_diffs[i] == kw_diffs[i-1]:
+            r += 1
+            kw_max_run = max(kw_max_run, r)
+        else:
+            r = 1
+
+    print(f"{'Feature':<25} {'King Wen':>10} {'Surv mean':>10} {'Surv min':>10} {'Surv max':>10}")
+    print(f"{'-------':<25} {'--------':>10} {'---------':>10} {'--------':>10} {'--------':>10}")
+
+    def fmt(v):
+        return f"{v:.1f}" if isinstance(v, float) else str(v)
+
+    rows = [
+        ("Pair positions /32", 32, features["pair_position_match"]),
+        ("Wave matches /63", sum(1 for i in range(63) if kw_diffs[i] == kw_diffs[i]), features["wave_correlation"]),
+        ("Diff dist overlap /63", 63, features["diff_dist_match"]),
+        ("Complement distance", mean_complement_distance(binary_hexagrams), features["complement_distance"]),
+        ("Max run length", kw_max_run, features["max_run_length"]),
+    ]
+    for label, kw_val, vals in rows:
+        if vals:
+            print(f"{label:<25} {fmt(kw_val):>10} {fmt(sum(vals)/len(vals)):>10} "
+                  f"{fmt(min(vals)):>10} {fmt(max(vals)):>10}")
+
+    print(f"\nTotal survivors analyzed: {len(survivors)}")
+    kw_found = any(s == binary_hexagrams for s in survivors)
+    print(f"King Wen among survivors: {'YES' if kw_found else 'No'}")
+
+def print_info_content():
+    """Estimate the information content needed beyond known constraints."""
+    print("=" * 70)
+    print("INFORMATION CONTENT ANALYSIS")
+    print("=" * 70)
+    print()
+    print("How many bits of additional information are needed beyond the known")
+    print("constraints to specify King Wen uniquely?")
+    print()
+
+    import math
+
+    # Total information to specify a permutation of 64 objects
+    total_bits = math.log2(math.factorial(64))
+    print(f"Total information in a permutation of 64: {total_bits:.1f} bits")
+    print()
+
+    # Information removed by each constraint
+    print("--- Information removed by each constraint ---")
+    print()
+
+    # Rule 1: Pair structure
+    # Reduces from 64! to 32! * 2^32
+    pair_bits = math.log2(math.factorial(32)) + 32
+    removed_1 = total_bits - pair_bits
+    print(f"Rule 1 (pair structure):     removes {removed_1:.1f} bits")
+    print(f"  Remaining: {pair_bits:.1f} bits  (32! x 2^32)")
+
+    # Rule 2: No-5 (~4.27% survive)
+    no5_rate = 0.0427
+    removed_2 = -math.log2(no5_rate)
+    remaining_2 = pair_bits - removed_2
+    print(f"Rule 2 (no 5-line):          removes {removed_2:.1f} bits  (~{no5_rate*100:.1f}% survive)")
+    print(f"  Remaining: {remaining_2:.1f} bits")
+
+    # Rule 3: Complement distance (0.31% of no-5 survive)
+    comp_rate = 0.0031 / 0.0427  # conditional on no-5
+    removed_3 = -math.log2(comp_rate) if comp_rate > 0 else 0
+    remaining_3 = remaining_2 - removed_3
+    print(f"Rule 3 (complement dist):    removes {removed_3:.1f} bits  (~{comp_rate*100:.1f}% of L1 survive)")
+    print(f"  Remaining: {remaining_3:.1f} bits")
+
+    # Rule 5: Starting pair (1/32 pairs * 1/2 orientations)
+    removed_5 = math.log2(32) + 1
+    remaining_5 = remaining_3 - removed_5
+    print(f"Rule 5 (starting pair):      removes {removed_5:.1f} bits  (1/32 pairs x 2 orients)")
+    print(f"  Remaining: {remaining_5:.1f} bits")
+
+    # Rule 6: Difference distribution (estimated from narrowing: 0% at 100K)
+    # At Level 4, 5/100000 survive. At Level 5, 0/100000.
+    # Estimate: ~1 in 50000 of Level 4 survivors also satisfy Level 5
+    removed_6_est = math.log2(50000)  # rough estimate
+    remaining_6 = remaining_5 - removed_6_est
+    print(f"Rule 6 (diff distribution):  removes ~{removed_6_est:.1f} bits  (est. ~1 in 50,000)")
+    print(f"  Remaining: ~{remaining_6:.1f} bits")
+
+    print()
+    print(f"Total bits removed by known rules: ~{total_bits - remaining_6:.1f} of {total_bits:.1f}")
+    print(f"Remaining unknown information: ~{max(0, remaining_6):.1f} bits")
+    print()
+    if remaining_6 > 0:
+        print(f"This means ~2^{remaining_6:.0f} = ~{2**remaining_6:.0f} sequences likely satisfy")
+        print(f"all known rules. The missing local rule must encode ~{remaining_6:.0f} additional bits.")
+    else:
+        print("The known rules may be sufficient to uniquely determine King Wen.")
+        print("(Estimate is rough — actual count requires enumeration.)")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -853,6 +1438,24 @@ def main():
                         help="Sequential construction analysis with heuristics")
     parser.add_argument("--local", action="store_true",
                         help="Run all local ordering analyses (graph + boundaries + construct)")
+    parser.add_argument("--enumerate", action="store_true",
+                        help="Backtracking enumeration with all constraints")
+    parser.add_argument("--trigram-paths", action="store_true",
+                        help="Track upper/lower trigram paths through the sequence")
+    parser.add_argument("--line-decomp", action="store_true",
+                        help="Analyze each of the 6 line positions independently")
+    parser.add_argument("--pair-neighborhoods", action="store_true",
+                        help="Pair clustering and neighborhood structure")
+    parser.add_argument("--residuals", action="store_true",
+                        help="Compare constraint survivors against King Wen")
+    parser.add_argument("--info", action="store_true",
+                        help="Information content analysis")
+    parser.add_argument("--deep", action="store_true",
+                        help="Run all deep analyses (enumerate + trigram + lines + neighborhoods + residuals + info)")
+    parser.add_argument("--max-nodes", type=int, default=10_000_000,
+                        help="Max nodes for backtracking enumeration (default: 10M)")
+    parser.add_argument("--time-limit", type=int, default=60,
+                        help="Time limit in seconds for enumeration (default: 60)")
     parser.add_argument("--trials", type=int, default=100000,
                         help="Number of random samples (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
@@ -867,8 +1470,19 @@ def main():
         args.boundaries = True
         args.construct = True
 
-    if not any([args.pairs, args.rules, args.narrow, args.graph,
-                args.boundaries, args.construct]):
+    if args.deep:
+        args.enumerate = True
+        args.trigram_paths = True
+        args.line_decomp = True
+        args.pair_neighborhoods = True
+        args.residuals = True
+        args.info = True
+
+    all_flags = [args.pairs, args.rules, args.narrow, args.graph,
+                 args.boundaries, args.construct, args.enumerate,
+                 args.trigram_paths, args.line_decomp, args.pair_neighborhoods,
+                 args.residuals, args.info]
+    if not any(all_flags):
         args.rules = True
         args.narrow = True
 
@@ -896,6 +1510,30 @@ def main():
 
     if args.construct:
         print_sequential_construction()
+        print()
+
+    if args.enumerate:
+        print_enumerate(max_nodes=args.max_nodes, time_limit=args.time_limit)
+        print()
+
+    if args.trigram_paths:
+        print_trigram_paths()
+        print()
+
+    if args.line_decomp:
+        print_line_decomposition()
+        print()
+
+    if args.pair_neighborhoods:
+        print_pair_neighborhoods()
+        print()
+
+    if args.residuals:
+        print_constraint_residuals()
+        print()
+
+    if args.info:
+        print_info_content()
         print()
 
 if __name__ == "__main__":
