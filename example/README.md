@@ -1,21 +1,16 @@
-# Example Output
+# Received Order Analysis Engine
 
-Full program output with `--seed 42 --trials 10000`.
+Analysis of the King Wen sequence including observations by Terence McKenna.
 
-```
----
-Received Order Analysis Engine
-of the King Wen sequence including
-observations by Terence McKenna
----
----
-Hexagram reference table
+## Hexagram Table
+
 Each hexagram is a stack of 6 lines, either solid (1/yang) or broken (0/yin).
 The 'binary' column encodes these 6 lines as bits (bottom line = rightmost bit).
 Each hexagram is also composed of two 3-line trigrams: an upper and a lower.
 There are 8 possible trigrams (Heaven, Earth, Thunder, Water, Mountain, Wind,
 Fire, Lake), giving 8x8 = 64 possible hexagrams.
----
+
+```
 Pos | Hex | Binary | Upper          | Lower          | Name
 ----|-----|--------|----------------|----------------|----
 01  | ䷀   | 111111 | Qian Heaven    | Qian Heaven    | The Creative
@@ -82,8 +77,10 @@ Pos | Hex | Binary | Upper          | Lower          | Name
 62  | ䷽   | 001100 | Zhen Thunder   | Gen  Mountain  | Small Preponderance
 63  | ䷾   | 010101 | Kan  Water     | Li   Fire      | After Completion
 64  | ䷿   | 101010 | Li   Fire      | Kan  Water     | Before Completion
----
-Reverse vs. Inverse pair analysis
+```
+
+## Reverse/Inverse Pairs
+
 The 64 hexagrams are traditionally grouped into 32 pairs (1-2, 3-4, ..., 63-64).
 For each pair, we test two relationships:
   Reverse: flip the hexagram upside down (read the lines top-to-bottom instead of
@@ -93,7 +90,8 @@ For each pair, we test two relationships:
            If toggling all lines of one hexagram gives the other, they are inverse.
 Key finding: EVERY pair in the King Wen sequence is one or the other — none are
 unrelated. This perfect pairing structure is unlikely to occur by chance.
----
+
+```
 01 ䷀ Inverse 02 ䷁
 03 ䷂ Reverse 04 ䷃
 05 ䷄ Reverse 06 ䷅
@@ -130,14 +128,17 @@ unrelated. This perfect pairing structure is unlikely to occur by chance.
 Reverse count pairs: 28/32 (87.5%)
 Inverse count pairs: 04/32 (12.5%)
 Neither count pairs: 00/32 (0.0%)
----
-First order of difference (the 'wave')
+```
+
+## Difference Wave
+
 For each consecutive pair of hexagrams, count how many of the 6 lines change.
 This produces a sequence of values from 0 (identical) to 6 (every line flipped).
 The resulting 'wave' is central to analysis of the King Wen sequence.
 Key observation (McKenna, The Invisible Landscape, 1975): the value 5 never appears — no consecutive hexagrams
 differ by exactly 5 lines. The value 0 also never appears (no duplicates).
----
+
+```
 01 ䷀ to 02 ䷁ difference 6 ******
 02 ䷁ to 03 ䷂ difference 2 **
 03 ䷂ to 04 ䷃ difference 4 ****
@@ -211,20 +212,26 @@ differ by exactly 5 lines. The value 0 also never appears (no duplicates).
 6 line changes total 9
 
 Spark line: █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
+```
 
---- Wald-Wolfowitz runs test ---
+### Wald-Wolfowitz runs test
+
+```
 Tests whether the wave values are randomly ordered (vs. clustered or alternating).
 Values split at median (3): 28 above, 22 below (13 excluded ties)
 Observed runs: 33, expected: 25.6, Z = +2.13
 Significant at 95% level (p = 0.033): the wave shows alternation.
 Note: does not survive Bonferroni correction for 28 tests (threshold p < 0.0018).
----
-Difference wave bar chart
+```
+
+## Bar Chart
+
 A visual representation of the first-order difference wave. Each column shows
 how many lines changed in that transition. The horizontal axis is the position
 in the King Wen sequence (1-63), the vertical axis is the number of lines
 changed (1-6). This makes the wave pattern easier to see than a list of numbers.
----
+
+```
   6 |#         #     #         # #        #              #       # #|
   5 |#         #     #         # #        #              #       # #|
   4 |# ###  # ##  #  # #     # # #   ### ###  #  #   ### #   #   # #|
@@ -234,15 +241,18 @@ changed (1-6). This makes the wave pattern easier to see than a list of numbers.
     +---------------------------------------------------------------+
               1         2         3         4         5         6   
               0         0         0         0         0         0   
----
-Trigram analysis
+```
+
+## Trigram Analysis
+
 Each hexagram is built from two trigrams (3-line figures): an upper and a lower.
 There are 8 possible trigrams. This section counts how often each trigram appears
 in each position, checks how often the upper or lower trigram changes between
 consecutive hexagrams, and shows the full 8x8 transition matrix (which trigram
 follows which). A uniform distribution (8 of each) confirms that all 64 possible
 upper/lower combinations are used exactly once.
----
+
+```
 Trigram              Upper  Lower  Total
 Kun  Earth             8      8     16
 Zhen Thunder           8      8     16
@@ -252,12 +262,18 @@ Gen  Mountain          8      8     16
 Li   Fire              8      8     16
 Xun  Wind              8      8     16
 Qian Heaven            8      8     16
+```
 
---- Consecutive trigram transitions ---
+### Consecutive trigram transitions
+
+```
 Upper trigram changes: 59/63 transitions (93.7%)
 Lower trigram changes: 58/63 transitions (92.1%)
+```
 
---- Upper trigram transition matrix ---
+### Upper trigram transition matrix
+
+```
 Rows = from, Columns = to
           Kun   Zhen  Kan   Dui   Gen   Li    Xun   Qian 
 Kun       0     1     2     1     0     0     2     2     
@@ -268,8 +284,11 @@ Gen       2     0     1     1     2     0     2     0
 Li        2     1     1     1     1     0     1     0     
 Xun       0     2     1     2     0     2     0     1     
 Qian      3     1     0     1     1     1     0     1     
+```
 
---- Lower trigram transition matrix ---
+### Lower trigram transition matrix
+
+```
 Rows = from, Columns = to
           Kun   Zhen  Kan   Dui   Gen   Li    Xun   Qian 
 Kun       0     4     0     0     0     2     1     1     
@@ -280,8 +299,10 @@ Gen       1     0     1     1     1     1     2     1
 Li        1     0     1     1     2     1     1     1     
 Xun       1     1     2     2     1     1     0     0     
 Qian      3     1     1     1     1     0     1     0     
----
-Nuclear hexagram analysis
+```
+
+## Nuclear Hexagrams
+
 Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by
 extracting the 4 middle lines (lines 2-3-4-5). Lines 2-3-4 form the lower
 nuclear trigram, and lines 3-4-5 form the upper nuclear trigram (sharing lines
@@ -289,7 +310,8 @@ nuclear trigram, and lines 3-4-5 form the upper nuclear trigram (sharing lines
 which points to its own nuclear hexagram, and so on until the chain loops.
 These chains reveal deep structural relationships between hexagrams that are
 not obvious from the surface arrangement.
----
+
+```
 01 ䷀ nuclear: 01 ䷀  chain: 01 ䷀ -> 01 ䷀
 02 ䷁ nuclear: 02 ䷁  chain: 02 ䷁ -> 02 ䷁
 03 ䷂ nuclear: 23 ䷖  chain: 03 ䷂ -> 23 ䷖ -> 02 ䷁ -> 02 ䷁
@@ -354,8 +376,11 @@ not obvious from the surface arrangement.
 62 ䷽ nuclear: 28 ䷛  chain: 62 ䷽ -> 28 ䷛ -> 01 ䷀ -> 01 ䷀
 63 ䷾ nuclear: 64 ䷿  chain: 63 ䷾ -> 64 ䷿ -> 63 ䷾
 64 ䷿ nuclear: 63 ䷾  chain: 64 ䷿ -> 63 ䷾ -> 64 ䷿
+```
 
---- Nuclear hexagram frequency ---
+### Nuclear hexagram frequency
+
+```
 How often each hexagram appears as another's nuclear hexagram
 01 ䷀ The Creative                   appears 4 times
 02 ䷁ The Receptive                  appears 4 times
@@ -373,30 +398,39 @@ How often each hexagram appears as another's nuclear hexagram
 54 ䷵ The Marrying Maiden            appears 4 times
 63 ䷾ After Completion               appears 4 times
 64 ䷿ Before Completion              appears 4 times
+```
 
---- Null model note ---
+### Null model note
+
+```
 Nuclear hexagram derivation is a fixed function of binary value (lines 2-5),
 independent of the King Wen ordering. The chain structure, cycle lengths,
 and frequency distribution above are identical for ANY ordering of the 64
 hexagrams. These properties reflect the 6-bit binary system, not the
 King Wen sequence specifically.
----
-Line change positional analysis
+```
+
+## Line Change Analysis
+
 Each hexagram has 6 lines (positions 1-6, bottom to top). When consecutive
 hexagrams differ, which specific lines are changing? If the King Wen sequence
 were random, each line position would change about 50% of the time. Significant
 deviation from 50% would suggest the ordering favors changing certain positions.
 The co-change matrix shows which pairs of lines tend to flip together in the
 same transition — revealing correlated line movements.
----
+
+```
 Line 1: 37/63 ( 58.7%)  #####################################
 Line 2: 32/63 ( 50.8%)  ################################
 Line 3: 35/63 ( 55.6%)  ###################################
 Line 4: 34/63 ( 54.0%)  ##################################
 Line 5: 35/63 ( 55.6%)  ###################################
 Line 6: 38/63 ( 60.3%)  ######################################
+```
 
---- Line co-change frequency ---
+### Line co-change frequency
+
+```
 How often pairs of lines change together in the same transition
       L1   L2   L3   L4   L5   L6   
 L1    .    18   20   19   19   30   
@@ -405,8 +439,10 @@ L3    .    .    .    25   16   21
 L4    .    .    .    .    20   20   
 L5    .    .    .    .    .    20   
 L6    .    .    .    .    .    .    
----
-Complement distance analysis
+```
+
+## Complement Distance
+
 Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines
 (solid becomes broken, broken becomes solid). For example, The Creative (all
 solid) and The Receptive (all broken) are complements. This section finds where
@@ -414,7 +450,8 @@ each hexagram's complement sits in the King Wen sequence and how far apart they
 are. If complements tend to be near each other, it suggests the sequence was
 deliberately organized around opposition; if far apart, they may serve as
 bookends for larger structural sections.
----
+
+```
 01 ䷀ <-> 02 ䷁  distance:  1  The Creative <-> The Receptive
 02 ䷁ <-> 01 ䷀  distance:  1  The Receptive <-> The Creative
 03 ䷂ <-> 50 ䷱  distance: 47  Difficulty at the Beginning <-> The Cauldron
@@ -479,20 +516,26 @@ bookends for larger structural sections.
 62 ䷽ <-> 61 ䷼  distance:  1  Small Preponderance <-> Inner Truth
 63 ䷾ <-> 64 ䷿  distance:  1  After Completion <-> Before Completion
 64 ䷿ <-> 63 ䷾  distance:  1  Before Completion <-> After Completion
+```
 
---- Complement distance statistics ---
+### Complement distance statistics
+
+```
 Mean distance:   12.1
 Median distance: 6
 Min distance:    1 (adjacent = pair is an inverse pair)
 Max distance:    47
----
-Palindrome analysis of the difference wave
+```
+
+## Palindromes
+
 A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding
 palindromic runs in the difference wave suggests the King Wen sequence contains
 deliberate mirror symmetry — sections where the pattern of change rises and falls
 in a balanced way. Longer palindromes are less likely to occur by chance and more
 likely to reflect intentional design.
----
+
+```
 Found 27 palindromic subsequences (showing longest 20)
 
 Length  7 at positions 11-17: [6,2,2,4,2,2,6] █▂▂▅▂▂█
@@ -515,27 +558,36 @@ Length  3 at positions 27-29: [6,2,6] █▂█
 Length  3 at positions 30-32: [3,2,3] ▃▂▃
 Length  3 at positions 33-35: [4,4,4] ▅▅▅
 Length  3 at positions 35-37: [4,2,4] ▅▂▅
+```
 
---- Palindrome count by length ---
+### Palindrome count by length
+
+```
 Length  7: 3 found
 Length  5: 6 found
 Length  3: 18 found
+```
 
---- Palindrome null model ---
+### Palindrome null model
+
+```
 How many palindromes of length >= 3 do random permutations produce?
 King Wen palindromes: 27, longest: 7
-Random mean palindromes: 22.1, mean longest: 6.9
-King Wen palindrome count percentile: 78.1%
-King Wen longest palindrome percentile: 40.6%
----
-Upper Canon (1-30) vs. Lower Canon (31-64) comparison
+Random mean palindromes: 22.4, mean longest: 6.9
+King Wen palindrome count percentile: 76.1%
+King Wen longest palindrome percentile: 43.0%
+```
+
+## Canon Comparison
+
 The I Ching is traditionally divided into two books: the Upper Canon (hexagrams
 1-30) and Lower Canon (hexagrams 31-64). This division is ancient and may reflect
 different authorship, time periods, or thematic groupings. This section compares
 the mathematical properties of each half: do they have similar difference wave
 patterns? Similar yin/yang balance? Does the 'no 5-line transition' property hold
 in each half independently, or only in the whole?
----
+
+```
 Metric                         Upper (1-30)  Lower (31-64)
 ------------------------------ ------------ --------------
 Hexagrams                                30             34
@@ -558,91 +610,10 @@ Lower Canon wave: ▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅�
 
 5-line transitions in Upper Canon: 0
 5-line transitions in Lower Canon: 0
----
-Hamming distance matrix (64x64)
-The Hamming distance between two hexagrams is the number of lines that differ
-between them (0 = identical, 6 = every line is opposite). This matrix shows the
-distance between every possible pair of the 64 hexagrams. It is a property of
-the hexagrams themselves, not their ordering — but it provides context for how
-'close' or 'far' the King Wen sequence's consecutive pairs actually are.
----
-    01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 
-01   0  6  4  4  2  2  5  5  1  1  3  3  1  1  5  5  3  3  4  4  3  3  5  5  2  2  4  2  4  2  3  3  2  2  4  4  2  2  4  4  3  3  1  1  4  4  3  3  2  2  4  4  3  3  3  3  2  2  3  3  2  4  3  3 
-02   6  0  2  2  4  4  1  1  5  5  3  3  5  5  1  1  3  3  2  2  3  3  1  1  4  4  2  4  2  4  3  3  4  4  2  2  4  4  2  2  3  3  5  5  2  2  3  3  4  4  2  2  3  3  3  3  4  4  3  3  4  2  3  3 
-03   4  2  0  4  2  4  3  1  3  3  3  3  3  5  3  3  1  5  2  2  3  3  3  1  2  4  2  4  2  4  3  5  4  4  4  2  2  4  2  4  3  1  3  5  2  4  3  3  2  6  2  4  3  3  3  5  4  2  3  1  2  4  1  5 
-04   4  2  4  0  4  2  1  3  3  3  3  3  5  3  3  3  5  1  2  2  3  3  1  3  4  2  2  4  2  4  5  3  4  4  2  4  4  2  4  2  1  3  5  3  4  2  3  3  6  2  4  2  3  3  5  3  2  4  1  3  2  4  5  1 
-05   2  4  2  4  0  4  3  3  1  3  1  5  3  3  3  5  3  3  2  4  5  3  5  3  4  2  4  2  2  4  3  3  4  2  6  2  2  4  2  4  3  3  1  3  4  2  3  1  2  4  4  4  3  3  3  5  2  2  3  1  2  4  1  5 
-06   2  4  4  2  4  0  3  3  3  1  5  1  3  3  5  3  3  3  4  2  3  5  3  5  2  4  4  2  2  4  3  3  2  4  2  6  4  2  4  2  3  3  3  1  2  4  1  3  4  2  4  4  3  3  5  3  2  2  1  3  2  4  5  1 
-07   5  1  3  1  3  3  0  2  4  4  2  4  6  4  2  2  4  2  1  3  4  4  2  2  5  3  3  3  1  5  4  2  5  3  3  3  5  3  3  1  2  4  4  4  3  1  2  2  5  3  3  3  4  2  4  4  3  3  2  2  3  3  4  2 
-08   5  1  1  3  3  3  2  0  4  4  4  2  4  6  2  2  2  4  3  1  4  4  2  2  3  5  3  3  1  5  2  4  3  5  3  3  3  5  1  3  4  2  4  4  1  3  2  2  3  5  3  3  2  4  4  4  3  3  2  2  3  3  2  4 
-09   1  5  3  3  1  3  4  4  0  2  2  4  2  2  4  6  4  2  3  3  4  2  4  4  3  1  3  3  3  3  4  4  3  3  5  3  1  3  3  5  2  2  2  2  5  3  4  2  3  3  5  3  2  4  4  4  1  3  2  2  1  5  2  4 
-10   1  5  3  3  3  1  4  4  2  0  4  2  2  2  6  4  2  4  3  3  2  4  4  4  1  3  3  3  3  3  4  4  3  3  3  5  3  1  5  3  2  2  2  2  3  5  2  4  3  3  3  5  4  2  4  4  3  1  2  2  1  5  4  2 
-11   3  3  3  3  1  5  2  4  2  4  0  6  4  2  2  4  4  2  1  5  4  2  4  2  5  1  3  3  3  3  4  2  5  1  5  1  3  3  3  3  2  4  2  4  5  1  4  2  3  3  3  3  4  2  2  4  3  3  4  2  3  3  2  4 
-12   3  3  3  3  5  1  4  2  4  2  6  0  2  4  4  2  2  4  5  1  2  4  2  4  1  5  3  3  3  3  2  4  1  5  1  5  3  3  3  3  4  2  4  2  1  5  2  4  3  3  3  3  2  4  4  2  3  3  2  4  3  3  4  2 
-13   1  5  3  5  3  3  6  4  2  2  4  2  0  2  4  4  2  4  5  3  2  2  4  4  1  3  3  3  5  1  2  4  1  3  3  3  1  3  3  5  4  2  2  2  3  5  4  4  1  3  3  3  2  4  2  2  3  3  4  4  3  3  2  4 
-14   1  5  5  3  3  3  4  6  2  2  2  4  2  0  4  4  4  2  3  5  2  2  4  4  3  1  3  3  5  1  4  2  3  1  3  3  3  1  5  3  2  4  2  2  5  3  4  4  3  1  3  3  4  2  2  2  3  3  4  4  3  3  4  2 
-15   5  1  3  3  3  5  2  2  4  6  2  4  4  4  0  2  4  2  3  3  4  2  2  2  5  3  3  3  3  3  2  2  3  3  3  1  3  5  1  3  4  4  4  4  3  1  4  2  3  3  3  1  2  4  2  2  3  5  4  4  5  1  2  4 
-16   5  1  3  3  5  3  2  2  6  4  4  2  4  4  2  0  2  4  3  3  2  4  2  2  3  5  3  3  3  3  2  2  3  3  1  3  5  3  3  1  4  4  4  4  1  3  2  4  3  3  1  3  4  2  2  2  5  3  4  4  5  1  4  2 
-17   3  3  1  5  3  3  4  2  4  2  4  2  2  4  4  2  0  6  3  3  2  4  4  2  1  5  3  3  3  3  2  4  3  3  3  3  3  3  3  3  4  2  2  4  1  5  2  4  1  5  1  5  4  2  2  4  5  1  4  2  3  3  2  4 
-18   3  3  5  1  3  3  2  4  2  4  2  4  4  2  2  4  6  0  3  3  4  2  2  4  5  1  3  3  3  3  4  2  3  3  3  3  3  3  3  3  2  4  4  2  5  1  4  2  5  1  5  1  2  4  4  2  1  5  2  4  3  3  4  2 
-19   4  2  2  2  2  4  1  3  3  3  1  5  5  3  3  3  3  3  0  4  3  3  3  1  4  2  2  4  2  4  5  3  6  2  4  2  4  2  4  2  1  3  3  5  4  2  3  3  4  4  2  4  5  1  3  5  4  2  3  1  2  4  3  3 
-20   4  2  2  2  4  2  3  1  3  3  5  1  3  5  3  3  3  3  4  0  3  3  1  3  2  4  2  4  2  4  3  5  2  6  2  4  2  4  2  4  3  1  5  3  2  4  3  3  4  4  4  2  1  5  5  3  2  4  1  3  2  4  3  3 
-21   3  3  3  3  5  3  4  4  4  2  4  2  2  2  4  2  2  4  3  3  0  2  2  2  1  3  1  5  5  1  4  4  3  3  1  3  3  1  5  3  2  2  4  4  3  5  4  6  3  3  1  3  4  2  2  2  5  3  4  4  3  3  4  2 
-22   3  3  3  3  3  5  4  4  2  4  2  4  2  2  2  4  4  2  3  3  2  0  2  2  3  1  1  5  5  1  4  4  3  3  3  1  1  3  3  5  2  2  4  4  5  3  6  4  3  3  3  1  2  4  2  2  3  5  4  4  3  3  2  4 
-23   5  1  3  1  5  3  2  2  4  4  4  2  4  4  2  2  4  2  3  1  2  2  0  2  3  3  1  5  3  3  4  4  3  5  1  3  3  3  3  3  2  2  6  4  3  3  4  4  5  3  3  1  2  4  4  2  3  5  2  4  3  3  4  2 
-24   5  1  1  3  3  5  2  2  4  4  2  4  4  4  2  2  2  4  1  3  2  2  2  0  3  3  1  5  3  3  4  4  5  3  3  1  3  3  3  3  2  2  4  6  3  3  4  4  3  5  1  3  4  2  2  4  5  3  4  2  3  3  2  4 
-25   2  4  2  4  4  2  5  3  3  1  5  1  1  3  5  3  1  5  4  2  1  3  3  3  0  4  2  4  4  2  3  5  2  4  2  4  2  2  4  4  3  1  3  3  2  6  3  5  2  4  2  4  3  3  3  3  4  2  3  3  2  4  3  3 
-26   2  4  4  2  2  4  3  5  1  3  1  5  3  1  3  5  5  1  2  4  3  1  3  3  4  0  2  4  4  2  5  3  4  2  4  2  2  2  4  4  1  3  3  3  6  2  5  3  4  2  4  2  3  3  3  3  2  4  3  3  2  4  3  3 
-27   4  2  2  2  4  4  3  3  3  3  3  3  3  3  3  3  3  3  2  2  1  1  1  1  2  2  0  6  4  2  5  5  4  4  2  2  2  2  4  4  1  1  5  5  4  4  5  5  4  4  2  2  3  3  3  3  4  4  3  3  2  4  3  3 
-28   2  4  4  4  2  2  3  3  3  3  3  3  3  3  3  3  3  3  4  4  5  5  5  5  4  4  6  0  2  4  1  1  2  2  4  4  4  4  2  2  5  5  1  1  2  2  1  1  2  2  4  4  3  3  3  3  2  2  3  3  4  2  3  3 
-29   4  2  2  2  2  2  1  1  3  3  3  3  5  5  3  3  3  3  2  2  5  5  3  3  4  4  4  2  0  6  3  3  4  4  4  4  4  4  2  2  3  3  3  3  2  2  1  1  4  4  4  4  3  3  5  5  2  2  1  1  2  4  3  3 
-30   2  4  4  4  4  4  5  5  3  3  3  3  1  1  3  3  3  3  4  4  1  1  3  3  2  2  2  4  6  0  3  3  2  2  2  2  2  2  4  4  3  3  3  3  4  4  5  5  2  2  2  2  3  3  1  1  4  4  5  5  4  2  3  3 
-31   3  3  3  5  3  3  4  2  4  4  4  2  2  4  2  2  2  4  5  3  4  4  4  4  3  5  5  1  3  3  0  2  1  3  3  3  3  5  1  3  6  4  2  2  1  3  2  2  1  3  3  3  2  4  2  2  3  3  4  4  5  1  2  4 
-32   3  3  5  3  3  3  2  4  4  4  2  4  4  2  2  2  4  2  3  5  4  4  4  4  5  3  5  1  3  3  2  0  3  1  3  3  5  3  3  1  4  6  2  2  3  1  2  2  3  1  3  3  4  2  2  2  3  3  4  4  5  1  4  2 
-33   2  4  4  4  4  2  5  3  3  3  5  1  1  3  3  3  3  3  6  2  3  3  3  5  2  4  4  2  4  2  1  3  0  4  2  4  2  4  2  4  5  3  3  1  2  4  3  3  2  2  4  2  1  5  3  1  2  4  3  5  4  2  3  3 
-34   2  4  4  4  2  4  3  5  3  3  1  5  3  1  3  3  3  3  2  6  3  3  5  3  4  2  4  2  4  2  3  1  4  0  4  2  4  2  4  2  3  5  1  3  4  2  3  3  2  2  2  4  5  1  1  3  4  2  5  3  4  2  3  3 
-35   4  2  4  2  6  2  3  3  5  3  5  1  3  3  3  1  3  3  4  2  1  3  1  3  2  4  2  4  4  2  3  3  2  4  0  4  4  2  4  2  3  3  5  3  2  4  3  5  4  2  2  2  3  3  3  1  4  4  3  5  4  2  5  1 
-36   4  2  2  4  2  6  3  3  3  5  1  5  3  3  1  3  3  3  2  4  3  1  3  1  4  2  2  4  4  2  3  3  4  2  4  0  2  4  2  4  3  3  3  5  4  2  5  3  2  4  2  2  3  3  1  3  4  4  5  3  4  2  1  5 
-37   2  4  2  4  2  4  5  3  1  3  3  3  1  3  3  5  3  3  4  2  3  1  3  3  2  2  2  4  4  2  3  5  2  4  4  2  0  4  2  6  3  1  3  3  4  4  5  3  2  4  4  2  1  5  3  3  2  4  3  3  2  4  1  5 
-38   2  4  4  2  4  2  3  5  3  1  3  3  3  1  5  3  3  3  2  4  1  3  3  3  2  2  2  4  4  2  5  3  4  2  2  4  4  0  6  2  1  3  3  3  4  4  3  5  4  2  2  4  5  1  3  3  4  2  3  3  2  4  5  1 
-39   4  2  2  4  2  4  3  1  3  5  3  3  3  5  1  3  3  3  4  2  5  3  3  3  4  4  4  2  2  4  1  3  2  4  4  2  2  6  0  4  5  3  3  3  2  2  3  1  2  4  4  2  1  5  3  3  2  4  3  3  4  2  1  5 
-40   4  2  4  2  4  2  1  3  5  3  3  3  5  3  3  1  3  3  2  4  3  5  3  3  4  4  4  2  2  4  3  1  4  2  2  4  6  2  4  0  3  5  3  3  2  2  1  3  4  2  2  4  5  1  3  3  4  2  3  3  4  2  5  1 
-41   3  3  3  1  3  3  2  4  2  2  2  4  4  2  4  4  4  2  1  3  2  2  2  2  3  1  1  5  3  3  6  4  5  3  3  3  3  1  5  3  0  2  4  4  5  3  4  4  5  3  3  3  4  2  4  4  3  3  2  2  1  5  4  2 
-42   3  3  1  3  3  3  4  2  2  2  4  2  2  4  4  4  2  4  3  1  2  2  2  2  1  3  1  5  3  3  4  6  3  5  3  3  1  3  3  5  2  0  4  4  3  5  4  4  3  5  3  3  2  4  4  4  3  3  2  2  1  5  2  4 
-43   1  5  3  5  1  3  4  4  2  2  2  4  2  2  4  4  2  4  3  5  4  4  6  4  3  3  5  1  3  3  2  2  3  1  5  3  3  3  3  3  4  4  0  2  3  3  2  2  1  3  3  5  4  2  2  4  3  1  4  2  3  3  2  4 
-44   1  5  5  3  3  1  4  4  2  2  4  2  2  2  4  4  4  2  5  3  4  4  4  6  3  3  5  1  3  3  2  2  1  3  3  5  3  3  3  3  4  4  2  0  3  3  2  2  3  1  5  3  2  4  4  2  1  3  2  4  3  3  4  2 
-45   4  2  2  4  4  2  3  1  5  3  5  1  3  5  3  1  1  5  4  2  3  5  3  3  2  6  4  2  2  4  1  3  2  4  2  4  4  4  2  2  5  3  3  3  0  4  1  3  2  4  2  4  3  3  3  3  4  2  3  3  4  2  3  3 
-46   4  2  4  2  2  4  1  3  3  5  1  5  5  3  1  3  5  1  2  4  5  3  3  3  6  2  4  2  2  4  3  1  4  2  4  2  4  4  2  2  3  5  3  3  4  0  3  1  4  2  4  2  3  3  3  3  2  4  3  3  4  2  3  3 
-47   3  3  3  3  3  1  2  2  4  2  4  2  4  4  4  2  2  4  3  3  4  6  4  4  3  5  5  1  1  5  2  2  3  3  3  5  5  3  3  1  4  4  2  2  1  3  0  2  3  3  3  5  4  2  4  4  3  1  2  2  3  3  4  2 
-48   3  3  3  3  1  3  2  2  2  4  2  4  4  4  2  4  4  2  3  3  6  4  4  4  5  3  5  1  1  5  2  2  3  3  5  3  3  5  1  3  4  4  2  2  3  1  2  0  3  3  5  3  2  4  4  4  1  3  2  2  3  3  2  4 
-49   2  4  2  6  2  4  5  3  3  3  3  3  1  3  3  3  1  5  4  4  3  3  5  3  2  4  4  2  4  2  1  3  2  2  4  2  2  4  2  4  5  3  1  3  2  4  3  3  0  4  2  4  3  3  1  3  4  2  5  3  4  2  1  5 
-50   2  4  6  2  4  2  3  5  3  3  3  3  3  1  3  3  5  1  4  4  3  3  3  5  4  2  4  2  4  2  3  1  2  2  2  4  4  2  4  2  3  5  3  1  4  2  3  3  4  0  4  2  3  3  3  1  2  4  3  5  4  2  5  1 
-51   4  2  2  4  4  4  3  3  5  3  3  3  3  3  3  1  1  5  2  4  1  3  3  1  2  4  2  4  4  2  3  3  4  2  2  2  4  2  4  2  3  3  3  5  2  4  3  5  2  4  0  4  5  1  1  3  6  2  5  3  4  2  3  3 
-52   4  2  4  2  4  4  3  3  3  5  3  3  3  3  1  3  5  1  4  2  3  1  1  3  4  2  2  4  4  2  3  3  2  4  2  2  2  4  2  4  3  3  5  3  4  2  5  3  4  2  4  0  1  5  3  1  2  6  3  5  4  2  3  3 
-53   3  3  3  3  3  3  4  2  2  4  4  2  2  4  2  4  4  2  5  1  4  2  2  4  3  3  3  3  3  3  2  4  1  5  3  3  1  5  1  5  4  2  4  2  3  3  4  2  3  3  5  1  0  6  4  2  1  5  2  4  3  3  2  4 
-54   3  3  3  3  3  3  2  4  4  2  2  4  4  2  4  2  2  4  1  5  2  4  4  2  3  3  3  3  3  3  4  2  5  1  3  3  5  1  5  1  2  4  2  4  3  3  2  4  3  3  1  5  6  0  2  4  5  1  4  2  3  3  4  2 
-55   3  3  3  5  3  5  4  4  4  4  2  4  2  2  2  2  2  4  3  5  2  2  4  2  3  3  3  3  5  1  2  2  3  1  3  1  3  3  3  3  4  4  2  4  3  3  4  4  1  3  1  3  4  2  0  2  5  3  6  4  5  1  2  4 
-56   3  3  5  3  5  3  4  4  4  4  4  2  2  2  2  2  4  2  5  3  2  2  2  4  3  3  3  3  5  1  2  2  1  3  1  3  3  3  3  3  4  4  4  2  3  3  4  4  3  1  3  1  2  4  2  0  3  5  4  6  5  1  4  2 
-57   2  4  4  2  2  2  3  3  1  3  3  3  3  3  3  5  5  1  4  2  5  3  3  5  4  2  4  2  2  4  3  3  2  4  4  4  2  4  2  4  3  3  3  1  4  2  3  1  4  2  6  2  1  5  5  3  0  4  1  3  2  4  3  3 
-58   2  4  2  4  2  2  3  3  3  1  3  3  3  3  5  3  1  5  2  4  3  5  5  3  2  4  4  2  2  4  3  3  4  2  4  4  4  2  4  2  3  3  1  3  2  4  1  3  2  4  2  6  5  1  3  5  4  0  3  1  2  4  3  3 
-59   3  3  3  1  3  1  2  2  2  2  4  2  4  4  4  4  4  2  3  1  4  4  2  4  3  3  3  3  1  5  4  4  3  5  3  5  3  3  3  3  2  2  4  2  3  3  2  2  5  3  5  3  2  4  6  4  1  3  0  2  1  5  4  2 
-60   3  3  1  3  1  3  2  2  2  2  2  4  4  4  4  4  2  4  1  3  4  4  4  2  3  3  3  3  1  5  4  4  5  3  5  3  3  3  3  3  2  2  2  4  3  3  2  2  3  5  3  5  4  2  4  6  3  1  2  0  1  5  2  4 
-61   2  4  2  2  2  2  3  3  1  1  3  3  3  3  5  5  3  3  2  2  3  3  3  3  2  2  2  4  2  4  5  5  4  4  4  4  2  2  4  4  1  1  3  3  4  4  3  3  4  4  4  4  3  3  5  5  2  2  1  1  0  6  3  3 
-62   4  2  4  4  4  4  3  3  5  5  3  3  3  3  1  1  3  3  4  4  3  3  3  3  4  4  4  2  4  2  1  1  2  2  2  2  4  4  2  2  5  5  3  3  2  2  3  3  2  2  2  2  3  3  1  1  4  4  5  5  6  0  3  3 
-63   3  3  1  5  1  5  4  2  2  4  2  4  2  4  2  4  2  4  3  3  4  2  4  2  3  3  3  3  3  3  2  4  3  3  5  1  1  5  1  5  4  2  2  4  3  3  4  2  1  5  3  3  2  4  2  4  3  3  4  2  3  3  0  6 
-64   3  3  5  1  5  1  2  4  4  2  4  2  4  2  4  2  4  2  3  3  2  4  2  4  3  3  3  3  3  3  4  2  3  3  1  5  5  1  5  1  2  4  4  2  3  3  2  4  5  1  3  3  4  2  4  2  3  3  2  4  3  3  6  0 
+```
 
---- Hamming distance statistics (all 2016 unique pairs) ---
-Distance 0:    0 pairs (  0.0%)
-Distance 1:  192 pairs (  9.5%)
-Distance 2:  480 pairs ( 23.8%)
-Distance 3:  640 pairs ( 31.7%)
-Distance 4:  480 pairs ( 23.8%)
-Distance 5:  192 pairs (  9.5%)
-Distance 6:   32 pairs (  1.6%)
-Mean distance: 3.05
----
-Autocorrelation of the difference wave
+## Autocorrelation
+
 Autocorrelation measures whether the wave is correlated with a shifted copy of
 itself. A peak at lag N means the pattern tends to repeat every N steps. A value
 near +1 means strong repetition, near -1 means strong alternation, and near 0
@@ -650,7 +621,8 @@ means no relationship. If the King Wen ordering contains hidden periodic
 structure, it will show up as peaks in this analysis.
 Caveat: with only N=63 data points, the 95% noise threshold is +/-0.25.
 Values within that band are indistinguishable from random noise.
----
+
+```
 Mean difference: 3.349
 Variance: 1.910
 95% noise threshold: +/-0.247 (values inside this are not significant)
@@ -693,8 +665,10 @@ Lag    Autocorrelation  Sig?  Visualization
 Significant lags (outside noise band): 0/31
 No significant autocorrelation detected — consistent with no hidden periodicity,
 but note that N=63 provides limited statistical power to detect weak periodicity.
----
-Spectral analysis (Discrete Fourier Transform)
+```
+
+## Spectral Analysis
+
 The DFT decomposes the difference wave into frequency components, like splitting
 white light into a rainbow. Each frequency represents a periodic pattern in the
 wave. A strong peak at frequency F means the wave has a repeating cycle every
@@ -702,7 +676,8 @@ wave. A strong peak at frequency F means the wave has a repeating cycle every
 spectrum will show clear peaks rather than flat noise.
 Caveat: with only 63 samples, each of the 31 frequency bins has wide
 uncertainty. A flat spectrum may indicate no periodicity, or insufficient data.
----
+
+```
 Number of samples: 63
 Mean (DC component): 3.349
 White noise floor: 0.1741 (magnitudes near this are not significant)
@@ -742,15 +717,18 @@ Freq   Period  Magnitude  Sig?  Spectrum
   31      2.0     0.2033        ###################
 
 Frequencies above 2x noise floor: 1/31
----
-Markov chain analysis
+```
+
+## Markov Chain
+
 If we treat each difference value as a 'state', we can ask: does the current
 difference predict the next one? In a random sequence, knowing that the last
 transition changed 2 lines tells you nothing about the next transition. But if
 certain patterns like '6 is always followed by 2' emerge, it reveals hidden
 rules in the King Wen ordering. The matrix shows the probability of each
 transition between difference values.
----
+
+```
 Transition probability matrix (row = from, column = to)
         -> 1    -> 2    -> 3    -> 4    -> 6  
   1     0.00    0.00    0.00    0.00    1.00    (n=2)
@@ -758,27 +736,36 @@ Transition probability matrix (row = from, column = to)
   3     0.00    0.46    0.00    0.46    0.08    (n=13)
   4     0.05    0.26    0.26    0.32    0.11    (n=19)
   6     0.00    0.50    0.38    0.12    0.00    (n=8)
+```
 
---- Notable transition patterns ---
+### Notable transition patterns
+
+```
 (Caveat: rows with small n are unreliable — patterns based on <5 observations
 are anecdotes, not statistically meaningful.)
   3 -> 2: 46% (6/13 times)
   3 -> 4: 46% (6/13 times)
   6 -> 2: 50% (4/8 times)
+```
 
---- Permutation test ---
+### Permutation test
+
+```
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2127/5000 (42.5%)
----
-Gray code comparison
+Random orderings equally or more concentrated: 2122/5000 (42.4%)
+```
+
+## Gray Code Comparison
+
 A Gray code is an ordering of binary values where each consecutive pair differs
 by exactly 1 bit. For 6-bit hexagrams, a Gray code path would change exactly 1
 line at every step — the smoothest possible sequence. The King Wen sequence does
 NOT follow a Gray code (most transitions change 2-6 lines). This comparison
 shows how much 'rougher' King Wen is than the theoretical minimum, suggesting
 the ordering prioritizes something other than smooth transitions.
----
+
+```
 Metric                               Gray Code   King Wen
 ----------------------------------- ---------- ----------
 Total path length                           63        211
@@ -796,22 +783,31 @@ Difference distribution:             Gray Code   King Wen
 
 Gray code wave: ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
 King Wen wave:  █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
----
-Symmetry group analysis (XOR algebra)
+```
+
+## Symmetry Groups
+
 The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams
 by toggling their differing lines always produces another valid hexagram. This is
 like mixing colors — every combination is itself a color. Under this algebra,
 certain sets of hexagrams form 'subgroups' (closed sets where combining any two
 members stays in the set). This section checks whether the King Wen pairs, inverse
 pairs, and the canonical divisions correspond to meaningful algebraic subgroups.
----
-XOR identity element: 0b000000 (hexagram 2, The Receptive)
 
---- Fixed points under complement (XOR 0b111111) ---
+```
+XOR identity element: 0b000000 (hexagram 2, The Receptive)
+```
+
+### Fixed points under complement (XOR 0b111111)
+
+```
 Hexagrams that are their own complement do not exist (since XOR with
 0b111111 always flips all bits, no 6-bit value equals its own complement).
+```
 
---- King Wen pair XOR products ---
+### King Wen pair XOR products
+
+```
 For each pair, XOR the two hexagrams to see what 'difference element' they produce.
 If many pairs produce the same XOR product, the pairing has algebraic regularity.
 
@@ -826,18 +822,24 @@ XOR Product      Hexagram  Pair count  Pairs
 
 Unique XOR products: 7 (out of 32 pairs)
 If this number is small, the pairs share algebraic structure.
+```
 
---- Inverse pair XOR closure test ---
+### Inverse pair XOR closure test
+
+```
 Inverse pair hexagrams (16 total): 01, 02, 11, 12, 17, 18, 27, 28, 29, 30, 53, 54, 61, 62, 63, 64
 Closed under XOR: Yes — forms a subgroup
----
-Alternative sequence comparison
+```
+
+## Alternative Sequences
+
 The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi
 (binary) sequence orders them by numerical value (0-63), which is mathematically
 natural but has no traditional significance. The Mawangdui sequence was found on
 silk manuscripts in a 168 BCE tomb and may represent an independent tradition.
 Comparing the same analyses across orderings reveals what is unique to King Wen.
----
+
+```
 Metric                            King Wen   Fu Xi (binary)        Mawangdui
 ------------------------- ---------------- ---------------- ----------------
 Total path length                      211              120              104
@@ -853,53 +855,23 @@ Waves:
   King Wen             █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
   Fu Xi (binary)       ▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁█▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁
   Mawangdui            ▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂
+```
 
---- What makes King Wen unique ---
+### What makes King Wen unique
+
+```
 Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=0
 Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
----
-Constraint satisfaction analysis
-The King Wen sequence satisfies several constraints simultaneously:
-  1. All 32 consecutive pairs are either reverse or inverse (never unrelated)
-  2. No consecutive hexagrams differ by exactly 5 lines
-  3. No consecutive hexagrams are identical (0-line transitions)
-How rare is it for a random ordering to satisfy all these at once? We test
-random permutations against each constraint individually and combined.
----
-Results from 10,000 random permutations:
-  All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          17 (0.17%)
-  Both constraints together:       0 (0.0000%)
-  No random permutation satisfied both constraints.
-  Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
-  (i.e., the true rate is less than ~1 in 3,333, but we cannot
-  distinguish 'impossible' from 'extremely rare' with this sample size).
+```
 
---- Conditional probability: P(no-5 | pair constraint) ---
-The pair structure constrains transitions within pairs (always even or 6),
-so 5-line transitions can only occur at the 31 between-pair boundaries.
-How often do pair-constrained orderings also avoid 5-line transitions?
-  Pair-constrained trials: 100,000
-  Also satisfy no-5:       4,329 (4.33%)
-  Approximately 1 in 23 pair-constrained orderings avoid 5-line transitions.
-  The no-5 property is uncommon but not extraordinary among pair-constrained orderings.
+## Windowed Entropy
 
---- Sensitivity analysis: reversed bit convention ---
-What if bit 0 = top line instead of bottom? All binary values reverse,
-changing pair types and the difference wave. Key properties tested:
-  Pair structure preserved:  Yes
-  No-5 property preserved:   Yes
-  Difference wave identical: Yes
-  Original entropy: 2.0759, reversed: 2.0759
-  Original path length: 211, reversed: 211
-  All key properties are invariant under bit reversal.
----
-Windowed entropy analysis
 Instead of one entropy value for the whole wave, we slide a window across it
 and compute entropy locally. This reveals WHERE in the sequence structure
 concentrates (low entropy = predictable) vs. dissolves (high entropy = varied).
 Dips in the curve mark regions with repetitive transition patterns.
----
+
+```
 Window size: 15
 Center  Entropy    Visualization
 ------  -------    -------------
@@ -958,14 +930,17 @@ Min entropy: 1.5628 at position 9 (most structured)
 Max entropy: 2.2892 at position 56 (most varied)
 
 Entropy spark: ▃▃▃▃▃▅▃▃▃▃▃▃▃▃▃▅▅▃▅▅▅▅▅▅▅▅▅▅▅▃▃▃▃▃▃▃▃▅▅▅▅▅▅▅▅▅▅▅▅
----
-Mutual information: upper vs. lower trigram transitions
+```
+
+## Mutual Information
+
 When two consecutive hexagrams differ, do the upper and lower trigrams change
 independently, or is knowing that the upper trigram changed informative about
 whether the lower trigram also changed? Mutual information quantifies this:
   0 bits = completely independent (knowing one tells you nothing about the other)
   higher = correlated (they tend to change together or stay together)
----
+
+```
 Joint distribution of trigram changes:
                        Lower unchanged  Lower changed
   Upper unchanged          0 (  0.0%)         4 (  6.3%)    
@@ -975,23 +950,29 @@ Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
 Mean MI of random permutations: 0.0200 bits
-King Wen percentile: 7.4%
+King Wen percentile: 7.7%
+```
 
---- Full 8-state trigram mutual information ---
+### Full 8-state trigram mutual information
+
+```
 Using actual trigram identities (8 possible values each) rather than
 binary changed/unchanged, which preserves more information.
 MI(upper, lower) across all 64 hexagrams: 0.000000 bits
 (Expected: 0.0 — since all 64 combinations appear exactly once,
 the trigrams are perfectly independent in the static set.)
----
-Yin-yang balance wave
+```
+
+## Yin-Yang Balance
+
 Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).
 Note: since the King Wen sequence contains all 64 possible hexagrams exactly
 once, the total yin-yang count is necessarily balanced (192 each). This is a
 mathematical tautology, not a property of the ordering. However, the LOCAL
 balance as you move through the sequence IS a property of the ordering — it
 shows where yang-dominant or yin-dominant hexagrams cluster together.
----
+
+```
 Total yang lines: 192 / 384 (50.0%)
 Total yin lines:  192 / 384 (50.0%)
 Mean yang per hexagram: 3.00
@@ -1064,16 +1045,22 @@ Running yang average (window=8):
   64     3    3.25   [                    |#                   ]
 
 Yang count spark: █ ▂▂▅▅▁▁▆▆▃▃▆▆▁▁▃▃▂▂▃▃▁▁▅▅▂▅▂▅▃▃▅▅▂▂▅▅▂▂▃▃▆▆▂▂▃▃▅▅▂▂▃▃▃▃▅▅▃▃▅▂▃▃
+```
 
---- Yang/Yin dominance runs ---
+### Yang/Yin dominance runs
+
+```
   Positions 02-04: 3 consecutive yin-dominant hexagrams
----
-Hexagram neighborhoods
+```
+
+## Neighborhoods
+
 For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?
 Dense neighborhoods mean a hexagram has many close relatives; sparse ones are
 more isolated. This also shows whether King Wen places neighbors near each
 other in the sequence or scatters them.
----
+
+```
 01 ䷀ The Creative                 d=1: [09, 10, 13, 14, 43, 44] (6 neighbors, mean seq dist: 21.2)
 02 ䷁ The Receptive                d=1: [07, 08, 15, 16, 23, 24] (6 neighbors, mean seq dist: 13.5)
 03 ䷂ Difficulty at the Beginning  d=1: [08, 17, 24, 42, 60, 63] (6 neighbors, mean seq dist: 32.7)
@@ -1138,18 +1125,24 @@ other in the sequence or scatters them.
 62 ䷽ Small Preponderance          d=1: [15, 16, 31, 32, 55, 56] (6 neighbors, mean seq dist: 27.8)
 63 ䷾ After Completion             d=1: [03, 05, 36, 37, 39, 49] (6 neighbors, mean seq dist: 34.8)
 64 ䷿ Before Completion            d=1: [04, 06, 35, 38, 40, 50] (6 neighbors, mean seq dist: 35.2)
+```
 
---- Neighborhood clustering in King Wen sequence ---
+### Neighborhood clustering in King Wen sequence
+
+```
 Mean sequence distance between Hamming-1 neighbors: 20.6
 Mean sequence distance between any two hexagrams:   21.7
 Hamming-1 neighbors are closer than average in the sequence (clustered).
----
-Recurrence plot
+```
+
+## Recurrence Plot
+
 A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)
 is marked if the difference at position i equals the difference at position j.
 Diagonal lines indicate repeated sequences; vertical/horizontal lines indicate
 values that persist. Clusters of marks reveal recurring local patterns.
----
+
+```
               1         2         3         4         5         6   
      123456789012345678901234567890123456789012345678901234567890123
   1  +.........#.....#.........#.#........#..............#.......#.#
@@ -1217,8 +1210,10 @@ values that persist. Clusters of marks reveal recurring local patterns.
  63  #.........#.....#.........#.#........#..............#.......#.+
 
 Recurrence rate: 952/3906 (24.4%)
----
-DNA codon mapping
+```
+
+## DNA Codons
+
 Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems
 of 64 elements built from binary-like pairs: yin/yang for hexagrams, and the
 base pairs A-T and G-C for DNA. Each codon is a sequence of 3 bases from the
@@ -1229,7 +1224,8 @@ Caveat: the mapping of bit pairs to DNA bases (00=U, 01=C, 10=A, 11=G) is one
 of 24 possible assignments. Different mappings produce different codon assignments
 and different degeneracy statistics. No mapping is privileged by either system.
 This analysis is illustrative, not evidence of a biological connection.
----
+
+```
 Pos | Hex | Binary | Codon | Amino Acid | Name
 ----|-----|--------|-------|------------|----
 01  | ䷀   | 111111 | GGG   | Gly        | The Creative
@@ -1291,9 +1287,6 @@ Pos | Hex | Binary | Codon | Amino Acid | Name
 57  | ䷸   | 110110 | GCA   | Ala        | The Gentle
 58  | ䷹   | 011011 | CAG   | Gln        | The Joyous
 59  | ䷺   | 110010 | GUA   | Val        | Dispersion
-  Sampling: [------------------------------]   0.0%  Sampling: [------------------------------]   2.5%  Sampling: [#-----------------------------]   5.0%  Sampling: [##----------------------------]   7.5%  Sampling: [###---------------------------]  10.0%  Sampling: [###---------------------------]  12.5%  Sampling: [####--------------------------]  15.0%  Sampling: [#####-------------------------]  17.5%  Sampling: [######------------------------]  20.0%  Sampling: [######------------------------]  22.5%  Sampling: [#######-----------------------]  25.0%  Sampling: [########----------------------]  27.5%  Sampling: [#########---------------------]  30.0%  Sampling: [#########---------------------]  32.5%  Sampling: [##########--------------------]  35.0%  Sampling: [###########-------------------]  37.5%  Sampling: [############------------------]  40.0%  Sampling: [############------------------]  42.5%  Sampling: [#############-----------------]  45.0%  Sampling: [##############----------------]  47.5%  Sampling: [###############---------------]  50.0%  Sampling: [###############---------------]  52.5%  Sampling: [################--------------]  55.0%  Sampling: [#################-------------]  57.5%  Sampling: [##################------------]  60.0%  Sampling: [##################------------]  62.5%  Sampling: [###################-----------]  65.0%  Sampling: [####################----------]  67.5%  Sampling: [#####################---------]  70.0%  Sampling: [#####################---------]  72.5%  Sampling: [######################--------]  75.0%  Sampling: [#######################-------]  77.5%  Sampling: [########################------]  80.0%  Sampling: [########################------]  82.5%  Sampling: [#########################-----]  85.0%  Sampling: [##########################----]  87.5%  Sampling: [###########################---]  90.0%  Sampling: [###########################---]  92.5%  Sampling: [############################--]  95.0%  Sampling: [#############################-]  97.5%  Sampling: [##############################] 100.0%
-  Resampling: [------------------------------]   0.0%  Resampling: [------------------------------]   2.5%  Resampling: [#-----------------------------]   5.0%  Resampling: [##----------------------------]   7.5%  Resampling: [###---------------------------]  10.0%  Resampling: [###---------------------------]  12.5%  Resampling: [####--------------------------]  15.0%  Resampling: [#####-------------------------]  17.5%  Resampling: [######------------------------]  20.0%  Resampling: [######------------------------]  22.5%  Resampling: [#######-----------------------]  25.0%  Resampling: [########----------------------]  27.5%  Resampling: [#########---------------------]  30.0%  Resampling: [#########---------------------]  32.5%  Resampling: [##########--------------------]  35.0%  Resampling: [###########-------------------]  37.5%  Resampling: [############------------------]  40.0%  Resampling: [############------------------]  42.5%  Resampling: [#############-----------------]  45.0%  Resampling: [##############----------------]  47.5%  Resampling: [###############---------------]  50.0%  Resampling: [###############---------------]  52.5%  Resampling: [################--------------]  55.0%  Resampling: [#################-------------]  57.5%  Resampling: [##################------------]  60.0%  Resampling: [##################------------]  62.5%  Resampling: [###################-----------]  65.0%  Resampling: [####################----------]  67.5%  Resampling: [#####################---------]  70.0%  Resampling: [#####################---------]  72.5%  Resampling: [######################--------]  75.0%  Resampling: [#######################-------]  77.5%  Resampling: [########################------]  80.0%  Resampling: [########################------]  82.5%  Resampling: [#########################-----]  85.0%  Resampling: [##########################----]  87.5%  Resampling: [###########################---]  90.0%  Resampling: [###########################---]  92.5%  Resampling: [############################--]  95.0%  Resampling: [#############################-]  97.5%  Resampling: [##############################] 100.0%
-  Shuffling: [------------------------------]   0.0%  Shuffling: [------------------------------]   2.5%  Shuffling: [#-----------------------------]   5.0%  Shuffling: [##----------------------------]   7.5%  Shuffling: [###---------------------------]  10.0%  Shuffling: [###---------------------------]  12.5%  Shuffling: [####--------------------------]  15.0%  Shuffling: [#####-------------------------]  17.5%  Shuffling: [######------------------------]  20.0%  Shuffling: [######------------------------]  22.5%  Shuffling: [#######-----------------------]  25.0%  Shuffling: [########----------------------]  27.5%  Shuffling: [#########---------------------]  30.0%  Shuffling: [#########---------------------]  32.5%  Shuffling: [##########--------------------]  35.0%  Shuffling: [###########-------------------]  37.5%  Shuffling: [############------------------]  40.0%  Shuffling: [############------------------]  42.5%  Shuffling: [#############-----------------]  45.0%  Shuffling: [##############----------------]  47.5%  Shuffling: [###############---------------]  50.0%  Shuffling: [###############---------------]  52.5%  Shuffling: [################--------------]  55.0%  Shuffling: [#################-------------]  57.5%  Shuffling: [##################------------]  60.0%  Shuffling: [##################------------]  62.5%  Shuffling: [###################-----------]  65.0%  Shuffling: [####################----------]  67.5%  Shuffling: [#####################---------]  70.0%  Shuffling: [#####################---------]  72.5%  Shuffling: [######################--------]  75.0%  Shuffling: [#######################-------]  77.5%  Shuffling: [########################------]  80.0%  Shuffling: [########################------]  82.5%  Shuffling: [#########################-----]  85.0%  Shuffling: [##########################----]  87.5%  Shuffling: [###########################---]  90.0%  Shuffling: [###########################---]  92.5%  Shuffling: [############################--]  95.0%  Shuffling: [#############################-]  97.5%  Shuffling: [##############################] 100.0%
 60  | ䷻   | 010011 | CUG   | Leu        | Limitation
 61  | ䷼   | 110011 | GUG   | Val        | Inner Truth
 62  | ䷽   | 001100 | UGU   | Cys        | Small Preponderance
@@ -1302,47 +1295,61 @@ Pos | Hex | Binary | Codon | Amino Acid | Name
 
 Unique amino acids in King Wen order: 21
 Total possible amino acids + stop: 21
+```
 
---- Degeneracy comparison ---
+### Degeneracy comparison
+
+```
 In DNA, many single-base changes preserve the amino acid (the code is 'degenerate').
 Do single-line hexagram changes preserve the mapped amino acid?
 Single-line changes that preserve amino acid: 100/384 (26.0%)
----
-Shannon entropy analysis
+```
+
+## Shannon Entropy
+
 Entropy measures disorder: high entropy means the difference values are spread
 evenly across all possibilities (random-looking), low entropy means certain values
 dominate (structured). We compare the King Wen wave's entropy against thousands
 of random permutations of the same 64 hexagrams. If King Wen's entropy is
 unusually low, the sequence is more structured than random chance would produce.
----
+
+```
 King Wen difference wave entropy: 2.0759 bits
 Maximum entropy (all 7 values): 2.8074 bits
 Maximum entropy (5 observed values): 2.3219 bits
-Mean entropy of random permutations: 2.1918 bits
-Min random entropy observed: 1.6539 bits
-Max random entropy observed: 2.4801 bits
+Mean entropy of random permutations: 2.1930 bits
+Min random entropy observed: 1.6529 bits
+Max random entropy observed: 2.5100 bits
 King Wen percentile: 13.0% (lower = more structured)
-Effect size (Cohen's d): -1.12 (negative = more structured than random)
+Effect size (Cohen's d): -1.13 (negative = more structured than random)
+```
 
---- Entropy conditioned on pair constraint ---
+### Entropy conditioned on pair constraint
+
+```
 The unconstrained comparison above may be misleading: the pair structure
 itself constrains the entropy. How does King Wen compare against random
 orderings that also satisfy the pair constraint?
-Mean pair-constrained entropy: 2.2362 bits
-King Wen percentile (pair-constrained): 5.9%
+Mean pair-constrained entropy: 2.2370 bits
+King Wen percentile (pair-constrained): 5.4%
 (Similar to unconstrained percentile of 13.0%.)
+```
 
---- Distribution comparison ---
+### Distribution comparison
+
+```
 Value    King Wen Expected (random avg)
   0             0                  0.0
-  1             2                  6.0
-  2            20                 15.1
-  3            13                 19.7
-  4            19                 15.2
+  1             2                  6.1
+  2            20                 14.9
+  3            13                 20.1
+  4            19                 15.1
   5             0                  6.0
   6             9                  1.0
----
-Path analysis (graph theory)
+```
+
+## Path Analysis
+
 Imagine the 64 hexagrams as cities on a map, where the 'distance' between any
 two is the number of lines that differ. The King Wen sequence is a route that
 visits all 64 cities. Is it a short, efficient route (nearby hexagrams placed
@@ -1350,69 +1357,115 @@ next to each other), or a long, wandering one? We compare its total distance
 against random routes and a greedy 'always go to the nearest unvisited city'
 algorithm. This reveals whether the King Wen ordering was optimized for smooth
 transitions or had other priorities.
----
+
+```
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     191.9
-Min random observed:         153
-Max random observed:         229
-King Wen percentile:         97.4% (lower = shorter path)
-Effect size (Cohen's d):     +2.01
+Mean random path length:     192.0
+Min random observed:         158
+Max random observed:         232
+King Wen percentile:         97.8% (lower = shorter path)
+Effect size (Cohen's d):     +2.06
+```
 
---- Theoretical bounds ---
+### Theoretical bounds
+
+```
 Minimum possible (63 transitions of 1): 63
 Maximum possible (63 transitions of 6): 378
 King Wen uses 55.8% of maximum path length
+```
 
---- Pair-constrained comparison ---
+### Pair-constrained comparison
+
+```
 The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.0
-Min pair-constrained observed:     191
-Max pair-constrained observed:     239
-King Wen percentile (pair-constrained): 29.0%
-Effect size (Cohen's d, pair-constrained): -0.47
----
-Bootstrap confidence intervals
+Mean pair-constrained path length: 214.2
+Min pair-constrained observed:     190
+Max pair-constrained observed:     236
+King Wen percentile (pair-constrained): 28.2%
+Effect size (Cohen's d, pair-constrained): -0.49
+```
+
+## Constraint Satisfaction
+
+The King Wen sequence satisfies several constraints simultaneously:
+  1. All 32 consecutive pairs are either reverse or inverse (never unrelated)
+  2. No consecutive hexagrams differ by exactly 5 lines
+  3. No consecutive hexagrams are identical (0-line transitions)
+How rare is it for a random ordering to satisfy all these at once? We test
+random permutations against each constraint individually and combined.
+
+```
+Results from 10,000 random permutations:
+  All pairs reverse/inverse:       0 (0.000%)
+  No 5-line transitions:          15 (0.15%)
+  Both constraints together:       0 (0.0000%)
+  No random permutation satisfied both constraints.
+  Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
+  (i.e., the true rate is less than ~1 in 3,333, but we cannot
+  distinguish 'impossible' from 'extremely rare' with this sample size).
+```
+
+### Conditional probability: P(no-5 | pair constraint)
+
+```
+The pair structure constrains transitions within pairs (always even or 6),
+so 5-line transitions can only occur at the 31 between-pair boundaries.
+How often do pair-constrained orderings also avoid 5-line transitions?
+  Pair-constrained trials: 100,000
+  Also satisfy no-5:       4,161 (4.16%)
+  Approximately 1 in 24 pair-constrained orderings avoid 5-line transitions.
+  The no-5 property is uncommon but not extraordinary among pair-constrained orderings.
+```
+
+### Sensitivity analysis: reversed bit convention
+
+```
+What if bit 0 = top line instead of bottom? All binary values reverse,
+changing pair types and the difference wave. Key properties tested:
+  Pair structure preserved:  Yes
+  No-5 property preserved:   Yes
+  Difference wave identical: Yes
+  Original entropy: 2.0759, reversed: 2.0759
+  Original path length: 211, reversed: 211
+  All key properties are invariant under bit reversal.
+```
+
+## Bootstrap
+
 The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line
 transitions') are estimates based on sampling. Bootstrap resampling quantifies
 how precise those estimates are by repeatedly resampling from the results and
 computing confidence intervals. Narrower intervals = more reliable estimates.
----
+
+```
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.210%
-95% confidence interval: [0.120%, 0.310%]
-Interval width: 0.190 percentage points
+No-5-line-transition rate: 0.190%
+95% confidence interval: [0.110%, 0.280%]
+Interval width: 0.170 percentage points
 
-Approximately 1 in 476 random orderings
-95% CI: 1 in 323 to 1 in 833
----
-Monte Carlo analysis (10,000 random permutations)
+Approximately 1 in 526 random orderings
+95% CI: 1 in 357 to 1 in 909
+```
+
+## Monte Carlo
+
 The King Wen sequence has a striking property: no two consecutive hexagrams
 differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference
 values (0-6), is avoiding 5 remarkable or just a coincidence? To find out, we
 randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the more
 likely the King Wen sequence was intentionally designed with this constraint.
----
-Permutations with no 5-line transitions: 24/10,000 (0.24%)
-Approximately 1 in 416 random orderings share this property.
-Odds ratio against random: 416:1
 
----
-Note on multiple comparisons
-This report runs 28 analyses. When testing many properties, some will
-appear 'unusual' by chance alone. A result at the 5% level (p<0.05)
-is expected ~1.4 times out of 28 tests even for a purely random sequence.
-A Bonferroni-corrected significance threshold for 28 tests is
-p < 0.05/28 = 0.0018. Only findings below this threshold can be considered
-significant after correction. The pair structure (p < 0.0001) survives.
-The no-5 property (~1 in 550, p ~ 0.0018) is marginal. The entropy
-percentile (p ~ 0.13) does not survive. Weaker findings should be
-interpreted with this caveat in mind.
----
 ```
+Permutations with no 5-line transitions: 23/10,000 (0.23%)
+Approximately 1 in 434 random orderings share this property.
+Odds ratio against random: 434:1
+```
+

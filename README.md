@@ -106,12 +106,13 @@ python3 roae.py --explain 1          # Step-by-step walkthrough of transition 1
 ### Export formats
 
 ```
-python3 roae.py --json    # writes hexagrams.json
-python3 roae.py --csv     # writes hexagrams.csv
-python3 roae.py --dot     # writes wave.dot (+ wave.dot.png/.svg if Graphviz installed)
-python3 roae.py --svg     # writes hexagrams.svg
-python3 roae.py --html    # writes report.html (+ report.pdf if wkhtmltopdf installed)
-python3 roae.py --midi    # writes wave.mid
+python3 roae.py --json      # writes hexagrams.json
+python3 roae.py --csv       # writes hexagrams.csv
+python3 roae.py --dot       # writes wave.dot (+ wave.dot.png/.svg if Graphviz installed)
+python3 roae.py --svg       # writes hexagrams.svg
+python3 roae.py --html      # writes report.html (+ report.pdf if wkhtmltopdf installed)
+python3 roae.py --markdown  # writes report.md
+python3 roae.py --midi      # writes wave.mid
 ```
 
 ### Verification

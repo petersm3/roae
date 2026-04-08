@@ -1908,6 +1908,7 @@ def print_help_sections():
         ("--dot", "Export Graphviz graph (writes wave.dot, + .png/.svg if Graphviz installed)"),
         ("--svg", "Export hexagram line diagrams (writes hexagrams.svg)"),
         ("--html", "Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)"),
+        ("--markdown", "Export Markdown report (writes report.md)"),
         ("--midi", "Export difference wave (writes wave.mid)"),
     ]
     print("---")
@@ -2872,6 +2873,137 @@ def export_html(filename="report.html"):
     except FileNotFoundError:
         pass  # wkhtmltopdf not installed; skip PDF generation
 
+def export_markdown(filename="report.md"):
+    """Generate a Markdown report with all analyses."""
+    import io
+    import re
+    from contextlib import redirect_stdout
+
+    sections = [
+        ("Hexagram Table", print_table),
+        ("Reverse/Inverse Pairs", print_pairs),
+        ("Difference Wave", lambda: print_wave(order=1, wrap=False)),
+        ("Bar Chart", print_barchart),
+        ("Trigram Analysis", print_trigrams),
+        ("Nuclear Hexagrams", print_nuclear),
+        ("Line Change Analysis", print_line_changes),
+        ("Complement Distance", print_complements),
+        ("Palindromes", print_palindromes),
+        ("Canon Comparison", print_canons),
+        ("Autocorrelation", print_autocorrelation),
+        ("Spectral Analysis", print_fft),
+        ("Markov Chain", print_markov),
+        ("Gray Code Comparison", print_graycode),
+        ("Symmetry Groups", print_symmetry),
+        ("Alternative Sequences", print_sequences),
+        ("Windowed Entropy", print_windowed_entropy),
+        ("Mutual Information", print_mutual_info),
+        ("Yin-Yang Balance", print_yinyang),
+        ("Neighborhoods", print_neighborhoods),
+        ("Recurrence Plot", print_recurrence),
+        ("DNA Codons", print_codons),
+        ("Shannon Entropy", print_entropy),
+        ("Path Analysis", print_path),
+        ("Constraint Satisfaction", print_constraints),
+        ("Bootstrap", lambda: print_bootstrap(trials=10000)),
+        ("Monte Carlo", lambda: print_stats(trials=10000)),
+    ]
+
+    def convert_section(raw):
+        """Convert a section's stdout into Markdown blocks.
+
+        The stdout format uses --- as delimiters:
+        - Opening block: ---\\ntitle\\ndescription lines\\n---
+        - Sub-headers: --- subtitle ---
+        - Data/stats: everything else
+
+        Returns a list of (type, text) tuples where type is
+        'prose' (rendered as text) or 'pre' (rendered in code fence).
+        """
+        lines = raw.split('\n')
+        blocks = []
+        i = 0
+        # Skip the opening --- block (title + description) since we use
+        # the section title from the sections list as the ## heading.
+        # Find the first --- and skip to the closing ---.
+        if i < len(lines) and lines[i].strip() == '---':
+            i += 1
+            # Collect description lines until closing ---
+            desc_lines = []
+            while i < len(lines) and lines[i].strip() != '---':
+                desc_lines.append(lines[i])
+                i += 1
+            if i < len(lines):
+                i += 1  # skip closing ---
+            # First line is the title (skip it), rest is description
+            if desc_lines:
+                desc_lines = desc_lines[1:]  # drop title
+            if desc_lines:
+                blocks.append(('prose', '\n'.join(desc_lines)))
+
+        # Process remaining lines
+        pre_lines = []
+        while i < len(lines):
+            line = lines[i]
+            # Check for sub-header: --- text ---
+            m = re.match(r'^--- (.+?) ---$', line)
+            if m:
+                # Flush any accumulated pre lines
+                if pre_lines:
+                    while pre_lines and not pre_lines[-1].strip():
+                        pre_lines.pop()
+                    if pre_lines:
+                        blocks.append(('pre', '\n'.join(pre_lines)))
+                    pre_lines = []
+                blocks.append(('subheader', m.group(1)))
+                i += 1
+                continue
+            else:
+                pre_lines.append(line)
+                i += 1
+
+        # Flush remaining pre lines
+        if pre_lines:
+            while pre_lines and not pre_lines[-1].strip():
+                pre_lines.pop()
+            if pre_lines:
+                blocks.append(('pre', '\n'.join(pre_lines)))
+
+        return blocks
+
+    out = open(filename, "w")
+    _print = lambda *a, **k: print(*a, **k, file=out)
+
+    _print("# Received Order Analysis Engine")
+    _print("")
+    _print("Analysis of the King Wen sequence including observations by Terence McKenna.")
+    _print("")
+
+    for title, func in sections:
+        f = io.StringIO()
+        with redirect_stdout(f):
+            func()
+        raw = f.getvalue()
+        blocks = convert_section(raw)
+
+        _print(f"## {title}")
+        _print("")
+        for btype, text in blocks:
+            if btype == 'prose':
+                _print(text)
+                _print("")
+            elif btype == 'subheader':
+                _print(f"### {text}")
+                _print("")
+            elif btype == 'pre':
+                _print("```")
+                _print(text)
+                _print("```")
+                _print("")
+
+    out.close()
+    print(f"Markdown report written to {filename}")
+
 def print_graphviz(filename="wave.dot"):
     """Output a Graphviz DOT representation of the King Wen sequence as a
     directed graph, with edge weights showing the Hamming distance."""
@@ -3061,6 +3193,8 @@ def main():
                         help="Export hexagram line diagrams (writes hexagrams.svg)")
     parser.add_argument("--html", action="store_true",
                         help="Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)")
+    parser.add_argument("--markdown", action="store_true",
+                        help="Export Markdown report (writes report.md)")
     parser.add_argument("--midi", action="store_true",
                         help="Export difference wave (writes wave.mid)")
 
@@ -3107,6 +3241,9 @@ def main():
         return
     if args.html:
         export_html()
+        return
+    if args.markdown:
+        export_markdown()
         return
     if args.midi:
         export_midi()
