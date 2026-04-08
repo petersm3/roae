@@ -162,6 +162,30 @@ Within a window of 2 pairs, nearby pairs share a trigram 57% of the time. Comple
 
 62 sequences satisfying Rules 1-4 were sampled from 1M trials. They differ substantially from King Wen: mean 2.0/32 pair positions match, 20.3/63 wave values match. The survivors have similar complement distances but very different local structure, confirming that Rules 1-4 constrain global properties but not local ordering.
 
+## Differential analysis
+
+The most powerful analysis (`--differential`) generates all solutions satisfying the 6 rules, de-duplicates them by pair ordering, computes 26 features for each, and identifies features where King Wen is extremal (min or max).
+
+### Results
+
+From 16,248 raw solutions (882 unique pair orderings after de-duplication):
+
+**8 features where King Wen is extremal (rank 882/882).** However, most are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, and total path length are identical across ALL solutions. Max run length is also tied.
+
+**Two genuinely non-trivial extremal features:**
+
+1. **Complement distance: MAXIMUM (12.125).** King Wen places complements as far apart as possible while still satisfying the complement distance threshold. Other solutions achieve 11.75 or lower. King Wen doesn't just keep complements close — it keeps them as *far apart as the constraint allows*.
+
+2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Other solutions range down to -0.115 (tied) or lower.
+
+### Interpretation
+
+The complement distance finding is surprising: Rule 3 requires complement distance ≤ 12.1 (King Wen's value), and King Wen sits at the exact maximum. Among all solutions satisfying Rules 1-6, King Wen is the one that **pushes complements as far apart as the constraint allows**. This suggests the designers didn't just want complements close — they balanced closeness against some other competing objective.
+
+The line autocorrelation finding suggests the designers preferred smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
+
+These two features are candidates for a 7th rule that could further narrow the solution space toward King Wen uniquely.
+
 ## Usage
 
 ```
@@ -183,6 +207,8 @@ python3 solve.py --residuals                  # Compare constraint survivors vs 
 python3 solve.py --info                       # Information content analysis
 python3 solve.py --deep                       # All six deep analyses
 python3 solve.py --enumerate --max-nodes 50000000 --time-limit 300  # Longer search
+python3 solve.py --differential                   # Find extremal features (key analysis)
+python3 solve.py --differential --time-limit 300  # Longer search for more solutions
 ```
 
 ## Requirements

@@ -1418,6 +1418,379 @@ def print_info_content():
         print("The known rules may be sufficient to uniquely determine King Wen.")
         print("(Estimate is rough — actual count requires enumeration.)")
 
+def compute_features(seq):
+    """Compute a comprehensive feature vector for a sequence."""
+    import math
+
+    diffs = [bit_diff(seq[i], seq[i + 1]) for i in range(63)]
+
+    # Difference distribution
+    diff_dist = {}
+    for d in diffs:
+        diff_dist[d] = diff_dist.get(d, 0) + 1
+
+    # Runs in difference wave
+    max_run = 1
+    total_runs = 1
+    r = 1
+    for i in range(1, len(diffs)):
+        if diffs[i] == diffs[i - 1]:
+            r += 1
+            max_run = max(max_run, r)
+        else:
+            total_runs += 1
+            r = 1
+
+    # Shannon entropy of difference wave
+    entropy = 0
+    for count in diff_dist.values():
+        p = count / 63
+        if p > 0:
+            entropy -= p * math.log2(p)
+
+    # Trigram features
+    upper_path = [upper_trigram(v) for v in seq]
+    lower_path = [lower_trigram(v) for v in seq]
+
+    upper_self = sum(1 for i in range(63) if upper_path[i] == upper_path[i + 1])
+    lower_self = sum(1 for i in range(63) if lower_path[i] == lower_path[i + 1])
+    both_change = sum(1 for i in range(63)
+                      if upper_path[i] != upper_path[i + 1]
+                      and lower_path[i] != lower_path[i + 1])
+
+    # Trigram transitions used
+    upper_trans = set()
+    lower_trans = set()
+    for i in range(63):
+        if upper_path[i] != upper_path[i + 1]:
+            upper_trans.add((upper_path[i], upper_path[i + 1]))
+        if lower_path[i] != lower_path[i + 1]:
+            lower_trans.add((lower_path[i], lower_path[i + 1]))
+
+    # Boundary trigram links (at between-pair boundaries only)
+    boundary_links = 0
+    for i in range(0, 62, 2):  # between-pair: positions 1->2, 3->4, ...
+        tail = seq[i + 1]
+        head = seq[i + 2]
+        tu, tl = upper_trigram(tail), lower_trigram(tail)
+        hu, hl = upper_trigram(head), lower_trigram(head)
+        if tu == hu or tl == hl or tu == hl or tl == hu:
+            boundary_links += 1
+
+    # Line autocorrelations
+    line_autocorrs = []
+    for line in range(6):
+        bits = [(seq[i] >> line) & 1 for i in range(64)]
+        mean_b = sum(bits) / 64
+        var_b = sum((b - mean_b) ** 2 for b in bits) / 64
+        if var_b > 0:
+            ac = sum((bits[i] - mean_b) * (bits[i + 1] - mean_b)
+                     for i in range(63)) / (64 * var_b)
+        else:
+            ac = 0
+        line_autocorrs.append(ac)
+
+    # Complement distance
+    comp_dist = mean_complement_distance(seq)
+
+    # Pair-level features
+    pairs_seq = [(seq[i], seq[i + 1]) for i in range(0, 64, 2)]
+
+    # Boundary Hamming distance distribution
+    boundary_dists = [bit_diff(seq[i + 1], seq[i + 2]) for i in range(0, 62, 2)]
+    mean_boundary_dist = sum(boundary_dists) / len(boundary_dists)
+    boundary_dist_var = (sum((d - mean_boundary_dist) ** 2 for d in boundary_dists)
+                         / len(boundary_dists))
+
+    # Within-pair distance distribution
+    within_dists = [bit_diff(seq[i], seq[i + 1]) for i in range(0, 64, 2)]
+    mean_within_dist = sum(within_dists) / len(within_dists)
+
+    # Alternation: how often does the boundary distance alternate high/low?
+    alternations = 0
+    for i in range(len(boundary_dists) - 1):
+        if (boundary_dists[i] > mean_boundary_dist) != (boundary_dists[i + 1] > mean_boundary_dist):
+            alternations += 1
+
+    # Path smoothness: sum of |d[i+1] - d[i]| in difference wave
+    smoothness = sum(abs(diffs[i + 1] - diffs[i]) for i in range(len(diffs) - 1))
+
+    # Total path length
+    total_path = sum(diffs)
+
+    return {
+        "diff_dist": diff_dist,
+        "max_run": max_run,
+        "total_runs": total_runs,
+        "entropy": entropy,
+        "upper_self_trans": upper_self,
+        "lower_self_trans": lower_self,
+        "both_change": both_change,
+        "upper_unique_trans": len(upper_trans),
+        "lower_unique_trans": len(lower_trans),
+        "boundary_trigram_links": boundary_links,
+        "line_autocorr": line_autocorrs,
+        "line_autocorr_mean": sum(line_autocorrs) / 6,
+        "line_autocorr_max": max(line_autocorrs),
+        "line_autocorr_min": min(line_autocorrs),
+        "line_2_autocorr": line_autocorrs[1],
+        "complement_distance": comp_dist,
+        "mean_boundary_dist": mean_boundary_dist,
+        "boundary_dist_var": boundary_dist_var,
+        "mean_within_dist": mean_within_dist,
+        "boundary_alternations": alternations,
+        "smoothness": smoothness,
+        "total_path": total_path,
+    }
+
+def print_differential_analysis(max_nodes=10_000_000, time_limit=300):
+    """Generate solutions, compute features, find what makes King Wen unique."""
+    print("=" * 70)
+    print("DIFFERENTIAL ANALYSIS")
+    print("=" * 70)
+    print()
+    print("Step 1: Generate solutions satisfying all 6 rules.")
+    print("Step 2: De-duplicate by pair ordering.")
+    print("Step 3: Compute feature vectors.")
+    print("Step 4: Find features where King Wen is extremal.")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+
+    # King Wen's difference distribution
+    kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
+    kw_dist = {}
+    for d in kw_diffs:
+        kw_dist[d] = kw_dist.get(d, 0) + 1
+    kw_comp_dist = mean_complement_distance(binary_hexagrams)
+
+    # --- Step 1: Generate solutions via backtracking ---
+    print(f"--- Step 1: Backtracking enumeration (budget: {max_nodes:,} nodes, {time_limit}s) ---")
+
+    first_pair_idx = None
+    for i, (a, b) in enumerate(kw_pairs):
+        if (a == 0b111111 and b == 0b000000) or (b == 0b111111 and a == 0b000000):
+            first_pair_idx = i
+            break
+
+    solutions = []
+    nodes = [0]
+    start = time.time()
+    exhausted = [True]
+
+    pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
+
+    def backtrack(seq, used, dist_budget):
+        nodes[0] += 1
+        if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+            exhausted[0] = False
+            return
+        if nodes[0] % 2000000 == 0:
+            elapsed = time.time() - start
+            print(f"  {nodes[0]:,} nodes, {len(solutions)} solutions, {elapsed:.1f}s",
+                  file=sys.stderr)
+
+        step = len(seq) // 2
+
+        if step == n:
+            if mean_complement_distance(seq) <= kw_comp_dist:
+                solutions.append(list(seq))
+            return
+
+        for j in range(n):
+            if j in used:
+                continue
+            for first, second in pair_options[j]:
+                if seq and bit_diff(seq[-1], first) == 5:
+                    continue
+
+                new_budget = dict(dist_budget)
+                if seq:
+                    bd = bit_diff(seq[-1], first)
+                    if new_budget.get(bd, 0) <= 0:
+                        continue
+                    new_budget[bd] -= 1
+
+                wd = bit_diff(first, second)
+                if new_budget.get(wd, 0) <= 0:
+                    continue
+                new_budget[wd] -= 1
+
+                backtrack(seq + [first, second], used | {j}, new_budget)
+
+                if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+                    exhausted[0] = False
+                    return
+
+    init_budget = dict(kw_dist)
+    fd = bit_diff(0b111111, 0b000000)
+    init_budget[fd] -= 1
+    backtrack([0b111111, 0b000000], {first_pair_idx}, init_budget)
+
+    elapsed = time.time() - start
+    status = "COMPLETE" if exhausted[0] else "BUDGET EXHAUSTED"
+    print(f"\n{status}: {nodes[0]:,} nodes, {len(solutions)} solutions, {elapsed:.1f}s")
+
+    if len(solutions) < 2:
+        print("Not enough solutions for differential analysis.")
+        return
+
+    # --- Step 2: De-duplicate by pair ordering ---
+    print(f"\n--- Step 2: De-duplicate by pair ordering ---")
+
+    def pair_ordering_key(seq):
+        """Extract pair ordering ignoring within-pair orientation."""
+        pairs = []
+        for i in range(0, 64, 2):
+            pair = tuple(sorted([seq[i], seq[i + 1]]))
+            pairs.append(pair)
+        return tuple(pairs)
+
+    seen_orderings = {}
+    for sol in solutions:
+        key = pair_ordering_key(sol)
+        if key not in seen_orderings:
+            seen_orderings[key] = []
+        seen_orderings[key].append(sol)
+
+    unique_orderings = len(seen_orderings)
+    print(f"Total solutions: {len(solutions)}")
+    print(f"Unique pair orderings: {unique_orderings}")
+    print(f"Mean orientation variants per ordering: {len(solutions)/unique_orderings:.1f}")
+
+    # Take one representative per unique ordering
+    representatives = [variants[0] for variants in seen_orderings.values()]
+
+    # --- Step 3: Compute feature vectors ---
+    print(f"\n--- Step 3: Compute features for {len(representatives)} unique orderings ---")
+
+    kw_features = compute_features(binary_hexagrams)
+    all_features = []
+    kw_index = None
+    for i, sol in enumerate(representatives):
+        f = compute_features(sol)
+        all_features.append(f)
+        if sol == binary_hexagrams:
+            kw_index = i
+
+    if kw_index is not None:
+        print(f"King Wen is solution #{kw_index + 1}")
+    else:
+        print("King Wen not found among representatives (may be an orientation variant)")
+        # Find it among all solutions
+        for sol in solutions:
+            if sol == binary_hexagrams:
+                kw_features = compute_features(binary_hexagrams)
+                print("(Using King Wen features directly)")
+                break
+
+    # --- Step 4: Find extremal features ---
+    print(f"\n--- Step 4: Features where King Wen is extremal ---")
+    print()
+    print("For each feature, showing King Wen's rank among all solutions.")
+    print("Rank 1 = lowest, rank N = highest. Extremal = rank 1 or rank N.")
+    print()
+
+    # Scalar features to test
+    scalar_features = [
+        "max_run", "total_runs", "entropy", "upper_self_trans", "lower_self_trans",
+        "both_change", "upper_unique_trans", "lower_unique_trans",
+        "boundary_trigram_links", "line_autocorr_mean", "line_autocorr_max",
+        "line_autocorr_min", "line_2_autocorr", "complement_distance",
+        "mean_boundary_dist", "boundary_dist_var", "mean_within_dist",
+        "boundary_alternations", "smoothness", "total_path",
+    ]
+
+    print(f"{'Feature':<28} {'KW value':>10} {'Rank':>6} {'of':>3} "
+          f"{'N':>5} {'Min':>10} {'Max':>10} {'Extremal?':>10}")
+    print(f"{'-'*28} {'-'*10} {'-'*6} {'-'*3} "
+          f"{'-'*5} {'-'*10} {'-'*10} {'-'*10}")
+
+    extremal_features = []
+    notable_features = []
+    n_sol = len(all_features)
+
+    for feat_name in scalar_features:
+        kw_val = kw_features[feat_name]
+        all_vals = sorted(f[feat_name] for f in all_features)
+        rank = sum(1 for v in all_vals if v <= kw_val)
+        min_val = all_vals[0]
+        max_val = all_vals[-1]
+
+        is_extremal = ""
+        if rank == 1 or rank == n_sol:
+            is_extremal = "*** EXTREMAL"
+            extremal_features.append((feat_name, kw_val, rank, n_sol))
+        elif rank <= 3 or rank >= n_sol - 2:
+            is_extremal = "* near"
+            notable_features.append((feat_name, kw_val, rank, n_sol))
+
+        kw_str = f"{kw_val:.3f}" if isinstance(kw_val, float) else str(kw_val)
+        min_str = f"{min_val:.3f}" if isinstance(min_val, float) else str(min_val)
+        max_str = f"{max_val:.3f}" if isinstance(max_val, float) else str(max_val)
+
+        print(f"{feat_name:<28} {kw_str:>10} {rank:>6} {'of':>3} "
+              f"{n_sol:>5} {min_str:>10} {max_str:>10} {is_extremal:>10}")
+
+    # Also test individual line autocorrelations
+    for line in range(6):
+        feat_name = f"line_{line+1}_autocorr"
+        kw_val = kw_features["line_autocorr"][line]
+        all_vals = sorted(f["line_autocorr"][line] for f in all_features)
+        rank = sum(1 for v in all_vals if v <= kw_val)
+        min_val = all_vals[0]
+        max_val = all_vals[-1]
+
+        is_extremal = ""
+        if rank == 1 or rank == n_sol:
+            is_extremal = "*** EXTREMAL"
+            extremal_features.append((feat_name, kw_val, rank, n_sol))
+        elif rank <= 3 or rank >= n_sol - 2:
+            is_extremal = "* near"
+            notable_features.append((feat_name, kw_val, rank, n_sol))
+
+        print(f"{feat_name:<28} {kw_val:>10.3f} {rank:>6} {'of':>3} "
+              f"{n_sol:>5} {min_val:>10.3f} {max_val:>10.3f} {is_extremal:>10}")
+
+    print()
+    print("=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    print()
+
+    if extremal_features:
+        print(f"EXTREMAL features ({len(extremal_features)} found):")
+        print("King Wen has the min or max value among ALL solutions:")
+        for name, val, rank, total in extremal_features:
+            direction = "MINIMUM" if rank == 1 else "MAXIMUM"
+            val_str = f"{val:.3f}" if isinstance(val, float) else str(val)
+            print(f"  {name}: {val_str} ({direction} of {total} solutions)")
+        print()
+        print("These are candidate rules — properties that could narrow the solution")
+        print("space to King Wen alone. To verify, add each as a constraint and")
+        print("re-run enumeration.")
+    else:
+        print("No extremal features found. King Wen is not at the min or max of")
+        print("any measured property. The missing rule may involve a combination")
+        print("of features or a property not yet measured.")
+
+    if notable_features:
+        print(f"\nNear-extremal features ({len(notable_features)} found):")
+        for name, val, rank, total in notable_features:
+            pct = rank / total * 100
+            val_str = f"{val:.3f}" if isinstance(val, float) else str(val)
+            print(f"  {name}: {val_str} (rank {rank}/{total}, {pct:.0f}th percentile)")
+
+    print()
+    print(f"Solutions analyzed: {n_sol} unique pair orderings")
+    print(f"Features tested: {len(scalar_features) + 6} (including 6 line autocorrelations)")
+    search_status = "complete" if exhausted[0] else "partial (budget exhausted)"
+    print(f"Search: {search_status}")
+    if not exhausted[0]:
+        print("Note: more solutions may exist beyond the search budget. Extremal")
+        print("findings are relative to the solutions found, not the full space.")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -1452,6 +1825,8 @@ def main():
                         help="Information content analysis")
     parser.add_argument("--deep", action="store_true",
                         help="Run all deep analyses (enumerate + trigram + lines + neighborhoods + residuals + info)")
+    parser.add_argument("--differential", action="store_true",
+                        help="Differential analysis: find features where King Wen is extremal among solutions")
     parser.add_argument("--max-nodes", type=int, default=10_000_000,
                         help="Max nodes for backtracking enumeration (default: 10M)")
     parser.add_argument("--time-limit", type=int, default=60,
@@ -1481,7 +1856,7 @@ def main():
     all_flags = [args.pairs, args.rules, args.narrow, args.graph,
                  args.boundaries, args.construct, args.enumerate,
                  args.trigram_paths, args.line_decomp, args.pair_neighborhoods,
-                 args.residuals, args.info]
+                 args.residuals, args.info, args.differential]
     if not any(all_flags):
         args.rules = True
         args.narrow = True
@@ -1534,6 +1909,11 @@ def main():
 
     if args.info:
         print_info_content()
+        print()
+
+    if args.differential:
+        print_differential_analysis(max_nodes=args.max_nodes,
+                                    time_limit=args.time_limit)
         print()
 
 if __name__ == "__main__":
