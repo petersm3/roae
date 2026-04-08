@@ -20,6 +20,28 @@ Think of it this way: you have 64 unique tiles and someone arranged them in a sp
 
 The program answers these questions by treating each hexagram as a 6-digit binary number and analyzing the mathematical relationships between consecutive hexagrams in the sequence.
 
+## What a hexagram looks like
+
+A hexagram is read bottom to top. Each line is either solid (yang, 1) or broken (yin, 0):
+
+```
+Line 6 (top):    -------   1       Hexagram 1        Hexagram 2
+Line 5:          -------   1       The Creative ䷀    The Receptive ䷁
+Line 4:          -------   1
+Line 3:          -------   1       -------            --- ---
+Line 2:          -------   1       -------            --- ---
+Line 1 (bottom): -------   1       -------            --- ---
+                                   -------            --- ---
+                 Binary: 111111    -------            --- ---
+                                   -------            --- ---
+
+                                   111111             000000
+```
+
+The binary encoding reads bottom to top: line 1 is the rightmost bit, line 6 is the leftmost. So `010001` means lines 1 and 5 are solid, the rest broken.
+
+Each hexagram is also split into two halves called **trigrams** — the bottom three lines (lower trigram) and the top three lines (upper trigram). There are 8 possible trigrams, giving 8 x 8 = 64 possible hexagrams.
+
 ## Key concepts
 
 ### Hamming distance
