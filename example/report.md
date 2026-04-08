@@ -707,6 +707,7 @@ Lag    Autocorrelation  Sig?  Visualization
 31             -0.0480        [            :  |  :           ]
 
 Significant lags (outside noise band): 0/31
+(Expected false positives at 95% threshold with 31 lags: ~1.6)
 No significant autocorrelation detected — consistent with no hidden periodicity,
 but note that N=63 provides limited statistical power to detect weak periodicity.
 ```
@@ -761,6 +762,9 @@ Freq   Period  Magnitude  Sig?  Spectrum
   31      2.0     0.2033        ###################
 
 Frequencies above 2x noise floor: 1/31
+(The 2x threshold is ad hoc. A proper test would use Fisher's g-statistic or
+Bonferroni correction across frequency bins. With only 63 samples, even real
+periodicity may not rise above the noise floor.)
 ```
 
 ## Markov chain analysis
@@ -789,7 +793,6 @@ Transition probability matrix (row = from, column = to)
 are anecdotes, not statistically meaningful.)
   3 -> 2: 46% (6/13 times)
   3 -> 4: 46% (6/13 times)
-  6 -> 2: 50% (4/8 times)
 ```
 
 ### Permutation test

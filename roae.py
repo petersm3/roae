@@ -989,6 +989,8 @@ def print_autocorrelation():
         print(f"{lag:<5} {autocorr:>16.4f} {sig:>5}  [{bar_str}]")
 
     print(f"\nSignificant lags (outside noise band): {significant_count}/{n//2}")
+    expected_false = 0.05 * (n // 2)
+    print(f"(Expected false positives at 95% threshold with {n//2} lags: ~{expected_false:.1f})")
     if significant_count == 0:
         print("No significant autocorrelation detected — consistent with no hidden periodicity,")
         print("but note that N=63 provides limited statistical power to detect weak periodicity.")
@@ -1315,6 +1317,9 @@ def print_fft():
         print(f"{k:>4} {period:>8.1f} {mag:>10.4f} {sig:>5}  {bar}")
 
     print(f"\nFrequencies above 2x noise floor: {sig_count}/{n//2}")
+    print("(The 2x threshold is ad hoc. A proper test would use Fisher's g-statistic or")
+    print("Bonferroni correction across frequency bins. With only 63 samples, even real")
+    print("periodicity may not rise above the noise floor.)")
 
 def print_markov():
     """Markov chain analysis of the difference wave transitions."""
@@ -1373,8 +1378,8 @@ def print_markov():
         for s_to in states:
             count = transition_counts[s_from][s_to]
             prob = count / row_total
-            if prob >= 0.4 and count >= 3:
-                caveat = " [small sample]" if row_total < 5 else ""
+            if prob >= 0.4 and count >= 5:
+                caveat = " [small sample]" if row_total < 10 else ""
                 print(f"  {s_from} -> {s_to}: {prob:.0%} ({count}/{row_total} times){caveat}")
 
     # Permutation test: is the transition matrix more structured than random?
@@ -2130,6 +2135,15 @@ def print_self_test():
             break
     check("All 32 pairs are reverse or inverse", all_pairs_ok)
 
+    # Within-pair distances are never 5 (always even for reverse, 6 for inverse)
+    no_five_within = True
+    for i in range(0, 64, 2):
+        d = bit_diff(binary_hexagrams[i], binary_hexagrams[i+1])
+        if d == 5:
+            no_five_within = False
+            break
+    check("No within-pair 5-line distances", no_five_within)
+
     # No 5-line transitions
     no_five = True
     for i in range(63):
@@ -2667,8 +2681,8 @@ def print_recurrence():
         if t % step == 0:
             progress_bar(t, trials, "Shuffling")
         random.shuffle(values)
-        rand_diffs = [bit_diff(values[i], values[i + 1]) for i in range(63)]
-        rand_matches = sum(1 for i in range(63) for j in range(63)
+        rand_diffs = [bit_diff(values[i], values[i + 1]) for i in range(n)]
+        rand_matches = sum(1 for i in range(n) for j in range(n)
                           if i != j and rand_diffs[i] == rand_diffs[j])
         rand_rates.append(rand_matches / total_pairs)
     progress_bar(trials, trials, "Shuffling")

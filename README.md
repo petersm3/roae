@@ -48,7 +48,7 @@ python3 roae.py              # Run all 28 analyses (default)
 python3 roae.py --quick      # Run core sections only (fast)
 python3 roae.py --table      # Run a specific section
 python3 roae.py --help-sections  # List all available sections
-python3 roae.py --self-test  # Verify data integrity (20 checks)
+python3 roae.py --self-test  # Verify data integrity (21 checks)
 ```
 
 ### Analysis sections (28)
@@ -120,7 +120,7 @@ python3 roae.py --midi      # writes wave.mid
 ### Verification
 
 ```
-python3 roae.py --self-test  # 20 mathematical invariant checks
+python3 roae.py --self-test  # 21 mathematical invariant checks
 ```
 
 Verifies data integrity, pair structure, no-5-line property, yin-yang balance, trigram distribution, lookup table consistency, and mathematical function correctness.
