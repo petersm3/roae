@@ -15,6 +15,8 @@ Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_W
 
 A single-file Python analysis engine (no external dependencies) that approaches the King Wen sequence from nearly every mathematical angle available. It started as a script verifying a known structural property of the sequence and grew into a comprehensive toolkit for studying the combinatorial structure of an ancient Chinese ordering system.
 
+Note: this program analyzes the mathematical structure of the ordering only. The [I Ching](https://en.wikipedia.org/wiki/I_Ching) is a foundational text of Chinese philosophy, divination, and cosmology with over three millennia of commentary and practice. This program does not address the philosophical, divinatory, or literary dimensions of the text.
+
 ## Example
 
 See [example output](example/README.md) for full program output.
@@ -129,6 +131,8 @@ Verifies data integrity, pair structure, no-5-line property, yin-yang balance, t
 
 Python 3.6+ with no external dependencies (stdlib only).
 
+Reproducibility note: `--seed N` produces deterministic results, but Python's `random` module implementation may vary across Python versions. The example output was generated with Python 3.12. Results with the same seed on different Python versions may differ slightly.
+
 Optional external programs for export formats:
 - [Graphviz](https://graphviz.org/) — `--dot` auto-generates PNG and SVG alongside the DOT file (`sudo apt install graphviz`)
 - [wkhtmltopdf](https://wkhtmltopdf.org/) — `--html` auto-generates a PDF alongside the HTML report (`sudo apt install wkhtmltopdf`)
@@ -136,7 +140,7 @@ Optional external programs for export formats:
 ## References
 
 * [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
-* [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) — Wikipedia (traditional attribution, ~1000 BCE)
+* [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) — Wikipedia (traditional attribution, ~1000 BCE; modern scholarship is divided on the exact origin and dating of the sequence)
 * [OEIS A102241](https://oeis.org/A102241) — binary encoding of King Wen hexagrams
 * [Bagua (eight trigrams)](https://en.wikipedia.org/wiki/Bagua) — Wikipedia (trigram names and associations)
 * [Hexagram (I Ching)](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — Wikipedia (hexagram structure, nuclear trigrams)

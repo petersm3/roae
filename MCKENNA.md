@@ -57,7 +57,7 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 - The no-5 property is real but largely explained by the pair structure: ~4% of pair-constrained orderings also avoid 5-line transitions (~1 in 23), compared to ~1 in 550 for unconstrained orderings. Within reverse/inverse pairs, 5-line transitions are mathematically impossible (distances are always even or 6).
 - The complement distance is genuinely unusual — complements are placed significantly closer than random (0th percentile), suggesting deliberate organization around opposition.
 - The XOR algebraic regularity (`--symmetry`) is real and not well-explained.
-- The sequence was clearly designed with intentional mathematical structure by people [~3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou).
+- The sequence was clearly designed with intentional mathematical structure by people in antiquity (traditionally attributed to [~1000 BCE](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), though modern scholarship is divided on the exact origin and dating).
 
 ## What does not hold up
 
