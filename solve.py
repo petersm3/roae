@@ -1994,6 +1994,305 @@ def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
     search_note = "" if exhausted[0] else " (partial — more solutions may exist)"
     print(f"\nSearch: {status}{search_note}")
 
+def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
+    """Generate solutions satisfying Rules 1-6 + Rule 7a (exact complement distance).
+    Returns list of unique pair orderings."""
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+    kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
+    kw_dist = {}
+    for d in kw_diffs:
+        kw_dist[d] = kw_dist.get(d, 0) + 1
+    kw_comp_dist = mean_complement_distance(binary_hexagrams)
+
+    first_pair_idx = 0  # Creative/Receptive
+    pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
+
+    solutions = []
+    nodes = [0]
+    start = time.time()
+
+    def backtrack(seq, used, dist_budget):
+        nodes[0] += 1
+        if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+            return
+        step = len(seq) // 2
+        if step == n:
+            cd = mean_complement_distance(seq)
+            if abs(cd - kw_comp_dist) < 0.001:
+                solutions.append(list(seq))
+            return
+        for j in range(n):
+            if j in used:
+                continue
+            for first, second in pair_options[j]:
+                if seq and bit_diff(seq[-1], first) == 5:
+                    continue
+                new_budget = dict(dist_budget)
+                if seq:
+                    bd = bit_diff(seq[-1], first)
+                    if new_budget.get(bd, 0) <= 0:
+                        continue
+                    new_budget[bd] -= 1
+                wd = bit_diff(first, second)
+                if new_budget.get(wd, 0) <= 0:
+                    continue
+                new_budget[wd] -= 1
+                backtrack(seq + [first, second], used | {j}, new_budget)
+                if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+                    return
+
+    init_budget = dict(kw_dist)
+    init_budget[bit_diff(0b111111, 0b000000)] -= 1
+    backtrack([0b111111, 0b000000], {first_pair_idx}, init_budget)
+
+    # De-duplicate
+    seen = set()
+    unique = []
+    for sol in solutions:
+        key = tuple(tuple(sorted([sol[i], sol[i + 1]])) for i in range(0, 64, 2))
+        if key not in seen:
+            seen.add(key)
+            unique.append(sol)
+
+    elapsed = time.time() - start
+    print(f"  Generated {len(solutions)} raw -> {len(unique)} unique orderings "
+          f"({nodes[0]:,} nodes, {elapsed:.1f}s)", file=sys.stderr)
+    return unique
+
+def print_fingerprint(max_nodes=30_000_000, time_limit=120):
+    """Three analyses to characterize the missing rule."""
+    print("=" * 70)
+    print("FINGERPRINT ANALYSIS")
+    print("=" * 70)
+    print()
+    print("Characterize what distinguishes King Wen from the ~974 other orderings")
+    print("satisfying Rules 1-7a.")
+    print()
+
+    print("Generating Rule 7a solutions...")
+    survivors = generate_rule7a_solutions(max_nodes=max_nodes, time_limit=time_limit)
+
+    if len(survivors) < 2:
+        print("Not enough solutions for analysis.")
+        return
+
+    # Separate King Wen from the rest
+    kw_seq = binary_hexagrams
+    others = [s for s in survivors if s != kw_seq]
+    kw_found = len(survivors) - len(others) > 0
+    print(f"\nTotal unique orderings: {len(survivors)}")
+    print(f"King Wen found: {'YES' if kw_found else 'No'}")
+    print(f"Non-King-Wen orderings: {len(others)}")
+    print()
+
+    # Extract pair orderings for comparison
+    def get_pair_ordering(seq):
+        """Return list of 32 (canonical_pair, orientation) tuples."""
+        result = []
+        for i in range(0, 64, 2):
+            a, b = seq[i], seq[i + 1]
+            canonical = tuple(sorted([a, b]))
+            orient = 0 if a <= b else 1
+            result.append((canonical, orient))
+        return result
+
+    kw_pairs_ord = get_pair_ordering(kw_seq)
+    kw_canonical = [p for p, o in kw_pairs_ord]
+
+    # =========================================================
+    # ANALYSIS 1: Free vs locked positions
+    # =========================================================
+    print("=" * 70)
+    print("ANALYSIS 1: FREE vs LOCKED PAIR POSITIONS")
+    print("=" * 70)
+    print()
+    print("Which of the 32 pair positions always match King Wen (locked)")
+    print("vs sometimes differ (free)?")
+    print()
+
+    position_varies = [False] * 32
+    position_match_counts = [0] * 32
+
+    for sol in survivors:
+        sol_canonical = [tuple(sorted([sol[i], sol[i + 1]])) for i in range(0, 64, 2)]
+        for pos in range(32):
+            if sol_canonical[pos] == kw_canonical[pos]:
+                position_match_counts[pos] += 1
+            else:
+                position_varies[pos] = True
+
+    locked = [i for i in range(32) if not position_varies[i]]
+    free = [i for i in range(32) if position_varies[i]]
+
+    print(f"Locked positions (same in ALL solutions): {len(locked)}/32")
+    print(f"Free positions (vary across solutions):   {len(free)}/32")
+    print()
+
+    if locked:
+        print("Locked positions:", ", ".join(str(i + 1) for i in locked))
+    if free:
+        print("Free positions:  ", ", ".join(str(i + 1) for i in free))
+        print()
+        print("Match rate per free position (% of solutions matching King Wen):")
+        for pos in free:
+            rate = position_match_counts[pos] / len(survivors) * 100
+            kw_pair = kw_canonical[pos]
+            a, b = kw_pair
+            print(f"  Position {pos + 1:>2}: {rate:>5.1f}% match KW  "
+                  f"(pair: {bin(a)[2:].zfill(6)}+{bin(b)[2:].zfill(6)})")
+
+    # =========================================================
+    # ANALYSIS 2: Edit distance clustering
+    # =========================================================
+    print()
+    print("=" * 70)
+    print("ANALYSIS 2: EDIT DISTANCE FROM KING WEN")
+    print("=" * 70)
+    print()
+    print("How many pair positions differ between each survivor and King Wen?")
+    print()
+
+    edit_distances = []
+    for sol in others:
+        sol_canonical = [tuple(sorted([sol[i], sol[i + 1]])) for i in range(0, 64, 2)]
+        diff_count = sum(1 for i in range(32) if sol_canonical[i] != kw_canonical[i])
+        edit_distances.append(diff_count)
+
+    if edit_distances:
+        dist_counts = {}
+        for d in edit_distances:
+            dist_counts[d] = dist_counts.get(d, 0) + 1
+
+        print(f"{'Pairs different':>15} {'Count':>8} {'Cumulative':>12}")
+        print(f"{'---------------':>15} {'-----':>8} {'----------':>12}")
+        cumulative = 0
+        for d in sorted(dist_counts):
+            cumulative += dist_counts[d]
+            print(f"{d:>15} {dist_counts[d]:>8} {cumulative:>12}")
+
+        # Show the closest non-KW solutions
+        print()
+        closest = sorted(zip(edit_distances, others), key=lambda x: x[0])
+        print(f"--- Closest non-King-Wen solutions ---")
+        for i, (dist, sol) in enumerate(closest[:10]):
+            sol_canonical = [tuple(sorted([sol[i2], sol[i2 + 1]]))
+                            for i2 in range(0, 64, 2)]
+            diff_positions = [pos + 1 for pos in range(32)
+                             if sol_canonical[pos] != kw_canonical[pos]]
+            print(f"  Edit distance {dist}: positions {diff_positions}")
+
+    # =========================================================
+    # ANALYSIS 3: Minimum distinguishing constraints
+    # =========================================================
+    print()
+    print("=" * 70)
+    print("ANALYSIS 3: MINIMUM DISTINGUISHING CONSTRAINTS")
+    print("=" * 70)
+    print()
+    print("For each pair adjacency in King Wen, how many survivors share it?")
+    print("Adjacencies that ALL survivors share are forced by the rules.")
+    print("Adjacencies unique to King Wen are the distinguishing constraints.")
+    print()
+
+    # King Wen's pair adjacencies (which canonical pair follows which)
+    kw_adjacencies = []
+    for i in range(31):
+        kw_adjacencies.append((kw_canonical[i], kw_canonical[i + 1]))
+
+    # Count how many survivors share each adjacency
+    adjacency_counts = [0] * 31
+    for sol in survivors:
+        sol_canonical = [tuple(sorted([sol[i], sol[i + 1]])) for i in range(0, 64, 2)]
+        for pos in range(31):
+            if (sol_canonical[pos] == kw_canonical[pos] and
+                    sol_canonical[pos + 1] == kw_canonical[pos + 1]):
+                adjacency_counts[pos] += 1
+
+    universal = []
+    rare = []
+    unique_to_kw = []
+
+    print(f"{'Boundary':>8} {'Shared by':>10} {'of':>3} {len(survivors):>5} {'Rate':>7} Note")
+    print(f"{'--------':>8} {'---------':>10} {'--':>3} {'-----':>5} {'----':>7} ----")
+    for pos in range(31):
+        count = adjacency_counts[pos]
+        rate = count / len(survivors) * 100
+        note = ""
+        if count == len(survivors):
+            note = "UNIVERSAL (forced by rules)"
+            universal.append(pos)
+        elif count == 1:
+            note = "UNIQUE TO KING WEN"
+            unique_to_kw.append(pos)
+        elif rate < 10:
+            note = "rare"
+            rare.append(pos)
+        print(f"{pos + 1:>8} {count:>10} {'of':>3} {len(survivors):>5} {rate:>6.1f}% {note}")
+
+    print()
+    print(f"Universal adjacencies (forced by rules): {len(universal)}/31")
+    print(f"Rare adjacencies (<10% of survivors):    {len(rare)}/31")
+    print(f"Unique to King Wen:                      {len(unique_to_kw)}/31")
+
+    if unique_to_kw:
+        print()
+        print("The unique adjacencies ARE the missing rule — King Wen is the only")
+        print("solution that has these specific pairs next to each other:")
+        for pos in unique_to_kw:
+            a1, b1 = kw_canonical[pos]
+            a2, b2 = kw_canonical[pos + 1]
+            # Get position numbers in King Wen
+            pos1 = pos * 2 + 1
+            pos2 = pos * 2 + 3
+            print(f"  Boundary {pos + 1}: pair at positions {pos1}-{pos1+1} "
+                  f"({bin(a1)[2:].zfill(6)}+{bin(b1)[2:].zfill(6)}) "
+                  f"adjacent to pair at positions {pos2}-{pos2+1} "
+                  f"({bin(a2)[2:].zfill(6)}+{bin(b2)[2:].zfill(6)})")
+
+    # How many rare+unique adjacencies needed to eliminate all non-KW solutions?
+    if others:
+        print()
+        print("--- Minimum constraint set ---")
+        print("Greedy search: what's the smallest set of King Wen adjacencies")
+        print("that eliminates all non-King-Wen solutions?")
+        print()
+
+        remaining = set(range(len(others)))
+        selected = []
+
+        # Build elimination matrix: which adjacency eliminates which solution
+        elim = {}
+        for pos in range(31):
+            elim[pos] = set()
+            for idx, sol in enumerate(others):
+                sol_canonical = [tuple(sorted([sol[i], sol[i + 1]]))
+                                for i in range(0, 64, 2)]
+                if (sol_canonical[pos] != kw_canonical[pos] or
+                        sol_canonical[pos + 1] != kw_canonical[pos + 1]):
+                    elim[pos].add(idx)
+
+        while remaining:
+            # Pick adjacency that eliminates the most remaining solutions
+            best_pos = max(range(31), key=lambda p: len(elim[p] & remaining))
+            eliminated = elim[best_pos] & remaining
+            if not eliminated:
+                print(f"  WARNING: cannot eliminate {len(remaining)} remaining solutions")
+                print(f"  with pair adjacency constraints alone.")
+                break
+            remaining -= eliminated
+            selected.append((best_pos, len(eliminated)))
+            print(f"  Adjacency {best_pos + 1:>2}: eliminates {len(eliminated):>4} solutions "
+                  f"({len(remaining):>4} remaining)")
+
+        print()
+        print(f"Minimum adjacency constraints needed: {len(selected)}")
+        print(f"Constraint positions: {[pos + 1 for pos, _ in selected]}")
+        print()
+        if len(selected) <= 10:
+            print("These adjacencies, combined with Rules 1-7a, uniquely determine")
+            print("the King Wen sequence.")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -2032,6 +2331,8 @@ def main():
                         help="Differential analysis: find features where King Wen is extremal among solutions")
     parser.add_argument("--rule7", action="store_true",
                         help="Test Rule 7 candidates: filter by extremal complement distance and line autocorrelation")
+    parser.add_argument("--fingerprint", action="store_true",
+                        help="Fingerprint analysis: free positions, edit distances, minimum constraints")
     parser.add_argument("--max-nodes", type=int, default=10_000_000,
                         help="Max nodes for backtracking enumeration (default: 10M)")
     parser.add_argument("--time-limit", type=int, default=60,
@@ -2061,7 +2362,8 @@ def main():
     all_flags = [args.pairs, args.rules, args.narrow, args.graph,
                  args.boundaries, args.construct, args.enumerate,
                  args.trigram_paths, args.line_decomp, args.pair_neighborhoods,
-                 args.residuals, args.info, args.differential, args.rule7]
+                 args.residuals, args.info, args.differential, args.rule7,
+                 args.fingerprint]
     if not any(all_flags):
         args.rules = True
         args.narrow = True
@@ -2123,6 +2425,10 @@ def main():
 
     if args.rule7:
         print_rule7_test(max_nodes=args.max_nodes, time_limit=args.time_limit)
+        print()
+
+    if args.fingerprint:
+        print_fingerprint(max_nodes=args.max_nodes, time_limit=args.time_limit)
         print()
 
 if __name__ == "__main__":
