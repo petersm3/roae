@@ -212,6 +212,7 @@ The percentiles are Monte Carlo estimates based on 10,000-100,000 random permuta
 
 ## Where to go deeper
 
+- [SOLVE.md](SOLVE.md) — Can the sequence be reconstructed from its rules? The constraint solver and generative recipe (`solve.py`)
 - [MCKENNA.md](MCKENNA.md) — How these findings relate to Terence McKenna's Timewave Zero theory, what holds up and what doesn't
 - [CRITIQUE.md](CRITIQUE.md) — Known limitations of the program's statistical methodology
 - [Example output](example/README.md) — Full program output with all 28 analyses
