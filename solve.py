@@ -4,7 +4,7 @@
 Constraint solver for the King Wen sequence.
 
 Attempts to reconstruct the King Wen sequence from a minimal set of rules.
-Imports hexagram data and utility functions from roae.py.
+Standalone — no external dependencies.
 
 See SOLVE.md for methodology and results.
 """
@@ -13,10 +13,53 @@ import random
 import sys
 import time
 
-from roae import (
-    binary_hexagrams, hexagram_names, unicode_hexagrams,
-    reverse_6bit, bit_diff, upper_trigram, lower_trigram,
-)
+# --- Hexagram data (King Wen order) ---
+
+# Each hexagram as a 6-bit integer: 1=solid (yang), 0=broken (yin).
+# Bit 0 = bottom line, bit 5 = top. Source: https://oeis.org/A102241
+binary_hexagrams = [
+    0b111111, 0b000000, 0b010001, 0b100010, 0b010111, 0b111010, 0b000010, 0b010000,
+    0b110111, 0b111011, 0b000111, 0b111000, 0b111101, 0b101111, 0b000100, 0b001000,
+    0b011001, 0b100110, 0b000011, 0b110000, 0b101001, 0b100101, 0b100000, 0b000001,
+    0b111001, 0b100111, 0b100001, 0b011110, 0b010010, 0b101101, 0b011100, 0b001110,
+    0b111100, 0b001111, 0b101000, 0b000101, 0b110101, 0b101011, 0b010100, 0b001010,
+    0b100011, 0b110001, 0b011111, 0b111110, 0b011000, 0b000110, 0b011010, 0b010110,
+    0b011101, 0b101110, 0b001001, 0b100100, 0b110100, 0b001011, 0b001101, 0b101100,
+    0b110110, 0b011011, 0b110010, 0b010011, 0b110011, 0b001100, 0b010101, 0b101010,
+]
+
+# English names (Wilhelm/Baynes translation)
+hexagram_names = [
+    "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
+    "Waiting", "Conflict", "The Army", "Holding Together",
+    "Small Taming", "Treading", "Peace", "Standstill",
+    "Fellowship", "Great Possession", "Modesty", "Enthusiasm",
+    "Following", "Work on the Decayed", "Approach", "Contemplation",
+    "Biting Through", "Grace", "Splitting Apart", "Return",
+    "Innocence", "Great Taming", "Nourishment", "Great Preponderance",
+    "The Abysmal", "The Clinging", "Influence", "Duration",
+    "Retreat", "Great Power", "Progress", "Darkening of the Light",
+    "The Family", "Opposition", "Obstruction", "Deliverance",
+    "Decrease", "Increase", "Breakthrough", "Coming to Meet",
+    "Gathering Together", "Pushing Upward", "Oppression", "The Well",
+    "Revolution", "The Cauldron", "The Arousing", "Keeping Still",
+    "Development", "The Marrying Maiden", "Abundance", "The Wanderer",
+    "The Gentle", "The Joyous", "Dispersion", "Limitation",
+    "Inner Truth", "Small Preponderance", "After Completion", "Before Completion",
+]
+
+# --- Utility functions ---
+
+def reverse_6bit(n):
+    """Reverse the bit order of a 6-bit value (flip hexagram upside down)."""
+    return (
+        ((n >> 0) & 1) << 5 | ((n >> 1) & 1) << 4 | ((n >> 2) & 1) << 3 |
+        ((n >> 3) & 1) << 2 | ((n >> 4) & 1) << 1 | ((n >> 5) & 1) << 0
+    )
+
+def bit_diff(a, b):
+    """Count bits that differ between two 6-bit values (Hamming distance)."""
+    return bin(a ^ b).count("1")
 
 # The 32 canonical pairs: each hexagram paired with its reverse (or inverse
 # for the 4 symmetric hexagrams). This pairing is unique and deterministic.

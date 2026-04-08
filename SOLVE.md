@@ -103,4 +103,4 @@ python3 solve.py --narrow --verbose           # Show progress during search
 
 ## Requirements
 
-Python 3.6+ with no external dependencies. Imports data and utility functions from `roae.py` (must be in the same directory).
+Python 3.6+ with no external dependencies. Standalone — does not require `roae.py`.
