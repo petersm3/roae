@@ -43,15 +43,19 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 
 ### Additional findings from ROAE
 
-- **The wave's structure is local, not global** — `--windowed-entropy` shows entropy varies across the sequence, with some regions more structured than others. There is no uniform "signal" — the structure comes in patches.
-- **Upper and lower trigrams change independently** — `--mutual-info` shows near-zero mutual information between upper and lower trigram transitions. Whatever rules govern the sequence, they don't couple the two halves of each hexagram.
+- **The wave's structure is local, not global** — `--windowed-entropy` shows entropy varies across the sequence, with some regions more structured than others. There is no uniform "signal" — the structure comes in patches. (Note: windowed entropy is exploratory visualization without a null model; apparent patterns may reflect random variation.)
+- **Upper and lower trigrams change independently** — `--mutual-info` shows near-zero mutual information between upper and lower trigram transitions. Whatever rules govern the sequence, they don't couple the two halves of each hexagram. (Note: with all 64 combinations present exactly once, independence is expected by construction.)
 - **Yin-yang balance is a tautology** — `--yinyang` confirms exactly 192 yang and 192 yin lines across all 64 hexagrams. This is a necessary consequence of containing all 64 possible hexagrams exactly once, not evidence of additional design. The local balance (where yang or yin clusters) is a property of the ordering.
 - **The sequence is unique among historical orderings** — `--sequences` shows that neither the [Fu Xi](https://en.wikipedia.org/wiki/Shao_Yong) (binary) nor [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering avoids 5-line transitions. This property is specific to King Wen.
+- **Complements are deliberately close** — `--complements` shows King Wen places complementary hexagrams significantly closer together than random (0th percentile), suggesting intentional organization around opposition.
+- **Palindromes are unremarkable** — `--palindromes` under pair-constrained null model shows King Wen at the 49th percentile for count and 14th for longest palindrome. No evidence of deliberate palindromic structure.
+- **The canon split is not structural** — `--canons` permutation test shows the Upper/Lower Canon division does not correspond to a statistically significant boundary (~12th percentile for mean-difference gap).
 
 ## What holds up
 
 - The pair structure is genuinely perfect and vanishingly unlikely by chance (`--constraints` shows 0/10,000 random permutations achieve it; 95% upper bound: less than 1 in 3,333).
 - The no-5 property is real but largely explained by the pair structure: ~4% of pair-constrained orderings also avoid 5-line transitions (~1 in 23), compared to ~1 in 550 for unconstrained orderings. Within reverse/inverse pairs, 5-line transitions are mathematically impossible (distances are always even or 6).
+- The complement distance is genuinely unusual — complements are placed significantly closer than random (0th percentile), suggesting deliberate organization around opposition.
 - The XOR algebraic regularity (`--symmetry`) is real and not well-explained.
 - The sequence was clearly designed with intentional mathematical structure by people [~3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou).
 
@@ -59,7 +63,8 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 
 - The difference wave is not a "signal" in any meaningful sense — its Markov structure and path length are indistinguishable from random orderings that share the pair constraint.
 - There is no detectable periodicity, though the data is too short to be conclusive.
-- Several properties initially reported as findings (yin-yang balance, Markov patterns) are either tautological or statistically insignificant.
+- Several properties initially reported as findings (yin-yang balance, Markov patterns, trigram independence) are either tautological or statistically insignificant.
+- Palindromes, canon split, recurrence rate, and neighborhood clustering are all within chance expectations under appropriate null models.
 
 The King Wen sequence is genuinely remarkable as a combinatorial object, but McKenna's specific claims about what it *encodes* and what the wave *means* don't survive mathematical scrutiny.
 

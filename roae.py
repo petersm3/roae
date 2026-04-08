@@ -461,6 +461,11 @@ def print_trigrams():
             row += f"{count:<6}"
         print(row)
 
+    print("\n--- Methodological note ---")
+    print("With ~1 expected observation per cell, no goodness-of-fit test (e.g.,")
+    print("chi-square) has sufficient power to detect deviations from uniform")
+    print("transitions. The matrices are descriptive only.")
+
 def print_nuclear():
     """Nuclear hexagram analysis. Each hexagram contains an inner (nuclear)
     hexagram formed by lines 2-3-4 (lower trigram) and 3-4-5 (upper trigram).
@@ -579,6 +584,7 @@ def print_line_changes():
 def print_complements():
     """Find the bitwise complement (inverse) of each hexagram and show how far
     apart each hexagram and its complement are in the King Wen sequence."""
+    _reseed(10)
     print("---")
     print("Complement distance analysis")
     print("Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines")
@@ -602,10 +608,41 @@ def print_complements():
               f"distance: {dist:2}  {hexagram_names[i]} <-> {hexagram_names[comp_pos]}")
 
     print(f"\n--- Complement distance statistics ---")
-    print(f"Mean distance:   {sum(distances)/len(distances):.1f}")
+    kw_mean = sum(distances) / len(distances)
+    print(f"Mean distance:   {kw_mean:.1f}")
     print(f"Median distance: {sorted(distances)[32]}")
     print(f"Min distance:    {min(distances)} (adjacent = pair is an inverse pair)")
     print(f"Max distance:    {max(distances)}")
+
+    # --- Monte Carlo null model ---
+    print(f"\n--- Complement distance null model ---")
+    n_trials = 10000
+    values = list(binary_hexagrams)
+    random_means = []
+    for _ in range(n_trials):
+        random.shuffle(values)
+        val_to_pos = {}
+        for pos, val in enumerate(values):
+            val_to_pos[val] = pos
+        trial_dists = []
+        for pos, val in enumerate(values):
+            comp = val ^ 0b111111
+            trial_dists.append(abs(val_to_pos[comp] - pos))
+        random_means.append(sum(trial_dists) / len(trial_dists))
+    percentile = 100.0 * sum(1 for m in random_means if m <= kw_mean) / n_trials
+    rand_grand_mean = sum(random_means) / len(random_means)
+    print(f"Random mean complement distance (over {n_trials} shuffles): {rand_grand_mean:.1f}")
+    print(f"King Wen mean complement distance: {kw_mean:.1f}")
+    print(f"King Wen percentile vs random: {percentile:.1f}%")
+    if percentile <= 5:
+        print("Complements are significantly closer together than chance would predict,")
+        print("suggesting the sequence was deliberately organized around opposition.")
+    elif percentile >= 95:
+        print("Complements are significantly farther apart than chance would predict,")
+        print("suggesting deliberate separation of opposites into distant structural sections.")
+    else:
+        print("Complement distances are within the range expected by chance;")
+        print("no strong evidence of deliberate placement based on opposition alone.")
 
 def print_palindromes():
     """Search for palindromic subsequences in the first-order difference wave.
@@ -686,9 +723,61 @@ def print_palindromes():
     print(f"King Wen palindrome count percentile: {below_total/10:.1f}%")
     print(f"King Wen longest palindrome percentile: {below_longest/10:.1f}%")
 
+    # Pair-constrained palindrome null model
+    print(f"\n--- Pair-constrained palindrome null model ---")
+    print("The unconstrained comparison shuffles all 64 hexagrams freely. A fairer")
+    print("comparison preserves the pair structure: each pair of hexagrams stays")
+    print("adjacent, only the pair order and within-pair orientation are randomized.")
+
+    # Build pairs from the binary hexagrams (same logic as print_entropy)
+    paired_set = set()
+    pal_pairs = []
+    for v in range(64):
+        if v in paired_set:
+            continue
+        rev = reverse_6bit(v)
+        inv = v ^ 0b111111
+        partner = rev if rev != v else inv
+        pal_pairs.append((v, partner))
+        paired_set.add(v)
+        paired_set.add(partner)
+
+    pair_rand_totals = []
+    pair_rand_longests = []
+    for _ in range(1000):
+        random.shuffle(pal_pairs)
+        seq = []
+        for a, b in pal_pairs:
+            if random.random() < 0.5:
+                seq.extend([a, b])
+            else:
+                seq.extend([b, a])
+        pair_diffs = [bit_diff(seq[i], seq[i+1]) for i in range(63)]
+        count = 0
+        longest = 0
+        for length in range(len(pair_diffs), 2, -1):
+            for start in range(len(pair_diffs) - length + 1):
+                sub = pair_diffs[start:start+length]
+                if sub == sub[::-1]:
+                    count += 1
+                    if length > longest:
+                        longest = length
+        pair_rand_totals.append(count)
+        pair_rand_longests.append(longest)
+
+    pair_mean_total = sum(pair_rand_totals) / len(pair_rand_totals)
+    pair_mean_longest = sum(pair_rand_longests) / len(pair_rand_longests)
+    pair_below_total = sum(1 for t in pair_rand_totals if t < kw_total)
+    pair_below_longest = sum(1 for t in pair_rand_longests if t < kw_longest)
+    print(f"King Wen palindromes: {kw_total}, longest: {kw_longest}")
+    print(f"Pair-constrained mean palindromes: {pair_mean_total:.1f}, mean longest: {pair_mean_longest:.1f}")
+    print(f"King Wen palindrome count percentile (pair-constrained): {pair_below_total/10:.1f}%")
+    print(f"King Wen longest palindrome percentile (pair-constrained): {pair_below_longest/10:.1f}%")
+
 def print_canons():
     """Compare the Upper Canon (hexagrams 1–30) and Lower Canon (31–64),
     the traditional division of the I Ching."""
+    _reseed(11)
     print("---")
     print("Upper Canon (1-30) vs. Lower Canon (31-64) comparison")
     print("The I Ching is traditionally divided into two books: the Upper Canon (hexagrams")
@@ -746,6 +835,44 @@ def print_canons():
     print(f"\n5-line transitions in Upper Canon: {upper_stats['tally'][5]}")
     print(f"5-line transitions in Lower Canon: {lower_stats['tally'][5]}")
 
+    # Permutation test: is the mean-difference gap between canons significant?
+    print(f"\n--- Canon split null model ---")
+    print("Permutation test: is the King Wen split at position 30 special, or would")
+    print("any random split of the 64-hexagram sequence show a similar gap in mean")
+    print("line-change differences between the two halves?")
+
+    kw_gap = abs(upper_stats["mean_diff"] - lower_stats["mean_diff"])
+
+    full_seq = list(binary_hexagrams)
+    n_perms = 10000
+    count_ge = 0
+    for _ in range(n_perms):
+        random.shuffle(full_seq)
+        # Compute diffs for first 30 and remaining 34, same split as King Wen
+        upper_diffs = [bit_diff(full_seq[i], full_seq[i + 1]) for i in range(29)]
+        lower_diffs = [bit_diff(full_seq[i], full_seq[i + 1]) for i in range(30, 63)]
+        upper_mean = sum(upper_diffs) / len(upper_diffs)
+        lower_mean = sum(lower_diffs) / len(lower_diffs)
+        if abs(upper_mean - lower_mean) >= kw_gap:
+            count_ge += 1
+
+    percentile = (1 - count_ge / n_perms) * 100
+    print(f"King Wen |upper_mean - lower_mean|: {kw_gap:.4f}")
+    print(f"Random permutations with gap >= King Wen: {count_ge}/{n_perms}")
+    print(f"King Wen gap percentile: {percentile:.1f}%")
+    if percentile >= 95:
+        print("The King Wen canon split produces a mean-difference gap that is")
+        print("unusually large (>= 95th percentile), suggesting the two halves are")
+        print("structured differently in a way unlikely to arise by chance.")
+    elif percentile <= 5:
+        print("The King Wen canon split produces a mean-difference gap that is")
+        print("unusually small (<= 5th percentile), suggesting the two halves are")
+        print("more similar than chance would predict.")
+    else:
+        print("The King Wen canon split does not produce a statistically significant")
+        print("mean-difference gap. The observed difference between upper and lower")
+        print("halves is consistent with what random shuffles produce.")
+
 def print_hamming():
     """Print the full 64x64 Hamming distance matrix between all hexagram pairs."""
     print("---")
@@ -791,6 +918,12 @@ def print_hamming():
         pct = dist_counts[n] / len(all_dists) * 100
         print(f"Distance {n}: {dist_counts[n]:4} pairs ({pct:5.1f}%)")
     print(f"Mean distance: {sum(all_dists)/len(all_dists):.2f}")
+
+    print("\n--- Null model note ---")
+    print("The Hamming distance matrix is a fixed property of the 6-bit binary")
+    print("encoding. It is identical for any ordering of the 64 hexagrams. Only")
+    print("which hexagrams are ADJACENT in the sequence depends on the ordering —")
+    print("the full distance matrix does not.")
 
 def print_autocorrelation():
     """Compute the autocorrelation of the first-order difference wave.
@@ -1331,6 +1464,11 @@ def print_graycode():
     kw_spark = "".join(SPARK[d] for d in kw_diffs)
     print(f"\nGray code wave: {gray_spark}")
     print(f"King Wen wave:  {kw_spark}")
+
+    print("\n--- Methodological note ---")
+    print("This comparison is descriptive. The Gray code ratio (King Wen path / Gray")
+    print("code path) is not a statistical test. For significance testing of King Wen's")
+    print("path length against appropriate null models, see --path.")
 
 def print_symmetry():
     """Analyze the XOR group structure of the King Wen sequence."""
@@ -2100,6 +2238,12 @@ def print_windowed_entropy():
         spark += SPARK[min(level, 6)]
     print(f"\nEntropy spark: {spark}")
 
+    print("\n--- Methodological note ---")
+    print("Windowed entropy is an exploratory visualization, not a statistical test.")
+    print("Apparent patterns (dips and peaks) are expected from random variation in a")
+    print("short sequence. Without a null model, no significance can be assigned to")
+    print("specific regions. Interpret as descriptive, not inferential.")
+
 def print_mutual_info():
     """Mutual information between upper and lower trigram transitions."""
     _reseed(7)
@@ -2224,6 +2368,8 @@ def print_mutual_info():
     print(f"MI(upper, lower) across all 64 hexagrams: {mi8:.6f} bits")
     print("(Expected: 0.0 — since all 64 combinations appear exactly once,")
     print("the trigrams are perfectly independent in the static set.)")
+    print("Note: with all 64 upper/lower trigram combinations present exactly once,")
+    print("independence is expected by construction (complete Latin square).")
 
 def print_bootstrap(trials=100000):
     """Bootstrap confidence intervals for Monte Carlo results."""
@@ -2277,6 +2423,11 @@ def print_bootstrap(trials=100000):
         ci_ratio_upper = 100 / ci_lower if ci_lower > 0 else float('inf')
         print(f"\nApproximately 1 in {approx_ratio:.0f} random orderings")
         print(f"95% CI: 1 in {ci_ratio_lower:.0f} to 1 in {ci_ratio_upper:.0f}")
+
+    print(f"\nNote: These CIs measure the precision of the Monte Carlo estimate, not")
+    print(f"fundamental uncertainty about the true proportion. They reflect how much")
+    print(f"the estimate would vary if you re-ran the simulation with {trials:,} trials.")
+    print(f"Increasing --trials narrows these CIs because the estimate becomes more precise.")
 
 def print_yinyang():
     """Track the running yin-yang balance through the sequence."""
@@ -2354,6 +2505,7 @@ def print_yinyang():
 
 def print_neighborhoods():
     """Show Hamming distance neighborhoods for each hexagram."""
+    _reseed(13)
     print("---")
     print("Hexagram neighborhoods")
     print("For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?")
@@ -2403,8 +2555,51 @@ def print_neighborhoods():
     else:
         print("Hamming-1 neighbors are NOT closer than average (not clustered).")
 
+    # --- Monte Carlo null model ---
+    print(f"\n--- Neighborhood clustering null model ---")
+    print("Shuffling binary hexagrams 10,000 times to build a null distribution")
+    print("of mean sequence distance between Hamming-1 neighbors.")
+
+    # Pre-compute all Hamming-1 pairs (by index into binary_hexagrams list)
+    hamming1_pairs = []
+    for i in range(64):
+        for j in range(64):
+            if bit_diff(binary_hexagrams[i], binary_hexagrams[j]) == 1:
+                hamming1_pairs.append((i, j))
+
+    n_shuffles = 10000
+    shuffle_means = []
+    shuffled = list(range(64))
+    for _ in range(n_shuffles):
+        random.shuffle(shuffled)
+        # Build position lookup: pos_of[original_index] = shuffled sequence position
+        pos_of = [0] * 64
+        for pos, orig in enumerate(shuffled):
+            pos_of[orig] = pos
+        total = sum(abs(pos_of[a] - pos_of[b]) for a, b in hamming1_pairs)
+        shuffle_means.append(total / len(hamming1_pairs))
+
+    count_le = sum(1 for m in shuffle_means if m <= mean_d)
+    percentile = count_le / n_shuffles * 100
+    shuffle_min = min(shuffle_means)
+    shuffle_max = max(shuffle_means)
+    shuffle_avg = sum(shuffle_means) / len(shuffle_means)
+
+    print(f"Null distribution: min={shuffle_min:.1f}, mean={shuffle_avg:.1f}, max={shuffle_max:.1f}")
+    print(f"King Wen observed mean: {mean_d:.1f}")
+    print(f"Percentile: {percentile:.1f}% (proportion of shuffles with mean <= King Wen's)")
+    if percentile <= 5:
+        print("King Wen's sequence clusters Hamming-1 neighbors significantly more than chance (p <= 0.05).")
+    elif percentile <= 10:
+        print("King Wen's sequence shows a trend toward clustering Hamming-1 neighbors (p <= 0.10).")
+    elif percentile >= 95:
+        print("King Wen's sequence separates Hamming-1 neighbors significantly more than chance (p <= 0.05).")
+    else:
+        print("King Wen's neighborhood clustering is within the range expected by chance.")
+
 def print_recurrence():
     """Generate a recurrence plot of the difference wave."""
+    _reseed(12)
     print("---")
     print("Recurrence plot")
     print("A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)")
@@ -2446,6 +2641,45 @@ def print_recurrence():
     matches = sum(1 for i in range(n) for j in range(n) if i != j and diffs[i] == diffs[j])
     total_pairs = n * (n - 1)
     print(f"\nRecurrence rate: {matches}/{total_pairs} ({matches/total_pairs*100:.1f}%)")
+    kw_rate = matches / total_pairs
+
+    # Null model comparison
+    print(f"\n--- Recurrence rate null model ---")
+
+    # Theoretical expected recurrence rate: sum(p_i^2) where p_i is the
+    # proportion of each distinct value in the difference wave.
+    # For N=63 values, if value v appears c_v times, p_v = c_v / 63.
+    # The expected recurrence rate (fraction of off-diagonal matches) for
+    # a sequence drawn from this distribution is sum(p_i^2).
+    counts = {}
+    for d in diffs:
+        counts[d] = counts.get(d, 0) + 1
+    expected_rate = sum((c / n) ** 2 for c in counts.values())
+    print(f"Theoretical expected recurrence rate (sum of p_i^2): {expected_rate*100:.1f}%")
+
+    # Permutation test: shuffle binary_hexagrams 10000 times, compute
+    # difference wave and recurrence rate for each
+    trials = 10000
+    values = list(binary_hexagrams)
+    rand_rates = []
+    step = trials // 20
+    for t in range(trials):
+        if t % step == 0:
+            progress_bar(t, trials, "Shuffling")
+        random.shuffle(values)
+        rand_diffs = [bit_diff(values[i], values[i + 1]) for i in range(63)]
+        rand_matches = sum(1 for i in range(63) for j in range(63)
+                          if i != j and rand_diffs[i] == rand_diffs[j])
+        rand_rates.append(rand_matches / total_pairs)
+    progress_bar(trials, trials, "Shuffling")
+    print()
+
+    mean_rand = sum(rand_rates) / len(rand_rates)
+    below = sum(1 for r in rand_rates if r <= kw_rate)
+    percentile = below / trials * 100
+    print(f"King Wen recurrence rate:       {kw_rate*100:.1f}%")
+    print(f"Mean random recurrence rate:    {mean_rand*100:.1f}%")
+    print(f"King Wen percentile vs random:  {percentile:.1f}%")
 
 def print_casting():
     """Simulate an I Ching reading using the three-coin method.

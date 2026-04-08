@@ -301,6 +301,14 @@ Xun       1     1     2     2     1     1     0     0
 Qian      3     1     1     1     1     0     1     0     
 ```
 
+### Methodological note
+
+```
+With ~1 expected observation per cell, no goodness-of-fit test (e.g.,
+chi-square) has sufficient power to detect deviations from uniform
+transitions. The matrices are descriptive only.
+```
+
 ## Nuclear hexagram analysis
 
 Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by
@@ -527,6 +535,16 @@ Min distance:    1 (adjacent = pair is an inverse pair)
 Max distance:    47
 ```
 
+### Complement distance null model
+
+```
+Random mean complement distance (over 10000 shuffles): 21.7
+King Wen mean complement distance: 12.1
+King Wen percentile vs random: 0.0%
+Complements are significantly closer together than chance would predict,
+suggesting the sequence was deliberately organized around opposition.
+```
+
 ## Palindrome analysis of the difference wave
 
 A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding
@@ -578,6 +596,18 @@ King Wen palindrome count percentile: 79.1%
 King Wen longest palindrome percentile: 42.7%
 ```
 
+### Pair-constrained palindrome null model
+
+```
+The unconstrained comparison shuffles all 64 hexagrams freely. A fairer
+comparison preserves the pair structure: each pair of hexagrams stays
+adjacent, only the pair order and within-pair orientation are randomized.
+King Wen palindromes: 27, longest: 7
+Pair-constrained mean palindromes: 27.6, mean longest: 8.4
+King Wen palindrome count percentile (pair-constrained): 49.4%
+King Wen longest palindrome percentile (pair-constrained): 13.7%
+```
+
 ## Upper Canon (1-30) vs. Lower Canon (31-64) comparison
 
 The I Ching is traditionally divided into two books: the Upper Canon (hexagrams
@@ -610,6 +640,20 @@ Lower Canon wave: ▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅�
 
 5-line transitions in Upper Canon: 0
 5-line transitions in Lower Canon: 0
+```
+
+### Canon split null model
+
+```
+Permutation test: is the King Wen split at position 30 special, or would
+any random split of the 64-hexagram sequence show a similar gap in mean
+line-change differences between the two halves?
+King Wen |upper_mean - lower_mean|: 0.0460
+Random permutations with gap >= King Wen: 8764/10000
+King Wen gap percentile: 12.4%
+The King Wen canon split does not produce a statistically significant
+mean-difference gap. The observed difference between upper and lower
+halves is consistent with what random shuffles produce.
 ```
 
 ## Autocorrelation of the difference wave
@@ -785,6 +829,14 @@ Gray code wave: ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁�
 King Wen wave:  █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
 ```
 
+### Methodological note
+
+```
+This comparison is descriptive. The Gray code ratio (King Wen path / Gray
+code path) is not a statistical test. For significance testing of King Wen's
+path length against appropriate null models, see --path.
+```
+
 ## Symmetry group analysis (XOR algebra)
 
 The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams
@@ -932,6 +984,15 @@ Max entropy: 2.2892 at position 56 (most varied)
 Entropy spark: ▃▃▃▃▃▅▃▃▃▃▃▃▃▃▃▅▅▃▅▅▅▅▅▅▅▅▅▅▅▃▃▃▃▃▃▃▃▅▅▅▅▅▅▅▅▅▅▅▅
 ```
 
+### Methodological note
+
+```
+Windowed entropy is an exploratory visualization, not a statistical test.
+Apparent patterns (dips and peaks) are expected from random variation in a
+short sequence. Without a null model, no significance can be assigned to
+specific regions. Interpret as descriptive, not inferential.
+```
+
 ## Mutual information: upper vs. lower trigram transitions
 
 When two consecutive hexagrams differ, do the upper and lower trigrams change
@@ -961,6 +1022,8 @@ binary changed/unchanged, which preserves more information.
 MI(upper, lower) across all 64 hexagrams: 0.000000 bits
 (Expected: 0.0 — since all 64 combinations appear exactly once,
 the trigrams are perfectly independent in the static set.)
+Note: with all 64 upper/lower trigram combinations present exactly once,
+independence is expected by construction (complete Latin square).
 ```
 
 ## Yin-yang balance wave
@@ -1135,6 +1198,17 @@ Mean sequence distance between any two hexagrams:   21.7
 Hamming-1 neighbors are closer than average in the sequence (clustered).
 ```
 
+### Neighborhood clustering null model
+
+```
+Shuffling binary hexagrams 10,000 times to build a null distribution
+of mean sequence distance between Hamming-1 neighbors.
+Null distribution: min=18.3, mean=21.7, max=25.2
+King Wen observed mean: 20.6
+Percentile: 12.3% (proportion of shuffles with mean <= King Wen's)
+King Wen's neighborhood clustering is within the range expected by chance.
+```
+
 ## Recurrence plot
 
 A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)
@@ -1210,6 +1284,16 @@ values that persist. Clusters of marks reveal recurring local patterns.
  63  #.........#.....#.........#.#........#..............#.......#.+
 
 Recurrence rate: 952/3906 (24.4%)
+```
+
+### Recurrence rate null model
+
+```
+Theoretical expected recurrence rate (sum of p_i^2): 25.6%
+
+King Wen recurrence rate:       24.4%
+Mean random recurrence rate:    23.3%
+King Wen percentile vs random:  72.3%
 ```
 
 ## DNA codon mapping
@@ -1452,6 +1536,11 @@ Interval width: 0.160 percentage points
 
 Approximately 1 in 588 random orderings
 95% CI: 1 in 385 to 1 in 1000
+
+Note: These CIs measure the precision of the Monte Carlo estimate, not
+fundamental uncertainty about the true proportion. They reflect how much
+the estimate would vary if you re-ran the simulation with 10,000 trials.
+Increasing --trials narrows these CIs because the estimate becomes more precise.
 ```
 
 ## Monte Carlo analysis
