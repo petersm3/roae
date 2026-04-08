@@ -17,6 +17,10 @@ A single-file Python analysis engine (no external dependencies) that approaches 
 
 Note: this program analyzes the mathematical structure of the ordering only. The [I Ching](https://en.wikipedia.org/wiki/I_Ching) is a foundational text of Chinese philosophy, divination, and cosmology with over three millennia of commentary and practice. This program does not address the philosophical, divinatory, or literary dimensions of the text.
 
+## Guide
+
+New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-language introduction to the King Wen sequence and how to read this program's output.
+
 ## Example
 
 See [example output](example/README.md) for full program output.
