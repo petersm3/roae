@@ -14,7 +14,7 @@
 <h1>Received Order Analysis Engine</h1>
 <p>Analysis of the King Wen sequence including observations by Terence McKenna</p>
 <div class="section">
-<h2>Hexagram Table</h2>
+<h2>Hexagram reference table</h2>
 <pre>---
 Hexagram reference table
 Each hexagram is a stack of 6 lines, either solid (1/yang) or broken (0/yin).
@@ -92,7 +92,7 @@ Pos | Hex | Binary | Upper          | Lower          | Name
 </pre>
 </div>
 <div class="section">
-<h2>Reverse/Inverse Pairs</h2>
+<h2>Reverse vs. Inverse pair analysis</h2>
 <pre>---
 Reverse vs. Inverse pair analysis
 The 64 hexagrams are traditionally grouped into 32 pairs (1-2, 3-4, ..., 63-64).
@@ -144,7 +144,7 @@ Neither count pairs: 00/32 (0.0%)
 </pre>
 </div>
 <div class="section">
-<h2>Difference Wave</h2>
+<h2>First order of difference (the 'wave')</h2>
 <pre>---
 First order of difference (the 'wave')
 For each consecutive pair of hexagrams, count how many of the 6 lines change.
@@ -236,7 +236,7 @@ Note: does not survive Bonferroni correction for 28 tests (threshold p < 0.0018)
 </pre>
 </div>
 <div class="section">
-<h2>Bar Chart</h2>
+<h2>Difference wave bar chart</h2>
 <pre>---
 Difference wave bar chart
 A visual representation of the first-order difference wave. Each column shows
@@ -256,7 +256,7 @@ changed (1-6). This makes the wave pattern easier to see than a list of numbers.
 </pre>
 </div>
 <div class="section">
-<h2>Trigram Analysis</h2>
+<h2>Trigram analysis</h2>
 <pre>---
 Trigram analysis
 Each hexagram is built from two trigrams (3-line figures): an upper and a lower.
@@ -306,7 +306,7 @@ Qian      3     1     1     1     1     0     1     0
 </pre>
 </div>
 <div class="section">
-<h2>Nuclear Hexagrams</h2>
+<h2>Nuclear hexagram analysis</h2>
 <pre>---
 Nuclear hexagram analysis
 Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by
@@ -410,7 +410,7 @@ King Wen sequence specifically.
 </pre>
 </div>
 <div class="section">
-<h2>Line Change Analysis</h2>
+<h2>Line change positional analysis</h2>
 <pre>---
 Line change positional analysis
 Each hexagram has 6 lines (positions 1-6, bottom to top). When consecutive
@@ -439,7 +439,7 @@ L6    .    .    .    .    .    .
 </pre>
 </div>
 <div class="section">
-<h2>Complement Distance</h2>
+<h2>Complement distance analysis</h2>
 <pre>---
 Complement distance analysis
 Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines
@@ -523,7 +523,7 @@ Max distance:    47
 </pre>
 </div>
 <div class="section">
-<h2>Palindromes</h2>
+<h2>Palindrome analysis of the difference wave</h2>
 <pre>---
 Palindrome analysis of the difference wave
 A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding
@@ -569,7 +569,7 @@ King Wen longest palindrome percentile: 42.7%
 </pre>
 </div>
 <div class="section">
-<h2>Canon Comparison</h2>
+<h2>Upper Canon (1-30) vs. Lower Canon (31-64) comparison</h2>
 <pre>---
 Upper Canon (1-30) vs. Lower Canon (31-64) comparison
 The I Ching is traditionally divided into two books: the Upper Canon (hexagrams
@@ -604,7 +604,7 @@ Lower Canon wave: ▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅�
 </pre>
 </div>
 <div class="section">
-<h2>Autocorrelation</h2>
+<h2>Autocorrelation of the difference wave</h2>
 <pre>---
 Autocorrelation of the difference wave
 Autocorrelation measures whether the wave is correlated with a shifted copy of
@@ -660,7 +660,7 @@ but note that N=63 provides limited statistical power to detect weak periodicity
 </pre>
 </div>
 <div class="section">
-<h2>Spectral Analysis</h2>
+<h2>Spectral analysis (Discrete Fourier Transform)</h2>
 <pre>---
 Spectral analysis (Discrete Fourier Transform)
 The DFT decomposes the difference wave into frequency components, like splitting
@@ -713,7 +713,7 @@ Frequencies above 2x noise floor: 1/31
 </pre>
 </div>
 <div class="section">
-<h2>Markov Chain</h2>
+<h2>Markov chain analysis</h2>
 <pre>---
 Markov chain analysis
 If we treat each difference value as a 'state', we can ask: does the current
@@ -745,7 +745,7 @@ Random orderings equally or more concentrated: 2087/5000 (41.7%)
 </pre>
 </div>
 <div class="section">
-<h2>Gray Code Comparison</h2>
+<h2>Gray code comparison</h2>
 <pre>---
 Gray code comparison
 A Gray code is an ordering of binary values where each consecutive pair differs
@@ -775,7 +775,7 @@ King Wen wave:  █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂�
 </pre>
 </div>
 <div class="section">
-<h2>Symmetry Groups</h2>
+<h2>Symmetry group analysis (XOR algebra)</h2>
 <pre>---
 Symmetry group analysis (XOR algebra)
 The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams
@@ -813,7 +813,7 @@ Closed under XOR: Yes — forms a subgroup
 </pre>
 </div>
 <div class="section">
-<h2>Alternative Sequences</h2>
+<h2>Alternative sequence comparison</h2>
 <pre>---
 Alternative sequence comparison
 The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi
@@ -844,7 +844,7 @@ Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
 </pre>
 </div>
 <div class="section">
-<h2>Windowed Entropy</h2>
+<h2>Windowed entropy analysis</h2>
 <pre>---
 Windowed entropy analysis
 Instead of one entropy value for the whole wave, we slide a window across it
@@ -913,7 +913,7 @@ Entropy spark: ▃▃▃▃▃▅▃▃▃▃▃▃▃▃▃▅▅▃▅▅▅�
 </pre>
 </div>
 <div class="section">
-<h2>Mutual Information</h2>
+<h2>Mutual information: upper vs. lower trigram transitions</h2>
 <pre>---
 Mutual information: upper vs. lower trigram transitions
 When two consecutive hexagrams differ, do the upper and lower trigrams change
@@ -942,7 +942,7 @@ the trigrams are perfectly independent in the static set.)
 </pre>
 </div>
 <div class="section">
-<h2>Yin-Yang Balance</h2>
+<h2>Yin-yang balance wave</h2>
 <pre>---
 Yin-yang balance wave
 Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).
@@ -1030,7 +1030,7 @@ Yang count spark: █ ▂▂▅▅▁▁▆▆▃▃▆▆▁▁▃▃▂▂▃�
 </pre>
 </div>
 <div class="section">
-<h2>Neighborhoods</h2>
+<h2>Hexagram neighborhoods</h2>
 <pre>---
 Hexagram neighborhoods
 For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?
@@ -1110,7 +1110,7 @@ Hamming-1 neighbors are closer than average in the sequence (clustered).
 </pre>
 </div>
 <div class="section">
-<h2>Recurrence Plot</h2>
+<h2>Recurrence plot</h2>
 <pre>---
 Recurrence plot
 A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)
@@ -1188,7 +1188,7 @@ Recurrence rate: 952/3906 (24.4%)
 </pre>
 </div>
 <div class="section">
-<h2>DNA Codons</h2>
+<h2>DNA codon mapping</h2>
 <pre>---
 DNA codon mapping
 Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems
@@ -1279,7 +1279,7 @@ Single-line changes that preserve amino acid: 100/384 (26.0%)
 </pre>
 </div>
 <div class="section">
-<h2>Shannon Entropy</h2>
+<h2>Shannon entropy analysis</h2>
 <pre>---
 Shannon entropy analysis
 Entropy measures disorder: high entropy means the difference values are spread
@@ -1317,7 +1317,7 @@ Value    King Wen Expected (random avg)
 </pre>
 </div>
 <div class="section">
-<h2>Path Analysis</h2>
+<h2>Path analysis (graph theory)</h2>
 <pre>---
 Path analysis (graph theory)
 Imagine the 64 hexagrams as cities on a map, where the 'distance' between any
@@ -1354,7 +1354,7 @@ Effect size (Cohen's d, pair-constrained): -0.49
 </pre>
 </div>
 <div class="section">
-<h2>Constraint Satisfaction</h2>
+<h2>Constraint satisfaction analysis</h2>
 <pre>---
 Constraint satisfaction analysis
 The King Wen sequence satisfies several constraints simultaneously:
@@ -1394,7 +1394,7 @@ changing pair types and the difference wave. Key properties tested:
 </pre>
 </div>
 <div class="section">
-<h2>Bootstrap</h2>
+<h2>Bootstrap confidence intervals</h2>
 <pre>---
 Bootstrap confidence intervals
 The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line
@@ -1414,7 +1414,7 @@ Approximately 1 in 588 random orderings
 </pre>
 </div>
 <div class="section">
-<h2>Monte Carlo</h2>
+<h2>Monte Carlo analysis</h2>
 <pre>---
 Monte Carlo analysis (10,000 random permutations)
 The King Wen sequence has a striking property: no two consecutive hexagrams

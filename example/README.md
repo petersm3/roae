@@ -2,7 +2,7 @@
 
 Analysis of the King Wen sequence including observations by Terence McKenna.
 
-## Hexagram Table
+## Hexagram reference table
 
 Each hexagram is a stack of 6 lines, either solid (1/yang) or broken (0/yin).
 The 'binary' column encodes these 6 lines as bits (bottom line = rightmost bit).
@@ -79,7 +79,7 @@ Pos | Hex | Binary | Upper          | Lower          | Name
 64  | ䷿   | 101010 | Li   Fire      | Kan  Water     | Before Completion
 ```
 
-## Reverse/Inverse Pairs
+## Reverse vs. Inverse pair analysis
 
 The 64 hexagrams are traditionally grouped into 32 pairs (1-2, 3-4, ..., 63-64).
 For each pair, we test two relationships:
@@ -130,7 +130,7 @@ Inverse count pairs: 04/32 (12.5%)
 Neither count pairs: 00/32 (0.0%)
 ```
 
-## Difference Wave
+## First order of difference (the 'wave')
 
 For each consecutive pair of hexagrams, count how many of the 6 lines change.
 This produces a sequence of values from 0 (identical) to 6 (every line flipped).
@@ -224,7 +224,7 @@ Significant at 95% level (p = 0.033): the wave shows alternation.
 Note: does not survive Bonferroni correction for 28 tests (threshold p < 0.0018).
 ```
 
-## Bar Chart
+## Difference wave bar chart
 
 A visual representation of the first-order difference wave. Each column shows
 how many lines changed in that transition. The horizontal axis is the position
@@ -243,7 +243,7 @@ changed (1-6). This makes the wave pattern easier to see than a list of numbers.
               0         0         0         0         0         0   
 ```
 
-## Trigram Analysis
+## Trigram analysis
 
 Each hexagram is built from two trigrams (3-line figures): an upper and a lower.
 There are 8 possible trigrams. This section counts how often each trigram appears
@@ -301,7 +301,7 @@ Xun       1     1     2     2     1     1     0     0
 Qian      3     1     1     1     1     0     1     0     
 ```
 
-## Nuclear Hexagrams
+## Nuclear hexagram analysis
 
 Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by
 extracting the 4 middle lines (lines 2-3-4-5). Lines 2-3-4 form the lower
@@ -410,7 +410,7 @@ hexagrams. These properties reflect the 6-bit binary system, not the
 King Wen sequence specifically.
 ```
 
-## Line Change Analysis
+## Line change positional analysis
 
 Each hexagram has 6 lines (positions 1-6, bottom to top). When consecutive
 hexagrams differ, which specific lines are changing? If the King Wen sequence
@@ -441,7 +441,7 @@ L5    .    .    .    .    .    20
 L6    .    .    .    .    .    .    
 ```
 
-## Complement Distance
+## Complement distance analysis
 
 Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines
 (solid becomes broken, broken becomes solid). For example, The Creative (all
@@ -527,7 +527,7 @@ Min distance:    1 (adjacent = pair is an inverse pair)
 Max distance:    47
 ```
 
-## Palindromes
+## Palindrome analysis of the difference wave
 
 A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding
 palindromic runs in the difference wave suggests the King Wen sequence contains
@@ -578,7 +578,7 @@ King Wen palindrome count percentile: 79.1%
 King Wen longest palindrome percentile: 42.7%
 ```
 
-## Canon Comparison
+## Upper Canon (1-30) vs. Lower Canon (31-64) comparison
 
 The I Ching is traditionally divided into two books: the Upper Canon (hexagrams
 1-30) and Lower Canon (hexagrams 31-64). This division is ancient and may reflect
@@ -612,7 +612,7 @@ Lower Canon wave: ▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅�
 5-line transitions in Lower Canon: 0
 ```
 
-## Autocorrelation
+## Autocorrelation of the difference wave
 
 Autocorrelation measures whether the wave is correlated with a shifted copy of
 itself. A peak at lag N means the pattern tends to repeat every N steps. A value
@@ -667,7 +667,7 @@ No significant autocorrelation detected — consistent with no hidden periodicit
 but note that N=63 provides limited statistical power to detect weak periodicity.
 ```
 
-## Spectral Analysis
+## Spectral analysis (Discrete Fourier Transform)
 
 The DFT decomposes the difference wave into frequency components, like splitting
 white light into a rainbow. Each frequency represents a periodic pattern in the
@@ -719,7 +719,7 @@ Freq   Period  Magnitude  Sig?  Spectrum
 Frequencies above 2x noise floor: 1/31
 ```
 
-## Markov Chain
+## Markov chain analysis
 
 If we treat each difference value as a 'state', we can ask: does the current
 difference predict the next one? In a random sequence, knowing that the last
@@ -756,7 +756,7 @@ King Wen matrix concentration: 2.3303
 Random orderings equally or more concentrated: 2087/5000 (41.7%)
 ```
 
-## Gray Code Comparison
+## Gray code comparison
 
 A Gray code is an ordering of binary values where each consecutive pair differs
 by exactly 1 bit. For 6-bit hexagrams, a Gray code path would change exactly 1
@@ -785,7 +785,7 @@ Gray code wave: ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁�
 King Wen wave:  █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
 ```
 
-## Symmetry Groups
+## Symmetry group analysis (XOR algebra)
 
 The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams
 by toggling their differing lines always produces another valid hexagram. This is
@@ -831,7 +831,7 @@ Inverse pair hexagrams (16 total): 01, 02, 11, 12, 17, 18, 27, 28, 29, 30, 53, 5
 Closed under XOR: Yes — forms a subgroup
 ```
 
-## Alternative Sequences
+## Alternative sequence comparison
 
 The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi
 (binary) sequence orders them by numerical value (0-63), which is mathematically
@@ -864,7 +864,7 @@ Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=0
 Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
 ```
 
-## Windowed Entropy
+## Windowed entropy analysis
 
 Instead of one entropy value for the whole wave, we slide a window across it
 and compute entropy locally. This reveals WHERE in the sequence structure
@@ -932,7 +932,7 @@ Max entropy: 2.2892 at position 56 (most varied)
 Entropy spark: ▃▃▃▃▃▅▃▃▃▃▃▃▃▃▃▅▅▃▅▅▅▅▅▅▅▅▅▅▅▃▃▃▃▃▃▃▃▅▅▅▅▅▅▅▅▅▅▅▅
 ```
 
-## Mutual Information
+## Mutual information: upper vs. lower trigram transitions
 
 When two consecutive hexagrams differ, do the upper and lower trigrams change
 independently, or is knowing that the upper trigram changed informative about
@@ -963,7 +963,7 @@ MI(upper, lower) across all 64 hexagrams: 0.000000 bits
 the trigrams are perfectly independent in the static set.)
 ```
 
-## Yin-Yang Balance
+## Yin-yang balance wave
 
 Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).
 Note: since the King Wen sequence contains all 64 possible hexagrams exactly
@@ -1053,7 +1053,7 @@ Yang count spark: █ ▂▂▅▅▁▁▆▆▃▃▆▆▁▁▃▃▂▂▃�
   Positions 02-04: 3 consecutive yin-dominant hexagrams
 ```
 
-## Neighborhoods
+## Hexagram neighborhoods
 
 For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?
 Dense neighborhoods mean a hexagram has many close relatives; sparse ones are
@@ -1135,7 +1135,7 @@ Mean sequence distance between any two hexagrams:   21.7
 Hamming-1 neighbors are closer than average in the sequence (clustered).
 ```
 
-## Recurrence Plot
+## Recurrence plot
 
 A recurrence plot shows where the difference wave repeats itself. Each cell (i,j)
 is marked if the difference at position i equals the difference at position j.
@@ -1212,7 +1212,7 @@ values that persist. Clusters of marks reveal recurring local patterns.
 Recurrence rate: 952/3906 (24.4%)
 ```
 
-## DNA Codons
+## DNA codon mapping
 
 Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems
 of 64 elements built from binary-like pairs: yin/yang for hexagrams, and the
@@ -1305,7 +1305,7 @@ Do single-line hexagram changes preserve the mapped amino acid?
 Single-line changes that preserve amino acid: 100/384 (26.0%)
 ```
 
-## Shannon Entropy
+## Shannon entropy analysis
 
 Entropy measures disorder: high entropy means the difference values are spread
 evenly across all possibilities (random-looking), low entropy means certain values
@@ -1348,7 +1348,7 @@ Value    King Wen Expected (random avg)
   6             9                  1.0
 ```
 
-## Path Analysis
+## Path analysis (graph theory)
 
 Imagine the 64 hexagrams as cities on a map, where the 'distance' between any
 two is the number of lines that differ. The King Wen sequence is a route that
@@ -1390,7 +1390,7 @@ King Wen percentile (pair-constrained): 28.3%
 Effect size (Cohen's d, pair-constrained): -0.49
 ```
 
-## Constraint Satisfaction
+## Constraint satisfaction analysis
 
 The King Wen sequence satisfies several constraints simultaneously:
   1. All 32 consecutive pairs are either reverse or inverse (never unrelated)
@@ -1435,7 +1435,7 @@ changing pair types and the difference wave. Key properties tested:
   All key properties are invariant under bit reversal.
 ```
 
-## Bootstrap
+## Bootstrap confidence intervals
 
 The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line
 transitions') are estimates based on sampling. Bootstrap resampling quantifies
@@ -1454,7 +1454,7 @@ Approximately 1 in 588 random orderings
 95% CI: 1 in 385 to 1 in 1000
 ```
 
-## Monte Carlo
+## Monte Carlo analysis
 
 The King Wen sequence has a striking property: no two consecutive hexagrams
 differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference
