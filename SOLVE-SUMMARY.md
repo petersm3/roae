@@ -34,9 +34,9 @@ Every hexagram has an "opposite" — the one where every solid line becomes brok
 
 **What this does:** Eliminates about 93% of what's left after Rule 2.
 
-### Rule 4: It starts with heaven and earth
+### Rule 4: It starts with Heaven and Earth
 
-The sequence begins with the two most extreme hexagrams: all solid lines (The Creative, representing heaven) followed by all broken lines (The Receptive, representing earth).
+The sequence begins with the two most extreme hexagrams: all solid lines (The Creative, representing Heaven) followed by all broken lines (The Receptive, representing Earth).
 
 **What this does:** Eliminates another 98%.
 
@@ -73,7 +73,7 @@ Someone, roughly 3,000 years ago, designed an arrangement of 64 symbols that sat
 | 1 | Pair structure | 10^45 |
 | 2 | No 5-line jumps | ~4% of step 1 |
 | 3 | Opposites stay close | ~0.3% of step 1 |
-| 4 | Start with heaven/earth | ~0.005% of step 1 |
+| 4 | Start with Heaven/Earth | ~0.005% of step 1 |
 | 5 | Specific transition counts | ~0 in 100,000 samples |
 | 6 | Maximum complement distance | ~450 |
 | 7 | Two neighbor choices | **1 (King Wen)** |
