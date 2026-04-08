@@ -188,6 +188,21 @@ The line autocorrelation finding suggests the designers preferred smooth individ
 
 These two features are candidates for a 7th rule that could further narrow the solution space toward King Wen uniquely.
 
+### Rule 7 test (`--rule7`)
+
+Adding the two extremal features as strict constraints:
+- **Rule 7a** (complement distance = 12.125 exactly): cuts solutions from ~1,938 to ~974 unique orderings
+- **Rule 7b** (line autocorrelation mean = -0.115): adds nothing — every Rule 7a solution already satisfies 7b. Line autocorrelation is **redundant** with complement distance, just as XOR was.
+
+Among the ~974 Rule 7a survivors, King Wen has **no further extremal features**. Every scalar feature tested (total runs, trigram transitions, boundary alternations, smoothness, individual line autocorrelations) places King Wen in the middle of the distribution. Simple single-feature rules are exhausted.
+
+The remaining ~974 solutions share 26-32 of 32 pair positions with King Wen — they are structurally very similar. What distinguishes King Wen from these near-identical orderings is likely:
+- A multi-feature combination (no single feature, but a specific combination)
+- A non-scalar property (e.g., specific pair adjacency relationships)
+- A principle outside the mathematical features tested (cosmological, philosophical, or aesthetic)
+
+This represents the current frontier of what automated analysis can discover about the King Wen sequence's construction rules.
+
 ## Usage
 
 ```

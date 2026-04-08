@@ -1791,6 +1791,209 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300):
         print("Note: more solutions may exist beyond the search budget. Extremal")
         print("findings are relative to the solutions found, not the full space.")
 
+def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
+    """Test candidate 7th rules: filter solutions by extremal features."""
+    import math
+
+    print("=" * 70)
+    print("RULE 7 CANDIDATE TEST")
+    print("=" * 70)
+    print()
+    print("Testing whether the two discovered extremal features narrow the")
+    print("solution space to King Wen uniquely.")
+    print()
+    print("Rule 7a: complement_distance must equal 12.125 (exact maximum)")
+    print("Rule 7b: mean line autocorrelation must equal -0.115 (exact maximum)")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+
+    kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
+    kw_dist = {}
+    for d in kw_diffs:
+        kw_dist[d] = kw_dist.get(d, 0) + 1
+    kw_comp_dist = mean_complement_distance(binary_hexagrams)
+    kw_features = compute_features(binary_hexagrams)
+    kw_autocorr_mean = kw_features["line_autocorr_mean"]
+
+    first_pair_idx = None
+    for i, (a, b) in enumerate(kw_pairs):
+        if (a == 0b111111 and b == 0b000000) or (b == 0b111111 and a == 0b000000):
+            first_pair_idx = i
+            break
+
+    # Collect solutions at three levels:
+    # Level A: Rules 1-6 only (baseline)
+    # Level B: + Rule 7a (complement distance == max)
+    # Level C: + Rule 7a + 7b (complement distance == max AND autocorr == max)
+    solutions_baseline = []
+    solutions_7a = []
+    solutions_7ab = []
+    nodes = [0]
+    start = time.time()
+    exhausted = [True]
+
+    pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
+
+    def backtrack(seq, used, dist_budget):
+        nodes[0] += 1
+        if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+            exhausted[0] = False
+            return
+        if nodes[0] % 2000000 == 0:
+            elapsed = time.time() - start
+            print(f"  {nodes[0]:,} nodes, {len(solutions_baseline)} baseline, "
+                  f"{len(solutions_7a)} rule7a, {len(solutions_7ab)} rule7ab, "
+                  f"{elapsed:.1f}s", file=sys.stderr)
+
+        step = len(seq) // 2
+
+        if step == n:
+            cd = mean_complement_distance(seq)
+            if cd > kw_comp_dist:
+                return
+
+            solutions_baseline.append(list(seq))
+
+            # Rule 7a: exact complement distance
+            if abs(cd - kw_comp_dist) < 0.001:
+                solutions_7a.append(list(seq))
+
+                # Rule 7b: exact line autocorrelation mean
+                feat = compute_features(seq)
+                if abs(feat["line_autocorr_mean"] - kw_autocorr_mean) < 0.0001:
+                    solutions_7ab.append(list(seq))
+            return
+
+        for j in range(n):
+            if j in used:
+                continue
+            for first, second in pair_options[j]:
+                if seq and bit_diff(seq[-1], first) == 5:
+                    continue
+
+                new_budget = dict(dist_budget)
+                if seq:
+                    bd = bit_diff(seq[-1], first)
+                    if new_budget.get(bd, 0) <= 0:
+                        continue
+                    new_budget[bd] -= 1
+
+                wd = bit_diff(first, second)
+                if new_budget.get(wd, 0) <= 0:
+                    continue
+                new_budget[wd] -= 1
+
+                backtrack(seq + [first, second], used | {j}, new_budget)
+
+                if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+                    exhausted[0] = False
+                    return
+
+    print(f"Searching (budget: {max_nodes:,} nodes, {time_limit}s)...")
+    init_budget = dict(kw_dist)
+    fd = bit_diff(0b111111, 0b000000)
+    init_budget[fd] -= 1
+    backtrack([0b111111, 0b000000], {first_pair_idx}, init_budget)
+
+    elapsed = time.time() - start
+    status = "COMPLETE" if exhausted[0] else "BUDGET EXHAUSTED"
+    print(f"\n{status}: {nodes[0]:,} nodes, {elapsed:.1f}s")
+    print()
+
+    # De-duplicate each level
+    def dedup(solutions):
+        seen = set()
+        unique = []
+        for sol in solutions:
+            key = tuple(tuple(sorted([sol[i], sol[i+1]])) for i in range(0, 64, 2))
+            if key not in seen:
+                seen.add(key)
+                unique.append(sol)
+        return unique
+
+    base_unique = dedup(solutions_baseline)
+    r7a_unique = dedup(solutions_7a)
+    r7ab_unique = dedup(solutions_7ab)
+
+    print("=" * 70)
+    print("RESULTS")
+    print("=" * 70)
+    print()
+    print(f"{'Level':<40} {'Raw':>8} {'Unique':>8}")
+    print(f"{'-----':<40} {'---':>8} {'------':>8}")
+    print(f"{'Rules 1-6 (baseline)':<40} {len(solutions_baseline):>8,} {len(base_unique):>8,}")
+    print(f"{'+ Rule 7a (complement dist = 12.125)':<40} {len(solutions_7a):>8,} {len(r7a_unique):>8,}")
+    print(f"{'+ Rule 7b (line autocorr mean = -0.115)':<40} {len(solutions_7ab):>8,} {len(r7ab_unique):>8,}")
+    print()
+
+    # Check if King Wen is among the survivors
+    kw_in_base = any(s == binary_hexagrams for s in solutions_baseline)
+    kw_in_7a = any(s == binary_hexagrams for s in solutions_7a)
+    kw_in_7ab = any(s == binary_hexagrams for s in solutions_7ab)
+    print(f"King Wen in baseline: {'YES' if kw_in_base else 'No'}")
+    print(f"King Wen in Rule 7a:  {'YES' if kw_in_7a else 'No'}")
+    print(f"King Wen in Rule 7ab: {'YES' if kw_in_7ab else 'No'}")
+    print()
+
+    if r7ab_unique:
+        if len(r7ab_unique) == 1 and r7ab_unique[0] == binary_hexagrams:
+            print("*** KING WEN IS THE UNIQUE SOLUTION UNDER RULES 1-7 ***")
+            print()
+            print("The generative recipe is complete. The King Wen sequence is the")
+            print("only ordering of 64 hexagrams satisfying all 8 constraints:")
+            print("  1. Pair structure (reverse/inverse)")
+            print("  2. No 5-line transitions")
+            print("  3. Complement distance <= 12.125")
+            print("  4. XOR products within 7 values (redundant)")
+            print("  5. Starts with Creative/Receptive")
+            print("  6. Exact difference wave distribution")
+            print("  7a. Complement distance = 12.125 (maximum)")
+            print("  7b. Mean line autocorrelation = -0.115 (maximum)")
+        else:
+            print(f"Rules 1-7 narrow to {len(r7ab_unique)} unique orderings.")
+            print("King Wen is not yet uniquely determined.")
+            print()
+            print("--- Surviving solutions ---")
+            for i, sol in enumerate(r7ab_unique[:20]):
+                stats = compare_sequences(sol)
+                is_kw = "*** KING WEN ***" if stats['is_king_wen'] else ""
+                print(f"  #{i+1}: pair_pos={stats['pair_position_matches']}/32, "
+                      f"exact={stats['position_matches']}/64, "
+                      f"wave={stats['wave_matches']}/63 {is_kw}")
+
+            if len(r7ab_unique) <= 50:
+                print()
+                print("--- Feature analysis of survivors ---")
+                all_feat = [compute_features(s) for s in r7ab_unique]
+                kw_feat = compute_features(binary_hexagrams)
+                scalar_feats = [
+                    "total_runs", "upper_self_trans", "lower_self_trans",
+                    "both_change", "upper_unique_trans", "lower_unique_trans",
+                    "boundary_trigram_links", "boundary_alternations", "smoothness",
+                ]
+                print(f"{'Feature':<28} {'KW':>8} {'Min':>8} {'Max':>8} {'Extremal?':>10}")
+                print(f"{'-'*28} {'-'*8} {'-'*8} {'-'*8} {'-'*10}")
+                for fname in scalar_feats:
+                    kv = kw_feat[fname]
+                    vals = [f[fname] for f in all_feat]
+                    mn, mx = min(vals), max(vals)
+                    ext = ""
+                    if kv == mn and kv != mx:
+                        ext = "*** MIN"
+                    elif kv == mx and kv != mn:
+                        ext = "*** MAX"
+                    print(f"{fname:<28} {kv:>8} {mn:>8} {mx:>8} {ext:>10}")
+
+    elif len(solutions_7a) > 0 and len(solutions_7ab) == 0:
+        print("Rule 7b eliminated all Rule 7a survivors (including King Wen).")
+        print("This suggests the autocorrelation threshold is too strict for")
+        print("the partial search. A longer run may find matching solutions.")
+
+    search_note = "" if exhausted[0] else " (partial — more solutions may exist)"
+    print(f"\nSearch: {status}{search_note}")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -1827,6 +2030,8 @@ def main():
                         help="Run all deep analyses (enumerate + trigram + lines + neighborhoods + residuals + info)")
     parser.add_argument("--differential", action="store_true",
                         help="Differential analysis: find features where King Wen is extremal among solutions")
+    parser.add_argument("--rule7", action="store_true",
+                        help="Test Rule 7 candidates: filter by extremal complement distance and line autocorrelation")
     parser.add_argument("--max-nodes", type=int, default=10_000_000,
                         help="Max nodes for backtracking enumeration (default: 10M)")
     parser.add_argument("--time-limit", type=int, default=60,
@@ -1856,7 +2061,7 @@ def main():
     all_flags = [args.pairs, args.rules, args.narrow, args.graph,
                  args.boundaries, args.construct, args.enumerate,
                  args.trigram_paths, args.line_decomp, args.pair_neighborhoods,
-                 args.residuals, args.info, args.differential]
+                 args.residuals, args.info, args.differential, args.rule7]
     if not any(all_flags):
         args.rules = True
         args.narrow = True
@@ -1914,6 +2119,10 @@ def main():
     if args.differential:
         print_differential_analysis(max_nodes=args.max_nodes,
                                     time_limit=args.time_limit)
+        print()
+
+    if args.rule7:
+        print_rule7_test(max_nodes=args.max_nodes, time_limit=args.time_limit)
         print()
 
 if __name__ == "__main__":
