@@ -36,7 +36,7 @@ Every hexagram has an "opposite" — the one where every solid line becomes brok
 
 ### Rule 4: It starts with Heaven and Earth
 
-The sequence begins with the two most extreme hexagrams: all solid lines (The Creative, representing Heaven) followed by all broken lines (The Receptive, representing Earth).
+The sequence begins with the two most extreme hexagrams: all solid lines (䷀ The Creative, representing Heaven) followed by all broken lines (䷁ The Receptive, representing Earth).
 
 **What this does:** Eliminates another 98%.
 
@@ -56,8 +56,8 @@ After Rules 1-6, the first 23 pairs (hexagrams 1-46) are completely locked — e
 
 To narrow from 450 to exactly 1, you need just two specific instructions:
 
-- Pair 25 (Revolution/The Cauldron) must be next to Pair 26 (The Arousing/Keeping Still)
-- Pair 27 (Development/The Marrying Maiden) must be next to Pair 28 (Abundance/The Wanderer)
+- Pair 25 (䷰ Revolution / ䷱The Cauldron) must be next to Pair 26 (䷲The Arousing / ䷳Keeping Still)
+- Pair 27 (䷴Development / ䷵The Marrying Maiden) must be next to Pair 28 (䷶Abundance / ䷷The Wanderer)
 
 ## What this means
 
