@@ -486,6 +486,353 @@ def print_rules():
     print("King Wen sequence, or do additional rules remain undiscovered?")
     print("The --narrow analysis attempts to answer this.")
 
+def upper_trigram(val):
+    return (val >> 3) & 0b111
+
+def lower_trigram(val):
+    return val & 0b111
+
+TRIGRAM_NAMES = {
+    0b000: "Kun",  0b001: "Zhen", 0b010: "Kan",  0b011: "Dui",
+    0b100: "Gen",  0b101: "Li",   0b110: "Xun",  0b111: "Qian",
+}
+
+def print_adjacency_graph(pairs):
+    """Analyze the pair adjacency graph: which pairs can be neighbors?"""
+    print("=" * 70)
+    print("PAIR ADJACENCY GRAPH")
+    print("=" * 70)
+    print()
+    print("Two pairs can be adjacent if placing them next to each other (in some")
+    print("orientation) does not create a 5-line transition at the boundary.")
+    print("This graph shows how constrained the ordering problem is.")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+
+    # For each pair of pairs, check if any orientation combo avoids 5-line boundary
+    adj = [[False] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            ai, bi = kw_pairs[i]
+            aj, bj = kw_pairs[j]
+            # 4 possible boundary transitions: bi->aj, bi->bj, ai->aj, ai->bj
+            for tail in [ai, bi]:
+                for head in [aj, bj]:
+                    if bit_diff(tail, head) != 5:
+                        adj[i][j] = True
+
+    # Degree distribution
+    degrees = [sum(1 for j in range(n) if adj[i][j]) for i in range(n)]
+    print(f"Pairs: {n}")
+    print(f"Mean neighbors per pair: {sum(degrees)/n:.1f}")
+    print(f"Min neighbors: {min(degrees)} (pair {degrees.index(min(degrees))+1})")
+    print(f"Max neighbors: {max(degrees)} (pair {degrees.index(max(degrees))+1})")
+    print()
+
+    # How constrained is each step in King Wen?
+    print("--- King Wen path through the adjacency graph ---")
+    print("At each step, how many valid next-pairs exist?")
+    print()
+    used = {0}  # pair 0 is placed first
+    print(f"{'Step':>4} {'Pair':>5} {'Options':>8} {'Forced?':>8}")
+    print(f"{'----':>4} {'----':>5} {'-------':>8} {'-------':>8}")
+    print(f"{'1':>4} {'1':>5} {'—':>8} {'start':>8}")
+
+    forced_count = 0
+    choice_counts = []
+    for step in range(1, n):
+        prev = step - 1
+        options = sum(1 for j in range(n) if j not in used and adj[prev][j])
+        forced = "YES" if options <= 2 else ""
+        if options <= 2:
+            forced_count += 1
+        choice_counts.append(options)
+        used.add(step)
+        print(f"{step+1:>4} {step+1:>5} {options:>8} {forced:>8}")
+
+    print(f"\nForced or near-forced steps (<=2 options): {forced_count}/{n-1}")
+    print(f"Mean options per step: {sum(choice_counts)/len(choice_counts):.1f}")
+    print(f"Total path freedom (product of options): ~10^{sum(len(str(c)) for c in choice_counts if c > 0):.0f}")
+    print()
+
+    # What fraction of the graph does King Wen traverse?
+    kw_edges = 0
+    total_edges = sum(degrees)
+    for step in range(n - 1):
+        if adj[step][step + 1]:
+            kw_edges += 1
+    print(f"King Wen uses {kw_edges}/{n-1} valid adjacencies out of {total_edges} total edges")
+
+def print_boundary_features():
+    """Analyze features at each between-pair boundary in King Wen."""
+    print("=" * 70)
+    print("BOUNDARY FEATURE ANALYSIS")
+    print("=" * 70)
+    print()
+    print("At each of the 31 between-pair boundaries, what properties does the")
+    print("transition have? Looking for consistent patterns that could be rules.")
+    print()
+
+    kw_pairs = king_wen_pairs()
+
+    # Compute features at each boundary
+    features = []
+    for i in range(len(kw_pairs) - 1):
+        _, tail = kw_pairs[i]      # last hexagram of pair i
+        head, _ = kw_pairs[i + 1]  # first hexagram of pair i+1
+
+        dist = bit_diff(tail, head)
+        tail_upper = upper_trigram(tail)
+        tail_lower = lower_trigram(tail)
+        head_upper = upper_trigram(head)
+        head_lower = lower_trigram(head)
+
+        shared_upper = tail_upper == head_upper
+        shared_lower = tail_lower == head_lower
+        upper_to_lower = tail_upper == head_lower  # upper trigram becomes lower
+        lower_to_upper = tail_lower == head_upper  # lower trigram becomes upper
+        any_shared = shared_upper or shared_lower or upper_to_lower or lower_to_upper
+
+        features.append({
+            "boundary": i + 1,
+            "tail": tail,
+            "head": head,
+            "dist": dist,
+            "shared_upper": shared_upper,
+            "shared_lower": shared_lower,
+            "upper_to_lower": upper_to_lower,
+            "lower_to_upper": lower_to_upper,
+            "any_trigram_link": any_shared,
+            "tail_upper": TRIGRAM_NAMES[tail_upper],
+            "tail_lower": TRIGRAM_NAMES[tail_lower],
+            "head_upper": TRIGRAM_NAMES[head_upper],
+            "head_lower": TRIGRAM_NAMES[head_lower],
+        })
+
+    # Print boundary table
+    print(f"{'#':>2} {'Tail':>8} {'Head':>8} {'Dist':>4} {'ShrU':>5} {'ShrL':>5} "
+          f"{'U->L':>5} {'L->U':>5} {'Link?':>5}  Trigram transition")
+    print(f"{'--':>2} {'----':>8} {'----':>8} {'----':>4} {'----':>5} {'----':>5} "
+          f"{'----':>5} {'----':>5} {'-----':>5}  ---")
+
+    for f in features:
+        tail_bin = bin(f['tail'])[2:].zfill(6)
+        head_bin = bin(f['head'])[2:].zfill(6)
+        link = "*" if f['any_trigram_link'] else ""
+        trig_str = (f"{f['tail_upper']}/{f['tail_lower']} -> "
+                    f"{f['head_upper']}/{f['head_lower']}")
+        print(f"{f['boundary']:>2} {tail_bin:>8} {head_bin:>8} {f['dist']:>4} "
+              f"{'Y' if f['shared_upper'] else '.':>5} "
+              f"{'Y' if f['shared_lower'] else '.':>5} "
+              f"{'Y' if f['upper_to_lower'] else '.':>5} "
+              f"{'Y' if f['lower_to_upper'] else '.':>5} "
+              f"{link:>5}  {trig_str}")
+
+    # Summary statistics
+    total = len(features)
+    shared_upper_count = sum(1 for f in features if f['shared_upper'])
+    shared_lower_count = sum(1 for f in features if f['shared_lower'])
+    u_to_l_count = sum(1 for f in features if f['upper_to_lower'])
+    l_to_u_count = sum(1 for f in features if f['lower_to_upper'])
+    any_link_count = sum(1 for f in features if f['any_trigram_link'])
+
+    print(f"\n--- Summary of 31 between-pair boundaries ---")
+    print(f"Shared upper trigram:        {shared_upper_count}/{total} ({shared_upper_count/total*100:.0f}%)")
+    print(f"Shared lower trigram:        {shared_lower_count}/{total} ({shared_lower_count/total*100:.0f}%)")
+    print(f"Upper -> Lower exchange:     {u_to_l_count}/{total} ({u_to_l_count/total*100:.0f}%)")
+    print(f"Lower -> Upper exchange:     {l_to_u_count}/{total} ({l_to_u_count/total*100:.0f}%)")
+    print(f"ANY trigram link:            {any_link_count}/{total} ({any_link_count/total*100:.0f}%)")
+    print()
+
+    # Distance distribution at boundaries
+    dist_counts = {}
+    for f in features:
+        dist_counts[f['dist']] = dist_counts.get(f['dist'], 0) + 1
+    print("Hamming distance distribution at boundaries:")
+    for d in sorted(dist_counts):
+        print(f"  Distance {d}: {dist_counts[d]} boundaries ({dist_counts[d]/total*100:.0f}%)")
+
+    # Compare against random: how often do random pair-constrained orderings
+    # have this many trigram links?
+    print()
+    print("--- Trigram link null model ---")
+    print("How many trigram links do random pair-constrained orderings have?")
+
+    kw_link_count = any_link_count
+    trials = 10000
+    random.seed(42)
+    link_counts = []
+    for _ in range(trials):
+        pair_order = list(kw_pairs)
+        random.shuffle(pair_order)
+        orients = [random.randint(0, 1) for _ in range(32)]
+        count = 0
+        for j in range(31):
+            a1, b1 = pair_order[j]
+            if orients[j]:
+                a1, b1 = b1, a1
+            a2, b2 = pair_order[j + 1]
+            if orients[j + 1]:
+                a2, b2 = b2, a2
+            tail = b1
+            head = a2
+            tu, tl = upper_trigram(tail), lower_trigram(tail)
+            hu, hl = upper_trigram(head), lower_trigram(head)
+            if tu == hu or tl == hl or tu == hl or tl == hu:
+                count += 1
+        link_counts.append(count)
+
+    mean_links = sum(link_counts) / len(link_counts)
+    pct = sum(1 for c in link_counts if c >= kw_link_count) / trials * 100
+    print(f"King Wen trigram links: {kw_link_count}/31")
+    print(f"Random mean: {mean_links:.1f}/31")
+    print(f"King Wen percentile: {100-pct:.1f}% (higher = more linked)")
+
+def print_sequential_construction():
+    """Analyze sequential construction: at each step, how constrained is the choice?"""
+    print("=" * 70)
+    print("SEQUENTIAL CONSTRUCTION ANALYSIS")
+    print("=" * 70)
+    print()
+    print("Build the King Wen sequence pair by pair. At each step, count how many")
+    print("valid next-pairs exist under the no-5 constraint. Steps with few options")
+    print("are forced; steps with many options reveal where the unknown rule applies.")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    n = len(kw_pairs)
+
+    # At each step, which pairs could come next?
+    print(f"{'Step':>4} {'KW pair':>8} {'Valid next':>10} {'KW rank':>8} "
+          f"{'Boundary':>8} Transition")
+    print(f"{'----':>4} {'-------':>8} {'---------':>10} {'-------':>8} "
+          f"{'--------':>8} ----------")
+
+    used = set()
+    used.add(0)  # pair index 0 is placed
+
+    total_options = 0
+    decision_points = 0
+
+    for step in range(1, n):
+        prev_pair = kw_pairs[step - 1]
+        curr_pair = kw_pairs[step]
+        _, prev_tail = prev_pair  # last hexagram of previous pair
+
+        # Count valid next pairs (any unused pair in any orientation)
+        valid = []
+        for j in range(n):
+            if j in used:
+                continue
+            cand_a, cand_b = kw_pairs[j]
+            # Try both orientations: (a,b) means a is first, boundary is prev_tail->a
+            # (b,a) means b is first, boundary is prev_tail->b
+            for orient, first in [(0, cand_a), (1, cand_b)]:
+                if bit_diff(prev_tail, first) != 5:
+                    valid.append((j, orient, first))
+
+        # Where does King Wen's actual choice rank?
+        curr_first = curr_pair[0]
+        boundary_dist = bit_diff(prev_tail, curr_first)
+
+        # Sort valid options by Hamming distance to see if KW prefers small distances
+        valid_sorted = sorted(valid, key=lambda x: bit_diff(prev_tail, x[2]))
+        kw_rank = next((i + 1 for i, (j, o, f) in enumerate(valid_sorted)
+                        if f == curr_first), "?")
+
+        pair_label = f"{step+1}"
+        tu = TRIGRAM_NAMES[upper_trigram(prev_tail)]
+        tl = TRIGRAM_NAMES[lower_trigram(prev_tail)]
+        hu = TRIGRAM_NAMES[upper_trigram(curr_first)]
+        hl = TRIGRAM_NAMES[lower_trigram(curr_first)]
+        trans = f"{tu}/{tl} -> {hu}/{hl}"
+
+        n_valid = len(valid)
+        total_options += n_valid
+        if n_valid > 2:
+            decision_points += 1
+
+        print(f"{step+1:>4} {pair_label:>8} {n_valid:>10} {kw_rank:>8} "
+              f"{boundary_dist:>8} {trans}")
+
+        used.add(step)
+
+    print(f"\nMean valid options per step: {total_options/(n-1):.1f}")
+    print(f"Decision points (>2 options): {decision_points}/{n-1}")
+    print()
+
+    # What heuristic best predicts King Wen's choice?
+    print("--- Heuristic analysis ---")
+    print("At each decision point, which selection strategy matches King Wen?")
+    print()
+
+    used = set()
+    used.add(0)
+
+    heuristics = {
+        "min_distance": 0,    # choose smallest Hamming distance
+        "max_distance": 0,    # choose largest Hamming distance
+        "trigram_link": 0,    # choose pair that shares a trigram
+    }
+    testable_steps = 0
+
+    for step in range(1, n):
+        prev_pair = kw_pairs[step - 1]
+        curr_pair = kw_pairs[step]
+        _, prev_tail = prev_pair
+        curr_first = curr_pair[0]
+
+        valid = []
+        for j in range(n):
+            if j in used:
+                continue
+            cand_a, cand_b = kw_pairs[j]
+            for orient, first in [(0, cand_a), (1, cand_b)]:
+                if bit_diff(prev_tail, first) != 5:
+                    valid.append((j, orient, first))
+
+        if len(valid) <= 1:
+            used.add(step)
+            continue
+
+        testable_steps += 1
+        boundary_dist = bit_diff(prev_tail, curr_first)
+
+        # Min distance heuristic
+        min_d = min(bit_diff(prev_tail, f) for _, _, f in valid)
+        if boundary_dist == min_d:
+            heuristics["min_distance"] += 1
+
+        # Max distance heuristic
+        max_d = max(bit_diff(prev_tail, f) for _, _, f in valid)
+        if boundary_dist == max_d:
+            heuristics["max_distance"] += 1
+
+        # Trigram link heuristic
+        tu = upper_trigram(prev_tail)
+        tl = lower_trigram(prev_tail)
+        hu = upper_trigram(curr_first)
+        hl = lower_trigram(curr_first)
+        has_link = (tu == hu or tl == hl or tu == hl or tl == hu)
+        if has_link:
+            heuristics["trigram_link"] += 1
+
+        used.add(step)
+
+    print(f"{'Heuristic':<20} {'Correct':>8} {'of':>3} {testable_steps:>3} {'Rate':>8}")
+    print(f"{'----------':<20} {'-------':>8} {'--':>3} {'---':>3} {'----':>8}")
+    for name, count in heuristics.items():
+        rate = count / testable_steps * 100 if testable_steps > 0 else 0
+        print(f"{name:<20} {count:>8} {'of':>3} {testable_steps:>3} {rate:>7.0f}%")
+
+    # What would random choice predict?
+    random_expected = testable_steps / (total_options / (n - 1))  # rough
+    print(f"\nRandom choice expected: ~{random_expected:.0f}% per heuristic")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -498,6 +845,14 @@ def main():
                         help="Print the discovered generative recipe")
     parser.add_argument("--narrow", action="store_true",
                         help="Run constraint narrowing analysis")
+    parser.add_argument("--graph", action="store_true",
+                        help="Analyze the pair adjacency graph")
+    parser.add_argument("--boundaries", action="store_true",
+                        help="Analyze features at between-pair boundaries")
+    parser.add_argument("--construct", action="store_true",
+                        help="Sequential construction analysis with heuristics")
+    parser.add_argument("--local", action="store_true",
+                        help="Run all local ordering analyses (graph + boundaries + construct)")
     parser.add_argument("--trials", type=int, default=100000,
                         help="Number of random samples (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
@@ -507,7 +862,13 @@ def main():
 
     args = parser.parse_args()
 
-    if not any([args.pairs, args.rules, args.narrow]):
+    if args.local:
+        args.graph = True
+        args.boundaries = True
+        args.construct = True
+
+    if not any([args.pairs, args.rules, args.narrow, args.graph,
+                args.boundaries, args.construct]):
         args.rules = True
         args.narrow = True
 
@@ -524,6 +885,18 @@ def main():
     if args.narrow:
         print_constraint_narrowing(pairs, seed=args.seed, trials=args.trials,
                                    verbose=args.verbose)
+
+    if args.graph:
+        print_adjacency_graph(pairs)
+        print()
+
+    if args.boundaries:
+        print_boundary_features()
+        print()
+
+    if args.construct:
+        print_sequential_construction()
+        print()
 
 if __name__ == "__main__":
     main()

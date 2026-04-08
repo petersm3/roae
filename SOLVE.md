@@ -90,6 +90,48 @@ The XOR constraint is redundant. It's a real algebraic property but it's implied
 
 4. **Is there a constructive algorithm?** Rather than sampling and filtering, could the sequence be built pair by pair using a greedy or dynamic programming approach?
 
+## Local ordering analysis
+
+Three analyses investigate the missing local rule (`--local`):
+
+### Pair adjacency graph (`--graph`)
+
+The no-5 constraint barely restricts pair adjacency. Nearly every pair can neighbor every other pair (mean 31/31 neighbors). The graph is almost complete, meaning the no-5 rule provides essentially no local filtering. The local rule must come from something other than Hamming distance constraints.
+
+### Boundary features (`--boundaries`)
+
+At the 31 between-pair boundaries, the analysis checks for trigram relationships: shared upper trigram, shared lower trigram, upper-to-lower exchange, and lower-to-upper exchange. Results:
+
+- **ANY trigram link: 12/31 (39%)** — but random pair-constrained orderings average 12.4/31 (King Wen at 37th percentile). Trigram linking is **not** the local rule — it's completely typical.
+- Hamming distance at boundaries peaks at 3 (42%), with 2 (26%) and 4 (23%) common. No single distance dominates.
+
+### Sequential construction (`--construct`)
+
+Building the sequence pair by pair, at each step the solver counts valid next-pairs under the no-5 constraint. Mean options per step: ~29 (out of ~31 remaining). Almost no steps are forced — 30 of 31 steps are genuine decision points.
+
+Three heuristics were tested against King Wen's actual choices:
+
+| Heuristic | Correct | Rate |
+|-----------|---------|------|
+| Minimum Hamming distance | 3/31 | 10% |
+| Maximum Hamming distance | 6/31 | 19% |
+| Trigram link at boundary | 12/31 | 39% |
+
+Random choice would predict ~1 per heuristic. Trigram linking is the best predictor (39%) but still misses 19 of 31 steps. The local rule is not a simple "always pick the option with a shared trigram" or "always pick the nearest neighbor."
+
+### What the local analyses reveal
+
+The local ordering rule remains undiscovered. It is:
+- **Not about Hamming distance** at boundaries (no consistent preference)
+- **Not about trigram sharing** (39% match, but random achieves the same rate)
+- **Not forced by the no-5 constraint** (nearly every pair can neighbor every other)
+- **Something more complex** — possibly involving multi-step lookahead, global optimization, or a principle not captured by pairwise boundary features
+
+The most likely candidates for further investigation:
+- Trigram *sequence* patterns (not just pairwise, but the path of trigrams across multiple boundaries)
+- Cosmological or philosophical ordering principles from the [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary
+- Optimization of a multi-objective function combining several weak preferences
+
 ## Usage
 
 ```
@@ -99,6 +141,10 @@ python3 solve.py --pairs                      # Show the 32 canonical pairs
 python3 solve.py --narrow --trials 100000     # Run constraint narrowing analysis
 python3 solve.py --narrow --seed 42           # Reproducible results
 python3 solve.py --narrow --verbose           # Show progress during search
+python3 solve.py --graph                      # Pair adjacency graph analysis
+python3 solve.py --boundaries                 # Boundary feature analysis
+python3 solve.py --construct                  # Sequential construction with heuristics
+python3 solve.py --local                      # All three local analyses
 ```
 
 ## Requirements
