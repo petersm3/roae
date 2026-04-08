@@ -2624,7 +2624,7 @@ def print_codons():
         codon = val_to_codon(b)
         aa = codon_table.get(codon, "?")
         amino_acids.append(aa)
-        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | {codon}  | {aa:<10} | {hexagram_names[i]}")
+        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | {codon:<5} | {aa:<10} | {hexagram_names[i]}")
 
     # How many unique amino acids does the King Wen sequence map to?
     unique_aa = set(amino_acids)
