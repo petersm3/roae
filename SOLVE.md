@@ -232,7 +232,25 @@ Combined with Rules 1-7a, this gives a **complete generative recipe**: 7 global 
 
 Rules 1-7 plus two specific adjacency constraints uniquely determine the King Wen sequence among all possible orderings of 64 hexagrams. Rules 4 and 8 are redundant (implied by other rules).
 
-Note: this result is based on a partial search (447 unique orderings from ~10M nodes). A complete enumeration could reveal additional solutions that might require additional constraints. However, the structure is clear: the rules lock 23 of 32 positions, and 2 adjacency choices in the remaining 9 positions suffice to pin down King Wen.
+Note: this result is based on a partial search (447 unique orderings from ~10M nodes). A longer search (1 billion nodes, 13,296 unique orderings) confirmed the same extremal features. A complete enumeration could reveal additional solutions that might require additional constraints. However, the structure is clear: the rules lock 23 of 32 positions, and 2 adjacency choices in the remaining 9 positions suffice to pin down King Wen.
+
+### Are there deeper rules behind the 2 adjacencies?
+
+Analysis of the two critical boundaries reveals no underlying pattern:
+
+- **Boundary 25** (Revolution/Cauldron → Arousing/Keeping Still): Hamming distance 4, no shared trigrams. Li/Xun → Zhen/Zhen.
+- **Boundary 27** (Development/Marrying Maiden → Abundance/Wanderer): Hamming distance 2, shared upper trigram (Zhen). Zhen/Dui → Zhen/Li.
+
+The two boundaries don't share a common trigram property. No sorting principle (by XOR, sum, within-pair distance, or trigram type) governs the free region (positions 24-32). The free pairs are not arranged by any measured scalar property.
+
+The 2 adjacency constraints appear to be **irreducible choices** — the final creative decisions of whoever designed the sequence, not consequences of a deeper mathematical principle.
+
+### Summary
+
+The King Wen sequence is **97% determined by mathematics, 3% by choice**:
+
+- **Rules 1-7** (mathematical): Lock 23 of 32 pair positions and all but 9 of 31 pair adjacencies. These rules are derivable from structural analysis and likely reflect the designers' combinatorial intent.
+- **2 adjacency constraints** (historical): Specific pair placements at boundaries 25 and 27. These represent the irreducible creative decisions in the sequence — the part that mathematics alone cannot explain. They may reflect cosmological, philosophical, or aesthetic considerations that are not captured by any structural property measured here.
 
 ## Usage
 
