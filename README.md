@@ -21,6 +21,10 @@ Note: this program analyzes the mathematical structure of the ordering only. The
 
 New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-language introduction to the King Wen sequence and how to read this program's output.
 
+## Solver
+
+Can the King Wen sequence be reconstructed from its mathematical constraints? See [SOLVE.md](SOLVE.md) for the generative recipe and constraint narrowing analysis (`solve.py`).
+
 ## Example
 
 See [example output](example/README.md) for full program output.
