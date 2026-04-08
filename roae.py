@@ -8,6 +8,23 @@ import random
 import sys
 import unicodedata
 
+# Global seed for reproducible results. When set via --seed, each analysis
+# section re-seeds the RNG with (seed + section_salt) so results are identical
+# regardless of which sections run or in what order. When None, the RNG is
+# not re-seeded and results vary between runs (Python's default behavior).
+_global_seed = None
+
+def _reseed(salt):
+    """Re-seed the RNG for a specific analysis section.
+
+    Each section gets a deterministic seed derived from the global seed plus
+    a unique salt, ensuring identical results regardless of execution order.
+    Called at the start of every function that uses random numbers.
+    Does nothing if no global seed was set (random/non-reproducible mode).
+    """
+    if _global_seed is not None:
+        random.seed(_global_seed + salt)
+
 # Reverse the bit order of a 6-bit value, equivalent to flipping a hexagram
 # upside down (180-degree rotation). Each hexagram has 6 lines (bits), so
 # reversing maps bit 0 to bit 5, bit 1 to bit 4, etc.
@@ -593,6 +610,7 @@ def print_complements():
 def print_palindromes():
     """Search for palindromic subsequences in the first-order difference wave.
     Palindromes suggest intentional symmetry in the King Wen ordering."""
+    _reseed(1)
     print("---")
     print("Palindrome analysis of the difference wave")
     print("A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding")
@@ -845,6 +863,7 @@ def print_autocorrelation():
 def print_entropy():
     """Compare the Shannon entropy of the King Wen difference wave against
     random permutations to quantify how ordered/disordered the sequence is."""
+    _reseed(2)
     print("---")
     print("Shannon entropy analysis")
     print("Entropy measures disorder: high entropy means the difference values are spread")
@@ -967,6 +986,7 @@ def print_path():
     """Analyze the King Wen sequence as a path through a graph where nodes are
     hexagrams and edge weights are Hamming distances. Compare its total path
     length against random orderings and a greedy nearest-neighbor heuristic."""
+    _reseed(3)
     print("---")
     print("Path analysis (graph theory)")
     print("Imagine the 64 hexagrams as cities on a map, where the 'distance' between any")
@@ -1069,6 +1089,7 @@ def print_path():
         print(f"Effect size (Cohen's d, pair-constrained): {(kw_total - mean_pair) / std_pair:+.2f}")
 
 def print_stats(trials=100000):
+    _reseed(4)
     print("---")
     print(f"Monte Carlo analysis ({trials:,} random permutations)")
     print("The King Wen sequence has a striking property: no two consecutive hexagrams")
@@ -1164,6 +1185,7 @@ def print_fft():
 
 def print_markov():
     """Markov chain analysis of the difference wave transitions."""
+    _reseed(5)
     print("---")
     print("Markov chain analysis")
     print("If we treat each difference value as a 'state', we can ask: does the current")
@@ -1463,6 +1485,7 @@ def print_sequences():
 
 def print_constraints():
     """Estimate how many orderings satisfy the known King Wen constraints."""
+    _reseed(6)
     print("---")
     print("Constraint satisfaction analysis")
     print("The King Wen sequence satisfies several constraints simultaneously:")
@@ -2079,6 +2102,7 @@ def print_windowed_entropy():
 
 def print_mutual_info():
     """Mutual information between upper and lower trigram transitions."""
+    _reseed(7)
     print("---")
     print("Mutual information: upper vs. lower trigram transitions")
     print("When two consecutive hexagrams differ, do the upper and lower trigrams change")
@@ -2203,6 +2227,7 @@ def print_mutual_info():
 
 def print_bootstrap(trials=100000):
     """Bootstrap confidence intervals for Monte Carlo results."""
+    _reseed(8)
     print("---")
     print("Bootstrap confidence intervals")
     print("The Monte Carlo results (e.g., '0.18% of random orderings avoid 5-line")
@@ -2425,6 +2450,7 @@ def print_recurrence():
 def print_casting():
     """Simulate an I Ching reading using the three-coin method.
     https://en.wikipedia.org/wiki/I_Ching_divination"""
+    _reseed(9)
     print("---")
     print("I Ching casting (three-coin method)")
     print("In a traditional reading, three coins are tossed six times to generate a")
@@ -3178,7 +3204,9 @@ def main():
     parser.add_argument("--trials", type=int, default=100000,
                         help="Number of Monte Carlo trials (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed for reproducible Monte Carlo results")
+                        help="Random seed for reproducible results (each analysis "
+                             "section re-seeds independently, so results are identical "
+                             "regardless of which sections run). Omit for random results.")
     parser.add_argument("--color", action="store_true",
                         help="Enable ANSI color output")
 
@@ -3227,6 +3255,11 @@ def main():
         print_header()
         print_explain(args.explain)
         return
+    # Set global seed before any analysis runs (including exports)
+    global _global_seed
+    if args.seed is not None:
+        _global_seed = args.seed
+
     if args.json:
         export_json()
         return
@@ -3258,9 +3291,6 @@ def main():
                     args.yinyang, args.neighborhoods, args.recurrence, args.codons]
     run_all = args.all or (not args.quick and not any(all_sections))
     run_quick = args.quick
-
-    if args.seed is not None:
-        random.seed(args.seed)
 
     print_header()
     use_color = args.color

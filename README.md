@@ -100,7 +100,7 @@ python3 roae.py --explain 1          # Step-by-step walkthrough of transition 1
 | `--wrap` | Include 64->1 wrap-around transition in wave |
 | `--order N` | Compute Nth order of difference (default: 1) |
 | `--trials N` | Number of Monte Carlo trials (default: 100000) |
-| `--seed N` | Random seed for reproducible results |
+| `--seed N` | Random seed for reproducible results (omit for random). Each analysis section re-seeds independently, so results are identical regardless of which sections run or output format used. |
 | `--color` | Enable ANSI color output |
 
 ### Export formats
