@@ -31,7 +31,7 @@ The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is trad
 - **The Markov transition matrix is not unusual** — a permutation test shows King Wen's transition structure is at the 43rd percentile, indistinguishable from random orderings. Apparent patterns (e.g., "6 is always followed by 2") are based on small samples and are not statistically significant.
 - **The path length is typical for its structure** — compared against unconstrained random orderings, King Wen appears rough (97th percentile, 3.35x a Gray code). But compared against the correct null model (random orderings that also satisfy the pair constraint), it's at the 29th percentile — completely typical.
 - **Complements are deliberately close** — King Wen places complementary hexagrams significantly closer than random (0th percentile), suggesting intentional organization around opposition.
-- **The XOR algebra is clean** — 32 pairs produce only ~12 unique products, suggesting the pairing system has deeper algebraic regularity.
+- **The XOR algebra is clean** — 32 pairs produce only 7 unique XOR products, suggesting the pairing system has deeper algebraic regularity.
 - **Palindromes, canon split, recurrence, and neighborhoods are unremarkable** — under appropriate null models, all are within chance expectations. Palindromes are at the 49th percentile (pair-constrained), the canon split at the 12th, recurrence at the 72nd, and neighborhoods at the 12th.
 - **King Wen is unique among known orderings** — neither the [Fu Xi](https://en.wikipedia.org/wiki/Shao_Yong) (binary) ordering nor the [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) silk manuscript ordering avoids 5-line transitions.
 
