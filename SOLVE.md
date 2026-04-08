@@ -168,15 +168,17 @@ The most powerful analysis (`--differential`) generates all solutions satisfying
 
 ### Results
 
-From 16,248 raw solutions (882 unique pair orderings after de-duplication):
+A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so the full solution count is unknown but the sample is substantial.
 
-**8 features where King Wen is extremal (rank 882/882).** However, most are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, and total path length are identical across ALL solutions. Max run length is also tied.
+**8 features where King Wen is extremal (rank 13,296/13,296).** However, 6 are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, total path length, and max run length are identical across ALL solutions.
 
-**Two genuinely non-trivial extremal features:**
+**Two genuinely non-trivial extremal features, confirmed at scale:**
 
-1. **Complement distance: MAXIMUM (12.125).** King Wen places complements as far apart as possible while still satisfying the complement distance threshold. Other solutions achieve 11.75 or lower. King Wen doesn't just keep complements close — it keeps them as *far apart as the constraint allows*.
+1. **Complement distance: MAXIMUM (12.125).** King Wen places complements as far apart as possible while still satisfying the complement distance threshold. Every other solution scores 11.750 or lower. This held across all 13,296 unique orderings.
 
-2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Other solutions range down to -0.115 (tied) or lower.
+2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Confirmed across all 13,296 orderings.
+
+No individual line autocorrelation is extremal — the effect is distributed across all 6 lines, visible only in the mean.
 
 ### Interpretation
 
