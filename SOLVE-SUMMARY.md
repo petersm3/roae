@@ -77,3 +77,5 @@ Someone, roughly 3,000 years ago, designed an arrangement of 64 symbols that sat
 | 5 | Specific transition counts | ~0 in 100,000 samples |
 | 6 | Maximum complement distance | ~450 |
 | 7 | Two neighbor choices | **1 (King Wen)** |
+
+For full technical details, methodology, and reproducible commands, see [SOLVE.md](SOLVE.md).
