@@ -1,4 +1,4 @@
-# ROAE — Received Order Analysis Engine
+# Received Order Analysis Engine (ROAE)
 
 Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)
 
