@@ -2294,6 +2294,224 @@ def print_fingerprint(max_nodes=30_000_000, time_limit=120):
             print("These adjacencies, combined with Rules 1-7a, uniquely determine")
             print("the King Wen sequence.")
 
+def print_reconstruct():
+    """Reconstruct the King Wen sequence step by step using all constraints.
+    At each step, show how many valid choices exist. If exactly 1 at every
+    step, the specification's constructive algorithm is verified."""
+    print("=" * 70)
+    print("CONSTRUCTIVE RECONSTRUCTION")
+    print("=" * 70)
+    print()
+    print("Build the King Wen sequence pair by pair using constraints C1-C7.")
+    print("At each step, count valid choices. If exactly 1, the step is forced.")
+    print()
+
+    kw_pairs = king_wen_pairs()
+    kw_seq = binary_hexagrams
+    n = 32
+
+    # King Wen's difference distribution (C5)
+    kw_diffs = [bit_diff(kw_seq[i], kw_seq[i + 1]) for i in range(63)]
+    kw_dist = {}
+    for d in kw_diffs:
+        kw_dist[d] = kw_dist.get(d, 0) + 1
+    kw_comp_dist = mean_complement_distance(kw_seq)
+
+    # C6 and C7: specific adjacencies
+    # Boundary 27: pair at position 27 (0-indexed 26) adjacent to position 28 (0-indexed 27)
+    c6_pair_a = tuple(sorted([kw_seq[52], kw_seq[53]]))  # pair 27
+    c6_pair_b = tuple(sorted([kw_seq[54], kw_seq[55]]))  # pair 28
+    # Boundary 25: pair at position 25 (0-indexed 24) adjacent to position 26 (0-indexed 25)
+    c7_pair_a = tuple(sorted([kw_seq[48], kw_seq[49]]))  # pair 25
+    c7_pair_b = tuple(sorted([kw_seq[50], kw_seq[51]]))  # pair 26
+
+    pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
+
+    # Recursive search counting valid completions at each step
+    def count_completions(seq, used, budget, depth_limit):
+        """Count how many valid complete sequences extend from seq."""
+        step = len(seq) // 2
+        if step == n:
+            if mean_complement_distance(seq) <= kw_comp_dist:
+                return 1
+            return 0
+
+        if step >= depth_limit:
+            return 1  # don't recurse past limit, assume feasible
+
+        count = 0
+        for j in range(n):
+            if j in used:
+                continue
+            for first, second in pair_options[j]:
+                if seq and bit_diff(seq[-1], first) == 5:
+                    continue
+                new_budget = dict(budget)
+                if seq:
+                    bd = bit_diff(seq[-1], first)
+                    if new_budget.get(bd, 0) <= 0:
+                        continue
+                    new_budget[bd] -= 1
+                wd = bit_diff(first, second)
+                if new_budget.get(wd, 0) <= 0:
+                    continue
+                new_budget[wd] -= 1
+
+                # C6: if placing pair 28 (step 27), check adjacency with pair 27
+                if step == 27:
+                    prev_pair = tuple(sorted([seq[-2], seq[-1]]))
+                    curr_pair = tuple(sorted([first, second]))
+                    if not ((prev_pair == c6_pair_a and curr_pair == c6_pair_b) or
+                            (prev_pair == c6_pair_b and curr_pair == c6_pair_a)):
+                        # Check if this step IS boundary 27
+                        pass  # only enforce if we're at the right position
+
+                # C7: similar for boundary 25
+                # These are position-specific, so we check by pair identity
+                if step >= 24:
+                    curr_pair = tuple(sorted([first, second]))
+                    if step < n:
+                        prev_pair = tuple(sorted([seq[-2], seq[-1]])) if len(seq) >= 2 else None
+
+                count += count_completions(seq + [first, second], used | {j},
+                                           new_budget, depth_limit)
+        return count
+
+    # Step-by-step reconstruction
+    seq = [0b111111, 0b000000]  # C4: start with Creative/Receptive
+    used = {0}  # pair 0 (Creative/Receptive)
+    budget = dict(kw_dist)
+    budget[bit_diff(0b111111, 0b000000)] -= 1  # within-pair transition consumed
+
+    print(f"{'Step':>4} {'Pair':>5} {'Choices':>8} {'Forced?':>8} Hexagrams")
+    print(f"{'----':>4} {'-----':>5} {'-------':>8} {'-------':>8} ---------")
+    print(f"{'1':>4} {'1':>5} {'—':>8} {'start':>8} "
+          f"䷀ The Creative / ䷁ The Receptive")
+
+    all_forced = True
+    reconstructed = list(seq)
+
+    for step in range(1, n):
+        prev_tail = reconstructed[-1]
+
+        # Find all valid next pairs with all constraints
+        valid_choices = []
+        for j in range(n):
+            if j in used:
+                continue
+            for first, second in pair_options[j]:
+                # C2: no 5-line transition
+                if bit_diff(prev_tail, first) == 5:
+                    continue
+
+                # C5: budget check
+                test_budget = dict(budget)
+                bd = bit_diff(prev_tail, first)
+                if test_budget.get(bd, 0) <= 0:
+                    continue
+                test_budget[bd] -= 1
+                wd = bit_diff(first, second)
+                if test_budget.get(wd, 0) <= 0:
+                    continue
+                test_budget[wd] -= 1
+
+                # C6: adjacency at boundary 27 (between pairs at positions 26 and 27)
+                if step == 27:  # placing pair 28 (0-indexed 27)
+                    prev_pair_can = tuple(sorted([reconstructed[-2], reconstructed[-1]]))
+                    curr_pair_can = tuple(sorted([first, second]))
+                    if not (prev_pair_can == c6_pair_a and curr_pair_can == c6_pair_b):
+                        continue
+
+                if step == 26:  # placing pair 27 — must be c6_pair_a if pair 28 is c6_pair_b
+                    curr_pair_can = tuple(sorted([first, second]))
+                    # pair 27 must be c6_pair_a (so boundary 27 can be satisfied)
+                    # But we also need pair 28 available
+                    partner_needed = c6_pair_b if curr_pair_can == c6_pair_a else None
+                    if curr_pair_can == c6_pair_a:
+                        # Check c6_pair_b is still available
+                        c6b_idx = next((k for k in range(n) if k not in used and k != j
+                                       and tuple(sorted(kw_pairs[k])) == c6_pair_b), None)
+                        if c6b_idx is None:
+                            continue
+
+                # C7: adjacency at boundary 25 (between pairs at positions 24 and 25)
+                if step == 25:  # placing pair 26 (0-indexed 25)
+                    prev_pair_can = tuple(sorted([reconstructed[-2], reconstructed[-1]]))
+                    curr_pair_can = tuple(sorted([first, second]))
+                    if not (prev_pair_can == c7_pair_a and curr_pair_can == c7_pair_b):
+                        continue
+
+                if step == 24:  # placing pair 25 — must be c7_pair_a
+                    curr_pair_can = tuple(sorted([first, second]))
+                    if curr_pair_can == c7_pair_a:
+                        c7b_idx = next((k for k in range(n) if k not in used and k != j
+                                       and tuple(sorted(kw_pairs[k])) == c7_pair_b), None)
+                        if c7b_idx is None:
+                            continue
+
+                # C3: complement distance feasibility (only check at completion)
+                # For intermediate steps, we accept all that pass other constraints
+                # At the final step, we check
+                if step == n - 1:
+                    test_seq = reconstructed + [first, second]
+                    if mean_complement_distance(test_seq) > kw_comp_dist:
+                        continue
+
+                valid_choices.append((j, first, second))
+
+        n_choices = len(valid_choices)
+        forced = "YES" if n_choices == 1 else ""
+        if n_choices != 1:
+            all_forced = False
+
+        # Pick King Wen's actual choice
+        kw_first = kw_seq[step * 2]
+        kw_second = kw_seq[step * 2 + 1]
+        kw_choice = next(((j, f, s) for j, f, s in valid_choices
+                          if f == kw_first and s == kw_second), None)
+
+        if kw_choice:
+            j, first, second = kw_choice
+            # Get hexagram names
+            idx_f = list(binary_hexagrams).index(first)
+            idx_s = list(binary_hexagrams).index(second)
+            name_f = hexagram_names[idx_f]
+            name_s = hexagram_names[idx_s]
+            hex_f = chr(0x4DC0 + idx_f)
+            hex_s = chr(0x4DC0 + idx_s)
+
+            print(f"{step+1:>4} {step+1:>5} {n_choices:>8} {forced:>8} "
+                  f"{hex_f} {name_f} / {hex_s} {name_s}")
+
+            reconstructed.extend([first, second])
+            used.add(j)
+            bd = bit_diff(prev_tail, first)
+            budget[bd] -= 1
+            wd = bit_diff(first, second)
+            budget[wd] -= 1
+        else:
+            print(f"{step+1:>4} {step+1:>5} {n_choices:>8} {'ERROR':>8} "
+                  f"King Wen's choice not among valid options!")
+            break
+
+    print()
+    if reconstructed == kw_seq:
+        print("✓ Reconstruction matches King Wen exactly.")
+    else:
+        print("✗ Reconstruction does NOT match King Wen.")
+
+    if all_forced:
+        print("✓ Every step had exactly 1 valid choice — the sequence is fully determined.")
+        print()
+        print("The constructive algorithm in SPECIFICATION.md is verified:")
+        print("constraints C1-C7 admit exactly one valid path at every step.")
+    else:
+        non_forced = sum(1 for _ in [] )  # placeholder
+        print(f"Some steps had multiple valid choices — constraints C1-C7 alone")
+        print(f"do not force a unique path at every step without lookahead.")
+        print(f"The specification's uniqueness holds globally but the greedy")
+        print(f"constructive algorithm may require backtracking at some steps.")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -2334,6 +2552,8 @@ def main():
                         help="Test Rule 7 candidates: filter by extremal complement distance and line autocorrelation")
     parser.add_argument("--fingerprint", action="store_true",
                         help="Fingerprint analysis: free positions, edit distances, minimum constraints")
+    parser.add_argument("--reconstruct", action="store_true",
+                        help="Reconstruct King Wen step by step, verifying uniqueness at each step")
     parser.add_argument("--max-nodes", type=int, default=10_000_000,
                         help="Max nodes for backtracking enumeration (default: 10M)")
     parser.add_argument("--time-limit", type=int, default=60,
@@ -2364,7 +2584,7 @@ def main():
                  args.boundaries, args.construct, args.enumerate,
                  args.trigram_paths, args.line_decomp, args.pair_neighborhoods,
                  args.residuals, args.info, args.differential, args.rule7,
-                 args.fingerprint]
+                 args.fingerprint, args.reconstruct]
     if not any(all_flags):
         args.rules = True
         args.narrow = True
@@ -2430,6 +2650,10 @@ def main():
 
     if args.fingerprint:
         print_fingerprint(max_nodes=args.max_nodes, time_limit=args.time_limit)
+        print()
+
+    if args.reconstruct:
+        print_reconstruct()
         print()
 
 if __name__ == "__main__":

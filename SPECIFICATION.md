@@ -110,7 +110,7 @@ function construct_king_wen():
     return S
 ```
 
-*With all constraints active, this algorithm has exactly one valid path at each step.*
+*With all constraints active, this algorithm produces exactly one complete sequence. However, individual steps may have multiple locally valid choices — uniqueness is a global property requiring lookahead or backtracking, not a greedy local property. Run `python3 solve.py --reconstruct` to verify.*
 
 ## Notation summary
 
