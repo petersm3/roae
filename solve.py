@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# https://github.com/petersm3/roae
 # Developed with AI assistance (Claude, Anthropic)
 """
 Constraint solver for the King Wen sequence.
