@@ -14,17 +14,17 @@ We wanted to know: **what rules did they follow?** And can we figure out those r
 
 Each hexagram is a stack of 6 lines. Each line is either solid (⚊ [yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken (⚋ [yin](https://en.wikipedia.org/wiki/Yin_and_yang)) — like a 6-digit binary number with only 1s and 0s. With 6 positions and 2 choices each, there are exactly 2^6 = 64 possible hexagrams. The King Wen sequence puts all 64 in a specific order.
 
-| | ䷀ The Creative #1 | ䷝ The Clinging #30 | ䷁ The Receptive #2 |
+| | ䷀ The Creative #1 | ䷄ Waiting #5 | ䷁ The Receptive #2 |
 |---|:---:|:---:|:---:|
-| Line 6 (top) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
-| Line 5 | ⚊ **1** | ⚋ **0** | ⚋ **0** |
-| Line 4 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 6 (top) | ⚊ **1** | ⚋ **0** | ⚋ **0** |
+| Line 5 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 4 | ⚊ **1** | ⚋ **0** | ⚋ **0** |
 | Line 3 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
-| Line 2 | ⚊ **1** | ⚋ **0** | ⚋ **0** |
+| Line 2 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
 | Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
-| Binary | **111111** | **101101** | **000000** |
+| Binary | **111111** | **010111** | **000000** |
 
-To get the binary code, read the 1s and 0s from the bottom of the table upward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷝ The Clinging #30 reads 1, 0, 1, 1, 0, 1 from bottom to top, giving 101101 — a mix of solid and broken.
+To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷄ Waiting #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
 
 ## The rules we found
 
