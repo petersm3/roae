@@ -99,9 +99,7 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 After Rules 1-5, the first 23 pairs (hexagrams 1-46) are completely locked — every valid arrangement puts the same pairs in the same positions. Only the last 9 pairs (hexagrams 47-64) have any freedom, with thousands of valid arrangements remaining.
 
 Locked (23 pairs — forced by rules):<br>
-䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
-䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟\
-䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭
 
 Free (9 pairs — where choice enters):<br>
 ䷮䷯ <mark>**䷰䷱**</mark> <mark>**䷲䷳**</mark> <mark>**䷴䷵**</mark> <mark>**䷶䷷**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
