@@ -4,7 +4,7 @@ A plain-language summary of what `solve.py` discovered.
 
 ## The puzzle
 
-About 3,000 years ago, someone in ancient China arranged 64 symbols (called hexagrams) in a specific order. This ordering is called the King Wen sequence. There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, the designers picked one specific arrangement:
+About 3,000 years ago, someone in ancient China arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, the designers picked one specific arrangement:
 
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
@@ -12,7 +12,7 @@ We wanted to know: **what rules did they follow?** And can we figure out those r
 
 ## What a hexagram is
 
-Each hexagram is a stack of 6 lines. Each line is either solid or broken — like a 6-digit binary number with only 1s and 0s. With 6 positions and 2 choices each, there are exactly 2^6 = 64 possible hexagrams. The King Wen sequence puts all 64 in a specific order.
+Each hexagram is a stack of 6 lines. Each line is either solid ([yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken (yin) — like a 6-digit binary number with only 1s and 0s. With 6 positions and 2 choices each, there are exactly 2^6 = 64 possible hexagrams. The King Wen sequence puts all 64 in a specific order.
 
 ## The rules we found
 
@@ -26,7 +26,7 @@ The 64 hexagrams are grouped into 32 consecutive pairs. Each hexagram is paired 
 
 ### Rule 2: No 5-line jumps
 
-When you move from one hexagram to the next, some number of lines change (1 through 6). In the King Wen sequence, the number 5 never appears — no two consecutive hexagrams differ by exactly 5 lines.
+When you move from one hexagram to the next, some number of lines change (1 through 6). This is called the [Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance). In the King Wen sequence, the number 5 never appears — no two consecutive hexagrams differ by exactly 5 lines.
 
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
@@ -44,9 +44,9 @@ The sequence begins with the two most extreme hexagrams: all solid lines (䷀ Th
 
 ### Rule 5: Specific transition counts
 
-The "jumps" between consecutive hexagrams follow a specific recipe: exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
+The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
 
-**What this does:** After all previous rules, this eliminates everything we could find in 100,000 random samples.
+**What this does:** After all previous rules, this eliminates everything we could find in 100,000 [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) random samples.
 
 ### Rule 6: Opposites as far apart as the rules allow
 
@@ -65,7 +65,7 @@ To narrow from 450 to exactly 1, you need just two specific instructions:
 
 The King Wen sequence is **97% determined by mathematics**. Seven rules, discoverable through analysis, lock 23 of 32 pair positions. The remaining 3% — two specific choices about which pairs sit next to each other — is where human creativity enters. Those two choices have no mathematical explanation we can find. They may reflect philosophical ideas, cosmological beliefs, or aesthetic preferences that are invisible to a computer.
 
-Someone, roughly 3,000 years ago, designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only about 450 arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those 450, they made two specific choices that we can identify but cannot explain.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only about 450 arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those 450, they made two specific choices that we can identify but cannot explain.
 
 ## The numbers at a glance
 
