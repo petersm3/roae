@@ -283,6 +283,22 @@ The perfectly uniform 3/3/3 within-pair distance distribution in the free region
 
 **Conclusion:** The locked and free regions are not governed by different rules. The structural differences between them are consequences of which hexagrams remain after the first 23 positions are filled.
 
+### Optimization framing
+
+Testing 17 objective functions over the free region, 3 are extremal for King Wen (maximum among all solutions): boundary distance variance, free-region complement mean distance, and max boundary distance. Combined, they narrow 438 solutions to 146. Better than single features but still not unique.
+
+The best greedy reconstruction heuristic (`max_boundary_variance`) reproduces 5 of 9 free-region pairs correctly. No single heuristic reproduces King Wen's exact ordering.
+
+### Boundary distance bigrams
+
+Analyzing consecutive pairs of boundary distances reveals 3 bigrams forbidden only in King Wen (present in other solutions but not King Wen): (1→1), (1→4), and (2→1). King Wen never follows a distance-1 boundary with another 1 or a 4, and never follows a distance-2 with a 1. Adding these as constraints narrows 438 → 171 solutions.
+
+7 additional bigrams are forbidden in ALL solutions (forced by the rules): all transitions involving distance 6 except 6→3 and 2→6.
+
+### Nuclear hexagrams and complement ordering
+
+Nuclear hexagram sharing at boundaries is unremarkable (88th percentile, 1/31 boundaries). Complement pair relative ordering (lighter-first vs heavier-first) shows no consistent pattern (38% vs 31%, 80th percentile). Neither reveals a hidden rule.
+
 ### Multi-feature combination search
 
 No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that no aggregate mathematical property can replicate.
