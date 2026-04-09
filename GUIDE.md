@@ -75,7 +75,20 @@ Line 1 (bottom): -------   1       -------            --- ---
 
 The binary encoding reads bottom to top: line 1 is the rightmost bit, line 6 is the leftmost. So `010001` means lines 1 and 5 are solid, the rest broken.
 
-Each hexagram is also split into two halves called **trigrams** — the bottom three lines (lower trigram) and the top three lines (upper trigram). There are 8 possible trigrams, giving 8 x 8 = 64 possible hexagrams.
+Each hexagram is also split into two halves called **trigrams** — the bottom three lines (lower trigram) and the top three lines (upper trigram). There are 8 possible trigrams:
+
+| Trigram | Name | Meaning |
+|---------|------|---------|
+| ☰ | Qian | Heaven |
+| ☷ | Kun | Earth |
+| ☳ | Zhen | Thunder |
+| ☵ | Kan | Water |
+| ☶ | Gen | Mountain |
+| ☴ | Xun | Wind |
+| ☲ | Li | Fire |
+| ☱ | Dui | Lake |
+
+With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagrams.
 
 ## Key concepts
 
