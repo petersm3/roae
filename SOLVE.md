@@ -297,9 +297,11 @@ Analyzing consecutive pairs of boundary distances reveals 3 bigrams forbidden on
 
 ### Graph centrality
 
-Treating each valid ordering as a node in a graph (connected at edit distance ≤ 2), King Wen is **near the center of the solution space**. Its mean edit distance to all other solutions is 6.35 — ranking at the 7th percentile (lower = more central). King Wen is closer to all other valid orderings than 93% of them are to each other.
+Treating each valid ordering as a node in a graph (connected at edit distance ≤ 2), King Wen is **near the center of the solution space** — ranking 28th of 438 (top 6%) by mean edit distance. It is not the absolute medoid (the most central solution is 3 edits away), but it's in the top tier of centrality.
 
-This suggests King Wen was not an arbitrary choice among the ~450 valid orderings but the most **balanced** or **representative** one — minimizing the average distance to all alternatives.
+King Wen matches the position-by-position consensus (most common pair at each slot) at 5 of 9 free positions. No solution matches the full consensus — the most popular choices at each position don't form a valid ordering together.
+
+Betweenness centrality (how many shortest paths pass through a node) is unremarkable — 55th percentile. King Wen is central in terms of closeness but not a structural hub.
 
 Edit distance distribution from King Wen: most solutions are 5-7 swaps away, with a bell-shaped distribution peaking at 6. The closest alternatives are 2 swaps away (5 solutions); the farthest are 9 swaps (20 solutions).
 

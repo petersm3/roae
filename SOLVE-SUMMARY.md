@@ -96,11 +96,11 @@ The ~450 alternative arrangements that satisfy Rules 1-6 are not random — they
 
 The King Wen sequence is **97% determined by mathematics**. Seven rules, discoverable through analysis, lock 23 of 32 pair positions. The remaining 3% — two specific choices about which pairs sit next to each other — is where human creativity enters.
 
-But those two choices are not arbitrary. Among all ~450 valid arrangements, King Wen is the **most central** — it has the lowest average distance to every other valid ordering (7th percentile). The designers didn't pick randomly from 450 options. They picked the one that's most balanced, most representative, closest to all the alternatives at once. As if, among all valid arrangements, they chose the one at the center.
+But those two choices are not arbitrary. Among all ~450 valid arrangements, King Wen is **near the center** — ranking in the top 6% by average distance to all other valid orderings. It's not the absolute most central solution (that's 3 swaps away), but it's in the top tier. King Wen also matches the consensus (most popular pair at each position) at 5 of 9 free positions.
 
-No single feature or combination of features (26 tested individually, 153 pairs, 10 triples) can *uniquely* identify King Wen among the ~450 — the two adjacency constraints are still needed to pin it down to exactly one. But the centrality finding suggests the choices follow a principle: **prefer the most balanced arrangement**.
+No single feature or combination of features (26 tested individually, 153 pairs, 10 triples) can *uniquely* identify King Wen among the ~450 — the two adjacency constraints are still needed to pin it down to exactly one. But the centrality finding suggests the choices lean toward a principle: **prefer a balanced, central arrangement**.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only about 450 arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those 450, they chose the one at the center.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only about 450 arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those 450, they chose one near the center.
 
 ## The numbers at a glance
 
