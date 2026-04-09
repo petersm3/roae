@@ -178,7 +178,7 @@ A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-dupli
 
 **Two genuinely non-trivial extremal features, confirmed at scale:**
 
-1. **Complement distance: MAXIMUM (12.125).** King Wen places complements as far apart as possible while still satisfying the complement distance threshold. Every other solution scores 11.750 or lower. This held across all 13,296 unique orderings.
+1. **Complement distance: 12.125 (3.9th percentile among all Rule 1-6 solutions).** King Wen keeps complements unusually close. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter. The meaningful finding is that King Wen sits at the low end of complement distances, actively minimizing distance between opposites.
 
 2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Confirmed across all 13,296 orderings.
 
@@ -186,7 +186,7 @@ No individual line autocorrelation is extremal — the effect is distributed acr
 
 ### Interpretation
 
-The complement distance finding is surprising: Rule 3 requires complement distance ≤ 12.1 (King Wen's value), and King Wen sits at the exact maximum. Among all solutions satisfying Rules 1-6, King Wen is the one that **pushes complements as far apart as the constraint allows**. This suggests the designers didn't just want complements close — they balanced closeness against some other competing objective.
+The complement distance finding is surprising: among ALL orderings satisfying Rules 1-5, King Wen's complement distance of 12.125 is at the **3.9th percentile** — only 3.9% of valid orderings place complements closer. Most valid orderings have complement distances of 12-14.5. King Wen actively minimizes complement distance, keeping opposites as close as possible. This is a genuine design choice, not a mathematical necessity.
 
 The line autocorrelation finding suggests the designers preferred smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
 
@@ -229,7 +229,7 @@ Combined with Rules 1-7a, this gives a **complete generative recipe**: 7 global 
 4. ~~XOR products within 7 values~~ (redundant)
 5. Starts with ䷀ The Creative / ䷁ The Receptive
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9}
-7. Complement distance = 12.125 (exact maximum)
+7. Complement distance ≤ 12.125 (3.9th percentile — unusually close)
 8. ~~Mean line autocorrelation = -0.115~~ (redundant with #7)
 9. Pair adjacency: position 27 next to position 28
 10. Pair adjacency: position 25 next to position 26
@@ -325,7 +325,7 @@ The thousands of alternative arrangements satisfying Rules 1-6 all share the sam
 
 - **Hexagrams 1-46 are mathematically forced.** No valid arrangement puts them in a different order. Any commentary explaining their sequence is describing mathematical structure, whether the commentators knew it or not.
 - **Hexagrams 47-64 are where choice lives.** The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
-- **King Wen's choice maximizes complement distance** among all valid arrangements, pushing opposites as far apart as the constraint allows.
+- **King Wen's choice minimizes complement distance** among valid arrangements, keeping opposites as close as possible (3.9th percentile).
 
 Locked (23 pairs — forced by rules):\
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
