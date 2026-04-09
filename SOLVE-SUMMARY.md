@@ -104,7 +104,8 @@ Locked (23 pairs — forced by rules):<br>
 ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭
 
 Free (9 pairs — where choice enters):<br>
-䷮䷯ <mark>**䷰䷱**</mark> <mark>**䷲䷳**</mark> <mark>**䷴䷵**</mark> <mark>**䷶䷷**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+䷮䷯ <mark>**䷰䷱**</mark> <mark>**䷲䷳**</mark> <mark>**䷴䷵**</mark> <mark>**䷶䷷**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pairs: 47↔48, <mark>**49↔50**</mark>, <mark>**51↔52**</mark>, <mark>**53↔54**</mark>, <mark>**55↔56**</mark>, 57↔58, 59↔60, 61↔62, 63↔64
 
 To narrow from thousands to exactly 1, you need just two specific instructions:
 
