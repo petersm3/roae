@@ -19,7 +19,7 @@ New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-langua
 
 ## Solver
 
-Can the King Wen sequence be reconstructed from its mathematical constraints? See [SOLVE.md](SOLVE.md) for the generative recipe and constraint narrowing analysis (`solve.py`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version.
+Can the King Wen sequence be reconstructed from its mathematical constraints? See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the generative recipe and constraint narrowing analysis (`solve.py`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version.
 
 ## Example
 
