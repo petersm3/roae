@@ -371,6 +371,20 @@ After placing 23 pairs (46 hexagrams), the remaining difference distribution bud
 - **Estimated range:** 15,000-50,000 (from solution discovery rate decline)
 - **Exact count:** pending completion of the 24-hour enumeration run
 
+### Theorem 6: Starting orientation is forced
+
+In all valid solutions, ䷀ The Creative (111111) must precede ䷁ The Receptive (000000) — not the reverse. **Proof:** Pair 2 is locked at (010001, 100010). With Creative first, boundary 1 is bit_diff(000000, 010001) = 2. With Receptive first, boundary 1 is bit_diff(111111, 010001) = 4. This changes the global difference distribution from {1:2, 2:20, 3:13, 4:19, 6:9} to {1:2, 2:19, 3:13, 4:20, 6:9}, violating Rule 6. **QED.**
+
+### Theorem 7: Complement distance bounds
+
+King Wen's complement distance (12.125) is NOT the maximum among Rule 1-6 solutions. Valid orderings range from 11.75 to 14.5. King Wen is at the **3.9th percentile** — it actively minimizes complement distance. The earlier differential analysis finding ("King Wen maximizes complement distance") was an artifact of circular filtering: defining Rule 7a as comp_dist ≤ 12.125 and then observing King Wen was the maximum within that filtered set.
+
+### Theorem 8: Free-region budget is determined
+
+The between-pair boundary budget for positions 24-32 is exactly {1:2, 2:1, 3:5, 4:1} = 9 values for 8 boundaries. **Proof:** The global distribution (Rule 6) minus the locked region's 45 transitions minus the free region's 9 within-pair transitions leaves exactly {1:2, 2:1, 3:5, 4:1, 6:0}. The slack of 1 (9 values for 8 slots) is what creates the freedom — one value must go unused, and the choice of which creates the multiple valid orderings. **QED.**
+
+Boundary 27 is the most discriminating because King Wen's specific pair-pair combination at that position occurs in only 1.4% of solutions (6/438) — the rarest of any boundary.
+
 ## Usage
 
 ```
