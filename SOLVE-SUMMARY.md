@@ -24,7 +24,7 @@ Each hexagram is a stack of 6 lines. Each line is either solid (⚊ [yang](https
 | Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
 | Binary | **111111** | **101101** | **000000** |
 
-Read bottom to top: line 1 is the rightmost bit, line 6 is the leftmost. All solid = 111111. All broken = 000000. Mixed lines give values in between.
+To get the binary code, read the 1s and 0s from the bottom of the table upward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷝ The Clinging #30 reads 1, 0, 1, 1, 0, 1 from bottom to top, giving 101101 — a mix of solid and broken.
 
 ## The rules we found
 
