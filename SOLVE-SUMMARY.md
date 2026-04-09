@@ -61,7 +61,7 @@ To narrow from 450 to exactly 1, you need just two specific instructions:
 - Pair 25 (䷰ Revolution #49 / ䷱ The Cauldron #50) must be next to Pair 26 (䷲ The Arousing #51 / ䷳ Keeping Still #52)
 - Pair 27 (䷴ Development #53 / ䷵ The Marrying Maiden #54) must be next to Pair 28 (䷶ Abundance #55 / ䷷ The Wanderer #56)
 
-䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ **䷰䷱** **䷲䷳** **䷴䷵** **䷶䷷** ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ <mark>**䷰䷱**</mark> <mark>**䷲䷳**</mark> <mark>**䷴䷵**</mark> <mark>**䷶䷷**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
 ## What this means
 
