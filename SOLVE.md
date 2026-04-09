@@ -219,7 +219,7 @@ The fingerprint analysis reveals the precise structure of the remaining freedom:
 - Boundary 27: pair 27 adjacent to pair 28 (eliminates 441 solutions)
 - Boundary 25: pair 25 adjacent to pair 26 (eliminates the remaining 5)
 
-Combined with Rules 1-7a, this gives a **complete generative recipe**: 7 global rules + 2 specific adjacency constraints = unique King Wen sequence.
+Combined with Rules 1-5 + complement distance, this gives a **complete generative recipe**: 6 rules + 2 specific adjacency constraints = unique King Wen sequence.
 
 ### Complete generative recipe
 
@@ -234,7 +234,7 @@ Combined with Rules 1-7a, this gives a **complete generative recipe**: 7 global 
 9. Pair adjacency: position 27 next to position 28
 10. Pair adjacency: position 25 next to position 26
 
-Rules 1-7 plus two specific adjacency constraints uniquely determine the King Wen sequence among all possible orderings of 64 hexagrams. Rules 4 and 8 are redundant (implied by other rules).
+Rules 1-5 plus complement distance (Rule 3) plus two specific adjacency constraints uniquely determine the King Wen sequence. XOR regularity and line autocorrelation are redundant (implied by other rules).
 
 Note: this result is based on a partial search (447 unique orderings from ~10M nodes). A longer search (1 billion nodes, 13,296 unique orderings) confirmed the same extremal features. A complete enumeration could reveal additional solutions that might require additional constraints. However, the structure is clear: the rules lock 23 of 32 positions, and 2 adjacency choices in the remaining 9 positions suffice to pin down King Wen.
 
@@ -337,9 +337,9 @@ Free (9 pairs — where choice enters):\
 
 ### Summary
 
-Seven rules empirically lock **23 of 32 pair positions**; two adjacency constraints determine the remaining 9:
+Six rules empirically lock **23 of 32 pair positions**; two adjacency constraints determine the remaining 9:
 
-- **Rules 1-7** (mathematical): Lock 23 of 32 pair positions and all but 9 of 31 pair adjacencies. These rules are derivable from structural analysis and likely reflect the designers' combinatorial intent.
+- **Rules 1-5 + complement distance** (mathematical): Lock 23 of 32 pair positions and all but 9 of 31 pair adjacencies. These rules are derivable from structural analysis and likely reflect the designers' combinatorial intent.
 - **2 adjacency constraints** (historical): Specific pair placements at boundaries 25 and 27. These represent the irreducible creative decisions in the sequence — the part that mathematics alone cannot explain. They may reflect cosmological, philosophical, or aesthetic considerations that are not captured by any structural property measured here.
 
 ## Theoretical results
@@ -419,6 +419,20 @@ python3 solve.py --differential --time-limit 300  # Longer search for more solut
 python3 solve.py --reconstruct                    # Step-by-step reconstruction with C1-C7
 ```
 
+### C solver (solve.c) — fast enumeration
+
+For complete enumeration of the solution space, the C implementation is ~60x faster than the Python version. It counts all solutions satisfying Rules 1-5 + C3, de-duplicates by canonical pair ordering, and reports unique ordering counts.
+
+```
+gcc -O3 -o solve solve.c                          # Compile
+./solve 0                                          # Run to completion (no time limit)
+./solve 3600                                       # Run with 1-hour time limit
+```
+
+Use `solve.py` for analysis (fingerprint, differential, reconstruction, etc.) and `solve.c` for enumeration.
+
 ## Requirements
 
-Python 3.6+ with no external dependencies. Standalone — does not require `roae.py`.
+**solve.py:** Python 3.6+ with no external dependencies. Standalone — does not require `roae.py`.
+
+**solve.c:** C compiler (gcc, clang). No external dependencies. ~35 MB memory regardless of run time.

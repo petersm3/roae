@@ -48,9 +48,11 @@ Examples from the King Wen sequence:
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
 <a id="rule-3"></a>
-### Rule 3: Opposites stay close
+### Rule 3: Opposites kept unusually close
 
-Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. In the King Wen sequence, opposites are placed significantly closer together than you'd expect by chance. If you shuffled randomly, opposites would average about 22 positions apart. In King Wen, they average about 12.
+Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. In the King Wen sequence, opposites are placed significantly closer together than you'd expect by chance. If you shuffled randomly, opposites would average about 22 positions apart. In King Wen, they average only 12.1 — at the **3.9th percentile** (only 3.9% of valid orderings place complements closer). King Wen doesn't just happen to have complements nearby; it actively keeps them as close as possible.
+
+To illustrate: King Wen's worst complement pair (䷂ #3 and ䷱ #50, distance 47) is better than most random orderings' average case (~22).
 
 **What this does:** Eliminates about 93% of what's left after Rule 2.
 
@@ -76,15 +78,9 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 
 **What this does:** After all previous rules, this eliminates everything we could find in 100,000 [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) random samples.
 
-### Rule 6: Opposites kept unusually close
+### Rule 6: Two specific neighbor choices
 
-This is the surprising one. Among ALL arrangements satisfying Rules 1-5, King Wen has an **unusually low** complement distance — only 3.9% of valid orderings place complements closer. King Wen doesn't just happen to have complements nearby; it actively keeps them as close as possible.
-
-To illustrate: a random valid ordering averages ~22 positions between complements. King Wen averages only 12.1. Compare the two farthest complements in King Wen (䷂ #3 and ䷱ #50, distance 47) with a typical random ordering where the farthest pair might be 50+ positions apart — King Wen's worst case is better than most orderings' average case.
-
-### Rule 7: Two specific neighbor choices
-
-After Rules 1-6, the first 23 pairs (hexagrams 1-46) are completely locked — every valid arrangement puts the same pairs in the same positions. Only the last 9 pairs (hexagrams 47-64) have any freedom, with thousands of valid arrangements remaining.
+After Rules 1-5, the first 23 pairs (hexagrams 1-46) are completely locked — every valid arrangement puts the same pairs in the same positions. Only the last 9 pairs (hexagrams 47-64) have any freedom, with thousands of valid arrangements remaining.
 
 Locked (23 pairs — forced by rules):<br>
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
@@ -111,7 +107,7 @@ The thousands of alternative arrangements that satisfy Rules 1-6 are not random 
 
 ## What this means
 
-Seven mathematical rules, discoverable through analysis, empirically lock **23 of 32 pair positions** (the first 46 hexagrams). The remaining 9 positions have thousands of valid arrangements, narrowed to exactly 1 by two specific adjacency choices. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine — most of the sequence is forced once you accept the rules.
+Six rules, discoverable through analysis, empirically lock **23 of 32 pair positions** (the first 46 hexagrams). The remaining 9 positions have thousands of valid arrangements, narrowed to exactly 1 by two specific adjacency choices. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine — most of the sequence is forced once you accept the rules.
 
 But those two choices are not arbitrary. Among all thousands of valid arrangements, King Wen is **near the center** — ranking in the top 6% by average distance to all other valid orderings. It's not the absolute most central solution (that's 3 swaps away), but it's in the top tier. King Wen also matches the consensus (most popular pair at each position) at 5 of 9 free positions.
 
@@ -126,11 +122,10 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 0 | All possible orderings | 10^89 |
 | 1 | Pair structure | 10^45 |
 | 2 | No 5-line jumps | ~4% of step 1 |
-| 3 | Opposites stay close | ~0.3% of step 1 |
+| 3 | Opposites kept close (3.9th percentile) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
-| 5 | Specific transition counts | ~0 in 100,000 samples |
-| 6 | Maximum complement distance | thousands |
-| 7 | Two neighbor choices | **1 (King Wen)** |
+| 5 | Specific transition counts | thousands |
+| 6 | Two neighbor choices | **1 (King Wen)** |
 
 ## An important caveat
 
