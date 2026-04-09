@@ -249,6 +249,22 @@ The two boundaries don't share a common trigram property. No sorting principle (
 
 The 2 adjacency constraints appear to be **irreducible choices** — the final creative decisions of whoever designed the sequence, not consequences of a deeper mathematical principle.
 
+### Pair swap analysis
+
+5 alternative orderings are exactly 1 swap (2 pair positions) away from King Wen. Analyzing what swaps:
+
+| Positions | Same distance? | Same XOR? | Pattern |
+|-----------|---------------|-----------|---------|
+| 28 ↔ 30 | Yes (2) | Yes (100001) | Structural equivalents |
+| 27 ↔ 32 | Yes (6) | Yes (111111) | Structural equivalents |
+| 26 ↔ 29 | Yes (4) | Yes (101101) | Structural equivalents |
+| 26 ↔ 28 | No (4 vs 2) | No | Cross-type swap |
+| 24 ↔ 25 | No (2 vs 4) | No | Cross-type swap |
+
+3 of 5 nearest alternatives swap pairs that are **structurally equivalent** — same within-pair distance and same XOR product. These pairs are interchangeable parts; King Wen's specific placement among them is a choice between equals. The other 2 swaps cross different pair types, violating structural equivalence.
+
+Position 31 (䷼ Inner Truth #61 / ䷽Small Preponderance #62) never participates in any distance-2 swap, making it the most constrained position in the free region.
+
 ### Multi-feature combination search
 
 No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that no aggregate mathematical property can replicate.
