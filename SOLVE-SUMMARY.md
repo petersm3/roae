@@ -38,12 +38,12 @@ Examples from the King Wen sequence:
 
 | Lines changed | Transition | Example |
 |:---:|---|---|
-| 1 | ䷳ Keeping Still → ䷴ Development | `100100` → `110100` |
-| 2 | ䷁ The Receptive → ䷂ Difficulty at the Beginning | `000000` → `010001` |
-| 3 | ䷅ Conflict → ䷆ The Army | `111010` → `000010` |
-| 4 | ䷂ Difficulty at the Beginning → ䷃ Youthful Folly | `010001` → `100010` |
+| 1 | ䷳ Keeping Still #52 → ䷴ Development #53 | `100100` → `110100` |
+| 2 | ䷁ The Receptive #2 → ䷂ Difficulty at the Beginning #3 | `000000` → `010001` |
+| 3 | ䷅ Conflict #6 → ䷆ The Army #7 | `111010` → `000010` |
+| 4 | ䷂ Difficulty at the Beginning #3 → ䷃ Youthful Folly #4 | `010001` → `100010` |
 | **5** | **(never occurs in King Wen)** | |
-| 6 | ䷀ The Creative → ䷁ The Receptive | `111111` → `000000` |
+| 6 | ䷀ The Creative #1 → ䷁ The Receptive #2 | `111111` → `000000` |
 
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
