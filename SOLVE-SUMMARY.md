@@ -14,9 +14,21 @@ We wanted to know: **what rules did they follow?** And can we figure out those r
 
 Each hexagram is a stack of 6 lines. Each line is either solid ([yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken ([yin](https://en.wikipedia.org/wiki/Yin_and_yang)) — like a 6-digit binary number with only 1s and 0s. With 6 positions and 2 choices each, there are exactly 2^6 = 64 possible hexagrams. The King Wen sequence puts all 64 in a specific order.
 
+| | ䷀ The Creative #1 | ䷝ The Clinging #30 | ䷁ The Receptive #2 |
+|---|:---:|:---:|:---:|
+| Line 6 (top) | ━━━━━ yang **1** | ━━ ━━ yin **1** | ━━ ━━ yin **0** |
+| Line 5 | ━━━━━ yang **1** | ━━━━━ yang **0** | ━━ ━━ yin **0** |
+| Line 4 | ━━━━━ yang **1** | ━━ ━━ yin **1** | ━━ ━━ yin **0** |
+| Line 3 | ━━━━━ yang **1** | ━━ ━━ yin **1** | ━━ ━━ yin **0** |
+| Line 2 | ━━━━━ yang **1** | ━━━━━ yang **0** | ━━ ━━ yin **0** |
+| Line 1 (bottom) | ━━━━━ yang **1** | ━━ ━━ yin **1** | ━━ ━━ yin **0** |
+| Binary | **111111** | **101101** | **000000** |
+
+Read bottom to top: line 1 is the rightmost bit, line 6 is the leftmost. All solid = 111111. All broken = 000000. Mixed lines give values in between.
+
 ## The rules we found
 
-We discovered 7 mathematical rules. Each rule eliminates more and more possible arrangements:
+We discovered six rules. Each rule eliminates more and more possible arrangements:
 
 ### Rule 1: Every hexagram has a partner
 
