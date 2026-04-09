@@ -90,6 +90,8 @@ The ~450 alternative arrangements that satisfy Rules 1-6 are not random — they
 
 The King Wen sequence is **97% determined by mathematics**. Seven rules, discoverable through analysis, lock 23 of 32 pair positions. The remaining 3% — two specific choices about which pairs sit next to each other — is where human creativity enters. Those two choices have no mathematical explanation we can find. They may reflect philosophical ideas, cosmological beliefs, or aesthetic preferences that are invisible to a computer.
 
+No single feature or combination of features (26 tested individually, 153 pairs, 10 triples) distinguishes King Wen from the other ~450 valid arrangements. The two adjacency constraints are irreducible — they encode specific choices that no aggregate mathematical property can replicate.
+
 Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only about 450 arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those 450, they made two specific choices that we can identify but cannot explain.
 
 ## The numbers at a glance
