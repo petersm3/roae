@@ -197,6 +197,8 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 
 The pair structure and complement distance are genuinely extraordinary. Everything else is either explained by the pair structure, not statistically significant, or both.
 
+The constraint solver (`solve.py`) goes further: it shows that 7 mathematical rules together determine **97% of the sequence** (23 of 32 pair positions), leaving only ~450 valid arrangements out of 10^89 possibilities. Two specific adjacency choices narrow the remaining ~450 to exactly 1 — King Wen. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
+
 ## Frequently asked questions
 
 **Does this prove the I Ching is mathematical?**
