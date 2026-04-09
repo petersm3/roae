@@ -18,7 +18,9 @@ Group all 64 hexagrams into 32 consecutive pairs. Each pair must be a hexagram a
 
 ### Rule 2: No 5-line transitions
 
-No two consecutive hexagrams may differ by exactly 5 lines. Within reverse/inverse pairs this is automatic (distances are always even or 6), so the constraint applies only at the 31 between-pair boundaries.
+No two consecutive hexagrams may differ by exactly 5 lines. Within reverse/inverse pairs this is automatic, so the constraint applies only at the 31 between-pair boundaries.
+
+**Proof that within-pair distance is never 5:** For reverse pairs, reversing a 6-bit number compares bits in symmetric pairs: (0,5), (1,4), (2,3). Each mismatch contributes 2 to the Hamming distance (once at each position in the pair), so the distance is always 2 × (number of mismatched pairs) = 0, 2, 4, or 6. For inverse pairs, every bit is flipped, so the distance is always 6. In both cases, the distance is even and can never be 5.
 
 ### Rule 3: Complement proximity
 
