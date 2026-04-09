@@ -83,6 +83,8 @@ The ~450 alternative arrangements that satisfy Rules 1-6 are not random — they
 - **Hexagrams 1-46 are mathematically forced.** No valid arrangement puts them in a different order. Any commentary explaining their sequence is describing mathematical structure, whether the commentators knew it or not.
 - **Hexagrams 47-64 are where choice lives.** The ~450 alternatives rearrange only these. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
 - **King Wen's choice is not arbitrary.** Among all ~450 valid arrangements, King Wen is the one that maximizes complement distance — pushing opposites as far apart as the constraint allows. The alternatives all place complements closer together.
+- **The ending pair is a choice, not a necessity.** King Wen ends with ䷾ After Completion #63 / ䷿ Before Completion #64. Four different pairs can validly end the sequence — King Wen's is the most common (35% of solutions) but not forced. The *starting* orientation, however, is forced: ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
+- **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
 ## What this means
 
