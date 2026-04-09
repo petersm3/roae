@@ -16,12 +16,12 @@ Each hexagram is a stack of 6 lines. Each line is either solid ([yang](https://e
 
 | | ䷀ The Creative #1 | ䷝ The Clinging #30 | ䷁ The Receptive #2 |
 |---|:---:|:---:|:---:|
-| Line 6 (top) | ━━━━━ yang **1** | ━━━━━ yang **1** | ━━ ━━ yin **0** |
-| Line 5 | ━━━━━ yang **1** | ━━ ━━ yin **0** | ━━ ━━ yin **0** |
-| Line 4 | ━━━━━ yang **1** | ━━━━━ yang **1** | ━━ ━━ yin **0** |
-| Line 3 | ━━━━━ yang **1** | ━━━━━ yang **1** | ━━ ━━ yin **0** |
-| Line 2 | ━━━━━ yang **1** | ━━ ━━ yin **0** | ━━ ━━ yin **0** |
-| Line 1 (bottom) | ━━━━━ yang **1** | ━━━━━ yang **1** | ━━ ━━ yin **0** |
+| Line 6 (top) | ⚊ yang **1** | ⚊ yang **1** | ⚋ yin **0** |
+| Line 5 | ⚊ yang **1** | ⚋ yin **0** | ⚋ yin **0** |
+| Line 4 | ⚊ yang **1** | ⚊ yang **1** | ⚋ yin **0** |
+| Line 3 | ⚊ yang **1** | ⚊ yang **1** | ⚋ yin **0** |
+| Line 2 | ⚊ yang **1** | ⚋ yin **0** | ⚋ yin **0** |
+| Line 1 (bottom) | ⚊ yang **1** | ⚊ yang **1** | ⚋ yin **0** |
 | Binary | **111111** | **101101** | **000000** |
 
 Read bottom to top: line 1 is the rightmost bit, line 6 is the leftmost. All solid = 111111. All broken = 000000. Mixed lines give values in between.
