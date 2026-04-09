@@ -385,6 +385,14 @@ The between-pair boundary budget for positions 24-32 is exactly {1:2, 2:1, 3:5, 
 
 Boundary 27 is the most discriminating because King Wen's specific pair-pair combination at that position occurs in only 1.4% of solutions (6/438) — the rarest of any boundary.
 
+### Null model: is the constraint framework special?
+
+Applying the same methodology to 10 random pair-constrained sequences (extract diff distribution, complement distance, starting pair, and test for uniqueness), 9/10 also narrow to 0 matching solutions at 50K samples. **The constraint extraction approach inflates apparent specialness — it makes almost any sequence appear uniquely determined.**
+
+The critical difference is at C1+C2: King Wen's no-5-line-transition property eliminates ~96% of pair-constrained orderings, while most random sequences have no comparably rare transition constraint (0-line transitions are the only absent value, and they're absent from ALL pair-constrained orderings by construction). Only 1 of 10 random sequences had a genuinely rare absent transition (both 0 and 1 absent).
+
+**What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
+
 ## Usage
 
 ```
