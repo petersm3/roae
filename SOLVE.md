@@ -30,7 +30,7 @@ The XOR of each pair must produce one of exactly 7 values: `001100`, `010010`, `
 
 ### Rule 5: Starting pair
 
-The sequence begins with The Creative (111111) and The Receptive (000000).
+The sequence begins with ䷀ The Creative (#1, 111111) and ䷁ The Receptive (#2, 000000).
 
 ### Rule 6: Difference wave distribution
 
@@ -52,7 +52,7 @@ With `--seed 42 --trials 100000`:
 | 1 | + No 5-line transitions | 4,271 | 4.27% |
 | 2 | + Complement distance <= 12.1 | 314 | 0.31% |
 | 3 | + XOR products within 7 values | 314 | 0.31% |
-| 4 | + Starts with Creative/Receptive | 5 | 0.005% |
+| 4 | + Starts with ䷀ The Creative / ䷁ The Receptive | 5 | 0.005% |
 | 5 | + Exact difference distribution | 0 | 0% |
 
 ### What each level tells us
@@ -63,7 +63,7 @@ With `--seed 42 --trials 100000`:
 
 **Level 3 (0.31%):** The XOR constraint adds nothing — every sequence that satisfies Levels 1-2 also satisfies Level 3. The XOR algebraic regularity is a *consequence* of the pair structure and complement proximity, not an independent rule.
 
-**Level 4 (0.005%):** Fixing the starting pair eliminates almost everything. Only 5 out of 100,000 pair-constrained sequences satisfy all four non-trivial constraints AND start with Creative/Receptive.
+**Level 4 (0.005%):** Fixing the starting pair eliminates almost everything. Only 5 out of 100,000 pair-constrained sequences satisfy all four non-trivial constraints AND start with ䷀ The Creative / ䷁ The Receptive.
 
 **Level 5 (0%):** Zero samples survive all six rules. The combination is extraordinarily selective — but we cannot determine from sampling alone whether it produces exactly one sequence (King Wen) or a small number of alternatives.
 
@@ -225,7 +225,7 @@ Combined with Rules 1-7a, this gives a **complete generative recipe**: 7 global 
 2. No 5-line transitions
 3. Complement distance ≤ 12.125
 4. ~~XOR products within 7 values~~ (redundant)
-5. Starts with Creative/Receptive
+5. Starts with ䷀ The Creative / ䷁ The Receptive
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9}
 7. Complement distance = 12.125 (exact maximum)
 8. ~~Mean line autocorrelation = -0.115~~ (redundant with #7)
@@ -240,8 +240,8 @@ Note: this result is based on a partial search (447 unique orderings from ~10M n
 
 Analysis of the two critical boundaries reveals no underlying pattern:
 
-- **Boundary 25** (Revolution/Cauldron → Arousing/Keeping Still): Hamming distance 4, no shared trigrams. Li/Xun → Zhen/Zhen.
-- **Boundary 27** (Development/Marrying Maiden → Abundance/Wanderer): Hamming distance 2, shared upper trigram (Zhen). Zhen/Dui → Zhen/Li.
+- **Boundary 25** (䷰Revolution #49 / ䷱The Cauldron #50 → ䷲The Arousing #51 / ䷳Keeping Still #52): Hamming distance 4, no shared trigrams. Li/Xun → Zhen/Zhen.
+- **Boundary 27** (䷴Development #53 / ䷵The Marrying Maiden #54 → ䷶Abundance #55 / ䷷The Wanderer #56): Hamming distance 2, shared upper trigram (Zhen). Zhen/Dui → Zhen/Li.
 
 The two boundaries don't share a common trigram property. No sorting principle (by XOR, sum, within-pair distance, or trigram type) governs the free region (positions 24-32). The free pairs are not arranged by any measured scalar property.
 
