@@ -76,9 +76,11 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 
 **What this does:** After all previous rules, this eliminates everything we could find in 100,000 [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) random samples.
 
-### Rule 6: Opposites as far apart as the rules allow
+### Rule 6: Opposites kept unusually close
 
 This is the surprising one. Among ALL arrangements satisfying Rules 1-5, King Wen has an **unusually low** complement distance — only 3.9% of valid orderings place complements closer. King Wen doesn't just happen to have complements nearby; it actively keeps them as close as possible.
+
+To illustrate: a random valid ordering averages ~22 positions between complements. King Wen averages only 12.1. Compare the two farthest complements in King Wen (䷂ #3 and ䷱ #50, distance 47) with a typical random ordering where the farthest pair might be 50+ positions apart — King Wen's worst case is better than most orderings' average case.
 
 ### Rule 7: Two specific neighbor choices
 
