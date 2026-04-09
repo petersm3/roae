@@ -34,6 +34,17 @@ Inverse (4 pairs, partner highlighted):<br>
 
 When you move from one hexagram to the next, some number of lines change (1 through 6). This is called the [Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance). In the King Wen sequence, the number 5 never appears — no two consecutive hexagrams differ by exactly 5 lines.
 
+Examples from the King Wen sequence:
+
+| Lines changed | Transition | Example |
+|:---:|---|---|
+| 1 | ䷳ Keeping Still → ䷴ Development | `100100` → `110100` |
+| 2 | ䷁ The Receptive → ䷂ Difficulty at the Beginning | `000000` → `010001` |
+| 3 | ䷅ Conflict → ䷆ The Army | `111010` → `000010` |
+| 4 | ䷂ Difficulty at the Beginning → ䷃ Youthful Folly | `010001` → `100010` |
+| **5** | **(never occurs in King Wen)** | |
+| 6 | ䷀ The Creative → ䷁ The Receptive | `111111` → `000000` |
+
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
 <a id="rule-3"></a>
