@@ -408,6 +408,7 @@ python3 solve.py --deep                       # All six deep analyses
 python3 solve.py --enumerate --max-nodes 50000000 --time-limit 300  # Longer search
 python3 solve.py --differential                   # Find extremal features (key analysis)
 python3 solve.py --differential --time-limit 300  # Longer search for more solutions
+python3 solve.py --reconstruct                    # Step-by-step reconstruction with C1-C7
 ```
 
 ## Requirements
