@@ -3064,7 +3064,7 @@ def export_html(filename="report.html"):
     _print("<!DOCTYPE html>")
     _print("<html><head>")
     _print('<meta charset="UTF-8">')
-    _print("<title>ROAE - King Wen Sequence Analysis</title>")
+    _print("<title>Received Order Analysis Engine (ROAE)</title>")
     _print("<style>")
     _print("  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', "
            "Helvetica, Arial, sans-serif; color: #1f2328; "
@@ -3079,7 +3079,7 @@ def export_html(filename="report.html"):
     _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
-    _print("<h1>Received Order Analysis Engine</h1>")
+    _print("<h1>Received Order Analysis Engine (ROAE)</h1>")
     _print("<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>")
 
     # Capture each section's output — titles match the print functions
@@ -3249,7 +3249,7 @@ def export_markdown(filename="report.md"):
     out = open(filename, "w")
     _print = lambda *a, **k: print(*a, **k, file=out)
 
-    _print("# Received Order Analysis Engine")
+    _print("# Received Order Analysis Engine (ROAE)")
     _print("")
     _print("Analysis of the King Wen sequence including observations by Terence McKenna.")
     _print("")
@@ -3368,7 +3368,7 @@ def export_csv(filename="hexagrams.csv"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Received Order Analysis Engine of the King Wen sequence")
+        description="Received Order Analysis Engine (ROAE) of the King Wen sequence")
 
     # Section selection
     parser.add_argument("--table", action="store_true",
