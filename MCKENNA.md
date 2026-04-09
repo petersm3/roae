@@ -57,7 +57,7 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 - The no-5 property is real but largely explained by the pair structure: ~4% of pair-constrained orderings also avoid 5-line transitions (~1 in 23), compared to ~1 in 550 for unconstrained orderings. Within reverse/inverse pairs, 5-line transitions are mathematically impossible (distances are always even or 6).
 - The complement distance is genuinely unusual — complements are placed significantly closer than random (0th percentile), suggesting deliberate organization around opposition.
 - The XOR algebraic regularity (`--symmetry`) is a mathematical theorem — any reverse/inverse pairing of 6-bit values produces exactly 7 XOR products. It is not specific to King Wen.
-- The constraint solver (`solve.py`) demonstrates that the sequence is **97% determined by 7 mathematical rules**, which lock 23 of 32 pair positions. Only 2 specific adjacency choices in the last 9 pairs are irreducible — the rest is forced by the mathematics. See [SOLVE.md](SOLVE.md) for the complete generative recipe.
+- The constraint solver (`solve.py`) finds that 7 rules extracted from the sequence empirically lock **23 of 32 pair positions**. Only 2 specific adjacency choices in the last 9 pairs are needed to uniquely determine King Wen. See [SOLVE.md](SOLVE.md) for the complete generative recipe.
 - The sequence was clearly designed with intentional mathematical structure by people in antiquity (traditionally attributed to [~1000 BCE](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), though modern scholarship is divided on the exact origin and dating).
 
 ## What does not hold up
@@ -67,7 +67,7 @@ The sequence is genuinely unusual and appears deliberately constructed under mul
 - Several properties initially reported as findings (yin-yang balance, Markov patterns, trigram independence) are either tautological or statistically insignificant.
 - Palindromes, canon split, recurrence rate, and neighborhood clustering are all within chance expectations under appropriate null models.
 
-The King Wen sequence is genuinely remarkable as a combinatorial object — 97% of its structure is mathematically determined, and only two specific choices among thousands of valid arrangements cannot be explained by any discovered rule. But McKenna's specific claims about what it *encodes* and what the wave *means* don't survive mathematical scrutiny.
+The King Wen sequence is genuinely remarkable as a combinatorial object — 7 rules lock 23 of 32 pair positions, and only two specific adjacency choices among thousands of valid arrangements cannot be explained by any discovered property. But McKenna's specific claims about what it *encodes* and what the wave *means* don't survive mathematical scrutiny.
 
 ## What ROAE cannot answer
 

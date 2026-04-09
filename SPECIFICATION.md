@@ -30,7 +30,7 @@ where C = {h ∈ H : comp(h) ≠ h} (the 60 non-self-complementary hexagrams, co
 
 ## Constraints
 
-**S** is the unique permutation of **H** satisfying:
+**S** is the unique permutation of **H** satisfying the following constraints. Note: C1 and C2 are structural properties observable in the sequence. C3, C4, and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C6 and C7 are specific adjacency choices that no aggregate mathematical property can replace.
 
 ### C1: Pair structure
 For all i ∈ {0, 2, 4, ..., 62}: s_{i+1} = partner(sᵢ).
@@ -45,7 +45,7 @@ For all i ∈ {0, 1, ..., 62}: d(sᵢ, s_{i+1}) ≠ 5.
 ### C3: Complement proximity
 cd(S) ≤ 12.125.
 
-*The mean distance between complementary hexagrams is unusually small (3.9th percentile among all C1+C2 solutions).*
+*The mean distance between complementary hexagrams is unusually small (3.9th percentile among all C1+C2 solutions). Note: the threshold 12.125 is King Wen's exact value — it was extracted from the sequence, not derived independently. A different threshold would change the solution count but the qualitative finding (King Wen has unusually low complement distance) is robust.*
 
 ### C4: Starting pair
 s₀ = 63 (= 111111₂, The Creative) and s₁ = 0 (= 000000₂, The Receptive).
@@ -69,14 +69,14 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 ## Theorems
 
-**Theorem (Uniqueness):** Constraints C1–C7 have exactly one solution: the King Wen sequence.
+**Conjecture (Uniqueness):** Constraints C1–C7 have exactly one solution: the King Wen sequence.
 
-**Proof sketch:**
+**Evidence (not yet a complete proof):**
 - C1 reduces the search space from 64! (~10⁸⁹) to 32! × 2³² (~10⁴⁵).
 - C2 eliminates ~96% of C1 solutions.
 - C3 further restricts to ~3.9% of C1+C2 solutions.
 - C4 fixes the starting pair and orientation.
-- C5 locks 23 of 32 pair positions via constraint propagation, leaving 9 free positions with thousands of valid orderings.
+- C5 empirically locks 23 of 32 pair positions via constraint propagation, leaving 9 free positions with thousands of valid orderings. (Established by partial enumeration, not formal proof.)
 - C6 eliminates all but 5 of the remaining orderings.
 - C7 eliminates the final 5, leaving exactly 1: King Wen.
 
@@ -125,5 +125,13 @@ function construct_king_wen():
 | D(S) | The difference wave of **S** |
 | cd(S) | Mean complement distance of **S** |
 | ⊕ | Bitwise XOR |
+
+## Methodological limitations
+
+- **Confirmatory, not predictive.** Constraints C1-C5 were extracted from King Wen and then shown to be highly constraining. They were not derived independently. A stronger result would predict the constraints from first principles.
+- **Empirical, not proven.** The claim that positions 1-23 are locked rests on partial enumeration (no counterexample found in billions of nodes), not formal proof. A complete enumeration or mathematical proof could strengthen or weaken this claim.
+- **Circular threshold.** C3's threshold of 12.125 is King Wen's exact complement distance. The constraint is defined by the answer. The qualitative finding (King Wen has unusually low complement distance) is robust, but the specific threshold is reverse-engineered.
+- **Greedy minimum constraints.** C6 and C7 were found by greedy search, which doesn't guarantee the globally minimal constraint set. A different pair of adjacency constraints might also suffice.
+- **Pending complete enumeration.** The exact number of solutions satisfying C1-C5 is bounded (13,296 ≤ N ≤ 860,160) but not yet known. A 24-hour enumeration is in progress.
 
 For the complete analysis behind this specification, see [SOLVE.md](SOLVE.md) and [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md).

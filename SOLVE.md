@@ -337,7 +337,7 @@ Free (9 pairs — where choice enters):\
 
 ### Summary
 
-The King Wen sequence is **97% determined by mathematics, 3% by choice**:
+Seven rules empirically lock **23 of 32 pair positions**; two adjacency constraints determine the remaining 9:
 
 - **Rules 1-7** (mathematical): Lock 23 of 32 pair positions and all but 9 of 31 pair adjacencies. These rules are derivable from structural analysis and likely reflect the designers' combinatorial intent.
 - **2 adjacency constraints** (historical): Specific pair placements at boundaries 25 and 27. These represent the irreducible creative decisions in the sequence — the part that mathematics alone cannot explain. They may reflect cosmological, philosophical, or aesthetic considerations that are not captured by any structural property measured here.

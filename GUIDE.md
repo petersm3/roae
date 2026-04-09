@@ -197,7 +197,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 
 The pair structure and complement distance are genuinely extraordinary. Everything else is either explained by the pair structure, not statistically significant, or both.
 
-The constraint solver (`solve.py`) goes further: it shows that 7 mathematical rules together determine **97% of the sequence** (23 of 32 pair positions), leaving only thousands of valid arrangements out of 10^89 possibilities. Two specific adjacency choices narrow the remaining thousands to exactly 1 — King Wen. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
+The constraint solver (`solve.py`) goes further: it shows that 7 rules extracted from King Wen empirically lock **23 of 32 pair positions**, leaving only thousands of valid arrangements out of 10^89 possibilities. Two specific adjacency choices narrow the remaining thousands to exactly 1 — King Wen. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
 
 ## Frequently asked questions
 

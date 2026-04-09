@@ -94,7 +94,7 @@ The thousands of alternative arrangements that satisfy Rules 1-6 are not random 
 
 ## What this means
 
-The King Wen sequence is **97% determined by mathematics**. Seven rules, discoverable through analysis, lock 23 of 32 pair positions. The remaining 3% — two specific choices about which pairs sit next to each other — is where human creativity enters.
+Seven mathematical rules, discoverable through analysis, empirically lock **23 of 32 pair positions** (the first 46 hexagrams). The remaining 9 positions have thousands of valid arrangements, narrowed to exactly 1 by two specific adjacency choices. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine — most of the sequence is forced once you accept the rules.
 
 But those two choices are not arbitrary. Among all thousands of valid arrangements, King Wen is **near the center** — ranking in the top 6% by average distance to all other valid orderings. It's not the absolute most central solution (that's 3 swaps away), but it's in the top tier. King Wen also matches the consensus (most popular pair at each position) at 5 of 9 free positions.
 
