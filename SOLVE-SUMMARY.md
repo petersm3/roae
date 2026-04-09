@@ -67,7 +67,7 @@ This is the surprising one. Rule 3 says opposites must be close (average distanc
 
 ### Rule 7: Two specific neighbor choices
 
-After Rules 1-6, the first 23 pairs (hexagrams 1-46) are completely locked — every valid arrangement puts the same pairs in the same positions. Only the last 9 pairs (hexagrams 47-64) have any freedom, with about 450 valid arrangements remaining.
+After Rules 1-6, the first 23 pairs (hexagrams 1-46) are completely locked — every valid arrangement puts the same pairs in the same positions. Only the last 9 pairs (hexagrams 47-64) have any freedom, with thousands of valid arrangements remaining.
 
 Locked (23 pairs — forced by rules):<br>
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
@@ -77,18 +77,18 @@ Locked (23 pairs — forced by rules):<br>
 Free (9 pairs — where choice enters):<br>
 ䷮䷯ <mark>**䷰䷱**</mark> <mark>**䷲䷳**</mark> <mark>**䷴䷵**</mark> <mark>**䷶䷷**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-To narrow from 450 to exactly 1, you need just two specific instructions:
+To narrow from thousands to exactly 1, you need just two specific instructions:
 
 - Pair 25 (<mark>**䷰䷱**</mark> Revolution #49 / The Cauldron #50) must be next to Pair 26 (<mark>**䷲䷳**</mark> The Arousing #51 / Keeping Still #52)
 - Pair 27 (<mark>**䷴䷵**</mark> Development #53 / The Marrying Maiden #54) must be next to Pair 28 (<mark>**䷶䷷**</mark> Abundance #55 / The Wanderer #56)
 
-### The ~450 roads not taken
+### The thousands of roads not taken
 
-The ~450 alternative arrangements that satisfy Rules 1-6 are not random — they all share the same first 46 hexagrams (䷀ through ䷭) in the same order. Only the last 18 hexagrams (䷮ Oppression #47 through ䷿ Before Completion #64) are rearranged. This means:
+The thousands of alternative arrangements that satisfy Rules 1-6 are not random — they all share the same first 46 hexagrams (䷀ through ䷭) in the same order. Only the last 18 hexagrams (䷮ Oppression #47 through ䷿ Before Completion #64) are rearranged. This means:
 
 - **Hexagrams 1-46 are mathematically forced.** No valid arrangement puts them in a different order. Any commentary explaining their sequence is describing mathematical structure, whether the commentators knew it or not.
-- **Hexagrams 47-64 are where choice lives.** The ~450 alternatives rearrange only these. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
-- **King Wen's choice is not arbitrary.** Among all ~450 valid arrangements, King Wen is the one that maximizes complement distance — pushing opposites as far apart as the constraint allows. The alternatives all place complements closer together.
+- **Hexagrams 47-64 are where choice lives.** The thousands of alternatives rearrange only these. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
+- **King Wen's choice is not arbitrary.** Among all thousands of valid arrangements, King Wen is the one that maximizes complement distance — pushing opposites as far apart as the constraint allows. The alternatives all place complements closer together.
 - **The ending pair is a choice, not a necessity.** King Wen ends with ䷾ After Completion #63 / ䷿ Before Completion #64. Four different pairs can validly end the sequence — King Wen's is the most common (35% of solutions) but not forced. The *starting* orientation, however, is forced: ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
@@ -96,11 +96,11 @@ The ~450 alternative arrangements that satisfy Rules 1-6 are not random — they
 
 The King Wen sequence is **97% determined by mathematics**. Seven rules, discoverable through analysis, lock 23 of 32 pair positions. The remaining 3% — two specific choices about which pairs sit next to each other — is where human creativity enters.
 
-But those two choices are not arbitrary. Among all ~450 valid arrangements, King Wen is **near the center** — ranking in the top 6% by average distance to all other valid orderings. It's not the absolute most central solution (that's 3 swaps away), but it's in the top tier. King Wen also matches the consensus (most popular pair at each position) at 5 of 9 free positions.
+But those two choices are not arbitrary. Among all thousands of valid arrangements, King Wen is **near the center** — ranking in the top 6% by average distance to all other valid orderings. It's not the absolute most central solution (that's 3 swaps away), but it's in the top tier. King Wen also matches the consensus (most popular pair at each position) at 5 of 9 free positions.
 
-No single feature or combination of features (26 tested individually, 153 pairs, 10 triples) can *uniquely* identify King Wen among the ~450 — the two adjacency constraints are still needed to pin it down to exactly one. But the centrality finding suggests the choices lean toward a principle: **prefer a balanced, central arrangement**.
+No single feature or combination of features (26 tested individually, 153 pairs, 10 triples) can *uniquely* identify King Wen among thousands of valid arrangements — the two adjacency constraints are still needed to pin it down to exactly one. But the centrality finding suggests the choices lean toward a principle: **prefer a balanced, central arrangement**.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only about 450 arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those 450, they chose one near the center.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only thousands of arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those thousands, they chose one near the center.
 
 ## The numbers at a glance
 
@@ -112,7 +112,7 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 3 | Opposites stay close | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
 | 5 | Specific transition counts | ~0 in 100,000 samples |
-| 6 | Maximum complement distance | ~450 |
+| 6 | Maximum complement distance | thousands |
 | 7 | Two neighbor choices | **1 (King Wen)** |
 
 For full technical details, methodology, and reproducible commands, see [SOLVE.md](SOLVE.md).

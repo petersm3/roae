@@ -319,13 +319,13 @@ No single feature or combination of features uniquely identifies King Wen among 
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It is a free choice at each pair.
 - **Complement proximity detail.** 10 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
 
-### The ~450 roads not taken
+### The roads not taken
 
-The ~450 alternative arrangements satisfying Rules 1-6 all share the same first 46 hexagrams in the same order. Only the last 18 hexagrams (䷮ Oppression #47 through ䷿ Before Completion #64) are rearranged. This means:
+The thousands of alternative arrangements satisfying Rules 1-6 all share the same first 46 hexagrams in the same order. Only the last 18 hexagrams (䷮ Oppression #47 through ䷿ Before Completion #64) are rearranged. This means:
 
 - **Hexagrams 1-46 are mathematically forced.** No valid arrangement puts them in a different order. Any commentary explaining their sequence is describing mathematical structure, whether the commentators knew it or not.
 - **Hexagrams 47-64 are where choice lives.** The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
-- **King Wen's choice maximizes complement distance** among all ~450 valid arrangements, pushing opposites as far apart as the constraint allows.
+- **King Wen's choice maximizes complement distance** among all valid arrangements, pushing opposites as far apart as the constraint allows.
 
 Locked (23 pairs — forced by rules):\
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\

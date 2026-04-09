@@ -138,7 +138,7 @@ Terms used in the program output:
 - **Monte Carlo** — A method that uses repeated random sampling to estimate probabilities. The program shuffles the 64 hexagrams thousands of times and counts how often the shuffled orderings share a property with King Wen.
 - **Nuclear hexagram** — A derived hexagram formed by taking the inner four lines (2-5) of a hexagram and splitting them into new upper and lower trigrams. A fixed property of the binary encoding, not of the ordering.
 - **Shannon entropy** — A measure of disorder or unpredictability. Maximum entropy means all values are equally likely (random); low entropy means some values dominate (structured).
-- **XOR** — Exclusive OR, a bitwise operation. When applied to two hexagrams, it produces a third hexagram representing their "difference." The XOR products of King Wen's pairs show algebraic regularity.
+- **XOR** — Exclusive OR, a bitwise operation. When applied to two hexagrams, it produces a third hexagram representing their "difference." Any reverse/inverse pairing of 6-bit values produces exactly 7 unique XOR products — this is a mathematical theorem, not a property specific to King Wen.
 
 ## How to read the key sections
 
@@ -184,7 +184,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
 | Complement distance (0th percentile) | Strong | Yes |
-| XOR algebraic regularity (7 products) | Notable | Not tested |
+| XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (13th percentile) | Weak | No |
 | No detectable periodicity | Null result | N/A |
@@ -197,7 +197,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 
 The pair structure and complement distance are genuinely extraordinary. Everything else is either explained by the pair structure, not statistically significant, or both.
 
-The constraint solver (`solve.py`) goes further: it shows that 7 mathematical rules together determine **97% of the sequence** (23 of 32 pair positions), leaving only ~450 valid arrangements out of 10^89 possibilities. Two specific adjacency choices narrow the remaining ~450 to exactly 1 — King Wen. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
+The constraint solver (`solve.py`) goes further: it shows that 7 mathematical rules together determine **97% of the sequence** (23 of 32 pair positions), leaving only thousands of valid arrangements out of 10^89 possibilities. Two specific adjacency choices narrow the remaining thousands to exactly 1 — King Wen. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
 
 ## Frequently asked questions
 
