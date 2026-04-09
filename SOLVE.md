@@ -342,6 +342,35 @@ The King Wen sequence is **97% determined by mathematics, 3% by choice**:
 - **Rules 1-7** (mathematical): Lock 23 of 32 pair positions and all but 9 of 31 pair adjacencies. These rules are derivable from structural analysis and likely reflect the designers' combinatorial intent.
 - **2 adjacency constraints** (historical): Specific pair placements at boundaries 25 and 27. These represent the irreducible creative decisions in the sequence — the part that mathematics alone cannot explain. They may reflect cosmological, philosophical, or aesthetic considerations that are not captured by any structural property measured here.
 
+## Theoretical results
+
+Five mathematical results proven or established:
+
+### Theorem 1: Within-pair distance is always even
+
+For reverse pairs, bit reversal compares symmetric pairs (0,5), (1,4), (2,3). Each mismatch contributes 2 to the Hamming distance, so d ∈ {0, 2, 4, 6}. For inverse pairs, all bits flip, so d = 6. Neither can be 5. **Proof in Rule 2 section above.**
+
+### Theorem 2: XOR regularity is a theorem, not a constraint
+
+The 7 unique XOR products are **not** a property of King Wen — they are a mathematical consequence of ANY reverse/inverse pairing of 6-bit values. For reverse pairs, h XOR reverse(h) is always symmetric (bit i = bit 5-i), giving 2^3 = 8 possible values. Excluding 000000 (symmetric hexagrams are inverse pairs, not reverse pairs) leaves 7 values. Inverse pairs contribute XOR = 111111, already among the 7. Any pairing of 64 hexagrams produces exactly these 7 XOR values. **QED.**
+
+### Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient
+
+**Necessity (proof by exhaustion):** The best single adjacency constraint (boundary 27) eliminates 432 of 437 non-King-Wen solutions but leaves 5. No single adjacency eliminates all. Therefore ≥ 2 are required.
+
+**Sufficiency (constructive):** Boundaries 27 and 25, applied greedily, eliminate all 437 non-King-Wen solutions (432 + 5). Therefore 2 suffice. **QED.**
+
+### Result 4: Why exactly 23 positions are locked
+
+After placing 23 pairs (46 hexagrams), the remaining difference distribution budget is {1:2, 2:4, 3:5, 4:4, 6:3}. The 9 remaining pairs consume {2:3, 4:3, 6:3} within-pair, leaving a between-pair budget of {1:2, 2:1, 3:5, 4:1} = 9 total for 8 boundaries. This surplus of 1 creates slack — multiple valid orderings exist for the free region. At positions 1-23, no such slack exists: the constraints propagate deterministically with only one valid pair at each step. This is established empirically (100% match at positions 1-23 across all solutions found) rather than by formal proof.
+
+### Result 5: Bounds on solution count
+
+- **Lower bound:** ≥ 13,296 unique orderings (from 1-billion-node partial enumeration)
+- **Upper bound:** ≤ 860,160 (multinomial bound: 9!/(3!3!3!) × 2^9 — the number of ways to arrange 3 each of 3 pair types with 2 orientations, ignoring boundary constraints)
+- **Estimated range:** 15,000-50,000 (from solution discovery rate decline)
+- **Exact count:** pending completion of the 24-hour enumeration run
+
 ## Usage
 
 ```
