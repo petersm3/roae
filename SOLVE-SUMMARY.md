@@ -4,7 +4,9 @@ A plain-language summary of what `solve.py` discovered.
 
 ## The puzzle
 
-About 3,000 years ago, someone in ancient China arranged 64 symbols (called hexagrams) in a specific order. This ordering is called the King Wen sequence. There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, the designers picked one specific arrangement.
+About 3,000 years ago, someone in ancient China arranged 64 symbols (called hexagrams) in a specific order. This ordering is called the King Wen sequence. There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, the designers picked one specific arrangement:
+
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
 We wanted to know: **what rules did they follow?** And can we figure out those rules just by studying the result?
 
