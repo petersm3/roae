@@ -2,14 +2,7 @@
 
 Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)
 
-䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇\
-䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
-䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗\
-䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟\
-䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧\
-䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯\
-䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷\
-䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
 ## Summary
 
