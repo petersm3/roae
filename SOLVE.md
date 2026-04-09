@@ -265,6 +265,24 @@ The 2 adjacency constraints appear to be **irreducible choices** — the final c
 
 Position 31 (䷼ Inner Truth #61 / ䷽Small Preponderance #62) never participates in any distance-2 swap, making it the most constrained position in the free region.
 
+### Locked vs free region comparison
+
+The locked region (pairs 1-23) and free region (pairs 24-32) have different structural characters, but most differences are forced by the rules:
+
+| Property | Locked (1-23) | Free (24-32) | Forced? |
+|----------|--------------|--------------|---------|
+| Within-pair distance distribution | 9/9/5 (dist 2/4/6) | 3/3/3 (perfectly uniform) | Yes (100%) |
+| Mean boundary distance | 3.09 | 2.50 (smoother) | No (86% ≤ KW) |
+| Trigram links at boundaries | 41% | 38% | Similar |
+| Unique trigrams used | 8/8 | 6/8 | Yes (100%) |
+| Missing trigrams | None | ☰ Qian, ☷ Kun | Yes (100%) |
+
+The free region excludes the two pure trigrams (all-yang ☰ Qian/Heaven, all-yin ☷ Kun/Earth) entirely. This is forced — all hexagrams containing pure Heaven or Earth trigrams are consumed by the locked region in every valid ordering. The free region deals exclusively with "mixed" trigrams.
+
+The perfectly uniform 3/3/3 within-pair distance distribution in the free region is also forced by the global difference distribution constraint (Rule 6), not a separate design principle.
+
+**Conclusion:** The locked and free regions are not governed by different rules. The structural differences between them are consequences of which hexagrams remain after the first 23 positions are filled.
+
 ### Multi-feature combination search
 
 No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that no aggregate mathematical property can replicate.
