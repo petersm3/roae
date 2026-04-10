@@ -57,23 +57,19 @@ The `--cast` flag simulates a traditional [three-coin method](https://en.wikiped
 
 ## What a hexagram looks like
 
-A hexagram is read bottom to top. Each line is either solid (yang, 1) or broken (yin, 0):
+Each line is either solid (⚊ yang, 1) or broken (⚋ yin, 0):
 
-```
-Line 6 (top):    -------   1       Hexagram 1        Hexagram 2
-Line 5:          -------   1       The Creative ䷀    The Receptive ䷁
-Line 4:          -------   1
-Line 3:          -------   1       -------            --- ---
-Line 2:          -------   1       -------            --- ---
-Line 1 (bottom): -------   1       -------            --- ---
-                                   -------            --- ---
-                 Binary: 111111    -------            --- ---
-                                   -------            --- ---
+| | ䷀ The Creative #1 | ䷄ Waiting #5 | ䷁ The Receptive #2 |
+|---|:---:|:---:|:---:|
+| Line 6 (top) | ⚊ **1** | ⚋ **0** | ⚋ **0** |
+| Line 5 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 4 | ⚊ **1** | ⚋ **0** | ⚋ **0** |
+| Line 3 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 2 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Binary | **111111** | **010111** | **000000** |
 
-                                   111111             000000
-```
-
-The binary encoding reads bottom to top: line 1 is the rightmost bit, line 6 is the leftmost. So `010001` means lines 1 and 5 are solid, the rest broken.
+To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷄ Waiting #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
 
 Each hexagram is also split into two halves called **trigrams** — the bottom three lines (lower trigram) and the top three lines (upper trigram). There are 8 possible trigrams:
 
