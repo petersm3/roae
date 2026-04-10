@@ -293,6 +293,10 @@ The 9 free-region pairs contain:
 
 The 2 anchored pairs are at positions 24 and 25 — the most constrained free positions (74% and 43% match rates respectively). Their complement partners are locked at positions 2 and 11, forcing positions 24 and 25 to stay nearby. This explains why freedom concentrates at the end of the free region (positions 26-32) rather than the beginning.
 
+**Self-complementary pairs:** 8 of the 32 pairs are self-complementary — their complement is their own partner (4 inverse pairs + 4 reverse pairs where complement equals reverse). Five are in the locked region, three in the free region (pairs 27, 31, 32). Self-complementary pairs have immovable complement distance (always 1), making them the most rigid free-region members. This explains why Pair 31 never participates in pair swaps.
+
+**Adjacency constraints and split super-pairs:** One of the 2 adjacency constraints (C7, boundary 25) directly constrains a split super-pair member (Pair 25, anchored to locked Pair 2). The other split member (Pair 24, anchored to locked Pair 11) is immediately adjacent, so C7 indirectly constrains it via the budget. The connection between split super-pairs and adjacency constraints is suggestive but not a clean 1:1 correspondence — C6 (boundary 27) constrains Pair 27, which is a self-complementary pair, not a split super-pair member.
+
 ### Optimization framing
 
 Testing 17 objective functions over the free region, 3 are extremal for King Wen (maximum among all solutions): boundary distance variance, free-region complement mean distance, and max boundary distance. Combined, they narrow 438 solutions to 146. Better than single features but still not unique.
