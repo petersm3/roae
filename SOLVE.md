@@ -283,6 +283,16 @@ The perfectly uniform 3/3/3 within-pair distance distribution in the free region
 
 **Conclusion:** The locked and free regions are not governed by different rules. The structural differences between them are consequences of which hexagrams remain after the first 23 positions are filled.
 
+### Super-pair structure
+
+Complementation maps King Wen pairs to King Wen pairs (reverse and complement commute), creating 20 "super-pairs" — pairs of pairs linked by complementation. The complement distance constraint is essentially a constraint on super-pair placement: each super-pair's two members must be placed near each other.
+
+The 9 free-region pairs contain:
+- **5 complete super-pairs** (both members in the free region, including 3 self-complementary)
+- **2 "anchored" pairs** whose complement partners are locked in the first 23 positions
+
+The 2 anchored pairs are at positions 24 and 25 — the most constrained free positions (74% and 43% match rates respectively). Their complement partners are locked at positions 2 and 11, forcing positions 24 and 25 to stay nearby. This explains why freedom concentrates at the end of the free region (positions 26-32) rather than the beginning.
+
 ### Optimization framing
 
 Testing 17 objective functions over the free region, 3 are extremal for King Wen (maximum among all solutions): boundary distance variance, free-region complement mean distance, and max boundary distance. Combined, they narrow 438 solutions to 146. Better than single features but still not unique.
