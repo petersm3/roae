@@ -88,7 +88,7 @@ With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagra
 
 ## Key concepts
 
-### Hamming distance
+### [Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)
 
 The "distance" between two hexagrams is the number of lines that differ. For example:
 
@@ -170,16 +170,16 @@ Entropy measures disorder. High entropy means the difference values are spread e
 
 ### --complements (Complement distance)
 
-Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile).
+Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile vs all orderings, 3.9th percentile vs pair-constrained orderings).
 
-**What it means:** The sequence was deliberately organized around opposition — complementary hexagrams are placed near each other. This is a genuine finding.
+**What it means:** The sequence keeps opposites unusually close. However, the [constraint solver's null model test](SOLVE-SUMMARY.md#an-important-caveat) shows that complement distance, starting pair, and diff distribution narrow *any* sequence to near-uniqueness — so this property, while real, is less distinctive than the pair structure and no-5 property.
 
 ## Summary of findings
 
 | Finding | Strength | Survives correction? |
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
-| Complement distance (0th percentile) | Strong | Yes |
+| Complement distance (0th / 3.9th percentile) | Moderate (see [caveat](SOLVE-SUMMARY.md#an-important-caveat)) | Yes |
 | XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (13th percentile) | Weak | No |
@@ -191,7 +191,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | Recurrence rate (72nd percentile) | Not significant | No |
 | Neighborhood clustering (12th percentile) | Not significant | No |
 
-The pair structure and complement distance are genuinely extraordinary. Everything else is either explained by the pair structure, not statistically significant, or both.
+The pair structure is genuinely extraordinary. Complement distance is real but the [null model test](SOLVE-SUMMARY.md#an-important-caveat) shows it's less distinctive than it first appears — any sequence's complement distance would similarly narrow the search space. The genuinely special properties are the pair structure and the no-5-line-transition property.
 
 The constraint solver (`solve.py`) goes further: it shows that 6 rules extracted from King Wen empirically lock **23 of 32 pair positions**, leaving only thousands of valid arrangements out of 10^89 possibilities. Two specific adjacency choices narrow the remaining thousands to exactly 1 — King Wen. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
 
