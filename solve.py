@@ -842,6 +842,7 @@ def print_enumerate(max_nodes=10_000_000, time_limit=60):
     print()
     print(f"Backtracking search with Rules 1-6. Budget: {max_nodes:,} nodes, {time_limit}s.")
     print("Attempts to count ALL sequences satisfying all known constraints.")
+    print("Note: for complete enumeration, use solve.c (~60x faster).")
     print()
 
     kw_pairs = king_wen_pairs()

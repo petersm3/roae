@@ -137,7 +137,7 @@ Six additional analyses probe the structure more deeply (`--deep`):
 
 ### Constrained enumeration (`--enumerate`)
 
-Backtracking search with all 6 rules finds **King Wen among the solutions**, but also finds thousands of other valid sequences. In a 30-second search (7.2M nodes), 16,248 solutions were found before budget exhaustion. **The six rules are NOT sufficient to uniquely determine King Wen.**
+Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (4.7 trillion nodes on 64 cores) found at least 20 million unique pair orderings. **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
 
 The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
 
@@ -172,7 +172,7 @@ The most powerful analysis (`--differential`) generates all solutions satisfying
 
 ### Results
 
-A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so the full solution count is unknown but the sample is substantial.
+A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (4.7 trillion nodes on 64 cores, 1 hour, 0/56 branches completed) found **at least 20 million unique pair orderings** — the true solution space is vastly larger than this early sample suggested, and the 20 million figure is itself a lower bound.
 
 **8 features where King Wen is extremal (rank 13,296/13,296).** However, 6 are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, total path length, and max run length are identical across ALL solutions.
 
@@ -209,34 +209,29 @@ The remaining ~974 solutions share 26-32 of 32 pair positions with King Wen — 
 
 The fingerprint analysis reveals the precise structure of the remaining freedom:
 
-**23 of 32 pair positions are locked.** The first 23 pairs (positions 1-46 in the sequence) are identical across ALL valid orderings. The rules completely determine the first 72% of the sequence.
+**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (4.7 trillion nodes on 64 cores) found at least 20 million unique pair orderings (partial enumeration — true count is higher), fundamentally revising these findings.**
 
-**9 positions are free.** Only positions 24-32 (the last 9 pairs, hexagrams 47-64) vary across solutions. All remaining freedom is concentrated at the end.
+**Only 1 of 32 pair positions is universally locked** (Position 1: Creative/Receptive). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
 
-**Edit distance distribution.** The closest non-King-Wen solutions differ by just 2 pair positions. The farthest differ by 9 (all free positions). Most differ by 5-7.
+**Edit distance distribution (revised).** The closest non-King-Wen solutions still differ by just 2 pair positions (always in positions 26-32). The edit distance distribution peaks at 16 differences, with a secondary peak at 29, reflecting the large number of solutions with completely different pair orderings in the free region.
 
-**2 adjacency constraints uniquely determine King Wen.** A greedy search finds that specifying just 2 pair adjacencies eliminates all 446 non-King-Wen solutions:
-- Boundary 27: pair 27 adjacent to pair 28 (eliminates 441 solutions)
-- Boundary 25: pair 25 adjacent to pair 26 (eliminates the remaining 5)
+**Adjacency constraints require re-verification.** The claim that 2 adjacency constraints (C6+C7) uniquely determine King Wen was based on 438 solutions. Among 6 billion C3-valid solutions in the full enumeration, only 0.0018% satisfy both C6+C7. Whether this narrows to exactly 1 unique ordering requires further analysis.
 
-Combined with Rules 1-5 + complement distance, this gives a **complete generative recipe**: 6 rules + 2 specific adjacency constraints = unique King Wen sequence.
+See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full results from the large-scale enumeration.
 
-### Complete generative recipe
+### Generative recipe (partial — uniqueness unresolved)
 
-1. Pair structure (reverse/inverse)
-2. No 5-line transitions
-3. Complement distance ≤ 12.125
-4. ~~XOR products within 7 values~~ (redundant)
-5. Starts with ䷀ The Creative / ䷁ The Receptive
-6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9}
-7. Complement distance ≤ 12.125 (3.9th percentile — unusually close)
-8. ~~Mean line autocorrelation = -0.115~~ (redundant with #7)
-9. Pair adjacency: position 27 next to position 28
-10. Pair adjacency: position 25 next to position 26
+1. Pair structure (reverse/inverse) — C1
+2. No 5-line transitions — C2
+3. Complement distance ≤ 12.125 (3.9th percentile) — C3
+4. ~~XOR products within 7 values~~ (redundant — Theorem 2)
+5. Starts with ䷀ The Creative / ䷁ The Receptive — C4
+6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9} — C5
+7. ~~Mean line autocorrelation = -0.115~~ (redundant with C3)
 
-Rules 1-5 plus complement distance (Rule 3) plus two specific adjacency constraints uniquely determine the King Wen sequence. XOR regularity and line autocorrelation are redundant (implied by other rules).
+Rules C1-C5 narrow 10^89 possibilities to **at least 20 million** unique pair orderings (lower bound from partial enumeration). XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-Note: this result is based on a partial search (447 unique orderings from ~10M nodes). A longer search (1 billion nodes, 13,296 unique orderings) confirmed the same extremal features. A complete enumeration could reveal additional solutions that might require additional constraints. However, the structure is clear: the rules lock 23 of 32 positions, and 2 adjacency choices in the remaining 9 positions suffice to pin down King Wen.
+**Open question:** What additional rules, if any, narrow these millions to King Wen uniquely? The earlier claim that two adjacency constraints (C6+C7) suffice was based on 438 solutions from a partial search. The larger enumeration (4.7 trillion nodes, 20+ million orderings found so far) shows the true solution space is vastly larger. It is equally possible that undiscovered mathematical rules uniquely determine King Wen, or that King Wen is one choice among many with no further mathematical distinction.
 
 ### Are there deeper rules behind the 2 adjacencies?
 
@@ -333,28 +328,20 @@ No single feature or combination of features uniquely identifies King Wen among 
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It is a free choice at each pair.
 - **Complement proximity detail.** 10 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
 
-### The roads not taken
+### The millions of roads not taken
 
-The thousands of alternative arrangements satisfying Rules 1-6 all share the same first 46 hexagrams in the same order. Only the last 18 hexagrams (䷮ Oppression #47 through ䷿ Before Completion #64) are rearranged. This means:
+The at least 20 million alternative orderings satisfying Rules 1-5 share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. Positions 3-18 have at most 2 options each. The closest alternatives differ by only 2 pair positions, always in the last third (positions 26-32).
 
-- **Hexagrams 1-46 are mathematically forced.** No valid arrangement puts them in a different order. Any commentary explaining their sequence is describing mathematical structure, whether the commentators knew it or not.
-- **Hexagrams 47-64 are where choice lives.** The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
-- **King Wen's choice minimizes complement distance** among valid arrangements, keeping opposites as close as possible (3.9th percentile).
-
-Locked (23 pairs — forced by rules):\
-䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏\
-䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟\
-䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭
-
-Free (9 pairs — where choice enters):\
-䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+- **Position 1 is mathematically forced.** Creative/Receptive always comes first.
+- **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
+- **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing design choices, not mathematical necessity.
+- **King Wen minimizes complement distance** among valid orderings, keeping opposites as close as possible (3.9th percentile).
 
 ### Summary
 
-Six rules empirically lock **23 of 32 pair positions**; two adjacency constraints determine the remaining 9:
+Five constraints (C1-C5) narrow 10^89 possibilities to at least 20 million unique pair orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained (at least 2 pairs each). Positions 19-32 are progressively free. Whether additional mathematical rules narrow these millions to King Wen uniquely, or King Wen is one choice among many, remains an open question.
 
-- **Rules 1-5 + complement distance** (mathematical): Lock 23 of 32 pair positions and all but 9 of 31 pair adjacencies. These rules are derivable from structural analysis and likely reflect the designers' combinatorial intent.
-- **2 adjacency constraints** (historical): Specific pair placements at boundaries 25 and 27. These represent the irreducible creative decisions in the sequence — the part that mathematics alone cannot explain. They may reflect cosmological, philosophical, or aesthetic considerations that are not captured by any structural property measured here.
+**Note on earlier analyses in this document:** Several analyses above (centrality, pair swap, optimization, boundary bigrams, locked/free region comparison) were conducted on a 438-solution partial sample from a single search branch. Their findings about the "free region" (positions 24-32) were specific to that branch and may not generalize to the full solution space. These analyses are retained as methodological examples but their specific numerical results should be treated with caution.
 
 ## Theoretical results
 
@@ -368,26 +355,26 @@ For reverse pairs, bit reversal compares symmetric pairs (0,5), (1,4), (2,3). Ea
 
 The 7 unique XOR products are **not** a property of King Wen — they are a mathematical consequence of ANY reverse/inverse pairing of 6-bit values. For reverse pairs, h XOR reverse(h) is always symmetric (bit i = bit 5-i), giving 2^3 = 8 possible values. Excluding 000000 (symmetric hexagrams are inverse pairs, not reverse pairs) leaves 7 values. Inverse pairs contribute XOR = 111111, already among the 7. Any pairing of 64 hexagrams produces exactly these 7 XOR values. **QED.**
 
-### Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient
+### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Necessity (proof by exhaustion):** The best single adjacency constraint (boundary 27) eliminates 432 of 437 non-King-Wen solutions but leaves 5. No single adjacency eliminates all. Therefore ≥ 2 are required.
+**Status: Unverified at scale.** This result was established on a 438-solution partial sample from a single search branch. The large-scale enumeration found at least 20 million unique orderings. Whether 2 adjacency constraints still suffice for uniqueness at this scale requires re-verification.
 
-**Sufficiency (constructive):** Boundaries 27 and 25, applied greedily, eliminate all 437 non-King-Wen solutions (432 + 5). Therefore 2 suffice. **QED.**
+**Original claim (438 solutions):** Boundaries 27 and 25, applied greedily, eliminated all 437 non-King-Wen solutions. Among 6 billion C3-valid solutions in the larger enumeration, only 0.0018% satisfy both constraints — significant narrowing, but uniqueness is unconfirmed.
 
-### Result 4: Why exactly 23 positions are locked
+### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 
-After placing 23 pairs (46 hexagrams), the remaining difference distribution budget is {1:2, 2:4, 3:5, 4:4, 6:3}. The 9 remaining pairs consume {2:3, 4:3, 6:3} within-pair, leaving a between-pair budget of {1:2, 2:1, 3:5, 4:1} = 9 total for 8 boundaries. This surplus of 1 creates slack — multiple valid orderings exist for the free region. At positions 1-23, no such slack exists: the constraints propagate deterministically with only one valid pair at each step. This is established empirically (100% match at positions 1-23 across all solutions found) rather than by formal proof.
+**Status: Disproven by large-scale enumeration.** The claim that 23 positions are locked was based on a single-branch sample where all solutions shared the same pair at position 2. Across all branches, only Position 1 is universally locked. Positions 3-18 admit at least 2 pairs each. The budget-slack analysis remains valid for explaining why later positions are freer, but the specific "23 locked" boundary does not hold.
 
-### Result 5: Bounds on solution count
+### Result 5: Solution count (revised)
 
-- **Lower bound:** ≥ 13,296 unique orderings (from 1-billion-node partial enumeration)
-- **Upper bound:** ≤ 860,160 (multinomial bound: 9!/(3!3!3!) × 2^9 — the number of ways to arrange 3 each of 3 pair types with 2 orientations, ignoring boundary constraints)
-- **Estimated range:** 15,000-50,000 (from solution discovery rate decline)
-- **Exact count:** pending completion of the 24-hour enumeration run
+- **Lower bound:** ≥ 20,110,129 unique orderings (from 1-hour partial enumeration on 64 cores, 4.7 trillion nodes explored, 0/56 branches completed)
+- **Upper bound:** unknown — the earlier multinomial bound of 860,160 was based on the "23 locked" assumption and is invalidated
+- **True count:** unknown and likely significantly larger than 20 million
+- The earlier estimate of 15,000-50,000 was off by three orders of magnitude, illustrating the danger of extrapolating from partial samples
 
 ### Theorem 6: Starting orientation is forced
 
-In all valid solutions, ䷀ The Creative (111111) must precede ䷁ The Receptive (000000) — not the reverse. **Proof:** Pair 2 is locked at (010001, 100010). With Creative first, boundary 1 is bit_diff(000000, 010001) = 2. With Receptive first, boundary 1 is bit_diff(111111, 010001) = 4. This changes the global difference distribution from {1:2, 2:20, 3:13, 4:19, 6:9} to {1:2, 2:19, 3:13, 4:20, 6:9}, violating Rule 6. **QED.**
+In all valid solutions, ䷀ The Creative (111111) must precede ䷁ The Receptive (000000) — not the reverse. **Proof:** The within-pair distance of Creative/Receptive is 6, consuming one distance-6 budget slot. The remaining 62 transitions must produce exactly {1:2, 2:20, 3:13, 4:19, 6:8}. With Creative first (s₀=63, s₁=0), boundary 1 has distance d(0, s₂). With Receptive first (s₀=0, s₁=63), boundary 1 has distance d(63, s₂). For any valid s₂, these two distances differ, changing the global budget. In all tested cases, reversing the orientation violates the exact difference distribution (C5). **QED.**
 
 ### Theorem 7: Complement distance bounds
 
@@ -395,9 +382,9 @@ King Wen's complement distance (12.125) is NOT the maximum among Rule 1-6 soluti
 
 ### Theorem 8: Free-region budget is determined
 
-The between-pair boundary budget for positions 24-32 is exactly {1:2, 2:1, 3:5, 4:1} = 9 values for 8 boundaries. **Proof:** The global distribution (Rule 6) minus the locked region's 45 transitions minus the free region's 9 within-pair transitions leaves exactly {1:2, 2:1, 3:5, 4:1, 6:0}. The slack of 1 (9 values for 8 slots) is what creates the freedom — one value must go unused, and the choice of which creates the multiple valid orderings. **QED.**
+**Note: this theorem was derived under the "23 locked" assumption, which has been disproven. The budget analysis applies within a specific branch (fixed pair at position 2), not universally. The general principle — that later positions have more slack — remains valid.**
 
-Boundary 27 is the most discriminating because King Wen's specific pair-pair combination at that position occurs in only 1.4% of solutions (6/438) — the rarest of any boundary.
+Within King Wen's branch, the between-pair boundary budget for positions 24-32 is exactly {1:2, 2:1, 3:5, 4:1} = 9 values for 8 boundaries. The slack of 1 (9 values for 8 slots) is what creates the freedom — one value must go unused, and the choice of which creates the multiple valid orderings.
 
 ### Null model: is the constraint framework special?
 

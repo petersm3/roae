@@ -1,6 +1,6 @@
 # How the King Wen Sequence Was Built
 
-A plain-language summary of what `solve.py` discovered.
+A plain-language summary of what `solve.py` and `solve.c` discovered.
 
 ## The puzzle
 
@@ -94,41 +94,42 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 
 **What this does:** After all previous rules, this eliminates everything we could find in 100,000 [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) random samples.
 
-### Rule 6: Two specific neighbor choices
+### What the rules determine — and what remains open
 
-After Rules 1-5, the first 23 pairs (hexagrams 1-46) are completely locked — every valid arrangement puts the same pairs in the same positions. Only the last 9 pairs (hexagrams 47-64) have any freedom, with thousands of valid arrangements remaining.
+A partial enumeration using `solve.c` (4.7 trillion nodes explored across 64 CPU cores in 1 hour) found **at least 20 million** unique pair orderings satisfying Rules 1-5. The enumeration was partial — none of the 56 search branches completed — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
-Locked (23 pairs — forced by rules):<br>
-䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭
+| Positions | Pairs observed | KW match rate | Character |
+|-----------|---------------|-------------------|-----------|
+| 1 | 1 | 100% | Fully determined |
+| 3-18 | at least 2 each | 87-99% | Highly constrained |
+| 19-20 | at least 2-4 | ~50% | Moderately constrained |
+| 21-32 | at least 7-16 each | 10-22% | Progressively free |
+| 2 | at least 16 | 0.2% | Branch-dependent |
 
-Free (9 pairs — where choice enters):<br>
-䷮䷯ <mark>**䷰䷱**</mark> <mark>**䷲䷳**</mark> <mark>**䷴䷵**</mark> <mark>**䷶䷷**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
-Pairs: 47↔48, <mark>**49↔50**</mark>, <mark>**51↔52**</mark>, <mark>**53↔54**</mark>, <mark>**55↔56**</mark>, 57↔58, 59↔60, 61↔62, 63↔64
+**Caveats on these rates:** The match rates are computed from a partial, non-uniform sample. Each search branch was explored to an unknown depth (none completed), so shallower solutions are overrepresented. The "at least N pairs" counts are lower bounds — a complete enumeration could reveal additional pairs at each position. The rates should be treated as indicative, not definitive.
 
-To narrow from thousands to exactly 1, you need just two specific instructions:
+Earlier analysis based on a partial sample (438 solutions from a single search branch) claimed 23 of 32 positions were locked and that two adjacency constraints sufficed for uniqueness. The larger enumeration reveals this was an artifact of undersampling. The constraint gradient is real but much more nuanced.
 
-- Pair 25 (<mark>**䷰䷱**</mark> Revolution #49 / The Cauldron #50) must be next to Pair 26 (<mark>**䷲䷳**</mark> The Arousing #51 / Keeping Still #52)
-- Pair 27 (<mark>**䷴䷵**</mark> Development #53 / The Marrying Maiden #54) must be next to Pair 28 (<mark>**䷶䷷**</mark> Abundance #55 / The Wanderer #56)
+Among 6 billion C3-valid solutions (including orientation variants), only 0.0018% satisfy both legacy adjacency constraints (C6+C7). Note: this rate mixes orientation variants (~297 per unique ordering) with unique orderings, so the per-ordering rate would differ. These constraints significantly narrow the space but their sufficiency for uniqueness is unverified at scale.
 
-### The thousands of roads not taken
+**What makes King Wen unique among millions of valid orderings is an open question.** It is equally possible that additional mathematical rules exist to be discovered, or that King Wen is simply one choice among many with no further mathematical distinction.
 
-The thousands of alternative arrangements that satisfy Rules 1-6 are not random — they all share the same first 46 hexagrams (䷀ through ䷭) in the same order. Only the last 18 hexagrams (䷮ Oppression #47 through ䷿ Before Completion #64) are rearranged. This means:
+### The millions of roads not taken
 
-- **Hexagrams 1-46 are mathematically forced.** No valid arrangement puts them in a different order. Any commentary explaining their sequence is describing mathematical structure, whether the commentators knew it or not.
-- **Hexagrams 47-64 are where choice lives.** The thousands of alternatives rearrange only these. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why these specific hexagrams follow each other is describing the designers' choices, not mathematical necessity.
-- **King Wen's choice is not arbitrary.** Among all thousands of valid arrangements, King Wen is one that **minimizes** complement distance — keeping opposites as close as possible. Only 3.9% of valid orderings place complements closer.
-- **The ending pair is a choice, not a necessity.** King Wen ends with ䷾ After Completion #63 / ䷿ Before Completion #64. Four different pairs can validly end the sequence — King Wen's is the most common (35% of solutions) but not forced. The *starting* orientation, however, is forced: ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
+The millions of alternative arrangements satisfying Rules 1-5 are not random — they share strong structural similarities with King Wen, especially in the first half of the sequence. The closest non-King-Wen solutions differ by only 2 pair positions, always in the last third (positions 26-32). This means:
+
+- **Position 1 is mathematically forced.** Creative/Receptive always comes first.
+- **Positions 3-18 are highly constrained.** Each admits at least 2 pairs in the partial enumeration, with the King Wen pair dominant (87-99% observed). A complete enumeration might reveal additional pairs.
+- **Positions 19-32 are where choice lives.** These positions admit 2-16 different pairs each. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in this region is describing the designers' choices, not mathematical necessity.
+- **King Wen keeps complements close.** Among all valid orderings, King Wen **minimizes** complement distance — keeping opposites as close as possible. Only 3.9% of valid orderings place complements closer.
+- **The starting orientation is forced.** ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
 ## What this means
 
-Six rules, discoverable through analysis, empirically lock **23 of 32 pair positions** (the first 46 hexagrams). The remaining 9 positions have thousands of valid arrangements, narrowed to exactly 1 by two specific adjacency choices. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine — most of the sequence is forced once you accept the rules.
+Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 20 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
-But those two choices are not arbitrary. Among all thousands of valid arrangements, King Wen is **near the center** — ranking in the top 6% by average distance to all other valid orderings. It's not the absolute most central solution (that's 3 swaps away), but it's in the top tier. King Wen also matches the consensus (most popular pair at each position) at 5 of 9 free positions.
-
-No single feature or combination of features (26 tested individually, 153 pairs, 10 triples) can *uniquely* identify King Wen among thousands of valid arrangements — the two adjacency constraints are still needed to pin it down to exactly one. But the centrality finding suggests the choices lean toward a principle: **prefer a balanced, central arrangement**.
-
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only thousands of arrangements in the entire universe of 10^89 possibilities can satisfy them all. And then, among those thousands, they chose one near the center.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Whether further mathematical rules narrow those millions to King Wen uniquely, or King Wen is simply one choice among many, is an open question.
 
 ## The numbers at a glance
 
@@ -139,8 +140,8 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 2 | No 5-line jumps | ~4% of step 1 |
 | 3 | Opposites kept close (3.9th percentile) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
-| 5 | Specific transition counts | thousands |
-| 6 | Two neighbor choices | **1 (King Wen)** |
+| 5 | Specific transition counts | **at least 20 million** (partial enumeration) |
+| ? | Unknown additional rules | **1 (King Wen)** |
 
 ## An important caveat
 

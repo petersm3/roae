@@ -2,8 +2,7 @@
 
 Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)
 
-䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭\
-䷮䷯ <mark>**[䷰䷱](SOLVE-SUMMARY.md)**</mark> <mark>**[䷲䷳](SOLVE-SUMMARY.md)**</mark> <mark>**[䷴䷵](SOLVE-SUMMARY.md)**</mark> <mark>**[䷶䷷](SOLVE-SUMMARY.md)**</mark> ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+<mark>**[䷀䷁](SOLVE-SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
 ## Summary
 
@@ -17,7 +16,7 @@ New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-langua
 
 ## Solver
 
-Can the King Wen sequence be reconstructed from its mathematical constraints? See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the generative recipe and constraint narrowing analysis (`solve.py` + `solve.c`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version.
+Can the King Wen sequence be reconstructed from its mathematical constraints? Five constraints narrow 10^89 possibilities to at least 20 million valid orderings (partial enumeration — true count is higher). What makes King Wen unique among those millions remains an open question. See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the constraint analysis (`solve.py` + `solve.c`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version. Enumeration results are in `enumeration/`.
 
 ## Example
 

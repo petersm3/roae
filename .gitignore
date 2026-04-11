@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+hexagrams.csv
+hexagrams.json
+hexagrams.svg
+report.html
+report.md
+report.pdf
+report.txt
+wave.dot
+wave.dot.png
+wave.dot.svg
+wave.mid
+# Compiled binary
+solve
+# Large binary output (not committed, only sha256)
+enumeration/solutions.bin

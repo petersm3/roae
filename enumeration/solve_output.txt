@@ -1,0 +1,762 @@
+Time limit: 3600 seconds
+Build: Apr 11 2026 21:53:44
+King Wen complement distance (x64): 776 (= 12.1250)
+Difference distribution: 1:2 2:20 3:13 4:19 6:9 
+Super-pairs: 20
+Hash table: 4194304 slots (2^22) x 32 bytes = 128 MB per thread
+Total hash memory: 7168 MB (56 threads x 128 MB)
+Branches: 56 remaining (56 total), Threads: 56
+Time limit: 3600 seconds (1.0 hours)
+CPU cores detected: 64
+
+Starting enumeration...
+
+  12.6B nodes, 901.1M sol, 38644793 C3 (1027471 stored), 0/56 branches (0%), 0/56 threads, 1261M/s, 10s
+  25.3B nodes, 1829.4M sol, 77042763 C3 (1711897 stored), 0/56 branches (0%), 0/56 threads, 1265M/s, 20s
+  38.1B nodes, 2821.2M sol, 115112861 C3 (2597287 stored), 0/56 branches (0%), 0/56 threads, 1270M/s, 30s
+  50.8B nodes, 3824.0M sol, 152809558 C3 (3507294 stored), 0/56 branches (0%), 0/56 threads, 1271M/s, 40s
+  63.6B nodes, 4779.4M sol, 189461447 C3 (4098075 stored), 0/56 branches (0%), 0/56 threads, 1271M/s, 50s
+  76.3B nodes, 5772.2M sol, 228180181 C3 (4636371 stored), 0/56 branches (0%), 0/56 threads, 1272M/s, 60s
+  89.2B nodes, 6815.0M sol, 263522853 C3 (5422924 stored), 0/56 branches (0%), 0/56 threads, 1274M/s, 70s
+  102.1B nodes, 7856.1M sol, 290240009 C3 (5925595 stored), 0/56 branches (0%), 0/56 threads, 1276M/s, 80s
+  115.1B nodes, 8877.7M sol, 315856586 C3 (6230490 stored), 0/56 branches (0%), 0/56 threads, 1279M/s, 90s
+  128.2B nodes, 9829.8M sol, 338958746 C3 (6522001 stored), 0/56 branches (0%), 0/56 threads, 1282M/s, 100s
+  141.2B nodes, 10748.0M sol, 358811970 C3 (6832003 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 110s
+  154.2B nodes, 11651.7M sol, 379198958 C3 (7057987 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 120s
+  167.1B nodes, 12572.7M sol, 403535401 C3 (7516268 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 130s
+  180.0B nodes, 13498.3M sol, 434378654 C3 (8009813 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 140s
+  193.0B nodes, 14467.0M sol, 458944161 C3 (8410058 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 150s
+  206.0B nodes, 15385.0M sol, 482676168 C3 (8635915 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 160s
+  218.9B nodes, 16318.9M sol, 508949085 C3 (9165553 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 170s
+  231.8B nodes, 17171.1M sol, 537086246 C3 (9751451 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 180s
+  244.5B nodes, 17968.5M sol, 562674618 C3 (10073321 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 190s
+  257.3B nodes, 18734.1M sol, 592158048 C3 (10514189 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 200s
+  270.0B nodes, 19458.0M sol, 628405220 C3 (10971132 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 210s
+  282.8B nodes, 20134.2M sol, 661965149 C3 (11397589 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 220s
+  295.5B nodes, 20816.1M sol, 693838256 C3 (11796618 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 230s
+  308.3B nodes, 21538.6M sol, 723555722 C3 (12098331 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 240s
+  321.0B nodes, 22280.4M sol, 755446256 C3 (12578233 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 250s
+  333.7B nodes, 23007.8M sol, 788804650 C3 (13203361 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 260s
+  346.3B nodes, 23720.8M sol, 827886537 C3 (13729882 stored), 0/56 branches (0%), 0/56 threads, 1282M/s, 270s
+  358.9B nodes, 24500.0M sol, 867484580 C3 (14156809 stored), 0/56 branches (0%), 0/56 threads, 1282M/s, 280s
+  371.7B nodes, 25258.0M sol, 899691482 C3 (14641946 stored), 0/56 branches (0%), 0/56 threads, 1282M/s, 290s
+  384.6B nodes, 25946.6M sol, 923977583 C3 (15075242 stored), 0/56 branches (0%), 0/56 threads, 1282M/s, 300s
+  397.7B nodes, 26593.7M sol, 944445229 C3 (15381758 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 310s
+  410.7B nodes, 27317.3M sol, 966688342 C3 (15706839 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 320s
+  423.5B nodes, 28032.4M sol, 990788579 C3 (16015835 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 330s
+  436.1B nodes, 28731.3M sol, 1010720261 C3 (16317713 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 340s
+  449.0B nodes, 29469.1M sol, 1033291371 C3 (16671348 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 350s
+  461.9B nodes, 30163.6M sol, 1058416586 C3 (16996775 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 360s
+  474.8B nodes, 30878.8M sol, 1082619346 C3 (17254442 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 370s
+  487.7B nodes, 31561.1M sol, 1103999737 C3 (17431551 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 380s
+  500.6B nodes, 32229.5M sol, 1130317903 C3 (17605087 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 390s
+  513.5B nodes, 32897.7M sol, 1160103904 C3 (17783147 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 400s
+  526.3B nodes, 33510.6M sol, 1192452517 C3 (17848023 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 410s
+  539.0B nodes, 34193.0M sol, 1226144096 C3 (17889925 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 420s
+  551.9B nodes, 34894.4M sol, 1256077019 C3 (17919365 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 430s
+  564.8B nodes, 35576.5M sol, 1284032830 C3 (18006646 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 440s
+  577.7B nodes, 36268.8M sol, 1310969854 C3 (18080808 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 450s
+  590.6B nodes, 36953.9M sol, 1338766527 C3 (18111926 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 460s
+  603.5B nodes, 37674.8M sol, 1370883561 C3 (18277234 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 470s
+  616.4B nodes, 38444.7M sol, 1400205798 C3 (18468280 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 480s
+  629.3B nodes, 39181.4M sol, 1430186324 C3 (18598719 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 490s
+  642.2B nodes, 39881.5M sol, 1451906120 C3 (18733564 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 500s
+  655.2B nodes, 40542.6M sol, 1472338679 C3 (18896966 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 510s
+  668.3B nodes, 41269.1M sol, 1492316434 C3 (19003090 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 520s
+  681.4B nodes, 42018.3M sol, 1513210575 C3 (19199594 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 530s
+  694.3B nodes, 42742.8M sol, 1536674743 C3 (19369974 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 540s
+  707.3B nodes, 43456.8M sol, 1555310464 C3 (19485703 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 550s
+  720.4B nodes, 44147.9M sol, 1573098396 C3 (19583472 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 560s
+  733.4B nodes, 44837.3M sol, 1590664274 C3 (19690414 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 570s
+  746.2B nodes, 45496.1M sol, 1610931947 C3 (19849977 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 580s
+  759.1B nodes, 46215.0M sol, 1629941053 C3 (19937653 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 590s
+  771.9B nodes, 46897.5M sol, 1651076935 C3 (20137293 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 600s
+  784.6B nodes, 47551.9M sol, 1671889961 C3 (20359015 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 610s
+  797.3B nodes, 48233.1M sol, 1694260831 C3 (20574868 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 620s
+  810.0B nodes, 48891.9M sol, 1713433039 C3 (20761299 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 630s
+  822.8B nodes, 49546.0M sol, 1731212432 C3 (20852992 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 640s
+  835.6B nodes, 50274.2M sol, 1751171522 C3 (20996507 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 650s
+  848.5B nodes, 50986.1M sol, 1767805969 C3 (21101702 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 660s
+  861.4B nodes, 51711.8M sol, 1785846516 C3 (21174635 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 670s
+  874.3B nodes, 52390.7M sol, 1803155400 C3 (21206723 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 680s
+  887.3B nodes, 53057.4M sol, 1820190651 C3 (21251980 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 690s
+  900.3B nodes, 53761.4M sol, 1835578342 C3 (21279696 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 700s
+  913.3B nodes, 54411.9M sol, 1847709730 C3 (21302897 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 710s
+  926.2B nodes, 55085.4M sol, 1863295210 C3 (21390396 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 720s
+  939.1B nodes, 55737.4M sol, 1876545294 C3 (21467328 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 730s
+  952.0B nodes, 56474.2M sol, 1894594664 C3 (21564440 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 740s
+  964.8B nodes, 57166.6M sol, 1913887786 C3 (21598573 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 750s
+  977.7B nodes, 57875.1M sol, 1931738146 C3 (21624870 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 760s
+  990.4B nodes, 58582.8M sol, 1951543712 C3 (21638890 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 770s
+  1003.1B nodes, 59248.0M sol, 1972548995 C3 (21652029 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 780s
+  1015.9B nodes, 59915.2M sol, 1994595906 C3 (21660722 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 790s
+  1028.6B nodes, 60603.6M sol, 2014816096 C3 (21689112 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 800s
+  1041.2B nodes, 61265.6M sol, 2035737820 C3 (21721017 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 810s
+  1053.9B nodes, 61914.3M sol, 2059856512 C3 (21778141 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 820s
+  1066.6B nodes, 62571.9M sol, 2081379694 C3 (21811348 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 830s
+  1079.4B nodes, 63235.2M sol, 2099868812 C3 (21834613 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 840s
+  1092.3B nodes, 63902.9M sol, 2117411385 C3 (21877160 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 850s
+  1105.1B nodes, 64578.1M sol, 2135046101 C3 (21952022 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 860s
+  1117.9B nodes, 65277.0M sol, 2154078720 C3 (22018311 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 870s
+  1130.7B nodes, 65971.0M sol, 2171568522 C3 (22058538 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 880s
+  1143.4B nodes, 66686.2M sol, 2191688773 C3 (22152537 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 890s
+  1156.3B nodes, 67422.6M sol, 2210237515 C3 (22228521 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 900s
+  1169.1B nodes, 68176.5M sol, 2229422059 C3 (22314966 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 910s
+  1181.8B nodes, 68923.1M sol, 2251514884 C3 (22373575 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 920s
+  1194.6B nodes, 69674.3M sol, 2271516095 C3 (22474416 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 930s
+  1207.5B nodes, 70371.5M sol, 2290686369 C3 (22504142 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 940s
+  1220.3B nodes, 71086.7M sol, 2309570252 C3 (22580700 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 950s
+  1233.0B nodes, 71814.3M sol, 2331669042 C3 (22603051 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 960s
+  1245.8B nodes, 72490.6M sol, 2351631617 C3 (22700276 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 970s
+  1258.5B nodes, 73154.9M sol, 2374412170 C3 (22816117 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 980s
+  1271.3B nodes, 73897.1M sol, 2398949301 C3 (22956100 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 990s
+  1284.0B nodes, 74615.9M sol, 2424038601 C3 (22988733 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1000s
+  1296.8B nodes, 75379.3M sol, 2444579378 C3 (23030888 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1010s
+  1309.5B nodes, 76063.7M sol, 2465551143 C3 (23081111 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1020s
+  1322.3B nodes, 76759.7M sol, 2485514459 C3 (23105721 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1030s
+  1335.1B nodes, 77485.6M sol, 2503883875 C3 (23137159 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1040s
+  1347.8B nodes, 78144.9M sol, 2525491254 C3 (23214385 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1050s
+  1360.5B nodes, 78761.2M sol, 2545130828 C3 (23239431 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1060s
+  1373.1B nodes, 79367.5M sol, 2564419291 C3 (23255693 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1070s
+  1386.1B nodes, 80039.9M sol, 2578470259 C3 (23278858 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1080s
+  1399.0B nodes, 80722.1M sol, 2592876637 C3 (23324983 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1090s
+  1411.7B nodes, 81396.3M sol, 2608180738 C3 (23350142 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1100s
+  1424.6B nodes, 82054.7M sol, 2623895490 C3 (23355438 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1110s
+  1437.5B nodes, 82766.0M sol, 2639981737 C3 (23366436 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1120s
+  1450.2B nodes, 83438.6M sol, 2663987088 C3 (23404504 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1130s
+  1463.0B nodes, 84099.7M sol, 2683580516 C3 (23434660 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1140s
+  1475.8B nodes, 84713.7M sol, 2703764202 C3 (23463540 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1150s
+  1488.6B nodes, 85344.3M sol, 2724971500 C3 (23526913 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1160s
+  1501.2B nodes, 85920.8M sol, 2751446468 C3 (23569716 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1170s
+  1514.1B nodes, 86487.4M sol, 2768409894 C3 (23622418 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1180s
+  1527.0B nodes, 87040.9M sol, 2786866347 C3 (23697488 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1190s
+  1540.0B nodes, 87645.6M sol, 2805437580 C3 (23718943 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1200s
+  1552.9B nodes, 88255.8M sol, 2823004336 C3 (23728713 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1210s
+  1565.7B nodes, 88862.2M sol, 2843829344 C3 (23740167 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1220s
+  1578.7B nodes, 89456.5M sol, 2862175461 C3 (23758662 stored), 0/56 branches (0%), 0/56 threads, 1283M/s, 1230s
+  1591.7B nodes, 90036.2M sol, 2879010272 C3 (23770906 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1240s
+  1604.7B nodes, 90664.9M sol, 2895644368 C3 (23781850 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1250s
+  1617.6B nodes, 91235.1M sol, 2913082380 C3 (23792322 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1260s
+  1630.4B nodes, 91839.1M sol, 2935680293 C3 (23804272 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1270s
+  1643.2B nodes, 92437.4M sol, 2955762263 C3 (23818004 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1280s
+  1656.2B nodes, 93048.7M sol, 2973087792 C3 (23840116 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1290s
+  1669.0B nodes, 93596.4M sol, 2991327345 C3 (23852048 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1300s
+  1681.8B nodes, 94150.3M sol, 3010207091 C3 (23868087 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1310s
+  1694.7B nodes, 94725.4M sol, 3029136962 C3 (23884268 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1320s
+  1707.4B nodes, 95281.7M sol, 3049257382 C3 (23926432 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1330s
+  1720.4B nodes, 95858.8M sol, 3067690118 C3 (23988175 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1340s
+  1733.3B nodes, 96489.3M sol, 3089231572 C3 (24074218 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1350s
+  1746.3B nodes, 97104.8M sol, 3106669023 C3 (24105586 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1360s
+  1759.3B nodes, 97760.1M sol, 3124430531 C3 (24229843 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1370s
+  1772.3B nodes, 98370.0M sol, 3144838386 C3 (24362181 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1380s
+  1785.4B nodes, 98938.3M sol, 3165343359 C3 (24509676 stored), 0/56 branches (0%), 0/56 threads, 1284M/s, 1390s
+  1798.5B nodes, 99546.7M sol, 3181224008 C3 (24529006 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 1400s
+  1811.8B nodes, 100134.1M sol, 3193350991 C3 (24540918 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 1410s
+  1825.0B nodes, 100708.5M sol, 3202256209 C3 (24555673 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 1420s
+  1838.2B nodes, 101317.5M sol, 3210256140 C3 (24565213 stored), 0/56 branches (0%), 0/56 threads, 1285M/s, 1430s
+  1851.4B nodes, 101932.7M sol, 3217059773 C3 (24566015 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 1440s
+  1864.5B nodes, 102579.2M sol, 3226755513 C3 (24567354 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 1450s
+  1877.5B nodes, 103176.9M sol, 3241931712 C3 (24656422 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 1460s
+  1890.6B nodes, 103813.3M sol, 3255402191 C3 (24750424 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 1470s
+  1903.7B nodes, 104379.1M sol, 3270043712 C3 (24786510 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 1480s
+  1916.9B nodes, 104949.0M sol, 3281883541 C3 (24794879 stored), 0/56 branches (0%), 0/56 threads, 1286M/s, 1490s
+  1930.0B nodes, 105514.0M sol, 3292872995 C3 (24812446 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1500s
+  1943.2B nodes, 106127.1M sol, 3302138570 C3 (24819086 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1510s
+  1956.4B nodes, 106752.5M sol, 3314425423 C3 (24825184 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1520s
+  1969.5B nodes, 107325.6M sol, 3328360476 C3 (24827277 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1530s
+  1982.4B nodes, 107898.5M sol, 3346424272 C3 (24831078 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1540s
+  1995.5B nodes, 108492.0M sol, 3365271474 C3 (24948591 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1550s
+  2008.5B nodes, 109100.3M sol, 3384822169 C3 (25060511 stored), 0/56 branches (0%), 0/56 threads, 1287M/s, 1560s
+  2021.5B nodes, 109650.2M sol, 3399576398 C3 (25076734 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1570s
+  2034.6B nodes, 110240.8M sol, 3412740852 C3 (25081474 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1580s
+  2047.6B nodes, 110861.1M sol, 3426102617 C3 (25085888 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1590s
+  2060.7B nodes, 111457.9M sol, 3440244602 C3 (25097988 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1600s
+  2073.8B nodes, 112047.6M sol, 3450333652 C3 (25100604 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1610s
+  2087.0B nodes, 112662.4M sol, 3460983466 C3 (25102531 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1620s
+  2100.2B nodes, 113251.9M sol, 3468959757 C3 (25104499 stored), 0/56 branches (0%), 0/56 threads, 1288M/s, 1630s
+  2113.5B nodes, 113859.4M sol, 3474924736 C3 (25104499 stored), 0/56 branches (0%), 0/56 threads, 1289M/s, 1640s
+  2126.8B nodes, 114436.3M sol, 3481543441 C3 (25104499 stored), 0/56 branches (0%), 0/56 threads, 1289M/s, 1650s
+  2140.0B nodes, 115034.1M sol, 3489132996 C3 (25105741 stored), 0/56 branches (0%), 0/56 threads, 1289M/s, 1660s
+  2153.2B nodes, 115607.8M sol, 3500400189 C3 (25106373 stored), 0/56 branches (0%), 0/56 threads, 1289M/s, 1670s
+  2166.3B nodes, 116194.5M sol, 3508596252 C3 (25107007 stored), 0/56 branches (0%), 0/56 threads, 1289M/s, 1680s
+  2179.3B nodes, 116760.6M sol, 3519574563 C3 (25114198 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1690s
+  2192.3B nodes, 117280.5M sol, 3526598261 C3 (25125548 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1700s
+  2205.2B nodes, 117829.2M sol, 3535547784 C3 (25136236 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1710s
+  2218.3B nodes, 118384.0M sol, 3546436485 C3 (25142187 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1720s
+  2231.4B nodes, 118977.4M sol, 3556286581 C3 (25149544 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1730s
+  2244.5B nodes, 119551.7M sol, 3566127968 C3 (25153274 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1740s
+  2257.6B nodes, 120186.0M sol, 3579188416 C3 (25192799 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1750s
+  2270.4B nodes, 120854.5M sol, 3601586689 C3 (25293462 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1760s
+  2283.3B nodes, 121448.3M sol, 3620579105 C3 (25366902 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1770s
+  2296.4B nodes, 122094.2M sol, 3635441020 C3 (25403490 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1780s
+  2309.4B nodes, 122724.3M sol, 3652465373 C3 (25430486 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1790s
+  2322.4B nodes, 123324.8M sol, 3667971412 C3 (25449773 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1800s
+  2335.5B nodes, 123849.2M sol, 3683190811 C3 (25464869 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1810s
+  2348.4B nodes, 124374.3M sol, 3699817228 C3 (25512320 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1820s
+  2361.4B nodes, 124926.2M sol, 3717051708 C3 (25557282 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1830s
+  2374.5B nodes, 125504.0M sol, 3732283482 C3 (25565918 stored), 0/56 branches (0%), 0/56 threads, 1290M/s, 1840s
+  2387.7B nodes, 126159.6M sol, 3743404882 C3 (25602967 stored), 0/56 branches (0%), 0/56 threads, 1291M/s, 1850s
+  2400.9B nodes, 126746.5M sol, 3755287986 C3 (25621469 stored), 0/56 branches (0%), 0/56 threads, 1291M/s, 1860s
+  2414.1B nodes, 127308.9M sol, 3768431161 C3 (25636554 stored), 0/56 branches (0%), 0/56 threads, 1291M/s, 1870s
+  2427.1B nodes, 127883.5M sol, 3782876959 C3 (25696816 stored), 0/56 branches (0%), 0/56 threads, 1291M/s, 1880s
+  2440.3B nodes, 128486.2M sol, 3799390086 C3 (25734707 stored), 0/56 branches (0%), 0/56 threads, 1291M/s, 1890s
+  2453.7B nodes, 129128.1M sol, 3808169296 C3 (25743019 stored), 0/56 branches (0%), 0/56 threads, 1291M/s, 1900s
+  2466.9B nodes, 129788.0M sol, 3816665892 C3 (25750224 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1910s
+  2480.0B nodes, 130401.9M sol, 3829290652 C3 (25757132 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1920s
+  2493.3B nodes, 131010.2M sol, 3838859182 C3 (25764394 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1930s
+  2506.4B nodes, 131543.1M sol, 3850968862 C3 (25778175 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1940s
+  2519.6B nodes, 132087.8M sol, 3863765160 C3 (25781954 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1950s
+  2532.7B nodes, 132699.3M sol, 3874231786 C3 (25785982 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1960s
+  2545.8B nodes, 133278.7M sol, 3884041399 C3 (25788553 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1970s
+  2559.0B nodes, 133826.8M sol, 3895362212 C3 (25794719 stored), 0/56 branches (0%), 0/56 threads, 1292M/s, 1980s
+  2572.1B nodes, 134409.8M sol, 3906879016 C3 (25806819 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 1990s
+  2585.2B nodes, 134941.0M sol, 3920100137 C3 (25828151 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2000s
+  2598.3B nodes, 135481.2M sol, 3932143790 C3 (25849556 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2010s
+  2611.4B nodes, 136007.7M sol, 3943086323 C3 (25860841 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2020s
+  2624.6B nodes, 136569.7M sol, 3952818187 C3 (25872291 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2030s
+  2637.7B nodes, 137115.6M sol, 3963086404 C3 (25887059 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2040s
+  2650.7B nodes, 137687.9M sol, 3974532990 C3 (25897237 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2050s
+  2663.9B nodes, 138309.9M sol, 3983848813 C3 (25903767 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2060s
+  2677.2B nodes, 138887.7M sol, 3992273078 C3 (25907736 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2070s
+  2690.2B nodes, 139421.2M sol, 4000288954 C3 (25913919 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2080s
+  2703.4B nodes, 139948.4M sol, 4011139653 C3 (25925611 stored), 0/56 branches (0%), 0/56 threads, 1293M/s, 2090s
+  2716.6B nodes, 140549.7M sol, 4020505749 C3 (25957983 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2100s
+  2729.6B nodes, 141143.8M sol, 4033504720 C3 (26003007 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2110s
+  2742.6B nodes, 141754.0M sol, 4048612138 C3 (26025267 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2120s
+  2755.6B nodes, 142375.3M sol, 4061362874 C3 (26053468 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2130s
+  2768.7B nodes, 142976.2M sol, 4075585340 C3 (26185200 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2140s
+  2781.9B nodes, 143599.3M sol, 4087662307 C3 (26317943 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2150s
+  2794.9B nodes, 144234.6M sol, 4100330714 C3 (26441982 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2160s
+  2807.9B nodes, 144795.1M sol, 4113726616 C3 (26498417 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2170s
+  2820.9B nodes, 145353.4M sol, 4128937955 C3 (26570793 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2180s
+  2833.9B nodes, 145971.5M sol, 4144522902 C3 (26603417 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2190s
+  2846.9B nodes, 146569.9M sol, 4159871735 C3 (26698458 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2200s
+  2859.8B nodes, 147115.8M sol, 4175688244 C3 (26748522 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2210s
+  2872.9B nodes, 147718.6M sol, 4188358409 C3 (26808200 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2220s
+  2886.0B nodes, 148343.8M sol, 4199769079 C3 (26852210 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2230s
+  2899.1B nodes, 148959.8M sol, 4209829600 C3 (26929113 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2240s
+  2912.4B nodes, 149560.9M sol, 4217233125 C3 (26947374 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2250s
+  2925.6B nodes, 150129.1M sol, 4226850370 C3 (26959880 stored), 0/56 branches (0%), 0/56 threads, 1294M/s, 2260s
+  2938.7B nodes, 150715.2M sol, 4239035966 C3 (26978741 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2270s
+  2951.7B nodes, 151334.2M sol, 4252137094 C3 (27045262 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2280s
+  2964.8B nodes, 151935.8M sol, 4265662116 C3 (27182023 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2290s
+  2977.9B nodes, 152473.0M sol, 4277375664 C3 (27287114 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2300s
+  2990.9B nodes, 152995.0M sol, 4291379395 C3 (27408409 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2310s
+  3003.8B nodes, 153544.4M sol, 4306670794 C3 (27437680 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2320s
+  3016.8B nodes, 154118.4M sol, 4321870922 C3 (27465323 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2330s
+  3030.0B nodes, 154687.5M sol, 4330553999 C3 (27503016 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2340s
+  3043.2B nodes, 155268.0M sol, 4342503909 C3 (27571711 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2350s
+  3056.1B nodes, 155834.4M sol, 4360892665 C3 (27672146 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2360s
+  3069.0B nodes, 156409.6M sol, 4379896061 C3 (27743326 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2370s
+  3082.0B nodes, 157054.0M sol, 4397781889 C3 (27798241 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2380s
+  3095.1B nodes, 157629.9M sol, 4412791495 C3 (27862950 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2390s
+  3108.1B nodes, 158158.8M sol, 4425814788 C3 (27893128 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2400s
+  3121.3B nodes, 158737.8M sol, 4434737020 C3 (27923617 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2410s
+  3134.5B nodes, 159317.3M sol, 4444585713 C3 (27945193 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2420s
+  3147.7B nodes, 159892.5M sol, 4451041648 C3 (27959656 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2430s
+  3160.8B nodes, 160470.9M sol, 4461761412 C3 (27974572 stored), 0/56 branches (0%), 0/56 threads, 1295M/s, 2440s
+  3174.0B nodes, 161022.3M sol, 4473964259 C3 (28007524 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2450s
+  3186.9B nodes, 161568.4M sol, 4487749090 C3 (28064421 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2460s
+  3200.0B nodes, 162161.0M sol, 4502204910 C3 (28077480 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2470s
+  3213.0B nodes, 162711.7M sol, 4516251395 C3 (28088152 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2480s
+  3226.1B nodes, 163274.6M sol, 4532319653 C3 (28118749 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2490s
+  3239.1B nodes, 163838.5M sol, 4551262311 C3 (28176903 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2500s
+  3252.3B nodes, 164427.7M sol, 4565329878 C3 (28228282 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2510s
+  3265.4B nodes, 164980.2M sol, 4576792350 C3 (28258374 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2520s
+  3278.5B nodes, 165554.8M sol, 4591161149 C3 (28296124 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2530s
+  3291.8B nodes, 166161.9M sol, 4603928551 C3 (28345531 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2540s
+  3305.1B nodes, 166748.9M sol, 4620057153 C3 (28421221 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2550s
+  3318.3B nodes, 167379.4M sol, 4634919380 C3 (28511345 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2560s
+  3331.4B nodes, 168006.4M sol, 4651915875 C3 (28564393 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2570s
+  3344.5B nodes, 168588.6M sol, 4666439221 C3 (28614985 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2580s
+  3357.7B nodes, 169178.4M sol, 4684817865 C3 (28712730 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2590s
+  3370.8B nodes, 169779.3M sol, 4706489476 C3 (28819821 stored), 0/56 branches (0%), 0/56 threads, 1296M/s, 2600s
+  3384.2B nodes, 170321.1M sol, 4718316357 C3 (28854861 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2610s
+  3397.6B nodes, 170909.8M sol, 4730931214 C3 (28905879 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2620s
+  3410.9B nodes, 171454.0M sol, 4740089322 C3 (28923272 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2630s
+  3424.2B nodes, 171959.9M sol, 4753325613 C3 (28924200 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2640s
+  3437.4B nodes, 172547.6M sol, 4763890646 C3 (28928947 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2650s
+  3450.6B nodes, 173134.9M sol, 4776581397 C3 (28956502 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2660s
+  3463.8B nodes, 173711.9M sol, 4791373946 C3 (28982061 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2670s
+  3476.9B nodes, 174235.6M sol, 4806764372 C3 (29021289 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2680s
+  3490.1B nodes, 174794.6M sol, 4819228468 C3 (29081388 stored), 0/56 branches (0%), 0/56 threads, 1297M/s, 2690s
+  3503.3B nodes, 175313.6M sol, 4837096084 C3 (29261022 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2700s
+  3516.4B nodes, 175842.8M sol, 4858361423 C3 (29440876 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2710s
+  3529.6B nodes, 176390.5M sol, 4874541576 C3 (29492909 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2720s
+  3542.9B nodes, 176953.2M sol, 4887237782 C3 (29573440 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2730s
+  3556.1B nodes, 177508.1M sol, 4901796804 C3 (29614722 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2740s
+  3569.3B nodes, 178076.4M sol, 4917301506 C3 (29675362 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2750s
+  3582.6B nodes, 178607.4M sol, 4936237288 C3 (29737454 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2760s
+  3596.0B nodes, 179146.8M sol, 4948129637 C3 (29801731 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2770s
+  3609.2B nodes, 179732.3M sol, 4961567892 C3 (29836615 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2780s
+  3622.6B nodes, 180348.0M sol, 4972246612 C3 (29837635 stored), 0/56 branches (0%), 0/56 threads, 1298M/s, 2790s
+  3635.9B nodes, 180946.4M sol, 4983605616 C3 (29878181 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2800s
+  3649.0B nodes, 181496.3M sol, 4996361900 C3 (29967749 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2810s
+  3662.2B nodes, 182003.9M sol, 5007119635 C3 (30009961 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2820s
+  3675.5B nodes, 182464.1M sol, 5017281518 C3 (30050155 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2830s
+  3688.8B nodes, 182983.2M sol, 5028527309 C3 (30124210 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2840s
+  3702.0B nodes, 183564.6M sol, 5041573832 C3 (30136442 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2850s
+  3715.2B nodes, 184160.6M sol, 5050768440 C3 (30145471 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2860s
+  3728.3B nodes, 184702.3M sol, 5063374092 C3 (30151177 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2870s
+  3741.4B nodes, 185246.9M sol, 5075513114 C3 (30156589 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2880s
+  3754.6B nodes, 185778.1M sol, 5084445917 C3 (30157049 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2890s
+  3767.8B nodes, 186327.5M sol, 5096176890 C3 (30159453 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2900s
+  3780.8B nodes, 186816.6M sol, 5109283796 C3 (30196463 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2910s
+  3793.9B nodes, 187326.1M sol, 5121111748 C3 (30263117 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2920s
+  3807.2B nodes, 187874.2M sol, 5134742690 C3 (30431521 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2930s
+  3820.3B nodes, 188438.5M sol, 5152561252 C3 (30588058 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2940s
+  3833.4B nodes, 188993.5M sol, 5170685900 C3 (30635177 stored), 0/56 branches (0%), 0/56 threads, 1299M/s, 2950s
+  3846.6B nodes, 189582.0M sol, 5184058661 C3 (30690381 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 2960s
+  3859.8B nodes, 190160.3M sol, 5198510027 C3 (30706428 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 2970s
+  3872.9B nodes, 190704.6M sol, 5212296502 C3 (30737786 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 2980s
+  3886.2B nodes, 191293.0M sol, 5225828012 C3 (30801582 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 2990s
+  3899.3B nodes, 191842.9M sol, 5240325678 C3 (30858595 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3000s
+  3912.5B nodes, 192370.4M sol, 5250431879 C3 (30899515 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3010s
+  3925.5B nodes, 192881.8M sol, 5263270180 C3 (30902014 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3020s
+  3938.5B nodes, 193389.9M sol, 5279796417 C3 (30931323 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3030s
+  3951.6B nodes, 193924.6M sol, 5294311831 C3 (30942596 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3040s
+  3964.7B nodes, 194521.5M sol, 5307105720 C3 (30952231 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3050s
+  3977.9B nodes, 195050.1M sol, 5320620400 C3 (30969073 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3060s
+  3991.2B nodes, 195592.2M sol, 5330493690 C3 (30977011 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3070s
+  4004.5B nodes, 196134.9M sol, 5339529689 C3 (30977982 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3080s
+  4017.8B nodes, 196655.6M sol, 5346914050 C3 (30978843 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3090s
+  4031.0B nodes, 197178.2M sol, 5354612348 C3 (30978843 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3100s
+  4044.2B nodes, 197693.3M sol, 5362977171 C3 (30979651 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3110s
+  4057.4B nodes, 198221.6M sol, 5373171436 C3 (31074468 stored), 0/56 branches (0%), 0/56 threads, 1300M/s, 3120s
+  4070.6B nodes, 198778.5M sol, 5383656205 C3 (31159634 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3130s
+  4083.8B nodes, 199344.3M sol, 5394956803 C3 (31193211 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3140s
+  4097.1B nodes, 199930.8M sol, 5405787467 C3 (31196098 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3150s
+  4110.3B nodes, 200492.8M sol, 5419939800 C3 (31207597 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3160s
+  4123.3B nodes, 201066.2M sol, 5433120608 C3 (31214058 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3170s
+  4136.6B nodes, 201597.4M sol, 5445092998 C3 (31216059 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3180s
+  4149.8B nodes, 202137.6M sol, 5455865188 C3 (31220740 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3190s
+  4163.0B nodes, 202640.2M sol, 5464139554 C3 (31249497 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3200s
+  4176.3B nodes, 203116.1M sol, 5469495014 C3 (31274642 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3210s
+  4189.6B nodes, 203608.4M sol, 5481205642 C3 (31295302 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3220s
+  4202.9B nodes, 204186.9M sol, 5491461450 C3 (31309405 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3230s
+  4216.2B nodes, 204723.7M sol, 5499225428 C3 (31311556 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3240s
+  4229.3B nodes, 205255.1M sol, 5510215352 C3 (31352096 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3250s
+  4242.5B nodes, 205819.4M sol, 5521932844 C3 (31482184 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3260s
+  4255.8B nodes, 206359.1M sol, 5529530728 C3 (31529460 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3270s
+  4268.9B nodes, 206840.3M sol, 5540279264 C3 (31542697 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3280s
+  4281.9B nodes, 207281.1M sol, 5553582053 C3 (31564420 stored), 0/56 branches (0%), 0/56 threads, 1301M/s, 3290s
+  4295.0B nodes, 207761.7M sol, 5567172871 C3 (31569413 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3300s
+  4308.2B nodes, 208249.0M sol, 5580899717 C3 (31572316 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3310s
+  4321.4B nodes, 208730.8M sol, 5594473380 C3 (31582007 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3320s
+  4334.7B nodes, 209128.5M sol, 5606036380 C3 (31583569 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3330s
+  4347.9B nodes, 209545.8M sol, 5616656148 C3 (31585139 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3340s
+  4360.9B nodes, 209982.8M sol, 5628423194 C3 (31645572 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3350s
+  4374.1B nodes, 210415.5M sol, 5639162948 C3 (31697594 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3360s
+  4387.2B nodes, 210849.7M sol, 5651941818 C3 (31704006 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3370s
+  4400.5B nodes, 211286.7M sol, 5663306667 C3 (31713601 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3380s
+  4413.6B nodes, 211755.7M sol, 5674773293 C3 (31719063 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3390s
+  4426.8B nodes, 212179.9M sol, 5687310898 C3 (31720109 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3400s
+  4440.0B nodes, 212611.8M sol, 5699220845 C3 (31745076 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3410s
+  4453.2B nodes, 213022.5M sol, 5712143318 C3 (31852494 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3420s
+  4466.3B nodes, 213439.3M sol, 5727114670 C3 (31976948 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3430s
+  4479.4B nodes, 213838.1M sol, 5743417977 C3 (32211339 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3440s
+  4492.5B nodes, 214221.8M sol, 5756075888 C3 (32249310 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3450s
+  4505.9B nodes, 214615.1M sol, 5764904061 C3 (32260272 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3460s
+  4519.2B nodes, 214990.7M sol, 5774670478 C3 (32273324 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3470s
+  4532.5B nodes, 215393.4M sol, 5784331410 C3 (32315156 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3480s
+  4545.6B nodes, 215785.7M sol, 5801695093 C3 (32377695 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3490s
+  4558.7B nodes, 216178.5M sol, 5819140182 C3 (32420387 stored), 0/56 branches (0%), 0/56 threads, 1302M/s, 3500s
+  4572.0B nodes, 216596.2M sol, 5834901277 C3 (32442882 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3510s
+  4585.1B nodes, 216986.6M sol, 5851307180 C3 (32460037 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3520s
+  4598.2B nodes, 217353.8M sol, 5866385826 C3 (32465463 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3530s
+  4611.4B nodes, 217766.4M sol, 5880865676 C3 (32469650 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3540s
+  4624.6B nodes, 218182.0M sol, 5895370992 C3 (32472634 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3550s
+  4637.7B nodes, 218563.8M sol, 5908031178 C3 (32515145 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3560s
+  4650.9B nodes, 218949.4M sol, 5921240854 C3 (32583575 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3570s
+  4664.0B nodes, 219343.5M sol, 5935045494 C3 (32607632 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3580s
+  4677.2B nodes, 219767.1M sol, 5950083954 C3 (32615344 stored), 0/56 branches (0%), 0/56 threads, 1303M/s, 3590s
+  *** Branch 5/56 INTERRUPTED (pair 18 orient 0) at 3600s ***
+  *** Branch 18/56 INTERRUPTED (pair 5 orient 1) at 3600s ***
+  *** Branch 46/56 INTERRUPTED (pair 23 orient 0) at 3600s ***
+  *** Branch 52/56 INTERRUPTED (pair 12 orient 0) at 3600s ***
+  *** Branch 21/56 INTERRUPTED (pair 20 orient 0) at 3600s ***
+  *** Branch 35/56 INTERRUPTED (pair 18 orient 1) at 3600s ***
+  *** Branch 19/56 INTERRUPTED (pair 5 orient 0) at 3600s ***
+  *** Branch 36/56 INTERRUPTED (pair 28 orient 1) at 3600s ***
+  *** Branch 55/56 INTERRUPTED (pair 13 orient 0) at 3600s ***
+  *** Branch 9/56 INTERRUPTED (pair 8 orient 1) at 3600s ***
+  *** Branch 37/56 INTERRUPTED (pair 15 orient 0) at 3600s ***
+  *** Branch 22/56 INTERRUPTED (pair 16 orient 1) at 3600s ***
+  *** Branch 45/56 INTERRUPTED (pair 29 orient 1) at 3600s ***
+  *** Branch 28/56 INTERRUPTED (pair 1 orient 0) at 3600s ***
+  *** Branch 24/56 INTERRUPTED (pair 7 orient 0) at 3600s ***
+  *** Branch 41/56 INTERRUPTED (pair 3 orient 0) at 3600s ***
+  *** Branch 25/56 INTERRUPTED (pair 20 orient 1) at 3600s ***
+  *** Branch 12/56 INTERRUPTED (pair 31 orient 0) at 3600s ***
+  *** Branch 13/56 INTERRUPTED (pair 14 orient 0) at 3600s ***
+  *** Branch 32/56 INTERRUPTED (pair 26 orient 1) at 3600s ***
+  *** Branch 6/56 INTERRUPTED (pair 9 orient 1) at 3600s ***
+  *** Branch 7/56 INTERRUPTED (pair 30 orient 0) at 3600s ***
+  *** Branch 38/56 INTERRUPTED (pair 25 orient 0) at 3600s ***
+  *** Branch 11/56 INTERRUPTED (pair 19 orient 1) at 3600s ***
+  *** Branch 10/56 INTERRUPTED (pair 11 orient 1) at 3600s ***
+  *** Branch 2/56 INTERRUPTED (pair 23 orient 1) at 3600s ***
+  *** Branch 29/56 INTERRUPTED (pair 14 orient 1) at 3600s ***
+  *** Branch 14/56 INTERRUPTED (pair 11 orient 0) at 3600s ***
+  *** Branch 20/56 INTERRUPTED (pair 25 orient 1) at 3600s ***
+  *** Branch 40/56 INTERRUPTED (pair 29 orient 0) at 3600s ***
+  *** Branch 53/56 INTERRUPTED (pair 2 orient 1) at 3600s ***
+  *** Branch 26/56 INTERRUPTED (pair 26 orient 0) at 3600s ***
+  *** Branch 54/56 INTERRUPTED (pair 16 orient 0) at 3600s ***
+  *** Branch 44/56 INTERRUPTED (pair 31 orient 1) at 3600s ***
+  *** Branch 43/56 INTERRUPTED (pair 3 orient 1) at 3600s ***
+  *** Branch 50/56 INTERRUPTED (pair 24 orient 0) at 3600s ***
+  *** Branch 34/56 INTERRUPTED (pair 15 orient 1) at 3600s ***
+  *** Branch 3/56 INTERRUPTED (pair 22 orient 0) at 3600s ***
+  *** Branch 47/56 INTERRUPTED (pair 22 orient 1) at 3600s ***
+  *** Branch 23/56 INTERRUPTED (pair 27 orient 1) at 3600s ***
+  *** Branch 1/56 INTERRUPTED (pair 24 orient 1) at 3600s ***
+  *** Branch 42/56 INTERRUPTED (pair 10 orient 1) at 3600s ***
+  *** Branch 39/56 INTERRUPTED (pair 7 orient 1) at 3600s ***
+  *** Branch 27/56 INTERRUPTED (pair 17 orient 0) at 3600s ***
+  *** Branch 51/56 INTERRUPTED (pair 8 orient 0) at 3600s ***
+  *** Branch 4/56 INTERRUPTED (pair 9 orient 0) at 3600s ***
+  *** Branch 8/56 INTERRUPTED (pair 28 orient 0) at 3600s ***
+  *** Branch 49/56 INTERRUPTED (pair 12 orient 1) at 3600s ***
+  *** Branch 15/56 INTERRUPTED (pair 30 orient 1) at 3600s ***
+  *** Branch 56/56 INTERRUPTED (pair 13 orient 1) at 3600s ***
+  *** Branch 48/56 INTERRUPTED (pair 19 orient 0) at 3600s ***
+  *** Branch 33/56 INTERRUPTED (pair 2 orient 0) at 3600s ***
+  *** Branch 30/56 INTERRUPTED (pair 17 orient 1) at 3600s ***
+  *** Branch 16/56 INTERRUPTED (pair 1 orient 1) at 3600s ***
+  *** Branch 31/56 INTERRUPTED (pair 27 orient 0) at 3600s ***
+  *** Branch 17/56 INTERRUPTED (pair 10 orient 0) at 3600s ***
+  4689.8B nodes, 220145.7M sol, 5962805326 C3 (32632374 stored), 0/56 branches (0%), 56/56 threads, 1303M/s, 3600s
+Merging 32632374 stored solutions from 56 threads...
+Sorting 32632374 solutions...
+Writing 20110129 unique solutions to solutions.bin...
+Computing sha256...
+
+======================================================================
+TIMED OUT after 3600s (1 hours 0 minutes)
+Start: 2026-04-11 21:53:45 UTC
+End:   2026-04-11 22:53:45 UTC
+Branches: 0/56 completed
+======================================================================
+
+--- Counts ---
+Nodes explored:                4689779493087
+Node rate:                     1302.7 M/sec
+Total solutions (C1+C2+C4+C5): 220145732020
+C3-valid solutions:            5962805326
+Unique pair orderings:         20110129
+King Wen found:                YES
+Threads used:                  56
+Hash table size:               4194304 (2^22)
+Hash de-dup collisions:        2926969726 (exact match — zero false positives)
+WARNING: 4/56 threads exceeded 75% hash table capacity.
+  Some solutions may have been lost due to probe limit.
+  Increase SOLVE_HASH_LOG2 and re-run.
+
+--- Position match rates ---
+  Position  1: 5962805326/5962805326 (100.0000%) LOCKED
+  Position  2: 12137908/5962805326 (0.2036%) 
+  Position  3: 12137908/5962805326 (0.2036%) 
+  Position  4: 29573632/5962805326 (0.4960%) 
+  Position  5: 53599200/5962805326 (0.8989%) 
+  Position  6: 53599200/5962805326 (0.8989%) 
+  Position  7: 201789376/5962805326 (3.3841%) 
+  Position  8: 201789376/5962805326 (3.3841%) 
+  Position  9: 245069840/5962805326 (4.1100%) 
+  Position 10: 312656576/5962805326 (5.2434%) 
+  Position 11: 312656576/5962805326 (5.2434%) 
+  Position 12: 312656576/5962805326 (5.2434%) 
+  Position 13: 312656576/5962805326 (5.2434%) 
+  Position 14: 312656576/5962805326 (5.2434%) 
+  Position 15: 436593448/5962805326 (7.3219%) 
+  Position 16: 665769312/5962805326 (11.1654%) 
+  Position 17: 665769312/5962805326 (11.1654%) 
+  Position 18: 769044792/5962805326 (12.8974%) 
+  Position 19: 2948203568/5962805326 (49.4432%) 
+  Position 20: 3091105616/5962805326 (51.8398%) 
+  Position 21: 978482664/5962805326 (16.4098%) 
+  Position 22: 653931632/5962805326 (10.9668%) 
+  Position 23: 747338386/5962805326 (12.5333%) 
+  Position 24: 638316000/5962805326 (10.7050%) 
+  Position 25: 341863864/5962805326 (5.7333%) 
+  Position 26: 562305516/5962805326 (9.4302%) 
+  Position 27: 460818656/5962805326 (7.7282%) 
+  Position 28: 530075691/5962805326 (8.8897%) 
+  Position 29: 676831324/5962805326 (11.3509%) 
+  Position 30: 574522716/5962805326 (9.6351%) 
+  Position 31: 1095445028/5962805326 (18.3713%) 
+  Position 32: 1270014505/5962805326 (21.2989%) 
+Locked positions: 1/32
+
+--- Super-pair match rates ---
+  Position  1: 5962805326/5962805326 (100.0000%) LOCKED
+  Position  2: 2666986910/5962805326 (44.7270%) 
+  Position  3: 12137908/5962805326 (0.2036%) 
+  Position  4: 29573632/5962805326 (0.4960%) 
+  Position  5: 53599200/5962805326 (0.8989%) 
+  Position  6: 53599200/5962805326 (0.8989%) 
+  Position  7: 201789376/5962805326 (3.3841%) 
+  Position  8: 201789376/5962805326 (3.3841%) 
+  Position  9: 245069840/5962805326 (4.1100%) 
+  Position 10: 312656576/5962805326 (5.2434%) 
+  Position 11: 312656576/5962805326 (5.2434%) 
+  Position 12: 312656576/5962805326 (5.2434%) 
+  Position 13: 312656576/5962805326 (5.2434%) 
+  Position 14: 312656576/5962805326 (5.2434%) 
+  Position 15: 436593448/5962805326 (7.3219%) 
+  Position 16: 665769312/5962805326 (11.1654%) 
+  Position 17: 665769312/5962805326 (11.1654%) 
+  Position 18: 769044792/5962805326 (12.8974%) 
+  Position 19: 2948203568/5962805326 (49.4432%) 
+  Position 20: 5460182454/5962805326 (91.5707%) 
+  Position 21: 978482664/5962805326 (16.4098%) 
+  Position 22: 653931632/5962805326 (10.9668%) 
+  Position 23: 747338386/5962805326 (12.5333%) 
+  Position 24: 638316000/5962805326 (10.7050%) 
+  Position 25: 341863864/5962805326 (5.7333%) 
+  Position 26: 1130325079/5962805326 (18.9563%) 
+  Position 27: 460818656/5962805326 (7.7282%) 
+  Position 28: 1054640356/5962805326 (17.6870%) 
+  Position 29: 1377284178/5962805326 (23.0979%) 
+  Position 30: 1173804134/5962805326 (19.6854%) 
+  Position 31: 1095445028/5962805326 (18.3713%) 
+  Position 32: 1270014505/5962805326 (21.2989%) 
+Super-pair locked positions: 1/32 (of 20 super-pairs)
+
+--- Edit distance from King Wen ---
+   0 differences: 48 solutions
+   2 differences: 732 solutions
+   3 differences: 1484 solutions
+   4 differences: 11608 solutions
+   5 differences: 35820 solutions
+   6 differences: 122322 solutions
+   7 differences: 338222 solutions
+   8 differences: 839006 solutions
+   9 differences: 1951472 solutions
+  10 differences: 4054526 solutions
+  11 differences: 7739374 solutions
+  12 differences: 13550404 solutions
+  13 differences: 23014584 solutions
+  14 differences: 37215510 solutions
+  15 differences: 52535525 solutions
+  16 differences: 58969412 solutions
+  17 differences: 48825113 solutions
+  18 differences: 29973626 solutions
+  19 differences: 24587394 solutions
+  20 differences: 11255286 solutions
+  21 differences: 6898594 solutions
+  22 differences: 20352766 solutions
+  23 differences: 50637266 solutions
+  24 differences: 107496286 solutions
+  25 differences: 206125214 solutions
+  26 differences: 386216512 solutions
+  27 differences: 715842634 solutions
+  28 differences: 1152571599 solutions
+  29 differences: 1345465604 solutions
+  30 differences: 1053622539 solutions
+  31 differences: 602554844 solutions
+
+--- Top 20 closest non-King-Wen solutions ---
+  #1: edit distance 2, differing positions: 28 30
+  #2: edit distance 2, differing positions: 28 30
+  #3: edit distance 2, differing positions: 27 32
+  #4: edit distance 2, differing positions: 27 32
+  #5: edit distance 2, differing positions: 27 32
+  #6: edit distance 2, differing positions: 27 32
+  #7: edit distance 2, differing positions: 28 30
+  #8: edit distance 2, differing positions: 28 30
+  #9: edit distance 2, differing positions: 27 32
+  #10: edit distance 2, differing positions: 27 32
+  #11: edit distance 2, differing positions: 27 32
+  #12: edit distance 2, differing positions: 27 32
+  #13: edit distance 2, differing positions: 26 28
+  #14: edit distance 2, differing positions: 26 28
+  #15: edit distance 2, differing positions: 26 29
+  #16: edit distance 2, differing positions: 26 29
+  #17: edit distance 2, differing positions: 26 29
+  #18: edit distance 2, differing positions: 26 29
+  #19: edit distance 2, differing positions: 28 30
+  #20: edit distance 2, differing positions: 28 30
+
+--- Adjacency constraints (generalized) ---
+  Per-boundary satisfaction rates (of 5962805326 C3-valid):
+    Boundary  1 (pos 1-2): 12137908 (0.2036%)
+    Boundary  2 (pos 2-3): 12137908 (0.2036%)
+    Boundary  3 (pos 3-4): 12137908 (0.2036%)
+    Boundary  4 (pos 4-5): 29573632 (0.4960%)
+    Boundary  5 (pos 5-6): 53599200 (0.8989%)
+    Boundary  6 (pos 6-7): 53599200 (0.8989%)
+    Boundary  7 (pos 7-8): 201789376 (3.3841%)
+    Boundary  8 (pos 8-9): 201789376 (3.3841%)
+    Boundary  9 (pos 9-10): 245069840 (4.1100%)
+    Boundary 10 (pos 10-11): 312656576 (5.2434%)
+    Boundary 11 (pos 11-12): 312656576 (5.2434%)
+    Boundary 12 (pos 12-13): 312656576 (5.2434%)
+    Boundary 13 (pos 13-14): 312656576 (5.2434%)
+    Boundary 14 (pos 14-15): 312656576 (5.2434%)
+    Boundary 15 (pos 15-16): 436593448 (7.3219%)
+    Boundary 16 (pos 16-17): 665769312 (11.1654%)
+    Boundary 17 (pos 17-18): 665769312 (11.1654%)
+    Boundary 18 (pos 18-19): 769044792 (12.8974%)
+    Boundary 19 (pos 19-20): 2615548824 (43.8644%)
+    Boundary 20 (pos 20-21): 401241392 (6.7291%)
+    Boundary 21 (pos 21-22): 79809784 (1.3385%)
+    Boundary 22 (pos 22-23): 128283180 (2.1514%)
+    Boundary 23 (pos 23-24): 111688940 (1.8731%)
+    Boundary 24 (pos 24-25): 62518320 (1.0485%)
+    Boundary 25 (pos 25-26): 20458400 (0.3431%)
+    Boundary 26 (pos 26-27): 42784600 (0.7175%)
+    Boundary 27 (pos 27-28): 29203926 (0.4898%)
+    Boundary 28 (pos 28-29): 54465356 (0.9134%)
+    Boundary 29 (pos 29-30): 101161885 (1.6965%)
+    Boundary 30 (pos 30-31): 102495922 (1.7189%)
+    Boundary 31 (pos 31-32): 282990460 (4.7459%)
+  Boundary match histogram (how many boundaries each solution matches):
+     0 boundaries matched: 2657477058 solutions
+     1 boundaries matched: 1993935842 solutions
+     2 boundaries matched: 514059814 solutions
+     3 boundaries matched: 214819852 solutions
+     4 boundaries matched: 170129844 solutions
+     5 boundaries matched: 73146396 solutions
+     6 boundaries matched: 20875980 solutions
+     7 boundaries matched: 4528320 solutions
+     8 boundaries matched: 922900 solutions
+     9 boundaries matched: 210656 solutions
+    10 boundaries matched: 41099720 solutions
+    11 boundaries matched: 43590768 solutions
+    12 boundaries matched: 18011692 solutions
+    13 boundaries matched: 107437820 solutions
+    14 boundaries matched: 40691673 solutions
+    15 boundaries matched: 31052415 solutions
+    16 boundaries matched: 12220774 solutions
+    17 boundaries matched: 4446846 solutions
+    18 boundaries matched: 7103026 solutions
+    19 boundaries matched: 4283360 solutions
+    20 boundaries matched: 1761134 solutions
+    21 boundaries matched: 676710 solutions
+    22 boundaries matched: 186762 solutions
+    23 boundaries matched: 52000 solutions
+    24 boundaries matched: 62604 solutions
+    25 boundaries matched: 16840 solutions
+    26 boundaries matched: 3244 solutions
+    27 boundaries matched: 924 solutions
+    28 boundaries matched: 304 solutions
+    31 boundaries matched: 48 solutions
+  Legacy C6 (boundary 27): 29203926 (0.4898%)
+  Legacy C7 (boundary 25): 20458400 (0.3431%)
+  Both C6+C7:              107340 (0.0018%)
+
+--- Complement distance distribution ---
+  King Wen cd (x64): 776 (= 12.1250)
+  cd x64 [ 560- 579]: 432768
+  cd x64 [ 580- 599]: 3717088
+  cd x64 [ 600- 619]: 19295928
+  cd x64 [ 620- 639]: 39030650
+  cd x64 [ 640- 659]: 151268135
+  cd x64 [ 660- 679]: 188497976
+  cd x64 [ 680- 699]: 468648154
+  cd x64 [ 700- 719]: 510785054
+  cd x64 [ 720- 739]: 1177922843
+  cd x64 [ 740- 759]: 1093923618
+  cd x64 [ 760- 779]: 2309283112
+
+--- Per-position pair frequency ---
+  Position  1: 1 different pairs, top pair=1 (100.0%) = KW
+  Position  2: 16 different pairs, top pair=25 (44.5%)
+  Position  3: 2 different pairs, top pair=2 (99.8%)
+  Position  4: 2 different pairs, top pair=3 (99.5%)
+  Position  5: 2 different pairs, top pair=4 (99.1%)
+  Position  6: 2 different pairs, top pair=5 (99.1%)
+  Position  7: 2 different pairs, top pair=6 (96.6%)
+  Position  8: 2 different pairs, top pair=7 (96.6%)
+  Position  9: 2 different pairs, top pair=8 (95.9%)
+  Position 10: 2 different pairs, top pair=9 (94.8%)
+  Position 11: 2 different pairs, top pair=10 (94.8%)
+  Position 12: 2 different pairs, top pair=11 (94.8%)
+  Position 13: 2 different pairs, top pair=12 (94.8%)
+  Position 14: 2 different pairs, top pair=13 (94.8%)
+  Position 15: 2 different pairs, top pair=14 (92.7%)
+  Position 16: 2 different pairs, top pair=15 (88.8%)
+  Position 17: 2 different pairs, top pair=16 (88.8%)
+  Position 18: 2 different pairs, top pair=17 (87.1%)
+  Position 19: 2 different pairs, top pair=18 (50.6%)
+  Position 20: 4 different pairs, top pair=20 (51.8%) = KW
+  Position 21: 14 different pairs, top pair=22 (22.6%)
+  Position 22: 14 different pairs, top pair=23 (14.7%)
+  Position 23: 14 different pairs, top pair=23 (12.5%) = KW
+  Position 24: 14 different pairs, top pair=24 (10.7%) = KW
+  Position 25: 14 different pairs, top pair=23 (10.6%)
+  Position 26: 14 different pairs, top pair=29 (9.5%)
+  Position 27: 14 different pairs, top pair=26 (10.8%)
+  Position 28: 14 different pairs, top pair=26 (12.4%)
+  Position 29: 14 different pairs, top pair=26 (11.7%)
+  Position 30: 14 different pairs, top pair=26 (11.9%)
+  Position 31: 14 different pairs, top pair=31 (18.4%) = KW
+  Position 32: 7 different pairs, top pair=27 (22.6%)
+
+--- Per-thread/branch summary ---
+  Thrd   Pair Orient        Nodes     C3-valid     Stored    Br.Done
+  ---- ------ ------ ------------ ------------ ----------    -------
+     0      2      0  86244869323      7082024      94890         no
+     1      2      1  84885549546      5055884     111697         no
+     2      3      0  85723951614      8511700     111675         no
+     3      3      1  85677207548      8924024     117243         no
+     4      4      0  89749414548     14145824     131034         no
+     5      4      1  86775102418      9879744     113337         no
+     6      6      0  86281305566     74123872     977895         no
+     7      6      1  86024493668     74066304     975098         no
+     8      8      0  86740894552     21626416     221325         no
+     9      8      1  86963492888     21654048     221325         no
+    10      9      0  86437827581     32367440     345016         no
+    11      9      1  86723456533     35219296     351943         no
+    12     10      0  79664556850            0          0         no
+    13     10      1  79751553645            0          0         no
+    14     11      0  87147897246            0          0         no
+    15     11      1  87174562252            0          0         no
+    16     12      0  90452667508            0          0         no
+    17     12      1  87124241397            0          0         no
+    18     13      0  84340440691            0          0         no
+    19     13      1  85819980256            0          0         no
+    20     14      0  83774056705     61968436    1507484         no
+    21     14      1  83738697145     61968436    1507484         no
+    22     15      0  84221462203    114790512    1225361         no
+    23     15      1  84084203076    114385352    1225361         no
+    24     16      0  84884356033            0          0         no
+    25     16      1  86410831579            0          0         no
+    26     17      0  85404865410     51637740     644801         no
+    27     17      1  85351937573     51637740     644801         no
+    28     18      0  60702348583   1077245716    4194304         no
+    29     18      1  59727790744   1101913060    4194304         no
+    30     19      0  83972654937            0          0         no
+    31     19      1  84689107415            0          0         no
+    32     20      0  84371592565            0          0         no
+    33     20      1  84486138904            0          0         no
+    34     21      0  88860418891            0          0         no
+    35     21      1  86362792104            0          0         no
+    36     23      0  80174734848     64743132    1226303         no
+    37     23      1  80103421283     65482060    1104590         no
+    38     24      0  85991466592     68107008     615328         no
+    39     24      1  86034533901     68107008     615328         no
+    40     25      0  45873775365   1705555194    4194304         no
+    41     25      1  64850000000    949293808    4194304         no
+    42     26      0  85857970485            0          0         no
+    43     26      1  85934334612            0          0         no
+    44     27      0  88906950767     11753552     110459         no
+    45     27      1  88685870394     11686180     110151         no
+    46     28      0  88013763938            0          0         no
+    47     28      1  88625671882            0          0         no
+    48     29      0  85907205032            0          0         no
+    49     29      1  85331404586            0          0         no
+    50     30      0  90870762018            0          0         no
+    51     30      1  88793181775            0          0         no
+    52     31      0  79561020760     47146844    1265492         no
+    53     31      1  81208216049      9023372     124238         no
+    54     32      0  88895618528      6919000      77528         no
+    55     32      1  89412870775      6784600      77971         no
+
+--- Output files ---
+  solutions.bin:      20110129 unique solutions x 32 bytes = 643524128 bytes
+  solutions.sha256:   293fa528f0af3d2b9afca0ec1ca8b3d37a619f9764f374541fbdc3e6e1ae591d  solutions.bin
+  solve_results.json: machine-readable results
+
+JSON results written to solve_results.json
