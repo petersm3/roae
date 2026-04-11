@@ -61,6 +61,10 @@
  *
  * ANALYTICS
  * =========
+ * "C3-valid" means a complete sequence passing ALL five constraints (C1+C2+C4+C5
+ * enforced during backtracking, C3 checked at depth 32). The name reflects that
+ * C3 is the last filter applied, not that it's the only one.
+ *
  * All analytics are computed incrementally on every C3-valid solution, BEFORE
  * deduplication. This means analytics reflect ALL valid solutions (with orientation
  * variants), not just unique canonical orderings. This is intentional — it gives
@@ -289,7 +293,7 @@ typedef struct {
 
     /* Counters */
     long long solutions_total;
-    long long solutions_c3;
+    long long solutions_c3;     /* "C3-valid" = passed ALL constraints (C1-C5), not just C3 */
     long long nodes;
     int kw_found;
     int branches_completed;
