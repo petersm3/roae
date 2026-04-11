@@ -92,7 +92,7 @@ The sequence begins with the two most extreme hexagrams: all solid lines (䷀ Th
 
 The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
 
-**What this does:** After all previous rules, this eliminates everything we could find in 100,000 [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) random samples.
+**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 4.7 trillion nodes on 64 cores) found at least 20 million valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling.
 
 ### What the rules determine — and what remains open
 
