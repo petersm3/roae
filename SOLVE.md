@@ -288,7 +288,15 @@ Across all 31.6 million solutions, positions 3-19 each have EXACTLY 2 possible p
 | 19 | 44% | 56% | Nearly even |
 | 20+ | multiple options | — | Shift pattern breaks |
 
-The shift pattern means the constraint structure creates a binary cascade: at each position from 3 to 19, either King Wen's pair or the previous pair goes there, and this choice propagates forward. Position 20 is where the cascade exhausts and multiple options emerge.
+The shift pattern means the constraint structure creates a binary cascade: at each position from 3 to 19, either King Wen's pair or the previous pair goes there.
+
+**Stronger result: position 2 fully determines positions 3-19.** Within each branch (fixed pair at position 2), positions 3-19 have exactly ONE configuration — zero variation across all solutions in that branch. Verified across all 16 live branches with a combined 31.6 million solutions.
+
+For example:
+- **KW branch (pair 1 at position 2):** positions 3-19 = pairs 2,3,4,...,18 — the KW sequence, fully determined.
+- **Branch pair 17 at position 2:** positions 3-19 = pairs 1,2,3,...,16,18 — shifted by one, with pair 17 removed and pair 18 jumping to position 19.
+
+This means **all freedom in the King Wen sequence is in positions 20-32** — only 13 pair positions are free. The first 19 positions (38 hexagrams) are entirely determined by the single choice at position 2.
 
 ### The 18 triple-survivors: a structured family
 

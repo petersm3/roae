@@ -119,15 +119,15 @@ Among 6 billion C3-valid solutions (including orientation variants), only 0.0018
 The millions of alternative arrangements satisfying Rules 1-5 are not random — they share strong structural similarities with King Wen, especially in the first half of the sequence. The closest non-King-Wen solutions differ by only 2 pair positions, always in the last third (positions 26-32). This means:
 
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
-- **Positions 3-18 are highly constrained.** Each admits at least 2 pairs in the partial enumeration, with the King Wen pair dominant (87-99% observed). A complete enumeration might reveal additional pairs.
-- **Positions 19-32 are where choice lives.** These positions admit 2-16 different pairs each. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in this region is describing the designers' choices, not mathematical necessity.
+- **Position 2 determines positions 3-19.** Once the pair at position 2 is chosen, the next 17 positions are fully locked — zero variation within any branch. Each position has exactly 2 possible pairs (King Wen's or a "shifted" alternative), but the choice is entirely determined by position 2. The first 19 positions (38 hexagrams) depend on a single decision.
+- **Positions 20-32 are where choice lives.** Only these 13 positions have genuine freedom, admitting 2-16 different pairs each. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in this region is describing the designers' choices, not mathematical necessity.
 - **King Wen keeps complements close.** Among all valid orderings, King Wen **minimizes** complement distance — keeping opposites as close as possible. Only 3.9% of valid orderings place complements closer.
 - **The starting orientation is forced.** ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
 ## What this means
 
-Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 31.6 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
+Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 31.6 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Position 2 determines positions 3-19 (a single choice locks 17 subsequent positions). Only positions 20-32 have genuine freedom. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
 Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Exactly **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) are needed to narrow the millions to exactly 1 — King Wen. This is the proven minimum: exhaustive testing of all 31 single boundaries, 465 pairs, and 4,495 triples confirmed that no combination of 3 or fewer suffices.
 
