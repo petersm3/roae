@@ -242,6 +242,50 @@ The greedy-optimal set (found by greedy search, confirmed as minimum by exhausti
 
 The best triple (boundaries 1, 21, 27) leaves 18 survivors — close but not unique. See `enumeration/analysis_minimum_constraints.txt` for the full search output.
 
+### Why 4 boundaries — not fewer?
+
+Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples of boundaries confirmed that no combination of 3 or fewer uniquely determines King Wen among 31.6 million orderings. Four is the proven minimum.
+
+Several simpler alternatives were tested and ruled out:
+
+- **No single position-pair constraint is unique to KW.** Every pair that KW places at a given position is also placed there by other valid orderings.
+- **No pair of position constraints is unique.** The most selective pair (positions 2 and 26) still allows 25,857 solutions.
+- **KW's complement distance (388) is shared by ~197,000 other solutions.** It's at the 100th percentile (maximum among all solutions found) but not unique.
+- **No valid ordering differs from KW by exactly 1 position.** The nearest neighbors are all at edit distance 2 — there is a "gap" around King Wen in solution space.
+- **The maximum boundaries matched by any non-KW solution is 28 out of 31.** Close, but not enough for uniqueness.
+
+King Wen's uniqueness is irreducibly combinatorial: it requires specifying 4 specific adjacency relationships. No scalar property or simpler structural criterion suffices.
+
+### What the 1,055 survivors after C6+C7 look like
+
+The original 2 boundary constraints (boundaries 25 and 27) leave 1,055 non-KW solutions. These survivors reveal the structure of the remaining freedom:
+
+- **Positions 25-28 are locked** (forced by the 2 boundaries). All 1,055 match KW there.
+- **Position 2 varies widely** — 13 different pairs appear, with KW's pair (Difficulty/Folly) in only 2.2% of survivors.
+- **Positions 3-19 each have exactly 2 options** — KW's pair or one specific alternative. The alternative dominates (65-98%), creating a "shifted sequence" pattern: the same pairs as KW but offset by one position.
+- **Positions 20-24 and 29-32 are the true free region** — up to 10 different pairs per position.
+
+The 18 survivors after the best triple (boundaries 1, 21, 27) all differ from KW only at positions 23-31. Boundary 25 (the 4th constraint) eliminates these final 18 by fixing the pair at positions 25-26.
+
+### Self-complementary branches are always live (constructive proof)
+
+A pair is self-complementary when its two hexagrams are bitwise complements (XOR = 111111). Of the 8 self-complementary pairs, 7 can appear at position 2 (pair 0 is already at position 1). All 7 produce valid orderings — verified by extracting concrete solutions from the enumeration data and checking all 5 constraints.
+
+The budget analysis explains why: self-complementary pairs consume from the distance-6 budget (9 slots), which is the least constrained. After position 1 uses one slot, 8 remain for the 7 other self-complementary pairs — always satisfiable. Non-self-complementary pairs consume from the tighter distance-2 or distance-4 budgets, where some combinations leave the downstream budget infeasible.
+
+However, the budget alone does not explain dead branches: all 56 branches pass the within-pair budget feasibility check. Dead branches are killed by the complement distance constraint (C3), not by budget exhaustion. The exact mechanism — how certain position-2 choices propagate complement distances through the sequence to make C3 impossible — remains unproven and is an open theoretical question.
+
+### Dead branch characterization
+
+Of 56 branches, 24 (12 pairs × 2 orientations) produced zero valid orderings in the 10T-node enumeration. Key observations:
+
+- **XOR = 111111 (self-complementary): 0 dead, 7 live.** Guaranteed live.
+- **XOR = 100001: 3 dead, 0 live.** Always dead in the enumeration.
+- **Other XOR values: mixed.** The dead/live split varies.
+- **4 pairs (13, 16, 21, 26) were classified as dead in the 1-hour run but live in the 10T run.** They have deep, hard-to-find solutions. "Estimated dead" is the correct label — longer runs can revive branches.
+
+These are empirical observations from a partial enumeration, not proven results.
+
 ### Are there deeper rules behind the 2 adjacencies?
 
 Analysis of the two critical boundaries reveals no underlying pattern:
