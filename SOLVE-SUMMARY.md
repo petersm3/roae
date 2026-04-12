@@ -59,6 +59,8 @@ Examples from the King Wen sequence:
 | **5** | **(never occurs in King Wen)** | |
 | 6 | ䷀ The Creative #1 → ䷁ The Receptive #2 | `111111` → `000000` |
 
+See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
+
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
 <a id="rule-3"></a>
