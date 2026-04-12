@@ -1,6 +1,6 @@
 # Project History
 
-An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how computational research actually works, as opposed to the clean narrative of published results.
+An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how this computational research actually works, as opposed to the clean narrative of published results.
 
 ## Day 1 — April 10, 2026
 
