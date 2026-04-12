@@ -231,7 +231,7 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 
 Rules C1-C5 narrow 10^89 possibilities to **at least 31.6 million** unique pair orderings (lower bound from partial enumeration). XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-**Resolved:** Exactly **4 boundary constraints** are needed to uniquely determine King Wen — this is the proven minimum. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirmed no combination of 3 or fewer suffices.
+**Resolved (for 31.6M orderings):** Exactly **4 boundary constraints** are needed to uniquely determine King Wen among the 31.6 million orderings found so far. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirmed no combination of 3 or fewer suffices. This is the minimum for the current partial enumeration — a larger dataset could require additional boundaries.
 
 The greedy-optimal set (found by greedy search, confirmed as minimum by exhaustive verification):
 
@@ -244,7 +244,7 @@ The best triple (boundaries 1, 21, 27) leaves 18 survivors — close but not uni
 
 ### Why 4 boundaries — not fewer?
 
-Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples of boundaries confirmed that no combination of 3 or fewer uniquely determines King Wen among 31.6 million orderings. Four is the proven minimum.
+Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples of boundaries confirmed that no combination of 3 or fewer uniquely determines King Wen among the 31.6 million orderings found so far. Four is the minimum for this dataset. A complete enumeration (not yet achieved) could reveal solutions that require additional boundaries.
 
 Several simpler alternatives were tested and ruled out:
 
@@ -456,7 +456,7 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Status: Revised — 4 boundaries needed (proven minimum).** The original claim (2 suffice) was based on 438 solutions. At 31.6 million solutions, boundaries 25 and 27 leave 1,055 survivors. Exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness. **4 boundary constraints are the proven minimum** (boundaries 25, 27, 1, and 21).
+**Status: Revised — 4 boundaries needed (minimum for 31.6M dataset).** The original claim (2 suffice) was based on 438 solutions. At 31.6 million solutions, boundaries 25 and 27 leave 1,055 survivors. Exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness within this dataset. **4 boundary constraints are the current minimum** (boundaries 25, 27, 1, and 21). This could increase with a larger dataset.
 
 ### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 

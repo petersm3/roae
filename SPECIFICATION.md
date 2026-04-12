@@ -86,7 +86,7 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 **Theorem (Forced orientation):** Given C1, C4, and C5, the orientation of the first pair is forced: s₀ = 63, s₁ = 0. *Proof: see SOLVE.md, Theorem 6.*
 
-**Result (Minimum adjacencies, proven):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among 31.6 million orderings. Exhaustive testing of all 31,465 quadruples confirmed only 4 sets work, all sharing boundaries 21, 25, and 27 as mandatory, with the 4th being any of boundaries 1-4. Boundaries 25 and 27 (the original C6/C7) are irreplaceable. *See SOLVE.md for the full analysis.*
+**Result (Minimum adjacencies among 31.6M orderings):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among the 31.6 million orderings found so far. Exhaustive testing of all 31,465 quadruples confirmed only 4 sets work, all sharing boundaries 21, 25, and 27 as mandatory, with the 4th being any of boundaries 1-4. This result is proven for the current partial enumeration but could change with a larger dataset — a solution not yet found might survive all 4 boundaries, requiring a 5th. *See SOLVE.md for the full analysis.*
 
 ## Constructive algorithm
 
