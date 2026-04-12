@@ -107,7 +107,7 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 
 **The shift pattern:** Across all 31.6M solutions, positions 3-19 have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. Zero exceptions. This is universal, not a sampling artifact.
 
-**Position 2 determines positions 3-19:** Within each branch, positions 3-19 have exactly ONE configuration — verified across all 16 live branches. The choice at position 2 deterministically locks the next 17 positions through budget constraint propagation. All freedom in the King Wen sequence is in positions 20-32 — only 13 pair positions are genuinely free.
+**Position 2 determines positions 3-19:** Within each branch, positions 3-19 have exactly ONE configuration — empirically observed across all 16 live branches in the 31.6M dataset (zero exceptions). Formal proof is partial: 16 of 31 branches proved by budget constraints alone; 12 branches require the complement distance constraint (C3) to eliminate 17 of 18 budget-feasible alternatives (full proof running). The choice at position 2 deterministically locks the next 17 positions through budget constraint propagation. All freedom in the King Wen sequence is in positions 20-32 — only 13 pair positions are genuinely free.
 
 ## Missteps and corrections (summary)
 

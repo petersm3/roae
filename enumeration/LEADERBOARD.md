@@ -144,14 +144,17 @@ interacts very differently with different position-2 pairs.
 
 ## What remains unknown
 
-- **The total count of valid orderings.** At least 20 million have been found; the true count
+- **The total count of valid orderings.** At least 31.6 million have been found; the true count
   is unknown and likely significantly larger. No branch has been fully explored.
-- **Whether King Wen is mathematically unique.** It may be the only ordering satisfying
-  some undiscovered additional rule, or it may be one arbitrary choice among millions.
+- **Whether the 4-boundary uniqueness result holds at larger scale.** Four boundary constraints
+  uniquely determine King Wen among 31.6M orderings (proven minimum). A larger dataset might
+  require a 5th boundary.
 - **Whether the "estimated dead" branches are truly dead.** They produced zero valid
-  orderings in partial exploration, but exhaustive proof requires completing them.
-- **The structure of the free region (positions 19-32).** What patterns, if any, govern
-  King Wen's choices in the unconstrained second half of the sequence?
+  orderings in partial exploration, but exhaustive proof requires completing them. Four branches
+  previously classified as dead were reclassified as live in the 10T run.
+- **The structure of the free region (positions 20-32).** Position 2 determines positions 3-19
+  (only 13 positions have genuine freedom). What patterns govern King Wen's choices in those
+  13 free positions?
 
 ---
 
