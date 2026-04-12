@@ -129,7 +129,7 @@ The millions of alternative arrangements satisfying Rules 1-5 are not random —
 
 Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 31.6 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. A greedy search over the 31.6 million orderings found that **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) narrow the millions to exactly 1 — King Wen. The earlier claim that 2 boundaries sufficed was based on a 438-solution sample; at scale, 4 are needed.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Exactly **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) are needed to narrow the millions to exactly 1 — King Wen. This is the proven minimum: exhaustive testing of all 31 single boundaries, 465 pairs, and 4,495 triples confirmed that no combination of 3 or fewer suffices.
 
 ## The numbers at a glance
 

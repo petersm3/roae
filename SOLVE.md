@@ -231,14 +231,16 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 
 Rules C1-C5 narrow 10^89 possibilities to **at least 31.6 million** unique pair orderings (lower bound from partial enumeration). XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-**Resolved:** A greedy search over 31.6 million orderings found that **4 boundary constraints** uniquely determine King Wen:
+**Resolved:** Exactly **4 boundary constraints** are needed to uniquely determine King Wen — this is the proven minimum. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirmed no combination of 3 or fewer suffices.
+
+The greedy-optimal set (found by greedy search, confirmed as minimum by exhaustive verification):
 
 1. **Boundary 25** (positions 25-26): Revolution/Cauldron + Arousing/Keeping Still — eliminates 99.6%
 2. **Boundary 27** (positions 27-28): Development/Marrying Maiden + Abundance/Wanderer — eliminates most remaining
 3. **Boundary 1** (positions 1-2): Creative/Receptive + Difficulty/Folly — eliminates 1,032 more
 4. **Boundary 21** (positions 21-22): Decrease/Increase + Breakthrough/Coming to Meet — eliminates final 23
 
-The earlier claim that 2 boundaries sufficed was based on 438 solutions. At 31.6 million, boundaries 25 and 27 leave 1,055 survivors. Two additional boundaries (1 and 21) are needed. See `enumeration/analysis_minimum_constraints.txt` for the full search output.
+The best triple (boundaries 1, 21, 27) leaves 18 survivors — close but not unique. See `enumeration/analysis_minimum_constraints.txt` for the full search output.
 
 ### Are there deeper rules behind the 2 adjacencies?
 
@@ -364,7 +366,7 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Status: Revised.** The original claim (2 boundaries suffice) was based on 438 solutions. At 31.6 million solutions, boundaries 25 and 27 leave 1,055 survivors. **4 boundary constraints are needed** (boundaries 25, 27, 1, and 21) to uniquely determine King Wen. Found by greedy search over the full solution set.
+**Status: Revised — 4 boundaries needed (proven minimum).** The original claim (2 suffice) was based on 438 solutions. At 31.6 million solutions, boundaries 25 and 27 leave 1,055 survivors. Exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness. **4 boundary constraints are the proven minimum** (boundaries 25, 27, 1, and 21).
 
 ### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 
