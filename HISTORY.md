@@ -4,7 +4,7 @@ An honest narrative of how the enumeration analysis evolved — including misste
 
 ## Prelude — Before April 10, 2026
 
-The project began as a review of a coworker's analysis of the King Wen sequence. What started as validation and bug-fixing grew into a comprehensive mathematical investigation.
+The project began as a mathematical analysis of the King Wen sequence, built iteratively with Claude Code (Anthropic). What started as exploring a known structural property grew into a comprehensive computational investigation.
 
 **roae.py — the analysis engine.** A single-file Python program (no external dependencies) was built to approach the King Wen sequence from every mathematical angle available. It grew to include 28 statistical analyses: pair structure, difference wave, trigrams, complements, entropy, autocorrelation, Markov chains, FFT spectral analysis, Gray code comparison, Monte Carlo constraint testing, and more. Each analysis includes appropriate null models and statistical caveats.
 
