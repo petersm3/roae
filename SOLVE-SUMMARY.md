@@ -241,6 +241,10 @@ Every consecutive hexagram transition, showing the number of lines that change
 ([Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)).
 A distance of 5 never occurs — this is [Rule 2](#rule-2-no-5-line-jumps).
 
+The difference wave as a sparkline (each character = one transition, height = lines changed):
+
+`█▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█`
+
 **The difference wave** — the sequence of Hamming distances read left to right:
 
 `6 2 4 4 4 3 2 4 2 4 6 2 2 4 2 2 6 3 4 3 2 2 2 3 4 2 6 2 6 3 2 3 4 4 4 2 4 6 4 3 2 4 2 3 4 3 2 3 4 4 4 1 6 2 2 3 4 3 2 1 6 3 6`
