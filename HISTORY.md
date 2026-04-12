@@ -62,7 +62,7 @@ The crash destroyed all in-memory analytics and solutions. However, checkpoint.t
 
 All documentation was rewritten to reflect these revised findings. The narrative changed from "6 rules + 2 adjacencies = unique King Wen" to "5 constraints narrow 10^89 to at least 20 million; uniqueness is an open question."
 
-**Visualization:** [visualize.py](visualize.py) was written to generate PCA scatter plots of the solution space. The initial version had Python loops that would have taken hours on 20M+ solutions. Rewritten with numpy vectorization and subsampling for plots.
+**Visualization:** A visualization script was written to generate PCA scatter plots of the solution space. The initial version had Python loops that would have taken hours on 20M+ solutions. Rewritten with numpy vectorization and subsampling for plots. (Not yet committed to the repository.)
 
 ## Day 3 — April 12, 2026
 
