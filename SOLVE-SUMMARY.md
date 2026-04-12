@@ -227,3 +227,78 @@ Pair: 4↔49
 Distance 47 (1 pair):<br>
 ䷀䷁ <mark>**䷂**</mark>䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰<mark>**䷱**</mark> ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
 Pair: 3↔50
+
+<a id="appendix-all-63-transitions"></a>
+## Appendix: All 63 transitions in the King Wen sequence
+
+Every consecutive hexagram transition, showing the number of lines that change
+([Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)).
+A distance of 5 never occurs — this is [Rule 2](#rule-2-no-5-line-jumps).
+
+**Transition counts:** 1: 2, 2: 20, 3: 13, 4: 19, **5: 0 (never)**, 6: 9
+
+| # | From | To | Distance |
+|--:|------|-----|:--------:|
+| 1 | ䷀ #1 The Creative | ䷁ #2 The Receptive | 6 |
+| 2 | ䷁ #2 The Receptive | ䷂ #3 Difficulty | 2 |
+| 3 | ䷂ #3 Difficulty | ䷃ #4 Youthful Folly | 4 |
+| 4 | ䷃ #4 Youthful Folly | ䷄ #5 Waiting | 4 |
+| 5 | ䷄ #5 Waiting | ䷅ #6 Conflict | 4 |
+| 6 | ䷅ #6 Conflict | ䷆ #7 The Army | 3 |
+| 7 | ䷆ #7 The Army | ䷇ #8 Holding Together | 2 |
+| 8 | ䷇ #8 Holding Together | ䷈ #9 Small Taming | 4 |
+| 9 | ䷈ #9 Small Taming | ䷉ #10 Treading | 2 |
+| 10 | ䷉ #10 Treading | ䷊ #11 Peace | 4 |
+| 11 | ䷊ #11 Peace | ䷋ #12 Standstill | 6 |
+| 12 | ䷋ #12 Standstill | ䷌ #13 Fellowship | 2 |
+| 13 | ䷌ #13 Fellowship | ䷍ #14 Great Possession | 2 |
+| 14 | ䷍ #14 Great Possession | ䷎ #15 Modesty | 4 |
+| 15 | ䷎ #15 Modesty | ䷏ #16 Enthusiasm | 2 |
+| 16 | ䷏ #16 Enthusiasm | ䷐ #17 Following | 2 |
+| 17 | ䷐ #17 Following | ䷑ #18 Decay | 6 |
+| 18 | ䷑ #18 Decay | ䷒ #19 Approach | 3 |
+| 19 | ䷒ #19 Approach | ䷓ #20 Contemplation | 4 |
+| 20 | ䷓ #20 Contemplation | ䷔ #21 Biting Through | 3 |
+| 21 | ䷔ #21 Biting Through | ䷕ #22 Grace | 2 |
+| 22 | ䷕ #22 Grace | ䷖ #23 Splitting Apart | 2 |
+| 23 | ䷖ #23 Splitting Apart | ䷗ #24 Return | 2 |
+| 24 | ䷗ #24 Return | ䷘ #25 Innocence | 3 |
+| 25 | ䷘ #25 Innocence | ䷙ #26 Great Taming | 4 |
+| 26 | ䷙ #26 Great Taming | ䷚ #27 Nourishment | 2 |
+| 27 | ䷚ #27 Nourishment | ䷛ #28 Preponderance of Great | 6 |
+| 28 | ䷛ #28 Preponderance of Great | ䷜ #29 The Abysmal | 2 |
+| 29 | ䷜ #29 The Abysmal | ䷝ #30 The Clinging | 6 |
+| 30 | ䷝ #30 The Clinging | ䷞ #31 Influence | 3 |
+| 31 | ䷞ #31 Influence | ䷟ #32 Duration | 2 |
+| 32 | ䷟ #32 Duration | ䷠ #33 Retreat | 3 |
+| 33 | ䷠ #33 Retreat | ䷡ #34 Great Power | 4 |
+| 34 | ䷡ #34 Great Power | ䷢ #35 Progress | 4 |
+| 35 | ䷢ #35 Progress | ䷣ #36 Darkening | 4 |
+| 36 | ䷣ #36 Darkening | ䷤ #37 The Family | 2 |
+| 37 | ䷤ #37 The Family | ䷥ #38 Opposition | 4 |
+| 38 | ䷥ #38 Opposition | ䷦ #39 Obstruction | 6 |
+| 39 | ䷦ #39 Obstruction | ䷧ #40 Deliverance | 4 |
+| 40 | ䷧ #40 Deliverance | ䷨ #41 Decrease | 3 |
+| 41 | ䷨ #41 Decrease | ䷩ #42 Increase | 2 |
+| 42 | ䷩ #42 Increase | ䷪ #43 Breakthrough | 4 |
+| 43 | ䷪ #43 Breakthrough | ䷫ #44 Coming to Meet | 2 |
+| 44 | ䷫ #44 Coming to Meet | ䷬ #45 Gathering | 3 |
+| 45 | ䷬ #45 Gathering | ䷭ #46 Pushing Upward | 4 |
+| 46 | ䷭ #46 Pushing Upward | ䷮ #47 Oppression | 3 |
+| 47 | ䷮ #47 Oppression | ䷯ #48 The Well | 2 |
+| 48 | ䷯ #48 The Well | ䷰ #49 Revolution | 3 |
+| 49 | ䷰ #49 Revolution | ䷱ #50 The Cauldron | 4 |
+| 50 | ䷱ #50 The Cauldron | ䷲ #51 The Arousing | 4 |
+| 51 | ䷲ #51 The Arousing | ䷳ #52 Keeping Still | 4 |
+| 52 | ䷳ #52 Keeping Still | ䷴ #53 Development | 1 |
+| 53 | ䷴ #53 Development | ䷵ #54 Marrying Maiden | 6 |
+| 54 | ䷵ #54 Marrying Maiden | ䷶ #55 Abundance | 2 |
+| 55 | ䷶ #55 Abundance | ䷷ #56 The Wanderer | 2 |
+| 56 | ䷷ #56 The Wanderer | ䷸ #57 The Gentle | 3 |
+| 57 | ䷸ #57 The Gentle | ䷹ #58 The Joyous | 4 |
+| 58 | ䷹ #58 The Joyous | ䷺ #59 Dispersion | 3 |
+| 59 | ䷺ #59 Dispersion | ䷻ #60 Limitation | 2 |
+| 60 | ䷻ #60 Limitation | ䷼ #61 Inner Truth | 1 |
+| 61 | ䷼ #61 Inner Truth | ䷽ #62 Small Preponderance | 6 |
+| 62 | ䷽ #62 Small Preponderance | ䷾ #63 After Completion | 3 |
+| 63 | ䷾ #63 After Completion | ䷿ #64 Before Completion | 6 |
