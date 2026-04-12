@@ -128,7 +128,8 @@ The project has a reproducible 31.6M-solution dataset, a proven-minimum 4-bounda
 
 ## Infrastructure
 
-- **This VM** (claude, D2as_v6): orchestration, analysis, git. $0.09/hr, ~$66/month.
+- **This VM** (claude, D2as_v6): orchestration, analysis, git. $0.09/hr, ~$66/month if always on.
+  - Deallocated when no work is running to save costs. Only active during solver runs and analysis sessions.
 - **F64 spot** (solver-f64-spot, F64als_v6): solver runs. $0.79/hr, created/destroyed per run.
 - **Spot quota**: 64 cores in westus2. Approved April 12.
 - **All run outputs archived** in `solve_c/runs/` with sha256 verification.
