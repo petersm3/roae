@@ -1,12 +1,14 @@
 # Project History
 
-An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how this computational research actually works, as opposed to the clean narrative of published results.
+An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how computational research actually works, as opposed to the clean narrative of published results.
+
+For the mathematical rules, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md).
 
 ## Prelude — Before April 10, 2026
 
-The project began as a mathematical analysis of the King Wen sequence, built iteratively with Claude Code (Anthropic). What started as exploring a known structural property grew into a comprehensive computational investigation.
+The project began as a mathematical analysis of the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence), built iteratively with [Claude Code](https://claude.ai/code) (Anthropic). What started as exploring a known structural property grew into a comprehensive computational investigation.
 
-**roae.py — the analysis engine.** A single-file Python program (no external dependencies) was built to approach the King Wen sequence from every mathematical angle available. It grew to include 28 statistical analyses: pair structure, difference wave, trigrams, complements, entropy, autocorrelation, Markov chains, FFT spectral analysis, Gray code comparison, Monte Carlo constraint testing, and more. Each analysis includes appropriate null models and statistical caveats.
+**[roae.py](roae.py) — the analysis engine.** A single-file Python program (no external dependencies) was built to approach the King Wen sequence from every mathematical angle available. It grew to include 28 statistical analyses: pair structure, difference wave, trigrams, complements, entropy, autocorrelation, Markov chains, FFT spectral analysis, Gray code comparison, Monte Carlo constraint testing, and more. Each analysis includes appropriate null models and statistical caveats.
 
 **Key discoveries during this phase:**
 - **Trigram name swap bug:** Gen/Xun/Dui were cyclically swapped in the original code. Fixed by correcting the trigram_names dict.
@@ -15,15 +17,15 @@ The project began as a mathematical analysis of the King Wen sequence, built ite
 - **Null model test:** Applying the same constraint-extraction methodology to random pair-constrained sequences produces apparent uniqueness in 9 out of 10 cases. This means the constraint framework makes almost any sequence appear uniquely determined — a critical methodological caveat.
 - **"97%/3%" framing was misleading.** Replaced with more honest descriptions of what the data actually showed.
 
-**solve.py — the first constraint solver.** A Python backtracking solver was built to test whether the mathematical constraints could reconstruct King Wen from scratch. It found 438 valid orderings from a partial search (limited by Python's speed). Based on this small sample, several claims were made that would later be invalidated by larger-scale enumeration.
+**[solve.py](solve.py) — the first constraint solver.** A Python backtracking solver was built to test whether the mathematical constraints could reconstruct King Wen from scratch. It found 438 valid orderings from a partial search (limited by Python's speed). Based on this small sample, several claims were made that would later be invalidated by larger-scale enumeration.
 
 **Six rounds of scientific review.** The documentation was iteratively attacked from mathematical and scientific perspectives — testing every claim for rigor, checking null models, correcting statistical framing, and adding appropriate caveats. This adversarial review process caught the complement distance error, the XOR theorem, and the null model caveat.
 
-**Documentation suite.** SOLVE-SUMMARY.md (plain-language), SOLVE.md (technical), SPECIFICATION.md (formal), CRITIQUE.md (known limitations), MCKENNA.md (relationship to Timewave Zero theory), and GUIDE.md (newcomer introduction) were all written during this phase.
+**Documentation suite.** [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) (plain-language), [SOLVE.md](SOLVE.md) (technical), [SPECIFICATION.md](SPECIFICATION.md) (formal), [CRITIQUE.md](CRITIQUE.md) (known limitations), [MCKENNA.md](MCKENNA.md) (relationship to [Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)), and [GUIDE.md](GUIDE.md) (newcomer introduction) were all written during this phase.
 
 ## Day 1 — April 10, 2026
 
-**Starting point:** The ROAE project had a Python analysis engine (`roae.py`) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver (`solve.py`) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
+**Starting point:** The ROAE project had a Python analysis engine ([roae.py](roae.py)) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver ([solve.py](solve.py)) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
 
 - "23 of 32 pair positions are locked" (identical across all solutions)
 - "2 adjacency constraints uniquely determine King Wen"
@@ -31,7 +33,7 @@ The project began as a mathematical analysis of the King Wen sequence, built ite
 
 These claims would all turn out to be wrong.
 
-**The C solver:** To explore the solution space more thoroughly, a multi-threaded C solver (`solve.c`) was built. The initial version was single-threaded, then rewritten with pthreads to use multiple cores. Early versions had several bugs:
+**The C solver:** To explore the solution space more thoroughly, a multi-threaded C solver ([solve.c](solve.c)) was built. The initial version was single-threaded, then rewritten with pthreads to use multiple cores. Early versions had several bugs:
 
 - **Segfault at 40M solutions:** `realloc` overflow when the solution buffer doubled past 1GB. Fixed by switching to a fixed-size hash table.
 - **Hash-only comparison:** The first hash table used FNV-1a hash comparison only (no key verification), giving ~1-3% false positive rate. Later replaced with full 64-byte key comparison for zero false positives.
@@ -60,11 +62,11 @@ The crash destroyed all in-memory analytics and solutions. However, checkpoint.t
 
 All documentation was rewritten to reflect these revised findings. The narrative changed from "6 rules + 2 adjacencies = unique King Wen" to "5 constraints narrow 10^89 to at least 20 million; uniqueness is an open question."
 
-**Visualization:** `visualize.py` was written to generate PCA scatter plots of the solution space. The initial version had Python loops that would have taken hours on 20M+ solutions. Rewritten with numpy vectorization and subsampling for plots.
+**Visualization:** [visualize.py](visualize.py) was written to generate PCA scatter plots of the solution space. The initial version had Python loops that would have taken hours on 20M+ solutions. Rewritten with numpy vectorization and subsampling for plots.
 
 ## Day 3 — April 12, 2026
 
-**The 10T reproducible run:** The solver was enhanced with a deterministic node limit (`SOLVE_NODE_LIMIT`) for reproducible results. Unlike time limits, node limits produce identical output on any hardware.
+**The 10T reproducible run:** The solver was enhanced with a deterministic node limit (`SOLVE_NODE_LIMIT`) for reproducible results. See [solve.c](solve.c) architecture comments for full design documentation. Unlike time limits, node limits produce identical output on any hardware.
 
 Initial implementation checked the node limit globally (total across all threads), but this made the sha256 depend on thread count. Redesigned to use **per-branch node budgets** (`node_limit / n_branches`), checked per-branch in the backtracker. Each branch explores exactly the same nodes regardless of how many threads are running.
 
@@ -101,7 +103,7 @@ Each sub-branch writes solutions to a per-sub-branch file (`sub_P2_O2.bin`), the
 
 This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M dataset remained the reference for analysis.
 
-**100T run deployed:** To get a dataset with KW present AND 3,030-mode load balancing, a 100T run was started on a spot F64 ($0.79/hr). Per-sub-branch budget: 33B — 10x more than the failed 10T run. Estimated time: ~20 hours.
+**100T run deployed:** To get a dataset with KW present AND 3,030-mode load balancing, a 100T run was started on a spot F64 ($0.79/hr). See [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) for tracking. Per-sub-branch budget: 33B — 10x more than the failed 10T run. Estimated time: ~20 hours.
 
 **The shift pattern:** Across all 31.6M solutions, positions 3-19 have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. Zero exceptions. This is universal, not a sampling artifact.
 
@@ -131,19 +133,19 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 | 31.6M+ valid orderings exist | 10T exhaustive enumeration | Lower bound (partial enumeration) |
 | 4 boundary constraints needed (proven minimum) | Exhaustive test of all 31,465 quadruples | Proven for 31.6M dataset |
 | 3 mandatory boundaries (21, 25, 27) | Same exhaustive test | Proven |
-| Position 2 determines positions 3-19 | Verified across all branches | Observed; formal proof in progress |
+| Position 2 determines positions 3-19 | Verified across all branches; partial proof via [`--prove-cascade`](solve.c) | 16/31 branches proved by budget; 12 need C3 |
 | Universal shift pattern (positions 3-19) | Analysis of 31.6M solutions | Observed universally |
-| Self-complementary branches always live | Constructive proof (7 examples) | Proved |
+| Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
 | XOR=100001 branches always dead | 10T enumeration observation | Empirical (not formally proved) |
 | Super-pair constraint at position 20 | Per-position analysis | Observed |
-| 18 triple-survivors are a structured family | Characterization of residual after best 3 boundaries | Observed |
+| 18 triple-survivors are a [structured family](SOLVE.md#the-18-triple-survivors-a-structured-family) | Characterization of residual after best 3 boundaries | Observed |
 | No scalar property uniquely identifies KW | Exhaustive feature search | Proven for 31.6M dataset |
 | 3,030 sub-branch mode eliminates tail problem | Comparative benchmarks | Engineering result |
 | Thread-independent reproducibility | Per-branch node budgets | Verified (1-thread = 2-thread sha256) |
 
 ## Current state
 
-The project has a reproducible 31.6M-solution dataset, a proven-minimum 4-boundary uniqueness result, and a structural understanding of the constraint cascade (position 2 → positions 3-19). A 100T run is in progress on a spot instance to produce a larger dataset with the 3,030 sub-branch architecture. The formal proof that the cascade is deterministic (not just observed) is the next theoretical milestone.
+The project has a reproducible 31.6M-solution dataset (sha256: `c43f251f...d2f2104d`, reproducible with `SOLVE_NODE_LIMIT=10000000000000`), a [proven-minimum 4-boundary uniqueness result](SOLVE.md#why-4-boundaries--not-fewer), and a structural understanding of the [constraint cascade](SOLVE.md#the-shift-pattern-positions-3-19-have-exactly-2-options-universal) (position 2 → positions 3-19). A 100T run is in progress on a spot instance to produce a larger dataset with the 3,030 sub-branch architecture. The [formal proof](SOLVE.md#partial-formal-proof) that the cascade is deterministic (not just observed) is partially complete — 16 of 31 branches proved, with the full C3-incorporating proof running.
 
 ## Infrastructure
 
