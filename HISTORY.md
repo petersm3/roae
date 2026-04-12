@@ -2,6 +2,25 @@
 
 An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how this computational research actually works, as opposed to the clean narrative of published results.
 
+## Prelude — Before April 10, 2026
+
+The project began as a review of a coworker's analysis of the King Wen sequence. What started as validation and bug-fixing grew into a comprehensive mathematical investigation.
+
+**roae.py — the analysis engine.** A single-file Python program (no external dependencies) was built to approach the King Wen sequence from every mathematical angle available. It grew to include 28 statistical analyses: pair structure, difference wave, trigrams, complements, entropy, autocorrelation, Markov chains, FFT spectral analysis, Gray code comparison, Monte Carlo constraint testing, and more. Each analysis includes appropriate null models and statistical caveats.
+
+**Key discoveries during this phase:**
+- **Trigram name swap bug:** Gen/Xun/Dui were cyclically swapped in the original code. Fixed by correcting the trigram_names dict.
+- **Complement distance direction:** Originally claimed King Wen "maximizes" complement distance. Discovered this was a circular filtering artifact — KW actually *minimizes* (3.9th percentile). Corrected across all documentation.
+- **XOR regularity is a theorem, not a finding:** The 7 unique XOR products in KW's pairs are a mathematical consequence of ANY reverse/inverse pairing of 6-bit values, not a property of King Wen specifically. Proved and documented.
+- **Null model test:** Applying the same constraint-extraction methodology to random pair-constrained sequences produces apparent uniqueness in 9 out of 10 cases. This means the constraint framework makes almost any sequence appear uniquely determined — a critical methodological caveat.
+- **"97%/3%" framing was misleading.** Replaced with more honest descriptions of what the data actually showed.
+
+**solve.py — the first constraint solver.** A Python backtracking solver was built to test whether the mathematical constraints could reconstruct King Wen from scratch. It found 438 valid orderings from a partial search (limited by Python's speed). Based on this small sample, several claims were made that would later be invalidated by larger-scale enumeration.
+
+**Six rounds of scientific review.** The documentation was iteratively attacked from mathematical and scientific perspectives — testing every claim for rigor, checking null models, correcting statistical framing, and adding appropriate caveats. This adversarial review process caught the complement distance error, the XOR theorem, and the null model caveat.
+
+**Documentation suite.** SOLVE-SUMMARY.md (plain-language), SOLVE.md (technical), SPECIFICATION.md (formal), CRITIQUE.md (known limitations), MCKENNA.md (relationship to Timewave Zero theory), and GUIDE.md (newcomer introduction) were all written during this phase.
+
 ## Day 1 — April 10, 2026
 
 **Starting point:** The ROAE project had a Python analysis engine (`roae.py`) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver (`solve.py`) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
