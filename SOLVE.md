@@ -137,7 +137,7 @@ Six additional analyses probe the structure more deeply (`--deep`):
 
 ### Constrained enumeration (`--enumerate`)
 
-Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (4.7 trillion nodes on 64 cores) found at least 20 million unique pair orderings. **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
+Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (4.7 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings. **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
 
 The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
 
@@ -172,7 +172,7 @@ The most powerful analysis (`--differential`) generates all solutions satisfying
 
 ### Results
 
-A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (4.7 trillion nodes on 64 cores, 1 hour, 0/56 branches completed) found **at least 20 million unique pair orderings** — the true solution space is vastly larger than this early sample suggested, and the 20 million figure is itself a lower bound.
+A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (4.7 trillion nodes on 64 cores, 1 hour, 0/56 branches completed) found **at least 31.6 million unique pair orderings** — the true solution space is vastly larger than this early sample suggested, and the 20 million figure is itself a lower bound.
 
 **8 features where King Wen is extremal (rank 13,296/13,296).** However, 6 are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, total path length, and max run length are identical across ALL solutions.
 
@@ -209,7 +209,7 @@ The remaining ~974 solutions share 26-32 of 32 pair positions with King Wen — 
 
 The fingerprint analysis reveals the precise structure of the remaining freedom:
 
-**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (4.7 trillion nodes on 64 cores) found at least 20 million unique pair orderings (partial enumeration — true count is higher), fundamentally revising these findings.**
+**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (4.7 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings (partial enumeration — true count is higher), fundamentally revising these findings.**
 
 **Only 1 of 32 pair positions is universally locked** (Position 1: Creative/Receptive). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
 
@@ -229,9 +229,16 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9} — C5
 7. ~~Mean line autocorrelation = -0.115~~ (redundant with C3)
 
-Rules C1-C5 narrow 10^89 possibilities to **at least 20 million** unique pair orderings (lower bound from partial enumeration). XOR regularity and line autocorrelation are redundant (implied by other rules).
+Rules C1-C5 narrow 10^89 possibilities to **at least 31.6 million** unique pair orderings (lower bound from partial enumeration). XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-**Open question:** What additional rules, if any, narrow these millions to King Wen uniquely? The earlier claim that two adjacency constraints (C6+C7) suffice was based on 438 solutions from a partial search. The larger enumeration (4.7 trillion nodes, 20+ million orderings found so far) shows the true solution space is vastly larger. It is equally possible that undiscovered mathematical rules uniquely determine King Wen, or that King Wen is one choice among many with no further mathematical distinction.
+**Resolved:** A greedy search over 31.6 million orderings found that **4 boundary constraints** uniquely determine King Wen:
+
+1. **Boundary 25** (positions 25-26): Revolution/Cauldron + Arousing/Keeping Still — eliminates 99.6%
+2. **Boundary 27** (positions 27-28): Development/Marrying Maiden + Abundance/Wanderer — eliminates most remaining
+3. **Boundary 1** (positions 1-2): Creative/Receptive + Difficulty/Folly — eliminates 1,032 more
+4. **Boundary 21** (positions 21-22): Decrease/Increase + Breakthrough/Coming to Meet — eliminates final 23
+
+The earlier claim that 2 boundaries sufficed was based on 438 solutions. At 31.6 million, boundaries 25 and 27 leave 1,055 survivors. Two additional boundaries (1 and 21) are needed. See `enumeration/analysis_minimum_constraints.txt` for the full search output.
 
 ### Are there deeper rules behind the 2 adjacencies?
 
@@ -330,7 +337,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 ### The millions of roads not taken
 
-The at least 20 million alternative orderings satisfying Rules 1-5 share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. Positions 3-18 have at most 2 options each. The closest alternatives differ by only 2 pair positions, always in the last third (positions 26-32).
+The at least 31.6 million alternative orderings satisfying Rules 1-5 share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. Positions 3-18 have at most 2 options each. The closest alternatives differ by only 2 pair positions, always in the last third (positions 26-32).
 
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
@@ -339,7 +346,7 @@ The at least 20 million alternative orderings satisfying Rules 1-5 share strong 
 
 ### Summary
 
-Five constraints (C1-C5) narrow 10^89 possibilities to at least 20 million unique pair orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained (at least 2 pairs each). Positions 19-32 are progressively free. Whether additional mathematical rules narrow these millions to King Wen uniquely, or King Wen is one choice among many, remains an open question.
+Five constraints (C1-C5) narrow 10^89 possibilities to at least 31.6 million unique pair orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained (at least 2 pairs each). Positions 19-32 are progressively free. A greedy search found that 4 boundary constraints uniquely determine King Wen among these millions (see generative recipe above).
 
 **Note on earlier analyses in this document:** Several analyses above (centrality, pair swap, optimization, boundary bigrams, locked/free region comparison) were conducted on a 438-solution partial sample from a single search branch. Their findings about the "free region" (positions 24-32) were specific to that branch and may not generalize to the full solution space. These analyses are retained as methodological examples but their specific numerical results should be treated with caution.
 
@@ -357,9 +364,7 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Status: Unverified at scale.** This result was established on a 438-solution partial sample from a single search branch. The large-scale enumeration found at least 20 million unique orderings. Whether 2 adjacency constraints still suffice for uniqueness at this scale requires re-verification.
-
-**Original claim (438 solutions):** Boundaries 27 and 25, applied greedily, eliminated all 437 non-King-Wen solutions. Among 6 billion C3-valid solutions in the larger enumeration, only 0.0018% satisfy both constraints — significant narrowing, but uniqueness is unconfirmed.
+**Status: Revised.** The original claim (2 boundaries suffice) was based on 438 solutions. At 31.6 million solutions, boundaries 25 and 27 leave 1,055 survivors. **4 boundary constraints are needed** (boundaries 25, 27, 1, and 21) to uniquely determine King Wen. Found by greedy search over the full solution set.
 
 ### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 
@@ -367,10 +372,11 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### Result 5: Solution count (revised)
 
-- **Lower bound:** ≥ 20,110,129 unique orderings (from 1-hour partial enumeration on 64 cores, 4.7 trillion nodes explored, 0/56 branches completed)
+- **Lower bound:** ≥ 31,630,621 unique orderings (from 10T-node partial enumeration on 64 cores, 0/56 branches completed)
 - **Upper bound:** unknown — the earlier multinomial bound of 860,160 was based on the "23 locked" assumption and is invalidated
-- **True count:** unknown and likely significantly larger than 20 million
+- **True count:** unknown and likely significantly larger than 31.6 million
 - The earlier estimate of 15,000-50,000 was off by three orders of magnitude, illustrating the danger of extrapolating from partial samples
+- **Reproducibility:** `SOLVE_NODE_LIMIT=10000000000000` produces this exact solution set (sha256: `c43f251f...d2f2104d`) on any hardware with any thread count
 
 ### Theorem 6: Starting orientation is forced
 

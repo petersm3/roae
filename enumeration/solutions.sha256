@@ -1,1 +1,14 @@
-293fa528f0af3d2b9afca0ec1ca8b3d37a619f9764f374541fbdc3e6e1ae591d  solutions.bin
+c43f251fb9b66de0237c35ad78b5236011cb9886644ce73437138b50d2f2104d  solutions.bin
+# Metadata for reproducibility
+# Date: 2026-04-12T07:33:50Z
+# Build: Apr 12 2026 03:29:49 (git: pre-commit, see d473c1a)
+# Record format: 32 bytes packed (pair_index<<2 | orient<<1)
+# Unique orderings: 31,630,621
+# Nodes explored: 9,991,608,638,415 (actual)
+# SOLVE_NODE_LIMIT=10000000000000 (requested)
+# Per-branch node limit: 178,571,428,571 (10T / 56 branches)
+# Branches: 56 total, 0 completed (all INTERRUPTED at budget)
+# SOLVE_THREADS: any (output is thread-independent with node limit)
+# King Wen found: YES
+# Time limit: 14400s (safety net, not triggered)
+# Elapsed: ~4h (tail branches on single cores)

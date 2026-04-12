@@ -104,22 +104,22 @@ valid orderings; others produce zero.
 
 | Position 2 pair | Valid orderings found | Share | Notes |
 |----------------|---------------------:|------:|-------|
-| ䷢䷣ #35/#36 | 8,388,608 | 25.7% | Extremely dense |
-| ䷰䷱ #49/#50 | 8,388,608 | 25.7% | Extremely dense |
-| ䷚䷛ #27/#28 | 3,014,968 | 9.2% |  |
-| ䷜䷝ #29/#30 | 2,450,722 | 7.5% |  |
-| ䷬䷭ #45/#46 | 2,330,893 | 7.1% |  |
-| ䷊䷋ #11/#12 | 1,952,993 | 6.0% |  |
-| ䷼䷽ #61/#62 | 1,389,730 | 4.3% |  |
-| ䷠䷡ #33/#34 | 1,289,602 | 4.0% |  |
-| ䷮䷯ #47/#48 | 1,230,656 | 3.8% |  |
-| ䷐䷑ #17/#18 | 696,959 | 2.1% |  |
-| ䷎䷏ #15/#16 | 442,650 | 1.4% |  |
-| ䷆䷇ #7/#8 | 244,371 | 0.7% |  |
-| ䷄䷅ #5/#6 | 228,918 | 0.7% |  |
-| ䷴䷵ #53/#54 | 220,610 | 0.7% |  |
-| ䷂䷃ #3/#4 | 206,587 | 0.6% | **King Wen's choice** |
-| ䷾䷿ #63/#64 | 155,499 | 0.5% |  |
+| ䷢䷣ #35/#36 | 8,388,608 | 15.8% | Extremely dense |
+| ䷰䷱ #49/#50 | 8,388,608 | 15.8% | Extremely dense |
+| ䷼䷽ #61/#62 | 7,558,035 | 14.2% |  |
+| ䷬䷭ #45/#46 | 7,396,872 | 13.9% |  |
+| ䷚䷛ #27/#28 | 4,479,414 | 8.4% |  |
+| ䷜䷝ #29/#30 | 4,450,074 | 8.4% |  |
+| ䷊䷋ #11/#12 | 3,318,924 | 6.3% |  |
+| ䷮䷯ #47/#48 | 2,497,384 | 4.7% |  |
+| ䷠䷡ #33/#34 | 2,389,418 | 4.5% |  |
+| ䷐䷑ #17/#18 | 1,352,082 | 2.5% |  |
+| ䷎䷏ #15/#16 | 886,432 | 1.7% |  |
+| ䷴䷵ #53/#54 | 435,124 | 0.8% |  |
+| ䷆䷇ #7/#8 | 431,474 | 0.8% |  |
+| ䷄䷅ #5/#6 | 392,425 | 0.7% |  |
+| ䷂䷃ #3/#4 | 384,788 | 0.7% | **King Wen's choice** |
+| ䷾䷿ #63/#64 | 310,641 | 0.6% |  |
 | ䷒䷓ #19/#20 | 0 | — | Estimated dead |
 | ䷔䷕ #21/#22 | 0 | — | Estimated dead |
 | ䷖䷗ #23/#24 | 0 | — | Estimated dead |
@@ -195,7 +195,7 @@ is never lost.
 |--------|-------|
 | Branches | 56/56 surveyed, 0/56 complete |
 | Sub-branches | 0/~3,024 complete |
-| Valid orderings found | at least 20,110,129 |
+| Valid orderings found | at least 31,630,621 |
 | Estimated dead branches | 24/56 |
 | Live branches | 32/56 |
 | Hash overflows | 4 branches |
@@ -204,73 +204,73 @@ is never lost.
 
 | Pair | Or | Position 2 | Nodes (B) | C3-valid | Stored | Status |
 |-----:|:--:|------------|----------:|---------:|-------:|:------:|
-| [1](#branch-1-0) | 0 | ䷂䷃ #3/#4 **(KW)** | 86.2 | 7.1M | 94,890 | Partial |
-| [1](#branch-1-1) | 1 | ䷃䷂ #4/#3 | 84.9 | 5.1M | 111,697 | Partial |
-| [2](#branch-2-0) | 0 | ䷄䷅ #5/#6 | 85.7 | 8.5M | 111,675 | Partial |
-| [2](#branch-2-1) | 1 | ䷅䷄ #6/#5 | 85.7 | 8.9M | 117,243 | Partial |
-| [3](#branch-3-0) | 0 | ䷆䷇ #7/#8 | 89.7 | 14.1M | 131,034 | Partial |
-| [3](#branch-3-1) | 1 | ䷇䷆ #8/#7 | 86.8 | 9.9M | 113,337 | Partial |
-| [5](#branch-5-0) | 0 | ䷊䷋ #11/#12 | 86.3 | 74.1M | 977,895 | Partial |
-| [5](#branch-5-1) | 1 | ䷋䷊ #12/#11 | 86.0 | 74.1M | 975,098 | Partial |
-| [7](#branch-7-0) | 0 | ䷎䷏ #15/#16 | 86.7 | 21.6M | 221,325 | Partial |
-| [7](#branch-7-1) | 1 | ䷏䷎ #16/#15 | 87.0 | 21.7M | 221,325 | Partial |
-| [8](#branch-8-0) | 0 | ䷐䷑ #17/#18 | 86.4 | 32.4M | 345,016 | Partial |
-| [8](#branch-8-1) | 1 | ䷑䷐ #18/#17 | 86.7 | 35.2M | 351,943 | Partial |
-| [9](#branch-9-0) | 0 | ䷒䷓ #19/#20 | 79.7 | — | — | Est. dead |
-| [9](#branch-9-1) | 1 | ䷓䷒ #20/#19 | 79.8 | — | — | Est. dead |
-| [10](#branch-10-0) | 0 | ䷔䷕ #21/#22 | 87.1 | — | — | Est. dead |
-| [10](#branch-10-1) | 1 | ䷕䷔ #22/#21 | 87.2 | — | — | Est. dead |
-| [11](#branch-11-0) | 0 | ䷖䷗ #23/#24 | 90.5 | — | — | Est. dead |
-| [11](#branch-11-1) | 1 | ䷗䷖ #24/#23 | 87.1 | — | — | Est. dead |
-| [12](#branch-12-0) | 0 | ䷘䷙ #25/#26 | 84.3 | — | — | Est. dead |
-| [12](#branch-12-1) | 1 | ䷙䷘ #26/#25 | 85.8 | — | — | Est. dead |
-| [13](#branch-13-0) | 0 | ䷚䷛ #27/#28 | 83.8 | 62.0M | 1,507,484 | Partial |
-| [13](#branch-13-1) | 1 | ䷛䷚ #28/#27 | 83.7 | 62.0M | 1,507,484 | Partial |
-| [14](#branch-14-0) | 0 | ䷜䷝ #29/#30 | 84.2 | 114.8M | 1,225,361 | Partial |
-| [14](#branch-14-1) | 1 | ䷝䷜ #30/#29 | 84.1 | 114.4M | 1,225,361 | Partial |
-| [15](#branch-15-0) | 0 | ䷞䷟ #31/#32 | 84.9 | — | — | Est. dead |
-| [15](#branch-15-1) | 1 | ䷟䷞ #32/#31 | 86.4 | — | — | Est. dead |
-| [16](#branch-16-0) | 0 | ䷠䷡ #33/#34 | 85.4 | 51.6M | 644,801 | Partial |
-| [16](#branch-16-1) | 1 | ䷡䷠ #34/#33 | 85.4 | 51.6M | 644,801 | Partial |
-| [17](#branch-17-0) | 0 | ䷢䷣ #35/#36 | 60.7 | 1077.2M | 4,194,304 | Overflow |
-| [17](#branch-17-1) | 1 | ䷣䷢ #36/#35 | 59.7 | 1101.9M | 4,194,304 | Overflow |
-| [18](#branch-18-0) | 0 | ䷤䷥ #37/#38 | 84.0 | — | — | Est. dead |
-| [18](#branch-18-1) | 1 | ䷥䷤ #38/#37 | 84.7 | — | — | Est. dead |
-| [19](#branch-19-0) | 0 | ䷦䷧ #39/#40 | 84.4 | — | — | Est. dead |
-| [19](#branch-19-1) | 1 | ䷧䷦ #40/#39 | 84.5 | — | — | Est. dead |
-| [20](#branch-20-0) | 0 | ䷨䷩ #41/#42 | 88.9 | — | — | Est. dead |
-| [20](#branch-20-1) | 1 | ䷩䷨ #42/#41 | 86.4 | — | — | Est. dead |
-| [22](#branch-22-0) | 0 | ䷬䷭ #45/#46 | 80.2 | 64.7M | 1,226,303 | Partial |
-| [22](#branch-22-1) | 1 | ䷭䷬ #46/#45 | 80.1 | 65.5M | 1,104,590 | Partial |
-| [23](#branch-23-0) | 0 | ䷮䷯ #47/#48 | 86.0 | 68.1M | 615,328 | Partial |
-| [23](#branch-23-1) | 1 | ䷯䷮ #48/#47 | 86.0 | 68.1M | 615,328 | Partial |
-| [24](#branch-24-0) | 0 | ䷰䷱ #49/#50 | 45.9 | 1705.6M | 4,194,304 | Overflow |
-| [24](#branch-24-1) | 1 | ䷱䷰ #50/#49 | 64.8 | 949.3M | 4,194,304 | Overflow |
-| [25](#branch-25-0) | 0 | ䷲䷳ #51/#52 | 85.9 | — | — | Est. dead |
-| [25](#branch-25-1) | 1 | ䷳䷲ #52/#51 | 85.9 | — | — | Est. dead |
-| [26](#branch-26-0) | 0 | ䷴䷵ #53/#54 | 88.9 | 11.8M | 110,459 | Partial |
-| [26](#branch-26-1) | 1 | ䷵䷴ #54/#53 | 88.7 | 11.7M | 110,151 | Partial |
-| [27](#branch-27-0) | 0 | ䷶䷷ #55/#56 | 88.0 | — | — | Est. dead |
-| [27](#branch-27-1) | 1 | ䷷䷶ #56/#55 | 88.6 | — | — | Est. dead |
-| [28](#branch-28-0) | 0 | ䷸䷹ #57/#58 | 85.9 | — | — | Est. dead |
-| [28](#branch-28-1) | 1 | ䷹䷸ #58/#57 | 85.3 | — | — | Est. dead |
-| [29](#branch-29-0) | 0 | ䷺䷻ #59/#60 | 90.9 | — | — | Est. dead |
-| [29](#branch-29-1) | 1 | ䷻䷺ #60/#59 | 88.8 | — | — | Est. dead |
-| [30](#branch-30-0) | 0 | ䷼䷽ #61/#62 | 79.6 | 47.1M | 1,265,492 | Partial |
-| [30](#branch-30-1) | 1 | ䷽䷼ #62/#61 | 81.2 | 9.0M | 124,238 | Partial |
-| [31](#branch-31-0) | 0 | ䷾䷿ #63/#64 | 88.9 | 6.9M | 77,528 | Partial |
-| [31](#branch-31-1) | 1 | ䷿䷾ #64/#63 | 89.4 | 6.8M | 77,971 | Partial |
+| [1](#branch-1-0) | 0 | ䷂䷃ #3/#4 **(KW)** | 178.6 | 18.0M | 189,134 | Partial |
+| [1](#branch-1-1) | 1 | ䷃䷂ #4/#3 | 178.6 | 8.8M | 195,654 | Partial |
+| [2](#branch-2-0) | 0 | ䷄䷅ #5/#6 | 178.6 | 15.6M | 194,687 | Partial |
+| [2](#branch-2-1) | 1 | ䷅䷄ #6/#5 | 178.6 | 16.7M | 197,738 | Partial |
+| [3](#branch-3-0) | 0 | ䷆䷇ #7/#8 | 178.6 | 26.9M | 197,814 | Partial |
+| [3](#branch-3-1) | 1 | ䷇䷆ #8/#7 | 178.6 | 29.6M | 233,660 | Partial |
+| [5](#branch-5-0) | 0 | ䷊䷋ #11/#12 | 178.6 | 177.9M | 1,659,462 | Partial |
+| [5](#branch-5-1) | 1 | ䷋䷊ #12/#11 | 178.6 | 177.9M | 1,659,462 | Partial |
+| [7](#branch-7-0) | 0 | ䷎䷏ #15/#16 | 178.6 | 60.5M | 443,216 | Partial |
+| [7](#branch-7-1) | 1 | ䷏䷎ #16/#15 | 178.6 | 60.5M | 443,216 | Partial |
+| [8](#branch-8-0) | 0 | ䷐䷑ #17/#18 | 178.6 | 87.6M | 670,407 | Partial |
+| [8](#branch-8-1) | 1 | ䷑䷐ #18/#17 | 178.6 | 92.8M | 681,675 | Partial |
+| [9](#branch-9-0) | 0 | ䷒䷓ #19/#20 | 178.6 | — | — | Est. dead |
+| [9](#branch-9-1) | 1 | ䷓䷒ #20/#19 | 178.6 | — | — | Est. dead |
+| [10](#branch-10-0) | 0 | ䷔䷕ #21/#22 | 178.6 | — | — | Est. dead |
+| [10](#branch-10-1) | 1 | ䷕䷔ #22/#21 | 178.6 | — | — | Est. dead |
+| [11](#branch-11-0) | 0 | ䷖䷗ #23/#24 | 178.6 | — | — | Est. dead |
+| [11](#branch-11-1) | 1 | ䷗䷖ #24/#23 | 178.6 | — | — | Est. dead |
+| [12](#branch-12-0) | 0 | ䷘䷙ #25/#26 | 178.6 | — | — | Est. dead |
+| [12](#branch-12-1) | 1 | ䷙䷘ #26/#25 | 178.6 | — | — | Est. dead |
+| [13](#branch-13-0) | 0 | ䷚䷛ #27/#28 | 178.6 | 100.0M | 2,239,707 | Partial |
+| [13](#branch-13-1) | 1 | ䷛䷚ #28/#27 | 178.6 | 100.0M | 2,239,707 | Partial |
+| [14](#branch-14-0) | 0 | ䷜䷝ #29/#30 | 178.6 | 222.2M | 2,225,037 | Partial |
+| [14](#branch-14-1) | 1 | ䷝䷜ #30/#29 | 178.6 | 222.2M | 2,225,037 | Partial |
+| [15](#branch-15-0) | 0 | ䷞䷟ #31/#32 | 178.6 | — | — | Est. dead |
+| [15](#branch-15-1) | 1 | ䷟䷞ #32/#31 | 178.6 | — | — | Est. dead |
+| [16](#branch-16-0) | 0 | ䷠䷡ #33/#34 | 178.6 | 113.3M | 1,194,709 | Partial |
+| [16](#branch-16-1) | 1 | ䷡䷠ #34/#33 | 178.6 | 113.3M | 1,194,709 | Partial |
+| [17](#branch-17-0) | 0 | ䷢䷣ #35/#36 | 178.6 | 2593.2M | 4,194,304 | Overflow |
+| [17](#branch-17-1) | 1 | ䷣䷢ #36/#35 | 178.6 | 2595.0M | 4,194,304 | Overflow |
+| [18](#branch-18-0) | 0 | ䷤䷥ #37/#38 | 178.6 | — | — | Est. dead |
+| [18](#branch-18-1) | 1 | ䷥䷤ #38/#37 | 178.6 | — | — | Est. dead |
+| [19](#branch-19-0) | 0 | ䷦䷧ #39/#40 | 178.6 | — | — | Est. dead |
+| [19](#branch-19-1) | 1 | ䷧䷦ #40/#39 | 178.6 | — | — | Est. dead |
+| [20](#branch-20-0) | 0 | ䷨䷩ #41/#42 | 178.6 | — | — | Est. dead |
+| [20](#branch-20-1) | 1 | ䷩䷨ #42/#41 | 178.6 | — | — | Est. dead |
+| [22](#branch-22-0) | 0 | ䷬䷭ #45/#46 | 178.6 | 270.5M | 3,733,761 | Partial |
+| [22](#branch-22-1) | 1 | ䷭䷬ #46/#45 | 178.6 | 279.2M | 3,663,111 | Partial |
+| [23](#branch-23-0) | 0 | ䷮䷯ #47/#48 | 178.6 | 140.0M | 1,248,692 | Partial |
+| [23](#branch-23-1) | 1 | ䷯䷮ #48/#47 | 178.6 | 140.0M | 1,248,692 | Partial |
+| [24](#branch-24-0) | 0 | ䷰䷱ #49/#50 | 170.2 | 7172.2M | 4,194,304 | Overflow |
+| [24](#branch-24-1) | 1 | ䷱䷰ #50/#49 | 178.6 | 4220.5M | 4,194,304 | Overflow |
+| [25](#branch-25-0) | 0 | ䷲䷳ #51/#52 | 178.6 | — | — | Est. dead |
+| [25](#branch-25-1) | 1 | ䷳䷲ #52/#51 | 178.6 | — | — | Est. dead |
+| [26](#branch-26-0) | 0 | ䷴䷵ #53/#54 | 178.6 | 20.5M | 217,562 | Partial |
+| [26](#branch-26-1) | 1 | ䷵䷴ #54/#53 | 178.6 | 20.5M | 217,562 | Partial |
+| [27](#branch-27-0) | 0 | ䷶䷷ #55/#56 | 178.6 | — | — | Est. dead |
+| [27](#branch-27-1) | 1 | ䷷䷶ #56/#55 | 178.6 | — | — | Est. dead |
+| [28](#branch-28-0) | 0 | ䷸䷹ #57/#58 | 178.6 | — | — | Est. dead |
+| [28](#branch-28-1) | 1 | ䷹䷸ #58/#57 | 178.6 | — | — | Est. dead |
+| [29](#branch-29-0) | 0 | ䷺䷻ #59/#60 | 178.6 | — | — | Est. dead |
+| [29](#branch-29-1) | 1 | ䷻䷺ #60/#59 | 178.6 | — | — | Est. dead |
+| [30](#branch-30-0) | 0 | ䷼䷽ #61/#62 | 178.6 | 150.6M | 4,149,791 | Partial |
+| [30](#branch-30-1) | 1 | ䷽䷼ #62/#61 | 178.6 | 272.5M | 3,408,244 | Partial |
+| [31](#branch-31-0) | 0 | ䷾䷿ #63/#64 | 178.6 | 14.1M | 155,326 | Partial |
+| [31](#branch-31-1) | 1 | ䷿䷾ #64/#63 | 178.6 | 13.2M | 155,315 | Partial |
 
 ## Branch details
 
 <a id="branch-1-0"></a>
 ### ䷂䷃ #3 Difficulty at the Beginning / #4 Youthful Folly — King Wen's branch
 
-**Pair 1, orient 0** — Partial — at least 94,890 unique orderings found (lower bound).
+**Pair 1, orient 0** — Partial — at least 189,134 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,244,869,323 | 7,082,024 | 94,890 | 0/54 |
+| 178,571,429,312 | 17,987,320 | 189,134 | 0/54 |
 
 This is the subtree containing the actual historical King Wen sequence.
 
@@ -285,11 +285,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-1-1"></a>
 ### ䷃䷂ #4 Youthful Folly / #3 Difficulty at the Beginning
 
-**Pair 1, orient 1** — Partial — at least 111,697 unique orderings found (lower bound).
+**Pair 1, orient 1** — Partial — at least 195,654 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,885,549,546 | 5,055,884 | 111,697 | 0/54 |
+| 178,571,429,289 | 8,814,844 | 195,654 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -302,11 +302,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-2-0"></a>
 ### ䷄䷅ #5 Waiting / #6 Conflict
 
-**Pair 2, orient 0** — Partial — at least 111,675 unique orderings found (lower bound).
+**Pair 2, orient 0** — Partial — at least 194,687 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,723,951,614 | 8,511,700 | 111,675 | 0/54 |
+| 178,571,429,295 | 15,620,712 | 194,687 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -319,11 +319,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-2-1"></a>
 ### ䷅䷄ #6 Conflict / #5 Waiting
 
-**Pair 2, orient 1** — Partial — at least 117,243 unique orderings found (lower bound).
+**Pair 2, orient 1** — Partial — at least 197,738 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,677,207,548 | 8,924,024 | 117,243 | 0/54 |
+| 178,571,429,302 | 16,662,216 | 197,738 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -336,11 +336,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-3-0"></a>
 ### ䷆䷇ #7 The Army / #8 Holding Together
 
-**Pair 3, orient 0** — Partial — at least 131,034 unique orderings found (lower bound).
+**Pair 3, orient 0** — Partial — at least 197,814 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 89,749,414,548 | 14,145,824 | 131,034 | 0/54 |
+| 178,571,429,220 | 26,897,920 | 197,814 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -353,11 +353,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-3-1"></a>
 ### ䷇䷆ #8 Holding Together / #7 The Army
 
-**Pair 3, orient 1** — Partial — at least 113,337 unique orderings found (lower bound).
+**Pair 3, orient 1** — Partial — at least 233,660 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,775,102,418 | 9,879,744 | 113,337 | 0/54 |
+| 178,571,429,317 | 29,621,664 | 233,660 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -370,11 +370,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-5-0"></a>
 ### ䷊䷋ #11 Peace / #12 Standstill
 
-**Pair 5, orient 0** — Partial — at least 977,895 unique orderings found (lower bound).
+**Pair 5, orient 0** — Partial — at least 1,659,462 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,281,305,566 | 74,123,872 | 977,895 | 0/54 |
+| 178,571,429,326 | 177,909,348 | 1,659,462 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -387,11 +387,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-5-1"></a>
 ### ䷋䷊ #12 Standstill / #11 Peace
 
-**Pair 5, orient 1** — Partial — at least 975,098 unique orderings found (lower bound).
+**Pair 5, orient 1** — Partial — at least 1,659,462 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,024,493,668 | 74,066,304 | 975,098 | 0/54 |
+| 178,571,429,326 | 177,909,348 | 1,659,462 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -404,11 +404,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-7-0"></a>
 ### ䷎䷏ #15 Modesty / #16 Enthusiasm
 
-**Pair 7, orient 0** — Partial — at least 221,325 unique orderings found (lower bound).
+**Pair 7, orient 0** — Partial — at least 443,216 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,740,894,552 | 21,626,416 | 221,325 | 0/54 |
+| 178,571,429,306 | 60,474,416 | 443,216 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -421,11 +421,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-7-1"></a>
 ### ䷏䷎ #16 Enthusiasm / #15 Modesty
 
-**Pair 7, orient 1** — Partial — at least 221,325 unique orderings found (lower bound).
+**Pair 7, orient 1** — Partial — at least 443,216 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,963,492,888 | 21,654,048 | 221,325 | 0/54 |
+| 178,571,429,306 | 60,474,416 | 443,216 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -438,11 +438,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-8-0"></a>
 ### ䷐䷑ #17 Following / #18 Work on What Has Been Spoiled
 
-**Pair 8, orient 0** — Partial — at least 345,016 unique orderings found (lower bound).
+**Pair 8, orient 0** — Partial — at least 670,407 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,437,827,581 | 32,367,440 | 345,016 | 0/54 |
+| 178,571,429,317 | 87,637,552 | 670,407 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -455,11 +455,11 @@ This is the subtree containing the actual historical King Wen sequence.
 <a id="branch-8-1"></a>
 ### ䷑䷐ #18 Work on What Has Been Spoiled / #17 Following
 
-**Pair 8, orient 1** — Partial — at least 351,943 unique orderings found (lower bound).
+**Pair 8, orient 1** — Partial — at least 681,675 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,723,456,533 | 35,219,296 | 351,943 | 0/54 |
+| 178,571,429,306 | 92,811,968 | 681,675 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -476,7 +476,7 @@ This is the subtree containing the actual historical King Wen sequence.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 79,664,556,850 | 0 | 0 | 0/54 |
+| 178,571,429,300 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -495,7 +495,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 79,751,553,645 | 0 | 0 | 0/54 |
+| 178,571,429,300 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -514,7 +514,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 87,147,897,246 | 0 | 0 | 0/54 |
+| 178,571,429,306 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -533,7 +533,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 87,174,562,252 | 0 | 0 | 0/54 |
+| 178,571,429,306 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -552,7 +552,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 90,452,667,508 | 0 | 0 | 0/54 |
+| 178,571,429,228 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -571,7 +571,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 87,124,241,397 | 0 | 0 | 0/54 |
+| 178,571,429,306 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -590,7 +590,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,340,440,691 | 0 | 0 | 0/54 |
+| 178,571,429,292 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -609,7 +609,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,819,980,256 | 0 | 0 | 0/54 |
+| 178,571,429,295 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -624,11 +624,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-13-0"></a>
 ### ䷚䷛ #27 Corners of the Mouth / #28 Preponderance of the Great
 
-**Pair 13, orient 0** — Partial — at least 1,507,484 unique orderings found (lower bound).
+**Pair 13, orient 0** — Partial — at least 2,239,707 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 83,774,056,705 | 61,968,436 | 1,507,484 | 0/54 |
+| 178,571,429,291 | 99,951,452 | 2,239,707 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -641,11 +641,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-13-1"></a>
 ### ䷛䷚ #28 Preponderance of the Great / #27 Corners of the Mouth
 
-**Pair 13, orient 1** — Partial — at least 1,507,484 unique orderings found (lower bound).
+**Pair 13, orient 1** — Partial — at least 2,239,707 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 83,738,697,145 | 61,968,436 | 1,507,484 | 0/54 |
+| 178,571,429,291 | 99,951,452 | 2,239,707 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -658,11 +658,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-14-0"></a>
 ### ䷜䷝ #29 The Abysmal / #30 The Clinging
 
-**Pair 14, orient 0** — Partial — at least 1,225,361 unique orderings found (lower bound).
+**Pair 14, orient 0** — Partial — at least 2,225,037 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,221,462,203 | 114,790,512 | 1,225,361 | 0/54 |
+| 178,571,429,296 | 222,231,696 | 2,225,037 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -675,11 +675,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-14-1"></a>
 ### ䷝䷜ #30 The Clinging / #29 The Abysmal
 
-**Pair 14, orient 1** — Partial — at least 1,225,361 unique orderings found (lower bound).
+**Pair 14, orient 1** — Partial — at least 2,225,037 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,084,203,076 | 114,385,352 | 1,225,361 | 0/54 |
+| 178,571,429,296 | 222,231,696 | 2,225,037 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -696,7 +696,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,884,356,033 | 0 | 0 | 0/54 |
+| 178,571,429,288 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -715,7 +715,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,410,831,579 | 0 | 0 | 0/54 |
+| 178,571,429,311 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -730,11 +730,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-16-0"></a>
 ### ䷠䷡ #33 Retreat / #34 The Power of the Great
 
-**Pair 16, orient 0** — Partial — at least 644,801 unique orderings found (lower bound).
+**Pair 16, orient 0** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,404,865,410 | 51,637,740 | 644,801 | 0/54 |
+| 178,571,429,305 | 113,304,168 | 1,194,709 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -747,11 +747,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-16-1"></a>
 ### ䷡䷠ #34 The Power of the Great / #33 Retreat
 
-**Pair 16, orient 1** — Partial — at least 644,801 unique orderings found (lower bound).
+**Pair 16, orient 1** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,351,937,573 | 51,637,740 | 644,801 | 0/54 |
+| 178,571,429,305 | 113,304,168 | 1,194,709 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -768,9 +768,9 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 60,702,348,583 | 1,077,245,716 | 4,194,304 | 0/54 |
+| 178,571,429,312 | 2,593,230,172 | 4,194,304 | 0/54 |
 
-One of the densest branches — 1.77% of explored nodes produced valid solutions.
+One of the densest branches — 1.45% of explored nodes produced valid solutions.
 Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 <details><summary>Sub-branches (click to expand)</summary>
@@ -788,9 +788,9 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 59,727,790,744 | 1,101,913,060 | 4,194,304 | 0/54 |
+| 178,571,429,305 | 2,595,024,760 | 4,194,304 | 0/54 |
 
-One of the densest branches — 1.84% of explored nodes produced valid solutions.
+One of the densest branches — 1.45% of explored nodes produced valid solutions.
 Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 <details><summary>Sub-branches (click to expand)</summary>
@@ -808,7 +808,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 83,972,654,937 | 0 | 0 | 0/54 |
+| 178,571,429,293 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -827,7 +827,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,689,107,415 | 0 | 0 | 0/54 |
+| 178,571,429,291 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -846,7 +846,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,371,592,565 | 0 | 0 | 0/54 |
+| 178,571,429,306 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -865,7 +865,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 84,486,138,904 | 0 | 0 | 0/54 |
+| 178,571,429,321 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -884,7 +884,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,860,418,891 | 0 | 0 | 0/54 |
+| 178,571,429,316 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -903,7 +903,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,362,792,104 | 0 | 0 | 0/54 |
+| 178,571,429,299 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -918,11 +918,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-22-0"></a>
 ### ䷬䷭ #45 Gathering Together / #46 Pushing Upward
 
-**Pair 22, orient 0** — Partial — at least 1,226,303 unique orderings found (lower bound).
+**Pair 22, orient 0** — Partial — at least 3,733,761 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 80,174,734,848 | 64,743,132 | 1,226,303 | 0/54 |
+| 178,571,429,315 | 270,471,092 | 3,733,761 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -935,11 +935,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-22-1"></a>
 ### ䷭䷬ #46 Pushing Upward / #45 Gathering Together
 
-**Pair 22, orient 1** — Partial — at least 1,104,590 unique orderings found (lower bound).
+**Pair 22, orient 1** — Partial — at least 3,663,111 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 80,103,421,283 | 65,482,060 | 1,104,590 | 0/54 |
+| 178,571,429,293 | 279,166,948 | 3,663,111 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -952,11 +952,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-23-0"></a>
 ### ䷮䷯ #47 Oppression / #48 The Well
 
-**Pair 23, orient 0** — Partial — at least 615,328 unique orderings found (lower bound).
+**Pair 23, orient 0** — Partial — at least 1,248,692 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,991,466,592 | 68,107,008 | 615,328 | 0/54 |
+| 178,571,429,321 | 139,999,392 | 1,248,692 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -969,11 +969,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-23-1"></a>
 ### ䷯䷮ #48 The Well / #47 Oppression
 
-**Pair 23, orient 1** — Partial — at least 615,328 unique orderings found (lower bound).
+**Pair 23, orient 1** — Partial — at least 1,248,692 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 86,034,533,901 | 68,107,008 | 615,328 | 0/54 |
+| 178,571,429,321 | 139,999,392 | 1,248,692 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -990,9 +990,9 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 45,873,775,365 | 1,705,555,194 | 4,194,304 | 0/54 |
+| 170,180,026,818 | 7,172,236,093 | 4,194,304 | 0/54 |
 
-One of the densest branches — 3.72% of explored nodes produced valid solutions.
+One of the densest branches — 4.21% of explored nodes produced valid solutions.
 Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 <details><summary>Sub-branches (click to expand)</summary>
@@ -1010,9 +1010,9 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 64,850,000,000 | 949,293,808 | 4,194,304 | 0/54 |
+| 178,571,429,308 | 4,220,486,108 | 4,194,304 | 0/54 |
 
-One of the densest branches — 1.46% of explored nodes produced valid solutions.
+One of the densest branches — 2.36% of explored nodes produced valid solutions.
 Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 <details><summary>Sub-branches (click to expand)</summary>
@@ -1030,7 +1030,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,857,970,485 | 0 | 0 | 0/54 |
+| 178,571,429,272 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1049,7 +1049,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,934,334,612 | 0 | 0 | 0/54 |
+| 178,571,429,309 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1064,11 +1064,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-26-0"></a>
 ### ䷴䷵ #53 Development / #54 The Marrying Maiden
 
-**Pair 26, orient 0** — Partial — at least 110,459 unique orderings found (lower bound).
+**Pair 26, orient 0** — Partial — at least 217,562 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,906,950,767 | 11,753,552 | 110,459 | 0/54 |
+| 178,571,429,299 | 20,504,652 | 217,562 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -1081,11 +1081,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-26-1"></a>
 ### ䷵䷴ #54 The Marrying Maiden / #53 Development
 
-**Pair 26, orient 1** — Partial — at least 110,151 unique orderings found (lower bound).
+**Pair 26, orient 1** — Partial — at least 217,562 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,685,870,394 | 11,686,180 | 110,151 | 0/54 |
+| 178,571,429,299 | 20,504,652 | 217,562 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -1102,7 +1102,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,013,763,938 | 0 | 0 | 0/54 |
+| 178,571,429,321 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1121,7 +1121,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,625,671,882 | 0 | 0 | 0/54 |
+| 178,571,429,303 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1140,7 +1140,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,907,205,032 | 0 | 0 | 0/54 |
+| 178,571,429,308 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1159,7 +1159,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 85,331,404,586 | 0 | 0 | 0/54 |
+| 178,571,429,312 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1178,7 +1178,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 90,870,762,018 | 0 | 0 | 0/54 |
+| 178,571,429,309 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1197,7 +1197,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,793,181,775 | 0 | 0 | 0/54 |
+| 178,571,429,314 | 0 | 0 | 0/54 |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1212,11 +1212,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-30-0"></a>
 ### ䷼䷽ #61 Inner Truth / #62 Preponderance of the Small
 
-**Pair 30, orient 0** — Partial — at least 1,265,492 unique orderings found (lower bound).
+**Pair 30, orient 0** — Partial — at least 4,149,791 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 79,561,020,760 | 47,146,844 | 1,265,492 | 0/54 |
+| 178,571,429,287 | 150,566,788 | 4,149,791 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -1229,11 +1229,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-30-1"></a>
 ### ䷽䷼ #62 Preponderance of the Small / #61 Inner Truth
 
-**Pair 30, orient 1** — Partial — at least 124,238 unique orderings found (lower bound).
+**Pair 30, orient 1** — Partial — at least 3,408,244 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 81,208,216,049 | 9,023,372 | 124,238 | 0/54 |
+| 178,571,429,317 | 272,454,548 | 3,408,244 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -1246,11 +1246,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-31-0"></a>
 ### ䷾䷿ #63 After Completion / #64 Before Completion
 
-**Pair 31, orient 0** — Partial — at least 77,528 unique orderings found (lower bound).
+**Pair 31, orient 0** — Partial — at least 155,326 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 88,895,618,528 | 6,919,000 | 77,528 | 0/54 |
+| 178,571,429,320 | 14,057,560 | 155,326 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -1263,11 +1263,11 @@ Every explored path in this subtree violated the complement distance constraint.
 <a id="branch-31-1"></a>
 ### ䷿䷾ #64 Before Completion / #63 After Completion
 
-**Pair 31, orient 1** — Partial — at least 77,971 unique orderings found (lower bound).
+**Pair 31, orient 1** — Partial — at least 155,315 unique orderings found (lower bound).
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 89,412,870,775 | 6,784,600 | 77,971 | 0/54 |
+| 178,571,429,288 | 13,185,752 | 155,315 | 0/54 |
 
 <details><summary>Sub-branches (click to expand)</summary>
 

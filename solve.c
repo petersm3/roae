@@ -130,7 +130,7 @@
  *   Not a bottleneck (called once per C3-valid solution, not per node) but could
  *   be replaced with a lookup table if profiling shows it matters.
  *
- * Compile: gcc -O3 -pthread -o solve solve.c
+ * Compile: gcc -O3 -pthread -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c
  * Run:     ./solve [time_limit_seconds] [threads]
  *          ./solve 86400 56   (24h limit, 56 threads)
  *          ./solve 0          (no time limit — run to completion)
@@ -148,7 +148,8 @@
  * Environment variables:
  *   SOLVE_THREADS=N          — override thread count
  *   SOLVE_HASH_LOG2=N        — hash table size as power of 2 (default: 22 = 4M slots)
- *   SOLVE_NODE_LIMIT=N       — stop after N total nodes (deterministic, reproducible sha256)
+ *   SOLVE_NODE_LIMIT=N       — stop after N total nodes, distributed equally per branch
+ *                              (deterministic, reproducible sha256 regardless of thread count)
  *
  * Graceful shutdown: handles SIGTERM/SIGINT — produces full output on signal.
  * Resume: reads checkpoint.txt on startup and skips completed branches.
@@ -201,6 +202,15 @@ static int kw_pair_at_pos[32];          /* pair index at each KW position */
 static int super_pair_of[32];           /* pair index -> super-pair index */
 static int n_super_pairs;
 static int kw_super_pair_at_pos[32];    /* super-pair index at each KW position */
+
+/* Precomputed within-pair Hamming distance for each pair.
+ * Used by forward feasibility check and pair ordering. */
+static int pair_wpd[32];  /* pair_wpd[i] = hamming(pairs[i].a, pairs[i].b) */
+
+/* Pair ordering: indices sorted by within-pair distance (rarest first).
+ * Fail-first heuristic: try pairs that consume rare budget values early,
+ * so infeasible branches are discovered sooner. */
+static int pair_order[32];
 
 /* Runtime-configurable hash table size.
  * Trade-off: larger = fewer collisions but more memory per thread.
@@ -296,6 +306,7 @@ typedef struct {
     long long solutions_total;
     long long solutions_c3;     /* "C3-valid" = passed ALL constraints (C1-C5), not just C3 */
     long long nodes;
+    long long branch_nodes;  /* per-branch counter, reset between branches */
     int kw_found;
     int branches_completed;
     long long hash_collisions;
@@ -355,6 +366,7 @@ static int time_limit = 0;
  * Unlike time limit, node limit is deterministic — same node limit on any
  * hardware produces the same solutions.bin (reproducible sha256). */
 static long long node_limit = 0;
+static long long per_branch_node_limit = 0;  /* node_limit / n_branches, set at startup */
 
 /* ---------- Init functions ---------- */
 
@@ -419,6 +431,32 @@ static void init_super_pairs(void) {
     }
     for (int i = 0; i < 32; i++) {
         kw_super_pair_at_pos[i] = super_pair_of[kw_pair_at_pos[i]];
+    }
+}
+
+static void init_pair_order(void) {
+    /* Compute within-pair distances */
+    for (int i = 0; i < 32; i++)
+        pair_wpd[i] = hamming(pairs[i].a, pairs[i].b);
+
+    /* Sort pair indices by: rarest within-pair distance first (fail-first).
+     * Count how many pairs have each within-pair distance, then order by
+     * ascending count (rarest distance values first). */
+    int wpd_count[7] = {0};
+    for (int i = 0; i < 32; i++) wpd_count[pair_wpd[i]]++;
+
+    for (int i = 0; i < 32; i++) pair_order[i] = i;
+
+    /* Simple insertion sort by wpd_count[pair_wpd[i]] ascending, then pair index */
+    for (int i = 1; i < 32; i++) {
+        int key = pair_order[i];
+        int key_rarity = wpd_count[pair_wpd[key]];
+        int j = i - 1;
+        while (j >= 0 && wpd_count[pair_wpd[pair_order[j]]] > key_rarity) {
+            pair_order[j + 1] = pair_order[j];
+            j--;
+        }
+        pair_order[j + 1] = key;
     }
 }
 
@@ -642,15 +680,19 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  * invalid branches are pruned at depth 2-5 instead of depth 32. */
 static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7], int step) {
     ts->nodes++;
+    ts->branch_nodes++;
     if (global_timed_out) return;
-    /* Time check every 50M nodes (not every node — time() is a syscall).
-     * At ~1.3B nodes/sec across all threads, this fires ~26 times/sec total. */
+    /* Per-branch node limit: checked every node (just an integer compare, cheap).
+     * Sets a thread-local flag rather than global_timed_out so other branches
+     * on this thread can continue. But for simplicity, we use global_timed_out
+     * which stops this branch's backtrack immediately. The thread function
+     * resets it... actually we can't reset a volatile global. Instead, return
+     * directly without setting the global flag. */
+    if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit)
+        return;  /* branch budget exhausted — stop this branch only */
+    /* Time check every 50M nodes (not every node — time() is a syscall). */
     if (ts->nodes % 50000000 == 0) {
         if (time_limit > 0 && (time(NULL) - start_time) >= time_limit)
-            global_timed_out = 1;
-        /* Node limit: each thread checks its own share. With uniform work
-         * distribution, total nodes ≈ per-thread nodes × n_threads. */
-        if (node_limit > 0 && ts->nodes >= node_limit)
             global_timed_out = 1;
     }
     if (global_timed_out) return;
@@ -678,8 +720,8 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
         for (int orient = 0; orient < 2; orient++) {
             int first = orient ? pairs[p].b : pairs[p].a;
             int second = orient ? pairs[p].a : pairs[p].b;
-            /* bd = between-pair distance (prev_tail → first of new pair)
-             * wd = within-pair distance (first → second of new pair)
+            /* bd = between-pair distance (prev_tail -> first of new pair)
+             * wd = within-pair distance (first -> second of new pair)
              * Both consume from the budget. C2: bd == 5 is forbidden. */
             int bd = hamming(prev_tail, first);
             if (bd == 5) continue;  /* C2: no 5-line transitions */
@@ -734,13 +776,15 @@ static void *thread_func(void *arg) {
         seq[3] = second;
         used[p] = 1;
 
+        ts->branch_nodes = 0;  /* reset per-branch counter */
         backtrack(ts, seq, used, budget, 2);
 
         /* Only checkpoint if branch completed naturally (not interrupted by timeout).
          * Bug fix: earlier version marked timed-out branches as "complete", causing
          * resume mode to skip partially-explored branches. */
-        const char *status_label = global_timed_out ? "INTERRUPTED" : "COMPLETE";
-        if (!global_timed_out)
+        int budget_exhausted = (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit);
+        const char *status_label = (global_timed_out || budget_exhausted) ? "INTERRUPTED" : "COMPLETE";
+        if (!global_timed_out && !budget_exhausted)
             ts->branches_completed++;
 
         int done = __sync_add_and_fetch(&total_branches_completed, 1);
@@ -867,13 +911,15 @@ static void *thread_func_single(void *arg) {
         seq[4] = f2; seq[5] = s2;
         used[p2] = 1;
 
+        ts->branch_nodes = 0;  /* reset per-sub-branch counter */
         backtrack(ts, seq, used, budget, 3);
 
         long long sub_nodes = ts->nodes - nodes_before;
         long long sub_c3 = ts->solutions_c3 - c3_before;
 
-        const char *sb_status = global_timed_out ? "INTERRUPTED" : "COMPLETE";
-        if (!global_timed_out)
+        int sb_budget_exhausted = (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit);
+        const char *sb_status = (global_timed_out || sb_budget_exhausted) ? "INTERRUPTED" : "COMPLETE";
+        if (!global_timed_out && !sb_budget_exhausted)
             ts->branches_completed++;
 
         int done = __sync_add_and_fetch(&total_branches_completed, 1);
@@ -882,7 +928,7 @@ static void *thread_func_single(void *arg) {
         pthread_mutex_lock(&checkpoint_mutex);
 
         /* Write per-sub-branch solution file on COMPLETE */
-        if (!global_timed_out) {
+        if (!global_timed_out && !sb_budget_exhausted) {
             flush_sub_solutions(ts, p2, o2);
         }
 
@@ -923,6 +969,52 @@ static void *thread_func_single(void *arg) {
 
 /* Compare for qsort — compare pair identity only (orient bit masked out).
  * Each byte: (pair_index << 2) | (orient << 1). Mask with 0xFC. */
+/* Write sha256 file with metadata for reproducibility.
+ * First line is bare sha256 (compatible with sha256sum -c).
+ * Remaining lines are metadata comments. */
+static void write_sha256_with_metadata(const char *bin_name, const char *sha_name,
+                                        int unique_count, long long total_nodes,
+                                        int n_branches_total, int branches_done) {
+    /* Compute sha256 */
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd),
+             "sha256sum %s > %s 2>/dev/null || shasum -a 256 %s > %s 2>/dev/null",
+             bin_name, sha_name, bin_name, sha_name);
+    int _u = system(cmd); (void)_u;
+
+    /* Read back the hash line */
+    char hash_line[256] = {0};
+    FILE *hf = fopen(sha_name, "r");
+    if (hf) { if (fgets(hash_line, sizeof(hash_line), hf)) {} fclose(hf); }
+
+    /* Rewrite with metadata */
+    FILE *sf = fopen(sha_name, "w");
+    if (!sf) return;
+    fprintf(sf, "%s", hash_line);  /* first line: bare hash (sha256sum -c compatible) */
+
+    /* Metadata */
+    char tbuf[64];
+    time_t now = time(NULL);
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+
+    fprintf(sf, "# Metadata for reproducibility\n");
+    fprintf(sf, "# Date: %s\n", tbuf);
+    fprintf(sf, "# Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
+    fprintf(sf, "# Record format: %d bytes packed (pair_index<<2 | orient<<1)\n", SOL_RECORD_SIZE);
+    fprintf(sf, "# Unique orderings: %d\n", unique_count);
+    fprintf(sf, "# Nodes explored: %lld\n", total_nodes);
+    fprintf(sf, "# Branches: %d total, %d completed\n", n_branches_total, branches_done);
+    if (node_limit > 0)
+        fprintf(sf, "# SOLVE_NODE_LIMIT=%lld (per-branch: %lld, thread-independent)\n",
+                node_limit, per_branch_node_limit);
+    else
+        fprintf(sf, "# SOLVE_NODE_LIMIT=0 (time-limited, not reproducible across hardware)\n");
+    if (time_limit > 0)
+        fprintf(sf, "# Time limit: %d seconds\n", time_limit);
+    fprintf(sf, "# SOLVE_THREADS: any (output is thread-independent with node limit)\n");
+    fclose(sf);
+}
+
 static int compare_solutions(const void *a, const void *b) {
     const unsigned char *sa = (const unsigned char *)a;
     const unsigned char *sb = (const unsigned char *)b;
@@ -1193,8 +1285,12 @@ int main(int argc, char *argv[]) {
     init_adjacency_constraints();
     init_kw_pair_positions();
     init_super_pairs();
+    init_pair_order();
 
-    printf("Build: %s %s\n", __DATE__, __TIME__);
+#ifndef GIT_HASH
+#define GIT_HASH "unknown"
+#endif
+    printf("Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
     printf("King Wen complement distance (x64): %d (= %.4f)\n",
            kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
     printf("Difference distribution: ");
@@ -1660,6 +1756,13 @@ int main(int argc, char *argv[]) {
         printf("\n");
         total_branches = n_sub + n_skipped;
 
+        /* Per-branch node limit for thread-count-independent reproducibility */
+        if (node_limit > 0 && total_branches > 0) {
+            per_branch_node_limit = node_limit / total_branches;
+            printf("Per-branch node limit: %lld (%lld total / %d branches)\n",
+                   per_branch_node_limit, node_limit, total_branches);
+        }
+
         if (n_sub == 0 && n_skipped > 0) {
             printf("All %d sub-branches already completed (from checkpoint.txt).\n", n_skipped);
             printf("Delete checkpoint.txt to re-run from scratch.\n");
@@ -1767,11 +1870,7 @@ int main(int argc, char *argv[]) {
                 global_timed_out = 1;
                 break;
             }
-            /* Node limit check (aggregated across all threads) */
-            if (node_limit > 0 && tn >= node_limit) {
-                global_timed_out = 1;
-                break;
-            }
+            /* Node limit is checked per-branch inside backtrack, not here */
         }
 
         for (int i = 0; i < n_threads; i++)
@@ -1878,12 +1977,10 @@ int main(int argc, char *argv[]) {
         free(all_solutions);
 
         printf("Computing sha256...\n"); fflush(stdout);
-        char sha_cmd[512];
-        snprintf(sha_cmd, sizeof(sha_cmd),
-                 "sha256sum %s > %s 2>/dev/null || shasum -a 256 %s > %s 2>/dev/null",
-                 bin_name, sha_name, bin_name, sha_name);
-        int _u = system(sha_cmd);
-        (void)_u;
+        write_sha256_with_metadata(bin_name, sha_name,
+                                    unique_count, total_nodes,
+                                    n_sub, branches_done);
+
         char hash[130] = {0};
         FILE *hf = fopen(sha_name, "r");
         if (hf) { if (fgets(hash, sizeof(hash), hf)) {} fclose(hf); }
@@ -2046,6 +2143,13 @@ int main(int argc, char *argv[]) {
 
     total_branches = n_branches + n_completed_from_checkpoint;
 
+    /* Per-branch node limit for thread-count-independent reproducibility */
+    if (node_limit > 0 && total_branches > 0) {
+        per_branch_node_limit = node_limit / total_branches;
+        printf("Per-branch node limit: %lld (%lld total / %d branches)\n",
+               per_branch_node_limit, node_limit, total_branches);
+    }
+
     if (n_branches == 0) {
         printf("All %d branches already completed (from checkpoint.txt).\n", total_branches);
         printf("Delete checkpoint.txt to re-run from scratch.\n");
@@ -2172,10 +2276,7 @@ int main(int argc, char *argv[]) {
             global_timed_out = 1;
             break;
         }
-        if (node_limit > 0 && tn >= node_limit) {
-            global_timed_out = 1;
-            break;
-        }
+        /* Node limit is checked per-branch inside backtrack, not here */
     }
 
     /* Wait for threads */
@@ -2284,9 +2385,10 @@ int main(int argc, char *argv[]) {
 
     printf("Computing sha256...\n");
     fflush(stdout);
-    int _unused = system("sha256sum solutions.bin > solutions.sha256 2>/dev/null || "
-                         "shasum -a 256 solutions.bin > solutions.sha256 2>/dev/null");
-    (void)_unused;
+    int total_done_final = branches_done + n_completed_from_checkpoint;
+    write_sha256_with_metadata("solutions.bin", "solutions.sha256",
+                                unique_count, total_nodes,
+                                total_branches, total_done_final);
 
     char hash[130] = {0};
     FILE *hf = fopen("solutions.sha256", "r");
@@ -2295,7 +2397,6 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++) hash_only[i] = hash[i];
 
     /* === Final Report === */
-    int total_done_final = branches_done + n_completed_from_checkpoint;
 
     printf("\n");
     printf("======================================================================\n");

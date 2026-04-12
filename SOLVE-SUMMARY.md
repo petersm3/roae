@@ -92,11 +92,11 @@ The sequence begins with the two most extreme hexagrams: all solid lines (䷀ Th
 
 The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
 
-**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 4.7 trillion nodes on 64 cores) found at least 20 million valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling.
+**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 4.7 trillion nodes on 64 cores) found at least 31.6 million valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling.
 
 ### What the rules determine — and what remains open
 
-A partial enumeration using `solve.c` (4.7 trillion nodes explored across 64 CPU cores in 1 hour) found **at least 20 million** unique pair orderings satisfying Rules 1-5. The enumeration was partial — none of the 56 search branches completed — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+A partial enumeration using `solve.c` (4.7 trillion nodes explored across 64 CPU cores in 1 hour) found **at least 31.6 million** unique pair orderings satisfying Rules 1-5. The enumeration was partial — none of the 56 search branches completed — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
 | Positions | Pairs observed | KW match rate | Character |
 |-----------|---------------|-------------------|-----------|
@@ -127,9 +127,9 @@ The millions of alternative arrangements satisfying Rules 1-5 are not random —
 
 ## What this means
 
-Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 20 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
+Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 31.6 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Whether further mathematical rules narrow those millions to King Wen uniquely, or King Wen is simply one choice among many, is an open question.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. A greedy search over the 31.6 million orderings found that **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) narrow the millions to exactly 1 — King Wen. The earlier claim that 2 boundaries sufficed was based on a 438-solution sample; at scale, 4 are needed.
 
 ## The numbers at a glance
 
@@ -140,8 +140,8 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 2 | No 5-line jumps | ~4% of step 1 |
 | 3 | Opposites kept close (3.9th percentile) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
-| 5 | Specific transition counts | **at least 20 million** (partial enumeration) |
-| ? | Unknown additional rules | **1 (King Wen)** |
+| 5 | Specific transition counts | **at least 31.6 million** (partial enumeration) |
+| 6 | 4 boundary constraints | **1 (King Wen)** |
 
 ## An important caveat
 

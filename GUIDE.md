@@ -193,7 +193,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 
 The pair structure is genuinely extraordinary. Complement distance is real but the [null model test](SOLVE-SUMMARY.md#an-important-caveat) shows it's less distinctive than it first appears — any sequence's complement distance would similarly narrow the search space. The genuinely special properties are the pair structure and the no-5-line-transition property.
 
-The constraint solver (`solve.py` + `solve.c`) goes further: 5 rules narrow 10^89 possibilities to **at least 20 million** valid orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. What makes King Wen unique among those millions is an open question. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
+The constraint solver (`solve.py` + `solve.c`) goes further: 5 rules narrow 10^89 possibilities to **at least 31.6 million** valid orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. Four additional boundary constraints uniquely determine King Wen among those millions. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
 
 ## Frequently asked questions
 
