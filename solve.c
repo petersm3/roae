@@ -148,6 +148,7 @@
  * Environment variables:
  *   SOLVE_THREADS=N          — override thread count
  *   SOLVE_HASH_LOG2=N        — hash table size as power of 2 (default: 22 = 4M slots)
+ *   SOLVE_NODE_LIMIT=N       — stop after N total nodes (deterministic, reproducible sha256)
  *
  * Graceful shutdown: handles SIGTERM/SIGINT — produces full output on signal.
  * Resume: reads checkpoint.txt on startup and skips completed branches.
@@ -349,6 +350,11 @@ static void signal_handler(int sig) {
 
 static time_t start_time;
 static int time_limit = 0;
+/* Node limit: stop after this many total nodes across all threads.
+ * Set via SOLVE_NODE_LIMIT env var. 0 = no limit.
+ * Unlike time limit, node limit is deterministic — same node limit on any
+ * hardware produces the same solutions.bin (reproducible sha256). */
+static long long node_limit = 0;
 
 /* ---------- Init functions ---------- */
 
@@ -641,6 +647,10 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
      * At ~1.3B nodes/sec across all threads, this fires ~26 times/sec total. */
     if (ts->nodes % 50000000 == 0) {
         if (time_limit > 0 && (time(NULL) - start_time) >= time_limit)
+            global_timed_out = 1;
+        /* Node limit: each thread checks its own share. With uniform work
+         * distribution, total nodes ≈ per-thread nodes × n_threads. */
+        if (node_limit > 0 && ts->nodes >= node_limit)
             global_timed_out = 1;
     }
     if (global_timed_out) return;
@@ -1169,6 +1179,12 @@ int main(int argc, char *argv[]) {
      * Default 0 = disabled. Set e.g. SOLVE_DEAD_LIMIT=100000000000 for 100B. */
     char *env_dead = getenv("SOLVE_DEAD_LIMIT");
     if (env_dead) dead_node_limit = atoll(env_dead);
+
+    /* Node limit for reproducible runs. E.g. SOLVE_NODE_LIMIT=5000000000000 for 5T. */
+    char *env_nodes = getenv("SOLVE_NODE_LIMIT");
+    if (env_nodes) node_limit = atoll(env_nodes);
+    if (node_limit > 0)
+        printf("Node limit: %lld (reproducible mode)\n", node_limit);
 
     init_pairs();
     init_kw_dist();
@@ -1751,6 +1767,11 @@ int main(int argc, char *argv[]) {
                 global_timed_out = 1;
                 break;
             }
+            /* Node limit check (aggregated across all threads) */
+            if (node_limit > 0 && tn >= node_limit) {
+                global_timed_out = 1;
+                break;
+            }
         }
 
         for (int i = 0; i < n_threads; i++)
@@ -2148,6 +2169,10 @@ int main(int argc, char *argv[]) {
         prev_branches_done = total_done;
 
         if (time_limit > 0 && (time(NULL) - start_time) >= time_limit) {
+            global_timed_out = 1;
+            break;
+        }
+        if (node_limit > 0 && tn >= node_limit) {
             global_timed_out = 1;
             break;
         }
