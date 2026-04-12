@@ -298,6 +298,8 @@ For example:
 
 This means **all freedom in the King Wen sequence is in positions 20-32** — only 13 pair positions are free. The first 19 positions (38 hexagrams) are entirely determined by the single choice at position 2.
 
+**Partial formal proof (`./solve --prove-cascade`):** Exhaustive enumeration of all 2^17 binary paths confirms the cascade is provably deterministic for 16 of 31 branches (pairs 1-18 at position 2) — the budget constraints alone force exactly 1 pair sequence. For 12 branches (pairs 19-31), the budget allows 18 configurations, but only 1 is observed empirically. The complement distance constraint (C3) eliminates the other 17. A full proof for all branches would require incorporating C3 into the exhaustive check.
+
 ### The 18 triple-survivors: a structured family
 
 After the best triple of boundaries (1, 21, 27), 18 non-KW solutions remain. They form a structured family:
