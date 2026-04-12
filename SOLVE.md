@@ -256,6 +256,15 @@ Several simpler alternatives were tested and ruled out:
 
 King Wen's uniqueness is irreducibly combinatorial: it requires specifying 4 specific adjacency relationships. No scalar property or simpler structural criterion suffices.
 
+Furthermore, exhaustive testing of all 31,465 quadruples of boundaries found that only **4 of 31,465 combinations work**. All 4 share the same rigid structure:
+
+- **Boundaries 21, 25, 27 are mandatory** — present in all 4 winning sets.
+- **The 4th boundary must be 1, 2, 3, or 4** — any of the first 4 positions works, but nothing else.
+- Boundaries 25 and 27 (the original C6/C7) are irreplaceable.
+- Boundary 21 (positions 21-22: Decrease/Increase + Breakthrough/Coming to Meet) is irreplaceable.
+
+The constraint structure is almost fully determined: 3 of 4 boundaries are fixed, and the 4th has only 4 choices — all in the heavily constrained early region (positions 1-5) where positions 3-4 have only 2 possible pairs.
+
 ### What the 1,055 survivors after C6+C7 look like
 
 The original 2 boundary constraints (boundaries 25 and 27) leave 1,055 non-KW solutions. These survivors reveal the structure of the remaining freedom:
