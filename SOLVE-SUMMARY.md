@@ -59,7 +59,11 @@ Examples from the King Wen sequence:
 | **5** | **(never occurs in King Wen)** | |
 | 6 | ䷀ The Creative #1 → ䷁ The Receptive #2 | `111111` → `000000` |
 
-See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
+The difference wave — each character represents one transition, height proportional to lines changed (1-6):
+
+`█▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█`
+
+The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No block reaches height 5 — that transition never occurs. See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
 
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
