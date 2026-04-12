@@ -144,10 +144,9 @@ interacts very differently with different position-2 pairs.
 
 ## What remains unknown
 
-- **The total count of valid orderings.** At least 31.6 million have been found; the true count
+- **The total count of valid orderings.** At least 20 million have been found; the true count
   is unknown and likely significantly larger. No branch has been fully explored.
-- **Whether King Wen is mathematically unique.** Four boundary constraints uniquely determine it
-  among the 31.6 million found so far, but it may also be the only ordering satisfying
+- **Whether King Wen is mathematically unique.** It may be the only ordering satisfying
   some undiscovered additional rule, or it may be one arbitrary choice among millions.
 - **Whether the "estimated dead" branches are truly dead.** They produced zero valid
   orderings in partial exploration, but exhaustive proof requires completing them.
