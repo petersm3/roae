@@ -742,70 +742,10 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
     }
 }
 
-/* ---------- Thread function (normal mode) ---------- */
-
-static void *thread_func(void *arg) {
-    ThreadState *ts = (ThreadState *)arg;
-    int start_pair_idx = pair_index_of(63, 0);
-
-    for (int br = 0; br < ts->n_branches; br++) {
-        if (global_timed_out) break;
-
-        int p = ts->branches[br].pair;
-        int orient = ts->branches[br].orient;
-
-        int seq[64];
-        int used[32];
-        int budget[7];
-
-        seq[0] = 63; seq[1] = 0;
-        memset(used, 0, sizeof(used));
-        used[start_pair_idx] = 1;
-        memcpy(budget, kw_dist, sizeof(budget));
-        budget[hamming(63, 0)]--;
-
-        int first = orient ? pairs[p].b : pairs[p].a;
-        int second = orient ? pairs[p].a : pairs[p].b;
-        int bd = hamming(seq[1], first);
-        if (bd == 5 || budget[bd] <= 0) continue;
-        budget[bd]--;
-        int wd = hamming(first, second);
-        if (budget[wd] <= 0) continue;
-        budget[wd]--;
-        seq[2] = first;
-        seq[3] = second;
-        used[p] = 1;
-
-        ts->branch_nodes = 0;  /* reset per-branch counter */
-        backtrack(ts, seq, used, budget, 2);
-
-        /* Only checkpoint if branch completed naturally (not interrupted by timeout).
-         * Bug fix: earlier version marked timed-out branches as "complete", causing
-         * resume mode to skip partially-explored branches. */
-        int budget_exhausted = (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit);
-        const char *status_label = (global_timed_out || budget_exhausted) ? "INTERRUPTED" : "COMPLETE";
-        if (!global_timed_out && !budget_exhausted)
-            ts->branches_completed++;
-
-        int done = __sync_add_and_fetch(&total_branches_completed, 1);
-        long elapsed = (long)(time(NULL) - start_time);
-        pthread_mutex_lock(&checkpoint_mutex);
-        FILE *ckpt = fopen("checkpoint.txt", "a");
-        if (ckpt) {
-            fprintf(ckpt, "Branch %s (thread %d, pair %d orient %d): "
-                    "%lld nodes, %lld C3-valid, %d stored, %lds elapsed\n",
-                    status_label, ts->thread_id, p, orient,
-                    ts->nodes, ts->solutions_c3, ts->solution_count, elapsed);
-            fclose(ckpt);
-        }
-        fprintf(stderr, "  *** Branch %d/%d %s (pair %d orient %d) at %lds ***\n",
-                done, total_branches, status_label, p, orient, elapsed);
-        pthread_mutex_unlock(&checkpoint_mutex);
-    }
-
-    __sync_fetch_and_add(&threads_completed, 1);
-    return NULL;
-}
+/* Note: the old depth-1 thread_func has been removed. Normal mode now uses
+ * thread_func_single with all ~3,030 sub-branches distributed across threads.
+ * This eliminates the "tail problem" where a few large branches monopolize
+ * single cores while the rest are idle. */
 
 /* Dead sub-branch detection: skip if >N nodes with 0 C3-valid.
  * Default 0 = disabled. Set SOLVE_DEAD_LIMIT=100000000000 for 100B. */
@@ -927,9 +867,19 @@ static void *thread_func_single(void *arg) {
 
         pthread_mutex_lock(&checkpoint_mutex);
 
-        /* Write per-sub-branch solution file on COMPLETE */
-        if (!global_timed_out && !sb_budget_exhausted) {
-            flush_sub_solutions(ts, p2, o2);
+        /* Always flush hash table to file after each sub-branch, then clear.
+         * This ensures thread-count independence: each sub-branch's solutions are
+         * written to its own file regardless of how many threads are running.
+         * The final merge reads all sub_*.bin files instead of thread hash tables.
+         * For INTERRUPTED sub-branches, solutions are still saved (they're valid
+         * even if the sub-branch didn't complete). */
+        if (ts->solution_count > 0) {
+            flush_sub_solutions(ts, p2, o2);  /* writes file AND clears table */
+        } else if (ts->sol_table) {
+            memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
+            memset(ts->sol_occupied, 0, sol_hash_size);
+            ts->solution_count = 0;
+            ts->hash_collisions = 0;
         }
 
         /* Write checkpoint entry */
@@ -1015,15 +965,22 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     fclose(sf);
 }
 
+/* Compare for qsort — compare pair identity first (orient bit masked out),
+ * then break ties by full byte value (including orient). This ensures
+ * deterministic sort order: among records with the same canonical pair ordering,
+ * the one with the smallest orient bits always comes first. Critical for
+ * thread-count-independent reproducibility in dedup. */
 static int compare_solutions(const void *a, const void *b) {
     const unsigned char *sa = (const unsigned char *)a;
     const unsigned char *sb = (const unsigned char *)b;
+    /* Primary: pair identity (orient masked out) */
     for (int i = 0; i < SOL_RECORD_SIZE; i++) {
         int ca = sa[i] & 0xFC;
         int cb = sb[i] & 0xFC;
         if (ca != cb) return ca - cb;
     }
-    return 0;
+    /* Secondary: full byte (orient as tiebreaker for deterministic dedup) */
+    return memcmp(sa, sb, SOL_RECORD_SIZE);
 }
 
 /* ---------- JSON output ---------- */
@@ -2102,57 +2059,95 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    /* ---------- Normal multi-branch mode ---------- */
+    /* ---------- Normal mode: enumerate all depth-2 sub-branches ---------- */
+    /* Instead of 56 branches (depth 1), enumerate ~3,030 sub-branches (depth 2).
+     * Each sub-branch = (pair1, orient1, pair2, orient2) fixing positions 0-3.
+     * Distributed round-robin across threads for optimal load balancing.
+     * This eliminates the "tail problem" where a few large branches run on
+     * single cores while the rest of the machine is idle. */
+
+    int start_pair = pair_index_of(63, 0);
 
     /* Resume from checkpoint */
-    load_checkpoint();
-    if (n_completed_from_checkpoint > 0) {
-        printf("Resuming: %d branches already completed (from checkpoint.txt)\n",
-               n_completed_from_checkpoint);
-        total_branches_completed = n_completed_from_checkpoint;
+    load_sub_checkpoint();
+    if (n_completed_subs > 0) {
+        printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
+               n_completed_subs);
+        total_branches_completed = n_completed_subs;
     }
 
-    /* Collect valid first-level branches */
-    int start_pair = pair_index_of(63, 0);
-    int n_branches = 0;
-    Branch all_branches[64];
+    /* Enumerate ALL valid depth-2 sub-branches across all 56 branches */
+    int n_all_subs = 0;
+    int n_skipped_subs = 0;
+    /* Max: 56 branches * 55 sub-branches = 3080, but static array is safer larger */
+    SubBranch *all_subs = malloc(4096 * sizeof(SubBranch));
 
-    for (int p = 0; p < 32; p++) {
-        if (p == start_pair) continue;
-        for (int orient = 0; orient < 2; orient++) {
-            if (is_branch_completed(p, orient)) continue;
+    for (int p1 = 0; p1 < 32; p1++) {
+        if (p1 == start_pair) continue;
+        for (int o1 = 0; o1 < 2; o1++) {
+            int f1 = o1 ? pairs[p1].b : pairs[p1].a;
+            int s1 = o1 ? pairs[p1].a : pairs[p1].b;
+            int bd1 = hamming(0, f1);  /* distance from Receptive to first hex */
+            if (bd1 == 5) continue;
+            int budget1[7];
+            memcpy(budget1, kw_dist, sizeof(budget1));
+            budget1[hamming(63, 0)]--;  /* pair 0 within-pair */
+            if (budget1[bd1] <= 0) continue;
+            budget1[bd1]--;
+            int wd1 = hamming(f1, s1);
+            if (budget1[wd1] <= 0) continue;
+            budget1[wd1]--;
 
-            int first = orient ? pairs[p].b : pairs[p].a;
-            int bd = hamming(0, first);
-            if (bd == 5) continue;
-            if (kw_dist[bd] == 0) continue;
-            int second = orient ? pairs[p].a : pairs[p].b;
-            int wd = hamming(first, second);
-            int test_budget[7];
-            memcpy(test_budget, kw_dist, sizeof(test_budget));
-            test_budget[hamming(63, 0)]--;
-            if (test_budget[bd] <= 0) continue;
-            test_budget[bd]--;
-            if (test_budget[wd] <= 0) continue;
+            /* Enumerate depth-2 sub-branches for this branch */
+            int used1[32]; memset(used1, 0, sizeof(used1));
+            used1[start_pair] = 1;
+            used1[p1] = 1;
 
-            all_branches[n_branches].pair = p;
-            all_branches[n_branches].orient = orient;
-            n_branches++;
+            for (int p2 = 0; p2 < 32; p2++) {
+                if (used1[p2]) continue;
+                for (int o2 = 0; o2 < 2; o2++) {
+                    int f2 = o2 ? pairs[p2].b : pairs[p2].a;
+                    int s2 = o2 ? pairs[p2].a : pairs[p2].b;
+                    int bd2 = hamming(s1, f2);
+                    if (bd2 == 5) continue;
+                    int budget2[7];
+                    memcpy(budget2, budget1, sizeof(budget2));
+                    if (budget2[bd2] <= 0) continue;
+                    budget2[bd2]--;
+                    int wd2 = hamming(f2, s2);
+                    if (budget2[wd2] <= 0) continue;
+
+                    /* Skip completed sub-branches (resume) */
+                    if (is_sub_branch_completed(p2, o2)) {
+                        n_skipped_subs++;
+                        continue;
+                    }
+
+                    all_subs[n_all_subs].pair1 = p1;
+                    all_subs[n_all_subs].orient1 = o1;
+                    all_subs[n_all_subs].pair2 = p2;
+                    all_subs[n_all_subs].orient2 = o2;
+                    n_all_subs++;
+                }
+            }
         }
     }
 
-    total_branches = n_branches + n_completed_from_checkpoint;
+    total_branches = n_all_subs + n_skipped_subs;
+    printf("Sub-branches: %d remaining", n_all_subs);
+    if (n_skipped_subs > 0) printf(" (%d completed from checkpoint)", n_skipped_subs);
+    printf(" of %d total\n", total_branches);
 
-    /* Per-branch node limit for thread-count-independent reproducibility */
+    /* Per-sub-branch node limit for thread-count-independent reproducibility */
     if (node_limit > 0 && total_branches > 0) {
         per_branch_node_limit = node_limit / total_branches;
-        printf("Per-branch node limit: %lld (%lld total / %d branches)\n",
+        printf("Per-sub-branch node limit: %lld (%lld total / %d sub-branches)\n",
                per_branch_node_limit, node_limit, total_branches);
     }
 
-    if (n_branches == 0) {
-        printf("All %d branches already completed (from checkpoint.txt).\n", total_branches);
-        printf("Delete checkpoint.txt to re-run from scratch.\n");
+    if (n_all_subs == 0) {
+        printf("All %d sub-branches already completed.\n", total_branches);
+        free(all_subs);
         return 0;
     }
 
@@ -2162,28 +2157,34 @@ int main(int argc, char *argv[]) {
     char *env_threads = getenv("SOLVE_THREADS");
     if (env_threads) n_threads = atoi(env_threads);
     if (arg_offset < argc - 1) n_threads = atoi(argv[arg_offset + 1]);
-    if (n_threads > n_branches) n_threads = n_branches;
+    if (n_threads > n_all_subs) n_threads = n_all_subs;
     if (n_threads < 1) n_threads = 1;
 
-    /* Distribute branches round-robin */
-    ThreadState threads[64];
-    Branch thread_branches[64][64];
-    int thread_branch_count[64];
-    memset(thread_branch_count, 0, sizeof(thread_branch_count));
+    /* Distribute sub-branches round-robin across threads */
+    ThreadState threads[256];  /* up to 256 threads */
+    SubBranch *thread_subs[256];
+    int thread_sub_count[256];
+    memset(thread_sub_count, 0, sizeof(thread_sub_count));
 
-    for (int i = 0; i < n_branches; i++) {
+    /* Allocate per-thread sub-branch arrays */
+    int max_per_thread = (n_all_subs + n_threads - 1) / n_threads + 1;
+    for (int i = 0; i < n_threads; i++)
+        thread_subs[i] = malloc(max_per_thread * sizeof(SubBranch));
+
+    for (int i = 0; i < n_all_subs; i++) {
         int tid = i % n_threads;
-        thread_branches[tid][thread_branch_count[tid]++] = all_branches[i];
+        thread_subs[tid][thread_sub_count[tid]++] = all_subs[i];
     }
+    free(all_subs);
 
     for (int i = 0; i < n_threads; i++) {
         memset(&threads[i], 0, sizeof(ThreadState));
         threads[i].thread_id = i;
-        threads[i].branches = thread_branches[i];
-        threads[i].n_branches = thread_branch_count[i];
-        threads[i].single_branch_mode = 0;
-        threads[i].sub_branches = NULL;
-        threads[i].n_sub_branches = 0;
+        threads[i].branches = NULL;
+        threads[i].n_branches = 0;
+        threads[i].single_branch_mode = 1;
+        threads[i].sub_branches = thread_subs[i];
+        threads[i].n_sub_branches = thread_sub_count[i];
         threads[i].top_count = 0;
         for (int j = 0; j < TOP_N; j++)
             threads[i].top_closest[j].edit_dist = 33;
@@ -2195,8 +2196,9 @@ int main(int argc, char *argv[]) {
     printf("Total hash memory: %d MB (%d threads x %d MB)\n",
            n_threads * (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576),
            n_threads, (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576));
-    printf("Branches: %d remaining (%d total), Threads: %d\n",
-           n_branches, total_branches, n_threads);
+    printf("Threads: %d (%d-%d sub-branches per thread)\n",
+           n_threads, n_all_subs / n_threads,
+           (n_all_subs + n_threads - 1) / n_threads);
     if (time_limit > 0)
         printf("Time limit: %d seconds (%.1f hours)\n", time_limit, time_limit / 3600.0);
     else
@@ -2215,10 +2217,10 @@ int main(int argc, char *argv[]) {
 
     start_time = time(NULL);
 
-    /* Launch threads */
-    pthread_t tids[64];
+    /* Launch threads — use thread_func_single which handles SubBranch work units */
+    pthread_t tids[256];
     for (int i = 0; i < n_threads; i++)
-        pthread_create(&tids[i], NULL, thread_func, &threads[i]);
+        pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
 
     /* Monitor progress */
     int report_counter = 0;
@@ -2242,7 +2244,7 @@ int main(int argc, char *argv[]) {
             tbd += threads[i].branches_completed;
             thc += threads[i].hash_collisions;
         }
-        int total_done = tbd + n_completed_from_checkpoint;
+        int total_done = tbd + n_completed_subs;
         long elapsed_now = (long)(time(NULL) - start_time);
         double pct = total_branches > 0 ? (double)total_done / total_branches * 100 : 0;
         double rate = elapsed_now > 0 ? tn / (double)elapsed_now / 1e6 : 0;
@@ -2251,9 +2253,9 @@ int main(int argc, char *argv[]) {
             first_branch_time = time(NULL);
 
         char eta_buf[64] = "";
-        if (total_done > n_completed_from_checkpoint && first_branch_time > 0) {
+        if (total_done > n_completed_subs && first_branch_time > 0) {
             long br_elapsed = (long)(time(NULL) - first_branch_time);
-            int new_done = total_done - n_completed_from_checkpoint;
+            int new_done = total_done - n_completed_subs;
             if (new_done > 0 && br_elapsed > 0) {
                 double br_rate = (double)new_done / br_elapsed;
                 int rem = total_branches - total_done;
@@ -2264,7 +2266,7 @@ int main(int argc, char *argv[]) {
         }
 
         fprintf(stderr, "  %.1fB nodes, %.1fM sol, %lld C3 (%d stored), "
-                "%d/%d branches (%.0f%%), %d/%d threads, %.0fM/s%s, %lds\n",
+                "%d/%d sub-branches (%.0f%%), %d/%d threads, %.0fM/s%s, %lds\n",
                 tn / 1e9, ts_val / 1e6, tc3, tu,
                 total_done, total_branches, pct,
                 threads_completed, n_threads,
@@ -2339,28 +2341,68 @@ int main(int argc, char *argv[]) {
             }
     int final_top_count = all_top_count < TOP_N ? all_top_count : TOP_N;
 
-    /* === De-duplicate and sort solutions === */
+    /* Free thread resources */
+    for (int i = 0; i < n_threads; i++) {
+        free(threads[i].sol_table);
+        free(threads[i].sol_occupied);
+        free(threads[i].sub_branches);
+    }
+
+    /* === Merge from sub_*.bin files (thread-count independent) === */
+    /* Each sub-branch wrote its solutions to sub_P2_O2.bin and cleared the
+     * hash table. The final merge reads all files, concatenates, sorts, deduplicates.
+     * This produces identical output regardless of thread count. */
     fflush(stdout);
-    printf("Merging %d stored solutions from %d threads...\n", total_stored, n_threads);
+    printf("Reading sub-branch solution files...\n");
     fflush(stdout);
 
-    unsigned char *all_solutions = NULL;
-    if (total_stored > 0)
-        all_solutions = malloc((size_t)total_stored * SOL_RECORD_SIZE);
-    int sol_offset = 0;
-    for (int i = 0; i < n_threads; i++) {
-        if (threads[i].sol_table && threads[i].sol_occupied) {
-            for (int s = 0; s < sol_hash_size; s++) {
-                if (threads[i].sol_occupied[s]) {
-                    memcpy(&all_solutions[(size_t)sol_offset * SOL_RECORD_SIZE], &threads[i].sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
-                    sol_offset++;
+    /* Count total records across all sub_*.bin files */
+    long long total_file_records = 0;
+    int n_sub_files = 0;
+    for (int p2 = 0; p2 < 32; p2++) {
+        for (int o2 = 0; o2 < 2; o2++) {
+            char fname[64];
+            snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+            FILE *tf = fopen(fname, "rb");
+            if (tf) {
+                fseek(tf, 0, SEEK_END);
+                long sz = ftell(tf);
+                fclose(tf);
+                if (sz > 0) {
+                    total_file_records += sz / SOL_RECORD_SIZE;
+                    n_sub_files++;
                 }
             }
         }
-        free(threads[i].sol_table);
-        free(threads[i].sol_occupied);
     }
-    total_stored = sol_offset;
+    printf("  Found %d sub-branch files with %lld total records\n", n_sub_files, total_file_records);
+
+    unsigned char *all_solutions = NULL;
+    if (total_file_records > 0)
+        all_solutions = malloc((size_t)total_file_records * SOL_RECORD_SIZE);
+
+    long long sol_offset = 0;
+    if (all_solutions) {
+        for (int p2 = 0; p2 < 32; p2++) {
+            for (int o2 = 0; o2 < 2; o2++) {
+                char fname[64];
+                snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+                FILE *tf = fopen(fname, "rb");
+                if (tf) {
+                    fseek(tf, 0, SEEK_END);
+                    long sz = ftell(tf);
+                    fseek(tf, 0, SEEK_SET);
+                    if (sz > 0) {
+                        if (fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
+                            printf("  WARNING: short read on %s\n", fname);
+                        sol_offset += sz / SOL_RECORD_SIZE;
+                    }
+                    fclose(tf);
+                }
+            }
+        }
+    }
+    total_stored = (int)sol_offset;
 
     printf("Sorting %d solutions...\n", total_stored);
     fflush(stdout);
@@ -2385,7 +2427,7 @@ int main(int argc, char *argv[]) {
 
     printf("Computing sha256...\n");
     fflush(stdout);
-    int total_done_final = branches_done + n_completed_from_checkpoint;
+    int total_done_final = branches_done + n_completed_subs;
     write_sha256_with_metadata("solutions.bin", "solutions.sha256",
                                 unique_count, total_nodes,
                                 total_branches, total_done_final);
@@ -2415,9 +2457,9 @@ int main(int argc, char *argv[]) {
     printf("Start: %s\n", time_buf);
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&end_time));
     printf("End:   %s\n", time_buf);
-    printf("Branches: %d/%d completed", total_done_final, total_branches);
-    if (n_completed_from_checkpoint > 0)
-        printf(" (%d from checkpoint)", n_completed_from_checkpoint);
+    printf("Sub-branches: %d/%d completed", total_done_final, total_branches);
+    if (n_completed_subs > 0)
+        printf(" (%d from checkpoint)", n_completed_subs);
     printf("\n");
     printf("======================================================================\n\n");
 
