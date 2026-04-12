@@ -276,6 +276,33 @@ The original 2 boundary constraints (boundaries 25 and 27) leave 1,055 non-KW so
 
 The 18 survivors after the best triple (boundaries 1, 21, 27) all differ from KW only at positions 23-31. Boundary 25 (the 4th constraint) eliminates these final 18 by fixing the pair at positions 25-26.
 
+### The shift pattern: positions 3-19 have exactly 2 options (universal)
+
+Across all 31.6 million solutions, positions 3-19 each have EXACTLY 2 possible pairs: King Wen's pair (pair i at position i) or the "shifted" pair (pair i-1 at position i). Zero exceptions — this is a mathematical property of the constraint structure, not a sampling artifact.
+
+| Positions | KW pair | Shifted pair | Character |
+|:---------:|:-------:|:------------:|-----------|
+| 3-6 | 1-6% | 94-99% | Shifted pair strongly dominates |
+| 7-14 | 23-29% | 71-77% | Shifted pair dominates |
+| 15-18 | 33-40% | 60-67% | More balanced |
+| 19 | 44% | 56% | Nearly even |
+| 20+ | multiple options | — | Shift pattern breaks |
+
+The shift pattern means the constraint structure creates a binary cascade: at each position from 3 to 19, either King Wen's pair or the previous pair goes there, and this choice propagates forward. Position 20 is where the cascade exhausts and multiple options emerge.
+
+### The 18 triple-survivors: a structured family
+
+After the best triple of boundaries (1, 21, 27), 18 non-KW solutions remain. They form a structured family:
+
+- **All 18 differ only at positions 23-31** — positions 1-22 are identical to King Wen.
+- **Only 6 positions vary** across the 18: positions 23, 24, 25, 26, 29, 31.
+- **Only 5 pairs are shuffled**: pairs 22 (Gathering), 24 (Revolution), 25 (Arousing), 28 (Gentle), 30 (Inner Truth).
+- **16 unique diff patterns** — the 18 solutions represent 16 distinct rearrangements of these 5 pairs across the 6 varying positions.
+- **Complement distances**: all are 384 or 388 (KW = 388). The survivors are nearly indistinguishable from KW by complement distance.
+- **Boundary 25 eliminates all 18** — this is why boundary 25 is the 4th required constraint.
+
+The 18 survivors are essentially King Wen with a small permutation in the deep free region (positions 23-31), exchanging structurally similar pairs. What King Wen's specific arrangement among these 18 alternatives reflects — mathematical principle or historical choice — remains unknown.
+
 ### Self-complementary branches are always live (constructive proof)
 
 A pair is self-complementary when its two hexagrams are bitwise complements (XOR = 111111). Of the 8 self-complementary pairs, 7 can appear at position 2 (pair 0 is already at position 1). All 7 produce valid orderings — verified by extracting concrete solutions from the enumeration data and checking all 5 constraints.
