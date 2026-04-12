@@ -59,18 +59,6 @@ Examples from the King Wen sequence:
 | **5** | **(never occurs in King Wen)** | |
 | 6 | ䷀ The Creative #1 → ䷁ The Receptive #2 | `111111` → `000000` |
 
-The difference wave — Hamming distances between all 63 consecutive pairs — visualized as a bar chart. Row 5 is never reached except by transitions that pass through it to 6:
-
-```
-  6 │█         █     █         █ █        █              █       █ █│  9 transitions of 6
-  5 │█         █     █         █ █        █              █       █ █│  0 transitions of 5 (never occurs)
-  4 │█ ███  █ ██  █  █ █     █ █ █   ███ ███  █  █   ███ █   █   █ █│ 19 transitions of 4
-  3 │█ ████ █ ██  █  ████   ██ █ ██ ████ ████ █ ███ ████ █  ███  ███│ 13 transitions of 3
-  2 │███████████████████████████████████████████████████ ███████ ███│ 20 transitions of 2
-  1 │███████████████████████████████████████████████████████████████│  2 transitions of 1
-    └───────────────────────────────────────────────────────────────┘
-```
-
 See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
 
 **What this does:** Eliminates about 96% of the remaining arrangements.
