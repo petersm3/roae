@@ -1,5 +1,7 @@
 # Received Order Analysis Engine (ROAE)
 
+> **Research in progress.** This project is under active development. Findings are preliminary, based on partial enumeration (no branch of the search tree has been fully explored), and subject to revision as the analysis deepens. Earlier versions of this documentation contained claims that were later invalidated by larger-scale computation — see commit history for the evolution of findings. Nothing here should be treated as definitive.
+
 Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)
 
 <mark>**[䷀䷁](SOLVE-SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
