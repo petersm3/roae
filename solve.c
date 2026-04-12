@@ -753,6 +753,58 @@ static void *thread_func(void *arg) {
     return NULL;
 }
 
+/* Dead sub-branch detection: skip if >N nodes with 0 C3-valid.
+ * Default 0 = disabled. Set SOLVE_DEAD_LIMIT=100000000000 for 100B. */
+static long long dead_node_limit = 0;
+
+/* Write per-sub-branch solution file from thread's hash table.
+ * Called with checkpoint_mutex held. */
+static void flush_sub_solutions(ThreadState *ts, int p2, int o2) {
+    if (!ts->sol_table || !ts->sol_occupied || ts->solution_count == 0) return;
+    char fname[64];
+    snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+    FILE *sf = fopen(fname, "wb");
+    if (sf) {
+        int written = 0;
+        for (int s = 0; s < sol_hash_size; s++) {
+            if (ts->sol_occupied[s]) {
+                fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf);
+                written++;
+            }
+        }
+        fclose(sf);
+        fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
+    }
+    /* Clear hash table for next sub-branch */
+    memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
+    memset(ts->sol_occupied, 0, sol_hash_size);
+    ts->solution_count = 0;
+    ts->hash_collisions = 0;
+}
+
+/* Update progress file with current status.
+ * Called with checkpoint_mutex held. */
+static void update_progress(int completed, int total, long elapsed) {
+    FILE *pf = fopen("progress.txt", "w");
+    if (!pf) return;
+    fprintf(pf, "Sub-branches: %d/%d complete\n", completed, total);
+    fprintf(pf, "Elapsed: %lds (%.1f hours)\n", elapsed, elapsed / 3600.0);
+    double cost = elapsed / 3600.0 * 0.79;  /* spot F64 rate */
+    fprintf(pf, "Estimated cost: $%.2f\n", cost);
+    if (completed > 0 && elapsed > 0) {
+        double rate = (double)completed / elapsed;
+        int remaining = total - completed;
+        long eta_sec = (long)(remaining / rate);
+        fprintf(pf, "ETA: %ld hours %ld minutes\n", eta_sec / 3600, (eta_sec % 3600) / 60);
+        fprintf(pf, "Projected total cost: $%.2f\n", (elapsed + eta_sec) / 3600.0 * 0.79);
+    }
+    time_t now = time(NULL);
+    char tbuf[64];
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&now));
+    fprintf(pf, "Last updated: %s\n", tbuf);
+    fclose(pf);
+}
+
 /* ---------- Thread function (single-branch mode) ---------- */
 
 static void *thread_func_single(void *arg) {
@@ -763,6 +815,10 @@ static void *thread_func_single(void *arg) {
         if (global_timed_out) break;
 
         SubBranch *sb = &ts->sub_branches[br];
+
+        /* Track per-sub-branch node count for dead detection */
+        long long nodes_before = ts->nodes;
+        long long c3_before = ts->solutions_c3;
 
         int seq[64];
         int used[32];
@@ -803,23 +859,51 @@ static void *thread_func_single(void *arg) {
 
         backtrack(ts, seq, used, budget, 3);
 
+        long long sub_nodes = ts->nodes - nodes_before;
+        long long sub_c3 = ts->solutions_c3 - c3_before;
+
         const char *sb_status = global_timed_out ? "INTERRUPTED" : "COMPLETE";
         if (!global_timed_out)
             ts->branches_completed++;
 
         int done = __sync_add_and_fetch(&total_branches_completed, 1);
         long elapsed = (long)(time(NULL) - start_time);
+
         pthread_mutex_lock(&checkpoint_mutex);
+
+        /* Write per-sub-branch solution file on COMPLETE */
+        if (!global_timed_out) {
+            flush_sub_solutions(ts, p2, o2);
+        }
+
+        /* Write checkpoint entry */
         FILE *ckpt = fopen("checkpoint.txt", "a");
         if (ckpt) {
             fprintf(ckpt, "Sub-branch %s (thread %d, pair2 %d orient2 %d): "
-                    "%lld nodes, %lld C3-valid, %d stored, %lds elapsed\n",
+                    "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed\n",
                     sb_status, ts->thread_id, p2, o2,
-                    ts->nodes, ts->solutions_c3, ts->solution_count, elapsed);
+                    sub_nodes, sub_c3, ts->solution_count, elapsed);
             fclose(ckpt);
         }
-        fprintf(stderr, "  *** Sub-branch %d/%d %s (pair2 %d orient2 %d) at %lds ***\n",
-                done, total_branches, sb_status, p2, o2, elapsed);
+
+        /* Update progress file */
+        int total_complete = 0;
+        /* Count COMPLETE entries (thread-safe since we hold the mutex) */
+        FILE *cpf = fopen("checkpoint.txt", "r");
+        if (cpf) {
+            char line[512];
+            while (fgets(line, sizeof(line), cpf))
+                if (strstr(line, "COMPLETE") && strstr(line, "Sub-branch"))
+                    total_complete++;
+            fclose(cpf);
+        }
+        update_progress(total_complete, total_branches, elapsed);
+
+        fprintf(stderr, "  *** Sub-branch %d/%d %s (pair2 %d orient2 %d): "
+                "%lldB nodes, %lldM C3, %d solutions, %lds ***\n",
+                done, total_branches, sb_status, p2, o2,
+                sub_nodes / 1000000000LL, sub_c3 / 1000000LL,
+                ts->solution_count, elapsed);
         pthread_mutex_unlock(&checkpoint_mutex);
     }
 
@@ -1032,9 +1116,13 @@ int main(int argc, char *argv[]) {
 
     int list_branches_mode = 0;
     int validate_mode = 0;
+    int merge_mode = 0;
     char *validate_file = NULL;
 
-    if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
+    if (argc > 1 && strcmp(argv[1], "--merge") == 0) {
+        merge_mode = 1;
+        arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
         validate_mode = 1;
         validate_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
@@ -1076,6 +1164,11 @@ int main(int argc, char *argv[]) {
     }
     sol_hash_size = 1 << sol_hash_log2;
     sol_hash_mask = sol_hash_size - 1;
+
+    /* Dead sub-branch detection: skip sub-branches with >N nodes and 0 C3-valid.
+     * Default 0 = disabled. Set e.g. SOLVE_DEAD_LIMIT=100000000000 for 100B. */
+    char *env_dead = getenv("SOLVE_DEAD_LIMIT");
+    if (env_dead) dead_node_limit = atoll(env_dead);
 
     init_pairs();
     init_kw_dist();
@@ -1226,6 +1319,117 @@ int main(int argc, char *argv[]) {
         else
             printf("  Result: VALIDATION FAILED\n");
         return errors > 0 ? 1 : 0;
+    }
+
+    /* --- Merge mode: combine sub_*.bin files into one sorted, deduped output --- */
+    if (merge_mode) {
+        printf("\nMerge mode: combining sub_*.bin files...\n");
+
+        /* Count and list sub_*.bin files using a simple scan */
+        char filenames[64][64];
+        int n_files = 0;
+        for (int p2 = 0; p2 < 32; p2++) {
+            for (int o2 = 0; o2 < 2; o2++) {
+                char fname[64];
+                snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+                FILE *tf = fopen(fname, "rb");
+                if (tf) {
+                    fseek(tf, 0, SEEK_END);
+                    long sz = ftell(tf);
+                    fclose(tf);
+                    if (sz > 0) {
+                        snprintf(filenames[n_files], 64, "%s", fname);
+                        n_files++;
+                        printf("  Found %s: %ld bytes (%ld solutions)\n",
+                               fname, sz, sz / SOL_RECORD_SIZE);
+                    }
+                }
+            }
+        }
+        if (n_files == 0) {
+            printf("No sub_*.bin files found.\n");
+            return 1;
+        }
+        printf("  %d files to merge\n", n_files);
+
+        /* Read all files into one buffer */
+        long long total_records = 0;
+        for (int i = 0; i < n_files; i++) {
+            FILE *tf = fopen(filenames[i], "rb");
+            fseek(tf, 0, SEEK_END);
+            total_records += ftell(tf) / SOL_RECORD_SIZE;
+            fclose(tf);
+        }
+        printf("  Total records before dedup: %lld\n", total_records);
+
+        unsigned char *all = malloc((size_t)total_records * SOL_RECORD_SIZE);
+        if (!all) { printf("ERROR: malloc failed for %lld records\n", total_records); return 1; }
+
+        long long offset = 0;
+        for (int i = 0; i < n_files; i++) {
+            FILE *tf = fopen(filenames[i], "rb");
+            fseek(tf, 0, SEEK_END);
+            long sz = ftell(tf);
+            fseek(tf, 0, SEEK_SET);
+            if (fread(&all[offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
+                printf("  WARNING: short read on %s\n", filenames[i]);
+            offset += sz / SOL_RECORD_SIZE;
+            fclose(tf);
+        }
+
+        printf("  Sorting %lld records...\n", total_records);
+        qsort(all, total_records, SOL_RECORD_SIZE, compare_solutions);
+
+        /* Dedup */
+        long long unique = 0;
+        for (long long i = 0; i < total_records; i++) {
+            if (i == 0 || compare_solutions(
+                    &all[i * SOL_RECORD_SIZE],
+                    &all[(i - 1) * SOL_RECORD_SIZE]) != 0) {
+                if (unique != i)
+                    memcpy(&all[unique * SOL_RECORD_SIZE],
+                           &all[i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
+                unique++;
+            }
+        }
+        printf("  Unique solutions: %lld (removed %lld duplicates)\n",
+               unique, total_records - unique);
+
+        /* Write merged output */
+        char outname[64] = "solutions_merged.bin";
+        printf("  Writing %s...\n", outname);
+        FILE *of = fopen(outname, "wb");
+        if (of) { fwrite(all, SOL_RECORD_SIZE, unique, of); fclose(of); }
+        free(all);
+
+        /* sha256 */
+        char sha_cmd[256];
+        snprintf(sha_cmd, sizeof(sha_cmd),
+                 "sha256sum %s > %s.sha256 2>/dev/null || shasum -a 256 %s > %s.sha256 2>/dev/null",
+                 outname, outname, outname, outname);
+        int _u = system(sha_cmd); (void)_u;
+
+        char hash[130] = {0};
+        char hashfile[80];
+        snprintf(hashfile, sizeof(hashfile), "%s.sha256", outname);
+        FILE *hf = fopen(hashfile, "r");
+        if (hf) { if (fgets(hash, sizeof(hash), hf)) {} fclose(hf); }
+
+        printf("\n--- Merge results ---\n");
+        printf("  Input files:     %d\n", n_files);
+        printf("  Total records:   %lld\n", total_records);
+        printf("  Unique solutions: %lld\n", unique);
+        printf("  Output:          %s (%lld bytes)\n", outname, unique * SOL_RECORD_SIZE);
+        printf("  sha256:          %s\n", hash);
+
+        /* Validate merged output */
+        printf("\nValidating merged output...\n");
+        int _v = 0;
+        char val_cmd[128];
+        snprintf(val_cmd, sizeof(val_cmd), "./solve --validate %s", outname);
+        _v = system(val_cmd); (void)_v;
+
+        return 0;
     }
 
     printf("Hash table: %d slots (2^%d) x %d bytes = %d MB per thread\n",
