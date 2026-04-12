@@ -452,6 +452,39 @@ static int is_branch_completed(int pair, int orient) {
     return 0;
 }
 
+/* Sub-branch checkpoint for single-branch mode.
+ * Format: "Sub-branch COMPLETE (thread T, pair2 P orient2 O): ..." */
+static int completed_sub_branches[64][2]; /* [pair2, orient2] */
+static int n_completed_subs = 0;
+
+static void load_sub_checkpoint(void) {
+    FILE *f = fopen("checkpoint.txt", "r");
+    if (!f) return;
+    char line[512];
+    while (fgets(line, sizeof(line), f)) {
+        if (strstr(line, "INTERRUPTED")) continue;
+        if (!strstr(line, "Sub-branch")) continue;
+        int pair2_val, orient2_val;
+        char *p = strstr(line, "pair2 ");
+        if (!p) continue;
+        if (sscanf(p, "pair2 %d orient2 %d", &pair2_val, &orient2_val) == 2) {
+            completed_sub_branches[n_completed_subs][0] = pair2_val;
+            completed_sub_branches[n_completed_subs][1] = orient2_val;
+            n_completed_subs++;
+            if (n_completed_subs >= 64) break;
+        }
+    }
+    fclose(f);
+}
+
+static int is_sub_branch_completed(int pair2, int orient2) {
+    for (int i = 0; i < n_completed_subs; i++) {
+        if (completed_sub_branches[i][0] == pair2 && completed_sub_branches[i][1] == orient2)
+            return 1;
+    }
+    return 0;
+}
+
 /* ---------- Solution analysis ---------- */
 
 static void analyze_solution(ThreadState *ts, const int seq[64]) {
@@ -1361,8 +1394,17 @@ int main(int argc, char *argv[]) {
         seq_prefix[2] = f1; seq_prefix[3] = s1;
         used_prefix[sb_pair] = 1;
 
-        /* Enumerate depth-2 sub-branches */
+        /* Load sub-branch checkpoint for resume */
+        load_sub_checkpoint();
+        if (n_completed_subs > 0) {
+            printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
+                   n_completed_subs);
+            total_branches_completed = n_completed_subs;
+        }
+
+        /* Enumerate depth-2 sub-branches, skipping completed ones */
         int n_sub = 0;
+        int n_skipped = 0;
         SubBranch all_sub[64];
 
         for (int p2 = 0; p2 < 32; p2++) {
@@ -1379,6 +1421,12 @@ int main(int argc, char *argv[]) {
                 int wd2 = hamming(f2, s2);
                 if (test_budget[wd2] <= 0) continue;
 
+                /* Skip completed sub-branches (resume) */
+                if (is_sub_branch_completed(p2, o2)) {
+                    n_skipped++;
+                    continue;
+                }
+
                 all_sub[n_sub].pair1 = sb_pair;
                 all_sub[n_sub].orient1 = sb_orient;
                 all_sub[n_sub].pair2 = p2;
@@ -1387,9 +1435,16 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        printf("Sub-branches for pair %d orient %d: %d\n", sb_pair, sb_orient, n_sub);
-        total_branches = n_sub;
+        printf("Sub-branches for pair %d orient %d: %d remaining", sb_pair, sb_orient, n_sub);
+        if (n_skipped > 0) printf(" (%d completed from checkpoint)", n_skipped);
+        printf("\n");
+        total_branches = n_sub + n_skipped;
 
+        if (n_sub == 0 && n_skipped > 0) {
+            printf("All %d sub-branches already completed (from checkpoint.txt).\n", n_skipped);
+            printf("Delete checkpoint.txt to re-run from scratch.\n");
+            return 0;
+        }
         if (n_sub == 0) {
             printf("No valid sub-branches found.\n");
             return 1;
