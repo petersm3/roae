@@ -59,6 +59,18 @@ Examples from the King Wen sequence:
 | **5** | **(never occurs in King Wen)** | |
 | 6 | ䷀ The Creative #1 → ䷁ The Receptive #2 | `111111` → `000000` |
 
+The difference wave — Hamming distances between all 63 consecutive pairs — visualized as a bar chart. Row 5 is never reached except by transitions that pass through it to 6:
+
+```
+  6 │█         █     █         █ █        █              █       █ █│  9 transitions
+  5 │█         █     █         █ █        █              █       █ █│  ← never occurs
+  4 │█ ███  █ ██  █  █ █     █ █ █   ███ ███  █  █   ███ █   █   █ █│ 19 transitions
+  3 │█ ████ █ ██  █  ████   ██ █ ██ ████ ████ █ ███ ████ █  ███  ███│ 13 transitions
+  2 │███████████████████████████████████████████████████ ███████ ███│ 20 transitions
+  1 │███████████████████████████████████████████████████████████████│  2 transitions
+    └───────────────────────────────────────────────────────────────┘
+```
+
 See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
 
 **What this does:** Eliminates about 96% of the remaining arrangements.
@@ -236,6 +248,10 @@ Pair: 3↔50
 Every consecutive hexagram transition, showing the number of lines that change
 ([Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)).
 A distance of 5 never occurs — this is [Rule 2](#rule-2-no-5-line-jumps).
+
+**The difference wave** — the sequence of Hamming distances read left to right:
+
+`6 2 4 4 4 3 2 4 2 4 6 2 2 4 2 2 6 3 4 3 2 2 2 3 4 2 6 2 6 3 2 3 4 4 4 2 4 6 4 3 2 4 2 3 4 3 2 3 4 4 4 1 6 2 2 3 4 3 2 1 6 3 6`
 
 **Transition counts:** 1: 2, 2: 20, 3: 13, 4: 19, **5: 0 (never)**, 6: 9
 
