@@ -137,7 +137,7 @@ Six additional analyses probe the structure more deeply (`--deep`):
 
 ### Constrained enumeration (`--enumerate`)
 
-Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (4.7 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings. **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
+Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (10 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings. **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
 
 The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
 
@@ -172,7 +172,7 @@ The most powerful analysis (`--differential`) generates all solutions satisfying
 
 ### Results
 
-A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (4.7 trillion nodes on 64 cores, 1 hour, 0/56 branches completed) found **at least 31.6 million unique pair orderings** — the true solution space is vastly larger than this early sample suggested, and the 20 million figure is itself a lower bound.
+A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (10 trillion nodes on 64 cores, 0/56 branches completed) found **at least 31.6 million unique pair orderings** — the true solution space is vastly larger than this early sample suggested.
 
 **8 features where King Wen is extremal (rank 13,296/13,296).** However, 6 are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, total path length, and max run length are identical across ALL solutions.
 
@@ -209,7 +209,7 @@ The remaining ~974 solutions share 26-32 of 32 pair positions with King Wen — 
 
 The fingerprint analysis reveals the precise structure of the remaining freedom:
 
-**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (4.7 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings (partial enumeration — true count is higher), fundamentally revising these findings.**
+**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (10 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings (partial enumeration — true count is higher), fundamentally revising these findings.**
 
 **Only 1 of 32 pair positions is universally locked** (Position 1: Creative/Receptive). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
 

@@ -71,7 +71,7 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 **Conjecture (Uniqueness):** Constraints C1-C5 plus C6 and C7 significantly narrow the solution space, but their sufficiency for uniqueness is unconfirmed at scale.
 
-**Evidence (from large-scale enumeration, 4.7 trillion nodes on 64 cores):**
+**Evidence (from large-scale enumeration, 10 trillion nodes on 64 cores):**
 - C1 reduces the search space from 64! (~10⁸⁹) to 32! × 2³² (~10⁴⁵).
 - C2 eliminates ~96% of C1 solutions.
 - C3 further restricts to ~3.9% of C1+C2 solutions.

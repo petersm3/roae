@@ -92,11 +92,11 @@ The sequence begins with the two most extreme hexagrams: all solid lines (䷀ Th
 
 The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
 
-**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 4.7 trillion nodes on 64 cores) found at least 31.6 million valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling.
+**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes on 64 cores) found at least 31.6 million valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling.
 
 ### What the rules determine — and what remains open
 
-A partial enumeration using `solve.c` (4.7 trillion nodes explored across 64 CPU cores in 1 hour) found **at least 31.6 million** unique pair orderings satisfying Rules 1-5. The enumeration was partial — none of the 56 search branches completed — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+A partial enumeration using `solve.c` (10 trillion nodes explored across 64 CPU cores) found **at least 31.6 million** unique pair orderings satisfying Rules 1-5. The enumeration was partial — none of the 56 search branches completed — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
 | Positions | Pairs observed | KW match rate | Character |
 |-----------|---------------|-------------------|-----------|
