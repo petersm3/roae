@@ -62,12 +62,12 @@ Examples from the King Wen sequence:
 The difference wave — Hamming distances between all 63 consecutive pairs — visualized as a bar chart. Row 5 is never reached except by transitions that pass through it to 6:
 
 ```
-  6 │█         █     █         █ █        █              █       █ █│  9 transitions
-  5 │█         █     █         █ █        █              █       █ █│  ← never occurs
-  4 │█ ███  █ ██  █  █ █     █ █ █   ███ ███  █  █   ███ █   █   █ █│ 19 transitions
-  3 │█ ████ █ ██  █  ████   ██ █ ██ ████ ████ █ ███ ████ █  ███  ███│ 13 transitions
-  2 │███████████████████████████████████████████████████ ███████ ███│ 20 transitions
-  1 │███████████████████████████████████████████████████████████████│  2 transitions
+  6 │█         █     █         █ █        █              █       █ █│  9 transitions of 6
+  5 │█         █     █         █ █        █              █       █ █│  0 transitions of 5 (never occurs)
+  4 │█ ███  █ ██  █  █ █     █ █ █   ███ ███  █  █   ███ █   █   █ █│ 19 transitions of 4
+  3 │█ ████ █ ██  █  ████   ██ █ ██ ████ ████ █ ███ ████ █  ███  ███│ 13 transitions of 3
+  2 │███████████████████████████████████████████████████ ███████ ███│ 20 transitions of 2
+  1 │███████████████████████████████████████████████████████████████│  2 transitions of 1
     └───────────────────────────────────────────────────────────────┘
 ```
 
