@@ -163,6 +163,10 @@
 #include <signal.h>
 #include <stdint.h>
 
+#ifndef GIT_HASH
+#define GIT_HASH "unknown"
+#endif
+
 /* ---------- King Wen sequence: 64 hexagrams as 6-bit integers ---------- */
 /* Each value 0-63 encodes a hexagram's six lines as bits (0=yin, 1=yang).
  * Index 0 = hexagram #1 (Creative, 111111 = 63), index 1 = hexagram #2
@@ -1244,9 +1248,6 @@ int main(int argc, char *argv[]) {
     init_super_pairs();
     init_pair_order();
 
-#ifndef GIT_HASH
-#define GIT_HASH "unknown"
-#endif
     printf("Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
     printf("King Wen complement distance (x64): %d (= %.4f)\n",
            kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
