@@ -759,9 +759,13 @@ static long long dead_node_limit = 0;
  * Called with checkpoint_mutex held. */
 static void flush_sub_solutions(ThreadState *ts, int p2, int o2) {
     if (!ts->sol_table || !ts->sol_occupied || ts->solution_count == 0) return;
-    char fname[64];
+    char fname[64], tmpname[64];
     snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
-    FILE *sf = fopen(fname, "wb");
+    snprintf(tmpname, sizeof(tmpname), "sub_%d_%d.bin.tmp", p2, o2);
+    /* Write to temp file, fsync, then atomic rename.
+     * If evicted mid-write, the temp file is incomplete but the
+     * previous version (if any) is intact. */
+    FILE *sf = fopen(tmpname, "wb");
     if (sf) {
         int written = 0;
         for (int s = 0; s < sol_hash_size; s++) {
@@ -770,7 +774,10 @@ static void flush_sub_solutions(ThreadState *ts, int p2, int o2) {
                 written++;
             }
         }
+        fflush(sf);
+        fsync(fileno(sf));
         fclose(sf);
+        rename(tmpname, fname);  /* atomic on Linux */
         fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
     }
     /* Clear hash table for next sub-branch */
@@ -976,13 +983,21 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
  * thread-count-independent reproducibility in dedup. */
 /* Exhaustive search for C3-valid completions at positions step..31.
  * Used by --prove-cascade to verify no non-KW config has valid completions. */
+/* Time limit for proof_search, set by caller. 0 = no limit. */
+static volatile time_t proof_search_deadline = 0;
+static volatile int proof_search_timed_out = 0;
+
 static void proof_search(int seq[64], int used[32], int budget[7],
                          int step, int last, long long *nodes, int *found) {
     (*nodes)++;
-    if (*found) return;
-    if ((*nodes) % 1000000000LL == 0) {
-        fprintf(stderr, " %lldB nodes...", (*nodes) / 1000000000LL);
+    if (*found || proof_search_timed_out) return;
+    if ((*nodes) % 50000000LL == 0) {
+        if ((*nodes) % 1000000000LL == 0)
+            fprintf(stderr, " %lldB...", (*nodes) / 1000000000LL);
+        if (proof_search_deadline > 0 && time(NULL) >= proof_search_deadline)
+            proof_search_timed_out = 1;
     }
+    if (proof_search_timed_out) return;
 
     if (step == 32) {
         int cd = compute_comp_dist_x64(seq);
@@ -2087,6 +2102,12 @@ int main(int argc, char *argv[]) {
                            ci + 1, n_multi, step);
                     fflush(stdout);
                     long long cnodes = 0;
+                    /* Set per-config time limit (300s = 5 min, or 0 for no limit) */
+                    int config_time_limit = 300; /* default 5 min survey */
+                    char *env_ctl = getenv("PROVE_CONFIG_TIMEOUT");
+                    if (env_ctl) config_time_limit = atoi(env_ctl);
+                    proof_search_timed_out = 0;
+                    proof_search_deadline = config_time_limit > 0 ? time(NULL) + config_time_limit : 0;
                     proof_search(seq, used, budget, step, last_hex, &cnodes, &found_c3);
                     total_nodes += cnodes;
                 }
@@ -2095,6 +2116,11 @@ int main(int argc, char *argv[]) {
                     printf(" FOUND (%lld nodes). NOT eliminated.\n", total_nodes);
                     fflush(stdout);
                     full_proved = 0;
+                } else if (proof_search_timed_out) {
+                    printf(" TIMEOUT (%lld nodes in %ds). Inconclusive.\n",
+                           total_nodes, 300);
+                    fflush(stdout);
+                    full_proved = 0;  /* can't claim proved if timed out */
                 } else {
                     printf(" exhausted (%lld nodes). Eliminated.\n", total_nodes);
                     fflush(stdout);
