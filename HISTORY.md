@@ -103,11 +103,37 @@ Each sub-branch writes solutions to a per-sub-branch file (`sub_P2_O2.bin`), the
 
 This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M dataset remained the reference for analysis.
 
-**100T run deployed:** To get a dataset with KW present AND 3,030-mode load balancing, a 100T run was started on a spot F64 ($0.79/hr). See [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) for tracking. Per-sub-branch budget: 33B — 10x more than the failed 10T run. Estimated time: ~20 hours.
+**100T run deployed — then lost to spot eviction.** A 100T run was started on a spot F64 ($0.79/hr). It reached ~35% (1,022/3,030 sub-branches) in ~6.5 hours before the VM was evicted by Azure. **All progress was lost.** The monitor had been syncing files from the prior 10T run's data in `spot_work/`, not the new 100T run's data. The bug: the 100T deployment cleared files on the VM, but the monitor never synced the new checkpoint before eviction — it still had stale files from the previous run and didn't detect the discrepancy.
 
-**The shift pattern:** Across all 31.6M solutions, positions 3-19 have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. Zero exceptions. This is universal, not a sampling artifact.
+**Mitigations for next deployment:**
+- Persistent managed disk ($1/month) that survives VM deallocation — data lives on the disk, not the ephemeral OS disk
+- Atomic file writes in solve.c (write to .tmp, fsync, rename) — prevents corrupt files from mid-write eviction
+- Rotating checkpoints (3 copies) on the local VM
+- Run ID verification — monitor confirms it's syncing the right run's data
+- Immediate sync after deployment — confirms connection before waiting 5 minutes
+- Exponential backoff on retry (1h → 2h → 4h)
 
-**Position 2 determines positions 3-19:** Within each branch, positions 3-19 have exactly ONE configuration — empirically observed across all 16 live branches in the 31.6M dataset (zero exceptions). Formal proof is partial: 16 of 31 branches proved by budget constraints alone; 12 branches require the complement distance constraint (C3) to eliminate 17 of 18 budget-feasible alternatives (full proof running). The choice at position 2 deterministically locks the next 17 positions through budget constraint propagation. All freedom in the King Wen sequence is in positions 20-32 — only 13 pair positions are genuinely free.
+**The shift pattern:** Across all 31.6M solutions, positions 3-19 have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. Zero exceptions. This is universal in the dataset, not a sampling artifact. However, `./solve --prove-shift` revealed that the budget constraints alone allow 13-30 candidates per position — the filtering to exactly 2 is driven by the complement distance constraint (C3), not budget propagation alone.
+
+**Position 2 and the cascade — partially disproven.** The empirical observation that position 2 determines positions 3-19 (1 configuration per branch, zero exceptions in 31.6M solutions) turned out to be incomplete. A formal proof attempt (`--prove-cascade`) showed:
+
+- **16 of 31 branches (pairs 1-18):** Cascade is deterministic. Budget constraints alone force exactly 1 pair sequence at positions 3-19. Proved.
+- **12 branches (pairs 19-31):** Budget allows 18 configurations. A full C3-incorporating proof found that **Config 2 of branch pair 19 has a valid alternative** (found in 1,480 nodes). The cascade is NOT fully deterministic — rare alternative configurations exist.
+
+A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectrum:
+
+- **Branch 24 (Revolution/Cauldron):** All 17 non-KW configs have valid alternatives — maximum freedom at positions 3-19
+- **Branches 22, 23:** 12/17 valid — mostly open
+- **Branch 20:** 4/17 valid — partially open
+- **Branch 19:** 1/17 valid — nearly deterministic
+- **Branch 25:** 0/17 found in 5 minutes — either deterministic or trees too large
+- **Remaining branches:** survey in progress
+
+**Key correction:** The earlier claim "all freedom is in positions 20-32 — only 13 positions are free" was wrong for half the branches. For King Wen's own branch (pair 1), the cascade IS proved deterministic (one of the 16 budget-proved branches). But the universal claim does not hold.
+
+**Self-complementary proof (`--prove-self-comp`):** Proved in seconds. All 7 eligible self-complementary branches produce valid orderings. Reproducible via `./solve --prove-self-comp`.
+
+**Shift pattern proof attempt (`--prove-shift`):** The budget allows 13-30 candidates per position, not 2. The observed 2-option pattern is real but enforced by C3, not budget — a deeper mechanism than initially assumed.
 
 ## Missteps and corrections (summary)
 
@@ -125,6 +151,10 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 | Forward feasibility check too slow | 34% overhead per node | Removed; pair ordering also removed (no net benefit) |
 | Pair ordering heuristic | Front-loaded solutions but same total work | Reverted; no speedup for fixed-budget runs |
 | GIT_HASH fallback in wrong scope | Compile failure without -DGIT_HASH | Moved #ifndef to top of file |
+| 100T run lost to spot eviction | ~6.5 hours of compute lost (~$5) | Added persistent disk, atomic writes, run ID verification, rotating checkpoints |
+| Monitor synced stale data | Didn't detect new run started | Added run ID check, immediate sync after deploy |
+| "Position 2 determines 3-19" claimed as universal | Overclaimed; disproven for 12 branches | Corrected: proved for 16, alternatives exist for 12 |
+| Shift pattern attributed to budget | Budget allows 13-30 candidates, not 2 | Corrected: C3 drives the filtering |
 
 ## What actually advanced understanding
 
@@ -133,8 +163,9 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 | 31.6M+ valid orderings exist | 10T exhaustive enumeration | Lower bound (partial enumeration) |
 | 4 boundary constraints needed (proven minimum) | Exhaustive test of all 31,465 quadruples | Proven for 31.6M dataset |
 | 3 mandatory boundaries (21, 25, 27) | Same exhaustive test | Proven |
-| Position 2 determines positions 3-19 | Verified across all branches; partial proof via [`--prove-cascade`](solve.c) | 16/31 branches proved by budget; 12 need C3 |
-| Universal shift pattern (positions 3-19) | Analysis of 31.6M solutions | Observed universally |
+| Position 2 determines positions 3-19 (16 branches) | Proved by budget via [`--prove-cascade`](solve.c) | Proved for pairs 1-18; disproven for others |
+| Cascade NOT deterministic for 12 branches | `--prove-cascade` full C3 proof found valid alternatives | Branch 24: all 17 configs valid; varies by branch |
+| Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | Observed universally; driven by C3 not budget |
 | Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
 | XOR=100001 branches always dead | 10T enumeration observation | Empirical (not formally proved) |
 | Super-pair constraint at position 20 | Per-position analysis | Observed |
@@ -145,7 +176,7 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 
 ## Current state
 
-The project has a reproducible 31.6M-solution dataset (sha256: `c43f251f...d2f2104d`, reproducible with `SOLVE_NODE_LIMIT=10000000000000`), a [proven-minimum 4-boundary uniqueness result](SOLVE.md#why-4-boundaries--not-fewer), and a structural understanding of the [constraint cascade](SOLVE.md#the-shift-pattern-positions-3-19-have-exactly-2-options-universal) (position 2 → positions 3-19). A 100T run is in progress on a spot instance to produce a larger dataset with the 3,030 sub-branch architecture. The [formal proof](SOLVE.md#partial-formal-proof) that the cascade is deterministic (not just observed) is partially complete — 16 of 31 branches proved, with the full C3-incorporating proof running.
+The project has a reproducible 31.6M-solution dataset (sha256: `c43f251f...d2f2104d`, reproducible with `SOLVE_NODE_LIMIT=10000000000000`), a [4-boundary uniqueness result](SOLVE.md#why-4-boundaries--not-fewer) (minimum for the 31.6M dataset), and a nuanced understanding of the constraint structure: 16 branches have provably deterministic cascades, while 12 branches have varying degrees of freedom at positions 3-19 (from 1 to 17 valid alternative configurations). A cascade survey is in progress to characterize all 204 alternative configurations. A 100T run needs to be redeployed (lost to spot eviction) with improved infrastructure (persistent disk, atomic writes).
 
 ## Infrastructure
 
@@ -155,3 +186,6 @@ The project has a reproducible 31.6M-solution dataset (sha256: `c43f251f...d2f21
 - **Spot quota**: 64 cores in westus2. Approved April 12.
 - **All run outputs archived** in `solve_c/runs/` with sha256 verification.
 - **Auto-retrying monitor** handles spot evictions: syncs files, waits 1 hour, restarts.
+- **Persistent managed disk** (solver-data, 32GB, ~$1/month): survives VM deallocation. Data stored here, not on ephemeral OS disk.
+- **Atomic file writes** in solve.c: write to .tmp, fsync, rename. Prevents mid-eviction corruption.
+- **Rotating checkpoints**: 3 copies maintained locally (checkpoint.txt, .1, .2).
