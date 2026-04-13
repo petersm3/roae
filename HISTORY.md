@@ -111,7 +111,7 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 - Rotating checkpoints (3 copies) on the local VM
 - Run ID verification — monitor confirms it's syncing the right run's data
 - Immediate sync after deployment — confirms connection before waiting 5 minutes
-- Exponential backoff on retry (1h → 2h → 4h)
+- Exponential backoff on retry (1h → 2h → 4h cap)
 
 **The shift pattern:** Across all 31.6M solutions, positions 3-19 have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. Zero exceptions. This is universal in the dataset, not a sampling artifact. However, `./solve --prove-shift` revealed that the budget constraints alone allow 13-30 candidates per position — the filtering to exactly 2 is driven by the complement distance constraint (C3), not budget propagation alone.
 
