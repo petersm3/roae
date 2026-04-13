@@ -288,7 +288,7 @@ Across all 31.6 million solutions, positions 3-19 each have EXACTLY 2 possible p
 | 19 | 44% | 56% | Nearly even |
 | 20+ | multiple options | — | Shift pattern breaks |
 
-The shift pattern means the constraint structure creates a binary cascade: at each position from 3 to 19, either King Wen's pair or the previous pair goes there.
+The shift pattern means that at each position from 3 to 19, only King Wen's pair or the previous pair appears in practice. The budget constraints alone allow 13-30 candidates per position (`./solve --prove-shift`), so the filtering to exactly 2 is driven by the complement distance constraint (C3), not budget propagation alone.
 
 **Stronger result: position 2 fully determines positions 3-19.** Within each branch (fixed pair at position 2), positions 3-19 have exactly ONE configuration — zero variation across all solutions in that branch. Verified across all 16 live branches with a combined 31.6 million solutions.
 
