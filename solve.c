@@ -1583,6 +1583,16 @@ int main(int argc, char *argv[]) {
      *  11. Per-first-level-branch distinct configurations at positions 3-19
      *  12. Null-model: greedy boundary search relative to a non-KW reference
      *  13. Orbit counts (palindromic / pair-complement-symmetric solutions)
+     *  14. Orient-coupling generalization: group records by pair-index
+     *      sequence (orient masked); analyze variants-per-pair-ordering
+     *      distribution, per-position orient-variation frequency, 4-variant
+     *      XOR-coupling check, 1-variant subfamily characterization. Also
+     *      extracts the unique pair-orderings used by section 15.
+     *  15. Orient-collapsed boundary analysis: rebuilds boundary masks on
+     *      the 284M+ unique pair-orderings (orient collapsed, so KW appears
+     *      exactly once) and re-runs the greedy minimum, 3-subset disproof,
+     *      and all-4-subsets enumeration. Cleaner boundary count where KW
+     *      isn't multi-counted via orient variants.
      */
     if (analyze_mode) {
         setbuf(stdout, NULL);
@@ -2143,7 +2153,9 @@ int main(int argc, char *argv[]) {
             qsort(pkeys, (size_t)n_sols, sizeof(PairKey), cmp_pkeys);
             printf("     sort done in %lds\n", (long)(time(NULL) - t14_start));
 
-            /* Walk groups */
+            /* Walk groups. Also extract representatives (first record of each group)
+             * for section [15]'s orient-collapsed boundary analysis, and gather stats
+             * for the 1-variant and 4-variant subfamilies. */
             long long unique_pos = 0;
             long long size_dist[64] = {0};
             long long pos_varies_count[32] = {0};
@@ -2151,6 +2163,26 @@ int main(int argc, char *argv[]) {
             long long max_group_idx = -1;
             long long kw_group = 0;
             int kw_varies[32] = {0};
+
+            /* 4-variant subgroup: varying-pattern histogram (linear-probe table) */
+            typedef struct { unsigned int pattern; long long count; } PatternEntry;
+            #define MAX_PATTERNS 8192
+            PatternEntry *patterns4 = calloc(MAX_PATTERNS, sizeof(PatternEntry));
+            int n_patterns4 = 0;
+            long long kw_pattern_mask = 0;  /* KW's varying-position bitmask */
+            long long groups4_with_kw_pattern = 0;
+            long long groups4_with_kw_xor_coupling = 0;
+            long long groups4_total = 0;
+
+            /* 1-variant subgroup: edit-distance-to-KW histogram, per-position pair histogram */
+            long long edist_hist_1[33] = {0};  /* edit distance 0..32 for 1-variant groups */
+            long long pos_pair_hist_1[32][32] = {0};  /* [pos][pair_idx] for 1-variant groups */
+            long long groups1_total = 0;
+
+            /* Representatives buffer for section [15]. Allocate worst-case n_sols*32. */
+            unsigned char *reps = malloc((size_t)n_sols * 32);
+            if (!reps) { printf("    WARN: rep alloc failed; section 15 will skip.\n"); }
+            long long n_reps = 0;
 
             long long s = 0;
             while (s < n_sols) {
@@ -2179,9 +2211,66 @@ int main(int argc, char *argv[]) {
                 if (is_kw) {
                     kw_group = size;
                     memcpy(kw_varies, varies, sizeof(varies));
+                    unsigned int m = 0;
+                    for (int p = 0; p < 32; p++) if (varies[p]) m |= ((unsigned int)1 << p);
+                    kw_pattern_mask = m;
+                }
+
+                /* Copy representative */
+                if (reps) {
+                    for (int p = 0; p < 32; p++) reps[n_reps * 32 + p] = pkeys[s].pi[p];
+                    n_reps++;
+                }
+
+                /* 4-variant subfamily analytics */
+                if (size == 4) {
+                    groups4_total++;
+                    unsigned int pat = 0;
+                    for (int p = 0; p < 32; p++) if (varies[p]) pat |= ((unsigned int)1 << p);
+                    /* Insert into linear-probe table */
+                    if (n_patterns4 < MAX_PATTERNS) {
+                        int found = 0;
+                        for (int ii = 0; ii < n_patterns4; ii++)
+                            if (patterns4[ii].pattern == pat) { patterns4[ii].count++; found = 1; break; }
+                        if (!found) { patterns4[n_patterns4].pattern = pat; patterns4[n_patterns4].count = 1; n_patterns4++; }
+                    }
+                    /* Check KW-style XOR coupling: for each variant,
+                     * (o[2] XOR o[3]) == o[28] == o[29] == o[30]
+                     * This is only meaningful if those positions are in the varying set. */
+                    if (varies[1] && varies[2] && varies[27] && varies[28] && varies[29]) {
+                        /* 0-indexed: positions 2,3,28,29,30 are indices 1,2,27,28,29 */
+                        int all_match = 1;
+                        for (long long j = s; j < e; j++) {
+                            int o2  = (all[pkeys[j].idx * SOL_RECORD_SIZE + 1] >> 1) & 1;
+                            int o3  = (all[pkeys[j].idx * SOL_RECORD_SIZE + 2] >> 1) & 1;
+                            int o28 = (all[pkeys[j].idx * SOL_RECORD_SIZE + 27] >> 1) & 1;
+                            int o29 = (all[pkeys[j].idx * SOL_RECORD_SIZE + 28] >> 1) & 1;
+                            int o30 = (all[pkeys[j].idx * SOL_RECORD_SIZE + 29] >> 1) & 1;
+                            if ((o2 ^ o3) != o28 || o28 != o29 || o29 != o30) { all_match = 0; break; }
+                        }
+                        if (all_match) groups4_with_kw_xor_coupling++;
+                    }
+                    if (pat == (unsigned int)kw_pattern_mask && is_kw) {}
+                }
+
+                /* 1-variant subfamily analytics */
+                if (size == 1) {
+                    groups1_total++;
+                    int ed = 0;
+                    for (int p = 0; p < 32; p++) {
+                        pos_pair_hist_1[p][pkeys[s].pi[p]]++;
+                        if (pkeys[s].pi[p] != p) ed++;
+                    }
+                    if (ed <= 32) edist_hist_1[ed]++;
                 }
 
                 s = e;
+            }
+            /* Post-walk: compute groups4 with exactly KW's varying-position bitmask */
+            if (kw_pattern_mask != 0) {
+                for (int ii = 0; ii < n_patterns4; ii++)
+                    if (patterns4[ii].pattern == (unsigned int)kw_pattern_mask)
+                        groups4_with_kw_pattern = patterns4[ii].count;
             }
 
             printf("     analysis done in %lds\n", (long)(time(NULL) - t14_start));
@@ -2207,7 +2296,213 @@ int main(int argc, char *argv[]) {
             printf("\n");
             printf("     Largest group: %lld variants (pair-ordering at sorted index %lld)\n",
                    max_group, max_group_idx);
+
+            /* 4-variant subfamily report */
+            printf("\n     --- 4-variant subfamily (KW is in this class) ---\n");
+            printf("     Total 4-variant pair-orderings: %lld\n", groups4_total);
+            printf("     4-variant groups with exactly KW's varying-position set {2,3,28,29,30}: %lld\n",
+                   groups4_with_kw_pattern);
+            printf("     4-variant groups satisfying KW's (pos2 XOR pos3) == pos28 == pos29 == pos30 coupling: %lld\n",
+                   groups4_with_kw_xor_coupling);
+            /* Print top-10 most common varying patterns among 4-variant groups */
+            {
+                int order[MAX_PATTERNS]; for (int ii = 0; ii < n_patterns4; ii++) order[ii] = ii;
+                for (int ii = 0; ii < n_patterns4; ii++)
+                    for (int jj = ii + 1; jj < n_patterns4; jj++)
+                        if (patterns4[order[jj]].count > patterns4[order[ii]].count) {
+                            int t = order[ii]; order[ii] = order[jj]; order[jj] = t;
+                        }
+                int show = n_patterns4 < 10 ? n_patterns4 : 10;
+                printf("     Top-%d varying-position patterns among 4-variant groups:\n", show);
+                for (int ii = 0; ii < show; ii++) {
+                    int o = order[ii];
+                    printf("       pattern {");
+                    int first = 1;
+                    for (int p = 0; p < 32; p++) {
+                        if (patterns4[o].pattern & ((unsigned int)1 << p)) {
+                            printf("%s%d", first ? "" : ",", p + 1); first = 0;
+                        }
+                    }
+                    printf("}: %lld groups (%.2f%%)\n",
+                           patterns4[o].count,
+                           100.0 * patterns4[o].count / groups4_total);
+                }
+            }
+            free(patterns4);
+
+            /* 1-variant subfamily report */
+            printf("\n     --- 1-variant subfamily (pair-orderings with forced orient) ---\n");
+            printf("     Total 1-variant pair-orderings: %lld\n", groups1_total);
+            printf("     Edit-distance-to-KW distribution (non-zero bins):\n");
+            for (int d = 0; d <= 32; d++) {
+                if (edist_hist_1[d] > 0)
+                    printf("       edit_dist %2d: %lld (%.3f%%)\n",
+                           d, edist_hist_1[d], 100.0 * edist_hist_1[d] / groups1_total);
+            }
+            printf("     Per-position: most common pair among 1-variant groups:\n");
+            printf("       %-4s  %-10s  %-10s  %s\n", "Pos", "KW_pair", "Most_common", "Pct");
+            for (int p = 0; p < 32; p++) {
+                int best = 0; long long best_c = 0;
+                for (int k = 0; k < 32; k++) {
+                    if (pos_pair_hist_1[p][k] > best_c) { best_c = pos_pair_hist_1[p][k]; best = k; }
+                }
+                printf("       %-4d  %-10d  %-10d  %.2f%%%s\n",
+                       p + 1, p, best,
+                       100.0 * best_c / (groups1_total > 0 ? groups1_total : 1),
+                       best == p ? "  <- matches KW" : "");
+            }
+
             free(pkeys);
+
+            /* === Section 15: Orient-collapsed boundary analysis ===
+             * Re-run the greedy minimum-boundary + exhaustive 3-subset + all-4-subsets
+             * analyses on the 284.7M orient-collapsed pair-orderings (reps) instead of
+             * the 742M byte-level records. At 10T this reduces KW's count from 4 to 1,
+             * eliminating multi-counting; may shift the working 4-set family.
+             */
+            if (reps && n_reps > 0) {
+                printf("\n[15] Orient-collapsed boundary analysis (%lld unique pair-orderings)\n", n_reps);
+                long long n_words_r = (n_reps + 63) / 64;
+
+                /* Verify KW count in reps (should be 1) */
+                int kw_count_r = 0;
+                for (long long i = 0; i < n_reps; i++) {
+                    int is_kw_r = 1;
+                    for (int p = 0; p < 32; p++) if (reps[i * 32 + p] != p) { is_kw_r = 0; break; }
+                    if (is_kw_r) kw_count_r++;
+                }
+                printf("     KW present: %d copy(ies) (expected 1 after orient collapse)\n", kw_count_r);
+
+                /* Build per-boundary packed bitmaps */
+                printf("     Building 31 per-boundary packed bitmaps (%lld words each)...\n", n_words_r);
+                uint64_t **rbm = malloc(31 * sizeof(uint64_t *));
+                for (int b = 0; b < 31; b++) {
+                    rbm[b] = calloc((size_t)n_words_r, sizeof(uint64_t));
+                    for (long long i = 0; i < n_reps; i++) {
+                        int pb = reps[i * 32 + b];
+                        int pb1 = reps[i * 32 + b + 1];
+                        if (pb == b && pb1 == b + 1) rbm[b][i >> 6] |= ((uint64_t)1 << (i & 63));
+                    }
+                }
+                long long rsingle[31];
+                for (int b = 0; b < 31; b++) {
+                    long long c = 0;
+                    for (long long w = 0; w < n_words_r; w++) c += __builtin_popcountll(rbm[b][w]);
+                    rsingle[b] = c;
+                }
+
+                /* Greedy min */
+                uint64_t *r_alive = malloc((size_t)n_words_r * sizeof(uint64_t));
+                for (long long w = 0; w < n_words_r; w++) {
+                    uint64_t kw_pairs_bits = ~(uint64_t)0;
+                    for (int b = 0; b < 31; b++) kw_pairs_bits &= rbm[b][w];
+                    r_alive[w] = ~kw_pairs_bits;
+                }
+                long long extra_r = n_words_r * 64 - n_reps;
+                if (extra_r > 0) r_alive[n_words_r - 1] &= (((uint64_t)1 << (64 - extra_r)) - 1);
+                long long r_alive_n = 0;
+                for (long long w = 0; w < n_words_r; w++) r_alive_n += __builtin_popcountll(r_alive[w]);
+                printf("     Greedy minimum-boundary search (%lld non-KW pair-orderings):\n", r_alive_n);
+                int r_chosen[31] = {0};
+                for (int step = 0; step < 8 && r_alive_n > 0; step++) {
+                    int best_b = -1; long long best_remain = n_reps + 1;
+                    for (int b = 0; b < 31; b++) {
+                        if (r_chosen[b]) continue;
+                        long long s2 = 0;
+                        for (long long w = 0; w < n_words_r; w++)
+                            s2 += __builtin_popcountll(r_alive[w] & rbm[b][w]);
+                        if (s2 < best_remain) { best_remain = s2; best_b = b; }
+                    }
+                    long long elim = r_alive_n - best_remain;
+                    r_chosen[best_b] = 1;
+                    for (long long w = 0; w < n_words_r; w++) r_alive[w] &= rbm[best_b][w];
+                    r_alive_n = best_remain;
+                    printf("       Step %d: Boundary %d eliminates %lld, %lld remain\n",
+                           step + 1, best_b + 1, elim, best_remain);
+                }
+                printf("     Boundaries chosen (orient-collapsed): { ");
+                for (int b = 0; b < 31; b++) if (r_chosen[b]) printf("%d ", b + 1);
+                printf("}\n");
+                free(r_alive);
+
+                /* Exhaustive 3-subset disproof */
+                long long r_min_t = n_reps + 1; int r_t1 = -1, r_t2 = -1, r_t3 = -1, r_t_below = 0;
+                #pragma omp parallel
+                {
+                    long long lmin = n_reps + 1; int lt1=-1, lt2=-1, lt3=-1, lb=0;
+                    #pragma omp for schedule(dynamic,16) collapse(2) nowait
+                    for (int b1 = 0; b1 < 29; b1++)
+                        for (int b2 = 0; b2 < 30; b2++) {
+                            if (b2 <= b1) continue;
+                            for (int b3 = b2 + 1; b3 < 31; b3++) {
+                                long long s2 = 0;
+                                for (long long w = 0; w < n_words_r; w++)
+                                    s2 += __builtin_popcountll(rbm[b1][w] & rbm[b2][w] & rbm[b3][w]);
+                                if (s2 < lmin) { lmin = s2; lt1 = b1+1; lt2 = b2+1; lt3 = b3+1; }
+                                if (s2 <= 1) lb++;
+                            }
+                        }
+                    #pragma omp critical
+                    {
+                        if (lmin < r_min_t) { r_min_t = lmin; r_t1 = lt1; r_t2 = lt2; r_t3 = lt3; }
+                        r_t_below += lb;
+                    }
+                }
+                printf("     3-subset disproof: min survivors %lld (best {%d,%d,%d}); triples <=1 survivor: %d\n",
+                       r_min_t, r_t1, r_t2, r_t3, r_t_below);
+
+                /* All 4-subsets */
+                int r_freq[31] = {0};
+                int r_working = 0;
+                char r_report[1024 * 256] = {0}; int r_report_len = 0;
+                #pragma omp parallel
+                {
+                    int lfreq[31] = {0}; int lwork = 0;
+                    #pragma omp for schedule(dynamic,8) collapse(2) nowait
+                    for (int b1 = 0; b1 < 28; b1++)
+                        for (int b2 = 0; b2 < 29; b2++) {
+                            if (b2 <= b1) continue;
+                            for (int b3 = b2 + 1; b3 < 30; b3++)
+                            for (int b4 = b3 + 1; b4 < 31; b4++) {
+                                long long s2 = 0;
+                                for (long long w = 0; w < n_words_r; w++)
+                                    s2 += __builtin_popcountll(rbm[b1][w] & rbm[b2][w] & rbm[b3][w] & rbm[b4][w]);
+                                if (s2 <= 1) {
+                                    lwork++;
+                                    lfreq[b1]++; lfreq[b2]++; lfreq[b3]++; lfreq[b4]++;
+                                    #pragma omp critical
+                                    {
+                                        if (r_report_len < (int)sizeof(r_report) - 64) {
+                                            r_report_len += snprintf(r_report + r_report_len,
+                                                sizeof(r_report) - r_report_len,
+                                                "       {%2d,%2d,%2d,%2d} surv=%lld\n", b1+1, b2+1, b3+1, b4+1, s2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    #pragma omp critical
+                    {
+                        for (int b = 0; b < 31; b++) r_freq[b] += lfreq[b];
+                        r_working += lwork;
+                    }
+                }
+                printf("     All 4-subsets uniquely identifying KW (<=1 survivor): %d\n", r_working);
+                printf("%s", r_report);
+                if (r_working > 0) {
+                    printf("     Boundary frequency: ");
+                    for (int b = 0; b < 31; b++) if (r_freq[b] > 0)
+                        printf("b%d=%d ", b + 1, r_freq[b]);
+                    printf("\n");
+                    printf("     Boundaries in EVERY working 4-set: { ");
+                    for (int b = 0; b < 31; b++) if (r_freq[b] == r_working) printf("%d ", b + 1);
+                    printf("}\n");
+                }
+
+                for (int b = 0; b < 31; b++) free(rbm[b]);
+                free(rbm);
+            }
+            free(reps);
         }
         printf("\n");
 
