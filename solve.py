@@ -2,10 +2,15 @@
 # https://github.com/petersm3/roae
 # Developed with AI assistance (Claude, Anthropic)
 """
-Constraint solver for the King Wen sequence.
+Constraint solver for the King Wen sequence — educational / analysis tool.
 
 Attempts to reconstruct the King Wen sequence from a minimal set of rules.
-Standalone — no external dependencies.
+Standalone — no external dependencies (Python 3 only).
+
+For full-scale exhaustive enumeration (multi-trillion-node runs producing
+solutions.bin), use solve.c. This Python tool is the readable companion that
+demonstrates the rules, the narrowing analysis, the pair structure, and the
+adjacency / boundary features at a scale you can actually inspect.
 
 See SOLVE.md for methodology and results.
 """
