@@ -26,16 +26,15 @@
  *
  * THREADING MODEL
  * ===============
- * Normal mode: The 31 remaining pairs × 2 orientations at position 2 yield 56 valid
- * "branches" after pruning. Each branch is an independent subtree — no shared mutable
- * state during search. Branches are distributed round-robin across N threads.
- * Why 56 is the max useful thread count: there are exactly 56 valid branches.
+ * Normal mode: enumerates ~3,030 depth-2 sub-branches (each fixing positions 0-3:
+ * the forced Creative/Receptive at position 1, then a chosen pair+orient at
+ * position 2 and another at position 3). Sub-branches are distributed round-robin
+ * across N threads. Replaces an older "56-branch mode" that suffered from the
+ * tail problem (a few large branches monopolizing single cores while the rest of
+ * the machine sat idle).
  *
- * Single-branch mode (--branch): Fixes positions 1-2 and enumerates position 3
- * choices as "sub-branches" (~54 per branch). Distributes sub-branches across all
- * available cores. Use this to parallelize exploration of one specific branch.
- * This exists because individual branches are enormous (>>24 hours on 64 cores)
- * and we need to parallelize within a branch, not just across branches.
+ * Single-branch mode (--branch P O): same depth-2 split but limited to a single
+ * first-level (p,o) prefix. Useful for targeted incremental work on one branch.
  *
  * SOLUTION STORAGE
  * ================
@@ -55,9 +54,12 @@
  * slots = 256 MB per thread). At 56 threads this is 14 GB total. Probe limit is 64
  * before giving up on insertion — if the table is >75% full, a warning is emitted.
  *
- * After all threads finish, per-thread tables are merged: extract all entries,
- * concatenate, qsort, deduplicate (memcmp adjacent entries). Cross-thread duplicates
- * are common since different orientation choices can produce the same canonical ordering.
+ * After each sub-branch, the thread's hash table is flushed to a per-sub-branch
+ * file `sub_P1_O1_P2_O2.bin` (atomic write: temp + rename) and the table is
+ * cleared. The final solutions.bin is produced by reading all sub_*.bin files,
+ * concatenating, qsort, dedup. This "shard then merge" structure ensures the
+ * output sha256 is identical regardless of thread count, eviction, or restart
+ * order — a property the older single-table approach didn't have.
  *
  * ANALYTICS
  * =========
@@ -87,16 +89,24 @@
  *
  * CHECKPOINTING AND RESUME
  * ========================
- * After each branch (or sub-branch), a line is appended to checkpoint.txt with status
- * COMPLETE or INTERRUPTED. On restart, only COMPLETE branches are skipped — INTERRUPTED
- * branches are re-explored from scratch. This is critical: an earlier bug marked all
- * timed-out branches as "complete", causing resume to skip partially-explored work.
- * This enables:
- *   - Graceful recovery from SIGTERM/spot eviction (completed work is preserved)
- *   - Incremental enumeration across multiple runs
- * Note: analytics and solution storage are NOT checkpointed — only branch completion
- * status. A resumed run's analytics cover only the newly-explored branches.
- * A separate merge tool (merge.c) combines results from multiple branch runs.
+ * After each sub-branch, a line is appended to checkpoint.txt:
+ *   "Sub-branch <STATUS> (thread T, pair1 P1 orient1 O1 pair2 P2 orient2 O2): ..."
+ * STATUS is COMPLETE (DFS exhausted naturally within budget) or INTERRUPTED (hit
+ * per-sub-branch node budget OR external signal). On restart, only COMPLETE
+ * sub-branches are skipped — INTERRUPTED ones are re-executed (their sub_*.bin
+ * file is overwritten with the re-derived solutions, which is deterministic).
+ *
+ * Earlier versions keyed `sub_*.bin` files on (pair2, orient2) only. Since
+ * 3030 sub-branches share only 64 unique (p2, o2) values, later sub-branches
+ * SILENTLY OVERWROTE earlier ones' files — losing ~96% of solutions per run.
+ * The bug was deterministic so sha256 was reproducible; the defect went
+ * undetected until 2026-04-14 when "ls sub_*.bin | wc -l" showed 47 files for
+ * a 3030-sub-branch run and the contradiction became obvious. Fix: full key
+ * (pair1, orient1, pair2, orient2) in both filename and checkpoint resume
+ * lookup. The 31.6M figure published before that date was a ~23x undercount;
+ * the corrected 10T figure is 742M unique orderings (sha256
+ * aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b).
+ * See HISTORY.md for the full forensics.
  *
  * SIGNAL HANDLING
  * ===============
@@ -107,52 +117,107 @@
  *
  * OUTPUT FILES
  * ============
- * Normal mode:
- *   solutions.bin      — sorted unique orderings (32 bytes each, packed:
- *                         byte i = pair_index<<2 | orient<<1)
+ * Normal mode (and single-branch mode):
+ *   sub_P1_O1_P2_O2.bin — per-sub-branch shards. Each holds the deduped solutions
+ *                          found for one (p1, o1, p2, o2) prefix. Up to ~3030 files.
+ *   solutions.bin      — final merged + sorted + deduped output (32 bytes/record:
+ *                          byte i = pair_index<<2 | orient<<1)
  *   solutions.sha256   — hash of solutions.bin for reproducibility
  *   solve_results.json — all analytics in machine-readable format
- *   checkpoint.txt     — branch completion log (append-only)
+ *   checkpoint.txt     — sub-branch completion log (append-only)
+ *   progress.txt       — periodic progress snapshot (latest only)
  *
- * Single-branch mode (--branch P O):
- *   solutions_P_O.bin      — per-branch, avoids overwriting other branch results
- *   solutions_P_O.sha256
- *   results_P_O.json
+ * Disk space: at 10T total budget, sub_*.bin files total ~23 GB and
+ * solutions.bin is another ~24 GB — preflight available disk against
+ * estimated_output * 1.5 before launching. A previous 10T run silently
+ * truncated solutions.bin from 23.7 GB to 8 GB because /data filled up
+ * mid-write and the fwrite return value wasn't checked. See DEPLOYMENT.md.
  *
- * KNOWN LIMITATIONS
- * =================
- * - Probe limit of 64 in hash table: if a cluster of 64+ consecutive slots are
- *   occupied, an insertion silently fails. Mitigated by large table (4M slots for
- *   typically <1M entries per thread) but theoretically possible.
- * - No sub-branch checkpointing: within a branch, if interrupted, all progress on
- *   the current branch is lost. Only completed branches are recoverable.
+ * KNOWN LIMITATIONS / OPEN ISSUES
+ * ===============================
+ * - Probe limit of 64 in hash table insertion: if a cluster of 64+ consecutive
+ *   slots are occupied, the record is SILENTLY DROPPED (no counter, no warning).
+ *   Mitigated in practice by large table (4M slots for typical <1M entries per
+ *   sub-branch). Hardening: remove the 64 cap entirely + add a drop counter.
+ * - "INTERRUPTED" status conflates external interruption with budget exhaustion;
+ *   resume re-runs both even though budget-exhausted sub-branches are
+ *   deterministically done. Costs eviction-recovery time; tracked for fix.
+ * - Per-sub-branch granularity recovery is too coarse for spot VMs at large
+ *   per-sub-branch budgets (e.g. 100T+). Need intra-sub-branch checkpointing
+ *   (Option B: pre-enumerate one more level → ~90k tinier work units) before
+ *   running 100T+ on spot affordably. See DEPLOYMENT.md.
  * - pair_index_of() is O(32) linear scan, called frequently in analyze_solution.
  *   Not a bottleneck (called once per C3-valid solution, not per node) but could
  *   be replaced with a lookup table if profiling shows it matters.
  *
- * Compile: gcc -O3 -pthread -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c
- * Run:     ./solve [time_limit_seconds] [threads]
- *          ./solve 86400 56   (24h limit, 56 threads)
- *          ./solve 0          (no time limit — run to completion)
+ * BUILD
+ * =====
+ *   gcc -O3 -pthread -fopenmp -march=native \
+ *       -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm
  *
- * Single-branch mode (parallelize one branch across all cores):
- *          ./solve --branch <pair> <orient> [time_limit] [threads]
- *          ./solve --branch 5 0 3600 56
+ *   -fopenmp parallelizes the heavy --analyze loops (3-subset enumeration,
+ *    4-subset enumeration, MI matrix). Without it, --analyze still works
+ *    but runs single-threaded. -march=native enables popcount/AVX intrinsics.
+ *    libgomp (the OpenMP runtime) ships with gcc and is covered by the
+ *    GCC Runtime Library Exception — no LICENSE.md change needed.
  *
- * List all valid branches (with completion status from checkpoint.txt):
- *          ./solve --list-branches
+ * RUN MODES
+ * =========
+ *   ./solve [time_limit_seconds] [threads]
+ *       Normal enumeration. e.g. ./solve 86400 64  (24h, 64 threads)
  *
- * Validate a solutions.bin file (checks all constraints):
- *          ./solve --validate [solutions.bin]
+ *   ./solve --branch <pair> <orient> [time_limit] [threads]
+ *       Limit enumeration to a single first-level (pair, orient) prefix.
  *
- * Environment variables:
+ *   ./solve --list-branches [solve_results.json]
+ *       Show all valid branches and completion status from checkpoint.txt
+ *
+ *   ./solve --validate [solutions.bin]
+ *       Check every record against C1-C5, sorted order, KW presence
+ *
+ *   ./solve --analyze [solutions.bin]
+ *       Run all post-enumeration scientific analyses in one shot:
+ *         entropy, per-boundary, KW variants, shift-pattern, greedy minimum,
+ *         3-subset disproof, all 4-subsets, redundancy, mutual information,
+ *         per-branch cascade configs, null-model, orbits.
+ *       Reproducible source for every numerical claim in HISTORY.md and
+ *       SOLVE-SUMMARY.md.
+ *
+ *   ./solve --merge
+ *       Combine sub_*.bin files into solutions.bin (used after enumeration
+ *       or to recover from a truncated solutions.bin).
+ *
+ *   ./solve --prove-cascade   ./solve --prove-self-comp   ./solve --prove-shift
+ *       Targeted theorems / sanity checks on the constraint structure.
+ *       Caveat: --prove-cascade operates within a "shift-pattern subspace"
+ *       containing only ~3% of valid orderings at 742M scale. Do not
+ *       overgeneralize its results.
+ *
+ * ENVIRONMENT VARIABLES
+ * =====================
  *   SOLVE_THREADS=N          — override thread count
  *   SOLVE_HASH_LOG2=N        — hash table size as power of 2 (default: 22 = 4M slots)
- *   SOLVE_NODE_LIMIT=N       — stop after N total nodes, distributed equally per branch
- *                              (deterministic, reproducible sha256 regardless of thread count)
+ *   SOLVE_NODE_LIMIT=N       — stop after N total nodes, distributed equally per
+ *                              sub-branch. Deterministic, reproducible sha256
+ *                              regardless of thread count.
  *
- * Graceful shutdown: handles SIGTERM/SIGINT — produces full output on signal.
- * Resume: reads checkpoint.txt on startup and skips completed branches.
+ * Graceful shutdown: SIGTERM/SIGINT handled via sigaction. Threads finish their
+ * current sub-branch (which writes its sub_*.bin), then main proceeds to the
+ * final merge before exiting. Spot eviction signals trigger this path.
+ *
+ * Resume: reads checkpoint.txt on startup and skips COMPLETE sub-branches.
+ *
+ * DEPLOYMENT (Azure / cloud-VM specifics)
+ * =======================================
+ * See DEPLOYMENT.md for: spot-VM provisioning, persistent managed disk attach,
+ * monitor architecture, eviction recovery, sanity preflights, lessons from
+ * past failures, and pre-launch checklist.
+ *
+ * Companion docs (one directory up, in roae/):
+ *   HISTORY.md         project narrative, missteps, "what advanced understanding"
+ *   SOLVE-SUMMARY.md   plain-language explanation of the constraints + findings
+ *   SPECIFICATION.md   formal definitions of C1-C5
+ *   enumeration/LEADERBOARD.md   per-branch / per-sub-branch enumeration progress
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -162,6 +227,11 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdint.h>
+#include <math.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #ifndef GIT_HASH
 #define GIT_HASH "unknown"
@@ -501,8 +571,14 @@ static int is_branch_completed(int pair, int orient) {
 }
 
 /* Sub-branch checkpoint for single-branch mode.
- * Format: "Sub-branch COMPLETE (thread T, pair2 P orient2 O): ..." */
-static int completed_sub_branches[64][2]; /* [pair2, orient2] */
+ * Format: "Sub-branch COMPLETE (thread T, pair1 P1 orient1 O1 pair2 P2 orient2 O2): ..."
+ *
+ * Bug history: earlier versions keyed sub-branches on (pair2, orient2) only.
+ * Since 3030 sub-branches share only 64 unique (p2, o2) values, later
+ * sub-branches overwrote earlier ones' sub_P2_O2.bin files and resume
+ * falsely skipped siblings. Key is now the full (p1, o1, p2, o2) 4-tuple. */
+#define MAX_COMPLETED_SUBS 4096
+static int completed_sub_branches[MAX_COMPLETED_SUBS][4]; /* [p1, o1, p2, o2] */
 static int n_completed_subs = 0;
 
 static void load_sub_checkpoint(void) {
@@ -512,22 +588,26 @@ static void load_sub_checkpoint(void) {
     while (fgets(line, sizeof(line), f)) {
         if (strstr(line, "INTERRUPTED")) continue;
         if (!strstr(line, "Sub-branch")) continue;
-        int pair2_val, orient2_val;
-        char *p = strstr(line, "pair2 ");
+        int p1v, o1v, p2v, o2v;
+        char *p = strstr(line, "pair1 ");
         if (!p) continue;
-        if (sscanf(p, "pair2 %d orient2 %d", &pair2_val, &orient2_val) == 2) {
-            completed_sub_branches[n_completed_subs][0] = pair2_val;
-            completed_sub_branches[n_completed_subs][1] = orient2_val;
+        if (sscanf(p, "pair1 %d orient1 %d pair2 %d orient2 %d",
+                   &p1v, &o1v, &p2v, &o2v) == 4) {
+            if (n_completed_subs >= MAX_COMPLETED_SUBS) break;
+            completed_sub_branches[n_completed_subs][0] = p1v;
+            completed_sub_branches[n_completed_subs][1] = o1v;
+            completed_sub_branches[n_completed_subs][2] = p2v;
+            completed_sub_branches[n_completed_subs][3] = o2v;
             n_completed_subs++;
-            if (n_completed_subs >= 64) break;
         }
     }
     fclose(f);
 }
 
-static int is_sub_branch_completed(int pair2, int orient2) {
+static int is_sub_branch_completed(int p1, int o1, int p2, int o2) {
     for (int i = 0; i < n_completed_subs; i++) {
-        if (completed_sub_branches[i][0] == pair2 && completed_sub_branches[i][1] == orient2)
+        if (completed_sub_branches[i][0] == p1 && completed_sub_branches[i][1] == o1 &&
+            completed_sub_branches[i][2] == p2 && completed_sub_branches[i][3] == o2)
             return 1;
     }
     return 0;
@@ -756,12 +836,14 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
 static long long dead_node_limit = 0;
 
 /* Write per-sub-branch solution file from thread's hash table.
- * Called with checkpoint_mutex held. */
-static void flush_sub_solutions(ThreadState *ts, int p2, int o2) {
+ * Called with checkpoint_mutex held.
+ * Filename encodes full (p1, o1, p2, o2) to avoid collisions — see bug note
+ * on load_sub_checkpoint. */
+static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2) {
     if (!ts->sol_table || !ts->sol_occupied || ts->solution_count == 0) return;
     char fname[64], tmpname[64];
-    snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
-    snprintf(tmpname, sizeof(tmpname), "sub_%d_%d.bin.tmp", p2, o2);
+    snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
+    snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2);
     /* Write to temp file, fsync, then atomic rename.
      * If evicted mid-write, the temp file is incomplete but the
      * previous version (if any) is intact. */
@@ -885,7 +967,7 @@ static void *thread_func_single(void *arg) {
          * For INTERRUPTED sub-branches, solutions are still saved (they're valid
          * even if the sub-branch didn't complete). */
         if (ts->solution_count > 0) {
-            flush_sub_solutions(ts, p2, o2);  /* writes file AND clears table */
+            flush_sub_solutions(ts, p1, o1, p2, o2);  /* writes file AND clears table */
         } else if (ts->sol_table) {
             memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
             memset(ts->sol_occupied, 0, sol_hash_size);
@@ -896,9 +978,9 @@ static void *thread_func_single(void *arg) {
         /* Write checkpoint entry */
         FILE *ckpt = fopen("checkpoint.txt", "a");
         if (ckpt) {
-            fprintf(ckpt, "Sub-branch %s (thread %d, pair2 %d orient2 %d): "
+            fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
                     "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed\n",
-                    sb_status, ts->thread_id, p2, o2,
+                    sb_status, ts->thread_id, p1, o1, p2, o2,
                     sub_nodes, sub_c3, ts->solution_count, elapsed);
             fclose(ckpt);
         }
@@ -916,9 +998,9 @@ static void *thread_func_single(void *arg) {
         }
         update_progress(total_complete, total_branches, elapsed);
 
-        fprintf(stderr, "  *** Sub-branch %d/%d %s (pair2 %d orient2 %d): "
+        fprintf(stderr, "  *** Sub-branch %d/%d %s (pair1 %d orient1 %d pair2 %d orient2 %d): "
                 "%lldB nodes, %lldM C3, %d solutions, %lds ***\n",
-                done, total_branches, sb_status, p2, o2,
+                done, total_branches, sb_status, p1, o1, p2, o2,
                 sub_nodes / 1000000000LL, sub_c3 / 1000000LL,
                 ts->solution_count, elapsed);
         pthread_mutex_unlock(&checkpoint_mutex);
@@ -1239,7 +1321,9 @@ int main(int argc, char *argv[]) {
     int prove_cascade_mode = 0;
     int prove_self_comp_mode = 0;
     int prove_shift_mode = 0;
+    int analyze_mode = 0;
     char *validate_file = NULL;
+    char *analyze_file = NULL;
 
     if (argc > 1 && strcmp(argv[1], "--prove-cascade") == 0) {
         prove_cascade_mode = 1;
@@ -1256,6 +1340,10 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
         validate_mode = 1;
         validate_file = (argc > 2) ? argv[2] : "solutions.bin";
+        arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
+        analyze_mode = 1;
+        analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--list-branches") == 0) {
         list_branches_mode = 1;
@@ -1334,56 +1422,67 @@ int main(int argc, char *argv[]) {
                SOL_RECORD_SIZE);
         printf("  Checking: C1-C5, C3, sorted order, no duplicates, King Wen presence.\n\n");
 
-        FILE *vf = fopen(validate_file, "rb");
-        if (!vf) { printf("ERROR: cannot open %s\n", validate_file); return 1; }
-        fseek(vf, 0, SEEK_END);
-        long file_size = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
-        int n_solutions = (int)(file_size / SOL_RECORD_SIZE);
-        printf("  File size: %ld bytes, %d solutions (%d bytes/record)\n",
+        /* mmap the file: avoids loading 24 GB into a malloc, OS pages it in. */
+        int vfd = open(validate_file, O_RDONLY);
+        if (vfd < 0) { printf("ERROR: cannot open %s\n", validate_file); return 1; }
+        struct stat vst;
+        if (fstat(vfd, &vst) < 0) { printf("ERROR: fstat failed\n"); close(vfd); return 1; }
+        long file_size = vst.st_size;
+        long long n_solutions = file_size / SOL_RECORD_SIZE;
+        printf("  File size: %ld bytes, %lld solutions (%d bytes/record)\n",
                file_size, n_solutions, SOL_RECORD_SIZE);
         if (file_size % SOL_RECORD_SIZE != 0)
             printf("  WARNING: file size not a multiple of %d bytes\n", SOL_RECORD_SIZE);
+        unsigned char *vall = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, vfd, 0);
+        close(vfd);
+        if (vall == MAP_FAILED) { printf("ERROR: mmap failed\n"); return 1; }
+        madvise(vall, file_size, MADV_SEQUENTIAL);
 
-        int errors = 0, kw_found_v = 0;
-        unsigned char prev[SOL_RECORD_SIZE];
-        memset(prev, 0, sizeof(prev));
+        long long errors = 0;
+        int kw_found_v = 0;
         int sorted_ok = 1;
 
-        for (int s = 0; s < n_solutions; s++) {
-            unsigned char rec[SOL_RECORD_SIZE];
-            if (fread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
-                printf("  ERROR: read failed at solution %d\n", s);
-                errors++; break;
-            }
-
-            /* Check sorted order (pair identity only, orient masked) */
-            if (s > 0 && compare_solutions(rec, prev) <= 0) {
-                if (compare_solutions(rec, prev) == 0)
-                    printf("  ERROR: duplicate at index %d\n", s);
+        /* Sorted-order check: inherently sequential (compare each with predecessor).
+         * Fast: 32-byte memcmp per record, ~3 GB/s on modern hardware. */
+        for (long long s = 1; s < n_solutions; s++) {
+            int cmp = compare_solutions(vall + s * SOL_RECORD_SIZE,
+                                        vall + (s - 1) * SOL_RECORD_SIZE);
+            if (cmp <= 0) {
+                if (cmp == 0)
+                    printf("  ERROR: duplicate at index %lld\n", s);
                 else
-                    printf("  ERROR: not sorted at index %d\n", s);
-                sorted_ok = 0; errors++;
+                    printf("  ERROR: not sorted at index %lld\n", s);
+                sorted_ok = 0;
+                errors++;
+                break;  /* report only first violation */
             }
-            memcpy(prev, rec, SOL_RECORD_SIZE);
+        }
 
-            /* Decode packed record into pair indices and full sequence */
+        /* Per-record constraint checks (C1-C5): embarrassingly parallel.
+         * Compile with -fopenmp for ~32x speedup. Error printfs are wrapped in
+         * critical sections; in the normal case (zero errors) the critical section
+         * is never entered. */
+        int kw_pair_index = pair_index_of(63, 0);
+        #pragma omp parallel for schedule(static, 65536) reduction(+:errors) reduction(||:kw_found_v)
+        for (long long s = 0; s < n_solutions; s++) {
+            const unsigned char *rec = vall + s * SOL_RECORD_SIZE;
             int sol_pidx[32];
             int seq[64];
             int used_pairs[32] = {0};
+            int local_errors = 0;
             int c1_ok = 1;
             for (int i = 0; i < 32; i++) {
                 int pidx = rec[i] >> 2;
                 int orient = (rec[i] >> 1) & 1;
                 if (pidx < 0 || pidx >= 32) {
-                    printf("  ERROR: solution %d position %d invalid pair index %d\n",
-                           s, i + 1, pidx);
-                    c1_ok = 0; errors++; break;
+                    #pragma omp critical
+                    printf("  ERROR: solution %lld position %d invalid pair index %d\n", s, i + 1, pidx);
+                    c1_ok = 0; local_errors++; break;
                 }
                 if (used_pairs[pidx]) {
-                    printf("  ERROR: solution %d duplicate pair %d at position %d\n",
-                           s, pidx, i + 1);
-                    c1_ok = 0; errors++; break;
+                    #pragma omp critical
+                    printf("  ERROR: solution %lld duplicate pair %d at position %d\n", s, pidx, i + 1);
+                    c1_ok = 0; local_errors++; break;
                 }
                 used_pairs[pidx] = 1;
                 sol_pidx[i] = pidx;
@@ -1395,63 +1494,56 @@ int main(int argc, char *argv[]) {
                     seq[i * 2 + 1] = pairs[pidx].b;
                 }
             }
-            if (!c1_ok) continue;
-
-            /* C4: position 1 must be Creative/Receptive (pair 0) */
-            if (sol_pidx[0] != pair_index_of(63, 0)) {
-                printf("  ERROR: solution %d position 1 is pair %d, expected Creative/Receptive\n",
-                       s, sol_pidx[0]);
-                errors++;
-            }
-
-            /* C2 + C5: check transitions on reconstructed sequence */
-            int budget_check[7] = {0};
-            int c2_ok = 1;
-            for (int i = 0; i < 63; i++) {
-                int d = hamming(seq[i], seq[i + 1]);
-                if (d == 5) {
-                    printf("  ERROR: solution %d has 5-line transition at position %d-%d\n",
-                           s, i, i + 1);
-                    c2_ok = 0; errors++; break;
+            if (c1_ok) {
+                if (sol_pidx[0] != kw_pair_index) {
+                    #pragma omp critical
+                    printf("  ERROR: solution %lld position 1 is pair %d, expected Creative/Receptive\n",
+                           s, sol_pidx[0]);
+                    local_errors++;
                 }
-                budget_check[d]++;
-            }
-            if (c2_ok) {
-                for (int d = 0; d < 7; d++) {
-                    if (budget_check[d] != kw_dist[d]) {
-                        printf("  ERROR: solution %d wrong difference distribution "
-                               "(dist %d: got %d, expected %d)\n",
-                               s, d, budget_check[d], kw_dist[d]);
-                        errors++; break;
+                int budget_check[7] = {0};
+                int c2_ok = 1;
+                for (int i = 0; i < 63; i++) {
+                    int d = hamming(seq[i], seq[i + 1]);
+                    if (d == 5) {
+                        #pragma omp critical
+                        printf("  ERROR: solution %lld has 5-line transition at position %d-%d\n", s, i, i + 1);
+                        c2_ok = 0; local_errors++; break;
+                    }
+                    budget_check[d]++;
+                }
+                if (c2_ok) {
+                    for (int d = 0; d < 7; d++) {
+                        if (budget_check[d] != kw_dist[d]) {
+                            #pragma omp critical
+                            printf("  ERROR: solution %lld wrong difference distribution "
+                                   "(dist %d: got %d, expected %d)\n",
+                                   s, d, budget_check[d], kw_dist[d]);
+                            local_errors++; break;
+                        }
                     }
                 }
+                int cd = compute_comp_dist_x64(seq);
+                if (cd > kw_comp_dist_x64) {
+                    #pragma omp critical
+                    printf("  ERROR: solution %lld complement distance %d > KW %d\n", s, cd, kw_comp_dist_x64);
+                    local_errors++;
+                }
+                int is_kw = 1;
+                for (int i = 0; i < 64; i++) {
+                    if (seq[i] != KW[i]) { is_kw = 0; break; }
+                }
+                if (is_kw) kw_found_v = 1;
             }
-
-            /* C3: complement distance */
-            int cd = compute_comp_dist_x64(seq);
-            if (cd > kw_comp_dist_x64) {
-                printf("  ERROR: solution %d complement distance %d > KW %d\n",
-                       s, cd, kw_comp_dist_x64);
-                errors++;
-            }
-
-            /* Check if this is King Wen */
-            int is_kw = 1;
-            for (int i = 0; i < 64; i++) {
-                if (seq[i] != KW[i]) { is_kw = 0; break; }
-            }
-            if (is_kw) kw_found_v = 1;
-
-            if (s > 0 && s % 1000000 == 0)
-                printf("  Validated %d/%d solutions...\n", s, n_solutions);
+            errors += local_errors;
         }
-        fclose(vf);
+        munmap(vall, file_size);
 
         printf("\n--- Validation results ---\n");
-        printf("  Solutions checked:  %d\n", n_solutions);
+        printf("  Solutions checked:  %lld\n", n_solutions);
         printf("  Sorted order:      %s\n", sorted_ok ? "OK" : "FAILED");
         printf("  King Wen present:  %s\n", kw_found_v ? "YES" : "No");
-        printf("  Errors found:      %d\n", errors);
+        printf("  Errors found:      %lld\n", errors);
         if (errors == 0)
             printf("  Result: ALL CONSTRAINTS VERIFIED\n");
         else
@@ -1459,23 +1551,595 @@ int main(int argc, char *argv[]) {
         return errors > 0 ? 1 : 0;
     }
 
+    /* --- Analyze mode: post-enumeration scientific analyses on solutions.bin ---
+     *
+     * Single-shot reproducibility surface for all numerical claims cited in
+     * HISTORY.md and SOLVE-SUMMARY.md. Designed to scale to large datasets:
+     *
+     *   - Memory-maps solutions.bin (no full malloc; OS pages in on demand)
+     *   - Builds packed-bit boundary masks (1 bit per record per boundary,
+     *     8x smaller than bool[] form). 31 boundaries × n_sols/8 bytes.
+     *   - Uses __builtin_popcountll for SIMD-friendly intersection counts.
+     *   - Parallelizes the heavy 3-subset, 4-subset, MI, redundancy, and
+     *     null-model loops via OpenMP. Compile with `gcc -fopenmp -march=native`
+     *     to enable; without -fopenmp the pragmas are no-ops and execution
+     *     falls back to single-threaded.
+     *
+     * Build: gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm
+     *        (libgomp is shipped with gcc and covered by the GCC Runtime
+     *         Library Exception — no LICENSE change required.)
+     *
+     * Sections:
+     *   1. File metadata
+     *   2. Per-position Shannon entropy H(p)
+     *   3. Per-boundary survivor counts (31 boundaries, KW-relative)
+     *   4. King Wen variant analysis (count, varying within-pair orient positions)
+     *   5. Shift-pattern violation rates per position 3-19
+     *   6. Greedy minimum-boundary search to uniquely identify KW
+     *   7. Exhaustive 3-subset disproof (all C(31,3)=4,495 triples)
+     *   8. All 4-subsets uniquely identifying KW (C(31,4)=31,465)
+     *   9. Boundary redundancy (top-redundant + most-independent pairs)
+     *  10. Pairwise mutual information (top-N pairs)
+     *  11. Per-first-level-branch distinct configurations at positions 3-19
+     *  12. Null-model: greedy boundary search relative to a non-KW reference
+     *  13. Orbit counts (palindromic / pair-complement-symmetric solutions)
+     */
+    if (analyze_mode) {
+        setbuf(stdout, NULL);
+        printf("\n==== ./solve --analyze %s ====\n\n", analyze_file);
+        time_t t_start = time(NULL);
+
+        /* mmap the file: no malloc, no fread. OS pages it in on demand. */
+        int afd = open(analyze_file, O_RDONLY);
+        if (afd < 0) { printf("ERROR: cannot open %s\n", analyze_file); return 1; }
+        struct stat ast;
+        if (fstat(afd, &ast) < 0) { printf("ERROR: fstat failed\n"); close(afd); return 1; }
+        long file_size = ast.st_size;
+        if (file_size % SOL_RECORD_SIZE != 0) {
+            printf("ERROR: file size %ld not a multiple of %d\n", file_size, SOL_RECORD_SIZE);
+            close(afd); return 1;
+        }
+        long long n_sols = file_size / SOL_RECORD_SIZE;
+        unsigned char *all = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, afd, 0);
+        close(afd);
+        if (all == MAP_FAILED) {
+            printf("ERROR: mmap of %ld bytes failed (errno %d)\n", file_size, errno);
+            return 1;
+        }
+        madvise(all, file_size, MADV_SEQUENTIAL);
+
+        printf("[1] File metadata\n");
+        printf("    records:    %lld\n", n_sols);
+        printf("    file size:  %ld bytes (%.2f GB)\n", file_size, file_size / 1e9);
+        printf("    record fmt: %d bytes packed (pair_index<<2 | orient<<1 per position)\n", SOL_RECORD_SIZE);
+        printf("    backed by:  mmap (PROT_READ, MAP_PRIVATE)\n\n");
+
+        /* === Streaming pass: build all per-record-derived state in one walk === */
+        long long n_words = (n_sols + 63) / 64;
+        long long pos_cnt[32][32]; memset(pos_cnt, 0, sizeof(pos_cnt));
+        long long single[31] = {0};
+        long long shift_exc[17] = {0};
+        long long rows_with_exc = 0;
+        int kw_count = 0;
+        int orient_min[32], orient_max[32];
+        for (int p = 0; p < 32; p++) { orient_min[p] = 2; orient_max[p] = -1; }
+        int kw_cap = 256;
+        long long *kw_indices = malloc(kw_cap * sizeof(long long));
+
+        printf("[masks] Allocating 31 packed bitmaps (%lld words each, %.2f GB total)...\n",
+               n_words, 31.0 * n_words * 8.0 / 1e9);
+        uint64_t **bmask = malloc(31 * sizeof(uint64_t *));
+        for (int b = 0; b < 31; b++) {
+            bmask[b] = calloc((size_t)n_words, sizeof(uint64_t));
+            if (!bmask[b]) { printf("ERROR: bmask[%d] alloc failed\n", b); return 1; }
+        }
+
+        printf("[stream] Single-pass streaming over %lld records ...\n", n_sols);
+        time_t t_stream_start = time(NULL);
+        for (long long i = 0; i < n_sols; i++) {
+            const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+            int pi[32];
+            int is_kw = 1;
+            int has_shift_exc = 0;
+            for (int p = 0; p < 32; p++) {
+                pi[p] = rec[p] >> 2;
+                pos_cnt[p][pi[p]]++;
+                if (pi[p] != p) is_kw = 0;
+            }
+            for (int b = 0; b < 31; b++) {
+                if (pi[b] == b && pi[b + 1] == b + 1) {
+                    single[b]++;
+                    bmask[b][i >> 6] |= ((uint64_t)1 << (i & 63));
+                }
+            }
+            if (is_kw) {
+                if (kw_count >= kw_cap) {
+                    kw_cap *= 2;
+                    kw_indices = realloc(kw_indices, kw_cap * sizeof(long long));
+                }
+                kw_indices[kw_count++] = i;
+                for (int p = 0; p < 32; p++) {
+                    int o = (rec[p] >> 1) & 1;
+                    if (o < orient_min[p]) orient_min[p] = o;
+                    if (o > orient_max[p]) orient_max[p] = o;
+                }
+            }
+            for (int idx = 2; idx <= 18; idx++) {
+                if (pi[idx] != idx && pi[idx] != idx - 1) {
+                    shift_exc[idx - 2]++;
+                    has_shift_exc = 1;
+                }
+            }
+            if (has_shift_exc) rows_with_exc++;
+        }
+        printf("        done in %lds.\n\n", (long)(time(NULL) - t_stream_start));
+
+        /* === Section 2: entropy === */
+        printf("[2] Per-position Shannon entropy H(p), max log2(32)=5.0\n");
+        printf("    %-4s  %-10s  %s\n", "Pos", "H (bits)", "#distinct pairs");
+        double H[32];
+        for (int p = 0; p < 32; p++) {
+            double h = 0.0; int distinct = 0;
+            for (int k = 0; k < 32; k++) {
+                if (pos_cnt[p][k] > 0) {
+                    distinct++;
+                    double pr = (double)pos_cnt[p][k] / (double)n_sols;
+                    h -= pr * log2(pr);
+                }
+            }
+            H[p] = h;
+            printf("    %-4d  %-10.4f  %d\n", p + 1, h, distinct);
+        }
+        double Hsum = 0; for (int p = 0; p < 32; p++) Hsum += H[p];
+        printf("    mean H: %.4f bits\n\n", Hsum / 32.0);
+
+        /* === Section 3: per-boundary survivors === */
+        printf("[3] Per-boundary survivors (records matching KW pair_p AND pair_{p+1})\n");
+        for (int b = 0; b < 31; b++)
+            printf("    Boundary %2d (pos %d-%d): %12lld (%.4f%%)\n",
+                   b + 1, b + 1, b + 2, single[b], 100.0 * single[b] / n_sols);
+        printf("\n");
+
+        /* === Section 4: KW variants === */
+        printf("[4] King Wen variants (records with pair_idx == 0,1,2,...,31)\n");
+        printf("    KW records found: %d\n", kw_count);
+        if (kw_count > 0 && kw_count <= 64) {
+            printf("    Orient pattern per variant (1=reversed, 0=natural):\n");
+            printf("      Pos:    "); for (int p = 0; p < 32; p++) printf("%2d ", p + 1); printf("\n");
+            for (int v = 0; v < kw_count; v++) {
+                printf("      KW#%d:   ", v + 1);
+                for (int p = 0; p < 32; p++) {
+                    int o = (all[kw_indices[v] * SOL_RECORD_SIZE + p] >> 1) & 1;
+                    printf(" %d ", o);
+                }
+                printf("\n");
+            }
+            printf("    Varying-orient positions: ");
+            int n_var = 0;
+            for (int p = 0; p < 32; p++)
+                if (orient_max[p] > orient_min[p]) { printf("%d ", p + 1); n_var++; }
+            printf("\n    # varying: %d  (2^%d=%d combinations expected if independent; observed %d)\n\n",
+                   n_var, n_var, 1 << n_var, kw_count);
+        }
+
+        /* === Section 5: shift-pattern violations === */
+        printf("[5] Shift-pattern violations: at position p in [3..19], pair must be pair_{p-1} or pair_{p-2}\n");
+        printf("    %-4s  %-14s  %s\n", "Pos", "Exceptions", "Pct of total");
+        for (int idx = 2; idx <= 18; idx++)
+            printf("    %-4d  %-14lld  %.4f%%\n", idx + 1, shift_exc[idx - 2], 100.0 * shift_exc[idx - 2] / n_sols);
+        printf("    Rows with ANY shift exception: %lld (%.3f%%)\n",
+               rows_with_exc, 100.0 * rows_with_exc / n_sols);
+        printf("    Rows fully shift-conforming:    %lld (%.3f%%)\n\n",
+               n_sols - rows_with_exc, 100.0 * (n_sols - rows_with_exc) / n_sols);
+
+        /* Helper: count bits in intersection of two packed masks */
+        #define POPCOUNT_AND(_a,_b,_n) ({ long long _s=0; for (long long _w=0; _w<(_n); _w++) _s += __builtin_popcountll((_a)[_w] & (_b)[_w]); _s; })
+
+        /* === Section 6: greedy minimum boundary search === */
+        printf("[6] Greedy minimum-boundary search to uniquely identify KW\n");
+        uint64_t *alive_mask = malloc((size_t)n_words * sizeof(uint64_t));
+        for (long long w = 0; w < n_words; w++) {
+            uint64_t bits = ~(uint64_t)0;
+            /* Subtract KW-pair-sequence rows: those for which all 31 bmask bits are set */
+            uint64_t kw_pairs = ~(uint64_t)0;
+            for (int b = 0; b < 31; b++) kw_pairs &= bmask[b][w];
+            alive_mask[w] = bits & ~kw_pairs;
+        }
+        /* Mask trailing bits past n_sols */
+        long long extra = n_words * 64 - n_sols;
+        if (extra > 0) alive_mask[n_words - 1] &= (((uint64_t)1 << (64 - extra)) - 1);
+
+        long long alive_n = 0;
+        for (long long w = 0; w < n_words; w++) alive_n += __builtin_popcountll(alive_mask[w]);
+        printf("    Starting with %lld non-KW solutions\n", alive_n);
+        int chosen_set[31] = {0};
+        for (int step = 0; step < 8 && alive_n > 0; step++) {
+            int best_b = -1; long long best_remain = n_sols + 1;
+            for (int b = 0; b < 31; b++) {
+                if (chosen_set[b]) continue;
+                long long surv = POPCOUNT_AND(alive_mask, bmask[b], n_words);
+                if (surv < best_remain) { best_remain = surv; best_b = b; }
+            }
+            long long elim = alive_n - best_remain;
+            chosen_set[best_b] = 1;
+            for (long long w = 0; w < n_words; w++) alive_mask[w] &= bmask[best_b][w];
+            alive_n = best_remain;
+            printf("    Step %d: Boundary %d eliminates %lld, %lld remain\n",
+                   step + 1, best_b + 1, elim, best_remain);
+        }
+        printf("    Boundaries chosen: { ");
+        for (int b = 0; b < 31; b++) if (chosen_set[b]) printf("%d ", b + 1);
+        printf("}\n\n");
+        free(alive_mask);
+
+        /* === Section 7: 3-subset disproof (parallelized) === */
+        printf("[7] Exhaustive 3-subset disproof: test all C(31,3)=4,495 triples\n");
+        long long min_t_surv = n_sols + 1;
+        int min_t1 = -1, min_t2 = -1, min_t3 = -1, n_t_below = 0;
+        time_t t7_start = time(NULL);
+        #pragma omp parallel
+        {
+            long long local_min = n_sols + 1;
+            int local_t1 = -1, local_t2 = -1, local_t3 = -1, local_below = 0;
+            #pragma omp for schedule(dynamic, 16) collapse(2) nowait
+            for (int b1 = 0; b1 < 29; b1++)
+                for (int b2 = 0; b2 < 30; b2++) {
+                    if (b2 <= b1) continue;
+                    for (int b3 = b2 + 1; b3 < 31; b3++) {
+                        long long s = 0;
+                        for (long long w = 0; w < n_words; w++)
+                            s += __builtin_popcountll(bmask[b1][w] & bmask[b2][w] & bmask[b3][w]);
+                        if (s < local_min) { local_min = s; local_t1 = b1+1; local_t2 = b2+1; local_t3 = b3+1; }
+                        if (s <= kw_count) local_below++;
+                    }
+                }
+            #pragma omp critical
+            {
+                if (local_min < min_t_surv) {
+                    min_t_surv = local_min;
+                    min_t1 = local_t1; min_t2 = local_t2; min_t3 = local_t3;
+                }
+                n_t_below += local_below;
+            }
+        }
+        printf("    Minimum 3-subset survivors: %lld (best triple: {%d, %d, %d})  [%lds]\n",
+               min_t_surv, min_t1, min_t2, min_t3, (long)(time(NULL) - t7_start));
+        printf("    Triples reaching <=%d survivors: %d\n", kw_count, n_t_below);
+        if (n_t_below == 0)
+            printf("    => 4-boundary minimum proven for this dataset.\n\n");
+        else
+            printf("    => %d 3-subsets reach KW-only level; minimum is <= 3 for this dataset.\n\n", n_t_below);
+
+        /* === Section 8: All 4-subsets uniquely identifying KW (parallelized) === */
+        printf("[8] All 4-subsets that reduce survivors to <=%d (uniquely identify KW)\n", kw_count);
+        int boundary_freq[31] = {0};
+        int n_working = 0;
+        typedef struct { int b1, b2, b3, b4; long long s; } QuadEntry;
+        int report_cap = 1000;
+        QuadEntry *report = malloc(report_cap * sizeof(QuadEntry));
+        time_t t8_start = time(NULL);
+        #pragma omp parallel
+        {
+            int local_freq[31] = {0};
+            int local_n_working = 0;
+            int local_cap = 64;
+            QuadEntry *local_report = malloc(local_cap * sizeof(QuadEntry));
+            int local_report_n = 0;
+            #pragma omp for schedule(dynamic, 8) collapse(2) nowait
+            for (int b1 = 0; b1 < 28; b1++)
+                for (int b2 = 0; b2 < 29; b2++) {
+                    if (b2 <= b1) continue;
+                    for (int b3 = b2 + 1; b3 < 30; b3++)
+                    for (int b4 = b3 + 1; b4 < 31; b4++) {
+                        long long s = 0;
+                        for (long long w = 0; w < n_words; w++)
+                            s += __builtin_popcountll(bmask[b1][w] & bmask[b2][w] & bmask[b3][w] & bmask[b4][w]);
+                        if (s <= kw_count) {
+                            local_n_working++;
+                            local_freq[b1]++; local_freq[b2]++; local_freq[b3]++; local_freq[b4]++;
+                            if (local_report_n < local_cap) {
+                                local_report[local_report_n++] = (QuadEntry){b1+1, b2+1, b3+1, b4+1, s};
+                            }
+                        }
+                    }
+                }
+            #pragma omp critical
+            {
+                for (int b = 0; b < 31; b++) boundary_freq[b] += local_freq[b];
+                n_working += local_n_working;
+                for (int i = 0; i < local_report_n && n_working <= 200; i++) {
+                    if (n_working - local_n_working + i + 1 > report_cap) {
+                        report_cap *= 2;
+                        report = realloc(report, report_cap * sizeof(QuadEntry));
+                    }
+                    /* approximate; just use up to 200 reports total */
+                }
+                /* Simpler: always add up to first 200 across all threads */
+                for (int i = 0; i < local_report_n; i++) {
+                    static int rep_so_far = 0;
+                    if (rep_so_far < 200) {
+                        report[rep_so_far++] = local_report[i];
+                    }
+                }
+            }
+            free(local_report);
+        }
+        printf("    [8] elapsed: %lds\n", (long)(time(NULL) - t8_start));
+        int reported = n_working < 200 ? n_working : 200;
+        for (int i = 0; i < reported; i++)
+            printf("    {%2d, %2d, %2d, %2d}  survivors=%lld\n",
+                   report[i].b1, report[i].b2, report[i].b3, report[i].b4, report[i].s);
+        if (n_working > 200) printf("    ... (truncated; total reported below)\n");
+        printf("    total working 4-subsets: %d\n", n_working);
+        free(report);
+        if (n_working > 0) {
+            int by_freq[31];
+            for (int b = 0; b < 31; b++) by_freq[b] = b;
+            for (int i = 0; i < 31; i++)
+                for (int j = i + 1; j < 31; j++)
+                    if (boundary_freq[by_freq[j]] > boundary_freq[by_freq[i]]) {
+                        int t = by_freq[i]; by_freq[i] = by_freq[j]; by_freq[j] = t;
+                    }
+            printf("    Boundary frequency in working sets:\n");
+            for (int i = 0; i < 31 && boundary_freq[by_freq[i]] > 0; i++)
+                printf("      Boundary %2d: %4d  (%5.1f%%)\n",
+                       by_freq[i] + 1, boundary_freq[by_freq[i]],
+                       100.0 * boundary_freq[by_freq[i]] / n_working);
+            printf("    Boundaries appearing in EVERY working 4-set: { ");
+            for (int b = 0; b < 31; b++) if (boundary_freq[b] == n_working) printf("%d ", b + 1);
+            printf("}\n");
+        }
+        printf("\n");
+
+        /* === Section 9: Boundary redundancy === */
+        printf("[9] Boundary redundancy: joint(b1,b2) / min(single(b1), single(b2))\n");
+        long long joint[31][31]; memset(joint, 0, sizeof(joint));
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (int b1 = 0; b1 < 30; b1++) {
+            for (int b2 = b1 + 1; b2 < 31; b2++) {
+                long long s = 0;
+                for (long long w = 0; w < n_words; w++)
+                    s += __builtin_popcountll(bmask[b1][w] & bmask[b2][w]);
+                joint[b1][b2] = joint[b2][b1] = s;
+            }
+        }
+        typedef struct { double ratio; int b1, b2; long long jc; long long ms; } RedunEntry;
+        int n_pairs = 31 * 30 / 2;
+        RedunEntry *re = malloc(n_pairs * sizeof(RedunEntry));
+        int re_n = 0;
+        for (int b1 = 0; b1 < 30; b1++)
+            for (int b2 = b1 + 1; b2 < 31; b2++) {
+                long long ms = single[b1] < single[b2] ? single[b1] : single[b2];
+                if (ms == 0) continue;
+                re[re_n].ratio = (double)joint[b1][b2] / (double)ms;
+                re[re_n].b1 = b1 + 1; re[re_n].b2 = b2 + 1;
+                re[re_n].jc = joint[b1][b2]; re[re_n].ms = ms;
+                re_n++;
+            }
+        for (int i = 0; i < re_n; i++)
+            for (int j = i + 1; j < re_n; j++)
+                if (re[j].ratio > re[i].ratio) {
+                    RedunEntry t = re[i]; re[i] = re[j]; re[j] = t;
+                }
+        int top = re_n < 10 ? re_n : 10;
+        printf("    Top 10 most-redundant boundary pairs:\n");
+        for (int i = 0; i < top; i++)
+            printf("      b=%d, b'=%d  joint=%lld  min_single=%lld  ratio=%.3f\n",
+                   re[i].b1, re[i].b2, re[i].jc, re[i].ms, re[i].ratio);
+        int bot = re_n < 10 ? 0 : re_n - 10;
+        printf("    Top 10 most-INDEPENDENT boundary pairs:\n");
+        for (int i = bot; i < re_n; i++)
+            printf("      b=%d, b'=%d  joint=%lld  min_single=%lld  ratio=%.3f\n",
+                   re[i].b1, re[i].b2, re[i].jc, re[i].ms, re[i].ratio);
+        printf("\n");
+        free(re);
+
+        /* === Section 10: pairwise mutual information (parallelized over pairs) === */
+        printf("[10] Pairwise mutual information I(p; q) — top 20 strongest correlations\n");
+        double MI[32][32];
+        for (int p = 0; p < 32; p++) MI[p][p] = 0.0;
+        time_t t10_start = time(NULL);
+        #pragma omp parallel for schedule(dynamic, 4) collapse(2)
+        for (int p = 0; p < 31; p++) {
+            for (int q = 0; q < 32; q++) {
+                if (q <= p) continue;
+                long long jc[32 * 32]; memset(jc, 0, sizeof(jc));
+                for (long long i = 0; i < n_sols; i++) {
+                    int a = all[i * SOL_RECORD_SIZE + p] >> 2;
+                    int b = all[i * SOL_RECORD_SIZE + q] >> 2;
+                    jc[a * 32 + b]++;
+                }
+                double Hpq = 0.0;
+                for (int k = 0; k < 32 * 32; k++) {
+                    if (jc[k] > 0) {
+                        double pr = (double)jc[k] / (double)n_sols;
+                        Hpq -= pr * log2(pr);
+                    }
+                }
+                MI[p][q] = MI[q][p] = H[p] + H[q] - Hpq;
+            }
+        }
+        printf("    [10] elapsed: %lds\n", (long)(time(NULL) - t10_start));
+        typedef struct { double mi; int p, q; } MIEntry;
+        int n_mi_pairs = 32 * 31 / 2;
+        MIEntry *mi_arr = malloc(n_mi_pairs * sizeof(MIEntry));
+        int mi_n = 0;
+        for (int p = 0; p < 31; p++)
+            for (int q = p + 1; q < 32; q++) {
+                mi_arr[mi_n].mi = MI[p][q];
+                mi_arr[mi_n].p = p + 1; mi_arr[mi_n].q = q + 1;
+                mi_n++;
+            }
+        for (int i = 0; i < mi_n; i++)
+            for (int j = i + 1; j < mi_n; j++)
+                if (mi_arr[j].mi > mi_arr[i].mi) {
+                    MIEntry t = mi_arr[i]; mi_arr[i] = mi_arr[j]; mi_arr[j] = t;
+                }
+        for (int i = 0; i < (mi_n < 20 ? mi_n : 20); i++)
+            printf("      pos %2d <-> pos %2d:  I = %.4f bits\n",
+                   mi_arr[i].p, mi_arr[i].q, mi_arr[i].mi);
+        free(mi_arr);
+        printf("\n");
+
+        /* === Section 11: Per-first-level-branch distinct configurations === */
+        /* For each first-level pair p1, sort+dedup pair_idx[2..18] rows. */
+        printf("[11] Per-first-level-branch distinct configs at positions 3..19\n");
+        printf("     %-5s  %-30s  %s\n", "Pair", "Distinct configs at pos 3-19", "Records");
+        /* Pre-count per p1 to size the per-branch buffer */
+        long long p1_count[32] = {0};
+        for (long long i = 0; i < n_sols; i++)
+            p1_count[all[i * SOL_RECORD_SIZE + 1] >> 2]++;
+        long long max_p1_cnt = 0;
+        for (int p1 = 1; p1 < 32; p1++) if (p1_count[p1] > max_p1_cnt) max_p1_cnt = p1_count[p1];
+        unsigned char *rows = malloc((size_t)max_p1_cnt * 17);
+        if (!rows) { printf("    (skipping section 11 — alloc failed for %lld bytes)\n\n", max_p1_cnt * 17); }
+        else {
+            for (int p1 = 1; p1 < 32; p1++) {
+                if (p1_count[p1] == 0) {
+                    printf("     %-5d  %-30s  %lld\n", p1, "(no records)", 0LL);
+                    continue;
+                }
+                long long ridx = 0;
+                for (long long i = 0; i < n_sols; i++) {
+                    if ((all[i * SOL_RECORD_SIZE + 1] >> 2) == p1) {
+                        for (int k = 0; k < 17; k++)
+                            rows[ridx * 17 + k] = all[i * SOL_RECORD_SIZE + 2 + k] >> 2;
+                        ridx++;
+                    }
+                }
+                int cmp17(const void *a, const void *b) { return memcmp(a, b, 17); }
+                qsort(rows, (size_t)ridx, 17, cmp17);
+                long long ndist = ridx > 0 ? 1 : 0;
+                for (long long i = 1; i < ridx; i++)
+                    if (memcmp(&rows[i * 17], &rows[(i - 1) * 17], 17) != 0) ndist++;
+                printf("     %-5d  %-30lld  %lld\n", p1, ndist, ridx);
+            }
+            free(rows);
+        }
+        printf("\n");
+
+        /* === Section 12: Null-model relative to a non-KW reference === */
+        printf("[12] Null-model: greedy minimum-boundary search relative to a non-KW reference\n");
+        long long ref_idx = n_sols / 2;
+        unsigned char ref_pairs[32];
+        for (int p = 0; p < 32; p++) ref_pairs[p] = all[ref_idx * SOL_RECORD_SIZE + p] >> 2;
+        int ref_is_kw = 1;
+        for (int p = 0; p < 32; p++) if (ref_pairs[p] != p) { ref_is_kw = 0; break; }
+        printf("    Reference index: %lld  (is_kw=%s)\n", ref_idx, ref_is_kw ? "YES" : "no");
+        if (ref_is_kw) {
+            printf("    (random pick happened to be KW; skipping null-model)\n\n");
+        } else {
+            uint64_t **rmask = malloc(31 * sizeof(uint64_t *));
+            for (int b = 0; b < 31; b++) rmask[b] = calloc((size_t)n_words, sizeof(uint64_t));
+            for (long long i = 0; i < n_sols; i++) {
+                const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                for (int b = 0; b < 31; b++) {
+                    int p_b = rec[b] >> 2;
+                    int p_b1 = rec[b + 1] >> 2;
+                    if (p_b == ref_pairs[b] && p_b1 == ref_pairs[b + 1])
+                        rmask[b][i >> 6] |= ((uint64_t)1 << (i & 63));
+                }
+            }
+            uint64_t *r_alive = malloc((size_t)n_words * sizeof(uint64_t));
+            for (long long w = 0; w < n_words; w++) {
+                uint64_t bits = ~(uint64_t)0;
+                uint64_t ref_full = ~(uint64_t)0;
+                for (int b = 0; b < 31; b++) ref_full &= rmask[b][w];
+                r_alive[w] = bits & ~ref_full;
+            }
+            if (extra > 0) r_alive[n_words - 1] &= (((uint64_t)1 << (64 - extra)) - 1);
+            long long r_alive_n = 0;
+            for (long long w = 0; w < n_words; w++) r_alive_n += __builtin_popcountll(r_alive[w]);
+            printf("    Starting with %lld non-ref solutions\n", r_alive_n);
+            int r_chosen[31] = {0};
+            for (int step = 0; step < 8 && r_alive_n > 0; step++) {
+                int best_b = -1; long long best_remain = n_sols + 1;
+                for (int b = 0; b < 31; b++) {
+                    if (r_chosen[b]) continue;
+                    long long surv = POPCOUNT_AND(r_alive, rmask[b], n_words);
+                    if (surv < best_remain) { best_remain = surv; best_b = b; }
+                }
+                long long elim = r_alive_n - best_remain;
+                r_chosen[best_b] = 1;
+                for (long long w = 0; w < n_words; w++) r_alive[w] &= rmask[best_b][w];
+                r_alive_n = best_remain;
+                printf("    Step %d: Boundary %d eliminates %lld, %lld remain\n",
+                       step + 1, best_b + 1, elim, best_remain);
+            }
+            printf("    Reference-relative boundaries: { ");
+            for (int b = 0; b < 31; b++) if (r_chosen[b]) printf("%d ", b + 1);
+            printf("}\n\n");
+            for (int b = 0; b < 31; b++) free(rmask[b]);
+            free(rmask); free(r_alive);
+        }
+
+        /* === Section 13: Orbits === */
+        printf("[13] Orbit analysis under reversal and pair-complement\n");
+        long long n_palin = 0;
+        for (long long i = 0; i < n_sols; i++) {
+            int is_palin = 1;
+            for (int p = 0; p < 16; p++) {
+                int a = all[i * SOL_RECORD_SIZE + p] >> 2;
+                int b = all[i * SOL_RECORD_SIZE + 31 - p] >> 2;
+                if (a != b) { is_palin = 0; break; }
+            }
+            if (is_palin) n_palin++;
+        }
+        int hex_to_pair_local[64];
+        for (int h = 0; h < 64; h++) hex_to_pair_local[h] = -1;
+        for (int p = 0; p < 32; p++) {
+            hex_to_pair_local[KW[2 * p]] = p;
+            hex_to_pair_local[KW[2 * p + 1]] = p;
+        }
+        int comp_pair[32];
+        for (int p = 0; p < 32; p++) comp_pair[p] = hex_to_pair_local[63 - KW[2 * p]];
+        long long n_self_comp = 0;
+        for (long long i = 0; i < n_sols; i++) {
+            int is_self_comp = 1;
+            for (int p = 0; p < 32; p++) {
+                int pi = all[i * SOL_RECORD_SIZE + p] >> 2;
+                if (comp_pair[pi] != pi) { is_self_comp = 0; break; }
+            }
+            if (is_self_comp) n_self_comp++;
+        }
+        int n_comp_self = 0;
+        for (int p = 0; p < 32; p++) if (comp_pair[p] == p) n_comp_self++;
+        printf("    Palindromic solutions (pair sequence reads same forwards/backwards): %lld (%.4f%%)\n",
+               n_palin, 100.0 * n_palin / n_sols);
+        printf("    Pair-complement self-symmetric (every pair is self-complementary): %lld (%.4f%%)\n",
+               n_self_comp, 100.0 * n_self_comp / n_sols);
+        printf("    (Note: %d of 32 pairs are self-complementary)\n\n", n_comp_self);
+
+        for (int b = 0; b < 31; b++) free(bmask[b]);
+        free(bmask);
+        free(kw_indices);
+        munmap(all, file_size);
+
+        time_t t_end = time(NULL);
+        printf("==== analyze done in %lds ====\n", (long)(t_end - t_start));
+        return 0;
+    }
+
     /* --- Merge mode: combine sub_*.bin files into one sorted, deduped output --- */
     if (merge_mode) {
         printf("\nMerge mode: combining sub_*.bin files...\n");
 
-        /* Count and list sub_*.bin files using a simple scan */
-        char filenames[64][64];
+        /* Up to 32*2*32*2 = 4096 possible (p1,o1,p2,o2) combinations. */
+        #define MAX_SUB_FILES 4096
+        static char filenames[MAX_SUB_FILES][64];
         int n_files = 0;
+        for (int p1 = 0; p1 < 32; p1++) {
+        for (int o1 = 0; o1 < 2; o1++) {
         for (int p2 = 0; p2 < 32; p2++) {
             for (int o2 = 0; o2 < 2; o2++) {
                 char fname[64];
-                snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+                snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
                 FILE *tf = fopen(fname, "rb");
                 if (tf) {
                     fseek(tf, 0, SEEK_END);
                     long sz = ftell(tf);
                     fclose(tf);
-                    if (sz > 0) {
+                    if (sz > 0 && n_files < MAX_SUB_FILES) {
                         snprintf(filenames[n_files], 64, "%s", fname);
                         n_files++;
                         printf("  Found %s: %ld bytes (%ld solutions)\n",
@@ -1483,7 +2147,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
-        }
+        }}}
         if (n_files == 0) {
             printf("No sub_*.bin files found.\n");
             return 1;
@@ -1789,14 +2453,20 @@ int main(int argc, char *argv[]) {
         int all_proved = 1;
         int proved_count = 0, dead_count = 0, multi_count = 0;
 
+        /* Per-branch result buffer so OpenMP-parallel iterations can be printed in order. */
+        struct CascadeResult { int branch_feasible; int n_found; int status_code; /* 0=dead 1=proved 2=multi */ } results_phase1[32];
+        memset(results_phase1, 0, sizeof(results_phase1));
+
+        /* Phase 1 is embarrassingly parallel: 31 independent branches.
+         * Compile with -fopenmp for ~30x speedup; without it the pragma is a no-op. */
+        #pragma omp parallel for schedule(dynamic) reduction(+:proved_count,dead_count,multi_count) reduction(&&:all_proved)
         for (int bp = 0; bp < 32; bp++) {
             if (bp == start_pair_idx) continue;
 
             int branch_feasible = 0;
-            /* Track unique pair sequences (ignoring orientation) */
-            /* Use a simple array of found sequences, max 131072 */
-            /* At most a few unique sequences expected; 1000 is generous */
-            static int found_seqs[1000][17];
+            /* Track unique pair sequences (ignoring orientation).
+             * Per-iteration (was static; that broke under OpenMP parallelism). */
+            int found_seqs[1000][17];
             int n_found = 0;
 
             for (int orient1 = 0; orient1 < 2; orient1++) {
@@ -1896,21 +2566,31 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            const char *status;
+            int status_code;
             if (n_found == 0) {
-                status = "DEAD (no feasible paths)";
+                status_code = 0;
                 dead_count++;
             } else if (n_found == 1) {
-                status = "PROVED: exactly 1 pair sequence";
+                status_code = 1;
                 proved_count++;
             } else {
-                status = "MULTIPLE sequences";
+                status_code = 2;
                 multi_count++;
                 all_proved = 0;
             }
-
+            results_phase1[bp].branch_feasible = branch_feasible;
+            results_phase1[bp].n_found = n_found;
+            results_phase1[bp].status_code = status_code;
+        }
+        /* Print Phase 1 results in branch order (parallel loop above scrambled order). */
+        for (int bp = 0; bp < 32; bp++) {
+            if (bp == start_pair_idx) continue;
+            const char *status = results_phase1[bp].status_code == 0 ? "DEAD (no feasible paths)" :
+                                 results_phase1[bp].status_code == 1 ? "PROVED: exactly 1 pair sequence" :
+                                                                       "MULTIPLE sequences";
             printf("  Pair %2d (hexagrams %2d,%2d): %6d feasible paths, %d unique -> %s\n",
-                   bp, pairs[bp].a, pairs[bp].b, branch_feasible, n_found, status);
+                   bp, pairs[bp].a, pairs[bp].b,
+                   results_phase1[bp].branch_feasible, results_phase1[bp].n_found, status);
         }
 
         printf("\n======================================================================\n");
@@ -2340,7 +3020,7 @@ int main(int argc, char *argv[]) {
                 if (test_budget[wd2] <= 0) continue;
 
                 /* Skip completed sub-branches (resume) */
-                if (is_sub_branch_completed(p2, o2)) {
+                if (is_sub_branch_completed(sb_pair, sb_orient, p2, o2)) {
                     n_skipped++;
                     continue;
                 }
@@ -2763,7 +3443,7 @@ int main(int argc, char *argv[]) {
                     if (budget2[wd2] <= 0) continue;
 
                     /* Skip completed sub-branches (resume) */
-                    if (is_sub_branch_completed(p2, o2)) {
+                    if (is_sub_branch_completed(p1, o1, p2, o2)) {
                         n_skipped_subs++;
                         continue;
                     }
@@ -3004,10 +3684,12 @@ int main(int argc, char *argv[]) {
     /* Count total records across all sub_*.bin files */
     long long total_file_records = 0;
     int n_sub_files = 0;
+    for (int p1 = 0; p1 < 32; p1++)
+    for (int o1 = 0; o1 < 2; o1++)
     for (int p2 = 0; p2 < 32; p2++) {
         for (int o2 = 0; o2 < 2; o2++) {
             char fname[64];
-            snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+            snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
             FILE *tf = fopen(fname, "rb");
             if (tf) {
                 fseek(tf, 0, SEEK_END);
@@ -3028,10 +3710,12 @@ int main(int argc, char *argv[]) {
 
     long long sol_offset = 0;
     if (all_solutions) {
+        for (int p1 = 0; p1 < 32; p1++)
+        for (int o1 = 0; o1 < 2; o1++)
         for (int p2 = 0; p2 < 32; p2++) {
             for (int o2 = 0; o2 < 2; o2++) {
                 char fname[64];
-                snprintf(fname, sizeof(fname), "sub_%d_%d.bin", p2, o2);
+                snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
                 FILE *tf = fopen(fname, "rb");
                 if (tf) {
                     fseek(tf, 0, SEEK_END);
