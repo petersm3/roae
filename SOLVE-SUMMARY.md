@@ -63,7 +63,7 @@ The difference wave — each character represents one transition, height proport
 
 `█▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█`
 
-The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No block reaches height 5 — that transition never occurs. See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
+The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No block reaches height 5 (▅) — that transition never occurs. See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
 
 **What this does:** Eliminates about 96% of the remaining arrangements.
 

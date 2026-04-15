@@ -186,6 +186,40 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | 3,030 sub-branch mode eliminates tail problem | Comparative benchmarks | Engineering result |
 | Thread-independent reproducibility | Per-branch node budgets | Verified (1-thread = 2-thread sha256) |
 
+## Day 4 — April 13, 2026
+
+**100T deployment on spot, then aborted.** Deployed a 100T run on a spot F64 with the (then-still-buggy) solver. The run was evicted after ~3 hours (intra-day Pacific business-hour load). After redeploy, monitoring revealed only ~1.5% of sub-branches committed in 9 hours of wall clock — eviction was killing all 64 in-flight sub-branches each time, and the per-sub-branch node budget (33B) was so large that recovery cost exceeded forward progress. Projected completion under that approach: ~30 days. The 47 committed sub-branches were archived locally (49.7M solutions, sha256 verified against the partial output) and the run was killed. The lesson — sub-branch-granularity recovery is too coarse for spot at large per-sub-branch budgets — drove the design of "Option B" (depth-3 work units) for any future 100T attempt.
+
+## Day 5 — April 14, 2026
+
+**The bug discovered.** While preparing a 10T re-run before attempting 100T again, an audit of the solver's `flush_sub_solutions` keyed `sub_*.bin` filenames on `(pair2, orient2)` only — but 3030 sub-branches share only 64 distinct `(p2, o2)` values, so later writes silently overwrote earlier ones. Every prior result, including the published 31.6M figure, was a deterministic undercount: the sha256 reproduced because the bug reproduced. Fix: broaden the filename and checkpoint key to `(pair1, orient1, pair2, orient2)`. Same change in `is_sub_branch_completed`, `load_sub_checkpoint`, the merge step, and the per-sub-branch flush. Tested locally: 100M-node smoke test produced 1097 unique `sub_*.bin` files (cap was previously 64), 336k solutions, deterministic across thread counts.
+
+**The 10T bugfix run.** Deployed on F64 spot (sha256 `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`, 742,043,303 unique orderings — a 23.5× increase over the buggy 31.6M). All 6 audits passed: KW present, sort order OK, all 3030 sub-branches enumerated (1344 produce ≥1 C3-valid solution; 1686 are dead), 23.5× more than the buggy baseline, every record passes C1-C5, sum of per-sub-branch nodes exactly equals the global total (10,000,002,096,398 nodes).
+
+**Two more bugs surfaced during recovery.** The solver's final write of `solutions.bin` was *silently truncated* from 23.7 GB to 8 GB because the persistent disk filled up mid-write and `fwrite`'s return value wasn't checked. The `solutions.sha256` matched the truncated file (sha computed post-truncation), so audit-by-sha didn't catch it — only a byte-size-vs-record-count comparison did. Recovered by resizing the data disk 32→64 GB and re-running `./solve --merge` against the preserved sub_*.bin shards. Separately, the run-monitor's completion-detection regex grepped for `"SEARCH COMPLETE"` while the solver writes `"SEARCH_COMPLETE"` (underscore) in its JSON output — the monitor concluded the run had failed and tore down the VM. Data was safe on the preserved managed disk.
+
+**Scientific analyses on 742M.** Ran 11 distinct analyses spanning ~3 hours of spot VM time:
+- Per-position Shannon entropy: position 1 = 0.00 bits (forced), position 3 = 4.12 bits (highest freedom), positions 4-20 = 0.28-1.72 bits (cascade region), positions 22-31 = 3.45-3.65 bits.
+- Pairwise mutual information: strongest correlations between adjacent positions in the cascade region (pos 19↔20 = 1.15 bits). Boundaries 25 and 27 — both mandatory — show *weak* MI to everything (max 0.19 bits).
+- Per-boundary survivors and exhaustive 3-subset disproof: best 3-subset leaves 24 survivors → 4-boundary minimum proven for the 742M dataset.
+- All 4-subsets enumeration: only 4 working sets exist — `{2,21,25,27}`, `{2,22,25,27}`, `{3,21,25,27}`, `{3,22,25,27}`. **Boundaries 25 and 27 are truly mandatory** (in every working set). Boundaries {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable.
+- Boundary redundancy: boundaries 15-19 are fully redundant (knowing one implies all others); boundaries 26 and 27 are highly independent of the cascade region (ratios ~0.01).
+- KW within-pair orient variants: 4 KW records (not 1) because cross-sub-branch dedup is byte-level. Orient varies at exactly 5 positions {2, 3, 28, 29, 30}, but constrained by `(pos2 XOR pos3) == pos28 == pos29 == pos30`. So 2 free toggles, not 5.
+- Shift-pattern verification: only 2.93% of 742M solutions conform to "every position 3-19 uses pair_p or pair_{p-1}". The earlier "shift pattern observed universally in 31.6M" was an artifact of the file-collision bug undersampling non-shift solutions. This also resolves the apparent contradiction with `--prove-cascade`: that proof is correct only within the shift-pattern subspace.
+- Cascade direct count: every reachable first-level branch admits 2-29 distinct configurations at positions 3-19, none have exactly 1.
+- Null-model boundary (relative to a random non-KW reference): different boundary set chosen, indicating the {25, 27} mandatory pair is KW-specific, not a feature of the constraint geometry alone.
+- Orbit analysis: 0 palindromic solutions, 0 fully self-pair-complement-symmetric solutions.
+
+## Day 6 — April 15, 2026
+
+**Consolidation in C.** Rewrote all post-enumeration analyses as a single `./solve --analyze [solutions.bin]` mode in solve.c. mmap'd file access (no full malloc), packed `uint64_t` boundary masks (8× memory savings), `__builtin_popcountll` for SIMD-friendly intersections, OpenMP parallelism on the heavy 3-subset, 4-subset, MI, and redundancy loops. Validated against the Python results on 742M: every numerical claim matches. Total `--analyze` runtime: 7 minutes (vs ~2 hours for the equivalent Python). Exhaustive 3-subset test went from 36 minutes (Python) to 4 seconds (C). The 4-subset enumeration went from 100 minutes to 37 seconds.
+
+**OpenMP also added to `--validate` and `--prove-cascade`.** Predicted ~10s `--validate` on 742M (was ~2 min). `--prove-cascade` Phase 1 outer loop now parallelized across 31 branches with per-branch result buffer for ordered output (output is identical to the pre-parallel version; only the wall time changes).
+
+**Documentation rewrite.** `solve.c` top-of-file comment updated to reflect the 3030-sub-branch architecture (the older "56-branch" description was stale), bug-history section, all current run modes including `--analyze`, build flags including `-fopenmp -march=native`, OpenMP licensing note. New `DEPLOYMENT.md` captures architecture + lessons + Azure spot-VM provisioning instructions in an appendix. `HISTORY.md`, `SOLVE-SUMMARY.md`, and `LEADERBOARD.md` all updated with the corrected 742M numbers and the {25, 27} truly-mandatory finding. Methodological rule established: any "proven" claim must be either universal or explicitly scoped (e.g., "proven for the 742M dataset"); applied throughout.
+
+**Pushed to GitHub.** 4 commits: solve.c (bug fix + --analyze + parallelization + doc), DEPLOYMENT.md, doc updates, run artifacts.
+
 ## Current state
 
 The project has a reproducible **742,043,303-solution dataset at 10T** (sha256: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`, reproducible with `SOLVE_NODE_LIMIT=10000000000000` under the bug-fixed solver). This supersedes the prior "31.6M" figure — a ~23× undercount caused by the sub-branch filename collision bug (see missteps table). All 742M records validated against C1-C5 with zero errors; sort order verified; King Wen present.
