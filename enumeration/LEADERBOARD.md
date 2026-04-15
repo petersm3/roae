@@ -144,17 +144,28 @@ interacts very differently with different position-2 pairs.
 
 ## What remains unknown
 
-- **The total count of valid orderings.** At least 31.6 million have been found; the true count
-  is unknown and likely significantly larger. No branch has been fully explored.
+- **The total count of valid orderings.** At least **742,043,303** have been found at 10T under
+  the bug-fixed solver (2026-04-14). The true count is unknown and likely significantly larger —
+  every sub-branch hit its per-sub-branch node budget rather than completing naturally.
 - **Whether the 4-boundary uniqueness result holds at larger scale.** Four boundary constraints
-  uniquely determine King Wen among 31.6M orderings (proven minimum). A larger dataset might
-  require a 5th boundary.
+  still uniquely determine King Wen among 742M orderings. The **4-boundary minimum is
+  exhaustively proven for the 742M dataset** (computational finite-case proof, not a universal
+  theorem): all 4,495 three-subsets fail and exactly 4 of the 31,465 four-subsets succeed
+  (`{2,21,25,27}`, `{2,22,25,27}`, `{3,21,25,27}`, `{3,22,25,27}`). Boundaries **25 and 27 are
+  truly mandatory** — present in every working 4-set; {2 ↔ 3} and {21 ↔ 22} are pairwise
+  interchangeable. A still-larger dataset might require a 5th boundary, or (conversely) might
+  admit a working 3-subset if new solutions happen to be eliminated by some triple.
 - **Whether the "estimated dead" branches are truly dead.** They produced zero valid
   orderings in partial exploration, but exhaustive proof requires completing them. Four branches
   previously classified as dead were reclassified as live in the 10T run.
-- **The structure of the free region (positions 20-32).** Position 2 determines positions 3-19
-  (only 13 positions have genuine freedom). What patterns govern King Wen's choices in those
-  13 free positions?
+- **The structure of the cascade and back-half regions.** The earlier framing that "position 2
+  determines positions 3-19" was overstated — based on the bug-undercounted 31.6M dataset and an
+  analysis (`--prove-cascade`) that operated within a shift-pattern subspace containing only 2.93%
+  of the corrected 742M valid orderings. Per-position Shannon entropy on 742M shows the cascade
+  region (positions 4-20) carries 0.28-1.72 bits each — heavily constrained but not deterministic;
+  every reachable first-level branch admits 2-29 distinct pair sequences across positions 3-19.
+  Positions 22-31 carry 3.45-3.65 bits each. What patterns govern King Wen's specific choices
+  across the full 32 positions remains open.
 
 ---
 
@@ -194,14 +205,15 @@ is never lost.
 
 ## Status
 
-| Metric | Value |
+| Metric | Value (latest: 10T bugfix run, 2026-04-14) |
 |--------|-------|
-| Branches | 56/56 surveyed, 0/56 complete |
-| Sub-branches | 0/~3,024 complete |
-| Valid orderings found | at least 31,630,621 |
-| Estimated dead branches | 24/56 |
-| Live branches | 32/56 |
-| Hash overflows | 4 branches |
+| Sub-branches enumerated | 3030/3030 (all hit per-sub-branch node budget) |
+| Valid orderings found | **742,043,303** (all validated against C1-C5, sha256 `aa141517…719b`) |
+| King Wen present | yes |
+| sub_*.bin files produced | 1344 (only these (p1,o1,p2,o2) tuples have ≥1 C3-valid solution) |
+| Prior "31.6M" figure | Superseded — was a ~23× undercount due to a file-naming collision bug (see [HISTORY.md](../HISTORY.md)) |
+
+**Branch-level table below is from the pre-bugfix 10T run and reflects the old `sub_P2_O2.bin` naming. Per-branch counts are therefore partial undercounts — pending re-extraction from the 742M dataset.**
 
 ## Branch table
 

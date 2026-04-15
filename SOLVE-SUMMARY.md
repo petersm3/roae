@@ -98,11 +98,11 @@ The sequence begins with the two most extreme hexagrams: all solid lines (䷀ Th
 
 The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
 
-**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes on 64 cores) found at least 31.6 million valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling.
+**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes on 64 cores) found at least **742 million** valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling. (An earlier published figure of 31.6M at this same 10T scale turned out to be a ~23× undercount caused by a file-naming collision in the solver; the corrected 2026-04-14 run found 742,043,303 unique orderings. See [HISTORY.md](HISTORY.md) for the forensics.)
 
 ### What the rules determine — and what remains open
 
-A partial enumeration using `solve.c` (10 trillion nodes explored across 64 CPU cores) found **at least 31.6 million** unique pair orderings satisfying Rules 1-5. The enumeration was partial — none of the 56 search branches completed — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+A partial enumeration using `solve.c` (10 trillion nodes explored across 64 CPU cores) found **at least 742 million** unique pair orderings satisfying Rules 1-5. The enumeration is partial in the sense that each of the 3,030 sub-branches hits its per-sub-branch node budget rather than completing naturally — so the true count is unknown and could be significantly larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
 | Positions | Pairs observed | KW match rate | Character |
 |-----------|---------------|-------------------|-----------|
@@ -125,17 +125,50 @@ Among 6 billion C3-valid solutions (including orientation variants), only 0.0018
 The millions of alternative arrangements satisfying Rules 1-5 are not random — they share strong structural similarities with King Wen, especially in the first half of the sequence. The closest non-King-Wen solutions differ by only 2 pair positions, always in the last third (positions 26-32). This means:
 
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
-- **Position 2 largely determines positions 3-19.** For 16 of 31 branches, the next 17 positions are fully locked by budget constraints alone (proved). For the remaining 12 branches, extremely rare alternative configurations exist — not found in the 31.6M partial enumeration but confirmed by exhaustive proof search. In practice, the cascade is nearly deterministic; the alternatives are so rare they require targeted searching to find.
-- **Positions 20-32 are where choice lives.** Only these 13 positions have genuine freedom, admitting 2-16 different pairs each. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in this region is describing the designers' choices, not mathematical necessity.
+- **Position 2 partially constrains positions 3-19, but not deterministically.** Earlier docs claimed "for 16 of 31 branches, positions 3-19 are fully locked" (based on `--prove-cascade`). That result is correct *only within the shift-pattern subspace* (where every position is restricted to KW's pair or the previous pair) — and direct measurement on 742M shows that subspace contains only 2.93% of all valid orderings. In the full 742M dataset, every reachable first-level branch admits 2-29 distinct pair sequences at positions 3-19; none are uniquely determined. The cascade region is heavily constrained (per-position Shannon entropy 0.28-1.72 bits, well below the 5-bit maximum) but not deterministic.
+- **Freedom is concentrated in the back half but spread across the cascade too.** The earlier framing of "13 free positions (20-32)" oversimplified. The 742M analysis shows position 3 actually has the highest freedom (4.12 bits, 31 distinct pairs observed), positions 22-31 carry 3.45-3.65 bits each (14 distinct pairs), and the "cascade region" (4-20) carries 0.28-1.72 bits each — heavily constrained but not zero. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in the back half is describing the designers' choices among genuinely available alternatives, not mathematical necessity.
 - **King Wen keeps complements close.** Among all valid orderings, King Wen **minimizes** complement distance — keeping opposites as close as possible. Only 3.9% of valid orderings place complements closer.
 - **The starting orientation is forced.** ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
 ## What this means
 
-Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 31.6 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. Position 2 determines positions 3-19 (a single choice locks 17 subsequent positions). Only positions 20-32 have genuine freedom. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
+Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to **at least 742 million** (likely more — the enumeration is incomplete). Position 1 is fully determined. The cascade region (positions 3-20) is heavily constrained (per-position entropy 0.28-1.72 bits — far below the 5-bit maximum) but not deterministic: every first-level branch admits 2-29 distinct pair sequences across positions 3-19. Positions 22-31 have substantially more freedom (entropy 3.5-3.6 bits). The earlier framing that "position 2 locks positions 3-19" was based on the bug-undercounted 31.6M dataset and on an analysis (`--prove-cascade`) that operated within a shift-pattern subspace containing only 2.93% of all valid orderings; it does not survive the corrected 742M dataset. The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Exactly **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) are needed to narrow the 31.6 million known orderings to exactly 1 — King Wen. This is the minimum for the current dataset: exhaustive testing of all 31 single boundaries, 465 pairs, and 4,495 triples confirmed that no combination of 3 or fewer suffices. This result could change as more orderings are discovered — a larger dataset might require additional boundaries.
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only hundreds of millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Exactly **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) are needed to narrow the 742 million known orderings to exactly 1 — King Wen. **The 4-boundary minimum is proven for the 742M dataset (not as a universal theorem)**: exhaustive testing of all 4,495 three-subsets of the 31 candidate boundaries against the 742M solutions confirmed that no combination of three suffices — the best 3-subset (positions {2, 25, 27}) leaves 24 non-KW survivors. Exhaustive testing of all 31,465 four-subsets identifies exactly **4 working sets**: `{2, 21, 25, 27}`, `{2, 22, 25, 27}`, `{3, 21, 25, 27}`, `{3, 22, 25, 27}`. **Boundaries 25 and 27 are truly mandatory** — they appear in every working 4-set. Boundaries {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable. This is a computational finite-case proof over the current dataset, not a formal derivation; a deeper enumeration that finds additional valid orderings could in principle change the family.
+
+### Per-position constraint strength (Shannon entropy)
+
+Across the 742M valid orderings, the Shannon entropy H(p) of the pair distribution at each position p quantifies how much "choice" exists at that position (in bits; max possible is log₂(32) = 5.0 bits if any pair were equally likely). The gradient is crisp:
+
+| Positions | H (bits) | Character |
+|-----------|---------:|-----------|
+| 1 | 0.00 | Fully determined (only Creative/Receptive) |
+| 2 | 3.83 | Near-free (28 distinct pairs observed) |
+| 3 | 4.12 | Most free of all positions (31 pairs observed) |
+| 4-20 | 0.28 – 1.72 | Highly constrained — the "cascade region" |
+| 21 | 1.71 | Transition |
+| 22-31 | 3.45 – 3.65 | Moderately free |
+| 32 | 2.66 | Partial constraint (7 pairs) |
+
+Mean H = 2.05 bits per position. The peak at position 3 (not position 2) is because the solver's enumeration fixes position 2 first, so freedom is pushed one step downstream. The cascade region (positions 4-20) carries only 0.3-1.7 bits each — a very different regime from the "free" regions above and below it.
+
+### How positions relate to one another (mutual information)
+
+Pairwise mutual information I(p; q) measures how much knowing the pair at position p reduces uncertainty about position q. The strongest correlations are between adjacent positions in the cascade region (e.g., position 19 ↔ 20 = 1.15 bits), reflecting the tight local propagation. Notably: **boundaries 25 and 27 — both mandatory — have weak mutual information with everything else** (max I ≈ 0.19 bits). They are mandatory for reasons that don't show up as information bottlenecks, which suggests their role is structural (e.g., specific KW pair adjacencies that other solutions rarely replicate) rather than being high-information "cuts" of the solution manifold.
+
+### Boundary redundancy and independence
+
+Joint-survivor analysis (counting how many solutions match KW at *both* of two given boundaries simultaneously) reveals two distinct boundary clusters:
+
+- **Boundaries 15-19 are fully redundant.** For every pair within this set, `joint(b1, b2) = min(survivors(b1), survivors(b2))` — knowing one of these boundaries implies all the others. The cascade region propagates so tightly that constraints near its end carry overlapping information.
+- **Boundaries 26 and 27 are highly independent of the cascade region.** Joint/min-single ratios with cascade-region boundaries (3-8) are 0.007-0.010 — essentially uncorrelated. This is what makes them structurally valuable in the minimum-boundary set: they eliminate solutions that the cascade region cannot.
+
+This explains why the minimum 4-set picks {2, 21, 25, 27}: position 2 catches the high-entropy choice at the front, 21 catches the cascade-end transition, and 25 and 27 contribute *independent* information not implied by any other boundary.
+
+### Hidden orient symmetry of King Wen
+
+Within the 742M unique pair-orderings, King Wen appears 4 times — same pair sequence at every position, but differing in within-pair orientation at exactly 5 positions: {2, 3, 28, 29, 30}. Of the 2⁵ = 32 possible orient combinations at those 5 positions, only 4 are valid. The constraint is a coupling: orient bits at positions 28, 29, 30 are locked together, and their value equals (orient at position 2) XOR (orient at position 3). So King Wen has effectively **2 independent orient toggles** (= 4 variants), not 5. Whether this orient-coupling generalizes to other valid orderings has not been checked.
 
 ## The numbers at a glance
 
@@ -146,7 +179,7 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 2 | No 5-line jumps | ~4% of step 1 |
 | 3 | Opposites kept close (3.9th percentile) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
-| 5 | Specific transition counts | **at least 31.6 million** (partial enumeration) |
+| 5 | Specific transition counts | **at least 742 million** (partial enumeration at 10T nodes) |
 | 6 | 4 boundary constraints | **1 (King Wen)** |
 
 ## An important caveat

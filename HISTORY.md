@@ -74,7 +74,7 @@ Verified: 1-thread and 2-thread runs produce identical sha256.
 
 **The cost discovery:** Azure pricing API revealed the F64 on-demand cost was $3.87/hr, not the $1.97 originally estimated. Spot pricing was $0.79/hr. Requested and received spot quota increase to 64 cores.
 
-**10T run results (56-branch mode):** 9.99 trillion nodes explored, 31,630,621 unique orderings found. King Wen confirmed present. sha256: `c43f251fb9b66de0237c35ad78b5236011cb9886644ce73437138b50d2f2104d`.
+**10T run results (56-branch mode):** 9.99 trillion nodes explored, 31,630,621 unique orderings found. King Wen confirmed present. sha256: `c43f251fb9b66de0237c35ad78b5236011cb9886644ce73437138b50d2f2104d`. **(Later superseded — this number turned out to be a ~23× undercount because of the sub-branch filename collision bug. The correct 10T figure is 742,043,303. See 2026-04-14 entry below.)**
 
 **The tail problem:** The last 4 branches (all "dead" — zero solutions) ran on single cores for 90+ minutes while 60 cores sat idle. The 10T run took 3h 48m instead of ~2h because of this load imbalance.
 
@@ -83,7 +83,7 @@ Verified: 1-thread and 2-thread runs produce identical sha256.
 **Minimum constraint analysis:** Using the 31.6M solution dataset:
 
 - **4 boundary constraints uniquely determine King Wen** (not 2 as previously claimed). Boundaries 25 and 27 (the original C6/C7) eliminate 99.6% but leave 1,055 survivors. Boundaries 1 and 21 eliminate the rest.
-- **4 is the proven minimum.** Exhaustive testing of all 31 singles (31), pairs (465), triples (4,495), and quadruples (31,465) confirmed this. Only 4 of 31,465 quadruples work.
+- **4 is the proven minimum for the 31.6M dataset** (computational finite-case check, not a universal theorem). Exhaustive testing of all 31 singles (31), pairs (465), triples (4,495), and quadruples (31,465) against the 31.6M solutions confirmed this. Only 4 of 31,465 quadruples work for that dataset. (Later re-verified for the corrected 742M dataset in the 2026-04-14 bugfix run — minimum is still 4 there, though the specific working 4-sets changed.)
 - **3 boundaries are mandatory** (21, 25, 27). The 4th can be any of boundaries 1-4. The constraint structure is almost fully determined.
 - **No scalar property uniquely identifies King Wen.** No complement distance, position constraint, or edit distance pattern distinguishes KW. The uniqueness is irreducibly combinatorial.
 
@@ -113,12 +113,12 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 - Immediate sync after deployment — confirms connection before waiting 5 minutes
 - Exponential backoff on retry (1h → 2h → 4h cap)
 
-**The shift pattern:** Across all 31.6M solutions, positions 3-19 have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. Zero exceptions. This is universal in the dataset, not a sampling artifact. However, `./solve --prove-shift` revealed that the budget constraints alone allow 13-30 candidates per position — the filtering to exactly 2 is driven by the complement distance constraint (C3), not budget propagation alone.
+**The shift pattern (later invalidated by 742M dataset):** In the original 31.6M dataset (which we now know was undercounted by ~23× due to the file-collision bug), positions 3-19 appeared to have EXACTLY 2 possible pairs: King Wen's pair or the pair shifted by one position. The "zero exceptions" observation was an artifact of the bug — the surviving sub-branch files happened to be heavily skewed toward shift-pattern solutions. **At full 742M coverage (2026-04-14), 97.07% of solutions VIOLATE the shift pattern at some position 3-19.** Per-position violation rate ranges from 95.4% at position 3 down to 22.1% at position 19. Only ~21.7M of the 742M (2.93%) conform to the shift pattern fully. The earlier `--prove-shift` finding that "C3 drives the filtering to exactly 2" applied only within the small shift-conforming subset.
 
-**Position 2 and the cascade — partially disproven.** The empirical observation that position 2 determines positions 3-19 (1 configuration per branch, zero exceptions in 31.6M solutions) turned out to be incomplete. A formal proof attempt (`--prove-cascade`) showed:
+**Position 2 and the cascade — substantially weakened by 742M analysis.** The empirical observation that position 2 determines positions 3-19 (1 configuration per branch, zero exceptions in 31.6M solutions) was largely an artifact of the file-collision bug. The 742M dataset directly counts 2-29 distinct pair sequences at positions 3-19 per first-level branch — none have exactly 1. The earlier `--prove-cascade` results remain *correct within their narrower scope*:
 
-- **16 of 31 branches (pairs 1-18):** Cascade is deterministic. Budget constraints alone force exactly 1 pair sequence at positions 3-19. Proved.
-- **12 branches (pairs 19-31):** Budget allows 18 configurations. A full C3-incorporating proof found that **Config 2 of branch pair 19 has a valid alternative** (found in 1,480 nodes). The cascade is NOT fully deterministic — rare alternative configurations exist.
+- **`--prove-cascade` (still correct, but narrowed):** Proves something only within the **shift-pattern subspace** (each position is constrained to either pair_p or pair_{p-1}, only 2 candidates per position out of 32). Within that 3%-of-reality subspace, 16 branches have a unique budget-feasible path. This is no longer a useful claim about the full solution space.
+- **The original "16 of 31 branches deterministic" framing was overreaching.** It implicitly assumed shift-pattern universality — which has now been disproven (97% of 742M solutions are non-shift-pattern). A re-statement of the cascade behavior on the corrected dataset is pending.
 
 A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectrum:
 
@@ -129,18 +129,18 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 - **Branch 25:** 0/17 found in 5 minutes — either deterministic or trees too large
 - **Remaining branches:** survey in progress
 
-**Key correction:** The earlier claim "all freedom is in positions 20-32 — only 13 positions are free" was wrong for half the branches. For King Wen's own branch (pair 1), the cascade IS proved deterministic (one of the 16 budget-proved branches). But the universal claim does not hold.
+**Key correction:** The earlier claim "all freedom is in positions 20-32 — only 13 positions are free" was first weakened to "wrong for half the branches" via `--prove-cascade`, and is now further invalidated by the 742M dataset. Per-position Shannon entropy on 742M shows positions 4-20 still carry only 0.28-1.72 bits each (heavily constrained relative to log₂(32)=5 bits) — so the "cascade region" still has structure — but that structure permits many distinct configurations per branch, not just one. The phrase "13 free positions" no longer captures the picture; the freedom is distributed across the cascade region rather than concentrated in 13.
 
 **Self-complementary proof (`--prove-self-comp`):** Proved in seconds. All 7 eligible self-complementary branches produce valid orderings. Reproducible via `./solve --prove-self-comp`.
 
-**Shift pattern proof attempt (`--prove-shift`):** The budget allows 13-30 candidates per position, not 2. The observed 2-option pattern is real but enforced by C3, not budget — a deeper mechanism than initially assumed.
+**Shift pattern proof attempt (`--prove-shift`):** The budget allows 13-30 candidates per position, not 2. The 2-option pattern was claimed enforced by C3 — but on the 742M dataset only 2.93% of solutions actually conform to the shift pattern. C3 narrows but does not enforce 2 options; the constraint geometry is much more permissive than originally believed.
 
 ## Missteps and corrections (summary)
 
 | What went wrong | Impact | Fix |
 |----------------|--------|-----|
 | "23 of 32 locked" claim | Published in all docs | Corrected to "only 1 locked" after 20M+ enumeration |
-| "2 adjacency constraints suffice" | Core claim invalidated | Corrected to 4 constraints (proven minimum) |
+| "2 adjacency constraints suffice" | Core claim invalidated | Corrected to 4 constraints (proven minimum for the 31.6M dataset; later re-verified for the 742M dataset) |
 | Integer overflow in merge | Lost 4-hour run's output | Cast to `size_t` for array indexing |
 | `signal()` resets after one use | SIGTERM didn't produce output | Replaced with `sigaction()` |
 | Checkpoint marked interrupted as complete | Resume would skip unfinished work | Added COMPLETE/INTERRUPTED status |
@@ -153,16 +153,28 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | GIT_HASH fallback in wrong scope | Compile failure without -DGIT_HASH | Moved #ifndef to top of file |
 | 100T run lost to spot eviction | ~6.5 hours of compute lost (~$5) | Added persistent disk, atomic writes, run ID verification, rotating checkpoints |
 | Monitor synced stale data | Didn't detect new run started | Added run ID check, immediate sync after deploy |
+| Orchestrator died silently before monitoring started | 100T run continued unmonitored; scp of not-yet-existing checkpoint tripped `set -euo pipefail` with stderr hidden | Split launcher and monitor into separate processes; `set -uo pipefail` (no -e) in monitor; guard remote reads with `test -f` before scp; verify monitor with `pgrep` after launch |
+| 2nd 100T attempt — sub-branch-granularity recovery insufficient | After ~9h wall time and multiple spot evictions, only 47/3030 sub-branches (1.5%) committed. Each eviction lost all 64 in-flight sub-branches (33B nodes each) because `INTERRUPTED` branches restart from zero on resume. 12.5T nodes wasted across interrupts. Projected completion: ~30 days. | Aborted run; 47 committed sub-branches archived (49.7M solutions, sha256 verified). Follow-up: add intra-sub-branch checkpointing before retrying on spot |
 | "Position 2 determines 3-19" claimed as universal | Overclaimed; disproven for 12 branches | Corrected: proved for 16, alternatives exist for 12 |
 | Shift pattern attributed to budget | Budget allows 13-30 candidates, not 2 | Corrected: C3 drives the filtering |
+| **Sub-branch filename collision — silent data loss in all prior runs.** `flush_sub_solutions` keyed `sub_P2_O2.bin` on (pair2, orient2) only. 3030 sub-branches share only 64 unique (p2, o2) values, so later sub-branches **overwrote** earlier ones' solutions.bin files. The sha256 was still reproducible (bug was deterministic) so the defect went undetected. | Prior "31.6M unique orderings from 10T" was a **~23× undercount**. Correct result at 10T is **742,043,303 unique orderings**. All 4-boundary / cascade / shift-pattern claims built atop the 31.6M dataset need re-verification. | Broadened file key to (pair1, orient1, pair2, orient2): `sub_P1_O1_P2_O2.bin`. Checkpoint format includes full key. Dynamic `completed_sub_branches` array (MAX_COMPLETED_SUBS=4096) replaced the hard-coded 64-cap. |
+| Monitor completion regex mismatch | Post-run monitor grep for "SEARCH COMPLETE\|TIMED OUT" didn't match the actual `SEARCH_COMPLETE` (underscore) status in solver output. Monitor concluded run failed, tore down VM mid-archive. | Data preserved on managed disk (safe). Monitor should match stable machine-readable markers (e.g. `solve_results.json` status field) not stderr text. Queued in post-10T hardening. |
+| `fwrite` return value never checked — silent truncation on disk-full | 10T run's `solutions.bin` wrote only 8GB of intended 23.7GB (disk was 32GB; sub_*.bin files consumed 23GB, leaving only ~8GB for output). Solver reported "742M unique solutions" (from in-memory dedup) but the file was short. sha256 file matched the truncated output so audit-by-sha missed it. Caught by byte-size vs record-count sanity check. | Recovered by resizing disk 32→64GB, re-running `./solve --merge` against preserved sub_*.bin files, producing the correct 23.7GB output. Fix: audit all fwrite/fopen/fclose return values; add end-to-end sha verification (compute-from-memory vs reread-from-file); preflight `free_disk ≥ estimated_output × 1.5`. |
 
 ## What actually advanced understanding
 
 | Finding | How discovered | Status |
 |---------|---------------|--------|
-| 31.6M+ valid orderings exist | 10T exhaustive enumeration | Lower bound (partial enumeration) |
-| 4 boundary constraints needed (proven minimum) | Exhaustive test of all 31,465 quadruples | Proven for 31.6M dataset |
-| 3 mandatory boundaries (21, 25, 27) | Same exhaustive test | Proven |
+| **742,043,303 valid orderings** exist (10T) | 10T enumeration on bug-fixed solver, 2026-04-14 | Lower bound; sha256 `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`; all constraints verified on every record |
+| 4 boundary constraints needed (proven minimum for the 742M dataset) | Greedy search against 742M unique orderings, 2026-04-14; then exhaustive disproof of all 4,495 three-subsets | **Proven minimum for the 742M dataset** (computational finite-case proof, not a universal theorem): no 3-subset suffices (best leaves 24 survivors vs 4 KW variants). Chosen 4-set shifted from {1, 21, 25, 27} (31.6M) to **{2, 21, 25, 27}** (742M). A deeper enumeration could in principle change the minimum. |
+| 3 mandatory boundaries (21, 25, 27) | Greedy search; appear in both 31.6M and 742M solutions | Partially superseded — see next row. |
+| 2 truly mandatory boundaries (25, 27) for the 742M dataset | Exhaustive enumeration of all C(31,4)=31,465 four-subsets (2026-04-15) | Only 4 four-subsets uniquely identify KW: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries 25 and 27 appear in **every** working 4-set (truly mandatory for the 742M dataset). Boundaries {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable — knowing one from each pair plus the mandatory {25, 27} uniquely identifies KW. The earlier "21 mandatory" claim was a greedy-search artifact: greedy picks 21 (or sometimes 2), but exhaustive search shows 21 can be swapped for 22 (or 2 for 3) without losing uniqueness. Stronger result, scoped to the 742M dataset. |
+| Per-position Shannon entropy reveals a crisp constraint gradient | Computed over 742M (2026-04-14) | Position 1: 0.0 bits (forced). Position 3: 4.12 bits (highest freedom, 31 pairs observed). Positions 4-20: 0.28-1.72 bits (cascade region). Positions 22-31: 3.45-3.65 bits. Max possible = log₂(32) = 5.0 bits. |
+| Pairwise mutual information — boundaries 25, 27 are not information bottlenecks | I(p; q) matrix computed over 742M (2026-04-14) | Strongest correlations are adjacent-position within the cascade region (pos 19↔20 = 1.15 bits). Boundaries 25 & 27 show weak MI to every other position (max 0.19 bits) despite being mandatory. Their role is likely structural (specific pair adjacencies KW realizes and few alternatives do) rather than information-geometric. |
+| Cascade determinism claim resolved: `--prove-cascade` is correct only within the shift-pattern subspace, which is just 3% of the full solution space | Counted distinct pos-3..19 pair sequences per first-level branch (2026-04-14) and verified shift-pattern violation rate (2026-04-15) | `--prove-cascade` enumerates only 2 candidates per position (KW's pair_p or the shifted pair_{p-1}). It correctly proves 16 branches have a unique budget-feasible path *within that subspace*. But on the corrected 742M dataset, only 2.93% of solutions stay within that subspace — 97.07% violate it. So the "16 deterministic" claim, while not technically wrong, was applied to a tiny minority of the actual solution geometry. The full-space cascade is much less constrained: every reachable branch admits 2-29 distinct pos-3-19 configurations. |
+| Shift pattern at positions 3-19 collapses at full coverage | Direct count of shift-pattern violations across 742M (2026-04-15) | Only 2.93% of 742M valid orderings conform to "every position 3-19 uses pair_p or pair_{p-1}". The earlier "zero exceptions in 31.6M" was an artifact of the file-collision bug undersampling non-shift-pattern solutions. Per-position violation rates: pos 3 = 95.4%, pos 4 = 95.2%, decreasing to pos 19 = 22.1%. The full cascade region (3-19) is much more permissive than the earlier observation suggested. |
+| Hidden orient-coupling in King Wen's 4 stored variants | Direct inspection of the 4 KW records in solutions.bin (2026-04-15) | KW appears 4 times in solutions.bin (cross-sub-branch dedup is byte-level; within-sub-branch is canonical). The 4 variants differ in within-pair orient at exactly 5 positions: {2, 3, 28, 29, 30}. But not all 32 combinations are valid — only 4 are. The constraint: orient bits at positions 28, 29, 30 are locked together; their value equals (orient at pos 2) XOR (orient at pos 3). So effectively 2 independent toggle bits = 4 variants. This is a structural orient-symmetry of King Wen's specific arrangement (not yet checked whether it generalizes to other valid orderings). |
+| Boundary redundancy structure in 742M | Pairwise joint-survivor counts across all 465 boundary-pairs (2026-04-15) | Boundaries 15-19 are fully redundant: `joint(b1, b2) / min(survivors)` = 1.000 for every pair within the cascade-region {15,16,17,18,19}. Knowing one of these implies all the others. By contrast, boundaries 26 and 27 are highly *independent* of the cascade region (ratios ~0.007-0.010 with boundaries 3-8). This explains why the minimum 4-set picks {2, 21, 25, 27}: 2 catches position-2's high-entropy choice, 21 catches the cascade-end transition, 25 and 27 contribute *independent* information not implied by the others. |
 | Position 2 determines positions 3-19 (16 branches) | Proved by budget via [`--prove-cascade`](solve.c) | Proved for pairs 1-18; disproven for others |
 | Cascade NOT deterministic for 12 branches | `--prove-cascade` full C3 proof found valid alternatives | Branch 24: all 17 configs valid; varies by branch |
 | Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | Observed universally; driven by C3 not budget |
@@ -176,7 +188,11 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 ## Current state
 
-The project has a reproducible 31.6M-solution dataset (sha256: `c43f251f...d2f2104d`, reproducible with `SOLVE_NODE_LIMIT=10000000000000`), a [4-boundary uniqueness result](SOLVE.md#why-4-boundaries--not-fewer) (minimum for the 31.6M dataset), and a nuanced understanding of the constraint structure: 16 branches have provably deterministic cascades, while 12 branches have varying degrees of freedom at positions 3-19 (from 1 to 17 valid alternative configurations). A cascade survey is in progress to characterize all 204 alternative configurations. A 100T run needs to be redeployed (lost to spot eviction) with improved infrastructure (persistent disk, atomic writes).
+The project has a reproducible **742,043,303-solution dataset at 10T** (sha256: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`, reproducible with `SOLVE_NODE_LIMIT=10000000000000` under the bug-fixed solver). This supersedes the prior "31.6M" figure — a ~23× undercount caused by the sub-branch filename collision bug (see missteps table). All 742M records validated against C1-C5 with zero errors; sort order verified; King Wen present.
+
+The 4-boundary minimum-uniqueness result holds at the new scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Three mandatory boundaries (21, 25, 27) are stable across both datasets. Cascade and shift-pattern claims built atop the old 31.6M dataset need independent re-verification against 742M (queued).
+
+A 100T run remains pending: the 2026-04-13 attempt on spot F64 was aborted after multiple evictions revealed that sub-branch-granularity recovery is too coarse for spot under current eviction rates (only 1.5% committed in 9h). Next retry requires intra-sub-branch checkpointing in [solve.c](solve.c) plus the hardening pass from the 10T recovery (see [solve_c/DEPLOYMENT.md](../solve_c/DEPLOYMENT.md)).
 
 ## Infrastructure
 
