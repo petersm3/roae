@@ -2110,8 +2110,107 @@ int main(int argc, char *argv[]) {
                n_self_comp, 100.0 * n_self_comp / n_sols);
         printf("    (Note: %d of 32 pairs are self-complementary)\n\n", n_comp_self);
 
+        /* Free the boundary masks now to make room for section 14's sort buffer. */
         for (int b = 0; b < 31; b++) free(bmask[b]);
         free(bmask);
+
+        /* === Section 14: Orient-coupling generalization ===
+         * Group all solutions by pair-index sequence (collapse within-pair orient
+         * variants). For each unique pair-ordering, count its variants and which
+         * positions show orient variation across them. Compare KW's pattern to
+         * the population. Resolves the "does the KW orient-coupling generalize?"
+         * question flagged in SOLVE-SUMMARY.md and INSIGHTS.md.
+         */
+        printf("[14] Orient-coupling generalization\n");
+        printf("     Grouping %lld records by pair-index sequence (orient masked) ...\n", n_sols);
+        time_t t14_start = time(NULL);
+
+        /* Allocate (key, original_index) pairs. 32-byte key + 8-byte index = 40 bytes/record.
+         * 742M records -> ~30 GB. Tight but fits on F32's 64 GB after freeing bmasks. */
+        typedef struct { unsigned char pi[32]; long long idx; } PairKey;
+        PairKey *pkeys = malloc((size_t)n_sols * sizeof(PairKey));
+        if (!pkeys) {
+            printf("    SKIPPED: malloc(%lld bytes) failed; need more RAM for section 14\n",
+                   (long long)((size_t)n_sols * sizeof(PairKey)));
+        } else {
+            for (long long i = 0; i < n_sols; i++) {
+                for (int p = 0; p < 32; p++) pkeys[i].pi[p] = all[i * SOL_RECORD_SIZE + p] >> 2;
+                pkeys[i].idx = i;
+            }
+            int cmp_pkeys(const void *a, const void *b) {
+                return memcmp(((const PairKey *)a)->pi, ((const PairKey *)b)->pi, 32);
+            }
+            qsort(pkeys, (size_t)n_sols, sizeof(PairKey), cmp_pkeys);
+            printf("     sort done in %lds\n", (long)(time(NULL) - t14_start));
+
+            /* Walk groups */
+            long long unique_pos = 0;
+            long long size_dist[64] = {0};
+            long long pos_varies_count[32] = {0};
+            long long max_group = 0;
+            long long max_group_idx = -1;
+            long long kw_group = 0;
+            int kw_varies[32] = {0};
+
+            long long s = 0;
+            while (s < n_sols) {
+                long long e = s + 1;
+                while (e < n_sols && memcmp(pkeys[s].pi, pkeys[e].pi, 32) == 0) e++;
+                long long size = e - s;
+                unique_pos++;
+                size_dist[size < 64 ? size : 63]++;
+                if (size > max_group) { max_group = size; max_group_idx = s; }
+
+                int orient_first[32];
+                for (int p = 0; p < 32; p++)
+                    orient_first[p] = (all[pkeys[s].idx * SOL_RECORD_SIZE + p] >> 1) & 1;
+                int varies[32] = {0};
+                for (long long j = s + 1; j < e; j++) {
+                    for (int p = 0; p < 32; p++) {
+                        int o = (all[pkeys[j].idx * SOL_RECORD_SIZE + p] >> 1) & 1;
+                        if (o != orient_first[p]) varies[p] = 1;
+                    }
+                }
+                for (int p = 0; p < 32; p++) if (varies[p]) pos_varies_count[p]++;
+
+                /* Detect KW group */
+                int is_kw = 1;
+                for (int p = 0; p < 32; p++) if (pkeys[s].pi[p] != p) { is_kw = 0; break; }
+                if (is_kw) {
+                    kw_group = size;
+                    memcpy(kw_varies, varies, sizeof(varies));
+                }
+
+                s = e;
+            }
+
+            printf("     analysis done in %lds\n", (long)(time(NULL) - t14_start));
+            printf("     Unique pair-orderings: %lld (vs %lld total records, ratio %.3fx)\n",
+                   unique_pos, n_sols, (double)n_sols / (double)unique_pos);
+            printf("     Variants-per-pair-ordering distribution (group size -> #pair-orderings):\n");
+            long long checksum = 0;
+            for (int k = 1; k < 64; k++) {
+                if (size_dist[k] > 0) {
+                    printf("       %2d variants: %lld pair-orderings\n", k, size_dist[k]);
+                    checksum += (long long)k * size_dist[k];
+                }
+            }
+            printf("     Records accounted for: %lld\n", checksum);
+            printf("     Per-position frequency of orient variation across pair-ordering groups:\n");
+            printf("       %-4s  %-14s  %-7s\n", "Pos", "Groups varying", "Pct");
+            for (int p = 0; p < 32; p++) {
+                printf("       %-4d  %-14lld  %.3f%%\n",
+                       p + 1, pos_varies_count[p], 100.0 * pos_varies_count[p] / unique_pos);
+            }
+            printf("     KW's group: %lld variants; varying-orient positions: ", kw_group);
+            for (int p = 0; p < 32; p++) if (kw_varies[p]) printf("%d ", p + 1);
+            printf("\n");
+            printf("     Largest group: %lld variants (pair-ordering at sorted index %lld)\n",
+                   max_group, max_group_idx);
+            free(pkeys);
+        }
+        printf("\n");
+
         free(kw_indices);
         munmap(all, file_size);
 
