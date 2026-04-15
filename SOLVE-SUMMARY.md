@@ -166,9 +166,16 @@ Joint-survivor analysis (counting how many solutions match KW at *both* of two g
 
 This explains why the minimum 4-set picks {2, 21, 25, 27}: position 2 catches the high-entropy choice at the front, 21 catches the cascade-end transition, and 25 and 27 contribute *independent* information not implied by any other boundary.
 
-### Hidden orient symmetry of King Wen
+### Within-pair orient freedom: a constraint-geometry finding (not KW-specific)
 
-Within the 742M unique pair-orderings, King Wen appears 4 times — same pair sequence at every position, but differing in within-pair orientation at exactly 5 positions: {2, 3, 28, 29, 30}. Of the 2⁵ = 32 possible orient combinations at those 5 positions, only 4 are valid. The constraint is a coupling: orient bits at positions 28, 29, 30 are locked together, and their value equals (orient at position 2) XOR (orient at position 3). So King Wen has effectively **2 independent orient toggles** (= 4 variants), not 5. Whether this orient-coupling generalizes to other valid orderings has not been checked.
+King Wen appears 4 times in the 742M dataset: same pair sequence at every position, but differing in within-pair orientation at exactly 5 positions: {2, 3, 28, 29, 30}. Early inspection suggested this might be a KW-specific "hidden symmetry" — it is not. Running the orient-coupling generalization analysis (`./solve --analyze`, section [14]) across all 742M solutions shows:
+
+- **The 742M records collapse to 284.7M distinct pair-orderings** (when within-pair orient is masked), meaning there are on average 2.6 orient variants per unique pair sequence.
+- **The maximum number of orient variants per pair-ordering is 4.** 98.7 million pair-orderings share KW's 4-variant pattern; 125.9M have 2 variants; 42.4M have only 1; 17.7M have 3. No pair-ordering has more than 4 variants.
+- **Within-pair orient is *forced* at positions 5-20 across every valid ordering.** At positions 6-19, exactly 0% of pair-orderings show any orient variation; position 5 is 0.002%; position 20 is 0.049%. The constraint system (Rules 2 and 5) completely determines within-pair orient in this "cascade region."
+- **Orient freedom is concentrated at positions 2, 3, and 21-32.** Position 2 flexes in 81% of pair-orderings, position 3 in 69%, position 32 in 15%, positions 21-31 in 7-14% each.
+
+So KW's 4-variant orient pattern is **at the maximum possible but not unique** — it's a feature of the constraint geometry, not of King Wen specifically. The stronger result is the negative finding: within-pair orient is completely locked across the cascade region for every valid ordering the constraints admit.
 
 ## The numbers at a glance
 
