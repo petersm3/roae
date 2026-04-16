@@ -384,6 +384,8 @@ typedef struct {
     int kw_found;
     int branches_completed;
     long long hash_collisions;
+    long long hash_drops;   /* records dropped because 64-probe linear-probe
+                             * couldn't find a free slot. Must be 0 in a correct run. */
 
     /* Position match analytics */
     long long pos_match_count[32];
@@ -728,12 +730,15 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
     }
 
     int slot = (int)(ch & (unsigned long long)sol_hash_mask);
-    for (int probe = 0; probe < 64; probe++) {
+    int probe;
+    int inserted_or_matched = 0;
+    for (probe = 0; probe < 64; probe++) {
         int idx = (slot + probe) & sol_hash_mask;
         if (!ts->sol_occupied[idx]) {
             memcpy(&ts->sol_table[(size_t)idx * SOL_RECORD_SIZE], record, SOL_RECORD_SIZE);
             ts->sol_occupied[idx] = 1;
             ts->solution_count++;
+            inserted_or_matched = 1;
             break;
         }
         /* Compare canonical (pair identity only, orient masked out) */
@@ -744,9 +749,15 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
         }
         if (match) {
             ts->hash_collisions++;
+            inserted_or_matched = 1;
             break;
         }
     }
+    /* Silent-drop instrumentation: if 64 probes all hit occupied-and-not-matching
+     * slots, the record is dropped without being inserted. Count but do not remove
+     * the 64-probe cap — removing it is a separate, sha-affecting change (next
+     * commit, after this counter confirms zero drops on the canonical 10T rerun). */
+    if (!inserted_or_matched) ts->hash_drops++;
 }
 
 /* ---------- Backtracking ---------- */
@@ -862,7 +873,10 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
         rename(tmpname, fname);  /* atomic on Linux */
         fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
     }
-    /* Clear hash table for next sub-branch */
+    /* Clear hash table for next sub-branch.
+     * NOTE: ts->hash_drops is NOT reset here — drops are a run-level defect
+     * counter that should accumulate across sub-branches and be reported at
+     * shutdown. Resetting would hide mid-run drops. */
     memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, sol_hash_size);
     ts->solution_count = 0;
@@ -4469,6 +4483,7 @@ int main(int argc, char *argv[]) {
         long long super_match[32] = {0};
         int kw_found = 0;
         long long total_hash_collisions = 0;
+        long long total_hash_drops = 0;
         int total_stored = 0;
         int branches_done = 0;
         ClosestEntry all_top[64 * TOP_N];
@@ -4478,6 +4493,7 @@ int main(int argc, char *argv[]) {
             total_nodes += threads[i].nodes;
             total_sol += threads[i].solutions_total;
             total_c3 += threads[i].solutions_c3;
+            total_hash_drops += threads[i].hash_drops;
             if (threads[i].kw_found) kw_found = 1;
             c6_sat += threads[i].c6_satisfied;
             c7_sat += threads[i].c7_satisfied;
@@ -4594,6 +4610,14 @@ int main(int argc, char *argv[]) {
         printf("Unique pair orderings:         %d\n", unique_count);
         printf("King Wen found:                %s\n", kw_found ? "YES" : "No");
         printf("Hash de-dup collisions:        %lld\n", total_hash_collisions);
+        if (total_hash_drops > 0) {
+            printf("*** WARNING: Hash-table silent drops: %lld ***\n", total_hash_drops);
+            printf("***          64-probe linear-probe gave up; records lost.\n");
+            printf("***          Output is an UNDERCOUNT of true solution set.\n");
+            printf("***          Increase SOLVE_HASH_LOG2 or remove the 64-probe cap.\n");
+        } else {
+            printf("Hash-table silent drops:       0  (no probe-cap-induced losses)\n");
+        }
         printf("\n");
 
         /* Position match rates */
@@ -4919,6 +4943,7 @@ int main(int argc, char *argv[]) {
     long long super_match[32] = {0};
     int kw_found = 0;
     long long total_hash_collisions = 0;
+    long long total_hash_drops = 0;
     int total_stored = 0;
     int branches_done = 0;
 
@@ -4929,6 +4954,7 @@ int main(int argc, char *argv[]) {
         total_nodes += threads[i].nodes;
         total_sol += threads[i].solutions_total;
         total_c3 += threads[i].solutions_c3;
+        total_hash_drops += threads[i].hash_drops;
         if (threads[i].kw_found) kw_found = 1;
         c6_sat += threads[i].c6_satisfied;
         c7_sat += threads[i].c7_satisfied;
@@ -5098,6 +5124,14 @@ int main(int argc, char *argv[]) {
     printf("Hash table size:               %d (2^%d)\n", sol_hash_size, sol_hash_log2);
     printf("Hash de-dup collisions:        %lld (exact match — zero false positives)\n",
            total_hash_collisions);
+    if (total_hash_drops > 0) {
+        printf("*** WARNING: Hash-table silent drops: %lld ***\n", total_hash_drops);
+        printf("***          64-probe linear-probe gave up; records lost.\n");
+        printf("***          Output is an UNDERCOUNT of true solution set.\n");
+        printf("***          Increase SOLVE_HASH_LOG2 or remove the 64-probe cap.\n");
+    } else {
+        printf("Hash-table silent drops:       0  (no probe-cap-induced losses)\n");
+    }
     int tables_over_75 = 0;
     for (int i = 0; i < n_threads; i++) {
         if (threads[i].solution_count > sol_hash_size * 3 / 4) tables_over_75++;
