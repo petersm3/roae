@@ -230,6 +230,7 @@
 #include <math.h>
 #include <sys/mman.h>
 #include <dirent.h>
+#include <sys/statvfs.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -1571,6 +1572,69 @@ int main(int argc, char *argv[]) {
         analyze_mode = 1;
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--selftest") == 0) {
+        /* --selftest: fork a child process that runs a fixed tiny scenario in
+         * a temp directory, then compare its solutions.bin sha256 against a
+         * known value. Catches regressions in enumeration, merge, or I/O
+         * that would produce a different solutions.bin from the same inputs.
+         *
+         * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
+         * Expected sha256: 00851fa5807802c8e2b2e196ea963e7d36fc4958a33fd945ca751467b21a0ebd
+         */
+        const char *expected_sha = "00851fa5807802c8e2b2e196ea963e7d36fc4958a33fd945ca751467b21a0ebd";
+        char solve_path[4096];
+        if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
+            fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
+            return 10;
+        }
+        solve_path[sizeof(solve_path) - 1] = 0;
+        /* strlen to locate null-terminator from readlink */
+        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
+        if (sn > 0) solve_path[sn] = 0;
+
+        char tempdir_template[] = "/tmp/solve_selftest_XXXXXX";
+        if (!mkdtemp(tempdir_template)) {
+            fprintf(stderr, "ERROR: mkdtemp failed\n");
+            return 10;
+        }
+        printf("[--selftest] Running in %s\n", tempdir_template);
+        printf("[--selftest] Expected sha256: %s\n", expected_sha);
+        char cmd[8192];
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && "
+                 "unset SOLVE_DEPTH && "
+                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 %s 60 > /dev/null 2>&1 && "
+                 "sha256sum solutions.bin | cut -d' ' -f1",
+                 tempdir_template, solve_path);
+        FILE *fp = popen(cmd, "r");
+        if (!fp) {
+            fprintf(stderr, "ERROR: popen failed\n");
+            return 30;
+        }
+        char actual_sha[128] = {0};
+        if (fgets(actual_sha, sizeof(actual_sha), fp) == NULL) {
+            pclose(fp);
+            fprintf(stderr, "ERROR: selftest child produced no output\n");
+            return 40;
+        }
+        pclose(fp);
+        /* Strip trailing newline */
+        for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
+        printf("[--selftest] Actual sha256:   %s\n", actual_sha);
+        /* Cleanup temp dir */
+        char rm_cmd[4200];
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tempdir_template);
+        int _rm = system(rm_cmd); (void)_rm;
+        if (strcmp(actual_sha, expected_sha) == 0) {
+            printf("[--selftest] PASS — sha256 matches canonical baseline\n");
+            return 0;
+        } else {
+            fprintf(stderr, "[--selftest] FAIL — sha mismatch!\n");
+            fprintf(stderr, "             Expected: %s\n", expected_sha);
+            fprintf(stderr, "             Got:      %s\n", actual_sha);
+            fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
+            return 40;  /* validation mismatch */
+        }
     } else if (argc > 1 && strcmp(argv[1], "--list-branches") == 0) {
         list_branches_mode = 1;
         arg_offset = argc;  /* consume all args */
@@ -3768,6 +3832,52 @@ int main(int argc, char *argv[]) {
             fclose(tf);
         }
         printf("  Total records before dedup: %lld\n", total_records);
+
+        /* Preflight resource check (item 7e):
+         * In-memory merge needs total_records × 32 bytes for the sort buffer,
+         * plus ~total_records × 32 bytes of writeout to disk. Verify both
+         * resources BEFORE malloc — a short malloc failure or short write
+         * late in the process loses hours of preceding work. */
+        {
+            long long need_ram_gb = (total_records * SOL_RECORD_SIZE) / (1024LL * 1024LL * 1024LL);
+            long long need_disk_gb = need_ram_gb * 2;  /* input still on disk + output */
+            /* Query available RAM via sysinfo-equivalent: read /proc/meminfo. */
+            FILE *mi = fopen("/proc/meminfo", "r");
+            long long ram_avail_kb = 0;
+            if (mi) {
+                char mline[256];
+                while (fgets(mline, sizeof(mline), mi)) {
+                    if (strncmp(mline, "MemAvailable:", 13) == 0) {
+                        sscanf(mline + 13, " %lld kB", &ram_avail_kb);
+                        break;
+                    }
+                }
+                fclose(mi);
+            }
+            long long ram_avail_gb = ram_avail_kb / (1024LL * 1024LL);
+            /* Query free disk via statvfs on current directory */
+            struct statvfs vfs;
+            long long disk_avail_gb = 0;
+            if (statvfs(".", &vfs) == 0) {
+                disk_avail_gb = ((long long)vfs.f_bavail * vfs.f_frsize) / (1024LL * 1024LL * 1024LL);
+            }
+            printf("  Preflight: need ~%lld GB RAM (have %lld GB), ~%lld GB disk (have %lld GB)\n",
+                   need_ram_gb, ram_avail_gb, need_disk_gb, disk_avail_gb);
+            if (ram_avail_gb > 0 && need_ram_gb > ram_avail_gb) {
+                fprintf(stderr, "ERROR: insufficient RAM for in-memory merge\n");
+                fprintf(stderr, "       required: %lld GB, available: %lld GB\n",
+                        need_ram_gb, ram_avail_gb);
+                fprintf(stderr, "       Use an E/M-series VM or external merge\n");
+                return 10;  /* bad input (wrong VM for this dataset size) */
+            }
+            if (disk_avail_gb > 0 && need_disk_gb > disk_avail_gb) {
+                fprintf(stderr, "ERROR: insufficient disk space for merge output\n");
+                fprintf(stderr, "       required: ~%lld GB, available: %lld GB\n",
+                        need_disk_gb, disk_avail_gb);
+                fprintf(stderr, "       Resize the data disk or move sub_*.bin shards\n");
+                return 10;
+            }
+        }
 
         unsigned char *all = malloc((size_t)total_records * SOL_RECORD_SIZE);
         if (!all) { printf("ERROR: malloc failed for %lld records\n", total_records); return 1; }
