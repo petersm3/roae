@@ -229,6 +229,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <sys/mman.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -331,12 +332,26 @@ typedef struct {
     int orient;
 } Branch;
 
-/* ---------- Sub-branch for single-branch mode ---------- */
+/* ---------- Sub-branch / work unit for enumeration ---------- */
+/* In depth-2 mode (default): work unit = (pair1, orient1, pair2, orient2).
+ *   ~3030 units, fixes positions 1-3 in the solution sequence.
+ *   pair3/orient3 are sentinel -1.
+ *
+ * In depth-3 mode (SOLVE_DEPTH=3, Option B): work unit =
+ *   (pair1, orient1, pair2, orient2, pair3, orient3). ~90,000 units,
+ *   fixes positions 1-5. Smaller per-unit budget → shorter per-unit
+ *   runtime → tolerable eviction loss on spot VMs.
+ *
+ * The pair3 == -1 sentinel distinguishes the two modes throughout the
+ * file-naming, checkpoint, and resume paths. Default behavior is
+ * byte-identical to pre-Option-B solve.c. */
 typedef struct {
     int pair1;      /* first-level branch pair */
     int orient1;    /* first-level orientation */
     int pair2;      /* second-level (depth 2) pair */
     int orient2;    /* second-level orientation */
+    int pair3;      /* third-level (depth 3) pair — -1 in depth-2 mode */
+    int orient3;    /* third-level orientation    — -1 in depth-2 mode */
 } SubBranch;
 
 /* ---------- Top-N closest solutions ---------- */
@@ -447,6 +462,11 @@ static int time_limit = 0;
  * hardware produces the same solutions.bin (reproducible sha256). */
 static long long node_limit = 0;
 static long long per_branch_node_limit = 0;  /* node_limit / n_branches, set at startup */
+/* Enumeration depth for sub-branch partitioning. 2 (default) = depth-2
+ * (pair1, orient1, pair2, orient2) — ~3030 work units. 3 = depth-3
+ * (pair1..pair3, orient1..orient3) — ~90000 work units for finer granularity
+ * under spot-VM eviction. Set from SOLVE_DEPTH env var. */
+static int solve_depth = 2;
 
 /* ---------- Init functions ---------- */
 
@@ -593,6 +613,21 @@ static unsigned char completed_sub_bitmap[512] = {0};
 static inline int completed_sub_key(int p1, int o1, int p2, int o2) {
     return ((p1 & 31) << 6) | ((o1 & 1) << 5) | ((p2 & 31) << 1) | (o2 & 1);
 }
+/* Depth-3 (Option B) membership lookup: up to 262144 possible
+ * (p1, o1, p2, o2, p3, o3) tuples. 32 KB bitmap. Used only when SOLVE_DEPTH=3.
+ * Key layout (no overlapping bits):
+ *   bits 17..13 = p1 (5 bits, 0..31)
+ *   bit 12      = o1
+ *   bits 11..7  = p2 (5 bits)
+ *   bit 6       = o2
+ *   bits 5..1   = p3 (5 bits)
+ *   bit 0       = o3
+ */
+static unsigned char completed_sub_bitmap_d3[262144 / 8] = {0};
+static inline int completed_sub_key_d3(int p1, int o1, int p2, int o2, int p3, int o3) {
+    return ((p1 & 31) << 13) | ((o1 & 1) << 12) | ((p2 & 31) << 7) | ((o2 & 1) << 6) |
+           ((p3 & 31) << 1) | (o3 & 1);
+}
 
 /* Current run's per-sub-branch node budget, for budget-aware BUDGETED resume.
  * Set once per run from node_limit / total_branches after total_branches is known. */
@@ -633,21 +668,33 @@ static void load_sub_checkpoint(void) {
                 continue;
             }
         }
-        int p1v, o1v, p2v, o2v;
+        int p1v, o1v, p2v, o2v, p3v = -1, o3v = -1;
         char *p = strstr(line, "pair1 ");
         if (!p) continue;
-        if (sscanf(p, "pair1 %d orient1 %d pair2 %d orient2 %d",
-                   &p1v, &o1v, &p2v, &o2v) == 4) {
+        /* Try depth-3 format first (6-tuple); fall back to depth-2 (4-tuple). */
+        int matched = sscanf(p, "pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d",
+                             &p1v, &o1v, &p2v, &o2v, &p3v, &o3v);
+        if (matched != 6) {
+            p3v = -1; o3v = -1;
+            matched = sscanf(p, "pair1 %d orient1 %d pair2 %d orient2 %d",
+                             &p1v, &o1v, &p2v, &o2v);
+        }
+        if (matched == 4 || matched == 6) {
             if (n_completed_subs >= MAX_COMPLETED_SUBS) break;
             completed_sub_branches[n_completed_subs][0] = p1v;
             completed_sub_branches[n_completed_subs][1] = o1v;
             completed_sub_branches[n_completed_subs][2] = p2v;
             completed_sub_branches[n_completed_subs][3] = o2v;
             n_completed_subs++;
-            total_sub_complete++;  /* in-memory counter init from resume */
-            /* O(1) lookup bitmap population */
-            int key = completed_sub_key(p1v, o1v, p2v, o2v);
-            completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
+            total_sub_complete++;
+            /* Populate the appropriate lookup bitmap */
+            if (p3v >= 0) {
+                int key = completed_sub_key_d3(p1v, o1v, p2v, o2v, p3v, o3v);
+                completed_sub_bitmap_d3[key >> 3] |= (unsigned char)(1 << (key & 7));
+            } else {
+                int key = completed_sub_key(p1v, o1v, p2v, o2v);
+                completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
+            }
         }
     }
     fclose(f);
@@ -656,6 +703,10 @@ static void load_sub_checkpoint(void) {
 static int is_sub_branch_completed(int p1, int o1, int p2, int o2) {
     int key = completed_sub_key(p1, o1, p2, o2);
     return (completed_sub_bitmap[key >> 3] >> (key & 7)) & 1;
+}
+static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, int o3) {
+    int key = completed_sub_key_d3(p1, o1, p2, o2, p3, o3);
+    return (completed_sub_bitmap_d3[key >> 3] >> (key & 7)) & 1;
 }
 
 /* ---------- Solution analysis ---------- */
@@ -922,6 +973,36 @@ static long long dead_node_limit = 0;
  * Called with checkpoint_mutex held.
  * Filename encodes full (p1, o1, p2, o2) to avoid collisions — see bug note
  * on load_sub_checkpoint. */
+/* Depth-3 (Option B) flush: filename includes pair3/orient3.
+ * Separate function so depth-2 code path stays byte-identical.
+ * NOTE: duplicates flush_sub_solutions logic below; kept separate for
+ * clarity rather than parameterizing. */
+static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int o2, int p3, int o3) {
+    if (!ts->sol_table || !ts->sol_occupied || ts->solution_count == 0) return;
+    char fname[96], tmpname[96];
+    snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
+    snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2, p3, o3);
+    FILE *sf = fopen(tmpname, "wb");
+    if (sf) {
+        int written = 0;
+        for (int s = 0; s < sol_hash_size; s++) {
+            if (ts->sol_occupied[s]) {
+                fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf);
+                written++;
+            }
+        }
+        fflush(sf);
+        fsync(fileno(sf));
+        fclose(sf);
+        rename(tmpname, fname);
+        fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
+    }
+    memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
+    memset(ts->sol_occupied, 0, sol_hash_size);
+    ts->solution_count = 0;
+    ts->hash_collisions = 0;
+}
+
 static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2) {
     if (!ts->sol_table || !ts->sol_occupied || ts->solution_count == 0) return;
     char fname[64], tmpname[64];
@@ -1029,8 +1110,26 @@ static void *thread_func_single(void *arg) {
         seq[4] = f2; seq[5] = s2;
         used[p2] = 1;
 
+        /* Position 3: third-level work unit (Option B depth-3).
+         * Skipped when sb->pair3 == -1 (depth-2 mode). */
+        int backtrack_start_step = 3;
+        if (sb->pair3 >= 0) {
+            int p3 = sb->pair3, o3 = sb->orient3;
+            int f3 = o3 ? pairs[p3].b : pairs[p3].a;
+            int s3 = o3 ? pairs[p3].a : pairs[p3].b;
+            int bd3 = hamming(seq[5], f3);
+            if (bd3 == 5 || budget[bd3] <= 0) continue;
+            budget[bd3]--;
+            int wd3 = hamming(f3, s3);
+            if (budget[wd3] <= 0) continue;
+            budget[wd3]--;
+            seq[6] = f3; seq[7] = s3;
+            used[p3] = 1;
+            backtrack_start_step = 4;
+        }
+
         ts->branch_nodes = 0;  /* reset per-sub-branch counter */
-        backtrack(ts, seq, used, budget, 3);
+        backtrack(ts, seq, used, budget, backtrack_start_step);
 
         long long sub_nodes = ts->nodes - nodes_before;
         long long sub_c3 = ts->solutions_c3 - c3_before;
@@ -1070,7 +1169,11 @@ static void *thread_func_single(void *arg) {
          * For INTERRUPTED sub-branches, solutions are still saved (they're valid
          * even if the sub-branch didn't complete). */
         if (ts->solution_count > 0) {
-            flush_sub_solutions(ts, p1, o1, p2, o2);  /* writes file AND clears table */
+            if (sb->pair3 >= 0) {
+                flush_sub_solutions_d3(ts, p1, o1, p2, o2, sb->pair3, sb->orient3);
+            } else {
+                flush_sub_solutions(ts, p1, o1, p2, o2);
+            }
         } else if (ts->sol_table) {
             memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
             memset(ts->sol_occupied, 0, sol_hash_size);
@@ -1086,11 +1189,19 @@ static void *thread_func_single(void *arg) {
          * the current run's budget or needs re-running). */
         FILE *ckpt = fopen("checkpoint.txt", "a");
         if (ckpt) {
-            fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
-                    "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
-                    sb_status, ts->thread_id, p1, o1, p2, o2,
-                    sub_nodes, sub_c3, sub_solutions, elapsed,
-                    per_branch_node_limit);
+            if (sb->pair3 >= 0) {
+                fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+                        "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                        sb_status, ts->thread_id, p1, o1, p2, o2, sb->pair3, sb->orient3,
+                        sub_nodes, sub_c3, sub_solutions, elapsed,
+                        per_branch_node_limit);
+            } else {
+                fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
+                        "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                        sb_status, ts->thread_id, p1, o1, p2, o2,
+                        sub_nodes, sub_c3, sub_solutions, elapsed,
+                        per_branch_node_limit);
+            }
             if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0) {
                 fprintf(stderr, "WARNING: checkpoint.txt fflush/fsync failed — entry may be lost on eviction\n");
             }
@@ -1509,6 +1620,19 @@ int main(int argc, char *argv[]) {
     if (env_nodes) node_limit = atoll(env_nodes);
     if (node_limit > 0)
         printf("Node limit: %lld (reproducible mode)\n", node_limit);
+
+    /* Enumeration depth (SOLVE_DEPTH env var). Default 2 for byte-identical
+     * behavior with the canonical 10T baseline. SOLVE_DEPTH=3 enables Option B
+     * depth-3 work units (~30x finer granularity for eviction resilience). */
+    char *env_depth = getenv("SOLVE_DEPTH");
+    if (env_depth) {
+        solve_depth = atoi(env_depth);
+        if (solve_depth != 2 && solve_depth != 3) {
+            fprintf(stderr, "ERROR: SOLVE_DEPTH must be 2 or 3 (got %d)\n", solve_depth);
+            return 10;
+        }
+    }
+    if (solve_depth != 2) printf("Enumeration depth: %d (Option B opt-in)\n", solve_depth);
 
     init_pairs();
     init_kw_dist();
@@ -3325,12 +3449,19 @@ int main(int argc, char *argv[]) {
                     long long nv, cv;
                     int sv, ev;
                     char status[32];
-                    /* Match: Sub-branch {EXHAUSTED|BUDGETED|INTERRUPTED|COMPLETE (legacy)} ... */
+                    /* Match: Sub-branch {EXHAUSTED|BUDGETED|INTERRUPTED|COMPLETE (legacy)} ...
+                     * Try depth-3 format first (has "pair3 P3 orient3 O3"),
+                     * then fall back to depth-2. */
                     char *p = strstr(line, "Sub-branch ");
                     if (!p) continue;
-                    if (sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
-                               status, &thr, &p1v, &o1v, &p2v, &o2v, &nv, &cv, &sv, &ev) != 10)
-                        continue;
+                    int p3v_tmp, o3v_tmp;
+                    int depth3_match = sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
+                               status, &thr, &p1v, &o1v, &p2v, &o2v, &p3v_tmp, &o3v_tmp, &nv, &cv, &sv, &ev);
+                    if (depth3_match != 12) {
+                        if (sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
+                                   status, &thr, &p1v, &o1v, &p2v, &o2v, &nv, &cv, &sv, &ev) != 10)
+                            continue;
+                    }
                     if (n_entries >= MAX_SUB) continue;
                     SBEntry *e = &entries[n_entries++];
                     e->p1 = p1v; e->o1 = o1v; e->p2 = p2v; e->o2 = o2v;
@@ -3586,39 +3717,42 @@ int main(int argc, char *argv[]) {
     if (merge_mode) {
         printf("\nMerge mode: combining sub_*.bin files...\n");
 
-        /* Up to 32*2*32*2 = 4096 possible (p1,o1,p2,o2) combinations. */
-        #define MAX_SUB_FILES 4096
+        /* Scan current directory for any sub_*.bin file — handles both
+         * depth-2 naming (sub_P1_O1_P2_O2.bin) and depth-3 naming
+         * (sub_P1_O1_P2_O2_P3_O3.bin) without hard-coded nested loops.
+         * Depth-3 can produce up to ~260k files; size accordingly. */
+        #define MAX_SUB_FILES 300000
         static char filenames[MAX_SUB_FILES][64];
         int n_files = 0;
-        for (int p1 = 0; p1 < 32; p1++) {
-        for (int o1 = 0; o1 < 2; o1++) {
-        for (int p2 = 0; p2 < 32; p2++) {
-            for (int o2 = 0; o2 < 2; o2++) {
-                char fname[64];
-                snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
-                FILE *tf = fopen(fname, "rb");
-                if (tf) {
-                    fseek(tf, 0, SEEK_END);
-                    long sz = ftell(tf);
-                    fclose(tf);
-                    if (sz > 0 && n_files < MAX_SUB_FILES) {
-                        /* Record files are packed 32-byte records. Any size
-                         * not a multiple of 32 means the file was truncated
-                         * (disk full, eviction mid-write, etc.) and must not
-                         * be merged as-is. */
-                        if (sz % SOL_RECORD_SIZE != 0) {
-                            fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
-                                    fname, sz, SOL_RECORD_SIZE);
-                            return 20; /* exit 20 = bad input */
-                        }
-                        snprintf(filenames[n_files], 64, "%s", fname);
-                        n_files++;
-                        printf("  Found %s: %ld bytes (%ld solutions)\n",
-                               fname, sz, sz / SOL_RECORD_SIZE);
-                    }
-                }
+        DIR *dir = opendir(".");
+        if (!dir) { fprintf(stderr, "ERROR: opendir(.) failed\n"); return 10; }
+        struct dirent *de;
+        while ((de = readdir(dir)) != NULL) {
+            if (strncmp(de->d_name, "sub_", 4) != 0) continue;
+            int nlen = strlen(de->d_name);
+            if (nlen < 5 || strcmp(de->d_name + nlen - 4, ".bin") != 0) continue;
+            if (strstr(de->d_name, ".tmp")) continue;  /* skip in-progress writes */
+            FILE *tf = fopen(de->d_name, "rb");
+            if (!tf) continue;
+            fseek(tf, 0, SEEK_END);
+            long sz = ftell(tf);
+            fclose(tf);
+            if (sz <= 0) continue;
+            if (sz % SOL_RECORD_SIZE != 0) {
+                fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
+                        de->d_name, sz, SOL_RECORD_SIZE);
+                closedir(dir);
+                return 20;
             }
-        }}}
+            if (n_files >= MAX_SUB_FILES) {
+                fprintf(stderr, "ERROR: MAX_SUB_FILES (%d) exceeded\n", MAX_SUB_FILES);
+                closedir(dir);
+                return 10;
+            }
+            snprintf(filenames[n_files], 64, "%s", de->d_name);
+            n_files++;
+        }
+        closedir(dir);
         if (n_files == 0) {
             printf("No sub_*.bin files found.\n");
             return 1;
@@ -4539,6 +4673,8 @@ int main(int argc, char *argv[]) {
                 all_sub[n_sub].orient1 = sb_orient;
                 all_sub[n_sub].pair2 = p2;
                 all_sub[n_sub].orient2 = o2;
+                all_sub[n_sub].pair3 = -1;
+                all_sub[n_sub].orient3 = -1;
                 n_sub++;
             }
         }
@@ -4968,11 +5104,14 @@ int main(int argc, char *argv[]) {
         total_branches_completed = n_completed_subs;
     }
 
-    /* Enumerate ALL valid depth-2 sub-branches across all 56 branches */
+    /* Enumerate ALL valid work units across all 56 first-level branches.
+     * depth-2: ~3030 units each (p1, o1, p2, o2)
+     * depth-3: ~90000 units each (p1, o1, p2, o2, p3, o3) — Option B
+     * Default allocation 4096 for depth-2, 131072 for depth-3. */
     int n_all_subs = 0;
     int n_skipped_subs = 0;
-    /* Max: 56 branches * 55 sub-branches = 3080, but static array is safer larger */
-    SubBranch *all_subs = malloc(4096 * sizeof(SubBranch));
+    int subs_cap = (solve_depth == 3) ? 262144 : 4096;
+    SubBranch *all_subs = malloc(subs_cap * sizeof(SubBranch));
 
     for (int p1 = 0; p1 < 32; p1++) {
         if (p1 == start_pair) continue;
@@ -5008,18 +5147,56 @@ int main(int argc, char *argv[]) {
                     budget2[bd2]--;
                     int wd2 = hamming(f2, s2);
                     if (budget2[wd2] <= 0) continue;
+                    budget2[wd2]--;
 
-                    /* Skip completed sub-branches (resume) */
-                    if (is_sub_branch_completed(p1, o1, p2, o2)) {
-                        n_skipped_subs++;
-                        continue;
+                    if (solve_depth == 2) {
+                        /* Depth-2: each (p1, o1, p2, o2) is a work unit */
+                        if (is_sub_branch_completed(p1, o1, p2, o2)) {
+                            n_skipped_subs++;
+                            continue;
+                        }
+                        if (n_all_subs >= subs_cap) { fprintf(stderr, "ERROR: subs_cap overflow\n"); return 10; }
+                        all_subs[n_all_subs].pair1 = p1;
+                        all_subs[n_all_subs].orient1 = o1;
+                        all_subs[n_all_subs].pair2 = p2;
+                        all_subs[n_all_subs].orient2 = o2;
+                        all_subs[n_all_subs].pair3 = -1;
+                        all_subs[n_all_subs].orient3 = -1;
+                        n_all_subs++;
+                    } else {
+                        /* Depth-3 (Option B): further partition by (p3, o3) */
+                        int used2[32];
+                        memcpy(used2, used1, sizeof(used2));
+                        used2[p2] = 1;
+                        for (int p3 = 0; p3 < 32; p3++) {
+                            if (used2[p3]) continue;
+                            for (int o3 = 0; o3 < 2; o3++) {
+                                int f3 = o3 ? pairs[p3].b : pairs[p3].a;
+                                int s3 = o3 ? pairs[p3].a : pairs[p3].b;
+                                int bd3 = hamming(s2, f3);
+                                if (bd3 == 5) continue;
+                                int budget3[7];
+                                memcpy(budget3, budget2, sizeof(budget3));
+                                if (budget3[bd3] <= 0) continue;
+                                budget3[bd3]--;
+                                int wd3 = hamming(f3, s3);
+                                if (budget3[wd3] <= 0) continue;
+
+                                if (is_sub_branch_completed_d3(p1, o1, p2, o2, p3, o3)) {
+                                    n_skipped_subs++;
+                                    continue;
+                                }
+                                if (n_all_subs >= subs_cap) { fprintf(stderr, "ERROR: subs_cap overflow\n"); return 10; }
+                                all_subs[n_all_subs].pair1 = p1;
+                                all_subs[n_all_subs].orient1 = o1;
+                                all_subs[n_all_subs].pair2 = p2;
+                                all_subs[n_all_subs].orient2 = o2;
+                                all_subs[n_all_subs].pair3 = p3;
+                                all_subs[n_all_subs].orient3 = o3;
+                                n_all_subs++;
+                            }
+                        }
                     }
-
-                    all_subs[n_all_subs].pair1 = p1;
-                    all_subs[n_all_subs].orient1 = o1;
-                    all_subs[n_all_subs].pair2 = p2;
-                    all_subs[n_all_subs].orient2 = o2;
-                    n_all_subs++;
                 }
             }
         }
@@ -5250,31 +5427,50 @@ int main(int argc, char *argv[]) {
     printf("Reading sub-branch solution files...\n");
     fflush(stdout);
 
-    /* Count total records across all sub_*.bin files */
+    /* Count total records across all sub_*.bin files. Uses opendir to scan
+     * the current directory, picking up BOTH depth-2 (sub_P_O_P_O.bin) and
+     * depth-3 (sub_P_O_P_O_P_O.bin) naming patterns. */
     long long total_file_records = 0;
     int n_sub_files = 0;
-    for (int p1 = 0; p1 < 32; p1++)
-    for (int o1 = 0; o1 < 2; o1++)
-    for (int p2 = 0; p2 < 32; p2++) {
-        for (int o2 = 0; o2 < 2; o2++) {
-            char fname[64];
-            snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
-            FILE *tf = fopen(fname, "rb");
-            if (tf) {
-                fseek(tf, 0, SEEK_END);
-                long sz = ftell(tf);
-                fclose(tf);
-                if (sz > 0) {
-                    if (sz % SOL_RECORD_SIZE != 0) {
-                        fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
-                                fname, sz, SOL_RECORD_SIZE);
-                        return 20;
-                    }
-                    total_file_records += sz / SOL_RECORD_SIZE;
-                    n_sub_files++;
-                }
+    /* Collect filenames first so we can stream through them twice
+     * (counting and reading). Capped at MAX_MERGE_FILES to avoid unbounded
+     * allocation. */
+    #define MAX_MERGE_FILES 300000
+    char (*merge_filenames)[64] = malloc(MAX_MERGE_FILES * 64);
+    if (!merge_filenames) { fprintf(stderr, "ERROR: merge_filenames alloc failed\n"); return 30; }
+    {
+        DIR *dir = opendir(".");
+        if (!dir) { fprintf(stderr, "ERROR: opendir(.) failed\n"); free(merge_filenames); return 10; }
+        struct dirent *de;
+        while ((de = readdir(dir)) != NULL) {
+            if (strncmp(de->d_name, "sub_", 4) != 0) continue;
+            int nlen = strlen(de->d_name);
+            if (nlen < 5 || strcmp(de->d_name + nlen - 4, ".bin") != 0) continue;
+            if (strstr(de->d_name, ".tmp")) continue;
+            FILE *tf = fopen(de->d_name, "rb");
+            if (!tf) continue;
+            fseek(tf, 0, SEEK_END);
+            long sz = ftell(tf);
+            fclose(tf);
+            if (sz <= 0) continue;
+            if (sz % SOL_RECORD_SIZE != 0) {
+                fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
+                        de->d_name, sz, SOL_RECORD_SIZE);
+                closedir(dir);
+                free(merge_filenames);
+                return 20;
             }
+            if (n_sub_files >= MAX_MERGE_FILES) {
+                fprintf(stderr, "ERROR: MAX_MERGE_FILES (%d) exceeded\n", MAX_MERGE_FILES);
+                closedir(dir);
+                free(merge_filenames);
+                return 10;
+            }
+            snprintf(merge_filenames[n_sub_files], 64, "%s", de->d_name);
+            n_sub_files++;
+            total_file_records += sz / SOL_RECORD_SIZE;
         }
+        closedir(dir);
     }
     printf("  Found %d sub-branch files with %lld total records\n", n_sub_files, total_file_records);
 
@@ -5284,27 +5480,22 @@ int main(int argc, char *argv[]) {
 
     long long sol_offset = 0;
     if (all_solutions) {
-        for (int p1 = 0; p1 < 32; p1++)
-        for (int o1 = 0; o1 < 2; o1++)
-        for (int p2 = 0; p2 < 32; p2++) {
-            for (int o2 = 0; o2 < 2; o2++) {
-                char fname[64];
-                snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
-                FILE *tf = fopen(fname, "rb");
-                if (tf) {
-                    fseek(tf, 0, SEEK_END);
-                    long sz = ftell(tf);
-                    fseek(tf, 0, SEEK_SET);
-                    if (sz > 0) {
-                        if (fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
-                            printf("  WARNING: short read on %s\n", fname);
-                        sol_offset += sz / SOL_RECORD_SIZE;
-                    }
-                    fclose(tf);
+        for (int i = 0; i < n_sub_files; i++) {
+            FILE *tf = fopen(merge_filenames[i], "rb");
+            if (tf) {
+                fseek(tf, 0, SEEK_END);
+                long sz = ftell(tf);
+                fseek(tf, 0, SEEK_SET);
+                if (sz > 0) {
+                    if (fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
+                        printf("  WARNING: short read on %s\n", merge_filenames[i]);
+                    sol_offset += sz / SOL_RECORD_SIZE;
                 }
+                fclose(tf);
             }
         }
     }
+    free(merge_filenames);
     total_stored = (int)sol_offset;
 
     printf("Sorting %d solutions...\n", total_stored);
