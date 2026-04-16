@@ -1624,6 +1624,21 @@ int main(int argc, char *argv[]) {
         printf("    record fmt: %d bytes packed (pair_index<<2 | orient<<1 per position)\n", SOL_RECORD_SIZE);
         printf("    backed by:  mmap (PROT_READ, MAP_PRIVATE)\n\n");
 
+        /* Complement-pair table: used by sections [20] and [22].
+         * For each pair p, comp_pair_idx[p] = pair index of (a^0x3F, b^0x3F).
+         * comp_orient_flip[p] = 1 if complementing swaps the pair's internal order. */
+        int comp_pair_idx[32], comp_orient_flip[32];
+        for (int cp = 0; cp < 32; cp++) {
+            int ac = pairs[cp].a ^ 0x3F, bc = pairs[cp].b ^ 0x3F;
+            comp_pair_idx[cp] = -1;
+            for (int cq = 0; cq < 32; cq++) {
+                if (pairs[cq].a == ac && pairs[cq].b == bc)
+                    { comp_pair_idx[cp] = cq; comp_orient_flip[cp] = 0; break; }
+                if (pairs[cq].a == bc && pairs[cq].b == ac)
+                    { comp_pair_idx[cp] = cq; comp_orient_flip[cp] = 1; break; }
+            }
+        }
+
         /* === Streaming pass: build all per-record-derived state in one walk === */
         long long n_words = (n_sols + 63) / 64;
         long long pos_cnt[32][32]; memset(pos_cnt, 0, sizeof(pos_cnt));
@@ -1635,6 +1650,16 @@ int main(int argc, char *argv[]) {
         for (int p = 0; p < 32; p++) { orient_min[p] = 2; orient_max[p] = -1; }
         int kw_cap = 256;
         long long *kw_indices = malloc(kw_cap * sizeof(long long));
+        /* Section [26] input: per-first-level-branch (pair-at-pos-2, orient-at-pos-2) counts */
+        long long branch_count[32][2]; memset(branch_count, 0, sizeof(branch_count));
+        /* Section [28] input: edit-distance-to-KW histogram */
+        long long edit_dist_hist[33]; memset(edit_dist_hist, 0, sizeof(edit_dist_hist));
+        /* Section [25] input: per-sub-branch solution counts keyed on (p1, o1, p2, o2).
+         * Derived from solutions.bin (not checkpoint.txt, whose solutions field is
+         * always 0 — flush_sub_solutions zeroes ts->solution_count before the
+         * checkpoint line is written). 32*2*32*2 = 4096 bins × 8 bytes = 32 KB. */
+        long long (*sub_solution_count)[2][32][2] = calloc(32, sizeof(*sub_solution_count));
+        if (!sub_solution_count) { printf("ERROR: sub_solution_count alloc failed\n"); return 1; }
 
         printf("[masks] Allocating 31 packed bitmaps (%lld words each, %.2f GB total)...\n",
                n_words, 31.0 * n_words * 8.0 / 1e9);
@@ -1681,6 +1706,16 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (has_shift_exc) rows_with_exc++;
+            /* Section [26]: per-first-level-branch counts (byte 1 = position 2 pair + orient) */
+            branch_count[rec[1] >> 2][(rec[1] >> 1) & 1]++;
+            /* Section [25]: per-sub-branch solution count (byte 1 = p1/o1, byte 2 = p2/o2) */
+            sub_solution_count[rec[1] >> 2][(rec[1] >> 1) & 1][rec[2] >> 2][(rec[2] >> 1) & 1]++;
+            /* Section [28]: edit-distance-to-KW (count positions where pair differs) */
+            {
+                int dist = 0;
+                for (int p = 0; p < 32; p++) if (pi[p] != p) dist++;
+                edit_dist_hist[dist]++;
+            }
         }
         printf("        done in %lds.\n\n", (long)(time(NULL) - t_stream_start));
 
@@ -2120,9 +2155,24 @@ int main(int argc, char *argv[]) {
                n_self_comp, 100.0 * n_self_comp / n_sols);
         printf("    (Note: %d of 32 pairs are self-complementary)\n\n", n_comp_self);
 
-        /* Free the boundary masks now to make room for section 14's sort buffer. */
-        for (int b = 0; b < 31; b++) free(bmask[b]);
-        free(bmask);
+        /* NOTE on bmask lifetime: bmask[] (~2.9 GB on a 742M dataset) is
+         * allocated before section [3] and freed at the end of analyze_mode,
+         * AFTER sections [16]-[19] which all consume it. An earlier version
+         * freed bmask here (between [13] and [14]) to make room for [14]'s
+         * ~24 GB sort buffer on tight-RAM VMs — but that caused sections
+         * [16]-[19] (added later) to read freed memory and segfault after
+         * printing only [17]'s header.
+         *
+         * Current assumption: runs on a VM with >= 32 GB RAM so bmask
+         * (~2.9 GB) + section [14] sort buffer (~24 GB) + overhead all fit.
+         * Verified with `free -g` on an F32als_v6 (64 GB) during a full run.
+         * If ever running on a smaller VM, re-add a free here and rebuild
+         * bmask via a streaming pass inside each of sections [16]-[19].
+         *
+         * Any new section added AFTER [13] that needs bmask must either:
+         *   (a) be inserted before this point, OR
+         *   (b) rebuild bmask from a fresh streaming pass internally.
+         */
 
         /* === Section 14: Orient-coupling generalization ===
          * Group all solutions by pair-index sequence (collapse within-pair orient
@@ -2506,6 +2556,856 @@ int main(int argc, char *argv[]) {
         }
         printf("\n");
 
+        /* === Section 16: Per-(p2, o2) collision-key bug-impact map ===
+         * Under the old buggy naming scheme, sub_*.bin was keyed only on (p2, o2).
+         * 3030 sub-branches share just 64 (p2, o2) keys, so later writers
+         * overwrote earlier ones. For each key we report:
+         *   - #contributing (p1, o1) sub-branches
+         *   - total records
+         *   - min and max single-contributor counts
+         * The old bug retained exactly ONE contributor per key (undetermined which),
+         * so the bug-kept total is bounded by [sum(min), sum(max)].
+         */
+        printf("[16] Per-(p2, o2) collision-key bug-impact map\n");
+        time_t t16 = time(NULL);
+        {
+            /* counts[p2][o2][p1][o1] — 32*2*32*2 = 4096 long longs */
+            long long (*cnt)[2][32][2] = calloc(32, sizeof(*cnt));
+            if (!cnt) { printf("    ERROR: alloc failed\n"); }
+            else {
+                for (long long i = 0; i < n_sols; i++) {
+                    const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                    int p1 = rec[1] >> 2, o1 = (rec[1] >> 1) & 1;
+                    int p2 = rec[2] >> 2, o2 = (rec[2] >> 1) & 1;
+                    cnt[p2][o2][p1][o1]++;
+                }
+                long long total = 0, kept_lo_sum = 0, kept_hi_sum = 0;
+                int n_keys_live = 0, max_contribs = 0;
+                printf("    (p2, o2) | #contribs |   total records |     min single |     max single | max/total\n");
+                for (int p2 = 0; p2 < 32; p2++)
+                for (int o2 = 0; o2 < 2; o2++) {
+                    long long tot = 0, mn = 0, mx = 0;
+                    int nc = 0;
+                    for (int p1 = 0; p1 < 32; p1++)
+                    for (int o1 = 0; o1 < 2; o1++) {
+                        long long c = cnt[p2][o2][p1][o1];
+                        if (c > 0) { nc++; tot += c;
+                                     if (nc == 1 || c < mn) mn = c;
+                                     if (c > mx) mx = c; }
+                    }
+                    if (tot > 0) {
+                        printf("    (%2d, %d) |   %4d    | %15lld | %14lld | %14lld | %.4f\n",
+                               p2, o2, nc, tot, mn, mx, (double)mx / tot);
+                        total += tot;
+                        kept_lo_sum += mn;
+                        kept_hi_sum += mx;
+                        n_keys_live++;
+                        if (nc > max_contribs) max_contribs = nc;
+                    }
+                }
+                printf("    --- summary ---\n");
+                printf("    Live (p2, o2) keys: %d of 64\n", n_keys_live);
+                printf("    Max #contributors any single key: %d\n", max_contribs);
+                printf("    Total records across all keys:    %lld\n", total);
+                printf("    Bug-kept count bounds: [%lld, %lld] (%.2f%% to %.2f%% of %lld)\n",
+                       kept_lo_sum, kept_hi_sum,
+                       100.0 * kept_lo_sum / total, 100.0 * kept_hi_sum / total, total);
+                printf("    Reported old (buggy) 10T result: 31.6M. Undercount factor: %.2fx\n",
+                       (double)total / 31600000.0);
+                free(cnt);
+            }
+        }
+        printf("    [16] elapsed: %lds\n\n", (long)(time(NULL) - t16));
+
+        /* === Section 17: Survivor structure of best triple {2, 25, 27} ===
+         * Take records matching KW at boundaries 2, 25, 27 (0-indexed: 1, 24, 26)
+         * and decompose: edit distance to KW, which positions vary, pair-sequences.
+         */
+        printf("[17] Survivor structure of best triple {2, 25, 27}\n");
+        time_t t17 = time(NULL);
+        {
+            long long surv_cap = 256;
+            long long *surv = malloc(surv_cap * sizeof(long long));
+            long long n_surv = 0;
+            for (long long w = 0; w < n_words; w++) {
+                uint64_t bits = bmask[1][w] & bmask[24][w] & bmask[26][w];
+                while (bits) {
+                    int bit = __builtin_ctzll(bits);
+                    long long i = w * 64 + bit;
+                    if (i < n_sols) {
+                        if (n_surv >= surv_cap) {
+                            surv_cap *= 2;
+                            surv = realloc(surv, surv_cap * sizeof(long long));
+                        }
+                        surv[n_surv++] = i;
+                    }
+                    bits &= bits - 1;
+                }
+            }
+            printf("    Total survivors (incl. KW orient variants): %lld\n", n_surv);
+            int edit_hist[33] = {0};
+            int pos_var[32] = {0};
+            int n_non_kw = 0;
+            for (long long k = 0; k < n_surv; k++) {
+                const unsigned char *rec = all + surv[k] * SOL_RECORD_SIZE;
+                int diffs = 0;
+                for (int p = 0; p < 32; p++) {
+                    int pi = rec[p] >> 2;
+                    if (pi != p) { diffs++; pos_var[p]++; }
+                }
+                edit_hist[diffs]++;
+                if (diffs > 0) n_non_kw++;
+            }
+            printf("    Non-KW survivors: %d\n", n_non_kw);
+            printf("    Edit-distance histogram:\n");
+            for (int d = 0; d <= 32; d++) if (edit_hist[d] > 0)
+                printf("        dist=%2d: %d\n", d, edit_hist[d]);
+            printf("    Positions where any non-KW survivor differs from KW:\n");
+            for (int p = 0; p < 32; p++) if (pos_var[p] > 0)
+                printf("        pos %2d: %d survivors differ\n", p + 1, pos_var[p]);
+            printf("    Non-KW survivor pair-sequences (up to 30):\n");
+            int shown = 0;
+            for (long long k = 0; k < n_surv && shown < 30; k++) {
+                const unsigned char *rec = all + surv[k] * SOL_RECORD_SIZE;
+                int is_kw = 1;
+                for (int p = 0; p < 32; p++) if ((rec[p] >> 2) != p) { is_kw = 0; break; }
+                if (is_kw) continue;
+                printf("        [%3d]: ", shown + 1);
+                for (int p = 0; p < 32; p++) printf("%2d ", rec[p] >> 2);
+                printf("\n");
+                shown++;
+            }
+            free(surv);
+        }
+        printf("    [17] elapsed: %lds\n\n", (long)(time(NULL) - t17));
+
+        /* === Section 18: Per-boundary conditional entropy ===
+         * For each boundary b, compute sum_p H(pair at p | records matching KW
+         * at boundary b). Compare to baseline sum_p H(pair at p) over all 742M.
+         * info_gain(b) = baseline - cond(b) = information about the sequence
+         * gained by learning that boundary b matches KW.
+         */
+        printf("[18] Per-boundary conditional entropy\n");
+        time_t t18 = time(NULL);
+        {
+            double H_base[32]; double H_base_total = 0;
+            for (int p = 0; p < 32; p++) {
+                double H = 0;
+                for (int pr = 0; pr < 32; pr++) {
+                    long long c = pos_cnt[p][pr];
+                    if (c > 0) { double q = (double)c / n_sols; H -= q * log2(q); }
+                }
+                H_base[p] = H; H_base_total += H;
+            }
+            printf("    Baseline sum_p H(pair at p) over all %lld records: %.4f bits\n",
+                   n_sols, H_base_total);
+            printf("    Boundary | matching_records | sum_p H(p | b) | info_gain=H_base-H_cond\n");
+            long long (*cc)[32] = malloc(32 * sizeof(*cc));
+            for (int b = 0; b < 31; b++) {
+                memset(cc, 0, 32 * sizeof(*cc));
+                long long n_match = 0;
+                for (long long w = 0; w < n_words; w++) {
+                    uint64_t bits = bmask[b][w];
+                    while (bits) {
+                        int bit = __builtin_ctzll(bits);
+                        long long i = w * 64 + bit;
+                        if (i < n_sols) {
+                            const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                            for (int p = 0; p < 32; p++) cc[p][rec[p] >> 2]++;
+                            n_match++;
+                        }
+                        bits &= bits - 1;
+                    }
+                }
+                double Hc = 0;
+                if (n_match > 0) {
+                    for (int p = 0; p < 32; p++)
+                    for (int pr = 0; pr < 32; pr++) {
+                        long long c = cc[p][pr];
+                        if (c > 0) { double q = (double)c / n_match; Hc -= q * log2(q); }
+                    }
+                }
+                printf("      b=%2d   |   %14lld  |  %10.4f   |     %10.4f\n",
+                       b + 1, n_match, Hc, H_base_total - Hc);
+            }
+            free(cc);
+        }
+        printf("    [18] elapsed: %lds\n\n", (long)(time(NULL) - t18));
+
+        /* === Section 19: Identity-level check of the 4 working 4-sets ===
+         * Dump the actual records surviving each of the 4 working 4-sets.
+         * Rigorously confirms whether all 4 sets keep the same survivors
+         * (expected: the 4 KW orient variants, no non-KW) or differ subtly.
+         */
+        printf("[19] Identity-level survivor dump per working 4-set\n");
+        time_t t19 = time(NULL);
+        {
+            /* 0-indexed boundary tuples for {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27} */
+            int sets[4][4] = {
+                {1, 20, 24, 26},
+                {1, 21, 24, 26},
+                {2, 20, 24, 26},
+                {2, 21, 24, 26},
+            };
+            for (int s = 0; s < 4; s++) {
+                int *bs = sets[s];
+                printf("    Set {%d, %d, %d, %d}:\n", bs[0]+1, bs[1]+1, bs[2]+1, bs[3]+1);
+                long long n = 0;
+                for (long long w = 0; w < n_words; w++) {
+                    uint64_t bits = bmask[bs[0]][w] & bmask[bs[1]][w]
+                                  & bmask[bs[2]][w] & bmask[bs[3]][w];
+                    while (bits) {
+                        int bit = __builtin_ctzll(bits);
+                        long long i = w * 64 + bit;
+                        if (i < n_sols) {
+                            const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                            int is_kw = 1;
+                            for (int p = 0; p < 32; p++) if ((rec[p] >> 2) != p) { is_kw = 0; break; }
+                            printf("        rec#%10lld  pair=", i);
+                            for (int p = 0; p < 32; p++) printf("%2d ", rec[p] >> 2);
+                            printf(" orient=");
+                            for (int p = 0; p < 32; p++) printf("%d", (rec[p] >> 1) & 1);
+                            printf("  %s\n", is_kw ? "[KW]" : "[NON-KW]");
+                            n++;
+                        }
+                        bits &= bits - 1;
+                    }
+                }
+                printf("        total: %lld survivors\n\n", n);
+            }
+        }
+        printf("    [19] elapsed: %lds\n\n", (long)(time(NULL) - t19));
+
+        /* === Section 20: Complement-orbit analysis ===
+         * Bitwise-complement each hexagram (h → h^0x3F). This maps valid
+         * pairs to valid pairs (preserves C1) and preserves Hamming
+         * distances (preserves C2, C5). If C3 is also preserved, then
+         * complement is an automorphism of the C1-C5 solution set:
+         * every record's complement should also be in solutions.bin.
+         *
+         * This section doubles as a VALIDATION CHECK: if matches < n_sols,
+         * either the solver missed valid orderings (bug) or complement
+         * doesn't preserve C3 (which would be interesting in itself).
+         *
+         * Memory: allocates n_sols × 32 bytes (~24 GB on the 742M dataset).
+         * Together with bmask (~2.9 GB) and the mmap, total resident
+         * ~51 GB — fits on F32 (64 GB).
+         */
+        printf("[20] Complement-orbit analysis\n");
+        time_t t20 = time(NULL);
+        {
+            /* comp_pair_idx[] and comp_orient_flip[] are hoisted to analyze-mode
+             * scope (before the streaming pass) so sections [20] and [22] share them. */
+            int comp_table_ok = 1;
+            for (int p = 0; p < 32; p++)
+                if (comp_pair_idx[p] < 0) { comp_table_ok = 0; break; }
+            printf("    Complement-pair table:\n");
+            int n_self_comp_pairs = 0;
+            for (int p = 0; p < 32; p++) {
+                int self = (comp_pair_idx[p] == p);
+                if (self) n_self_comp_pairs++;
+                printf("      pair %2d (%2d,%2d) → pair %2d (%2d,%2d) orient_flip=%d%s\n",
+                       p, pairs[p].a, pairs[p].b,
+                       comp_pair_idx[p], pairs[comp_pair_idx[p]].a, pairs[comp_pair_idx[p]].b,
+                       comp_orient_flip[p], self ? " [self-comp]" : "");
+            }
+            printf("    Self-complementary pairs: %d of 32\n\n", n_self_comp_pairs);
+
+            if (comp_table_ok) {
+                unsigned char *comp = malloc((size_t)n_sols * SOL_RECORD_SIZE);
+                if (!comp) {
+                    printf("    ERROR: malloc %.1f GB failed\n",
+                           (double)n_sols * SOL_RECORD_SIZE / 1e9);
+                } else {
+                    /* Compute complement of each record */
+                    printf("    Computing complements of %lld records...\n", n_sols);
+                    time_t tc0 = time(NULL);
+                    #pragma omp parallel for schedule(static)
+                    for (long long i = 0; i < n_sols; i++) {
+                        const unsigned char *src = all + i * SOL_RECORD_SIZE;
+                        unsigned char *dst = comp + i * SOL_RECORD_SIZE;
+                        for (int p = 0; p < 32; p++) {
+                            int old_pi = src[p] >> 2;
+                            int old_o  = (src[p] >> 1) & 1;
+                            int new_pi = comp_pair_idx[old_pi];
+                            int new_o  = old_o ^ comp_orient_flip[old_pi];
+                            dst[p] = (unsigned char)((new_pi << 2) | (new_o << 1));
+                        }
+                    }
+                    printf("    Complement done in %lds.\n", (long)(time(NULL) - tc0));
+
+                    /* Sort complemented records */
+                    printf("    Sorting %lld complemented records...\n", n_sols);
+                    time_t ts0 = time(NULL);
+                    qsort(comp, n_sols, SOL_RECORD_SIZE, compare_solutions);
+                    printf("    Sort done in %lds.\n", (long)(time(NULL) - ts0));
+
+                    /* Merge-count: how many records in comp match records in all? */
+                    long long i_all = 0, i_c = 0, matches = 0;
+                    while (i_all < n_sols && i_c < n_sols) {
+                        int cmp = memcmp(all + i_all * SOL_RECORD_SIZE,
+                                         comp + i_c * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                        if (cmp == 0) { matches++; i_all++; i_c++; }
+                        else if (cmp < 0) i_all++;
+                        else i_c++;
+                    }
+                    printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
+                           matches, n_sols, 100.0 * matches / n_sols);
+                    if (matches == n_sols)
+                        printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
+                    else
+                        printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
+                               n_sols - matches);
+
+                    /* Check KW specifically (rec#0) */
+                    unsigned char kw_comp[SOL_RECORD_SIZE];
+                    const unsigned char *kw_rec = all;
+                    for (int p = 0; p < 32; p++) {
+                        int old_pi = kw_rec[p] >> 2;
+                        int old_o  = (kw_rec[p] >> 1) & 1;
+                        kw_comp[p] = (unsigned char)((comp_pair_idx[old_pi] << 2) |
+                                     ((old_o ^ comp_orient_flip[old_pi]) << 1));
+                    }
+                    /* Binary search for KW's complement */
+                    long long lo = 0, hi = n_sols;
+                    int found_kw_comp = 0;
+                    long long kw_comp_idx = -1;
+                    while (lo < hi) {
+                        long long mid = lo + (hi - lo) / 2;
+                        int cmp = memcmp(kw_comp, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                        if (cmp == 0) { found_kw_comp = 1; kw_comp_idx = mid; break; }
+                        else if (cmp < 0) hi = mid;
+                        else lo = mid + 1;
+                    }
+                    printf("    KW complement in set: %s", found_kw_comp ? "YES" : "NO");
+                    if (found_kw_comp) printf(" (record index %lld)", kw_comp_idx);
+                    printf("\n");
+                    printf("    KW complement pair-seq: ");
+                    for (int p = 0; p < 32; p++) printf("%2d ", kw_comp[p] >> 2);
+                    printf("\n    KW complement orient:   ");
+                    for (int p = 0; p < 32; p++) printf("%d", (kw_comp[p] >> 1) & 1);
+                    printf("\n");
+
+                    free(comp);
+                }
+            }
+        }
+        printf("    [20] elapsed: %lds\n\n", (long)(time(NULL) - t20));
+
+        /* === Section 21: Full per-position pair frequency table ===
+         * pos_cnt[p][pair] is already computed in the streaming pass.
+         * Emit the full 32×32 table for baseline comparison at 100T.
+         */
+        printf("[21] Per-position pair frequency table (32 positions × 32 pairs)\n");
+        time_t t21 = time(NULL);
+        {
+            printf("    Format: pos (1-indexed), pair_index, count, pct, is_KW_pair\n");
+            for (int p = 0; p < 32; p++) {
+                /* Find top pair at this position */
+                long long top_cnt = 0; int top_pair = -1;
+                int n_present = 0;
+                for (int pr = 0; pr < 32; pr++) {
+                    if (pos_cnt[p][pr] > 0) n_present++;
+                    if (pos_cnt[p][pr] > top_cnt) { top_cnt = pos_cnt[p][pr]; top_pair = pr; }
+                }
+                printf("    pos %2d (%2d distinct): ", p + 1, n_present);
+                /* Print all non-zero entries sorted by count descending */
+                int order[32]; for (int i = 0; i < 32; i++) order[i] = i;
+                for (int i = 0; i < 31; i++)
+                    for (int j = i + 1; j < 32; j++)
+                        if (pos_cnt[p][order[j]] > pos_cnt[p][order[i]])
+                            { int tmp = order[i]; order[i] = order[j]; order[j] = tmp; }
+                for (int k = 0; k < 32; k++) {
+                    int pr = order[k];
+                    if (pos_cnt[p][pr] == 0) break;
+                    printf("p%d=%.2f%%%s ",
+                           pr, 100.0 * pos_cnt[p][pr] / n_sols,
+                           (pr == p) ? "*" : "");
+                }
+                printf("\n");
+            }
+        }
+        printf("    [21] elapsed: %lds\n\n", (long)(time(NULL) - t21));
+
+        /* === Section 22: Complement-distance distribution ===
+         * Uses the same hex-level metric as C3 (compute_comp_dist_x64):
+         *   cd = sum over all 64 hexagrams v of |pos[v] - pos[v^0x3F]|.
+         * KW's cd = 776 (the C3 ceiling). Within the C1-C5 dataset, KW is
+         * tautologically at the maximum (C3 enforces cd <= KW). The useful
+         * information here is the SHAPE of the distribution — how tightly
+         * solutions cluster near the ceiling vs. spread toward low cd.
+         *
+         * The "3.9th percentile" claim in SOLVE-SUMMARY.md is a DIFFERENT
+         * comparison: KW vs all pair-constrained orderings (C1 only, from
+         * roae.py Monte Carlo), not within C1-C5. Both are correct in their
+         * respective reference populations.
+         */
+        printf("[22] Complement-distance distribution (hex-level, same metric as C3)\n");
+        time_t t22 = time(NULL);
+        {
+            #define CD_X64_MAX 2048
+            long long *cd_hist = calloc(CD_X64_MAX, sizeof(long long));
+
+            #pragma omp parallel
+            {
+                long long *local_hist = calloc(CD_X64_MAX, sizeof(long long));
+                #pragma omp for schedule(static)
+                for (long long i = 0; i < n_sols; i++) {
+                    const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                    int seq[64];
+                    for (int p = 0; p < 32; p++) {
+                        int pi = rec[p] >> 2;
+                        int o  = (rec[p] >> 1) & 1;
+                        seq[2*p]     = o ? pairs[pi].b : pairs[pi].a;
+                        seq[2*p + 1] = o ? pairs[pi].a : pairs[pi].b;
+                    }
+                    int cd = compute_comp_dist_x64(seq);
+                    if (cd >= 0 && cd < CD_X64_MAX) local_hist[cd]++;
+                }
+                #pragma omp critical
+                for (int c = 0; c < CD_X64_MAX; c++) cd_hist[c] += local_hist[c];
+                free(local_hist);
+            }
+
+            int cd_min = -1, cd_max_val = -1;
+            long long cumul = 0;
+            for (int c = 0; c < CD_X64_MAX; c++) {
+                if (cd_hist[c] > 0) {
+                    if (cd_min < 0) cd_min = c;
+                    cd_max_val = c;
+                }
+                if (c <= kw_comp_dist_x64) cumul += cd_hist[c];
+            }
+            double kw_pct = 100.0 * cumul / n_sols;
+
+            printf("    KW complement distance (x64): %d  (= %.4f per hex)\n",
+                   kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
+            printf("    KW percentile within C1-C5 dataset: %.2f%%\n", kw_pct);
+            printf("    NOTE: KW at %.0f%% is tautological — C3 enforces cd <= %d.\n",
+                   kw_pct, kw_comp_dist_x64);
+            printf("    The '3.9th percentile' in SOLVE-SUMMARY.md compares KW against\n");
+            printf("    ALL pair-constrained orderings (C1 only), not within C1-C5.\n");
+            printf("    Range within C1-C5 dataset: [%d, %d]\n", cd_min, cd_max_val);
+            printf("    Distribution (20-unit bins, non-zero):\n");
+            for (int base = (cd_min / 20) * 20; base <= cd_max_val; base += 20) {
+                long long sum = 0;
+                for (int c = base; c < base + 20 && c < CD_X64_MAX; c++)
+                    sum += cd_hist[c];
+                if (sum > 0)
+                    printf("      cd %3d-%3d: %12lld (%.4f%%)%s\n",
+                           base, base + 19, sum, 100.0 * sum / n_sols,
+                           (kw_comp_dist_x64 >= base && kw_comp_dist_x64 < base + 20) ?
+                           "  <- KW bin" : "");
+            }
+            free(cd_hist);
+        }
+        printf("    [22] elapsed: %lds\n\n", (long)(time(NULL) - t22));
+
+        /* === Section 23: {25, 27}-only survivor characterization ===
+         * Survivors matching KW at boundaries 25 and 27 (0-indexed: 24 and 26).
+         * Updates the old "1,055 survivors" claim from the buggy dataset.
+         */
+        printf("[23] Survivors after mandatory boundaries {25, 27} only\n");
+        time_t t23 = time(NULL);
+        {
+            long long n_surv = 0;
+            int pos_var[32] = {0};
+            int edit_hist[33] = {0};
+            int n_non_kw = 0;
+            int n_distinct_pairs[32] = {0};
+            long long pos_freq[32][32]; memset(pos_freq, 0, sizeof(pos_freq));
+
+            for (long long w = 0; w < n_words; w++) {
+                uint64_t bits = bmask[24][w] & bmask[26][w];
+                while (bits) {
+                    int bit = __builtin_ctzll(bits);
+                    long long i = w * 64 + bit;
+                    if (i < n_sols) {
+                        const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                        int diffs = 0;
+                        for (int p = 0; p < 32; p++) {
+                            int pi = rec[p] >> 2;
+                            pos_freq[p][pi]++;
+                            if (pi != p) { diffs++; pos_var[p]++; }
+                        }
+                        edit_hist[diffs]++;
+                        if (diffs > 0) n_non_kw++;
+                        n_surv++;
+                    }
+                    bits &= bits - 1;
+                }
+            }
+            printf("    Total survivors: %lld (incl. %d KW orient variants)\n",
+                   n_surv, (int)(n_surv - n_non_kw));
+            printf("    Non-KW survivors: %d\n", n_non_kw);
+            printf("    Edit-distance histogram:\n");
+            for (int d = 0; d <= 32; d++) if (edit_hist[d] > 0)
+                printf("        dist=%2d: %d\n", d, edit_hist[d]);
+            printf("    Positions locked (0 non-KW vary): ");
+            int n_locked = 0;
+            for (int p = 0; p < 32; p++) if (pos_var[p] == 0) { printf("%d ", p + 1); n_locked++; }
+            printf("(%d of 32)\n", n_locked);
+            printf("    Positions free (any non-KW vary): ");
+            for (int p = 0; p < 32; p++) if (pos_var[p] > 0)
+                printf("%d(%d) ", p + 1, pos_var[p]);
+            printf("\n");
+            /* Per-position distinct pairs among survivors */
+            printf("    Per-position distinct pairs among {25,27} survivors:\n");
+            for (int p = 0; p < 32; p++) {
+                int nd = 0;
+                for (int pr = 0; pr < 32; pr++) if (pos_freq[p][pr] > 0) nd++;
+                printf("      pos %2d: %2d distinct", p + 1, nd);
+                if (nd <= 5) {
+                    printf(" [");
+                    for (int pr = 0; pr < 32; pr++)
+                        if (pos_freq[p][pr] > 0)
+                            printf(" p%d=%.1f%%", pr, 100.0 * pos_freq[p][pr] / n_surv);
+                    printf(" ]");
+                }
+                printf("%s\n", (p == p) ? (nd == 1 ? " LOCKED" : "") : "");
+            }
+        }
+        printf("    [23] elapsed: %lds\n\n", (long)(time(NULL) - t23));
+
+        /* === Section 24: KW nearest-neighbor catalog ===
+         * Find the N closest solutions to KW by edit distance (pair-position
+         * differences, not orient). Stream all records, keep a running top-N
+         * by edit distance.
+         */
+        printf("[24] KW nearest-neighbor catalog (top 50 closest)\n");
+        time_t t24 = time(NULL);
+        {
+            #define NN_CAP 50
+            typedef struct { long long idx; int dist; unsigned char rec[SOL_RECORD_SIZE]; } NNEntry;
+            NNEntry *nn = calloc(NN_CAP, sizeof(NNEntry));
+            int nn_count = 0;
+            int nn_max_dist = 33;
+
+            for (long long i = 0; i < n_sols; i++) {
+                const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                int dist = 0;
+                for (int p = 0; p < 32; p++)
+                    if ((rec[p] >> 2) != p) dist++;
+                if (dist == 0) continue; /* skip KW itself */
+                if (nn_count < NN_CAP || dist < nn_max_dist) {
+                    /* Insert into nn list */
+                    int insert_at = nn_count;
+                    if (nn_count >= NN_CAP) insert_at = NN_CAP - 1; /* replace worst */
+                    nn[insert_at].idx = i;
+                    nn[insert_at].dist = dist;
+                    memcpy(nn[insert_at].rec, rec, SOL_RECORD_SIZE);
+                    if (nn_count < NN_CAP) nn_count++;
+                    /* Sort by distance (insertion sort, small N) */
+                    for (int j = nn_count - 1; j > 0; j--) {
+                        if (nn[j].dist < nn[j-1].dist) {
+                            NNEntry tmp = nn[j]; nn[j] = nn[j-1]; nn[j-1] = tmp;
+                        } else break;
+                    }
+                    nn_max_dist = nn[nn_count - 1].dist;
+                }
+            }
+            printf("    Closest %d non-KW solutions by edit distance:\n", nn_count);
+            int prev_dist = -1;
+            int at_dist = 0;
+            for (int k = 0; k < nn_count; k++) {
+                if (nn[k].dist != prev_dist) {
+                    if (prev_dist >= 0) printf("      --- dist=%d: %d solutions ---\n", prev_dist, at_dist);
+                    prev_dist = nn[k].dist;
+                    at_dist = 0;
+                }
+                at_dist++;
+                printf("      [%3d] dist=%d rec#%lld: ", k + 1, nn[k].dist, nn[k].idx);
+                /* Show only differing positions */
+                for (int p = 0; p < 32; p++) {
+                    int pi = nn[k].rec[p] >> 2;
+                    if (pi != p) printf("pos%d=%d ", p + 1, pi);
+                }
+                printf("\n");
+            }
+            if (prev_dist >= 0) printf("      --- dist=%d: %d solutions ---\n", prev_dist, at_dist);
+            printf("    Min non-KW edit distance: %d\n", nn_count > 0 ? nn[0].dist : -1);
+            free(nn);
+        }
+        printf("    [24] elapsed: %lds\n\n", (long)(time(NULL) - t24));
+
+        /* === Section 25: Per-sub-branch yield from checkpoint.txt ===
+         * Reads checkpoint.txt next to analyze_file. Parses sub-branch commit
+         * lines and emits a per-sub-branch table: nodes, C3-valid, solutions,
+         * status. Primary input for 10T-vs-100T saturation-curve fitting.
+         */
+        printf("[25] Per-sub-branch yield from checkpoint.txt\n");
+        time_t t25 = time(NULL);
+        {
+            /* Derive checkpoint.txt path: same directory as analyze_file */
+            char ckpt_path[1024];
+            const char *slash = strrchr(analyze_file, '/');
+            if (slash) {
+                int dirlen = (int)(slash - analyze_file);
+                snprintf(ckpt_path, sizeof(ckpt_path), "%.*s/checkpoint.txt",
+                         dirlen, analyze_file);
+            } else {
+                snprintf(ckpt_path, sizeof(ckpt_path), "checkpoint.txt");
+            }
+            printf("    Reading: %s\n", ckpt_path);
+            FILE *ckpt = fopen(ckpt_path, "r");
+            if (!ckpt) {
+                printf("    (checkpoint.txt not found — skipping)\n");
+            } else {
+                /* Allocate per-sub-branch records: up to 3030+; use 4096 cap */
+                #define MAX_SUB 4096
+                typedef struct {
+                    int p1, o1, p2, o2;
+                    long long nodes, c3, sols;
+                    int elapsed;
+                    int is_complete;  /* 1 = COMPLETE, 0 = INTERRUPTED */
+                } SBEntry;
+                SBEntry *entries = calloc(MAX_SUB, sizeof(SBEntry));
+                int n_entries = 0;
+                int n_complete = 0, n_interrupted = 0;
+                long long tot_nodes = 0, tot_sols = 0;
+
+                char line[1024];
+                while (fgets(line, sizeof(line), ckpt)) {
+                    if (!strstr(line, "Sub-branch")) continue;
+                    int p1v, o1v, p2v, o2v, thr;
+                    long long nv, cv;
+                    int sv, ev;
+                    char status[32];
+                    /* Match: Sub-branch {COMPLETE|INTERRUPTED} (thread T, pair1 P1 orient1 O1 pair2 P2 orient2 O2): N nodes, N C3-valid, N solutions, Ns elapsed */
+                    char *p = strstr(line, "Sub-branch ");
+                    if (!p) continue;
+                    if (sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
+                               status, &thr, &p1v, &o1v, &p2v, &o2v, &nv, &cv, &sv, &ev) != 10)
+                        continue;
+                    if (n_entries >= MAX_SUB) continue;
+                    SBEntry *e = &entries[n_entries++];
+                    e->p1 = p1v; e->o1 = o1v; e->p2 = p2v; e->o2 = o2v;
+                    e->nodes = nv; e->c3 = cv;
+                    /* Override checkpoint's solution count with the actual count
+                     * from solutions.bin — checkpoint.txt's value is always 0 since
+                     * flush_sub_solutions zeroes ts->solution_count before the line
+                     * is written. */
+                    e->sols = sub_solution_count[p1v][o1v][p2v][o2v];
+                    e->elapsed = ev;
+                    e->is_complete = (strncmp(status, "COMPLETE", 8) == 0);
+                    if (e->is_complete) n_complete++; else n_interrupted++;
+                    tot_nodes += nv; tot_sols += e->sols;
+                }
+                fclose(ckpt);
+
+                printf("    Total entries: %d (COMPLETE: %d, INTERRUPTED: %d)\n",
+                       n_entries, n_complete, n_interrupted);
+                printf("    Total nodes across all sub-branches: %lld\n", tot_nodes);
+                printf("    Total solutions (from solutions.bin binning): %lld\n", tot_sols);
+                printf("    (NOTE: checkpoint.txt's solutions field is always 0 —\n");
+                printf("     flush_sub_solutions zeroes ts->solution_count before the\n");
+                printf("     checkpoint line is written. We use solutions.bin binning instead.)\n");
+
+                /* Yield distribution */
+                long long y0 = 0, y_small = 0, y_mid = 0, y_high = 0, y_max = 0;
+                long long max_yield = 0;
+                int max_sb = -1;
+                for (int i = 0; i < n_entries; i++) {
+                    long long y = entries[i].sols;
+                    if (y == 0) y0++;
+                    else if (y < 1000) y_small++;
+                    else if (y < 100000) y_mid++;
+                    else y_high++;
+                    if (y > max_yield) { max_yield = y; max_sb = i; }
+                }
+                printf("    Yield distribution:\n");
+                printf("      0 solutions:              %lld (dead sub-branches)\n", y0);
+                printf("      1 to 999:                 %lld\n", y_small);
+                printf("      1,000 to 99,999:          %lld\n", y_mid);
+                printf("      100,000+:                 %lld\n", y_high);
+                if (max_sb >= 0) {
+                    printf("    Highest-yield sub-branch: (p1=%d, o1=%d, p2=%d, o2=%d) with %lld solutions\n",
+                           entries[max_sb].p1, entries[max_sb].o1,
+                           entries[max_sb].p2, entries[max_sb].o2,
+                           max_yield);
+                }
+
+                /* Top-20 highest-yield sub-branches */
+                /* Simple insertion sort for top-20 */
+                int topN = 20;
+                if (topN > n_entries) topN = n_entries;
+                int *top_idx = malloc(topN * sizeof(int));
+                for (int i = 0; i < topN; i++) top_idx[i] = -1;
+                for (int i = 0; i < n_entries; i++) {
+                    long long y = entries[i].sols;
+                    int insert = -1;
+                    for (int k = 0; k < topN; k++) {
+                        if (top_idx[k] < 0 || y > entries[top_idx[k]].sols) {
+                            insert = k; break;
+                        }
+                    }
+                    if (insert >= 0) {
+                        for (int k = topN - 1; k > insert; k--) top_idx[k] = top_idx[k-1];
+                        top_idx[insert] = i;
+                    }
+                }
+                printf("    Top %d highest-yield sub-branches:\n", topN);
+                printf("      rank  (p1,o1,p2,o2)         nodes       solutions   status\n");
+                for (int k = 0; k < topN && top_idx[k] >= 0; k++) {
+                    SBEntry *e = &entries[top_idx[k]];
+                    printf("      %4d  (%2d,%d,%2d,%d)   %13lld   %10lld   %s\n",
+                           k + 1, e->p1, e->o1, e->p2, e->o2,
+                           e->nodes, e->sols,
+                           e->is_complete ? "COMPLETE" : "INTERRUPTED");
+                }
+
+                free(top_idx);
+                free(entries);
+            }
+        }
+        printf("    [25] elapsed: %lds\n\n", (long)(time(NULL) - t25));
+
+        /* === Section 26: Per-first-level-branch solution count ===
+         * Uses branch_count[] populated in the streaming pass at top of analyze_mode.
+         * Reports solution count per (pair_at_pos_2, orient_at_pos_2) = the "first-level"
+         * branch, for cross-scale comparison and deep-dive selection.
+         */
+        printf("[26] Per-first-level-branch solution count\n");
+        time_t t26 = time(NULL);
+        {
+            long long tot_by_pair[32] = {0};
+            int live_branches = 0;
+            long long sum_check = 0;
+            for (int p = 0; p < 32; p++) {
+                for (int o = 0; o < 2; o++) {
+                    if (branch_count[p][o] > 0) live_branches++;
+                    tot_by_pair[p] += branch_count[p][o];
+                    sum_check += branch_count[p][o];
+                }
+            }
+            printf("    Total records accounted for: %lld (should == %lld)\n", sum_check, n_sols);
+            printf("    Live first-level branches: %d of 64 possible (p1, o1) combos\n", live_branches);
+            printf("    Per-(p1, o1) solution counts:\n");
+            printf("      pair1  orient1        count     pct\n");
+            for (int p = 0; p < 32; p++) {
+                for (int o = 0; o < 2; o++) {
+                    if (branch_count[p][o] > 0)
+                        printf("      %4d   %6d   %12lld   %6.3f%%\n",
+                               p, o, branch_count[p][o],
+                               100.0 * branch_count[p][o] / n_sols);
+                }
+            }
+            /* Per-pair1 aggregate (summed over both orients) */
+            printf("    Per-pair1 aggregate (summed over both orients):\n");
+            int live_pairs = 0;
+            for (int p = 0; p < 32; p++) if (tot_by_pair[p] > 0) live_pairs++;
+            printf("    Live pair1 values: %d of 32\n", live_pairs);
+            for (int p = 0; p < 32; p++) {
+                if (tot_by_pair[p] > 0)
+                    printf("      pair %2d:  %12lld   %6.3f%%\n",
+                           p, tot_by_pair[p], 100.0 * tot_by_pair[p] / n_sols);
+            }
+        }
+        printf("    [26] elapsed: %lds\n\n", (long)(time(NULL) - t26));
+
+        /* === Section 27: Budget-exhaustion summary ===
+         * Re-reads checkpoint.txt (lightweight second pass) for aggregate counts.
+         * Primary saturation signal: fraction of sub-branches that completed naturally.
+         */
+        printf("[27] Budget-exhaustion summary (from checkpoint.txt)\n");
+        time_t t27 = time(NULL);
+        {
+            char ckpt_path[1024];
+            const char *slash = strrchr(analyze_file, '/');
+            if (slash) {
+                int dirlen = (int)(slash - analyze_file);
+                snprintf(ckpt_path, sizeof(ckpt_path), "%.*s/checkpoint.txt",
+                         dirlen, analyze_file);
+            } else {
+                snprintf(ckpt_path, sizeof(ckpt_path), "checkpoint.txt");
+            }
+            FILE *ckpt = fopen(ckpt_path, "r");
+            if (!ckpt) {
+                printf("    (checkpoint.txt not found — skipping)\n");
+            } else {
+                int n_complete = 0, n_interrupted = 0, n_other = 0;
+                int n_per_branch_complete[32] = {0};
+                int n_per_branch_total[32]    = {0};
+                char line[1024];
+                while (fgets(line, sizeof(line), ckpt)) {
+                    if (!strstr(line, "Sub-branch")) continue;
+                    int is_complete = (strstr(line, "COMPLETE") != NULL);
+                    int is_interrupted = (strstr(line, "INTERRUPTED") != NULL);
+                    int p1v;
+                    char *p = strstr(line, "pair1 ");
+                    if (p && sscanf(p, "pair1 %d", &p1v) == 1 && p1v >= 0 && p1v < 32) {
+                        n_per_branch_total[p1v]++;
+                        if (is_complete && !is_interrupted) n_per_branch_complete[p1v]++;
+                    }
+                    if (is_complete && !is_interrupted) n_complete++;
+                    else if (is_interrupted) n_interrupted++;
+                    else n_other++;
+                }
+                fclose(ckpt);
+                int total = n_complete + n_interrupted + n_other;
+                printf("    Sub-branch commit lines parsed: %d\n", total);
+                printf("    COMPLETE (natural DFS exhaustion): %d (%.4f%%)\n",
+                       n_complete, total > 0 ? 100.0 * n_complete / total : 0);
+                printf("    INTERRUPTED (budget or signal):    %d (%.4f%%)\n",
+                       n_interrupted, total > 0 ? 100.0 * n_interrupted / total : 0);
+                if (n_other > 0) printf("    Other/unparsed: %d\n", n_other);
+                printf("    Saturation signal: %s\n",
+                       n_complete == 0 ? "ZERO sub-branches exhausted → budget-limited run"
+                                       : "SOME sub-branches exhausted → partial saturation visible");
+                if (n_complete > 0) {
+                    printf("    Per-pair1 completion rates:\n");
+                    for (int p = 0; p < 32; p++) {
+                        if (n_per_branch_total[p] > 0)
+                            printf("      pair %2d: %d/%d (%.1f%%)\n",
+                                   p, n_per_branch_complete[p], n_per_branch_total[p],
+                                   100.0 * n_per_branch_complete[p] / n_per_branch_total[p]);
+                    }
+                }
+            }
+        }
+        printf("    [27] elapsed: %lds\n\n", (long)(time(NULL) - t27));
+
+        /* === Section 28: Edit-distance-to-KW histogram (full 0-32) ===
+         * Uses edit_dist_hist[] populated in the streaming pass. Full histogram
+         * across the 742M dataset; baseline for 100T shape comparison.
+         */
+        printf("[28] Edit-distance-to-KW histogram (full dataset)\n");
+        time_t t28 = time(NULL);
+        {
+            long long hist_total = 0;
+            for (int d = 0; d <= 32; d++) hist_total += edit_dist_hist[d];
+            printf("    Total records: %lld (should == %lld)\n", hist_total, n_sols);
+            printf("    Distance | Count         | Pct      | Cumulative pct\n");
+            long long cumul = 0;
+            for (int d = 0; d <= 32; d++) {
+                if (edit_dist_hist[d] > 0) {
+                    cumul += edit_dist_hist[d];
+                    printf("    %4d     | %13lld | %7.4f%% | %7.4f%%\n",
+                           d, edit_dist_hist[d],
+                           100.0 * edit_dist_hist[d] / n_sols,
+                           100.0 * cumul / n_sols);
+                }
+            }
+            /* Summary */
+            int min_d = -1, max_d = -1, mode_d = -1;
+            long long mode_count = 0;
+            for (int d = 0; d <= 32; d++) {
+                if (edit_dist_hist[d] > 0) {
+                    if (min_d < 0) min_d = d;
+                    max_d = d;
+                    if (edit_dist_hist[d] > mode_count) { mode_count = edit_dist_hist[d]; mode_d = d; }
+                }
+            }
+            printf("    Range: [%d, %d]; mode at distance %d (%lld records)\n",
+                   min_d, max_d, mode_d, mode_count);
+        }
+        printf("    [28] elapsed: %lds\n\n", (long)(time(NULL) - t28));
+
+        /* bmask freed here (end of analyze_mode) — see lifetime note above
+         * section [14]. Sections [3]-[19] all depend on bmask being alive. */
+        for (int b = 0; b < 31; b++) free(bmask[b]);
+        free(bmask);
+        free(sub_solution_count);
         free(kw_indices);
         munmap(all, file_size);
 
