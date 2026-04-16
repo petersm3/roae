@@ -423,6 +423,10 @@ static volatile int threads_completed = 0;
 static pthread_mutex_t checkpoint_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int total_branches_completed = 0;
 static int total_branches = 0;
+/* In-memory counter of sub-branches with "COMPLETE" status in checkpoint.txt.
+ * Protected by checkpoint_mutex. Replaces the O(n^2) per-sub-branch re-read
+ * of checkpoint.txt. Initialized from load_sub_checkpoint() at resume. */
+static int total_sub_complete = 0;
 
 /* SIGTERM/SIGINT handler. Uses sigaction (not signal()) because signal() resets
  * the handler after one invocation on some platforms — a bug in an earlier version
@@ -582,6 +586,13 @@ static int is_branch_completed(int pair, int orient) {
 #define MAX_COMPLETED_SUBS 4096
 static int completed_sub_branches[MAX_COMPLETED_SUBS][4]; /* [p1, o1, p2, o2] */
 static int n_completed_subs = 0;
+/* O(1) membership lookup: 4096 possible (p1,o1,p2,o2) tuples encoded as
+ * (p1 << 6) | (o1 << 5) | (p2 << 1) | o2, each a bit in a 512-byte bitmap.
+ * Replaces the linear scan in is_sub_branch_completed(). */
+static unsigned char completed_sub_bitmap[512] = {0};
+static inline int completed_sub_key(int p1, int o1, int p2, int o2) {
+    return ((p1 & 31) << 6) | ((o1 & 1) << 5) | ((p2 & 31) << 1) | (o2 & 1);
+}
 
 static void load_sub_checkpoint(void) {
     FILE *f = fopen("checkpoint.txt", "r");
@@ -601,18 +612,18 @@ static void load_sub_checkpoint(void) {
             completed_sub_branches[n_completed_subs][2] = p2v;
             completed_sub_branches[n_completed_subs][3] = o2v;
             n_completed_subs++;
+            total_sub_complete++;  /* in-memory counter init from resume */
+            /* O(1) lookup bitmap population */
+            int key = completed_sub_key(p1v, o1v, p2v, o2v);
+            completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
         }
     }
     fclose(f);
 }
 
 static int is_sub_branch_completed(int p1, int o1, int p2, int o2) {
-    for (int i = 0; i < n_completed_subs; i++) {
-        if (completed_sub_branches[i][0] == p1 && completed_sub_branches[i][1] == o1 &&
-            completed_sub_branches[i][2] == p2 && completed_sub_branches[i][3] == o2)
-            return 1;
-    }
-    return 0;
+    int key = completed_sub_key(p1, o1, p2, o2);
+    return (completed_sub_bitmap[key >> 3] >> (key & 7)) & 1;
 }
 
 /* ---------- Solution analysis ---------- */
@@ -1045,18 +1056,11 @@ static void *thread_func_single(void *arg) {
             fprintf(stderr, "WARNING: could not open checkpoint.txt for append\n");
         }
 
-        /* Update progress file */
-        int total_complete = 0;
-        /* Count COMPLETE entries (thread-safe since we hold the mutex) */
-        FILE *cpf = fopen("checkpoint.txt", "r");
-        if (cpf) {
-            char line[512];
-            while (fgets(line, sizeof(line), cpf))
-                if (strstr(line, "COMPLETE") && strstr(line, "Sub-branch"))
-                    total_complete++;
-            fclose(cpf);
-        }
-        update_progress(total_complete, total_branches, elapsed);
+        /* Update progress file. Use in-memory total_sub_complete counter
+         * (protected by checkpoint_mutex) instead of re-reading checkpoint.txt
+         * after every sub-branch commit. Avoids O(n^2) scan under mutex. */
+        if (strcmp(sb_status, "COMPLETE") == 0) total_sub_complete++;
+        update_progress(total_sub_complete, total_branches, elapsed);
 
         fprintf(stderr, "  *** Sub-branch %d/%d %s (pair1 %d orient1 %d pair2 %d orient2 %d): "
                 "%lldB nodes, %lldM C3, %d solutions, %lds ***\n",
