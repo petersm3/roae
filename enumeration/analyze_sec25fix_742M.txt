@@ -1,0 +1,979 @@
+No time limit — running to completion.
+Usage: ./solve [time_limit] [threads]  (0 = no limit)
+Build: Apr 16 2026 03:40:52 (git: unknown)
+King Wen complement distance (x64): 776 (= 12.1250)
+Difference distribution: 1:2 2:20 3:13 4:19 6:9 
+Super-pairs: 20
+
+==== ./solve --analyze /data/solutions.bin ====
+
+[1] File metadata
+    records:    742043303
+    file size:  23745385696 bytes (23.75 GB)
+    record fmt: 32 bytes packed (pair_index<<2 | orient<<1 per position)
+    backed by:  mmap (PROT_READ, MAP_PRIVATE)
+
+[masks] Allocating 31 packed bitmaps (11594427 words each, 2.88 GB total)...
+[stream] Single-pass streaming over 742043303 records ...
+        done in 233s.
+
+[2] Per-position Shannon entropy H(p), max log2(32)=5.0
+    Pos   H (bits)    #distinct pairs
+    1     0.0000      1
+    2     3.8326      28
+    3     4.1242      31
+    4     0.2803      3
+    5     0.4273      3
+    6     0.6047      3
+    7     0.7175      3
+    8     0.9173      3
+    9     1.0060      3
+    10    1.1099      3
+    11    1.1320      3
+    12    1.1328      3
+    13    1.1289      3
+    14    1.1201      4
+    15    1.2385      3
+    16    1.3373      4
+    17    1.2586      3
+    18    1.3102      3
+    19    1.5392      3
+    20    1.3786      3
+    21    1.7148      12
+    22    3.4777      14
+    23    3.6132      14
+    24    3.6354      14
+    25    3.6450      14
+    26    3.6313      14
+    27    3.6099      14
+    28    3.5905      14
+    29    3.5625      14
+    30    3.5456      14
+    31    3.4863      14
+    32    2.6639      7
+    mean H: 2.0554 bits
+
+[3] Per-boundary survivors (records matching KW pair_p AND pair_{p+1})
+    Boundary  1 (pos 1-2):     14101193 (1.9003%)
+    Boundary  2 (pos 2-3):        64066 (0.0086%)
+    Boundary  3 (pos 3-4):        64066 (0.0086%)
+    Boundary  4 (pos 4-5):       136733 (0.0184%)
+    Boundary  5 (pos 5-6):       563711 (0.0760%)
+    Boundary  6 (pos 6-7):       859935 (0.1159%)
+    Boundary  7 (pos 7-8):      4723103 (0.6365%)
+    Boundary  8 (pos 8-9):      6521118 (0.8788%)
+    Boundary  9 (pos 9-10):     10152288 (1.3682%)
+    Boundary 10 (pos 10-11):     16602625 (2.2374%)
+    Boundary 11 (pos 11-12):     16631154 (2.2413%)
+    Boundary 12 (pos 12-13):     16731100 (2.2547%)
+    Boundary 13 (pos 13-14):     16829162 (2.2679%)
+    Boundary 14 (pos 14-15):     16873701 (2.2740%)
+    Boundary 15 (pos 15-16):     41922807 (5.6496%)
+    Boundary 16 (pos 16-17):     71073480 (9.5781%)
+    Boundary 17 (pos 17-18):     71136703 (9.5866%)
+    Boundary 18 (pos 18-19):     93582549 (12.6115%)
+    Boundary 19 (pos 19-20):    303936935 (40.9595%)
+    Boundary 20 (pos 20-21):    248471137 (33.4847%)
+    Boundary 21 (pos 21-22):     37856613 (5.1017%)
+    Boundary 22 (pos 22-23):     15778677 (2.1264%)
+    Boundary 23 (pos 23-24):     14160274 (1.9083%)
+    Boundary 24 (pos 24-25):      7126888 (0.9604%)
+    Boundary 25 (pos 25-26):      4242597 (0.5717%)
+    Boundary 26 (pos 26-27):      5326790 (0.7179%)
+    Boundary 27 (pos 27-28):      4858071 (0.6547%)
+    Boundary 28 (pos 28-29):     10214110 (1.3765%)
+    Boundary 29 (pos 29-30):     12961493 (1.7467%)
+    Boundary 30 (pos 30-31):     11956100 (1.6112%)
+    Boundary 31 (pos 31-32):     29407693 (3.9631%)
+
+[4] King Wen variants (records with pair_idx == 0,1,2,...,31)
+    KW records found: 4
+    Orient pattern per variant (1=reversed, 0=natural):
+      Pos:     1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 
+      KW#1:    0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 
+      KW#2:    0  0  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  0  0 
+      KW#3:    0  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  0  0 
+      KW#4:    0  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 
+    Varying-orient positions: 2 3 28 29 30 
+    # varying: 5  (2^5=32 combinations expected if independent; observed 4)
+
+[5] Shift-pattern violations: at position p in [3..19], pair must be pair_{p-1} or pair_{p-2}
+    Pos   Exceptions      Pct of total
+    3     707711372       95.3733%
+    4     706297019       95.1827%
+    5     678643264       91.4560%
+    6     635076914       85.5849%
+    7     609236230       82.1025%
+    8     531328370       71.6034%
+    9     490879379       66.1524%
+    10    426987458       57.5421%
+    11    370558166       49.9375%
+    12    367823824       49.5691%
+    13    333277884       44.9135%
+    14    311640875       41.9977%
+    15    292673936       39.4416%
+    16    251311632       33.8675%
+    17    205013537       27.6282%
+    18    190576587       25.6827%
+    19    163711155       22.0622%
+    Rows with ANY shift exception: 720334146 (97.074%)
+    Rows fully shift-conforming:    21709157 (2.926%)
+
+[6] Greedy minimum-boundary search to uniquely identify KW
+    Starting with 742043299 non-KW solutions
+    Step 1: Boundary 2 eliminates 741979237, 64062 remain
+    Step 2: Boundary 27 eliminates 63446, 616 remain
+    Step 3: Boundary 25 eliminates 596, 20 remain
+    Step 4: Boundary 21 eliminates 20, 0 remain
+    Boundaries chosen: { 2 21 25 27 }
+
+[7] Exhaustive 3-subset disproof: test all C(31,3)=4,495 triples
+    Minimum 3-subset survivors: 24 (best triple: {3, 25, 27})  [4s]
+    Triples reaching <=4 survivors: 0
+    => 4-boundary minimum proven for this dataset.
+
+[8] All 4-subsets that reduce survivors to <=4 (uniquely identify KW)
+    [8] elapsed: 36s
+    { 3, 21, 25, 27}  survivors=4
+    { 3, 22, 25, 27}  survivors=4
+    { 2, 21, 25, 27}  survivors=4
+    { 2, 22, 25, 27}  survivors=4
+    total working 4-subsets: 4
+    Boundary frequency in working sets:
+      Boundary 25:    4  (100.0%)
+      Boundary 27:    4  (100.0%)
+      Boundary 21:    2  ( 50.0%)
+      Boundary 22:    2  ( 50.0%)
+      Boundary  2:    2  ( 50.0%)
+      Boundary  3:    2  ( 50.0%)
+    Boundaries appearing in EVERY working 4-set: { 25 27 }
+
+[9] Boundary redundancy: joint(b1,b2) / min(single(b1), single(b2))
+    Top 10 most-redundant boundary pairs:
+      b=1, b'=2  joint=64066  min_single=64066  ratio=1.000
+      b=1, b'=3  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=3  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=4  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=5  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=6  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=7  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=8  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=9  joint=64066  min_single=64066  ratio=1.000
+      b=2, b'=10  joint=64066  min_single=64066  ratio=1.000
+    Top 10 most-INDEPENDENT boundary pairs:
+      b=8, b'=26  joint=55020  min_single=5326790  ratio=0.010
+      b=4, b'=27  joint=1412  min_single=136733  ratio=0.010
+      b=7, b'=27  joint=46733  min_single=4723103  ratio=0.010
+      b=3, b'=27  joint=620  min_single=64066  ratio=0.010
+      b=2, b'=27  joint=620  min_single=64066  ratio=0.010
+      b=4, b'=26  joint=1294  min_single=136733  ratio=0.009
+      b=25, b'=27  joint=37356  min_single=4242597  ratio=0.009
+      b=7, b'=26  joint=41115  min_single=4723103  ratio=0.009
+      b=5, b'=26  joint=4776  min_single=563711  ratio=0.008
+      b=6, b'=26  joint=6326  min_single=859935  ratio=0.007
+
+[10] Pairwise mutual information I(p; q) — top 20 strongest correlations
+    [10] elapsed: 40s
+      pos 19 <-> pos 20:  I = 1.1473 bits
+      pos 11 <-> pos 12:  I = 1.0996 bits
+      pos 17 <-> pos 18:  I = 1.0337 bits
+      pos 16 <-> pos 17:  I = 1.0295 bits
+      pos 13 <-> pos 14:  I = 0.9632 bits
+      pos 14 <-> pos 15:  I = 0.9154 bits
+      pos 12 <-> pos 13:  I = 0.9044 bits
+      pos 11 <-> pos 13:  I = 0.8905 bits
+      pos 16 <-> pos 18:  I = 0.8780 bits
+      pos 15 <-> pos 16:  I = 0.8743 bits
+      pos 20 <-> pos 21:  I = 0.8186 bits
+      pos 13 <-> pos 15:  I = 0.8164 bits
+      pos 12 <-> pos 14:  I = 0.8117 bits
+      pos 10 <-> pos 11:  I = 0.8073 bits
+      pos 11 <-> pos 14:  I = 0.8004 bits
+      pos 10 <-> pos 12:  I = 0.7966 bits
+      pos 18 <-> pos 19:  I = 0.7449 bits
+      pos  2 <-> pos  3:  I = 0.7327 bits
+      pos 12 <-> pos 15:  I = 0.6983 bits
+      pos 15 <-> pos 17:  I = 0.6960 bits
+
+[11] Per-first-level-branch distinct configs at positions 3..19
+     Pair   Distinct configs at pos 3-19    Records
+     1      18                              14101193
+     2      18                              15103648
+     3      18                              21808514
+     4      (no records)                    0
+     5      23                              41646126
+     6      (no records)                    0
+     7      18                              31509177
+     8      23                              35634247
+     9      7                               1582919
+     10     7                               17091148
+     11     7                               14069410
+     12     8                               9612043
+     13     23                              35142401
+     14     25                              42112871
+     15     5                               7500582
+     16     19                              24911158
+     17     26                              164904766
+     18     3                               2988554
+     19     3                               3376702
+     20     7                               9921059
+     21     (no records)                    0
+     22     19                              16208601
+     23     20                              34879416
+     24     29                              146027367
+     25     2                               599015
+     26     18                              22467601
+     27     2                               157945
+     28     2                               963560
+     29     2                               131478
+     30     19                              14050488
+     31     18                              13541314
+
+[12] Null-model: greedy minimum-boundary search relative to a non-KW reference
+    Reference index: 371021651  (is_kw=no)
+    Starting with 742043301 non-ref solutions
+    Step 1: Boundary 26 eliminates 736716513, 5326788 remain
+    Step 2: Boundary 24 eliminates 5294855, 31933 remain
+    Step 3: Boundary 31 eliminates 31365, 568 remain
+    Step 4: Boundary 2 eliminates 532, 36 remain
+    Step 5: Boundary 28 eliminates 36, 0 remain
+    Reference-relative boundaries: { 2 24 26 28 31 }
+
+[13] Orbit analysis under reversal and pair-complement
+    Palindromic solutions (pair sequence reads same forwards/backwards): 0 (0.0000%)
+    Pair-complement self-symmetric (every pair is self-complementary): 0 (0.0000%)
+    (Note: 8 of 32 pairs are self-complementary)
+
+[14] Orient-coupling generalization
+     Grouping 742043303 records by pair-index sequence (orient masked) ...
+     sort done in 55s
+     analysis done in 84s
+     Unique pair-orderings: 284673716 (vs 742043303 total records, ratio 2.607x)
+     Variants-per-pair-ordering distribution (group size -> #pair-orderings):
+        1 variants: 42410733 pair-orderings
+        2 variants: 125857849 pair-orderings
+        3 variants: 17703664 pair-orderings
+        4 variants: 98701470 pair-orderings
+     Records accounted for: 742043303
+     Per-position frequency of orient variation across pair-ordering groups:
+       Pos   Groups varying  Pct    
+       1     0               0.000%
+       2     230742882       81.055%
+       3     195490865       68.672%
+       4     32604904        11.453%
+       5     6786            0.002%
+       6     0               0.000%
+       7     0               0.000%
+       8     0               0.000%
+       9     0               0.000%
+       10    0               0.000%
+       11    0               0.000%
+       12    0               0.000%
+       13    0               0.000%
+       14    0               0.000%
+       15    0               0.000%
+       16    0               0.000%
+       17    0               0.000%
+       18    0               0.000%
+       19    0               0.000%
+       20    138330          0.049%
+       21    27933111        9.812%
+       22    21547112        7.569%
+       23    21123530        7.420%
+       24    21726802        7.632%
+       25    24228600        8.511%
+       26    25564138        8.980%
+       27    28812953        10.121%
+       28    29695403        10.431%
+       29    32298175        11.346%
+       30    33812821        11.878%
+       31    29416566        10.333%
+       32    42114556        14.794%
+     KW's group: 4 variants; varying-orient positions: 2 3 28 29 30 
+     Largest group: 4 variants (pair-ordering at sorted index 0)
+
+     --- 4-variant subfamily (KW is in this class) ---
+     Total 4-variant pair-orderings: 98701470
+     4-variant groups with exactly KW's varying-position set {2,3,28,29,30}: 549245
+     4-variant groups satisfying KW's (pos2 XOR pos3) == pos28 == pos29 == pos30 coupling: 181457
+     Top-10 varying-position patterns among 4-variant groups:
+       pattern {2,3}: 25801815 groups (26.14%)
+       pattern {2,3,32}: 3717472 groups (3.77%)
+       pattern {2,3,21}: 2820785 groups (2.86%)
+       pattern {2,3,21,22}: 2133997 groups (2.16%)
+       pattern {2,3,31,32}: 2025672 groups (2.05%)
+       pattern {2,3,24}: 1392018 groups (1.41%)
+       pattern {2,3,29}: 1388971 groups (1.41%)
+       pattern {2,3,26}: 1366253 groups (1.38%)
+       pattern {2,3,27}: 1357973 groups (1.38%)
+       pattern {2,3,25}: 1356042 groups (1.37%)
+
+     --- 1-variant subfamily (pair-orderings with forced orient) ---
+     Total 1-variant pair-orderings: 42410733
+     Edit-distance-to-KW distribution (non-zero bins):
+       edit_dist  5: 2 (0.000%)
+       edit_dist  6: 11 (0.000%)
+       edit_dist  7: 49 (0.000%)
+       edit_dist  8: 172 (0.000%)
+       edit_dist  9: 562 (0.001%)
+       edit_dist 10: 1644 (0.004%)
+       edit_dist 11: 4308 (0.010%)
+       edit_dist 12: 9319 (0.022%)
+       edit_dist 13: 17942 (0.042%)
+       edit_dist 14: 28710 (0.068%)
+       edit_dist 15: 35980 (0.085%)
+       edit_dist 16: 36601 (0.086%)
+       edit_dist 17: 37718 (0.089%)
+       edit_dist 18: 45357 (0.107%)
+       edit_dist 19: 50542 (0.119%)
+       edit_dist 20: 61030 (0.144%)
+       edit_dist 21: 122512 (0.289%)
+       edit_dist 22: 269702 (0.636%)
+       edit_dist 23: 490400 (1.156%)
+       edit_dist 24: 805124 (1.898%)
+       edit_dist 25: 1407461 (3.319%)
+       edit_dist 26: 2650258 (6.249%)
+       edit_dist 27: 4482206 (10.569%)
+       edit_dist 28: 6394010 (15.076%)
+       edit_dist 29: 8604407 (20.288%)
+       edit_dist 30: 10121452 (23.865%)
+       edit_dist 31: 6733254 (15.876%)
+     Per-position: most common pair among 1-variant groups:
+       Pos   KW_pair     Most_common  Pct
+       1     0           0           100.00%  <- matches KW
+       2     1           24          20.36%
+       3     2           24          30.92%
+       4     3           1           89.76%
+       5     4           2           83.91%
+       6     5           3           73.08%
+       7     6           4           73.08%
+       8     7           5           70.88%
+       9     8           6           67.04%
+       10    9           7           62.87%
+       11    10          8           57.43%
+       12    11          9           57.32%
+       13    12          10          56.07%
+       14    13          12          49.79%
+       15    14          13          53.85%
+       16    15          14          55.94%
+       17    16          15          64.65%
+       18    17          16          67.16%
+       19    18          17          43.34%
+       20    19          18          52.25%
+       21    20          20          30.74%  <- matches KW
+       22    21          22          11.97%
+       23    22          23          12.48%
+       24    23          23          11.46%  <- matches KW
+       25    24          22          10.04%
+       26    25          25          10.11%  <- matches KW
+       27    26          25          11.15%
+       28    27          25          11.78%
+       29    28          25          11.05%
+       30    29          25          11.60%
+       31    30          30          15.98%  <- matches KW
+       32    31          26          24.11%
+
+[15] Orient-collapsed boundary analysis (284673716 unique pair-orderings)
+     KW present: 1 copy(ies) (expected 1 after orient collapse)
+     Building 31 per-boundary packed bitmaps (4448027 words each)...
+     Greedy minimum-boundary search (284673715 non-KW pair-orderings):
+       Step 1: Boundary 2 eliminates 284651336, 22379 remain
+       Step 2: Boundary 27 eliminates 22172, 207 remain
+       Step 3: Boundary 25 eliminates 201, 6 remain
+       Step 4: Boundary 21 eliminates 6, 0 remain
+     Boundaries chosen (orient-collapsed): { 2 21 25 27 }
+     3-subset disproof: min survivors 7 (best {3,25,27}); triples <=1 survivor: 0
+     All 4-subsets uniquely identifying KW (<=1 survivor): 4
+       { 2,21,25,27} surv=1
+       { 2,22,25,27} surv=1
+       { 3,21,25,27} surv=1
+       { 3,22,25,27} surv=1
+     Boundary frequency: b2=2 b3=2 b21=2 b22=2 b25=4 b27=4 
+     Boundaries in EVERY working 4-set: { 25 27 }
+
+[16] Per-(p2, o2) collision-key bug-impact map
+    (p2, o2) | #contribs |   total records |     min single |     max single | max/total
+    ( 1, 0) |     28    |        10966012 |          11783 |        2619284 | 0.2389
+    ( 1, 1) |     26    |        10679079 |          10066 |        2575597 | 0.2412
+    ( 2, 0) |     25    |         6658290 |          10064 |        3096635 | 0.4651
+    ( 2, 1) |     25    |         6028550 |           1840 |        2421139 | 0.4016
+    ( 3, 0) |     27    |        11107430 |          10066 |        3293042 | 0.2965
+    ( 3, 1) |     27    |        11077384 |          13507 |        3534265 | 0.3191
+    ( 4, 0) |     28    |        13069720 |          13507 |        3533791 | 0.2704
+    ( 4, 1) |     28    |        13067188 |          13507 |        3533791 | 0.2704
+    ( 5, 0) |     34    |        20062451 |           1730 |        4083719 | 0.2036
+    ( 5, 1) |     34    |        20062451 |           1730 |        4083719 | 0.2036
+    ( 6, 0) |     35    |        21031828 |           1036 |        4020347 | 0.1912
+    ( 6, 1) |     35    |        21215178 |            869 |        4175459 | 0.1968
+    ( 7, 0) |     28    |        18006957 |          27724 |        4027244 | 0.2236
+    ( 7, 1) |     28    |        18006957 |          27724 |        4027244 | 0.2236
+    ( 8, 0) |     28    |        13384516 |           4708 |        3152328 | 0.2355
+    ( 8, 1) |     28    |        13860866 |           4612 |        3375087 | 0.2435
+    ( 9, 0) |     10    |          589976 |           1036 |         311050 | 0.5272
+    ( 9, 1) |     10    |          589976 |           1036 |         311050 | 0.5272
+    (10, 0) |     12    |         8777369 |           1411 |        1907043 | 0.2173
+    (10, 1) |     12    |         8777369 |           1411 |        1907043 | 0.2173
+    (11, 0) |     10    |         3651405 |           1411 |        1632326 | 0.4470
+    (11, 1) |     10    |         4023576 |           1199 |        1855572 | 0.4612
+    (12, 0) |     10    |         4237164 |           1104 |        1654642 | 0.3905
+    (12, 1) |     12    |         5162271 |           2128 |        1612115 | 0.3123
+    (13, 0) |     26    |        12878801 |           2472 |        3211079 | 0.2493
+    (13, 1) |     34    |        20020822 |           1382 |        3211079 | 0.1604
+    (14, 0) |     34    |        14509201 |            880 |        2780820 | 0.1917
+    (14, 1) |     38    |        18817376 |            880 |        3495211 | 0.1857
+    (15, 0) |      9    |         3114122 |           5295 |         775066 | 0.2489
+    (15, 1) |     10    |         3885469 |           1036 |        1156840 | 0.2977
+    (16, 0) |     27    |        11354206 |          35335 |        1564231 | 0.1378
+    (16, 1) |     27    |        11415300 |          35335 |        1564231 | 0.1370
+    (17, 0) |     42    |        72953196 |         119290 |        3798637 | 0.0521
+    (17, 1) |     33    |        57184641 |         119290 |        4018117 | 0.0703
+    (18, 0) |      5    |         1360782 |         130144 |         576185 | 0.4234
+    (18, 1) |      6    |         1579239 |         134982 |         583362 | 0.3694
+    (19, 0) |      6    |         1224189 |          12231 |         396140 | 0.3236
+    (19, 1) |      6    |         1531022 |         143801 |         576185 | 0.3763
+    (20, 0) |     13    |         3897729 |           1444 |         914196 | 0.2345
+    (20, 1) |     12    |         4951075 |           1956 |        1156840 | 0.2337
+    (21, 0) |     31    |        12558993 |          31753 |        2759607 | 0.2197
+    (21, 1) |     31    |        12939500 |          18899 |        2774173 | 0.2144
+    (22, 0) |     28    |         7447489 |          11938 |        1595141 | 0.2142
+    (22, 1) |     29    |         8359933 |          12949 |        1654642 | 0.1979
+    (23, 0) |     31    |        14719634 |           1892 |        3188737 | 0.2166
+    (23, 1) |     31    |        14766490 |           1892 |        3188737 | 0.2159
+    (24, 0) |     47    |        71833876 |           3198 |        3522805 | 0.0490
+    (24, 1) |     46    |        57276835 |           6952 |        4109598 | 0.0717
+    (25, 0) |      3    |          499515 |         100991 |         213857 | 0.4281
+    (25, 1) |      4    |          421463 |          14786 |         185852 | 0.4410
+    (26, 0) |     29    |         8952458 |           6901 |        2255902 | 0.2520
+    (26, 1) |     29    |         8952458 |           6901 |        2255902 | 0.2520
+    (27, 0) |      4    |           68944 |           6952 |          29765 | 0.4317
+    (27, 1) |      4    |           74976 |           6967 |          36138 | 0.4820
+    (28, 0) |      4    |          415335 |          15223 |         149055 | 0.3589
+    (28, 1) |      4    |          342646 |           1047 |         185852 | 0.5424
+    (29, 0) |      3    |           76291 |           8528 |          35132 | 0.4605
+    (29, 1) |      3    |           65965 |           6094 |          36138 | 0.5478
+    (30, 0) |     24    |         3202936 |           6221 |         929341 | 0.2902
+    (30, 1) |     29    |         5677056 |           6221 |        1114785 | 0.1964
+    (31, 0) |     26    |         4277712 |           6786 |        1744346 | 0.4078
+    (31, 1) |     26    |         4341665 |           6786 |        1533720 | 0.3533
+    --- summary ---
+    Live (p2, o2) keys: 62 of 64
+    Max #contributors any single key: 47
+    Total records across all keys:    742043303
+    Bug-kept count bounds: [1200839, 130020976] (0.16% to 17.52% of 742043303)
+    Reported old (buggy) 10T result: 31.6M. Undercount factor: 23.48x
+    [16] elapsed: 1s
+
+[17] Survivor structure of best triple {2, 25, 27}
+    Total survivors (incl. KW orient variants): 24
+    Non-KW survivors: 20
+    Edit-distance histogram:
+        dist= 0: 4
+        dist= 2: 10
+        dist= 3: 6
+        dist= 4: 4
+    Positions where any non-KW survivor differs from KW:
+        pos 21: 12 survivors differ
+        pos 22: 20 survivors differ
+        pos 23: 12 survivors differ
+        pos 24: 10 survivors differ
+    Non-KW survivor pair-sequences (up to 30):
+        [  1]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 22 21 23 24 25 26 27 28 29 30 31 
+        [  2]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 22 21 23 24 25 26 27 28 29 30 31 
+        [  3]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 22 23 21 24 25 26 27 28 29 30 31 
+        [  4]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 22 23 21 24 25 26 27 28 29 30 31 
+        [  5]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 23 22 21 24 25 26 27 28 29 30 31 
+        [  6]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 23 22 21 24 25 26 27 28 29 30 31 
+        [  7]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 23 22 21 24 25 26 27 28 29 30 31 
+        [  8]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 23 22 21 24 25 26 27 28 29 30 31 
+        [  9]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 20 22 23 24 25 26 27 28 29 30 31 
+        [ 10]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 20 22 23 24 25 26 27 28 29 30 31 
+        [ 11]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 20 22 23 24 25 26 27 28 29 30 31 
+        [ 12]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 20 22 23 24 25 26 27 28 29 30 31 
+        [ 13]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 20 23 24 25 26 27 28 29 30 31 
+        [ 14]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 20 23 24 25 26 27 28 29 30 31 
+        [ 15]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 20 23 24 25 26 27 28 29 30 31 
+        [ 16]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 20 23 24 25 26 27 28 29 30 31 
+        [ 17]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 23 20 24 25 26 27 28 29 30 31 
+        [ 18]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 23 20 24 25 26 27 28 29 30 31 
+        [ 19]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 23 20 24 25 26 27 28 29 30 31 
+        [ 20]:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 21 22 23 20 24 25 26 27 28 29 30 31 
+    [17] elapsed: 0s
+
+[18] Per-boundary conditional entropy
+    Baseline sum_p H(pair at p) over all 742043303 records: 65.7724 bits
+    Boundary | matching_records | sum_p H(p | b) | info_gain=H_base-H_cond
+      b= 1   |         14101193  |     50.0708   |        15.7016
+      b= 2   |            64066  |     30.5071   |        35.2653
+      b= 3   |            64066  |     30.5071   |        35.2653
+      b= 4   |           136733  |     32.4692   |        33.3032
+      b= 5   |           563711  |     35.6519   |        30.1205
+      b= 6   |           859935  |     37.3270   |        28.4454
+      b= 7   |          4723103  |     41.0303   |        24.7421
+      b= 8   |          6521118  |     42.1272   |        23.6452
+      b= 9   |         10152288  |     44.1762   |        21.5962
+      b=10   |         16602625  |     45.8327   |        19.9397
+      b=11   |         16631154  |     45.8653   |        19.9071
+      b=12   |         16731100  |     45.9826   |        19.7899
+      b=13   |         16829162  |     46.1285   |        19.6439
+      b=14   |         16873701  |     46.2250   |        19.5474
+      b=15   |         41922807  |     52.2445   |        13.5280
+      b=16   |         71073480  |     54.9005   |        10.8719
+      b=17   |         71136703  |     54.9257   |        10.8468
+      b=18   |         93582549  |     57.1070   |         8.6654
+      b=19   |        303936935  |     59.3789   |         6.3935
+      b=20   |        248471137  |     57.3026   |         8.4698
+      b=21   |         37856613  |     56.0630   |         9.7094
+      b=22   |         15778677  |     57.4307   |         8.3417
+      b=23   |         14160274  |     58.0157   |         7.7567
+      b=24   |          7126888  |     56.4023   |         9.3701
+      b=25   |          4242597  |     54.3626   |        11.4098
+      b=26   |          5326790  |     55.7707   |        10.0017
+      b=27   |          4858071  |     55.0039   |        10.7686
+      b=28   |         10214110  |     56.8847   |         8.8877
+      b=29   |         12961493  |     57.2160   |         8.5565
+      b=30   |         11956100  |     57.0963   |         8.6761
+      b=31   |         29407693  |     58.3274   |         7.4450
+    [18] elapsed: 23s
+
+[19] Identity-level survivor dump per working 4-set
+    Set {2, 21, 25, 27}:
+        rec#         0  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00000000000000000000000000000000  [KW]
+        rec#         1  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00100000000000000000000000011100  [KW]
+        rec#         2  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01000000000000000000000000011100  [KW]
+        rec#         3  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01100000000000000000000000000000  [KW]
+        total: 4 survivors
+
+    Set {2, 22, 25, 27}:
+        rec#         0  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00000000000000000000000000000000  [KW]
+        rec#         1  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00100000000000000000000000011100  [KW]
+        rec#         2  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01000000000000000000000000011100  [KW]
+        rec#         3  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01100000000000000000000000000000  [KW]
+        total: 4 survivors
+
+    Set {3, 21, 25, 27}:
+        rec#         0  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00000000000000000000000000000000  [KW]
+        rec#         1  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00100000000000000000000000011100  [KW]
+        rec#         2  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01000000000000000000000000011100  [KW]
+        rec#         3  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01100000000000000000000000000000  [KW]
+        total: 4 survivors
+
+    Set {3, 22, 25, 27}:
+        rec#         0  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00000000000000000000000000000000  [KW]
+        rec#         1  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=00100000000000000000000000011100  [KW]
+        rec#         2  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01000000000000000000000000011100  [KW]
+        rec#         3  pair= 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31  orient=01100000000000000000000000000000  [KW]
+        total: 4 survivors
+
+    [19] elapsed: 0s
+
+[20] Complement-orbit analysis
+    Complement-pair table:
+      pair  0 (63, 0) → pair  0 (63, 0) orient_flip=1 [self-comp]
+      pair  1 (17,34) → pair 24 (29,46) orient_flip=1
+      pair  2 (23,58) → pair 17 (40, 5) orient_flip=0
+      pair  3 ( 2,16) → pair  6 (61,47) orient_flip=0
+      pair  4 (55,59) → pair  7 ( 4, 8) orient_flip=1
+      pair  5 ( 7,56) → pair  5 ( 7,56) orient_flip=1 [self-comp]
+      pair  6 (61,47) → pair  3 ( 2,16) orient_flip=0
+      pair  7 ( 4, 8) → pair  4 (55,59) orient_flip=1
+      pair  8 (25,38) → pair  8 (25,38) orient_flip=1 [self-comp]
+      pair  9 ( 3,48) → pair 16 (60,15) orient_flip=0
+      pair 10 (41,37) → pair 23 (26,22) orient_flip=1
+      pair 11 (32, 1) → pair 21 (31,62) orient_flip=0
+      pair 12 (57,39) → pair 22 (24, 6) orient_flip=1
+      pair 13 (33,30) → pair 13 (33,30) orient_flip=1 [self-comp]
+      pair 14 (18,45) → pair 14 (18,45) orient_flip=1 [self-comp]
+      pair 15 (28,14) → pair 20 (35,49) orient_flip=0
+      pair 16 (60,15) → pair  9 ( 3,48) orient_flip=0
+      pair 17 (40, 5) → pair  2 (23,58) orient_flip=0
+      pair 18 (53,43) → pair 19 (20,10) orient_flip=1
+      pair 19 (20,10) → pair 18 (53,43) orient_flip=1
+      pair 20 (35,49) → pair 15 (28,14) orient_flip=0
+      pair 21 (31,62) → pair 11 (32, 1) orient_flip=0
+      pair 22 (24, 6) → pair 12 (57,39) orient_flip=1
+      pair 23 (26,22) → pair 10 (41,37) orient_flip=1
+      pair 24 (29,46) → pair  1 (17,34) orient_flip=1
+      pair 25 ( 9,36) → pair 28 (54,27) orient_flip=0
+      pair 26 (52,11) → pair 26 (52,11) orient_flip=1 [self-comp]
+      pair 27 (13,44) → pair 29 (50,19) orient_flip=0
+      pair 28 (54,27) → pair 25 ( 9,36) orient_flip=0
+      pair 29 (50,19) → pair 27 (13,44) orient_flip=0
+      pair 30 (51,12) → pair 30 (51,12) orient_flip=1 [self-comp]
+      pair 31 (21,42) → pair 31 (21,42) orient_flip=1 [self-comp]
+    Self-complementary pairs: 8 of 32
+
+    Computing complements of 742043303 records...
+    Complement done in 1s.
+    Sorting 742043303 complemented records...
+    Sort done in 212s.
+    Records with complement in set: 0 / 742043303 (0.0000%)
+    *** Complement is NOT closed: 742043303 records lack their complement partner ***
+    KW complement in set: NO
+    KW complement pair-seq:  0 24 17  6  7  5  3  4  8 16 23 21 22 13 14 20  9  2 19 18 15 11 12 10  1 28 26 29 25 27 30 31 
+    KW complement orient:   11001101101011100011001110100011
+    [20] elapsed: 265s
+
+[21] Per-position pair frequency table (32 positions × 32 pairs)
+    Format: pos (1-indexed), pair_index, count, pct, is_KW_pair
+    pos  1 ( 1 distinct): p0=100.00%* 
+    pos  2 (28 distinct): p17=22.22% p24=19.68% p14=5.68% p5=5.61% p8=4.80% p13=4.74% p23=4.70% p7=4.25% p16=3.36% p26=3.03% p3=2.94% p10=2.30% p22=2.18% p2=2.04% p1=1.90%* p11=1.90% p30=1.89% p31=1.82% p20=1.34% p12=1.30% p15=1.01% p19=0.46% p18=0.40% p9=0.21% p28=0.13% p25=0.08% p27=0.02% p29=0.02% 
+    pos  3 (31 distinct): p17=17.54% p24=17.40% p6=5.69% p5=5.41% p7=4.85% p14=4.49% p13=4.43% p23=3.97% p8=3.67% p4=3.52% p21=3.44% p16=3.07% p3=2.99% p1=2.92% p26=2.41% p10=2.37% p22=2.13% p2=1.71%* p12=1.27% p30=1.20% p20=1.19% p31=1.16% p11=1.03% p15=0.94% p18=0.40% p19=0.37% p9=0.16% p25=0.12% p28=0.10% p27=0.02% p29=0.02% 
+    pos  4 ( 3 distinct): p1=95.18% p2=4.80% p3=0.02%* 
+    pos  5 ( 3 distinct): p2=91.46% p3=8.47% p4=0.08%* 
+    pos  6 ( 3 distinct): p3=85.58% p4=14.30% p5=0.12%* 
+    pos  7 ( 3 distinct): p4=82.10% p5=17.26% p6=0.64%* 
+    pos  8 ( 3 distinct): p5=71.60% p6=27.52% p7=0.88%* 
+    pos  9 ( 3 distinct): p6=66.15% p7=32.48% p8=1.37%* 
+    pos 10 ( 3 distinct): p7=57.54% p8=40.22% p9=2.24%* 
+    pos 11 ( 3 distinct): p8=49.94% p9=47.82% p10=2.24%* 
+    pos 12 ( 3 distinct): p9=49.57% p10=48.18% p11=2.25%* 
+    pos 13 ( 3 distinct): p11=52.82% p10=44.91% p12=2.27%* 
+    pos 14 ( 4 distinct): p12=55.73% p11=42.00% p13=2.27%* p14=0.00% 
+    pos 15 ( 3 distinct): p13=54.91% p12=39.44% p14=5.65%* 
+    pos 16 ( 4 distinct): p14=56.55% p13=33.65% p15=9.58%* p16=0.22% 
+    pos 17 ( 3 distinct): p15=62.79% p14=27.63% p16=9.59%* 
+    pos 18 ( 3 distinct): p16=61.71% p15=25.68% p17=12.61%* 
+    pos 19 ( 3 distinct): p18=40.96%* p17=36.98% p16=22.06% 
+    pos 20 ( 3 distinct): p18=48.25% p19=41.10%* p17=10.65% 
+    pos 21 (12 distinct): p20=43.03%* p19=39.32% p21=9.67% p18=7.24% p23=0.39% p22=0.32% p26=0.01% p24=0.01% p27=0.00% p25=0.00% p31=0.00% p29=0.00% 
+    pos 22 (14 distinct): p22=15.54% p23=14.04% p21=12.97%* p24=12.48% p20=10.25% p26=6.43% p25=6.14% p27=4.62% p19=4.42% p28=4.27% p30=3.08% p29=2.96% p31=2.31% p18=0.52% 
+    pos 23 (14 distinct): p22=12.92%* p23=11.24% p21=10.68% p24=9.36% p30=8.83% p28=7.34% p25=6.93% p26=6.67% p31=6.38% p20=6.31% p27=5.64% p29=5.64% p19=1.76% p18=0.28% 
+    pos 24 (14 distinct): p22=11.67% p23=10.34%* p21=9.77% p30=9.04% p28=8.51% p25=8.08% p24=7.87% p31=7.00% p26=6.90% p29=6.75% p27=6.63% p20=5.37% p19=1.85% p18=0.23% 
+    pos 25 (14 distinct): p22=10.18% p28=9.73% p25=9.35% p30=9.24% p23=9.09% p21=8.76% p29=7.74% p27=7.55% p31=7.46% p26=7.06% p24=6.81%* p20=4.95% p19=1.83% p18=0.26% 
+    pos 26 (14 distinct): p28=10.38% p25=10.07%* p30=9.16% p22=8.87% p29=8.84% p27=8.67% p23=8.40% p21=8.05% p31=8.00% p26=7.30% p24=5.72% p20=4.79% p19=1.51% p18=0.22% 
+    pos 27 (14 distinct): p28=11.60% p25=11.36% p30=9.87% p29=9.16% p27=8.99% p22=8.39% p31=8.09% p23=7.27% p26=7.26%* p21=6.95% p24=5.24% p20=3.96% p19=1.61% p18=0.24% 
+    pos 28 (14 distinct): p28=11.72% p25=11.55% p29=10.09% p30=9.98% p27=9.91%* p31=8.69% p26=7.64% p22=7.36% p23=6.65% p21=6.49% p24=4.33% p20=3.82% p19=1.51% p18=0.25% 
+    pos 29 (14 distinct): p28=11.36%* p25=11.29% p29=10.95% p27=10.72% p30=10.40% p31=9.55% p26=8.32% p22=6.42% p23=6.21% p21=6.00% p24=3.70% p20=3.60% p19=1.26% p18=0.22% 
+    pos 30 (14 distinct): p25=12.10% p28=11.95% p30=11.90% p29=10.30%* p27=10.28% p31=9.38% p26=8.19% p22=6.48% p23=5.58% p21=5.30% p24=3.68% p20=3.25% p19=1.37% p18=0.24% 
+    pos 31 (14 distinct): p30=15.40%* p25=12.91% p28=12.91% p29=9.50% p27=9.22% p31=8.72% p26=8.17% p22=7.55% p21=3.84% p23=3.72% p24=3.72% p20=2.39% p19=1.65% p18=0.29% 
+    pos 32 ( 7 distinct): p31=21.43%* p26=20.59% p29=18.02% p27=17.74% p23=8.39% p21=8.08% p20=5.75% 
+    [21] elapsed: 0s
+
+[22] Complement-distance distribution (hex-level, same metric as C3)
+    KW complement distance (x64): 776  (= 12.1250 per hex)
+    KW percentile within C1-C5 dataset: 100.00%
+    NOTE: KW at 100% is tautological — C3 enforces cd <= 776.
+    The '3.9th percentile' in SOLVE-SUMMARY.md compares KW against
+    ALL pair-constrained orderings (C1 only), not within C1-C5.
+    Range within C1-C5 dataset: [448, 776]
+    Distribution (20-unit bins, non-zero):
+      cd 440-459:        12057 (0.0016%)
+      cd 460-479:        72890 (0.0098%)
+      cd 480-499:       304522 (0.0410%)
+      cd 500-519:       399727 (0.0539%)
+      cd 520-539:      1015532 (0.1369%)
+      cd 540-559:      1082977 (0.1459%)
+      cd 560-579:      2749157 (0.3705%)
+      cd 580-599:      3179682 (0.4285%)
+      cd 600-619:      9032022 (1.2172%)
+      cd 620-639:     11259686 (1.5174%)
+      cd 640-659:     30852854 (4.1578%)
+      cd 660-679:     32695805 (4.4062%)
+      cd 680-699:     72780401 (9.8081%)
+      cd 700-719:     69069468 (9.3080%)
+      cd 720-739:    142434288 (19.1949%)
+      cd 740-759:    123939548 (16.7025%)
+      cd 760-779:    241162687 (32.4998%)  <- KW bin
+    [22] elapsed: 1s
+
+[23] Survivors after mandatory boundaries {25, 27} only
+    Total survivors: 37356 (incl. 4 KW orient variants)
+    Non-KW survivors: 37352
+    Edit-distance histogram:
+        dist= 0: 4
+        dist= 2: 12
+        dist= 3: 6
+        dist= 4: 20
+        dist= 5: 20
+        dist= 6: 36
+        dist= 7: 81
+        dist= 8: 122
+        dist= 9: 220
+        dist=10: 329
+        dist=11: 389
+        dist=12: 362
+        dist=13: 315
+        dist=14: 228
+        dist=15: 152
+        dist=16: 334
+        dist=17: 976
+        dist=18: 1770
+        dist=19: 2693
+        dist=20: 2697
+        dist=21: 3266
+        dist=22: 5421
+        dist=23: 7531
+        dist=24: 6384
+        dist=25: 2101
+        dist=26: 1239
+        dist=27: 648
+    Positions locked (0 non-KW vary): 1 25 26 27 28 (5 of 32)
+    Positions free (any non-KW vary): 2(36521) 3(37150) 4(37318) 5(37245) 6(37211) 7(36654) 8(36442) 9(36030) 10(35172) 11(35172) 12(35172) 13(35172) 14(35172) 15(30034) 16(27990) 17(27990) 18(25989) 19(6344) 20(6344) 21(8422) 22(31848) 23(30358) 24(29030) 29(27153) 30(31858) 31(25339) 32(21726) 
+    Per-position distinct pairs among {25,27} survivors:
+      pos  1:  1 distinct [ p0=100.0% ] LOCKED
+      pos  2: 20 distinct
+      pos  3: 23 distinct
+      pos  4:  3 distinct [ p1=94.4% p2=5.5% p3=0.1% ]
+      pos  5:  3 distinct [ p2=93.2% p3=6.5% p4=0.3% ]
+      pos  6:  3 distinct [ p3=84.3% p4=15.3% p5=0.4% ]
+      pos  7:  3 distinct [ p4=79.1% p5=19.1% p6=1.9% ]
+      pos  8:  3 distinct [ p5=61.6% p6=35.9% p7=2.4% ]
+      pos  9:  3 distinct [ p6=50.5% p7=45.9% p8=3.5% ]
+      pos 10:  3 distinct [ p7=41.1% p8=53.1% p9=5.8% ]
+      pos 11:  3 distinct [ p8=23.7% p9=70.4% p10=5.8% ]
+      pos 12:  3 distinct [ p9=23.7% p10=70.4% p11=5.8% ]
+      pos 13:  3 distinct [ p10=20.7% p11=73.4% p12=5.8% ]
+      pos 14:  3 distinct [ p11=17.5% p12=76.6% p13=5.8% ]
+      pos 15:  3 distinct [ p12=16.8% p13=63.6% p14=19.6% ]
+      pos 16:  3 distinct [ p13=11.4% p14=63.6% p15=25.1% ]
+      pos 17:  3 distinct [ p14=9.9% p15=65.0% p16=25.1% ]
+      pos 18:  3 distinct [ p15=7.9% p16=61.7% p17=30.4% ]
+      pos 19:  3 distinct [ p16=7.0% p17=10.0% p18=83.0% ]
+      pos 20:  3 distinct [ p17=0.9% p18=16.1% p19=83.0% ]
+      pos 21:  6 distinct
+      pos 22: 10 distinct
+      pos 23: 10 distinct
+      pos 24:  9 distinct
+      pos 25:  1 distinct [ p24=100.0% ] LOCKED
+      pos 26:  1 distinct [ p25=100.0% ] LOCKED
+      pos 27:  1 distinct [ p26=100.0% ] LOCKED
+      pos 28:  1 distinct [ p27=100.0% ] LOCKED
+      pos 29:  9 distinct
+      pos 30:  9 distinct
+      pos 31:  9 distinct
+      pos 32:  5 distinct [ p20=1.8% p21=11.2% p23=11.9% p29=33.2% p31=41.8% ]
+    [23] elapsed: 0s
+
+[24] KW nearest-neighbor catalog (top 50 closest)
+    Closest 50 non-KW solutions by edit distance:
+      [  1] dist=2 rec#4: pos28=29 pos30=27 
+      [  2] dist=2 rec#5: pos28=29 pos30=27 
+      [  3] dist=2 rec#6: pos28=29 pos30=27 
+      [  4] dist=2 rec#7: pos28=29 pos30=27 
+      [  5] dist=2 rec#48: pos27=29 pos30=26 
+      [  6] dist=2 rec#49: pos27=29 pos30=26 
+      [  7] dist=2 rec#50: pos27=29 pos30=26 
+      [  8] dist=2 rec#51: pos27=29 pos30=26 
+      [  9] dist=2 rec#76: pos27=31 pos32=26 
+      [ 10] dist=2 rec#77: pos27=31 pos32=26 
+      [ 11] dist=2 rec#78: pos27=31 pos32=26 
+      [ 12] dist=2 rec#79: pos27=31 pos32=26 
+      [ 13] dist=2 rec#512: pos26=27 pos28=25 
+      [ 14] dist=2 rec#513: pos26=27 pos28=25 
+      [ 15] dist=2 rec#668: pos26=28 pos29=25 
+      [ 16] dist=2 rec#669: pos26=28 pos29=25 
+      [ 17] dist=2 rec#670: pos26=28 pos29=25 
+      [ 18] dist=2 rec#671: pos26=28 pos29=25 
+      [ 19] dist=2 rec#1026: pos26=30 pos31=25 
+      [ 20] dist=2 rec#1027: pos26=30 pos31=25 
+      [ 21] dist=2 rec#1028: pos26=30 pos31=25 
+      [ 22] dist=2 rec#1029: pos26=30 pos31=25 
+      [ 23] dist=2 rec#2118: pos24=24 pos25=23 
+      [ 24] dist=2 rec#2119: pos24=24 pos25=23 
+      [ 25] dist=2 rec#2120: pos24=24 pos25=23 
+      [ 26] dist=2 rec#2121: pos24=24 pos25=23 
+      [ 27] dist=2 rec#4208: pos23=24 pos25=22 
+      [ 28] dist=2 rec#4209: pos23=24 pos25=22 
+      [ 29] dist=2 rec#4210: pos23=24 pos25=22 
+      [ 30] dist=2 rec#4211: pos23=24 pos25=22 
+      [ 31] dist=2 rec#6738: pos22=22 pos23=21 
+      [ 32] dist=2 rec#6739: pos22=22 pos23=21 
+      [ 33] dist=2 rec#19704: pos22=23 pos24=21 
+      [ 34] dist=2 rec#19705: pos22=23 pos24=21 
+      [ 35] dist=2 rec#19706: pos22=23 pos24=21 
+      [ 36] dist=2 rec#19707: pos22=23 pos24=21 
+      [ 37] dist=2 rec#32606: pos22=24 pos25=21 
+      [ 38] dist=2 rec#32607: pos22=24 pos25=21 
+      [ 39] dist=2 rec#38952: pos21=21 pos22=20 
+      [ 40] dist=2 rec#38953: pos21=21 pos22=20 
+      [ 41] dist=2 rec#38954: pos21=21 pos22=20 
+      [ 42] dist=2 rec#38955: pos21=21 pos22=20 
+      [ 43] dist=2 rec#14101193: pos2=2 pos3=1 
+      [ 44] dist=2 rec#14101194: pos2=2 pos3=1 
+      --- dist=2: 44 solutions ---
+      [ 45] dist=3 rec#16: pos27=27 pos28=28 pos29=26 
+      [ 46] dist=3 rec#17: pos27=27 pos28=28 pos29=26 
+      [ 47] dist=3 rec#18: pos27=27 pos28=28 pos29=26 
+      [ 48] dist=3 rec#19: pos27=27 pos28=28 pos29=26 
+      [ 49] dist=3 rec#40: pos27=27 pos28=29 pos30=26 
+      [ 50] dist=3 rec#41: pos27=27 pos28=29 pos30=26 
+      --- dist=3: 6 solutions ---
+    Min non-KW edit distance: 2
+    [24] elapsed: 2s
+
+[25] Per-sub-branch yield from checkpoint.txt
+    Reading: /data/checkpoint.txt
+    Total entries: 3030 (COMPLETE: 0, INTERRUPTED: 3030)
+    Total nodes across all sub-branches: 10000002096398
+    Total solutions (from solutions.bin binning): 742043303
+    (NOTE: checkpoint.txt's solutions field is always 0 —
+     flush_sub_solutions zeroes ts->solution_count before the
+     checkpoint line is written. We use solutions.bin binning instead.)
+    Yield distribution:
+      0 solutions:              1686 (dead sub-branches)
+      1 to 999:                 5
+      1,000 to 99,999:          566
+      100,000+:                 773
+    Highest-yield sub-branch: (p1=24, o1=1, p2=6, o2=1) with 4175459 solutions
+    Top 20 highest-yield sub-branches:
+      rank  (p1,o1,p2,o2)         nodes       solutions   status
+         1  (24,1, 6,1)      3300330741      4175459   INTERRUPTED
+         2  ( 5,0,24,1)      3300330712      4109598   INTERRUPTED
+         3  ( 5,1,24,1)      3300330712      4109598   INTERRUPTED
+         4  (24,0, 5,1)      3300330732      4083719   INTERRUPTED
+         5  (24,0, 5,0)      3300330732      4083719   INTERRUPTED
+         6  (24,1, 5,1)      3300330732      4083719   INTERRUPTED
+         7  (24,1, 5,0)      3300330732      4083719   INTERRUPTED
+         8  (24,0, 7,1)      3300330741      4027244   INTERRUPTED
+         9  (24,0, 7,0)      3300330741      4027244   INTERRUPTED
+        10  (24,1, 7,1)      3300330741      4027244   INTERRUPTED
+        11  (24,1, 7,0)      3300330741      4027244   INTERRUPTED
+        12  (24,0, 6,0)      3300330732      4020347   INTERRUPTED
+        13  ( 5,1,17,1)      3300330715      4018117   INTERRUPTED
+        14  ( 8,0,17,1)      3300330735      3986592   INTERRUPTED
+        15  ( 8,1,17,1)      3300330735      3986592   INTERRUPTED
+        16  (24,0, 6,1)      3300330714      3942896   INTERRUPTED
+        17  ( 8,0,24,1)      3300330729      3878464   INTERRUPTED
+        18  (24,1, 6,0)      3300330729      3878457   INTERRUPTED
+        19  ( 5,0,17,0)      3300330752      3798637   INTERRUPTED
+        20  (14,0,17,1)      3300330727      3724724   INTERRUPTED
+    [25] elapsed: 1s
+
+[26] Per-first-level-branch solution count
+    Total records accounted for: 742043303 (should == 742043303)
+    Live first-level branches: 56 of 64 possible (p1, o1) combos
+    Per-(p1, o1) solution counts:
+      pair1  orient1        count     pct
+         1        0        6541934    0.882%
+         1        1        7559259    1.019%
+         2        0        7531028    1.015%
+         2        1        7572620    1.021%
+         3        0       10443075    1.407%
+         3        1       11365439    1.532%
+         5        0       20612154    2.778%
+         5        1       21033972    2.835%
+         7        0       16029820    2.160%
+         7        1       15479357    2.086%
+         8        0       18515872    2.495%
+         8        1       17118375    2.307%
+         9        0         743020    0.100%
+         9        1         839899    0.113%
+        10        0        8439230    1.137%
+        10        1        8651918    1.166%
+        11        0        6862220    0.925%
+        11        1        7207190    0.971%
+        12        0        4890979    0.659%
+        12        1        4721064    0.636%
+        13        0       22500096    3.032%
+        13        1       12642305    1.704%
+        14        0       23589346    3.179%
+        14        1       18523525    2.496%
+        15        0        3765084    0.507%
+        15        1        3735498    0.503%
+        16        0       12731127    1.716%
+        16        1       12180031    1.641%
+        17        0       83023095   11.188%
+        17        1       81881671   11.035%
+        18        0        1235141    0.166%
+        18        1        1753413    0.236%
+        19        0        1722602    0.232%
+        19        1        1654100    0.223%
+        20        0        5424560    0.731%
+        20        1        4496499    0.606%
+        22        0        8256701    1.113%
+        22        1        7951900    1.072%
+        23        0       17659937    2.380%
+        23        1       17219479    2.321%
+        24        0       70734688    9.532%
+        24        1       75292679   10.147%
+        25        0         274683    0.037%
+        25        1         324332    0.044%
+        26        0       11242588    1.515%
+        26        1       11225013    1.513%
+        27        0          84192    0.011%
+        27        1          73753    0.010%
+        28        0         343612    0.046%
+        28        1         619948    0.084%
+        29        0          70749    0.010%
+        29        1          60729    0.008%
+        30        0        6941358    0.935%
+        30        1        7109130    0.958%
+        31        0        5899336    0.795%
+        31        1        7641978    1.030%
+    Per-pair1 aggregate (summed over both orients):
+    Live pair1 values: 28 of 32
+      pair  1:      14101193    1.900%
+      pair  2:      15103648    2.035%
+      pair  3:      21808514    2.939%
+      pair  5:      41646126    5.612%
+      pair  7:      31509177    4.246%
+      pair  8:      35634247    4.802%
+      pair  9:       1582919    0.213%
+      pair 10:      17091148    2.303%
+      pair 11:      14069410    1.896%
+      pair 12:       9612043    1.295%
+      pair 13:      35142401    4.736%
+      pair 14:      42112871    5.675%
+      pair 15:       7500582    1.011%
+      pair 16:      24911158    3.357%
+      pair 17:     164904766   22.223%
+      pair 18:       2988554    0.403%
+      pair 19:       3376702    0.455%
+      pair 20:       9921059    1.337%
+      pair 22:      16208601    2.184%
+      pair 23:      34879416    4.700%
+      pair 24:     146027367   19.679%
+      pair 25:        599015    0.081%
+      pair 26:      22467601    3.028%
+      pair 27:        157945    0.021%
+      pair 28:        963560    0.130%
+      pair 29:        131478    0.018%
+      pair 30:      14050488    1.893%
+      pair 31:      13541314    1.825%
+    [26] elapsed: 0s
+
+[27] Budget-exhaustion summary (from checkpoint.txt)
+    Sub-branch commit lines parsed: 3030
+    COMPLETE (natural DFS exhaustion): 0 (0.0000%)
+    INTERRUPTED (budget or signal):    3030 (100.0000%)
+    Saturation signal: ZERO sub-branches exhausted → budget-limited run
+    [27] elapsed: 0s
+
+[28] Edit-distance-to-KW histogram (full dataset)
+    Total records: 742043303 (should == 742043303)
+    Distance | Count         | Pct      | Cumulative pct
+       0     |             4 |  0.0000% |  0.0000%
+       2     |            44 |  0.0000% |  0.0000%
+       3     |            50 |  0.0000% |  0.0000%
+       4     |           394 |  0.0001% |  0.0001%
+       5     |          1010 |  0.0001% |  0.0002%
+       6     |          3589 |  0.0005% |  0.0007%
+       7     |          9484 |  0.0013% |  0.0020%
+       8     |         24570 |  0.0033% |  0.0053%
+       9     |         59919 |  0.0081% |  0.0134%
+      10     |        136173 |  0.0184% |  0.0317%
+      11     |        296913 |  0.0400% |  0.0717%
+      12     |        606793 |  0.0818% |  0.1535%
+      13     |       1147156 |  0.1546% |  0.3081%
+      14     |       1916891 |  0.2583% |  0.5664%
+      15     |       2702693 |  0.3642% |  0.9306%
+      16     |       3157748 |  0.4255% |  1.3562%
+      17     |       3130644 |  0.4219% |  1.7781%
+      18     |       2542845 |  0.3427% |  2.1208%
+      19     |       1533518 |  0.2067% |  2.3274%
+      20     |       1777849 |  0.2396% |  2.5670%
+      21     |       4779782 |  0.6441% |  3.2111%
+      22     |      10473112 |  1.4114% |  4.6225%
+      23     |      17441063 |  2.3504% |  6.9729%
+      24     |      23299931 |  3.1400% | 10.1129%
+      25     |      32735244 |  4.4115% | 14.5244%
+      26     |      57538280 |  7.7540% | 22.2784%
+      27     |      91332059 | 12.3082% | 34.5866%
+      28     |     108144438 | 14.5739% | 49.1605%
+      29     |     120286049 | 16.2101% | 65.3706%
+      30     |     154591438 | 20.8332% | 86.2038%
+      31     |     102373620 | 13.7962% | 100.0000%
+    Range: [0, 31]; mode at distance 30 (154591438 records)
+    [28] elapsed: 0s
+
+==== analyze done in 831s ====
