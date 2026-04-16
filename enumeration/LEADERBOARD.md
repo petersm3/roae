@@ -25,53 +25,52 @@ pair) is mathematically forced — it must be ䷀ The Creative / ䷁ The Recepti
 But how free are the remaining 31 positions? The table below shows what the
 enumeration has found so far.
 
-| Position | King Wen pair | KW match % | Pairs observed | Character |
-|:--------:|---------------|:----------:|:--------------:|-----------|
-| 1 | ䷀䷁ #1 / #2 | 100.0% | at least 1 | Fully determined |
-| 2 | ䷂䷃ #3 / #4 | 0.2% | at least 16 | Branch-dependent (varies widely) |
-| 3 | ䷄䷅ #5 / #6 | 0.2% | at least 2 | Highly constrained (2 options) |
-| 4 | ䷆䷇ #7 / #8 | 0.5% | at least 2 | Highly constrained (2 options) |
-| 5 | ䷈䷉ #9 / #10 | 0.9% | at least 2 | Highly constrained (2 options) |
-| 6 | ䷊䷋ #11 / #12 | 0.9% | at least 2 | Highly constrained (2 options) |
-| 7 | ䷌䷍ #13 / #14 | 3.4% | at least 2 | Highly constrained (2 options) |
-| 8 | ䷎䷏ #15 / #16 | 3.4% | at least 2 | Highly constrained (2 options) |
-| 9 | ䷐䷑ #17 / #18 | 4.1% | at least 2 | Highly constrained (2 options) |
-| 10 | ䷒䷓ #19 / #20 | 5.2% | at least 2 | Highly constrained (2 options) |
-| 11 | ䷔䷕ #21 / #22 | 5.2% | at least 2 | Highly constrained (2 options) |
-| 12 | ䷖䷗ #23 / #24 | 5.2% | at least 2 | Highly constrained (2 options) |
-| 13 | ䷘䷙ #25 / #26 | 5.2% | at least 2 | Highly constrained (2 options) |
-| 14 | ䷚䷛ #27 / #28 | 5.2% | at least 2 | Highly constrained (2 options) |
-| 15 | ䷜䷝ #29 / #30 | 7.3% | at least 2 | Highly constrained (2 options) |
-| 16 | ䷞䷟ #31 / #32 | 11.2% | at least 2 | Highly constrained (2 options) |
-| 17 | ䷠䷡ #33 / #34 | 11.2% | at least 2 | Highly constrained (2 options) |
-| 18 | ䷢䷣ #35 / #36 | 12.9% | at least 2 | Highly constrained (2 options) |
-| 19 | ䷤䷥ #37 / #38 | 49.4% | at least 2 | Highly constrained (2 options) |
-| 20 | ䷦䷧ #39 / #40 | 51.8% | at least 4 | Moderately constrained |
-| 21 | ䷨䷩ #41 / #42 | 16.4% | at least 14 | Progressively free |
-| 22 | ䷪䷫ #43 / #44 | 11.0% | at least 14 | Progressively free |
-| 23 | ䷬䷭ #45 / #46 | 12.5% | at least 14 | Progressively free |
-| 24 | ䷮䷯ #47 / #48 | 10.7% | at least 14 | Progressively free |
-| 25 | ䷰䷱ #49 / #50 | 5.7% | at least 14 | Progressively free |
-| 26 | ䷲䷳ #51 / #52 | 9.4% | at least 14 | Progressively free |
-| 27 | ䷴䷵ #53 / #54 | 7.7% | at least 14 | Progressively free |
-| 28 | ䷶䷷ #55 / #56 | 8.9% | at least 14 | Progressively free |
-| 29 | ䷸䷹ #57 / #58 | 11.3% | at least 14 | Progressively free |
-| 30 | ䷺䷻ #59 / #60 | 9.6% | at least 14 | Progressively free |
-| 31 | ䷼䷽ #61 / #62 | 18.4% | at least 14 | Progressively free |
-| 32 | ䷾䷿ #63 / #64 | 21.3% | at least 7 | Progressively free |
+| Position | King Wen pair | KW match % | Pairs observed | Entropy (bits) | Character |
+|:--------:|---------------|:----------:|:--------------:|:--------------:|-----------|
+| 1 | ䷀䷁ #1 / #2 | 100.0% | 1 | 0.00 | Fully determined |
+| 2 | ䷂䷃ #3 / #4 | 0.2% | 16 | — | Branch-dependent (varies widely) |
+| 3 | ䷄䷅ #5 / #6 | 0.2% | 31 | 4.12 | Highest freedom |
+| 4 | ䷆䷇ #7 / #8 | 0.5% | 3 | 0.28 | Cascade region (heavily constrained) |
+| 5 | ䷈䷉ #9 / #10 | 0.9% | 3 | 0.54 | Cascade region |
+| 6 | ䷊䷋ #11 / #12 | 0.9% | 3 | 0.54 | Cascade region |
+| 7 | ䷌䷍ #13 / #14 | 3.4% | 3 | 0.77 | Cascade region |
+| 8 | ䷎䷏ #15 / #16 | 3.4% | 3 | 0.77 | Cascade region |
+| 9 | ䷐䷑ #17 / #18 | 4.1% | 3 | 0.87 | Cascade region |
+| 10 | ䷒䷓ #19 / #20 | 5.2% | 3 | 0.97 | Cascade region |
+| 11 | ䷔䷕ #21 / #22 | 5.2% | 3 | 0.97 | Cascade region |
+| 12 | ䷖䷗ #23 / #24 | 5.2% | 3 | 0.97 | Cascade region |
+| 13 | ䷘䷙ #25 / #26 | 5.2% | 3 | 0.97 | Cascade region |
+| 14 | ䷚䷛ #27 / #28 | 5.2% | 3 | 0.97 | Cascade region |
+| 15 | ䷜䷝ #29 / #30 | 7.3% | 3 | 1.15 | Cascade region |
+| 16 | ䷞䷟ #31 / #32 | 11.2% | 3 | 1.41 | Cascade region |
+| 17 | ䷠䷡ #33 / #34 | 11.2% | 3 | 1.41 | Cascade region |
+| 18 | ䷢䷣ #35 / #36 | 12.9% | 3 | 1.50 | Cascade region |
+| 19 | ䷤䷥ #37 / #38 | 49.4% | 3 | 1.72 | Cascade region |
+| 20 | ䷦䷧ #39 / #40 | 51.8% | 3 | 1.72 | Cascade region |
+| 21 | ䷨䷩ #41 / #42 | 16.4% | 14 | 3.45 | Progressively free |
+| 22 | ䷪䷫ #43 / #44 | 11.0% | 14 | 3.51 | Progressively free |
+| 23 | ䷬䷭ #45 / #46 | 12.5% | 14 | 3.55 | Progressively free |
+| 24 | ䷮䷯ #47 / #48 | 10.7% | 14 | 3.55 | Progressively free |
+| 25 | ䷰䷱ #49 / #50 | 5.7% | 14 | 3.58 | Progressively free |
+| 26 | ䷲䷳ #51 / #52 | 9.4% | 14 | 3.58 | Progressively free |
+| 27 | ䷴䷵ #53 / #54 | 7.7% | 14 | 3.58 | Progressively free |
+| 28 | ䷶䷷ #55 / #56 | 8.9% | 14 | 3.60 | Progressively free |
+| 29 | ䷸䷹ #57 / #58 | 11.3% | 14 | 3.62 | Progressively free |
+| 30 | ䷺䷻ #59 / #60 | 9.6% | 14 | 3.62 | Progressively free |
+| 31 | ䷼䷽ #61 / #62 | 18.4% | 14 | 3.65 | Progressively free |
+| 32 | ䷾䷿ #63 / #64 | 21.3% | 7 | 2.58 | Progressively free |
 
 *KW match % = how often King Wen's pair appears at this position across ALL valid*
-*orderings (all branches combined). The low percentages at positions 3-18 are because*
-*those positions depend on position 2: within any single branch, positions 3-18 are*
-*nearly locked (87-99% match), but across all 56 branches the average is diluted.*
-*"At least N" because the enumeration is incomplete.*
+*orderings (all branches combined). Pairs observed and entropy are from the 742M*
+*dataset (`--analyze` sections [2] and [21]). Max possible entropy = log2(32) = 5.0 bits.*
 
 **Key insight:** The sequence is not uniformly constrained. Position 1 is fully
-determined. Position 2 is a major branching point (16 options). Within each branch,
-positions 3-18 admit only 2 pairs each — the sequence is nearly determined here.
-But positions 19-32 open up dramatically — up to 16 pairs are possible, and King
-Wen's choice is one among many. The ancient designers had almost no freedom in the
-first half but considerable choice in the second half.
+determined. Position 2 is a major branching point (16 options). Positions 3-18 are
+highly constrained (per-position Shannon entropy 0.28-1.72 bits vs a maximum of 5.0),
+though not fully locked — each branch admits 2-29 distinct configurations across
+positions 3-19. Positions 19-32 open up dramatically — up to 16 pairs are possible,
+and King Wen's choice is one among many. The ancient designers had limited freedom
+in the first half but considerable choice in the second half.
 
 ## How close are the nearest alternatives?
 
@@ -83,16 +82,15 @@ The edit distance distribution (number of pair positions differing from King Wen
 
 | Positions different | Count | Notes |
 |:-------------------:|------:|-------|
-| 0 | 48 | King Wen itself (orientation variants) |
+| 0 | 4 | King Wen itself (orient variants) |
 | 1 | 0 | No valid ordering is 1 swap from KW |
-| 2 | 732 | Closest alternatives — differ at positions 26-32 |
-| 3 | 1,484 | |
-| 4-10 | ~37,000 | |
-| 11-20 | ~300,000,000 | Bulk of solutions |
-| 21-31 | ~5,600,000,000 | Most solutions are very different from KW |
+| 2 | 44 | Closest alternatives — single pair-swaps in positions 21-32 |
+| 3 | 6 | |
+| 4+ | ~742,043,249 | Bulk of solutions |
 
-Most valid orderings look **nothing like** King Wen — the distribution peaks at
-16 differences (half the sequence) with a secondary peak at 29. King Wen is not
+**Note:** The edit-distance distribution above is from the `--analyze` section [24] nearest-neighbor catalog on the 742M dataset. Only distances 0-3 have been exactly counted; the full distribution has not yet been computed at 742M scale. (The earlier table showing counts summing to ~5.9B was from the pre-bugfix 31.6M era and is no longer valid.)
+
+Most valid orderings look **nothing like** King Wen. King Wen is not
 "typical" among valid orderings; it sits at one extreme.
 
 ## Which pairs can appear at position 2?
@@ -133,8 +131,10 @@ valid orderings; others produce zero.
 | ䷸䷹ #57/#58 | 0 | — | Estimated dead |
 | ䷺䷻ #59/#60 | 0 | — | Estimated dead |
 
-*Counts are lower bounds from a partial enumeration. "Estimated dead" means zero valid*
-*orderings were found in partial exploration — this has not been proven exhaustively.*
+*Counts are lower bounds from the pre-bugfix 10T run (which undercounted by ~23x due to the*
+*sub-branch filename collision bug). The relative ordering and dead-branch classification*
+*are believed correct, but absolute counts should be scaled by ~23x for the 742M dataset.*
+*"Estimated dead" means zero valid orderings were found — not proven exhaustively.*
 
 **Key insight:** Nearly half the possible position-2 choices lead to dead branches —
 no valid orderings exist (or at least none have been found). The viable choices vary

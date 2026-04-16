@@ -181,7 +181,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
 | XOR=100001 branches always dead | 10T enumeration observation | Empirical (not formally proved) |
 | Super-pair constraint at position 20 | Per-position analysis | Observed |
-| 18 triple-survivors are a [structured family](SOLVE.md#the-18-triple-survivors-a-structured-family) | Characterization of residual after best 3 boundaries | Observed |
+| Best-triple survivors: 24 total (20 non-KW + 4 KW orient variants) from best triple {2, 25, 27} — see [SOLVE.md](SOLVE.md#structure-of-the-best-triple-survivors-for-742m) | Characterization of residual after best 3 boundaries; replaces the earlier "18 triple-survivors" finding from the 31.6M bug-era dataset | Observed (742M) |
 | No scalar property uniquely identifies KW | Exhaustive feature search | Proven for 31.6M dataset |
 | 3,030 sub-branch mode eliminates tail problem | Comparative benchmarks | Engineering result |
 | Thread-independent reproducibility | Per-branch node budgets | Verified (1-thread = 2-thread sha256) |
@@ -220,13 +220,33 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **Pushed to GitHub.** 4 commits: solve.c (bug fix + --analyze + parallelization + doc), DEPLOYMENT.md, doc updates, run artifacts.
 
+## Day 7 — April 16, 2026
+
+**`--analyze` extended to 24 sections.** Four rounds of spot-VM runs added sections [16]-[24] to the consolidated analysis mode, each targeting a specific gap:
+
+- **[16] Per-(p2, o2) collision-key bug-impact map.** 62 of 64 keys are live; up to 47 sub-branches collided on a single key. Bug-retained count bounded by `[0.16%, 17.52%]` of 742M; the old 31.6M (4.26%) is mid-range, consistent with random thread-scheduling winners. Undercount factor: 23.48×.
+- **[17] Structural decomposition of best-triple survivors.** Best triple `{2, 25, 27}` leaves 24 total survivors (4 KW orient variants + 20 non-KW). The 20 non-KW collapse to 6 distinct pair-orderings, all permutations of pairs `{20, 21, 22, 23}` at positions 21-24. Replaces the bug-era "18 triple-survivors" finding.
+- **[18] Per-boundary conditional entropy.** Baseline 65.8 bits. Top boundaries: 2 and 3 at 35.3 bits each. Mandatory `{25, 27}` sit mid-pack at 11.4 and 10.8 bits. Reframes mandatory status: **structural independence, not informational weight**.
+- **[19] Identity-level equivalence of 4 working 4-sets.** All four leave exactly the same 4 records (KW orient variants, zero non-KW). Rigorous confirmation of what was previously only probabilistically inferred.
+- **[20] Complement-orbit analysis.** Bitwise complement (h → h^0x3F) maps pairs to pairs, preserving C1/C2/C5. Tested whether complement is an automorphism of the C1-C5 solution set. Result: **0 of 742M records have their complement in the dataset.** Complement is NOT closed — C3 (complement distance) breaks under the map. KW's complement has pair-sequence `[0 24 17 6 7 5 3 4 8 16 23 21 22 13 14 20 9 2 19 18 15 11 12 10 1 28 26 29 25 27 30 31]`, not in the dataset. The solution space is fundamentally asymmetric under bitwise complement.
+- **[21] Full per-position pair frequency table.** 32×32 baseline for 100T comparison. Confirms cascade structure: positions 4-20 have exactly 3 distinct pairs each; positions 22-31 have 14 each.
+- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE-SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
+- **[23] {25, 27}-only survivor characterization.** 37,356 total survivors (37,352 non-KW), replacing the old buggy "1,055." Positions 1, 25-28 are locked (5 of 32). Positions 4-20 still have exactly 3 distinct pairs each in this subspace.
+- **[24] KW nearest-neighbor catalog.** 44 solutions at edit distance 2 (the minimum); 6 at distance 3. All dist-2 neighbors are single pair-swaps in the free region (positions 21-32), except 2 records that swap pairs 1↔2 at positions 2-3. Consistent with the earlier pair-swap analysis.
+
+**A use-after-free bug caught and fixed.** First run of sections [16]-[19] crashed silently because `bmask[]` had been freed between sections [13] and [14]. Fix: moved the free to end of analyze_mode; verified via `free -g` that combined working set (~27 GB) fits on F32als_v6 (64 GB). Added code-level lifetime notes and a DEVELOPMENT.md gotcha entry.
+
+**Two-phase deployment pattern documented.** DEPLOYMENT.md now describes separating enumeration (core-dense F-series) from merge (RAM-dense E/M-series) to cut costs. Saves ~50% at 100T, becomes architecturally necessary at 1000T.
+
+**Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE-SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ Waiting #5 to Hamming distance example.
+
 ## Current state
 
 The project has a reproducible **742,043,303-solution dataset at 10T** (sha256: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`, reproducible with `SOLVE_NODE_LIMIT=10000000000000` under the bug-fixed solver). This supersedes the prior "31.6M" figure — a ~23× undercount caused by the sub-branch filename collision bug (see missteps table). All 742M records validated against C1-C5 with zero errors; sort order verified; King Wen present.
 
-The 4-boundary minimum-uniqueness result holds at the new scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Three mandatory boundaries (21, 25, 27) are stable across both datasets. Cascade and shift-pattern claims built atop the old 31.6M dataset need independent re-verification against 742M (queued).
+The 4-boundary minimum-uniqueness result holds at the new scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Exhaustive enumeration of all 31,465 four-subsets found only 4 working sets: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Only **{25, 27} are truly mandatory** (present in every working 4-set); {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. Cascade and shift-pattern claims built atop the old 31.6M dataset have been re-verified against 742M: the shift pattern holds for only 2.93% of solutions, and every reachable branch admits 2-29 distinct configurations at positions 3-19.
 
-A 100T run remains pending: the 2026-04-13 attempt on spot F64 was aborted after multiple evictions revealed that sub-branch-granularity recovery is too coarse for spot under current eviction rates (only 1.5% committed in 9h). Next retry requires intra-sub-branch checkpointing in [solve.c](solve.c) plus the hardening pass from the 10T recovery (see [solve_c/DEPLOYMENT.md](../solve_c/DEPLOYMENT.md)).
+A 100T run remains pending: the 2026-04-13 attempt on spot F64 was aborted after multiple evictions revealed that sub-branch-granularity recovery is too coarse for spot under current eviction rates (only 1.5% committed in 9h). Next retry requires intra-sub-branch checkpointing in [solve.c](solve.c) plus the hardening pass from the 10T recovery (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 ## Infrastructure
 
@@ -236,6 +256,6 @@ A 100T run remains pending: the 2026-04-13 attempt on spot F64 was aborted after
 - **Spot quota**: 64 cores in westus2. Approved April 12.
 - **All run outputs archived** in `solve_c/runs/` with sha256 verification.
 - **Auto-retrying monitor** handles spot evictions: syncs files, waits 1 hour, restarts.
-- **Persistent managed disk** (solver-data, 32GB, ~$1/month): survives VM deallocation. Data stored here, not on ephemeral OS disk.
+- **Persistent managed disk** (solver-data, 64GB, ~$1/month): survives VM deallocation. Data stored here, not on ephemeral OS disk. (Originally 32GB; resized to 64GB on 2026-04-14 after solutions.bin truncation.)
 - **Atomic file writes** in solve.c: write to .tmp, fsync, rename. Prevents mid-eviction corruption.
 - **Rotating checkpoints**: 3 copies maintained locally (checkpoint.txt, .1, .2).

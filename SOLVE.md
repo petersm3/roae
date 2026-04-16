@@ -137,7 +137,7 @@ Six additional analyses probe the structure more deeply (`--deep`):
 
 ### Constrained enumeration (`--enumerate`)
 
-Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (10 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings. **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
+Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (10 trillion nodes on 64 cores) found at least 742 million unique pair orderings (742,043,303). **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
 
 The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
 
@@ -172,7 +172,7 @@ The most powerful analysis (`--differential`) generates all solutions satisfying
 
 ### Results
 
-A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (10 trillion nodes on 64 cores, 0/56 branches completed) found **at least 31.6 million unique pair orderings** — the true solution space is vastly larger than this early sample suggested.
+A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (10 trillion nodes on 64 cores, 0/56 branches completed) found **at least 742 million unique pair orderings** (742,043,303) — the true solution space is vastly larger than this early sample suggested.
 
 **8 features where King Wen is extremal (rank 13,296/13,296).** However, 6 are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, total path length, and max run length are identical across ALL solutions.
 
@@ -209,7 +209,7 @@ The remaining ~974 solutions share 26-32 of 32 pair positions with King Wen — 
 
 The fingerprint analysis reveals the precise structure of the remaining freedom:
 
-**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (10 trillion nodes on 64 cores) found at least 31.6 million unique pair orderings (partial enumeration — true count is higher), fundamentally revising these findings.**
+**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (10 trillion nodes on 64 cores) found at least 742 million unique pair orderings (742,043,303; partial enumeration — true count is higher), fundamentally revising these findings.**
 
 **Only 1 of 32 pair positions is universally locked** (Position 1: Creative/Receptive). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
 
@@ -229,22 +229,22 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9} — C5
 7. ~~Mean line autocorrelation = -0.115~~ (redundant with C3)
 
-Rules C1-C5 narrow 10^89 possibilities to **at least 31.6 million** unique pair orderings (lower bound from partial enumeration). XOR regularity and line autocorrelation are redundant (implied by other rules).
+Rules C1-C5 narrow 10^89 possibilities to **742 million** unique pair orderings (742,043,303 from partial enumeration — true count is higher). XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-**Resolved (for 31.6M orderings):** Exactly **4 boundary constraints** are needed to uniquely determine King Wen among the 31.6 million orderings found so far. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirmed no combination of 3 or fewer suffices. This is the minimum for the current partial enumeration — a larger dataset could require additional boundaries.
+**Resolved (for 742M orderings):** Exactly **4 boundary constraints** are needed to uniquely determine King Wen among the 742 million orderings. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirmed no combination of 3 or fewer suffices.
 
-The greedy-optimal set (found by greedy search, confirmed as minimum by exhaustive verification):
+The greedy-optimal set (found by greedy search, confirmed as minimum by exhaustive verification over 742M; see `analyze_c_742M.txt` sections [6]-[8]):
 
-1. **Boundary 25** (positions 25-26): Revolution/Cauldron + Arousing/Keeping Still — eliminates 99.6%
-2. **Boundary 27** (positions 27-28): Development/Marrying Maiden + Abundance/Wanderer — eliminates most remaining
-3. **Boundary 1** (positions 1-2): Creative/Receptive + Difficulty/Folly — eliminates 1,032 more
-4. **Boundary 21** (positions 21-22): Decrease/Increase + Breakthrough/Coming to Meet — eliminates final 23
+1. **Boundary 2** (positions 3-4): Difficulty/Folly + Youthful Folly/Waiting — eliminates 741,979,237 of 742,043,299 non-KW (99.991%)
+2. **Boundary 27** (positions 27-28): Development/Marrying Maiden + Abundance/Wanderer — eliminates 63,446 of remaining 64,062
+3. **Boundary 25** (positions 25-26): Revolution/Cauldron + Arousing/Keeping Still — eliminates 596 of remaining 616
+4. **Boundary 21** (positions 21-22): Decrease/Increase + Breakthrough/Coming to Meet — eliminates final 20
 
-The best triple (boundaries 1, 21, 27) leaves 18 survivors — close but not unique. See `enumeration/analysis_minimum_constraints.txt` for the full search output.
+The best triple {2, 25, 27} leaves 24 total survivors (20 non-KW + 4 KW orient variants) — close but not unique. See `analyze_c_742M.txt` sections [6]-[8] for the full search output.
 
 ### Why 4 boundaries — not fewer?
 
-Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples of boundaries confirmed that no combination of 3 or fewer uniquely determines King Wen among the 31.6 million orderings found so far. Four is the minimum for this dataset. A complete enumeration (not yet achieved) could reveal solutions that require additional boundaries.
+Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples of boundaries confirmed that no combination of 3 or fewer uniquely determines King Wen among the 742 million orderings. Four is the minimum for this dataset.
 
 Several simpler alternatives were tested and ruled out:
 
@@ -256,62 +256,47 @@ Several simpler alternatives were tested and ruled out:
 
 King Wen's uniqueness is irreducibly combinatorial: it requires specifying 4 specific adjacency relationships. No scalar property or simpler structural criterion suffices.
 
-Furthermore, exhaustive testing of all 31,465 quadruples of boundaries found that only **4 of 31,465 combinations work**. All 4 share the same rigid structure:
+Furthermore, exhaustive testing of all 31,465 quadruples of boundaries found that only **4 of 31,465 combinations work** (`--analyze` section [8]). The 4 working 4-sets are:
 
-- **Boundaries 21, 25, 27 are mandatory** — present in all 4 winning sets.
-- **The 4th boundary must be 1, 2, 3, or 4** — any of the first 4 positions works, but nothing else.
-- Boundaries 25 and 27 (the original C6/C7) are irreplaceable.
-- Boundary 21 (positions 21-22: Decrease/Increase + Breakthrough/Coming to Meet) is irreplaceable.
+- {2, 21, 25, 27}
+- {2, 22, 25, 27}
+- {3, 21, 25, 27}
+- {3, 22, 25, 27}
 
-The constraint structure is almost fully determined: 3 of 4 boundaries are fixed, and the 4th has only 4 choices — all in the heavily constrained early region (positions 1-5) where positions 3-4 have only 2 possible pairs.
+Only **{25, 27} are truly mandatory** — present in every working 4-set. The other two slots admit pairwise interchange: {2 <-> 3} and {21 <-> 22}. Boundaries 25 and 27 (the original C6/C7) are irreplaceable.
 
-### What the 1,055 survivors after C6+C7 look like
+The result is robust under orient-collapse: grouping the 742M records by pair-index sequence (masking within-pair orientation) yields 284.7M unique pair-orderings (`--analyze` section [15]); re-running the greedy and exhaustive searches on this collapsed set produces the same 4 working 4-sets and the same mandatory {25, 27}.
 
-The original 2 boundary constraints (boundaries 25 and 27) leave 1,055 non-KW solutions. These survivors reveal the structure of the remaining freedom:
+Notably, {25, 27} are mandatory despite carrying only moderate individual information. Per-boundary conditional entropy (`--analyze` section [18]) measures how much knowing a boundary matches KW reduces the total Shannon entropy over all 32 positions (baseline: 65.8 bits). The most informative boundaries are the early ones: boundary 2 contributes 35.3 bits, boundary 3 contributes 35.3 bits, boundary 4 contributes 33.3 bits. Boundaries 25 and 27 sit mid-pack at 11.4 bits and 10.8 bits respectively — roughly 1/3 the information content of the highest boundaries. They are mandatory due to structural independence, not informational weight: the subset of non-KW solutions they eliminate cannot be eliminated by any combination of the other 29 boundaries.
 
-- **Positions 25-28 are locked** (forced by the 2 boundaries). All 1,055 match KW there.
-- **Position 2 varies widely** — 13 different pairs appear, with KW's pair (Difficulty/Folly) in only 2.2% of survivors.
-- **Positions 3-19 each have exactly 2 options** — KW's pair or one specific alternative. The alternative dominates (65-98%), creating a "shifted sequence" pattern: the same pairs as KW but offset by one position.
-- **Positions 20-24 and 29-32 are the true free region** — up to 10 different pairs per position.
+### What the survivors after C6+C7 look like
 
-The 18 survivors after the best triple (boundaries 1, 21, 27) all differ from KW only at positions 23-31. Boundary 25 (the 4th constraint) eliminates these final 18 by fixing the pair at positions 25-26.
+The original 2 boundary constraints (boundaries 25 and 27) leave 37,356 total survivors (37,352 non-KW) from the 742M dataset (`--analyze` section [23]). Positions 1, 25-28 are locked (5 of 32 positions forced by C4 + the 2 boundaries). Re-characterization details of the survivor structure are available in `analyze_sec22fix_742M.txt` section [23]. The detailed claims about "positions 3-19 each have exactly 2 options" from the earlier 31.6M analysis were artifacts of the sub-branch filename collision bug and do not hold for the full 742M dataset.
 
-### The shift pattern: positions 3-19 have exactly 2 options (universal)
+### The shift pattern (artifact of 31.6M bug — corrected)
 
-Across all 31.6 million solutions, positions 3-19 each have EXACTLY 2 possible pairs: King Wen's pair (pair i at position i) or the "shifted" pair (pair i-1 at position i). Zero exceptions — this is a mathematical property of the constraint structure, not a sampling artifact.
+The shift pattern ("positions 3-19 have exactly 2 options") was an artifact of the sub-branch filename collision bug that produced the 31.6M dataset. On the full 742M dataset: only 2.93% of solutions conform fully to the shift pattern (97.07% violate at at least 1 position). The pattern is not universal (`analyze_c_742M.txt` section [5]).
 
-| Positions | KW pair | Shifted pair | Character |
-|:---------:|:-------:|:------------:|-----------|
-| 3-6 | 1-6% | 94-99% | Shifted pair strongly dominates |
-| 7-14 | 23-29% | 71-77% | Shifted pair dominates |
-| 15-18 | 33-40% | 60-67% | More balanced |
-| 19 | 44% | 56% | Nearly even |
-| 20+ | multiple options | — | Shift pattern breaks |
+The `--prove-cascade` formal proof remains correct but is scoped to the shift-pattern subspace only — it proves that within solutions obeying the binary shift constraint, position 2 determines positions 3-19. It does not constrain the 97% of solutions that violate the shift pattern.
 
-The shift pattern means that at each position from 3 to 19, only King Wen's pair or the previous pair appears in practice. The budget constraints alone allow 13-30 candidates per position (`./solve --prove-shift`), so the filtering to exactly 2 is driven by the complement distance constraint (C3), not budget propagation alone.
+Per-first-level-branch direct count on 742M (`analyze_c_742M.txt` section [11]) shows every branch admits 2-29 distinct configurations at positions 3-19, with no branch having exactly 1. The "position 2 fully determines positions 3-19" claim was an artifact of the collision bug retaining only one sub-branch per first-level branch.
 
-**Stronger result: position 2 fully determines positions 3-19.** Within each branch (fixed pair at position 2), positions 3-19 have exactly ONE configuration — zero variation across all solutions in that branch. Verified across all 16 live branches with a combined 31.6 million solutions.
+### Structure of the best-triple survivors (for 742M)
 
-For example:
-- **KW branch (pair 1 at position 2):** positions 3-19 = pairs 2,3,4,...,18 — the KW sequence, fully determined.
-- **Branch pair 17 at position 2:** positions 3-19 = pairs 1,2,3,...,16,18 — shifted by one, with pair 17 removed and pair 18 jumping to position 19.
+Under the 742M dataset, the best 3-subset is {2, 25, 27} (not the old {1, 21, 27}), leaving 24 total survivors — 4 KW orient variants + **20 non-KW records** (`analyze_sec22fix_742M.txt` section [17]). The 20 non-KW records collapse to **6 distinct pair-orderings** (after masking within-pair orient), each a permutation of pairs {20, 21, 22, 23} at positions 21-24:
 
-This means **all freedom in the King Wen sequence is in positions 20-32** — only 13 pair positions are free. The first 19 positions (38 hexagrams) are entirely determined by the single choice at position 2.
+| Permutation at pos 21-24 | Type |
+|:---:|:---|
+| `20 22 21 23` (KW: `20 21 22 23`) | swap 21<->22 at pos 22, 23 |
+| `20 22 23 21` | 3-cycle of pairs 21, 22, 23 |
+| `20 23 22 21` | reverse of pairs 21, 22, 23 |
+| `21 20 22 23` | swap 20<->21 at pos 21, 22 |
+| `21 22 20 23` | displace pair 20 to pos 23 |
+| `21 22 23 20` | displace pair 20 to pos 24 |
 
-**Partial formal proof (`./solve --prove-cascade`):** Exhaustive enumeration of all 2^17 binary paths confirms the cascade is provably deterministic for 16 of 31 branches (pairs 1-18 at position 2) — the budget constraints alone force exactly 1 pair sequence. For 12 branches (pairs 19-31), the budget allows 18 configurations. Early results from a full C3-incorporating proof show that **at least one alternative configuration IS valid** (Config 2 of branch pair 19 found a C3-valid completion in 1,480 nodes). This means the cascade is NOT fully deterministic — rare alternative configurations exist for some branches but were not found in the 31.6M partial enumeration. The full proof is still running to determine how many of the 204 alternative configurations across 12 branches are valid.
+The 4! = 24 permutations of {20, 21, 22, 23} at positions 21-24 include KW itself. Of the 23 non-identity permutations, only 6 survive the C1-C5 constraints imposed by the surrounding sequence — the other 17 are eliminated elsewhere in the ordering. Adding the 4th boundary (position 21 or 22) fixes the KW adjacency at that position and kills all 6 survivors.
 
-### The 18 triple-survivors: a structured family
-
-After the best triple of boundaries (1, 21, 27), 18 non-KW solutions remain. They form a structured family:
-
-- **All 18 differ only at positions 23-31** — positions 1-22 are identical to King Wen.
-- **Only 6 positions vary** across the 18: positions 23, 24, 25, 26, 29, 31.
-- **Only 5 pairs are shuffled**: pairs 22 (Gathering), 24 (Revolution), 25 (Arousing), 28 (Gentle), 30 (Inner Truth).
-- **16 unique diff patterns** — the 18 solutions represent 16 distinct rearrangements of these 5 pairs across the 6 varying positions.
-- **Complement distances**: all are 384 or 388 (KW = 388). The survivors are nearly indistinguishable from KW by complement distance.
-- **Boundary 25 eliminates all 18** — this is why boundary 25 is the 4th required constraint.
-
-The 18 survivors are essentially King Wen with a small permutation in the deep free region (positions 23-31), exchanging structurally similar pairs. What King Wen's specific arrangement among these 18 alternatives reflects — mathematical principle or historical choice — remains unknown.
+This result replaces the earlier "18 triple-survivors: a structured family" characterization, which was tied to the bug-era {1, 21, 27} best triple and has no direct analog in the corrected dataset.
 
 ### Self-complementary branches are always live (constructive proof)
 
@@ -429,7 +414,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 ### The millions of roads not taken
 
-The at least 31.6 million alternative orderings satisfying Rules 1-5 share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. Positions 3-18 have at most 2 options each. The closest alternatives differ by only 2 pair positions, always in the last third (positions 26-32).
+The at least 742 million alternative orderings satisfying Rules 1-5 share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. The closest alternatives differ by only 2 pair positions, always in the last third (positions 21-32).
 
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
@@ -438,7 +423,7 @@ The at least 31.6 million alternative orderings satisfying Rules 1-5 share stron
 
 ### Summary
 
-Five constraints (C1-C5) narrow 10^89 possibilities to at least 31.6 million unique pair orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained (at least 2 pairs each). Positions 19-32 are progressively free. A greedy search found that 4 boundary constraints uniquely determine King Wen among these millions (see generative recipe above).
+Five constraints (C1-C5) narrow 10^89 possibilities to at least 742 million unique pair orderings (742,043,303 from partial enumeration — true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. A greedy search found that 4 boundary constraints uniquely determine King Wen among these millions (see generative recipe above).
 
 **Note on earlier analyses in this document:** Several analyses above (centrality, pair swap, optimization, boundary bigrams, locked/free region comparison) were conducted on a 438-solution partial sample from a single search branch. Their findings about the "free region" (positions 24-32) were specific to that branch and may not generalize to the full solution space. These analyses are retained as methodological examples but their specific numerical results should be treated with caution.
 
@@ -456,7 +441,7 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Status: Revised — 4 boundaries needed (minimum for 31.6M dataset).** The original claim (2 suffice) was based on 438 solutions. At 31.6 million solutions, boundaries 25 and 27 leave 1,055 survivors. Exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness within this dataset. **4 boundary constraints are the current minimum** (boundaries 25, 27, 1, and 21). This could increase with a larger dataset.
+**Status: Revised — 4 boundaries needed (proven minimum for the 742M dataset).** The original claim (2 suffice) was based on 438 solutions. At 742 million solutions, boundaries 25 and 27 leave 37,352 non-KW survivors. Exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness. **4 boundary constraints are the current minimum.** Only 4 of 31,465 quadruples work: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries {25, 27} are truly mandatory; {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. This minimum could change with a larger dataset.
 
 ### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 
@@ -464,11 +449,12 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### Result 5: Solution count (revised)
 
-- **Lower bound:** ≥ 31,630,621 unique orderings (from 10T-node partial enumeration on 64 cores, 0/56 branches completed)
+- **Lower bound:** ≥ 742,043,303 unique orderings (from 10T-node partial enumeration on 64 cores under the bug-fixed solver; sha256: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`)
 - **Upper bound:** unknown — the earlier multinomial bound of 860,160 was based on the "23 locked" assumption and is invalidated
-- **True count:** unknown and likely significantly larger than 31.6 million
-- The earlier estimate of 15,000-50,000 was off by three orders of magnitude, illustrating the danger of extrapolating from partial samples
-- **Reproducibility:** `SOLVE_NODE_LIMIT=10000000000000` produces this exact solution set (sha256: `c43f251f...d2f2104d`) on any hardware with any thread count
+- **True count:** unknown and likely significantly larger than 742 million
+- The earlier estimate of 15,000-50,000 was off by orders of magnitude, illustrating the danger of extrapolating from partial samples
+- **Reproducibility:** `SOLVE_NODE_LIMIT=10000000000000` produces this exact solution set on any hardware with any thread count
+- **Note:** The earlier 31.6M figure (sha256: `c43f251f...d2f2104d`) was a ~23x undercount caused by a sub-branch filename collision bug. See [HISTORY.md](HISTORY.md) for details.
 
 ### Theorem 6: Starting orientation is forced
 

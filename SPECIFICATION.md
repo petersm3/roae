@@ -76,8 +76,8 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 - C2 eliminates ~96% of C1 solutions.
 - C3 further restricts to ~3.9% of C1+C2 solutions.
 - C4 fixes the starting pair and orientation.
-- C5 yields **at least 31.6 million** unique pair orderings (from partial enumeration; true count is higher). Only Position 1 is universally locked. Positions 3-18 admit at least 2 pairs each. Positions 19-32 are progressively free (at least 7-16 pairs each). These counts are lower bounds — the enumeration explored 0/56 branches to completion.
-- C6+C7 together eliminate 99.6% of solutions but leave 1,055 survivors. Two additional boundary constraints (boundaries 1 and 21) eliminate the rest, giving uniqueness with 4 total boundary constraints.
+- C5 yields **at least 742 million** unique pair orderings (742,043,303 from partial enumeration; true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. These counts are lower bounds — every sub-branch hit its node budget rather than completing naturally.
+- C6+C7 together eliminate 99.995% of solutions but leave 37,352 non-KW survivors (37,356 total). Two additional boundary constraints eliminate the rest, giving uniqueness with 4 total boundary constraints. The greedy-optimal set is **{2, 21, 25, 27}** for the 742M dataset; {25, 27} are truly mandatory, while {2 <-> 3} and {21 <-> 22} are pairwise interchangeable.
 - Earlier claims that C5 locked 23 of 32 positions and C6+C7 alone gave uniqueness were based on a 438-solution partial sample from a single branch of the search tree.
 
 **Theorem (Within-pair distance):** For all h ∈ H, d(h, partner(h)) ∈ {0, 2, 4, 6}. *Proof: see SOLVE.md, Theorem 1.*
@@ -86,7 +86,7 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 **Theorem (Forced orientation):** Given C1, C4, and C5, the orientation of the first pair is forced: s₀ = 63, s₁ = 0. *Proof: see SOLVE.md, Theorem 6.*
 
-**Result (Minimum adjacencies among 31.6M orderings):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among the 31.6 million orderings found so far. Exhaustive testing of all 31,465 quadruples confirmed only 4 sets work, all sharing boundaries 21, 25, and 27 as mandatory, with the 4th being any of boundaries 1-4. This result is proven for the current partial enumeration but could change with a larger dataset — a solution not yet found might survive all 4 boundaries, requiring a 5th. *See SOLVE.md for the full analysis.*
+**Result (Minimum adjacencies among 742M orderings):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among the 742 million orderings found so far. Exhaustive testing of all 31,465 quadruples confirmed only 4 sets work: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries {25, 27} are truly mandatory (present in every working 4-set); {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. This result is proven for the 742M dataset but could change with a larger dataset — a solution not yet found might survive all 4 boundaries, requiring a 5th. *See SOLVE.md for the full analysis.*
 
 ## Constructive algorithm
 
@@ -132,7 +132,7 @@ function construct_king_wen():
 - **Position locking revised.** The earlier claim that positions 1-23 are locked has been disproven by large-scale enumeration. Only Position 1 is universally locked. Positions 3-18 admit 2 pairs each. Positions 19-32 are progressively free.
 - **Circular threshold.** C3's threshold of 12.125 is King Wen's exact complement distance. The constraint is defined by the answer. The qualitative finding (King Wen has unusually low complement distance) is robust, but the specific threshold is reverse-engineered.
 - **Greedy minimum constraints.** C6 and C7 were found by greedy search, which doesn't guarantee the globally minimal constraint set. A different pair of adjacency constraints might also suffice.
-- **Partial enumeration.** A 10-trillion-node enumeration on 64 cores (`solve.c`) found at least 31,630,621 unique pair orderings satisfying C1-C5. The search was partial (0/56 branches fully completed), so the true count is higher. sha256 of solutions.bin: `c43f251f...d2f2104d`. Reproducible with `SOLVE_NODE_LIMIT=10000000000000` on any hardware.
+- **Partial enumeration.** A 10-trillion-node enumeration on 64 cores (`solve.c`) found at least 742,043,303 unique pair orderings satisfying C1-C5. The search was partial (every sub-branch hit its node budget), so the true count is higher. sha256 of solutions.bin: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`. Reproducible with `SOLVE_NODE_LIMIT=10000000000000` on the bug-fixed solver. (The earlier 31.6M figure from sha256 `c43f251f...d2f2104d` was a ~23x undercount caused by a sub-branch filename collision bug — see [HISTORY.md](HISTORY.md).)
 - **Null model caveat.** Applying the same methodology to random pair-constrained sequences (extract diff distribution, complement distance, starting pair, and test for uniqueness) also produces apparent uniqueness in 9/10 cases. The constraint extraction approach inflates apparent specialness. However, King Wen's C2 (no 5-line transitions) is genuinely rare (~4.3% of pair-constrained orderings), while most random sequences have no comparably rare transition constraint. The genuine findings are C1+C2 (pair structure + no-5) and C3 (complement proximity), not the full C1-C7 framework.
 
 For the complete analysis behind this specification, see [SOLVE.md](SOLVE.md) and [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md).

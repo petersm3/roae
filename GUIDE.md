@@ -94,8 +94,11 @@ The "distance" between two hexagrams is the number of lines that differ. For exa
 
 ```
 Hexagram 1 (The Creative):  ䷀  111111  (all solid)
+Hexagram 5 (Waiting):       ䷄  010111  (mixed)
 Hexagram 2 (The Receptive): ䷁  000000  (all broken)
-Distance: 6 (every line is different)
+
+Distance between #1 and #2: 6 (every line is different)
+Distance between #1 and #5: 3 (three lines differ)
 ```
 
 When you go from one hexagram to the next in the King Wen sequence, some number of lines change (1 through 6). This number is the **Hamming distance**, and the sequence of these distances is called the **difference wave** — it's the core "signal" the program analyzes.
@@ -193,7 +196,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 
 The pair structure is genuinely extraordinary. Complement distance is real but the [null model test](SOLVE-SUMMARY.md#an-important-caveat) shows it's less distinctive than it first appears — any sequence's complement distance would similarly narrow the search space. The genuinely special properties are the pair structure and the no-5-line-transition property.
 
-The constraint solver (`solve.py` + `solve.c`) goes further: 5 rules narrow 10^89 possibilities to **at least 31.6 million** valid orderings (partial enumeration — true count is higher). Only Position 1 is universally locked. Four additional boundary constraints uniquely determine King Wen among those millions. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
+The constraint solver (`solve.py` + `solve.c`) goes further: 5 rules narrow 10^89 possibilities to **at least 742 million** valid orderings (742,043,303 from partial enumeration — true count is higher). Only Position 1 is universally locked. Four additional boundary constraints uniquely determine King Wen among those millions. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for the full story.
 
 ## Frequently asked questions
 

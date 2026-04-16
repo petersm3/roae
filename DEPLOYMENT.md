@@ -96,6 +96,75 @@ The solver's SIGTERM handler does real work on exit: it reads all committed
 (not SIGKILL) and wait for it to finish — otherwise you lose the merged output
 even though the per-sub-branch data is safe on disk.
 
+## Two-phase deployment: enumeration VM vs merge VM
+
+Enumeration and merge have very different resource profiles. Running both on
+the same VM forces you to pay for the *union* — many cores *and* lots of RAM
+— for the entire wall-clock time. Splitting them cuts spot cost significantly,
+and at larger budgets (≥100T) the split becomes architecturally necessary
+because no single SKU is cost-effective at both.
+
+**Resource profile by phase:**
+
+| Phase | Bottleneck | Scales with |
+|---|---|---|
+| Enumeration | cores (64 pthreads, ~21M nodes/thread-sec) | node budget (linear) |
+| Merge | RAM (`malloc(total_records × 32)`) | unique solution count |
+
+Enumeration RAM is flat (~10 GB regardless of budget: 64 per-thread hash
+tables of ~134 MB each, plus OS). Merge RAM scales with output size.
+
+**Two-phase pattern:**
+
+1. **Enumeration VM** — lean and core-dense. Writes `sub_*.bin` shards and
+   `checkpoint.txt` to the managed data disk. Tears down on completion.
+   VM choice: F-series at the budget's preferred core count.
+2. **Data disk survives** the teardown. Shards are the primary artifact; the
+   final `solutions.bin` is derived.
+3. **Merge VM** — separate, memory-dense SKU, launched only when shards are
+   complete. Runs `./solve --merge /data/solutions.bin`, writes the merged
+   output back to the same disk, verifies sha256, tears down.
+   VM choice: E- or M-series sized to `unique_records × 32 bytes × 1.3`
+   headroom. Or use an external-merge implementation (see future work) and
+   stay on a modest SKU.
+
+**Cost illustration (westus2 spot, 2026-04 prices, approximate):**
+
+| Budget | Enum wall | Enum VM | Enum cost | Merge VM | Merge cost | Two-phase total | Single-VM (equiv merge SKU) |
+|---|---|---|---|---|---|---|---|
+| 10T | ~2.1h | F64 ($0.79/h) | ~$1.70 | F32 or E64 for ~15 min | ~$0.20 | **~$1.90** | ~$3.00 on E64 |
+| 100T | ~21h | F64 | ~$17 | E64 ($1.40/h) for ~30 min | ~$0.70 | **~$18** | ~$30 on E64 / ~$46 on M64 |
+| 1000T | ~9d | F64 | ~$170 | M128 ($4.50/h) for ~1h | ~$5 | **~$175** | ~$970 on M128 |
+
+Savings scale with wall-clock time; for ≥100T the split is strictly cheaper.
+For 1000T, running merge-on-enumeration-VM isn't viable at all (not enough RAM
+on F-series).
+
+**Orchestration requirements for the two-phase pattern** (most already exist):
+
+- Enumeration monitor detects `SEARCH_COMPLETE` via `solve_results.json`
+  (JSON status field, not stderr regex) and tears down the enumeration VM.
+- Managed data disk survives. Run-ID file on disk identifies the run.
+- A separate merge script provisions the merge VM, attaches the same disk,
+  verifies the run-ID matches, runs `./solve --merge`, copies the resulting
+  `solutions.bin` + `solutions.sha256` locally, verifies by re-hashing,
+  tears down the merge VM.
+- Both scripts share the same lifecycle-event log for eviction telemetry.
+
+**Disk sizing for two-phase:**
+
+The data disk must hold (`sub_*.bin` shards) + (`solutions.bin`) simultaneously
+during the merge. Effectively **2× the final output size**, plus overhead.
+
+| Budget | Est. `solutions.bin` | Disk size |
+|---|---|---|
+| 10T | ~24 GB | 64 GB (current) |
+| 100T | ~60–120 GB | resize to 200–300 GB |
+| 1000T | ~150–250 GB | resize to 500 GB–1 TB |
+
+Resize is a single `az disk update --size-gb N`, then `resize2fs` inside a
+VM after attach. No data loss.
+
 ## Lessons from the 2026-04-14 10T bugfix run and recovery
 
 1. **A reproducible sha256 is not a proof of correctness.** The solver's `sub_*.bin` filenames collided — 3030 sub-branches shared only 64 unique filenames, so later writes silently overwrote earlier solutions. Every run produced the same (wrong) sha256 because the bug was deterministic. "It reproduces, so it's right" was exactly the wrong conclusion. Always cross-check output *shape* (record counts, file counts, per-sub-branch yields) against what the architecture predicts, not just sha256 stability.

@@ -20,7 +20,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 - The Hamming distance matrix is a fixed property of the 6-bit binary system, identical for any ordering of the 64 hexagrams. Only which hexagrams are adjacent depends on the ordering.
 - Trigram transition matrices have ~1 expected observation per cell, so no goodness-of-fit test (chi-square, etc.) has sufficient power to detect deviations. The matrices are descriptive only.
 - Windowed entropy is exploratory visualization without a null model or significance test. Apparent patterns in the curve are expected from random variation.
-- The full 8-state mutual information between upper and lower trigrams is zero by construction: all 64 combinations appear exactly once (a complete Latin square), so independence is automatic.
+- The full 8-state mutual information between upper and lower trigrams is zero by construction: all 64 hexagrams span every possible (upper, lower) trigram combination exactly once, forming a complete [Latin square](https://en.wikipedia.org/wiki/Latin_square) (an 8×8 grid where each of the 8 trigrams appears exactly once in each row and column). Independence is automatic for any set containing all 64 distinct 6-bit values — it is a property of the binary encoding, not of King Wen's ordering.
 
 ## Analytical claims
 
