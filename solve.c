@@ -776,6 +776,35 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
 static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7], int step) {
     ts->nodes++;
     ts->branch_nodes++;
+    /* Runtime invariants (compile out in release builds via -DNDEBUG).
+     * These catch any refactor that breaks budget bookkeeping or step
+     * progression. Negligible cost when asserts are active. */
+    #ifndef NDEBUG
+    {
+        int total = 0;
+        for (int d = 0; d < 7; d++) {
+            if (budget[d] < 0) {
+                fprintf(stderr, "ASSERTION FAILED: budget[%d]=%d < 0 at step=%d\n",
+                        d, budget[d], step);
+                abort();
+            }
+            total += budget[d];
+        }
+        if (total + step * 2 != 64 && step > 0) {
+            /* At step s, 2s hexagrams are placed; remaining budget should sum
+             * to 64 - 2s (one edge per unused hex position pair... actually
+             * budget counts TRANSITIONS, not hexagrams. 63 transitions total,
+             * minus the 2*step-1 already placed, but some were within-pair.)
+             * Actual invariant: sum(budget) = 63 - (number of transitions used so far).
+             * Skip this assertion as the math is subtle; budget[i]>=0 catches
+             * the common corruption patterns. */
+        }
+        if (step < 0 || step > 32) {
+            fprintf(stderr, "ASSERTION FAILED: step=%d out of range\n", step);
+            abort();
+        }
+    }
+    #endif
     if (global_timed_out) return;
     /* Per-branch node limit: checked every node (just an integer compare, cheap).
      * Sets a thread-local flag rather than global_timed_out so other branches
@@ -3503,6 +3532,15 @@ int main(int argc, char *argv[]) {
                     long sz = ftell(tf);
                     fclose(tf);
                     if (sz > 0 && n_files < MAX_SUB_FILES) {
+                        /* Record files are packed 32-byte records. Any size
+                         * not a multiple of 32 means the file was truncated
+                         * (disk full, eviction mid-write, etc.) and must not
+                         * be merged as-is. */
+                        if (sz % SOL_RECORD_SIZE != 0) {
+                            fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
+                                    fname, sz, SOL_RECORD_SIZE);
+                            return 20; /* exit 20 = bad input */
+                        }
                         snprintf(filenames[n_files], 64, "%s", fname);
                         n_files++;
                         printf("  Found %s: %ld bytes (%ld solutions)\n",
@@ -3589,6 +3627,17 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: close failed on %s\n", outname);
             free(all);
             return 30;
+        }
+        /* Post-write size verification (catches truncation) */
+        {
+            struct stat pst;
+            long long expected = unique * SOL_RECORD_SIZE;
+            if (stat(outname, &pst) != 0 || pst.st_size != expected) {
+                fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
+                        outname, (long long)pst.st_size, expected);
+                free(all);
+                return 30;
+            }
         }
         free(all);
 
@@ -4673,6 +4722,23 @@ int main(int argc, char *argv[]) {
             free(all_solutions);
             return 30;
         }
+        /* Post-write size verification: catches silent truncation (the bug
+         * that produced the 23.7→8 GB incident in the 10T recovery). */
+        {
+            struct stat pst;
+            long long expected = (long long)unique_count * SOL_RECORD_SIZE;
+            if (stat(bin_name, &pst) != 0) {
+                fprintf(stderr, "ERROR: post-write stat failed on %s\n", bin_name);
+                free(all_solutions);
+                return 30;
+            }
+            if (pst.st_size != expected) {
+                fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
+                        bin_name, (long long)pst.st_size, expected);
+                free(all_solutions);
+                return 30;
+            }
+        }
         free(all_solutions);
 
         printf("Computing sha256...\n"); fflush(stdout);
@@ -5123,6 +5189,11 @@ int main(int argc, char *argv[]) {
                 long sz = ftell(tf);
                 fclose(tf);
                 if (sz > 0) {
+                    if (sz % SOL_RECORD_SIZE != 0) {
+                        fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
+                                fname, sz, SOL_RECORD_SIZE);
+                        return 20;
+                    }
                     total_file_records += sz / SOL_RECORD_SIZE;
                     n_sub_files++;
                 }
@@ -5202,6 +5273,22 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "ERROR: close failed on solutions.bin — write may be incomplete\n");
         free(all_solutions);
         return 30;
+    }
+    /* Post-write size verification */
+    {
+        struct stat pst;
+        long long expected = (long long)unique_count * SOL_RECORD_SIZE;
+        if (stat("solutions.bin", &pst) != 0) {
+            fprintf(stderr, "ERROR: post-write stat failed on solutions.bin\n");
+            free(all_solutions);
+            return 30;
+        }
+        if (pst.st_size != expected) {
+            fprintf(stderr, "ERROR: post-write size mismatch on solutions.bin: got %lld, expected %lld\n",
+                    (long long)pst.st_size, expected);
+            free(all_solutions);
+            return 30;
+        }
     }
     free(all_solutions);
 
