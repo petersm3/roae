@@ -594,13 +594,45 @@ static inline int completed_sub_key(int p1, int o1, int p2, int o2) {
     return ((p1 & 31) << 6) | ((o1 & 1) << 5) | ((p2 & 31) << 1) | (o2 & 1);
 }
 
+/* Current run's per-sub-branch node budget, for budget-aware BUDGETED resume.
+ * Set once per run from node_limit / total_branches after total_branches is known. */
+static long long current_per_branch_budget = 0;
+
 static void load_sub_checkpoint(void) {
     FILE *f = fopen("checkpoint.txt", "r");
     if (!f) return;
     char line[512];
     while (fgets(line, sizeof(line), f)) {
-        if (strstr(line, "INTERRUPTED")) continue;
         if (!strstr(line, "Sub-branch")) continue;
+        /* Skip-on-resume logic (3-way status taxonomy):
+         *   EXHAUSTED / COMPLETE (legacy) — always skip (done for any budget)
+         *   BUDGETED — skip only if stored budget >= current budget
+         *              (otherwise current budget may explore deeper)
+         *   INTERRUPTED — always re-run (signal/timeout mid-work)
+         * Legacy "COMPLETE" under the bug-era taxonomy could mean either
+         * truly exhausted OR budget-exhausted — since old runs never reached
+         * natural DFS exhaustion within budget, legacy "COMPLETE" is treated
+         * as EXHAUSTED here. That's conservative — in the worst case, a
+         * legacy run whose labels were meaningful will skip some sub-branches
+         * on resume, which is the same behavior as old solve.c. */
+        if (strstr(line, "INTERRUPTED")) continue;
+        /* Parse the budget field (new format: "...budget N" at line end;
+         * old format: no budget field). If this is a BUDGETED entry and
+         * the stored budget < current budget, DO NOT skip — force re-run. */
+        int is_budgeted = (strstr(line, "BUDGETED") != NULL);
+        long long stored_budget = 0;
+        if (is_budgeted) {
+            char *bp = strstr(line, "budget ");
+            if (bp && sscanf(bp, "budget %lld", &stored_budget) == 1) {
+                if (current_per_branch_budget > 0 && stored_budget < current_per_branch_budget) {
+                    /* current budget is larger — re-run this sub-branch */
+                    continue;
+                }
+            } else {
+                /* BUDGETED but no budget field — old format; treat as unskippable */
+                continue;
+            }
+        }
         int p1v, o1v, p2v, o2v;
         char *p = strstr(line, "pair1 ");
         if (!p) continue;
@@ -1004,7 +1036,20 @@ static void *thread_func_single(void *arg) {
         long long sub_c3 = ts->solutions_c3 - c3_before;
 
         int sb_budget_exhausted = (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit);
-        const char *sb_status = (global_timed_out || sb_budget_exhausted) ? "INTERRUPTED" : "COMPLETE";
+        /* Three-way status taxonomy:
+         *   EXHAUSTED  — DFS ran to natural completion within budget (true "done")
+         *   BUDGETED   — per-sub-branch node limit reached (by-design stop)
+         *   INTERRUPTED — external signal / global timeout (true interruption)
+         * Resume skips EXHAUSTED always; skips BUDGETED only if the stored per-
+         * sub-branch budget matches the current run's budget; always re-runs
+         * INTERRUPTED.
+         * For backward compat with old checkpoints containing "COMPLETE" /
+         * "INTERRUPTED", the parser in load_sub_checkpoint() treats "COMPLETE"
+         * as equivalent to "EXHAUSTED" (old runs that finished naturally). */
+        const char *sb_status;
+        if (global_timed_out) sb_status = "INTERRUPTED";
+        else if (sb_budget_exhausted) sb_status = "BUDGETED";
+        else sb_status = "EXHAUSTED";
         if (!global_timed_out && !sb_budget_exhausted)
             ts->branches_completed++;
 
@@ -1058,15 +1103,21 @@ static void *thread_func_single(void *arg) {
 
         /* Update progress file. Use in-memory total_sub_complete counter
          * (protected by checkpoint_mutex) instead of re-reading checkpoint.txt
-         * after every sub-branch commit. Avoids O(n^2) scan under mutex. */
-        if (strcmp(sb_status, "COMPLETE") == 0) total_sub_complete++;
+         * after every sub-branch commit. Avoids O(n^2) scan under mutex.
+         * Count both EXHAUSTED and BUDGETED as "processed" — both have
+         * committed their solutions and won't be re-run (at the same budget).
+         * INTERRUPTED does not count because it will re-run on resume. */
+        if (strcmp(sb_status, "EXHAUSTED") == 0 || strcmp(sb_status, "BUDGETED") == 0)
+            total_sub_complete++;
         update_progress(total_sub_complete, total_branches, elapsed);
 
+        /* Use sub_solutions (captured before flush) rather than ts->solution_count
+         * (which flush_sub_solutions already zeroed). */
         fprintf(stderr, "  *** Sub-branch %d/%d %s (pair1 %d orient1 %d pair2 %d orient2 %d): "
                 "%lldB nodes, %lldM C3, %d solutions, %lds ***\n",
                 done, total_branches, sb_status, p1, o1, p2, o2,
                 sub_nodes / 1000000000LL, sub_c3 / 1000000LL,
-                ts->solution_count, elapsed);
+                sub_solutions, elapsed);
         pthread_mutex_unlock(&checkpoint_mutex);
     }
 
@@ -3259,11 +3310,12 @@ int main(int argc, char *argv[]) {
                     int p1, o1, p2, o2;
                     long long nodes, c3, sols;
                     int elapsed;
-                    int is_complete;  /* 1 = COMPLETE, 0 = INTERRUPTED */
+                    /* Status codes: 0 = INTERRUPTED, 1 = BUDGETED, 2 = EXHAUSTED/COMPLETE */
+                    int status_code;
                 } SBEntry;
                 SBEntry *entries = calloc(MAX_SUB, sizeof(SBEntry));
                 int n_entries = 0;
-                int n_complete = 0, n_interrupted = 0;
+                int n_exhausted = 0, n_budgeted = 0, n_interrupted = 0;
                 long long tot_nodes = 0, tot_sols = 0;
 
                 char line[1024];
@@ -3273,7 +3325,7 @@ int main(int argc, char *argv[]) {
                     long long nv, cv;
                     int sv, ev;
                     char status[32];
-                    /* Match: Sub-branch {COMPLETE|INTERRUPTED} (thread T, pair1 P1 orient1 O1 pair2 P2 orient2 O2): N nodes, N C3-valid, N solutions, Ns elapsed */
+                    /* Match: Sub-branch {EXHAUSTED|BUDGETED|INTERRUPTED|COMPLETE (legacy)} ... */
                     char *p = strstr(line, "Sub-branch ");
                     if (!p) continue;
                     if (sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
@@ -3284,19 +3336,24 @@ int main(int argc, char *argv[]) {
                     e->p1 = p1v; e->o1 = o1v; e->p2 = p2v; e->o2 = o2v;
                     e->nodes = nv; e->c3 = cv;
                     /* Override checkpoint's solution count with the actual count
-                     * from solutions.bin — checkpoint.txt's value is always 0 since
-                     * flush_sub_solutions zeroes ts->solution_count before the line
-                     * is written. */
+                     * from solutions.bin — checkpoint.txt's value was always 0 in
+                     * pre-2026-04-16 runs (flush_sub_solutions zeroed solution_count
+                     * before the line was written; fixed in hardening pass). */
                     e->sols = sub_solution_count[p1v][o1v][p2v][o2v];
                     e->elapsed = ev;
-                    e->is_complete = (strncmp(status, "COMPLETE", 8) == 0);
-                    if (e->is_complete) n_complete++; else n_interrupted++;
+                    if (strncmp(status, "EXHAUSTED", 9) == 0 || strncmp(status, "COMPLETE", 8) == 0) {
+                        e->status_code = 2; n_exhausted++;
+                    } else if (strncmp(status, "BUDGETED", 8) == 0) {
+                        e->status_code = 1; n_budgeted++;
+                    } else {
+                        e->status_code = 0; n_interrupted++;
+                    }
                     tot_nodes += nv; tot_sols += e->sols;
                 }
                 fclose(ckpt);
 
-                printf("    Total entries: %d (COMPLETE: %d, INTERRUPTED: %d)\n",
-                       n_entries, n_complete, n_interrupted);
+                printf("    Total entries: %d (EXHAUSTED/COMPLETE: %d, BUDGETED: %d, INTERRUPTED: %d)\n",
+                       n_entries, n_exhausted, n_budgeted, n_interrupted);
                 printf("    Total nodes across all sub-branches: %lld\n", tot_nodes);
                 printf("    Total solutions (from solutions.bin binning): %lld\n", tot_sols);
                 printf("    (NOTE: checkpoint.txt's solutions field is always 0 —\n");
@@ -3350,10 +3407,12 @@ int main(int argc, char *argv[]) {
                 printf("      rank  (p1,o1,p2,o2)         nodes       solutions   status\n");
                 for (int k = 0; k < topN && top_idx[k] >= 0; k++) {
                     SBEntry *e = &entries[top_idx[k]];
+                    const char *st = (e->status_code == 2) ? "EXHAUSTED"
+                                   : (e->status_code == 1) ? "BUDGETED"
+                                   : "INTERRUPTED";
                     printf("      %4d  (%2d,%d,%2d,%d)   %13lld   %10lld   %s\n",
                            k + 1, e->p1, e->o1, e->p2, e->o2,
-                           e->nodes, e->sols,
-                           e->is_complete ? "COMPLETE" : "INTERRUPTED");
+                           e->nodes, e->sols, st);
                 }
 
                 free(top_idx);
@@ -3425,42 +3484,49 @@ int main(int argc, char *argv[]) {
             if (!ckpt) {
                 printf("    (checkpoint.txt not found — skipping)\n");
             } else {
-                int n_complete = 0, n_interrupted = 0, n_other = 0;
-                int n_per_branch_complete[32] = {0};
+                /* Counts for 3-way taxonomy plus legacy COMPLETE */
+                int n_exhausted = 0, n_budgeted = 0, n_interrupted = 0, n_other = 0;
+                int n_per_branch_exhausted[32] = {0};
                 int n_per_branch_total[32]    = {0};
                 char line[1024];
                 while (fgets(line, sizeof(line), ckpt)) {
                     if (!strstr(line, "Sub-branch")) continue;
-                    int is_complete = (strstr(line, "COMPLETE") != NULL);
+                    /* Priority order: EXHAUSTED > COMPLETE (legacy equivalent) > BUDGETED > INTERRUPTED */
+                    int is_exhausted  = (strstr(line, "EXHAUSTED") != NULL) ||
+                                        (strstr(line, "COMPLETE")  != NULL);  /* legacy */
+                    int is_budgeted   = (strstr(line, "BUDGETED")  != NULL);
                     int is_interrupted = (strstr(line, "INTERRUPTED") != NULL);
                     int p1v;
                     char *p = strstr(line, "pair1 ");
                     if (p && sscanf(p, "pair1 %d", &p1v) == 1 && p1v >= 0 && p1v < 32) {
                         n_per_branch_total[p1v]++;
-                        if (is_complete && !is_interrupted) n_per_branch_complete[p1v]++;
+                        if (is_exhausted && !is_interrupted) n_per_branch_exhausted[p1v]++;
                     }
-                    if (is_complete && !is_interrupted) n_complete++;
+                    if (is_exhausted && !is_interrupted) n_exhausted++;
+                    else if (is_budgeted && !is_interrupted) n_budgeted++;
                     else if (is_interrupted) n_interrupted++;
                     else n_other++;
                 }
                 fclose(ckpt);
-                int total = n_complete + n_interrupted + n_other;
+                int total = n_exhausted + n_budgeted + n_interrupted + n_other;
                 printf("    Sub-branch commit lines parsed: %d\n", total);
-                printf("    COMPLETE (natural DFS exhaustion): %d (%.4f%%)\n",
-                       n_complete, total > 0 ? 100.0 * n_complete / total : 0);
-                printf("    INTERRUPTED (budget or signal):    %d (%.4f%%)\n",
+                printf("    EXHAUSTED (natural DFS completion): %d (%.4f%%)\n",
+                       n_exhausted, total > 0 ? 100.0 * n_exhausted / total : 0);
+                printf("    BUDGETED  (per-sub-branch budget hit): %d (%.4f%%)\n",
+                       n_budgeted, total > 0 ? 100.0 * n_budgeted / total : 0);
+                printf("    INTERRUPTED (external signal):     %d (%.4f%%)\n",
                        n_interrupted, total > 0 ? 100.0 * n_interrupted / total : 0);
                 if (n_other > 0) printf("    Other/unparsed: %d\n", n_other);
                 printf("    Saturation signal: %s\n",
-                       n_complete == 0 ? "ZERO sub-branches exhausted → budget-limited run"
-                                       : "SOME sub-branches exhausted → partial saturation visible");
-                if (n_complete > 0) {
-                    printf("    Per-pair1 completion rates:\n");
+                       n_exhausted == 0 ? "ZERO sub-branches exhausted → budget-limited run"
+                                        : "SOME sub-branches exhausted → partial saturation visible");
+                if (n_exhausted > 0) {
+                    printf("    Per-pair1 exhaustion rates:\n");
                     for (int p = 0; p < 32; p++) {
                         if (n_per_branch_total[p] > 0)
                             printf("      pair %2d: %d/%d (%.1f%%)\n",
-                                   p, n_per_branch_complete[p], n_per_branch_total[p],
-                                   100.0 * n_per_branch_complete[p] / n_per_branch_total[p]);
+                                   p, n_per_branch_exhausted[p], n_per_branch_total[p],
+                                   100.0 * n_per_branch_exhausted[p] / n_per_branch_total[p]);
                     }
                 }
             }
@@ -4888,7 +4954,13 @@ int main(int argc, char *argv[]) {
 
     int start_pair = pair_index_of(63, 0);
 
-    /* Resume from checkpoint */
+    /* Resume from checkpoint — first set the expected per-branch budget so
+     * BUDGETED entries can be skipped only when the stored budget >= current.
+     * Use 3030 as the canonical denominator (standard 3030-sub-branch mode);
+     * this is the expected total_branches before checkpoint skipping.
+     * Approximation error is irrelevant: the budget-aware resume just needs
+     * a rough threshold, not an exact match. */
+    if (node_limit > 0) current_per_branch_budget = node_limit / 3030;
     load_sub_checkpoint();
     if (n_completed_subs > 0) {
         printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
