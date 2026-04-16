@@ -890,14 +890,13 @@ static void update_progress(int completed, int total, long elapsed) {
     if (!pf) return;
     fprintf(pf, "Sub-branches: %d/%d complete\n", completed, total);
     fprintf(pf, "Elapsed: %lds (%.1f hours)\n", elapsed, elapsed / 3600.0);
-    double cost = elapsed / 3600.0 * 0.79;  /* spot F64 rate */
-    fprintf(pf, "Estimated cost: $%.2f\n", cost);
+    /* Cost estimation is the orchestrator's job — it knows the deployment
+     * context (spot/on-demand/laptop/etc.). The solver is environment-agnostic. */
     if (completed > 0 && elapsed > 0) {
         double rate = (double)completed / elapsed;
         int remaining = total - completed;
         long eta_sec = (long)(remaining / rate);
         fprintf(pf, "ETA: %ld hours %ld minutes\n", eta_sec / 3600, (eta_sec % 3600) / 60);
-        fprintf(pf, "Projected total cost: $%.2f\n", (elapsed + eta_sec) / 3600.0 * 0.79);
     }
     time_t now = time(NULL);
     char tbuf[64];
@@ -974,6 +973,11 @@ static void *thread_func_single(void *arg) {
 
         pthread_mutex_lock(&checkpoint_mutex);
 
+        /* Capture solution_count BEFORE flush_sub_solutions zeroes it —
+         * the checkpoint line's "solutions" field should record the actual
+         * count, not the post-flush zero. */
+        int sub_solutions = ts->solution_count;
+
         /* Always flush hash table to file after each sub-branch, then clear.
          * This ensures thread-count independence: each sub-branch's solutions are
          * written to its own file regardless of how many threads are running.
@@ -989,14 +993,27 @@ static void *thread_func_single(void *arg) {
             ts->hash_collisions = 0;
         }
 
-        /* Write checkpoint entry */
+        /* Write checkpoint entry. Use fflush + fsync before close so the line
+         * lands on disk before a possible spot eviction (~30s notice window).
+         * Also capture per-sub-branch budget on the line for future budget-aware
+         * resume logic (see status-label taxonomy change — the budget value
+         * tells a future resume whether a BUDGETED entry is still valid under
+         * the current run's budget or needs re-running). */
         FILE *ckpt = fopen("checkpoint.txt", "a");
         if (ckpt) {
             fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
-                    "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed\n",
+                    "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
                     sb_status, ts->thread_id, p1, o1, p2, o2,
-                    sub_nodes, sub_c3, ts->solution_count, elapsed);
-            fclose(ckpt);
+                    sub_nodes, sub_c3, sub_solutions, elapsed,
+                    per_branch_node_limit);
+            if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0) {
+                fprintf(stderr, "WARNING: checkpoint.txt fflush/fsync failed — entry may be lost on eviction\n");
+            }
+            if (fclose(ckpt) != 0) {
+                fprintf(stderr, "WARNING: checkpoint.txt close failed\n");
+            }
+        } else {
+            fprintf(stderr, "WARNING: could not open checkpoint.txt for append\n");
         }
 
         /* Update progress file */
@@ -1417,6 +1434,44 @@ int main(int argc, char *argv[]) {
     init_kw_pair_positions();
     init_super_pairs();
     init_pair_order();
+
+    /* KW self-check: validate that the canonical KW[] sequence satisfies C1-C5.
+     * Catches accidental edits to KW[] or to the constraint checkers. If this
+     * fails, everything downstream is suspect. */
+    {
+        /* C1: all 64 hexagrams unique */
+        int seen[64] = {0};
+        for (int i = 0; i < 64; i++) {
+            if (KW[i] < 0 || KW[i] >= 64 || seen[KW[i]]++) {
+                fprintf(stderr, "ERROR: KW self-check failed: hexagram %d at index %d invalid or duplicated\n", KW[i], i);
+                return 50; /* exit code 50 = internal consistency failure */
+            }
+        }
+        /* C2: no 5-line transitions between consecutive hexagrams */
+        for (int i = 0; i < 63; i++) {
+            if (hamming(KW[i], KW[i + 1]) == 5) {
+                fprintf(stderr, "ERROR: KW self-check failed: 5-line transition at index %d (%d -> %d)\n", i, KW[i], KW[i + 1]);
+                return 50;
+            }
+        }
+        /* C4: position 1 is hexagram 63 (Creative), position 2 is 0 (Receptive) */
+        if (KW[0] != 63 || KW[1] != 0) {
+            fprintf(stderr, "ERROR: KW self-check failed: expected Creative/Receptive at positions 0-1, got %d/%d\n", KW[0], KW[1]);
+            return 50;
+        }
+        /* C5: difference-distribution kw_dist accounts for all 63 transitions */
+        int total_dist = 0;
+        for (int d = 0; d < 7; d++) total_dist += kw_dist[d];
+        if (total_dist != 63) {
+            fprintf(stderr, "ERROR: KW self-check failed: kw_dist sums to %d, expected 63\n", total_dist);
+            return 50;
+        }
+        /* C3: compute_comp_dist_x64(KW) returned a sane value (not negative, not huge) */
+        if (kw_comp_dist_x64 <= 0 || kw_comp_dist_x64 > 2048) {
+            fprintf(stderr, "ERROR: KW self-check failed: kw_comp_dist_x64 = %d out of plausible range\n", kw_comp_dist_x64);
+            return 50;
+        }
+    }
 
     printf("Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
     printf("King Wen complement distance (x64): %d (= %.4f)\n",
@@ -3505,11 +3560,36 @@ int main(int argc, char *argv[]) {
         printf("  Unique solutions: %lld (removed %lld duplicates)\n",
                unique, total_records - unique);
 
-        /* Write merged output */
-        char outname[64] = "solutions_merged.bin";
+        /* Write merged output. Unified filename with normal-mode output
+         * so post-merge validation and downstream tooling always find the
+         * same path. */
+        const char *outname = "solutions.bin";
         printf("  Writing %s...\n", outname);
         FILE *of = fopen(outname, "wb");
-        if (of) { fwrite(all, SOL_RECORD_SIZE, unique, of); fclose(of); }
+        if (!of) {
+            fprintf(stderr, "ERROR: cannot open %s for writing\n", outname);
+            free(all);
+            return 30; /* exit 30 = write failed */
+        }
+        size_t written = fwrite(all, SOL_RECORD_SIZE, unique, of);
+        if ((long long)written != unique) {
+            fprintf(stderr, "ERROR: short write to %s (%zu of %lld records)\n",
+                    outname, written, unique);
+            fclose(of);
+            free(all);
+            return 30;
+        }
+        if (fflush(of) != 0 || fsync(fileno(of)) != 0) {
+            fprintf(stderr, "ERROR: flush/fsync failed on %s\n", outname);
+            fclose(of);
+            free(all);
+            return 30;
+        }
+        if (fclose(of) != 0) {
+            fprintf(stderr, "ERROR: close failed on %s\n", outname);
+            free(all);
+            return 30;
+        }
         free(all);
 
         /* sha256 */
@@ -3534,10 +3614,13 @@ int main(int argc, char *argv[]) {
 
         /* Validate merged output */
         printf("\nValidating merged output...\n");
-        int _v = 0;
         char val_cmd[128];
         snprintf(val_cmd, sizeof(val_cmd), "./solve --validate %s", outname);
-        _v = system(val_cmd); (void)_v;
+        int vret = system(val_cmd);
+        if (vret != 0) {
+            fprintf(stderr, "ERROR: post-merge validation returned non-zero (%d)\n", vret);
+            return 40; /* exit 40 = validation mismatch */
+        }
 
         return 0;
     }
@@ -4564,8 +4647,32 @@ int main(int argc, char *argv[]) {
         printf("Writing %d unique solutions to %s...\n", unique_count, bin_name);
         fflush(stdout);
         FILE *bf = fopen(bin_name, "wb");
-        if (bf && all_solutions) { fwrite(all_solutions, SOL_RECORD_SIZE, unique_count, bf); fclose(bf); }
-        else if (bf) fclose(bf);
+        if (!bf) {
+            fprintf(stderr, "ERROR: cannot open %s for writing\n", bin_name);
+            free(all_solutions);
+            return 30;
+        }
+        if (all_solutions) {
+            size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, unique_count, bf);
+            if ((int)written != unique_count) {
+                fprintf(stderr, "ERROR: short write to %s (%zu of %d records) — disk full?\n",
+                        bin_name, written, unique_count);
+                fclose(bf);
+                free(all_solutions);
+                return 30;
+            }
+        }
+        if (fflush(bf) != 0 || fsync(fileno(bf)) != 0) {
+            fprintf(stderr, "ERROR: flush/fsync failed on %s\n", bin_name);
+            fclose(bf);
+            free(all_solutions);
+            return 30;
+        }
+        if (fclose(bf) != 0) {
+            fprintf(stderr, "ERROR: close failed on %s — write may be incomplete\n", bin_name);
+            free(all_solutions);
+            return 30;
+        }
         free(all_solutions);
 
         printf("Computing sha256...\n"); fflush(stdout);
@@ -5070,8 +5177,32 @@ int main(int argc, char *argv[]) {
     printf("Writing %d unique solutions to solutions.bin...\n", unique_count);
     fflush(stdout);
     FILE *f = fopen("solutions.bin", "wb");
-    if (f && all_solutions) { fwrite(all_solutions, SOL_RECORD_SIZE, unique_count, f); fclose(f); }
-    else if (f) fclose(f);
+    if (!f) {
+        fprintf(stderr, "ERROR: cannot open solutions.bin for writing\n");
+        free(all_solutions);
+        return 30;
+    }
+    if (all_solutions) {
+        size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, unique_count, f);
+        if ((int)written != unique_count) {
+            fprintf(stderr, "ERROR: short write to solutions.bin (%zu of %d records) — disk full?\n",
+                    written, unique_count);
+            fclose(f);
+            free(all_solutions);
+            return 30;
+        }
+    }
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) {
+        fprintf(stderr, "ERROR: flush/fsync failed on solutions.bin\n");
+        fclose(f);
+        free(all_solutions);
+        return 30;
+    }
+    if (fclose(f) != 0) {
+        fprintf(stderr, "ERROR: close failed on solutions.bin — write may be incomplete\n");
+        free(all_solutions);
+        return 30;
+    }
     free(all_solutions);
 
     printf("Computing sha256...\n");
