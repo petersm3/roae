@@ -1,5 +1,7 @@
 # How the King Wen Sequence Was Built
 
+> **Note (2026-04-17):** The 742M solution count referenced below is now known to be an **undercount** — 241M solutions were silently dropped by a hash-table bug (fixed in commit 585880f). New reference figures pending. Qualitative findings are unaffected. See [HISTORY.md](HISTORY.md) Day 8.
+
 A plain-language summary of what `solve.py` and `solve.c` discovered.
 
 ## The puzzle

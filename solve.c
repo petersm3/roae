@@ -105,9 +105,9 @@
  * a 3030-sub-branch run and the contradiction became obvious. Fix: full key
  * (pair1, orient1, pair2, orient2) in both filename and checkpoint resume
  * lookup. The 31.6M figure published before that date was a ~23x undercount;
- * the corrected 10T figure is 742M unique orderings (sha256
- * aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b).
- * See HISTORY.md for the full forensics.
+ * the 742M figure from the next run was ALSO an undercount — 241M additional
+ * solutions were silently dropped by the 64-probe hash table cap (fixed in
+ * commit 585880f). New reference shas pending. See HISTORY.md Day 8.
  *
  * SIGNAL HANDLING
  * ===============

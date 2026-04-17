@@ -74,7 +74,7 @@ Verified: 1-thread and 2-thread runs produce identical sha256.
 
 **The cost discovery:** Azure pricing API revealed the F64 on-demand cost was $3.87/hr, not the $1.97 originally estimated. Spot pricing was $0.79/hr. Requested and received spot quota increase to 64 cores.
 
-**10T run results (56-branch mode):** 9.99 trillion nodes explored, 31,630,621 unique orderings found. King Wen confirmed present. sha256: `c43f251fb9b66de0237c35ad78b5236011cb9886644ce73437138b50d2f2104d`. **(Later superseded — this number turned out to be a ~23× undercount because of the sub-branch filename collision bug. The correct 10T figure is 742,043,303. See 2026-04-14 entry below.)**
+**10T run results (56-branch mode):** 9.99 trillion nodes explored, 31,630,621 unique orderings found. King Wen confirmed present. sha256: `c43f251fb9b66de0237c35ad78b5236011cb9886644ce73437138b50d2f2104d`. **(Later superseded — this was a ~23× undercount due to the sub-branch filename collision bug. The subsequent 742M figure was also an undercount due to 241M hash-table silent drops — see Day 8.)**
 
 **The tail problem:** The last 4 branches (all "dead" — zero solutions) ran on single cores for 90+ minutes while 60 cores sat idle. The 10T run took 3h 48m instead of ~2h because of this load imbalance.
 
@@ -165,7 +165,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 | Finding | How discovered | Status |
 |---------|---------------|--------|
-| **742,043,303 valid orderings** exist (10T) | 10T enumeration on bug-fixed solver, 2026-04-14 | Lower bound; sha256 `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`; all constraints verified on every record |
+| **≥742,043,303 valid orderings** exist (10T) | 10T enumeration, 2026-04-14 | Lower bound and itself an undercount — 241M solutions silently dropped by hash-table probe cap (Day 8). sha `aa1415...` invalidated. New reference pending. |
 | 4 boundary constraints needed (proven minimum for the 742M dataset) | Greedy search against 742M unique orderings, 2026-04-14; then exhaustive disproof of all 4,495 three-subsets | **Proven minimum for the 742M dataset** (computational finite-case proof, not a universal theorem): no 3-subset suffices (best leaves 24 survivors vs 4 KW variants). Chosen 4-set shifted from {1, 21, 25, 27} (31.6M) to **{2, 21, 25, 27}** (742M). A deeper enumeration could in principle change the minimum. |
 | 3 mandatory boundaries (21, 25, 27) | Greedy search; appear in both 31.6M and 742M solutions | Partially superseded — see next row. |
 | 2 truly mandatory boundaries (25, 27) for the 742M dataset | Exhaustive enumeration of all C(31,4)=31,465 four-subsets (2026-04-15) | Only 4 four-subsets uniquely identify KW: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries 25 and 27 appear in **every** working 4-set (truly mandatory for the 742M dataset). Boundaries {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable — knowing one from each pair plus the mandatory {25, 27} uniquely identifies KW. The earlier "21 mandatory" claim was a greedy-search artifact: greedy picks 21 (or sometimes 2), but exhaustive search shows 21 can be swapped for 22 (or 2 for 3) without losing uniqueness. Stronger result, scoped to the 742M dataset. |

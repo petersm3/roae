@@ -1,5 +1,7 @@
 # Enumeration Leaderboard
 
+> **Note (2026-04-17):** The 742M figure and sha `aa1415...` below are now known to be an **undercount** — 241M solutions were silently dropped by a hash-table bug (fixed in commit 585880f). New reference figures pending. See [HISTORY.md](HISTORY.md) Day 8.
+
 ## What this is
 
 About 3,000 years ago, someone in ancient China arranged 64 symbols called

@@ -1,5 +1,7 @@
 # Solving the King Wen Sequence
 
+> **Note (2026-04-17):** The 742M solution count and sha `aa1415...` referenced throughout this document are now known to be an **undercount** — 241 million solutions were silently dropped by a hash-table probe-cap bug in the solver (fixed in commit 585880f). New reference figures will be established with the corrected solver. The qualitative findings (cascade structure, boundary constraints, mandatory pairs) hold regardless of the exact count. See [HISTORY.md](HISTORY.md) Day 8 for details.
+
 Can the King Wen sequence be reconstructed from a small set of rules?
 
 For a plain-language version, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md).
@@ -453,8 +455,8 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 - **Upper bound:** unknown — the earlier multinomial bound of 860,160 was based on the "23 locked" assumption and is invalidated
 - **True count:** unknown and likely significantly larger than 742 million
 - The earlier estimate of 15,000-50,000 was off by orders of magnitude, illustrating the danger of extrapolating from partial samples
-- **Reproducibility:** `SOLVE_NODE_LIMIT=10000000000000` produces this exact solution set on any hardware with any thread count
-- **Note:** The earlier 31.6M figure (sha256: `c43f251f...d2f2104d`) was a ~23x undercount caused by a sub-branch filename collision bug. See [HISTORY.md](HISTORY.md) for details.
+- **Reproducibility:** deterministic for a given solver version and node budget, thread-count independent
+- **Note (2026-04-17):** The 742M figure and sha `aa1415...` are themselves an undercount — 241M solutions were silently dropped by a hash-table probe-cap bug. The earlier 31.6M was a ~23× undercount from a filename collision. Both bugs are now fixed (commits 585880f, b598067). New reference shas pending re-enumeration.
 
 ### Theorem 6: Starting orientation is forced
 

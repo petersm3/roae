@@ -76,7 +76,7 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 - C2 eliminates ~96% of C1 solutions.
 - C3 further restricts to ~3.9% of C1+C2 solutions.
 - C4 fixes the starting pair and orientation.
-- C5 yields **at least 742 million** unique pair orderings (742,043,303 from partial enumeration; true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. These counts are lower bounds — every sub-branch hit its node budget rather than completing naturally.
+- C5 yields **at least 742 million** unique pair orderings (742,043,303 from partial enumeration; true count is higher — this figure is itself an undercount due to a hash-table bug fixed 2026-04-17; see [HISTORY.md](HISTORY.md) Day 8). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free.
 - C6+C7 together eliminate 99.995% of solutions but leave 37,352 non-KW survivors (37,356 total). Two additional boundary constraints eliminate the rest, giving uniqueness with 4 total boundary constraints. The greedy-optimal set is **{2, 21, 25, 27}** for the 742M dataset; {25, 27} are truly mandatory, while {2 <-> 3} and {21 <-> 22} are pairwise interchangeable.
 - Earlier claims that C5 locked 23 of 32 positions and C6+C7 alone gave uniqueness were based on a 438-solution partial sample from a single branch of the search tree.
 

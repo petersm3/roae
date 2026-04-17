@@ -2,3 +2,8 @@ solutions.bin (23.7 GB) remains on managed disk solver-data
 Azure resource: /subscriptions/be43af63-3d55-42d3-abe8-5192f5c9ce98/resourceGroups/RG-CLAUDE/providers/Microsoft.Compute/disks/solver-data
 Path on disk: /data/solutions.bin
 sha256: aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b
+
+NOTE (2026-04-17): This sha and the 742M solution count are an UNDERCOUNT —
+241M solutions were silently dropped by a hash-table probe-cap bug (fixed in
+commit 585880f). This file should be replaced with output from the fixed
+solver. See HISTORY.md Day 8.
