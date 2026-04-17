@@ -315,6 +315,21 @@ keeping the managed disk.
   shouldn't auto-teardown — the supervisor decides when the VM goes away
   (typically: pull metadata via SSH first, then delete VM). The
   managed data disk auto-detaches and survives VM deletion.
+- **Chained runs: prefer sequential monitors over a supervisor.** The
+  supervisor pattern (kill monitor mid-merge, take over /data) has race
+  conditions. The sequential pattern (let each monitor run to natural
+  completion, then start the next) is simpler and correct. Between runs,
+  a temp VM can rename files on the managed disk if needed.
+- **Write run_id.txt BEFORE the wipe, not after.** The monitor's
+  `sync_files` function checks `/data/run_id.txt` to detect stale data.
+  If `run_id.txt` is written after the wipe, there's a race window where
+  a concurrent sync reads the old ID and skips the sync. Writing the new
+  ID first closes this window. (Observed 2026-04-17: "Run ID mismatch on
+  sync" warnings from this race — cosmetic, but confused diagnostics.)
+- **Solver correctness is independent of monitor state.** The monitor's
+  sync warnings, log errors, or even crashes don't affect the solver
+  process running on the VM. The solver reads no state from the monitor.
+  Monitor failures are observability problems, not data problems.
 
 ### Infrastructure
 
