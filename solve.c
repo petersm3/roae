@@ -136,20 +136,20 @@
  *
  * KNOWN LIMITATIONS / OPEN ISSUES
  * ===============================
- * - [FIXED] Hash table probe limit removed; tables auto-resize at 75% load.
- *   Prior versions had a 64-probe cap that silently dropped records at high
- *   load (241M drops observed at 10T depth-2 with 2^22 table). Now: full-table
- *   probe + dynamic doubling + OOM abort. Zero silent drops guaranteed.
- * - "INTERRUPTED" status conflates external interruption with budget exhaustion;
- *   resume re-runs both even though budget-exhausted sub-branches are
- *   deterministically done. Costs eviction-recovery time; tracked for fix.
- * - Per-sub-branch granularity recovery is too coarse for spot VMs at large
- *   per-sub-branch budgets (e.g. 100T+). Need intra-sub-branch checkpointing
- *   (Option B: pre-enumerate one more level → ~90k tinier work units) before
- *   running 100T+ on spot affordably. See DEPLOYMENT.md.
- * - pair_index_of() is O(32) linear scan, called frequently in analyze_solution.
- *   Not a bottleneck (called once per C3-valid solution, not per node) but could
- *   be replaced with a lookup table if profiling shows it matters.
+ * - [FIXED 585880f] Hash table probe limit: removed 64-probe cap, added auto-
+ *   resize at 75% load. Zero silent drops. See correctness audit for details.
+ * - [FIXED 3f0167f] Status taxonomy: 3-way EXHAUSTED/BUDGETED/INTERRUPTED
+ *   replaces the old conflation of interruption with budget exhaustion.
+ * - [FIXED ac5a9ba] Spot-VM granularity: Option B depth-3 (SOLVE_DEPTH=3)
+ *   partitions into ~158K sub-branches for finer eviction recovery.
+ * - [FIXED 232d688] Flush I/O: fwrite/fsync/fclose return values checked in
+ *   flush_sub_solutions. Post-write size verification. Abort on failure.
+ * - [FIXED 232d688] Merge integrity: checkpoint cross-reference catches
+ *   truncated sub_*.bin files. --verify mode independently checks C1-C5.
+ * - [FIXED] pair_index_of() replaced with O(1) lookup table.
+ * - Merge loads all records into RAM for sort+dedup. At exhaustive enumeration
+ *   scale (billions of solutions), this may exceed available memory. An external
+ *   merge-sort would handle arbitrary scale but is not yet implemented.
  *
  * BUILD
  * =====
@@ -298,16 +298,22 @@ static int sol_hash_log2 = 24;         /* default: 2^24 = 16M slots */
 static int sol_hash_size;
 static int sol_hash_mask;
 
-static int pair_index_of(int x, int y) {
-    int lo = (x < y) ? x : y;
-    int hi = (x < y) ? y : x;
+static int pair_lookup[64][64];
+static int pair_lookup_initialized = 0;
+
+static void init_pair_lookup(void) {
+    memset(pair_lookup, -1, sizeof(pair_lookup));
     for (int i = 0; i < 32; i++) {
-        int a = pairs[i].a, b = pairs[i].b;
-        int plo = (a < b) ? a : b;
-        int phi = (a < b) ? b : a;
-        if (plo == lo && phi == hi) return i;
+        pair_lookup[pairs[i].a][pairs[i].b] = i;
+        pair_lookup[pairs[i].b][pairs[i].a] = i;
     }
-    return -1;
+    pair_lookup_initialized = 1;
+}
+
+static int pair_index_of(int x, int y) {
+    if (!pair_lookup_initialized) init_pair_lookup();
+    if (x < 0 || x >= 64 || y < 0 || y >= 64) return -1;
+    return pair_lookup[x][y];
 }
 
 /* Complement distance: sum of |pos(v) - pos(v^63)| for all v where v != v^63.
