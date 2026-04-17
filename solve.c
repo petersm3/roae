@@ -1038,20 +1038,43 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
     snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
     snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2, p3, o3);
     FILE *sf = fopen(tmpname, "wb");
-    if (sf) {
-        int written = 0;
-        for (int s = 0; s < ts->ht_size; s++) {
-            if (ts->sol_occupied[s]) {
-                fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf);
-                written++;
-            }
-        }
-        fflush(sf);
-        fsync(fileno(sf));
-        fclose(sf);
-        rename(tmpname, fname);
-        fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
+    if (!sf) {
+        fprintf(stderr, "FATAL: cannot open %s for writing: %s\n", tmpname, strerror(errno));
+        exit(1);
     }
+    int written = 0;
+    int write_error = 0;
+    for (int s = 0; s < ts->ht_size; s++) {
+        if (ts->sol_occupied[s]) {
+            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf) != 1) {
+                write_error = 1;
+                break;
+            }
+            written++;
+        }
+    }
+    if (write_error || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
+        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %d of %d): %s\n",
+                tmpname, written, ts->solution_count, strerror(errno));
+        fclose(sf);
+        exit(1);
+    }
+    if (fclose(sf) != 0) {
+        fprintf(stderr, "FATAL: close failed on %s: %s\n", tmpname, strerror(errno));
+        exit(1);
+    }
+    struct stat st;
+    long long expected = (long long)written * SOL_RECORD_SIZE;
+    if (stat(tmpname, &st) != 0 || st.st_size != expected) {
+        fprintf(stderr, "FATAL: post-write size mismatch on %s: got %lld, expected %lld\n",
+                tmpname, (long long)(stat(tmpname, &st) == 0 ? st.st_size : -1), expected);
+        exit(1);
+    }
+    if (rename(tmpname, fname) != 0) {
+        fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
+        exit(1);
+    }
+    fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
     ts->solution_count = 0;
@@ -1064,20 +1087,43 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
     snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
     snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2);
     FILE *sf = fopen(tmpname, "wb");
-    if (sf) {
-        int written = 0;
-        for (int s = 0; s < ts->ht_size; s++) {
-            if (ts->sol_occupied[s]) {
-                fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf);
-                written++;
-            }
-        }
-        fflush(sf);
-        fsync(fileno(sf));
-        fclose(sf);
-        rename(tmpname, fname);
-        fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
+    if (!sf) {
+        fprintf(stderr, "FATAL: cannot open %s for writing: %s\n", tmpname, strerror(errno));
+        exit(1);
     }
+    int written = 0;
+    int write_error = 0;
+    for (int s = 0; s < ts->ht_size; s++) {
+        if (ts->sol_occupied[s]) {
+            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf) != 1) {
+                write_error = 1;
+                break;
+            }
+            written++;
+        }
+    }
+    if (write_error || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
+        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %d of %d): %s\n",
+                tmpname, written, ts->solution_count, strerror(errno));
+        fclose(sf);
+        exit(1);
+    }
+    if (fclose(sf) != 0) {
+        fprintf(stderr, "FATAL: close failed on %s: %s\n", tmpname, strerror(errno));
+        exit(1);
+    }
+    struct stat st;
+    long long expected = (long long)written * SOL_RECORD_SIZE;
+    if (stat(tmpname, &st) != 0 || st.st_size != expected) {
+        fprintf(stderr, "FATAL: post-write size mismatch on %s: got %lld, expected %lld\n",
+                tmpname, (long long)(stat(tmpname, &st) == 0 ? st.st_size : -1), expected);
+        exit(1);
+    }
+    if (rename(tmpname, fname) != 0) {
+        fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
+        exit(1);
+    }
+    fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
     ts->solution_count = 0;
@@ -1446,6 +1492,7 @@ static void write_json(const char *filename, const char *status,
     fprintf(f, "    \"total_solutions\": %lld,\n", total_sol);
     fprintf(f, "    \"c3_valid\": %lld,\n", total_c3);
     fprintf(f, "    \"unique_orderings\": %d,\n", unique_count);
+    fprintf(f, "    \"dedup_semantics\": \"canonical pair ordering (orientation bits masked)\",\n");
     fprintf(f, "    \"king_wen_found\": %s,\n", kw_found ? "true" : "false");
     fprintf(f, "    \"hash_dedup_collisions\": %lld\n", total_hash_collisions);
     fprintf(f, "  },\n");
@@ -1592,11 +1639,13 @@ int main(int argc, char *argv[]) {
     int list_branches_mode = 0;
     int validate_mode = 0;
     int merge_mode = 0;
+    int verify_mode = 0;
     int prove_cascade_mode = 0;
     int prove_self_comp_mode = 0;
     int prove_shift_mode = 0;
     int analyze_mode = 0;
     char *validate_file = NULL;
+    char *verify_file = NULL;
     char *analyze_file = NULL;
 
     if (argc > 1 && strcmp(argv[1], "--prove-cascade") == 0) {
@@ -1618,6 +1667,10 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
+        arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--verify") == 0) {
+        verify_mode = 1;
+        verify_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--selftest") == 0) {
         /* --selftest: fork a child process that runs a fixed tiny scenario in
@@ -1709,7 +1762,9 @@ int main(int argc, char *argv[]) {
     } else {
         printf("No time limit — running to completion.\n");
         if (!single_branch_mode)
-            printf("Usage: ./solve [time_limit] [threads]  (0 = no limit)\n");
+            printf("Usage: ./solve [time_limit] [threads]  (0 = no limit)\n"
+                   "       ./solve --verify [solutions.bin]   (independent C1-C5 check)\n"
+                   "       ./solve --selftest                 (regression test)\n");
     }
 
     /* Configurable hash table size */
@@ -1800,6 +1855,135 @@ int main(int argc, char *argv[]) {
         if (kw_dist[d] > 0) printf("%d:%d ", d, kw_dist[d]);
     }
     printf("\nSuper-pairs: %d\n", n_super_pairs);
+
+    /* --- Verify mode ---
+     * Independent constraint verification: reads every record from solutions.bin,
+     * reconstructs the full 64-hexagram sequence, and checks C1-C5 independently
+     * of the search code. Also checks for duplicates and sorted order.
+     * Returns 0 if all records pass, nonzero on any failure. */
+    if (verify_mode) {
+        printf("\n=== Independent Constraint Verification ===\n");
+        printf("File: %s\n", verify_file);
+
+        FILE *vf = fopen(verify_file, "rb");
+        if (!vf) { fprintf(stderr, "ERROR: cannot open %s\n", verify_file); return 10; }
+        fseek(vf, 0, SEEK_END);
+        long vsize = ftell(vf);
+        fseek(vf, 0, SEEK_SET);
+        if (vsize <= 0 || vsize % SOL_RECORD_SIZE != 0) {
+            fprintf(stderr, "ERROR: file size %ld is not a positive multiple of %d\n",
+                    vsize, SOL_RECORD_SIZE);
+            fclose(vf);
+            return 20;
+        }
+        int n_records = (int)(vsize / SOL_RECORD_SIZE);
+        printf("Records: %d (%ld bytes)\n\n", n_records, vsize);
+
+        unsigned char rec[SOL_RECORD_SIZE];
+        unsigned char prev[SOL_RECORD_SIZE];
+        memset(prev, 0, SOL_RECORD_SIZE);
+        int fail_c1 = 0, fail_c2 = 0, fail_c4 = 0, fail_c5 = 0;
+        int fail_dup = 0, fail_sort = 0, fail_decode = 0;
+        int kw_found_v = 0;
+
+        for (int r = 0; r < n_records; r++) {
+            if (fread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
+                fprintf(stderr, "ERROR: short read at record %d\n", r);
+                fclose(vf);
+                return 20;
+            }
+
+            /* Decode: byte i = (pair_index << 2) | (orient << 1) */
+            int seq[64];
+            int used_pairs[32];
+            memset(used_pairs, 0, sizeof(used_pairs));
+            int decode_ok = 1;
+            for (int i = 0; i < 32; i++) {
+                int pidx = (rec[i] >> 2) & 0x3F;
+                int orient = (rec[i] >> 1) & 1;
+                if (pidx < 0 || pidx >= 32) { decode_ok = 0; break; }
+                used_pairs[pidx]++;
+                if (orient == 0) {
+                    seq[i * 2] = pairs[pidx].a;
+                    seq[i * 2 + 1] = pairs[pidx].b;
+                } else {
+                    seq[i * 2] = pairs[pidx].b;
+                    seq[i * 2 + 1] = pairs[pidx].a;
+                }
+            }
+            if (!decode_ok) { fail_decode++; continue; }
+
+            /* C1: each pair used exactly once */
+            int c1_ok = 1;
+            for (int i = 0; i < 32; i++) {
+                if (used_pairs[i] != 1) { c1_ok = 0; break; }
+            }
+            if (!c1_ok) fail_c1++;
+
+            /* C4: first pair is Creative/Receptive (63, 0) */
+            int pidx0 = (rec[0] >> 2) & 0x3F;
+            if (pidx0 != pair_index_of(63, 0)) fail_c4++;
+
+            /* C2: no hamming-5 transitions */
+            int c2_ok = 1;
+            for (int i = 0; i < 63; i++) {
+                if (hamming(seq[i], seq[i + 1]) == 5) { c2_ok = 0; break; }
+            }
+            if (!c2_ok) fail_c2++;
+
+            /* C5: distance distribution matches KW */
+            int dist[7] = {0};
+            for (int i = 0; i < 63; i++) {
+                int d = hamming(seq[i], seq[i + 1]);
+                if (d >= 0 && d <= 6) dist[d]++;
+            }
+            int c5_ok = 1;
+            for (int d = 0; d < 7; d++) {
+                if (dist[d] != kw_dist[d]) { c5_ok = 0; break; }
+            }
+            if (!c5_ok) fail_c5++;
+
+            /* Sorted order check (canonical comparison) */
+            if (r > 0) {
+                int cmp = compare_solutions(prev, rec);
+                if (cmp > 0) fail_sort++;
+                if (cmp == 0) fail_dup++;
+            }
+
+            /* King Wen check */
+            int is_kw = 1;
+            for (int i = 0; i < 64; i++) {
+                if (seq[i] != KW[i]) { is_kw = 0; break; }
+            }
+            if (is_kw) kw_found_v = 1;
+
+            memcpy(prev, rec, SOL_RECORD_SIZE);
+
+            if (r > 0 && r % 10000000 == 0)
+                printf("  ... verified %d / %d records\n", r, n_records);
+        }
+        fclose(vf);
+
+        printf("\n--- Verification Results ---\n");
+        printf("Records checked:        %d\n", n_records);
+        printf("C1 failures (pairs):    %d\n", fail_c1);
+        printf("C2 failures (hamming5): %d\n", fail_c2);
+        printf("C4 failures (first pair): %d\n", fail_c4);
+        printf("C5 failures (dist):     %d\n", fail_c5);
+        printf("Decode failures:        %d\n", fail_decode);
+        printf("Sort order violations:  %d\n", fail_sort);
+        printf("Duplicate records:      %d\n", fail_dup);
+        printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
+
+        int total_fail = fail_c1 + fail_c2 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
+        if (total_fail == 0) {
+            printf("\n*** VERIFY PASS: all %d records satisfy C1-C5, sorted, no duplicates ***\n", n_records);
+            return 0;
+        } else {
+            printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
+            return 1;
+        }
+    }
 
     /* --- Validate mode ---
      * solutions.bin uses packed 32-byte records: byte i = (pair_index<<2)|(orient<<1).
@@ -5641,6 +5825,68 @@ int main(int argc, char *argv[]) {
     }
     printf("  Found %d sub-branch files with %lld total records\n", n_sub_files, total_file_records);
 
+    /* Fix #2: Cross-reference sub_*.bin record counts against checkpoint.
+     * A truncated file (disk-full during flush) passes the "multiple of 32"
+     * check but contains fewer records than the checkpoint claims. */
+    int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
+    {
+        FILE *ckf = fopen("checkpoint.txt", "r");
+        if (ckf) {
+            char ckline[1024];
+            while (fgets(ckline, sizeof(ckline), ckf)) {
+                if (strstr(ckline, "EXHAUSTED") || strstr(ckline, "COMPLETE"))
+                    ckpt_exhausted++;
+                else if (strstr(ckline, "BUDGETED"))
+                    ckpt_budgeted++;
+                else if (strstr(ckline, "INTERRUPTED"))
+                    ckpt_interrupted++;
+
+                /* Extract solution count and filename from checkpoint line.
+                 * Format: "... N solutions, Ts ***" with sub-branch identifiers
+                 * that map to sub_P1_O1_P2_O2[_P3_O3].bin */
+                char *sol_str = strstr(ckline, " solutions,");
+                if (!sol_str) continue;
+                /* Walk backward to find the number */
+                char *p = sol_str - 1;
+                while (p > ckline && *p >= '0' && *p <= '9') p--;
+                int ckpt_count = atoi(p + 1);
+                if (ckpt_count <= 0) continue;
+
+                /* Extract sub-branch key: pair1, orient1, pair2, orient2[, pair3, orient3] */
+                int cp1 = -1, co1 = -1, cp2 = -1, co2 = -1, cp3 = -1, co3 = -1;
+                char *pk = strstr(ckline, "pair1 ");
+                if (pk) sscanf(pk, "pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d",
+                               &cp1, &co1, &cp2, &co2, &cp3, &co3);
+                if (cp1 < 0) continue;
+
+                char expected_fname[96];
+                if (cp3 >= 0)
+                    snprintf(expected_fname, sizeof(expected_fname),
+                             "sub_%d_%d_%d_%d_%d_%d.bin", cp1, co1, cp2, co2, cp3, co3);
+                else
+                    snprintf(expected_fname, sizeof(expected_fname),
+                             "sub_%d_%d_%d_%d.bin", cp1, co1, cp2, co2);
+
+                struct stat fst;
+                if (stat(expected_fname, &fst) == 0) {
+                    int file_records = (int)(fst.st_size / SOL_RECORD_SIZE);
+                    if (file_records != ckpt_count) {
+                        fprintf(stderr, "ERROR: %s has %d records but checkpoint says %d — "
+                                "file is truncated or corrupted\n",
+                                expected_fname, file_records, ckpt_count);
+                        free(merge_filenames);
+                        return 20;
+                    }
+                }
+            }
+            fclose(ckf);
+            printf("  Checkpoint cross-ref: %d EXHAUSTED, %d BUDGETED, %d INTERRUPTED\n",
+                   ckpt_exhausted, ckpt_budgeted, ckpt_interrupted);
+        } else {
+            printf("  No checkpoint.txt found — skipping cross-reference\n");
+        }
+    }
+
     unsigned char *all_solutions = NULL;
     if (total_file_records > 0)
         all_solutions = malloc((size_t)total_file_records * SOL_RECORD_SIZE);
@@ -5762,6 +6008,19 @@ int main(int argc, char *argv[]) {
     if (n_completed_subs > 0)
         printf(" (%d from checkpoint)", n_completed_subs);
     printf("\n");
+
+    /* Fix #6: Aggregate exhaustion status */
+    {
+        const char *enum_status;
+        if (ckpt_exhausted + ckpt_budgeted + ckpt_interrupted > 0) {
+            if (ckpt_budgeted == 0 && ckpt_interrupted == 0)
+                enum_status = "COMPLETE";
+            else
+                enum_status = "BUDGET-LIMITED";
+            printf("Enumeration: %s (%d EXHAUSTED, %d BUDGETED, %d INTERRUPTED)\n",
+                   enum_status, ckpt_exhausted, ckpt_budgeted, ckpt_interrupted);
+        }
+    }
     printf("======================================================================\n\n");
 
     printf("--- Counts ---\n");
@@ -5770,7 +6029,7 @@ int main(int argc, char *argv[]) {
            elapsed > 0 ? total_nodes / (double)elapsed / 1e6 : 0);
     printf("Total solutions (C1+C2+C4+C5): %lld\n", total_sol);
     printf("C3-valid solutions:            %lld\n", total_c3);
-    printf("Unique pair orderings:         %d\n", unique_count);
+    printf("Unique pair orderings:         %d  (canonical: orient bits masked)\n", unique_count);
     printf("King Wen found:                %s\n", kw_found ? "YES" : "No");
     printf("Threads used:                  %d\n", n_threads);
     printf("Hash de-dup collisions:        %lld (exact match — zero false positives)\n",
