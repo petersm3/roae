@@ -277,13 +277,51 @@ keeping the managed disk.
   UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o StrictHostKeyChecking=no`
   for VMs whose IPs get reused across recreation cycles. Historically we had
   grep chains filtering out WARNING lines; that's hygiene, not a fix.
+- **Solver-launch SSH must be belt-and-suspenders detached.** The naive form
+  `ssh host "nohup ~/solve > out 2>&1 &"` hangs the local SSH client even
+  with `ssh -n` and remote `< /dev/null` — observed empirically 2026-04-16.
+  The remote `bash -c` lingered for minutes after backgrounding `nohup`,
+  because some fd inheritance path kept the SSH channel open. Solve was
+  happily running but the launching monitor never returned from `ssh`,
+  stuck in `do_wait`, missing spot evictions. **Required form:**
+  `timeout 15 ssh -n … "cd /data && setsid nohup ~/solve … > out 2>&1 < /dev/null &" < /dev/null`.
+  - `setsid` puts solve in its own session, fully detached from SSH's
+    process group / controlling tty
+  - `timeout 15` guarantees the local ssh dies even if the remote shell
+    refuses to release the channel; the nohup+setsid'd solve survives
+  - The next monitor step probes `pgrep -x solve` via a fresh SSH so a
+    forced-killed launch SSH doesn't false-fail launch detection.
+- **A stuck monitor is blind to spot eviction.** If the monitor's main
+  poll loop never starts (hung in launch SSH, hung in setup), the VM can
+  evict undetected. Every long-blocking call in the launch path needs a
+  hard timeout for this reason.
+- **Supervisor → monitor takeover: kill monitor FIRST, then touch /data.**
+  When a supervisor wraps a monitor (e.g., to chain runs or re-archive
+  after the monitor finishes), kill the monitor *before* doing any
+  `/data` operations or VM teardown. Otherwise the monitor's own
+  archive/teardown flow races with the supervisor — observed scenario:
+  monitor's `az vm delete` runs while supervisor's `scp solver@host:/data/...`
+  is in flight, and the scp dies with no route to host mid-pull.
+- **Pattern-based wipes preserve everything outside the patterns.** The
+  monitor's stale-data clear is `rm -f /data/sub_*.bin /data/solutions.bin
+  /data/checkpoint.txt …` (enumerated patterns), not `rm -rf /data/*`. To
+  carry a file across runs on the shared managed disk, give it a name
+  outside the pattern set — e.g., `solutions_d3_<sha8>.bin` survives a
+  depth-2 wipe because no pattern matches it. (This is also the reason
+  we say "clear stale run artifacts," not "wipe the disk" — see
+  `Asset preservation` for terminology.)
+- **Chained runs: supervisor owns VM teardown, not the inner monitors.**
+  When the supervisor takes over completion handling, the monitor
+  shouldn't auto-teardown — the supervisor decides when the VM goes away
+  (typically: pull metadata via SSH first, then delete VM). The
+  managed data disk auto-detaches and survives VM deletion.
 
 ### Infrastructure
 
 - **Spot-VM evictions in westus2 under F64 averaged ~1 per 3 hours during
   April 2026 testing.** Sub-branch-granularity recovery is too coarse at
-  large per-sub-branch budgets (100T+). Depth-3 work units (Option B in the
-  future-work list) make the recovery granularity affordable.
+  large per-sub-branch budgets (100T+). Depth-3 work units (Option B,
+  shipped via `SOLVE_DEPTH=3`) make the recovery granularity affordable.
 - **Non-zonal managed disks cannot attach to zonal VMs.** If your data disk
   was created without a zone but the VM you want to attach it to is zonal,
   Azure returns `BadRequest`. Provision analysis VMs as non-zonal when they
@@ -291,6 +329,67 @@ keeping the managed disk.
 - **Teardown is dependency-ordered.** VM → NIC → public-IP → NSG → vnet,
   sequential. Parallel deletes return spurious exit-1 because dependents
   hold references.
+
+### Solver-VM network topology: private IP only
+
+Solver VMs live on the shared `claude-vnet/default` subnet alongside the
+orchestrator (`claude` VM at 10.0.0.4). Each new solver VM is created with
+a private IP (e.g., 10.0.0.5) and **no public IP, no NSG rule**. The
+orchestrator SSHes to the private IP directly.
+
+**Why:** zero external attack surface (no port 22 reachable from the
+internet), no public-IP cost (~$0.005/hr per VM), simpler resource
+inventory.
+
+**How `monitor_canonical.sh` does it:**
+- `az network nic create --vnet-name claude-vnet --subnet default`
+  (no `--public-ip-address`, no `--network-security-group`)
+- `get_ip()` queries the NIC's `privateIPAddress` instead of a public-IP
+  resource
+
+**Pre-2026-04-16 monitor scripts** created public IPs and NSG rules per
+run; their cleanup paths still attempt to delete those resources for
+backward compatibility but new runs don't create them.
+
+**Caveat:** since both VMs must share `claude-vnet`, an analyst running
+this from a laptop (not from the orchestrator VM) needs a different
+SSH path — either keep the public IP, or set up vnet peering / a jump
+host. The orchestrator-on-vnet pattern is the simplest local case.
+
+### Dynamic disk expansion (online resize while solver runs)
+
+Azure managed disks support online expansion while attached to a running
+Linux VM with ext4. `monitor_canonical.sh` watches `/data` usage every poll
+cycle and grows the disk + filesystem if usage crosses a threshold.
+
+**Settings (env vars, defaults shown):**
+- `DISK_EXPAND_THRESHOLD_PCT=75` — trigger expansion when /data is 75% full
+- `DISK_EXPAND_INCREMENT_GB=100` — grow by 100 GB per trigger
+- `MAX_DISK_GB=1024` — hard ceiling (don't grow beyond 1 TB)
+
+**Mechanism:**
+1. `df -BG /data` on the solver VM measures usage
+2. If pct ≥ threshold and current disk size < `MAX_DISK_GB`:
+   - Orchestrator: `az disk update -g RG-CLAUDE -n solver-data --size-gb (cur + INCREMENT)`
+   - Inside VM: `sudo resize2fs $(mount | grep /data | cut -d" " -f1)`
+3. Telemetry CSV gets a `disk_expanded` row.
+
+The solver continues writing throughout — no unmount, no reboot, no
+disruption. Online expansion typically takes ~30 sec (azure provisioning)
++ ~1 sec (resize2fs).
+
+**Why:** for runs whose final size exceeds initial sizing (especially
+100T/1000T where the unique-count projection has wide uncertainty), this
+prevents disk-full mid-merge — the failure mode that produced the
+2026-04-14 8 GB / 23.7 GB truncation incident. Combined with the static
+preflight check (in `solve.c` merge mode and the monitor's launch-time
+check), this is defense in depth: preflight rejects obviously-undersized
+starts; watchdog handles unexpected mid-run growth.
+
+**Disks can grow but not shrink.** If 100T finishes with the disk grown
+to 500 GB but only 200 GB used, the disk stays at 500 GB until manually
+shrunk via snapshot + recreate. Cost continues at the larger size until
+then.
 
 ---
 

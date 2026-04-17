@@ -50,9 +50,10 @@
  * false positive rate. Changed to full-key after discovering the loss was unacceptable
  * for a project claiming rigorous enumeration.
  *
- * Hash table size is configurable via SOLVE_HASH_LOG2 env var (default 2^22 = 4M
- * slots = 256 MB per thread). At 56 threads this is 14 GB total. Probe limit is 64
- * before giving up on insertion — if the table is >75% full, a warning is emitted.
+ * Hash table size is configurable via SOLVE_HASH_LOG2 env var (default 2^24 = 16M
+ * slots = 512 MB per thread). Tables auto-resize (double) when load exceeds 75%,
+ * so SOLVE_HASH_LOG2 sets the INITIAL size, not a ceiling. No probe limit — the
+ * full table is probed on each insertion, guaranteeing zero silent drops.
  *
  * After each sub-branch, the thread's hash table is flushed to a per-sub-branch
  * file `sub_P1_O1_P2_O2.bin` (atomic write: temp + rename) and the table is
@@ -135,10 +136,10 @@
  *
  * KNOWN LIMITATIONS / OPEN ISSUES
  * ===============================
- * - Probe limit of 64 in hash table insertion: if a cluster of 64+ consecutive
- *   slots are occupied, the record is SILENTLY DROPPED (no counter, no warning).
- *   Mitigated in practice by large table (4M slots for typical <1M entries per
- *   sub-branch). Hardening: remove the 64 cap entirely + add a drop counter.
+ * - [FIXED] Hash table probe limit removed; tables auto-resize at 75% load.
+ *   Prior versions had a 64-probe cap that silently dropped records at high
+ *   load (241M drops observed at 10T depth-2 with 2^22 table). Now: full-table
+ *   probe + dynamic doubling + OOM abort. Zero silent drops guaranteed.
  * - "INTERRUPTED" status conflates external interruption with budget exhaustion;
  *   resume re-runs both even though budget-exhausted sub-branches are
  *   deterministically done. Costs eviction-recovery time; tracked for fix.
@@ -196,7 +197,7 @@
  * ENVIRONMENT VARIABLES
  * =====================
  *   SOLVE_THREADS=N          — override thread count
- *   SOLVE_HASH_LOG2=N        — hash table size as power of 2 (default: 22 = 4M slots)
+ *   SOLVE_HASH_LOG2=N        — initial hash table size as power of 2 (default: 24 = 16M slots; auto-resizes)
  *   SOLVE_NODE_LIMIT=N       — stop after N total nodes, distributed equally per
  *                              sub-branch. Deterministic, reproducible sha256
  *                              regardless of thread count.
@@ -288,11 +289,12 @@ static int pair_wpd[32];  /* pair_wpd[i] = hamming(pairs[i].a, pairs[i].b) */
  * so infeasible branches are discovered sooner. */
 static int pair_order[32];
 
-/* Runtime-configurable hash table size.
- * Trade-off: larger = fewer collisions but more memory per thread.
- * At 2^22 (256 MB/thread), 56 threads = 14 GB. F64 VM has 128 GB so this is fine.
- * For smaller VMs, set SOLVE_HASH_LOG2=20 (64 MB/thread) or 18 (16 MB/thread). */
-static int sol_hash_log2 = 22;         /* default: 2^22 = 4M slots */
+/* Runtime-configurable INITIAL hash table size per thread.
+ * Tables auto-resize (double) when load factor exceeds 75%, so this is a
+ * starting point, not a ceiling. Larger initial size avoids early resizes.
+ * At 2^24 (512 MB/thread), 64 threads = 32 GB. F64 VM has 128 GB so fine.
+ * For smaller VMs, set SOLVE_HASH_LOG2=22 (128 MB/thread) or 20 (32 MB/thread). */
+static int sol_hash_log2 = 24;         /* default: 2^24 = 16M slots */
 static int sol_hash_size;
 static int sol_hash_mask;
 
@@ -400,8 +402,8 @@ typedef struct {
     int kw_found;
     int branches_completed;
     long long hash_collisions;
-    long long hash_drops;   /* records dropped because 64-probe linear-probe
-                             * couldn't find a free slot. Must be 0 in a correct run. */
+    long long hash_drops;   /* legacy counter; always 0 with auto-resize.
+                             * kept for format compatibility with older code. */
 
     /* Position match analytics */
     long long pos_match_count[32];
@@ -428,10 +430,14 @@ typedef struct {
     /* Super-pair match */
     long long super_pair_match[32];
 
-    /* Solution storage: full-key hash table */
+    /* Solution storage: full-key hash table (auto-resizing) */
     unsigned char *sol_table;
     char *sol_occupied;
     int solution_count;
+    int ht_log2;
+    int ht_size;
+    int ht_mask;
+    int ht_resizes;
 } ThreadState;
 
 static volatile int global_timed_out = 0;
@@ -710,6 +716,59 @@ static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, in
     return (completed_sub_bitmap_d3[key >> 3] >> (key & 7)) & 1;
 }
 
+/* ---------- Hash table resize ---------- */
+
+static void resize_hash_table(ThreadState *ts) {
+    int old_log2 = ts->ht_log2;
+    int old_size = ts->ht_size;
+    int new_log2 = old_log2 + 1;
+    int new_size = 1 << new_log2;
+    int new_mask = new_size - 1;
+
+    unsigned char *new_table = calloc((size_t)new_size, SOL_RECORD_SIZE);
+    char *new_occupied = calloc(new_size, 1);
+    if (!new_table || !new_occupied) {
+        fprintf(stderr, "FATAL: thread %d cannot resize hash table 2^%d → 2^%d "
+                "(%d MB). Out of memory.\n",
+                ts->thread_id, old_log2, new_log2,
+                (int)((size_t)new_size * SOL_RECORD_SIZE / 1048576));
+        exit(1);
+    }
+
+    for (int s = 0; s < old_size; s++) {
+        if (ts->sol_occupied[s]) {
+            unsigned char *rec = &ts->sol_table[(size_t)s * SOL_RECORD_SIZE];
+            unsigned long long ch = 14695981039346656037ULL;
+            for (int i = 0; i < SOL_RECORD_SIZE; i++) {
+                ch ^= (rec[i] & 0xFC);
+                ch *= 1099511628211ULL;
+            }
+            int slot = (int)(ch & (unsigned long long)new_mask);
+            for (int p = 0; p < new_size; p++) {
+                int idx = (slot + p) & new_mask;
+                if (!new_occupied[idx]) {
+                    memcpy(&new_table[(size_t)idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
+                    new_occupied[idx] = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    free(ts->sol_table);
+    free(ts->sol_occupied);
+    ts->sol_table = new_table;
+    ts->sol_occupied = new_occupied;
+    ts->ht_log2 = new_log2;
+    ts->ht_size = new_size;
+    ts->ht_mask = new_mask;
+    ts->ht_resizes++;
+
+    fprintf(stderr, "  [thread %d] Hash table resized: 2^%d → 2^%d (%d MB)\n",
+            ts->thread_id, old_log2, new_log2,
+            (int)((size_t)new_size * SOL_RECORD_SIZE / 1048576));
+}
+
 /* ---------- Solution analysis ---------- */
 
 static void analyze_solution(ThreadState *ts, const int seq[64]) {
@@ -814,29 +873,26 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
     for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
 
     if (!ts->sol_table) {
-        ts->sol_table = calloc((size_t)sol_hash_size, SOL_RECORD_SIZE);
-        ts->sol_occupied = calloc(sol_hash_size, 1);
+        ts->sol_table = calloc((size_t)ts->ht_size, SOL_RECORD_SIZE);
+        ts->sol_occupied = calloc(ts->ht_size, 1);
         if (!ts->sol_table || !ts->sol_occupied) {
-            fprintf(stderr, "ERROR: thread %d failed to allocate hash table (%d MB). "
-                    "Solutions will not be stored. Reduce SOLVE_HASH_LOG2 or thread count.\n",
-                    ts->thread_id, (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576));
-            return;
+            fprintf(stderr, "FATAL: thread %d failed to allocate hash table (%d MB).\n",
+                    ts->thread_id, (int)((size_t)ts->ht_size * SOL_RECORD_SIZE / 1048576));
+            exit(1);
         }
     }
 
-    int slot = (int)(ch & (unsigned long long)sol_hash_mask);
-    int probe;
-    int inserted_or_matched = 0;
-    for (probe = 0; probe < 64; probe++) {
-        int idx = (slot + probe) & sol_hash_mask;
+    int slot = (int)(ch & (unsigned long long)ts->ht_mask);
+    for (int probe = 0; probe < ts->ht_size; probe++) {
+        int idx = (slot + probe) & ts->ht_mask;
         if (!ts->sol_occupied[idx]) {
             memcpy(&ts->sol_table[(size_t)idx * SOL_RECORD_SIZE], record, SOL_RECORD_SIZE);
             ts->sol_occupied[idx] = 1;
             ts->solution_count++;
-            inserted_or_matched = 1;
-            break;
+            if (ts->solution_count > ts->ht_size * 3 / 4)
+                resize_hash_table(ts);
+            return;
         }
-        /* Compare canonical (pair identity only, orient masked out) */
         unsigned char *existing = &ts->sol_table[(size_t)idx * SOL_RECORD_SIZE];
         int match = 1;
         for (int ci = 0; ci < SOL_RECORD_SIZE; ci++) {
@@ -844,15 +900,13 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
         }
         if (match) {
             ts->hash_collisions++;
-            inserted_or_matched = 1;
-            break;
+            return;
         }
     }
-    /* Silent-drop instrumentation: if 64 probes all hit occupied-and-not-matching
-     * slots, the record is dropped without being inserted. Count but do not remove
-     * the 64-probe cap — removing it is a separate, sha-affecting change (next
-     * commit, after this counter confirms zero drops on the canonical 10T rerun). */
-    if (!inserted_or_matched) ts->hash_drops++;
+    fprintf(stderr, "FATAL: thread %d hash table 100%% full at 2^%d (%d entries). "
+            "This should never happen with auto-resize.\n",
+            ts->thread_id, ts->ht_log2, ts->solution_count);
+    exit(1);
 }
 
 /* ---------- Backtracking ---------- */
@@ -986,7 +1040,7 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
     FILE *sf = fopen(tmpname, "wb");
     if (sf) {
         int written = 0;
-        for (int s = 0; s < sol_hash_size; s++) {
+        for (int s = 0; s < ts->ht_size; s++) {
             if (ts->sol_occupied[s]) {
                 fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf);
                 written++;
@@ -998,8 +1052,8 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
         rename(tmpname, fname);
         fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
     }
-    memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
-    memset(ts->sol_occupied, 0, sol_hash_size);
+    memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
+    memset(ts->sol_occupied, 0, ts->ht_size);
     ts->solution_count = 0;
     ts->hash_collisions = 0;
 }
@@ -1009,13 +1063,10 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
     char fname[64], tmpname[64];
     snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
     snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2);
-    /* Write to temp file, fsync, then atomic rename.
-     * If evicted mid-write, the temp file is incomplete but the
-     * previous version (if any) is intact. */
     FILE *sf = fopen(tmpname, "wb");
     if (sf) {
         int written = 0;
-        for (int s = 0; s < sol_hash_size; s++) {
+        for (int s = 0; s < ts->ht_size; s++) {
             if (ts->sol_occupied[s]) {
                 fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf);
                 written++;
@@ -1024,15 +1075,11 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
         fflush(sf);
         fsync(fileno(sf));
         fclose(sf);
-        rename(tmpname, fname);  /* atomic on Linux */
+        rename(tmpname, fname);
         fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
     }
-    /* Clear hash table for next sub-branch.
-     * NOTE: ts->hash_drops is NOT reset here — drops are a run-level defect
-     * counter that should accumulate across sub-branches and be reported at
-     * shutdown. Resetting would hide mid-run drops. */
-    memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
-    memset(ts->sol_occupied, 0, sol_hash_size);
+    memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
+    memset(ts->sol_occupied, 0, ts->ht_size);
     ts->solution_count = 0;
     ts->hash_collisions = 0;
 }
@@ -1176,8 +1223,8 @@ static void *thread_func_single(void *arg) {
                 flush_sub_solutions(ts, p1, o1, p2, o2);
             }
         } else if (ts->sol_table) {
-            memset(ts->sol_table, 0, (size_t)sol_hash_size * SOL_RECORD_SIZE);
-            memset(ts->sol_occupied, 0, sol_hash_size);
+            memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
+            memset(ts->sol_occupied, 0, ts->ht_size);
             ts->solution_count = 0;
             ts->hash_collisions = 0;
         }
@@ -1669,7 +1716,7 @@ int main(int argc, char *argv[]) {
     char *env_hash = getenv("SOLVE_HASH_LOG2");
     if (env_hash) {
         int v = atoi(env_hash);
-        if (v >= 16 && v <= 28) sol_hash_log2 = v;
+        if (v >= 16 && v <= 30) sol_hash_log2 = v;
     }
     sol_hash_size = 1 << sol_hash_log2;
     sol_hash_mask = sol_hash_size - 1;
@@ -4840,14 +4887,18 @@ int main(int argc, char *argv[]) {
             threads[i].branches = NULL;
             threads[i].n_branches = 0;
             threads[i].top_count = 0;
+            threads[i].ht_log2 = sol_hash_log2;
+            threads[i].ht_size = sol_hash_size;
+            threads[i].ht_mask = sol_hash_mask;
             for (int j = 0; j < TOP_N; j++)
                 threads[i].top_closest[j].edit_dist = 33;
         }
 
         printf("Threads: %d, Sub-branches per thread: %d-%d\n",
                n_threads, n_sub / n_threads, (n_sub + n_threads - 1) / n_threads);
-        printf("Total hash memory: %d MB\n",
-               n_threads * (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576));
+        printf("Initial hash memory: %d MB (%d MB/thread, auto-resize at 75%%)\n",
+               n_threads * (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576),
+               (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576));
         if (time_limit > 0)
             printf("Time limit: %d seconds (%.1f hours)\n", time_limit, time_limit / 3600.0);
         printf("\nStarting single-branch enumeration...\n\n");
@@ -4980,7 +5031,7 @@ int main(int argc, char *argv[]) {
         int sol_offset = 0;
         for (int i = 0; i < n_threads; i++) {
             if (threads[i].sol_table && threads[i].sol_occupied) {
-                for (int s = 0; s < sol_hash_size; s++) {
+                for (int s = 0; s < threads[i].ht_size; s++) {
                     if (threads[i].sol_occupied[s]) {
                         memcpy(&all_solutions[(size_t)sol_offset * SOL_RECORD_SIZE], &threads[i].sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
                         sol_offset++;
@@ -5099,14 +5150,17 @@ int main(int argc, char *argv[]) {
         printf("Unique pair orderings:         %d\n", unique_count);
         printf("King Wen found:                %s\n", kw_found ? "YES" : "No");
         printf("Hash de-dup collisions:        %lld\n", total_hash_collisions);
-        if (total_hash_drops > 0) {
-            printf("*** WARNING: Hash-table silent drops: %lld ***\n", total_hash_drops);
-            printf("***          64-probe linear-probe gave up; records lost.\n");
-            printf("***          Output is an UNDERCOUNT of true solution set.\n");
-            printf("***          Increase SOLVE_HASH_LOG2 or remove the 64-probe cap.\n");
-        } else {
-            printf("Hash-table silent drops:       0  (no probe-cap-induced losses)\n");
+        {
+            int max_ht = sol_hash_log2;
+            int total_resizes = 0;
+            for (int i = 0; i < n_threads; i++) {
+                if (threads[i].ht_log2 > max_ht) max_ht = threads[i].ht_log2;
+                total_resizes += threads[i].ht_resizes;
+            }
+            printf("Hash table:                    initial 2^%d, max 2^%d, %d resize(s)\n",
+                   sol_hash_log2, max_ht, total_resizes);
         }
+        printf("Hash-table silent drops:       %lld  (0 expected with auto-resize)\n", total_hash_drops);
         printf("\n");
 
         /* Position match rates */
@@ -5370,9 +5424,12 @@ int main(int argc, char *argv[]) {
         threads[i].sol_table = NULL;
         threads[i].sol_occupied = NULL;
         threads[i].solution_count = 0;
+        threads[i].ht_log2 = sol_hash_log2;
+        threads[i].ht_size = sol_hash_size;
+        threads[i].ht_mask = sol_hash_mask;
     }
 
-    printf("Total hash memory: %d MB (%d threads x %d MB)\n",
+    printf("Initial hash memory: %d MB (%d threads x %d MB, auto-resize at 75%%)\n",
            n_threads * (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576),
            n_threads, (int)((size_t)sol_hash_size * SOL_RECORD_SIZE / 1048576));
     printf("Threads: %d (%d-%d sub-branches per thread)\n",
@@ -5716,26 +5773,19 @@ int main(int argc, char *argv[]) {
     printf("Unique pair orderings:         %d\n", unique_count);
     printf("King Wen found:                %s\n", kw_found ? "YES" : "No");
     printf("Threads used:                  %d\n", n_threads);
-    printf("Hash table size:               %d (2^%d)\n", sol_hash_size, sol_hash_log2);
     printf("Hash de-dup collisions:        %lld (exact match — zero false positives)\n",
            total_hash_collisions);
-    if (total_hash_drops > 0) {
-        printf("*** WARNING: Hash-table silent drops: %lld ***\n", total_hash_drops);
-        printf("***          64-probe linear-probe gave up; records lost.\n");
-        printf("***          Output is an UNDERCOUNT of true solution set.\n");
-        printf("***          Increase SOLVE_HASH_LOG2 or remove the 64-probe cap.\n");
-    } else {
-        printf("Hash-table silent drops:       0  (no probe-cap-induced losses)\n");
+    {
+        int max_ht = sol_hash_log2;
+        int total_resizes = 0;
+        for (int i = 0; i < n_threads; i++) {
+            if (threads[i].ht_log2 > max_ht) max_ht = threads[i].ht_log2;
+            total_resizes += threads[i].ht_resizes;
+        }
+        printf("Hash table:                    initial 2^%d, max 2^%d, %d resize(s)\n",
+               sol_hash_log2, max_ht, total_resizes);
     }
-    int tables_over_75 = 0;
-    for (int i = 0; i < n_threads; i++) {
-        if (threads[i].solution_count > sol_hash_size * 3 / 4) tables_over_75++;
-    }
-    if (tables_over_75 > 0) {
-        printf("WARNING: %d/%d threads exceeded 75%% hash table capacity.\n", tables_over_75, n_threads);
-        printf("  Some solutions may have been lost due to probe limit.\n");
-        printf("  Increase SOLVE_HASH_LOG2 and re-run.\n");
-    }
+    printf("Hash-table silent drops:       %lld  (0 expected with auto-resize)\n", total_hash_drops);
     printf("\n");
 
     printf("--- Position match rates ---\n");
