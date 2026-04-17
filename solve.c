@@ -2228,6 +2228,12 @@ int main(int argc, char *argv[]) {
         for (int p = 0; p < 32; p++) { orient_min[p] = 2; orient_max[p] = -1; }
         int kw_cap = 256;
         long long *kw_indices = malloc(kw_cap * sizeof(long long));
+        if (!kw_indices) {
+            fprintf(stderr, "ERROR: malloc failed for kw_indices (%zu bytes)\n",
+                    (size_t)(kw_cap * sizeof(long long)));
+            munmap(all, file_size);
+            return 1;
+        }
         /* Section [26] input: per-first-level-branch (pair-at-pos-2, orient-at-pos-2) counts */
         long long branch_count[32][2]; memset(branch_count, 0, sizeof(branch_count));
         /* Section [28] input: edit-distance-to-KW histogram */
@@ -2242,9 +2248,21 @@ int main(int argc, char *argv[]) {
         printf("[masks] Allocating 31 packed bitmaps (%lld words each, %.2f GB total)...\n",
                n_words, 31.0 * n_words * 8.0 / 1e9);
         uint64_t **bmask = malloc(31 * sizeof(uint64_t *));
+        if (!bmask) {
+            fprintf(stderr, "ERROR: malloc failed for bmask pointer array\n");
+            free(kw_indices); free(sub_solution_count);
+            munmap(all, file_size);
+            return 1;
+        }
         for (int b = 0; b < 31; b++) {
             bmask[b] = calloc((size_t)n_words, sizeof(uint64_t));
-            if (!bmask[b]) { printf("ERROR: bmask[%d] alloc failed\n", b); return 1; }
+            if (!bmask[b]) {
+                fprintf(stderr, "ERROR: calloc failed for bmask[%d] (%lld words)\n", b, n_words);
+                for (int f = 0; f < b; f++) free(bmask[f]);
+                free(bmask); free(kw_indices); free(sub_solution_count);
+                munmap(all, file_size);
+                return 1;
+            }
         }
 
         printf("[stream] Single-pass streaming over %lld records ...\n", n_sols);
@@ -2268,7 +2286,14 @@ int main(int argc, char *argv[]) {
             if (is_kw) {
                 if (kw_count >= kw_cap) {
                     kw_cap *= 2;
-                    kw_indices = realloc(kw_indices, kw_cap * sizeof(long long));
+                    long long *tmp = realloc(kw_indices, kw_cap * sizeof(long long));
+                    if (!tmp) {
+                        fprintf(stderr, "ERROR: realloc failed for kw_indices (cap=%d)\n", kw_cap);
+                        /* Keep existing kw_indices; stop collecting further KW entries */
+                        kw_cap = kw_count; /* prevent further realloc attempts */
+                        goto done_streaming;
+                    }
+                    kw_indices = tmp;
                 }
                 kw_indices[kw_count++] = i;
                 for (int p = 0; p < 32; p++) {
@@ -2295,6 +2320,7 @@ int main(int argc, char *argv[]) {
                 edit_dist_hist[dist]++;
             }
         }
+        done_streaming:
         printf("        done in %lds.\n\n", (long)(time(NULL) - t_stream_start));
 
         /* === Section 2: entropy === */
@@ -2358,9 +2384,17 @@ int main(int argc, char *argv[]) {
         /* Helper: count bits in intersection of two packed masks */
         #define POPCOUNT_AND(_a,_b,_n) ({ long long _s=0; for (long long _w=0; _w<(_n); _w++) _s += __builtin_popcountll((_a)[_w] & (_b)[_w]); _s; })
 
+        /* Mask trailing bits past n_sols (used by sections 6, 12, 15) */
+        long long extra = n_words * 64 - n_sols;
+
         /* === Section 6: greedy minimum boundary search === */
         printf("[6] Greedy minimum-boundary search to uniquely identify KW\n");
         uint64_t *alive_mask = malloc((size_t)n_words * sizeof(uint64_t));
+        if (!alive_mask) {
+            fprintf(stderr, "ERROR: malloc failed for alive_mask (%lld words)\n", n_words);
+            printf("    SKIPPED: section 6 (alloc failed)\n\n");
+            goto skip_section6;
+        }
         for (long long w = 0; w < n_words; w++) {
             uint64_t bits = ~(uint64_t)0;
             /* Subtract KW-pair-sequence rows: those for which all 31 bmask bits are set */
@@ -2368,8 +2402,6 @@ int main(int argc, char *argv[]) {
             for (int b = 0; b < 31; b++) kw_pairs &= bmask[b][w];
             alive_mask[w] = bits & ~kw_pairs;
         }
-        /* Mask trailing bits past n_sols */
-        long long extra = n_words * 64 - n_sols;
         if (extra > 0) alive_mask[n_words - 1] &= (((uint64_t)1 << (64 - extra)) - 1);
 
         long long alive_n = 0;
@@ -2394,6 +2426,7 @@ int main(int argc, char *argv[]) {
         for (int b = 0; b < 31; b++) if (chosen_set[b]) printf("%d ", b + 1);
         printf("}\n\n");
         free(alive_mask);
+        skip_section6:
 
         /* === Section 7: 3-subset disproof (parallelized) === */
         printf("[7] Exhaustive 3-subset disproof: test all C(31,3)=4,495 triples\n");
@@ -2440,6 +2473,11 @@ int main(int argc, char *argv[]) {
         typedef struct { int b1, b2, b3, b4; long long s; } QuadEntry;
         int report_cap = 1000;
         QuadEntry *report = malloc(report_cap * sizeof(QuadEntry));
+        if (!report) {
+            fprintf(stderr, "ERROR: malloc failed for report (section 8)\n");
+            printf("    SKIPPED: section 8 (alloc failed)\n\n");
+            goto skip_section8;
+        }
         time_t t8_start = time(NULL);
         #pragma omp parallel
         {
@@ -2447,6 +2485,10 @@ int main(int argc, char *argv[]) {
             int local_n_working = 0;
             int local_cap = 64;
             QuadEntry *local_report = malloc(local_cap * sizeof(QuadEntry));
+            if (!local_report) {
+                fprintf(stderr, "ERROR: malloc failed for local_report in thread\n");
+                local_cap = 0; /* prevent writes to NULL */
+            }
             int local_report_n = 0;
             #pragma omp for schedule(dynamic, 8) collapse(2) nowait
             for (int b1 = 0; b1 < 28; b1++)
@@ -2473,7 +2515,12 @@ int main(int argc, char *argv[]) {
                 for (int i = 0; i < local_report_n && n_working <= 200; i++) {
                     if (n_working - local_n_working + i + 1 > report_cap) {
                         report_cap *= 2;
-                        report = realloc(report, report_cap * sizeof(QuadEntry));
+                        QuadEntry *tmp = realloc(report, report_cap * sizeof(QuadEntry));
+                        if (!tmp) {
+                            fprintf(stderr, "ERROR: realloc failed for report (section 8, cap=%d)\n", report_cap);
+                            break; /* stop adding to report */
+                        }
+                        report = tmp;
                     }
                     /* approximate; just use up to 200 reports total */
                 }
@@ -2513,6 +2560,7 @@ int main(int argc, char *argv[]) {
             printf("}\n");
         }
         printf("\n");
+        skip_section8:
 
         /* === Section 9: Boundary redundancy === */
         printf("[9] Boundary redundancy: joint(b1,b2) / min(single(b1), single(b2))\n");
@@ -2529,6 +2577,11 @@ int main(int argc, char *argv[]) {
         typedef struct { double ratio; int b1, b2; long long jc; long long ms; } RedunEntry;
         int n_pairs = 31 * 30 / 2;
         RedunEntry *re = malloc(n_pairs * sizeof(RedunEntry));
+        if (!re) {
+            fprintf(stderr, "ERROR: malloc failed for re (section 9, %d entries)\n", n_pairs);
+            printf("    SKIPPED: section 9 (alloc failed)\n\n");
+            goto skip_section9;
+        }
         int re_n = 0;
         for (int b1 = 0; b1 < 30; b1++)
             for (int b2 = b1 + 1; b2 < 31; b2++) {
@@ -2556,6 +2609,7 @@ int main(int argc, char *argv[]) {
                    re[i].b1, re[i].b2, re[i].jc, re[i].ms, re[i].ratio);
         printf("\n");
         free(re);
+        skip_section9:
 
         /* === Section 10: pairwise mutual information (parallelized over pairs) === */
         printf("[10] Pairwise mutual information I(p; q) — top 20 strongest correlations\n");
@@ -2586,6 +2640,11 @@ int main(int argc, char *argv[]) {
         typedef struct { double mi; int p, q; } MIEntry;
         int n_mi_pairs = 32 * 31 / 2;
         MIEntry *mi_arr = malloc(n_mi_pairs * sizeof(MIEntry));
+        if (!mi_arr) {
+            fprintf(stderr, "ERROR: malloc failed for mi_arr (section 10)\n");
+            printf("    SKIPPED: section 10 sort/display (alloc failed)\n\n");
+            goto skip_section10;
+        }
         int mi_n = 0;
         for (int p = 0; p < 31; p++)
             for (int q = p + 1; q < 32; q++) {
@@ -2602,6 +2661,7 @@ int main(int argc, char *argv[]) {
             printf("      pos %2d <-> pos %2d:  I = %.4f bits\n",
                    mi_arr[i].p, mi_arr[i].q, mi_arr[i].mi);
         free(mi_arr);
+        skip_section10:
         printf("\n");
 
         /* === Section 11: Per-first-level-branch distinct configurations === */
@@ -2653,7 +2713,26 @@ int main(int argc, char *argv[]) {
             printf("    (random pick happened to be KW; skipping null-model)\n\n");
         } else {
             uint64_t **rmask = malloc(31 * sizeof(uint64_t *));
-            for (int b = 0; b < 31; b++) rmask[b] = calloc((size_t)n_words, sizeof(uint64_t));
+            if (!rmask) {
+                fprintf(stderr, "ERROR: malloc failed for rmask (section 12)\n");
+                printf("    SKIPPED: section 12 (alloc failed)\n\n");
+                goto skip_section12;
+            }
+            int rmask_alloc_ok = 1;
+            for (int b = 0; b < 31; b++) {
+                rmask[b] = calloc((size_t)n_words, sizeof(uint64_t));
+                if (!rmask[b]) {
+                    fprintf(stderr, "ERROR: calloc failed for rmask[%d] (section 12)\n", b);
+                    for (int f = 0; f < b; f++) free(rmask[f]);
+                    free(rmask);
+                    rmask_alloc_ok = 0;
+                    break;
+                }
+            }
+            if (!rmask_alloc_ok) {
+                printf("    SKIPPED: section 12 (alloc failed)\n\n");
+                goto skip_section12;
+            }
             for (long long i = 0; i < n_sols; i++) {
                 const unsigned char *rec = all + i * SOL_RECORD_SIZE;
                 for (int b = 0; b < 31; b++) {
@@ -2664,6 +2743,13 @@ int main(int argc, char *argv[]) {
                 }
             }
             uint64_t *r_alive = malloc((size_t)n_words * sizeof(uint64_t));
+            if (!r_alive) {
+                fprintf(stderr, "ERROR: malloc failed for r_alive (section 12)\n");
+                for (int b = 0; b < 31; b++) free(rmask[b]);
+                free(rmask);
+                printf("    SKIPPED: section 12 greedy search (alloc failed)\n\n");
+                goto skip_section12;
+            }
             for (long long w = 0; w < n_words; w++) {
                 uint64_t bits = ~(uint64_t)0;
                 uint64_t ref_full = ~(uint64_t)0;
@@ -2695,6 +2781,7 @@ int main(int argc, char *argv[]) {
             for (int b = 0; b < 31; b++) free(rmask[b]);
             free(rmask); free(r_alive);
         }
+        skip_section12:
 
         /* === Section 13: Orbits === */
         printf("[13] Orbit analysis under reversal and pair-complement\n");
@@ -2796,6 +2883,10 @@ int main(int argc, char *argv[]) {
             typedef struct { unsigned int pattern; long long count; } PatternEntry;
             #define MAX_PATTERNS 8192
             PatternEntry *patterns4 = calloc(MAX_PATTERNS, sizeof(PatternEntry));
+            if (!patterns4) {
+                fprintf(stderr, "ERROR: calloc failed for patterns4 (section 14)\n");
+                /* patterns4 analytics will be silently skipped */
+            }
             int n_patterns4 = 0;
             long long kw_pattern_mask = 0;  /* KW's varying-position bitmask */
             long long groups4_with_kw_pattern = 0;
@@ -2856,7 +2947,7 @@ int main(int argc, char *argv[]) {
                     unsigned int pat = 0;
                     for (int p = 0; p < 32; p++) if (varies[p]) pat |= ((unsigned int)1 << p);
                     /* Insert into linear-probe table */
-                    if (n_patterns4 < MAX_PATTERNS) {
+                    if (patterns4 && n_patterns4 < MAX_PATTERNS) {
                         int found = 0;
                         for (int ii = 0; ii < n_patterns4; ii++)
                             if (patterns4[ii].pattern == pat) { patterns4[ii].count++; found = 1; break; }
@@ -2895,7 +2986,7 @@ int main(int argc, char *argv[]) {
                 s = e;
             }
             /* Post-walk: compute groups4 with exactly KW's varying-position bitmask */
-            if (kw_pattern_mask != 0) {
+            if (kw_pattern_mask != 0 && patterns4) {
                 for (int ii = 0; ii < n_patterns4; ii++)
                     if (patterns4[ii].pattern == (unsigned int)kw_pattern_mask)
                         groups4_with_kw_pattern = patterns4[ii].count;
@@ -2933,7 +3024,7 @@ int main(int argc, char *argv[]) {
             printf("     4-variant groups satisfying KW's (pos2 XOR pos3) == pos28 == pos29 == pos30 coupling: %lld\n",
                    groups4_with_kw_xor_coupling);
             /* Print top-10 most common varying patterns among 4-variant groups */
-            {
+            if (patterns4) {
                 int order[MAX_PATTERNS]; for (int ii = 0; ii < n_patterns4; ii++) order[ii] = ii;
                 for (int ii = 0; ii < n_patterns4; ii++)
                     for (int jj = ii + 1; jj < n_patterns4; jj++)
@@ -3004,13 +3095,30 @@ int main(int argc, char *argv[]) {
                 /* Build per-boundary packed bitmaps */
                 printf("     Building 31 per-boundary packed bitmaps (%lld words each)...\n", n_words_r);
                 uint64_t **rbm = malloc(31 * sizeof(uint64_t *));
+                if (!rbm) {
+                    fprintf(stderr, "ERROR: malloc failed for rbm (section 15)\n");
+                    printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
+                    goto skip_section15;
+                }
+                int rbm_alloc_ok = 1;
                 for (int b = 0; b < 31; b++) {
                     rbm[b] = calloc((size_t)n_words_r, sizeof(uint64_t));
+                    if (!rbm[b]) {
+                        fprintf(stderr, "ERROR: calloc failed for rbm[%d] (section 15)\n", b);
+                        for (int f = 0; f < b; f++) free(rbm[f]);
+                        free(rbm);
+                        rbm_alloc_ok = 0;
+                        break;
+                    }
                     for (long long i = 0; i < n_reps; i++) {
                         int pb = reps[i * 32 + b];
                         int pb1 = reps[i * 32 + b + 1];
                         if (pb == b && pb1 == b + 1) rbm[b][i >> 6] |= ((uint64_t)1 << (i & 63));
                     }
+                }
+                if (!rbm_alloc_ok) {
+                    printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
+                    goto skip_section15;
                 }
                 long long rsingle[31];
                 for (int b = 0; b < 31; b++) {
@@ -3021,6 +3129,13 @@ int main(int argc, char *argv[]) {
 
                 /* Greedy min */
                 uint64_t *r_alive = malloc((size_t)n_words_r * sizeof(uint64_t));
+                if (!r_alive) {
+                    fprintf(stderr, "ERROR: malloc failed for r_alive (section 15)\n");
+                    printf("     SKIPPED: section 15 greedy search (alloc failed)\n");
+                    for (int b = 0; b < 31; b++) free(rbm[b]);
+                    free(rbm);
+                    goto skip_section15;
+                }
                 for (long long w = 0; w < n_words_r; w++) {
                     uint64_t kw_pairs_bits = ~(uint64_t)0;
                     for (int b = 0; b < 31; b++) kw_pairs_bits &= rbm[b][w];
@@ -3129,6 +3244,7 @@ int main(int argc, char *argv[]) {
 
                 for (int b = 0; b < 31; b++) free(rbm[b]);
                 free(rbm);
+                skip_section15: ;
             }
             free(reps);
         }
@@ -3204,6 +3320,11 @@ int main(int argc, char *argv[]) {
         {
             long long surv_cap = 256;
             long long *surv = malloc(surv_cap * sizeof(long long));
+            if (!surv) {
+                fprintf(stderr, "ERROR: malloc failed for surv (section 17)\n");
+                printf("    SKIPPED: section 17 (alloc failed)\n");
+                goto skip_section17;
+            }
             long long n_surv = 0;
             for (long long w = 0; w < n_words; w++) {
                 uint64_t bits = bmask[1][w] & bmask[24][w] & bmask[26][w];
@@ -3213,13 +3334,19 @@ int main(int argc, char *argv[]) {
                     if (i < n_sols) {
                         if (n_surv >= surv_cap) {
                             surv_cap *= 2;
-                            surv = realloc(surv, surv_cap * sizeof(long long));
+                            long long *tmp = realloc(surv, surv_cap * sizeof(long long));
+                            if (!tmp) {
+                                fprintf(stderr, "ERROR: realloc failed for surv (section 17, cap=%lld)\n", surv_cap);
+                                goto done_surv_collect;
+                            }
+                            surv = tmp;
                         }
                         surv[n_surv++] = i;
                     }
                     bits &= bits - 1;
                 }
             }
+            done_surv_collect:
             printf("    Total survivors (incl. KW orient variants): %lld\n", n_surv);
             int edit_hist[33] = {0};
             int pos_var[32] = {0};
@@ -3255,6 +3382,7 @@ int main(int argc, char *argv[]) {
             }
             free(surv);
         }
+        skip_section17:
         printf("    [17] elapsed: %lds\n\n", (long)(time(NULL) - t17));
 
         /* === Section 18: Per-boundary conditional entropy ===
@@ -3279,6 +3407,11 @@ int main(int argc, char *argv[]) {
                    n_sols, H_base_total);
             printf("    Boundary | matching_records | sum_p H(p | b) | info_gain=H_base-H_cond\n");
             long long (*cc)[32] = malloc(32 * sizeof(*cc));
+            if (!cc) {
+                fprintf(stderr, "ERROR: malloc failed for cc (section 18)\n");
+                printf("    SKIPPED: section 18 (alloc failed)\n");
+                goto skip_section18;
+            }
             for (int b = 0; b < 31; b++) {
                 memset(cc, 0, 32 * sizeof(*cc));
                 long long n_match = 0;
@@ -3308,6 +3441,7 @@ int main(int argc, char *argv[]) {
             }
             free(cc);
         }
+        skip_section18:
         printf("    [18] elapsed: %lds\n\n", (long)(time(NULL) - t18));
 
         /* === Section 19: Identity-level check of the 4 working 4-sets ===
@@ -3523,12 +3657,21 @@ int main(int argc, char *argv[]) {
         {
             #define CD_X64_MAX 2048
             long long *cd_hist = calloc(CD_X64_MAX, sizeof(long long));
+            if (!cd_hist) {
+                fprintf(stderr, "ERROR: calloc failed for cd_hist (section 22)\n");
+                printf("    SKIPPED: section 22 (alloc failed)\n");
+                goto skip_section22;
+            }
 
             #pragma omp parallel
             {
                 long long *local_hist = calloc(CD_X64_MAX, sizeof(long long));
+                if (!local_hist)
+                    fprintf(stderr, "ERROR: calloc failed for local_hist (section 22, thread)\n");
+                /* All threads must enter omp for; threads with no local_hist skip the update */
                 #pragma omp for schedule(static)
                 for (long long i = 0; i < n_sols; i++) {
+                    if (!local_hist) continue;
                     const unsigned char *rec = all + i * SOL_RECORD_SIZE;
                     int seq[64];
                     for (int p = 0; p < 32; p++) {
@@ -3540,8 +3683,10 @@ int main(int argc, char *argv[]) {
                     int cd = compute_comp_dist_x64(seq);
                     if (cd >= 0 && cd < CD_X64_MAX) local_hist[cd]++;
                 }
-                #pragma omp critical
-                for (int c = 0; c < CD_X64_MAX; c++) cd_hist[c] += local_hist[c];
+                if (local_hist) {
+                    #pragma omp critical
+                    for (int c = 0; c < CD_X64_MAX; c++) cd_hist[c] += local_hist[c];
+                }
                 free(local_hist);
             }
 
@@ -3577,6 +3722,7 @@ int main(int argc, char *argv[]) {
             }
             free(cd_hist);
         }
+        skip_section22:
         printf("    [22] elapsed: %lds\n\n", (long)(time(NULL) - t22));
 
         /* === Section 23: {25, 27}-only survivor characterization ===
@@ -3656,6 +3802,11 @@ int main(int argc, char *argv[]) {
             #define NN_CAP 50
             typedef struct { long long idx; int dist; unsigned char rec[SOL_RECORD_SIZE]; } NNEntry;
             NNEntry *nn = calloc(NN_CAP, sizeof(NNEntry));
+            if (!nn) {
+                fprintf(stderr, "ERROR: calloc failed for nn (section 24)\n");
+                printf("    SKIPPED: section 24 (alloc failed)\n");
+                goto skip_section24;
+            }
             int nn_count = 0;
             int nn_max_dist = 33;
 
@@ -3704,6 +3855,7 @@ int main(int argc, char *argv[]) {
             printf("    Min non-KW edit distance: %d\n", nn_count > 0 ? nn[0].dist : -1);
             free(nn);
         }
+        skip_section24:
         printf("    [24] elapsed: %lds\n\n", (long)(time(NULL) - t24));
 
         /* === Section 25: Per-sub-branch yield from checkpoint.txt ===
@@ -3739,6 +3891,12 @@ int main(int argc, char *argv[]) {
                     int status_code;
                 } SBEntry;
                 SBEntry *entries = calloc(MAX_SUB, sizeof(SBEntry));
+                if (!entries) {
+                    fprintf(stderr, "ERROR: calloc failed for entries (section 25)\n");
+                    printf("    SKIPPED: section 25 (alloc failed)\n");
+                    fclose(ckpt);
+                    goto skip_section25;
+                }
                 int n_entries = 0;
                 int n_exhausted = 0, n_budgeted = 0, n_interrupted = 0;
                 long long tot_nodes = 0, tot_sols = 0;
@@ -3821,6 +3979,12 @@ int main(int argc, char *argv[]) {
                 int topN = 20;
                 if (topN > n_entries) topN = n_entries;
                 int *top_idx = malloc(topN * sizeof(int));
+                if (!top_idx) {
+                    fprintf(stderr, "ERROR: malloc failed for top_idx (section 25)\n");
+                    printf("    SKIPPED: top-%d listing (alloc failed)\n", topN);
+                    free(entries);
+                    goto skip_section25_top;
+                }
                 for (int i = 0; i < topN; i++) top_idx[i] = -1;
                 for (int i = 0; i < n_entries; i++) {
                     long long y = entries[i].sols;
@@ -3849,8 +4013,10 @@ int main(int argc, char *argv[]) {
 
                 free(top_idx);
                 free(entries);
+                skip_section25_top: ;
             }
         }
+        skip_section25:
         printf("    [25] elapsed: %lds\n\n", (long)(time(NULL) - t25));
 
         /* === Section 26: Per-first-level-branch solution count ===
