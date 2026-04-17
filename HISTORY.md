@@ -240,9 +240,34 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE-SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ Waiting #5 to Hamming distance example.
 
+## Day 8 — April 16-17, 2026
+
+**Correctness audit and hardening pass.** Systematic review of every component in solve.c for the standard: every valid solution found, none lost, no duplicates, deterministic regardless of hardware.
+
+**Critical bug found and fixed: hash-table silent drops (585880f).** The 64-probe linear-probe cap in the per-thread hash table silently dropped records when the table exceeded ~75% capacity. At 10T depth-2, **241 million solutions were silently lost** — the prior 742M figure is an undercount. The sha `aa1415...` is reproducible but represents an incomplete dataset.
+
+Root cause: an optimization assumption ("4M slots for <1M entries per sub-branch") that was never tested at production scale. Some sub-branches at 10T have 4.17M unique solutions — 99.6% of the table. The code had no detection mechanism until the drop counter was added days earlier; even then, the counter showed the problem only after the fact.
+
+Fix: removed the probe cap entirely, added per-thread auto-resizing hash tables that double at 75% load, hard abort on OOM. Default initial size raised from 2^22 (4M) to 2^24 (16M). Zero silent drops guaranteed at any budget.
+
+**Five additional correctness fixes (232d688):**
+- flush_sub_solutions: fwrite/fsync/fclose return values now checked; post-write size verification; abort on any I/O failure (was silently truncating sub_*.bin on disk-full)
+- Merge checkpoint cross-reference: each sub_*.bin record count validated against checkpoint.txt (catches truncated files that pass "multiple of 32" validation)
+- `--verify` mode: independent constraint verification reads solutions.bin and checks every record against C1 (all pairs), C2 (no hamming-5), C4 (first pair), C5 (distance distribution), sorted order, no duplicates
+- Aggregate enumeration status: final output now prints "COMPLETE (N EXHAUSTED)" or "BUDGET-LIMITED (N EXHAUSTED, M BUDGETED)"
+- Dedup semantics documented in output and solve_results.json: "canonical pair ordering (orientation bits masked)"
+
+**All KNOWN LIMITATIONS resolved (6197b2b).** pair_index_of replaced with O(1) lookup table. Only remaining documented limitation: merge loads all records into RAM (needs external merge-sort for billion+ record scale, not yet implemented).
+
+**Infrastructure: private-IP-only topology, dynamic disk expansion, SSH launch fix.** Solver VMs now use claude-vnet private IPs (no public IP, no external attack surface). Monitor's solver-launch SSH hardened with setsid + timeout 15 (fixes a hang where backgrounded nohup didn't release the SSH channel). Dynamic disk expansion watchdog added to monitor for 100T+ runs.
+
+**Thread-count independence verified.** 1, 2, 4, 8 threads all produce identical sha at 100M budget. Selftest PASS at commit 6197b2b.
+
+**All prior 10T shas are invalidated.** The sha `aa1415...` represented 742M solutions minus 241M silent drops. New reference shas must be established with the fixed solver. 10T depth-2 and depth-3 re-runs pending.
+
 ## Current state
 
-The project has a reproducible **742,043,303-solution dataset at 10T** (sha256: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`, reproducible with `SOLVE_NODE_LIMIT=10000000000000` under the bug-fixed solver). This supersedes the prior "31.6M" figure — a ~23× undercount caused by the sub-branch filename collision bug (see missteps table). All 742M records validated against C1-C5 with zero errors; sort order verified; King Wen present.
+The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8). New reference shas must be established with the fixed solver (commit 6197b2b+). The selftest baseline at 100M (sha `00851fa5...`) is unchanged because no sub-branch at that scale exceeds hash table capacity.
 
 The 4-boundary minimum-uniqueness result holds at the new scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Exhaustive enumeration of all 31,465 four-subsets found only 4 working sets: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Only **{25, 27} are truly mandatory** (present in every working 4-set); {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. Cascade and shift-pattern claims built atop the old 31.6M dataset have been re-verified against 742M: the shift pattern holds for only 2.93% of solutions, and every reachable branch admits 2-29 distinct configurations at positions 3-19.
 
