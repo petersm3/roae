@@ -263,11 +263,17 @@ Fix: removed the probe cap entirely, added per-thread auto-resizing hash tables 
 
 **Thread-count independence verified.** 1, 2, 4, 8 threads all produce identical sha at 100M budget. Selftest PASS at commit 6197b2b.
 
-**All prior 10T shas are invalidated.** The sha `aa1415...` represented 742M solutions minus 241M silent drops. New reference shas must be established with the fixed solver. 10T depth-2 and depth-3 re-runs pending.
+**Canonical dedup fix (402b835).** The merge was keeping orientation variants across sub-branches while the per-sub-branch hash table collapsed them — an inconsistency. Fixed: merge now uses canonical comparison (orient masked). At 100M: 336,288 → 135,780 unique pair orderings. Selftest updated to `76ada31e...`. Added `verify.py` (standalone Python constraint verifier) and `SOLUTIONS_FORMAT.md` (binary format spec for long-term archival).
+
+**All prior 10T shas are invalidated.** The sha `aa1415...` had 241M silent drops AND orientation duplicates. New reference shas being established with commit 402b835. 10T depth-2 and depth-3 re-runs in progress.
 
 ## Current state
 
-The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8). New reference shas must be established with the fixed solver (commit 6197b2b+). The selftest baseline at 100M (sha `00851fa5...`) is unchanged because no sub-branch at that scale exceeds hash table capacity.
+The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8), and also included orientation duplicates that inflated the count (see below). New reference shas are being established with the fixed solver.
+
+**Canonical dedup fix (402b835).** The merge dedup was using full-byte comparison, keeping orientation variants that crossed sub-branch boundaries. The per-sub-branch hash table already deduplicated canonically (orient masked), but the merge didn't — an inconsistency. Now both stages use canonical comparison. At 100M scale: 336,288 records collapsed to 135,780 unique pair orderings (200,508 orient duplicates removed). Selftest baseline updated to `76ada31e...`. Independent Python verifier (`verify.py`) and binary format specification (`SOLUTIONS_FORMAT.md`) added.
+
+10T depth-2 and depth-3 re-runs in progress on commit 402b835.
 
 The 4-boundary minimum-uniqueness result holds at the new scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Exhaustive enumeration of all 31,465 four-subsets found only 4 working sets: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Only **{25, 27} are truly mandatory** (present in every working 4-set); {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. Cascade and shift-pattern claims built atop the old 31.6M dataset have been re-verified against 742M: the shift pattern holds for only 2.93% of solutions, and every reachable branch admits 2-29 distinct configurations at positions 3-19.
 
