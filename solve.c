@@ -1447,8 +1447,19 @@ static int compare_solutions(const void *a, const void *b) {
         int cb = sb[i] & 0xFC;
         if (ca != cb) return ca - cb;
     }
-    /* Secondary: full byte (orient as tiebreaker for deterministic dedup) */
+    /* Secondary: full byte (orient as tiebreaker for deterministic ordering) */
     return memcmp(sa, sb, SOL_RECORD_SIZE);
+}
+
+static int compare_canonical(const void *a, const void *b) {
+    const unsigned char *sa = (const unsigned char *)a;
+    const unsigned char *sb = (const unsigned char *)b;
+    for (int i = 0; i < SOL_RECORD_SIZE; i++) {
+        int ca = sa[i] & 0xFC;
+        int cb = sb[i] & 0xFC;
+        if (ca != cb) return ca - cb;
+    }
+    return 0;
 }
 
 /* ---------- JSON output ---------- */
@@ -1487,9 +1498,12 @@ static void write_json(const char *filename, const char *status,
     fprintf(f, "    \"threads\": %d,\n", n_threads);
     fprintf(f, "    \"branches_total\": %d,\n", n_branches_total);
     fprintf(f, "    \"branches_completed\": %d,\n", branches_done);
-    fprintf(f, "    \"hash_table_size\": %d,\n", sol_hash_size);
-    fprintf(f, "    \"hash_table_log2\": %d,\n", sol_hash_log2);
+    fprintf(f, "    \"hash_table_initial_log2\": %d,\n", sol_hash_log2);
+    fprintf(f, "    \"node_limit\": %lld,\n", node_limit);
+    fprintf(f, "    \"solve_depth\": %d,\n", solve_depth);
     fprintf(f, "    \"cpu_cores\": %ld,\n", sysconf(_SC_NPROCESSORS_ONLN));
+    fprintf(f, "    \"git_hash\": \"%s\",\n", GIT_HASH);
+    fprintf(f, "    \"build_date\": \"%s %s\",\n", __DATE__, __TIME__);
     fprintf(f, "    \"resumed_branches\": %d\n", n_completed_from_checkpoint);
     fprintf(f, "  },\n");
 
@@ -1685,9 +1699,9 @@ int main(int argc, char *argv[]) {
          * that would produce a different solutions.bin from the same inputs.
          *
          * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
-         * Expected sha256: 00851fa5807802c8e2b2e196ea963e7d36fc4958a33fd945ca751467b21a0ebd
+         * Expected sha256: 76ada31ef4a5829dcf33c8127c296fcb08115ef066ab267b1a0fb0b162f2a20d
          */
-        const char *expected_sha = "00851fa5807802c8e2b2e196ea963e7d36fc4958a33fd945ca751467b21a0ebd";
+        const char *expected_sha = "76ada31ef4a5829dcf33c8127c296fcb08115ef066ab267b1a0fb0b162f2a20d";
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
@@ -1949,11 +1963,12 @@ int main(int argc, char *argv[]) {
             }
             if (!c5_ok) fail_c5++;
 
-            /* Sorted order check (canonical comparison) */
+            /* Sorted order (compare_solutions: canonical primary, orient secondary).
+             * Duplicate = same canonical form (orient masked). */
             if (r > 0) {
                 int cmp = compare_solutions(prev, rec);
                 if (cmp > 0) fail_sort++;
-                if (cmp == 0) fail_dup++;
+                if (compare_canonical(prev, rec) == 0) fail_dup++;
             }
 
             /* King Wen check */
@@ -5414,7 +5429,7 @@ int main(int argc, char *argv[]) {
             qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
         long long unique_count = 0;
         for (long long i = 0; i < total_stored; i++) {
-            if (i == 0 || compare_solutions(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
+            if (i == 0 || compare_canonical(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
                 if (unique_count != i)
                     memcpy(&all_solutions[(size_t)unique_count * SOL_RECORD_SIZE], &all_solutions[(size_t)i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
                 unique_count++;
@@ -6119,7 +6134,7 @@ int main(int argc, char *argv[]) {
 
     long long unique_count = 0;
     for (long long i = 0; i < total_stored; i++) {
-        if (i == 0 || compare_solutions(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
+        if (i == 0 || compare_canonical(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
             if (unique_count != i)
                 memcpy(&all_solutions[(size_t)unique_count * SOL_RECORD_SIZE], &all_solutions[(size_t)i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
             unique_count++;
