@@ -330,6 +330,23 @@ keeping the managed disk.
   sync warnings, log errors, or even crashes don't affect the solver
   process running on the VM. The solver reads no state from the monitor.
   Monitor failures are observability problems, not data problems.
+- **Post-completion gate: --verify + hash-drop check.** After solver
+  writes solutions.bin, the monitor runs `./solve --verify solutions.bin`
+  on the VM (independent C1-C5 check on every record) and greps
+  solve_output.txt for nonzero hash-table drops. Either failure aborts
+  before archiving — no invalid output is ever accepted as a completed run.
+- **Progress rate + ETA in sync logs.** Each checkpoint sync computes
+  sub-branches/hour and estimated time remaining. Essential for overnight
+  100T+ runs where "is it still progressing?" can't be answered by a
+  single checkpoint count.
+- **Disk usage per poll cycle.** Logged as "Disk: 45% (54GB / 121GB)"
+  at each sync. Shows growth rate and predicts whether the dynamic
+  expansion watchdog will trigger before completion.
+- **Sub_*.bin integrity check on eviction resume.** After spot eviction
+  and redeploy, the monitor checks every existing sub_*.bin for
+  `size % 32 == 0`. Truncated files (eviction killed the flush mid-write
+  before fsync) are removed so the solver re-runs those sub-branches
+  from checkpoint rather than merging corrupt data.
 
 ### Infrastructure
 
