@@ -439,7 +439,7 @@ typedef struct {
     /* Solution storage: full-key hash table (auto-resizing) */
     unsigned char *sol_table;
     char *sol_occupied;
-    int solution_count;
+    long long solution_count;
     int ht_log2;
     int ht_size;
     int ht_mask;
@@ -909,7 +909,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
             return;
         }
     }
-    fprintf(stderr, "FATAL: thread %d hash table 100%% full at 2^%d (%d entries). "
+    fprintf(stderr, "FATAL: thread %d hash table 100%% full at 2^%d (%lld entries). "
             "This should never happen with auto-resize.\n",
             ts->thread_id, ts->ht_log2, ts->solution_count);
     exit(1);
@@ -1048,7 +1048,7 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
         fprintf(stderr, "FATAL: cannot open %s for writing: %s\n", tmpname, strerror(errno));
         exit(1);
     }
-    int written = 0;
+    long long written = 0;
     int write_error = 0;
     for (int s = 0; s < ts->ht_size; s++) {
         if (ts->sol_occupied[s]) {
@@ -1060,7 +1060,7 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
         }
     }
     if (write_error || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
-        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %d of %d): %s\n",
+        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %lld of %lld): %s\n",
                 tmpname, written, ts->solution_count, strerror(errno));
         fclose(sf);
         exit(1);
@@ -1080,7 +1080,7 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
         exit(1);
     }
-    fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
+    fprintf(stderr, "  Wrote %lld solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
     ts->solution_count = 0;
@@ -1097,7 +1097,7 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
         fprintf(stderr, "FATAL: cannot open %s for writing: %s\n", tmpname, strerror(errno));
         exit(1);
     }
-    int written = 0;
+    long long written = 0;
     int write_error = 0;
     for (int s = 0; s < ts->ht_size; s++) {
         if (ts->sol_occupied[s]) {
@@ -1109,7 +1109,7 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
         }
     }
     if (write_error || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
-        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %d of %d): %s\n",
+        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %lld of %lld): %s\n",
                 tmpname, written, ts->solution_count, strerror(errno));
         fclose(sf);
         exit(1);
@@ -1129,7 +1129,7 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
         exit(1);
     }
-    fprintf(stderr, "  Wrote %d solutions to %s\n", written, fname);
+    fprintf(stderr, "  Wrote %lld solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
     ts->solution_count = 0;
@@ -1342,7 +1342,7 @@ static void *thread_func_single(void *arg) {
  * First line is bare sha256 (compatible with sha256sum -c).
  * Remaining lines are metadata comments. */
 static void write_sha256_with_metadata(const char *bin_name, const char *sha_name,
-                                        int unique_count, long long total_nodes,
+                                        long long unique_count, long long total_nodes,
                                         int n_branches_total, int branches_done) {
     /* Compute sha256 */
     char cmd[512];
@@ -1370,7 +1370,7 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     fprintf(sf, "# Date: %s\n", tbuf);
     fprintf(sf, "# Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
     fprintf(sf, "# Record format: %d bytes packed (pair_index<<2 | orient<<1)\n", SOL_RECORD_SIZE);
-    fprintf(sf, "# Unique orderings: %d\n", unique_count);
+    fprintf(sf, "# Unique orderings: %lld\n", unique_count);
     fprintf(sf, "# Nodes explored: %lld\n", total_nodes);
     fprintf(sf, "# Branches: %d total, %d completed\n", n_branches_total, branches_done);
     if (node_limit > 0)
@@ -1457,7 +1457,7 @@ static void write_json(const char *filename, const char *status,
                        long elapsed, int n_threads, int n_branches_total,
                        int branches_done,
                        long long total_nodes, long long total_sol,
-                       long long total_c3, int unique_count,
+                       long long total_c3, long long unique_count,
                        int kw_found, long long total_hash_collisions,
                        long long pos_match[32],
                        long long edit_hist[33],
@@ -1497,7 +1497,7 @@ static void write_json(const char *filename, const char *status,
     fprintf(f, "    \"nodes_explored\": %lld,\n", total_nodes);
     fprintf(f, "    \"total_solutions\": %lld,\n", total_sol);
     fprintf(f, "    \"c3_valid\": %lld,\n", total_c3);
-    fprintf(f, "    \"unique_orderings\": %d,\n", unique_count);
+    fprintf(f, "    \"unique_orderings\": %lld,\n", unique_count);
     fprintf(f, "    \"dedup_semantics\": \"canonical pair ordering (orientation bits masked)\",\n");
     fprintf(f, "    \"king_wen_found\": %s,\n", kw_found ? "true" : "false");
     fprintf(f, "    \"hash_dedup_collisions\": %lld\n", total_hash_collisions);
@@ -1624,7 +1624,7 @@ static void write_json(const char *filename, const char *status,
     fprintf(f, "  ],\n");
 
     fprintf(f, "  \"output\": {\n");
-    fprintf(f, "    \"solutions_bin_records\": %d,\n", unique_count);
+    fprintf(f, "    \"solutions_bin_records\": %lld,\n", unique_count);
     fprintf(f, "    \"solutions_bin_record_size\": %d,\n", SOL_RECORD_SIZE);
     fprintf(f, "    \"solutions_bin_bytes\": %lld,\n", (long long)unique_count * SOL_RECORD_SIZE);
     fprintf(f, "    \"sha256\": \"%s\"\n", sha256_hash ? sha256_hash : "");
@@ -1882,8 +1882,8 @@ int main(int argc, char *argv[]) {
             fclose(vf);
             return 20;
         }
-        int n_records = (int)(vsize / SOL_RECORD_SIZE);
-        printf("Records: %d (%ld bytes)\n\n", n_records, vsize);
+        long long n_records = vsize / SOL_RECORD_SIZE;
+        printf("Records: %lld (%ld bytes)\n\n", n_records, vsize);
 
         unsigned char rec[SOL_RECORD_SIZE];
         unsigned char prev[SOL_RECORD_SIZE];
@@ -1892,9 +1892,9 @@ int main(int argc, char *argv[]) {
         int fail_dup = 0, fail_sort = 0, fail_decode = 0;
         int kw_found_v = 0;
 
-        for (int r = 0; r < n_records; r++) {
+        for (long long r = 0; r < n_records; r++) {
             if (fread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
-                fprintf(stderr, "ERROR: short read at record %d\n", r);
+                fprintf(stderr, "ERROR: short read at record %lld\n", r);
                 fclose(vf);
                 return 20;
             }
@@ -1966,12 +1966,12 @@ int main(int argc, char *argv[]) {
             memcpy(prev, rec, SOL_RECORD_SIZE);
 
             if (r > 0 && r % 10000000 == 0)
-                printf("  ... verified %d / %d records\n", r, n_records);
+                printf("  ... verified %lld / %lld records\n", r, n_records);
         }
         fclose(vf);
 
         printf("\n--- Verification Results ---\n");
-        printf("Records checked:        %d\n", n_records);
+        printf("Records checked:        %lld\n", n_records);
         printf("C1 failures (pairs):    %d\n", fail_c1);
         printf("C2 failures (hamming5): %d\n", fail_c2);
         printf("C4 failures (first pair): %d\n", fail_c4);
@@ -1983,7 +1983,7 @@ int main(int argc, char *argv[]) {
 
         int total_fail = fail_c1 + fail_c2 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
         if (total_fail == 0) {
-            printf("\n*** VERIFY PASS: all %d records satisfy C1-C5, sorted, no duplicates ***\n", n_records);
+            printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5, sorted, no duplicates ***\n", n_records);
             return 0;
         } else {
             printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
@@ -5016,6 +5016,10 @@ int main(int argc, char *argv[]) {
                     continue;
                 }
 
+                if (n_sub >= 64) {
+                    fprintf(stderr, "FATAL: all_sub buffer overflow\n");
+                    return 10;
+                }
                 all_sub[n_sub].pair1 = sb_pair;
                 all_sub[n_sub].orient1 = sb_orient;
                 all_sub[n_sub].pair2 = p2;
@@ -5173,7 +5177,7 @@ int main(int argc, char *argv[]) {
         int kw_found = 0;
         long long total_hash_collisions = 0;
         long long total_hash_drops = 0;
-        int total_stored = 0;
+        long long total_stored = 0;
         int branches_done = 0;
         ClosestEntry all_top[64 * TOP_N];
         int all_top_count = 0;
@@ -5213,12 +5217,18 @@ int main(int argc, char *argv[]) {
         int final_top_count = all_top_count < TOP_N ? all_top_count : TOP_N;
 
         /* De-dup and write solutions */
-        printf("Merging %d stored solutions from %d threads...\n", total_stored, n_threads);
+        printf("Merging %lld stored solutions from %d threads...\n", total_stored, n_threads);
         fflush(stdout);
         unsigned char *all_solutions = NULL;
-        if (total_stored > 0)
+        if (total_stored > 0) {
             all_solutions = malloc((size_t)total_stored * SOL_RECORD_SIZE);
-        int sol_offset = 0;
+            if (!all_solutions) {
+                fprintf(stderr, "ERROR: failed to allocate %lld bytes for solution merge\n",
+                        (long long)total_stored * SOL_RECORD_SIZE);
+                return 30;
+            }
+        }
+        long long sol_offset = 0;
         for (int i = 0; i < n_threads; i++) {
             if (threads[i].sol_table && threads[i].sol_occupied) {
                 for (int s = 0; s < threads[i].ht_size; s++) {
@@ -5232,12 +5242,12 @@ int main(int argc, char *argv[]) {
             free(threads[i].sol_occupied);
         }
         total_stored = sol_offset;
-        printf("Sorting %d solutions...\n", total_stored);
+        printf("Sorting %lld solutions...\n", total_stored);
         fflush(stdout);
         if (all_solutions && total_stored > 0)
-            qsort(all_solutions, total_stored, SOL_RECORD_SIZE, compare_solutions);
-        int unique_count = 0;
-        for (int i = 0; i < total_stored; i++) {
+            qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
+        long long unique_count = 0;
+        for (long long i = 0; i < total_stored; i++) {
             if (i == 0 || compare_solutions(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
                 if (unique_count != i)
                     memcpy(&all_solutions[(size_t)unique_count * SOL_RECORD_SIZE], &all_solutions[(size_t)i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
@@ -5250,7 +5260,7 @@ int main(int argc, char *argv[]) {
         snprintf(sha_name, sizeof(sha_name), "solutions_%d_%d.sha256", sb_pair, sb_orient);
         snprintf(json_name, sizeof(json_name), "results_%d_%d.json", sb_pair, sb_orient);
 
-        printf("Writing %d unique solutions to %s...\n", unique_count, bin_name);
+        printf("Writing %lld unique solutions to %s...\n", unique_count, bin_name);
         fflush(stdout);
         FILE *bf = fopen(bin_name, "wb");
         if (!bf) {
@@ -5259,9 +5269,9 @@ int main(int argc, char *argv[]) {
             return 30;
         }
         if (all_solutions) {
-            size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, unique_count, bf);
-            if ((int)written != unique_count) {
-                fprintf(stderr, "ERROR: short write to %s (%zu of %d records) — disk full?\n",
+            size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, bf);
+            if ((long long)written != unique_count) {
+                fprintf(stderr, "ERROR: short write to %s (%zu of %lld records) — disk full?\n",
                         bin_name, written, unique_count);
                 fclose(bf);
                 free(all_solutions);
@@ -5337,7 +5347,7 @@ int main(int argc, char *argv[]) {
                elapsed > 0 ? total_nodes / (double)elapsed / 1e6 : 0);
         printf("Total solutions (C1+C2+C4+C5): %lld\n", total_sol);
         printf("C3-valid solutions:            %lld\n", total_c3);
-        printf("Unique pair orderings:         %d\n", unique_count);
+        printf("Unique pair orderings:         %lld\n", unique_count);
         printf("King Wen found:                %s\n", kw_found ? "YES" : "No");
         printf("Hash de-dup collisions:        %lld\n", total_hash_collisions);
         {
@@ -5422,7 +5432,7 @@ int main(int argc, char *argv[]) {
         printf("\n");
 
         printf("--- Output files ---\n");
-        printf("  %s:  %d unique x %d bytes = %lld bytes\n", bin_name, unique_count, SOL_RECORD_SIZE, (long long)unique_count * SOL_RECORD_SIZE);
+        printf("  %s:  %lld unique x %d bytes = %lld bytes\n", bin_name, unique_count, SOL_RECORD_SIZE, (long long)unique_count * SOL_RECORD_SIZE);
         printf("  %s:  %s", sha_name, hash);
         printf("  %s:  machine-readable results\n\n", json_name);
 
@@ -5466,6 +5476,11 @@ int main(int argc, char *argv[]) {
     int n_skipped_subs = 0;
     int subs_cap = (solve_depth == 3) ? 262144 : 4096;
     SubBranch *all_subs = malloc(subs_cap * sizeof(SubBranch));
+    if (!all_subs) {
+        fprintf(stderr, "ERROR: failed to allocate %zu bytes for all_subs\n",
+                (size_t)subs_cap * sizeof(SubBranch));
+        return 30;
+    }
 
     for (int p1 = 0; p1 < 32; p1++) {
         if (p1 == start_pair) continue;
@@ -5591,8 +5606,15 @@ int main(int argc, char *argv[]) {
 
     /* Allocate per-thread sub-branch arrays */
     int max_per_thread = (n_all_subs + n_threads - 1) / n_threads + 1;
-    for (int i = 0; i < n_threads; i++)
+    for (int i = 0; i < n_threads; i++) {
         thread_subs[i] = malloc(max_per_thread * sizeof(SubBranch));
+        if (!thread_subs[i]) {
+            fprintf(stderr, "ERROR: failed to allocate %zu bytes for thread_subs[%d]\n",
+                    (size_t)max_per_thread * sizeof(SubBranch), i);
+            for (int j = 0; j < i; j++) free(thread_subs[j]);
+            return 30;
+        }
+    }
 
     for (int i = 0; i < n_all_subs; i++) {
         int tid = i % n_threads;
@@ -5727,7 +5749,7 @@ int main(int argc, char *argv[]) {
     int kw_found = 0;
     long long total_hash_collisions = 0;
     long long total_hash_drops = 0;
-    int total_stored = 0;
+    long long total_stored = 0;
     int branches_done = 0;
 
     ClosestEntry all_top[64 * TOP_N];
@@ -5894,8 +5916,15 @@ int main(int argc, char *argv[]) {
     }
 
     unsigned char *all_solutions = NULL;
-    if (total_file_records > 0)
+    if (total_file_records > 0) {
         all_solutions = malloc((size_t)total_file_records * SOL_RECORD_SIZE);
+        if (!all_solutions) {
+            fprintf(stderr, "ERROR: failed to allocate %lld bytes for solution merge\n",
+                    (long long)total_file_records * SOL_RECORD_SIZE);
+            free(merge_filenames);
+            return 30;
+        }
+    }
 
     long long sol_offset = 0;
     if (all_solutions) {
@@ -5915,15 +5944,15 @@ int main(int argc, char *argv[]) {
         }
     }
     free(merge_filenames);
-    total_stored = (int)sol_offset;
+    total_stored = sol_offset;
 
-    printf("Sorting %d solutions...\n", total_stored);
+    printf("Sorting %lld solutions...\n", total_stored);
     fflush(stdout);
     if (all_solutions && total_stored > 0)
-        qsort(all_solutions, total_stored, SOL_RECORD_SIZE, compare_solutions);
+        qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
 
-    int unique_count = 0;
-    for (int i = 0; i < total_stored; i++) {
+    long long unique_count = 0;
+    for (long long i = 0; i < total_stored; i++) {
         if (i == 0 || compare_solutions(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
             if (unique_count != i)
                 memcpy(&all_solutions[(size_t)unique_count * SOL_RECORD_SIZE], &all_solutions[(size_t)i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
@@ -5931,7 +5960,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    printf("Writing %d unique solutions to solutions.bin...\n", unique_count);
+    printf("Writing %lld unique solutions to solutions.bin...\n", unique_count);
     fflush(stdout);
     FILE *f = fopen("solutions.bin", "wb");
     if (!f) {
@@ -5940,9 +5969,9 @@ int main(int argc, char *argv[]) {
         return 30;
     }
     if (all_solutions) {
-        size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, unique_count, f);
-        if ((int)written != unique_count) {
-            fprintf(stderr, "ERROR: short write to solutions.bin (%zu of %d records) — disk full?\n",
+        size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, f);
+        if ((long long)written != unique_count) {
+            fprintf(stderr, "ERROR: short write to solutions.bin (%zu of %lld records) — disk full?\n",
                     written, unique_count);
             fclose(f);
             free(all_solutions);
@@ -6035,7 +6064,7 @@ int main(int argc, char *argv[]) {
            elapsed > 0 ? total_nodes / (double)elapsed / 1e6 : 0);
     printf("Total solutions (C1+C2+C4+C5): %lld\n", total_sol);
     printf("C3-valid solutions:            %lld\n", total_c3);
-    printf("Unique pair orderings:         %d  (canonical: orient bits masked)\n", unique_count);
+    printf("Unique pair orderings:         %lld  (canonical: orient bits masked)\n", unique_count);
     printf("King Wen found:                %s\n", kw_found ? "YES" : "No");
     printf("Threads used:                  %d\n", n_threads);
     printf("Hash de-dup collisions:        %lld (exact match — zero false positives)\n",
@@ -6150,14 +6179,14 @@ int main(int argc, char *argv[]) {
         for (int b = 0; b < threads[i].n_branches; b++) {
             const char *done = (b < threads[i].branches_completed) ? "YES" : "no";
             if (threads[i].n_branches == 1) {
-                printf("  %4d %6d %6d %12lld %12lld %10d %10s\n",
+                printf("  %4d %6d %6d %12lld %12lld %10lld %10s\n",
                        i, threads[i].branches[0].pair + 1, threads[i].branches[0].orient,
                        threads[i].nodes, threads[i].solutions_c3,
                        threads[i].solution_count, done);
             }
         }
         if (threads[i].n_branches > 1) {
-            printf("  %4d  (%d branches) %12lld %12lld %10d %10d/%d\n",
+            printf("  %4d  (%d branches) %12lld %12lld %10lld %10d/%d\n",
                    i, threads[i].n_branches,
                    threads[i].nodes, threads[i].solutions_c3,
                    threads[i].solution_count,
@@ -6167,7 +6196,7 @@ int main(int argc, char *argv[]) {
     printf("\n");
 
     printf("--- Output files ---\n");
-    printf("  solutions.bin:      %d unique solutions x %d bytes = %lld bytes\n",
+    printf("  solutions.bin:      %lld unique solutions x %d bytes = %lld bytes\n",
            unique_count, SOL_RECORD_SIZE, (long long)unique_count * SOL_RECORD_SIZE);
     printf("  solutions.sha256:   %s", hash);
     printf("  solve_results.json: machine-readable results\n");
