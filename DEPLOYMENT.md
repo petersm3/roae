@@ -181,17 +181,65 @@ VM after attach. No data loss.
 
 7. **Azure resource teardown is dependency-ordered.** VM → NIC → public-IP → NSG → VNet, sequential. Parallel deletes all return exit 1 because dependents still hold references. Orchestrators must serialize.
 
+## Chaining multiple runs on the same managed disk
+
+When running depth-3 followed by depth-2 (or any sequence of runs that should
+coexist on the same disk), use the **sequential monitor pattern**: let each
+monitor run to natural completion (merge, archive, teardown), then start the
+next. Do NOT use a supervisor that kills monitors mid-merge — this causes race
+conditions (observed: supervisor killed monitor during merge, solutions.bin
+was empty, sha was hash of empty file).
+
+Between runs, rename any output you want to preserve:
+1. Let run A's monitor complete (writes `solutions.bin`, archives, tears down VM)
+2. Create a temp VM, attach the managed disk, rename `solutions.bin` to
+   `solutions_A_<sha8>.bin` (the next run's wipe pattern won't match this name)
+3. Tear down temp VM
+4. Launch run B's monitor (provisions new VM, attaches same disk, wipes stale
+   run artifacts, runs solver)
+
+The `rm -f /data/sub_*.bin /data/solutions.bin ...` wipe is pattern-based —
+files with names outside the patterns survive.
+
+## Solver-launch SSH detachment
+
+The remote `nohup ~/solve ... &` does NOT reliably release the SSH channel.
+The launching SSH hangs indefinitely, blocking the monitor from entering its
+poll loop. **Required form:**
+
+```bash
+timeout 15 ssh -n -i $KEY -o StrictHostKeyChecking=no "solver@$IP" \
+    "cd /data && setsid nohup ~/solve $TIMEOUT > solve_output.txt 2>&1 < /dev/null &" \
+    < /dev/null 2>/dev/null
+```
+
+- `setsid` puts solve in its own session (detached from SSH's process group)
+- `timeout 15` kills the local ssh if the remote shell won't release the channel
+- The next monitor step probes `pgrep -x solve` via a fresh SSH
+
+## Hash table sizing
+
+`SOLVE_HASH_LOG2` controls the initial per-thread hash table size (default
+2^24 = 16M slots, 512 MB/thread). Tables auto-resize at 75% load — the
+initial size is a starting point, not a ceiling. For most runs the default is
+fine. For VMs with limited RAM, reduce to 22 or 20.
+
+The hash table guarantees zero silent drops at any scale. If a resize fails
+(OOM), the solver aborts with a clear error — never silent data loss.
+
 ## Pre-launch checklist
 
 - [ ] Previous monitor and checkpoint state cleaned or explicitly resumed (run_id guard)
 - [ ] Persistent volume mount verified
 - [ ] Free disk space ≥ estimated output × 1.5 (inputs + outputs both fit)
 - [ ] Free RAM ≥ estimated working set (merge needs ~uniqueN × 32 bytes in memory)
-- [ ] `run_id.txt` written before solver start
+- [ ] `run_id.txt` written before solver start (write BEFORE wipe, not after)
 - [ ] Monitor started **as a separate process** and verified with `pgrep`
-- [ ] Monitor completion-detection string matches what the solver actually emits (ideally a JSON status field, not stderr text)
+- [ ] Monitor completion-detection string matches what the solver actually emits (JSON status field)
+- [ ] Post-completion gates configured: `--verify` pass + hash-drop count == 0
+- [ ] Sub_*.bin integrity check enabled on eviction resume (size % 32 == 0)
 - [ ] Cost estimate presented to user
-- [ ] Output-shape sanity checks planned (record count == expected sub-branches × avg_yield, sub-branch file count not capped at a small number)
+- [ ] Output-shape sanity checks planned (record count, sub-branch file count)
 
 ---
 
@@ -222,19 +270,29 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
 
 ### Per-run provisioning (spot VM + networking)
 
-2. **Networking primitives.** vnet, public IP, NSG with SSH allowed, NIC.
+2. **Networking: private IP only.** Solver VMs live on the same vnet as the
+   orchestrator — no public IP, no NSG, no external attack surface. The
+   orchestrator SSHes to the solver's private IP directly.
 
    ```bash
-   az network vnet create -g "$RG" -n spot-vnet -l "$LOCATION" \
-       --address-prefix 10.0.0.0/16 --subnet-name default --subnet-prefix 10.0.0.0/24
-   az network public-ip create -g "$RG" -n spot-pip -l "$LOCATION" --sku Standard
-   az network nsg create -g "$RG" -n spot-nsg -l "$LOCATION"
-   az network nsg rule create -g "$RG" --nsg-name spot-nsg -n AllowSSH \
-       --priority 100 --access Allow --protocol Tcp --destination-port-ranges 22
-   az network nic create -g "$RG" -n spot-nic --vnet-name spot-vnet \
-       --subnet default --public-ip-address spot-pip --network-security-group spot-nsg \
-       -l "$LOCATION"
+   # One-time: create the shared vnet (orchestrator VM also on this vnet)
+   az network vnet create -g "$RG" -n claude-vnet -l "$LOCATION" \
+       --address-prefix 10.0.0.0/24 --subnet-name default --subnet-prefix 10.0.0.0/24
+
+   # Per-run: NIC with private IP only (no --public-ip-address, no --network-security-group)
+   az network nic create -g "$RG" -n solver-nic \
+       --vnet-name claude-vnet --subnet default -l "$LOCATION"
    ```
+
+   The orchestrator queries the private IP via:
+   ```bash
+   az network nic show -g "$RG" -n solver-nic \
+       --query "ipConfigurations[0].privateIPAddress" -o tsv
+   ```
+
+   **Caveat:** Both VMs must share the vnet. Running from a laptop (not the
+   orchestrator VM) requires either keeping a public IP or setting up vnet
+   peering / jump host.
 
 3. **Spot VM with managed-disk attached.** `az vm create` has a JSON parser bug
    when used with `--ssh-key-values` in some CLI versions; using `az rest` with
