@@ -5103,6 +5103,13 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        /* sha256 and sidecar names match the normal-mode merge convention:
+         * solutions.sha256 (not solutions.bin.sha256), solutions.meta.json
+         * (not solutions.bin.meta.json). Monitor scripts and downstream
+         * tooling all look for the stem-pattern names. */
+        const char *sha_name  = "solutions.sha256";
+        const char *meta_name = "solutions.meta.json";
+
         /* sha256 — preflight guarantees sha256_tool() is non-NULL here */
         const char *tool = sha256_tool();
         if (!tool) {
@@ -5111,8 +5118,8 @@ int main(int argc, char *argv[]) {
             return 30;
         }
         char sha_cmd[256];
-        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s > %s.sha256 2>/dev/null",
-                 tool, outname, outname);
+        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s > %s 2>/dev/null",
+                 tool, outname, sha_name);
         int rc = system(sha_cmd);
         if (rc != 0) {
             fprintf(stderr, "ERROR: sha256 computation failed (rc=%d)\n", rc);
@@ -5120,14 +5127,12 @@ int main(int argc, char *argv[]) {
         }
 
         char hash[130] = {0};
-        char hashfile[80];
-        snprintf(hashfile, sizeof(hashfile), "%s.sha256", outname);
-        FILE *hf = fopen(hashfile, "r");
+        FILE *hf = fopen(sha_name, "r");
         if (!hf) {
-            fprintf(stderr, "WARNING: cannot read %s: %s\n", hashfile, strerror(errno));
+            fprintf(stderr, "WARNING: cannot read %s: %s\n", sha_name, strerror(errno));
         } else {
             if (fgets(hash, sizeof(hash), hf) == NULL)
-                fprintf(stderr, "WARNING: %s is empty\n", hashfile);
+                fprintf(stderr, "WARNING: %s is empty\n", sha_name);
             fclose(hf);
         }
 
@@ -5139,9 +5144,7 @@ int main(int argc, char *argv[]) {
             char hash_only[65] = {0};
             for (int i = 0; i < 64 && hash[i] && hash[i] != ' ' && hash[i] != '\n'; i++)
                 hash_only[i] = hash[i];
-            char metafile[96];
-            snprintf(metafile, sizeof(metafile), "%s.meta.json", outname);
-            sol_write_meta_json(metafile, outname, (uint64_t)unique, unique, hash_only);
+            sol_write_meta_json(meta_name, outname, (uint64_t)unique, unique, hash_only);
         }
 
         printf("\n--- Merge results ---\n");
