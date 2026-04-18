@@ -235,6 +235,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 
 #ifndef GIT_HASH
 #define GIT_HASH "unknown"
@@ -2602,8 +2603,12 @@ int main(int argc, char *argv[]) {
             }
             if (is_kw) {
                 if (kw_count >= kw_cap) {
+                    if (kw_cap > INT_MAX / 2) {
+                        fprintf(stderr, "ERROR: kw_cap overflow at %d\n", kw_cap);
+                        goto done_streaming;
+                    }
                     kw_cap *= 2;
-                    long long *tmp = realloc(kw_indices, kw_cap * sizeof(long long));
+                    long long *tmp = realloc(kw_indices, (size_t)kw_cap * sizeof(long long));
                     if (!tmp) {
                         fprintf(stderr, "ERROR: realloc failed for kw_indices (cap=%d)\n", kw_cap);
                         /* Keep existing kw_indices; stop collecting further KW entries */
@@ -2831,8 +2836,12 @@ int main(int argc, char *argv[]) {
                 n_working += local_n_working;
                 for (int i = 0; i < local_report_n && n_working <= 200; i++) {
                     if (n_working - local_n_working + i + 1 > report_cap) {
+                        if (report_cap > INT_MAX / 2) {
+                            fprintf(stderr, "ERROR: report_cap overflow at %d\n", report_cap);
+                            break;
+                        }
                         report_cap *= 2;
-                        QuadEntry *tmp = realloc(report, report_cap * sizeof(QuadEntry));
+                        QuadEntry *tmp = realloc(report, (size_t)report_cap * sizeof(QuadEntry));
                         if (!tmp) {
                             fprintf(stderr, "ERROR: realloc failed for report (section 8, cap=%d)\n", report_cap);
                             break; /* stop adding to report */
@@ -3650,8 +3659,12 @@ int main(int argc, char *argv[]) {
                     long long i = w * 64 + bit;
                     if (i < n_sols) {
                         if (n_surv >= surv_cap) {
+                            if (surv_cap > LLONG_MAX / 2) {
+                                fprintf(stderr, "ERROR: surv_cap overflow at %lld\n", surv_cap);
+                                goto done_surv_collect;
+                            }
                             surv_cap *= 2;
-                            long long *tmp = realloc(surv, surv_cap * sizeof(long long));
+                            long long *tmp = realloc(surv, (size_t)surv_cap * sizeof(long long));
                             if (!tmp) {
                                 fprintf(stderr, "ERROR: realloc failed for surv (section 17, cap=%lld)\n", surv_cap);
                                 goto done_surv_collect;
@@ -4568,6 +4581,16 @@ int main(int argc, char *argv[]) {
             }
             total_records += sz / SOL_RECORD_SIZE;
             fclose(tf);
+        }
+        /* Defensive bound. Guards against overflow in subsequent
+         * `total_records * SOL_RECORD_SIZE * 2` and malloc-size casts.
+         * LLONG_MAX / 32 / 2 is well above any realistic enumeration
+         * scale (10^17 records), so this is a never-should-fire safety
+         * net for corrupted shard metadata or future format changes. */
+        if (total_records < 0 ||
+            total_records > (long long)(LLONG_MAX / SOL_RECORD_SIZE / 2)) {
+            fprintf(stderr, "ERROR: total_records %lld out of range\n", total_records);
+            return 20;
         }
         printf("  Total records before dedup: %lld\n", total_records);
 
@@ -6388,6 +6411,15 @@ int main(int argc, char *argv[]) {
         closedir(dir);
     }
     printf("  Found %d sub-branch files with %lld total records\n", n_sub_files, total_file_records);
+
+    /* Overflow guard — same as in --merge size-scan. Never-should-fire at
+     * realistic scales, but prevents UB on corrupted shard metadata. */
+    if (total_file_records < 0 ||
+        total_file_records > (long long)(LLONG_MAX / SOL_RECORD_SIZE / 2)) {
+        fprintf(stderr, "ERROR: total_file_records %lld out of range\n", total_file_records);
+        free(merge_filenames);
+        return 20;
+    }
 
     /* Fix #2: Cross-reference sub_*.bin record counts against checkpoint.
      * A truncated file (disk-full during flush) passes the "multiple of 32"
