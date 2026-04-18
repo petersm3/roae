@@ -4464,8 +4464,26 @@ int main(int argc, char *argv[]) {
         long long total_records = 0;
         for (int i = 0; i < n_files; i++) {
             FILE *tf = fopen(filenames[i], "rb");
-            fseek(tf, 0, SEEK_END);
-            total_records += ftell(tf) / SOL_RECORD_SIZE;
+            if (!tf) {
+                fprintf(stderr, "ERROR: cannot open %s for size scan: %s\n",
+                        filenames[i], strerror(errno));
+                return 20;
+            }
+            if (fseek(tf, 0, SEEK_END) != 0) {
+                fprintf(stderr, "ERROR: fseek END failed on %s: %s\n", filenames[i], strerror(errno));
+                fclose(tf); return 20;
+            }
+            long sz = ftell(tf);
+            if (sz < 0) {
+                fprintf(stderr, "ERROR: ftell failed on %s: %s\n", filenames[i], strerror(errno));
+                fclose(tf); return 20;
+            }
+            if (sz % SOL_RECORD_SIZE != 0) {
+                fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d (corrupt file)\n",
+                        filenames[i], sz, SOL_RECORD_SIZE);
+                fclose(tf); return 20;
+            }
+            total_records += sz / SOL_RECORD_SIZE;
             fclose(tf);
         }
         printf("  Total records before dedup: %lld\n", total_records);
@@ -4528,11 +4546,29 @@ int main(int argc, char *argv[]) {
             long long offset = 0;
             for (int i = 0; i < n_files; i++) {
                 FILE *tf = fopen(filenames[i], "rb");
-                fseek(tf, 0, SEEK_END);
+                if (!tf) {
+                    fprintf(stderr, "ERROR: cannot open %s for read: %s\n", filenames[i], strerror(errno));
+                    free(all); return 20;
+                }
+                if (fseek(tf, 0, SEEK_END) != 0) {
+                    fprintf(stderr, "ERROR: fseek END failed on %s: %s\n", filenames[i], strerror(errno));
+                    fclose(tf); free(all); return 20;
+                }
                 long sz = ftell(tf);
-                fseek(tf, 0, SEEK_SET);
-                if (fread(&all[offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
-                    printf("  WARNING: short read on %s\n", filenames[i]);
+                if (sz < 0) {
+                    fprintf(stderr, "ERROR: ftell failed on %s: %s\n", filenames[i], strerror(errno));
+                    fclose(tf); free(all); return 20;
+                }
+                if (fseek(tf, 0, SEEK_SET) != 0) {
+                    fprintf(stderr, "ERROR: fseek SET failed on %s: %s\n", filenames[i], strerror(errno));
+                    fclose(tf); free(all); return 20;
+                }
+                size_t got = fread(&all[offset * SOL_RECORD_SIZE], 1, (size_t)sz, tf);
+                if (got != (size_t)sz) {
+                    fprintf(stderr, "ERROR: short read on %s: got %zu of %ld bytes: %s\n",
+                            filenames[i], got, sz, strerror(errno));
+                    fclose(tf); free(all); return 20;
+                }
                 offset += sz / SOL_RECORD_SIZE;
                 fclose(tf);
             }
@@ -6351,17 +6387,33 @@ int main(int argc, char *argv[]) {
         if (all_solutions) {
             for (int i = 0; i < n_sub_files; i++) {
                 FILE *tf = fopen(merge_filenames[i], "rb");
-                if (tf) {
-                    fseek(tf, 0, SEEK_END);
-                    long sz = ftell(tf);
-                    fseek(tf, 0, SEEK_SET);
-                    if (sz > 0) {
-                        if (fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
-                            printf("  WARNING: short read on %s\n", merge_filenames[i]);
-                        sol_offset += sz / SOL_RECORD_SIZE;
-                    }
-                    fclose(tf);
+                if (!tf) {
+                    fprintf(stderr, "ERROR: cannot open %s: %s\n", merge_filenames[i], strerror(errno));
+                    free(all_solutions); free(merge_filenames); return 20;
                 }
+                if (fseek(tf, 0, SEEK_END) != 0) {
+                    fprintf(stderr, "ERROR: fseek END on %s: %s\n", merge_filenames[i], strerror(errno));
+                    fclose(tf); free(all_solutions); free(merge_filenames); return 20;
+                }
+                long sz = ftell(tf);
+                if (sz < 0) {
+                    fprintf(stderr, "ERROR: ftell on %s: %s\n", merge_filenames[i], strerror(errno));
+                    fclose(tf); free(all_solutions); free(merge_filenames); return 20;
+                }
+                if (fseek(tf, 0, SEEK_SET) != 0) {
+                    fprintf(stderr, "ERROR: fseek SET on %s: %s\n", merge_filenames[i], strerror(errno));
+                    fclose(tf); free(all_solutions); free(merge_filenames); return 20;
+                }
+                if (sz > 0) {
+                    size_t got = fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, (size_t)sz, tf);
+                    if (got != (size_t)sz) {
+                        fprintf(stderr, "ERROR: short read on %s: got %zu of %ld: %s\n",
+                                merge_filenames[i], got, sz, strerror(errno));
+                        fclose(tf); free(all_solutions); free(merge_filenames); return 20;
+                    }
+                    sol_offset += sz / SOL_RECORD_SIZE;
+                }
+                fclose(tf);
             }
         }
         free(merge_filenames);
