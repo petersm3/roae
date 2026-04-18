@@ -4780,8 +4780,19 @@ int main(int argc, char *argv[]) {
 
         /* Validate merged output */
         printf("\nValidating merged output...\n");
-        char val_cmd[128];
-        snprintf(val_cmd, sizeof(val_cmd), "./solve --validate %s", outname);
+        /* Use /proc/self/exe to find our own binary path rather than assume
+         * `./solve` relative to cwd. The caller may have cd'd elsewhere, or
+         * the binary may be installed anywhere on PATH. */
+        char self_path[4096];
+        ssize_t sp = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+        if (sp <= 0) {
+            fprintf(stderr, "ERROR: cannot resolve self path for post-merge validation: %s\n",
+                    strerror(errno));
+            return 40;
+        }
+        self_path[sp] = 0;
+        char val_cmd[8192];
+        snprintf(val_cmd, sizeof(val_cmd), "%s --validate %s", self_path, outname);
         int vret = system(val_cmd);
         if (vret != 0) {
             fprintf(stderr, "ERROR: post-merge validation returned non-zero (%d)\n", vret);
