@@ -300,6 +300,14 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
 
+**D3 re-merge performance lessons (2026-04-18).** First production-scale test of the external merge-sort path (landed in commit 2752ce6). Lessons from the 2.77B-record, 83 GB external merge on `solver-data` (Standard_LRS 300 GB HDD-tier):
+
+- **Disk tier dominates merge time.** Standard_LRS is capped at ~60 MB/s and 500 IOPS — correct choice for long-term archival of shards (~$3/month for 300 GB) but wrong for active merge-phase compute. Observed ~6-7 min per 4 GB sorted chunk, ~20 chunks total for 10T input → ~2-3 hours phase 1 + ~30-45 min phase 2 = ~3-4 hours wall. At F64 on-demand ($3.87/hr), that's $12-15 for the merge alone — roughly 6× the in-memory cost on the same VM, 3-4× the external-on-Premium-SSD cost.
+- **In-memory is fastest when it fits.** F64als_v6 has 128 GB RAM; the 10T pre-dedup buffer is ~89 GB, which fits comfortably. Auto-mode would have selected in-memory for this merge (~30 min, ~$2). `SOLVE_MERGE_MODE=external` was forced for this run deliberately — the external path had been smoke-tested at 100M scale but never at production scale, and the $10 overrun on this run was worth the validation data point.
+- **Premium SSD is the sweet spot for external mode.** Recommended pattern when external is required (either by RAM constraints or deliberate test): attach a Premium-tier data disk (P20 512 GB or P30 1 TB) for the duration of the merge, do the merge on SSD, copy the final `solutions.bin` back to `solver-data` for archival, then detach/delete the SSD. Prorated Premium cost is pennies for a few-hour merge; throughput improves ~3-4× over HDD.
+- **100T is not feasible in-memory on practical VMs.** 100T ≈ 27.7B pre-dedup records ≈ 830 GB. In-memory would need M-series (2-4 TB RAM, $15-30/hr — 10× the cost for marginal benefit). Practical 100T path: **F64 + Premium SSD (P40 2 TB) + external merge** at ~3 hours, ~$13-15.
+- **Takeaway for `DEPLOYMENT.md`.** The disk-tier choice at merge time matters as much as VM SKU choice. `solver-data` stays Standard because shards are cold data; attach Premium temporarily when actively merging at 100T scale. Full tables and recommendations are in [DEPLOYMENT.md §Two-phase deployment](../solve_c/DEPLOYMENT.md).
+
 ## Current state
 
 **Code.** solve.c is through two hardening passes. Exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, zero compile warnings. The remaining known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.

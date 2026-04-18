@@ -106,14 +106,64 @@ because no single SKU is cost-effective at both.
 
 **CRITICAL: merge must run on-demand, not spot.** The merge (malloc + qsort +
 write) has no checkpoint. If evicted mid-sort, all merge work is lost and must
-restart from sub_*.bin files. At 10T depth-3, the merge takes ~30 min on F64
-with 82 GB in RAM. On-demand cost: ~$2. Spot risk: eviction wastes that $2
-and the 30 min, repeatedly. Observed 2026-04-17: spot merge VM evicted after
-24 min of sorting 2.77B records.
+restart from sub_*.bin files. On-demand cost for a 10T in-memory merge: ~$2.
+Spot risk: eviction wastes that $2 and the wall time, repeatedly. Observed
+2026-04-17: spot merge VM evicted after 24 min of sorting 2.77B records.
 
-For very large merges that exceed RAM, `SOLVE_MERGE_MODE=external` uses
-disk-based sorted chunks + k-way merge. This can run on a small VM (8 GB RAM)
-at the cost of more disk I/O. See `SOLVE_MERGE_CHUNK_GB` env var.
+### Disk tier matters — more than you might think
+
+`solver-data` is deliberately **Standard_LRS** (HDD-tier). Standard HDD has
+IOPS capped at 500 and throughput ~60 MB/s regardless of disk size. That
+choice is right for long-term shard *storage* (~$3/month for 300 GB) but
+wrong for merge-time *compute*. Empirical data point from the 2026-04-18
+10T depth-3 external re-merge:
+
+| What | Value |
+|---|---|
+| Input | 56,404 sub_*.bin shards, 83 GB, 2.77B records |
+| Disk | Standard_LRS 300 GB, ~60 MB/s throughput cap |
+| Merge mode | `SOLVE_MERGE_MODE=external` (4 GB chunks) |
+| Phase 1 (read shards, sort chunks, write temp files) | ~6-7 min per 4 GB chunk × 20+ chunks ≈ 2-3 hours |
+| Phase 2 (k-way merge + write solutions.bin) | ~30-45 min |
+| Total wall | ~3-4 hours |
+| F64 on-demand cost at $3.87/hr | ~$12-15 |
+
+Compared to the alternatives on the same hardware (F64als_v6, 128 GB RAM):
+
+| Strategy | Wall time (10T) | Cost | Trade-off |
+|---|---|---|---|
+| External merge on Standard_LRS HDD (above) | 3-4 h | $12-15 | cheapest disk, slow merge |
+| In-memory merge on F64 (needs ~89 GB RAM, fits) | ~30 min | ~$2 | fast but limited to ≤ RAM |
+| External merge on Premium SSD (P20 512 GB) | ~1 h | ~$4-5 | fast + scalable; SSD cost for merge duration only |
+| Premium SSD for `solver-data` permanently | (same as in-memory) | $3/month → $40/month | wasteful; SSD only needed during merge |
+
+### Recommendations by dataset scale
+
+- **Input < 70% of merge-VM RAM.** Default (auto) selects in-memory. Fastest.
+- **Input ≥ 70% of merge-VM RAM, or running on small VM.** Use external merge.
+  - On Standard HDD: usable but slow. Budget 3-4 hours for 10T, proportionally
+    longer at 100T. Only viable when cost-minimizing is the priority over
+    wall time.
+  - On Premium SSD (recommended for any merge > 1 hour on HDD): attach a
+    temporary Premium-tier data disk (P20 or P30), run the merge with
+    shards symlinked onto the SSD (or use `SOLVE_TEMP_DIR` if/when
+    implemented), copy the final `solutions.bin` back to `solver-data` for
+    archival, detach and delete the SSD. Pennies in prorated Premium cost
+    for 4× throughput.
+
+### 100T and beyond — in-memory is not an option
+
+Extrapolating: 100T enumeration produces ~27.7B pre-dedup records = ~830 GB
+of input. In-memory merge would need an **M-series VM (2-4 TB RAM, ~$15-30/hr)**
+— technically possible but 10× the cost for marginal benefit. The practical
+path at 100T is **external merge on Premium SSD**:
+
+- F64als_v6 (128 GB RAM) + Premium SSD P40 (2 TB, 250 MB/s)
+- ~2.7 TB total I/O (read shards once, write chunks, read chunks, write output)
+- ~3 hours wall time, ~$13-15 total (VM + prorated disk)
+
+The in-memory path effectively tops out around the 10T-at-our-current-VM-size
+combination. Everything larger is external-merge-with-SSD territory.
 
 **Resource profile by phase:**
 
