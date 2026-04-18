@@ -615,29 +615,75 @@ possibly M-series VM for analysis step. Queued, not scoped.
 
 Beyond the current committed state, the following work is known to be useful
 but not yet done. A fresh session wanting to continue the project should
-consider these in rough priority order:
+consider these in rough priority order. This section was last refreshed
+2026-04-18; see [HISTORY.md](HISTORY.md) "Current state" for the canonical
+up-to-date status.
 
-1. **Hash-table silent-drop fix.** Remove the 64-probe cap, add a drop counter,
-   abort on load factor >75%. Closes the one known silent-data-loss path
-   remaining in solve.c.
-2. **Status-label taxonomy.** Split `INTERRUPTED` into `EXHAUSTED` (natural
-   completion), `BUDGETED` (hit per-sub-branch node limit), and `INTERRUPTED`
-   (true external signal). Add per-sub-branch budget to the checkpoint line
-   so resume can detect budget changes. Skip BUDGETED on same-budget resume.
-3. **Option B: depth-3 work units.** Split each sub-branch into ~30 sub-sub-
-   branches by pre-enumerating `pair3`/`orient3`. Drops eviction loss from
-   ~30 min/eviction to ~1 min/eviction. Gates affordable 100T on spot.
-4. **100T enumeration** after 1-3 are tested at small scale.
-5. **Scientific (analysis) extensions**:
-   - Formal proof (not computational) that 4 is the minimum boundary count
-     across *all* valid orderings (not just the 742M dataset).
-   - Null-model comparison against structured permutations (de Bruijn
-     sequences, Costas arrays) — currently only random permutations.
-   - Connection of KW's minimum-boundary set `{2, 21, 25, 27}` (or `{25, 27}`
-     mandatory) to known combinatorial structures (designs, codes, group
-     actions). Would elevate empirical observations to mathematical
-     connections. See `INSIGHTS.md` (project-local, not committed) and
-     `BREAKTHROUGH_REQUIREMENTS.md` (project-local).
+### Operational (in-flight or near-term)
+
+1. **Establish canonical v1 reference shas.** No canonical `solutions.bin`
+   currently exists in format v1. In progress:
+   - **D3 re-merge** of the existing 56,404 sub_*.bin shards on
+     `solver-data` (produced by the bug-fixed solver during the completed
+     10T d3 enumeration). The first canonical v1 sha lands here.
+   - **D2 fresh 10T enumeration** on spot F64 using the current solver,
+     producing an independent d2 reference sha. The d2 and d3 shas
+     should agree on the canonical dedup count — disagreement flags a
+     depth-dependent bug.
+   - **Cross-validation**: re-enumerate d3 from scratch independently and
+     compare to the merge-based sha. Catches any silent drift between
+     the enumeration and merge code paths.
+2. **100T enumeration.** Preconditions: (a) d3/d2 reference shas established
+   (item 1), (b) D128als_v7 spot quota approved by Azure (currently requested,
+   pending), (c) the external-merge + Premium-SSD `SOLVE_TEMP_DIR` pattern
+   exercised at 10T scale as the dry run (landed 2026-04-18). Cost
+   projection: ~$50 on spot at depth-3. Validates the 10T reference shas
+   at 10× the node budget and fills in any solutions the 10T enumeration
+   didn't reach.
+
+### Scientific / analysis extensions (longer horizon)
+
+Tracked in detail in [`LONG_TERM_PLAN.md`](../LONG_TERM_PLAN.md) (project-
+local, not committed). Highlights:
+
+3. **Formal proof of forced-orientation (Theorem 6).** `SPECIFICATION.md`
+   cites the theorem with a prose proof reference. Level 1: tighten the
+   prose to publication-grade. Level 2: machine-check in Lean or Rocq.
+4. **Bootstrap confidence intervals** on percentile claims (complement
+   distance at 3.9th percentile, shift pattern at 2.93%, per-position
+   entropies). Report `X% [Y%, Z%]` instead of point estimates.
+5. **Null-model comparison against structured permutations** (de Bruijn
+   sequences, Costas arrays). Currently CRITIQUE.md compares only to
+   random permutations and to pair-constrained random permutations —
+   structured-permutation nulls are absent.
+6. **Re-verify {25, 27} + interchangeable-pairs structure on v1 refs.**
+   The 2026-04-18 doc sweep reformulated "mandatory {25, 27}" as
+   `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}`. That structure was proven
+   on the invalidated 742M dataset; it needs re-verification on the new
+   canonical v1 d3/d2 shas. A deeper enumeration could in principle
+   collapse one of the interchangeable pairs, or admit a working
+   quadruple that doesn't include {25, 27}.
+7. **Connection to known combinatorial structures** (block designs, error-
+   correcting codes, group actions). Would elevate empirical findings
+   to mathematical connections. Exploratory notes in `INSIGHTS.md` and
+   `BREAKTHROUGH_REQUIREMENTS.md` (project-local at the top of the
+   working tree, not committed).
+
+### Infrastructure / archival (deferred)
+
+Not planned at this time per operator direction (2026-04-18), but worth
+noting so a future session understands the scope they were declined from:
+
+- CI/CD automation (GitHub Actions) for buildability over time.
+- Linux-path portability (`/proc/self/exe` fallback for non-Linux).
+- Archival deposits (Zenodo + Software Heritage) for 20-year preservation.
+
+All three are discussed in `SCIENTIFIC_REVIEW.md` (project-local).
 
 See [HISTORY.md](HISTORY.md) "Current state" for the latest status, and the
-missteps table for worked examples of how the project self-corrects.
+missteps table for worked examples of how the project self-corrects. Items
+that were previously in this list and are now complete:
+
+- Hash-table silent-drop fix → commit `585880f` (auto-resizing hash table, zero silent drops).
+- Status-label taxonomy → commit `3f0167f` (EXHAUSTED/BUDGETED/INTERRUPTED).
+- Option B depth-3 work units → commit `ac5a9ba`; 10T d3 enumeration completed 2026-04-17 with all 158,364 sub-branches processed.
