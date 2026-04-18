@@ -300,6 +300,15 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
 
+**Canonical v1 D3 sha established (2026-04-18, 04:54 UTC).** First production `solutions.bin` in the v1 format with header + sidecar. Produced by re-merging the 56,404 sub_*.bin shards from the completed 10T depth-3 enumeration using the hardened solver + Premium SSD attach-for-merge pattern.
+- **sha256: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`**
+- **Unique canonical orderings: 706,422,987** (down from invalidated `aa1415…` 742M; the ~36M difference is consistent with removing orient-variant duplicates that inflated the old count plus recovering the 241M that were hash-dropped — the two bugs roughly cancel).
+- Merge config: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch` on on-demand F64als_v6, Premium SSD P20 attached just for the merge duration.
+- Total pre-dedup records: 2,772,506,921 (same 2.77B as the original d3 enumeration).
+- Post-merge `--validate` PASS; explicit `./solve --verify`: all 706,422,987 records satisfy C1-C5, sorted, no duplicates, King Wen present.
+- Archive: `solve_c/runs/20260418_10T_d3_v1/` (metadata + sha + log + checkpoint — full 22.6 GB `solutions.bin` lives on `solver-data`).
+- Pending cross-checks: (1) fresh d3 re-enumeration from scratch with the current solver — should produce the identical sha; (2) fresh d2 enumeration — produces an independent reference sha (different partition, different per-sub-branch budget at same 10T total, so different 10T-partial sha expected).
+
 **SOLVE_TEMP_DIR env var (2026-04-18, commit 5fc1e72).** Lets the operator direct external-merge temp chunks to a dedicated disk while keeping shards and final output on archival storage. Pattern: attach a Premium SSD to the merge VM just for the merge, run with `SOLVE_TEMP_DIR=/mnt/merge-scratch`, then detach and delete the SSD. CWD stays on `solver-data` (Standard HDD) so the final `solutions.bin` archives cheaply. Concrete az CLI workflow in `DEPLOYMENT.md §Premium-SSD-attach-for-merge`. Smoke-tested at 100M scale: byte-identical output to default-temp-dir run, temp chunks correctly landing in the specified directory. Motivated by the d3 re-merge performance findings below.
 
 **Scale limits documented (2026-04-18).** `solve.c` now has an explicit comment block at the `MAX_SORTED_CHUNKS` definition describing the external-merge ceiling: **16 TB pre-dedup at default chunk size = ~2,000T node enumerations**. Error message on hit points at the mitigation (`SOLVE_MERGE_CHUNK_GB=16` or higher). `DEPLOYMENT.md §Known scale limits of external merge` captures the operator-facing version; `DEVELOPMENT.md` Known Gotchas has the developer-facing summary. The `ulimit -n = 1024` default hits first in practice (~500T) and is a one-line shell fix.

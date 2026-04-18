@@ -229,6 +229,25 @@
  * The solver prints a startup WARNING when both limits are set
  * simultaneously.
  *
+ * PARTITION-INVARIANCE UNDER EXHAUSTIVE RUNS
+ * ==========================================
+ * A 10T full-parallel run produces a different sha than a 10T single-branch
+ * run, because the per-sub-branch node budget is SOLVE_NODE_LIMIT divided
+ * by the number of sub-branches enumerated, and that denominator differs
+ * between the two modes. Different per-sub-branch budget → different set
+ * of (still-valid) solutions found before BUDGETED → different sha.
+ *
+ * Under EXHAUSTIVE enumeration (every sub-branch runs to EXHAUSTED, not
+ * BUDGETED), the output is partition-invariant. Specifically: running all
+ * first-level branches in parallel to completion, then merging, produces
+ * byte-identical solutions.bin as running each first-level branch
+ * individually via --branch P O to completion, then merging the union of
+ * their shards. This is guaranteed by three properties:
+ *   1. Per-sub-branch backtracking is deterministic given the prefix.
+ *   2. Shard filenames (sub_P1_O1_P2_O2.bin) are content-addressable.
+ *   3. The merge is a total-order qsort + canonical-dedup → deterministic.
+ * The same invariance holds across depths (d2 vs d3) only under exhaustion.
+ *
  * Graceful shutdown: SIGTERM/SIGINT handled via sigaction. Threads finish their
  * current sub-branch (which writes its sub_*.bin), then main proceeds to the
  * final merge before exiting. Spot eviction signals trigger this path.
