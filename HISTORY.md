@@ -300,14 +300,17 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
 
-**Canonical v1 D3 sha established (2026-04-18, 04:54 UTC).** First production `solutions.bin` in the v1 format with header + sidecar. Produced by re-merging the 56,404 sub_*.bin shards from the completed 10T depth-3 enumeration using the hardened solver + Premium SSD attach-for-merge pattern.
-- **sha256: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`**
-- **Unique canonical orderings: 706,422,987** (down from invalidated `aa1415…` 742M; the ~36M difference is consistent with removing orient-variant duplicates that inflated the old count plus recovering the 241M that were hash-dropped — the two bugs roughly cancel).
-- Merge config: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch` on on-demand F64als_v6, Premium SSD P20 attached just for the merge duration.
+**D3 re-merge candidate sha (2026-04-18, 04:54 UTC) — PENDING CROSS-VALIDATION.** First `solutions.bin` in v1 format. Produced by re-merging the 56,404 sub_*.bin shards from the completed 10T depth-3 enumeration using the hardened solver + Premium SSD attach-for-merge pattern.
+- **Candidate sha256: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`** — not yet canonical. Becomes canonical only after cross-validation (below) confirms a fresh independent re-enumeration produces the same sha.
+- **Unique canonical orderings: 706,422,987** (~36M fewer than invalidated `aa1415…` 742M; the difference is consistent with removing orient-variant duplicates that inflated the old count plus recovering the 241M that were hash-dropped — the two bugs partially cancel).
+- Merge config: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch` on on-demand F64als_v6, Premium SSD P20 attached just for the merge duration (detached + deleted after).
 - Total pre-dedup records: 2,772,506,921 (same 2.77B as the original d3 enumeration).
 - Post-merge `--validate` PASS; explicit `./solve --verify`: all 706,422,987 records satisfy C1-C5, sorted, no duplicates, King Wen present.
-- Archive: `solve_c/runs/20260418_10T_d3_v1/` (metadata + sha + log + checkpoint — full 22.6 GB `solutions.bin` lives on `solver-data`).
-- Pending cross-checks: (1) fresh d3 re-enumeration from scratch with the current solver — should produce the identical sha; (2) fresh d2 enumeration — produces an independent reference sha (different partition, different per-sub-branch budget at same 10T total, so different 10T-partial sha expected).
+- Archive: `solve_c/runs/20260418_10T_d3_v1/` (metadata + sha + log + gzipped checkpoint — full 22.6 GB `solutions.bin` lives on `solver-data`).
+- **Cross-validation protocol (in progress):**
+  - Phase C: fresh 10T d3 re-enumeration from scratch with the current solver. Expected sha = same as above. If matches → sha becomes canonical. If differs → flags a real bug (merge path vs enumeration path, shard corruption on solver-data, or solver non-determinism) and this entry gets corrected.
+  - Phase D: independent 10T d2 fresh enumeration. Produces its own reference sha (different partition → different per-sub-branch budget at same 10T total → different 10T-partial sha expected; not directly comparable to d3).
+- Until Phase C confirms, treat this sha as a candidate reference. Nothing downstream should cite it as canonical yet.
 
 **SOLVE_TEMP_DIR env var (2026-04-18, commit 5fc1e72).** Lets the operator direct external-merge temp chunks to a dedicated disk while keeping shards and final output on archival storage. Pattern: attach a Premium SSD to the merge VM just for the merge, run with `SOLVE_TEMP_DIR=/mnt/merge-scratch`, then detach and delete the SSD. CWD stays on `solver-data` (Standard HDD) so the final `solutions.bin` archives cheaply. Concrete az CLI workflow in `DEPLOYMENT.md §Premium-SSD-attach-for-merge`. Smoke-tested at 100M scale: byte-identical output to default-temp-dir run, temp chunks correctly landing in the specified directory. Motivated by the d3 re-merge performance findings below.
 
