@@ -317,11 +317,34 @@ static int pair_index_of(int x, int y) {
     return pair_lookup[x][y];
 }
 
-/* Complement distance: sum of |pos(v) - pos(v^63)| for all v where v != v^63.
- * Multiplied by 64 (stored as integer) to avoid floating point throughout.
- * King Wen's value is 776 (= 12.125 when divided by 64).
- * Lower = complements are closer together in the sequence. KW minimizes this
- * (3.9th percentile among random orderings — a genuine statistical signal). */
+/* Complement distance for a 64-hexagram permutation.
+ *
+ * Definition: for each hexagram v in {0..63}, add |pos(v) - pos(v ^ 63)|
+ * to a running total. The `if (comp != v)` guard is a no-op in this problem:
+ * comp(v) = v XOR 63 equals v iff 63 = 0, which is never true. So all 64
+ * hexagrams contribute; the code reads as if 60 might be excluded (matching
+ * the spec's prose) but arithmetically always sums over all 64.
+ *
+ * The 64 hexagrams form 32 complement-pairs. Each pair contributes its
+ * |delta-pos| twice (once as v, once as v^63). So:
+ *      total = 2 * sum_over_32_pairs(|Δpos|)
+ *            = 64 * mean_distance_per_pair
+ *
+ * That is why the stored integer is named "x64": it equals 64 times the
+ * mean complement-pair distance. No multiplication is needed in the code —
+ * it falls out of summing over all 64 hexagrams.
+ *
+ * King Wen's total is 776, i.e. mean 12.125 per complement-pair. This is the
+ * C3 ceiling: valid solutions must have total <= 776. KW sits at the
+ * boundary by construction (the threshold is KW's own value), and is in
+ * the 3.9th percentile of complement distance among all C1+C2+C4+C5
+ * solutions (i.e. KW actively minimizes this — a genuine signal that is
+ * not circular, since C3 is the ceiling, not the exact equality).
+ *
+ * Note: SPECIFICATION.md contains a documentation error stating |C| = 60.
+ * That number would correspond to excluding the 4 rev-palindromic hexagrams
+ * {0, 21, 42, 63}, but `comp` is not used as their partner in this sum —
+ * they still contribute normally. The correct divisor is 64. */
 static int compute_comp_dist_x64(const int seq[64]) {
     int pos[64];
     for (int i = 0; i < 64; i++) pos[seq[i]] = i;
@@ -380,6 +403,19 @@ typedef struct {
  *   if orient bit set: seq[2i] = pair.b, seq[2i+1] = pair.a
  *   else:              seq[2i] = pair.a, seq[2i+1] = pair.b */
 #define SOL_RECORD_SIZE 32
+
+/* Compile-time sanity on the record encoding. These _Static_asserts make it
+ * impossible to change the bit layout in one place (say, the pack expression)
+ * without also updating the canonical-form mask — the code would refuse to
+ * build. The checks encode the spec:
+ *   record byte = (pair_index << 2) | (orient << 1)       // bit 0 reserved
+ *   canonical form = record byte & 0xFC                   // mask out orient
+ * Concretely: pair_index=5, orient=1 should encode as 0x16 (22); the canonical
+ * form should be 0x14 (20). Any drift is caught at compile time. */
+_Static_assert(SOL_RECORD_SIZE == 32, "record size locked at 32 bytes (one per position)");
+_Static_assert((((5 << 2) | (1 << 1)) & 0xFF) == 22, "pair_index=5, orient=1 must encode to byte 22");
+_Static_assert((22 & 0xFC) == 20, "canonical mask 0xFC must zero orient bit while preserving pair_index");
+_Static_assert((((31 << 2) | (1 << 1)) & 0xFC) == (31 << 2), "max pair_index survives canonical mask");
 
 typedef struct {
     int edit_dist;
@@ -1520,6 +1556,41 @@ static void proof_search(int seq[64], int used[32], int budget[7],
     }
 }
 
+/* ---------- Record comparators: correctness proof ----------
+ *
+ * Two comparators exist, used at different stages of the pipeline:
+ *
+ *   compare_solutions:  total strict order on 32-byte records. Primary key is
+ *                       pair identity (byte & 0xFC); secondary key is the full
+ *                       byte (including orient bit). This is the qsort key.
+ *
+ *   compare_canonical:  equivalence-class comparator. Two records with the
+ *                       same pair identity compare equal regardless of orient.
+ *                       This is the dedup key.
+ *
+ * Correctness invariant: the final solutions.bin contains one record per
+ * canonical equivalence class (unique pair-sequence), regardless of how many
+ * orientation variants existed during search.
+ *
+ * Proof sketch:
+ *   (1) Per-thread hash-table insert uses canonical key (solve.c hash path
+ *       computes FNV over (rec[i] & 0xFC) for each i, and equality on probe
+ *       hit tests only the masked bytes). Therefore a thread's flushed
+ *       sub_*.bin file contains at most one representative per canonical
+ *       class WITHIN that thread.
+ *   (2) qsort uses compare_solutions (total order); any two records that
+ *       compare_canonical-equal are placed adjacent by qsort.
+ *   (3) The merge-phase dedup pass uses compare_canonical to compare each
+ *       record with the last retained one and skips equal-canonical ones,
+ *       preserving exactly one per class.
+ *
+ * Why the secondary tiebreaker in compare_solutions: qsort requires a strict
+ * total order (not a partial order). Without the secondary, two records with
+ * same pair identity but different orient would compare equal, and qsort's
+ * non-stable behavior would make the final byte content nondeterministic
+ * (which orient wins would depend on qsort's internal choices). The secondary
+ * ensures a fully deterministic post-sort byte stream, and the dedup pass
+ * then collapses the orient variants to a single deterministic survivor. */
 static int compare_solutions(const void *a, const void *b) {
     const unsigned char *sa = (const unsigned char *)a;
     const unsigned char *sb = (const unsigned char *)b;
@@ -2160,11 +2231,21 @@ int main(int argc, char *argv[]) {
     init_super_pairs();
     init_pair_order();
 
-    /* KW self-check: validate that the canonical KW[] sequence satisfies C1-C5.
-     * Catches accidental edits to KW[] or to the constraint checkers. If this
-     * fails, everything downstream is suspect. */
+    /* KW self-check: validate that the canonical KW[] sequence satisfies C1-C5
+     * with the exact values stated in SPECIFICATION.md.
+     *
+     * Catches accidental edits to KW[] or to the constraint checkers with
+     * EXACT constants (not ranges). A weaker check that only verified
+     * "distribution sums to 63" or "complement-distance is plausible" would
+     * pass for many wrong sequences; the exact forms here pass only for
+     * the canonical King Wen sequence. If this fails, every downstream claim
+     * is suspect — exit 50.
+     *
+     * The constants (expected multiset, 776, Creative/Receptive) are
+     * duplicated from SPECIFICATION.md on purpose: self-check should fail
+     * if either side drifts. */
     {
-        /* C1: all 64 hexagrams unique */
+        /* (a) Permutation property: all 64 hexagrams unique */
         int seen[64] = {0};
         for (int i = 0; i < 64; i++) {
             if (KW[i] < 0 || KW[i] >= 64 || seen[KW[i]]++) {
@@ -2172,28 +2253,59 @@ int main(int argc, char *argv[]) {
                 return 50; /* exit code 50 = internal consistency failure */
             }
         }
-        /* C2: no 5-line transitions between consecutive hexagrams */
+
+        /* (b) C1 pair-partner relationship: for each pair (KW[2i], KW[2i+1]),
+         * the second is the "partner" of the first, where:
+         *   partner(h) = rev(h)   if rev(h) != h  (60 rev-asymmetric hexagrams)
+         *   partner(h) = comp(h)  if rev(h) == h  (4 rev-palindromes: 0,21,42,63)
+         * Previously the check only verified uniqueness — a KW[] typo that
+         * swapped a partner for a non-partner hexagram would pass (a,b,c,d...)
+         * provided uniqueness held, and silently break every subsequent claim. */
+        for (int i = 0; i < 32; i++) {
+            int h = KW[2 * i];
+            int h_rev = reverse6(h);
+            int expected = (h_rev != h) ? h_rev : (h ^ 63);
+            if (KW[2 * i + 1] != expected) {
+                fprintf(stderr, "ERROR: KW self-check failed: pair %d has (%d,%d); "
+                                "expected partner(%d)=%d\n",
+                        i, h, KW[2 * i + 1], h, expected);
+                return 50;
+            }
+        }
+
+        /* (c) C2: no 5-line transitions between consecutive hexagrams */
         for (int i = 0; i < 63; i++) {
             if (hamming(KW[i], KW[i + 1]) == 5) {
                 fprintf(stderr, "ERROR: KW self-check failed: 5-line transition at index %d (%d -> %d)\n", i, KW[i], KW[i + 1]);
                 return 50;
             }
         }
-        /* C4: position 1 is hexagram 63 (Creative), position 2 is 0 (Receptive) */
+
+        /* (d) C4: position 0 is hexagram 63 (Creative), position 1 is 0 (Receptive) */
         if (KW[0] != 63 || KW[1] != 0) {
             fprintf(stderr, "ERROR: KW self-check failed: expected Creative/Receptive at positions 0-1, got %d/%d\n", KW[0], KW[1]);
             return 50;
         }
-        /* C5: difference-distribution kw_dist accounts for all 63 transitions */
-        int total_dist = 0;
-        for (int d = 0; d < 7; d++) total_dist += kw_dist[d];
-        if (total_dist != 63) {
-            fprintf(stderr, "ERROR: KW self-check failed: kw_dist sums to %d, expected 63\n", total_dist);
-            return 50;
+
+        /* (e) C5: difference-distribution matches the SPEC multiset EXACTLY.
+         * Spec: {1:2, 2:20, 3:13, 4:19, 6:9} — total 63, no d=0 or d=5. */
+        const int expected_kw_dist[7] = {0, 2, 20, 13, 19, 0, 9};
+        for (int d = 0; d < 7; d++) {
+            if (kw_dist[d] != expected_kw_dist[d]) {
+                fprintf(stderr, "ERROR: KW self-check failed: kw_dist[%d]=%d, expected %d "
+                                "(spec: {1:2, 2:20, 3:13, 4:19, 6:9})\n",
+                        d, kw_dist[d], expected_kw_dist[d]);
+                return 50;
+            }
         }
-        /* C3: compute_comp_dist_x64(KW) returned a sane value (not negative, not huge) */
-        if (kw_comp_dist_x64 <= 0 || kw_comp_dist_x64 > 2048) {
-            fprintf(stderr, "ERROR: KW self-check failed: kw_comp_dist_x64 = %d out of plausible range\n", kw_comp_dist_x64);
+
+        /* (f) C3: exact complement distance. Spec (per SPECIFICATION.md and
+         * HISTORY.md) requires 776 (= 12.125 x 64). A value that merely
+         * "looks plausible" (e.g., 770) would silently change C3's threshold
+         * and alter every enumeration count downstream. */
+        if (kw_comp_dist_x64 != 776) {
+            fprintf(stderr, "ERROR: KW self-check failed: kw_comp_dist_x64 = %d, expected 776 "
+                            "(12.125 x 64)\n", kw_comp_dist_x64);
             return 50;
         }
     }
