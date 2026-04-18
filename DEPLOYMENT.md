@@ -145,11 +145,62 @@ Compared to the alternatives on the same hardware (F64als_v6, 128 GB RAM):
     longer at 100T. Only viable when cost-minimizing is the priority over
     wall time.
   - On Premium SSD (recommended for any merge > 1 hour on HDD): attach a
-    temporary Premium-tier data disk (P20 or P30), run the merge with
-    shards symlinked onto the SSD (or use `SOLVE_TEMP_DIR` if/when
-    implemented), copy the final `solutions.bin` back to `solver-data` for
-    archival, detach and delete the SSD. Pennies in prorated Premium cost
-    for 4× throughput.
+    temporary Premium-tier data disk (P20 or P30), point `SOLVE_TEMP_DIR` at
+    it, run the merge. Solutions.bin lands on the CWD (which stays on
+    solver-data), temp chunks land on the SSD. After the merge completes,
+    detach and DELETE the SSD — shards and output are already on
+    solver-data. Pennies in prorated Premium cost for 3-4× throughput.
+
+### Premium-SSD-attach-for-merge — concrete workflow
+
+The pattern: **keep shards and final output on Standard-tier `solver-data`
+for cheap archival; attach a Premium SSD only for the duration of the merge
+so its temp I/O runs at SSD speed; destroy the SSD afterward.**
+
+```bash
+# 1. Provision a Premium SSD. P20 = 512 GB ($76/month base, ~$0.11/hour).
+#    For a 10T merge, P20 is plenty (~80 GB of temp chunks + slack).
+#    For 100T, use P40 (2 TB). Cost scales with size, NOT with I/O.
+az disk create -g RG-CLAUDE -n merge-scratch -l westus2 \
+  --size-gb 512 --sku Premium_LRS --no-wait
+
+# 2. Attach to the on-demand merge VM (after it's up).
+az vm disk attach -g RG-CLAUDE --vm-name <merge-vm-name> \
+  --name merge-scratch --lun 1
+
+# 3. On the VM: format, mount, own.
+ssh solver@<vm-private-ip> '
+  sudo mkfs.ext4 -F /dev/nvme0n3    # or whatever the new device is
+  sudo mkdir -p /mnt/merge-scratch
+  sudo mount /dev/nvme0n3 /mnt/merge-scratch
+  sudo chown solver:solver /mnt/merge-scratch
+'
+
+# 4. Run the merge with SOLVE_TEMP_DIR pointing at the SSD.
+#    CWD stays on /data (solver-data) so shards and final output live there.
+ssh solver@<vm-private-ip> '
+  cd /data
+  SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch ~/solve --merge
+'
+
+# 5. solutions.bin + .sha256 + .meta.json are now on /data (solver-data).
+#    temp_sorted_*.bin files were on the SSD and have been deleted by solve
+#    at end of merge. Nothing of value remains on the SSD.
+
+# 6. Detach + delete the SSD.
+az vm disk detach -g RG-CLAUDE --vm-name <merge-vm-name> --name merge-scratch
+az disk delete -g RG-CLAUDE -n merge-scratch --yes --no-wait
+```
+
+**Cost accounting.** Premium SSD is billed per-hour, but Azure bills at a
+minimum of one hour of usage per disk lifetime. A 2-hour merge on a P20:
+~$0.22 in disk cost. A P40 (2 TB) for a 100T merge: ~$1-2 for the disk.
+Negligible against the VM cost.
+
+**Why this matters for 100T and beyond.** The 10T merge fits in-memory on
+F64; the Premium-SSD pattern is optional at that scale. But 100T cannot be
+done in-memory on any cost-practical VM (see below), so the Premium-SSD
+pattern becomes the path forward, not an optimization.
 
 ### 100T and beyond — in-memory is not an option
 
@@ -158,7 +209,8 @@ of input. In-memory merge would need an **M-series VM (2-4 TB RAM, ~$15-30/hr)**
 — technically possible but 10× the cost for marginal benefit. The practical
 path at 100T is **external merge on Premium SSD**:
 
-- F64als_v6 (128 GB RAM) + Premium SSD P40 (2 TB, 250 MB/s)
+- F64als_v6 (128 GB RAM) + Premium SSD P40 (2 TB, 250 MB/s) as temp dir
+- `SOLVE_TEMP_DIR=/mnt/merge-scratch SOLVE_MERGE_MODE=external`
 - ~2.7 TB total I/O (read shards once, write chunks, read chunks, write output)
 - ~3 hours wall time, ~$13-15 total (VM + prorated disk)
 

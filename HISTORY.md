@@ -300,6 +300,8 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
 
+**SOLVE_TEMP_DIR env var (2026-04-18, commit 5fc1e72).** Lets the operator direct external-merge temp chunks to a dedicated disk while keeping shards and final output on archival storage. Pattern: attach a Premium SSD to the merge VM just for the merge, run with `SOLVE_TEMP_DIR=/mnt/merge-scratch`, then detach and delete the SSD. CWD stays on `solver-data` (Standard HDD) so the final `solutions.bin` archives cheaply. Concrete az CLI workflow in `DEPLOYMENT.md §Premium-SSD-attach-for-merge`. Smoke-tested at 100M scale: byte-identical output to default-temp-dir run, temp chunks correctly landing in the specified directory. Motivated by the d3 re-merge performance findings below.
+
 **D3 re-merge performance lessons (2026-04-18).** First production-scale test of the external merge-sort path (landed in commit 2752ce6). Lessons from the 2.77B-record, 83 GB external merge on `solver-data` (Standard_LRS 300 GB HDD-tier):
 
 - **Disk tier dominates merge time.** Standard_LRS is capped at ~60 MB/s and 500 IOPS — correct choice for long-term archival of shards (~$3/month for 300 GB) but wrong for active merge-phase compute. Observed ~6-7 min per 4 GB sorted chunk, ~20 chunks total for 10T input → ~2-3 hours phase 1 + ~30-45 min phase 2 = ~3-4 hours wall. At F64 on-demand ($3.87/hr), that's $12-15 for the merge alone — roughly 6× the in-memory cost on the same VM, 3-4× the external-on-Premium-SSD cost.

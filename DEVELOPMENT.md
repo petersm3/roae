@@ -415,6 +415,32 @@ keeping the managed disk.
   chunks + k-way heap merge. Produces identical output to in-memory merge.
   Default (`auto`) selects external when needed RAM exceeds 70% of
   physical. `SOLVE_MERGE_CHUNK_GB` controls chunk size (default 4 GB).
+- **Disk tier dominates external merge time.** Lesson from the 2026-04-18
+  10T depth-3 production-scale external merge test on Standard_LRS
+  (HDD-tier): rate was ~6-7 min per 4 GB chunk × 20+ chunks in phase 1,
+  projecting to ~3-4 hours total wall and ~$12-15 at F64 on-demand. That
+  is **~6× the time and ~6× the cost** of the same merge in-memory on the
+  same F64 (fits in 128 GB RAM comfortably). The HDD is the bottleneck,
+  not the code. Implication: never do an external merge on Standard HDD
+  at > 10T scale without a very good reason. At 100T the numbers become
+  untenable (extrapolated 30+ hours on HDD vs ~3 hours on Premium SSD).
+- **Use `SOLVE_TEMP_DIR` to keep temp chunks on Premium SSD while keeping
+  shards and final output on cheap archival storage.** External merge
+  does ~2× chunk-size worth of I/O to the temp directory
+  (write chunks in phase 1, read chunks in phase 2). Pointing
+  `SOLVE_TEMP_DIR` at a Premium SSD attached only for the merge runs
+  that I/O at SSD speeds (~200 MB/s on P20/P30, ~3-4× HDD). The SSD gets
+  destroyed after the merge — no long-term Premium-storage cost, only
+  the prorated hourly rate during the merge (pennies). Shards stay on
+  `solver-data` (Standard HDD, ~$3/month). Final `solutions.bin` also
+  lands on `solver-data` since CWD during merge is unchanged. See
+  [DEPLOYMENT.md §Premium-SSD-attach-for-merge](../solve_c/DEPLOYMENT.md)
+  for the concrete az CLI workflow.
+- **Standing rule: never provision `solver-data` as Premium SSD.** It
+  holds cold shards 99% of the time. Standard_LRS ($3/month for 300 GB,
+  $10/month for 1 TB) is the right tier for archival. The factor-10
+  cost jump to Premium is only justified during active merges, and those
+  are better served by attach-a-temp-Premium-SSD-just-for-the-merge.
 
 ### Infrastructure
 
