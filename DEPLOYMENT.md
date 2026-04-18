@@ -151,7 +151,51 @@ Compared to the alternatives on the same hardware (F64als_v6, 128 GB RAM):
     detach and DELETE the SSD — shards and output are already on
     solver-data. Pennies in prorated Premium cost for 3-4× throughput.
 
-### Premium-SSD-attach-for-merge — concrete workflow
+### Premium-SSD-attach-for-merge — the design pattern
+
+**Architectural idea.** External merge has three kinds of I/O: *shard reads*
+(long, sequential, from archival storage), *chunk write/read cycles* (the
+external algorithm's temp storage — written in Phase 1, read back in Phase
+2), and *output writes* (the final deduped `solutions.bin`). The shards and
+final output want to live on cheap durable archival storage (solver-data,
+Standard HDD, ~$3/mo for 300 GB). The chunk cycle wants to live on fast
+temp storage that can be destroyed after the merge.
+
+Putting everything on the HDD forces the HDD to interleave all three
+streams on one disk head, where seek contention (not raw throughput) is the
+bottleneck. Putting chunks on a separate Premium SSD collapses the HDD's
+role to two linear sequential streams (shard read, then output write) and
+gives the chunk cycle its own fast device. On the 10T d3 merge this moved
+wall time from ~3 hours to ~30-45 min at roughly the same total cost.
+
+**When the pattern is needed.** Any external merge where wall time on HDD
+would exceed ~1 hour. That is any merge where input ≥ 70% of merge-VM RAM
+(which forces external mode) at ≥ 10T scale. For smaller runs that fit
+in-memory, the pattern is unnecessary — auto mode selects in-memory and
+neither the SSD nor external mode is involved.
+
+**When the pattern is strictly necessary.** 100T and beyond. In-memory is
+not viable (~830 GB buffer requires M-series VMs at $15-30/hr — 10× the
+cost for marginal benefit). External merge is forced; running external on
+HDD at that scale projects to 30+ hour wall times. Premium SSD takes it to
+~3 hours.
+
+**The cost economics.** SSD is billed by capacity per hour. A 2-hour P20
+(512 GB) attached to a 10T merge costs ~$0.22 in disk. A P40 (2 TB) for a
+3-hour 100T merge costs ~$1.25 in disk. Negligible against VM cost, and
+the SSD is destroyed the moment the merge completes — no ongoing storage
+bill. That's why this is the right pattern instead of permanently
+upgrading solver-data to Premium (which would cost ~$40/month for a disk
+that sits cold 99% of the time).
+
+**The rule of thumb.** Shards and output live on Standard-tier `solver-data`
+forever. Premium SSD only exists for the duration of a merge.
+`SOLVE_TEMP_DIR=/mnt/merge-scratch` routes chunk I/O to the SSD during the
+merge. Both final files (`solutions.bin` + `solutions.sha256` +
+`solutions.meta.json`) write to CWD, which should be `solver-data` so they
+archive automatically.
+
+### Concrete workflow
 
 The pattern: **keep shards and final output on Standard-tier `solver-data`
 for cheap archival; attach a Premium SSD only for the duration of the merge
@@ -216,6 +260,27 @@ path at 100T is **external merge on Premium SSD**:
 
 The in-memory path effectively tops out around the 10T-at-our-current-VM-size
 combination. Everything larger is external-merge-with-SSD territory.
+
+### Known scale limits of external merge
+
+Two compile-time / runtime limits cap how far external merge can scale:
+
+| Limit | Source | Ceiling at default | Mitigation |
+|---|---|---|---|
+| `MAX_SORTED_CHUNKS = 4096` | `solve.c` constant | 4096 × 4 GB = **16 TB pre-dedup** (~2,000T node enumeration at d3 rates) | Raise `SOLVE_MERGE_CHUNK_GB` (e.g., to 16 or 32) — multiplies ceiling; no code change. Or bump the constant (one-line source change) |
+| `ulimit -n` (open FDs) | OS per-shell default | Linux default 1024 → ~500T before hitting it | `ulimit -n 16384` before running `./solve --merge` |
+
+**Implications.** At any enumeration scale we're realistically considering
+(10T through 1,000T), both limits have comfortable headroom with default
+settings. The first limit we'd hit in practice is `ulimit -n` (around 500T);
+that's a one-line shell setting. Actually running into `MAX_SORTED_CHUNKS`
+would require ~2,000T enumerations, which are neither cost-practical nor
+currently planned.
+
+The solver emits a clear error with the mitigation if either limit is hit —
+no silent failure. For runs beyond 1,000T, it's good hygiene to both
+`ulimit -n 16384` and set `SOLVE_MERGE_CHUNK_GB=16` before the merge; that
+combination gives an ~64 TB pre-dedup ceiling and >4096 concurrent FDs.
 
 **Resource profile by phase:**
 

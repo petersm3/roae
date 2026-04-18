@@ -1859,6 +1859,35 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         return 1;
     }
 
+    /* ---------------------------------------------------------------
+     * KNOWN SCALE LIMIT: MAX_SORTED_CHUNKS caps the maximum pre-dedup
+     * input size for external merge at (MAX_SORTED_CHUNKS × chunk_size).
+     *
+     * With defaults (4 GB chunks):
+     *   4096 × 4 GB = 16 TB of pre-dedup input
+     *   At observed d3 rate of ~8.3 GB per 1T nodes, that's ~2 quadrillion
+     *   nodes — 200× the current canonical 10T reference.
+     *
+     * Mitigation when this limit is actually hit:
+     *   Option A (no code change): set SOLVE_MERGE_CHUNK_GB=16 or 32 at
+     *     runtime. Each 4× increase in chunk size buys 4× the ceiling;
+     *     costs proportionally more RAM for the active chunk buffer.
+     *     F64 (128 GB RAM) can comfortably handle chunks up to ~64 GB.
+     *   Option B (one-line source change): bump this constant. Combined
+     *     with a larger SOLVE_MERGE_CHUNK_GB, ceilings well into exabyte
+     *     territory — far beyond any realistic enumeration.
+     *
+     * Practical scales:
+     *   10T–1,000T: fits comfortably with defaults.
+     *   ~1,500T:   consider SOLVE_MERGE_CHUNK_GB=16 for hygiene.
+     *   ~5,000T+:  required to bump chunk size or this constant.
+     *
+     * Note: before this becomes a real constraint, `ulimit -n` (open file
+     * descriptor count) bites first. The k-way merge opens every chunk
+     * simultaneously; Linux default ulimit -n = 1024 → fails around
+     * ~1024 chunks ≈ 500T at default chunk size. Raise with
+     * `ulimit -n 16384` before running, OR bump SOLVE_MERGE_CHUNK_GB.
+     * --------------------------------------------------------------- */
     #define MAX_SORTED_CHUNKS 4096
     /* Path buffer widened to 256 to accommodate reasonable SOLVE_TEMP_DIR
      * values (e.g., "/mnt/merge-ssd/temp_sorted_0000.bin"). */
@@ -1887,7 +1916,12 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
             if (records_in_chunk >= max_per_chunk) {
                 qsort(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
                 if (n_sorted >= MAX_SORTED_CHUNKS) {
-                    fprintf(stderr, "ERROR: too many sorted chunks (%d)\n", n_sorted);
+                    fprintf(stderr, "ERROR: reached MAX_SORTED_CHUNKS=%d (pre-dedup input "
+                                    "exceeds %d × SOLVE_MERGE_CHUNK_GB). Raise "
+                                    "SOLVE_MERGE_CHUNK_GB (e.g., 16 or 32) to buy 4-8× the "
+                                    "ceiling at the cost of more RAM for the active chunk "
+                                    "buffer. See comment at MAX_SORTED_CHUNKS definition.\n",
+                            MAX_SORTED_CHUNKS, MAX_SORTED_CHUNKS);
                     free(chunk); return 1;
                 }
                 snprintf(sorted_names[n_sorted], sizeof(sorted_names[0]),
@@ -1905,7 +1939,9 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     if (records_in_chunk > 0) {
         qsort(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
         if (n_sorted >= MAX_SORTED_CHUNKS) {
-            fprintf(stderr, "ERROR: too many sorted chunks\n"); free(chunk); return 1;
+            fprintf(stderr, "ERROR: reached MAX_SORTED_CHUNKS=%d on final partial chunk. "
+                            "Raise SOLVE_MERGE_CHUNK_GB.\n", MAX_SORTED_CHUNKS);
+            free(chunk); return 1;
         }
         snprintf(sorted_names[n_sorted], sizeof(sorted_names[0]),
                  "%s/temp_sorted_%04d.bin", tmp_dir, n_sorted);

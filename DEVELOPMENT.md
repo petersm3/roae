@@ -441,6 +441,16 @@ keeping the managed disk.
   $10/month for 1 TB) is the right tier for archival. The factor-10
   cost jump to Premium is only justified during active merges, and those
   are better served by attach-a-temp-Premium-SSD-just-for-the-merge.
+- **External merge has a hard pre-dedup size ceiling.** `MAX_SORTED_CHUNKS
+  = 4096` in solve.c × default `SOLVE_MERGE_CHUNK_GB=4` = **16 TB of
+  pre-dedup input**. At observed d3 rates (~8.3 GB per 1T nodes) that's
+  ~2,000T of enumeration. Comfortable for 10T-1,000T; restrictive only
+  at ~1,500T+. Mitigation is env-var (`SOLVE_MERGE_CHUNK_GB=16` buys 4×
+  headroom, 32 buys 8×) with no code change; or bump the constant as a
+  one-line source change. Solver emits a clear error with the mitigation
+  if the limit is hit. Before this bites: `ulimit -n` default of 1024
+  open FDs is hit around 500T (the k-way merge opens every chunk
+  simultaneously). `ulimit -n 16384` before running fixes it.
 
 ### Infrastructure
 
