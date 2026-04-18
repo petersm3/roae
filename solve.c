@@ -201,6 +201,16 @@
  *   SOLVE_NODE_LIMIT=N       — stop after N total nodes, distributed equally per
  *                              sub-branch. Deterministic, reproducible sha256
  *                              regardless of thread count.
+ *   SOLVE_MERGE_MODE={auto,memory,external}
+ *                            — select merge strategy. auto picks external if
+ *                              input would exceed 70% of physical RAM.
+ *   SOLVE_MERGE_CHUNK_GB=N   — external-merge chunk size (default 4 GB).
+ *   SOLVE_TEMP_DIR=path      — where external-merge writes temp sorted chunks.
+ *                              Defaults to "." (current directory). Recommended
+ *                              pattern: point at a Premium SSD attached only
+ *                              for the merge, while shards and final
+ *                              solutions.bin stay on Standard-tier archival
+ *                              storage. See DEPLOYMENT.md §Disk tier matters.
  *
  * REPRODUCIBILITY RULE OF THUMB
  * =============================
@@ -1813,8 +1823,35 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     if (env_chunk) chunk_bytes = atoll(env_chunk) * 1024LL * 1024 * 1024;
     long long max_per_chunk = chunk_bytes / SOL_RECORD_SIZE;
 
+    /* Temp directory for sorted chunks (Phase 1 output; read back in Phase 2).
+     * Defaults to "." (current working directory). Set SOLVE_TEMP_DIR to
+     * redirect — recommended pattern is to point it at a fast local disk
+     * (Premium SSD attached temporarily for the merge), while shards and
+     * final solutions.bin stay on cheaper Standard-tier archival storage.
+     * A 2.77B-record merge does ~2×(chunk size in GB) of I/O to this path;
+     * putting chunks on SSD while shards remain on HDD can reduce total
+     * merge wall time 3-4× with only pennies of prorated Premium cost. */
+    const char *tmp_dir = getenv("SOLVE_TEMP_DIR");
+    if (!tmp_dir || !*tmp_dir) tmp_dir = ".";
+    /* Validate the temp dir exists and is writable — fail early rather than
+     * after the first multi-GB qsort completes. */
+    {
+        struct stat td_st;
+        if (stat(tmp_dir, &td_st) != 0 || !S_ISDIR(td_st.st_mode)) {
+            fprintf(stderr, "ERROR: SOLVE_TEMP_DIR '%s' does not exist or is not a directory\n",
+                    tmp_dir);
+            return 1;
+        }
+        if (access(tmp_dir, W_OK) != 0) {
+            fprintf(stderr, "ERROR: SOLVE_TEMP_DIR '%s' is not writable\n", tmp_dir);
+            return 1;
+        }
+    }
+
     printf("External merge-sort: %lld records, chunk size %lld GB (%lld records/chunk)\n",
            total_records, chunk_bytes / (1024*1024*1024), max_per_chunk);
+    printf("External merge-sort: temp chunks in %s%s\n",
+           tmp_dir, (strcmp(tmp_dir, ".") == 0) ? " (default; set SOLVE_TEMP_DIR to redirect)" : "");
 
     unsigned char *chunk = malloc((size_t)chunk_bytes);
     if (!chunk) {
@@ -1823,7 +1860,9 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     }
 
     #define MAX_SORTED_CHUNKS 4096
-    char sorted_names[MAX_SORTED_CHUNKS][64];
+    /* Path buffer widened to 256 to accommodate reasonable SOLVE_TEMP_DIR
+     * values (e.g., "/mnt/merge-ssd/temp_sorted_0000.bin"). */
+    char sorted_names[MAX_SORTED_CHUNKS][256];
     int n_sorted = 0;
     long long records_in_chunk = 0;
 
@@ -1851,7 +1890,8 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
                     fprintf(stderr, "ERROR: too many sorted chunks (%d)\n", n_sorted);
                     free(chunk); return 1;
                 }
-                snprintf(sorted_names[n_sorted], 64, "temp_sorted_%04d.bin", n_sorted);
+                snprintf(sorted_names[n_sorted], sizeof(sorted_names[0]),
+                         "%s/temp_sorted_%04d.bin", tmp_dir, n_sorted);
                 if (write_sorted_chunk(sorted_names[n_sorted], chunk, records_in_chunk, n_sorted, 0) != 0) {
                     free(chunk); return 1;
                 }
@@ -1867,7 +1907,8 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         if (n_sorted >= MAX_SORTED_CHUNKS) {
             fprintf(stderr, "ERROR: too many sorted chunks\n"); free(chunk); return 1;
         }
-        snprintf(sorted_names[n_sorted], 64, "temp_sorted_%04d.bin", n_sorted);
+        snprintf(sorted_names[n_sorted], sizeof(sorted_names[0]),
+                 "%s/temp_sorted_%04d.bin", tmp_dir, n_sorted);
         if (write_sorted_chunk(sorted_names[n_sorted], chunk, records_in_chunk, n_sorted, 1) != 0) {
             free(chunk); return 1;
         }
