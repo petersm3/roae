@@ -5540,8 +5540,18 @@ int main(int argc, char *argv[]) {
         start_time = time(NULL);
 
         pthread_t tids[64];
-        for (int i = 0; i < n_threads; i++)
-            pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
+        int n_started = 0;
+        for (int i = 0; i < n_threads; i++) {
+            int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
+            if (rc != 0) {
+                fprintf(stderr, "FATAL: pthread_create failed for thread %d (rc=%d: %s)\n",
+                        i, rc, strerror(rc));
+                global_timed_out = 1;
+                for (int j = 0; j < n_started; j++) pthread_join(tids[j], NULL);
+                return 10;
+            }
+            n_started++;
+        }
 
         /* Monitor */
         int report_counter = 0;
@@ -6098,8 +6108,18 @@ int main(int argc, char *argv[]) {
 
     /* Launch threads — use thread_func_single which handles SubBranch work units */
     pthread_t tids[256];
-    for (int i = 0; i < n_threads; i++)
-        pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
+    int n_started = 0;
+    for (int i = 0; i < n_threads; i++) {
+        int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
+        if (rc != 0) {
+            fprintf(stderr, "FATAL: pthread_create failed for thread %d (rc=%d: %s)\n",
+                    i, rc, strerror(rc));
+            global_timed_out = 1;
+            for (int j = 0; j < n_started; j++) pthread_join(tids[j], NULL);
+            return 10;
+        }
+        n_started++;
+    }
 
     /* Monitor progress */
     int report_counter = 0;
