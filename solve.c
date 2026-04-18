@@ -404,6 +404,109 @@ typedef struct {
  *   else:              seq[2i] = pair.a, seq[2i+1] = pair.b */
 #define SOL_RECORD_SIZE 32
 
+/* ---------- solutions.bin binary format ----------
+ * Every file starts with a fixed 32-byte header, then a stream of 32-byte
+ * records. See SOLUTIONS_FORMAT.md for the authoritative spec.
+ *
+ * Header (32 bytes, offsets in decimal):
+ *   [0..3]   ASCII 'R','O','A','E'   — magic, detects wrong-file / truncation
+ *   [4..7]   uint32 little-endian    — format version (SOL_FORMAT_VERSION)
+ *   [8..15]  uint64 little-endian    — record count
+ *   [16..31] zero-filled             — reserved for future extensions
+ *
+ * Why little-endian: all target architectures are LE and pack/unpack
+ * helpers are byte-by-byte, so the file content is identical on any host.
+ * Why 32-byte header: matches SOL_RECORD_SIZE, so records start at a
+ * record-sized offset; no alignment surprises. */
+#define SOL_FORMAT_VERSION 1
+#define SOL_HEADER_SIZE    32
+
+static inline void sol_pack_u32_le(unsigned char *dst, uint32_t v) {
+    dst[0] =  v        & 0xFF;
+    dst[1] = (v >> 8)  & 0xFF;
+    dst[2] = (v >> 16) & 0xFF;
+    dst[3] = (v >> 24) & 0xFF;
+}
+static inline void sol_pack_u64_le(unsigned char *dst, uint64_t v) {
+    for (int i = 0; i < 8; i++) dst[i] = (unsigned char)((v >> (i * 8)) & 0xFF);
+}
+static inline uint32_t sol_unpack_u32_le(const unsigned char *src) {
+    return  (uint32_t)src[0]
+         | ((uint32_t)src[1] << 8)
+         | ((uint32_t)src[2] << 16)
+         | ((uint32_t)src[3] << 24);
+}
+static inline uint64_t sol_unpack_u64_le(const unsigned char *src) {
+    uint64_t v = 0;
+    for (int i = 0; i < 8; i++) v |= ((uint64_t)src[i] << (i * 8));
+    return v;
+}
+
+/* Write the 32-byte solutions.bin header. fwrite/fflush/fsync returns are
+ * caller's responsibility; this helper only constructs and writes bytes. */
+static int sol_write_header(FILE *f, uint64_t n_records) {
+    unsigned char hdr[SOL_HEADER_SIZE] = {0};
+    hdr[0] = 'R'; hdr[1] = 'O'; hdr[2] = 'A'; hdr[3] = 'E';
+    sol_pack_u32_le(&hdr[4], (uint32_t)SOL_FORMAT_VERSION);
+    sol_pack_u64_le(&hdr[8], n_records);
+    /* bytes 16..31 stay zero */
+    if (fwrite(hdr, 1, SOL_HEADER_SIZE, f) != SOL_HEADER_SIZE) return -1;
+    return 0;
+}
+
+/* Read and validate the header. Returns 0 on success (fills *out_records),
+ * or -1 on bad magic, unknown version, or short read.
+ * Caller is responsible for seeking the stream to offset 0 first. */
+static int sol_read_header(FILE *f, uint64_t *out_records) {
+    unsigned char hdr[SOL_HEADER_SIZE];
+    if (fread(hdr, 1, SOL_HEADER_SIZE, f) != SOL_HEADER_SIZE) return -1;
+    if (hdr[0] != 'R' || hdr[1] != 'O' || hdr[2] != 'A' || hdr[3] != 'E')
+        return -1;
+    uint32_t version = sol_unpack_u32_le(&hdr[4]);
+    if (version != SOL_FORMAT_VERSION) return -1;
+    *out_records = sol_unpack_u64_le(&hdr[8]);
+    return 0;
+}
+
+/* Write the human-readable sidecar at `meta_path`. Provenance fields
+ * (timestamp, git hash) are NOT embedded in solutions.bin itself — they live
+ * only here so the binary sha stays reproducible across runs while the
+ * sidecar records useful context. */
+static int sol_write_meta_json(const char *meta_path, const char *bin_path,
+                                uint64_t n_records, long long unique_count,
+                                const char *sha_hex) {
+    FILE *mf = fopen(meta_path, "w");
+    if (!mf) {
+        fprintf(stderr, "WARNING: cannot open %s: %s\n", meta_path, strerror(errno));
+        return -1;
+    }
+    char tbuf[64]; struct tm tmbuf;
+    time_t now = time(NULL);
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tmbuf));
+    fprintf(mf, "{\n");
+    fprintf(mf, "  \"file\": \"%s\",\n", bin_path);
+    fprintf(mf, "  \"magic\": \"ROAE\",\n");
+    fprintf(mf, "  \"format_version\": %d,\n", SOL_FORMAT_VERSION);
+    fprintf(mf, "  \"header_size_bytes\": %d,\n", SOL_HEADER_SIZE);
+    fprintf(mf, "  \"record_size_bytes\": %d,\n", SOL_RECORD_SIZE);
+    fprintf(mf, "  \"record_count\": %llu,\n", (unsigned long long)n_records);
+    fprintf(mf, "  \"unique_solutions\": %lld,\n", unique_count);
+    fprintf(mf, "  \"sha256\": \"%s\",\n", sha_hex ? sha_hex : "");
+    fprintf(mf, "  \"encoding\": \"byte i = (pair_index<<2) | (orient<<1); bit 0 reserved\",\n");
+    fprintf(mf, "  \"dedup_semantics\": \"canonical — one record per unique pair-sequence; orient variants collapsed\",\n");
+    fprintf(mf, "  \"header_byte_order\": \"little-endian (u32 version, u64 record_count)\",\n");
+    fprintf(mf, "  \"record_byte_order\": \"single-byte records; byte order is a non-concept\",\n");
+    fprintf(mf, "  \"constraint_spec\": \"SPECIFICATION.md\",\n");
+    fprintf(mf, "  \"generator\": \"solve.c git %s\",\n", GIT_HASH);
+    fprintf(mf, "  \"generated_utc\": \"%s\"\n", tbuf);
+    fprintf(mf, "}\n");
+    if (fflush(mf) != 0 || fsync(fileno(mf)) != 0 || fclose(mf) != 0) {
+        fprintf(stderr, "WARNING: %s write/flush/close failed: %s\n", meta_path, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
 /* Compile-time sanity on the record encoding. These _Static_asserts make it
  * impossible to change the bit layout in one place (say, the pack expression)
  * without also updating the canonical-form mask — the code would refuse to
@@ -413,6 +516,7 @@ typedef struct {
  * Concretely: pair_index=5, orient=1 should encode as 0x16 (22); the canonical
  * form should be 0x14 (20). Any drift is caught at compile time. */
 _Static_assert(SOL_RECORD_SIZE == 32, "record size locked at 32 bytes (one per position)");
+_Static_assert(SOL_HEADER_SIZE == 32,  "header size locked at 32 bytes (matches record size)");
 _Static_assert((((5 << 2) | (1 << 1)) & 0xFF) == 22, "pair_index=5, orient=1 must encode to byte 22");
 _Static_assert((22 & 0xFC) == 20, "canonical mask 0xFC must zero orient bit while preserving pair_index");
 _Static_assert((((31 << 2) | (1 << 1)) & 0xFC) == (31 << 2), "max pair_index survives canonical mask");
@@ -1795,6 +1899,13 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         free(sfiles); free(heap); return 1;
     }
 
+    /* Reserve header space — unique count is unknown until the merge loop
+     * completes, so we write a zero-filled placeholder and patch it below. */
+    if (sol_write_header(out, 0) != 0) {
+        fprintf(stderr, "FATAL: header reserve failed on %s\n", output_path);
+        fclose(out); free(sfiles); free(heap); return 1;
+    }
+
     unsigned char last_written[SOL_RECORD_SIZE];
     memset(last_written, 0xFF, SOL_RECORD_SIZE);
     long long unique = 0, total_merged = 0;
@@ -1829,6 +1940,13 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         }
     }
 
+    /* Patch the header's record_count now that the merge loop is done.
+     * fseek to offset 0 and rewrite the 32-byte header with real count. */
+    if (fseek(out, 0, SEEK_SET) != 0 ||
+        sol_write_header(out, (uint64_t)unique) != 0) {
+        fprintf(stderr, "FATAL: header patch failed on %s\n", output_path);
+        fclose(out); free(sfiles); free(heap); return 1;
+    }
     if (fflush(out) != 0 || fsync(fileno(out)) != 0) {
         fprintf(stderr, "FATAL: flush/fsync failed on %s\n", output_path);
         fclose(out); free(sfiles); free(heap); return 1;
@@ -2088,9 +2206,12 @@ int main(int argc, char *argv[]) {
          * that would produce a different solutions.bin from the same inputs.
          *
          * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
-         * Expected sha256: 76ada31ef4a5829dcf33c8127c296fcb08115ef066ab267b1a0fb0b162f2a20d
+         * Expected sha256: 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+         * (Baseline was 76ada31e... before solutions.bin format v1 landed. The
+         * content — 135,780 canonical pair orderings — is unchanged; only the
+         * file bytes differ because the 32-byte header is now prepended.)
          */
-        const char *expected_sha = "76ada31ef4a5829dcf33c8127c296fcb08115ef066ab267b1a0fb0b162f2a20d";
+        const char *expected_sha = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
@@ -2333,14 +2454,39 @@ int main(int argc, char *argv[]) {
         fseek(vf, 0, SEEK_END);
         long vsize = ftell(vf);
         fseek(vf, 0, SEEK_SET);
-        if (vsize <= 0 || vsize % SOL_RECORD_SIZE != 0) {
-            fprintf(stderr, "ERROR: file size %ld is not a positive multiple of %d\n",
-                    vsize, SOL_RECORD_SIZE);
+        if (vsize < SOL_HEADER_SIZE) {
+            fprintf(stderr, "ERROR: file size %ld shorter than header (%d bytes)\n",
+                    vsize, SOL_HEADER_SIZE);
             fclose(vf);
             return 20;
         }
-        long long n_records = vsize / SOL_RECORD_SIZE;
-        printf("Records: %lld (%ld bytes)\n\n", n_records, vsize);
+
+        /* Parse the 32-byte header. Magic must be 'ROAE', version must match,
+         * and declared record_count must agree with actual file geometry. */
+        uint64_t hdr_records = 0;
+        if (sol_read_header(vf, &hdr_records) != 0) {
+            fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version "
+                            "(expected magic 'ROAE', version %d)\n",
+                    verify_file, SOL_FORMAT_VERSION);
+            fclose(vf);
+            return 20;
+        }
+        long record_bytes = vsize - SOL_HEADER_SIZE;
+        if (record_bytes < 0 || record_bytes % SOL_RECORD_SIZE != 0) {
+            fprintf(stderr, "ERROR: record stream %ld bytes after header is not a multiple of %d\n",
+                    record_bytes, SOL_RECORD_SIZE);
+            fclose(vf);
+            return 20;
+        }
+        long long n_records = record_bytes / SOL_RECORD_SIZE;
+        if ((uint64_t)n_records != hdr_records) {
+            fprintf(stderr, "ERROR: header claims %llu records but file has %lld\n",
+                    (unsigned long long)hdr_records, n_records);
+            fclose(vf);
+            return 20;
+        }
+        printf("Header: magic ROAE, version %d, %lld records (file %ld bytes)\n\n",
+               SOL_FORMAT_VERSION, n_records, vsize);
 
         unsigned char rec[SOL_RECORD_SIZE];
         unsigned char prev[SOL_RECORD_SIZE];
@@ -2458,21 +2604,47 @@ int main(int argc, char *argv[]) {
                SOL_RECORD_SIZE);
         printf("  Checking: C1-C5, C3, sorted order, no duplicates, King Wen presence.\n\n");
 
-        /* mmap the file: avoids loading 24 GB into a malloc, OS pages it in. */
+        /* Parse the 32-byte header first. Opens a FILE* just for header parsing
+         * (sol_read_header works on FILE*); the main validate loop uses mmap
+         * at offset SOL_HEADER_SIZE for the record stream. */
+        {
+            FILE *hvf = fopen(validate_file, "rb");
+            if (!hvf) { printf("ERROR: cannot open %s for header read\n", validate_file); return 1; }
+            uint64_t hdr_records = 0;
+            if (sol_read_header(hvf, &hdr_records) != 0) {
+                printf("ERROR: %s has invalid magic or unsupported version "
+                       "(expected 'ROAE' v%d)\n", validate_file, SOL_FORMAT_VERSION);
+                fclose(hvf);
+                return 1;
+            }
+            fclose(hvf);
+            printf("  Header: ROAE v%d, %llu records declared\n",
+                   SOL_FORMAT_VERSION, (unsigned long long)hdr_records);
+        }
+
+        /* mmap the file: avoids loading 24 GB into a malloc, OS pages it in.
+         * Records start at byte SOL_HEADER_SIZE (32); subsequent offsets
+         * into vall are record-stream-relative, so we skip past the header. */
         int vfd = open(validate_file, O_RDONLY);
         if (vfd < 0) { printf("ERROR: cannot open %s\n", validate_file); return 1; }
         struct stat vst;
         if (fstat(vfd, &vst) < 0) { printf("ERROR: fstat failed\n"); close(vfd); return 1; }
-        long file_size = vst.st_size;
+        long full_size = vst.st_size;
+        if (full_size < SOL_HEADER_SIZE) {
+            printf("ERROR: file smaller than header\n"); close(vfd); return 1;
+        }
+        long file_size = full_size - SOL_HEADER_SIZE;   /* record stream size */
         long long n_solutions = file_size / SOL_RECORD_SIZE;
-        printf("  File size: %ld bytes, %lld solutions (%d bytes/record)\n",
-               file_size, n_solutions, SOL_RECORD_SIZE);
+        printf("  File size: %ld bytes (%d header + %ld records), %lld solutions\n",
+               full_size, SOL_HEADER_SIZE, file_size, n_solutions);
         if (file_size % SOL_RECORD_SIZE != 0)
-            printf("  WARNING: file size not a multiple of %d bytes\n", SOL_RECORD_SIZE);
-        unsigned char *vall = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, vfd, 0);
+            printf("  WARNING: record stream %ld bytes not a multiple of %d\n",
+                   file_size, SOL_RECORD_SIZE);
+        unsigned char *mmap_base = mmap(NULL, full_size, PROT_READ, MAP_PRIVATE, vfd, 0);
         close(vfd);
-        if (vall == MAP_FAILED) { printf("ERROR: mmap failed\n"); return 1; }
-        madvise(vall, file_size, MADV_SEQUENTIAL);
+        if (mmap_base == MAP_FAILED) { printf("ERROR: mmap failed\n"); return 1; }
+        madvise(mmap_base, full_size, MADV_SEQUENTIAL);
+        unsigned char *vall = mmap_base + SOL_HEADER_SIZE;  /* record-stream view */
 
         long long errors = 0;
         int kw_found_v = 0;
@@ -2573,7 +2745,7 @@ int main(int argc, char *argv[]) {
             }
             errors += local_errors;
         }
-        munmap(vall, file_size);
+        munmap(mmap_base, full_size);
 
         printf("\n--- Validation results ---\n");
         printf("  Solutions checked:  %lld\n", n_solutions);
@@ -2635,29 +2807,53 @@ int main(int argc, char *argv[]) {
         printf("\n==== ./solve --analyze %s ====\n\n", analyze_file);
         time_t t_start = time(NULL);
 
-        /* mmap the file: no malloc, no fread. OS pages it in on demand. */
+        /* Parse the 32-byte header first. */
+        {
+            FILE *hf = fopen(analyze_file, "rb");
+            if (!hf) { printf("ERROR: cannot open %s for header read\n", analyze_file); return 1; }
+            uint64_t hdr_records = 0;
+            if (sol_read_header(hf, &hdr_records) != 0) {
+                printf("ERROR: %s has invalid magic or unsupported version "
+                       "(expected 'ROAE' v%d)\n", analyze_file, SOL_FORMAT_VERSION);
+                fclose(hf); return 1;
+            }
+            fclose(hf);
+        }
+
+        /* mmap the file: no malloc, no fread. OS pages it in on demand.
+         * The record stream starts at byte SOL_HEADER_SIZE; `all` is the
+         * record-stream view. */
         int afd = open(analyze_file, O_RDONLY);
         if (afd < 0) { printf("ERROR: cannot open %s\n", analyze_file); return 1; }
         struct stat ast;
         if (fstat(afd, &ast) < 0) { printf("ERROR: fstat failed\n"); close(afd); return 1; }
-        long file_size = ast.st_size;
+        long full_size = ast.st_size;
+        if (full_size < SOL_HEADER_SIZE) {
+            printf("ERROR: file smaller than header (%ld < %d)\n", full_size, SOL_HEADER_SIZE);
+            close(afd); return 1;
+        }
+        long file_size = full_size - SOL_HEADER_SIZE;
         if (file_size % SOL_RECORD_SIZE != 0) {
-            printf("ERROR: file size %ld not a multiple of %d\n", file_size, SOL_RECORD_SIZE);
+            printf("ERROR: record stream %ld bytes after header not a multiple of %d\n",
+                   file_size, SOL_RECORD_SIZE);
             close(afd); return 1;
         }
         long long n_sols = file_size / SOL_RECORD_SIZE;
-        unsigned char *all = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, afd, 0);
+        unsigned char *mmap_base = mmap(NULL, full_size, PROT_READ, MAP_PRIVATE, afd, 0);
         close(afd);
-        if (all == MAP_FAILED) {
-            printf("ERROR: mmap of %ld bytes failed (errno %d)\n", file_size, errno);
+        if (mmap_base == MAP_FAILED) {
+            printf("ERROR: mmap of %ld bytes failed (errno %d)\n", full_size, errno);
             return 1;
         }
-        madvise(all, file_size, MADV_SEQUENTIAL);
+        madvise(mmap_base, full_size, MADV_SEQUENTIAL);
+        unsigned char *all = mmap_base + SOL_HEADER_SIZE;   /* record-stream view */
 
         printf("[1] File metadata\n");
         printf("    records:    %lld\n", n_sols);
-        printf("    file size:  %ld bytes (%.2f GB)\n", file_size, file_size / 1e9);
-        printf("    record fmt: %d bytes packed (pair_index<<2 | orient<<1 per position)\n", SOL_RECORD_SIZE);
+        printf("    file size:  %ld bytes (%d header + %ld records, %.2f GB total)\n",
+               full_size, SOL_HEADER_SIZE, file_size, full_size / 1e9);
+        printf("    format:     ROAE v%d; record fmt %d bytes (pair_index<<2 | orient<<1)\n",
+               SOL_FORMAT_VERSION, SOL_RECORD_SIZE);
         printf("    backed by:  mmap (PROT_READ, MAP_PRIVATE)\n\n");
 
         /* Complement-pair table: used by sections [20] and [22].
@@ -2689,7 +2885,7 @@ int main(int argc, char *argv[]) {
         if (!kw_indices) {
             fprintf(stderr, "ERROR: malloc failed for kw_indices (%zu bytes)\n",
                     (size_t)(kw_cap * sizeof(long long)));
-            munmap(all, file_size);
+            munmap(mmap_base, full_size);
             return 1;
         }
         /* Section [26] input: per-first-level-branch (pair-at-pos-2, orient-at-pos-2) counts */
@@ -2709,7 +2905,7 @@ int main(int argc, char *argv[]) {
         if (!bmask) {
             fprintf(stderr, "ERROR: malloc failed for bmask pointer array\n");
             free(kw_indices); free(sub_solution_count);
-            munmap(all, file_size);
+            munmap(mmap_base, full_size);
             return 1;
         }
         for (int b = 0; b < 31; b++) {
@@ -2718,7 +2914,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "ERROR: calloc failed for bmask[%d] (%lld words)\n", b, n_words);
                 for (int f = 0; f < b; f++) free(bmask[f]);
                 free(bmask); free(kw_indices); free(sub_solution_count);
-                munmap(all, file_size);
+                munmap(mmap_base, full_size);
                 return 1;
             }
         }
@@ -4636,7 +4832,7 @@ int main(int argc, char *argv[]) {
         free(bmask);
         free(sub_solution_count);
         free(kw_indices);
-        munmap(all, file_size);
+        munmap(mmap_base, full_size);
 
         time_t t_end = time(NULL);
         printf("==== analyze done in %lds ====\n", (long)(t_end - t_start));
@@ -4832,6 +5028,10 @@ int main(int argc, char *argv[]) {
 
             FILE *of = fopen(outname, "wb");
             if (!of) { fprintf(stderr, "ERROR: cannot open %s\n", outname); free(all); return 30; }
+            if (sol_write_header(of, (uint64_t)unique) != 0) {
+                fprintf(stderr, "ERROR: header write failed on %s\n", outname);
+                fclose(of); free(all); return 30;
+            }
             size_t written = fwrite(all, SOL_RECORD_SIZE, unique, of);
             if ((long long)written != unique) {
                 fprintf(stderr, "ERROR: short write (%zu of %lld)\n", written, unique);
@@ -4847,7 +5047,7 @@ int main(int argc, char *argv[]) {
         /* Post-write size verification (catches truncation) */
         {
             struct stat pst;
-            long long expected = unique * SOL_RECORD_SIZE;
+            long long expected = (long long)SOL_HEADER_SIZE + unique * SOL_RECORD_SIZE;
             if (stat(outname, &pst) != 0 || pst.st_size != expected) {
                 fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
                         outname, (long long)(stat(outname, &pst) == 0 ? pst.st_size : -1), expected);
@@ -4881,6 +5081,19 @@ int main(int argc, char *argv[]) {
             if (fgets(hash, sizeof(hash), hf) == NULL)
                 fprintf(stderr, "WARNING: %s is empty\n", hashfile);
             fclose(hf);
+        }
+
+        /* Human-readable sidecar — provenance + format info.
+         * Contains timestamp + git hash, so it's NOT byte-reproducible
+         * across runs (deliberately). solutions.bin and solutions.sha256
+         * stay reproducible. */
+        {
+            char hash_only[65] = {0};
+            for (int i = 0; i < 64 && hash[i] && hash[i] != ' ' && hash[i] != '\n'; i++)
+                hash_only[i] = hash[i];
+            char metafile[96];
+            snprintf(metafile, sizeof(metafile), "%s.meta.json", outname);
+            sol_write_meta_json(metafile, outname, (uint64_t)unique, unique, hash_only);
         }
 
         printf("\n--- Merge results ---\n");
@@ -5967,6 +6180,10 @@ int main(int argc, char *argv[]) {
             free(all_solutions);
             return 30;
         }
+        if (sol_write_header(bf, (uint64_t)unique_count) != 0) {
+            fprintf(stderr, "ERROR: header write failed on %s\n", bin_name);
+            fclose(bf); free(all_solutions); return 30;
+        }
         if (all_solutions) {
             size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, bf);
             if ((long long)written != unique_count) {
@@ -5989,10 +6206,11 @@ int main(int argc, char *argv[]) {
             return 30;
         }
         /* Post-write size verification: catches silent truncation (the bug
-         * that produced the 23.7→8 GB incident in the 10T recovery). */
+         * that produced the 23.7→8 GB incident in the 10T recovery).
+         * File is {header}{records}: SOL_HEADER_SIZE + unique_count * SOL_RECORD_SIZE. */
         {
             struct stat pst;
-            long long expected = (long long)unique_count * SOL_RECORD_SIZE;
+            long long expected = (long long)SOL_HEADER_SIZE + (long long)unique_count * SOL_RECORD_SIZE;
             if (stat(bin_name, &pst) != 0) {
                 fprintf(stderr, "ERROR: post-write stat failed on %s\n", bin_name);
                 free(all_solutions);
@@ -6023,6 +6241,13 @@ int main(int argc, char *argv[]) {
         }
         char hash_only[65] = {0};
         for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++) hash_only[i] = hash[i];
+
+        /* Sidecar meta.json for this single-branch run */
+        {
+            char metafile[128];
+            snprintf(metafile, sizeof(metafile), "%s.meta.json", bin_name);
+            sol_write_meta_json(metafile, bin_name, (uint64_t)unique_count, unique_count, hash_only);
+        }
 
         /* Print report */
         printf("\n======================================================================\n");
@@ -6741,6 +6966,10 @@ int main(int argc, char *argv[]) {
             free(all_solutions);
             return 30;
     }
+    if (sol_write_header(f, (uint64_t)unique_count) != 0) {
+        fprintf(stderr, "ERROR: header write failed on solutions.bin\n");
+        fclose(f); free(all_solutions); return 30;
+    }
     if (all_solutions) {
         size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, f);
         if ((long long)written != unique_count) {
@@ -6765,10 +6994,11 @@ int main(int argc, char *argv[]) {
         free(all_solutions);
     } /* end in-memory merge */
 
-    /* Post-write size verification (both merge paths) */
+    /* Post-write size verification (both merge paths). Includes the
+     * SOL_HEADER_SIZE prefix — file is {header}{records}. */
     {
         struct stat pst;
-        long long expected = unique_count * SOL_RECORD_SIZE;
+        long long expected = (long long)SOL_HEADER_SIZE + unique_count * SOL_RECORD_SIZE;
         if (stat("solutions.bin", &pst) != 0) {
             fprintf(stderr, "ERROR: post-write stat failed on solutions.bin\n");
             return 30;
@@ -6798,6 +7028,10 @@ int main(int argc, char *argv[]) {
     }
     char hash_only[65] = {0};
     for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++) hash_only[i] = hash[i];
+
+    /* Sidecar: solutions.meta.json (provenance + format info) */
+    sol_write_meta_json("solutions.meta.json", "solutions.bin",
+                        (uint64_t)unique_count, unique_count, hash_only);
 
     /* === Final Report === */
 

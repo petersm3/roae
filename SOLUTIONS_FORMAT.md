@@ -1,14 +1,69 @@
 # solutions.bin binary format specification
 
-Version: 1.0
-Date: 2026-04-17
-Producer: solve.c (commit 8bad127+)
+Format version: **1** (introduced 2026-04-18)
+Prior versions: v0 (unstructured record stream, no header) — superseded.
 
 ## Overview
 
 `solutions.bin` contains every unique pair ordering of 64 I Ching hexagrams
-that satisfies constraints C1-C5. Each record is a 32-byte packed
-representation of one valid ordering. Records are sorted and deduplicated.
+that satisfies constraints C1-C5. The file layout is:
+
+    [ 32-byte header ] [ N × 32-byte records ]
+
+Records are sorted (by `compare_solutions` — see §Sort order) and
+deduplicated (one record per canonical pair-sequence — see §Deduplication).
+
+## File header (32 bytes)
+
+| Offset | Size | Field           | Encoding         | Notes |
+|--------|------|-----------------|------------------|-------|
+| 0      | 4    | Magic           | ASCII `'ROAE'`   | bytes `0x52 0x4F 0x41 0x45` |
+| 4      | 4    | Format version  | uint32 LE        | currently `1` |
+| 8      | 8    | Record count    | uint64 LE        | number of records (file minus header, divided by 32) |
+| 16     | 16   | Reserved        | zero-filled      | MUST be zero; reserved for format extensions |
+
+**Byte order.** The magic is ASCII (byte-order-independent). The `uint32`
+and `uint64` fields are **little-endian**. On a big-endian host a reader
+must byte-swap on read (trivial: byte[0] is the least-significant byte).
+
+**Why 32 bytes.** Matches `SOL_RECORD_SIZE` deliberately: record `i` is
+located at file offset `32 + i*32`, so alignment and offset arithmetic
+are trivial.
+
+**Reproducibility.** The header contains only deterministic-from-input
+fields. No timestamps, git hashes, hostnames, or build identifiers live
+here — they live in the sidecar `solutions.meta.json`. As a result,
+`sha256(solutions.bin)` is a pure function of the enumeration inputs
+(node limit, depth, constraints) and is reproducible across runs,
+machines, and years.
+
+## Sidecar metadata (`solutions.meta.json`)
+
+Written alongside `solutions.bin` on every successful merge. Contains
+provenance and self-describing context — **not** the canonical artifact,
+just a human-readable breadcrumb. Example:
+
+    {
+      "file": "solutions.bin",
+      "magic": "ROAE",
+      "format_version": 1,
+      "header_size_bytes": 32,
+      "record_size_bytes": 32,
+      "record_count": 135780,
+      "unique_solutions": 135780,
+      "sha256": "403f7202a33a9337...",
+      "encoding": "byte i = (pair_index<<2) | (orient<<1); bit 0 reserved",
+      "dedup_semantics": "canonical — one record per unique pair-sequence; orient variants collapsed",
+      "header_byte_order": "little-endian (u32 version, u64 record_count)",
+      "record_byte_order": "single-byte records; byte order is a non-concept",
+      "constraint_spec": "SPECIFICATION.md",
+      "generator": "solve.c git <short-hash>",
+      "generated_utc": "2026-04-18T01:45:12Z"
+    }
+
+The sidecar contains timestamp and git hash, so **it is NOT byte-
+reproducible across runs** — deliberately. The canonical artifacts
+(`solutions.bin` and `solutions.sha256`) are.
 
 ## Record format
 
@@ -109,10 +164,28 @@ Each record in solutions.bin satisfies:
 
 ## File integrity
 
-- `solutions.sha256` contains the SHA-256 hash of solutions.bin
-- `solve_results.json` contains run parameters, git hash, and analytics
-- `./solve --verify solutions.bin` independently checks every record
-  against C1-C5, verifies sort order, and checks for duplicates
+- `solutions.sha256` contains the SHA-256 hash of the entire `solutions.bin`
+  (header included, since the header is part of the canonical artifact).
+- `solutions.meta.json` is the human-readable sidecar (format version,
+  record count, embedded sha, generation timestamp, git hash).
+- `solve_results.json` contains run parameters, git hash, and analytics.
+- `./solve --verify solutions.bin` parses the header (fails loudly on bad
+  magic or unknown version), then independently checks every record against
+  C1-C5, verifies sort order, and checks for duplicates.
+
+## Reading the file from another language
+
+Minimum sketch for any language:
+
+    1. Open solutions.bin
+    2. Read 32 bytes — the header.
+    3. Check bytes 0..3 are 'R','O','A','E'. Reject if not.
+    4. Read uint32 LE at offset 4 — must equal 1 (current format version).
+       A reader that does not understand a newer version MUST refuse
+       to interpret the file rather than guess.
+    5. Read uint64 LE at offset 8 — the record count.
+    6. Validate: (file_size - 32) must equal record_count * 32.
+    7. Seek to offset 32 and read records sequentially.
 
 ## Reproducing from source
 

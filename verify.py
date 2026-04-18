@@ -43,17 +43,45 @@ def decode(record):
 def canonical(record):
     return bytes(b & 0xFC for b in record)
 
+SOL_HEADER_SIZE = 32
+SOL_FORMAT_VERSION = 1
+
+def parse_header(data):
+    """Returns declared record_count, or raises ValueError on bad header."""
+    if len(data) < SOL_HEADER_SIZE:
+        raise ValueError(f"file too small ({len(data)} bytes) to contain 32-byte header")
+    if data[0:4] != b"ROAE":
+        raise ValueError(f"bad magic: got {data[0:4]!r}, expected b'ROAE'")
+    (version,) = struct.unpack("<I", data[4:8])
+    if version != SOL_FORMAT_VERSION:
+        raise ValueError(f"unsupported format version {version} (this reader knows version {SOL_FORMAT_VERSION})")
+    (record_count,) = struct.unpack("<Q", data[8:16])
+    return record_count
+
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else "solutions.bin"
     with open(path, "rb") as f:
         data = f.read()
 
-    if len(data) % 32 != 0:
-        print(f"ERROR: file size {len(data)} not a multiple of 32")
+    try:
+        declared_records = parse_header(data)
+    except ValueError as e:
+        print(f"ERROR: invalid solutions.bin header: {e}")
         sys.exit(2)
 
-    n = len(data) // 32
-    print(f"Verifying {n:,} records from {path} ({len(data):,} bytes)")
+    record_bytes = len(data) - SOL_HEADER_SIZE
+    if record_bytes % 32 != 0:
+        print(f"ERROR: record stream size {record_bytes} not a multiple of 32")
+        sys.exit(2)
+    n = record_bytes // 32
+    if n != declared_records:
+        print(f"ERROR: header declares {declared_records} records but file has {n}")
+        sys.exit(2)
+    print(f"Header: ROAE v{SOL_FORMAT_VERSION}, {n:,} records")
+    print(f"Verifying {n:,} records from {path} ({len(data):,} bytes total, {SOL_HEADER_SIZE} header + {record_bytes:,} records)")
+
+    # Skip the header — records start at offset SOL_HEADER_SIZE
+    data = data[SOL_HEADER_SIZE:]
 
     fail_c1 = fail_c2 = fail_c4 = fail_c5 = 0
     fail_decode = fail_sort = fail_dup = 0
