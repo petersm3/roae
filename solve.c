@@ -1161,7 +1161,8 @@ static void update_progress(int completed, int total, long elapsed) {
     }
     time_t now = time(NULL);
     char tbuf[64];
-    strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&now));
+    struct tm tmbuf;
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S UTC", gmtime_r(&now, &tmbuf));
     fprintf(pf, "Last updated: %s\n", tbuf);
     fclose(pf);
 }
@@ -1425,7 +1426,16 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     /* Read back the hash line */
     char hash_line[256] = {0};
     FILE *hf = fopen(sha_name, "r");
-    if (hf) { if (fgets(hash_line, sizeof(hash_line), hf)) {} fclose(hf); }
+    if (!hf) {
+        fprintf(stderr, "WARNING: cannot re-open %s to verify sha256: %s\n", sha_name, strerror(errno));
+        return;
+    }
+    if (fgets(hash_line, sizeof(hash_line), hf) == NULL) {
+        fprintf(stderr, "WARNING: %s is empty — sha256 tool may have failed silently\n", sha_name);
+        fclose(hf);
+        return;
+    }
+    fclose(hf);
 
     /* Rewrite with metadata */
     FILE *sf = fopen(sha_name, "w");
@@ -1435,7 +1445,8 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     /* Metadata */
     char tbuf[64];
     time_t now = time(NULL);
-    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+    struct tm tmbuf;
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tmbuf));
 
     fprintf(sf, "# Metadata for reproducibility\n");
     fprintf(sf, "# Date: %s\n", tbuf);
@@ -1685,9 +1696,22 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
 
     for (int i = 0; i < n_sorted; i++) {
         sfiles[i] = fopen(sorted_names[i], "rb");
-        if (sfiles[i] && fread(heap[heap_size].rec, SOL_RECORD_SIZE, 1, sfiles[i]) == 1) {
+        if (!sfiles[i]) {
+            fprintf(stderr, "FATAL: cannot reopen sorted chunk %s: %s\n",
+                    sorted_names[i], strerror(errno));
+            for (int j = 0; j < i; j++) if (sfiles[j]) fclose(sfiles[j]);
+            free(sfiles); free(heap); return 1;
+        }
+        if (fread(heap[heap_size].rec, SOL_RECORD_SIZE, 1, sfiles[i]) == 1) {
             heap[heap_size].file_idx = i;
             heap_size++;
+        } else {
+            /* Chunk file is empty — shouldn't happen given write_sorted_chunk
+             * rejects zero-record writes, but close it defensively to avoid a
+             * FILE* leak. Leaves sfiles[i] dangling but we never reference it
+             * after this loop for non-heap files. */
+            fclose(sfiles[i]);
+            sfiles[i] = NULL;
         }
     }
 
@@ -1770,18 +1794,22 @@ static void write_json(const char *filename, const char *status,
                        long long super_match[32],
                        const char *sha256_hash) {
     FILE *f = fopen(filename, "w");
-    if (!f) return;
+    if (!f) {
+        fprintf(stderr, "WARNING: cannot open %s for writing: %s\n", filename, strerror(errno));
+        return;
+    }
     char tbuf[64];
+    struct tm tmbuf;
 
     fprintf(f, "{\n");
     fprintf(f, "  \"version\": \"2.0\",\n");
     fprintf(f, "  \"status\": \"%s\",\n", status);
 
     fprintf(f, "  \"run\": {\n");
-    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime(&start_time));
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&start_time, &tmbuf));
     fprintf(f, "    \"start_utc\": \"%s\",\n", tbuf);
     time_t end = start_time + elapsed;
-    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime(&end));
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&end, &tmbuf));
     fprintf(f, "    \"end_utc\": \"%s\",\n", tbuf);
     fprintf(f, "    \"elapsed_seconds\": %ld,\n", elapsed);
     fprintf(f, "    \"time_limit_seconds\": %d,\n", time_limit);
@@ -4735,7 +4763,13 @@ int main(int argc, char *argv[]) {
         char hashfile[80];
         snprintf(hashfile, sizeof(hashfile), "%s.sha256", outname);
         FILE *hf = fopen(hashfile, "r");
-        if (hf) { if (fgets(hash, sizeof(hash), hf)) {} fclose(hf); }
+        if (!hf) {
+            fprintf(stderr, "WARNING: cannot read %s: %s\n", hashfile, strerror(errno));
+        } else {
+            if (fgets(hash, sizeof(hash), hf) == NULL)
+                fprintf(stderr, "WARNING: %s is empty\n", hashfile);
+            fclose(hf);
+        }
 
         printf("\n--- Merge results ---\n");
         printf("  Input files:     %d\n", n_files);
@@ -5857,7 +5891,13 @@ int main(int argc, char *argv[]) {
 
         char hash[130] = {0};
         FILE *hf = fopen(sha_name, "r");
-        if (hf) { if (fgets(hash, sizeof(hash), hf)) {} fclose(hf); }
+        if (!hf) {
+            fprintf(stderr, "WARNING: cannot read %s: %s\n", sha_name, strerror(errno));
+        } else {
+            if (fgets(hash, sizeof(hash), hf) == NULL)
+                fprintf(stderr, "WARNING: %s is empty\n", sha_name);
+            fclose(hf);
+        }
         char hash_only[65] = {0};
         for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++) hash_only[i] = hash[i];
 
@@ -5875,9 +5915,10 @@ int main(int argc, char *argv[]) {
         }
         printf("Mode: single-branch (pair %d orient %d)\n", sb_pair, sb_orient);
         char time_buf[64];
-        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&start_time));
+        struct tm tmbuf;
+        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime_r(&start_time, &tmbuf));
         printf("Start: %s\n", time_buf);
-        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&end_time));
+        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime_r(&end_time, &tmbuf));
         printf("End:   %s\n", time_buf);
         printf("Sub-branches: %d/%d completed\n", branches_done, n_sub);
         printf("======================================================================\n\n");
@@ -6625,7 +6666,13 @@ int main(int argc, char *argv[]) {
 
     char hash[130] = {0};
     FILE *hf = fopen("solutions.sha256", "r");
-    if (hf) { if (fgets(hash, sizeof(hash), hf)) {} fclose(hf); }
+    if (!hf) {
+        fprintf(stderr, "WARNING: cannot read solutions.sha256: %s\n", strerror(errno));
+    } else {
+        if (fgets(hash, sizeof(hash), hf) == NULL)
+            fprintf(stderr, "WARNING: solutions.sha256 is empty\n");
+        fclose(hf);
+    }
     char hash_only[65] = {0};
     for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++) hash_only[i] = hash[i];
 
@@ -6644,9 +6691,10 @@ int main(int argc, char *argv[]) {
                elapsed, elapsed / 3600, (elapsed % 3600) / 60);
     }
     char time_buf[64];
-    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&start_time));
+    struct tm tmbuf;
+    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime_r(&start_time, &tmbuf));
     printf("Start: %s\n", time_buf);
-    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime(&end_time));
+    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S UTC", gmtime_r(&end_time, &tmbuf));
     printf("End:   %s\n", time_buf);
     printf("Sub-branches: %d/%d completed", total_done_final, total_branches);
     if (n_completed_subs > 0)
