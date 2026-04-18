@@ -104,6 +104,17 @@ the same VM forces you to pay for the *union* — many cores *and* lots of RAM
 and at larger budgets (≥100T) the split becomes architecturally necessary
 because no single SKU is cost-effective at both.
 
+**CRITICAL: merge must run on-demand, not spot.** The merge (malloc + qsort +
+write) has no checkpoint. If evicted mid-sort, all merge work is lost and must
+restart from sub_*.bin files. At 10T depth-3, the merge takes ~30 min on F64
+with 82 GB in RAM. On-demand cost: ~$2. Spot risk: eviction wastes that $2
+and the 30 min, repeatedly. Observed 2026-04-17: spot merge VM evicted after
+24 min of sorting 2.77B records.
+
+For very large merges that exceed RAM, `SOLVE_MERGE_MODE=external` uses
+disk-based sorted chunks + k-way merge. This can run on a small VM (8 GB RAM)
+at the cost of more disk I/O. See `SOLVE_MERGE_CHUNK_GB` env var.
+
 **Resource profile by phase:**
 
 | Phase | Bottleneck | Scales with |
@@ -238,6 +249,9 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 - [ ] Monitor completion-detection string matches what the solver actually emits (JSON status field)
 - [ ] Post-completion gates configured: `--verify` pass + hash-drop count == 0
 - [ ] Sub_*.bin integrity check enabled on eviction resume (size % 32 == 0)
+- [ ] Watchdog merge-phase exemption verified (don't kill solver during merge)
+- [ ] Merge VM is on-demand (not spot) — merge has no checkpoint
+- [ ] `--merge` code path uses canonical dedup (same as normal-mode merge)
 - [ ] Cost estimate presented to user
 - [ ] Output-shape sanity checks planned (record count, sub-branch file count)
 

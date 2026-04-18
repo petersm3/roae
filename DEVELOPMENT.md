@@ -335,6 +335,21 @@ keeping the managed disk.
   on the VM (independent C1-C5 check on every record) and greps
   solve_output.txt for nonzero hash-table drops. Either failure aborts
   before archiving — no invalid output is ever accepted as a completed run.
+- **Progress-stall watchdog must exempt the merge phase.** The watchdog
+  checks `progress.txt` staleness to detect hung solvers. But the merge
+  phase (reading 158K files, sorting billions of records, writing
+  solutions.bin) legitimately takes 15-30+ minutes without updating
+  progress.txt. The watchdog must check `solve_output.txt` for merge
+  indicators ("Reading sub-branch", "Sorting", "Writing", "Computing
+  sha256") before declaring a stall. Observed 2026-04-17: watchdog killed
+  a healthy solver mid-merge on a 10T depth-3 run, losing the merge
+  output while all sub_*.bin files were intact on disk.
+- **Merge is not checkpoint-protected — use on-demand VMs.** The merge
+  phase (malloc + qsort + write) is a single uninterruptible operation.
+  If spot-evicted mid-sort, all work is lost and must restart from the
+  sub_*.bin files. For production merges, use an on-demand VM (~$2 for
+  30 min on F64). This is the two-phase pattern: spot for enumeration
+  (checkpoint-protected), on-demand for merge (must complete in one shot).
 - **Progress rate + ETA in sync logs.** Each checkpoint sync computes
   sub-branches/hour and estimated time remaining. Essential for overnight
   100T+ runs where "is it still progressing?" can't be answered by a
@@ -347,6 +362,18 @@ keeping the managed disk.
   `size % 32 == 0`. Truncated files (eviction killed the flush mid-write
   before fsync) are removed so the solver re-runs those sub-branches
   from checkpoint rather than merging corrupt data.
+- **All merge code paths must use canonical dedup.** The solver's normal-
+  mode merge and the standalone `--merge` flag must both use
+  `compare_canonical` (orient bits masked) for dedup — not
+  `compare_solutions` (full-byte). A mismatch means `--merge` on the
+  same sub_*.bin files produces a different sha than the solver would
+  have. This was a bug through commit 872a861; fixed afterward.
+- **External merge-sort for memory-independent merging.** At 10T depth-3,
+  the merge buffer is 82 GB (2.77B records × 32 bytes). For larger runs
+  or smaller VMs, `SOLVE_MERGE_MODE=external` uses disk-based sorted
+  chunks + k-way heap merge. Produces identical output to in-memory merge.
+  Default (`auto`) selects external when needed RAM exceeds 70% of
+  physical. `SOLVE_MERGE_CHUNK_GB` controls chunk size (default 4 GB).
 
 ### Infrastructure
 
