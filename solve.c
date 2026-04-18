@@ -1495,6 +1495,42 @@ static void merge_heap_sift_down(MergeHeapEntry *heap, int n, int i) {
     }
 }
 
+/* Write a sorted chunk to disk with full I/O error checking.
+ * fwrite/fflush/fsync/fclose all checked; post-write stat verifies size.
+ * Matches the checking discipline of flush_sub_solutions — silent data loss
+ * from disk-full mid-write is the failure mode being defended against. */
+static int write_sorted_chunk(const char *path, const unsigned char *chunk,
+                               long long records, int idx, int is_final) {
+    FILE *sf = fopen(path, "wb");
+    if (!sf) {
+        fprintf(stderr, "ERROR: cannot create %s: %s\n", path, strerror(errno));
+        return 1;
+    }
+    size_t w = fwrite(chunk, SOL_RECORD_SIZE, (size_t)records, sf);
+    if ((long long)w != records || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
+        fprintf(stderr, "FATAL: chunk %d write/flush/fsync failed (wrote %zu of %lld): %s\n",
+                idx, w, records, strerror(errno));
+        fclose(sf);
+        return 1;
+    }
+    if (fclose(sf) != 0) {
+        fprintf(stderr, "FATAL: chunk %d close failed: %s\n", idx, strerror(errno));
+        return 1;
+    }
+    struct stat cst;
+    long long expected = records * SOL_RECORD_SIZE;
+    if (stat(path, &cst) != 0 || cst.st_size != expected) {
+        fprintf(stderr, "FATAL: chunk %d post-write size mismatch on %s: got %lld, expected %lld\n",
+                idx, path,
+                (long long)(stat(path, &cst) == 0 ? cst.st_size : -1), expected);
+        return 1;
+    }
+    printf("  Chunk %d: %lld records sorted + written%s\n",
+           idx, records, is_final ? " (final)" : "");
+    fflush(stdout);
+    return 0;
+}
+
 static int external_merge_sort(char (*filenames)[64], int n_files,
                                 long long total_records,
                                 const char *output_path, long long *out_unique) {
@@ -1542,12 +1578,9 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
                     free(chunk); return 1;
                 }
                 snprintf(sorted_names[n_sorted], 64, "temp_sorted_%04d.bin", n_sorted);
-                FILE *sf = fopen(sorted_names[n_sorted], "wb");
-                if (!sf) { fprintf(stderr, "ERROR: cannot create %s\n", sorted_names[n_sorted]); free(chunk); return 1; }
-                fwrite(chunk, SOL_RECORD_SIZE, (size_t)records_in_chunk, sf);
-                fflush(sf); fsync(fileno(sf)); fclose(sf);
-                printf("  Chunk %d: %lld records sorted + written\n", n_sorted, records_in_chunk);
-                fflush(stdout);
+                if (write_sorted_chunk(sorted_names[n_sorted], chunk, records_in_chunk, n_sorted, 0) != 0) {
+                    free(chunk); return 1;
+                }
                 n_sorted++;
                 records_in_chunk = 0;
             }
@@ -1561,12 +1594,9 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
             fprintf(stderr, "ERROR: too many sorted chunks\n"); free(chunk); return 1;
         }
         snprintf(sorted_names[n_sorted], 64, "temp_sorted_%04d.bin", n_sorted);
-        FILE *sf = fopen(sorted_names[n_sorted], "wb");
-        if (!sf) { fprintf(stderr, "ERROR: cannot create %s\n", sorted_names[n_sorted]); free(chunk); return 1; }
-        fwrite(chunk, SOL_RECORD_SIZE, (size_t)records_in_chunk, sf);
-        fflush(sf); fsync(fileno(sf)); fclose(sf);
-        printf("  Chunk %d: %lld records sorted + written (final)\n", n_sorted, records_in_chunk);
-        fflush(stdout);
+        if (write_sorted_chunk(sorted_names[n_sorted], chunk, records_in_chunk, n_sorted, 1) != 0) {
+            free(chunk); return 1;
+        }
         n_sorted++;
     }
     free(chunk);
