@@ -1343,6 +1343,59 @@ static void *thread_func_single(void *arg) {
     return NULL;
 }
 
+/* ---- External binary preflight ----
+ * solve.c intentionally shells out to sha256sum / shasum to compute output
+ * digests rather than embed a SHA-256 implementation. To keep that choice
+ * robust, we verify the binary exists on PATH and is executable BEFORE the
+ * work phase begins — so a missing coreutils installation fails loudly at
+ * startup, not silently at the very end of a multi-hour enumeration. */
+
+static int binary_exists_on_path(const char *name) {
+    const char *path = getenv("PATH");
+    if (!path || !*path) path = "/usr/bin:/bin:/usr/local/bin:/sbin";
+    char *dup = strdup(path);
+    if (!dup) return 0;
+    int found = 0;
+    char *save = NULL;
+    for (char *dir = strtok_r(dup, ":", &save); dir; dir = strtok_r(NULL, ":", &save)) {
+        if (!*dir) continue;
+        char full[1024];
+        int n = snprintf(full, sizeof(full), "%s/%s", dir, name);
+        if (n < 0 || n >= (int)sizeof(full)) continue;
+        if (access(full, X_OK) == 0) { found = 1; break; }
+    }
+    free(dup);
+    return found;
+}
+
+/* Returns the sha256 command prefix to splice into system()/popen() strings,
+ * or NULL if no compatible tool is found. Cached after first call. */
+static const char *sha256_tool(void) {
+    static const char *cached = NULL;
+    static int checked = 0;
+    if (checked) return cached;
+    checked = 1;
+    if (binary_exists_on_path("sha256sum"))    cached = "sha256sum";
+    else if (binary_exists_on_path("shasum"))  cached = "shasum -a 256";
+    return cached;
+}
+
+/* Startup-time check: if anything in this run will need sha256_tool(),
+ * call this first and fail cleanly if neither binary is present.
+ * Prints a remediation hint. Returns 0 on success, non-zero to exit. */
+static int require_sha256_tool(void) {
+    if (sha256_tool() != NULL) return 0;
+    fprintf(stderr,
+        "ERROR: no SHA-256 tool found on PATH.\n"
+        "  solve.c shells out to 'sha256sum' (GNU coreutils) or 'shasum -a 256'\n"
+        "  (BSD/macOS) to digest output files. Neither was found on this system.\n"
+        "  Install one:\n"
+        "    Debian/Ubuntu: apt-get install coreutils\n"
+        "    RHEL/Fedora:   dnf install coreutils\n"
+        "    macOS:         ships with 'shasum' by default\n");
+    return 1;
+}
+
 /* Compare for qsort — compare pair identity only (orient bit masked out).
  * Each byte: (pair_index << 2) | (orient << 1). Mask with 0xFC. */
 /* Write sha256 file with metadata for reproducibility.
@@ -1351,12 +1404,22 @@ static void *thread_func_single(void *arg) {
 static void write_sha256_with_metadata(const char *bin_name, const char *sha_name,
                                         long long unique_count, long long total_nodes,
                                         int n_branches_total, int branches_done) {
-    /* Compute sha256 */
+    /* Compute sha256. sha256_tool() was preflighted at startup — if we get
+     * here with a NULL, it means something in the program flow skipped the
+     * preflight. Refuse to produce an incomplete .sha256 file. */
+    const char *tool = sha256_tool();
+    if (!tool) {
+        fprintf(stderr, "ERROR: sha256 tool missing at write_sha256_with_metadata; "
+                        "preflight should have caught this.\n");
+        return;
+    }
     char cmd[512];
-    snprintf(cmd, sizeof(cmd),
-             "sha256sum %s > %s 2>/dev/null || shasum -a 256 %s > %s 2>/dev/null",
-             bin_name, sha_name, bin_name, sha_name);
-    int _u = system(cmd); (void)_u;
+    snprintf(cmd, sizeof(cmd), "%s %s > %s 2>/dev/null", tool, bin_name, sha_name);
+    int rc = system(cmd);
+    if (rc != 0) {
+        fprintf(stderr, "ERROR: sha256 computation failed (rc=%d) for %s\n", rc, bin_name);
+        return;
+    }
 
     /* Read back the hash line */
     char hash_line[256] = {0};
@@ -1945,13 +2008,15 @@ int main(int argc, char *argv[]) {
         }
         printf("[--selftest] Running in %s\n", tempdir_template);
         printf("[--selftest] Expected sha256: %s\n", expected_sha);
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
         char cmd[8192];
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
                  "unset SOLVE_DEPTH && "
                  "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 %s 60 > /dev/null 2>&1 && "
-                 "sha256sum solutions.bin | cut -d' ' -f1",
-                 tempdir_template, solve_path);
+                 "%s solutions.bin | cut -d' ' -f1",
+                 tempdir_template, solve_path, tool);
         FILE *fp = popen(cmd, "r");
         if (!fp) {
             fprintf(stderr, "ERROR: popen failed\n");
@@ -1997,6 +2062,17 @@ int main(int argc, char *argv[]) {
         sb_orient = atoi(argv[3]);
         arg_offset = 4;
         printf("Single-branch mode: pair %d, orient %d\n", sb_pair, sb_orient);
+    }
+
+    /* Preflight external-dep check for any mode that will produce a sha256.
+     * Run BEFORE any work output so failure is a clean one-shot error. Modes
+     * that don't need it (--verify, --validate, --analyze, --prove-*,
+     * --list-branches) are exempt. */
+    if (merge_mode || single_branch_mode ||
+        (!verify_mode && !validate_mode && !analyze_mode &&
+         !prove_cascade_mode && !prove_self_comp_mode && !prove_shift_mode &&
+         !list_branches_mode)) {
+        if (require_sha256_tool() != 0) return 10;
     }
 
     if (arg_offset < argc) {
@@ -4623,12 +4699,21 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        /* sha256 */
+        /* sha256 — preflight guarantees sha256_tool() is non-NULL here */
+        const char *tool = sha256_tool();
+        if (!tool) {
+            fprintf(stderr, "ERROR: sha256 tool missing at --merge finalize; "
+                            "preflight should have caught this.\n");
+            return 30;
+        }
         char sha_cmd[256];
-        snprintf(sha_cmd, sizeof(sha_cmd),
-                 "sha256sum %s > %s.sha256 2>/dev/null || shasum -a 256 %s > %s.sha256 2>/dev/null",
-                 outname, outname, outname, outname);
-        int _u = system(sha_cmd); (void)_u;
+        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s > %s.sha256 2>/dev/null",
+                 tool, outname, outname);
+        int rc = system(sha_cmd);
+        if (rc != 0) {
+            fprintf(stderr, "ERROR: sha256 computation failed (rc=%d)\n", rc);
+            return 30;
+        }
 
         char hash[130] = {0};
         char hashfile[80];
