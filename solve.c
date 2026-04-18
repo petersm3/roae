@@ -3446,12 +3446,10 @@ int main(int argc, char *argv[]) {
                     printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
                     goto skip_section15;
                 }
-                long long rsingle[31];
-                for (int b = 0; b < 31; b++) {
-                    long long c = 0;
-                    for (long long w = 0; w < n_words_r; w++) c += __builtin_popcountll(rbm[b][w]);
-                    rsingle[b] = c;
-                }
+                /* Per-boundary single-match counts over rbm bitmaps.
+                 * Was collected for section 15 greedy search but no longer
+                 * read after the greedy path was refactored — kept the
+                 * bitmap construction (needed below), dropped the tally. */
 
                 /* Greedy min */
                 uint64_t *r_alive = malloc((size_t)n_words_r * sizeof(uint64_t));
@@ -3724,14 +3722,14 @@ int main(int argc, char *argv[]) {
         printf("[18] Per-boundary conditional entropy\n");
         time_t t18 = time(NULL);
         {
-            double H_base[32]; double H_base_total = 0;
+            double H_base_total = 0;
             for (int p = 0; p < 32; p++) {
                 double H = 0;
                 for (int pr = 0; pr < 32; pr++) {
                     long long c = pos_cnt[p][pr];
                     if (c > 0) { double q = (double)c / n_sols; H -= q * log2(q); }
                 }
-                H_base[p] = H; H_base_total += H;
+                H_base_total += H;
             }
             printf("    Baseline sum_p H(pair at p) over all %lld records: %.4f bits\n",
                    n_sols, H_base_total);
@@ -3943,13 +3941,9 @@ int main(int argc, char *argv[]) {
         {
             printf("    Format: pos (1-indexed), pair_index, count, pct, is_KW_pair\n");
             for (int p = 0; p < 32; p++) {
-                /* Find top pair at this position */
-                long long top_cnt = 0; int top_pair = -1;
                 int n_present = 0;
-                for (int pr = 0; pr < 32; pr++) {
+                for (int pr = 0; pr < 32; pr++)
                     if (pos_cnt[p][pr] > 0) n_present++;
-                    if (pos_cnt[p][pr] > top_cnt) { top_cnt = pos_cnt[p][pr]; top_pair = pr; }
-                }
                 printf("    pos %2d (%2d distinct): ", p + 1, n_present);
                 /* Print all non-zero entries sorted by count descending */
                 int order[32]; for (int i = 0; i < 32; i++) order[i] = i;
@@ -4066,7 +4060,6 @@ int main(int argc, char *argv[]) {
             int pos_var[32] = {0};
             int edit_hist[33] = {0};
             int n_non_kw = 0;
-            int n_distinct_pairs[32] = {0};
             long long pos_freq[32][32]; memset(pos_freq, 0, sizeof(pos_freq));
 
             for (long long w = 0; w < n_words; w++) {
@@ -4116,7 +4109,7 @@ int main(int argc, char *argv[]) {
                             printf(" p%d=%.1f%%", pr, 100.0 * pos_freq[p][pr] / n_surv);
                     printf(" ]");
                 }
-                printf("%s\n", (p == p) ? (nd == 1 ? " LOCKED" : "") : "");
+                printf("%s\n", (nd == 1) ? " LOCKED" : "");
             }
         }
         printf("    [23] elapsed: %lds\n\n", (long)(time(NULL) - t23));
@@ -4281,7 +4274,7 @@ int main(int argc, char *argv[]) {
                 printf("     checkpoint line is written. We use solutions.bin binning instead.)\n");
 
                 /* Yield distribution */
-                long long y0 = 0, y_small = 0, y_mid = 0, y_high = 0, y_max = 0;
+                long long y0 = 0, y_small = 0, y_mid = 0, y_high = 0;
                 long long max_yield = 0;
                 int max_sb = -1;
                 for (int i = 0; i < n_entries; i++) {
