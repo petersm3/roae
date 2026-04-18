@@ -131,24 +131,44 @@ The result is a 64-element sequence of hexagram numbers (0-63).
 Records are deduplicated by **canonical pair ordering**: orientation bits
 (bit 1) are masked out during comparison. Two records that place the same
 32 pairs at the same 32 positions but differ in within-pair orientation are
-treated as the same canonical ordering. Only one orientation variant is
-retained (the lexicographically smallest by full byte comparison).
+treated as the same canonical ordering.
 
-The output counts **unique pair orderings**, not unique oriented sequences.
-Exactly one record per canonical ordering is retained (the lexicographically
-smallest by full byte comparison). Valid orientation variants for any
-canonical ordering are cheaply recoverable by testing all 2^31 combinations
-against C2/C5 — they do not need to be stored.
+**Exactly one record per canonical class is retained**, and the
+deterministic choice is **the lexicographically smallest orient variant by
+full-byte comparison**. This matters for byte-exact reproducibility: two
+conformant implementations that both enumerate every valid orient variant
+and then dedup MUST keep the same variant, or their `solutions.bin` shas
+will differ despite containing equivalent information. A re-implementation
+that keeps, say, the lexicographically-largest orient variant would
+produce a correct file under C1-C5 but NOT a bit-for-bit match against
+the reference.
+
+The output counts **unique pair orderings**, not unique oriented
+sequences. Other orientation variants for any canonical ordering are
+cheaply recoverable by testing all 2^31 combinations against C2/C5 —
+they do not need to be stored.
 
 ## Sort order
 
-Records are sorted by the `compare_solutions` function:
-1. Primary: pair identity at each position (orient masked via `& 0xFC`),
-   lexicographic, left to right
-2. Secondary: full byte value (including orient), lexicographic
+Records are sorted by the `compare_solutions` function, which defines a
+**total strict order** on distinct 32-byte records:
 
-This means canonical-equivalent records are adjacent, and within a
-canonical group, the smallest orient variant comes first.
+1. **Primary**: pair identity at each position (orient masked via `& 0xFC`),
+   lexicographic, left to right.
+2. **Secondary**: full byte value (including orient), lexicographic. Used
+   only when the primary keys are equal (i.e. when two records are in the
+   same canonical class).
+
+Because `compare_solutions` is a total order (no two distinct records
+compare equal), the post-sort byte layout is deterministic — it does not
+depend on sorting-algorithm stability. This in turn is what gives
+reproducible sha256: a stable or unstable sort would produce the same
+bytes.
+
+This sort places canonical-equivalent records adjacent, and within a
+canonical group the smallest orient variant first — so the
+deduplication pass that keeps the first of each canonical group
+retains the lex-smallest orient variant described above.
 
 ## Constraints
 
@@ -186,6 +206,13 @@ Minimum sketch for any language:
     5. Read uint64 LE at offset 8 — the record count.
     6. Validate: (file_size - 32) must equal record_count * 32.
     7. Seek to offset 32 and read records sequentially.
+
+For a full walkthrough — header parse, record decode, per-constraint
+checks, sort-order and dedup validation — see
+[REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md). It walks a reader from
+zero to a conformant verifier in any language. `verify.py` in this
+repository is the reference implementation of that recipe (~130 lines
+of Python).
 
 ## Reproducing from source
 
