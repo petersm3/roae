@@ -511,10 +511,12 @@ python3 solve.py --reconstruct                    # Step-by-step reconstruction 
 For complete enumeration of the solution space, the C implementation is ~60x faster than the Python version. It counts all solutions satisfying Rules 1-5 + C3, de-duplicates by canonical pair ordering, and reports unique ordering counts.
 
 ```
-gcc -O3 -o solve solve.c                          # Compile
-./solve 0                                          # Run to completion (no time limit)
-./solve 3600                                       # Run with 1-hour time limit
+gcc -O3 -pthread -fopenmp -o solve solve.c -lm    # Compile
+SOLVE_NODE_LIMIT=10000000000000 ./solve 0          # Canonical 10T run (deterministic)
+./solve 3600                                        # Exploratory 1-hour run (non-reproducible)
 ```
+
+**Reproducibility rule.** For canonical runs whose `solutions.bin` sha256 should be re-verifiable by others, set `SOLVE_NODE_LIMIT` and pass `0` for the time_limit — every sub-branch runs to its per-sub-branch node budget, producing byte-identical output regardless of thread count or machine. A wall-clock time_limit (`./solve 3600`) interrupts whatever sub-branches happen to be running at the N-second mark; which ones those are depends on thread scheduling and load, so the result is not reproducible. The solver prints a startup warning if both limits are set simultaneously. See the `REPRODUCIBILITY RULE OF THUMB` block at the top of solve.c for the full explanation.
 
 Use `solve.py` for analysis (fingerprint, differential, reconstruction, etc.) and `solve.c` for enumeration.
 

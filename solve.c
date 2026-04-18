@@ -202,6 +202,23 @@
  *                              sub-branch. Deterministic, reproducible sha256
  *                              regardless of thread count.
  *
+ * REPRODUCIBILITY RULE OF THUMB
+ * =============================
+ * For CANONICAL runs (producing a sha that others should re-verify), use
+ * SOLVE_NODE_LIMIT only and pass `0` for the time_limit CLI arg. Every
+ * sub-branch will run to its per-sub-branch node budget, producing
+ * byte-identical solutions.bin across thread counts and machines.
+ *
+ * Wall-clock time_limit is NON-REPRODUCIBLE: if it fires before a
+ * sub-branch completes its node budget, that sub-branch is tagged
+ * INTERRUPTED and retains whatever partial solutions it found. Which
+ * sub-branches were still running when the interrupt fires depends on
+ * thread scheduling and system load — two identical invocations will
+ * produce different sha256. Use time_limit alone for "run for N minutes,
+ * take what we got" exploratory workflows, not for canonical results.
+ * The solver prints a startup WARNING when both limits are set
+ * simultaneously.
+ *
  * Graceful shutdown: SIGTERM/SIGINT handled via sigaction. Threads finish their
  * current sub-branch (which writes its sub_*.bin), then main proceeds to the
  * final merge before exiting. Spot eviction signals trigger this path.
@@ -2231,11 +2248,17 @@ int main(int argc, char *argv[]) {
         printf("[--selftest] Expected sha256: %s\n", expected_sha);
         const char *tool = sha256_tool();
         if (!tool) { require_sha256_tool(); return 30; }
+        /* IMPORTANT: pass time_limit = 0 (no wall-clock cap). A non-zero time
+         * limit interrupts sub-branches that haven't hit their node budget,
+         * and which sub-branches are still running at the interrupt moment
+         * depends on thread scheduling. The result: sha256 varies run-to-run
+         * under load. Using node-limit only (per-sub-branch budgets) gives
+         * byte-exact determinism across thread counts and machines. */
         char cmd[8192];
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
                  "unset SOLVE_DEPTH && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 %s 60 > /dev/null 2>&1 && "
+                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 %s 0 > /dev/null 2>&1 && "
                  "%s solutions.bin | cut -d' ' -f1",
                  tempdir_template, solve_path, tool);
         FILE *fp = popen(cmd, "r");
@@ -2329,6 +2352,31 @@ int main(int argc, char *argv[]) {
     if (env_nodes) node_limit = atoll(env_nodes);
     if (node_limit > 0)
         printf("Node limit: %lld (reproducible mode)\n", node_limit);
+
+    /* Reproducibility warning: time_limit and node_limit together create
+     * non-determinism. Each sub-branch has a per-sub-branch node budget
+     * (node_limit / n_branches). Under node-limit-only operation, every
+     * sub-branch runs to its budget regardless of wall-clock → identical
+     * sub_*.bin files across runs → identical solutions.bin.
+     *
+     * If time_limit fires before a sub-branch hits its node budget, that
+     * sub-branch is tagged INTERRUPTED and retains whatever solutions it
+     * found up to the interrupt. WHICH sub-branches were still running at
+     * the interrupt moment depends on thread scheduling, CPU load, and I/O
+     * timing — none of which are reproducible.
+     *
+     * For canonical runs (establishing a reference sha), set node_limit
+     * only, pass 0 for time_limit. Use time_limit alone for "run for N
+     * minutes, keep whatever we got" exploratory workflows. */
+    if (node_limit > 0 && time_limit > 0) {
+        fprintf(stderr,
+            "WARNING: both SOLVE_NODE_LIMIT and a wall-clock time_limit (%d s)\n"
+            "         are set. Wall-clock interrupts are non-deterministic — the\n"
+            "         resulting solutions.bin sha256 is NOT guaranteed reproducible\n"
+            "         under load. For reproducible canonical runs, set only\n"
+            "         SOLVE_NODE_LIMIT and pass 0 for the time_limit.\n",
+            time_limit);
+    }
 
     /* Enumeration depth (SOLVE_DEPTH env var). Default 2 for byte-identical
      * behavior with the canonical 10T baseline. SOLVE_DEPTH=3 enables Option B

@@ -242,6 +242,22 @@ keeping the managed disk.
   `.sha256` file at the end. Modes that don't write digests
   (`--verify`, `--validate`, `--analyze`, `--prove-*`, `--list-branches`)
   skip the preflight.
+- **time_limit and reproducibility are incompatible.** For any canonical
+  run whose sha256 needs to be reproducible across machines or
+  re-enumerations, set `SOLVE_NODE_LIMIT` only and pass `0` for the
+  CLI time_limit arg. Per-sub-branch node budgets are deterministic;
+  wall-clock interrupts are not. If time_limit fires first, whatever
+  sub-branches happened to be running at the N-second mark are tagged
+  INTERRUPTED with their partial solutions preserved — and which
+  sub-branches those are depends on thread scheduling. Two identical
+  invocations of `./solve 60` on the same inputs will produce different
+  solutions.bin sha256 under load. The solver prints a WARNING at
+  startup when both limits are set together.
+  Use time_limit alone for "run N minutes, take what we got"
+  exploratory workflows only. The --selftest harness previously passed
+  a 60-second time_limit as a safety net; under load, that caused
+  spurious sha-mismatch failures. Fixed 2026-04-18 — selftest now uses
+  node_limit only.
 - **Per-sub-branch filenames include the full (p1, o1, p2, o2) key**. Earlier
   versions keyed only on (p2, o2), causing silent overwrites. Never narrow the
   file-naming key without proving no collisions can occur.
