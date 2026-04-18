@@ -1462,6 +1462,195 @@ static int compare_canonical(const void *a, const void *b) {
     return 0;
 }
 
+/* ---------- External merge-sort ----------
+ * Memory-independent alternative to the in-memory qsort merge. Reads sub_*.bin
+ * files in fixed-size chunks, sorts each chunk in RAM, writes sorted temp files,
+ * then does a k-way merge with canonical dedup. Memory bounded by chunk size
+ * (default 4 GB, configurable via SOLVE_MERGE_CHUNK_GB).
+ *
+ * Controlled by SOLVE_MERGE_MODE env var:
+ *   auto     (default) — external if needed RAM > 70% of physical
+ *   memory   — force in-memory (fail if insufficient)
+ *   external — force external merge-sort
+ */
+
+typedef struct {
+    unsigned char rec[SOL_RECORD_SIZE];
+    int file_idx;
+} MergeHeapEntry;
+
+static void merge_heap_sift_down(MergeHeapEntry *heap, int n, int i) {
+    while (1) {
+        int smallest = i;
+        int left = 2*i + 1, right = 2*i + 2;
+        if (left < n && compare_solutions(heap[left].rec, heap[smallest].rec) < 0)
+            smallest = left;
+        if (right < n && compare_solutions(heap[right].rec, heap[smallest].rec) < 0)
+            smallest = right;
+        if (smallest == i) break;
+        MergeHeapEntry tmp = heap[i];
+        heap[i] = heap[smallest];
+        heap[smallest] = tmp;
+        i = smallest;
+    }
+}
+
+static int external_merge_sort(char (*filenames)[64], int n_files,
+                                long long total_records,
+                                const char *output_path, long long *out_unique) {
+    long long chunk_bytes = 4LL * 1024 * 1024 * 1024;
+    char *env_chunk = getenv("SOLVE_MERGE_CHUNK_GB");
+    if (env_chunk) chunk_bytes = atoll(env_chunk) * 1024LL * 1024 * 1024;
+    long long max_per_chunk = chunk_bytes / SOL_RECORD_SIZE;
+
+    printf("External merge-sort: %lld records, chunk size %lld GB (%lld records/chunk)\n",
+           total_records, chunk_bytes / (1024*1024*1024), max_per_chunk);
+
+    unsigned char *chunk = malloc((size_t)chunk_bytes);
+    if (!chunk) {
+        fprintf(stderr, "ERROR: cannot allocate %lld bytes for sort chunk\n", chunk_bytes);
+        return 1;
+    }
+
+    #define MAX_SORTED_CHUNKS 4096
+    char sorted_names[MAX_SORTED_CHUNKS][64];
+    int n_sorted = 0;
+    long long records_in_chunk = 0;
+
+    for (int fi = 0; fi < n_files; fi++) {
+        FILE *f = fopen(filenames[fi], "rb");
+        if (!f) continue;
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (sz <= 0 || sz % SOL_RECORD_SIZE != 0) { fclose(f); continue; }
+        long long file_records = sz / SOL_RECORD_SIZE;
+
+        while (file_records > 0) {
+            long long space = max_per_chunk - records_in_chunk;
+            long long to_read = (file_records < space) ? file_records : space;
+            size_t got = fread(&chunk[records_in_chunk * SOL_RECORD_SIZE],
+                               SOL_RECORD_SIZE, (size_t)to_read, f);
+            records_in_chunk += got;
+            file_records -= got;
+            if ((long long)got < to_read) break;
+
+            if (records_in_chunk >= max_per_chunk) {
+                qsort(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
+                if (n_sorted >= MAX_SORTED_CHUNKS) {
+                    fprintf(stderr, "ERROR: too many sorted chunks (%d)\n", n_sorted);
+                    free(chunk); return 1;
+                }
+                snprintf(sorted_names[n_sorted], 64, "temp_sorted_%04d.bin", n_sorted);
+                FILE *sf = fopen(sorted_names[n_sorted], "wb");
+                if (!sf) { fprintf(stderr, "ERROR: cannot create %s\n", sorted_names[n_sorted]); free(chunk); return 1; }
+                fwrite(chunk, SOL_RECORD_SIZE, (size_t)records_in_chunk, sf);
+                fflush(sf); fsync(fileno(sf)); fclose(sf);
+                printf("  Chunk %d: %lld records sorted + written\n", n_sorted, records_in_chunk);
+                fflush(stdout);
+                n_sorted++;
+                records_in_chunk = 0;
+            }
+        }
+        fclose(f);
+    }
+
+    if (records_in_chunk > 0) {
+        qsort(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
+        if (n_sorted >= MAX_SORTED_CHUNKS) {
+            fprintf(stderr, "ERROR: too many sorted chunks\n"); free(chunk); return 1;
+        }
+        snprintf(sorted_names[n_sorted], 64, "temp_sorted_%04d.bin", n_sorted);
+        FILE *sf = fopen(sorted_names[n_sorted], "wb");
+        if (!sf) { fprintf(stderr, "ERROR: cannot create %s\n", sorted_names[n_sorted]); free(chunk); return 1; }
+        fwrite(chunk, SOL_RECORD_SIZE, (size_t)records_in_chunk, sf);
+        fflush(sf); fsync(fileno(sf)); fclose(sf);
+        printf("  Chunk %d: %lld records sorted + written (final)\n", n_sorted, records_in_chunk);
+        fflush(stdout);
+        n_sorted++;
+    }
+    free(chunk);
+    printf("  %d sorted chunks created\n", n_sorted);
+    fflush(stdout);
+
+    /* Phase 2: k-way merge with canonical dedup */
+    FILE **sfiles = calloc(n_sorted, sizeof(FILE*));
+    MergeHeapEntry *heap = calloc(n_sorted, sizeof(MergeHeapEntry));
+    if (!sfiles || !heap) {
+        fprintf(stderr, "ERROR: merge heap allocation failed\n");
+        free(sfiles); free(heap); return 1;
+    }
+    int heap_size = 0;
+
+    for (int i = 0; i < n_sorted; i++) {
+        sfiles[i] = fopen(sorted_names[i], "rb");
+        if (sfiles[i] && fread(heap[heap_size].rec, SOL_RECORD_SIZE, 1, sfiles[i]) == 1) {
+            heap[heap_size].file_idx = i;
+            heap_size++;
+        }
+    }
+
+    for (int i = heap_size/2 - 1; i >= 0; i--)
+        merge_heap_sift_down(heap, heap_size, i);
+
+    FILE *out = fopen(output_path, "wb");
+    if (!out) {
+        fprintf(stderr, "ERROR: cannot open %s for writing\n", output_path);
+        free(sfiles); free(heap); return 1;
+    }
+
+    unsigned char last_written[SOL_RECORD_SIZE];
+    memset(last_written, 0xFF, SOL_RECORD_SIZE);
+    long long unique = 0, total_merged = 0;
+
+    while (heap_size > 0) {
+        MergeHeapEntry top = heap[0];
+        total_merged++;
+
+        if (compare_canonical(top.rec, last_written) != 0) {
+            if (fwrite(top.rec, SOL_RECORD_SIZE, 1, out) != 1) {
+                fprintf(stderr, "FATAL: write failed at record %lld\n", unique);
+                fclose(out); free(sfiles); free(heap); return 1;
+            }
+            memcpy(last_written, top.rec, SOL_RECORD_SIZE);
+            unique++;
+        }
+
+        int fi = top.file_idx;
+        if (fread(heap[0].rec, SOL_RECORD_SIZE, 1, sfiles[fi]) == 1) {
+            heap[0].file_idx = fi;
+            merge_heap_sift_down(heap, heap_size, 0);
+        } else {
+            heap[0] = heap[heap_size - 1];
+            heap_size--;
+            if (heap_size > 0) merge_heap_sift_down(heap, heap_size, 0);
+            fclose(sfiles[fi]);
+        }
+
+        if (total_merged % 100000000 == 0) {
+            printf("  Merged %lld / %lld, %lld unique\n", total_merged, total_records, unique);
+            fflush(stdout);
+        }
+    }
+
+    if (fflush(out) != 0 || fsync(fileno(out)) != 0) {
+        fprintf(stderr, "FATAL: flush/fsync failed on %s\n", output_path);
+        fclose(out); free(sfiles); free(heap); return 1;
+    }
+    fclose(out);
+
+    for (int i = 0; i < n_sorted; i++)
+        remove(sorted_names[i]);
+    free(sfiles);
+    free(heap);
+
+    printf("External merge complete: %lld total → %lld unique canonical orderings\n",
+           total_merged, unique);
+    fflush(stdout);
+    *out_unique = unique;
+    return 0;
+}
+
 /* ---------- JSON output ---------- */
 
 static void write_json(const char *filename, const char *status,
@@ -4256,122 +4445,110 @@ int main(int argc, char *argv[]) {
          * plus ~total_records × 32 bytes of writeout to disk. Verify both
          * resources BEFORE malloc — a short malloc failure or short write
          * late in the process loses hours of preceding work. */
+        /* Merge mode selection */
+        int use_ext = 0;
         {
-            long long need_ram_gb = (total_records * SOL_RECORD_SIZE) / (1024LL * 1024LL * 1024LL);
-            long long need_disk_gb = need_ram_gb * 2;  /* input still on disk + output */
-            /* Query available RAM via sysinfo-equivalent: read /proc/meminfo. */
-            FILE *mi = fopen("/proc/meminfo", "r");
-            long long ram_avail_kb = 0;
-            if (mi) {
-                char mline[256];
-                while (fgets(mline, sizeof(mline), mi)) {
-                    if (strncmp(mline, "MemAvailable:", 13) == 0) {
-                        sscanf(mline + 13, " %lld kB", &ram_avail_kb);
-                        break;
-                    }
-                }
-                fclose(mi);
-            }
-            long long ram_avail_gb = ram_avail_kb / (1024LL * 1024LL);
-            /* Query free disk via statvfs on current directory */
-            struct statvfs vfs;
-            long long disk_avail_gb = 0;
-            if (statvfs(".", &vfs) == 0) {
-                disk_avail_gb = ((long long)vfs.f_bavail * vfs.f_frsize) / (1024LL * 1024LL * 1024LL);
-            }
-            printf("  Preflight: need ~%lld GB RAM (have %lld GB), ~%lld GB disk (have %lld GB)\n",
-                   need_ram_gb, ram_avail_gb, need_disk_gb, disk_avail_gb);
-            if (ram_avail_gb > 0 && need_ram_gb > ram_avail_gb) {
-                fprintf(stderr, "ERROR: insufficient RAM for in-memory merge\n");
-                fprintf(stderr, "       required: %lld GB, available: %lld GB\n",
-                        need_ram_gb, ram_avail_gb);
-                fprintf(stderr, "       Use an E/M-series VM or external merge\n");
-                return 10;  /* bad input (wrong VM for this dataset size) */
-            }
-            if (disk_avail_gb > 0 && need_disk_gb > disk_avail_gb) {
-                fprintf(stderr, "ERROR: insufficient disk space for merge output\n");
-                fprintf(stderr, "       required: ~%lld GB, available: %lld GB\n",
-                        need_disk_gb, disk_avail_gb);
-                fprintf(stderr, "       Resize the data disk or move sub_*.bin shards\n");
-                return 10;
+            long long needed_bytes = total_records * SOL_RECORD_SIZE;
+            long pages = sysconf(_SC_PHYS_PAGES);
+            long page_size = sysconf(_SC_PAGE_SIZE);
+            long long total_ram = (long long)pages * page_size;
+            char *mm = getenv("SOLVE_MERGE_MODE");
+            if (mm && strcmp(mm, "external") == 0) {
+                use_ext = 1;
+                printf("  Merge: external (forced by SOLVE_MERGE_MODE)\n");
+            } else if (mm && strcmp(mm, "memory") == 0) {
+                use_ext = 0;
+                printf("  Merge: in-memory (forced by SOLVE_MERGE_MODE)\n");
+            } else {
+                use_ext = (needed_bytes > total_ram * 7 / 10);
+                printf("  Merge: %s (need %lld GB, have %lld GB RAM)\n",
+                       use_ext ? "external (auto)" : "in-memory (auto)",
+                       needed_bytes / (1024*1024*1024), total_ram / (1024*1024*1024));
             }
         }
 
-        unsigned char *all = malloc((size_t)total_records * SOL_RECORD_SIZE);
-        if (!all) { printf("ERROR: malloc failed for %lld records\n", total_records); return 1; }
-
-        long long offset = 0;
-        for (int i = 0; i < n_files; i++) {
-            FILE *tf = fopen(filenames[i], "rb");
-            fseek(tf, 0, SEEK_END);
-            long sz = ftell(tf);
-            fseek(tf, 0, SEEK_SET);
-            if (fread(&all[offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
-                printf("  WARNING: short read on %s\n", filenames[i]);
-            offset += sz / SOL_RECORD_SIZE;
-            fclose(tf);
-        }
-
-        printf("  Sorting %lld records...\n", total_records);
-        qsort(all, total_records, SOL_RECORD_SIZE, compare_solutions);
-
-        /* Dedup */
         long long unique = 0;
-        for (long long i = 0; i < total_records; i++) {
-            if (i == 0 || compare_solutions(
-                    &all[i * SOL_RECORD_SIZE],
-                    &all[(i - 1) * SOL_RECORD_SIZE]) != 0) {
-                if (unique != i)
-                    memcpy(&all[unique * SOL_RECORD_SIZE],
-                           &all[i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
-                unique++;
-            }
-        }
-        printf("  Unique solutions: %lld (removed %lld duplicates)\n",
-               unique, total_records - unique);
-
-        /* Write merged output. Unified filename with normal-mode output
-         * so post-merge validation and downstream tooling always find the
-         * same path. */
         const char *outname = "solutions.bin";
-        printf("  Writing %s...\n", outname);
-        FILE *of = fopen(outname, "wb");
-        if (!of) {
-            fprintf(stderr, "ERROR: cannot open %s for writing\n", outname);
-            free(all);
-            return 30; /* exit 30 = write failed */
-        }
-        size_t written = fwrite(all, SOL_RECORD_SIZE, unique, of);
-        if ((long long)written != unique) {
-            fprintf(stderr, "ERROR: short write to %s (%zu of %lld records)\n",
-                    outname, written, unique);
+
+        if (use_ext) {
+            int rc = external_merge_sort(filenames, n_files, total_records, outname, &unique);
+            if (rc != 0) return rc;
+        } else {
+            /* Preflight: check disk space */
+            {
+                long long need_disk_gb = (total_records * SOL_RECORD_SIZE * 2) / (1024LL*1024*1024);
+                struct statvfs vfs;
+                long long disk_avail_gb = 0;
+                if (statvfs(".", &vfs) == 0)
+                    disk_avail_gb = ((long long)vfs.f_bavail * vfs.f_frsize) / (1024LL*1024*1024);
+                if (disk_avail_gb > 0 && need_disk_gb > disk_avail_gb) {
+                    fprintf(stderr, "ERROR: insufficient disk (%lld GB needed, %lld available)\n"
+                            "       Try SOLVE_MERGE_MODE=external\n", need_disk_gb, disk_avail_gb);
+                    return 10;
+                }
+            }
+
+            unsigned char *all = malloc((size_t)total_records * SOL_RECORD_SIZE);
+            if (!all) {
+                fprintf(stderr, "ERROR: malloc failed for %lld records.\n"
+                        "       Try SOLVE_MERGE_MODE=external\n", total_records);
+                return 1;
+            }
+
+            long long offset = 0;
+            for (int i = 0; i < n_files; i++) {
+                FILE *tf = fopen(filenames[i], "rb");
+                fseek(tf, 0, SEEK_END);
+                long sz = ftell(tf);
+                fseek(tf, 0, SEEK_SET);
+                if (fread(&all[offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
+                    printf("  WARNING: short read on %s\n", filenames[i]);
+                offset += sz / SOL_RECORD_SIZE;
+                fclose(tf);
+            }
+
+            printf("  Sorting %lld records...\n", total_records);
+            qsort(all, total_records, SOL_RECORD_SIZE, compare_solutions);
+
+            for (long long i = 0; i < total_records; i++) {
+                if (i == 0 || compare_canonical(
+                        &all[i * SOL_RECORD_SIZE],
+                        &all[(i - 1) * SOL_RECORD_SIZE]) != 0) {
+                    if (unique != i)
+                        memcpy(&all[unique * SOL_RECORD_SIZE],
+                               &all[i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
+                    unique++;
+                }
+            }
+            printf("  Unique: %lld (removed %lld orient duplicates)\n",
+                   unique, total_records - unique);
+
+            printf("  Writing %s...\n", outname);
+
+            FILE *of = fopen(outname, "wb");
+            if (!of) { fprintf(stderr, "ERROR: cannot open %s\n", outname); free(all); return 30; }
+            size_t written = fwrite(all, SOL_RECORD_SIZE, unique, of);
+            if ((long long)written != unique) {
+                fprintf(stderr, "ERROR: short write (%zu of %lld)\n", written, unique);
+                fclose(of); free(all); return 30;
+            }
+            if (fflush(of) != 0 || fsync(fileno(of)) != 0) {
+                fprintf(stderr, "ERROR: flush/fsync failed\n"); fclose(of); free(all); return 30;
+            }
             fclose(of);
             free(all);
-            return 30;
         }
-        if (fflush(of) != 0 || fsync(fileno(of)) != 0) {
-            fprintf(stderr, "ERROR: flush/fsync failed on %s\n", outname);
-            fclose(of);
-            free(all);
-            return 30;
-        }
-        if (fclose(of) != 0) {
-            fprintf(stderr, "ERROR: close failed on %s\n", outname);
-            free(all);
-            return 30;
-        }
+        printf("  Unique solutions: %lld\n", unique);
         /* Post-write size verification (catches truncation) */
         {
             struct stat pst;
             long long expected = unique * SOL_RECORD_SIZE;
             if (stat(outname, &pst) != 0 || pst.st_size != expected) {
                 fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
-                        outname, (long long)pst.st_size, expected);
-                free(all);
+                        outname, (long long)(stat(outname, &pst) == 0 ? pst.st_size : -1), expected);
                 return 30;
             }
         }
-        free(all);
 
         /* sha256 */
         char sha_cmd[256];
@@ -6096,58 +6273,90 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    unsigned char *all_solutions = NULL;
-    if (total_file_records > 0) {
-        all_solutions = malloc((size_t)total_file_records * SOL_RECORD_SIZE);
-        if (!all_solutions) {
-            fprintf(stderr, "ERROR: failed to allocate %lld bytes for solution merge\n",
-                    (long long)total_file_records * SOL_RECORD_SIZE);
-            free(merge_filenames);
-            return 30;
+    /* Merge mode selection: in-memory (fast) or external (memory-independent).
+     * SOLVE_MERGE_MODE: auto (default), memory, external */
+    int use_external_merge = 0;
+    {
+        long long needed_bytes = total_file_records * SOL_RECORD_SIZE;
+        long pages = sysconf(_SC_PHYS_PAGES);
+        long page_size = sysconf(_SC_PAGE_SIZE);
+        long long total_ram = (long long)pages * page_size;
+        char *merge_mode_env = getenv("SOLVE_MERGE_MODE");
+
+        if (merge_mode_env && strcmp(merge_mode_env, "external") == 0) {
+            use_external_merge = 1;
+            printf("Merge mode: external (forced by SOLVE_MERGE_MODE)\n");
+        } else if (merge_mode_env && strcmp(merge_mode_env, "memory") == 0) {
+            use_external_merge = 0;
+            printf("Merge mode: in-memory (forced by SOLVE_MERGE_MODE)\n");
+        } else {
+            use_external_merge = (needed_bytes > total_ram * 7 / 10);
+            printf("Merge mode: %s (need %lld GB, have %lld GB RAM)\n",
+                   use_external_merge ? "external (auto — insufficient RAM)" : "in-memory (auto)",
+                   needed_bytes / (1024*1024*1024), total_ram / (1024*1024*1024));
         }
     }
-
-    long long sol_offset = 0;
-    if (all_solutions) {
-        for (int i = 0; i < n_sub_files; i++) {
-            FILE *tf = fopen(merge_filenames[i], "rb");
-            if (tf) {
-                fseek(tf, 0, SEEK_END);
-                long sz = ftell(tf);
-                fseek(tf, 0, SEEK_SET);
-                if (sz > 0) {
-                    if (fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
-                        printf("  WARNING: short read on %s\n", merge_filenames[i]);
-                    sol_offset += sz / SOL_RECORD_SIZE;
-                }
-                fclose(tf);
-            }
-        }
-    }
-    free(merge_filenames);
-    total_stored = sol_offset;
-
-    printf("Sorting %lld solutions...\n", total_stored);
-    fflush(stdout);
-    if (all_solutions && total_stored > 0)
-        qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
 
     long long unique_count = 0;
-    for (long long i = 0; i < total_stored; i++) {
-        if (i == 0 || compare_canonical(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
-            if (unique_count != i)
-                memcpy(&all_solutions[(size_t)unique_count * SOL_RECORD_SIZE], &all_solutions[(size_t)i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
-            unique_count++;
-        }
-    }
 
-    printf("Writing %lld unique solutions to solutions.bin...\n", unique_count);
-    fflush(stdout);
-    FILE *f = fopen("solutions.bin", "wb");
-    if (!f) {
-        fprintf(stderr, "ERROR: cannot open solutions.bin for writing\n");
-        free(all_solutions);
-        return 30;
+    if (use_external_merge) {
+        int rc = external_merge_sort(merge_filenames, n_sub_files,
+                                      total_file_records, "solutions.bin", &unique_count);
+        free(merge_filenames);
+        if (rc != 0) return rc;
+    } else {
+        unsigned char *all_solutions = NULL;
+        if (total_file_records > 0) {
+            all_solutions = malloc((size_t)total_file_records * SOL_RECORD_SIZE);
+            if (!all_solutions) {
+                fprintf(stderr, "ERROR: failed to allocate %lld bytes for in-memory merge.\n"
+                        "       Try SOLVE_MERGE_MODE=external for memory-independent merge.\n",
+                        (long long)total_file_records * SOL_RECORD_SIZE);
+                free(merge_filenames);
+                return 30;
+            }
+        }
+
+        long long sol_offset = 0;
+        if (all_solutions) {
+            for (int i = 0; i < n_sub_files; i++) {
+                FILE *tf = fopen(merge_filenames[i], "rb");
+                if (tf) {
+                    fseek(tf, 0, SEEK_END);
+                    long sz = ftell(tf);
+                    fseek(tf, 0, SEEK_SET);
+                    if (sz > 0) {
+                        if (fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, sz, tf) != (size_t)sz)
+                            printf("  WARNING: short read on %s\n", merge_filenames[i]);
+                        sol_offset += sz / SOL_RECORD_SIZE;
+                    }
+                    fclose(tf);
+                }
+            }
+        }
+        free(merge_filenames);
+        long long total_stored = sol_offset;
+
+        printf("Sorting %lld solutions...\n", total_stored);
+        fflush(stdout);
+        if (all_solutions && total_stored > 0)
+            qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
+
+        for (long long i = 0; i < total_stored; i++) {
+            if (i == 0 || compare_canonical(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
+                if (unique_count != i)
+                    memcpy(&all_solutions[(size_t)unique_count * SOL_RECORD_SIZE], &all_solutions[(size_t)i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
+                unique_count++;
+            }
+        }
+
+        printf("Writing %lld unique solutions to solutions.bin...\n", unique_count);
+        fflush(stdout);
+        FILE *f = fopen("solutions.bin", "wb");
+        if (!f) {
+            fprintf(stderr, "ERROR: cannot open solutions.bin for writing\n");
+            free(all_solutions);
+            return 30;
     }
     if (all_solutions) {
         size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, f);
@@ -6170,23 +6379,23 @@ int main(int argc, char *argv[]) {
         free(all_solutions);
         return 30;
     }
-    /* Post-write size verification */
+        free(all_solutions);
+    } /* end in-memory merge */
+
+    /* Post-write size verification (both merge paths) */
     {
         struct stat pst;
-        long long expected = (long long)unique_count * SOL_RECORD_SIZE;
+        long long expected = unique_count * SOL_RECORD_SIZE;
         if (stat("solutions.bin", &pst) != 0) {
             fprintf(stderr, "ERROR: post-write stat failed on solutions.bin\n");
-            free(all_solutions);
             return 30;
         }
         if (pst.st_size != expected) {
             fprintf(stderr, "ERROR: post-write size mismatch on solutions.bin: got %lld, expected %lld\n",
                     (long long)pst.st_size, expected);
-            free(all_solutions);
             return 30;
         }
     }
-    free(all_solutions);
 
     printf("Computing sha256...\n");
     fflush(stdout);
