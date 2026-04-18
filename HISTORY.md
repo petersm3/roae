@@ -273,6 +273,19 @@ Fix: removed the probe cap entirely, added per-thread auto-resizing hash tables 
 
 **External merge-sort implemented.** `SOLVE_MERGE_MODE=external` enables disk-based merge for datasets that exceed RAM. Produces identical output to in-memory merge (verified at 100M scale: same sha, same --verify PASS). Enables merge on small VMs (8 GB) at any scale.
 
+**Hardening pass (2026-04-18, commits ac0bce6 → d4c6355).** Comprehensive code-quality and robustness pass on solve.c:
+- **External-sort chunk I/O** — every `fwrite` / `fflush` / `fsync` / `fclose` checked; post-write `stat()` verifies size. Same discipline as `flush_sub_solutions`.
+- **Merge-input reads** — `fopen`/`fseek`/`ftell`/`fread` checked in all three merge paths; short reads are now hard errors (exit 20), not warnings. Size-not-multiple-of-32 triggers abort.
+- **Signal safety** — `global_timed_out` is now `volatile sig_atomic_t` (was `volatile int`), the only C-standard type guaranteed safe for signal-handler writes.
+- **pthread_create** — both launch sites check return code; on failure, already-started threads are joined and the program exits 10 with a clear errno.
+- **sha256 preflight** — walks `$PATH` at startup for `sha256sum` (coreutils) or `shasum -a 256` (BSD/macOS); fails fast with install hints if neither is present. Previously the tool's absence was discovered at the very end of a run (silent empty `.sha256`). Modes that don't write digests (`--verify`, `--validate`, `--analyze`, `--prove-*`, `--list-branches`) skip the preflight and stay dependency-free.
+- **Integer-overflow guards** — defensive bounds checks before every capacity-doubler and merge-size aggregation. Never-fires in practice, prevents UB on corrupted shard metadata.
+- **Thread-safe time** — all 8 `gmtime()` calls replaced with `gmtime_r()` so concurrent metadata writes can't corrupt each other.
+- **`--Wall -Wextra` clean** — six `--analyze` warnings fixed, including a real `(p == p)` copy-paste bug that made a LOCKED annotation always fire.
+- **Self-path resolution** — `--merge` post-validation uses `/proc/self/exe` to re-invoke the actual running binary rather than `./solve` (broke if the binary was run from elsewhere or installed to PATH).
+
+Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics changed — the hardening is strictly in error paths and infrastructure.
+
 ## Current state
 
 The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8), and also included orientation duplicates that inflated the count. New reference shas are being established with the fixed solver.

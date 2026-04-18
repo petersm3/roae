@@ -77,8 +77,16 @@ enumerated space. When citing quantitative results, note the enumeration depth
 
 ### Storage strategy: parallel redundancy and long-term archival
 
+> **Status: OPTIONAL / ASPIRATIONAL — not currently in use.**
+> The entire Azure Blob Archive flow below is a designed-but-undeployed
+> backup tier. We are not confident enough in the current `solutions.bin`
+> outputs to archive them, and no automated process has been chosen for
+> the upload/sha-verify pipeline. The working copy on the `solver-data`
+> managed disk is currently the only redundancy tier. Treat this section
+> as a reference for a future archival workflow, not current policy.
+
 The managed disk is the *working* copy of large artifacts, not the *durable*
-copy. Two things motivate a separate backup tier:
+copy. Two things would motivate a separate backup tier:
 
 1. **Accidental deletion or corruption.** A disk wipe, a rogue `az disk delete`,
    or a mount-point bug can lose the primary copy in seconds. Managed disks
@@ -89,7 +97,8 @@ copy. Two things motivate a separate backup tier:
    multi-month pause, that adds up fast. Blob Archive tier is ~40× cheaper
    per GB.
 
-**Parallel-backup policy (run immediately after any canonical run):**
+**Proposed parallel-backup policy (would run after any canonical run, once
+we establish a canonical run and choose an automation mechanism):**
 
 For every canonical enumeration (10T, 100T, 1000T, or any run that produces a
 sha256 referenced in committed docs):
@@ -116,9 +125,12 @@ sha256 referenced in committed docs):
 4. Once verified: the managed disk remains authoritative for active work;
    the blob is the durable backup.
 
-The 10T canonical run (`aa1415174c...b719b`, 23.7 GB) is the first candidate.
-At Archive-tier pricing (~$0.00099/GB/month) the 10T backup is ~$0.02/month
-— essentially free insurance.
+The 10T canonical run (`aa1415174c...b719b`, 23.7 GB) was the original
+candidate, but that sha is now known to be an undercount (see HISTORY.md Day
+8). No run has yet been archived. A future canonical 10T (once the d3 and d2
+reference shas land) would be the first candidate. At Archive-tier pricing
+(~$0.00099/GB/month) a 10T backup would be ~$0.02/month — essentially free
+insurance, once we are confident in the output.
 
 **Validation-first approach for major solver refactors.** When significant
 enumeration-path refactoring occurs (e.g., the Option B depth-3 work-unit
@@ -216,22 +228,35 @@ keeping the managed disk.
   `solutions.bin` was silently truncated from 23.7 GB to 8 GB because the disk
   filled up mid-write. The solver's sha256 still matched the truncated file
   (sha was computed post-write from what landed on disk). Every `fwrite`,
-  `fopen`, `fclose` should have its return value checked.
+  `fopen`, `fclose`, `fflush`, `fsync`, `rename`, `fseek`, `ftell`, and
+  `fread` now has its return checked at every call site (enumeration flush,
+  external-sort chunks, both merge paths). Short reads are hard errors, not
+  warnings. Post-write `stat()` verifies size at every file write.
 - **Preflight disk space**: `free_disk >= estimated_output × 1.5`. At 10T the
   sub_*.bin shards total ~23 GB AND the final solutions.bin is ~24 GB —
   together they exceed a naive 32 GB disk.
+- **Preflight sha256 tool.** `solve.c` shells to `sha256sum` (GNU coreutils)
+  or `shasum -a 256` (BSD/macOS) for output digests. The solver walks `$PATH`
+  at startup and exits 10 with install hints if neither is available —
+  prevents a successful multi-hour enumeration from producing an empty
+  `.sha256` file at the end. Modes that don't write digests
+  (`--verify`, `--validate`, `--analyze`, `--prove-*`, `--list-branches`)
+  skip the preflight.
 - **Per-sub-branch filenames include the full (p1, o1, p2, o2) key**. Earlier
   versions keyed only on (p2, o2), causing silent overwrites. Never narrow the
   file-naming key without proving no collisions can occur.
-- **`INTERRUPTED` status conflates external interruption with per-sub-branch
-  budget exhaustion.** Resume re-runs both. Budget-exhausted sub-branches
-  produce deterministic output and could in principle be safely skipped on
-  resume with the same budget — but you'd need a "BUDGETED" tag distinct from
-  "INTERRUPTED" and budget comparison logic on resume. Tracked as future work.
-- **Hash table insertion has a 64-probe cap.** If a cluster of 64+ consecutive
-  slots is occupied, the record is SILENTLY DROPPED (no counter, no warning).
-  Mitigated by oversizing the table (4M slots vs typically <1M entries) but
-  theoretically possible at higher load. Tracked as future work.
+- **Status taxonomy: EXHAUSTED / BUDGETED / INTERRUPTED.** Each sub-branch
+  records one of three end states. EXHAUSTED means the search completed
+  naturally (no more solutions possible). BUDGETED means the per-sub-branch
+  node budget was hit (deterministic under the same budget; re-run at a
+  higher budget may find more solutions). INTERRUPTED means a signal or
+  process kill cut it short. Resume: always re-run INTERRUPTED, re-run
+  BUDGETED only if the new budget exceeds the stored one, skip EXHAUSTED.
+- **Hash table auto-resizes; zero silent drops.** Per-thread tables start
+  at 2^24 slots (configurable via `SOLVE_HASH_LOG2`) and double when load
+  exceeds 75%. Probe is over the full table with no cap. OOM during resize
+  triggers FATAL abort. The earlier 64-probe cap that silently dropped 241M
+  records at 10T depth-2 no longer exists.
 - **solve.c uses pthreads; solve.c's `--analyze`, `--validate`, `--prove-*`
   use OpenMP.** Don't mix both in the same phase of execution — they compete
   for cores. The main enumeration uses pthreads only; OpenMP is confined to
