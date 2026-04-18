@@ -286,21 +286,37 @@ Fix: removed the probe cap entirely, added per-thread auto-resizing hash tables 
 
 Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics changed — the hardening is strictly in error paths and infrastructure.
 
+**Second hardening pass + solutions.bin format v1 (2026-04-18, commits 6a1f0bc → 446b42e).** Triggered by an independent scientific/mathematical review of the whole corpus.
+- **Exact KW self-check.** The KW[] validator at startup now verifies the pair-partner relationship for all 32 pairs (catches a KW[] typo that swaps a hexagram for a non-partner), checks the distance distribution element-by-element against `{1:2, 2:20, 3:13, 4:19, 6:9}` exactly (was: sums-to-63), and asserts `kw_comp_dist_x64 == 776` exactly (was: "in range [1, 2048]"). The prior check passed for many wrong sequences; the exact form passes only for canonical King Wen. Exit 50 on any failure — downstream claims become unsafe.
+- **Record-encoding static asserts.** `_Static_assert` blocks lock `SOL_RECORD_SIZE == 32`, `SOL_HEADER_SIZE == 32`, and the relationship between the bit-packing expression and the canonical-form mask `0xFC`. Any drift in the byte layout refuses to compile.
+- **Canonical-dedup correctness proof.** Added a comment block proving that the hash-insert + qsort + merge-dedup pipeline produces one record per canonical equivalence class regardless of path. The reasoning used to be scattered; now it's documented in one place next to the two comparators.
+- **solutions.bin format v1.** Files now start with a 32-byte header (magic `ROAE`, uint32-LE format version, uint64-LE record count, 16 reserved zero bytes) before the record stream. Header contains only deterministic-from-input fields, so `sha256(solutions.bin)` remains a pure function of the enumeration inputs. A sidecar `solutions.meta.json` records provenance (timestamp, git hash) outside the canonical file so the sha stays reproducible. See `SOLUTIONS_FORMAT.md` for the full spec and a language-agnostic read-sketch.
+  - **Format transition.** All prior `solutions.bin` files are format v0 (raw record stream). Future files are v1. Old files can be verified by running the old `verify.py`; new tools refuse v0 with a clear error. Selftest baseline regenerated: `76ada31e...` (v0) → `403f7202a33a9337...` (v1, same 135,780 records with 32-byte prefix).
+- **Reproducibility footgun removed from selftest.** The selftest harness previously passed `60` as a wall-clock safety net. Under load or on slower VMs, that limit fired mid-enumeration, interrupting whatever sub-branches happened to be running — producing non-deterministic sha mismatches in an otherwise correct solver. Now uses node-limit only. Related: the solver prints a startup WARNING if both `SOLVE_NODE_LIMIT` and a wall-clock time_limit are set simultaneously, and a new `REPRODUCIBILITY RULE OF THUMB` block at the top of solve.c documents why canonical runs must use node-limit exclusively.
+- **Documentation corrections.**
+  - **SPECIFICATION.md §Complement distance** had `|C| = 60` — a documentation error. The correct divisor is 64: `comp(h) = h` requires `63 = 0` and is never true, so all 64 hexagrams contribute to the sum, giving `776 / 64 = 12.125` as the mean complement-pair distance.
+  - **Null-model caveat elevated** from a single paragraph in `CRITIQUE.md:136` to lead notes in `README.md` and `SOLVE-SUMMARY.md`. The honest framing: C1+C2+C3 are robust findings; the "4 boundaries uniquely determine KW" result is a property of the constraint-extraction methodology (which produces apparent uniqueness for 9/10 random pair-constrained sequences), not evidence of KW specialness beyond the robust findings.
+  - **"{25, 27} mandatory"** reformulated: the minimum structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` — two mandatory + two interchangeable slots, yielding exactly 2 × 2 = 4 working quadruples. Old phrasing was true but elided the interchangeability.
+
+Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
+
 ## Current state
 
-The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8), and also included orientation duplicates that inflated the count. New reference shas are being established with the fixed solver.
+**Code.** solve.c is through two hardening passes. Exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, zero compile warnings. The remaining known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.
 
-**10T depth-3 sub_*.bin files (56,404 files, 2.77B records) are on the managed disk.** Merge pending — needs an on-demand F64 VM (~30 min, ~$2). After merge: `--verify`, archive d3 sha. Then 10T depth-2 run for the second reference sha.
+**Data.** No canonical `solutions.bin` currently exists in format v1. The prior reference shas (`c43f251f...` 31.6M, `aa1415...` 742M) are invalidated. On the `solver-data` managed disk (300 GB, Unattached): **56,404 `sub_*.bin` files from the 10T depth-3 enumeration (~2.77B pre-dedup records)** — untouched by format v1 since the shards are an internal intermediate. The first new canonical artifact will be the v1 `solutions.bin` produced by re-merging these shards with the current solver.
 
-Selftest baseline: `76ada31e...` (135,780 canonical orderings at 100M, verified across 1/2/4/8 threads).
+**Selftest baseline.** `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only (no wall-clock).
 
-The 4-boundary minimum-uniqueness result holds at 742M scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Only **{25, 27} are truly mandatory**; {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. These findings need re-verification once new reference shas are established.
+**Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW; the uniqueness result holds within the extraction methodology but the same methodology also produces "uniqueness" for random pair-constrained sequences (see `CRITIQUE.md`). The 4-boundary minimum structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` for the 742M dataset — pending re-verification on the new reference.
 
 **Next steps:**
-1. Complete d3 merge on on-demand F64 (~30 min, ~$2) → new d3 reference sha
-2. Run 10T depth-2 with fixed solver → new d2 reference sha
-3. Run `--verify` + `--analyze` on both (can run on 2-core claude VM)
-4. Pending D128als_v7 quota approval: validate 10T on D128 (128 threads), then 100T depth-2
+1. **D3 re-merge** on on-demand F64 → first canonical v1 `solutions.bin` + sha + meta.json (~30 min, ~$2 on-demand). This is the d3 reference.
+2. **D2 re-enumeration** on spot F64 → d2 reference sha (also v1 format).
+3. **Cross-validation** (user-specified): for each 10T run, independently re-enumerate from scratch with the current solver and compare sha to the merge-based sha. If identical, the shards + merge path produce byte-identical output to fresh enumeration — catches any silent drift between enumerate and merge.
+4. `--verify` + `--analyze` on both v1 `solutions.bin` files (can run on the 2-core claude VM).
+5. Scientific-review follow-ups (prioritized in `LONG_TERM_PLAN.md` outside the repo): search-order provenance documentation for the 4-boundary result, bootstrap confidence intervals on percentile claims, formal proof of forced-orientation theorem, archival deposit (Zenodo + SWH).
+6. Pending D128als_v7 quota approval: validate 10T on D128 (128 threads), then 100T depth-2.
 
 ## Infrastructure
 
