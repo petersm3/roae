@@ -446,7 +446,14 @@ typedef struct {
     int ht_resizes;
 } ThreadState;
 
-static volatile int global_timed_out = 0;
+/* global_timed_out is set both from the signal handler (must be
+ * async-signal-safe) and from thread code. sig_atomic_t is the only type
+ * the C standard guarantees safe for signal-handler writes. volatile keeps
+ * the compiler from caching reads across observable points in worker loops. */
+static volatile sig_atomic_t global_timed_out = 0;
+/* threads_completed is written only via __sync_fetch_and_add (atomic) and
+ * read by the monitor thread. volatile forces re-read each iteration of the
+ * monitor while-loop. */
 static volatile int threads_completed = 0;
 static pthread_mutex_t checkpoint_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int total_branches_completed = 0;
