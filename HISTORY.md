@@ -265,28 +265,37 @@ Fix: removed the probe cap entirely, added per-thread auto-resizing hash tables 
 
 **Canonical dedup fix (402b835).** The merge was keeping orientation variants across sub-branches while the per-sub-branch hash table collapsed them — an inconsistency. Fixed: merge now uses canonical comparison (orient masked). At 100M: 336,288 → 135,780 unique pair orderings. Selftest updated to `76ada31e...`. Added `verify.py` (standalone Python constraint verifier) and `SOLUTIONS_FORMAT.md` (binary format spec for long-term archival).
 
-**All prior 10T shas are invalidated.** The sha `aa1415...` had 241M silent drops AND orientation duplicates. New reference shas being established with commit 402b835. 10T depth-2 and depth-3 re-runs in progress.
+**All prior 10T shas are invalidated.** The sha `aa1415...` had 241M silent drops AND orientation duplicates. New reference shas being established with the fixed solver.
+
+**10T depth-3 enumeration completed, merge pending.** All 158,364 sub-branches completed (all BUDGETED at 10T). 56,404 sub_*.bin files on the managed disk (the remainder had 0 solutions). 2.77 billion pre-dedup records. The solver's own merge was killed by the progress-stall watchdog mid-merge (the watchdog didn't know the merge phase legitimately takes 15+ min without progress updates). Watchdog fixed to check solve_output.txt for merge-phase indicators. Subsequent merge attempt on an on-demand F64 was also lost to a spot eviction (the VM was provisioned as spot by mistake). Merge to be re-run on a properly on-demand VM using the current solve.c (with canonical dedup in the --merge path). Sub_*.bin files are intact on the 300 GB managed disk.
+
+**Standalone --merge code path had stale dedup.** The `--merge` flag used `compare_solutions` (full-byte dedup, keeping orient variants) while the solver's normal-mode merge used `compare_canonical` (orient masked). Running `--merge` on the same sub_*.bin files would produce a different sha. Fixed: both paths now use `compare_canonical`.
+
+**External merge-sort implemented.** `SOLVE_MERGE_MODE=external` enables disk-based merge for datasets that exceed RAM. Produces identical output to in-memory merge (verified at 100M scale: same sha, same --verify PASS). Enables merge on small VMs (8 GB) at any scale.
 
 ## Current state
 
-The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8), and also included orientation duplicates that inflated the count (see below). New reference shas are being established with the fixed solver.
+The prior **742,043,303-solution dataset at 10T** (sha `aa1415...`) is now known to be an **undercount** due to 241M hash-table silent drops (see Day 8), and also included orientation duplicates that inflated the count. New reference shas are being established with the fixed solver.
 
-**Canonical dedup fix (402b835).** The merge dedup was using full-byte comparison, keeping orientation variants that crossed sub-branch boundaries. The per-sub-branch hash table already deduplicated canonically (orient masked), but the merge didn't — an inconsistency. Now both stages use canonical comparison. At 100M scale: 336,288 records collapsed to 135,780 unique pair orderings (200,508 orient duplicates removed). Selftest baseline updated to `76ada31e...`. Independent Python verifier (`verify.py`) and binary format specification (`SOLUTIONS_FORMAT.md`) added.
+**10T depth-3 sub_*.bin files (56,404 files, 2.77B records) are on the managed disk.** Merge pending — needs an on-demand F64 VM (~30 min, ~$2). After merge: `--verify`, archive d3 sha. Then 10T depth-2 run for the second reference sha.
 
-10T depth-2 and depth-3 re-runs in progress on commit 402b835.
+Selftest baseline: `76ada31e...` (135,780 canonical orderings at 100M, verified across 1/2/4/8 threads).
 
-The 4-boundary minimum-uniqueness result holds at the new scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Exhaustive enumeration of all 31,465 four-subsets found only 4 working sets: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Only **{25, 27} are truly mandatory** (present in every working 4-set); {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. Cascade and shift-pattern claims built atop the old 31.6M dataset have been re-verified against 742M: the shift pattern holds for only 2.93% of solutions, and every reachable branch admits 2-29 distinct configurations at positions 3-19.
+The 4-boundary minimum-uniqueness result holds at 742M scale, but the specific chosen set shifted: greedy search on 742M picks **{2, 21, 25, 27}** rather than the old **{1, 21, 25, 27}**. Only **{25, 27} are truly mandatory**; {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. These findings need re-verification once new reference shas are established.
 
-A 100T run remains pending: the 2026-04-13 attempt on spot F64 was aborted after multiple evictions revealed that sub-branch-granularity recovery is too coarse for spot under current eviction rates (only 1.5% committed in 9h). Next retry requires intra-sub-branch checkpointing in [solve.c](solve.c) plus the hardening pass from the 10T recovery (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+**Next steps:**
+1. Complete d3 merge on on-demand F64 (~30 min, ~$2) → new d3 reference sha
+2. Run 10T depth-2 with fixed solver → new d2 reference sha
+3. Run `--verify` + `--analyze` on both (can run on 2-core claude VM)
+4. Pending D128als_v7 quota approval: validate 10T on D128 (128 threads), then 100T depth-2
 
 ## Infrastructure
 
-- **This VM** (claude, D2as_v6): orchestration, analysis, git. $0.09/hr, ~$66/month if always on.
-  - Deallocated when no work is running to save costs. Only active during solver runs and analysis sessions.
-- **F64 spot** (solver-f64-spot, F64als_v6): solver runs. $0.79/hr, created/destroyed per run.
-- **Spot quota**: 64 cores in westus2. Approved April 12.
-- **All run outputs archived** in `solve_c/runs/` with sha256 verification.
-- **Auto-retrying monitor** handles spot evictions: syncs files, waits 1 hour, restarts.
-- **Persistent managed disk** (solver-data, 64GB, ~$1/month): survives VM deallocation. Data stored here, not on ephemeral OS disk. (Originally 32GB; resized to 64GB on 2026-04-14 after solutions.bin truncation.)
+- **Orchestrator VM** (claude, D2as_v6, zone 2): orchestration, analysis, git. $0.09/hr.
+- **Solver VMs**: F64als_v6 spot ($0.79/hr) for enumeration, F64als_v6 on-demand ($3.87/hr) for merge. Created/destroyed per run. Private-IP-only via shared claude-vnet (no public IP, no NSG).
+- **Spot quota**: F64als_v6 — 64 cores in westus2. D128als_v7 — requested, pending approval (currently 10, need 128).
+- **Persistent managed disk** (solver-data, 300 GB, ~$3/month): survives VM deallocation. Resized from 32→64→128→300 GB over project lifetime. Currently holds 56,404 sub_*.bin files from 10T depth-3 enumeration (merge pending).
+- **Monitor** (monitor_canonical.sh): handles provisioning, spot eviction recovery, progress tracking, post-completion verification gate (--verify + hash-drop check), sub_*.bin integrity on resume, dynamic disk expansion watchdog. Watchdog exempts merge phase.
 - **Atomic file writes** in solve.c: write to .tmp, fsync, rename. Prevents mid-eviction corruption.
 - **Rotating checkpoints**: 3 copies maintained locally (checkpoint.txt, .1, .2).
+- **All run outputs archived** in `solve_c/runs/` with sha256 verification.
