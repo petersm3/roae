@@ -20,6 +20,8 @@ New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-langua
 
 Can the King Wen sequence be reconstructed from its mathematical constraints? Five constraints narrow 10^89 possibilities to at least 742 million valid orderings (742,043,303 from partial enumeration — true count is higher). Four additional boundary constraints uniquely determine King Wen among those millions. See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the constraint analysis (`solve.py` + `solve.c`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version. Enumeration results are in `enumeration/`.
 
+**Important methodological note.** Constraints C1–C2 (pair structure, no 5-line transitions) and C3 (complement minimization) are genuinely rare statistical properties of King Wen — the pair structure does not appear in any random permutation we tested, and complement distance sits at the 0th percentile among valid C1-C5 orderings. Constraints C4–C7, however, were **extracted from King Wen** (exact starting pair, exact distance distribution, specific boundary adjacencies) and then shown to be highly constraining against King Wen. A null-model test (see [CRITIQUE.md](CRITIQUE.md)) found that applying the same extraction methodology to random pair-constrained sequences also produces apparent "uniqueness" in 9/10 cases. The honest claim is therefore: *pair structure + no-5 + complement minimization are the robust findings; the "4 boundaries uniquely determine KW" result is a property of the constraint-extraction methodology, not evidence of KW's inherent specialness beyond the robust findings.*
+
 ## Example
 
 See [example output](example/README.md) for full program output.

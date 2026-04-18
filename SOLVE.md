@@ -265,7 +265,11 @@ Furthermore, exhaustive testing of all 31,465 quadruples of boundaries found tha
 - {3, 21, 25, 27}
 - {3, 22, 25, 27}
 
-Only **{25, 27} are truly mandatory** — present in every working 4-set. The other two slots admit pairwise interchange: {2 <-> 3} and {21 <-> 22}. Boundaries 25 and 27 (the original C6/C7) are irreplaceable.
+The minimal working structure (for the 742M dataset) is therefore:
+
+    { 25, 27 } ∪ (one of {2, 3}) ∪ (one of {21, 22})
+
+Boundaries **25 and 27** appear in every working 4-set — they are irreplaceable within this dataset. The remaining two slots are pairwise interchangeable: {2 ↔ 3} and {21 ↔ 22}. Calling {25, 27} "mandatory" is a true but partial statement of the result; the full structure is the irreplaceable pair plus two interchangeable choices, giving exactly 2 × 2 = 4 working quadruples.
 
 The result is robust under orient-collapse: grouping the 742M records by pair-index sequence (masking within-pair orientation) yields 284.7M unique pair-orderings (`--analyze` section [15]); re-running the greedy and exhaustive searches on this collapsed set produces the same 4 working 4-sets and the same mandatory {25, 27}.
 

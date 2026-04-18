@@ -24,9 +24,9 @@ where nᵢ = (n >> i) & 1
 
 **Complement distance:** For a permutation S, let pos(h) be the position of h in S. The mean complement distance is:
 ```
-cd(S) = (1/|C|) × Σ |pos(h) - pos(comp(h))|
+cd(S) = (1 / |H|) × Σ_{h ∈ H} |pos(h) - pos(comp(h))|
 ```
-where C = {h ∈ H : comp(h) ≠ h} (the 60 non-self-complementary hexagrams, counted once per pair).
+where |H| = 64. Under `comp(h) = h ⊕ 63`, no hexagram is self-complementary (that would require `63 = 0`), so the sum runs over all 64 hexagrams — each complement-pair contributes its position delta twice (once from each member). The resulting `cd(S)` is therefore `2 × Σ_pairs |Δpos| / 64 = Σ_pairs |Δpos| / 32` — the mean complement-pair distance. For King Wen, `cd(S) = 12.125`, or `776` when expressed as `64 × cd(S)` to stay in integer arithmetic (this is the "x64" representation the solver uses internally).
 
 ## Constraints
 
@@ -77,7 +77,7 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 - C3 further restricts to ~3.9% of C1+C2 solutions.
 - C4 fixes the starting pair and orientation.
 - C5 yields **at least 742 million** unique pair orderings (742,043,303 from partial enumeration; true count is higher — this figure is itself an undercount due to a hash-table bug fixed 2026-04-17; see [HISTORY.md](HISTORY.md) Day 8). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free.
-- C6+C7 together eliminate 99.995% of solutions but leave 37,352 non-KW survivors (37,356 total). Two additional boundary constraints eliminate the rest, giving uniqueness with 4 total boundary constraints. The greedy-optimal set is **{2, 21, 25, 27}** for the 742M dataset; {25, 27} are truly mandatory, while {2 <-> 3} and {21 <-> 22} are pairwise interchangeable.
+- C6+C7 together eliminate 99.995% of solutions but leave 37,352 non-KW survivors (37,356 total). Two additional boundary constraints eliminate the rest, giving uniqueness with 4 total boundary constraints. For the 742M dataset the minimal structure is **{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}**: boundaries 25 and 27 appear in every working quadruple (irreplaceable), while {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable — yielding exactly 2 × 2 = 4 working 4-sets. The greedy-optimal choice among them is {2, 21, 25, 27}.
 - Earlier claims that C5 locked 23 of 32 positions and C6+C7 alone gave uniqueness were based on a 438-solution partial sample from a single branch of the search tree.
 
 **Theorem (Within-pair distance):** For all h ∈ H, d(h, partner(h)) ∈ {0, 2, 4, 6}. *Proof: see SOLVE.md, Theorem 1.*
@@ -86,7 +86,7 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 **Theorem (Forced orientation):** Given C1, C4, and C5, the orientation of the first pair is forced: s₀ = 63, s₁ = 0. *Proof: see SOLVE.md, Theorem 6.*
 
-**Result (Minimum adjacencies among 742M orderings):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among the 742 million orderings found so far. Exhaustive testing of all 31,465 quadruples confirmed only 4 sets work: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries {25, 27} are truly mandatory (present in every working 4-set); {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. This result is proven for the 742M dataset but could change with a larger dataset — a solution not yet found might survive all 4 boundaries, requiring a 5th. *See SOLVE.md for the full analysis.*
+**Result (Minimum adjacencies among 742M orderings):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among the 742 million orderings found so far. Exhaustive testing of all 31,465 quadruples reveals that the minimal structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` — producing exactly 2 × 2 = 4 working sets: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries 25 and 27 appear in every working quadruple (irreplaceable within this dataset); {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable. This result is proven for the 742M dataset but could change with a larger dataset — a solution not yet found might survive all 4 boundaries (requiring a 5th) or might break the interchangeability of {2, 3} or {21, 22}. *See SOLVE.md for the full analysis.*
 
 ## Constructive algorithm
 
