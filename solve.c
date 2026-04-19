@@ -2354,6 +2354,308 @@ static void write_json(const char *filename, const char *status,
     fclose(f);
 }
 
+/* ---------- Null-model analyses (structured-permutation nulls for CRITIQUE.md) ----------
+ *
+ * These routines answer: "do other structured permutation families
+ * accidentally satisfy King Wen's constraints C1, C2, C3?" The goal is
+ * to strengthen the null-model comparison by testing against permutation
+ * families that have their own internal structure (not just random
+ * permutations). Results feed CRITIQUE.md and SOLVE.md §Null model.
+ *
+ * A lightweight sampled counterpart lives in solve.py (--null-debruijn);
+ * the subroutines here give *exact* counts by exhaustively enumerating
+ * the relevant family.
+ */
+
+#define KW_C3_CEILING 776  /* King Wen's total complement distance; C3 <= 776 */
+
+/* C1: 32 pairs (seq[2i], seq[2i+1]) are each reverse pair, or (both
+ * symmetric) complement pair. Matches has_pair_structure_c1 in solve.py
+ * and the definition in SPECIFICATION.md §Rule 1. */
+static int null_c1_pair_structure(const uint8_t *seq) {
+    for (int i = 0; i < 32; i++) {
+        uint8_t a = seq[2*i], b = seq[2*i+1];
+        int sym_a = (reverse6(a) == a);
+        int sym_b = (reverse6(b) == b);
+        if (sym_a && sym_b) {
+            if ((a ^ b) != 0x3F) return 0;
+        } else {
+            if (reverse6(a) != b) return 0;
+        }
+    }
+    return 1;
+}
+
+/* C2 signal: count of 5-line transitions in 63 consecutive-pair slots. */
+static int null_c2_count_5line(const uint8_t *seq) {
+    int n = 0;
+    for (int i = 0; i < 63; i++) {
+        if (__builtin_popcount(seq[i] ^ seq[i+1]) == 5) n++;
+    }
+    return n;
+}
+
+/* C3 total complement distance. KW's value is 776. */
+static int null_c3_total_comp_dist(const uint8_t *seq) {
+    int pos[64];
+    for (int i = 0; i < 64; i++) pos[seq[i]] = i;
+    int total = 0;
+    for (int v = 0; v < 64; v++) {
+        int d = pos[v] - pos[v ^ 0x3F];
+        total += d < 0 ? -d : d;
+    }
+    return total;
+}
+
+/* ---------- Exhaustive de Bruijn B(2, 6) enumeration ----------
+ *
+ * Enumerates all Eulerian circuits of the B(2, 5) de Bruijn graph
+ * starting at vertex 0. Each circuit corresponds to exactly one B(2, 6)
+ * sequence. The total count is 2^26 = 67,108,864 by the BEST theorem
+ * for this graph. For each sequence, reads the 64 overlapping 6-bit
+ * windows as a hexagram permutation and aggregates C1/C2/C3 statistics.
+ */
+
+static uint64_t dbe_used_mask;        /* 64-bit: edge (2*v + b) used? */
+static uint8_t  dbe_path[64];         /* edge labels along current circuit */
+static uint64_t dbe_count;
+static uint64_t dbe_c1_pass;
+static uint64_t dbe_c2_zero;
+static uint64_t dbe_c3_le_kw;
+static int      dbe_c3_min, dbe_c3_max;
+static uint64_t dbe_c3_sum;
+static int      dbe_c2_min, dbe_c2_max;
+static uint64_t dbe_c3_at_or_below_776; /* alias / sanity */
+
+static void dbe_evaluate(void) {
+    uint8_t hexs[64];
+    int w = 0;
+    for (int j = 0; j < 6; j++) w |= dbe_path[j] << j;
+    hexs[0] = w;
+    for (int i = 1; i < 64; i++) {
+        w = (w >> 1) | (dbe_path[(i + 5) % 64] << 5);
+        hexs[i] = w;
+    }
+    dbe_count++;
+    if (null_c1_pair_structure(hexs)) dbe_c1_pass++;
+    int c2 = null_c2_count_5line(hexs);
+    if (c2 == 0) dbe_c2_zero++;
+    if (c2 < dbe_c2_min) dbe_c2_min = c2;
+    if (c2 > dbe_c2_max) dbe_c2_max = c2;
+    int c3 = null_c3_total_comp_dist(hexs);
+    if (c3 <= KW_C3_CEILING) dbe_c3_le_kw++;
+    if (c3 < dbe_c3_min) dbe_c3_min = c3;
+    if (c3 > dbe_c3_max) dbe_c3_max = c3;
+    dbe_c3_sum += c3;
+
+    if ((dbe_count & 0xFFFFFFULL) == 0) {
+        /* 2^27 total: each of the 2^26 cyclic B(2, 6) sequences has
+         * 2 rotations that start at vertex 0 (= binary "00000"). */
+        fprintf(stderr, "[null-debruijn-exact] progress: %llu / 134217728 (%.1f%%)\n",
+                (unsigned long long)dbe_count, 100.0 * dbe_count / 134217728.0);
+    }
+}
+
+static void dbe_recurse(int vertex, int depth) {
+    if (depth == 64) {
+        if (vertex == 0) dbe_evaluate();
+        return;
+    }
+    for (int b = 0; b < 2; b++) {
+        int edge = 2 * vertex + b;
+        if (dbe_used_mask & (1ULL << edge)) continue;
+        dbe_used_mask |= (1ULL << edge);
+        dbe_path[depth] = b;
+        dbe_recurse(((vertex << 1) | b) & 31, depth + 1);
+        dbe_used_mask &= ~(1ULL << edge);
+    }
+}
+
+static void run_null_debruijn_exact(void) {
+    printf("# Exhaustive de Bruijn B(2, 6) null-model analysis\n\n");
+    printf("Enumerating all Eulerian circuits of B(2, 5) starting at vertex 0.\n");
+    printf("Target count: 2^27 = 134,217,728 = (2^26 cyclic sequences) x (2 vertex-0-rotations per cyclic).\n\n");
+    dbe_used_mask = 0;
+    dbe_count = 0;
+    dbe_c1_pass = dbe_c2_zero = dbe_c3_le_kw = 0;
+    dbe_c3_min = 100000; dbe_c3_max = 0; dbe_c3_sum = 0;
+    dbe_c2_min = 10000;  dbe_c2_max = 0;
+
+    time_t start = time(NULL);
+    dbe_recurse(0, 0);
+    time_t end = time(NULL);
+
+    printf("\nResults (n = %llu, wall time %lds):\n",
+           (unsigned long long)dbe_count, (long)(end - start));
+    printf("  C1 pair structure pass:        %llu / %llu  (%.8f%%)\n",
+           (unsigned long long)dbe_c1_pass, (unsigned long long)dbe_count,
+           100.0 * dbe_c1_pass / dbe_count);
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.8f%%)\n",
+           (unsigned long long)dbe_c2_zero, (unsigned long long)dbe_count,
+           100.0 * dbe_c2_zero / dbe_count);
+    printf("  C3 total comp dist <= %d:      %llu / %llu  (%.6f%%)\n",
+           KW_C3_CEILING,
+           (unsigned long long)dbe_c3_le_kw, (unsigned long long)dbe_count,
+           100.0 * dbe_c3_le_kw / dbe_count);
+    printf("\n  5-line transitions: range [%d, %d]\n", dbe_c2_min, dbe_c2_max);
+    printf("  C3 comp distance:   range [%d, %d], mean %.2f\n",
+           dbe_c3_min, dbe_c3_max, (double)dbe_c3_sum / dbe_count);
+    printf("  KW C3 (776) percentile: %.4f-th\n",
+           100.0 * dbe_c3_le_kw / dbe_count);
+}
+
+/* ---------- Gray code null (binary-reflected and orbit) ----------
+ *
+ * A 6-bit Gray code is a permutation of {0..63} in which every
+ * consecutive pair has Hamming distance 1. By construction every
+ * consecutive bit_diff is 1, so Hamming-5 is impossible → C2 always
+ * satisfied. And since reverse_6bit(v) XOR v and v XOR (v^63) are
+ * never 1 (they are 0/2/4/6 for reverse, 6 for complement), C1 is
+ * also impossible in any Gray code — adjacent pair Hamming distance
+ * is forced to 1, never the values C1 requires. So the interesting
+ * question is C3.
+ *
+ * Enumerates the canonical binary-reflected Gray code + its orbit
+ * under {64 cyclic rotations} × {identity, reversal} × {identity,
+ * bit-complement}, all of which preserve the Hamming-1 adjacency
+ * property.
+ */
+
+static void gray_canonical(uint8_t *seq) {
+    /* Standard binary-reflected Gray code: g(i) = i ^ (i >> 1). */
+    for (int i = 0; i < 64; i++) seq[i] = (uint8_t)(i ^ (i >> 1));
+}
+
+static void run_null_gray(void) {
+    printf("# Null-model: 6-bit Gray codes (binary-reflected orbit)\n\n");
+    uint8_t base[64];
+    gray_canonical(base);
+
+    uint64_t n_c1 = 0, n_c2 = 0, n_c3 = 0, n_total = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+
+    uint8_t seq[64];
+    for (int shift = 0; shift < 64; shift++) {
+        for (int rev = 0; rev < 2; rev++) {
+            for (int comp = 0; comp < 2; comp++) {
+                for (int i = 0; i < 64; i++) {
+                    int idx = (i + shift) % 64;
+                    uint8_t v = rev ? base[(63 - idx)] : base[idx];
+                    if (comp) v ^= 0x3F;
+                    seq[i] = v;
+                }
+                n_total++;
+                if (null_c1_pair_structure(seq)) n_c1++;
+                int c2 = null_c2_count_5line(seq);
+                if (c2 == 0) n_c2++;
+                int c3 = null_c3_total_comp_dist(seq);
+                if (c3 <= KW_C3_CEILING) n_c3++;
+                if (c3 < c3_min) c3_min = c3;
+                if (c3 > c3_max) c3_max = c3;
+                c3_sum += c3;
+            }
+        }
+    }
+    printf("Orbit size (64 rotations × 2 reverse × 2 complement): %llu\n\n",
+           (unsigned long long)n_total);
+    printf("  C1 pair structure pass:        %llu / %llu  (%.2f%%)\n",
+           (unsigned long long)n_c1, (unsigned long long)n_total,
+           100.0 * n_c1 / n_total);
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.2f%%)\n",
+           (unsigned long long)n_c2, (unsigned long long)n_total,
+           100.0 * n_c2 / n_total);
+    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.2f%%)\n",
+           (unsigned long long)n_c3, (unsigned long long)n_total,
+           100.0 * n_c3 / n_total);
+    printf("  C3 range [%d, %d], mean %.1f\n",
+           c3_min, c3_max, (double)c3_sum / n_total);
+    printf("\nNote: by construction every Gray code has Hamming-1 transitions,\n");
+    printf("so C2 (no Hamming-5) is automatic for the whole family. C1 is\n");
+    printf("impossible because the constraint requires adjacent-pair Hamming\n");
+    printf("distance in {0, 2, 4, 6}, which Hamming-1 adjacency cannot meet.\n");
+    printf("Only C3 is informative here.\n");
+}
+
+/* ---------- Latin-square row-traversal null ----------
+ *
+ * The 64 hexagrams naturally form an 8×8 Latin square where entry
+ * (upper_trigram, lower_trigram) is the hexagram with those trigrams
+ * as top and bottom. A canonical row-traversal reads this grid row by
+ * row, left to right; permuting the row order or column order within
+ * rows produces 8! × 8! = ~1.6 billion variants.
+ *
+ * We enumerate the ROW-ORDER-ONLY subfamily (8! = 40,320 variants)
+ * with natural column order. This is a well-defined structured family
+ * and finite, so full enumeration is cheap.
+ */
+
+static void run_null_latin(void) {
+    printf("# Null-model: Latin-square row-traversals (8! row orderings)\n\n");
+    /* Hexagram at (upper, lower) = (upper << 3) | lower. Row order
+     * permutation r[0..7] defines the traversal: r[0] row read l=0..7,
+     * then r[1] row read l=0..7, etc. */
+    int perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint64_t n_c1 = 0, n_c2 = 0, n_c3 = 0, n_total = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+    int c2_min = 10000, c2_max = 0;
+
+    /* Heap's algorithm for generating all 8! permutations. */
+    int c[8] = {0};
+    do {
+        uint8_t seq[64];
+        for (int row_idx = 0; row_idx < 8; row_idx++) {
+            int upper = perm[row_idx];
+            for (int col = 0; col < 8; col++) {
+                seq[row_idx * 8 + col] = (uint8_t)((upper << 3) | col);
+            }
+        }
+        n_total++;
+        if (null_c1_pair_structure(seq)) n_c1++;
+        int c2 = null_c2_count_5line(seq);
+        if (c2 == 0) n_c2++;
+        if (c2 < c2_min) c2_min = c2;
+        if (c2 > c2_max) c2_max = c2;
+        int c3 = null_c3_total_comp_dist(seq);
+        if (c3 <= KW_C3_CEILING) n_c3++;
+        if (c3 < c3_min) c3_min = c3;
+        if (c3 > c3_max) c3_max = c3;
+        c3_sum += c3;
+
+        /* Advance permutation via Heap's algorithm */
+        int i = 0;
+        while (i < 8) {
+            if (c[i] < i) {
+                int swap_j = (i & 1) ? c[i] : 0;
+                int tmp = perm[swap_j]; perm[swap_j] = perm[i]; perm[i] = tmp;
+                c[i]++;
+                i = 0;
+                break;
+            } else {
+                c[i] = 0;
+                i++;
+            }
+        }
+        if (i == 8) break;
+    } while (1);
+
+    printf("Family size: 8! = %llu row orderings (natural column order within rows)\n\n",
+           (unsigned long long)n_total);
+    printf("  C1 pair structure pass:        %llu / %llu  (%.4f%%)\n",
+           (unsigned long long)n_c1, (unsigned long long)n_total,
+           100.0 * n_c1 / n_total);
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.4f%%)\n",
+           (unsigned long long)n_c2, (unsigned long long)n_total,
+           100.0 * n_c2 / n_total);
+    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.4f%%)\n",
+           (unsigned long long)n_c3, (unsigned long long)n_total,
+           100.0 * n_c3 / n_total);
+    printf("\n  5-line transitions: range [%d, %d]\n", c2_min, c2_max);
+    printf("  C3 comp distance:   range [%d, %d], mean %.1f\n",
+           c3_min, c3_max, (double)c3_sum / n_total);
+}
+
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
@@ -2392,6 +2694,15 @@ int main(int argc, char *argv[]) {
         validate_mode = 1;
         validate_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--null-debruijn-exact") == 0) {
+        run_null_debruijn_exact();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-gray") == 0) {
+        run_null_gray();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-latin") == 0) {
+        run_null_latin();
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";

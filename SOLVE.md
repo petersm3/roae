@@ -560,7 +560,13 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 
 **What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
 
-**Structured-permutation null (de Bruijn B(2, 6)).** `solve.py --null-debruijn` samples random de Bruijn B(2, 6) permutations via randomized Hierholzer (each is a structured permutation of the 64 hexagrams where adjacency is window-shift). At 20k samples: 0/20k satisfy C1 (pair-reflection is not a generic de Bruijn property), 0/20k avoid all 5-line transitions, and only 0.19% match or beat King Wen's C3 comp-distance ceiling of 776 (null-pool range 620–2048). King Wen sits at ~0.17th percentile on C3 within this structured family. This **strengthens** the "C1 + C2 are KW-specific" conclusion against a genuinely structured null, but is not yet exhaustive — Costas arrays, Gray codes, and lexicographic orderings are untested, and randomized Hierholzer is not uniformly distributed over the ~2^26 distinct B(2, 6) sequences.
+**Structured-permutation nulls (three families, exhaustive where feasible).** Three structured permutation families have now been tested. Results are exhaustive within each family, not sampled.
+
+- **de Bruijn B(2, 6).** `solve.c --null-debruijn-exact` enumerates all 134,217,728 Eulerian circuits of the B(2, 5) graph starting at vertex 0 (representing all 2^26 cyclic sequences, each with 2 vertex-0-rotations). **Exactly 0 satisfy C1**, **exactly 0 satisfy C2** (no de Bruijn permutation has zero 5-line transitions — minimum observed is 1), and **247,048 = 0.1841% satisfy C3** (total comp distance ≤ 776). KW sits at the 0.1841-th percentile on C3. The C1 result is also provable analytically: any B(2, 6) sequence satisfying C1 would be forced to be period-4, contradicting the 64-distinct-windows requirement — see CRITIQUE.md §C1 impossibility.
+- **6-bit Gray codes** (`solve.c --null-gray`, 256-member orbit). 0 satisfy C1 (impossible — Gray code Hamming-1 adjacency is disjoint from C1's required Hamming distances), 256 trivially satisfy C2, 0 satisfy C3 (range [1792, 2048], mean 1912). Gray codes place complements farther apart than KW, not closer.
+- **Latin-square row-traversals** (`solve.c --null-latin`, 8! = 40,320 row orderings). 0 satisfy C1, **1,152 = 2.86% satisfy C2**, **2,688 = 6.67% satisfy C3** (range [512, 2048]). Interesting — the only family where a nontrivial fraction matches KW on C2 and C3. But still 0/40,320 on C1.
+
+Across the three tested families, 0/174M permutations satisfy C1. Together with the analytic impossibility proofs for the first two, this elevates the structured-null conclusion from "suggestive" (at 20k random samples) to **near-definitive for C1 across these families**: King Wen's pair structure is not an accidental property of either de Bruijn, Gray code, or Latin-square row-traversal families. Untested: Costas arrays (order-64 existence / construction is uncertain without more plumbing), lexicographic variants, and other structured nulls.
 
 ## Usage
 
@@ -588,7 +594,15 @@ python3 solve.py --enumerate --max-nodes 50000000 --time-limit 300  # Longer sea
 python3 solve.py --differential                   # Find extremal features (key analysis)
 python3 solve.py --differential --time-limit 300  # Longer search for more solutions
 python3 solve.py --reconstruct                    # Step-by-step reconstruction with C1-C7
-python3 solve.py --null-debruijn --trials 20000   # Null-model comparison against de Bruijn permutations
+python3 solve.py --null-debruijn --trials 20000   # Null-model comparison against de Bruijn permutations (sampled)
+```
+
+### Null-model analyses in solve.c (exhaustive)
+
+```
+./solve --null-debruijn-exact     # All 2^27 B(2,6) Eulerian circuits — ~80 seconds on a 2-core VM
+./solve --null-gray               # 6-bit Gray code orbit (256 members)
+./solve --null-latin              # 8! Latin-square row-traversals (40,320 permutations)
 ```
 
 ### C solver (solve.c) — fast enumeration

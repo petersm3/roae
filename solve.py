@@ -2598,6 +2598,16 @@ def print_null_debruijn(trials=5000, seed=None):
     permutation by reading overlapping 6-bit windows, and counts how
     many satisfy King Wen's C1-C3 constraints. Reports KW's C3
     percentile within the de Bruijn pool.
+
+    For the *exhaustive* null-model test over all 2**26 = 67,108,864
+    distinct B(2, 6) sequences (definitive, not sampled), build and run
+    solve.c's `null_debruijn_exact` subroutine:
+
+        gcc -O3 -o solve solve.c -lm -pthread -fopenmp
+        ./solve --null-debruijn-exact
+
+    which completes in ~1-5 minutes and prints the exact counts this
+    routine estimates via sampling.
     """
     rng = random.Random(seed) if seed is not None else random.Random()
 

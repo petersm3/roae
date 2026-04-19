@@ -45,7 +45,39 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Missing analyses
 
-- Limited comparison against structured permutations: `solve.py --null-debruijn` now samples B(2, 6) de Bruijn permutations via randomized Hierholzer and checks C1–C3 (addresses this gap partially). At 20k samples: 0% satisfy C1, 0% satisfy C2 (no 5-line transitions), 0.19% match or beat KW's C3 total comp distance of 776. KW's C3 sits at ~0.17th percentile of the null pool (null range 620–2048). Caveats: randomized Hierholzer is not uniformly distributed over the ~2^26 distinct B(2, 6) sequences; Costas arrays, Gray codes, and lexicographic orderings remain untested. Finding is suggestive, not exhaustive.
+- **Structured-permutation null models (partially addressed 2026-04-19).** Three families are now tested via `solve.c --null-debruijn-exact`, `--null-gray`, and `--null-latin`, plus a sampled counterpart in `solve.py --null-debruijn`:
+
+  - **de Bruijn B(2, 6) — exhaustive, 134,217,728 circuits (2^27 Eulerian circuits of B(2, 5) starting at vertex 0, representing all 2^26 cyclic sequences ×2 starting-rotation).** Exact counts: **0 satisfy C1** (pair structure), **0 satisfy C2** (no 5-line transitions; minimum observed is 1), **247,048 = 0.184% satisfy C3** (total comp distance ≤ 776). C3 range [480, 2048], mean 1445.87. KW's C3 is at the 0.1841-th percentile of the null pool. The 0-satisfiers for C1 is also provable analytically — see §C1 impossibility in the de Bruijn and Gray code families below.
+  - **6-bit Gray code orbit (256 members: 64 rotations × 2 reverse × 2 complement).** 0 satisfy C1 (analytically impossible), 256 trivially satisfy C2 (Hamming-1 adjacency precludes Hamming-5), 0 satisfy C3 (range [1792, 2048], mean 1912). Gray codes place complements FARTHER apart than KW, not closer.
+  - **Latin-square row-traversals, 8! = 40,320 row orderings (natural column order within rows).** 0 satisfy C1, **1,152 = 2.86% satisfy C2**, **2,688 = 6.67% satisfy C3** (range [512, 2048]). This is the one family where a nontrivial fraction matches KW on C2 and C3 — though *no* Latin-square row-traversal matches KW on C1.
+  - **Costas arrays of order 64** — not tested. Order-64 Costas arrays may or may not exist (standard constructions like Welch and Lempel–Golomb give adjacent orders 62, 66 but not 64); enumeration is infeasible (~64! candidates). Deferred.
+
+  Across all three tested families, **0/134M + 0/256 + 0/40,320 permutations satisfy C1**. C2 and C3 vary. The strengthened conclusion: C1 (pair structure) is structurally orthogonal to de Bruijn, Gray, AND Latin-square row-traversal families — three independent structured-permutation families all rule out C1. Caveats: Costas remains untested; Latin-square enumeration is row-order-only (8! of the full 8!×8!=1.6B space); these are three specific families, not exhaustive of all structured permutations.
+
+### C1 impossibility in the de Bruijn and Gray code families
+
+Two short analytic proofs formalize what the exhaustive enumeration observes empirically.
+
+**Claim 1: No B(2, 6) de Bruijn permutation satisfies C1.**
+
+Let the underlying binary sequence be $s_0 s_1 \ldots s_{63}$ (cyclic). Each hexagram is a 6-bit window: $\mathrm{hex}_i = s_i s_{i+1} s_{i+2} s_{i+3} s_{i+4} s_{i+5}$ (bit 0 = $s_i$). C1 requires, at each pair position $(2i, 2i+1)$, one of:
+
+- (Reverse case) $\mathrm{hex}_{2i+1} = \mathrm{reverse}_6(\mathrm{hex}_{2i})$, i.e., bit $j$ of $\mathrm{hex}_{2i+1}$ equals bit $5-j$ of $\mathrm{hex}_{2i}$ for all $j$.
+- (Symmetric-complement case, when both hexagrams are palindromic) $\mathrm{hex}_{2i+1} = \mathrm{hex}_{2i} \oplus 0b111111$.
+
+**Reverse case.** Equating $\mathrm{hex}_{2i+1}$ to $\mathrm{reverse}_6(\mathrm{hex}_{2i})$ bit-by-bit gives three independent constraints on the underlying sequence: $s_{2i+1} = s_{2i+5}$, $s_{2i+2} = s_{2i+4}$, $s_{2i+6} = s_{2i}$. Applied across all 32 pair positions $i = 0, 1, \ldots, 31$, the constraints cascade: every even-indexed bit equals $s_0$, every bit at position $\equiv 1 \pmod 4$ equals $s_1$, every bit at position $\equiv 3 \pmod 4$ equals $s_3$. The sequence must be periodic with period 4: $(s_0, s_1, s_0, s_3, s_0, s_1, s_0, s_3, \ldots)$.
+
+A period-4 sequence produces at most 4 distinct 6-bit windows, contradicting the B(2, 6) requirement that all 64 windows be distinct.
+
+**Symmetric-complement case.** The hexagram $\mathrm{hex}_{2i}$ being palindromic imposes $s_{2i+2} = s_{2i+3}$ (middle bits must match). The complement equation then requires $s_{2i+3} = \overline{s_{2i+2}}$. But if $s_{2i+2} = s_{2i+3}$ AND $s_{2i+3} = \overline{s_{2i+2}}$, then $s_{2i+2} = \overline{s_{2i+2}}$, a contradiction.
+
+Both cases are impossible, so no pair can satisfy C1, and therefore no B(2, 6) de Bruijn permutation satisfies C1 as a whole. ∎
+
+**Claim 2: No 6-bit Gray code satisfies C1.**
+
+In any Gray code, adjacent positions differ by Hamming distance exactly 1. C1 requires each pair to have Hamming distance in $\{0, 2, 4, 6\}$: the reverse case produces $2 \cdot k$ for $k$ mismatched bit-pairs ($0, 2, 4, 6$), and the symmetric-complement case produces exactly 6 (all bits flipped). Hamming distance 1 is never among these. Therefore no Gray code satisfies the C1 pair-structure constraint at any pair position. ∎
+
+These two results, combined with the computationally exhaustive Latin-square row-traversal test showing 0/40,320, give three independent structured-permutation families where C1 is ruled out (two analytically, one computationally exhaustively). **C1 is not an "accidentally satisfied" property of common structured permutation families**; it is a specific constraint that King Wen happens to satisfy.
 - No formal proof that 4 boundaries are minimum across *all* valid orderings. Only computational verification across the d2 (286M) and d3 (706M) canonical datasets. A deeper enumeration could in principle reveal a working 3-subset (lowering minimum), require a 5th boundary (raising it), or further change the structure of which specific boundaries work.
 - No independent derivation of the constraints from first principles. The 5 rules (C1-C5) were extracted from KW and then verified against KW; a stronger result would derive them from external mathematical or coding-theoretic principles. The null-model analysis confirms the constraint-extraction methodology produces apparent uniqueness for many random pair-constrained sequences, so the constraints are KW-specific rather than universal.
 
