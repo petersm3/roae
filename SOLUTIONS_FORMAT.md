@@ -170,6 +170,12 @@ canonical group the smallest orient variant first — so the
 deduplication pass that keeps the first of each canonical group
 retains the lex-smallest orient variant described above.
 
+The determinism guarantees in this section are the reason the
+Partition Invariance theorem (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md))
+holds: same input shard set → same sorted byte layout → same dedup
+output → byte-identical `solutions.bin` regardless of which
+enumeration strategy produced the shards.
+
 ## Constraints
 
 Each record in solutions.bin satisfies:

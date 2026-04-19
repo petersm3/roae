@@ -283,6 +283,10 @@ Exit 0 on pass, nonzero on any failure.
 
 [`verify.py`](verify.py) in this repository implements the above in ~130 lines of Python. You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
 
+## A note on partition invariance
+
+A verifier built from this recipe does not need to know how the `solutions.bin` was produced — whether by a single full-parallel invocation of the enumerator, by 56 independent single-branch runs merged together, or by any other split of the work. Under exhaustive enumeration of the same partition, all such paths produce byte-identical output. This is formalized as the Partition Invariance theorem — see [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md) for the proof. Your verifier's correctness does not depend on the enumeration strategy, only on the sort and dedup semantics specified in [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md).
+
 ## Expected output on the canonical selftest file
 
 A `solutions.bin` produced by `./solve --selftest` (or by running `SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 ./solve 0` in a clean directory) has:

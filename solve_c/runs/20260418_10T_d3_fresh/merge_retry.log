@@ -1,0 +1,99 @@
+No time limit — running to completion.
+Usage: ./solve [time_limit] [threads]  (0 = no limit)
+       ./solve --verify [solutions.bin]   (independent C1-C5 check)
+       ./solve --selftest                 (regression test)
+Build: Apr 18 2026 12:32:52 (git: unknown)
+King Wen complement distance (x64): 776 (= 12.1250)
+Difference distribution: 1:2 2:20 3:13 4:19 6:9 
+Super-pairs: 20
+
+Merge mode: combining sub_*.bin files...
+  56404 files to merge
+  Total records before dedup: 2772506921
+  Merge: external (forced by SOLVE_MERGE_MODE)
+External merge-sort: 2772506921 records, chunk size 4 GB (134217728 records/chunk)
+External merge-sort: temp chunks in . (default; set SOLVE_TEMP_DIR to redirect)
+  Chunk 0: 134217728 records sorted + written
+  Chunk 1: 134217728 records sorted + written
+  Chunk 2: 134217728 records sorted + written
+  Chunk 3: 134217728 records sorted + written
+  Chunk 4: 134217728 records sorted + written
+  Chunk 5: 134217728 records sorted + written
+  Chunk 6: 134217728 records sorted + written
+  Chunk 7: 134217728 records sorted + written
+  Chunk 8: 134217728 records sorted + written
+  Chunk 9: 134217728 records sorted + written
+  Chunk 10: 134217728 records sorted + written
+  Chunk 11: 134217728 records sorted + written
+  Chunk 12: 134217728 records sorted + written
+  Chunk 13: 134217728 records sorted + written
+  Chunk 14: 134217728 records sorted + written
+  Chunk 15: 134217728 records sorted + written
+  Chunk 16: 134217728 records sorted + written
+  Chunk 17: 134217728 records sorted + written
+  Chunk 18: 134217728 records sorted + written
+  Chunk 19: 134217728 records sorted + written
+  Chunk 20: 88152361 records sorted + written (final)
+  21 sorted chunks created
+  Merged 100000000 / 2772506921, 26645127 unique
+  Merged 200000000 / 2772506921, 54496264 unique
+  Merged 300000000 / 2772506921, 78577958 unique
+  Merged 400000000 / 2772506921, 102546165 unique
+  Merged 500000000 / 2772506921, 127098554 unique
+  Merged 600000000 / 2772506921, 150717018 unique
+  Merged 700000000 / 2772506921, 175533430 unique
+  Merged 800000000 / 2772506921, 200588341 unique
+  Merged 900000000 / 2772506921, 231697058 unique
+  Merged 1000000000 / 2772506921, 260579995 unique
+  Merged 1100000000 / 2772506921, 289463502 unique
+  Merged 1200000000 / 2772506921, 318300768 unique
+  Merged 1300000000 / 2772506921, 343448503 unique
+  Merged 1400000000 / 2772506921, 366091660 unique
+  Merged 1500000000 / 2772506921, 391997790 unique
+  Merged 1600000000 / 2772506921, 414415084 unique
+  Merged 1700000000 / 2772506921, 439231216 unique
+  Merged 1800000000 / 2772506921, 465242156 unique
+  Merged 1900000000 / 2772506921, 494196998 unique
+  Merged 2000000000 / 2772506921, 514817224 unique
+  Merged 2100000000 / 2772506921, 540490760 unique
+  Merged 2200000000 / 2772506921, 563232075 unique
+  Merged 2300000000 / 2772506921, 590101137 unique
+  Merged 2400000000 / 2772506921, 615255279 unique
+  Merged 2500000000 / 2772506921, 639317884 unique
+  Merged 2600000000 / 2772506921, 663383112 unique
+  Merged 2700000000 / 2772506921, 687342863 unique
+External merge complete: 2772506921 total → 706422987 unique canonical orderings
+No time limit — running to completion.
+Usage: ./solve [time_limit] [threads]  (0 = no limit)
+       ./solve --verify [solutions.bin]   (independent C1-C5 check)
+       ./solve --selftest                 (regression test)
+Build: Apr 18 2026 12:32:52 (git: unknown)
+King Wen complement distance (x64): 776 (= 12.1250)
+Difference distribution: 1:2 2:20 3:13 4:19 6:9 
+Super-pairs: 20
+
+Validating solutions.bin...
+  Record format: 32 bytes packed (pair_index<<2 | orient<<1 per position)
+  Checking: C1-C5, C3, sorted order, no duplicates, King Wen presence.
+
+  Header: ROAE v1, 706422987 records declared
+  File size: 22605535616 bytes (32 header + 22605535584 records), 706422987 solutions
+
+--- Validation results ---
+  Solutions checked:  706422987
+  Sorted order:      OK
+  King Wen present:  YES
+  Errors found:      0
+  Result: ALL CONSTRAINTS VERIFIED
+  Unique solutions: 706422987
+
+--- Merge results ---
+  Input files:     56404
+  Total records:   2772506921
+  Unique solutions: 706422987
+  Output:          solutions.bin (22605535584 bytes)
+  sha256:          f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e  solutions.bin
+
+
+Validating merged output...
+DONE

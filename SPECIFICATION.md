@@ -86,6 +86,8 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 **Theorem (Forced orientation):** Given C1, C4, and C5, the orientation of the first pair is forced: s₀ = 63, s₁ = 0. *Proof: see SOLVE.md, Theorem 6.*
 
+**Theorem (Partition invariance):** Under exhaustive enumeration of the depth-2 partition of the search space, the final `solutions.bin` is byte-identical regardless of whether the 56 first-level branches are enumerated concurrently in a single invocation or individually across multiple invocations followed by a single merge. More generally, merging any subset of independently-computed exhaustive-enumeration shards produces the same `solutions.bin` bytes as a single-invocation enumeration of the same subset. *Proof: see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).*
+
 **Result (Minimum adjacencies among 742M orderings):** Exactly 4 boundary constraints are needed to uniquely determine King Wen among the 742 million orderings found so far. Exhaustive testing of all 31,465 quadruples reveals that the minimal structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` — producing exactly 2 × 2 = 4 working sets: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries 25 and 27 appear in every working quadruple (irreplaceable within this dataset); {2 ↔ 3} and {21 ↔ 22} are pairwise interchangeable. This result is proven for the 742M dataset but could change with a larger dataset — a solution not yet found might survive all 4 boundaries (requiring a 5th) or might break the interchangeability of {2, 3} or {21, 22}. *See SOLVE.md for the full analysis.*
 
 ## Constructive algorithm

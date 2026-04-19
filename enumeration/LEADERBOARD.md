@@ -1,6 +1,11 @@
 # Enumeration Leaderboard
 
-> **Note (2026-04-17):** The 742M figure and sha `aa1415...` below are now known to be an **undercount** — 241M solutions were silently dropped by a hash-table bug (fixed in commit 585880f). New reference figures pending. See [HISTORY.md](HISTORY.md) Day 8.
+> **Note (2026-04-19):** Canonical reference figures have been re-established with the corrected solver (format v1). Authoritative counts:
+>
+> - **d3 10T partition: 706,422,987 canonical orderings** (sha `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`)
+> - **d2 10T partition: 286,357,503 canonical orderings** (sha `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`)
+>
+> Both validated cross-independently across 3 merge paths. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference.
 
 ## What this is
 
@@ -146,17 +151,20 @@ interacts very differently with different position-2 pairs.
 
 ## What remains unknown
 
-- **The total count of valid orderings.** At least **742,043,303** have been found at 10T under
-  the bug-fixed solver (2026-04-14). The true count is unknown and likely significantly larger —
-  every sub-branch hit its per-sub-branch node budget rather than completing naturally.
-- **Whether the 4-boundary uniqueness result holds at larger scale.** Four boundary constraints
-  still uniquely determine King Wen among 742M orderings. The **4-boundary minimum is
-  exhaustively proven for the 742M dataset** (computational finite-case proof, not a universal
-  theorem): all 4,495 three-subsets fail and exactly 4 of the 31,465 four-subsets succeed
-  (`{2,21,25,27}`, `{2,22,25,27}`, `{3,21,25,27}`, `{3,22,25,27}`). Boundaries **25 and 27 are
-  truly mandatory** — present in every working 4-set; {2 ↔ 3} and {21 ↔ 22} are pairwise
-  interchangeable. A still-larger dataset might require a 5th boundary, or (conversely) might
-  admit a working 3-subset if new solutions happen to be eliminated by some triple.
+- **The total count of valid orderings.** At the 10T node budget: **706,422,987** at d3
+  partition and **286,357,503** at d2 partition (canonical, 2026-04-18). The true count
+  under exhaustive enumeration is unknown and likely larger — every sub-branch hits its
+  per-sub-branch node budget rather than completing naturally.
+- **Whether the 4-boundary uniqueness result holds at larger scale, and which specific
+  boundaries.** Four boundary constraints are the empirical minimum at both d2 and d3 —
+  all 4,495 three-subsets fail at each. **What is partition-stable**: boundaries **{25, 27}**
+  are mandatory in every working 4-set at both scales. **What is partition-dependent**: the
+  other 2 boundaries.
+  - d2 has **4** working 4-sets: `{2,21,25,27}`, `{2,22,25,27}`, `{3,21,25,27}`, `{3,22,25,27}` — structure `{25,27} ∪ one-of-{2,3} ∪ one-of-{21,22}`.
+  - d3 has **8** working 4-sets, all containing {25, 27} and two of `{1,2,3,4,5,6}` (not
+    {21, 22}).
+  - **Implication**: the broader "one-of-{2,3} ∪ one-of-{21,22}" phrasing is d2-specific.
+    Only {25, 27} mandatory status is stable across partition depths.
 - **Whether the "estimated dead" branches are truly dead.** They produced zero valid
   orderings in partial exploration, but exhaustive proof requires completing them. Four branches
   previously classified as dead were reclassified as live in the 10T run.
@@ -207,15 +215,19 @@ is never lost.
 
 ## Status
 
-| Metric | Value (latest: 10T bugfix run, 2026-04-14) |
-|--------|-------|
-| Sub-branches enumerated | 3030/3030 (all hit per-sub-branch node budget) |
-| Valid orderings found | **742,043,303** (all validated against C1-C5, sha256 `aa141517…719b`) |
-| King Wen present | yes |
-| sub_*.bin files produced | 1344 (only these (p1,o1,p2,o2) tuples have ≥1 C3-valid solution) |
-| Prior "31.6M" figure | Superseded — was a ~23× undercount due to a file-naming collision bug (see [HISTORY.md](../HISTORY.md)) |
+| Metric | d3 10T canonical (2026-04-18) | d2 10T canonical (2026-04-18) |
+|--------|---|---|
+| Sub-branches enumerated | 158,364 / 158,364 (all BUDGETED) | 3,030 / 3,030 (all BUDGETED) |
+| **Valid orderings found** | **706,422,987** | **286,357,503** |
+| sha256 of solutions.bin | `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` | `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` |
+| King Wen present | yes | yes |
+| sub_*.bin files produced | 56,404 | 1,344 |
+| Format | v1 (32-byte header + 32-byte records) | v1 |
+| Cross-validation | Phase B external = Phase C fresh = heap-sort merge (byte-identical) | Phase D + heap-sort merge (byte-identical) |
 
-**Branch-level table below is from the pre-bugfix 10T run and reflects the old `sub_P2_O2.bin` naming. Per-branch counts are therefore partial undercounts — pending re-extraction from the 742M dataset.**
+Older figures (742M hash-table-bug, 31.6M filename-collision-bug) superseded. See [HISTORY.md](../HISTORY.md) for full forensic history.
+
+**Branch-level table below is from an earlier enumeration era and uses `sub_P2_O2.bin` keying (d2). Per-branch counts are approximate; canonical shard counts differ slightly. Pending refresh at d3 partition.**
 
 ## Branch table
 

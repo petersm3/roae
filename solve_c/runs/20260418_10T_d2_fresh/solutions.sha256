@@ -1,0 +1,10 @@
+a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2  solutions.bin
+# Metadata for reproducibility
+# Date: 2026-04-18T18:18:34Z
+# Build: Apr 18 2026 16:29:16 (git: unknown)
+# Record format: 32 bytes packed (pair_index<<2 | orient<<1)
+# Unique orderings: 286357503
+# Nodes explored: 10000002096398
+# Branches: 3030 total, 0 completed
+# SOLVE_NODE_LIMIT=10000000000000 (per-branch: 3300330033, thread-independent)
+# SOLVE_THREADS: any (output is thread-independent with node limit)

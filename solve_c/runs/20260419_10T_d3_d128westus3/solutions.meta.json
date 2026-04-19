@@ -1,0 +1,17 @@
+{
+  "file": "solutions.bin",
+  "magic": "ROAE",
+  "format_version": 1,
+  "header_size_bytes": 32,
+  "record_size_bytes": 32,
+  "record_count": 706422987,
+  "unique_solutions": 706422987,
+  "sha256": "f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e",
+  "encoding": "byte i = (pair_index<<2) | (orient<<1); bit 0 reserved",
+  "dedup_semantics": "canonical — one record per unique pair-sequence; orient variants collapsed",
+  "header_byte_order": "little-endian (u32 version, u64 record_count)",
+  "record_byte_order": "single-byte records; byte order is a non-concept",
+  "constraint_spec": "SPECIFICATION.md",
+  "generator": "solve.c git unknown",
+  "generated_utc": "2026-04-19T07:35:16Z"
+}

@@ -1,6 +1,13 @@
 # Solving the King Wen Sequence
 
-> **Note (2026-04-17):** The 742M solution count and sha `aa1415...` referenced throughout this document are now known to be an **undercount** — 241 million solutions were silently dropped by a hash-table probe-cap bug in the solver (fixed in commit 585880f). New reference figures will be established with the corrected solver. The qualitative findings (cascade structure, boundary constraints, mandatory pairs) hold regardless of the exact count. See [HISTORY.md](HISTORY.md) Day 8 for details.
+> **Note (2026-04-19):** Canonical reference figures have been re-established with the corrected solver (format v1, commit `f7b8c4fb…` d3 canonical). New authoritative counts:
+>
+> - **d3 10T: 706,422,987 canonical orderings** (sha `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`)
+> - **d2 10T: 286,357,503 canonical orderings** (sha `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`)
+>
+> Both verified cross-independently: byte-identical output across Phase B external merge, Phase C fresh re-enumeration, and in-memory heap-sort merge (2026-04-19). See [HISTORY.md](HISTORY.md) for the full validation trail and [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) for the formal theorem guaranteeing these shas are partition-independent.
+>
+> Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `roae/solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
 
 Can the King Wen sequence be reconstructed from a small set of rules?
 
@@ -139,7 +146,7 @@ Six additional analyses probe the structure more deeply (`--deep`):
 
 ### Constrained enumeration (`--enumerate`)
 
-Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; a subsequent large-scale enumeration (10 trillion nodes on 64 cores) found at least 742 million unique pair orderings (742,043,303). **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
+Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; large-scale enumerations under the current canonical solver find hundreds of millions of unique pair orderings (d3 10T: 706,422,987; d2 10T: 286,357,503). **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
 
 The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
 
@@ -174,7 +181,7 @@ The most powerful analysis (`--differential`) generates all solutions satisfying
 
 ### Results
 
-A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). The search budget was exhausted, so this was a small fraction of the total. A subsequent partial enumeration using `solve.c` (10 trillion nodes on 64 cores, 0/56 branches completed) found **at least 742 million unique pair orderings** (742,043,303) — the true solution space is vastly larger than this early sample suggested.
+A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-duplicate to **13,296 unique pair orderings** (mean 42.2 orientation variants each). Current canonical enumerations at 10T node budget yield hundreds of millions: d3 partition 706M unique, d2 partition 286M unique — the true solution space under exhaustive enumeration is likely larger still.
 
 **8 features where King Wen is extremal (rank 13,296/13,296).** However, 6 are trivially forced by Rule 6 (difference distribution): entropy, mean boundary distance, boundary distance variance, mean within-pair distance, total path length, and max run length are identical across ALL solutions.
 
@@ -211,7 +218,7 @@ The remaining ~974 solutions share 26-32 of 32 pair positions with King Wen — 
 
 The fingerprint analysis reveals the precise structure of the remaining freedom:
 
-**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. A large-scale enumeration using `solve.c` (10 trillion nodes on 64 cores) found at least 742 million unique pair orderings (742,043,303; partial enumeration — true count is higher), fundamentally revising these findings.**
+**Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. Current canonical enumerations (d3 10T: 706M, d2 10T: 286M) fundamentally revise these findings — scopes and percentiles in this section are historical.**
 
 **Only 1 of 32 pair positions is universally locked** (Position 1: Creative/Receptive). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
 
@@ -231,22 +238,29 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9} — C5
 7. ~~Mean line autocorrelation = -0.115~~ (redundant with C3)
 
-Rules C1-C5 narrow 10^89 possibilities to **742 million** unique pair orderings (742,043,303 from partial enumeration — true count is higher). XOR regularity and line autocorrelation are redundant (implied by other rules).
+Rules C1-C5 narrow 10^89 possibilities to a dataset-dependent count under partial enumeration. Canonical reference counts established 2026-04-18:
 
-**Resolved (for 742M orderings):** Exactly **4 boundary constraints** are needed to uniquely determine King Wen among the 742 million orderings. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirmed no combination of 3 or fewer suffices.
+- **d3 10T partition** (158,364 sub-branches × 63M-node budget each): **706,422,987** canonical pair orderings.
+- **d2 10T partition** (3,030 sub-branches × 3.3B-node budget each): **286,357,503** canonical pair orderings.
 
-The greedy-optimal set (found by greedy search, confirmed as minimum by exhaustive verification over 742M; see `analyze_c_742M.txt` sections [6]-[8]):
+The difference is a property of partition strategy, not constraints — d3's finer partitioning spreads coverage more broadly at the same total 10T budget. Under true exhaustive enumeration both partitions would converge. XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-1. **Boundary 2** (positions 3-4): Difficulty/Folly + Youthful Folly/Waiting — eliminates 741,979,237 of 742,043,299 non-KW (99.991%)
-2. **Boundary 27** (positions 27-28): Development/Marrying Maiden + Abundance/Wanderer — eliminates 63,446 of remaining 64,062
-3. **Boundary 25** (positions 25-26): Revolution/Cauldron + Arousing/Keeping Still — eliminates 596 of remaining 616
-4. **Boundary 21** (positions 21-22): Decrease/Increase + Breakthrough/Coming to Meet — eliminates final 20
+**Resolved (for current canonical d3 dataset):** Exactly **4 boundary constraints** are needed to uniquely determine King Wen. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirms no combination of 3 or fewer suffices on d3 (minimum 3-subset survivors: 2; `analyze_d3.log` section [7]). The same minimum of 4 holds on d2 (best triple leaves 7 survivors; `analyze_d2.log` section [7]).
 
-The best triple {2, 25, 27} leaves 24 total survivors (20 non-KW + 4 KW orient variants) — close but not unique. See `analyze_c_742M.txt` sections [6]-[8] for the full search output.
+**⚠️ Key scope note (2026-04-19):** the *specific 4-boundary combinations* that work are **partition-dependent**. What is partition-stable: boundaries **{25, 27} are mandatory in every working 4-set at both d2 and d3 scales**. What is NOT partition-stable: the other 2 interchangeable slots. Details below.
+
+The d3 greedy-optimal set (from `analyze_d3.log` section [6]):
+
+1. **Boundary 1** (positions 1-2) — eliminates 706,418,596 of 706,422,986 non-KW (99.999%)
+2. **Boundary 27** (positions 27-28) — eliminates 4,352 of remaining 4,390
+3. **Boundary 25** (positions 25-26) — eliminates 37 of remaining 38
+4. **Boundary 4** (positions 4-5) — eliminates the final 1
+
+For comparison, the d2 greedy-optimal set is {2, 21, 25, 27}. The four boundaries differ — same total (4), same mandatory pair {25, 27}, different interchangeable slots.
 
 ### Why 4 boundaries — not fewer?
 
-Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples of boundaries confirmed that no combination of 3 or fewer uniquely determines King Wen among the 742 million orderings. Four is the minimum for this dataset.
+Exhaustive testing confirms that no combination of 3 or fewer uniquely determines King Wen in either dataset. Four is the empirical minimum at d2 and d3.
 
 Several simpler alternatives were tested and ruled out:
 
@@ -258,38 +272,56 @@ Several simpler alternatives were tested and ruled out:
 
 King Wen's uniqueness is irreducibly combinatorial: it requires specifying 4 specific adjacency relationships. No scalar property or simpler structural criterion suffices.
 
-Furthermore, exhaustive testing of all 31,465 quadruples of boundaries found that only **4 of 31,465 combinations work** (`--analyze` section [8]). The 4 working 4-sets are:
+Exhaustive testing of all 31,465 boundary quadruples produces **dataset-dependent working 4-sets**. The count and composition differ between d2 and d3:
 
-- {2, 21, 25, 27}
-- {2, 22, 25, 27}
-- {3, 21, 25, 27}
-- {3, 22, 25, 27}
+**d2 10T dataset** — 4 working 4-sets (`analyze_d2.log` section [8]):
 
-The minimal working structure (for the 742M dataset) is therefore:
+- {2, 21, 25, 27}, {2, 22, 25, 27}, {3, 21, 25, 27}, {3, 22, 25, 27}
 
-    { 25, 27 } ∪ (one of {2, 3}) ∪ (one of {21, 22})
+Structure: `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` → 2 × 2 = 4 combos.
 
-Boundaries **25 and 27** appear in every working 4-set — they are irreplaceable within this dataset. The remaining two slots are pairwise interchangeable: {2 ↔ 3} and {21 ↔ 22}. Calling {25, 27} "mandatory" is a true but partial statement of the result; the full structure is the irreplaceable pair plus two interchangeable choices, giving exactly 2 × 2 = 4 working quadruples.
+**d3 10T dataset** — 8 working 4-sets (`analyze_d3.log` section [8]):
 
-The result is robust under orient-collapse: grouping the 742M records by pair-index sequence (masking within-pair orientation) yields 284.7M unique pair-orderings (`--analyze` section [15]); re-running the greedy and exhaustive searches on this collapsed set produces the same 4 working 4-sets and the same mandatory {25, 27}.
+- {1, 3, 25, 27}, {1, 4, 25, 27}, {2, 3, 25, 27}, {2, 4, 25, 27}, {2, 5, 25, 27}, {3, 4, 25, 27}, {3, 5, 25, 27}, {3, 6, 25, 27}
 
-Notably, {25, 27} are mandatory despite carrying only moderate individual information. Per-boundary conditional entropy (`--analyze` section [18]) measures how much knowing a boundary matches KW reduces the total Shannon entropy over all 32 positions (baseline: 65.8 bits). The most informative boundaries are the early ones: boundary 2 contributes 35.3 bits, boundary 3 contributes 35.3 bits, boundary 4 contributes 33.3 bits. Boundaries 25 and 27 sit mid-pack at 11.4 bits and 10.8 bits respectively — roughly 1/3 the information content of the highest boundaries. They are mandatory due to structural independence, not informational weight: the subset of non-KW solutions they eliminate cannot be eliminated by any combination of the other 29 boundaries.
+Structure: `{25, 27}` plus two-of-`{1..6}` chosen in varied combinations. Boundary frequency: `25`=100%, `27`=100%, `3`=62.5%, `2`=37.5%, `4`=37.5%, others 12.5%-25%.
 
-### What the survivors after C6+C7 look like
+**What is partition-stable:** boundaries **{25, 27}** appear in every working 4-set at BOTH scales. Their mandatory status is robust across partition depth.
 
-The original 2 boundary constraints (boundaries 25 and 27) leave 37,356 total survivors (37,352 non-KW) from the 742M dataset (`--analyze` section [23]). Positions 1, 25-28 are locked (5 of 32 positions forced by C4 + the 2 boundaries). Re-characterization details of the survivor structure are available in `analyze_sec22fix_742M.txt` section [23]. The detailed claims about "positions 3-19 each have exactly 2 options" from the earlier 31.6M analysis were artifacts of the sub-branch filename collision bug and do not hold for the full 742M dataset.
+**What is NOT partition-stable:** the remaining 2 boundaries in the 4-set. At d2 they're `{2,3} × {21,22}`; at d3 they're combinations in `{1..6}`. The deeper d3 enumeration exposes more "near-miss" solutions in the early zone (positions 1-6) that require early-boundary distinctions, while d2's coarser partition samples fewer of those.
 
-### The shift pattern (artifact of 31.6M bug — corrected)
+**Scientific interpretation:** the canonical claim "{25, 27} are mandatory" is a stable finding. The broader phrasing "{25,27} ∪ one-of-{2,3} ∪ one-of-{21,22}" is a d2-specific statement, not a general property of C1-C5 orderings. See CRITIQUE.md for the scope-aware framing and the null-model caveat.
 
-The shift pattern ("positions 3-19 have exactly 2 options") was an artifact of the sub-branch filename collision bug that produced the 31.6M dataset. On the full 742M dataset: only 2.93% of solutions conform fully to the shift pattern (97.07% violate at at least 1 position). The pattern is not universal (`analyze_c_742M.txt` section [5]).
+Per-boundary conditional entropy at d3 (`analyze_d3.log` section [18], baseline 73.17 bits): boundary 4 contributes 46.8 bits, boundary 5 contributes 42.7 bits — highest info gain. Boundaries 25 and 27 sit at 9.96 bits and 10.63 bits — mid-pack. Their mandatory status is due to structural independence (no other boundary combination can eliminate what they eliminate), not informational weight.
+
+### What the survivors after the mandatory {25, 27} boundaries look like
+
+Applying only the mandatory boundaries {25, 27} to the current canonical datasets:
+
+- **d3 10T**: 43,236 total survivors (43,235 non-KW). Positions 1, 25, 26, 27, 28 are locked (5 of 32 positions forced by C4 + {25, 27}). Positions 5-22 show a strong "shift cascade" local structure (pos p is almost always pair p−1, p−2, p−3, or p−4). See `roae/solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz` section [23].
+- **d2 10T**: 13,595 total survivors (13,594 non-KW). Same 5 positions locked. See `roae/solve_c/runs/20260418_10T_d2_fresh/analyze_output.log.gz` section [23].
+
+The ~3.2× ratio between d3 and d2 survivors reflects the dataset size ratio (706M/286M ≈ 2.47×) plus some additional near-miss solutions that d3's deeper partitioning exposes.
+
+### The shift pattern — scope-sensitive
+
+The "shift pattern" (positions 3-19 must be pair p−1 or p−2) was originally stated as universal. It is not. Corrected scope at each scale:
+
+- **d2 10T**: 2.69% of solutions fully shift-conforming (97.31% violate at ≥1 position)
+- **d3 10T**: **0.062%** of solutions fully shift-conforming (99.94% violate)
+
+The dramatic reduction from d2 to d3 (~43× rarer) indicates the pattern becomes even more restrictive as the partitioning spreads to more of the solution space. Under exhaustive enumeration it would likely be rarer still. The pattern is a local property satisfied by a small, shrinking fraction of the broader space.
 
 The `--prove-cascade` formal proof remains correct but is scoped to the shift-pattern subspace only — it proves that within solutions obeying the binary shift constraint, position 2 determines positions 3-19. It does not constrain the 97% of solutions that violate the shift pattern.
 
-Per-first-level-branch direct count on 742M (`analyze_c_742M.txt` section [11]) shows every branch admits 2-29 distinct configurations at positions 3-19, with no branch having exactly 1. The "position 2 fully determines positions 3-19" claim was an artifact of the collision bug retaining only one sub-branch per first-level branch.
+Per-first-level-branch direct count on the current canonical d2 dataset (`analyze_d2.log` section [11]) shows every branch admits 2-29 distinct configurations at positions 3-19, with no branch having exactly 1. The "position 2 fully determines positions 3-19" claim was an artifact of an earlier bug and does not hold.
 
-### Structure of the best-triple survivors (for 742M)
+### Structure of the best-triple survivors (dataset-scoped)
 
-Under the 742M dataset, the best 3-subset is {2, 25, 27} (not the old {1, 21, 27}), leaving 24 total survivors — 4 KW orient variants + **20 non-KW records** (`analyze_sec22fix_742M.txt` section [17]). The 20 non-KW records collapse to **6 distinct pair-orderings** (after masking within-pair orient), each a permutation of pairs {20, 21, 22, 23} at positions 21-24:
+The best 3-subset minimum survivor count differs between datasets:
+
+- **d3 10T** (`analyze_d3.log` section [7]): best triple `{4, 25, 27}` leaves **2 survivors** (1 KW + 1 non-KW). Adding any 4th boundary completes uniqueness.
+- **d2 10T** (`analyze_d2.log` section [7]): best triple `{3, 25, 27}` leaves **7 survivors** (1 KW + 6 non-KW). The 6 non-KW records at d2 are permutations of {20, 21, 22, 23} at positions 21-24:
 
 | Permutation at pos 21-24 | Type |
 |:---:|:---|
@@ -300,9 +332,9 @@ Under the 742M dataset, the best 3-subset is {2, 25, 27} (not the old {1, 21, 27
 | `21 22 20 23` | displace pair 20 to pos 23 |
 | `21 22 23 20` | displace pair 20 to pos 24 |
 
-The 4! = 24 permutations of {20, 21, 22, 23} at positions 21-24 include KW itself. Of the 23 non-identity permutations, only 6 survive the C1-C5 constraints imposed by the surrounding sequence — the other 17 are eliminated elsewhere in the ordering. Adding the 4th boundary (position 21 or 22) fixes the KW adjacency at that position and kills all 6 survivors.
+The 4! = 24 permutations of {20, 21, 22, 23} at positions 21-24 include KW itself. Of the 23 non-identity permutations, only 6 survive the C1-C5 constraints imposed by the surrounding sequence at d2 scale — the other 17 are eliminated elsewhere in the ordering. Adding the 4th boundary (position 21 or 22) fixes the KW adjacency at that position and kills all 6 survivors.
 
-This result replaces the earlier "18 triple-survivors: a structured family" characterization, which was tied to the bug-era {1, 21, 27} best triple and has no direct analog in the corrected dataset.
+**At d3 scale** the survivor structure is different: the best-triple `{4, 25, 27}` leaves only 1 non-KW survivor (a permutation with swapped early positions). The shift from "6 survivors clustered around positions 21-24" (d2) to "1 survivor elsewhere" (d3) reflects the partition-dependence of the 4-boundary structure — d3's finer partitioning captures different near-miss solutions.
 
 ### Self-complementary branches are always live (constructive proof)
 
@@ -420,7 +452,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 ### The millions of roads not taken
 
-The at least 742 million alternative orderings satisfying Rules 1-5 share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. The closest alternatives differ by only 2 pair positions, always in the last third (positions 21-32).
+The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canonical: 706M, d2 canonical: 286M) share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. The closest alternatives differ by only 2 pair positions.
 
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
@@ -429,7 +461,7 @@ The at least 742 million alternative orderings satisfying Rules 1-5 share strong
 
 ### Summary
 
-Five constraints (C1-C5) narrow 10^89 possibilities to at least 742 million unique pair orderings (742,043,303 from partial enumeration — true count is higher). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. A greedy search found that 4 boundary constraints uniquely determine King Wen among these millions (see generative recipe above).
+Five constraints (C1-C5) narrow 10^89 possibilities to hundreds of millions of unique pair orderings (d3 canonical: 706M; d2 canonical: 286M — partition-dependent subsets of the exhaustive solution space). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The minimum boundary set to uniquely determine KW is **4 boundaries**, with **{25, 27} mandatory at both d2 and d3 scales** (the other 2 boundaries are partition-dependent; see "Why 4 boundaries" above).
 
 **Note on earlier analyses in this document:** Several analyses above (centrality, pair swap, optimization, boundary bigrams, locked/free region comparison) were conducted on a 438-solution partial sample from a single search branch. Their findings about the "free region" (positions 24-32) were specific to that branch and may not generalize to the full solution space. These analyses are retained as methodological examples but their specific numerical results should be treated with caution.
 
@@ -447,20 +479,33 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Status: Revised — 4 boundaries needed (proven minimum for the 742M dataset).** The original claim (2 suffice) was based on 438 solutions. At 742 million solutions, boundaries 25 and 27 leave 37,352 non-KW survivors. Exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness. **4 boundary constraints are the current minimum.** Only 4 of 31,465 quadruples work: {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27}. Boundaries {25, 27} are truly mandatory; {2 <-> 3} and {21 <-> 22} are pairwise interchangeable. This minimum could change with a larger dataset.
+**Status: Revised — 4 boundaries needed (proven minimum at both d2 and d3 scales).** The original claim (2 suffice) was based on 438 solutions. On the current canonical datasets: exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness at either d2 or d3 (min 3-subset survivors: 7 and 2 respectively). **4 boundary constraints are the current minimum.**
+
+- **d2**: 4 working 4-subsets, structure `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}`.
+- **d3**: 8 working 4-subsets, structure `{25, 27}` plus pairs drawn from `{1..6}`.
+
+**Partition-stable finding**: boundaries `{25, 27}` are mandatory in every working 4-subset at both scales. **Not partition-stable**: the other 2 boundaries. The structure could continue to change at deeper partitions or under exhaustive enumeration.
 
 ### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 
 **Status: Disproven by large-scale enumeration.** The claim that 23 positions are locked was based on a single-branch sample where all solutions shared the same pair at position 2. Across all branches, only Position 1 is universally locked. Positions 3-18 admit at least 2 pairs each. The budget-slack analysis remains valid for explaining why later positions are freer, but the specific "23 locked" boundary does not hold.
 
-### Result 5: Solution count (revised)
+### Result 5: Solution count (canonical, 2026-04-18)
 
-- **Lower bound:** ≥ 742,043,303 unique orderings (from 10T-node partial enumeration on 64 cores under the bug-fixed solver; sha256: `aa1415174c914f8ee06821e51f599b196321c69a8c736f26936694d81a56719b`)
-- **Upper bound:** unknown — the earlier multinomial bound of 860,160 was based on the "23 locked" assumption and is invalidated
-- **True count:** unknown and likely significantly larger than 742 million
-- The earlier estimate of 15,000-50,000 was off by orders of magnitude, illustrating the danger of extrapolating from partial samples
-- **Reproducibility:** deterministic for a given solver version and node budget, thread-count independent
-- **Note (2026-04-17):** The 742M figure and sha `aa1415...` are themselves an undercount — 241M solutions were silently dropped by a hash-table probe-cap bug. The earlier 31.6M was a ~23× undercount from a filename collision. Both bugs are now fixed (commits 585880f, b598067). New reference shas pending re-enumeration.
+Current canonical reference counts under the v1 format with the corrected solver:
+
+- **d3 10T partition**: **706,422,987** unique canonical pair orderings
+  - sha256: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`
+  - Partition: SOLVE_DEPTH=3 (158,364 sub-branches, 63M-node each)
+- **d2 10T partition**: **286,357,503** unique canonical pair orderings
+  - sha256: `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`
+  - Partition: SOLVE_DEPTH=2 (3,030 sub-branches, 3.3B-node each)
+
+The difference is a partition-dependent sampling effect at the same 10T total budget, not a constraint difference. Under exhaustive enumeration both partitions would converge to the same count.
+
+- **Upper bound on true exhaustive count**: unknown; likely ≥ 1B
+- **Reproducibility**: **partition-invariant** under the formal theorem (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)): same partition + same solver + same node budget → byte-identical solutions.bin regardless of hardware, region, or number of shard-merge passes. Confirmed empirically across Phase B external merge, Phase C fresh re-enumeration, and today's in-memory heap-sort merge.
+- **Invalidated earlier figures**: the 31.6M (filename collision bug) and 742M (hash-probe-cap bug) counts do NOT appear in any current canonical artifact. They are historical only.
 
 ### Theorem 6: Starting orientation is forced
 

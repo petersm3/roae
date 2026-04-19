@@ -203,7 +203,7 @@
  *                              regardless of thread count.
  *   SOLVE_MERGE_MODE={auto,memory,external}
  *                            — select merge strategy. auto picks external if
- *                              input would exceed 70% of physical RAM.
+ *                              input would exceed 80% of physical RAM.
  *   SOLVE_MERGE_CHUNK_GB=N   — external-merge chunk size (default 4 GB).
  *   SOLVE_TEMP_DIR=path      — where external-merge writes temp sorted chunks.
  *                              Defaults to "." (current directory). Recommended
@@ -211,6 +211,18 @@
  *                              for the merge, while shards and final
  *                              solutions.bin stay on Standard-tier archival
  *                              storage. See DEPLOYMENT.md §Disk tier matters.
+ *   SOLVE_CONCENTRATE_BUDGET=1
+ *                            — opt-in: when resuming from checkpoint, divide
+ *                              SOLVE_NODE_LIMIT by the REMAINING sub-branch
+ *                              count instead of the full partition. Concentrates
+ *                              budget on not-yet-completed branches at the cost
+ *                              of reproducibility (output sha depends on how
+ *                              many branches were pre-completed). Intended for
+ *                              "accumulate ground truth" workflows where
+ *                              pre-completed branches were run to EXHAUSTION.
+ *                              Default behavior (unset) preserves per-sub-branch
+ *                              budget reproducibility across fresh vs. resumed
+ *                              runs at the same SOLVE_NODE_LIMIT.
  *
  * REPRODUCIBILITY RULE OF THUMB
  * =============================
@@ -1765,6 +1777,80 @@ static int compare_canonical(const void *a, const void *b) {
     return 0;
 }
 
+/* ---------- In-place heapsort for memory-critical merge paths ----------
+ *
+ * Motivation: glibc's qsort is merge-sort-on-large-arrays, which allocates
+ * ~n/2 auxiliary storage. On 10T d3 merges (2.77B records × 32 bytes = 82 GB
+ * buffer), that aux memory pushes peak RSS to ~129 GB — OOM-killable on a
+ * 128 GB F64 VM. Observed empirically on 2026-04-18 Phase C.
+ *
+ * Heapsort is O(n log n) worst-case (same as qsort's average) but guaranteed
+ * O(1) auxiliary memory. Peak memory = buffer + one record-sized swap slot.
+ * This makes in-memory merge feasible at 10T d3 on 128 GB RAM without
+ * OOM risk, at the cost of ~2-3× slower sort than qsort for random data.
+ * For a 2.77B-record sort that means ~20-30 min vs ~10 min qsort — an
+ * acceptable trade-off to avoid OOM.
+ *
+ * Output is identical to qsort given the same comparator: compare_solutions
+ * is a total strict order (no two distinct records compare equal), so the
+ * sorted sequence is unique regardless of sort algorithm. sha256 of
+ * solutions.bin is therefore stable across qsort→heapsort migration.
+ *
+ * Used for the memory-critical merge paths (external chunk sort, --merge
+ * in-memory, normal-mode in-memory). The --analyze path keeps qsort for
+ * its small-data sorts where memory is not constrained. */
+static void heap_sift_down(unsigned char *arr, size_t record_size,
+                           size_t root, size_t end,
+                           int (*cmp)(const void *, const void *),
+                           unsigned char *swap) {
+    while (2 * root + 1 <= end) {
+        size_t child = 2 * root + 1;
+        if (child + 1 <= end && cmp(&arr[child * record_size],
+                                     &arr[(child + 1) * record_size]) < 0)
+            child++;
+        if (cmp(&arr[root * record_size], &arr[child * record_size]) < 0) {
+            memcpy(swap, &arr[root * record_size], record_size);
+            memcpy(&arr[root * record_size], &arr[child * record_size], record_size);
+            memcpy(&arr[child * record_size], swap, record_size);
+            root = child;
+        } else {
+            return;
+        }
+    }
+}
+
+/* In-place heapsort. Signature matches qsort for drop-in replacement.
+ * Allocates a single record_size swap buffer on the stack; no heap use. */
+static void heapsort_records(void *base, size_t nmemb, size_t record_size,
+                             int (*cmp)(const void *, const void *)) {
+    if (nmemb < 2) return;
+    unsigned char *arr = (unsigned char *)base;
+
+    /* Swap buffer: must hold one record. SOL_RECORD_SIZE is 32, but this
+     * helper is generic — sized at a safe upper bound to handle any
+     * record_size the merge paths realistically use. */
+    unsigned char swap[512];
+    if (record_size > sizeof(swap)) {
+        /* Caller passed an unexpectedly large record. Fall back to qsort,
+         * which handles arbitrary sizes (at the cost of aux memory). */
+        qsort(base, nmemb, record_size, cmp);
+        return;
+    }
+
+    /* Build max-heap (children of indices >= nmemb/2 are already valid heaps). */
+    for (ssize_t start = (ssize_t)(nmemb / 2) - 1; start >= 0; start--) {
+        heap_sift_down(arr, record_size, (size_t)start, nmemb - 1, cmp, swap);
+    }
+
+    /* Sort: repeatedly move max (root) to end, shrink heap, re-heapify. */
+    for (size_t end = nmemb - 1; end > 0; end--) {
+        memcpy(swap, arr, record_size);
+        memcpy(arr, &arr[end * record_size], record_size);
+        memcpy(&arr[end * record_size], swap, record_size);
+        heap_sift_down(arr, record_size, 0, end - 1, cmp, swap);
+    }
+}
+
 /* ---------- External merge-sort ----------
  * Memory-independent alternative to the in-memory qsort merge. Reads sub_*.bin
  * files in fixed-size chunks, sorts each chunk in RAM, writes sorted temp files,
@@ -1772,7 +1858,7 @@ static int compare_canonical(const void *a, const void *b) {
  * (default 4 GB, configurable via SOLVE_MERGE_CHUNK_GB).
  *
  * Controlled by SOLVE_MERGE_MODE env var:
- *   auto     (default) — external if needed RAM > 70% of physical
+ *   auto     (default) — external if needed RAM > 80% of physical
  *   memory   — force in-memory (fail if insufficient)
  *   external — force external merge-sort
  */
@@ -1933,7 +2019,7 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
             if ((long long)got < to_read) break;
 
             if (records_in_chunk >= max_per_chunk) {
-                qsort(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
+                heapsort_records(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
                 if (n_sorted >= MAX_SORTED_CHUNKS) {
                     fprintf(stderr, "ERROR: reached MAX_SORTED_CHUNKS=%d (pre-dedup input "
                                     "exceeds %d × SOLVE_MERGE_CHUNK_GB). Raise "
@@ -1956,7 +2042,7 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     }
 
     if (records_in_chunk > 0) {
-        qsort(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
+        heapsort_records(chunk, (size_t)records_in_chunk, SOL_RECORD_SIZE, compare_solutions);
         if (n_sorted >= MAX_SORTED_CHUNKS) {
             fprintf(stderr, "ERROR: reached MAX_SORTED_CHUNKS=%d on final partial chunk. "
                             "Raise SOLVE_MERGE_CHUNK_GB.\n", MAX_SORTED_CHUNKS);
@@ -2273,7 +2359,9 @@ static void write_json(const char *filename, const char *status,
 int main(int argc, char *argv[]) {
     /* Check for single-branch mode */
     int single_branch_mode = 0;
+    int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */
     int sb_pair = -1, sb_orient = -1;
+    int ssb_pair2 = -1, ssb_orient2 = -1, ssb_pair3 = -1, ssb_orient3 = -1;
     int arg_offset = 1;
 
     int list_branches_mode = 0;
@@ -2402,6 +2490,32 @@ int main(int argc, char *argv[]) {
         sb_orient = atoi(argv[3]);
         arg_offset = 4;
         printf("Single-branch mode: pair %d, orient %d\n", sb_pair, sb_orient);
+    } else if (argc > 1 && strcmp(argv[1], "--sub-branch") == 0) {
+        /* Run ONE depth-3 sub-branch to exhaustion (or budget). Intended for
+         * the "stratified sample of sub-branch exhaustion cost" experiment —
+         * see NEXT_ENUMERATION_STRATEGY.md. Reuses the single_branch_mode
+         * infrastructure with a hand-built one-element SubBranch list and
+         * skips checkpoint loading so a fresh run is a fresh run. */
+        if (argc < 8) {
+            printf("Usage: ./solve --sub-branch <p1> <o1> <p2> <o2> <p3> <o3> [time_limit] [threads]\n");
+            printf("  Run a single depth-3 sub-branch to exhaustion.\n");
+            printf("  p1,o1 = first-level pair/orient (position 1)\n");
+            printf("  p2,o2 = second-level pair/orient (position 2)\n");
+            printf("  p3,o3 = third-level pair/orient (position 3)\n");
+            printf("  SOLVE_NODE_LIMIT=0 (default) runs to full exhaustion.\n");
+            return 1;
+        }
+        single_branch_mode = 1;       /* reuse existing infra */
+        single_sub_branch_mode = 1;   /* but enumerate only the one sub-branch */
+        sb_pair = atoi(argv[2]);
+        sb_orient = atoi(argv[3]);
+        ssb_pair2 = atoi(argv[4]);
+        ssb_orient2 = atoi(argv[5]);
+        ssb_pair3 = atoi(argv[6]);
+        ssb_orient3 = atoi(argv[7]);
+        arg_offset = 8;
+        printf("Single-sub-branch mode: p1=%d o1=%d p2=%d o2=%d p3=%d o3=%d\n",
+               sb_pair, sb_orient, ssb_pair2, ssb_orient2, ssb_pair3, ssb_orient3);
     }
 
     /* Preflight external-dep check for any mode that will produce a sha256.
@@ -5087,7 +5201,16 @@ int main(int argc, char *argv[]) {
                 use_ext = 0;
                 printf("  Merge: in-memory (forced by SOLVE_MERGE_MODE)\n");
             } else {
-                use_ext = (needed_bytes > total_ram * 7 / 10);
+                /* Threshold is 80% of physical RAM. Peak memory for the
+                 * in-memory merge is `needed_bytes` (the record buffer) plus
+                 * a few KB of stack for the in-place heapsort — no O(n) aux.
+                 * 80% leaves headroom for the kernel, page cache, and
+                 * stdlib/thread overhead. Was 70% historically; raised to 80%
+                 * once the qsort→heapsort migration made the memory model
+                 * predictable (2026-04-18). Earlier, glibc qsort's ~50%
+                 * aux-memory overhead forced us to pick external for any
+                 * merge over ~55% of RAM to avoid OOM (observed Phase C). */
+                use_ext = (needed_bytes > total_ram * 8 / 10);
                 printf("  Merge: %s (need %lld GB, have %lld GB RAM)\n",
                        use_ext ? "external (auto)" : "in-memory (auto)",
                        needed_bytes / (1024*1024*1024), total_ram / (1024*1024*1024));
@@ -5153,7 +5276,7 @@ int main(int argc, char *argv[]) {
             }
 
             printf("  Sorting %lld records...\n", total_records);
-            qsort(all, total_records, SOL_RECORD_SIZE, compare_solutions);
+            heapsort_records(all, total_records, SOL_RECORD_SIZE, compare_solutions);
 
             for (long long i = 0; i < total_records; i++) {
                 if (i == 0 || compare_canonical(
@@ -6032,18 +6155,87 @@ int main(int argc, char *argv[]) {
         seq_prefix[2] = f1; seq_prefix[3] = s1;
         used_prefix[sb_pair] = 1;
 
-        /* Load sub-branch checkpoint for resume */
-        load_sub_checkpoint();
-        if (n_completed_subs > 0) {
-            printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
-                   n_completed_subs);
-            total_branches_completed = n_completed_subs;
+        /* Load sub-branch checkpoint for resume — skipped in --sub-branch mode
+         * (that mode wants a clean, targeted run of exactly one sub-branch). */
+        if (!single_sub_branch_mode) {
+            load_sub_checkpoint();
+            if (n_completed_subs > 0) {
+                printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
+                       n_completed_subs);
+                total_branches_completed = n_completed_subs;
+            }
         }
 
         /* Enumerate depth-2 sub-branches, skipping completed ones */
         int n_sub = 0;
         int n_skipped = 0;
         SubBranch all_sub[64];
+
+        if (single_sub_branch_mode) {
+            /* Hand-build exactly one d3 sub-branch; validate and skip the
+             * depth-2 enumeration entirely. */
+            if (ssb_pair2 < 0 || ssb_pair2 >= 32 || ssb_pair2 == start_pair_idx || ssb_pair2 == sb_pair) {
+                printf("Invalid p2 index %d\n", ssb_pair2);
+                return 1;
+            }
+            if (ssb_orient2 < 0 || ssb_orient2 > 1) {
+                printf("Invalid o2 %d (must be 0 or 1)\n", ssb_orient2);
+                return 1;
+            }
+            if (ssb_pair3 < 0 || ssb_pair3 >= 32 || ssb_pair3 == start_pair_idx
+                || ssb_pair3 == sb_pair || ssb_pair3 == ssb_pair2) {
+                printf("Invalid p3 index %d\n", ssb_pair3);
+                return 1;
+            }
+            if (ssb_orient3 < 0 || ssb_orient3 > 1) {
+                printf("Invalid o3 %d (must be 0 or 1)\n", ssb_orient3);
+                return 1;
+            }
+            /* Validate budget feasibility of the fixed prefix (p2/o2, then p3/o3).
+             * Mirrors the checks in the loop below so an infeasible --sub-branch
+             * request fails loudly rather than producing an empty run. */
+            int f2 = ssb_orient2 ? pairs[ssb_pair2].b : pairs[ssb_pair2].a;
+            int s2 = ssb_orient2 ? pairs[ssb_pair2].a : pairs[ssb_pair2].b;
+            int bd2 = hamming(seq_prefix[3], f2);
+            int test_budget[7];
+            memcpy(test_budget, budget_prefix, sizeof(test_budget));
+            if (bd2 == 5 || test_budget[bd2] <= 0) {
+                printf("Sub-branch (p2=%d o2=%d) is invalid under current budget (pruned at depth 2)\n",
+                       ssb_pair2, ssb_orient2);
+                return 1;
+            }
+            test_budget[bd2]--;
+            int wd2 = hamming(f2, s2);
+            if (test_budget[wd2] <= 0) {
+                printf("Sub-branch (p2=%d o2=%d) is invalid (within-pair distance)\n",
+                       ssb_pair2, ssb_orient2);
+                return 1;
+            }
+            test_budget[wd2]--;
+            int f3 = ssb_orient3 ? pairs[ssb_pair3].b : pairs[ssb_pair3].a;
+            int s3 = ssb_orient3 ? pairs[ssb_pair3].a : pairs[ssb_pair3].b;
+            int bd3 = hamming(s2, f3);
+            if (bd3 == 5 || test_budget[bd3] <= 0) {
+                printf("Sub-branch (p3=%d o3=%d) is invalid under current budget (pruned at depth 3)\n",
+                       ssb_pair3, ssb_orient3);
+                return 1;
+            }
+            test_budget[bd3]--;
+            int wd3 = hamming(f3, s3);
+            if (test_budget[wd3] <= 0) {
+                printf("Sub-branch (p3=%d o3=%d) is invalid (within-pair distance)\n",
+                       ssb_pair3, ssb_orient3);
+                return 1;
+            }
+            all_sub[0].pair1 = sb_pair;
+            all_sub[0].orient1 = sb_orient;
+            all_sub[0].pair2 = ssb_pair2;
+            all_sub[0].orient2 = ssb_orient2;
+            all_sub[0].pair3 = ssb_pair3;
+            all_sub[0].orient3 = ssb_orient3;
+            n_sub = 1;
+            goto sub_enum_done;
+        }
 
         for (int p2 = 0; p2 < 32; p2++) {
             if (used_prefix[p2]) continue;
@@ -6079,16 +6271,45 @@ int main(int argc, char *argv[]) {
             }
         }
 
+sub_enum_done:
         printf("Sub-branches for pair %d orient %d: %d remaining", sb_pair, sb_orient, n_sub);
         if (n_skipped > 0) printf(" (%d completed from checkpoint)", n_skipped);
         printf("\n");
         total_branches = n_sub + n_skipped;
 
-        /* Per-branch node limit for thread-count-independent reproducibility */
+        /* Per-branch node limit.
+         *
+         * DEFAULT: divide SOLVE_NODE_LIMIT by the full partition count
+         * (total_branches, including already-completed sub-branches from
+         * checkpoint.txt). This preserves per-sub-branch budget reproducibility
+         * across fresh vs. resumed runs at the same SOLVE_NODE_LIMIT. Each
+         * remaining sub-branch receives the budget it would have received in
+         * a fresh run from scratch → same shards → same sha256.
+         *
+         * OPT-IN `SOLVE_CONCENTRATE_BUDGET=1`: divide by n_sub (only
+         * not-yet-completed sub-branches). Intended for "accumulate ground
+         * truth" workflows where pre-completed branches are fully EXHAUSTED
+         * (run to completion without node limit) and the remaining work
+         * should receive deeper coverage from the same total budget.
+         * Trade-off: output is NOT reproducible by SOLVE_NODE_LIMIT alone
+         * — per-sub-branch budget depends on how many branches were
+         * pre-completed. Operator opts in knowingly. */
         if (node_limit > 0 && total_branches > 0) {
-            per_branch_node_limit = node_limit / total_branches;
-            printf("Per-branch node limit: %lld (%lld total / %d branches)\n",
-                   per_branch_node_limit, node_limit, total_branches);
+            int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") != NULL;
+            int divisor = (concentrate && n_sub > 0) ? n_sub : total_branches;
+            per_branch_node_limit = node_limit / divisor;
+            if (concentrate && n_skipped > 0) {
+                fprintf(stderr,
+                    "WARNING: SOLVE_CONCENTRATE_BUDGET active — per-sub-branch budget\n"
+                    "         = SOLVE_NODE_LIMIT / remaining (%d), not total partition (%d).\n"
+                    "         Output sha256 depends on pre-completion history; NOT reproducible\n"
+                    "         via SOLVE_NODE_LIMIT alone. Intended for accumulation workflows.\n",
+                    n_sub, total_branches);
+            }
+            printf("Per-branch node limit: %lld (%lld / %d %s-branches%s)\n",
+                   per_branch_node_limit, node_limit, divisor,
+                   concentrate ? "remaining" : "total",
+                   concentrate ? " [CONCENTRATED]" : "");
         }
 
         if (n_sub == 0 && n_skipped > 0) {
@@ -6304,7 +6525,7 @@ int main(int argc, char *argv[]) {
         printf("Sorting %lld solutions...\n", total_stored);
         fflush(stdout);
         if (all_solutions && total_stored > 0)
-            qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
+            heapsort_records(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
         long long unique_count = 0;
         for (long long i = 0; i < total_stored; i++) {
             if (i == 0 || compare_canonical(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {
@@ -6654,11 +6875,27 @@ int main(int argc, char *argv[]) {
     if (n_skipped_subs > 0) printf(" (%d completed from checkpoint)", n_skipped_subs);
     printf(" of %d total\n", total_branches);
 
-    /* Per-sub-branch node limit for thread-count-independent reproducibility */
+    /* Per-sub-branch node limit. Default divides SOLVE_NODE_LIMIT by the full
+     * partition count (preserves reproducibility across fresh vs resumed runs).
+     * SOLVE_CONCENTRATE_BUDGET=1 divides by remaining (n_all_subs) instead —
+     * deeper coverage on not-yet-completed branches, at the cost of
+     * reproducibility. See detailed comment at the single-branch site. */
     if (node_limit > 0 && total_branches > 0) {
-        per_branch_node_limit = node_limit / total_branches;
-        printf("Per-sub-branch node limit: %lld (%lld total / %d sub-branches)\n",
-               per_branch_node_limit, node_limit, total_branches);
+        int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") != NULL;
+        int divisor = (concentrate && n_all_subs > 0) ? n_all_subs : total_branches;
+        per_branch_node_limit = node_limit / divisor;
+        if (concentrate && n_skipped_subs > 0) {
+            fprintf(stderr,
+                "WARNING: SOLVE_CONCENTRATE_BUDGET active — per-sub-branch budget\n"
+                "         = SOLVE_NODE_LIMIT / remaining (%d), not total partition (%d).\n"
+                "         Output sha256 depends on pre-completion history; NOT reproducible\n"
+                "         via SOLVE_NODE_LIMIT alone. Intended for accumulation workflows.\n",
+                n_all_subs, total_branches);
+        }
+        printf("Per-sub-branch node limit: %lld (%lld / %d %s-sub-branches%s)\n",
+               per_branch_node_limit, node_limit, divisor,
+               concentrate ? "remaining" : "total",
+               concentrate ? " [CONCENTRATED]" : "");
     }
 
     if (n_all_subs == 0) {
@@ -7029,7 +7266,10 @@ int main(int argc, char *argv[]) {
             use_external_merge = 0;
             printf("Merge mode: in-memory (forced by SOLVE_MERGE_MODE)\n");
         } else {
-            use_external_merge = (needed_bytes > total_ram * 7 / 10);
+            /* 80% threshold — see detailed comment at the parallel site
+             * in the --merge flag code path. With heapsort (in-place),
+             * peak memory ≈ buffer size; 80% leaves adequate headroom. */
+            use_external_merge = (needed_bytes > total_ram * 8 / 10);
             printf("Merge mode: %s (need %lld GB, have %lld GB RAM)\n",
                    use_external_merge ? "external (auto — insufficient RAM)" : "in-memory (auto)",
                    needed_bytes / (1024*1024*1024), total_ram / (1024*1024*1024));
@@ -7095,7 +7335,7 @@ int main(int argc, char *argv[]) {
         printf("Sorting %lld solutions...\n", total_stored);
         fflush(stdout);
         if (all_solutions && total_stored > 0)
-            qsort(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
+            heapsort_records(all_solutions, (size_t)total_stored, SOL_RECORD_SIZE, compare_solutions);
 
         for (long long i = 0; i < total_stored; i++) {
             if (i == 0 || compare_canonical(&all_solutions[(size_t)i * SOL_RECORD_SIZE], &all_solutions[(size_t)(i - 1) * SOL_RECORD_SIZE]) != 0) {

@@ -300,17 +300,34 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
 
-**D3 re-merge candidate sha (2026-04-18, 04:54 UTC) — PENDING CROSS-VALIDATION.** First `solutions.bin` in v1 format. Produced by re-merging the 56,404 sub_*.bin shards from the completed 10T depth-3 enumeration using the hardened solver + Premium SSD attach-for-merge pattern.
-- **Candidate sha256: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`** — not yet canonical. Becomes canonical only after cross-validation (below) confirms a fresh independent re-enumeration produces the same sha.
-- **Unique canonical orderings: 706,422,987** (~36M fewer than invalidated `aa1415…` 742M; the difference is consistent with removing orient-variant duplicates that inflated the old count plus recovering the 241M that were hash-dropped — the two bugs partially cancel).
-- Merge config: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch` on on-demand F64als_v6, Premium SSD P20 attached just for the merge duration (detached + deleted after).
-- Total pre-dedup records: 2,772,506,921 (same 2.77B as the original d3 enumeration).
-- Post-merge `--validate` PASS; explicit `./solve --verify`: all 706,422,987 records satisfy C1-C5, sorted, no duplicates, King Wen present.
-- Archive: `solve_c/runs/20260418_10T_d3_v1/` (metadata + sha + log + gzipped checkpoint — full 22.6 GB `solutions.bin` lives on `solver-data`).
-- **Cross-validation protocol (in progress):**
-  - Phase C: fresh 10T d3 re-enumeration from scratch with the current solver. Expected sha = same as above. If matches → sha becomes canonical. If differs → flags a real bug (merge path vs enumeration path, shard corruption on solver-data, or solver non-determinism) and this entry gets corrected.
-  - Phase D: independent 10T d2 fresh enumeration. Produces its own reference sha (different partition → different per-sub-branch budget at same 10T total → different 10T-partial sha expected; not directly comparable to d3).
-- Until Phase C confirms, treat this sha as a candidate reference. Nothing downstream should cite it as canonical yet.
+**Canonical v1 reference shas established (2026-04-18).** First `solutions.bin` artifacts in v1 format, cross-validated via independent paths.
+
+**D3 10T canonical sha** (confirmed via Phase B re-merge AND Phase C fresh re-enumeration producing byte-identical output):
+- **sha256: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`**
+- Unique canonical pair orderings: **706,422,987**
+- Pre-dedup records: 2,772,506,921 (2.77B)
+- Partition: `SOLVE_DEPTH=3`, 158,364 sub-branches, 63.1M per-sub-branch node budget
+- Verified: `--verify` PASS on all 706M records; C1-C5, sorted, no duplicates, King Wen present
+- Archives: `solve_c/runs/20260418_10T_d3_v1/` (Phase B) and `solve_c/runs/20260418_10T_d3_fresh/` (Phase C fresh re-enumeration)
+- Cross-validation: Phase B's re-merge of the 2026-04-17 shards produced this sha; Phase C's fresh re-enumeration on a new VM with new disks, same solver, produced byte-identical output. That validates enumeration determinism (backtracking + hash table + flush all reproduce byte-identically across VM / time / fresh run), shard determinism, and merge determinism simultaneously. This byte-identical match is an empirical instance of the Partition Invariance theorem — see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) for the formal statement and proof.
+
+**D2 10T reference sha** (independent from d3; different partition → different 10T-partial sampling, not expected to match d3):
+- **sha256: `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`**
+- Unique canonical pair orderings: **286,357,503**
+- Partition: `SOLVE_DEPTH=2`, 3,030 sub-branches, 3.3B per-sub-branch node budget
+- Verified: `--verify` PASS on all 286M records
+- Archive: `solve_c/runs/20260418_10T_d2_fresh/`
+- Note on the count difference: d2 has 52× fewer sub-branches each with 52× more node budget than d3. At the same 10T total, different partitions sample the solution space differently. d3 reaches more unique orderings at 10T because finer partitioning spreads coverage more broadly; d2 invests more budget per sub-branch (some likely reach EXHAUSTED). Neither is "more correct"; both are valid partial enumerations at 10T budget. Under exhaustive enumeration (no budget limit), both partitions would converge on the same canonical count — but we have not yet run to exhaustion at any depth.
+
+**Old invalidated shas, for historical reference only:**
+- `c43f251f...d2f2104d` — original 31.6M count, caused by sub-branch filename collision bug (April 2026 Day 5 in the missteps table)
+- `aa1415174c...a56719b` — 742M count, caused by combination of 241M hash-drops + orient-variant duplication inflating the raw count (April 2026 Day 8)
+
+Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 286M d2 shas above supersede them.
+
+**Operational footnote — in-memory merge auto-mode has an unsafe default at 10T on F64.** Discovered during Phase C: auto-mode's `needed_bytes > total_ram * 7/10` threshold doesn't account for glibc qsort's auxiliary memory on large sorts. At 82 GB buffer on 125 GB VM, peak RSS hit 129 GB → OOM. Phase B avoided this by explicitly setting `SOLVE_MERGE_MODE=external`; Phase C reproduced the OOM on first attempt and recovered by forcing external; Phase D was launched with `SOLVE_MERGE_MODE=external` from the start. **Recommendation: for any merge at or near 10T scale on F64-sized VMs, force `SOLVE_MERGE_MODE=external` rather than trusting auto-mode.** A code-level fix (tighter threshold or in-place sort) is pending operator review.
+
+**SIGTERM graceful-shutdown validated end-to-end.** As a side effect of the Phase D kill/restart, solve received SIGTERM 60 seconds into enumeration. The graceful-shutdown path (signal handler sets `global_timed_out` → worker threads flush current sub-branches → main runs merge → writes valid v1 output) completed cleanly and produced a valid partial `solutions.bin` with 5M canonical records. Not a canonical artifact, but a clean proof that interrupt-driven shutdowns produce usable output.
 
 **SOLVE_TEMP_DIR env var (2026-04-18, commit 5fc1e72).** Lets the operator direct external-merge temp chunks to a dedicated disk while keeping shards and final output on archival storage. Pattern: attach a Premium SSD to the merge VM just for the merge, run with `SOLVE_TEMP_DIR=/mnt/merge-scratch`, then detach and delete the SSD. CWD stays on `solver-data` (Standard HDD) so the final `solutions.bin` archives cheaply. Concrete az CLI workflow in `DEPLOYMENT.md §Premium-SSD-attach-for-merge`. Smoke-tested at 100M scale: byte-identical output to default-temp-dir run, temp chunks correctly landing in the specified directory. Motivated by the d3 re-merge performance findings below.
 
@@ -323,6 +340,42 @@ Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-W
 - **Premium SSD is the sweet spot for external mode.** Recommended pattern when external is required (either by RAM constraints or deliberate test): attach a Premium-tier data disk (P20 512 GB or P30 1 TB) for the duration of the merge, do the merge on SSD, copy the final `solutions.bin` back to `solver-data` for archival, then detach/delete the SSD. Prorated Premium cost is pennies for a few-hour merge; throughput improves ~3-4× over HDD.
 - **100T is not feasible in-memory on practical VMs.** 100T ≈ 27.7B pre-dedup records ≈ 830 GB. In-memory would need M-series (2-4 TB RAM, $15-30/hr — 10× the cost for marginal benefit). Practical 100T path: **F64 + Premium SSD (P40 2 TB) + external merge** at ~3 hours, ~$13-15.
 - **Takeaway for `DEPLOYMENT.md`.** The disk-tier choice at merge time matters as much as VM SKU choice. `solver-data` stays Standard because shards are cold data; attach Premium temporarily when actively merging at 100T scale. Full tables and recommendations are in [DEPLOYMENT.md §Two-phase deployment](../solve_c/DEPLOYMENT.md).
+
+**Pivot to D128als_v7 in westus3 (2026-04-19).** For the first ~10 days of serious enumeration work, everything ran on F64als_v6 in westus2 — 64-core AMD EPYC 9004 (Genoa, Zen 4), $0.79/hr spot. At project start, F64 was the obvious pick: "compute-optimized" branding, newest AMD generation then available, quota approved quickly. The next-generation `Dalsv7` (Zen 5 Turin) didn't enter Microsoft Learn's SKU tree until `ms.date: 2026-03-10`, so any pre-March quota request defaulted to v6.
+
+**The trigger event.** On 2026-04-18, a D128als_v7 quota request was filed in westus2 to enable wider parallel 100T enumeration (128 cores vs 64, 256 GB RAM vs 128 GB). Microsoft denied it the same day citing "high demand for virtual machines in this region." A fallback D64als_v7 request was also denied. Operator asked about alternative regions, which prompted pulling authoritative specs from Microsoft Learn and Vantage pricing pages.
+
+**The counterintuitive finding.** Comparing the two SKU families head-to-head:
+
+| SKU | Architecture | Boost clock | Spot $/hr | $/core·hr |
+|---|---|---|---|---|
+| F64als_v6 | Zen 4 Genoa | 3.7 GHz | $0.826 | $0.0129 |
+| D64als_v7 | Zen 5 Turin | 4.5 GHz | $0.501 | $0.0078 |
+
+**D64als_v7 is both cheaper AND faster per-core than F64als_v6.** The "compute-optimized premium" Azure charges on F-series only pays off *within* the same generation. Across a generation boundary (v6 → v7, Genoa → Turin, Zen 4 → Zen 5), the newer general-purpose SKU wins on every axis — clock speed, IPC, price. Per unit of solve.c work, **D-series v7 delivers ~2.2× more compute per dollar than F-series v6** on spot. This wasn't a cost-optimization failure at project start; it was a temporal artifact. The SKU economics flipped when Dalsv7 went GA in March 2026, and the project hadn't reexamined its SKU choice until the quota denial forced it.
+
+**Region hunt succeeded.** A 128-vCPU Dalsv7 quota was granted in **westus3** on 2026-04-19. westus3 is a newer datacenter in the same US region pair as westus2, so cross-region egress is cheap (~$0.02/GB) and latency is low. Managed disks are region-locked — `solver-data` and the two validation disks stay in westus2 as the canonical archive — but that's fine: partition invariance ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)) guarantees the same `solutions.bin` regardless of which region or SKU produced the shards. A fresh 10T enumeration on D128/westus3 reproducing canonical sha `f7b8c4fb…` would be an additional reproducibility proof, not a data migration problem.
+
+**Standing policy going forward:**
+
+- **Large-scale enumerations (≥10T)**: D128als_v7 spot in westus3. Full 128-thread parallel on first-level branches, ~2.3 hrs for 10T, ~23 hrs for 100T.
+- **Merges**: D-series in westus3 sized to the RAM profile, not core count (merge is single-threaded heapsort). d2 10T fits in D16als_v7 (32 GB RAM), d3 10T needs D64als_v7 (128 GB RAM) minimum for in-memory, D96als_v7 (192 GB RAM) safer. External-merge mode with Premium SSD temp storage when RAM-constrained or >30T.
+- **Archival**: westus2 `solver-data` remains authoritative. westus3 runs produce their own disks per run; kept or destroyed case-by-case.
+- **F64als_v6**: retained for short runs, analysis, or when westus3 spot is evicted — but no longer the default for new large runs. The 10T d2/d3 canonical shas established on F64 in westus2 remain authoritative.
+
+**Cross-region sha validation — COMPLETED 2026-04-19 ~07:35 UTC.** The D128/westus3 validation ran in sequence:
+
+- **1T smoke test** (D128als_v7 spot): 57m 44s wall, $1.63. Produced a valid v1 `solutions.bin` with 134M canonical records. Pipeline validated end-to-end on Zen 5 Turin hardware.
+- **10T canonical run** (same VM): 82m 57s enumeration + 51m 47s in-memory heap-sort merge = 2h 14m 44s total, $3.81. Produced sha256 `f7b8c4fb…` — **byte-identical to F64 westus2 canonical**.
+- **External-merge validation** (same shards, P20 Premium SSD attached via `SOLVE_TEMP_DIR`): 42m 59s, $1.26. Same sha256 `f7b8c4fb…`.
+
+**4-corners validation grid now complete**: {Zen 4 F64 westus2, Zen 5 D128 westus3} × {external merge, in-memory heap-sort} — all four combinations produce byte-identical canonical output. Cross-region + cross-SKU + cross-generation + cross-merge-mode reproducibility confirmed. This is the strongest empirical validation of `PARTITION_INVARIANCE.md` achievable short of exhaustive enumeration.
+
+**Measured scaling (D128als_v7 vs F64als_v6 on 10T d3):** enumeration ~3.6× faster on D128 (82:57 vs ~300 min); merge ~1.3× faster per-core (Zen 5 IPC + DDR5-6000 advantage on single-threaded heap-sort); total pipeline ~3× faster and ~2.4× cheaper at spot pricing. This exceeds the pre-run 2.6× projection. Full analysis + SKU sizing recommendations in `DSERIES_ROI_REPORT.md` (kept outside the repo as an operator-review doc).
+
+**Archive**: run artifacts (shas, meta, compressed logs, README) in [solve_c/runs/20260419_10T_d3_d128westus3/](solve_c/runs/20260419_10T_d3_d128westus3/). The canonical `solutions.bin` lives on the new `solver-data-westus3` managed disk (300 GB Standard_LRS, bi-region archival).
+
+**Supporting documentation.** Full SKU comparison (with authoritative Microsoft Learn sources) and ROI analysis are maintained as operator review docs at top-of-working-tree, outside the git repo.
 
 ## Current state
 

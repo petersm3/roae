@@ -452,6 +452,54 @@ keeping the managed disk.
   open FDs is hit around 500T (the k-way merge opens every chunk
   simultaneously). `ulimit -n 16384` before running fixes it.
 
+### Accumulating ground truth — single-branch exhaustion workflow
+
+Long-horizon enumeration strategy: exhaust individual first-level branches
+over time, accumulate their shards on a shared archive disk, and concentrate
+new-run compute budgets on the remaining un-exhausted branches. This is
+formally justified by the partition-invariance theorem — see
+[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) for the proof that
+merging shards from independent single-branch runs produces identical
+output to a full-parallel run (under exhaustive enumeration).
+
+Operational procedure:
+
+1. Run `./solve --branch P O 0` (no node limit → exhaustive) for a
+   targeted first-level branch. Sub-branches within that branch complete
+   as EXHAUSTED; shards land in the CWD as `sub_P_O_*.bin`.
+2. Archive those shards + the branch's checkpoint entries onto a
+   shared disk (e.g., `solver-data` or a dedicated `solver-ground-truth`
+   disk). Retain the checkpoint lines marking EXHAUSTED status.
+3. Next full run: `cp` (or symlink) the archived shards + concatenated
+   checkpoint into the working directory before launching. `solve.c`
+   reads the checkpoint on startup, sees EXHAUSTED entries, skips those
+   sub-branches entirely. Enumeration only runs on the remaining branches.
+4. Merge at end reads all shards in CWD — pre-existing and freshly-written
+   alike — producing a `solutions.bin` that combines exhausted-ground-truth
+   with budgeted-partial for the remainder.
+
+**Budget distribution option**: by default, the per-sub-branch node limit
+is `SOLVE_NODE_LIMIT / total_partition_size`, which preserves reproducibility
+across fresh vs. resumed runs at the same node limit. For the accumulation
+workflow where you want the remaining node budget concentrated on
+un-exhausted branches, opt-in via `SOLVE_CONCENTRATE_BUDGET=1`. This
+divides by the *remaining* sub-branch count instead. Trade-off: output
+sha256 depends on how many branches were pre-completed; NOT reproducible
+by `SOLVE_NODE_LIMIT` alone. The solver prints a WARNING when this
+env var is active.
+
+**Workaround without the env var**: if you want concentration semantics
+under the default reproducible path, compute the target total manually:
+
+```bash
+TARGET_PER_BRANCH=$(( 10000000000000 / TOTAL_SUB_BRANCHES ))
+SCALED_TOTAL=$(( TARGET_PER_BRANCH * REMAINING_SUB_BRANCHES ))
+SOLVE_NODE_LIMIT=$SCALED_TOTAL ./solve 0
+```
+
+Same effective per-sub-branch depth on remaining, full reproducibility
+of the pass.
+
 ### Infrastructure
 
 - **Spot-VM evictions in westus2 under F64 averaged ~1 per 3 hours during
