@@ -3202,6 +3202,127 @@ static void run_null_pair_constrained(uint64_t n_trials) {
     printf("sample gives the *unconditional* rate over uniformly random pair-perms.\n");
 }
 
+/* ---------- C3-min: find minimum complement distance in solutions.bin ----------
+ *
+ * Addresses Open Question #11 / #7 Phase A Day 1 MVP. Reads every record
+ * in solutions.bin, decodes the 64-hexagram sequence, computes the total
+ * complement distance (= sum over all 64 v of |pos[v] - pos[v^63]|), and
+ * reports the minimum observed. King Wen's value is 776. If the minimum
+ * is 776, KW is THE C3-minimum under C1+C2. If less, KW is not the
+ * minimum — we have a natural axiom set ("minimum C3 under C1+C2") that
+ * does NOT uniquely pick out KW.
+ */
+
+static void run_c3_min(const char *filename) {
+    init_pairs();
+    FILE *f = fopen(filename, "rb");
+    if (!f) { fprintf(stderr, "ERROR: cannot open %s\n", filename); exit(10); }
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    uint64_t hdr_records = 0;
+    if (sol_read_header(f, &hdr_records) != 0) {
+        fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version\n", filename);
+        fclose(f);
+        exit(20);
+    }
+    long record_bytes = fsize - SOL_HEADER_SIZE;
+    long long n_records = record_bytes / SOL_RECORD_SIZE;
+    printf("# C3-min analysis: %s\n", filename);
+    printf("Records: %lld\n", n_records);
+    printf("KW C3 (reference): 776\n\n");
+
+    unsigned char rec[SOL_RECORD_SIZE];
+    int min_c3 = 100000;
+    long long count_at_min = 0;
+    int kw_idx = -1;  /* record index of KW if found */
+    int kw_c3_observed = -1;
+    int histogram[5000] = {0};  /* C3 histogram (should never exceed ~2048 practically) */
+    int max_c3_observed = 0;
+    time_t start = time(NULL);
+
+    /* First pass: find minimum */
+    for (long long r = 0; r < n_records; r++) {
+        if (fread(rec, SOL_RECORD_SIZE, 1, f) != 1) {
+            fprintf(stderr, "ERROR: short read at record %lld\n", r);
+            fclose(f); exit(20);
+        }
+        int seq[64];
+        for (int i = 0; i < 32; i++) {
+            int pidx = (rec[i] >> 2) & 0x3F;
+            int orient = (rec[i] >> 1) & 1;
+            if (orient == 0) {
+                seq[i * 2] = pairs[pidx].a;
+                seq[i * 2 + 1] = pairs[pidx].b;
+            } else {
+                seq[i * 2] = pairs[pidx].b;
+                seq[i * 2 + 1] = pairs[pidx].a;
+            }
+        }
+        uint8_t useq[64];
+        for (int i = 0; i < 64; i++) useq[i] = (uint8_t)seq[i];
+        int c3 = null_c3_total_comp_dist(useq);
+        if (c3 < min_c3) { min_c3 = c3; count_at_min = 1; }
+        else if (c3 == min_c3) count_at_min++;
+        if (c3 > max_c3_observed) max_c3_observed = c3;
+        if (c3 >= 0 && c3 < 5000) histogram[c3]++;
+        /* Check if this is KW */
+        int is_kw = 1;
+        for (int i = 0; i < 64 && is_kw; i++) {
+            if (seq[i] != KW[i]) is_kw = 0;
+        }
+        if (is_kw) { kw_idx = (int)r; kw_c3_observed = c3; }
+
+        if ((r & 0xFFFFFFULL) == 0 && r > 0) {
+            time_t now = time(NULL);
+            double elapsed = (double)(now - start);
+            double rate = (double)r / (elapsed > 0 ? elapsed : 1);
+            double eta = (double)(n_records - r) / (rate > 0 ? rate : 1);
+            fprintf(stderr, "[c3-min] progress: %lld / %lld (%.1f%%) min_so_far=%d rate=%.0f/s ETA=%.0fs\n",
+                    r, n_records, 100.0 * r / n_records, min_c3, rate, eta);
+        }
+    }
+    time_t end = time(NULL);
+    fclose(f);
+
+    printf("\nResults (wall time %lds):\n", (long)(end - start));
+    printf("  Minimum C3 observed:     %d\n", min_c3);
+    printf("  Count of records at min: %lld (%.4f%% of %lld)\n",
+           count_at_min, 100.0 * count_at_min / n_records, n_records);
+    printf("  Maximum C3 observed:     %d\n", max_c3_observed);
+    printf("  KW found at record idx:  %s\n",
+           kw_idx >= 0 ? "YES" : "NO (file doesn't contain KW — unexpected)");
+    if (kw_idx >= 0) {
+        printf("  KW C3 (verified):        %d  (expected 776)\n", kw_c3_observed);
+    }
+    printf("\nInterpretation:\n");
+    if (min_c3 == 776 && kw_c3_observed == 776) {
+        printf("  KW IS at the C3-minimum under C1+C2. %lld record(s) tie at C3=776.\n",
+               count_at_min);
+        if (count_at_min == 1) {
+            printf("  KW is the UNIQUE C3-minimum — 'minimum C3 under C1+C2' is a\n");
+            printf("  candidate natural axiom that picks out KW uniquely (Phase A progress).\n");
+        } else {
+            printf("  KW is one of %lld C3-minimum records. Minimization is necessary but\n",
+                   count_at_min);
+            printf("  not sufficient to uniquely derive KW from first principles.\n");
+        }
+    } else if (min_c3 < 776) {
+        printf("  Minimum C3 (%d) is LESS than KW (776) — KW is NOT the C3-minimum.\n", min_c3);
+        printf("  Some other C1+C2 ordering places complements even closer than KW.\n");
+        printf("  Axiom 'minimize C3' alone cannot derive KW.\n");
+    }
+    printf("\n  Top 10 lowest C3 values observed (bucket, count):\n");
+    int reported = 0;
+    for (int c = 0; c <= max_c3_observed && reported < 10; c++) {
+        if (histogram[c] > 0) {
+            printf("    C3=%-4d  %lld records\n", c, (long long)histogram[c]);
+            reported++;
+        }
+    }
+}
+
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
@@ -3269,6 +3390,10 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--null-gray-random") == 0) {
         uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
         run_null_gray_random(n);
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--c3-min") == 0) {
+        const char *fn = (argc > 2) ? argv[2] : "solutions.bin";
+        run_c3_min(fn);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
