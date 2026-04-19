@@ -224,6 +224,18 @@ keeping the managed disk.
 
 ### Solver
 
+- **Independent verifier**: `roae/verify.py` is a ~160-line pure-Python
+  implementation of the verifier recipe in
+  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md). Reads any format-v1
+  `solutions.bin`, reconstructs each 64-hexagram sequence, and checks
+  **C1 (pair structure), C2 (no 5-line transitions), C3 (complement
+  distance ≤ 776, added 2026-04-19), C4 (starts with
+  Creative/Receptive), C5 (exact distance distribution)** plus sort
+  order and dedup. No shared code with solve.c — genuine second opinion.
+  Usage: `python3 verify.py /path/to/solutions.bin`. Exit 0 on PASS, 1
+  on constraint failures, 2 on header/format errors. Runs in ~1-5
+  minutes on a 10T solutions.bin.
+
 - **Never assume `fwrite` succeeded without checking.** The 2026-04-14
   `solutions.bin` was silently truncated from 23.7 GB to 8 GB because the disk
   filled up mid-write. The solver's sha256 still matched the truncated file

@@ -258,6 +258,16 @@ The d3 greedy-optimal set (from `analyze_d3.log` section [6]):
 
 For comparison, the d2 greedy-optimal set is {2, 21, 25, 27}. The four boundaries differ — same total (4), same mandatory pair {25, 27}, different interchangeable slots.
 
+### Search-order provenance (why the result isn't greedy-biased)
+
+The 4-boundary minimum structure was discovered and verified in a specific pipeline, in this order, within the `--analyze` code path:
+
+1. **Greedy minimum-boundary search** (`analyze.log` section [6]): picks one boundary at a time, each choice maximizing elimination of non-KW survivors. Terminates when only KW remains. Produces ONE working 4-subset as a fast heuristic.
+2. **Exhaustive 3-subset disproof** (`analyze.log` section [7]): tests all C(31,3) = 4,495 triples of boundaries. Confirms no triple suffices (best triple leaves ≥2 survivors at d3, ≥7 at d2). Proves the 4-minimum is tight.
+3. **Exhaustive 4-subset enumeration** (`analyze.log` section [8]): tests all C(31,4) = 31,465 quadruples. Lists every working 4-subset that uniquely identifies KW. Produces the complete family (4 sets at d2, 8 at d3).
+
+Step 3 is the critical one: every 4-subset is scored on **equal footing** against the full canonical dataset. The structural claims about `{25, 27}` mandatory status and the partition-dependent interchangeable slots come from step 3, not step 1. **Even if the greedy search had picked a different starting 4-subset, the exhaustive pass would produce the same full family** — the result is not sensitive to greedy bias. Step 1 serves as a quick sanity check and provides a human-readable "chosen representative" 4-subset; step 3 is the rigorous characterization.
+
 ### Why 4 boundaries — not fewer?
 
 Exhaustive testing confirms that no combination of 3 or fewer uniquely determines King Wen in either dataset. Four is the empirical minimum at d2 and d3.
