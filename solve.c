@@ -2670,6 +2670,100 @@ static void run_null_latin(void) {
            c3_min, c3_max, (double)c3_sum / n_total);
 }
 
+/* ---------- Latin-square COLUMN-first traversal null ----------
+ *
+ * Symmetric variant of run_null_latin: reads the 8×8 Latin-square grid
+ * COLUMN-by-column instead of row-by-row. Tests whether the 57.96% C2
+ * rate observed in row-first traversal is a row-direction-specific
+ * artifact or a Latin-square invariant.
+ *
+ * By the symmetry of the construction — within a column, adjacent
+ * entries share the lower trigram (Hamming ≤ 3 again) and only
+ * between-column transitions can be Hamming-5 — we expect the same
+ * 57.96% rate to hold. Verifying this empirically confirms the
+ * Latin-square decomposition theorem is direction-invariant.
+ */
+
+static void run_null_latin_col(void) {
+    printf("# Null-model: Latin-square COLUMN × row traversals (8! × 8!)\n\n");
+    printf("Enumerating all %llu column-first permutations (column-ordering × row-ordering).\n",
+           40320ULL * 40320ULL);
+    printf("Symmetric variant of --null-latin; tests if 57.96%% C2 rate is row-specific.\n\n");
+
+    int col_perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    int row_perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    int c_col[8] = {0};
+    uint64_t n_c1 = 0, n_c2 = 0, n_c3 = 0, n_total = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+    int c2_min = 10000, c2_max = 0;
+    time_t start = time(NULL);
+
+    do {  /* per column permutation (outer) */
+        int c_row[8] = {0};
+        for (int i = 0; i < 8; i++) row_perm[i] = i;
+
+        do {  /* per row permutation (inner) */
+            uint8_t seq[64];
+            for (int cc = 0; cc < 8; cc++) {
+                int lower = col_perm[cc];
+                for (int rr = 0; rr < 8; rr++) {
+                    int upper = row_perm[rr];
+                    seq[cc * 8 + rr] = (uint8_t)((upper << 3) | lower);
+                }
+            }
+            n_total++;
+            if (null_c1_pair_structure(seq)) n_c1++;
+            int c2 = null_c2_count_5line(seq);
+            if (c2 == 0) n_c2++;
+            if (c2 < c2_min) c2_min = c2;
+            if (c2 > c2_max) c2_max = c2;
+            int c3 = null_c3_total_comp_dist(seq);
+            if (c3 <= KW_C3_CEILING) n_c3++;
+            if (c3 < c3_min) c3_min = c3;
+            if (c3 > c3_max) c3_max = c3;
+            c3_sum += c3;
+            if ((n_total & 0xFFFFFFFULL) == 0) {
+                fprintf(stderr, "[null-latin-col] progress: %llu / 1625702400 (%.1f%%)\n",
+                        (unsigned long long)n_total,
+                        100.0 * n_total / 1625702400.0);
+            }
+            int k = 0;
+            while (k < 8 && c_row[k] >= k) { c_row[k] = 0; k++; }
+            if (k == 8) break;
+            int swap_j = (k & 1) ? c_row[k] : 0;
+            int tmp = row_perm[swap_j]; row_perm[swap_j] = row_perm[k]; row_perm[k] = tmp;
+            c_row[k]++;
+        } while (1);
+
+        int k = 0;
+        while (k < 8 && c_col[k] >= k) { c_col[k] = 0; k++; }
+        if (k == 8) break;
+        int swap_j = (k & 1) ? c_col[k] : 0;
+        int tmp = col_perm[swap_j]; col_perm[swap_j] = col_perm[k]; col_perm[k] = tmp;
+        c_col[k]++;
+    } while (1);
+
+    time_t end = time(NULL);
+    printf("Results (n = %llu, wall time %lds):\n",
+           (unsigned long long)n_total, (long)(end - start));
+    printf("  C1 pair structure pass:        %llu / %llu  (%.8f%%)\n",
+           (unsigned long long)n_c1, (unsigned long long)n_total,
+           100.0 * n_c1 / n_total);
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c2, (unsigned long long)n_total,
+           100.0 * n_c2 / n_total);
+    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c3, (unsigned long long)n_total,
+           100.0 * n_c3 / n_total);
+    printf("\n  5-line transitions: range [%d, %d]\n", c2_min, c2_max);
+    printf("  C3 comp distance:   range [%d, %d], mean %.1f\n",
+           c3_min, c3_max, (double)c3_sum / n_total);
+    printf("\nExpected if Latin-square decomposition is direction-invariant:\n");
+    printf("  C2 rate should match --null-latin's 57.96%% (942,243,840).\n");
+    printf("  If matched, confirms the row/column decomposition is symmetric.\n");
+}
+
 /* ---------- Lexicographic null ----------
  *
  * The natural lexicographic ordering [0, 1, 2, ..., 63] is one specific
@@ -3369,6 +3463,9 @@ int main(int argc, char *argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-latin") == 0) {
         run_null_latin();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-latin-col") == 0) {
+        run_null_latin_col();
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-lex") == 0) {
         run_null_lex();

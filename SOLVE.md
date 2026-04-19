@@ -568,6 +568,7 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0** — analytic ∀ Gray | 100% (trivial) | 0% — range [1792, 2048] |
 | 6-bit Gray codes (random) | 10^5 random Q_6 walks | **0** — analytic ∀ Gray | 100% (trivial) | **0 — min C3 = 832 > KW's 776** |
 | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** (decomposed) | 6.67% — range [512, 2048] |
+| Latin-square column × row | Exhaustive 8!×8! (direction-invariance check) | **0** | 57.96% (**identical**) | 6.67% (**identical**) |
 | Lexicographic (6! bit-orders) | Exhaustive 720 | 0 | 0 | 0 — always 2048 |
 | Historical (Fu Xi, KW, Mawangdui, Jing Fang) | 4 point-tests | KW only | **KW + Mawangdui + Jing Fang** | KW only |
 | Random 64-permutations | 10^9 uniform samples | **0 / 10^9** | 0.1828% | 0.002836% |
@@ -618,6 +619,7 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 ./solve --null-debruijn-exact     # All 2^27 B(2,6) Eulerian circuits — ~80 sec on a 2-core VM
 ./solve --null-gray               # 6-bit Gray code orbit (256 members) — <1 sec
 ./solve --null-latin              # Full 8! × 8! = 1.6B Latin-square row×col traversals — ~10 min
+./solve --null-latin-col          # Column-first variant (direction-invariance check) — ~6 min
 ./solve --null-latin-explain      # Analytic decomposition of the 57.96% C2 rate — <1 sec
 ./solve --null-lex                # 6! = 720 lexicographic bit-order variants — <1 sec
 ./solve --null-historical         # Fu Xi, King Wen, Mawangdui — <1 sec
