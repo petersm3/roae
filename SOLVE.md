@@ -560,6 +560,8 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 
 **What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
 
+**Structured-permutation null (de Bruijn B(2, 6)).** `solve.py --null-debruijn` samples random de Bruijn B(2, 6) permutations via randomized Hierholzer (each is a structured permutation of the 64 hexagrams where adjacency is window-shift). At 20k samples: 0/20k satisfy C1 (pair-reflection is not a generic de Bruijn property), 0/20k avoid all 5-line transitions, and only 0.19% match or beat King Wen's C3 comp-distance ceiling of 776 (null-pool range 620–2048). King Wen sits at ~0.17th percentile on C3 within this structured family. This **strengthens** the "C1 + C2 are KW-specific" conclusion against a genuinely structured null, but is not yet exhaustive — Costas arrays, Gray codes, and lexicographic orderings are untested, and randomized Hierholzer is not uniformly distributed over the ~2^26 distinct B(2, 6) sequences.
+
 ## Usage
 
 `solve.py` is the Python exploratory prototype — useful for interactive analysis (fingerprints, differential features, reconstruction heuristics, narrowing trials). `solve.c` is the production enumerator used for the canonical 10T+ runs cited at the top of this doc. Use `solve.py` for exploration; use `solve.c` when you need a reproducible `solutions.bin` sha.
@@ -586,6 +588,7 @@ python3 solve.py --enumerate --max-nodes 50000000 --time-limit 300  # Longer sea
 python3 solve.py --differential                   # Find extremal features (key analysis)
 python3 solve.py --differential --time-limit 300  # Longer search for more solutions
 python3 solve.py --reconstruct                    # Step-by-step reconstruction with C1-C7
+python3 solve.py --null-debruijn --trials 20000   # Null-model comparison against de Bruijn permutations
 ```
 
 ### C solver (solve.c) — fast enumeration

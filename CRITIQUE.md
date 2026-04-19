@@ -45,7 +45,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Missing analyses
 
-- No comparison against other structured permutations (de Bruijn sequences, Costas arrays) — only random permutations are used as null models.
+- Limited comparison against structured permutations: `solve.py --null-debruijn` now samples B(2, 6) de Bruijn permutations via randomized Hierholzer and checks C1–C3 (addresses this gap partially). At 20k samples: 0% satisfy C1, 0% satisfy C2 (no 5-line transitions), 0.19% match or beat KW's C3 total comp distance of 776. KW's C3 sits at ~0.17th percentile of the null pool (null range 620–2048). Caveats: randomized Hierholzer is not uniformly distributed over the ~2^26 distinct B(2, 6) sequences; Costas arrays, Gray codes, and lexicographic orderings remain untested. Finding is suggestive, not exhaustive.
 - No formal proof that 4 boundaries are minimum across *all* valid orderings. Only computational verification across the d2 (286M) and d3 (706M) canonical datasets. A deeper enumeration could in principle reveal a working 3-subset (lowering minimum), require a 5th boundary (raising it), or further change the structure of which specific boundaries work.
 - No independent derivation of the constraints from first principles. The 5 rules (C1-C5) were extracted from KW and then verified against KW; a stronger result would derive them from external mathematical or coding-theoretic principles. The null-model analysis confirms the constraint-extraction methodology produces apparent uniqueness for many random pair-constrained sequences, so the constraints are KW-specific rather than universal.
 

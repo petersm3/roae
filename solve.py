@@ -2518,6 +2518,156 @@ def print_reconstruct():
         print(f"The specification's uniqueness holds globally but the greedy")
         print(f"constructive algorithm may require backtracking at some steps.")
 
+# --- Null model: structured permutations from de Bruijn B(2, 6) ---
+
+def debruijn_random(k, n, rng):
+    """Random B(k, n) de Bruijn sequence via a randomized Hierholzer
+    Eulerian-circuit traversal on the B(k, n-1) graph. Nodes are
+    length-(n-1) k-ary values; edge labelled b from node v goes to
+    ((v*k + b) mod k**(n-1)). Every valid B(k, n) sequence corresponds
+    to an Eulerian circuit. Randomness comes from the initial edge-
+    order shuffle at each vertex — NOT uniformly distributed over all
+    Eulerian circuits, but a cheap way to sample many distinct
+    sequences. Returns a list of k**n symbols (each in 0..k-1)."""
+    N = k ** (n - 1)
+    out = {v: list(range(k)) for v in range(N)}
+    for v in out:
+        rng.shuffle(out[v])
+    stack = [0]
+    circuit = []
+    while stack:
+        v = stack[-1]
+        if out[v]:
+            b = out[v].pop()
+            stack.append((v * k + b) % N)
+        else:
+            circuit.append(stack.pop())
+    circuit.reverse()
+    return [circuit[i + 1] % k for i in range(len(circuit) - 1)]
+
+
+def debruijn_to_hexagram_permutation(binary_seq, n=6):
+    """Read the cyclic binary sequence as overlapping length-n windows,
+    each packed into an n-bit value (bit 0 = first bit of window).
+    For n=6 this gives a permutation of {0..63}."""
+    N = len(binary_seq)
+    perm = []
+    for i in range(N):
+        w = 0
+        for j in range(n):
+            w |= binary_seq[(i + j) % N] << j
+        perm.append(w)
+    return perm
+
+
+def has_pair_structure_c1(seq):
+    """C1: every consecutive pair (seq[2i], seq[2i+1]) is either
+    reverse-pair (bit-reversal) or — for the 4 symmetric hexagrams —
+    bitwise complement of each other."""
+    symmetric = {v for v in range(64) if reverse_6bit(v) == v}
+    for i in range(32):
+        a, b = seq[2 * i], seq[2 * i + 1]
+        if a in symmetric and b in symmetric:
+            if a ^ b != 0b111111:
+                return False
+        elif reverse_6bit(a) != b:
+            return False
+    return True
+
+
+def total_complement_distance_c3(seq):
+    """Sum over all 64 hexagrams of |pos[v] - pos[v^63]|. King Wen's
+    value is 776 — this is the C3 ceiling used by solve.c."""
+    pos = [0] * 64
+    for i, v in enumerate(seq):
+        pos[v] = i
+    return sum(abs(pos[v] - pos[v ^ 0b111111]) for v in range(64))
+
+
+def count_five_line_transitions_c2(seq):
+    return sum(1 for i in range(len(seq) - 1)
+               if bit_diff(seq[i], seq[i + 1]) == 5)
+
+
+def print_null_debruijn(trials=5000, seed=None):
+    """Null-model comparison against de Bruijn B(2, 6) permutations.
+
+    CRITIQUE.md §Missing analyses flags the absence of structured-
+    permutation null models. This routine samples many random B(2, 6)
+    sequences via randomized Hierholzer, converts each to a hexagram
+    permutation by reading overlapping 6-bit windows, and counts how
+    many satisfy King Wen's C1-C3 constraints. Reports KW's C3
+    percentile within the de Bruijn pool.
+    """
+    rng = random.Random(seed) if seed is not None else random.Random()
+
+    kw_seq = [v for pair in king_wen_pairs() for v in pair]
+    kw_c3 = total_complement_distance_c3(kw_seq)
+    assert kw_c3 == 776, f"KW C3 total is {kw_c3}, expected 776"
+
+    print("# Null-model comparison: de Bruijn B(2, 6) permutations")
+    print()
+    print(f"KW baseline: C1 pass, 0 five-line transitions, C3 total = {kw_c3}")
+    print()
+    print(f"Sampling {trials} random B(2, 6) permutations via randomized Hierholzer...")
+
+    n_c1 = n_c2 = n_c3 = 0
+    c2_vals = []
+    c3_vals = []
+    for _ in range(trials):
+        db_seq = debruijn_random(2, 6, rng)
+        perm = debruijn_to_hexagram_permutation(db_seq, n=6)
+        if has_pair_structure_c1(perm):
+            n_c1 += 1
+        c2 = count_five_line_transitions_c2(perm)
+        if c2 == 0:
+            n_c2 += 1
+        c2_vals.append(c2)
+        c3 = total_complement_distance_c3(perm)
+        if c3 <= kw_c3:
+            n_c3 += 1
+        c3_vals.append(c3)
+
+    c2_vals.sort()
+    c3_vals.sort()
+    c3_median = c3_vals[trials // 2]
+    c3_mean = sum(c3_vals) / trials
+    kw_percentile = (sum(1 for c in c3_vals if c < kw_c3) / trials) * 100
+
+    print()
+    print(f"De Bruijn null results (n={trials}):")
+    print(f"  C1 pair-structure pass:        {n_c1}/{trials} = {n_c1/trials:.2%}")
+    print(f"  C2 (no 5-line transitions):    {n_c2}/{trials} = {n_c2/trials:.2%}")
+    print(f"  C3 (comp distance <= {kw_c3}):   {n_c3}/{trials} = {n_c3/trials:.2%}")
+    print()
+    print(f"  5-line transitions in null: range [{min(c2_vals)}, {max(c2_vals)}], "
+          f"mean {sum(c2_vals)/trials:.2f}")
+    print(f"  C3 total distance in null:  range [{min(c3_vals)}, {max(c3_vals)}], "
+          f"median {c3_median}, mean {c3_mean:.1f}")
+    print(f"  KW's C3 ({kw_c3}) is at the {kw_percentile:.2f}th percentile of the null pool")
+    print()
+    print("Interpretation:")
+    if n_c1 == 0:
+        print("  No de Bruijn permutation satisfies C1 — window-shift adjacency")
+        print("  does not produce reverse/inverse pair placement. C1 is not a")
+        print("  generic property of structured binary permutations.")
+    if n_c2 == 0:
+        print("  No de Bruijn permutation avoids 5-line transitions; window-shift")
+        print("  geometry forces some Hamming-5 adjacencies.")
+    if n_c3 == 0:
+        null_min = min(c3_vals)
+        print(f"  No de Bruijn permutation matches KW's complement-distance ceiling.")
+        print(f"  Null-pool minimum is {null_min} (~{null_min/kw_c3:.2f}x KW's value of {kw_c3}).")
+        print("  KW's complement proximity is qualitatively distinct from the de")
+        print("  Bruijn family's natural complement geometry.")
+    print()
+    print("Caveats:")
+    print(f"  - {trials} samples is small vs. 2^26 (~67M) distinct B(2, 6) sequences;")
+    print("    randomized Hierholzer is non-uniform. Finding is suggestive, not exhaustive.")
+    print("  - Other structured families (Costas arrays, Gray codes, lexicographic)")
+    print("    are NOT tested. This addresses one of several gaps in CRITIQUE.md.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -2560,6 +2710,8 @@ def main():
                         help="Fingerprint analysis: free positions, edit distances, minimum constraints")
     parser.add_argument("--reconstruct", action="store_true",
                         help="Reconstruct King Wen step by step, verifying uniqueness at each step")
+    parser.add_argument("--null-debruijn", action="store_true",
+                        help="Null-model comparison: test C1-C3 against sampled de Bruijn B(2,6) permutations (addresses CRITIQUE.md structured-permutation gap)")
     parser.add_argument("--max-nodes", type=int, default=10_000_000,
                         help="Max nodes for backtracking enumeration (default: 10M)")
     parser.add_argument("--time-limit", type=int, default=60,
@@ -2590,7 +2742,7 @@ def main():
                  args.boundaries, args.construct, args.enumerate,
                  args.trigram_paths, args.line_decomp, args.pair_neighborhoods,
                  args.residuals, args.info, args.differential, args.rule7,
-                 args.fingerprint, args.reconstruct]
+                 args.fingerprint, args.reconstruct, args.null_debruijn]
     if not any(all_flags):
         args.rules = True
         args.narrow = True
@@ -2660,6 +2812,10 @@ def main():
 
     if args.reconstruct:
         print_reconstruct()
+        print()
+
+    if args.null_debruijn:
+        print_null_debruijn(trials=args.trials, seed=args.seed)
         print()
 
 if __name__ == "__main__":
