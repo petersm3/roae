@@ -229,7 +229,7 @@ ROAE's contribution to the study of the King Wen sequence — distinct from what
 
 2. **Seven-family null-model framework.** Measures how other structured permutation families compare to KW's structural properties. Main finding: zero of 1.86 billion permutations across six unconditional families satisfy C1 (consistent with the theoretical rate of ~10⁻⁴⁴ for random permutations). For the de Bruijn and Gray code families, 0% is also proved analytically, not just observed. This is the first systematic null-model test of this scope for the KW structural constraints.
 
-3. **C1 does most of the structural work.** A 10⁹-sample pair-constrained null (C1 guaranteed by construction) shows that given C1, the conditional C2 hit rate jumps from 0.18% (random) to 4.29% (a 24× multiplier), and C3 from 0.003% to 6.42% (a 2,140× multiplier). This quantifies what was previously intuitive: the pair structure is doing the heavy lifting; C2 and C3 are relatively modest additional filters.
+3. **C1 does most of the structural work.** A 10⁹-sample pair-constrained null (C1 guaranteed by construction) shows that given C1, the conditional C2 hit rate jumps from 0.18% (random) to 4.29% (a 23.5× multiplier), and C3 from 0.003% to 6.42% (a 2,264× multiplier). This quantifies what was previously intuitive: the pair structure is doing the heavy lifting; C2 and C3 are relatively modest additional filters.
 
 4. **C3 (complement-distance ceiling of 776) as a specifically quantified constraint.** Believed ROAE-original; if prior work exists, please see [CITATIONS.md](CITATIONS.md).
 
