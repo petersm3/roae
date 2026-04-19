@@ -628,33 +628,48 @@ then.
        -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm
    ```
 
-2. **Run an enumeration.** On a 64-core machine with ~32 GB free disk:
+2. **Run a canonical enumeration.** On a machine with ≥64 cores and ≥64 GB
+   free disk (128 cores and 1.5 TB for 100T):
    ```
-   SOLVE_THREADS=64 SOLVE_NODE_LIMIT=10000000000000 ./solve 86400
+   SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 ./solve 0    # 10T d3 canonical
    ```
-   At ~1.3B nodes/sec, 10T nodes takes ~2 hours. Produces ~1344 `sub_*.bin`
-   shards, a merged `solutions.bin` (~24 GB), and `solutions.sha256`.
+   Pass `0` as the wall-clock argument for the reproducibility rule — each
+   sub-branch runs to its full per-branch node budget, producing byte-identical
+   output regardless of thread count or hardware. Empirical timing: 10T d3
+   completes in ~83 min on D128als_v7 (Zen 5) or ~5 h on F64als_v6 (Zen 4).
+   Produces 158,364 `sub_*.bin` shards, a merged `solutions.bin` (~22.6 GB),
+   and `solutions.sha256`.
 
-3. **Verify the output.**
+3. **Verify the output.** The expected sha is the current canonical, not
+   any legacy file in `enumeration/`:
    ```
-   sha256sum -c enumeration/solutions.sha256        # must match
-   ./solve --validate solutions.bin                  # ALL CONSTRAINTS VERIFIED
+   sha256sum solutions.bin
+   # must equal f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e  (10T d3)
+   # or        a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2  (10T d2)
+   ./solve --validate solutions.bin            # ALL CONSTRAINTS VERIFIED
    ```
 
 4. **Reproduce the scientific analyses.**
    ```
    ./solve --analyze solutions.bin > analyze_output.txt
-   diff analyze_output.txt enumeration/analyze_c_742M.txt   # headers/timings differ, numbers don't
+   zcat solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz > expected.txt
+   diff analyze_output.txt expected.txt        # headers/timings differ, numbers don't
    ```
 
 5. **Cross-check downstream doc claims** against `analyze_output.txt`. Every
    numerical claim in HISTORY.md / SOLVE-SUMMARY.md / CRITIQUE.md / LEADERBOARD.md
    has a corresponding section in the analyze output.
 
-The committed `enumeration/` artifacts (`checkpoint.txt`, `solve_output.txt`,
-`solve_results.json`, `solutions.sha256`, `analyze_c_742M.txt`,
-`analyze_section14_742M.txt`) are the reference against which reproduction is
-checked.
+The canonical archival artifacts live under `solve_c/runs/<date>_<scale>_<depth>_<runtag>/`
+(e.g., `solve_c/runs/20260418_10T_d3_fresh/` for the 10T d3 canonical). Each
+per-run directory contains `solutions.sha256`, `solutions.meta.json`, compressed
+enum + merge logs, and a compressed `analyze_output.log.gz` — these are the
+reference against which reproduction is checked.
+
+The older `enumeration/solutions.sha256` and `enumeration/analyze_c_742M.txt`
+files hold the invalidated 742M-era sha and analyze outputs (see HISTORY.md
+for forensics). They are kept for audit trail only and should NOT be used as
+a reproduction reference.
 
 ## Running on cloud (high-level)
 
@@ -707,58 +722,54 @@ possibly M-series VM for analysis step. Queued, not scoped.
 Beyond the current committed state, the following work is known to be useful
 but not yet done. A fresh session wanting to continue the project should
 consider these in rough priority order. This section was last refreshed
-2026-04-18; see [HISTORY.md](HISTORY.md) "Current state" for the canonical
+2026-04-19; see [HISTORY.md](HISTORY.md) "Current state" for the canonical
 up-to-date status.
 
 ### Operational (in-flight or near-term)
 
-1. **Establish canonical v1 reference shas.** No canonical `solutions.bin`
-   currently exists in format v1. In progress:
-   - **D3 re-merge** of the existing 56,404 sub_*.bin shards on
-     `solver-data` (produced by the bug-fixed solver during the completed
-     10T d3 enumeration). The first canonical v1 sha lands here.
-   - **D2 fresh 10T enumeration** on spot F64 using the current solver,
-     producing an independent d2 reference sha. The d2 and d3 shas
-     should agree on the canonical dedup count — disagreement flags a
-     depth-dependent bug.
-   - **Cross-validation**: re-enumerate d3 from scratch independently and
-     compare to the merge-based sha. Catches any silent drift between
-     the enumeration and merge code paths.
-2. **100T enumeration.** Preconditions: (a) d3/d2 reference shas established
-   (item 1), (b) D128als_v7 spot quota approved by Azure (currently requested,
-   pending), (c) the external-merge + Premium-SSD `SOLVE_TEMP_DIR` pattern
-   exercised at 10T scale as the dry run (landed 2026-04-18). Cost
-   projection: ~$50 on spot at depth-3. Validates the 10T reference shas
-   at 10× the node budget and fills in any solutions the 10T enumeration
-   didn't reach.
+1. **100T d3 enumeration on D128als_v7 westus3.** Launched 2026-04-19
+   ~08:00 UTC; at the time of this doc refresh, enumeration is in flight.
+   Expected outcome: a 100T-budget canonical sha that supersedes the 10T d3
+   sha as the deepest partial dataset. Per PARTITION_INVARIANCE.md the
+   100T sha is distinct from 10T (different `SOLVE_NODE_LIMIT`) but still
+   reproducible. Post-run: update LEADERBOARD.md with the new sha +
+   canonical count, refresh `--analyze` outputs for the deeper dataset,
+   reassess {25, 27} interchangeable-pairs structure at 10× budget.
+2. **4-corners validation at 100T.** The 10T d3 canonical has been
+   validated across {F64 Zen 4 westus2, D128 Zen 5 westus3} × {external,
+   heap-sort merge} (all four produce byte-identical output, see
+   HISTORY.md). 100T has only been run via the D128+external corner so
+   far; running the other three corners at 100T would tighten the
+   partition-invariance empirical claim — but is not required for the
+   canonical sha, which is theorem-guaranteed reproducible.
 
 ### Scientific / analysis extensions (longer horizon)
 
-Tracked in detail in [`LONG_TERM_PLAN.md`](../LONG_TERM_PLAN.md) (project-
-local, not committed). Highlights:
+Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
+`~/github/x/roae/`, not committed to this repo). Highlights:
 
 3. **Formal proof of forced-orientation (Theorem 6).** `SPECIFICATION.md`
    cites the theorem with a prose proof reference. Level 1: tighten the
    prose to publication-grade. Level 2: machine-check in Lean or Rocq.
 4. **Bootstrap confidence intervals** on percentile claims (complement
-   distance at 3.9th percentile, shift pattern at 2.93%, per-position
-   entropies). Report `X% [Y%, Z%]` instead of point estimates.
+   distance at 3.9th percentile, shift pattern percentages on the current
+   canonical datasets, per-position entropies). Report `X% [Y%, Z%]`
+   instead of point estimates.
 5. **Null-model comparison against structured permutations** (de Bruijn
    sequences, Costas arrays). Currently CRITIQUE.md compares only to
    random permutations and to pair-constrained random permutations —
    structured-permutation nulls are absent.
-6. **Re-verify {25, 27} + interchangeable-pairs structure on v1 refs.**
-   The 2026-04-18 doc sweep reformulated "mandatory {25, 27}" as
-   `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}`. That structure was proven
-   on the invalidated 742M dataset; it needs re-verification on the new
-   canonical v1 d3/d2 shas. A deeper enumeration could in principle
-   collapse one of the interchangeable pairs, or admit a working
-   quadruple that doesn't include {25, 27}.
+6. **Partition-stability re-check on 100T data.** The 4-boundary
+   structure `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` is established on
+   the d3 10T canonical; the mandatory-{25, 27} sub-claim is partition-
+   stable (holds on both d2 and d3 10T). A 100T dataset will either
+   confirm the full 4-boundary structure or refine it — partition
+   dependence is expected for the 2 non-stable boundaries.
 7. **Connection to known combinatorial structures** (block designs, error-
    correcting codes, group actions). Would elevate empirical findings
    to mathematical connections. Exploratory notes in `INSIGHTS.md` and
-   `BREAKTHROUGH_REQUIREMENTS.md` (project-local at the top of the
-   working tree, not committed).
+   `BREAKTHROUGH_REQUIREMENTS.md` (operator staging in
+   `~/github/x/roae/`, not committed to this repo).
 
 ### Infrastructure / archival (deferred)
 
