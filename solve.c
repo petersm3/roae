@@ -2913,9 +2913,12 @@ static void run_null_random(uint64_t n_trials) {
 static inline int __attribute__((unused)) xor64_bit(uint64_t x, int b) { return (int)((x >> b) & 1); }
 
 static int gray_random_walk(uint8_t *seq) {
-    /* Start at a random 6-bit vertex; greedily pick a random unvisited
-     * neighbor until we fill all 64 slots. Returns 1 on success, 0 if
-     * the walk dead-ended (caller retries). */
+    /* Pure-random unvisited-neighbor selection. Walk success rate ~0.13%
+     * in Q_6 (random walks dead-end frequently), so N=10^5 samples take
+     * ~2 minutes and N=10^6 takes ~20 min. Caveat: non-uniform over the
+     * Gray code family but more diverse than Warnsdorff variants (which
+     * collapse to binary-reflected-Gray-code-like structures with
+     * C3 = 2048 max-case). Returns 1 on success, 0 on dead-end. */
     int visited[64] = {0};
     int v = (int)(xor64_next() & 0x3F);
     seq[0] = (uint8_t)v;
@@ -2927,7 +2930,7 @@ static int gray_random_walk(uint8_t *seq) {
             int nv = v ^ (1 << b);
             if (!visited[nv]) neighbors[n_unvisited++] = nv;
         }
-        if (n_unvisited == 0) return 0;  /* dead end */
+        if (n_unvisited == 0) return 0;
         int pick = neighbors[(int)(xor64_next() % (uint64_t)n_unvisited)];
         seq[i] = (uint8_t)pick;
         visited[pick] = 1;
