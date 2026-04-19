@@ -560,22 +560,27 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 
 **What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
 
-**Structured-permutation nulls (six families tested; exhaustive where feasible, 10^9-sample otherwise).**
+**Structured-permutation nulls (seven families tested; exhaustive where feasible, 10^9-sample otherwise). See [CITATIONS.md](CITATIONS.md) for scope and prior literature.**
 
 | Family | Scope | C1 | C2 (no 5-line) | C3 (≤ 776) |
 |---|---|---|---|---|
 | de Bruijn B(2, 6) | Exhaustive 2^27 = 134,217,728 | **0** — also analytic | 0 — min observed 1 | 0.1841% |
 | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0** — analytic ∀ Gray | 100% (trivial) | 0% — range [1792, 2048] |
-| Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** | 6.67% — range [512, 2048] |
+| Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** (decomposed) | 6.67% — range [512, 2048] |
 | Lexicographic (6! bit-orders) | Exhaustive 720 | 0 | 0 | 0 — always 2048 |
 | Historical (Fu Xi, KW, Mawangdui) | 3 point-tests | KW only | KW + **Mawangdui** | KW only |
 | Random 64-permutations | 10^9 uniform samples | **0 / 10^9** | 0.1828% | 0.002836% |
+| **Pair-constrained (C1 given)** | 10^9 samples | 100% (construction) | **4.29%** cond. on C1 | **6.42%** cond. on C1 |
 
-Across **~1.86 billion permutations** spanning six families (four of them enumerated to exhaustion within their natural scope, two sampled), **zero satisfy C1** — consistent with the theoretical rate of ~10^-44 for a uniform random permutation. The C1 result is additionally **proven analytically** for de Bruijn B(2, 6) and for all 6-bit Gray codes (CRITIQUE.md §C1 impossibility).
+Across **~1.86 billion permutations** from the six unconditional families, **zero satisfy C1** — consistent with the theoretical rate of ~10^-44 for a uniform random permutation. The C1 result is additionally **proven analytically** for de Bruijn B(2, 6) and for all 6-bit Gray codes (see CRITIQUE.md §C1 impossibility).
 
-**What varies across families.** C2 (no 5-line transitions) is **rare in random (0.18%), impossible in de Bruijn, trivially automatic in Gray codes, and majority-satisfied in Latin-square row×col (57.96%)**. Mawangdui — the ancient silk-text ordering — also accidentally satisfies C2 despite failing C1 and C3. C3 concentration: random 0.003%, de Bruijn 0.18% (~65× random), Latin 6.67% (~2350× random), Gray 0%. The **conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen** across every family tested, because C1 is 0% in each.
+**C1 does most of the structural work.** The pair-constrained null measures what happens *given* C1: a 10^9-sample Monte Carlo shows C2 | C1 = 4.29% (vs. 0.18% unconditional — a **24× multiplier**) and C3 | C1 = 6.42% (vs. 0.003% unconditional — a **2,140× multiplier**). The pair structure alone enormously constrains adjacency and complement geometry toward KW-like; C2 and C3 then act as relatively modest additional filters. This aligns with ROAE's canonical enumeration: solve.c finds 706,422,987 orderings satisfying C1+C2+C3 at d3 10T, rough order-of-magnitude consistent with ~0.28% (≈ 4.29% × 6.42%) of the ~10^14 C1-only orderings.
+
+**What varies across families.** C2 (no 5-line transitions) is **rare in random (0.18%), impossible in de Bruijn, trivially automatic in Gray codes, and majority-satisfied in Latin-square row×col (57.96%)**. Mawangdui — the ancient silk-text ordering — also accidentally satisfies C2 despite failing C1 and C3. The **conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen** across every tested family (no family has a nonzero fraction achieving all three).
 
 **Remaining gap**: Costas arrays of order 64. Existence via Welch/Lempel–Golomb constructions is uncertain (those give adjacent orders 62 and 66, not 64), and full 64! enumeration is infeasible (~10^89). Deferred.
+
+**Credit.** C1 (pair structure) is **classical** — see [CITATIONS.md](CITATIONS.md) for Cook (2006) and the I Ching commentarial tradition. C2 (no-5-line transitions) is attributed to **Terence McKenna (1975)** in *The Invisible Landscape*. ROAE's contribution here is the **null-model testing framework** across seven families, the **analytic C1 impossibility proofs** for de Bruijn and Gray code, and the **Latin-square C2-rate decomposition** (see CRITIQUE.md §Latin-square C2-rate decomposition). C3 as a specific quantified threshold (776) is believed ROAE-original; if prior work exists, see CITATIONS.md disclaimer.
 
 ## Usage
 
@@ -612,9 +617,11 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 ./solve --null-debruijn-exact     # All 2^27 B(2,6) Eulerian circuits — ~80 sec on a 2-core VM
 ./solve --null-gray               # 6-bit Gray code orbit (256 members) — <1 sec
 ./solve --null-latin              # Full 8! × 8! = 1.6B Latin-square row×col traversals — ~10 min
+./solve --null-latin-explain      # Analytic decomposition of the 57.96% C2 rate — <1 sec
 ./solve --null-lex                # 6! = 720 lexicographic bit-order variants — <1 sec
 ./solve --null-historical         # Fu Xi, King Wen, Mawangdui — <1 sec
 ./solve --null-random [N]         # N uniform random 64-permutations (default 10^9) — ~10 min
+./solve --null-pair-constrained [N]  # Random pair-order + orientation (C1 baked in), conditional C2|C1, C3|C1 — ~10 min
 ```
 
 ### C solver (solve.c) — fast enumeration

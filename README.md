@@ -159,6 +159,10 @@ Optional external programs for export formats:
 
 ## References
 
+> **See [CITATIONS.md](CITATIONS.md) for the full, formally scoped reference list** — including prior literature on the mathematical structure of the King Wen sequence (Cook 2006, McKenna 1975), methodological citations (Hierholzer, Fisher-Yates, Marsaglia, Bonferroni, Wilson), and explicit attribution of which observations are classical / prior work vs. independently verified computationally by ROAE vs. believed novel here. CITATIONS.md includes a disclaimer inviting updates from readers aware of prior work not cited.
+
+Selected links (non-exhaustive, see CITATIONS.md for the full list):
+
 * [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
 * [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) — Wikipedia (traditional attribution, ~1000 BCE; modern scholarship is divided on the exact origin and dating of the sequence)
 * [OEIS A102241](https://oeis.org/A102241) — binary encoding of King Wen hexagrams

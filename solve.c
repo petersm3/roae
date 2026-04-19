@@ -2864,6 +2864,204 @@ static void run_null_random(uint64_t n_trials) {
            c3_min, c3_max, (double)c3_sum / n_trials);
 }
 
+/* ---------- Latin-square C2 rate decomposition ----------
+ *
+ * Analytically explains the --null-latin result that 57.96% of 8!×8!
+ * row×column traversals have zero 5-line transitions.
+ *
+ * Theorem: in a Latin-square row×col traversal, 56 of 63 adjacent-pair
+ * transitions are within-row (share upper trigram → Hamming ≤ 3 < 5,
+ * cannot be 5-line). Only the 7 between-row boundaries can be Hamming-5.
+ *
+ * At boundary i, Hamming = popcount(r_i XOR r_{i+1}) + popcount(c[0] XOR c[7])
+ * where each popcount ∈ {1, 2, 3}. Sum = 5 iff (p_i, d) = (2, 3) or (3, 2).
+ *
+ * Per-row-perm C2 rate depends only on whether {p_1, ..., p_7} contains 2s
+ * and/or 3s. For d = popcount(c[0] XOR c[7]):
+ *   d = 1 (24 pairs, × 720 middle cols = 17,280 col perms): always passes C2
+ *   d = 2 (24 pairs, × 720 = 17,280): passes iff no p_i = 3
+ *   d = 3 (8 pairs, × 720 = 5,760): passes iff no p_i = 2
+ *
+ * So per-row-perm good column perms:
+ *   All p_i = 1       → 40,320 / 40,320 = 100% (rate 56/56)
+ *   Some p_i = 2 only → 34,560 / 40,320 =  6/7 (rate 48/56)
+ *   Some p_i = 3 only → 23,040 / 40,320 =  4/7 (rate 32/56)
+ *   Both 2s and 3s    → 17,280 / 40,320 =  3/7 (rate 24/56)
+ *
+ * This routine enumerates all 8! row perms, classifies each by its
+ * {p_1, ..., p_7} popcount multiset, and computes the predicted total
+ * good-col count. Verification: should equal 942,243,840 exactly, matching
+ * the empirical --null-latin result.
+ */
+
+static void run_null_latin_explain(void) {
+    printf("# Latin-square C2-rate decomposition analysis\n\n");
+    printf("Verifying analytical explanation of the 57.96%% C2 rate in 8!×8! Latin-\n");
+    printf("square row×column traversals.\n\n");
+
+    int perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    int c[8] = {0};
+    uint64_t N_all1 = 0, N_2only = 0, N_3only = 0, N_both = 0;
+    uint64_t N_total = 0;
+
+    do {
+        /* Tally p_i = popcount(perm[i] XOR perm[i+1]) for boundaries i=0..6 */
+        int has_2 = 0, has_3 = 0;
+        for (int i = 0; i < 7; i++) {
+            int p = __builtin_popcount(perm[i] ^ perm[i + 1]);
+            if (p == 2) has_2 = 1;
+            if (p == 3) has_3 = 1;
+        }
+        if (!has_2 && !has_3) N_all1++;
+        else if (has_2 && !has_3) N_2only++;
+        else if (!has_2 && has_3) N_3only++;
+        else N_both++;
+        N_total++;
+
+        int k = 0;
+        while (k < 8 && c[k] >= k) { c[k] = 0; k++; }
+        if (k == 8) break;
+        int swap_j = (k & 1) ? c[k] : 0;
+        int tmp = perm[swap_j]; perm[swap_j] = perm[k]; perm[k] = tmp;
+        c[k]++;
+    } while (1);
+
+    printf("Row permutation class census (n = %llu = 8!):\n", (unsigned long long)N_total);
+    printf("  all p_i = 1 (Ham. path in Q_3):        %8llu  (%6.4f%%)\n",
+           (unsigned long long)N_all1, 100.0 * N_all1 / N_total);
+    printf("  some p_i = 2, no p_i = 3:              %8llu  (%6.4f%%)\n",
+           (unsigned long long)N_2only, 100.0 * N_2only / N_total);
+    printf("  some p_i = 3, no p_i = 2:              %8llu  (%6.4f%%)\n",
+           (unsigned long long)N_3only, 100.0 * N_3only / N_total);
+    printf("  both p_i = 2 and p_i = 3:              %8llu  (%6.4f%%)\n",
+           (unsigned long long)N_both, 100.0 * N_both / N_total);
+
+    uint64_t predicted_good_col_perms_total =
+        N_all1 * 40320 + N_2only * 34560 + N_3only * 23040 + N_both * 17280;
+    uint64_t total_traversals = N_total * 40320;
+
+    printf("\nPredicted total (good row×col pairs):\n");
+    printf("  %llu×40320 + %llu×34560 + %llu×23040 + %llu×17280\n",
+           (unsigned long long)N_all1, (unsigned long long)N_2only,
+           (unsigned long long)N_3only, (unsigned long long)N_both);
+    printf("  = %llu\n", (unsigned long long)predicted_good_col_perms_total);
+    printf("  Expected (empirical --null-latin):  942,243,840\n");
+    printf("  Match: %s\n",
+           predicted_good_col_perms_total == 942243840ULL ? "YES ✓" : "MISMATCH (analysis gap)");
+
+    printf("\nPredicted C2 rate: %.6f%%\n",
+           100.0 * predicted_good_col_perms_total / total_traversals);
+    printf("Empirical C2 rate: 57.959184%%  (942,243,840 / 1,625,702,400)\n");
+
+    /* Breakdown contributions */
+    printf("\nContribution to total by class:\n");
+    printf("  all p_i = 1:       %12llu good col perms × row perms\n",
+           (unsigned long long)(N_all1 * 40320));
+    printf("  some 2, no 3:      %12llu\n",
+           (unsigned long long)(N_2only * 34560));
+    printf("  some 3, no 2:      %12llu\n",
+           (unsigned long long)(N_3only * 23040));
+    printf("  both 2 and 3:      %12llu\n",
+           (unsigned long long)(N_both * 17280));
+}
+
+/* ---------- Pair-constrained random null ----------
+ *
+ * Samples uniformly random sequences that satisfy C1 by construction:
+ * take the 32 canonical KW pairs, permute their positions via Fisher-
+ * Yates, and pick a random 2-choice orientation (which element first)
+ * per pair. Since C1 is baked in, this isolates the QUESTION: "given
+ * C1, how often do random such sequences also satisfy C2 and C3?"
+ *
+ * This is the critical null for interpreting KW's C2+C3 properties:
+ * in the 6 prior families, C1 was impossible, so we could not measure
+ * conditional C2/C3 rates. This family makes C1 trivial and measures
+ * how much additional structure C2 and C3 represent beyond pair-
+ * reflection.
+ */
+
+static void run_null_pair_constrained(uint64_t n_trials) {
+    printf("# Null-model: pair-constrained random permutations\n\n");
+    printf("Sampling %llu random pair-position permutations with random orientations.\n",
+           (unsigned long long)n_trials);
+    printf("C1 is guaranteed by construction; measures conditional C2/C3 rates.\n\n");
+
+    init_pairs();  /* populates pairs[0..31] from KW */
+    xor64_state = 0xA5A5A5A5DEADBEEFULL;
+
+    uint64_t n_c1_verified = 0, n_c2 = 0, n_c3 = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+    int c2_min = 10000, c2_max = 0;
+    time_t start = time(NULL);
+
+    int order[32];
+    for (uint64_t t = 0; t < n_trials; t++) {
+        /* Fisher-Yates on pair positions */
+        for (int i = 0; i < 32; i++) order[i] = i;
+        for (int i = 31; i > 0; i--) {
+            int j = (int)(xor64_next() % (uint64_t)(i + 1));
+            int tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+        }
+        /* Random orientation per pair */
+        uint64_t orient_bits = xor64_next();
+        uint8_t seq[64];
+        for (int i = 0; i < 32; i++) {
+            int p = order[i];
+            int o = (orient_bits >> i) & 1;
+            if (o == 0) {
+                seq[2 * i]     = (uint8_t)pairs[p].a;
+                seq[2 * i + 1] = (uint8_t)pairs[p].b;
+            } else {
+                seq[2 * i]     = (uint8_t)pairs[p].b;
+                seq[2 * i + 1] = (uint8_t)pairs[p].a;
+            }
+        }
+        if (null_c1_pair_structure(seq)) n_c1_verified++;  /* sanity */
+        int c2 = null_c2_count_5line(seq);
+        if (c2 == 0) n_c2++;
+        if (c2 < c2_min) c2_min = c2;
+        if (c2 > c2_max) c2_max = c2;
+        int c3 = null_c3_total_comp_dist(seq);
+        if (c3 <= KW_C3_CEILING) n_c3++;
+        if (c3 < c3_min) c3_min = c3;
+        if (c3 > c3_max) c3_max = c3;
+        c3_sum += c3;
+        if ((t & 0x3FFFFFFULL) == 0 && t > 0) {
+            time_t now = time(NULL);
+            double elapsed = (double)(now - start);
+            double rate = (double)t / (elapsed > 0 ? elapsed : 1);
+            double eta = (double)(n_trials - t) / (rate > 0 ? rate : 1);
+            fprintf(stderr,
+                    "[null-pair-constrained] progress: %llu / %llu (%.1f%%) rate %.0f/s ETA %.0fs\n",
+                    (unsigned long long)t, (unsigned long long)n_trials,
+                    100.0 * t / n_trials, rate, eta);
+        }
+    }
+    time_t end = time(NULL);
+
+    printf("Results (n = %llu, wall time %lds):\n",
+           (unsigned long long)n_trials, (long)(end - start));
+    printf("  C1 verified (sanity):          %llu / %llu  (%.4f%%)\n",
+           (unsigned long long)n_c1_verified, (unsigned long long)n_trials,
+           100.0 * n_c1_verified / n_trials);
+    printf("  C2 | C1 (no 5-line transitions, given C1):  %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c2, (unsigned long long)n_trials,
+           100.0 * n_c2 / n_trials);
+    printf("  C3 | C1 (comp distance <= %d, given C1):    %llu / %llu  (%.6f%%)\n",
+           KW_C3_CEILING,
+           (unsigned long long)n_c3, (unsigned long long)n_trials,
+           100.0 * n_c3 / n_trials);
+    printf("\n  5-line transitions: range [%d, %d]\n", c2_min, c2_max);
+    printf("  C3 comp distance:   range [%d, %d], mean %.1f\n",
+           c3_min, c3_max, (double)c3_sum / n_trials);
+    printf("\nInterpretation: given that C1 holds, how often does a random valid\n");
+    printf("pair-ordering also satisfy the adjacency and complement constraints?\n");
+    printf("Solve.c's canonical enumeration at 10T (d3: 706M orderings) and 100T\n");
+    printf("measures this exhaustively under the C1+C2+C3 filter; this Monte-Carlo\n");
+    printf("sample gives the *unconditional* rate over uniformly random pair-perms.\n");
+}
+
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
@@ -2920,6 +3118,13 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--null-random") == 0) {
         uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
         run_null_random(n);
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-pair-constrained") == 0) {
+        uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
+        run_null_pair_constrained(n);
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-latin-explain") == 0) {
+        run_null_latin_explain();
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;

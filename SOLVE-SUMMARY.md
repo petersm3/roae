@@ -9,7 +9,7 @@
 
 > **What this analysis does and does not show.** The **robust findings** — that King Wen has perfect pair structure, avoids 5-line transitions, and minimizes complement distance — are properties that are independently rare or unique in random permutations. The **"4 boundaries uniquely determine King Wen" result**, however, is a property of the **constraint-extraction methodology**, not evidence of King Wen's inherent uniqueness beyond those robust findings. A null-model test (see [CRITIQUE.md](CRITIQUE.md)) found that applying the same methodology — extract distance distribution + starting pair + specific boundaries from a random pair-constrained sequence, then check uniqueness — produces apparent "uniqueness" for 9/10 random sequences. So the 4-boundary uniqueness is true of King Wen *within this methodological frame* but would be equally true of many other pair-constrained sequences if treated the same way. Keep this distinction in mind as you read.
 
-A plain-language summary of what `solve.py` and `solve.c` discovered.
+A plain-language summary of what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
 ## The puzzle
 
@@ -37,7 +37,7 @@ To get the binary code, read the 1s and 0s from the top of the table downward. F
 
 ## The rules we found
 
-We discovered six rules. Each rule eliminates more and more possible arrangements:
+Six rules, each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / Cook 2006; Rule 2 from Terence & Dennis McKenna's *The Invisible Landscape*, 1975); Rules 3–6 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
 
 ### Rule 1: Every hexagram has a partner
 
@@ -208,7 +208,7 @@ The underlying constraint geometry — that within-pair orient is almost entirel
 
 Applying the same methodology to random pair-constrained sequences — extract their diff distribution, complement distance, and starting pair, then test for uniqueness — also produces apparent uniqueness in 9 out of 10 cases. **The constraint extraction approach makes almost any sequence appear uniquely determined.** This means Rules 3-7 are not individually remarkable — any sequence's specific properties would similarly narrow the search space.
 
-What IS genuinely special about King Wen is **Rules 1 and 2**: the perfect pair structure and the no-5-line-transition property. Only ~4% of pair-constrained orderings avoid 5-line transitions. The pair structure itself is vanishingly unlikely by chance. These two properties are real discoveries, not artifacts of the methodology.
+What IS genuinely special about King Wen is **Rules 1 and 2**: the perfect pair structure and the no-5-line-transition property. Only ~4% of pair-constrained orderings avoid 5-line transitions (ROAE's 10^9-sample pair-constrained null gives 4.29% precisely). The pair structure itself is vanishingly unlikely by chance — a random 64-permutation has probability ~10^-44 of satisfying it. Both observations are **prior knowledge** — Rule 1 is classical (*Yi Zhuan* commentary, Cook 2006) and Rule 2 is from McKenna & McKenna 1975 (*The Invisible Landscape*). ROAE's contribution is **independent computational verification** at scale, plus **null-model testing** across seven structured permutation families showing no family other than KW simultaneously satisfies C1+C2+C3. See [CITATIONS.md](CITATIONS.md) and [CRITIQUE.md](CRITIQUE.md) §Missing analyses.
 
 ## What we can and cannot say
 

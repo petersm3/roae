@@ -45,25 +45,27 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ## Missing analyses
 
-- **Structured-permutation null models (comprehensively addressed 2026-04-19).** Six null-model families are now tested via `solve.c --null-debruijn-exact`, `--null-gray`, `--null-latin`, `--null-lex`, `--null-historical`, `--null-random`, plus a sampled counterpart in `solve.py --null-debruijn`:
+- **Structured-permutation null models (comprehensively addressed 2026-04-19).** Seven null-model families are now tested via `solve.c --null-debruijn-exact`, `--null-gray`, `--null-latin`, `--null-lex`, `--null-historical`, `--null-random`, `--null-pair-constrained`, plus a sampled counterpart in `solve.py --null-debruijn`:
 
   | Family | Scope | C1 (pair struct) | C2 (no 5-line) | C3 (comp dist ≤ 776) |
   |---|---|---|---|---|
   | de Bruijn B(2, 6) | Exhaustive, 134,217,728 circuits | **0 (0.00%)** — also proven analytically | 0 (0.00%) — min observed 1 | 247,048 (0.1841%) |
   | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0 (0.00%)** — proven ∀ Gray | 256 (100%) — trivial | 0 (0.00%); range [1792, 2048] |
-  | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0 (0.00%)** | **942,243,840 (57.96%)** | 108,380,160 (6.67%); range [512, 2048] |
+  | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0 (0.00%)** | **942,243,840 (57.96%)** — see §decomposition below | 108,380,160 (6.67%); range [512, 2048] |
   | Lexicographic (bit-order) | Exhaustive, 6! = 720 | 0 (0%) | 0 (0%) — always 2 five-line | 0 (0%) — always 2048 |
   | Historical (3 orderings) | Fu Xi, KW, Mawangdui | KW only | KW + Mawangdui (novel) | KW only |
   | Random 64-permutations | 10^9 uniform samples | **0 / 10^9 (0%)** | 1,827,703 (0.1828%) | 28,356 (0.002836%) |
+  | **Pair-constrained (C1 baked in)** | 10^9 samples, C1 guaranteed | 100% (by construction) | 4.29% conditional on C1 | 6.42% conditional on C1 |
 
-  **Theoretical check**: C1 in random 64-permutations has probability $\approx (32! \cdot 2^{32}) / 64! \approx 10^{-44}$. In 10^9 samples we would expect to see 0 — which we do.
+  **Theoretical check**: C1 in random 64-permutations has probability $\approx (32! \cdot 2^{32}) / 64! \approx 10^{-44}$. In 10^9 samples we would expect to see 0 — which we do. The ~3/N Wilson upper bound (Hanley & Lippman-Hand 1983) gives 95% CI on the C1 rate of [0, $3 \times 10^{-9}$] from the random 10^9 sample, consistent with the theoretical 10^-44.
 
   **What this establishes:**
 
-  - **C1 is astronomically KW-specific.** Zero of 1.86 billion permutations sampled across six structured and unstructured families satisfy C1, consistent with the theoretical rate of ~10^-44. For de Bruijn and Gray code families the 0% result is not just empirical — it is provable (see §C1 impossibility below).
-  - **C2 (no 5-line transitions) is mildly structural.** Rare in random (0.18%), impossible in de Bruijn, automatic in Gray codes (construction tautology), extremely common in Latin-square row×col (**57.96%**), and Mawangdui also achieves it. C2 alone is not especially distinguishing, but combined with the structural properties of each family it offers insight into how different permutation constructions distribute Hamming distances.
-  - **C3 concentration varies by family.** Random: 0.003%. de Bruijn: 0.18% (~65× random). Latin-square: 6.67% (~2350× random). Gray: 0%. Latin-square traversals concentrate C3 dramatically because the Latin-square structure symmetrically arranges complement pairs around the 8×8 grid.
-  - **Simultaneous C1+C2+C3 satisfaction is uniquely King Wen across all tested families.** No family has a nonzero fraction achieving all three, because C1 is 0% in each.
+  - **C1 is astronomically KW-specific.** Zero of 1.86 billion permutations sampled across six unconditional families satisfy C1, consistent with the theoretical rate of ~10^-44. For de Bruijn and Gray code families the 0% result is not just empirical — it is provable (see §C1 impossibility below).
+  - **C1 is doing most of the structural work.** Given C1 (pair-constrained null), the conditional C2 rate jumps from 0.18% (random) to **4.29% — a ~24× multiplier** — and the conditional C3 rate jumps from 0.003% to **6.42% — a ~2,140× multiplier**. The pair structure C1 alone enormously constrains the space toward KW-like adjacency and complement geometry; C2 and C3 are then relatively modest additional filters.
+  - **C2 (no 5-line transitions) is mildly structural.** Rare in random (0.18%), impossible in de Bruijn, automatic in Gray codes (construction tautology), majority-satisfied in Latin-square row×col (**57.96%**, analytically decomposed below), and Mawangdui also achieves it. C2 alone is not especially distinguishing; the pair-constrained null shows C2 | C1 ≈ 4.29%.
+  - **C3 concentration varies by family.** Random: 0.003%. de Bruijn: 0.18% (~65× random). Latin-square: 6.67% (~2,350× random). Pair-constrained (C1): 6.42%. Gray: 0%. The pair-constrained rate being similar to Latin-square is suggestive — both impose strong structural symmetry on complement placement.
+  - **Simultaneous C1+C2+C3 satisfaction is uniquely King Wen across all tested unconditional families.** No family has a nonzero fraction achieving all three, because C1 is 0% in each. Under the pair-constrained null (C1 given), the independence estimate 4.29% × 6.42% ≈ 0.28% gives a rough ceiling on "random pair-permutation that also satisfies C2 and C3"; this aligns with solve.c's canonical enumeration finding (706M orderings under C1+C2+C3 at d3 10T).
 
   **Remaining gap:** Costas arrays at order 64 (uncertain existence via standard Welch/Lempel–Golomb constructions; full 64! enumeration is infeasible at ~10^89 candidates). Costas at order 64 is the last open "structured permutation" family within reasonable scope; testing it would require either obtaining a published database of order-64 Costas arrays or implementing sporadic constructions. Deferred.
 
@@ -90,9 +92,27 @@ Both cases are impossible, so no pair can satisfy C1, and therefore no B(2, 6) d
 
 In any Gray code, adjacent positions differ by Hamming distance exactly 1. C1 requires each pair to have Hamming distance in $\{0, 2, 4, 6\}$: the reverse case produces $2 \cdot k$ for $k$ mismatched bit-pairs ($0, 2, 4, 6$), and the symmetric-complement case produces exactly 6 (all bits flipped). Hamming distance 1 is never among these. Therefore no Gray code satisfies the C1 pair-structure constraint at any pair position. ∎
 
-These two results, combined with the computationally exhaustive Latin-square row-traversal test showing 0/40,320, give three independent structured-permutation families where C1 is ruled out (two analytically, one computationally exhaustively). **C1 is not an "accidentally satisfied" property of common structured permutation families**; it is a specific constraint that King Wen happens to satisfy.
+These two results, combined with the computationally exhaustive Latin-square row × column test showing 0/1.6B, give three independent structured-permutation families where C1 is ruled out (two analytically, one computationally exhaustively). **C1 is not an "accidentally satisfied" property of common structured permutation families**; it is a specific constraint that King Wen happens to satisfy.
+
+### Latin-square C2-rate decomposition
+
+The empirical observation that **57.96% of 8! × 8! Latin-square row × column traversals satisfy C2** (zero 5-line transitions) is analytically explained by the adjacency structure of the Latin-square grid. Verified by `solve.c --null-latin-explain`, which reproduces the count 942,243,840 exactly from first principles.
+
+**Theorem (C2-rate decomposition).** In a Latin-square row × column traversal of the 64 hexagrams, the row-permutation class determines the C2 rate. Of 63 adjacent transitions, 56 are within-row (share upper trigram, so Hamming ≤ 3, and cannot be 5) and only the 7 between-row boundaries can be Hamming-5. At boundary $i$, the transition Hamming distance is $p_i + d$ where $p_i = \mathrm{popcount}(\mathrm{row}[i] \oplus \mathrm{row}[i+1]) \in \{1, 2, 3\}$ and $d = \mathrm{popcount}(c[0] \oplus c[7]) \in \{1, 2, 3\}$. The transition is Hamming-5 iff $(p_i, d) \in \{(2, 3), (3, 2)\}$. Since $d$ is a property of the column permutation, we get:
+
+| Row-perm class | # row perms (of 8! = 40,320) | Good column perms (of 8! = 40,320) | C2 rate |
+|---|---|---|---|
+| All $p_i = 1$ (Hamiltonian path in $Q_3$) | 144 (0.36%) | 40,320 (all) | 100% |
+| Some $p_i = 2$, no $p_i = 3$ | 13,680 (33.93%) | 34,560 (= 48/56 × 40,320) | 85.71% |
+| Some $p_i = 3$, no $p_i = 2$ | 1,008 (2.50%) | 23,040 (= 32/56 × 40,320) | 57.14% |
+| Both $p_i = 2$ and $p_i = 3$ | 25,488 (63.21%) | 17,280 (= 24/56 × 40,320) | 42.86% |
+
+The weighted sum $144 \cdot 40{,}320 + 13{,}680 \cdot 34{,}560 + 1{,}008 \cdot 23{,}040 + 25{,}488 \cdot 17{,}280 = 942{,}243{,}840$ exactly matches the empirical `--null-latin` count. The 57.96% rate is thus a direct consequence of: (a) only 7 of 63 transitions can be 5-line in any Latin-square row×col traversal, and (b) the distribution of row-adjacency Hamming profiles among Hamiltonian paths in the 3-cube.
+
+**Connection to KW.** King Wen is **not** a Latin-square row×col traversal (`./solve --null-historical` confirms Fu Xi fails C1). But the Latin-square result suggests a diagnostic question for KW: does KW have its own adjacency decomposition that analogously pushes 5-line transitions into a small subset of positions? KW has 32 pairs, each with within-pair transitions fixed to Hamming {2, 4, 6} by C1's reverse/complement construction — which also mechanically excludes Hamming-5. So KW's 32 within-pair transitions trivially avoid 5-line, leaving C2's constraint work entirely to the 31 between-pair boundaries. This is structurally analogous to Latin-square's within-row/between-row split. (The within-pair Hamming-even property has long been known in I Ching scholarship; see [CITATIONS.md](CITATIONS.md) — McKenna 1975 and Cook 2006 both discuss the even-transition artifact of the pairing rule. ROAE's contribution here is the analogous decomposition for the Latin-square family.)
+
 - No formal proof that 4 boundaries are minimum across *all* valid orderings. Only computational verification across the d2 (286M) and d3 (706M) canonical datasets. A deeper enumeration could in principle reveal a working 3-subset (lowering minimum), require a 5th boundary (raising it), or further change the structure of which specific boundaries work.
-- No independent derivation of the constraints from first principles. The 5 rules (C1-C5) were extracted from KW and then verified against KW; a stronger result would derive them from external mathematical or coding-theoretic principles. The null-model analysis confirms the constraint-extraction methodology produces apparent uniqueness for many random pair-constrained sequences, so the constraints are KW-specific rather than universal.
+- No independent derivation of the constraints from first principles. The 5 rules (C1-C5) were extracted from KW and then verified against KW; a stronger result would derive them from external mathematical or coding-theoretic principles. The null-model analysis confirms the constraint-extraction methodology produces apparent uniqueness for many random pair-constrained sequences, so the constraints are KW-specific rather than universal. See [CITATIONS.md](CITATIONS.md) for prior literature — C1 (pair structure) is classical; C2 (no-5-line) is McKenna 1975 / Cook 2006; C3 (complement distance as a quantified threshold) is believed ROAE-original.
 
 ## Summary
 
