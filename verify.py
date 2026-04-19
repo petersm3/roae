@@ -2,8 +2,11 @@
 """Independent constraint verifier for solutions.bin.
 
 Reads every record, reconstructs the 64-hexagram sequence, and checks
-C1-C5. Also checks sorted order and duplicates. Different language,
-different implementation, no shared code with solve.c.
+C1 (pair structure), C2 (no hamming-5 transitions), C3 (complement
+distance <= 776), C4 (starts with Creative/Receptive), C5 (exact
+distance distribution). Also checks sorted order and duplicates.
+Different language, different implementation, no shared code with
+solve.c — a genuine second opinion.
 
 Usage: python3 verify.py [solutions.bin]
 """
@@ -23,6 +26,25 @@ START_PAIR = 0  # Creative/Receptive
 
 def hamming(a, b):
     return bin(a ^ b).count('1')
+
+def compute_comp_dist(seq):
+    """C3: sum of |pos[v] - pos[v^63]| over all v in 0..63.
+    Bitwise complement; hexagram i's complement is i^63 (flip all 6 bits).
+    Each complement pair contributes its absolute positional distance twice
+    (once for each direction). KW's value is exactly 776 (= 12.125 × 64).
+    The C3 constraint is total <= 776 (KW sets the ceiling)."""
+    pos = [0] * 64
+    for i, v in enumerate(seq):
+        pos[v] = i
+    total = 0
+    for v in range(64):
+        comp = v ^ 63
+        total += abs(pos[v] - pos[comp])
+    return total
+
+# Derive the C3 ceiling from KW itself (same source of truth as solve.c)
+KW_COMP_DIST = compute_comp_dist(KW)
+assert KW_COMP_DIST == 776, f"internal error: KW complement distance is {KW_COMP_DIST}, expected 776"
 
 def decode(record):
     seq = []
@@ -83,7 +105,7 @@ def main():
     # Skip the header — records start at offset SOL_HEADER_SIZE
     data = data[SOL_HEADER_SIZE:]
 
-    fail_c1 = fail_c2 = fail_c4 = fail_c5 = 0
+    fail_c1 = fail_c2 = fail_c3 = fail_c4 = fail_c5 = 0
     fail_decode = fail_sort = fail_dup = 0
     kw_found = False
     prev_canonical = None
@@ -118,6 +140,10 @@ def main():
         if dist != KW_DIST:
             fail_c5 += 1
 
+        # C3: complement distance <= KW's value (776). KW sets the ceiling.
+        if compute_comp_dist(seq) > KW_COMP_DIST:
+            fail_c3 += 1
+
         # Sorted order (canonical primary, full bytes secondary)
         can = canonical(rec)
         if prev_canonical is not None:
@@ -142,6 +168,7 @@ def main():
     print(f"Records:        {n:,}")
     print(f"C1 failures:    {fail_c1}")
     print(f"C2 failures:    {fail_c2}")
+    print(f"C3 failures:    {fail_c3}  (ceiling: {KW_COMP_DIST} = KW's complement distance)")
     print(f"C4 failures:    {fail_c4}")
     print(f"C5 failures:    {fail_c5}")
     print(f"Decode errors:  {fail_decode}")
@@ -149,7 +176,7 @@ def main():
     print(f"Duplicates:     {fail_dup}")
     print(f"King Wen:       {'YES' if kw_found else 'No'}")
 
-    total_fail = fail_c1 + fail_c2 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup
+    total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup
     if total_fail == 0:
         print(f"\nVERIFY PASS: all {n:,} records satisfy C1-C5, sorted, no duplicates")
         sys.exit(0)
