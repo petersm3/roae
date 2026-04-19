@@ -2577,39 +2577,124 @@ static void run_null_gray(void) {
     printf("Only C3 is informative here.\n");
 }
 
-/* ---------- Latin-square row-traversal null ----------
+/* ---------- Latin-square row × column traversal null ----------
  *
  * The 64 hexagrams naturally form an 8×8 Latin square where entry
  * (upper_trigram, lower_trigram) is the hexagram with those trigrams
- * as top and bottom. A canonical row-traversal reads this grid row by
- * row, left to right; permuting the row order or column order within
- * rows produces 8! × 8! = ~1.6 billion variants.
+ * as top and bottom. A row-then-column traversal picks a row order
+ * AND a column order (same column order applied to every row), giving
+ * 8! × 8! = 1,625,702,400 structured permutations.
  *
- * We enumerate the ROW-ORDER-ONLY subfamily (8! = 40,320 variants)
- * with natural column order. This is a well-defined structured family
- * and finite, so full enumeration is cheap.
+ * This is the "definitive" scope for Latin-square row-traversals where
+ * the column order is globally consistent across rows. (Letting each
+ * row have its own column order gives (8!)^9 ≈ 10^45 — combinatorially
+ * well beyond a "structured" permutation family.)
  */
 
 static void run_null_latin(void) {
-    printf("# Null-model: Latin-square row-traversals (8! row orderings)\n\n");
-    /* Hexagram at (upper, lower) = (upper << 3) | lower. Row order
-     * permutation r[0..7] defines the traversal: r[0] row read l=0..7,
-     * then r[1] row read l=0..7, etc. */
-    int perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    printf("# Null-model: Latin-square row × column traversals (8! × 8!)\n\n");
+    printf("Enumerating all %llu permutations (row ordering × column ordering)...\n\n",
+           40320ULL * 40320ULL);
+
+    int row_perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    int col_perm[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    int c_row[8] = {0};
+    uint64_t n_c1 = 0, n_c2 = 0, n_c3 = 0, n_total = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+    int c2_min = 10000, c2_max = 0;
+    time_t start = time(NULL);
+
+    do {  /* per row permutation (Heap's algorithm, outer) */
+        /* Reset column state for each new row permutation */
+        int c_col[8] = {0};
+        for (int i = 0; i < 8; i++) col_perm[i] = i;
+
+        do {  /* per column permutation (Heap's algorithm, inner) */
+            uint8_t seq[64];
+            for (int rr = 0; rr < 8; rr++) {
+                int upper = row_perm[rr];
+                for (int cc = 0; cc < 8; cc++) {
+                    int lower = col_perm[cc];
+                    seq[rr * 8 + cc] = (uint8_t)((upper << 3) | lower);
+                }
+            }
+            n_total++;
+            if (null_c1_pair_structure(seq)) n_c1++;
+            int c2 = null_c2_count_5line(seq);
+            if (c2 == 0) n_c2++;
+            if (c2 < c2_min) c2_min = c2;
+            if (c2 > c2_max) c2_max = c2;
+            int c3 = null_c3_total_comp_dist(seq);
+            if (c3 <= KW_C3_CEILING) n_c3++;
+            if (c3 < c3_min) c3_min = c3;
+            if (c3 > c3_max) c3_max = c3;
+            c3_sum += c3;
+            if ((n_total & 0xFFFFFFFULL) == 0) {
+                fprintf(stderr, "[null-latin] progress: %llu / 1625702400 (%.1f%%)\n",
+                        (unsigned long long)n_total,
+                        100.0 * n_total / 1625702400.0);
+            }
+            /* advance col_perm */
+            int k = 0;
+            while (k < 8 && c_col[k] >= k) { c_col[k] = 0; k++; }
+            if (k == 8) break;
+            int swap_j = (k & 1) ? c_col[k] : 0;
+            int tmp = col_perm[swap_j]; col_perm[swap_j] = col_perm[k]; col_perm[k] = tmp;
+            c_col[k]++;
+        } while (1);
+
+        /* advance row_perm */
+        int k = 0;
+        while (k < 8 && c_row[k] >= k) { c_row[k] = 0; k++; }
+        if (k == 8) break;
+        int swap_j = (k & 1) ? c_row[k] : 0;
+        int tmp = row_perm[swap_j]; row_perm[swap_j] = row_perm[k]; row_perm[k] = tmp;
+        c_row[k]++;
+    } while (1);
+
+    time_t end = time(NULL);
+    printf("Results (n = %llu, wall time %lds):\n",
+           (unsigned long long)n_total, (long)(end - start));
+    printf("  C1 pair structure pass:        %llu / %llu  (%.8f%%)\n",
+           (unsigned long long)n_c1, (unsigned long long)n_total,
+           100.0 * n_c1 / n_total);
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c2, (unsigned long long)n_total,
+           100.0 * n_c2 / n_total);
+    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c3, (unsigned long long)n_total,
+           100.0 * n_c3 / n_total);
+    printf("\n  5-line transitions: range [%d, %d]\n", c2_min, c2_max);
+    printf("  C3 comp distance:   range [%d, %d], mean %.1f\n",
+           c3_min, c3_max, (double)c3_sum / n_total);
+}
+
+/* ---------- Lexicographic null ----------
+ *
+ * The natural lexicographic ordering [0, 1, 2, ..., 63] is one specific
+ * permutation. Permuting the 6 bit positions gives 6! = 720 distinct
+ * "lexicographic" orderings (each a relabeling of the bits). Finite
+ * and small.
+ */
+
+static void run_null_lex(void) {
+    printf("# Null-model: lexicographic orderings (bit-order variants)\n\n");
+    int bit_perm[6] = {0, 1, 2, 3, 4, 5};
+    int c[6] = {0};
     uint64_t n_c1 = 0, n_c2 = 0, n_c3 = 0, n_total = 0;
     int c3_min = 100000, c3_max = 0;
     uint64_t c3_sum = 0;
     int c2_min = 10000, c2_max = 0;
 
-    /* Heap's algorithm for generating all 8! permutations. */
-    int c[8] = {0};
     do {
         uint8_t seq[64];
-        for (int row_idx = 0; row_idx < 8; row_idx++) {
-            int upper = perm[row_idx];
-            for (int col = 0; col < 8; col++) {
-                seq[row_idx * 8 + col] = (uint8_t)((upper << 3) | col);
+        for (int i = 0; i < 64; i++) {
+            int v = 0;
+            for (int b = 0; b < 6; b++) {
+                if (i & (1 << b)) v |= (1 << bit_perm[b]);
             }
+            seq[i] = (uint8_t)v;
         }
         n_total++;
         if (null_c1_pair_structure(seq)) n_c1++;
@@ -2623,37 +2708,160 @@ static void run_null_latin(void) {
         if (c3 > c3_max) c3_max = c3;
         c3_sum += c3;
 
-        /* Advance permutation via Heap's algorithm */
-        int i = 0;
-        while (i < 8) {
-            if (c[i] < i) {
-                int swap_j = (i & 1) ? c[i] : 0;
-                int tmp = perm[swap_j]; perm[swap_j] = perm[i]; perm[i] = tmp;
-                c[i]++;
-                i = 0;
-                break;
-            } else {
-                c[i] = 0;
-                i++;
-            }
-        }
-        if (i == 8) break;
+        int k = 0;
+        while (k < 6 && c[k] >= k) { c[k] = 0; k++; }
+        if (k == 6) break;
+        int swap_j = (k & 1) ? c[k] : 0;
+        int tmp = bit_perm[swap_j]; bit_perm[swap_j] = bit_perm[k]; bit_perm[k] = tmp;
+        c[k]++;
     } while (1);
 
-    printf("Family size: 8! = %llu row orderings (natural column order within rows)\n\n",
+    printf("Family size: 6! = %llu (natural lex under bit-order permutations)\n\n",
            (unsigned long long)n_total);
-    printf("  C1 pair structure pass:        %llu / %llu  (%.4f%%)\n",
+    printf("  C1 pair structure pass:        %llu / %llu  (%.2f%%)\n",
            (unsigned long long)n_c1, (unsigned long long)n_total,
            100.0 * n_c1 / n_total);
-    printf("  C2 no 5-line transitions:      %llu / %llu  (%.4f%%)\n",
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.2f%%)\n",
            (unsigned long long)n_c2, (unsigned long long)n_total,
            100.0 * n_c2 / n_total);
-    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.4f%%)\n",
+    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.2f%%)\n",
            (unsigned long long)n_c3, (unsigned long long)n_total,
            100.0 * n_c3 / n_total);
     printf("\n  5-line transitions: range [%d, %d]\n", c2_min, c2_max);
     printf("  C3 comp distance:   range [%d, %d], mean %.1f\n",
            c3_min, c3_max, (double)c3_sum / n_total);
+}
+
+/* ---------- Historical-ordering null ----------
+ *
+ * Checks C1/C2/C3 against documented historical / structural hexagram
+ * orderings: Fu Xi (natural binary), King Wen (sanity check), Mawangdui
+ * (silk-text ordering). These are point tests, not enumerations.
+ */
+
+static void run_null_historical(void) {
+    printf("# Null-model: historical hexagram orderings\n\n");
+
+    /* King Wen 0-based hexagram values (matches verify.py::KW) */
+    uint8_t kw[64] = {
+        63,  0, 17, 34, 23, 58,  2, 16, 55, 59,  7, 56, 61, 47,  4,  8,
+        25, 38,  3, 48, 41, 37, 32,  1, 57, 39, 33, 30, 18, 45, 28, 14,
+        60, 15, 40,  5, 53, 43, 20, 10, 35, 49, 31, 62, 24,  6, 26, 22,
+        29, 46,  9, 36, 52, 11, 13, 44, 54, 27, 50, 19, 51, 12, 21, 42,
+    };
+
+    /* Fu Xi: natural binary order */
+    uint8_t fuxi[64];
+    for (int i = 0; i < 64; i++) fuxi[i] = (uint8_t)i;
+
+    /* Mawangdui: 0-based KW indices (from roae.py::mawangdui_kw_indices) */
+    int md_idx[64] = {
+         0, 43, 12, 24, 11,  9,  5, 32, 42, 27, 48, 16, 44, 57, 46, 30,
+         4, 47, 62,  2,  7, 59, 28, 38, 33, 31, 54, 50, 15, 53, 39, 61,
+        10, 45, 35, 23,  1, 18,  6, 14,  8, 56, 36, 41, 19, 60, 58, 52,
+        13, 49, 29, 20, 34, 37, 63, 55, 25, 17, 21, 26, 22, 40,  3, 51,
+    };
+    uint8_t mawangdui[64];
+    for (int i = 0; i < 64; i++) mawangdui[i] = kw[md_idx[i]];
+
+    const char *names[] = {"Fu Xi (natural binary)", "King Wen", "Mawangdui (silk-text)"};
+    uint8_t *seqs[] = {fuxi, kw, mawangdui};
+
+    printf("%-28s %-10s %-15s %-16s %s\n",
+           "Ordering", "C1 (pair)", "5-lines count", "C3 total dist", "all three?");
+    printf("%-28s %-10s %-15s %-16s %s\n",
+           "--------", "---------", "-------------", "-------------", "----------");
+    for (int s = 0; s < 3; s++) {
+        int c1 = null_c1_pair_structure(seqs[s]);
+        int c2 = null_c2_count_5line(seqs[s]);
+        int c3 = null_c3_total_comp_dist(seqs[s]);
+        int all3 = c1 && (c2 == 0) && (c3 <= KW_C3_CEILING);
+        printf("%-28s %-10s %-15d %-16d %s\n",
+               names[s], c1 ? "PASS" : "fail", c2, c3,
+               all3 ? "YES (C1+C2+C3)" : "no");
+    }
+    printf("\nKing Wen should pass all three (sanity check). Fu Xi and Mawangdui\n");
+    printf("are genuinely different structural orderings — they test whether\n");
+    printf("other historical / combinatorial orderings happen to satisfy KW's\n");
+    printf("constraints.\n");
+}
+
+/* ---------- Random 64-permutation null (sampling) ----------
+ *
+ * Generates N uniformly random 64-permutations via Fisher-Yates + a
+ * fast xorshift RNG, and counts satisfaction of C1/C2/C3. Provides the
+ * "unstructured null" baseline at very tight sample size (10^9 default,
+ * ~5-10 min on a 2-core VM).
+ */
+
+static uint64_t xor64_state;
+static inline uint64_t xor64_next(void) {
+    uint64_t x = xor64_state;
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    xor64_state = x;
+    return x;
+}
+
+static inline void random_permutation(uint8_t *p, int n) {
+    for (int i = 0; i < n; i++) p[i] = (uint8_t)i;
+    for (int i = n - 1; i > 0; i--) {
+        int j = (int)(xor64_next() % (uint64_t)(i + 1));
+        uint8_t tmp = p[i]; p[i] = p[j]; p[j] = tmp;
+    }
+}
+
+static void run_null_random(uint64_t n_trials) {
+    printf("# Null-model: %llu uniformly random 64-permutations\n\n",
+           (unsigned long long)n_trials);
+    xor64_state = 0x9E3779B97F4A7C15ULL;
+
+    uint64_t n_c1 = 0, n_c2 = 0, n_c3 = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+    int c2_min = 10000, c2_max = 0;
+    time_t start = time(NULL);
+
+    for (uint64_t t = 0; t < n_trials; t++) {
+        uint8_t seq[64];
+        random_permutation(seq, 64);
+        if (null_c1_pair_structure(seq)) n_c1++;
+        int c2 = null_c2_count_5line(seq);
+        if (c2 == 0) n_c2++;
+        if (c2 < c2_min) c2_min = c2;
+        if (c2 > c2_max) c2_max = c2;
+        int c3 = null_c3_total_comp_dist(seq);
+        if (c3 <= KW_C3_CEILING) n_c3++;
+        if (c3 < c3_min) c3_min = c3;
+        if (c3 > c3_max) c3_max = c3;
+        c3_sum += c3;
+        if ((t & 0x3FFFFFFULL) == 0 && t > 0) {
+            time_t now = time(NULL);
+            double elapsed = (double)(now - start);
+            double rate = (double)t / (elapsed > 0 ? elapsed : 1);
+            double eta = (double)(n_trials - t) / (rate > 0 ? rate : 1);
+            fprintf(stderr, "[null-random] progress: %llu / %llu (%.1f%%) rate %.0f/s ETA %.0fs\n",
+                    (unsigned long long)t, (unsigned long long)n_trials,
+                    100.0 * t / n_trials, rate, eta);
+        }
+    }
+    time_t end = time(NULL);
+
+    printf("Results (n = %llu, wall time %lds):\n",
+           (unsigned long long)n_trials, (long)(end - start));
+    printf("  C1 pair structure pass:        %llu / %llu  (%.8f%%)\n",
+           (unsigned long long)n_c1, (unsigned long long)n_trials,
+           100.0 * n_c1 / n_trials);
+    printf("  C2 no 5-line transitions:      %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c2, (unsigned long long)n_trials,
+           100.0 * n_c2 / n_trials);
+    printf("  C3 total comp dist <= 776:     %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c3, (unsigned long long)n_trials,
+           100.0 * n_c3 / n_trials);
+    printf("\n  5-line transitions: range [%d, %d]\n", c2_min, c2_max);
+    printf("  C3 comp distance:   range [%d, %d], mean %.1f\n",
+           c3_min, c3_max, (double)c3_sum / n_trials);
 }
 
 /* ---------- Main ---------- */
@@ -2702,6 +2910,16 @@ int main(int argc, char *argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-latin") == 0) {
         run_null_latin();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-lex") == 0) {
+        run_null_lex();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-historical") == 0) {
+        run_null_historical();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-random") == 0) {
+        uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
+        run_null_random(n);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;

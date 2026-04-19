@@ -560,13 +560,22 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 
 **What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
 
-**Structured-permutation nulls (three families, exhaustive where feasible).** Three structured permutation families have now been tested. Results are exhaustive within each family, not sampled.
+**Structured-permutation nulls (six families tested; exhaustive where feasible, 10^9-sample otherwise).**
 
-- **de Bruijn B(2, 6).** `solve.c --null-debruijn-exact` enumerates all 134,217,728 Eulerian circuits of the B(2, 5) graph starting at vertex 0 (representing all 2^26 cyclic sequences, each with 2 vertex-0-rotations). **Exactly 0 satisfy C1**, **exactly 0 satisfy C2** (no de Bruijn permutation has zero 5-line transitions — minimum observed is 1), and **247,048 = 0.1841% satisfy C3** (total comp distance ≤ 776). KW sits at the 0.1841-th percentile on C3. The C1 result is also provable analytically: any B(2, 6) sequence satisfying C1 would be forced to be period-4, contradicting the 64-distinct-windows requirement — see CRITIQUE.md §C1 impossibility.
-- **6-bit Gray codes** (`solve.c --null-gray`, 256-member orbit). 0 satisfy C1 (impossible — Gray code Hamming-1 adjacency is disjoint from C1's required Hamming distances), 256 trivially satisfy C2, 0 satisfy C3 (range [1792, 2048], mean 1912). Gray codes place complements farther apart than KW, not closer.
-- **Latin-square row-traversals** (`solve.c --null-latin`, 8! = 40,320 row orderings). 0 satisfy C1, **1,152 = 2.86% satisfy C2**, **2,688 = 6.67% satisfy C3** (range [512, 2048]). Interesting — the only family where a nontrivial fraction matches KW on C2 and C3. But still 0/40,320 on C1.
+| Family | Scope | C1 | C2 (no 5-line) | C3 (≤ 776) |
+|---|---|---|---|---|
+| de Bruijn B(2, 6) | Exhaustive 2^27 = 134,217,728 | **0** — also analytic | 0 — min observed 1 | 0.1841% |
+| 6-bit Gray code orbit | 256 (rot × rev × compl) | **0** — analytic ∀ Gray | 100% (trivial) | 0% — range [1792, 2048] |
+| Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** | 6.67% — range [512, 2048] |
+| Lexicographic (6! bit-orders) | Exhaustive 720 | 0 | 0 | 0 — always 2048 |
+| Historical (Fu Xi, KW, Mawangdui) | 3 point-tests | KW only | KW + **Mawangdui** | KW only |
+| Random 64-permutations | 10^9 uniform samples | **0 / 10^9** | 0.1828% | 0.002836% |
 
-Across the three tested families, 0/174M permutations satisfy C1. Together with the analytic impossibility proofs for the first two, this elevates the structured-null conclusion from "suggestive" (at 20k random samples) to **near-definitive for C1 across these families**: King Wen's pair structure is not an accidental property of either de Bruijn, Gray code, or Latin-square row-traversal families. Untested: Costas arrays (order-64 existence / construction is uncertain without more plumbing), lexicographic variants, and other structured nulls.
+Across **~1.86 billion permutations** spanning six families (four of them enumerated to exhaustion within their natural scope, two sampled), **zero satisfy C1** — consistent with the theoretical rate of ~10^-44 for a uniform random permutation. The C1 result is additionally **proven analytically** for de Bruijn B(2, 6) and for all 6-bit Gray codes (CRITIQUE.md §C1 impossibility).
+
+**What varies across families.** C2 (no 5-line transitions) is **rare in random (0.18%), impossible in de Bruijn, trivially automatic in Gray codes, and majority-satisfied in Latin-square row×col (57.96%)**. Mawangdui — the ancient silk-text ordering — also accidentally satisfies C2 despite failing C1 and C3. C3 concentration: random 0.003%, de Bruijn 0.18% (~65× random), Latin 6.67% (~2350× random), Gray 0%. The **conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen** across every family tested, because C1 is 0% in each.
+
+**Remaining gap**: Costas arrays of order 64. Existence via Welch/Lempel–Golomb constructions is uncertain (those give adjacent orders 62 and 66, not 64), and full 64! enumeration is infeasible (~10^89). Deferred.
 
 ## Usage
 
@@ -600,9 +609,12 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 ### Null-model analyses in solve.c (exhaustive)
 
 ```
-./solve --null-debruijn-exact     # All 2^27 B(2,6) Eulerian circuits — ~80 seconds on a 2-core VM
-./solve --null-gray               # 6-bit Gray code orbit (256 members)
-./solve --null-latin              # 8! Latin-square row-traversals (40,320 permutations)
+./solve --null-debruijn-exact     # All 2^27 B(2,6) Eulerian circuits — ~80 sec on a 2-core VM
+./solve --null-gray               # 6-bit Gray code orbit (256 members) — <1 sec
+./solve --null-latin              # Full 8! × 8! = 1.6B Latin-square row×col traversals — ~10 min
+./solve --null-lex                # 6! = 720 lexicographic bit-order variants — <1 sec
+./solve --null-historical         # Fu Xi, King Wen, Mawangdui — <1 sec
+./solve --null-random [N]         # N uniform random 64-permutations (default 10^9) — ~10 min
 ```
 
 ### C solver (solve.c) — fast enumeration
