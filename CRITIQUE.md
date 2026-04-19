@@ -114,6 +114,38 @@ The weighted sum $144 \cdot 40{,}320 + 13{,}680 \cdot 34{,}560 + 1{,}008 \cdot 2
 - No formal proof that 4 boundaries are minimum across *all* valid orderings. Only computational verification across the d2 (286M) and d3 (706M) canonical datasets. A deeper enumeration could in principle reveal a working 3-subset (lowering minimum), require a 5th boundary (raising it), or further change the structure of which specific boundaries work.
 - No independent derivation of the constraints from first principles. The 5 rules (C1-C5) were extracted from KW and then verified against KW; a stronger result would derive them from external mathematical or coding-theoretic principles. The null-model analysis confirms the constraint-extraction methodology produces apparent uniqueness for many random pair-constrained sequences, so the constraints are KW-specific rather than universal. See [CITATIONS.md](CITATIONS.md) for prior literature — C1 (pair structure) is classical; C2 (no-5-line) is McKenna 1975 / Cook 2006; C3 (complement distance as a quantified threshold) is believed ROAE-original.
 
+## Open questions
+
+Falsifiable follow-ups surfaced by the current analysis. These are not claims; they are candidate hypotheses testable with the tools already built.
+
+### About the null-model framework
+
+1. **Costas arrays at order 64.** Standard Welch/Lempel–Golomb constructions give adjacent orders 62 and 66; a direct order-64 family is not known to the author. Concrete follow-up: (a) survey the published literature (the Naval Postgraduate School maintains a database of known Costas arrays) for any order-64 examples; (b) test each against C1/C2/C3; (c) if a family of order-64 Costas arrays can be constructed (e.g., via sporadic constructions, or computer search from known order-62/66 seeds), run the full null-model test.
+
+2. **Gray code C3 exhaustive.** The total count of 6-bit Gray codes (Hamiltonian cycles in Q_6) is estimated at ~10²² — exhaustive enumeration is infeasible at any practical compute budget. But the conditional C3 rate could be tightly bounded via biased random Hamiltonian sampling (10⁹ samples in a few hours); would give a firm upper bound on the Gray-code C3 rate rather than the current 0/256 from the restricted orbit.
+
+3. **Analytic C2 impossibility for de Bruijn B(2, 6).** The empirical result is that 0 of 134,217,728 sequences have zero 5-line transitions; minimum observed is 1. An analytic proof complementary to the C1 proof would formalize why. Conjectured approach: the Hamming-distance sequence of a B(2, 6) permutation is determined by adjacent-bit-equality patterns in the underlying binary sequence; pigeonhole + counting may show at least one Hamming-5 transition is forced.
+
+### About the Latin-square decomposition
+
+4. **Does King Wen have an analogous adjacency decomposition?** Latin-square row×col traversals split 63 transitions into 56 within-row (Hamming ≤ 3, cannot be 5) and 7 between-row (can be 5). KW has 32 pairs with 32 within-pair transitions (Hamming 2/4/6 by C1 construction, cannot be 5) and 31 between-pair boundaries (where all the C2 work happens). Concrete follow-up: (a) characterize the 31 between-pair boundary Hamming distances in KW; (b) compare to random permutations satisfying C1 to measure how much additional structure the between-pair distribution has.
+
+5. **Why does Mawangdui satisfy C2?** The ancient silk-text ordering has zero 5-line transitions despite a completely different pair geometry than KW. Is there a trigram-cycling argument analogous to KW's pair-Hamming-even property that explains it? Concrete follow-up: analyze Mawangdui's adjacency Hamming distribution and see if it decomposes like KW's (pair-interior = even) or like Latin-square (row-interior = small), or something else entirely.
+
+### About the constraint system
+
+6. **What combinatorial family does KW belong to?** KW is not in any of the seven structured families tested (de Bruijn, Gray, Latin-square row×col, lex, historical, pair-constrained-random-orientation, random). This is consistent with KW being sporadic / hand-constructed. But falsifiable: is there a structured family (yet-untested) that KW IS in? Candidates include necklace/bracelet enumeration orders, hex-based error-correcting codes, group-theoretic orbit constructions, or specific Hamiltonian cycles in graphs with hexagram-meaningful structure (e.g., the pair graph).
+
+7. **Are C1, C2, C3 actually sufficient?** ROAE reports 706M distinct orderings at d3 10T under C1+C2+C3. Under EXHAUSTIVE enumeration (not partial) the count may differ. The current enumeration is node-budget-limited; a true exhaustive enumeration would require much larger compute (100T d3 in progress as of 2026-04-19). The 100T run will not make the enumeration exhaustive but will reduce the gap between partial and exhaustive counts.
+
+8. **Minimum boundary-adjacency set exhaustive minimum.** Currently: "4 boundaries minimum" is proven for both d2 and d3 10T canonical datasets, with {25, 27} mandatory in every working 4-set at both partitions. Deeper enumeration could in principle reveal a 3-subset that works at a higher depth. If a 3-subset ever works at exhaustive enumeration, the "4-minimum" claim is falsified.
+
+### About methodology
+
+9. **Formal machine-checked proof of Theorem 6.** The forced-orientation theorem (see SPECIFICATION.md) has a prose proof. A Lean or Rocq machine-checked proof would remove any residual ambiguity. Listed in LONG_TERM_PLAN.md. Level 1 (prose tightening) and Level 2 (Lean / Rocq) both deferred.
+
+10. **Bootstrap confidence intervals for all percentiles in CRITIQUE.md.** The current framing uses point estimates from finite samples. Bootstrap (or Wilson score intervals for proportions) would put explicit error bars on every rate claim. Partially done in the null-model table (Wilson / 3/N rule mentioned); not yet exhaustively applied.
+
 ## Summary
 
 The constraint solver (`solve.c`) finds that 5 rules extracted from King Wen narrow 10^89 possible orderings to hundreds of millions — 706,422,987 at d3 10T partition (canonical, sha `f7b8c4fb…`), 286,357,503 at d2 10T. Both are partial enumerations (each sub-branch hits its per-sub-branch node budget rather than completing naturally); the true count under exhaustive enumeration is higher. Only Position 1 is universally locked (forced by Rule 4). The current state is: **4 boundary constraints minimum (proven at both d2 and d3 scales)**, with boundaries **{25, 27} appearing in every working 4-subset at BOTH partitions** (the stable mandatory-boundary finding). The other 2 boundaries in the 4-set are partition-dependent — d2 uses {2,3} and {21,22}; d3 uses combinations from {1..6}. The rules are confirmatory (extracted from King Wen, then shown to be highly constraining) rather than predictive (derived independently). See [SOLVE.md](SOLVE.md), [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md), [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) (formal theorem guaranteeing the canonical shas are partition-invariant), and [HISTORY.md](HISTORY.md) for details.

@@ -214,7 +214,34 @@ What IS genuinely special about King Wen is **Rules 1 and 2**: the perfect pair 
 
 The analysis shows the King Wen sequence satisfies a set of interlocking mathematical constraints. It cannot show whether the designers understood those constraints explicitly or arrived at them through centuries of refinement. A simple practice — "pair each hexagram with its mirror, keep opposites nearby, avoid jarring transitions" — applied consistently over generations could produce the same result as deliberate mathematical design. The sequence is the same either way; only the history differs, and the history is outside the reach of computation.
 
-For full technical details, methodology, and reproducible commands, see [SOLVE.md](SOLVE.md).
+## Impact and scientific implications
+
+ROAE's contribution to the study of the King Wen sequence — distinct from what was previously known — is primarily about **quantifying** how specific and KW-distinctive the combined constraint system is, and about **reproducibility** of that quantification.
+
+**What was already known** ([CITATIONS.md](CITATIONS.md)):
+
+- The pair structure (Rule 1) is ancient, discussed in *Yi Zhuan* commentary (5th–3rd c. BCE), formalized in modern combinatorial terms in **Cook 2006** (*Classical Chinese Combinatorics*).
+- The no-5-line-transition property (Rule 2) is documented in **McKenna & McKenna 1975** (*The Invisible Landscape*).
+
+**What ROAE adds:**
+
+1. **Exhaustive enumeration at scale.** Under the conjoined C1 + C2 + C3 constraint system, ROAE counts **706,422,987** distinct orderings at a 10 trillion-node partial enumeration (10T d3; sha `f7b8c4fb…`). The count is exact, reproducible byte-identically across hardware and region, and was previously only estimated or approximated.
+
+2. **Seven-family null-model framework.** Measures how other structured permutation families compare to KW's structural properties. Main finding: zero of 1.86 billion permutations across six unconditional families satisfy C1 (consistent with the theoretical rate of ~10⁻⁴⁴ for random permutations). For the de Bruijn and Gray code families, 0% is also proved analytically, not just observed. This is the first systematic null-model test of this scope for the KW structural constraints.
+
+3. **C1 does most of the structural work.** A 10⁹-sample pair-constrained null (C1 guaranteed by construction) shows that given C1, the conditional C2 hit rate jumps from 0.18% (random) to 4.29% (a 24× multiplier), and C3 from 0.003% to 6.42% (a 2,140× multiplier). This quantifies what was previously intuitive: the pair structure is doing the heavy lifting; C2 and C3 are relatively modest additional filters.
+
+4. **C3 (complement-distance ceiling of 776) as a specifically quantified constraint.** Believed ROAE-original; if prior work exists, please see [CITATIONS.md](CITATIONS.md).
+
+5. **Mawangdui comparison.** New observation (surfaced during null-model testing): the ancient Mawangdui silk-text ordering (168 BCE) **accidentally satisfies C2** (zero 5-line transitions) despite failing C1 and C3. Mawangdui and KW — the two major documented hexagram orderings — share Hamming-distance structure but diverge on pair geometry and complement placement. To this author's knowledge, this comparative finding is not previously documented.
+
+6. **Latin-square C2-rate decomposition.** The 8! × 8! Latin-square row × column traversal family has a surprisingly high C2 rate (57.96%). ROAE provides an analytic decomposition that reproduces this rate exactly from first principles: only 7 of 63 transitions in a Latin-square traversal can be 5-line, and the rate is controlled by the row-permutation's Hamming profile (Hamiltonian path in the 3-cube) combined with the column-permutation's first-last XOR. See [CRITIQUE.md §Latin-square C2-rate decomposition](CRITIQUE.md).
+
+7. **Partition Invariance theorem.** A formal guarantee ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)) that the canonical solutions.bin sha256 is byte-identical across any choice of hardware, thread count, region, merge algorithm, or enumeration path — for fixed solver + input parameters. Cross-validated across the "4 corners": {Zen 4 F64 westus2, Zen 5 D128 westus3} × {external merge, in-memory heap-sort}.
+
+**Open questions this work surfaces:** see [CRITIQUE.md §Open questions](CRITIQUE.md). In brief: Costas arrays at order 64 remain untested (infeasible at 64! candidates); Latin-square's 57.96% C2 rate invites parallel analysis of whether KW's own adjacency geometry has an analogous within/between decomposition; whether any published order-64 Costas arrays accidentally satisfy C1+C2+C3 is a concrete follow-up.
+
+For full technical details, methodology, and reproducible commands, see [SOLVE.md](SOLVE.md) and [CITATIONS.md](CITATIONS.md).
 
 <a id="appendix-all-32-complement-pairs-by-distance"></a>
 ## Appendix: All 32 complement pairs by distance
