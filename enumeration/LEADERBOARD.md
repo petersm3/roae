@@ -68,8 +68,14 @@ enumeration has found so far.
 | 32 | ䷾䷿ #63 / #64 | 21.3% | 7 | 2.58 | Progressively free |
 
 *KW match % = how often King Wen's pair appears at this position across ALL valid*
-*orderings (all branches combined). Pairs observed and entropy are from the 742M*
-*dataset (`--analyze` sections [2] and [21]). Max possible entropy = log2(32) = 5.0 bits.*
+*orderings (all branches combined). Pairs observed and entropy values in this table were*
+*originally computed from the bug-era 742M dataset; they have NOT been refreshed to the*
+*current canonical d3 10T (706M) or d2 10T (286M) datasets. For up-to-date per-position*
+*entropies see the `--analyze` output archived at `solve_c/runs/20260418_10T_d3_fresh/`*
+*and `20260418_10T_d2_fresh/` or the `D2_D3_ANALYZE_FINDINGS.md` summary (outside the*
+*git repo). The gradient shape (pos 1 locked; pos 3-19 constrained; pos 22-31 free) holds*
+*across all three datasets; specific numbers shift with partition depth. Max possible*
+*entropy = log2(32) = 5.0 bits.*
 
 **Key insight:** The sequence is not uniformly constrained. Position 1 is fully
 determined. Position 2 is a major branching point (16 options). Positions 3-18 are
