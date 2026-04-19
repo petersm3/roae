@@ -1,15 +1,18 @@
 # 100T depth-3 D128als_v7 westus3 canonical enumeration — archive
 
-*Template — will be filled in with concrete values when MERGEDONE fires.
-Placeholders marked `[[TBD]]`.*
+*Template — enumeration phase complete, merge in progress. Values marked
+`[[TBD]]` will be filled in when MERGEDONE fires. Known values already
+populated.*
 
 **Date:** 2026-04-19
 **SKU:** Standard_D128als_v7 (spot, westus3)
 **Purpose:** First partial enumeration at 10× budget over the canonical
 10T d3 run. Establishes a deeper partial sha, supersedes 10T as the
 richest partial enumeration dataset.
-**Solver commit:** `0a4366b` or later (same enumeration semantics as
-`edccb16` — docs-only follow-up; solve.c unchanged).
+**Solver commit at enumeration launch:** `edccb16` / `adf1505` (docs-only
+follow-ups after; enumeration and merge semantics unchanged since the
+10T d3 canonical was established — partition invariance guarantees
+the 100T sha depends only on solver + inputs, not subsequent doc edits).
 
 ## Canonical sha (100T partition, 2026-04-19)
 
@@ -38,11 +41,13 @@ Expected 100T count: likely 1-2B canonical orderings. Final value TBD from meta.
 
 | Phase | Wall time | Wall seconds |
 |---|---|---|
-| Enumeration (158,364 sub-branches × 631M-node budget each, 128 threads) | `[[TBD]]` | `[[ENUMERATION_WALL_SEC]]` |
-| External merge (P40 Premium SSD temp) | `[[TBD]]` | `[[MERGE_WALL_SEC]]` |
+| Enumeration (158,364 sub-branches × 631M-node budget each, 128 threads) | **11h 22m 07s** | **40,927** |
+| External merge (P40 Premium SSD temp, 2 TB) | `[[TBD]]` | `[[MERGE_WALL_SEC]]` |
 | **Total** | `[[TBD]]` | `[[TBD]]` |
 
-Projected at launch (2026-04-19 08:00 UTC): enum ~11h, merge ~2-3h, total ~13-14h.
+Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s = 40,927s ✓ on target**), merge ~2-3h, total ~13-14h.
+
+**Enumeration complete (ENUMDONE fired 2026-04-19 ~19:20 UTC)**. Sustained ~2,445 M nodes/s peak rate across 127-128 active threads. Total nodes processed: 100,000,000,000,000 (100 T per parameter). Final sub-branch (158,364/158,364, pair1=31 orient1=1 pair2=30 orient2=0) completed at 40,925s wall. All 158,364 sub-branches BUDGETED (hit per-branch node ceiling rather than exhausted).
 
 ## What's in this directory
 

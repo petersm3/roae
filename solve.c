@@ -2864,6 +2864,115 @@ static void run_null_random(uint64_t n_trials) {
            c3_min, c3_max, (double)c3_sum / n_trials);
 }
 
+/* ---------- Random 6-bit Gray code sampling ----------
+ *
+ * The 6-bit Gray code family (Hamiltonian cycles in the 6-cube Q_6) has
+ * ~10^22 members — exhaustive enumeration is infeasible. But a random
+ * walk-based sampler can efficiently generate many distinct Gray codes,
+ * letting us bound the conditional C3 rate (C1 and C2 are analytically
+ * fixed for all Gray codes: C1 = 0% by the Hamming-disjoint argument,
+ * C2 = 100% trivially by construction).
+ *
+ * Sampling strategy: start at a random vertex of Q_6, repeatedly move
+ * to a uniformly-random unvisited neighbor (Hamming-1 bit-flip). When
+ * all 64 vertices are visited, that's a Gray-code permutation. If the
+ * random walk dead-ends before visiting all 64 (possible since Q_6 is
+ * not Hamilton-connected in the sense we need), restart. This is biased
+ * compared to uniform Hamiltonian-cycle sampling but is a reasonable
+ * approximation for bounding the C3 rate.
+ */
+
+static inline int __attribute__((unused)) xor64_bit(uint64_t x, int b) { return (int)((x >> b) & 1); }
+
+static int gray_random_walk(uint8_t *seq) {
+    /* Start at a random 6-bit vertex; greedily pick a random unvisited
+     * neighbor until we fill all 64 slots. Returns 1 on success, 0 if
+     * the walk dead-ended (caller retries). */
+    int visited[64] = {0};
+    int v = (int)(xor64_next() & 0x3F);
+    seq[0] = (uint8_t)v;
+    visited[v] = 1;
+    int neighbors[6], n_unvisited;
+    for (int i = 1; i < 64; i++) {
+        n_unvisited = 0;
+        for (int b = 0; b < 6; b++) {
+            int nv = v ^ (1 << b);
+            if (!visited[nv]) neighbors[n_unvisited++] = nv;
+        }
+        if (n_unvisited == 0) return 0;  /* dead end */
+        int pick = neighbors[(int)(xor64_next() % (uint64_t)n_unvisited)];
+        seq[i] = (uint8_t)pick;
+        visited[pick] = 1;
+        v = pick;
+    }
+    return 1;
+}
+
+static void run_null_gray_random(uint64_t n_trials) {
+    printf("# Null-model: random 6-bit Gray codes (Hamiltonian walks in Q_6)\n\n");
+    printf("Sampling %llu random Gray-code permutations via unvisited-neighbor walks.\n",
+           (unsigned long long)n_trials);
+    printf("Non-uniform sampler; bounds conditional C3 rate over the ~10^22 Gray code family.\n");
+    printf("C1 = 0 by analytic proof (Hamming-1 adjacency disjoint from C1); verified as sanity.\n");
+    printf("C2 = always 0 five-line transitions (trivially by construction); verified.\n\n");
+
+    xor64_state = 0x7EEDBEEF1E15CAFEULL;
+    uint64_t attempts = 0;
+    uint64_t n_c1 = 0, n_c2_nonzero = 0, n_c3 = 0;
+    int c3_min = 100000, c3_max = 0;
+    uint64_t c3_sum = 0;
+    time_t start = time(NULL);
+    uint8_t seq[64];
+
+    for (uint64_t t = 0; t < n_trials; t++) {
+        /* keep trying until walk completes successfully */
+        while (!gray_random_walk(seq)) { attempts++; }
+        attempts++;
+
+        /* sanity checks */
+        if (null_c1_pair_structure(seq)) n_c1++;  /* should be 0 */
+        int c2 = null_c2_count_5line(seq);
+        if (c2 != 0) n_c2_nonzero++;  /* should be 0 */
+
+        int c3 = null_c3_total_comp_dist(seq);
+        if (c3 <= KW_C3_CEILING) n_c3++;
+        if (c3 < c3_min) c3_min = c3;
+        if (c3 > c3_max) c3_max = c3;
+        c3_sum += c3;
+
+        if ((t & 0x3FFFFFFULL) == 0 && t > 0) {
+            time_t now = time(NULL);
+            double elapsed = (double)(now - start);
+            double rate = (double)t / (elapsed > 0 ? elapsed : 1);
+            double eta = (double)(n_trials - t) / (rate > 0 ? rate : 1);
+            fprintf(stderr,
+                    "[null-gray-random] progress: %llu / %llu (%.1f%%) rate %.0f/s ETA %.0fs "
+                    "attempts/success=%.2f\n",
+                    (unsigned long long)t, (unsigned long long)n_trials,
+                    100.0 * t / n_trials, rate, eta, (double)attempts / (double)(t + 1));
+        }
+    }
+    time_t end = time(NULL);
+
+    printf("Results (n = %llu successful Gray codes, total walk attempts = %llu, wall %lds):\n",
+           (unsigned long long)n_trials, (unsigned long long)attempts, (long)(end - start));
+    printf("  Walk success rate:             %.2f%%\n", 100.0 * n_trials / attempts);
+    printf("  C1 (sanity, should be 0):      %llu / %llu\n",
+           (unsigned long long)n_c1, (unsigned long long)n_trials);
+    printf("  C2 != 0 (sanity, should be 0): %llu / %llu\n",
+           (unsigned long long)n_c2_nonzero, (unsigned long long)n_trials);
+    printf("  C3 (comp dist <= 776):         %llu / %llu  (%.6f%%)\n",
+           (unsigned long long)n_c3, (unsigned long long)n_trials,
+           100.0 * n_c3 / n_trials);
+    printf("\n  C3 range: [%d, %d], mean %.1f\n", c3_min, c3_max, (double)c3_sum / n_trials);
+
+    /* Wilson 95% upper bound if n_c3 is zero */
+    if (n_c3 == 0) {
+        double upper_95 = 3.0 / (double)n_trials;  /* rule of three */
+        printf("  95%% upper bound on C3 rate (Rule of Three): %.3e\n", upper_95);
+    }
+}
+
 /* ---------- Latin-square C2 rate decomposition ----------
  *
  * Analytically explains the --null-latin result that 57.96% of 8!×8!
@@ -3125,6 +3234,10 @@ int main(int argc, char *argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-latin-explain") == 0) {
         run_null_latin_explain();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--null-gray-random") == 0) {
+        uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
+        run_null_gray_random(n);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
