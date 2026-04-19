@@ -104,11 +104,15 @@ the same VM forces you to pay for the *union* — many cores *and* lots of RAM
 and at larger budgets (≥100T) the split becomes architecturally necessary
 because no single SKU is cost-effective at both.
 
-**CRITICAL: merge must run on-demand, not spot.** The merge (malloc + qsort +
-write) has no checkpoint. If evicted mid-sort, all merge work is lost and must
-restart from sub_*.bin files. On-demand cost for a 10T in-memory merge: ~$2.
-Spot risk: eviction wastes that $2 and the wall time, repeatedly. Observed
-2026-04-17: spot merge VM evicted after 24 min of sorting 2.77B records.
+**Merges run on spot by default (rule superseded 2026-04-19).** The old
+"no spot for merges" rule protected against eviction mid-sort, but the
+architecture changed: shards persist across eviction on their own managed
+disk, so a merge that gets evicted can simply re-run from the same shards
+with no data loss. Observed: 4-corners validation on D128 westus3 spot
+produced byte-identical output via both in-memory heap-sort (52 min) and
+external merge on Premium SSD (43 min); neither was evicted. Use on-demand
+only for merges > 3 hours where re-run cost is non-trivial, or when spot
+capacity is actively failing.
 
 ### Disk tier matters — more than you might think
 
@@ -128,13 +132,15 @@ wrong for merge-time *compute*. Empirical data point from the 2026-04-18
 | Total wall | ~3-4 hours |
 | F64 on-demand cost at $3.87/hr | ~$12-15 |
 
-Compared to the alternatives on the same hardware (F64als_v6, 128 GB RAM):
+Compared to the alternatives on various hardware (updated 2026-04-19 with measured D128 data):
 
 | Strategy | Wall time (10T) | Cost | Trade-off |
 |---|---|---|---|
-| External merge on Standard_LRS HDD (above) | 3-4 h | $12-15 | cheapest disk, slow merge |
-| In-memory merge on F64 (needs ~89 GB RAM, fits) | ~30 min | ~$2 | fast but limited to ≤ RAM |
-| External merge on Premium SSD (P20 512 GB) | ~1 h | ~$4-5 | fast + scalable; SSD cost for merge duration only |
+| F64als_v6 + external merge on Standard_LRS HDD (above, legacy) | 3-4 h | $12-15 on-demand | cheapest disk, slow merge; F64 retired |
+| F64als_v6 + in-memory merge (~89 GB fits in 128 GB RAM) | ~30 min | ~$2 on-demand | fast; F64 retired |
+| **D128als_v7 westus3 + in-memory heap-sort merge** | **~52 min** | **~$1.46 spot** | measured 2026-04-19; new default |
+| **D128als_v7 westus3 + external merge on Premium SSD (P20)** | **~43 min** | **~$1.26 spot + $0.05 SSD** | measured 2026-04-19; faster than in-memory at 10T |
+| D64als_v7 westus3 + in-memory merge (128 GB RAM, perfect fit) | ~52 min | ~$0.43 spot | cheaper than D128 — single-threaded merge ignores core count |
 | Premium SSD for `solver-data` permanently | (same as in-memory) | $3/month → $40/month | wasteful; SSD only needed during merge |
 
 ### Recommendations by dataset scale
@@ -306,17 +312,17 @@ tables of ~134 MB each, plus OS). Merge RAM scales with output size.
    headroom. Or use an external-merge implementation (see future work) and
    stay on a modest SKU.
 
-**Cost illustration (westus2 spot, 2026-04 prices, approximate):**
+**Cost illustration (westus3 D-series spot, 2026-04-19 measured + projected):**
 
-| Budget | Enum wall | Enum VM | Enum cost | Merge VM | Merge cost | Two-phase total | Single-VM (equiv merge SKU) |
-|---|---|---|---|---|---|---|---|
-| 10T | ~2.1h | F64 ($0.79/h) | ~$1.70 | F32 or E64 for ~15 min | ~$0.20 | **~$1.90** | ~$3.00 on E64 |
-| 100T | ~21h | F64 | ~$17 | E64 ($1.40/h) for ~30 min | ~$0.70 | **~$18** | ~$30 on E64 / ~$46 on M64 |
-| 1000T | ~9d | F64 | ~$170 | M128 ($4.50/h) for ~1h | ~$5 | **~$175** | ~$970 on M128 |
+| Budget | Enum wall | Enum VM | Enum cost | Merge VM | Merge cost | Two-phase total |
+|---|---|---|---|---|---|---|
+| 10T | **1h 23m** (measured) | D128als_v7 spot ($1.70/h) | **~$2.35** | D64als_v7 spot for ~50 min | ~$0.43 | **~$2.78** |
+| 100T | **~14h** (projected) | D128als_v7 spot | ~$24 | D128 + P40 SSD for ~2-3h (external) | ~$5-7 | **~$29-31** |
+| 1000T | ~6-7 days | D128als_v7 spot | ~$250 | D128 + P40 SSD for ~30h (external, parallel chunks) | ~$50 | **~$300** |
 
-Savings scale with wall-clock time; for ≥100T the split is strictly cheaper.
-For 1000T, running merge-on-enumeration-VM isn't viable at all (not enough RAM
-on F-series).
+Legacy F64als_v6 westus2 figures (for historical reference): 10T ~$9 (6h enum + 30min merge), 100T was projected ~$175 with split (never run at scale post-pivot). F64 is retired 2026-04-19. See `DSERIES_ROI_REPORT.md` (outside repo) for full comparison.
+
+Savings scale with wall-clock time; for ≥100T external merge with Premium SSD is strictly required (data volume exceeds RAM). For 1000T, parallel-chunk external merge on large Premium SSD is the path.
 
 **Orchestration requirements for the two-phase pattern** (most already exist):
 
@@ -484,7 +490,7 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
    NIC_ID=$(az network nic show -g "$RG" -n spot-nic --query id -o tsv)
    DISK_ID=$(az disk show -g "$RG" -n solver-data --query id -o tsv)
    SSH_PUB="$(cat ~/.ssh/f64_key.pub)"
-   SIZE=Standard_F64als_v6  # or F32als_v6 for analysis-only sessions
+   SIZE=Standard_D128als_v7  # westus3; F64als_v6 legacy westus2 pattern retired 2026-04-19
 
    az rest --method PUT \
      --url "https://management.azure.com/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/solver-vm?api-version=2024-07-01" \
@@ -602,14 +608,18 @@ recovery / analysis VM that needs to mount `solver-data`, **provision without a
 zone** (omit `--zone` and don't specify a `zone` in the resource definition
 above). Once attached to the new VM, mount as in step 5.
 
-### Cost reference (westus2, 2026-04 spot prices)
+### Cost reference (2026-04-19 pricing, post-Dalsv7-pivot)
 
-| SKU | RAM | Use case | Spot price | On-demand |
-|---|---|---|---|---|
-| F64als_v6 | 128 GB | Solver runs (64 cores) | ~$0.79/hr | ~$3.16/hr |
-| F32als_v6 | 64 GB | Analysis sessions | ~$0.20-0.30/hr | ~$1.58/hr |
-| D2as_v6 | 8 GB | Orchestrator / claude VM | ~$0.09/hr | ~$0.36/hr |
-| Standard HDD 64 GB managed disk | — | Persistent `/data` | — | ~$3/mo |
+| SKU | Region | RAM | Use case | Spot price | On-demand |
+|---|---|---|---|---|---|
+| **D128als_v7** | westus3 | 256 GB | **Enumeration ≥10T (new default)** | ~$1.70/hr | ~$6.80/hr |
+| **D64als_v7** | westus3 | 128 GB | d3 10T merge | ~$0.50/hr | ~$2.00/hr |
+| **D16als_v7** | westus3 | 32 GB | d2 10T merge | ~$0.13/hr | ~$0.50/hr |
+| **D4als_v7** | westus3 | 8 GB | Analysis / --analyze / --verify | ~$0.03/hr | ~$0.13/hr |
+| D2as_v6 | westus2 | 8 GB | Orchestrator / claude VM | ~$0.09/hr (on-demand) | — |
+| F64als_v6 | westus2 | 128 GB | **RETIRED 2026-04-19** (historical reference only) | ~$0.79/hr | ~$3.87/hr |
+| Standard HDD managed disk | any | — | Persistent `/data` (archival shards + solutions.bin) | — | ~$21-82/mo depending on tier (S15 300GB → S40 2TB) |
+| Premium SSD P20/P40 | any | — | External-merge temp scratch (attached-for-merge only) | — | ~$0.05-0.42/hr prorated |
 
 Spot prices fluctuate; check the Azure spot pricing page or set `--max-price`
 defensively. Spot evictions in westus2 under F64 averaged ~1 per 3 hours during

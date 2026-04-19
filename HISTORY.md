@@ -377,31 +377,39 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 
 **Supporting documentation.** Full SKU comparison (with authoritative Microsoft Learn sources) and ROI analysis are maintained as operator review docs at top-of-working-tree, outside the git repo.
 
-## Current state
+## Current state (2026-04-19)
 
-**Code.** solve.c is through two hardening passes. Exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, zero compile warnings. The remaining known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.
+**Code.** solve.c is through multiple hardening passes: exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, in-place heapsort replacing glibc qsort in 5 merge paths, `--sub-branch` CLI for targeted depth-3 sub-branch exhaustion, `SOLVE_CONCENTRATE_BUDGET` env var for accumulation workflows, auto-threshold at 8/10 for in-memory merge decision. Zero compile warnings. Known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.
 
-**Data.** No canonical `solutions.bin` currently exists in format v1. The prior reference shas (`c43f251f...` 31.6M, `aa1415...` 742M) are invalidated. On the `solver-data` managed disk (300 GB, Unattached): **56,404 `sub_*.bin` files from the 10T depth-3 enumeration (~2.77B pre-dedup records)** — untouched by format v1 since the shards are an internal intermediate. The first new canonical artifact will be the v1 `solutions.bin` produced by re-merging these shards with the current solver.
+**Data.** Canonical v1 reference shas established and 4-corners-validated:
+- **d3 10T**: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` — 706,422,987 canonical orderings.
+- **d2 10T**: `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` — 286,357,503 canonical orderings.
+
+Both validated across `{Zen 4 F64 westus2, Zen 5 D128 westus3} × {external merge, in-memory heap-sort}` — four byte-identical productions. A **100T d3 enumeration** is currently running on D128als_v7 westus3 spot (started 2026-04-19 ~08:00 UTC; projected MERGEDONE ~22:00 UTC); its sha will be distinct from the 10T (different budget parameter) and is expected to be ~1-2B canonical orderings.
 
 **Selftest baseline.** `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only (no wall-clock).
 
-**Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW; the uniqueness result holds within the extraction methodology but the same methodology also produces "uniqueness" for random pair-constrained sequences (see `CRITIQUE.md`). The 4-boundary minimum structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` for the 742M dataset — pending re-verification on the new reference.
+**Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW; the uniqueness result holds within the extraction methodology but the same methodology also produces "uniqueness" for random pair-constrained sequences (see `CRITIQUE.md`). The **4-boundary minimum holds at both d2 and d3 scales**. Partition-stable: boundaries **{25, 27}** are mandatory in every working 4-set at both scales. Partition-dependent: the other 2 boundaries — at d2 the structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` (4 working 4-subsets); at d3 there are **8 working 4-subsets** with interchangeable boundaries drawn from `{1..6}`. The broader structure may continue to shift at deeper partition.
 
-**Next steps:**
-1. **D3 re-merge** on on-demand F64 → first canonical v1 `solutions.bin` + sha + meta.json (~30 min, ~$2 on-demand). This is the d3 reference.
-2. **D2 re-enumeration** on spot F64 → d2 reference sha (also v1 format).
-3. **Cross-validation** (user-specified): for each 10T run, independently re-enumerate from scratch with the current solver and compare sha to the merge-based sha. If identical, the shards + merge path produce byte-identical output to fresh enumeration — catches any silent drift between enumerate and merge.
-4. `--verify` + `--analyze` on both v1 `solutions.bin` files (can run on the 2-core claude VM).
-5. Scientific-review follow-ups (prioritized in `LONG_TERM_PLAN.md` outside the repo): search-order provenance documentation for the 4-boundary result, bootstrap confidence intervals on percentile claims, formal proof of forced-orientation theorem, archival deposit (Zenodo + SWH).
-6. Pending D128als_v7 quota approval: validate 10T on D128 (128 threads), then 100T depth-2.
+**Next steps (post-100T):**
+1. **100T d3 analyze + docs update**: when MERGEDONE fires, run `--analyze` on the 100T solutions.bin and integrate findings into SOLVE.md / SOLVE-SUMMARY.md / CRITIQUE.md / LEADERBOARD.md. Update 4-boundary scope — does {25, 27} stability extend to 100T? Does the shift-conforming percentage continue to drop (trajectory: 2.69% d2 → 0.062% d3 → ??? 100T)? Commit as a single follow-up.
+2. **Single-branch exhaustion study**: pick 1-3 first-level branches (likely the smallest by 100T yield — candidates are pairs 4, 6, 21 if still zero at 100T) and run `--sub-branch` with `SOLVE_NODE_LIMIT=0` to full exhaustion. Potential theorem-level output: "branch X proven to contribute zero solutions to exhaustive enumeration." Deploys as parallel D2/D4als_v7 spot VMs (one per sub-branch), not D128. Prerequisite: 100T MERGEDONE + per-branch yield data.
+3. **Disk decommissioning (post-100T)**: revisit the westus2 `solver-validate-d3` disk (d3 10T canonical, scientifically superseded by 100T) and `solver-data` (stale partial). Per-user-approval.
+4. Scientific-review follow-ups from `LONG_TERM_PLAN.md`: bootstrap confidence intervals on percentile claims (#11), formal Lean/Rocq proof of forced-orientation theorem (#13 Level 2, Level 1 prose tightened 2026-04-19 commit `a09aad9`), technical report (#14).
 
-## Infrastructure
+## Infrastructure (2026-04-19)
 
-- **Orchestrator VM** (claude, D2as_v6, zone 2): orchestration, analysis, git. $0.09/hr.
-- **Solver VMs**: F64als_v6 spot ($0.79/hr) for enumeration, F64als_v6 on-demand ($3.87/hr) for merge. Created/destroyed per run. Private-IP-only via shared claude-vnet (no public IP, no NSG).
-- **Spot quota**: F64als_v6 — 64 cores in westus2. D128als_v7 — requested, pending approval (currently 10, need 128).
-- **Persistent managed disk** (solver-data, 300 GB, ~$3/month): survives VM deallocation. Resized from 32→64→128→300 GB over project lifetime. Currently holds 56,404 sub_*.bin files from 10T depth-3 enumeration (merge pending).
-- **Monitor** (monitor_canonical.sh): handles provisioning, spot eviction recovery, progress tracking, post-completion verification gate (--verify + hash-drop check), sub_*.bin integrity on resume, dynamic disk expansion watchdog. Watchdog exempts merge phase.
+- **Orchestrator VM** (claude, D2as_v6, westus2 zone 2): orchestration, analysis, git. $0.09/hr on-demand. Bi-region — orchestrator in westus2 while compute runs in westus3.
+- **Enumeration VMs (standing rule)**: D128als_v7 spot in **westus3**, ~$1.70/hr. Zen 5 Turin, 4.5 GHz boost, 128 cores, 256 GB RAM. Use at 10T+ enumerations where fixed per-sub-branch overhead amortizes; CPU utilization ~84% observed at 10T. For 100T+ scale, attach Premium SSD (P40 2 TB) temporarily for external-merge temp chunks.
+- **Merge VMs**: D-series westus3 spot by default, sized by RAM not cores (merge is single-threaded heapsort). d2-10T merge fits in D16als_v7 (32 GB RAM, ~$0.13/hr); d3-10T merge fits in D64als_v7 (128 GB RAM, ~$0.50/hr). Shards persist across spot evictions, so merges are re-runnable — old "no spot for merges" rule superseded. Use on-demand only for merges >3 hrs where recovery is costly.
+- **F64als_v6 RETIRED (2026-04-19)**: no new large-scale runs. Legacy canonical shas established on F64 remain authoritative; D128 westus3 runs reproduce them byte-identically (4-corners validation grid).
+- **Spot quota**: D128als_v7 — **128 cores approved in westus3** (2026-04-19, after westus2 quota denied). F64als_v6 westus2 retained (64 cores) but not used for new large runs.
+- **Managed disks**:
+  - `solver-data` (westus2, 300 GB Standard_LRS, Unattached): stale partial shards from an aborted run; kept pending decommission decision.
+  - `solver-validate-d2` (westus2, 300 GB Standard_LRS, Unattached): canonical d2 10T artifacts (sha `a09280fb…`). Scientifically current.
+  - `solver-validate-d3` (westus2, 300 GB Standard_LRS, Unattached): canonical d3 10T artifacts (sha `f7b8c4fb…`). Scientifically superseded once 100T validates.
+  - `solver-data-westus3` (westus3, 1500 GB Standard_LRS, attached to d128-westus3): 100T shards in flight; will hold the 100T canonical output.
+  - Premium SSD temp disks (for external merges) are ephemeral: provisioned at merge-start, destroyed at merge-end.
 - **Atomic file writes** in solve.c: write to .tmp, fsync, rename. Prevents mid-eviction corruption.
 - **Rotating checkpoints**: 3 copies maintained locally (checkpoint.txt, .1, .2).
-- **All run outputs archived** in `solve_c/runs/` with sha256 verification.
+- **All run outputs archived** in `solve_c/runs/<YYYYMMDD>_<budget>_<partition>_<region>/` with README.md + sha256 verification.
