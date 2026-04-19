@@ -304,6 +304,28 @@ Structure: `{25, 27}` plus two-of-`{1..6}` chosen in varied combinations. Bounda
 
 Per-boundary conditional entropy at d3 (`analyze_d3.log` section [18], baseline 73.17 bits): boundary 4 contributes 46.8 bits, boundary 5 contributes 42.7 bits — highest info gain. Boundaries 25 and 27 sit at 9.96 bits and 10.63 bits — mid-pack. Their mandatory status is due to structural independence (no other boundary combination can eliminate what they eliminate), not informational weight.
 
+### What "boundary 25" and "boundary 27" concretely specify
+
+A boundary constraint is a **pair-adjacency constraint**: boundary $N$ specifies that the pair at position $N$ matches KW's pair at position $N$ AND the pair at position $N+1$ matches KW's pair at position $N+1$. It locks a 4-hexagram window (two consecutive pairs).
+
+Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; hexagram names in Wilhelm/Baynes translation):
+
+**Boundary 25 (between pair 25 and pair 26):**
+- Pair 25 = ䷰ Ge (Revolution, 革) / ䷱ Ding (The Cauldron, 鼎) — a reverse pair
+- Pair 26 = ䷲ Zhen (The Arousing, Thunder, 震) / ䷳ Gen (Keeping Still, Mountain, 艮) — a reverse pair
+
+Enforcing boundary 25 means: any candidate ordering must place Revolution→Cauldron in positions 49-50 AND Thunder→Mountain in positions 51-52 — exactly as King Wen does. This locks a 4-hexagram window in the sequence's second half.
+
+**Boundary 27 (between pair 27 and pair 28):**
+- Pair 27 = ䷴ Jian (Gradual Development, 漸) / ䷵ Gui Mei (The Marrying Maiden, 歸妹) — a reverse pair
+- Pair 28 = ䷶ Feng (Abundance, 豐) / ䷷ Lu (The Wanderer, 旅) — a reverse pair
+
+Enforcing boundary 27 means: Gradual Development→Marrying Maiden in positions 53-54 AND Abundance→Wanderer in positions 55-56 — exactly as King Wen does. Locks a second 4-hexagram window two positions later.
+
+**Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence Revolution / Cauldron / Thunder / Mountain / Gradual / Marrying Maiden / Abundance / Wanderer). Combined with C4 (which forces pair 1 = Creative/Receptive), this fixes 5 of 32 pair positions. The other 27 pairs retain some freedom, producing 43,236 total survivors at d3 10T (13,595 at d2 10T). Adding just 2 more boundary constraints (chosen from the partition-dependent set — at d3, two of {1..6}) narrows from ~40k survivors to exactly 1: King Wen.
+
+The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Revolution→Cauldron→Thunder→Mountain window (boundary 25) and the Gradual→Marrying-Maiden→Abundance→Wanderer window (boundary 27)** — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
+
 ### What the survivors after the mandatory {25, 27} boundaries look like
 
 Applying only the mandatory boundaries {25, 27} to the current canonical datasets:
