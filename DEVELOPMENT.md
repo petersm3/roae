@@ -500,6 +500,37 @@ SOLVE_NODE_LIMIT=$SCALED_TOTAL ./solve 0
 Same effective per-sub-branch depth on remaining, full reproducibility
 of the pass.
 
+### `--sub-branch` CLI mode (targeted depth-3 sub-branch exhaustion)
+
+Added 2026-04-19. Runs a single depth-3 sub-branch `(p1, o1, p2, o2, p3, o3)`
+to exhaustion (or node-limit budget). Usage:
+
+```bash
+SOLVE_NODE_LIMIT=0 ./solve --sub-branch <p1> <o1> <p2> <o2> <p3> <o3>
+```
+
+Writes a single `sub_P1_O1_P2_O2.bin` shard and a single checkpoint line
+with status EXHAUSTED (if the tree finishes) or BUDGETED (if a node limit
+is set and hit first). Designed for the stratified-sample exhaustion study
+— each run produces one data point of (wall time, node count, solution
+count, status) for cost-extrapolation analysis.
+
+Unlike `--branch` (which runs ALL sub-branches of a first-level branch),
+`--sub-branch` targets exactly one. It bypasses checkpoint.txt loading so
+that a fresh run is a fresh run — no accidental resume from stale state.
+
+Pair this mode with small parallel VMs (D2als_v7 or D4als_v7 spot, one
+per sub-branch). The workload is single-threaded inside a sub-branch, so
+D128 is 99% wasted. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
+sizing rationale.
+
+Validation guarantee: if you later exhaust a sub-branch via `--sub-branch`
+AND separately compute a full `--merge`'d canonical from independent
+whole-partition enumeration, merging the single-exhausted-sub-branch
+shard into a fuller dataset (following the accumulation workflow above)
+is byte-identical to running everything in one invocation, per
+partition invariance.
+
 ### Infrastructure
 
 - **Spot-VM evictions in westus2 under F64 averaged ~1 per 3 hours during

@@ -507,9 +507,30 @@ The difference is a partition-dependent sampling effect at the same 10T total bu
 - **Reproducibility**: **partition-invariant** under the formal theorem (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)): same partition + same solver + same node budget → byte-identical solutions.bin regardless of hardware, region, or number of shard-merge passes. Confirmed empirically across Phase B external merge, Phase C fresh re-enumeration, and today's in-memory heap-sort merge.
 - **Invalidated earlier figures**: the 31.6M (filename collision bug) and 742M (hash-probe-cap bug) counts do NOT appear in any current canonical artifact. They are historical only.
 
-### Theorem 6: Starting orientation is forced
+### Theorem 6 (empirical): Starting orientation is forced
 
-In all valid solutions, ䷀ The Creative (111111) must precede ䷁ The Receptive (000000) — not the reverse. **Proof:** The within-pair distance of Creative/Receptive is 6, consuming one distance-6 budget slot. The remaining 62 transitions must produce exactly {1:2, 2:20, 3:13, 4:19, 6:8}. With Creative first (s₀=63, s₁=0), boundary 1 has distance d(0, s₂). With Receptive first (s₀=0, s₁=63), boundary 1 has distance d(63, s₂). For any valid s₂, these two distances differ, changing the global budget. In all tested cases, reversing the orientation violates the exact difference distribution (C5). **QED.**
+**Claim.** In every ordering satisfying C1-C5, the sequence begins with ䷀ The Creative (s₀=63) followed by ䷁ The Receptive (s₁=0) — the reversed orientation (s₀=0, s₁=63) yields zero valid orderings.
+
+**Status.** Empirically supported, not yet analytically proven. See LONG_TERM_PLAN.md #13 for the proof agenda (Level 1: tighten prose; Level 2: machine-check in Lean 4 or Rocq).
+
+**Setup and notation.** Pair 0 of the canonical pair table is (63, 0) — Creative/Receptive. C4 fixes this pair at position 1 (the first pair slot in the sequence, indices s₀, s₁). C1 allows both orientations of any pair, so before applying any further constraint there are two candidates for the first pair:
+
+- **Forward orientation**: s₀ = 63, s₁ = 0. Within-pair distance d(63, 0) = 6.
+- **Reversed orientation**: s₀ = 0, s₁ = 63. Within-pair distance d(0, 63) = 6.
+
+Both consume one distance-6 slot from the C5 budget {1:2, 2:20, 3:13, 4:19, 6:9}, leaving {1:2, 2:20, 3:13, 4:19, 6:8} for the remaining 62 transitions.
+
+**Structural difference.** The first boundary transition is d(s₁, s₂). Under forward, s₁ = 0, so d(0, s₂) = popcount(s₂). Under reversed, s₁ = 63, so d(63, s₂) = 6 − popcount(s₂). These are complementary: if forward gives boundary distance k, reversed gives 6−k for the same s₂.
+
+This is a weaker constraint than a direct contradiction — one could hope that a different s₂' in the reversed case achieves a valid boundary distance that still permits C5 to close. The theorem's force comes from showing that no such s₂' (and subsequent extension) exists.
+
+**Empirical evidence.** The canonical d3 10T enumeration (706,422,987 orderings, sha `f7b8c4fb…`) contains **zero orderings** with the reversed starting orientation — KW-like and non-KW-like alike. Since the enumeration exhaustively explores the search tree up to a per-sub-branch node budget of 63M, and no reversed-orientation extension surfaced in any of 158,364 sub-branches, either (a) no such ordering exists, or (b) every such ordering requires more than 63M nodes per sub-branch to find.
+
+The 100T d3 enumeration currently running (631M nodes per sub-branch, 10× deeper) will tighten this bound. At full exhaustion (SOLVE_NODE_LIMIT=0), any remaining reversed-orientation ordering must surface.
+
+**What a rigorous analytic proof would require.** Case analysis over all (pair2, orient2) choices at position 2, showing that for each, no extension satisfies C5 — independent of budget. With 31 remaining pairs × 2 orientations = 62 cases at position 2, this is a mechanical but nontrivial induction. A Lean 4 / Rocq formalization would encode C1-C5 as typed predicates and discharge the cases via constraint propagation over finite sets.
+
+Until that lands, the theorem is best stated as: **empirically forced to 706M-ordering depth**. The solver's inlined assumption `seq[0] = 63; seq[1] = 0` is a correctness commitment that will be invalidated if and only if a counter-example ever surfaces at deeper partition.
 
 ### Theorem 7: Complement distance bounds
 
