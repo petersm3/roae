@@ -568,7 +568,7 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0** — analytic ∀ Gray | 100% (trivial) | 0% — range [1792, 2048] |
 | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** (decomposed) | 6.67% — range [512, 2048] |
 | Lexicographic (6! bit-orders) | Exhaustive 720 | 0 | 0 | 0 — always 2048 |
-| Historical (Fu Xi, KW, Mawangdui) | 3 point-tests | KW only | KW + **Mawangdui** | KW only |
+| Historical (Fu Xi, KW, Mawangdui, Jing Fang) | 4 point-tests | KW only | **KW + Mawangdui + Jing Fang** | KW only |
 | Random 64-permutations | 10^9 uniform samples | **0 / 10^9** | 0.1828% | 0.002836% |
 | **Pair-constrained (C1 given)** | 10^9 samples | 100% (construction) | **4.29%** cond. on C1 | **6.42%** cond. on C1 |
 
@@ -576,7 +576,7 @@ Across **~1.86 billion permutations** from the six unconditional families, **zer
 
 **C1 does most of the structural work.** The pair-constrained null measures what happens *given* C1: a 10^9-sample Monte Carlo shows C2 | C1 = 4.29% (vs. 0.18% unconditional — a **23.5× multiplier**) and C3 | C1 = 6.42% (vs. 0.003% unconditional — a **2,264× multiplier**). The pair structure alone enormously constrains adjacency and complement geometry toward KW-like; C2 and C3 then act as relatively modest additional filters. This aligns with ROAE's canonical enumeration: solve.c finds 706,422,987 orderings satisfying C1+C2+C3 at d3 10T, rough order-of-magnitude consistent with ~0.28% (≈ 4.29% × 6.42%) of the ~10^14 C1-only orderings.
 
-**What varies across families.** C2 (no 5-line transitions) is **rare in random (0.18%), impossible in de Bruijn, trivially automatic in Gray codes, and majority-satisfied in Latin-square row×col (57.96%)**. Mawangdui — the ancient silk-text ordering — also accidentally satisfies C2 despite failing C1 and C3. The **conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen** across every tested family (no family has a nonzero fraction achieving all three).
+**What varies across families.** C2 (no 5-line transitions) is **rare in random (0.18%), impossible in de Bruijn, trivially automatic in Gray codes, and majority-satisfied in Latin-square row×col (57.96%)**. More importantly, **3 of 4 tested ancient Chinese hexagram orderings** — King Wen, Mawangdui silk-text, and Jing Fang 8 Palaces — all satisfy C2 exactly, suggesting C2 was likely a shared classical design principle across multiple traditions rather than unique to King Wen. Only Fu Xi (natural binary, a mathematical construction not traditionally divinatory) fails C2. The **conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen** across every tested family — Mawangdui and Jing Fang fail both C1 and C3 (they have their own pair structures and complement-distance profiles, but not KW's specific ones).
 
 **Remaining gap**: Costas arrays of order 64. Existence via Welch/Lempel–Golomb constructions is uncertain (those give adjacent orders 62 and 66, not 64), and full 64! enumeration is infeasible (~10^89). Deferred.
 

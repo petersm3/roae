@@ -377,6 +377,34 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 
 **Supporting documentation.** Full SKU comparison (with authoritative Microsoft Learn sources) and ROI analysis are maintained as operator review docs at top-of-working-tree, outside the git repo.
 
+## Day 9 addendum — April 19, 2026 afternoon: null-model framework
+
+With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted to null-model testing — systematically measuring how structured permutation families compare to King Wen on the C1/C2/C3 constraints. This had been a long-standing gap in CRITIQUE.md §Missing analyses (acknowledged during the Day 8 scientific reviews).
+
+**solve.c gained eight new subroutines** for structured-null testing (all present alongside the existing enumeration machinery, not replacing it):
+
+- `--null-debruijn-exact`: exhaustive enumeration of all 2^27 = 134,217,728 B(2, 6) Eulerian circuits starting at vertex 0 via randomized Hierholzer. In C, ~80 seconds total. Result: 0 satisfy C1 (proven analytically too — any B(2, 6) satisfying C1 is forced to period-4 structure, contradicting the 64-distinct-window requirement), 0 satisfy C2, 247,048 (0.1841%) satisfy C3.
+- `--null-gray`: 256-member orbit of the binary-reflected 6-bit Gray code under rotations × reversal × bit-complement. 0 C1 (analytic: Hamming-1 adjacency is disjoint from C1's required {0, 2, 4, 6}), 256 C2 (trivial), 0 C3 (null range [1792, 2048]).
+- `--null-latin`: exhaustive 8! × 8! = 1,625,702,400 Latin-square row × column traversals (each of the 64 hexagrams indexed by upper × lower trigram). 0 C1, **57.96% C2** (strikingly high), 6.67% C3.
+- `--null-latin-explain`: analytic decomposition of the 57.96% figure. Row-permutation class census (144 all-Hamming-1 paths in Q_3, 13,680 "some-2-no-3", 1,008 "some-3-no-2", 25,488 "both") weighted by column-perm good counts reproduces the 942,243,840 empirical count exactly.
+- `--null-lex`: exhaustive 6! = 720 lexicographic bit-order variants. 0 on all three constraints.
+- `--null-historical`: point-tests Fu Xi (natural binary), King Wen, Mawangdui silk-text, Jing Fang 8 Palaces. **Novel finding: three of four ancient Chinese hexagram orderings — KW, Mawangdui, Jing Fang — satisfy C2 exactly**, suggesting C2 may be a shared classical design principle rather than unique to KW. Only Fu Xi (binary, not traditionally divinatory) has Hamming-5 transitions.
+- `--null-random`: 10^9 uniformly random 64-permutations via Fisher-Yates + xorshift64. 0/10^9 satisfy C1 (consistent with the theoretical rate of ~10^-44), 0.1828% satisfy C2, 0.002836% satisfy C3.
+- `--null-pair-constrained`: 10^9 pair-permutations with random 2-choice orientations (C1 baked in). Measures conditional rates: C2 | C1 = 4.29% (23.5× the unconditional rate) and C3 | C1 = 6.42% (2,264× unconditional). Shows that C1 alone does most of the structural work KW relies on.
+- `--null-gray-random`: biased sampler for 6-bit Gray codes via random Hamiltonian walks in Q_6; bounds the C3 rate over the ~10^22 Gray code family tighter than the 256-orbit alone.
+
+**CITATIONS.md** was created to distinguish prior-literature findings from ROAE-original contributions. Key credits:
+
+- C1 (pair structure): classical (Yi Zhuan commentary), formalized in **Cook 2006** *Classical Chinese Combinatorics* (STEDT Monograph 5, 656 pages).
+- C2 (no-5-line-transitions): **Terence & Dennis McKenna, *The Invisible Landscape*** (Seabury Press, 1975). Earliest documented public reference per web search; the 1971 Amazonian experience described there is pre-publication but no pre-1975 lectures are indexed.
+- C3 (complement-distance ceiling of 776): no prior citation found; believed ROAE-original, with the standing disclaimer that PR-based updates to CITATIONS.md are welcome.
+
+**Doc audit for citation integrity.** At the user's direction, SOLVE.md, SOLVE-SUMMARY.md, CRITIQUE.md, README.md, and CLAUDE.md were updated to soften "we discovered" language where prior literature exists, and to cross-reference CITATIONS.md. Softened 2026-04-19 in commit `5de0676`.
+
+**New analytical results consolidated in CRITIQUE.md.** (a) C1 impossibility proofs for de Bruijn B(2, 6) (period-4 contradiction) and all 6-bit Gray codes (Hamming-disjoint). (b) Latin-square C2-rate decomposition with exact reproduction of the empirical 57.96%. (c) King Wen's own adjacency decomposition: 32 within-pair transitions (Hamming 2/4/6 by C1 construction) + 31 between-pair transitions, with the 14:2 odd-transition concentration and zero Hamming-5 matching the prior-documented 3:1 even:odd ratio (McKenna 1975 / Cook 2006). (d) Open Questions section with 11 falsifiable follow-ups.
+
+**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
+
 ## Current state (2026-04-19)
 
 **Code.** solve.c is through multiple hardening passes: exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, in-place heapsort replacing glibc qsort in 5 merge paths, `--sub-branch` CLI for targeted depth-3 sub-branch exhaustion, `SOLVE_CONCENTRATE_BUDGET` env var for accumulation workflows, auto-threshold at 8/10 for in-memory merge decision. Zero compile warnings. Known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.

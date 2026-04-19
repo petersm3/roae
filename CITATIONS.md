@@ -50,7 +50,9 @@ The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~70
 
 - **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
 
-ROAE observation that **Mawangdui accidentally satisfies C2** (zero 5-line transitions) while failing C1 and C3 is, to our knowledge, a novel comparative finding — surfaced here during null-model testing (`./solve --null-historical`).
+ROAE observation that **both Mawangdui and Jing Fang 8 Palaces satisfy C2** (zero 5-line transitions) while failing C1 and C3 is, to our knowledge, a novel comparative finding. Combined with King Wen, this gives three of four tested ancient Chinese hexagram orderings satisfying C2 exactly — reframing McKenna's observation as likely a **classical Chinese design principle** shared across multiple traditions rather than unique to King Wen. Surfaced here during null-model testing (`./solve --null-historical`). See also:
+
+- **Jing Fang** (京房, 77–37 BCE). The *Ba Gong Gua* (八宫卦) arrangement is preserved in traditional Yi Jing commentary and divinatory practice. The specific "origin → five worlds → wandering soul (游魂) → returning soul (归魂)" convention ROAE uses follows standard sinological sources. Alternative orderings within the same palaces exist; PR welcome for corrections. Traditional attribution of the arrangement to Jing Fang; historical certainty of the full ordering is debated in scholarly literature.
 
 ---
 
