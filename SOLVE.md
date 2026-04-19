@@ -15,7 +15,7 @@ For a plain-language version, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md).
 
 ## The question
 
-The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is one specific ordering of 64 hexagrams out of 64! (~10^89) possibilities. ROAE's analysis has identified several mathematical constraints the sequence satisfies. This companion program (`solve.py`) asks: are those constraints sufficient to *reconstruct* the sequence from scratch?
+The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is one specific ordering of 64 hexagrams out of 64! (~10^89) possibilities. ROAE's analysis has identified several mathematical constraints the sequence satisfies. This document asks: are those constraints sufficient to *reconstruct* the sequence from scratch? The initial companion prototype (`solve.py`, Python) explored this question interactively; the production enumerator (`solve.c`, multi-threaded C) produces the canonical shas cited above.
 
 ## The rules
 
@@ -561,6 +561,8 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 **What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
 
 ## Usage
+
+`solve.py` is the Python exploratory prototype — useful for interactive analysis (fingerprints, differential features, reconstruction heuristics, narrowing trials). `solve.c` is the production enumerator used for the canonical 10T+ runs cited at the top of this doc. Use `solve.py` for exploration; use `solve.c` when you need a reproducible `solutions.bin` sha.
 
 ```
 python3 solve.py                              # Print rules + run narrowing analysis
