@@ -180,7 +180,13 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
 
 ### About specific numerical values
 
-11. **Is King Wen's C3 = 776 mathematically significant?** The total complement distance $\sum_v |\mathrm{pos}(v) - \mathrm{pos}(v \oplus 63)|$ equals exactly 776 for King Wen. Factorization: $776 = 2^3 \times 97$ (97 is prime). Mean per hexagram: $776/64 = 12.125 = 97/8$. These factorizations do not suggest an obvious combinatorial identity. What the value **does** mean empirically: KW is at the 3.9th percentile within C1-satisfying orderings — i.e., KW's C3 is near-minimal but not proven-minimal for the constraint system. Open question: what is the theoretical minimum of C3 under C1 alone, and under C1+C2? Solve.c's canonical enumeration at d2 10T / d3 10T could in principle surface the minimum C3 achievable — not currently reported. Adding the minimum as a computed output of `--analyze` would close this gap.
+11. **~~Is King Wen's C3 = 776 mathematically significant?~~ — RESOLVED 2026-04-20 (partial).** Via `solve.c --c3-min` on the 100T d3 canonical (3.43B records):
+    - **Minimum C3 observed: 424** (across 221 records)
+    - **Maximum C3 observed: 776** (ceiling of the constraint C3 ≤ 776)
+    - **KW's C3 = 776** — KW sits at the **CEILING**, not the floor. KW is the **least** C3-optimal among C1+C2+C3 solutions.
+    - The earlier "3.9th percentile" claim was among C1-only orderings (pre-C3-filter). Within C1+C2+C3, KW is at the C3-maximum.
+    - **Implication for Open Question #7**: the simple axiom "minimize C3" does not uniquely derive KW — it picks out 221 "C3-extremal" records at C3 = 424. **Negative result for Phase A Day 1 MVP.**
+    - Remaining: characterize the 221 C3=424 records. What else distinguishes them? Is there a structured family? Do they share boundary features with KW? (Follow-up post-analyze.)
 
 ## Summary
 

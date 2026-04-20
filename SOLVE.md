@@ -1,11 +1,14 @@
 # Solving the King Wen Sequence
 
-> **Note (2026-04-19):** Canonical reference figures have been re-established with the corrected solver (format v1, commit `f7b8c4fb…` d3 canonical). New authoritative counts:
+> **Note (2026-04-20):** Canonical reference figures have been re-established with the corrected solver (format v1). Authoritative counts across three partitions:
 >
+> - **d3 100T: 3,432,399,297 canonical orderings** (sha `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`, 102.3 GB solutions.bin) — **deepest partial enumeration**, 2026-04-19/20.
 > - **d3 10T: 706,422,987 canonical orderings** (sha `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`)
 > - **d2 10T: 286,357,503 canonical orderings** (sha `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`)
 >
-> Both verified cross-independently: byte-identical output across Phase B external merge, Phase C fresh re-enumeration, and in-memory heap-sort merge (2026-04-19). See [HISTORY.md](HISTORY.md) for the full validation trail and [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) for the formal theorem guaranteeing these shas are partition-independent.
+> d2 and d3 10T verified cross-independently across three merge paths (byte-identical output on Phase B external merge, Phase C fresh re-enumeration, in-memory heap-sort). d3 100T run on D128als_v7 westus3 with external-merge via P40 Premium SSD; sha stands on the Partition Invariance theorem. See [HISTORY.md](HISTORY.md) and [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
+>
+> **Novel 2026-04-20 finding (from d3 100T --c3-min analysis):** King Wen's C3 of 776 is the **maximum** observed among the 3.43B canonical records, not the minimum. Minimum C3 = 424 (221 records). KW sits at the ceiling of the constraint C3 ≤ 776, NOT the floor. The common framing "KW places complements unusually close" is now refined: relative to C1-only orderings, yes (KW is at the 3.9th percentile); relative to the intersection C1+C2+C3 that solve.c enumerates, KW is actually at the C3-maximum, with 99.999999%+ of canonical orderings beating it on complement proximity. **This breaks the derivability axiom "minimize C3"** (negative result for Open Question #7 Phase A Day 1 MVP). The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW.
 >
 > Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `roae/solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
 

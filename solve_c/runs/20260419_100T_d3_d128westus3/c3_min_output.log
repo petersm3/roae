@@ -1,0 +1,232 @@
+[c3-min] progress: 16777216 / 3432399297 (0.5%) min_so_far=560 rate=16777216/s ETA=204s
+[c3-min] progress: 33554432 / 3432399297 (1.0%) min_so_far=560 rate=16777216/s ETA=203s
+[c3-min] progress: 50331648 / 3432399297 (1.5%) min_so_far=552 rate=12582912/s ETA=269s
+[c3-min] progress: 67108864 / 3432399297 (2.0%) min_so_far=456 rate=13421773/s ETA=251s
+[c3-min] progress: 83886080 / 3432399297 (2.4%) min_so_far=456 rate=13981013/s ETA=240s
+[c3-min] progress: 100663296 / 3432399297 (2.9%) min_so_far=440 rate=14380471/s ETA=232s
+[c3-min] progress: 117440512 / 3432399297 (3.4%) min_so_far=440 rate=14680064/s ETA=226s
+[c3-min] progress: 134217728 / 3432399297 (3.9%) min_so_far=440 rate=14913081/s ETA=221s
+[c3-min] progress: 150994944 / 3432399297 (4.4%) min_so_far=440 rate=15099494/s ETA=217s
+[c3-min] progress: 167772160 / 3432399297 (4.9%) min_so_far=440 rate=15252015/s ETA=214s
+[c3-min] progress: 184549376 / 3432399297 (5.4%) min_so_far=440 rate=15379115/s ETA=211s
+[c3-min] progress: 201326592 / 3432399297 (5.9%) min_so_far=440 rate=15486661/s ETA=209s
+[c3-min] progress: 218103808 / 3432399297 (6.4%) min_so_far=440 rate=15578843/s ETA=206s
+[c3-min] progress: 234881024 / 3432399297 (6.8%) min_so_far=440 rate=15658735/s ETA=204s
+[c3-min] progress: 251658240 / 3432399297 (7.3%) min_so_far=440 rate=15728640/s ETA=202s
+[c3-min] progress: 268435456 / 3432399297 (7.8%) min_so_far=440 rate=15790321/s ETA=200s
+[c3-min] progress: 285212672 / 3432399297 (8.3%) min_so_far=440 rate=15845148/s ETA=199s
+[c3-min] progress: 301989888 / 3432399297 (8.8%) min_so_far=440 rate=15894205/s ETA=197s
+[c3-min] progress: 318767104 / 3432399297 (9.3%) min_so_far=440 rate=15938355/s ETA=195s
+[c3-min] progress: 335544320 / 3432399297 (9.8%) min_so_far=440 rate=15978301/s ETA=194s
+[c3-min] progress: 352321536 / 3432399297 (10.3%) min_so_far=440 rate=16014615/s ETA=192s
+[c3-min] progress: 369098752 / 3432399297 (10.8%) min_so_far=440 rate=16047772/s ETA=191s
+[c3-min] progress: 385875968 / 3432399297 (11.2%) min_so_far=440 rate=16078165/s ETA=189s
+[c3-min] progress: 402653184 / 3432399297 (11.7%) min_so_far=440 rate=16777216/s ETA=181s
+[c3-min] progress: 419430400 / 3432399297 (12.2%) min_so_far=440 rate=16777216/s ETA=180s
+[c3-min] progress: 436207616 / 3432399297 (12.7%) min_so_far=440 rate=16777216/s ETA=179s
+[c3-min] progress: 452984832 / 3432399297 (13.2%) min_so_far=432 rate=16777216/s ETA=178s
+[c3-min] progress: 469762048 / 3432399297 (13.7%) min_so_far=432 rate=16777216/s ETA=177s
+[c3-min] progress: 486539264 / 3432399297 (14.2%) min_so_far=432 rate=16777216/s ETA=176s
+[c3-min] progress: 503316480 / 3432399297 (14.7%) min_so_far=432 rate=16777216/s ETA=175s
+[c3-min] progress: 520093696 / 3432399297 (15.2%) min_so_far=432 rate=16777216/s ETA=174s
+[c3-min] progress: 536870912 / 3432399297 (15.6%) min_so_far=432 rate=16777216/s ETA=173s
+[c3-min] progress: 553648128 / 3432399297 (16.1%) min_so_far=432 rate=16777216/s ETA=172s
+[c3-min] progress: 570425344 / 3432399297 (16.6%) min_so_far=432 rate=16777216/s ETA=171s
+[c3-min] progress: 587202560 / 3432399297 (17.1%) min_so_far=432 rate=16777216/s ETA=170s
+[c3-min] progress: 603979776 / 3432399297 (17.6%) min_so_far=432 rate=16777216/s ETA=169s
+[c3-min] progress: 620756992 / 3432399297 (18.1%) min_so_far=432 rate=16777216/s ETA=168s
+[c3-min] progress: 637534208 / 3432399297 (18.6%) min_so_far=432 rate=16777216/s ETA=167s
+[c3-min] progress: 654311424 / 3432399297 (19.1%) min_so_far=432 rate=16777216/s ETA=166s
+[c3-min] progress: 671088640 / 3432399297 (19.6%) min_so_far=432 rate=16777216/s ETA=165s
+[c3-min] progress: 687865856 / 3432399297 (20.0%) min_so_far=432 rate=16777216/s ETA=164s
+[c3-min] progress: 704643072 / 3432399297 (20.5%) min_so_far=432 rate=16777216/s ETA=163s
+[c3-min] progress: 721420288 / 3432399297 (21.0%) min_so_far=432 rate=16777216/s ETA=162s
+[c3-min] progress: 738197504 / 3432399297 (21.5%) min_so_far=432 rate=16777216/s ETA=161s
+[c3-min] progress: 754974720 / 3432399297 (22.0%) min_so_far=432 rate=16777216/s ETA=160s
+[c3-min] progress: 771751936 / 3432399297 (22.5%) min_so_far=432 rate=16777216/s ETA=159s
+[c3-min] progress: 788529152 / 3432399297 (23.0%) min_so_far=432 rate=16777216/s ETA=158s
+[c3-min] progress: 805306368 / 3432399297 (23.5%) min_so_far=432 rate=16777216/s ETA=157s
+[c3-min] progress: 822083584 / 3432399297 (24.0%) min_so_far=432 rate=16777216/s ETA=156s
+[c3-min] progress: 838860800 / 3432399297 (24.4%) min_so_far=432 rate=16777216/s ETA=155s
+[c3-min] progress: 855638016 / 3432399297 (24.9%) min_so_far=432 rate=16777216/s ETA=154s
+[c3-min] progress: 872415232 / 3432399297 (25.4%) min_so_far=432 rate=16777216/s ETA=153s
+[c3-min] progress: 889192448 / 3432399297 (25.9%) min_so_far=432 rate=16777216/s ETA=152s
+[c3-min] progress: 905969664 / 3432399297 (26.4%) min_so_far=432 rate=16777216/s ETA=151s
+[c3-min] progress: 922746880 / 3432399297 (26.9%) min_so_far=432 rate=16777216/s ETA=150s
+[c3-min] progress: 939524096 / 3432399297 (27.4%) min_so_far=432 rate=16777216/s ETA=149s
+[c3-min] progress: 956301312 / 3432399297 (27.9%) min_so_far=432 rate=16777216/s ETA=148s
+[c3-min] progress: 973078528 / 3432399297 (28.3%) min_so_far=432 rate=16777216/s ETA=147s
+[c3-min] progress: 989855744 / 3432399297 (28.8%) min_so_far=432 rate=16777216/s ETA=146s
+[c3-min] progress: 1006632960 / 3432399297 (29.3%) min_so_far=432 rate=16777216/s ETA=145s
+[c3-min] progress: 1023410176 / 3432399297 (29.8%) min_so_far=432 rate=16777216/s ETA=144s
+[c3-min] progress: 1040187392 / 3432399297 (30.3%) min_so_far=432 rate=16777216/s ETA=143s
+[c3-min] progress: 1056964608 / 3432399297 (30.8%) min_so_far=432 rate=16777216/s ETA=142s
+[c3-min] progress: 1073741824 / 3432399297 (31.3%) min_so_far=432 rate=16777216/s ETA=141s
+[c3-min] progress: 1090519040 / 3432399297 (31.8%) min_so_far=432 rate=16777216/s ETA=140s
+[c3-min] progress: 1107296256 / 3432399297 (32.3%) min_so_far=432 rate=16777216/s ETA=139s
+[c3-min] progress: 1124073472 / 3432399297 (32.7%) min_so_far=432 rate=16777216/s ETA=138s
+[c3-min] progress: 1140850688 / 3432399297 (33.2%) min_so_far=432 rate=16777216/s ETA=137s
+[c3-min] progress: 1157627904 / 3432399297 (33.7%) min_so_far=432 rate=16777216/s ETA=136s
+[c3-min] progress: 1174405120 / 3432399297 (34.2%) min_so_far=432 rate=16777216/s ETA=135s
+[c3-min] progress: 1191182336 / 3432399297 (34.7%) min_so_far=432 rate=16777216/s ETA=134s
+[c3-min] progress: 1207959552 / 3432399297 (35.2%) min_so_far=432 rate=16777216/s ETA=133s
+[c3-min] progress: 1224736768 / 3432399297 (35.7%) min_so_far=432 rate=16777216/s ETA=132s
+[c3-min] progress: 1241513984 / 3432399297 (36.2%) min_so_far=432 rate=16777216/s ETA=131s
+[c3-min] progress: 1258291200 / 3432399297 (36.7%) min_so_far=432 rate=16777216/s ETA=130s
+[c3-min] progress: 1275068416 / 3432399297 (37.1%) min_so_far=432 rate=16777216/s ETA=129s
+[c3-min] progress: 1291845632 / 3432399297 (37.6%) min_so_far=432 rate=16777216/s ETA=128s
+[c3-min] progress: 1308622848 / 3432399297 (38.1%) min_so_far=432 rate=16777216/s ETA=127s
+[c3-min] progress: 1325400064 / 3432399297 (38.6%) min_so_far=432 rate=16777216/s ETA=126s
+[c3-min] progress: 1342177280 / 3432399297 (39.1%) min_so_far=424 rate=16777216/s ETA=125s
+[c3-min] progress: 1358954496 / 3432399297 (39.6%) min_so_far=424 rate=16777216/s ETA=124s
+[c3-min] progress: 1375731712 / 3432399297 (40.1%) min_so_far=424 rate=16777216/s ETA=123s
+[c3-min] progress: 1392508928 / 3432399297 (40.6%) min_so_far=424 rate=16777216/s ETA=122s
+[c3-min] progress: 1409286144 / 3432399297 (41.1%) min_so_far=424 rate=16777216/s ETA=121s
+[c3-min] progress: 1426063360 / 3432399297 (41.5%) min_so_far=424 rate=16777216/s ETA=120s
+[c3-min] progress: 1442840576 / 3432399297 (42.0%) min_so_far=424 rate=16777216/s ETA=119s
+[c3-min] progress: 1459617792 / 3432399297 (42.5%) min_so_far=424 rate=16777216/s ETA=118s
+[c3-min] progress: 1476395008 / 3432399297 (43.0%) min_so_far=424 rate=16777216/s ETA=117s
+[c3-min] progress: 1493172224 / 3432399297 (43.5%) min_so_far=424 rate=16777216/s ETA=116s
+[c3-min] progress: 1509949440 / 3432399297 (44.0%) min_so_far=424 rate=16777216/s ETA=115s
+[c3-min] progress: 1526726656 / 3432399297 (44.5%) min_so_far=424 rate=16777216/s ETA=114s
+[c3-min] progress: 1543503872 / 3432399297 (45.0%) min_so_far=424 rate=16777216/s ETA=113s
+[c3-min] progress: 1560281088 / 3432399297 (45.5%) min_so_far=424 rate=16777216/s ETA=112s
+[c3-min] progress: 1577058304 / 3432399297 (45.9%) min_so_far=424 rate=16777216/s ETA=111s
+[c3-min] progress: 1593835520 / 3432399297 (46.4%) min_so_far=424 rate=16777216/s ETA=110s
+[c3-min] progress: 1610612736 / 3432399297 (46.9%) min_so_far=424 rate=16777216/s ETA=109s
+[c3-min] progress: 1627389952 / 3432399297 (47.4%) min_so_far=424 rate=16777216/s ETA=108s
+[c3-min] progress: 1644167168 / 3432399297 (47.9%) min_so_far=424 rate=16777216/s ETA=107s
+[c3-min] progress: 1660944384 / 3432399297 (48.4%) min_so_far=424 rate=16777216/s ETA=106s
+[c3-min] progress: 1677721600 / 3432399297 (48.9%) min_so_far=424 rate=16777216/s ETA=105s
+[c3-min] progress: 1694498816 / 3432399297 (49.4%) min_so_far=424 rate=16777216/s ETA=104s
+[c3-min] progress: 1711276032 / 3432399297 (49.9%) min_so_far=424 rate=16777216/s ETA=103s
+[c3-min] progress: 1728053248 / 3432399297 (50.3%) min_so_far=424 rate=16777216/s ETA=102s
+[c3-min] progress: 1744830464 / 3432399297 (50.8%) min_so_far=424 rate=16777216/s ETA=101s
+[c3-min] progress: 1761607680 / 3432399297 (51.3%) min_so_far=424 rate=16777216/s ETA=100s
+[c3-min] progress: 1778384896 / 3432399297 (51.8%) min_so_far=424 rate=16777216/s ETA=99s
+[c3-min] progress: 1795162112 / 3432399297 (52.3%) min_so_far=424 rate=16777216/s ETA=98s
+[c3-min] progress: 1811939328 / 3432399297 (52.8%) min_so_far=424 rate=16777216/s ETA=97s
+[c3-min] progress: 1828716544 / 3432399297 (53.3%) min_so_far=424 rate=16777216/s ETA=96s
+[c3-min] progress: 1845493760 / 3432399297 (53.8%) min_so_far=424 rate=16777216/s ETA=95s
+[c3-min] progress: 1862270976 / 3432399297 (54.3%) min_so_far=424 rate=16777216/s ETA=94s
+[c3-min] progress: 1879048192 / 3432399297 (54.7%) min_so_far=424 rate=16777216/s ETA=93s
+[c3-min] progress: 1895825408 / 3432399297 (55.2%) min_so_far=424 rate=16777216/s ETA=92s
+[c3-min] progress: 1912602624 / 3432399297 (55.7%) min_so_far=424 rate=16777216/s ETA=91s
+[c3-min] progress: 1929379840 / 3432399297 (56.2%) min_so_far=424 rate=16777216/s ETA=90s
+[c3-min] progress: 1946157056 / 3432399297 (56.7%) min_so_far=424 rate=16777216/s ETA=89s
+[c3-min] progress: 1962934272 / 3432399297 (57.2%) min_so_far=424 rate=16777216/s ETA=88s
+[c3-min] progress: 1979711488 / 3432399297 (57.7%) min_so_far=424 rate=16777216/s ETA=87s
+[c3-min] progress: 1996488704 / 3432399297 (58.2%) min_so_far=424 rate=16777216/s ETA=86s
+[c3-min] progress: 2013265920 / 3432399297 (58.7%) min_so_far=424 rate=16777216/s ETA=85s
+[c3-min] progress: 2030043136 / 3432399297 (59.1%) min_so_far=424 rate=16777216/s ETA=84s
+[c3-min] progress: 2046820352 / 3432399297 (59.6%) min_so_far=424 rate=16777216/s ETA=83s
+[c3-min] progress: 2063597568 / 3432399297 (60.1%) min_so_far=424 rate=16777216/s ETA=82s
+[c3-min] progress: 2080374784 / 3432399297 (60.6%) min_so_far=424 rate=16777216/s ETA=81s
+[c3-min] progress: 2097152000 / 3432399297 (61.1%) min_so_far=424 rate=16777216/s ETA=80s
+[c3-min] progress: 2113929216 / 3432399297 (61.6%) min_so_far=424 rate=16777216/s ETA=79s
+[c3-min] progress: 2130706432 / 3432399297 (62.1%) min_so_far=424 rate=16777216/s ETA=78s
+[c3-min] progress: 2147483648 / 3432399297 (62.6%) min_so_far=424 rate=16777216/s ETA=77s
+[c3-min] progress: 2164260864 / 3432399297 (63.1%) min_so_far=424 rate=16777216/s ETA=76s
+[c3-min] progress: 2181038080 / 3432399297 (63.5%) min_so_far=424 rate=16649146/s ETA=75s
+[c3-min] progress: 2197815296 / 3432399297 (64.0%) min_so_far=424 rate=16650116/s ETA=74s
+[c3-min] progress: 2214592512 / 3432399297 (64.5%) min_so_far=424 rate=16651072/s ETA=73s
+[c3-min] progress: 2231369728 / 3432399297 (65.0%) min_so_far=424 rate=16652013/s ETA=72s
+[c3-min] progress: 2248146944 / 3432399297 (65.5%) min_so_far=424 rate=16652940/s ETA=71s
+[c3-min] progress: 2264924160 / 3432399297 (66.0%) min_so_far=424 rate=16653854/s ETA=70s
+[c3-min] progress: 2281701376 / 3432399297 (66.5%) min_so_far=424 rate=16654755/s ETA=69s
+[c3-min] progress: 2298478592 / 3432399297 (67.0%) min_so_far=424 rate=16535817/s ETA=69s
+[c3-min] progress: 2315255808 / 3432399297 (67.5%) min_so_far=424 rate=16537541/s ETA=68s
+[c3-min] progress: 2332033024 / 3432399297 (67.9%) min_so_far=424 rate=16539241/s ETA=67s
+[c3-min] progress: 2348810240 / 3432399297 (68.4%) min_so_far=424 rate=16540917/s ETA=66s
+[c3-min] progress: 2365587456 / 3432399297 (68.9%) min_so_far=424 rate=16542570/s ETA=64s
+[c3-min] progress: 2382364672 / 3432399297 (69.4%) min_so_far=424 rate=16544199/s ETA=63s
+[c3-min] progress: 2399141888 / 3432399297 (69.9%) min_so_far=424 rate=16545806/s ETA=62s
+[c3-min] progress: 2415919104 / 3432399297 (70.4%) min_so_far=424 rate=16547391/s ETA=61s
+[c3-min] progress: 2432696320 / 3432399297 (70.9%) min_so_far=424 rate=16548955/s ETA=60s
+[c3-min] progress: 2449473536 / 3432399297 (71.4%) min_so_far=424 rate=16439420/s ETA=60s
+[c3-min] progress: 2466250752 / 3432399297 (71.9%) min_so_far=424 rate=16441672/s ETA=59s
+[c3-min] progress: 2483027968 / 3432399297 (72.3%) min_so_far=424 rate=16443894/s ETA=58s
+[c3-min] progress: 2499805184 / 3432399297 (72.8%) min_so_far=424 rate=16446087/s ETA=57s
+[c3-min] progress: 2516582400 / 3432399297 (73.3%) min_so_far=424 rate=16448251/s ETA=56s
+[c3-min] progress: 2533359616 / 3432399297 (73.8%) min_so_far=424 rate=16450387/s ETA=55s
+[c3-min] progress: 2550136832 / 3432399297 (74.3%) min_so_far=424 rate=16452496/s ETA=54s
+[c3-min] progress: 2566914048 / 3432399297 (74.8%) min_so_far=424 rate=16454577/s ETA=53s
+[c3-min] progress: 2583691264 / 3432399297 (75.3%) min_so_far=424 rate=16456632/s ETA=52s
+[c3-min] progress: 2600468480 / 3432399297 (75.8%) min_so_far=424 rate=16458661/s ETA=51s
+[c3-min] progress: 2617245696 / 3432399297 (76.3%) min_so_far=424 rate=16460665/s ETA=50s
+[c3-min] progress: 2634022912 / 3432399297 (76.7%) min_so_far=424 rate=16360391/s ETA=49s
+[c3-min] progress: 2650800128 / 3432399297 (77.2%) min_so_far=424 rate=16362964/s ETA=48s
+[c3-min] progress: 2667577344 / 3432399297 (77.7%) min_so_far=424 rate=16365505/s ETA=47s
+[c3-min] progress: 2684354560 / 3432399297 (78.2%) min_so_far=424 rate=16368016/s ETA=46s
+[c3-min] progress: 2701131776 / 3432399297 (78.7%) min_so_far=424 rate=16370496/s ETA=45s
+[c3-min] progress: 2717908992 / 3432399297 (79.2%) min_so_far=424 rate=16372946/s ETA=44s
+[c3-min] progress: 2734686208 / 3432399297 (79.7%) min_so_far=424 rate=16375367/s ETA=43s
+[c3-min] progress: 2751463424 / 3432399297 (80.2%) min_so_far=424 rate=16377758/s ETA=42s
+[c3-min] progress: 2768240640 / 3432399297 (80.7%) min_so_far=424 rate=16380122/s ETA=41s
+[c3-min] progress: 2785017856 / 3432399297 (81.1%) min_so_far=424 rate=16382458/s ETA=40s
+[c3-min] progress: 2801795072 / 3432399297 (81.6%) min_so_far=424 rate=16384767/s ETA=38s
+[c3-min] progress: 2818572288 / 3432399297 (82.1%) min_so_far=424 rate=16387048/s ETA=37s
+[c3-min] progress: 2835349504 / 3432399297 (82.6%) min_so_far=424 rate=16389303/s ETA=36s
+[c3-min] progress: 2852126720 / 3432399297 (83.1%) min_so_far=424 rate=16391533/s ETA=35s
+[c3-min] progress: 2868903936 / 3432399297 (83.6%) min_so_far=424 rate=16393737/s ETA=34s
+[c3-min] progress: 2885681152 / 3432399297 (84.1%) min_so_far=424 rate=16395916/s ETA=33s
+[c3-min] progress: 2902458368 / 3432399297 (84.6%) min_so_far=424 rate=16398070/s ETA=32s
+[c3-min] progress: 2919235584 / 3432399297 (85.0%) min_so_far=424 rate=16400200/s ETA=31s
+[c3-min] progress: 2936012800 / 3432399297 (85.5%) min_so_far=424 rate=16402306/s ETA=30s
+[c3-min] progress: 2952790016 / 3432399297 (86.0%) min_so_far=424 rate=16404389/s ETA=29s
+[c3-min] progress: 2969567232 / 3432399297 (86.5%) min_so_far=424 rate=16406449/s ETA=28s
+[c3-min] progress: 2986344448 / 3432399297 (87.0%) min_so_far=424 rate=16408486/s ETA=27s
+[c3-min] progress: 3003121664 / 3432399297 (87.5%) min_so_far=424 rate=16410501/s ETA=26s
+[c3-min] progress: 3019898880 / 3432399297 (88.0%) min_so_far=424 rate=16412494/s ETA=25s
+[c3-min] progress: 3036676096 / 3432399297 (88.5%) min_so_far=424 rate=16414465/s ETA=24s
+[c3-min] progress: 3053453312 / 3432399297 (89.0%) min_so_far=424 rate=16416416/s ETA=23s
+[c3-min] progress: 3070230528 / 3432399297 (89.4%) min_so_far=424 rate=16418345/s ETA=22s
+[c3-min] progress: 3087007744 / 3432399297 (89.9%) min_so_far=424 rate=16420254/s ETA=21s
+[c3-min] progress: 3103784960 / 3432399297 (90.4%) min_so_far=424 rate=16422143/s ETA=20s
+[c3-min] progress: 3120562176 / 3432399297 (90.9%) min_so_far=424 rate=16424011/s ETA=19s
+[c3-min] progress: 3137339392 / 3432399297 (91.4%) min_so_far=424 rate=16425861/s ETA=18s
+[c3-min] progress: 3154116608 / 3432399297 (91.9%) min_so_far=424 rate=16427691/s ETA=17s
+[c3-min] progress: 3170893824 / 3432399297 (92.4%) min_so_far=424 rate=16429502/s ETA=16s
+[c3-min] progress: 3187671040 / 3432399297 (92.9%) min_so_far=424 rate=16431294/s ETA=15s
+[c3-min] progress: 3204448256 / 3432399297 (93.4%) min_so_far=424 rate=16433068/s ETA=14s
+[c3-min] progress: 3221225472 / 3432399297 (93.8%) min_so_far=424 rate=16434824/s ETA=13s
+[c3-min] progress: 3238002688 / 3432399297 (94.3%) min_so_far=424 rate=16436562/s ETA=12s
+[c3-min] progress: 3254779904 / 3432399297 (94.8%) min_so_far=424 rate=16273900/s ETA=11s
+[c3-min] progress: 3271557120 / 3432399297 (95.3%) min_so_far=424 rate=16195827/s ETA=10s
+[c3-min] progress: 3288334336 / 3432399297 (95.8%) min_so_far=424 rate=16040655/s ETA=9s
+[c3-min] progress: 3305111552 / 3432399297 (96.3%) min_so_far=424 rate=15966722/s ETA=8s
+[c3-min] progress: 3321888768 / 3432399297 (96.8%) min_so_far=424 rate=15818518/s ETA=7s
+[c3-min] progress: 3338665984 / 3432399297 (97.3%) min_so_far=424 rate=15748424/s ETA=6s
+[c3-min] progress: 3355443200 / 3432399297 (97.8%) min_so_far=424 rate=15606713/s ETA=5s
+[c3-min] progress: 3372220416 / 3432399297 (98.2%) min_so_far=424 rate=15540186/s ETA=4s
+[c3-min] progress: 3388997632 / 3432399297 (98.7%) min_so_far=424 rate=15404535/s ETA=3s
+[c3-min] progress: 3405774848 / 3432399297 (99.2%) min_so_far=424 rate=15272533/s ETA=2s
+[c3-min] progress: 3422552064 / 3432399297 (99.7%) min_so_far=424 rate=15211343/s ETA=1s
+# C3-min analysis: /data/solutions.bin
+Records: 3432399297
+KW C3 (reference): 776
+
+
+Results (wall time 227s):
+  Minimum C3 observed:     424
+  Count of records at min: 221 (0.0000% of 3432399297)
+  Maximum C3 observed:     776
+  KW found at record idx:  YES
+  KW C3 (verified):        776  (expected 776)
+
+Interpretation:
+  Minimum C3 (424) is LESS than KW (776) — KW is NOT the C3-minimum.
+  Some other C1+C2 ordering places complements even closer than KW.
+  Axiom 'minimize C3' alone cannot derive KW.
+
+  Top 10 lowest C3 values observed (bucket, count):
+    C3=424   221 records
+    C3=432   6378 records
+    C3=440   12283 records
+    C3=448   47606 records
+    C3=456   83077 records
+    C3=464   201693 records
+    C3=472   293340 records
+    C3=480   540141 records
+    C3=488   702851 records
+    C3=496   1155122 records

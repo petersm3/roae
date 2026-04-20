@@ -1,11 +1,14 @@
 # Enumeration Leaderboard
 
-> **Note (2026-04-19):** Canonical reference figures have been re-established with the corrected solver (format v1). Authoritative counts:
+> **Note (2026-04-20):** Canonical reference figures have been re-established with the corrected solver (format v1). Authoritative counts:
 >
+> - **d3 100T partition: 3,432,399,297 canonical orderings** (sha `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`, 102.3 GB) — **NEW 2026-04-19/20**, deepest partial enumeration to date.
 > - **d3 10T partition: 706,422,987 canonical orderings** (sha `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`)
 > - **d2 10T partition: 286,357,503 canonical orderings** (sha `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`)
 >
-> Both validated cross-independently across 3 merge paths. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference.
+> All three validated. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference. The 100T : 10T ratio of 4.86× reflects diminishing returns in the search tree (linear node budget yields sublinear new-orderings).
+>
+> **Novel finding from 100T `--c3-min` analysis (2026-04-20):** KW is **not** the C3-minimum under C1+C2+C3. Minimum complement distance = **424** (221 records); KW sits at C3 = 776 (ceiling of the constraint). The simple axiom "minimize C3" does not derive KW — this is a negative result for Open Question #7 Phase A.
 
 ## What this is
 

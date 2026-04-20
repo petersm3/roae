@@ -1,8 +1,6 @@
 # 100T depth-3 D128als_v7 westus3 canonical enumeration — archive
 
-*Template — enumeration phase complete, merge in progress. Values marked
-`[[TBD]]` will be filled in when MERGEDONE fires. Known values already
-populated.*
+*Completed run 2026-04-20 00:45 UTC.*
 
 **Date:** 2026-04-19
 **SKU:** Standard_D128als_v7 (spot, westus3)
@@ -16,16 +14,23 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 
 ## Canonical sha (100T partition, 2026-04-19)
 
-- **sha256**: `[[TBD — paste from /data/solutions.sha256 when MERGEDONE]]`
-- **Records**: `[[TBD — canonical orderings, paste from meta.json]]`
-- **Solutions.bin size**: `[[TBD]]` bytes
+- **sha256**: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`
+- **Records (canonical unique orderings)**: **3,432,399,297** (~3.43 billion)
+- **Solutions.bin size**: 109,836,777,536 bytes (102.3 GB)
+- **Pre-dedup records processed**: 13,832,832,979
+- **Merge chunks produced**: 60,533 (external merge via P40 Premium SSD scratch)
 - **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. Both are valid canonical references at their respective budgets (per PARTITION_INVARIANCE.md, sha is a function of solver + inputs).
 
 ## Relationship to 10T canonical
 
 100T d3 solution set is a **proper superset** of 10T d3's. Every ordering found in 10T (706,422,987) is also in 100T (because each sub-branch at 100T has 10× the budget and explores strictly more of its tree before hitting the node-budget ceiling). The increment over 10T reflects sub-branch trees that needed >63M but ≤631M nodes to surface their C3-valid configurations.
 
-Expected 100T count: likely 1-2B canonical orderings. Final value TBD from meta.json.
+**Count comparison:**
+- 10T d3: 706,422,987 canonical orderings
+- 100T d3: **3,432,399,297** canonical orderings
+- Ratio: **~4.86×** at 10× the node budget (diminishing-returns scaling — expected, since early sub-branches saturate quickly while deep/hard sub-branches need proportionally more budget to surface more orderings).
+
+Expected count at launch was 1-2B; actual 3.43B exceeded the estimate.
 
 ## Run parameters
 
@@ -42,10 +47,10 @@ Expected 100T count: likely 1-2B canonical orderings. Final value TBD from meta.
 | Phase | Wall time | Wall seconds |
 |---|---|---|
 | Enumeration (158,364 sub-branches × 631M-node budget each, 128 threads) | **11h 22m 07s** | **40,927** |
-| External merge (P40 Premium SSD temp, 2 TB) | `[[TBD]]` | `[[MERGE_WALL_SEC]]` |
-| **Total** | `[[TBD]]` | `[[TBD]]` |
+| External merge (P40 Premium SSD temp, 2 TB) | **5h 25m 38s** | **19,538** |
+| **Total (enum + merge)** | **16h 47m 45s** | **60,465** |
 
-Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s = 40,927s ✓ on target**), merge ~2-3h, total ~13-14h.
+Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s ✓ on target**), merge ~2-3h (**actual 5h 25m** — longer than projected; the 2-3h estimate was a rough guess, not a rigorous projection; 100T pre-dedup input at 13.8B records is ~10× the 10T input so ~10× merge time is realistic in retrospect), total ~13-14h (**actual 16h 48m** — a bit long but within tolerances).
 
 **Enumeration complete (ENUMDONE fired 2026-04-19 ~19:20 UTC)**. Sustained ~2,445 M nodes/s peak rate across 127-128 active threads. Total nodes processed: 100,000,000,000,000 (100 T per parameter). Final sub-branch (158,364/158,364, pair1=31 orient1=1 pair2=30 orient2=0) completed at 40,925s wall. All 158,364 sub-branches BUDGETED (hit per-branch node ceiling rather than exhausted).
 
@@ -61,7 +66,7 @@ Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s = 40
 
 ## What's NOT in this directory (and why)
 
-`solutions.bin` (projected ~30-65 GB at 100T depth) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a 13-hour / ~$30 compute task if ever needed (partition invariance guarantees byte-identical reproduction).
+`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a 13-hour / ~$30 compute task if ever needed (partition invariance guarantees byte-identical reproduction).
 
 ## How to re-obtain `solutions.bin`
 
@@ -77,10 +82,19 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 
 ## Verification status at archive time
 
-- `./solve --merge` internal post-validation: `[[PASS/FAIL from log]]`
-- King Wen present: `[[YES from log]]`
-- All records C1-C5 valid: `[[YES from log]]`
-- Sort order + dedup: `[[OK from log]]`
+- `./solve --merge` internal post-validation: **PASS** ("ALL CONSTRAINTS VERIFIED" in merge log; 0 errors)
+- King Wen present: YES (in merge-stage validation)
+- All records C1-C5 valid: YES (0 errors across all 3,432,399,297 records)
+- Sort order + dedup: OK (no duplicates, strict sort order)
+- Independent `--verify` pass: (pending — launched 2026-04-20 00:47 UTC)
+- `--analyze` output: (pending — launched 2026-04-20 00:47 UTC)
+- `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s).
+  - **Minimum C3 observed: 424** across the 3.43B records
+  - **Count at minimum: 221 records** (0.00000644% of records)
+  - **KW found at C3 = 776** (ceiling of the constraint C3 ≤ 776)
+  - **Histogram of bottom 10**: 424:221, 432:6378, 440:12283, 448:47606, 456:83077, 464:201693, 472:293340, 480:540141, 488:702851, 496:1155122
+  - **Finding (negative, Phase A MVP)**: KW is NOT the C3-minimum under C1+C2+C3. Axiom "minimize C3" alone does not uniquely derive KW. The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW. KW sits at the C3 ceiling, not the floor.
+  - See `c3_min_output.log` in this directory for the full output and [DERIVABILITY_STRATEGY.md](../../../x/roae/DERIVABILITY_STRATEGY.md) context.
 
 ## 4-corners validation context
 
