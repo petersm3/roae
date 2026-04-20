@@ -99,10 +99,21 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 ## Visualization
 
 - 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. Locally archived but NOT committed per standing user directive.
-- Generated 2026-04-20 03:46 UTC on d128-westus3 after MERGEDONE.
-- Uniformly-random 1M-record subsample from the 3.43B canonical records, via one-pass vectorized reservoir sampling (Algorithm R, seed=42, deterministic). PCA projection to 2D on the full 1M sample; plotted a further subsample of 200k for readability.
-- Known gap: King Wen itself was not drawn by the random sampler this run (expected — 1 in 3.43B × 1M = 0.000029 occurrences on average; a statistical artifact of uniform sampling, not a bug). KW star is therefore not marked on the plots.
-- visualize.py bugs fixed this session (but not committed, per uncommitted-viz directive): (1) format-v1 magic-byte detection (was auto-detecting format by file-size modulo, which collided at 100T scale); (2) replaced 1M random-index mmap-seek pattern (~80 min on Standard HDD) with one-pass vectorized reservoir sampling (~7 min on cached Standard HDD, ~15-30 min cold).
+- Generated 2026-04-20 on d128-westus3 after MERGEDONE.
+- **Sampling methodology (fully deterministic, seed=42):**
+  - Uniformly-random 1M-record subsample from the 3.43B canonical via one-pass vectorized reservoir sampling (Algorithm R) — produces identical output on every re-run with the same file + seed.
+  - PCA projection to 2D on the full 1M sample.
+  - Plot layer: further uniform subsample to 200k points for readability (also seed=42).
+- **King Wen injection (guaranteed marking):** Because KW is 1 in 3.43B, a random 1M sample catches it with probability ~0.003% (effectively never). To guarantee the reference point appears in every plot:
+  - If KW happens to be in the reservoir → no modification (leaves the random sample untouched).
+  - If KW is NOT in the reservoir → the last reservoir slot (index k-1 = 999,999) is overwritten with KW's canonical record; one uniformly random sample is displaced. At k=1M the statistical distribution of the remaining 999,999 samples is preserved to six-plus decimal places.
+  - This behavior is deterministic: same seed + same file → same inject-or-not decision → same plots.
+  - In the 2026-04-20 run on this canonical, KW was not in the random sample (as expected) and was injected at index 999,999.
+- visualize.py fixes applied this session (locally, not committed per uncommitted-viz directive):
+  1. **Format-v1 magic-byte detection** — was auto-detecting format by file-size modulo, which collided at 100T scale (odd record count × 32 + 32 header happens to be divisible by 64).
+  2. **Vectorized reservoir sampling** — replaced 1M random-index mmap-seek pattern (~80 min on Standard HDD due to seek-per-record) with one-pass sequential read + in-chunk numpy-vectorized reservoir update. Empirical: ~7 min on this file (page-cache-warm) vs ~60 min for Python-loop scalar reservoir vs ~80 min for the original mmap-seek approach.
+  3. **KW injection** — as described above.
+  4. **Plot subtitle provenance** — subtitles now show sample size / total record count / seed so plots are self-describing.
 - `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s first pass, 518s second pass with max-counting).
   - **Minimum C3 observed: 424** (221 records at min)
   - **Maximum C3 observed: 776** (= KW's value, the constraint ceiling)
