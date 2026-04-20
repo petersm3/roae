@@ -399,19 +399,28 @@ def generate_plots(solutions, features, projected, kw_idx):
               categorical=True)
 
     # 4. C6/C7 adjacency satisfaction
+    # Build legend with proxy artists so legend markers are readable —
+    # plot dots use s=1/alpha=0.3 which renders as invisible legend swatches.
+    from matplotlib.lines import Line2D
     adj = compute_adjacency_satisfaction(features[sub_idx])
     fig, ax = plt.subplots(figsize=(12, 10), dpi=150)
+    legend_handles = []
     for val, color, label in [(0, '#d32f2f', 'Neither C6 nor C7'),
                                (1, '#fbc02d', 'One of C6/C7'),
                                (2, '#388e3c', 'Both C6 + C7')]:
         mask = adj == val
         ax.scatter(x[mask], y[mask], c=color, s=1, alpha=0.3,
-                  edgecolors='none', rasterized=True, label=f'{label} ({mask.sum():,})')
+                  edgecolors='none', rasterized=True)
+        legend_handles.append(Line2D([0], [0], marker='o', linestyle='none',
+                                     markerfacecolor=color, markeredgecolor='none',
+                                     markersize=10, label=f'{label} ({mask.sum():,})'))
     if sub_kw_idx >= 0:
         ax.scatter([x[sub_kw_idx]], [y[sub_kw_idx]], c='gold', s=100,
-                  edgecolors='black', linewidths=2, zorder=10, marker='*',
-                  label='King Wen')
-    ax.legend(fontsize=10, loc='upper right')
+                  edgecolors='black', linewidths=2, zorder=10, marker='*')
+        legend_handles.append(Line2D([0], [0], marker='*', linestyle='none',
+                                     markerfacecolor='gold', markeredgecolor='black',
+                                     markeredgewidth=1, markersize=14, label='King Wen'))
+    ax.legend(handles=legend_handles, fontsize=10, loc='upper right')
     subtitle = f"({n:,} solutions" + (f", {n_plotted:,} plotted" if n > MAX_PLOT_POINTS else "") + ")"
     ax.set_title(f'King Wen Solution Space — Adjacency Constraint Satisfaction\n{subtitle}', fontsize=14)
     ax.set_xlabel('PC1', fontsize=12)
