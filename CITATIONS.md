@@ -121,7 +121,7 @@ Subject to the disclaimer at the top of this document, the following are believe
 
 1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across hardware, region, thread count, and merge algorithm for fixed solver + input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
 2. **4-corners validation grid** — cross-SKU, cross-region, cross-merge-algorithm empirical confirmation of partition invariance. See [HISTORY.md](HISTORY.md) and [SOLVE.md](SOLVE.md).
-3. **Exhaustive enumeration under the C1+C2+C3 conjunction at 10T and 100T scale** — 706,422,987 d3 / 286,357,503 d2 / (100T d3 pending).
+3. **Exhaustive enumeration under the C1+C2+C3 conjunction at 10T and 100T scale** — 3,432,399,297 d3 100T (sha `915abf30…`) / 706,422,987 d3 10T / 286,357,503 d2 10T. Revealed that the boundary-minimum grows with partition depth (4 at 10T, 5 at 100T) and that KW sits at the C3 ceiling, not the floor.
 4. **Comprehensive null-model testing framework** — seven structured and unstructured permutation families tested via `solve.c --null-*` subroutines: de Bruijn, Gray, Latin-square, lexicographic, historical, random, pair-constrained.
 5. **Analytic C1 impossibility proofs** for the de Bruijn B(2, 6) family (period-4 contradiction) and the Gray code family (Hamming-1 disjoint). See [CRITIQUE.md](CRITIQUE.md).
 6. **Latin-square C2 rate decomposition** — analytic explanation of the 57.96% rate as a function of row-permutation class (Hamiltonian-path popcount distribution in the 3-cube). See [CRITIQUE.md](CRITIQUE.md).

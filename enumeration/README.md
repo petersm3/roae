@@ -9,8 +9,9 @@ predominantly historical.
 ## Headline reference
 
 - **[LEADERBOARD.md](LEADERBOARD.md)** — the authoritative enumeration
-  scoreboard. Current canonical counts (d3 10T: 706,422,987, sha
-  `f7b8c4fb…`; d2 10T: 286,357,503, sha `a09280fb…`), per-first-level-branch
+  scoreboard. Current canonical counts (d3 100T: 3,432,399,297, sha
+  `915abf30…`; d3 10T: 706,422,987, sha `f7b8c4fb…`; d2 10T:
+  286,357,503, sha `a09280fb…`), per-first-level-branch
   solution totals, dead-branch classification, sub-branch yields. Read
   this first.
 

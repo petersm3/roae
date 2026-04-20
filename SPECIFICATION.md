@@ -76,12 +76,18 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 - C2 eliminates ~96% of C1 solutions.
 - C3 further restricts to ~3.9% of C1+C2 solutions.
 - C4 fixes the starting pair and orientation.
-- C5 yields hundreds of millions of unique pair orderings under partial enumeration. Canonical counts (2026-04-18, sha-validated across 4 corners of {CPU gen} × {merge mode}):
+- C5 yields billions of unique pair orderings under partial enumeration. Canonical counts (sha-validated, partition-invariant per [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)):
+  - **d3 100T partition: 3,432,399,297** canonical orderings (sha `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`, 2026-04-20). Current deepest partial enumeration.
   - **d3 10T partition: 706,422,987** canonical orderings (sha `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`).
   - **d2 10T partition: 286,357,503** canonical orderings (sha `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2`).
   
-  The count difference is a partition-strategy effect at the same total 10T node budget; under true exhaustive enumeration both partitions would converge. Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. (Older figures — 31.6M filename-collision bug, 742M hash-table bug — were both invalidated by forensic analysis; see [HISTORY.md](HISTORY.md).)
-- C6+C7 together eliminate 99.995% of solutions but leave thousands of non-KW survivors. Two additional boundary constraints eliminate the rest, giving uniqueness with 4 total boundary constraints at both d2 and d3 scales. **Partition-stable finding**: boundaries **{25, 27}** appear in every working 4-subset at both partition depths. **Partition-dependent**: the other 2 boundaries. At d2 the minimal structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` (4 working 4-subsets); at d3 the structure is `{25, 27} ∪ two-of-{1..6}` (8 working 4-subsets with varied combinations). Only `{25, 27}` can be cited as generally mandatory; the broader "interchangeable slots" phrasing is partition-scoped. See [SOLVE.md](SOLVE.md) for the full per-dataset analysis.
+  The count difference is a partition-strategy and node-budget effect; under true exhaustive enumeration all three would converge. Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. (Older figures — 31.6M filename-collision bug, 742M hash-table bug — were both invalidated by forensic analysis; see [HISTORY.md](HISTORY.md).)
+- C6+C7 together eliminate 99.995% of solutions but leave thousands of non-KW survivors. **The number of boundary constraints needed for uniqueness grows with partition depth** (SUPERSEDES earlier "4 always suffice" framing):
+  - d2 10T: minimum is **4**, structure `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` (4 working 4-subsets).
+  - d3 10T: minimum is **4**, structure `{25, 27} ∪ two-of-{1..6}` (8 working 4-subsets).
+  - **d3 100T: minimum is 5** — exhaustive test confirms 0 working 4-subsets; greedy-optimal 5-set is `{1, 4, 21, 25, 27}`.
+  
+  **Partition-stable finding**: boundaries **{25, 27}** appear in every working minimum set at all three partition depths. **Partition-dependent**: the remaining boundaries AND the minimum count itself. Only `{25, 27}` can be cited as generally mandatory; "4 boundaries minimum" is true only at 10T scales, not 100T. The minimum may continue to grow at 1000T+. See [SOLVE.md](SOLVE.md) for the full per-dataset analysis.
 - Earlier claims that C5 locked 23 of 32 positions and C6+C7 alone gave uniqueness were based on a 438-solution partial sample from a single branch of the search tree.
 
 **Theorem (Within-pair distance):** For all h ∈ H, d(h, partner(h)) ∈ {0, 2, 4, 6}. *Proof: see SOLVE.md, Theorem 1.*

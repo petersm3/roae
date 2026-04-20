@@ -36,6 +36,8 @@ Any `solutions.bin` produced with matching input parameters **must**
 reproduce one of these shas byte-identically. A mismatch is a bug, not
 a new result.
 
+- **d3 100T** (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=100000000000000`):
+  `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` — 3,432,399,297 canonical orderings (2026-04-20).
 - **d3 10T** (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=10000000000000`):
   `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` — 706,422,987 canonical orderings.
 - **d2 10T** (`SOLVE_DEPTH=2`, same node limit):
