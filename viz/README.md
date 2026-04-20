@@ -80,13 +80,23 @@ position differs).
 
 - **If KW is near the center of a dense cluster:** KW lives in a
   typical region of the solution space — its specific properties
-  are shared with many other valid orderings.
+  are shared with many other valid orderings. (Mechanically: PCA
+  centers coordinates on the dataset mean, so "near (0,0)" means
+  KW's back-half pair placements are close to the population
+  *average* in the two highest-variance directions. Central does
+  not mean distinguished — many other valid orderings also live
+  there.)
 - **If KW is at an edge or isolated:** KW is a statistical outlier
   among valid orderings.
-- **Canonical d2 10T and d3 10T both show KW sitting in a
-  well-populated region**, not an isolated outlier — consistent
-  with CRITIQUE.md's note that KW's specific C4-C7 properties
-  aren't distinguishing beyond the robust C1-C3 findings.
+- **Canonical d2 10T, d3 10T, and d3 100T all show KW sitting in a
+  well-populated central region**, not an isolated outlier. This
+  is consistent with (a) CRITIQUE.md's note that KW's specific
+  C4-C7 properties aren't distinguishing beyond the robust C1-C3
+  findings, and (b) the d3 100T C3-ceiling result (KW ties ~340M
+  other canonical orderings at C3=776; KW is the *mode* of the C3
+  distribution, not the tail). Being typical in PCA space and
+  typical at the C3 ceiling are two views of the same story: KW
+  is not a geometric extremum.
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
