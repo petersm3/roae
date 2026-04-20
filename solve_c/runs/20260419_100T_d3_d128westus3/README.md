@@ -95,6 +95,14 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
   - **Edit-distance distribution: heavily right-skewed**, mode at distance 30 (867M records = 25.3% of canonical). KW's 15-nearest-neighbor region is sparse: only 10.87% of records within edit distance 25 of KW. KW sits in a sparsely-populated neighborhood of the solution manifold.
   - **C3 distribution (from section [3]/[20])**: KW C3 = 776 is the ceiling; 9.91% of records tie at C3=776; minimum C3 = 424 (221 records). See `c3_min_output.log` for the dedicated analysis.
   - Full output in `analyze_output.log.gz` (17.7 KB compressed, 1,224 lines).
+
+## Visualization
+
+- 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. Locally archived but NOT committed per standing user directive.
+- Generated 2026-04-20 03:46 UTC on d128-westus3 after MERGEDONE.
+- Uniformly-random 1M-record subsample from the 3.43B canonical records, via one-pass vectorized reservoir sampling (Algorithm R, seed=42, deterministic). PCA projection to 2D on the full 1M sample; plotted a further subsample of 200k for readability.
+- Known gap: King Wen itself was not drawn by the random sampler this run (expected — 1 in 3.43B × 1M = 0.000029 occurrences on average; a statistical artifact of uniform sampling, not a bug). KW star is therefore not marked on the plots.
+- visualize.py bugs fixed this session (but not committed, per uncommitted-viz directive): (1) format-v1 magic-byte detection (was auto-detecting format by file-size modulo, which collided at 100T scale); (2) replaced 1M random-index mmap-seek pattern (~80 min on Standard HDD) with one-pass vectorized reservoir sampling (~7 min on cached Standard HDD, ~15-30 min cold).
 - `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s first pass, 518s second pass with max-counting).
   - **Minimum C3 observed: 424** (221 records at min)
   - **Maximum C3 observed: 776** (= KW's value, the constraint ceiling)
