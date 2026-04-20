@@ -406,6 +406,32 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
 
+## Day 10 — April 20, 2026 early morning: 100T d3 canonical lands
+
+100T d3 enumeration + external merge pipeline completed at 00:45 UTC (17:45 PDT Sunday / 2026-04-19). Total wall time: enum 11h 22m (40,927s) + external merge 5h 26m (19,538s) = 16h 48m.
+
+**Canonical result:**
+- sha256: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`
+- Records (canonical unique orderings): **3,432,399,297** (~4.86× the 10T count)
+- Solutions.bin: 102.3 GB
+- Pre-dedup input: 13.8B records, 60,533 merge chunks
+
+**Validation:** `--verify` PASS — all 3.43B records satisfy C1-C5, sorted, no duplicates, KW present. Independent code-path confirms the canonical sha is trustworthy.
+
+**Novel scientific findings from the analyze pass (4156s wall, 69 min):**
+
+1. **The boundary-minimum jumps from 4 to 5 at 100T.** Section [8] exhaustive test of all C(31,4) = 31,465 quadruples: total working 4-subsets = 0. Greedy-optimal 5-set: **{1, 4, 21, 25, 27}**. The earlier "4-boundary minimum" finding (at d2 10T and d3 10T) is SUPERSEDED at deeper enumeration. **Boundaries {25, 27} remain mandatory across all three partitions** — most stable structural finding to date. The true boundary-minimum is partition-depth-dependent; may continue to grow at 1000T+.
+
+2. **KW's C3 = 776 is the CEILING of the constraint, not the floor.** Via `--c3-min`: minimum C3 = 424 (221 records); **9.91% of the canonical set (340,179,649 records) tie with KW at C3 = 776**. KW is NOT the C3-minimum; it's at the maximum of the constraint. Axiom "minimize C3" picks 221 records, not KW. Axiom "maximize C3" picks 340M records including KW. Both simple C3-extremal axioms fail to uniquely derive KW. Phase A Day 1 MVP for Open Question #7 gives a decisive NEGATIVE result for derivability via C3 extremality. Rule 3 ("opposites kept unusually close") is refined: true vs random and vs C1-only, but within C1+C2+C3 canonical, KW is at the ceiling.
+
+3. **Edit-distance distribution heavily right-skewed.** Mode at edit distance 30 (867M records = 25.3%); only 10.87% of records within edit distance 25 of KW. KW sits in a sparsely-populated neighborhood of the solution manifold — most canonical orderings are far from KW, not close.
+
+4. **Shift-pattern conformance: 0.077%** (2,635,756 of 3.43B). Trajectory: 2.69% (d2 10T) → 0.062% (d3 10T) → 0.077% (d3 100T). Not monotonically decreasing; suggests some shift-conforming orderings surface at deeper budget.
+
+**Spot-vs-on-demand misprovisioning (retrospective):** d128-westus3 was inadvertently provisioned as on-demand at $5.146/hr instead of spot at $0.95/hr. Total avoidable overspend: ~$73 on the enumeration portion. See §Missteps (row added 2026-04-20) for the full attribution (Claude's fault, not the user's) and the corrective policy (spot for enum, right-sized on-demand for merge; mandatory pre-launch `az vm show --query priority` gate codified in CLAUDE.md + DEPLOYMENT.md + auto-memory feedback rule).
+
+**Pending work post-MERGEDONE:** viz run on 102.3 GB solutions.bin, Step 8b safety gate, d128-westus3 teardown, P40 scratch SSD deletion. Docs in `petersm3/x/roae` (CURRENT_PLAN, AUTONOMOUS_STATUS, POST_MERGEDONE_CHECKLIST) refreshed.
+
 ## Current state (2026-04-19)
 
 **Code.** solve.c is through multiple hardening passes: exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, in-place heapsort replacing glibc qsort in 5 merge paths, `--sub-branch` CLI for targeted depth-3 sub-branch exhaustion, `SOLVE_CONCENTRATE_BUDGET` env var for accumulation workflows, auto-threshold at 8/10 for in-memory merge decision. Zero compile warnings. Known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.

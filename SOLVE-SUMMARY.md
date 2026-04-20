@@ -190,6 +190,18 @@ Joint-survivor analysis (counting how many solutions match KW at *both* of two g
 
 This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1, 4, 25, 27} (d3's greedy pick) works: early boundaries catch the high-entropy choices in the front zone, and 25 and 27 contribute *independent* information not implied by any other boundary. The specific early-zone picks vary by partition depth; the mandatory-status of {25, 27} does not.
 
+### 100T d3 canonical results (2026-04-20)
+
+Running the same C1+C2+C3 enumeration at 10× the node budget (100 trillion vs 10 trillion) produced **3,432,399,297 canonical orderings** — roughly 4.86× the 10T count. Findings:
+
+- **Boundary minimum jumps from 4 to 5.** The d2 10T and d3 10T canonicals have 4 specific boundaries uniquely determining KW. At d3 100T, no 4-subset works; minimum is 5, greedy-optimal set **{1, 4, 21, 25, 27}**. Boundaries {25, 27} remain mandatory across all three partitions — this is the most stable structural finding. The specific "4 boundaries" narrative is SUPERSEDED at deeper enumeration; the true boundary-minimum is a function of partition depth.
+- **Complement distance (C3) = 776 is the CEILING, not the floor.** KW's C3 is at the maximum of the constraint. 340,179,649 records (9.91%) tie at exactly 776; minimum C3 is 424 (221 records). Axiom "minimize C3" does NOT pick KW; KW is in a large ~10% equivalence cohort at the C3 ceiling. Rule 3 is a ceiling constraint, not a minimization (see updated §Rule 3).
+- **Edit-distance distribution heavily right-skewed toward KW's far side.** Mode at edit distance 30 (867M records = 25.3%); only 10.87% of records within edit distance 25 of KW. KW sits in a sparse neighborhood of the solution manifold.
+- **Shift-pattern conformance: 0.077%** (2,635,756 of 3.43B). Trajectory: d2 2.69% → d3 10T 0.062% → d3 100T 0.077%. Not monotonically decreasing.
+- **Mean per-position Shannon entropy: 2.37 bits** (of 5.0 max). Similar shape to 10T; KW is identifiable within only ~7% of the 32 position slots without additional constraints.
+
+Canonical sha256: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (102.3 GB). See [`solve_c/runs/20260419_100T_d3_d128westus3/`](solve_c/runs/20260419_100T_d3_d128westus3/) for the run archive and `analyze_output.log.gz` for the full data.
+
 ### Within-pair orient freedom: a constraint-geometry finding (not KW-specific)
 
 King Wen appears exactly once per canonical dataset (d3: 1 variant, d2: 1 variant — the canonical dedup keeps the lex-smallest orient variant per pair-sequence). Earlier 742M-era analysis found 4 KW orient variants with coupling at positions {2, 3, 28, 29, 30}; the canonical format v1 with per-canonical-class dedup collapses these to 1. The pair-sequence is the invariant; orient variants are cheaply recoverable by testing 2^31 combinations. Running the orient-coupling generalization analysis (`--analyze` section [14]) across the canonical datasets shows:

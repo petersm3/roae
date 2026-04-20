@@ -9,6 +9,8 @@
 > All three validated. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference. The 100T : 10T ratio of 4.86× reflects diminishing returns in the search tree (linear node budget yields sublinear new-orderings).
 >
 > **Novel finding from 100T `--c3-min` analysis (2026-04-20):** KW is **not** the C3-minimum under C1+C2+C3. Minimum complement distance = **424** (221 records); KW sits at C3 = 776 (ceiling of the constraint). The simple axiom "minimize C3" does not derive KW — this is a negative result for Open Question #7 Phase A.
+>
+> **Second novel finding from 100T `--analyze` (2026-04-20):** the **boundary-minimum increases from 4 to 5** at deeper enumeration. At d2 10T and d3 10T, 4-boundary subsets uniquely identify KW. At d3 100T (the new canonical), **NO 4-subset works** — the deeper enumeration surfaces orderings that are 4-subset-indistinguishable from KW. Greedy-optimal 5-set: **{1, 4, 21, 25, 27}**. Boundaries {25, 27} remain mandatory across all three partitions (d2 10T, d3 10T, d3 100T) — the partition-stability claim holds. This is a MAJOR revision to the 4-boundary narrative and suggests the true boundary-minimum may continue to increase at yet-deeper enumeration (1000T+). See SOLVE.md §Boundary analysis for the updated text and `solve_c/runs/20260419_100T_d3_d128westus3/analyze_output.log.gz` for the raw data.
 
 ## What this is
 

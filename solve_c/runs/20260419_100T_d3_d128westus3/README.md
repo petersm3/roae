@@ -87,7 +87,14 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 - All records C1-C5 valid: YES (0 errors across all 3,432,399,297 records)
 - Sort order + dedup: OK (no duplicates, strict sort order)
 - Independent `--verify` pass: **PASS** — *"VERIFY PASS: all 3432399297 records satisfy C1-C5, sorted, no duplicates"*, KW present. See `verify_output.log` in this directory.
-- `--analyze` output: (pending — launched 2026-04-20 00:47 UTC)
+- `--analyze` output: **COMPLETE** (wall 4156s = 69m 16s). Headline findings:
+  - **5-boundary minimum at 100T d3** (SUPERSEDES earlier "4-boundary minimum" finding from d2/d3 10T). Section [8] exhaustive test: 0 working 4-subsets. Greedy-optimal 5-set: **{1, 4, 21, 25, 27}**. Boundaries {25, 27} still mandatory (present in the 5-set).
+  - **Shift-pattern conformance: 2,635,756 / 3.43B = 0.077%** (vs 0.062% at d3 10T and 2.69% at d2 10T). Trajectory: d2 → d3 10T → d3 100T is not monotonically decreasing — 100T slight increase over 10T suggests some rare shift-conforming orderings surface only at deeper budget.
+  - **Mean per-position Shannon entropy: 2.37 bits** (out of 5.0 max). Position 3 highest (4.52 bits / 31 distinct pairs). Positions 5-6 near-zero (0.49, 0.78 bits — highly constrained).
+  - **Complement closure: 0 records** have their complement also in the set (matches d2/d3 10T finding; structural property).
+  - **Edit-distance distribution: heavily right-skewed**, mode at distance 30 (867M records = 25.3% of canonical). KW's 15-nearest-neighbor region is sparse: only 10.87% of records within edit distance 25 of KW. KW sits in a sparsely-populated neighborhood of the solution manifold.
+  - **C3 distribution (from section [3]/[20])**: KW C3 = 776 is the ceiling; 9.91% of records tie at C3=776; minimum C3 = 424 (221 records). See `c3_min_output.log` for the dedicated analysis.
+  - Full output in `analyze_output.log.gz` (17.7 KB compressed, 1,224 lines).
 - `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s first pass, 518s second pass with max-counting).
   - **Minimum C3 observed: 424** (221 records at min)
   - **Maximum C3 observed: 776** (= KW's value, the constraint ceiling)

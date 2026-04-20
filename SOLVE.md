@@ -248,9 +248,13 @@ Rules C1-C5 narrow 10^89 possibilities to a dataset-dependent count under partia
 
 The difference is a property of partition strategy, not constraints — d3's finer partitioning spreads coverage more broadly at the same total 10T budget. Under true exhaustive enumeration both partitions would converge. XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-**Resolved (for current canonical d3 dataset):** Exactly **4 boundary constraints** are needed to uniquely determine King Wen. Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirms no combination of 3 or fewer suffices on d3 (minimum 3-subset survivors: 2; `analyze_d3.log` section [7]). The same minimum of 4 holds on d2 (best triple leaves 7 survivors; `analyze_d2.log` section [7]).
+**Resolved at 10T scales, REVISED at 100T (2026-04-20):** Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirms no 3-or-fewer-boundary combination suffices at d2, d3 10T, or d3 100T — so the **boundary-minimum is ≥ 4**. However, at d3 100T (3.43B records canonical, sha `915abf30…`), **NO 4-subset works either** (`analyze_output.log.gz` section [8]: total working 4-subsets = 0). The true boundary-minimum is **≥ 5 at 100T**; 4-boundary uniqueness was a d2-and-d3-10T-scale finding that SUPERSEDES at deeper enumeration.
 
-**⚠️ Key scope note (2026-04-19):** the *specific 4-boundary combinations* that work are **partition-dependent**. What is partition-stable: boundaries **{25, 27} are mandatory in every working 4-set at both d2 and d3 scales**. What is NOT partition-stable: the other 2 interchangeable slots. Details below.
+- **d2 10T**: 4 working 4-subsets, structure `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}`. Minimum = 4.
+- **d3 10T**: 8 working 4-subsets with interchangeable boundaries in `{1..6}` plus mandatory `{25, 27}`. Minimum = 4.
+- **d3 100T**: 0 working 4-subsets; exhaustive test confirms no quadruple uniquely identifies KW. Greedy-optimal 5-set: **{1, 4, 21, 25, 27}**. Minimum = 5.
+
+**⚠️ Key scope note (2026-04-20 revision):** boundaries **{25, 27} remain mandatory across all three partitions (d2 10T, d3 10T, d3 100T)** — the partition-stability of {25, 27} is robust. What is NOT partition-stable: (a) the number of boundaries needed (4 at 10T → 5 at 100T), and (b) the specific other boundaries in the minimum set (interchangeable range varies with partition depth). The trajectory suggests the true minimum may continue to grow at 1000T+ enumeration.
 
 The d3 greedy-optimal set (from `analyze_d3.log` section [6]):
 
@@ -344,6 +348,7 @@ The "shift pattern" (positions 3-19 must be pair p−1 or p−2) was originally 
 
 - **d2 10T**: 2.69% of solutions fully shift-conforming (97.31% violate at ≥1 position)
 - **d3 10T**: **0.062%** of solutions fully shift-conforming (99.94% violate)
+- **d3 100T**: **0.077%** (2,635,756 of 3.43B) — slightly higher than 10T, suggesting some rare shift-conforming orderings only surface at deeper budget. Absolute count went up ~6× vs 10T but remains a tiny fraction overall.
 
 The dramatic reduction from d2 to d3 (~43× rarer) indicates the pattern becomes even more restrictive as the partitioning spreads to more of the solution space. Under exhaustive enumeration it would likely be rarer still. The pattern is a local property satisfied by a small, shrinking fraction of the broader space.
 
