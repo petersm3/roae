@@ -54,9 +54,12 @@ hash-table bug) are invalidated forensic references only.
 
 **Standing policy (2026-04-20, after an ~$73 avoidable overspend on the 100T d3 run):**
 
-- **Enumeration** (`solve.c` running sub-branches, no `--merge`) → **spot priority**. Enumeration is eviction-resilient; the orchestrator can resume from checkpoint. Spot pricing is ~70-85% discount (e.g., D128als_v7 westus3: $5.146/hr on-demand → $0.95/hr spot).
-- **Merge** (`solve.c --merge`) → **on-demand (standard) priority**. Merge is fragile under eviction; Phase 1/2 cannot restart cleanly without recomputing all chunks. Pay the premium for reliability.
-- If one VM will run both phases and you don't want to stop/restart between them: either (a) create two VMs and transfer shards between them, or (b) knowingly pay the on-demand premium for the full pipeline and document the reason.
+- **Enumeration** (`solve.c` running sub-branches, no `--merge`) → **spot priority, 128 cores** (D128als_v7 westus3). Enumeration is eviction-resilient; the orchestrator can resume from checkpoint. Spot pricing is ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot on D128als_v7).
+- **Merge** (`solve.c --merge`) → **on-demand priority, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest are idle. Pay for what the workload uses.
+  - d3 10T merge (~89 GB pre-dedup): **D16als_v7 (16 cores, 32 GB RAM)** on-demand ~$0.50/hr → $0.50 for a 1-hour merge
+  - d3 100T merge (~880 GB pre-dedup, external): **D32als_v7 (32 cores, 64 GB RAM)** on-demand ~$1.30/hr → ~$7 for a 5-hour merge (vs ~$28 on D128)
+  - Rule: size merge VM by **RAM needed** (pre-dedup size if in-memory, 2× chunk size if external) and **I/O bandwidth** (match to the premium SSD throughput), NOT by core count.
+- If one VM will run both phases and you don't want to stop/restart between them: either (a) stop the VM after enum, resize to smaller SKU, restart for merge, OR (b) create two VMs and transfer shards. (b) is preferred for large runs because enum's D128als_v7 spot is 5× cheaper-per-core-hour than merge's D32als_v7 on-demand, but only if you use the cores.
 
 **Mandatory pre-launch verification gate (EVERY time, for any workload >1 hour):**
 

@@ -106,10 +106,14 @@ because no single SKU is cost-effective at both.
 
 **STANDING POLICY (2026-04-20, corrected after a costly misprovisioning):**
 
-- **Enumeration → spot.** Enumeration is eviction-resilient (resume from sub-branch checkpoints). Spot gives ~70-85% discount. D128als_v7 westus3: $5.146/hr on-demand → $0.95/hr spot.
-- **Merge → on-demand (standard).** Merge is fragile under eviction — Phase 1 chunk-sort loses its in-memory state on restart, Phase 2 multi-way merge cannot be cleanly resumed without recomputing all chunks. At 100T+ scale the merge itself takes 5+ hours and a mid-merge eviction costs a full retry. Pay the on-demand premium for reliability.
+- **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot).
+- **Merge → on-demand, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** On-demand (not spot) because merge is fragile under eviction — a mid-merge eviction costs a full re-run at 100T+ scale (5+ hours).
+  - **d3 10T merge** (~89 GB pre-dedup, in-memory feasible): **D16als_v7** (16 cores, 32 GB RAM) or D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory). On-demand ~$0.50-$1/hr → <$1 for 1h merge.
+  - **d3 100T merge** (~880 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand ~$1.30/hr → ~$7 for a 5h merge.
+  - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably, ~$2.50/hr.
+  - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge paid $28 on D128 when D32 would have been $7.
 
-**An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist and a merge can re-run from them. That rule is SUPERSEDED:** at 100T+ scale, re-running a 5-hour external merge because of a spot eviction is wasteful. Revert to "spot for enum, on-demand for merge."
+**An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist. That rule is SUPERSEDED** — at 100T+ scale, re-running a 5-hour merge on spot eviction is worse than the on-demand premium. Revert to on-demand for merge; size it correctly instead.
 
 **Mandatory pre-launch verification gate (every workload ≥ 1 hour):**
 
