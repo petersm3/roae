@@ -104,15 +104,23 @@ the same VM forces you to pay for the *union* — many cores *and* lots of RAM
 and at larger budgets (≥100T) the split becomes architecturally necessary
 because no single SKU is cost-effective at both.
 
-**Merges run on spot by default (rule superseded 2026-04-19).** The old
-"no spot for merges" rule protected against eviction mid-sort, but the
-architecture changed: shards persist across eviction on their own managed
-disk, so a merge that gets evicted can simply re-run from the same shards
-with no data loss. Observed: 4-corners validation on D128 westus3 spot
-produced byte-identical output via both in-memory heap-sort (52 min) and
-external merge on Premium SSD (43 min); neither was evicted. Use on-demand
-only for merges > 3 hours where re-run cost is non-trivial, or when spot
-capacity is actively failing.
+**STANDING POLICY (2026-04-20, corrected after a costly misprovisioning):**
+
+- **Enumeration → spot.** Enumeration is eviction-resilient (resume from sub-branch checkpoints). Spot gives ~70-85% discount. D128als_v7 westus3: $5.146/hr on-demand → $0.95/hr spot.
+- **Merge → on-demand (standard).** Merge is fragile under eviction — Phase 1 chunk-sort loses its in-memory state on restart, Phase 2 multi-way merge cannot be cleanly resumed without recomputing all chunks. At 100T+ scale the merge itself takes 5+ hours and a mid-merge eviction costs a full retry. Pay the on-demand premium for reliability.
+
+**An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist and a merge can re-run from them. That rule is SUPERSEDED:** at 100T+ scale, re-running a 5-hour external merge because of a spot eviction is wasteful. Revert to "spot for enum, on-demand for merge."
+
+**Mandatory pre-launch verification gate (every workload ≥ 1 hour):**
+
+```bash
+az vm show -g "$RG" -n "$VM" --query priority -o tsv
+```
+
+- `Spot` → OK for enumeration. Proceed.
+- `<empty>` / `null` / `Regular` → OK for merge or explicit on-demand run. NOT OK for enumeration — stop, recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the user.
+
+**Failure case this prevents:** on 2026-04-19/20, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. Actual VM cost: ~$112. Cost under the corrected policy: ~$38.84 ($10.85 enum on spot + $27.99 merge on-demand). Avoidable overspend: ~$73. See [HISTORY.md](HISTORY.md) §Missteps for the full retrospective.
 
 ### Disk tier matters — more than you might think
 
@@ -424,6 +432,7 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 - [ ] Sub_*.bin integrity check enabled on eviction resume (size % 32 == 0)
 - [ ] Watchdog merge-phase exemption verified (don't kill solver during merge)
 - [ ] Merge VM is on-demand (not spot) — merge has no checkpoint
+- [ ] **Pre-launch verification: `az vm show --query priority` matches the workload type** (Spot for enum; null/Regular for merge). See §Standing policy. Skipping this gate caused the 2026-04-19/20 ~$73 overspend.
 - [ ] `--merge` code path uses canonical dedup (same as normal-mode merge)
 - [ ] Cost estimate presented to user
 - [ ] Output-shape sanity checks planned (record count, sub-branch file count)

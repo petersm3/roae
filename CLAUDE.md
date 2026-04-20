@@ -50,6 +50,29 @@ canonical.
 Older figures in project history (31.6M filename-collision bug, 742M
 hash-table bug) are invalidated forensic references only.
 
+## Cost control — VM purchase type (STRICT, mandatory gate)
+
+**Standing policy (2026-04-20, after an ~$73 avoidable overspend on the 100T d3 run):**
+
+- **Enumeration** (`solve.c` running sub-branches, no `--merge`) → **spot priority**. Enumeration is eviction-resilient; the orchestrator can resume from checkpoint. Spot pricing is ~70-85% discount (e.g., D128als_v7 westus3: $5.146/hr on-demand → $0.95/hr spot).
+- **Merge** (`solve.c --merge`) → **on-demand (standard) priority**. Merge is fragile under eviction; Phase 1/2 cannot restart cleanly without recomputing all chunks. Pay the premium for reliability.
+- If one VM will run both phases and you don't want to stop/restart between them: either (a) create two VMs and transfer shards between them, or (b) knowingly pay the on-demand premium for the full pipeline and document the reason.
+
+**Mandatory pre-launch verification gate (EVERY time, for any workload >1 hour):**
+
+```
+az vm show -g <rg> -n <vm> --query priority -o tsv
+```
+
+- Output `Spot` → OK for enumeration.
+- Output empty / `null` / `Regular` → OK only for merge or explicit on-demand workload. If the intent was spot for enumeration, STOP. Either recreate the VM as spot (`--priority Spot --eviction-policy Deallocate --max-price -1`) or escalate to the user for approval before launching.
+
+**Creation command templates (must match the workload type):**
+- Spot: `az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1`
+- On-demand: default (no `--priority` flag)
+
+Failure mode this prevents: on 2026-04-19, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. Total overspend on the enumeration portion (where spot would have worked): ~$48-73. See HISTORY.md §Missteps for the full retrospective.
+
 ## Never do without explicit user approval
 
 - Delete managed disks — the exception is **Premium SSD temp disks
@@ -65,7 +88,8 @@ hash-table bug) are invalidated forensic references only.
   `petersm3/x` (private) can proceed without per-commit review for
   routine working-log updates.
 - Launch large compute (≥10T enumeration or ≥3 hr external merge)
-  without cost confirmation.
+  without cost confirmation AND without running the VM-priority
+  verification gate above.
 
 ## Never commit to this repo
 
@@ -91,7 +115,7 @@ itself contains the decision tree).
 ## Bi-region architecture
 
 - Orchestrator: `claude` VM (D2as_v6) in **westus2**.
-- Compute: D128als_v7 spot in **westus3** (as of 2026-04-19 pivot).
+- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot** for enumeration workloads (eviction-resilient); on-demand for merge phases (eviction-fragile). See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
 - F64als_v6 westus2 is **retired**. New large-scale enumeration uses
   Dalsv7 westus3 exclusively.
 - Managed disks are region-locked — cross-region needs snapshot+copy.
