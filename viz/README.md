@@ -50,7 +50,11 @@ so you can find its location on each plot.
 
 ## The four plots
 
+*Example images below are from the 100T d3 canonical run (sha `915abf30…`, 3.43B records). See [`solve_c/runs/20260419_100T_d3_d128westus3/viz/`](../solve_c/runs/20260419_100T_d3_d128westus3/viz/) for the full-resolution SVGs.*
+
 ### 1. `viz_edit_distance.png/.svg` — colored by edit distance to King Wen
+
+![Edit-distance plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_edit_distance.png)
 
 **What's colored:** each solution's "edit distance" to King Wen,
 defined as the number of positions where this solution's pair
@@ -86,6 +90,8 @@ position differs).
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
+![Complement-distance plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_complement_dist.png)
+
 **What's colored:** each solution's total complement distance
 (the sum of `|pos[v] - pos[v^63]|` across all 64 hexagrams).
 Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
@@ -117,6 +123,8 @@ Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2
 
+![Position-2 cluster plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_position2_cluster.png)
+
 **What's colored:** the first-level branch identity. Position 2 is
 the first "variable" position in the sequence (position 1 is locked
 to KW's pair 0 by C4). The color is the pair index (0-31) placed
@@ -144,6 +152,8 @@ at position 2.
   branches" partition structure that the enumerator is built around.
 
 ### 4. `viz_adjacency.png/.svg` — colored by C6/C7 adjacency satisfaction
+
+![Adjacency plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_adjacency.png)
 
 **What's colored:** how many of the two "mandatory" KW-adjacency
 constraints (C6 at positions 25-26, C7 at positions 27-28) this
