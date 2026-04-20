@@ -86,8 +86,7 @@ Failure mode this prevents: on 2026-04-19, d128-westus3 was provisioned without 
   orphaned OS disks from deleted VMs, require explicit approval.
 - Force-push or amend published commits.
 - Commit changes to `petersm3/roae` when the user has said "no
-  commits" for specific paths (currently: `viz/` assets, i.e.
-  visualize.py, viz_*.png/svg; the `.claude/` directory).
+  commits" for specific paths (currently: the `.claude/` directory).
 - Push anything to `petersm3/roae` without the user having had a
   chance to review non-trivial changes. Staging-doc commits to
   `petersm3/x` (private) can proceed without per-commit review for
@@ -99,8 +98,6 @@ Failure mode this prevents: on 2026-04-19, d128-westus3 was provisioned without 
 ## Never commit to this repo
 
 - `.claude/` — local Claude Code metadata
-- `viz/visualize.py` and viz PNG/SVG outputs (user directive, pending
-  explicit approval to commit)
 - `solutions.bin` itself — too large; the sha256 is the reproducibility
   anchor, not the bytes
 - Outside-repo staging docs — those live in `petersm3/x/roae/` (a
