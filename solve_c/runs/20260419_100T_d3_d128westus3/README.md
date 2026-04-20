@@ -86,14 +86,22 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 - King Wen present: YES (in merge-stage validation)
 - All records C1-C5 valid: YES (0 errors across all 3,432,399,297 records)
 - Sort order + dedup: OK (no duplicates, strict sort order)
-- Independent `--verify` pass: (pending — launched 2026-04-20 00:47 UTC)
+- Independent `--verify` pass: **PASS** — *"VERIFY PASS: all 3432399297 records satisfy C1-C5, sorted, no duplicates"*, KW present. See `verify_output.log` in this directory.
 - `--analyze` output: (pending — launched 2026-04-20 00:47 UTC)
-- `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s).
-  - **Minimum C3 observed: 424** across the 3.43B records
-  - **Count at minimum: 221 records** (0.00000644% of records)
-  - **KW found at C3 = 776** (ceiling of the constraint C3 ≤ 776)
-  - **Histogram of bottom 10**: 424:221, 432:6378, 440:12283, 448:47606, 456:83077, 464:201693, 472:293340, 480:540141, 488:702851, 496:1155122
-  - **Finding (negative, Phase A MVP)**: KW is NOT the C3-minimum under C1+C2+C3. Axiom "minimize C3" alone does not uniquely derive KW. The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW. KW sits at the C3 ceiling, not the floor.
+- `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s first pass, 518s second pass with max-counting).
+  - **Minimum C3 observed: 424** (221 records at min)
+  - **Maximum C3 observed: 776** (= KW's value, the constraint ceiling)
+  - **Count at maximum: 340,179,649 records** (9.9108% of all canonical orderings — nearly 10% of the canonical set ties with KW at exactly 776)
+  - KW verified present at C3 = 776
+  - **Histogram bottom 10**: 424:221, 432:6378, 440:12283, 448:47606, 456:83077, 464:201693, 472:293340, 480:540141, 488:702851, 496:1155122
+  - **Histogram top 10**: 776:340M, 768:328M, 760:290M, 752:278M, 744:245M, 736:234M, 728:206M, 720:194M, 712:170M, 704:158M — heavy concentration near the ceiling
+  - **Finding (Phase A MVP, decisively negative for both directions)**:
+    - "Minimize C3" does NOT pick KW (picks 221 records at C3=424)
+    - "Maximize C3" does NOT uniquely pick KW (picks ~340M records, ~10% of canonical set)
+    - KW is in a **large equivalence cohort of 340M records** all at C3=776 — NOT a distinguished extremum
+    - The distribution is heavily right-skewed toward the C3 ceiling (9.91% at max vs 0.0000064% at min)
+    - **KW's 776 is the mode of the distribution, not the tail** — a substantial re-framing of the "KW keeps complements close" narrative
+  - **Implication for derivability**: simple C3 extremality cannot derive KW. The search for a "natural axiom set" now needs to consider either (a) non-scalar properties or (b) the specific position of KW within the 340M-cohort at the C3 ceiling.
   - See `c3_min_output.log` in this directory for the full output and [DERIVABILITY_STRATEGY.md](../../../x/roae/DERIVABILITY_STRATEGY.md) context.
 
 ## 4-corners validation context

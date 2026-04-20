@@ -3330,6 +3330,7 @@ static void run_c3_min(const char *filename) {
     unsigned char rec[SOL_RECORD_SIZE];
     int min_c3 = 100000;
     long long count_at_min = 0;
+    long long count_at_max = 0;
     int kw_idx = -1;  /* record index of KW if found */
     int kw_c3_observed = -1;
     int histogram[5000] = {0};  /* C3 histogram (should never exceed ~2048 practically) */
@@ -3359,7 +3360,8 @@ static void run_c3_min(const char *filename) {
         int c3 = null_c3_total_comp_dist(useq);
         if (c3 < min_c3) { min_c3 = c3; count_at_min = 1; }
         else if (c3 == min_c3) count_at_min++;
-        if (c3 > max_c3_observed) max_c3_observed = c3;
+        if (c3 > max_c3_observed) { max_c3_observed = c3; count_at_max = 1; }
+        else if (c3 == max_c3_observed) count_at_max++;
         if (c3 >= 0 && c3 < 5000) histogram[c3]++;
         /* Check if this is KW */
         int is_kw = 1;
@@ -3382,13 +3384,21 @@ static void run_c3_min(const char *filename) {
 
     printf("\nResults (wall time %lds):\n", (long)(end - start));
     printf("  Minimum C3 observed:     %d\n", min_c3);
-    printf("  Count of records at min: %lld (%.4f%% of %lld)\n",
+    printf("  Count of records at min: %lld (%.8f%% of %lld)\n",
            count_at_min, 100.0 * count_at_min / n_records, n_records);
     printf("  Maximum C3 observed:     %d\n", max_c3_observed);
+    printf("  Count of records at max: %lld (%.8f%% of %lld)\n",
+           count_at_max, 100.0 * count_at_max / n_records, n_records);
     printf("  KW found at record idx:  %s\n",
            kw_idx >= 0 ? "YES" : "NO (file doesn't contain KW — unexpected)");
     if (kw_idx >= 0) {
         printf("  KW C3 (verified):        %d  (expected 776)\n", kw_c3_observed);
+        printf("  KW is C3-max uniquely?:  %s\n",
+               (kw_c3_observed == max_c3_observed && count_at_max == 1)
+                   ? "YES — KW is the UNIQUE maximum. 'maximize C3' picks KW uniquely."
+                   : (kw_c3_observed == max_c3_observed)
+                       ? "NO — KW ties with other records at C3-max. Axiom 'max C3' does not uniquely pick KW."
+                       : "NO — KW is not the C3-maximum.");
     }
     printf("\nInterpretation:\n");
     if (min_c3 == 776 && kw_c3_observed == 776) {
@@ -3407,13 +3417,39 @@ static void run_c3_min(const char *filename) {
         printf("  Some other C1+C2 ordering places complements even closer than KW.\n");
         printf("  Axiom 'minimize C3' alone cannot derive KW.\n");
     }
-    printf("\n  Top 10 lowest C3 values observed (bucket, count):\n");
+    printf("\n  Bottom 10 C3 values observed (bucket, count):\n");
     int reported = 0;
     for (int c = 0; c <= max_c3_observed && reported < 10; c++) {
         if (histogram[c] > 0) {
             printf("    C3=%-4d  %lld records\n", c, (long long)histogram[c]);
             reported++;
         }
+    }
+    printf("\n  Top 10 C3 values observed (bucket, count):\n");
+    reported = 0;
+    for (int c = max_c3_observed; c >= 0 && reported < 10; c--) {
+        if (histogram[c] > 0) {
+            printf("    C3=%-4d  %lld records\n", c, (long long)histogram[c]);
+            reported++;
+        }
+    }
+    /* Summary for Open Question #7 derivability analysis */
+    printf("\n  Summary (Open Question #7 Phase A):\n");
+    if (kw_c3_observed == min_c3 && count_at_min == 1) {
+        printf("    ✓ 'minimize C3' uniquely picks KW.\n");
+    } else if (kw_c3_observed == min_c3) {
+        printf("    ✗ 'minimize C3' picks %lld records (including KW). Not unique.\n", count_at_min);
+    } else {
+        printf("    ✗ 'minimize C3' does NOT pick KW (min=%d, KW=%d, %lld records at min).\n",
+               min_c3, kw_c3_observed, count_at_min);
+    }
+    if (kw_c3_observed == max_c3_observed && count_at_max == 1) {
+        printf("    ✓ 'maximize C3' uniquely picks KW! Strong Phase A positive result.\n");
+    } else if (kw_c3_observed == max_c3_observed) {
+        printf("    ~ 'maximize C3' picks %lld records (including KW). Not unique.\n", count_at_max);
+    } else {
+        printf("    ✗ 'maximize C3' does NOT pick KW (max=%d, KW=%d).\n",
+               max_c3_observed, kw_c3_observed);
     }
 }
 
