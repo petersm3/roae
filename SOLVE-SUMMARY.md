@@ -77,13 +77,19 @@ The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No b
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
 <a id="rule-3"></a>
-### Rule 3: Opposites kept unusually close
+### Rule 3: Opposites placed below the 776 ceiling — a constraint, not a minimization
 
-Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. In the King Wen sequence, opposites are placed significantly closer together than you'd expect by chance. If you shuffled randomly, opposites would average about 22 positions apart. In King Wen, they average only 12.1 — at the **3.9th percentile** (only 3.9% of valid orderings place complements closer). King Wen doesn't just happen to have complements nearby; it actively keeps them as close as possible.
+Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. King Wen's total complement distance (summed across all 64 hexagrams) is exactly 776, which corresponds to a mean of 12.1 positions between each hexagram and its opposite. Compared to random permutations (mean ~22), this is significantly smaller.
 
-To illustrate: King Wen's worst complement pair (䷂ #3 and ䷱ #50, distance 47) is better than most random orderings' average case (~22).
+**Updated finding (2026-04-20 from 100T d3 canonical analysis)**: The earlier framing — "King Wen actively keeps opposites as close as possible" — was measured relative to *unconstrained* random orderings and relative to C1-only pair-constrained random orderings (where KW sits at the 3.9th percentile). **However, within the filtered set of 3.43 billion valid orderings that satisfy C1+C2+C3 (all three rules), KW is NOT at the minimum of complement distance.** The minimum is 424 (achieved by 221 orderings), and 340 million orderings (~9.91% of the canonical set) tie with KW at exactly 776 — the ceiling of the constraint. KW is in a large equivalence cohort at the maximum-allowed C3, not a distinguished minimum.
 
-**What this does:** Eliminates about 93% of what's left after Rule 2.
+So Rule 3 is more accurately stated as **"complement distance is bounded ≤ 776"** than **"complement distance is minimized."** The 776 figure defines the constraint ceiling (it's KW's own value); any ordering at or below 776 passes. The 3.9th-percentile claim remains true in the narrow C1-only comparison but is misleading in the context of C1+C2+C3 valid orderings.
+
+To illustrate the updated picture:
+- King Wen's worst complement pair is still ䷂ #3 ↔ ䷱ #50 at distance 47; its best pairs are adjacent (distance 1).
+- Among 3.43B valid C1+C2+C3 orderings, 340M of them have the same total complement distance as KW (776). Within that cohort, what distinguishes KW further remains an open question.
+
+**What this does:** Eliminates orderings with complement distance >776, but does not narrow to KW alone. Among 3.43B C1+C2+C3 orderings, KW is one of ~340M at the ceiling.
 
 Closest complements highlighted (distance 1 — adjacent in the sequence):<br>
 <mark>**䷀䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ <mark>**䷊䷋**</mark> ䷌䷍ ䷎䷏ <mark>**䷐䷑**</mark> ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ <mark>**䷚䷛**</mark> <mark>**䷜䷝**</mark> ䷞䷟ ䷠䷡ ䷢䷣ ䷤<mark>**䷥**</mark> <mark>**䷦**</mark>䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ <mark>**䷴䷵**</mark> ䷶䷷ ䷸䷹ ䷺䷻ <mark>**䷼䷽**</mark> <mark>**䷾䷿**</mark><br>
@@ -136,7 +142,7 @@ The millions of alternative arrangements satisfying Rules 1-5 are not random —
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Position 2 partially constrains positions 3-19, but not deterministically.** Earlier docs claimed "for 16 of 31 branches, positions 3-19 are fully locked" (based on `--prove-cascade`). That result is correct *only within the shift-pattern subspace* (where every position is restricted to KW's pair or the previous pair) — and the canonical analyses show this subspace is a shrinking minority of valid orderings: **2.69% at d2, 0.062% at d3**. In the full canonical datasets, every reachable first-level branch admits multiple distinct pair sequences at positions 3-19; none are uniquely determined. The cascade region is heavily constrained (per-position entropy 0.3-1.9 bits at d3, well below the 5-bit maximum) but not deterministic.
 - **Freedom is concentrated in the back half but spread across the cascade too.** The canonical analyses show position 3 has the highest freedom (d3: 4.52 bits, d2: 4.05 bits, 28-31 distinct pairs observed), positions 22-31 carry 3.40-3.54 bits each at d3 (14 distinct pairs), and the "cascade region" (5-20) carries 0.48-1.85 bits each at d3 — heavily constrained but not zero. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in the back half is describing the designers' choices among genuinely available alternatives, not mathematical necessity.
-- **King Wen keeps complements close.** Among all valid orderings, King Wen **minimizes** complement distance — keeping opposites as close as possible. Only 3.9% of valid orderings place complements closer.
+- **King Wen's complement distance is 776 (mean 12.1)** — small vs random permutations (~22), small vs C1-only orderings (3.9th percentile). But within the full C1+C2+C3 canonical set (3.43B orderings), **KW is at the ceiling, not the minimum** — 340M orderings tie with KW at 776 and 3.43B orderings have smaller or equal C3. Rule 3 is a ceiling constraint, not a minimization. See §Rule 3 for the updated framing.
 - **The starting orientation is forced.** ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
