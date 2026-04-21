@@ -23,7 +23,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 **Documentation suite.** [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) (plain-language), [SOLVE.md](SOLVE.md) (technical), [SPECIFICATION.md](SPECIFICATION.md) (formal), [CRITIQUE.md](CRITIQUE.md) (known limitations), [MCKENNA.md](MCKENNA.md) (relationship to [Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)), and [GUIDE.md](GUIDE.md) (newcomer introduction) were all written during this phase.
 
-## Day 1 — April 10, 2026
+## April 10, 2026
 
 **Starting point:** The ROAE project had a Python analysis engine ([roae.py](roae.py)) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver ([solve.py](solve.py)) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
 
@@ -42,7 +42,7 @@ These claims would all turn out to be wrong.
 
 **First Azure deployment:** An F64als_v6 VM (64 cores, 128 GB RAM) was deployed in westus2 to run the solver. Initial cost estimate was $1.97/hr — this would later turn out to be wrong (actual on-demand price: $3.87/hr).
 
-## Day 2 — April 11, 2026
+## April 11, 2026
 
 **The 4-hour run that crashed:** A 4-hour run on the F64 explored 18.7 trillion nodes across 56 threads. All 56 branches hit the time limit — none completed. But the process crashed during the merge phase with no output. The cause: **integer overflow** in `sol_offset * 64` — at 78.5M entries, the multiplication exceeded 32-bit int range, causing a buffer overwrite and segfault.
 
@@ -64,7 +64,7 @@ All documentation was rewritten to reflect these revised findings. The narrative
 
 **Visualization:** A visualization script was written to generate PCA scatter plots of the solution space. The initial version had Python loops that would have taken hours on 20M+ solutions. Rewritten with numpy vectorization and subsampling for plots. (Not yet committed to the repository.)
 
-## Day 3 — April 12, 2026
+## April 12, 2026
 
 **The 10T reproducible run:** The solver was enhanced with a deterministic node limit (`SOLVE_NODE_LIMIT`) for reproducible results. See [solve.c](solve.c) architecture comments for full design documentation. Unlike time limits, node limits produce identical output on any hardware.
 
@@ -190,11 +190,11 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | 3,030 sub-branch mode eliminates tail problem | Comparative benchmarks | Engineering result |
 | Thread-independent reproducibility | Per-branch node budgets | Verified (1-thread = 2-thread sha256) |
 
-## Day 4 — April 13, 2026
+## April 13, 2026
 
 **100T deployment on spot, then aborted.** Deployed a 100T run on a spot F64 with the (then-still-buggy) solver. The run was evicted after ~3 hours (intra-day Pacific business-hour load). After redeploy, monitoring revealed only ~1.5% of sub-branches committed in 9 hours of wall clock — eviction was killing all 64 in-flight sub-branches each time, and the per-sub-branch node budget (33B) was so large that recovery cost exceeded forward progress. Projected completion under that approach: ~30 days. The 47 committed sub-branches were archived locally (49.7M solutions, sha256 verified against the partial output) and the run was killed. The lesson — sub-branch-granularity recovery is too coarse for spot at large per-sub-branch budgets — drove the design of "Option B" (depth-3 work units) for any future 100T attempt.
 
-## Day 5 — April 14, 2026
+## April 14, 2026
 
 **The bug discovered.** While preparing a 10T re-run before attempting 100T again, an audit of the solver's `flush_sub_solutions` keyed `sub_*.bin` filenames on `(pair2, orient2)` only — but 3030 sub-branches share only 64 distinct `(p2, o2)` values, so later writes silently overwrote earlier ones. Every prior result, including the published 31.6M figure, was a deterministic undercount: the sha256 reproduced because the bug reproduced. Fix: broaden the filename and checkpoint key to `(pair1, orient1, pair2, orient2)`. Same change in `is_sub_branch_completed`, `load_sub_checkpoint`, the merge step, and the per-sub-branch flush. Tested locally: 100M-node smoke test produced 1097 unique `sub_*.bin` files (cap was previously 64), 336k solutions, deterministic across thread counts.
 
@@ -214,7 +214,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 - Null-model boundary (relative to a random non-KW reference): different boundary set chosen, indicating the {25, 27} mandatory pair is KW-specific, not a feature of the constraint geometry alone.
 - Orbit analysis: 0 palindromic solutions, 0 fully self-pair-complement-symmetric solutions.
 
-## Day 6 — April 15, 2026
+## April 15, 2026
 
 **Consolidation in C.** Rewrote all post-enumeration analyses as a single `./solve --analyze [solutions.bin]` mode in solve.c. mmap'd file access (no full malloc), packed `uint64_t` boundary masks (8× memory savings), `__builtin_popcountll` for SIMD-friendly intersections, OpenMP parallelism on the heavy 3-subset, 4-subset, MI, and redundancy loops. Validated against the Python results on 742M: every numerical claim matches. Total `--analyze` runtime: 7 minutes (vs ~2 hours for the equivalent Python). Exhaustive 3-subset test went from 36 minutes (Python) to 4 seconds (C). The 4-subset enumeration went from 100 minutes to 37 seconds.
 
@@ -224,7 +224,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **Pushed to GitHub.** 4 commits: solve.c (bug fix + --analyze + parallelization + doc), DEPLOYMENT.md, doc updates, run artifacts.
 
-## Day 7 — April 16, 2026
+## April 16, 2026
 
 **`--analyze` extended to 24 sections.** Four rounds of spot-VM runs added sections [16]-[24] to the consolidated analysis mode, each targeting a specific gap:
 
@@ -244,7 +244,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE-SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ Waiting #5 to Hamming distance example.
 
-## Day 8 — April 16-17, 2026
+## April 16-17, 2026
 
 **Correctness audit and hardening pass.** Systematic review of every component in solve.c for the standard: every valid solution found, none lost, no duplicates, deterministic regardless of hardware.
 
@@ -381,7 +381,7 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 
 **Supporting documentation.** Full SKU comparison (with authoritative Microsoft Learn sources) and ROI analysis are maintained as operator review docs at top-of-working-tree, outside the git repo.
 
-## Day 9 addendum — April 19, 2026 afternoon: null-model framework
+## April 19, 2026 afternoon — null-model framework
 
 With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted to null-model testing — systematically measuring how structured permutation families compare to King Wen on the C1/C2/C3 constraints. This had been a long-standing gap in CRITIQUE.md §Missing analyses (acknowledged during the Day 8 scientific reviews).
 
@@ -409,7 +409,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
 
-## Day 10 — April 20, 2026 early morning: 100T d3 canonical lands
+## April 20, 2026 early morning — 100T d3 canonical lands
 
 100T d3 enumeration + external merge pipeline completed at 00:45 UTC (17:45 PDT Sunday / 2026-04-19). Total wall time: enum 11h 22m (40,927s) + external merge 5h 26m (19,538s) = 16h 48m.
 
@@ -435,15 +435,30 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **Pending work post-MERGEDONE:** viz run on 102.3 GB solutions.bin, Step 8b safety gate, d128-westus3 teardown, P40 scratch SSD deletion. Docs in `petersm3/x/roae` (CURRENT_PLAN, AUTONOMOUS_STATUS, POST_MERGEDONE_CHECKLIST) refreshed.
 
-## Day 12 — April 21, 2026: P2 distributional analysis + invariance theorem
+## April 20-21, 2026 — 1T single-branch Recon + P2 kickoff + solver-d3 lesson
+
+**Recon campaign (32 sub-branches × 1T budget).** Picked the 32 lowest-yield-at-100T sub-branches, ran each at 1T (1,580× the 100T per-sub-branch budget), serial-by-default solve.c. Full results at `solve_c/runs/20260420_singlebranch1T_d32westus3/` and `x/roae/RECON_1T_RESULTS.md`.
+
+Key findings:
+- **0 of 32 EXHAUSTED.** All BUDGETED. 1T wasn't enough to exhaust any low-yield branch.
+- **8 distinct yield values across 32 branches, strong clustering** — every prefix class lands on exactly one of 959, 1599, 33372, 34981, 663369, 1110543, 2679422, or 3212005. Orientation-symmetry dominates in this low-yield subset.
+- **Yield-at-100T was a poor proxy for tree size.** Branches with identical 100T yield = 24 grew anywhere 67× to 133,833× at 1T.
+- **Cross-prefix yield equivalence**: 6 branches with DIFFERENT (p1, p2, p3) all yield 1,110,543 — worth investigating (pair-relabeling symmetry candidate).
+- The `./solve --yield-report` subcommand (new subcommand added to solve.c for per-sub-branch yield-clustering analysis) confirms 16.3% of multi-variant prefix groups in 100T are perfectly orientation-symmetric. 380 groups have all 2³=8 orientation variants with identical counts.
+
+**Spot eviction rate in westus2 (empirical, 2026-04-20):** 3 evictions in ~7 hours of running time on D32als_v7 spot (~0.43 evictions/hour). 1T campaigns on spot NOT reliably completable; ≤ 500B budgets might be. All recoveries via `az vm start` succeeded within 1 hour. Documented in `x/roae/SPOT_EVICTION_LOG.md`. See §Missteps for the pivot to on-demand that followed.
+
+**westus3 spot quota blocker (discovered 2026-04-20):** Azure denied a quota-increase request for westus3 low-priority vCPUs (stays at 3 cores). Any D-series spot in westus3 is impossible; meaningful spot compute is westus2-only. `d128-westus3` VM deleted to free on-demand quota for the `campaign-westus3` pivot that ran the 32×1T to completion.
+
+**P2 distributional analysis kickoff (acceleration-proposals review).** External proposal covered five directions (SAT #counting, ZDD, GPU enumerator, ML heuristic, scientific reframing to distributional analysis). My review (`x/roae/ACCELERATION_PROPOSALS_REVIEW.md`) recommended: prioritize CPU intra-sub-branch parallelism (P1) + distributional reframing (P2); run SAT-counting as a weekend experiment; skip GPU and ML. P2 implementation started tonight: 10-dim observable-statistics schema defined (`x/roae/P2_OBSERVABLES_SCHEMA.md`), Python compute script written with per-chunk parquet output, running against the 3.43B canonical on `stats-westus3` D16als_v7 at ~0.67M records/sec. First attempt with a single streaming ParquetWriter hung at 99.6%; rewrote to write per-chunk files, re-launched.
+
+**solver-d3 F64als_v6 recreation (second occurrence).** See §Missteps row added this date. Provisioned at 2026-04-20 18:59 UTC to mount `solver-data` for inspection; left running for ~9.5 hrs until operator noticed at 04:30 UTC Tue. Compute cost: ~$7.50 avoidable. Root cause: same anti-pattern as 2026-04-19 — Claude provisions a VM to inspect a disk and never tears it down. Corrective rules codified in CLAUDE.md §"Session-lifecycle VM discipline" and DEPLOYMENT.md §"Ad-hoc VM lifecycle rules."
+
+## April 21, 2026 — P2 distributional analysis + invariance theorem
 
 **Scientific reframing executed.** The "is King Wen unique?" question — long a sticking point for honest scoping in SOLVE.md / CRITIQUE.md — reframed as a quantified distributional claim. Details in [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 
-**Computational pipeline executed on 3,432,399,297-record 100T d3 canonical:**
-- `scripts/compute_stats.py` — per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation). Per-chunk parquet directory output (3,433 files). Ran in 66 min on D16als_v7.
-- `scripts/p2_marginals.py` — streaming-histogram exact marginal percentiles for KW's value in each dimension.
-- `scripts/p2_bivariate.py` — 5 hexbin heatmaps with KW marked (uniform 1.7M sample from 3.43B).
-- `scripts/p2_joint_density.py` — sklearn KDE on 7 informative dimensions, 100K standardized sample, bootstrap 1000× for CI on KW's density-percentile.
+**Computational pipeline executed on 3,432,399,297-record 100T d3 canonical** using Python scripts in `scripts/` (compute_stats, p2_marginals, p2_bivariate, p2_joint_density): per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation); per-chunk parquet directory output (3,433 files); streaming-histogram marginals + hexbin bivariate heatmaps + sklearn KDE on 7 informative dimensions with bootstrap 1000× CI. Ran in 66 min on D16als_v7.
 
 **Headline result: KW sits at 0.000% in the joint observable-density distribution, bootstrap 95% CI [0.000%, 0.000%].** KW's log-density under the sample-fit KDE is −128,260 while the entire 100K sample spans log-density [−10.11, −2.98]. The extremity is driven by simultaneous 95th+ percentile values across four independent structural dimensions (c3_total, c6_c7_count, shift_conformant_count, first_position_deviation), not any single dimension — a typical canonical ordering does not concentrate extremes that way.
 
@@ -455,58 +470,48 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 - Observable-statistics schemas should be validated for discriminative power *before* being used as analysis dimensions. Two of ten original P2 dimensions were pure noise due to C5-driven invariance.
 - Percentile conventions (half-bin vs strict-less-than) matter when drawing "is KW at the extreme?" narratives — a mode can report as a low-ish percentile under half-bin convention.
 
-## Day 11 — April 20-21, 2026: 1T single-branch Recon + P2 kickoff + solver-d3 lesson
+## Current state (2026-04-21)
 
-**Recon campaign (32 sub-branches × 1T budget).** Picked the 32 lowest-yield-at-100T sub-branches, ran each at 1T (1,580× the 100T per-sub-branch budget), serial-by-default solve.c. Full results at `solve_c/runs/20260420_singlebranch1T_d32westus3/` and `x/roae/RECON_1T_RESULTS.md`.
+**Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
 
-Key findings:
-- **0 of 32 EXHAUSTED.** All BUDGETED. 1T wasn't enough to exhaust any low-yield branch.
-- **8 distinct yield values across 32 branches, strong clustering** — every prefix class lands on exactly one of 959, 1599, 33372, 34981, 663369, 1110543, 2679422, or 3212005. Orientation-symmetry dominates in this low-yield subset.
-- **Yield-at-100T was a poor proxy for tree size.** Branches with identical 100T yield = 24 grew anywhere 67× to 133,833× at 1T.
-- **Cross-prefix yield equivalence**: 6 branches with DIFFERENT (p1, p2, p3) all yield 1,110,543 — worth investigating (pair-relabeling symmetry candidate).
-- `analyze_yields.c` (new C tool, `x/roae/scripts/`) confirms 16.3% of multi-variant prefix groups in 100T are perfectly orientation-symmetric. 380 groups have all 2³=8 orientation variants with identical counts.
-
-**Spot eviction rate in westus2 (empirical, 2026-04-20):** 3 evictions in ~7 hours of running time on D32als_v7 spot (~0.43 evictions/hour). 1T campaigns on spot NOT reliably completable; ≤ 500B budgets might be. All recoveries via `az vm start` succeeded within 1 hour. Documented in `x/roae/SPOT_EVICTION_LOG.md`. See §Missteps for the pivot to on-demand that followed.
-
-**westus3 spot quota blocker (discovered 2026-04-20):** Azure denied a quota-increase request for westus3 low-priority vCPUs (stays at 3 cores). Any D-series spot in westus3 is impossible; meaningful spot compute is westus2-only. `d128-westus3` VM deleted to free on-demand quota for the `campaign-westus3` pivot that ran the 32×1T to completion.
-
-**P2 distributional analysis kickoff (acceleration-proposals review).** External proposal covered five directions (SAT #counting, ZDD, GPU enumerator, ML heuristic, scientific reframing to distributional analysis). My review (`x/roae/ACCELERATION_PROPOSALS_REVIEW.md`) recommended: prioritize CPU intra-sub-branch parallelism (P1) + distributional reframing (P2); run SAT-counting as a weekend experiment; skip GPU and ML. P2 implementation started tonight: 10-dim observable-statistics schema defined (`x/roae/P2_OBSERVABLES_SCHEMA.md`), `scripts/compute_stats.py` written with per-chunk parquet output, running against the 3.43B canonical on `stats-westus3` D16als_v7 at ~0.67M records/sec. First attempt with a single streaming ParquetWriter hung at 99.6%; rewrote to write per-chunk files, re-launched. Data products expected at `x/roae/data/100T_d3_stats/`.
-
-**solver-d3 F64als_v6 recreation (second occurrence).** See §Missteps row added this date. Provisioned at 2026-04-20 18:59 UTC to mount `solver-data` for inspection; left running for ~9.5 hrs until operator noticed at 04:30 UTC Tue. Compute cost: ~$7.50 avoidable. Root cause: same anti-pattern as 2026-04-19 — Claude provisions a VM to inspect a disk and never tears it down. Corrective rules codified in CLAUDE.md §"Session-lifecycle VM discipline" and DEPLOYMENT.md §"Ad-hoc VM lifecycle rules."
-
-## Current state (2026-04-19)
-
-**Code.** solve.c is through multiple hardening passes: exact self-check, silent-loss paths closed, format v1 in place, thread/hardware-independent deterministic output, in-place heapsort replacing glibc qsort in 5 merge paths, `--sub-branch` CLI for targeted depth-3 sub-branch exhaustion, `SOLVE_CONCENTRATE_BUDGET` env var for accumulation workflows, auto-threshold at 8/10 for in-memory merge decision. Zero compile warnings. Known gaps are all documentation or archival (see `LONG_TERM_PLAN.md` outside the repo) — not correctness.
+Python scripts in `scripts/` (separate files): `compute_stats.py`, `p2_marginals.py`, `p2_bivariate.py`, `p2_joint_density.py`. These read the 100T canonical `solutions.bin` / per-chunk parquet outputs and produce the P2 distributional-analysis artifacts. `viz/visualize.py` produces PCA plots.
 
 **Data.** Canonical v1 reference shas established and 4-corners-validated:
+- **d3 100T**: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` — **3,432,399,297 canonical orderings** (the current primary reference).
 - **d3 10T**: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` — 706,422,987 canonical orderings.
 - **d2 10T**: `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` — 286,357,503 canonical orderings.
 
-Both validated across `{Zen 4 F64 westus2, Zen 5 D128 westus3} × {external merge, in-memory heap-sort}` — four byte-identical productions. A **100T d3 enumeration** is currently running on D128als_v7 westus3 spot (started 2026-04-19 ~08:00 UTC; projected MERGEDONE ~22:00 UTC); its sha will be distinct from the 10T (different budget parameter) and is expected to be ~1-2B canonical orderings.
+All partition-invariance validated. 100T solutions.bin (102 GB) lives on `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS, preserved across VM tear-down).
 
-**Selftest baseline.** `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only (no wall-clock).
+**Selftest baseline.** `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only.
 
-**Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW; the uniqueness result holds within the extraction methodology but the same methodology also produces "uniqueness" for random pair-constrained sequences (see `CRITIQUE.md`). The **4-boundary minimum holds at both d2 and d3 scales**. Partition-stable: boundaries **{25, 27}** are mandatory in every working 4-set at both scales. Partition-dependent: the other 2 boundaries — at d2 the structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` (4 working 4-subsets); at d3 there are **8 working 4-subsets** with interchangeable boundaries drawn from `{1..6}`. The broader structure may continue to shift at deeper partition.
+**Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW. The **5-boundary minimum at 100T d3** supersedes the earlier "4-boundary minimum" — boundaries `{25, 27}` remain mandatory across d2 / d3-10T / d3-100T; partition-dependent boundaries shift at deeper budget. Greedy-optimal 5-set at 100T: `{1, 4, 21, 25, 27}`. **KW is at the C3 ceiling (776)**, not the floor — 9.91% of records tie with KW at 776; minimum C3 = 424 (221 records). **Distributional analysis (April 21):** KW sits at 0.000%-ile of joint observable density (bootstrap 95% CI [0.000%, 0.000%]) — joint extremity driven by simultaneous 95th+ percentile values across c3_total, c6_c7_count, shift_conformant_count, first_position_deviation. See `DISTRIBUTIONAL_ANALYSIS.md`.
 
-**Next steps (post-100T):**
-1. **100T d3 analyze + docs update**: when MERGEDONE fires, run `--analyze` on the 100T solutions.bin and integrate findings into SOLVE.md / SOLVE-SUMMARY.md / CRITIQUE.md / LEADERBOARD.md. Update 4-boundary scope — does {25, 27} stability extend to 100T? Does the shift-conforming percentage continue to drop (trajectory: 2.69% d2 → 0.062% d3 → ??? 100T)? Commit as a single follow-up.
-2. **Single-branch exhaustion study**: pick 1-3 first-level branches (likely the smallest by 100T yield — candidates are pairs 4, 6, 21 if still zero at 100T) and run `--sub-branch` with `SOLVE_NODE_LIMIT=0` to full exhaustion. Potential theorem-level output: "branch X proven to contribute zero solutions to exhaustive enumeration." Deploys as parallel D2/D4als_v7 spot VMs (one per sub-branch), not D128. Prerequisite: 100T MERGEDONE + per-branch yield data.
-3. **Disk decommissioning (post-100T)**: revisit the westus2 `solver-validate-d3` disk (d3 10T canonical, scientifically superseded by 100T) and `solver-data` (stale partial). Per-user-approval.
-4. Scientific-review follow-ups from `LONG_TERM_PLAN.md`: bootstrap confidence intervals on percentile claims (#11), formal Lean/Rocq proof of forced-orientation theorem (#13 Level 2, Level 1 prose tightened 2026-04-19 commit `a09aad9`), technical report (#14).
+**Next steps (as of 2026-04-21):**
+1. **P1 — parallel `--sub-branch` implementation** (currently single-threaded, ~22M nodes/sec on D32): design doc at `x/roae/PARALLEL_SUB_BRANCH_DESIGN.md`, implementation plan at `x/roae/P1_IMPLEMENTATION_PLAN.md`. Gating dependency for any further single-branch campaign at meaningful budgets. Without P1, Pass 1 (10T per branch) takes 5 days serial; with P1 it's ~3 hrs.
+2. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome. Parallel to P1.
+3. **Distributional-analysis follow-ups**: schema v2 drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on position_2_pair; formal joint-hypothesis testing with Bonferroni / permutation.
+4. **Single-branch campaign follow-ups** (blocked on P1): A = yield-16 laggard budget ladder (try for first EXHAUSTED); B = orientation-symmetry structural test on `(20,*,21,*,26,*)` cluster; C = cross-prefix-equivalence investigation on the 6 branches at yield 1,110,543; D = mid-yield calibration (10 branches at 100T yield=1,116).
+5. **Disk decommissioning** (pending user approval): `solver-validate-d2`, `solver-validate-d3` (both 300 GB Unattached, westus2, superseded by 100T canonical), `solver-data` (westus2, 300 GB Unattached, superseded). Rule: never auto-delete; user approval required. `solver-data-westus3` stays (holds the 100T canonical).
+6. **Scientific-review follow-ups** from `x/roae/` staging: formal proof of forced-orientation theorem (Lean/Rocq, Level 2), technical report (#14), bootstrap confidence intervals already added for the P2 joint-density claim.
 
-## Infrastructure (2026-04-19)
+## Infrastructure (2026-04-21)
 
-- **Orchestrator VM** (claude, D2as_v6, westus2 zone 2): orchestration, analysis, git. $0.09/hr on-demand. Bi-region — orchestrator in westus2 while compute runs in westus3.
-- **Enumeration VMs (standing rule)**: D128als_v7 spot in **westus3**, ~$1.70/hr. Zen 5 Turin, 4.5 GHz boost, 128 cores, 256 GB RAM. Use at 10T+ enumerations where fixed per-sub-branch overhead amortizes; CPU utilization ~84% observed at 10T. For 100T+ scale, attach Premium SSD (P40 2 TB) temporarily for external-merge temp chunks.
-- **Merge VMs**: D-series westus3 spot by default, sized by RAM not cores (merge is single-threaded heapsort). d2-10T merge fits in D16als_v7 (32 GB RAM, ~$0.13/hr); d3-10T merge fits in D64als_v7 (128 GB RAM, ~$0.50/hr). Shards persist across spot evictions, so merges are re-runnable — old "no spot for merges" rule superseded. Use on-demand only for merges >3 hrs where recovery is costly.
-- **F64als_v6 RETIRED (2026-04-19)**: no new large-scale runs. Legacy canonical shas established on F64 remain authoritative; D128 westus3 runs reproduce them byte-identically (4-corners validation grid).
-- **Spot quota**: D128als_v7 — **128 cores approved in westus3** (2026-04-19, after westus2 quota denied). F64als_v6 westus2 retained (64 cores) but not used for new large runs.
-- **Managed disks**:
-  - `solver-data` (westus2, 300 GB Standard_LRS, Unattached): stale partial shards from an aborted run; kept pending decommission decision.
-  - `solver-validate-d2` (westus2, 300 GB Standard_LRS, Unattached): canonical d2 10T artifacts (sha `a09280fb…`). Scientifically current.
-  - `solver-validate-d3` (westus2, 300 GB Standard_LRS, Unattached): canonical d3 10T artifacts (sha `f7b8c4fb…`). Scientifically superseded once 100T validates.
-  - `solver-data-westus3` (westus3, 1500 GB Standard_LRS, attached to d128-westus3): 100T shards in flight; will hold the 100T canonical output.
-  - Premium SSD temp disks (for external merges) are ephemeral: provisioned at merge-start, destroyed at merge-end.
-- **Atomic file writes** in solve.c: write to .tmp, fsync, rename. Prevents mid-eviction corruption.
-- **Rotating checkpoints**: 3 copies maintained locally (checkpoint.txt, .1, .2).
-- **All run outputs archived** in `solve_c/runs/<YYYYMMDD>_<budget>_<partition>_<region>/` with README.md + sha256 verification.
+- **Orchestrator VM** (`claude`, D2as_v6, westus2 zone 2): orchestration, analysis, git. $0.09/hr on-demand. Can't be stopped without ending the session.
+- **Enumeration VMs (standing rule — updated 2026-04-20 & 2026-04-21)**:
+  - **Spot for enumeration, on-demand right-sized for merge** (see CLAUDE.md §"Cost control — VM purchase type"). Mandatory pre-launch `az vm show --query priority` verification.
+  - **westus2 has 128-core spot quota (approved);** westus3 spot quota remains at 3 cores (quota increase denied 2026-04-20). New spot enumeration compute pivots to **westus2**.
+  - D128als_v7 spot: $0.95/hr westus2. Zen 5 Turin, 128 cores, 256 GB RAM. Saturates at ~2.5B nodes/sec across 128 threads in full-enumeration mode; single-threaded `--sub-branch` = ~22M nodes/sec (P1 would change this).
+  - Single-branch campaigns at scales <10T: D16-D32als_v7 spot in westus2 is cost-efficient (~$0.13-0.24/hr).
+- **Merge VMs**: **on-demand, right-sized** (merge is single-threaded heapsort; 1-2 cores used, rest idle). d3 10T merge → D16als_v7 on-demand (~$0.50/hr × 1h). d3 100T merge → D32als_v7 on-demand (~$1.30/hr × 5h). Never D128 or F-series for merge — wastes cores.
+- **F-series VMs BANNED** (2026-04-21, after two `solver-d3` F64als_v6 spot incidents cost ~$32.50 avoidable). All D-als-v7 family going forward. See CLAUDE.md §"Cost control — SKU family restrictions" and DEPLOYMENT.md §"Ad-hoc VM lifecycle rules."
+- **Session-lifecycle VM discipline** (2026-04-21): every `az vm create` in a Claude-driven session must pair with teardown in the same command sequence or wakeup prompt. Session VM log at `/tmp/claude_session_vms.txt`. Reconcile at session end.
+- **Managed disks (current, as of 2026-04-21):**
+  - `solver-data-westus3` (westus3, 1500 GB Standard_LRS, **Unattached**): holds 100T canonical `solutions.bin` (sha `915abf30…`, 102 GB). **Primary scientific reference — never delete.**
+  - `solver-data` (westus2, 300 GB Standard_LRS, **Unattached**): stale partial shards from pre-100T runs; held pending decommission decision per user's "investigate later" directive.
+  - `solver-validate-d2` (westus2, 300 GB Standard_LRS, **Unattached**): d2 10T canonical artifacts, retained.
+  - `solver-validate-d3` (westus2, 300 GB Standard_LRS, **Unattached**): d3 10T canonical artifacts, scientifically superseded by 100T but retained.
+  - Premium SSD temp disks for external merges: ephemeral, provisioned/destroyed per merge.
+- **Atomic file writes** in solve.c (write to .tmp, fsync, rename). Prevents mid-eviction corruption.
+- **Rotating checkpoints**: 3 copies maintained locally.
+- **All run outputs archived** in `solve_c/runs/<YYYYMMDD>_<description>/` with README.md + sha256 verification. Most recent: `20260420_singlebranch1T_d32westus3/` (32×1T Recon).
