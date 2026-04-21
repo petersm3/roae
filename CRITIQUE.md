@@ -146,6 +146,63 @@ The empirical 14:2 ratio of 3-line to 1-line odd transitions (with zero 5-line) 
 - ~~No formal proof that 4 boundaries are minimum across *all* valid orderings.~~ **UPDATED 2026-04-20: the minimum is NOT 4 at 100T.** Exhaustive test at d3 100T (3.43B records) shows 0 working 4-subsets; greedy-optimal set requires 5 boundaries ({1, 4, 21, 25, 27}). The minimum was 4 at d2 10T and d3 10T (earlier canonical), but raises to **≥ 5 at d3 100T**. Consistent with the prior warning that "a deeper enumeration could require a 5th boundary (raising it)." The 5-boundary result itself may further raise at 1000T+ enumeration — the minimum is a function of partition depth, not a universal invariant. Boundaries {25, 27} remain partition-stable across d2 10T / d3 10T / d3 100T (present in the minimum set at every scale).
 - No independent derivation of the constraints from first principles. The 5 rules (C1-C5) were extracted from KW and then verified against KW; a stronger result would derive them from external mathematical or coding-theoretic principles. The null-model analysis confirms the constraint-extraction methodology produces apparent uniqueness for many random pair-constrained sequences, so the constraints are KW-specific rather than universal. See [CITATIONS.md](CITATIONS.md) for prior literature — C1 (pair structure) is classical; C2 (no-5-line) is McKenna 1975 / Cook 2006; C3 (complement distance as a quantified threshold) is believed ROAE-original.
 
+## Distributional reframing of KW's "distinctiveness"
+
+Prior framings in this project have struggled with the honesty question: any
+set of KW-specific properties can be extracted and make KW appear uniquely
+determined; the search for "non-trivial" distinguishing properties has been
+circular. A quantified distributional approach sidesteps this:
+
+- Define a **fixed-in-advance 10-dimensional observable-statistics vector**
+  (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition
+  hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count,
+  first_position_deviation).
+- Compute it for every record in the 100T d3 canonical (3,432,399,297 valid
+  orderings).
+- Fit a kernel density estimator on a uniform sample; locate KW; compute
+  KW's density-percentile with bootstrap confidence intervals.
+
+**Finding (documented in DISTRIBUTIONAL_ANALYSIS.md):** KW sits at the
+**0.000%-ile (95% bootstrap CI [0.000%, 0.000%])** of the joint observable-
+density distribution. Its log-density under the sample-fit KDE is ~12,800×
+smaller than any ordering in a 100K uniform subsample.
+
+**What this is.** A quantified statement of KW's position in a distribution
+chosen for general information content, not custom-fit to KW. The vector
+schema was frozen before the analysis; two of the ten chosen dimensions
+turned out to be structurally invariant (new finding — see appendix in
+DISTRIBUTIONAL_ANALYSIS.md) and contribute zero discrimination; the remaining
+eight drive the 0%-ile result.
+
+**What this is not.** A uniqueness proof. The distributional result says KW's
+specific configuration of feature values is atypical — not that KW is the
+unique extremum of any principle. A hypothetical ordering with the same
+exact c3_total, c6_c7_count, and shift-pattern conformance as KW would
+score similarly, which there are likely millions of such orderings.
+
+**Caveats properly attached.**
+
+1. KDE bandwidth and anchor-sample size affect the absolute log-density
+   number. The 0%-ile ranking is robust across 1000 bootstrap samples, but
+   the specific −128,260 log-density number is methodology-dependent.
+2. One dimension's marginal report (`fft_dominant_freq` at 29%-ile)
+   initially suggested KW was on the low tail of that dimension. Closer
+   inspection showed KW's value (k=16) is actually the **mode** of the
+   distribution (12.6% of records share it) — the 29% comes from standard
+   half-bin percentile convention applied to a population with large ties.
+   The joint-density claim does not depend on any single dimension being
+   tail-rare.
+
+**How this compares to the prior "3.9th percentile" C3 claim.** That
+claim was specifically: KW's complement distance is in the 3.9th percentile
+**under C1+C2 only** (pair structure + no-5-line), without the full C3-C5
+filter. Within the C1-C5 canonical, KW is at the C3 **ceiling** (776), not
+the floor. Both statements are true in their respective scopes; neither
+contradicts the other. The joint-distribution analysis above is additionally
+in scope *over the full C1-C5 canonical* — the most defensible reference
+population for making claims about KW's distinctiveness under the full
+constraint system.
+
 ## Open questions
 
 Falsifiable follow-ups surfaced by the current analysis. These are not claims; they are candidate hypotheses testable with the tools already built.

@@ -193,6 +193,112 @@ All scripts and intermediate data are preserved:
 - **Archived outputs:** `x/roae/P2_MARGINALS.md`, `x/roae/viz/`,
   `x/roae/P2_JOINT_DENSITY.md`
 
+## Appendix A: Theorem of invariant transition-Hamming distribution
+
+**Claim.** For every ordering `S = (s₀, s₁, …, s₆₃)` satisfying C1-C5,
+the multiset of 63 consecutive-hexagram Hamming distances
+`{popcount(sᵢ ⊕ sᵢ₊₁) : 0 ≤ i < 63}` is identical to King Wen's:
+
+```
+{ Hamming distance : count }
+     k=1 : 2
+     k=2 : 20
+     k=3 : 13
+     k=4 : 19
+     k=5 : 0      (forbidden by C2)
+     k=6 : 9
+     k=0 : 0      (impossible: a permutation cannot repeat values)
+     k=7 : 0      (impossible: 6-bit values have max Hamming distance 6)
+   ─────────
+     total 63
+```
+
+**Proof.** Immediate from C5. C5 is defined as a "budget" constraint:
+`budget[k] = |{i : popcount(KW[i] ⊕ KW[i+1]) = k}|` for each `k ∈ {0,…,6}`,
+and the enumerator requires that any valid ordering's per-k transition
+counts match this exact vector. (See `solve.c` lines 701–706 where
+`init_kw_dist` populates `kw_dist[]`, and every step of `backtrack`
+decrements `budget[]` on transition placement.) QED.
+
+**Consequences.**
+
+1. **Any real-valued statistic of the 63-transition multiset is constant
+   across all C1-C5 valid orderings.** This includes the mean (3.3492…),
+   median (3), max (6), min (1), variance, skew, etc. These are not
+   observable properties that distinguish KW from other valid orderings —
+   they are shared-by-construction.
+
+2. **`mean_transition_hamming` and `max_transition_hamming` should not
+   have been included in the original observable-statistics schema**
+   (P2_OBSERVABLES_SCHEMA.md). This is a schema bug, now documented as
+   a finding: these two dimensions carry zero discriminative information
+   and contribute only noise to joint-distribution estimates.
+
+3. **The 32 within-pair Hamming distances are additionally invariant**,
+   determined purely by which 32 pairs (the C1 pair classes derived
+   from KW) are used. Each pair `{a,b}` contributes `popcount(a ⊕ b)`,
+   a property of the pair itself, not its position. Since any valid
+   ordering uses each of the 32 pair classes exactly once, the multiset
+   of within-pair distances is the same across all orderings.
+
+4. **The 31 between-pair Hamming distances therefore also have the same
+   multiset across all orderings** (derivable as full multiset minus
+   within-pair multiset). But individual between-pair distances at
+   specific positions vary — this is where inter-ordering differentiation
+   actually lives in the Hamming-distance family of observables.
+
+A strengthened observable schema would drop mean and max in favor of
+*position-conditional* transition features (e.g., "Hamming distance at
+position 5-6") which can distinguish orderings.
+
+## Appendix B: Mechanistic interpretation of KW's FFT dominant frequency
+
+KW's hexagram-value sequence `(s₀, s₁, …, s₆₃)` has a length-64 FFT with
+a clear dominant frequency at **k = 16** (period = 64/16 = 4), amplitude
+374.77. The top-5 FFT amplitudes are:
+
+| k | Period | Amplitude | Note |
+|---|---|---|---|
+| **16** | **4.0** | **374.77** | Dominant |
+| 15 | 4.267 | 267.38 | Neighbor of k=16 |
+| 30 | 2.133 | 259.94 | Near-Nyquist |
+| 22 | 2.909 | 257.88 | |
+| 26 | 2.462 | 182.48 | |
+
+The concentration at k=16 means that the strongest oscillatory structure
+in KW's sequence has a period of exactly 4 positions — i.e., the signal
+approximately repeats every 2 pairs (each pair occupies 2 positions).
+
+**Marginal-distribution comparison (refinement of the earlier marginal result).**
+
+From the 3.43B-record marginal analysis:
+
+- Records with `fft_dominant_freq < 16`: 776,656,635 (22.6%)
+- Records with `fft_dominant_freq = 16`: **433,156,350** (**12.6%** — largest single bin)
+- Records with `fft_dominant_freq > 16`: 2,222,586,312 (64.8%)
+
+So KW's k=16 is actually **the mode** (most common value) of the
+fft_dominant_freq distribution, not a rare value. The "29th percentile"
+report for KW reflects the standard convention (half-bin rank among tied
+records), not rarity — KW shares its dominant frequency with 433 million
+other C1-C5 valid orderings.
+
+**Interpretation.** Period-4 structure is common across valid orderings
+because the pair structure (C1) creates a natural length-2 alternation
+(the a-then-b within each pair), and the aggregation of 32 such
+alternations produces frequency content concentrated at or near
+half-Nyquist (k=32 in length-64 FFT) and its nearby bins. Why k=16
+specifically is the mode rather than k=32 requires deeper analysis —
+likely because the pair structure is not strictly periodic (different
+pairs have different Hamming distances between their a and b), so the
+pure-period-2 content gets split across nearby bins.
+
+**The scientific refinement:** the earlier marginal writeup overstated
+KW's fft_dominant_freq "distinctiveness." KW is in the distribution
+mode for this dimension, not the tail. A population-mode value is
+typical, not distinguishing. This is an important correction for the
+joint-density narrative.
+
 ## Relationship to other claims
 
 This analysis is distinct from, and complementary to, the yield-clustering

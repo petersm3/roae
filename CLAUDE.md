@@ -18,6 +18,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | Topic | Read |
 |---|---|
 | Public scientific record (what holds, what doesn't) | [SOLVE.md](SOLVE.md), [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md), [CRITIQUE.md](CRITIQUE.md) |
+| Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) |
 | Prior literature + what is classical / prior / novel / methodological citations | [CITATIONS.md](CITATIONS.md) |
 | Formal constraint definitions + theorems | [SPECIFICATION.md](SPECIFICATION.md) |
 | Binary output format + verifier recipe | [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md), [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md), [verify.py](verify.py) |

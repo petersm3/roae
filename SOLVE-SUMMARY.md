@@ -225,6 +225,36 @@ This pattern implies a **partial orientation-invariance property** of the C1-C5 
 
 Reproducibility: the built-in `./solve --yield-report` subcommand reads a solve.c enumeration log on stdin and produces this report. Invoke via `zcat enum_output.log.gz | ./solve --yield-report`. No external dependencies beyond what `solve.c` already requires.
 
+## Observed distributional regularity: KW's position in joint observable space
+
+Separate from the yield-clustering analysis above — at the record level across
+the 3,432,399,297 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimensional
+observable-statistics vector was computed per ordering and KW's position in the
+joint distribution was quantified via kernel density estimation + bootstrap.
+
+**Headline result: KW sits at the 0.000%-ile (bootstrap 95% CI [0.000%, 0.000%])
+of the joint observable-density distribution.** KW's joint-feature configuration
+is unrepresented in a 100,000-record uniform sample from the canonical — the
+KDE assigns KW a log-density ~12,800× lower than any sampled ordering.
+
+The distributional extremity is driven by KW simultaneously being at the 95th+
+percentile across four independent structural dimensions (complement distance
+at ceiling, both C6/C7 adjacencies satisfied, all 17 shift-pattern positions
+conformant, and literally unique-to-KW position-matching). A typical C1-C5
+valid ordering does not concentrate extreme values across multiple dimensions
+this way.
+
+**A concurrent analytical finding: invariant transition-Hamming distribution.**
+The multiset of 63 consecutive-hexagram Hamming distances is identical across
+every C1-C5 valid ordering (direct consequence of C5's budget constraint —
+it's the constraint itself, re-expressed). So any aggregate statistic of that
+multiset (mean, max, variance) is structurally constant — not observable
+variation to analyze.
+
+Reproducibility: `scripts/compute_stats.py` → per-record parquet, then
+`scripts/p2_marginals.py`, `scripts/p2_bivariate.py`,
+`scripts/p2_joint_density.py`. Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+
 ## The numbers at a glance
 
 | Step | Rule | Arrangements remaining |

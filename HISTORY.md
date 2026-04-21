@@ -435,6 +435,26 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **Pending work post-MERGEDONE:** viz run on 102.3 GB solutions.bin, Step 8b safety gate, d128-westus3 teardown, P40 scratch SSD deletion. Docs in `petersm3/x/roae` (CURRENT_PLAN, AUTONOMOUS_STATUS, POST_MERGEDONE_CHECKLIST) refreshed.
 
+## Day 12 — April 21, 2026: P2 distributional analysis + invariance theorem
+
+**Scientific reframing executed.** The "is King Wen unique?" question — long a sticking point for honest scoping in SOLVE.md / CRITIQUE.md — reframed as a quantified distributional claim. Details in [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+
+**Computational pipeline executed on 3,432,399,297-record 100T d3 canonical:**
+- `scripts/compute_stats.py` — per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation). Per-chunk parquet directory output (3,433 files). Ran in 66 min on D16als_v7.
+- `scripts/p2_marginals.py` — streaming-histogram exact marginal percentiles for KW's value in each dimension.
+- `scripts/p2_bivariate.py` — 5 hexbin heatmaps with KW marked (uniform 1.7M sample from 3.43B).
+- `scripts/p2_joint_density.py` — sklearn KDE on 7 informative dimensions, 100K standardized sample, bootstrap 1000× for CI on KW's density-percentile.
+
+**Headline result: KW sits at 0.000% in the joint observable-density distribution, bootstrap 95% CI [0.000%, 0.000%].** KW's log-density under the sample-fit KDE is −128,260 while the entire 100K sample spans log-density [−10.11, −2.98]. The extremity is driven by simultaneous 95th+ percentile values across four independent structural dimensions (c3_total, c6_c7_count, shift_conformant_count, first_position_deviation), not any single dimension — a typical canonical ordering does not concentrate extremes that way.
+
+**Theorem of invariant transition-Hamming distribution (new):** every C1-C5 valid ordering has the identical multiset of 63 consecutive-hexagram Hamming distances `{1:2, 2:20, 3:13, 4:19, 6:9}`, proven directly from C5's budget-constraint formulation. Corollary: any real-valued statistic of that multiset (mean, median, max, variance, etc.) is constant across all 3.43B valid orderings. This retroactively identifies two of the originally-proposed observable dimensions (`mean_transition_hamming` = 3.3492 always, `max_transition_hamming` = 6 always) as structurally invariant — zero discriminative information.
+
+**`fft_dominant_freq` correction:** the marginal analysis initially reported KW's k=16 as "29th percentile" following standard half-bin percentile convention, implying rarity. On closer inspection, k=16 is the **mode** (12.6% of records — 433 million — share this value), not a tail value. KW is typical, not distinguished, on this dimension. The joint-distribution extremity remains despite this correction because it's driven by the four structural extremes, not by FFT features.
+
+**Schema lessons:**
+- Observable-statistics schemas should be validated for discriminative power *before* being used as analysis dimensions. Two of ten original P2 dimensions were pure noise due to C5-driven invariance.
+- Percentile conventions (half-bin vs strict-less-than) matter when drawing "is KW at the extreme?" narratives — a mode can report as a low-ish percentile under half-bin convention.
+
 ## Day 11 — April 20-21, 2026: 1T single-branch Recon + P2 kickoff + solver-d3 lesson
 
 **Recon campaign (32 sub-branches × 1T budget).** Picked the 32 lowest-yield-at-100T sub-branches, ran each at 1T (1,580× the 100T per-sub-branch budget), serial-by-default solve.c. Full results at `solve_c/runs/20260420_singlebranch1T_d32westus3/` and `x/roae/RECON_1T_RESULTS.md`.
