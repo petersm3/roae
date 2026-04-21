@@ -141,6 +141,26 @@ $3-25 and accumulates across sessions.
   without cost confirmation AND without running the VM-priority
   verification gate above.
 
+## Single C source file — `solve.c` — no new `.c` files
+
+**Standing rule (2026-04-21):** All C code on this project lives in `solve.c`.
+No new `.c` files, not even for analysis tools that don't touch enumeration.
+
+- Need a tool to parse an enumeration log? Add it as a subcommand in
+  `solve.c` (e.g., `./solve --yield-report`), not a separate `analyze_yields.c`.
+- Need a helper utility? Same — new subcommand inside `solve.c`.
+- Python (`scripts/*.py`), shell, markdown, binaries all fine — rule is
+  specifically about `.c` files.
+
+Why: single source of truth, one compile target, one test matrix, no
+dependency sprawl. `solve.c` is already the canonical C file on this
+project; it stays that way.
+
+Past violation: 2026-04-21 created `analyze_yields.c` as a separate file;
+user directive "i do not want new c files, i want them in solve.c" /
+"if it's written in C, it goes into solve.c, not its own new C file"
+established the rule.
+
 ## Never commit to this repo
 
 - `.claude/` — local Claude Code metadata

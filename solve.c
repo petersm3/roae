@@ -3307,6 +3307,220 @@ static void run_null_pair_constrained(uint64_t n_trials) {
  * does NOT uniquely pick out KW.
  */
 
+/* --yield-report: per-sub-branch yield-clustering analysis of a solve.c
+ * enumeration log. Reads stdin (expects `zcat enum_output.log.gz | ./solve
+ * --yield-report` or similar). Parses "Wrote N solutions to
+ * sub_P1_O1_P2_O2_P3_O3.bin" lines and emits:
+ *   [1] Aggregate yield stats
+ *   [2] Top 20 most-common yield values with ASCII histogram
+ *   [3] Orientation-symmetry clusters (prefixes where all orientation
+ *       variants yield the identical count)
+ *   [4] Summary with symmetric vs asymmetric breakdown by group size
+ *
+ * Addresses "why weren't the yield-clustering and orientation-symmetry
+ * findings surfaced from the 100T canonical enumeration log?" — they were
+ * latent in the log all along; nobody aggregated per-sub-branch yields
+ * into a report. See HISTORY.md Day 11 for discovery narrative.
+ */
+
+#define YIELD_MAX_ENTRIES 200000
+
+typedef struct {
+    int p1, o1, p2, o2, p3, o3;
+    long long yield;
+} YieldEntry;
+
+typedef struct {
+    long long yield;
+    int count;
+} YieldCount;
+
+static int yr_cmp_yield_asc(const void *a, const void *b) {
+    long long ya = ((const YieldEntry *)a)->yield;
+    long long yb = ((const YieldEntry *)b)->yield;
+    if (ya < yb) return -1;
+    if (ya > yb) return 1;
+    return 0;
+}
+
+static int yr_cmp_prefix(const void *a, const void *b) {
+    const YieldEntry *ea = a, *eb = b;
+    if (ea->p1 != eb->p1) return ea->p1 - eb->p1;
+    if (ea->p2 != eb->p2) return ea->p2 - eb->p2;
+    if (ea->p3 != eb->p3) return ea->p3 - eb->p3;
+    if (ea->o1 != eb->o1) return ea->o1 - eb->o1;
+    if (ea->o2 != eb->o2) return ea->o2 - eb->o2;
+    return ea->o3 - eb->o3;
+}
+
+static int yr_cmp_count_desc(const void *a, const void *b) {
+    return ((const YieldCount *)b)->count - ((const YieldCount *)a)->count;
+}
+
+static void yr_print_bar(int count, int max_count, int width) {
+    int n = (int)((double)count / max_count * width + 0.5);
+    for (int i = 0; i < n; i++) putchar('#');
+}
+
+static void run_yield_report(void) {
+    YieldEntry *entries = calloc(YIELD_MAX_ENTRIES, sizeof(YieldEntry));
+    if (!entries) { fprintf(stderr, "ERROR: calloc entries\n"); exit(10); }
+    int n_entries = 0;
+
+    char line[1024];
+    while (fgets(line, sizeof(line), stdin) != NULL) {
+        long long y;
+        int p1, o1, p2, o2, p3, o3;
+        if (sscanf(line,
+                   " Wrote %lld solutions to sub_%d_%d_%d_%d_%d_%d.bin",
+                   &y, &p1, &o1, &p2, &o2, &p3, &o3) == 7) {
+            if (n_entries >= YIELD_MAX_ENTRIES) {
+                fprintf(stderr, "ERROR: exceeded YIELD_MAX_ENTRIES=%d\n", YIELD_MAX_ENTRIES);
+                free(entries); exit(10);
+            }
+            entries[n_entries].p1 = p1; entries[n_entries].o1 = o1;
+            entries[n_entries].p2 = p2; entries[n_entries].o2 = o2;
+            entries[n_entries].p3 = p3; entries[n_entries].o3 = o3;
+            entries[n_entries].yield = y;
+            n_entries++;
+        }
+    }
+
+    if (n_entries == 0) {
+        fprintf(stderr, "ERROR: no 'Wrote N solutions to sub_*.bin' lines found on stdin\n");
+        free(entries); exit(1);
+    }
+
+    /* Section 1: aggregate stats */
+    qsort(entries, n_entries, sizeof(YieldEntry), yr_cmp_yield_asc);
+    long long min_y = entries[0].yield;
+    long long max_y = entries[n_entries - 1].yield;
+    long long median_y = entries[n_entries / 2].yield;
+    long long sum_y = 0;
+    for (int i = 0; i < n_entries; i++) sum_y += entries[i].yield;
+    double mean_y = (double)sum_y / n_entries;
+    int n_distinct = 0;
+    long long prev = -1;
+    for (int i = 0; i < n_entries; i++) {
+        if (entries[i].yield != prev) { n_distinct++; prev = entries[i].yield; }
+    }
+
+    printf("======================================================================\n");
+    printf("[1] AGGREGATE YIELD STATS\n");
+    printf("======================================================================\n");
+    printf("  Non-zero-yield sub-branches: %d\n", n_entries);
+    printf("  Distinct yield values:       %d\n", n_distinct);
+    printf("  Mean branches per yield:     %.2f\n", (double)n_entries / n_distinct);
+    printf("  Min yield:                   %lld\n", min_y);
+    printf("  Max yield:                   %lld\n", max_y);
+    printf("  Median yield:                %lld\n", median_y);
+    printf("  Mean yield:                  %.1f\n", mean_y);
+    printf("  Sum of yields:               %lld\n\n", sum_y);
+
+    /* Section 2: top 20 most-common yield values */
+    YieldCount *yc = calloc(YIELD_MAX_ENTRIES, sizeof(YieldCount));
+    if (!yc) { fprintf(stderr, "ERROR: calloc yc\n"); free(entries); exit(10); }
+    int n_yc = 0;
+    {
+        long long py = entries[0].yield;
+        int run = 1;
+        for (int i = 1; i < n_entries; i++) {
+            if (entries[i].yield == py) run++;
+            else {
+                yc[n_yc].yield = py; yc[n_yc].count = run; n_yc++;
+                py = entries[i].yield; run = 1;
+            }
+        }
+        yc[n_yc].yield = py; yc[n_yc].count = run; n_yc++;
+    }
+    qsort(yc, n_yc, sizeof(YieldCount), yr_cmp_count_desc);
+
+    printf("======================================================================\n");
+    printf("[2] TOP 20 MOST-COMMON YIELD VALUES\n");
+    printf("======================================================================\n");
+    printf("  Rank  #Branches  Yield         Histogram\n");
+    int max_count = yc[0].count;
+    for (int i = 0; i < 20 && i < n_yc; i++) {
+        printf("  %-4d  %-9d  %-12lld  ", i + 1, yc[i].count, yc[i].yield);
+        yr_print_bar(yc[i].count, max_count, 40);
+        putchar('\n');
+    }
+    putchar('\n');
+
+    /* Section 3 & 4: orientation-symmetry */
+    qsort(entries, n_entries, sizeof(YieldEntry), yr_cmp_prefix);
+    int n_groups_total = 0, n_groups_multi = 0, n_groups_sym = 0, n_groups_asym = 0;
+    int max_group_size = 0;
+    int g_start = 0;
+    int sym_by_size[9] = {0}, asym_by_size[9] = {0};
+
+    printf("======================================================================\n");
+    printf("[3] ORIENTATION-SYMMETRY CLUSTERS — groups where ALL variants yield same\n");
+    printf("======================================================================\n");
+    printf("  (p1, p2, p3)        N variants   shared yield\n");
+    int printed = 0;
+    for (int i = 1; i <= n_entries; i++) {
+        int end_of_group = (i == n_entries) ||
+            entries[i].p1 != entries[g_start].p1 ||
+            entries[i].p2 != entries[g_start].p2 ||
+            entries[i].p3 != entries[g_start].p3;
+        if (!end_of_group) continue;
+
+        int size = i - g_start;
+        n_groups_total++;
+        if (size > max_group_size) max_group_size = size;
+        if (size >= 2) {
+            n_groups_multi++;
+            int all_same = 1;
+            long long yref = entries[g_start].yield;
+            for (int j = g_start + 1; j < i; j++) {
+                if (entries[j].yield != yref) { all_same = 0; break; }
+            }
+            if (all_same) {
+                n_groups_sym++;
+                if (size < 9) sym_by_size[size]++;
+                if (size >= 3 && printed < 40) {
+                    printf("  (%2d, %2d, %2d)         %d            %lld\n",
+                           entries[g_start].p1, entries[g_start].p2,
+                           entries[g_start].p3, size, yref);
+                    printed++;
+                }
+            } else {
+                n_groups_asym++;
+                if (size < 9) asym_by_size[size]++;
+            }
+        }
+        g_start = i;
+    }
+    if (printed == 0) printf("  (none with size >= 3; see counts by size below)\n");
+    putchar('\n');
+
+    printf("  Group-size breakdown (symmetric = all variants identical yield):\n");
+    printf("    Size     Symmetric    Asymmetric\n");
+    for (int s = 2; s < 9; s++) {
+        if (sym_by_size[s] + asym_by_size[s] > 0)
+            printf("    %-7d  %-11d  %-11d\n", s, sym_by_size[s], asym_by_size[s]);
+    }
+    putchar('\n');
+
+    printf("======================================================================\n");
+    printf("[4] SUMMARY\n");
+    printf("======================================================================\n");
+    printf("  Distinct (p1, p2, p3) groups:                 %d\n", n_groups_total);
+    printf("  Groups with >= 2 orientation variants:        %d\n", n_groups_multi);
+    printf("  Groups where ALL variants yield same number:  %d (%.1f%% of multi)\n",
+           n_groups_sym, 100.0 * n_groups_sym / (n_groups_multi ? n_groups_multi : 1));
+    printf("  Groups with asymmetric yields:                %d (%.1f%% of multi)\n",
+           n_groups_asym, 100.0 * n_groups_asym / (n_groups_multi ? n_groups_multi : 1));
+    printf("  Largest orientation group:                    %d variants\n", max_group_size);
+    printf("\n  INTERPRETATION:\n");
+    printf("  High symmetric %% => orientation-invariance is a robust structural\n");
+    printf("  property. Presence of asymmetric groups => orientation matters for\n");
+    printf("  some prefix classes; those are candidates for deeper study.\n");
+
+    free(yc); free(entries);
+}
+
 static void run_c3_min(const char *filename) {
     init_pairs();
     FILE *f = fopen(filename, "rb");
@@ -3527,6 +3741,13 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--c3-min") == 0) {
         const char *fn = (argc > 2) ? argv[2] : "solutions.bin";
         run_c3_min(fn);
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--yield-report") == 0) {
+        /* Reads enumeration log from stdin; emits per-sub-branch yield-
+         * clustering + orientation-symmetry report. Usage:
+         *   zcat enum_output.log.gz | ./solve --yield-report
+         */
+        run_yield_report();
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;

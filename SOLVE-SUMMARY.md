@@ -210,6 +210,21 @@ In the canonical v1 format, each pair-ordering appears exactly once (lex-smalles
 
 The underlying constraint geometry — that within-pair orient is almost entirely forced across positions 5-20 for every valid pair-sequence — is unchanged. What changes is the STORAGE: canonical format v1 doesn't duplicate-store the orient variants that exist, it stores the canonical form + the implicit fact that some pair-orderings have multiple valid orient variants which could be regenerated on demand.
 
+## Observed structural regularity: yield clustering + orientation-symmetry
+
+An analysis of the 100T d3 canonical enumeration log (60,533 non-zero-yield
+depth-3 sub-branches, one per valid (pair₁, orient₁, pair₂, orient₂, pair₃,
+orient₃) prefix) — reveals strong regularity that is not visible in the merged
+canonical records:
+
+- **Only 9,325 distinct yield values across 60,533 sub-branches** (average of 6.5 sub-branches sharing each yield value). The enumeration is not "flat" across prefix classes; it has a strongly-clustered structure.
+- **380 depth-3 prefix groups** (where a "group" = all 2³ = 8 orientation variants sharing the same (pair₁, pair₂, pair₃) triple) — every one of the 8 variants yields an **identical** solution count. That is: for these prefixes, orientation does not affect how many C1-C5-valid orderings extend the prefix.
+- **16.3% of multi-variant groups overall (1,636 of 10,027)** exhibit this perfect orientation-symmetry. The remaining 83.7% show variant-dependent yields.
+
+This pattern implies a **partial orientation-invariance property** of the C1-C5 constraint system on depth-3 prefixes: for a substantial minority of prefixes, the count of valid continuations depends only on the pair identities, not the hexagram-within-pair orderings.
+
+Reproducibility: the built-in `./solve --yield-report` subcommand reads a solve.c enumeration log on stdin and produces this report. Invoke via `zcat enum_output.log.gz | ./solve --yield-report`. No external dependencies beyond what `solve.c` already requires.
+
 ## The numbers at a glance
 
 | Step | Rule | Arrangements remaining |
