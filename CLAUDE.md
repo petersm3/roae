@@ -78,6 +78,52 @@ az vm show -g <rg> -n <vm> --query priority -o tsv
 
 Failure mode this prevents: on 2026-04-19, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. Total overspend on the enumeration portion (where spot would have worked): ~$48-73. See HISTORY.md §Missteps for the full retrospective.
 
+## Cost control — SKU family restrictions (STRICT)
+
+**Standing rule (repeated by user 2026-04-19 and 2026-04-20):**
+
+- **NEVER provision F-series (Falsv6, Fadsv6, etc.) VMs for any purpose.** F-series was retired from this project on 2026-04-19 when the D-als-v7 Turin family landed. Despite the retirement, F64als_v6 was accidentally spun up AT LEAST THREE TIMES (2026-04-19 06:09, 2026-04-20 ~00:32 — from solver-d3 recreations after deletions). Each cost ~$3-25 in avoidable spend before being caught.
+- **Use D-als-v7 family exclusively**: D2als_v7 (analysis), D4als_v7 (data inspection), D16als_v7 (merge), D32als_v7 (merge / single-branch), D64als_v7 (parallel single-branch future), D128als_v7 (full enumeration).
+- **Right-size by workload**. Don't use F64 or D128 for a 10-minute data-mount task. Use D2 or D4.
+
+**If any past command in a session or autonomous wake prompt references F-series provisioning: STOP, redact, use D-als-v7.**
+
+## Session-lifecycle VM discipline (STRICT, applies to any `az vm create`)
+
+**Problem addressed:** "mount a disk briefly for inspection" has repeatedly
+left VMs running long after the inspection ended. Each cleanup gap costs
+$3-25 and accumulates across sessions.
+
+**Rules, applied to every Claude-initiated VM:**
+
+1. **Every `az vm create` must be paired with a concrete teardown plan
+   in the SAME command sequence or the SAME scheduled wakeup prompt.**
+   Acceptable patterns:
+   - "provision → run task → deallocate" in one bash command, OR
+   - Provision, then set a scheduled wakeup that includes the full
+     teardown sequence (detach managed-data-disks, delete VM, clean
+     orphan NIC/pip/OS-disk) — NEVER leave teardown to "next human
+     interaction."
+2. **Maintain a session-lifetime VM log.** When creating a new VM,
+   append to `/tmp/claude_session_vms.txt` (timestamp + name + purpose).
+   Before ending any autonomous wakeup chain, `az vm list` and reconcile
+   against this file; tear down anything still present unless the user
+   has specifically authorized keeping it.
+3. **Prefer ephemeral OS disks** (`--ephemeral-os-disk true`) for VMs
+   that will be deleted at session end — halves cleanup work and
+   guarantees OS disk doesn't leak.
+4. **Data disks (like `solver-data`, `solver-data-westus3`) are NEVER
+   deleted by Claude.** Detach before VM delete. User explicit approval
+   needed to touch data-disk contents or delete the disk itself.
+5. **On any session crash / interrupt, the first thing the next wakeup
+   does is reconcile VM state against the session-lifetime log.**
+
+**Past incidents this rule exists to prevent (see HISTORY.md §Missteps):**
+
+- 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed, ~$25 spend
+- 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it, ~$7.50 spend
+- campaign-westus2 OS disk orphaned for several hours after VM delete until user noticed
+
 ## Never do without explicit user approval
 
 - Delete managed disks — the exception is **Premium SSD temp disks

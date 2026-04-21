@@ -613,6 +613,61 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
    done
    ```
 
+### Ad-hoc VM lifecycle rules (STRICT — prevents leaked VMs)
+
+Applies any time a VM is provisioned to mount a managed disk for a one-off
+inspection or a short-lived compute task.
+
+**Incidents that motivated this section:**
+
+- **2026-04-19** (F64als_v6 spot recreated): a `solver-d3` F64 was spun up on
+  2026-04-19 06:09 UTC to mount `solver-data`, then left running for ~32 hrs
+  before being caught and deleted on 2026-04-20 14:11 UTC. Accumulated ~$25 in
+  avoidable spot charges.
+- **2026-04-20** (same SKU, same disk, recreated again): a new `solver-d3` F64
+  spot was provisioned on 2026-04-20 18:59 UTC with `solver-data` attached,
+  then left running for ~9.5 hrs until the operator noticed at 04:30 UTC Tue.
+  Accumulated ~$7.50. Same anti-pattern, different session.
+- Both incidents violated the standing rule against F-series VMs.
+
+**The rules:**
+
+1. **F-series VMs are BANNED.** Project standardized on D-als-v7 family
+   2026-04-19. If you're about to run `az vm create --size Standard_F*`, STOP.
+2. **Right-size for the task.** Mounting a 300GB data disk for a 10-minute
+   inspection does not need 64 cores. Use:
+   - D2als_v7 (2 vCPU, $0.08/hr on-demand, $0.025/hr spot) — for simple `ls`,
+     `cat`, copy-small-files tasks
+   - D4als_v7 (4 vCPU, $0.16/hr on-demand) — for 1-thread Python analysis
+   - D8als_v7 and up only if the task is actually multi-threaded CPU-bound
+3. **Every `az vm create` must pair with teardown in the same command
+   sequence.** Example pattern:
+   ```bash
+   # GOOD: teardown is part of the one-liner
+   az vm create ... -n temp-vm \
+     && az vm disk attach --vm-name temp-vm --name solver-data \
+     && ssh solver@<ip> '<inspection commands>' \
+     && az vm disk detach --vm-name temp-vm --name solver-data \
+     && az vm delete -g rg -n temp-vm --yes \
+     && az disk delete -g rg -n temp-vm_OsDisk_* --yes
+   ```
+   If the task is too complex to one-line, build teardown into an
+   immediately-scheduled follow-up wakeup with no branches that skip it.
+4. **Maintain a session-lifetime log of created VMs.** When creating a new
+   VM, append to `/tmp/claude_session_vms.txt`:
+   ```
+   2026-04-20T18:59Z solver-d3 F64als_v6 westus2 purpose:mount-solver-data ttl:1hr
+   ```
+   Before the session ends (or every 6 hours of autonomous work), reconcile
+   this list against `az vm list -g rg-claude`. Any VM in the list still
+   present must be either (a) still serving its documented purpose OR (b)
+   torn down now.
+5. **Data disks are NEVER deleted.** Detach before VM delete. User explicit
+   approval required for anything touching a data disk's contents.
+6. **Default to `--ephemeral-os-disk true`** for VMs that will live < 1 hour.
+   Ephemeral OS disks are destroyed with the VM automatically, eliminating
+   orphan-cleanup steps.
+
 ### Zone caveat for analysis VMs
 
 If the data disk was created without a zone (`zones: null`) but a primary VM is
@@ -620,6 +675,69 @@ zonal, the disk cannot attach to that VM (Azure returns `BadRequest`). For a
 recovery / analysis VM that needs to mount `solver-data`, **provision without a
 zone** (omit `--zone` and don't specify a `zone` in the resource definition
 above). Once attached to the new VM, mount as in step 5.
+
+### Quota accounting — deallocated VMs still hold your quota
+
+**Key gotcha that bit us on 2026-04-20:** An Azure VM in the `Deallocated` state is
+not computing (no hourly charge) but **still holds a quota reservation equal to its
+full vCPU count**. Only **deletion** frees quota. This applies to both
+on-demand (Regular) VMs and spot (Low-priority) VMs, and is per-quota-bucket:
+
+| Quota bucket | Scope | What counts |
+|---|---|---|
+| `Standard <SKU-family> Family vCPUs` (e.g., `Standard Dalsv7 Family vCPUs`) | Regular/on-demand only, per family, per region | Every non-deleted VM in that family, whether running or deallocated |
+| `Total Regional Low-priority vCPUs` | All spot VMs combined, per region | Every non-deleted spot VM, whether running or deallocated |
+
+These are **two separate buckets** — a spot VM does not consume on-demand family
+quota and vice versa, even for the same SKU.
+
+**Practical consequence.** If you have a deallocated D128als_v7 (128 cores)
+sitting around in westus3 where your Dalsv7 family quota is 130, you have **only
+2 cores of usable headroom**. You cannot create a D32 on-demand in that family
+until you either:
+
+1. **Delete the deallocated VM** (frees quota; loses the OS disk unless its
+   `deleteOption` is `Detach` — data disks are typically `Detach`, OS disks
+   default to `Delete`).
+2. **Request a quota increase** (hours-to-days turnaround; not guaranteed).
+3. **Use a different family** (if you have quota in another family).
+4. **Move to a different region** (if the disk isn't region-locked; managed
+   disks ARE region-locked, so this usually requires a snapshot+copy).
+
+**When this matters for this project.** We frequently keep a large VM
+deallocated for rapid re-use (the "cheap to restart" pattern). This is fine
+*until* you want to provision a different-sized VM in parallel. Typical
+scenario: the enumeration VM (D128als_v7) is deallocated after a run, and you
+want to spin up a smaller D32als_v7 for follow-up single-branch work. If
+D128's 128 cores already consume most of your quota, the smaller VM creation
+will fail with `QuotaExceeded`.
+
+**Rule of thumb.** Before leaving a large VM deallocated "for later," ask:
+
+- Will I want to run a *different-sized* VM in the same region + family while
+  this one is deallocated? If yes, delete this one instead (keep the data
+  disks; they're separate resources and persist independently).
+- If you plan to resume the same VM at the same size, deallocation is fine —
+  you're not using additional quota when you restart it.
+- Spot and on-demand are separate quotas, so a deallocated spot VM does not
+  block on-demand provisioning in the same family and vice versa.
+
+**Verification commands:**
+
+```bash
+# See all quotas and current usage for a region
+az vm list-usage -l <region> -o table
+
+# Spot-specific
+az vm list-usage -l <region> --query "[?contains(name.value,'lowPriority')]" -o table
+
+# Per-family on-demand
+az vm list-usage -l <region> --query "[?contains(name.value,'Dalsv7')]" -o table
+```
+
+"Current" in the output reflects **reserved** cores — which includes deallocated
+VMs. If it equals your limit, you have zero headroom even if nothing is actually
+running.
 
 ### Cost reference (2026-04-19 pricing, post-Dalsv7-pivot)
 
