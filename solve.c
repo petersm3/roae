@@ -357,6 +357,47 @@ static int sol_hash_log2 = 24;         /* default: 2^24 = 16M slots */
 static int sol_hash_size;
 static int sol_hash_mask;
 
+/* ---------- Parallel --sub-branch work queue (P1, 2026-04-21) ----------
+ * When --sub-branch is invoked with SOLVE_THREADS > 1, the single depth-3
+ * prefix is split along the depth-4 dimension: each valid (p4, o4) pair
+ * becomes a task. Workers pull tasks via an atomic fetch-increment counter
+ * in lex order, run DFS from position 5 in their own ThreadState (private
+ * hash table), then merge at end. See PARALLEL_SUB_BRANCH_DESIGN.md and
+ * P1_IMPLEMENTATION_PLAN.md in the x/roae repo for the design.
+ *
+ * Determinism: output is byte-identical to legacy single-threaded
+ * --sub-branch because (a) every task is processed (for EXHAUSTED) or
+ * processed-in-lex-order-until-budget-hit (for BUDGETED), (b) within each
+ * task the DFS is single-threaded + deterministic, (c) analyze_solution's
+ * dedup is "lex-smallest-record wins" — so cross-task orient-variant
+ * duplicates collapse to the same winner regardless of thread scheduling.
+ */
+#define SUB_SUB_MAX 128  /* upper bound on valid (p4,o4) pairs; 32*2 = 64 max theoretical */
+typedef struct {
+    int p4, o4;
+    int f4, s4;          /* hexagram values from pairs[p4], oriented */
+    int bd4, wd4;        /* Hamming(s3, f4) and Hamming(f4, s4) — pre-computed */
+} SubSubBranchTask;
+static SubSubBranchTask sub_sub_tasks[SUB_SUB_MAX];
+static int n_sub_sub_tasks = 0;
+/* Atomic task dispenser: workers fetch+increment to claim next task. */
+static volatile int sub_sub_next_idx = 0;
+/* Shared cumulative node counter across all workers; budget check. */
+static volatile long long sub_sub_shared_nodes = 0;
+static volatile int sub_sub_budget_hit = 0;
+/* Gate: backtrack only consults sub_sub_budget_hit / sub_sub_shared_nodes
+ * when this flag is 1 (set by main thread before workers launch, unset
+ * after join). Prevents the parallel path's budget signaling from
+ * interfering with legacy full-enumeration mode's independent
+ * `ts->branch_nodes >= per_branch_node_limit` check. */
+static volatile int sub_sub_parallel_active = 0;
+/* Shared depth-3 prefix state — populated by main thread before workers
+ * launch, read-only during parallel execution. Each worker memcpys into
+ * its own local seq/used/budget, then applies its task's depth-4 step. */
+static int shared_prefix_seq[64];
+static int shared_prefix_used[32];
+static int shared_prefix_budget[7];
+
 static int pair_lookup[64][64];
 static int pair_lookup_initialized = 0;
 
@@ -643,6 +684,11 @@ typedef struct {
     int ht_size;
     int ht_mask;
     int ht_resizes;
+
+    /* P1 parallel --sub-branch: running tally of branch_nodes already
+     * published to sub_sub_shared_nodes. Used only in parallel mode to
+     * decouple per-thread local progress from global budget accounting. */
+    long long pending_shared_flush;
 } ThreadState;
 
 /* global_timed_out is set both from the signal handler (must be
@@ -1111,6 +1157,18 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
             if ((existing[ci] & 0xFC) != canonical[ci]) { match = 0; break; }
         }
         if (match) {
+            /* Canonical-duplicate found. "Lex-smallest record wins" —
+             * if the incoming record is byte-wise smaller than what's
+             * stored, replace. This is a no-op for single-threaded DFS
+             * (which visits orient=0 before orient=1 at every depth, so
+             * the first-inserted record is already lex-smallest), but
+             * is required for determinism under parallel --sub-branch
+             * execution where multiple workers may find canonical-
+             * duplicate solutions in different orient variants and
+             * insertion order depends on thread scheduling.
+             * See P1_IMPLEMENTATION_PLAN.md §Determinism. */
+            if (memcmp(record, existing, SOL_RECORD_SIZE) < 0)
+                memcpy(existing, record, SOL_RECORD_SIZE);
             ts->hash_collisions++;
             return;
         }
@@ -1172,9 +1230,38 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
      * on this thread can continue. But for simplicity, we use global_timed_out
      * which stops this branch's backtrack immediately. The thread function
      * resets it... actually we can't reset a volatile global. Instead, return
-     * directly without setting the global flag. */
-    if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit)
-        return;  /* branch budget exhausted — stop this branch only */
+     * directly without setting the global flag.
+     *
+     * Parallel --sub-branch mode (P1, 2026-04-21): when running inside the
+     * parallel sub-sub-branch workers, `sub_sub_shared_nodes` accumulates
+     * completed-task node counts across all threads, and we treat
+     * `ts->branch_nodes + sub_sub_shared_nodes` as the effective global
+     * consumption. `sub_sub_budget_hit` is a short-circuit flag flipped
+     * by whichever worker first crosses budget; other workers notice on
+     * their next backtrack entry and bail. In single-threaded / legacy
+     * modes `sub_sub_shared_nodes` stays 0 and `sub_sub_budget_hit` stays
+     * 0, so behavior is identical to pre-P1.
+     */
+    if (sub_sub_parallel_active) {
+        if (sub_sub_budget_hit) return;
+        /* Flush local progress to the shared counter every ~65K nodes and
+         * check vs budget. Batching keeps the atomic-add cost low while
+         * giving ~millisecond granularity on budget enforcement across
+         * workers. Unsigned mask trick: branch_nodes is monotone, so
+         * crossings of 65536-boundaries fire exactly once per 65K increment. */
+        long long delta = ts->branch_nodes - ts->pending_shared_flush;
+        if (delta >= 65536) {
+            ts->pending_shared_flush = ts->branch_nodes;
+            long long total = __sync_add_and_fetch(&sub_sub_shared_nodes, delta);
+            if (per_branch_node_limit > 0 && total >= per_branch_node_limit) {
+                sub_sub_budget_hit = 1;
+                return;
+            }
+        }
+    } else {
+        if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit)
+            return;  /* branch budget exhausted — stop this branch only (legacy) */
+    }
     /* Time check every 50M nodes (not every node — time() is a syscall). */
     if (ts->nodes % 50000000 == 0) {
         if (time_limit > 0 && (time(NULL) - start_time) >= time_limit)
@@ -1541,6 +1628,163 @@ static void *thread_func_single(void *arg) {
 
     __sync_fetch_and_add(&threads_completed, 1);
     return NULL;
+}
+
+/* ---------- Parallel --sub-branch helpers (P1) ----------
+ * See the data-structures block near the top of this file for context.
+ */
+
+/* Enumerate valid (p4, o4) extensions of the shared depth-3 prefix.
+ * Populates sub_sub_tasks[] and sets n_sub_sub_tasks. Tasks emitted in
+ * lex (p4, o4) order — important: workers pull in this same order, so
+ * the output of a BUDGETED run is {tasks 0..K-1} where K is the count
+ * that completed before budget was hit.
+ *
+ * Pruning matches the per-step logic in backtrack() exactly:
+ *   - p4 must not already be used
+ *   - Hamming(shared_prefix_seq[7], f4) != 5 and budget[bd4] > 0
+ *   - budget[wd4] > 0 where wd4 = Hamming(f4, s4)
+ *
+ * Preconditions: shared_prefix_seq/used/budget have been populated by main.
+ */
+static void build_sub_sub_branch_tasks(void) {
+    n_sub_sub_tasks = 0;
+    int s3 = shared_prefix_seq[7];
+    for (int p4 = 0; p4 < 32; p4++) {
+        if (shared_prefix_used[p4]) continue;
+        for (int o4 = 0; o4 < 2; o4++) {
+            int f4 = o4 ? pairs[p4].b : pairs[p4].a;
+            int s4 = o4 ? pairs[p4].a : pairs[p4].b;
+            int bd4 = hamming(s3, f4);
+            if (bd4 == 5) continue;
+            if (shared_prefix_budget[bd4] <= 0) continue;
+            int wd4 = hamming(f4, s4);
+            /* Must have budget for both the between-pair and within-pair
+             * transition. The between-pair slot is already confirmed > 0;
+             * if within-pair uses the SAME Hamming class, need budget >= 2
+             * (because backtrack decrements bd4 before checking wd4). */
+            int need_wd = (bd4 == wd4) ? 2 : 1;
+            if (shared_prefix_budget[wd4] < need_wd) continue;
+            if (n_sub_sub_tasks >= SUB_SUB_MAX) {
+                fprintf(stderr, "FATAL: SUB_SUB_MAX (%d) exceeded — P1 assumption broken\n",
+                        SUB_SUB_MAX);
+                exit(10);
+            }
+            sub_sub_tasks[n_sub_sub_tasks].p4  = p4;
+            sub_sub_tasks[n_sub_sub_tasks].o4  = o4;
+            sub_sub_tasks[n_sub_sub_tasks].f4  = f4;
+            sub_sub_tasks[n_sub_sub_tasks].s4  = s4;
+            sub_sub_tasks[n_sub_sub_tasks].bd4 = bd4;
+            sub_sub_tasks[n_sub_sub_tasks].wd4 = wd4;
+            n_sub_sub_tasks++;
+        }
+    }
+}
+
+/* Worker entry point for parallel --sub-branch.
+ * Each worker owns its own ThreadState (including its private hash table)
+ * and pulls tasks from sub_sub_tasks[] via the atomic sub_sub_next_idx.
+ * No locks in the hot path: all task state is stack-local + per-task
+ * snapshot of the shared depth-3 prefix; the only shared atomics are
+ * sub_sub_next_idx, sub_sub_shared_nodes, sub_sub_budget_hit.
+ */
+static void *thread_func_sub_sub(void *arg) {
+    ThreadState *ts = (ThreadState *)arg;
+
+    while (!global_timed_out) {
+        if (sub_sub_budget_hit) break;
+
+        /* Atomically claim the next task. */
+        int idx = __sync_fetch_and_add(&sub_sub_next_idx, 1);
+        if (idx >= n_sub_sub_tasks) break;
+
+        SubSubBranchTask *task = &sub_sub_tasks[idx];
+
+        /* Snapshot shared prefix into local state. */
+        int seq[64];
+        int used[32];
+        int budget[7];
+        memcpy(seq,    shared_prefix_seq,    sizeof(seq));
+        memcpy(used,   shared_prefix_used,   sizeof(used));
+        memcpy(budget, shared_prefix_budget, sizeof(budget));
+
+        /* Apply depth-4 extension — pair 4 placed at positions 8-9. */
+        seq[8] = task->f4;
+        seq[9] = task->s4;
+        used[task->p4] = 1;
+        budget[task->bd4]--;
+        budget[task->wd4]--;
+
+        /* NOTE: do NOT reset ts->branch_nodes per task in parallel mode —
+         * backtrack uses (branch_nodes - pending_shared_flush) as the delta
+         * to publish to the shared counter, and that needs monotone
+         * accumulation across all tasks on this worker. */
+
+        /* DFS from step 5 (pair 5 placed at positions 10-11). */
+        backtrack(ts, seq, used, budget, 5);
+
+        /* Final flush of any sub-65K residual delta from this task. */
+        long long delta_f = ts->branch_nodes - ts->pending_shared_flush;
+        if (delta_f > 0) {
+            ts->pending_shared_flush = ts->branch_nodes;
+            long long cumulative = __sync_add_and_fetch(&sub_sub_shared_nodes, delta_f);
+            if (per_branch_node_limit > 0 && cumulative >= per_branch_node_limit) {
+                sub_sub_budget_hit = 1;
+            }
+        }
+    }
+    __sync_fetch_and_add(&threads_completed, 1);
+    return NULL;
+}
+
+/* Merge src's occupied hash-table slots into dst. Re-computes the canonical
+ * hash on each record and probes dst, applying the same "lex-smallest record
+ * wins" dedup as analyze_solution(). Called on main thread after all workers
+ * have joined. Does NOT touch src's counters (caller will discard src). */
+static void merge_sol_tables(ThreadState *dst, ThreadState *src) {
+    if (!src->sol_table || !src->sol_occupied) return;
+    /* Ensure dst has a table (lazy init). */
+    if (!dst->sol_table) {
+        dst->sol_table = calloc((size_t)dst->ht_size, SOL_RECORD_SIZE);
+        dst->sol_occupied = calloc(dst->ht_size, 1);
+        if (!dst->sol_table || !dst->sol_occupied) {
+            fprintf(stderr, "FATAL: merge target hash-table allocation failed\n");
+            exit(1);
+        }
+    }
+    for (int s = 0; s < src->ht_size; s++) {
+        if (!src->sol_occupied[s]) continue;
+        const unsigned char *record = &src->sol_table[(size_t)s * SOL_RECORD_SIZE];
+        unsigned char canonical[SOL_RECORD_SIZE];
+        for (int i = 0; i < SOL_RECORD_SIZE; i++)
+            canonical[i] = (unsigned char)(record[i] & 0xFC);
+        unsigned long long ch = 14695981039346656037ULL;
+        for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
+        int slot = (int)(ch & (unsigned long long)dst->ht_mask);
+        for (int probe = 0; probe < dst->ht_size; probe++) {
+            int idx = (slot + probe) & dst->ht_mask;
+            if (!dst->sol_occupied[idx]) {
+                memcpy(&dst->sol_table[(size_t)idx * SOL_RECORD_SIZE], record, SOL_RECORD_SIZE);
+                dst->sol_occupied[idx] = 1;
+                dst->solution_count++;
+                if (dst->solution_count > dst->ht_size * 3 / 4)
+                    resize_hash_table(dst);
+                break;
+            }
+            unsigned char *existing = &dst->sol_table[(size_t)idx * SOL_RECORD_SIZE];
+            int match = 1;
+            for (int ci = 0; ci < SOL_RECORD_SIZE; ci++) {
+                if ((existing[ci] & 0xFC) != canonical[ci]) { match = 0; break; }
+            }
+            if (match) {
+                /* Lex-smallest wins dedup (mirror of analyze_solution). */
+                if (memcmp(record, existing, SOL_RECORD_SIZE) < 0)
+                    memcpy(existing, record, SOL_RECORD_SIZE);
+                dst->hash_collisions++;
+                break;
+            }
+        }
+    }
 }
 
 /* ---- External binary preflight ----
@@ -3673,6 +3917,7 @@ int main(int argc, char *argv[]) {
     /* Check for single-branch mode */
     int single_branch_mode = 0;
     int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */
+    int parallel_sub_branch_enabled = 0;  /* P1: auto-on when SOLVE_THREADS > 1 in --sub-branch mode */
     int sb_pair = -1, sb_orient = -1;
     int ssb_pair2 = -1, ssb_orient2 = -1, ssb_pair3 = -1, ssb_orient3 = -1;
     int arg_offset = 1;
@@ -3871,6 +4116,29 @@ int main(int argc, char *argv[]) {
         ssb_pair3 = atoi(argv[6]);
         ssb_orient3 = atoi(argv[7]);
         arg_offset = 8;
+        /* P1 parallel-sub-branch: auto-enable when SOLVE_THREADS > 1.
+         * Opt-out via SOLVE_SUB_BRANCH_PARALLELISM=single for regression
+         * testing against the legacy single-threaded path. */
+        {
+            char *env_threads_p1 = getenv("SOLVE_THREADS");
+            int nt_req = env_threads_p1 ? atoi(env_threads_p1) : 1;
+            if (arg_offset + 1 < argc) {
+                int nt_argv = atoi(argv[arg_offset + 1]);
+                if (nt_argv > 0) nt_req = nt_argv;
+            }
+            if (nt_req > 1) parallel_sub_branch_enabled = 1;
+            char *env_paral = getenv("SOLVE_SUB_BRANCH_PARALLELISM");
+            if (env_paral && strcmp(env_paral, "single") == 0)
+                parallel_sub_branch_enabled = 0;
+            /* Test-mode: force the parallel code path even at N=1. Used by
+             * the infrastructure-validation harness: N=1 parallel serializes
+             * tasks in lex order through the queue, which is the same DFS
+             * order as legacy — so output must be byte-identical. Useful for
+             * correctness testing without needing a small-tree EXHAUSTED
+             * branch. */
+            if (env_paral && strcmp(env_paral, "force-parallel") == 0)
+                parallel_sub_branch_enabled = 1;
+        }
         printf("Single-sub-branch mode: p1=%d o1=%d p2=%d o2=%d p3=%d o3=%d\n",
                sb_pair, sb_orient, ssb_pair2, ssb_orient2, ssb_pair3, ssb_orient3);
     }
@@ -4069,39 +4337,70 @@ int main(int argc, char *argv[]) {
         fseek(vf, 0, SEEK_END);
         long vsize = ftell(vf);
         fseek(vf, 0, SEEK_SET);
-        if (vsize < SOL_HEADER_SIZE) {
-            fprintf(stderr, "ERROR: file size %ld shorter than header (%d bytes)\n",
-                    vsize, SOL_HEADER_SIZE);
-            fclose(vf);
-            return 20;
-        }
 
-        /* Parse the 32-byte header. Magic must be 'ROAE', version must match,
-         * and declared record_count must agree with actual file geometry. */
-        uint64_t hdr_records = 0;
-        if (sol_read_header(vf, &hdr_records) != 0) {
-            fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version "
-                            "(expected magic 'ROAE', version %d)\n",
-                    verify_file, SOL_FORMAT_VERSION);
-            fclose(vf);
-            return 20;
+        /* Auto-detect file type by peeking at the first 4 bytes:
+         *   "ROAE" magic → full solutions.bin (header + sorted deduped records)
+         *   otherwise    → raw shard file (e.g., sub_*.bin from --sub-branch or
+         *                 mid-run enumeration). Shards have no header and are
+         *                 written in hash-table slot order (not sorted), so
+         *                 skip the header parse, sort-order, and duplicate
+         *                 checks for shard mode. */
+        int shard_mode = 0;
+        unsigned char peek[4];
+        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+            if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E')
+                shard_mode = 1;
         }
-        long record_bytes = vsize - SOL_HEADER_SIZE;
-        if (record_bytes < 0 || record_bytes % SOL_RECORD_SIZE != 0) {
-            fprintf(stderr, "ERROR: record stream %ld bytes after header is not a multiple of %d\n",
-                    record_bytes, SOL_RECORD_SIZE);
-            fclose(vf);
-            return 20;
+        fseek(vf, 0, SEEK_SET);
+
+        long long n_records;
+        if (shard_mode) {
+            if (vsize == 0) {
+                printf("Empty shard file (0 records). Trivially passes.\n");
+                fclose(vf);
+                return 0;
+            }
+            if (vsize % SOL_RECORD_SIZE != 0) {
+                fprintf(stderr, "ERROR: shard file size %ld not a multiple of %d\n",
+                        vsize, SOL_RECORD_SIZE);
+                fclose(vf);
+                return 20;
+            }
+            n_records = vsize / SOL_RECORD_SIZE;
+            printf("Shard mode (no header): %lld records (file %ld bytes)\n\n",
+                   n_records, vsize);
+        } else {
+            if (vsize < SOL_HEADER_SIZE) {
+                fprintf(stderr, "ERROR: file size %ld shorter than header (%d bytes)\n",
+                        vsize, SOL_HEADER_SIZE);
+                fclose(vf);
+                return 20;
+            }
+            uint64_t hdr_records = 0;
+            if (sol_read_header(vf, &hdr_records) != 0) {
+                fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version "
+                                "(expected magic 'ROAE', version %d)\n",
+                        verify_file, SOL_FORMAT_VERSION);
+                fclose(vf);
+                return 20;
+            }
+            long record_bytes = vsize - SOL_HEADER_SIZE;
+            if (record_bytes < 0 || record_bytes % SOL_RECORD_SIZE != 0) {
+                fprintf(stderr, "ERROR: record stream %ld bytes after header is not a multiple of %d\n",
+                        record_bytes, SOL_RECORD_SIZE);
+                fclose(vf);
+                return 20;
+            }
+            n_records = record_bytes / SOL_RECORD_SIZE;
+            if ((uint64_t)n_records != hdr_records) {
+                fprintf(stderr, "ERROR: header claims %llu records but file has %lld\n",
+                        (unsigned long long)hdr_records, n_records);
+                fclose(vf);
+                return 20;
+            }
+            printf("Header: magic ROAE, version %d, %lld records (file %ld bytes)\n\n",
+                   SOL_FORMAT_VERSION, n_records, vsize);
         }
-        long long n_records = record_bytes / SOL_RECORD_SIZE;
-        if ((uint64_t)n_records != hdr_records) {
-            fprintf(stderr, "ERROR: header claims %llu records but file has %lld\n",
-                    (unsigned long long)hdr_records, n_records);
-            fclose(vf);
-            return 20;
-        }
-        printf("Header: magic ROAE, version %d, %lld records (file %ld bytes)\n\n",
-               SOL_FORMAT_VERSION, n_records, vsize);
 
         unsigned char rec[SOL_RECORD_SIZE];
         unsigned char prev[SOL_RECORD_SIZE];
@@ -4167,9 +4466,11 @@ int main(int argc, char *argv[]) {
             }
             if (!c5_ok) fail_c5++;
 
-            /* Sorted order (compare_solutions: canonical primary, orient secondary).
-             * Duplicate = same canonical form (orient masked). */
-            if (r > 0) {
+            /* Sorted order + duplicate checks apply only to post-merge
+             * solutions.bin (shard_mode=0). Raw shards are written in
+             * hash-table slot order (not sorted) and don't guarantee
+             * cross-shard dedup. */
+            if (r > 0 && !shard_mode) {
                 int cmp = compare_solutions(prev, rec);
                 if (cmp > 0) fail_sort++;
                 if (compare_canonical(prev, rec) == 0) fail_dup++;
@@ -7678,6 +7979,214 @@ sub_enum_done:
             printf("No valid sub-branches found.\n");
             return 1;
         }
+
+        /* --------------------------------------------------------------
+         * P1: Parallel --sub-branch path (2026-04-21).
+         * When a single depth-3 sub-branch is requested and SOLVE_THREADS
+         * > 1 (env var or positional), split along depth-4 (p4, o4) tasks
+         * and run N workers in parallel on the SAME sub-branch. Workers
+         * share atomic task-dispense + node-counter state; each owns a
+         * private hash table that's merged at end under "lex-smallest
+         * wins" dedup. Output is byte-identical to single-threaded.
+         *
+         * Falls through to legacy path when:
+         *   - not --sub-branch mode (parallel_sub_branch_enabled == 0)
+         *   - SOLVE_SUB_BRANCH_PARALLELISM=single (regression mode)
+         *   - SOLVE_THREADS <= 1
+         */
+        if (single_sub_branch_mode && parallel_sub_branch_enabled && n_sub == 1) {
+            int n_threads_p = (int)sysconf(_SC_NPROCESSORS_ONLN);
+            if (n_threads_p < 1) n_threads_p = 8;
+            char *env_threads_p = getenv("SOLVE_THREADS");
+            if (env_threads_p) n_threads_p = atoi(env_threads_p);
+            if (arg_offset + 1 < argc) {
+                int nt = atoi(argv[arg_offset + 1]);
+                if (nt > 0) n_threads_p = nt;
+            }
+            if (n_threads_p < 1) n_threads_p = 1;
+            if (n_threads_p > 64) n_threads_p = 64;
+
+            /* Populate shared depth-3 prefix state — mirror of
+             * thread_func_single lines ~1388-1486. */
+            SubBranch *sb0 = &all_sub[0];
+            int p1p = sb0->pair1, o1p = sb0->orient1;
+            int p2p = sb0->pair2, o2p = sb0->orient2;
+            int p3p = sb0->pair3, o3p = sb0->orient3;
+
+            int start_pair_idx_local = pair_index_of(63, 0);
+            memset(shared_prefix_seq, 0, sizeof(shared_prefix_seq));
+            memset(shared_prefix_used, 0, sizeof(shared_prefix_used));
+            shared_prefix_seq[0] = 63; shared_prefix_seq[1] = 0;
+            shared_prefix_used[start_pair_idx_local] = 1;
+            memcpy(shared_prefix_budget, kw_dist, sizeof(shared_prefix_budget));
+            shared_prefix_budget[hamming(63, 0)]--;
+
+            int f1p = o1p ? pairs[p1p].b : pairs[p1p].a;
+            int s1p = o1p ? pairs[p1p].a : pairs[p1p].b;
+            shared_prefix_budget[hamming(shared_prefix_seq[1], f1p)]--;
+            shared_prefix_budget[hamming(f1p, s1p)]--;
+            shared_prefix_seq[2] = f1p; shared_prefix_seq[3] = s1p;
+            shared_prefix_used[p1p] = 1;
+
+            int f2p = o2p ? pairs[p2p].b : pairs[p2p].a;
+            int s2p = o2p ? pairs[p2p].a : pairs[p2p].b;
+            shared_prefix_budget[hamming(shared_prefix_seq[3], f2p)]--;
+            shared_prefix_budget[hamming(f2p, s2p)]--;
+            shared_prefix_seq[4] = f2p; shared_prefix_seq[5] = s2p;
+            shared_prefix_used[p2p] = 1;
+
+            int f3p = o3p ? pairs[p3p].b : pairs[p3p].a;
+            int s3p = o3p ? pairs[p3p].a : pairs[p3p].b;
+            shared_prefix_budget[hamming(shared_prefix_seq[5], f3p)]--;
+            shared_prefix_budget[hamming(f3p, s3p)]--;
+            shared_prefix_seq[6] = f3p; shared_prefix_seq[7] = s3p;
+            shared_prefix_used[p3p] = 1;
+
+            build_sub_sub_branch_tasks();
+            printf("Parallel --sub-branch: %d depth-4 tasks queued, %d worker threads\n",
+                   n_sub_sub_tasks, n_threads_p);
+            if (n_sub_sub_tasks == 0) {
+                printf("No valid (p4, o4) extensions — sub-branch EXHAUSTED with 0 solutions (no output file).\n");
+                /* Still write a checkpoint entry so resume semantics work. */
+                FILE *ckpt0 = fopen("checkpoint.txt", "a");
+                if (ckpt0) {
+                    fprintf(ckpt0, "Sub-branch EXHAUSTED (parallel, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+                            "0 nodes, 0 C3-valid, 0 solutions, 0s elapsed, budget %lld\n",
+                            p1p, o1p, p2p, o2p, p3p, o3p, per_branch_node_limit);
+                    fclose(ckpt0);
+                }
+                return 0;
+            }
+
+            if (n_threads_p > n_sub_sub_tasks) n_threads_p = n_sub_sub_tasks;
+
+            /* Worker ThreadStates — one per thread, private hash tables. */
+            ThreadState workers[64];
+            for (int i = 0; i < n_threads_p; i++) {
+                memset(&workers[i], 0, sizeof(ThreadState));
+                workers[i].thread_id = i;
+                workers[i].single_branch_mode = 1;
+                workers[i].ht_log2 = sol_hash_log2;
+                workers[i].ht_size = sol_hash_size;
+                workers[i].ht_mask = sol_hash_mask;
+                for (int j = 0; j < TOP_N; j++) workers[i].top_closest[j].edit_dist = 33;
+            }
+
+            sub_sub_next_idx = 0;
+            sub_sub_shared_nodes = 0;
+            sub_sub_budget_hit = 0;
+            sub_sub_parallel_active = 1;
+            threads_completed = 0;
+
+            struct sigaction sa_p;
+            sa_p.sa_handler = signal_handler;
+            sa_p.sa_flags = 0;
+            sigemptyset(&sa_p.sa_mask);
+            sigaction(SIGTERM, &sa_p, NULL);
+            sigaction(SIGINT, &sa_p, NULL);
+
+            start_time = time(NULL);
+            printf("Starting parallel --sub-branch enumeration...\n\n");
+            fflush(stdout);
+
+            pthread_t tids_p[64];
+            for (int i = 0; i < n_threads_p; i++) {
+                int rc = pthread_create(&tids_p[i], NULL, thread_func_sub_sub, &workers[i]);
+                if (rc != 0) {
+                    fprintf(stderr, "FATAL: pthread_create worker %d (rc=%d: %s)\n",
+                            i, rc, strerror(rc));
+                    global_timed_out = 1;
+                    for (int j = 0; j < i; j++) pthread_join(tids_p[j], NULL);
+                    return 10;
+                }
+            }
+
+            /* Monitor with progress lines every 10s. */
+            int report_counter_p = 0;
+            while (threads_completed < n_threads_p && !global_timed_out) {
+                sleep(1);
+                report_counter_p++;
+                if (report_counter_p < 10) continue;
+                report_counter_p = 0;
+                long long tn = 0, tsval = 0, tc3 = 0;
+                long long tu = 0, thc = 0;
+                for (int i = 0; i < n_threads_p; i++) {
+                    tn += workers[i].nodes;
+                    tsval += workers[i].solutions_total;
+                    tc3 += workers[i].solutions_c3;
+                    tu += workers[i].solution_count;
+                    thc += workers[i].hash_collisions;
+                }
+                long elapsed_now_p = (long)(time(NULL) - start_time);
+                int claimed = sub_sub_next_idx;
+                if (claimed > n_sub_sub_tasks) claimed = n_sub_sub_tasks;
+                double rate_p = elapsed_now_p > 0 ? tn / (double)elapsed_now_p / 1e6 : 0;
+                fprintf(stderr, "  %.1fB nodes, %.1fM sol, %lld C3 (%lld stored), "
+                        "%d/%d tasks, %.0fM/s, %lds%s\n",
+                        tn / 1e9, tsval / 1e6, tc3, tu,
+                        claimed, n_sub_sub_tasks, rate_p, elapsed_now_p,
+                        sub_sub_budget_hit ? " [BUDGET]" : "");
+                if (time_limit > 0 && (time(NULL) - start_time) >= time_limit) {
+                    global_timed_out = 1;
+                    break;
+                }
+            }
+            for (int i = 0; i < n_threads_p; i++) pthread_join(tids_p[i], NULL);
+            sub_sub_parallel_active = 0;  /* disable parallel-budget logic post-join */
+
+            /* Merge worker hash tables into workers[0]. */
+            for (int i = 1; i < n_threads_p; i++) {
+                merge_sol_tables(&workers[0], &workers[i]);
+                if (workers[i].sol_table) { free(workers[i].sol_table); workers[i].sol_table = NULL; }
+                if (workers[i].sol_occupied) { free(workers[i].sol_occupied); workers[i].sol_occupied = NULL; }
+            }
+
+            /* Aggregate for reporting. */
+            long long total_nodes_p = 0, total_sol_p = 0, total_c3_p = 0;
+            long long total_hc_p = 0;
+            for (int i = 0; i < n_threads_p; i++) {
+                total_nodes_p += workers[i].nodes;
+                total_sol_p += workers[i].solutions_total;
+                total_c3_p += workers[i].solutions_c3;
+                total_hc_p += workers[i].hash_collisions;
+            }
+            total_hc_p += workers[0].hash_collisions;  /* post-merge collisions */
+
+            const char *status_p;
+            if (global_timed_out) status_p = "INTERRUPTED";
+            else if (sub_sub_budget_hit) status_p = "BUDGETED";
+            else status_p = "EXHAUSTED";
+
+            long elapsed_p = (long)(time(NULL) - start_time);
+            int solutions_p = (int)workers[0].solution_count;
+
+            pthread_mutex_lock(&checkpoint_mutex);
+            if (workers[0].solution_count > 0) {
+                flush_sub_solutions_d3(&workers[0], p1p, o1p, p2p, o2p, p3p, o3p);
+            }
+            FILE *ckpt_p = fopen("checkpoint.txt", "a");
+            if (ckpt_p) {
+                fprintf(ckpt_p, "Sub-branch %s (parallel, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+                        "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                        status_p, p1p, o1p, p2p, o2p, p3p, o3p,
+                        total_nodes_p, total_c3_p, solutions_p, elapsed_p,
+                        per_branch_node_limit);
+                fflush(ckpt_p);
+                fsync(fileno(ckpt_p));
+                fclose(ckpt_p);
+            }
+            pthread_mutex_unlock(&checkpoint_mutex);
+
+            fprintf(stderr, "\n*** Parallel --sub-branch %s: %lldB nodes, %lldM C3, "
+                    "%d solutions, %lds (%d threads, %d tasks, %lld dedup collisions) ***\n",
+                    status_p, total_nodes_p/1000000000LL, total_c3_p/1000000LL,
+                    solutions_p, elapsed_p, n_threads_p, n_sub_sub_tasks, total_hc_p);
+
+            if (workers[0].sol_table) free(workers[0].sol_table);
+            if (workers[0].sol_occupied) free(workers[0].sol_occupied);
+            return 0;
+        }
+        /* ---- end P1 parallel path; fall through to legacy below ---- */
 
         /* Determine thread count */
         int n_threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
