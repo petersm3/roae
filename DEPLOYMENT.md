@@ -788,7 +788,7 @@ contention ceiling and produces higher aggregate throughput.
 |---|---|---|---|
 | D128als_v7 | K=8 N=16 (or K=16 N=8) | 257s (K=8) / 501s for 16 branches (K=16) | $0.0085 / $0.0083 |
 | **D64als_v7** | **K=8 N=8** | **491s** | **$0.0080** ← cheapest measured |
-| D32als_v7 (projected) | K=4 N=8 | ~240s per batch-of-4 | ~$0.0053 (unmeasured) |
+| D32als_v7 | K=8 N=4 | 963s | $0.0086 |
 
 **On D128, aggregate throughput rises from 980 M/s (K=1 N=128) to 1.60 B/s (K=16 N=8)** — a 60%+ improvement — because each process has its own atomic
 counter and cache-resident hash table, breaking through the single-process
@@ -802,8 +802,8 @@ atomic-contention ceiling.
 | 1 branch, cheap | **D64 spot, K=1 N=64** |
 | 8-branch batch, cheapest | **D64 spot, K=8 N=8 packing** |
 | 16-branch batch, balanced | D64 K=8 × 2 VMs parallel, OR D128 K=16 N=8 |
-| Campaign (100+ branches), cheapest | **Many D32 VMs in parallel, each packing K=4 N=8** |
-| Campaign, wall-time-critical | Many D64 VMs in parallel, each K=8 N=8 |
+| Campaign (100+ branches), cheapest | **Many D64 VMs in parallel, each K=8 N=8 packing** |
+| Campaign, wall-time-critical | Many D64 VMs in parallel, each K=8 N=8 (same as above — measured optimum) |
 
 **Never D128 for a single `--sub-branch` run** unless wall-time dominates —
 D128's no-co-tenant guarantee is valuable, but you pay ~40% more per branch
