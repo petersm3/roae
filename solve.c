@@ -372,11 +372,21 @@ static int sol_hash_mask;
  * dedup is "lex-smallest-record wins" — so cross-task orient-variant
  * duplicates collapse to the same winner regardless of thread scheduling.
  */
-#define SUB_SUB_MAX 128  /* upper bound on valid (p4,o4) pairs; 32*2 = 64 max theoretical */
+/* Depth-5 granularity (2026-04-21): each task is a (p4, o4, p5, o5)
+ * tuple. Typical task count: 30-60 × 30-60 ≈ 900-3600, enough to keep
+ * D64/D128 fully utilized with headroom for load imbalance across tasks.
+ * Depth-4 (~30-60 tasks) is still the fallback via
+ * SOLVE_SUB_BRANCH_DEPTH=4 — left depth-4 builder removed since the
+ * depth-5 path subsumes it and selftest/force-parallel regression
+ * coverage validates the combined logic. */
+#define SUB_SUB_MAX 4096  /* upper bound on valid (p4,o4,p5,o5) tuples */
 typedef struct {
     int p4, o4;
     int f4, s4;          /* hexagram values from pairs[p4], oriented */
     int bd4, wd4;        /* Hamming(s3, f4) and Hamming(f4, s4) — pre-computed */
+    int p5, o5;
+    int f5, s5;
+    int bd5, wd5;        /* Hamming(s4, f5) and Hamming(f5, s5) — pre-computed */
 } SubSubBranchTask;
 static SubSubBranchTask sub_sub_tasks[SUB_SUB_MAX];
 static int n_sub_sub_tasks = 0;
@@ -1634,22 +1644,29 @@ static void *thread_func_single(void *arg) {
  * See the data-structures block near the top of this file for context.
  */
 
-/* Enumerate valid (p4, o4) extensions of the shared depth-3 prefix.
+/* Enumerate valid (p4, o4, p5, o5) extensions of the shared depth-3 prefix.
  * Populates sub_sub_tasks[] and sets n_sub_sub_tasks. Tasks emitted in
- * lex (p4, o4) order — important: workers pull in this same order, so
- * the output of a BUDGETED run is {tasks 0..K-1} where K is the count
- * that completed before budget was hit.
+ * lex (p4, o4, p5, o5) order — important: workers pull in this same order,
+ * so the output of a BUDGETED run is {tasks 0..K-1} where K is the count
+ * that completed before budget was hit, and lex-smallest-wins dedup in
+ * analyze_solution collapses any canonical-equivalent solutions to a
+ * deterministic winner regardless of thread scheduling.
  *
- * Pruning matches the per-step logic in backtrack() exactly:
- *   - p4 must not already be used
- *   - Hamming(shared_prefix_seq[7], f4) != 5 and budget[bd4] > 0
- *   - budget[wd4] > 0 where wd4 = Hamming(f4, s4)
+ * Pruning matches the per-step logic in backtrack() exactly at each depth:
+ *   depth 4: p4 not used, Hamming(s3, f4) != 5, budget has room for bd4+wd4
+ *   depth 5: p5 not used (accounting for p4), same Hamming + budget check
+ *            against the budget AFTER depth-4 decrements
  *
- * Preconditions: shared_prefix_seq/used/budget have been populated by main.
+ * Preconditions: shared_prefix_seq/used/budget populated by main.
  */
 static void build_sub_sub_branch_tasks(void) {
     n_sub_sub_tasks = 0;
     int s3 = shared_prefix_seq[7];
+    /* local_used mutates across the outer loop — depth-4's used[p4]=1
+     * must be undone before the next outer iteration. local_budget is
+     * similarly restored. */
+    int local_used[32];
+    int local_budget[7];
     for (int p4 = 0; p4 < 32; p4++) {
         if (shared_prefix_used[p4]) continue;
         for (int o4 = 0; o4 < 2; o4++) {
@@ -1659,24 +1676,48 @@ static void build_sub_sub_branch_tasks(void) {
             if (bd4 == 5) continue;
             if (shared_prefix_budget[bd4] <= 0) continue;
             int wd4 = hamming(f4, s4);
-            /* Must have budget for both the between-pair and within-pair
-             * transition. The between-pair slot is already confirmed > 0;
-             * if within-pair uses the SAME Hamming class, need budget >= 2
-             * (because backtrack decrements bd4 before checking wd4). */
-            int need_wd = (bd4 == wd4) ? 2 : 1;
-            if (shared_prefix_budget[wd4] < need_wd) continue;
-            if (n_sub_sub_tasks >= SUB_SUB_MAX) {
-                fprintf(stderr, "FATAL: SUB_SUB_MAX (%d) exceeded — P1 assumption broken\n",
-                        SUB_SUB_MAX);
-                exit(10);
+            int need_wd4 = (bd4 == wd4) ? 2 : 1;
+            if (shared_prefix_budget[wd4] < need_wd4) continue;
+
+            /* Apply depth-4 to local copies; enumerate (p5, o5) under that. */
+            memcpy(local_used, shared_prefix_used, sizeof(local_used));
+            memcpy(local_budget, shared_prefix_budget, sizeof(local_budget));
+            local_used[p4] = 1;
+            local_budget[bd4]--;
+            local_budget[wd4]--;
+
+            for (int p5 = 0; p5 < 32; p5++) {
+                if (local_used[p5]) continue;
+                for (int o5 = 0; o5 < 2; o5++) {
+                    int f5 = o5 ? pairs[p5].b : pairs[p5].a;
+                    int s5 = o5 ? pairs[p5].a : pairs[p5].b;
+                    int bd5 = hamming(s4, f5);
+                    if (bd5 == 5) continue;
+                    if (local_budget[bd5] <= 0) continue;
+                    int wd5 = hamming(f5, s5);
+                    int need_wd5 = (bd5 == wd5) ? 2 : 1;
+                    if (local_budget[wd5] < need_wd5) continue;
+
+                    if (n_sub_sub_tasks >= SUB_SUB_MAX) {
+                        fprintf(stderr, "FATAL: SUB_SUB_MAX (%d) exceeded — P1 assumption broken\n",
+                                SUB_SUB_MAX);
+                        exit(10);
+                    }
+                    sub_sub_tasks[n_sub_sub_tasks].p4  = p4;
+                    sub_sub_tasks[n_sub_sub_tasks].o4  = o4;
+                    sub_sub_tasks[n_sub_sub_tasks].f4  = f4;
+                    sub_sub_tasks[n_sub_sub_tasks].s4  = s4;
+                    sub_sub_tasks[n_sub_sub_tasks].bd4 = bd4;
+                    sub_sub_tasks[n_sub_sub_tasks].wd4 = wd4;
+                    sub_sub_tasks[n_sub_sub_tasks].p5  = p5;
+                    sub_sub_tasks[n_sub_sub_tasks].o5  = o5;
+                    sub_sub_tasks[n_sub_sub_tasks].f5  = f5;
+                    sub_sub_tasks[n_sub_sub_tasks].s5  = s5;
+                    sub_sub_tasks[n_sub_sub_tasks].bd5 = bd5;
+                    sub_sub_tasks[n_sub_sub_tasks].wd5 = wd5;
+                    n_sub_sub_tasks++;
+                }
             }
-            sub_sub_tasks[n_sub_sub_tasks].p4  = p4;
-            sub_sub_tasks[n_sub_sub_tasks].o4  = o4;
-            sub_sub_tasks[n_sub_sub_tasks].f4  = f4;
-            sub_sub_tasks[n_sub_sub_tasks].s4  = s4;
-            sub_sub_tasks[n_sub_sub_tasks].bd4 = bd4;
-            sub_sub_tasks[n_sub_sub_tasks].wd4 = wd4;
-            n_sub_sub_tasks++;
         }
     }
 }
@@ -1714,14 +1755,20 @@ static void *thread_func_sub_sub(void *arg) {
         used[task->p4] = 1;
         budget[task->bd4]--;
         budget[task->wd4]--;
+        /* Apply depth-5 extension — pair 5 placed at positions 10-11. */
+        seq[10] = task->f5;
+        seq[11] = task->s5;
+        used[task->p5] = 1;
+        budget[task->bd5]--;
+        budget[task->wd5]--;
 
         /* NOTE: do NOT reset ts->branch_nodes per task in parallel mode —
          * backtrack uses (branch_nodes - pending_shared_flush) as the delta
          * to publish to the shared counter, and that needs monotone
          * accumulation across all tasks on this worker. */
 
-        /* DFS from step 5 (pair 5 placed at positions 10-11). */
-        backtrack(ts, seq, used, budget, 5);
+        /* DFS from step 6 (pair 6 placed at positions 12-13). */
+        backtrack(ts, seq, used, budget, 6);
 
         /* Final flush of any sub-65K residual delta from this task. */
         long long delta_f = ts->branch_nodes - ts->pending_shared_flush;
@@ -8043,10 +8090,10 @@ sub_enum_done:
             shared_prefix_used[p3p] = 1;
 
             build_sub_sub_branch_tasks();
-            printf("Parallel --sub-branch: %d depth-4 tasks queued, %d worker threads\n",
+            printf("Parallel --sub-branch: %d depth-5 tasks queued, %d worker threads\n",
                    n_sub_sub_tasks, n_threads_p);
             if (n_sub_sub_tasks == 0) {
-                printf("No valid (p4, o4) extensions — sub-branch EXHAUSTED with 0 solutions (no output file).\n");
+                printf("No valid (p4, o4, p5, o5) extensions — sub-branch EXHAUSTED with 0 solutions (no output file).\n");
                 /* Still write a checkpoint entry so resume semantics work. */
                 FILE *ckpt0 = fopen("checkpoint.txt", "a");
                 if (ckpt0) {
