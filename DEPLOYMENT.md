@@ -769,23 +769,51 @@ branch `22 0 30 1 20 0` produces 2,507 tasks.
 **Key finding: memory bandwidth saturates at ~N=64.** Going from 64 → 128 cores
 gives only 4% additional speedup, at double the VM cost.
 
-**SKU recommendations for single-branch:**
+**SKU recommendations for single-branch (single process per VM):**
 
-| Scenario | Recommended VM | Why |
+| Scenario | Recommended VM | Per-branch cost (50B budget) |
 |---|---|---|
-| Cost-sensitive, single branch | **D32als_v7 spot** (~$0.32/hr) | Lowest $/run; accept possible 1.5-2× rate variance from noisy neighbors; kill-and-retry on bad placement |
-| Predictable, single branch | **D64als_v7 spot** (~$0.47/hr) | 2.5× faster wall than D32; less noisy-neighbor risk (2 tenants per physical host vs 4); ~20% premium on $/run |
-| Wall-time critical, single branch | **D128als_v7 spot** (~$0.95/hr) | Full physical host, no co-tenants, bandwidth isolated. ~4% wall advantage over D64 at 2× the cost |
-| **Campaign (many branches)** | **N × D16als_v7 spot** (one branch per VM) | Branch-level parallelism is linear; intra-branch is sub-linear. Many small VMs crushes one big VM on $/result |
+| Wall-time critical, one branch | D128als_v7 spot (~$0.95/hr), K=1 N=128 | $0.0135 (51s wall) |
+| **Cost optimized, one branch** | **D64als_v7 spot (~$0.47/hr), K=1 N=64** | $0.0094 (72s wall) |
+| Noisy-neighbor tolerant | D32als_v7 spot (~$0.32/hr), K=1 N=32 | $0.0069 (~78s wall, projected) |
 
-Example: 32-branch × 10T campaign on 32 × D16als_v7 spot ≈ **~$0.32 total**,
-~2.5 min wall. On D128 serialized, same work costs ~$4.20 and takes ~4.4 hr.
+**Packing (multiple concurrent `--sub-branch` processes on one VM) — for batches:**
 
-**Never D128 for `--sub-branch` runs below ~10T budget** — the 5-15s wall-time
-advantage over D64 doesn't amortize against D128's 2× hourly rate. D128 shines
-only when wall-time dominates and you're paying for predictable bandwidth.
+A single VM can run K concurrent `--sub-branch` processes, each with N threads
+(total K×N threads ≤ VM cores). Each process writes its own output directory.
+**Measured 2026-04-21**: packing breaks through the single-process atomic
+contention ceiling and produces higher aggregate throughput.
 
-**Full measurement data + noisy-neighbor analysis + campaign-planning math:**
+| VM | Best packing | Wall (8 branches × 50B each) | $/branch |
+|---|---|---|---|
+| D128als_v7 | K=8 N=16 (or K=16 N=8) | 257s (K=8) / 501s for 16 branches (K=16) | $0.0085 / $0.0083 |
+| **D64als_v7** | **K=8 N=8** | **491s** | **$0.0080** ← cheapest measured |
+| D32als_v7 (projected) | K=4 N=8 | ~240s per batch-of-4 | ~$0.0053 (unmeasured) |
+
+**On D128, aggregate throughput rises from 980 M/s (K=1 N=128) to 1.60 B/s (K=16 N=8)** — a 60%+ improvement — because each process has its own atomic
+counter and cache-resident hash table, breaking through the single-process
+atomic-contention ceiling.
+
+**Recommendations by scenario:**
+
+| Scenario | Recommended |
+|---|---|
+| 1 branch, ASAP | **D128 spot, K=1 N=128** |
+| 1 branch, cheap | **D64 spot, K=1 N=64** |
+| 8-branch batch, cheapest | **D64 spot, K=8 N=8 packing** |
+| 16-branch batch, balanced | D64 K=8 × 2 VMs parallel, OR D128 K=16 N=8 |
+| Campaign (100+ branches), cheapest | **Many D32 VMs in parallel, each packing K=4 N=8** |
+| Campaign, wall-time-critical | Many D64 VMs in parallel, each K=8 N=8 |
+
+**Never D128 for a single `--sub-branch` run** unless wall-time dominates —
+D128's no-co-tenant guarantee is valuable, but you pay ~40% more per branch
+vs D64 K=1 for just 20s faster wall.
+
+**Secondary options (if D64/D128 spot quota tight):** westus2 spot quota is
+128 cores (same as westus3); use there if westus3 constrained. On-demand D-series is 4× spot price — only worth it if budget allows no evictions.
+F-series retired on this project (see §Cost control).
+
+**Full measurement data + packing-mechanism analysis + campaign-planning math:**
 `x/roae/P1_SCALING_MEASUREMENTS.md` (staging repo).
 
 ### Cost reference (2026-04-19 pricing, post-Dalsv7-pivot)
