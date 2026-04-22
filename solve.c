@@ -392,8 +392,41 @@ static SubSubBranchTask sub_sub_tasks[SUB_SUB_MAX];
 static int n_sub_sub_tasks = 0;
 /* Atomic task dispenser: workers fetch+increment to claim next task. */
 static volatile int sub_sub_next_idx = 0;
-/* Shared cumulative node counter across all workers; budget check. */
-static volatile long long sub_sub_shared_nodes = 0;
+
+/* Per-CCD shared node counters (P1 v3, 2026-04-21). Zen 5c "Turin Dense"
+ * D128als_v7 has 16 CCDs × 8 cores each. A single atomic counter at 128
+ * threads saturates cache-line ownership and caps single-process
+ * throughput at ~1 B/s. Partitioning the counter across 16 cache-line-
+ * padded slots (one per CCD) lets 8 threads write to each slot with low
+ * contention; budget-check sums all slots. Expected improvement: brings
+ * single-process throughput closer to multi-process packing aggregate
+ * (~1.5-1.6 B/s on D128).
+ *
+ * Worker thread -> counter slot mapping: thread_id % N_SUB_SUB_COUNTERS.
+ * This is a rough proxy for CCD assignment; a true pinning solution
+ * would use sched_getcpu() + topology lookup, but round-robin on
+ * thread_id tracks "logical core" assignment well enough for Zen 5c
+ * where Azure typically pins threads to physical cores sequentially. */
+#define N_SUB_SUB_COUNTERS 16
+typedef struct {
+    volatile long long nodes;
+    /* Pad to 64-byte cache line to prevent false sharing between slots. */
+    char padding[64 - sizeof(long long)];
+} SubSubCounter;
+static SubSubCounter sub_sub_counters[N_SUB_SUB_COUNTERS] __attribute__((aligned(64)));
+
+/* Read-only aggregator used by backtrack's budget check and worker
+ * task-boundary flush. Summing 16 values is ~4ns — well under the cost
+ * of a single atomic add on a contended line, so this is ~always a net
+ * win even if the sum is only approximate (per-counter reads are not
+ * atomic, but each slot is written by one thread at a time via atomic
+ * add, so reads are monotone and the sum is a valid lower bound). */
+static inline long long sub_sub_sum_counters(void) {
+    long long s = 0;
+    for (int i = 0; i < N_SUB_SUB_COUNTERS; i++) s += sub_sub_counters[i].nodes;
+    return s;
+}
+
 static volatile int sub_sub_budget_hit = 0;
 /* Gate: backtrack only consults sub_sub_budget_hit / sub_sub_shared_nodes
  * when this flag is 1 (set by main thread before workers launch, unset
@@ -699,6 +732,16 @@ typedef struct {
      * published to sub_sub_shared_nodes. Used only in parallel mode to
      * decouple per-thread local progress from global budget accounting. */
     long long pending_shared_flush;
+    /* P1 v3 checkpointing: wall-time of last snapshot, used to throttle
+     * the per-task checkpoint flush to once per sub_ckpt_interval_sec. */
+    time_t last_ckpt;
+    /* Hash-table mutex (P1 v3): held during analyze_solution's probe/
+     * insert AND during sub_ckpt_flush_worker's read. Protects against
+     * races between a worker inserting a solution and the checkpoint
+     * thread snapshotting the table. Per-worker (not shared across
+     * workers), so uncontended in steady state (~100ns per acquire).
+     * Initialized to PTHREAD_MUTEX_INITIALIZER at worker setup. */
+    pthread_mutex_t ht_mutex;
 } ThreadState;
 
 /* global_timed_out is set both from the signal handler (must be
@@ -711,6 +754,16 @@ static volatile sig_atomic_t global_timed_out = 0;
  * monitor while-loop. */
 static volatile int threads_completed = 0;
 static pthread_mutex_t checkpoint_mutex = PTHREAD_MUTEX_INITIALIZER;
+/* Intra-sub-branch checkpoint mutex (P1 v3, 2026-04-21). Serializes
+ * worker writes to sub_ckpt_wrk<tid>.bin + sub_ckpt_meta.txt so a
+ * concurrent flush doesn't interleave partial records or miss the
+ * meta-file update. Held briefly (~10ms per task-boundary flush). */
+static pthread_mutex_t sub_ckpt_mutex = PTHREAD_MUTEX_INITIALIZER;
+/* Interval for intra-sub-branch checkpointing (seconds). Worker only
+ * writes a snapshot if this much wall-time has passed since last flush,
+ * so short tasks don't thrash the disk. 60s default matches Azure spot
+ * eviction notification (typically 30-60s warning). */
+static int sub_ckpt_interval_sec = 60;
 static int total_branches_completed = 0;
 static int total_branches = 0;
 /* In-memory counter of sub-branches with "COMPLETE" status in checkpoint.txt.
@@ -1150,6 +1203,11 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
         }
     }
 
+    /* Hold ht_mutex during probe/insert to protect against the
+     * checkpoint thread reading this table concurrently. Per-worker
+     * mutex is uncontended in steady state (only this worker inserts
+     * into its own table), so overhead is ~100ns per call. */
+    pthread_mutex_lock(&ts->ht_mutex);
     int slot = (int)(ch & (unsigned long long)ts->ht_mask);
     for (int probe = 0; probe < ts->ht_size; probe++) {
         int idx = (slot + probe) & ts->ht_mask;
@@ -1159,6 +1217,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
             ts->solution_count++;
             if (ts->solution_count > ts->ht_size * 3 / 4)
                 resize_hash_table(ts);
+            pthread_mutex_unlock(&ts->ht_mutex);
             return;
         }
         unsigned char *existing = &ts->sol_table[(size_t)idx * SOL_RECORD_SIZE];
@@ -1180,9 +1239,11 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
             if (memcmp(record, existing, SOL_RECORD_SIZE) < 0)
                 memcpy(existing, record, SOL_RECORD_SIZE);
             ts->hash_collisions++;
+            pthread_mutex_unlock(&ts->ht_mutex);
             return;
         }
     }
+    pthread_mutex_unlock(&ts->ht_mutex);
     fprintf(stderr, "FATAL: thread %d hash table 100%% full at 2^%d (%lld entries). "
             "This should never happen with auto-resize.\n",
             ts->thread_id, ts->ht_log2, ts->solution_count);
@@ -1254,16 +1315,19 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
      */
     if (sub_sub_parallel_active) {
         if (sub_sub_budget_hit) return;
-        /* Flush local progress to the shared counter every ~65K nodes and
-         * check vs budget. Batching keeps the atomic-add cost low while
-         * giving ~millisecond granularity on budget enforcement across
-         * workers. Unsigned mask trick: branch_nodes is monotone, so
-         * crossings of 65536-boundaries fire exactly once per 65K increment. */
+        /* Flush local progress to this worker's CCD-assigned counter every
+         * ~65K nodes and check vs budget. Per-CCD sharding reduces cache-
+         * line contention vs a single global counter — see data structures
+         * block for rationale. Budget check sums all 16 CCD counters
+         * (~4ns), much cheaper than the amortized contention cost of a
+         * single global __sync_add_and_fetch at 128 threads. */
         long long delta = ts->branch_nodes - ts->pending_shared_flush;
         if (delta >= 65536) {
             ts->pending_shared_flush = ts->branch_nodes;
-            long long total = __sync_add_and_fetch(&sub_sub_shared_nodes, delta);
-            if (per_branch_node_limit > 0 && total >= per_branch_node_limit) {
+            int slot = ts->thread_id % N_SUB_SUB_COUNTERS;
+            __sync_add_and_fetch(&sub_sub_counters[slot].nodes, delta);
+            if (per_branch_node_limit > 0 &&
+                sub_sub_sum_counters() >= per_branch_node_limit) {
                 sub_sub_budget_hit = 1;
                 return;
             }
@@ -1729,6 +1793,187 @@ static void build_sub_sub_branch_tasks(void) {
  * snapshot of the shared depth-3 prefix; the only shared atomics are
  * sub_sub_next_idx, sub_sub_shared_nodes, sub_sub_budget_hit.
  */
+/* Write a worker's hash table + per-CCD counters to a per-worker snapshot
+ * file sub_ckpt_wrk<tid>.bin and update sub_ckpt_meta.txt with the total
+ * shared_nodes count so a resume can restore the pre-eviction state.
+ * Atomic: .tmp then rename. Caller does NOT clear the hash table after —
+ * the worker keeps running on the same state, this is just a durability
+ * snapshot. Caller holds ts->ht_mutex to synchronize against concurrent
+ * inserts in analyze_solution. */
+static void sub_ckpt_flush_worker(ThreadState *ts) {
+    char fname[64], tmpname[64];
+    snprintf(fname,   sizeof(fname),   "sub_ckpt_wrk%d.bin",     ts->thread_id);
+    snprintf(tmpname, sizeof(tmpname), "sub_ckpt_wrk%d.bin.tmp", ts->thread_id);
+    FILE *wf = fopen(tmpname, "wb");
+    if (!wf) {
+        fprintf(stderr, "WARNING: ckpt: cannot open %s: %s\n", tmpname, strerror(errno));
+        return;
+    }
+    long long written = 0;
+    if (ts->sol_table && ts->sol_occupied) {
+        for (int s = 0; s < ts->ht_size; s++) {
+            if (!ts->sol_occupied[s]) continue;
+            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE],
+                       SOL_RECORD_SIZE, 1, wf) != 1) {
+                fprintf(stderr, "WARNING: ckpt: short write on %s\n", tmpname);
+                fclose(wf);
+                return;
+            }
+            written++;
+        }
+    }
+    if (fflush(wf) != 0 || fsync(fileno(wf)) != 0) {
+        fprintf(stderr, "WARNING: ckpt: fflush/fsync failed on %s\n", tmpname);
+        fclose(wf);
+        return;
+    }
+    fclose(wf);
+    if (rename(tmpname, fname) != 0) {
+        fprintf(stderr, "WARNING: ckpt: rename %s → %s failed\n", tmpname, fname);
+        return;
+    }
+    /* Update meta file (atomic via tmp + rename). Meta records both the
+     * shared_nodes value (so resume restores budget state) and the number
+     * of per-worker files (so resume knows how many to look for). */
+    long long shared = sub_sub_sum_counters();
+    FILE *mf = fopen("sub_ckpt_meta.txt.tmp", "w");
+    if (mf) {
+        fprintf(mf, "shared_nodes %lld\n", shared);
+        fprintf(mf, "ckpt_time    %ld\n", (long)time(NULL));
+        fprintf(mf, "worker_records_in_%d  %lld\n", ts->thread_id, written);
+        fflush(mf);
+        fsync(fileno(mf));
+        fclose(mf);
+        rename("sub_ckpt_meta.txt.tmp", "sub_ckpt_meta.txt");
+    }
+}
+
+/* Load any existing sub_ckpt_wrk*.bin files into the first worker's
+ * hash table (consolidation point). Returns the shared_nodes value
+ * recovered from sub_ckpt_meta.txt, or 0 if no checkpoint exists.
+ * Called once by main thread BEFORE spawning workers. Files are NOT
+ * deleted here — they stay for redundancy until the run completes. */
+static long long sub_ckpt_load(ThreadState *consolidate_into) {
+    struct stat st;
+    if (stat("sub_ckpt_meta.txt", &st) != 0) return 0;
+    FILE *mf = fopen("sub_ckpt_meta.txt", "r");
+    if (!mf) return 0;
+    long long shared = 0;
+    char line[256];
+    while (fgets(line, sizeof(line), mf)) {
+        long long v;
+        if (sscanf(line, "shared_nodes %lld", &v) == 1) shared = v;
+    }
+    fclose(mf);
+
+    /* Ensure consolidate_into has a table. */
+    if (!consolidate_into->sol_table) {
+        consolidate_into->sol_table = calloc((size_t)consolidate_into->ht_size, SOL_RECORD_SIZE);
+        consolidate_into->sol_occupied = calloc(consolidate_into->ht_size, 1);
+        if (!consolidate_into->sol_table || !consolidate_into->sol_occupied) {
+            fprintf(stderr, "FATAL: ckpt-load: hash-table alloc failed\n");
+            exit(1);
+        }
+    }
+
+    /* Walk sub_ckpt_wrk*.bin and merge every record into consolidate_into
+     * using the same lex-smallest-wins dedup as merge_sol_tables. */
+    int loaded_files = 0;
+    long long loaded_records = 0;
+    for (int tid = 0; tid < 64; tid++) {
+        char fname[64];
+        snprintf(fname, sizeof(fname), "sub_ckpt_wrk%d.bin", tid);
+        if (stat(fname, &st) != 0) continue;
+        FILE *wf = fopen(fname, "rb");
+        if (!wf) continue;
+        loaded_files++;
+        unsigned char rec[SOL_RECORD_SIZE];
+        while (fread(rec, SOL_RECORD_SIZE, 1, wf) == 1) {
+            unsigned char canonical[SOL_RECORD_SIZE];
+            for (int i = 0; i < SOL_RECORD_SIZE; i++) canonical[i] = rec[i] & 0xFC;
+            unsigned long long ch = 14695981039346656037ULL;
+            for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
+            int slot = (int)(ch & (unsigned long long)consolidate_into->ht_mask);
+            for (int probe = 0; probe < consolidate_into->ht_size; probe++) {
+                int idx = (slot + probe) & consolidate_into->ht_mask;
+                if (!consolidate_into->sol_occupied[idx]) {
+                    memcpy(&consolidate_into->sol_table[(size_t)idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
+                    consolidate_into->sol_occupied[idx] = 1;
+                    consolidate_into->solution_count++;
+                    if (consolidate_into->solution_count > consolidate_into->ht_size * 3 / 4)
+                        resize_hash_table(consolidate_into);
+                    break;
+                }
+                unsigned char *existing = &consolidate_into->sol_table[(size_t)idx * SOL_RECORD_SIZE];
+                int match = 1;
+                for (int ci = 0; ci < SOL_RECORD_SIZE; ci++) {
+                    if ((existing[ci] & 0xFC) != canonical[ci]) { match = 0; break; }
+                }
+                if (match) {
+                    if (memcmp(rec, existing, SOL_RECORD_SIZE) < 0)
+                        memcpy(existing, rec, SOL_RECORD_SIZE);
+                    break;
+                }
+            }
+            loaded_records++;
+        }
+        fclose(wf);
+    }
+    if (loaded_files > 0) {
+        printf("Checkpoint resume: loaded %lld records from %d worker snapshots; "
+               "shared_nodes restored to %lld\n",
+               loaded_records, loaded_files, shared);
+    }
+    return shared;
+}
+
+/* Delete checkpoint files after a successful run. Called from main after
+ * final output is written + fsynced. */
+static void sub_ckpt_cleanup(void) {
+    unlink("sub_ckpt_meta.txt");
+    for (int tid = 0; tid < 64; tid++) {
+        char fname[64];
+        snprintf(fname, sizeof(fname), "sub_ckpt_wrk%d.bin", tid);
+        unlink(fname);
+    }
+}
+
+/* Arguments for thread_func_ckpt. Passed via a heap-allocated struct so
+ * the main thread can free it after join. */
+typedef struct {
+    ThreadState *workers;
+    int n_workers;
+} CkptThreadArg;
+
+static volatile int sub_ckpt_thread_stop = 0;
+
+/* Dedicated checkpoint thread. Wakes every sub_ckpt_interval_sec and
+ * snapshots every worker's hash table (under each worker's ht_mutex) to
+ * sub_ckpt_wrk<tid>.bin + sub_ckpt_meta.txt. This mechanism is
+ * time-driven (not task-boundary-driven) so it fires reliably even for
+ * branches where a single task runs many minutes. Terminates when the
+ * main thread sets sub_ckpt_thread_stop after all workers have joined. */
+static void *thread_func_ckpt(void *arg) {
+    CkptThreadArg *a = (CkptThreadArg *)arg;
+    while (!sub_ckpt_thread_stop && !global_timed_out) {
+        /* Sleep in 1-second chunks so stop-signal is responsive. */
+        for (int t = 0; t < sub_ckpt_interval_sec; t++) {
+            if (sub_ckpt_thread_stop || global_timed_out) return NULL;
+            sleep(1);
+        }
+        if (sub_ckpt_thread_stop || global_timed_out) return NULL;
+        /* Snapshot all workers. Each worker's ht_mutex is held only
+         * during its own snapshot — other workers keep running. */
+        for (int i = 0; i < a->n_workers; i++) {
+            pthread_mutex_lock(&a->workers[i].ht_mutex);
+            sub_ckpt_flush_worker(&a->workers[i]);
+            a->workers[i].last_ckpt = time(NULL);
+            pthread_mutex_unlock(&a->workers[i].ht_mutex);
+        }
+    }
+    return NULL;
+}
+
 static void *thread_func_sub_sub(void *arg) {
     ThreadState *ts = (ThreadState *)arg;
 
@@ -1770,15 +2015,24 @@ static void *thread_func_sub_sub(void *arg) {
         /* DFS from step 6 (pair 6 placed at positions 12-13). */
         backtrack(ts, seq, used, budget, 6);
 
-        /* Final flush of any sub-65K residual delta from this task. */
+        /* Final flush of any sub-65K residual delta from this task to
+         * this worker's CCD-assigned counter. */
         long long delta_f = ts->branch_nodes - ts->pending_shared_flush;
         if (delta_f > 0) {
             ts->pending_shared_flush = ts->branch_nodes;
-            long long cumulative = __sync_add_and_fetch(&sub_sub_shared_nodes, delta_f);
-            if (per_branch_node_limit > 0 && cumulative >= per_branch_node_limit) {
+            int slot = ts->thread_id % N_SUB_SUB_COUNTERS;
+            __sync_add_and_fetch(&sub_sub_counters[slot].nodes, delta_f);
+            if (per_branch_node_limit > 0 &&
+                sub_sub_sum_counters() >= per_branch_node_limit) {
                 sub_sub_budget_hit = 1;
             }
         }
+
+        /* Intra-sub-branch checkpointing is handled by a dedicated
+         * checkpoint thread (thread_func_ckpt) that wakes every
+         * sub_ckpt_interval_sec and snapshots all workers. Not per-task
+         * here — that approach stalled on branches where a single task
+         * runs many minutes without yielding to the boundary. */
     }
     __sync_fetch_and_add(&threads_completed, 1);
     return NULL;
@@ -8109,6 +8363,7 @@ sub_enum_done:
 
             /* Worker ThreadStates — one per thread, private hash tables. */
             ThreadState workers[64];
+            time_t now_init = time(NULL);
             for (int i = 0; i < n_threads_p; i++) {
                 memset(&workers[i], 0, sizeof(ThreadState));
                 workers[i].thread_id = i;
@@ -8116,11 +8371,31 @@ sub_enum_done:
                 workers[i].ht_log2 = sol_hash_log2;
                 workers[i].ht_size = sol_hash_size;
                 workers[i].ht_mask = sol_hash_mask;
+                workers[i].last_ckpt = now_init;
+                pthread_mutex_init(&workers[i].ht_mutex, NULL);
                 for (int j = 0; j < TOP_N; j++) workers[i].top_closest[j].edit_dist = 33;
             }
 
+            /* P1 v3 checkpoint-resume: if prior sub_ckpt_meta.txt +
+             * sub_ckpt_wrk*.bin files exist in CWD, load them into
+             * workers[0]'s hash table (consolidation point) and restore
+             * the shared-node count. Workers then claim tasks from idx=0
+             * onward — re-doing any in-flight-at-eviction tasks (dedup
+             * handles duplicates). The shared-node restore ensures the
+             * budget check stops us from running past the intended total. */
+            long long resumed_shared = sub_ckpt_load(&workers[0]);
+            if (resumed_shared > 0) {
+                /* Restore the first CCD counter with the resumed budget
+                 * (all others stay at 0); sub_sub_sum_counters() will
+                 * correctly include the resumed amount in budget checks. */
+                sub_sub_counters[0].nodes = resumed_shared;
+            }
+
             sub_sub_next_idx = 0;
-            sub_sub_shared_nodes = 0;
+            if (resumed_shared == 0) {
+                for (int i = 0; i < N_SUB_SUB_COUNTERS; i++)
+                    sub_sub_counters[i].nodes = 0;
+            }
             sub_sub_budget_hit = 0;
             sub_sub_parallel_active = 1;
             threads_completed = 0;
@@ -8145,6 +8420,22 @@ sub_enum_done:
                     global_timed_out = 1;
                     for (int j = 0; j < i; j++) pthread_join(tids_p[j], NULL);
                     return 10;
+                }
+            }
+
+            /* Spawn the checkpoint thread. Fires every sub_ckpt_interval_sec
+             * (default 60s) and snapshots all workers atomically via
+             * per-worker ht_mutex. Set SOLVE_CKPT_INTERVAL=0 to disable
+             * (e.g., for very short runs where checkpointing is overkill). */
+            char *env_ckpt = getenv("SOLVE_CKPT_INTERVAL");
+            if (env_ckpt) sub_ckpt_interval_sec = atoi(env_ckpt);
+            pthread_t ckpt_tid = 0;
+            CkptThreadArg ckpt_arg = {.workers = workers, .n_workers = n_threads_p};
+            sub_ckpt_thread_stop = 0;
+            if (sub_ckpt_interval_sec > 0) {
+                if (pthread_create(&ckpt_tid, NULL, thread_func_ckpt, &ckpt_arg) != 0) {
+                    fprintf(stderr, "WARNING: checkpoint thread failed to start; running without intra-sub-branch checkpoints\n");
+                    ckpt_tid = 0;
                 }
             }
 
@@ -8180,6 +8471,10 @@ sub_enum_done:
             }
             for (int i = 0; i < n_threads_p; i++) pthread_join(tids_p[i], NULL);
             sub_sub_parallel_active = 0;  /* disable parallel-budget logic post-join */
+
+            /* Stop + join checkpoint thread. */
+            sub_ckpt_thread_stop = 1;
+            if (ckpt_tid) pthread_join(ckpt_tid, NULL);
 
             /* Merge worker hash tables into workers[0]. */
             for (int i = 1; i < n_threads_p; i++) {
@@ -8228,6 +8523,14 @@ sub_enum_done:
                     "%d solutions, %lds (%d threads, %d tasks, %lld dedup collisions) ***\n",
                     status_p, total_nodes_p/1000000000LL, total_c3_p/1000000LL,
                     solutions_p, elapsed_p, n_threads_p, n_sub_sub_tasks, total_hc_p);
+
+            /* Successful completion: delete checkpoint files so a future
+             * invocation with the same prefix starts fresh. INTERRUPTED
+             * runs (global_timed_out) leave checkpoint files in place
+             * for resume. */
+            if (!global_timed_out) {
+                sub_ckpt_cleanup();
+            }
 
             if (workers[0].sol_table) free(workers[0].sol_table);
             if (workers[0].sol_occupied) free(workers[0].sol_occupied);
