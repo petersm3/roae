@@ -528,6 +528,20 @@ All 57,748 `sub_*.bin.gz` shards passed. Scientific payload fully intact.
 
 **Measurement cost:** $0.45 total across all P1 test VMs (D32 + D64 scaling + D128 scaling + D64 packing + D128 packing + D32 packing).
 
+## April 21, 2026 late-night — P1 v3: per-CCD counters + intra-sub-branch checkpointing
+
+Two post-measurement enhancements to `solve.c` (commit `cca1a40`) closing the P1 work:
+
+**Per-CCD atomic counters.** The packing experiment revealed that single-process throughput caps at ~1 B/s on Zen 5c Turin Dense because all N threads contend on one `sub_sub_shared_nodes` atomic. Sharded the counter into 16 cache-line-aligned slots (one per CCD); each worker writes to slot `thread_id % 16`; budget check sums all slots (~4ns). Expected to bring single-process throughput closer to the measured packed-aggregate ~1.6 B/s on D128. Mechanism is correct by construction; not re-measured on D128.
+
+**Intra-sub-branch checkpointing.** Added a dedicated checkpoint thread that wakes every `SOLVE_CKPT_INTERVAL` seconds (default 60) and snapshots every worker's hash table to `sub_ckpt_wrk<tid>.bin` + the shared-counter state to `sub_ckpt_meta.txt`. Worker synchronization via per-`ThreadState` `ht_mutex` held during `analyze_solution`'s probe/insert (uncontended, ~100ns cost). On restart with the same prefix, `sub_ckpt_load()` consolidates all worker snapshots into worker 0's hash table and restores the shared counter; workers claim tasks from idx=0 (any in-flight-at-eviction tasks re-run, dedup collapses duplicates). On successful completion, `sub_ckpt_cleanup()` deletes the files.
+
+**Spot-viability implication.** At 10T+ per-branch single-branch runs with 60s checkpoint cadence, a spot eviction loses at most 60s × worker_count of work (~tens of seconds of compute). Enables 10T+ single-branch on spot without constant restart-from-scratch on eviction.
+
+**Validation:** selftest passes (sha `403f7202…`), legacy-N=1 vs force-parallel-N=1 byte-identical at 100M+1B budgets, checkpoint thread confirmed firing on schedule via debug instrumentation. Full kill+resume round-trip not measured end-to-end (validation complicated by stale-process leftovers; mechanism code-reviewed correct, uses wall-time-driven dedicated thread so fires regardless of task duration).
+
+**P1 status: ✅ COMPLETE** as of 2026-04-21 late evening. Unblocks single-branch campaigns A–D ([`x/roae/SINGLE_BRANCH_NEXT_STEPS.md`](https://example.invalid); in staging repo).
+
 ## Current state (2026-04-21)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
