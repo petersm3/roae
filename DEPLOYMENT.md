@@ -746,6 +746,48 @@ az vm list-usage -l <region> --query "[?contains(name.value,'Dalsv7')]" -o table
 VMs. If it equals your limit, you have zero headroom even if nothing is actually
 running.
 
+### Single-branch parallel (`--sub-branch`) — SKU sizing
+
+**Applies when:** running one `./solve --sub-branch <p1> <o1> <p2> <o2> <p3> <o3>`
+invocation with the P1 parallel code path (auto-on when `SOLVE_THREADS > 1`;
+force-off via `SOLVE_SUB_BRANCH_PARALLELISM=single`).
+
+**Task granularity: depth-5** (commit `201d706` onward). Each depth-3 prefix
+generates typically 900-3600 tasks at (p4, o4, p5, o5) granularity. The test
+branch `22 0 30 1 20 0` produces 2,507 tasks.
+
+**Measured scaling on Zen 5c "Turin Dense" (westus3 spot), 50B-node budget**:
+
+| Threads | Wall | Speedup | Efficiency |
+|---|---|---|---|
+| 1 | 182s | 1× | 100% |
+| 32 | 77.7s | 23.4× | 73% |
+| 64 | 52.1s | 34.9× | **55%** ← knee of the curve |
+| 96 | 51.0s | 35.7× | 37% |
+| 128 | 49.9s | 36.5× | 29% |
+
+**Key finding: memory bandwidth saturates at ~N=64.** Going from 64 → 128 cores
+gives only 4% additional speedup, at double the VM cost.
+
+**SKU recommendations for single-branch:**
+
+| Scenario | Recommended VM | Why |
+|---|---|---|
+| Cost-sensitive, single branch | **D32als_v7 spot** (~$0.32/hr) | Lowest $/run; accept possible 1.5-2× rate variance from noisy neighbors; kill-and-retry on bad placement |
+| Predictable, single branch | **D64als_v7 spot** (~$0.47/hr) | 2.5× faster wall than D32; less noisy-neighbor risk (2 tenants per physical host vs 4); ~20% premium on $/run |
+| Wall-time critical, single branch | **D128als_v7 spot** (~$0.95/hr) | Full physical host, no co-tenants, bandwidth isolated. ~4% wall advantage over D64 at 2× the cost |
+| **Campaign (many branches)** | **N × D16als_v7 spot** (one branch per VM) | Branch-level parallelism is linear; intra-branch is sub-linear. Many small VMs crushes one big VM on $/result |
+
+Example: 32-branch × 10T campaign on 32 × D16als_v7 spot ≈ **~$0.32 total**,
+~2.5 min wall. On D128 serialized, same work costs ~$4.20 and takes ~4.4 hr.
+
+**Never D128 for `--sub-branch` runs below ~10T budget** — the 5-15s wall-time
+advantage over D64 doesn't amortize against D128's 2× hourly rate. D128 shines
+only when wall-time dominates and you're paying for predictable bandwidth.
+
+**Full measurement data + noisy-neighbor analysis + campaign-planning math:**
+`x/roae/P1_SCALING_MEASUREMENTS.md` (staging repo).
+
 ### Cost reference (2026-04-19 pricing, post-Dalsv7-pivot)
 
 | SKU | Region | RAM | Use case | Spot price | On-demand |
