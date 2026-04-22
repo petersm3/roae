@@ -502,6 +502,32 @@ All 57,748 `sub_*.bin.gz` shards passed. Scientific payload fully intact.
 
 **Standing rule added.** Any VM-teardown sequence that follows an archive-write workload MUST run `sync && sudo umount <datadisk>` on-host *before* the `az vm` delete/detach commands. Additionally, sha256 manifests for archive verification must be generated *after* a `sync` flush (or ideally post-umount/remount cycle), not from live dirty-page-cache state. Both go into CLAUDE.md §Session-lifecycle VM discipline as explicit gates for any VM attached to `solver-data*` or archive-destination disks.
 
+## April 21, 2026 late evening — P1 parallel `--sub-branch` + depth-5 + scaling measurements
+
+**P1 (parallel `--sub-branch`) landed.** `solve.c` commits `8a31025` (initial depth-4 impl) and `201d706` (depth-5 upgrade) retool the single-sub-branch mode so a single depth-3 prefix (e.g. `./solve --sub-branch 22 0 30 1 20 0`) uses all N available threads to enumerate in parallel, instead of the prior behavior where 1 thread did work and N-1 sat idle. Implementation: ~580 lines added; see `PARALLEL_SUB_BRANCH_DESIGN.md` (staging) for architecture.
+
+**Granularity: depth-5 (p4, o4, p5, o5) tasks.** For the test branch `22_0_30_1_20_0` the task enumerator produces 2,507 valid (p4, o4, p5, o5) tuples — enough to saturate D64 and D128 without idle-core tails. Tasks dispensed in lex order via atomic fetch-and-add; workers snapshot shared depth-3 prefix state then run DFS from step 6. Per-thread hash tables merged at end under "lex-smallest record wins" canonical dedup, which is a no-op for single-threaded DFS (first-inserted is already lex-smallest) and the determinism fix for parallel (collisions resolve to the same winner regardless of scheduling).
+
+**Correctness validated.** On D32als_v7 spot, legacy N=1 vs force-parallel N=1 produces byte-identical output at 100M, 1B, and 10B budgets (three matching sha256s). All 388,785 records in a BUDGETED N=32 output pass C1+C2+C5 via `./solve --verify` (extended to handle raw shard files — peeks at first 4 bytes; if not "ROAE" magic, treats as headerless `sub_*.bin`).
+
+**Measured speedup (D32als_v7 spot, 5B budget):** N=1 baseline 198s → N=32 14s = **14× wall-time reduction**, 44% parallel efficiency. Remaining 56% efficiency loss is ~equal parts (a) task-count ceiling at depth-4 (pre-depth-5 measurement — depth-5 has 48× more tasks and removes this ceiling), (b) shared-atomic contention on the 65K-node-flush budget counter, (c) memory bandwidth on Zen 5c CCDs. Post-depth-5 scaling (measured on D64/D128): 34.9× at N=64 on D128, 36.5× at N=128 — memory bandwidth saturates at N=64.
+
+**Packing experiment (2026-04-21 night).** Running K concurrent `--sub-branch` processes on one VM (each with N threads, K×N ≤ cores) breaks through the single-process atomic-contention ceiling. D128 aggregate throughput rises from 980 M/s (K=1 N=128) to 1.60 B/s (K=16 N=8) — 63% improvement — because each process has its own atomic counter and cache-resident hash table. Measured cost per branch at 50B budget:
+
+| VM | Best packing | $/branch | Notes |
+|---|---|---|---|
+| D128als_v7 spot | K=16 N=8 | $0.0083 | packing wins 39% vs K=1 |
+| **D64als_v7 spot** | **K=8 N=8** | **$0.0080** | ← global cheapest measured |
+| D32als_v7 spot | K=8 N=4 | $0.0086 | packing wins only 24% (bandwidth-limited) |
+
+**D64 K=8 N=8 is the measured cost optimum** for single-branch work. D128 K=1 N=128 wins on wall-time (51s vs 491s for an 8-branch batch) at 69% higher cost.
+
+**Detail on the atomic-contention finding:** `sub_sub_shared_nodes` is updated every 65K nodes via `__sync_add_and_fetch`. With 128 threads on a single process, all threads hit the same cache line — serialized. Multiple processes with separate atomic counters (and separate hash tables) eliminate the serialization. A per-CCD atomic counter refactor (16 counters on D128 Zen 5c "Turin Dense", one per CCD) could deliver the packing throughput without needing to run multiple processes; deferred since packing achieves the same effect with simpler user-space config.
+
+**Doc outputs:** `DEPLOYMENT.md` gained a "Single-branch parallel — SKU sizing" section with the measured-optimum table. Raw data + noisy-neighbor analysis + mechanism breakdown archived to `x/roae/P1_SCALING_MEASUREMENTS.md` (staging repo).
+
+**Measurement cost:** $0.45 total across all P1 test VMs (D32 + D64 scaling + D128 scaling + D64 packing + D128 packing + D32 packing).
+
 ## Current state (2026-04-21)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.

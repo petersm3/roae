@@ -58,6 +58,11 @@ hash-table bug) are invalidated forensic references only.
 **Standing policy (2026-04-20, after an ~$73 avoidable overspend on the 100T d3 run):**
 
 - **Enumeration** (`solve.c` running sub-branches, no `--merge`) → **spot priority, 128 cores** (D128als_v7 westus3). Enumeration is eviction-resilient; the orchestrator can resume from checkpoint. Spot pricing is ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot on D128als_v7).
+- **Single-branch enumeration** (`solve.c --sub-branch`, post-P1 parallel, 2026-04-21) → **spot priority, depends on batch size.** Measured 2026-04-21:
+  - **1 branch, wall-critical** → D128als_v7 K=1 N=128 (~$0.0135/branch at 50B, ~51s wall)
+  - **1 branch, cheap** → D64als_v7 K=1 N=64 (~$0.0094/branch, 72s wall)
+  - **8-branch batches (cheapest)** → **D64als_v7 K=8 N=8 packing** (~$0.0080/branch) — 8 concurrent `--sub-branch` processes on one VM; see `DEPLOYMENT.md` §Single-branch SKU sizing and `x/roae/P1_SCALING_MEASUREMENTS.md`.
+  - Packing works because single-process throughput is capped by atomic contention on `sub_sub_shared_nodes` at ~1 B/s on Zen 5c; multiple concurrent processes have independent counters and aggregate to ~1.6 B/s on D128.
 - **Merge** (`solve.c --merge`) → **on-demand priority, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest are idle. Pay for what the workload uses.
   - d3 10T merge (~89 GB pre-dedup): **D16als_v7 (16 cores, 32 GB RAM)** on-demand ~$0.50/hr → $0.50 for a 1-hour merge
   - d3 100T merge (~880 GB pre-dedup, external): **D32als_v7 (32 cores, 64 GB RAM)** on-demand ~$1.30/hr → ~$7 for a 5-hour merge (vs ~$28 on D128)
