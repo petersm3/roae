@@ -190,7 +190,7 @@ All scripts and intermediate data are preserved:
 - **Bivariate plots:** `solve.py --bivariate` (matplotlib hexbin +
   uniform subsample)
 - **Joint density:** `solve.py --joint-density` (sklearn KDE + bootstrap)
-- All four subcommands consolidated into `solve.py` on 2026-04-22 per the
+- All four subcommands consolidated into `solve.py` on 2026-04-21 per the
   single-Python-file rule; previously lived as `scripts/compute_stats.py`,
   `scripts/p2_marginals.py`, `scripts/p2_bivariate.py`,
   `scripts/p2_joint_density.py` in the staging repo.

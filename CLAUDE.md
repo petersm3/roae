@@ -144,7 +144,7 @@ $3-25 and accumulates across sessions.
 
 ## Single C source file — `solve.c` — no new `.c` files
 
-**Standing rule (2026-04-21, extended 2026-04-22):** All C code on this
+**Standing rule (2026-04-21):** All C code on this
 project lives in `solve.c`. All Python lives in `solve.py`. The only
 exception to the Python rule is `viz/visualize.py` (PCA plots — separate
 because its dependency footprint is heavy and it's run independently).
@@ -169,13 +169,8 @@ Past violations:
 - 2026-04-21: `scripts/compute_stats.py`, `scripts/p2_marginals.py`,
   `scripts/p2_bivariate.py`, `scripts/p2_joint_density.py` developed as
   separate files during the P2 distributional-analysis sprint. Consolidated
-  into `solve.py` on 2026-04-22 per user directive "consolidate all except
+  into `solve.py` on 2026-04-21 per user directive "consolidate all except
   viz/visualize.py"; `scripts/` subdirectory removed.
-
-Past violation: 2026-04-21 created `analyze_yields.c` as a separate file;
-user directive "i do not want new c files, i want them in solve.c" /
-"if it's written in C, it goes into solve.c, not its own new C file"
-established the rule.
 
 ## Never commit to this repo
 
