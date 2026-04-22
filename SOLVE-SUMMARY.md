@@ -1,13 +1,16 @@
 # How the King Wen Sequence Was Built
 
-> **Note (2026-04-19):** Canonical reference counts have been re-established with the corrected solver (v1 format):
+> **Note (2026-04-20):** Canonical reference counts, now covering three partitions including the new deep-enumeration **100T d3**:
 >
-> - **d3 10T partition: 706,422,987 unique pair orderings** (sha `f7b8c4fb…`)
-> - **d2 10T partition: 286,357,503 unique pair orderings** (sha `a09280fb…`)
+> - **d3 100T partition: 3,432,399,297 canonical orderings** (sha `915abf30…`, 102 GB solutions.bin) — **deepest partial enumeration**, 2026-04-19/20.
+> - **d3 10T partition: 706,422,987 canonical orderings** (sha `f7b8c4fb…`)
+> - **d2 10T partition: 286,357,503 canonical orderings** (sha `a09280fb…`)
 >
-> Both validated cross-independently across 3 merge paths (Phase B external merge, Phase C fresh re-enum, in-memory heap-sort merge). Older figures (742M, 31.6M) were invalidated by bug forensics and appear only as historical references in [HISTORY.md](HISTORY.md). A key **new finding** from the 2026-04-19 analyze runs: the mandatory-boundaries claim `{25, 27}` is partition-stable (holds at both d2 and d3); the broader "{25,27} ∪ one-of-{2,3} ∪ one-of-{21,22}" phrasing is **d2-specific** (d3 shows 8 working 4-subsets with different interchangeable slots). See updated boundaries section below.
+> d2 and d3 10T validated cross-independently across 3 merge paths. d3 100T sha stands on the Partition Invariance theorem (`PARTITION_INVARIANCE.md`). Older figures (742M, 31.6M) were invalidated by bug forensics and appear only as historical references in [HISTORY.md](HISTORY.md).
 
-> **What this analysis does and does not show.** The **robust findings** — that King Wen has perfect pair structure, avoids 5-line transitions, and minimizes complement distance — are properties that are independently rare or unique in random permutations. The **"4 boundaries uniquely determine King Wen" result**, however, is a property of the **constraint-extraction methodology**, not evidence of King Wen's inherent uniqueness beyond those robust findings. A null-model test (see [CRITIQUE.md](CRITIQUE.md)) found that applying the same methodology — extract distance distribution + starting pair + specific boundaries from a random pair-constrained sequence, then check uniqueness — produces apparent "uniqueness" for 9/10 random sequences. So the 4-boundary uniqueness is true of King Wen *within this methodological frame* but would be equally true of many other pair-constrained sequences if treated the same way. Keep this distinction in mind as you read.
+> **Minimum-boundary finding — revised at 100T.** At 10T scales (both d2 and d3), **4 boundaries** suffice to uniquely identify King Wen among the canonical orderings. At 100T d3 — the deeper enumeration with 3.43B records — **5 boundaries are required** (no 4-subset works; greedy-optimal set: `{1, 4, 21, 25, 27}`). What *is* partition-stable across all three partitions: boundaries **{25, 27} are mandatory in every minimum set**. What is *not* partition-stable: (a) the count of boundaries needed grows from 4 (10T) to 5 (100T), and (b) the other specific boundaries in the minimum set shift with partition depth. The trajectory suggests the true minimum may continue to grow with deeper enumeration.
+
+> **What this analysis does and does not show.** The **robust findings** — that King Wen has perfect pair structure, avoids 5-line transitions, and places complements in a structured way — are properties that are independently rare or unique in random permutations. The **"N boundaries uniquely determine King Wen" result**, however (whether N=4 at 10T or N=5 at 100T), is a property of the **constraint-extraction methodology**, not evidence of King Wen's inherent uniqueness beyond those robust findings. A null-model test (see [CRITIQUE.md](CRITIQUE.md)) found that applying the same methodology — extract distance distribution + starting pair + specific boundaries from a random pair-constrained sequence, then check uniqueness — produces apparent "uniqueness" for 9/10 random sequences. The 2026-04-21 **distributional analysis** (see [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)) provides a stronger quantification: KW sits at the **0.000%-ile of the joint observable density** across 3.43B canonical orderings (bootstrap 95% CI [0.000%, 0.000%]), driven by simultaneous extremes on four independent structural observables — not merely by the constraint set happening to pick it out.
 
 A plain-language summary of what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
@@ -251,9 +254,9 @@ it's the constraint itself, re-expressed). So any aggregate statistic of that
 multiset (mean, max, variance) is structurally constant — not observable
 variation to analyze.
 
-Reproducibility: `scripts/compute_stats.py` → per-record parquet, then
-`scripts/p2_marginals.py`, `scripts/p2_bivariate.py`,
-`scripts/p2_joint_density.py`. Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+Reproducibility: `solve.py --compute-stats` → per-record parquet, then
+`solve.py --marginals`, `solve.py --bivariate`, `solve.py --joint-density`.
+Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 
 ## The numbers at a glance
 

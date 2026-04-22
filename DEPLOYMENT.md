@@ -71,9 +71,16 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
 
 ## Checkpoint granularity must match eviction frequency
 
-The 2026-04-13 100T attempt exposed a fundamental mismatch: sub-branch-level
-checkpointing (committing `sub_P_O.bin` only when a sub-branch finishes its
-~33B node budget) is too coarse for spot VMs in westus2.
+**Historical lesson (not current state).** The 2026-04-13 100T attempt —
+on F64als_v6 spot in westus2, a SKU now retired for this project — exposed
+a fundamental mismatch: sub-branch-level checkpointing (committing
+`sub_P_O.bin` only when a sub-branch finishes its ~33B node budget) was
+too coarse for a spot VM whose eviction frequency exceeded the per-branch
+wall time. That run was aborted. **The successful 100T d3 canonical run
+(2026-04-19/20) used D128als_v7 westus3 on-demand** — no evictions, 16h 48m
+end-to-end — so the following lesson is about spot-VM checkpoint granularity
+in general, not about the 100T canonical specifically. If you ever return
+to spot for 100T+ enumeration, the granularity analysis below still applies.
 
 Observed behavior:
 - ~1 eviction every 2-3 hours under load

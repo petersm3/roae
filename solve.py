@@ -2678,6 +2678,508 @@ def print_null_debruijn(trials=5000, seed=None):
     print("    are NOT tested. This addresses one of several gaps in CRITIQUE.md.")
 
 
+# ============================================================================
+# P2 DISTRIBUTIONAL ANALYSIS — observable-statistics computation + marginals +
+# bivariate heatmaps + joint density (merged from scripts/compute_stats.py,
+# scripts/p2_marginals.py, scripts/p2_bivariate.py, scripts/p2_joint_density.py
+# on 2026-04-21 per single-Python-file consolidation rule).
+#
+# All numpy/pyarrow/matplotlib/sklearn imports are LAZY (inside handler
+# functions) so that the existing flag-based subcommands (--pairs, --rules,
+# etc.) continue to work without these optional dependencies installed.
+# ============================================================================
+
+# --- P2 constants (from solve.c; mirror the schema in P2_OBSERVABLES_SCHEMA.md) ---
+_P2_FORMAT_V1_MAGIC = b"ROAE"
+_P2_HEADER_SIZE = 32
+_P2_RECORD_SIZE = 32
+_P2_CHUNK_RECORDS_DEFAULT = 1_000_000
+
+# Informative dims for joint density (mean_transition_hamming + max_transition_hamming
+# are invariant under C5; position_2_pair is a categorical stratifier).
+_P2_JD_DIMS = [
+    "edit_dist_kw", "c3_total", "c6_c7_count",
+    "fft_dominant_freq", "fft_peak_amplitude",
+    "shift_conformant_count", "first_position_deviation",
+]
+
+_P2_KW_VALUES = {
+    "edit_dist_kw": 0,
+    "c3_total": 776,
+    "c6_c7_count": 2,
+    "position_2_pair": 1,
+    "mean_transition_hamming": 3.3492064,
+    "max_transition_hamming": 6,
+    "fft_dominant_freq": 16,
+    "fft_peak_amplitude": 374.77,
+    "shift_conformant_count": 17,
+    "first_position_deviation": 33,
+}
+
+
+def _p2_read_header(f):
+    import struct
+    header = f.read(_P2_HEADER_SIZE)
+    if len(header) != _P2_HEADER_SIZE:
+        raise ValueError(f"Short read on header: got {len(header)} bytes")
+    if header[:4] != _P2_FORMAT_V1_MAGIC:
+        raise ValueError(f"Not v1 solutions.bin (magic={header[:4]!r})")
+    version = struct.unpack("<I", header[4:8])[0]
+    record_count = struct.unpack("<Q", header[8:16])[0]
+    return record_count, version
+
+
+def _p2_kw_arrays():
+    """Construct numpy KW array + PAIRS_A, PAIRS_B from the 64-value KW sequence."""
+    import numpy as np
+    kw = np.array([
+        63,  0, 17, 34, 23, 58,  2, 16,
+        55, 59,  7, 56, 61, 47,  4,  8,
+        25, 38,  3, 48, 41, 37, 32,  1,
+        57, 39, 33, 30, 18, 45, 28, 14,
+        60, 15, 40,  5, 53, 43, 20, 10,
+        35, 49, 31, 62, 24,  6, 26, 22,
+        29, 46,  9, 36, 52, 11, 13, 44,
+        54, 27, 50, 19, 51, 12, 21, 42,
+    ], dtype=np.int16)
+    return kw, kw[0::2].astype(np.int16), kw[1::2].astype(np.int16)
+
+
+def _p2_decode_records(chunk_bytes):
+    import numpy as np
+    return np.frombuffer(chunk_bytes, dtype=np.uint8).reshape(-1, _P2_RECORD_SIZE)
+
+
+def _p2_build_hexagram_sequence(records):
+    import numpy as np
+    _, PAIRS_A, PAIRS_B = _p2_kw_arrays()
+    pair_idx = (records >> 2).astype(np.int16)
+    orient = ((records >> 1) & 1).astype(np.int16)
+    first = np.where(orient == 0, PAIRS_A[pair_idx], PAIRS_B[pair_idx])
+    second = np.where(orient == 0, PAIRS_B[pair_idx], PAIRS_A[pair_idx])
+    n = records.shape[0]
+    seq = np.empty((n, 64), dtype=np.int16)
+    seq[:, 0::2] = first
+    seq[:, 1::2] = second
+    return seq
+
+
+def _p2_compute_all_stats(records):
+    """Return dict of column arrays for all 10 P2 observable dimensions."""
+    import numpy as np
+    # edit_dist_kw
+    pair_idx = records >> 2
+    kw_exp = np.arange(32, dtype=np.uint8)
+    edit_dist = (pair_idx != kw_exp).sum(axis=1).astype(np.uint8)
+
+    # c3_total
+    seq = _p2_build_hexagram_sequence(records)
+    n = seq.shape[0]
+    pos_of_v = np.empty((n, 64), dtype=np.int16)
+    row_idx = np.broadcast_to(np.arange(n).reshape(-1, 1), seq.shape)
+    pos_of_v[row_idx, seq] = np.broadcast_to(np.arange(64, dtype=np.int16), seq.shape)
+    v = np.arange(64, dtype=np.int16)
+    c3 = np.abs(pos_of_v[:, v] - pos_of_v[:, v ^ 63]).sum(axis=1).astype(np.uint16)
+
+    # c6/c7 counts
+    c6 = ((pair_idx[:, 26] == 26) & (pair_idx[:, 27] == 27)).astype(np.uint8)
+    c7 = ((pair_idx[:, 24] == 24) & (pair_idx[:, 25] == 25)).astype(np.uint8)
+    c6c7 = c6 + c7
+
+    # position_2_pair
+    p2p = (records[:, 1] >> 2).astype(np.uint8)
+
+    # transition Hamming (invariant per theorem; kept for schema completeness)
+    diffs = seq[:, :-1] ^ seq[:, 1:]
+    popcount_tbl = np.array([bin(i).count("1") for i in range(64)], dtype=np.uint8)
+    hammings = popcount_tbl[diffs]
+    mean_trans = hammings.mean(axis=1).astype(np.float32)
+    max_trans = hammings.max(axis=1).astype(np.uint8)
+
+    # FFT
+    seq_zm = seq.astype(np.float32) - seq.astype(np.float32).mean(axis=1, keepdims=True)
+    F = np.fft.fft(seq_zm, axis=1)
+    amp = np.abs(F[:, 1:32])
+    dom_k = (np.argmax(amp, axis=1) + 1).astype(np.uint8)
+    peak_amp = amp.max(axis=1).astype(np.float32)
+
+    # shift_conformant
+    positions = np.arange(2, 19, dtype=np.uint8)
+    pi_at = pair_idx[:, positions]
+    shift = ((pi_at == positions) | (pi_at == positions - 1)).sum(axis=1).astype(np.uint8)
+
+    # first_position_deviation
+    mismatch = pair_idx != kw_exp
+    any_mismatch = mismatch.any(axis=1)
+    first_idx = np.argmax(mismatch, axis=1)
+    fpd = np.where(any_mismatch, first_idx + 1, 33).astype(np.uint8)
+
+    return {
+        "edit_dist_kw": edit_dist,
+        "c3_total": c3,
+        "c6_c7_count": c6c7,
+        "position_2_pair": p2p,
+        "mean_transition_hamming": mean_trans,
+        "max_transition_hamming": max_trans,
+        "fft_dominant_freq": dom_k,
+        "fft_peak_amplitude": peak_amp,
+        "shift_conformant_count": shift,
+        "first_position_deviation": fpd,
+    }
+
+
+_P2_WORKER_SCHEMA = None
+
+
+def _p2_worker_init(schema_bytes):
+    import pyarrow as pa
+    global _P2_WORKER_SCHEMA
+    _P2_WORKER_SCHEMA = pa.ipc.read_schema(pa.BufferReader(schema_bytes))
+
+
+def _p2_worker_chunk(task):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    filename, offset, n_records, chunk_idx, out_dir = task
+    with open(filename, "rb") as f:
+        f.seek(offset)
+        raw = f.read(n_records * _P2_RECORD_SIZE)
+    records = _p2_decode_records(raw[: (len(raw) // _P2_RECORD_SIZE) * _P2_RECORD_SIZE])
+    stats = _p2_compute_all_stats(records)
+    batch = pa.record_batch(
+        [pa.array(stats[c.name]).cast(c.type) for c in _P2_WORKER_SCHEMA],
+        schema=_P2_WORKER_SCHEMA,
+    )
+    out_path = f"{out_dir}/chunk_{chunk_idx:05d}.parquet"
+    pq.write_table(
+        pa.Table.from_batches([batch], schema=_P2_WORKER_SCHEMA),
+        out_path, compression="zstd",
+    )
+    return out_path, len(stats["edit_dist_kw"])
+
+
+def _p2_parquet_schema():
+    import pyarrow as pa
+    return pa.schema([
+        ("edit_dist_kw", pa.uint8()),
+        ("c3_total", pa.uint16()),
+        ("c6_c7_count", pa.uint8()),
+        ("position_2_pair", pa.uint8()),
+        ("mean_transition_hamming", pa.float32()),
+        ("max_transition_hamming", pa.uint8()),
+        ("fft_dominant_freq", pa.uint8()),
+        ("fft_peak_amplitude", pa.float32()),
+        ("shift_conformant_count", pa.uint8()),
+        ("first_position_deviation", pa.uint8()),
+    ])
+
+
+def p2_compute_stats(solutions_bin, out_dir, workers=None,
+                     chunk_size=_P2_CHUNK_RECORDS_DEFAULT, max_records=None):
+    """Handler for --compute-stats. See scripts/compute_stats.py history."""
+    import multiprocessing as mp
+    import os
+    import time
+    import pyarrow.parquet as pq
+
+    os.makedirs(out_dir, exist_ok=True)
+    if workers is None:
+        workers = os.cpu_count() or 4
+    schema = _p2_parquet_schema()
+    with open(solutions_bin, "rb") as f:
+        total_records, version = _p2_read_header(f)
+    if max_records:
+        total_records = min(total_records, max_records)
+
+    print(f"[compute-stats] v{version} solutions.bin, {total_records:,} rows, "
+          f"{workers} workers, {chunk_size:,}/chunk, out={out_dir}", flush=True)
+
+    tasks = []
+    offset = _P2_HEADER_SIZE
+    remaining = total_records
+    chunk_idx = 0
+    while remaining > 0:
+        n = min(chunk_size, remaining)
+        tasks.append((solutions_bin, offset, n, chunk_idx, out_dir))
+        offset += n * _P2_RECORD_SIZE
+        remaining -= n
+        chunk_idx += 1
+    print(f"[compute-stats] {len(tasks)} chunks", flush=True)
+
+    schema_bytes = schema.serialize().to_pybytes()
+    t0 = time.time()
+    seen = chunks_done = 0
+    with mp.Pool(workers, initializer=_p2_worker_init,
+                 initargs=(schema_bytes,), maxtasksperchild=32) as pool:
+        for (out_path, n_rec) in pool.imap_unordered(
+                _p2_worker_chunk, tasks, chunksize=1):
+            seen += n_rec
+            chunks_done += 1
+            if chunks_done % 10 == 0 or seen >= total_records:
+                elapsed = time.time() - t0
+                rate = seen / max(elapsed, 1e-9)
+                eta = (total_records - seen) / max(rate, 1.0)
+                print(f"[compute-stats]   {seen:,}/{total_records:,} "
+                      f"({100*seen/total_records:.1f}%) "
+                      f"{chunks_done}/{len(tasks)}  {rate/1e6:.2f}M/s  "
+                      f"ETA {eta/60:.1f}m", flush=True)
+    total_elapsed = time.time() - t0
+    print(f"[compute-stats] DONE {chunks_done} files, {seen:,} rows, "
+          f"{total_elapsed:.1f}s ({seen/total_elapsed/1e6:.2f}M/s)", flush=True)
+
+
+def _p2_percentile_from_hist(counts, values, target, total):
+    import numpy as np
+    n_less = int(counts[values < target].sum())
+    n_equal = int(counts[values == target].sum())
+    pct = (n_less + n_equal / 2.0) / total * 100
+    return pct, n_less, n_equal
+
+
+_P2_INT_COLS = [
+    ("edit_dist_kw", 0, 32, 0),
+    ("c3_total", 424, 776, 776),
+    ("c6_c7_count", 0, 2, 2),
+    ("max_transition_hamming", 1, 6, 6),
+    ("fft_dominant_freq", 1, 31, 16),
+    ("shift_conformant_count", 0, 17, 17),
+    ("first_position_deviation", 1, 33, 33),
+]
+_P2_FLOAT_COLS = [
+    ("mean_transition_hamming", 2.0, 4.0, 3.3492064),
+    ("fft_peak_amplitude", 0.0, 500.0, 374.77),
+]
+
+
+def p2_marginals(chunks_dir, out_md):
+    """Handler for --marginals."""
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    print(f"[marginals] {len(files)} chunks in {chunks_dir}", flush=True)
+
+    hists = {}
+    for name, lo, hi, _kw in _P2_INT_COLS:
+        hists[name] = {"counts": np.zeros(int(hi - lo + 1), dtype=np.int64),
+                       "lo": lo, "hi": hi, "type": "int"}
+    n_float_bins = 10000
+    for name, lo, hi, _kw in _P2_FLOAT_COLS:
+        hists[name] = {"counts": np.zeros(n_float_bins, dtype=np.int64),
+                       "lo": lo, "hi": hi, "type": "float", "n_bins": n_float_bins,
+                       "sum": 0.0, "sum_sq": 0.0,
+                       "min": float("inf"), "max": float("-inf")}
+
+    total_rows = kw_row_count = 0
+    strat_counts = np.zeros(32, dtype=np.int64)
+    int_sums = {n: 0 for n, *_ in _P2_INT_COLS}
+    int_sum_sq = {n: 0 for n, *_ in _P2_INT_COLS}
+
+    for i, f in enumerate(files):
+        t = pq.read_table(f)
+        total_rows += t.num_rows
+        ed = t.column("edit_dist_kw").to_numpy()
+        fpd = t.column("first_position_deviation").to_numpy()
+        kw_row_count += int(((ed == 0) & (fpd == 33)).sum())
+        p2p = t.column("position_2_pair").to_numpy()
+        strat_counts += np.bincount(p2p, minlength=32)
+        for name, lo, hi, _kw in _P2_INT_COLS:
+            arr = t.column(name).to_numpy()
+            hist = np.bincount(arr.astype(np.int64) - lo, minlength=int(hi - lo + 1))
+            hists[name]["counts"] += hist[:int(hi - lo + 1)]
+            int_sums[name] += int(arr.sum())
+            int_sum_sq[name] += int((arr.astype(np.int64) ** 2).sum())
+        for name, lo, hi, _kw in _P2_FLOAT_COLS:
+            arr = t.column(name).to_numpy()
+            hists[name]["sum"] += float(arr.sum())
+            hists[name]["sum_sq"] += float((arr.astype(np.float64) ** 2).sum())
+            hists[name]["min"] = min(hists[name]["min"], float(arr.min()))
+            hists[name]["max"] = max(hists[name]["max"], float(arr.max()))
+            bin_idx = np.clip(((arr - lo) / (hi - lo) * (n_float_bins - 1)).astype(np.int32),
+                              0, n_float_bins - 1)
+            hists[name]["counts"] += np.bincount(bin_idx, minlength=n_float_bins)[:n_float_bins]
+        if (i + 1) % 500 == 0:
+            print(f"  {i+1}/{len(files)} chunks, {total_rows:,} rows", flush=True)
+
+    print(f"[marginals] TOTAL {total_rows:,} rows, KW sig rows = {kw_row_count}", flush=True)
+
+    L = []
+    L.append("# P2 Marginal Analysis — 100T d3 canonical\n")
+    L.append(f"**Dataset:** {total_rows:,} records\n")
+    L.append(f"**KW-signature rows:** {kw_row_count}\n\n")
+    L.append("## Marginals\n")
+    L.append("| Dim | Type | Min | Max | Mean | Std | KW | KW %-ile | # < KW | # == KW |\n")
+    L.append("|---|---|---|---|---|---|---|---|---|---|\n")
+    for name, lo, hi, kw_val in _P2_INT_COLS:
+        h = hists[name]
+        values = np.arange(lo, hi + 1, dtype=np.int64)
+        pct, n_less, n_eq = _p2_percentile_from_hist(h["counts"], values, kw_val, total_rows)
+        mean = int_sums[name] / total_rows
+        var = int_sum_sq[name] / total_rows - mean ** 2
+        std = var ** 0.5 if var > 0 else 0.0
+        L.append(f"| `{name}` | int | {lo} | {hi} | {mean:.3f} | {std:.3f} "
+                 f"| **{kw_val}** | **{pct:.4f}%** | {n_less:,} | {n_eq:,} |\n")
+    for name, lo, hi, kw_val in _P2_FLOAT_COLS:
+        h = hists[name]
+        kw_bin = int(np.clip((kw_val - lo) / (hi - lo) * (h["n_bins"] - 1),
+                             0, h["n_bins"] - 1))
+        n_less = int(h["counts"][:kw_bin].sum())
+        n_at = int(h["counts"][kw_bin])
+        pct = (n_less + n_at / 2.0) / total_rows * 100
+        mean = h["sum"] / total_rows
+        var = h["sum_sq"] / total_rows - mean ** 2
+        std = var ** 0.5 if var > 0 else 0.0
+        L.append(f"| `{name}` | float | {h['min']:.4f} | {h['max']:.4f} "
+                 f"| {mean:.4f} | {std:.4f} | **~{kw_val}** | **~{pct:.4f}%** "
+                 f"| {n_less:,} | {n_at:,} (bin) |\n")
+    L.append("\n## position_2_pair stratifier\n")
+    L.append("| Pair | Count | % |\n|---|---|---|\n")
+    for i in range(32):
+        marker = " **← KW**" if i == 1 else ""
+        L.append(f"| {i} | {strat_counts[i]:,} | {100*strat_counts[i]/total_rows:.3f}%{marker} |\n")
+    with open(out_md, "w") as f:
+        f.writelines(L)
+    print(f"[marginals] wrote {out_md}", flush=True)
+
+
+_P2_BIVARIATE_PAIRS = [
+    ("edit_dist_kw", "c3_total"),
+    ("c3_total", "shift_conformant_count"),
+    ("fft_dominant_freq", "fft_peak_amplitude"),
+    ("mean_transition_hamming", "fft_peak_amplitude"),
+    ("position_2_pair", "edit_dist_kw"),
+]
+
+
+def p2_bivariate(chunks_dir, out_dir, samples_per_chunk=500, seed=42):
+    """Handler for --bivariate."""
+    import glob
+    import os
+    import numpy as np
+    import pyarrow.parquet as pq
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    os.makedirs(out_dir, exist_ok=True)
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    print(f"[bivariate] sampling from {len(files)} chunks", flush=True)
+    rng = np.random.default_rng(seed)
+    cols = sorted({c for x, y in _P2_BIVARIATE_PAIRS for c in (x, y)})
+    accum = {c: [] for c in cols}
+    for i, f in enumerate(files):
+        t = pq.read_table(f, columns=cols)
+        k = min(samples_per_chunk, t.num_rows)
+        idx = rng.choice(t.num_rows, size=k, replace=False)
+        for c in cols:
+            accum[c].append(t.column(c).to_numpy()[idx])
+        if (i + 1) % 500 == 0:
+            print(f"  {i+1}/{len(files)} chunks", flush=True)
+    data = {c: np.concatenate(v) for c, v in accum.items()}
+    print(f"[bivariate] sampled {len(next(iter(data.values()))):,} rows", flush=True)
+
+    for x, y in _P2_BIVARIATE_PAIRS:
+        fig, ax = plt.subplots(figsize=(10, 8), dpi=150)
+        hb = ax.hexbin(data[x], data[y], gridsize=50, cmap="viridis",
+                       bins="log", mincnt=1)
+        plt.colorbar(hb, ax=ax, label="records (log)")
+        kw_x, kw_y = _P2_KW_VALUES[x], _P2_KW_VALUES[y]
+        ax.plot([kw_x], [kw_y], marker="*", markersize=25, color="gold",
+                markeredgecolor="black", markeredgewidth=2,
+                label=f"King Wen ({kw_x}, {kw_y})", zorder=10)
+        ax.legend(loc="best", fontsize=11)
+        ax.set_xlabel(x, fontsize=12)
+        ax.set_ylabel(y, fontsize=12)
+        ax.set_title(f"{x} vs {y}\n(100T d3 canonical, "
+                     f"{len(data[x]):,} sampled)", fontsize=13)
+        ax.set_facecolor("#f8f8f8")
+        fig.tight_layout()
+        out = f"{out_dir}/viz_{x}__{y}.png"
+        fig.savefig(out, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  wrote {out}", flush=True)
+
+
+def p2_joint_density(chunks_dir, out_md, samples_per_chunk=30,
+                     score_sample=30000, bootstrap_n=1000, bootstrap_frac=0.30, seed=42):
+    """Handler for --joint-density."""
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+    from sklearn.neighbors import KernelDensity
+
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    print(f"[joint-density] sampling from {len(files)} chunks", flush=True)
+    rng = np.random.default_rng(seed)
+    accum = {c: [] for c in _P2_JD_DIMS}
+    for i, f in enumerate(files):
+        t = pq.read_table(f, columns=_P2_JD_DIMS)
+        k = min(samples_per_chunk, t.num_rows)
+        idx = rng.choice(t.num_rows, size=k, replace=False)
+        for c in _P2_JD_DIMS:
+            accum[c].append(t.column(c).to_numpy()[idx])
+        if (i + 1) % 500 == 0:
+            print(f"  chunk {i+1}/{len(files)}", flush=True)
+    data = np.column_stack([np.concatenate(accum[c]) for c in _P2_JD_DIMS]).astype(np.float64)
+    print(f"[joint-density] sample shape: {data.shape}", flush=True)
+
+    mu = data.mean(axis=0)
+    sigma = data.std(axis=0)
+    sigma[sigma == 0] = 1.0
+    data_std = (data - mu) / sigma
+    kw_point = np.array([_P2_KW_VALUES[c] for c in _P2_JD_DIMS]).reshape(1, -1).astype(np.float64)
+    kw_std = (kw_point - mu) / sigma
+    n, d = data.shape
+    bw = (n * (d + 2) / 4.0) ** (-1.0 / (d + 4))
+    print(f"[joint-density] fitting KDE, bandwidth={bw:.4f}", flush=True)
+    kde = KernelDensity(bandwidth=bw, kernel="gaussian")
+    kde.fit(data_std)
+
+    print("[joint-density] scoring...", flush=True)
+    score_idx = rng.choice(len(data_std), size=min(score_sample, len(data_std)), replace=False)
+    sample_scores = kde.score_samples(data_std[score_idx])
+    kw_score = kde.score_samples(kw_std)[0]
+    kw_pct = (sample_scores <= kw_score).sum() / len(sample_scores) * 100
+    print(f"[joint-density] KW log-density: {kw_score:.4f}", flush=True)
+    print(f"[joint-density] sample log-dens: [{sample_scores.min():.4f}, "
+          f"{sample_scores.max():.4f}], mean {sample_scores.mean():.4f}", flush=True)
+    print(f"[joint-density] KW %-ile: {kw_pct:.3f}%", flush=True)
+
+    print(f"[joint-density] bootstrap {bootstrap_n}×...", flush=True)
+    boot = []
+    n_boot = int(len(sample_scores) * bootstrap_frac)
+    for b in range(bootstrap_n):
+        bi = rng.choice(len(sample_scores), size=n_boot, replace=True)
+        boot.append((sample_scores[bi] <= kw_score).sum() / n_boot * 100)
+        if (b + 1) % 200 == 0:
+            print(f"  boot {b+1}/{bootstrap_n}", flush=True)
+    boot = np.array(boot)
+    ci_low = np.percentile(boot, 2.5)
+    ci_high = np.percentile(boot, 97.5)
+    with open(out_md, "w") as f:
+        f.writelines([
+            "# P2 Joint Density — 100T d3 canonical\n\n",
+            f"**Sample size:** {len(data):,} rows\n",
+            f"**Scoring sample:** {len(sample_scores):,} rows\n",
+            f"**Dimensions:** {', '.join(f'`{c}`' for c in _P2_JD_DIMS)}\n",
+            f"**KDE bandwidth (Silverman):** {bw:.4f}\n\n",
+            "## Results\n",
+            f"- KW's log-density: **{kw_score:.4f}**\n",
+            f"- Sample log-density: [{sample_scores.min():.4f}, "
+            f"{sample_scores.max():.4f}], mean {sample_scores.mean():.4f}\n",
+            f"- **KW's density-percentile: {kw_pct:.3f}%**\n",
+            f"- Bootstrap 95% CI ({bootstrap_n} resamples): "
+            f"**[{ci_low:.3f}%, {ci_high:.3f}%]**\n",
+        ])
+    print(f"[joint-density] wrote {out_md}", flush=True)
+
+
+# ============================================================================
+# END P2 DISTRIBUTIONAL ANALYSIS section
+# ============================================================================
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -2722,6 +3224,24 @@ def main():
                         help="Reconstruct King Wen step by step, verifying uniqueness at each step")
     parser.add_argument("--null-debruijn", action="store_true",
                         help="Null-model comparison: test C1-C3 against sampled de Bruijn B(2,6) permutations (addresses CRITIQUE.md structured-permutation gap)")
+    parser.add_argument("--compute-stats", nargs=2, metavar=("SOLUTIONS_BIN", "OUT_DIR"),
+                        help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
+    parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="P2: Per-dimension marginal percentiles with KW's position marked")
+    parser.add_argument("--bivariate", nargs=2, metavar=("CHUNKS_DIR", "OUT_DIR"),
+                        help="P2: Hexbin heatmaps for 5 observable pairs with KW marked")
+    parser.add_argument("--joint-density", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="P2: KDE joint density on the 7 informative dims plus bootstrap CI on KW's percentile")
+    parser.add_argument("--compute-stats-workers", type=int, default=None,
+                        help="P2 compute-stats: worker processes (default: cpu_count())")
+    parser.add_argument("--compute-stats-chunk-size", type=int, default=1_000_000,
+                        help="P2 compute-stats: records per parquet chunk (default: 1,000,000)")
+    parser.add_argument("--compute-stats-max-records", type=int, default=None,
+                        help="P2 compute-stats: cap total records processed (for testing)")
+    parser.add_argument("--joint-density-samples-per-chunk", type=int, default=30,
+                        help="P2 joint-density: samples drawn per chunk (default: 30)")
+    parser.add_argument("--joint-density-bootstrap-n", type=int, default=1000,
+                        help="P2 joint-density: bootstrap resamples for CI (default: 1000)")
     parser.add_argument("--max-nodes", type=int, default=10_000_000,
                         help="Max nodes for backtracking enumeration (default: 10M)")
     parser.add_argument("--time-limit", type=int, default=60,
@@ -2734,6 +3254,24 @@ def main():
                         help="Print progress during search")
 
     args = parser.parse_args()
+
+    if args.compute_stats:
+        p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
+                         workers=args.compute_stats_workers,
+                         chunk_size=args.compute_stats_chunk_size,
+                         max_records=args.compute_stats_max_records)
+        return
+    if args.marginals:
+        p2_marginals(args.marginals[0], args.marginals[1])
+        return
+    if args.bivariate:
+        p2_bivariate(args.bivariate[0], args.bivariate[1])
+        return
+    if args.joint_density:
+        p2_joint_density(args.joint_density[0], args.joint_density[1],
+                         samples_per_chunk=args.joint_density_samples_per_chunk,
+                         bootstrap_n=args.joint_density_bootstrap_n)
+        return
 
     if args.local:
         args.graph = True

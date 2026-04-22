@@ -32,6 +32,23 @@ Informally: running the solver 56 times, one branch each, merging the
 shards once at the end, produces the same canonical output as running
 the solver once over the whole partition.
 
+**Empirical validation — "4-corners" grid (2026-04-19).** The theorem
+has been validated against byte-identical reference sha256s across all
+four combinations of the two independent axes that could plausibly
+affect output:
+
+|  | External-merge path | In-memory heap-sort path |
+|---|---|---|
+| **Zen 4 hardware (F64als_v6, westus2)** | ✅ matches reference | ✅ matches reference |
+| **Zen 5 hardware (D128als_v7, westus3)** | ✅ matches reference | ✅ matches reference |
+
+All four combinations produce the canonical d3 10T sha
+`f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`.
+This cross-SKU, cross-region, cross-generation, cross-merge-mode
+agreement is the strongest empirical validation of the theorem
+achievable short of exhaustive enumeration at full budget. See
+[`HISTORY.md`](HISTORY.md) April 19 for the execution log.
+
 ## 2. Proof
 
 The equivalence follows from three independent determinism properties

@@ -89,14 +89,28 @@ position differs).
 - **If KW is at an edge or isolated:** KW is a statistical outlier
   among valid orderings.
 - **Canonical d2 10T, d3 10T, and d3 100T all show KW sitting in a
-  well-populated central region**, not an isolated outlier. This
-  is consistent with (a) CRITIQUE.md's note that KW's specific
+  well-populated central region of PCA space**, not an isolated outlier.
+  This is consistent with (a) CRITIQUE.md's note that KW's specific
   C4-C7 properties aren't distinguishing beyond the robust C1-C3
   findings, and (b) the d3 100T C3-ceiling result (KW ties ~340M
   other canonical orderings at C3=776; KW is the *mode* of the C3
   distribution, not the tail). Being typical in PCA space and
-  typical at the C3 ceiling are two views of the same story: KW
-  is not a geometric extremum.
+  typical at the C3 ceiling are two views of the same story in the
+  *pair-placement* geometry: KW is not a geometric extremum there.
+- **Important distinction: PCA centrality and the 2026-04-21 joint-density
+  extremity (KW at 0.000%-ile, bootstrap 95% CI [0.000%, 0.000%] — see
+  [`../DISTRIBUTIONAL_ANALYSIS.md`](../DISTRIBUTIONAL_ANALYSIS.md)) are NOT
+  contradictory.** They are measurements in *different projection spaces*:
+  - PCA here projects raw 32-byte ordering space (what pair is at each
+    position) onto 2 or 3 dims — KW is central in that pair-placement space.
+  - The distributional analysis projects orderings onto 7 informative
+    *observable statistics* (c3_total, c6_c7_count, shift_conformant_count,
+    first_position_deviation, fft_dominant_freq, fft_peak_amplitude,
+    edit_dist_kw) and fits a KDE in that space — KW is extremal there
+    because it simultaneously hits the 95th+ percentile on four
+    independent structural observables.
+  Being typical on raw position-of-each-pair does not imply being typical
+  on derived structural statistics. Both views are correct.
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 

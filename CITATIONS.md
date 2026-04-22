@@ -37,6 +37,8 @@ The observation that King Wen positions complementary hexagrams (bitwise-opposit
 
 **Status in ROAE:** We believe C3 as a specifically-quantified constraint (776 as the KW value, 3.9th percentile within C1-satisfying orderings) is an original observation. If prior work exists, please notify — we will credit appropriately.
 
+**Scope qualifier (added 2026-04-20 after d3 100T enumeration):** KW is near-extremal on C3 *within C1-only orderings*, but once the full C1+C2+C3 canonical is enumerated, **KW sits at the C3 ceiling (776), not the floor**. Minimum C3 in the 100T d3 canonical is 424 (221 records); the 95th-percentile records also tie with KW at 776 (9.91% of canonical orderings). So within the conjoint C1+C2+C3 frame, KW's C3 value is a *jointly satisfied upper bound* that many other orderings match, not a distinguishing minimum. The "minimizes complement distance" framing of C3 applies specifically to the C1-only comparison population and should not be generalized. See [SOLVE.md](SOLVE.md) §Rule 3 revision and [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+
 ### Pair structure + no-5-line + complement proximity as a *joint* constraint system
 
 The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~700 million is ROAE-specific. Individual constraints appear in prior work; the conjunction, the exhaustive enumeration under the conjunction, and the 4-boundary / pair-stability analysis are ROAE-original.

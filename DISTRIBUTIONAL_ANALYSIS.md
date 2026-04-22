@@ -20,7 +20,7 @@ Claims are about KW's position within that population.
 
 Each canonical ordering is characterized by the following statistics,
 computed over 3.43 billion records using streaming parquet output
-(`scripts/compute_stats.py`). See `x/roae/P2_OBSERVABLES_SCHEMA.md` for the
+(`solve.py --compute-stats`). See `x/roae/P2_OBSERVABLES_SCHEMA.md` for the
 frozen schema.
 
 | # | Dim | Meaning | Family |
@@ -40,7 +40,7 @@ frozen schema.
 
 For each of the 9 non-stratifier dimensions, KW's exact percentile in the
 marginal was computed by streaming histogram aggregation across all 3.43B
-records. (Script: `scripts/p2_marginals.py`; full table in
+records. (Subcommand: `solve.py --marginals`; full table in
 `x/roae/P2_MARGINALS.md`.)
 
 | Dim | KW value | Records < KW | Records == KW | **KW percentile** |
@@ -107,7 +107,7 @@ Visual observations:
 
 A Gaussian-kernel density estimate was fit over the 7 informative
 dimensions (excluding the two invariant transition-Hamming dims and the
-categorical stratifier). See `scripts/p2_joint_density.py` and
+categorical stratifier). See `solve.py --joint-density` and
 `x/roae/P2_JOINT_DENSITY.md` for methodology details.
 
 - **Sample:** 102,990 standardized records (30 per chunk × 3,433 chunks,
@@ -184,12 +184,16 @@ All scripts and intermediate data are preserved:
 
 - **Input:** `solutions.bin` on `solver-data-westus3` managed disk (sha256
   `915abf30…`, 3,432,399,297 records)
-- **Stat computation:** `scripts/compute_stats.py` — per-record 10-dim
+- **Stat computation:** `solve.py --compute-stats` — per-record 10-dim
   vector, output as per-chunk parquet directory
-- **Marginal analysis:** `scripts/p2_marginals.py` (streaming histograms)
-- **Bivariate plots:** `scripts/p2_bivariate.py` (matplotlib hexbin +
+- **Marginal analysis:** `solve.py --marginals` (streaming histograms)
+- **Bivariate plots:** `solve.py --bivariate` (matplotlib hexbin +
   uniform subsample)
-- **Joint density:** `scripts/p2_joint_density.py` (sklearn KDE + bootstrap)
+- **Joint density:** `solve.py --joint-density` (sklearn KDE + bootstrap)
+- All four subcommands consolidated into `solve.py` on 2026-04-22 per the
+  single-Python-file rule; previously lived as `scripts/compute_stats.py`,
+  `scripts/p2_marginals.py`, `scripts/p2_bivariate.py`,
+  `scripts/p2_joint_density.py` in the staging repo.
 - **Archived outputs:** `x/roae/P2_MARGINALS.md`, `x/roae/viz/`,
   `x/roae/P2_JOINT_DENSITY.md`
 

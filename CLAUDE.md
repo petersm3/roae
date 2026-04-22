@@ -144,18 +144,33 @@ $3-25 and accumulates across sessions.
 
 ## Single C source file — `solve.c` — no new `.c` files
 
-**Standing rule (2026-04-21):** All C code on this project lives in `solve.c`.
-No new `.c` files, not even for analysis tools that don't touch enumeration.
+**Standing rule (2026-04-21, extended 2026-04-22):** All C code on this
+project lives in `solve.c`. All Python lives in `solve.py`. The only
+exception to the Python rule is `viz/visualize.py` (PCA plots — separate
+because its dependency footprint is heavy and it's run independently).
+No new `.c` or `.py` files elsewhere, not even for analysis tools.
 
 - Need a tool to parse an enumeration log? Add it as a subcommand in
   `solve.c` (e.g., `./solve --yield-report`), not a separate `analyze_yields.c`.
-- Need a helper utility? Same — new subcommand inside `solve.c`.
-- Python (`scripts/*.py`), shell, markdown, binaries all fine — rule is
-  specifically about `.c` files.
+- Need a Python analysis utility? Add it as a subcommand in `solve.py`
+  (e.g., `solve.py --compute-stats`, `solve.py --marginals`,
+  `solve.py --bivariate`, `solve.py --joint-density`) — not a separate
+  `scripts/compute_stats.py` or similar.
+- Shell, markdown, binaries outside the two consolidated files are fine.
 
 Why: single source of truth, one compile target, one test matrix, no
-dependency sprawl. `solve.c` is already the canonical C file on this
-project; it stays that way.
+dependency sprawl. `solve.c` and `solve.py` are the two canonical source
+files on this project; they stay that way.
+
+Past violations:
+- 2026-04-21: `analyze_yields.c` created as a separate file; user directive
+  "i do not want new c files, i want them in solve.c" established the rule
+  for C.
+- 2026-04-21: `scripts/compute_stats.py`, `scripts/p2_marginals.py`,
+  `scripts/p2_bivariate.py`, `scripts/p2_joint_density.py` developed as
+  separate files during the P2 distributional-analysis sprint. Consolidated
+  into `solve.py` on 2026-04-22 per user directive "consolidate all except
+  viz/visualize.py"; `scripts/` subdirectory removed.
 
 Past violation: 2026-04-21 created `analyze_yields.c` as a separate file;
 user directive "i do not want new c files, i want them in solve.c" /
