@@ -1852,6 +1852,26 @@ static void sub_ckpt_flush_worker(ThreadState *ts) {
         fclose(mf);
         rename("sub_ckpt_meta.txt.tmp", "sub_ckpt_meta.txt");
     }
+
+    /* --depth-profile durability (2026-04-23). Write this worker's per-depth
+     * counters to sub_ckpt_depth<tid>.txt so spot-eviction+resume preserves
+     * the depth histogram. Independent of the solutions checkpoint. Atomic
+     * via .tmp + rename. */
+    {
+        char dfname[64], dtmpname[64];
+        snprintf(dfname,   sizeof(dfname),   "sub_ckpt_depth%d.txt",     ts->thread_id);
+        snprintf(dtmpname, sizeof(dtmpname), "sub_ckpt_depth%d.txt.tmp", ts->thread_id);
+        FILE *df = fopen(dtmpname, "w");
+        if (df) {
+            for (int d = 0; d <= 32; d++) {
+                fprintf(df, "%lld\n", ts->nodes_at_depth[d]);
+            }
+            fflush(df);
+            fsync(fileno(df));
+            fclose(df);
+            rename(dtmpname, dfname);
+        }
+    }
 }
 
 /* Load any existing sub_ckpt_wrk*.bin files into the first worker's
@@ -1930,6 +1950,39 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
                "shared_nodes restored to %lld\n",
                loaded_records, loaded_files, shared);
     }
+
+    /* --depth-profile durability: sum any sub_ckpt_depth<tid>.txt files and
+     * carry the total into consolidate_into->nodes_at_depth[]. End-of-run
+     * aggregation will add post-resume worker counts on top, yielding a
+     * correct final histogram across the eviction boundary. */
+    {
+        int depth_files_loaded = 0;
+        for (int tid = 0; tid < 64; tid++) {
+            char dfname[64];
+            snprintf(dfname, sizeof(dfname), "sub_ckpt_depth%d.txt", tid);
+            if (stat(dfname, &st) != 0) continue;
+            FILE *df = fopen(dfname, "r");
+            if (!df) continue;
+            long long vals[33] = {0};
+            int read_ok = 1;
+            for (int d = 0; d <= 32; d++) {
+                if (fscanf(df, "%lld", &vals[d]) != 1) { read_ok = 0; break; }
+            }
+            fclose(df);
+            if (read_ok) {
+                for (int d = 0; d <= 32; d++)
+                    consolidate_into->nodes_at_depth[d] += vals[d];
+                depth_files_loaded++;
+            }
+        }
+        if (depth_files_loaded > 0) {
+            long long total_d = 0;
+            for (int d = 0; d <= 32; d++) total_d += consolidate_into->nodes_at_depth[d];
+            printf("Checkpoint resume: depth profile restored from %d files, "
+                   "%lld pre-eviction nodes summed into worker 0\n",
+                   depth_files_loaded, total_d);
+        }
+    }
     return shared;
 }
 
@@ -1940,6 +1993,8 @@ static void sub_ckpt_cleanup(void) {
     for (int tid = 0; tid < 64; tid++) {
         char fname[64];
         snprintf(fname, sizeof(fname), "sub_ckpt_wrk%d.bin", tid);
+        unlink(fname);
+        snprintf(fname, sizeof(fname), "sub_ckpt_depth%d.txt", tid);
         unlink(fname);
     }
 }
@@ -8550,9 +8605,16 @@ sub_enum_done:
                         fprintf(stderr, "DEPTH_PROFILE depth=%d nodes=%lld\n", d, depth_totals[d]);
                         dp_sum += depth_totals[d];
                     }
+                    /* On fresh runs dp_sum == total_nodes_p. On resumed runs,
+                     * dp_sum may exceed total_nodes_p because the depth array
+                     * was restored from sub_ckpt_depth<tid>.txt but workers[i].nodes
+                     * starts fresh. dp_sum is the authoritative count on resume. */
+                    const char *match_tag;
+                    if (dp_sum == total_nodes_p) match_tag = "yes";
+                    else if (dp_sum > total_nodes_p) match_tag = "dp_sum_is_authoritative_resumed_run";
+                    else match_tag = "no_UNEXPECTED_INVESTIGATE";
                     fprintf(stderr, "DEPTH_PROFILE_TOTAL sum=%lld total_nodes=%lld match=%s\n",
-                            dp_sum, total_nodes_p,
-                            (dp_sum == total_nodes_p) ? "yes" : "no");
+                            dp_sum, total_nodes_p, match_tag);
                 }
             }
 
