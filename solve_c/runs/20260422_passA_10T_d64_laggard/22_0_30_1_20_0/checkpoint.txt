@@ -1,0 +1,1 @@
+Sub-branch BUDGETED (parallel, pair1 22 orient1 0 pair2 30 orient2 1 pair3 20 orient3 0): 10000002204300 nodes, 2375985240 C3-valid, 16431733 solutions, 10947s elapsed, budget 10000000000000
