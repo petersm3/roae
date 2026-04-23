@@ -398,6 +398,24 @@ static volatile int sub_sub_next_idx = 0;
  * Checked at task-claim time; indices with done=1 are skipped (no DFS). */
 static volatile int sub_sub_task_done[SUB_SUB_MAX] = {0};
 
+/* Per-task stats (2026-04-24, "level b" tree viz). One slot per depth-5
+ * task. Written once by the worker that processes the task, at task
+ * completion (or as partial on interrupt/budget). Enables Pareto analysis
+ * of task-level yield and load balance across workers. At end-of-run,
+ * dumped to per_task_stats.csv for external plotting. */
+typedef struct {
+    long long nodes;         /* DFS backtrack entries during this task */
+    int solutions_added;     /* delta in worker's solution_count */
+    int wall_time_ms;        /* task wall time */
+    unsigned char worker_id; /* which thread processed it */
+    unsigned char completed; /* 1 if DFS ran to natural completion, 0 if partial */
+    unsigned char max_depth; /* highest step reached (32 = full leaf depth) */
+    unsigned char padding;
+    long long nodes_at_depth[33]; /* per-task depth histogram (d in 0..32) */
+    long long c3_leaves;     /* C3-valid canonical leaves found (step==32) */
+} PerTaskStats;
+static PerTaskStats sub_sub_task_stats[SUB_SUB_MAX] = {0};
+
 /* Per-CCD shared node counters (P1 v3, 2026-04-21). Zen 5c "Turin Dense"
  * D128als_v7 has 16 CCDs × 8 cores each. A single atomic counter at 128
  * threads saturates cache-line ownership and caps single-process
@@ -698,6 +716,10 @@ typedef struct {
      * per ThreadState + 1 increment per backtrack entry. Output is gated on
      * SOLVE_DEPTH_PROFILE=1 env var so existing runs are byte-identical. */
     long long nodes_at_depth[33];
+    /* Pointer to the current depth-5 task's PerTaskStats slot (2026-04-24).
+     * Set by worker loop at task-start, cleared at task-end. backtrack()
+     * uses this to route per-task increments. NULL outside task windows. */
+    void *current_task_stats;
     int kw_found;
     int branches_completed;
     long long hash_collisions;
@@ -1309,7 +1331,15 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
 static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7], int step) {
     ts->nodes++;
     ts->branch_nodes++;
-    if ((unsigned)step <= 32) ts->nodes_at_depth[step]++;  /* --depth-profile */
+    if ((unsigned)step <= 32) {
+        ts->nodes_at_depth[step]++;  /* --depth-profile (aggregate) */
+        /* Per-task depth histogram (2026-04-24). Pointer is NULL outside
+         * task boundaries; cast to PerTaskStats* inside to avoid the
+         * struct fwd-decl dance given solve.c's header ordering. */
+        if (ts->current_task_stats) {
+            ((PerTaskStats *)ts->current_task_stats)->nodes_at_depth[step]++;
+        }
+    }
     /* Runtime invariants (compile out in release builds via -DNDEBUG).
      * These catch any refactor that breaks budget bookkeeping or step
      * progression. Negligible cost when asserts are active. */
@@ -1392,6 +1422,10 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
         int cd = compute_comp_dist_x64(seq);
         if (cd <= kw_comp_dist_x64) {
             ts->solutions_c3++;
+            /* Per-task C3-leaf count (2026-04-24). */
+            if (ts->current_task_stats) {
+                ((PerTaskStats *)ts->current_task_stats)->c3_leaves++;
+            }
             if (!ts->kw_found) {
                 int match = 1;
                 for (int i = 0; i < 64; i++) {
@@ -2191,6 +2225,14 @@ static void *thread_func_sub_sub(void *arg) {
          * into "new exploration only." Cheap ~4-byte load per claim. */
         if (sub_sub_task_done[idx]) continue;
 
+        /* Per-task stats (2026-04-24): record start values so we can
+         * compute delta after DFS completes. Also wire the current-task
+         * pointer so backtrack() bumps per-task depth histogram + c3_leaves. */
+        long long task_start_nodes = ts->branch_nodes;
+        long long task_start_sols = ts->solution_count;
+        time_t task_start_time = time(NULL);
+        ts->current_task_stats = &sub_sub_task_stats[idx];
+
         SubSubBranchTask *task = &sub_sub_tasks[idx];
 
         /* Snapshot shared prefix into local state. */
@@ -2246,9 +2288,32 @@ static void *thread_func_sub_sub(void *arg) {
          * the flag clear so resume will redo this task. False positives
          * here mean redoing a bit of already-done work; false negatives
          * would mean skipping incomplete tasks, which would drop solutions. */
-        if (!sub_sub_budget_hit && !global_timed_out) {
+        int task_completed_cleanly = (!sub_sub_budget_hit && !global_timed_out);
+        if (task_completed_cleanly) {
             sub_sub_task_done[idx] = 1;
         }
+
+        /* Per-task stats (2026-04-24): record this task's DFS delta.
+         * Written once, no atomic needed since each task index is
+         * claimed exactly once per process lifetime. Partial stats are
+         * still useful for diagnostic purposes even when completed=0. */
+        {
+            long long task_nodes = ts->branch_nodes - task_start_nodes;
+            long long task_sols = ts->solution_count - task_start_sols;
+            int task_wall_ms = (int)((time(NULL) - task_start_time) * 1000);
+            sub_sub_task_stats[idx].nodes = task_nodes;
+            sub_sub_task_stats[idx].solutions_added = (int)task_sols;
+            sub_sub_task_stats[idx].wall_time_ms = task_wall_ms;
+            sub_sub_task_stats[idx].worker_id = (unsigned char)ts->thread_id;
+            sub_sub_task_stats[idx].completed = (unsigned char)(task_completed_cleanly ? 1 : 0);
+            /* max_depth = highest depth with any nodes in this task's histogram. */
+            int md = 0;
+            for (int d = 32; d >= 0; d--) {
+                if (sub_sub_task_stats[idx].nodes_at_depth[d] > 0) { md = d; break; }
+            }
+            sub_sub_task_stats[idx].max_depth = (unsigned char)md;
+        }
+        ts->current_task_stats = NULL;  /* clear pointer outside task window */
 
         /* Tier 2 memory-relief flush check (2026-04-23). Triggered per
          * worker when its local solution_count crosses the per-worker
@@ -8831,6 +8896,45 @@ sub_enum_done:
 
             long elapsed_p = (long)(time(NULL) - start_time);
             int solutions_p = (int)workers[0].solution_count;
+
+            /* Per-task stats dump (2026-04-24). Write CSV to per_task_stats.csv
+             * for external analysis (Pareto plot, worker load-balance, etc).
+             * Schema:
+             *   task_idx, nodes, solutions_added, wall_time_ms,
+             *   worker_id, completed, max_depth, c3_leaves,
+             *   nodes_d0..nodes_d32  (33 depth bins) */
+            {
+                FILE *pf = fopen("per_task_stats.csv", "w");
+                if (pf) {
+                    fprintf(pf, "task_idx,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves");
+                    for (int d = 0; d <= 32; d++) fprintf(pf, ",nodes_d%d", d);
+                    fprintf(pf, "\n");
+                    for (int i = 0; i < n_sub_sub_tasks; i++) {
+                        PerTaskStats *s = &sub_sub_task_stats[i];
+                        fprintf(pf, "%d,%lld,%d,%d,%u,%u,%u,%lld",
+                                i, s->nodes, s->solutions_added, s->wall_time_ms,
+                                (unsigned)s->worker_id, (unsigned)s->completed,
+                                (unsigned)s->max_depth, s->c3_leaves);
+                        for (int d = 0; d <= 32; d++)
+                            fprintf(pf, ",%lld", s->nodes_at_depth[d]);
+                        fprintf(pf, "\n");
+                    }
+                    fclose(pf);
+                    int complete_cnt = 0, partial_cnt = 0;
+                    long long total_nodes_in_tasks = 0;
+                    long long total_c3 = 0;
+                    for (int i = 0; i < n_sub_sub_tasks; i++) {
+                        if (sub_sub_task_stats[i].completed) complete_cnt++;
+                        else if (sub_sub_task_stats[i].nodes > 0) partial_cnt++;
+                        total_nodes_in_tasks += sub_sub_task_stats[i].nodes;
+                        total_c3 += sub_sub_task_stats[i].c3_leaves;
+                    }
+                    fprintf(stderr, "[per-task] wrote per_task_stats.csv: %d complete, "
+                            "%d partial, %d untouched (%lld total nodes, %lld C3 leaves)\n",
+                            complete_cnt, partial_cnt, n_sub_sub_tasks - complete_cnt - partial_cnt,
+                            total_nodes_in_tasks, total_c3);
+                }
+            }
 
             /* Tier 2 end-of-run: if flush-mode was enabled, emit one final
              * chunk per worker so ALL solutions are on disk, then suppress
