@@ -759,6 +759,11 @@ typedef struct {
  * the C standard guarantees safe for signal-handler writes. volatile keeps
  * the compiler from caching reads across observable points in worker loops. */
 static volatile sig_atomic_t global_timed_out = 0;
+/* SIGUSR1: operator-triggered "dump state now" request. Handler merely
+ * flips this flag; the monitor thread observes it and emits a detailed
+ * status block on its next 1s poll, then clears the flag. Non-invasive:
+ * sending SIGUSR1 never interrupts enumeration work. */
+static volatile sig_atomic_t sigusr1_requested = 0;
 /* threads_completed is written only via __sync_fetch_and_add (atomic) and
  * read by the monitor thread. volatile forces re-read each iteration of the
  * monitor while-loop. */
@@ -790,6 +795,13 @@ static void signal_handler(int sig) {
     global_timed_out = 1;
     const char msg[] = "\n*** Signal received — shutting down gracefully ***\n";
     if (write(STDERR_FILENO, msg, sizeof(msg) - 1)) {}
+}
+
+/* SIGUSR1 handler — request a state snapshot from the monitor thread
+ * without interrupting worker DFS. Async-signal-safe: only sets flag. */
+static void sigusr1_handler(int sig) {
+    (void)sig;
+    sigusr1_requested = 1;
 }
 
 static time_t start_time;
@@ -8541,6 +8553,15 @@ sub_enum_done:
             sigaction(SIGTERM, &sa_p, NULL);
             sigaction(SIGINT, &sa_p, NULL);
 
+            /* SIGUSR1 → operator "dump state now" (doesn't interrupt run).
+             * Usage during a run:   kill -USR1 $(pgrep -f 'solve --sub-branch')
+             * Output emitted on next 1s poll by the monitor thread. */
+            struct sigaction sa_usr;
+            sa_usr.sa_handler = sigusr1_handler;
+            sa_usr.sa_flags = 0;
+            sigemptyset(&sa_usr.sa_mask);
+            sigaction(SIGUSR1, &sa_usr, NULL);
+
             start_time = time(NULL);
             printf("Starting parallel --sub-branch enumeration...\n\n");
             fflush(stdout);
@@ -8573,13 +8594,17 @@ sub_enum_done:
                 }
             }
 
-            /* Monitor with progress lines every 10s. */
+            /* Monitor with progress lines every 10s, plus on-demand SIGUSR1
+             * state dumps (poked via `kill -USR1 <pid>`). */
             int report_counter_p = 0;
             while (threads_completed < n_threads_p && !global_timed_out) {
                 sleep(1);
+                int want_snapshot = sigusr1_requested;
                 report_counter_p++;
-                if (report_counter_p < 10) continue;
-                report_counter_p = 0;
+                if (!want_snapshot && report_counter_p < 10) continue;
+                if (!want_snapshot) report_counter_p = 0;
+                sigusr1_requested = 0;  /* clear even if just periodic */
+
                 long long tn = 0, tsval = 0, tc3 = 0;
                 long long tu = 0, thc = 0;
                 for (int i = 0; i < n_threads_p; i++) {
@@ -8592,12 +8617,71 @@ sub_enum_done:
                 long elapsed_now_p = (long)(time(NULL) - start_time);
                 int claimed = sub_sub_next_idx;
                 if (claimed > n_sub_sub_tasks) claimed = n_sub_sub_tasks;
+                int done_tasks = 0;
+                for (int i = 0; i < n_sub_sub_tasks; i++)
+                    if (sub_sub_task_done[i]) done_tasks++;
+                int busy_tasks = claimed - done_tasks;
+                if (busy_tasks < 0) busy_tasks = 0;
+                int pending_tasks = n_sub_sub_tasks - claimed;
                 double rate_p = elapsed_now_p > 0 ? tn / (double)elapsed_now_p / 1e6 : 0;
+
+                /* Budget ETA: assumes current rate holds and the budget is
+                 * the binding exit. Sub-sub_sum_counters() may exceed tn
+                 * on a resumed run (resumed_shared is added in), so use it
+                 * for the "remaining to budget" math. */
+                long long nodes_global = sub_sub_sum_counters();
+                if (nodes_global < tn) nodes_global = tn;
+                long long remaining = (per_branch_node_limit > 0)
+                    ? per_branch_node_limit - nodes_global : 0;
+                long eta_sec = (rate_p > 0 && remaining > 0)
+                    ? (long)((double)remaining / (rate_p * 1e6)) : -1;
+                char eta_buf[32];
+                if (eta_sec < 0) {
+                    snprintf(eta_buf, sizeof(eta_buf), "ETA=?");
+                } else {
+                    long eh = eta_sec / 3600, em = (eta_sec % 3600) / 60;
+                    snprintf(eta_buf, sizeof(eta_buf), "ETA=%ldh%02ldm", eh, em);
+                }
+
                 fprintf(stderr, "  %.1fB nodes, %.1fM sol, %lld C3 (%lld stored), "
-                        "%d/%d tasks, %.0fM/s, %lds%s\n",
+                        "tasks: %d done/%d busy/%d pending, %.0fM/s, %lds, %s%s\n",
                         tn / 1e9, tsval / 1e6, tc3, tu,
-                        claimed, n_sub_sub_tasks, rate_p, elapsed_now_p,
+                        done_tasks, busy_tasks, pending_tasks, rate_p, elapsed_now_p,
+                        eta_buf,
                         sub_sub_budget_hit ? " [BUDGET]" : "");
+
+                if (want_snapshot) {
+                    /* Detailed SIGUSR1 dump: per-depth node counts (top
+                     * 8 by count) + hash-table size + budget-fill fraction. */
+                    long long depth_totals[33] = {0};
+                    for (int i = 0; i < n_threads_p; i++)
+                        for (int d = 0; d <= 32; d++)
+                            depth_totals[d] += workers[i].nodes_at_depth[d];
+                    fprintf(stderr, "  --- SIGUSR1 snapshot ---\n");
+                    fprintf(stderr, "    budget_fill=%.2f%% (%lld / %lld)\n",
+                            per_branch_node_limit > 0 ?
+                              100.0 * nodes_global / (double)per_branch_node_limit : 0.0,
+                            nodes_global, per_branch_node_limit);
+                    fprintf(stderr, "    tasks: %d of %d complete (%.1f%%)\n",
+                            done_tasks, n_sub_sub_tasks,
+                            100.0 * done_tasks / (n_sub_sub_tasks ? n_sub_sub_tasks : 1));
+                    fprintf(stderr, "    hash_table: %lld stored, %lld hash_collisions\n",
+                            tu, thc);
+                    /* Peak 8 depths by node count. */
+                    for (int top = 0; top < 8; top++) {
+                        int best = -1;
+                        long long best_val = 0;
+                        for (int d = 0; d <= 32; d++) {
+                            if (depth_totals[d] > best_val) { best_val = depth_totals[d]; best = d; }
+                        }
+                        if (best < 0) break;
+                        fprintf(stderr, "    depth[%d] = %lld nodes\n", best, best_val);
+                        depth_totals[best] = 0;  /* zero out so next loop picks next-largest */
+                    }
+                    fprintf(stderr, "  --- end snapshot ---\n");
+                    fflush(stderr);
+                }
+
                 if (time_limit > 0 && (time(NULL) - start_time) >= time_limit) {
                     global_timed_out = 1;
                     break;
