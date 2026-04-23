@@ -585,6 +585,29 @@ Archived at `solve_c/runs/20260422_passA_10T_d64_laggard/<branch>/` (public repo
 
 **Full findings doc** (engineering + science + process detail): `x/roae/PASS1_FINDINGS.md`.
 
+## April 23, 2026 — Campaigns B + D: orientation symmetry weakly supported; yield-1,116 class falsified
+
+Two cheap parallel campaigns ran on 2 × D64als_v7 spot westus3 (`bcd-runs-westus3` + `bcd-runs-2-westus3`), 64 threads each, 1T per-branch budget. 14 total outputs (4 Campaign B + 10 Campaign D), ~3 VM-hours cumulative, ~$3 cost.
+
+**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)`.** Four `(o1, o2, o3)` variants: `(0,0,1), (0,1,0), (1,0,1), (1,1,0)`. All four BUDGETED at 1T. Yields:
+
+| Branch | Yield | File size |
+|---|---|---|
+| `20_0_21_0_26_1` | 4,845,906 | 155 MB |
+| `20_0_21_1_26_0` | 4,868,087 | 156 MB |
+| `20_1_21_0_26_1` | 4,885,209 | 156 MB |
+| `20_1_21_1_26_0` | 4,788,353 | 153 MB |
+
+Spread 2.0%. Consistent with orientation-symmetry at the level of total yield (would converge at EXHAUSTED); not proof. **Weakly supports** the 4× operational shortcut of running one orientation per prefix triple for yield-lower-bound campaigns. Full doc: `x/roae/PASSB_FINDINGS.md`.
+
+**Campaign D — yield-1,116 calibration.** Ten branches that all produced exactly 1,116 canonical solutions at the 100T aggregate run ran at 1T-per-branch: yields span **7.05M–19.50M** (2.77× spread), all BUDGETED, growth factors 6,319× to 17,476× vs the 100T-aggregate yield. "Yield = 1,116" was a **budget artifact** from the aggregate-budget sampling, not a structural class. Power-law fit gives α = 0.72-0.77 across these 10 branches — *sub-linear*, inverse to the yield-16 laggards' α = 4.23 *super-linear* (Pass 1). That α-inversion is a real structural signal (direction: these 10 trees are closer to exhaustion than laggards, but still far from it). Full doc: `x/roae/PASSD_FINDINGS.md`.
+
+**Per-branch archival** at `solve_c/runs/20260423_passB_D_10T_d64/{B,D}_<prefix>/` (sha + meta + log.gz) per the 2026-04-22 archival-pattern convention. The 14 `.bin` files (4.0 GB aggregate) live on `solver-data-westus3:/data/20260423_passBD/`.
+
+**Operational incident — parallel dual-VM runner coordination gap:** bcd-runs' queue covered B[1..4] + D[1..10]; bcd-runs-2 ran D[6..10] in parallel to halve wall-time. A guard script on bcd-runs was set to kill the bash runner after D[5] completed. The guard fired correctly at D[5]'s completion (`03:39:50`), but between D[5]'s exit and the `pkill` (`03:39:51`), the bash for-loop had already forked the D[6] solve process. That orphaned solve ran for 7 seconds before being manually caught and killed. Partial `D_10_0_6_1_2_0/` dir removed. **No duplicate in final output.** Lesson for future multi-VM coordination: the guard should probe for the NEXT solve process after the kill and verify no orphan remains. Added to `DEPLOYMENT.md` parallel-dual-VM-runner notes.
+
+**Tree-size speculation writeup:** in response to "can we speculate how many nodes a branch has?" — wrote `x/roae/TREE_SIZE_SPECULATION.md` with five methodologies (power-law fit, per-depth branching factor, calibration against exhausted branches, K-ratio structural inference, graph-theoretic upper bound). Recommends adding `./solve --depth-profile` subcommand (~50 LOC) + calibrating against 10 zero-yield-at-100T branches (~$50 + 1 dev day). Total RAM wall at 10,000T on Mac Mini: 320-1,600 GB for hash table; count-only mode (no hash, no I/O) eliminates RAM wall entirely at cost of losing per-solution identity — worthwhile tradeoff for tree-size characterization.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
@@ -609,8 +632,8 @@ All partition-invariance validated. 100T solutions.bin (102 GB) lives on `solver
 ✅ **Campaign A Pass 1 CLOSED** (this dated section above) — yield-16 laggards at 10T both BUDGETED with 16.4M canonical solutions each. Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class. **Not pursuing Pass 2/3/4 on A.**
 
 1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,543 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
-2. **Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.** Cheap 1T × 4-8 branches on D64 spot (~$4). Empirical validation of the 8× speedup potential for orientation-symmetric groups in future full-enumeration contexts.
-3. **Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.** 1T × 10 on D64 spot (~$5). Calibrates growth-rate model across a wider yield spread.
+2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See [`x/roae/PASSB_FINDINGS.md`](../../x/roae/PASSB_FINDINGS.md).
+3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See [`x/roae/PASSD_FINDINGS.md`](../../x/roae/PASSD_FINDINGS.md).
 4. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome.
 5. **Distributional-analysis v2 follow-ups**: schema drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on `position_2_pair`; formal joint-hypothesis testing with Bonferroni / permutation.
 6. **Technical paper / preprint drafting** — `x/roae/PAPER_OUTLINE.md` is the skeleton; P2 completion satisfied the key data-dependency. Ready to draft sections 1–5 now.
