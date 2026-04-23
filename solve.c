@@ -392,6 +392,11 @@ static SubSubBranchTask sub_sub_tasks[SUB_SUB_MAX];
 static int n_sub_sub_tasks = 0;
 /* Atomic task dispenser: workers fetch+increment to claim next task. */
 static volatile int sub_sub_next_idx = 0;
+/* Completed-task bitmap (2026-04-23). Set by worker AFTER a task's DFS
+ * finishes cleanly with no budget-hit; persisted by sub_ckpt_flush_worker
+ * so resume can skip already-completed tasks instead of re-walking them.
+ * Checked at task-claim time; indices with done=1 are skipped (no DFS). */
+static volatile int sub_sub_task_done[SUB_SUB_MAX] = {0};
 
 /* Per-CCD shared node counters (P1 v3, 2026-04-21). Zen 5c "Turin Dense"
  * D128als_v7 has 16 CCDs × 8 cores each. A single atomic counter at 128
@@ -1872,6 +1877,26 @@ static void sub_ckpt_flush_worker(ThreadState *ts) {
             rename(dtmpname, dfname);
         }
     }
+
+    /* Completed-task bitmap (Option C, 2026-04-23). Global array, written
+     * by whichever worker calls flush — all workers see the same value
+     * via volatile. One file for the whole run: sub_ckpt_task_done.txt,
+     * single line of n_sub_sub_tasks chars (0/1). Atomic via .tmp+rename.
+     * On resume, sub_sub_task_done[idx] gets populated and workers skip
+     * completed tasks entirely. */
+    {
+        FILE *tdf = fopen("sub_ckpt_task_done.txt.tmp", "w");
+        if (tdf) {
+            for (int i = 0; i < n_sub_sub_tasks; i++) {
+                fputc(sub_sub_task_done[i] ? '1' : '0', tdf);
+            }
+            fputc('\n', tdf);
+            fflush(tdf);
+            fsync(fileno(tdf));
+            fclose(tdf);
+            rename("sub_ckpt_task_done.txt.tmp", "sub_ckpt_task_done.txt");
+        }
+    }
 }
 
 /* Load any existing sub_ckpt_wrk*.bin files into the first worker's
@@ -1983,6 +2008,32 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
                    depth_files_loaded, total_d);
         }
     }
+
+    /* Completed-task bitmap (Option C, 2026-04-23). Restore sub_sub_task_done[]
+     * so the worker loop's "if (sub_sub_task_done[idx]) continue;" skips
+     * already-walked tasks. Note: the task list (sub_sub_tasks[]) is
+     * deterministically re-built by build_sub_sub_branch_tasks() at every
+     * run, so index semantics are stable across invocations as long as the
+     * d3 prefix stays the same. */
+    if (stat("sub_ckpt_task_done.txt", &st) == 0) {
+        FILE *tdf = fopen("sub_ckpt_task_done.txt", "r");
+        if (tdf) {
+            int loaded = 0;
+            int c;
+            while ((c = fgetc(tdf)) != EOF && loaded < SUB_SUB_MAX) {
+                if (c == '0' || c == '1') {
+                    sub_sub_task_done[loaded] = (c == '1') ? 1 : 0;
+                    loaded++;
+                }
+            }
+            fclose(tdf);
+            int done_count = 0;
+            for (int i = 0; i < loaded; i++) if (sub_sub_task_done[i]) done_count++;
+            printf("Checkpoint resume: task-done bitmap restored, "
+                   "%d of %d tasks marked complete (skipped on resume)\n",
+                   done_count, loaded);
+        }
+    }
     return shared;
 }
 
@@ -1990,6 +2041,7 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
  * final output is written + fsynced. */
 static void sub_ckpt_cleanup(void) {
     unlink("sub_ckpt_meta.txt");
+    unlink("sub_ckpt_task_done.txt");
     for (int tid = 0; tid < 64; tid++) {
         char fname[64];
         snprintf(fname, sizeof(fname), "sub_ckpt_wrk%d.bin", tid);
@@ -2045,6 +2097,12 @@ static void *thread_func_sub_sub(void *arg) {
         int idx = __sync_fetch_and_add(&sub_sub_next_idx, 1);
         if (idx >= n_sub_sub_tasks) break;
 
+        /* Resume optimization (2026-04-23): if this task was already
+         * walked to completion in a prior run (checkpoint-restored bitmap),
+         * skip it. Turns resume-with-more-budget from "re-walk everything"
+         * into "new exploration only." Cheap ~4-byte load per claim. */
+        if (sub_sub_task_done[idx]) continue;
+
         SubSubBranchTask *task = &sub_sub_tasks[idx];
 
         /* Snapshot shared prefix into local state. */
@@ -2087,6 +2145,21 @@ static void *thread_func_sub_sub(void *arg) {
                 sub_sub_sum_counters() >= per_branch_node_limit) {
                 sub_sub_budget_hit = 1;
             }
+        }
+
+        /* Mark this task as fully walked — but ONLY if no early-exit
+         * signal fired at any point during our DFS:
+         *   - sub_sub_budget_hit: any worker crossed the budget line;
+         *     our backtrack may have short-circuited mid-subtree.
+         *   - global_timed_out: SIGTERM/SIGINT (e.g. spot eviction or
+         *     operator kill); backtrack returns immediately on entry.
+         * If either was set at any time during our DFS, we can't safely
+         * claim the task's subtree is fully visited. Conservatively leave
+         * the flag clear so resume will redo this task. False positives
+         * here mean redoing a bit of already-done work; false negatives
+         * would mean skipping incomplete tasks, which would drop solutions. */
+        if (!sub_sub_budget_hit && !global_timed_out) {
+            sub_sub_task_done[idx] = 1;
         }
 
         /* Intra-sub-branch checkpointing is handled by a dedicated
