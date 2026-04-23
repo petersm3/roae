@@ -8906,13 +8906,15 @@ sub_enum_done:
             {
                 FILE *pf = fopen("per_task_stats.csv", "w");
                 if (pf) {
-                    fprintf(pf, "task_idx,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves");
+                    fprintf(pf, "task_idx,p4,o4,p5,o5,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves");
                     for (int d = 0; d <= 32; d++) fprintf(pf, ",nodes_d%d", d);
                     fprintf(pf, "\n");
                     for (int i = 0; i < n_sub_sub_tasks; i++) {
                         PerTaskStats *s = &sub_sub_task_stats[i];
-                        fprintf(pf, "%d,%lld,%d,%d,%u,%u,%u,%lld",
-                                i, s->nodes, s->solutions_added, s->wall_time_ms,
+                        SubSubBranchTask *t = &sub_sub_tasks[i];
+                        fprintf(pf, "%d,%d,%d,%d,%d,%lld,%d,%d,%u,%u,%u,%lld",
+                                i, t->p4, t->o4, t->p5, t->o5,
+                                s->nodes, s->solutions_added, s->wall_time_ms,
                                 (unsigned)s->worker_id, (unsigned)s->completed,
                                 (unsigned)s->max_depth, s->c3_leaves);
                         for (int d = 0; d <= 32; d++)
