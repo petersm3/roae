@@ -674,6 +674,49 @@ inspection or a short-lived compute task.
 6. **Default to `--ephemeral-os-disk true`** for VMs that will live < 1 hour.
    Ephemeral OS disks are destroyed with the VM automatically, eliminating
    orphan-cleanup steps.
+7. **Parallel `az vm create` returns IPs in completion order, not submission
+   order — bind IP-to-name via `az vm show` after create (lesson from
+   2026-04-22 Pass 1 launch mixup).** If you launch multiple VMs with
+   `az vm create ... & az vm create ... & wait`, the stdout line that appears
+   first is the VM that *finished creating* first, not the one whose command
+   was submitted first. Using stdout ordering to decide "this IP is VM A,
+   that IP is VM B" has a 50% chance of being wrong. Always follow up with:
+
+   ```bash
+   az vm show -g <rg> -n <vmA> --query publicIpAddress -o tsv  # the truth
+   az vm show -g <rg> -n <vmB> --query publicIpAddress -o tsv
+   ```
+
+   Past incident: at Pass 1 launch on 2026-04-22 I misassigned which IP
+   went to which VM name, then when I "killed the slow VM" I actually
+   deleted the fast one. Recovery cost ~$0.70 + 1.5 hrs wall. The fix is
+   cheap (query by name post-create); the failure mode is expensive.
+
+### Archival pattern for large `--sub-branch` outputs (>100 MB)
+
+P1's depth-5 parallel exploration produces much larger `sub_*.bin` files
+than legacy DFS at the same budget (typically ~500 MB at 10T for rich
+branches). These are too big for git-native storage but need preservation
+for scientific reproducibility. Established pattern (from 2026-04-22 Pass 1):
+
+1. **Big file stays on `solver-data-westus3` managed disk** at
+   `/data/archive/<run-label>/<branch>/sub_<branch>.bin`. Attach the disk
+   temporarily to the source VM, `cp` the file, `sync && umount`, detach.
+2. **Commit only the small artifacts** to the public repo at
+   `solve_c/runs/<YYYYMMDD>_<label>/<branch>/`:
+   - `sub_<branch>.sha256` — 1 line, the sha256 of the big file
+   - `sub_<branch>.meta.json` — params, yield, wall, rate, solver commit, archive location
+   - `run.log.gz` — solver stdout gzipped (~20-30 KB)
+   - `checkpoint.txt` — final status line from solve.c
+3. **Top-level `README.md`** in the run directory summarizing parameters,
+   results, growth analysis, conclusion, cost.
+
+Verification recipe: attach `solver-data-westus3` to any D2als_v7+, then:
+```bash
+cd /data/archive/<run-label>/<branch>
+sha256sum -c sub_<branch>.sha256   # copy the .sha256 from the repo first
+./solve --verify sub_<branch>.bin  # per-record C1-C5 check, shard mode auto-detected
+```
 
 ### Zone caveat for analysis VMs
 

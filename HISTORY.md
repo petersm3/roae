@@ -554,7 +554,38 @@ Initial triage mis-attributed incident #3 to user-driven manual action (based on
 
 **Meta-lesson:** for any project rule whose violation has real cost, prefer system-level enforcement (Azure Policy, wrapper scripts, pre-commit hooks) over documentation. Documented policies compete with contextual precedent in Claude's decision process; deterministic blocks do not.
 
-## Current state (2026-04-21)
+## April 22, 2026 — Campaign A Pass 1 (10T × 2 yield-16 laggards): single-branch exhaustion ruled out
+
+First real-world test of P1 parallel `--sub-branch` on a scientific workload. Ran the two lowest-yield branches of the 100T d3 canonical (`22_0_30_1_20_0` and `22_1_30_1_20_0`, both yielded 16 solutions at the 631M-node per-sub-branch budget used in the 100T enumeration) at 10T node budget each, on D64als_v7 spot in westus3, 64 threads, 60s checkpoint cadence. Solver commit `cca1a40`.
+
+**Result: both branches BUDGETED (neither EXHAUSTED).**
+
+| Branch | Canonical solutions at 10T | Wall | `sub_*.bin` size | sha256 |
+|---|---|---|---|---|
+| `22_0_30_1_20_0` | 16,431,733 | 3h 02m | 502 MB | `e801bc7e47898369f31c7508bde39e48970a821c76ffc61bd82fbf6afab03a31` |
+| `22_1_30_1_20_0` | 16,433,267 | 2h 52m | 502 MB | `7a58a86882faae7b53b4cb41c8300ef3d3b841bfc6852b93d157c75d001202e1` |
+
+Archived at `solve_c/runs/20260422_passA_10T_d64_laggard/<branch>/` (public repo — only sha + meta + log.gz + checkpoint; the 502 MB `sub_*.bin` lives on `solver-data-westus3:/data/archive/passA_10T_d64_laggard/<branch>/` per the new "archival pattern for large outputs" convention).
+
+**Growth rate:** 1T → 10T: **1,700× super-linear yield growth** (16 sols at 631M budget → 960 at 1T → 16.4M at 10T). Budget grew 15,800× from 631M to 10T; yield grew ~1,000,000×. The tree for these branches is vastly larger than 10T nodes.
+
+**Scientific conclusion:** single-branch exhaustion via budget-ladder is **infeasible** for the yield-16-at-100T class. Pass 2 (100T) would produce ~170M-1.7B sols per branch, still BUDGETED; Pass 3 (300T) and beyond gain no qualitative ground. **Campaign A closed: not pursuing further laggard-exhaustion passes.**
+
+**The Pass 1 yields are themselves a scientific data point**: each yield-16 laggard has **at least 16.4M canonical C1-C5-valid orderings** in its depth-3 sub-tree. Within the 2,507-task depth-5 parallelization surface we explored, a typical BUDGETED 10T run discovered 16-20M solutions per branch — orders of magnitude more than legacy-DFS discovery at the same budget (which would concentrate the budget in the first few tasks and find ~10⁴ solutions).
+
+**Methodological findings:**
+- **Output file sizes at 10T are 800× larger than projected** (~502 MB actual vs ~640 KB √(budget)-extrapolation). Parallel exploration spreads a 10T budget across ~2,500 tasks simultaneously, producing many more distinct canonical solutions than legacy DFS of the same budget would discover.
+- **Spot-VM placement variance: real and operationally critical.** At launch, 2 of 2 D64 spot VMs showed differing rates (955 M/s vs 142 M/s — 6.7× spread). Mandatory: early-rate-check (~60-90s elapsed) + kill-and-retry on bad placement.
+- **Operator error during launch** (logged so future sessions avoid it): parallel `az vm create ... & az vm create ... & wait` returns IPs in completion order, NOT submission order. My initial IP-to-VM-name assignment was reversed, so when I "killed the slow VM", I deleted the FAST one. Recovery cost ~$0.70 + 1.5 hrs wall. **Standing rule added:** always bind IP↔name via `az vm show --name X --query publicIpAddress` AFTER create; never trust `az vm create` stdout ordering when running in parallel.
+- **Archival pattern for >100 MB outputs established.** Commit sha + meta.json + run.log.gz + checkpoint.txt + README.md to public repo (~50 KB); keep the large `.bin` on `solver-data-westus3` managed disk at `/data/archive/<run>/<branch>/`. Recipe scales to any future `--sub-branch` run producing large outputs.
+
+**Standing "sync+umount before VM teardown" rule (from 2026-04-22 morning archive incident) applied correctly:** both VMs' `/data` mounts of `solver-data-westus3` were cleanly unmounted before detach. Zero journal recovery on next mount.
+
+**Cost:** ~$3.50 total ($2.82 for 2 clean runs + $0.70 recovery overhead). Within the ~$5 pre-run estimate.
+
+**Full findings doc** (engineering + science + process detail): `x/roae/PASS1_FINDINGS.md`.
+
+## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
 
@@ -571,15 +602,26 @@ All partition-invariance validated. 100T solutions.bin (102 GB) lives on `solver
 
 **Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW. The **5-boundary minimum at 100T d3** supersedes the earlier "4-boundary minimum" — boundaries `{25, 27}` remain mandatory across d2 / d3-10T / d3-100T; partition-dependent boundaries shift at deeper budget. Greedy-optimal 5-set at 100T: `{1, 4, 21, 25, 27}`. **KW is at the C3 ceiling (776)**, not the floor — 9.91% of records tie with KW at 776; minimum C3 = 424 (221 records). **Distributional analysis (April 21):** KW sits at 0.000%-ile of joint observable density (bootstrap 95% CI [0.000%, 0.000%]) — joint extremity driven by simultaneous 95th+ percentile values across c3_total, c6_c7_count, shift_conformant_count, first_position_deviation. See `DISTRIBUTIONAL_ANALYSIS.md`.
 
-**Next steps (as of 2026-04-21):**
-1. **P1 — parallel `--sub-branch` implementation** (currently single-threaded, ~22M nodes/sec on D32): design doc at `x/roae/PARALLEL_SUB_BRANCH_DESIGN.md`, implementation plan at `x/roae/P1_IMPLEMENTATION_PLAN.md`. Gating dependency for any further single-branch campaign at meaningful budgets. Without P1, Pass 1 (10T per branch) takes 5 days serial; with P1 it's ~3 hrs.
-2. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome. Parallel to P1.
-3. **Distributional-analysis follow-ups**: schema v2 drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on position_2_pair; formal joint-hypothesis testing with Bonferroni / permutation.
-4. **Single-branch campaign follow-ups** (blocked on P1): A = yield-16 laggard budget ladder (try for first EXHAUSTED); B = orientation-symmetry structural test on `(20,*,21,*,26,*)` cluster; C = cross-prefix-equivalence investigation on the 6 branches at yield 1,110,543; D = mid-yield calibration (10 branches at 100T yield=1,116).
-5. **Disk decommissioning** (pending user approval): `solver-validate-d2`, `solver-validate-d3` (both 300 GB Unattached, westus2, superseded by 100T canonical), `solver-data` (westus2, 300 GB Unattached, superseded). Rule: never auto-delete; user approval required. `solver-data-westus3` stays (holds the 100T canonical).
-6. **Scientific-review follow-ups** from `x/roae/` staging: formal proof of forced-orientation theorem (Lean/Rocq, Level 2), technical report (#14), bootstrap confidence intervals already added for the P2 joint-density claim.
+**Next steps (as of 2026-04-22):**
 
-## Infrastructure (2026-04-21)
+✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: [`x/roae/P1_SCALING_MEASUREMENTS.md`](../../x/roae/P1_SCALING_MEASUREMENTS.md). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
+
+✅ **Campaign A Pass 1 CLOSED** (this dated section above) — yield-16 laggards at 10T both BUDGETED with 16.4M canonical solutions each. Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class. **Not pursuing Pass 2/3/4 on A.**
+
+1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,543 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
+2. **Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.** Cheap 1T × 4-8 branches on D64 spot (~$4). Empirical validation of the 8× speedup potential for orientation-symmetric groups in future full-enumeration contexts.
+3. **Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.** 1T × 10 on D64 spot (~$5). Calibrates growth-rate model across a wider yield spread.
+4. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome.
+5. **Distributional-analysis v2 follow-ups**: schema drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on `position_2_pair`; formal joint-hypothesis testing with Bonferroni / permutation.
+6. **Technical paper / preprint drafting** — `x/roae/PAPER_OUTLINE.md` is the skeleton; P2 completion satisfied the key data-dependency. Ready to draft sections 1–5 now.
+7. **Azure Policy `DENY Standard_F*`** (pending user green light — single highest-value leak mitigation). See `x/roae/SOLVER_D3_POSTMORTEM.md` §5a.
+8. **Disk decommissioning review** (pending user approval):
+   - `solver-data` (westus2, 300 GB Unattached, stale partial shards) — candidate for deletion.
+   - `solver-d3_OsDisk_*` westus2 orphan — was cleaned up during the 2026-04-22 solver-d3 incident teardown.
+   - `solver-data-westus3` stays (holds 100T canonical + d2/d3 10T archive + passA artifacts).
+9. **Scientific-review follow-ups** from `x/roae/SCIENTIFIC_REVIEW.md`: formal proof of Forced-Orientation theorem (Lean/Rocq Level 2), bootstrap CIs on older marginal claims (unblocked by 100T canonical).
+
+## Infrastructure (2026-04-22)
 
 - **Orchestrator VM** (`claude`, D2as_v6, westus2 zone 2): orchestration, analysis, git. $0.09/hr on-demand. Can't be stopped without ending the session.
 - **Enumeration VMs (standing rule — updated 2026-04-20 & 2026-04-21)**:
