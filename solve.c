@@ -764,6 +764,27 @@ static volatile sig_atomic_t global_timed_out = 0;
  * status block on its next 1s poll, then clears the flag. Non-invasive:
  * sending SIGUSR1 never interrupts enumeration work. */
 static volatile sig_atomic_t sigusr1_requested = 0;
+/* Tier 2 memory-relief flush (2026-04-23). When SOLVE_MEMORY_FLUSH_COUNT=N
+ * is set, each worker self-flushes its in-memory canonical hash table to
+ * a unique chunk file on disk when its local solution_count crosses
+ * N/n_threads, then clears the in-memory table and keeps running. Unlike
+ * the snapshot checkpoint (which overwrites a per-worker durability file
+ * each cycle), Tier 2 chunks are APPEND-ONLY history: each flush
+ * produces a new file that never gets rewritten. At end-of-run, all
+ * chunk files + final in-memory state must be externally merged to
+ * produce the final dedup'd solutions.bin.
+ *
+ * Filename pattern: sub_flush_chunk_<6digit_seq>_wrk<tid>.bin
+ * Dedup is LAZY: the same canonical ordering may appear in multiple
+ * chunks (found pre-flush in chunk N, re-found post-flush in chunk N+1)
+ * — external merge at end-of-run uses the lex-smallest-record-wins
+ * semantics from analyze_solution to deduplicate.
+ *
+ * Set threshold = 0 to disable (default). */
+static volatile int sub_flush_seq = 0;
+static long long per_worker_flush_threshold = 0;  /* 0 = disabled */
+static long long tier2_total_records_flushed = 0; /* reporting only */
+static volatile int tier2_total_chunks_written = 0;
 /* threads_completed is written only via __sync_fetch_and_add (atomic) and
  * read by the monitor thread. volatile forces re-read each iteration of the
  * monitor while-loop. */
@@ -2049,6 +2070,61 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
     return shared;
 }
 
+/* Tier 2: flush current hash table to a new chunk file AND clear the
+ * in-memory state. Caller MUST hold ts->ht_mutex. The chunk filename is
+ * globally-unique (global seq counter) and the file is append-only —
+ * never rewritten. After this returns, ts->sol_table/sol_occupied are
+ * cleared and ts->solution_count = 0, so the worker can keep
+ * accumulating new solutions without hitting memory limits. Each flush
+ * costs one pass over the worker's hash table (write only the
+ * occupied slots). */
+static void sub_flush_chunk_to_disk(ThreadState *ts) {
+    int seq = __sync_fetch_and_add(&sub_flush_seq, 1);
+    char fname[96], tmpname[112];
+    snprintf(fname,   sizeof(fname),   "sub_flush_chunk_%06d_wrk%d.bin",     seq, ts->thread_id);
+    snprintf(tmpname, sizeof(tmpname), "sub_flush_chunk_%06d_wrk%d.bin.tmp", seq, ts->thread_id);
+    FILE *f = fopen(tmpname, "wb");
+    if (!f) {
+        fprintf(stderr, "WARNING: tier2-flush: cannot open %s: %s\n", tmpname, strerror(errno));
+        return;
+    }
+    long long written = 0;
+    if (ts->sol_table && ts->sol_occupied) {
+        for (int s = 0; s < ts->ht_size; s++) {
+            if (!ts->sol_occupied[s]) continue;
+            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE],
+                       SOL_RECORD_SIZE, 1, f) != 1) {
+                fprintf(stderr, "WARNING: tier2-flush: short write on %s\n", tmpname);
+                fclose(f);
+                return;
+            }
+            written++;
+        }
+    }
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) {
+        fprintf(stderr, "WARNING: tier2-flush: fflush/fsync failed on %s\n", tmpname);
+        fclose(f);
+        return;
+    }
+    fclose(f);
+    if (rename(tmpname, fname) != 0) {
+        fprintf(stderr, "WARNING: tier2-flush: rename %s → %s failed\n", tmpname, fname);
+        return;
+    }
+
+    /* Clear in-memory state. The allocation stays; only the contents
+     * are zeroed. Next insertion repopulates from scratch. */
+    memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
+    memset(ts->sol_occupied, 0, ts->ht_size);
+    ts->solution_count = 0;
+
+    __sync_add_and_fetch(&tier2_total_records_flushed, written);
+    __sync_add_and_fetch(&tier2_total_chunks_written, 1);
+    fprintf(stderr, "  [tier2-flush] worker %d: wrote %lld records to %s; in-memory cleared\n",
+            ts->thread_id, written, fname);
+    fflush(stderr);
+}
+
 /* Delete checkpoint files after a successful run. Called from main after
  * final output is written + fsynced. */
 static void sub_ckpt_cleanup(void) {
@@ -2172,6 +2248,21 @@ static void *thread_func_sub_sub(void *arg) {
          * would mean skipping incomplete tasks, which would drop solutions. */
         if (!sub_sub_budget_hit && !global_timed_out) {
             sub_sub_task_done[idx] = 1;
+        }
+
+        /* Tier 2 memory-relief flush check (2026-04-23). Triggered per
+         * worker when its local solution_count crosses the per-worker
+         * threshold. Flush is atomic under this worker's ht_mutex so
+         * the checkpoint thread doesn't race. Task-boundary check
+         * (not mid-DFS) keeps the hot path free of any test. */
+        if (per_worker_flush_threshold > 0 &&
+            ts->solution_count > per_worker_flush_threshold) {
+            pthread_mutex_lock(&ts->ht_mutex);
+            /* Re-check under lock (another path may have flushed). */
+            if (ts->solution_count > per_worker_flush_threshold) {
+                sub_flush_chunk_to_disk(ts);
+            }
+            pthread_mutex_unlock(&ts->ht_mutex);
         }
 
         /* Intra-sub-branch checkpointing is handled by a dedicated
@@ -8453,6 +8544,27 @@ sub_enum_done:
             if (n_threads_p < 1) n_threads_p = 1;
             if (n_threads_p > 64) n_threads_p = 64;
 
+            /* Tier 2 memory-relief flush threshold (2026-04-23). Env var
+             * SOLVE_MEMORY_FLUSH_COUNT=N enables flush-and-clear when any
+             * worker's local solution_count exceeds N/n_threads_p. With
+             * 64 threads and N=200000000 (200M), each worker flushes at
+             * ~3.1M local records -> disk, freeing its hash table for
+             * another cycle. At end-of-run, all chunk files require
+             * external merge (./solve --merge) to produce final output. */
+            {
+                char *env_flush = getenv("SOLVE_MEMORY_FLUSH_COUNT");
+                if (env_flush && atoll(env_flush) > 0) {
+                    long long global_threshold = atoll(env_flush);
+                    per_worker_flush_threshold = global_threshold / n_threads_p;
+                    if (per_worker_flush_threshold < 1000) per_worker_flush_threshold = 1000;
+                    fprintf(stderr,
+                        "Tier 2 memory-relief flush ENABLED: global=%lld records, "
+                        "per-worker=%lld records. Chunk files sub_flush_chunk_*.bin\n"
+                        "will accumulate on disk; external merge required at end-of-run.\n",
+                        global_threshold, per_worker_flush_threshold);
+                }
+            }
+
             /* Populate shared depth-3 prefix state — mirror of
              * thread_func_single lines ~1388-1486. */
             SubBranch *sb0 = &all_sub[0];
@@ -8720,8 +8832,31 @@ sub_enum_done:
             long elapsed_p = (long)(time(NULL) - start_time);
             int solutions_p = (int)workers[0].solution_count;
 
+            /* Tier 2 end-of-run: if flush-mode was enabled, emit one final
+             * chunk per worker so ALL solutions are on disk, then suppress
+             * the normal sub_*.bin write (workers[0] only has post-last-flush
+             * records and is not the complete set). Caller must run
+             * `./solve --merge` on the chunk files to produce the final
+             * dedup'd solutions.bin. */
+            if (per_worker_flush_threshold > 0) {
+                fprintf(stderr, "\n[tier2] flushing final in-memory state from all workers...\n");
+                for (int i = 0; i < n_threads_p; i++) {
+                    pthread_mutex_lock(&workers[i].ht_mutex);
+                    if (workers[i].solution_count > 0) {
+                        sub_flush_chunk_to_disk(&workers[i]);
+                    }
+                    pthread_mutex_unlock(&workers[i].ht_mutex);
+                }
+                fprintf(stderr,
+                    "[tier2] complete: %d chunks written, %lld total records flushed.\n"
+                    "[tier2] NEXT STEP: run `./solve --merge sub_flush_chunk_*.bin` to\n"
+                    "[tier2] produce the final dedup'd solutions.bin. Skipping in-line\n"
+                    "[tier2] write because workers[0] contains only post-last-flush data.\n",
+                    tier2_total_chunks_written, tier2_total_records_flushed);
+            }
+
             pthread_mutex_lock(&checkpoint_mutex);
-            if (workers[0].solution_count > 0) {
+            if (per_worker_flush_threshold == 0 && workers[0].solution_count > 0) {
                 flush_sub_solutions_d3(&workers[0], p1p, o1p, p2p, o2p, p3p, o3p);
             }
             FILE *ckpt_p = fopen("checkpoint.txt", "a");
