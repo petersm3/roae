@@ -688,6 +688,11 @@ typedef struct {
     long long solutions_c3;     /* "C3-valid" = passed ALL constraints (C1-C5), not just C3 */
     long long nodes;
     long long branch_nodes;  /* per-branch counter, reset between branches */
+    /* Per-depth DFS-node histogram (2026-04-23, --depth-profile). One slot
+     * per step in [0, 32]. Per-thread, aggregated at run end. Cost: ~264 B
+     * per ThreadState + 1 increment per backtrack entry. Output is gated on
+     * SOLVE_DEPTH_PROFILE=1 env var so existing runs are byte-identical. */
+    long long nodes_at_depth[33];
     int kw_found;
     int branches_completed;
     long long hash_collisions;
@@ -1266,6 +1271,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
 static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7], int step) {
     ts->nodes++;
     ts->branch_nodes++;
+    if ((unsigned)step <= 32) ts->nodes_at_depth[step]++;  /* --depth-profile */
     /* Runtime invariants (compile out in release builds via -DNDEBUG).
      * These catch any refactor that breaks budget bookkeeping or step
      * progression. Negligible cost when asserts are active. */
@@ -8523,6 +8529,32 @@ sub_enum_done:
                     "%d solutions, %lds (%d threads, %d tasks, %lld dedup collisions) ***\n",
                     status_p, total_nodes_p/1000000000LL, total_c3_p/1000000LL,
                     solutions_p, elapsed_p, n_threads_p, n_sub_sub_tasks, total_hc_p);
+
+            /* --depth-profile output (2026-04-23). Emits per-depth DFS-node
+             * counts summed across all workers. Gated on SOLVE_DEPTH_PROFILE=1
+             * to avoid changing output for existing runs. Each line:
+             *   DEPTH_PROFILE depth=<d> nodes=<n>
+             * Followed by a DEPTH_PROFILE_TOTAL line for cross-check. */
+            {
+                char *env_dp = getenv("SOLVE_DEPTH_PROFILE");
+                if (env_dp && strcmp(env_dp, "1") == 0) {
+                    long long depth_totals[33] = {0};
+                    for (int i = 0; i < n_threads_p; i++) {
+                        for (int d = 0; d <= 32; d++) {
+                            depth_totals[d] += workers[i].nodes_at_depth[d];
+                        }
+                    }
+                    long long dp_sum = 0;
+                    fprintf(stderr, "\n--- DEPTH PROFILE ---\n");
+                    for (int d = 0; d <= 32; d++) {
+                        fprintf(stderr, "DEPTH_PROFILE depth=%d nodes=%lld\n", d, depth_totals[d]);
+                        dp_sum += depth_totals[d];
+                    }
+                    fprintf(stderr, "DEPTH_PROFILE_TOTAL sum=%lld total_nodes=%lld match=%s\n",
+                            dp_sum, total_nodes_p,
+                            (dp_sum == total_nodes_p) ? "yes" : "no");
+                }
+            }
 
             /* Successful completion: delete checkpoint files so a future
              * invocation with the same prefix starts fresh. INTERRUPTED
