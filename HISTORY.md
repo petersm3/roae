@@ -608,6 +608,42 @@ Spread 2.0%. Consistent with orientation-symmetry at the level of total yield (w
 
 **Tree-size speculation writeup:** in response to "can we speculate how many nodes a branch has?" — wrote `x/roae/TREE_SIZE_SPECULATION.md` with five methodologies (power-law fit, per-depth branching factor, calibration against exhausted branches, K-ratio structural inference, graph-theoretic upper bound). Recommends adding `./solve --depth-profile` subcommand (~50 LOC) + calibrating against 10 zero-yield-at-100T branches (~$50 + 1 dev day). Total RAM wall at 10,000T on Mac Mini: 320-1,600 GB for hash table; count-only mode (no hash, no I/O) eliminates RAM wall entirely at cost of losing per-solution identity — worthwhile tradeoff for tree-size characterization.
 
+## April 23, 2026 late-evening — Pass 1 α correction, solve.c observability hardening, 1000T exhaustion attempt
+
+Three distinct threads of work landed across ~6 hours.
+
+**1. α correction — Pass 1 was wrong about growth rate.** PASS1_FINDINGS.md cited α ≈ 4.23 super-linear yield growth from 1T → 10T for the yield-16 laggards, and concluded exhaustion was infeasible for this class. A fresh P1-parallel 1T run on `22_0_30_1_20_0` produced **4,899,772 solutions** — not the 960 originally cited. The 960 figure came from a legacy single-threaded 1T probe; when running at 1T with P1's parallel depth-5 task granularity, the solver spreads the budget across 2,507 tasks simultaneously and finds 5,000× more canonical solutions than legacy DFS at the same budget. Using comparable P1-parallel-only measurements:
+
+- 1T P1-parallel: 4,899,772 sols
+- 10T P1-parallel: 16,431,733 sols (Pass 1)
+- Yield ratio 3.35× for 10× budget → **α ≈ 0.52 (sub-linear)**
+
+Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in [`x/roae/PASS1_FINDINGS.md`](../../x/roae/PASS1_FINDINGS.md) Addendum B and [`x/roae/DEPTH_PROFILE_CALIBRATION.md`](../../x/roae/DEPTH_PROFILE_CALIBRATION.md).
+
+**2. solve.c observability + durability additions** (commits `b9ff72d`, `e591e1c`, `e9c151d`, `f73c3ed`; selftest sha unchanged; zero impact on scientific output):
+
+- **`--depth-profile`** (commit `b9ff72d`) — per-thread `nodes_at_depth[33]` counter, fully parallel (no contention). Gated on `SOLVE_DEPTH_PROFILE=1` env var. At end-of-run emits `DEPTH_PROFILE depth=<d> nodes=<n>` for d in 0..32 and a cross-check line `DEPTH_PROFILE_TOTAL sum=<s> total_nodes=<t> match=yes|no`. First calibration data: `22_0_30_1_20_0` at 1T has 99.9% of work at depths 28-32, peak at depth 30 (3.71×10^11 nodes). Three structural regimes: thin corridor d5-20, exponential fan-out d21-29, budget-cut frontier d30-32.
+
+- **Depth-profile checkpoint durability** (commit `e591e1c`) — per-worker `sub_ckpt_depth<tid>.txt` written by `sub_ckpt_flush_worker`, restored by `sub_ckpt_load` into `workers[0].nodes_at_depth[]`. Spot-VM eviction now preserves the per-depth histogram across resume. `DEPTH_PROFILE_TOTAL` cross-check softened to distinguish fresh / resumed / anomalous cases.
+
+- **Completed-task bitmap** (commit `e9c151d`, Option C) — `sub_sub_task_done[SUB_SUB_MAX]` global array marked after each task's DFS completes cleanly (no `sub_sub_budget_hit`, no `global_timed_out`). Persisted to `sub_ckpt_task_done.txt`, read on resume. Worker loop: after atomic claim of idx, `if (sub_sub_task_done[idx]) continue;` skips walked tasks without DFS. **Turns the "run 100T, if BUDGETED relaunch with 1000T" pattern from "~80% redo overhead" to "new exploration only"** — the eviction-recovery cost for multi-day runs drops substantially.
+
+- **SIGUSR1 mid-run snapshot** (commit `f73c3ed`, Tier 1 observability). Progress line now shows `tasks: N done / M busy / K pending` and `ETA=HhMMm`. `kill -USR1 <pid>` triggers a detailed state dump (budget %, task complete count, top-8 depths, hash stats) on the next 1s poll — non-invasive, does not touch worker state.
+
+**3. 1000T single-branch exhaustion attempt (currently running).** Launched 2026-04-23 ~05:06 UTC on `deep-calib-westus3` (D64als_v7 spot, westus3), target `22_0_30_1_20_0`. `SOLVE_NODE_LIMIT=1000000000000000` (10^15). Rate holding at ~1,355 M/s. ETA ~8.5 days. Projected cost ~$49 (at the $50 session budget cap; warranted because this is a first-ever attempt to EXHAUSTED a yield-16 laggard branch). Three possible outcomes:
+
+- **EXHAUSTED**: exact tree size pinned. Biggest scientific win of the month — would upgrade "tree size ≈ 10^14-10^15" from estimate to measurement.
+- **BUDGETED, yield ~55M sols**: α = 0.52 fit confirmed by a third data point. 3000T becomes the next experiment.
+- **BUDGETED, yield >> 55M**: α is higher than 0.52; reconsider the exhaustion-at-modest-scale premise and revive disk-flush mitigations.
+
+Operator commands (during the run):
+```bash
+# Mid-run snapshot (non-invasive)
+ssh solver@<IP> "kill -USR1 \$(pgrep -f 'solve --sub-branch') && sleep 2 && tail -30 ~/work/run.log"
+# Task completion count (5-min cadence via checkpoint files)
+ssh solver@<IP> "tr -cd 1 < ~/work/sub_ckpt_task_done.txt | wc -c"
+```
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
