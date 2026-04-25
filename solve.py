@@ -3175,8 +3175,950 @@ def p2_joint_density(chunks_dir, out_md, samples_per_chunk=30,
     print(f"[joint-density] wrote {out_md}", flush=True)
 
 
+# ----------------------------------------------------------------------------
+# P2 v2 follow-ups (2026-04-24): stratified-by-position_2_pair, denser KDE
+# bandwidth selection, permutation test for multi-test correction.
+# Spec: x/roae/DISTRIBUTIONAL_V2_SPEC.md
+# ----------------------------------------------------------------------------
+
+
+def _p2_v2_native_kde_count(solve_binary, fit_data_std, bandwidth, kw_score,
+                             chunks_dir, cols, mu, sigma, mask_filter=None,
+                             stream_batch_rows=10000):
+    """Drive the native solve.c --kde-score-stream subprocess to count
+    records with KDE log-density <= kw_score, exhaustively over all chunks.
+
+    Args:
+      solve_binary: path to compiled `solve` binary with --kde-score-stream
+      fit_data_std: standardized fit points (n_fit × d float64)
+      bandwidth: KDE bandwidth in standardized space
+      kw_score: KW's log-density (threshold)
+      chunks_dir: where chunk_*.parquet files live
+      cols: list of column names matching fit_data_std's columns
+      mu, sigma: standardization params (apply to chunk records before sending)
+      mask_filter: optional callable(record_array) -> bool mask, for stratification.
+                   Called with the full chunk array, returns which rows to send.
+      stream_batch_rows: rows per write to subprocess stdin
+
+    Returns: (n_below, n_total)
+    """
+    import glob
+    import os
+    import subprocess
+    import tempfile
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    n_fit, d = fit_data_std.shape
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+        fit_path = f.name
+        f.write(fit_data_std.astype(np.float64).tobytes())
+
+    cmd = [
+        solve_binary, "--kde-score-stream",
+        "--fit-file", fit_path,
+        "--d", str(d),
+        "--bandwidth", f"{bandwidth:g}",
+        "--threshold", f"{kw_score:.10g}",
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, bufsize=0)
+    try:
+        files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+        for i, f in enumerate(files):
+            t = pq.read_table(f, columns=cols)
+            arr = np.column_stack([t.column(c).to_numpy() for c in cols]).astype(np.float64)
+            if mask_filter is not None:
+                m = mask_filter(arr)
+                arr = arr[m]
+                if len(arr) == 0:
+                    continue
+            arr_std = (arr - mu) / sigma
+            arr_std = np.ascontiguousarray(arr_std, dtype=np.float64)
+            proc.stdin.write(arr_std.tobytes())
+            if (i + 1) % 200 == 0:
+                print(f"  [native-kde] streamed {i+1}/{len(files)} chunks", flush=True)
+        proc.stdin.close()
+        proc.wait(timeout=86400)
+        out = proc.stdout.read()
+        err = proc.stderr.read()
+        if proc.returncode != 0:
+            raise SystemExit(f"[native-kde] subprocess failed (rc={proc.returncode})\n"
+                             f"stderr: {err.decode()[:500]}")
+        line = out.decode().strip()
+        parts = line.split()
+        if len(parts) < 2:
+            raise SystemExit(f"[native-kde] unexpected output: {line!r}\n"
+                             f"stderr: {err.decode()[:500]}")
+        n_below, n_total = int(parts[0]), int(parts[1])
+        return n_below, n_total
+    finally:
+        try:
+            os.unlink(fit_path)
+        except OSError:
+            pass
+
+
+def _p2_strat_native_count(solve_binary, fit_data_std, bandwidth, kw_score,
+                            chunks_dir, full_cols, mu, sigma, stratum_value,
+                            stratifier_col_idx=0):
+    """Like _p2_v2_native_kde_count but filters chunk rows to a single
+    stratum (e.g., position_2_pair == s) before sending to the scorer.
+    full_cols includes the stratifier as its first column; mu/sigma are
+    over the REST of the columns (non-stratifier).
+    """
+    import glob
+    import os
+    import subprocess
+    import tempfile
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    n_fit, d = fit_data_std.shape
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+        fit_path = f.name
+        f.write(fit_data_std.astype(np.float64).tobytes())
+
+    cmd = [
+        solve_binary, "--kde-score-stream",
+        "--fit-file", fit_path,
+        "--d", str(d),
+        "--bandwidth", f"{bandwidth:g}",
+        "--threshold", f"{kw_score:.10g}",
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, bufsize=0)
+    try:
+        files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+        for f in files:
+            t = pq.read_table(f, columns=full_cols)
+            arr = np.column_stack([t.column(c).to_numpy() for c in full_cols]).astype(np.float64)
+            mask = (arr[:, stratifier_col_idx].astype(int) == stratum_value)
+            sub = arr[mask][:, [j for j in range(arr.shape[1]) if j != stratifier_col_idx]]
+            if len(sub) == 0:
+                continue
+            sub_std = (sub - mu) / sigma
+            proc.stdin.write(np.ascontiguousarray(sub_std).tobytes())
+        proc.stdin.close()
+        proc.wait(timeout=43200)
+        out = proc.stdout.read()
+        err = proc.stderr.read()
+        if proc.returncode != 0:
+            raise SystemExit(f"[strat-native] subprocess failed (rc={proc.returncode})\n"
+                             f"stderr: {err.decode()[:500]}")
+        parts = out.decode().strip().split()
+        if len(parts) < 2:
+            raise SystemExit(f"[strat-native] unexpected output: {out!r}")
+        return int(parts[0]), int(parts[1])
+    finally:
+        try:
+            os.unlink(fit_path)
+        except OSError:
+            pass
+
+
+def _p2_v2_load_sample(chunks_dir, columns, samples_per_chunk, rng):
+    """Read sampled rows from chunk_*.parquet; returns (data, n_chunks)."""
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    if not files:
+        raise SystemExit(f"[v2] no chunk_*.parquet files in {chunks_dir}")
+    accum = {c: [] for c in columns}
+    for i, f in enumerate(files):
+        t = pq.read_table(f, columns=columns)
+        k = min(samples_per_chunk, t.num_rows)
+        if k == 0:
+            continue
+        idx = rng.choice(t.num_rows, size=k, replace=False)
+        for c in columns:
+            accum[c].append(t.column(c).to_numpy()[idx])
+        if (i + 1) % 500 == 0:
+            print(f"  chunk {i+1}/{len(files)}", flush=True)
+    data = np.column_stack([np.concatenate(accum[c]) for c in columns]).astype(np.float64)
+    return data, len(files)
+
+
+def _p2_v2_variance_filter(data, columns, kw_values, threshold=1e-6):
+    """Drop columns whose stdev/|mean| is below threshold (effectively constant
+    within the sampled population). Returns filtered (data, columns, kw_values)."""
+    import numpy as np
+    keep_idx = []
+    dropped = []
+    for j, c in enumerate(columns):
+        col = data[:, j]
+        sd = float(np.std(col))
+        mu = float(np.mean(col)) if abs(np.mean(col)) > 1e-12 else 1.0
+        cv = sd / abs(mu)
+        if cv < threshold:
+            dropped.append((c, sd, mu, cv))
+        else:
+            keep_idx.append(j)
+    if dropped:
+        print(f"[v2] dropping {len(dropped)} low-variance dims:", flush=True)
+        for name, sd, mu, cv in dropped:
+            print(f"     {name}: stdev={sd:.6g}, mean={mu:.6g}, cv={cv:.3e}", flush=True)
+    new_cols = [columns[j] for j in keep_idx]
+    new_data = data[:, keep_idx] if keep_idx else data[:, :0]
+    new_kw = [kw_values[c] for c in new_cols]
+    return new_data, new_cols, new_kw, dropped
+
+
+def p2_joint_density_v2(chunks_dir, out_md, samples_per_chunk=30,
+                        bandwidth_method="cv", seed=42, dims=None,
+                        score_batch_size=50000, exhaustive=False,
+                        native_solve_binary=None,
+                        score_sample=30000, bootstrap_n=1000, bootstrap_frac=0.30):
+    """v2 joint density.
+
+    KDE FITTING always uses a sample (mathematically required; sklearn KDE
+    has O(n_fit · n_score) scoring cost, prohibitive on 3.43B records).
+
+    KW percentile computation has two modes:
+       - default (exhaustive=False): score `score_sample` random rows through
+         the fitted KDE, report KW's percentile in that sample with a
+         bootstrap 95% CI. Fast (~minutes); v1-compatible output.
+       - exhaustive=True: stream EVERY chunk through the fitted KDE. Wall
+         time is ~hours-to-days at fit_n=1000-5000 on a single thread;
+         tractable only with parallelism (D64 multiprocess) or a smaller
+         fit sample. Reports the exact count over the full population.
+
+    Adds (a) runtime variance-check that auto-drops constant dims,
+    (b) configurable bandwidth selection (silverman / cv).
+    """
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+    from sklearn.neighbors import KernelDensity
+
+    cols = list(dims) if dims else list(_P2_JD_DIMS)
+    rng = np.random.default_rng(seed)
+    print(f"[v2-jd] reading chunks from {chunks_dir} (cols={cols})", flush=True)
+    fit_data, n_chunks = _p2_v2_load_sample(chunks_dir, cols, samples_per_chunk, rng)
+    print(f"[v2-jd] fit-sample shape: {fit_data.shape} from {n_chunks} chunks", flush=True)
+
+    fit_data, cols, kw_vals, dropped = _p2_v2_variance_filter(fit_data, cols, _P2_KW_VALUES)
+    if fit_data.shape[1] == 0:
+        raise SystemExit("[v2-jd] all dimensions dropped — nothing to fit")
+
+    mu = fit_data.mean(axis=0)
+    sigma = fit_data.std(axis=0)
+    sigma[sigma == 0] = 1.0
+    data_std = (fit_data - mu) / sigma
+    kw_point = np.array(kw_vals, dtype=np.float64).reshape(1, -1)
+    kw_std = (kw_point - mu) / sigma
+
+    n, d = fit_data.shape
+    if bandwidth_method == "silverman":
+        bw = (n * (d + 2) / 4.0) ** (-1.0 / (d + 4))
+        bw_label = f"Silverman bw={bw:.4f} on {n}-row sample"
+    elif bandwidth_method == "cv":
+        from sklearn.model_selection import GridSearchCV
+        candidates = np.logspace(-1.5, 0.5, 12)
+        print(f"[v2-jd] CV bandwidth search over {len(candidates)} values", flush=True)
+        cv_n = min(2000, len(data_std))
+        cv_idx = rng.choice(len(data_std), size=cv_n, replace=False)
+        gs = GridSearchCV(KernelDensity(kernel="gaussian"),
+                          {"bandwidth": candidates}, cv=5, n_jobs=1)
+        gs.fit(data_std[cv_idx])
+        bw = float(gs.best_params_["bandwidth"])
+        bw_label = f"5-fold CV bw={bw:.4f} (cv_n={cv_n}, candidates={len(candidates)})"
+    else:
+        raise SystemExit(f"unknown bandwidth_method: {bandwidth_method}")
+
+    print(f"[v2-jd] {bw_label}", flush=True)
+    kde = KernelDensity(bandwidth=bw, kernel="gaussian").fit(data_std)
+    kw_score = float(kde.score_samples(kw_std)[0])
+    print(f"[v2-jd] KW log-density: {kw_score:.4f}", flush=True)
+
+    if exhaustive:
+        # EXHAUSTIVE scoring path. Two engines:
+        #   - native: ./solve --kde-score-stream subprocess (~10-50× faster)
+        #   - sklearn fallback: O(n_fit × n_score) Python loop, slow
+        if native_solve_binary:
+            print(f"[v2-jd] EXHAUSTIVE via native scorer ({native_solve_binary})",
+                  flush=True)
+            n_below_kw, total_records = _p2_v2_native_kde_count(
+                native_solve_binary, data_std, bw, kw_score,
+                chunks_dir, cols, mu, sigma)
+            kw_pct = n_below_kw / total_records * 100.0 if total_records else float("nan")
+            score_min = score_max = score_sum = float("nan")  # not tracked in native
+            print(f"[v2-jd] NATIVE EXHAUSTIVE: {n_below_kw:,} of {total_records:,} "
+                  f"records score ≤ KW → KW %-ile = {kw_pct:.6f}%", flush=True)
+            engine_label = f"native ({native_solve_binary})"
+        else:
+            print(f"[v2-jd] EXHAUSTIVE scoring pass over all {n_chunks} chunks "
+                  f"(fit_n={len(fit_data)}; expect 1-10 records/ms single-threaded)",
+                  flush=True)
+            files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+            total_records = 0
+            n_below_kw = 0
+            score_min = float("inf")
+            score_max = float("-inf")
+            score_sum = 0.0
+            for i, f in enumerate(files):
+                t = pq.read_table(f, columns=cols)
+                arr = np.column_stack([t.column(c).to_numpy() for c in cols]).astype(np.float64)
+                arr_std = (arr - mu) / sigma
+                for j in range(0, len(arr_std), score_batch_size):
+                    batch = arr_std[j:j + score_batch_size]
+                    scores = kde.score_samples(batch)
+                    n_below_kw += int((scores <= kw_score).sum())
+                    total_records += len(scores)
+                    score_min = min(score_min, float(scores.min()))
+                    score_max = max(score_max, float(scores.max()))
+                    score_sum += float(scores.sum())
+                if (i + 1) % 100 == 0:
+                    print(f"  scored {i+1}/{len(files)} chunks "
+                          f"({total_records:,} records, {n_below_kw:,} below KW)",
+                          flush=True)
+            kw_pct = n_below_kw / total_records * 100.0
+            score_sum = score_sum / total_records
+            engine_label = "sklearn"
+        with open(out_md, "w") as f:
+            f.write("# P2 Joint Density v2 — 100T d3 canonical (EXHAUSTIVE)\n\n")
+            f.write(f"**Total records scored:** {total_records:,} (exhaustive over "
+                    f"{n_chunks} chunks)\n")
+            f.write(f"**Engine:** {engine_label}\n")
+            f.write(f"**Fit-sample size:** {len(fit_data):,} rows for KDE fitting\n")
+            f.write(f"**Final dimensions ({len(cols)}):** {', '.join(f'`{c}`' for c in cols)}\n")
+            if dropped:
+                f.write(f"**Auto-dropped:** {', '.join(f'`{x[0]}`' for x in dropped)}\n")
+            f.write(f"**Bandwidth method:** {bw_label}\n\n")
+            f.write("## Results (exhaustive count)\n")
+            f.write(f"- KW's log-density: **{kw_score:.4f}**\n")
+            f.write(f"- **KW's density-percentile: {kw_pct:.6f}% — "
+                    f"{n_below_kw:,} of {total_records:,} records (exact count)**\n\n")
+            f.write("## Notes\n- Exact count over full canonical population. "
+                    "No bootstrap CI needed.\n")
+        print(f"[v2-jd] wrote {out_md}", flush=True)
+        return
+
+    # Default: SAMPLED scoring path (fast, with bootstrap CI).
+    print(f"[v2-jd] SAMPLED scoring on {score_sample} rows...", flush=True)
+    score_idx = rng.choice(len(data_std), size=min(score_sample, len(data_std)), replace=False)
+    sample_scores = kde.score_samples(data_std[score_idx])
+    kw_pct = float((sample_scores <= kw_score).sum() / len(sample_scores) * 100.0)
+    n_below = int((sample_scores <= kw_score).sum())
+    print(f"[v2-jd] SAMPLED: {n_below}/{len(sample_scores)} below → KW %-ile = {kw_pct:.4f}%",
+          flush=True)
+    print(f"[v2-jd] bootstrap {bootstrap_n}×...", flush=True)
+    boot = []
+    n_boot = int(len(sample_scores) * bootstrap_frac)
+    for b in range(bootstrap_n):
+        bi = rng.choice(len(sample_scores), size=n_boot, replace=True)
+        boot.append((sample_scores[bi] <= kw_score).sum() / n_boot * 100)
+    boot = np.array(boot)
+    ci_low = float(np.percentile(boot, 2.5))
+    ci_high = float(np.percentile(boot, 97.5))
+    with open(out_md, "w") as f:
+        f.write("# P2 Joint Density v2 — 100T d3 canonical (sampled)\n\n")
+        f.write(f"**Sample size for fitting:** {len(fit_data):,} rows ({n_chunks} chunks)\n")
+        f.write(f"**Sample size for scoring:** {len(sample_scores):,} rows\n")
+        f.write(f"**Final dimensions ({len(cols)}):** {', '.join(f'`{c}`' for c in cols)}\n")
+        if dropped:
+            f.write(f"**Auto-dropped:** {', '.join(f'`{x[0]}`' for x in dropped)}\n")
+        f.write(f"**Bandwidth method:** {bw_label}\n\n")
+        f.write("## Results (sampled estimate)\n")
+        f.write(f"- KW's log-density: **{kw_score:.4f}**\n")
+        f.write(f"- Sample log-density: [{sample_scores.min():.4f}, "
+                f"{sample_scores.max():.4f}], mean {sample_scores.mean():.4f}\n")
+        f.write(f"- **KW's density-percentile (sample): {kw_pct:.4f}% "
+                f"(n_below={n_below}/{len(sample_scores)})**\n")
+        f.write(f"- Bootstrap 95% CI ({bootstrap_n} resamples, frac={bootstrap_frac}): "
+                f"**[{ci_low:.4f}%, {ci_high:.4f}%]**\n\n")
+        f.write("## Notes\n")
+        f.write("- This is the SAMPLED path. For an exact population count, re-run with "
+                "`--joint-density-exhaustive` (very slow at full canonical scale; "
+                "wall ~hours-to-days single-threaded).\n")
+        f.write("- The exhaustive `--joint-permutation-test` complements this by "
+                "providing exact counts on per-dim and joint extremity.\n")
+    print(f"[v2-jd] wrote {out_md}", flush=True)
+
+
+def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
+                         seed=42, score_batch_size=50000, exhaustive=False,
+                         native_solve_binary=None,
+                         score_sample=10000, bootstrap_n=500):
+    """Stratify the joint-density analysis on `position_2_pair` (32 strata).
+    Per-stratum KDE fit always uses a sample (mathematically required).
+
+    Default (exhaustive=False): per-stratum sampled scoring with bootstrap CI.
+    exhaustive=True: stream every record in each stratum through that stratum's
+    KDE. ~7 hours per stratum single-threaded → ~9 days for all 32 strata.
+    Use only with parallelism (D32+ multiprocess) or when scoring just the
+    KW stratum.
+    """
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+    from sklearn.neighbors import KernelDensity
+
+    cols = ["position_2_pair"] + list(_P2_JD_DIMS)
+    rng = np.random.default_rng(seed)
+    print(f"[v2-strat] reading chunks from {chunks_dir}", flush=True)
+    fit_data, n_chunks = _p2_v2_load_sample(chunks_dir, cols, samples_per_chunk, rng)
+    print(f"[v2-strat] fit-sample shape: {fit_data.shape}", flush=True)
+
+    p2col = fit_data[:, 0].astype(int)
+    rest_fit = fit_data[:, 1:]
+    rest_cols = cols[1:]
+    rest_fit, rest_cols, kw_vals, dropped = _p2_v2_variance_filter(rest_fit, rest_cols, _P2_KW_VALUES)
+    if rest_fit.shape[1] == 0:
+        raise SystemExit("[v2-strat] all non-stratifier dims dropped")
+    kw_p2 = _P2_KW_VALUES["position_2_pair"]
+    kw_arr = np.array(kw_vals, dtype=np.float64)
+
+    strata = sorted(set(int(x) for x in p2col))
+    print(f"[v2-strat] {len(strata)} strata observed", flush=True)
+
+    # Phase 1: per-stratum KDE fit (sampled)
+    stratum_models = {}
+    for s in strata:
+        mask = (p2col == s)
+        sub = rest_fit[mask]
+        if len(sub) < 200:
+            stratum_models[s] = None  # too few fit-sample rows
+            continue
+        mu = sub.mean(axis=0)
+        sigma = sub.std(axis=0)
+        sigma[sigma == 0] = 1.0
+        sub_std = (sub - mu) / sigma
+        kw_pt = (kw_arr - mu) / sigma
+        n_s, d_s = sub.shape
+        bw = (n_s * (d_s + 2) / 4.0) ** (-1.0 / (d_s + 4))
+        kde = KernelDensity(bandwidth=bw, kernel="gaussian").fit(sub_std)
+        kw_score = float(kde.score_samples(kw_pt.reshape(1, -1))[0])
+        stratum_models[s] = {
+            "mu": mu, "sigma": sigma, "kde": kde,
+            "kw_score": kw_score, "fit_n": len(sub),
+        }
+    print(f"[v2-strat] fit {sum(1 for m in stratum_models.values() if m)} "
+          f"per-stratum KDEs (skipped {sum(1 for m in stratum_models.values() if not m)} small strata)",
+          flush=True)
+
+    if exhaustive:
+        # EXHAUSTIVE per-stratum scoring. Native engine if available
+        # (one subprocess per stratum, mask filters chunks to that p2 value).
+        results = []
+        if native_solve_binary:
+            print(f"[v2-strat] EXHAUSTIVE via native scorer", flush=True)
+            kw_bw = (lambda mdl: ((mdl['fit_n'] * (mdl['fit_n'] + 2) / 4.0) ** (-1.0/(mdl['fit_n'] + 4))) if mdl else None)
+            for s in strata:
+                mdl = stratum_models[s]
+                if not mdl:
+                    results.append((s, 0, 0, float("nan"), float("nan"), "fit n<200"))
+                    continue
+                # Build per-stratum standardized fit
+                mask_s = (p2col == s)
+                sub_fit = rest_fit[mask_s]
+                sub_fit_std = (sub_fit - mdl["mu"]) / mdl["sigma"]
+                # Bandwidth used during fit
+                n_s, d_s = sub_fit.shape
+                bw_s = (n_s * (d_s + 2) / 4.0) ** (-1.0 / (d_s + 4))
+                # Mask filter for chunk records: keep rows in this stratum
+                def make_mask(ss=s):
+                    return lambda arr: (arr[:, 0].astype(int) == ss)
+                # cols includes "position_2_pair" at index 0 + rest_cols
+                # but the native scorer only sees rest_cols. We need to pass
+                # mu/sigma over rest_cols, and a mask_filter that operates
+                # on the full chunk array, returning a row mask.
+                # Inside _p2_v2_native_kde_count, it does (arr - mu) / sigma
+                # using the mu/sigma we pass; mask_filter is applied first.
+                # Apply mask THEN drop the position_2_pair col before standardize:
+                full_cols = cols  # ["position_2_pair", ...rest_cols]
+                def mask_and_drop(arr, ss=s, n_skip=1):
+                    m = (arr[:, 0].astype(int) == ss)
+                    return arr[m][:, n_skip:]  # drop position_2_pair
+                # Trick: we pre-process with mask_and_drop; the mu/sigma fits
+                # rest_cols. Use a custom streaming wrapper.
+                n_below, n_total = _p2_strat_native_count(
+                    native_solve_binary, sub_fit_std, bw_s, mdl["kw_score"],
+                    chunks_dir, full_cols, mdl["mu"], mdl["sigma"], stratum_value=s)
+                pct = n_below / n_total * 100.0 if n_total else float("nan")
+                is_kw = (s == kw_p2)
+                note = f"fit_n={mdl['fit_n']} (native)" + (" [KW STRATUM]" if is_kw else "")
+                results.append((s, n_total, n_below, pct, mdl["kw_score"], note))
+                print(f"  stratum {s}: {n_below:,}/{n_total:,} = {pct:.6f}%", flush=True)
+        else:
+            print(f"[v2-strat] EXHAUSTIVE scoring pass over all {n_chunks} chunks (sklearn)",
+                  flush=True)
+            files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+            stratum_counts = {s: 0 for s in strata}
+            stratum_below = {s: 0 for s in strata}
+            for fi, f in enumerate(files):
+                t = pq.read_table(f, columns=cols)
+                full = np.column_stack([t.column(c).to_numpy() for c in cols]).astype(np.float64)
+                p2 = full[:, 0].astype(int)
+                rest = full[:, 1:]
+                for s in strata:
+                    mdl = stratum_models[s]
+                    if not mdl:
+                        continue
+                    mask = (p2 == s)
+                    if not mask.any():
+                        continue
+                    sub = rest[mask]
+                    sub_std = (sub - mdl["mu"]) / mdl["sigma"]
+                    for j in range(0, len(sub_std), score_batch_size):
+                        batch = sub_std[j:j + score_batch_size]
+                        scores = mdl["kde"].score_samples(batch)
+                        stratum_below[s] += int((scores <= mdl["kw_score"]).sum())
+                        stratum_counts[s] += len(scores)
+                if (fi + 1) % 100 == 0:
+                    print(f"  scored {fi+1}/{len(files)} chunks", flush=True)
+            for s in strata:
+                mdl = stratum_models[s]
+                if not mdl:
+                    results.append((s, 0, 0, float("nan"), float("nan"), "fit n<200"))
+                    continue
+                n_total = stratum_counts[s]
+                n_below = stratum_below[s]
+                pct = n_below / n_total * 100.0 if n_total else float("nan")
+                is_kw = (s == kw_p2)
+                note = f"fit_n={mdl['fit_n']} (sklearn)" + (" [KW STRATUM]" if is_kw else "")
+                results.append((s, n_total, n_below, pct, mdl["kw_score"], note))
+    else:
+        # SAMPLED per-stratum scoring (fast, with bootstrap CI on each stratum).
+        print(f"[v2-strat] SAMPLED scoring (per-stratum sample, with bootstrap CI)",
+              flush=True)
+        # We need a sample per stratum; reuse fit_data (already sampled) for scoring.
+        results = []
+        for s in strata:
+            mdl = stratum_models[s]
+            if not mdl:
+                results.append((s, 0, 0, float("nan"), float("nan"), "fit n<200"))
+                continue
+            mask = (p2col == s)
+            sub = rest_fit[mask]
+            sub_std = (sub - mdl["mu"]) / mdl["sigma"]
+            scs_n = min(score_sample, len(sub_std))
+            scs_idx = rng.choice(len(sub_std), size=scs_n, replace=False)
+            scores = mdl["kde"].score_samples(sub_std[scs_idx])
+            n_below = int((scores <= mdl["kw_score"]).sum())
+            pct = n_below / len(scores) * 100.0
+            # bootstrap CI
+            boot_n = max(50, int(len(scores) * 0.5))
+            boot_pcts = []
+            for b in range(bootstrap_n):
+                bi = rng.choice(len(scores), size=boot_n, replace=True)
+                boot_pcts.append((scores[bi] <= mdl["kw_score"]).sum() / boot_n * 100)
+            ci_low = float(np.percentile(boot_pcts, 2.5))
+            ci_high = float(np.percentile(boot_pcts, 97.5))
+            is_kw = (s == kw_p2)
+            note = (f"fit_n={mdl['fit_n']} score_n={len(scores)} "
+                    f"CI=[{ci_low:.2f},{ci_high:.2f}]"
+                    + (" [KW STRATUM]" if is_kw else ""))
+            results.append((s, len(scores), n_below, pct, mdl["kw_score"], note))
+
+    with open(out_md, "w") as f:
+        mode_label = "exhaustive" if exhaustive else "sampled"
+        f.write(f"# P2 Stratified Joint Density (by position_2_pair) — {mode_label}\n\n")
+        if exhaustive:
+            f.write(f"**Total records:** {sum(stratum_counts.values()):,} ({n_chunks} chunks, exhaustive)\n")
+        else:
+            f.write(f"**Mode:** sampled scoring per stratum, bootstrap CI ({bootstrap_n} resamples)\n")
+        f.write(f"**Fit-sample size (across all strata):** {len(rest_fit):,} rows\n")
+        f.write(f"**Stratifier:** `position_2_pair` ({len(strata)} strata)\n")
+        f.write(f"**Joint dims:** {', '.join(f'`{c}`' for c in rest_cols)}\n")
+        if dropped:
+            f.write(f"**Auto-dropped:** {', '.join(f'`{x[0]}`' for x in dropped)}\n")
+        f.write(f"**KW position_2_pair:** {kw_p2}\n\n")
+        f.write("## Per-stratum KW percentile\n\n")
+        f.write("| stratum | n_records | n_below_KW | KW %-ile | KW log-density | notes |\n")
+        f.write("|---:|---:|---:|---:|---:|---|\n")
+        for s, n_total, n_below, pct, lds, note in results:
+            ps = f"{pct:.6f}%" if pct == pct else "—"
+            ls = f"{lds:.3f}" if lds == lds else "—"
+            f.write(f"| {s} | {n_total:,} | {n_below:,} | {ps} | {ls} | {note} |\n")
+        f.write("\n## Interpretation\n\n")
+        f.write("- The **KW STRATUM** row reports KW's percentile WITHIN its own bucket.\n")
+        f.write("- If the within-stratum percentile is materially weaker than the "
+                "unconditioned, `position_2_pair` is part of the discriminative signal.\n")
+        if not exhaustive:
+            f.write("- Sampled mode includes 95% bootstrap CIs. For exact counts, "
+                    "rerun with `--stratified-exhaustive` (~9 days single-threaded; "
+                    "use D32+ multiprocess to parallelize across strata).\n")
+    print(f"[v2-strat] wrote {out_md}", flush=True)
+
+
+def p2_joint_permutation_test(chunks_dir, out_md, samples_per_chunk=30, seed=42):
+    """Multi-test family-wise correction. EXHAUSTIVE: streams every record
+    in every chunk and counts those at least as extreme as KW on each
+    dimension. Reports Bonferroni-adjusted p-values + the joint extremity
+    distribution.
+
+    samples_per_chunk is used ONLY to compute mu/sigma (the standardization
+    reference). The extremity counts themselves are over the full canonical
+    population.
+    """
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    cols = list(_P2_JD_DIMS)
+    rng = np.random.default_rng(seed)
+    print(f"[v2-perm] reading reference sample for mu/sigma...", flush=True)
+    ref_data, n_chunks = _p2_v2_load_sample(chunks_dir, cols, samples_per_chunk, rng)
+    print(f"[v2-perm] reference sample shape: {ref_data.shape}", flush=True)
+
+    ref_data, cols, kw_vals, dropped = _p2_v2_variance_filter(ref_data, cols, _P2_KW_VALUES)
+    kw_arr = np.array(kw_vals, dtype=np.float64)
+
+    mu = ref_data.mean(axis=0)
+    sigma = ref_data.std(axis=0)
+    sigma[sigma == 0] = 1.0
+    z_kw = (kw_arr - mu) / sigma
+    extremity = np.abs(z_kw)
+    d = len(cols)
+
+    # Exhaustive streaming pass: for each record, compute |z|, accumulate
+    # per-dim counts and per-record extreme-dim count.
+    print(f"[v2-perm] EXHAUSTIVE streaming pass over all {n_chunks} chunks...",
+          flush=True)
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    total_records = 0
+    per_dim_counts = np.zeros(d, dtype=np.int64)
+    joint_distribution = np.zeros(d + 1, dtype=np.int64)
+    for i, f in enumerate(files):
+        t = pq.read_table(f, columns=cols)
+        arr = np.column_stack([t.column(c).to_numpy() for c in cols]).astype(np.float64)
+        z = (arr - mu) / sigma
+        extreme_mask = np.abs(z) >= extremity[None, :]  # shape (n_chunk, d)
+        per_dim_counts += extreme_mask.sum(axis=0).astype(np.int64)
+        per_record_count = extreme_mask.sum(axis=1)  # 0..d
+        bins = np.bincount(per_record_count, minlength=d + 1)
+        joint_distribution += bins.astype(np.int64)
+        total_records += len(arr)
+        if (i + 1) % 100 == 0:
+            print(f"  scored {i+1}/{len(files)} chunks "
+                  f"({total_records:,} records)", flush=True)
+
+    per_dim_p = [int(per_dim_counts[j]) / total_records for j in range(d)]
+    per_dim_p_adj = [min(p * d, 1.0) for p in per_dim_p]
+    joint_rate_at_or_above = []
+    for k in range(d + 1):
+        n_geq_k = int(joint_distribution[k:].sum())
+        rate = n_geq_k / total_records
+        joint_rate_at_or_above.append((k, n_geq_k, rate))
+
+    print(f"[v2-perm] EXHAUSTIVE: {total_records:,} records across {d} dims; "
+          f"{joint_rate_at_or_above[d][1]:,} records tie-or-beat KW on ALL {d} dims",
+          flush=True)
+
+    with open(out_md, "w") as f:
+        f.write("# P2 Joint Permutation / Multi-Test Correction (exhaustive)\n\n")
+        f.write(f"**Total records:** {total_records:,} (exhaustive over {n_chunks} chunks)\n")
+        f.write(f"**Reference sample (μ/σ):** {len(ref_data):,} rows used "
+                "ONLY to define standardization. All counts below are exact.\n")
+        f.write(f"**Dimensions tested ({d}):** {', '.join(f'`{c}`' for c in cols)}\n")
+        if dropped:
+            f.write(f"**Auto-dropped:** {', '.join(f'`{x[0]}`' for x in dropped)}\n")
+        f.write("\n## Per-dimension marginal extremity (exhaustive)\n\n")
+        f.write("Defines extremity as |z-score| (using sample μ/σ). Reports the EXACT "
+                "fraction of canonical records with |z| >= |z_KW|.\n\n")
+        f.write("| dim | KW value | KW |z| | n_records ≥ KW | p (raw) | p (Bonferroni × d) |\n")
+        f.write("|---|---:|---:|---:|---:|---:|\n")
+        for j, c in enumerate(cols):
+            f.write(f"| `{c}` | {kw_vals[j]} | {extremity[j]:.3f} "
+                    f"| {int(per_dim_counts[j]):,} "
+                    f"| {per_dim_p[j]:.6e} | {per_dim_p_adj[j]:.6e} |\n")
+        f.write("\n## Joint extremity distribution (exhaustive)\n\n")
+        f.write("For each record, count how many of the d dimensions it ties-or-beats "
+                "KW on (|z| >= |z_KW|). Cumulative distribution over the full population.\n\n")
+        f.write("| at-least-k dims | n_records | rate |\n")
+        f.write("|---:|---:|---:|\n")
+        for k, n_rec, rate in joint_rate_at_or_above:
+            f.write(f"| {k} | {n_rec:,} | {rate:.6e} |\n")
+        f.write("\n## Interpretation\n\n")
+        f.write(f"- Bonferroni: a per-dim p-value of <{0.05/d:.4e} would be "
+                f"family-wise significant at α=0.05 across {d} tests.\n")
+        f.write(f"- The joint rate at-least-{d} (last row) is the EXACT fraction of "
+                "records tying or beating KW on EVERY dim simultaneously — the "
+                "strongest multi-dimensional outlier metric here.\n")
+        f.write("- All counts are exact over the full canonical population. "
+                "No bootstrap or sample CIs are needed.\n")
+    print(f"[v2-perm] wrote {out_md}", flush=True)
+
+
 # ============================================================================
 # END P2 DISTRIBUTIONAL ANALYSIS section
+# ============================================================================
+
+
+# ----------------------------------------------------------------------------
+# P3 SAT model-counting encoding (2026-04-24)
+# Spec: x/roae/SAT_EXPERIMENT_SPEC.md
+#
+# Encodes C1 ∩ C2 (∪ optional C3, C4) as a propositional formula in DIMACS
+# CNF format. Variable: x[i][p] = 1 iff position i (0-63) holds hexagram p.
+# Number of vars: 64*64 = 4096 + auxiliary for C3 cardinality if requested.
+# ----------------------------------------------------------------------------
+
+
+def _sat_var(i, p):
+    """1-indexed DIMACS var: position i (0-63), hexagram p (0-63)."""
+    return 64 * i + p + 1  # 1..4096
+
+
+def _sat_partner_map():
+    """Returns array partner[64] where partner[v] is the hexagram paired with v."""
+    pairs = build_pairs()
+    partner = [None] * 64
+    for a, b in pairs:
+        partner[a] = b
+        partner[b] = a
+    return partner
+
+
+def _sat_pairwise_amo(vars_list):
+    """At-most-one constraint via pairwise binary clauses. Returns list of clauses."""
+    clauses = []
+    for i in range(len(vars_list)):
+        for j in range(i + 1, len(vars_list)):
+            clauses.append([-vars_list[i], -vars_list[j]])
+    return clauses
+
+
+def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=False):
+    """Emit a DIMACS CNF (or pblib format if PB constraints are present)
+    encoding C1 ∩ C2 of the King Wen sequence.
+
+    include_c3: "none", "pb" (Pseudo-Boolean linear constraint), or
+                "adder" (DIMACS sequential adder encoding — TODO).
+    include_c4: force x[0][0] and x[1][partner(0)] = 1.
+    include_c5: emit cardinality constraints matching KW's Hamming distribution
+                (heavy; defer in v1 unless explicitly requested).
+    """
+    import hashlib
+    import json
+    import time
+
+    partner = _sat_partner_map()
+    clauses = []
+    n_vars = 64 * 64  # base position-hexagram vars
+
+    # --- One-hot rows: each position gets exactly one hexagram ---
+    for i in range(64):
+        row_vars = [_sat_var(i, p) for p in range(64)]
+        clauses.append(row_vars[:])  # at-least-one
+        clauses.extend(_sat_pairwise_amo(row_vars))  # at-most-one
+
+    # --- One-hot columns: each hexagram appears at exactly one position ---
+    for p in range(64):
+        col_vars = [_sat_var(i, p) for i in range(64)]
+        clauses.append(col_vars[:])
+        clauses.extend(_sat_pairwise_amo(col_vars))
+
+    # --- C1: positions (2k, 2k+1) hold partner pairs ---
+    # For every k in 0,2,4,...,62 and every hexagram p:
+    #   x[k][p] -> x[k+1][partner(p)]    encoded as (¬x[k][p] ∨ x[k+1][partner(p)])
+    for k in range(0, 64, 2):
+        for p in range(64):
+            clauses.append([-_sat_var(k, p), _sat_var(k + 1, partner[p])])
+
+    # --- C2: between-pair boundaries (positions 2k+1 and 2k+2) cannot have Hamming dist 5 ---
+    # For each boundary, iterate over all 64*64 (p, q) tuples; if popcount(p^q) == 5, forbid.
+    boundary_clauses = 0
+    for k in range(31):  # 31 boundaries: between pair k and pair k+1, i.e. positions 2k+1, 2(k+1)
+        i_left = 2 * k + 1
+        i_right = 2 * k + 2
+        for p in range(64):
+            for q in range(64):
+                if bin(p ^ q).count("1") == 5:
+                    clauses.append([-_sat_var(i_left, p), -_sat_var(i_right, q)])
+                    boundary_clauses += 1
+
+    # --- C4: start with hexagram 0 at position 0 (Qian/Kun convention via partner) ---
+    if include_c4:
+        clauses.append([_sat_var(0, 0)])  # unit clause: position 0 = hexagram 0
+        # x[1][partner[0]] follows from C1 implications + one-hot, but assert directly:
+        clauses.append([_sat_var(1, partner[0])])
+
+    # --- C3: pseudo-boolean linear constraint  ∑ |pos(v) - pos(c̄(v))| <= 776 ---
+    #
+    # Strategy: introduce aux vars pair[v][i][j] = x[i][v] AND x[j][c̄(v)],
+    # then ∑_v ∑_{i,j} |i-j| · pair[v][i][j] <= 776 is a single linear PB
+    # constraint. Aux count = 64 × 64 × 64 = 262,144 vars; pair-linking
+    # adds ~800K clauses. Output format: .opb (OPB / PB-CNF) emitted
+    # alongside the .cnf when --sat-c3=pb is selected.
+    #
+    # The .cnf (DIMACS) keeps C1+C2 only; pure-#SAT solvers see that file.
+    # The .opb file contains the SAME C1+C2 plus the C3 PB constraint;
+    # solvers with PB extension (ganak --pb, d4 --opb, sharpSAT-TD) read it.
+    pb_constraints = []
+    pair_aux_clauses = []  # extra clauses for aux pair[v][i][j] linking
+    pair_aux_offset = n_vars  # aux vars start here (1-indexed)
+    pair_var_count = 0
+
+    if include_c3 in ("pb", "adder"):
+        # complement function: ~v in 6 bits = v XOR 0x3F
+        comp = [v ^ 0b111111 for v in range(64)]
+        # aux var index: pair[v][i][j] -> pair_aux_offset + 1 + (v*64 + i)*64 + j
+        def aux_var(v, i, j):
+            return pair_aux_offset + 1 + (v * 64 + i) * 64 + j
+
+        # Emit linking clauses:
+        #   pair[v][i][j] -> x[i][v]              (¬pair ∨ x[i][v])
+        #   pair[v][i][j] -> x[j][c̄(v)]           (¬pair ∨ x[j][c̄(v)])
+        #   x[i][v] ∧ x[j][c̄(v)] -> pair[v][i][j] (¬x[i][v] ∨ ¬x[j][c̄(v)] ∨ pair)
+        for v in range(64):
+            cv = comp[v]
+            for i in range(64):
+                for j in range(64):
+                    pair_var_count += 1
+                    pa = aux_var(v, i, j)
+                    pair_aux_clauses.append([-pa, _sat_var(i, v)])
+                    pair_aux_clauses.append([-pa, _sat_var(j, cv)])
+                    pair_aux_clauses.append([-_sat_var(i, v), -_sat_var(j, cv), pa])
+
+        clauses.extend(pair_aux_clauses)
+        n_vars = pair_aux_offset + pair_var_count  # update total
+
+        if include_c3 == "pb":
+            # Build the OPB linear constraint as a list of (coeff, varIdx) tuples.
+            opb_terms = []
+            for v in range(64):
+                for i in range(64):
+                    for j in range(64):
+                        if i == j:
+                            continue  # |0| = 0, no contribution
+                        coef = abs(i - j)
+                        opb_terms.append((coef, aux_var(v, i, j)))
+            pb_constraints.append({
+                "form": "abs_sum_complement_distance",
+                "bound": 776,
+                "n_terms": len(opb_terms),
+                "n_aux_vars": pair_var_count,
+                "n_link_clauses": len(pair_aux_clauses),
+                "opb_terms": opb_terms,  # will be emitted to .opb
+            })
+        elif include_c3 == "adder":
+            # DIMACS sequential adder — TODO. Significantly more involved
+            # (build a binary adder over the per-pair distances) and probably
+            # not faster in practice than PB. Documenting only.
+            pb_constraints.append({
+                "form": "abs_sum_complement_distance",
+                "bound": 776,
+                "n_aux_vars": pair_var_count,
+                "n_link_clauses": len(pair_aux_clauses),
+                "status": "TODO_implement_DIMACS_adder_summing_network",
+            })
+    # include_c3 == "none" -> no C3 emitted
+
+    # --- C5: KW's exact Hamming distribution (heavy, optional) ---
+    if include_c5:
+        pb_constraints.append({
+            "form": "hamming_distribution_match",
+            "status": "TODO_implement_C5_cardinality",
+            "note": "31 cardinality constraints, one per boundary",
+        })
+
+    # Emit DIMACS
+    n_clauses = len(clauses)
+    print(f"[sat-encode] vars={n_vars}, clauses={n_clauses}, "
+          f"C2-boundary={boundary_clauses}", flush=True)
+    print(f"[sat-encode] C3={include_c3}, C4={include_c4}, C5={include_c5}", flush=True)
+
+    sha = hashlib.sha256()
+    with open(out_path, "w") as f:
+        f.write(f"c roae P3 SAT encoding — King Wen sequence\n")
+        f.write(f"c generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
+        f.write(f"c constraints: C1+C2"
+                + (f"+C3({include_c3})" if include_c3 != "none" else "")
+                + ("+C4" if include_c4 else "")
+                + ("+C5" if include_c5 else "")
+                + "\n")
+        f.write(f"c vars are x[i][p] = 1 iff position i (0-63) holds hexagram p (0-63), 1-indexed\n")
+        f.write(f"p cnf {n_vars} {n_clauses}\n")
+        for cl in clauses:
+            line = " ".join(str(v) for v in cl) + " 0\n"
+            sha.update(line.encode())
+            f.write(line)
+
+    sha_hex = sha.hexdigest()
+
+    # If C3 PB requested, emit a parallel .opb file with the SAME constraints
+    # plus the C3 PB inequality. ganak --pb / d4 --opb / sharpSAT-TD read OPB.
+    opb_path = None
+    if include_c3 == "pb" and pb_constraints:
+        opb_path = out_path + ".opb"
+        # OPB format: header, then constraints. Each linear constraint
+        # is "+c1 x1 +c2 x2 ... <op> n ;" where <op> is = or >= or <=.
+        # We need: =1 (one-hot), <=K (PB).
+        with open(opb_path, "w") as f:
+            f.write(f"* roae P3 SAT encoding (PB / OPB) — King Wen sequence\n")
+            f.write(f"* generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
+            f.write(f"* constraints: C1+C2+C3(pb)"
+                    + ("+C4" if include_c4 else "")
+                    + "\n")
+            f.write(f"* vars: 1..{pair_aux_offset} = x[i][p]; "
+                    f"{pair_aux_offset+1}..{n_vars} = pair[v][i][j] aux\n")
+            f.write(f"* #variable= {n_vars} #constraint= {n_clauses + 1}\n")
+            # Re-emit base CNF clauses as OPB CLAUSES (every literal has +1
+            # coefficient; constraint is >= 1, allowing the clause).
+            for cl in clauses:
+                terms = []
+                rhs = 1
+                for lit in cl:
+                    if lit > 0:
+                        terms.append(f"+1 x{lit}")
+                    else:
+                        # ¬x = (1 - x); to write as PB: use "-1 x{|lit|}" and
+                        # adjust rhs by -1 (i.e., for clause (¬x ∨ y), rewrite
+                        # as -1*x + 1*y >= 0 i.e., y - x >= 0).
+                        terms.append(f"-1 x{-lit}")
+                        rhs -= 1
+                f.write(" ".join(terms) + f" >= {rhs} ;\n")
+            # Now the C3 PB constraint: ∑ |i-j| * pair[v][i][j] <= 776
+            opb_terms = pb_constraints[0]["opb_terms"]
+            # Write in chunks of ~50 terms per line for readability
+            term_strs = [f"+{c} x{v}" for c, v in opb_terms if c > 0]
+            f.write("* C3: sum_v |pos(v) - pos(c-bar(v))| <= 776\n")
+            CHUNK = 50
+            for i in range(0, len(term_strs), CHUNK):
+                line = " ".join(term_strs[i:i + CHUNK])
+                if i + CHUNK >= len(term_strs):
+                    f.write(line + " <= 776 ;\n")
+                else:
+                    f.write(line + "\n")
+
+    meta = {
+        "out_cnf": out_path,
+        "out_opb": opb_path,
+        "vars": n_vars,
+        "clauses": n_clauses,
+        "boundary_clauses_c2": boundary_clauses,
+        "include_c3": include_c3,
+        "include_c4": include_c4,
+        "include_c5": include_c5,
+        "pb_constraints": [
+            # strip the giant opb_terms list from the JSON so the meta
+            # file stays small and human-readable
+            {k: v for k, v in pb.items() if k != "opb_terms"}
+            for pb in pb_constraints
+        ],
+        "sha256_clauses_only": sha_hex,
+    }
+    meta_path = out_path + ".meta.json"
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+    print(f"[sat-encode] wrote {out_path} ({n_clauses} clauses, "
+          f"sha256={sha_hex[:12]}...)", flush=True)
+    if opb_path:
+        print(f"[sat-encode] wrote {opb_path} (OPB with C3 PB; "
+              f"{len(pb_constraints[0]['opb_terms'])} terms in C3 sum)", flush=True)
+    print(f"[sat-encode] wrote {meta_path}", flush=True)
+    if pb_constraints and include_c3 != "pb":
+        print(f"[sat-encode] WARNING: {len(pb_constraints)} PB/cardinality "
+              "constraint(s) requested but emission TODO. v1 ships C1+C2 "
+              "only; C3/C5 deferred to v2.", flush=True)
+
+
+# ============================================================================
+# END P3 SAT section
 # ============================================================================
 
 
@@ -3232,6 +4174,28 @@ def main():
                         help="P2: Hexbin heatmaps for 5 observable pairs with KW marked")
     parser.add_argument("--joint-density", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="P2: KDE joint density on the 7 informative dims plus bootstrap CI on KW's percentile")
+    parser.add_argument("--joint-density-v2", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="P2 v2: joint density with auto variance-filter and CV bandwidth selection (sampled by default; --joint-density-exhaustive for exact)")
+    parser.add_argument("--joint-density-bandwidth", choices=("silverman", "cv"), default="cv",
+                        help="P2 v2: bandwidth method (default: cv)")
+    parser.add_argument("--joint-density-exhaustive", action="store_true",
+                        help="P2 v2: stream every record through the fitted KDE (slow in pure Python; ~10× faster with --native-solve-binary)")
+    parser.add_argument("--native-solve-binary", metavar="PATH",
+                        help="P2 v2: path to compiled `solve` binary with --kde-score-stream support; enables fast native exhaustive scoring")
+    parser.add_argument("--stratified-by-position-2-pair", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="P2 v2: per-stratum (position_2_pair) KW percentile reanalysis (sampled by default)")
+    parser.add_argument("--stratified-exhaustive", action="store_true",
+                        help="P2 v2: exhaustive per-stratum scoring (very slow at full canonical scale)")
+    parser.add_argument("--joint-permutation-test", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="P2 v2: per-dim Bonferroni + joint multi-test extremity table")
+    parser.add_argument("--sat-encode", metavar="OUT_CNF",
+                        help="P3: emit DIMACS CNF for C1+C2 over the King Wen sequence; for #SAT model counting")
+    parser.add_argument("--sat-c3", choices=("none", "pb", "adder"), default="none",
+                        help="P3 sat-encode: include C3 as PB constraint or adder (default: none)")
+    parser.add_argument("--sat-c4", action="store_true",
+                        help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
+    parser.add_argument("--sat-c5", action="store_true",
+                        help="P3 sat-encode: include C5 cardinality constraints (heavy)")
     parser.add_argument("--compute-stats-workers", type=int, default=None,
                         help="P2 compute-stats: worker processes (default: cpu_count())")
     parser.add_argument("--compute-stats-chunk-size", type=int, default=1_000_000,
@@ -3271,6 +4235,36 @@ def main():
         p2_joint_density(args.joint_density[0], args.joint_density[1],
                          samples_per_chunk=args.joint_density_samples_per_chunk,
                          bootstrap_n=args.joint_density_bootstrap_n)
+        return
+
+    if args.joint_density_v2:
+        p2_joint_density_v2(args.joint_density_v2[0], args.joint_density_v2[1],
+                            samples_per_chunk=args.joint_density_samples_per_chunk,
+                            bandwidth_method=args.joint_density_bandwidth,
+                            exhaustive=args.joint_density_exhaustive,
+                            native_solve_binary=args.native_solve_binary,
+                            bootstrap_n=args.joint_density_bootstrap_n)
+        return
+
+    if args.stratified_by_position_2_pair:
+        p2_stratified_p2pair(args.stratified_by_position_2_pair[0],
+                             args.stratified_by_position_2_pair[1],
+                             samples_per_chunk=args.joint_density_samples_per_chunk,
+                             exhaustive=args.stratified_exhaustive,
+                             native_solve_binary=args.native_solve_binary)
+        return
+
+    if args.joint_permutation_test:
+        p2_joint_permutation_test(args.joint_permutation_test[0],
+                                  args.joint_permutation_test[1],
+                                  samples_per_chunk=args.joint_density_samples_per_chunk)
+        return
+
+    if args.sat_encode:
+        p3_sat_encode(args.sat_encode,
+                      include_c3=args.sat_c3,
+                      include_c4=args.sat_c4,
+                      include_c5=args.sat_c5)
         return
 
     if args.local:

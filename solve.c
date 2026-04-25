@@ -849,6 +849,16 @@ static void sigusr1_handler(int sig) {
 
 static time_t start_time;
 static int time_limit = 0;
+
+/* FNV-1a output has weak low-bit entropy for structured input. Masking
+ * to hash-table slot picks only the low log2(ht_size) bits, which caused
+ * catastrophic clustering during 2026-04-24 checkpoint consolidation
+ * (probe distance > 350k after ~9M records, effective O(n²) insertion).
+ * Mixing high bits down into low bits before masking distributes records
+ * uniformly across buckets. Zero effect on canonical output sha — the
+ * emitted solutions.bin is lex-sorted, so bucket layout is invisible to
+ * the final file. */
+#define SOL_HASH_MIX(ch) do { (ch) = ((ch) >> 32) ^ (ch); } while (0)
 /* Node limit: stop after this many total nodes across all threads.
  * Set via SOLVE_NODE_LIMIT env var. 0 = no limit.
  * Unlike time limit, node limit is deterministic — same node limit on any
@@ -1129,6 +1139,7 @@ static void resize_hash_table(ThreadState *ts) {
                 ch ^= (rec[i] & 0xFC);
                 ch *= 1099511628211ULL;
             }
+            SOL_HASH_MIX(ch);
             int slot = (int)(ch & (unsigned long long)new_mask);
             for (int p = 0; p < new_size; p++) {
                 int idx = (slot + p) & new_mask;
@@ -1257,6 +1268,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
     /* FNV-1a hash of canonical bytes (pair identity only, no orientation) */
     unsigned long long ch = 14695981039346656037ULL;
     for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
+    SOL_HASH_MIX(ch);
 
     if (!ts->sol_table) {
         ts->sol_table = calloc((size_t)ts->ht_size, SOL_RECORD_SIZE);
@@ -1984,6 +1996,38 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
     }
     fclose(mf);
 
+    /* Pre-size consolidation table to max(2^24, 2*total_records) slots.
+     * Loading N records into a 2^24 = 16.7M-slot table when N >> 16M causes
+     * the load pass to never cross the 75% resize threshold (clustering
+     * stalls growth), which triggered the 2026-04-24 hang. At 2x over-sizing
+     * the load pass completes comfortably under 50% full and resize is
+     * rarely needed. */
+    long long estimated_records = 0;
+    for (int tid = 0; tid < 64; tid++) {
+        char fname[64];
+        snprintf(fname, sizeof(fname), "sub_ckpt_wrk%d.bin", tid);
+        struct stat est_st;
+        if (stat(fname, &est_st) == 0) {
+            estimated_records += est_st.st_size / SOL_RECORD_SIZE;
+        }
+    }
+    int needed_log2 = consolidate_into->ht_log2;
+    while ((1LL << needed_log2) < estimated_records * 2 && needed_log2 < 30)
+        needed_log2++;
+    if (needed_log2 > consolidate_into->ht_log2) {
+        fprintf(stderr, "Checkpoint resume: pre-sizing consolidation hash to 2^%d "
+                "(%lld slots) for %lld estimated records\n",
+                needed_log2, 1LL << needed_log2, estimated_records);
+        fflush(stderr);
+        if (consolidate_into->sol_table) free(consolidate_into->sol_table);
+        if (consolidate_into->sol_occupied) free(consolidate_into->sol_occupied);
+        consolidate_into->ht_log2 = needed_log2;
+        consolidate_into->ht_size = 1 << needed_log2;
+        consolidate_into->ht_mask = consolidate_into->ht_size - 1;
+        consolidate_into->sol_table = NULL;
+        consolidate_into->sol_occupied = NULL;
+    }
+
     /* Ensure consolidate_into has a table. */
     if (!consolidate_into->sol_table) {
         consolidate_into->sol_table = calloc((size_t)consolidate_into->ht_size, SOL_RECORD_SIZE);
@@ -1998,6 +2042,8 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
      * using the same lex-smallest-wins dedup as merge_sol_tables. */
     int loaded_files = 0;
     long long loaded_records = 0;
+    int diag_max_probe_ever = 0;
+    long long diag_next_heartbeat = 1000000LL;
     for (int tid = 0; tid < 64; tid++) {
         char fname[64];
         snprintf(fname, sizeof(fname), "sub_ckpt_wrk%d.bin", tid);
@@ -2005,12 +2051,15 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
         FILE *wf = fopen(fname, "rb");
         if (!wf) continue;
         loaded_files++;
+        int diag_max_probe_file = 0;
+        int warns_this_file = 0;
         unsigned char rec[SOL_RECORD_SIZE];
         while (fread(rec, SOL_RECORD_SIZE, 1, wf) == 1) {
             unsigned char canonical[SOL_RECORD_SIZE];
             for (int i = 0; i < SOL_RECORD_SIZE; i++) canonical[i] = rec[i] & 0xFC;
             unsigned long long ch = 14695981039346656037ULL;
             for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
+            SOL_HASH_MIX(ch);
             int slot = (int)(ch & (unsigned long long)consolidate_into->ht_mask);
             for (int probe = 0; probe < consolidate_into->ht_size; probe++) {
                 int idx = (slot + probe) & consolidate_into->ht_mask;
@@ -2018,8 +2067,19 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
                     memcpy(&consolidate_into->sol_table[(size_t)idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
                     consolidate_into->sol_occupied[idx] = 1;
                     consolidate_into->solution_count++;
-                    if (consolidate_into->solution_count > consolidate_into->ht_size * 3 / 4)
+                    if (probe > diag_max_probe_file) diag_max_probe_file = probe;
+                    if (probe > 10000 && warns_this_file < 10) {
+                        fprintf(stderr, "[ckpt] WARN wrk%d high-probe: probe=%d at slot %d "
+                                "(sol_count=%lld, ht_size=%d, full=%d%%)\n",
+                                tid, probe, slot, consolidate_into->solution_count,
+                                consolidate_into->ht_size,
+                                (int)(100LL * consolidate_into->solution_count / consolidate_into->ht_size));
+                        fflush(stderr);
+                        warns_this_file++;
+                    }
+                    if (consolidate_into->solution_count > consolidate_into->ht_size * 3 / 4) {
                         resize_hash_table(consolidate_into);
+                    }
                     break;
                 }
                 unsigned char *existing = &consolidate_into->sol_table[(size_t)idx * SOL_RECORD_SIZE];
@@ -2030,17 +2090,26 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
                 if (match) {
                     if (memcmp(rec, existing, SOL_RECORD_SIZE) < 0)
                         memcpy(existing, rec, SOL_RECORD_SIZE);
+                    if (probe > diag_max_probe_file) diag_max_probe_file = probe;
                     break;
                 }
             }
             loaded_records++;
+            if (loaded_records >= diag_next_heartbeat) {
+                int full_pct = (int)(100LL * consolidate_into->solution_count / consolidate_into->ht_size);
+                fprintf(stderr, "[ckpt] %lld records inserted, ht_size=%d, full=%d%%, max_probe=%d\n",
+                        loaded_records, consolidate_into->ht_size, full_pct, diag_max_probe_file);
+                fflush(stderr);
+                diag_next_heartbeat += 5000000LL;
+            }
         }
         fclose(wf);
+        if (diag_max_probe_file > diag_max_probe_ever) diag_max_probe_ever = diag_max_probe_file;
     }
     if (loaded_files > 0) {
         printf("Checkpoint resume: loaded %lld records from %d worker snapshots; "
-               "shared_nodes restored to %lld\n",
-               loaded_records, loaded_files, shared);
+               "shared_nodes restored to %lld (max_probe=%d)\n",
+               loaded_records, loaded_files, shared, diag_max_probe_ever);
     }
 
     /* --depth-profile durability: sum any sub_ckpt_depth<tid>.txt files and
@@ -2147,9 +2216,16 @@ static void sub_flush_chunk_to_disk(ThreadState *ts) {
     }
 
     /* Clear in-memory state. The allocation stays; only the contents
-     * are zeroed. Next insertion repopulates from scratch. */
-    memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
-    memset(ts->sol_occupied, 0, ts->ht_size);
+     * are zeroed. Next insertion repopulates from scratch.
+     * Guard against a caller that already freed the tables (end-of-run
+     * post-merge path frees workers[1..N-1] tables before the tier2
+     * final-flush loop runs — see 2026-04-24 SIGTERM-crash postmortem). */
+    if (ts->sol_table) {
+        memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
+    }
+    if (ts->sol_occupied) {
+        memset(ts->sol_occupied, 0, ts->ht_size);
+    }
     ts->solution_count = 0;
 
     __sync_add_and_fetch(&tier2_total_records_flushed, written);
@@ -2363,6 +2439,7 @@ static void merge_sol_tables(ThreadState *dst, ThreadState *src) {
             canonical[i] = (unsigned char)(record[i] & 0xFC);
         unsigned long long ch = 14695981039346656037ULL;
         for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
+        SOL_HASH_MIX(ch);
         int slot = (int)(ch & (unsigned long long)dst->ht_mask);
         for (int probe = 0; probe < dst->ht_size; probe++) {
             int idx = (slot + probe) & dst->ht_mask;
@@ -4679,6 +4756,126 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
+    } else if (argc > 1 && strcmp(argv[1], "--kde-score-stream") == 0) {
+        /* P2 v2 native KDE scorer (2026-04-24).
+         * Stream-mode Gaussian KDE log-density evaluator. Reads fit points
+         * from a binary file (float64, n_fit × d), then reads query points
+         * from stdin (float64, d per record), and writes the count of
+         * queries whose log-density is <= a given threshold to stdout.
+         *
+         * Args: --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T
+         *
+         * Pipeline (driven by solve.py):
+         *   1. solve.py dumps fit-sample to /tmp/kde_fit.bin (n_fit × d float64).
+         *   2. solve.py spawns ./solve --kde-score-stream ...
+         *   3. solve.py iterates parquet chunks, writes records to subprocess
+         *      stdin in raw float64.
+         *   4. C reads, computes log-density via log-sum-exp, increments
+         *      counter if score <= threshold, parallelized via OpenMP.
+         *   5. On EOF, C writes "n_below n_total" to stdout, exits.
+         *
+         * Performance target: ~1-10M records/sec on D8 (vs ~4K/s sklearn
+         * Python). Makes exhaustive scoring on 3.43B records tractable
+         * (~3-5 hr on D8 single-process, ~30 min with multiprocess on D32+). */
+        const char *fit_file = NULL;
+        int kde_d = 0;
+        double kde_bw = 0.0;
+        double kde_threshold = 0.0;
+        for (int ai = 2; ai < argc - 1; ai++) {
+            if (strcmp(argv[ai], "--fit-file") == 0) fit_file = argv[++ai];
+            else if (strcmp(argv[ai], "--d") == 0) kde_d = atoi(argv[++ai]);
+            else if (strcmp(argv[ai], "--bandwidth") == 0) kde_bw = atof(argv[++ai]);
+            else if (strcmp(argv[ai], "--threshold") == 0) kde_threshold = atof(argv[++ai]);
+        }
+        if (!fit_file || kde_d <= 0 || kde_bw <= 0.0) {
+            fprintf(stderr, "Usage: --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T\n");
+            return 2;
+        }
+
+        /* Load fit points */
+        FILE *ff = fopen(fit_file, "rb");
+        if (!ff) { fprintf(stderr, "ERROR: cannot open %s\n", fit_file); return 10; }
+        fseek(ff, 0, SEEK_END);
+        long fit_bytes = ftell(ff);
+        fseek(ff, 0, SEEK_SET);
+        long fit_n_local = fit_bytes / (kde_d * sizeof(double));
+        if (fit_n_local <= 0) {
+            fprintf(stderr, "ERROR: fit file empty or wrong dim\n");
+            fclose(ff);
+            return 10;
+        }
+        double *fit = (double *)malloc((size_t)fit_n_local * kde_d * sizeof(double));
+        if (!fit) {
+            fprintf(stderr, "ERROR: alloc fit failed\n");
+            fclose(ff);
+            return 10;
+        }
+        if (fread(fit, sizeof(double), (size_t)fit_n_local * kde_d, ff)
+            != (size_t)fit_n_local * kde_d) {
+            fprintf(stderr, "ERROR: short read on fit file\n");
+            fclose(ff);
+            return 10;
+        }
+        fclose(ff);
+
+        const double inv2bw2 = 1.0 / (2.0 * kde_bw * kde_bw);
+        const double log_n_fit = log((double)fit_n_local);
+        const double normalizer = 0.5 * kde_d * log(2.0 * M_PI * kde_bw * kde_bw);
+
+        fprintf(stderr, "[kde] fit_n=%ld d=%d bw=%g threshold=%g\n",
+                fit_n_local, kde_d, kde_bw, kde_threshold);
+        fflush(stderr);
+
+        /* Stream queries from stdin in batches. Each batch is processed in
+         * parallel via OpenMP; we accumulate the per-query log-density and
+         * count those <= threshold. */
+        const int BATCH = 4096;
+        double *batch = (double *)malloc((size_t)BATCH * kde_d * sizeof(double));
+        long long n_total = 0, n_below = 0;
+        if (!batch) { fprintf(stderr, "ERROR: alloc batch\n"); free(fit); return 10; }
+        while (1) {
+            size_t got = fread(batch, sizeof(double), (size_t)BATCH * kde_d, stdin);
+            if (got == 0) break;
+            int n_in_batch = (int)(got / kde_d);
+            if (n_in_batch <= 0) break;
+            int local_below = 0;
+            #pragma omp parallel for reduction(+:local_below) schedule(static)
+            for (int q = 0; q < n_in_batch; q++) {
+                const double *qpt = &batch[q * kde_d];
+                /* log-sum-exp over fit points */
+                double max_neg = -1e300;
+                /* First pass: find max negative-half-distance-squared */
+                for (long fi = 0; fi < fit_n_local; fi++) {
+                    const double *fpt = &fit[fi * kde_d];
+                    double d2 = 0.0;
+                    for (int dd = 0; dd < kde_d; dd++) {
+                        double dx = qpt[dd] - fpt[dd];
+                        d2 += dx * dx;
+                    }
+                    double v = -d2 * inv2bw2;
+                    if (v > max_neg) max_neg = v;
+                }
+                /* Second pass: sum exp(v - max_neg) */
+                double sum_exp = 0.0;
+                for (long fi = 0; fi < fit_n_local; fi++) {
+                    const double *fpt = &fit[fi * kde_d];
+                    double d2 = 0.0;
+                    for (int dd = 0; dd < kde_d; dd++) {
+                        double dx = qpt[dd] - fpt[dd];
+                        d2 += dx * dx;
+                    }
+                    sum_exp += exp(-d2 * inv2bw2 - max_neg);
+                }
+                double log_dens = max_neg + log(sum_exp) - log_n_fit - normalizer;
+                if (log_dens <= kde_threshold) local_below++;
+            }
+            n_below += local_below;
+            n_total += n_in_batch;
+        }
+        free(batch);
+        free(fit);
+        printf("%lld %lld\n", n_below, n_total);
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--list-branches") == 0) {
         list_branches_mode = 1;
         arg_offset = argc;  /* consume all args */
@@ -8871,6 +9068,28 @@ sub_enum_done:
             sub_ckpt_thread_stop = 1;
             if (ckpt_tid) pthread_join(ckpt_tid, NULL);
 
+            /* Tier 2 final flush — happens BEFORE the merge+free below so
+             * per-worker tables are still live. Original ordering had the
+             * tier2 loop AFTER workers[1..N-1] tables were freed, which
+             * segfaulted during the post-flush memset (2026-04-24 SIGTERM
+             * crash). */
+            if (per_worker_flush_threshold > 0) {
+                fprintf(stderr, "\n[tier2] flushing final in-memory state from all workers...\n");
+                for (int i = 0; i < n_threads_p; i++) {
+                    pthread_mutex_lock(&workers[i].ht_mutex);
+                    if (workers[i].solution_count > 0) {
+                        sub_flush_chunk_to_disk(&workers[i]);
+                    }
+                    pthread_mutex_unlock(&workers[i].ht_mutex);
+                }
+                fprintf(stderr,
+                    "[tier2] complete: %d chunks written, %lld total records flushed.\n"
+                    "[tier2] NEXT STEP: run `./solve --merge sub_flush_chunk_*.bin` to\n"
+                    "[tier2] produce the final dedup'd solutions.bin. Skipping in-line\n"
+                    "[tier2] write because workers[0] contains only post-last-flush data.\n",
+                    tier2_total_chunks_written, tier2_total_records_flushed);
+            }
+
             /* Merge worker hash tables into workers[0]. */
             for (int i = 1; i < n_threads_p; i++) {
                 merge_sol_tables(&workers[0], &workers[i]);
@@ -8938,28 +9157,7 @@ sub_enum_done:
                 }
             }
 
-            /* Tier 2 end-of-run: if flush-mode was enabled, emit one final
-             * chunk per worker so ALL solutions are on disk, then suppress
-             * the normal sub_*.bin write (workers[0] only has post-last-flush
-             * records and is not the complete set). Caller must run
-             * `./solve --merge` on the chunk files to produce the final
-             * dedup'd solutions.bin. */
-            if (per_worker_flush_threshold > 0) {
-                fprintf(stderr, "\n[tier2] flushing final in-memory state from all workers...\n");
-                for (int i = 0; i < n_threads_p; i++) {
-                    pthread_mutex_lock(&workers[i].ht_mutex);
-                    if (workers[i].solution_count > 0) {
-                        sub_flush_chunk_to_disk(&workers[i]);
-                    }
-                    pthread_mutex_unlock(&workers[i].ht_mutex);
-                }
-                fprintf(stderr,
-                    "[tier2] complete: %d chunks written, %lld total records flushed.\n"
-                    "[tier2] NEXT STEP: run `./solve --merge sub_flush_chunk_*.bin` to\n"
-                    "[tier2] produce the final dedup'd solutions.bin. Skipping in-line\n"
-                    "[tier2] write because workers[0] contains only post-last-flush data.\n",
-                    tier2_total_chunks_written, tier2_total_records_flushed);
-            }
+            /* (Tier 2 final flush moved earlier — before merge+free.) */
 
             pthread_mutex_lock(&checkpoint_mutex);
             if (per_worker_flush_threshold == 0 && workers[0].solution_count > 0) {
