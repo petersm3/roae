@@ -718,6 +718,25 @@ B2 exhaustive analysis running on `b2-exhaustive-westus3` (D64als_v7 Spot, 256 G
 
 **α trajectory logging** (`x/roae/ALPHA_LOG.md` + `x/roae/alpha_log_updater.py` + `alpha_log_updater_loop.sh`) reset from scratch for the post-fix fresh run. First 9 wakes observed from 18:07 UTC launch: cumul α stable at ~0.80-0.82 with local α oscillating between dead-zones (≈ 0.3–0.5) and rich clusters (≈ 1.0–1.9). Pattern confirms a heterogeneous task queue. Hourly updater runs in the background for the duration of the run. Prior pre-fix wake data (commits `11dd616` through `da9daf1`) superseded; preserved in git history only.
 
+## April 25, 2026 — Symmetry search (negative result), findings dir promoted
+
+**Cross-prefix symmetry search implemented + run** (`solve.c --symmetry-search`):
+
+- Of 720 bit-position permutations of {0..5}, **48 preserve C1** (6.7%), **47 act non-trivially** on the (pair, orient) space, and **all 47 are FALSIFIED** as symmetries by per-sub-branch yield comparison against the 100T-d3 canonical enum log.
+- Closest near-miss σ = [5, 4, 3, 2, 1, 0] (full bit-reversal): 43% match, 54% mismatch, max yield difference 811,359 records.
+- Phase 4 (bijection sampling) not needed — no σ survived Phase 3.
+- Negative result is paper-citable. Constraint set is rigid against bit-position permutations.
+
+Full writeup: [`findings/SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md). Working analysis + iterative spec: [`x/roae/SYMMETRY_SEARCH_SPEC.md`](https://github.com/petersm3/x/blob/main/roae/SYMMETRY_SEARCH_SPEC.md) and [`SYMMETRY_SEARCH_FINDINGS.md`](https://github.com/petersm3/x/blob/main/roae/SYMMETRY_SEARCH_FINDINGS.md).
+
+**Findings directory promoted** (`roae/findings/`): three previously-staging findings curated into the public repo as paper-citable scientific anchors:
+
+- [`SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md) — the negative result above.
+- [`PASS1_TRAJECTORY_DETERMINISM.md`](findings/PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to <0.2% across 10¹⁰ → 10¹³ nodes when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check.
+- [`PARTITION_STABILITY_BOUNDARIES.md`](findings/PARTITION_STABILITY_BOUNDARIES.md) — boundaries {25, 27} are mandatory in every minimum-boundary set identifying KW across all three canonicals tested (d2 10T, d3 10T, d3 100T). Most stable structural property of King Wen measured.
+
+Convention: working notes stay in `petersm3/x/roae`; findings polished and stable enough for external citation move to `roae/findings/`.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.

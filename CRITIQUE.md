@@ -246,6 +246,13 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
     - **Implication for Open Question #7**: the simple axiom "minimize C3" does not uniquely derive KW — it picks out 221 "C3-extremal" records at C3 = 424. **Negative result for Phase A Day 1 MVP.**
     - Remaining: characterize the 221 C3=424 records. What else distinguishes them? Is there a structured family? Do they share boundary features with KW? (Follow-up post-analyze.)
 
+12. **~~Do Hamming-class-preserving permutations of {0..63} induce orbital symmetries on the C1+C2+C3 canonical?~~ — RESOLVED 2026-04-25 (NEGATIVE).** Via `solve.c --symmetry-search` against the 100T d3 canonical:
+    - 720 bit-position permutations of {0..5} enumerated; 48 preserve C1; 47 act non-trivially on (pair, orient) space.
+    - **All 47 falsified.** Each maps at least 21,000 of the 60,533 productive sub-branches to sub-branches with materially different yields. Closest near-miss is full bit-reversal σ = [5,4,3,2,1,0] at 43% match / 54% mismatch / max yield difference 811,359 records.
+    - **Implication**: no factor-of-2-to-48 enumeration cost reduction available via this symmetry class. The constraint set is rigid against bit-position permutations.
+    - Full writeup: [`findings/SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md).
+    - **Falsification scope**: tested only the 720-element bit-permutation subgroup of the 46,080-element Aut(Q₆). Bit-flip × bit-perm combinations not tested; weaker forms (σ preserves yield distribution but not exact values) not tested.
+
 ## Summary
 
 The constraint solver (`solve.c`) finds that 5 rules extracted from King Wen narrow 10^89 possible orderings to hundreds of millions — 706,422,987 at d3 10T partition (canonical, sha `f7b8c4fb…`), 286,357,503 at d2 10T. Both are partial enumerations (each sub-branch hits its per-sub-branch node budget rather than completing naturally); the true count under exhaustive enumeration is higher. Only Position 1 is universally locked (forced by Rule 4). The current state is: **4 boundary constraints minimum (proven at both d2 and d3 scales)**, with boundaries **{25, 27} appearing in every working 4-subset at BOTH partitions** (the stable mandatory-boundary finding). The other 2 boundaries in the 4-set are partition-dependent — d2 uses {2,3} and {21,22}; d3 uses combinations from {1..6}. The rules are confirmatory (extracted from King Wen, then shown to be highly constraining) rather than predictive (derived independently). See [SOLVE.md](SOLVE.md), [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md), [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) (formal theorem guaranteeing the canonical shas are partition-invariant), and [HISTORY.md](HISTORY.md) for details.
