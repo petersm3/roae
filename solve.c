@@ -4445,6 +4445,287 @@ static void run_yield_report(void) {
     free(yc); free(entries);
 }
 
+/* =========================================================================
+ * --symmetry-search: Hamming-class-preserving permutation search.
+ * Spec: x/roae/SYMMETRY_SEARCH_SPEC.md.
+ *
+ * Given the 64 hexagrams (6-bit values), the Hamming-class-preserving
+ * permutations of {0..63} are the bit-position permutations of {0..5},
+ * giving 6! = 720 candidates. Of those, only the σ's that PRESERVE the
+ * C1 pair partition are interesting — the rest move pairs to non-pairs
+ * and immediately falsify any "σ is a symmetry" hypothesis.
+ *
+ * Phases:
+ *   1+2 (always): enumerate 720, filter to C1-preserving, compute σ's
+ *       induced action on the 64-element (pair_idx, orient) space, and
+ *       its orbit structure. Identifies CANDIDATE σ's.
+ *   3 (with --validate-counts): read an enumeration log from stdin, parse
+ *       per-sub-branch yields, and verify σ preserves yield across each
+ *       orbit pair. Falsifies any σ that doesn't.
+ *
+ * Phase 4 (bijection sampling against solutions.bin records) is not
+ * implemented here — requires the canonical solutions.bin which is
+ * 102 GB on solver-data-westus3, and is run via a separate VM workflow.
+ * ========================================================================= */
+
+/* Apply bit-position permutation sigma to a 6-bit value v.
+ * sigma[i] = the new position of bit i in the output. */
+static int apply_sigma(int v, const int sigma[6]) {
+    int result = 0;
+    for (int i = 0; i < 6; i++) {
+        if ((v >> i) & 1) {
+            result |= (1 << sigma[i]);
+        }
+    }
+    return result;
+}
+
+/* Lex-order next permutation of 6 ints. Returns 1 if a next exists, 0 if last. */
+static int next_perm6(int *p) {
+    int i = 4;
+    while (i >= 0 && p[i] >= p[i + 1]) i--;
+    if (i < 0) return 0;
+    int j = 5;
+    while (p[j] <= p[i]) j--;
+    int t = p[i]; p[i] = p[j]; p[j] = t;
+    for (int a = i + 1, b = 5; a < b; a++, b--) {
+        t = p[a]; p[a] = p[b]; p[b] = t;
+    }
+    return 1;
+}
+
+/* Returns pair-index of hex h, or -1 if not in any pair. */
+static int pair_of_hex(int h) {
+    for (int i = 0; i < 32; i++) {
+        if (pairs[i].a == h || pairs[i].b == h) return i;
+    }
+    return -1;
+}
+
+/* sigma preserves C1 iff for every pair (a, b), σ(a) and σ(b) land in the
+ * same (possibly different) pair. */
+static int sigma_preserves_c1(const int sigma[6]) {
+    for (int i = 0; i < 32; i++) {
+        int sa = apply_sigma(pairs[i].a, sigma);
+        int sb = apply_sigma(pairs[i].b, sigma);
+        int pa = pair_of_hex(sa);
+        int pb = pair_of_hex(sb);
+        if (pa < 0 || pb < 0 || pa != pb) return 0;
+    }
+    return 1;
+}
+
+/* sigma's induced action on the (pair_idx, orient) space (64 elements).
+ * Encoding: index = 2*p + o.  Output: po_image[2*p+o] = 2*p' + o'. */
+static void compute_po_action(const int sigma[6], int po_image[64]) {
+    for (int p = 0; p < 32; p++) {
+        for (int o = 0; o < 2; o++) {
+            int hex0 = (o == 0) ? pairs[p].a : pairs[p].b;
+            int s_hex0 = apply_sigma(hex0, sigma);
+            int p_prime = pair_of_hex(s_hex0);
+            int o_prime = (pairs[p_prime].a == s_hex0) ? 0 : 1;
+            po_image[2 * p + o] = 2 * p_prime + o_prime;
+        }
+    }
+}
+
+static int is_identity_action(const int po_image[64]) {
+    for (int i = 0; i < 64; i++) if (po_image[i] != i) return 0;
+    return 1;
+}
+
+/* Computes orbit length of each element under sigma's action.
+ * orbit_size_of_elem[i] = length of i's cycle. Returns total #orbits. */
+static int compute_orbits(const int po_image[64], int orbit_size_of_elem[64]) {
+    int seen[64] = {0};
+    int n_orbits = 0;
+    for (int start = 0; start < 64; start++) {
+        if (seen[start]) continue;
+        int len = 0;
+        int cur = start;
+        while (!seen[cur]) {
+            seen[cur] = 1;
+            cur = po_image[cur];
+            len++;
+        }
+        cur = start;
+        for (int k = 0; k < len; k++) {
+            orbit_size_of_elem[cur] = len;
+            cur = po_image[cur];
+        }
+        n_orbits++;
+    }
+    return n_orbits;
+}
+
+/* Phase 3 helper: a parsed (prefix → yield) entry.
+ * Reuses YieldEntry from --yield-report (already defined). */
+typedef struct {
+    int p1, o1, p2, o2, p3, o3;
+    long long yield;
+} SymEntry;
+
+/* Phase 3: parse stdin enum log into a hash table; for each non-trivial σ,
+ * map each prefix p to its σ-image p' and verify yield(p) == yield(p'). */
+static void symmetry_phase3(const int candidates[][6], int n_candidates) {
+    /* Read all "Wrote N solutions to sub_P1_O1_P2_O2_P3_O3.bin" lines. */
+    SymEntry *entries = calloc(YIELD_MAX_ENTRIES, sizeof(SymEntry));
+    if (!entries) { fprintf(stderr, "ERROR: alloc\n"); exit(10); }
+    int n = 0;
+    char line[1024];
+    while (fgets(line, sizeof(line), stdin)) {
+        long long y;
+        int p1, o1, p2, o2, p3, o3;
+        if (sscanf(line, " Wrote %lld solutions to sub_%d_%d_%d_%d_%d_%d.bin",
+                   &y, &p1, &o1, &p2, &o2, &p3, &o3) == 7) {
+            if (n >= YIELD_MAX_ENTRIES) {
+                fprintf(stderr, "ERROR: yield buffer overflow at %d\n", YIELD_MAX_ENTRIES);
+                free(entries); exit(10);
+            }
+            entries[n].p1 = p1; entries[n].o1 = o1;
+            entries[n].p2 = p2; entries[n].o2 = o2;
+            entries[n].p3 = p3; entries[n].o3 = o3;
+            entries[n].yield = y;
+            n++;
+        }
+    }
+    fprintf(stderr, "[sym-phase3] parsed %d sub-branch yields from stdin\n", n);
+
+    /* Build lookup: hash (p1,o1,p2,o2,p3,o3) → yield.
+     * Encode key as 24-bit integer: p1(5) o1(1) p2(5) o2(1) p3(5) o3(1) padding to 24.
+     * 32 pairs need 5 bits, orient 1. Total 6 fields × 6 bits each (pair < 32,
+     * orient < 2 → both fit in 5 bits / 1 bit). Pack into 18 bits. */
+    #define SYM_KEY(p1, o1, p2, o2, p3, o3) \
+        (((p1) << 13) | ((o1) << 12) | ((p2) << 7) | ((o2) << 6) | ((p3) << 1) | (o3))
+    long long *yield_by_key = calloc(1 << 18, sizeof(long long));
+    if (!yield_by_key) { fprintf(stderr, "ERROR: alloc map\n"); free(entries); exit(10); }
+    /* Sentinel: -1 means "no entry". Use 0 as default; treat 0 as missing. */
+    for (int i = 0; i < n; i++) {
+        int k = SYM_KEY(entries[i].p1, entries[i].o1,
+                        entries[i].p2, entries[i].o2,
+                        entries[i].p3, entries[i].o3);
+        yield_by_key[k] = entries[i].yield + 1;  /* +1 so 0 means missing */
+    }
+
+    /* For each candidate σ, walk every prefix, apply σ, check yields. */
+    printf("\n=== Phase 3: count comparison across σ orbits ===\n");
+    printf("(checks whether σ-image prefix has identical yield as preimage)\n\n");
+    for (int s = 0; s < n_candidates; s++) {
+        const int *sigma = candidates[s];
+        int po_image[64];
+        compute_po_action(sigma, po_image);
+
+        long long mismatches = 0;
+        long long matches = 0;
+        long long missing = 0;
+        long long max_diff = 0;
+
+        for (int i = 0; i < n; i++) {
+            int p1 = entries[i].p1, o1 = entries[i].o1;
+            int p2 = entries[i].p2, o2 = entries[i].o2;
+            int p3 = entries[i].p3, o3 = entries[i].o3;
+            int img1 = po_image[2 * p1 + o1];
+            int img2 = po_image[2 * p2 + o2];
+            int img3 = po_image[2 * p3 + o3];
+            int p1p = img1 / 2, o1p = img1 & 1;
+            int p2p = img2 / 2, o2p = img2 & 1;
+            int p3p = img3 / 2, o3p = img3 & 1;
+            int kp = SYM_KEY(p1p, o1p, p2p, o2p, p3p, o3p);
+            long long target = yield_by_key[kp];
+            if (target == 0) {
+                missing++;
+                continue;
+            }
+            long long y_orig = entries[i].yield;
+            long long y_image = target - 1;
+            if (y_orig == y_image) {
+                matches++;
+            } else {
+                mismatches++;
+                long long diff = (y_orig > y_image) ? (y_orig - y_image) : (y_image - y_orig);
+                if (diff > max_diff) max_diff = diff;
+            }
+        }
+        printf("σ #%d [%d %d %d %d %d %d]:  matches=%lld  mismatches=%lld  "
+               "missing=%lld  max_diff=%lld   →  %s\n",
+               s + 1, sigma[0], sigma[1], sigma[2], sigma[3], sigma[4], sigma[5],
+               matches, mismatches, missing, max_diff,
+               (mismatches == 0 ? "**CANDIDATE SYMMETRY**" : "FALSIFIED"));
+    }
+    printf("\n(missing = σ-image prefix had no entry in the parsed log;\n"
+           " typically because the prefix was BUDGETED with 0 solutions and\n"
+           " no Wrote-line was emitted. Treat as inconclusive for that σ-pair.)\n");
+
+    free(yield_by_key);
+    free(entries);
+    #undef SYM_KEY
+}
+
+static void run_symmetry_search(int with_yield_compare) {
+    init_pairs();
+    printf("=== SYMMETRY SEARCH (Hamming-class-preserving σ on C1 partition) ===\n\n");
+    printf("Spec: x/roae/SYMMETRY_SEARCH_SPEC.md\n");
+    printf("Phase 1+2: enumerate 720 bit-permutations, filter to C1-preserving,\n");
+    printf("compute σ's induced action on (pair_idx, orient) space.\n\n");
+
+    int p[6] = {0, 1, 2, 3, 4, 5};
+    int n_total = 0, n_c1 = 0, n_nontrivial = 0;
+    /* Up to 720 candidates; bounded. */
+    int candidates[720][6];
+    int n_candidates = 0;
+
+    do {
+        n_total++;
+        if (!sigma_preserves_c1(p)) continue;
+        n_c1++;
+        int po_image[64];
+        compute_po_action(p, po_image);
+        if (is_identity_action(po_image)) continue;
+        n_nontrivial++;
+        for (int i = 0; i < 6; i++) candidates[n_candidates][i] = p[i];
+        n_candidates++;
+
+        int orbit_size_of_elem[64];
+        int n_orbits = compute_orbits(po_image, orbit_size_of_elem);
+        printf("σ #%d: bit-perm [%d %d %d %d %d %d]\n",
+               n_nontrivial, p[0], p[1], p[2], p[3], p[4], p[5]);
+        printf("        %d orbits on (pair,orient) space; sizes: ", n_orbits);
+        int size_hist[65] = {0};
+        for (int i = 0; i < 64; i++) size_hist[orbit_size_of_elem[i]]++;
+        for (int k = 1; k <= 64; k++) {
+            int n_orb_of_size_k = size_hist[k] / k;
+            if (n_orb_of_size_k > 0) {
+                printf("%d×%d ", n_orb_of_size_k, k);
+            }
+        }
+        printf("\n");
+    } while (next_perm6(p));
+
+    printf("\n=== Phase 1+2 SUMMARY ===\n");
+    printf("Total 6-bit permutations:               %d\n", n_total);
+    printf("C1-preserving:                          %d (%.1f%%)\n",
+           n_c1, n_c1 * 100.0 / n_total);
+    printf("Non-trivial on (pair,orient) space:     %d\n", n_nontrivial);
+
+    if (n_nontrivial == 0) {
+        printf("\nResult: NO non-trivial bit-permutation acts non-trivially on the\n");
+        printf("(pair, orient) space while preserving C1. The C1 partition rigidly\n");
+        printf("breaks all Hamming-class symmetries. Symmetry exploitation via this\n");
+        printf("class is impossible. (This is a NEGATIVE result, paper-worthy.)\n");
+        return;
+    }
+
+    if (!with_yield_compare) {
+        printf("\nFor Phase 3 (yield comparison across σ orbits), pipe an enumeration\n");
+        printf("log:\n");
+        printf("    zcat enum_output.log.gz | ./solve --symmetry-search --validate-counts\n");
+        return;
+    }
+
+    /* Phase 3 */
+    symmetry_phase3(candidates, n_candidates);
+}
+
 static void run_c3_min(const char *filename) {
     init_pairs();
     FILE *f = fopen(filename, "rb");
@@ -4673,6 +4954,14 @@ int main(int argc, char *argv[]) {
          *   zcat enum_output.log.gz | ./solve --yield-report
          */
         run_yield_report();
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--symmetry-search") == 0) {
+        /* Hamming-class-preserving permutation search. Phase 1+2 always run
+         * (orbit structure on (pair_idx, orient) space). With --validate-counts
+         * a second arg, also run Phase 3: parse enum log from stdin and
+         * compare yields across σ orbits. */
+        int with_yield = (argc > 2 && strcmp(argv[2], "--validate-counts") == 0);
+        run_symmetry_search(with_yield);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
