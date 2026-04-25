@@ -543,6 +543,47 @@ shard into a fuller dataset (following the accumulation workflow above)
 is byte-identical to running everything in one invocation, per
 partition invariance.
 
+### `--kde-score-stream` CLI mode (native KDE scorer for distributional analysis)
+
+Added 2026-04-24 alongside the consolidation-hang postmortem and bug fix.
+Companion subcommand for the `solve.py --joint-density-v2` distributional
+analysis pipeline. Reads fit points from a binary file, streams query
+points from stdin (float64 packed), writes count-below-threshold to stdout.
+Implements Gaussian kernel KDE log-density via log-sum-exp, parallelized
+via OpenMP.
+
+```bash
+./solve --kde-score-stream --fit-file FIT.bin --d N --bandwidth BW --threshold T
+```
+
+~10× faster than sklearn's pure-Python `KernelDensity.score_samples` on
+typical inputs (validated bit-identical on a 500-point synthetic test).
+Makes exhaustive distributional analysis on the 100T canonical (3.43B
+records) tractable in ~2 hours on D64 (vs ~9 days pure-Python).
+
+See [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../x/roae/DISTRIBUTIONAL_V2_SPEC.md)
+for the analysis pipeline + Python integration.
+
+### `solve.py --sat-encode` (DIMACS / OPB encoder for #SAT model counting)
+
+Added 2026-04-24. Emits propositional encoding of C1+C2 (optionally +C3
+as Pseudo-Boolean linear constraint, +C4 unit) for input to exact #SAT
+solvers (`ganak`, `d4`, `sharpSAT-TD`).
+
+```bash
+solve.py --sat-encode kw.cnf [--sat-c3 pb] [--sat-c4]
+```
+
+Produces:
+- `kw.cnf` — DIMACS CNF (4,096 vars / 272,128 clauses for C1+C2)
+- `kw.cnf.opb` — Pseudo-Boolean OPB format with C3 PB constraint added
+  (266,240 vars / 1,058,560 clauses; C3 sum has 258,048 terms)
+- `kw.cnf.meta.json` — variable/clause counts, sha256 of clauses for
+  reproducibility
+
+See [`x/roae/SAT_EXPERIMENT_SPEC.md`](../../x/roae/SAT_EXPERIMENT_SPEC.md)
+for the experimental protocol and validation strategy.
+
 ### Infrastructure
 
 - **Spot-VM evictions in westus2 under F64 averaged ~1 per 3 hours during
