@@ -644,6 +644,80 @@ ssh solver@<IP> "kill -USR1 \$(pgrep -f 'solve --sub-branch') && sleep 2 && tail
 ssh solver@<IP> "tr -cd 1 < ~/work/sub_ckpt_task_done.txt | wc -c"
 ```
 
+## April 24, 2026 — 1000T run silent death, consolidation-hang postmortem, SIGTERM crash fix, fresh relaunch
+
+The 1000T run launched 2026-04-23 05:06 UTC silently failed ~30 hours in. Full postmortem captured in commits `3eb00c2` and `5bfeac6` and staging docs; summary:
+
+**Timeline of the failure.**
+- 2026-04-24 ~07:06 UTC: `deep-calib-westus3` rebooted (probable Azure infrastructure event; no spot-eviction event logged, no scheduled maintenance window). VM came back up; nothing auto-relaunched the solver.
+- 2026-04-24 ~10:28 UTC: Something re-invoked `bash -c "nohup ... solve --sub-branch ..."` on the VM. Solver started, printed "Tier 2 memory-relief flush ENABLED" + one hash-table resize line, then went silent.
+- 2026-04-24 ~14:00 UTC: monitoring session noticed `run.log` hadn't grown in 3+ hours; SSH'd in. `ps` showed PID 1490 as `bash`, NOT `solve`. RSS 2 MB, load 1.00. Solver binary was gone; only the bash wrapper remained, idle.
+
+**Monitor bug — silent false-alive.** `deep_calib_monitor.sh` used `pgrep -f 'solve --sub-branch'` to check liveness. `pgrep -f` matches full command args. The bash wrapper's `-c` argument string included "solve --sub-branch" verbatim, so `pgrep` always returned success — even after the actual `solve` binary died. The monitor kept tailing the last line of `run.log` (a stale "Hash table resized" stderr message) and reporting it as live POLL data for hours. Fix: `pgrep -x solve` (exact match on process name).
+
+**Root-cause investigation — checkpoint consolidation hang.** Instrumented solve.c with per-file progress + probe-distance WARN, re-ran against the preserved checkpoint files. Result:
+
+```
+[ckpt-diag] loading wrk0.bin: 597,283,808 bytes, ~18,665,119 records
+[ckpt-diag] heartbeat: 9,000,000 records inserted, sol_count=9M, full=53%, max_probe_file=66
+[ckpt-diag] WARN wrk0: probe=10,006 at slot 38,085 (sol_count=9,357,134, full=55%)
+...
+[ckpt-diag] WARN wrk0: probe=352,795 at slot 1,387,701 (sol_count=10,108,591, full=60%)
+```
+
+Linear-probe degradation after ~9.3M records: probe distance exploded from O(60) to O(350,000+), hash-insert time became O(n) per record, the remaining ~8.5M records would take days at that pace. **Silent hang confirmed.** Root cause: FNV-1a hash output has weak low-bit entropy for structured canonicalized records (all-bits-masked-to-top-6 per byte + DFS-order-correlated subtrees). Masking to log₂(ht_size) bits picked only the low 24 bits, producing catastrophic clustering. Not hit previously because per-worker tables were smaller; only the consolidation path (loading 18.7M records into an initially 2^24-slot table) triggers it.
+
+**Three fixes in solve.c (commit `3eb00c2`, selftest sha `403f7202…` unchanged):**
+
+1. **`SOL_HASH_MIX(ch)`** applied at all 4 FNV slot-computation sites (resize, DFS insert, consolidation, merge). XOR-folds the upper 32 bits of the FNV output into the lower 32 before masking. Fixes the clustering while preserving FNV's other properties. Output-neutral: the emitted `solutions.bin` is lex-sorted, so bucket layout is invisible to the final bytes.
+
+2. **Pre-sized consolidation table.** Before the checkpoint-load loop, `stat()` all `sub_ckpt_wrk*.bin` files, sum their byte counts, and allocate the consolidation hash to ≥ 2× that record count (capped at 2^30). Eliminates the 75%-full resize race that partially triggered the hang.
+
+3. **SIGTERM cleanup crash fix.** Separate bug discovered during the test run: `sub_flush_chunk_to_disk()` calls `memset(ts->sol_table, ...)` at end, but the end-of-run tier2-flush loop was called AFTER the worker tables were freed+NULL'd. Null-ptr memset → segfault under SIGTERM. Fix: (a) move the tier2 final-flush loop BEFORE the merge+free loop; (b) add null guards in `sub_flush_chunk_to_disk` as belt-and-suspenders. This was the source of core-dumps on spot evictions.
+
+**Native C KDE scorer added** (`solve.c --kde-score-stream`, commit `3eb00c2`). Reads fit points from a binary file, streams query points from stdin (float64 packed), emits `n_below n_total` to stdout. Gaussian kernel with log-sum-exp, OpenMP-parallelized over queries. Bit-identical to sklearn's `KernelDensity.score_samples` on a 500-point synthetic benchmark; **4.3× faster single-threaded on the orchestrator**, ~10× faster on D64 (scales near-linearly with core count). Makes exhaustive distributional analysis on the 100T canonical (3.43B records) tractable — from "~9 days pure-Python" down to "~14 hours on D8 / ~2 hours on D64."
+
+**Fresh 1000T run launched 2026-04-24 18:07:37 UTC.** Clean state: wiped `~/work/`, deployed the fixed solve.c, compiled, launched via `setsid+nohup` (no zombie bash wrapper). Rate 1,364 M/s steady, ETA ~8.1 days. See `x/roae/deep_calib_monitor.sh`, `x/roae/launch_fresh_run.sh`, `x/roae/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`.
+
+**Operational hardening** (`x/roae/deep_calib_monitor.sh`):
+- `pgrep -x solve` instead of `-f` (fixes false-alive)
+- VM uptime-delta check per poll to catch reboots between poll intervals
+- Max-5-relaunches-in-24h circuit breaker (halts with FATAL if solver crashes repeatedly)
+- Progress-stall escalation: 30 min WARN → 2h SIGUSR1 snapshot → 2h15m kill + relaunch
+
+**Post-mortem preserved** in forensic checkpoint dir `x/roae/ckpt_pre_repro_20260424_142240/` (3.8 GB retained for any future regression investigation) plus `ckpt_hang_repro.sh` harness.
+
+**Trajectory-match finding** ([`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`](../../x/roae/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
+
+**Sunk cost.** ~$6 of avoidable spend across the zombie-runtime window (~$0.24/hr × 20 idle hours) plus ~$0.20 for the debugging VM work. Forensic preserves + fix validated; fresh run on track to finish within budget.
+
+## April 24, 2026 — SAT encoder + P2 v2 distributional subcommands added to solve.py
+
+Landed alongside the solve.c fixes (commit `3eb00c2`):
+
+**`solve.py --sat-encode <OUT_CNF>` [`--sat-c3 pb`]** — emits DIMACS CNF for the King Wen enumeration problem under C1 (pair structure) + C2 (no 5-line transitions), optionally extended with the C3 complement-distance ≤ 776 constraint as a Pseudo-Boolean linear inequality in a parallel `.opb` file.
+
+- Variable space: 64 × 64 = 4,096 base vars `x[i][p]` = "position i holds hexagram p"; with `--sat-c3 pb`, + 64³ = 262,144 auxiliary pair vars `pair[v][i][j] = x[i][v] ∧ x[j][c̄(v)]`.
+- Clause count: 272,128 base (one-hot rows + cols + C1 implications + 11,904 C2 forbidden binary clauses); +786,432 pair-linking clauses when PB is on.
+- OPB C3 constraint: `∑_v ∑_{i,j} |i-j| · pair[v][i][j] ≤ 776` (258,048 non-zero terms).
+- Emits sha256 of clauses for reproducibility; meta JSON alongside.
+
+Pipeline for the experiment: feed to `ganak`, `d4`, or `sharpSAT-TD` for exact model counting, then divide by the canonicalization-orbit size to reconcile against the canonical SHA `915abf30…`. Expected as a third-party check on our canonical record count. Launcher: `x/roae/launch_b5_v0.sh` (pending user go-ahead). Spec: `x/roae/SAT_EXPERIMENT_SPEC.md`.
+
+**P2 v2 distributional subcommands** — three new subcommands in solve.py extending the earlier P2 work:
+
+- `--joint-density-v2 CHUNKS_DIR OUT_MD` (`--joint-density-bandwidth cv|silverman`, `--joint-density-exhaustive`, `--native-solve-binary PATH`): KDE joint density with auto variance-filter (drops columns with stdev/|mean| < 1e-6), CV bandwidth selection (5-fold GridSearchCV over 12 candidates), either sampled-with-bootstrap-CI scoring (default) or fully exhaustive scoring when paired with the native C scorer.
+- `--stratified-by-position-2-pair CHUNKS_DIR OUT_MD` (`--stratified-exhaustive`): per-stratum KDE reanalysis conditioning on which pair occupies positions 2-3. Tests whether `position_2_pair` is part of the discriminative signal.
+- `--joint-permutation-test CHUNKS_DIR OUT_MD`: always-exhaustive. Per-dim |z|-extremity ≥ |z_KW| counts + Bonferroni-adjusted p-values, plus a joint extremity distribution (for each record, count how many dims it ties or beats KW on; cumulative over the full 3.43B canonical population).
+
+Full spec: [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../x/roae/DISTRIBUTIONAL_V2_SPEC.md). Launcher: [`x/roae/launch_b2_exhaustive_d64.sh`](../../x/roae/launch_b2_exhaustive_d64.sh) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
+
+## April 25, 2026 early morning — B2 exhaustive analysis launched, α trajectory logging resumed
+
+B2 exhaustive analysis running on `b2-exhaustive-westus3` (D64als_v7 Spot, 256 GB OS disk). Sequence: regenerate `p2_chunks` from `solutions.bin` (100T canonical, 3,433 chunks × ~6 MB parquet = 19 GB) via `solve.py --compute-stats` (18m06s at 3.16M rec/s), then run the three v2 analyses: `--joint-density-v2 --joint-density-exhaustive --native-solve-binary ./solve`, `--stratified-by-position-2-pair --stratified-exhaustive --native-solve-binary ./solve`, `--joint-permutation-test`. Results to `x/roae/b2_exhaustive_results_<ts>/`.
+
+**α trajectory logging** (`x/roae/ALPHA_LOG.md` + `x/roae/alpha_log_updater.py` + `alpha_log_updater_loop.sh`) reset from scratch for the post-fix fresh run. First 9 wakes observed from 18:07 UTC launch: cumul α stable at ~0.80-0.82 with local α oscillating between dead-zones (≈ 0.3–0.5) and rich clusters (≈ 1.0–1.9). Pattern confirms a heterogeneous task queue. Hourly updater runs in the background for the duration of the run. Prior pre-fix wake data (commits `11dd616` through `da9daf1`) superseded; preserved in git history only.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
