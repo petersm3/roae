@@ -40,7 +40,9 @@ To get the binary code, read the 1s and 0s from the top of the table downward. F
 
 ## The rules we found
 
-Six rules, each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / Cook 2006; Rule 2 from Terence & Dennis McKenna's *The Invisible Landscape*, 1975); Rules 3–6 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
+Five independent rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md)), each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / Cook 2006; Rule 2 from Terence & Dennis McKenna's *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
+
+(A sixth "XOR rule" was identified during discovery but later proven mathematically redundant — it follows automatically from Rule 1; see [SOLVE.md](SOLVE.md) Theorem 2. It is therefore not listed below.)
 
 ### Rule 1: Every hexagram has a partner
 

@@ -22,31 +22,42 @@ The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is one 
 
 ## The rules
 
-Six constraints have been identified, listed in order of discovery:
+Six constraints were identified during analysis, listed in order of discovery. Mathematical analysis (Theorem 2 below) later showed **Rule 4 (XOR) is redundant** — derivable from Rule 1 alone. The minimum independent rule set is therefore **five rules**, formally numbered **C1–C5** in [SPECIFICATION.md](SPECIFICATION.md):
 
-### Rule 1: Pair structure
+| Discovery order | Formal label | Independent? |
+|---|---|---|
+| Rule 1 — Pair structure | **C1** | ✓ required |
+| Rule 2 — No 5-line transitions | **C2** | implied by C5 (zero 5s in the histogram); kept as O(1) solver pre-filter |
+| Rule 3 — Complement proximity | **C3** | ✓ required |
+| Rule 4 — XOR algebraic | — | ✗ **redundant — Theorem 2 of C1** |
+| Rule 5 — Starting pair | **C4** | ✓ required |
+| Rule 6 — Difference wave distribution | **C5** | ✓ required (and implies C2) |
+
+For boundary-level adjacency constraints (C6, C7) needed to single out KW within the C1–C5 family, see §Differential analysis and SPECIFICATION.md.
+
+### Rule 1: Pair structure (C1)
 
 Group all 64 hexagrams into 32 consecutive pairs. Each pair must be a hexagram and its 180-degree rotation (reverse). For the 4 symmetric hexagrams that equal their own reverse, the bitwise complement (inverse) is used instead. This pairing is unique — there is exactly one way to assign the 32 pairs.
 
-### Rule 2: No 5-line transitions
+### Rule 2: No 5-line transitions (C2)
 
 No two consecutive hexagrams may differ by exactly 5 lines. Within reverse/inverse pairs this is automatic, so the constraint applies only at the 31 between-pair boundaries.
 
 **Proof that within-pair distance is never 5:** For reverse pairs, reversing a 6-bit number compares bits in symmetric pairs: (0,5), (1,4), (2,3). Each mismatch contributes 2 to the Hamming distance (once at each position in the pair), so the distance is always 2 × (number of mismatched pairs) = 0, 2, 4, or 6. For inverse pairs, every bit is flipped, so the distance is always 6. In both cases, the distance is even and can never be 5.
 
-### Rule 3: Complement proximity
+### Rule 3: Complement proximity (C3)
 
 The mean positional distance between each hexagram and its complement (all lines toggled) must be unusually small. King Wen's mean complement distance is 12.1; random pair-constrained orderings average ~21.7.
 
-### Rule 4: XOR algebraic constraint
+### Rule 4: XOR algebraic constraint (REDUNDANT — Theorem 2 of C1)
 
-The XOR of each pair must produce one of exactly 7 values: `001100`, `010010`, `011110`, `100001`, `101101`, `110011`, `111111`. (Note: this constraint turns out to be redundant with complement proximity — see results below.)
+The XOR of each pair must produce one of exactly 7 values: `001100`, `010010`, `011110`, `100001`, `101101`, `110011`, `111111`. **This is not an independent rule** — it is a mathematical consequence of Rule 1 (any reverse/complement pairing of {0..63} produces exactly these 7 XOR values; see Theorem 2 below). Retained in this list for historical/discovery-narrative purposes only; the formal constraint set in [SPECIFICATION.md](SPECIFICATION.md) drops it. The Monte Carlo Level 3 result below empirically confirms it adds zero filtering.
 
-### Rule 5: Starting pair
+### Rule 5: Starting pair (C4)
 
 The sequence begins with ䷀ The Creative (#1, 111111) and ䷁ The Receptive (#2, 000000).
 
-### Rule 6: Difference wave distribution
+### Rule 6: Difference wave distribution (C5)
 
 The difference wave (Hamming distances between consecutive hexagrams) must have exactly this distribution: two 1-line transitions, twenty 2-line, thirteen 3-line, nineteen 4-line, and nine 6-line. No 0-line or 5-line transitions.
 

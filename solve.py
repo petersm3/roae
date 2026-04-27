@@ -4122,6 +4122,260 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
 # ============================================================================
 
 
+# ============================================================================
+# Keystone analysis (`--keystone-analysis`)
+# ----------------------------------------------------------------------------
+# Counterfactual study of the partition-stable boundary minimum-set
+# {1, 4, 21, 25, 27} (1-indexed) at the 100T-d3 canonical. For each canonical
+# record, determine which subset of those 5 boundaries it matches against KW.
+# Output the full 32-entry mask histogram plus drop-one analysis: how many
+# records satisfy a 4-subset (drop one boundary) but fail the dropped one?
+# Those "rescued by dropping boundary X" sets are the orderings that
+# boundary X uniquely eliminates — the structural witnesses that explain
+# why X is a keystone.
+#
+# Boundary numbering. SPECIFICATION.md/SOLVE.md use 1-indexed boundaries
+# (1..31), where boundary b sits between pair-positions b and b+1. We use
+# 0-indexed boundaries internally (0..30): 0-indexed boundary b ⇔
+# 1-indexed boundary b+1, sitting between pair positions b and b+1
+# (also 0-indexed). The minimum-set {1,4,21,25,27} (1-idx) = {0,3,20,24,26}
+# (0-idx).
+#
+# KW canonical orientation. In the canonical solutions.bin, KW corresponds
+# to pair_at_pos[i] = i for i in 0..31 (because the pair table is built by
+# pairing consecutive KW positions, so pair i is at position i in KW). So
+# matching at boundary b reduces to:
+#     pair_at_pos[b] == b AND pair_at_pos[b+1] == b+1
+# ----------------------------------------------------------------------------
+
+
+_KEYSTONE_BDRYS_1IDX = (1, 4, 21, 25, 27)
+
+
+def _keystone_decode_pair_positions(records):
+    """records: shape (N, 32) uint8. Returns (N, 32) uint8 of pair indices."""
+    return (records >> 2) & 0x3F
+
+
+def _keystone_compute_mask(pair_at_pos, bdrys_0idx):
+    """
+    pair_at_pos: shape (N, 32) uint8.
+    bdrys_0idx: tuple of K boundary indices (each in 0..30).
+    Returns: shape (N,) uint8 with bit i set iff record matches KW at
+             boundary bdrys_0idx[i].
+    """
+    import numpy as np
+    n = pair_at_pos.shape[0]
+    mask = np.zeros(n, dtype=np.uint8)
+    for i, b in enumerate(bdrys_0idx):
+        bit = (pair_at_pos[:, b] == b) & (pair_at_pos[:, b + 1] == b + 1)
+        mask |= (bit.astype(np.uint8) << i)
+    return mask
+
+
+def keystone_analysis(solutions_bin, out_md, dump_dir=None,
+                      dump_limit=10000, chunk_size=None):
+    """
+    Handler for --keystone-analysis.
+
+    Reads solutions.bin sequentially. For each record, computes a 5-bit
+    match mask against the {1,4,21,25,27} (1-indexed) minimum-set boundaries.
+    Tabulates counts per mask, plus pairwise joint counts within the 5-set
+    for the per-boundary independence story. Optionally dumps records
+    matching one of the 'interesting' masks (15 = drop-27, 23 = drop-25,
+    31 = all-five) to a binary file for downstream structural analysis.
+    """
+    import time
+    import os
+    import numpy as np
+
+    bdrys_1idx = _KEYSTONE_BDRYS_1IDX
+    bdrys_0idx = tuple(b - 1 for b in bdrys_1idx)
+    if chunk_size is None:
+        chunk_size = _P2_CHUNK_RECORDS_DEFAULT
+
+    with open(solutions_bin, "rb") as f:
+        total_records, version = _p2_read_header(f)
+
+    print(f"[keystone] solutions.bin v{version}, {total_records:,} records "
+          f"({os.path.getsize(solutions_bin) / 1e9:.2f} GB)", flush=True)
+    print(f"[keystone] minimum 5-set (1-idx): {bdrys_1idx}  "
+          f"(0-idx: {bdrys_0idx})", flush=True)
+    print(f"[keystone] mask convention: bit i set iff boundary "
+          f"bdrys_1idx[i] matches KW", flush=True)
+
+    mask_counts = np.zeros(32, dtype=np.int64)
+    # interesting masks: drop-one variants and the all-matched mask
+    # Mask convention: bit i ⇔ boundary _KEYSTONE_BDRYS_1IDX[i] matches KW.
+    # Drop-X mask = (all-5-mask) XOR (1 << index_of_X). For BDRYS_1IDX = (1,4,21,25,27):
+    #   drop-1  → 31 ^ (1<<0) = 30 (`11110`)
+    #   drop-4  → 31 ^ (1<<1) = 29 (`11101`)
+    #   drop-21 → 31 ^ (1<<2) = 27 (`11011`)
+    #   drop-25 → 31 ^ (1<<3) = 23 (`10111`)
+    #   drop-27 → 31 ^ (1<<4) = 15 (`01111`)
+    INTERESTING = {
+        31: ("all-5-matched", "Should equal 1 if {1,4,21,25,27} "
+                              "uniquely determines KW; >1 falsifies that claim"),
+        15: ("drop-27", "All matched except boundary 27 — "
+                        "rescued by dropping 27 → boundary 27 uniquely kills these"),
+        23: ("drop-25", "All matched except boundary 25 — "
+                        "rescued by dropping 25 → boundary 25 uniquely kills these"),
+        27: ("drop-21", "All matched except boundary 21 — boundary 21 uniquely kills these"),
+        29: ("drop-4",  "All matched except boundary 4 — boundary 4 uniquely kills these"),
+        30: ("drop-1",  "All matched except boundary 1 — boundary 1 uniquely kills these"),
+    }
+    interesting_records = {m: [] for m in INTERESTING}
+
+    if dump_dir is not None:
+        os.makedirs(dump_dir, exist_ok=True)
+
+    offset = _P2_HEADER_SIZE
+    remaining = total_records
+    seen = 0
+    t0 = time.time()
+    last_log = t0
+
+    with open(solutions_bin, "rb") as f:
+        while remaining > 0:
+            n = min(chunk_size, remaining)
+            f.seek(offset)
+            raw = f.read(n * _P2_RECORD_SIZE)
+            if len(raw) < n * _P2_RECORD_SIZE:
+                # truncated read; trim
+                n = len(raw) // _P2_RECORD_SIZE
+                if n == 0:
+                    break
+            records = np.frombuffer(raw[:n * _P2_RECORD_SIZE],
+                                    dtype=np.uint8).reshape(n, _P2_RECORD_SIZE)
+            pair_at_pos = _keystone_decode_pair_positions(records)
+            mask = _keystone_compute_mask(pair_at_pos, bdrys_0idx)
+
+            # tabulate (vectorized)
+            chunk_counts = np.bincount(mask, minlength=32)
+            mask_counts += chunk_counts
+
+            # capture interesting records up to dump_limit per mask
+            for m in INTERESTING:
+                if len(interesting_records[m]) >= dump_limit:
+                    continue
+                idxs = np.where(mask == m)[0]
+                room = dump_limit - len(interesting_records[m])
+                if len(idxs) > room:
+                    idxs = idxs[:room]
+                if len(idxs) > 0:
+                    interesting_records[m].append(records[idxs].copy())
+
+            offset += n * _P2_RECORD_SIZE
+            remaining -= n
+            seen += n
+
+            now = time.time()
+            if now - last_log >= 30 or remaining == 0:
+                rate = seen / max(now - t0, 1e-9)
+                eta = (total_records - seen) / max(rate, 1.0)
+                print(f"[keystone] {seen:,}/{total_records:,} "
+                      f"({100*seen/total_records:.1f}%) "
+                      f"{rate/1e6:.2f}M/s ETA {eta/60:.1f}m", flush=True)
+                last_log = now
+
+    elapsed = time.time() - t0
+    print(f"[keystone] DONE {seen:,} records in {elapsed:.1f}s "
+          f"({seen/elapsed/1e6:.2f}M/s)", flush=True)
+
+    # Write dumps
+    dump_paths = {}
+    if dump_dir is not None:
+        for m, chunks in interesting_records.items():
+            if not chunks:
+                continue
+            arr = np.concatenate(chunks, axis=0)
+            label = INTERESTING[m][0]
+            path = os.path.join(dump_dir, f"keystone_mask{m:02d}_{label}.bin")
+            with open(path, "wb") as fdump:
+                fdump.write(arr.tobytes())
+            dump_paths[m] = (path, arr.shape[0])
+            print(f"[keystone] dumped {arr.shape[0]} records "
+                  f"(mask={m}, {label}) → {path}", flush=True)
+
+    # Write markdown report
+    with open(out_md, "w") as fmd:
+        fmd.write("# Keystone analysis — boundary minimum-set "
+                  f"{{1,4,21,25,27}} on `{os.path.basename(solutions_bin)}`\n\n")
+        fmd.write(f"- Total records: **{total_records:,}**\n")
+        fmd.write(f"- Minimum 5-set (1-indexed): "
+                  f"{_KEYSTONE_BDRYS_1IDX}\n")
+        fmd.write(f"- Mask bit i ⇔ boundary `_KEYSTONE_BDRYS_1IDX[i]` "
+                  "matches KW\n")
+        fmd.write(f"- Wall: {elapsed:.1f}s "
+                  f"({seen/elapsed/1e6:.2f}M records/s)\n\n")
+
+        fmd.write("## Mask histogram (full)\n\n")
+        fmd.write("| mask (binary) | mask (dec) | matched boundaries (1-idx) | count | % of total |\n")
+        fmd.write("|---|---:|---|---:|---:|\n")
+        for m in range(32):
+            matched = [str(_KEYSTONE_BDRYS_1IDX[i]) for i in range(5)
+                       if (m >> i) & 1]
+            mb = ",".join(matched) if matched else "(none)"
+            pct = 100.0 * mask_counts[m] / total_records if total_records else 0
+            fmd.write(f"| `{m:05b}` | {m} | {{{mb}}} | "
+                      f"{mask_counts[m]:,} | {pct:.6f} |\n")
+
+        fmd.write("\n## Drop-one analysis\n\n")
+        fmd.write("For each boundary b in the 5-set, this is the count of "
+                  "records that match KW at the OTHER 4 boundaries but fail "
+                  "at b. These records are the 'witnesses' boundary b "
+                  "uniquely eliminates from the 4-subset's solution space.\n\n")
+        fmd.write("| dropped boundary (1-idx) | mask | count | "
+                  "interpretation |\n")
+        fmd.write("|---:|:---:|---:|---|\n")
+        all5 = 31
+        for i, b in enumerate(_KEYSTONE_BDRYS_1IDX):
+            drop_mask = all5 ^ (1 << i)
+            fmd.write(f"| {b} | `{drop_mask:05b}` ({drop_mask}) | "
+                      f"{mask_counts[drop_mask]:,} | "
+                      f"orderings rescued if boundary {b} is dropped from "
+                      f"the minimum set |\n")
+
+        fmd.write("\n## All-5 matched (KW-uniqueness check)\n\n")
+        fmd.write(f"- Records with all 5 boundaries matched (mask=31): "
+                  f"**{mask_counts[31]:,}**\n")
+        fmd.write("  - Should equal **1** if {1,4,21,25,27} uniquely "
+                  "determines KW. Any value >1 means the 5-set admits "
+                  "non-KW solutions, falsifying the uniqueness claim.\n")
+        fmd.write(f"- Records matching zero of the 5 (mask=0): "
+                  f"**{mask_counts[0]:,}**\n\n")
+
+        if dump_paths:
+            fmd.write("## Record dumps\n\n")
+            fmd.write("Records with selected masks were dumped (capped at "
+                      f"{dump_limit} per mask) for downstream structural "
+                      "analysis. Each file is a raw binary stream of "
+                      "32-byte records (same format as solutions.bin "
+                      "minus the header).\n\n")
+            fmd.write("| mask | label | dumped count | path |\n")
+            fmd.write("|---:|---|---:|---|\n")
+            for m, (path, count) in sorted(dump_paths.items()):
+                label = INTERESTING[m][0]
+                fmd.write(f"| {m} | {label} | {count:,} | `{path}` |\n")
+
+        fmd.write("\n## Interpretation guide\n\n")
+        fmd.write("- The {25, 27} keystone claim predicts: "
+                  "`mask_counts[drop_25_mask]` and `mask_counts[drop_27_mask]` "
+                  "are non-trivial (boundaries 25 and 27 do real work), "
+                  "and the corresponding 'drop' families have structural "
+                  "commonalities not captured by the other 4 boundaries.\n")
+        fmd.write("- If `mask_counts[31] > 1`, the 5-set is NOT "
+                  "uniqueness-determining at this canonical depth — the "
+                  "minimum-set claim needs revision (likely growing to a "
+                  "6-set).\n")
+        fmd.write("- Compare drop-25 vs drop-27 record families: if they "
+                  "are disjoint, both keystones do independent work; if "
+                  "heavily overlapping, the 'two keystones' framing weakens.\n")
+
+    print(f"[keystone] wrote {out_md}", flush=True)
+    return mask_counts, dump_paths
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -4196,6 +4450,19 @@ def main():
                         help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
     parser.add_argument("--sat-c5", action="store_true",
                         help="P3 sat-encode: include C5 cardinality constraints (heavy)")
+    parser.add_argument("--keystone-analysis", nargs=2,
+                        metavar=("SOLUTIONS_BIN", "OUT_MD"),
+                        help="Counterfactual analysis of the {1,4,21,25,27} "
+                             "minimum boundary set: per-record 5-bit match-mask "
+                             "histogram + drop-one analysis. Identifies the "
+                             "specific record families each keystone boundary "
+                             "uniquely eliminates.")
+    parser.add_argument("--keystone-dump-dir", metavar="DIR",
+                        help="Optional output dir for record dumps from "
+                             "interesting masks (drop-25, drop-27, all-5)")
+    parser.add_argument("--keystone-dump-limit", type=int, default=10000,
+                        help="Cap on records dumped per interesting mask "
+                             "(default: 10000)")
     parser.add_argument("--compute-stats-workers", type=int, default=None,
                         help="P2 compute-stats: worker processes (default: cpu_count())")
     parser.add_argument("--compute-stats-chunk-size", type=int, default=1_000_000,
@@ -4218,6 +4485,13 @@ def main():
                         help="Print progress during search")
 
     args = parser.parse_args()
+
+    if args.keystone_analysis:
+        keystone_analysis(args.keystone_analysis[0],
+                          args.keystone_analysis[1],
+                          dump_dir=args.keystone_dump_dir,
+                          dump_limit=args.keystone_dump_limit)
+        return
 
     if args.compute_stats:
         p2_compute_stats(args.compute_stats[0], args.compute_stats[1],

@@ -32,6 +32,8 @@ where |H| = 64. Under `comp(h) = h ⊕ 63`, no hexagram is self-complementary (t
 
 **S** is the unique permutation of **H** satisfying the following constraints. Note: C1 and C2 are structural properties observable in the sequence. C3, C4, and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C6 and C7 are specific adjacency choices that no aggregate mathematical property can replace.
 
+**Numbering note.** The narrative document [SOLVE.md](SOLVE.md) uses discovery-order labels (Rule 1–6) which include a "Rule 4 (XOR algebraic)" not listed here — that rule is provably redundant (see Theorem (XOR universality) below) and is therefore not part of the formal constraint set. Mapping: Rule 1↔C1, Rule 2↔C2, Rule 3↔C3, Rule 4↔(Theorem 2, redundant), Rule 5↔C4, Rule 6↔C5. The formal minimum independent rule set is **{C1, C3, C4, C5}** (C2 is mathematically implied by C5's histogram but kept in the solver as an O(1) boundary pre-filter); C6 and C7 are additional adjacency constraints needed to single out KW within the C1–C5 family.
+
 ### C1: Pair structure
 For all i ∈ {0, 2, 4, ..., 62}: s_{i+1} = partner(sᵢ).
 
