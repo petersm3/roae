@@ -726,6 +726,11 @@ typedef struct {
      * each task's DFS, distributing coverage across tasks instead of letting
      * 64 workers walk 64 deep tasks. Unused when per_task_node_limit == 0. */
     long long task_node_start;
+    /* Per-task cap-hit flag (2026-04-28). Set when (branch_nodes - task_node_start)
+     * crosses per_task_node_limit; checked at every backtrack entry so the entire
+     * DFS unwinds in O(depth) instead of O(branching^depth). Reset to 0 at next
+     * task claim. */
+    volatile int task_cap_hit;
     int kw_found;
     int branches_completed;
     long long hash_collisions;
@@ -1412,6 +1417,7 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
      */
     if (sub_sub_parallel_active) {
         if (sub_sub_budget_hit) return;
+        if (ts->task_cap_hit) return;
         /* Flush local progress to this worker's CCD-assigned counter every
          * ~65K nodes and check vs budget. Per-CCD sharding reduces cache-
          * line contention vs a single global counter — see data structures
@@ -1429,11 +1435,15 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
                 return;
             }
             /* Per-task budget cap (2026-04-28, SOLVE_PER_TASK_NODE_LIMIT).
-             * Returns from this DFS so the worker claims the next task.
+             * Sets per-worker task_cap_hit flag so ALL recursive frames
+             * unwind on their next entry — without this, parent loops
+             * iterate siblings and each sibling walks ~65K nodes before
+             * its own cap fire, producing 30^depth wasted work.
              * Other workers continue. When 0 (default), no cap → byte-
              * identical output to pre-2026-04-28 builds. */
             if (per_task_node_limit > 0 &&
                 (ts->branch_nodes - ts->task_node_start) >= per_task_node_limit) {
+                ts->task_cap_hit = 1;
                 return;
             }
         }
@@ -2328,6 +2338,7 @@ static void *thread_func_sub_sub(void *arg) {
         time_t task_start_time = time(NULL);
         ts->current_task_stats = &sub_sub_task_stats[idx];
         ts->task_node_start = ts->branch_nodes;  /* 2026-04-28: per-task cap baseline */
+        ts->task_cap_hit = 0;                    /* 2026-04-28: clear cap flag for new task */
 
         SubSubBranchTask *task = &sub_sub_tasks[idx];
 
