@@ -872,7 +872,7 @@ checkpoint — work lost, ~$5.85 sunk. Per operator: B2 abandoned for now,
 restart deferred (recipe documented at `x/roae/CURRENT_PLAN.md` §"Backlog: B2
 distributional analysis re-run").
 
-## April 28, 2026 — `solve.c` per-task budget cap; 1000T-d3 run stopped at 154T after structural finding; Cobalt 100 full-enum cross-arch reproducibility
+## April 27, 2026 evening — `solve.c` per-task budget cap; 1000T-d3 run stopped at 154T after structural finding; Cobalt 100 full-enum cross-arch reproducibility
 
 **Structural finding about the in-flight 1000T run.** The 1000T-d3 run
 on sub-branch `22_0_30_1_20_0` had been running on `deep-calib-westus3`
