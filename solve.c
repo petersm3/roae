@@ -1134,16 +1134,33 @@ static void resize_hash_table(ThreadState *ts) {
     int old_log2 = ts->ht_log2;
     int old_size = ts->ht_size;
     int new_log2 = old_log2 + 1;
-    int new_size = 1 << new_log2;
-    int new_mask = new_size - 1;
+    /* 2026-04-28: ts->ht_size / ht_mask are int. Resizing to 2^31+ would
+     * overflow them. Cap at 2^30 (1.07B slots, 32 GB / table). Fast warning
+     * and no-op if already at cap; insertion still works (probes get longer
+     * but lex-smallest-wins dedup keeps semantics correct). For runs needing
+     * >800M unique solutions per worker, ht_size needs to be widened to
+     * size_t/long throughout — separate change. */
+    if (new_log2 > 30) {
+        static int warned = 0;
+        if (!warned) {
+            fprintf(stderr, "WARN: thread %d hash table resize 2^%d → 2^%d "
+                    "skipped (capped at 2^30); probing may degrade\n",
+                    ts->thread_id, old_log2, new_log2);
+            fflush(stderr);
+            warned = 1;
+        }
+        return;
+    }
+    size_t new_size = (size_t)1 << new_log2;
+    size_t new_mask = new_size - 1;
 
-    unsigned char *new_table = calloc((size_t)new_size, SOL_RECORD_SIZE);
+    unsigned char *new_table = calloc(new_size, SOL_RECORD_SIZE);
     char *new_occupied = calloc(new_size, 1);
     if (!new_table || !new_occupied) {
         fprintf(stderr, "FATAL: thread %d cannot resize hash table 2^%d → 2^%d "
-                "(%d MB). Out of memory.\n",
+                "(%lld MB). Out of memory.\n",
                 ts->thread_id, old_log2, new_log2,
-                (int)((size_t)new_size * SOL_RECORD_SIZE / 1048576));
+                (long long)(new_size * SOL_RECORD_SIZE / 1048576));
         exit(1);
     }
 
@@ -1308,7 +1325,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
             memcpy(&ts->sol_table[(size_t)idx * SOL_RECORD_SIZE], record, SOL_RECORD_SIZE);
             ts->sol_occupied[idx] = 1;
             ts->solution_count++;
-            if (ts->solution_count > ts->ht_size * 3 / 4)
+            if (ts->solution_count > (long long)ts->ht_size * 3 / 4)
                 resize_hash_table(ts);
             pthread_mutex_unlock(&ts->ht_mutex);
             return;
@@ -2478,7 +2495,7 @@ static void merge_sol_tables(ThreadState *dst, ThreadState *src) {
                 memcpy(&dst->sol_table[(size_t)idx * SOL_RECORD_SIZE], record, SOL_RECORD_SIZE);
                 dst->sol_occupied[idx] = 1;
                 dst->solution_count++;
-                if (dst->solution_count > dst->ht_size * 3 / 4)
+                if (dst->solution_count > (long long)dst->ht_size * 3 / 4)
                     resize_hash_table(dst);
                 break;
             }
