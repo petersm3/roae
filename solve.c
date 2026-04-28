@@ -2106,7 +2106,7 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) {
                         fflush(stderr);
                         warns_this_file++;
                     }
-                    if (consolidate_into->solution_count > consolidate_into->ht_size * 3 / 4) {
+                    if (consolidate_into->solution_count > (long long)consolidate_into->ht_size * 3 / 4) {
                         resize_hash_table(consolidate_into);
                     }
                     break;
