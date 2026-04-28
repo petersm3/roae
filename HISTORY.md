@@ -872,6 +872,137 @@ checkpoint — work lost, ~$5.85 sunk. Per operator: B2 abandoned for now,
 restart deferred (recipe documented at `x/roae/CURRENT_PLAN.md` §"Backlog: B2
 distributional analysis re-run").
 
+## April 28, 2026 — `solve.c` per-task budget cap; 1000T-d3 run stopped at 154T after structural finding; Cobalt 100 full-enum cross-arch reproducibility
+
+**Structural finding about the in-flight 1000T run.** The 1000T-d3 run
+on sub-branch `22_0_30_1_20_0` had been running on `deep-calib-westus3`
+since 2026-04-26 14:13 UTC (post-Spot→on-demand migration), with prior
+status reports characterizing it as "1000T budget distributed across
+2,507 sub-sub-tasks at ~398.88 G per task." Investigation of
+`solve.c`'s task-completion logic against live state at 28h45m elapsed
+(150.84 T walked, 0 tasks completed, 64 workers each at ~2.36 T deep)
+showed the framing was wrong. The code:
+
+- Computes `per_branch_node_limit = SOLVE_NODE_LIMIT / total_branches`.
+  For a single `--sub-branch` invocation, `total_branches = 1`, so the
+  limit is the full SOLVE_NODE_LIMIT (10^15).
+- Inside `backtrack()`, every 65,536 nodes checks the GLOBAL counter
+  `sub_sub_sum_counters() >= per_branch_node_limit`. This is the SOLE
+  budget enforcement — global, not per-task.
+- Marks `sub_sub_task_done[idx] = 1` ONLY when the task's DFS subtree
+  is naturally exhausted — i.e., `backtrack()` returns with neither
+  `sub_sub_budget_hit` nor `global_timed_out` set.
+
+The "398.88 G per task" number that had appeared in earlier status
+reports was just `10^15 / 2507` — an arithmetic average, not a code
+path. There was no per-task budget enforcement at all.
+
+The consequence: with 64 workers and a 1000T global budget on a single
+sub-branch, all 64 workers stayed on their initially-claimed tasks for
+the entire run. Each task's subtree turned out to be > 2 T (no natural
+exhaustions in 28h45m at ~22 M nodes/sec/worker), and the run was
+projected to end with 64 workers each at ~16 T deep into one
+(p4, o4, p5, o5) extension, with 2,443 of 2,507 sub-sub-tasks (97.5%)
+**never claimed**. Output `sub_22_0_30_1_20_0.bin` would represent 64
+deep partial walks, not the wide sweep the framing implied.
+
+**Operator decision.** Given the projection (~$290 remaining spend on
+a known-misshapen run vs ~$11 spent on a corrected mechanism), the
+operator chose path #4 from the reassessment doc
+([`x/roae/1000T_RUN_REASSESSMENT_2026_04_28.md`](https://github.com/petersm3/x/blob/main/roae/1000T_RUN_REASSESSMENT_2026_04_28.md)):
+stop the current run, add per-task budget enforcement to `solve.c`,
+run a 100T pilot with the new cap to get full task-space coverage,
+then decide on a deeper 1000T run informed by real per-task data.
+
+**The code change** was small: ~25 LOC in `solve.c`.
+
+- `ThreadState`: new `task_node_start` field (snapshot of `branch_nodes`
+  at task claim).
+- Global: new `static long long per_task_node_limit = 0` (default 0 =
+  off, preserves all canonical shas including `403f7202`, `f7b8c4fb`,
+  `915abf30`).
+- New env var read in main: `SOLVE_PER_TASK_NODE_LIMIT`. When set, each
+  sub-sub-task's DFS is capped at N nodes via a check in `backtrack()`
+  (added inline to the existing 65,536-node delta-publish site).
+- When the per-task cap fires, `backtrack()` returns; the worker's
+  outer loop in `thread_func_sub_sub` claims the next task. The task
+  does NOT block budget hit (since `sub_sub_budget_hit` stays clear),
+  so resume semantics are preserved.
+
+`--selftest` PASSES with sha `403f7202…` byte-identical when the env
+var is unset (verified locally on x86 and on Cobalt 100 ARM).
+
+**Asset preservation.** Before stopping the run, the operator
+explicitly directed asset preservation. The graceful SIGTERM at
+2026-04-28 00:58:50 UTC let the Tier-2 final flush complete and
+`per_task_stats.csv` write fresh values. The result of the partial
+run was preserved in two places:
+
+- **On `deep-calib-westus3`'s OS disk (preserved when VM was
+  deallocated):** full `run.log` (3.4 MB), `per_task_stats.csv` (244 KB),
+  87 × `sub_flush_chunk_*.bin` (14 GB partial deduplicated solutions),
+  64 × `sub_ckpt_wrk*.bin` (8.5 GB resumable worker state). Restartable
+  via `az vm start -g rg-claude -n deep-calib-westus3`.
+- **In `x/roae/1000T_partial_results_2026_04_28/`:** forensic summary
+  + sha256 manifests for the 87+64 binary artifacts (for integrity
+  tracking even if the VM disk is later lost).
+
+Key per-task data from the partial run: all 64 active tasks walked
+between 2.13 T and 2.56 T (max task=37 at 2.56 T) — a relatively
+uniform Pareto within the active slice. None of the 64 had subtrees
+< 2.13 T, supporting the hypothesis that the largest sub-sub-tasks
+in this branch are at least multiple trillions of nodes each.
+
+**Cobalt 100 full-enumeration cross-arch validation.** Before launching
+the 100T pilot, the operator wanted byte-identical sha verification on
+ARM with the new code. Earlier `--selftest` runs on D8ps_v6 had
+established small-scale cross-arch reproducibility, but the full
+canonical d3 10T enumeration had never been done on ARM.
+
+VM: `cobalt-validate-westus3`, Standard_D96ps_v6 Spot in westus3
+(96-vCPU ARM Neoverse-N2 / Cobalt 100, 377 GiB RAM). Quota was 10
+vCPU at 01:30 UTC; operator raised to 96 by 01:55 UTC, unblocking
+the launch. Build with `gcc -O3 -pthread -fopenmp -mcpu=native`
+(13.3.0 ARM) clean. `--selftest` PASS — sha `403f7202…` byte-identical.
+
+Run: `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 ./solve 0 96`,
+158,364 sub-branches at depth 3, per-sub-branch budget ~63 M nodes.
+**Walltime: 1h17m27s** (4647s, 2,155 M/s sustained aggregate, 22.4
+M/s/thread = 93% of 24 M/s/thread theoretical). Total 10T nodes,
+626.7B raw solutions before dedup, 85.2B C3-valid leaves.
+
+Merge mistake: forced `SOLVE_MERGE_MODE=external` after a disk-shortage
+error, when the right move was to resize the disk (256 GB) and use
+default in-memory mode. External mode is ~3-4× slower than in-memory
+on Standard SSD (writes 21 sorted-run temp files to disk, then K-way
+merges). Took ~70 min in external mode; would have been ~10-15 min
+in-memory. Mid-run also briefly had two concurrent merge processes
+(my mistake — accidentally launched a second), so the first attempt
+was killed and restarted clean. Lesson: pre-size disk to 256 GB+ for
+d3 10T merges from the start, default merge mode is correct path.
+
+**Result:** solutions.bin sha =
+`f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`
+**= byte-identical to canonical** (706,422,987 unique solutions
+checked, all C1-C5 verified, sorted, no duplicates, King Wen present).
+
+This is the first project-level full-enumeration cross-architecture
+validation result. The partition-invariance theorem
+([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md), 2026-04-21)
+predicted exactly this — that any solver run with the same constraints
+and node-limit budget produces the same sorted, deduplicated solution
+set across hardware. Cobalt 100 ARM Neoverse-N2 with `gcc -O3
+-mcpu=native` confirms the theorem holds with the new
+per-task-cap-capable code (env var unset = default 0 = byte-identical
+to prior canonical-producing builds).
+
+**Next step:** 100T pilot on `22_0_30_1_20_0` with
+`SOLVE_PER_TASK_NODE_LIMIT=40000000000` (40 G per task) on D64als_v7
+Spot in westus3. ~$11, ~19h. Goal: full breadth coverage of the
+(p4, o4, p5, o5) task space — yield distribution, C3-leaf density,
+keystone-pattern presence per cell — to inform whether a deeper 1000T
+run is justified.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.

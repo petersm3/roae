@@ -720,6 +720,12 @@ typedef struct {
      * Set by worker loop at task-start, cleared at task-end. backtrack()
      * uses this to route per-task increments. NULL outside task windows. */
     void *current_task_stats;
+    /* Per-task node start counter (2026-04-28, SOLVE_PER_TASK_NODE_LIMIT).
+     * Snapshot of branch_nodes at task claim. backtrack() compares
+     * (branch_nodes - task_node_start) against per_task_node_limit to cap
+     * each task's DFS, distributing coverage across tasks instead of letting
+     * 64 workers walk 64 deep tasks. Unused when per_task_node_limit == 0. */
+    long long task_node_start;
     int kw_found;
     int branches_completed;
     long long hash_collisions;
@@ -865,6 +871,11 @@ static int time_limit = 0;
  * hardware produces the same solutions.bin (reproducible sha256). */
 static long long node_limit = 0;
 static long long per_branch_node_limit = 0;  /* node_limit / n_branches, set at startup */
+/* Per-task node limit (2026-04-28, SOLVE_PER_TASK_NODE_LIMIT). When set,
+ * each sub-sub task DFS is capped at this many nodes, distributing coverage
+ * across the 2507 task queue instead of letting 64 workers walk 64 deep
+ * tasks. 0 = off (preserves prior behavior + canonical shas). */
+static long long per_task_node_limit = 0;
 /* Enumeration depth for sub-branch partitioning. 2 (default) = depth-2
  * (pair1, orient1, pair2, orient2) — ~3030 work units. 3 = depth-3
  * (pair1..pair3, orient1..orient3) — ~90000 work units for finer granularity
@@ -1415,6 +1426,14 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
             if (per_branch_node_limit > 0 &&
                 sub_sub_sum_counters() >= per_branch_node_limit) {
                 sub_sub_budget_hit = 1;
+                return;
+            }
+            /* Per-task budget cap (2026-04-28, SOLVE_PER_TASK_NODE_LIMIT).
+             * Returns from this DFS so the worker claims the next task.
+             * Other workers continue. When 0 (default), no cap → byte-
+             * identical output to pre-2026-04-28 builds. */
+            if (per_task_node_limit > 0 &&
+                (ts->branch_nodes - ts->task_node_start) >= per_task_node_limit) {
                 return;
             }
         }
@@ -2308,6 +2327,7 @@ static void *thread_func_sub_sub(void *arg) {
         long long task_start_sols = ts->solution_count;
         time_t task_start_time = time(NULL);
         ts->current_task_stats = &sub_sub_task_stats[idx];
+        ts->task_node_start = ts->branch_nodes;  /* 2026-04-28: per-task cap baseline */
 
         SubSubBranchTask *task = &sub_sub_tasks[idx];
 
@@ -5276,6 +5296,16 @@ int main(int argc, char *argv[]) {
     if (env_nodes) node_limit = atoll(env_nodes);
     if (node_limit > 0)
         printf("Node limit: %lld (reproducible mode)\n", node_limit);
+
+    /* Per-task node limit (2026-04-28). Caps each sub-sub task at N nodes,
+     * distributing coverage across the 2507 task queue. Default 0 = off
+     * (no per-task cap; preserves canonical shas like 915abf30 / f7b8c4fb).
+     * Use case: 100T global with 40G per-task = each of 2507 tasks gets up
+     * to 40G of DFS work instead of 64 workers walking 64 tasks deeply. */
+    char *env_per_task = getenv("SOLVE_PER_TASK_NODE_LIMIT");
+    if (env_per_task) per_task_node_limit = atoll(env_per_task);
+    if (per_task_node_limit > 0)
+        printf("Per-task node limit: %lld\n", per_task_node_limit);
 
     /* Reproducibility warning: time_limit and node_limit together create
      * non-determinism. Each sub-branch has a per-sub-branch node budget
