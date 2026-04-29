@@ -1003,6 +1003,98 @@ Spot in westus3. ~$11, ~19h. Goal: full breadth coverage of the
 keystone-pattern presence per cell — to inform whether a deeper 1000T
 run is justified.
 
+## April 28-29, 2026 — 100T pilot on `22_0_30_1_20_0`: completion, recovery from two int-overflow bugs, headline yield-truncation finding
+
+**The 100 T pilot launched 2026-04-28 06:13 UTC** on `pilot-100T-westus3`
+(D64als_v7 Spot, westus3) with `SOLVE_NODE_LIMIT=10^14` and
+`SOLVE_PER_TASK_NODE_LIMIT=40000000000`. Initial run was clean: 12 h of
+64-thread enumeration at ~1,300 M nodes/s, accumulating ~55 T nodes and
+~691 M unique solutions before a spot eviction at 17:59 UTC.
+
+**Spot recovery surfaced two latent int-overflow bugs in
+`resize_hash_table()`.** First resume attempt failed FATAL with
+"`thread 0 cannot resize hash table 2^30 → 2^31 (-65536 MB). Out of
+memory.`" The "-65536 MB" was a misleading int32-overflow message: the
+actual bug was `int new_size = 1 << new_log2`, undefined behavior at
+new_log2 = 31. After investigation, three sites had the same
+`ht_size * 3 / 4` int-overflow pattern (consolidation in
+`sub_ckpt_load`, per-worker insert in `add_to_hash`, cross-worker
+merge in `merge_sol_tables`), and the resize function itself
+overflowed at 2^31. Two-commit fix:
+
+- **Commit `2c936e6`** (April 28 ~03:30 UTC): cast `ht_size * 3 / 4`
+  to `(long long)` at line 2109 (consolidation site). Resume worked
+  for ~55 min on the resumed instance, then crashed FATAL again at
+  the OTHER two sites.
+- **Commit `9a1ddc7`** (April 28 ~05:30 UTC): fix all three trigger
+  sites + cap `resize_hash_table` at 2^30 + widen `new_size`/`new_mask`
+  to `size_t`. Selftest sha `403f7202…` byte-identical preserved.
+  Notes that ht_size remains `int` so 2^30 = 1.07 B slots is the
+  effective per-worker hash ceiling; widening to `long long` would
+  unblock larger runs but is deferred to separate infrastructure
+  work.
+
+The pilot's resumed run also required moving from D64als_v7 (128 GB
+RAM, 'l' = low memory) to **D64as_v7 (256 GB RAM)** to give
+consolidation enough headroom. We had assumed D64als_v7 was 256 GB —
+the 'l' suffix denotes the low-memory variant. Documented for future
+SKU selection.
+
+**Pilot completed 2026-04-29 04:46 UTC** with the BUDGETED status
+fired at cumulative 99.43 T nodes (depth-profile total; 0.57% under
+the 100 T target — the gap is workers' unflushed-delta-at-exit and
+inter-resume overhead, immaterial for analysis). Operator accepted as
+result rather than re-running.
+
+**Output:** `sub_22_0_30_1_20_0.bin` =
+`52c8d308257d3b75041d0743b4b02a37360fe6567fec7c1c07ed49d8d22a29b9`
+(20 GB), 664,086,250 unique canonical orderings. Coverage: 2,380 of
+2,507 (p4, o4, p5, o5) cells fully completed (94.9 %), 64 in-flight
+at BUDGETED, 63 truly unstarted (2.5 %). **Zero cells naturally
+exhausted under the 40 G per-cell cap** — every walked cell of
+`22_0_30_1_20_0` is larger than 40 G nodes.
+
+**The headline finding: the canonical's "yield-16 laggard"
+classification was a ~50,000,000× truncation.** The d3 100 T canonical
+budgeted 632 M nodes per sub-branch and reported 16 unique solutions
+for `22_0_30_1_20_0`. At 100 T per-branch + per-cell-cap budget, this
+*same* sub-branch produced **664 M unique solutions** — comparable to
+the entire d3 10 T canonical's 706 M across all 158,364 branches. The
+canonical's yield label was capturing uniformly-truncated per-branch
+yield, not the branch's actual yield. The implication for downstream
+analyses (keystone, distributional, null-models) is significant: if
+the yield-16 understatement is representative, the project's
+canonical-yield aggregates are **lower bounds**, not point estimates.
+
+**Honest scope limits.** This is one branch at one budget. The
+generalization "all yield-X laggards are similarly truncated" requires
+cross-branch validation. Per_task_stats.csv records cell-level data
+only for the last run instance (1,039 of the 2,380 walked cells —
+the lex-mid+late half post-eviction); pre-eviction cells' per-cell
+stats are wiped on resume because `sub_sub_task_stats` is in-memory.
+The 664 M total stored is correct (consolidated worker hash + cross-
+worker dedup); the per-cell distribution within the lex-first half
+is not directly observable from the pilot's artifacts.
+
+**Pre-existing additional commit (April 29 03:50 UTC):
+`--regression-test` mode in `solve.c`** (commit `59c0afe`, ~149 LOC).
+Added an orchestration mode that verifies partition invariance:
+`sha256(full enum at total budget B) == sha256(merge of 56 first-level
+enums each at B/56)`. Default budget 5.6 T (~3 h, ~$2-3 spot). Not
+yet run end-to-end; queued for after pilot analysis. Reuses existing
+`--branch p1 o1` flag (already implemented at line 5219).
+
+**Next step:** `56 × 10 T per first-level branch` cross-branch
+experiment, ~$75-170 / ~12 h parallel. Tests cross-branch universality
+of the yield-truncation finding and the (p4, o4, p5, o5) Pareto-skew
+shape. If the 56-branch yields show the same canonical-yield-as-
+truncation pattern, the project's full-tree yield estimates need
+upward revision.
+
+**Cost summary:** ~$28 total for the 100T pilot (~$23 pre-completion
+including two crash recoveries; ~$5 post-completion archival).
+Cobalt cross-arch validation ~$1.50. Two solve.c bug fixes implicit.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
