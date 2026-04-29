@@ -5137,8 +5137,19 @@ int main(int argc, char *argv[]) {
         const char *tool = sha256_tool();
         if (!tool) { require_sha256_tool(); return 30; }
 
-        char dir_full[]  = "/tmp/regress_full";
-        char dir_56[]    = "/tmp/regress_56";
+        /* Working dirs default to /mnt/work (typical Azure data disk) since
+         * /tmp on a default Azure OS disk (~30 GB) fills up at >100 G total
+         * budget — the depth-3 sub_*.bin shards alone can exceed 25 GB at
+         * 5.6 T scale. Override via SOLVE_REGRESS_DIR env var if needed. */
+        const char *base_dir = getenv("SOLVE_REGRESS_DIR");
+        if (!base_dir) {
+            struct stat sst;
+            base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
+        }
+        char dir_full[256], dir_56[256];
+        snprintf(dir_full, sizeof(dir_full), "%s/regress_full", base_dir);
+        snprintf(dir_56,   sizeof(dir_56),   "%s/regress_56",   base_dir);
+        printf("[regression-test] working dirs: %s, %s\n", dir_full, dir_56);
         char cleanup1[256], cleanup2[256];
         snprintf(cleanup1, sizeof(cleanup1), "rm -rf %s && mkdir -p %s", dir_full, dir_full);
         snprintf(cleanup2, sizeof(cleanup2), "rm -rf %s && mkdir -p %s", dir_56,   dir_56);
