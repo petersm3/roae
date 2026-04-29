@@ -5112,6 +5112,9 @@ int main(int argc, char *argv[]) {
          * Working dirs: /tmp/regress_full, /tmp/regress_56. Left in place on
          * FAIL for inspection; cleaned up on PASS.
          */
+        /* init_pairs is normally called later in main; we need it here for
+         * pair_index_of to identify the start pair in the (p1, o1) loop. */
+        init_pairs();
         long long total_budget = 5600000000000LL;
         if (argc > 2) total_budget = atoll(argv[2]);
         if (total_budget <= 0) {
