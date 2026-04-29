@@ -5093,6 +5093,154 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
+    } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
+        /* --regression-test (2026-04-29): partition-invariance check.
+         *
+         * Verifies that:
+         *   sha256( full_enum at total budget B )
+         *   == sha256( merge of 56 first-level enums each at budget B/56 )
+         *
+         * The two runs allocate the same per-depth-3-sub-branch budget
+         * (B / 158,364), so under the partition-invariance theorem they
+         * must produce byte-identical solutions.bin.
+         *
+         * Default budget: 5.6 T (5_600_000_000_000) — meaningful sample
+         * (~5 M unique solutions), ~3 h walltime on D64als_v7. Override:
+         *   ./solve --regression-test <budget>
+         * For a fast smoke test: ./solve --regression-test 5600000  (5.6 M, ~5 min)
+         *
+         * Working dirs: /tmp/regress_full, /tmp/regress_56. Left in place on
+         * FAIL for inspection; cleaned up on PASS.
+         */
+        long long total_budget = 5600000000000LL;
+        if (argc > 2) total_budget = atoll(argv[2]);
+        if (total_budget <= 0) {
+            fprintf(stderr, "ERROR: --regression-test budget must be positive\n");
+            return 2;
+        }
+        long long per_branch_budget = total_budget / 56;
+        if (per_branch_budget <= 0) {
+            fprintf(stderr, "ERROR: budget too small (per-first-level = 0)\n");
+            return 2;
+        }
+        printf("[regression-test] total_budget=%lld per_first_level=%lld\n",
+               total_budget, per_branch_budget);
+
+        char solve_path[4096];
+        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
+        if (sn <= 0) {
+            fprintf(stderr, "ERROR: cannot resolve self path\n");
+            return 10;
+        }
+        solve_path[sn] = 0;
+
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+
+        char dir_full[]  = "/tmp/regress_full";
+        char dir_56[]    = "/tmp/regress_56";
+        char cleanup1[256], cleanup2[256];
+        snprintf(cleanup1, sizeof(cleanup1), "rm -rf %s && mkdir -p %s", dir_full, dir_full);
+        snprintf(cleanup2, sizeof(cleanup2), "rm -rf %s && mkdir -p %s", dir_56,   dir_56);
+        int _r;
+        _r = system(cleanup1); (void)_r;
+        _r = system(cleanup2); (void)_r;
+
+        /* Phase 1: full enum. SOLVE_DEPTH=3 to match canonical partition. */
+        printf("[regression-test] Phase 1/4: full enum at %lld nodes (depth 3)\n", total_budget);
+        fflush(stdout);
+        char cmd[4096];
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld %s 0 64 > full.log 2>&1 && "
+                 "%s --merge > merge.log 2>&1",
+                 dir_full, total_budget, solve_path, solve_path);
+        _r = system(cmd);
+        if (_r != 0) {
+            fprintf(stderr, "[regression-test] FAIL: full-enum phase exit=%d (see %s/full.log, %s/merge.log)\n",
+                    _r, dir_full, dir_full);
+            return 50;
+        }
+
+        /* Capture full sha */
+        char sha_full[128] = {0};
+        char shacmd[256];
+        snprintf(shacmd, sizeof(shacmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, dir_full);
+        FILE *fp = popen(shacmd, "r");
+        if (!fp || !fgets(sha_full, sizeof(sha_full), fp)) {
+            fprintf(stderr, "[regression-test] FAIL: cannot read full sha\n");
+            if (fp) pclose(fp);
+            return 50;
+        }
+        pclose(fp);
+        for (char *q = sha_full; *q; q++) if (*q == '\n') { *q = 0; break; }
+        printf("[regression-test] full_sha=%s\n", sha_full);
+
+        /* Phase 2/3: 56 first-level enums + merge */
+        int start_pair_idx = pair_index_of(63, 0);
+        int branch_idx = 0;
+        printf("[regression-test] Phase 2/4: 56 first-level enums at %lld nodes each\n",
+               per_branch_budget);
+        for (int p1 = 0; p1 < 32; p1++) {
+            if (p1 == start_pair_idx) continue;
+            for (int o1 = 0; o1 < 2; o1++) {
+                branch_idx++;
+                printf("[regression-test]   branch %d/56: --branch %d %d\n", branch_idx, p1, o1);
+                fflush(stdout);
+                snprintf(cmd, sizeof(cmd),
+                         "cd %s && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                         "%s --branch %d %d 0 64 > branch_%d_%d.log 2>&1",
+                         dir_56, per_branch_budget, solve_path, p1, o1, p1, o1);
+                _r = system(cmd);
+                if (_r != 0) {
+                    fprintf(stderr, "[regression-test] FAIL: branch %d %d exit=%d\n", p1, o1, _r);
+                    return 50;
+                }
+            }
+        }
+        if (branch_idx != 56) {
+            fprintf(stderr, "[regression-test] WARN: enumerated %d first-level branches, expected 56\n",
+                    branch_idx);
+        }
+
+        printf("[regression-test] Phase 3/4: merge 56-branch shards\n");
+        fflush(stdout);
+        snprintf(cmd, sizeof(cmd), "cd %s && %s --merge > merge.log 2>&1", dir_56, solve_path);
+        _r = system(cmd);
+        if (_r != 0) {
+            fprintf(stderr, "[regression-test] FAIL: 56-branch merge exit=%d\n", _r);
+            return 50;
+        }
+
+        /* Capture 56-branch sha */
+        char sha_56[128] = {0};
+        snprintf(shacmd, sizeof(shacmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, dir_56);
+        fp = popen(shacmd, "r");
+        if (!fp || !fgets(sha_56, sizeof(sha_56), fp)) {
+            fprintf(stderr, "[regression-test] FAIL: cannot read 56-branch sha\n");
+            if (fp) pclose(fp);
+            return 50;
+        }
+        pclose(fp);
+        for (char *q = sha_56; *q; q++) if (*q == '\n') { *q = 0; break; }
+        printf("[regression-test] 56_sha=%s\n", sha_56);
+
+        /* Phase 4: compare */
+        printf("[regression-test] Phase 4/4: compare\n");
+        if (strcmp(sha_full, sha_56) == 0) {
+            printf("[regression-test] PASS — partition invariance confirmed at total budget %lld\n",
+                   total_budget);
+            char rmcmd[512];
+            snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s %s", dir_full, dir_56);
+            _r = system(rmcmd); (void)_r;
+            return 0;
+        } else {
+            fprintf(stderr, "[regression-test] FAIL — partition invariance VIOLATED\n");
+            fprintf(stderr, "                  full_sha=%s\n", sha_full);
+            fprintf(stderr, "                   56_sha =%s\n", sha_56);
+            fprintf(stderr, "                  Working dirs preserved for inspection: %s, %s\n",
+                    dir_full, dir_56);
+            return 60;
+        }
     } else if (argc > 1 && strcmp(argv[1], "--kde-score-stream") == 0) {
         /* P2 v2 native KDE scorer (2026-04-24).
          * Stream-mode Gaussian KDE log-density evaluator. Reads fit points
