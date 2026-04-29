@@ -55,19 +55,17 @@ hash-table bug) are invalidated forensic references only.
 
 ## Cost control — VM purchase type (STRICT, mandatory gate)
 
-**Standing policy (2026-04-20, after an ~$73 avoidable overspend on the 100T d3 run):**
+**Current standing policy (2026-04-29, supersedes the prior split rule):**
 
-- **Enumeration** (`solve.c` running sub-branches, no `--merge`) → **spot priority, 128 cores** (D128als_v7 westus3). Enumeration is eviction-resilient; the orchestrator can resume from checkpoint. Spot pricing is ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot on D128als_v7).
-- **Single-branch enumeration** (`solve.c --sub-branch`, post-P1 parallel, 2026-04-21) → **spot priority, depends on batch size.** Measured 2026-04-21:
-  - **1 branch, wall-critical** → D128als_v7 K=1 N=128 (~$0.0135/branch at 50B, ~51s wall)
-  - **1 branch, cheap** → D64als_v7 K=1 N=64 (~$0.0094/branch, 72s wall)
-  - **8-branch batches (cheapest)** → **D64als_v7 K=8 N=8 packing** (~$0.0080/branch) — 8 concurrent `--sub-branch` processes on one VM; see `DEPLOYMENT.md` §Single-branch SKU sizing and `x/roae/P1_SCALING_MEASUREMENTS.md`.
-  - Packing works because single-process throughput is capped by atomic contention on `sub_sub_shared_nodes` at ~1 B/s on Zen 5c; multiple concurrent processes have independent counters and aggregate to ~1.6 B/s on D128.
-- **Merge** (`solve.c --merge`) → **on-demand priority, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest are idle. Pay for what the workload uses.
-  - d3 10T merge (~89 GB pre-dedup): **D16als_v7 (16 cores, 32 GB RAM)** on-demand ~$0.50/hr → $0.50 for a 1-hour merge
-  - d3 100T merge (~880 GB pre-dedup, external): **D32als_v7 (32 cores, 64 GB RAM)** on-demand ~$1.30/hr → ~$7 for a 5-hour merge (vs ~$28 on D128)
-  - Rule: size merge VM by **RAM needed** (pre-dedup size if in-memory, 2× chunk size if external) and **I/O bandwidth** (match to the premium SSD throughput), NOT by core count.
-- If one VM will run both phases and you don't want to stop/restart between them: either (a) stop the VM after enum, resize to smaller SKU, restart for merge, OR (b) create two VMs and transfer shards. (b) is preferred for large runs because enum's D128als_v7 spot is 5× cheaper-per-core-hour than merge's D32als_v7 on-demand, but only if you use the cores.
+> **All VMs other than the 2-core 8GB `claude` orchestrator MUST be Spot priority.** No exceptions for merge VMs, no exceptions for "brief inspection" VMs, no exceptions for analysis VMs. If a workload genuinely cannot tolerate eviction, design for checkpoint/resume, or escalate to the operator before launching.
+
+This supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand). The split policy was correct in theory (eviction-fragile workloads should be Regular) but in practice the on-demand merge VMs accumulated forgotten-VM cost at the same rate as the prior overspend events — so the rule is now blanket Spot-only.
+
+Spot pricing references (D-als-v7 family, westus3):
+- D128als_v7: ~$5.146/hr on-demand → ~$0.95/hr Spot (~85% discount)
+- D64als_v7: ~$2.59/hr on-demand → ~$0.50/hr Spot
+- D32als_v7: ~$1.30/hr on-demand → ~$0.30/hr Spot
+- D16als_v7: ~$0.50/hr on-demand → ~$0.12/hr Spot
 
 **Mandatory pre-launch verification gate (EVERY time, for any workload >1 hour):**
 
@@ -75,14 +73,19 @@ hash-table bug) are invalidated forensic references only.
 az vm show -g <rg> -n <vm> --query priority -o tsv
 ```
 
-- Output `Spot` → OK for enumeration.
-- Output empty / `null` / `Regular` → OK only for merge or explicit on-demand workload. If the intent was spot for enumeration, STOP. Either recreate the VM as spot (`--priority Spot --eviction-policy Deallocate --max-price -1`) or escalate to the user for approval before launching.
+- Output `Spot` → OK to launch.
+- Output empty / `null` / `Regular` → STOP. Either recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the operator. Do NOT proceed with a workload on a Regular-priority VM.
 
-**Creation command templates (must match the workload type):**
-- Spot: `az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1`
-- On-demand: default (no `--priority` flag)
+**Creation command template (only allowed form for new VMs other than `claude`):**
+```
+az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1
+```
 
-Failure mode this prevents: on 2026-04-19, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. Total overspend on the enumeration portion (where spot would have worked): ~$48-73. See HISTORY.md §Missteps for the full retrospective.
+Failure modes this rule prevents:
+- 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. Overspend on enumeration: ~$48-73.
+- 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts. Estimated cost: ~$70-100.
+
+The new rule also implicitly supersedes the merge-VM-on-demand guidance previously in this section: even merge VMs are now Spot. If a merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the systemic cost of forgotten Regular VMs.
 
 ## Cost control — SKU family restrictions (STRICT)
 
@@ -123,12 +126,25 @@ $3-25 and accumulates across sessions.
    needed to touch data-disk contents or delete the disk itself.
 5. **On any session crash / interrupt, the first thing the next wakeup
    does is reconcile VM state against the session-lifetime log.**
+6. **First action of every Azure-touching session: reconcile both VMs AND
+   long-running scripts.** Run `az vm list -d` and account for every
+   running VM. ALSO run:
+   ```
+   ps -ef | grep -E "\.sh$|monitor|watcher|loop" | grep -v grep
+   ```
+   Any bash script alive longer than the current session is a candidate
+   orphan from a prior session. `pkill -f` is unreliable; use
+   `kill -9 <pid>` and verify with a re-`ps`. Orphan scripts will
+   silently undo VM cleanup — e.g., a monitor designed to auto-restart
+   a VM after Spot eviction will keep restarting it forever once the
+   originating session ends.
 
 **Past incidents this rule exists to prevent (see HISTORY.md §Missteps):**
 
 - 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed, ~$25 spend
 - 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it, ~$7.50 spend
 - campaign-westus2 OS disk orphaned for several hours after VM delete until user noticed
+- 2026-04-26 → 2026-04-29: deep-calib-westus3 (recreated as Regular D64als_v7) was kept alive by 3 orphan bash scripts left running on the `claude` orchestrator from sessions ending Apr 25-26 (`deep_calib_monitor.sh`, `deep_calib_milestone_watcher.sh`, `alpha_log_updater_loop.sh` — plus 2 stale `monitor_canonical.sh` from Apr 17). The monitor's auto-restart-on-eviction logic kept undoing manual `az vm deallocate` commands. The 2026-04-28 ~$70 idle-VM incident was fixed by deallocating, but the monitor kept resurrecting the VM until 2026-04-29 14:30 when the orphan scripts were SIGKILL'd and the VM (along with `campaign-westus3` and `stats-westus3`) was deleted entirely. Estimated total cost of the resurrection cycle: ~$70-100 over 3 days.
 
 ## Never do without explicit user approval
 

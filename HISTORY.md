@@ -1131,6 +1131,138 @@ incident 2026-04-28). Standing rule pattern: **operations that
 allocate or release shared/billed resources need synchronous
 confirmation, not async fire-and-forget**.
 
+## April 29, 2026 — orphan-script monitor incident; layered enumeration; Spot-only-except-claude rule
+
+Today combined a code-feature day (layered enumeration + double regression
+test) with a substantial process-discipline incident (the **deep-calib
+orphan-monitor resurrection cycle**), and the resulting rule changes that
+followed.
+
+### Code: layered enumeration + extension-friendly run organization
+
+`solve.c` gained three additions:
+
+1. **`SOLVE_PER_SUB_BRANCH_LIMIT` env var.** Overrides the auto-divide
+   computation of `per_branch_node_limit`. Without this, full-enum and
+   `--branch` paths derived their per-sub-branch budget by dividing
+   `SOLVE_NODE_LIMIT` by the number of sub-branches in scope — which
+   diverges between full-enum (uniform 158,364) and `--branch` (varies
+   per first-level grouping). The override forces both to walk each
+   depth-3 sub-branch with identical per-sub-branch budgets, fixing the
+   2026-04-29 regression-test design flaw documented in `x/roae/regression_test_results_2026_04_29/RESULTS.md`.
+
+2. **`--merge-layers <root>` mode.** Layered enumeration: each run lives
+   in its own subdirectory ("layer") under a root. Layers compose: a
+   later layer extends an earlier one with higher budget (or different
+   scope) without destroying the earlier layer's data. The merger walks
+   subdirs in sort order, picks the LAST-layer-wins shard per
+   sub-branch, symlinks winners into `<root>/_merged_/`, writes a
+   `MANIFEST.txt` recording each shard's source layer, and falls
+   through to the standard merge. Rationale: extending an enumeration
+   later (e.g., raising per-sub-branch budget on a subset of "dead"
+   sub-branches) is non-destructive — rolling back is `rm -rf <new_layer>`.
+   Documented in `DEVELOPMENT.md §Layered enumeration`.
+
+3. **`--double-regression-test` mode.** Orchestrates 4 enumerations
+   (full layer 1, full layer 2, 56-branch layer 1, 56-branch layer 2)
+   + 2 layered merges + 6-way sha comparison. PASS = all six shas
+   match. Verifies partition invariance AND layered-merge correctness
+   in one pass. The 5.6T-per-layer test launched on `pilot-100T-westus3`
+   D128als_v7 Spot at 2026-04-29 14:23 UTC.
+
+`--regression-test` orchestration was also updated to pass
+`SOLVE_PER_SUB_BRANCH_LIMIT` to both phases (closing the 2026-04-29 design
+flaw), drop the redundant explicit `--merge` after auto-merge (saves
+~30 min), and continue past invalid `(p1, o1)` first-level branches via
+a grep check. Selftest sha `403f7202` unchanged — overrides are opt-in.
+
+Commit: `8bfb9d0`.
+
+### Process incident: deep-calib orphan-script resurrection cycle
+
+Around 14:00 UTC, while preparing to launch the new double-regression
+test, a routine `az vm list -d` showed `deep-calib-westus3` (Regular
+D64als_v7) running with CPU < 0.01% for the past 6+ hours. The
+2026-04-28 incident (idle Regular VM caught after 27h, ~$70 spend) had
+supposedly been fixed by deallocating it. Yet here it was again, running.
+
+`az vm deallocate -g RG-CLAUDE -n deep-calib-westus3` succeeded at
+14:17:00 UTC ("VM deallocated" verified). At 14:21:51 UTC — five
+minutes later — the Azure Activity Log showed the VM being started
+again, by `mrpeterson2@gmail.com` from IP `20.59.33.134`. The user
+confirmed they had not done this manually.
+
+Cross-checking, IP `20.59.33.134` is the public IP of the `claude`
+orchestrator VM itself. So whatever started deep-calib was a script or
+process running on `claude`, authenticating as the same user identity.
+The Azure CLI app-id (`04b07795-…`) on the activity-log entry confirmed
+the call came from `az vm start`, not from the portal.
+
+Investigating, three orphan bash scripts were found alive on `claude`:
+
+- `deep_calib_monitor.sh` (PID 1830557, alive since Apr 26) — designed
+  to auto-relaunch deep-calib via `az vm start` on detected eviction,
+  originally written when the VM was Spot. After the VM was recreated
+  as Regular for calibration, the monitor script kept running and now
+  treated Regular-state-deallocated as an "eviction" to recover from.
+- `deep_calib_milestone_watcher.sh` (PID 1766037, alive since Apr 25) —
+  passive log watcher, no resurrection effect but consuming process
+  table slots.
+- `alpha_log_updater_loop.sh` (PID 1767088, alive since Apr 25) —
+  hourly metric updater, no resurrection effect.
+
+Plus two stale `monitor_canonical.sh` instances from Apr 17. All five
+were `kill -9`'d (`pkill -f` did not work — these were detached from
+their originating sessions). The user-side action `az vm start`
+attributed to `mrpeterson2@gmail.com` was correct in the audit-trail
+sense, since the orchestrator VM authenticates as that user, but it
+was actually the `deep_calib_monitor.sh` poll loop that issued it.
+
+Cleanup: `deep-calib-westus3`, `campaign-westus3` (Regular D32als_v7),
+and `stats-westus3` (Regular D16als_v7) were all deleted along with
+their orphan OS disks, NICs, and public IPs. None had data disks
+attached, so the standing "never delete managed data disks" rule did
+not apply.
+
+Estimated cumulative cost of the resurrection cycle (Apr 26 → Apr 29):
+~$70-100, on top of the original ~$70 from the Apr 28 incident.
+
+### New rule: Spot-only except `claude` orchestrator
+
+The repeated incidents (and the realization that even the previous
+"merge VMs are on-demand" exception accumulated forgotten-VM cost)
+prompted a blanket rule:
+
+> **All VMs other than the 2-core 8GB `claude` orchestrator MUST be
+> Spot priority.** No exceptions for merge VMs, no exceptions for
+> "brief inspection" VMs, no exceptions for analysis VMs.
+
+This supersedes the 2026-04-20 split policy in `CLAUDE.md` (enumeration
+= Spot, merge = on-demand). The split policy was correct in theory but
+in practice the merge-VM exemption became the next vector for forgotten
+billing. The new rule trades eviction-resilience-by-design for blast
+radius: a Spot VM going idle costs ~80% less per hour, and an
+operator-noticed forgotten VM caps at the Spot price.
+
+The `--priority` pre-launch verification gate from the 2026-04-19
+overspend retrospective remains in effect, now with a stricter pass
+condition: only `Spot` allowed (was: `Spot for enum, Regular for merge`).
+
+### Updated session-start discipline
+
+`CLAUDE.md §Session-lifecycle VM discipline` gained rule #6: at the
+start of every Azure-touching session, reconcile not just `az vm list -d`
+but also `ps -ef | grep -E "\.sh$|monitor|watcher|loop"` to catch
+orphan scripts from prior sessions. Without this, the VM-reconcile
+rule alone is incomplete — a monitor designed to auto-restart a VM
+will keep restarting it indefinitely once its originating session ends.
+
+### Test status
+
+`--double-regression-test` running on `pilot-100T-westus3`. Phase 1/6
+(full-enum layer 1, 5.6T budget, 35.4M nodes per sub-branch) underway.
+Total expected wall: ~7h. Result will be appended to this section.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
