@@ -1095,6 +1095,42 @@ upward revision.
 including two crash recoveries; ~$5 post-completion archival).
 Cobalt cross-arch validation ~$1.50. Two solve.c bug fixes implicit.
 
+**Operational misstep: deep-calib-westus3 ran idle for 27h, ~$70
+avoidable spend.** When the original 1000T-d3 run on
+`deep-calib-westus3` was stopped (April 28 ~01:24 UTC) per the
+operator-chosen path #4, the VM was deallocated via `az vm deallocate
+... --no-wait`. The async return code was treated as confirmation; no
+post-deallocate state verification was performed. The VM was running
+again 7 minutes later (cause unknown — possibly the `--no-wait` call
+returned before completing, possibly transient Azure state, possibly
+a separate restart trigger I cannot identify in retrospect). It then
+ran idle (load avg 0.02, no solve process) for **1 day 2:54** before
+being noticed during a routine VM-inventory check on 2026-04-29
+04:25 UTC. Cost: 27 h × $2.57/hr (D64als_v7 on-demand) ≈ **$70 of
+avoidable spend**. The VM had a small data disk attached and no
+active workload; the deep-calib OS disk preserved the 1000T-partial
+artifacts as intended, but the compute resource itself was wastefully
+running.
+
+**Root cause and remediation:** the `--no-wait` flag on `az vm
+deallocate` returns success when the deallocation request is *queued*,
+not when it *completes*. There is no automatic verification or alert.
+On 2026-04-29 04:26 UTC the VM was deallocated synchronously
+(`az vm deallocate ...` without `--no-wait`) and the post-state
+verified (`az vm get-instance-view ... displayStatus = "VM
+deallocated"`). The standing pattern for this project going forward:
+**deallocate synchronously and explicitly verify "VM deallocated"
+state before claiming the VM is stopped**, especially for operations
+where compute cost accumulates per-hour. This adds 1-2 minutes to
+deallocation but eliminates a class of silent-failure cost overruns.
+
+This is the third class of operational cost incident in the project
+narrative (F-series leaks 2026-04-19/20/22/25 documented above;
+archive integrity 2026-04-21 in CRITIQUE.md; this deallocate-async
+incident 2026-04-28). Standing rule pattern: **operations that
+allocate or release shared/billed resources need synchronous
+confirmation, not async fire-and-forget**.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
