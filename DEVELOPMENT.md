@@ -75,6 +75,52 @@ enumerated space. When citing quantitative results, note the enumeration depth
   analyze_c_742M.txt`, `analyze_section14_742M.txt`, etc. serve as
   reproducibility references.
 
+### Layered enumeration (extension-friendly run organization)
+
+A "layer" is a single `(scope, per-sub-branch budget)` enumeration result.
+Layers compose: a later layer can extend an earlier one with higher budget
+(or different scope) without destroying the earlier layer's data. This is
+how to organize runs that may need to be extended later.
+
+**Layer = directory.** Each layer lives in its own subdirectory under a
+`<run_root>/`. Convention: name layers so lexical sort = intended order.
+
+```
+<run_root>/
+  01_full_5T_2026_04_29/        # layer 0: full enumeration, 5.6T budget
+    sub_*.bin                   #   ~158K shards
+    checkpoint.txt
+  02_extend_dead_50T_2026_04_30/  # layer 1: extension, higher budget on subset
+    sub_*.bin                   #   shards only for the extended sub-branches
+    checkpoint.txt
+  _merged_/                     # produced by --merge-layers
+    sub_*.bin                   #   symlinks to winning layer's shards
+    solutions.bin
+    MANIFEST.txt                #   records which layer won per shard
+```
+
+**Eviction recovery is NOT a new layer.** A spot-VM eviction → restart →
+checkpoint resume continues writing into the same layer dir. Same scope,
+same budget, same data continuation. New layer only when the operator
+intentionally chooses a new `(scope, budget)` pair.
+
+**Merge:** `solve --merge-layers <run_root>` walks the layer subdirs in
+sort order; for each sub-branch tuple, the LAST layer to contain a shard
+wins. Winners are symlinked into `<run_root>/_merged_/`, the standard
+merge runs in that dir, and produces `<run_root>/_merged_/solutions.bin`
+plus a `MANIFEST.txt` recording each shard's source layer. The result is
+deterministic — given the same set of layers, the merged sha is stable.
+
+**Extending a run:** to raise the per-sub-branch budget on some subset of
+sub-branches, create a new layer dir and run `solve --branch <p1> <o1>` (or
+the full enum scoped to a subset) with `SOLVE_PER_SUB_BRANCH_LIMIT=<higher>`.
+The new layer will only contain shards for the extended sub-branches; the
+earlier layer's shards remain authoritative for everything else.
+
+**Rollback** is `rm -rf <new_layer>` (and `_merged_/`); the prior state is
+intact. Compared to in-place extension (which would overwrite the earlier
+shards), this is non-destructive.
+
 ### Storage strategy: parallel redundancy and long-term archival
 
 > **Status: OPTIONAL / ASPIRATIONAL — not currently in use.**

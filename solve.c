@@ -876,6 +876,14 @@ static int time_limit = 0;
  * hardware produces the same solutions.bin (reproducible sha256). */
 static long long node_limit = 0;
 static long long per_branch_node_limit = 0;  /* node_limit / n_branches, set at startup */
+/* SOLVE_PER_SUB_BRANCH_LIMIT (2026-04-29). When set, overrides the
+ * auto-divide computation of per_branch_node_limit. Both full-enum and
+ * --branch modes will use the same per-sub-branch budget directly,
+ * making outputs byte-identical across partition strategies. Required
+ * for the partition-invariance regression test (`--regression-test`)
+ * to compare apples-to-apples between full-enum and 56-branch-merge
+ * paths. 0 = off (default; auto-divide stands). */
+static long long per_sub_branch_override = 0;
 /* Per-task node limit (2026-04-28, SOLVE_PER_TASK_NODE_LIMIT). When set,
  * each sub-sub task DFS is capped at this many nodes, distributing coverage
  * across the 2507 task queue instead of letting 64 workers walk 64 deep
@@ -4955,6 +4963,181 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--merge") == 0) {
         merge_mode = 1;
         arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--merge-layers") == 0) {
+        /* Layered merge (2026-04-29): enumeration runs are organized as
+         * sibling subdirs ("layers") under a root. Each layer's name sorts
+         * lexically by intended order — convention: `<NN>_<scope>_<budget>_<date>/`
+         * (e.g., `01_full_5T_2026_04_29/`, `02_extend_dead_50T_2026_04_30/`).
+         * Within a layer, shards are normal `sub_<p1>_<o1>_<p2>_<o2>[_<p3>_<o3>].bin`
+         * files. For each sub-branch parameter tuple, the LAST layer (in sort
+         * order) to contain a shard wins. The winners are symlinked into
+         * <root>/_merged_/ along with a MANIFEST.txt recording provenance,
+         * then the standard merge runs in that dir, producing
+         * <root>/_merged_/solutions.bin. Rationale: extending an enumeration
+         * later (higher per-sub-branch budget on a subset of sub-branches)
+         * is non-destructive — the prior layer's shards are preserved
+         * intact, and rolling back is just `rm -rf <new_layer>`. */
+        if (argc < 3) {
+            fprintf(stderr, "Usage: solve --merge-layers <root>\n");
+            return 1;
+        }
+        const char *layer_root = argv[2];
+        DIR *rd = opendir(layer_root);
+        if (!rd) {
+            fprintf(stderr, "ERROR: opendir(%s): %s\n", layer_root, strerror(errno));
+            return 10;
+        }
+        #define MERGE_LAYERS_MAX 256
+        static char layer_names[MERGE_LAYERS_MAX][192];
+        int n_layers = 0;
+        struct dirent *de;
+        while ((de = readdir(rd)) != NULL) {
+            if (de->d_name[0] == '.') continue;
+            if (strcmp(de->d_name, "_merged_") == 0) continue;
+            char path[512];
+            snprintf(path, sizeof(path), "%s/%s", layer_root, de->d_name);
+            struct stat st;
+            if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+            if (n_layers >= MERGE_LAYERS_MAX) {
+                fprintf(stderr, "ERROR: too many layers (max %d)\n", MERGE_LAYERS_MAX);
+                closedir(rd);
+                return 10;
+            }
+            snprintf(layer_names[n_layers], 192, "%s", de->d_name);
+            n_layers++;
+        }
+        closedir(rd);
+        if (n_layers == 0) {
+            fprintf(stderr, "ERROR: no layer subdirs found in %s\n", layer_root);
+            return 1;
+        }
+        /* Sort layer names lexically — operator's responsibility to name
+         * them so sort order = intended layer order. */
+        for (int a = 0; a < n_layers - 1; a++) {
+            for (int b = a + 1; b < n_layers; b++) {
+                if (strcmp(layer_names[a], layer_names[b]) > 0) {
+                    char tmp[192];
+                    snprintf(tmp, 192, "%s", layer_names[a]);
+                    snprintf(layer_names[a], 192, "%s", layer_names[b]);
+                    snprintf(layer_names[b], 192, "%s", tmp);
+                }
+            }
+        }
+        printf("[merge-layers] %d layers (in sort order):\n", n_layers);
+        for (int i = 0; i < n_layers; i++)
+            printf("  %d. %s\n", i, layer_names[i]);
+
+        char merged_dir[512];
+        snprintf(merged_dir, sizeof(merged_dir), "%s/_merged_", layer_root);
+        char rmcmd[1024];
+        snprintf(rmcmd, sizeof(rmcmd), "rm -rf '%s' && mkdir -p '%s'",
+                 merged_dir, merged_dir);
+        int _r2 = system(rmcmd);
+        if (_r2 != 0) {
+            fprintf(stderr, "ERROR: cannot prepare merged dir %s\n", merged_dir);
+            return 20;
+        }
+
+        int total_shards = 0, total_overrides = 0;
+        for (int li = 0; li < n_layers; li++) {
+            char layer_path[768];
+            snprintf(layer_path, sizeof(layer_path), "%s/%s",
+                     layer_root, layer_names[li]);
+            DIR *ld = opendir(layer_path);
+            if (!ld) {
+                fprintf(stderr, "WARN: cannot open layer %s: %s\n",
+                        layer_path, strerror(errno));
+                continue;
+            }
+            int layer_count = 0, layer_overrides = 0;
+            while ((de = readdir(ld)) != NULL) {
+                if (strncmp(de->d_name, "sub_", 4) != 0) continue;
+                int nl = strlen(de->d_name);
+                if (nl < 5 || strcmp(de->d_name + nl - 4, ".bin") != 0) continue;
+                if (strstr(de->d_name, ".tmp")) continue;
+                /* Filter out non-shard files starting with sub_:
+                 * sub_ckpt_*, sub_flush_chunk_* are checkpoint/flush files. */
+                if (strstr(de->d_name, "ckpt") || strstr(de->d_name, "flush_chunk"))
+                    continue;
+                char src[1024], dst[1024];
+                snprintf(src, sizeof(src), "%s/%s", layer_path, de->d_name);
+                snprintf(dst, sizeof(dst), "%s/%s", merged_dir, de->d_name);
+                /* If exists from earlier layer, this layer's shard wins */
+                int was_overriding = (access(dst, F_OK) == 0);
+                if (was_overriding) {
+                    unlink(dst);
+                    layer_overrides++;
+                }
+                if (symlink(src, dst) != 0) {
+                    fprintf(stderr, "ERROR: symlink %s -> %s: %s\n",
+                            src, dst, strerror(errno));
+                    closedir(ld);
+                    return 20;
+                }
+                layer_count++;
+            }
+            closedir(ld);
+            printf("  layer %d (%s): %d shards (%d override prior layer)\n",
+                   li, layer_names[li], layer_count, layer_overrides);
+            total_shards += layer_count;
+            total_overrides += layer_overrides;
+        }
+        int unique_shards = total_shards - total_overrides;
+        printf("[merge-layers] %d total shard contributions; %d distinct sub-branches; "
+               "%d overrides\n",
+               total_shards, unique_shards, total_overrides);
+
+        /* Walk merged_dir, readlink each symlink to recover the WINNING
+         * layer for each sub-branch. Write a clean MANIFEST.txt listing
+         * only winners. */
+        char manifest_path[768];
+        snprintf(manifest_path, sizeof(manifest_path), "%s/MANIFEST.txt", merged_dir);
+        FILE *manifest = fopen(manifest_path, "w");
+        if (!manifest) {
+            fprintf(stderr, "ERROR: cannot create MANIFEST.txt: %s\n", strerror(errno));
+            return 20;
+        }
+        fprintf(manifest, "# Layered merge manifest\n");
+        fprintf(manifest, "# Layer order (later wins per shard):\n");
+        for (int i = 0; i < n_layers; i++)
+            fprintf(manifest, "#   %d. %s\n", i, layer_names[i]);
+        fprintf(manifest, "# Distinct sub-branches: %d   Overrides applied: %d\n",
+                unique_shards, total_overrides);
+        fprintf(manifest, "# Format: <shard>\\t<winning_layer>\n");
+        DIR *md = opendir(merged_dir);
+        if (md) {
+            int written = 0;
+            while ((de = readdir(md)) != NULL) {
+                if (strncmp(de->d_name, "sub_", 4) != 0) continue;
+                int nl = strlen(de->d_name);
+                if (nl < 5 || strcmp(de->d_name + nl - 4, ".bin") != 0) continue;
+                char linkpath[1024], target[1024];
+                snprintf(linkpath, sizeof(linkpath), "%s/%s",
+                         merged_dir, de->d_name);
+                ssize_t tn = readlink(linkpath, target, sizeof(target) - 1);
+                if (tn < 0) continue;
+                target[tn] = 0;
+                /* target = "<layer_root>/<layer_name>/sub_*.bin" — extract
+                 * the layer_name segment between the last two '/' */
+                char *last_slash = strrchr(target, '/');
+                if (!last_slash) continue;
+                *last_slash = 0;
+                char *layer_seg = strrchr(target, '/');
+                const char *winning_layer = layer_seg ? layer_seg + 1 : target;
+                fprintf(manifest, "%s\t%s\n", de->d_name, winning_layer);
+                written++;
+            }
+            closedir(md);
+        }
+        fclose(manifest);
+        printf("[merge-layers] manifest written to %s\n", manifest_path);
+        printf("[merge-layers] running merge in %s\n", merged_dir);
+        if (chdir(merged_dir) != 0) {
+            fprintf(stderr, "ERROR: chdir(%s): %s\n", merged_dir, strerror(errno));
+            return 20;
+        }
+        merge_mode = 1;
+        arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
         validate_mode = 1;
         validate_file = (argc > 2) ? argv[2] : "solutions.bin";
@@ -5160,18 +5343,35 @@ int main(int argc, char *argv[]) {
         _r = system(cleanup1); (void)_r;
         _r = system(cleanup2); (void)_r;
 
-        /* Phase 1: full enum. SOLVE_DEPTH=3 to match canonical partition. */
-        printf("[regression-test] Phase 1/4: full enum at %lld nodes (depth 3)\n", total_budget);
+        /* Compute per-sub-branch budget so both phases walk each depth-3
+         * sub-branch with IDENTICAL budget. Use SOLVE_PER_SUB_BRANCH_LIMIT
+         * env var to override the auto-divide. This is the partition-
+         * invariance test's core requirement: per-sub-branch budgets must
+         * match across the full-enum and 56-branch-merge paths. */
+        long long per_sub_branch = total_budget / 158364LL;
+        printf("[regression-test] per-sub-branch budget: %lld (%lld / 158364)\n",
+               per_sub_branch, total_budget);
+
+        /* Phase 1: full enum. SOLVE_DEPTH=3 to match canonical partition.
+         * Use SOLVE_PER_SUB_BRANCH_LIMIT to set per-sub-branch budget
+         * directly. SOLVE_NODE_LIMIT still set as a global cap (= total
+         * budget); under normal conditions it won't be the binding stop
+         * (per-sub-branch caps fire first), but it provides a safety
+         * ceiling. Skip the explicit `solve --merge` step — full-enum
+         * already auto-merges into solutions.bin (the explicit merge is
+         * redundant and produces identical sha; saves ~30 min). */
+        printf("[regression-test] Phase 1/4: full enum at %lld total / %lld per-sub-branch\n",
+               total_budget, per_sub_branch);
         fflush(stdout);
         char cmd[4096];
         snprintf(cmd, sizeof(cmd),
-                 "cd %s && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld %s 0 64 > full.log 2>&1 && "
-                 "%s --merge > merge.log 2>&1",
-                 dir_full, total_budget, solve_path, solve_path);
+                 "cd %s && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                 "SOLVE_PER_SUB_BRANCH_LIMIT=%lld %s 0 64 > full.log 2>&1",
+                 dir_full, total_budget, per_sub_branch, solve_path);
         _r = system(cmd);
         if (_r != 0) {
-            fprintf(stderr, "[regression-test] FAIL: full-enum phase exit=%d (see %s/full.log, %s/merge.log)\n",
-                    _r, dir_full, dir_full);
+            fprintf(stderr, "[regression-test] FAIL: full-enum phase exit=%d (see %s/full.log)\n",
+                    _r, dir_full);
             return 50;
         }
 
@@ -5189,32 +5389,52 @@ int main(int argc, char *argv[]) {
         for (char *q = sha_full; *q; q++) if (*q == '\n') { *q = 0; break; }
         printf("[regression-test] full_sha=%s\n", sha_full);
 
-        /* Phase 2/3: 56 first-level enums + merge */
+        /* Phase 2/3: 56 first-level enums + merge. Use the same
+         * SOLVE_PER_SUB_BRANCH_LIMIT so per-sub-branch budgets match
+         * across both phases. SOLVE_NODE_LIMIT can be set high (per_branch_budget
+         * is enough since it's per-first-level total ~ N_avg × per_sub_branch);
+         * the per-sub-branch override binds the actual cap. Skip invalid
+         * (p1, o1) combinations — solve.c rejects them with non-zero exit
+         * but we continue. */
         int start_pair_idx = pair_index_of(63, 0);
         int branch_idx = 0;
-        printf("[regression-test] Phase 2/4: 56 first-level enums at %lld nodes each\n",
-               per_branch_budget);
+        int valid_count = 0, invalid_count = 0;
+        printf("[regression-test] Phase 2/4: 56 first-level enums at %lld per-sub-branch budget\n",
+               per_sub_branch);
         for (int p1 = 0; p1 < 32; p1++) {
             if (p1 == start_pair_idx) continue;
             for (int o1 = 0; o1 < 2; o1++) {
                 branch_idx++;
-                printf("[regression-test]   branch %d/56: --branch %d %d\n", branch_idx, p1, o1);
+                printf("[regression-test]   branch %d/62: --branch %d %d\n", branch_idx, p1, o1);
                 fflush(stdout);
                 snprintf(cmd, sizeof(cmd),
                          "cd %s && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                         "SOLVE_PER_SUB_BRANCH_LIMIT=%lld "
                          "%s --branch %d %d 0 64 > branch_%d_%d.log 2>&1",
-                         dir_56, per_branch_budget, solve_path, p1, o1, p1, o1);
+                         dir_56, per_branch_budget, per_sub_branch, solve_path, p1, o1, p1, o1);
                 _r = system(cmd);
                 if (_r != 0) {
-                    fprintf(stderr, "[regression-test] FAIL: branch %d %d exit=%d\n", p1, o1, _r);
-                    return 50;
+                    /* Check if it was invalid (structurally pruned) — that's
+                     * normal, just continue. Other errors are real failures. */
+                    char chkcmd[512];
+                    snprintf(chkcmd, sizeof(chkcmd),
+                             "grep -q 'invalid (pruned' %s/branch_%d_%d.log 2>/dev/null",
+                             dir_56, p1, o1);
+                    if (system(chkcmd) == 0) {
+                        printf("[regression-test]   branch %d %d INVALID (skipping)\n", p1, o1);
+                        invalid_count++;
+                    } else {
+                        fprintf(stderr, "[regression-test] FAIL: branch %d %d exit=%d (real error)\n",
+                                p1, o1, _r);
+                        return 50;
+                    }
+                } else {
+                    valid_count++;
                 }
             }
         }
-        if (branch_idx != 56) {
-            fprintf(stderr, "[regression-test] WARN: enumerated %d first-level branches, expected 56\n",
-                    branch_idx);
-        }
+        printf("[regression-test] Phase 2 enums complete: %d valid, %d invalid\n",
+               valid_count, invalid_count);
 
         printf("[regression-test] Phase 3/4: merge 56-branch shards\n");
         fflush(stdout);
@@ -5253,6 +5473,241 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "                   56_sha =%s\n", sha_56);
             fprintf(stderr, "                  Working dirs preserved for inspection: %s, %s\n",
                     dir_full, dir_56);
+            return 60;
+        }
+    } else if (argc > 1 && strcmp(argv[1], "--double-regression-test") == 0) {
+        /* --double-regression-test (2026-04-29): layered partition-invariance
+         * check that exercises the --merge-layers infrastructure.
+         *
+         * Layout:
+         *   <base>/dregress_full/01_layer1/   <- 5.6T full-enum
+         *   <base>/dregress_full/02_layer2/   <- 5.6T full-enum
+         *   <base>/dregress_full/_merged_/    <- --merge-layers output
+         *
+         *   <base>/dregress_56/01_layer1/     <- 56 first-level @ 100G (5.6T)
+         *   <base>/dregress_56/02_layer2/     <- 56 first-level @ 100G (5.6T)
+         *   <base>/dregress_56/_merged_/      <- --merge-layers output
+         *
+         * Pass criteria:
+         *   sha(dregress_full/_merged_/solutions.bin) ==
+         *   sha(dregress_56/_merged_/solutions.bin)
+         *
+         * Under deterministic enumeration with identical per-sub-branch
+         * budgets, layer 2's shards are byte-identical to layer 1's, so the
+         * merged output equals the canonical 5.6T sha — verified four ways
+         * (full layer 1, full layer 2, 56 layer 1, 56 layer 2) plus the two
+         * layered-merge outputs. A "double regression": partition invariance
+         * AND layered-merge correctness in one pass.
+         *
+         * Default budget per layer: 5.6T. Override:
+         *   ./solve --double-regression-test <budget>
+         */
+        init_pairs();
+        long long total_budget = 5600000000000LL;
+        if (argc > 2) total_budget = atoll(argv[2]);
+        if (total_budget <= 0) {
+            fprintf(stderr, "ERROR: --double-regression-test budget must be positive\n");
+            return 2;
+        }
+        long long per_first_level = total_budget / 56;
+        long long per_sub_branch = total_budget / 158364LL;
+        if (per_first_level <= 0 || per_sub_branch <= 0) {
+            fprintf(stderr, "ERROR: budget too small\n");
+            return 2;
+        }
+        printf("[double-regression-test] per-layer budget=%lld; per-first-level=%lld; per-sub-branch=%lld\n",
+               total_budget, per_first_level, per_sub_branch);
+
+        char solve_path[4096];
+        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
+        if (sn <= 0) { fprintf(stderr, "ERROR: cannot resolve self path\n"); return 10; }
+        solve_path[sn] = 0;
+
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+
+        const char *base_dir = getenv("SOLVE_REGRESS_DIR");
+        if (!base_dir) {
+            struct stat sst;
+            base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
+        }
+        char dir_full[256], dir_56[256];
+        snprintf(dir_full, sizeof(dir_full), "%s/dregress_full", base_dir);
+        snprintf(dir_56,   sizeof(dir_56),   "%s/dregress_56",   base_dir);
+        printf("[double-regression-test] working dirs: %s, %s\n", dir_full, dir_56);
+
+        char cmd[4096];
+        int _r;
+        char rmm[512];
+        snprintf(rmm, sizeof(rmm), "rm -rf %s %s && mkdir -p %s/01_layer1 %s/02_layer2 %s/01_layer1 %s/02_layer2",
+                 dir_full, dir_56, dir_full, dir_full, dir_56, dir_56);
+        _r = system(rmm);
+        if (_r != 0) { fprintf(stderr, "ERROR: cannot prepare working dirs\n"); return 50; }
+
+        /* ---- Phase 1: dregress_full/01_layer1 (5.6T full-enum) ---- */
+        printf("[double-regression-test] Phase 1/6: full-enum layer 1\n");
+        fflush(stdout);
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s/01_layer1 && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                 "SOLVE_PER_SUB_BRANCH_LIMIT=%lld %s 0 64 > full.log 2>&1",
+                 dir_full, total_budget, per_sub_branch, solve_path);
+        _r = system(cmd);
+        if (_r != 0) {
+            fprintf(stderr, "[double-regression-test] FAIL: phase 1 exit=%d (see %s/01_layer1/full.log)\n",
+                    _r, dir_full);
+            return 50;
+        }
+
+        /* ---- Phase 2: dregress_full/02_layer2 (5.6T full-enum, second layer) ---- */
+        printf("[double-regression-test] Phase 2/6: full-enum layer 2\n");
+        fflush(stdout);
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s/02_layer2 && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                 "SOLVE_PER_SUB_BRANCH_LIMIT=%lld %s 0 64 > full.log 2>&1",
+                 dir_full, total_budget, per_sub_branch, solve_path);
+        _r = system(cmd);
+        if (_r != 0) {
+            fprintf(stderr, "[double-regression-test] FAIL: phase 2 exit=%d (see %s/02_layer2/full.log)\n",
+                    _r, dir_full);
+            return 50;
+        }
+
+        /* ---- Phase 3: dregress_56/01_layer1 (56 first-level invocations) ---- */
+        printf("[double-regression-test] Phase 3/6: 56-branch layer 1\n");
+        fflush(stdout);
+        int start_pair_idx = pair_index_of(63, 0);
+        int valid1 = 0, invalid1 = 0;
+        for (int p1 = 0; p1 < 32; p1++) {
+            if (p1 == start_pair_idx) continue;
+            for (int o1 = 0; o1 < 2; o1++) {
+                snprintf(cmd, sizeof(cmd),
+                         "cd %s/01_layer1 && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                         "SOLVE_PER_SUB_BRANCH_LIMIT=%lld "
+                         "%s --branch %d %d 0 64 > branch_%d_%d.log 2>&1",
+                         dir_56, per_first_level, per_sub_branch, solve_path, p1, o1, p1, o1);
+                _r = system(cmd);
+                if (_r != 0) {
+                    char chkcmd[512];
+                    snprintf(chkcmd, sizeof(chkcmd),
+                             "grep -q 'invalid (pruned' %s/01_layer1/branch_%d_%d.log 2>/dev/null",
+                             dir_56, p1, o1);
+                    if (system(chkcmd) == 0) {
+                        invalid1++;
+                    } else {
+                        fprintf(stderr, "[double-regression-test] FAIL: phase 3 branch %d %d exit=%d\n",
+                                p1, o1, _r);
+                        return 50;
+                    }
+                } else {
+                    valid1++;
+                }
+            }
+        }
+        printf("[double-regression-test]   phase 3 done: %d valid, %d invalid\n", valid1, invalid1);
+
+        /* ---- Phase 4: dregress_56/02_layer2 (56 first-level invocations, second layer) ---- */
+        printf("[double-regression-test] Phase 4/6: 56-branch layer 2\n");
+        fflush(stdout);
+        int valid2 = 0, invalid2 = 0;
+        for (int p1 = 0; p1 < 32; p1++) {
+            if (p1 == start_pair_idx) continue;
+            for (int o1 = 0; o1 < 2; o1++) {
+                snprintf(cmd, sizeof(cmd),
+                         "cd %s/02_layer2 && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
+                         "SOLVE_PER_SUB_BRANCH_LIMIT=%lld "
+                         "%s --branch %d %d 0 64 > branch_%d_%d.log 2>&1",
+                         dir_56, per_first_level, per_sub_branch, solve_path, p1, o1, p1, o1);
+                _r = system(cmd);
+                if (_r != 0) {
+                    char chkcmd[512];
+                    snprintf(chkcmd, sizeof(chkcmd),
+                             "grep -q 'invalid (pruned' %s/02_layer2/branch_%d_%d.log 2>/dev/null",
+                             dir_56, p1, o1);
+                    if (system(chkcmd) == 0) {
+                        invalid2++;
+                    } else {
+                        fprintf(stderr, "[double-regression-test] FAIL: phase 4 branch %d %d exit=%d\n",
+                                p1, o1, _r);
+                        return 50;
+                    }
+                } else {
+                    valid2++;
+                }
+            }
+        }
+        printf("[double-regression-test]   phase 4 done: %d valid, %d invalid\n", valid2, invalid2);
+
+        /* ---- Phase 5: layered-merge both runs ---- */
+        printf("[double-regression-test] Phase 5/6: layered-merge both runs\n");
+        fflush(stdout);
+        snprintf(cmd, sizeof(cmd),
+                 "%s --merge-layers %s > %s/merge_layers.log 2>&1",
+                 solve_path, dir_full, dir_full);
+        _r = system(cmd);
+        if (_r != 0) {
+            fprintf(stderr, "[double-regression-test] FAIL: full --merge-layers exit=%d (see %s/merge_layers.log)\n",
+                    _r, dir_full);
+            return 50;
+        }
+        snprintf(cmd, sizeof(cmd),
+                 "%s --merge-layers %s > %s/merge_layers.log 2>&1",
+                 solve_path, dir_56, dir_56);
+        _r = system(cmd);
+        if (_r != 0) {
+            fprintf(stderr, "[double-regression-test] FAIL: 56 --merge-layers exit=%d (see %s/merge_layers.log)\n",
+                    _r, dir_56);
+            return 50;
+        }
+
+        /* ---- Phase 6: capture 6 shas + compare ---- */
+        printf("[double-regression-test] Phase 6/6: capture shas + compare\n");
+        struct { const char *label; char path[512]; char sha[128]; } shas[6] = {
+            {"full_layer1",  "", ""},
+            {"full_layer2",  "", ""},
+            {"56_layer1",    "", ""},
+            {"56_layer2",    "", ""},
+            {"full_merged",  "", ""},
+            {"56_merged",    "", ""},
+        };
+        snprintf(shas[0].path, sizeof(shas[0].path), "%s/01_layer1/solutions.bin", dir_full);
+        snprintf(shas[1].path, sizeof(shas[1].path), "%s/02_layer2/solutions.bin", dir_full);
+        snprintf(shas[2].path, sizeof(shas[2].path), "%s/01_layer1/solutions.bin", dir_56);
+        snprintf(shas[3].path, sizeof(shas[3].path), "%s/02_layer2/solutions.bin", dir_56);
+        snprintf(shas[4].path, sizeof(shas[4].path), "%s/_merged_/solutions.bin", dir_full);
+        snprintf(shas[5].path, sizeof(shas[5].path), "%s/_merged_/solutions.bin", dir_56);
+
+        for (int i = 0; i < 6; i++) {
+            char shacmd[1024];
+            snprintf(shacmd, sizeof(shacmd), "%s %s | cut -d' ' -f1", tool, shas[i].path);
+            FILE *fp = popen(shacmd, "r");
+            if (!fp || !fgets(shas[i].sha, sizeof(shas[i].sha), fp)) {
+                fprintf(stderr, "[double-regression-test] FAIL: cannot read sha for %s\n", shas[i].path);
+                if (fp) pclose(fp);
+                return 50;
+            }
+            pclose(fp);
+            for (char *q = shas[i].sha; *q; q++) if (*q == '\n') { *q = 0; break; }
+            printf("  %-12s = %s  (%s)\n", shas[i].label, shas[i].sha, shas[i].path);
+        }
+
+        /* All six shas should be equal under partition invariance + deterministic
+         * enumeration + layered-merge correctness. */
+        int all_equal = 1;
+        for (int i = 1; i < 6; i++) {
+            if (strcmp(shas[i].sha, shas[0].sha) != 0) {
+                all_equal = 0;
+                break;
+            }
+        }
+        if (all_equal) {
+            printf("[double-regression-test] PASS — all 6 shas match (partition invariance + layered-merge correct at %lld budget)\n",
+                   total_budget);
+            return 0;
+        } else {
+            fprintf(stderr, "[double-regression-test] FAIL — sha mismatch\n");
+            for (int i = 0; i < 6; i++)
+                fprintf(stderr, "  %-12s = %s\n", shas[i].label, shas[i].sha);
+            fprintf(stderr, "  Working dirs preserved: %s, %s\n", dir_full, dir_56);
             return 60;
         }
     } else if (argc > 1 && strcmp(argv[1], "--kde-score-stream") == 0) {
@@ -5496,6 +5951,27 @@ int main(int argc, char *argv[]) {
     if (env_per_task) per_task_node_limit = atoll(env_per_task);
     if (per_task_node_limit > 0)
         printf("Per-task node limit: %lld\n", per_task_node_limit);
+
+    /* Per-sub-branch budget override (2026-04-29). When set, both full-enum
+     * and --branch paths use this exact value for per_branch_node_limit
+     * instead of computing it as node_limit/n_branches. Required for
+     * partition-invariance testing: the "5.6T total / 158,364 sub-branches"
+     * full-enum path and the "56 × 100G per first-level / N_first_level
+     * sub-branches" --branch path produce different per-sub-branch budgets
+     * (because N_first_level varies), even when total compute matches. With
+     * this override, both paths walk each sub-branch with identical budget,
+     * making outputs byte-identical when partition invariance holds. */
+    char *env_per_sb = getenv("SOLVE_PER_SUB_BRANCH_LIMIT");
+    if (env_per_sb) per_sub_branch_override = atoll(env_per_sb);
+    if (per_sub_branch_override > 0) {
+        printf("Per-sub-branch override: %lld nodes (overrides auto-divide)\n",
+               per_sub_branch_override);
+        /* Set per_branch_node_limit immediately so paths that don't have
+         * node_limit > 0 still use the override. The auto-divide blocks
+         * below also check the override and re-set it; this ensures it's
+         * set for paths that skip the auto-divide block. */
+        per_branch_node_limit = per_sub_branch_override;
+    }
 
     /* Reproducibility warning: time_limit and node_limit together create
      * non-determinism. Each sub-branch has a per-sub-branch node budget
@@ -9273,6 +9749,11 @@ sub_enum_done:
                     "         via SOLVE_NODE_LIMIT alone. Intended for accumulation workflows.\n",
                     n_sub, total_branches);
             }
+            if (per_sub_branch_override > 0) {
+                per_branch_node_limit = per_sub_branch_override;
+                printf("Per-sub-branch OVERRIDE applied: %lld (was auto-divide)\n",
+                       per_branch_node_limit);
+            }
             printf("Per-branch node limit: %lld (%lld / %d %s-branches%s)\n",
                    per_branch_node_limit, node_limit, divisor,
                    concentrate ? "remaining" : "total",
@@ -10306,6 +10787,11 @@ sub_enum_done:
                 "         Output sha256 depends on pre-completion history; NOT reproducible\n"
                 "         via SOLVE_NODE_LIMIT alone. Intended for accumulation workflows.\n",
                 n_all_subs, total_branches);
+        }
+        if (per_sub_branch_override > 0) {
+            per_branch_node_limit = per_sub_branch_override;
+            printf("Per-sub-branch OVERRIDE applied: %lld (was auto-divide)\n",
+                   per_branch_node_limit);
         }
         printf("Per-sub-branch node limit: %lld (%lld / %d %s-sub-branches%s)\n",
                per_branch_node_limit, node_limit, divisor,
