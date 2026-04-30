@@ -1257,11 +1257,76 @@ orphan scripts from prior sessions. Without this, the VM-reconcile
 rule alone is incomplete — a monitor designed to auto-restart a VM
 will keep restarting it indefinitely once its originating session ends.
 
-### Test status
+### Test status (initial run): FAIL on Phase 5 (depth-2 bug surfaced)
 
-`--double-regression-test` running on `pilot-100T-westus3`. Phase 1/6
-(full-enum layer 1, 5.6T budget, 35.4M nodes per sub-branch) underway.
-Total expected wall: ~7h. Result will be appended to this section.
+The first `--double-regression-test` run completed Phases 1-4 cleanly:
+- Phase 1 (full-enum layer 1, 5.6T): produced 467,483,137 canonical
+  orderings, sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd`
+- Phase 2 (full-enum layer 2, 5.6T): produced byte-identical sha — confirmed
+  deterministic enumeration across runs.
+- Phase 3 (56-branch layer 1): only 675 shards instead of the expected
+  ~54K. Phase 4 (56-branch layer 2): same.
+- Phase 5 (full layered-merge) FAILED with disk-space precheck:
+  "ERROR: insufficient disk (105 GB needed, 102 available)".
+
+Investigation revealed the **--branch depth-2 bug**: `--branch p1 o1`
+always partitioned to depth-2 (varying p2, o2 only), regardless of
+`SOLVE_DEPTH=3`. Shards were named `sub_p1_o1_p2_o2.bin` (depth-2 names)
+while full-enum produced `sub_p1_o1_p2_o2_p3_o3.bin` (depth-3 names).
+The two paths could not be sha-compared because they partitioned the
+search differently. **This bug was also present in the prior 2026-04-29
+`--regression-test` INCONCLUSIVE result.** The `SOLVE_PER_SUB_BRANCH_LIMIT`
+fix from earlier in the day addressed only the budget allocation issue;
+the structural depth-2 bug was the actual root cause of the 467M vs 187M
+discrepancy in that prior test.
+
+Fixed in commit `cdd8575` (2026-04-30): when `solve_depth == 3`, the
+single_branch_mode block allocates a heap-backed `all_sub` array (cap
+4096) and enumerates depth-3 sub-branches filtered by the
+(sb_pair, sb_orient) prefix, mirroring the full-enum's depth-3 path.
+Depth-2 callers (`SOLVE_DEPTH=2` or unset) keep prior behavior.
+
+### Test status (re-run after fix): PASS
+
+After the depth-3 fix, the test was re-launched, leveraging the existing
+Phase 1 + 2 shards on disk (full-enum path was unaffected by the bug).
+Phase 3 (56-branch L1) ran cleanly to completion — 54,134 depth-3 shards,
+exactly matching full-enum's count. Phase 4 was at 90% when **the Spot VM
+was evicted by Azure** (capacity reclaim, 03:00 UTC). Recovery launched 8
+missing branches (28-31 × 0,1) which finished in 8 min. The first merge
+attempt failed disk-space ("105 GB needed, 102 available"); operator
+approved an online disk resize 256 → 384 GB (Standard SSD, +$6.40/mo).
+Both merges then ran in-memory (~37 min and ~47 min respectively, single-
+threaded sort/dedup of 1.78B records each).
+
+Final result, 2026-04-30 05:43 UTC:
+
+| Sha | Value | Match |
+|---|---|---|
+| `sha_full_L1` | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | ✓ |
+| `sha_full_L2` | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | ✓ |
+| `sha_full_merged` | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | ✓ |
+| `sha_56_merged` | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | ✓ |
+
+**PASS — all 4 shas match.** The 5.6T regression — partition invariance
+across full-enum vs 56-branch reconstruction, deterministic enumeration
+across runs, and `--merge-layers` correctness — is verified. The sha
+`c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` joins
+the canonical reference list, alongside the 10T and 100T canonicals.
+
+VM `pilot-100T-westus3` deallocated synchronously (verified
+`VM deallocated`) at 05:46 UTC. Data disk persists at 384 GB (resized
+from 256 GB during the run; can be shrunk later or kept for future
+extension).
+
+**What this regression test does NOT prove.** The test verifies that the
+SAME enumeration output emerges across different partition strategies
+and layered-merge paths AT THE SAME PER-SUB-BRANCH BUDGET (35.4M nodes).
+It is NOT a stronger result — it does NOT confirm that the canonical
+467M-record output is the TRUE TOTAL count of valid orderings under
+C1-C5. That count is a lower bound at this budget; deeper budgets would
+likely surface more orderings. What's verified is reproducibility, not
+exhaustiveness.
 
 ## Current state (2026-04-22)
 
