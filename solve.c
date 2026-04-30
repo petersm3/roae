@@ -5494,10 +5494,21 @@ int main(int argc, char *argv[]) {
          *
          * Under deterministic enumeration with identical per-sub-branch
          * budgets, layer 2's shards are byte-identical to layer 1's, so the
-         * merged output equals the canonical 5.6T sha — verified four ways
-         * (full layer 1, full layer 2, 56 layer 1, 56 layer 2) plus the two
-         * layered-merge outputs. A "double regression": partition invariance
-         * AND layered-merge correctness in one pass.
+         * merged output equals the canonical 5.6T sha. Captures four shas:
+         *
+         *   sha_full_L1 == sha_full_L2 == sha_full_merged == sha_56_merged
+         *
+         * (sha_56_L1 / sha_56_L2 are not meaningful — they're 56 small
+         *  per-branch outputs from --branch's per-invocation auto-merge,
+         *  not a unified per-layer sha.) A "double regression": partition
+         * invariance AND layered-merge correctness in one pass.
+         *
+         * Disk discipline: each per-layer solutions.bin (~14 GB) is hashed
+         * then DELETED immediately after the layer enumerates, since the
+         * layered merger only needs the shards. Per-branch solutions_*.bin
+         * files in the 56-branch layers are deleted en bloc after their
+         * phase. Peak disk: ~224 GB (4 × 56 GB shards) + ~14 GB merged
+         * output, fits 251 GB data disk.
          *
          * Default budget per layer: 5.6T. Override:
          *   ./solve --double-regression-test <budget>
@@ -5544,8 +5555,28 @@ int main(int argc, char *argv[]) {
         _r = system(rmm);
         if (_r != 0) { fprintf(stderr, "ERROR: cannot prepare working dirs\n"); return 50; }
 
-        /* ---- Phase 1: dregress_full/01_layer1 (5.6T full-enum) ---- */
-        printf("[double-regression-test] Phase 1/6: full-enum layer 1\n");
+        /* Helper: capture sha of a file. Returns 0 on success. */
+        char sha_full_L1[128] = {0}, sha_full_L2[128] = {0};
+        char sha_full_merged[128] = {0}, sha_56_merged[128] = {0};
+        char shacmd[1024], shapath[1024];
+
+        #define CAPTURE_SHA(path_buf, sha_buf, label) do { \
+            snprintf(shacmd, sizeof(shacmd), "%s %s | cut -d' ' -f1", tool, (path_buf)); \
+            FILE *_fp = popen(shacmd, "r"); \
+            if (!_fp || !fgets((sha_buf), 128, _fp)) { \
+                fprintf(stderr, "[double-regression-test] FAIL: cannot read sha for %s\n", (path_buf)); \
+                if (_fp) pclose(_fp); \
+                return 50; \
+            } \
+            pclose(_fp); \
+            for (char *_q = (sha_buf); *_q; _q++) if (*_q == '\n') { *_q = 0; break; } \
+            printf("[double-regression-test]   %s sha = %s\n", (label), (sha_buf)); \
+        } while (0)
+
+        /* ---- Phase 1: dregress_full/01_layer1 (5.6T full-enum) ----
+         * Then capture sha + delete the layer's solutions.bin (free ~14 GB
+         * disk for downstream phases; the layered merger only needs shards). */
+        printf("[double-regression-test] Phase 1/7: full-enum layer 1\n");
         fflush(stdout);
         snprintf(cmd, sizeof(cmd),
                  "cd %s/01_layer1 && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
@@ -5557,9 +5588,13 @@ int main(int argc, char *argv[]) {
                     _r, dir_full);
             return 50;
         }
+        snprintf(shapath, sizeof(shapath), "%s/01_layer1/solutions.bin", dir_full);
+        CAPTURE_SHA(shapath, sha_full_L1, "full_L1");
+        snprintf(cmd, sizeof(cmd), "rm -f %s/01_layer1/solutions.bin", dir_full);
+        _r = system(cmd); (void)_r;
 
         /* ---- Phase 2: dregress_full/02_layer2 (5.6T full-enum, second layer) ---- */
-        printf("[double-regression-test] Phase 2/6: full-enum layer 2\n");
+        printf("[double-regression-test] Phase 2/7: full-enum layer 2\n");
         fflush(stdout);
         snprintf(cmd, sizeof(cmd),
                  "cd %s/02_layer2 && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
@@ -5571,9 +5606,13 @@ int main(int argc, char *argv[]) {
                     _r, dir_full);
             return 50;
         }
+        snprintf(shapath, sizeof(shapath), "%s/02_layer2/solutions.bin", dir_full);
+        CAPTURE_SHA(shapath, sha_full_L2, "full_L2");
+        snprintf(cmd, sizeof(cmd), "rm -f %s/02_layer2/solutions.bin", dir_full);
+        _r = system(cmd); (void)_r;
 
         /* ---- Phase 3: dregress_56/01_layer1 (56 first-level invocations) ---- */
-        printf("[double-regression-test] Phase 3/6: 56-branch layer 1\n");
+        printf("[double-regression-test] Phase 3/7: 56-branch layer 1\n");
         fflush(stdout);
         int start_pair_idx = pair_index_of(63, 0);
         int valid1 = 0, invalid1 = 0;
@@ -5604,9 +5643,13 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("[double-regression-test]   phase 3 done: %d valid, %d invalid\n", valid1, invalid1);
+        /* Delete per-branch solutions_*.bin (small but adds up; not used by merger) */
+        snprintf(cmd, sizeof(cmd), "rm -f %s/01_layer1/solutions_*.bin %s/01_layer1/results_*.json %s/01_layer1/solutions_*.sha256",
+                 dir_56, dir_56, dir_56);
+        _r = system(cmd); (void)_r;
 
         /* ---- Phase 4: dregress_56/02_layer2 (56 first-level invocations, second layer) ---- */
-        printf("[double-regression-test] Phase 4/6: 56-branch layer 2\n");
+        printf("[double-regression-test] Phase 4/7: 56-branch layer 2\n");
         fflush(stdout);
         int valid2 = 0, invalid2 = 0;
         for (int p1 = 0; p1 < 32; p1++) {
@@ -5636,9 +5679,13 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("[double-regression-test]   phase 4 done: %d valid, %d invalid\n", valid2, invalid2);
+        /* Delete per-branch solutions_*.bin */
+        snprintf(cmd, sizeof(cmd), "rm -f %s/02_layer2/solutions_*.bin %s/02_layer2/results_*.json %s/02_layer2/solutions_*.sha256",
+                 dir_56, dir_56, dir_56);
+        _r = system(cmd); (void)_r;
 
-        /* ---- Phase 5: layered-merge both runs ---- */
-        printf("[double-regression-test] Phase 5/6: layered-merge both runs\n");
+        /* ---- Phase 5: layered-merge full path ---- */
+        printf("[double-regression-test] Phase 5/7: layered-merge full path\n");
         fflush(stdout);
         snprintf(cmd, sizeof(cmd),
                  "%s --merge-layers %s > %s/merge_layers.log 2>&1",
@@ -5649,6 +5696,16 @@ int main(int argc, char *argv[]) {
                     _r, dir_full);
             return 50;
         }
+        snprintf(shapath, sizeof(shapath), "%s/_merged_/solutions.bin", dir_full);
+        CAPTURE_SHA(shapath, sha_full_merged, "full_merged");
+        /* Free disk before next merge: drop the full-path merged solutions.bin
+         * (sha already captured) and the symlinks dir. */
+        snprintf(cmd, sizeof(cmd), "rm -rf %s/_merged_", dir_full);
+        _r = system(cmd); (void)_r;
+
+        /* ---- Phase 6: layered-merge 56-branch path ---- */
+        printf("[double-regression-test] Phase 6/7: layered-merge 56-branch path\n");
+        fflush(stdout);
         snprintf(cmd, sizeof(cmd),
                  "%s --merge-layers %s > %s/merge_layers.log 2>&1",
                  solve_path, dir_56, dir_56);
@@ -5658,58 +5715,33 @@ int main(int argc, char *argv[]) {
                     _r, dir_56);
             return 50;
         }
+        snprintf(shapath, sizeof(shapath), "%s/_merged_/solutions.bin", dir_56);
+        CAPTURE_SHA(shapath, sha_56_merged, "56_merged");
 
-        /* ---- Phase 6: capture 6 shas + compare ---- */
-        printf("[double-regression-test] Phase 6/6: capture shas + compare\n");
-        struct { const char *label; char path[512]; char sha[128]; } shas[6] = {
-            {"full_layer1",  "", ""},
-            {"full_layer2",  "", ""},
-            {"56_layer1",    "", ""},
-            {"56_layer2",    "", ""},
-            {"full_merged",  "", ""},
-            {"56_merged",    "", ""},
-        };
-        snprintf(shas[0].path, sizeof(shas[0].path), "%s/01_layer1/solutions.bin", dir_full);
-        snprintf(shas[1].path, sizeof(shas[1].path), "%s/02_layer2/solutions.bin", dir_full);
-        snprintf(shas[2].path, sizeof(shas[2].path), "%s/01_layer1/solutions.bin", dir_56);
-        snprintf(shas[3].path, sizeof(shas[3].path), "%s/02_layer2/solutions.bin", dir_56);
-        snprintf(shas[4].path, sizeof(shas[4].path), "%s/_merged_/solutions.bin", dir_full);
-        snprintf(shas[5].path, sizeof(shas[5].path), "%s/_merged_/solutions.bin", dir_56);
+        /* ---- Phase 7: compare 4 shas ---- */
+        printf("[double-regression-test] Phase 7/7: compare\n");
+        printf("  full_L1     = %s\n", sha_full_L1);
+        printf("  full_L2     = %s\n", sha_full_L2);
+        printf("  full_merged = %s\n", sha_full_merged);
+        printf("  56_merged   = %s\n", sha_56_merged);
 
-        for (int i = 0; i < 6; i++) {
-            char shacmd[1024];
-            snprintf(shacmd, sizeof(shacmd), "%s %s | cut -d' ' -f1", tool, shas[i].path);
-            FILE *fp = popen(shacmd, "r");
-            if (!fp || !fgets(shas[i].sha, sizeof(shas[i].sha), fp)) {
-                fprintf(stderr, "[double-regression-test] FAIL: cannot read sha for %s\n", shas[i].path);
-                if (fp) pclose(fp);
-                return 50;
-            }
-            pclose(fp);
-            for (char *q = shas[i].sha; *q; q++) if (*q == '\n') { *q = 0; break; }
-            printf("  %-12s = %s  (%s)\n", shas[i].label, shas[i].sha, shas[i].path);
-        }
-
-        /* All six shas should be equal under partition invariance + deterministic
-         * enumeration + layered-merge correctness. */
-        int all_equal = 1;
-        for (int i = 1; i < 6; i++) {
-            if (strcmp(shas[i].sha, shas[0].sha) != 0) {
-                all_equal = 0;
-                break;
-            }
-        }
+        int all_equal = (strcmp(sha_full_L1, sha_full_L2) == 0
+                         && strcmp(sha_full_L1, sha_full_merged) == 0
+                         && strcmp(sha_full_L1, sha_56_merged) == 0);
         if (all_equal) {
-            printf("[double-regression-test] PASS — all 6 shas match (partition invariance + layered-merge correct at %lld budget)\n",
+            printf("[double-regression-test] PASS — all 4 shas match (partition invariance + layered-merge correct at %lld budget)\n",
                    total_budget);
             return 0;
         } else {
             fprintf(stderr, "[double-regression-test] FAIL — sha mismatch\n");
-            for (int i = 0; i < 6; i++)
-                fprintf(stderr, "  %-12s = %s\n", shas[i].label, shas[i].sha);
+            fprintf(stderr, "  full_L1     = %s\n", sha_full_L1);
+            fprintf(stderr, "  full_L2     = %s\n", sha_full_L2);
+            fprintf(stderr, "  full_merged = %s\n", sha_full_merged);
+            fprintf(stderr, "  56_merged   = %s\n", sha_56_merged);
             fprintf(stderr, "  Working dirs preserved: %s, %s\n", dir_full, dir_56);
             return 60;
         }
+        #undef CAPTURE_SHA
     } else if (argc > 1 && strcmp(argv[1], "--kde-score-stream") == 0) {
         /* P2 v2 native KDE scorer (2026-04-24).
          * Stream-mode Gaussian KDE log-density evaluator. Reads fit points
@@ -9609,10 +9641,37 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        /* Enumerate depth-2 sub-branches, skipping completed ones */
+        /* Enumerate sub-branches, skipping completed ones.
+         *
+         * Depth selection (2026-04-30):
+         *   solve_depth == 2 (default): partition by (p2, o2) only — at most
+         *     54 sub-branches per (sb_pair, sb_orient). Stack array fits.
+         *   solve_depth == 3: partition by (p2, o2, p3, o3) — up to ~3000
+         *     sub-branches per (sb_pair, sb_orient). Heap allocate.
+         *
+         * The depth-3 path lets `--branch p1 o1` produce shards comparable
+         * to the full-enum's depth-3 partition (`solve 0 64` with
+         * SOLVE_DEPTH=3): both produce `sub_p1_o1_p2_o2_p3_o3.bin` shards
+         * with the same per-sub-branch budget structure, so the merged
+         * outputs have matching sha256. Required for the
+         * --regression-test and --double-regression-test partition-
+         * invariance checks to actually compare apples-to-apples.
+         *
+         * Bug history: prior to this change, `--branch` always partitioned
+         * to depth-2 even when SOLVE_DEPTH=3 was set, so the regression
+         * test's "56-branch path" produced depth-2 shards while the
+         * full-enum produced depth-3 shards. This caused the 2026-04-29
+         * INCONCLUSIVE regression test (sha mismatch) and the 2026-04-29
+         * --double-regression-test FAIL.
+         */
         int n_sub = 0;
         int n_skipped = 0;
-        SubBranch all_sub[64];
+        int all_sub_cap = (solve_depth == 3) ? 4096 : 64;
+        SubBranch *all_sub = malloc(all_sub_cap * sizeof(SubBranch));
+        if (!all_sub) {
+            fprintf(stderr, "ERROR: malloc(%d * SubBranch) failed for all_sub\n", all_sub_cap);
+            return 30;
+        }
 
         if (single_sub_branch_mode) {
             /* Hand-build exactly one d3 sub-branch; validate and skip the
@@ -9693,24 +9752,68 @@ int main(int argc, char *argv[]) {
                 test_budget[bd2]--;
                 int wd2 = hamming(f2, s2);
                 if (test_budget[wd2] <= 0) continue;
+                test_budget[wd2]--;
 
-                /* Skip completed sub-branches (resume) */
-                if (is_sub_branch_completed(sb_pair, sb_orient, p2, o2)) {
-                    n_skipped++;
-                    continue;
-                }
+                if (solve_depth == 2) {
+                    /* Depth-2 partition: each (sb_pair, sb_orient, p2, o2)
+                     * is one work unit. */
+                    if (is_sub_branch_completed(sb_pair, sb_orient, p2, o2)) {
+                        n_skipped++;
+                        continue;
+                    }
+                    if (n_sub >= all_sub_cap) {
+                        fprintf(stderr, "FATAL: all_sub buffer overflow at d2\n");
+                        return 10;
+                    }
+                    all_sub[n_sub].pair1 = sb_pair;
+                    all_sub[n_sub].orient1 = sb_orient;
+                    all_sub[n_sub].pair2 = p2;
+                    all_sub[n_sub].orient2 = o2;
+                    all_sub[n_sub].pair3 = -1;
+                    all_sub[n_sub].orient3 = -1;
+                    n_sub++;
+                } else {
+                    /* Depth-3 partition: further partition by (p3, o3).
+                     * Mirrors the depth-3 enumeration in the full-enum path
+                     * (lines 10683+) so shards from the two paths use
+                     * matching `sub_p1_o1_p2_o2_p3_o3.bin` naming and
+                     * matching per-sub-branch budgets. */
+                    int used2[32];
+                    memcpy(used2, used_prefix, sizeof(used2));
+                    used2[p2] = 1;
+                    for (int p3 = 0; p3 < 32; p3++) {
+                        if (used2[p3]) continue;
+                        for (int o3 = 0; o3 < 2; o3++) {
+                            int f3 = o3 ? pairs[p3].b : pairs[p3].a;
+                            int s3 = o3 ? pairs[p3].a : pairs[p3].b;
+                            int bd3 = hamming(s2, f3);
+                            if (bd3 == 5) continue;
+                            int test_budget3[7];
+                            memcpy(test_budget3, test_budget, sizeof(test_budget3));
+                            if (test_budget3[bd3] <= 0) continue;
+                            test_budget3[bd3]--;
+                            int wd3 = hamming(f3, s3);
+                            if (test_budget3[wd3] <= 0) continue;
 
-                if (n_sub >= 64) {
-                    fprintf(stderr, "FATAL: all_sub buffer overflow\n");
-                    return 10;
+                            if (is_sub_branch_completed_d3(sb_pair, sb_orient, p2, o2, p3, o3)) {
+                                n_skipped++;
+                                continue;
+                            }
+                            if (n_sub >= all_sub_cap) {
+                                fprintf(stderr, "FATAL: all_sub buffer overflow at d3 (cap=%d)\n",
+                                        all_sub_cap);
+                                return 10;
+                            }
+                            all_sub[n_sub].pair1 = sb_pair;
+                            all_sub[n_sub].orient1 = sb_orient;
+                            all_sub[n_sub].pair2 = p2;
+                            all_sub[n_sub].orient2 = o2;
+                            all_sub[n_sub].pair3 = p3;
+                            all_sub[n_sub].orient3 = o3;
+                            n_sub++;
+                        }
+                    }
                 }
-                all_sub[n_sub].pair1 = sb_pair;
-                all_sub[n_sub].orient1 = sb_orient;
-                all_sub[n_sub].pair2 = p2;
-                all_sub[n_sub].orient2 = o2;
-                all_sub[n_sub].pair3 = -1;
-                all_sub[n_sub].orient3 = -1;
-                n_sub++;
             }
         }
 
