@@ -325,6 +325,28 @@ static inline int hamming(int a, int b) {
 
 /* ---------- Pairs ---------- */
 typedef struct { int a, b; } Pair;
+
+/* DFS iterator stack frame (forward-defined here so ThreadState can use it).
+ * (p, orient) at one recursion depth. See dfs_capture_active comment in
+ * ThreadState for the full lifecycle. */
+typedef struct {
+    int8_t pair_idx;   /* -1 = invalid; else 0..31 */
+    int8_t orient;     /* 0 or 1 */
+} DFSIterFrame;
+
+/* v2 stack frame for iterative-path full-state capture. Forward-defined here
+ * so ThreadState can hold an array of them. Same layout as the on-disk
+ * DFSCheckpointState_v2.frames[] — see that struct for full semantics. */
+typedef struct {
+    int8_t  step;
+    int8_t  p;
+    int8_t  orient;
+    int8_t  bd;
+    int8_t  wd;
+    int8_t  prev_tail;
+    int8_t  phase;
+    int8_t  reserved;
+} DFSStackFrame_v2;
 static Pair pairs[32];
 static int n_pairs = 0;
 
@@ -785,6 +807,54 @@ typedef struct {
      * workers), so uncontended in steady state (~100ns per acquire).
      * Initialized to PTHREAD_MUTEX_INITIALIZER at worker setup. */
     pthread_mutex_t ht_mutex;
+
+    /* DFS-state checkpoint state (2026-04-30, SOLVE_DFS_CHECKPOINT). All zero
+     * when dfs_checkpoint_enabled == 0 — no behavior change.
+     *
+     * dfs_capture_active: set by the budget-exhaust return path in backtrack().
+     *   When non-zero, every recursion frame (in unwind) appends its (p, orient)
+     *   to dfs_iter_stack and returns. After full unwind, the caller of
+     *   backtrack() at the sub-branch top sees the captured stack and writes
+     *   it to the .dfs_state sidecar.
+     * dfs_iter_top: number of valid entries in dfs_iter_stack[].
+     *
+     * dfs_resume_active: set BEFORE backtrack() if a .dfs_state sidecar was
+     *   loaded. Each frame's for loop at depth d checks
+     *   dfs_resume_frames[d - partition_prefix_len]: if .valid, the for loop
+     *   starts at (.pair_idx, .orient) and clears .valid (consumed once). */
+    volatile int dfs_capture_active;
+    int dfs_iter_top;
+    DFSIterFrame dfs_iter_stack[64];
+
+    int dfs_resume_active;
+    DFSIterFrame dfs_resume_frames[64];
+    int dfs_resume_partition_prefix_len;
+    long long dfs_resume_prior_nodes;  /* nodes walked in the prior run; used
+                                          to bump ts->branch_nodes at resume
+                                          start so the budget check counts
+                                          cumulatively from prior+new. */
+
+    /* Iterative-path full-state capture (v2). Set at budget exhaust in
+     * backtrack_iterative when both dfs_iterative_enabled and
+     * dfs_checkpoint_enabled are 1. dfs_v2_* arrays mirror the live DFS
+     * stack + seq/used/budget at the moment of capture, ready for atomic
+     * write to the .dfs_state sidecar. */
+    int dfs_v2_capture_pending;       /* 1 = state captured; write pending */
+    int dfs_v2_sp;                    /* stack pointer (number of live frames - 1) */
+    DFSStackFrame_v2 dfs_v2_frames[34];
+    int8_t dfs_v2_seq[64];
+    int8_t dfs_v2_used[32];
+    int8_t dfs_v2_budget[7];
+
+    /* Iterative-path resume state (v2). Loaded from disk at sub-branch entry
+     * if a v2 .dfs_state file exists. The iterative main loop pre-populates
+     * its stack and seq/used/budget arrays from these before starting. */
+    int dfs_v2_resume_active;
+    int dfs_v2_resume_sp;
+    DFSStackFrame_v2 dfs_v2_resume_frames[34];
+    int8_t dfs_v2_resume_seq[64];
+    int8_t dfs_v2_resume_used[32];
+    int8_t dfs_v2_resume_budget[7];
 } ThreadState;
 
 /* global_timed_out is set both from the signal handler (must be
@@ -894,6 +964,114 @@ static long long per_task_node_limit = 0;
  * (pair1..pair3, orient1..orient3) — ~90000 work units for finer granularity
  * under spot-VM eviction. Set from SOLVE_DEPTH env var. */
 static int solve_depth = 2;
+
+/* SOLVE_DFS_CHECKPOINT (2026-04-30). When set to 1, enables mid-walk DFS-state
+ * checkpointing: at per-sub-branch budget exhaustion, write a small ".dfs_state"
+ * sidecar file capturing the iterator stack at each recursion frame. A subsequent
+ * invocation with a HIGHER per-sub-branch budget reads the sidecar, replays the
+ * call stack via the saved iterators, and continues the walk from the saved
+ * position. The sub-branch's solutions accumulate across runs (read-merge-write
+ * the existing shard with new finds at flush time).
+ *
+ * Default = 0 (off). Selftest sha (403f7202...) and canonical shas are unaffected
+ * unless this env var is set AND a .dfs_state file is present.
+ *
+ * Format / behavior is documented in:
+ *   x/roae/INCREMENTAL_EXTENSION_DESIGN.md (design)
+ *   x/roae/INCREMENTAL_EXTENSION_SPIKE_NOTES.md (this implementation's notes,
+ *     written during the 2026-04-30 spike).
+ */
+static int dfs_checkpoint_enabled = 0;
+
+#define DFS_STATE_MAGIC 0x44465353u  /* 'DFSS' */
+#define DFS_STATE_VERSION 1u
+
+/* DFSIterFrame is forward-defined near the Pair typedef so ThreadState can
+ * use it. See its comment for semantics. */
+
+/* On-disk DFS-state sidecar v1 format. ~512 bytes per sub-branch.
+ * Written at budget-exhaust, read at sub-branch resume.
+ *
+ * iter_frames[0..top-1] is the call stack from OUTERMOST to DEEPEST:
+ *   iter_frames[0] = step = partition_prefix_len  (sub-branch entry depth)
+ *   iter_frames[top-1] = deepest depth where a recursive call was made when
+ *                        budget exhausted
+ * Each entry's (pair_idx, orient) is the iterator value AT THAT DEPTH'S for
+ * loop when the deeper recursion was interrupted. On resume, the for loop at
+ * that depth is started at the saved (pair_idx, orient).
+ *
+ * Note: seq[], used[], budget[] are NOT saved. They reconstruct deterministically
+ * from the iter_frames stack as the descent re-applies constraints at each
+ * iteration. Saving avoids them simplifies the format and reduces verification
+ * surface area. */
+typedef struct {
+    uint32_t magic;            /* DFS_STATE_MAGIC */
+    uint16_t format_version;   /* DFS_STATE_VERSION */
+    uint16_t partition_depth;  /* 2 or 3 */
+
+    /* Sub-branch identity (for sanity check on read) */
+    int8_t   prefix_p1, prefix_o1;
+    int8_t   prefix_p2, prefix_o2;
+    int8_t   prefix_p3, prefix_o3;  /* -1 if depth-2 */
+
+    uint16_t iter_top;         /* number of valid entries in iter_frames[] */
+    uint16_t reserved1;
+    DFSIterFrame iter_frames[64];  /* outermost to deepest */
+
+    /* Bookkeeping (informational, not used to drive state) */
+    int64_t prior_budget;          /* per_branch_node_limit at the prior run */
+    int64_t prior_nodes_walked;    /* branch_nodes at exhaustion */
+    int64_t prior_solutions_found; /* solutions_count at flush time */
+
+    uint8_t reserved[64];
+} DFSCheckpointState_v1;
+
+/* Sanity bound on the on-disk size (~few hundred bytes per sub-branch). */
+/* Sanity bound on the on-disk size (~few hundred bytes per sub-branch). */
+_Static_assert(sizeof(DFSCheckpointState_v1) <= 1024, "DFSCheckpointState_v1 too large");
+
+/* DFSCheckpointState_v2 (2026-04-30): full DFS-state capture, used by the
+ * iterative DFS path to enable BIT-IDENTICAL resume vs single-shot.
+ *
+ * v1's iter-only capture (parent frames' (p, orient)) wasn't enough — the
+ * subtree under the deepest interrupted iter was re-walked from scratch on
+ * resume, while single-shot continued mid-subtree. Different walks → different
+ * solutions found.
+ *
+ * v2 captures the COMPLETE iterative-DFS stack: for each frame, the full
+ * (step, p, orient, bd, wd, prev_tail) tuple, plus the seq/used/budget
+ * arrays. Resume reconstructs the exact DFS state at the moment of budget
+ * exhaustion and continues from there. */
+#define DFS_STATE_VERSION_V2 2u
+
+/* DFSStackFrame_v2 is forward-defined near the Pair typedef so ThreadState
+ * can hold an array of them. */
+
+typedef struct {
+    uint32_t magic;            /* DFS_STATE_MAGIC */
+    uint16_t format_version;   /* DFS_STATE_VERSION_V2 */
+    uint16_t partition_depth;
+    int8_t   prefix_p1, prefix_o1;
+    int8_t   prefix_p2, prefix_o2;
+    int8_t   prefix_p3, prefix_o3;
+
+    int16_t  sp;               /* stack-pointer at moment of capture; sp+1 frames are live */
+    int16_t  reserved_align;
+    DFSStackFrame_v2 frames[34];
+
+    /* Full-state arrays */
+    int8_t   seq[64];          /* hexagram values 0-63 */
+    int8_t   used[32];         /* 0/1 flags */
+    int8_t   budget[7];        /* remaining distance budgets (0-32 each) */
+    int8_t   pad[5];           /* align next field */
+
+    int64_t  prior_budget;
+    int64_t  prior_nodes_walked;
+    int64_t  prior_solutions_found;
+    uint8_t  reserved2[16];
+} DFSCheckpointState_v2;
+
+_Static_assert(sizeof(DFSCheckpointState_v2) <= 2048, "DFSCheckpointState_v2 too large");
 
 /* ---------- Init functions ---------- */
 
@@ -1381,6 +1559,254 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  *
  * The budget array makes this much faster than checking the distribution at the end:
  * invalid branches are pruned at depth 2-5 instead of depth 32. */
+/* Opt-in iterative DFS path (2026-04-30, SOLVE_DFS_ITERATIVE).
+ *
+ * Equivalent to backtrack() in pre-order traversal: same (p, orient) iteration
+ * sequence at every depth. Selftest sha (403f7202...) reproduces with this
+ * path active; canonical reproducibility is preserved.
+ *
+ * Why iterative? Mid-walk DFS-state checkpoint (SOLVE_DFS_CHECKPOINT, see
+ * INCREMENTAL_EXTENSION_DESIGN.md) is much cleaner with explicit stack:
+ * the entire DFS state at budget exhaustion is capturable as a snapshot of
+ * stack[0..sp], with each frame's iter (p, orient) directly readable.
+ *
+ * Limitations:
+ *   - This iterative path covers the NON-parallel case only (sub_sub_parallel_active==0).
+ *     The parallel --sub-branch path (P1, line 1546+ in recursive backtrack)
+ *     keeps the recursive form. Selftest, single-threaded enumeration, and
+ *     basic --branch invocations use this path when SOLVE_DFS_ITERATIVE=1.
+ *   - Stack depth bounded by 34 frames (depth 0 to 32, plus sentinel).
+ */
+static int dfs_iterative_enabled = 0;
+
+#define DFSITER_PHASE_ENTER  0  /* first time at this depth — counter++, budget check, leaf check */
+#define DFSITER_PHASE_RETRY  1  /* return-from-child — restore iter state, advance to next iter */
+
+typedef struct {
+    int step;
+    int p;          /* current iter pair_idx */
+    int orient;     /* current iter orient (0 or 1) */
+    int prev_tail;  /* cached: seq[step*2 - 1] (computed once at frame entry) */
+    int bd, wd;     /* distances consumed by current iter's setup (for restore) */
+    int phase;      /* DFSITER_PHASE_ENTER or DFSITER_PHASE_RETRY */
+} BacktrackFrame;
+
+static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int budget[7], int initial_step) {
+    BacktrackFrame stack[34];
+    int sp;
+
+    /* If v2-resume is active, rebuild the stack + arrays from the capture
+     * and continue from the captured position. */
+    if (ts->dfs_v2_resume_active) {
+        sp = ts->dfs_v2_resume_sp;
+        if (sp < 0) sp = -1;
+        if (sp >= 34) sp = 33;
+        for (int i = 0; i <= sp && i < 34; i++) {
+            stack[i].step = ts->dfs_v2_resume_frames[i].step;
+            stack[i].p = ts->dfs_v2_resume_frames[i].p;
+            stack[i].orient = ts->dfs_v2_resume_frames[i].orient;
+            stack[i].bd = ts->dfs_v2_resume_frames[i].bd;
+            stack[i].wd = ts->dfs_v2_resume_frames[i].wd;
+            stack[i].prev_tail = ts->dfs_v2_resume_frames[i].prev_tail;
+            stack[i].phase = ts->dfs_v2_resume_frames[i].phase;
+        }
+        for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
+        for (int i = 0; i < 32; i++) used[i] = ts->dfs_v2_resume_used[i];
+        for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
+        /* Resume start: ts->branch_nodes already set to prior_nodes_walked
+         * at sub-branch entry (in the wrapper). Continue from saved state. */
+    } else {
+        sp = 0;
+        stack[0].step = initial_step;
+        stack[0].p = 0;
+        stack[0].orient = 0;
+        stack[0].phase = DFSITER_PHASE_ENTER;
+        stack[0].prev_tail = (initial_step > 0) ? seq[initial_step * 2 - 1] : 0;
+
+        /* v1-style resume override (only honored when v2 not active) */
+        if (ts->dfs_resume_active) {
+            int rd = stack[0].step - ts->dfs_resume_partition_prefix_len;
+            if (rd >= 0 && rd < 64 && ts->dfs_resume_frames[rd].pair_idx >= 0) {
+                stack[0].p = ts->dfs_resume_frames[rd].pair_idx;
+                stack[0].orient = ts->dfs_resume_frames[rd].orient;
+                ts->dfs_resume_frames[rd].pair_idx = -1;
+            }
+        }
+    }
+
+    while (sp >= 0) {
+        BacktrackFrame *fr = &stack[sp];
+
+        if (fr->phase == DFSITER_PHASE_ENTER) {
+            /* === ENTER phase: one-time-per-frame work === */
+            ts->nodes++;
+            ts->branch_nodes++;
+            if (fr->step <= 32) {
+                ts->nodes_at_depth[fr->step]++;
+                if (ts->current_task_stats) {
+                    ((PerTaskStats *)ts->current_task_stats)->nodes_at_depth[fr->step]++;
+                }
+            }
+            if (global_timed_out) return;
+            if (ts->dfs_capture_active) {
+                /* Capture flag set elsewhere — unwind. */
+                sp--;
+                if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
+                continue;
+            }
+            /* Per-branch budget check (non-parallel path). */
+            if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit) {
+                if (dfs_checkpoint_enabled) {
+                    ts->dfs_capture_active = 1;
+                    /* v2 capture: snapshot the FULL stack (including the
+                     * just-budget-hit frame at sp) AND the seq/used/budget
+                     * arrays, NOW. This is the bit that gives bit-identical
+                     * resume vs single-shot in iterative form. */
+                    int sp_save = sp;
+                    if (sp_save >= 34) sp_save = 33;
+                    ts->dfs_v2_sp = sp_save;
+                    for (int i = 0; i <= sp_save; i++) {
+                        ts->dfs_v2_frames[i].step      = (int8_t)stack[i].step;
+                        ts->dfs_v2_frames[i].p         = (int8_t)stack[i].p;
+                        ts->dfs_v2_frames[i].orient    = (int8_t)stack[i].orient;
+                        ts->dfs_v2_frames[i].bd        = (int8_t)stack[i].bd;
+                        ts->dfs_v2_frames[i].wd        = (int8_t)stack[i].wd;
+                        ts->dfs_v2_frames[i].prev_tail = (int8_t)stack[i].prev_tail;
+                        ts->dfs_v2_frames[i].phase     = (int8_t)stack[i].phase;
+                    }
+                    for (int i = 0; i < 64; i++) ts->dfs_v2_seq[i] = (int8_t)seq[i];
+                    for (int i = 0; i < 32; i++) ts->dfs_v2_used[i] = (int8_t)used[i];
+                    for (int i = 0; i < 7;  i++) ts->dfs_v2_budget[i] = (int8_t)budget[i];
+                    ts->dfs_v2_capture_pending = 1;
+                }
+                /* Now unwind. Caller will see ts->dfs_capture_active and
+                 * trigger the v2 file write at end-of-sub-branch. */
+                return;
+            }
+            /* Time check every 50M nodes. */
+            if (ts->nodes % 50000000 == 0) {
+                if (time_limit > 0 && (time(NULL) - start_time) >= time_limit)
+                    global_timed_out = 1;
+            }
+            if (global_timed_out) return;
+
+            /* Leaf */
+            if (fr->step == 32) {
+                ts->solutions_total++;
+                int cd = compute_comp_dist_x64(seq);
+                if (cd <= kw_comp_dist_x64) {
+                    ts->solutions_c3++;
+                    if (ts->current_task_stats) {
+                        ((PerTaskStats *)ts->current_task_stats)->c3_leaves++;
+                    }
+                    if (!ts->kw_found) {
+                        int match = 1;
+                        for (int i = 0; i < 64; i++) {
+                            if (seq[i] != KW[i]) { match = 0; break; }
+                        }
+                        if (match) ts->kw_found = 1;
+                    }
+                    analyze_solution(ts, seq);
+                }
+                /* Pop leaf frame; parent should retry next iter. */
+                sp--;
+                if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
+                continue;
+            }
+            /* Done with one-time setup; fall through to ITERATE phase below.
+             * We don't change phase variable explicitly — the rest of the
+             * loop body handles iteration. */
+        } else {
+            /* === RETRY phase: a child just popped; restore parent state, advance iter === */
+            used[fr->p] = 0;
+            budget[fr->wd]++;
+            budget[fr->bd]++;
+            if (ts->dfs_capture_active) {
+                /* Capture this frame's (p, orient), then unwind. */
+                if (ts->dfs_iter_top < 64) {
+                    ts->dfs_iter_stack[ts->dfs_iter_top].pair_idx = (int8_t)fr->p;
+                    ts->dfs_iter_stack[ts->dfs_iter_top].orient = (int8_t)fr->orient;
+                    ts->dfs_iter_top++;
+                }
+                sp--;
+                if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
+                continue;
+            }
+            if (global_timed_out) return;
+            /* Advance iter: orient++; if rolls over, p++. */
+            fr->orient++;
+            if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
+        }
+
+        /* === ITERATE phase: try next valid (p, orient); push child if found, pop if exhausted === */
+        int found = 0;
+        while (fr->p < 32) {
+            if (used[fr->p]) {
+                fr->p++;
+                fr->orient = 0;
+                continue;
+            }
+            int first = fr->orient ? pairs[fr->p].b : pairs[fr->p].a;
+            int second = fr->orient ? pairs[fr->p].a : pairs[fr->p].b;
+            int bd = hamming(fr->prev_tail, first);
+            if (bd == 5) {
+                fr->orient++;
+                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
+                continue;
+            }
+            if (budget[bd] <= 0) {
+                fr->orient++;
+                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
+                continue;
+            }
+            budget[bd]--;
+            int wd = hamming(first, second);
+            if (budget[wd] <= 0) {
+                budget[bd]++;
+                fr->orient++;
+                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
+                continue;
+            }
+            budget[wd]--;
+            seq[fr->step * 2] = first;
+            seq[fr->step * 2 + 1] = second;
+            used[fr->p] = 1;
+            fr->bd = bd;
+            fr->wd = wd;
+            found = 1;
+            break;
+        }
+
+        if (found) {
+            /* Push child frame */
+            if (sp + 1 >= 34) {
+                fprintf(stderr, "FATAL: backtrack_iterative stack overflow at sp=%d\n", sp);
+                return;
+            }
+            sp++;
+            stack[sp].step = stack[sp - 1].step + 1;
+            stack[sp].p = 0;
+            stack[sp].orient = 0;
+            stack[sp].phase = DFSITER_PHASE_ENTER;
+            stack[sp].prev_tail = seq[stack[sp].step * 2 - 1];
+            /* Apply resume override at child depth */
+            if (ts->dfs_resume_active) {
+                int rd = stack[sp].step - ts->dfs_resume_partition_prefix_len;
+                if (rd >= 0 && rd < 64 && ts->dfs_resume_frames[rd].pair_idx >= 0) {
+                    stack[sp].p = ts->dfs_resume_frames[rd].pair_idx;
+                    stack[sp].orient = ts->dfs_resume_frames[rd].orient;
+                    ts->dfs_resume_frames[rd].pair_idx = -1;
+                }
+            }
+        } else {
+            /* Iteration exhausted at this depth; pop self. Parent (if any)
+             * will run its RETRY phase next. */
+            sp--;
+            if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
+        }
+    }
+}
+
 static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7], int step) {
     ts->nodes++;
     ts->branch_nodes++;
@@ -1423,6 +1849,11 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
     }
     #endif
     if (global_timed_out) return;
+    /* DFS-state checkpoint capture-mode early-out: once the deepest frame has
+     * detected budget exhaustion, every recursive frame returns immediately on
+     * entry. The for-loop in the parent frame then captures (p, orient) for
+     * its depth on return-from-recurse and propagates upward. */
+    if (ts->dfs_capture_active) return;
     /* Per-branch node limit: checked every node (just an integer compare, cheap).
      * Sets a thread-local flag rather than global_timed_out so other branches
      * on this thread can continue. But for simplicity, we use global_timed_out
@@ -1473,8 +1904,15 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
             }
         }
     } else {
-        if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit)
+        if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit) {
+            /* DFS-state checkpoint: signal that the recursion should unwind via
+             * the capture path so each frame records its (p, orient). Only when
+             * the operator opted in via SOLVE_DFS_CHECKPOINT=1. */
+            if (dfs_checkpoint_enabled) {
+                ts->dfs_capture_active = 1;
+            }
             return;  /* branch budget exhausted — stop this branch only (legacy) */
+        }
     }
     /* Time check every 50M nodes (not every node — time() is a syscall). */
     if (ts->nodes % 50000000 == 0) {
@@ -1505,9 +1943,26 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
     }
 
     int prev_tail = seq[step * 2 - 1];  /* last hexagram placed */
-    for (int p = 0; p < 32; p++) {
+
+    /* DFS-state checkpoint resume: if the operator enabled SOLVE_DFS_CHECKPOINT
+     * and a .dfs_state sidecar was loaded for this sub-branch, the for loop
+     * at this depth starts at the saved (p, orient) instead of (0, 0). The
+     * saved state is consumed once (cleared after use) so deeper recursion
+     * back into this depth (different parent iteration paths) starts fresh. */
+    int p_start = 0, o_start = 0;
+    if (ts->dfs_resume_active) {
+        int rd = step - ts->dfs_resume_partition_prefix_len;
+        if (rd >= 0 && rd < 64 && ts->dfs_resume_frames[rd].pair_idx >= 0) {
+            p_start = ts->dfs_resume_frames[rd].pair_idx;
+            o_start = ts->dfs_resume_frames[rd].orient;
+            ts->dfs_resume_frames[rd].pair_idx = -1;  /* mark consumed */
+        }
+    }
+
+    for (int p = p_start; p < 32; p++) {
         if (used[p]) continue;
-        for (int orient = 0; orient < 2; orient++) {
+        int o_init = (p == p_start) ? o_start : 0;
+        for (int orient = o_init; orient < 2; orient++) {
             int first = orient ? pairs[p].b : pairs[p].a;
             int second = orient ? pairs[p].a : pairs[p].b;
             /* bd = between-pair distance (prev_tail -> first of new pair)
@@ -1527,6 +1982,18 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
             used[p] = 0;
             budget[wd]++;
             budget[bd]++;
+            /* DFS-state checkpoint capture: if the recursion just unwound
+             * because budget exhausted (signaled by ts->dfs_capture_active),
+             * record THIS frame's (p, orient) iterator state. The stack is
+             * built deepest-first as we unwind through callers. */
+            if (ts->dfs_capture_active) {
+                if (ts->dfs_iter_top < 64) {
+                    ts->dfs_iter_stack[ts->dfs_iter_top].pair_idx = (int8_t)p;
+                    ts->dfs_iter_stack[ts->dfs_iter_top].orient = (int8_t)orient;
+                    ts->dfs_iter_top++;
+                }
+                return;
+            }
             if (global_timed_out) return;
         }
     }
@@ -1540,6 +2007,284 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
 /* Dead sub-branch detection: skip if >N nodes with 0 C3-valid.
  * Default 0 = disabled. Set SOLVE_DEAD_LIMIT=100000000000 for 100B. */
 static long long dead_node_limit = 0;
+
+/* DFS-state checkpoint helpers (2026-04-30, SOLVE_DFS_CHECKPOINT). All no-op
+ * unless dfs_checkpoint_enabled = 1. */
+
+/* Compose the .dfs_state filename for a sub-branch. Returns 0 on success. */
+static int dfs_state_filename(char *buf, size_t bufsz,
+                              int p1, int o1, int p2, int o2, int p3, int o3) {
+    if (p3 >= 0)
+        return snprintf(buf, bufsz, "sub_%d_%d_%d_%d_%d_%d.dfs_state",
+                        p1, o1, p2, o2, p3, o3) < (int)bufsz ? 0 : -1;
+    return snprintf(buf, bufsz, "sub_%d_%d_%d_%d.dfs_state",
+                    p1, o1, p2, o2) < (int)bufsz ? 0 : -1;
+}
+
+/* Write a DFS-state sidecar atomically (.tmp + rename). Called only when
+ * dfs_checkpoint_enabled and dfs_capture_active and there's at least one
+ * iter frame to save. Returns 0 on success. */
+static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
+                           const ThreadState *ts) {
+    char fname[96], tmpname[96];
+    if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
+    snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
+
+    DFSCheckpointState_v1 st;
+    memset(&st, 0, sizeof(st));
+    st.magic = DFS_STATE_MAGIC;
+    st.format_version = DFS_STATE_VERSION;
+    st.partition_depth = (p3 >= 0) ? 3 : 2;
+    st.prefix_p1 = p1; st.prefix_o1 = o1;
+    st.prefix_p2 = p2; st.prefix_o2 = o2;
+    st.prefix_p3 = (int8_t)p3; st.prefix_o3 = (int8_t)o3;
+    st.iter_top = (uint16_t)ts->dfs_iter_top;
+    if (st.iter_top > 64) st.iter_top = 64;
+    /* The capture during unwind appends frames in deepest-first order. The
+     * design wants iter_frames[0] = OUTERMOST (sub-branch entry depth) and
+     * iter_frames[top-1] = DEEPEST. Reverse on serialize. */
+    for (int i = 0; i < st.iter_top; i++) {
+        st.iter_frames[i] = ts->dfs_iter_stack[st.iter_top - 1 - i];
+    }
+    st.prior_budget = per_branch_node_limit;
+    st.prior_nodes_walked = ts->branch_nodes;
+    st.prior_solutions_found = ts->solution_count;
+
+    FILE *f = fopen(tmpname, "wb");
+    if (!f) {
+        fprintf(stderr, "WARN: dfs_state_write: fopen(%s) failed: %s\n",
+                tmpname, strerror(errno));
+        return -1;
+    }
+    if (fwrite(&st, sizeof(st), 1, f) != 1) {
+        fprintf(stderr, "WARN: dfs_state_write: fwrite(%s) failed\n", tmpname);
+        fclose(f);
+        unlink(tmpname);
+        return -1;
+    }
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0 || fclose(f) != 0) {
+        fprintf(stderr, "WARN: dfs_state_write: fsync/close(%s) failed\n", tmpname);
+        unlink(tmpname);
+        return -1;
+    }
+    if (rename(tmpname, fname) != 0) {
+        fprintf(stderr, "WARN: dfs_state_write: rename(%s -> %s) failed\n",
+                tmpname, fname);
+        unlink(tmpname);
+        return -1;
+    }
+    fprintf(stderr, "[dfs-checkpoint] WROTE %s (iter_top=%u, nodes=%lld)\n",
+            fname, (unsigned)st.iter_top, (long long)st.prior_nodes_walked);
+    return 0;
+}
+
+/* Read a DFS-state sidecar if present. Returns 0 if found and valid;
+ * 1 if file does not exist (no resume needed); -1 on read/format error
+ * (caller should treat as "no resume" — defensive). On success, populates
+ * ts->dfs_resume_active and ts->dfs_resume_frames. */
+static int dfs_state_read(int p1, int o1, int p2, int o2, int p3, int o3,
+                          ThreadState *ts) {
+    char fname[96];
+    if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
+    FILE *f = fopen(fname, "rb");
+    if (!f) return 1;  /* no sidecar = no resume needed */
+    DFSCheckpointState_v1 st;
+    size_t n = fread(&st, 1, sizeof(st), f);
+    fclose(f);
+    if (n != sizeof(st)) {
+        fprintf(stderr, "WARN: dfs_state_read: short read on %s (got %zu)\n", fname, n);
+        return -1;
+    }
+    if (st.magic != DFS_STATE_MAGIC || st.format_version != DFS_STATE_VERSION) {
+        fprintf(stderr, "WARN: dfs_state_read: bad magic/version on %s\n", fname);
+        return -1;
+    }
+    if (st.prefix_p1 != p1 || st.prefix_o1 != o1
+        || st.prefix_p2 != p2 || st.prefix_o2 != o2
+        || st.prefix_p3 != (int8_t)p3 || st.prefix_o3 != (int8_t)o3) {
+        fprintf(stderr, "WARN: dfs_state_read: prefix mismatch on %s\n", fname);
+        return -1;
+    }
+    if (st.iter_top == 0 || st.iter_top > 64) {
+        fprintf(stderr, "WARN: dfs_state_read: bad iter_top=%u on %s\n",
+                (unsigned)st.iter_top, fname);
+        return -1;
+    }
+    /* Populate resume frames. iter_frames[0] = outermost (partition_prefix_len),
+     * iter_frames[top-1] = deepest. dfs_resume_frames is indexed by
+     * (depth - partition_prefix_len), so just copy. */
+    int prefix_len = (p3 >= 0) ? 4 : 2;
+    ts->dfs_resume_partition_prefix_len = prefix_len;
+    ts->dfs_resume_active = 1;
+    /* Clear the array first */
+    for (int i = 0; i < 64; i++) {
+        ts->dfs_resume_frames[i].pair_idx = -1;
+        ts->dfs_resume_frames[i].orient = 0;
+    }
+    for (int i = 0; i < st.iter_top; i++) {
+        ts->dfs_resume_frames[i] = st.iter_frames[i];
+    }
+    ts->dfs_resume_prior_nodes = st.prior_nodes_walked;
+    fprintf(stderr, "[dfs-checkpoint] READ  %s (iter_top=%u, prior nodes=%lld)\n",
+            fname, (unsigned)st.iter_top, (long long)st.prior_nodes_walked);
+    return 0;
+}
+
+/* Delete a DFS-state sidecar (called when sub-branch completes naturally,
+ * i.e. EXHAUSTED, so future runs don't see a stale resume point). */
+static void dfs_state_delete(int p1, int o1, int p2, int o2, int p3, int o3) {
+    char fname[96];
+    if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return;
+    unlink(fname);  /* ignore errors — file may not exist */
+}
+
+/* v2 write: atomic write of full-stack capture. Called only when the
+ * iterative path captures via dfs_v2_capture_pending. */
+static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
+                              const ThreadState *ts) {
+    char fname[96], tmpname[96];
+    if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
+    snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
+
+    DFSCheckpointState_v2 st;
+    memset(&st, 0, sizeof(st));
+    st.magic = DFS_STATE_MAGIC;
+    st.format_version = DFS_STATE_VERSION_V2;
+    st.partition_depth = (p3 >= 0) ? 3 : 2;
+    st.prefix_p1 = p1; st.prefix_o1 = o1;
+    st.prefix_p2 = p2; st.prefix_o2 = o2;
+    st.prefix_p3 = (int8_t)p3; st.prefix_o3 = (int8_t)o3;
+
+    int sp_capture = ts->dfs_v2_sp;
+    if (sp_capture < 0) sp_capture = -1;
+    if (sp_capture >= 34) sp_capture = 33;
+    st.sp = (int16_t)sp_capture;
+    for (int i = 0; i <= sp_capture && i < 34; i++) {
+        st.frames[i] = ts->dfs_v2_frames[i];
+    }
+    memcpy(st.seq, ts->dfs_v2_seq, 64);
+    memcpy(st.used, ts->dfs_v2_used, 32);
+    memcpy(st.budget, ts->dfs_v2_budget, 7);
+    st.prior_budget = per_branch_node_limit;
+    st.prior_nodes_walked = ts->branch_nodes;
+    st.prior_solutions_found = ts->solution_count;
+
+    FILE *f = fopen(tmpname, "wb");
+    if (!f) return -1;
+    if (fwrite(&st, sizeof(st), 1, f) != 1) {
+        fclose(f); unlink(tmpname); return -1;
+    }
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0 || fclose(f) != 0) {
+        unlink(tmpname); return -1;
+    }
+    if (rename(tmpname, fname) != 0) {
+        unlink(tmpname); return -1;
+    }
+    fprintf(stderr, "[dfs-v2] WROTE %s (sp=%d, nodes=%lld)\n",
+            fname, (int)st.sp, (long long)st.prior_nodes_walked);
+    return 0;
+}
+
+/* v2 read: load full-stack capture into ts->dfs_v2_resume_*.
+ * Returns 0 if v2 read OK; 1 if no file or wrong version (caller should fall
+ * back to v1 read); -1 on read/format error. */
+static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
+                             ThreadState *ts) {
+    char fname[96];
+    if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
+    FILE *f = fopen(fname, "rb");
+    if (!f) return 1;
+    DFSCheckpointState_v2 st;
+    size_t n = fread(&st, 1, sizeof(st), f);
+    fclose(f);
+    if (n != sizeof(st)) return -1;
+    if (st.magic != DFS_STATE_MAGIC) return -1;
+    if (st.format_version != DFS_STATE_VERSION_V2) return 1;  /* not v2 */
+    if (st.prefix_p1 != p1 || st.prefix_o1 != o1
+        || st.prefix_p2 != p2 || st.prefix_o2 != o2
+        || st.prefix_p3 != (int8_t)p3 || st.prefix_o3 != (int8_t)o3) return -1;
+    if (st.sp < -1 || st.sp >= 34) return -1;
+
+    ts->dfs_v2_resume_active = 1;
+    ts->dfs_v2_resume_sp = st.sp;
+    for (int i = 0; i < 34; i++) ts->dfs_v2_resume_frames[i] = st.frames[i];
+    memcpy(ts->dfs_v2_resume_seq, st.seq, 64);
+    memcpy(ts->dfs_v2_resume_used, st.used, 32);
+    memcpy(ts->dfs_v2_resume_budget, st.budget, 7);
+    ts->dfs_resume_prior_nodes = st.prior_nodes_walked;
+    fprintf(stderr, "[dfs-v2] READ  %s (sp=%d, prior nodes=%lld)\n",
+            fname, (int)st.sp, (long long)st.prior_nodes_walked);
+    return 0;
+}
+
+/* Load prior shard contents into the thread's hash table at sub-branch entry
+ * (resume mode only). Mirrors the consolidation logic at line 2418+: for each
+ * 32-byte record, compute canonical hash, probe-insert. Records already in
+ * the prior shard are dedup-merged with new finds during this run; the
+ * subsequent flush writes the union, byte-equivalent to a single-shot run
+ * that walked from scratch to the resumed budget. */
+static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, int o3,
+                                      ThreadState *ts) {
+    char fname[96];
+    if (p3 >= 0)
+        snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d_%d_%d.bin",
+                 p1, o1, p2, o2, p3, o3);
+    else
+        snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
+    FILE *f = fopen(fname, "rb");
+    if (!f) return 1;  /* no prior shard = nothing to load */
+
+    /* Allocate hash table if not already (analyze_solution does this lazily;
+     * we may be called before any backtrack). */
+    if (!ts->sol_table) {
+        ts->sol_table = calloc((size_t)ts->ht_size, SOL_RECORD_SIZE);
+        ts->sol_occupied = calloc(ts->ht_size, 1);
+        if (!ts->sol_table || !ts->sol_occupied) {
+            fprintf(stderr, "FATAL: dfs_state_load_prior_shard alloc failed\n");
+            fclose(f);
+            return -1;
+        }
+    }
+
+    pthread_mutex_lock(&ts->ht_mutex);
+    long long loaded = 0;
+    unsigned char rec[SOL_RECORD_SIZE];
+    while (fread(rec, SOL_RECORD_SIZE, 1, f) == 1) {
+        unsigned char canonical[SOL_RECORD_SIZE];
+        for (int i = 0; i < SOL_RECORD_SIZE; i++) canonical[i] = rec[i] & 0xFC;
+        unsigned long long ch = 14695981039346656037ULL;
+        for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= canonical[i]; ch *= 1099511628211ULL; }
+        SOL_HASH_MIX(ch);
+        int slot = (int)(ch & (unsigned long long)ts->ht_mask);
+        for (int probe = 0; probe < ts->ht_size; probe++) {
+            int idx = (slot + probe) & ts->ht_mask;
+            if (!ts->sol_occupied[idx]) {
+                memcpy(&ts->sol_table[(size_t)idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
+                ts->sol_occupied[idx] = 1;
+                ts->solution_count++;
+                loaded++;
+                if (ts->solution_count > (long long)ts->ht_size * 3 / 4)
+                    resize_hash_table(ts);
+                break;
+            }
+            unsigned char *existing = &ts->sol_table[(size_t)idx * SOL_RECORD_SIZE];
+            int match = 1;
+            for (int ci = 0; ci < SOL_RECORD_SIZE; ci++) {
+                if ((existing[ci] & 0xFC) != canonical[ci]) { match = 0; break; }
+            }
+            if (match) {
+                if (memcmp(rec, existing, SOL_RECORD_SIZE) < 0)
+                    memcpy(existing, rec, SOL_RECORD_SIZE);
+                break;
+            }
+        }
+    }
+    pthread_mutex_unlock(&ts->ht_mutex);
+    fclose(f);
+    fprintf(stderr, "[dfs-checkpoint] LOADED %s into hash table (%lld records)\n",
+            fname, loaded);
+    return 0;
+}
 
 /* Write per-sub-branch solution file from thread's hash table.
  * Called with checkpoint_mutex held.
@@ -1741,7 +2486,64 @@ static void *thread_func_single(void *arg) {
         }
 
         ts->branch_nodes = 0;  /* reset per-sub-branch counter */
-        backtrack(ts, seq, used, budget, backtrack_start_step);
+
+        /* DFS-state checkpoint: load any prior .dfs_state for this sub-branch
+         * so the recursion/iteration resumes at the saved state. Reset capture
+         * fields (we want a fresh capture if THIS run also exhausts budget).
+         * No-op unless dfs_checkpoint_enabled. */
+        ts->dfs_capture_active = 0;
+        ts->dfs_iter_top = 0;
+        ts->dfs_resume_active = 0;
+        ts->dfs_resume_prior_nodes = 0;
+        ts->dfs_v2_capture_pending = 0;
+        ts->dfs_v2_resume_active = 0;
+        if (dfs_checkpoint_enabled) {
+            int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
+            int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
+            /* Try v2 first (full-state capture, used by iterative path);
+             * fall back to v1 (iter-only, used by recursive path). */
+            int v2_rc = dfs_state_read_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            if (v2_rc != 0) {
+                /* v2 not present or wrong version; try v1 */
+                (void)dfs_state_read(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            }
+            /* If a prior run exhausted budget at N nodes and this run has a
+             * higher per_branch_node_limit, we want the cumulative work
+             * (prior + new) to match what a single-shot run at the new limit
+             * would have done. Bump branch_nodes by prior count so the
+             * budget check fires at (prior + new) total. */
+            if (ts->dfs_resume_active || ts->dfs_v2_resume_active) {
+                ts->branch_nodes = ts->dfs_resume_prior_nodes;
+                /* Load prior shard contents into hash table so the flush at
+                 * end-of-walk produces a single-shot-equivalent merged shard. */
+                (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            }
+        }
+
+        if (dfs_iterative_enabled) {
+            backtrack_iterative(ts, seq, used, budget, backtrack_start_step);
+        } else {
+            backtrack(ts, seq, used, budget, backtrack_start_step);
+        }
+
+        /* DFS-state checkpoint: if budget exhausted in this run, persist the
+         * captured state. If it ran to completion, delete any prior sidecar
+         * so a future resume doesn't try to re-walk a finished branch. */
+        if (dfs_checkpoint_enabled) {
+            int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
+            int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
+            if (ts->dfs_v2_capture_pending) {
+                /* Iterative path captured full DFS state — write v2. */
+                (void)dfs_state_write_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            } else if (ts->dfs_capture_active && ts->dfs_iter_top > 0) {
+                /* Recursive path captured iter-only state — write v1. */
+                (void)dfs_state_write(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            } else {
+                /* Naturally completed (or interrupted before any frame captured) —
+                 * remove any stale sidecar from a prior partial run. */
+                dfs_state_delete(p1, o1, p2, o2, p3_arg, o3_arg);
+            }
+        }
 
         long long sub_nodes = ts->nodes - nodes_before;
         long long sub_c3 = ts->solutions_c3 - c3_before;
@@ -6003,6 +6805,25 @@ int main(int argc, char *argv[]) {
          * below also check the override and re-set it; this ensures it's
          * set for paths that skip the auto-divide block. */
         per_branch_node_limit = per_sub_branch_override;
+    }
+
+    /* DFS-state checkpoint (2026-04-30, SOLVE_DFS_CHECKPOINT). When 1, mid-walk
+     * resume is enabled: budget exhaustion writes a .dfs_state sidecar; future
+     * runs at higher per-sub-branch budget read the sidecar and resume. Default
+     * 0 = behavior is bit-identical to pre-2026-04-30 builds. See struct
+     * DFSCheckpointState_v1 definition for format details. */
+    char *env_dfs_ckpt = getenv("SOLVE_DFS_CHECKPOINT");
+    if (env_dfs_ckpt && atoi(env_dfs_ckpt) == 1) {
+        dfs_checkpoint_enabled = 1;
+        printf("DFS-state checkpoint: enabled (mid-walk resume)\n");
+    }
+    /* SOLVE_DFS_ITERATIVE (2026-04-30): dispatch through backtrack_iterative()
+     * instead of the default recursive backtrack(). Default off; selftest sha
+     * unchanged when not set. Intended substrate for full DFS-state capture. */
+    char *env_dfs_iter = getenv("SOLVE_DFS_ITERATIVE");
+    if (env_dfs_iter && atoi(env_dfs_iter) == 1) {
+        dfs_iterative_enabled = 1;
+        printf("DFS-iterative: enabled (explicit-stack backtrack)\n");
     }
 
     /* Reproducibility warning: time_limit and node_limit together create
