@@ -2,6 +2,8 @@
 
 A plain-language introduction to the King Wen sequence and what this program does with it.
 
+> **Going deeper:** once you've read this guide and want to understand HOW the solver actually finds valid orderings — what a "branch" is, what a "node" represents, how the search tree is partitioned — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md). Same plain-language style; takes you a layer deeper into the enumeration mechanics.
+
 ## What is the King Wen sequence?
 
 The [I Ching](https://en.wikipedia.org/wiki/I_Ching) (Book of Changes) is one of the oldest texts in Chinese civilization, dating back over 3,000 years. At its core are 64 symbols called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — each is a stack of six lines, where each line is either solid ([yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken ([yin](https://en.wikipedia.org/wiki/Yin_and_yang)). With two possibilities per line and six lines, there are exactly 2^6 = 64 possible hexagrams.

@@ -14,6 +14,8 @@
 
 A plain-language summary of what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
+> **For HOW the enumeration actually works** — what a branch / sub-branch / node means, the difference between all-branch and single-branch enumeration, and the open research questions — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md). It's the step-by-step companion to this summary.
+
 ## The puzzle
 
 About 3,000 years ago, someone in ancient China arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, the designers picked one specific arrangement:

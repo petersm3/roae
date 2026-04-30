@@ -14,7 +14,7 @@ Note: this program analyzes the mathematical structure of the ordering only. The
 
 ## Guide
 
-New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-language introduction to the King Wen sequence and how to read this program's output.
+New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-language introduction to the King Wen sequence and how to read this program's output. For a step-by-step walkthrough of what the solver actually does — what a "branch," "sub-branch," and "node" mean, what all-branch vs single-branch enumeration is doing, and what the open questions are — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md).
 
 ## Solver
 

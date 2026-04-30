@@ -2,6 +2,8 @@
 
 The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is the unique permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints.
 
+> Looking for a plain-language version of these constraints and how the solver searches for orderings that satisfy them? See [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md).
+
 ## Definitions
 
 Let **H** = {0, 1, ..., 63} be the set of 6-bit integers (hexagrams).
