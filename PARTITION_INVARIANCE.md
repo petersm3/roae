@@ -32,22 +32,24 @@ Informally: running the solver 56 times, one branch each, merging the
 shards once at the end, produces the same canonical output as running
 the solver once over the whole partition.
 
-**Empirical validation — "4-corners" grid (2026-04-19).** The theorem
-has been validated against byte-identical reference sha256s across all
-four combinations of the two independent axes that could plausibly
-affect output:
+**Empirical validation grid.** The theorem has been validated against
+byte-identical reference sha256s across multiple independent axes:
 
-|  | External-merge path | In-memory heap-sort path |
-|---|---|---|
-| **Zen 4 hardware (F64als_v6, westus2)** | ✅ matches reference | ✅ matches reference |
-| **Zen 5 hardware (D128als_v7, westus3)** | ✅ matches reference | ✅ matches reference |
+| Axis | Validations |
+|---|---|
+| **Hardware: Zen 4 vs Zen 5** | F64als_v6 westus2 ↔ D128als_v7 westus3, d3 10T sha `f7b8c4fb…` matches (2026-04-19) |
+| **Architecture: x86 vs ARM** | Zen 5 ↔ Cobalt 100 ARM (D96ps_v6 westus3), d3 10T sha `f7b8c4fb…` matches (2026-04-28) |
+| **Region: westus2 vs westus3** | F64 westus2 ↔ D128 westus3, same sha (2026-04-19) |
+| **Merge mode: external vs in-memory** | Both produce the canonical sha at d3 10T (2026-04-19) |
+| **Partition strategy: full-enum vs --branch reconstruction (depth 3, same per-sub-branch budget)** | sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` matches across both paths at 5.6T budget (35.4M nodes/sub-branch). Verified via `--double-regression-test` (2026-04-30). |
+| **Layered-merge correctness** | Layer 1 + Layer 2 of identical scope, merged via `--merge-layers`, produces same sha as a single-layer run (2026-04-30). |
 
-All four combinations produce the canonical d3 10T sha
-`f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`.
-This cross-SKU, cross-region, cross-generation, cross-merge-mode
-agreement is the strongest empirical validation of the theorem
-achievable short of exhaustive enumeration at full budget. See
-[`HISTORY.md`](HISTORY.md) April 19 for the execution log.
+The 5.6T regression test is the strongest validation of the theorem to
+date — it explicitly verifies the `solve 0 64 == solve --branch p1 o1 × 56`
+equivalence at depth-3 partitioning with controlled per-sub-branch
+budgets via `SOLVE_PER_SUB_BRANCH_LIMIT`. See
+[`HISTORY.md`](HISTORY.md) §"April 30, 2026" for the full retrospective
+including the depth-2 bug that surfaced and was fixed during the test.
 
 ## 2. Proof
 
@@ -131,46 +133,76 @@ budget divided by the number of sub-branches enumerated:
 
 The denominator depends on invocation mode:
 
-| Invocation | Typical n_sub | Per-sub-branch budget at 10T total |
+| Invocation | n_sub | Per-sub-branch budget at 10T total |
 |---|---|---|
-| `./solve 0` (full parallel, depth 2) | 3,030 | ~3.3B nodes |
+| `./solve 0` (full enum, depth 2 / SOLVE_DEPTH=2) | 3,030 | ~3.3B nodes |
+| `./solve 0` (full enum, depth 3 / SOLVE_DEPTH=3) | 158,364 | ~63M nodes |
 | `./solve --branch P O 0` (one first-level branch, depth 2) | ~54 | ~185B nodes |
-| 56 × `--branch P O 0` individually at 10T each | ~54 each | ~185B each (aggregate 10T × 56 = 560T node budget) |
+| `./solve --branch P O 0` (one first-level branch, depth 3, post-2026-04-30 fix) | ~2,828 | ~3.5B nodes |
 
-Under budget, the single-branch runs receive 56× more per-sub-branch
-budget than full-parallel for the same `SOLVE_NODE_LIMIT`. They reach
-further into each sub-branch's search tree, find more valid records,
-produce different shards, and the merge produces a different sha256.
+Without controlling per-sub-branch budget explicitly, the single-branch
+runs receive different per-sub-branch budgets than full-enum for the same
+`SOLVE_NODE_LIMIT`. They reach further into (or shorter into) each
+sub-branch's search tree, find different valid records, and the merge
+produces a different sha256.
 
-To reproduce the full-parallel budgeted sha via stitched single-branch
-runs, pass each `--branch P O` invocation a budget of:
+**Recommended: use `SOLVE_PER_SUB_BRANCH_LIMIT` (added 2026-04-29).**
+This env var sets the per-sub-branch budget DIRECTLY, overriding the
+auto-divide. Both invocation modes can pass the same value to walk every
+sub-branch with identical budget regardless of how many sub-branches are
+in their respective scopes. This is how the 2026-04-30
+`--double-regression-test` verifies invariance: full-enum and
+56-branch-reconstruction both run with `SOLVE_PER_SUB_BRANCH_LIMIT=35361572`
+at SOLVE_DEPTH=3, producing byte-identical sha
+`c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd`.
 
-    SOLVE_NODE_LIMIT × (n_sub_in_this_branch / total_sub_branches)
+The legacy manual scaling (multiply `--branch` budget by
+`n_sub_in_branch / total_sub_branches`) is mathematically equivalent
+when budgets are uniform, but `SOLVE_PER_SUB_BRANCH_LIMIT` is more direct
+and less error-prone — particularly when n_sub varies across first-level
+branches at depth 3 (some have ~3000, some have ~2500), where the auto-
+divide produces non-uniform budgets that defeat invariance comparison.
 
-For 10T full-mode at depth 2 (3,030 total sub-branches, ~54 per first-
-level branch): each single-branch run gets 10T × 54 / 3030 ≈ 178B nodes.
-Every sub-branch across both invocation modes then sees the same ~3.3B
-per-sub-branch budget, produces the same shards, and the merges match.
-
-Under exhaustive enumeration, this scaling is moot — no budget applies —
+Under exhaustive enumeration, all of this is moot — no budget applies —
 and the theorem in §1 holds unconditionally.
+
+**Bug note (2026-04-29 / 30).** Prior to commit `cdd8575`, `--branch
+P O` always partitioned to depth-2 even when `SOLVE_DEPTH=3` was set.
+This produced `sub_P1_O1_P2_O2.bin` shards (depth-2 names) while
+full-enum at SOLVE_DEPTH=3 produced `sub_P1_O1_P2_O2_P3_O3.bin` shards
+(depth-3 names) — incomparable file sets, so the merges could not be
+sha-checked even with matched per-sub-branch budgets. The fix routes
+`--branch` at SOLVE_DEPTH=3 through the depth-3 enumeration path,
+producing matching shard names. The 5.6T regression test PASSED with
+this fix in place.
 
 ## 4. Cross-depth invariance
 
-The theorem is **depth-specific**. The depth-2 and depth-3 partitions
-are genuinely different partitions (3,030 sub-branches vs 158,364
-sub-branches). Under the same `SOLVE_NODE_LIMIT`, the per-sub-branch
-budgets differ by a factor of 52, so the depth-2 and depth-3 outputs
-find different subsets of the valid-orderings space and their shas
-differ.
+The theorem is **depth-specific** under budget. The depth-2 and depth-3
+partitions are genuinely different partitions (3,030 sub-branches vs
+158,364 sub-branches). Under the same `SOLVE_NODE_LIMIT`, the auto-divide
+produces per-sub-branch budgets that differ by a factor of ~52, so the
+depth-2 and depth-3 outputs find different subsets of the valid-orderings
+space and their shas differ.
 
-Under exhaustive enumeration, the depth-2 and depth-3 partitions
-**both** enumerate the same mathematical object (all orderings
-satisfying C1–C5), so the final `solutions.bin` files would be
-byte-identical. This is a stronger claim — depth-invariance under
-exhaustion — that follows from the same three determinism properties
-combined with the observation that the canonical dedup step erases
-any trace of partition depth from the output.
+**Within a fixed depth, partition-strategy invariance has been empirically
+confirmed.** At depth 3 with `SOLVE_PER_SUB_BRANCH_LIMIT=35361572`
+(equivalent to 5.6T total budget / 158,364 sub-branches):
+
+- Full-enum at depth-3 produces sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd`
+- 56 invocations of `--branch p1 o1 0 64` at depth-3 with same per-sub-branch
+  budget, merged via `--merge-layers`, produce **byte-identical sha**.
+- A repeat of the same enumeration produces byte-identical sha (deterministic).
+
+This was the 2026-04-30 `--double-regression-test` verification.
+
+**Under exhaustive enumeration**, the depth-2 and depth-3 partitions
+**both** enumerate the same mathematical object (all orderings satisfying
+C1–C5), so the final `solutions.bin` files would be byte-identical. This
+is a stronger claim — cross-depth invariance under exhaustion — that
+follows from the same three determinism properties combined with the
+observation that the canonical dedup step erases any trace of partition
+depth from the output.
 
 We have **not empirically verified** depth-invariance under exhaustion
 because neither a 10T d3 run nor a 10T d2 run reaches exhaustion on
@@ -206,6 +238,13 @@ This theorem underpins several project workflows:
   different branches" model, the merge-from-any-subset property is
   what makes it work. Each contributor produces a byte-identical shard
   for their assigned prefix; the coordinator merges all contributions.
+- **Layered enumeration extension**: the `--merge-layers` mode
+  (added 2026-04-29, see [`DEVELOPMENT.md`](DEVELOPMENT.md)
+  §"Layered enumeration") composes invariance across multiple
+  enumeration runs at potentially different per-sub-branch budgets.
+  Later layers' shards override earlier layers' for the same
+  sub-branch; the merger is byte-deterministic given a fixed set of
+  layers in a fixed sort order. Verified at 5.6T scale 2026-04-30.
 
 ## 6. Citations from other repository docs
 
@@ -230,6 +269,12 @@ This theorem is referenced by:
   C1–C5, pair structure, partner function.
 - [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) — binary file format,
   total-order comparator, canonical-dedup semantics.
+- [`BRANCHES_EXPLAINED.md`](BRANCHES_EXPLAINED.md) — plain-language
+  walkthrough of branches, sub-branches, all-branch vs single-branch
+  enumeration, and how partition invariance composes.
+- [`DEVELOPMENT.md`](DEVELOPMENT.md) — `Layered enumeration` section
+  documenting the `--merge-layers` infrastructure verified by the
+  2026-04-30 regression test.
 - `solve.c` — the `compare_solutions` and `compare_canonical` comment
   block gives the proof-of-correctness argument for the merge's
   determinism in terms of the code path.
