@@ -1662,7 +1662,20 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
                     /* v2 capture: snapshot the FULL stack (including the
                      * just-budget-hit frame at sp) AND the seq/used/budget
                      * arrays, NOW. This is the bit that gives bit-identical
-                     * resume vs single-shot in iterative form. */
+                     * resume vs single-shot in iterative form.
+                     *
+                     * The saved branch_nodes (written to .dfs_state in
+                     * dfs_state_write_v2) is intentionally one less than the
+                     * live ts->branch_nodes: this captured frame's ENTER
+                     * already incremented the counter, but its DFS work
+                     * never ran; on resume, PHASE_B's ENTER will increment
+                     * again and do the work. Without this rollback the
+                     * captured frame's increment counts twice cumulatively,
+                     * exhausting PHASE_B's budget one frame early — that
+                     * missed frame's solutions are the resume vs single-shot
+                     * sha mismatch's root cause. The live counters stay
+                     * intact so the BUDGETED-vs-EXHAUSTED status check at
+                     * end-of-sub-branch sees the correct ">=  budget" state. */
                     int sp_save = sp;
                     if (sp_save >= 34) sp_save = 33;
                     ts->dfs_v2_sp = sp_save;
@@ -1908,7 +1921,12 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
         if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit) {
             /* DFS-state checkpoint: signal that the recursion should unwind via
              * the capture path so each frame records its (p, orient). Only when
-             * the operator opted in via SOLVE_DFS_CHECKPOINT=1. */
+             * the operator opted in via SOLVE_DFS_CHECKPOINT=1. The save-side
+             * (dfs_state_write) records branch_nodes - 1 to roll back this
+             * captured frame's ENTER increment so resume PHASE_B re-incrementing
+             * gives a cumulative count that matches single-shot. See the
+             * matching comment in backtrack_iterative's v2 capture for the
+             * full off-by-one rationale. */
             if (dfs_checkpoint_enabled) {
                 ts->dfs_capture_active = 1;
             }
@@ -2048,7 +2066,12 @@ static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
         st.iter_frames[i] = ts->dfs_iter_stack[st.iter_top - 1 - i];
     }
     st.prior_budget = per_branch_node_limit;
-    st.prior_nodes_walked = ts->branch_nodes;
+    /* Roll back the captured frame's ENTER counter increment: the frame at
+     * sp had its ENTER ++ branch_nodes but its DFS work never ran. On resume,
+     * PHASE_B's ENTER will increment again and do the work, so the cumulative
+     * count matches single-shot. See the corresponding comment in
+     * backtrack_iterative's v2 capture path. */
+    st.prior_nodes_walked = (ts->branch_nodes > 0) ? ts->branch_nodes - 1 : 0;
     st.prior_solutions_found = ts->solution_count;
 
     FILE *f = fopen(tmpname, "wb");
@@ -2113,20 +2136,35 @@ static int dfs_state_read(int p1, int o1, int p2, int o2, int p3, int o3,
     }
     /* Populate resume frames. iter_frames[0] = outermost (partition_prefix_len),
      * iter_frames[top-1] = deepest. dfs_resume_frames is indexed by
-     * (depth - partition_prefix_len), so just copy. */
+     * (depth - partition_prefix_len), so just copy.
+     *
+     * v1 resume policy (2026-04-30): the saved (p, orient) overrides
+     * combined with branch_nodes accounting cannot reach single-shot
+     * coverage — the recursive descent re-walk inflates branch_nodes
+     * before new work begins, so the budget exhausts before all
+     * (saved..end) iters are walked. The fix here: leave the override
+     * frames empty (all pair_idx=-1). PHASE_B then walks ALL iters at
+     * every level (same as a fresh enum), finding the same solutions
+     * as single-shot. PHASE_A's contributions are still preserved via
+     * the load_prior_shard hash-table pre-population. dfs_resume_active
+     * stays 1 so the wrapper still calls load_prior_shard and tracks
+     * "this was a resume" for the bookkeeping that follows.
+     *
+     * Trade-off: PHASE_A's enumeration work is fully redundant for v1;
+     * the resume only saves hash-table pre-load (cheap). The v2
+     * (iterative) path retains true mid-walk resume — that's the
+     * supported production path. */
     int prefix_len = (p3 >= 0) ? 4 : 2;
     ts->dfs_resume_partition_prefix_len = prefix_len;
     ts->dfs_resume_active = 1;
-    /* Clear the array first */
     for (int i = 0; i < 64; i++) {
         ts->dfs_resume_frames[i].pair_idx = -1;
         ts->dfs_resume_frames[i].orient = 0;
     }
-    for (int i = 0; i < st.iter_top; i++) {
-        ts->dfs_resume_frames[i] = st.iter_frames[i];
-    }
+    /* Intentionally NOT copying st.iter_frames into ts->dfs_resume_frames —
+     * see policy note above. */
     ts->dfs_resume_prior_nodes = st.prior_nodes_walked;
-    fprintf(stderr, "[dfs-checkpoint] READ  %s (iter_top=%u, prior nodes=%lld)\n",
+    fprintf(stderr, "[dfs-checkpoint] READ  %s (iter_top=%u, prior nodes=%lld; v1 walks fresh, hash-table pre-loaded)\n",
             fname, (unsigned)st.iter_top, (long long)st.prior_nodes_walked);
     return 0;
 }
@@ -2167,7 +2205,9 @@ static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     memcpy(st.used, ts->dfs_v2_used, 32);
     memcpy(st.budget, ts->dfs_v2_budget, 7);
     st.prior_budget = per_branch_node_limit;
-    st.prior_nodes_walked = ts->branch_nodes;
+    /* Roll back the captured frame's ENTER counter increment — see comment
+     * at backtrack_iterative's v2 capture site for the off-by-one rationale. */
+    st.prior_nodes_walked = (ts->branch_nodes > 0) ? ts->branch_nodes - 1 : 0;
     st.prior_solutions_found = ts->solution_count;
 
     FILE *f = fopen(tmpname, "wb");
@@ -2508,13 +2548,26 @@ static void *thread_func_single(void *arg) {
                 /* v2 not present or wrong version; try v1 */
                 (void)dfs_state_read(p1, o1, p2, o2, p3_arg, o3_arg, ts);
             }
-            /* If a prior run exhausted budget at N nodes and this run has a
-             * higher per_branch_node_limit, we want the cumulative work
-             * (prior + new) to match what a single-shot run at the new limit
-             * would have done. Bump branch_nodes by prior count so the
-             * budget check fires at (prior + new) total. */
-            if (ts->dfs_resume_active || ts->dfs_v2_resume_active) {
+            /* Restore the per-sub-branch node counter:
+             *   v2 (iterative+full-state-capture): the saved frame is restored
+             *     EXACTLY at the captured stack position, so PHASE_B's walk
+             *     does NOT redo the descent. Start branch_nodes at the saved
+             *     value (one less than the captured frame's count, due to the
+             *     off-by-one rollback at save time) so the cumulative count
+             *     matches single-shot's coverage at budget exhaustion.
+             *   v1 (recursive+iter-only-capture): PHASE_B's recursion always
+             *     re-walks the descent path F_1..F_K via the captured (p, orient)
+             *     overrides at each level. Each descent frame's recursive call
+             *     ENTER ++'s branch_nodes. Setting branch_nodes to 0 lets
+             *     PHASE_B's budget enforce the same total coverage as single-
+             *     shot would (the redundant descent's work is dedup'd by the
+             *     hash table, which was pre-populated from the prior shard). */
+            if (ts->dfs_v2_resume_active) {
                 ts->branch_nodes = ts->dfs_resume_prior_nodes;
+            } else if (ts->dfs_resume_active) {
+                ts->branch_nodes = 0;
+            }
+            if (ts->dfs_resume_active || ts->dfs_v2_resume_active) {
                 /* Load prior shard contents into hash table so the flush at
                  * end-of-walk produces a single-shot-equivalent merged shard. */
                 (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
@@ -11578,8 +11631,13 @@ sub_enum_done:
      * Use 3030 as the canonical denominator (standard 3030-sub-branch mode);
      * this is the expected total_branches before checkpoint skipping.
      * Approximation error is irrelevant: the budget-aware resume just needs
-     * a rough threshold, not an exact match. */
-    if (node_limit > 0) current_per_branch_budget = node_limit / 3030;
+     * a rough threshold, not an exact match. SOLVE_PER_SUB_BRANCH_LIMIT
+     * takes precedence — it sets the per-sub-branch budget directly,
+     * regardless of node_limit. */
+    if (per_sub_branch_override > 0)
+        current_per_branch_budget = per_sub_branch_override;
+    else if (node_limit > 0)
+        current_per_branch_budget = node_limit / 3030;
     load_sub_checkpoint();
     if (n_completed_subs > 0) {
         printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
@@ -11976,8 +12034,13 @@ sub_enum_done:
                         i, t->dfs_v2_resume_active);
                 sanity_failures++;
             }
+            /* branches_completed: only bound-check when n_branches > 0
+             * (--branch mode, where threads have explicit pre-assigned
+             * branches). In full-enum mode, sub-branches dispatch from
+             * the global all_subs queue and n_branches stays 0; threads
+             * legitimately complete hundreds of sub-branches each. */
             if (t->branches_completed < 0 ||
-                t->branches_completed > t->n_branches) {
+                (t->n_branches > 0 && t->branches_completed > t->n_branches)) {
                 fprintf(stderr,
                         "SANITY: thread %d: branches_completed=%d not in [0,%d]\n",
                         i, t->branches_completed, t->n_branches);
@@ -12211,7 +12274,13 @@ sub_enum_done:
                 struct stat fst;
                 if (stat(expected_fname, &fst) == 0) {
                     int file_records = (int)(fst.st_size / SOL_RECORD_SIZE);
-                    if (file_records != ckpt_count) {
+                    /* Use < (not !=): a TRUNCATED file has fewer records
+                     * than the checkpoint claims, which is the bug we want
+                     * to catch. A LARGER file is normal in resume scenarios
+                     * — PHASE_B's shard cumulatively contains PHASE_A's
+                     * records plus newly-walked records, so file_records
+                     * may exceed any individual checkpoint entry's count. */
+                    if (file_records < ckpt_count) {
                         fprintf(stderr, "ERROR: %s has %d records but checkpoint says %d — "
                                 "file is truncated or corrupted\n",
                                 expected_fname, file_records, ckpt_count);
