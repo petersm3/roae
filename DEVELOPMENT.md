@@ -282,6 +282,31 @@ keeping the managed disk.
   on constraint failures, 2 on header/format errors. Runs in ~1-5
   minutes on a 10T solutions.bin.
 
+- **Two-tier solver selftest**:
+  - `./solve --selftest` (~5 sec on 4 threads): runs a bounded
+    enumeration with a fixed budget and checks the resulting
+    `solutions.bin` sha256 against the canonical baseline `403f7202…`.
+    Catches gross regressions in the constraint logic, partition
+    structure, or merge code. Use as a build smoke-test.
+  - `python3 solve.py --extended-selftest <path-to-solve-binary>`
+    (~10 min on 4 threads, added 2026-04-30): a CI-grade regression
+    suite that drives the supplied binary through three subtests +
+    a cross-check:
+      1. Single-shot 3-way @ 100M nodes (recursive vs iterative vs
+         iterative+v2). Catches regressions in the iterative DFS,
+         v2 capture, or fork-merge dispatch.
+      2. v2 resume @ 50M → 200M (PHASE_A captures, PHASE_B resumes,
+         resumed sha must match single-shot 200M sha `e43f2905…`).
+         Catches regressions in the off-by-one capture-frame fix
+         and the resume gate.
+      3. v1 resume @ 50M → 200M (recursive path with the "walk-fresh
+         on resume + load_prior_shard" policy). Same sha check.
+      Cross-check: recursive single-shot 200M sha == iterative
+      single-shot 200M sha (DFS-engine independence).
+    Returns 0 on full PASS, 1 on any failure. Suitable as a CI gate
+    before commits that touch `backtrack`, the v2 capture/resume
+    fields, the bitmap key encoding, or the merge dispatch.
+
 - **Never assume `fwrite` succeeded without checking.** The 2026-04-14
   `solutions.bin` was silently truncated from 23.7 GB to 8 GB because the disk
   filled up mid-write. The solver's sha256 still matched the truncated file
