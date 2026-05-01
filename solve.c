@@ -10866,7 +10866,7 @@ sub_enum_done:
             if (n_threads_p > n_sub_sub_tasks) n_threads_p = n_sub_sub_tasks;
 
             /* Worker ThreadStates — one per thread, private hash tables. */
-            ThreadState workers[64];
+            ThreadState workers[256];  /* up to 256 threads (matches main threads array) */
             time_t now_init = time(NULL);
             for (int i = 0; i < n_threads_p; i++) {
                 memset(&workers[i], 0, sizeof(ThreadState));
@@ -10924,7 +10924,7 @@ sub_enum_done:
             printf("Starting parallel --sub-branch enumeration...\n\n");
             fflush(stdout);
 
-            pthread_t tids_p[64];
+            pthread_t tids_p[256];  /* up to 256 threads */
             for (int i = 0; i < n_threads_p; i++) {
                 int rc = pthread_create(&tids_p[i], NULL, thread_func_sub_sub, &workers[i]);
                 if (rc != 0) {
@@ -11221,10 +11221,32 @@ sub_enum_done:
         if (n_threads > n_sub) n_threads = n_sub;
         if (n_threads < 1) n_threads = 1;
 
-        /* Distribute sub-branches round-robin */
-        ThreadState threads[64];
-        SubBranch thread_subs[64][64];
-        int thread_sub_count[64];
+        /* Distribute sub-branches round-robin. Arrays sized for up to
+         * 256 threads to match the main threads[256] in the full-enum
+         * path. The original [64][64] sizes were a buffer overflow at
+         * SOLVE_THREADS=128 (depth-3 has up to ~2828 sub-branches per
+         * first-level branch, so n_threads is unclamped at 128).
+         * Use heap allocation for the 2D thread_subs to avoid huge
+         * stack allocations at large thread counts. */
+        ThreadState threads[256];
+        int thread_sub_count[256];
+        int max_sub_per_thread = (n_sub + n_threads - 1) / n_threads + 8;
+        SubBranch *thread_subs_flat = malloc((size_t)n_threads *
+                                              (size_t)max_sub_per_thread *
+                                              sizeof(SubBranch));
+        if (!thread_subs_flat) {
+            fprintf(stderr, "FATAL: cannot allocate thread_subs (%zu bytes)\n",
+                    (size_t)n_threads * (size_t)max_sub_per_thread * sizeof(SubBranch));
+            return 30;
+        }
+        SubBranch **thread_subs = malloc((size_t)n_threads * sizeof(SubBranch *));
+        if (!thread_subs) {
+            fprintf(stderr, "FATAL: cannot allocate thread_subs index\n");
+            free(thread_subs_flat);
+            return 30;
+        }
+        for (int ti = 0; ti < n_threads; ti++)
+            thread_subs[ti] = thread_subs_flat + (size_t)ti * max_sub_per_thread;
         memset(thread_sub_count, 0, sizeof(thread_sub_count));
 
         for (int i = 0; i < n_sub; i++) {
@@ -11268,7 +11290,7 @@ sub_enum_done:
 
         start_time = time(NULL);
 
-        pthread_t tids[64];
+        pthread_t tids[256];
         int n_started = 0;
         for (int i = 0; i < n_threads; i++) {
             int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
