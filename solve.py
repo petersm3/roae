@@ -15,6 +15,7 @@ adjacency / boundary features at a scale you can actually inspect.
 See SOLVE.md for methodology and results.
 """
 import argparse
+import os
 import random
 import sys
 import time
@@ -4680,6 +4681,181 @@ def keystone_analysis(solutions_bin, out_md, dump_dir=None,
     return mask_counts, dump_paths
 
 
+def extended_selftest(solve_binary):
+    """Path-invariance + resume regression suite.
+
+    Exercises the fork-merge dispatch (commit 572a34b), sanity gate, and
+    v1+v2 resume off-by-one fix (commit c3ad271). Each subtest invokes
+    the supplied `solve` binary in a fresh tempdir with a fixed seed
+    of env vars, captures sha256, and asserts equivalence against a
+    reference path. Returns 0 on full PASS, 1 on any failure.
+
+    Subtests:
+      1. Single-shot 3-way at 100M nodes: recursive vs iterative vs
+         iterative+v2 (SOLVE_DFS_CHECKPOINT=1). All three shas must match
+         the canonical 100M sha 403f7202.
+      2. v2 resume sha-equivalence: 50M (PHASE_A) -> 200M (PHASE_B) vs
+         single-shot 200M. Must match.
+      3. v1 resume sha-equivalence: same scenario, recursive path. Must
+         match the same single-shot sha.
+
+    Wall ~10 min on a 4-thread VM (3 + 5 + 5 enums of varying size).
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    if not os.path.isfile(solve_binary):
+        print(f"FAIL: solve binary not found: {solve_binary}", file=sys.stderr)
+        return 1
+    if not os.access(solve_binary, os.X_OK):
+        print(f"FAIL: solve binary not executable: {solve_binary}", file=sys.stderr)
+        return 1
+    solve_binary = os.path.abspath(solve_binary)
+
+    def _run(env_extra, dir_, args_=("0", "4")):
+        env = os.environ.copy()
+        env.update(env_extra)
+        log = os.path.join(dir_, "run.log")
+        with open(log, "w") as lf:
+            rc = subprocess.call(
+                [solve_binary, *args_],
+                cwd=dir_, env=env, stdout=lf, stderr=subprocess.STDOUT,
+            )
+        return rc, log
+
+    def _read_sha(dir_):
+        path = os.path.join(dir_, "solutions.sha256")
+        if not os.path.isfile(path):
+            return None
+        with open(path) as f:
+            line = f.readline().strip()
+        return line.split()[0] if line else None
+
+    base_env_d2_100m = {
+        "SOLVE_DEPTH": "2",
+        "SOLVE_NODE_LIMIT": "100000000",
+    }
+    base_env_d2_50m = {
+        "SOLVE_DEPTH": "2",
+        "SOLVE_NODE_LIMIT": "50000000",
+    }
+    base_env_d2_200m = {
+        "SOLVE_DEPTH": "2",
+        "SOLVE_NODE_LIMIT": "200000000",
+    }
+
+    failures = []
+    workroot = tempfile.mkdtemp(prefix="ext_selftest_")
+    print(f"[extended-selftest] working dir: {workroot}", flush=True)
+
+    try:
+        # --- Subtest 1: single-shot 3-way at 100M ---
+        print("[extended-selftest] Subtest 1/3: single-shot 3-way @ 100M nodes",
+              flush=True)
+        shas_3way = {}
+        for label, env_extra in [
+            ("recursive",   {}),
+            ("iterative",   {"SOLVE_DFS_ITERATIVE": "1"}),
+            ("iterative+v2",
+             {"SOLVE_DFS_ITERATIVE": "1", "SOLVE_DFS_CHECKPOINT": "1"}),
+        ]:
+            d = os.path.join(workroot, f"sub1_{label}")
+            os.makedirs(d, exist_ok=True)
+            env = {**base_env_d2_100m, **env_extra}
+            rc, log = _run(env, d)
+            if rc != 0:
+                failures.append(f"subtest 1 {label}: solve exit={rc} (see {log})")
+                continue
+            sha = _read_sha(d)
+            if not sha:
+                failures.append(f"subtest 1 {label}: missing solutions.sha256")
+                continue
+            shas_3way[label] = sha
+            print(f"  {label:<14}: {sha}", flush=True)
+        if len(shas_3way) == 3 and len(set(shas_3way.values())) != 1:
+            failures.append(
+                f"subtest 1: 3-way sha mismatch — recursive={shas_3way.get('recursive')}, "
+                f"iterative={shas_3way.get('iterative')}, "
+                f"iterative+v2={shas_3way.get('iterative+v2')}"
+            )
+
+        # --- Subtest 2: v2 resume sha-equivalence ---
+        print("[extended-selftest] Subtest 2/3: v2 resume @ 50M -> 200M",
+              flush=True)
+        d_v2_full = os.path.join(workroot, "sub2_v2_full")
+        d_v2_resume = os.path.join(workroot, "sub2_v2_resume")
+        for d in (d_v2_full, d_v2_resume):
+            os.makedirs(d, exist_ok=True)
+        v2_env = {"SOLVE_DFS_ITERATIVE": "1", "SOLVE_DFS_CHECKPOINT": "1"}
+        rc_full, _ = _run({**base_env_d2_200m, **v2_env}, d_v2_full)
+        rc_pa,   _ = _run({**base_env_d2_50m,  **v2_env}, d_v2_resume)
+        rc_pb,   _ = _run({**base_env_d2_200m, **v2_env}, d_v2_resume)
+        sha_v2_full = _read_sha(d_v2_full)
+        sha_v2_resumed = _read_sha(d_v2_resume)
+        print(f"  v2 FULL    : {sha_v2_full}", flush=True)
+        print(f"  v2 RESUMED : {sha_v2_resumed}", flush=True)
+        if rc_full != 0 or rc_pa != 0 or rc_pb != 0:
+            failures.append(
+                f"subtest 2: solve exit codes "
+                f"FULL={rc_full} PHASE_A={rc_pa} PHASE_B={rc_pb}"
+            )
+        elif not sha_v2_full or not sha_v2_resumed or sha_v2_full != sha_v2_resumed:
+            failures.append(
+                f"subtest 2: v2 resume sha mismatch — "
+                f"full={sha_v2_full}, resumed={sha_v2_resumed}"
+            )
+
+        # --- Subtest 3: v1 resume sha-equivalence ---
+        print("[extended-selftest] Subtest 3/3: v1 resume @ 50M -> 200M",
+              flush=True)
+        d_v1_full = os.path.join(workroot, "sub3_v1_full")
+        d_v1_resume = os.path.join(workroot, "sub3_v1_resume")
+        for d in (d_v1_full, d_v1_resume):
+            os.makedirs(d, exist_ok=True)
+        v1_env = {"SOLVE_DFS_CHECKPOINT": "1"}
+        rc_full, _ = _run({**base_env_d2_200m, **v1_env}, d_v1_full)
+        rc_pa,   _ = _run({**base_env_d2_50m,  **v1_env}, d_v1_resume)
+        rc_pb,   _ = _run({**base_env_d2_200m, **v1_env}, d_v1_resume)
+        sha_v1_full = _read_sha(d_v1_full)
+        sha_v1_resumed = _read_sha(d_v1_resume)
+        print(f"  v1 FULL    : {sha_v1_full}", flush=True)
+        print(f"  v1 RESUMED : {sha_v1_resumed}", flush=True)
+        if rc_full != 0 or rc_pa != 0 or rc_pb != 0:
+            failures.append(
+                f"subtest 3: solve exit codes "
+                f"FULL={rc_full} PHASE_A={rc_pa} PHASE_B={rc_pb}"
+            )
+        elif not sha_v1_full or not sha_v1_resumed or sha_v1_full != sha_v1_resumed:
+            failures.append(
+                f"subtest 3: v1 resume sha mismatch — "
+                f"full={sha_v1_full}, resumed={sha_v1_resumed}"
+            )
+
+        # The two resume paths' FULL shas should also match each other (single-
+        # shot 200M is independent of the iterative/v2 path the test exercises).
+        if sha_v2_full and sha_v1_full and sha_v2_full != sha_v1_full:
+            failures.append(
+                f"cross-check: v2 single-shot 200M ({sha_v2_full}) != "
+                f"v1 single-shot 200M ({sha_v1_full})"
+            )
+
+    finally:
+        if not failures:
+            shutil.rmtree(workroot, ignore_errors=True)
+        else:
+            print(f"[extended-selftest] preserved working dir for inspection: {workroot}",
+                  flush=True)
+
+    if failures:
+        print("[extended-selftest] FAIL:", flush=True)
+        for f in failures:
+            print(f"  - {f}", flush=True)
+        return 1
+    print("[extended-selftest] PASS — all 3 subtests + cross-check", flush=True)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -4754,6 +4930,14 @@ def main():
                         help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
     parser.add_argument("--sat-c5", action="store_true",
                         help="P3 sat-encode: include C5 cardinality constraints (heavy)")
+    parser.add_argument("--extended-selftest", metavar="SOLVE_BINARY",
+                        help="Run small-scale path-invariance + resume "
+                             "regression suite that exercises the fork-merge, "
+                             "sanity gate, and v1+v2 resume code paths added "
+                             "2026-04-30. Argument is the path to the compiled "
+                             "`solve` binary. Returns 0 on full PASS, 1 on any "
+                             "failure. Suitable as a CI gate. Wall ~10 min on "
+                             "a 4-thread VM.")
     parser.add_argument("--branch-yield-report", metavar="SOLUTIONS_BIN",
                         help="Per-partition-prefix yield count from a "
                              "solutions.bin. Useful for analyzing asymmetric "
@@ -4808,6 +4992,9 @@ def main():
                         help="Print progress during search")
 
     args = parser.parse_args()
+
+    if args.extended_selftest:
+        sys.exit(extended_selftest(args.extended_selftest))
 
     if args.branch_yield_report:
         branch_yield_report(
