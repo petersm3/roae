@@ -294,6 +294,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <limits.h>
+#include <sys/wait.h>
 
 #ifndef GIT_HASH
 #define GIT_HASH "unknown"
@@ -897,7 +898,7 @@ static pthread_mutex_t checkpoint_mutex = PTHREAD_MUTEX_INITIALIZER;
  * worker writes to sub_ckpt_wrk<tid>.bin + sub_ckpt_meta.txt so a
  * concurrent flush doesn't interleave partial records or miss the
  * meta-file update. Held briefly (~10ms per task-boundary flush). */
-static pthread_mutex_t sub_ckpt_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t sub_ckpt_mutex __attribute__((unused)) = PTHREAD_MUTEX_INITIALIZER;
 /* Interval for intra-sub-branch checkpointing (seconds). Worker only
  * writes a snapshot if this much wall-time has passed since last flush,
  * so short tasks don't thrash the disk. 60s default matches Azure spot
@@ -1360,7 +1361,7 @@ static void resize_hash_table(ThreadState *ts) {
             }
             SOL_HASH_MIX(ch);
             int slot = (int)(ch & (unsigned long long)new_mask);
-            for (int p = 0; p < new_size; p++) {
+            for (size_t p = 0; p < new_size; p++) {
                 int idx = (slot + p) & new_mask;
                 if (!new_occupied[idx]) {
                     memcpy(&new_table[(size_t)idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
@@ -2026,7 +2027,7 @@ static int dfs_state_filename(char *buf, size_t bufsz,
  * iter frame to save. Returns 0 on success. */
 static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
                            const ThreadState *ts) {
-    char fname[96], tmpname[96];
+    char fname[96], tmpname[128];
     if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
     snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
 
@@ -2142,7 +2143,7 @@ static void dfs_state_delete(int p1, int o1, int p2, int o2, int p3, int o3) {
  * iterative path captures via dfs_v2_capture_pending. */
 static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
                               const ThreadState *ts) {
-    char fname[96], tmpname[96];
+    char fname[96], tmpname[128];
     if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
     snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
 
@@ -4207,7 +4208,6 @@ static uint64_t dbe_c3_le_kw;
 static int      dbe_c3_min, dbe_c3_max;
 static uint64_t dbe_c3_sum;
 static int      dbe_c2_min, dbe_c2_max;
-static uint64_t dbe_c3_at_or_below_776; /* alias / sanity */
 
 static void dbe_evaluate(void) {
     uint8_t hexs[64];
@@ -5790,7 +5790,7 @@ int main(int argc, char *argv[]) {
             return 10;
         }
         #define MERGE_LAYERS_MAX 256
-        static char layer_names[MERGE_LAYERS_MAX][192];
+        static char layer_names[MERGE_LAYERS_MAX][256];
         int n_layers = 0;
         struct dirent *de;
         while ((de = readdir(rd)) != NULL) {
@@ -5805,7 +5805,7 @@ int main(int argc, char *argv[]) {
                 closedir(rd);
                 return 10;
             }
-            snprintf(layer_names[n_layers], 192, "%s", de->d_name);
+            snprintf(layer_names[n_layers], 256, "%s", de->d_name);
             n_layers++;
         }
         closedir(rd);
@@ -5818,10 +5818,10 @@ int main(int argc, char *argv[]) {
         for (int a = 0; a < n_layers - 1; a++) {
             for (int b = a + 1; b < n_layers; b++) {
                 if (strcmp(layer_names[a], layer_names[b]) > 0) {
-                    char tmp[192];
-                    snprintf(tmp, 192, "%s", layer_names[a]);
-                    snprintf(layer_names[a], 192, "%s", layer_names[b]);
-                    snprintf(layer_names[b], 192, "%s", tmp);
+                    char tmp[256];
+                    snprintf(tmp, 256, "%s", layer_names[a]);
+                    snprintf(layer_names[a], 256, "%s", layer_names[b]);
+                    snprintf(layer_names[b], 256, "%s", tmp);
                 }
             }
         }
@@ -5829,9 +5829,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < n_layers; i++)
             printf("  %d. %s\n", i, layer_names[i]);
 
-        char merged_dir[512];
+        char merged_dir[PATH_MAX];
         snprintf(merged_dir, sizeof(merged_dir), "%s/_merged_", layer_root);
-        char rmcmd[1024];
+        char rmcmd[PATH_MAX * 2 + 64];
         snprintf(rmcmd, sizeof(rmcmd), "rm -rf '%s' && mkdir -p '%s'",
                  merged_dir, merged_dir);
         int _r2 = system(rmcmd);
@@ -5842,7 +5842,7 @@ int main(int argc, char *argv[]) {
 
         int total_shards = 0, total_overrides = 0;
         for (int li = 0; li < n_layers; li++) {
-            char layer_path[768];
+            char layer_path[PATH_MAX + 280];
             snprintf(layer_path, sizeof(layer_path), "%s/%s",
                      layer_root, layer_names[li]);
             DIR *ld = opendir(layer_path);
@@ -5861,7 +5861,7 @@ int main(int argc, char *argv[]) {
                  * sub_ckpt_*, sub_flush_chunk_* are checkpoint/flush files. */
                 if (strstr(de->d_name, "ckpt") || strstr(de->d_name, "flush_chunk"))
                     continue;
-                char src[1024], dst[1024];
+                char src[PATH_MAX + 320], dst[PATH_MAX + 320];
                 snprintf(src, sizeof(src), "%s/%s", layer_path, de->d_name);
                 snprintf(dst, sizeof(dst), "%s/%s", merged_dir, de->d_name);
                 /* If exists from earlier layer, this layer's shard wins */
@@ -5892,7 +5892,7 @@ int main(int argc, char *argv[]) {
         /* Walk merged_dir, readlink each symlink to recover the WINNING
          * layer for each sub-branch. Write a clean MANIFEST.txt listing
          * only winners. */
-        char manifest_path[768];
+        char manifest_path[PATH_MAX + 64];
         snprintf(manifest_path, sizeof(manifest_path), "%s/MANIFEST.txt", merged_dir);
         FILE *manifest = fopen(manifest_path, "w");
         if (!manifest) {
@@ -5913,7 +5913,7 @@ int main(int argc, char *argv[]) {
                 if (strncmp(de->d_name, "sub_", 4) != 0) continue;
                 int nl = strlen(de->d_name);
                 if (nl < 5 || strcmp(de->d_name + nl - 4, ".bin") != 0) continue;
-                char linkpath[1024], target[1024];
+                char linkpath[PATH_MAX + 320], target[PATH_MAX + 320];
                 snprintf(linkpath, sizeof(linkpath), "%s/%s",
                          merged_dir, de->d_name);
                 ssize_t tn = readlink(linkpath, target, sizeof(target) - 1);
@@ -6134,11 +6134,11 @@ int main(int argc, char *argv[]) {
             struct stat sst;
             base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
         }
-        char dir_full[256], dir_56[256];
+        char dir_full[PATH_MAX], dir_56[PATH_MAX];
         snprintf(dir_full, sizeof(dir_full), "%s/regress_full", base_dir);
         snprintf(dir_56,   sizeof(dir_56),   "%s/regress_56",   base_dir);
         printf("[regression-test] working dirs: %s, %s\n", dir_full, dir_56);
-        char cleanup1[256], cleanup2[256];
+        char cleanup1[PATH_MAX * 2 + 64], cleanup2[PATH_MAX * 2 + 64];
         snprintf(cleanup1, sizeof(cleanup1), "rm -rf %s && mkdir -p %s", dir_full, dir_full);
         snprintf(cleanup2, sizeof(cleanup2), "rm -rf %s && mkdir -p %s", dir_56,   dir_56);
         int _r;
@@ -6165,7 +6165,7 @@ int main(int argc, char *argv[]) {
         printf("[regression-test] Phase 1/4: full enum at %lld total / %lld per-sub-branch\n",
                total_budget, per_sub_branch);
         fflush(stdout);
-        char cmd[4096];
+        char cmd[PATH_MAX * 2 + 512];
         snprintf(cmd, sizeof(cmd),
                  "cd %s && SOLVE_DEPTH=3 SOLVE_THREADS=64 SOLVE_NODE_LIMIT=%lld "
                  "SOLVE_PER_SUB_BRANCH_LIMIT=%lld %s 0 64 > full.log 2>&1",
@@ -6179,7 +6179,7 @@ int main(int argc, char *argv[]) {
 
         /* Capture full sha */
         char sha_full[128] = {0};
-        char shacmd[256];
+        char shacmd[PATH_MAX + 320];
         snprintf(shacmd, sizeof(shacmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, dir_full);
         FILE *fp = popen(shacmd, "r");
         if (!fp || !fgets(sha_full, sizeof(sha_full), fp)) {
@@ -6218,7 +6218,7 @@ int main(int argc, char *argv[]) {
                 if (_r != 0) {
                     /* Check if it was invalid (structurally pruned) — that's
                      * normal, just continue. Other errors are real failures. */
-                    char chkcmd[512];
+                    char chkcmd[PATH_MAX + 128];
                     snprintf(chkcmd, sizeof(chkcmd),
                              "grep -q 'invalid (pruned' %s/branch_%d_%d.log 2>/dev/null",
                              dir_56, p1, o1);
@@ -6265,7 +6265,7 @@ int main(int argc, char *argv[]) {
         if (strcmp(sha_full, sha_56) == 0) {
             printf("[regression-test] PASS — partition invariance confirmed at total budget %lld\n",
                    total_budget);
-            char rmcmd[512];
+            char rmcmd[PATH_MAX * 2 + 32];
             snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s %s", dir_full, dir_56);
             _r = system(rmcmd); (void)_r;
             return 0;
@@ -6344,14 +6344,14 @@ int main(int argc, char *argv[]) {
             struct stat sst;
             base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
         }
-        char dir_full[256], dir_56[256];
+        char dir_full[PATH_MAX], dir_56[PATH_MAX];
         snprintf(dir_full, sizeof(dir_full), "%s/dregress_full", base_dir);
         snprintf(dir_56,   sizeof(dir_56),   "%s/dregress_56",   base_dir);
         printf("[double-regression-test] working dirs: %s, %s\n", dir_full, dir_56);
 
-        char cmd[4096];
+        char cmd[PATH_MAX * 4 + 1024];
         int _r;
-        char rmm[512];
+        char rmm[PATH_MAX * 6 + 128];
         snprintf(rmm, sizeof(rmm), "rm -rf %s %s && mkdir -p %s/01_layer1 %s/02_layer2 %s/01_layer1 %s/02_layer2",
                  dir_full, dir_56, dir_full, dir_full, dir_56, dir_56);
         _r = system(rmm);
@@ -6360,7 +6360,7 @@ int main(int argc, char *argv[]) {
         /* Helper: capture sha of a file. Returns 0 on success. */
         char sha_full_L1[128] = {0}, sha_full_L2[128] = {0};
         char sha_full_merged[128] = {0}, sha_56_merged[128] = {0};
-        char shacmd[1024], shapath[1024];
+        char shacmd[PATH_MAX + 320], shapath[PATH_MAX + 64];
 
         #define CAPTURE_SHA(path_buf, sha_buf, label) do { \
             snprintf(shacmd, sizeof(shacmd), "%s %s | cut -d' ' -f1", tool, (path_buf)); \
@@ -6428,7 +6428,7 @@ int main(int argc, char *argv[]) {
                          dir_56, per_first_level, per_sub_branch, solve_path, p1, o1, p1, o1);
                 _r = system(cmd);
                 if (_r != 0) {
-                    char chkcmd[512];
+                    char chkcmd[PATH_MAX + 128];
                     snprintf(chkcmd, sizeof(chkcmd),
                              "grep -q 'invalid (pruned' %s/01_layer1/branch_%d_%d.log 2>/dev/null",
                              dir_56, p1, o1);
@@ -6464,7 +6464,7 @@ int main(int argc, char *argv[]) {
                          dir_56, per_first_level, per_sub_branch, solve_path, p1, o1, p1, o1);
                 _r = system(cmd);
                 if (_r != 0) {
-                    char chkcmd[512];
+                    char chkcmd[PATH_MAX + 128];
                     snprintf(chkcmd, sizeof(chkcmd),
                              "grep -q 'invalid (pruned' %s/02_layer2/branch_%d_%d.log 2>/dev/null",
                              dir_56, p1, o1);
@@ -11941,6 +11941,64 @@ sub_enum_done:
             }
     int final_top_count = all_top_count < TOP_N ? all_top_count : TOP_N;
 
+    /* Layer 2 sanity gate: pre-merge invariant check on per-thread state.
+     * Defense in depth alongside the fork-merge isolation. Catches any
+     * thread that ended in an inconsistent post-enum field state — a
+     * bounds-violating dfs_v2_sp/dfs_iter_top, branches_completed beyond
+     * n_branches, or a still-active resume flag. If anything is wrong,
+     * abort BEFORE either the in-process or the fork merge; that way the
+     * resulting solutions.bin is never trusted as canonical. */
+    {
+        int sanity_failures = 0;
+        for (int i = 0; i < n_threads; i++) {
+            ThreadState *t = &threads[i];
+            if (t->dfs_v2_sp < 0 || t->dfs_v2_sp >= 34) {
+                fprintf(stderr,
+                        "SANITY: thread %d: dfs_v2_sp=%d out of [0,33]\n",
+                        i, t->dfs_v2_sp);
+                sanity_failures++;
+            }
+            if (t->dfs_iter_top < 0 || t->dfs_iter_top > 64) {
+                fprintf(stderr,
+                        "SANITY: thread %d: dfs_iter_top=%d out of [0,64]\n",
+                        i, t->dfs_iter_top);
+                sanity_failures++;
+            }
+            if (t->dfs_resume_active != 0 && t->dfs_resume_active != 1) {
+                fprintf(stderr,
+                        "SANITY: thread %d: dfs_resume_active=%d (expected 0 or 1)\n",
+                        i, t->dfs_resume_active);
+                sanity_failures++;
+            }
+            if (t->dfs_v2_resume_active != 0 && t->dfs_v2_resume_active != 1) {
+                fprintf(stderr,
+                        "SANITY: thread %d: dfs_v2_resume_active=%d (expected 0 or 1)\n",
+                        i, t->dfs_v2_resume_active);
+                sanity_failures++;
+            }
+            if (t->branches_completed < 0 ||
+                t->branches_completed > t->n_branches) {
+                fprintf(stderr,
+                        "SANITY: thread %d: branches_completed=%d not in [0,%d]\n",
+                        i, t->branches_completed, t->n_branches);
+                sanity_failures++;
+            }
+            if (t->solution_count < 0) {
+                fprintf(stderr,
+                        "SANITY: thread %d: solution_count=%lld is negative\n",
+                        i, (long long)t->solution_count);
+                sanity_failures++;
+            }
+        }
+        if (sanity_failures > 0) {
+            fprintf(stderr,
+                    "ERROR: pre-merge sanity gate detected %d violation(s) — "
+                    "aborting before merge to avoid producing a tainted solutions.bin\n",
+                    sanity_failures);
+            return 31;
+        }
+    }
+
     /* Free thread resources */
     for (int i = 0; i < n_threads; i++) {
         free(threads[i].sol_table);
@@ -11948,6 +12006,103 @@ sub_enum_done:
         free(threads[i].sub_branches);
     }
 
+    long long unique_count = 0;
+    int fork_merge_done = 0;
+    char hash[130] = {0};
+    char hash_only[65] = {0};
+    int total_done_final = 0;
+    int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
+
+    /* Fork-based merge for the iterative+v2 path. Test A on 2026-04-30
+     * surfaced heap corruption when the in-process merge ran after a
+     * 6.5-hour iterative+v2 enumeration: the merge segfaulted in libc
+     * during free() consolidation (address 0x1c00000025, error 4),
+     * after the enum had cleanly produced all 158,364 shards. The
+     * surviving shards re-merged correctly in a fresh process,
+     * proving the corruption is in the in-process state interaction,
+     * not the shard content. We isolate by exec'ing the merge in a
+     * child process. */
+    if (dfs_iterative_enabled) {
+        fflush(stdout);
+        printf("Iterative+v2 path: forking subprocess for merge "
+               "(heap isolation; see Test A 2026-04-30)\n");
+        fflush(stdout);
+
+        pid_t child = fork();
+        if (child < 0) {
+            fprintf(stderr, "ERROR: fork() for merge failed: %s\n",
+                    strerror(errno));
+            return 30;
+        }
+        if (child == 0) {
+            char self_path[PATH_MAX];
+            ssize_t n = readlink("/proc/self/exe", self_path,
+                                 sizeof(self_path) - 1);
+            if (n <= 0) {
+                fprintf(stderr,
+                        "ERROR (merge child): readlink /proc/self/exe failed: %s\n",
+                        strerror(errno));
+                _exit(127);
+            }
+            self_path[n] = '\0';
+            execl(self_path, "solve", "--merge", (char *)NULL);
+            fprintf(stderr,
+                    "ERROR (merge child): execl(%s, --merge) failed: %s\n",
+                    self_path, strerror(errno));
+            _exit(127);
+        }
+
+        int status = 0;
+        pid_t r;
+        do {
+            r = waitpid(child, &status, 0);
+        } while (r == -1 && errno == EINTR);
+        if (r < 0) {
+            fprintf(stderr, "ERROR: waitpid on merge child failed: %s\n",
+                    strerror(errno));
+            return 30;
+        }
+        if (WIFSIGNALED(status)) {
+            fprintf(stderr,
+                    "ERROR: merge subprocess terminated by signal %d\n",
+                    WTERMSIG(status));
+            return 30;
+        }
+        if (!WIFEXITED(status)) {
+            fprintf(stderr, "ERROR: merge subprocess did not exit normally\n");
+            return 30;
+        }
+        int xs = WEXITSTATUS(status);
+        if (xs != 0) {
+            fprintf(stderr, "ERROR: merge subprocess exit code %d\n", xs);
+            return 30;
+        }
+
+        /* Recover unique_count from the merged solutions.bin header so
+         * the final report has the right number. The child already
+         * wrote solutions.bin, solutions.sha256, and solutions.meta.json. */
+        FILE *sf = fopen("solutions.bin", "rb");
+        if (!sf) {
+            fprintf(stderr,
+                    "ERROR: cannot open solutions.bin after fork-merge: %s\n",
+                    strerror(errno));
+            return 30;
+        }
+        uint64_t header_count = 0;
+        if (sol_read_header(sf, &header_count) != 0) {
+            fprintf(stderr,
+                    "ERROR: cannot read solutions.bin header after fork-merge\n");
+            fclose(sf);
+            return 30;
+        }
+        fclose(sf);
+        unique_count = (long long)header_count;
+        fork_merge_done = 1;
+        printf("Fork-merge complete: %lld unique solutions\n", unique_count);
+        fflush(stdout);
+    }
+
+  if (!fork_merge_done) {
     /* === Merge from sub_*.bin files (thread-count independent) === */
     /* Each sub-branch wrote its solutions to sub_P2_O2.bin and cleared the
      * hash table. The final merge reads all files, concatenates, sorts, deduplicates.
@@ -12015,7 +12170,6 @@ sub_enum_done:
     /* Fix #2: Cross-reference sub_*.bin record counts against checkpoint.
      * A truncated file (disk-full during flush) passes the "multiple of 32"
      * check but contains fewer records than the checkpoint claims. */
-    int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
     {
         FILE *ckf = fopen("checkpoint.txt", "r");
         if (ckf) {
@@ -12100,8 +12254,6 @@ sub_enum_done:
                    needed_bytes / (1024*1024*1024), total_ram / (1024*1024*1024));
         }
     }
-
-    long long unique_count = 0;
 
     if (use_external_merge) {
         int rc = external_merge_sort(merge_filenames, n_sub_files,
@@ -12224,12 +12376,11 @@ sub_enum_done:
 
     printf("Computing sha256...\n");
     fflush(stdout);
-    int total_done_final = branches_done + n_completed_subs;
+    total_done_final = branches_done + n_completed_subs;
     write_sha256_with_metadata("solutions.bin", "solutions.sha256",
                                 unique_count, total_nodes,
                                 total_branches, total_done_final);
 
-    char hash[130] = {0};
     FILE *hf = fopen("solutions.sha256", "r");
     if (!hf) {
         fprintf(stderr, "WARNING: cannot read solutions.sha256: %s\n", strerror(errno));
@@ -12238,12 +12389,32 @@ sub_enum_done:
             fprintf(stderr, "WARNING: solutions.sha256 is empty\n");
         fclose(hf);
     }
-    char hash_only[65] = {0};
     for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++) hash_only[i] = hash[i];
 
     /* Sidecar: solutions.meta.json (provenance + format info) */
     sol_write_meta_json("solutions.meta.json", "solutions.bin",
                         (uint64_t)unique_count, unique_count, hash_only);
+  } /* end if (!fork_merge_done) — fork-merge child already wrote solutions.bin/.sha256/.meta.json */
+
+    /* Post-merge: in the fork-merge path, the child has already produced
+     * solutions.bin, solutions.sha256, and solutions.meta.json. Pull the
+     * sha into the parent's hash/hash_only so the final report is correct. */
+    if (fork_merge_done) {
+        total_done_final = branches_done + n_completed_subs;
+        FILE *hf = fopen("solutions.sha256", "r");
+        if (!hf) {
+            fprintf(stderr,
+                    "WARNING: cannot read solutions.sha256 after fork-merge: %s\n",
+                    strerror(errno));
+        } else {
+            if (fgets(hash, sizeof(hash), hf) == NULL)
+                fprintf(stderr,
+                        "WARNING: solutions.sha256 is empty after fork-merge\n");
+            fclose(hf);
+        }
+        for (int i = 0; i < 64 && hash[i] && hash[i] != ' '; i++)
+            hash_only[i] = hash[i];
+    }
 
     /* === Final Report === */
 
