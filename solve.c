@@ -1217,7 +1217,24 @@ static int n_completed_subs = 0;
  * Replaces the linear scan in is_sub_branch_completed(). */
 static unsigned char completed_sub_bitmap[512] = {0};
 static inline int completed_sub_key(int p1, int o1, int p2, int o2) {
-    return ((p1 & 31) << 6) | ((o1 & 1) << 5) | ((p2 & 31) << 1) | (o2 & 1);
+    /* Bit layout (no overlapping bits):
+     *   bits 11..7 = p1 (5 bits, 0..31)
+     *   bit 6      = o1
+     *   bits 5..1  = p2 (5 bits)
+     *   bit 0      = o2
+     * Max key = 4095, fits in the 4096-bit (512-byte) bitmap.
+     *
+     * Bug history (2026-05-01): the prior layout used (p1<<6)|(o1<<5)|
+     * (p2<<1)|o2, which collided o1 (bit 5) with p2's bit 4 (also at result
+     * bit 5). On a partial PHASE_A (e.g., SIGTERM mid-walk), the bitmap
+     * loaded from checkpoint.txt would erroneously mark some unwalked
+     * sub-branches as completed, and PHASE_B's resume would skip them.
+     * Surfaced via Tier 3 T3a (SIGTERM-then-resume) producing a different
+     * sha than single-shot. Single-shot and clean PHASE_A→PHASE_B are
+     * unaffected because the same bits get set anyway from the actual
+     * completed entries. Depth-3 (`completed_sub_key_d3`) was always
+     * correctly encoded.  */
+    return ((p1 & 31) << 7) | ((o1 & 1) << 6) | ((p2 & 31) << 1) | (o2 & 1);
 }
 /* Depth-3 (Option B) membership lookup: up to 262144 possible
  * (p1, o1, p2, o2, p3, o3) tuples. 32 KB bitmap. Used only when SOLVE_DEPTH=3.
