@@ -4173,6 +4173,310 @@ def _keystone_compute_mask(pair_at_pos, bdrys_0idx):
     return mask
 
 
+def branch_yield_report(solutions_bin, baseline_bin=None, manifest=None,
+                        depth=1, out_csv=None, out_json=None):
+    """Handler for --branch-yield-report.
+
+    Reads `solutions.bin` and produces a per-partition-prefix yield count.
+    Useful for asymmetric-extension analysis (where some sub-branches were
+    walked at a higher per-sub-branch budget than others) — surfaces which
+    branches differ from baseline by how much.
+
+    See `x/roae/BRANCH_YIELD_REPORT_DESIGN.md` for the full design doc.
+
+    Args:
+        solutions_bin: path to a v1-format solutions.bin
+        baseline_bin: optional, path to a baseline solutions.bin to diff against
+        manifest: optional, path to manifest.json with per-sub-branch budget map
+        depth: 1, 2, or 3 — granularity of bucketing
+            1 = first-level (p1, o1), 56 valid buckets
+            2 = depth-2 (p1, o1, p2, o2), ~3000 buckets
+            3 = depth-3 (p1, o1, p2, o2, p3, o3), ~158000 buckets
+        out_csv: optional, write per-bucket counts to this CSV file
+        out_json: optional, write structured report to this JSON file
+
+    By default emits a plain-text report on stdout.
+    """
+    import os
+    import struct
+    import json
+    from collections import defaultdict
+
+    if depth not in (1, 2, 3):
+        raise ValueError(f"--depth must be 1, 2, or 3 (got {depth})")
+
+    def _read_header(f):
+        """Read + validate v1 header. Returns (record_count, header_size)."""
+        hdr = f.read(32)
+        if len(hdr) != 32:
+            raise ValueError("solutions.bin too short for v1 header")
+        magic = hdr[:4]
+        if magic != b"ROAE":
+            raise ValueError(f"bad magic: {magic!r} (expected b'ROAE')")
+        version = struct.unpack("<I", hdr[4:8])[0]
+        if version != 1:
+            raise ValueError(f"unsupported format version {version} (expected 1)")
+        record_count = struct.unpack("<Q", hdr[8:16])[0]
+        return record_count, 32
+
+    def _bucket_counts(path, depth):
+        """Stream solutions.bin and bucket records by partition prefix.
+        Returns (record_count_actual, dict[tuple -> count])."""
+        with open(path, "rb") as f:
+            file_size = os.fstat(f.fileno()).st_size
+            record_count_hdr, hdr_size = _read_header(f)
+            data_size = file_size - hdr_size
+            if data_size % 32 != 0:
+                raise ValueError(
+                    f"file body {data_size} not a multiple of 32 (corrupt)")
+            record_count_actual = data_size // 32
+            if record_count_actual != record_count_hdr:
+                print(f"WARN: header says {record_count_hdr} records but "
+                      f"file has {record_count_actual} (using actual)")
+            buckets = defaultdict(int)
+            CHUNK = 1 << 20  # 1M records per chunk = 32 MB
+            while True:
+                chunk = f.read(CHUNK * 32)
+                if not chunk:
+                    break
+                n = len(chunk) // 32
+                for i in range(n):
+                    rec = chunk[i * 32:(i + 1) * 32]
+                    p1 = (rec[1] >> 2) & 0x3F
+                    o1 = (rec[1] >> 1) & 0x01
+                    if depth == 1:
+                        key = (p1, o1)
+                    elif depth == 2:
+                        p2 = (rec[2] >> 2) & 0x3F
+                        o2 = (rec[2] >> 1) & 0x01
+                        key = (p1, o1, p2, o2)
+                    else:  # depth == 3
+                        p2 = (rec[2] >> 2) & 0x3F
+                        o2 = (rec[2] >> 1) & 0x01
+                        p3 = (rec[3] >> 2) & 0x3F
+                        o3 = (rec[3] >> 1) & 0x01
+                        key = (p1, o1, p2, o2, p3, o3)
+                    buckets[key] += 1
+            return record_count_actual, dict(buckets)
+
+    print(f"Reading {solutions_bin} ...")
+    total, buckets = _bucket_counts(solutions_bin, depth)
+    print(f"  {total:,} records bucketed into {len(buckets):,} {('first-level','depth-2','depth-3')[depth-1]} buckets")
+
+    baseline_total = None
+    baseline_buckets = None
+    if baseline_bin:
+        print(f"Reading baseline {baseline_bin} ...")
+        baseline_total, baseline_buckets = _bucket_counts(baseline_bin, depth)
+        print(f"  baseline: {baseline_total:,} records in {len(baseline_buckets):,} buckets")
+
+    # Manifest: budget map
+    budget_default = None
+    budget_overrides = []   # list of dicts: {p1, o1, p2?, o2?, p3?, o3?, budget}
+    manifest_data = None
+    if manifest:
+        with open(manifest, "r") as mf:
+            manifest_data = json.load(mf)
+        psb = manifest_data.get("per_sub_branch_budget", {})
+        budget_default = psb.get("default")
+        budget_overrides = psb.get("overrides", [])
+        print(f"Manifest: default budget {budget_default}, "
+              f"{len(budget_overrides)} per-sub-branch overrides")
+
+    def _budget_for_key(key, depth):
+        """Resolve the budget for a bucket key from the manifest."""
+        if not manifest_data:
+            return None
+        # Match best-fitting override (deepest match wins)
+        best = None
+        best_specificity = -1
+        for ov in budget_overrides:
+            spec = 0
+            ov_p1 = ov.get("p1")
+            ov_o1 = ov.get("o1")
+            if ov_p1 is None or ov_o1 is None:
+                continue
+            if ov_p1 != key[0] or ov_o1 != key[1]:
+                continue
+            spec = 1
+            if depth >= 2 and "p2" in ov and "o2" in ov:
+                if ov["p2"] != key[2] or ov["o2"] != key[3]:
+                    continue
+                spec = 2
+            if depth >= 3 and "p3" in ov and "o3" in ov:
+                if ov["p3"] != key[4] or ov["o3"] != key[5]:
+                    continue
+                spec = 3
+            if spec > best_specificity:
+                best = ov
+                best_specificity = spec
+        if best:
+            return best.get("budget")
+        return budget_default
+
+    # ----- Build report rows -----
+    rows = []
+    for key, count in sorted(buckets.items()):
+        row = {"key": key, "count": count}
+        row["pct"] = (100.0 * count / total) if total else 0.0
+        if baseline_buckets is not None:
+            base_count = baseline_buckets.get(key, 0)
+            row["baseline_count"] = base_count
+            row["delta"] = count - base_count
+            row["pct_change"] = ((count - base_count) / base_count * 100.0
+                                 if base_count else float('inf') if count else 0.0)
+        if manifest_data:
+            row["budget"] = _budget_for_key(key, depth)
+            if budget_default is not None and row["budget"] is not None:
+                row["extended"] = row["budget"] > budget_default
+            else:
+                row["extended"] = False
+        rows.append(row)
+
+    # Plain-text report ----------------------------------------------------
+    depth_name = ("first-level (p1, o1)", "depth-2 (p1, o1, p2, o2)",
+                  "depth-3 (p1, o1, p2, o2, p3, o3)")[depth - 1]
+    print()
+    print(f"=== Branch Yield Report — depth {depth} ({depth_name}) ===")
+    print(f"Source: {solutions_bin}")
+    if baseline_bin:
+        print(f"Baseline: {baseline_bin}")
+    print(f"Total records: {total:,}")
+    print(f"Distinct buckets with non-zero count: {len(buckets):,}")
+    print()
+
+    # Header
+    if depth == 1:
+        head = f"{'(p1, o1)':12s}"
+    elif depth == 2:
+        head = f"{'(p1,o1,p2,o2)':18s}"
+    else:
+        head = f"{'(p1,o1,p2,o2,p3,o3)':24s}"
+    head += f" {'count':>14s} {'pct':>8s}"
+    if baseline_buckets is not None:
+        head += f" {'baseline':>14s} {'delta':>14s} {'pct_chg':>9s}"
+    if manifest_data:
+        head += f" {'budget':>14s} extended"
+    print(head)
+    print("-" * len(head))
+
+    for row in rows:
+        if depth == 1:
+            keystr = f"({row['key'][0]}, {row['key'][1]})"
+            line = f"{keystr:12s}"
+        elif depth == 2:
+            line = f"({row['key'][0]},{row['key'][1]},{row['key'][2]},{row['key'][3]})".ljust(18)
+        else:
+            line = f"({','.join(map(str, row['key']))})".ljust(24)
+        line += f" {row['count']:14,} {row['pct']:7.2f}%"
+        if baseline_buckets is not None:
+            line += f" {row['baseline_count']:14,} {row['delta']:+14,}"
+            pc = row['pct_change']
+            if pc == float('inf'):
+                line += f" {'+inf':>9s}"
+            else:
+                line += f" {pc:+8.2f}%"
+        if manifest_data:
+            b = row.get('budget')
+            line += f" {b:14,}" if b is not None else f" {'(unknown)':>14s}"
+            line += f" {'YES' if row.get('extended') else ''}"
+        print(line)
+
+    print("-" * len(head))
+    print(f"{'TOTAL':12s} {total:14,} {100.00:7.2f}%")
+    if baseline_buckets is not None:
+        print(f"     baseline:    {baseline_total:14,}")
+        print(f"     delta:       {total - baseline_total:+14,}")
+        if baseline_total:
+            print(f"     pct change:  {100.0 * (total - baseline_total) / baseline_total:+8.2f}%")
+
+    # Distribution stats
+    counts = [r['count'] for r in rows if r['count'] > 0]
+    if counts:
+        counts_sorted = sorted(counts)
+        median = counts_sorted[len(counts_sorted) // 2]
+        mean = sum(counts) / len(counts)
+        cv = (sum((c - mean) ** 2 for c in counts) / len(counts)) ** 0.5 / mean if mean else 0
+        print()
+        print(f"Distribution (across non-zero buckets):")
+        print(f"  min:     {min(counts):,}")
+        print(f"  median:  {median:,}")
+        print(f"  mean:    {mean:,.0f}")
+        print(f"  max:     {max(counts):,}")
+        print(f"  CV:      {cv:.3f}  ({'high' if cv > 0.5 else 'moderate' if cv > 0.2 else 'low'} variation)")
+
+    # Sanity check vs manifest (extended branches should differ from baseline)
+    if baseline_buckets is not None and manifest_data:
+        ext_changed = sum(1 for r in rows if r.get('extended') and r['delta'] != 0)
+        ext_total = sum(1 for r in rows if r.get('extended'))
+        non_ext_changed = sum(1 for r in rows if not r.get('extended') and r['delta'] != 0)
+        non_ext_total = sum(1 for r in rows if not r.get('extended'))
+        print()
+        print(f"Sanity check vs manifest:")
+        print(f"  extended-budget buckets with non-zero delta: {ext_changed}/{ext_total} {'PASS' if ext_changed == ext_total else 'FAIL — expected all extended buckets to differ'}")
+        print(f"  default-budget buckets with zero delta:      {non_ext_total - non_ext_changed}/{non_ext_total} {'PASS' if non_ext_changed == 0 else 'FAIL — expected all default-budget buckets identical to baseline'}")
+
+    # CSV output -----------------------------------------------------------
+    if out_csv:
+        import csv as _csv
+        with open(out_csv, "w", newline="") as f:
+            cols = (["p1", "o1", "p2", "o2", "p3", "o3"][:2 * depth] +
+                    ["count", "pct"])
+            if baseline_buckets is not None:
+                cols += ["baseline_count", "delta", "pct_change"]
+            if manifest_data:
+                cols += ["budget", "extended"]
+            w = _csv.writer(f)
+            w.writerow(cols)
+            for row in rows:
+                vals = list(row['key']) + [row['count'], f"{row['pct']:.4f}"]
+                if baseline_buckets is not None:
+                    vals += [row['baseline_count'], row['delta'],
+                             f"{row['pct_change']:.4f}" if row['pct_change'] != float('inf') else "inf"]
+                if manifest_data:
+                    vals += [row.get('budget', ''), 'true' if row.get('extended') else 'false']
+                w.writerow(vals)
+        print(f"\nCSV written to {out_csv}")
+
+    # JSON output ----------------------------------------------------------
+    if out_json:
+        report = {
+            "version": 1,
+            "tool": "solve.py --branch-yield-report",
+            "input": {
+                "solutions_bin": solutions_bin,
+                "baseline_bin": baseline_bin,
+                "manifest": manifest,
+                "depth": depth,
+            },
+            "summary": {
+                "total_records": total,
+                "buckets_count": len(buckets),
+                "baseline_total": baseline_total,
+            },
+            "buckets": [
+                {
+                    "key": list(row['key']),
+                    "count": row['count'],
+                    "pct": row['pct'],
+                    **({"baseline_count": row['baseline_count'],
+                        "delta": row['delta'],
+                        "pct_change": (row['pct_change']
+                                       if row['pct_change'] != float('inf')
+                                       else None)}
+                       if baseline_buckets is not None else {}),
+                    **({"budget": row.get('budget'),
+                        "extended": row.get('extended', False)}
+                       if manifest_data else {}),
+                }
+                for row in rows
+            ],
+        }
+        with open(out_json, "w") as f:
+            json.dump(report, f, indent=2)
+        print(f"JSON written to {out_json}")
+
+
 def keystone_analysis(solutions_bin, out_md, dump_dir=None,
                       dump_limit=10000, chunk_size=None):
     """
@@ -4450,6 +4754,25 @@ def main():
                         help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
     parser.add_argument("--sat-c5", action="store_true",
                         help="P3 sat-encode: include C5 cardinality constraints (heavy)")
+    parser.add_argument("--branch-yield-report", metavar="SOLUTIONS_BIN",
+                        help="Per-partition-prefix yield count from a "
+                             "solutions.bin. Useful for analyzing asymmetric "
+                             "extensions (where some sub-branches were walked "
+                             "at higher per-sub-branch budget). Optional "
+                             "--baseline diff and --manifest annotation. "
+                             "See x/roae/BRANCH_YIELD_REPORT_DESIGN.md.")
+    parser.add_argument("--branch-yield-baseline", metavar="BASELINE_BIN",
+                        help="--branch-yield-report: diff against this baseline solutions.bin")
+    parser.add_argument("--branch-yield-manifest", metavar="MANIFEST_JSON",
+                        help="--branch-yield-report: manifest.json with per-sub-branch budget map")
+    parser.add_argument("--branch-yield-depth", type=int, default=1,
+                        choices=(1, 2, 3),
+                        help="--branch-yield-report: granularity. "
+                             "1 = first-level (default), 2 = depth-2, 3 = depth-3")
+    parser.add_argument("--branch-yield-csv", metavar="OUT_CSV",
+                        help="--branch-yield-report: also write CSV")
+    parser.add_argument("--branch-yield-json", metavar="OUT_JSON",
+                        help="--branch-yield-report: also write JSON")
     parser.add_argument("--keystone-analysis", nargs=2,
                         metavar=("SOLUTIONS_BIN", "OUT_MD"),
                         help="Counterfactual analysis of the {1,4,21,25,27} "
@@ -4485,6 +4808,17 @@ def main():
                         help="Print progress during search")
 
     args = parser.parse_args()
+
+    if args.branch_yield_report:
+        branch_yield_report(
+            args.branch_yield_report,
+            baseline_bin=args.branch_yield_baseline,
+            manifest=args.branch_yield_manifest,
+            depth=args.branch_yield_depth,
+            out_csv=args.branch_yield_csv,
+            out_json=args.branch_yield_json,
+        )
+        return
 
     if args.keystone_analysis:
         keystone_analysis(args.keystone_analysis[0],
