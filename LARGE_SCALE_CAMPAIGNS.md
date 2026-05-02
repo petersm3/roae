@@ -417,22 +417,132 @@ merge is interrupted, restart it from clean — the shards are
 unchanged. Tier 9c (mid-merge interruption recovery) verifies this
 works correctly.
 
-## 8. Merge VM sizing
+## 8. Merge VM sizing — and disk-based alternative for extreme scale
 
-In-memory dedup needs RAM proportional to unique-solution count.
-Tier 1's 759 M solutions used ~90 GB peak RSS. Linear scaling:
+You have two strategies for the global merge: **in-memory dedup**
+(simple, fast, what `solve --merge` currently does) or **disk-based
+external merge** (needed when in-memory dedup would exceed available
+RAM). Pick based on your campaign's expected solution count.
 
-| Solution count | Estimated peak RSS | Recommended merge VM |
-|---|---|---|
-| ~750 M (Tier 1) | ~90 GB | D32 (128 GB) or D64 (256 GB) |
-| ~1.5 B (560T plan) | ~180 GB | D64 (256 GB) |
-| ~4 B (5.6 PT plan) | ~480 GB | E64ads_v5 (512 GB) — memory-optimized |
-| ~10 B (56 PT plan) | ~1.2 TB | E96ads_v5 (672 GB) — may not fit; consider chunked-merge |
+### 8a. In-memory merge (the default)
+
+`solve --merge` builds a hash table of unique solutions in RAM,
+streams shards through it, then writes the deduped output. RAM
+usage is roughly proportional to unique-solution count:
+
+| Solution count | Estimated peak RSS | Recommended merge VM | Strategy |
+|---|---|---|---|
+| ~750 M (Tier 1) | ~90 GB | D32als_v7 (128 GB) or D64 (256 GB) | in-memory |
+| ~1.5 B (560T plan) | ~180 GB | D64als_v7 (256 GB) | in-memory |
+| ~4 B (5.6 PT plan) | ~480 GB | E64ads_v5 (512 GB) — memory-optimized | in-memory, tight |
+| ~8 B | ~960 GB | E96ads_v5 (672 GB) won't fit | **switch to disk-based** |
+| ~10 B (56 PT plan) | ~1.2 TB | no Azure VM has this much RAM | **disk-based required** |
+
+**Threshold:** in-memory merge starts to break around **5–6 B
+solutions** in Azure (since the largest practical memory-optimized
+spot VM is ~672 GB RAM and the price gets bad past that). Below
+that, in-memory is faster and simpler.
 
 For >2 B solutions, **always run a merge-memory test on a
 representative shard set first** before committing to a merge VM
 size. Cheap insurance against running out of RAM at the end of a
 multi-day campaign.
+
+### 8b. Disk-based external merge — when and how
+
+When solution count exceeds practical RAM, the merge has to use
+disk as the working set instead of the in-memory hash table. The
+project's `solve.c` does not currently implement true external
+sort + dedup, but you have three viable paths:
+
+**Option 1: Layered merge (chunked dedup, available now)**
+
+`solve --merge-layers <dir>` partitions shards into layers and
+merges each layer separately, then merges the per-layer outputs.
+RAM peak is bounded by the largest single layer, not the full
+campaign.
+
+For a 56 PT campaign at ~10 B solutions:
+- Partition shards into ~10 layers of ~1 B solutions each
+- Each layer's merge needs ~120 GB RAM → fits on D32
+- Final inter-layer merge needs ~120 GB RAM
+- Wall: ~10 × per-layer-merge + 1 × final-merge ≈ slow but feasible
+- Trade-off: more total CPU and I/O, but bounded RAM
+
+This is exactly the pattern Tier 6D used in the validation campaign.
+
+**Option 2: External sort + linear-scan dedup (requires solve.c extension)**
+
+Standard external-merge-sort applied to the 32-byte solution
+records. Two phases:
+1. Sort the concatenated shard byte-stream using disk-based
+   K-way merge sort. Peak RAM bounded by chunk size (e.g., 8 GB
+   per chunk). Disk I/O ~2× the input size.
+2. Linear scan of sorted output, emitting only the first occurrence
+   of each record. Peak RAM is O(1) (just the last record seen).
+
+Wall scales as O(N log N) disk-bandwidth-limited, which on a
+Standard SSD at ~500 MB/sec is ~6 hours per TB. Feasible for any
+size, never bounded by RAM.
+
+This is **NOT in `solve.c` today**. Adding it is a follow-on
+project (would fit naturally with Tier 8 compression retooling —
+both are I/O-pipeline work).
+
+**Option 3: Bloom-filter-assisted multi-pass dedup**
+
+For approximate dedup with high-probability correctness:
+1. First pass: build a Bloom filter (~1 bit per record) of all
+   shards. Peak RAM ~1.25 GB per 10 B records.
+2. Second pass: emit records whose Bloom filter says "possibly
+   first occurrence"; collisions get sent to a small per-record
+   exact dedup hash table that's much smaller than the full set.
+
+Net peak RAM ~10–50 GB regardless of solution count. Trade-off:
+1–2 extra passes vs the in-memory case.
+
+This is also **not in `solve.c` today**.
+
+### 8c. Hybrid: split campaign into tiers, merge separately
+
+Even simpler than the above for some workloads: don't try to merge
+all 56 branches at once. Instead:
+
+1. Run 56 branches as planned.
+2. Group branches into "merge tiers" (e.g., 4 tiers of 14 branches each).
+3. Run `solve --merge` on each tier's shards separately. Each
+   produces a deduped tier-level `solutions.bin` (smaller).
+4. `solve --merge-layers` combines the 4 tier outputs into a final
+   global output.
+
+This is an in-memory-only path that scales to RAM-limited hardware
+without needing new code. Each step's peak RAM is bounded by
+1/Ntiers of the full set.
+
+Trade-off: each tier's merge re-deduplicates within-tier
+duplicates that would have been deduped against another tier's
+records. So total work is slightly more than a single global
+merge, but RAM is bounded.
+
+### 8d. Decision recipe
+
+Given an estimated solution count S:
+
+- S ≤ 2 B → in-memory merge on D64 (256 GB).
+- 2 B < S ≤ 4 B → in-memory merge on E64ads_v5 (512 GB), confirm
+  with merge-memory-test first.
+- 4 B < S ≤ 8 B → in-memory merge on E96 (672 GB) is borderline;
+  **prefer hybrid (§8c)** for safety, or accept the risk and
+  run merge-memory-test first.
+- S > 8 B → use hybrid (§8c) or disk-based external merge (§8b
+  Option 1 with `--merge-layers`).
+- S > 10 B → disk-based via `--merge-layers` is the only practical
+  path with current `solve.c`. Adding Option 2 (true external
+  sort) is a follow-on project worth scoping.
+
+Run **a merge-memory test** in any case where peak RSS is within
+2× of available RAM. Better to find out at small scale than at
+the end of a multi-day campaign.
 
 ## 9. Symmetry shortcuts and other pruning — when defensible
 
