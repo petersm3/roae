@@ -10522,8 +10522,22 @@ int main(int argc, char *argv[]) {
         used_prefix[sb_pair] = 1;
 
         /* Load sub-branch checkpoint for resume — skipped in --sub-branch mode
-         * (that mode wants a clean, targeted run of exactly one sub-branch). */
+         * (that mode wants a clean, targeted run of exactly one sub-branch).
+         *
+         * Set current_per_branch_budget BEFORE load_sub_checkpoint so the
+         * resume gate's "skip BUDGETED only if stored >= current" check
+         * works. Without this, current_per_branch_budget stays 0 and every
+         * BUDGETED entry in checkpoint.txt is treated as fully-completed
+         * regardless of its stored budget — so a PHASE_A run at budget X
+         * followed by a PHASE_B run at budget 2X (in the same dir, common
+         * for partition+resume tests like Tier 2c) would have PHASE_B skip
+         * all of PHASE_A's sub-branches and walk no additional nodes.
+         * Bug discovered 2026-05-02 in Tier 2c result; fixed in this commit. */
         if (!single_sub_branch_mode) {
+            if (per_sub_branch_override > 0)
+                current_per_branch_budget = per_sub_branch_override;
+            else if (node_limit > 0)
+                current_per_branch_budget = node_limit / 3030;
             load_sub_checkpoint();
             if (n_completed_subs > 0) {
                 printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
