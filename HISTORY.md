@@ -1328,18 +1328,25 @@ C1-C5. That count is a lower bound at this budget; deeper budgets would
 likely surface more orderings. What's verified is reproducibility, not
 exhaustiveness.
 
-## April 28 – May 2, 2026 — 11.2T canonical + 2026-05 validation campaign
+## April 30 – May 2, 2026 PDT (May 1 – May 2, 2026 UTC) — 11.2T canonical + 2026-05 validation campaign
 
-After the 100T pilot completed (April 28-29) and the orphan-script
-incidents (April 29) led to the spot-only-except-claude rule,
-attention turned to producing a definitive depth-3 partial-
-enumeration canonical at a budget chosen to be the project's
-reference for ongoing analytical work.
+> Date convention going forward: dates without parenthetical UTC
+> are operator-local (PDT/PST). UTC equivalents follow in parens
+> when there's a meaningful day-boundary difference. Existing
+> entries in this file are mostly PDT-calibrated.
 
-**Tier 1 — 11.2T canonical (April 28-29).** Single-shot full
-enumeration on `pilot-100T-westus3` D128als_v7 spot in westus3,
-SOLVE_DEPTH=3 + SOLVE_NODE_LIMIT=11200000000000 + SOLVE_PER_SUB_BRANCH_LIMIT=70723196.
-Walltime ~2.1 hr enum + 56 min merge. Output sha:
+After the 100T pilot completed (April 28-29 PDT / April 28-29 UTC)
+and the orphan-script incidents (April 29 PDT) led to the
+spot-only-except-claude rule, attention turned to producing a
+definitive depth-3 partial-enumeration canonical at a budget
+chosen to be the project's reference for ongoing analytical work.
+
+**Tier 1 — 11.2T canonical (April 30 – May 1, 2026 PDT / May 1, 2026 UTC).**
+Single-shot full enumeration on `pilot-100T-westus3` D128als_v7
+spot in westus3, SOLVE_DEPTH=3 + SOLVE_NODE_LIMIT=11200000000000 +
+SOLVE_PER_SUB_BRANCH_LIMIT=70723196. Walltime ~2.1 hr enum + 56 min
+merge. Master.sh observed Tier 1 already complete at its launch
+2026-05-01 05:52 PDT / 2026-05-01 12:52 UTC. Output sha:
 `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`,
 759,608,573 unique solutions, 24.3 GB solutions.bin. The in-process
 auto-merge initially tripped a Layer 2 sanity gate (per-thread
@@ -1348,7 +1355,8 @@ fields like `dfs_v2_resume_active` held end-of-enum values like 19,
 `solve --merge` over the preserved 56,874 shards. Sanity gate
 relaxed to warn-only in commit `46a7403`.
 
-**2026-05-01 to 2026-05-02 — Validation campaign + concerns 1, 2, 3.**
+**May 1 – May 2, 2026 PDT (April 30 21:56 PDT through May 2, 2026 UTC) — Validation campaign + concerns 1, 2, 3.**
+Master.sh launched at April 30 21:56 PDT (May 1 04:56 UTC).
 A nine-tier validation matrix was launched to prove partition+resume
 + thread-count + implementation invariance at 11.2T scale, plus
 robustness under spot-eviction and cross-architecture conditions.
@@ -1379,7 +1387,7 @@ days to resolve:
   Full post-mortem in
   `petersm3/x:roae/CONCERNS_1_2_3_RESOLUTION_2026_05_02.md`.
 
-**8-path equivalence at 11.2T proven (as of 2026-05-02 evening):**
+**8-path equivalence at 11.2T proven (as of May 2, 2026 evening PDT / 2026-05-02 ~22:30 UTC):**
 
 | Path | Method | Sha |
 |---|---|---|
@@ -1415,7 +1423,7 @@ single-branch deeper-budget exhaustion runs.
 
 **Live operational state during the campaign** is in
 `petersm3/x:roae/CURRENT_PLAN.md` (private operator log). Key
-2026-05-02 docs (also private):
+docs created May 2, 2026 PDT (also private):
 `CAMPAIGN_2026_05_VALIDATION.md`,
 `CONCERNS_1_2_3_RESOLUTION_2026_05_02.md`,
 `CAMPAIGN_560T_PLANNING_2026_05_02.md`,
