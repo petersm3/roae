@@ -1209,7 +1209,15 @@ static int is_branch_completed(int pair, int orient) {
  * Since 3030 sub-branches share only 64 unique (p2, o2) values, later
  * sub-branches overwrote earlier ones' sub_P2_O2.bin files and resume
  * falsely skipped siblings. Key is now the full (p1, o1, p2, o2) 4-tuple. */
-#define MAX_COMPLETED_SUBS 4096
+/* Sized for depth-3's 158,364 sub-branches with headroom (multiple
+ * checkpoint entries per sub-branch when budget changes across phases).
+ * Bumped from 4096 on 2026-05-02 — the prior cap silently truncated
+ * the resume-completed list at the 4096-th entry, causing partition+
+ * resume runs (Tier 2c) to lose state for sub-branches whose entries
+ * fell past the cap. The depth-2 lookup bitmap still uses the smaller
+ * (p1, o1, p2, o2) keyspace; this list is only the parsed-entry
+ * scratchpad. */
+#define MAX_COMPLETED_SUBS 524288
 static int completed_sub_branches[MAX_COMPLETED_SUBS][4]; /* [p1, o1, p2, o2] */
 static int n_completed_subs = 0;
 /* O(1) membership lookup: 4096 possible (p1,o1,p2,o2) tuples encoded as
