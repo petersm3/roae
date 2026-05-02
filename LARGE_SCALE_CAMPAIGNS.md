@@ -23,10 +23,10 @@ Before sizing anything, answer these questions:
    | Per-cell budget | Approximate solutions | Notes |
    |---|---|---|
    | 70 M (Tier 1's depth-3 70M) | 759 M unique | The current canonical |
-   | 141 M (Tier 5's 2× on branch 22-0) | +50 % on that branch | Confirms budget exhaustion was occurring |
+   | 141 M (Tier 5's 2× on branch 22-0) | +50 % on that branch | Proves *at least one* cell hit Tier 1's 70M cap (otherwise no gain would be possible). Per-cell BUDGETED counts weren't recorded for Tier 1 or Tier 5 so the prevalence isn't directly confirmed; the magnitude is suggestive of a widespread effect but not definitive. |
    | 3.5 G (560T plan) | 1.2–1.5 B (estimated) | Modest gain over Tier 1 |
    | 35 G (5.6 PT plan) | 4–8 B (estimated) | 5–10× Tier 1 |
-   | 100 T (per single cell) | ~664 M (one cell only) | 100T pilot — STILL hit budget cap on every task |
+   | 100 T (per single cell) | ~664 M (one cell only) | 100T pilot — directly observed: 0 of 975 walked depth-5 sub-tasks naturally terminated; all hit per-task cap. This IS confirmed (per_task_stats.csv was captured). |
 
 2. **Are you trying to prove a theorem (cell exhausts → no
    solutions exist with prefix X)?**
