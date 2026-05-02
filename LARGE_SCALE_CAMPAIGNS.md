@@ -200,6 +200,39 @@ production-scale spot-checks — the project calls these "Tier 9+":
 - **Cross-VM rsync integrity** — verify byte-identical transfer of
   shards across VMs.
 
+### 5+. Operational pre-launch smoke test (right before launching the canonical run)
+
+After all selftest + scale-validation tests have passed and
+you're about to launch the actual canonical run, do a final
+5-minute smoke test on each campaign VM. This isn't a correctness
+test — selftest already covered that. It's an operational test:
+verifies the locked binary runs, env vars are picked up, scripts
+deploy, the data disk is writable, and shards write correctly.
+
+```pseudocode
+SCRIPT smoke_test():
+  # Tiny budget; not a correctness test, just plumbing.
+  ENV {
+    SOLVE_DEPTH=2,
+    SOLVE_NODE_LIMIT=100M,
+    SOLVE_DFS_ITERATIVE=1,
+    SOLVE_DFS_CHECKPOINT=1,
+    SOLVE_THREADS=8,
+  }
+  RUN solve --branch 1 0 0 8  IN /tmp/smoke
+  ASSERT exit_code == 0
+  ASSERT count(sub_*.bin) >= 1
+  ASSERT solutions_1_0.sha256 is non-empty
+```
+
+**Run this on each campaign VM before launching the actual
+canonical-budget enum.** Wall: ~5 minutes. Cost: trivial. If it
+fails, you've caught a deployment / env / disk / binary
+issue at $0 cost instead of mid-canonical at $30+ wasted.
+
+The smoke test is intentionally tiny (depth-2, 100M nodes, 8
+threads) so it runs in minutes regardless of VM size.
+
 ## 6. Campaign architecture
 
 The canonical pattern for a multi-VM single-branch campaign uses
@@ -739,6 +772,69 @@ things are still open:
 
 If you run a campaign that produces new data on any of these,
 contributing a follow-up to this doc is welcome.
+
+### 13a. Common gotchas (tips from observed campaigns)
+
+These are gotchas surfaced during real campaigns — not bugs in
+solve.c, just operational patterns worth knowing about:
+
+1. **Auto-merge sanity gate fragility at high thread counts.**
+   At depth-3 with `SOLVE_THREADS=128` (especially with the
+   recursive DFS path, no `SOLVE_DFS_ITERATIVE=1`), the in-process
+   auto-merge can emit "SANITY-WARN" lines and fail to write
+   `solutions.sha256` even though the enum completed correctly.
+   The shards on disk are intact. **Recovery: run `solve --merge`
+   manually in the affected dir.** It's deterministic; produces
+   the correct sha. Plan for this when running in `--branch + 128t`
+   or recursive-DFS modes.
+2. **`solutions.bin` sha changes when per-cell budget changes.**
+   Two enumerations at the same depth but different
+   `SOLVE_PER_SUB_BRANCH_LIMIT` will produce different shas. This
+   is expected — different per-cell budgets find different solutions
+   (cells that hit budget at the lower setting find more solutions
+   at the higher setting). Don't compare shas across runs unless
+   the per-cell budget matches exactly.
+3. **`SOLVE_NODE_LIMIT / 3030` auto-compute at depth=3 under-shoots.**
+   solve.c's auto-compute of per-sub-branch budget uses divisor
+   3030 (depth-2 cell count). At depth=3 with ~2,824 cells per
+   first-level branch, this means setting `SOLVE_NODE_LIMIT=10T`
+   actually allocates ~9.32 T per branch (7% under intent). Always
+   set `SOLVE_PER_SUB_BRANCH_LIMIT` explicitly at depth=3. (See §3
+   for the math and recipe table.)
+4. **Disk device numbering reshuffles after VM restart.** Every
+   spot-eviction recovery may surface the data disk at a different
+   `/dev/nvmeNnM` than before. Use `lsblk`/`blkid`/UUID-mount, not
+   the device path directly.
+5. **Stale binary problem.** A `git pull` on the VM source dir
+   does not rebuild the binary. After any solve.c change, the
+   binary must be explicitly rebuilt; otherwise the campaign
+   continues with the old binary. Always md5-check the binary
+   against the locked reference at every campaign-script entry.
+6. **2-byte slot encoding.** `solutions.bin` records use 32 bytes,
+   one per pair-orient slot. The byte format is
+   `(pair_index << 2) | (orient << 1)`; bit 0 is reserved. Don't
+   write parsers that assume the byte == hexagram value directly.
+7. **`solutions_total` vs `solutions_c3` semantics.** solve.c's
+   internal counters: `solutions_total` is depth-32-arrival count
+   (= satisfies C1+C2+C4+C5); `solutions_c3` is the C3-passing
+   subset (= what's in `solutions.bin`). The diff is the count of
+   orderings that satisfy C5 but fail C3. This data is in the
+   run log; useful for some Category B questions.
+8. **Per-record cd/distance-sum recompute is fast.** ~30 seconds
+   on one core for a 1B-record canonical to compute cd values
+   from scratch. Don't bother adding pre-computed invariants to
+   the record format (the perf tradeoff with cache lines is
+   worse than the ~30 sec saving). Sidecar files or on-demand
+   recompute are cleaner.
+9. **128-thread `--branch` post-enum per-branch merge SIGSEGV.**
+   At `SOLVE_THREADS=128` in `--branch X Y` mode (depth-3), the
+   per-branch in-process merge step can SIGSEGV. Doesn't affect
+   correctness — the shards are intact and the next global
+   `solve --merge` produces the right sha. Don't panic.
+10. **Spot evictions during merge are recoverable.** Merge isn't
+    incrementally checkpointed, but it's deterministic. If
+    eviction hits mid-merge: `rm` partial outputs, restart
+    `solve --merge`. Same input shards, same output sha.
 
 ## 14. Worked example: 56 × 10T at 2 × D64 spot
 
