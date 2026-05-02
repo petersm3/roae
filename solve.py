@@ -4698,8 +4698,22 @@ def extended_selftest(solve_binary):
          single-shot 200M. Must match.
       3. v1 resume sha-equivalence: same scenario, recursive path. Must
          match the same single-shot sha.
+      4. --branch + depth-3 + SOLVE_THREADS=128 init: catches stack-array
+         sizing bugs in the --branch+depth-3 init path.
+      5. --branch multi-budget resume: catches resume-gate regressions
+         (e.g., current_per_branch_budget=0 making PB a no-op).
+      6. Combined partition + resume invariance (the Tier 2c pattern at
+         small scale). Catches MAX_COMPLETED_SUBS cap regressions.
+      7. Distributed-merge equivalence: same set of --branch jobs run
+         in separate per-branch dirs vs one shared dir, both produce the
+         same merged sha. Validates the "shards from many VMs collected
+         centrally" pattern that 56-branch distributed campaigns use.
+      8. Single-branch eviction-resume invariance: --branch X Y, SIGTERM
+         mid-walk, resume; resulting branch-sha must match a clean run.
+      9. Idempotent re-launch: re-running a completed --branch X Y in
+         the same dir must not corrupt or alter the shards on disk.
 
-    Wall ~10 min on a 4-thread VM (3 + 5 + 5 enums of varying size).
+    Wall ~13 min on a 4-thread VM (subtests 1-6 + 7-9 add ~3 min).
     """
     import shutil
     import subprocess
@@ -4760,7 +4774,7 @@ def extended_selftest(solve_binary):
 
     try:
         # --- Subtest 1: single-shot 3-way at 100M ---
-        print("[extended-selftest] Subtest 1/3: single-shot 3-way @ 100M nodes",
+        print("[extended-selftest] Subtest 1/9: single-shot 3-way @ 100M nodes",
               flush=True)
         shas_3way = {}
         for label, env_extra in [
@@ -4790,7 +4804,7 @@ def extended_selftest(solve_binary):
             )
 
         # --- Subtest 2: v2 resume sha-equivalence ---
-        print("[extended-selftest] Subtest 2/3: v2 resume @ 50M -> 200M",
+        print("[extended-selftest] Subtest 2/9: v2 resume @ 50M -> 200M",
               flush=True)
         d_v2_full = os.path.join(workroot, "sub2_v2_full")
         d_v2_resume = os.path.join(workroot, "sub2_v2_resume")
@@ -4816,7 +4830,7 @@ def extended_selftest(solve_binary):
             )
 
         # --- Subtest 3: v1 resume sha-equivalence ---
-        print("[extended-selftest] Subtest 3/3: v1 resume @ 50M -> 200M",
+        print("[extended-selftest] Subtest 3/9: v1 resume @ 50M -> 200M",
               flush=True)
         d_v1_full = os.path.join(workroot, "sub3_v1_full")
         d_v1_resume = os.path.join(workroot, "sub3_v1_resume")
@@ -4858,7 +4872,7 @@ def extended_selftest(solve_binary):
         # 256 MB total at 128 threads) so this runs on small-VM hosts
         # with limited RAM. Tiny SOLVE_NODE_LIMIT — what matters is
         # that solve survives initialization without buffer overflow.
-        print("[extended-selftest] Subtest 4/6: --branch + depth-3 + "
+        print("[extended-selftest] Subtest 4/9: --branch + depth-3 + "
               "SOLVE_THREADS=128 init (catches stack-array sizing bugs)",
               flush=True)
         d_th128 = os.path.join(workroot, "sub4_branch_d3_t128")
@@ -4907,7 +4921,7 @@ def extended_selftest(solve_binary):
         # current_per_branch_budget=0 issue we found 2026-05-02 where
         # the gate trivially marked all PA entries as completed,
         # making PHASE_B's larger-budget walk a no-op.
-        print("[extended-selftest] Subtest 5/6: --branch multi-budget "
+        print("[extended-selftest] Subtest 5/9: --branch multi-budget "
               "resume (catches resume-gate bugs)", flush=True)
         # Reference: single-shot --branch at 2M per-sub-branch
         d_b_ref = os.path.join(workroot, "sub5_branch_ref")
@@ -4949,7 +4963,7 @@ def extended_selftest(solve_binary):
         # The exact pattern Tier 2c stresses, but at small scale.
         # Catches MAX_COMPLETED_SUBS cap regressions and any other
         # bugs specific to multi-branch resume + merge.
-        print("[extended-selftest] Subtest 6/6: full-enum partition + "
+        print("[extended-selftest] Subtest 6/9: full-enum partition + "
               "resume combined invariance", flush=True)
         # Reference: single-shot full-enum at 200M
         # (Already produced as sha_v2_full from subtest 2.)
@@ -4979,6 +4993,173 @@ def extended_selftest(solve_binary):
                 f"resume-loop bug."
             )
 
+        # --- Subtest 7: distributed-merge equivalence ---
+        # Validates the "many independent --branch jobs across multiple
+        # VMs, shards collected centrally, single global --merge"
+        # pattern that distributed multi-branch campaigns use. Run two
+        # --branch jobs in separate per-branch dirs vs both in one
+        # shared dir, both should produce the same merged sha.
+        print("[extended-selftest] Subtest 7/9: distributed-merge "
+              "equivalence (multi-VM shard-collection pattern)",
+              flush=True)
+        # Reference: both branches run in ONE dir, then merge there.
+        d_ref = os.path.join(workroot, "sub7_ref")
+        os.makedirs(d_ref, exist_ok=True)
+        env_t7 = {
+            "SOLVE_DEPTH": "2",
+            "SOLVE_NODE_LIMIT": "100000000",
+            "SOLVE_DFS_ITERATIVE": "1",
+            "SOLVE_DFS_CHECKPOINT": "1",
+        }
+        rc_r1, _ = _run(env_t7, d_ref, args_=("--branch", "1", "0", "0", "4"))
+        rc_r2, _ = _run(env_t7, d_ref, args_=("--branch", "2", "0", "0", "4"))
+        rc_rm, _ = _run({}, d_ref, args_=("--merge",))
+        sha_t7_ref = _read_sha(d_ref)
+        # Distributed: branches in separate dirs, then collect shards
+        # into a third dir and merge there.
+        d_a = os.path.join(workroot, "sub7_dirA")
+        d_b = os.path.join(workroot, "sub7_dirB")
+        d_collect = os.path.join(workroot, "sub7_collect")
+        os.makedirs(d_a, exist_ok=True)
+        os.makedirs(d_b, exist_ok=True)
+        os.makedirs(d_collect, exist_ok=True)
+        rc_a, _ = _run(env_t7, d_a, args_=("--branch", "1", "0", "0", "4"))
+        rc_b, _ = _run(env_t7, d_b, args_=("--branch", "2", "0", "0", "4"))
+        # Hardlink shards to the collection dir (simulates rsync/transfer
+        # from per-VM enum dirs to a central merge VM).
+        for d_src in (d_a, d_b):
+            for f in os.listdir(d_src):
+                if f.startswith("sub_") and f.endswith(".bin"):
+                    os.link(os.path.join(d_src, f),
+                            os.path.join(d_collect, f))
+        rc_cm, _ = _run({}, d_collect, args_=("--merge",))
+        sha_t7_distributed = _read_sha(d_collect)
+        print(f"  sub7 ref         (1 dir, both branches): {sha_t7_ref}",
+              flush=True)
+        print(f"  sub7 distributed (2 dirs collected):     "
+              f"{sha_t7_distributed}", flush=True)
+        if (rc_r1 or rc_r2 or rc_rm or rc_a or rc_b or rc_cm):
+            failures.append(
+                f"subtest 7: solve exit codes "
+                f"r1={rc_r1} r2={rc_r2} rm={rc_rm} "
+                f"a={rc_a} b={rc_b} cm={rc_cm}"
+            )
+        elif sha_t7_ref and sha_t7_distributed and sha_t7_ref != sha_t7_distributed:
+            failures.append(
+                f"subtest 7: distributed-merge MISMATCH — "
+                f"single-dir ref={sha_t7_ref}, "
+                f"multi-dir-collected={sha_t7_distributed}. "
+                f"Affects 56-branch distributed campaigns."
+            )
+
+        # --- Subtest 8: single-branch eviction-resume invariance ---
+        # Validates that SIGTERM mid --branch walk + restart produces the
+        # same shards as a clean run. Critical for spot-eviction-prone
+        # 10T-per-branch single-branch campaigns: every long --branch
+        # job WILL be evicted at least once.
+        print("[extended-selftest] Subtest 8/9: single-branch "
+              "eviction-resume invariance (SIGTERM mid-walk)",
+              flush=True)
+        env_t8 = {
+            "SOLVE_DEPTH": "2",
+            "SOLVE_NODE_LIMIT": "200000000",
+            "SOLVE_DFS_ITERATIVE": "1",
+            "SOLVE_DFS_CHECKPOINT": "1",
+        }
+        # Clean reference run.
+        d_t8_ref = os.path.join(workroot, "sub8_ref")
+        os.makedirs(d_t8_ref, exist_ok=True)
+        rc_t8_ref, _ = _run(env_t8, d_t8_ref,
+                            args_=("--branch", "3", "0", "0", "4"))
+        sha_t8_ref = _read_sha_branch(d_t8_ref, 3, 0)
+        # SIGTERM-then-resume run.
+        d_t8_int = os.path.join(workroot, "sub8_interrupted")
+        os.makedirs(d_t8_int, exist_ok=True)
+        env = os.environ.copy()
+        env.update(env_t8)
+        log = os.path.join(d_t8_int, "run_phase1.log")
+        with open(log, "w") as lf:
+            proc = subprocess.Popen(
+                [solve_binary, "--branch", "3", "0", "0", "4"],
+                cwd=d_t8_int, env=env,
+                stdout=lf, stderr=subprocess.STDOUT,
+            )
+            time.sleep(8)  # let solve do real work + checkpoint
+            proc.terminate()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=10)
+        # Resume — same command, same dir; solve should pick up checkpoint.
+        rc_t8_resume, _ = _run(env_t8, d_t8_int,
+                                args_=("--branch", "3", "0", "0", "4"))
+        sha_t8_int = _read_sha_branch(d_t8_int, 3, 0)
+        print(f"  sub8 ref      (clean):              {sha_t8_ref}", flush=True)
+        print(f"  sub8 resumed  (SIGTERM mid-walk):   {sha_t8_int}", flush=True)
+        if rc_t8_ref != 0:
+            failures.append(f"subtest 8: clean run exit={rc_t8_ref}")
+        elif rc_t8_resume != 0:
+            failures.append(
+                f"subtest 8: resume run exit={rc_t8_resume} — "
+                f"single-branch eviction-resume path broken")
+        elif sha_t8_ref and sha_t8_int and sha_t8_ref != sha_t8_int:
+            failures.append(
+                f"subtest 8: single-branch eviction-resume MISMATCH — "
+                f"clean={sha_t8_ref}, SIGTERM-resumed={sha_t8_int}. "
+                f"560T distributed campaign would corrupt under eviction.")
+
+        # --- Subtest 9: idempotent re-launch of completed --branch ---
+        # Validates that re-running a completed --branch X Y in a dir
+        # that already has its shards doesn't corrupt or alter them.
+        # This is the "operator restarts the orchestrator script" case.
+        print("[extended-selftest] Subtest 9/9: idempotent re-launch "
+              "of completed --branch", flush=True)
+        d_t9 = os.path.join(workroot, "sub9_idempotent")
+        os.makedirs(d_t9, exist_ok=True)
+        env_t9 = {
+            "SOLVE_DEPTH": "2",
+            "SOLVE_NODE_LIMIT": "100000000",
+            "SOLVE_DFS_ITERATIVE": "1",
+            "SOLVE_DFS_CHECKPOINT": "1",
+        }
+        # Branch (5, 0) is known-valid; branches (4, *) and (6, *) are
+        # pruned at depth 1 by the C2 constraint.
+        rc_t9_first, _ = _run(env_t9, d_t9,
+                               args_=("--branch", "5", "0", "0", "4"))
+        sha_t9_first = _read_sha_branch(d_t9, 5, 0)
+        # Snapshot shard fingerprints (filename + size).
+        def _shard_fp(d):
+            fps = []
+            for f in sorted(os.listdir(d)):
+                if f.startswith("sub_") and f.endswith(".bin"):
+                    fps.append((f, os.path.getsize(os.path.join(d, f))))
+            return fps
+        fp_first = _shard_fp(d_t9)
+        # Re-run same command in same dir.
+        rc_t9_again, _ = _run(env_t9, d_t9,
+                               args_=("--branch", "5", "0", "0", "4"))
+        sha_t9_again = _read_sha_branch(d_t9, 5, 0)
+        fp_again = _shard_fp(d_t9)
+        print(f"  sub9 first     ({len(fp_first)} shards): {sha_t9_first}",
+              flush=True)
+        print(f"  sub9 re-launch ({len(fp_again)} shards): {sha_t9_again}",
+              flush=True)
+        if rc_t9_first != 0 or rc_t9_again != 0:
+            failures.append(
+                f"subtest 9: solve exit codes first={rc_t9_first} "
+                f"again={rc_t9_again}")
+        elif sha_t9_first and sha_t9_again and sha_t9_first != sha_t9_again:
+            failures.append(
+                f"subtest 9: idempotent re-launch MISMATCH — "
+                f"first={sha_t9_first}, re-launch={sha_t9_again}. "
+                f"Re-launching a completed --branch corrupts shards.")
+        elif fp_first != fp_again:
+            failures.append(
+                f"subtest 9: shard fingerprints changed across re-launch "
+                f"(filenames or sizes differ). "
+                f"first={fp_first[:3]}..., again={fp_again[:3]}...")
+
     finally:
         if not failures:
             shutil.rmtree(workroot, ignore_errors=True)
@@ -4991,7 +5172,7 @@ def extended_selftest(solve_binary):
         for f in failures:
             print(f"  - {f}", flush=True)
         return 1
-    print("[extended-selftest] PASS — all 6 subtests + cross-check", flush=True)
+    print("[extended-selftest] PASS — all 9 subtests + cross-check", flush=True)
     return 0
 
 
