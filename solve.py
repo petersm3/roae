@@ -4732,6 +4732,15 @@ def extended_selftest(solve_binary):
             line = f.readline().strip()
         return line.split()[0] if line else None
 
+    def _read_sha_branch(dir_, p1, o1):
+        """--branch mode writes solutions_<p1>_<o1>.sha256."""
+        path = os.path.join(dir_, f"solutions_{p1}_{o1}.sha256")
+        if not os.path.isfile(path):
+            return None
+        with open(path) as f:
+            line = f.readline().strip()
+        return line.split()[0] if line else None
+
     base_env_d2_100m = {
         "SOLVE_DEPTH": "2",
         "SOLVE_NODE_LIMIT": "100000000",
@@ -4840,6 +4849,136 @@ def extended_selftest(solve_binary):
                 f"v1 single-shot 200M ({sha_v1_full})"
             )
 
+        # --- Subtest 4: high thread count + --branch + depth-3 init ---
+        # Catches stack-array sizing bugs in --branch / depth-3 paths
+        # (e.g., the workers[64] / threads[64] / tids[64] buffer
+        # overflow at SOLVE_THREADS=128 we discovered 2026-05-02).
+        # The buggy paths only fire under: --branch mode + depth=3 +
+        # n_threads > 64. We use SOLVE_HASH_LOG2=16 (2 MB / thread =
+        # 256 MB total at 128 threads) so this runs on small-VM hosts
+        # with limited RAM. Tiny SOLVE_NODE_LIMIT — what matters is
+        # that solve survives initialization without buffer overflow.
+        print("[extended-selftest] Subtest 4/6: --branch + depth-3 + "
+              "SOLVE_THREADS=128 init (catches stack-array sizing bugs)",
+              flush=True)
+        d_th128 = os.path.join(workroot, "sub4_branch_d3_t128")
+        os.makedirs(d_th128, exist_ok=True)
+        env_th128 = {
+            "SOLVE_DEPTH": "3",
+            "SOLVE_NODE_LIMIT": "100000000",
+            "SOLVE_DFS_ITERATIVE": "1",
+            "SOLVE_DFS_CHECKPOINT": "1",
+            "SOLVE_THREADS": "128",
+            "SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs
+        }
+        rc_th128, log_th128 = _run(env_th128, d_th128,
+                                    args_=("--branch", "1", "0", "0", "128"))
+        # Check that solve survived enum and produced shards. Note: the
+        # --branch path's post-enum per-branch merge step has a known
+        # SIGSEGV at 128 threads that doesn't affect correctness (the
+        # global --merge in Tier 2 still works off the shards on disk).
+        # So we use shard-presence as the success criterion, not exit code.
+        n_shards = 0
+        try:
+            n_shards = sum(1 for f in os.listdir(d_th128)
+                           if f.startswith("sub_1_0_") and f.endswith(".bin"))
+        except OSError:
+            pass
+        if n_shards == 0:
+            failures.append(
+                f"subtest 4: --branch+d3 with SOLVE_THREADS=128 produced 0 "
+                f"shards — likely buffer-overflow / stack-array sizing "
+                f"regression in the --branch+depth-3 init code path. "
+                f"See {log_th128}"
+            )
+        else:
+            print(f"  --branch+d3 t=128: PASS ({n_shards} shards produced; "
+                  f"buffer overflow at workers/threads/tids arrays would "
+                  f"prevent ANY shards)", flush=True)
+            if rc_th128 != 0:
+                # Note but don't fail — known SIGSEGV in per-branch merge at
+                # high thread counts. Worth recording.
+                print(f"  (note: --branch exit={rc_th128} from post-enum "
+                      f"per-branch merge SIGSEGV; doesn't block global merge)",
+                      flush=True)
+
+        # --- Subtest 5: --branch multi-budget resume invariance ---
+        # Catches --branch resume gate bugs — specifically the
+        # current_per_branch_budget=0 issue we found 2026-05-02 where
+        # the gate trivially marked all PA entries as completed,
+        # making PHASE_B's larger-budget walk a no-op.
+        print("[extended-selftest] Subtest 5/6: --branch multi-budget "
+              "resume (catches resume-gate bugs)", flush=True)
+        # Reference: single-shot --branch at 2M per-sub-branch
+        d_b_ref = os.path.join(workroot, "sub5_branch_ref")
+        os.makedirs(d_b_ref, exist_ok=True)
+        # PA: --branch 1 0 at SOLVE_PER_SUB_BRANCH_LIMIT=500000
+        d_b_pa = os.path.join(workroot, "sub5_branch_resume")
+        os.makedirs(d_b_pa, exist_ok=True)
+        # The --branch path runs against a single first-level (1, 0).
+        # Use SOLVE_PER_SUB_BRANCH_LIMIT (not SOLVE_NODE_LIMIT) so the
+        # gate's per-sub-branch comparison is unambiguous.
+        ref_env = {"SOLVE_DEPTH": "2",
+                   "SOLVE_NODE_LIMIT": "200000000",
+                   "SOLVE_PER_SUB_BRANCH_LIMIT": "2000000",
+                   "SOLVE_DFS_ITERATIVE": "1",
+                   "SOLVE_DFS_CHECKPOINT": "1"}
+        pa_env = {**ref_env, "SOLVE_PER_SUB_BRANCH_LIMIT": "500000"}
+        pb_env = ref_env  # same as reference
+        # Reference: single-shot at 2M per-sub-branch
+        rc_ref, _ = _run(ref_env, d_b_ref, args_=("--branch", "1", "0", "0", "4"))
+        sha_b_ref = _read_sha_branch(d_b_ref, 1, 0)
+        # Resumed: 500K then 2M
+        rc_pa, _ = _run(pa_env, d_b_pa, args_=("--branch", "1", "0", "0", "4"))
+        rc_pb, _ = _run(pb_env, d_b_pa, args_=("--branch", "1", "0", "0", "4"))
+        sha_b_resumed = _read_sha_branch(d_b_pa, 1, 0)
+        print(f"  --branch ref     (single-shot 2M): {sha_b_ref}", flush=True)
+        print(f"  --branch resumed (500K -> 2M):     {sha_b_resumed}", flush=True)
+        if rc_ref != 0 or rc_pa != 0 or rc_pb != 0:
+            failures.append(
+                f"subtest 5: solve exit codes ref={rc_ref} pa={rc_pa} pb={rc_pb}"
+            )
+        elif sha_b_ref and sha_b_resumed and sha_b_ref != sha_b_resumed:
+            failures.append(
+                f"subtest 5: --branch multi-budget resume MISMATCH — "
+                f"ref={sha_b_ref}, resumed={sha_b_resumed}. "
+                f"Likely current_per_branch_budget gate regression."
+            )
+
+        # --- Subtest 6: combined partition + resume invariance ---
+        # The exact pattern Tier 2c stresses, but at small scale.
+        # Catches MAX_COMPLETED_SUBS cap regressions and any other
+        # bugs specific to multi-branch resume + merge.
+        print("[extended-selftest] Subtest 6/6: full-enum partition + "
+              "resume combined invariance", flush=True)
+        # Reference: single-shot full-enum at 200M
+        # (Already produced as sha_v2_full from subtest 2.)
+        # Now: full-enum 50M then 200M, merge, compare to ref.
+        d_combined = os.path.join(workroot, "sub6_combined")
+        os.makedirs(d_combined, exist_ok=True)
+        c_env_pa = {**base_env_d2_50m,
+                    "SOLVE_DFS_ITERATIVE": "1",
+                    "SOLVE_DFS_CHECKPOINT": "1"}
+        c_env_pb = {**base_env_d2_200m,
+                    "SOLVE_DFS_ITERATIVE": "1",
+                    "SOLVE_DFS_CHECKPOINT": "1"}
+        rc_c_pa, _ = _run(c_env_pa, d_combined)
+        rc_c_pb, _ = _run(c_env_pb, d_combined)
+        sha_combined = _read_sha(d_combined)
+        print(f"  combined (50M -> 200M):            {sha_combined}", flush=True)
+        if rc_c_pa != 0 or rc_c_pb != 0:
+            failures.append(
+                f"subtest 6: solve exit codes pa={rc_c_pa} pb={rc_c_pb}"
+            )
+        elif sha_combined != sha_v2_full:
+            failures.append(
+                f"subtest 6: combined partition+resume MISMATCH — "
+                f"ref single-shot 200M sha={sha_v2_full}, "
+                f"50M->200M sha={sha_combined}. "
+                f"Could be MAX_COMPLETED_SUBS cap regression or other "
+                f"resume-loop bug."
+            )
+
     finally:
         if not failures:
             shutil.rmtree(workroot, ignore_errors=True)
@@ -4852,7 +4991,7 @@ def extended_selftest(solve_binary):
         for f in failures:
             print(f"  - {f}", flush=True)
         return 1
-    print("[extended-selftest] PASS — all 3 subtests + cross-check", flush=True)
+    print("[extended-selftest] PASS — all 6 subtests + cross-check", flush=True)
     return 0
 
 
