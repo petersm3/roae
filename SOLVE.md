@@ -47,7 +47,9 @@ No two consecutive hexagrams may differ by exactly 5 lines. Within reverse/inver
 
 ### Rule 3: Complement proximity (C3)
 
-The mean positional distance between each hexagram and its complement (all lines toggled) must be unusually small. King Wen's mean complement distance is 12.1; random pair-constrained orderings average ~21.7.
+The mean positional distance between each hexagram and its complement (all lines toggled) must be unusually small. King Wen's mean complement distance is 12.125 (12.1 to 1 decimal); random pair-constrained orderings average ~21.7.
+
+**Note on the threshold.** The formal constraint in [SPECIFICATION.md](SPECIFICATION.md) is `cd(S) ≤ 12.125`, where 12.125 is King Wen's *exact* complement distance — extracted from the sequence rather than derived independently. The constraint is therefore "reverse-engineered" in the sense that King Wen satisfies it by construction. The defensible scientific claim is the **percentile statement** (King Wen's complement distance is at the **3.9th percentile** of orderings satisfying Rules 1–2 — see "Differential Analysis" below), not that 12.125 is a structurally significant value. A different threshold would change the solution count but not the qualitative finding that King Wen actively minimizes complement distance.
 
 ### Rule 4: XOR algebraic constraint (REDUNDANT — Theorem 2 of C1)
 
