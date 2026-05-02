@@ -207,7 +207,7 @@ two roles: a **per-VM branch runner** that iterates the VM's
 assigned branches, and a **cross-VM orchestrator** that coordinates
 the global merge once all VMs report completion.
 
-### 5a. Design rules (apply to every script)
+### 6a. Design rules (apply to every script)
 
 1. **Idempotent on relaunch.** No destructive `mv` or `rm` of
    in-progress data. Re-running a runner script after eviction
@@ -230,7 +230,7 @@ the global merge once all VMs report completion.
    "available branches" is a race waiting to happen — instead,
    write `branches_A.txt` and `branches_B.txt` once before launch.
 
-### 5b. Per-VM branch runner — pseudocode
+### 6b. Per-VM branch runner — pseudocode
 
 ```pseudocode
 SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
@@ -312,7 +312,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
   exits 0 but failed to write the sha (e.g., disk-full mid-merge),
   it's not falsely marked done.
 
-### 5c. Cross-VM orchestrator — pseudocode
+### 6c. Cross-VM orchestrator — pseudocode
 
 ```pseudocode
 SCRIPT orchestrator():
@@ -414,7 +414,7 @@ SCRIPT orchestrator():
   and "metadata.json written," re-invoking it picks up at Phase
   4 (existing solutions.sha256 means Phase 3 is skipped).
 
-### 5d. Failure modes and recovery
+### 6d. Failure modes and recovery
 
 | Failure | What it looks like | Recovery |
 |---|---|---|
@@ -424,8 +424,12 @@ SCRIPT orchestrator():
 | Network partition during rsync | Some shards transferred, others not. | Re-run rsync with `--checksum` to verify byte-identity; rsync re-fetches missing/changed files. Tier 9c validates rsync correctness. |
 | Two VMs accidentally claim same branch | Should not occur with pre-partition; if it does, two `sub_<p1>_<o1>_*` files are created and one overwrites the other. | Pre-partition correctly via `branches_A.txt` and `branches_B.txt` written once before launch. Don't use shared dynamic claim mechanisms. |
 | Stale binary on a VM | Enum produces results that don't match the canonical workflow's expected behavior. May silently produce wrong shas. | Always md5-check the binary at branch_runner entry; abort if mismatch. The validation campaign caught this exact issue (Apr 30 binary on May 2 VMs). |
+| Auto-merge sanity gate trips at high thread counts | At depth-3 with `SOLVE_THREADS=128` (and especially with the recursive DFS path, no `SOLVE_DFS_ITERATIVE=1`), the in-process auto-merge can emit "SANITY-WARN" lines and fail to write `solutions.sha256`. The enum completes correctly (all shards on disk); only the auto-merge step trips. | Run `solve --merge` manually in the affected dir. Shards are unchanged; the merge is deterministic and produces the correct sha. This is what Tier 6d / Tier 7a / Tier 7b small/128 hit during the 2026-05 validation campaign and was the planned recovery path. |
+| Disk device numbering reshuffles after VM restart | After `az vm start`, the data disk that was `/dev/nvme0n3` may now be `/dev/nvme0n2` (or a different device entirely). Mount via the old path fails. | Use `lsblk` and/or `blkid` to identify the correct device by size/label/UUID. Mount by UUID where possible (e.g., `/etc/fstab` entries should use UUID, not `/dev/nvmeNnM`). Spot-restart resilience matters; this is observed every time. |
+| Spot eviction during multi-day campaign | Eviction is **certain** over a 3+ day campaign. Multiple per VM is normal. | branch_runner is idempotent; re-launch after `az vm start` and disk re-mount. If eviction hits during the final merge, the solutions.bin may be partial — `rm` it and restart `solve --merge`. The 2026-05 validation campaign experienced 3+ evictions across its multi-day runtime. |
+| 128-thread `--branch` post-enum per-branch merge SIGSEGV | At `SOLVE_THREADS=128` in `--branch X Y` mode (depth-3), the per-branch in-process merge step can SIGSEGV. The enum's shards are written correctly to disk; only the per-branch summary merge crashes. | Doesn't affect global merge correctness — the shards are intact and the next `solve --merge` produces the right sha. Continue the campaign. (Tracked as a known anomaly; selftest subtest 4 explicitly accepts this exit code.) |
 
-### 5e. Reference scripts
+### 6e. Reference scripts
 
 The project's actual implementation of this pattern lives at:
 
@@ -484,7 +488,7 @@ You have two strategies for the global merge: **in-memory dedup**
 external merge** (needed when in-memory dedup would exceed available
 RAM). Pick based on your campaign's expected solution count.
 
-### 8a. In-memory merge (the default)
+### 9a. In-memory merge (the default)
 
 `solve --merge` builds a hash table of unique solutions in RAM,
 streams shards through it, then writes the deduped output. RAM
@@ -508,7 +512,7 @@ representative shard set first** before committing to a merge VM
 size. Cheap insurance against running out of RAM at the end of a
 multi-day campaign.
 
-### 8b. Disk-based external merge — when and how
+### 9b. Disk-based external merge — when and how
 
 When solution count exceeds practical RAM, the merge has to use
 disk as the working set instead of the in-memory hash table. The
@@ -563,7 +567,7 @@ Net peak RAM ~10–50 GB regardless of solution count. Trade-off:
 
 This is also **not in `solve.c` today**.
 
-### 8c. Hybrid: split campaign into tiers, merge separately
+### 9c. Hybrid: split campaign into tiers, merge separately
 
 Even simpler than the above for some workloads: don't try to merge
 all 56 branches at once. Instead:
@@ -584,7 +588,7 @@ duplicates that would have been deduped against another tier's
 records. So total work is slightly more than a single global
 merge, but RAM is bounded.
 
-### 8d. Decision recipe
+### 9d. Decision recipe
 
 Given an estimated solution count S:
 
@@ -651,6 +655,44 @@ What `solutions.bin` does NOT contain — capture these explicitly:
 If you skip `SOLVE_DEPTH_PROFILE=1` to "save 1% of cycles", you
 can never tell after the fact which cells were budget-exhausted.
 That's the most-asked future question.
+
+### 11a. Pre-record invariants — recompute on demand, don't pre-bake
+
+A natural temptation is to extend `solutions.bin`'s record format
+(currently 32 bytes/record) to include pre-computed per-record
+invariants (cd, distance-sum, XOR-set, etc.). **Don't.** Two
+reasons:
+
+1. **Cache-line-friendly storage matters.** 32-byte records pack
+   exactly two per 64-byte cache line. Going to 48 bytes/record
+   means every other record straddles a cache line, hurting
+   in-memory hash-table dedup at merge time by ~5–15%. Going to
+   64 bytes/record doubles storage. Neither is a great trade.
+
+2. **On-demand recomputation is fast.** cd (mean complement
+   distance) for a single 32-byte record is ~100 cycles. For a
+   billion-record canonical, that's ~30 seconds on one core, a
+   few seconds parallelized. Pre-baking saves seconds, not hours.
+
+If you want pre-computed invariants for repeated analyses, write
+them to a **sidecar file** (`solutions.invariants` parallel to
+`solutions.bin`), 1:1 indexed by row. Doesn't change
+`solutions.bin`'s sha lineage and is opt-in for readers that
+need it.
+
+### 11b. "Do-or-lose-forever" decisions
+
+A small number of decisions cannot be undone after the campaign
+finishes without a full re-enumeration:
+
+| Decision | Why it's irreversible | Cost to recover |
+|---|---|---|
+| Constraint set used during the walk | Walk pruning eliminated orderings excluded by the original constraints; you cannot recover them from solutions.bin. | Full re-enumeration with the new constraint set. |
+| Per-sub-branch budget | Cells that hit BUDGETED status weren't fully explored. | Asymmetric extension on those cells with higher budget. |
+| Whether near-miss orderings (failed C5 by ≤ N swaps) were captured | Failed-C5 orderings reach depth 32, get rejected by C5's final check, and are discarded if not captured. | Full re-enumeration with a "drop C5 final check" mode (~$200-500 at moderate scale). |
+
+Decide these before launch — cost of wrong decisions is full
+re-runs, not incremental fixes.
 
 ## 12. Reproducibility checklist
 
