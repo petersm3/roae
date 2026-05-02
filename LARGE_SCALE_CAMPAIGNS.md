@@ -42,7 +42,7 @@ Before sizing anything, answer these questions:
      methodology.
    - **Canonical:** every record must be *enumerated*, not
      inferred. Symmetry shortcuts are okay only if proven as
-     theorems first. See §9.
+     theorems first. See §10.
 
 4. **What do you intend to do with the data?**
    Most analytical questions (apply a new constraint as filter,
@@ -50,7 +50,7 @@ Before sizing anything, answer these questions:
    only `solutions.bin`. A few questions (extend the run,
    identify which cells are budget-exhausted) need
    *side-metadata*, captured during the run via `SOLVE_DEPTH_PROFILE=1`.
-   See §10.
+   See §11.
 
 ## 2. Sizing: choose VM size, count, and budget
 
@@ -91,7 +91,67 @@ to keep wall under ~10 days; cost scales linearly with budget.
 cost.** Mixing them gives wrong answers by 10×. The 560T plan uses
 the 9–21 M range; pick ~15 M for a midpoint estimate.
 
-## 3. Cost estimation methodology
+## 3. Budget semantics — what "10T per branch" actually means
+
+`SOLVE_NODE_LIMIT` is a **cap**, not a target. Total nodes walked
+is always ≤ the cap, typically less. Two structural reasons:
+
+### 3a. Per-sub-branch budget is what's binding
+
+For `--branch X Y` mode, solve doesn't enforce the global node
+limit directly during enumeration. Instead it computes (or accepts
+override of) a **per-sub-branch budget**, and stops each cell when
+it hits that. The global cap only acts as a coarse safety ceiling.
+
+If you let the per-sub-branch budget auto-compute from
+`SOLVE_NODE_LIMIT`, solve.c divides by 3030 (the depth-2 cell
+count). At depth=3 the actual cell count is ~2,824, so:
+
+| You set `SOLVE_NODE_LIMIT` to: | Auto-computed per-cell budget | Effective total at depth=3 (× 2,824 cells) |
+|---|---|---|
+| 10 T (intending "10T per branch") | 10T / 3030 = 3.30 B | **9.32 T per branch** (7% under) |
+| 11.2 T (Tier 1's actual setting) | 11.2T / 3030 = 3.70 B | 10.43 T per branch |
+
+**The auto-compute under-shoots at depth=3.** To target a precise
+per-branch budget, **set `SOLVE_PER_SUB_BRANCH_LIMIT` explicitly**
+to override the wrong divisor:
+
+| Intended per-branch budget | Set `SOLVE_PER_SUB_BRANCH_LIMIT` to: | Effective per-branch (× 2,824) |
+|---|---|---|
+| 5.6 T | 1,982,000,000 | 5.60 T (exact, modulo int rounding) |
+| 10 T | 3,541,500,000 | 10.00 T |
+| 11.2 T | 3,966,000,000 | 11.20 T |
+| 100 T | 35,410,400,000 | 100.0 T |
+
+### 3b. Natural termination always leaves you under
+
+Even with the per-cell budget set correctly, **most cells walk
+fewer than per_cell_budget nodes** because they naturally terminate
+(C2 / C3 / C5 pruning kills the branch, or the search tree is
+genuinely finite at this depth). Total walked per first-level
+branch = sum of per-cell walks, which is ≤ N_cells × per_cell_cap.
+
+Empirical example: the 100T pilot targeted 100T per single
+depth-3 cell, walked 99.43T (0.57% under). Two crashes contributed
+to that under-shoot, but even on a clean run there's some natural-
+termination contribution.
+
+### 3c. Implications
+
+- **You CANNOT guarantee total walked ≥ N nodes** (natural
+  termination always permits less). If you need this property for
+  some reason, you've designed wrong; reformulate.
+- **You CAN guarantee per-cell-cap = K** (every BUDGETED cell
+  walked exactly K). For canonicity (the SHA depends on which
+  cells were budget-exhausted), this is the correct invariant.
+- **For sha reproducibility:** lock `SOLVE_PER_SUB_BRANCH_LIMIT`
+  explicitly, not via `SOLVE_NODE_LIMIT` auto-compute. Future
+  changes to the auto-compute divisor would silently change shas.
+- **For status reporting:** the per-cell BUDGETED count from
+  `per_task_stats.csv` is the true measure of "how much budget
+  did this campaign use." Report THAT, not the global cap.
+
+## 4. Cost estimation methodology
 
 Apply this formula:
 
@@ -107,7 +167,7 @@ substantially across workloads, and giving a single number creates
 false precision. Express ranges as `(pessimistic, mid, optimistic)`
 based on the §2c rate band that matches your workload.
 
-## 4. Pre-flight validation — required before any campaign launch
+## 5. Pre-flight validation — required before any campaign launch
 
 The `solve.py --extended-selftest` test suite (9 subtests) is the
 canonical pre-flight gate. It exercises:
@@ -140,7 +200,7 @@ production-scale spot-checks — the project calls these "Tier 9+":
 - **Cross-VM rsync integrity** — verify byte-identical transfer of
   shards across VMs.
 
-## 5. Campaign architecture
+## 6. Campaign architecture
 
 The canonical pattern for a multi-VM single-branch campaign uses
 two roles: a **per-VM branch runner** that iterates the VM's
@@ -377,7 +437,7 @@ The project's actual implementation of this pattern lives at:
 Use them as a starting point; adapt VM names, paths, and budgets
 to your campaign.
 
-## 6. Branch distribution — balancing wall time across VMs
+## 7. Branch distribution — balancing wall time across VMs
 
 Tier 1's yield distribution shows orientation-0 branches have
 roughly 5–10× more solutions than orientation-1 branches. If you
@@ -398,7 +458,7 @@ If a VM finishes early and the other has many branches left,
 **don't** try to dynamically rebalance — let the slower VM finish.
 Dynamic claim mechanisms add complexity for marginal speedup.
 
-## 7. Eviction recovery
+## 8. Eviction recovery
 
 For each VM, on spot eviction:
 
@@ -417,7 +477,7 @@ merge is interrupted, restart it from clean — the shards are
 unchanged. Tier 9c (mid-merge interruption recovery) verifies this
 works correctly.
 
-## 8. Merge VM sizing — and disk-based alternative for extreme scale
+## 9. Merge VM sizing — and disk-based alternative for extreme scale
 
 You have two strategies for the global merge: **in-memory dedup**
 (simple, fast, what `solve --merge` currently does) or **disk-based
@@ -532,9 +592,9 @@ Given an estimated solution count S:
 - 2 B < S ≤ 4 B → in-memory merge on E64ads_v5 (512 GB), confirm
   with merge-memory-test first.
 - 4 B < S ≤ 8 B → in-memory merge on E96 (672 GB) is borderline;
-  **prefer hybrid (§8c)** for safety, or accept the risk and
+  **prefer hybrid (§9c)** for safety, or accept the risk and
   run merge-memory-test first.
-- S > 8 B → use hybrid (§8c) or disk-based external merge (§8b
+- S > 8 B → use hybrid (§9c) or disk-based external merge (§9b
   Option 1 with `--merge-layers`).
 - S > 10 B → disk-based via `--merge-layers` is the only practical
   path with current `solve.c`. Adding Option 2 (true external
@@ -544,7 +604,7 @@ Run **a merge-memory test** in any case where peak RSS is within
 2× of available RAM. Better to find out at small scale than at
 the end of a multi-day campaign.
 
-## 9. Symmetry shortcuts and other pruning — when defensible
+## 10. Symmetry shortcuts and other pruning — when defensible
 
 The project's data shows orientation symmetry is **not universal**:
 only 16.3% of multi-variant `(p1, p2, p3)` groups have all
@@ -568,7 +628,7 @@ Three defensibility levels for using symmetry:
 
 For a research run that's not a canonical, level 3 is fine.
 
-## 10. Side-metadata — what to capture beyond `solutions.bin`
+## 11. Side-metadata — what to capture beyond `solutions.bin`
 
 `solutions.bin` contains all the orderings. From it alone you can:
 
@@ -592,7 +652,7 @@ If you skip `SOLVE_DEPTH_PROFILE=1` to "save 1% of cycles", you
 can never tell after the fact which cells were budget-exhausted.
 That's the most-asked future question.
 
-## 11. Reproducibility checklist
+## 12. Reproducibility checklist
 
 For any campaign producing a sha you intend to publish:
 
@@ -619,7 +679,7 @@ For any campaign producing a sha you intend to publish:
    methodology doc) describing what went wrong, what surprised
    you, and what cost-and-wall actually came in vs estimate.
 
-## 12. Honest uncertainties
+## 13. Honest uncertainties
 
 This guide reflects the project's empirical experience, but a few
 things are still open:
@@ -638,7 +698,7 @@ things are still open:
 If you run a campaign that produces new data on any of these,
 contributing a follow-up to this doc is welcome.
 
-## 13. Worked example: 56 × 10T at 2 × D64 spot
+## 14. Worked example: 56 × 10T at 2 × D64 spot
 
 Concrete recipe for the project's planned 2026-05 campaign:
 
@@ -665,7 +725,7 @@ That's the template. For larger-scale campaigns (5.6 PT, 56 PT),
 multiply budget linearly, scale VM count to keep wall under ~10
 days, and re-check merge VM RAM requirement.
 
-## 14. References
+## 15. References
 
 - `petersm3/roae`:
   - [`SOLVE.md`](SOLVE.md), [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) — what's been computed and what holds
