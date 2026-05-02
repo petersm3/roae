@@ -1355,8 +1355,14 @@ fields like `dfs_v2_resume_active` held end-of-enum values like 19,
 `solve --merge` over the preserved 56,874 shards. Sanity gate
 relaxed to warn-only in commit `46a7403`.
 
-**May 1 – May 2, 2026 PDT (April 30 21:56 PDT through May 2, 2026 UTC) — Validation campaign + concerns 1, 2, 3.**
-Master.sh launched at April 30 21:56 PDT (May 1 04:56 UTC).
+**April 30 evening – May 2, 2026 PDT (May 1 – May 2 UTC) — Validation campaign + concerns 1, 2, 3.**
+The campaign launch timestamp recorded in CURRENT_PLAN.md is
+2026-05-01 04:56 UTC (= April 30 21:56 PDT). The first master.sh
+process I directly observed in logs started later: 2026-05-01
+12:52 UTC (= May 1 05:52 PDT) — likely a relaunch after some
+intervening event. Either way, the work spans late April 30
+through May 2 in PDT.
+
 A nine-tier validation matrix was launched to prove partition+resume
 + thread-count + implementation invariance at 11.2T scale, plus
 robustness under spot-eviction and cross-architecture conditions.
