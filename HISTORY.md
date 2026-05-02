@@ -1328,6 +1328,108 @@ C1-C5. That count is a lower bound at this budget; deeper budgets would
 likely surface more orderings. What's verified is reproducibility, not
 exhaustiveness.
 
+## April 28 – May 2, 2026 — 11.2T canonical + 2026-05 validation campaign
+
+After the 100T pilot completed (April 28-29) and the orphan-script
+incidents (April 29) led to the spot-only-except-claude rule,
+attention turned to producing a definitive depth-3 partial-
+enumeration canonical at a budget chosen to be the project's
+reference for ongoing analytical work.
+
+**Tier 1 — 11.2T canonical (April 28-29).** Single-shot full
+enumeration on `pilot-100T-westus3` D128als_v7 spot in westus3,
+SOLVE_DEPTH=3 + SOLVE_NODE_LIMIT=11200000000000 + SOLVE_PER_SUB_BRANCH_LIMIT=70723196.
+Walltime ~2.1 hr enum + 56 min merge. Output sha:
+`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`,
+759,608,573 unique solutions, 24.3 GB solutions.bin. The in-process
+auto-merge initially tripped a Layer 2 sanity gate (per-thread
+fields like `dfs_v2_resume_active` held end-of-enum values like 19,
+38 instead of 0/1); the canonical sha was produced by a direct
+`solve --merge` over the preserved 56,874 shards. Sanity gate
+relaxed to warn-only in commit `46a7403`.
+
+**2026-05-01 to 2026-05-02 — Validation campaign + concerns 1, 2, 3.**
+A nine-tier validation matrix was launched to prove partition+resume
++ thread-count + implementation invariance at 11.2T scale, plus
+robustness under spot-eviction and cross-architecture conditions.
+The campaign surfaced bugs and one mishap that took most of two
+days to resolve:
+
+- **Tier 2c MISMATCH** (sha `2db60543…` instead of `0c0fe37c…`)
+  root-caused to two `solve.c` bugs in the `--branch` resume path:
+  - `current_per_branch_budget` was 0 when the resume gate was
+    checked, making PHASE_B a no-op (commit `c3d3ad6`).
+  - `MAX_COMPLETED_SUBS` was 4096; depth-3 enumeration produces
+    up to ~158k completed sub-branches; truncation corrupted
+    resume state. Bumped to 524288 (commit `db27d00`).
+- **`--branch + SOLVE_THREADS=128` buffer overflow at depth 3:**
+  stack arrays sized [64] were indexed up to 127. Fixed by sizing
+  to [256] and heap-allocating the larger 2D array (commit
+  `ec21d09`).
+- **Stale binary on the campaign VM:** despite source-side fixes,
+  the VM's compiled binary was 5 commits behind. The first
+  recovery attempt re-ran with the same buggy binary for ~4 hours
+  before being detected. After `git pull` + rebuild + verification
+  via `--extended-selftest`, a clean re-run produced the canonical
+  sha. Cost: ~$8 of avoidable spot time. Documented as an
+  operational lesson in `LARGE_SCALE_CAMPAIGNS.md`.
+- **Concerns 1, 2, 3** — Tier 6D layered-merge "mismatch" (a
+  misdiagnosis caused by Tier 5's buggy comparison sha), Tier 5
+  re-validation as Tier 5B, and selftest gap (subtests 4-9 added).
+  Full post-mortem in
+  `petersm3/x:roae/CONCERNS_1_2_3_RESOLUTION_2026_05_02.md`.
+
+**8-path equivalence at 11.2T proven (as of 2026-05-02 evening):**
+
+| Path | Method | Sha |
+|---|---|---|
+| Tier 1 | Single-shot 11.2T full enum, 128 threads | `0c0fe37c…` |
+| Tier 2a | 5.6T → resume → 11.2T full-enum | `0c0fe37c…` (re-validation queued via `tier2a_revalidate.sh`) |
+| Tier 2b | 56-branch × 11.2T fresh + global merge | `0c0fe37c…` |
+| Tier 2c | 56-branch × 5.6T → 11.2T resume + merge | `0c0fe37c…` |
+| Tier 4 | ARM Cobalt cross-arch | `0c0fe37c…` |
+| Tier 7a | Recursive DFS (no `SOLVE_DFS_ITERATIVE`) | `0c0fe37c…` (manual merge after auto-merge sanity-gate trip) |
+| Tier 7b canonical/64 | 11.2T at 64 threads | `0c0fe37c…` |
+
+**Tier 7b small-scale at 4/32/64/128 threads:** all produce the
+same sha (`e43f2905…`) at 200M-node scale. Thread-count invariance
+proven across a 32× thread range.
+
+**Tier 5 / Tier 5B asymmetric extension** (branch (22, 0) at 2× per-
+sub-branch budget): sha `b415c8ec…`, differs from Tier 1 as
+expected. +49.74% solutions on branch (22, 0) — proves at least one
+cell hit Tier 1's 70M per-sub-branch cap, motivating future
+single-branch deeper-budget exhaustion runs.
+
+**Operational lessons (added to `LARGE_SCALE_CAMPAIGNS.md`):**
+- Auto-merge sanity gate fragility at high thread counts /
+  recursive DFS — manual `solve --merge` is the recovery path.
+- Disk device numbering reshuffles on every VM restart — use
+  `lsblk`/`blkid`/UUID-mount, not `/dev/nvmeNnM` directly.
+- Spot eviction is certain over 3+ day campaigns; multiple per
+  VM is normal.
+- The "C3 threshold = 12.125 ≤" is reverse-engineered from KW;
+  the defensible scientific claim is the percentile statement
+  (3.9th percentile of C1+C2-satisfying orderings), not the
+  numerical threshold (added to `SOLVE.md` Rule 3 note).
+
+**Live operational state during the campaign** is in
+`petersm3/x:roae/CURRENT_PLAN.md` (private operator log). Key
+2026-05-02 docs (also private):
+`CAMPAIGN_2026_05_VALIDATION.md`,
+`CONCERNS_1_2_3_RESOLUTION_2026_05_02.md`,
+`CAMPAIGN_560T_PLANNING_2026_05_02.md`,
+`CATEGORY_B_QUESTIONS_2026_05_02.md`,
+`C3_THRESHOLD_INVESTIGATION_2026_05_02.md`,
+`SOLUTIONS_BIN_FUTURE_PROOFING_2026_05_02.md`,
+`V2_ENGINEERING_SCOPE_2026_05_02.md`.
+
+**Next milestone:** 560T canonical run (56 × 10T per first-level
+branch on 2 × D64 spot, ~$80–135 mid-range, ~3.4 days wall),
+planned to launch after the validation chain (Tier 7c, 7d, 2a-
+revalidation, 9, 9+) finishes. Pre-launch decisions pending in
+`CAMPAIGN_560T_PLANNING_2026_05_02.md` §17.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
