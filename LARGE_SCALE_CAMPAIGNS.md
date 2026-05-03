@@ -745,12 +745,28 @@ For any campaign producing a sha you intend to publish:
    imply** — i.e., the global `--merge` is deterministic and
    independent of shard arrival order. Tier 9a in the test suite
    checks this.
-5. **Archive `solutions.bin` + `solutions.sha256` + all side-
+5. **Two-language constraint verification on the merged output,
+   pre-publication.** Run `solve --verify solutions.bin` AND
+   `python3 verify.py solutions.bin` before declaring the sha
+   canonical. Both must pass. The two checkers share no code —
+   `solve --verify` is C in the same binary that produced the
+   file (catches bit-flip, disk corruption, merge bugs);
+   `verify.py` is an independent Python reimplementation of
+   C1–C5 (catches shared-codepath bugs in solve.c that
+   `solve --verify` would miss). Skipping either reduces the
+   verification to one-language and weakens the chain. Wire
+   both into the orchestrator post-merge step so the gate is
+   automatic, not relying on operator memory. For tiers in a
+   validation chain that produce a *new* sha (asymmetric
+   extension, multi-stage chain final phase, etc.) this is the
+   only constraint check available — sha-equivalence transitive
+   verification doesn't apply when the sha is new.
+6. **Archive `solutions.bin` + `solutions.sha256` + all side-
    metadata + all shards + all `dfs_state` files + the locked
    binary** to cold storage (Azure Standard_LRS HDD is fine).
    Cost: ~$0.045/GB-mo. For a 200 GB shard pile + 50 GB output
    = ~$11/mo.
-6. **Document the campaign** with a follow-up post-mortem (or
+7. **Document the campaign** with a follow-up post-mortem (or
    methodology doc) describing what went wrong, what surprised
    you, and what cost-and-wall actually came in vs estimate.
 
@@ -826,11 +842,72 @@ solve.c, just operational patterns worth knowing about:
    the record format (the perf tradeoff with cache lines is
    worse than the ~30 sec saving). Sidecar files or on-demand
    recompute are cleaner.
-9. **128-thread `--branch` post-enum per-branch merge SIGSEGV.**
-   At `SOLVE_THREADS=128` in `--branch X Y` mode (depth-3), the
-   per-branch in-process merge step can SIGSEGV. Doesn't affect
-   correctness — the shards are intact and the next global
-   `solve --merge` produces the right sha. Don't panic.
+9. **Long-running 128-thread enumerations may crash the parent
+   process at the post-enum cleanup boundary.** Symptom: solve
+   exits with `Segmentation fault (core dumped)` after the
+   enumeration walk has fully completed (all `*** Sub-branch N/N
+   BUDGETED ***` messages emitted, all shards written to disk).
+   Most commonly observed with `SOLVE_THREADS=128`,
+   `SOLVE_DFS_ITERATIVE=1`, depth-3, and elapsed walks of ~75
+   minutes or more. Root cause: the 128-thread iterative+v2 path
+   accumulates heap-state corruption that surfaces in
+   glibc's allocator routines (free / malloc / heap consolidation)
+   at the post-enum cleanup boundary. The enumeration output
+   (the per-thread shards) is unaffected — those are written
+   incrementally via plain `fwrite` and reach disk well before
+   the crash.
+
+   **Universal mitigation (do this every time):** the shards on
+   disk are the durable artifact. Run `solve --merge` in the
+   affected directory **from a fresh shell**. A fresh process
+   has a clean heap; reads only the shards; produces a
+   deterministic, correct `solutions.bin` and `solutions.sha256`.
+   This recovery has been observed to reproduce the canonical
+   sha byte-identically across many independent occurrences.
+
+   **What `solve.c` does to reduce frequency:** the `--merge`
+   step itself runs in a fork()-isolated child process precisely
+   because of this heap-corruption family (added 2026-04-30
+   after Test A). A subsequent fix removed the most-frequent
+   crash trigger — three pre-fork `free()` calls in the parent
+   that ran in the corrupt heap before the fork could isolate.
+   With both mitigations in place, this crash is rare; without
+   them, it was nearly deterministic at 128t / depth-3 / 75+ min.
+
+   **What is still unfixed:** the underlying heap corruption.
+   The two mitigations route around it; they do not eliminate
+   it. **History note worth absorbing:** the 2026-04-30
+   fork-merge fix (Test A) didn't make the crash go away — it
+   *relocated* the crash from the in-process merge step to a
+   different allocator touch (the three pre-fork free()s). Once
+   the dead-free patch lands, the crash could similarly relocate
+   to another allocator touch in the parent process (fopen,
+   printf, glibc cleanup at process exit). Each fix has reduced
+   crash frequency by addressing the most heavily-used allocator
+   path remaining; none has eliminated the corruption itself.
+   Future contributors planning a 128-thread campaign should
+   expect a non-zero residual crash rate at this boundary
+   indefinitely, and should design scripts to **always** run
+   `solve --merge` from a fresh process if `solutions.bin` is
+   missing or `solutions.sha256` is empty after a normal-looking
+   enum completion. A Valgrind/AddressSanitizer-based root-cause
+   investigation is on the deferred backlog; until that lands,
+   the shard-then-merge-from-fresh-shell pattern is the
+   guarantee of correctness, not the absence of crashes.
+
+   **Why this isn't a correctness risk:** the canonical sha
+   produced by a fresh-shell `solve --merge` from intact shards
+   has been independently verified across multiple campaigns
+   (sha-equivalence to Tier 1 reference at 11.2T, two-language
+   constraint verification per §12 item 5). A crash at the
+   post-enum cleanup boundary cannot corrupt the on-disk shards
+   — by the time the cleanup phase runs, the enumeration
+   threads have already written their shards via `fwrite` +
+   `fclose`, and any pending kernel writes complete independent
+   of parent-process state. If `solutions.bin` exists but is
+   somehow truncated or unsorted (e.g. a crash mid-merge in a
+   pathological recovery), `solve --verify` (auto-detects
+   shard vs full-file mode) will catch it before publication.
 10. **Spot evictions during merge are recoverable.** Merge isn't
     incrementally checkpointed, but it's deterministic. If
     eviction hits mid-merge: `rm` partial outputs, restart
