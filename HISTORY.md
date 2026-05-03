@@ -1444,6 +1444,121 @@ planned to launch after the validation chain (Tier 7c, 7d, 2a-
 revalidation, 9, 9+) finishes. Pre-launch decisions pending in
 `CAMPAIGN_560T_PLANNING_2026_05_02.md` §17.
 
+**May 2 evening – May 3 morning, 2026 PDT (May 3 UTC) — pattern
+diagnosis and forward planning.** The validation chain continued
+through Tier 7c, 7d, Tier 2a re-validate, and Tier 9. Two durable
+findings landed:
+
+*1. Dead-free SIGSEGV diagnosis (solve.c:12114).* Five
+consecutive 128-thread / depth-3 / billion-node runs (T7c P1, P2,
+P3, P4, T7d extend1) all SIGSEGV'd at the same code location:
+the three pre-fork `free()` calls of per-thread `sol_table` /
+`sol_occupied` / `sub_branches` buffers at solve.c:12112-12117.
+The 2026-04-30 fork-merge fix (Test A) had isolated the merge
+step to a child process, but those three free()s still execute
+in the parent's corrupt heap *before* the fork — and crash there
+at a near-deterministic rate. The fix is one line: drop the
+free()s, since the process exits immediately afterward and the
+OS reclaims memory. Zero semantic change. Documented in
+`LARGE_SCALE_CAMPAIGNS.md` §13a #9 (rewritten with the explicit
+caveat that fixes in this family relocate the crash rather than
+eliminating it; the underlying heap corruption is unfixed and
+root-cause Valgrind/ASan investigation is on the deferred
+backlog). The recovery cascade (private repo:
+`560t_scripts/t7c_p3_recovery.sh`) is armed to validate the
+patch by running a fresh 11.2T full enum on the patched binary
+and verifying sha == `0c0fe37c…`. Crucially, every Tier 9 test
+that emitted a sha PASSED with byte-identical match to its
+reference (T9a distributed-merge equivalence, T9c mid-merge
+kill+restart recovery, T9d mixed-budget shard merge
+determinism, T9e two independent end-to-end runs); only the
+tests that lost their parent-process sha emit step to the
+SIGSEGV reported cosmetic FAIL (tier2a-revalidate, T9b). The
+shards on disk are the durable artifact; fresh-shell
+`solve --merge` produces correct shas in every observed
+recovery.
+
+*2. AVX-512 retool + CPU optimization bundle promoted to
+pre-560T gating.* Operator direction across two decisions on
+2026-05-03:
+
+- **AVX-512 vectorization** of the cd-sum (C3 complement-
+  distance), C2 hamming check, and C5 difference-distribution
+  histogram. Single-binary runtime feature dispatch via
+  `__builtin_cpu_supports` so the same binary runs on AVX-512-
+  capable hardware (D-als-v7 Zen 5 Turin, full native 512-bit
+  datapath, verified via `cpu family 26` in `/proc/cpuinfo` to
+  expose `avx512f`/`avx512vpopcntdq`/`avx512bw` etc.) and
+  gracefully falls back to scalar elsewhere (Cobalt ARM, older
+  AMD Zen 1/2/3, Intel consumer 12th-gen+). Speedup ceiling
+  revised upward to **1.4–2.0× total runtime** after confirming
+  Zen 5's full native 512-bit datapath (vs the 1.25–1.6× we'd
+  see on Zen 4's double-pumped implementation). Hard validation
+  gate: byte-identical canonical sha on both scalar and AVX-512
+  paths at 11.2T. Plan in private
+  `AVX512_IMPLEMENTATION_PLAN_2026_05_03.md`.
+- **CPU optimization bundle** post-AVX-512: LTO + jemalloc
+  (`LD_PRELOAD` runtime-only, no source change, BSD-2-Clause
+  license posture preserved) + huge pages + PGO + NUMA-local
+  allocation (raw kernel syscalls preferred over libnuma to
+  keep solve.c license-clean) + conditional hash-table tuning
+  if profile justifies. Composes with AVX-512 for **~2-3×
+  combined total speedup** in the mid case. Plan in private
+  `FUTURE_PERFORMANCE_OPTIONS_2026_05_03.md` §5; license posture
+  detailed in §5f. Recommendation: jemalloc tested *first*, even
+  before AVX-512, both for the heap-stability bonus (the
+  unfixed Test A / dead-free family lives in glibc's allocator
+  and jemalloc may resolve or relocate it cleanly) and to give
+  the AVX-512 retool a known-stable heap to land on.
+
+Net: pre-560T critical path now adds ~5-7 weeks (was "soon
+after current chain" before these promotions; was ~3 weeks
+after AVX-512 alone). 560T launches ~5-7 weeks post-validation.
+
+GPU port was analyzed and rejected (branchy DFS + random-access
+hash table is poorly suited to SIMT; cost math doesn't recover
+at any project-relevant scale). SVE2 vectorization (ARM
+analogue of AVX-512) added to deferred backlog — only justified
+if production runs land on ARM hardware (parity here is
+*correctness reproducibility*, which scalar already provides via
+Tier 4 on Cobalt; SVE2 would be a performance-side concern).
+Phase 5 of AVX-512 owns a public-doc deliverable: a
+one-paragraph note in `LARGE_SCALE_CAMPAIGNS.md` once AVX-512
+ships, acknowledging x86 vectorization is in place and ARM/SVE2
+remains backlog. Orientation-symmetry algorithmic pruning kept
+in backlog for post-560T consideration.
+
+*Two-language verification adopted as the pre-publication
+correctness gate.* Both `solve --verify` (C, in the producer
+binary) and `verify.py` (Python, independent reimplementation)
+must pass on the merged `solutions.bin` before any sha is treated
+as canonical. The two checkers share no code, so a constraint-
+logic bug in solve.c that sneaks past `--verify` is still caught
+by `verify.py`. Wired into the 560T orchestrator as a gating
+post-merge step; documented as item #5 in the
+`LARGE_SCALE_CAMPAIGNS.md` §12 reproducibility checklist.
+
+*Tier 7d new sha:* `c5c1edf466dd5dcf265d4ca307e975e855ffa4c0b895ce32fa7da1dffbc579de`
+(asymmetric-on-asymmetric: extend (22, 0) then (5, 1) on the
+Tier 1 baseline at 2× per-sub-branch budget). Differs from Tier 1
+as expected (both branches extended).
+
+*Public-doc additions during this period:*
+`LARGE_SCALE_CAMPAIGNS.md` §12 #5 (two-language verify), §13a #9
+(thorough rewrite of 128t SIGSEGV note), §13.0 (new "scale
+honesty" subsection clarifying which scales solve.c has been
+empirically validated at — 11.2T canonical and 100T pilot — and
+which are extrapolations: 5.6 PT, 56 PT, depth-4).
+
+The validation chain is in flight as of this entry; Tier 9+
+(including 9+c.1 single-shot 100T and 9+d 56-branch 100T
+re-derivation, ~16 hr each) is the long pole. One spot
+eviction occurred mid-chain on 2026-05-03 ~05:00 PDT and was
+recovered cleanly via the standard pattern (az vm start +
+`lsblk`/UUID-aware mount + relaunch watchers). Once the chain
+completes, the recovery cascade fires the dead-free patch
+validation; AVX-512 retool work begins after that.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
