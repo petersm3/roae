@@ -800,9 +800,16 @@ retooling before it can run reliably at the new scale.
 
 **Empirically validated:**
 - 11.2T canonical full enum (Tier 1, byte-identical sha
-  reproducibility across multiple paths)
-- 100T pilot (single observed run, ~17 hr wall, full solutions.bin
-  produced, sha published)
+  reproducibility across multiple paths,
+  sha=`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`,
+  759 M canonical orderings)
+- 100T canonical (single observed run, 2026-04-19/20, ~17h
+  wall, 158,364 sub-branches at depth=3, full solutions.bin
+  produced, sha=`915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`,
+  3.43 B canonical orderings — this is the *post-bugfix* run;
+  earlier 100T attempts in early/mid April 2026 hit a
+  filename-collision bug that silently undercounted by ~23×
+  and are not part of the validated record)
 
 **Planned but not yet run (as of this doc's revision date):**
 - 560T canonical (56 × 10T per first-level branch)

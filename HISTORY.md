@@ -1463,8 +1463,12 @@ OS reclaims memory. Zero semantic change. Documented in
 `LARGE_SCALE_CAMPAIGNS.md` §13a #9 (rewritten with the explicit
 caveat that fixes in this family relocate the crash rather than
 eliminating it; the underlying heap corruption is unfixed and
-root-cause Valgrind/ASan investigation is on the deferred
-backlog). The recovery cascade (private repo:
+root-cause Valgrind/ASan investigation was initially on the
+deferred backlog, then PROMOTED later 2026-05-03 to a pre-560T
+gating step per operator direction so the AVX-512 retool lands
+on a truly-fixed heap rather than the dead-free workaround;
+estimated cost ~$15-40 on D64 spot, eng ~1-2 weeks). The
+recovery cascade (private repo:
 `560t_scripts/t7c_p3_recovery.sh`) is armed to validate the
 patch by running a fresh 11.2T full enum on the patched binary
 and verifying sha == `0c0fe37c…`. Crucially, every Tier 9 test
