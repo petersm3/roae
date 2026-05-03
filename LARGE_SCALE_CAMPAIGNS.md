@@ -789,6 +789,95 @@ things are still open:
 If you run a campaign that produces new data on any of these,
 contributing a follow-up to this doc is welcome.
 
+### 13.0. Scale honesty — where solve.c has been validated, and where it hasn't
+
+This guide references PT-scale campaigns (5.6 PT, 56 PT) as part
+of the planning vocabulary, but **the implementation has not been
+empirically validated at those scales**. Anyone planning a
+campaign substantially larger than the 100T pilot should treat
+solve.c as a system that may need audit, hardening, or partial
+retooling before it can run reliably at the new scale.
+
+**Empirically validated:**
+- 11.2T canonical full enum (Tier 1, byte-identical sha
+  reproducibility across multiple paths)
+- 100T pilot (single observed run, ~17 hr wall, full solutions.bin
+  produced, sha published)
+
+**Planned but not yet run (as of this doc's revision date):**
+- 560T canonical (56 × 10T per first-level branch)
+
+**Speculative — would require investigation/retooling first:**
+- 5.6 PT (10× the 560T plan, 56× the 100T pilot)
+- 56 PT (100× the 560T plan, 560× the 100T pilot)
+- Depth-4 attempts (orders of magnitude beyond current scales)
+
+**Specific concerns that have NOT been validated at PT-scale:**
+
+1. **Integer overflow.** `long long` handles 5.6 × 10^14 nodes
+   easily, but specific arithmetic patterns in solve.c (cumulative
+   counters, hash-table seed mixing, depth-multiplied budgets)
+   may overflow earlier. A code-level audit looking for patterns
+   like `count1 * count2`, `nodes * factor`, or any operation that
+   could produce a value approaching `LLONG_MAX = 9.2 × 10^18`
+   is worth doing before any 5.6 PT or larger run. Not blocking
+   for 560T (the budget there is 5.6 × 10^14, leaving 4 orders of
+   magnitude of headroom in `long long`).
+
+2. **Hash table sizing.** The current per-thread `sol_table` and
+   global merge-time hash table use heuristic sizing tuned for
+   100T-class workloads. At 5.6 PT scale, expected solution counts
+   could push toward 5–10 B entries; the current sizing may not
+   handle this gracefully. Audit the table-resize / load-factor
+   logic before scaling.
+
+3. **Heap-corruption family at long thread runtimes.** A
+   heap-corruption pattern observed at 128 threads × 75+ minutes
+   has been mitigated (fork-merge isolation, dead-free patch) but
+   not eliminated. At PT-scale, individual --branch runs are
+   longer (multi-day per branch), so the residual crash rate
+   could increase even with both mitigations in place. The
+   shard-then-fresh-merge recovery pattern still produces correct
+   results but adds operator toil. See §13a #9.
+
+4. **File handle / inode limits.** A 5.6 PT campaign with 64
+   first-level branches × 158k sub-branches each = ~10 M shard
+   files. Default `ulimit -n` (1024) and inode limits on small
+   filesystems will fail well below this. Plan for `ulimit -n
+   1000000` and a filesystem with millions of free inodes.
+
+5. **Merge memory at PT scale.** §9b discusses this — but the
+   transition from in-memory to disk-based merge is currently
+   based on extrapolation, not measurement. The disk-based merge
+   path in solve.c (if/when it lands) needs validation at PT-scale
+   shard counts, not just unit-tested.
+
+6. **Long-running fragmentation and OS instability.** Multi-week
+   continuous campaigns surface OS-level issues (kernel memory
+   fragmentation, driver bugs, transient hardware errors) at rates
+   not seen in shorter runs. Reproducible recovery is essential
+   but not yet validated past the 100T-pilot eviction-recovery
+   pattern.
+
+7. **Per-thread rate degradation at long elapsed times.** The
+   100T pilot ran ~17 hours and per-thread rate stayed roughly
+   stable. There is no observation past 17 hours per VM. PT-scale
+   single-VM runs would extend to weeks; rate degradation patterns
+   (allocator fragmentation, page-cache eviction, etc.) are
+   unknown.
+
+**Recommendation for any sub-PT-scale-and-up campaign:**
+
+Before launching, do an explicit pre-flight audit of the items
+above relevant to your scale. Budget engineering time for
+retooling solve.c if any audit item surfaces a real issue. Don't
+treat the 100T pilot's success as proof that solve.c handles 5.6
+PT or 56 PT — those are extrapolations, not validated patterns.
+
+If you run a sub-PT-scale-and-up campaign that surfaces new
+concerns or validates one of the speculative items, contributing
+your findings back to this doc is welcome.
+
 ### 13a. Common gotchas (tips from observed campaigns)
 
 These are gotchas surfaced during real campaigns — not bugs in
