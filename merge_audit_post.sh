@@ -1,4 +1,11 @@
 #!/bin/bash
+#
+# DEPRECATION NOTICE: this bash reference script will be retired
+# once the equivalent functionality lands as `solve --merge-audit-post`
+# in solve.c. When that happens, this script will be removed from
+# the public repo; users should invoke the solve.c subcommand
+# instead. Until then, use this script as the reference implementation.
+#
 # merge_audit_post.sh — post-merge output validation
 #
 # Multi-layered audit of solutions.bin produced by `solve --merge`:

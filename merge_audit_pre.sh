@@ -1,4 +1,11 @@
 #!/bin/bash
+#
+# DEPRECATION NOTICE: this bash reference script will be retired
+# once the equivalent functionality lands as `solve --merge-audit-pre`
+# in solve.c. When that happens, this script will be removed from
+# the public repo; users should invoke the solve.c subcommand
+# instead. Until then, use this script as the reference implementation.
+#
 # merge_audit_pre.sh — pre-merge input validation
 #
 # Refuses to proceed with `solve --merge` if shard inventory looks
