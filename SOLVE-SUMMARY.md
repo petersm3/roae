@@ -294,6 +294,7 @@ ROAE's contribution to the study of the King Wen sequence — distinct from what
 
 - The pair structure (Rule 1) is ancient, discussed in *Yi Zhuan* commentary (5th–3rd c. BCE), formalized in modern combinatorial terms in **Cook 2006** (*Classical Chinese Combinatorics*).
 - The no-5-line-transition property (Rule 2) is documented in **McKenna & McKenna 1975** (*The Invisible Landscape*).
+- **Statistical properties of King Wen vs random permutations** are documented in **Chan 2026** (arXiv:2604.09234) — Monte Carlo permutation analysis against 100,000 random baselines, reporting KW's higher-than-random mean Hamming distance (3.35 at 98.2nd percentile), negative lag-1 autocorrelation of Hamming distances (3.7th percentile), within-pair vs between-pair distance asymmetry (99.2nd percentile), yang-balanced groups of four (99.8th percentile), and surprise-distribution variance. Chan's research predates ROAE; where ROAE's findings overlap with Chan's (specifically: the mean-Hamming, lag-1 autocorrelation, and within/between-pair asymmetry observations) Chan's prior art is acknowledged.
 
 **What ROAE adds:**
 

@@ -183,6 +183,7 @@ Selected links (non-exhaustive, see CITATIONS.md for the full list):
 * Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (Mawangdui manuscript translation)
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia
 * *The Invisible Landscape* — Terence McKenna and Dennis McKenna, Seabury Press, 1975 (earliest published source for the no-5-line-transition observation)
+* [arXiv:2604.09234](https://arxiv.org/abs/2604.09234) — Augustin Chan, *Statistical Properties of the King Wen Sequence: An Anti-Habituation Structure That Does Not Improve Neural Network Training* (2026). Independent Monte Carlo statistical analysis of KW vs 100,000 random permutation baselines; predates ROAE. Several findings overlap with ROAE's via different methodology (statistical-vs-random framing vs constraint enumeration). See [CITATIONS.md](CITATIONS.md) for per-finding overlap analysis.
 * [Genetic code](https://en.wikipedia.org/wiki/Genetic_code) — Wikipedia (64 codons, degeneracy)
 * [DNA and RNA codon tables](https://en.wikipedia.org/wiki/DNA_and_RNA_codon_tables) — Wikipedia (standard codon table)
 

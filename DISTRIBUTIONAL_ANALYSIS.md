@@ -314,3 +314,18 @@ record-level feature distribution.
 Both are latent findings in the 100T canonical that were not visible
 until the appropriate analytical lens was applied. Neither requires
 further enumeration.
+
+**Relationship to Chan 2026 (arXiv:2604.09234).** Chan's independent
+work analyzes King Wen against 100,000 random permutations of all
+64 hexagrams (no constraint pre-filter). ROAE's framing is different
+— we measure KW's position within the C1+C2+C3+C4+C5-constrained
+solution space (~759M orderings at 11.2T, ~3.4B at 100T). The two
+analyses use different baselines and address different questions:
+Chan asks "is KW distinctive vs arbitrary permutations?", ROAE asks
+"is KW distinctive vs other constraint-satisfying orderings?".
+Both find KW at extreme tails of their respective distributions
+(Chan's mean Hamming, lag-1 autocorrelation, asymmetry findings;
+ROAE's joint observable density 0.000%-ile). Where these analyses
+overlap on common observables (mean Hamming, alternation), Chan's
+prior art is acknowledged — see [CITATIONS.md](CITATIONS.md) and
+SOLVE.md / CRITIQUE.md for inline citations.
