@@ -80,13 +80,27 @@ applicable.
   Negative-result study examining whether King Wen's statistical
   properties translate to neural-network training benefits (Chan
   concludes no). Reports Monte Carlo permutation analysis against
-  100,000 random baselines. **Submitted to arXiv 2026-04-10 — the
-  same week ROAE's enumeration work began** (per ROAE's
-  `HISTORY.md`, April 10-11 2026 entries). Both works are
-  contemporaneous and independent; neither is "prior" to the other
-  in any meaningful sense. The arXiv preprint is the formal
-  publication; the GitHub repository is the code, paper sources,
-  and reproducibility materials.
+  100,000 random baselines.
+
+  **Timing relationship to ROAE: Chan's underlying research
+  predates ROAE's enumeration work.** The GitHub repository's
+  commit history shows substantive King Wen analysis activity
+  clustering in early 2025 through March 2026, indicating
+  ~12+ months of prior development. The arXiv preprint was
+  submitted 2026-04-10, which was contemporaneous with ROAE's
+  project start (April 10-11, 2026 per `HISTORY.md`), but the
+  *underlying research findings* in the paper were developed
+  prior to ROAE's existence. **Where ROAE makes claims that
+  match Chan's findings, those should be acknowledged as prior
+  art rather than parallel discovery.** ROAE arrived at the
+  same mathematical observations (specifically: KW's mean
+  Hamming distance, lag-1 autocorrelation, within/between-pair
+  asymmetry) independently and via different methodology, but
+  Chan published first.
+
+  The arXiv preprint is the formal publication; the GitHub
+  repository is the code, paper sources, and reproducibility
+  materials.
 
   Five reported statistical properties of King Wen, of which
   several **overlap with ROAE's findings as the same phenomenon
