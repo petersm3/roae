@@ -761,6 +761,52 @@ For any campaign producing a sha you intend to publish:
    extension, multi-stage chain final phase, etc.) this is the
    only constraint check available — sha-equivalence transitive
    verification doesn't apply when the sha is new.
+
+   **Underlying gap that the verifiers DO NOT close:** they
+   validate per-record correctness, not completeness. A
+   50%-missing `solutions.bin` where every present record is
+   C1–C5 compliant passes both verifiers cleanly. For new
+   canonicals (where there is no reference sha yet),
+   incompleteness is undetectable without an explicit audit.
+   See item #5a below.
+
+5a. **Pre-merge inventory audit + post-merge multi-layer audit
+   (closes the completeness gap).** `solve --merge` walks the
+   shard directory and merges what it finds — there is no
+   manifest. If a shard is deleted (disk corruption, partial
+   rsync, accidental removal), the merge produces silently
+   incomplete output and exits 0 with a wrong sha. For an
+   established canonical this is caught by sha mismatch; for a
+   new canonical (no reference yet) it is undetectable without
+   an explicit pre-merge audit. The reference scripts in this
+   repository — `merge_audit_pre.sh` and `merge_audit_post.sh`
+   — implement a complete audit framework that gates on:
+
+   *Pre-merge (refuse if anything looks wrong):*
+   - Shard count in expected range (vs Tier 1 baseline ~57k)
+   - dfs_state count ±1% of expected (158,364 at depth-3)
+   - No zero-byte / sub-32-byte shards (truncated writes)
+   - All shards record-aligned (no mid-record truncation)
+
+   *Post-merge:*
+   - `solve --verify` (C-side per-record correctness)
+   - `verify.py` (Python independent per-record correctness)
+   - sha match against expected (when available)
+   - **Deterministic re-merge from same shards in fresh dir;
+     sha must match** — catches non-determinism in solve.c's
+     merge (e.g., timing-dependent ordering bugs)
+   - `--branch-yield-report` extraction for forensic record
+
+   Both scripts are bash + GNU coreutils + Python. Wire into
+   your orchestrator before/after `solve --merge`. Fail-fast on
+   any audit failure. Audit overhead: ~5-10 min per merge
+   (deterministic re-merge dominates). What it does NOT catch:
+   per-cell yield drift within bounds, agreed bugs across
+   C and Python implementations, heap-corruption-induced
+   silent data corruption that produces records still
+   satisfying C1–C5. Independent re-derivation on different
+   hardware (Tier 4 cross-arch for established canonicals)
+   is the strongest defense against the latter.
 6. **Archive `solutions.bin` + `solutions.sha256` + all side-
    metadata + all shards + all `dfs_state` files + the locked
    binary** to cold storage (Azure Standard_LRS HDD is fine).
