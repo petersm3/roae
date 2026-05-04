@@ -69,15 +69,28 @@ align mathematically with this body of work and ROAE should
 acknowledge prior/parallel statements of the same phenomenon where
 applicable.
 
-- **augchan42 / king-wen-agi-framework** (GitHub repository,
-  [github.com/augchan42/king-wen-agi-framework](https://github.com/augchan42/king-wen-agi-framework)).
+- **Chan, Augustin** (2026-04-10). *Statistical Properties of the
+  King Wen Sequence: An Anti-Habituation Structure That Does Not
+  Improve Neural Network Training*. arXiv:2604.09234.
+  ([arxiv.org/abs/2604.09234](https://arxiv.org/abs/2604.09234)).
+  Code and data:
+  [github.com/augchan42/king-wen-agi-framework](https://github.com/augchan42/king-wen-agi-framework);
+  Zenodo archive DOI: 10.5281/zenodo.14679537.
+
   Negative-result study examining whether King Wen's statistical
-  properties translate to neural-network training benefits (they
-  conclude no). Includes a paper (`paper/king-wen.pdf`,
-  `paper/king-wen.tex`) reporting Monte Carlo permutation analysis
-  against 100,000 random baselines. Five reported statistical
-  properties of King Wen, of which several **overlap with ROAE's
-  findings as the same phenomenon under different framing**:
+  properties translate to neural-network training benefits (Chan
+  concludes no). Reports Monte Carlo permutation analysis against
+  100,000 random baselines. **Submitted to arXiv 2026-04-10 — the
+  same week ROAE's enumeration work began** (per ROAE's
+  `HISTORY.md`, April 10-11 2026 entries). Both works are
+  contemporaneous and independent; neither is "prior" to the other
+  in any meaningful sense. The arXiv preprint is the formal
+  publication; the GitHub repository is the code, paper sources,
+  and reproducibility materials.
+
+  Five reported statistical properties of King Wen, of which
+  several **overlap with ROAE's findings as the same phenomenon
+  under different framing**:
 
   1. **Mean Hamming distance between consecutive hexagrams: 3.35**
      (98.2nd percentile vs random; sigma=0.15). ROAE's C5 enforces
