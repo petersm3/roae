@@ -58,6 +58,88 @@ ROAE observation that **both Mawangdui and Jing Fang 8 Palaces satisfy C2** (zer
 
 ---
 
+## Independent statistical analyses of King Wen vs random permutations
+
+The following projects independently measure statistical properties of
+the King Wen sequence by comparing it against a population of random
+permutations of all 64 hexagrams. ROAE's framing is different — we
+enumerate the space of orderings satisfying constraints C1–C5 and
+compare KW against THAT distribution — but several of our findings
+align mathematically with this body of work and ROAE should
+acknowledge prior/parallel statements of the same phenomenon where
+applicable.
+
+- **augchan42 / king-wen-agi-framework** (GitHub repository,
+  [github.com/augchan42/king-wen-agi-framework](https://github.com/augchan42/king-wen-agi-framework)).
+  Negative-result study examining whether King Wen's statistical
+  properties translate to neural-network training benefits (they
+  conclude no). Includes a paper (`paper/king-wen.pdf`,
+  `paper/king-wen.tex`) reporting Monte Carlo permutation analysis
+  against 100,000 random baselines. Five reported statistical
+  properties of King Wen, of which several **overlap with ROAE's
+  findings as the same phenomenon under different framing**:
+
+  1. **Mean Hamming distance between consecutive hexagrams: 3.35**
+     (98.2nd percentile vs random; sigma=0.15). ROAE's C5 enforces
+     the exact distance-distribution multiset
+     `{1: 2, 2: 20, 3: 13, 4: 19, 6: 9}`, whose mean is exactly
+     `(1·2 + 2·20 + 3·13 + 4·19 + 6·9) / 63 = 211/63 ≈ 3.349`.
+     **Same number, same phenomenon** — augchan42 measures it
+     statistically vs random permutations; ROAE encodes it as a
+     hard constraint. Either framing is valid; readers should be
+     aware of both.
+  2. **Lag-1 autocorrelation of Hamming distances: −0.251**
+     (3.7th percentile, p=0.037 — large transitions followed by
+     small). ROAE's `CRITIQUE.md` independently reports the
+     Wald-Wolfowitz runs test on the difference wave detecting
+     alternation (Z=+2.13, p=0.033). **Same phenomenon, similar
+     significance, different statistical tests.** ROAE notes the
+     finding does not survive Bonferroni correction across our
+     test battery (threshold p<0.0018); augchan42's measurement
+     stands on its own without multiple-comparison correction.
+  3. **7/16 groups of four consecutive hexagrams have exactly 12
+     yang lines** (99.8th percentile, p=0.002). **NOT measured in
+     ROAE's analyses.** This is unique to augchan42 and we do not
+     claim it. If a future ROAE analysis investigates yang-balance
+     in groups of consecutive hexagrams, this finding should be
+     attributed to augchan42.
+  4. **Within-pair vs between-pair Hamming-distance asymmetry:
+     0.63 coefficient** (99.2nd percentile). ROAE's C1 (pair
+     structure) STRUCTURALLY forces within-pair distances into
+     `{0, 2, 4, 6}` via the reverse/complement construction
+     (Hamming-2 for reverse-pair, Hamming-6 for complement-pair),
+     while between-pair distances are unrestricted. ROAE's
+     `CRITIQUE.md` notes this structural consequence. **Same
+     phenomenon, different framing** — augchan42 measures the
+     resulting asymmetry as statistical surprise vs random; ROAE
+     encodes the underlying structure as constraint C1.
+  5. **Surprise distribution variance: KW 0.390 vs random 0.202**
+     (Levene's test p=0.009). **NOT measured in ROAE's analyses.**
+     Information-theoretic surprise framing is unique to augchan42's
+     work.
+
+  **Methodological independence note.** ROAE's enumeration approach
+  (3.4B canonical orderings under C1+C2+C3+C4+C5 at 100T-d3) and
+  augchan42's Monte Carlo approach (KW vs 100K random permutations)
+  are complementary, not redundant: each addresses a different
+  baseline. ROAE characterizes KW relative to other constraint-
+  satisfying orderings; augchan42 characterizes KW relative to
+  arbitrary permutations. A claim like "KW maximizes inter-state
+  change at the 98.2nd percentile" is true in augchan42's frame
+  (vs random) and tautological in ROAE's frame (C5 enforces the
+  exact distribution); a claim like "KW sits at the C3 ceiling
+  among C1+C2+C3-satisfying orderings" is true in ROAE's frame
+  and not directly addressed in augchan42's.
+
+  **What ROAE should cite vs not.** When ROAE makes claims that
+  touch findings 1, 2, or 4 above (mean Hamming distance,
+  lag-1 autocorrelation, within/between-pair asymmetry), the
+  augchan42 paper should be cited as parallel/independent
+  statement of the same observation. Findings 3 (yang-balanced
+  groups of 4) and 5 (surprise distribution variance) are
+  augchan42-original; ROAE should not claim them and should
+  attribute them when discussing.
+
 ## de Bruijn sequences and I Ching
 
 The natural correspondence between B(2, 6) de Bruijn sequences (cyclic 64-bit sequences containing every 6-bit window exactly once) and permutations of the 64 hexagrams has been noted in the I Ching literature and online discussion, though usually in passing rather than as a systematic study:
