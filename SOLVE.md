@@ -63,6 +63,8 @@ The sequence begins with ䷀ The Creative (#1, 111111) and ䷁ The Receptive (#2
 
 The difference wave (Hamming distances between consecutive hexagrams) must have exactly this distribution: two 1-line transitions, twenty 2-line, thirteen 3-line, nineteen 4-line, and nine 6-line. No 0-line or 5-line transitions.
 
+The mean of this distribution is `(1·2 + 2·20 + 3·13 + 4·19 + 6·9) / 63 = 211/63 ≈ 3.349`. **Note:** Chan (2026, arXiv:2604.09234) independently reported KW's mean Hamming distance between consecutive hexagrams as 3.35 at the 98.2nd percentile vs 100,000 random permutation baselines — i.e., ROAE's structural constraint C5 and Chan's statistical-vs-random framing describe the same numerical phenomenon. Chan's research predates ROAE; the distinctness-of-mean-Hamming observation is Chan's prior art under the statistical framing. ROAE's contribution is encoding the EXACT distribution multiset (not just the mean) as a hard constraint and enumerating its solution space. See [CITATIONS.md](CITATIONS.md).
+
 ## Method
 
 The solver samples random pair-constrained sequences and tests how many survive each cumulative level of constraints. This estimates how much each rule narrows the solution space.
