@@ -7121,7 +7121,7 @@ int main(int argc, char *argv[]) {
         unsigned char rec[SOL_RECORD_SIZE];
         unsigned char prev[SOL_RECORD_SIZE];
         memset(prev, 0, SOL_RECORD_SIZE);
-        int fail_c1 = 0, fail_c2 = 0, fail_c4 = 0, fail_c5 = 0;
+        int fail_c1 = 0, fail_c2 = 0, fail_c3 = 0, fail_c4 = 0, fail_c5 = 0;
         int fail_dup = 0, fail_sort = 0, fail_decode = 0;
         int kw_found_v = 0;
 
@@ -7182,6 +7182,11 @@ int main(int argc, char *argv[]) {
             }
             if (!c5_ok) fail_c5++;
 
+            /* C3: total complement distance must be <= KW's (776). Same
+             * predicate as DFS-leaf check (line 1481/1735/1970/3552). */
+            int cd = compute_comp_dist_x64(seq);
+            if (cd > kw_comp_dist_x64) fail_c3++;
+
             /* Sorted order + duplicate checks apply only to post-merge
              * solutions.bin (shard_mode=0). Raw shards are written in
              * hash-table slot order (not sorted) and don't guarantee
@@ -7210,6 +7215,7 @@ int main(int argc, char *argv[]) {
         printf("Records checked:        %lld\n", n_records);
         printf("C1 failures (pairs):    %d\n", fail_c1);
         printf("C2 failures (hamming5): %d\n", fail_c2);
+        printf("C3 failures (cd>776):   %d\n", fail_c3);
         printf("C4 failures (first pair): %d\n", fail_c4);
         printf("C5 failures (dist):     %d\n", fail_c5);
         printf("Decode failures:        %d\n", fail_decode);
@@ -7217,9 +7223,9 @@ int main(int argc, char *argv[]) {
         printf("Duplicate records:      %d\n", fail_dup);
         printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
 
-        int total_fail = fail_c1 + fail_c2 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
+        int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
         if (total_fail == 0) {
-            printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5, sorted, no duplicates ***\n", n_records);
+            printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5 (incl. C3), sorted, no duplicates ***\n", n_records);
             return 0;
         } else {
             printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
