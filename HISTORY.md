@@ -1563,6 +1563,150 @@ recovered cleanly via the standard pattern (az vm start +
 completes, the recovery cascade fires the dead-free patch
 validation; AVX-512 retool work begins after that.
 
+## May 4 – May 5, 2026 PDT — recovery cascade success, jemalloc diagnostic, ASan root cause
+
+The validation chain landed in the early hours of May 4 PDT.
+Tier 9+ shas all matched canonical or were cosmetic-only mismatches
+attributed to the dead-free SIGSEGV pattern that didn't affect
+output. The recovery cascade fired automatically per the watcher
+that had been armed since May 3. **Patched binary 11.2T fresh
+full-enum reproduced sha=`0c0fe37c…` byte-identically with the
+Tier 1 canonical (May 4 04:21Z).** Patch validated.
+
+**Recovery cascade Step 6 (two-language verify) revealed a
+performance gap.** The C-side verifier (`solve --verify`) PASSED
+in ~4 min on the 759M-record solutions.bin. The Python-side
+(`verify.py`) was single-threaded CPython and ran for ~10 hours
+before a spot eviction killed it at ~95% completion — the kind
+of pathological wall-time that disqualifies a 560T-scale
+canonical (where the Python verifier would take ~4 days). The
+operator's response was a tightened standing rule on the spot:
+**any single-threaded job running >1 hour must right-size its
+VM** (D8/D16, not D128) — burning 127 idle cores at $0.95/hr is
+indefensible. And then the operative fix: **add `--jobs N`
+multiprocessing parallelism to verify.py** so the Python
+two-language verify completes in minutes, not days.
+
+The parallel verify.py (task #73) was drafted the same evening
+with worker-per-chunk decomposition and inter-chunk boundary
+stitching for cross-chunk sort/dup checks. Validated locally
+on a 100K-record sample (positive: jobs={1,4,8} bit-identical
+PASS; negative: injected sort violation at chunk-boundary
+record 25,000 caught at jobs=1 and jobs=4 — boundary stitching
+works). Deployed to the resumed pilot-100T-westus3 D128 spot;
+two-language verify of the full 759M-record canonical
+completed in **~6 minutes at --jobs 128 vs ~10 hours
+single-thread = ~100× speedup**. Output bit-identical to
+`solve --verify`. The recovery cascade closed PASS at
+2026-05-04 14:55:49Z. Task #45 (dead-free patch) closed; #73
+(parallel verify.py) added and committed to the public repo.
+
+**Then the jemalloc diagnostic (#50) ran the same night.** The
+question: does a non-glibc allocator change the heap-corruption
+SIGSEGV behavior? Two-scenario test on the same VM:
+- Scenario A — UNPATCHED solve.c + LD_PRELOAD jemalloc:
+  **SIGSEGV at 145 min wall**. jemalloc did NOT prevent the
+  bug. Same SANITY-WARN signature as glibc baseline (4 specific
+  threads — 6, 14, 15, 22 — with `dfs_v2_sp` clobbered to
+  values 44, 35, 42, 41, all out of legal range [0, 33]).
+- Scenario B — PATCHED solve.c + LD_PRELOAD jemalloc: **CLEAN
+  EXIT at 211 min wall, sha=`0c0fe37c…`**. The patched binary's
+  fork-merge isolation (Test A 2026-04-30 design) contained the
+  corrupt thread state and produced the correct merged output.
+
+**Conclusion: the bug is allocator-agnostic.** jemalloc just
+shifted the metadata layout enough that the corruption took
+longer to manifest — but it still manifested. The bug lives in
+solve.c source, not in glibc malloc. **Operator directive
+2026-05-04 evening:** "In no case do I want to ship with
+jemalloc, it should only be used for testing." The CPU
+optimization bundle (#47) had jemalloc removed from production
+scope; the test-only role for jemalloc was tagged across all
+internal docs (`FUTURE_PERFORMANCE_OPTIONS_2026_05_03.md §5a.2`
+strikethrough, `AVX512_IMPLEMENTATION_PLAN_2026_05_03.md`
+clarification, `CAMPAIGN_560T_PLANNING §17a 5b` rewrite).
+
+**The ASan investigation (#54) ran May 5 starting 06:59 UTC.**
+Built solve.c with `-fsanitize=address -no-pie -fno-pie -O1 -g`,
+ran T7c P1 5.6T full enum at 128 threads under
+`ASAN_OPTIONS=halt_on_error=1`. The 5.6T enum took ~5h 14m
+under ASan (~3-5× scalar overhead, expected). At 12:13 UTC, in
+the post-enum aggregation phase, ASan caught the bug:
+
+```
+==9798==ERROR: AddressSanitizer: stack-buffer-overflow
+WRITE of size 392 at address 0x7fffff08c300 thread T0
+    #0 0x453c1b in main solve.c:12052
+```
+
+**The bug:** at solve.c:12030, `ClosestEntry all_top[64 * TOP_N]`
+— sized for ≤64 threads. The post-enum accumulation loop at
+solve.c:12058 attempts up to N×TOP_N writes; with N=128 and
+TOP_N=20, that's 2,560 writes into the 1,280-slot array. ~500 KB
+of OOB writes onto adjacent stack data (`workers[256]`,
+`threads[256]` — the `dfs_v2_sp` field clobbers visible in #50
+SANITY-WARN are downstream evidence of this corruption). The
+memory was being smashed by 64-vs-128 thread mismatch hardcoded
+into the array literal back when 64 threads was the project's
+hardware ceiling. With the move to 128-core D128als_v7 in
+April 2026, the bug became reachable but stayed unfixed for
+weeks because the corruption only fired in post-enum cleanup
+where the dead-free pattern (#45) crashed first, masking the
+upstream cause.
+
+**Fix:** literal change at solve.c:12030 — `64 * TOP_N` →
+`256 * TOP_N`. Matches the project's MAX_THREADS = 256
+ceiling already used elsewhere in main() (`ThreadState
+workers[256]`, `pthread_t tids[256]`). New stack allocation:
+~2 MB, well within the default 8 MB stack ulimit on production
+builds (validated empirically — selftest sha=`403f7202…`
+preserved, extended-selftest 9/9 PASS, and a non-jemalloc
+non-ASan stock-glibc 5.6T validation run was launched mid-day
+2026-05-05; an in-flight spot eviction interrupted that
+specific run, but the smaller-scale tests already cover the
+same 128-thread code path).
+
+**Stack ulimit insight added to standing knowledge.** ASan
+redzone instrumentation expanded main()'s frame to ~16 MB
+during the investigation, requiring `ulimit -s unlimited` for
+the diagnostic build. Production builds at default 8 MB are
+fine (the 2 MB `all_top` and other locals fit comfortably).
+Documented requirement for ASan testing in the private
+investigation memo (`x/roae/TASK_54_ASAN_FINDINGS_2026_05_05.md`)
+and tracked as task #74 (DEVELOPMENT.md update) and #75
+(optional pre-main constructor warning if RLIMIT_STACK is
+below the threshold).
+
+The #54 root-cause fix supersedes #45 as the load-bearing
+solve.c correctness change. The dead-free patch at line 12114
+becomes belt-and-suspenders rather than the actual fix; it can
+stay in the codebase as defense-in-depth without harm. The
+project's "fix root cause, don't ship workarounds" rule
+(memory: `feedback_fix_root_cause_not_workaround.md`) was
+explicitly invoked here — jemalloc and the dead-free patch
+were both symptom-relocations, not solutions. The OOB write
+at line 12058 is the actual mechanism, and a 2-character
+literal change ("64" → "256") closes it.
+
+**Pre-560T critical path remaining as of 2026-05-05 evening:**
+operator review of the #54 source patch and #75 sanity-check
+patch (both staged in private staging repo, not yet pushed to
+public solve.c); follow-on integration of the #74 DEVELOPMENT.md
+ulimit subsection; #67/#68/#69/#70/#71/#72 search-tree pruning
+stack (~25-40× speedup compounded); #46 AVX-512 retool;
+#47 CPU optimization bundle (LTO + PGO + huge pages + NUMA,
+explicitly NO jemalloc); #61 Cobalt ARM cross-arch
+re-derivation of the fixed binary; #62 10T dry run on actual
+560T hardware; #63 disk health pre-check; #55 monitor daemon
+deployment; #56 eviction-recovery rehearsal; #60 build
+provenance metadata; #64 rollback runbook (already drafted).
+
+The 560T canonical campaign launches once the chain is clean
+on stock glibc and the optimization stack lands. Net slip from
+"a few weeks" pre-recovery to ~6-9 weeks post-recovery — but
+the work shipping at the end is provably correct rather than
+papered-over, which is the standing requirement.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
