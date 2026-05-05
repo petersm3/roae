@@ -8,9 +8,17 @@ distance distribution). Also checks sorted order and duplicates.
 Different language, different implementation, no shared code with
 solve.c — a genuine second opinion.
 
-Usage: python3 verify.py [solutions.bin]
+Usage:
+    python3 verify.py [solutions.bin]
+    python3 verify.py [solutions.bin] --jobs N
+
+--jobs N parallelizes via multiprocessing for large files. With N = 1
+(default) behavior is identical to the single-threaded original.
+N should typically be set to the number of physical cores. The output
+must match --jobs 1 byte-for-byte (modulo the header line that prints
+the chosen worker count).
 """
-import sys, struct
+import sys, struct, argparse, multiprocessing
 
 KW = [
     63,  0, 17, 34, 23, 58,  2, 16, 55, 59,  7, 56, 61, 47,  4,  8,
@@ -80,39 +88,41 @@ def parse_header(data):
     (record_count,) = struct.unpack("<Q", data[8:16])
     return record_count
 
-def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "solutions.bin"
-    with open(path, "rb") as f:
-        data = f.read()
+def verify_chunk(args):
+    """Verify records [start, end) of `path`. Returns dict of counts plus
+    boundary state for inter-chunk stitching.
 
-    try:
-        declared_records = parse_header(data)
-    except ValueError as e:
-        print(f"ERROR: invalid solutions.bin header: {e}")
-        sys.exit(2)
-
-    record_bytes = len(data) - SOL_HEADER_SIZE
-    if record_bytes % 32 != 0:
-        print(f"ERROR: record stream size {record_bytes} not a multiple of 32")
-        sys.exit(2)
-    n = record_bytes // 32
-    if n != declared_records:
-        print(f"ERROR: header declares {declared_records} records but file has {n}")
-        sys.exit(2)
-    print(f"Header: ROAE v{SOL_FORMAT_VERSION}, {n:,} records")
-    print(f"Verifying {n:,} records from {path} ({len(data):,} bytes total, {SOL_HEADER_SIZE} header + {record_bytes:,} records)")
-
-    # Skip the header — records start at offset SOL_HEADER_SIZE
-    data = data[SOL_HEADER_SIZE:]
+    All per-record checks (C1-C5, decode, kw_found) are local to the chunk.
+    Sort and dup checks within the chunk are local; cross-chunk boundary
+    sort/dup is stitched by the parent.
+    """
+    path, start, end = args
+    n_chunk = end - start
+    if n_chunk <= 0:
+        return {
+            'fail_c1': 0, 'fail_c2': 0, 'fail_c3': 0, 'fail_c4': 0, 'fail_c5': 0,
+            'fail_decode': 0, 'fail_sort': 0, 'fail_dup': 0,
+            'kw_found': False,
+            'first_canonical': None, 'first_rec': None,
+            'last_canonical': None, 'last_rec': None,
+            'count': 0,
+        }
+    with open(path, 'rb') as f:
+        f.seek(SOL_HEADER_SIZE + start * 32)
+        chunk = f.read(n_chunk * 32)
+    if len(chunk) != n_chunk * 32:
+        raise IOError(f"verify_chunk: short read at start={start} end={end}: got {len(chunk)} expected {n_chunk*32}")
 
     fail_c1 = fail_c2 = fail_c3 = fail_c4 = fail_c5 = 0
     fail_decode = fail_sort = fail_dup = 0
     kw_found = False
     prev_canonical = None
     prev_rec = None
+    first_canonical = None
+    first_rec = None
 
-    for r in range(n):
-        rec = data[r*32:(r+1)*32]
+    for r in range(n_chunk):
+        rec = chunk[r*32:(r+1)*32]
         seq, pairs_used, first_pair = decode(rec)
 
         if seq is None:
@@ -140,29 +150,134 @@ def main():
         if dist != KW_DIST:
             fail_c5 += 1
 
-        # C3: complement distance <= KW's value (776). KW sets the ceiling.
+        # C3: complement distance <= KW's value (776)
         if compute_comp_dist(seq) > KW_COMP_DIST:
             fail_c3 += 1
 
-        # Sorted order (canonical primary, full bytes secondary)
         can = canonical(rec)
+        if first_canonical is None:
+            first_canonical = can
+            first_rec = rec
         if prev_canonical is not None:
             if can < prev_canonical:
                 fail_sort += 1
             elif can == prev_canonical and rec < prev_rec:
                 fail_sort += 1
-        # Duplicates: same canonical form (orient masked)
-        if prev_canonical is not None and can == prev_canonical:
-            fail_dup += 1
+            if can == prev_canonical:
+                fail_dup += 1
         prev_canonical = can
         prev_rec = rec
 
-        # King Wen check
         if seq == KW:
             kw_found = True
 
-        if r > 0 and r % 10_000_000 == 0:
-            print(f"  ... {r:,} / {n:,}")
+    return {
+        'fail_c1': fail_c1, 'fail_c2': fail_c2, 'fail_c3': fail_c3,
+        'fail_c4': fail_c4, 'fail_c5': fail_c5,
+        'fail_decode': fail_decode, 'fail_sort': fail_sort, 'fail_dup': fail_dup,
+        'kw_found': kw_found,
+        'first_canonical': first_canonical, 'first_rec': first_rec,
+        'last_canonical': prev_canonical, 'last_rec': prev_rec,
+        'count': n_chunk,
+    }
+
+def stitch_boundary(prev_chunk, next_chunk):
+    """Given two adjacent chunk results, return (sort_inc, dup_inc) for the
+    boundary record pair: prev_chunk's last vs next_chunk's first.
+    Mirrors the per-record sort+dup logic from verify_chunk."""
+    p_can = prev_chunk['last_canonical']
+    p_rec = prev_chunk['last_rec']
+    n_can = next_chunk['first_canonical']
+    n_rec = next_chunk['first_rec']
+    if p_can is None or n_can is None:
+        return 0, 0
+    sort_inc = 0
+    dup_inc = 0
+    if n_can < p_can:
+        sort_inc += 1
+    elif n_can == p_can and n_rec < p_rec:
+        sort_inc += 1
+    if n_can == p_can:
+        dup_inc += 1
+    return sort_inc, dup_inc
+
+def main():
+    parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
+    parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
+    parser.add_argument('--jobs', type=int, default=1,
+                        help='Parallel workers (default 1 = single-thread, identical to legacy behavior). '
+                             'Recommended: number of physical cores.')
+    args = parser.parse_args()
+    path = args.path
+    n_jobs = max(1, args.jobs)
+
+    # Read header from main process to validate format and get record count.
+    with open(path, 'rb') as f:
+        head = f.read(SOL_HEADER_SIZE)
+    try:
+        declared_records = parse_header(head)
+    except ValueError as e:
+        print(f"ERROR: invalid solutions.bin header: {e}")
+        sys.exit(2)
+
+    import os
+    file_size = os.path.getsize(path)
+    record_bytes = file_size - SOL_HEADER_SIZE
+    if record_bytes % 32 != 0:
+        print(f"ERROR: record stream size {record_bytes} not a multiple of 32")
+        sys.exit(2)
+    n = record_bytes // 32
+    if n != declared_records:
+        print(f"ERROR: header declares {declared_records} records but file has {n}")
+        sys.exit(2)
+    print(f"Header: ROAE v{SOL_FORMAT_VERSION}, {n:,} records")
+    print(f"Verifying {n:,} records from {path} ({file_size:,} bytes total, "
+          f"{SOL_HEADER_SIZE} header + {record_bytes:,} records)")
+    if n_jobs > 1:
+        print(f"Parallel: {n_jobs} workers")
+
+    # Split records into n_jobs approximately-equal chunks.
+    if n_jobs == 1 or n < n_jobs:
+        chunks = [(path, 0, n)]
+    else:
+        chunk_size = n // n_jobs
+        bounds = [(path, i * chunk_size, (i + 1) * chunk_size) for i in range(n_jobs)]
+        # Last chunk absorbs the remainder.
+        last_path, last_start, _ = bounds[-1]
+        bounds[-1] = (last_path, last_start, n)
+        chunks = bounds
+
+    # Verify chunks in parallel.
+    if n_jobs == 1:
+        results = [verify_chunk(chunks[0])]
+    else:
+        ctx = multiprocessing.get_context('fork')
+        with ctx.Pool(processes=n_jobs) as pool:
+            # imap preserves order, which we need for boundary stitching.
+            results = list(pool.imap(verify_chunk, chunks))
+
+    # Aggregate per-chunk counters.
+    fail_c1 = sum(r['fail_c1'] for r in results)
+    fail_c2 = sum(r['fail_c2'] for r in results)
+    fail_c3 = sum(r['fail_c3'] for r in results)
+    fail_c4 = sum(r['fail_c4'] for r in results)
+    fail_c5 = sum(r['fail_c5'] for r in results)
+    fail_decode = sum(r['fail_decode'] for r in results)
+    fail_sort = sum(r['fail_sort'] for r in results)
+    fail_dup = sum(r['fail_dup'] for r in results)
+    kw_found = any(r['kw_found'] for r in results)
+    total_count = sum(r['count'] for r in results)
+
+    # Stitch inter-chunk boundaries: chunk i's LAST vs chunk i+1's FIRST.
+    for i in range(len(results) - 1):
+        s_inc, d_inc = stitch_boundary(results[i], results[i + 1])
+        fail_sort += s_inc
+        fail_dup += d_inc
+
+    # Sanity: ensure every record was visited exactly once.
+    if total_count != n:
+        print(f"INTERNAL ERROR: chunks covered {total_count:,} records, expected {n:,}")
+        sys.exit(3)
 
     print(f"\n--- Results ---")
     print(f"Records:        {n:,}")
