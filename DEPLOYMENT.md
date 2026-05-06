@@ -237,11 +237,23 @@ az disk create -g RG-CLAUDE -n merge-scratch -l westus2 \
 az vm disk attach -g RG-CLAUDE --vm-name <merge-vm-name> \
   --name merge-scratch --lun 1
 
-# 3. On the VM: format, mount, own.
+# 3. On the VM: identify disk by SIZE + empty-FS state, format,
+#    mount, own. NEVER use `mkfs -F` (banned project-wide after the
+#    2026-05-06 wipe; see CLAUDE.md §"Disk-handling safety").
+#    The pattern below identifies the new 256 GB Premium SSD as the
+#    unique empty 256 GB disk. If 0 or 2+ match → hard-fail.
 ssh solver@<vm-private-ip> '
-  sudo mkfs.ext4 -F /dev/nvme0n3    # or whatever the new device is
+  set -euo pipefail
+  EXPECTED_BYTES=$((256 * 1024**3))
+  DEV=$(lsblk -bno NAME,SIZE,FSTYPE | \
+        awk -v sz="$EXPECTED_BYTES" "\$2==sz && \$3==\"\" {print \"/dev/\" \$1}")
+  COUNT=$(echo "$DEV" | grep -c .)
+  [ "$COUNT" -eq 1 ] || { echo "FATAL: expected 1 empty 256 GB disk, found $COUNT"; exit 1; }
+  # Belt-and-suspenders: refuse if any blkid output (existing FS).
+  blkid "$DEV" >/dev/null 2>&1 && { echo "FATAL: $DEV has existing filesystem"; exit 1; }
+  sudo mkfs.ext4 -q "$DEV"          # NO -F flag
   sudo mkdir -p /mnt/merge-scratch
-  sudo mount /dev/nvme0n3 /mnt/merge-scratch
+  sudo mount "$DEV" /mnt/merge-scratch
   sudo chown solver:solver /mnt/merge-scratch
 '
 
@@ -557,16 +569,22 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
    across reboots; scan for the partitionless ext4 volume:
 
    ```bash
-   ssh ... solver@$IP '
-   sudo mkdir -p /data
-   for dev in /dev/nvme0n1 /dev/nvme0n2 /dev/sdc /dev/sdd; do
-       [ -b "$dev" ] || continue
-       ls ${dev}p1 2>/dev/null && continue   # has a partition table → OS disk
-       sudo mount "$dev" /data 2>/dev/null && break
-       sudo mkfs.ext4 -F "$dev" 2>/dev/null && sudo mount "$dev" /data && break
-   done
-   sudo chown solver:solver /data
-   '
+   # OBSOLETE PATTERN — this loop violated the disk-handling safety
+   # rules (CLAUDE.md §"Disk-handling safety"); preserved here as a
+   # historical example of what NOT to do. The "try mount, then mkfs
+   # if mount fails, on every block device that doesn't have a
+   # partition table" approach uses -F to silently force-format any
+   # device that isn't already mountable — which would happily wipe
+   # an existing-filesystem disk if the mount step failed for
+   # transient reasons (busy device, kernel state mismatch, etc.).
+   #
+   # Instead, use the canonical pattern in
+   # `petersm3/x:roae/safe_disk_setup.sh`:
+   #   - existing data disk: identify by UUID, mount-by-UUID, verify
+   #     marker file (e.g., solutions.sha256)
+   #   - new empty disk: identify by exact size + empty-FS state,
+   #     refuse to format if blkid finds existing FS, then `mkfs.ext4`
+   #     (no -F).
    ```
 
 ### Deployment lifecycle (do not delete the data disk)

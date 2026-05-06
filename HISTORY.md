@@ -1707,6 +1707,262 @@ on stock glibc and the optimization stack lands. Net slip from
 the work shipping at the end is provably correct rather than
 papered-over, which is the standing requirement.
 
+## May 5 – May 6, 2026 PDT — #54 root-caused and shipped, search-tree-pruning incompatibility surfaced, operator pivot to bundled re-baseline, and a self-inflicted data wipe
+
+This block of session covers four interleaved threads: the #54
+ASan-driven root-cause fix landing as a small cleanly-validated
+commit; an attempt at #67 mid-walk C3 pruning that surfaced a
+fundamental incompatibility between search-tree pruning and the
+project's per-cell-budget sha-reproducibility model; an operator
+decision to pivot to a bundled-rebaseline strategy ("refined
+Resolution 2") that retires the v1 canonical for a new v2 sha;
+and a self-inflicted operator/agent error that wiped the
+`solver-data-westus3` filesystem holding the 100T canonical
+artifact and the entire 2026-05 validation campaign's
+intermediate state. The shas survived (every canonical sha is
+recorded in this repo's CLAUDE.md and HISTORY.md, which is the
+project's reproducibility anchor by design); the bytes did not.
+
+**#54 fix landed, sha-preserving.** AddressSanitizer caught the
+root cause of the 128-thread post-enumeration SIGSEGV pattern at
+solve.c:12058: `ClosestEntry all_top[64 * TOP_N]` was a 1,280-slot
+stack array that could be written up to 2,560 times when
+SOLVE_THREADS exceeded 64 (each thread contributes up to TOP_N=20
+ClosestEntry rows during the post-enum top-K merge). The fix:
+resize to `256 * TOP_N` (5,120 slots), matching the project's
+MAX_THREADS=256 ceiling applied elsewhere in main(). Selftest sha
+`403f7202…` and 11.2T canonical `0c0fe37c…` both unchanged on
+the patched binary; cross-validated x86 + ARM Cobalt. Same commit
+shipped task #75: a pre-`main()` `__attribute__((constructor))`
+that warns at startup if `RLIMIT_STACK` is below the build's
+recommended threshold (8 MB production / 64 MB ASan-instrumented),
+because the ASan investigation hit a stack-overflow at main()
+entry that initially masked the all_top OOB until ulimit was
+bumped — surfacing the requirement loudly saves future debug
+cycles. Public commit `f42f2ae`.
+
+**#76 closed without code change.** The 2026-05-01 "T3a SIGTERM-
+resume post-write size mismatch" memory entry was a stale
+artifact: the bug was actually fixed in commit `d11bc0d` on
+2026-05-01 (depth-2 `completed_sub_key` bit overlap; depth-3 was
+never affected, and the campaign uses depth-3 exclusively). The
+fix and the inline comment block at solve.c:1257-1276 document
+both the bug history and the new bit layout. Memory entry
+corrected.
+
+**#57 characterized as not-blocking.** Earlier source-level
+investigation (`TASK_57_EVICTION_RESUME_DUPLICATE_INFLATION_2026_05_04.md`)
+concluded that the "4× raw record inflation" observed under
+eviction-resume is most likely orphan `.tmp` files from
+incomplete atomic renames, not actual duplication in the
+canonical shards. solve.c's `--merge` already filters `.tmp`
+suffixes (line 9528), so the inflation never reaches the
+canonical artifact — confirmed by the post-merge sha being
+correct. Treating this as a disk-hygiene cleanup item rather
+than a correctness gate.
+
+**Scope-qualifying the C3 framing across SOLVE / CRITIQUE /
+SPECIFICATION.** Operator review of the C3=776 framing
+(2026-05-05) flagged that publication-defensibility depends on
+which reference population the percentile/extremity claim is
+relative to. KW's complement distance sits at the 3.9th
+percentile of orderings satisfying Rules 1-2 (the C1+C2 reference
+population — KW is unusually low) AND simultaneously sits at the
+C3 ceiling of 776 within the C1+C2+C3 canonical (~340M of 3.43B
+records tie at 776; minimum 424). Both framings are correct, at
+different scopes; the threshold itself is reverse-engineered from
+KW. Edits across SOLVE.md Rule 3, CRITIQUE.md complement-distance
+bullet, SPECIFICATION.md C3 definition + methodological-
+limitations section, and DEVELOPMENT.md (added a stack-`ulimit`
+subsection covering the production-vs-ASan threshold). Public
+commit `463c4b4`.
+
+**SOLVE-SUMMARY trimmed to introductory-article tone.** Three
+blockquote front-matter blocks at the top of SOLVE-SUMMARY.md
+duplicated material that already lives in CLAUDE.md (canonical
+shas), PARTITION_INVARIANCE.md (cross-path validation grid),
+CRITIQUE.md (null-model caveat), and DISTRIBUTIONAL_ANALYSIS.md
+(joint-density 0.000%-ile finding). Replaced with a one-paragraph
+framing of the doc's role + a bulleted index of supporting
+material. Body of the article is unchanged. Public commit
+`dbdcc3d`.
+
+**#67 mid-walk C3 prune attempt — sha mismatch — REVERTED.**
+Implemented per the design in `SOLVE_C_PRUNING_OPTIMIZATIONS_2026_05_04.md`
+and the correctness proof in `TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md`:
+added ThreadState fields `mw_pos[64]` + `mw_partial_cd_x64`, a
+helper `mw_c3_init()` to rebuild the partial sum from any seq[]
+prefix, and a per-push delta-and-prune in the recursive
+`backtrack()`. Build clean; selftest produced sha `9ab1cd08…`
+instead of expected `403f7202…`. **Patch reverted.** The
+mathematical correctness proof is sound (no valid leaf can lie
+on a pruned subtree, by Lemma-2 monotonicity of `partial_cd_k`),
+but under per-cell-budget runs, fewer "doomed" subtrees enter
+DFS → MORE useful coverage per node spent → MORE leaves reached
+before BUDGETED triggers → different sha. The prune is correct
+in any absolute sense; it changes WHICH valid leaves get reached
+under truncation, not WHETHER they're valid.
+
+This is a fundamental property of every search-tree pruning
+optimization in the planned stack (#67 / #68 / #69 / #70 / #71;
+#72 bitset is purely representational and may be sha-preserving).
+The "byte-identical sha" claim that had been attached to all of
+those tasks in the planning doc was wrong for any pruning that
+changes per-cell node-count behavior, which is all of them.
+Captured in `SEARCH_TREE_PRUNING_BUDGET_INCOMPATIBILITY_2026_05_06.md`
+(private staging repo).
+
+**Operator decision: refined Resolution 2 (bundled re-baseline).**
+After surveying four resolutions (R1 retire to exhaustive
+enumeration; R2 accept multi-sha sprawl; R3 estimate skipped-
+subtree budget contributions; R4 defer pruning to post-560T v2
+solver), operator chose a refined R2: bundle ALL sha-changing
+optimizations into a single v2 binary, run a SINGLE re-baseline
+event at 11.2T (~$25 D128 spot), establish a new canonical sha X,
+ship 560T on v2 at a smaller per-cell budget that delivers
+equivalent or denser coverage at K× lower compute. The current v1
+canonicals (`0c0fe37c…` 11.2T and `915abf30…` 100T) retire to
+forensic / historical reference at the same time, with HISTORY.md
+documenting the transition. This is the cleanest path: one
+re-baseline event, one new canonical, future runs reproduce v2
+deterministically.
+
+The set-relationship between v1 and v2 outputs is provable: under
+equal per-cell budget, **L_v1 ⊆ L_v2** strictly. v2 contains
+every record v1 contains, plus additional valid records that v1
+ran out of budget to reach because v1 wasted budget on
+provably-doomed subtrees. Neither set contains invalid leaves;
+both satisfy the same constraint specification. v2 is more
+*efficient*, not more *valid*. At true exhaustion (no per-cell
+budget), v1 and v2 produce byte-identical solutions.bin. Captured
+in `V1_V2_SEARCH_SPACE_RELATIONSHIP_2026_05_06.md`.
+
+**`tier9.sh` budget bug discovered.** While preparing T9+c.1
+(single-shot 100T full-enum reproducibility test), a sanity merge
+of the existing T9+c.1 shards produced sha
+`eff6b91e059b6d13ec41dac22980ec14607c110f322370ec5f3e797c3624dc7b`
+(26.8M unique records) instead of the expected `915abf30…`
+(3.43B unique records). The 128× shortfall traced to a typo in
+`tier9.sh`: `SOLVE_PER_SUB_BRANCH_LIMIT=631498` (~6.3×10⁵) when
+the actual canonical's checkpoint.txt showed
+`budget 631456644` (~6.3×10⁸) — off by 1000×. The script's
+comment "100T / 158,364 cells = 631,498" had the wrong math; the
+correct value is ~631,498,288. Author appears to have copy-pasted
+the budget from the 100B-test stanza (where 631498 IS correct) and
+forgot to scale it for the 100T stanza. T9+c.1 hasn't been a real
+reproducibility test for the 100T canonical — it's been running a
+1/1000-budget experiment.
+
+**The wipe — `solver-data-westus3` filesystem destroyed.** While
+provisioning a fresh D128als_v7 spot VM to re-run T9+c.1 with the
+corrected budget, the agent attached two data disks
+(`solver-data-westus3` LUN 0 holding the 100T canonical;
+`v1-closure-temp-westus3` LUN 1 ephemeral Premium SSD scratch) and
+ran a setup script that assumed Linux device naming would match
+LUN order. **It did not.** On this VM, LUN 0 mapped to nvme0n3
+(not nvme0n2 as on the prior VM), and the setup script ran
+`mkfs.ext4 -F /dev/nvme0n3` against what was actually the
+canonical disk. The `-F` flag bypassed mkfs's "refuse to format
+existing filesystem" safety check. Original UUID
+`3620ba16-3c88-414e-b3ff-1b33deaef2ac` (label "solver-data") was
+overwritten with fresh UUID `d63bb25c…` and an empty ext4. No
+snapshots existed.
+
+The agent halted immediately on noticing the wipe, did not attempt
+autonomous recovery (extundelete / photorec — would require
+operator authorization given the data is sensitive), and tore down
+the VM. The disk itself is preserved per the project rule "Keep
+managed disks" — it currently holds an empty filesystem on top of
+data sectors that are mostly intact (mkfs.ext4 writes ~260 MB of
+new metadata over a 3 TB disk, leaving ~99.99% of data sectors
+untouched), so a `photorec`-style scan for the "ROAE" magic at
+sector boundaries is a viable but operator-gated recovery surface.
+
+**What was lost on `solver-data-westus3`:**
+- 102 GB 100T `solutions.bin` (sha `915abf30…`) and its sha + meta
+- The entire `campaign_2026_05_01/` directory: Tier 1-9 outputs,
+  recovery cascade artifacts, 8-path equivalence validation
+  outputs, the patched `bin/solve` binary used for the campaign
+- Older artifacts: `100T_pilot_2026_04_28/`, `20260423_passBD/`,
+  `archive/`
+- The misconfigured T9+c.1 shards from earlier in this same session
+  (irrelevant loss — they were 1000× wrong-budget anyway)
+
+**What was NOT lost** (this is the critical part — the project's
+design held):
+- Every canonical sha256 anchor remains in this repo's CLAUDE.md
+  and HISTORY.md. The project policy from day one has been "the
+  sha is the reproducibility anchor, not the bytes." The bytes can
+  always be regenerated from `solve.c` + the same inputs; that's
+  the meaning of byte-identical reproducibility.
+- All public source code, `.md` documentation, the orchestrator's
+  `solve.c` working tree, the project memory, and both the public
+  and private git histories are unaffected.
+- The 11.2T canonical `0c0fe37c…`, the 10T-d3 `f7b8c4fb…`, the
+  10T-d2 `a09280fb…`, the 5.6T `c34390c0…`, and the 100T
+  `915abf30…` shas all stand: any of these can be re-derived on
+  demand at known D128 spot cost (~$1.50 for 11.2T, ~$11 for 100T,
+  etc.).
+
+**Root cause of the wipe** — three failures stacking:
+1. The setup script used `mkfs.ext4 -F` (force flag) which bypassed
+   the safeguard that would have refused to format a disk with an
+   existing filesystem.
+2. The script identified disks by kernel device name (`/dev/nvme0n3`)
+   rather than by stable identifier (UUID, label, or size +
+   filesystem state). Azure NVMe device naming is not stable
+   across attaches; on the prior VM, nvme0n3 had been the temp
+   disk; on this VM, nvme0n3 was the canonical disk.
+3. No pre-flight assertion verified "this disk is empty as
+   expected" before formatting. The script had no opportunity to
+   notice the existing UUID and refuse.
+
+**Disk-safety rules adopted in response (2026-05-06):**
+- **`mkfs -F` is banned outright in any disk-handling script.** Without `-F`, mkfs refuses to format a disk with an existing filesystem. If a fresh format is needed on a disk that previously had data, run `wipefs -a` as an explicit deliberate step first — never combined into one accidental command.
+- **Identify pre-existing disks by UUID before any operation.** `blkid -t UUID=<expected> -o device` returns the current kernel device path; mount-by-UUID is the canonical pattern.
+- **Identify newly-created (empty) disks by size + empty-filesystem state.** Never assume kernel device naming matches Azure LUN order.
+- **Verify post-mount via a known marker file.** A canonical disk gets a marker (e.g., `solutions.sha256` for the canonical-data disk); any mount script must confirm the marker exists before treating the mount as the expected disk.
+- **Run a pre-flight assertion before any destructive op** (`mkfs`, `wipefs`, `dd` to a block device): assert size matches expectation, assert filesystem state matches expectation (empty for fresh disks; matching UUID for pre-existing disks). Hard-fail on mismatch.
+
+These rules are codified in `feedback_disk_safety.md` (project memory), in `safe_disk_setup.sh` (a helper script in the private staging repo that future VM provisioning must source), and added to CLAUDE.md §"Never do without explicit user approval." All existing scripts in the repos that used `mkfs -F` patterns have been audited and updated.
+
+**Honest assessment.** The wipe was a careless agent error. The
+operator was asleep, having authorized continuation of an
+exhaustive-validation plan with budget and spot-VM constraints
+that had been explicitly bounded. The plan was sound; the
+execution failed at a layer that wasn't supposed to require
+operator supervision (basic disk handling). The agent's
+post-incident response — halting immediately, writing a complete
+incident report, preserving the disk for potential recovery, not
+attempting anything else autonomously — was correct. But it
+doesn't undo the wipe.
+
+The project's structural defenses held: sha anchors in version
+control, source code in public git, memory and staging docs
+mirrored. Net forward-path impact is small: the v2 re-baseline is
+coming anyway, and v2 will retire the v1 100T canonical
+regardless of whether `solver-data-westus3` still held the v1
+bytes. What was genuinely lost is the ability to run today's
+stricter `--verify` (post-#66 includes the C3 check) on the
+historical 2026-04-19/20 artifact — that artifact is gone, only
+fresh re-derivations can be verified now. The forensic value of
+the campaign's intermediate shards is also gone, though the
+lessons learned were already documented in HISTORY.md and the
+private staging repo.
+
+**Pre-560T critical path remaining as of 2026-05-06 evening:**
+operator decision on recovery options for `solver-data-westus3`
+(photorec attempt, re-derivation of 100T canonical, or skip
+since v2 retires v1 anyway); v2 binary implementation
+(#46 + #67 + #68 + #70 + #71 + #72 bundled), validation pilots
+(#77 / #78 / #79 sha-preservation checks), K-pilot (#80, with
+operator-confirmed L_v1 ⊆ L_v2 set-difference deliverable folded
+in), bundled re-baseline (#81). The remaining v1 closure work
+(#51 T9+c.1 + T9+d at corrected budget, plus `--verify` and
+`verify.py` passes) is paused pending operator direction; the
+artifacts that closure was meant to validate are no longer on
+disk.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.

@@ -163,6 +163,64 @@ $3-25 and accumulates across sessions.
 - Launch large compute (≥10T enumeration or ≥3 hr external merge)
   without cost confirmation AND without running the VM-priority
   verification gate above.
+- Run `mkfs -F` (or `--force`, `-FF`, `-y`) on any block device.
+  See §"Disk-handling safety" below.
+
+## Disk-handling safety (STRICT, mandatory — added 2026-05-06)
+
+**Why this section exists:** on 2026-05-06 a setup script ran
+`mkfs.ext4 -F /dev/nvme0n3` against what it thought was an empty
+256 GB Premium SSD temp disk. On the VM in question, kernel device
+naming had reversed Azure LUN order: `/dev/nvme0n3` was actually
+the 3 TB `solver-data-westus3` disk holding the 100T canonical
+artifact (102 GB `solutions.bin`, sha `915abf30…`) and the entire
+2026-05 validation campaign's intermediate state. The `-F` flag
+bypassed mkfs's "refuse to format existing filesystem" check.
+The disk's contents were destroyed. No snapshots existed.
+
+The shas survived (the project's reproducibility anchor is the sha
+in this repo, not the bytes), so the loss is recoverable via
+re-derivation. But the wipe was a foreseeable failure mode that
+multiple structural safeguards should have caught. These rules are
+those safeguards, retroactively codified.
+
+**The rules — every disk-handling script MUST follow these:**
+
+1. **`mkfs -F` (and `--force`, `-FF`, `-y`) is BANNED.** Without
+   `-F`, `mkfs.ext4` refuses to format a device with an existing
+   filesystem. That refusal is the safety. If a fresh format is
+   needed on a disk that previously had data, the operator runs
+   `wipefs -a` as a separate, deliberate, explicitly-authorized
+   step — never bundled into `mkfs` invocation.
+
+2. **Identify pre-existing disks by UUID, not by `/dev/<name>`.**
+   Azure NVMe device naming is not stable across attaches:
+   LUN 0 may be `nvme0n2` on one VM and `nvme0n3` on the next.
+   Use `blkid -t UUID=<expected> -o device` to discover the current
+   device path, or mount by UUID directly via
+   `mount UUID=<expected> <mountpoint>`.
+
+3. **Identify newly-created (empty) disks by size + empty-FS state.**
+   The pattern: `lsblk -bno NAME,SIZE,FSTYPE | awk '$2==<bytes> && $3=="" {print}'`
+   should match exactly one device. Hard-fail if zero or more than
+   one matches.
+
+4. **Verify post-mount with a known marker file.** Every canonical
+   data disk has a marker (e.g., `solutions.sha256` for the
+   `solver-data-*` disks). Mount scripts must `[ -f <mountpoint>/<marker> ]`
+   before treating the mount as the expected disk.
+
+5. **Pre-flight assertion before any destructive op.** Before
+   `mkfs`, `wipefs`, or `dd` to a block device, assert: size matches
+   expected; filesystem state matches expected (empty for fresh
+   disks, matching UUID for pre-existing disks). Hard-fail on
+   mismatch with a clear error message.
+
+The helper functions `disk_by_uuid`, `new_disk_by_size`,
+`mount_known_disk`, `safe_mkfs`, and `preflight_assert_empty` are
+canonical implementations of these rules; see
+`petersm3/x:roae/safe_disk_setup.sh` (private staging repo). VM
+provisioning scripts should source it.
 
 ## Single C source file — `solve.c` — no new `.c` files
 
