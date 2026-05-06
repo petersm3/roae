@@ -1,20 +1,14 @@
 # How the King Wen Sequence Was Built
 
-> **Note (2026-04-20):** Canonical reference counts, now covering three partitions including the new deep-enumeration **100T d3**:
->
-> - **d3 100T partition: 3,432,399,297 canonical orderings** (sha `915abf30…`, 102 GB solutions.bin) — **deepest partial enumeration**, 2026-04-19/20.
-> - **d3 10T partition: 706,422,987 canonical orderings** (sha `f7b8c4fb…`)
-> - **d2 10T partition: 286,357,503 canonical orderings** (sha `a09280fb…`)
->
-> d2 and d3 10T validated cross-independently across 3 merge paths. d3 100T sha stands on the Partition Invariance theorem (`PARTITION_INVARIANCE.md`). Older figures (742M, 31.6M) were invalidated by bug forensics and appear only as historical references in [HISTORY.md](HISTORY.md).
->
-> **5.6T regression-test verification (2026-04-30):** sha `c34390c0…` (467,483,137 canonical orderings, 14.96 GB) was reproduced byte-identically across **4 independent paths** — full-enum at depth-3, a deterministic re-run of the same enumeration, the `--merge-layers` of both full-enum layers, AND the `--merge-layers` of 56 first-level `--branch p1 o1` reconstruction runs at the same per-sub-branch budget. All four shas match. This is the strongest empirical validation of partition invariance to date, explicitly verifying the full-enum-vs-56-branch equivalence at depth-3 — the configuration that the prior d3 100T canonical implicitly relies on. See [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §1 for the full validation grid.
+A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
-> **Minimum-boundary finding — revised at 100T.** At 10T scales (both d2 and d3), **4 boundaries** suffice to uniquely identify King Wen among the canonical orderings. At 100T d3 — the deeper enumeration with 3.43B records — **5 boundaries are required** (no 4-subset works; greedy-optimal set: `{1, 4, 21, 25, 27}`). What *is* partition-stable across all three partitions: boundaries **{25, 27} are mandatory in every minimum set**. What is *not* partition-stable: (a) the count of boundaries needed grows from 4 (10T) to 5 (100T), and (b) the other specific boundaries in the minimum set shift with partition depth. The trajectory suggests the true minimum may continue to grow with deeper enumeration.
+For deeper material referenced throughout this article:
 
-> **What this analysis does and does not show.** The **robust findings** — that King Wen has perfect pair structure, avoids 5-line transitions, and places complements in a structured way — are properties that are independently rare or unique in random permutations. The **"N boundaries uniquely determine King Wen" result**, however (whether N=4 at 10T or N=5 at 100T), is a property of the **constraint-extraction methodology**, not evidence of King Wen's inherent uniqueness beyond those robust findings. A null-model test (see [CRITIQUE.md](CRITIQUE.md)) found that applying the same methodology — extract distance distribution + starting pair + specific boundaries from a random pair-constrained sequence, then check uniqueness — produces apparent "uniqueness" for 9/10 random sequences. The 2026-04-21 **distributional analysis** (see [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)) provides a stronger quantification: KW sits at the **0.000%-ile of the joint observable density** across 3.43B canonical orderings (bootstrap 95% CI [0.000%, 0.000%]), driven by simultaneous extremes on four independent structural observables — not merely by the constraint set happening to pick it out.
-
-A plain-language summary of what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
+- Canonical enumeration counts and their reproducibility shas: [CLAUDE.md §Canonical shas](CLAUDE.md) and [HISTORY.md](HISTORY.md).
+- Partition invariance theorem and the cross-path validation grid: [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
+- Joint-observable distributional analysis (where King Wen sits in the 3.43B-ordering density): [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+- Methodological critique, including the null-model caveat on the "N boundaries uniquely determine King Wen" finding: [CRITIQUE.md](CRITIQUE.md).
+- Formal constraint definitions and theorems: [SPECIFICATION.md](SPECIFICATION.md).
 
 > **For HOW the enumeration actually works** — what a branch / sub-branch / node means, the difference between all-branch and single-branch enumeration, and the open research questions — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md). It's the step-by-step companion to this summary.
 
