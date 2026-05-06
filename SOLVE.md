@@ -47,9 +47,19 @@ No two consecutive hexagrams may differ by exactly 5 lines. Within reverse/inver
 
 ### Rule 3: Complement proximity (C3)
 
-The mean positional distance between each hexagram and its complement (all lines toggled) must be unusually small. King Wen's mean complement distance is 12.125 (12.1 to 1 decimal); random pair-constrained orderings average ~21.7.
+The constraint applies a ceiling on the mean positional distance between each hexagram and its complement (all lines toggled): `cd(S) ≤ 12.125`. King Wen's mean complement distance is 12.125 exactly (12.1 to 1 decimal); random pair-constrained orderings average ~21.7. KW satisfies the constraint by construction (the threshold is KW's value).
 
-**Note on the threshold.** The formal constraint in [SPECIFICATION.md](SPECIFICATION.md) is `cd(S) ≤ 12.125`, where 12.125 is King Wen's *exact* complement distance — extracted from the sequence rather than derived independently. The constraint is therefore "reverse-engineered" in the sense that King Wen satisfies it by construction. The defensible scientific claim is the **percentile statement** (King Wen's complement distance is at the **3.9th percentile** of orderings satisfying Rules 1–2 — see "Differential Analysis" below), not that 12.125 is a structurally significant value. A different threshold would change the solution count but not the qualitative finding that King Wen actively minimizes complement distance.
+**Note on the threshold (and what's defensible).** The formal constraint in [SPECIFICATION.md](SPECIFICATION.md) is `cd(S) ≤ 12.125`, where 12.125 is King Wen's *exact* complement distance — extracted from the sequence rather than derived independently. The constraint is therefore **reverse-engineered**: King Wen satisfies it by construction.
+
+What is **scientifically defensible** for publication:
+- KW's complement distance is at the **3.9th percentile of orderings satisfying Rules 1-2** (random pair-permutations + no-Hamming-5 transitions). 96% of comparable orderings have higher cd. ([Differential Analysis](#differential-analysis-rules-1-6) below.)
+- Within the **C1+C2+C3 canonical** (3.43B orderings at 100T d3), KW sits at the **C3 ceiling (= 776)**, not the floor; ~340M orderings tie with KW at 776, minimum is 424. ([SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md).)
+- These two statements are about different reference populations and are both true. The "low percentile" framing is appropriate at the C1+C2 scope; the "ceiling cohort" framing is the correct C1+C2+C3 framing.
+
+What is **NOT defensible** in publication:
+- Claiming `cd ≤ 12.125` is a derived / structurally significant threshold. It isn't. It's KW's value, used as a filter.
+- Claiming KW "minimizes" complement distance simpliciter, without scope qualification. The minimization is true relative to Rules 1-2; it's false relative to the C1+C2+C3 canonical.
+- Implicitly inferring uniqueness from KW satisfying the constraint. The constraint was chosen to admit KW; that admission is tautological. The non-tautological finding is the percentile/ceiling structure described above.
 
 ### Rule 4: XOR algebraic constraint (REDUNDANT — Theorem 2 of C1)
 
@@ -205,7 +215,7 @@ A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-dupli
 
 **Two genuinely non-trivial extremal features, confirmed at scale:**
 
-1. **Complement distance: 12.125 (3.9th percentile among all Rule 1-6 solutions).** King Wen keeps complements unusually close. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter. The meaningful finding is that King Wen sits at the low end of complement distances, actively minimizing distance between opposites.
+1. **Complement distance: 12.125 (3.9th percentile among all Rule 1-6 solutions).** King Wen keeps complements unusually close *relative to the Rule 1-6 reference population*. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter (KW's own value defines the ceiling). The meaningful finding at this scope: KW's cd of 12.125 is in the lowest 4% of orderings satisfying Rules 1-6, suggesting deliberate design pressure toward complement proximity. **Within the full C1+C2+C3 canonical (3.43B records at 100T d3), KW sits at the C3 CEILING, not the floor** — 340M orderings tie with KW at exactly 776; minimum is 424. See [SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md) for the C1+C2+C3-scoped framing.
 
 2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Confirmed across all 13,296 orderings.
 
@@ -213,7 +223,7 @@ No individual line autocorrelation is extremal — the effect is distributed acr
 
 ### Interpretation
 
-The complement distance finding is surprising: among ALL orderings satisfying Rules 1-5, King Wen's complement distance of 12.125 is at the **3.9th percentile** — only 3.9% of valid orderings place complements closer. Most valid orderings have complement distances of 12-14.5. King Wen actively minimizes complement distance, keeping opposites as close as possible. This is a genuine design choice, not a mathematical necessity.
+The complement distance finding is striking *at this scope*: among orderings satisfying Rules 1-5 (without C3 yet applied), King Wen's complement distance of 12.125 is at the **3.9th percentile** — only 3.9% of valid orderings place complements closer. Most valid orderings have complement distances of 12-14.5. The "actively minimizes complement distance" framing is appropriate against this reference population (Rules 1-5 / C1+C2+C5 in the new naming). **It is not appropriate against the C1+C2+C3 canonical**: once C3 ≤ 776 is applied (using KW's exact value as the ceiling), KW sits at the maximum allowed cd, not the minimum. ~10% of the 3.43B C1+C2+C3 canonical orderings tie with KW at 776; the minimum is 424. The 3.9th-percentile claim and the "ceiling cohort" claim are both true, at different scopes — see [SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md). Either framing represents a research design choice on what reference population to compare against; the threshold value 12.125 itself is reverse-engineered from KW (no first-principles derivation).
 
 The line autocorrelation finding suggests the designers preferred smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
 

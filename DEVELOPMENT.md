@@ -535,6 +535,27 @@ keeping the managed disk.
   open FDs is hit around 500T (the k-way merge opens every chunk
   simultaneously). `ulimit -n 16384` before running fixes it.
 
+- **Stack `ulimit -s`.** Production builds run cleanly at the default
+  Linux stack limit (8 MB on every distro tested: Ubuntu 24.04 cloud-
+  init, Cobalt ARM, the orchestrator VM). main()'s peak stack usage
+  is ~4-6 MB after the 2026-05-05 #54 fix, leaving comfortable
+  headroom. **No `ulimit -s` adjustment needed for production runs.**
+
+  **AddressSanitizer / sanitizer-instrumented builds DO require
+  `ulimit -s unlimited`.** ASan adds redzones around every stack-
+  allocated array, which inflates main()'s frame from ~6 MB to
+  ~16 MB. Without the bump, ASan binaries SIGSEGV at main() entry
+  with a misleading "stack-overflow" report before any user code
+  runs. Build flags `-fsanitize=address -no-pie -fno-pie -O1 -g`
+  combined with `ulimit -s unlimited` produce the right
+  diagnostic environment.
+
+  solve.c includes a startup constructor (`check_stack_ulimit()`,
+  added 2026-05-05 task #75) that prints a stderr warning if the
+  running process's `RLIMIT_STACK` is below the build's
+  recommended threshold (8 MB production, 64 MB ASan). Surfaces
+  the requirement loudly before any code-path-specific failure.
+
 ### Accumulating ground truth — single-branch exhaustion workflow
 
 Long-horizon enumeration strategy: exhaust individual first-level branches
