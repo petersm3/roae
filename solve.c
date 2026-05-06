@@ -295,10 +295,40 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 
 #ifndef GIT_HASH
 #define GIT_HASH "unknown"
 #endif
+
+/* Pre-main() warning if RLIMIT_STACK is too small for main()'s frame.
+ * Production builds need ~8 MB (default Linux). ASan-instrumented builds
+ * need ~64 MB because ASan's redzone instrumentation expands stack
+ * arrays 2-4×. The 2026-05-05 ASan investigation hit a stack-overflow
+ * at main() entry that masked the actual all_top OOB until ulimit was
+ * bumped — surfacing the requirement loudly here saves future debug
+ * cycles. Constructor runs before main() so the warning fires BEFORE
+ * any potential stack-overflow SIGSEGV. */
+static void __attribute__((constructor)) check_stack_ulimit(void) {
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_STACK, &rl) != 0) return;
+    if (rl.rlim_cur == RLIM_INFINITY) return;
+    long long cur_kb = (long long)(rl.rlim_cur / 1024);
+#ifdef __SANITIZE_ADDRESS__
+    long long need_kb = 65536;  /* ASan: 64 MB */
+    const char *build = "ASan-instrumented";
+#else
+    long long need_kb = 8192;   /* production: 8 MB */
+    const char *build = "production";
+#endif
+    if (cur_kb < need_kb) {
+        fprintf(stderr,
+            "WARNING: RLIMIT_STACK soft limit is %lld KB; %s build recommends %lld+ KB.\n"
+            "         main()'s frame may overflow at function entry, producing a misleading SIGSEGV.\n"
+            "         Run: ulimit -s %lld   (or 'ulimit -s unlimited') before launching solve.\n",
+            cur_kb, build, need_kb, need_kb);
+    }
+}
 
 /* ---------- King Wen sequence: 64 hexagrams as 6-bit integers ---------- */
 /* Each value 0-63 encodes a hexagram's six lines as bits (0=yin, 1=yang).
@@ -12027,7 +12057,13 @@ sub_enum_done:
     long long total_stored = 0;
     int branches_done = 0;
 
-    ClosestEntry all_top[64 * TOP_N];
+    /* Sized 256*TOP_N to match ThreadState workers[256] / threads[256] ceiling
+     * elsewhere in main(). Earlier 64*TOP_N produced a stack-buffer-overflow
+     * at line 12058 once SOLVE_THREADS exceeded 64 — caught by AddressSanitizer
+     * 2026-05-05 (task #54). With 128 threads × top_count up to TOP_N=20, the
+     * old 1280-slot array could be written 2,560 times. The 256*TOP_N=5,120-
+     * slot array now matches the project's MAX_THREADS=256 ceiling. */
+    ClosestEntry all_top[256 * TOP_N];
     int all_top_count = 0;
 
     for (int i = 0; i < n_threads; i++) {
