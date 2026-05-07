@@ -5857,9 +5857,22 @@ int main(int argc, char *argv[]) {
     int prove_self_comp_mode = 0;
     int prove_shift_mode = 0;
     int analyze_mode = 0;
+    int show_mode = 0;
     char *validate_file = NULL;
     char *verify_file = NULL;
     char *analyze_file = NULL;
+    /* --show: visual-inspection of solutions.bin records. Lets a human eyeball
+     * a sample of records to confirm e.g. that every record starts with the
+     * Heaven+Earth pair (C4). All access is fseek-by-record-index, so cost is
+     * O(N) seeks regardless of file size — no scanning of the 102 GB
+     * canonical needed to print a random sample. */
+    long long show_count = 10;
+    const char *show_file = "solutions.bin";
+    const char *show_mode_str = "first";   /* first | last | random */
+    long long show_from_first = 0;          /* 0 = full file; >0 restricts random pool */
+    const char *show_format_str = "kw";    /* kw | binary | glyph | raw */
+    unsigned int show_seed = 0;
+    int show_seed_set = 0;
 
     if (argc > 1 && strcmp(argv[1], "--prove-cascade") == 0) {
         prove_cascade_mode = 1;
@@ -6111,6 +6124,29 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--verify") == 0) {
         verify_mode = 1;
         verify_file = (argc > 2) ? argv[2] : "solutions.bin";
+        arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--show") == 0) {
+        show_mode = 1;
+        int ai = 2;
+        /* Optional positional N as first arg after --show */
+        if (ai < argc && argv[ai][0] >= '0' && argv[ai][0] <= '9') {
+            show_count = atoll(argv[ai]);
+            ai++;
+        }
+        for (; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--mode") == 0 && ai + 1 < argc) show_mode_str = argv[++ai];
+            else if (strcmp(argv[ai], "--format") == 0 && ai + 1 < argc) show_format_str = argv[++ai];
+            else if (strcmp(argv[ai], "--from-first") == 0 && ai + 1 < argc) show_from_first = atoll(argv[++ai]);
+            else if (strcmp(argv[ai], "--from") == 0 && ai + 1 < argc) show_file = argv[++ai];
+            else if (strcmp(argv[ai], "--seed") == 0 && ai + 1 < argc) {
+                show_seed = (unsigned int)atoll(argv[++ai]);
+                show_seed_set = 1;
+            }
+            else if (argv[ai][0] != '-' && argv[ai][0] >= '0' && argv[ai][0] <= '9') {
+                /* fallback positional: e.g. "solve --show --mode random 20" */
+                show_count = atoll(argv[ai]);
+            }
+        }
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--selftest") == 0) {
         /* --selftest: fork a child process that runs a fixed tiny scenario in
@@ -6856,12 +6892,14 @@ int main(int argc, char *argv[]) {
             printf("Time limit: %d seconds\n", time_limit);
         else
             printf("No time limit — running to completion.\n");
-    } else {
+    } else if (!show_mode && !verify_mode && !validate_mode && !analyze_mode) {
         printf("No time limit — running to completion.\n");
         if (!single_branch_mode)
             printf("Usage: ./solve [time_limit] [threads]  (0 = no limit)\n"
                    "       ./solve --verify [solutions.bin]   (independent C1-C5 check)\n"
-                   "       ./solve --selftest                 (regression test)\n");
+                   "       ./solve --selftest                 (regression test)\n"
+                   "       ./solve --show [N] [--mode first|last|random] [--format kw|binary|glyph|raw] [--from FILE] [--from-first M] [--seed S]\n"
+                   "                                          (visual-inspect N records; defaults: 10, first, kw)\n");
     }
 
     /* Configurable hash table size */
@@ -7060,14 +7098,16 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    printf("Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
-    printf("King Wen complement distance (x64): %d (= %.4f)\n",
-           kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
-    printf("Difference distribution: ");
-    for (int d = 0; d < 7; d++) {
-        if (kw_dist[d] > 0) printf("%d:%d ", d, kw_dist[d]);
+    if (!show_mode) {
+        printf("Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
+        printf("King Wen complement distance (x64): %d (= %.4f)\n",
+               kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
+        printf("Difference distribution: ");
+        for (int d = 0; d < 7; d++) {
+            if (kw_dist[d] > 0) printf("%d:%d ", d, kw_dist[d]);
+        }
+        printf("\nSuper-pairs: %d\n", n_super_pairs);
     }
-    printf("\nSuper-pairs: %d\n", n_super_pairs);
 
     /* --- Verify mode ---
      * Independent constraint verification: reads every record from solutions.bin,
@@ -7261,6 +7301,188 @@ int main(int argc, char *argv[]) {
             printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
             return 1;
         }
+    }
+
+    /* --- Show mode ---
+     * Visual-inspection sample of solutions.bin records. Pure read-only;
+     * O(N) seeks regardless of file size (no scanning of the canonical 102 GB
+     * artifact needed even for 'random' mode). Useful for confirming C4
+     * (every record starts with the Heaven+Earth pair = KW [1,2]) by eye
+     * across a sample. */
+    if (show_mode) {
+        FILE *sf = fopen(show_file, "rb");
+        if (!sf) {
+            fprintf(stderr, "ERROR: cannot open %s\n", show_file);
+            return 10;
+        }
+        fseek(sf, 0, SEEK_END);
+        long fsize = ftell(sf);
+        fseek(sf, 0, SEEK_SET);
+
+        /* Auto-detect ROAE header vs raw shard. Same logic as --verify. */
+        long header_offset = 0;
+        long long total_records = 0;
+        unsigned char peek[4];
+        if (fsize >= 4 && fread(peek, 1, 4, sf) == 4 &&
+            peek[0]=='R' && peek[1]=='O' && peek[2]=='A' && peek[3]=='E') {
+            uint64_t hdr_recs = 0;
+            fseek(sf, 0, SEEK_SET);
+            if (sol_read_header(sf, &hdr_recs) != 0) {
+                fprintf(stderr, "ERROR: header parse failed\n");
+                fclose(sf);
+                return 10;
+            }
+            header_offset = SOL_HEADER_SIZE;
+            total_records = (long long)hdr_recs;
+        } else {
+            if (fsize % SOL_RECORD_SIZE != 0) {
+                fprintf(stderr, "ERROR: file size %ld not a multiple of %d (corrupted?)\n",
+                        fsize, SOL_RECORD_SIZE);
+                fclose(sf);
+                return 20;
+            }
+            total_records = fsize / SOL_RECORD_SIZE;
+        }
+        if (total_records == 0) {
+            printf("File contains 0 records.\n");
+            fclose(sf);
+            return 0;
+        }
+
+        long long n_to_show = show_count;
+        if (n_to_show > total_records) n_to_show = total_records;
+
+        long long *indices = (long long *)malloc((size_t)n_to_show * sizeof(long long));
+        if (!indices) {
+            fprintf(stderr, "ERROR: malloc failed\n");
+            fclose(sf);
+            return 10;
+        }
+
+        if (strcmp(show_mode_str, "first") == 0) {
+            for (long long i = 0; i < n_to_show; i++) indices[i] = i;
+        } else if (strcmp(show_mode_str, "last") == 0) {
+            long long start = total_records - n_to_show;
+            for (long long i = 0; i < n_to_show; i++) indices[i] = start + i;
+        } else if (strcmp(show_mode_str, "random") == 0) {
+            long long pool = total_records;
+            if (show_from_first > 0 && show_from_first < pool) pool = show_from_first;
+            if (n_to_show > pool) n_to_show = pool;
+            unsigned int seed = show_seed_set ? show_seed
+                : (unsigned int)(time(NULL) ^ (long)getpid());
+            srand(seed);
+            for (long long i = 0; i < n_to_show; i++) {
+                /* Combine two rand() calls for >32-bit pool support */
+                uint64_t r = ((uint64_t)rand() << 32) | (uint32_t)rand();
+                indices[i] = (long long)(r % (uint64_t)pool);
+            }
+        } else {
+            fprintf(stderr, "ERROR: unknown --mode '%s' (valid: first, last, random)\n",
+                    show_mode_str);
+            free(indices);
+            fclose(sf);
+            return 1;
+        }
+
+        /* Inverse King Wen lookup: hex_value -> KW number 1..64 */
+        int kw_num_of[64];
+        for (int i = 0; i < 64; i++) kw_num_of[KW[i]] = i + 1;
+
+        /* Hexagram glyph for KW#k is at Unicode codepoint U+4DC0 + (k-1).
+         * Range: U+4DC0 (KW#1, ䷀) through U+4DFF (KW#64, ䷿). */
+
+        printf("=== solve --show ===\n");
+        printf("File:       %s (%ld bytes, header offset %ld)\n",
+               show_file, fsize, header_offset);
+        printf("Records:    %lld total\n", total_records);
+        printf("Mode:       %s", show_mode_str);
+        if (strcmp(show_mode_str, "random") == 0 && show_from_first > 0) {
+            printf(" (pool: first %lld records)", show_from_first);
+        }
+        printf("\n");
+        if (strcmp(show_mode_str, "random") == 0 && show_seed_set)
+            printf("Seed:       %u\n", show_seed);
+        printf("Format:     %s\n", show_format_str);
+        printf("Showing:    %lld record(s)\n\n", n_to_show);
+
+        unsigned char rec[SOL_RECORD_SIZE];
+        for (long long si = 0; si < n_to_show; si++) {
+            long long idx = indices[si];
+            long off = header_offset + (long)(idx * SOL_RECORD_SIZE);
+            if (fseek(sf, off, SEEK_SET) != 0) {
+                fprintf(stderr, "[%lld]: <fseek failed>\n", idx);
+                continue;
+            }
+            if (fread(rec, 1, SOL_RECORD_SIZE, sf) != SOL_RECORD_SIZE) {
+                fprintf(stderr, "[%lld]: <fread truncated>\n", idx);
+                continue;
+            }
+
+            /* Decode 32 bytes -> sequence of 64 hexagram values */
+            int seq[64];
+            int decode_ok = 1;
+            for (int i = 0; i < 32; i++) {
+                int pidx = (rec[i] >> 2) & 0x3F;
+                int orient = (rec[i] >> 1) & 1;
+                if (pidx < 0 || pidx >= 32) { decode_ok = 0; break; }
+                if (orient == 0) {
+                    seq[i*2]     = pairs[pidx].a;
+                    seq[i*2 + 1] = pairs[pidx].b;
+                } else {
+                    seq[i*2]     = pairs[pidx].b;
+                    seq[i*2 + 1] = pairs[pidx].a;
+                }
+            }
+
+            printf("[%lld]: ", idx);
+            if (!decode_ok) {
+                printf("<decode failed>\n");
+                continue;
+            }
+
+            if (strcmp(show_format_str, "kw") == 0) {
+                for (int i = 0; i < 32; i++) {
+                    printf("[%d,%d]", kw_num_of[seq[i*2]], kw_num_of[seq[i*2+1]]);
+                    if (i < 31) putchar(' ');
+                }
+            } else if (strcmp(show_format_str, "binary") == 0) {
+                for (int i = 0; i < 32; i++) {
+                    int a = seq[i*2], b = seq[i*2+1];
+                    for (int bit = 5; bit >= 0; bit--) putchar('0' + ((a >> bit) & 1));
+                    putchar(' ');
+                    for (int bit = 5; bit >= 0; bit--) putchar('0' + ((b >> bit) & 1));
+                    if (i < 31) printf(" | ");
+                }
+            } else if (strcmp(show_format_str, "glyph") == 0) {
+                /* UTF-8 encode each hexagram glyph U+4DC0 + (kw#-1).
+                 * 3-byte form (BMP code points outside ASCII range): 1110xxxx 10xxxxxx 10xxxxxx */
+                for (int i = 0; i < 64; i++) {
+                    int cp = 0x4DC0 + (kw_num_of[seq[i]] - 1);
+                    putchar(0xE0 | ((cp >> 12) & 0x0F));
+                    putchar(0x80 | ((cp >> 6)  & 0x3F));
+                    putchar(0x80 | ((cp)       & 0x3F));
+                    if (i % 2 == 1 && i < 63) putchar(' ');
+                }
+            } else if (strcmp(show_format_str, "raw") == 0) {
+                for (int i = 0; i < 32; i++) {
+                    int pidx = (rec[i] >> 2) & 0x3F;
+                    int orient = (rec[i] >> 1) & 1;
+                    printf("%d/%d", pidx, orient);
+                    if (i < 31) putchar(' ');
+                }
+            } else {
+                fprintf(stderr, "\nERROR: unknown --format '%s' (valid: kw, binary, glyph, raw)\n",
+                        show_format_str);
+                free(indices);
+                fclose(sf);
+                return 1;
+            }
+            putchar('\n');
+        }
+
+        free(indices);
+        fclose(sf);
+        return 0;
     }
 
     /* --- Validate mode ---
