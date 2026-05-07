@@ -18,12 +18,7 @@ New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-langua
 
 ## Solver
 
-Can the King Wen sequence be reconstructed from its mathematical constraints? Five constraints narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
-- **d3 100T: 3,432,399,297** (sha `915abf30…`, 2026-04-20, current deepest)
-- **d3 10T: 706,422,987** (sha `f7b8c4fb…`)
-- **d2 10T: 286,357,503** (sha `a09280fb…`)
-
-All three are partial enumerations at different partition strategies and node budgets; under true exhaustive enumeration they would converge.
+Can the King Wen sequence be reconstructed from its mathematical constraints? Five constraints narrow 10^89 possibilities to billions of valid orderings. The deepest published partial enumeration finds **3,432,399,297 canonical orderings** at the d3 100T budget. Canonical counts and the sha256 hashes that anchor them — across multiple partition strategies and node budgets — are listed in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). All listed canonicals are partial enumerations; under true exhaustive enumeration they would converge.
 
 The **number of boundary constraints needed to uniquely identify King Wen grows with partition depth**: 4 at 10T (d2 and d3), **5 at 100T d3** (greedy-optimal set {1, 4, 21, 25, 27}). Boundaries **{25, 27}** remain mandatory at all three partitions (most stable structural finding). See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the constraint analysis (`solve.py` + `solve.c`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version. The binary output format is in [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md); [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) is a step-by-step recipe for building an independent verifier from those two specs alone. Enumeration results are in `enumeration/`.
 

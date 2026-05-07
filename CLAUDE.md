@@ -22,6 +22,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) |
 | Prior literature + what is classical / prior / novel / methodological citations | [CITATIONS.md](CITATIONS.md) |
 | Formal constraint definitions + theorems | [SPECIFICATION.md](SPECIFICATION.md) |
+| **Canonical sha256 registry + reproducibility parameters** | [CANONICAL_HASHES.md](CANONICAL_HASHES.md) |
 | Binary output format + verifier recipe | [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md), [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md), [verify.py](verify.py) |
 | Partition invariance theorem | [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) |
 | Project narrative + why-decisions-were-made | [HISTORY.md](HISTORY.md) |
@@ -35,21 +36,16 @@ King Wen's uniqueness vs. combinatorial structure.
 ## Canonical shas — INVARIANT
 
 Any `solutions.bin` produced with matching input parameters **must**
-reproduce one of these shas byte-identically. A mismatch is a bug, not
-a new result.
+reproduce one of the published canonical shas byte-identically. A
+mismatch is a bug, not a new result. The full registry of canonical
+hashes — with reproducibility parameters, record counts, and validation
+status per canonical — lives in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 
-- **d3 100T** (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=100000000000000`):
-  `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` — 3,432,399,297 canonical orderings (2026-04-20).
-- **d3 10T** (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=10000000000000`):
-  `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` — 706,422,987 canonical orderings.
-- **d2 10T** (`SOLVE_DEPTH=2`, same node limit):
-  `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` — 286,357,503 canonical orderings.
-
-Partition invariance (see PARTITION_INVARIANCE.md) guarantees these
-are reproducible across hardware, region, merge algorithm, and
-enumeration vs. independent-shard-merge paths. If you produce a
-mismatching sha, stop and investigate — don't silently "update" the
-canonical.
+Partition invariance (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md))
+guarantees these are reproducible across hardware, region, merge
+algorithm, and enumeration vs. independent-shard-merge paths. If you
+produce a mismatching sha, stop and investigate — don't silently
+"update" the canonical.
 
 Older figures in project history (31.6M filename-collision bug, 742M
 hash-table bug) are invalidated forensic references only.

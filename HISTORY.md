@@ -1969,14 +1969,9 @@ disk.
 
 All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modeled on the single-C-file rule): the P2 subcommands `solve.py --compute-stats`, `solve.py --marginals`, `solve.py --bivariate`, `solve.py --joint-density` read the 100T canonical `solutions.bin` / per-chunk parquet outputs and produce the distributional-analysis artifacts. The only Python file outside `solve.py` is `viz/visualize.py` (PCA plots); the `scripts/` subdirectory that briefly held `compute_stats.py`/`p2_marginals.py`/`p2_bivariate.py`/`p2_joint_density.py` during P2 development was retired on 2026-04-21 as those scripts were consolidated into `solve.py`.
 
-**Data.** Canonical v1 reference shas established and 4-corners-validated:
-- **d3 100T**: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` — **3,432,399,297 canonical orderings** (the current primary reference).
-- **d3 10T**: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` — 706,422,987 canonical orderings.
-- **d2 10T**: `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` — 286,357,503 canonical orderings.
+**Data.** Canonical v1 reference shas, record counts, reproducibility parameters, and validation status are centralized in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The current deepest partial enumeration is the d3 100T canonical (3,432,399,297 orderings). 100T solutions.bin (102 GB) lives on `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS, preserved across VM tear-down).
 
-All partition-invariance validated. 100T solutions.bin (102 GB) lives on `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS, preserved across VM tear-down).
-
-**Selftest baseline.** `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only.
+**Selftest baseline.** sha `403f7202…` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only. Full sha + parameters in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 
 **Scientific framing.** C1+C2+C3 are the robust findings (rare or extremal in random permutations). C4-C7 are extracted from KW. The **5-boundary minimum at 100T d3** supersedes the earlier "4-boundary minimum" — boundaries `{25, 27}` remain mandatory across d2 / d3-10T / d3-100T; partition-dependent boundaries shift at deeper budget. Greedy-optimal 5-set at 100T: `{1, 4, 21, 25, 27}`. **KW is at the C3 ceiling (776)**, not the floor — 9.91% of records tie with KW at 776; minimum C3 = 424 (221 records). **Distributional analysis (April 21):** KW sits at 0.000%-ile of joint observable density (bootstrap 95% CI [0.000%, 0.000%]) — joint extremity driven by simultaneous 95th+ percentile values across c3_total, c6_c7_count, shift_conformant_count, first_position_deviation. See `DISTRIBUTIONAL_ANALYSIS.md`.
 
