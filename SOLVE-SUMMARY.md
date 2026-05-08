@@ -9,6 +9,7 @@ For deeper material referenced throughout this article:
 - Joint-observable distributional analysis (where King Wen sits in the 3.43B-ordering density): [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 - Methodological critique, including the null-model caveat on the "N boundaries uniquely determine King Wen" finding: [CRITIQUE.md](CRITIQUE.md).
 - Formal constraint definitions and theorems: [SPECIFICATION.md](SPECIFICATION.md).
+- Command-line reference: [SOLVE_CLI.md](SOLVE_CLI.md) (`solve.c` subcommands, env vars, exit codes), [ROAE_PY_CLI.md](ROAE_PY_CLI.md) (`roae.py` analysis sections).
 
 > **For HOW the enumeration actually works** — what a branch / sub-branch / node means, the difference between all-branch and single-branch enumeration, and the open research questions — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md). It's the step-by-step companion to this summary.
 

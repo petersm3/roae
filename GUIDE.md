@@ -38,6 +38,8 @@ python3 roae.py --lookup 1       # Look up a specific hexagram
 python3 roae.py --cast           # Simulate a traditional I Ching reading
 ```
 
+For the full command-line reference (all 28 analysis sections, interactive modes, modifiers, and export formats), see [ROAE_PY_CLI.md](ROAE_PY_CLI.md).
+
 ### What --cast looks like
 
 The `--cast` flag simulates a traditional [three-coin method](https://en.wikipedia.org/wiki/I_Ching_divination) reading. Three coins are tossed six times to build a hexagram line by line:

@@ -4,7 +4,7 @@ A step-by-step recipe for building an independent `solutions.bin` verifier using
 
 ## What this document is
 
-A forcing function for spec completeness and a 20-year resilience artifact. Every question you have to answer from `solve.c` rather than from the authoritative specs is a gap in the specs and should be fixed. The companion implementation that proves this recipe works is `verify.py` in this repository — written in Python, ~130 lines, shares zero code with `solve.c`.
+A forcing function for spec completeness and a 20-year resilience artifact. Every question you have to answer from `solve.c` rather than from the authoritative specs is a gap in the specs and should be fixed. The companion implementation that proves this recipe works is `verify.py` in this repository — written in Python, ~130 lines, shares zero code with `solve.c`. (For the canonical reference C-side verifier, see `solve --verify` documented in [SOLVE_CLI.md](SOLVE_CLI.md).)
 
 ## What this document is NOT
 

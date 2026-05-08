@@ -28,6 +28,8 @@ King Wen's uniqueness vs. combinatorial structure.
 | Project narrative + why-decisions-were-made | [HISTORY.md](HISTORY.md) |
 | Enumeration leaderboard | [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) |
 | Build / self-test / developer invariants | [DEVELOPMENT.md](DEVELOPMENT.md) |
+| **Full `solve.c` CLI reference** (subcommands, env vars, exit codes) | [SOLVE_CLI.md](SOLVE_CLI.md) |
+| **Full `roae.py` CLI reference** (28 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](ROAE_PY_CLI.md) |
 | Azure deployment / SKU sizing | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
 | **Live operational state** (current run, schedule, in-flight work) | `~/github/x/roae/CURRENT_PLAN.md` (**private repo, `petersm3/x`** — not in this repo) |

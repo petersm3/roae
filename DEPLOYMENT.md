@@ -5,6 +5,8 @@ for multi-hour (or multi-day) enumerations. Cloud-specific examples (Azure spot
 VMs) appear at the end as an appendix; the architectural rules earlier in this
 doc apply on any provider.
 
+For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced below), see [SOLVE_CLI.md](SOLVE_CLI.md).
+
 ## Architecture: separate orchestrator, solver, and monitor
 
 Three concerns, three processes:

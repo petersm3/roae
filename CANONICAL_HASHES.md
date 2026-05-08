@@ -32,6 +32,8 @@ Each canonical is fully reproduced by the parameter set below. `SOLVE_DEPTH` is 
 
 Solver invocation for the multi-trillion-node canonicals: `solve 0 128`.
 
+For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced in this document), see [SOLVE_CLI.md](SOLVE_CLI.md).
+
 ## Solver version
 
 **v1** is the solver lineage anchored at this repo's `main` branch. The current head reproduces every v1 canonical above. Specific commits that established each canonical are recorded in [HISTORY.md](HISTORY.md). v1 binary builds on stock toolchain — no patched glibc, no jemalloc, no profiling instrumentation:

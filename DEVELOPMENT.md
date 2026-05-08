@@ -16,6 +16,9 @@ live in:
 - [DEPLOYMENT.md](DEPLOYMENT.md) — cloud-VM deployment architecture + lessons.
 - [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) — current state of
   the enumeration.
+- [SOLVE_CLI.md](SOLVE_CLI.md) — full `solve.c` command-line reference
+  (subcommands, env vars, exit codes).
+- [ROAE_PY_CLI.md](ROAE_PY_CLI.md) — full `roae.py` analysis-CLI reference.
 
 ---
 

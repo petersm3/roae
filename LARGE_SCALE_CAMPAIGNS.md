@@ -12,6 +12,10 @@ publishable reference), follow this guide carefully — the
 correctness story depends on disciplined VM sizing, validation,
 and reproducibility-evidence capture, not just compute throughput.
 
+For the full `solve.c` command-line reference (every subcommand and
+environment variable referenced in this guide), see
+[SOLVE_CLI.md](SOLVE_CLI.md).
+
 ## 1. Decide what you actually want
 
 Before sizing anything, answer these questions:
