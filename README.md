@@ -20,7 +20,7 @@ New to the I Ching or combinatorics? See [GUIDE.md](GUIDE.md) for a plain-langua
 
 Can the King Wen sequence be reconstructed from its mathematical constraints? Five constraints narrow 10^89 possibilities to billions of valid orderings. The deepest published partial enumeration finds **3,432,399,297 canonical orderings** at the d3 100T budget. Canonical counts and the sha256 hashes that anchor them — across multiple partition strategies and node budgets — are listed in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). All listed canonicals are partial enumerations; under true exhaustive enumeration they would converge.
 
-The **number of boundary constraints needed to uniquely identify King Wen grows with partition depth**: 4 at 10T (d2 and d3), **5 at 100T d3** (greedy-optimal set {1, 4, 21, 25, 27}). Boundaries **{25, 27}** remain mandatory at all three partitions (most stable structural finding). See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the constraint analysis (`solve.py` + `solve.c`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version. The binary output format is in [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md); [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) is a step-by-step recipe for building an independent verifier from those two specs alone. Enumeration results are in `enumeration/`.
+The **number of boundary constraints needed to uniquely identify King Wen grows with partition depth**: 4 at 10T (d2 and d3), **5 at 100T d3** (greedy-optimal set {1, 4, 21, 25, 27}). Boundaries **{25, 27}** remain mandatory at all three partitions (most stable structural finding). See [SPECIFICATION.md](SPECIFICATION.md) for the formal definition, [SOLVE.md](SOLVE.md) for the constraint analysis (`solve.py` + `solve.c`), or [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) for a plain-language version. The binary output format is in [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md); [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) is a step-by-step recipe for building an independent verifier from those two specs alone. Enumeration results are in `enumeration/`. Full `solve.c` command-line reference (subcommands, env vars, exit codes) is in [SOLVE_CLI.md](SOLVE_CLI.md).
 
 **Important methodological note.** Constraints C1–C2 (pair structure, no 5-line transitions) are genuinely rare statistical properties of King Wen — the pair structure does not appear in any random permutation we tested (0 of 1.86 billion across seven null-model families). Constraint C3 (complement distance ≤ 776) is a ceiling constraint using KW's own value; per the 100T d3 analysis, **KW sits AT the C3 ceiling, not the floor** — 340 million records (9.91%) tie with KW at C3=776, and the true minimum is 424 (221 records). Constraints C4–C7 were **extracted from King Wen** (exact starting pair, exact distance distribution, specific boundary adjacencies) and then shown to be highly constraining against King Wen. A null-model test (see [CRITIQUE.md](CRITIQUE.md)) found that applying the same extraction methodology to random pair-constrained sequences also produces apparent "uniqueness" in 9/10 cases. The honest claim is therefore: *pair structure + no-5 are the robust findings against random; the "N boundaries uniquely determine KW" result is partition-depth-dependent (N = 4 at 10T, 5 at 100T, possibly larger at deeper enumeration) and reflects the constraint-extraction methodology rather than evidence of KW's inherent specialness beyond the robust findings.*
 
@@ -68,86 +68,18 @@ See [MCKENNA.md](MCKENNA.md) for how these findings relate to [Terence McKenna's
 ## Usage
 
 ```
-python3 roae.py              # Run all 28 analyses (default)
-python3 roae.py --quick      # Run core sections only (fast)
-python3 roae.py --table      # Run a specific section
-python3 roae.py --help-sections  # List all available sections
-python3 roae.py --self-test  # Verify data integrity (21 checks)
+python3 roae.py                 # run all 28 analyses (default)
+python3 roae.py --quick         # core sections only (fast)
+python3 roae.py --<section>     # run one analysis (e.g., --wave, --pairs, --complements)
+python3 roae.py --help-sections # list all available analysis sections
+python3 roae.py --self-test     # data-integrity invariant checks
+python3 roae.py --lookup 1      # look up a hexagram (by number or name)
+python3 roae.py --html          # export full HTML report (also --json --csv --svg --markdown --midi --dot)
 ```
 
-### Analysis sections (28)
+Full command-line reference for `roae.py` — all 28 analysis sections, interactive queries, modifiers, output formats, and dependencies — is in [ROAE_PY_CLI.md](ROAE_PY_CLI.md).
 
-| Flag | Description |
-|------|-------------|
-| `--table` | Hexagram reference table with binary encoding, trigrams, and names |
-| `--pairs` | Reverse vs. inverse pair analysis — tests the pairing structure |
-| `--wave` | First-order difference wave — the core 'signal' of the King Wen sequence |
-| `--trigrams` | Trigram frequency, transitions, and 8x8 transition matrices |
-| `--nuclear` | Nuclear hexagram chains — hidden inner hexagram derivations |
-| `--lines` | Line change positional analysis — which lines change most often |
-| `--complements` | Complement distance — where each hexagram's opposite sits |
-| `--palindromes` | Palindrome search in the difference wave |
-| `--canons` | Upper Canon (1-30) vs. Lower Canon (31-64) statistical comparison |
-| `--hamming` | Full 64x64 Hamming distance matrix |
-| `--autocorrelation` | Autocorrelation — tests for hidden periodicity |
-| `--entropy` | Shannon entropy — how structured vs. random the wave is |
-| `--path` | Graph theory path analysis — is King Wen an efficient route? |
-| `--stats` | Monte Carlo — probability of the 'no 5-line transitions' property |
-| `--fft` | Spectral analysis (DFT) — frequency decomposition of the wave |
-| `--markov` | Markov chain — do difference values predict the next value? |
-| `--graycode` | Gray code comparison — King Wen vs. theoretically smoothest path |
-| `--symmetry` | XOR group algebra — algebraic structure of the pairing system |
-| `--sequences` | Compare King Wen vs. Fu Xi vs. Mawangdui orderings |
-| `--constraints` | Constraint satisfaction — how rare is King Wen's combined properties? |
-| `--barchart` | ASCII bar chart visualization of the difference wave |
-| `--windowed-entropy` | Sliding window entropy — where structure concentrates |
-| `--mutual-info` | Mutual information between upper/lower trigram changes |
-| `--bootstrap` | Bootstrap confidence intervals for Monte Carlo estimates |
-| `--yinyang` | Yin-yang balance wave through the sequence |
-| `--neighborhoods` | Hamming distance-1 neighborhoods for each hexagram |
-| `--recurrence` | Recurrence plot — where the difference wave repeats |
-| `--codons` | DNA codon mapping — structural comparison with genetics |
-
-### Interactive modes
-
-```
-python3 roae.py --lookup 1           # Look up by number
-python3 roae.py --lookup "creative"  # Look up by name
-python3 roae.py --compare 1 2        # Compare two hexagrams
-python3 roae.py --cast               # Simulate an I Ching reading (three-coin method)
-python3 roae.py --explain 1          # Step-by-step walkthrough of transition 1
-```
-
-### Modifiers
-
-| Flag | Description |
-|------|-------------|
-| `--quick` | Run core sections only (table, pairs, wave, barchart, trigrams, canons, graycode, stats) |
-| `--wrap` | Include 64->1 wrap-around transition in wave |
-| `--order N` | Compute Nth order of difference (default: 1) |
-| `--trials N` | Number of Monte Carlo trials (default: 100000) |
-| `--seed N` | Random seed for reproducible results (omit for random). Each analysis section re-seeds independently, so results are identical regardless of which sections run or output format used. |
-| `--color` | Enable ANSI color output |
-
-### Export formats
-
-```
-python3 roae.py --json      # writes hexagrams.json
-python3 roae.py --csv       # writes hexagrams.csv
-python3 roae.py --dot       # writes wave.dot (+ wave.dot.png/.svg if Graphviz installed)
-python3 roae.py --svg       # writes hexagrams.svg
-python3 roae.py --html      # writes report.html (+ report.pdf if wkhtmltopdf installed)
-python3 roae.py --markdown  # writes report.md
-python3 roae.py --midi      # writes wave.mid
-```
-
-### Verification
-
-```
-python3 roae.py --self-test  # 21 mathematical invariant checks
-```
-
-Verifies data integrity, pair structure, no-5-line property, yin-yang balance, trigram distribution, lookup table consistency, and mathematical function correctness.
+For `solve.c` (the enumerator that produces the canonical `solutions.bin` artifacts referenced above): see [SOLVE_CLI.md](SOLVE_CLI.md).
 
 ## Requirements
 
