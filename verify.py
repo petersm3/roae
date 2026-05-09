@@ -107,12 +107,12 @@ def verify_chunk(args):
             'last_canonical': None, 'last_rec': None,
             'count': 0,
         }
-    with open(path, 'rb') as f:
-        f.seek(SOL_HEADER_SIZE + start * 32)
-        chunk = f.read(n_chunk * 32)
-    if len(chunk) != n_chunk * 32:
-        raise IOError(f"verify_chunk: short read at start={start} end={end}: got {len(chunk)} expected {n_chunk*32}")
-
+    # Stream-read in 1M-record batches (32 MB each) to bound memory.
+    # Previously loaded the full chunk (~6.87 GB at --jobs 16 on a 110 GB
+    # solutions.bin) which forced N workers × chunk_size = file_size of
+    # total memory regardless of N — caused swap-thrash on any VM with
+    # RAM < file_size. Streamed batches: total memory ≈ N × 32 MB.
+    BATCH_RECORDS = 1024 * 1024  # 1M records = 32 MB per batch
     fail_c1 = fail_c2 = fail_c3 = fail_c4 = fail_c5 = 0
     fail_decode = fail_sort = fail_dup = 0
     kw_found = False
@@ -121,8 +121,34 @@ def verify_chunk(args):
     first_canonical = None
     first_rec = None
 
-    for r in range(n_chunk):
-        rec = chunk[r*32:(r+1)*32]
+    f = open(path, 'rb')
+    try:
+        f.seek(SOL_HEADER_SIZE + start * 32)
+        records_read = 0
+        # Load the first batch as `chunk`; refill in-loop when exhausted.
+        chunk = f.read(min(BATCH_RECORDS, n_chunk) * 32)
+        chunk_records = len(chunk) // 32
+        if chunk_records == 0 or len(chunk) % 32 != 0:
+            raise IOError(f"verify_chunk: short or unaligned read at start={start}: got {len(chunk)} bytes")
+    except Exception:
+        f.close()
+        raise
+
+    for r_global in range(n_chunk):
+        r_in_batch = r_global - records_read
+        if r_in_batch >= chunk_records:
+            # Refill the batch: free old chunk, read next batch.
+            records_read += chunk_records
+            remaining = n_chunk - records_read
+            if remaining <= 0:
+                break
+            chunk = f.read(min(BATCH_RECORDS, remaining) * 32)
+            chunk_records = len(chunk) // 32
+            if chunk_records == 0 or len(chunk) % 32 != 0:
+                f.close()
+                raise IOError(f"verify_chunk: short or unaligned read mid-stream at offset {records_read}")
+            r_in_batch = 0
+        rec = chunk[r_in_batch*32:(r_in_batch+1)*32]
         seq, pairs_used, first_pair = decode(rec)
 
         if seq is None:
@@ -171,6 +197,7 @@ def verify_chunk(args):
         if seq == KW:
             kw_found = True
 
+    f.close()
     return {
         'fail_c1': fail_c1, 'fail_c2': fail_c2, 'fail_c3': fail_c3,
         'fail_c4': fail_c4, 'fail_c5': fail_c5,

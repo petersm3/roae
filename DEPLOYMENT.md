@@ -135,6 +135,32 @@ az vm show -g "$RG" -n "$VM" --query priority -o tsv
 
 **Failure case this prevents:** on 2026-04-19/20, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. Actual VM cost: ~$112. Cost under the corrected policy: ~$38.84 ($10.85 enum on spot + $27.99 merge on-demand). Avoidable overspend: ~$73. See [HISTORY.md](HISTORY.md) §Missteps for the full retrospective.
 
+### Memory-budget validation for chunk-based parallel verifiers (added 2026-05-08)
+
+Right-sizing a VM by **core count alone is insufficient** if the workload is chunk-parallel. `verify.py --jobs N` (and any future tool that splits a file into N chunks each loaded into per-worker memory) has a fundamental property: **per-worker chunk = file_size / N, total memory across N workers = file_size, regardless of N**. There's no `--jobs` value that fits in RAM smaller than the file when chunks are loaded fully.
+
+Two consequences:
+
+1. **Streaming reads are the standard for chunk-parallel verifiers.** A worker should bound its memory to a constant (e.g., 32 MB streaming batch) regardless of input size. Loading 6+ GB into a Python `bytes` object via `f.read(chunk_size * 32)` is banned for any workload where the file may exceed RAM.
+2. **VM sizing must validate `chunk_size × N_workers ≤ available_RAM × 0.7`.** When choosing a VM for a parallel verifier, this arithmetic check catches the regime where the unpatched verifier will thrash via swap, not just slow down.
+
+Concrete example: `verify.py --jobs 16` on a 110 GB `solutions.bin`:
+- Per-worker chunk = 110 / 16 = 6.87 GB
+- Total memory = 16 × 6.87 = **110 GB**
+- Required VM RAM (with 30% headroom) = ~157 GB
+- D16als_v7 has 32 GB → **thrashes** (empirically: 13× re-read multiplier, OOM-killed at 5h 5min)
+- D128als_v7 has 256 GB → fits, no thrashing
+
+This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo uses 32 MB streaming batches and is no longer subject to the memory-vs-N constraint — it just needs cores. But the patched verifier is the floor: any chunk-parallel verifier added later should follow the same streaming pattern.
+
+**Rule of thumb for VM-sizing decisions:**
+
+- Single-thread merge: pick the smallest SKU that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). D8/D16 are usually right.
+- Single-thread `solve --verify` (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time.
+- Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.**
+
+Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually <$3 over a multi-hour campaign.
+
 ### Disk tier matters — more than you might think
 
 `solver-data` is deliberately **Standard_LRS** (HDD-tier). Standard HDD has

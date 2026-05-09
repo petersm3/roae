@@ -1963,6 +1963,140 @@ in), bundled re-baseline (#81). The remaining v1 closure work
 artifacts that closure was meant to validate are no longer on
 disk.
 
+## May 7 – May 8, 2026 PDT — re-derivation campaign post-wipe (T9+c.1, T9+d), three latent bugs surfaced
+
+This entry covers the work to recover from the 2026-05-06 self-inflicted wipe of the 100T canonical solutions.bin (sha `915abf30`). Wider context: the original artifact bytes were destroyed but the sha was preserved in git's CANONICAL_HASHES.md. Recovery means re-deriving byte-identical solutions.bin from the same solver + parameters and confirming the sha matches.
+
+The campaign was scoped as two parallel runs:
+
+- **T9+c.1** — full-enumeration re-derivation using `solve 0 128` (the same execution path as the original 2026-04-19/20 100T canonical). Tests that the recovery is reproducible via the original code path.
+- **T9+d** — per-branch-loop re-derivation: 62 separate `solve --branch p1 o1` invocations (31 non-fixed pairs × 2 orientations) followed by `solve --merge` to combine. Tests **partition invariance** at 100T scale — that the canonical sha is robust to execution strategy, not just to inputs (PARTITION_INVARIANCE.md theorem).
+
+Both target the canonical `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (3,432,399,297 records, 109,836,777,536 bytes).
+
+### Phase 1 — enumeration on Spot D128, three Spot evictions, two recoveries
+
+T9+c.1 started 2026-05-06 14:00 UTC on Spot D128als_v7 westus3 ($0.95/hr). Within 32 hours the run logged three Spot evictions:
+
+- **2026-05-07 03:02 UTC** — recovered cleanly via `az vm start` + remount disks by UUID (per the post-wipe disk-handling rules). Chain resumed from checkpoint.txt.
+- **2026-05-07 16:18 UTC** — eviction recovery hung. The orchestrator-side watcher (`v1_chain_watcher.sh` v1) had no SSH timeouts on its `ssh_run()` helper, so when an SSH call hung after the relaunch, the watcher froze silently for 3.5 hours before the operator caught it at 20:03 UTC. This is documented in detail in `petersm3/x:roae/EVICTION_WATCHER_LESSONS_2026_05_07.md` (private). The lesson — every `ssh` call inside an unattended monitoring loop must have `ConnectTimeout`, `ServerAliveInterval`, `ServerAliveCountMax`, and `BatchMode=yes`, plus an outer `timeout 60` — was rolled into `v1_chain_watcher_v2.sh` and `v1_chain_watcher_v3.sh`. The chain was relaunched via `systemd-run --unit=NAME --no-block` (transient cgroup-isolated unit) instead of the prior `setsid + nohup` pattern that died when the parent shell exited.
+- **2026-05-08 05:31 UTC** — third eviction, this one mid-merge at 96.2% of cross-chunk merge progress. `solve --merge` has no resume-from-existing-chunks logic; an eviction during merge means a full restart from scratch. The watcher's priority-aware migration logic triggered automatically, deleting the Spot D128 and provisioning an on-demand D128 Regular at $5.15/hr to finish the merge eviction-free.
+
+The first eviction was a non-event. The second eviction's downtime was a watcher bug (now fixed). The third eviction's expense (~$46 for a fresh ~9h merge on D128 Regular) was the real cost. Mitigation for future campaigns: split-priority by phase — Spot D128 for enum (eviction-tolerant via `.branch_*.done` checkpoints), then migrate to a smaller Regular VM for the merge (eviction-fragile + single-thread + disk-bound, so right-sized smaller).
+
+### The right-size mistake — D128 → D16 mid-merge migration
+
+The post-eviction migration script (`evict_to_ondemand.sh`) had auto-provisioned a D128als_v7 Regular for the merge restart — mirroring the evicted Spot SKU. This violated the `feedback_right_size_single_thread` rule (single-threaded jobs >1h must right-size). The merge is single-threaded and disk-bound at ~94 MB/s on Standard HDD. CPU doesn't matter. The 128 cores were ~99% idle.
+
+Operator caught it: *"is merging single threaded or multi-threaded, if it's single, why are you doing it on a d128?"* Mid-flight migration to D16als_v7 Regular ($0.50/hr — 10× cheaper, same disk speed). The D16 lost ~50 minutes of merge progress (had to restart from sub_*.bin shards, which were preserved on the persistent disk) but saved ~$40 over the remaining 9h merge.
+
+This was a repeat of the 2026-05-04 verify.py-on-D128 incident. The lesson stuck: post-eviction-migration scripts must pass the new-VM SKU through a workload-aware sizing function, not just clone the evicted SKU. The right-size check is "what is the solve subcommand the new VM will run, and what's its parallelism profile?", not "what was the old VM's size?" Memory updated in `feedback_right_size_single_thread.md` (operator memory) with this 2026-05-08 repeat-incident note.
+
+### The merge completed — and `solve --merge` hung at exit
+
+The D16 merge completed at 13:46 UTC on 2026-05-08. solutions.bin (109.8 GB) written, solutions.sha256 written (= `915abf30…`, byte-identical to canonical), solutions.meta.json written. merge_scratch chunks cleaned up. All real work done.
+
+Then the parent `solve --merge` process **hung indefinitely instead of exiting**. State `S` (interruptible sleep), 0% CPU, no I/O activity, only stdout/stderr file descriptors open. SIGTERM unblocked it cleanly with no errors.
+
+The first 100T canonical (2026-04-19/20) had its merge killed by Spot eviction before reaching exit, so this hang was latent. T9+c.1 is the first 100T-scale `solve --merge` to actually reach the exit path.
+
+Root cause (after reading solve.c source): `solve --merge` ends with `system("solve --validate solutions.bin")` (solve.c:10023). The validate child uses `mmap(110_GB)` + `#pragma omp parallel for` over 3.43B records + `munmap`. On large data, the libgomp/OpenMP atexit teardown deadlocks (interaction between libgomp's atexit-registered cleanup and the kernel returning from a 110-GB munmap). The validate child completes its real work but never reaches `_exit`. The parent solve --merge is stuck in `system()`'s internal `waitpid` forever.
+
+Fix shipped 2026-05-08 (sha-preserving): solve.c:10008-10027 patched — removed the in-process `system("solve --validate ...")` spawn entirely. Validation is redundant because `post_merge_orchestrator.sh` runs `solve --verify` as phase 3, which uses a completely different code path (fopen-based sequential read, no OpenMP, no mmap) and performs the same C1-C5 + sorted + dedup + KW checks.
+
+Patch verified empirically:
+- Patched binary passes `solve --selftest` (canonical sha `403f7202` byte-identical → solver behavior preserved)
+- Patched binary on a 930-shard synthetic merge produces sha `e347e36b` byte-identical to the unpatched binary's output (same data → same sha → patch is sha-preserving for the merge artifact)
+
+The patched binary was deployed to T9+d before its phase 6 merge runs (~32h margin from when the bug was diagnosed). v2 design notes added to task #84: any future v2 that reintroduces in-process validation must have a pre-pilot test matrix that includes 11.2T-scale and 100T-scale inputs (the bug doesn't surface on small data).
+
+### verify.py thrashing — design flaw at file-size ≥ RAM
+
+Phase 4 of the chain runs `verify.py --jobs 16 solutions.bin`. verify.py's design (line 99-114) is: master splits records into N equal chunks, each worker calls `chunk = f.read(n_chunk * 32)` to load **its entire chunk into memory at once**, then iterates records sequentially.
+
+Math: at 16 jobs on 3.43B records, each chunk is 215M records × 32 bytes = **6.87 GB per worker, holding 110 GB total across 16 workers**. D16als_v7 has only **32 GB RAM**. The kernel falls back to swap; workers re-read pages after they're evicted.
+
+Empirical confirmation: `/proc/<pid>/io` showed each worker had read 76-80 GB at the 3h-22min mark, with two outliers at 159 GB. **Total reads: 1.4 TB on a 110 GB file** — a ~13× re-read multiplier consistent with severe swap thrashing.
+
+After 5h 5min of thrashing, the Linux OOM killer terminated verify.py at 20:19:39 UTC. The master script (run_v1_recovery.sh) saw exit code 137 (SIGKILL = 128+9), logged `PHASE 4 FAIL`, and exited cleanly.
+
+The **design flaw is fundamental**: each worker's chunk-size × N workers always equals the file size, regardless of N. There's no `--jobs` value at which the unpatched verify.py fits in RAM less than file size. On any VM where RAM < file size, every `--jobs` setting thrashes.
+
+Fix: patched verify.py to stream-read in 1M-record (32 MB) batches. Memory budget per worker: ~32 MB. Total memory: N × 32 MB = ~512 MB at --jobs 16, ~128 MB at --jobs 4. Bounded regardless of file size.
+
+Patched verify.py validated:
+- `python3 verify.py --jobs 1` on a 9806-record test: PASS (0.4s)
+- `python3 verify.py --jobs 4` on the same: PASS (0.4s) — same results, parallel correctness preserved
+
+Deployed to D16 at 20:21 UTC. Phase 4 relaunched via `systemd-run --unit=v1-recovery-resume2 --no-block`. Steady-state load avg = 16.00 (matches `--jobs 16` on 16 cores), no thrashing, no swap activity.
+
+### T9+d in parallel — D64 Spot for phase 5, then D4 Regular for phase 6+
+
+The operator authorized T9+d to run in parallel with T9+c.1 (vs. sequential after) to compress wall-time. Quota constraint forced D64als_v7 Spot instead of D128 (Dalsv7 limit was 130 vCPU; T9+c.1 was holding 16). Provisioned a fresh 2 TB Standard HDD `t9d-data-westus3` for T9+d's output.
+
+T9+d phase 5 (62 sequential `solve --branch p1 o1` calls) started 2026-05-08 06:42 UTC. Per-branch checkpointing via `.branch_${p1}_${o1}.done` markers means evictions during phase 5 cost at most one branch's work (~33 min). One Spot eviction on T9+d at 19:39 UTC during phase 5 — recovered cleanly via watcher's `restart_vm_after_eviction` logic in ~2 min.
+
+A pruning bug in the launch script surfaced early in phase 5: pair indices 4-0 and 4-1 are structurally invalid (pruned at depth 1 by C1 constraint). The launch script's `|| { log "PHASE 5 branch X Y FAIL"; exit 1; }` treated this as a fatal error and aborted the chain. After ~25 min idle time, operator caught the silent stall. Patched the launch script: `set +e` around the solve --branch invocation, then check the branch log for `"invalid (pruned"` — if matched, treat as success (no solutions, expected). Branches 4-0 and 4-1 marked `.done`, chain relaunched.
+
+Phase 5 → phase 6 migration plan: when phase5.done appears (~32h after start), the migration script tears down D64 Spot, provisions D4als_v7 Regular ($0.20/hr), reattaches t9d-data, deploys the patched solve binary AND patched verify.py, and relaunches the chain. Phase 6 (single-thread merge), phase 7 (sha vs `915abf30`), phase 8 (`solve --verify`), and phase 9 (`verify.py --jobs 4` with streaming patch) all run on D4 Regular — eviction-safe + right-sized.
+
+### Three latent bugs in v1 surfaced and fixed in this campaign
+
+1. **`solve --merge` hangs at exit on large data** (#84) — fixed by removing the redundant in-process `system("solve --validate ...")` spawn.
+2. **`verify.py` thrashes when file size > RAM** — fixed by streaming 32 MB batches instead of loading full chunk into memory.
+3. **`run_v1_recovery.sh` / `run_t9d_parallel.sh` aborted on legitimately-pruned branches** — fixed by `set +e` + log-grep for "invalid (pruned".
+
+All three were latent; the original 2026-04-19/20 100T canonical didn't surface any of them because:
+- Bug #1: the original used `solve 0 128` (full-enum), not `solve --merge`. Different code path.
+- Bug #2: verify.py was written after the original 100T (task #73), and the 11.2T canonical it was tested against fits in RAM.
+- Bug #3: the original full-enum invocation handled pruned branches internally without going through the per-branch shell loop.
+
+The campaign exposed these because it stress-tested execution paths the original did not.
+
+### Cost ledger (campaign-to-date)
+
+- Spot D128 westus3 enum (2026-05-06 → 2026-05-08 ~06:00 UTC): ~$25
+- D128 Regular merge (post-eviction, before D16 right-size): ~$4
+- D16 Regular T9+c.1 phases 1-4 + archive (in progress): ~$3-5 projected
+- D64 Spot T9+d phase 5 (in progress, ~22h spent of ~34h estimated): ~$11 of $17 projected
+- D4 Regular T9+d phases 6-9 (not yet started): ~$2 projected
+- 2 TB t9d-data-westus3 Standard HDD prorated: ~$5 projected
+- Total projected campaign: **~$58-65** (vs original $40 budget; the merge eviction was the major variance)
+
+### Outcomes
+
+**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`roaecanonical2026/canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
+
+**T9+d — IN PROGRESS** as of 2026-05-09 11:20 UTC, 51/62 branches done in phase 5 (with 1 Spot eviction recovered cleanly). Phase 5 ETA ~17:00 UTC May 9. Migration to D16 Regular for phase 6, deployment of patched solve binary (#84 fix) and patched verify.py (streaming reads). Full T9+d completion ETA ~03:00 UTC May 10. Phase 7 sha check is the partition-invariance witness — if the per-branch-loop solutions.bin matches `915abf30` byte-identically, the partition invariance theorem holds empirically at 100T scale.
+
+The canonical 100T solutions.bin is now **recovered**: bytes preserved both on `solver-data-westus3` (warm) and in Azure Blob Archive (cold). The v1 closure work (#51 + #44) can land once T9+d's partition-invariance witness completes.
+
+### Honest accounting — were these bugs avoidable?
+
+The campaign surfaced three distinct latent bugs (`solve --merge` exit hang, `verify.py` memory thrashing, master-script's pruned-branch handling). All three were avoidable with standard pre-deployment hygiene that this project's own rules already prescribed but didn't enforce on the changed code paths. Documenting honestly because pretending otherwise would erode the discipline the rest of the project depends on.
+
+**The `solve --merge` exit hang (`solve.c:10023`).** The bug is in code that's been on `main` since the initial `--merge` subcommand was added. The original 100T canonical (2026-04-19/20) was generated by `solve 0 128` (full-enum), which never enters the `--merge` standalone code path, so the hang never manifested. The 11.2T canonical (2026-05-01) used full-enum too. T9+c.1 is the first 100T-scale standalone `solve --merge` to actually reach exit. **What was missing:** a pre-pilot 100T-scale test of the standalone `--merge` invocation. The standing rule (#62 spirit: "test at the next scale before deploying") wasn't applied to the merge subcommand specifically because no canonical to date had used it at 100T.
+
+**The `verify.py` memory thrashing.** `verify.py` was added in task #73 with the design `chunk = f.read(n_chunk * 32)` — each worker slurps its full chunk into a Python `bytes` object. Math at any scale: `chunk_size × N workers = file_size` regardless of N. There is no `--jobs` value at which this fits in RAM smaller than the file. **What was missing, three places:** (1) author-time review should have flagged the slurp pattern as "won't scale past file ≤ RAM"; the streaming-batch alternative is a five-line change. (2) Test matrix at task #73 close should have included a "file size > RAM" scenario; the actual test matrix was 10T (~22 GB) and 11.2T (~24 GB), both well below D16's 32 GB. (3) At today's right-size migration (D128 → D16), I patched `--jobs 128 → --jobs 16` matching D16's core count but didn't validate the memory implication: `16 × (110 GB / 16) = 110 GB needed vs 32 GB available`. A 30-second mental check would have caught it. **The cost of skipping that check:** the original verify.py thrashed for 5h 5min before the OOM killer terminated it.
+
+**The master-script pruned-branch handling (`run_t9d_parallel.sh`).** Pair indices 4-0 and 4-1 are structurally invalid (pruned by C1 at depth 1) — `solve --branch` exits non-zero on pruned. The script's `|| { log "FAIL"; exit 1; }` treated this as fatal. **What was missing:** the script was ported from the original full-enum invocation (which handles pruned branches internally without going through a per-branch shell loop). The port should have considered "what does solve --branch return on a pruned branch?" but didn't. Cost: ~25 min idle time before operator caught the silent stall.
+
+**Common pattern across all three:** code that's correct at one scale or one execution path was reused at a different scale or path without reasoning about the new operating regime. The `--merge` exit code path: never exercised at 100T until now. `verify.py` memory model: never tested at file > RAM until now. Master script's branch loop: never checked against pruned branches until now. Each was technically reachable beforehand by careful review; none were caught because the test matrix didn't exercise the regime change.
+
+**Lessons logged into operator memory and project rules:**
+
+1. **Streaming reads by default** for any chunk-based parallel reader. The `chunk = f.read(N * record_size)` pattern is banned for `N` that can scale to gigabytes. A streaming-batch loop with bounded per-worker memory is the standard. Will be enforced for any future verify-style tool.
+
+2. **Memory-budget validation at sizing-time.** Right-size migration scripts must pass a workload-aware sizing function: for chunk-based parallel jobs, validate `chunk_size × N_workers ≤ available_RAM × 0.7`. The D128 → D16 migration today silently violated this. Memory `feedback_right_size_single_thread.md` updated 2026-05-08 to require this check, not just a core-count match.
+
+3. **Pre-pilot at next scale up, including memory-pressure regimes.** Task #62 already asks for this on 560T hardware. Extending to: any tool whose runtime behavior depends on input scale must be tested against an input that exceeds its assumed scaling regime. For verify.py specifically, that means testing at file > RAM at least once.
+
+4. **Code review for "what assumptions does this code embed about input size?"** before merging any change to a code path used in canonical-validation flow. The `chunk = f.read(...)` pattern in verify.py would have been caught by this kind of review focused specifically on scaling assumptions. Memory note added to `feedback_review_before_push.md`.
+
+5. **Right-size by workload, not by SKU symmetry.** When a migration script provisions a replacement VM, the new SKU should be chosen by analyzing the workload to come (single-thread merge → small VM; parallel verify → cores ≥ N_workers; chunked-parallel verify with f.read → enough RAM for total chunk*N), not by mirroring the old SKU. The 2026-05-08 D128 Regular auto-provisioned for the merge restart was a repeat of the 2026-05-04 verify.py-on-D128 incident — same pattern, different code path.
+
+The five lessons above are not new principles. They're each restatements of standing project rules that didn't get applied to the changed code paths in time. The honest answer to "was this avoidable?" is: **yes, fully — by applying rules the project already had, to the new contexts they didn't get applied to**. The campaign is still landing; the lessons are committed to memory now so the next campaign doesn't pay the same costs.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.

@@ -281,9 +281,21 @@ keeping the managed disk.
   distance ≤ 776, added 2026-04-19), C4 (starts with
   Creative/Receptive), C5 (exact distance distribution)** plus sort
   order and dedup. No shared code with solve.c — genuine second opinion.
-  Usage: `python3 verify.py /path/to/solutions.bin`. Exit 0 on PASS, 1
-  on constraint failures, 2 on header/format errors. Runs in ~1-5
-  minutes on a 10T solutions.bin.
+  Usage: `python3 verify.py [--jobs N] /path/to/solutions.bin`. Exit 0
+  on PASS, 1 on constraint failures, 2 on header/format errors. Runs in
+  ~1-5 minutes on a 10T solutions.bin (single-thread); ~3 hours on a
+  100T solutions.bin with `--jobs 16` (CPU-bound at ~19k records/sec
+  per Python worker after the 2026-05-08 streaming-reads patch).
+
+  **Streaming-reads memory model (added 2026-05-08, task #84 follow-up):**
+  Each worker uses bounded memory (32 MB streaming batch) regardless of
+  input size. Total memory at `--jobs N` is `N × 32 MB`, not `file_size`
+  as in the original design. The pre-2026-05-08 verify.py loaded the
+  full per-worker chunk via `f.read(chunk_size * 32)` — at 100T scale
+  on a 32 GB VM that thrashed the page cache (13× re-read multiplier;
+  OOM-killed at 5h 5min). Streaming pattern is the project standard
+  for any chunk-based parallel verifier. Banned pattern: `chunk =
+  f.read(N * record_size)` for unbounded `N` in a parallel context.
 
 - **Two-tier solver selftest**:
   - `./solve --selftest` (~5 sec on 4 threads): runs a bounded

@@ -10005,26 +10005,16 @@ int main(int argc, char *argv[]) {
         printf("  Output:          %s (%lld bytes)\n", outname, unique * SOL_RECORD_SIZE);
         printf("  sha256:          %s\n", hash);
 
-        /* Validate merged output */
-        printf("\nValidating merged output...\n");
-        /* Use /proc/self/exe to find our own binary path rather than assume
-         * `./solve` relative to cwd. The caller may have cd'd elsewhere, or
-         * the binary may be installed anywhere on PATH. */
-        char self_path[4096];
-        ssize_t sp = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
-        if (sp <= 0) {
-            fprintf(stderr, "ERROR: cannot resolve self path for post-merge validation: %s\n",
-                    strerror(errno));
-            return 40;
-        }
-        self_path[sp] = 0;
-        char val_cmd[8192];
-        snprintf(val_cmd, sizeof(val_cmd), "%s --validate %s", self_path, outname);
-        int vret = system(val_cmd);
-        if (vret != 0) {
-            fprintf(stderr, "ERROR: post-merge validation returned non-zero (%d)\n", vret);
-            return 40; /* exit 40 = validation mismatch */
-        }
+        /* In-process post-merge --validate spawn DISABLED 2026-05-08 (task #84).
+         * solve --validate uses #pragma omp parallel for + mmap on the merged
+         * file. On large solutions.bin (~110 GB / 3.43B records) the post-OMP
+         * libgomp teardown + munmap exit path hangs deterministically (parent
+         * solve --merge stuck at 0% CPU in waitpid forever). Validation is
+         * already redundant: post_merge orchestration runs `solve --verify`
+         * (separate code path: fopen-based, sequential, no OpenMP, no mmap)
+         * which performs the same C1-C5 + sorted + dedup + KW checks. No
+         * canonical-sha behavior change — this only removed a redundant
+         * post-merge validation that hung the parent. */
 
         return 0;
     }
