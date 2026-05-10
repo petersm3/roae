@@ -13,5 +13,11 @@ wave.dot.svg
 wave.mid
 # Compiled binary
 solve
-# Large binary output (not committed, only sha256)
-enumeration/solutions.bin
+# Large binary outputs (sha256 is the reproducibility anchor, not the bytes)
+*.bin
+*.bin.gz
+# Repo-root leftovers from local single-branch / interrupted runs
+/checkpoint.txt
+/results_*.json
+/solutions_*
+/sub_*
