@@ -893,7 +893,7 @@ typedef struct {
     int dfs_v2_sp;                    /* stack pointer (number of live frames - 1) */
     DFSStackFrame_v2 dfs_v2_frames[34];
     int8_t dfs_v2_seq[64];
-    int8_t dfs_v2_used[32];
+    pair_mask_t dfs_v2_used;          /* task #72 Phase C: was int8_t[32] */
     int8_t dfs_v2_budget[7];
 
     /* Iterative-path resume state (v2). Loaded from disk at sub-branch entry
@@ -903,7 +903,7 @@ typedef struct {
     int dfs_v2_resume_sp;
     DFSStackFrame_v2 dfs_v2_resume_frames[34];
     int8_t dfs_v2_resume_seq[64];
-    int8_t dfs_v2_resume_used[32];
+    pair_mask_t dfs_v2_resume_used;   /* task #72 Phase C: was int8_t[32] */
     int8_t dfs_v2_resume_budget[7];
 } ThreadState;
 
@@ -1686,7 +1686,8 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
             stack[i].phase = ts->dfs_v2_resume_frames[i].phase;
         }
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
-        for (int i = 0; i < 32; i++) used[i] = ts->dfs_v2_resume_used[i];
+        /* task #72 Phase C: dfs_v2_resume_used is now pair_mask_t; expand to local int[32] */
+        for (int i = 0; i < 32; i++) used[i] = (int)PAIR_MASK_TEST(ts->dfs_v2_resume_used, i);
         for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
         /* Resume start: ts->branch_nodes already set to prior_nodes_walked
          * at sub-branch entry (in the wrapper). Continue from saved state. */
@@ -1763,7 +1764,9 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
                         ts->dfs_v2_frames[i].phase     = (int8_t)stack[i].phase;
                     }
                     for (int i = 0; i < 64; i++) ts->dfs_v2_seq[i] = (int8_t)seq[i];
-                    for (int i = 0; i < 32; i++) ts->dfs_v2_used[i] = (int8_t)used[i];
+                    /* task #72 Phase C: dfs_v2_used is now pair_mask_t; pack from local int[32] */
+                    ts->dfs_v2_used = 0;
+                    for (int i = 0; i < 32; i++) if (used[i]) PAIR_MASK_SET(ts->dfs_v2_used, i);
                     for (int i = 0; i < 7;  i++) ts->dfs_v2_budget[i] = (int8_t)budget[i];
                     ts->dfs_v2_capture_pending = 1;
                 }
@@ -2276,7 +2279,8 @@ static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
         st.frames[i] = ts->dfs_v2_frames[i];
     }
     memcpy(st.seq, ts->dfs_v2_seq, 64);
-    memcpy(st.used, ts->dfs_v2_used, 32);
+    /* task #72 Phase C: ts->dfs_v2_used is pair_mask_t; on-disk st.used stays int8_t[32] */
+    for (int i = 0; i < 32; i++) st.used[i] = (int8_t)PAIR_MASK_TEST(ts->dfs_v2_used, i);
     memcpy(st.budget, ts->dfs_v2_budget, 7);
     st.prior_budget = per_branch_node_limit;
     /* Roll back the captured frame's ENTER counter increment — see comment
@@ -2324,7 +2328,9 @@ static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     ts->dfs_v2_resume_sp = st.sp;
     for (int i = 0; i < 34; i++) ts->dfs_v2_resume_frames[i] = st.frames[i];
     memcpy(ts->dfs_v2_resume_seq, st.seq, 64);
-    memcpy(ts->dfs_v2_resume_used, st.used, 32);
+    /* task #72 Phase C: ts->dfs_v2_resume_used is pair_mask_t; on-disk st.used stays int8_t[32] */
+    ts->dfs_v2_resume_used = 0;
+    for (int i = 0; i < 32; i++) if (st.used[i]) PAIR_MASK_SET(ts->dfs_v2_resume_used, i);
     memcpy(ts->dfs_v2_resume_budget, st.budget, 7);
     ts->dfs_resume_prior_nodes = st.prior_nodes_walked;
     fprintf(stderr, "[dfs-v2] READ  %s (sp=%d, prior nodes=%lld)\n",
