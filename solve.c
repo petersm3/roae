@@ -533,7 +533,7 @@ static volatile int sub_sub_parallel_active = 0;
  * launch, read-only during parallel execution. Each worker memcpys into
  * its own local seq/used/budget, then applies its task's depth-4 step. */
 static int shared_prefix_seq[64];
-static int shared_prefix_used[32];
+static pair_mask_t shared_prefix_used;   /* task #72 Phase D: was int[32] */
 static int shared_prefix_budget[7];
 
 static int pair_lookup[64][64];
@@ -1666,7 +1666,7 @@ typedef struct {
     int phase;      /* DFSITER_PHASE_ENTER or DFSITER_PHASE_RETRY */
 } BacktrackFrame;
 
-static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int budget[7], int initial_step) {
+static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int initial_step) {  /* task #72 Phase B */
     BacktrackFrame stack[34];
     int sp;
 
@@ -1686,8 +1686,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
             stack[i].phase = ts->dfs_v2_resume_frames[i].phase;
         }
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
-        /* task #72 Phase C: dfs_v2_resume_used is now pair_mask_t; expand to local int[32] */
-        for (int i = 0; i < 32; i++) used[i] = (int)PAIR_MASK_TEST(ts->dfs_v2_resume_used, i);
+        *used_mask = ts->dfs_v2_resume_used;                  /* task #72 Phase B (was Phase C boundary copy) */
         for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
         /* Resume start: ts->branch_nodes already set to prior_nodes_walked
          * at sub-branch entry (in the wrapper). Continue from saved state. */
@@ -1764,9 +1763,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
                         ts->dfs_v2_frames[i].phase     = (int8_t)stack[i].phase;
                     }
                     for (int i = 0; i < 64; i++) ts->dfs_v2_seq[i] = (int8_t)seq[i];
-                    /* task #72 Phase C: dfs_v2_used is now pair_mask_t; pack from local int[32] */
-                    ts->dfs_v2_used = 0;
-                    for (int i = 0; i < 32; i++) if (used[i]) PAIR_MASK_SET(ts->dfs_v2_used, i);
+                    ts->dfs_v2_used = *used_mask;             /* task #72 Phase B (was Phase C boundary pack) */
                     for (int i = 0; i < 7;  i++) ts->dfs_v2_budget[i] = (int8_t)budget[i];
                     ts->dfs_v2_capture_pending = 1;
                 }
@@ -1809,7 +1806,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
              * loop body handles iteration. */
         } else {
             /* === RETRY phase: a child just popped; restore parent state, advance iter === */
-            used[fr->p] = 0;
+            PAIR_MASK_CLR(*used_mask, fr->p);                    /* task #72 Phase B */
             budget[fr->wd]++;
             budget[fr->bd]++;
             if (ts->dfs_capture_active) {
@@ -1832,7 +1829,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
         /* === ITERATE phase: try next valid (p, orient); push child if found, pop if exhausted === */
         int found = 0;
         while (fr->p < 32) {
-            if (used[fr->p]) {
+            if (PAIR_MASK_TEST(*used_mask, fr->p)) {             /* task #72 Phase B */
                 fr->p++;
                 fr->orient = 0;
                 continue;
@@ -1861,7 +1858,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
             budget[wd]--;
             seq[fr->step * 2] = first;
             seq[fr->step * 2 + 1] = second;
-            used[fr->p] = 1;
+            PAIR_MASK_SET(*used_mask, fr->p);                    /* task #72 Phase B */
             fr->bd = bd;
             fr->wd = wd;
             found = 1;
@@ -1898,7 +1895,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], int used[32], int 
     }
 }
 
-static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7], int step) {
+static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int step) {  /* task #72 Phase B */
     ts->nodes++;
     ts->branch_nodes++;
     if ((unsigned)step <= 32) {
@@ -2056,7 +2053,7 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
     }
 
     for (int p = p_start; p < 32; p++) {
-        if (used[p]) continue;
+        if (PAIR_MASK_TEST(*used_mask, p)) continue;             /* task #72 Phase B */
         int o_init = (p == p_start) ? o_start : 0;
         for (int orient = o_init; orient < 2; orient++) {
             int first = orient ? pairs[p].b : pairs[p].a;
@@ -2073,9 +2070,9 @@ static void backtrack(ThreadState *ts, int seq[64], int used[32], int budget[7],
             budget[wd]--;
             seq[step * 2] = first;
             seq[step * 2 + 1] = second;
-            used[p] = 1;
-            backtrack(ts, seq, used, budget, step + 1);
-            used[p] = 0;
+            PAIR_MASK_SET(*used_mask, p);                        /* task #72 Phase B */
+            backtrack(ts, seq, used_mask, budget, step + 1);     /* task #72 Phase B */
+            PAIR_MASK_CLR(*used_mask, p);                        /* task #72 Phase B */
             budget[wd]++;
             budget[bd]++;
             /* DFS-state checkpoint capture: if the recursion just unwound
@@ -2552,13 +2549,13 @@ static void *thread_func_single(void *arg) {
         long long c3_before = ts->solutions_c3;
 
         int seq[64];
-        int used[32];
+        pair_mask_t used_mask;                       /* task #72 Phase B+D: was int[32] */
         int budget[7];
 
         /* Position 0: Creative/Receptive */
         seq[0] = 63; seq[1] = 0;
-        memset(used, 0, sizeof(used));
-        used[start_pair_idx] = 1;
+        used_mask = 0;                               /* task #72 Phase B+D */
+        PAIR_MASK_SET(used_mask, start_pair_idx);
         memcpy(budget, kw_dist, sizeof(budget));
         budget[hamming(63, 0)]--;
 
@@ -2573,7 +2570,7 @@ static void *thread_func_single(void *arg) {
         if (budget[wd1] <= 0) continue;
         budget[wd1]--;
         seq[2] = f1; seq[3] = s1;
-        used[p1] = 1;
+        PAIR_MASK_SET(used_mask, p1);                /* task #72 Phase B+D */
 
         /* Position 2: second-level sub-branch */
         int p2 = sb->pair2, o2 = sb->orient2;
@@ -2586,7 +2583,7 @@ static void *thread_func_single(void *arg) {
         if (budget[wd2] <= 0) continue;
         budget[wd2]--;
         seq[4] = f2; seq[5] = s2;
-        used[p2] = 1;
+        PAIR_MASK_SET(used_mask, p2);                /* task #72 Phase B+D */
 
         /* Position 3: third-level work unit (Option B depth-3).
          * Skipped when sb->pair3 == -1 (depth-2 mode). */
@@ -2602,7 +2599,7 @@ static void *thread_func_single(void *arg) {
             if (budget[wd3] <= 0) continue;
             budget[wd3]--;
             seq[6] = f3; seq[7] = s3;
-            used[p3] = 1;
+            PAIR_MASK_SET(used_mask, p3);            /* task #72 Phase B+D */
             backtrack_start_step = 4;
         }
 
@@ -2655,9 +2652,9 @@ static void *thread_func_single(void *arg) {
         }
 
         if (dfs_iterative_enabled) {
-            backtrack_iterative(ts, seq, used, budget, backtrack_start_step);
+            backtrack_iterative(ts, seq, &used_mask, budget, backtrack_start_step);  /* task #72 Phase B */
         } else {
-            backtrack(ts, seq, used, budget, backtrack_start_step);
+            backtrack(ts, seq, &used_mask, budget, backtrack_start_step);             /* task #72 Phase B */
         }
 
         /* DFS-state checkpoint: if budget exhausted in this run, persist the
@@ -2806,13 +2803,13 @@ static void *thread_func_single(void *arg) {
 static void build_sub_sub_branch_tasks(void) {
     n_sub_sub_tasks = 0;
     int s3 = shared_prefix_seq[7];
-    /* local_used mutates across the outer loop — depth-4's used[p4]=1
+    /* local_used_mask mutates across the outer loop — depth-4's set p4
      * must be undone before the next outer iteration. local_budget is
      * similarly restored. */
-    int local_used[32];
+    pair_mask_t local_used_mask;             /* task #72 Phase D: was int[32] */
     int local_budget[7];
     for (int p4 = 0; p4 < 32; p4++) {
-        if (shared_prefix_used[p4]) continue;
+        if (PAIR_MASK_TEST(shared_prefix_used, p4)) continue;
         for (int o4 = 0; o4 < 2; o4++) {
             int f4 = o4 ? pairs[p4].b : pairs[p4].a;
             int s4 = o4 ? pairs[p4].a : pairs[p4].b;
@@ -2824,14 +2821,14 @@ static void build_sub_sub_branch_tasks(void) {
             if (shared_prefix_budget[wd4] < need_wd4) continue;
 
             /* Apply depth-4 to local copies; enumerate (p5, o5) under that. */
-            memcpy(local_used, shared_prefix_used, sizeof(local_used));
+            local_used_mask = shared_prefix_used;          /* task #72 Phase D */
             memcpy(local_budget, shared_prefix_budget, sizeof(local_budget));
-            local_used[p4] = 1;
+            PAIR_MASK_SET(local_used_mask, p4);
             local_budget[bd4]--;
             local_budget[wd4]--;
 
             for (int p5 = 0; p5 < 32; p5++) {
-                if (local_used[p5]) continue;
+                if (PAIR_MASK_TEST(local_used_mask, p5)) continue;
                 for (int o5 = 0; o5 < 2; o5++) {
                     int f5 = o5 ? pairs[p5].b : pairs[p5].a;
                     int s5 = o5 ? pairs[p5].a : pairs[p5].b;
@@ -3305,22 +3302,22 @@ static void *thread_func_sub_sub(void *arg) {
 
         /* Snapshot shared prefix into local state. */
         int seq[64];
-        int used[32];
+        pair_mask_t used_mask;                          /* task #72 Phase B+D: was int[32] */
         int budget[7];
         memcpy(seq,    shared_prefix_seq,    sizeof(seq));
-        memcpy(used,   shared_prefix_used,   sizeof(used));
+        used_mask = shared_prefix_used;                 /* task #72 Phase B+D */
         memcpy(budget, shared_prefix_budget, sizeof(budget));
 
         /* Apply depth-4 extension — pair 4 placed at positions 8-9. */
         seq[8] = task->f4;
         seq[9] = task->s4;
-        used[task->p4] = 1;
+        PAIR_MASK_SET(used_mask, task->p4);             /* task #72 Phase B+D */
         budget[task->bd4]--;
         budget[task->wd4]--;
         /* Apply depth-5 extension — pair 5 placed at positions 10-11. */
         seq[10] = task->f5;
         seq[11] = task->s5;
-        used[task->p5] = 1;
+        PAIR_MASK_SET(used_mask, task->p5);             /* task #72 Phase B+D */
         budget[task->bd5]--;
         budget[task->wd5]--;
 
@@ -3330,7 +3327,7 @@ static void *thread_func_sub_sub(void *arg) {
          * accumulation across all tasks on this worker. */
 
         /* DFS from step 6 (pair 6 placed at positions 12-13). */
-        backtrack(ts, seq, used, budget, 6);
+        backtrack(ts, seq, &used_mask, budget, 6);      /* task #72 Phase B: pass mask by pointer */
 
         /* Final flush of any sub-65K residual delta from this task to
          * this worker's CCD-assigned counter. */
@@ -11115,9 +11112,9 @@ sub_enum_done:
 
             int start_pair_idx_local = pair_index_of(63, 0);
             memset(shared_prefix_seq, 0, sizeof(shared_prefix_seq));
-            memset(shared_prefix_used, 0, sizeof(shared_prefix_used));
+            shared_prefix_used = 0;                      /* task #72 Phase D */
             shared_prefix_seq[0] = 63; shared_prefix_seq[1] = 0;
-            shared_prefix_used[start_pair_idx_local] = 1;
+            PAIR_MASK_SET(shared_prefix_used, start_pair_idx_local);
             memcpy(shared_prefix_budget, kw_dist, sizeof(shared_prefix_budget));
             shared_prefix_budget[hamming(63, 0)]--;
 
@@ -11126,21 +11123,21 @@ sub_enum_done:
             shared_prefix_budget[hamming(shared_prefix_seq[1], f1p)]--;
             shared_prefix_budget[hamming(f1p, s1p)]--;
             shared_prefix_seq[2] = f1p; shared_prefix_seq[3] = s1p;
-            shared_prefix_used[p1p] = 1;
+            PAIR_MASK_SET(shared_prefix_used, p1p);      /* task #72 Phase D */
 
             int f2p = o2p ? pairs[p2p].b : pairs[p2p].a;
             int s2p = o2p ? pairs[p2p].a : pairs[p2p].b;
             shared_prefix_budget[hamming(shared_prefix_seq[3], f2p)]--;
             shared_prefix_budget[hamming(f2p, s2p)]--;
             shared_prefix_seq[4] = f2p; shared_prefix_seq[5] = s2p;
-            shared_prefix_used[p2p] = 1;
+            PAIR_MASK_SET(shared_prefix_used, p2p);      /* task #72 Phase D */
 
             int f3p = o3p ? pairs[p3p].b : pairs[p3p].a;
             int s3p = o3p ? pairs[p3p].a : pairs[p3p].b;
             shared_prefix_budget[hamming(shared_prefix_seq[5], f3p)]--;
             shared_prefix_budget[hamming(f3p, s3p)]--;
             shared_prefix_seq[6] = f3p; shared_prefix_seq[7] = s3p;
-            shared_prefix_used[p3p] = 1;
+            PAIR_MASK_SET(shared_prefix_used, p3p);      /* task #72 Phase D */
 
             build_sub_sub_branch_tasks();
             printf("Parallel --sub-branch: %d depth-5 tasks queued, %d worker threads\n",
