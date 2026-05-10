@@ -381,6 +381,25 @@ typedef struct {
 static Pair pairs[32];
 static int n_pairs = 0;
 
+/* ---------- Bitmask domain representation (task #72, Phase A) ----------
+ * Compact representation of the "remaining pair pool" used by the DFS hot
+ * path. Replaces the int8_t used[32] linear-scan pattern. Phase A adds the
+ * type + helpers only — no call sites converted yet. Phases B-F (separate
+ * commits) convert backtrack/backtrack_iterative/proof_search/depth-4-5
+ * dispatch in turn, with selftest sha=403f7202 verified at each phase.
+ * Iteration order is preserved: __builtin_ctz of the AVAIL mask yields
+ * p=0,1,2,...,31 — identical to the current `for (p=0; p<32; p++)` order,
+ * so canonical sha is sha-preserving across the refactor. */
+typedef uint32_t pair_mask_t;
+#define PAIR_MASK_FULL          0xFFFFFFFFu        /* all 32 pairs available */
+#define PAIR_MASK_SET(m, p)     ((m) |=  (1u << (p)))
+#define PAIR_MASK_CLR(m, p)     ((m) &= ~(1u << (p)))
+#define PAIR_MASK_TEST(m, p)    (((m) >> (p)) & 1u)
+#define PAIR_MASK_AVAIL(m)      (~(m) & PAIR_MASK_FULL)
+#define PAIR_MASK_COUNT(m)      __builtin_popcount(m)
+#define PAIR_MASK_FIRST(m)      __builtin_ctz(m)   /* undefined if m==0 */
+_Static_assert(sizeof(pair_mask_t) == 4, "pair_mask_t must be 32-bit");
+
 /* ---------- Globals ---------- */
 static int kw_dist[7] = {0};
 static int kw_comp_dist_x64;
