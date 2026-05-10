@@ -86,3 +86,12 @@ A canonical is listed as Active when at least one of the following holds:
 - Cross-architecture reproduction (x86 + ARM) yields the same sha.
 
 Each canonical above has been validated by at least one of these paths; the d3 11.2T canonical has been validated by all three across eight independent paths. Detailed validation history per canonical is recorded in [HISTORY.md](HISTORY.md) and [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
+
+## Recent re-derivation witnesses (post-2026-05-06 wipe recovery)
+
+The 2026-05-06 self-inflicted wipe of solver-data-westus3 destroyed the original 100T canonical solutions.bin bytes (the sha was preserved in this file). Two independent re-derivations completed on 2026-05-09/10:
+
+- **T9+c.1 (full-enum, `solve 0 128`) — 2026-05-09 05:55 UTC** — produced sha `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` byte-identically. Phase 2 sha PASS, phase 3 `solve --verify` PASS, phase 4 `verify.py --jobs 16` PASS. Run on D16als_v7 Regular westus3.
+- **T9+d (62-branch loop, `solve --branch p1 o1` × 62 + `solve --merge`) — 2026-05-10 06:07 UTC** — produced sha `915abf30…` byte-identically; phase 7 sha PASS, phase 8 `solve --verify` PASS, phase 9 `verify.py --jobs 128` PASS. Run on D64als_v7 Spot (phase 5) → D16als_v7 Regular (phase 6-8) → D128als_v7 Regular (phase 9).
+
+T9+d's match constitutes the empirical partition-invariance witness at 100T scale: the canonical sha is byte-stable across both the full-enum execution path and the per-branch-loop execution path. Operational-detail logs for both runs are archived in private `petersm3/x:roae/canonical_runs/` (small text-format witness files only — solutions.bin bytes are warm on solver-data-westus3 + cold-stored as solutions.bin.gz in `roaecanonical2026/canonical-archive/t9c1/`).

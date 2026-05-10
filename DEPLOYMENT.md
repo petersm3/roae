@@ -161,6 +161,59 @@ This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo u
 
 Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually <$3 over a multi-hour campaign.
 
+### HDD-IOPS contention vs CPU-parallel scaling (added 2026-05-10)
+
+The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell you when verify.py will be slow due to disk contention. These are separate failure modes.
+
+**Empirical finding from T9+d phase 9 (2026-05-10):** scaling `verify.py --jobs N` from 16 (D16) to 128 (D128) on the SAME Standard HDD did NOT yield 8× speedup. Aggregate disk read collapsed from ~9.9 MB/s on D16 (--jobs 16) to ~15 MB/s on D128 (--jobs 128) — only 1.5× improvement vs CPU-parallel projection of 8×.
+
+**Root cause:** Standard HDD does ~80 random IOPS. With 128 workers reading from 128 disjoint file offsets simultaneously, the disk spends most of its time seeking. Per-worker read rate degrades from ~0.62 MB/s (at N=16) to ~0.12 MB/s (at N=128) — a 5× per-worker slowdown.
+
+**Sweet spot for parallel verify on Standard HDD: ~16-32 workers.** Past 32, IOPS contention dominates CPU parallelism and additional cores deliver diminishing returns. Past 64, returns are essentially zero.
+
+**To go faster than the ~16-worker plateau:**
+- Use Premium SSD scratch (high random IOPS — Premium SSD does 5,000+ IOPS, two orders of magnitude better)
+- Or restructure verify.py to use single-stream sequential reads with worker-pool processing (reader thread feeds N CPU-bound worker threads from a queue) — would let the reader saturate sequential HDD throughput at ~150 MB/s and CPU workers process from memory
+
+**Cost impact this campaign:** D128 was provisioned for the 8× speedup that didn't materialize. ~$5-7 overspend vs D32 sweet spot.
+
+**Sizing rule for verify.py (revised):**
+
+- Single-thread (`--jobs 1`) on D2/D4: HDD-saturated reads at ~85 MB/s, ~21 min for 100T
+- `--jobs 16` on D16: ~3h (CPU-bound at ~620 KB/sec per worker after the streaming patch)
+- `--jobs 32` on D32: ~1.5h (sweet spot)
+- `--jobs 64` on D64: ~75 min (slight IOPS contention)
+- `--jobs 128` on D128: ~2-3h (severe IOPS contention — DO NOT USE on Standard HDD)
+- `--jobs 128` on D128 with Premium SSD scratch: ~25 min (estimated, not yet measured) — would require an upfront copy from Standard HDD to Premium SSD scratch (~25 min for 110 GB)
+
+For ROAE 100T-scale verify, **D32 is the empirical optimum** under the current verify.py design. If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again.
+
+### Quota tracking — deallocated VMs still consume quota (added 2026-05-10)
+
+**Standing rule:** Azure VM `deallocate` stops compute billing but does NOT release the vCPU quota allocation. The VM must be DELETED (with disk preservation by detach-before-delete) to free quota.
+
+**Failure mode this prevents:** during T9+d phase 9 provisioning (2026-05-10 02:36 UTC), `az vm create --size Standard_D128als_v7` failed with `QuotaExceeded`: Current Limit 130 vCPU, Current Usage 16 vCPU, Required 144. The 16 came from `v1-recovery-d16-westus3` — the T9+c.1 D16 that had been deallocated 18+ hours earlier when its work completed. Deallocation freed compute billing but NOT quota.
+
+**Pre-flight before any large `az vm create`:**
+
+```bash
+# Free quota for the new VM:
+USED=$(az vm list -d --query "[?contains(hardwareProfile.vmSize,'Dalsv7')].{cores: hardwareProfile.vmSize}" -o tsv | wc -l)
+LIMIT=$(az vm list-usage -l <region> --query "[?name.value=='standardDalsv7Family'].limit | [0]" -o tsv)
+NEED=<new-VM cores>
+[ $((USED + NEED)) -le $LIMIT ] || echo "QUOTA WILL FAIL — delete deallocated VMs first"
+```
+
+**Deallocated-VM cleanup workflow (when freeing quota):**
+1. Confirm the VM is no longer needed (no open work, archive complete)
+2. Detach data disks (preserves them as Unattached)
+3. Capture VM cleanup metadata (NIC, OS disk ID) for cascade
+4. `az vm delete --yes`
+5. Cascade: delete NIC, public IP, OS disk
+6. Verify: `az vm list-usage` shows freed quota
+
+The `feedback_keep_managed_disk.md` rule still holds — never delete data disks. Only delete the VM and its OS disk (which contains nothing campaign-related).
+
 ### Disk tier matters — more than you might think
 
 `solver-data` is deliberately **Standard_LRS** (HDD-tier). Standard HDD has
