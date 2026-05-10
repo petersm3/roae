@@ -1963,7 +1963,7 @@ in), bundled re-baseline (#81). The remaining v1 closure work
 artifacts that closure was meant to validate are no longer on
 disk.
 
-## May 7 – May 8, 2026 PDT — re-derivation campaign post-wipe (T9+c.1, T9+d), three latent bugs surfaced
+## May 7 – May 9, 2026 PDT — re-derivation campaign post-wipe (T9+c.1, T9+d), three latent bugs surfaced
 
 This entry covers the work to recover from the 2026-05-06 self-inflicted wipe of the 100T canonical solutions.bin (sha `915abf30`). Wider context: the original artifact bytes were destroyed but the sha was preserved in git's CANONICAL_HASHES.md. Recovery means re-deriving byte-identical solutions.bin from the same solver + parameters and confirming the sha matches.
 
