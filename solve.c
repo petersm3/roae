@@ -596,6 +596,7 @@ static int compute_comp_dist_x64(const int seq[64]) {
     return total;
 }
 
+
 /* ---------- Branch definition ---------- */
 typedef struct {
     int pair;
@@ -905,7 +906,36 @@ typedef struct {
     int8_t dfs_v2_resume_seq[64];
     pair_mask_t dfs_v2_resume_used;   /* task #72 Phase C: was int8_t[32] */
     int8_t dfs_v2_resume_budget[7];
+
+    /* task #67 mid-walk C3 pruning (v2 prune stack). mw_pos[v] = position
+     * v occupies in seq[], -1 if unplaced. mw_partial_cd_x64 is the running
+     * sum 2 * Σ |mw_pos[v] - mw_pos[v⊕63]| over the 32 (v, v⊕63) pairs that
+     * are both currently placed (matches compute_comp_dist_x64's convention).
+     * Prune predicate: if mw_partial_cd_x64 > kw_comp_dist_x64 (= 776), the
+     * subtree contains no C3-valid leaf (correctness proof:
+     * petersm3/x:roae/TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md). */
+    int8_t mw_pos[64];
+    int mw_partial_cd_x64;
 } ThreadState;
+
+/* task #67 — initialize the mid-walk C3 prune state (ts->mw_pos[] +
+ * ts->mw_partial_cd_x64) from a seq[] prefix of `placed_hexes` hexagrams.
+ * Called at sub-branch entry (after the prefix seq is built) and at v2
+ * checkpoint resume (after the saved seq is restored). Conservatively
+ * O(64 + placed_hexes); placed_hexes ≤ 32 so this is constant overhead. */
+static inline void mw_c3_init(ThreadState *ts, const int seq[64], int placed_hexes) {
+    for (int i = 0; i < 64; i++) ts->mw_pos[i] = -1;
+    ts->mw_partial_cd_x64 = 0;
+    for (int i = 0; i < placed_hexes; i++) {
+        int v = seq[i];
+        int comp = v ^ 63;
+        if (ts->mw_pos[comp] >= 0) {
+            int d = i - ts->mw_pos[comp];
+            ts->mw_partial_cd_x64 += ((d < 0 ? -d : d) << 1);
+        }
+        ts->mw_pos[v] = (int8_t)i;
+    }
+}
 
 /* global_timed_out is set both from the signal handler (must be
  * async-signal-safe) and from thread code. sig_atomic_t is the only type
@@ -1664,6 +1694,10 @@ typedef struct {
     int prev_tail;  /* cached: seq[step*2 - 1] (computed once at frame entry) */
     int bd, wd;     /* distances consumed by current iter's setup (for restore) */
     int phase;      /* DFSITER_PHASE_ENTER or DFSITER_PHASE_RETRY */
+    int mw_delta;   /* task #67: increment added to ts->mw_partial_cd_x64 on push;
+                       reversed symmetrically on pop. Stored because mw_pos values
+                       at pop time may not allow recomputation when a pair's two
+                       hexagrams are mutual complements (e.g. pair (63,0)). */
 } BacktrackFrame;
 
 static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int initial_step) {  /* task #72 Phase B */
@@ -1688,6 +1722,16 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
         *used_mask = ts->dfs_v2_resume_used;                  /* task #72 Phase B (was Phase C boundary copy) */
         for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
+        /* task #67: rebuild mid-walk C3 state from the restored seq prefix.
+         * The deepest captured frame at index sp has step = depth at capture
+         * time. The seq prefix is populated up to position 2 * stack[sp].step
+         * (parent's iterate placed first/second for the child's depth-1). */
+        {
+            int placed = (sp >= 0) ? (stack[sp].step * 2) : 0;
+            if (placed < 0) placed = 0;
+            if (placed > 64) placed = 64;
+            mw_c3_init(ts, seq, placed);
+        }
         /* Resume start: ts->branch_nodes already set to prior_nodes_walked
          * at sub-branch entry (in the wrapper). Continue from saved state. */
     } else {
@@ -1806,6 +1850,17 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
              * loop body handles iteration. */
         } else {
             /* === RETRY phase: a child just popped; restore parent state, advance iter === */
+            /* task #67 pop: reverse the partial_cd increment recorded on push;
+             * clear mw_pos[] entries for both hexagrams of this pair. Recompute
+             * first/second from fr->p/fr->orient — both are still valid since
+             * we didn't mutate them between push and now. */
+            {
+                int first = fr->orient ? pairs[fr->p].b : pairs[fr->p].a;
+                int second = fr->orient ? pairs[fr->p].a : pairs[fr->p].b;
+                ts->mw_partial_cd_x64 -= fr->mw_delta;
+                ts->mw_pos[first] = -1;
+                ts->mw_pos[second] = -1;
+            }
             PAIR_MASK_CLR(*used_mask, fr->p);                    /* task #72 Phase B */
             budget[fr->wd]++;
             budget[fr->bd]++;
@@ -1861,6 +1916,43 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             PAIR_MASK_SET(*used_mask, fr->p);                    /* task #72 Phase B */
             fr->bd = bd;
             fr->wd = wd;
+
+            /* task #67 push: update mw_pos[] and compute partial-cd delta. */
+            int mw_delta = 0;
+            {
+                int comp = first ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (fr->step * 2) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[first] = (int8_t)(fr->step * 2);
+            }
+            {
+                int comp = second ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (fr->step * 2 + 1) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[second] = (int8_t)(fr->step * 2 + 1);
+            }
+            ts->mw_partial_cd_x64 += mw_delta;
+
+            /* task #67 prune predicate: if partial cd exceeds 776, no
+             * C3-valid leaf exists in this subtree. Revert all state for
+             * this iter and advance to next (p, orient). */
+            if (ts->mw_partial_cd_x64 > kw_comp_dist_x64) {
+                ts->mw_partial_cd_x64 -= mw_delta;
+                ts->mw_pos[first] = -1;
+                ts->mw_pos[second] = -1;
+                PAIR_MASK_CLR(*used_mask, fr->p);
+                budget[wd]++;
+                budget[bd]++;
+                fr->orient++;
+                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
+                continue;
+            }
+
+            fr->mw_delta = mw_delta;
             found = 1;
             break;
         }
@@ -2071,7 +2163,43 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
             seq[step * 2] = first;
             seq[step * 2 + 1] = second;
             PAIR_MASK_SET(*used_mask, p);                        /* task #72 Phase B */
-            backtrack(ts, seq, used_mask, budget, step + 1);     /* task #72 Phase B */
+
+            /* task #67: mid-walk C3 push — update mw_pos[] for first then
+             * second, and add 2 × |pos_diff| for each newly-measurable
+             * (v, v⊕63) pair to ts->mw_partial_cd_x64. Order matters:
+             * placing `first` may make `second`'s complement test true if
+             * the pair is its own complement (e.g., pair (63,0)). */
+            int mw_delta = 0;
+            {
+                int comp = first ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (step * 2) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[first] = (int8_t)(step * 2);
+            }
+            {
+                int comp = second ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (step * 2 + 1) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[second] = (int8_t)(step * 2 + 1);
+            }
+            ts->mw_partial_cd_x64 += mw_delta;
+
+            /* task #67 prune predicate: if partial cd already > 776, no
+             * C3-valid leaf can exist in this subtree (proof in
+             * TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md). Skip recursion. */
+            if (ts->mw_partial_cd_x64 <= kw_comp_dist_x64) {
+                backtrack(ts, seq, used_mask, budget, step + 1);
+            }
+
+            /* task #67: pop — symmetric reversal */
+            ts->mw_partial_cd_x64 -= mw_delta;
+            ts->mw_pos[first] = -1;
+            ts->mw_pos[second] = -1;
+
             PAIR_MASK_CLR(*used_mask, p);                        /* task #72 Phase B */
             budget[wd]++;
             budget[bd]++;
@@ -2650,6 +2778,12 @@ static void *thread_func_single(void *arg) {
                 (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
             }
         }
+
+        /* task #67: initialize mid-walk C3 state from the seq[] prefix that the
+         * loop above just built (positions 0..backtrack_start_step*2 - 1). The
+         * v2-resume path below overrides this with its own init using the saved
+         * seq, so this base init covers the fresh-start case. */
+        mw_c3_init(ts, seq, backtrack_start_step * 2);
 
         if (dfs_iterative_enabled) {
             backtrack_iterative(ts, seq, &used_mask, budget, backtrack_start_step);  /* task #72 Phase B */
@@ -3325,6 +3459,10 @@ static void *thread_func_sub_sub(void *arg) {
          * backtrack uses (branch_nodes - pending_shared_flush) as the delta
          * to publish to the shared counter, and that needs monotone
          * accumulation across all tasks on this worker. */
+
+        /* task #67: initialize mid-walk C3 state from the depth-5 prefix
+         * (positions 0-11 = 12 hexagrams placed). */
+        mw_c3_init(ts, seq, 12);
 
         /* DFS from step 6 (pair 6 placed at positions 12-13). */
         backtrack(ts, seq, &used_mask, budget, 6);      /* task #72 Phase B: pass mask by pointer */
