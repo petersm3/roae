@@ -2184,6 +2184,65 @@ The audit's projected total for the full prune stack (#67 + #68 + #69 + #70 + #7
 
 Next: start #67 (mid-walk C3 pruning). It's the first prune in the stack and the audit's recommended sequel to #72. Crossing #67 commits to the v2 fork: the prune changes per-cell coverage shape under truncated budgets, so v2 sha differs from v1 anchor `0c0fe37c…`. That's the refined-Resolution-2 path approved 2026-05-06. After the full prune stack lands, the K-pilot (#80) measures bundled v2 speedup; if K ≥ 5, re-baseline (#81) at 11.2T establishes the new v2 canonical sha. Then 560T launch (#49).
 
+## May 11, 2026 PDT — task #67 mid-walk C3 pruning shipped; v2 prune stack opened; L_v1 ⊆ L_v2 empirically confirmed at two scales
+
+Task #67 implements the mathematical optimization described in `petersm3/x:roae/TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md`: instead of computing complement-distance only at depth-32 leaves, accumulate a `partial_cd_x64` running sum as the DFS descends. When the partial sum exceeds the King Wen threshold (`kw_comp_dist_x64 = 776`), the subtree is provably empty of C3-valid leaves (Lemma-2 monotonicity), so it can be skipped. The proof relies on two structural properties of `cd(·)`: each term is non-negative (absolute value), and once both members of a complement pair (`v`, `v⊕63`) are placed their contribution `|pos[v] − pos[v⊕63]|` is fixed.
+
+### Implementation
+
+Single commit `133e296` on `petersm3/roae` main, +139 lines in `solve.c`:
+
+- ThreadState gains `int8_t mw_pos[64]` (position of each placed hexagram, -1 if unplaced) and `int mw_partial_cd_x64` (running 2× pair-sum)
+- BacktrackFrame gains `int mw_delta` (per-frame saved increment for symmetric pop in the iterative DFS variant)
+- New `mw_c3_init()` helper rebuilds the state from any `seq[]` prefix; called at sub-branch entry (depth-4 and depth-5 dispatch) and at v2 checkpoint resume (so the partial-cd state is correctly reconstructed from the saved seq)
+- `backtrack()` recursive path: push delta, check predicate, recurse (or skip if pruned), pop on return
+- `backtrack_iterative()` iterative path: push at ITERATE phase (with predicate-revert if pruned), pop at PHASE_RETRY using `fr->mw_delta`
+
+Out of scope (analysis-only paths, same decision as #72): `proof_search()` and 5 analysis-subcommand sites at solve.c:10085, 10149, 10298, 10453, 10554 left as `int used[32]` arrays.
+
+### Sha forks as designed
+
+The selftest baseline sha changes from `403f7202…` (v1) → `9ab1cd08…` (v2 with #67). This is the planned v2 fork: under truncated budgets the prune reaches more leaves per cell than v1's leaf-only check, so the byte representation of `solutions.bin` differs. The mathematical guarantee is that v2's canonical leaf set is a *superset* of v1's at equal budget (V1_V2_SEARCH_SPACE_RELATIONSHIP), not that the bytes match.
+
+The independent cross-validation: the `9ab1cd08…` sha is byte-identical to the May 6 reverted-attempt sha. Two separate implementations following the same TASK_67 design converged to the same output bytes. The algorithm produces a deterministic, reproducible output regardless of run.
+
+### Validation cascade
+
+Three independent layers of evidence that #67 drops no valid solutions:
+
+1. **Mathematical proof** (`TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md`) — Lemma-2 monotonicity of `partial_cd_k` in `k` plus `partial_cd_32 = cd(leaf)` ⇒ if `partial_cd_k > 776` at any depth k, every leaf reachable from that point has `cd > 776` and is C3-invalid. Pruning drops only invalid subtrees.
+2. **Gold-standard implementation check** — instrumented the prune predicate to recompute `partial_cd` from scratch via `seq[0..2k-1]` at each recursion step and compare to the incremental value. Zero mismatch events across the entire selftest. The incremental bookkeeping equals the from-scratch sum at every step.
+3. **Empirical superset check at two scales** (canonical-level comparison, see methodology section below):
+   - Selftest (100M nodes, depth-2, 4 threads): v1 = 135,780 canonicals · v2 = 138,306 · v1-canon-only = 0 · v2 extras = 2,526 (+1.86%)
+   - 100B-d3-checkpoint gate (100B nodes, depth-3, `SOLVE_DFS_CHECKPOINT=1`, 128 threads on D128als_v7 Spot): v1 = 26,791,168 canonicals · v2 = 27,483,394 · v1-canon-only = 0 · v2 extras = 692,226 (+2.58%)
+
+Both gates: `L_v1 ⊆ L_v2`. v2 reproduces every v1 canonical leaf and adds more (compensating for v1's compute spent on doomed-subtree exploration with deeper coverage of valid territory).
+
+### Comparison methodology — canonical level, NOT full-byte
+
+A subtle methodology lesson came out of the 2026-05-10 selftest run. An initial set-difference at the full 32-byte record level reported 555 "v1-only" records, which looked like a critical bug (#67 dropping valid leaves). Investigation showed those records were not missing — they were canonical-duplicates of v2 records that emitted a different orient representation per canonical.
+
+The project's dedup keeps the lex-smallest record per canonical pair sequence (the canonical-equivalence relation masks orient bits, `byte & 0xFC`). Under v2's pruning, the DFS exploration order differs from v1's: v2 encounters certain orient variants first, v1 encounters others first, both emit the lex-smaller orient representative they reach first.
+
+Concrete example from cell (pair1=1, orient1=0, pair2=2, orient2=1):
+
+- v1's emitted record for one canonical: `00040a0c...6072686e6676787c` (byte25 = 0x72 = pair 28 orient 1, byte26 = 0x68 = pair 26 orient 0, …)
+- v2's emitted record for the SAME canonical: `0004080c...60706a6c6474787c` (byte2 = 0x08 vs v1's 0x0a — pair 2 orient 0 vs orient 1; byte25 = 0x70 vs v1's 0x72; etc.)
+
+Both records have identical canonical key (every byte differs only in the low 2 bits). They represent the same valid leaf. The 555 records weren't missing; the comparison was looking at the wrong level.
+
+**The correct comparison for v1-vs-v2 validation is at the canonical level**: mask each record byte with `0xFC` before set-comparison. Full-byte comparison produces false positives because v1 and v2 pick different lex-winners per canonical due to different DFS order under pruning. This is now documented in `V1_V2_SEARCH_SPACE_RELATIONSHIP_2026_05_06.md` with the corrected method and an explicit warning against the older raw-byte recipe.
+
+### What's next
+
+#67 is the first commit in the v2 prune stack. The v2 fork is now open: all selftest/extended-selftest/Tier-1 shas will diverge from v1 anchors until the bundle (`#67 + #68 + #70 + #71`, possibly + `#69`) is complete and #81 re-baseline establishes the new v2 canonical sha X at 11.2T scale. Next task: #70 (C3 optimistic-completion bound — a tightening of #67's predicate using precomputed per-pair `min_cd` lower bounds).
+
+### Cost
+
+- 100B-d3-checkpoint gate: D128als_v7 Spot + 128 GB scratch SSD, 2h 18min total wall (1h v1 + 1h v2 + bootstrap + teardown). **~$2.25**.
+- Selftest validation: free (local on orchestrator).
+- No 11.2T validation run for #67 alone — that's #81 re-baseline's job on the bundled v2.
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
