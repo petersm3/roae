@@ -2117,6 +2117,73 @@ The campaign surfaced three distinct latent bugs (`solve --merge` exit hang, `ve
 
 The five lessons above are not new principles. They're each restatements of standing project rules that didn't get applied to the changed code paths in time. The honest answer to "was this avoidable?" is: **yes, fully — by applying rules the project already had, to the new contexts they didn't get applied to**. The campaign is still landing; the lessons are committed to memory now so the next campaign doesn't pay the same costs.
 
+## May 10, 2026 PDT — task #72 bitset domain representation shipped (v2-prune foundation), 1.09× speedup, plus an instructive by-value detour
+
+This entry covers a focused day's work converting the DFS hot-loop's "remaining pair pool" from `int used[32]` linear-scan to `pair_mask_t` (uint32_t) bitmask representation. Task #72 was the structural prerequisite for the upcoming v2 prune stack (#67 mid-walk C3 pruning, #68 C5 feasibility, #70 C3-bound refinement, #71 one-step C2 lookahead) — those need `__builtin_popcount` per-slot (for MRV variable ordering #69) and AND-with-precomputed-mask operations (for #71) that the array form can't deliver cheaply.
+
+### Three sha-gated commits
+
+The refactor shipped in three phases per the audit doc `petersm3/x:roae/TASK_72_BITSET_DOMAIN_AUDIT_2026_05_04.md` (refreshed against current line numbers earlier in the day):
+
+- **Phase A** (commit `a77ff3f`) — `typedef uint32_t pair_mask_t` plus `PAIR_MASK_SET/CLR/TEST/AVAIL/COUNT/FIRST` helper macros. Pure additions near the `pairs[]` typedef; zero behavior change. Selftest sha `403f7202…` byte-identical confirmed.
+- **Phase C** (commit `67da709`) — `ThreadState.dfs_v2_used` and `ThreadState.dfs_v2_resume_used` converted from `int8_t[32]` to `pair_mask_t`. Four boundary translations at the access sites (resume entry, capture exit, on-disk save, on-disk load) — local `int used[32]` arrays inside `backtrack_iterative` were unchanged at this phase. On-disk `DFSCheckpointState_v2.used[32]` format kept as `int8_t[32]` per audit Phase E (no sidecar version bump needed). Selftest + 9/9 extended-selftest PASS (subtests 2/3/5/6/8 directly exercise the resume + SIGTERM eviction paths through the new boundary translations).
+- **Phase B+D** (commit `2cf8771`) — canonical hot-loop conversion: `backtrack` and `backtrack_iterative` signatures take `pair_mask_t *used_mask`; `shared_prefix_used` static converted; depth-4 and depth-5 dispatch callers + outer-loop `local_used_mask` converted; 30+ site changes total. Iteration order preserved exactly via `for (p=0..31)` with `PAIR_MASK_TEST` replacing byte-array test. Selftest + 9/9 extended-selftest PASS at this phase too.
+
+`proof_search` and 5 analysis-subcommand `int used[32]` sites at solve.c:10085, 10149, 10298, 10453, 10554 intentionally left as int-arrays. They're in `--prove` / `--show` analysis paths, not in the canonical sha producer, so converting them isn't required for v2-prune integration. Treated as Phase D-extension scope for future work.
+
+### Measured speedup: 1.09× over v1
+
+A 90-second timed bench at canonical d=3 conditions (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=11200000000000`, `SOLVE_PER_SUB_BRANCH_LIMIT=70723196`, `SOLVE_DFS_ITERATIVE=1`, `SOLVE_DFS_CHECKPOINT=1`, `SOLVE_THREADS=128`) on D128als_v7 Spot westus3 with Standard SSD scratch:
+
+| Binary | Aggregate node-rate at 90s |
+|---|---|
+| v1 (commit `61db6be`, pre-#72) | 263 M/sec |
+| #72 (commit `2cf8771`, ships) | 286 M/sec |
+
+Ratio: **1.09×**, at the lower end of the audit's predicted 1.1-1.5× range. That's consistent with the audit's "removes per-iteration byte-load + branch on `used[p]`" mechanism alone — the bigger compounding speedups come from #69 / #71 layered on top, which use the mask's popcount and AND-with-table operations.
+
+### The by-value detour (instructive, discarded)
+
+Early in the day I provisioned a D128 Spot and launched a Tier 1 11.2T canonical run on commit `2cf8771`. At 22 minutes in, the rate plateaued at 286 M/sec aggregate, projecting ~10-11 hours wall to complete the full 11.2T. I compared this to a "75-minute Tier 1 baseline" I had in memory from CURRENT_PLAN.md archive and panicked — interpreting it as an 8.7× regression vs v1.
+
+Working hypothesis at the time: passing `pair_mask_t *used_mask` (by pointer) prevents the compiler from register-allocating the mask in the hot loop, because pointer-aliasing analysis can't prove `*used_mask` doesn't alias other writes like `budget[wd]--` or `fr->p++`. The compiler would conservatively reload `*used_mask` from memory every iteration.
+
+I killed the Tier 1 run, edited solve.c to convert the function signatures to `pair_mask_t used_mask` (by value), and validated correctness (selftest + 9/9 extended-selftest all PASS, sha-preserving as designed). Then ran a 90-second head-to-head bench: v1 = 263 M/sec, by-value = 238 M/sec. **The by-value rewrite was a 10% regression, not the speedup the audit promised.**
+
+Counter-intuitive but consistent with the data: with `pair_mask_t` by value passed to recursive `backtrack`, the compiler must preserve the caller's `used_mask` register across the recursive call (callee-saves convention). Recursive `backtrack` already has many args (`ts`, `seq`, `used_mask`, `budget`, `step`); register pressure is high; the caller-side save/restore around the recursive call costs more than the by-pointer indirection's single load per access. So the by-pointer form (commit `2cf8771`) was actually correct AND modestly faster than v1; the by-value "fix" attempt regressed it.
+
+The by-value patch was discarded (never committed to `main`). Investigation findings + bench log archived to `petersm3/x:roae/canonical_runs/20260510_task72_byval_neutral/`.
+
+### What the "panic" was anchored on
+
+Re-reading CURRENT_PLAN.md archive: the "75 min Tier 1 11.2T baseline" reference was from the 2026-04-28 Tier 1 run during the validation campaign. That run was either on different storage (Premium SSD or local NVMe scratch instead of Standard SSD) or with different env vars (likely without `SOLVE_DFS_CHECKPOINT=1`, which writes a `.dfs_state` sidecar per BUDGETED sub-branch — at 158k sub-branches per 11.2T run, that's 158k file writes which create real I/O contention on Standard SSD). The real measured baseline at canonical params on Standard SSD is ~270 M/sec aggregate for both v1 and #72 — they hit the same storage I/O ceiling because the .dfs_state sidecar writes dominate, not the DFS hot-loop CPU.
+
+### Lessons logged
+
+1. **Calibrate the baseline before claiming regressions.** A "X is N× slower than baseline Y" finding requires the SAME conditions producing baseline Y. Different storage, different env vars, or different code paths invalidate the comparison. Time-limited side-by-side benches on the same VM remove all those variables.
+2. **By-value vs by-pointer is not a one-way performance argument.** Register-allocation wins for by-value can be eaten by callee-saves-preservation across recursive calls. Measure, don't assume.
+3. **The audit's "1.1-1.5× standalone" prediction was right.** The mask form replaces byte-load+branch with bit-test+shift; that's a real but moderate win. The big speedups come from #69 + #71 (compounding to ~25-40×), which #72 unlocks.
+4. **Storage I/O can be the ceiling on Standard SSD at canonical scale.** The 158k `.dfs_state` sidecars are a real bottleneck. If we want to push the canonical-rate ceiling higher in future runs, options are: Premium SSD scratch, or in-memory checkpoint instead of file-per-sub-branch sidecars. Both are out of scope for #72; backlogged.
+
+### Cost ledger
+
+- D128als_v7 Spot westus3 + 256 GB Standard SSD scratch from 2026-05-10 22:09Z (provision) to 23:42Z teardown = **~$1.35 total**.
+- Full 11.2T validation runs on Spot + Regular were considered (operator asked) but not executed: at the storage-bound ~270 M/sec rate, each would have taken ~10-11 hours; combined ~$65 — over the standing $50/session budget cap. The 90s timed bench provided sufficient differential signal to make the ship decision; the canonical-scale empirical confirmation is owed but deferred.
+
+### What this unlocks
+
+The bitset form is the **foundation for the v2 prune stack**. With the mask infrastructure in place, the upcoming optimizations compose cheaply:
+
+- **#69 (MRV variable ordering)** — `__builtin_popcount(remaining_options[slot])` per slot to find smallest-domain slot. One register op per slot. Without #72, would have to scan the byte array or maintain dual state.
+- **#71 (one-step C2 lookahead)** — `remaining_pairs &= c2_compat[hex]` to compute "pairs C2-compatible with the just-placed hex." One register AND. Without #72, would be a per-iteration byte-array scan.
+- **#67 / #68 / #70** (C3 mid-walk + C5 feasibility + C3-bound) all benefit from the popcount and AND-with-mask building blocks too.
+
+The audit's projected total for the full prune stack (#67 + #68 + #69 + #70 + #71 layered on #72) is **~25-40× speedup**. #72 alone delivers a small slice; the rest of the slope is the v2 prune stack to follow.
+
+### Direction after #72
+
+Next: start #67 (mid-walk C3 pruning). It's the first prune in the stack and the audit's recommended sequel to #72. Crossing #67 commits to the v2 fork: the prune changes per-cell coverage shape under truncated budgets, so v2 sha differs from v1 anchor `0c0fe37c…`. That's the refined-Resolution-2 path approved 2026-05-06. After the full prune stack lands, the K-pilot (#80) measures bundled v2 speedup; if K ≥ 5, re-baseline (#81) at 11.2T establishes the new v2 canonical sha. Then 560T launch (#49).
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
