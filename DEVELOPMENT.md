@@ -78,6 +78,92 @@ enumerated space. When citing quantitative results, note the enumeration depth
   analyze_c_742M.txt`, `analyze_section14_742M.txt`, etc. serve as
   reproducibility references.
 
+### Build reproducibility — toolchain manifest and cross-build verification
+
+A reproducible-from-the-same-binary sha is not the same as a reproducible-from-the-same-commit sha. The 2026-05-12 investigation
+(see HISTORY.md "May 11–12 — canonical c34390c0 found irreproducible from git history")
+established that the d3 5.6T canonical `c34390c0…` is not reproducible from any committed code state — the same `solve.c` rebuilt on
+current hardware produces sha `f66920c1…`. The most likely cause is a build-environment difference (gcc/glibc/libgomp/CPU-microarchitecture)
+between the canonical-generation host and today's hosts, possibly amplified by a then-present stack-bounds bug since fixed in `f42f2ae`.
+
+Going forward, every canonical `solutions.bin` archive **must** capture both the source identity and the build-environment identity. Two
+shas with matching `solve.c` commit but mismatching build-environment manifest are NOT contradictions — they're a flag that the toolchain
+or CPU microarchitecture changed between builds.
+
+#### What to capture per build (mandatory)
+
+Include this block in every canonical run's `metadata.txt` (next to the existing source-commit and env-var fields):
+
+```bash
+# Build environment manifest
+echo "=== source ==="
+echo "solve.c commit:    $(cd <repo> && git rev-parse HEAD)"
+echo "solve.c sha256:    $(sha256sum solve.c | cut -d' ' -f1)"
+echo "build flags:       <exact gcc command line used>"
+echo ""
+echo "=== toolchain ==="
+gcc --version | head -1
+ldd --version | head -1               # glibc
+gcc -print-prog-name=libgomp.so.1     # path → confirms libgomp linkage
+echo ""
+echo "=== host ==="
+uname -srvmpio
+grep "model name" /proc/cpuinfo | head -1
+grep "flags" /proc/cpuinfo | head -1 | tr ' ' '\n' | grep -E "avx|sse|fma|bmi" | tr '\n' ' '; echo
+echo ""
+echo "=== os image ==="
+. /etc/os-release; echo "$NAME $VERSION_ID $VERSION_CODENAME"
+[ -r /etc/cloud/build.info ] && cat /etc/cloud/build.info        # Azure image SKU + date
+```
+
+The manifest is captured once at build time and embedded in the same `metadata.txt` shipped with `solutions.bin.gz` to cold storage.
+
+#### Drop `-march=native` for canonical builds
+
+`-march=native` emits CPU-specific instructions tuned to the build host. A binary built on Zen 4 may differ from one built on Zen 5 even
+with identical source. Replace with a fixed baseline:
+
+- `-march=x86-64-v3` — AVX2 baseline. Works on every Intel Haswell+ / AMD Excavator+. Ubiquitous since 2013. **Default for canonical builds.**
+- `-march=x86-64-v4` — AVX-512 baseline. Use if AVX-512 is empirically a measurable speedup AND you're willing to lock yourself to
+  Skylake-X / Zen 4+ silicon.
+
+Performance impact of dropping `-march=native` to `-march=x86-64-v3`: typically 5–15% slower for HPC-ish workloads. Acceptable for the
+reproducibility guarantee. (Internal performance tuning runs can still use `-march=native`; the rule is only for canonical builds.)
+
+#### Cross-build regression gate
+
+Before adding any new sha to `CANONICAL_HASHES.md`, the canonical must reproduce on a **second independent binary build**:
+
+1. Build A on VM-A (e.g., westus3 Spot D128, day 1). Capture full manifest. Run canonical workload. Record sha.
+2. Build B on VM-B (different day, different host or region, ideally different CPU generation if available). Capture full manifest. Run
+   the same canonical workload. Record sha.
+3. Sha A must equal sha B. Both manifests are committed to the archive directory alongside the canonical.
+4. If shas diverge: the canonical is not yet eligible. Investigate the manifest delta; track down whatever non-determinism the divergence
+   reveals (toolchain, microarchitecture, latent UB).
+
+Cost: ~$5–15 of extra VM-hour per canonical for the second build. Negligible relative to the cost of an unreproducible canonical entering
+the public record.
+
+The intra-day 4-equivalence test (full-enum L1, deterministic re-run L2, `--merge-layers` of full-enum, `--merge-layers` of 56-branch
+reconstruction) remains useful but is **insufficient on its own** — it proves intra-day binary determinism, not cross-build reproducibility.
+Use 4-equivalence inside a single VM, then cross-build verify across VMs.
+
+#### Container-pinned toolchain (target state for 560T canonical)
+
+For the 560T launch and any post-2026-Q3 canonical, build inside a pinned Docker image (or equivalent: nix-shell, guix). The image
+contains:
+
+- An explicit gcc version (e.g., `gcc-13.2.0-23ubuntu4` — pinned by apt version pin or by base-image digest)
+- An explicit glibc version (frozen with the base image)
+- An explicit libgomp version
+- A fixed `-march=` baseline
+
+Build `solve.c` inside the container; the same container + same source → bit-identical binary on any host. Publish the container image
+digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific reproducibility (used by Nature/Cell/CodeOcean
+submissions, Bitcoin Core, Debian package builds).
+
+Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Add to the 560T pre-launch checklist.
+
 ### Layered enumeration (extension-friendly run organization)
 
 A "layer" is a single `(scope, per-sub-branch budget)` enumeration result.
