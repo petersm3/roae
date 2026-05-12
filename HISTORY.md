@@ -2243,6 +2243,110 @@ Both records have identical canonical key (every byte differs only in the low 2 
 - Selftest validation: free (local on orchestrator).
 - No 11.2T validation run for #67 alone — that's #81 re-baseline's job on the bundled v2.
 
+## May 11–12, 2026 PDT — multi-scale v1/v2 pipeline, then canonical c34390c0 (d3 5.6T) found irreproducible from git history
+
+A planned v1-vs-v2 comparison pipeline at 1T + 5.6T + 11.2T scales (per operator request: "do a 1T v1, a 5.6T v1, archive both to cold storage, then a 1T v2 and compare it to the 1T v1, and the same at 5.6T … if these are interesting questions and observations to document, add 11.2T too") opened with a sha mismatch at 5.6T that turned into a multi-day bisect ending in a definitive finding: the canonical `c34390c0…` cannot be regenerated from any commit in `petersm3/roae` between cdd8575 (Apr 30) and 2cf8771 (May 10), on either DFS path, against any of 6 binary builds tested.
+
+### The pipeline (May 11)
+
+D128als_v7 Spot in westus3, 14:22–20:14 UTC, four enumerations:
+
+| Phase | Binary | Params | Sha | Records |
+|---|---|---|---|---|
+| v1 1T | post-#72 `2cf8771` | SOLVE_DEPTH=3, NODE_LIMIT=1T, PER_SUB_BRANCH=6,315,666, ITERATIVE=1, CHECKPOINT=1, THREADS=128 | `e31ef86a…` | 134,041,566 |
+| v1 5.6T | post-#72 `2cf8771` | canonical 5.6T params | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` | **467,484,167** |
+| v2 1T | post-#72 + #67 `133e296` | same as v1 1T | `c247b9f9…` | 138,520,400 |
+| v2 5.6T | post-#72 + #67 `133e296` | same as v1 5.6T | `467025fe…` | 486,001,027 |
+
+v2 vs v1 canonical-level diffs (mask `byte & 0xFC`, sort, `comm`) confirmed `L_v1 ⊆ L_v2` at both scales: 1T (v1-only=0, v2-extras=4,478,834, +3.34%), 5.6T (v1-only=0, v2-extras=18,516,859, +3.96%). This validates the #67 superset property in production.
+
+But the v1 5.6T sha `f66920c1…` does NOT match the CANONICAL_HASHES.md anchor `c34390c0…`. The v1 5.6T record count is 467,484,167 vs canonical 467,483,137 — exactly **+1,030 records** (+0.00022%). At selftest scale (100M nodes) the same binary produces canonical baseline `403f7202…`. The divergence is scale-emergent: visible at 5.6T, invisible at 100M.
+
+### Initial wrong path: blamed #72 by suspicion, ruled out empirically
+
+First hypothesis (operator's instinct): task #72's bitset domain rep (a77ff3f+67da709+2cf8771, May 10) silently changed emission at scale despite passing #79's 1B-pilot validation. Built `solve.c` at commit `3a4b4c8` (May 7, last commit before #72), re-ran 5.6T enum + merge. Result: same `f66920c1…`, same 467,484,167 records. **#72 cleared.**
+
+### The bisect chain — every commit produces f66920c1
+
+The bug must predate `3a4b4c8`. Static analysis of all 14 commits between cdd8575 (Apr 30) and 2cf8771 (May 10) identified candidates and dismissed most by code-review (db27d00, c3ad271, d11bc0d, etc. — all gated behind `dfs_resume_active` or `--branch`-only flags). The strongest static suspect was **f42f2ae (May 6)**, which fixed a stack-buffer-overflow in `all_top[64*TOP_N]` at SOLVE_THREADS=128: the pre-fix array held 1,280 entries but at 128 threads could be written up to 2,560 times, producing 490 KB of OOB stack writes during the post-enum top-K merge. Plausibly deterministic at canonical params, plausibly produces -1,030 missed records.
+
+Empirically tested: built `solve.c` at `1267a8e` (May 5, immediate parent of f42f2ae), ran 5.6T. **Result: `f66920c1…` again.** **f42f2ae cleared.**
+
+Pushed the bisect to its endpoint: built `solve.c` at `cdd8575` (Apr 30 02:58 UTC — latest commit *before* 1d4dc6e introduced SOLVE_DFS_ITERATIVE / SOLVE_DFS_CHECKPOINT). This is essentially the canonical-era code. **Result: `f66920c1…` (467,484,167 records). The canonical-era code itself produces modern sha, not canonical sha.**
+
+| Test | Commit | Date | DFS path | Sha | matches c34390c0? |
+|---|---|---|---|---|---|
+| canonical (claim) | ??? | Apr 29-30 | recursive | `c34390c0…` | — |
+| Phase 1 | `2cf8771` | May 10 | iterative+ckpt | `f66920c1…` | **NO** |
+| Recursive | `2cf8771` | May 10 | recursive | `f66920c1…` | **NO** |
+| Pre-#72 | `3a4b4c8` | May 7 | iterative+ckpt | `f66920c1…` | **NO** |
+| Pre-f42f2ae | `1267a8e` | May 5 | iterative+ckpt | `f66920c1…` | **NO** |
+| Pre-1d4dc6e | `cdd8575` | Apr 30 | recursive only | `f66920c1…` | **NO** |
+
+Every commit in git history between canonical-era and current produces `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` with 467,484,167 records.
+
+### Verdict: canonical c34390c0 reflects a non-extant code state
+
+The Apr 30 5.6T "DEFINITIVE PASS" — a 4-equivalence test where Phase 1 full-enum, Phase 2 deterministic re-run, Phase 3 `--merge-layers` of full-enum, and Phase 5 `--merge-layers` of 56-branch reconstruction all produced byte-identical `c34390c0…` — is internally consistent within that day's binary, but the sha is **not reachable from any committed code state**. Possible explanations, none definitively confirmed:
+
+1. **Uncommitted intermediate code state.** The Apr 29–30 debugging campaign iterated rapidly on local code. The c34390c0 result may reflect a working-tree version that was later squashed/amended out before the final commit landed (most likely).
+2. **Toolchain or environment difference.** Different gcc/libc/OpenMP runtime or RLIMIT_STACK setting, paired with the then-present `all_top[64*TOP_N]` OOB bug, could produce a deterministically-different output via memory-layout effects. Modern toolchain + same source produces a different layout → different OOB victim → different (correct?) output.
+3. **Deterministic-at-128-thread memory corruption** from the unfixed OOB, where stack neighbors happened to be values that subtracted from emission count. Speculative.
+4. **Apr 30 Spot eviction recovery anomaly.** That day's run had a Spot VM evicted at 90% through Phase 4; operator launched 8 missing branches (p1=28-31 × o1=0,1) that finished in 8 min. If the in-process merge of mixed (original + recovery) shards produced c34390c0, but standalone-merge on a clean enum's shards produces f66920c1, that's a possible 4-equivalence anomaly — though the test report claimed all 4 paths matched.
+
+The most likely combination is **(1) + (3)**: uncommitted code + then-present OOB → reproducible-within-day, irreproducible-from-history.
+
+### The records are valid; the canonical is incomplete
+
+This investigation does not change:
+
+- The constraint specification (C1-C5) — math is unchanged.
+- The canonical-form mask (`byte & 0xFC`).
+- The pair-sequence DFS algorithm.
+- The validity of any individual record in canonical c34390c0 — every record IS a valid C1-C5 canonical ordering.
+
+It does change:
+
+- The CANONICAL_HASHES.md claim that c34390c0 is reproducible with the documented env vars (it isn't, from any extant code).
+- The assumption that "v1 5.6T budget yields 467,483,137 unique canonicals" — the correct count, from every modern build, is 467,484,167. Canonical c34390c0 is **undercount by 1,030 records**.
+- The 4-equivalence test's status as a reproducibility guarantee — it proves *internal consistency on a specific binary day*, not cross-build reproducibility across rebuilds.
+
+### Methodology lessons
+
+- **A bisect to the right answer can still teach you something wrong.** The static-analysis prime suspect (f42f2ae's all_top OOB) had a clean, plausible mechanism — it was deterministic-at-128-thread, scale-emergent, and structurally explained the symptoms. Empirically it was innocent. The lesson: extend bisect to BEFORE the candidate, not just to the candidate, before declaring root cause.
+- **Cross-build reproducibility is a stronger property than within-day reproducibility.** The 4-equivalence test was rigorous *for what it tested* but didn't catch the issue. Any future canonical should reproduce from a clean rebuild of the named commit, on at least two independent binary builds.
+- **Per-test script cleanup needs to happen AFTER sha capture, not before.** The Phase B-2 v1 attempt lost its shards because the wrapper's `find . -name "sub_*.bin" -delete` step ran in cleanup after the manual merge failed for disk reasons, leaving the run unrecoverable. Fixed in the v2 script (cleanup gated on `solutions.bin` existing).
+- **D128als_v7 has remote disk only** — no local NVMe ephemeral in this SKU, contrary to first-glance Azure docs. All scratch must be on attached managed disks. Spot eviction on this SKU loses ephemeral state but managed scratch persists; recovering 75-min-of-enum on the next VM (May 12) by re-attaching `v1v2-compare-scratch` saved ~$8 of compute.
+- **In-process merge SIGSEGVs at 5.6T scale in pre-572a34b code.** The cdd8575 binary repeatedly exited 139 after enum (in-process merge crash on `solve.c`'s ClosestEntry post-processing). 572a34b's fork-isolated merge fix was created exactly to repair this. Manual standalone `solve --merge` invocation reliably succeeds.
+
+### Files preserved
+
+Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, merge.log) to two locations:
+
+- **Cold storage (Azure Blob `roaecanonical2026/canonical-archive/`, Archive tier, westus3):**
+  - `20260512_recursive_5.6T/` — post-#72 recursive path; sha `f66920c1…`
+  - `20260512_1267a8e_5.6T/` — pre-f42f2ae bisect; sha `f66920c1…`
+  - `20260512_cdd8575_5.6T/` — pre-1d4dc6e bisect endpoint; sha `f66920c1…` (proves irreproducibility)
+- **Warm copies on managed disk `solver-data-westus3` (3 TB, unattached):** same three runs at `/canonical_runs/20260512_*/`.
+
+The original `v1v2-compare-scratch` 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to cold storage — candidates for follow-up archival before disk decommission).
+
+Operator-facing detail and recommended cascade actions: [`petersm3/x:roae/CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md`](https://github.com/petersm3/x/blob/main/roae/CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md) (private staging repo).
+
+### What's next
+
+1. **Retire c34390c0 as the d3 5.6T canonical.** Replace with new anchor `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` (467,484,167 records) on modern code. Update [CANONICAL_HASHES.md](CANONICAL_HASHES.md) accordingly.
+2. **Audit other v1 canonicals.** d3 10T (`f7b8c4fb…`, generated Apr 18), d2 10T (`a09280fb…`, similar vintage), and d3 11.2T (`0c0fe37c…`, Tier 1) are all from pre-fix builds and likely undercount. Each re-derivation on modern code is one Spot run (~$5-15, ~2-6h). The d3 100T canonical `915abf30…` was generated May 8-10 by T9+c.1 + T9+d (post-fix), so likely correct; verify provenance before deciding to re-run.
+3. **#81 v2 re-baseline plan now bundles a v1 re-baseline.** Both v1 and v2 anchors retire and replace simultaneously at 11.2T. Modern v1 anchor at 5.6T (the f66920c1 produced this week) is the foundation.
+4. **Regression guard.** Future canonicals must reproduce from clean rebuild on at least two independent binary builds (e.g., different days, different hosts) before being added to CANONICAL_HASHES.md. The 4-equivalence test alone is insufficient — it proves intra-day determinism, not cross-build reproducibility.
+
+### Cost
+
+- May 11 pipeline (D128als_v7 Spot, ~6h compute + ~2h idle waiting for direction on sha mismatch): ~$15.
+- May 12 bisect (D128als_v7 Standard Regular, May 12 04:34–11:30 UTC ≈ 7h): ~$35.
+- Cold-storage Archive-tier blob: <$0.10/month going forward.
+- **Session total: ~$50** (within ~$65 budget).
+
 ## Current state (2026-04-22)
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
