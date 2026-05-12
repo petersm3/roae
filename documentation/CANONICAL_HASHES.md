@@ -6,16 +6,22 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 
 ## Active canonicals
 
-| Scale | sha256 | Records | Records (decimal) | Solver |
-|---|---|---|---|---|
-| Selftest baseline (100M nodes) | `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | 135,780 | 1.35780 × 10⁵ | v1 |
-| d3 5.6T | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | 467,483,137 | 4.67483 × 10⁸ | v1 |
-| d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | 7.59609 × 10⁸ | v1 |
-| d3 100T | `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` | 3,432,399,297 | 3.43240 × 10⁹ | v1 |
-| d3 10T | `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` | 706,422,987 | 7.06423 × 10⁸ | v1 |
-| d2 10T | `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` | 286,357,503 | 2.86358 × 10⁸ | v1 |
+| Scale | sha256 | Records | Records (decimal) | Solver | Status |
+|---|---|---|---|---|---|
+| Selftest baseline (100M nodes) | `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | 135,780 | 1.35780 × 10⁵ | v1 | **Active** — reproducible across every binary build tested |
+| d3 5.6T | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` | 467,484,167 | 4.67484 × 10⁸ | v1 (modern) | **PROVISIONAL** — verified across 5 builds on shared VM toolchain (2026-05-12); cross-build verification on independent toolchain pending |
+| d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | 7.59609 × 10⁸ | v1 | **PENDING REVALIDATION** — last cross-build verified 2026-05-02 (pre-`f42f2ae`); modern code may differ (analogous to d3 5.6T undercount). Re-derive scheduled per CURRENT_PLAN.md cascade |
+| d3 100T | `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` | 3,432,399,297 | 3.43240 × 10⁹ | v1 (modern) | **Active** — generated 2026-05-09 by post-`f42f2ae` code (T9+c.1 + T9+d witnesses); provenance verified 2026-05-12 |
+| d3 10T | `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` | 706,422,987 | 7.06423 × 10⁸ | v1 | **PENDING REVALIDATION** — generated 2026-04-18 (pre-everything). Re-derive scheduled |
+| d2 10T | `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` | 286,357,503 | 2.86358 × 10⁸ | v1 | **PENDING REVALIDATION** — generated 2026-04-18 (pre-everything). Re-derive scheduled |
 
 Records are unique canonical orderings; orient variants are collapsed at merge time. File format is documented in [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md).
+
+### Deprecated canonicals
+
+| Scale | sha256 | Records | Reason | Replacement |
+|---|---|---|---|---|
+| d3 5.6T | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | 467,483,137 | Determined to be irreproducible from any extant git commit by the 2026-05-12 bisect investigation. All v1 code from cdd8575 (Apr 30) through 2cf8771 (May 10) on either DFS path produces `f66920c1…` with 467,484,167 records (+1,030 vs this canonical). The records in c34390c0 are all valid C1-C5 orderings; the canonical is incomplete by 1,030 records that modern code finds within the same budget. See [HISTORY.md](HISTORY.md) §"May 11–12, 2026 PDT — multi-scale v1/v2 pipeline, then canonical c34390c0 (d3 5.6T) found irreproducible from git history" and the operator-facing investigation doc in the `petersm3/x:roae` staging repo. | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` (active above) |
 
 ## Reproducibility parameters
 
