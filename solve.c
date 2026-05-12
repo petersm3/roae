@@ -12536,6 +12536,20 @@ sub_enum_done:
     char hash_only[65] = {0};
     int total_done_final = 0;
     int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
+    int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
+
+    /* SOLVE_SKIP_AUTOMERGE (2026-05-12, ROAE cascade work): when set,
+     * skip the bundled post-enum merge so that enum runs on a large parallel
+     * VM (e.g., Spot D128) and the merge runs separately on a right-sized
+     * single-thread VM (e.g., Standard D16). Shards are left on disk; the
+     * operator runs `solve --merge` after detaching/transferring the scratch
+     * disk to the merge VM. */
+    if (getenv("SOLVE_SKIP_AUTOMERGE") != NULL) {
+        printf("SOLVE_SKIP_AUTOMERGE set; skipping bundled merge. "
+               "Shards remain on disk. Run `solve --merge` separately.\n");
+        fflush(stdout);
+        return 0;
+    }
 
     /* Fork-based merge for the iterative+v2 path. Test A on 2026-04-30
      * surfaced heap corruption when the in-process merge ran after a
