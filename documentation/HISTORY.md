@@ -2,7 +2,7 @@
 
 An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how computational research actually works, as opposed to the clean narrative of published results.
 
-For the mathematical rules, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md).
+For the mathematical rules, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md).
 
 ## Prelude — Before April 10, 2026
 
@@ -17,7 +17,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 - **Null model test:** Applying the same constraint-extraction methodology to random pair-constrained sequences produces apparent uniqueness in 9 out of 10 cases. This means the constraint framework makes almost any sequence appear uniquely determined — a critical methodological caveat.
 - **"97%/3%" framing was misleading.** Replaced with more honest descriptions of what the data actually showed.
 
-**[solve.py](solve.py) — the first constraint solver.** A Python backtracking solver was built to test whether the mathematical constraints could reconstruct King Wen from scratch. It found 438 valid orderings from a partial search (limited by Python's speed). Based on this small sample, several claims were made that would later be invalidated by larger-scale enumeration.
+**[solve.py](../solve.py) — the first constraint solver.** A Python backtracking solver was built to test whether the mathematical constraints could reconstruct King Wen from scratch. It found 438 valid orderings from a partial search (limited by Python's speed). Based on this small sample, several claims were made that would later be invalidated by larger-scale enumeration.
 
 **Six rounds of scientific review.** The documentation was iteratively attacked from mathematical and scientific perspectives — testing every claim for rigor, checking null models, correcting statistical framing, and adding appropriate caveats. This adversarial review process caught the complement distance error, the XOR theorem, and the null model caveat.
 
@@ -25,7 +25,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 ## April 10, 2026
 
-**Starting point:** The ROAE project had a Python analysis engine ([roae.py](roae.py)) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver ([solve.py](solve.py)) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
+**Starting point:** The ROAE project had a Python analysis engine ([roae.py](roae.py)) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver ([solve.py](../solve.py)) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
 
 - "23 of 32 pair positions are locked" (identical across all solutions)
 - "2 adjacency constraints uniquely determine King Wen"
@@ -33,7 +33,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 These claims would all turn out to be wrong.
 
-**The C solver:** To explore the solution space more thoroughly, a multi-threaded C solver ([solve.c](solve.c)) was built. The initial version was single-threaded, then rewritten with pthreads to use multiple cores. Early versions had several bugs:
+**The C solver:** To explore the solution space more thoroughly, a multi-threaded C solver ([solve.c](../solve.c)) was built. The initial version was single-threaded, then rewritten with pthreads to use multiple cores. Early versions had several bugs:
 
 - **Segfault at 40M solutions:** `realloc` overflow when the solution buffer doubled past 1GB. Fixed by switching to a fixed-size hash table.
 - **Hash-only comparison:** The first hash table used FNV-1a hash comparison only (no key verification), giving ~1-3% false positive rate. Later replaced with full 64-byte key comparison for zero false positives.
@@ -66,7 +66,7 @@ All documentation was rewritten to reflect these revised findings. The narrative
 
 ## April 12, 2026
 
-**The 10T reproducible run:** The solver was enhanced with a deterministic node limit (`SOLVE_NODE_LIMIT`) for reproducible results. See [solve.c](solve.c) architecture comments for full design documentation. Unlike time limits, node limits produce identical output on any hardware.
+**The 10T reproducible run:** The solver was enhanced with a deterministic node limit (`SOLVE_NODE_LIMIT`) for reproducible results. See [solve.c](../solve.c) architecture comments for full design documentation. Unlike time limits, node limits produce identical output on any hardware.
 
 Initial implementation checked the node limit globally (total across all threads), but this made the sha256 depend on thread count. Redesigned to use **per-branch node budgets** (`node_limit / n_branches`), checked per-branch in the backtracker. Each branch explores exactly the same nodes regardless of how many threads are running.
 
@@ -180,7 +180,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | Shift pattern at positions 3-19 collapses at full coverage | Direct count of shift-pattern violations across 742M (2026-04-15) | Only 2.93% of 742M valid orderings conform to "every position 3-19 uses pair_p or pair_{p-1}". The earlier "zero exceptions in 31.6M" was an artifact of the file-collision bug undersampling non-shift-pattern solutions. Per-position violation rates: pos 3 = 95.4%, pos 4 = 95.2%, decreasing to pos 19 = 22.1%. The full cascade region (3-19) is much more permissive than the earlier observation suggested. |
 | Hidden orient-coupling in King Wen's 4 stored variants | Direct inspection of the 4 KW records in solutions.bin (2026-04-15) | KW appears 4 times in solutions.bin (cross-sub-branch dedup is byte-level; within-sub-branch is canonical). The 4 variants differ in within-pair orient at exactly 5 positions: {2, 3, 28, 29, 30}. But not all 32 combinations are valid — only 4 are. The constraint: orient bits at positions 28, 29, 30 are locked together; their value equals (orient at pos 2) XOR (orient at pos 3). So effectively 2 independent toggle bits = 4 variants. This is a structural orient-symmetry of King Wen's specific arrangement (not yet checked whether it generalizes to other valid orderings). |
 | Boundary redundancy structure in 742M | Pairwise joint-survivor counts across all 465 boundary-pairs (2026-04-15) | Boundaries 15-19 are fully redundant: `joint(b1, b2) / min(survivors)` = 1.000 for every pair within the cascade-region {15,16,17,18,19}. Knowing one of these implies all the others. By contrast, boundaries 26 and 27 are highly *independent* of the cascade region (ratios ~0.007-0.010 with boundaries 3-8). This explains why the minimum 4-set picks {2, 21, 25, 27}: 2 catches position-2's high-entropy choice, 21 catches the cascade-end transition, 25 and 27 contribute *independent* information not implied by the others. |
-| Position 2 determines positions 3-19 (16 branches) | Proved by budget via [`--prove-cascade`](solve.c) | Proved for pairs 1-18; disproven for others |
+| Position 2 determines positions 3-19 (16 branches) | Proved by budget via [`--prove-cascade`](../solve.c) | Proved for pairs 1-18; disproven for others |
 | Cascade NOT deterministic for 12 branches | `--prove-cascade` full C3 proof found valid alternatives | Branch 24: all 17 configs valid; varies by branch |
 | Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | Observed universally; driven by C3 not budget |
 | Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
@@ -344,7 +344,7 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 - **In-memory is fastest when it fits.** F64als_v6 has 128 GB RAM; the 10T pre-dedup buffer is ~89 GB, which fits comfortably. Auto-mode would have selected in-memory for this merge (~30 min, ~$2). `SOLVE_MERGE_MODE=external` was forced for this run deliberately — the external path had been smoke-tested at 100M scale but never at production scale, and the $10 overrun on this run was worth the validation data point.
 - **Premium SSD is the sweet spot for external mode.** Recommended pattern when external is required (either by RAM constraints or deliberate test): attach a Premium-tier data disk (P20 512 GB or P30 1 TB) for the duration of the merge, do the merge on SSD, copy the final `solutions.bin` back to `solver-data` for archival, then detach/delete the SSD. Prorated Premium cost is pennies for a few-hour merge; throughput improves ~3-4× over HDD.
 - **100T is not feasible in-memory on practical VMs.** 100T ≈ 27.7B pre-dedup records ≈ 830 GB. In-memory would need M-series (2-4 TB RAM, $15-30/hr — 10× the cost for marginal benefit). Practical 100T path: **F64 + Premium SSD (P40 2 TB) + external merge** at ~3 hours, ~$13-15.
-- **Takeaway for `DEPLOYMENT.md`.** The disk-tier choice at merge time matters as much as VM SKU choice. `solver-data` stays Standard because shards are cold data; attach Premium temporarily when actively merging at 100T scale. Full tables and recommendations are in [DEPLOYMENT.md §Two-phase deployment](../solve_c/DEPLOYMENT.md).
+- **Takeaway for `DEPLOYMENT.md`.** The disk-tier choice at merge time matters as much as VM SKU choice. `solver-data` stays Standard because shards are cold data; attach Premium temporarily when actively merging at 100T scale. Full tables and recommendations are in [DEPLOYMENT.md §Two-phase deployment](DEPLOYMENT.md).
 
 **Pivot to D128als_v7 in westus3 (2026-04-19).** For the first ~10 days of serious enumeration work, everything ran on F64als_v6 in westus2 — 64-core AMD EPYC 9004 (Genoa, Zen 4), $0.79/hr spot. At project start, F64 was the obvious pick: "compute-optimized" branding, newest AMD generation then available, quota approved quickly. The next-generation `Dalsv7` (Zen 5 Turin) didn't enter Microsoft Learn's SKU tree until `ms.date: 2026-03-10`, so any pre-March quota request defaulted to v6.
 
@@ -618,7 +618,7 @@ Three distinct threads of work landed across ~6 hours.
 - 10T P1-parallel: 16,431,733 sols (Pass 1)
 - Yield ratio 3.35× for 10× budget → **α ≈ 0.52 (sub-linear)**
 
-Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in [`x/roae/PASS1_FINDINGS.md`](../../x/roae/PASS1_FINDINGS.md) Addendum B and [`x/roae/DEPTH_PROFILE_CALIBRATION.md`](../../x/roae/DEPTH_PROFILE_CALIBRATION.md).
+Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in [`x/roae/PASS1_FINDINGS.md`](../../../x/roae/PASS1_FINDINGS.md) Addendum B and [`x/roae/DEPTH_PROFILE_CALIBRATION.md`](../../../x/roae/DEPTH_PROFILE_CALIBRATION.md).
 
 **2. solve.c observability + durability additions** (commits `b9ff72d`, `e591e1c`, `e9c151d`, `f73c3ed`; selftest sha unchanged; zero impact on scientific output):
 
@@ -687,7 +687,7 @@ Linear-probe degradation after ~9.3M records: probe distance exploded from O(60)
 
 **Post-mortem preserved** in forensic checkpoint dir `x/roae/ckpt_pre_repro_20260424_142240/` (3.8 GB retained for any future regression investigation) plus `ckpt_hang_repro.sh` harness.
 
-**Trajectory-match finding** ([`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`](../../x/roae/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
+**Trajectory-match finding** ([`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`](../../../x/roae/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
 
 **Sunk cost.** ~$6 of avoidable spend across the zombie-runtime window (~$0.24/hr × 20 idle hours) plus ~$0.20 for the debugging VM work. Forensic preserves + fix validated; fresh run on track to finish within budget.
 
@@ -710,7 +710,7 @@ Pipeline for the experiment: feed to `ganak`, `d4`, or `sharpSAT-TD` for exact m
 - `--stratified-by-position-2-pair CHUNKS_DIR OUT_MD` (`--stratified-exhaustive`): per-stratum KDE reanalysis conditioning on which pair occupies positions 2-3. Tests whether `position_2_pair` is part of the discriminative signal.
 - `--joint-permutation-test CHUNKS_DIR OUT_MD`: always-exhaustive. Per-dim |z|-extremity ≥ |z_KW| counts + Bonferroni-adjusted p-values, plus a joint extremity distribution (for each record, count how many dims it ties or beats KW on; cumulative over the full 3.43B canonical population).
 
-Full spec: [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../x/roae/DISTRIBUTIONAL_V2_SPEC.md). Launcher: [`x/roae/launch_b2_exhaustive_d64.sh`](../../x/roae/launch_b2_exhaustive_d64.sh) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
+Full spec: [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../../x/roae/DISTRIBUTIONAL_V2_SPEC.md). Launcher: [`x/roae/launch_b2_exhaustive_d64.sh`](../../../x/roae/launch_b2_exhaustive_d64.sh) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
 
 ## April 25, 2026 early morning — B2 exhaustive analysis launched, α trajectory logging resumed
 
@@ -2361,13 +2361,13 @@ All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modele
 
 **Next steps (as of 2026-04-22):**
 
-✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: [`x/roae/P1_SCALING_MEASUREMENTS.md`](../../x/roae/P1_SCALING_MEASUREMENTS.md). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
+✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: [`x/roae/P1_SCALING_MEASUREMENTS.md`](../../../x/roae/P1_SCALING_MEASUREMENTS.md). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
 
 ✅ **Campaign A Pass 1 CLOSED** (this dated section above) — yield-16 laggards at 10T both BUDGETED with 16.4M canonical solutions each. Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class. **Not pursuing Pass 2/3/4 on A.**
 
 1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,543 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
-2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See [`x/roae/PASSB_FINDINGS.md`](../../x/roae/PASSB_FINDINGS.md).
-3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See [`x/roae/PASSD_FINDINGS.md`](../../x/roae/PASSD_FINDINGS.md).
+2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See [`x/roae/PASSB_FINDINGS.md`](../../../x/roae/PASSB_FINDINGS.md).
+3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See [`x/roae/PASSD_FINDINGS.md`](../../../x/roae/PASSD_FINDINGS.md).
 4. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome.
 5. **Distributional-analysis v2 follow-ups**: schema drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on `position_2_pair`; formal joint-hypothesis testing with Bonferroni / permutation.
 6. **Technical paper / preprint drafting** — `x/roae/PAPER_OUTLINE.md` is the skeleton; P2 completion satisfied the key data-dependency. Ready to draft sections 1–5 now.

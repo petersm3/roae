@@ -2,7 +2,7 @@
 
 Orientation file for Claude (the AI assistant) working on this repo.
 Humans: you probably want [README.md](README.md) or
-[GUIDE.md](GUIDE.md). This file is terse by design — pointers and
+[GUIDE.md](documentation/GUIDE.md). This file is terse by design — pointers and
 invariants, not content.
 
 ## Project
@@ -17,20 +17,20 @@ King Wen's uniqueness vs. combinatorial structure.
 
 | Topic | Read |
 |---|---|
-| Public scientific record (what holds, what doesn't) | [SOLVE.md](SOLVE.md), [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md), [CRITIQUE.md](CRITIQUE.md) |
-| Plain-language explainer of branches, sub-branches, nodes, enumeration | [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md) |
-| Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) |
-| Prior literature + what is classical / prior / novel / methodological citations | [CITATIONS.md](CITATIONS.md) |
-| Formal constraint definitions + theorems | [SPECIFICATION.md](SPECIFICATION.md) |
-| **Canonical sha256 registry + reproducibility parameters** | [CANONICAL_HASHES.md](CANONICAL_HASHES.md) |
-| Binary output format + verifier recipe | [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md), [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md), [verify.py](verify.py) |
-| Partition invariance theorem | [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) |
-| Project narrative + why-decisions-were-made | [HISTORY.md](HISTORY.md) |
+| Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
+| Plain-language explainer of branches, sub-branches, nodes, enumeration | [BRANCHES_EXPLAINED.md](documentation/BRANCHES_EXPLAINED.md) |
+| Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](documentation/DISTRIBUTIONAL_ANALYSIS.md) |
+| Prior literature + what is classical / prior / novel / methodological citations | [CITATIONS.md](documentation/CITATIONS.md) |
+| Formal constraint definitions + theorems | [SPECIFICATION.md](documentation/SPECIFICATION.md) |
+| **Canonical sha256 registry + reproducibility parameters** | [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md) |
+| Binary output format + verifier recipe | [SOLUTIONS_FORMAT.md](documentation/SOLUTIONS_FORMAT.md), [REBUILD_FROM_SPEC.md](documentation/REBUILD_FROM_SPEC.md), [verify.py](verify.py) |
+| Partition invariance theorem | [PARTITION_INVARIANCE.md](documentation/PARTITION_INVARIANCE.md) |
+| Project narrative + why-decisions-were-made | [HISTORY.md](documentation/HISTORY.md) |
 | Enumeration leaderboard | [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) |
-| Build / self-test / developer invariants | [DEVELOPMENT.md](DEVELOPMENT.md) |
-| **Full `solve.c` CLI reference** (subcommands, env vars, exit codes) | [SOLVE_CLI.md](SOLVE_CLI.md) |
-| **Full `roae.py` CLI reference** (28 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](ROAE_PY_CLI.md) |
-| Azure deployment / SKU sizing | [DEPLOYMENT.md](DEPLOYMENT.md) |
+| Build / self-test / developer invariants | [DEVELOPMENT.md](documentation/DEVELOPMENT.md) |
+| **Full `solve.c` CLI reference** (subcommands, env vars, exit codes) | [SOLVE_CLI.md](documentation/SOLVE_CLI.md) |
+| **Full `roae.py` CLI reference** (28 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md) |
+| Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
 | **Live operational state** (current run, schedule, in-flight work) | `~/github/x/roae/CURRENT_PLAN.md` (**private repo, `petersm3/x`** — not in this repo) |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
@@ -41,9 +41,9 @@ Any `solutions.bin` produced with matching input parameters **must**
 reproduce one of the published canonical shas byte-identically. A
 mismatch is a bug, not a new result. The full registry of canonical
 hashes — with reproducibility parameters, record counts, and validation
-status per canonical — lives in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
+status per canonical — lives in [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md).
 
-Partition invariance (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md))
+Partition invariance (see [PARTITION_INVARIANCE.md](documentation/PARTITION_INVARIANCE.md))
 guarantees these are reproducible across hardware, region, merge
 algorithm, and enumeration vs. independent-shard-merge paths. If you
 produce a mismatching sha, stop and investigate — don't silently

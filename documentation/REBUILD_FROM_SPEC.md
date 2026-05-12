@@ -281,7 +281,7 @@ Exit 0 on pass, nonzero on any failure.
 
 ## A complete reference implementation exists
 
-[`verify.py`](verify.py) in this repository implements the above in ~130 lines of Python. You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
+[`verify.py`](../verify.py) in this repository implements the above in ~130 lines of Python. You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
 
 ## A note on partition invariance
 

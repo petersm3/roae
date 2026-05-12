@@ -6,7 +6,7 @@ the results, extend the analysis, or continue the engineering work.
 This is a *conventions* document, not a *reference*. Concrete technical details
 live in:
 
-- [solve.c](solve.c) top-of-file comment — architecture, all run modes, bug
+- [solve.c](../solve.c) top-of-file comment — architecture, all run modes, bug
   history, build flags, environment variables.
 - [HISTORY.md](HISTORY.md) — day-by-day project narrative, including missteps
   and the forensic trail that led to each correction.
@@ -14,7 +14,7 @@ live in:
 - [SPECIFICATION.md](SPECIFICATION.md) — formal constraint definitions.
 - [CRITIQUE.md](CRITIQUE.md) — limitations, statistical caveats.
 - [DEPLOYMENT.md](DEPLOYMENT.md) — cloud-VM deployment architecture + lessons.
-- [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) — current state of
+- [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md) — current state of
   the enumeration.
 - [SOLVE_CLI.md](SOLVE_CLI.md) — full `solve.c` command-line reference
   (subcommands, env vars, exit codes).
@@ -467,7 +467,7 @@ keeping the managed disk.
   ≥128 GB RAM, at 1000T ≥256 GB — far more than the enumeration VM needs.
   Splitting the phases keeps enumeration on a lean F-series SKU and only pays
   for a memory-dense E/M-series VM during the brief merge. See
-  [DEPLOYMENT.md §Two-phase deployment](../solve_c/DEPLOYMENT.md#two-phase-deployment-enumeration-vm-vs-merge-vm)
+  [DEPLOYMENT.md §Two-phase deployment](DEPLOYMENT.md#two-phase-deployment-enumeration-vm-vs-merge-vm)
   for the full pattern, cost table, and orchestration requirements.
 - **`--analyze` has shared state with lifetime boundaries that bite new
   sections.** `bmask[]` (~2.9 GB per-boundary match bitmaps) is allocated
@@ -618,7 +618,7 @@ keeping the managed disk.
   the prorated hourly rate during the merge (pennies). Shards stay on
   `solver-data` (Standard HDD, ~$3/month). Final `solutions.bin` also
   lands on `solver-data` since CWD during merge is unchanged. See
-  [DEPLOYMENT.md §Premium-SSD-attach-for-merge](../solve_c/DEPLOYMENT.md)
+  [DEPLOYMENT.md §Premium-SSD-attach-for-merge](DEPLOYMENT.md)
   for the concrete az CLI workflow.
 - **Standing rule: never provision `solver-data` as Premium SSD.** It
   holds cold shards 99% of the time. Standard_LRS ($3/month for 300 GB,
@@ -754,7 +754,7 @@ typical inputs (validated bit-identical on a 500-point synthetic test).
 Makes exhaustive distributional analysis on the 100T canonical (3.43B
 records) tractable in ~2 hours on D64 (vs ~9 days pure-Python).
 
-See [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../x/roae/DISTRIBUTIONAL_V2_SPEC.md)
+See [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../../x/roae/DISTRIBUTIONAL_V2_SPEC.md)
 for the analysis pipeline + Python integration.
 
 ### `solve.py --sat-encode` (DIMACS / OPB encoder for #SAT model counting)
@@ -774,7 +774,7 @@ Produces:
 - `kw.cnf.meta.json` — variable/clause counts, sha256 of clauses for
   reproducibility
 
-See [`x/roae/SAT_EXPERIMENT_SPEC.md`](../../x/roae/SAT_EXPERIMENT_SPEC.md)
+See [`x/roae/SAT_EXPERIMENT_SPEC.md`](../../../x/roae/SAT_EXPERIMENT_SPEC.md)
 for the experimental protocol and validation strategy.
 
 ### Infrastructure

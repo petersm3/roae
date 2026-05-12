@@ -465,7 +465,7 @@ recomputing the others.
 ideally x86 Sapphire Rapids should all produce the same sha256 for the
 same enumeration parameters. We've done two of three so far.
 
-**SAT-encoder cross-validation.** [solve.py](solve.py) has a SAT/PB
+**SAT-encoder cross-validation.** [solve.py](../solve.py) has a SAT/PB
 encoder (`solve.py --sat-encode`) that emits the same problem in DIMACS
 or OPB format. Running an external SAT or model-counting solver on the
 encoded problem and matching solution counts would give a completely
@@ -559,4 +559,4 @@ gap is one of the primary research goals of the project.
 ---
 
 For implementation details and the actual C source code, see
-[solve.c](solve.c) and the per-mode comments at the top of that file.
+[solve.c](../solve.c) and the per-mode comments at the top of that file.

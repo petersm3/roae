@@ -4,7 +4,7 @@ A plain-language introduction to what `solve.py` and `solve.c` compute. Several 
 
 For deeper material referenced throughout this article:
 
-- Canonical enumeration counts and their reproducibility shas: [CLAUDE.md §Canonical shas](CLAUDE.md) and [HISTORY.md](HISTORY.md).
+- Canonical enumeration counts and their reproducibility shas: [CLAUDE.md §Canonical shas](../CLAUDE.md) and [HISTORY.md](HISTORY.md).
 - Partition invariance theorem and the cross-path validation grid: [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
 - Joint-observable distributional analysis (where King Wen sits in the 3.43B-ordering density): [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 - Methodological critique, including the null-model caveat on the "N boundaries uniquely determine King Wen" finding: [CRITIQUE.md](CRITIQUE.md).

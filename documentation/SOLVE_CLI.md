@@ -600,7 +600,7 @@ the canonical budgets. D128als_v7 has 384 GB.
 per the project's standing rule. No new `.c` files allowed; new
 analysis tools become subcommands instead.
 
-**License:** see [LICENSE.md](LICENSE.md). solve.c links only to
+**License:** see [LICENSE.md](../LICENSE.md). solve.c links only to
 glibc, pthread, m, and gomp. No third-party C dependencies.
 
 ## HISTORY
