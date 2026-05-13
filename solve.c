@@ -596,7 +596,6 @@ static int compute_comp_dist_x64(const int seq[64]) {
     return total;
 }
 
-
 /* ---------- Branch definition ---------- */
 typedef struct {
     int pair;
@@ -627,6 +626,29 @@ typedef struct {
 
 /* ---------- Top-N closest solutions ---------- */
 #define TOP_N 20
+
+/* Project-wide thread ceiling. All per-thread stack arrays (ThreadState,
+ * pthread_t, thread_sub_count, all_top for top-K merge) are sized to this.
+ * SOLVE_THREADS values above this are clamped at parse time with a warning.
+ * Bumping this requires verifying selftest sha (403f7202…) is unchanged.
+ *
+ * IF YOU NEED >256 THREADS (e.g. 384-core EPYC, multi-socket NUMA, 512-core
+ * ARM): a simple bump of this macro is NOT sufficient. Open issues:
+ *   - ThreadState is ~3-5 KB; threads[SOLVE_MAX_THREADS] at 512 = 1.5-2.5 MB
+ *     on the stack in two functions. May exceed RLIMIT_STACK on default
+ *     ulimit -s 8192. Move to heap allocation (malloc) — see thread_subs_flat
+ *     pattern already used for the 2D thread_subs arrays.
+ *   - Performance: solve.c was profiled at 64/96/128 threads. >128 threads
+ *     hit diminishing returns (NUMA effects, lock contention on solution
+ *     buffers); a refactor to per-socket/per-NUMA-node thread pools may be
+ *     needed before raising this ceiling pays off.
+ *   - Reproducibility: selftest sha must be re-validated on whatever new
+ *     hardware/thread-count this is bumped for. Treat >256 as a new
+ *     reproducibility regime, not a free scaling knob.
+ *   - The SOLVE_THREADS parser clamps to this value, so an unmodified
+ *     binary on a 384-core box silently runs at 256 threads with a stderr
+ *     warning. Safe default, but suboptimal for the larger host. */
+#define SOLVE_MAX_THREADS 256
 
 /* Packed solution record: 32 bytes.
  * Byte i (0-31) = pair_index (bits 7-2) | orient (bit 1) | reserved (bit 0)
@@ -906,36 +928,7 @@ typedef struct {
     int8_t dfs_v2_resume_seq[64];
     pair_mask_t dfs_v2_resume_used;   /* task #72 Phase C: was int8_t[32] */
     int8_t dfs_v2_resume_budget[7];
-
-    /* task #67 mid-walk C3 pruning (v2 prune stack). mw_pos[v] = position
-     * v occupies in seq[], -1 if unplaced. mw_partial_cd_x64 is the running
-     * sum 2 * Σ |mw_pos[v] - mw_pos[v⊕63]| over the 32 (v, v⊕63) pairs that
-     * are both currently placed (matches compute_comp_dist_x64's convention).
-     * Prune predicate: if mw_partial_cd_x64 > kw_comp_dist_x64 (= 776), the
-     * subtree contains no C3-valid leaf (correctness proof:
-     * petersm3/x:roae/TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md). */
-    int8_t mw_pos[64];
-    int mw_partial_cd_x64;
 } ThreadState;
-
-/* task #67 — initialize the mid-walk C3 prune state (ts->mw_pos[] +
- * ts->mw_partial_cd_x64) from a seq[] prefix of `placed_hexes` hexagrams.
- * Called at sub-branch entry (after the prefix seq is built) and at v2
- * checkpoint resume (after the saved seq is restored). Conservatively
- * O(64 + placed_hexes); placed_hexes ≤ 32 so this is constant overhead. */
-static inline void mw_c3_init(ThreadState *ts, const int seq[64], int placed_hexes) {
-    for (int i = 0; i < 64; i++) ts->mw_pos[i] = -1;
-    ts->mw_partial_cd_x64 = 0;
-    for (int i = 0; i < placed_hexes; i++) {
-        int v = seq[i];
-        int comp = v ^ 63;
-        if (ts->mw_pos[comp] >= 0) {
-            int d = i - ts->mw_pos[comp];
-            ts->mw_partial_cd_x64 += ((d < 0 ? -d : d) << 1);
-        }
-        ts->mw_pos[v] = (int8_t)i;
-    }
-}
 
 /* global_timed_out is set both from the signal handler (must be
  * async-signal-safe) and from thread code. sig_atomic_t is the only type
@@ -1694,10 +1687,6 @@ typedef struct {
     int prev_tail;  /* cached: seq[step*2 - 1] (computed once at frame entry) */
     int bd, wd;     /* distances consumed by current iter's setup (for restore) */
     int phase;      /* DFSITER_PHASE_ENTER or DFSITER_PHASE_RETRY */
-    int mw_delta;   /* task #67: increment added to ts->mw_partial_cd_x64 on push;
-                       reversed symmetrically on pop. Stored because mw_pos values
-                       at pop time may not allow recomputation when a pair's two
-                       hexagrams are mutual complements (e.g. pair (63,0)). */
 } BacktrackFrame;
 
 static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int initial_step) {  /* task #72 Phase B */
@@ -1722,16 +1711,6 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
         *used_mask = ts->dfs_v2_resume_used;                  /* task #72 Phase B (was Phase C boundary copy) */
         for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
-        /* task #67: rebuild mid-walk C3 state from the restored seq prefix.
-         * The deepest captured frame at index sp has step = depth at capture
-         * time. The seq prefix is populated up to position 2 * stack[sp].step
-         * (parent's iterate placed first/second for the child's depth-1). */
-        {
-            int placed = (sp >= 0) ? (stack[sp].step * 2) : 0;
-            if (placed < 0) placed = 0;
-            if (placed > 64) placed = 64;
-            mw_c3_init(ts, seq, placed);
-        }
         /* Resume start: ts->branch_nodes already set to prior_nodes_walked
          * at sub-branch entry (in the wrapper). Continue from saved state. */
     } else {
@@ -1850,17 +1829,6 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
              * loop body handles iteration. */
         } else {
             /* === RETRY phase: a child just popped; restore parent state, advance iter === */
-            /* task #67 pop: reverse the partial_cd increment recorded on push;
-             * clear mw_pos[] entries for both hexagrams of this pair. Recompute
-             * first/second from fr->p/fr->orient — both are still valid since
-             * we didn't mutate them between push and now. */
-            {
-                int first = fr->orient ? pairs[fr->p].b : pairs[fr->p].a;
-                int second = fr->orient ? pairs[fr->p].a : pairs[fr->p].b;
-                ts->mw_partial_cd_x64 -= fr->mw_delta;
-                ts->mw_pos[first] = -1;
-                ts->mw_pos[second] = -1;
-            }
             PAIR_MASK_CLR(*used_mask, fr->p);                    /* task #72 Phase B */
             budget[fr->wd]++;
             budget[fr->bd]++;
@@ -1916,43 +1884,6 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             PAIR_MASK_SET(*used_mask, fr->p);                    /* task #72 Phase B */
             fr->bd = bd;
             fr->wd = wd;
-
-            /* task #67 push: update mw_pos[] and compute partial-cd delta. */
-            int mw_delta = 0;
-            {
-                int comp = first ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (fr->step * 2) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[first] = (int8_t)(fr->step * 2);
-            }
-            {
-                int comp = second ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (fr->step * 2 + 1) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[second] = (int8_t)(fr->step * 2 + 1);
-            }
-            ts->mw_partial_cd_x64 += mw_delta;
-
-            /* task #67 prune predicate: if partial cd exceeds 776, no
-             * C3-valid leaf exists in this subtree. Revert all state for
-             * this iter and advance to next (p, orient). */
-            if (ts->mw_partial_cd_x64 > kw_comp_dist_x64) {
-                ts->mw_partial_cd_x64 -= mw_delta;
-                ts->mw_pos[first] = -1;
-                ts->mw_pos[second] = -1;
-                PAIR_MASK_CLR(*used_mask, fr->p);
-                budget[wd]++;
-                budget[bd]++;
-                fr->orient++;
-                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
-                continue;
-            }
-
-            fr->mw_delta = mw_delta;
             found = 1;
             break;
         }
@@ -2163,43 +2094,7 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
             seq[step * 2] = first;
             seq[step * 2 + 1] = second;
             PAIR_MASK_SET(*used_mask, p);                        /* task #72 Phase B */
-
-            /* task #67: mid-walk C3 push — update mw_pos[] for first then
-             * second, and add 2 × |pos_diff| for each newly-measurable
-             * (v, v⊕63) pair to ts->mw_partial_cd_x64. Order matters:
-             * placing `first` may make `second`'s complement test true if
-             * the pair is its own complement (e.g., pair (63,0)). */
-            int mw_delta = 0;
-            {
-                int comp = first ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (step * 2) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[first] = (int8_t)(step * 2);
-            }
-            {
-                int comp = second ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (step * 2 + 1) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[second] = (int8_t)(step * 2 + 1);
-            }
-            ts->mw_partial_cd_x64 += mw_delta;
-
-            /* task #67 prune predicate: if partial cd already > 776, no
-             * C3-valid leaf can exist in this subtree (proof in
-             * TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md). Skip recursion. */
-            if (ts->mw_partial_cd_x64 <= kw_comp_dist_x64) {
-                backtrack(ts, seq, used_mask, budget, step + 1);
-            }
-
-            /* task #67: pop — symmetric reversal */
-            ts->mw_partial_cd_x64 -= mw_delta;
-            ts->mw_pos[first] = -1;
-            ts->mw_pos[second] = -1;
-
+            backtrack(ts, seq, used_mask, budget, step + 1);     /* task #72 Phase B */
             PAIR_MASK_CLR(*used_mask, p);                        /* task #72 Phase B */
             budget[wd]++;
             budget[bd]++;
@@ -2778,12 +2673,6 @@ static void *thread_func_single(void *arg) {
                 (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
             }
         }
-
-        /* task #67: initialize mid-walk C3 state from the seq[] prefix that the
-         * loop above just built (positions 0..backtrack_start_step*2 - 1). The
-         * v2-resume path below overrides this with its own init using the saved
-         * seq, so this base init covers the fresh-start case. */
-        mw_c3_init(ts, seq, backtrack_start_step * 2);
 
         if (dfs_iterative_enabled) {
             backtrack_iterative(ts, seq, &used_mask, budget, backtrack_start_step);  /* task #72 Phase B */
@@ -3459,10 +3348,6 @@ static void *thread_func_sub_sub(void *arg) {
          * backtrack uses (branch_nodes - pending_shared_flush) as the delta
          * to publish to the shared counter, and that needs monotone
          * accumulation across all tasks on this worker. */
-
-        /* task #67: initialize mid-walk C3 state from the depth-5 prefix
-         * (positions 0-11 = 12 hexagrams placed). */
-        mw_c3_init(ts, seq, 12);
 
         /* DFS from step 6 (pair 6 placed at positions 12-13). */
         backtrack(ts, seq, &used_mask, budget, 6);      /* task #72 Phase B: pass mask by pointer */
@@ -11296,7 +11181,7 @@ sub_enum_done:
             if (n_threads_p > n_sub_sub_tasks) n_threads_p = n_sub_sub_tasks;
 
             /* Worker ThreadStates — one per thread, private hash tables. */
-            ThreadState workers[256];  /* up to 256 threads (matches main threads array) */
+            ThreadState workers[SOLVE_MAX_THREADS];
             time_t now_init = time(NULL);
             for (int i = 0; i < n_threads_p; i++) {
                 memset(&workers[i], 0, sizeof(ThreadState));
@@ -11354,7 +11239,7 @@ sub_enum_done:
             printf("Starting parallel --sub-branch enumeration...\n\n");
             fflush(stdout);
 
-            pthread_t tids_p[256];  /* up to 256 threads */
+            pthread_t tids_p[SOLVE_MAX_THREADS];
             for (int i = 0; i < n_threads_p; i++) {
                 int rc = pthread_create(&tids_p[i], NULL, thread_func_sub_sub, &workers[i]);
                 if (rc != 0) {
@@ -11650,16 +11535,21 @@ sub_enum_done:
         if (arg_offset + 1 < argc) n_threads = atoi(argv[arg_offset + 1]);
         if (n_threads > n_sub) n_threads = n_sub;
         if (n_threads < 1) n_threads = 1;
+        if (n_threads > SOLVE_MAX_THREADS) {
+            fprintf(stderr, "WARNING: SOLVE_THREADS=%d exceeds SOLVE_MAX_THREADS=%d; clamping.\n",
+                    n_threads, SOLVE_MAX_THREADS);
+            n_threads = SOLVE_MAX_THREADS;
+        }
 
-        /* Distribute sub-branches round-robin. Arrays sized for up to
-         * 256 threads to match the main threads[256] in the full-enum
-         * path. The original [64][64] sizes were a buffer overflow at
+        /* Distribute sub-branches round-robin. Arrays sized to
+         * SOLVE_MAX_THREADS to match the main full-enum path. The
+         * original [64][64] sizes were a buffer overflow at
          * SOLVE_THREADS=128 (depth-3 has up to ~2828 sub-branches per
          * first-level branch, so n_threads is unclamped at 128).
          * Use heap allocation for the 2D thread_subs to avoid huge
          * stack allocations at large thread counts. */
-        ThreadState threads[256];
-        int thread_sub_count[256];
+        ThreadState threads[SOLVE_MAX_THREADS];
+        int thread_sub_count[SOLVE_MAX_THREADS];
         int max_sub_per_thread = (n_sub + n_threads - 1) / n_threads + 8;
         SubBranch *thread_subs_flat = malloc((size_t)n_threads *
                                               (size_t)max_sub_per_thread *
@@ -11720,7 +11610,7 @@ sub_enum_done:
 
         start_time = time(NULL);
 
-        pthread_t tids[256];
+        pthread_t tids[SOLVE_MAX_THREADS];
         int n_started = 0;
         for (int i = 0; i < n_threads; i++) {
             int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
@@ -11801,7 +11691,12 @@ sub_enum_done:
         long long total_hash_drops = 0;
         long long total_stored = 0;
         int branches_done = 0;
-        ClosestEntry all_top[64 * TOP_N];
+        /* Sized SOLVE_MAX_THREADS*TOP_N: same OOB pattern as the main-enum
+         * path at line ~12438 (fixed in f42f2ae 2026-05-06 for main-enum,
+         * missed here in the --sub-branch legacy block). At n_threads>64
+         * each thread contributing up to TOP_N=20 ClosestEntry rows
+         * overwrote past the old 64*TOP_N=1280 slot bound. */
+        ClosestEntry all_top[SOLVE_MAX_THREADS * TOP_N];
         int all_top_count = 0;
 
         for (int i = 0; i < n_threads; i++) {
@@ -12263,12 +12158,17 @@ sub_enum_done:
     if (env_threads) n_threads = atoi(env_threads);
     if (arg_offset < argc - 1) n_threads = atoi(argv[arg_offset + 1]);
     if (n_threads > n_all_subs) n_threads = n_all_subs;
+    if (n_threads > SOLVE_MAX_THREADS) {
+        fprintf(stderr, "WARNING: SOLVE_THREADS=%d exceeds SOLVE_MAX_THREADS=%d; clamping.\n",
+                n_threads, SOLVE_MAX_THREADS);
+        n_threads = SOLVE_MAX_THREADS;
+    }
     if (n_threads < 1) n_threads = 1;
 
     /* Distribute sub-branches round-robin across threads */
-    ThreadState threads[256];  /* up to 256 threads */
-    SubBranch *thread_subs[256];
-    int thread_sub_count[256];
+    ThreadState threads[SOLVE_MAX_THREADS];
+    SubBranch *thread_subs[SOLVE_MAX_THREADS];
+    int thread_sub_count[SOLVE_MAX_THREADS];
     memset(thread_sub_count, 0, sizeof(thread_sub_count));
 
     /* Allocate per-thread sub-branch arrays */
@@ -12333,7 +12233,7 @@ sub_enum_done:
     start_time = time(NULL);
 
     /* Launch threads — use thread_func_single which handles SubBranch work units */
-    pthread_t tids[256];
+    pthread_t tids[SOLVE_MAX_THREADS];
     int n_started = 0;
     for (int i = 0; i < n_threads; i++) {
         int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
@@ -12429,13 +12329,10 @@ sub_enum_done:
     long long total_stored = 0;
     int branches_done = 0;
 
-    /* Sized 256*TOP_N to match ThreadState workers[256] / threads[256] ceiling
-     * elsewhere in main(). Earlier 64*TOP_N produced a stack-buffer-overflow
-     * at line 12058 once SOLVE_THREADS exceeded 64 — caught by AddressSanitizer
-     * 2026-05-05 (task #54). With 128 threads × top_count up to TOP_N=20, the
-     * old 1280-slot array could be written 2,560 times. The 256*TOP_N=5,120-
-     * slot array now matches the project's MAX_THREADS=256 ceiling. */
-    ClosestEntry all_top[256 * TOP_N];
+    /* Sized SOLVE_MAX_THREADS*TOP_N. Earlier 64*TOP_N produced a stack-buffer-
+     * overflow once SOLVE_THREADS exceeded 64 — caught by AddressSanitizer
+     * 2026-05-05 (task #54), fixed in f42f2ae 2026-05-06. */
+    ClosestEntry all_top[SOLVE_MAX_THREADS * TOP_N];
     int all_top_count = 0;
 
     for (int i = 0; i < n_threads; i++) {
@@ -12536,14 +12433,15 @@ sub_enum_done:
     char hash_only[65] = {0};
     int total_done_final = 0;
     int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
-    int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
 
-    /* SOLVE_SKIP_AUTOMERGE (2026-05-12, ROAE cascade work): when set,
-     * skip the bundled post-enum merge so that enum runs on a large parallel
-     * VM (e.g., Spot D128) and the merge runs separately on a right-sized
-     * single-thread VM (e.g., Standard D16). Shards are left on disk; the
-     * operator runs `solve --merge` after detaching/transferring the scratch
-     * disk to the merge VM. */
+    /* SOLVE_SKIP_AUTOMERGE: exit cleanly after enum, leaving shards on disk
+     * for a separate merge VM. Use case: canonical re-derivation cascade
+     * where enum runs on parallel-heavy Spot D128 and merge runs on a
+     * right-sized single-thread Standard D8/D16. The default in-process
+     * merge below consumes ~30-50 min of D128 time for what could run on
+     * D16. SOLVE_SKIP_AUTOMERGE lets the operator skip the bundled merge
+     * and run `./solve --merge` separately on the smaller VM after
+     * detaching/transferring the scratch disk. Inert when env var unset. */
     if (getenv("SOLVE_SKIP_AUTOMERGE") != NULL) {
         printf("SOLVE_SKIP_AUTOMERGE set; skipping bundled merge. "
                "Shards remain on disk. Run `solve --merge` separately.\n");
