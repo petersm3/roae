@@ -214,6 +214,45 @@ NEED=<new-VM cores>
 
 The `feedback_keep_managed_disk.md` rule still holds — never delete data disks. Only delete the VM and its OS disk (which contains nothing campaign-related).
 
+### Spot host CPU-frequency throttling — silently 5× slower (added 2026-05-12)
+
+**Failure mode:** on 2026-05-12, a freshly-provisioned `Standard_D128als_v7` Spot VM in westus3 (host: AMD EPYC 9V45) ran a `solve 0 128` enum at **230 M nodes/s** — 5.6× slower than the established baseline of **1293 M/s** for the same SKU on a healthy host. The slowdown was scale-emergent (rate looked normal at smaller scales, was glaring at full-throttle 128-thread enum) and would have caused a ~$42 cascade overspend if undetected.
+
+**Root cause:** the host's CPUs were parked at **~600 MHz** (visible via `cat /proc/cpuinfo | grep MHz`), versus the expected **2.5-3.5 GHz** boost frequency. Inside the guest:
+
+- `mpstat` showed **0% steal time** (not a noisy-neighbor problem)
+- 100% user CPU + reasonable load average — looked busy
+- `/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor` **did not exist** in this guest kernel — the cpufreq subsystem isn't exposed, so the throttling cannot be diagnosed or fixed from inside the VM
+- The frequency was determined by the host hypervisor's power state for this physical host — invisible to the guest, no recourse
+
+The most surprising property: **the slowdown is invisible to all standard busy-VM signals.** Top, mpstat, iostat, vmstat all show "healthy" output. Only `cat /proc/cpuinfo | grep MHz` reveals the true frequency, and only the observed solve.c throughput rate confirms the impact.
+
+**Mandatory pre-launch check for every fresh Azure VM that will run enum work:**
+
+```bash
+# Right after SSH succeeds, before launching enum:
+FREQ=$(grep "cpu MHz" /proc/cpuinfo | head -1 | awk -F: '{print $2}' | xargs printf '%.0f')
+if [ "$FREQ" -lt 2000 ]; then
+    echo "FAIL: CPU at ${FREQ} MHz; D128als_v7 should be 2500-3500 MHz on healthy host. Re-provision."
+    exit 1
+fi
+echo "OK: CPU at ${FREQ} MHz"
+```
+
+**Resolution when triggered:** there is no in-VM remediation. The fix is:
+
+1. `pkill -9 -f solve` (kill any in-flight work)
+2. Detach scratch disk(s): `az vm disk detach`
+3. Delete the VM + NIC + PIP (keep data disks): `az vm delete --yes`; cascade NIC + PIP delete
+4. Re-provision a fresh Spot D128als_v7 — Azure will (probably) place it on a different host
+5. Re-attach scratch, re-run the CPU-frequency check
+
+A 2026-05-12 cascade re-provision drew a host running at **3562 MHz boost** (1293 M/s rate, baseline-matching) on the second attempt. Empirically the second-draw success rate is high but not guaranteed; check on every fresh VM regardless.
+
+**Cost of detection vs. cost of not:** a 5-line script run once per provisioned VM is essentially free. Skipping the check on a single 5.6T run on a throttled host wastes ~$5; on a 100T run it wastes hours of wall and $30+. **Always check before launching long enum work.**
+
+The actual SKU underlying Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU). Project memory previously claimed "Zen 5 Turin" for this family — that was incorrect. The 9V45 is a cloud-optimized AMD SKU; per-core performance at full boost is comparable to (slightly below) Genoa for our DFS-heavy workload, *as long as the host is not throttling*.
+
 ### Disk tier matters — more than you might think
 
 `solver-data` is deliberately **Standard_LRS** (HDD-tier). Standard HDD has
