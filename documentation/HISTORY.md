@@ -2421,7 +2421,7 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 | d2 10T Build A (Spot D64 enum + Standard D32 merge) | D64/D32 | 211+22 min | ~$3 |
 | d2 10T Build B (Spot D64 enum + Standard D32 merge) | D64/D32 | 211+23 min | ~$3 |
 | d3 11.2T Build A (Spot D64 enum + Standard D64 merge) | D64/D64 | 232+81 min | ~$5 |
-| d3 11.2T Build B (Spot D64 enum, in flight + Standard D64 merge) | D64/D64 | in flight | ~$5 (est.) |
+| d3 11.2T Build B (Spot D64 enum + Standard D64 merge) | D64/D64 | 232+62 min | ~$5 |
 | Throttled-host probes (3 × d3-10T Spot D128 hosts that landed at 600 MHz under load) | D128 | ~10 min each | ~$1 |
 | solver-data-westus3 shrink 3 TB → 256 GB | D2 Spot | ~30 min | ~$0.10 |
 | Cold-storage uploads (azcopy westus3 intra-region) | n/a | n/a | free intra-region |
@@ -2429,9 +2429,9 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 
 ### What's next (post-2026-05-14)
 
-1. **Build B 11.2T cross-build completion.** Build B enum currently in flight on `d3-11-2T-buildb-westus3` Spot D64; expected to produce the same `0c0fe37c…` sha that Build A produced (matching historical). When it lands, the 11.2T canonical has the formal two-witness cross-build pair.
+1. **Build B 11.2T cross-build completion — DONE 2026-05-14.** Build B enum on `d3-11-2T-buildb-westus3` Spot D64 (3.9 hr, SOLVE_THREADS=64, SOLVE_SKIP_AUTOMERGE=1) produced shards which were transferred over private vnet (13.5 min, 90 GB, 215,242 files) to a separate Standard D64als_v7 (`merge-d64-westus3`). In-memory `solve --merge` on the merge VM (62 min wall, 93 GB peak RSS) produced `solutions.bin` with sha `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — byte-identical to Build A and to the historical canonical. The 11.2T canonical now has the formal two-witness cross-build pair (Build A + Build B archived in cold storage). Both enum + merge VMs were deallocated post-archive.
 2. **Steady-state managed disks: just `solver-data-westus3` (256 GB, $12/mo) + the `claude` orchestrator OS disk ($7/mo).** All scratch + orphan OS disks were cleaned up 2026-05-13/14 (~$560/mo recovered).
-3. **Cold storage canonical-archive container holds 13 directories** as of 2026-05-14: 3 diagnostic runs, 5.6T Build A+B, 10T Build A+B, 10T-d2 Build A+B, 11.2T Build A (+ Build B in flight), and t9c1 (100T).
+3. **Cold storage canonical-archive container holds 14 directories** as of 2026-05-14: 3 diagnostic runs, 5.6T Build A+B, 10T Build A+B, 10T-d2 Build A+B, 11.2T Build A+B, and t9c1 (100T).
 4. **v2 work resumes** per CURRENT_PLAN.md once Build B 11.2T lands.
 
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
