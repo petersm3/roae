@@ -281,6 +281,52 @@ Run both; both must pass. The first catches any corruption of PHASE_A's recorded
 
 **Cost:** zero at canonical time. Manifest write is O(shard count); manifest verify is O(shard count × shard size) with streaming sha256; structural verify is O(record count) running the same C1-C5 logic as the existing `solve --verify` mode.
 
+### v1 vs v2 search-space efficiency measurement (planned 2026-05-15, implemented alongside v2)
+
+When v2 lands (after the K-pilot decision and v2 bundled re-baseline), the operator will want to compare v1 and v2 search efficiency — specifically: *given a v1 canonical at budget B finding N records, what is the smallest v2 budget B′ that produces the same N (or a superset of v1's exact records)?* This section documents the design for that measurement so the tooling can land alongside v2 implementation rather than be retrofitted later.
+
+#### Two reasonable questions, two precision levels
+
+1. **Count-matching K (cheaper):** what v2 budget B′ yields the same *number* of unique valid records as v1 at budget B? Answer: K = B / B′.
+2. **Set-matching K (stricter):** what v2 budget B′ yields a *superset* of v1's exact records at budget B?
+
+For pure-pruning v2 (skips only doomed subtrees, preserves DFS order), set-matching and count-matching converge — v2's leaf set at any budget is a superset of v1's at the same budget. For v2 that *also* changes DFS order (e.g., #69 variable ordering heuristic), set-matching is strictly harder than count-matching; the two can give different K values at small budgets. Both are useful to measure.
+
+#### Recommended approach: opt-in leaf-rate logger in both binaries
+
+Add an opt-in env var `SOLVE_LEAF_RATE_LOG_INTERVAL_NODES` (default `0` = disabled, sha-preserving) to both v1 and v2 solve.c. When set to a positive integer N, the existing `update_progress()` callsite at solve.c:~2560 also appends one line to `leaf_rate.log`:
+
+```
+<elapsed_seconds>\t<total_nodes_walked>\t<sub_branches_done>\t<solutions_c3_so_far>\t<UTC_timestamp>
+```
+
+Implementation: a few LoC of additions to `update_progress()` gated on the env var being non-zero. Both v1 and v2 binaries produce comparably-formatted logs. Reuse the existing periodic-checkpoint cadence (every sub-branch completion → progress + checkpoint update); the log just gets one extra append.
+
+#### Post-processor (`solve.py --compare-leaf-rates v1.log v2.log`)
+
+Reads both logs, builds two interpolation curves `leaf_count_v1(nodes)` and `leaf_count_v2(nodes)`. Outputs:
+
+- **K(N) for each leaf count threshold N:** the v1 node count to reach N leaves divided by the v2 node count to reach N leaves
+- **Targeted answer for canonical comparison:** "v1 at 11.2T finds 759,608,573 records; v2 reaches that count at B′ ≈ X.XX T" (interpolated from v2's log)
+- **Per-leaf-count K curve plot:** ASCII / matplotlib if available
+
+#### What this measures and what it doesn't
+
+**Measures:** count-matching K from instrumented v1 and v2 runs at the same scale. With pure-pruning v2 (no DFS-order change), this is also the set-matching K because v2's coverage is a strict superset of v1's at the same budget.
+
+**Doesn't measure (without further instrumentation):** set-matching K when v2 changes DFS order. For that, v2 would need to emit per-record timestamps (`solutions.bin` companion: `solutions.timestamps.bin`, one int64 per record = node count at which v2 first produced this record). Lookup each v1 canonical record in v2's timestamp map, take the max — that's the set-matching B′. This is heavier instrumentation (~30 GB sidecar at 11.2T scale) but exact.
+
+#### Sequencing
+
+- **Now (free):** design captured here.
+- **When v2 work starts:** implement the leaf-rate logger in both v1 and v2 simultaneously (~50 LoC each, opt-in, sha-preserving). One pre-K-pilot v1 baseline run with the env var set produces the v1 reference log.
+- **Post-K-pilot:** run v2 with the same env var, run the comparator. Output is the K curve and the "v2 budget to match 11.2T v1" answer.
+- **If set-matching precision is needed:** add per-record timestamp emission to v2 only (~50 LoC + a lookup utility in solve.py).
+
+#### Pre-implementation cheaper proxy — "shadow v2" predicate evaluation
+
+An even cheaper *pre-v2* tool would implement only the *predicates* of each v2 pruning rule (#67 mid-walk C3, #68 C5 feasibility, #70 C3 optimistic-completion bound, #71 C2 lookahead) in v1, evaluate them at each DFS step without applying them, and count how many subtrees v2 would have pruned. This gives a K estimate *before* committing to full v2 implementation. ~100 LoC per predicate, one instrumented v1 run at 1B nodes (~$0.50). Recommended as a decision input *before* v2 K-pilot if the v2 implementation cost is significant; skip it if operator is committed to v2 regardless. Captured here for completeness; not the recommended primary measurement.
+
 ### Layered enumeration (extension-friendly run organization)
 
 A "layer" is a single `(scope, per-sub-branch budget)` enumeration result.

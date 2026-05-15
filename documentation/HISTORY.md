@@ -2508,6 +2508,8 @@ All five ship in this commit; selftest sha `403f7202` verified unchanged. Phase 
 
 **Next forward axis: v2.** The v2 K-pilot (#80, bundled prunes + sha-neutral optimizations at 1B nodes, measure speedup ratio K) is the gating experiment. If K is operator-meaningfully large, the v2 11.2T re-baseline (#81) establishes new v2 canonical shas and the full re-derivation cycle starts on v2. Speed optimizations (#46 AVX-512 retool, #47 CPU bundle, #67-#71 prune+heuristic family) interleave with v2 work. Then 560T runs as a v2 capstone.
 
+**v1-vs-v2 efficiency measurement (designed 2026-05-15, implemented alongside v2).** Operator request: when v2 lands, be able to answer "v1 at 11.2T finds N records; what v2 budget B′ produces the same?" The design is captured in [DEVELOPMENT.md §"v1 vs v2 search-space efficiency measurement"](DEVELOPMENT.md). Plan: opt-in env-var-gated leaf-rate logger in both v1 and v2 binaries (sha-preserving when disabled), `solve.py --compare-leaf-rates` post-processor reads the two logs and outputs the K curve plus the targeted "B′ to match 11.2T v1" answer. Implementation lands with v2 (avoids dead v1-only code now); design is sized at ~50 LoC per binary + ~80 LoC post-processor.
+
 **Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~$50/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~$80-100 total this terminal chapter). Total v1 cost across the entire campaign is in the $200-400 range cumulatively, including the original 11.2T + 100T canonical runs.
 
 **v1 status: stable, defended, complete. v2 work starts when operator initiates the K-pilot.**
