@@ -164,6 +164,123 @@ submissions, Bitcoin Core, Debian package builds).
 
 Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Add to the 560T pre-launch checklist.
 
+### Resume-path defense in depth (added 2026-05-14, post-Phase E.2)
+
+The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase E mechanism validation, May 12–14 2026) demonstrated empirically that pre-`c3ad271` solve.c code had at least **two distinct resume-path bugs** that produce silent or noisy data loss: `c3ad271` bug 2 (in-process merge cross-ref rejection in v1 recursive path → loud abort) and `c3ad271` bug 3 (off-by-one frame budget in v2 iterative path → silent record loss). Both fixes are in `main` since May 1 2026. This section documents the five defense-in-depth measures that protect against future regressions of this class.
+
+| # | Item | Status | Where |
+|---|---|---|---|
+| 1 | SIGTERM-then-resume cycle in selftest | **DONE** 2026-05-14 (verified PASS on post-fix code) | `solve.c` `--selftest-resume` subcommand |
+| 2 | Build provenance + resume history in `.sha256` metadata | **DONE** 2026-05-14 (verified emits all fields) | `solve.c` — auto-merge sha-write site + `write_sha256_with_metadata` + `SOLVE_RESUME_HISTORY` env var |
+| 3 | Resume-state invariant assertions | **DONE** 2026-05-14 | `solve.c` — DFS resume entry in `backtrack` |
+| 4 | Canonical merges off Spot priority | **DONE** (standing operational policy, codified here 2026-05-14) | this doc + operational practice |
+| 5 | Differential per-sub-branch checksum during resume | **DONE** 2026-05-14 (4/4 test cases PASS) | `solve.c` `--emit-shard-manifest` + `--verify-shard-manifest` subcommands |
+
+#### Item 1: SIGTERM-then-resume in selftest (`--selftest-resume`) — DONE
+
+**Goal:** convert the c34390c0-class failure mode from "discovered weeks later via cross-build" to "caught at CI time before any canonical work."
+
+**Implementation:** subcommand `./solve --selftest-resume` (solve.c, near the existing `--selftest` block). Three `system()` invocations: (1) PHASE_A `SOLVE_NODE_LIMIT=50000000` in a tempdir, (2) PHASE_B `SOLVE_NODE_LIMIT=200000000` in the same tempdir (resumes from PHASE_A's checkpoint), (3) single-shot `SOLVE_NODE_LIMIT=200000000` in a fresh tempdir. All four runs use `SOLVE_THREADS=4 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`. Compares the two solutions.bin shas. Match → PASS; mismatch → FAIL with diagnostic citing Phase E.2.
+
+**Verified 2026-05-14:** on post-fix code (current main), `--selftest-resume` produces sha `e43f2905ba8f2cb64a4f0691baae78cadd709058bf8f7c0ada6bcbc6058f34e9` for both the resume and single-shot paths (PASS). This sha matches the reference value in the `c3ad271` commit body, confirming the test targets the historically-buggy code path.
+
+**Wall time:** 3 min 3 sec on a 2-ARM-core / 4-thread `claude` orchestrator. Faster on more-core boxes. Acceptable for a daily / pre-merge CI step; too slow for every-push pre-commit on small boxes. Recommended cadence: include in `make check` or weekly CI, not every commit.
+
+**Future:** add to pre-commit hook (alongside `--selftest`) once a faster scale (e.g., 20M → 50M) is empirically tuned. Phase E.2 used 50M → 200M because that's the exact ratio the c3ad271 fix commit validated at; smaller scales may not exercise enough BUDGETED sub-branches.
+
+#### Item 2: Build provenance + resume history in `.sha256` metadata
+
+**What changed 2026-05-14:** `write_sha256_with_metadata` (solve.c:~3537) now records `SOLVE_DFS_ITERATIVE`, `SOLVE_DFS_CHECKPOINT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, and a `SOLVE_RESUME_HISTORY` line populated from the env var of the same name. Existing fields (date, build, git hash, record count, node count, branches done, `SOLVE_NODE_LIMIT`, time limit, threads) are preserved.
+
+**Operator responsibility:** when restarting a canonical run after Spot eviction or any other interruption, set `SOLVE_RESUME_HISTORY` before the restart. The value is free-form text — recommended format: a comma-separated list of resume events with UTC timestamps and trigger. Examples:
+
+```bash
+# After Spot eviction at 90%
+SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%" \
+    ./solve 0 64
+
+# After two interruptions
+SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%, 2026-05-14T20:11:00Z=oom-kill-during-merge-stage" \
+    ./solve --merge
+```
+
+**Schema captured in `.sha256` sidecar (post-2026-05-14):**
+
+```
+# Date: <UTC ISO8601>
+# Build: <gcc date> <gcc time> (git: <hash>)
+# Record format: 32 bytes packed (pair_index<<2 | orient<<1)
+# Unique orderings: <count>
+# Nodes explored: <count>
+# Branches: <total> total, <completed> completed
+# SOLVE_NODE_LIMIT=<N>
+# Time limit: <seconds> (or absent for time-unlimited)
+# SOLVE_THREADS: any (output is thread-independent with node limit)
+# SOLVE_DFS_ITERATIVE=<0|1>
+# SOLVE_DFS_CHECKPOINT=<0|1>
+# SOLVE_PER_SUB_BRANCH_LIMIT=<N>   (only if > 0)
+# SOLVE_RESUME_HISTORY: <free-form, "(none — clean single-shot run)" if env var not set>
+```
+
+**Future extensions (Item 2 follow-ups, not yet landed):** host fingerprint (CPU model + microcode + kernel version), per-sub-branch checksum manifest reference (see Item 5), VM provider + region + Spot/Regular priority. None of these block landing the schema above.
+
+#### Item 3: Resume-state invariant assertions
+
+**What landed 2026-05-14 (solve.c:`backtrack`, around the DFS-state-resume entry point):**
+
+- Assert `dfs_resume_partition_prefix_len > 0` whenever `dfs_resume_active` is set. A zero value here would silently mis-index `dfs_resume_frames` — exactly the failure-class behind c34390c0/f7b8c4fb's silent data loss.
+- Assert each consumed frame's `(pair_idx, orient)` is in valid range `[0, 31] × [0, 1]`. A malformed frame would mis-encode the saved iterator and skip work.
+
+Violation → `_exit(21)` with diagnostic to stderr (distinct from existing exit codes; identifies this rule). Refuses to continue rather than producing a silently-corrupted solutions.bin.
+
+**Future invariant additions (not yet landed):** post-`load_sub_checkpoint` assertion that `branch_nodes ≤ stored_budget` (catches the bug 3 mechanism class at load time, not just at use time); cross-check that the number of `dfs_state` files matches the expected per-thread count after a PHASE_A→PHASE_B handoff.
+
+#### Item 4: Canonical merges off Spot priority
+
+**Standing policy (codified 2026-05-14, was de facto since Phase B):**
+
+- **Enumeration phase** (sub-branch DFS, parallel, OK to evict mid-walk): Spot priority is required (CLAUDE.md cost-control rule). The mid-walk checkpoint capability (`SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`) handles eviction-recovery safely on post-`c3ad271` code.
+- **Merge phase** (`solve --merge`, single-threaded, eviction-fragile): **Standard (non-Spot) priority is required.** A merge that is evicted leaves a partial solutions.bin and re-running it costs 60+ minutes per attempt. The cost difference between Spot D32 ($0.30/hr) and Standard D32 ($1.30/hr) for a 60-minute merge is $1 — trivial vs the risk of corrupting a canonical artifact.
+
+**Operator pre-flight gate (manual, mandatory):** before launching any canonical-scale `solve --merge`, run `az vm show --query priority -o tsv` on the target VM. If output is anything other than `null` or `Regular`, stop and switch to a non-Spot VM.
+
+**Past incidents this rule exists to prevent:** the 2026-04-29 cascade-build-a Spot eviction during the c34390c0 generation's merge phase (one of several contributing factors to the +1,030 record deficit). Pre-Phase-E, this was a soft preference; post-Phase-E it's a hard policy.
+
+#### Item 5: Differential per-sub-branch checksum during resume — DONE
+
+**Implementation:** two subcommands in solve.c:
+- `./solve --emit-shard-manifest [path]` — scans `sub_*.bin` in CWD, computes sha256 + size per shard, writes a tab-separated manifest (default `shard_manifest.txt`): `<filename>\t<size>\t<sha256_hex>` per line.
+- `./solve --verify-shard-manifest [path]` — reads the manifest and, for each entry, asserts: (1) shard exists, (2) current size ≥ stored size (legitimate resume only grows shards), (3) sha256 of the first `<stored_size>` bytes matches the stored sha256 (catches mid-write corruption + bug-2-class cross-ref divergence). Any failure → `_exit(22)` with diagnostic.
+
+**Workflow for resume-protected canonical runs:**
+1. After PHASE_A enum completes: `solve --emit-shard-manifest shards.manifest`
+2. (Optional Spot eviction + reallocation. Or asymmetric-extension PHASE_B at higher budget.)
+3. Before PHASE_B merge: `solve --verify-shard-manifest shards.manifest`. Aborts loudly if any shard was silently modified by the resume path.
+
+**Verified 2026-05-14, four test cases:**
+
+| Case | Action | Result |
+|---|---|---|
+| Positive | No corruption | PASS — 1097 entries, 0 missing/shrunk/diverged |
+| Negative 1 | Append bytes to a shard (legitimate "resume extended this shard" pattern) | PASS — append accepted (size grew, original content unchanged) |
+| Negative 2 | Truncate a shard to 10 bytes | FAIL — `1 shrunk` detected, exit 22 |
+| Negative 3 | Modify the first 4 bytes of a shard | FAIL — `1 diverged` detected, exit 22, diagnostic prints both shas |
+
+**Coverage semantics:** the byte-prefix manifest verifier accepts legitimate resume (shard grew) but rejects all bit-level corruption modes of PHASE_A's content (disappeared, shrunk, first-N-bytes diverged). Byte-prefix sha256 over N bytes of a 32-byte-record file IS mathematically a record-level integrity check for those records — sha256 of the byte-prefix and the chain-hash of the individual records are equivalent. So PHASE_A's recorded content is integrity-protected at the record level by this scheme.
+
+**The class byte-prefix CANNOT catch by itself** is semantic: PHASE_B emitting INVALID extra records (records that don't satisfy C1-C5) in the region beyond PHASE_A's boundary. No checksum scheme catches that without a reference to what the "correct" extra content should be (which would require re-running the canonical). This is closed at a different layer: **`solve --verify solutions.bin`** runs C1-C5 structural verification on every record, catching any invalid record emitted anywhere in the file — including the PHASE_B-new region.
+
+**Recommended post-merge integrity gate for any canonical run that went through interruption + recovery** — the two-step sequence:
+
+```bash
+solve --verify-shard-manifest shards.manifest   # bit-level integrity of PHASE_A's content
+solve --verify solutions.bin                    # C1-C5 structural check of all records
+```
+
+Run both; both must pass. The first catches any corruption of PHASE_A's recorded content; the second catches any invalid record emitted anywhere in solutions.bin, including the PHASE_B-new region. (An earlier draft added a `--verify-resume` coordinator subcommand wrapping both; removed 2026-05-15 as redundant — the two-step recipe here is the same thing without adding a maintained subcommand.)
+
+**Cost:** zero at canonical time. Manifest write is O(shard count); manifest verify is O(shard count × shard size) with streaming sha256; structural verify is O(record count) running the same C1-C5 logic as the existing `solve --verify` mode.
+
 ### Layered enumeration (extension-friendly run organization)
 
 A "layer" is a single `(scope, per-sub-branch budget)` enumeration result.
