@@ -6792,6 +6792,41 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "             See documentation/DEVELOPMENT.md "
                 "§\"Resume-path defense in depth\" item 5.\n");
         return 22;
+    } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
+        /* v2 Phase 1a foundation (2026-05-15): print CPU capability detection
+         * used by future AVX-512 runtime dispatch (per
+         * AVX512_IMPLEMENTATION_PLAN_2026_05_03.md §"Auto-detection").
+         *
+         * No behavioral change to canonical enumeration — this is a diagnostic
+         * subcommand that exercises __builtin_cpu_supports so the operator
+         * can confirm what features the running binary detects on the
+         * current host. Used by v2_bench_d64.sh fingerprint capture, by
+         * pre-flight checks before AVX-512 benchmarking, and by future
+         * runtime-dispatch implementations of cd_sum / hamming / histogram.
+         *
+         * Output is text-formatted for human + grep consumption. */
+        printf("[--cpu-features] CPU feature detection via __builtin_cpu_supports\n");
+        printf("  avx2             : %s\n", __builtin_cpu_supports("avx2") ? "yes" : "no");
+        printf("  avx512f          : %s\n", __builtin_cpu_supports("avx512f") ? "yes" : "no");
+        printf("  avx512bw         : %s\n", __builtin_cpu_supports("avx512bw") ? "yes" : "no");
+        printf("  avx512dq         : %s\n", __builtin_cpu_supports("avx512dq") ? "yes" : "no");
+        printf("  avx512vl         : %s\n", __builtin_cpu_supports("avx512vl") ? "yes" : "no");
+        printf("  avx512vpopcntdq  : %s\n", __builtin_cpu_supports("avx512vpopcntdq") ? "yes" : "no");
+        printf("  avx512vnni       : %s\n", __builtin_cpu_supports("avx512vnni") ? "yes" : "no");
+        printf("  avx512bitalg     : %s\n", __builtin_cpu_supports("avx512bitalg") ? "yes" : "no");
+        printf("  avx512vbmi       : %s\n", __builtin_cpu_supports("avx512vbmi") ? "yes" : "no");
+        printf("  avx512vbmi2      : %s\n", __builtin_cpu_supports("avx512vbmi2") ? "yes" : "no");
+        printf("  bmi2             : %s\n", __builtin_cpu_supports("bmi2") ? "yes" : "no");
+        printf("  popcnt           : %s\n", __builtin_cpu_supports("popcnt") ? "yes" : "no");
+        printf("  fma              : %s\n", __builtin_cpu_supports("fma") ? "yes" : "no");
+        /* Composite verdict: would the planned AVX-512 hot paths actually fire? */
+        int avx512_ready = __builtin_cpu_supports("avx512f")
+                        && __builtin_cpu_supports("avx512bw")
+                        && __builtin_cpu_supports("avx512vpopcntdq");
+        printf("\n  v2 AVX-512 dispatch ready (avx512f + avx512bw + avx512vpopcntdq): %s\n",
+               avx512_ready ? "YES — vectorized path will be selected" :
+                               "NO — scalar fallback will be used");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
