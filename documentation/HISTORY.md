@@ -2549,6 +2549,30 @@ Per operator request 2026-05-15, each Phase 1 sha-preserver gets a quantified sp
 
 **Caveat — selftest-scale only:** these are 200M-node depth-2 measurements on 2 ARM cores. Canonical-scale speedup (11.2T depth-3 on x86 D128 with 128 threads) is the actual gate behavior; the host's instruction-cache regime, memory pressure, and per-thread workload profile all differ. Full Phase 1c PASS gate requires the 11.2T regression on D128 westus3 spot, pending operator scheduling. Expect the canonical-scale picture may differ in either direction.
 
+#### Phase 1 D64 canonical-correlation measurements (2026-05-15 night)
+
+Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, isolated RG to work around a persistent ARM-deployment "subnet not found" bug on RG-CLAUDE — see Risk register). Host: AMD EPYC 9V45 96-core Zen 4, full AVX-512 stack, 125 GiB RAM. 4 trials per binary at 100B nodes 64-thread depth-2; reboot between binaries; v2_bench_d64.sh enforced the full protocol (throttling check, drop_caches, cooldown, per-trial freq capture).
+
+| Binary | Trial wall times (s) | Mean ± σ | σ% | Speedup vs baseline (full means) | Trimmed-mean speedup (drop slowest) |
+|---|---|---|---|---|---|
+| Baseline | 101.16 / 101.24 / 109.38 / 100.94 | 103.18 ± 3.58 | 3.47% | — | (101.11s clean) |
+| LTO | 100.98 / 100.99 / 101.21 / 101.19 | **101.09 ± 0.11** | **0.11%** | +2.06% | +0.06% |
+| PGO | 100.08 / 117.10 / 101.06 / 109.09 | 106.83 ± 6.88 | 6.44% | **−3.42% (slower)** | −2.28% |
+
+**Key findings at canonical-correlation scale:**
+
+- **LTO is the cleanest Phase 1 candidate.** Stddev of 0.11% (0.1 second across 100-second runs) is the tightest variance any of today's benchmarks produced. Speedup is marginal (~2% full-mean, ~0% trimmed), but sha is preserved and there is no run-to-run noise. Recommend shipping to v1 main as a free, harmless build-flag change. The claude-scale 1.005× number was preserved at D64 scale — consistent across scale.
+- **PGO does NOT replicate its claude-scale speedup at D64.** On claude (2 ARM cores, 200M nodes), PGO was 5.4% faster with low variance. On D64 (64 Zen 4 cores, 100B nodes), PGO is *slower* than baseline with high variance. Most likely cause: the PGO profile was collected during a 100M-node run (the script's default profile-gen workload). At 100B nodes the per-sub-branch budget is larger and the workload exercises code paths the profiler didn't see — branch hints become inaccurate, layout decisions misaligned to actual hot path. Do NOT ship PGO based on this data; if Phase 1d is pursued, re-collect the profile at a larger budget (1B or 10B nodes) to better match canonical workload distribution.
+- **Baseline trial 3 outlier** (109.38s vs ~101s for the other three baseline trials) and **PGO trials 2 + 4** (117.10s, 109.09s) suggest occasional co-tenant noise on this particular Spot host. The v2_bench_d64.sh per-trial frequency capture showed CPU freq oscillating between idle 2596 MHz and boost 4537 MHz mid-run — Genoa's AVX-512 frequency offset is real and contributes some of the variance.
+
+**Phase 1 status updated 2026-05-15:**
+- **LTO (#47 partial): RECOMMEND SHIP to v1 main.** Sha-preserved, marginal-but-clean speedup, zero risk. Just add `-flto` to the canonical gcc invocation.
+- **PGO (#47 partial): DEFER pending re-profiling investigation.** Don't ship the current profile-at-100M binary.
+- **AVX-512 (#46): STILL THE HIGH-VALUE PHASE 1 ITEM.** Plan expects 1.4-2.0× per the implementation doc. Implementation hasn't started; needs 3-5 days engineering. Recommended next concrete operator-authorized work session.
+- **Huge pages + NUMA (#47 remainder): not yet measured.** Need to be benchmarked but not blocking.
+
+**Compute cost:** $0.50/hr × ~50 min D64 Spot uptime = ~$0.42. RG + VM + vnet + NIC + PIP all deleted post-benchmark.
+
 **Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~$50/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~$80-100 total this terminal chapter). Total v1 cost across the entire campaign is in the $200-400 range cumulatively, including the original 11.2T + 100T canonical runs.
 
 **v1 status: stable, defended, complete. v2 work starts when operator initiates the K-pilot.**
