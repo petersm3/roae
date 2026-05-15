@@ -2489,6 +2489,29 @@ All five ship in this commit; selftest sha `403f7202` verified unchanged. Phase 
 
 **Independent re-verification — d3 11.2T (2026-05-15):** downloaded `canonical-archive/20260514_modern_v1_11.2T_buildB/solutions.bin.gz` via SAS, streamed through `gunzip -c | sha256sum` (no intermediate disk storage), computed sha256 over the 24,307,474,368-byte uncompressed `solutions.bin`. Result: `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — **exact match** to the documented canonical in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). Wall: 2 min 30 sec, cost: $0 (intra-region streaming). This is the third independent witness for `0c0fe37c` (Build A on May 14, Build B on May 14, and now independent re-checksum from cold storage on May 15).
 
+## End of v1 canonical campaign (2026-05-15)
+
+**This commit closes the v1 canonical campaign.** The v1 solver lineage is now in its final stable form. Five canonicals are the durable v1 record, all cross-build verified on post-`c3ad271` code, all archived in cold storage, all protected by the five defense-in-depth measures landed in Phase E follow-up:
+
+| Canonical | sha256 (v1, final) | Records | Witnesses |
+|---|---|---|---|
+| Selftest baseline (100M) | `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | 135,780 | Reproducible across UBSan + ASan + TSan + `-O0/-O1/-O2/-O3` + x86 + ARM |
+| d3 5.6T | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` | 467,484,167 | Cross-build verified Build A + Build B (May 12-13) |
+| d3 10T | `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` | 706,427,594 | Cross-build verified Build A + Build B (May 13) |
+| d2 10T | `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` | 286,357,503 | Cross-build verified Build A + Build B (May 13) |
+| d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | Cross-build verified Build A + Build B (May 14) + independent cold-storage re-checksum (May 15) — three witnesses |
+| d3 100T | `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` | 3,432,399,297 | T9+c.1 + T9+d post-fix cross-build pair (May 9-10) |
+
+**Deprecated canonicals retired:** `c34390c0` (d3 5.6T, +1,030-record undercount via pre-fix resume bug class) and `f7b8c4fb` (d3 10T, +4,607-record undercount). Both have replacement pointers in CANONICAL_HASHES.md and full forensic narrative in HISTORY.md + the private investigation doc.
+
+**Originally-planned 560T v1 capstone — DEFERRED to v2 (operator direction 2026-05-15).** Running 560T on v1 now would require re-running it on v2 once v2 establishes new shas (v2's search-tree pruning changes per-cell coverage shape under truncation, producing different canonicals). 560T is the project's biggest planned canonical (~5× 100T); doing it once on the fastest available code path is the cost-efficient sequencing. The 560T-prep task family (#49 launch, #62 dry-run, #56 eviction-recovery rehearsal, #55 monitoring daemon, #64 rollback runbook) is parked until v2 K-pilot (#80) decides the v2 axis. If v2 K-pilot doesn't justify the re-baseline cost, this ordering will be revisited.
+
+**Next forward axis: v2.** The v2 K-pilot (#80, bundled prunes + sha-neutral optimizations at 1B nodes, measure speedup ratio K) is the gating experiment. If K is operator-meaningfully large, the v2 11.2T re-baseline (#81) establishes new v2 canonical shas and the full re-derivation cycle starts on v2. Speed optimizations (#46 AVX-512 retool, #47 CPU bundle, #67-#71 prune+heuristic family) interleave with v2 work. Then 560T runs as a v2 capstone.
+
+**Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~$50/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~$80-100 total this terminal chapter). Total v1 cost across the entire campaign is in the $200-400 range cumulatively, including the original 11.2T + 100T canonical runs.
+
+**v1 status: stable, defended, complete. v2 work starts when operator initiates the K-pilot.**
+
 **Code.** solve.c carries the core enumeration + `--merge` + `--verify` + `--analyze` + `--sub-branch` + `--null-*` subcommands, plus newer additions: `--c3-min` (complement-distance minimum analysis), `--yield-report` (per-sub-branch yield-clustering and orientation-symmetry report reading an enumeration log on stdin). Per standing rule: all C code lives in solve.c; no separate .c files. Zero compile warnings.
 
 All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modeled on the single-C-file rule): the P2 subcommands `solve.py --compute-stats`, `solve.py --marginals`, `solve.py --bivariate`, `solve.py --joint-density` read the 100T canonical `solutions.bin` / per-chunk parquet outputs and produce the distributional-analysis artifacts. The only Python file outside `solve.py` is `viz/visualize.py` (PCA plots); the `scripts/` subdirectory that briefly held `compute_stats.py`/`p2_marginals.py`/`p2_bivariate.py`/`p2_joint_density.py` during P2 development was retired on 2026-04-21 as those scripts were consolidated into `solve.py`.
