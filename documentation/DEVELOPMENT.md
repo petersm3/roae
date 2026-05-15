@@ -588,7 +588,7 @@ keeping the managed disk.
 
 ### Compile
 
-- Build flags: `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm`
+- Build flags: `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm` (minimum to reproduce canonical sha); `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15).
 - `-fopenmp` parallelizes the `--analyze` hot loops. Without it, pragmas are
   no-ops and everything still compiles + runs single-threaded. `libgomp`
   (gcc's OpenMP runtime) ships with gcc under the GCC Runtime Library

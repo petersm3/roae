@@ -46,8 +46,14 @@ For the full `solve.c` command-line reference (every subcommand, env var, and ex
 **v1** is the solver lineage anchored at this repo's `main` branch. The current head reproduces every v1 canonical above. Specific commits that established each canonical are recorded in [HISTORY.md](HISTORY.md). v1 binary builds on stock toolchain — no patched glibc, no jemalloc, no profiling instrumentation:
 
 ```
+# Minimum to reproduce canonical sha:
 gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm
+
+# Recommended (sha-preserving, ~2% faster — Phase 1c LTO validated 2026-05-15 on D64 Zen 4):
+gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm
 ```
+
+Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produces a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 with tight run-to-run variance (stddev 0.11% across 4 trials). Drop it if your toolchain doesn't support LTO.
 
 A future **v2** lineage will introduce search-tree pruning optimizations that change the per-cell coverage shape under truncation; v2 will produce a different canonical sha at each scale. v2 retires v1 only when v2's bundled re-baseline establishes new shas and they are recorded in this file with status changes.
 
