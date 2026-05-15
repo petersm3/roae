@@ -285,17 +285,47 @@ Run both; both must pass. The first catches any corruption of PHASE_A's recorded
 
 Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical params (the existing plan), and (b) **quantified speedup** vs the v1 baseline (operator request 2026-05-15). Sha preservation is binary (PASS/FAIL); speedup is a measured ratio with confidence interval.
 
-#### Benchmark protocol (consistent across all Phase 1 candidates)
+#### Benchmark protocol — codified in `v2_bench_d64.sh` (private repo)
 
-| Element | Choice |
+The full protocol lives in the private operational repo at `petersm3/x:roae/v2_bench_d64.sh`. It runs as `./v2_bench_d64.sh <binary> <node_limit> <output_tsv>`. Per-trial discipline encoded into the script (so any future session running it inherits the same rigor):
+
+| Element | Choice / Encoded in script |
 |---|---|
-| Workload | `SOLVE_THREADS=N SOLVE_NODE_LIMIT=B` at default depth-2; B and N picked per host (large enough to be I/O-bound out of cache, small enough to fit in available wall time) |
-| Trials | 4 per binary minimum (added 2026-05-15 after a 3-trial run had insufficient resolution); 5+ if speedup is suspected close to noise floor (<~5%) |
-| Warmup | 1 discarded run per binary before timed trials (filesystem cache, dynamic frequency scaling settled) |
-| **Pre-flight assertion** | **MANDATORY** before starting timed trials: `pgrep -af "solve\|bench" \| grep -v pgrep \| grep -v systemd-resolved` must return empty. Stale orphan processes from prior work can consume cores and bias the benchmark. (Lesson learned 2026-05-15 — see HISTORY.md §"Methodology lesson learned 2026-05-15 (and contamination correction)".) |
+| Workload | `SOLVE_THREADS=N SOLVE_NODE_LIMIT=B` at default depth-2; B picked per scale tier (see "Phase 1 scale tiering" below); N defaults to 64 (D64), overridable via env var |
+| Trials | 4 per binary minimum (raised from 3 on 2026-05-15 — three trials had insufficient resolution to distinguish a cold-cache outlier from real variance); raise to 6-8 if speedup is suspected close to noise floor |
+| Warmup | 1 discarded run per binary at 1/10 the trial budget |
+| **Pre-flight: CPU throttling** | **MANDATORY.** Read `cpu MHz` from `/proc/cpuinfo`; abort if below `MIN_FREQ_MHZ` (default 2000). AMD Genoa healthy baseline is 3000-3700 MHz; throttled Spot hosts run at ~600 MHz (observed 3× during v1 Phase B in westus3 May 13-14). Re-checked before every trial — Spot evictions / co-tenant pressure can throttle mid-run. |
+| **Pre-flight: no stale processes** | **MANDATORY.** `pgrep -af "solve\|bench"` must return empty (excluding the bench script itself + systemd-resolved). Stale orphan processes from prior work consume cores and bias the benchmark. (Lesson 2026-05-15 — see HISTORY.md §"Methodology lesson learned (and contamination correction)".) |
+| **Between trials of same binary** | `sync; echo 3 > /proc/sys/vm/drop_caches` (needs sudo) + `sleep ${COOLDOWN_SEC}` (default 60s). Clears page cache and lets thermal/frequency state settle to a comparable starting point for each trial. |
+| **Between binaries** | Operator-driven: **reboot the VM** between binaries (`sudo reboot`; ~60-90 sec to SSH-ready). Each binary's 4-trial sequence then starts from full cold-state, so cross-binary comparison is fair. The bench script handles per-trial state within one binary; reboot orchestration is operator-managed (or could be wrapped by a higher-level script). |
+| **Host fingerprint** | Captured per run: kernel, CPU model, microcode, core count, AVX-512 feature presence, binary sha + size, run params, CPU MHz at start. Written as `# ` comments at the top of the output TSV. Lets retrospective analysis correlate weird numbers with the specific physical Spot host. |
 | Metric | wall time from `/usr/bin/time -f "%e"`; speedup = `mean(baseline_time) / mean(optimized_time)` |
-| Reporting | mean ± stddev across trials, and per-trial values for traceability |
-| Confidence | stddev / mean over trials gives the speedup detection floor; ratios within that floor reported as "within noise" rather than as a positive result |
+| Reporting | TSV with per-trial wall time + cpu_freq_mhz at trial start; mean ± stddev computed offline. Confidence interval = `stddev / mean`; speedup ratios within that floor reported as "within noise" rather than as a positive result. |
+
+#### Phase 1 scale tiering on D64als_v7 64-thread
+
+| Scale | Wall/trial | 4-trial × 3-binary cycle wall | Cost (Spot $0.50/hr) | Purpose |
+|---|---|---|---|---|
+| 100M | ~5-10s | <2 min | ~$0.02 | sha preservation only (selftest scale); too short for speedup signal |
+| 10B | ~10-15s | ~3-4 min | ~$0.03 | quick sanity sweep |
+| **100B** | **~1-2 min** | **~30-40 min** | **~$0.25-0.33** | **default Phase 1 speedup measurement** — long enough to escape startup-dispatch noise, fast enough for iterative AVX-512 dev |
+| 1T | ~12-15 min | ~3 hr | ~$1.50 | canonical-correlation confirmation (run once per Phase 1 task after the 100B numbers settle) |
+| 11.2T canonical | ~77 min | ~15 hr | ~$7.50 | mandatory sha-preservation regression — operator-gate, not iterative |
+
+Recommended workflow during AVX-512 dev (Phase 1a, 3-5 days engineering): provision one D64 Spot VM, leave it running for the session, iterate at 100B between code changes (~30-40 min per cycle), then run 1T once at the end of each binary's tuning to confirm canonical-scale behavior. ~$5-15 in compute for the whole Phase 1a depending on session length.
+
+Reboot-between-binaries operator pattern:
+
+```bash
+# On D64 VM, post-provisioning:
+./v2_bench_d64.sh /path/to/solve_baseline 100000000000 baseline.tsv
+sudo reboot
+# wait ~60-90 sec, SSH back in
+./v2_bench_d64.sh /path/to/solve_avx512 100000000000 avx512.tsv
+sudo reboot
+./v2_bench_d64.sh /path/to/solve_pgo 100000000000 pgo.tsv
+# offline analysis: compute mean/stddev/speedup from the three TSV files
+```
 
 #### Host strategy
 
