@@ -2510,6 +2510,26 @@ All five ship in this commit; selftest sha `403f7202` verified unchanged. Phase 
 
 **v1-vs-v2 efficiency measurement (designed 2026-05-15, implemented alongside v2).** Operator request: when v2 lands, be able to answer "v1 at 11.2T finds N records; what v2 budget B′ produces the same?" The design is captured in [DEVELOPMENT.md §"v1 vs v2 search-space efficiency measurement"](DEVELOPMENT.md). Plan: opt-in env-var-gated leaf-rate logger in both v1 and v2 binaries (sha-preserving when disabled), `solve.py --compare-leaf-rates` post-processor reads the two logs and outputs the K curve plus the targeted "B′ to match 11.2T v1" answer. Implementation lands with v2 (avoids dead v1-only code now); design is sized at ~50 LoC per binary + ~80 LoC post-processor.
 
+## v2 work begun (2026-05-15 evening PT)
+
+Operator greenlit v2 implementation start. Per the master plan in private `V2_IMPLEMENTATION_PLAN_2026_05_06.md` (1821 lines of design across 5 staging docs from May 2-6), v2 is a sequenced 6-phase transition: Phase 1 sha-preservation validation pilots → Phase 2 land sha-preservers to main → Phase 3 sha-changing prune bundle on `v2-bundled` branch → Phase 4 K-pilot → Phase 5 11.2T re-baseline → Phase 6 560T launch on v2.
+
+**Operator decisions resolved 2026-05-15** (per the plan's "Open questions for operator" section):
+1. **Greenlight v2 start:** YES, granted 2026-05-15 evening.
+2. **Branch strategy:** `main` stays at v1; per-task feature branches for Phase 1 sha-preservers merge to main on regression PASS; `v2-bundled` branch holds Phase 3 sha-changing work and fast-forwards `main` on Phase 5 PASS.
+3. **#69 MRV variable ordering:** deferred to optional Phase 7 (post-Phase-6, only if K from K-pilot underwhelming and re-baseline cost is amortized).
+4. **560T-on-v2 artifact storage:** lands on `solver-data-westus3` (256 GB Standard HDD, currently holds 100T canonical with ~154 GB free, mirrors v1 storage pattern).
+5. **HISTORY.md commit cadence:** per-phase entries during v2 work, with a final "v2 transition summary" capstone at completion.
+6. **560T launch is gated on operator review of ALL preceding v2 work + same Build A + Build B cross-build verification + cold-storage archive workflow as v1's Phase B** (operator directive 2026-05-15). No autonomous 560T provisioning even if the v2 chain ends with all green gates.
+
+**Branches created 2026-05-15:**
+- `v2-bundled` (off `main` at commit `72fdfdf`) — holds Phase 3 sha-changing work. Pushed to `origin/v2-bundled`. Currently identical to `main`; diverges once Phase 3 prune implementations land.
+- (Phase 1 per-task feature branches will be created when each task starts: `avx512`, `pgo`, etc.)
+
+**Phase 1c — LTO selftest PASS (preliminary, 2026-05-15):** simple compile-flag change `-O3 -flto -pthread -fopenmp -march=native` produces canonical selftest sha `403f7202` byte-identically to the baseline build. Binary is ~1.2% smaller (305,592 vs 309,376 bytes — dead-code elimination + cross-translation-unit inlining; relevant for a single-file project but minor). Full Phase 1c LTO PASS gate requires the 11.2T canonical regression test ($1.50 + 1.5h D128 westus3 spot per the plan) — selftest is necessary but not sufficient. The 11.2T pilot waits for operator scheduling.
+
+**Status:** v2 work formally underway. Next concrete operator-decision point: when to schedule Phase 1a (AVX-512) implementation start (3-5 days engineering) + Phase 1 pilot compute (~$6 total for 4 pilots).
+
 **Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~$50/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~$80-100 total this terminal chapter). Total v1 cost across the entire campaign is in the $200-400 range cumulatively, including the original 11.2T + 100T canonical runs.
 
 **v1 status: stable, defended, complete. v2 work starts when operator initiates the K-pilot.**
