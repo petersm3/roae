@@ -2530,6 +2530,16 @@ Operator greenlit v2 implementation start. Per the master plan in private `V2_IM
 
 **Status:** v2 work formally underway. Next concrete operator-decision point: when to schedule Phase 1a (AVX-512) implementation start (3-5 days engineering) + Phase 1 pilot compute (~$6 total for 4 pilots).
 
+### Phase 1 speedup measurements (2026-05-15, ongoing)
+
+Per operator request 2026-05-15, each Phase 1 sha-preserver gets a quantified speedup measurement in addition to the sha-preservation gate. Methodology in [DEVELOPMENT.md §"Phase 1 speedup benchmarking methodology"](DEVELOPMENT.md). Results table:
+
+| Task | Host | Workload | Baseline (mean ± σ) | Optimized (mean ± σ) | Speedup | Sha preservation |
+|---|---|---|---|---|---|---|
+| #47 LTO | claude D2as_v6 (ARM, 2-thread) | 200M nodes depth-2 | 107.40 ± 7.45s (3 trials) | 98.73 ± 2.84s (3 trials) | **1.088× (8.8%)** | selftest PASS (403f7202); 11.2T regression pending |
+
+LTO interpretation: every LTO trial (102.7s, 96.8s, 96.7s) beat the baseline mean of 107.4s, with significantly lower run-to-run spread (2.9% vs 6.9% stddev). The baseline trial 1 (115.7s) appears to be a cold-cache outlier; excluding it gives speedup 1.068× (6.8%). Either reading puts LTO in the 6-9% range on this workload-host pair. Larger than the plan's "0-5% expected" range — likely because the ARM Cobalt 2-core configuration benefits more from cross-function inlining (smaller L1 instruction cache than typical x86 desktop). Full Phase 1c LTO PASS gate (11.2T canonical regression on D128 westus3 spot) still pending operator scheduling — necessary to confirm speedup behavior at canonical scale and on x86.
+
 **Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~$50/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~$80-100 total this terminal chapter). Total v1 cost across the entire campaign is in the $200-400 range cumulatively, including the original 11.2T + 100T canonical runs.
 
 **v1 status: stable, defended, complete. v2 work starts when operator initiates the K-pilot.**

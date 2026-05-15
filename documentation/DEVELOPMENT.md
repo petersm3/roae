@@ -281,6 +281,50 @@ Run both; both must pass. The first catches any corruption of PHASE_A's recorded
 
 **Cost:** zero at canonical time. Manifest write is O(shard count); manifest verify is O(shard count × shard size) with streaming sha256; structural verify is O(record count) running the same C1-C5 logic as the existing `solve --verify` mode.
 
+### Phase 1 speedup benchmarking methodology (2026-05-15)
+
+Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical params (the existing plan), and (b) **quantified speedup** vs the v1 baseline (operator request 2026-05-15). Sha preservation is binary (PASS/FAIL); speedup is a measured ratio with confidence interval.
+
+#### Benchmark protocol (consistent across all Phase 1 candidates)
+
+| Element | Choice |
+|---|---|
+| Workload | `SOLVE_THREADS=N SOLVE_NODE_LIMIT=B` at default depth-2; B and N picked per host (large enough to be I/O-bound out of cache, small enough to fit in available wall time) |
+| Trials | 3 per binary minimum; 5 if speedup is suspected close to noise floor (<~5%) |
+| Warmup | 1 discarded run per binary before timed trials (filesystem cache, dynamic frequency scaling settled) |
+| Metric | wall time from `/usr/bin/time -f "%e"`; speedup = `mean(baseline_time) / mean(optimized_time)` |
+| Reporting | mean ± stddev across trials, and per-trial values for traceability |
+| Confidence | stddev / mean over trials gives the speedup detection floor; ratios within that floor reported as "within noise" rather than as a positive result |
+
+#### Host strategy
+
+- **`claude` orchestrator (D2as_v6, 2 ARM Cobalt cores):** suitable for sha-preservation regression (already validated at selftest scale) and for *cross-architecture-portable* speedup measurement (LTO, the scalar fallback in AVX-512, PGO behavior). Wall time on claude is slow (200M nodes ~2 minutes per run); benchmarks complete in ~15 minutes per Phase 1 task.
+- **x86 Spot D-series in westus3 (D32 or D64als_v7):** required for AVX-512 actual-hardware speedup measurement (claude is ARM, AVX-512 path won't fire there). Cost: ~$1-2 per benchmark run. Same protocol, just on the right architecture.
+
+#### Per-Phase-1 task — what gets measured
+
+- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. Two hosts needed: x86 (D64als_v7 Spot) for the actual AVX-512 path, ARM (claude or Cobalt) to verify the scalar fallback hasn't regressed.
+- **#47 LTO:** baseline `-O3 -march=native` vs `-O3 -flto -march=native`. Speedup expected 0–5% (LTO mostly helps cross-translation-unit optimization; single-file project gets modest gains from extra dead-code elimination + cross-function inlining beyond `-O3`'s defaults). On claude.
+- **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude.
+- **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (D-series VM with NUMA-aware OS).
+
+#### Reporting template (one row per Phase 1 task)
+
+```
+| Task | Host | Workload | Baseline (s) | Optimized (s) | Speedup | Notes |
+|---|---|---|---|---|---|---|
+| #47 LTO | claude D2as_v6 2-thread | 200M nodes depth-2 | <mean ± stddev> | <mean ± stddev> | <ratio> | sha preserved at selftest (403f7202) and at 11.2T regression: <PASS/FAIL/pending> |
+```
+
+Each row is appended to a "Phase 1 speedup measurements" table in `HISTORY.md` as each task's data lands.
+
+#### What's measured vs what's claimed
+
+- **Measured:** end-to-end wall-clock speedup on the specific benchmark workload on the specific host.
+- **Not claimed without further work:** speedup at canonical 11.2T scale (different memory profile, different per-sub-branch budget, may differ); speedup on hardware not tested (need separate runs per CPU family for AVX-512).
+
+Multi-task composition (e.g., AVX-512 + LTO + PGO together) gets its own line in the table — not assumed multiplicative until measured.
+
 ### v1 vs v2 search-space efficiency measurement (planned 2026-05-15, implemented alongside v2)
 
 When v2 lands (after the K-pilot decision and v2 bundled re-baseline), the operator will want to compare v1 and v2 search efficiency — specifically: *given a v1 canonical at budget B finding N records, what is the smallest v2 budget B′ that produces the same N (or a superset of v1's exact records)?* This section documents the design for that measurement so the tooling can land alongside v2 implementation rather than be retrofitted later.
