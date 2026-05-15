@@ -2536,8 +2536,8 @@ Per operator request 2026-05-15, each Phase 1 sha-preserver gets a quantified sp
 
 | Task | Host | Workload | Baseline (mean) | Optimized (mean) | Speedup | Sha preservation |
 |---|---|---|---|---|---|---|
-| #47 LTO | claude D2as_v6 (ARM, 2-thread) | 200M nodes depth-2 | 48.59s (4 trials, σ varies due to cold trial 1) | 48.36 ± 2.74s (4 trials) | **1.005× (within noise)** | selftest PASS (403f7202); 11.2T regression pending |
-| #47 PGO | claude D2as_v6 (ARM, 2-thread) | 200M nodes depth-2 | 48.59s (same baseline run) | 46.09 ± 0.83s (4 trials) | **1.054× (~5%)** | selftest PASS (403f7202); 11.2T regression pending |
+| #47 LTO | claude D2as_v6 (AMD EPYC Zen 4, 2-thread, x86_64) | 200M nodes depth-2 | 48.59s (4 trials, σ varies due to cold trial 1) | 48.36 ± 2.74s (4 trials) | **1.005× (within noise)** | selftest PASS (403f7202); 11.2T regression pending |
+| #47 PGO | claude D2as_v6 (AMD EPYC Zen 4, 2-thread, x86_64) | 200M nodes depth-2 | 48.59s (same baseline run) | 46.09 ± 0.83s (4 trials) | **1.054× (~5%)** | selftest PASS (403f7202); 11.2T regression pending |
 
 **Methodology lesson learned 2026-05-15 (and contamination correction):** an earlier LTO measurement reported 1.088× speedup (baseline 107.4s, LTO 98.7s). Investigation revealed that during that run, a stale `solve_new --verify-resume` orphan process from earlier work had been consuming a CPU core for ~30 minutes — halving effective parallelism for the 2-thread benchmark. The clean re-run above with no orphan processes shows baseline running at ~46s, ~2× faster than the contaminated baseline. Both LTO and baseline were equally contended in the original run, so the ratio was approximately preserved BUT the variance was inflated and the absolute timing was off by ~2×.
 
