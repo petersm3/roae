@@ -290,8 +290,9 @@ Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical
 | Element | Choice |
 |---|---|
 | Workload | `SOLVE_THREADS=N SOLVE_NODE_LIMIT=B` at default depth-2; B and N picked per host (large enough to be I/O-bound out of cache, small enough to fit in available wall time) |
-| Trials | 3 per binary minimum; 5 if speedup is suspected close to noise floor (<~5%) |
+| Trials | 4 per binary minimum (added 2026-05-15 after a 3-trial run had insufficient resolution); 5+ if speedup is suspected close to noise floor (<~5%) |
 | Warmup | 1 discarded run per binary before timed trials (filesystem cache, dynamic frequency scaling settled) |
+| **Pre-flight assertion** | **MANDATORY** before starting timed trials: `pgrep -af "solve\|bench" \| grep -v pgrep \| grep -v systemd-resolved` must return empty. Stale orphan processes from prior work can consume cores and bias the benchmark. (Lesson learned 2026-05-15 — see HISTORY.md §"Methodology lesson learned 2026-05-15 (and contamination correction)".) |
 | Metric | wall time from `/usr/bin/time -f "%e"`; speedup = `mean(baseline_time) / mean(optimized_time)` |
 | Reporting | mean ± stddev across trials, and per-trial values for traceability |
 | Confidence | stddev / mean over trials gives the speedup detection floor; ratios within that floor reported as "within noise" rather than as a positive result |

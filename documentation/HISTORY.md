@@ -2534,11 +2534,20 @@ Operator greenlit v2 implementation start. Per the master plan in private `V2_IM
 
 Per operator request 2026-05-15, each Phase 1 sha-preserver gets a quantified speedup measurement in addition to the sha-preservation gate. Methodology in [DEVELOPMENT.md §"Phase 1 speedup benchmarking methodology"](DEVELOPMENT.md). Results table:
 
-| Task | Host | Workload | Baseline (mean ± σ) | Optimized (mean ± σ) | Speedup | Sha preservation |
+| Task | Host | Workload | Baseline (mean) | Optimized (mean) | Speedup | Sha preservation |
 |---|---|---|---|---|---|---|
-| #47 LTO | claude D2as_v6 (ARM, 2-thread) | 200M nodes depth-2 | 107.40 ± 7.45s (3 trials) | 98.73 ± 2.84s (3 trials) | **1.088× (8.8%)** | selftest PASS (403f7202); 11.2T regression pending |
+| #47 LTO | claude D2as_v6 (ARM, 2-thread) | 200M nodes depth-2 | 48.59s (4 trials, σ varies due to cold trial 1) | 48.36 ± 2.74s (4 trials) | **1.005× (within noise)** | selftest PASS (403f7202); 11.2T regression pending |
+| #47 PGO | claude D2as_v6 (ARM, 2-thread) | 200M nodes depth-2 | 48.59s (same baseline run) | 46.09 ± 0.83s (4 trials) | **1.054× (~5%)** | selftest PASS (403f7202); 11.2T regression pending |
 
-LTO interpretation: every LTO trial (102.7s, 96.8s, 96.7s) beat the baseline mean of 107.4s, with significantly lower run-to-run spread (2.9% vs 6.9% stddev). The baseline trial 1 (115.7s) appears to be a cold-cache outlier; excluding it gives speedup 1.068× (6.8%). Either reading puts LTO in the 6-9% range on this workload-host pair. Larger than the plan's "0-5% expected" range — likely because the ARM Cobalt 2-core configuration benefits more from cross-function inlining (smaller L1 instruction cache than typical x86 desktop). Full Phase 1c LTO PASS gate (11.2T canonical regression on D128 westus3 spot) still pending operator scheduling — necessary to confirm speedup behavior at canonical scale and on x86.
+**Methodology lesson learned 2026-05-15 (and contamination correction):** an earlier LTO measurement reported 1.088× speedup (baseline 107.4s, LTO 98.7s). Investigation revealed that during that run, a stale `solve_new --verify-resume` orphan process from earlier work had been consuming a CPU core for ~30 minutes — halving effective parallelism for the 2-thread benchmark. The clean re-run above with no orphan processes shows baseline running at ~46s, ~2× faster than the contaminated baseline. Both LTO and baseline were equally contended in the original run, so the ratio was approximately preserved BUT the variance was inflated and the absolute timing was off by ~2×.
+
+**Process discipline added 2026-05-15:** before any benchmark run, `pgrep -af "solve|bench"` must be empty (excluding `systemd-resolved`). Codified as a pre-flight assertion in the Phase 1 benchmark protocol in DEVELOPMENT.md.
+
+**Interpretation of corrected numbers:**
+- **LTO** speedup is within the run-to-run noise floor (~5% stddev band on baseline). Cannot distinguish from "no improvement" at 4 trials. Consistent with the plan's prior "0-5% expected" range. Binary is 1.2% smaller from dead-code elimination — a small benefit but not a meaningful speedup at this scale on this host.
+- **PGO** speedup is ~5% with low variance (σ 1.8%). Cleanly positive but modest. PGO binary is 13% smaller than baseline (268,968 vs 309,376 bytes) — substantial cold-code elimination from the profile-driven layout, but most of the work in solve.c is in a hot path that's already well-optimized at `-O3`.
+
+**Caveat — selftest-scale only:** these are 200M-node depth-2 measurements on 2 ARM cores. Canonical-scale speedup (11.2T depth-3 on x86 D128 with 128 threads) is the actual gate behavior; the host's instruction-cache regime, memory pressure, and per-thread workload profile all differ. Full Phase 1c PASS gate requires the 11.2T regression on D128 westus3 spot, pending operator scheduling. Expect the canonical-scale picture may differ in either direction.
 
 **Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~$50/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~$80-100 total this terminal chapter). Total v1 cost across the entire campaign is in the $200-400 range cumulatively, including the original 11.2T + 100T canonical runs.
 
