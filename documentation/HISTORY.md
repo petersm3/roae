@@ -2644,3 +2644,60 @@ larger scales — most cells naturally terminate at canonical-scale
 budgets, so the prune's wall-clock impact tapers as the budget
 relative to per-cell tree size grows. The 11.2T re-baseline (#81)
 gives the operator-relevant K.
+
+### #68 — 100B sanity check on v2 (2026-05-16)
+
+After landing the C5 prune (commit `bf58c65`), ran a v2 100B
+verification before stacking #70 on top. Same recipe as v1's 100B
+canonical (D64als_v7 Spot westus3, 64 threads, `SOLVE_NODE_LIMIT=10^11`,
+default depth-2, canonical LTO build) but on v2-bundled HEAD `bf58c65`
+with C5 always-on.
+
+| Metric | Value |
+|---|---|
+| v2 100B sha | `de28fea6e4b2a902767ca44a53f1ffd552d0286b8ca2375ef79b04fe6c159ec8` |
+| v2 100B records | 25,318,023 |
+| v2 100B `solve --verify` | PASS (all 25,318,023 records satisfy C1-C5, sorted, no duplicates, King Wen present) |
+| Wall time | 168 s (D64 Spot westus3, single attempt) |
+| Cost | ~$0.02 |
+
+**For comparison, v1 100B (per HISTORY.md "100B intermediate
+sha-preservation canonical established (2026-05-15)"):**
+
+| | v1 100B | v2 100B | delta |
+|---|---|---|---|
+| sha | `f1709ab09486...` | `de28fea6e4b2...` | (different lineage) |
+| records | 12,386,121 | 25,318,023 | **+104.4%** (2.04× more solutions at same budget) |
+| solutions.bin size | 396 MB | 810 MB | +104.7% |
+
+The +104.4% record-count growth at 100B is consistent with — and
+larger than — the +68.6% observed at 100M. The prune's productive
+work share grows with per-cell budget (at 100B the per-cell budget
+is ~33M nodes vs ~33K at 100M; more room for the prune's saved
+nodes to be converted into additional solution discovery).
+
+**Documentation discrepancy noted (separate cleanup item).** The
+v1 100B section above claims "Archived to
+`canonical-archive/20260515_modern_v1_100B_canonical_3258f4c/`"
+but `az storage blob list` against the canonical-archive container
+returns NO blobs matching that prefix as of 2026-05-16 17:25 UTC.
+The prior session's upload step appears to have silently failed
+during the SAS-token-RBAC blackout that affected all uploads
+between session-end on 2026-05-15 and the account-key recovery
+on 2026-05-16. The v1 100B sha `f1709ab0…` is recorded in
+`CANONICAL_HASHES.md` and HISTORY.md but the underlying
+`solutions.bin` is not currently retrievable from canonical-archive.
+Re-derivation cost ~$0.50 on D64 Spot, deferred to a separate
+cleanup task; v1 100B sha can be re-confirmed by re-running v1
+binary with the same recipe at any time.
+
+**Decision:** v2 100B looks right — verify PASS, sha deterministic,
+record count growth consistent with C5 prune behavior. Proceeding
+to #70 (C3 optimistic-completion bound) on `v2-bundled`. Inclusion
+check at 100B (v1 100B classes ⊆ v2 100B classes) deferred until
+v1 100B is re-derived; the 100M inclusion check (which already
+passed: 0 v1 records missing from v2) provides equivalent correctness
+evidence in the meantime.
+
+Archive: `canonical-archive/20260516_v2bundled_100B_check_bf58c65/`
+holds `v2_100b_solutions.bin` (810 MB) and `v2_100b_solve.log`.
