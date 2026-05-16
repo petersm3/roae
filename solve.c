@@ -960,6 +960,35 @@ static inline void mw_c3_init(ThreadState *ts, const int seq[64], int placed_hex
     }
 }
 
+/* task #70: C3 optimistic-completion bound — lower bound on the cd_x64
+ * contribution from complement-pairs (v, v⊕63) that are not yet fully
+ * placed. For each such pair, when both halves eventually become placed,
+ * |pos[v] - pos[v⊕63]| ≥ 1 (positions are distinct integers), so the
+ * cd_x64 contribution is at least 2 (the 2× factor of compute_comp_dist_x64).
+ *
+ * Returns 2 × (count of complement-pairs not yet both-placed).
+ *
+ * Combined with #67's partial_cd, the tightened prune predicate is:
+ *   mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) > kw_comp_dist_x64
+ *     ⟹ no valid C3 completion exists from this state; prune.
+ *
+ * Correctness: any valid completion places all 32 complement-pairs (each at
+ * positions ≥ 1 apart). The minimum |pos[v]-pos[v⊕63]| = 1 is achievable
+ * only when the two pairs sit in adjacent slots; not every complement-pair
+ * can simultaneously achieve this minimum. So this is a strict LOWER BOUND
+ * on the future contribution, never an over-estimate. No valid leaf is
+ * pruned. */
+static inline int mw_inevitable_remaining_cd_x64(const ThreadState *ts) {
+    /* Iterate v from 0..31; each unordered complement-pair (v, v^63) is
+     * covered exactly once because v ∈ [0,31] ⟹ v^63 ∈ [32,63]. */
+    int n_unmeasured = 0;
+    for (int v = 0; v < 32; v++) {
+        int comp = v ^ 63;
+        if (!(ts->mw_pos[v] >= 0 && ts->mw_pos[comp] >= 0)) n_unmeasured++;
+    }
+    return n_unmeasured * 2;
+}
+
 /* global_timed_out is set both from the signal handler (must be
  * async-signal-safe) and from thread code. sig_atomic_t is the only type
  * the C standard guarantees safe for signal-handler writes. volatile keeps
@@ -1960,10 +1989,12 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             }
             ts->mw_partial_cd_x64 += mw_delta;
 
-            /* task #67 prune predicate: if partial cd exceeds 776, no
-             * C3-valid leaf exists in this subtree. Revert all state for
-             * this iter and advance to next (p, orient). */
-            if (ts->mw_partial_cd_x64 > kw_comp_dist_x64) {
+            /* task #67 + #70 prune predicate (iterative path): partial cd
+             * plus the inevitable future contribution from unmeasured
+             * complement-pairs. If this sum exceeds 776, no C3-valid leaf
+             * exists in this subtree. Revert and advance. #70 strictly
+             * tightens #67's `partial_cd > 776` check. */
+            if (ts->mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) > kw_comp_dist_x64) {
                 ts->mw_partial_cd_x64 -= mw_delta;
                 ts->mw_pos[first] = -1;
                 ts->mw_pos[second] = -1;
@@ -2262,10 +2293,12 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
             }
             ts->mw_partial_cd_x64 += mw_delta;
 
-            /* task #67 prune predicate: if partial cd already > 776, no
-             * C3-valid leaf can exist in this subtree (proof in
-             * TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md). Skip recursion. */
-            if (ts->mw_partial_cd_x64 <= kw_comp_dist_x64) {
+            /* task #67 + #70 prune predicate (recursive path): partial cd
+             * plus the inevitable future contribution from unmeasured
+             * complement-pairs. If this sum is ≤ 776, this subtree could
+             * still admit a C3-valid leaf — recurse. If > 776, skip.
+             * #70 strictly tightens #67's `partial_cd > 776` check. */
+            if (ts->mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) <= kw_comp_dist_x64) {
                 backtrack(ts, seq, used_mask, budget, step + 1);
             }
 
@@ -6409,27 +6442,27 @@ int main(int argc, char *argv[]) {
          *
          * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
          *
-         * v2 lineage expected sha: 98b8c0efc7ca7663af14f005861d908c37e5c1494ed5e1fea27adb975b6db8e2
-         * (v2 = v1 + C5 feasibility prune (#68) + mid-walk C3 pruning (#67,
-         * re-shipped after 52cac4a's incidental revert). Each additional v2
-         * prune adds more pruning, frees up node budget, lets each sub-branch
-         * reach more leaves at the same 100M budget, so the v2 selftest sha
-         * differs from v1's 403f7202... v2 sha will change again when #70
-         * (C3 optimistic-completion bound) lands. At v2 stabilization, the
-         * final v2 selftest sha gets recorded in CANONICAL_HASHES.md as the
-         * v2 lineage baseline. v1 lineage on `main` branch retains
-         * expected_sha = 403f7202...
+         * v2 lineage expected sha: 56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc
+         * (v2 = v1 + C5 feasibility (#68) + mid-walk C3 (#67) + C3 optimistic-
+         * completion bound (#70). Each prune tightens earlier checks, frees
+         * up node budget, lets each sub-branch reach more leaves at the same
+         * 100M budget, so the v2 selftest sha differs from v1's 403f7202...
+         * v2 sha will change again when additional prunes land (e.g. #71 C2
+         * lookahead). At v2 stabilization, the final v2 selftest sha gets
+         * recorded in CANONICAL_HASHES.md as the v2 lineage baseline. v1
+         * lineage on `main` branch retains expected_sha = 403f7202...
          *
          * Lineage progression on v2-bundled:
-         *   v1 alone:                  403f7202... (selftest 135,780 records)
-         *   v1 + C5 (bf58c65):         47dac6cb... (selftest 228,990 records)
-         *   v1 + C5 + #67 (current):   98b8c0ef... (selftest TBD records))
+         *   v1 alone:                       403f7202... (135,780 records)
+         *   v1 + C5 (bf58c65):              47dac6cb... (228,990 records)
+         *   v1 + C5 + #67 (9f4b630):        98b8c0ef... (234,252 records)
+         *   v1 + C5 + #67 + #70 (current):  56487ab5... (TBD records))
          *
          * Historical v1 note: Baseline was 76ada31e... before solutions.bin format v1 landed. The
          * content — 135,780 canonical pair orderings — is unchanged; only the
          * file bytes differ because the 32-byte header is now prepended.)
          */
-        const char *expected_sha = "98b8c0efc7ca7663af14f005861d908c37e5c1494ed5e1fea27adb975b6db8e2";
+        const char *expected_sha = "56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc";
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
