@@ -110,6 +110,41 @@ divergence is a regression.
 
 Exits 0 on PASS, 1 on FAIL.
 
+### --cpu-features
+
+```
+solve --cpu-features
+```
+
+Diagnostic. Prints `__builtin_cpu_supports` results for all AVX-512
+sub-extensions (f / bw / dq / vl / vpopcntdq / vnni / bitalg / vbmi /
+vbmi2) plus avx2, bmi2, popcnt, fma. Concludes with the composite
+verdict `v2 AVX-512 dispatch ready: YES/NO` based on the
+foundation+bw+vpopcntdq triple that the v2 runtime dispatcher uses.
+
+No enumeration; instantaneous. Used by `v2_bench_d64.sh` fingerprint
+capture and by pre-flight checks before AVX-512 work.
+
+Exits 0 always.
+
+### --cpu-freq
+
+```
+solve --cpu-freq [THRESHOLD_MHZ]
+```
+
+Diagnostic. Reads `cpu MHz` from `/proc/cpuinfo`, reports cores / min /
+avg / max across all cores, and emits a HEALTHY or THROTTLED verdict
+against `THRESHOLD_MHZ` (default 2000). Useful mid-bench to detect
+thermal throttling that would invalidate the run — Standard on-demand
+D128als_v7 hosts in westus3 have been observed to hand back hosts
+running at ~600 MHz instead of the expected 2596 MHz base / 3700 MHz
+boost. Companion to the orchestrator-side
+`scripts/d128_preflight_throttle_probe.sh` (pre-flight probe).
+
+No enumeration; instantaneous. Exits 0 if HEALTHY, 1 if any core is
+below threshold, 2 on I/O error.
+
 ### --extended-selftest
 
 ```

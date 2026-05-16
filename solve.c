@@ -6827,6 +6827,56 @@ int main(int argc, char *argv[]) {
                avx512_ready ? "YES — vectorized path will be selected" :
                                "NO — scalar fallback will be used");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--cpu-freq") == 0) {
+        /* --cpu-freq (2026-05-16): sample per-core MHz from /proc/cpuinfo.
+         * Diagnostic for thermal-throttle detection during paired performance
+         * benches. Adds aggregate min / avg / max across all cores plus a
+         * health verdict against an operator-configurable threshold (--cpu-freq
+         * 2200 → flag any core below 2200 MHz). Default threshold: 2000 MHz.
+         *
+         * Why: Standard on-demand D128als_v7 hosts in westus3 can hand back
+         * thermally-throttled physical hosts at ~600 MHz vs the expected
+         * 2596 MHz base / 3700 MHz boost. The pre-bench probe at
+         * scripts/d128_preflight_throttle_probe.sh validates the host before
+         * trial 1 runs; this subcommand lets a bench check mid-run too. */
+        long threshold_mhz = 2000;
+        if (argc > 2) threshold_mhz = atol(argv[2]);
+        FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+        if (!cpuinfo) {
+            fprintf(stderr, "[--cpu-freq] cannot open /proc/cpuinfo: %s\n", strerror(errno));
+            return 2;
+        }
+        long min_mhz = -1, max_mhz = -1, sum_mhz = 0, count = 0;
+        long below_threshold = 0;
+        char line[512];
+        while (fgets(line, sizeof(line), cpuinfo)) {
+            if (strncmp(line, "cpu MHz", 7) == 0) {
+                char *colon = strchr(line, ':');
+                if (!colon) continue;
+                long mhz = (long)strtod(colon + 1, NULL);
+                if (mhz <= 0) continue;
+                if (min_mhz < 0 || mhz < min_mhz) min_mhz = mhz;
+                if (max_mhz < 0 || mhz > max_mhz) max_mhz = mhz;
+                sum_mhz += mhz;
+                count++;
+                if (mhz < threshold_mhz) below_threshold++;
+            }
+        }
+        fclose(cpuinfo);
+        if (count == 0) {
+            fprintf(stderr, "[--cpu-freq] no 'cpu MHz' lines in /proc/cpuinfo\n");
+            return 2;
+        }
+        long avg_mhz = sum_mhz / count;
+        printf("[--cpu-freq] cores=%ld min=%ld avg=%ld max=%ld threshold=%ld below=%ld\n",
+               count, min_mhz, avg_mhz, max_mhz, threshold_mhz, below_threshold);
+        if (below_threshold > 0) {
+            printf("  ⚠ THROTTLED — %ld of %ld cores below %ld MHz (likely thermal/power cap)\n",
+                   below_threshold, count, threshold_mhz);
+            return 1;
+        }
+        printf("  ✓ HEALTHY — all %ld cores at or above %ld MHz\n", count, threshold_mhz);
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
