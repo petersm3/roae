@@ -2701,3 +2701,50 @@ evidence in the meantime.
 
 Archive: `canonical-archive/20260516_v2bundled_100B_check_bf58c65/`
 holds `v2_100b_solutions.bin` (810 MB) and `v2_100b_solve.log`.
+
+### v1 100B canonical re-archived + 100B inclusion check (2026-05-16, follow-up to #68)
+
+Resolved the documentation discrepancy noted above: re-derived v1 100B
+from main HEAD `3258f4c` with the canonical LTO recipe on a fresh
+D64als_v7 Spot host. Sha **reproduced byte-identically**:
+
+| | Value |
+|---|---|
+| Re-derived sha | `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db` |
+| Expected (registered canonical) | `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db` |
+| Match | ✓ (byte-identical) |
+| Records | 12,386,121 |
+| `solve --verify` | PASS |
+| File size | 396,355,904 bytes |
+| Re-derivation wall | 114 s (D64 Spot westus3) |
+| Cost | ~$0.02 |
+
+Uploaded to canonical-archive (the prior session's silent-failure
+upload now corrected):
+
+  canonical-archive/20260515_modern_v1_100B_canonical_3258f4c/
+    solutions.bin.gz             (48.7 MB)
+    solutions.bin.gz.sha256
+    solutions.sha256
+    solutions.meta.json
+    solve.log
+
+**Canonical-form inclusion check at 100B (v1 ⊆ v2-with-C5):**
+
+| | v1 100B | v2 100B | delta |
+|---|---|---|---|
+| Canonical-class count | 12,386,121 | 25,318,023 | +104.4% |
+| **v1 classes missing from v2** | — | **0** (perfect subset) | — |
+| v2-only additional valid classes | — | 12,931,902 | — |
+
+The 100B inclusion check empirically confirms what the 100M check
+already showed and what the mathematical argument predicts: the C5
+prune is correctness-preserving at canonical-comparable scale. v2
+reproduces every v1 canonical record AND adds 12.9M more valid
+records at the same node budget — that's the "more solutions per
+budget" the v2 lineage is designed to deliver, with zero correctness
+loss.
+
+This satisfies the operator-meaningful validation for #68 before
+stacking #70 (C3 optimistic-completion bound) on top. Proceeding
+to #70 implementation on the v2-bundled branch.
