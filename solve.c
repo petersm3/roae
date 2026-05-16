@@ -1965,6 +1965,35 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
      * entry. The for-loop in the parent frame then captures (p, orient) for
      * its depth on return-from-recurse and propagates upward. */
     if (ts->dfs_capture_active) return;
+    /* v2 C5 feasibility prune (task #68, always-on in v2 lineage).
+     *
+     * Necessary condition for any state to admit a valid completion: for each
+     * Hamming distance d, the remaining budget[d] must be at least the count
+     * of unplaced pairs whose within-pair distance equals d, because each
+     * unplaced pair will consume 1 from budget[pair_wpd[i]] when it is
+     * eventually placed. If this fails for any d, the current state is dead
+     * (no completion exists) and the subtree can be pruned.
+     *
+     * Correctness: at any complete leaf (step==32) used_mask covers all 32
+     * pairs so unused_wd_count = {0,...,0} and budget = {0,...,0}; the check
+     * is trivially satisfied. No valid leaf is excluded.
+     *
+     * Sha relative to v1: this prune is WORK-CHANGING (it skips recursion
+     * into provably-dead subtrees that v1 explored before lazy budget
+     * exhaustion). At a fixed node budget the prune lets each sub-branch
+     * reach more leaves → MORE solutions found → different sha vs v1. This
+     * is the defining property of v2 vs v1. Both lineages are deterministic
+     * from their own recipes. Validation is by solution-set inclusion
+     * (baseline_records ⊆ v2_records at same budget), not by sha-match. */
+    {
+        int unused_wd_count[7] = {0};
+        for (int pp = 0; pp < 32; pp++) {
+            if (!PAIR_MASK_TEST(*used_mask, pp)) unused_wd_count[pair_wpd[pp]]++;
+        }
+        for (int d = 0; d < 7; d++) {
+            if (budget[d] < unused_wd_count[d]) return;
+        }
+    }
     /* Per-branch node limit: checked every node (just an integer compare, cheap).
      * Sets a thread-local flag rather than global_timed_out so other branches
      * on this thread can continue. But for simplicity, we use global_timed_out
@@ -6241,12 +6270,22 @@ int main(int argc, char *argv[]) {
          * that would produce a different solutions.bin from the same inputs.
          *
          * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
-         * Expected sha256: 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
-         * (Baseline was 76ada31e... before solutions.bin format v1 landed. The
+         *
+         * v2 lineage expected sha: 47dac6cb0783f04dfd98cf15a793e85603b0ceb4a53cd272d97f1def11e3c0c6
+         * (DIFFERS from v1's 403f7202... intentionally: v2 has the C5 feasibility
+         * prune always-on which lets each sub-branch reach more leaves at the
+         * same 100M budget, so solutions.bin contains more records than v1's
+         * and the sha is different. v2 selftest sha changes again as more v2
+         * prunes land (#70 C3 optimistic bound, #71 C2 lookahead). At v2
+         * stabilization, the final v2 selftest sha gets recorded in
+         * CANONICAL_HASHES.md as the v2 lineage baseline. v1 lineage on `main`
+         * branch retains expected_sha = 403f7202...)
+         *
+         * Historical v1 note: Baseline was 76ada31e... before solutions.bin format v1 landed. The
          * content — 135,780 canonical pair orderings — is unchanged; only the
          * file bytes differ because the 32-byte header is now prepended.)
          */
-        const char *expected_sha = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
+        const char *expected_sha = "47dac6cb0783f04dfd98cf15a793e85603b0ceb4a53cd272d97f1def11e3c0c6";
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");

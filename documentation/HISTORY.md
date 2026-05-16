@@ -2562,3 +2562,85 @@ All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modele
 - **Atomic file writes** in solve.c (write to .tmp, fsync, rename). Prevents mid-eviction corruption.
 - **Rotating checkpoints**: 3 copies maintained locally.
 - **All run outputs archived** in `solve_c/runs/<YYYYMMDD>_<description>/` with README.md + sha256 verification. Most recent: `20260420_singlebranch1T_d32westus3/` (32×1T Recon).
+
+## v2 lineage begins (2026-05-16)
+
+The v1 canonical campaign closed 2026-05-15. v2 work begins on the
+`v2-bundled` branch. v2 differs from v1 by always-on search-tree
+pruning optimizations. The "bundled" naming reflects that all v2
+prune additions land before the canonical v2 re-baseline (#81) is
+run — v2 prunes don't ship to canonical artifacts incrementally.
+
+### Methodology pivot: solution-set inclusion replaces sha-match (2026-05-16)
+
+The K-pilot plan (#80a/#85/#86) originally specified "sha-match vs v1
+at 1B nodes" as the correctness gate for each prune. That framing was
+incompatible with what feasibility prunes actually do at fixed node
+budgets: by skipping recursion into provably-dead subtrees, the
+prune frees up node budget that gets spent finding MORE valid
+solutions per sub-branch. Same budget → more solutions → different
+`solutions.bin` → different sha. The discovery was empirical (the
+first v2 C5 prune implementation broke the v1 selftest sha by exactly
+this mechanism) but the conclusion is structural: any work-changing
+prune is sha-incompatible with v1 at any budgeted run.
+
+The replaced methodology — adopted 2026-05-16:
+
+1. **Solution-set inclusion** is the correctness gate. At the same
+   budget, every record v1 finds must appear in the v2 output. v2
+   typically finds *more* records on top of those. Verified via the
+   `solve --verify-superset OLD.bin NEW.bin` subcommand (to land
+   alongside the v2 prune work).
+
+2. **Independent constraint verification** (`solve --verify`) on the
+   v2 output confirms every v2 record satisfies C1-C5. This is the
+   same check v1 records get and validates correctness of the prune
+   implementation directly.
+
+3. **v2 lineage canonical shas** are established at v2 stabilization
+   (task #81 — 11.2T re-baseline). Each v2 canonical sha is
+   deterministic from (v2 binary commit, recipe, budget); v1 and v2
+   lineages produce different shas at the same budget but each
+   lineage's shas are individually reproducible forever.
+
+Both selftests pass on their own branches: v1 (`main`) at
+`403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`;
+v2 (`v2-bundled`) at
+`47dac6cb0783f04dfd98cf15a793e85603b0ceb4a53cd272d97f1def11e3c0c6`.
+v2 selftest sha will change again as additional v2 prunes land (#70
+C3 optimistic bound, #71 C2 lookahead); the final stable v2 selftest
+sha gets recorded in CANONICAL_HASHES.md as the v2 baseline at v2
+stabilization.
+
+### #68 — C5 feasibility prune (2026-05-16)
+
+The first v2 prune. Necessary-condition check at the top of each
+`backtrack` invocation: for each Hamming distance `d`, the remaining
+`budget[d]` must be at least `unused_wd_count[d]` (the count of
+unplaced pairs whose `pair_wpd[i]` equals `d`). If violated, the
+current state cannot complete to a valid 32-pair sequence; prune
+the subtree.
+
+Cost: 32 pair-mask tests + 7 comparisons per `backtrack` entry — O(1)
+per recursion.
+
+Empirical effect at 100M-node selftest budget (depth=2, threads=4):
+
+| | v1 (sha `403f7202...`) | v2 (sha `47dac6cb...`) |
+|---|---|---|
+| Solutions recorded | 135,780 | **228,990** (+68.6%) |
+| `solve --verify` C1-C5 pass | YES | YES |
+| King Wen present in output | YES | YES |
+| Sort/dedup integrity | PASS | PASS |
+
+The +68.6% record gain at fixed budget is the v1-vs-v2 efficiency
+effect at small scale — see x/roae/V2_IMPLEMENTATION_PLAN_2026_05_06
+and the K-curve measurement design captured in DEVELOPMENT.md
+§"v1 vs v2 search-space efficiency measurement". The ratio at
+canonical (11.2T, 100T) scales will be measured at task #81.
+
+Note: the +68.6% factor at 100M does NOT directly extrapolate to
+larger scales — most cells naturally terminate at canonical-scale
+budgets, so the prune's wall-clock impact tapers as the budget
+relative to per-cell tree size grows. The 11.2T re-baseline (#81)
+gives the operator-relevant K.
