@@ -415,6 +415,19 @@ static int kw_super_pair_at_pos[32];    /* super-pair index at each KW position 
  * Used by forward feasibility check and pair ordering. */
 static int pair_wpd[32];  /* pair_wpd[i] = hamming(pairs[i].a, pairs[i].b) */
 
+/* task #71 — one-step C2 lookahead precomputed masks (v2 prune stack).
+ * c2_compat_a[h] is a pair_mask_t: bit p set iff hamming(h, pairs[p].a) != 5.
+ * c2_compat_b[h] similarly for pairs[p].b. At placement time, when prev_tail = h,
+ * the set of (pair, orient) combos with C2-compatible bd ≠ 5 is:
+ *   reachable_a = (~used_mask) & c2_compat_a[h]   // orient=0: first = pairs[p].a
+ *   reachable_b = (~used_mask) & c2_compat_b[h]   // orient=1: first = pairs[p].b
+ * If reachable_a | reachable_b == 0, no valid C2-compatible next move exists
+ * — the subtree is dead. Prune immediately instead of iterating 64 (p,orient)
+ * candidates only to find them all rejected by the inline `if (bd == 5)` check.
+ * Initialized in init_pair_order() (run once at program startup). */
+static pair_mask_t c2_compat_a[64];
+static pair_mask_t c2_compat_b[64];
+
 /* Pair ordering: indices sorted by within-pair distance (rarest first).
  * Fail-first heuristic: try pairs that consume rare budget values early,
  * so infeasible branches are discovered sooner. */
@@ -1276,6 +1289,17 @@ static void init_pair_order(void) {
     for (int i = 0; i < 32; i++)
         pair_wpd[i] = hamming(pairs[i].a, pairs[i].b);
 
+    /* task #71 — precompute c2_compat_a/b masks for one-step C2 lookahead. */
+    for (int h = 0; h < 64; h++) {
+        pair_mask_t mask_a = 0, mask_b = 0;
+        for (int p = 0; p < 32; p++) {
+            if (hamming(h, pairs[p].a) != 5) mask_a |= (1u << p);
+            if (hamming(h, pairs[p].b) != 5) mask_b |= (1u << p);
+        }
+        c2_compat_a[h] = mask_a;
+        c2_compat_b[h] = mask_b;
+    }
+
     /* Sort pair indices by: rarest within-pair distance first (fail-first).
      * Count how many pairs have each within-pair distance, then order by
      * ascending count (rarest distance values first). */
@@ -1825,6 +1849,19 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
                 if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
                 continue;
             }
+            /* v2 task #71 — one-step C2 lookahead (iterative path). Mirrors the
+             * check in the recursive backtrack at "v2 task #71" — see that
+             * site for the rationale + correctness argument. */
+            if (fr->step > 0 && fr->step < 32) {
+                int prev_tail_la = seq[fr->step * 2 - 1];
+                pair_mask_t reach_a = (~(*used_mask)) & PAIR_MASK_FULL & c2_compat_a[prev_tail_la];
+                pair_mask_t reach_b = (~(*used_mask)) & PAIR_MASK_FULL & c2_compat_b[prev_tail_la];
+                if ((reach_a | reach_b) == 0) {
+                    sp--;
+                    if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
+                    continue;
+                }
+            }
             /* Per-branch budget check (non-parallel path). */
             if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit) {
                 if (dfs_checkpoint_enabled) {
@@ -2116,6 +2153,17 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
         for (int d = 0; d < 7; d++) {
             if (budget[d] < unused_wd_count[d]) return;
         }
+    }
+    /* v2 task #71 — one-step C2 lookahead. Only meaningful for step > 0 (step 0
+     * has no prev_tail). After placing the previous pair, the next bd must be
+     * != 5; if no remaining (pair, orient) gives bd != 5 from prev_tail, the
+     * subtree is dead — no valid C2-compatible next move exists. Cheap: 2 AND
+     * + 1 OR + 1 iszero per node. */
+    if (step > 0 && step < 32) {
+        int prev_tail_lookahead = seq[step * 2 - 1];
+        pair_mask_t reachable_a = (~(*used_mask)) & PAIR_MASK_FULL & c2_compat_a[prev_tail_lookahead];
+        pair_mask_t reachable_b = (~(*used_mask)) & PAIR_MASK_FULL & c2_compat_b[prev_tail_lookahead];
+        if ((reachable_a | reachable_b) == 0) return;
     }
     /* Per-branch node limit: checked every node (just an integer compare, cheap).
      * Sets a thread-local flag rather than global_timed_out so other branches
@@ -6443,20 +6491,22 @@ int main(int argc, char *argv[]) {
          * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
          *
          * v2 lineage expected sha: 56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc
-         * (v2 = v1 + C5 feasibility (#68) + mid-walk C3 (#67) + C3 optimistic-
-         * completion bound (#70). Each prune tightens earlier checks, frees
-         * up node budget, lets each sub-branch reach more leaves at the same
-         * 100M budget, so the v2 selftest sha differs from v1's 403f7202...
-         * v2 sha will change again when additional prunes land (e.g. #71 C2
-         * lookahead). At v2 stabilization, the final v2 selftest sha gets
-         * recorded in CANONICAL_HASHES.md as the v2 lineage baseline. v1
-         * lineage on `main` branch retains expected_sha = 403f7202...
+         * (v2 = v1 + C5 (#68) + #67 + #70 + #71 one-step C2 lookahead.
+         * Note: #71 is a performance optimization (avoids iterating dead
+         * states that the inline `if (bd == 5) continue` loop would reject
+         * anyway). It does NOT change which leaves are found at any budget.
+         * Output is byte-identical to v2 + C5 + #67 + #70 alone; selftest
+         * sha stays at 56487ab5... v1 lineage on `main` retains 403f7202...
+         * At v2 stabilization, the v2 selftest sha gets recorded in
+         * CANONICAL_HASHES.md as the v2 lineage baseline.
          *
          * Lineage progression on v2-bundled:
-         *   v1 alone:                       403f7202... (135,780 records)
-         *   v1 + C5 (bf58c65):              47dac6cb... (228,990 records)
-         *   v1 + C5 + #67 (9f4b630):        98b8c0ef... (234,252 records)
-         *   v1 + C5 + #67 + #70 (current):  56487ab5... (TBD records))
+         *   v1 alone:                            403f7202... (135,780 records)
+         *   v1 + C5 (bf58c65):                   47dac6cb... (228,990 records)
+         *   v1 + C5 + #67 (9f4b630):             98b8c0ef... (234,252 records)
+         *   v1 + C5 + #67 + #70 (7b5ff6d):       56487ab5... (235,083 records)
+         *   v1 + C5 + #67 + #70 + #71 (current): 56487ab5... (same — #71
+         *     is perf-only, no output change))
          *
          * Historical v1 note: Baseline was 76ada31e... before solutions.bin format v1 landed. The
          * content — 135,780 canonical pair orderings — is unchanged; only the
