@@ -2748,3 +2748,75 @@ loss.
 This satisfies the operator-meaningful validation for #68 before
 stacking #70 (C3 optimistic-completion bound) on top. Proceeding
 to #70 implementation on the v2-bundled branch.
+
+### #71 — one-step C2 lookahead REVERTED (2026-05-16, post-bench)
+
+Shipped commit `438d297` based on the design doc estimate that #71
+would contribute 1.2-1.5× speedup compounded with #67/#68/#69. A 1T
+paired enum-only bench on Standard on-demand D128als_v7 (operator
+choice to avoid Spot eviction noise; matches v6d/v8 methodology)
+showed the OPPOSITE direction:
+
+| pair | with-#71 wall (s) | without-#71 wall (s) | ratio (without / with) |
+|------|------|------|------|
+| 1    | 1266 | 1144 | 0.9036× |
+| 2    | 1259 | 1135 | 0.9015× |
+
+Mean ratio across 2 pairs: **0.903× — i.e., #71 makes things 10.7%
+SLOWER, not faster.** Variance across pairs is ~0.2% (tight; not
+noise). Pair-2 sufficed to abort the bench (saved ~3 hr × $5.146/hr
+≈ $15 of remaining compute).
+
+The C2 lookahead has per-node cost (precomputed mask AND + iszero
+on `pair_mask_t`) that the v2 stack's existing in-loop
+`if (bd == 5) continue;` already does cheaply. At the budgets where
+the v2 stack actually runs, the lookahead's saved iteration is
+LESS than the lookahead's own cost, so it's pure overhead.
+
+Two scale-specific factors against #71:
+
+1. **Most subtrees aren't dead at 1T per-cell budget.** With C5+#67+#70
+   already aggressively pruning earlier, by the time the inner loop
+   reaches a particular (p, orient), most candidates have already
+   been filtered. The lookahead's "is there at least one valid
+   (p, orient)?" check almost never fires, so its constant cost is
+   paid without any savings.
+2. **The check runs at EVERY backtrack entry**, including states where
+   the v2 stack's #70 optimistic-completion bound has already shown
+   "this state could complete" (and so by implication has at least
+   one valid next move). #71 is redundant with #70 in those cases.
+
+Reverted in commit `457ba0c` (revert of `438d297`). v2-bundled HEAD is
+now back to C5+#67+#70 stacked, selftest sha **`56487ab5...`** (= same
+as 7b5ff6d, pre-#71).
+
+Lineage progression on v2-bundled (corrected):
+
+| Layer | Commit | Selftest sha | Records @ 100M |
+|---|---|---|---|
+| v1 alone | (main) | 403f7202... | 135,780 |
+| v1 + C5 | bf58c65 | 47dac6cb... | 228,990 |
+| v1 + C5 + #67 | 9f4b630 | 98b8c0ef... | 234,252 |
+| v1 + C5 + #67 + #70 | 7b5ff6d | 56487ab5... | 235,083 |
+| ~~#71 attempt~~ | ~~438d297~~ | (reverted; same sha) | (n/a) |
+| **v2 final pre-#81** | 457ba0c | **56487ab5...** | 235,083 |
+
+**Task #71 closed: no-ship — reverted post-bench due to perf
+regression at 1T scale.** The design doc estimate was based on
+"compounded with #67/#68/#69" but the empirical compounding direction
+was negative: with C5+#67+#70 already in place, #71 adds cost without
+saving meaningful work.
+
+Cost of the bench-and-revert cycle: ~$3 (2 pairs × $1.5 each on
+D128 Standard on-demand) + ~$0.02 archive upload. Net learnings:
+(a) C5+#67+#70 sufficiently aggressive that one-step lookahead has
+no headroom to contribute; (b) design-doc speedup estimates need
+empirical validation before shipping. Saved ~$15 by aborting at
+pair 2 vs running the full 5 pairs.
+
+Archive: `canonical-archive/20260516_v2_71_c2lookahead_REGRESSED_2pairs/`
+(trials.tsv + bench.log).
+
+**v2-bundled is now FROZEN at HEAD 457ba0c (C5 + #67 + #70)** until
+operator initiates the v2 11.2T re-baseline (#81) or considers
+adding #69 (variable ordering MRV) as the next prune candidate.
