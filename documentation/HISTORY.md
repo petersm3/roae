@@ -2820,3 +2820,319 @@ Archive: `canonical-archive/20260516_v2_71_c2lookahead_REGRESSED_2pairs/`
 **v2-bundled is now FROZEN at HEAD 457ba0c (C5 + #67 + #70)** until
 operator initiates the v2 11.2T re-baseline (#81) or considers
 adding #69 (variable ordering MRV) as the next prune candidate.
+
+### #81 — v2 11.2T canonical re-baseline, attempt 1 (2026-05-16 → 17)
+
+First attempt to establish the v2 11.2T canonical sha on v2-bundled
+HEAD `9d00c48` (C5 + #67 + #70 stack). **Sha was successfully
+established, but the compressed bytes were lost to a curl OOM bug
+during the cold-archive upload step. Re-derivation required to put
+bytes in cold storage; the sha itself stands.**
+
+**Result — sha + record count established and persisted in cold
+storage (everything except the bin.gz file itself):**
+
+| Field | Value |
+|---|---|
+| sha256 (solutions.bin) | `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d` |
+| Unique canonical records | **796,357,285** |
+| Pre-dedup records | 3,141,367,587 |
+| File size (uncompressed) | 25,483,433,152 bytes |
+| File size (gzip -9, was on merge VM) | 2,929,400,458 bytes (88.5% compression) |
+| `solve --verify` | PASS (0 C2/C3/C4/C5/decode/sort/dup failures) |
+| King Wen in set | YES |
+| Solver | v2-bundled `9d00c48` (C5 + mid-walk C3 + C3 optimistic-completion) |
+| Build sha (solve binary) | `dbde04b0adf22b8d8e7044a5597c49238683dbaf3943539c2fdd753ae47df0c4` |
+| Params | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000 SOLVE_PER_SUB_BRANCH_LIMIT=70723196 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` |
+| Enum wall | 14,027s (3h 54min) on D128als_v7 Spot |
+| Merge wall | 3,018s (50min 18sec) on D16als_v7 Standard + Premium SSD |
+
+**Records comparison vs v1 11.2T canonical `0c0fe37c…`:**
+
+| | v1 11.2T | v2 11.2T | Δ |
+|---|---|---|---|
+| sha256 | `0c0fe37c…` | `2cc966e4…` | NEW |
+| Records | 759,608,573 | 796,357,285 | **+4.83%** |
+
+**This +4.83% delta is the headline empirical result of the v2
+prune stack at 11.2T, and it is much smaller than the 100B inclusion
+check anticipated** (where v2 found 2.04× v1's record count). The
+v2/v1 record ratio collapses fast as budget grows:
+
+| Budget | v1 records | v2 records | v2/v1 |
+|---|---|---|---|
+| 100B | 12,386,121 | 25,318,023 | **2.04×** |
+| 10T | 706,422,987 | (not measured) | ~1.07× (interpolated) |
+| 11.2T | 759,608,573 | 796,357,285 | **1.05×** |
+| 100T (extrapolated) | 3,432,399,297 | est. ~3.5B | ~1.02× |
+
+The v2 prunes (C5 / #67 / #70) don't create new solutions — they
+only redirect search effort by killing dead branches earlier. They
+"win" only when v1 was wasting non-trivial budget on dead branches.
+Once budget is generous enough that v1's dead-branch waste is a
+small fraction of total work, v2's advantage disappears. At 11.2T
+budget, v1 is already ~95% of the way to local exhaustion; the
++36.7M v2-only records are the solutions v1 missed because some
+sub-branches hit budget before fully discovering their live region.
+
+**Implication for 56-branch deep exhaustion (#49 campaign):**
+
+At single-branch-deep budgets (30T-560T per branch), the v2/v1
+record ratio will be essentially 1.00 — every branch will either
+have already been exhausted by v1 (zero new records from v2) or
+still be BUDGETED with a marginal "+~few percent" gap that keeps
+shrinking. **At true exhaustion, v1 and v2 produce identical
+record sets** (same sha after canonical sort) — pruning changes
+the order of discovery, not the set of solutions. The fact that
+v2's 11.2T sha differs from v1's is a budget artifact, not a
+structural difference.
+
+v2 is still the right canonical methodology going forward
+(consistent code, future-proof for additional prunes), but the
+practical record yield at 100T-560T scales will be marginal.
+
+**Now the honest failure narrative.**
+
+**False start 1 (2026-05-16 ~20:30Z).** Launched the v2 11.2T
+pipeline. Then realized the cold-archive step used default-level
+gzip (not `-9`) and didn't generate a `manifest.json`. Edited the
+running script via Claude Code's `Edit` tool to fix this. **`Edit`
+writes a new file and renames it over the original — it does NOT
+preserve the inode.** The running bash had the original script
+open via `fd 255`; the rename made bash's fd point to a
+`(deleted)` inode that still existed in the kernel. Bash kept
+reading from the deleted file. My edits were on disk but
+invisible to the live pipeline. Caught by `/proc/<pid>/fd/255 ->
+... (deleted)`. Killed the pipeline (~50 min of enum + ~$0.79 of
+Spot D128 lost) and restarted with the fixed script in place.
+**Future rule (recorded in MEMORY.md):** never use `Edit`/`Write`
+on a running script; use Python `open('w').write(...)` or shell
+redirect `> file` — both truncate the existing inode rather than
+renaming over it. Verified by `stat -c %i` before/after.
+
+**False start 2 — partial (2026-05-17 02:46Z).** Pipeline ran to
+completion: enum 3h54min, rsync 10min, merge 50min, verify PASS,
+gzip -9 produced `solutions.bin.gz` (2.93 GB) on the merge VM,
+metadata + solve binary all uploaded to
+`canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/`. The
+script's final step — upload `solutions.bin.gz` directly from the
+merge VM to cold storage via a SAS URL — used
+`curl -X PUT --data-binary @solutions.bin.gz`. **`--data-binary @file`
+loads the entire file into curl's memory buffer**; curl OOMed at
+2.93 GB on the 32 GB D16 VM with the error `curl: option
+--data-binary: out of memory`. The script's "uploaded" log line
+was a literal `emit` that did not check curl's exit code — silent
+failure. The script proceeded to tear down the merge VM, deleting
+the only copy of `solutions.bin.gz`.
+
+**Design oversight that made the failure unrecoverable.** The
+merge VM was provisioned with only its (Premium SSD) OS disk for
+all storage. `solver-data-westus3` — the unattached managed disk
+that exists specifically as the durable-output safety net per the
+standing pattern — was never attached. Per CLAUDE.md, "Data
+disks like `solver-data-westus3` are NEVER deleted by Claude.
+Detach before VM delete." If the script had written
+`solutions.bin` + `solutions.bin.gz` to `/mnt/solver-data/`
+(attached) and detached cleanly before teardown, the bytes would
+have survived the merge VM deletion. They did not, because the
+script did not attach the disk. **My error.**
+
+**What survived in cold storage:**
+- `manifest.json` (full provenance: git head, build recipe, params, VM SKUs, wall times, sizes, shas, v1 reference)
+- `solutions.sha256` (`2cc966e4…`)
+- `solutions.bin.gz.sha256`
+- `solve.sha256` + `solve` binary (build provenance)
+- `merge.log` + `enum_solve.log`
+
+**What was lost:**
+- The 2.93 GB `solutions.bin.gz` itself, recoverable only by re-running the pipeline.
+
+**Total cost of attempt 1 (both runs combined):** ~$5.49
+(D128 Spot enum first attempt $0.79 + D128 Spot enum second
+attempt $3.93 + D16 Standard merge $0.71 + Premium SSD $0.06).
+Per CLAUDE.md the sha256 is the reproducibility anchor — the
+canonical sha is preserved and reproducible by anyone with
+v2-bundled and the documented params. But the operator's explicit
+ask was to put the bytes in cold storage; that part failed.
+
+**Recovery plan (#81 attempt 2, queued 2026-05-17):** re-run the
+full pipeline (~$4.70, ~5h) with three concrete fixes:
+1. **Use `curl -T file <url>`** (streaming PUT) instead of
+   `--data-binary @file` (in-memory PUT)
+2. **Attach `solver-data-westus3` to the merge VM**, mount via
+   `safe_disk_setup.sh`'s `mount_new_disk 256 /mnt/solver-data`
+   (the disk was wiped 2026-05-06 and has no filesystem), write
+   `solutions.bin` + `solutions.bin.gz` there, detach before VM
+   teardown
+3. **Pull `solutions.bin.gz` (2.93 GB) to the claude orchestrator**
+   too as a third-level fallback (claude has ~4 GB free; fits)
+
+If all three storage paths fail simultaneously, something is
+deeply wrong with the infrastructure, not a single-point bug.
+
+The sha is expected to be byte-identical to `2cc966e4…` on re-run
+(deterministic). This is registered in `CANONICAL_HASHES.md` now,
+pending the bytes-in-cold-storage step.
+
+### #81 — attempts 2 and 3 (2026-05-17, both failed in Phase 2)
+
+The next two re-derivation attempts also failed, both times AFTER a
+clean 4-hour enum. Both losses were avoidable. Cumulative cost
+through attempt 3: ~$13 (3 × $3.85 enum + small merge fragments).
+The headline lesson: **I patched each failure mode individually
+rather than stepping back to redesign for safety after attempt 1's
+loss.** The right move after attempt 1 — write shards to
+`solver-data-westus3` from the enum VM, premium SSD only for merge
+temp per the standing pattern (`feedback_premium_ssd_for_merges`) —
+would have made every subsequent failure recoverable. I didn't make
+that move.
+
+**Attempt 2 — `az vm disk attach --ids` syntax error
+(2026-05-17 ~03:23Z → ~07:30Z).** Re-ran with two fixes: streaming
+`curl -T` (not `--data-binary @file`) for the upload, and
+`solver-data-westus3` attached as a data-disk safety net. Enum
+completed clean (4h 03min, 14608s wall). Phase 2 started:
+`az vm disk attach -g $RG_MERGE --vm-name $VM_MERGE --name solver-data-westus3 --ids "$DISK_ID"`
+returned `ResourceNotFound`: Azure CLI parsed `--ids` as the VM
+identifier and looked up the VM under `RG-CLAUDE` (the disk's RG),
+not `$RG_MERGE`. The correct syntax for cross-RG disk attach is
+`--disk "$DISK_ID"`. The ERR trap fired and — because the trap
+called both `teardown_enum` and `teardown_merge` — the enum VM
+with its 57k freshly-written shards was destroyed along with the
+half-provisioned merge VM. Without the (then-missing) `exit 1` in
+the trap, bash continued to execute later script lines, triggering
+ERR multiple more times and emitting a cascade of teardown calls
+to an already-deleted RG.
+
+**Attempt 3 — `mount_new_disk` rejected existing ext4
+(2026-05-17 ~07:34Z → ~11:45Z).** Re-ran with three fixes: corrected
+`--disk` syntax, `exit 1` in the trap (no more cascade), and the
+`safe_disk_setup.sh` helper to mount `solver-data-westus3`. Enum
+again completed clean (4h 07min, 14857s wall). Phase 2 started:
+disk attach worked. Then `source safe_disk_setup.sh;
+mount_new_disk 256 /mnt/solver-data` failed with
+`expected exactly 1 empty 256GB disk; found 0`. The helper's
+`new_disk_by_size` requires `FSTYPE=""` (empty filesystem) — but
+`solver-data-westus3` has an empty ext4 filesystem on it from the
+2026-05-06 mkfs incident (re-populated since with operator data,
+unbeknownst to me). Trap fired again, and even though it no longer
+called `teardown_enum`, the trap definition at that time still
+included `teardown_enum` for a third consecutive enum loss. **I had
+edited the trap to preserve enum but only AFTER reading the
+attempt-3 failure event — too late for attempt 3.** ~$3.85 of enum
+work and 4 hours wall, gone.
+
+**Lesson belatedly applied — verify before depending.** Before
+attempt 4, I provisioned a $0.02 D2 test VM, attached
+`solver-data-westus3`, and ran the mount logic on the actual disk.
+This caught two things:
+1. The `--disk` flag works and emits only a deprecation warning
+   (not an error) — confirms attempts 2-3 had specifically the
+   wrong syntax form, not a permissions/quota issue
+2. **`solver-data-westus3` has 120 GB of operator data on it** —
+   `canonical_100T/`, `canonical_runs/`, recovery scripts from
+   May 6-14. It was wiped on 2026-05-06 but re-populated since.
+   My memory entry (`INCIDENT_2026_05_06_SOLVER_DATA_WIPED.md`)
+   was outdated; I had assumed the disk was still empty.
+
+The right design for attempt 4 (in flight at this writing):
+
+| Risk | Mitigation |
+|---|---|
+| Disk-attach syntax | Tested working on D2 + real disk before attempt 4 launch |
+| Mount of existing ext4 | Custom inline mount logic — `mkfs.ext4 -q` ONLY if `FSTYPE=""`, else `mount` an existing ext4 directly; never `mkfs -F` |
+| Overwriting operator data | Writes go to `/mnt/solver-data/$ARCHIVE_PREFIX/` subdirectory, never top-level |
+| Trap kills enum VM on Phase 2 error | Trap removed `teardown_enum`; enum VM survives Phase 2 failure → SSH in, save shards, fix bug, re-run Phase 2 only (~$0.50 cost instead of another $3.85 enum) |
+| Spot eviction during enum | Eviction policy `Deallocate` + `SOLVE_DFS_CHECKPOINT=1` → OS disk preserved on evict, 21k+ `.dfs_state` files allow resume; eviction monitor armed to detect + recover |
+| Upload failure | `curl -T` streaming (verified via 100B test path), HTTP 201 hard-check, abort + preserve managed-disk copy on failure |
+| Triple storage redundancy | `/mnt/solver-data/$ARCHIVE_PREFIX/` + cold archive + claude `/tmp` fallback (2.93GB fits in 4.6GB free) |
+
+**Why this took so many attempts (honest):** v2 11.2T should have
+been a 5-hour re-run on the first try. It became four-plus attempts
+because I copied a 100B-scale template script without auditing for
+11.2T safety, then patched individual symptoms instead of redesigning
+when the pattern of failures revealed a deeper design issue. The
+standing-pattern entries in my MEMORY.md
+(`feedback_premium_ssd_for_merges`, `feedback_preserve_assets`,
+`feedback_keep_managed_disk`) describe the architecture that would
+have made every failure non-destructive — durable storage of shards
+from the start, premium SSD as ephemeral scratch only, never
+auto-teardown of the enum VM. I had the knowledge, but did not
+apply it. The cumulative ~$13 cost of this saga is the price of
+that discipline gap, paid by the operator.
+
+### #81 — v2 11.2T canonical preserved (attempt 4 + Phase 2 recovery, 2026-05-17)
+
+**Final result:** sha
+`2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d`
+(byte-identical to attempt 1's transient result, confirming
+deterministic enum), 796,357,285 records, **archived to all three
+storage paths**:
+
+| Storage path | Location | Size |
+|---|---|---|
+| Managed disk (durable) | `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/` | 25 GB bin + 2.93 GB gz + manifest + sha files |
+| Cold archive | `canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/` | Same (2.93 GB gz uploaded via streaming `curl -T`, HTTP 201 verified) |
+| Claude `/tmp` fallback | `/tmp/v2_11.2T_results/solutions.bin.gz` | 2.93 GB gz, sha verified `4f1cd8b3…` |
+
+`solve --verify` PASS — all 796,357,285 records satisfy C1-C5, no
+duplicates, sorted, **King Wen present in the set**.
+
+**Phase 2 recovery story.** Attempt 4 reached Phase 2 with the
+hardened pipeline (mount logic that handles existing ext4, trap that
+preserves enum VM on Phase 2 errors, `curl -T` upload). The disk
+attach succeeded, the install succeeded, but the inline mount script
+hit ANOTHER escaping bug in the awk script — `"/dev/"` was not
+backslash-escaped in the outer SSH heredoc, so outer bash treated the
+inner `"` chars as quote terminators and the awk script came out as
+`print /dev/ $1` (unquoted), producing `DEV=0nvme0n2` instead of
+`/dev/nvme0n2`. Trap fired correctly — **and this time the trap
+preserved the enum VM** (the fix from earlier in the saga). The enum
+VM at 20.106.96.126 stayed alive with all 57,521 shards intact.
+
+Per the runbook, this was the recovery path:
+1. SSH to alive enum VM, verify shards
+2. Write a Phase-2-only script with the FIXED mount logic
+   (sidestep escaping by uploading the mount script as a separate
+   file to the merge VM, no nested-shell quoting hell)
+3. Pre-flight $0.02 D2 test of the disk-attach + mount before
+   committing to a fresh merge VM
+4. Run Phase 2 only: provision new merge VM, attach solver-data,
+   mount, rsync from enum (10 min), tear down enum, merge (50 min),
+   verify, save outputs to `/mnt/solver-data/$ARCHIVE_PREFIX/`,
+   upload to cold archive, pull to claude fallback, detach disk,
+   tear down merge
+
+Wall: rsync 598s + merge 2968s + post-merge ~24min = ~1.5h
+recovery (vs ~5h full re-enum). Cost: ~$1 recovery (D16 Standard
+on Premium SSD OS disk for ~1.5h).
+
+**Records comparison vs v1 11.2T canonical `0c0fe37c…`:**
+
+| | v1 11.2T | v2 11.2T |
+|---|---|---|
+| sha256 | `0c0fe37c…` | `2cc966e4…` |
+| Records | 759,608,573 | **796,357,285 (+4.83%)** |
+| Pre-dedup | (not measured) | 3,141,367,587 (dedup 25.3% unique) |
+| File size | ~24.3 GB | ~24.3 GB |
+
+**Total cost of #81 across all attempts:** ~$18 (~$0.79 + $4.70 + $3.85 + $3.85 + $3.85 enum-and-merge + ~$1 recovery merge). Should have been ~$5 on attempt 1 if the runbook architecture had been in place from the start.
+
+**What broke each time (for completeness):**
+1. Attempt 1: produced sha + verify, but `curl --data-binary @file` OOMed at 2.93 GB → bytes lost
+2. Attempt 2: `az vm disk attach --ids` wrong syntax (should be `--disk`) → trap torn down enum
+3. Attempt 3: `mount_new_disk` rejects existing ext4 on solver-data → trap torn down enum
+4. Attempt 4 (Phase 2 only with surviving enum): awk script broken by unescaped `"/dev/"` in outer-SSH heredoc → trap PRESERVED enum (fix worked) → Phase 2 recovery succeeded
+
+**Pipeline architecture lessons captured for future canonicals:**
+- `feedback_canonical_pipeline_pattern.md` in operator memory — mandatory pattern for any canonical ≥11.2T
+- `x/roae/CANONICAL_PIPELINE_RUNBOOK.md` — operator-facing pre-launch checklist, recovery procedures, scale-specific guidance for 100T and 560T
+- Trap discipline: `teardown_merge; exit 1` only — never `teardown_enum` on Phase 2 errors
+- Shell-quoting discipline: complex inline scripts in SSH heredocs are landmines; upload as separate scripts to the remote VM instead
+
+**v2-bundled HEAD `9d00c48` is now the canonical solver for 11.2T
+v2 lineage.** Next: #69 MRV variable ordering, then design passes
+#88 (C5 tighter feasibility) and #89 (C2 as space prune). 100T and
+560T canonicals are blocked on the runbook + the v2 prune-stack
+saturation curve — diminishing returns suggest those will land
+records within ~1% of v1.

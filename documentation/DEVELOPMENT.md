@@ -164,6 +164,22 @@ submissions, Bitcoin Core, Debian package builds).
 
 Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Add to the 560T pre-launch checklist.
 
+#### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
+
+For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`x/roae/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, ~$18 across four attempts vs ~$5 first-shot expected) — every failure mode it documents corresponds to a real overrun.
+
+The runbook's mandatory invariants for canonical runs:
+
+- Enum OS disk: explicit `--storage-sku StandardSSD_LRS` (Azure defaults `s`-suffix VMs to Premium_LRS otherwise)
+- Shards on attached managed disk (`solver-data-westus3`), not the enum VM's OS disk
+- ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a $0.50 Phase-2-only re-run instead of a $4 enum redo
+- Cold-archive upload via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
+- Mount logic handles existing-ext4 (operator data on solver-data); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
+- Mandatory $0.02 D2 pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
+- Triple-redundancy archival: managed disk + cold archive + claude `/tmp` (size-permitting)
+
+The corresponding operator-memory entry at `feedback_canonical_pipeline_pattern.md` codifies the same rules for Claude.
+
 ### Resume-path defense in depth (added 2026-05-14, post-Phase E.2)
 
 The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase E mechanism validation, May 12–14 2026) demonstrated empirically that pre-`c3ad271` solve.c code had at least **two distinct resume-path bugs** that produce silent or noisy data loss: `c3ad271` bug 2 (in-process merge cross-ref rejection in v1 recursive path → loud abort) and `c3ad271` bug 3 (off-by-one frame budget in v2 iterative path → silent record loss). Both fixes are in `main` since May 1 2026. This section documents the five defense-in-depth measures that protect against future regressions of this class.
