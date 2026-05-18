@@ -494,11 +494,14 @@ Closes Phase E.2 defense item 1 (selftest-resume gating) and the gating gap for 
 
 ---
 
-## 2026-05-18 — task #69: MRV variable ordering (fail-first pair iteration) — IN FLIGHT
+## 2026-05-18 — task #69: MRV variable ordering (fail-first pair iteration) — **SHELVED after K-pilot**
 
-**Category**: prune (search-order optimization)  
-**Sha impact**: would be forking in `fail-first` mode (byte-level); canonical-level equivalence expected  
-**Decision**: pending K-pilot
+**Category**: prune (search-order — turned out NOT to produce a superset relation)  
+**Sha impact**: would be forking in `fail-first` mode (byte-level AND canonical-level, at every scale tested)  
+**Decision**: **SHELVE** — K-pilot at canonical-equivalent scale shows fail-first finds 23% FEWER records than numeric AND the two orderings explore completely disjoint canonical-level record sets
+
+### Hypothesis (original)
+Iterate available pairs at each DFS step in fail-first order (pairs with rarest within-pair-distance first) rather than fixed numeric order 0..31. CSP literature suggests 2–10× tree-size reduction. Implementation: existing dead-code `pair_order[]` sorted table (already present in solve.c since some prior unfinished attempt) wired into the DFS hot loop, gated by `SOLVE_VAR_ORDER=fail-first` env (default `numeric` is sha-preserving).
 
 ### Hypothesis
 Iterate available pairs at each DFS step in fail-first order (pairs with rarest within-pair-distance first) rather than fixed numeric order 0..31. CSP literature suggests 2–10× tree-size reduction. Implementation: existing dead-code `pair_order[]` sorted table (already present in solve.c since some prior unfinished attempt) wired into the DFS hot loop, gated by `SOLVE_VAR_ORDER=fail-first` env (default `numeric` is sha-preserving).
@@ -523,10 +526,41 @@ Iterate available pairs at each DFS step in fail-first order (pairs with rarest 
 - Fail-first mode: PASS at selftest scale (canonical-level diff = zero at 100M)
 - 1B K-pilot: pending
 
-### Notes
-**In flight.** Currently uncommitted in working tree at `/home/claude/github/roae/roae/solve.c`. Phase A scaffolding (env var + struct field + DFS wiring) shipped to working tree. Pre-existing `--selftest-resume` test failure is unrelated to this change (filed as task #91; the pre-patch HEAD also fails it). Pending: 1B K-pilot canonical-level diff, decision on re-baseline.
+### Result — K-pilot empirical data (2026-05-18, ~$2 total)
 
-Detailed design in `x/roae/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
+Paired numeric-vs-fail-first runs on `--branch 24 0` (largest first-level branch, 2,488 depth-3 cells), same VM, page-cache flush between modes, preflight throttle probe at canonical scale:
+
+| Scale | Per-cell | K = R_ff/R_num | Numeric records | Fail-first records | Set relationship |
+|---|---|---|---|---|---|
+| 1B | 402K | **1.342** | 1,631,512 | 2,189,610 | byte-shas differ |
+| 10B | 4M | **0.980** | 9,762,700 | 9,568,717 | canonical-shas differ |
+| 100B | 40M (≈ canonical) | **0.770** | 60,519,764 | 46,569,461 | **\|N∩F\|=0 — DISJOINT** |
+| 1T | 402M (5.7× canonical) | **0.922** | 305,975,483 | 282,009,708 | shas differ; intersection size computation killed |
+
+### Why SHELVE
+1. The 1B K=1.342 was a small-budget artifact — both orderings find their own "easy" subset; the 34% advantage doesn't replicate at larger scales.
+2. **At canonical-equivalent scale (100B), fail-first underperforms by 23%.**
+3. **At canonical scale, the canonical-level set intersection is EMPTY** — numeric finds 60.5M records, fail-first finds 46.6M records, and they share ZERO records at the pair-sequence level. The two orderings are exploring genuinely non-overlapping slices of the search tree, not refinements of each other.
+4. The 1T K=0.922 shows partial convergence at larger scale but fail-first never exceeds numeric.
+5. Neither set is a superset of the other → re-baselining the canonical on fail-first would produce a different, smaller artifact that isn't comparable to v2 `2cc966e4…` by sha-preservation criteria.
+
+### Sha gate
+- Numeric mode: PASS (selftest sha `56487ab5…` byte-identical to current v2 canonical baseline)
+- Fail-first mode: at every scale tested, both byte-level shas AND canonical-level shas differ from numeric; canonical-set intersection at 100B is empty
+- 1T numeric reproducibility: sha `f3a3e68c…` byte-identical to today's PGO 1T v3 bench (cross-host reproducibility confirmed)
+
+### Decision
+**SHELVE the current `fail-first` implementation.** The patch in working tree (`solve.c` with `pair_order[]` wired into the DFS hot loop) stays uncommitted. Either drop via `git checkout HEAD -- solve.c` or leave as documentation of "what was tried."
+
+This does NOT close out variable-ordering as a research direction. The disjoint-set finding suggests that variable ordering DOES matter — different orderings genuinely explore different regions. A future per-step MRV scheme (count valid options per remaining slot, sort by ascending constrainedness — not the static WPD-rarity heuristic tested here) might find a different region that's larger than numeric's. That's a spiritual successor task, not this implementation.
+
+### Notes
+- 22 GB of K-pilot solutions.bin files archived to `solver-data-westus3:/kpilot_69_mrv_20260518_*/` for post-hoc analysis if needed.
+- Detailed K-pilot writeup: `x/roae/MRV_KPILOT_RESULTS_2026_05_18.md`.
+- Design doc that motivated the K-pilot: `x/roae/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
+
+### Bug found and fixed during this K-pilot
+The first K-pilot bench attempt hit a silent SIGSEGV on `solve --merge` with `SOLVE_MERGE_MODE=external` on default 8 MB stack. Fixed in commit `dc01860` — `--merge` now hard-exits with a clear error if RLIMIT_STACK ≠ unlimited. See separate entry below.
 
 ---
 
@@ -546,7 +580,7 @@ The table below summarizes what's measured so far. Numbers in brackets are the e
 | #81 v2 11.2T re-baseline | +4.83% records at 11.2T [#81] | forking | shipped (new anchor) |
 | #78 PGO | **+6.5% enum-only at 1T (v3 confirmed)** [#78 v3] | preserving (byte-identical sha verified at 1T + 1B) | shipped |
 | #92 resume regression fix | correctness fix (no perf delta) [#92] | preserving for single-shot; resume now byte-identical | shipped commit `b684cca`; 2,824-cycle 1B validation PASS |
-| #69 MRV fail-first | TBD (1B K-pilot pending) [#69] | forking expected | pending |
+| #69 MRV fail-first | **K=0.770 at canonical-equivalent scale (100B); SHELVED** [#69] | forking (canonical-set disjoint at 100B) | **SHELVED** |
 
 **Resolved gaps (this section was 5 TBDs before re-evaluation 2026-05-18; all closed by EOD):**
 - AVX-512 (#46): closed at zero via commits `b26cd9b` (REVERT) and `0783d52` (definitive 1T bench).
