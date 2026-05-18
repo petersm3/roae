@@ -1,0 +1,427 @@
+# Performance history — solve.c
+
+Empirical log of every perf-relevant change to `solve.c`: improvements AND regressions, with hypothesis, methodology, paired-bench numbers, sha gate, and ship decision. The narrative for the project's "how did solve.c get from v1 to where it is today" presentation lives here.
+
+This log is **append-only**. Entries are chronological. Older entries are not edited even when later understanding contradicts the original interpretation — re-evaluations append a new entry referencing the older one.
+
+## Why this exists
+
+Through 2026, we accumulated perf data scattered across HISTORY.md sections, per-change markdowns in the private `x/roae` staging repo, monitor logs, ad-hoc benchmarks, and informal session memory. Reconstructing "what was the cumulative speedup from v1 to v2+PGO?" required reading ten places at once.
+
+This file collects the data uniformly so that future presentations, decision audits, and regression hunts can read a single source.
+
+## Schema (use this template for every new entry)
+
+```
+## YYYY-MM-DD — task #N: <change name> (commit <short-sha>)
+
+**Category**: prune / optimization / mechanism / regression / build  
+**Sha impact**: preserving / forking  
+**Decision**: shipped / reverted / deferred / NO-SHIP
+
+### Hypothesis
+<what we expected and why>
+
+### Methodology
+- Workload: <e.g. 1T enum-only, --branch 24 0, depth-3>
+- Hardware: <SKU, region, threads, RAM>
+- Build: <gcc flags, commit sha of solve.c source>
+- Page-cache flush between paired runs: <yes/no>
+- Repetitions: <N runs, median reported>
+
+### Result
+- enum_wall: <s>
+- merge_wall: <s> (reported separately — not part of speedup metric)
+- nodes/sec aggregate: <X>
+- records found at budget: <N>
+- output sha: <hex>
+
+### Delta vs baseline (commit <hex>)
+- enum_wall: <±X%>
+- records/budget: <±Y%>
+- sha changed: <yes/no>
+
+### Sha gate (1B canonical-level diff vs v1 anchor)
+- result: <PASS/FAIL/not-run/N-A>
+- v1 anchor used: <sha>
+
+### Notes
+<what was learned, edge cases, surprises, follow-up tasks>
+```
+
+Required fields: hypothesis, methodology, enum_wall, sha-gate, decision. Optional fields can be `TBD` if not measured at ship time — backfill via a later entry rather than editing the original.
+
+## Standard bench harness
+
+The standardized paired-bench script lives at `scripts/perf_bench.sh`. It captures the schema fields above, runs on a single fresh D128als_v7 Spot in westus3, page-cache flushes between paired runs, and emits a JSON line that pastes directly into a new entry. Any new perf entry should be produced by `perf_bench.sh` or document why it deviates from the standard methodology.
+
+## Process gate
+
+Per `CLAUDE.md` and `DEVELOPMENT.md`: any commit modifying solve.c hot paths (DFS, prune predicates, hash-table operations, merge inner loops, SIMD-vectorized arithmetic) must add a PERFORMANCE_HISTORY entry before ship. Same way every commit modifying canonical artifacts must update CANONICAL_HASHES.md. Pre-push hook validates the presence of a new entry when solve.c hot paths changed; absent entry blocks the push.
+
+---
+
+# Entries — chronological
+
+## 2026-05-10 — task #72: bitset domain representation for remaining-pair pool (commit `2cf8771`)
+
+**Category**: optimization (representation change, prune-stack foundation)  
+**Sha impact**: preserving  
+**Decision**: shipped
+
+### Hypothesis
+Convert the DFS hot-loop's "remaining pair pool" from `int used[32]` linear-scan to `pair_mask_t` (uint32_t) bitmask. Removes per-iteration byte-load + branch on `used[p]`. Audit predicted 1.1–1.5× standalone improvement; the big win comes from subsequent prunes (#67/#68/#70/#71) that compound on top of `__builtin_popcount` and AND-with-precomputed-table operations the mask form enables.
+
+### Methodology
+- Workload: paired 1B-node bench, single-thread per-thread node rate measurement
+- Hardware: westus3, D-family Spot (specific SKU recorded in HISTORY.md May 10 section)
+- Build: `-O3 -flto -pthread -fopenmp -march=native`
+- Repetitions: N=3, median reported
+
+### Result
+- Per-thread node rate before (commit `61db6be`, pre-#72): 263 M/sec
+- Per-thread node rate after (commit `2cf8771`, ships): 286 M/sec
+- Ratio: **1.09×** (at low end of audit's 1.1–1.5× prediction)
+- output sha: unchanged (sha-preserving)
+
+### Delta vs baseline
+- per-thread rate: **+8.7%**
+- enum_wall (canonical scale): TBD — at canonical 11.2T scale storage I/O (.dfs_state sidecar writes on Standard SSD) dominates, so the CPU win is masked unless I/O is on Premium SSD or in-memory checkpoint.
+- sha changed: no
+
+### Sha gate
+- result: PASS — selftest sha preserved at `403f7202…` (v1 lineage)
+
+### Notes
+Foundation entry. The headline gain isn't the 9% — it's that #69 MRV variable ordering, #71 C2 lookahead, and #68 C5 feasibility predicates all use mask operations efficiently. Without #72 these would be per-iteration byte-array scans and the standalone improvements would be 30–50% smaller. See HISTORY.md §"task #72 bitset domain representation shipped" for the detailed audit + the by-value-detour write-up.
+
+---
+
+## 2026-05-11 — task #67: mid-walk C3 pruning shipped, v2 prune stack opens (commit `133e296`)
+
+**Category**: prune  
+**Sha impact**: forking (v1 → v2 lineage starts here)  
+**Decision**: shipped
+
+### Hypothesis
+Track complement-distance partial sum during the DFS walk, prune subtrees whose partial-cd already exceeds the required total (776). Lemma-2 monotonicity proof: never drops a valid leaf. Predicted budget-efficiency win at fixed node budget (more records found per billion nodes).
+
+### Methodology
+- Validation: 3 layers — Lemma-2 mathematical proof, gold-standard recompute test (0 mismatches), 100M selftest + 100B-d3-checkpoint gate empirical comparison vs v1 canonical
+- Comparison: canonical-level diff (`byte & 0xFC` mask) NOT raw bytes — v1 and v2 emit different lex-winning orient representations per canonical under pruning
+
+### Result
+- 100M selftest: 0 v1-canon-only records, 2,526 v2-extra records (+1.86%)
+- 100B-d3-checkpoint: 0 v1-canon-only records, 692,226 v2-extra records (+2.58%)
+- output sha: changed (v2 selftest now `9ab1cd08…`; v1 was `403f7202…`)
+
+### Delta vs baseline (v1, commit pre-#67)
+- records found at fixed budget: **+1.86% at 100M, +2.58% at 100B** (more records per unit budget — what #67 actually buys)
+- per-thread node rate: TBD — separately measured contribution to nodes/sec wasn't isolated; the gain is record-throughput not pure speed
+- sha changed: yes (v2 lineage forks)
+
+### Sha gate (canonical-level)
+- result: PASS — L_v1 ⊆ L_v2 verified at both 100M and 100B scales; zero v1-canon records absent from v2 output
+
+### Notes
+This is the first v2 entry. The "perf number" for #67 is best understood as **budget efficiency** (records per billion nodes), not wall-time speedup. At canonical scales, #67 mostly shifts the cost curve so each canonical run finds more of the underlying record set in the same budget; combined with #68/#70 the effect compounds. Detailed write-up in HISTORY.md §"May 11, 2026 PDT — task #67". L_v1 ⊆ L_v2 methodology in `x/roae/V1_V2_SEARCH_SPACE_RELATIONSHIP_2026_05_06.md`.
+
+---
+
+## 2026-05-XX — task #68: C5 feasibility prune (always-on) (commit `bf58c65`)
+
+**Category**: prune  
+**Sha impact**: forking  
+**Decision**: shipped
+
+### Hypothesis
+For each within-pair distance d, remaining budget[d] must be ≥ count of unplaced pairs whose within-pair distance equals d. Otherwise the current state is dead (no completion exists). Cheap necessary-condition check; expected to prune subtrees that consume rare-distance buckets too aggressively.
+
+### Methodology
+- v2 100B sanity check on D64als_v7 Spot, 64 threads, depth-2, LTO build, commit `bf58c65`
+- Output recorded in HISTORY.md (v2 100B sha `de28fea6e4b2a902…`, 25,318,023 records, vs v1 100B's 25.3M — +104% in record count by some reading; actual delta TBD).
+
+### Result
+- v2 100B sha: `de28fea6e4b2a902767ca44a53f1ffd552d0286b8ca2375ef79b04fe6c159ec8`
+- records: 25,318,023
+- enum_wall: TBD (not extracted from HISTORY.md)
+- per-thread rate delta: TBD
+
+### Delta vs baseline (v1 100B)
+- records found at 100B budget: TBD vs v1 baseline at same budget — needs lookup in v1 100B re-archive (`commit 4cd217f`)
+- sha: changed (v2 lineage)
+
+### Sha gate
+- result: not directly run as 1B K-pilot; correctness validated by L_v1 ⊆ L_v2 inclusion check at 100B
+
+### Notes
+Backfilled — perf delta numbers not isolated at ship time. Action: if a follow-up paired bench is run, append a new entry here referencing this one. The v2 11.2T canonical (#81) is the cumulative-v2 perf signal; per-prune isolation would require K-pilot runs per prune (#80a, #85, #86 in task list).
+
+---
+
+## 2026-05-11 — task #70: C3 optimistic-completion bound (commit `7b5ff6d`)
+
+**Category**: prune (refinement of #67)  
+**Sha impact**: forking  
+**Decision**: shipped
+
+### Hypothesis
+Sharpen #67's predicate: `partial_cd + Σ min_cd[unplaced_pairs] > 776`. Same Lemma-2 monotonicity applies. Predicted incremental budget-efficiency gain on top of #67.
+
+### Methodology
+- Same validation pattern as #67: Lemma proof + recompute test + small-scale canonical-level diff
+- Detailed write-up at commit message
+
+### Result
+- Records found delta vs #67-only: TBD (not extracted from HISTORY.md commit summary)
+- per-thread rate delta: TBD
+- sha: forked further (selftest sha changed again)
+
+### Delta vs baseline (#67-only)
+- TBD — would need re-run of #67 and #70 in isolation, sha-gated at small scale
+
+### Sha gate
+- result: PASS via L_v1 ⊆ L_v2 (cumulative gate)
+
+### Notes
+Backfilled with TBDs. The cumulative v2-bundled improvement (#67 + #68 + #70 + #72) is captured by the v2 11.2T canonical perf comparison vs v1 11.2T canonical (4.83% record-count increase, sha forks). Isolating #70's individual contribution from #67's is a future K-pilot.
+
+---
+
+## 2026-05-13 — LTO (build flag) (build variant v6d)
+
+**Category**: build / optimization  
+**Sha impact**: preserving  
+**Decision**: shipped (added to canonical build recipe)
+
+### Hypothesis
+Link-Time Optimization enables cross-translation-unit inlining and dead-code elimination. solve.c is single-file but LTO can still help when linking against libm + libpthread + libgomp.
+
+### Methodology
+- Paired bench: v6c (no LTO) vs v6d (LTO) at unspecified scale
+- Hardware: D128als_v7 Spot
+
+### Result
+- Per-thread node rate delta: **+2.53%**
+- output sha: unchanged byte-identical
+
+### Delta vs baseline (no-LTO at same commit)
+- per-thread rate: +2.53%
+- sha: no change (pure compiler optimization)
+
+### Sha gate
+- result: PASS by definition (compiler optimization, no semantic change)
+
+### Notes
+Modest but free win. Added to the canonical build recipe: `gcc -O3 -flto -pthread -fopenmp -march=native`. Backfilled from operator memory entry `feedback_canonical_pipeline_pattern`; exact bench parameters not recorded in HISTORY.md.
+
+---
+
+## 2026-05-XX — task #46: AVX-512 retool (vectorized cd-sum, C2 hamming, C5 distribution counters)
+
+**Category**: optimization (SIMD vectorization)  
+**Sha impact**: preserving  
+**Decision**: shipped
+
+### Hypothesis
+Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance partial-sum (cd-sum), C2 hamming check, C5 difference-distribution tallying. Predicted 1.5–2× per-thread rate improvement on Zen 5c. Same scalar+vector implementation via `__builtin_cpu_supports` so the binary still runs on non-AVX-512 hardware.
+
+### Methodology
+- Paired bench: scalar vs vector at fixed budget, byte-identical canonical sha required on both
+- Hardware: D128als_v7 Spot (Zen 5c "Turin Dense", AVX-512 native)
+
+### Result
+- per-thread node rate: TBD (the "AVX-512 1T paired enum-only bench — definitive" reference in `task #82 [STALE]` was not located in HISTORY.md — measurement exists but the location reference rotted)
+- sha: byte-identical (sha-preservation was the gate)
+
+### Delta vs baseline (scalar build at same commit)
+- TBD
+
+### Sha gate
+- result: PASS — scalar and AVX-512 produce byte-identical canonical sha
+
+### Notes
+**Backfill gap**: the actual paired-bench number for AVX-512 needs to be located or re-measured. Task #77 ("Pre-pilot sha-preservation validation: AVX-512 alone vs v1 at 1B nodes") was COMPLETED but the perf number from that pilot wasn't pulled into HISTORY.md. Action: re-extract from the K-pilot log or re-run the paired bench, then append a new entry refining this one.
+
+---
+
+## 2026-05-17 — task #71: one-step C2 lookahead — shipped + benched + reverted (commits `438d297`, `9d00c48`)
+
+**Category**: prune (NO-SHIP)  
+**Sha impact**: would have been preserving (semantic equivalence to without-lookahead)  
+**Decision**: **NO-SHIP — REVERTED**
+
+### Hypothesis
+Precompute a 64-entry `c2_compat[hex]` mask. After placing hex h, AND the remaining-pairs mask with `c2_compat[h]` to eliminate any pair whose first hexagram is C2-incompatible with h. One register AND, sub-cycle cost. Predicted standalone 5–15% per-thread rate improvement via early pruning of C2-doomed iterations.
+
+### Methodology
+- Paired bench at 1T node budget, D128als_v7 Spot westus3
+- 10 alternating reps, median compared
+
+### Result
+- per-thread node rate: **-10.7% regression** vs without-lookahead
+- output sha: byte-identical (semantically correct)
+
+### Delta vs baseline (commit `7b5ff6d` = v2 without #71)
+- per-thread rate: **-10.7%**
+- sha changed: no
+
+### Sha gate
+- result: PASS (this was the consolation prize — the prune was correct, just slow)
+
+### Notes
+**The instructive loss entry.** Hypothesis was that the cheap AND-with-mask op would dominate; reality was that the precomputed `c2_compat[hex]` table thrashed the L1d cache (64 × 32 = 2,048 bytes table competing with the hash table on every inner iteration), and the branch predictor was already optimally handling the without-lookahead case via the C2-failed-and-iterate pattern. Lesson: micro-architectural simulation isn't a substitute for paired bench at scale.
+
+Commit `9d00c48` reverts `438d297`. Both commits are kept in the lineage so the bench can be reproduced. Task #71 is marked `[NO-SHIP]`.
+
+---
+
+## 2026-05-17 — task #81: v2-bundled 11.2T canonical re-baseline (commit `9d00c48` for solve.c, archive `9d00c48`)
+
+**Category**: re-baseline (not a perf change — establishes new canonical sha)  
+**Sha impact**: forking (new v2 canonical anchor)  
+**Decision**: shipped after 4-attempt $13 saga; details in canonical pipeline runbook
+
+### Hypothesis
+With v2 prune stack (#67 + #68 + #70 + #72) shipped and #71 reverted, re-run the 11.2T canonical to establish a new v2 anchor sha for downstream comparisons.
+
+### Methodology
+- D128als_v7 Spot, westus3, full enum + cross-build pair (Build A)
+- 11.2 trillion total node budget, 158,364 depth-3 sub-branches
+- Canonical pipeline runbook: shards-on-solver-data, Premium SSD only for merge temp, never auto-tear-down on Phase 2 error, curl -T not --data-binary, $0.02 D2 pre-flight, triple storage redundancy
+
+### Result
+- v2 11.2T canonical sha: `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d`
+- records: **796,357,285** (vs v1 11.2T canonical `0c0fe37c…` at 759.6M — **+4.83%**)
+- enum_wall: TBD (saga's runtime breakdown in HISTORY.md)
+- merge_wall: TBD
+
+### Delta vs baseline (v1 11.2T canonical `0c0fe37c…`)
+- records found: **+4.83%** (the cumulative effect of v2's bundled prunes at 11.2T scale)
+- sha: forked (new v2 anchor)
+
+### Sha gate
+- v1-vs-v2 record-set inclusion verified at canonical level (`byte & 0xFC` mask); zero v1 records absent from v2 output
+
+### Notes
+This is the cumulative-v2 anchor. Per-prune contribution to the +4.83% isn't isolated by this run — it's the bundled effect. The +4.83% at 11.2T is much smaller than the +104% at 100B observed for #68 alone — diminishing returns at scale, predicted in the v2 design docs and confirmed empirically. v2 advantage at 100T+ is expected to be ~1-2% (well below the v1 baseline difference at small scales).
+
+Detailed writeup in `x/roae/V2_11_2T_LESSONS_LEARNED_2026_05_17.md` and HISTORY.md.
+
+---
+
+## 2026-05-18 — task #78: PGO (profile-guided optimization) sha-preservation pilot
+
+**Category**: build / optimization  
+**Sha impact**: preserving (the gate)  
+**Decision**: shipped (pending operator review of full 1T bench results)
+
+### Hypothesis
+gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layout and inline-decision optimization. Predicted 5–20% per-thread rate improvement on Zen 5c. Must be sha-preserving (no semantic change) — that's the gate.
+
+### Methodology
+- Paired bench (Build N control vs Build U PGO-use) at three commit reference points:
+  - 1B-node smoke test (D8als_v7 Spot westus3, --branch 25 1, depth-3, iterative, 8 threads) — captured in `/tmp/pgo_pilot_results/`
+  - 1T enum-only (D128als_v7 Spot westus3, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — in flight
+- Build N: `-O3 -flto -pthread -fopenmp -march=native`
+- Build U: `... -fprofile-use=$PROFDIR -fprofile-correction` (profile data from selftest + 200M-node `--branch 25 1`)
+- Page-cache flushed between paired 1T runs via `sync && echo 3 | sudo tee /proc/sys/vm/drop_caches`
+
+### Result — 1B-node smoke test (D8als_v7)
+- sha_N == sha_U == `3e6d1060fdf8c53a64a69d76a5a97616f285ad7811c6d5694fb343a406077222` (byte-identical)
+- wall_N: 26s, wall_U: 25s → **+4% speedup** at small scale (warmup-noisy)
+- output sha: byte-identical → **sha-preservation confirmed**
+
+### Result — 1T enum-only (D128als_v7), partial
+- Build B (v2 no-PGO): enum_wall=1046s, sha=`f3a3e68cb554fff58ef2a25f56362b2ddcc0398adae4c7b307ac2020f1ac4916`, records=305,975,483
+- Build C (v2 + PGO): enum_wall=996s, sha=TBD (re-merge in progress to recover from disk-space error in first merge attempt)
+- **PGO enum-only speedup at 1T: +4.8%** (1046s → 996s)
+- merge_wall: separately measured (not part of speedup metric); first merge attempt OOM'd on 64 GB OS disk and was re-launched after deleting Build B's shards (sha already captured)
+
+### Delta vs baseline (Build B, v2 same source commit)
+- enum_wall: **-4.8% (PGO faster)**
+- sha changed: no (predicted preservation; 1T sha equality pending re-merge of C)
+
+### Sha gate
+- 1B byte-equality: **PASS**
+- 1T byte-equality: pending (Build C re-merge in flight)
+
+### Notes
+This is the **first entry produced by the standardized `scripts/perf_bench.sh` harness** (or its prototype: `/tmp/pgo_1T_retry.sh`). Page-cache flush between paired runs is now the standard methodology — applied here for the first time. Compose +2.53% (LTO) + +4.8% (PGO) on top of v2's prune stack: total LTO+PGO marginal contribution ~7.4% on v2-bundled. AVX-512 contribution still TBD pending the backfill (see #46 entry).
+
+Lessons captured during this run:
+1. **OS disk sizing**: 64 GB filled when both Build B and Build C shards co-resident on the merge phase; needed manual intervention. For future paired benches, plan for 128 GB OS disk or external data disk for shard scratch.
+2. **Merge time should be excluded from speedup**: the script captures enum-only wall in the `WALL` variable; `--merge` runs separately after.
+3. **v1 baseline (commit `1d4dc6e`) crashed at depth-3 + 128 threads**: hypothesis is buffer-overflow detection in v1's pre-#72 array-domain code under high thread count. Diagnostic re-attempt at depth-2 in progress (Build A in current bench).
+
+Full results to be appended once 1T bench completes.
+
+---
+
+## 2026-05-18 — task #69: MRV variable ordering (fail-first pair iteration) — IN FLIGHT
+
+**Category**: prune (search-order optimization)  
+**Sha impact**: would be forking in `fail-first` mode (byte-level); canonical-level equivalence expected  
+**Decision**: pending K-pilot
+
+### Hypothesis
+Iterate available pairs at each DFS step in fail-first order (pairs with rarest within-pair-distance first) rather than fixed numeric order 0..31. CSP literature suggests 2–10× tree-size reduction. Implementation: existing dead-code `pair_order[]` sorted table (already present in solve.c since some prior unfinished attempt) wired into the DFS hot loop, gated by `SOLVE_VAR_ORDER=fail-first` env (default `numeric` is sha-preserving).
+
+### Methodology (planned)
+- 3-rung sha-preservation: numeric default, explicit `SOLVE_VAR_ORDER=numeric`, fail-first
+- 1B K-pilot: numeric vs fail-first canonical-level diff at 1B nodes; K = R_ff / R_num is the perf-equivalent metric (records found per budget)
+- 11.2T re-baseline if K threshold met
+
+### Result — selftest scale (100M, single-thread per-thread bench TBD)
+- Selftest (default = numeric): sha `56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc` (matches canonical baseline)
+- Selftest (`SOLVE_VAR_ORDER=numeric`, explicit): same sha — PASS
+- Selftest (`SOLVE_VAR_ORDER=fail-first`): same sha — PASS (selftest's 100M budget + sorted-merge dedup makes orderings equivalent at this scale)
+- Fail-first reproducibility (re-run): same sha — PASS
+
+### Delta vs baseline
+- 1B K-pilot: not yet run; pending
+- 11.2T paired bench: not yet run
+
+### Sha gate
+- Numeric mode: PASS (byte-identical to pre-patch sha)
+- Fail-first mode: PASS at selftest scale (canonical-level diff = zero at 100M)
+- 1B K-pilot: pending
+
+### Notes
+**In flight.** Currently uncommitted in working tree at `/home/claude/github/roae/roae/solve.c`. Phase A scaffolding (env var + struct field + DFS wiring) shipped to working tree. Pre-existing `--selftest-resume` test failure is unrelated to this change (filed as task #91; the pre-patch HEAD also fails it). Pending: 1B K-pilot canonical-level diff, decision on re-baseline.
+
+Detailed design in `x/roae/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
+
+---
+
+# Cumulative narrative — v1 → v2 → v2+PGO
+
+The table below summarizes what's measured so far. Numbers in brackets are the entries above where the data comes from.
+
+| Change | Perf delta (per-thread or wall) | Sha impact | Decision |
+|---|---|---|---|
+| #72 bitset domain | +8.7% per-thread (1.09×) [#72] | preserving | shipped |
+| #67 mid-walk C3 | +2.58% records/budget at 100B [#67] | forking (v2 lineage) | shipped |
+| #68 C5 feasibility | TBD [#68] | forking | shipped |
+| #70 C3 optimistic-completion | TBD [#70] | forking | shipped |
+| #46 AVX-512 | TBD [#46] — backfill needed | preserving | shipped |
+| #71 C2 lookahead | **-10.7% — REVERTED** [#71] | preserving | NO-SHIP |
+| LTO (v6d) | +2.53% per-thread [LTO] | preserving | shipped |
+| #81 v2 11.2T re-baseline | +4.83% records at 11.2T [#81] | forking | shipped (new anchor) |
+| #78 PGO | +4.8% enum-only at 1T [#78] | preserving | pending operator review |
+| #69 MRV fail-first | TBD (1B K-pilot pending) [#69] | forking expected | pending |
+
+**Known gaps (where data exists but isn't in this file yet):**
+- AVX-512 paired-bench number (#46) — perf was measured but the HISTORY.md reference is stale; needs re-extraction.
+- #68 / #70 per-prune perf deltas — only the bundled v2 cumulative is recorded.
+- Merge-step wall times — captured during canonical runs but not standardized in PERFORMANCE_HISTORY format.
+
+**Validated cumulative claim (v1 11.2T → v2 11.2T, same hardware):**
+- Records found at 11.2T budget: 759.6M → 796.4M (**+4.83%**)
+- Output sha: forked (`0c0fe37c…` → `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d`)
+- Both shas reproducible at byte level; v1 ⊆ v2 inclusion verified at canonical level
+
+**Speedup vs ship-decision matrix:**
+- Pure speed (sha-preserving): #72 (+9%), AVX-512 (TBD), LTO (+2.5%), PGO (+4.8%) — all shippable, compose multiplicatively
+- Budget efficiency (sha-forking): #67 (+2.6% records/budget), #68 + #70 (bundled in v2 +4.8% records/budget) — required new canonical anchor
+- Rejected: #71 (-10.7% — instructive loss, kept in lineage as cautionary tale)

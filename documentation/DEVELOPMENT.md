@@ -78,6 +78,30 @@ enumerated space. When citing quantitative results, note the enumeration depth
   analyze_c_742M.txt`, `analyze_section14_742M.txt`, etc. serve as
   reproducibility references.
 
+### Performance changes — empirical record required
+
+Any commit modifying solve.c hot paths (DFS, prune predicates, hash-table
+operations, merge inner loops, SIMD-vectorized arithmetic) or build flags
+affecting per-thread rate must append an entry to
+[PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md). The entry follows the schema
+at the top of that file.
+
+Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
+control vs treatment on a single fresh D128als_v7 Spot in westus3, flushes the
+page cache between paired runs, captures enum-only wall (merge wall separately,
+not part of the speedup metric), and emits a JSON block that pastes directly
+into a new entry. Multi-scale: 1B / 1T / 11.2T selectable via `--scale`.
+
+Why this matters: the project narrative — "v1 → v2 → v2+PGO speedup over time,
+which changes mattered, which regressed" — is a presentation deliverable. Each
+change's contribution (improvement OR regression) needs an empirical
+measurement at ship time. Without uniform records, the cumulative-speedup
+chart cannot be reconstructed honestly later.
+
+The log captures regressions too: see the `#71 C2 lookahead` entry for the
+canonical "instructive loss" example. Failed experiments are first-class
+records, not omissions.
+
 ### Build reproducibility — toolchain manifest and cross-build verification
 
 A reproducible-from-the-same-binary sha is not the same as a reproducible-from-the-same-commit sha. The 2026-05-12 investigation

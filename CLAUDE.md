@@ -52,6 +52,27 @@ produce a mismatching sha, stop and investigate — don't silently
 Older figures in project history (31.6M filename-collision bug, 742M
 hash-table bug) are invalidated forensic references only.
 
+## Performance history — required record (parallel to canonical shas)
+
+Any commit modifying solve.c **hot paths** (DFS, prune predicates,
+hash-table operations, merge inner loops, SIMD-vectorized arithmetic,
+build flags affecting per-thread rate) must append an entry to
+[PERFORMANCE_HISTORY.md](documentation/PERFORMANCE_HISTORY.md) before
+ship. The entry must follow the schema documented at the top of that
+file and be produced by `scripts/perf_bench.sh` (or document why it
+deviates).
+
+The log captures BOTH improvements AND regressions — the latter are
+just as important to the project narrative. A change that fails its
+sha gate or under-performs prediction is recorded honestly and either
+reverted (with reasoning) or shipped with the caveat documented.
+
+Enforcement is currently process-level (rely on reviewer + this rule).
+A `scripts/pre_push_compile_gate.sh`-style hook to block pushes when
+solve.c hot paths changed but PERFORMANCE_HISTORY.md did not is
+planned but not yet shipped; design pass needed first to avoid false
+positives on whitespace / comment-only edits.
+
 ## Cost control — VM purchase type (STRICT, mandatory gate)
 
 **Current standing policy (2026-04-29, supersedes the prior split rule):**
