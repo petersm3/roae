@@ -446,6 +446,54 @@ Cost of v3 rerun: ~$1.51 (D128als_v7 Spot @ ~$0.95/hr × 1h 35m). Bench script a
 
 ---
 
+## 2026-05-18 — task #92: resume regression fix (mw_delta added to v2 frame format) (commit `b684cca`)
+
+**Category**: correctness fix (NOT a perf change — sha-preserving for non-resume runs by design)  
+**Sha impact**: preserving for single-shot; resume now produces byte-identical output to single-shot (was diverging since `9f4b630`)  
+**Decision**: shipped (commit `b684cca` 2026-05-18, pushed to v2-bundled)
+
+### Hypothesis
+Bisect (filed in `x/roae/RESUME_REGRESSION_RCA_2026_05_18.md`) localized the resume divergence to commit `9f4b630` (#67 mid-walk C3 reship): `BacktrackFrame.mw_delta` is required for the RETRY phase's `ts->mw_partial_cd_x64 -= fr->mw_delta;` undo, but was not serialized in `DFSStackFrame_v2`. On resume, every restored frame's `mw_delta` was uninitialized (effectively 0), so the undo subtracted 0 → `mw_partial_cd_x64` drifted from live-path value → prune predicate fired differently → resume sha diverged. Fix: extend the on-disk format to carry `mw_delta`, bump version.
+
+### Methodology (multi-scale validation)
+1. **Bisect gate** (claude orchestrator, ~$0): three commits tested via `--selftest-resume`
+   - `bf58c65` (#68 alone, pre-bug): **PASS** resume sha `e43f2905…` = single-shot
+   - `9f4b630` (#67 reship, breaking commit): **FAIL** resume sha `e353086e…` ≠ single-shot `86a74da5…`
+   - `1b32270` (HEAD, pre-fix): **FAIL** resume sha `2954b271…` ≠ single-shot `1f6a3b4a…`
+
+2. **Post-fix selftest gate** (claude, ~$0):
+   - `--selftest`: sha `56487ab5…` UNCHANGED ✓ (confirms no behavior change at single-shot)
+   - `--selftest-resume`: resume sha `1f6a3b4a…` = single-shot sha `1f6a3b4a…` ✓
+
+3. **1B-scale resume validation** (D8als_v7 Spot, $0.05 / 8 min wall):
+   - BASELINE: fresh dir, 1B single-shot, 128 threads, `--branch 24 0`
+   - PHASE_A: fresh dir, 500M (triggers per-cell budget, writes 2,824 `.dfs_state` checkpoints across 2,824 sub-branches)
+   - PHASE_B: same dir as PHASE_A, 1B (resumes from all 2,824 checkpoints, continues to 1B)
+   - Merge each, compare shas
+   - **Result**: BASELINE sha `e4934b87c6fbbbc28cab70a8c55d260fe5e5c4639f5da2035a8657cc7f7e3ace` = PHASE_B sha (byte-identical). Both at 1,631,512 records. **PASS 1B-resume-validation across 2,824 simultaneous resume cycles.**
+
+### Result
+- `--selftest` sha: `56487ab5…` unchanged (compile-gate enforced at every push)
+- `--selftest-resume`: PASS, resume sha = single-shot sha (the canonical defense item 1 from Phase E.2)
+- 1B paired resume test: PASS across 2,824 resume cycles, byte-identical solutions.bin between resumed and from-scratch
+- Code change: 11 lines (struct extension + version bump + capture-loop + resume-loop save/restore)
+- Format version: `DFS_STATE_VERSION_V2` bumped 2 → 3 (old checkpoints rejected with clean error)
+
+### Delta vs baseline
+- Single-shot wall: identical (no observable change at single-shot scale; the `mw_delta` plumbing is invisible unless a checkpoint is read back)
+- Per-frame on-disk size: 8 → 12 bytes (struct grows by 4 bytes per frame; 34 frames per checkpoint × 4 bytes = 136 bytes per `.dfs_state` file growth — trivial)
+- Total `DFSCheckpointState_v2` size: 438 → 574 bytes, well under the 2048-byte static assertion
+
+### Audit of existing canonicals (pre-fix runs)
+Confirmed in `x/roae/RESUME_REGRESSION_RCA_2026_05_18.md`. **Zero existing canonical artifacts are corrupted by the original bug** — all v1 canonicals predate the `mw_delta` field; v2 11.2T canonical `2cc966e4…` had checkpoint mechanism enabled but the resume code path was never exercised (158,364 WROTE markers, 0 READ markers in enum_solve.log); v2 100B canonical `de28fea6…` at commit `bf58c65` (pre-bug) ran without checkpoint mechanism enabled at all.
+
+### Notes
+The instructive moral: when adding state to `BacktrackFrame`, the checkpoint format must extend simultaneously. The on-disk format is part of the state-machine contract, not separate from it. Today's `feedback_*` operator-memory entries don't capture this lesson yet — worth adding.
+
+Closes Phase E.2 defense item 1 (selftest-resume gating) and the gating gap for the 560T canonical campaign with eviction-recovery.
+
+---
+
 ## 2026-05-18 — task #69: MRV variable ordering (fail-first pair iteration) — IN FLIGHT
 
 **Category**: prune (search-order optimization)  
@@ -497,6 +545,7 @@ The table below summarizes what's measured so far. Numbers in brackets are the e
 | LTO (v6d) | +2.53% per-thread [LTO] | preserving | shipped |
 | #81 v2 11.2T re-baseline | +4.83% records at 11.2T [#81] | forking | shipped (new anchor) |
 | #78 PGO | **+6.5% enum-only at 1T (v3 confirmed)** [#78 v3] | preserving (byte-identical sha verified at 1T + 1B) | shipped |
+| #92 resume regression fix | correctness fix (no perf delta) [#92] | preserving for single-shot; resume now byte-identical | shipped commit `b684cca`; 2,824-cycle 1B validation PASS |
 | #69 MRV fail-first | TBD (1B K-pilot pending) [#69] | forking expected | pending |
 
 **Resolved gaps (this section was 5 TBDs before re-evaluation 2026-05-18; all closed by EOD):**
