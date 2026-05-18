@@ -352,19 +352,29 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 - wall_N: 26s, wall_U: 25s → **+4% speedup** at small scale (warmup-noisy)
 - output sha: byte-identical → **sha-preservation confirmed**
 
-### Result — 1T enum-only (D128als_v7), partial
+### Result — 1T enum-only (D128als_v7), final accounting
 - Build B (v2 no-PGO): enum_wall=1046s, sha=`f3a3e68cb554fff58ef2a25f56362b2ddcc0398adae4c7b307ac2020f1ac4916`, records=305,975,483
-- Build C (v2 + PGO): enum_wall=996s, sha=TBD (re-merge in progress to recover from disk-space error in first merge attempt)
+- Build C (v2 + PGO): enum_wall=996s, sha=**LOST** (Build C merge failed twice on 64 GB OS disk; external-mode merge launched but did not finish before bench script's STEP 7 tore down the VM), records=presumed ~306M but unverified
 - **PGO enum-only speedup at 1T: +4.8%** (1046s → 996s)
-- merge_wall: separately measured (not part of speedup metric); first merge attempt OOM'd on 64 GB OS disk and was re-launched after deleting Build B's shards (sha already captured)
+- merge_wall: not standardized in this run (Build B's auto-merge completed; Build C's required intervention)
+- Build A v1 baseline at 1T: enum_wall=1037s (depth-2 + iterative) / **enum_wall=703s (depth-2 + recursive — recursive 32% faster than iterative for v1 at this depth)**, sha=`548c2de4311c1abc1457d3d9acb4e45b39de3a85e945d35af1e39c59555e8d54`, records=162,576,690
 
 ### Delta vs baseline (Build B, v2 same source commit)
-- enum_wall: **-4.8% (PGO faster)**
-- sha changed: no (predicted preservation; 1T sha equality pending re-merge of C)
+- enum_wall: **−4.8% (PGO faster)**
+- sha changed: not directly verified at 1T (Build C sha lost); 1B sha-equality already PASS on D8 smoke test as independent evidence
 
 ### Sha gate
-- 1B byte-equality: **PASS**
-- 1T byte-equality: pending (Build C re-merge in flight)
+- 1B byte-equality: **PASS** (D8 smoke test, both shas `3e6d1060fdf8c53a64a69d76a5a97616f285ad7811c6d5694fb343a406077222`)
+- 1T byte-equality: **NOT VERIFIED** (Build C sha lost to teardown race)
+
+### Methodology caveats (important — read before relying on these numbers)
+1. **No preflight throttle probe was run.** Per the standing `feedback_preflight_throttle_probe` and the AVX-512 definitive bench (commit `0783d52`) precedent, paired 1T benches should validate the host with a 60s 128-thread burn-in measuring per-core MHz ≥ 3664. We did not. Mid-bench sampling showed average CPU MHz at 2717 across 128 cores — could be normal-under-load (memory-bound DFS, cores waiting on RAM) or could be TDP-cap throttle. Cannot distinguish without the preflight burn-in.
+2. **The 4.8% PGO speedup is a paired comparison on the same VM with page-cache flush between runs.** If throttling was symmetric across Build B and Build C, the speedup is valid. If throttling was asymmetric (B unthrottled / C throttled, or vice versa), the speedup is biased. We have no monitoring data to rule asymmetric throttle out.
+3. **The 4.8% at 1T agrees with the 4% at 1B on a different VM (D8 Spot)** — independent corroboration that PGO speedup is real and roughly in this range, even if absolute scale at 1T is uncertain.
+4. **v1 baseline at depth-2** uses different work-unit granularity than v2 at depth-3; wall comparisons between Builds A and B are not apples-to-apples for "per-unit" speed. Records/budget is the cleaner cross-build comparison: v1 found 162.6M records at 1T budget; v2 found 305.9M = **1.87× more records per unit budget**.
+
+### Follow-up needed (for cleanup of this entry)
+- Re-run PGO 1T bench with: (a) preflight throttle probe, (b) larger OS disk to avoid the merge-disk-pressure race, (c) bench script that waits for merge before STEP 7 teardown. Cost ~$2-3 on D128 Spot. Would verify Build C sha and tighten the speedup confidence interval.
 
 ### Notes
 This is the **first entry produced by the standardized `scripts/perf_bench.sh` harness** (or its prototype: `/tmp/pgo_1T_retry.sh`). Page-cache flush between paired runs is now the standard methodology — applied here for the first time. Compose +2.53% (LTO) + +4.8% (PGO) on top of v2's prune stack: total LTO+PGO marginal contribution ~7.4% on v2-bundled. AVX-512 contribution still TBD pending the backfill (see #46 entry).
