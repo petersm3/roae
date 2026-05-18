@@ -3136,3 +3136,158 @@ v2 lineage.** Next: #69 MRV variable ordering, then design passes
 560T canonicals are blocked on the runbook + the v2 prune-stack
 saturation curve — diminishing returns suggest those will land
 records within ~1% of v1.
+
+## May 18, 2026 PDT — PERFORMANCE_HISTORY shipped; PGO confirmed +6.5%; resume regression bisected, fixed, validated at 1B scale
+
+Five distinct deliverables landed today, all aimed at building the
+empirical foundation for the project's "cumulative-speedup-over-v1"
+narrative and at closing the last gating gap before the 560T campaign.
+
+**1. `documentation/PERFORMANCE_HISTORY.md` shipped (commits `3474093`
+→ `ccc0e94`).** Append-only empirical log of every perf-relevant change
+to solve.c — improvements AND regressions — with hypothesis,
+methodology, paired-bench numbers, sha gate, and ship decision. Schema
+at top, backfilled entries for #72 / #67 / #68 / #70 / #46 / #71 / LTO
+/ #81 / PGO / #69 / #92. Cumulative-narrative summary table at bottom.
+Three pieces shipped together:
+
+- `documentation/PERFORMANCE_HISTORY.md` (the log itself)
+- `scripts/perf_bench.sh` (standardized paired-bench harness — single
+  D128 Spot, page-cache flush between paired runs, enum-only wall
+  separated from merge wall, multi-scale 1B / 1T / 11.2T selectable)
+- Process gate in `CLAUDE.md` and `DEVELOPMENT.md` requiring any
+  commit modifying solve.c hot paths to add an entry before ship
+
+Initial backfill had honest TBDs for AVX-512, #68, #70 perf deltas;
+these were resolved later in the day by extracting from commit bodies
+and the v8 retry definitive bench archive. Verified numbers replaced
+placeholders.
+
+**2. PGO sha-preservation pilot — three runs, the v3 rerun is
+definitive (task #78).** Multi-scale validation:
+
+- 1B-node smoke test (D8als_v7 Spot): byte-identical sha between
+  control and PGO build at `3e6d1060…`, ~4% wall (warmup-noisy)
+- 1T retry (D128als_v7 Spot, 64 GB OS disk): hit disk-pressure race
+  during Build C merge; Build C sha lost to teardown timing. Reported
+  +4.8% wall but with methodology caveats (no preflight throttle
+  probe, asymmetric-throttle concern un-rule-out-able)
+- 1T v3 rerun (D128als_v7 Spot, 128 GB OS disk, **preflight probe min
+  3868 MHz ≥ 3664 threshold = healthy-host gate**, external-mode
+  merge, wait-for-solutions.bin discipline): **+6.5% enum-only
+  speedup (1067s → 997s), byte-identical sha at 1T (`f3a3e68c…`),
+  same 305,975,483 records as control**
+
+Composes with LTO (+2.53%) for ~9% sha-preserving wall speedup on
+v2-bundled. Closes #78 with confidence.
+
+Methodological finding worth recording: `/proc/cpuinfo` MHz during
+solve.c workload (2611-2717 MHz typical, mid-bench) is NOT a throttle
+indicator — solve.c is memory-bound and runs cores at base-clock duty
+cycle regardless of host health. The only valid throttle probe is the
+pre-bench 60s pure-CPU burn-in (the canonical AVX-512 v8 retry
+established the 3664 MHz threshold). Updates the
+`feedback_preflight_throttle_probe` rule.
+
+**3. AVX-512 (#46) closed via REVERT + null result.** Originally
+projected 1.4-2.0× total-runtime speedup. Commits `cd4e61c` (Phase
+1a dispatch), `b26cd9b` (REVERT), `0783d52` (v8 definitive 1T paired
+bench: AVX2 433.0s vs AVX-512 434.6s = **0.9963× ≈ statistically
+zero**, Welch t=−1.281, 95% CI [−4.05, +0.85]s crosses zero, null
+not rejected). Root cause: gcc 13.3 + `-march=native` already
+auto-vectorizes the one loop that benefits (`compute_comp_dist_x64`
+→ 5× `vmovdqa32`, 4× `vpermd`, 4× `vpabsd`, 4× `vpsubd`, 7× `vpaddd`).
+The other 112 "control flow in loop" misses in `backtrack` are
+inherently un-vectorizable (DFS with data-dependent `budget[wd]<=0`
+early-exits).
+
+ARM implication: with AVX-512 confirmed neutral, the SIMD-width gap
+between x86 (512-bit) and ARM Neoverse (NEON 128-bit / SVE2 256-bit)
+is NOT a performance concern. NEON-only pilot is sufficient; SVE2
+parity not required. Refutes the 2026-04 ARM-buy-decision-support
+framing. `[REFUTED 2026-05-16]` callout already in place in that
+section.
+
+**4. `--selftest-resume` regression bisected → root cause → fix
+shipped + validated.**
+
+The regression was caught during #69 patch validation: the Phase E.2
+defense item 1 (`--selftest-resume`) was reported PASS on 2026-05-14
+at commit `d683794` (resume sha = single-shot sha = `e43f2905…`),
+but on today's pre-fix HEAD it FAILED. Filed as task #91. Audit
+confirmed the v2 11.2T canonical artifact `2cc966e4…` is NOT
+corrupted by the bug — the enum_solve.log shows 158,364 WROTE
+checkpoints / 0 READ checkpoints, so the resume code path was never
+exercised during the canonical run.
+
+Bisect (claude orchestrator, ~$0):
+
+- `bf58c65` (#68 alone, last known PASS): selftest-resume PASS,
+  resume sha `e43f2905…` = single-shot
+- `9f4b630` (#67 mid-walk C3 reship, **breaking commit**): FAIL,
+  resume sha `e353086e…` ≠ single-shot `86a74da5…`
+- `1b32270` (pre-fix HEAD): FAIL, resume sha `2954b271…` ≠
+  single-shot `1f6a3b4a…`
+
+Root cause: `BacktrackFrame.mw_delta` (added by #67's reship at
+`9f4b630`) is needed by the RETRY phase to undo the mid-walk-cd
+contribution when a child pops. The field comment explicitly states
+*"Stored because mw_pos values at pop time may not allow recomputation
+when a pair's two hexagrams are mutual complements (e.g. pair
+(63,0))."* But `DFSStackFrame_v2` — the on-disk checkpoint format —
+was NOT extended to carry `mw_delta`. On resume, every restored
+frame's `mw_delta` was uninitialized (effectively zero), so the
+RETRY phase's `ts->mw_partial_cd_x64 -= fr->mw_delta;` subtracted 0
+instead of the real value. `mw_partial_cd_x64` drifted from
+live-path value → prune predicate fired differently → resume sha
+diverged. Format-vs-state-machine contract was broken at the moment
+#67 added `mw_delta` to in-memory state without extending the
+on-disk format. Filed as task #92.
+
+Fix (commit `b684cca`, 11-line diff):
+
+1. Extend `DFSStackFrame_v2` with `int16_t mw_delta` + 2 bytes
+   padding (struct grows 8 → 12 bytes)
+2. Bump `DFS_STATE_VERSION_V2` from 2 to 3 — old checkpoints rejected
+   with clean error rather than silently feeding garbage `mw_delta`
+   into the new code
+3. Save `mw_delta` in v2 capture loop
+4. Restore `mw_delta` in v2 resume loop
+
+Validation:
+
+- `./solve --selftest`: sha `56487ab5…` UNCHANGED (confirms no
+  observable change at single-shot scale)
+- `./solve --selftest-resume`: PASS, resume sha `1f6a3b4a…` =
+  single-shot sha (was the failing test, now passes)
+- **1B-scale stress test** (D8als_v7 Spot, ~$0.05, 8 min wall):
+  BASELINE 1B single-shot vs PHASE_A 500M (writes 2,824 `.dfs_state`
+  checkpoints across full depth-3 partition of `--branch 24 0`) +
+  PHASE_B 1B (resumes from all 2,824 checkpoints). Both produced
+  1,631,512 records with sha
+  `e4934b87c6fbbbc28cab70a8c55d260fe5e5c4639f5da2035a8657cc7f7e3ace`
+  byte-identically. **PASS 1B-resume-validation across 2,824
+  simultaneous resume cycles.** The fix scales beyond the
+  50M → 200M selftest pattern that originally caught the bug.
+
+Closes Phase E.2 defense item 1 and the resume-path gating gap for
+the 560T campaign (Spot eviction → checkpoint → resume is now
+byte-exact again).
+
+The instructive moral: when adding state to `BacktrackFrame`, the
+checkpoint format must extend simultaneously. The on-disk format is
+part of the state-machine contract, not separate from it. Today's
+operator-memory `feedback_*` entries didn't capture this lesson yet
+— worth adding.
+
+**5. `x/roae/CUMULATIVE_SPEEDUP_ANALYSIS_2026_05_18.md` published**
+(private staging repo). Narrative layer for the presentation
+deliverable: three interpretations of "total speedup over v1" with
+the math, the shipped-stack-without-#67 calculation (~+9.2% wall at
+canonical scale, ~+13% effective work per dollar), and honest "what
+this analysis can't say" gaps. Cross-references PERFORMANCE_HISTORY.md
+for raw entries.
+
+Total session cost: ~$5.25 in compute (PGO benches + 1B resume
+validation + single-cell probe). Six commits to public roae, three
+commits to private x/roae. All pushed.
