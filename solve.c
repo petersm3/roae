@@ -377,6 +377,14 @@ typedef struct {
     int8_t  prev_tail;
     int8_t  phase;
     int8_t  reserved;
+    /* task #92 (2026-05-18): mw_delta added to v2 frame format. Without this,
+     * resume's RETRY phase used uninitialized fr->mw_delta to undo the
+     * mid-walk-cd contribution, drifting ts->mw_partial_cd_x64 from the
+     * live-path value and causing --selftest-resume to fail. The need for
+     * mw_delta-storage (vs. recompute-on-pop) is documented at the field
+     * declaration in BacktrackFrame. Format version bumped from 2 to 3. */
+    int16_t mw_delta;
+    int8_t  pad[2];   /* 12-byte struct for predictable layout */
 } DFSStackFrame_v2;
 static Pair pairs[32];
 static int n_pairs = 0;
@@ -1174,7 +1182,7 @@ _Static_assert(sizeof(DFSCheckpointState_v1) <= 1024, "DFSCheckpointState_v1 too
  * (step, p, orient, bd, wd, prev_tail) tuple, plus the seq/used/budget
  * arrays. Resume reconstructs the exact DFS state at the moment of budget
  * exhaustion and continues from there. */
-#define DFS_STATE_VERSION_V2 2u
+#define DFS_STATE_VERSION_V2 3u   /* bumped 2026-05-18: task #92 — mw_delta added to per-frame format */
 
 /* DFSStackFrame_v2 is forward-defined near the Pair typedef so ThreadState
  * can hold an array of them. */
@@ -1770,6 +1778,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             stack[i].wd = ts->dfs_v2_resume_frames[i].wd;
             stack[i].prev_tail = ts->dfs_v2_resume_frames[i].prev_tail;
             stack[i].phase = ts->dfs_v2_resume_frames[i].phase;
+            stack[i].mw_delta = ts->dfs_v2_resume_frames[i].mw_delta;   /* task #92 */
         }
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
         *used_mask = ts->dfs_v2_resume_used;                  /* task #72 Phase B (was Phase C boundary copy) */
@@ -1857,6 +1866,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
                         ts->dfs_v2_frames[i].wd        = (int8_t)stack[i].wd;
                         ts->dfs_v2_frames[i].prev_tail = (int8_t)stack[i].prev_tail;
                         ts->dfs_v2_frames[i].phase     = (int8_t)stack[i].phase;
+                        ts->dfs_v2_frames[i].mw_delta  = (int16_t)stack[i].mw_delta;   /* task #92 */
                     }
                     for (int i = 0; i < 64; i++) ts->dfs_v2_seq[i] = (int8_t)seq[i];
                     ts->dfs_v2_used = *used_mask;             /* task #72 Phase B (was Phase C boundary pack) */
