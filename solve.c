@@ -6180,6 +6180,23 @@ int main(int argc, char *argv[]) {
         prove_shift_mode = 1;
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--merge") == 0) {
+        /* Stack-ulimit hard gate for --merge (added 2026-05-18 after
+         * silent SIGSEGV during external merge on default 8 MB stack).
+         * The in-memory merge path can also allocate large stack frames at
+         * higher shard counts. Require unlimited stack here — exit cleanly
+         * rather than segfault during local-array allocation. */
+        {
+            struct rlimit rl;
+            if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY) {
+                long long cur_kb = (long long)(rl.rlim_cur / 1024);
+                fprintf(stderr,
+                    "ERROR: --merge requires RLIMIT_STACK = unlimited; current soft limit is %lld KB.\n"
+                    "       Default 8 MB stack overflows during external-merge spill (silent SIGSEGV at\n"
+                    "       large shard counts). Run: ulimit -s unlimited   before launching `solve --merge`.\n",
+                    cur_kb);
+                return 11;
+            }
+        }
         merge_mode = 1;
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--merge-layers") == 0) {
