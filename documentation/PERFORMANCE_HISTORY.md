@@ -128,34 +128,36 @@ This is the first v2 entry. The "perf number" for #67 is best understood as **bu
 
 ---
 
-## 2026-05-XX — task #68: C5 feasibility prune (always-on) (commit `bf58c65`)
+## 2026-05-16 — task #68: C5 feasibility prune (always-on) (commit `bf58c65`)
 
 **Category**: prune  
 **Sha impact**: forking  
-**Decision**: shipped
+**Decision**: shipped (v2 lineage begins here)
 
 ### Hypothesis
-For each within-pair distance d, remaining budget[d] must be ≥ count of unplaced pairs whose within-pair distance equals d. Otherwise the current state is dead (no completion exists). Cheap necessary-condition check; expected to prune subtrees that consume rare-distance buckets too aggressively.
+For each within-pair distance d, remaining `budget[d]` must be ≥ count of unplaced pairs whose within-pair distance equals d. Otherwise the current state is dead (no completion exists). Cheap necessary-condition check at `backtrack()` entry; cuts dead subtrees immediately instead of via lazy budget-exhaustion catches downstream.
 
 ### Methodology
-- v2 100B sanity check on D64als_v7 Spot, 64 threads, depth-2, LTO build, commit `bf58c65`
-- Output recorded in HISTORY.md (v2 100B sha `de28fea6e4b2a902…`, 25,318,023 records, vs v1 100B's 25.3M — +104% in record count by some reading; actual delta TBD).
+- 100M-node selftest scenario, same input as `--selftest`
+- Build: `gcc -O3 -flto -pthread -fopenmp -march=native`
 
-### Result
-- v2 100B sha: `de28fea6e4b2a902767ca44a53f1ffd552d0286b8ca2375ef79b04fe6c159ec8`
-- records: 25,318,023
-- enum_wall: TBD (not extracted from HISTORY.md)
-- per-thread rate delta: TBD
+### Result (verified from commit `bf58c65` body)
+- **records found at 100M budget: 135,780 (v1) → 228,990 (v1+C5) = +68.6%**
+- output sha: forked from `403f7202…` (v1) to `47dac6cb0783f04dfd98cf15a793e85603b0ceb4a53cd272d97f1def11e3c0c6` (v1+C5)
+- All v2 records pass `solve --verify` (C1–C5 clean); King Wen present; sort/dedup integrity preserved
 
-### Delta vs baseline (v1 100B)
-- records found at 100B budget: TBD vs v1 baseline at same budget — needs lookup in v1 100B re-archive (`commit 4cd217f`)
-- sha: changed (v2 lineage)
+### Delta vs baseline (v1, same 100M budget, same hardware)
+- records/budget: **+68.6%** (the C5 prune frees up node budget that finds more records in cells that would otherwise terminate early)
+- sha changed: yes (v2 lineage forks at this commit)
 
 ### Sha gate
-- result: not directly run as 1B K-pilot; correctness validated by L_v1 ⊆ L_v2 inclusion check at 100B
+- result: solution-set inclusion validated via `solve --verify-superset` (no v1 records absent from v2 output at 100M)
+- canonical-level 1B K-pilot (task #80a in tracker): not yet run as a separate validation
 
 ### Notes
-Backfilled — perf delta numbers not isolated at ship time. Action: if a follow-up paired bench is run, append a new entry here referencing this one. The v2 11.2T canonical (#81) is the cumulative-v2 perf signal; per-prune isolation would require K-pilot runs per prune (#80a, #85, #86 in task list).
+**Methodology pivot landed with this commit**: sha-match-vs-v1 is structurally incompatible with any feasibility prune at budgeted runs — the prune frees up node budget that gets spent finding more solutions → different sha. Replaced by (1) solution-set inclusion via `solve --verify-superset`, (2) independent C1–C5 verification via `solve --verify`, (3) v2 canonical shas at stabilization (task #81). See `x/roae/SEARCH_TREE_PRUNING_BUDGET_INCOMPATIBILITY_2026_05_06.md` (private staging) for the underlying argument.
+
+**The +68.6% at 100M does NOT extrapolate linearly to canonical budgets.** Most cells naturally terminate at large per-cell budgets, so the prune's marginal gain tapers. Task #81's 11.2T re-baseline shows the canonical-scale K-ratio: only +4.83% records vs v1 at 11.2T (vs +68.6% at 100M). Empirical scale-dependence captured.
 
 ---
 
@@ -166,25 +168,31 @@ Backfilled — perf delta numbers not isolated at ship time. Action: if a follow
 **Decision**: shipped
 
 ### Hypothesis
-Sharpen #67's predicate: `partial_cd + Σ min_cd[unplaced_pairs] > 776`. Same Lemma-2 monotonicity applies. Predicted incremental budget-efficiency gain on top of #67.
+Sharpen #67's predicate: `partial_cd + 2 × count_of_unfinished_complement_pairs > 776`. Each unplaced complement-pair `(v, v⊕63)` contributes ≥ 2 to cd_x64 (positions are distinct, doubled by cd_x64 convention). Strict lower bound on future cd, so never prunes a valid leaf. Predicted incremental budget-efficiency gain on top of #67.
 
 ### Methodology
-- Same validation pattern as #67: Lemma proof + recompute test + small-scale canonical-level diff
-- Detailed write-up at commit message
+- 100M-node selftest scenario, layered ladder showing each prune's marginal contribution
+- Build: `gcc -O3 -flto -pthread -fopenmp -march=native`
 
-### Result
-- Records found delta vs #67-only: TBD (not extracted from HISTORY.md commit summary)
-- per-thread rate delta: TBD
-- sha: forked further (selftest sha changed again)
+### Result (verified from commit `7b5ff6d` body)
+- 100M layered ladder (records found at 100M budget):
+  | Stack | Records | Sha |
+  |---|---|---|
+  | v1 alone | 135,780 | `403f7202…` |
+  | v1 + C5 (#68) | 228,990 (+68.6%) | `47dac6cb…` |
+  | v1 + C5 + #67 | 234,252 (+72.5%) | `98b8c0ef…` |
+  | **v1 + C5 + #67 + #70** | **235,083 (+73.1%)** | `56487ab5…` ← current v2 selftest |
+- **#70 marginal contribution at 100M: +831 records over #67 alone (+0.35%)**
 
-### Delta vs baseline (#67-only)
-- TBD — would need re-run of #67 and #70 in isolation, sha-gated at small scale
+### Delta vs baseline (#67 alone, same 100M budget)
+- records/budget: **+0.35%** marginal at 100M
+- sha forked again: `98b8c0ef…` → `56487ab5…`
 
 ### Sha gate
-- result: PASS via L_v1 ⊆ L_v2 (cumulative gate)
+- result: PASS via L_v1 ⊆ L_v2 (0 v1-missing records in v2+#67+#70 output)
 
 ### Notes
-Backfilled with TBDs. The cumulative v2-bundled improvement (#67 + #68 + #70 + #72) is captured by the v2 11.2T canonical perf comparison vs v1 11.2T canonical (4.83% record-count increase, sha forks). Isolating #70's individual contribution from #67's is a future K-pilot.
+The small marginal at 100M is because most #70-only-prunable states are already cut by #67's check at this scale. Larger per-cell budgets where `partial_cd` lingers just below 776 are where #70 contributes more — the 11.2T canonical's cumulative-v2 record advantage (+4.83% vs v1) reflects compounded contributions of #67/#68/#70 at scale. Per-prune isolation at canonical scale would require K-pilot runs per prune (#85 v1+C3 only, #86 v1+C5+C3 stacked in task tracker).
 
 ---
 
@@ -217,31 +225,43 @@ Modest but free win. Added to the canonical build recipe: `gcc -O3 -flto -pthrea
 
 ---
 
-## 2026-05-XX — task #46: AVX-512 retool (vectorized cd-sum, C2 hamming, C5 distribution counters)
+## 2026-05-16 — task #46: AVX-512 retool — **NULL RESULT** (commits `cd4e61c` → `b26cd9b` REVERT → `0783d52` definitive bench)
 
 **Category**: optimization (SIMD vectorization)  
-**Sha impact**: preserving  
-**Decision**: shipped
+**Sha impact**: preserving (byte-identical scalar vs AVX-512)  
+**Decision**: **CLOSED via REVERT + null result** — task originally planned as pre-560T gating; now closed because no speedup exists to ship
 
-### Hypothesis
-Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance partial-sum (cd-sum), C2 hamming check, C5 difference-distribution tallying. Predicted 1.5–2× per-thread rate improvement on Zen 5c. Same scalar+vector implementation via `__builtin_cpu_supports` so the binary still runs on non-AVX-512 hardware.
+### Hypothesis (originally)
+Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance partial-sum (cd-sum), C2 hamming check, C5 difference-distribution tallying. Predicted **1.4–2.0× total-runtime speedup** on Zen 4/5c. The April 2026 plan considered AVX-512 a major contributor and built ARM-buy-decision-support (#83) around the assumption that SVE2 parity would be needed for ARM performance.
 
 ### Methodology
-- Paired bench: scalar vs vector at fixed budget, byte-identical canonical sha required on both
-- Hardware: D128als_v7 Spot (Zen 5c "Turin Dense", AVX-512 native)
+- **Phase 1a (commit `cd4e61c`)**: explicit AVX-512 dispatch via `__builtin_cpu_supports` + intrinsics for cd_sum_avx512
+- **Phase 1a REVERT (commit `b26cd9b`)**: post-bench disassembly under canonical build flags (`-O3 -march=native`) revealed gcc 13.3 already auto-vectorizes `compute_comp_dist_x64` to AVX-512: 5× `vmovdqa32`, 4× `vpermd`, 4× `vpabsd`, 4× `vpsubd`, 7× `vpaddd`. The "scalar" code was already SIMD'd by the compiler. The hand-written dispatch added overhead (loss of inlining + per-call dispatcher branch) with no algorithmic gain.
+- **v8 retry definitive bench (commit `0783d52`)**: 5 paired interleaved trials of `solve_avx2` (`-mno-avx512f -mno-avx512bw -mno-avx512vpopcntdq`) vs `solve_avx512` (`-march=native`, autovec emits AVX-512) at 1T enum-only, D128 healthy host (preflight probe confirmed min 3664 MHz under 60s 128-thread burn — no throttle).
 
-### Result
-- per-thread node rate: TBD (the "AVX-512 1T paired enum-only bench — definitive" reference in `task #82 [STALE]` was not located in HISTORY.md — measurement exists but the location reference rotted)
-- sha: byte-identical (sha-preservation was the gate)
+### Result (verified from commits `b26cd9b` and `0783d52` bodies)
+- **Phase 1a dispatch**: 2.7% **SLOWER** than baseline scalar (loss-of-inlining + dispatcher overhead)
+- **v8 retry 1T paired bench**: AVX2 mean 433.0s, AVX-512 mean 434.6s → **0.9963× ≈ statistically zero**
+  - 95% CI [−4.05, +0.85]s crosses zero
+  - Welch t = −1.281, |t| < 2.3 threshold → null hypothesis NOT rejected
+- output sha: byte-identical (sha-preservation gate trivially passed since both builds run the same vectorized code; the only differences are register-allocation noise)
 
-### Delta vs baseline (scalar build at same commit)
-- TBD
+### Delta vs baseline (scalar / AVX2-only at same commit, 1T)
+- enum_wall: **−0.37% (statistically zero, well within noise)**
+- sha changed: no
 
 ### Sha gate
-- result: PASS — scalar and AVX-512 produce byte-identical canonical sha
+- result: PASS — `solve --selftest` byte-identical on both builds
 
 ### Notes
-**Backfill gap**: the actual paired-bench number for AVX-512 needs to be located or re-measured. Task #77 ("Pre-pilot sha-preservation validation: AVX-512 alone vs v1 at 1B nodes") was COMPLETED but the perf number from that pilot wasn't pulled into HISTORY.md. Action: re-extract from the K-pilot log or re-run the paired bench, then append a new entry refining this one.
+**The instructive zero entry.** The original projection of 1.4–2.0× was structurally wrong: gcc already auto-vectorizes the only loop that benefits (one vectorizable loop in the enum hot path per `-fopt-info-vec`; the other 112 "control flow in loop" misses in `backtrack` are inherently un-vectorizable — DFS with data-dependent `budget[wd]<=0` early-exits cannot be SIMD'd).
+
+**ARM implication (refutes the original SVE2-parity-required framing)**: with AVX-512 confirmed as ~zero contributor, the SIMD-width gap between x86 (512-bit) and ARM Neoverse (NEON 128-bit / SVE2 256-bit) is NOT a performance concern for this workload. ARM-vs-x86 reduces to scalar IPC + branch prediction + memory subsystem. NEON-only pilot is sufficient; SVE2 parity is not required. #83 (ARM pilot) scope reduced accordingly.
+
+**Stale references corrected**: HISTORY.md April 2026 plan section now carries a `[REFUTED 2026-05-16]` callout against the 1.4–2.0× projection. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
+
+Cost of the bench: ~$10 (preflight + 5 paired trials on D128 Standard on-demand, ~80 min total).
+Archive: `canonical-archive/20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
 
 ---
 
@@ -398,23 +418,29 @@ Detailed design in `x/roae/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
 
 The table below summarizes what's measured so far. Numbers in brackets are the entries above where the data comes from.
 
-| Change | Perf delta (per-thread or wall) | Sha impact | Decision |
+| Change | Perf delta | Sha impact | Decision |
 |---|---|---|---|
-| #72 bitset domain | +8.7% per-thread (1.09×) [#72] | preserving | shipped |
-| #67 mid-walk C3 | +2.58% records/budget at 100B [#67] | forking (v2 lineage) | shipped |
-| #68 C5 feasibility | TBD [#68] | forking | shipped |
-| #70 C3 optimistic-completion | TBD [#70] | forking | shipped |
-| #46 AVX-512 | TBD [#46] — backfill needed | preserving | shipped |
-| #71 C2 lookahead | **-10.7% — REVERTED** [#71] | preserving | NO-SHIP |
+| #72 bitset domain | +8.7% per-thread (1.09×) at 1B [#72] | preserving | shipped |
+| #68 C5 feasibility | **+68.6% records at 100M** [#68] | forking (v2 lineage starts) | shipped |
+| #67 mid-walk C3 | +1.86% records at 100M / +2.58% at 100B [#67] | forking | shipped |
+| #70 C3 optimistic-completion | +0.35% records at 100M (over #67) [#70] | forking | shipped |
+| #46 AVX-512 | **0.9963× ≈ zero (statistically null)** [#46] | preserving | **CLOSED — null result** |
+| #71 C2 lookahead | **−10.7% — REVERTED** [#71] | preserving | NO-SHIP |
 | LTO (v6d) | +2.53% per-thread [LTO] | preserving | shipped |
 | #81 v2 11.2T re-baseline | +4.83% records at 11.2T [#81] | forking | shipped (new anchor) |
 | #78 PGO | +4.8% enum-only at 1T [#78] | preserving | pending operator review |
 | #69 MRV fail-first | TBD (1B K-pilot pending) [#69] | forking expected | pending |
 
-**Known gaps (where data exists but isn't in this file yet):**
-- AVX-512 paired-bench number (#46) — perf was measured but the HISTORY.md reference is stale; needs re-extraction.
-- #68 / #70 per-prune perf deltas — only the bundled v2 cumulative is recorded.
+**Resolved gaps (this section was 5 TBDs before re-evaluation 2026-05-18):**
+- AVX-512 (#46): closed at zero via commits `b26cd9b` (REVERT) and `0783d52` (definitive 1T bench).
+- #68 perf delta: +68.6% records at 100M (from commit `bf58c65` body).
+- #70 perf delta: +0.35% over #67 at 100M (from commit `7b5ff6d` body).
+- Selftest sha ladder: verified directly against current build, matches the published canonical.
+
+**Remaining known gaps:**
+- #67 per-thread rate isolated from records-found delta — only records/budget measured.
 - Merge-step wall times — captured during canonical runs but not standardized in PERFORMANCE_HISTORY format.
+- 1T paired v1 vs v2-bundled wall comparison — Build A 1T (depth-2 + iterative) gave 1037s/162.6M; Build B 1T (v2 depth-3) gave 1046s/305.9M — different depths confound a clean wall comparison. Pending follow-up.
 
 **Validated cumulative claim (v1 11.2T → v2 11.2T, same hardware):**
 - Records found at 11.2T budget: 759.6M → 796.4M (**+4.83%**)
