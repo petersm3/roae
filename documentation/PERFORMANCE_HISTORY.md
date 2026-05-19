@@ -637,6 +637,64 @@ Multiple variants reproduced previously-registered shas, validating methodology:
 
 ---
 
+## 2026-05-19 — task #47 huge pages: THP=always wins at canonical scale, hurts at small scale (no code change)
+
+**Category**: env / OS knob (no code change)
+**Sha impact**: none (sha-preserving across all 12 measured iters; same binary)
+**Decision**: **THP=always (Ubuntu default) is correct for canonical-scale builds on D128.** Empirically validates that the existing default is right for the workload we ship on. No change required.
+
+### Hypothesis
+Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workloads with large heap allocations. ROAE's per-thread hash table is 512 MB; at 128 threads on D128 that's 64 GB of randomly-accessed memory. Expected benefit at canonical scale: +3-10% wall.
+
+### Methodology
+- Same binary (v2-bundled HEAD, commit `25cbd06`), `cc -O2 -pthread -DNDEBUG`.
+- Two-condition paired bench: `THP=always` vs `THP=never` via `/sys/kernel/mm/transparent_hugepage/enabled`.
+- **Alternated condition ordering** (a-n-a-n-a-n) to factor out host-noise drift.
+- Page-cache flush (`echo 3 > /proc/sys/vm/drop_caches`) between every iter.
+- Two scales:
+  - **D8 Spot, 1B full-enum depth-2, 5 iters per condition** (small workload).
+  - **D128 Spot, 100B full-enum depth-2, 3 iters per condition** (canonical-equivalent). Preflight throttle probe HEALTHY 2718 MHz min.
+
+### Result — D8 1B (small workload, 8-core, 4 GB total hash)
+
+| Mode | n | median ms | mean ms | stdev ms | min | max |
+|---|---|---:|---:|---:|---:|---:|
+| THP=always | 5 | 56,431 | 58,691 | 13,415 | 43,601 | 80,531 |
+| THP=never | 5 | 43,819 | 46,299 | 4,377 | 42,816 | 51,916 |
+
+**Median Δ = +22.3% (THP=never faster).** THP=always has 3× higher variance with an 80s outlier — classic THP defragmentation noise on a small memory footprint with limited slack.
+
+### Result — D128 100B (canonical-equivalent, 128-core, 64 GB total hash)
+
+| Mode | n | median ms | mean ms | min | max |
+|---|---|---:|---:|---:|---:|
+| THP=always | 3 | 215,028 | 220,496 | 214,679 | 231,782 |
+| THP=never | 3 | 263,170 | 257,936 | 246,914 | 263,723 |
+
+**Median Δ = -22.4% (THP=never SLOWER).** THP=always wins decisively at canonical-equivalent scale; clean low-variance signal.
+
+### Sha gate
+- All 6 iters at D128 100B produced solutions.bin sha `8c35a854…` (matches the per-prune isolation pilot's `100B v1_C5_C3_C3opt` registration). Sha-preserving across THP toggle confirmed at canonical-equivalent scale.
+- All 10 iters at D8 1B produced solutions.bin sha `fe98e58a…` (matches the per-prune isolation pilot's `1B v1_C5_C3_C3opt` registration). Sha-preserving at small scale confirmed.
+
+### Interpretation
+The scale-dependent reversal is real and explains why the small-scale measurement was misleading:
+- At **small workload** (4 GB hash, 8 cores, 16 GB host RAM), THP allocation triggers compaction that costs more than its TLB benefit at this footprint. Memory slack is limited; fragmentation kicks in.
+- At **canonical workload** (64 GB hash, 128 cores, 256 GB host RAM), TLB pressure on random hash-table accesses dominates. THP's 2 MB pages cut TLB miss rate massively; compaction cost amortizes across hours of work.
+
+The empirical lesson: **always measure perf knobs at canonical-relevant scale.** A D8/1B pilot would have led to the WRONG operational decision (turn off THP for canonical, costing +22% wall).
+
+### Cost
+~$0.45 total: $0.05 D8 1B + $0.40 D128 100B. ~35 min wall.
+
+### Notes
+- No code change required. The Ubuntu 24.04 default (`THP=always`) is correct for v2-bundled canonical builds.
+- Documenting this entry serves a future-reader purpose: when someone tries to "optimize" by disabling THP based on a small-scale microbenchmark, this entry stands as a warning.
+- Bench scripts: `/tmp/hugepages_bench.sh` (D8), `/tmp/hugepages_d128_bench.sh` (D128). Logs in `/tmp/hugepages_*.log`.
+- **Open follow-ups in the #47 CPU bundle**: jemalloc test (allocator swap, perf-only), NUMA-local allocation (matters more on dual-socket; D128als_v7 EPYC 9V45 is single-socket per VM topology so likely no-op). Both are sequel investigations.
+
+---
+
 # Cumulative narrative — v1 → v2 → v2+PGO
 
 The table below summarizes what's measured so far. Numbers in brackets are the entries above where the data comes from.
