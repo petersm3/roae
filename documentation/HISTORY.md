@@ -3486,3 +3486,144 @@ Public-repo `documentation/PERFORMANCE_HISTORY.md` updated with a
 fifth entry under "May 18, 2026 PDT" covering the per-prune
 attribution (`25cbd06`). Tasks #80, #85, #86, #88, #89 all moved to
 completed status in the operator tracker.
+
+## May 19, 2026 UTC — #47 huge pages + jemalloc benches + #57 audit (extended session continues)
+
+After the #88/#89 design passes, three more items landed in the same continuous session, all in the early-UTC hours of May 19.
+
+### #47 huge pages — scale-dependent result, default validated
+
+Ran two-condition paired bench at two scales: same v2-bundled HEAD
+binary, `THP=always` vs `THP=never`, alternated conditions, page-cache
+flush between every iter. Results:
+
+| Scale / Host | THP=always median | THP=never median | Δ |
+|---|---|---|---|
+| D8 Spot, 1B nodes (small) | 56.4s | 43.8s | THP=never is 22% **faster** |
+| D128 Spot, 100B nodes (canonical-equivalent) | 215s | 263s | THP=always is 22% **faster** |
+
+The result reverses across scales. At small workload (4 GB total
+hash on 8 cores, 16 GB host RAM), THP allocation triggers
+defragmentation that costs more than its TLB benefit; at
+canonical-equivalent workload (64 GB total hash across 128 cores on
+256 GB host RAM), TLB pressure dominates and THP wins decisively.
+
+The operational conclusion: **Ubuntu 24.04's default `THP=always`
+is correct for v2-bundled canonical builds.** No engineering change
+required — the existing default is already right.
+
+Lesson worth banking: **always measure perf knobs at
+canonical-relevant scale.** A D8-only measurement would have led to
+the WRONG operational decision (turn off THP for canonical, costing
++22% wall). The PERFORMANCE_HISTORY.md entry documents this so a
+future hand-tuning attempt doesn't regress.
+
+Sha-preserving across all 12 iters at both scales (sha `8c35a854…`
+at 100B matches the per-prune isolation pilot's earlier registration;
+sha `fe98e58a…` at 1B matches the 1B v2 isolation point). Total cost
+$0.45.
+
+### #47 jemalloc — null result, no dependency added
+
+Same paired-alternated pattern: D128 Spot, 100B paired, alternated
+stock-vs-jemalloc, 3 iters per condition, page-cache flush between.
+jemalloc via `LD_PRELOAD=libjemalloc.so.2`; stock via unmodified
+launch.
+
+| Mode | n | median ms | mean ms | range |
+|---|---|---:|---:|---:|
+| stock glibc | 3 | 198,576 | 201,872 | 196,944 – 210,096 |
+| jemalloc | 3 | 202,434 | 202,821 | 198,237 – 207,792 |
+
+jemalloc median is 1.9% slower than stock, with overlapping ranges
+— effectively within noise. Sha preserved across all 6 iters
+(`8c35a854…`). No engineered speedup, no dependency added.
+
+Predictable null result given the workload pattern: ROAE allocates
+a few large stable mmaps (512 MB hash table per thread, allocated
+once at thread start) and then doesn't churn. jemalloc's design
+strength is millions-of-small-allocs with arena isolation, which
+this workload does not exhibit.
+
+The operator standing rule (don't depend on libjemalloc unless
+significant speedup AND no other path achieves it) trivially fails
+here — a slight slowdown fails both gates. Also, the
+`LD_PRELOAD` shim is a workaround pattern per
+`feedback_fix_root_cause_not_workaround`; canonical builds ship on
+stock toolchain. Closed cleanly.
+
+Total cost $0.40, ~25 min wall.
+
+### #47 status after huge pages + jemalloc
+
+| Sub-item | Status | Engineered Δ |
+|---|---|---|
+| LTO | DONE (`v6d`, 2026-05-13) | +2.53% |
+| PGO | DONE (`v3`, 2026-05-18) | +6.5% |
+| AVX-512 (#46) | CLOSED (null, 2026-05-16) | 0% |
+| Huge pages | DONE (2026-05-19, default validated) | 0% (no change) |
+| jemalloc | DONE (2026-05-19, null, no dep) | 0% |
+| NUMA-local | Open (likely no-op on single-socket D128) | TBD |
+
+Only NUMA-local remains in #47. Cumulative engineered speedup banked
+since v1 baseline: ~+9.2% sha-preserving at canonical (LTO + PGO);
+all other CPU-bundle items contributed zero engineered gain.
+
+### #57 eviction-resume duplicate inflation — empirical audit, declared satisfied
+
+Source-level investigation in 2026-05-04 had identified Hypothesis I
+(orphan `sub_*.bin.tmp` from failed atomic renames during eviction)
+as the most likely cause of the original "2.99B raw vs 759M unique"
+symptom. The empirical follow-up — mount solver-data-westus3 and
+count orphan tmps — was deferred to "next time it's mounted."
+
+Mounted today: solver-data-westus3 holds **zero `sub_*.bin.tmp`
+orphans AND zero `sub_*.bin` proper shards**. The disk holds
+post-merge artifacts only — raw shards from each campaign were
+cleaned up at campaign-end (standard pattern: shards are huge, the
+merged solutions.bin is the canonical output). So
+Hypothesis I cannot be empirically confirmed or refuted from
+disk-state-now.
+
+Three converging structural signals point to "satisfied" anyway:
+
+1. **Recent campaigns showed no inflation symptoms** — 2026-05-16
+   v2 11.2T canonical, 2026-05-18 PGO 1T v3 bench, 2026-05-18
+   per-prune isolation K-pilot all completed with expected record
+   counts. If 4× inflation were persistent, it would have shown
+   up in PERFORMANCE_HISTORY.md.
+2. **The 2026-05-18 #92 resume regression fix** (commit `b684cca`,
+   `mw_delta` added to `DFSStackFrame_v2`) is a plausible alternative
+   root-cause for the original 2.99B-vs-759M discrepancy. Whether
+   #92 WAS the root cause or merely a coincidental fix is unprovable
+   post-hoc.
+3. **The per-prune isolation pilot's resume-stress test** (1B nodes,
+   2,824 mid-campaign resume cycles forced by SOLVE_DFS_CHECKPOINT=1)
+   produced solutions.bin byte-identical to a single-shot 1B run.
+   The resume path is empirically clean at this scale.
+
+Declared #57 satisfied by structural evidence. Audit writeup:
+`x/roae/TASK_57_EMPIRICAL_AUDIT_2026_05_19.md`. Future-proofing
+recommendation: if a future campaign shows >2× raw-records vs
+expected, instrument the per-cell logging proposed in the 2026-05-04
+design doc. Not blocking.
+
+Cost: $0.01 (D2 Spot, 3 min wall).
+
+### Cumulative state after this batch
+
+The session has now ranged across an extended 6+ hours real-time
+covering: branch consolidation (avx512 → v2-bundled cherry-picks),
+per-prune isolation K-pilot at 4 scales, #88 and #89 design passes,
+#47 huge pages + jemalloc benches, #57 empirical audit. All
+committed and pushed to the appropriate repos. Total compute spend
+~$6.30 in the session (well within the $50 cap).
+
+**The #47 CPU bundle is essentially closed** — only NUMA-local
+remains and it's expected no-op. **No new engineered speedup banked
+since PGO at +6.5%** (2026-05-18 earlier); the items measured tonight
+either validated the default (huge pages) or returned null/negative
+(jemalloc). Engineering momentum has shifted to #88 implementation
+(Candidate B — complement-coupled WPD check, ~1-2 days work) which
+is the remaining high-leverage direction per the per-prune isolation
+data.
