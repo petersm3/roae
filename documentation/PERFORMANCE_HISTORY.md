@@ -695,6 +695,51 @@ The empirical lesson: **always measure perf knobs at canonical-relevant scale.**
 
 ---
 
+## 2026-05-19 — task #47 jemalloc: NULL RESULT (allocator swap, no dependency added)
+
+**Category**: env / allocator (no code or build change)
+**Sha impact**: none (sha-preserving across all 6 measured iters)
+**Decision**: **DO NOT ship libjemalloc dependency.** Empirically no significant speedup; jemalloc slightly slower than stock glibc on this workload.
+
+### Hypothesis
+jemalloc's per-arena isolation and lower fragmentation might benefit ROAE's 128-thread allocation pattern at canonical scale. Realistic prior: small or null effect — ROAE's allocation pattern is "few big stable mmaps" (512 MB hash table per thread, allocated once at thread start), not the "millions of small allocs" workload that jemalloc is engineered to win on.
+
+### Methodology
+- Same binary (v2-bundled HEAD `7ffe5d8`), `cc -O2 -pthread -DNDEBUG`.
+- D128als_v7 Spot, throttle-probe HEALTHY (3077 MHz min).
+- Two conditions paired and ALTERNATED (s-j-s-j-s-j) to factor out host-noise:
+  - `stock` = unmodified launch (glibc ptmalloc2 default)
+  - `jemalloc` = `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2 ./solve ...`
+- 100B full-enum depth-2, 3 iters per condition, page-cache flush between every iter.
+- THP=always (Ubuntu default) for both conditions.
+
+### Result
+
+| Mode | n | median ms | mean ms | min | max |
+|---|---|---:|---:|---:|---:|
+| stock | 3 | 198,576 | 201,872 | 196,944 | 210,096 |
+| jemalloc | 3 | 202,434 | 202,821 | 198,237 | 207,792 |
+
+**Median Δ = +1.9% (jemalloc slower).** Ranges overlap; the difference is within run-to-run noise. No significant speedup.
+
+### Sha gate
+All 6 iters produced solutions.bin sha `8c35a854…` (matches the per-prune isolation pilot's `100B v1_C5_C3_C3opt` registration and the huge-pages bench's reproduction). Sha-preserving across allocator swap confirmed.
+
+### Decision rationale
+1. **No significant speedup** — even if positive, the operator standing rule requires "significant speedup AND no other path"; a 1.9% slowdown trivially fails both gates.
+2. **Workload mismatch with jemalloc's strengths** — ROAE allocates a few large fixed regions once at startup; jemalloc's arena isolation and small-alloc fast paths offer nothing here.
+3. **`LD_PRELOAD` is a workaround pattern** per operator memory `feedback_fix_root_cause_not_workaround` — canonical artifacts must ship on the stock toolchain, not on a preload shim. Even a positive result wouldn't be shippable in this form without a separate build-time integration task.
+
+### Cost
+~$0.40 D128 Spot Spot (~25 min wall).
+
+### Notes
+- This entry exists to bank the empirical null result so the question doesn't get re-litigated in a future "what about jemalloc?" thread. The workload pattern doesn't match jemalloc's design strengths; the bench confirms.
+- Task #50 (Pre-AVX-512 jemalloc heap-corruption diagnostic LD_PRELOAD test) was a DIFFERENT investigation — diagnostic for correctness, not perf. That task completed; this one closes the perf question.
+- **#47 CPU bundle remaining**: NUMA-local allocation check. D128als_v7 underlying EPYC 9V45 is exposed as a single NUMA node per VM (single-socket topology); the bench would likely confirm null. Lower priority.
+
+---
+
 # Cumulative narrative — v1 → v2 → v2+PGO
 
 The table below summarizes what's measured so far. Numbers in brackets are the entries above where the data comes from.
