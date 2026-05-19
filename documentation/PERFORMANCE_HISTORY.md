@@ -740,6 +740,84 @@ All 6 iters produced solutions.bin sha `8c35a854…` (matches the per-prune isol
 
 ---
 
+## 2026-05-19 — task #47 NUMA: NULL RESULT (Linux first-touch already NUMA-local)
+
+**Category**: env / NUMA policy (no code or build change)
+**Sha impact**: none (sha-preserving across all 6 measured iters)
+**Decision**: **No `numactl` wrapper required for canonical builds.** Linux default first-touch NUMA policy already achieves NUMA-local allocation for the solve.c workload pattern.
+
+### Hypothesis
+D128als_v7's underlying topology: hypothesis was "single NUMA node per VM (single-socket Azure exposure)." If true, NUMA-aware allocation would be a structural no-op. If multi-node, `numactl --interleave=all` might help by balancing 128-thread allocations across nodes vs Linux's default first-touch policy.
+
+### Topology discovered
+D128als_v7 actually exposes **2 NUMA nodes** under Ubuntu 24.04:
+- node 0: cpus 0-63, 128.9 GB RAM
+- node 1: cpus 64-127, 129.0 GB RAM
+- node distances: 10/11 (typical local/remote ratio)
+
+So the test was genuinely interesting — not the no-op the original hypothesis predicted.
+
+### Methodology
+- Same binary (v2-bundled HEAD `c78d1f3`), `cc -O2 -pthread -DNDEBUG`.
+- D128als_v7 Spot, throttle preflight HEALTHY (3243 MHz min).
+- Two-condition paired bench, alternated d-i-d-i-d-i:
+  - `default` = unmodified launch (Linux first-touch policy)
+  - `interleave` = `numactl --interleave=all ./solve` (round-robin allocations across both nodes)
+- 100B full-enum depth-2, 3 iters per condition, page-cache flush between every iter.
+- THP=always (Ubuntu default) for both conditions.
+
+### Result
+
+| Mode | n | median ms | mean ms | min | max |
+|---|---|---:|---:|---:|---:|
+| default | 3 | 193,823 | 193,885 | 192,810 | 195,021 |
+| interleave | 3 | 194,922 | 195,151 | 192,298 | 198,232 |
+
+**Median Δ = +0.6% (interleave slightly slower).** Within noise; ranges overlap. No significant speedup.
+
+### Sha gate
+All 6 iters produced solutions.bin sha `8c35a854…` (matches the per-prune isolation pilot's `100B v1_C5_C3_C3opt` registration and the huge-pages + jemalloc bench reproductions). Sha-preserving across NUMA policy change confirmed.
+
+### Why null despite multi-node topology
+solve.c's allocation pattern is "thread-per-core, allocate one large hash table per thread, never free." Linux's default first-touch policy gives:
+
+1. Each thread is scheduled to a specific core (eventually pinned by OS load balancer).
+2. The thread allocates its 512 MB hash table via `malloc/mmap`. Memory is reserved but not yet faulted-in.
+3. On first write to a page, the kernel allocates the physical page on the NUMA node of the CURRENT thread.
+4. Since the thread is on (typically) one node throughout its lifetime, all of its memory ends up on that local node.
+
+With 128 threads spread evenly across 64+64 cores, the default-policy distribution is essentially 64 GB hash on node 0 + 64 GB on node 1 — the same balanced distribution that `--interleave=all` would force. So explicit interleaving has no benefit; the default is already NUMA-local.
+
+**Workloads where `--interleave=all` would help** typically have:
+- Frequent thread migration across NUMA nodes (e.g., dynamic work queues), OR
+- A single large allocation accessed by all threads (which first-touches on one node and becomes "remote" for the rest)
+
+solve.c has neither pattern. Each thread's hash table is private; threads don't share large data.
+
+### Decision rationale
+1. **No significant speedup** — operator standing rule requires significant + no-other-path; trivially fails.
+2. **Adding numactl wrapper is a workaround pattern** (matches `feedback_fix_root_cause_not_workaround`) and shouldn't ship even if measurable.
+3. **The structural reason is informative**: solve.c's design choices (per-thread private allocations, thread-per-core) already exploit NUMA locality implicitly. No further work needed.
+
+### Cost
+~$0.35 D128 Spot (~25 min wall, including topology probe and throttle preflight).
+
+### Closes #47 entirely
+With NUMA-local now measured, the CPU optimization bundle (task #47) is fully closed:
+
+| Sub-item | Status | Engineered Δ |
+|---|---|---|
+| LTO (build flag) | DONE 2026-05-13 | **+2.53%** |
+| PGO (build flag) | DONE 2026-05-18 | **+6.5%** |
+| AVX-512 retool (#46) | CLOSED 2026-05-16 (NULL) | 0% (gcc autovec sufficient) |
+| Huge pages (THP) | DONE 2026-05-19 (default validated) | 0% (default correct at canonical) |
+| jemalloc | DONE 2026-05-19 (NULL, no dep) | 0% (workload mismatch) |
+| NUMA-local | DONE 2026-05-19 (NULL, this entry) | 0% (Linux first-touch already NUMA-local) |
+
+**Cumulative engineered speedup banked from the #47 bundle: ~+9.2% sha-preserving at canonical scale** (LTO ×1.0253 × PGO ×1.065 = ×1.092). All other items contributed zero. The CPU optimization surface for the canonical workload is fully explored at this point.
+
+---
+
 # Cumulative narrative — v1 → v2 → v2+PGO
 
 The table below summarizes what's measured so far. Numbers in brackets are the entries above where the data comes from.

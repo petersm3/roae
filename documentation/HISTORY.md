@@ -3627,3 +3627,106 @@ either validated the default (huge pages) or returned null/negative
 (Candidate B — complement-coupled WPD check, ~1-2 days work) which
 is the remaining high-leverage direction per the per-prune isolation
 data.
+
+## May 19, 2026 UTC — #47 NUMA-local NULL + #88 Phase 1 dead-end + #47 fully closed
+
+Two final items in the extended-session-day, both null/dead-end results, both useful to bank empirically.
+
+### #47 NUMA-local — null
+
+D128als_v7 was discovered to expose **2 NUMA nodes** under Ubuntu
+24.04 (not the single-node topology originally hypothesized): 64
+cores + 128 GB on each node, distance ratio 10/11. The
+NUMA-aware-allocation test was therefore not the structural no-op
+expected — it was a genuine empirical question.
+
+Paired bench at D128 100B (3 iters each, alternated d-i-d-i-d-i):
+
+| Mode | median ms | range |
+|---|---:|---:|
+| Linux default first-touch | 193,823 | 192.8-195.0s |
+| `numactl --interleave=all` | 194,922 | 192.3-198.2s |
+
+Δ = +0.6% (interleave slightly slower, within noise). Sha
+preserved across all 6 iters.
+
+The structural explanation: solve.c's "thread-per-core, allocate
+one large per-thread hash table once" pattern interacts cleanly
+with Linux's default first-touch NUMA policy. Each thread allocates
+its 512 MB hash table on first write, which lands on whatever NUMA
+node the scheduler placed the thread. With 128 threads spread
+evenly across 64+64 cores, the default policy already achieves
+balanced ~64 GB per node, which is exactly what `--interleave=all`
+would force. No further work needed.
+
+Cost: ~$0.35 D128 Spot. Closes #47 fully.
+
+### #47 final accounting
+
+The CPU optimization bundle (task #47) is now fully closed. All
+six sub-items measured:
+
+| Sub-item | Status | Engineered Δ at canonical |
+|---|---|---|
+| LTO build flag | DONE 2026-05-13 | **+2.53%** |
+| PGO build flag | DONE 2026-05-18 | **+6.5%** |
+| AVX-512 retool (#46) | CLOSED 2026-05-16 (NULL) | 0% (gcc autovec sufficient) |
+| Huge pages (THP) | DONE 2026-05-19 (default validated) | 0% (default correct) |
+| jemalloc | DONE 2026-05-19 (NULL, no dep) | 0% (workload mismatch) |
+| NUMA-local | DONE 2026-05-19 (NULL) | 0% (default first-touch sufficient) |
+
+**Cumulative engineered speedup banked from #47: ~+9.2%
+sha-preserving at canonical (LTO + PGO).** Four of six sub-items
+were null/no-op; two were real wins. The CPU-optimization surface
+for the canonical workload is now fully explored at this analytical
+level. Future engineering work would require either novel approaches
+(e.g., custom kernels, AVX-512 hot-path rewrites not amenable to
+autovec) or architectural changes to the workload itself.
+
+### #88 Phase 1 — dead-end documented
+
+After the per-prune isolation K-pilot showed #68 C5 feasibility is
+the workhorse (24-27× more impactful than #67), the design pass
+recommended Candidate B (complement-coupled WPD check) as the first
+ship target. Phase 1 of the implementation plan was the gating
+mathematical derivation: find a provably correct cheap (≤50 ns/node)
+tightening of #68's sum-pigeonhole.
+
+Spent ~45 min of the 2-3 hr analytical cap exploring 6 directions:
+separate WPD/BPD budget tracking, per-pair placement check,
+forbidden-tail filter, parity/structural arguments, complement-pair-
+pair grouping (the original Candidate B sketch), and C5+C3 cross-
+coupling. None yielded a clean novel formula.
+
+The honest finding: **the cheap-tightening surface for the C5 prune
+family appears saturated** by the current v2 stack (#68 sum check +
+inner-loop bd!=5 + budget[bd]>0 + #67/#70 mid-walk-C3 family).
+Tighter checks require expensive analysis — bipartite Hopcroft-Karp
+matching (~5000× slowdown unless incremental), AC-3 propagation,
+or novel structural theorems specific to ROAE's combinatorics.
+
+This is consistent with the per-prune isolation K-pilot's
+empirical finding: #68 alone accounts for ~95% of v2's record-set
+expansion over v1. The constraint structure may simply not admit
+cheap incremental refinement past #68+#70.
+
+Decision per implementation plan's decision gate: STOP. Declared
+#88 implementation deferred. Full derivation write-up:
+`x/roae/TASK_88_PHASE1_DERIVATION_2026_05_19.md`. Future revisit
+requires either a novel structural theorem OR accepting the
+bipartite-matching engineering cost.
+
+### Session-day final state
+
+Total session compute spend: **~$7.65** (well within $50 cap).
+Engineered speedup banked: **PGO +6.5% + LTO +2.53% = ~+9.2%
+sha-preserving at canonical** (all from earlier today). Tonight's
+work (per-prune K-pilot, #88 design + Phase 1, #47 huge pages +
+jemalloc + NUMA, #57 audit) was all null/diagnostic/closure work —
+no new engineered speedup banked, but multiple open questions
+decisively resolved.
+
+The pre-560T solve.c critical path remains EMPTY. The next
+high-leverage engineering item (#88 implementation) is deferred
+pending a novel mathematical insight. 560T launch still
+operator-review-gated per `project_560T_review_gate`.
