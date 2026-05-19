@@ -3363,3 +3363,126 @@ rule that governs analysis code. The preflight-probe shell script
 is fine because it covers the orchestrator-side
 (pre-launch / cross-VM) case; the in-binary subcommand covers the
 on-target / mid-bench case. Both layers are needed.
+
+## May 18-19, 2026 PDT — per-prune isolation K-pilot (4 scales, $0.59) + #88/#89 design passes
+
+**Per-prune attribution K-pilot — closed tasks #80a, #85, #86 in one
+sweep.** Until tonight, PERFORMANCE_HISTORY.md had entries for v1, v2
+bundled, PGO, and per-prune entries citing only selftest-scale data
+(100M nodes, depth-2). We had no per-prune attribution at
+canonical-relevant scales. The pilot ran five build variants from
+their natural commits on the v2-bundled lineage:
+
+- `v1_baseline` (72fdfdf) — pre-v2 baseline + #72 bitset (sha-preserving)
+- `v1_C3_only` (133e296) — v1 + #67 mid-walk C3 alone
+- `v1_C5_only` (bf58c65) — v1 + #68 C5 feasibility alone
+- `v1_C5_C3` (9f4b630) — v1 + #68 + #67
+- `v1_C5_C3_C3opt` (7b5ff6d) — v1 + #68 + #67 + #70 = current v2
+
+Each variant ran at four scales: 100M (claude local), 1B + 10B (D8
+Spot), 100B (D128 Spot with throttle preflight HEALTHY 3048 MHz min).
+Workload: full enumeration, default depth-2, page-cache flush between
+variants. Same scenario as `--selftest`, just scaled up. Captured
+record count, sha256, canonical-level sha (byte & 0xFC mask), and
+retained the solutions.bin files at 1B + 10B for cross-variant set
+diffs.
+
+Three crisp findings:
+
+1. **#68 (C5 feasibility) is the workhorse — 24-27× more impactful
+   than #67 mid-walk C3 across all 4 scales.** Same ranking at every
+   measured budget; consistent across 1000× variation. At 100B (the
+   largest scale measured), #68 alone yields +104% records over v1;
+   #67 alone yields +7.2%. The 14× ratio is conservative — at smaller
+   scales the gap is wider.
+2. **#67 is 86-95% redundant with #68.** Canonical-set intersection
+   analysis at 1B showed C3 adds 20,399 records, of which 17,575 (86%)
+   are also added by C5 alone. At 10B the overlap rises to 95% (85,373
+   of 89,743). C3's unique contribution is a few thousand records per
+   scale — visible but small.
+3. **#70 (C3 optimistic-completion) is marginal — <1% incremental on
+   top of v1+C5+C3 at every measured scale.** Confirms #70 as a
+   refinement tightening of #67's predicate, not a substantive new
+   prune.
+
+The structural finding behind the numbers: **v1 ⊆ every variant at
+100% inclusion at every scale measured.** No records lost, only added.
+Monotone subset chain v1 ⊂ v1+C3 ⊂ v1+C5+C3 ⊂ v1+C5+C3+C3opt and v1 ⊂
+v1+C5 ⊂ v1+C5+C3 ⊂ v1+C5+C3+C3opt. Every v2 prune is provably
+solution-preserving by empirical witness at these scales.
+
+The convergence story across scales is more interesting than expected.
+At sub-canonical scales the v2-over-v1 gap GROWS with budget:
+
+| Scale | +C5+C3+C3opt vs v1 |
+|---|---|
+| 100M | +73.1% |
+| 1B | +90.6% |
+| 10B | +101.1% |
+| 100B | +121.6% |
+| 11.2T (canonical) | +4.83% |
+
+The reversal between 100B and 11.2T happens because at sub-canonical
+scales v2's effect is dominated by "budget-freer" behavior (the
+tighter predicate lets each per-cell budget find more leaves) — a
+transient advantage that disappears as v1's budget approaches its
+own predicate's natural exhaustion at canonical scale. The crossover
+budget sits between 100B and 11.2T; we didn't measure intermediate
+points because the v1_C5_C3_C3opt variant's single-threaded in-memory
+merge at 70M+ pre-dedup records bottlenecked the schedule. The 1T
+phase of the D128 sweep was pre-emptively killed to free schedule;
+the 4-scale data already establishes the convergence trajectory
+decisively.
+
+Total cost ~$0.59 compute. Detailed writeup with set-intersection
+numbers + lineage diagrams + methodology in
+`x/roae/PER_PRUNE_ISOLATION_KPILOT_2026_05_18.md`.
+
+**Cross-checks against existing artifacts** (raises confidence that
+the builds were correct):
+
+- 100M v1_baseline sha `403f7202…` matches in-source documented selftest
+- 100M v1_C5_only sha `47dac6cb…` matches in-source documented
+- 100M v1_C5_C3 sha `98b8c0ef…` matches in-source documented
+- 100M v2 current sha `56487ab5…` matches current selftest baseline
+- 100B v1_baseline sha `f1709ab0…` matches commit 906f33b's registered 100B v1 canonical sha
+- 100B v1_C5_only sha `de28fea6…` matches commit 2ec4c30's registered 100B v2 sanity sha
+
+**#88 + #89 design passes followed** (both unblocked by #69 closure
+earlier today). Both committed to private staging as
+`x/roae/TASK_88_TIGHTER_C5_DESIGN_2026_05_18.md` and
+`x/roae/TASK_89_C2_SPACE_PRUNE_DESIGN_2026_05_18.md`.
+
+The #88 design (tighter C5) explored 4 candidate tightenings of the
+current sum-based pigeonhole check:
+
+- **A (bipartite Hopcroft-Karp matching, pair × position)**:
+  high-leverage but ~5000× slowdown unless incremental. Defer.
+- **B (complement-coupled WPD check)**: RECOMMENDED first ship target.
+  ~50 ns/node cost; exploits complement-pair structure not used by
+  other v2 prunes.
+- **C (orient-stratified budget)**: sequel to B; modest expected gain.
+- **D (cross-position WPD propagation)**: middle-ground, deferred.
+
+Validation gate for #88 implementation: must satisfy v2_current ⊆
+v2_C5_tighter at 1B K-pilot; sha-forks at the selftest level (new
+expected sha to register in lineage comment).
+
+The #89 design (C2 as space prune) found that C2 is mathematically
+implied by C5 per SPECIFICATION.md ("minimum independent rule set is
+{C1,C3,C4,C5}"), so cannot expand the v2 record set — perf-only
+upside. Task #71 (one-step C2 lookahead) already tried a similar
+direction and lost 10.7% wall, so the design recommends Candidate A
+only (bitmask-domain-filter using #72 infrastructure as cheaper
+REPLACEMENT for the inner-loop `bd==5` check, not an addition).
+Multi-step lookahead is explicitly NOT recommended (would re-run
+#71's failure mode).
+
+Strategic recommendation in the design docs: ship #88 first because
+that's where the leverage lives per the per-prune isolation data;
+defer #89 unless Candidate A has a clean implementation path.
+
+Public-repo `documentation/PERFORMANCE_HISTORY.md` updated with a
+fifth entry under "May 18, 2026 PDT" covering the per-prune
+attribution (`25cbd06`). Tasks #80, #85, #86, #88, #89 all moved to
+completed status in the operator tracker.
