@@ -3291,3 +3291,75 @@ for raw entries.
 Total session cost: ~$5.25 in compute (PGO benches + 1B resume
 validation + single-cell probe). Six commits to public roae, three
 commits to private x/roae. All pushed.
+
+## May 18, 2026 PDT — #69 MRV K-pilot SHELVED + branch cleanup (avx512 → v2-bundled cherry-picks)
+
+**#69 MRV variable-ordering K-pilot — SHELVED.** Four scales
+(1B / 10B / 100B / 1T) on D8 + D128 Spot, paired numeric vs fail-first
+runs with page-cache flush and canonical-level set-intersection diff
+via `byte & 0xFC` mask. Results:
+
+| Scale | K = R_ff / R_num | Set overlap |
+|---|---|---|
+| 1B | 1.342 (fail-first +34%) | differ |
+| 10B | 0.980 (−2%) | differ |
+| 100B (~canonical) | **0.770 (−23%)** | **|N ∩ F| = 0 — disjoint** |
+| 1T (5.7× canonical) | 0.922 (−7.8%) | differ |
+
+At canonical-relevant scale (100B per-cell budget ≈ canonical's
+70.7M), fail-first finds 23% fewer records AND the two orderings
+explore mathematically disjoint slices of the solution space — not
+a refinement, a different region. The original 1B "+34%" result was
+a small-budget artifact that does not survive at larger scales.
+SHELVE recommendation: leave the static rarest-WPD-bucket
+implementation un-shipped; PERFORMANCE_HISTORY.md #69 entry already
+records this. The spiritual successor — per-step MRV (count valid
+options per remaining slot, sort by ascending constrainedness) — is
+not yet filed as a task; depends on operator interest after seeing
+this K-pilot data. Full data in
+`x/roae/MRV_KPILOT_RESULTS_2026_05_18.md`. Total K-pilot cost: ~$2.
+
+**Working tree #69 patch dropped.** The uncommitted ~70-line patch
+in `solve.c` was reverted via `git checkout HEAD -- solve.c`.
+Decision: documentation of "what was tried and shelved" lives in
+PERFORMANCE_HISTORY.md + the K-pilot doc; keeping unmerged code in
+the tree as a museum exhibit isn't useful.
+
+**Branch consolidation.** Three branches existed: `main` (stable,
+untouched while v2 is in flight), `v2-bundled` (active dev — all v2
+prune work + PGO + #92 fix + ulimit gate), and `avx512` (21
+unique commits from task #46 AVX-512 retool, now closed at null
+result). The `avx512` branch had two solve.c commits not present
+on `v2-bundled`:
+
+- `70a895a` (2026-05-15): `--cpu-features` diagnostic subcommand
+- `33e78b5` (2026-05-16): `--cpu-freq [THRESHOLD_MHZ]` subcommand
+  + companion docs in SOLVE_CLI.md and LARGE_SCALE_CAMPAIGNS.md
+
+Both are diagnostic-only (no enumeration; sha-preserving), and
+both are companions to
+`scripts/d128_preflight_throttle_probe.sh` — required by the
+"D128 paired-bench preflight throttle probe" operator-memory rule
+established 2026-05-16 after a D128als_v7 host handed back ~600 MHz
+cores instead of the expected 2596/3700 MHz. The
+`--cpu-freq` subcommand is the in-binary mid-bench companion: a
+bench harness can call it between phases to detect throttling that
+would invalidate paired wall-clock comparisons.
+
+Both commits were cherry-picked onto `v2-bundled`
+(`11ba190` + `324318b`). One trivial conflict in SOLVE_CLI.md
+(no overlap on HEAD side, just adjacency to the `--extended-selftest`
+section) was resolved by taking the incoming sections. Selftest
+sha `56487ab5…` confirmed unchanged post-merge. The `avx512`
+branch's other 19 unique commits were docs/scripts from the AVX-512
+retool (task #46, now closed) — superseded by PERFORMANCE_HISTORY.md
+entries; not carried forward. The branch will be deleted (local +
+origin) once these cherry-picks are pushed.
+
+Lesson worth capturing inline (also being added to operator memory):
+diagnostic subcommands like `--cpu-freq` / `--cpu-features` live
+in `solve.c` not external scripts — same single-source-of-truth
+rule that governs analysis code. The preflight-probe shell script
+is fine because it covers the orchestrator-side
+(pre-launch / cross-VM) case; the in-binary subcommand covers the
+on-target / mid-bench case. Both layers are needed.
