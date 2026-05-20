@@ -3754,3 +3754,17 @@ After the wrap-around parity theorem was derived earlier in the session (see The
 - McKenna's Rule 2 as a candidate constraint (potential "C8") — pending K-pilot to measure violation rate at canonical scale. Implementation sketch: add `solve --verify-rule2` subcommand iterating each between-pair boundary and checking that value-1 transitions occur only at C2-forced positions. Cost ~$0.05 to run on the v2 11.2T canonical.
 
 **Files updated** in this batch: `documentation/CITATIONS.md`, `documentation/SPECIFICATION.md`, `documentation/MCKENNA.md`, `documentation/SOLVE-SUMMARY.md`, this `documentation/HISTORY.md`.
+
+## May 19, 2026 UTC — McKenna Rule 2 + 9th-six K-pilots run on v2 11.2T canonical
+
+Implemented two analysis-only subcommands in solve.c and ran them across the full v2 11.2T canonical (796,357,285 records).
+
+**`solve --verify-rule2`** (McKenna Rule 2 audit): tabulates value-1 transitions per record and checks each against the C2-forced criterion (whether the orient-flip alternative would have given a value-5). Result: **83.77% of canonical records violate McKenna's strong Rule 2**. Of the 1.59B value-1 transitions across the canonical, 40.4% are at C2-forced positions, 59.6% are "wasteful" (the value-1 could have been avoided via the alternate orient without forcing a 5). King Wen is one of the 16.23% that obeys Rule 2 strictly.
+
+**`solve --verify-9th-six`** (McKenna 9th-six audit): every canonical record has exactly 1 between-pair value-6 transition (count forced by C5's `6:9` budget minus 8 within-pair value-6 from WPD=6 pairs). Tabulates which boundary that 9th six lands at. Result: 100% have exactly 1, but the boundary varies — **88.87% land at boundaries 19, 20, or 21** (with boundary 20 = 49.9% the modal value; boundary 19 = KW's 38→39 = 21.5%). Never at boundaries 0-18. Position 19 ONLY (KW's specific value) would filter 78.5% of records; the broader "boundary ∈ {19, 20, 21}" filter would filter only 11.1%.
+
+Both subcommands sha-preserving (post-enumeration only). Both above the 30% restriction threshold suggested in the audit plan; both flagged for operator review before being promoted to spec as candidate C-rules.
+
+Detailed audit + decision criteria in `x/roae/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` (private). Cost: ~$0.05 D2 Spot, ~7 min wall.
+
+The two new subcommands documented in `documentation/SOLVE_CLI.md` under `--verify-rule2` and `--verify-9th-six`.

@@ -185,6 +185,35 @@ constraint checks, verifies sort order, dedup integrity, and
 King Wen presence in the file. Used in regression validation when
 both record-level correctness and file-level structure must pass.
 
+### --verify-rule2
+
+```
+solve --verify-rule2 [solutions.bin]
+```
+
+McKenna Rule 2 audit (cf. *The Invisible Landscape*, Chapter 9): for
+each record, count value-1 transitions and check whether each occurs
+at a "C2-forced position" — i.e., the orient-flip alternative for
+the surrounding pair would have produced a value-5 transition. King
+Wen's two value-1 transitions occur only at such C2-forced positions
+per McKenna; this subcommand measures the violation rate across an
+arbitrary solutions.bin. Sha-preserving (post-enumeration analysis,
+no impact on the enumeration code path). See MCKENNA.md for context.
+
+### --verify-9th-six
+
+```
+solve --verify-9th-six [solutions.bin]
+```
+
+Audit of the "9th six" — the single between-pair value-6 transition
+that every C1-C5 record contains (C5's `6:9` budget = 8 within-pair
+value-6 from WPD=6 pairs + exactly 1 between-pair). Tabulates the
+distribution of which boundary index that between-pair value-6 lands
+at. In King Wen, it lands at boundary 19 (the transition between
+hexagrams 38 and 39, the unique "synthetic" value-6 noted by McKenna
+in Chapter 9). Sha-preserving.
+
 ### --merge
 
 ```
