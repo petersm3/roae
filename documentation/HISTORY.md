@@ -3784,3 +3784,29 @@ After the K-pilot data landed (`solve --verify-rule2` and `--verify-9th-six` on 
 **Public-doc updates from this decision**: `documentation/MCKENNA.md` (Rule 2 framing changed from "NEW candidate" to "Declined for promotion" with full peer-review rationale), `documentation/CITATIONS.md` (Rule 2 attribution clarified as empirical observation, not promoted), `documentation/SOLVE-SUMMARY.md` (same), this HISTORY.md entry.
 
 **Private-doc updates**: `x/roae/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` decision sections updated to "NOT PROMOTED" with full reasoning.
+
+## May 20, 2026 UTC — G2 ARM cross-arch attempt 1 — FAILED (operator-side watchdog 4h hard-kill at 91.3%)
+
+In preparation for the v2-bundled → main merge (see `x/roae/V2_MERGE_AUDIT_PACKET_2026_05_19.md`), the v2 11.2T canonical needed an ARM Cobalt cross-architecture witness — Gate G2 in the merge audit packet. (Gate G1, x86 same-SKU cross-build, was deliberately skipped per operator decision after the determinism evidence from selftest stability + attempt 1↔4 merge equality.)
+
+**Pre-flight (PASS).** D2ps_v6 Spot in westus2 ($0.02, ~10min): cloned v2-bundled @ `9d00c48`, built on stock gcc 13.3.0 ARM with `-O3 -pthread -fopenmp -mcpu=native`, ran `--selftest`. Selftest sha `56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc` byte-identical to the x86 v2-bundled baseline. Strongest possible pre-canonical signal that the cross-arch enum would produce a matching `solutions.bin` sha. Pre-flight VM cleanly torn down.
+
+**Main attempt.** D96ps_v6 Spot in westus3 (96-core ARM Neoverse-N2, 384 GB RAM), `solver-data-westus3` attached. Launched 05:31 UTC with `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000 SOLVE_PER_SUB_BRANCH_LIMIT=70723196 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=96`, bundled enum+merge (matching v1 ARM precedent). Working directory `/mnt/solver-data/20260520_v2bundled_11.2T_armB_9d00c48/`. ARM binary sha `c435e8af5f2fcc92d07fae4eb16b10019d2efa8af566bbebdfad13293ffc1abf` (different from x86 binary, expected — different machine code, same algorithm).
+
+**Mid-run disk discovery.** At ~13min wall, observed solver-data-westus3 free space at 81 GB. With existing 170 GB of v2 Build A canonical + prior session content, the disk would have filled at ~93% enum completion. Executed online resize 256→512 GB via `az disk update --size-gb 512` while enum ran; `resize2fs /dev/sda` extended ext4 online to 503 GB total. v2 Build A canonical sha (`2cc966e4…`) verified intact pre- and post-resize. Enum continued without restart.
+
+**Failure mode.** At 09:33:39 UTC (4h03m wall), VM-side watchdog fired `HARD KILL: runtime exceeded 4h` — the watchdog's 4h cutoff (`$ELAPSED > 14400`) was sized from the v1 ARM 10T precedent (1h17m) without accounting for v2's ~3× per-node prune-stack overhead. The real v2 ARM 11.2T enum time is ~4h22m. The watchdog killed the run minutes before its expected completion.
+
+State at kill: 144,435 sub-branches BUDGETED + 96 INTERRUPTED (in-flight when SIGTERM arrived) = 91.3% complete, 13,833 sub-branches not yet started. 52,367 shard files on disk. solve responded to SIGTERM by forking a merge subprocess (Test A 2026-04-30 heap-isolation pattern), then exited. The forked merge subprocess subsequently exited without producing `solutions.bin` (cause not definitively determined — no OOM signature in dmesg; likely cleaned up by the watchdog's secondary `kill -KILL` after the 30s SIGTERM grace, OR was the merge's own internal teardown).
+
+**Why not resume.** v2 has true mid-walk resume (per #92 fix), and the .dfs_state checkpoints + 52,367 shards were preserved on solver-data. Resuming would have taken ~70min to complete the remaining 13,833 sub-branches + merge. Decision: **resume rejected to preserve G2's test validity.** Project history has multiple canonical-scale resume bug incidents (#57 inflation, #76 SIGTERM post-write, #91→#92 mw_delta). If the resumed enum produced a sha ≠ `2cc966e4…`, the divergence could not be cleanly attributed to "ARM cross-arch bug" (G2's actual question) vs "latent v2 resume bug." Cross-arch determinism requires a clean fresh enum.
+
+**Teardown.** VM + NIC + PublicIP + OS disk deleted 09:47 UTC. solver-data-westus3 preserved with G2 partial artifacts and a postmortem at `/mnt/solver-data/20260520_v2bundled_11.2T_armB_9d00c48/G2_FAILURE_POSTMORTEM.txt`. Cost: ~$10 (4h on D96ps_v6 Spot ARM).
+
+**Lessons.**
+
+1. **Watchdog sizing for canonical runs**: hard time-cutoffs sized from older / weaker-prune-stack runs are dangerous. Rule of thumb: `enum-ETA × 1.5` with a floor of 8h for canonical-scale work, OR no hard time cutoff at all (rely on Spot eviction as ultimate safety net + log-staleness watchdog only).
+2. **Post-completion watcher should track merge subprocess**, not just parent solve PID. When solve forks for heap-isolated merge, the parent exits before merge completes; checking solutions.bin immediately after parent-exit reports a spurious "missing" failure.
+3. **v2 ARM 11.2T baseline**: ~4h22m on D96ps_v6 Spot at 10.0 sub-branches/sec / 96.7% CPU sustained. This corrects the misleading "v1 ARM 10T = 1h17m" baseline that motivated the bad watchdog cutoff.
+
+**Next.** Operator chose to retry G2 with corrected watchdog (option 1 from the post-failure triage). Retry uses a fresh working directory (`20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`) to keep attempt-1 artifacts intact for forensics, leaves the solver-data disk at 512 GB (no resize needed), and removes the hard time cutoff from the watchdog (log-staleness only). Cost projection: ~$12 for the retry.
