@@ -3810,3 +3810,17 @@ State at kill: 144,435 sub-branches BUDGETED + 96 INTERRUPTED (in-flight when SI
 3. **v2 ARM 11.2T baseline**: ~4h22m on D96ps_v6 Spot at 10.0 sub-branches/sec / 96.7% CPU sustained. This corrects the misleading "v1 ARM 10T = 1h17m" baseline that motivated the bad watchdog cutoff.
 
 **Next.** Operator chose to retry G2 with corrected watchdog (option 1 from the post-failure triage). Retry uses a fresh working directory (`20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`) to keep attempt-1 artifacts intact for forensics, leaves the solver-data disk at 512 GB (no resize needed), and removes the hard time cutoff from the watchdog (log-staleness only). Cost projection: ~$12 for the retry.
+
+## May 20, 2026 UTC — G2 attempt 2 launched with a SECOND mistake (bundled enum+merge instead of split); operator-caught at +30min, restarted with proper pattern
+
+When restarting G2 ARM cross-arch validation after the attempt-1 watchdog failure, the bundled enum+merge configuration from the v1 ARM precedent was reused (single D96ps_v6 Spot VM, no `SOLVE_SKIP_AUTOMERGE=1`). This violated the **canonical pipeline pattern** that was codified in the post-#81 saga (2026-05-16/17) and is captured in `feedback_merge_on_right_sized_standard.md` + `feedback_canonical_pipeline_pattern.md`: the standing rule for any canonical ≥11.2T is **`SOLVE_SKIP_AUTOMERGE=1` on a Spot enum VM, then `solve --merge` on a separate right-sized Standard VM** — NOT bundled merge on the enum VM.
+
+Operator caught the mistake at +30min into attempt 2 (18,971 sub-branches BUDGETED at 12.0% done, 10.22 subs/sec, 99.2% CPU saturation — the run itself was healthy, just configured wrong). Direction: "ensure that the merge/verify is on a standard not spot vm." Then, after the restart was in progress: "why didn't you do SOLVE_SKIP_AUTOMERGE=1 to begin with, this is an established pattern based upon prior runs."
+
+**Root cause of the second mistake:** Anchoring on the v1 ARM precedent (which did bundled enum+merge on a single D96 ARM) overrode the more recent standing rule. The v1 ARM precedent (2026-04-27/28) predates the canonical pipeline pattern (2026-05-16/17). The newer pattern exists precisely because of the ~$10 of overspend across April-May from repeatedly making this same mistake; deviating "just for cross-arch / matching the precedent" defeats the rule's purpose.
+
+**Lesson codified in memory:** `feedback_canonical_pipeline_no_exceptions.md` — for any canonical ≥11.2T, the split enum+merge with `SOLVE_SKIP_AUTOMERGE=1` is mandatory, with no exceptions for cross-arch, precedent matching, or simpler orchestration. The pattern is what the project has standardized on.
+
+**Restart action.** Killed the bundled run via SIGKILL (NOT SIGTERM — SIGTERM would have triggered the automerge subprocess fork via solve's signal handler). Cleaned the working directory. Restarted the enum on the same D96ps_v6 Spot ARM with `SOLVE_SKIP_AUTOMERGE=1` so it will write shards and exit cleanly after enum without bundling merge. After enum completes, a separate Standard ARM VM (D32ps_v6 or D64ps_v6, sized for ≥128 GB RAM for in-memory merge) will be provisioned in westus3 to run `solve --merge`, with `solver-data-westus3` attached to it.
+
+**Cost of restart:** ~$1 (30 min lost on D96ps_v6 Spot ARM). Cumulative G2 spend after both mistakes: ~$11.
