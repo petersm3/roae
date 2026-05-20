@@ -3768,3 +3768,19 @@ Both subcommands sha-preserving (post-enumeration only). Both above the 30% rest
 Detailed audit + decision criteria in `x/roae/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` (private). Cost: ~$0.05 D2 Spot, ~7 min wall.
 
 The two new subcommands documented in `documentation/SOLVE_CLI.md` under `--verify-rule2` and `--verify-9th-six`.
+
+## May 19, 2026 PT evening — McKenna Rule 2 + 9th-six declined for promotion to formal C-rule
+
+After the K-pilot data landed (`solve --verify-rule2` and `--verify-9th-six` on the v2 11.2T canonical, 796,357,285 records), an operator-review decision was made: **neither McKenna's Rule 2 nor the 9th-six positional regularity will be promoted to formal C-rules in SPECIFICATION.md.**
+
+**Rule 2 (value-1 positional)**: 83.77% of canonical records violate the strict form. The data confirms KW is in a specific minority (16.23%), but the rule itself is reverse-engineered from KW's specific value-1 placements. Adding it would join the C3/C6/C7 family of constraints derived from the answer rather than from first principles — worsening the methodological concern already flagged in CRITIQUE.md ("the 5 rules were extracted from KW and then verified against KW"). No independent corroboration in the published literature (Cook 2006 does not discuss it). The "minimize X except where forces Y" framing is a stylistic preference about which orderings are "elegant," not a hard combinatorial constraint.
+
+**9th-six positional**: 100% of canonical records have exactly 1 between-pair value-6 transition (count structurally forced), but the boundary position varies — only 21.5% at KW's boundary 19, while 49.9% land at boundary 20 and 17.5% at boundary 21. Calling "boundary 19" a constraint would be choosing one of the most-common positions and labeling it as canonical — textbook post-hoc constraint extraction. The sub-observation that the position is NEVER at boundaries 0-18 may be derivable as a theorem from C1+C2+C5; that would be a legitimate addition to the Theorems section (not a new C-rule) if proven in future work.
+
+**What was promoted**: the wrap-around parity Theorem (added earlier today to SPECIFICATION.md) is mathematically derivable from C4 + C5 + the XOR parity identity. It would withstand peer review. McKenna's 25/75 empirical observation = our derivable theorem; that's the legitimate scholarly contribution from the McKenna review.
+
+**What was retained as diagnostic tools**: `solve --verify-rule2` and `solve --verify-9th-six` remain in solve.c as post-enumeration analysis subcommands. They're useful for future research but do not enforce constraints in the enumeration code path. Sha-preserving.
+
+**Public-doc updates from this decision**: `documentation/MCKENNA.md` (Rule 2 framing changed from "NEW candidate" to "Declined for promotion" with full peer-review rationale), `documentation/CITATIONS.md` (Rule 2 attribution clarified as empirical observation, not promoted), `documentation/SOLVE-SUMMARY.md` (same), this HISTORY.md entry.
+
+**Private-doc updates**: `x/roae/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` decision sections updated to "NOT PROMOTED" with full reasoning.

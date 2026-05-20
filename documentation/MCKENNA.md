@@ -32,14 +32,18 @@ McKenna formalizes the King Wen sequence's design under three rules:
 | McKenna's Rule | ROAE equivalent | Status |
 |---|---|---|
 | (1) "Absolutely exclude transition situations with a value of five." | C2 | Already in spec |
-| (2) "Absolutely exclude transition situations with a value of one, except in cases where this would interfere with rule (1)." | NOT in spec | **NEW candidate**, see below |
+| (2) "Absolutely exclude transition situations with a value of one, except in cases where this would interfere with rule (1)." | NOT in spec — empirical observation only | **Declined for promotion**; see below |
 | (3) "A three to one ratio of even to odd transitions was maintained." | Theorem (this section) | Now a theorem |
 
-### McKenna's Rule 2 — a NEW candidate constraint not in C1-C7
+### McKenna's Rule 2 — declined for promotion to formal C-rule
 
 McKenna observed that the King Wen sequence contains **exactly two** transitions of Hamming distance 1, and that these two transitions occur at specific positions where orienting them differently (orient-flipping the surrounding pair) would create transitions of distance 5 — violating Rule 1. ROAE's verification: the two value-1 transitions are at hex 52→53 (hamming(36, 52) = 1) and hex 60→61 (hamming(19, 51) = 1), matching McKenna's reported "pairs 53-54 and 61-62."
 
-The weak form ("exactly 2 transitions of value 1") is already implicit in our C5 multiset `{1:2, ...}`. The strong form ("those 2 transitions occur at C2-forced positions, not arbitrary ones") is **NEW** and would constitute a positional constraint not yet evaluated in solve.c. Whether enforcing it would meaningfully reduce the C1-C5 search space is an empirical question pending K-pilot evaluation. Detailed assessment in `x/roae/MCKENNA_BOOK_REVIEW_2026_05_19.md`.
+The weak form ("exactly 2 transitions of value 1") is already implicit in our C5 multiset `{1:2, ...}`. The strong form ("those 2 transitions occur at C2-forced positions, not arbitrary ones") would be a positional constraint not in our C1-C7 spec.
+
+**K-pilot result (2026-05-19, `solve --verify-rule2` over the v2 11.2T canonical, 796,357,285 records):** 83.77% of C1-C5 records violate the strong form. Only 40.4% of value-1 transitions are at C2-forced positions; 59.6% are "wasteful" by McKenna's framing. King Wen is in the 16.23% minority that obeys Rule 2 strictly.
+
+**Decision: NOT promoted to formal C-rule.** The data confirms KW is in a specific minority, but the rule itself is reverse-engineered from KW's specific value-1 placements. Promoting it would add to the C3/C6/C7 family of constraints derived from the answer (already flagged in [CRITIQUE.md](CRITIQUE.md) as a methodological concern: "the 5 rules were extracted from KW and then verified against KW"). A peer-review-defensible spec keeps reverse-engineered constraints to a minimum; we already have three (C3, C6, C7) and adding a fourth would worsen the methodological critique without first-principles justification. The framing "minimize X except where it forces Y" is a stylistic preference about which orderings are "more elegant", not a hard combinatorial constraint, and McKenna's claim that this was intentional design lacks independent corroboration in the published literature (Cook 2006 does not discuss it). The K-pilot data is preserved as an empirical observation about King Wen; `solve --verify-rule2` is retained as a diagnostic subcommand for future analysis. Detailed assessment in `x/roae/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md`.
 
 ### McKenna's "closure" observation
 
