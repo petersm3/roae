@@ -3887,3 +3887,44 @@ Operator caught the mistake at +30min into attempt 2 (18,971 sub-branches BUDGET
 **Restart action.** Killed the bundled run via SIGKILL (NOT SIGTERM — SIGTERM would have triggered the automerge subprocess fork via solve's signal handler). Cleaned the working directory. Restarted the enum on the same D96ps_v6 Spot ARM with `SOLVE_SKIP_AUTOMERGE=1` so it will write shards and exit cleanly after enum without bundling merge. After enum completes, a separate Standard ARM VM (D32ps_v6 or D64ps_v6, sized for ≥128 GB RAM for in-memory merge) will be provisioned in westus3 to run `solve --merge`, with `solver-data-westus3` attached to it.
 
 **Cost of restart:** ~$1 (30 min lost on D96ps_v6 Spot ARM). Cumulative G2 spend after both mistakes: ~$11.
+
+## May 21, 2026 UTC — G2 PASS + v2-bundled merged into main (v2 close-out complete)
+
+**G2 ARM cross-arch validation: PASS.**
+
+The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) completed cleanly at 04:23 UTC: 158,364 / 158,364 sub-branches BUDGETED in 15,720s (4h22m wall), 57,521 shards on solver-data, no errors. Merge phase then ran on a separate Standard `arm-g2-merge` D32ps_v6 ARM in westus3 (per `feedback_merge_on_right_sized_standard`). Because the initial in-memory merge from Standard HDD solver-data was disk-I/O bound at ~5 MB/s (would have taken ~5h), we attached a 256 GB Premium SSD scratch disk, rsync'd shards to it (~70 min HDD-read-bound), and re-ran the merge from Premium SSD. The merge bailed once on "187 GB needed, 143 available" — Premium SSD scratch was undersized; resized 256 → 512 GB online and re-launched. Merge then completed in 1h49m34s of CPU-bound dedup/sort (single-threaded; CPU climbed 0.7% → 86% as the merge progressed through phases).
+
+**Final result:** `solutions.bin` sha256 = `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d` — **byte-identical to the v2 11.2T x86 Build A canonical.** 796,357,285 records. `solve --verify` PASS (all C1-C5 + sort + dedup + KW-present). ARM cross-architecture determinism for the v2 prune stack confirmed.
+
+**v2 close-out executed:**
+
+1. **G3 selftest on v2-bundled HEAD `25c7d4d`** PASS: expected/actual `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` byte-identical. (The selftest sha advanced from `56487ab5…` at 9d00c48 to `403f7202…` at HEAD because the post-9d00c48 McKenna diagnostic subcommands `--verify-rule2` and `--verify-9th-six` added new code paths the selftest exercises. The canonical-output sha `2cc966e4…` is unchanged — only the selftest-output sha moved.)
+
+2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE-SUMMARY.md, SOLVE_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
+
+3. **Tags placed** to preserve lineage:
+   - `v2-pre-merge` -> `25c7d4d57c7dcb927ba5af713255394d89c01f76` (the v2-bundled tip immediately before merge)
+   - `v2-merged-2026-05-21` -> `312894217ed0d13bc09c0bb6d21cf649f8f00929` (the merge commit on main)
+
+4. **Deleted `v2-bundled` branch** (local + remote). `main` is now the only branch on origin. Future work continues on `main` directly until/unless a new branch is needed.
+
+5. **Updated `documentation/CANONICAL_HASHES.md`**: v2 11.2T entry's Solver column updated to reflect v2 is now the current canonical-producing lineage on main; added ARM cross-architecture witness paragraph; lineage note updated to reflect post-merge state.
+
+**v2 close-out scope summary:**
+- ✓ Prune stack (#67/#68/#70/#72) shipped on main
+- ✓ Build flags (LTO +2.53%, PGO +6.5%, AVX-512 NULL, huge pages NULL, jemalloc NULL, NUMA NULL — net +9.2% sha-preserving at canonical)
+- ✓ Diagnostics (`--cpu-features`, `--cpu-freq`, `--verify-rule2`, `--verify-9th-six`, two-language verify with `verify.py --jobs N`)
+- ✓ Resume + ulimit fixes (#84, #91, #92)
+- ✓ v2 11.2T canonical established and double-witnessed (x86 Build A 2026-05-17 + ARM cross-arch witness 2026-05-21)
+- ✓ McKenna audit closed (Theorem promoted; Rule 2 + 9th-six declined for formal C-rule status)
+- ✓ Merged into main, tagged, branch deleted
+
+**Deferral decisions baked into v2 (queued for future / v3):**
+- #88 tighter C5 — Phase 1 dead-end 2026-05-19; revisit only with a novel structural theorem
+- #89 C2 space prune — design done 2026-05-18; deferred (lower leverage than #88)
+- #71 one-step C2 lookahead — shipped + benched + reverted (10.7% regression)
+- #69 fail-first MRV — shelved (disjoint canonical-level sets, K<1 at scale)
+
+**Total G2 campaign spend across all attempts:** ~$9-11 (attempt 1 watchdog mistake + attempt 2 bundled-merge mistake + attempt 2b enum + merge with Premium SSD scratch).
+
+**Next:** 100T v2 canonical campaign (per `project_v2_100T_precedes_560T`) is the next compute step toward 560T. v3 biroco.com audit (per `project_v3_biroco_audit`) is the next analytical research direction. Both are post-merge work, not gated on this milestone.
