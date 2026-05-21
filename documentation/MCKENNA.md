@@ -19,6 +19,44 @@
 
 The sequence is genuinely unusual and appears deliberately constructed under multiple constraints. The combined probability of satisfying both the perfect pair structure and the no-5-line property by chance is effectively zero in testing. Someone designed this sequence with intention.
 
+### McKenna's 25/75 odd-even split is provably a theorem
+
+McKenna and McKenna (1975, *The Invisible Landscape*, Chapter 9 "Order in the I Ching and Order in the World") observed that the King Wen sequence has "a perfect ratio of three to one; three even integers to each odd integer," with "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four." This is the **circular reading** (64 transitions, including the wrap-around s₆₃ → s₀ which has Hamming distance 3 in KW), and 16/64 = 25.00% exact. ROAE's 2026-05-19 analysis confirms this is **provably true** — and stronger than McKenna may have realized: the ratio is **forced** by C4 + C5 plus the XOR parity identity (`popcount(a ⊕ b) ≡ popcount(a) + popcount(b) mod 2`), not an artifact of design choice. See SPECIFICATION.md Theorem (Wrap-around parity is odd).
+
+McKenna's observation was empirical; ROAE supplies the proof and confirms the result at full canonical scale: **100.000000% of 796,357,285 records in the v2 11.2T canonical have odd wrap-around** (`run --parity` reproduces this at any local sample). The d=3-vs-d=1 split varies with budget (93.3% / 6.7% at canonical), but the parity is invariant.
+
+### McKenna's three rules (Chapter 9) cross-referenced against ROAE's C1-C7
+
+McKenna formalizes the King Wen sequence's design under three rules:
+
+| McKenna's Rule | ROAE equivalent | Status |
+|---|---|---|
+| (1) "Absolutely exclude transition situations with a value of five." | C2 | Already in spec |
+| (2) "Absolutely exclude transition situations with a value of one, except in cases where this would interfere with rule (1)." | NOT in spec — empirical observation only | **Declined for promotion**; see below |
+| (3) "A three to one ratio of even to odd transitions was maintained." | Theorem (this section) | Now a theorem |
+
+### McKenna's Rule 2 — declined for promotion to formal C-rule
+
+McKenna observed that the King Wen sequence contains **exactly two** transitions of Hamming distance 1, and that these two transitions occur at specific positions where orienting them differently (orient-flipping the surrounding pair) would create transitions of distance 5 — violating Rule 1. ROAE's verification: the two value-1 transitions are at hex 52→53 (hamming(36, 52) = 1) and hex 60→61 (hamming(19, 51) = 1), matching McKenna's reported "pairs 53-54 and 61-62."
+
+The weak form ("exactly 2 transitions of value 1") is already implicit in our C5 multiset `{1:2, ...}`. The strong form ("those 2 transitions occur at C2-forced positions, not arbitrary ones") would be a positional constraint not in our C1-C7 spec.
+
+**K-pilot result (2026-05-19, `solve --verify-rule2` over the v2 11.2T canonical, 796,357,285 records):** 83.77% of C1-C5 records violate the strong form. Only 40.4% of value-1 transitions are at C2-forced positions; 59.6% are "wasteful" by McKenna's framing. King Wen is in the 16.23% minority that obeys Rule 2 strictly.
+
+**Decision: NOT promoted to formal C-rule.** The data confirms KW is in a specific minority, but the rule itself is reverse-engineered from KW's specific value-1 placements. Promoting it would add to the C3/C6/C7 family of constraints derived from the answer (already flagged in [CRITIQUE.md](CRITIQUE.md) as a methodological concern: "the 5 rules were extracted from KW and then verified against KW"). A peer-review-defensible spec keeps reverse-engineered constraints to a minimum; we already have three (C3, C6, C7) and adding a fourth would worsen the methodological critique without first-principles justification. The framing "minimize X except where it forces Y" is a stylistic preference about which orderings are "more elegant", not a hard combinatorial constraint, and McKenna's claim that this was intentional design lacks independent corroboration in the published literature (Cook 2006 does not discuss it). The K-pilot data is preserved as an empirical observation about King Wen; `solve --verify-rule2` is retained as a diagnostic subcommand for future analysis. Detailed assessment in `x/roae/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md`.
+
+### McKenna's "closure" observation
+
+McKenna also describes a graphical-symmetry property: the difference wave plot of the King Wen sequence, when rotated 180° and superimposed, achieves congruence at four adjacent points at the beginning and end of the sequence (his Figure 18B). This palindromic-like symmetry property of D(S) is partially captured by ROAE's `--palindromes` analysis. We do not currently formalize it as an independent constraint; it appears to be a derived property of C1+C2+C3+C5 rather than an independent rule.
+
+### McKenna's Monte Carlo (1971)
+
+In the same chapter, McKenna reports an early-1970s Monte Carlo: "More than 1.2 million hexagram sequences were randomly generated by computer (all sequences having the property possessed by the King Wen sequence that every second hexagram is either the inverse or the complement of its predecessor). Of these 1.2 million Wen-like sequences, 805 were found to have the properties of a three to one ratio of even to odd transitions, no transitions of value five, and the type of closure described previously." That's a hit rate of **0.07% (1 in 1,769)** for [3:1 ratio + no-5 + closure] among C1-satisfying sequences.
+
+ROAE's `solve.c --null-pair-constrained` (10⁹ samples) measures a related but distinct quantity: **4.29%** of C1-satisfying sequences satisfy C2 alone (no-5). McKenna's stricter filter (adding 3:1 + closure) is consistent with our looser one. Both confirm KW's design is highly unusual within the C1 universe.
+
+This makes the 25/75 observation one of McKenna's most accurate quantitative claims about the King Wen sequence — empirically correct, exact in the circular reading, and mathematically forced rather than coincidental.
+
 ## Where ROAE challenges McKenna
 
 ### Claims challenged by this program

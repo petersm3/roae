@@ -500,6 +500,43 @@ during the merge. Effectively **2× the final output size**, plus overhead.
 Resize is a single `az disk update --size-gb N`, then `resize2fs` inside a
 VM after attach. No data loss.
 
+**Operational runbook for canonical enumerations ≥11.2T:**
+
+The two-phase architecture above is the right *architecture*. The
+*operational* pattern — pre-flight checklists, recovery procedures
+for the half-dozen failure modes that have actually occurred in
+practice, scale-specific guidance for 100T and 560T — lives in the
+**`x/roae/CANONICAL_PIPELINE_RUNBOOK.md`** runbook (private staging
+repo). That runbook is the single source of truth for canonical
+runs and supersedes earlier ad-hoc scripts. The 2026-05-16/17 v2
+11.2T saga (~$18 spent across four attempts vs ~$5 expected
+first-shot) was the forcing function for the runbook's creation;
+the failure modes it documents have all been seen, and the
+mitigations are tested. Key non-obvious constraints captured there:
+
+- **Enum OS disk: explicit `--storage-sku StandardSSD_LRS`.** Azure
+  defaults `s`-suffix VM sizes to Premium_LRS, which is wasted on
+  CPU-bound enum.
+- **Shards belong on the attached managed disk (solver-data-westus3),
+  not the enum VM's OS disk.** Lose-the-VM-lose-the-shards is what
+  drove half the saga's overrun.
+- **Trap discipline: NEVER `teardown_enum` in the ERR trap.**
+  Phase 2 errors should preserve the enum VM (with shards) so
+  recovery costs ~$0.50 not ~$4.
+- **`curl -T file` streaming PUT for large blobs.** `curl --data-binary
+  @file` OOMs at ~2 GB regardless of VM RAM.
+- **Mount logic must handle existing-ext4** (solver-data has empty
+  ext4 from the 2026-05-06 incident wipe; subsequent re-population
+  filled 120 GB of operator data into top-level dirs). Always write
+  canonical outputs to a `$ARCHIVE_PREFIX/` subdirectory.
+- **Mandatory $0.02 D2 pre-flight** before any 4h+ enum: validate
+  the disk-attach + mount + upload syntax on a throwaway VM with
+  the actual managed disk before committing to the critical path.
+
+The runbook also documents `safe_disk_setup.sh` usage and includes
+the post-incident disk-handling rules (`feedback_disk_safety.md`,
+banned `mkfs -F`, UUID-based disk identification).
+
 ## Lessons from the 2026-04-14 10T bugfix run and recovery
 
 1. **A reproducible sha256 is not a proof of correctness.** The solver's `sub_*.bin` filenames collided — 3030 sub-branches shared only 64 unique filenames, so later writes silently overwrote earlier solutions. Every run produced the same (wrong) sha256 because the bug was deterministic. "It reproduces, so it's right" was exactly the wrong conclusion. Always cross-check output *shape* (record counts, file counts, per-sub-branch yields) against what the architecture predicts, not just sha256 stability.

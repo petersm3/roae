@@ -2518,6 +2518,97 @@ def print_yinyang():
     else:
         print("  No runs of 3+ consecutive yang- or yin-dominant hexagrams found.")
 
+def print_parity():
+    """Odd-vs-even split of the difference wave (McKenna's 25/75 observation).
+
+    Reports both LINEAR (63 transitions, the standard difference wave D(S)) and
+    CIRCULAR (64 transitions, including the wrap-around s_63 -> s_0).
+
+    Background: Terence McKenna observed that approximately 25% of King Wen's
+    transitions are odd-distance and 75% are even-distance. The linear D(S)
+    actually lands at 23.81% / 76.19%, but with the wrap-around included it
+    lands at exactly 25% / 75% — suggesting McKenna may have been thinking
+    of the sequence circularly. This module reports both forms so the reader
+    can see the discrepancy.
+    """
+    print("---")
+    print("Odd-vs-even transition parity (McKenna's 25/75 observation)")
+    print("---")
+    print("Each transition d(s_i, s_{i+1}) is between 1 and 6 line changes.")
+    print("Theorem 1 says within-pair distances are always even (in {2,4,6}),")
+    print("so all 32 within-pair transitions are forced even by C1. The 31")
+    print("between-pair transitions can be any non-5 value.")
+    print()
+    print("McKenna (The Invisible Landscape, 1975) noted that ~25% of King Wen's")
+    print("transitions are odd-distance and ~75% are even-distance. We report both")
+    print("the LINEAR reading (the standard 63-transition difference wave) and the")
+    print("CIRCULAR reading (64 transitions, including the wrap-around s_63 -> s_0).")
+    print()
+
+    diffs_linear = compute_diffs(wrap=False)   # 63 transitions
+    diffs_circular = compute_diffs(wrap=True)  # 64 transitions
+
+    def parity_split(diffs):
+        odd = sum(1 for d in diffs if d % 2 == 1)
+        even = len(diffs) - odd
+        return odd, even
+
+    # Wrap-around transition (for reporting + the C8 candidate discussion below)
+    wrap_d = bit_diff(binary_hexagrams[63], binary_hexagrams[0])
+    wrap_parity = "odd" if wrap_d % 2 == 1 else "even"
+
+    print(f"Last hexagram (position 64): #{binary_hexagrams[63]} ({binary_hexagrams[63]:06b})")
+    print(f"First hexagram (position 1): #{binary_hexagrams[0]} ({binary_hexagrams[0]:06b})")
+    print(f"Wrap-around distance: hamming(#{binary_hexagrams[63]}, #{binary_hexagrams[0]}) = {wrap_d} ({wrap_parity})")
+    print()
+
+    print(f"{'Mode':<25} {'Total':>6} {'Odd':>6} {'%Odd':>10} {'Even':>6} {'%Even':>10}")
+    for label, diffs in [("LINEAR (63 trans)", diffs_linear), ("CIRCULAR (64 trans)", diffs_circular)]:
+        odd, even = parity_split(diffs)
+        total = len(diffs)
+        print(f"{label:<25} {total:>6} {odd:>6} {100*odd/total:>9.4f}% {even:>6} {100*even/total:>9.4f}%")
+    print()
+
+    o_lin, e_lin = parity_split(diffs_linear)
+    o_circ, e_circ = parity_split(diffs_circular)
+    if 100 * o_circ / 64 == 25.0:
+        print(f"CIRCULAR parity is EXACTLY 25.0000% / 75.0000% — McKenna's 25/75 holds exactly")
+        print(f"when the wrap-around transition is included. Without wrap-around, the linear")
+        print(f"split is {100*o_lin/63:.4f}% / {100*e_lin/63:.4f}% — approximately but not exactly 25/75.")
+    else:
+        print(f"CIRCULAR parity is {100*o_circ/64:.4f}% / {100*e_circ/64:.4f}% — not exactly 25/75.")
+    print()
+
+    # Structural note
+    print("--- Structural note ---")
+    print(f"All 32 within-pair transitions are forced even by C1 + Theorem 1.")
+    print(f"So the parity split is determined entirely by the 31 (or 32 with wrap)")
+    print(f"between-pair transitions:")
+    bpd_odd = sum(1 for d in [bit_diff(binary_hexagrams[2*i+1], binary_hexagrams[2*i+2])
+                              for i in range(31)] if d % 2 == 1)
+    bpd_even = 31 - bpd_odd
+    print(f"  Between-pair transitions: {bpd_odd} odd, {bpd_even} even")
+    print(f"  Within-pair transitions: 0 odd (forced), 32 even (forced)")
+    print(f"  Plus wrap-around: 1 {wrap_parity}")
+    print()
+
+    # C8 candidate discussion
+    print("--- 'C8' candidate: is the wrap-around parity a design feature? ---")
+    print(f"The spec's C1-C7 do not constrain the wrap-around s_63 -> s_0. So if")
+    print(f"McKenna's exact 25/75 was an intentional design feature, it would imply")
+    print(f"a new constraint:")
+    print(f"  C8 (weak):   hamming(s_63, s_0) is odd  (admits {{1, 3, 5}}; C2 may extend to 64th)")
+    print(f"  C8 (strict): hamming(s_63, s_0) = {wrap_d}  (King Wen's exact value)")
+    print()
+    print(f"Restrictiveness: the prior for wrap-around distance among {{1,2,3,4,6}} (5 forbidden")
+    print(f"by C2 if extended, 0 impossible for a permutation) is uniform → P(odd) ≈ 40%, so")
+    print(f"the weak form eliminates ~60% of completions; the strict form eliminates ~80%.")
+    print()
+    print(f"Whether C8 is a real constraint or a numerical coincidence is empirical: a Monte")
+    print(f"Carlo sample of sequences satisfying C1-C7 would tell us how non-uniform the")
+    print(f"wrap-around distribution actually is among King Wen-eligible orderings. Today")
+    print(f"this is NOT in the formal spec — it remains an observation, not a constraint.")
+
 def print_neighborhoods():
     """Show Hamming distance neighborhoods for each hexagram."""
     _reseed(13)
@@ -3103,6 +3194,7 @@ def export_html(filename="report.html"):
         ("Windowed entropy analysis", print_windowed_entropy),
         ("Mutual information: upper vs. lower trigram transitions", print_mutual_info),
         ("Yin-yang balance wave", print_yinyang),
+        ("Odd-vs-even transition parity (McKenna 25/75)", print_parity),
         ("Hexagram neighborhoods", print_neighborhoods),
         ("Recurrence plot", print_recurrence),
         ("DNA codon mapping", print_codons),
@@ -3174,6 +3266,7 @@ def export_markdown(filename="report.md"):
         ("Windowed entropy analysis", print_windowed_entropy),
         ("Mutual information: upper vs. lower trigram transitions", print_mutual_info),
         ("Yin-yang balance wave", print_yinyang),
+        ("Odd-vs-even transition parity (McKenna 25/75)", print_parity),
         ("Hexagram neighborhoods", print_neighborhoods),
         ("Recurrence plot", print_recurrence),
         ("DNA codon mapping", print_codons),
@@ -3421,6 +3514,8 @@ def main():
                         help="Bootstrap confidence intervals for Monte Carlo")
     parser.add_argument("--yinyang", action="store_true",
                         help="Yin-yang balance wave through the sequence")
+    parser.add_argument("--parity", action="store_true",
+                        help="Odd-vs-even transition parity (McKenna 25/75), linear + circular")
     parser.add_argument("--neighborhoods", action="store_true",
                         help="Hamming distance-1 neighborhoods for each hexagram")
     parser.add_argument("--recurrence", action="store_true",
@@ -3537,7 +3632,7 @@ def main():
                     args.path, args.stats, args.fft, args.markov, args.graycode,
                     args.symmetry, args.sequences, args.constraints,
                     args.windowed_entropy, args.mutual_info, args.bootstrap,
-                    args.yinyang, args.neighborhoods, args.recurrence, args.codons]
+                    args.yinyang, args.parity, args.neighborhoods, args.recurrence, args.codons]
     run_all = args.all or (not args.quick and not any(all_sections))
     run_quick = args.quick
 
@@ -3566,6 +3661,7 @@ def main():
     if run_all or args.windowed_entropy:     print_windowed_entropy()
     if run_all or args.mutual_info:          print_mutual_info()
     if run_all or args.yinyang:              print_yinyang()
+    if run_all or args.parity:               print_parity()
     if run_all or args.neighborhoods:        print_neighborhoods()
     if run_all or args.recurrence:           print_recurrence()
     if run_all or args.codons:               print_codons()

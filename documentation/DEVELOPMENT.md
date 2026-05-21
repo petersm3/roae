@@ -78,6 +78,30 @@ enumerated space. When citing quantitative results, note the enumeration depth
   analyze_c_742M.txt`, `analyze_section14_742M.txt`, etc. serve as
   reproducibility references.
 
+### Performance changes — empirical record required
+
+Any commit modifying solve.c hot paths (DFS, prune predicates, hash-table
+operations, merge inner loops, SIMD-vectorized arithmetic) or build flags
+affecting per-thread rate must append an entry to
+[PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md). The entry follows the schema
+at the top of that file.
+
+Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
+control vs treatment on a single fresh D128als_v7 Spot in westus3, flushes the
+page cache between paired runs, captures enum-only wall (merge wall separately,
+not part of the speedup metric), and emits a JSON block that pastes directly
+into a new entry. Multi-scale: 1B / 1T / 11.2T selectable via `--scale`.
+
+Why this matters: the project narrative — "v1 → v2 → v2+PGO speedup over time,
+which changes mattered, which regressed" — is a presentation deliverable. Each
+change's contribution (improvement OR regression) needs an empirical
+measurement at ship time. Without uniform records, the cumulative-speedup
+chart cannot be reconstructed honestly later.
+
+The log captures regressions too: see the `#71 C2 lookahead` entry for the
+canonical "instructive loss" example. Failed experiments are first-class
+records, not omissions.
+
 ### Build reproducibility — toolchain manifest and cross-build verification
 
 A reproducible-from-the-same-binary sha is not the same as a reproducible-from-the-same-commit sha. The 2026-05-12 investigation
@@ -163,6 +187,22 @@ digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific
 submissions, Bitcoin Core, Debian package builds).
 
 Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Add to the 560T pre-launch checklist.
+
+#### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
+
+For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`x/roae/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, ~$18 across four attempts vs ~$5 first-shot expected) — every failure mode it documents corresponds to a real overrun.
+
+The runbook's mandatory invariants for canonical runs:
+
+- Enum OS disk: explicit `--storage-sku StandardSSD_LRS` (Azure defaults `s`-suffix VMs to Premium_LRS otherwise)
+- Shards on attached managed disk (`solver-data-westus3`), not the enum VM's OS disk
+- ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a $0.50 Phase-2-only re-run instead of a $4 enum redo
+- Cold-archive upload via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
+- Mount logic handles existing-ext4 (operator data on solver-data); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
+- Mandatory $0.02 D2 pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
+- Triple-redundancy archival: managed disk + cold archive + claude `/tmp` (size-permitting)
+
+The corresponding operator-memory entry at `feedback_canonical_pipeline_pattern.md` codifies the same rules for Claude.
 
 ### Resume-path defense in depth (added 2026-05-14, post-Phase E.2)
 

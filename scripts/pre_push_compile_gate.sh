@@ -35,20 +35,22 @@ if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -o "$T
 fi
 
 # selftest is fast (~30s on a 2-core orchestrator) and exercises the full enum+merge
-# pipeline at depth-2, SOLVE_THREADS=4, SOLVE_NODE_LIMIT=100M. Sha must equal the
-# canonical baseline 403f7202… — change of this sha is a regression unless
-# accompanied by a corresponding update to the expected_sha constant in solve.c.
-EXPECTED="403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e"
-ACTUAL=$("$TMP_BIN" --selftest 2>&1 | awk '/Actual sha256:/ {print $4}' | head -1)
-
-if [ "$ACTUAL" != "$EXPECTED" ]; then
-    echo "FAIL: selftest sha mismatch"
-    echo "  expected: $EXPECTED"
-    echo "  actual:   $ACTUAL"
+# pipeline at depth-2, SOLVE_THREADS=4, SOLVE_NODE_LIMIT=100M. The binary's own
+# hardcoded expected_sha is the authoritative target — branch-aware: v1 lineage
+# (main) expects 403f7202..., v2 lineage (v2-bundled) expects its current v2 sha.
+# We trust --selftest's internal comparison + exit code (0 = PASS, non-0 = FAIL).
+# Source changes that alter the produced sha must also update the expected_sha
+# constant inside solve.c at the --selftest dispatcher; otherwise this gate fails.
+SELFTEST_OUT=$(mktemp /tmp/precommit_selftest.XXXXXX)
+trap 'rm -f "$TMP_BIN" "$SELFTEST_OUT"' EXIT
+if ! "$TMP_BIN" --selftest > "$SELFTEST_OUT" 2>&1; then
+    echo "FAIL: --selftest exited non-zero"
+    cat "$SELFTEST_OUT"
+    echo ""
     echo "If this is an intentional sha change, update the expected_sha constant"
-    echo "in solve.c around line 6346, then re-run this gate."
+    echo "in solve.c at the --selftest dispatcher, then re-run this gate."
     exit 1
 fi
-
-echo "PASS: solve.c compiles + selftest produces canonical sha $EXPECTED"
+ACTUAL=$(awk '/Actual sha256:/ {print $4}' "$SELFTEST_OUT" | head -1)
+echo "PASS: solve.c compiles + selftest produces (binary-internal) canonical sha $ACTUAL"
 exit 0
