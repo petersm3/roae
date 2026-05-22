@@ -765,6 +765,20 @@ keeping the managed disk.
 
 ### Monitor / orchestrator
 
+- **`ps -o pcpu` is cumulative-averaged, not instantaneous.** `ps` reports
+  CPU% as `total_CPU_seconds / elapsed_wall × 100` since process start. For a
+  process whose first phase ran at low CPU (e.g. solve's resume "fast-skip"
+  phase loading shards into the hash table at ~32% utilization), `ps pcpu`
+  will appear to "ramp" for hours after the process actually saturates,
+  because the slow startup is baked into the lifetime average. To check
+  whether solve is **actually** saturating cores right now, use
+  `top -bn2 -d 1` (two samples 1 second apart) and read the second %CPU
+  value — that's the true instantaneous utilization. On D128 at steady-state
+  real-walking, this should be near 12,800% (100% × 128 cores). Caught
+  during 100T v2 recovery2 monitoring 2026-05-22: `ps pcpu` was reading
+  ~5600% (interpreted as "still ramping up") while `top` confirmed actual
+  steady-state of 12,800% (full saturation). The lifetime average had
+  another ~6h of accumulation before it would asymptote to the true rate.
 - **Separate launcher and monitor processes.** If the launcher script crashes
   during setup, the monitor should survive. Auto-teardown via `trap cleanup
   EXIT INT TERM` is how we guarantee VMs don't linger on error.
