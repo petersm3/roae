@@ -3927,4 +3927,4 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 **Total G2 campaign spend across all attempts:** ~$9-11 (attempt 1 watchdog mistake + attempt 2 bundled-merge mistake + attempt 2b enum + merge with Premium SSD scratch).
 
-**Next:** 100T v2 canonical campaign (per `project_v2_100T_precedes_560T`) is the next compute step toward 560T. v3 biroco.com audit (per `project_v3_biroco_audit`) is the next analytical research direction. Both are post-merge work, not gated on this milestone.
+**Next:** 100T v2 canonical campaign (per `project_v2_100T_precedes_560T`) is the next compute step toward 560T. v4 biroco.com audit (per `project_v4_biroco_audit`, renumbered 2026-05-22 from v3) is the next analytical research direction. Both are post-merge work, not gated on this milestone.
