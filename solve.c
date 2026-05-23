@@ -1389,6 +1389,144 @@ static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, in
     return (completed_sub_bitmap_d3[key >> 3] >> (key & 7)) & 1;
 }
 
+/* ---------- v3.1: fast-skip elimination via orphaned-shard promotion ---------- */
+
+/* Delete any sub_*.bin.tmp files left from interrupted flush writes.
+ *
+ * Eviction during flush_sub_solutions[_d3] can leave a .tmp file on disk
+ * before the atomic rename completes. These are by definition incomplete
+ * and must be removed before promote_orphaned_shards() runs so we don't
+ * confuse the directory scan. */
+static void cleanup_orphaned_tmp_files(void) {
+    DIR *d = opendir(".");
+    if (!d) return;
+    struct dirent *entry;
+    int removed = 0;
+    while ((entry = readdir(d)) != NULL) {
+        size_t len = strlen(entry->d_name);
+        if (len < 8) continue;
+        if (strncmp(entry->d_name, "sub_", 4) != 0) continue;
+        if (strcmp(entry->d_name + len - 4, ".tmp") != 0) continue;
+        if (unlink(entry->d_name) == 0) removed++;
+    }
+    closedir(d);
+    if (removed > 0)
+        fprintf(stderr, "[v3.1] Removed %d orphaned .tmp files (incomplete writes from prior eviction)\n",
+                removed);
+}
+
+/* Promote orphaned sub_*.bin files (atomic, durable, but no checkpoint.txt
+ * entry) to the in-memory skip-list. Called after load_sub_checkpoint() at
+ * startup.
+ *
+ * Eviction between flush_sub_solutions[_d3] (which atomically renames the
+ * .bin file) and the subsequent checkpoint.txt append can leave a .bin on
+ * disk that the skip-list doesn't know about. On resume, those sub-branches
+ * would otherwise trigger the expensive dfs_state_load_prior_shard() LOAD
+ * path (~30 sec per sub-branch on D128). Promotion skips that entirely.
+ *
+ * Sha-preservation: yes. The .bin contents are unchanged; promotion only
+ * updates the in-memory skip-list bitmap and appends a checkpoint.txt line
+ * for next-time durability. The final merge reads .bin files independently
+ * of how they got there.
+ *
+ * Integrity check: file_size % SOL_RECORD_SIZE == 0 and size > 0. Files
+ * failing this check are left untouched (the existing LOAD path will see
+ * them, which preserves backward compatibility for malformed leftovers).
+ *
+ * Speedup at canonical scale: 49k orphaned shards × ~30 sec LOAD each /
+ * 128 threads ≈ 3-4h fast-skip → 1-3 min directory scan. ~60-200×. */
+static int promote_orphaned_shards(void) {
+    DIR *d = opendir(".");
+    if (!d) return -1;
+    struct dirent *entry;
+    int promoted = 0, integrity_fail = 0;
+    FILE *ckpt = fopen("checkpoint.txt", "a");
+    while ((entry = readdir(d)) != NULL) {
+        const char *n = entry->d_name;
+        size_t len = strlen(n);
+        if (len < 8 || strncmp(n, "sub_", 4) != 0) continue;
+        if (strcmp(n + len - 4, ".bin") != 0) continue;
+        /* Skip non-canonical shard formats (e.g., sub_ckpt_wrk*.bin from
+         * --sub-branch mode, sub_flush_chunk_*.bin). Match only the
+         * canonical-campaign filename pattern: sub_<int>_<int>_<int>_<int>[_<int>_<int>].bin */
+        int p1, o1, p2, o2, p3 = -1, o3 = -1;
+        int matched = sscanf(n, "sub_%d_%d_%d_%d_%d_%d.bin",
+                             &p1, &o1, &p2, &o2, &p3, &o3);
+        if (matched != 6) {
+            matched = sscanf(n, "sub_%d_%d_%d_%d.bin",
+                             &p1, &o1, &p2, &o2);
+            if (matched != 4) continue;
+            p3 = -1; o3 = -1;
+        }
+        /* Skip-list check — already-known sub-branches are no-ops */
+        int is_done = (p3 >= 0)
+            ? is_sub_branch_completed_d3(p1, o1, p2, o2, p3, o3)
+            : is_sub_branch_completed(p1, o1, p2, o2);
+        if (is_done) continue;
+
+        /* Integrity check: size must be a positive multiple of SOL_RECORD_SIZE */
+        struct stat st;
+        if (stat(n, &st) != 0 || st.st_size <= 0 || st.st_size % SOL_RECORD_SIZE != 0) {
+            fprintf(stderr,
+                    "WARN: orphaned shard %s failed integrity check (size=%lld); leaving for LOAD path\n",
+                    n, (long long)(stat(n, &st) == 0 ? st.st_size : -1));
+            integrity_fail++;
+            continue;
+        }
+        long long records = st.st_size / SOL_RECORD_SIZE;
+
+        /* Append a BUDGETED line to checkpoint.txt for next-resume durability.
+         * Use thread -1 as a "promoted" sentinel so the entry is distinguishable
+         * from real walk-completion entries in post-hoc analysis. */
+        if (ckpt) {
+            if (p3 >= 0) {
+                fprintf(ckpt,
+                    "Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+                    "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
+                    p1, o1, p2, o2, p3, o3, records, current_per_branch_budget);
+            } else {
+                fprintf(ckpt,
+                    "Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d orient2 %d): "
+                    "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
+                    p1, o1, p2, o2, records, current_per_branch_budget);
+            }
+        }
+        /* Update in-memory skip-list */
+        if (p3 >= 0) {
+            int key = completed_sub_key_d3(p1, o1, p2, o2, p3, o3);
+            completed_sub_bitmap_d3[key >> 3] |= (unsigned char)(1 << (key & 7));
+        } else {
+            int key = completed_sub_key(p1, o1, p2, o2);
+            completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
+        }
+        /* Delete the corresponding .dfs_state file if present — no longer
+         * needed since the sub-branch is now in the skip-list and won't
+         * be re-walked. Reduces directory clutter (~150k files per
+         * canonical campaign). */
+        char dfsname[96];
+        if (p3 >= 0)
+            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d_%d_%d.dfs_state",
+                     p1, o1, p2, o2, p3, o3);
+        else
+            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d.dfs_state",
+                     p1, o1, p2, o2);
+        unlink(dfsname);
+        promoted++;
+    }
+    if (ckpt) {
+        if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0)
+            fprintf(stderr, "WARN: promote_orphaned_shards: checkpoint.txt fsync failed (promoted=%d)\n",
+                    promoted);
+        fclose(ckpt);
+    }
+    closedir(d);
+    if (promoted > 0 || integrity_fail > 0)
+        fprintf(stderr, "[v3.1] Orphaned-shard promotion: promoted=%d, integrity_failed=%d\n",
+                promoted, integrity_fail);
+    return promoted;
+}
+
 /* ---------- Hash table resize ---------- */
 
 static void resize_hash_table(ThreadState *ts) {
@@ -11970,6 +12108,14 @@ sub_enum_done:
     else if (node_limit > 0)
         current_per_branch_budget = node_limit / 3030;
     load_sub_checkpoint();
+    /* v3.1: orphaned-shard promotion eliminates the costly fast-skip LOAD phase
+     * on Spot-eviction recoveries. Cleanup .tmp files first (interrupted writes),
+     * then promote any .bin without a checkpoint.txt entry into the skip-list.
+     * Promoted shards are credited to n_completed_subs so progress reporting
+     * reflects them correctly. */
+    cleanup_orphaned_tmp_files();
+    int promoted_orphans = promote_orphaned_shards();
+    if (promoted_orphans > 0) n_completed_subs += promoted_orphans;
     if (n_completed_subs > 0) {
         printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
                n_completed_subs);
