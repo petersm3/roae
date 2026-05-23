@@ -3928,3 +3928,43 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 **Total G2 campaign spend across all attempts:** ~$9-11 (attempt 1 watchdog mistake + attempt 2 bundled-merge mistake + attempt 2b enum + merge with Premium SSD scratch).
 
 **Next:** 100T v2 canonical campaign (per `project_v2_100T_precedes_560T`) is the next compute step toward 560T. v4 biroco.com audit (per `project_v4_biroco_audit`, renumbered 2026-05-22 from v3) is the next analytical research direction. Both are post-merge work, not gated on this milestone.
+
+## May 21-23, 2026 UTC — v2 100T canonical campaign + autonomous-mode Phase 4 archive
+
+**Campaign `20260521_v2_100T_buildA`** — Single Build A v2 100T canonical bench, executed across 57 wall-clock hours with operator intermittently away. Establishes the v2/v1 record-uplift delta at 100T scale and seeds the v3 100T comparison (Phase 12 of the v3 roadmap).
+
+**Phase 1 enum** (2026-05-21 → 2026-05-23 04:55 UTC):
+- Spot D128als_v7 westus3, 128 threads, `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631456644 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`.
+- 3 Spot evictions over the run; checkpoint+resume worked correctly each time. ~40h cumulative wall.
+- Produced 61,550 shards, 481 GB raw output. Phase 2 verification: 0 integrity failures.
+- Solver binary sha `6fdb10daaa1fc019d4f3409e71dced4e1bedc14586f11f83d8f674f382cdb220`.
+
+**Phase 3 merge** (2026-05-23 15:36 → 20:33 UTC, ~5h wall):
+- Standard D32als_v7 (32 vCPU, 64 GB RAM — D32als_v7 is the AMD low-memory variant; 256 GB peak-RSS in-memory merge mode not viable at 100T scale on 64 GB).
+- 1.5 TB Premium SSD scratch (shards rsync'd HDD → SSD as a separate pre-step due to HDD's catastrophic seek penalty on the multi-way merge access pattern).
+- `solve --merge` autonomously chose external chunked-sort mode (chunk-sort 117 chunks × 128M records each, then multi-way merge of those chunks).
+- Output: `15,035,483,184` raw records → `3,663,580,914` unique canonical orderings.
+- **Mid-run lesson** (`x/roae/MERGE_OPTIMIZATION_LESSON_2026_05_23.md`): for v3 100T (Phase 12) and 560T, use E48s_v5 (48 vCPU, 384 GB RAM) + `SOLVE_MERGE_MODE=memory` direct from HDD source. Expected ~5-6× speedup + ~$5 cheaper vs SSD-scratch + external chunked-sort.
+
+**Result:**
+- solutions.bin sha256: **`cc4a5377199f0710c99406c6e82e44f311ef34b2e53b152d67f5d0fcd2ace091`**
+- Unique records: **3,663,580,914** (3.66 B)
+- File size: 117,234,589,280 bytes (117.23 GB)
+- **+231,181,617 records (+6.74%) vs v1 100T `915abf30…`** — much larger than the "~1-2% diminishing returns" extrapolation in CANONICAL_HASHES.md had predicted. The v2 prune stack retains substantive uplift at 100T depth, not saturation. That doc's lineage note was updated to reflect the corrected empirical scaling (+4.83% at 11.2T → +6.74% at 100T).
+- `solve --verify` PASS: sort-order violations 0, duplicates 0, King Wen found.
+
+**Phase 4 archive** (2026-05-23 20:33 → ~23:45 UTC):
+- Managed-disk copy verified byte-identical (sha256 recompute on `solver-data-westus3:/20260521_v2_100T_buildA/final/solutions.bin` matched `cc4a5377…`).
+- gzip -9 of solutions.bin: 117 GB → 12.54 GB (`f6b554ea…`, 9.35× compression — slightly better than the 8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the D32 merge VM).
+- Cold-archive upload to `roaecanonical2026/canonical-archive/20260521_v2_100T_buildA/`: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
+- **No Build B cross-build** — v2 100T is a comparison baseline against v1 (and a reference point for the v3 100T Phase 12 bench), not a load-bearing canonical for 560T extension.
+- **v2 shards deleted from managed disk** per operator directive 2026-05-23 (~481 GB freed). The v3 100T campaign (Phase 12) WILL preserve shards.
+- Merge VM (`v2-100t-merge`) + 1.5 TB Premium SSD scratch deleted post-archive. Solver-data managed disk preserved (NEVER deleted).
+
+**Total campaign cost: ~$48** (Phase 1 enum ~$38 + Phase 3 merge ~$9 + scratch SSD ~$1) — within the $50 operator budget cap.
+
+**Net wall time:** ~57h (2026-05-21 → 2026-05-23 ~23:45 UTC), including 3 Spot evictions and a ~13h autonomous-halt for operator review on 2026-05-23 05:10 → ~12:48 UTC (safety system declined to delete the prior Spot enum VM `enum-100t-v2-recovery2` without explicit re-authorization — operator returned and clarified the deletion was authorized, then provisioned the Standard merge VM directly).
+
+**Operator role during campaign:** intermittent supervision with explicit autonomous-block authorization for the final ~5h (gzip + cold-archive + teardown + doc cascade + Phase 11 Build A launch).
+
+**Next:** Phase 11 — v3+v3.1 11.2T cross-build (Build A on D128 Spot via `/tmp/v3_phase11_launch.sh`, then Build B on a separate Spot host). Phase 12 — v3 100T full bench. v3 lineage extracts v2's sha-preserving speed wins (LTO + PGO + bitset, ~+9.2% net) onto v1's prune stack to produce a cost-efficient canonical pipeline; 560T solver decision (v1 vs v2 vs v3) gates on the Phase 12 bench data.
