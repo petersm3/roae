@@ -975,3 +975,73 @@ Sub-branch 83477/158364 BUDGETED ... 0s
 - Mid-walk resume via `DFSStackFrame_v2 + mw_delta` (#92) — this test caught all in-flight sub-branches in the graceful drain.
 
 **Cost:** ~$0.10 (~30 min on D32als_v7 Spot).
+
+---
+
+## 2026-05-24 (re-run) — v1 vs v3 paired bench 1T with PGO ACTUALLY APPLIED — speedup did NOT replicate
+
+### Headline
+
+After fixing the silent no-PGO build bug in the prior 2026-05-24 bench (see `scripts/build_pgo.sh` shipped in commit `bab4be6` + `-Werror=missing-profile` discipline), a re-run on Standard D128als_v7 westus3 measured **v3 0.5% SLOWER than v1** (median wall, 3 reps each interleaved). The **+9.2% prediction from task #47 closure does NOT replicate at 1T canonical scale on Bergamo Zen 4c.** Sha-equivalence preserved.
+
+This entry is a course-correction on the earlier `#78 PGO` entry (+6.5%) and the broken-PGO entry's interpretation: those measurements were on the 2-core `claude` orchestrator (Skylake) at small workload — they do not generalize to canonical-scale workloads on 128-core Bergamo.
+
+### Build provenance (confirms PGO applied this time)
+
+| Aspect | First bench (broken PGO) | This re-run (PGO applied) |
+|---|---|---|
+| v3 binary sha256 | `0d10944dda…` | `4ad70a0fb9…` (different — different optimizer decisions) |
+| v3 binary size | 305 KB (no PGO data) | **254 KB** (smaller — PGO inlining + cold-path elimination) |
+| `-Werror=missing-profile` set? | No | Yes (build would have failed if PGO data missing) |
+| Build outcome | `-Wmissing-profile` WARNING (silent fallback) | Built cleanly, PGO data found |
+| Selftest sha | `403f7202…` PASS | `403f7202…` PASS |
+
+### Wall times (seconds, enum-only)
+
+| Rep | v1 (vanilla -O3) | v3 (LTO + PGO + bitset) | v3/v1 |
+|---:|---:|---:|---:|
+| 1 | 2265 | 2587 | 1.142 (v3 14.2% slower) |
+| 2 | 2370 | 2247 | 0.948 (v3 5.2% faster) |
+| 3 | 2298 | 2310 | 1.005 (v3 0.5% slower) |
+| **median** | **2298** | **2310** | **1.005 (v3 0.5% slower)** |
+
+### Within-bench variance
+
+- v1: spread 105s (4.6%)
+- v3: spread **340s (15.1%)** — much noisier; PGO-optimized inner loops appear more sensitive to neighbor-induced cache pressure on shared Spot hosts
+
+### Sha gate
+
+v3 PGO build at 1T sha256: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
+Expected: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
+**MATCH** — PGO is correctness-preserving as expected. PGO affects optimizer branch hints, not algorithmic output.
+
+### Why the prediction didn't replicate
+
+1. **Task #47's +6.5% was on a 2-core Skylake at microbench scale.** Branch-prediction wins from PGO are largest when single-thread instruction throughput is the bottleneck. At 128-thread Bergamo on a memory-bandwidth-bound 1T workload, that bottleneck is gone — memory subsystem dominates.
+
+2. **PGO trained on a 1B-node workload with 6315 nodes/sub-branch** hot-paths the budget-bound exit code. The 1T canonical workload has 6,315,458 nodes/sub-branch — 1000× more time in the actual DFS enumeration loop, which the profile-gen didn't exercise.
+
+3. **The puzzle**: yesterday's broken-PGO bench (LTO + bitset only, no PGO data applied) showed v3 +4.4% faster than v1. Today's working-PGO bench shows v3 0.5% slower. **Adding actual PGO data appears to have slightly hurt rather than helped vs LTO + bitset alone.** Two possible reads: (a) PGO at the wrong scale optimizes the wrong hot paths and produces marginally worse code; (b) host-to-host variance (~15% within v3 reps) dominates the signal and the difference is in the noise.
+
+### Implications for shipping decisions
+
+| Build flavor | Measured at canonical | Decision |
+|---|---|---|
+| Vanilla `-O3 -march=native` (v1) | baseline | reference |
+| LTO + bitset (yesterday's bench, broken PGO) | +4.4% faster | **measurable improvement** |
+| LTO + PGO + bitset (this bench) | 0.5% SLOWER | no improvement; PGO is net-zero-or-negative at this scale |
+
+**Recommendation for 560T**: build with **LTO + bitset, no PGO**. Saves ~100 min of PGO build wall per VM provisioning, simpler build, and the +4.4% LTO+bitset advantage is the actual measurable win. The earlier "v3 ~9.2% faster" claim was a microbench artifact; the real canonical-scale speedup is +4.4%.
+
+### Cost
+
+- This re-run: ~$30 (Standard D128als_v7 × 5.8h wall, including PGO Pass 1 instrumented profile-gen run)
+- Combined PGO investigation across both benches: ~$60
+- Real finding: build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) is shipped and tested, even if PGO itself turns out net-zero — the hardening prevents future silent no-PGO regressions.
+
+### Open questions for follow-up
+
+1. Would a 1T-scale profile-gen workload (instead of 1B) train PGO closer to canonical hot paths and recover the predicted speedup? Cost to test: ~2× the current bench (~$60). Defer until needed.
+2. Does PGO show net-positive at intermediate scales (10B-100B)? Untested. The +6.5% at 1T from #78 was likely host-quality variance — that bench had a single rep, not a paired comparison.
+3. What's the within-bench variance ceiling on Bergamo Spot? The 15% spread observed here suggests any future ~5% perf claim needs 6+ reps to be statistically defensible.

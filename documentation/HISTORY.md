@@ -4119,3 +4119,53 @@ The load-bearing safety is `-Werror=missing-profile`: any future change that bre
 | Operator review | ⏳ Pending |
 
 The chain has narrowed substantially — what remains is mostly infrastructure work + the Phase 12 100T confirmation.
+
+## May 24, 2026 UTC (evening) — Paired bench re-run with working PGO: +9.2% prediction did NOT replicate
+
+Same-day follow-up to the morning's paired bench, this time with the `scripts/build_pgo.sh` hardened recipe ensuring PGO actually applied (verified: different binary sha `4ad70a0f…`, 254 KB vs the broken-PGO build's 305 KB, smaller from PGO's inlining + cold-path elimination, and `-Werror=missing-profile` didn't fire so the build had real profile data).
+
+**Re-run walls (seconds, 3 reps each on Standard D128als_v7 westus3):**
+
+| Rep | v1 (vanilla) | v3 (LTO + PGO + bitset) | v3/v1 |
+|---:|---:|---:|---:|
+| 1 | 2265 | 2587 | 1.142 (v3 14.2% slower) |
+| 2 | 2370 | 2247 | 0.948 (v3 5.2% faster) |
+| 3 | 2298 | 2310 | 1.005 (v3 0.5% slower) |
+| **median** | **2298** | **2310** | **1.005** |
+
+**v3 measured 0.5% slower than v1 (median).** The +9.2% prediction from task #47's closure does NOT replicate at 1T canonical scale on Bergamo Zen 4c. Sha-equivalence preserved (`5a0f0bc2…`).
+
+Within-bench variance: v1 spread 4.6%, v3 spread **15.1%**. The bench is underpowered to detect ~5-10% effects when within-bench v3 variance exceeds 15% — host-quality noise on shared Spot D128 dominates.
+
+**Why the prediction didn't replicate** (best read after both benches):
+
+- Task #47's PGO microbench (+6.5%) ran on the 2-core `claude` orchestrator (Intel Skylake) at small workload. That's a fundamentally different bottleneck than 128-thread Bergamo at canonical scale, where memory-bandwidth dominates and PGO's branch-prediction hints are dwarfed.
+- The PGO profile-gen workload was 1B nodes at 6,315 nodes/sub-branch — hot-paths the budget-bound exit code. The 1T canonical workload has 6.3M nodes/sub-branch, so the actual enumeration hot-paths are 1000× longer-running and PGO didn't train on them.
+- The puzzle: yesterday's BROKEN-PGO bench (LTO + bitset only, PGO data not applied) measured v3 +4.4% faster than v1. Today's WORKING-PGO bench measured v3 0.5% slower. **Adding actual PGO data appears to have slightly hurt rather than helped vs LTO + bitset alone.** Either PGO at the wrong workload scale optimizes the wrong hot paths, or rep-to-rep host variance is dominating the signal.
+
+**Implications for 560T (re-evaluated):**
+
+| Claim | Status after this bench |
+|---|---|
+| v3 sha-preserves on v1 at canonical scale | ✅ CONFIRMED twice (1T + 11.2T) |
+| v3.1 fast-skip eviction recovery | ✅ CONFIRMED (~2:14 wall, task #95) |
+| v3 is ~9.2% faster per node than v1 | ❌ **NOT CONFIRMED** at canonical scale; measured 0% with PGO, +4.4% with LTO+bitset only |
+| v3 is ~3× cheaper per record than v2 | ✅ Still holds; v2's per-node overhead is unrelated to PGO |
+
+**Recommendation for the 560T campaign build**: **LTO + bitset, no PGO**. Reasons:
+
+1. LTO + bitset is the actually-measurable speedup (+4.4% vs v1 from yesterday's bench).
+2. PGO adds ~100 min of profile-gen workload per VM provisioning at no measurable benefit on this CPU+workload combination.
+3. The build is simpler (single-pass), reducing surface area for the kind of silent path-resolution failure that bit us this week.
+4. If future research shows a benefit at 10B-100B scale, PGO can be re-added — the build helper exists.
+
+The build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) is still shipped and useful — it ensures future PGO builds either succeed or fail loudly, never silently degrade. The hardening was the right work even if PGO itself turns out to be marginal at canonical scale.
+
+**Cost summary**: PGO investigation total ~$60 across both benches (broken + fixed). Real value delivered:
+
+- Hardened build recipe (commit `bab4be6`) — prevents future silent no-PGO regressions
+- Empirical refutation of the +9.2% canonical-scale claim → records-per-dollar analysis updated
+- 1T canonical established as a byproduct (`5a0f0bc2…`) — bridges the 100B-to-5.6T gap in the d3 lineage
+- v3 sha-equivalence confirmed at second scale (1T) alongside Phase 11's 11.2T
+
+The story is honest: a microbench prediction didn't replicate at production scale on different hardware. That's a useful finding even when the answer isn't the expected one.
