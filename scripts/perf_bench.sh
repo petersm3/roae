@@ -126,14 +126,34 @@ $SSH "$ADMIN@$VM_IP" "
 
     # Build U (treatment)
     if [ $TREATMENT_PGO -eq 1 ]; then
+        # PGO discipline (codified after the 2026-05-24 silent no-PGO incident):
+        #  1) Pass 1 and Pass 2 build to the SAME output binary name, then
+        #     rename. Under -flto, .gcda lookup keys on the binary name; if
+        #     the two passes use different output names, Pass 2 misses the
+        #     profile data and silently falls back to no-PGO.
+        #  2) -Werror=missing-profile turns the silent fallback into a hard
+        #     build failure. If a future change breaks PGO path resolution,
+        #     this fails the build instead of producing a non-PGO binary.
+        #  3) Assert .gcda count > 0 between passes — verifies Pass 1
+        #     actually wrote profile data before Pass 2 proceeds.
+        #  See scripts/build_pgo.sh for the canonical reusable form.
         rm -rf profdir && mkdir profdir
         gcc -O3 -flto -pthread -fopenmp -march=native -fprofile-generate=\$PWD/profdir \\
-            -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_inst solve_trt.c -lm 2>&1 | tail -2
+            -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm 2>&1 | tail -2
+        mv solve_U solve_inst
         ./solve_inst --selftest > /dev/null 2>&1
         # PGO workload: representative hot paths
         $PGO_WORKLOAD > /tmp/pgo_workload.log 2>&1 || true
+        # Assert profile data was produced before Pass 2
+        GCDA=\$(find \$PWD/profdir -name '*.gcda' | wc -l)
+        if [ \"\$GCDA\" -eq 0 ]; then
+            echo \"FATAL: PGO Pass 1 produced no .gcda files\" >&2
+            exit 1
+        fi
+        echo \"  PGO Pass 1: \$GCDA .gcda files\"
         gcc -O3 -flto -pthread -fopenmp -march=native \\
             -fprofile-use=\$PWD/profdir -fprofile-correction \\
+            -Werror=missing-profile \\
             -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm 2>&1 | tail -3
     else
         gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm 2>&1 | tail -2
