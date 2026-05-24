@@ -3968,3 +3968,33 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 **Operator role during campaign:** intermittent supervision with explicit autonomous-block authorization for the final ~5h (gzip + cold-archive + teardown + doc cascade + Phase 11 Build A launch).
 
 **Next:** Phase 11 — v3+v3.1 11.2T cross-build (Build A on D128 Spot via `/tmp/v3_phase11_launch.sh`, then Build B on a separate Spot host). Phase 12 — v3 100T full bench. v3 lineage extracts v2's sha-preserving speed wins (LTO + PGO + bitset, ~+9.2% net) onto v1's prune stack to produce a cost-efficient canonical pipeline; 560T solver decision (v1 vs v2 vs v3) gates on the Phase 12 bench data.
+
+## May 24, 2026 UTC — v2 lineage CLOSED; v3 is canonical-producing lineage going forward
+
+Operator directive 2026-05-24: **v2 is a closed chapter**. No further v2 runs at any scale. The v2 11.2T (`2cc966e4…`) and v2 100T (`cc4a5377…`) canonicals stand as the historical v2 record — not deleted, frozen. v2 prune-stack source code remains in `main` but is superseded for future runs.
+
+**Rationale (consolidated from the records-per-dollar analysis 2026-05-24, see `petersm3/x:roae/V1_V2_V3_RECORDS_PER_DOLLAR_ANALYSIS_2026_05_24.md`):**
+
+1. **Both v1 and v2 prune predicates are sound** (Lemma-2 monotonicity). v2's "+6.74% records over v1 at 100T" is rate-of-convergence, NOT reachability. At infinite budget, v1(∞) = v2(∞) = v3(∞).
+
+2. **At fixed dollar budget, v3 dominates v2** on records-per-dollar by ~3×. v3's per-node cost is ~0.91× v1's (LTO + PGO + bitset, sha-preserving). v2's per-node cost is ~3× v1's (prune-stack overhead). Result: v3 explores ~3× more nodes per dollar than v2 AND finds ~2-5× more records, with v3's record set at fixed $ approximately containing v2's record set at v2's smaller node budget.
+
+3. **v3 supersedes v2 for all future canonical campaigns**:
+   - Phase 11 (v3+v3.1 11.2T cross-build) — in flight 2026-05-24, gating v3 sha-preservation
+   - Phase 12 (v3 100T) — will establish v3 100T canonical, expected byte-identical to v1 100T `915abf30…`
+   - Phase 13 (560T) — solver decision now simplified to "v3 if Phase 11/12 pass, fallback v1"
+
+4. **v1 remains the sha anchor**. v3 reproduces v1 canonicals byte-identically; v1 is the reproducibility ground truth that v3 inherits.
+
+**v2's empirical record retained**:
+- 11.2T canonical `2cc966e4…` (established 2026-05-17, cross-architecture witness via ARM Cobalt)
+- 100T canonical `cc4a5377…` (established 2026-05-23, single Build A, +6.74% vs v1)
+- K-pilot per-prune isolation benches (#80a/b/c)
+- LTO/PGO/bitset wins inherited by v3
+
+**v2's value as a research artifact**:
+- Empirical refutation of the v1/v2 saturation hypothesis (the +6.74% uplift at 100T was larger than the prior "~1-2% at ≥100T" extrapolation predicted)
+- Proof of concept that the prune-stack design works mathematically (Lemma-2)
+- Calibration data for the records-per-dollar framing
+
+These remain valuable scientific outputs of the v2 lineage. v2 is closed, not retracted.
