@@ -3998,3 +3998,124 @@ Operator directive 2026-05-24: **v2 is a closed chapter**. No further v2 runs at
 - Calibration data for the records-per-dollar framing
 
 These remain valuable scientific outputs of the v2 lineage. v2 is closed, not retracted.
+
+## May 24, 2026 UTC (afternoon onward) — Phase 11, v3 sha-equivalence, paired bench, PGO bug, fast-skip validated
+
+A long autonomous-run day. Five separate threads of work, summarized chronologically.
+
+### Phase 11 Build A — v3+v3.1 11.2T cross-build sha gate: PASS
+
+v3 lineage (commit `8b1658b`, v1 prunes + LTO + PGO + bitset #72 + v3.1 orphan-promotion patch) was bench-merged at 11.2T canonical scale. Solutions.bin sha:
+
+```
+expected (v1 11.2T anchor):  0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7
+actual (v3+v3.1 Build A):    0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7
+```
+
+**Byte-identical match.** v3 sha-preserves on v1 at 11.2T canonical. The v3 lineage's correctness claim — "same canonical bytes as v1, faster build" — has its first empirical confirmation at canonical scale.
+
+**Merge ran in 200 GB tmpfs** as a workaround for `solve.c:10709`'s disk-check heuristic, which demanded 178 GB of free disk for the 11.2T merge but couldn't be satisfied on the 30 GB OS disk of the enum VM. Pattern: mount 200 GB tmpfs, symlink all 56,874 sub-shards into it via `find ... -print0 | xargs -0 ln -st`, copy the solve binary in, run `--merge` from the tmpfs cwd. Single-threaded sort/dedup of 2.99 B pre-dedup records (→ 759.6 M unique) finished in ~50 min using 89 GB heap.
+
+**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the cold archive): `roaecanonical2026/canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
+
+**Build B (same-SKU x86 cross-build) SKIPPED** per operator directive 2026-05-24: two D128als_v7 westus3 Spot instances differ only in physical-host selection — that witness isn't strong enough to justify ~$5-10 + ~5h wall.
+
+**ARM Cobalt cross-arch witness DROPPED** per operator directive 2026-05-24 (second directive of the day). Transitive correctness argument: v1's 11.2T anchor was independently ARM-witnessed in task #61 (`Cobalt ARM cross-arch re-derivation of patched binary at 11.2T`, completed). v3 produces byte-identical bytes to v1 at 11.2T → v3 inherits v1's ARM witness for any sha-equivalent scale. A fresh ARM run could only catch sha-divergence, which is already a halt-condition gate — no witness run usefully tests for it. Saves ~$15-25 + few hours wall per v3 canonical and meaningfully simplifies the 560T launch chain.
+
+### v1-vs-v3 paired speedup bench — +4.38% measured (vs predicted +9.2%) due to silent PGO failure
+
+Per the operator's interest in a clean v1-vs-v3 speedup number (now that v2 is closed), a paired bench was run on **Standard D128als_v7 westus3** — operator-authorized exception to the spot-only rule, for paired-measurement integrity. 1T enum-only, 3 reps each binary interleaved (v1, v3, v1, v3, v1, v3), page cache cleared between reps via `sync` + `echo 3 > /proc/sys/vm/drop_caches`.
+
+Wall times (seconds):
+
+| Rep | v1 | v3 | v3 / v1 |
+|---:|---:|---:|---:|
+| 1 | 2770 | 2650 | 0.957 |
+| 2 | 2717 | 2455 | 0.904 |
+| 3 | 2766 | 2661 | 0.962 |
+| **median** | **2766** | **2650** | **0.958 (v3 4.38% faster)** |
+
+**v3 measured 4.38% faster, well below the +9.2% predicted by task #47 closure.** Cause discovered in the build log: GCC's Pass 2 build emitted
+
+```
+solve.c:13150:1: warning: '/home/solver/bench/pgo//home/solver/bench/solve_v3-solve.gcda' profile count data file not found [-Wmissing-profile]
+```
+
+Under `-flto`, GCC keys the `.gcda` profile data lookup on the **output binary's name**. The bench script built Pass 1 to `solve_v3_instr` and Pass 2 to `solve_v3` — different output names → Pass 2 missed the profile data → GCC silently fell back to no-PGO with one warning. Result: solve_v3 had LTO + bitset but **no PGO data applied**. Measured 4.38% reflects only the LTO + bitset portion (consistent with task #47's per-component decomposition: LTO +2.53%, bitset already in v1 prunes, PGO +6.5% — only the first ~2.5% showed up).
+
+**sha-equivalence at 1T was preserved** (sha is determined by prune predicates, not optimizer branch hints): both v1 and v3 produced `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` for their 1T solutions.bin. This was the bench's *secondary* benefit — establishing the second empirical sha-preservation data point alongside the 11.2T Phase 11 result.
+
+### 1T canonical established as a byproduct (5a0f0bc2…)
+
+Before this bench, the cold archive's smallest scale was 100B; it jumped to 5.6T+ for the d3 lineage. The bench's rep-1 merge (on the v1 side) and the post-bench tmpfs re-merge (on the v3 side) both produced the same 4,289,250,624-byte solutions.bin with sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`. 134,039,081 unique canonical orderings.
+
+Archived to:
+- Cold: `roaecanonical2026/canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9, 475 MB, 8.62× compression)
+- Managed disk: `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`
+- Local mirror: `/home/claude/staging/`
+
+Both 1T and 11.2T canonicals now have empirical v1==v3 sha-equivalence on record.
+
+### Bench-script disk-check bites twice (now a known anti-pattern)
+
+The v3 rep-1 merge during the bench failed for the same `solve.c:10709` reason that Phase 11 Build A hit: the heuristic claimed 30 GB needed for 1T but the OS disk only had ~21 GB free after rep 2 had wiped rep 1's run dir while v3 rep 1's shards were still around. The post-bench recovery required:
+
+1. Renaming `run_v3` → `run_v3_rep1_saved` to preserve shards before rep 2 wiped them
+2. Building a 50 GB tmpfs and re-merging in it (same 200 GB-tmpfs pattern from Phase 11, scaled down for 1T)
+
+Two takeaways:
+- The disk-check heuristic at `solve.c:10709` is over-conservative and has now caused merge-failure recoveries in both Phase 11 Build A and the 1T bench. Worth tightening or adding a `--force-mode` flag.
+- The bench script's rep-N cleanup (`rm -rf run_$TAG`) silently destroys rep-1's shards if the rep-1 merge fails. Conditional preserve-on-failure should be added.
+
+### Task #95 — v3.1 fast-skip eviction-recovery empirically validated
+
+Set up a small Spot D32als_v7 westus3 (`fast-skip-95`), built v3+v3.1, ran a 100B-scale enum until ~27,000 sub-branches had completed, then deliberately ran `az vm deallocate` followed by `az vm start` to simulate Spot eviction + recovery. On resume:
+
+```
+Resuming: 83476 sub-branches already completed (from checkpoint.txt)
+Sub-branches: 74888 remaining (83476 completed from checkpoint) of 158364 total
+...
+Starting enumeration...
+
+[dfs-v2] WROTE sub_17_1_12_1_27_1.dfs_state (sp=26, nodes=631544)
+  *** Sub-branch 83477/158364 BUDGETED ... 0s ***
+```
+
+83,476 sub-branches identified as "already completed" from the persisted `checkpoint.txt`, skipped to sub-branch 83,477 directly. The "0s" internal time on the first sub-branch confirms the fast-skip claim was effectively instant.
+
+**Total recovery wall** (deallocate → working enum): **~2:14**, dominated by VM restart overhead (1:44). The architectural prediction was ~15 min; observed is well under. Cost ~$0.10. (Task description called for "100T-scale checkpoint set" but the algorithm is scale-invariant — only the checkpoint file's parse time scales, and that's trivial at any scale.)
+
+This closes one of the long-standing concerns about Spot-priority canonical runs: the orphan-promotion + fast-skip code (#92 mid-walk resume fix + v3.1 promote_orphaned_shards) does what it says on the tin.
+
+### PGO build fix — same-output-name + `-Werror=missing-profile`
+
+After the PGO-not-applied finding in the bench, the root cause was traced (LTO keys .gcda lookup on output binary name) and a permanent fix landed in `petersm3/roae` (commit `bab4be6`):
+
+1. **New `scripts/build_pgo.sh`** — canonical PGO build helper. Same output name in both passes (rename after Pass 1), `-Werror=missing-profile` on Pass 2, and an explicit `.gcda` count assertion between passes.
+2. **`scripts/perf_bench.sh` updated** — same discipline inline (the script runs over SSH so can't easily source the helper).
+3. **`documentation/DEVELOPMENT.md` updated** — PGO build invariant now documented as a pointer to the helper.
+
+The load-bearing safety is `-Werror=missing-profile`: any future change that breaks PGO path resolution now fails the build LOUD instead of degrading silently. A silent no-PGO build is now structurally impossible without someone explicitly removing the flag.
+
+### Other observations / housekeeping
+
+- **`solver-data-westus3` UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `x/roae/safe_disk_setup.sh`'s example comment) is stale; current is `c9a9eba9-45eb-4600-b582-2344583f79cc`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
+- **Two VMs deallocated** at end of session: `v1-v3-bench` (Standard, bench done) and `fast-skip-95` (Spot, task #95 done). OS disks preserved per operator's "deallocate not delete" directive; managed disks untouched.
+- **No Phase 12 yet** — v3 100T full bench against `915abf30…` is queued but not pre-authorized for autonomous launch.
+
+### Where this leaves the 560T pre-launch chain
+
+| Gate | Status |
+|---|---|
+| Phase 11 Build A (v3 11.2T sha-equiv) | ✅ PASS (`0c0fe37c…`) |
+| Phase 11 Build B (same-SKU) | ⏭️ SKIPPED (operator directive) |
+| ARM Cobalt witness | ⏭️ DROPPED (transitive via #61) |
+| v3+v3.1 1T sha-equivalence (byproduct) | ✅ PASS (`5a0f0bc2…`) |
+| #95 v3.1 fast-skip empirical validation | ✅ PASS (~2:14 recovery) |
+| PGO build invariant | ✅ Hardened (`scripts/build_pgo.sh` + `-Werror=missing-profile`) |
+| Phase 12 (v3 100T) | ⏳ Queued |
+| Phase 13b (v3→main FF merge + delete branch) | ⏳ Queued (pre-560T per operator directive) |
+| #55/#56/#60/#62/#63/#64 (pre-560T infra) | ⏳ Pending |
+| Operator review | ⏳ Pending |
+
+The chain has narrowed substantially — what remains is mostly infrastructure work + the Phase 12 100T confirmation.

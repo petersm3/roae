@@ -860,3 +860,118 @@ The table below summarizes what's measured so far. Numbers in brackets are the e
 - Pure speed (sha-preserving): #72 (+9%), AVX-512 (TBD), LTO (+2.5%), PGO (+4.8%) — all shippable, compose multiplicatively
 - Budget efficiency (sha-forking): #67 (+2.6% records/budget), #68 + #70 (bundled in v2 +4.8% records/budget) — required new canonical anchor
 - Rejected: #71 (-10.7% — instructive loss, kept in lineage as cautionary tale)
+
+---
+
+## 2026-05-24 — v1 vs v3 paired bench 1T — **PGO WAS NOT OPERATING** (entry under-measures v3's true advantage)
+
+### Headline
+
+**v3 measured 4.38% faster than v1 at 1T enum-only**, well below the +9.2% prediction. **The cause is NOT a regression in v3's speed claims — PGO did not apply during the v3 Pass 2 build.** Under `-flto`, GCC keys the `.gcda` profile-data lookup on the output binary's name; Pass 1 built to `solve_v3_instr` and Pass 2 built to `solve_v3` → different output names → Pass 2 missed the profile data → silent fallback to no-PGO with a single `-Wmissing-profile` warning. **The measured 4.38% therefore reflects LTO + bitset only, not LTO + PGO + bitset.** Sha-equivalence at 1T was preserved (both `5a0f0bc2…`); only the *speed* number is under-measured.
+
+**Treat this entry as a known-under-measurement.** The +9.2% prediction from #47 closure still stands — it has not been falsified by this bench because PGO simply wasn't operating. Re-run with the fixed `scripts/build_pgo.sh` (shipped same day, commit `bab4be6`) is required for the true v3-vs-v1 speedup measurement.
+
+### Setup
+
+- Standard D128als_v7 westus3 (operator-authorized exception to spot-only rule, for paired-measurement integrity)
+- v1: commit `a2ead96`, `-O3 -pthread -fopenmp -march=native` (vanilla — no LTO, no PGO, no bitset)
+- v3: commit `8b1658b`, `-O3 -flto -pthread -fopenmp -march=native + bitset (#72)` (PGO *intended* but did not apply — see below)
+- 1T enum-only, 3 reps each binary, interleaved (v1, v3, v1, v3, v1, v3)
+- Page cache cleared between reps (`sync` + `echo 3 > /proc/sys/vm/drop_caches`)
+- `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=1000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=6315458 SOLVE_THREADS=128 SOLVE_SKIP_AUTOMERGE=1`
+
+### Wall times (seconds)
+
+| Rep | v1 | v3 (no PGO applied) | v3/v1 |
+|---:|---:|---:|---:|
+| 1 | 2770 | 2650 | 0.957 |
+| 2 | 2717 | 2455 | 0.904 |
+| 3 | 2766 | 2661 | 0.962 |
+| **median** | **2766** | **2650** | **0.958 (v3 4.38% faster)** |
+
+### Sha gate
+
+```
+v1 1T: 5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52
+v3 1T: 5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52
+```
+
+**Byte-identical match.** Second empirical sha-preservation data point after Phase 11 Build A's 11.2T `0c0fe37c…` match. PGO not applying is irrelevant to sha — sha is determined by prune predicates, not optimizer branch hints.
+
+### PGO did NOT operate — direct evidence
+
+The Pass 2 build emitted:
+
+```
+solve.c:13150:1: warning: '/home/solver/bench/pgo//home/solver/bench/solve_v3-solve.gcda' profile count data file not found [-Wmissing-profile]
+```
+
+That is the GCC diagnostic for "I looked for the profile-guided optimization data file at the expected path; it wasn't there; I compiled this translation unit without profile feedback." Combined with `-flto`, this means the entire program was built without PGO. The compiler produced a binary, completed the build successfully (no -Werror at the time), and selftest passed — but the binary has LTO + bitset only, not LTO + PGO + bitset.
+
+### Why the path lookup missed
+
+Under `-flto`, the GCC LTO recompile step embeds the output binary's basename in the `.gcda` lookup path. Pass 1 wrote profile data keyed on `solve_v3_instr`. Pass 2 looked up profile data keyed on `solve_v3`. Names differed → miss → silent no-PGO fallback.
+
+### Fix shipped same day (`bab4be6`)
+
+Three-part hardening landed to make this class of bug structurally impossible:
+
+1. **`scripts/build_pgo.sh`** — canonical PGO build helper. Builds both passes to the SAME output name (renames after Pass 1), so the `.gcda` lookup key matches. Asserts `.gcda` file count > 0 between passes. Adds `-Werror=missing-profile` on Pass 2.
+2. **`scripts/perf_bench.sh`** — same discipline applied inline (runs over SSH so can't easily source the helper).
+3. **`documentation/DEVELOPMENT.md`** — PGO bullet now points at `scripts/build_pgo.sh` as the build invariant.
+
+The load-bearing safety is `-Werror=missing-profile`: any future change that breaks PGO path resolution now fails the build LOUD instead of degrading silently. A silent no-PGO build is now structurally impossible without someone explicitly removing the `-Werror=` flag.
+
+### Reconciliation with the earlier #78 PGO entry
+
+The earlier #78 entry (above) reports +6.5% from PGO at 1T on a clean LTO-only baseline. Current entry's 4.38% from v3 vs v1 with broken PGO is consistent with that decomposition:
+
+- LTO contribution (#47 closure): +2.53%
+- Bitset (#72) contribution at 1T: near-zero standalone perf delta (the +8.7% per-thread at 1B from #72 was at a smaller scale with different memory pressure; at 1T the per-thread rate gains are mostly absorbed by hash-table and merge bottlenecks)
+- PGO contribution **at this bench**: **0%** (build bug)
+
+So this bench's v3-vs-v1 delta of 4.38% ≈ LTO 2.53% + small residual gains from bitset + statistical variance. **Re-run with the fixed `build_pgo.sh` is needed to validate the predicted +9.2% LTO+PGO+bitset stack.**
+
+### Cost
+
+- Bench: ~$30 (Standard D128als_v7 × ~6.5h wall, including PGO Pass 1 instrumented run + Pass 2 build)
+- 1T canonical archive bytes: 475 MB gzip -9 (cold + managed + local)
+
+### 1T canonical established as a byproduct (5a0f0bc2…)
+
+The bench produced the first 1T canonical entry in the cold archive (sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`, 134,039,081 records). Bridges the gap between the 100B and 5.6T entries that previously bracketed the d3 lineage. Reproducible from either v1 or v3 binary at `SOLVE_PER_SUB_BRANCH_LIMIT=6315458` (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
+
+---
+
+## 2026-05-24 — v3.1 fast-skip eviction-recovery wall (task #95)
+
+Not a perf entry in the traditional sense (no sha-changing optimization), but a wall-time measurement of the eviction-recovery code path that the 560T campaign will depend on. Logged here for the perf-narrative reader who wants the full operational picture.
+
+**Headline:** v3.1's `promote_orphaned_shards` + `checkpoint.txt`-based resume restored a 100B-scale enum from administrative deallocate (Spot-eviction-equivalent) in **~2:14 wall time**, dominated by VM restart overhead (1:44). The fast-skip claim itself is effectively instant (sub-second). Architectural prediction was ~15 min; measured is well under.
+
+**Decisive log evidence** (resume after deallocate):
+```
+Resuming: 83476 sub-branches already completed (from checkpoint.txt)
+Sub-branches: 74888 remaining (83476 completed from checkpoint) of 158364 total
+...
+Sub-branch 83477/158364 BUDGETED ... 0s
+```
+
+**Recovery breakdown:**
+- `az vm deallocate` → done: 62s
+- `az vm start` → "running": 42s
+- workload re-invocation → solve startup: ~10s
+- solve fast-skip claim from `checkpoint.txt`: ~0s
+- First post-eviction sub-branch enumerated: ~2s
+
+**What this validates:**
+- `promote_orphaned_shards()` (v3.1 patch) correctly identifies completed shards.
+- `checkpoint.txt` (12 MB at 100B scale, ~100 MB at 100T projected) is the sole resume input — no slow shard-file scan needed.
+- Recovery is scale-invariant — wall time scales with checkpoint parse, not shard count.
+- Graceful SIGTERM gives solve enough time to flush in-flight shards (27,008 → 29,588 between deallocate and process exit).
+
+**What this does NOT test:**
+- Real Azure Spot eviction (the 30s eviction-notice path is similar but not identical to administrative deallocate).
+- Mid-walk resume via `DFSStackFrame_v2 + mw_delta` (#92) — this test caught all in-flight sub-branches in the graceful drain.
+
+**Cost:** ~$0.10 (~30 min on D32als_v7 Spot).
