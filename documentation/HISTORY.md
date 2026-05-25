@@ -4385,3 +4385,33 @@ For 560T specifically: the run-dir convention is mandatory pre-launch per `proje
 Plus the **sub-canonical hard-gate** (refuses `SOLVE_NODE_LIMIT < 1T` without explicit override; exit 25) shipped in `bd7e5c7` per the operator directive following the 100B drift bisect.
 
 **Net**: all 8 outliers + the sub-canonical hard-gate are now closed (in code or runbook). The complete pre-560T hardening cycle is shipped. Selftest sha `403f7202…` preserved across the full hardening sequence.
+
+## May 25, 2026 UTC (later) — Phase E.2 resume-path defense re-landed on main
+
+The 2026-05-25 main reset to v3 BRANCH solve.c (commit `9f10f05`) had lost the Phase E.2 5-item defense-in-depth from `d683794` (May 15) — including resume-state invariant assertions, build-provenance metadata, and the shard-manifest subcommands. Per operator directive ("re-land the d683794 items that don't depend on #92 mw_delta"), this commit restores the sha-neutral subset:
+
+| Phase E.2 item | Re-landed? | Notes |
+|---|---|---|
+| 1. `--selftest-resume` subcommand | NO (deferred) | Depends on `#92` mw_delta for the resume code path to pass; #92 carries the v3.1 × #92 interaction we removed in this morning's reset. Re-landing #92 would require the #97 fix to come along too. |
+| 2. Build provenance + `SOLVE_RESUME_HISTORY` in `.sha256` metadata | **YES** | Added to both code paths: `write_sha256_with_metadata()` (called from main enum path) and the post-`--merge` sha-write path. Records `SOLVE_DFS_ITERATIVE`, `SOLVE_DFS_CHECKPOINT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, operator-supplied `SOLVE_RESUME_HISTORY`, build date+git, unique-orderings count, date stamp. |
+| 3. Resume-state invariant assertions in `backtrack()` | **YES** | Two invariants: `dfs_resume_partition_prefix_len > 0` and saved `(pair_idx, orient)` within `[0,31] × [0,1]`. Violation → exit 21. These are exactly the c34390c0/f7b8c4fb-class undercount detectors. Resume-gated (only active on actual resume), no runtime cost on fresh enums. |
+| 4. Canonical merges off Spot priority | n/a | Policy item; codified in CLAUDE.md's "Cost control — VM purchase type" section already (which has its own evolution: 2026-04-29 actually went the OTHER way — all VMs Spot. The d683794 framing is superseded). |
+| 5. `--emit-shard-manifest` / `--verify-shard-manifest` subcommands | **YES** | `--emit-shard-manifest [path]` writes a tab-separated `<filename>\t<size>\t<sha256>` manifest of all `sub_*.bin` in cwd. `--verify-shard-manifest [path]` checks each entry: existence, size ≥ recorded (resumes can ADD records but not shrink), sha256 of first `recorded_size` bytes matches. Any failure → exit 22 with MISSING/SHRUNK/DIVERGED diagnostic. The third check converts silent c34390c0-class data corruption into a loud fault before merge. |
+
+**Selftest sha `403f7202…` preserved.** All re-landed items are sha-neutral by construction: the resume-invariants are gated on `ts->dfs_resume_active`, so fresh enums don't execute the new code; the metadata writes target sidecars (`.sha256`), not `solutions.bin`; the shard-manifest subcommands are diagnostic-only.
+
+**Empirical tests** (D2 orchestrator):
+- `--emit-shard-manifest` produces 363 entries from a small enum, format correct
+- `--verify-shard-manifest` PASS on clean manifest
+- `--verify-shard-manifest` correctly detects MISSING (file deleted), SHRUNK (file truncated), DIVERGED (file rewritten with same length but different content); all three exit 22 with specific diagnostic line
+- `solutions.sha256` after a real merge now shows: `# Date`, `# Build`, `# Unique orderings`, `# SOLVE_NODE_LIMIT`, `# SOLVE_DFS_ITERATIVE`, `# SOLVE_DFS_CHECKPOINT`, `# SOLVE_PER_SUB_BRANCH_LIMIT`, `# SOLVE_RESUME_HISTORY` — the full Phase E.2 provenance schema
+
+**For 560T launch**: the recommended resume-integrity protocol becomes:
+1. After PHASE_A (full enum to budget X): `./solve --emit-shard-manifest shard_manifest_phaseA.txt`
+2. Spot eviction or planned re-mount happens
+3. PHASE_B (extension to budget Y > X) launches; new shards have new sidecars
+4. After PHASE_B completes: `./solve --verify-shard-manifest shard_manifest_phaseA.txt`
+5. If PASS: no resume corruption; proceed with merge
+6. If FAIL (any of MISSING/SHRUNK/DIVERGED): halt; investigate; the LOAD path's re-walk option remains available per the `.budget` sidecar mechanism
+
+The whole "Resume-path defense in depth" capability from d683794 is now back on main (minus the `--selftest-resume` testing harness, which can be re-added later with the #92 fix if that path is wanted).

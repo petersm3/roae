@@ -2509,10 +2509,36 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
      * back into this depth (different parent iteration paths) starts fresh. */
     int p_start = 0, o_start = 0;
     if (ts->dfs_resume_active) {
+        /* Phase E.2 resume-state invariant (re-landed 2026-05-25; originally
+         * shipped in d683794 May 15, lost in the 2026-05-25 main reset to
+         * v3 BRANCH, re-added because resume-path defense was specifically
+         * what got dropped). dfs_resume_partition_prefix_len must be set by
+         * load_sub_checkpoint before resume is active. A zero value would
+         * silently mis-index dfs_resume_frames — exactly the failure class
+         * behind the deprecated c34390c0/f7b8c4fb canonicals (silent data
+         * loss on resume). */
+        if (ts->dfs_resume_partition_prefix_len <= 0) {
+            fprintf(stderr, "FATAL: dfs_resume_active=1 but partition_prefix_len=%d "
+                            "(must be >0). Refusing to continue with malformed resume "
+                            "state. See documentation/HISTORY.md \"Phase E.2\" for context.\n",
+                            ts->dfs_resume_partition_prefix_len);
+            _exit(21);  /* distinct from existing exit codes; resume-invariant violation */
+        }
         int rd = step - ts->dfs_resume_partition_prefix_len;
         if (rd >= 0 && rd < 64 && ts->dfs_resume_frames[rd].pair_idx >= 0) {
-            p_start = ts->dfs_resume_frames[rd].pair_idx;
-            o_start = ts->dfs_resume_frames[rd].orient;
+            /* Invariant: a captured pair_idx must be in [0, 31] (32 pairs)
+             * and orient in [0, 1]. Out-of-range values mean malformed
+             * resume frame — same c34390c0-class undercount pattern. */
+            int8_t saved_p = ts->dfs_resume_frames[rd].pair_idx;
+            int8_t saved_o = ts->dfs_resume_frames[rd].orient;
+            if (saved_p < 0 || saved_p >= 32 || saved_o < 0 || saved_o > 1) {
+                fprintf(stderr, "FATAL: malformed dfs_resume_frame at rd=%d: "
+                                "(p=%d, o=%d) out of (0..31, 0..1). Refusing to "
+                                "continue.\n", rd, (int)saved_p, (int)saved_o);
+                _exit(21);
+            }
+            p_start = saved_p;
+            o_start = saved_o;
             ts->dfs_resume_frames[rd].pair_idx = -1;  /* mark consumed */
         }
     }
@@ -4045,6 +4071,23 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     if (time_limit > 0)
         fprintf(sf, "# Time limit: %d seconds\n", time_limit);
     fprintf(sf, "# SOLVE_THREADS: any (output is thread-independent with node limit)\n");
+    /* Phase E.2 follow-up (re-landed 2026-05-25): record resume-mode flags
+     * + operator-supplied resume history in .sha256 metadata. The c34390c0
+     * forensic investigation would have been instantly diagnosable if its
+     * .sha256 metadata had recorded these. See documentation/DEVELOPMENT.md
+     * "Resume-path defense in depth" for the full provenance schema. */
+    fprintf(sf, "# SOLVE_DFS_ITERATIVE=%d\n", dfs_iterative_enabled);
+    fprintf(sf, "# SOLVE_DFS_CHECKPOINT=%d\n", dfs_checkpoint_enabled);
+    if (per_sub_branch_override > 0)
+        fprintf(sf, "# SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", per_sub_branch_override);
+    {
+        const char *rh = getenv("SOLVE_RESUME_HISTORY");
+        if (rh && *rh) {
+            fprintf(sf, "# SOLVE_RESUME_HISTORY: %s\n", rh);
+        } else {
+            fprintf(sf, "# SOLVE_RESUME_HISTORY: (none - clean single-shot run)\n");
+        }
+    }
     fclose(sf);
 }
 
@@ -6717,6 +6760,129 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
+    } else if (argc > 1 && strcmp(argv[1], "--emit-shard-manifest") == 0) {
+        /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; originally
+         * d683794 May 15, lost in the 2026-05-25 main reset, re-added
+         * because resume-path defense was specifically what got dropped).
+         *
+         * Scans the current working directory for sub_*.bin shard files,
+         * computes the sha256 of each, and writes a tab-separated manifest
+         * (default: shard_manifest.txt). One line per shard:
+         *
+         *   <filename>\t<size_bytes>\t<sha256_hex>
+         *
+         * Use case: after a planned PHASE_A enum completes (e.g., before
+         * a planned Spot eviction or for a pre-resume integrity snapshot),
+         * emit the manifest. Later --verify-shard-manifest catches silent
+         * corruption of resumed shards. */
+        const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+        char cmd[8192];
+        snprintf(cmd, sizeof(cmd),
+                 "for f in sub_*.bin; do "
+                 "  [ -f \"$f\" ] || continue; "
+                 "  sz=$(stat -c%%s \"$f\"); "
+                 "  sh=$(%s \"$f\" | cut -d' ' -f1); "
+                 "  printf '%%s\\t%%s\\t%%s\\n' \"$f\" \"$sz\" \"$sh\"; "
+                 "done > %s.tmp && mv %s.tmp %s",
+                 tool, manifest_path, manifest_path, manifest_path);
+        int rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "ERROR: --emit-shard-manifest failed rc=%d\n", rc);
+            return 30;
+        }
+        char count_cmd[1024];
+        snprintf(count_cmd, sizeof(count_cmd), "wc -l < %s", manifest_path);
+        FILE *fp = popen(count_cmd, "r");
+        if (fp) {
+            char buf[64] = {0};
+            (void)!fgets(buf, sizeof(buf), fp);
+            pclose(fp);
+            for (char *p = buf; *p; p++) if (*p == '\n') { *p = 0; break; }
+            printf("[--emit-shard-manifest] Wrote %s with %s shard entries\n",
+                   manifest_path, buf);
+        } else {
+            printf("[--emit-shard-manifest] Wrote %s\n", manifest_path);
+        }
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--verify-shard-manifest") == 0) {
+        /* Phase E.2 follow-up item 5 (re-landed 2026-05-25): verify shards
+         * against a prior --emit-shard-manifest snapshot.
+         *
+         * For each entry in the manifest, asserts:
+         *   1. The shard file still exists (else MISSING).
+         *   2. Current file size >= recorded size (resume can only ADD
+         *      records; legitimate runs never shrink a shard). Else SHRUNK.
+         *   3. sha256 of the first <recorded_size> bytes of the current
+         *      file matches the recorded sha256 (catches mid-write
+         *      corruption + cross-ref divergence). Else DIVERGED.
+         *
+         * Any failure → exit 22 with diagnostic. The third check is the
+         * strongest: it converts silent c34390c0-class data corruption
+         * (resumed shards diverging from PHASE_A's content) into a loud
+         * fault before merge consumes the bad shards. */
+        const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+        FILE *mf = fopen(manifest_path, "r");
+        if (!mf) {
+            fprintf(stderr, "ERROR: cannot open manifest %s: %s\n",
+                    manifest_path, strerror(errno));
+            return 30;
+        }
+        int total = 0, missing = 0, shrunk = 0, diverged = 0;
+        char line[4096];
+        while (fgets(line, sizeof(line), mf)) {
+            total++;
+            char fname[512]; long long sz; char sha[128];
+            if (sscanf(line, "%511s %lld %127s", fname, &sz, sha) != 3) {
+                fprintf(stderr, "WARN: malformed manifest line %d, skipping: %.80s\n",
+                        total, line);
+                continue;
+            }
+            struct stat st;
+            if (stat(fname, &st) != 0) {
+                fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n",
+                        fname, sz);
+                missing++;
+                continue;
+            }
+            if ((long long)st.st_size < sz) {
+                fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
+                        fname, (long long)st.st_size, sz);
+                shrunk++;
+                continue;
+            }
+            char cmd[8192], got[128] = {0};
+            snprintf(cmd, sizeof(cmd),
+                     "head -c %lld %s | %s | cut -d' ' -f1", sz, fname, tool);
+            FILE *p = popen(cmd, "r");
+            if (!p) {
+                fprintf(stderr, "ERROR: popen failed for %s\n", fname);
+                fclose(mf);
+                return 30;
+            }
+            (void)!fgets(got, sizeof(got), p);
+            pclose(p);
+            for (char *q = got; *q; q++) if (*q == '\n') { *q = 0; break; }
+            if (strcmp(got, sha) != 0) {
+                fprintf(stderr, "DIVERGED: %s - first %lld bytes sha=%s, manifest=%s\n",
+                        fname, sz, got, sha);
+                diverged++;
+            }
+        }
+        fclose(mf);
+        printf("[--verify-shard-manifest] %d entries checked: "
+               "%d missing, %d shrunk, %d diverged\n",
+               total, missing, shrunk, diverged);
+        if (missing == 0 && shrunk == 0 && diverged == 0) {
+            printf("[--verify-shard-manifest] PASS - all shards match manifest\n");
+            return 0;
+        }
+        fprintf(stderr, "[--verify-shard-manifest] FAIL - resume path corrupted shards.\n");
+        fprintf(stderr, "             See documentation/DEVELOPMENT.md \"Resume-path defense in depth\" item 5.\n");
+        return 22;
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
@@ -10512,6 +10678,36 @@ int main(int argc, char *argv[]) {
         if (rc != 0) {
             fprintf(stderr, "ERROR: sha256 computation failed (rc=%d)\n", rc);
             return 30;
+        }
+
+        /* Phase E.2 follow-up (re-landed 2026-05-25): append provenance
+         * metadata to solutions.sha256. The bare-hash first line stays
+         * compatible with `sha256sum -c`; subsequent lines are `#`-prefixed
+         * metadata. The c34390c0 forensic investigation would have been
+         * instantly diagnosable with this metadata. */
+        {
+            FILE *sm = fopen(sha_name, "a");
+            if (sm) {
+                char tbuf[64];
+                time_t now = time(NULL);
+                struct tm tmbuf;
+                strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tmbuf));
+                fprintf(sm, "# Date: %s\n", tbuf);
+                fprintf(sm, "# Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
+                fprintf(sm, "# Unique orderings: %lld\n", unique);
+                if (node_limit > 0)
+                    fprintf(sm, "# SOLVE_NODE_LIMIT=%lld\n", node_limit);
+                fprintf(sm, "# SOLVE_DFS_ITERATIVE=%d\n", dfs_iterative_enabled);
+                fprintf(sm, "# SOLVE_DFS_CHECKPOINT=%d\n", dfs_checkpoint_enabled);
+                if (per_sub_branch_override > 0)
+                    fprintf(sm, "# SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", per_sub_branch_override);
+                const char *rh = getenv("SOLVE_RESUME_HISTORY");
+                if (rh && *rh)
+                    fprintf(sm, "# SOLVE_RESUME_HISTORY: %s\n", rh);
+                else
+                    fprintf(sm, "# SOLVE_RESUME_HISTORY: (none - clean single-shot run)\n");
+                fclose(sm);
+            }
         }
 
         char hash[130] = {0};
