@@ -1391,28 +1391,57 @@ static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, in
 
 /* ---------- v3.1: fast-skip elimination via orphaned-shard promotion ---------- */
 
-/* Delete any sub_*.bin.tmp files left from interrupted flush writes.
+/* Delete any sub_*.bin.tmp files left from interrupted flush writes,
+ * plus any zero-byte sub_*.bin files matching the canonical-campaign
+ * filename pattern (which can never be valid shards: an empty shard
+ * still has at least one record, since the sub-branch wouldn't have
+ * been "completed" if it found 0 solutions — that case writes a
+ * BUDGETED checkpoint.txt entry with 0 solutions but no .bin).
  *
  * Eviction during flush_sub_solutions[_d3] can leave a .tmp file on disk
- * before the atomic rename completes. These are by definition incomplete
- * and must be removed before promote_orphaned_shards() runs so we don't
- * confuse the directory scan. */
+ * before the atomic rename completes. These are by definition incomplete.
+ * Zero-byte .bin files can arise from filesystem hiccups or interrupted
+ * fopen-truncate cycles; either way they confuse the LOAD path. Both
+ * categories must be removed before promote_orphaned_shards() runs.
+ * Hardening audit 2026-05-25: extended to cover zero-byte .bin files
+ * (Outlier #2). */
 static void cleanup_orphaned_tmp_files(void) {
     DIR *d = opendir(".");
     if (!d) return;
     struct dirent *entry;
-    int removed = 0;
+    int removed_tmp = 0, removed_zero = 0;
     while ((entry = readdir(d)) != NULL) {
-        size_t len = strlen(entry->d_name);
+        const char *n = entry->d_name;
+        size_t len = strlen(n);
         if (len < 8) continue;
-        if (strncmp(entry->d_name, "sub_", 4) != 0) continue;
-        if (strcmp(entry->d_name + len - 4, ".tmp") != 0) continue;
-        if (unlink(entry->d_name) == 0) removed++;
+        if (strncmp(n, "sub_", 4) != 0) continue;
+        if (strcmp(n + len - 4, ".tmp") == 0) {
+            if (unlink(n) == 0) removed_tmp++;
+            continue;
+        }
+        if (strcmp(n + len - 4, ".bin") != 0) continue;
+        /* Match canonical-campaign filename pattern; skip variants like
+         * sub_ckpt_wrk*.bin, sub_flush_chunk_*.bin (those have their own
+         * lifecycle and may legitimately be empty mid-run). */
+        int p1, o1, p2, o2, p3, o3;
+        int matched = sscanf(n, "sub_%d_%d_%d_%d_%d_%d.bin",
+                             &p1, &o1, &p2, &o2, &p3, &o3);
+        if (matched != 6) {
+            matched = sscanf(n, "sub_%d_%d_%d_%d.bin", &p1, &o1, &p2, &o2);
+            if (matched != 4) continue;
+        }
+        struct stat st;
+        if (stat(n, &st) == 0 && st.st_size == 0) {
+            if (unlink(n) == 0) removed_zero++;
+        }
     }
     closedir(d);
-    if (removed > 0)
+    if (removed_tmp > 0)
         fprintf(stderr, "[v3.1] Removed %d orphaned .tmp files (incomplete writes from prior eviction)\n",
-                removed);
+                removed_tmp);
+    if (removed_zero > 0)
+        fprintf(stderr, "[v3.1] Removed %d zero-byte canonical-pattern .bin files (hardening Outlier #2)\n",
+                removed_zero);
 }
 
 /* Promote orphaned sub_*.bin files (atomic, durable, but no checkpoint.txt
@@ -1478,18 +1507,33 @@ static int promote_orphaned_shards(void) {
 
         /* Append a BUDGETED line to checkpoint.txt for next-resume durability.
          * Use thread -1 as a "promoted" sentinel so the entry is distinguishable
-         * from real walk-completion entries in post-hoc analysis. */
+         * from real walk-completion entries in post-hoc analysis.
+         *
+         * Hardening audit 2026-05-25 (Outliers #3 + #7): fflush+fsync per
+         * fprintf so a Spot eviction mid-promotion can't leave a torn last
+         * line in checkpoint.txt, AND the durability ordering puts the
+         * checkpoint entry on disk before the in-memory bitmap update below
+         * (so a crash here means next-startup re-promotes idempotently from
+         * a clean checkpoint.txt). Cost: ~ms per fsync × shard count;
+         * negligible vs the LOAD-path cost this whole function replaces. */
         if (ckpt) {
+            int wrote;
             if (p3 >= 0) {
-                fprintf(ckpt,
+                wrote = fprintf(ckpt,
                     "Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
                     "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
                     p1, o1, p2, o2, p3, o3, records, current_per_branch_budget);
             } else {
-                fprintf(ckpt,
+                wrote = fprintf(ckpt,
                     "Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d orient2 %d): "
                     "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
                     p1, o1, p2, o2, records, current_per_branch_budget);
+            }
+            if (wrote < 0 || fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0) {
+                fprintf(stderr, "WARN: promote_orphaned_shards: per-line fsync failed (sub_%d_%d_%d_%d_%d_%d.bin, errno=%d); leaving for LOAD path on next resume\n",
+                        p1, o1, p2, o2, p3, o3, errno);
+                /* Skip the bitmap update so next-startup will retry this shard via the LOAD path. */
+                continue;
             }
         }
         /* Update in-memory skip-list */
@@ -1525,6 +1569,176 @@ static int promote_orphaned_shards(void) {
         fprintf(stderr, "[v3.1] Orphaned-shard promotion: promoted=%d, integrity_failed=%d\n",
                 promoted, integrity_fail);
     return promoted;
+}
+
+/* Forward declaration — sha256_tool() is defined later in file (line ~3834)
+ * but check_build_sha_invariant() below needs it. */
+static const char *sha256_tool(void);
+
+/* ---------- Canonical-run startup invariants (hardening audit 2026-05-25) ----------
+ *
+ * Three startup-time guards that all canonical-enum runs MUST pass before
+ * touching the working directory's shard files. None affects sha256 output
+ * of a clean run — they only prevent silent corruption from cross-VM,
+ * cross-binary, or sub-canonical-scale runs sharing a working directory.
+ *
+ * Skipped by --selftest, --selftest-resume, --verify, --merge,
+ * --regression-test, --emit/verify-shard-manifest, etc. — each of those has
+ * its own dispatch and either operates on a controlled tempdir or doesn't
+ * touch shard files at all.
+ *
+ * Sha-preserving: yes (none of these change DFS code or output bytes).
+ * Selftest sha 403f7202… is unaffected. */
+
+static int g_canonical_lock_fd = -1;
+static char g_canonical_lock_path[64] = {0};
+
+static void release_canonical_lock(void) {
+    if (g_canonical_lock_fd >= 0) {
+        close(g_canonical_lock_fd);
+        g_canonical_lock_fd = -1;
+    }
+    if (g_canonical_lock_path[0]) {
+        unlink(g_canonical_lock_path);
+        g_canonical_lock_path[0] = 0;
+    }
+}
+
+/* Outlier #8 (multi-VM concurrent enum). Acquire an exclusive solve.lock
+ * file with our PID + hostname recorded inside. If a prior owner is alive
+ * on the same host, abort. If owner is dead or on a different host (typical
+ * Spot-eviction-then-new-VM pattern), reclaim the lock and proceed.
+ * Override env: SOLVE_SKIP_CANONICAL_LOCK=1. Returns 0 on success, -1 on
+ * unrecoverable conflict. */
+static int acquire_canonical_lock(void) {
+    if (getenv("SOLVE_SKIP_CANONICAL_LOCK") && atoi(getenv("SOLVE_SKIP_CANONICAL_LOCK")) == 1) {
+        fprintf(stderr, "[hardening] solve.lock acquisition SKIPPED (SOLVE_SKIP_CANONICAL_LOCK=1)\n");
+        return 0;
+    }
+    snprintf(g_canonical_lock_path, sizeof(g_canonical_lock_path), "solve.lock");
+    char host[64] = {0};
+    if (gethostname(host, sizeof(host) - 1) != 0) snprintf(host, sizeof(host), "unknown");
+    for (int retry = 0; retry < 2; retry++) {
+        g_canonical_lock_fd = open(g_canonical_lock_path, O_WRONLY | O_CREAT | O_EXCL, 0644);
+        if (g_canonical_lock_fd >= 0) break;
+        if (errno != EEXIST) {
+            fprintf(stderr, "ERROR: cannot create %s: %s\n", g_canonical_lock_path, strerror(errno));
+            return -1;
+        }
+        /* Lock exists. Read prior owner. */
+        FILE *fr = fopen(g_canonical_lock_path, "r");
+        if (!fr) { fprintf(stderr, "ERROR: lock exists but unreadable: %s\n", strerror(errno)); return -1; }
+        int prior_pid = -1;
+        char prior_host[64] = {0};
+        int n = fscanf(fr, "%d %63s", &prior_pid, prior_host);
+        fclose(fr);
+        int alive_same_host = 0;
+        if (n == 2 && prior_pid > 0 && strcmp(prior_host, host) == 0) {
+            if (kill(prior_pid, 0) == 0) alive_same_host = 1;
+        }
+        if (alive_same_host) {
+            fprintf(stderr, "ERROR: solve.lock held by live pid=%d on host=%s. Refusing to start "
+                            "a concurrent enum on the same working directory (Outlier #8). "
+                            "Override with SOLVE_SKIP_CANONICAL_LOCK=1 only if you are CERTAIN "
+                            "the prior process is not writing shards.\n", prior_pid, prior_host);
+            return -1;
+        }
+        fprintf(stderr, "[hardening] Stale solve.lock (pid=%d host=%s; owner not alive on %s). Reclaiming.\n",
+                prior_pid, prior_host, host);
+        if (unlink(g_canonical_lock_path) != 0 && errno != ENOENT) {
+            fprintf(stderr, "ERROR: cannot remove stale lock: %s\n", strerror(errno));
+            return -1;
+        }
+        /* loop will retry O_EXCL create */
+    }
+    if (g_canonical_lock_fd < 0) {
+        fprintf(stderr, "ERROR: failed to acquire %s after stale-lock cleanup\n", g_canonical_lock_path);
+        return -1;
+    }
+    /* Write our identity. dprintf is async-signal-safe-ish; intentionally fsync after. */
+    char line[128];
+    int linelen = snprintf(line, sizeof(line), "%d %s\n", (int)getpid(), host);
+    if (write(g_canonical_lock_fd, line, linelen) != linelen ||
+        fsync(g_canonical_lock_fd) != 0) {
+        fprintf(stderr, "WARN: solve.lock contents write/fsync failed: %s\n", strerror(errno));
+    }
+    atexit(release_canonical_lock);
+    fprintf(stderr, "[hardening] solve.lock acquired (pid=%d host=%s)\n", (int)getpid(), host);
+    return 0;
+}
+
+/* Outlier #4 (build provenance mismatch on resume). Compute sha256 of
+ * /proc/self/exe and compare to build.sha in cwd. First run writes
+ * build.sha; subsequent runs MUST match unless SOLVE_ALLOW_BUILD_MISMATCH=1.
+ * Returns 0 on success / clean first-run, -1 on mismatch without override.
+ * Tolerates missing sha256 tool (logs a warning, proceeds). */
+static int check_build_sha_invariant(void) {
+    const char *tool = sha256_tool();
+    if (!tool) {
+        fprintf(stderr, "[hardening] WARN: no sha256 tool on PATH; build-sha invariant SKIPPED. "
+                        "Outlier #4 unguarded; do not resume across different binaries.\n");
+        return 0;
+    }
+    /* Compute current binary sha. */
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "%s /proc/self/exe 2>/dev/null", tool);
+    FILE *p = popen(cmd, "r");
+    if (!p) {
+        fprintf(stderr, "[hardening] WARN: popen(%s) failed: %s; build-sha invariant SKIPPED\n",
+                cmd, strerror(errno));
+        return 0;
+    }
+    char current_sha[80] = {0};
+    int n = fscanf(p, "%79s", current_sha);
+    pclose(p);
+    if (n != 1 || strlen(current_sha) != 64) {
+        fprintf(stderr, "[hardening] WARN: could not parse sha256 of /proc/self/exe (got %d chars); SKIPPED\n",
+                (int)strlen(current_sha));
+        return 0;
+    }
+    /* Read existing build.sha if present. */
+    FILE *fr = fopen("build.sha", "r");
+    if (fr) {
+        char prior_sha[80] = {0};
+        int rn = fscanf(fr, "%79s", prior_sha);
+        fclose(fr);
+        if (rn == 1 && strlen(prior_sha) == 64) {
+            if (strcmp(prior_sha, current_sha) != 0) {
+                if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) {
+                    fprintf(stderr, "[hardening] WARN: build.sha mismatch (prior=%s, current=%s); "
+                                    "proceeding because SOLVE_ALLOW_BUILD_MISMATCH=1. Outlier #4 risk acknowledged.\n",
+                            prior_sha, current_sha);
+                    /* Continue, but overwrite build.sha with current so future runs match. */
+                } else {
+                    fprintf(stderr, "ERROR: build.sha mismatch (Outlier #4). This working directory was last used by\n"
+                                    "       binary sha256 %s\n"
+                                    "       Current binary sha256 %s\n"
+                                    "       Resuming across different binaries can mix prune-stack lineages\n"
+                                    "       and produce wrong-but-deterministic canonical bytes.\n"
+                                    "       Override with SOLVE_ALLOW_BUILD_MISMATCH=1 only if you have audited the diff.\n",
+                            prior_sha, current_sha);
+                    return -1;
+                }
+            } else {
+                fprintf(stderr, "[hardening] build.sha PASS (binary sha %s matches prior run)\n", current_sha);
+                return 0;
+            }
+        }
+    }
+    /* First run (or unreadable prior) — write current sha atomically. */
+    FILE *fw = fopen("build.sha.tmp", "w");
+    if (!fw) {
+        fprintf(stderr, "[hardening] WARN: cannot write build.sha.tmp: %s; Outlier #4 unguarded\n", strerror(errno));
+        return 0;
+    }
+    fprintf(fw, "%s\n", current_sha);
+    fflush(fw); fsync(fileno(fw)); fclose(fw);
+    if (rename("build.sha.tmp", "build.sha") != 0) {
+        fprintf(stderr, "[hardening] WARN: cannot rename build.sha.tmp -> build.sha: %s\n", strerror(errno));
+        return 0;
+    }
+    fprintf(stderr, "[hardening] build.sha CREATED (binary sha %s)\n", current_sha);
+    return 0;
 }
 
 /* ---------- Hash table resize ---------- */
@@ -6350,7 +6564,9 @@ int main(int argc, char *argv[]) {
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
                  "unset SOLVE_DEPTH && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 %s 0 > /dev/null 2>&1 && "
+                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 "
+                 "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
+                 "%s 0 > /dev/null 2>&1 && "
                  "%s solutions.bin | cut -d' ' -f1",
                  tempdir_template, solve_path, tool);
         FILE *fp = popen(cmd, "r");
@@ -7111,6 +7327,48 @@ int main(int argc, char *argv[]) {
          * below also check the override and re-set it; this ensures it's
          * set for paths that skip the auto-divide block. */
         per_branch_node_limit = per_sub_branch_override;
+    }
+
+    /* Sub-canonical-scale hard-gate (hardening audit 2026-05-25 — operator
+     * directive following the 100B drift bisect). At budget-limited scales
+     * below ~1T, output sha256 is code-specific: any solve.c change can flip
+     * the sha, including DFS-neutral commits whose impact propagates via LTO
+     * compiler-layout effects (see 2026-05-25 d683794 case in HISTORY.md).
+     * The hard-gate prevents accidental sub-canonical runs being mistaken
+     * for canonical-grade reference data.
+     *
+     * Suppressed if SOLVE_PER_SUB_BRANCH_LIMIT is set explicitly (partition-
+     * invariance tests and similar within-code-state runs intentionally
+     * walk at a smaller per-cell budget). Override: SOLVE_ALLOW_SUB_CANONICAL=1.
+     * Sha-preserving: yes — gate only blocks startup, never alters DFS. */
+    if (node_limit > 0 && node_limit < 1000000000000LL && per_sub_branch_override == 0) {
+        if (getenv("SOLVE_ALLOW_SUB_CANONICAL") && atoi(getenv("SOLVE_ALLOW_SUB_CANONICAL")) == 1) {
+            fprintf(stderr, "[hardening] WARN: SOLVE_NODE_LIMIT=%lld < 1T canonical-stability threshold; "
+                            "proceeding because SOLVE_ALLOW_SUB_CANONICAL=1. Output sha256 is code-specific.\n",
+                    node_limit);
+        } else {
+            fprintf(stderr,
+                "ERROR: SOLVE_NODE_LIMIT=%lld is below the canonical-stability\n"
+                "       threshold of 1T (10^12 nodes). At budget-limited scales\n"
+                "       below this threshold, the output sha256 is CODE-SPECIFIC\n"
+                "       and NOT a reliable cross-build verification gate. Any\n"
+                "       solve.c change (including DFS-neutral commits per the\n"
+                "       2026-05-25 d683794 case in documentation/HISTORY.md) can\n"
+                "       flip the sha. See documentation/CANONICAL_HASHES.md\n"
+                "       \"100B and sub-canonical reference shas\" section.\n"
+                "\n"
+                "       For canonical-grade reproducibility, use SOLVE_NODE_LIMIT\n"
+                "       >= 1000000000000 (1T) and reference CANONICAL_HASHES.md.\n"
+                "\n"
+                "       For intentional within-code-state runs (e.g., partition-\n"
+                "       invariance regression tests), set SOLVE_PER_SUB_BRANCH_LIMIT\n"
+                "       explicitly — that suppresses this gate.\n"
+                "\n"
+                "       To override anyway with full acknowledgment that the output\n"
+                "       sha will be code-specific, set SOLVE_ALLOW_SUB_CANONICAL=1.\n",
+                node_limit);
+            return 25;
+        }
     }
 
     /* DFS-state checkpoint (2026-04-30, SOLVE_DFS_CHECKPOINT). When 1, mid-walk
@@ -12107,12 +12365,19 @@ sub_enum_done:
         current_per_branch_budget = per_sub_branch_override;
     else if (node_limit > 0)
         current_per_branch_budget = node_limit / 3030;
+    /* Hardening audit 2026-05-25 — acquire the canonical-run lock + verify
+     * build provenance BEFORE any shard-file I/O. Order matters: lock first
+     * (prevents concurrent enums on same cwd), then build-sha check (catches
+     * cross-binary resume), then load_sub_checkpoint + orphan-promotion. */
+    if (acquire_canonical_lock() != 0) return 27;
+    if (check_build_sha_invariant() != 0) return 26;
+
     load_sub_checkpoint();
     /* v3.1: orphaned-shard promotion eliminates the costly fast-skip LOAD phase
-     * on Spot-eviction recoveries. Cleanup .tmp files first (interrupted writes),
-     * then promote any .bin without a checkpoint.txt entry into the skip-list.
-     * Promoted shards are credited to n_completed_subs so progress reporting
-     * reflects them correctly. */
+     * on Spot-eviction recoveries. Cleanup .tmp files first (interrupted writes
+     * + zero-byte .bin per Outlier #2), then promote any .bin without a
+     * checkpoint.txt entry into the skip-list. Promoted shards are credited
+     * to n_completed_subs so progress reporting reflects them correctly. */
     cleanup_orphaned_tmp_files();
     int promoted_orphans = promote_orphaned_shards();
     if (promoted_orphans > 0) n_completed_subs += promoted_orphans;

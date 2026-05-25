@@ -44,6 +44,8 @@ This section exists because of the 2026-05-25 100B drift bisect (six-enum study 
 
 **Recommendation**: do not use sub-1T scales as a cross-build sha gate. Use `solve --selftest` (exhaustive at small scale, partition-invariant, stable across DFS-neutral code changes — sha `403f7202…`) for smoke tests, and 1T/11.2T+ canonicals for canonical-grade verification.
 
+**Sub-canonical hard-gate (landed 2026-05-25)**: `solve.c` now refuses to start a canonical-enum run when `SOLVE_NODE_LIMIT < 1T` (10¹² nodes) unless one of two intentional overrides is set. Exits with code 25 + a message explaining the override paths. Two suppressors: (a) `SOLVE_PER_SUB_BRANCH_LIMIT=N` set explicitly — intended for partition-invariance tests and within-code-state runs where the operator knows the output sha is code-specific; (b) `SOLVE_ALLOW_SUB_CANONICAL=1` — explicit override with an acknowledgment that the sha is code-specific. Selftest, --merge, --verify, --regression-test, --double-regression-test all bypass the gate (their child forks set the suppressors automatically). See HISTORY.md "May 25, 2026 UTC (late evening)" for the full set of hardening additions.
+
 **Empirical 100B reference shas (record only — not "canonical" in the cross-code-variant sense):**
 
 | Commit / code state | 100B sha | Notes |

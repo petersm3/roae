@@ -4302,3 +4302,39 @@ Per operator direction: replace `main`'s `solve.c` with v3 BRANCH's `solve.c` to
 The 560T canonical campaign launches off `main`. Pre-reset, `main` would have produced v2-class canonical (different from v1 anchor at 11.2T+) at the ~3× per-node tax of the v2 prune stack. Post-reset, `main` will produce v1-anchored canonical (= `0c0fe37c…` at 11.2T per Phase 11) at v1's per-node cost. This gets the originally-intended v3 design behavior cleanly onto main, sets up 560T to extend the v1 canonical anchor chain.
 
 Operational note for 560T: since the `dc01860` `--merge` ulimit hard-gate was lost in the reset, the 560T merge runbook must include an explicit `ulimit -s unlimited` step before invoking `solve --merge`. Otherwise the merge subprocess will silently SIGSEGV during external-merge spill on the default 8 MB stack.
+
+## May 25, 2026 UTC (late evening) — v3.1 hardening landed (4 of 8 outliers from task #98)
+
+The audit in `petersm3/x:roae/V3_1_HARDENING_AUDIT_2026_05_25.md` identified eight outlier failure modes for canonical-correctness in v3.1's orphan-promotion path. Today's solve.c work lands the four sha-neutral mitigations that are achievable without changing the file format. All are startup-time invariants — none touches DFS code, so selftest sha `403f7202…` is preserved and no canonical re-derivation is needed.
+
+| Outlier | Mitigation shipped | Override env var | Exit code |
+|---|---|---|---|
+| #1 (partial-flush at exact record boundary) | Audit confirmed `flush_sub_solutions` already does `fflush → fsync → close → size-verify → rename`. No code change needed. | — | — |
+| #2 (zero-byte sub_*.bin file) | `cleanup_orphaned_tmp_files` now also unlinks zero-byte canonical-pattern .bin files. Always-on. | — | — |
+| #3 (torn checkpoint.txt on eviction) | `promote_orphaned_shards` does `fflush + fsync` per fprintf instead of once at end. If fsync fails, skips the in-memory bitmap update so next-startup retries via LOAD path. | — | — |
+| #4 (build provenance mismatch) | New `build.sha` file in cwd. First canonical-enum run writes sha256 of `/proc/self/exe`; subsequent runs verify match. Mismatch aborts with exit 26. | `SOLVE_ALLOW_BUILD_MISMATCH=1` | 26 |
+| #7 (skip-list / checkpoint.txt divergence) | Closed by #3 (fsync-per-fprintf reorders durability: checkpoint entry is durable before in-memory bitmap update). | — | — |
+| #8 (multi-VM concurrent enum) | New `solve.lock` file with PID + hostname. Concurrent-on-same-host enum refused with exit 27. Stale-lock cleanup (dead PID or different host) is automatic. | `SOLVE_SKIP_CANONICAL_LOCK=1` | 27 |
+
+Plus the sub-canonical hard-gate proposed during the 100B drift investigation:
+
+| Hardening | Behavior | Override | Exit code |
+|---|---|---|---|
+| Sub-canonical scale gate | Refuses to start a canonical-enum run with `SOLVE_NODE_LIMIT < 1T` unless `SOLVE_PER_SUB_BRANCH_LIMIT` is set (partition-invariance use case) OR `SOLVE_ALLOW_SUB_CANONICAL=1` (explicit override). | `SOLVE_ALLOW_SUB_CANONICAL=1` | 25 |
+
+**Deferred** (require shard file-format changes; planned for a separate solve.c cycle):
+- Outlier #5 (per-sub-branch budget mismatch on resume) — needs per-shard budget tracking (header or sidecar). Not landable without a file-format change.
+- Outlier #6 (filename pattern false-positive) — operator-hygiene concern; runbook discipline for now.
+
+**Selftest sha preserved**: `solve --selftest` still produces `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. The --selftest fork harness sets `SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1` in the child env to bypass the new gates (selftest is a known-good within-binary test that intentionally runs at a sub-canonical scale).
+
+**Empirical test recipes verified locally** (D2 orchestrator, ~10 min total):
+- Sub-canonical gate fires correctly (exit 25) at `SOLVE_NODE_LIMIT=100M` without overrides
+- Gate suppressed when `SOLVE_PER_SUB_BRANCH_LIMIT` set explicitly (partition-invariance use case)
+- Gate suppressed with `SOLVE_ALLOW_SUB_CANONICAL=1` (override prints WARN, proceeds)
+- LOCK file refuses concurrent enum on same cwd (exit 27)
+- Stale lock auto-reclaimed when prior PID is dead or hostname differs
+- `build.sha` written on first run, verified on subsequent runs; mismatch aborts (exit 26); `SOLVE_ALLOW_BUILD_MISMATCH=1` downgrades to WARN
+- Zero-byte canonical-pattern .bin files unlinked on startup
+
+**For 560T launch**: these hardening additions close 4 of 8 sha-critical outlier modes from the audit. The two remaining sha-critical modes (#5 budget mismatch, #6 filename false-positive) are operationally mitigated by runbook discipline (single-budget runs in their own clean run directory). #5 is planned as a future solve.c cycle with shard-header budget tracking.
