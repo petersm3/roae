@@ -1043,5 +1043,81 @@ Expected: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
 ### Open questions for follow-up
 
 1. Would a 1T-scale profile-gen workload (instead of 1B) train PGO closer to canonical hot paths and recover the predicted speedup? Cost to test: ~2× the current bench (~$60). Defer until needed.
-2. Does PGO show net-positive at intermediate scales (10B-100B)? Untested. The +6.5% at 1T from #78 was likely host-quality variance — that bench had a single rep, not a paired comparison.
+2. Does PGO show net-positive at intermediate scales (10B-100B)? Untested at full-enum scale; the #78 v3 rerun was at `--branch 24 0`, not full-enum `0 128`.
 3. What's the within-bench variance ceiling on Bergamo Spot? The 15% spread observed here suggests any future ~5% perf claim needs 6+ reps to be statistically defensible.
+
+---
+
+## 2026-05-25 — Methodological audit: the +9.2% headline was a computed product, never directly measured
+
+This entry is a course-correction prompted by operator question "where did the 9.2% come from" after the 2026-05-24 (re-run) bench showed v3 ~0% over v1. It's not a new bench — it's a provenance audit of the prior claim.
+
+### The +9.2% headline was multiplicative theory
+
+From the `Closes #47 entirely` section above:
+
+```
+Cumulative engineered speedup banked from the #47 bundle: ~+9.2% sha-preserving at canonical scale
+(LTO ×1.0253 × PGO ×1.065 = ×1.092)
+```
+
+The +9.2% was **never directly measured** as a combined stack. It was the product of two independent measurements taken on different workloads at different times. The assumption was that LTO and PGO compose multiplicatively with no overlap or diminishing returns. **That assumption was not empirically validated until the 2026-05-24 re-run bench**, which found the combined stack measures ~0% over vanilla v1 at full-enum 1T scale.
+
+### Provenance of the two inputs
+
+**LTO +2.53% (2026-05-13 entry above):**
+- Methodology field says "Paired bench: v6c (no LTO) vs v6d (LTO) **at unspecified scale**"
+- Notes field admits: "Backfilled from operator memory entry `feedback_canonical_pipeline_pattern`; **exact bench parameters not recorded in HISTORY.md**"
+- **Weak provenance.** We don't know if the +2.53% was measured at 1B, 1T, single-branch, or full-enum. The "added to canonical build recipe" decision was likely correct (LTO is essentially free); the specific +2.53% number is not robustly anchored.
+
+**PGO +6.5% (2026-05-18 #78 v3 rerun entry above):**
+- Methodology was rigorous: page-cache flush between paired runs, pre-flight throttle probe required 3664+ MHz (verified 3868 MHz on a healthy host), paired enum-only walls captured separately from merge.
+- **Scope**: Build N (LTO control, no PGO) vs Build U (LTO + PGO). Workload: `--branch 24 0` at 1T budget. Single first-level branch, NOT full enum.
+- **What the +6.5% actually means**: "PGO contributes +6.5% on top of LTO at single-branch 1T on a verified-healthy Bergamo host."
+- **What it does NOT mean**: that PGO contributes +6.5% to a full-enum canonical workload, or that the host quality is reproducible across Spot allocations.
+
+### What the 2026-05-24 (re-run) bench actually tested
+
+Different experiment from #78:
+
+| Aspect | #78 PGO bench (+6.5%) | 2026-05-24 re-run (~0%) |
+|---|---|---|
+| Baseline | `-O3 -flto -march=native` (LTO control) | `-O3 -march=native` (vanilla, **no LTO**) |
+| Treatment | LTO + PGO | LTO + PGO + bitset (#72) |
+| Workload | `--branch 24 0` (single branch at 1T) | `0 128` (full enum, all 158k sub-branches at 1T) |
+| Pre-flight throttle probe | Required 3664+ MHz; verified 3868 | **None done** |
+| Reps | Paired 1 vs 1 with page-cache flush | 3 vs 3 interleaved with page-cache flush |
+| Within-bench variance | Not characterized (single pair) | v1: 4.6%; v3: 15.1% |
+
+The two benches answer different questions. They are not strictly contradictory; they cover non-overlapping experimental setups.
+
+### Most likely reasons the +9.2% didn't replicate
+
+In rough order of explanatory power:
+
+1. **No throttle probe.** The #78 bench *explicitly aborted* if host MHz fell below 3664. The 2026-05-24 re-run skipped this gate. The 15.1% within-bench v3 variance is consistent with a noisy or throttled host. PGO's instruction-cache-tuning hints don't pay off on hardware that's already constrained.
+2. **Workload mismatch.** PGO trained on a 1B-node workload with `SOLVE_PER_SUB_BRANCH_LIMIT=6315` (hot-paths the budget-bound exit code). The 1T canonical workload has `SOLVE_PER_SUB_BRANCH_LIMIT=6,315,458` — 1000× more time in the actual DFS hot path that PGO didn't train on.
+3. **Combined-vs-isolated baseline.** #78 measured PGO vs LTO-alone. The 2026-05-24 re-run measured (LTO + PGO + bitset) vs vanilla `-O3`. These tell us about different things; the latter is what 560T cost predictions actually need.
+4. **LTO baseline overstated.** If the published LTO +2.53% was measured at a different scale than full-enum 1T, the canonical-scale LTO contribution may be smaller (or zero), and the +9.2% stack would collapse correspondingly.
+
+### Lessons for future perf claims
+
+1. **A measured A vs A+X delta is not transitively a measured A vs A+X+Y delta.** Always test the combined stack directly before claiming the headline number. (Or label the claim as "predicted multiplicative composite" and don't bank on it.)
+2. **Record bench scale + parameters in every PERFORMANCE_HISTORY entry.** "At unspecified scale" is not adequate. The LTO entry's missing parameters made the +2.53% impossible to re-validate without re-running.
+3. **Pre-flight throttle probe is load-bearing.** When #78 included it, the result was clean. When the 2026-05-24 re-run skipped it, the 15% variance made the signal indecipherable from noise.
+4. **3 reps is underpowered for ~5% effects on Spot Bergamo.** Variance is ~15% in some conditions. Future paired benches that need ≤10% precision should plan 6+ reps or use Standard pricing on a verified-healthy host.
+
+### What this means for the canonical build recipe
+
+- **LTO**: keep it. It's free at build time, no measured downside, and even if the +2.53% was overstated, the canonical pipeline pattern (`feedback_canonical_pipeline_pattern`) bakes it in as default.
+- **bitset (#72)**: keep it. Measured +8.7% per-thread at 1B; even if that doesn't fully transfer to 1T, the broken-PGO bench yesterday (LTO + bitset only) measured +4.4% over vanilla v1 — that's the closest direct measurement of the LTO+bitset stack.
+- **PGO**: **drop from the 560T build** unless a future bench with throttle probe + 6+ reps + canonical-scale profile-gen demonstrates a measurable advantage. Saves ~100 min profile-gen wall per VM provisioning at no measurable cost.
+- **The build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) remains shipped.** It prevents future silent no-PGO regressions if/when PGO is re-enabled.
+
+### Decision
+
+The +9.2% headline is retracted as a forward-looking claim. The records-per-dollar analysis and any 560T cost projections that depended on +9.2% should be updated to reflect:
+
+- Empirical: v3 (LTO + bitset, no PGO) measures ~+4.4% over vanilla v1 at full-enum 1T (broken-PGO bench result, which incidentally measured exactly that stack).
+- Empirical: v3 (LTO + PGO + bitset) measures ~0% over vanilla v1 at full-enum 1T (working-PGO bench result).
+- Theoretical with caveats: the +6.5% PGO and +2.53% LTO numbers from prior benches stand for their specific experimental setups (single-branch + LTO-baseline + healthy host). They do not generalize to the canonical full-enum workload.
