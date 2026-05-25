@@ -633,7 +633,7 @@ Every canonical-scale enumeration (≥1T `SOLVE_NODE_LIMIT`) MUST run in a clean
 What goes in the run dir:
 - The solver binary `solve` (or a build-recipe script that produces it)
 - `solutions.bin` and `solutions.bin.sha256` (after the merge)
-- Shard files `sub_*.bin` and `sub_*.bin.budget` (during enum; can be deleted post-archive at operator discretion, except for v3 lineage where the convention is "preserve shards" per `project_v2_100T_precedes_560T` memory)
+- Shard files `sub_*.bin` and `sub_*.bin.budget` (during enum; the `.budget` sidecars are MANDATORY post-2026-05-25 — `promote_orphaned_shards` refuses to promote a sub-branch without a matching-budget sidecar by default, since strict-default is the post-hardening behavior. Backward-compat escape via `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1`. Both `.bin` and `.budget` can be deleted post-archive at operator discretion, except for v3 lineage where the convention is "preserve shards" per `project_v2_100T_precedes_560T` memory.)
 - `checkpoint.txt` (always)
 - `solve.lock` (during run only; auto-cleaned on normal exit)
 - `build.sha` (always; first run creates it)
@@ -645,7 +645,7 @@ What MUST NOT go in the run dir:
 
 If you're recovering from a failed run and need to combine partial shards from multiple attempts: do so in a freshly-created run dir, not in either source dir. The `solve --merge` step is meant to be the single point where shards meet `solutions.bin`; do the assembly explicitly.
 
-For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir convention is mandatory pre-launch and the dir must be created on `solver-data-westus3` immediately before the enum VM is provisioned — no shared / reused dirs.
+For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir convention is mandatory pre-launch and the dir must be created on `solver-data-westus3` immediately before the enum VM is provisioned — no shared / reused dirs. The strict-default `.budget` sidecar check means a fresh 560T enum doesn't need an explicit env var to opt into strict mode — strict is the default. Don't set `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` for 560T; let any missing-sidecar shard re-walk via the LOAD path.
 
 ## Known gotchas
 

@@ -4349,7 +4349,7 @@ The hardening commit `bd7e5c7` landed 4 of 8 outliers from the v3.1 audit. This 
 
 - Sidecar present + budget matches current → promote normally (the vast-majority case).
 - Sidecar present + budget mismatches → refuse promotion, log warning, leave for LOAD path which will re-walk the sub-branch at the current budget. This is the Outlier #5 silent-cross-budget-corruption surface, now closed.
-- Sidecar missing → legacy/backward-compat case. Default is **lenient** (allow promotion, emit `[v3.1] Note: ... lenient default` warning). Strict mode via `SOLVE_REQUIRE_BUDGET_SIDECAR=1` refuses; recommended for 560T canonical campaigns.
+- Sidecar missing → strict-default (refuse promotion, LOAD path re-walks the sub-branch). Backward-compat escape: `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` allows promotion of legacy shards from runs that pre-date this commit's sidecar-writing flush. *(Updated 2026-05-25 per operator directive: strict-default for most-robust protection. Matches the pattern of all other hardening gates which are strict-by-default with explicit escape env vars.)*
 
 **Sha impact**: zero. The `.bin` files are byte-identical; `solutions.bin` is computed over the same record bytes; all seven existing canonical shas (5.6T `f66920c10`, 10T `b85c887128`, 11.2T `0c0fe37c`, 100T `915abf30`, 1T `5a0f0bc2`, v2 11.2T `2cc966e4`, v2 100T `cc4a5377`) are preserved.
 
@@ -4358,8 +4358,8 @@ The hardening commit `bd7e5c7` landed 4 of 8 outliers from the v3.1 audit. This 
 - Sidecar content matches `current_per_branch_budget` exactly
 - Matching-budget resume: "promoted=384, integrity_failed=0" — sidecar match → promote
 - Mismatched-budget resume (3000→5000): per-shard "WARN: refusing promotion" with budget values logged correctly
-- Legacy mode (no sidecar): "lenient default" warnings, promotion proceeds
-- Strict mode (`SOLVE_REQUIRE_BUDGET_SIDECAR=1`, no sidecar): refuses, leaves for LOAD path
+- Legacy mode without sidecar — STRICT DEFAULT: "refusing promotion. LOAD path will re-walk" message; sub-branch is correctly re-walked
+- Legacy mode with `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` escape: "allowing promotion under SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1 escape. Outlier #5 risk acknowledged."
 
 `solve --selftest` still produces `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`.
 
@@ -4377,7 +4377,7 @@ For 560T specifically: the run-dir convention is mandatory pre-launch per `proje
 | #2 (zero-byte sub_*.bin) | LANDED `bd7e5c7` | `cleanup_orphaned_tmp_files` extended |
 | #3 (torn checkpoint.txt) | LANDED `bd7e5c7` | Per-fprintf fsync in `promote_orphaned_shards` |
 | #4 (build provenance mismatch) | LANDED `bd7e5c7` | `build.sha` startup invariant (override: `SOLVE_ALLOW_BUILD_MISMATCH=1`, exit 26) |
-| #5 (per-sub-branch budget mismatch) | LANDED (this commit) | `.budget` sidecar + read in promote; override: `SOLVE_REQUIRE_BUDGET_SIDECAR=1` for strict mode |
+| #5 (per-sub-branch budget mismatch) | LANDED (this commit) | `.budget` sidecar + read in promote; **strict-default since 2026-05-25**: refuses promotion if sidecar missing OR if budget mismatches. Backward-compat escape: `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` allows legacy shards. |
 | #6 (filename pattern false-positive) | LANDED (this commit, runbook) | DEVELOPMENT.md "Canonical run discipline" section |
 | #7 (skip-list/checkpoint divergence) | LANDED `bd7e5c7` | Subsumed by #3's per-fprintf fsync |
 | #8 (multi-VM concurrent enum) | LANDED `bd7e5c7` | `solve.lock` file with PID + hostname; override: `SOLVE_SKIP_CANONICAL_LOCK=1`, exit 27 |

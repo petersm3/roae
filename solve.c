@@ -1514,15 +1514,19 @@ static int promote_orphaned_shards(void) {
 
         /* Outlier #5 (per-sub-branch budget mismatch on resume): read the
          * `.budget` sidecar (written by flush_sub_solutions[_d3] at the
-         * shard's original budget). If present and equal to the current
-         * budget, promote. If present and different, refuse — let the
-         * LOAD path decide (it may re-walk at the new budget). If absent
-         * (legacy shard from pre-sidecar code), the default is lenient
-         * (WARN, allow); strict mode via SOLVE_REQUIRE_BUDGET_SIDECAR=1
-         * refuses the promotion.
+         * shard's original budget). Strict-default behavior (changed
+         * 2026-05-25 per operator directive — most robust protection):
+         *   - sidecar present + matches current budget → promote
+         *   - sidecar present + mismatches → refuse, LOAD path re-walks
+         *   - sidecar missing (legacy shard or sidecar-write-failed) →
+         *     refuse by default; LOAD path re-walks. Backward-compat
+         *     escape: SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1 logs a WARN
+         *     and allows promotion (only intended for resuming runs
+         *     that pre-date this commit's sidecar-writing flush code).
          *
-         * Both decisions are sha-neutral for the matching-budget case
-         * (the dominant case in practice). */
+         * Sha-neutral in all cases (the .bin file is unchanged; the
+         * LOAD-path re-walk produces deterministic output at the
+         * current budget). */
         long long shard_budget = read_budget_sidecar(n);
         if (shard_budget > 0) {
             if (current_per_branch_budget > 0 && shard_budget != current_per_branch_budget) {
@@ -1535,20 +1539,22 @@ static int promote_orphaned_shards(void) {
                 continue;
             }
         } else {
-            const char *strict = getenv("SOLVE_REQUIRE_BUDGET_SIDECAR");
-            if (strict && atoi(strict) == 1) {
+            const char *legacy_allow = getenv("SOLVE_ALLOW_MISSING_BUDGET_SIDECAR");
+            if (legacy_allow && atoi(legacy_allow) == 1) {
+                /* Backward-compat: pre-sidecar shards. Operator opted in. */
                 fprintf(stderr,
-                        "WARN: orphaned shard %s has no .budget sidecar (Outlier #5; SOLVE_REQUIRE_BUDGET_SIDECAR=1 strict mode); "
-                        "refusing promotion. LOAD path will re-walk.\n",
+                        "[v3.1] WARN: orphaned shard %s has no .budget sidecar (legacy or sidecar-write-failed); "
+                        "allowing promotion under SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1 escape. Outlier #5 risk acknowledged.\n",
+                        n);
+            } else {
+                fprintf(stderr,
+                        "WARN: orphaned shard %s has no .budget sidecar (Outlier #5; strict-default since 2026-05-25); "
+                        "refusing promotion. LOAD path will re-walk at the current budget. "
+                        "If this is a legacy resume from a pre-sidecar run, set SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1 to allow.\n",
                         n);
                 integrity_fail++;
                 continue;
             }
-            /* lenient default: legacy shard without sidecar; allow but warn */
-            fprintf(stderr,
-                    "[v3.1] Note: orphaned shard %s has no .budget sidecar (legacy or sidecar-write-failed). "
-                    "Allowing promotion under lenient default. Set SOLVE_REQUIRE_BUDGET_SIDECAR=1 for strict mode.\n",
-                    n);
         }
 
         /* Append a BUDGETED line to checkpoint.txt for next-resume durability.
