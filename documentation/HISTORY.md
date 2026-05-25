@@ -4440,3 +4440,61 @@ Refactored the `--emit-shard-manifest` and `--verify-shard-manifest` subcommand 
 **For 560T launch**: the manual `--emit-shard-manifest` / `--verify-shard-manifest` invocations from the recommended resume protocol are now redundant — solve.c does it on every canonical-enum start. Operator can still use the subcommands for ad-hoc snapshots / checks; they call the same helpers.
 
 This closes the operational gap for resume-path corruption detection: any DIVERGED shard between two consecutive `solve` invocations on the same cwd is automatically detected before merge. The only remaining uncovered window is mid-process changes within a single `solve` lifetime (not relevant to Spot eviction since process dies).
+
+## May 26, 2026 UTC — Six more "dummy-proof default" hardening landings
+
+Operator directive: every manual pre-flight / post-flight step the operator currently has to remember should be automatic in solve.c. Six items landed in one commit, all sha-neutral (selftest `403f7202…` preserved):
+
+| # | Behavior | Trigger | Override env var | Exit code on hard fail |
+|---|---|---|---|---|
+| A | `--merge` auto-raises `RLIMIT_STACK` to unlimited (`setrlimit(RLIM_INFINITY)`) before any spill work | every `--merge` invocation (subcommand + bundled-auto) | `SOLVE_SKIP_STACK_RAISE=1` | 28 if can't raise to ≥64MB (likely operator ran into hard-limit cap; needs `ulimit -s unlimited` outside) |
+| B | Auto-`solve --verify` after a successful merge — independent C1-C5 check, sorted-order check, dedup check | end of `--merge` dispatch | `SOLVE_SKIP_AUTO_VERIFY=1` | 30 |
+| C | `SOLVE_DFS_ITERATIVE=1` and `SOLVE_DFS_CHECKPOINT=1` defaulted ON for canonical-scale (`SOLVE_NODE_LIMIT ≥ 1T`) | canonical-enum env parse | explicit `=0` on either env var | n/a (operator override) |
+| D | Auto-`--selftest` smoke test before canonical-scale launch — refuses to proceed if binary doesn't reproduce canonical selftest sha | canonical-enum startup, before LOCK acquire (skipped for sub-canonical runs to avoid recursion) | `SOLVE_SKIP_AUTO_SELFTEST=1` | 24 |
+| E | Disk-space pre-check: project required bytes from `SOLVE_NODE_LIMIT`, refuse if cwd's filesystem free < projection | canonical-enum startup | `SOLVE_SKIP_DISK_CHECK=1` | 29 |
+| F | Snapshot `/proc/self/exe` to `./solve.binary.snapshot` (chmod +x) for forensic continuity | canonical-enum startup, idempotent on resume | `SOLVE_SKIP_BINARY_SNAPSHOT=1` | n/a (warn-only) |
+
+**Updated canonical-enum startup ordering** (in solve.c main(), canonical-enum dispatch):
+
+```
+disk_space_pre_check(node_limit)             [E]
+  → exit 29 if insufficient
+auto_selftest_check(node_limit)              [D]
+  → exit 24 if selftest doesn't reproduce 403f7202...
+snapshot_solve_binary()                      [F]
+acquire_canonical_lock()
+  → exit 27 if concurrent enum on same cwd
+check_build_sha_invariant()
+  → exit 26 if cross-binary resume detected
+auto_verify_shard_manifest_if_exists()
+  → exit 22 if MISSING/SHRUNK/DIVERGED shard
+load_sub_checkpoint()
+cleanup_orphaned_tmp_files()
+promote_orphaned_shards()
+  → refuses orphans without matching .budget sidecar (strict default)
+auto_emit_shard_manifest_default()
+... enum runs ...
+[on --merge or bundled auto-merge:]
+  raise_stack_limit_for_merge()               [A]
+    → exit 28 if can't raise
+  ... merge runs ...
+  auto_verify_solutions_bin()                 [B]
+    → exit 30 on C1-C5 failure
+```
+
+**For 560T launch**: every previously-manual pre-flight is now baked in. Operator workflow simplifies to:
+```
+cd <fresh-run-dir-on-solver-data>
+SOLVE_NODE_LIMIT=560000000000000 SOLVE_THREADS=128 ./solve 0
+```
+That's it. Every gate fires automatically. The disk check, selftest, binary snapshot, lock, build-sha, manifest-verify, orphan-promote, manifest-emit all happen without the operator remembering any of it. Post-merge auto-verify catches C1-C5 violations. Strict-default `.budget` sidecar + strict-default missing-sidecar refuse make resume-corruption silently impossible.
+
+**Empirical tests on the orchestrator D2** confirmed all six fire correctly:
+- A: --merge subprocess raised RLIMIT_STACK from 8 MB to unlimited
+- B: auto-verify after merge ran the C1-C5 verifier and reported PASS
+- C: at 1T budget, DFS-iterative + checkpoint logged "canonical-scale default, NODE_LIMIT >= 1T"; with explicit `=0` overrides, neither activated
+- D: auto-selftest skip via env var logged correctly; without skip, ran the selftest subprocess
+- E: 1T budget on a 13.5 GB filesystem correctly refused with exit 29 + clear ERROR message
+- F: 322,688-byte binary copied to solve.binary.snapshot with exec bit set
+
+Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved through every change.

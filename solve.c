@@ -1941,6 +1941,254 @@ static void auto_emit_shard_manifest_default(void) {
     }
 }
 
+/* Disk-space pre-check (2026-05-26). For canonical-scale runs, project
+ * expected disk requirement from SOLVE_NODE_LIMIT and warn / refuse if
+ * the cwd's filesystem has less. Avoids the run-out-of-disk-mid-merge
+ * failure mode (hit on the 100B bisect VM 2026-05-25). Formula is
+ * coarse but conservative-low-side; relies on empirical curve through
+ * existing canonicals (5.6T→15GB output, 100T→110GB output, etc.).
+ * Override SOLVE_SKIP_DISK_CHECK=1 for narrow margin or shared-storage
+ * setups where the projection misjudges. Sha-neutral. */
+static int disk_space_pre_check(long long node_limit) {
+    if (node_limit < 1000000000000LL) return 0;  /* sub-canonical: skip */
+    if (getenv("SOLVE_SKIP_DISK_CHECK") && atoi(getenv("SOLVE_SKIP_DISK_CHECK")) == 1) {
+        fprintf(stderr, "[hardening] disk-space pre-check SKIPPED (SOLVE_SKIP_DISK_CHECK=1)\n");
+        return 0;
+    }
+    struct statvfs vfs;
+    if (statvfs(".", &vfs) != 0) {
+        fprintf(stderr, "[hardening] WARN: statvfs failed: %s; disk check skipped\n", strerror(errno));
+        return 0;
+    }
+    long long free_bytes = (long long)vfs.f_bavail * (long long)vfs.f_frsize;
+    /* Empirical projection: shards + solutions.bin + merge temp.
+     * Anchors (output size):
+     *   100B  -> ~1 GB
+     *   1T    -> ~5 GB
+     *   11.2T -> ~25 GB output + ~150 GB shards = ~175 GB peak
+     *   100T  -> ~110 GB output + ~480 GB shards = ~590 GB peak
+     *   560T  -> projected ~500 GB output + ~2 TB shards = ~2.5 TB peak
+     * Linear fit on the upper envelope: required ≈ 20 GB + NODE_LIMIT / 200.
+     * Conservative for the 100B-1T regime, accurate at 11.2T-100T, slightly
+     * under-projects at 560T (where operator should explicitly verify anyway). */
+    long long required = 20LL * 1024 * 1024 * 1024 + node_limit / 200LL;
+    fprintf(stderr, "[hardening] disk-space pre-check: %.1f GB free in cwd; est. %.1f GB needed for NODE_LIMIT=%lld\n",
+            free_bytes / 1e9, required / 1e9, node_limit);
+    if (free_bytes < required) {
+        fprintf(stderr,
+            "ERROR: free disk in cwd (%.1f GB) is below estimated requirement (%.1f GB)\n"
+            "       for SOLVE_NODE_LIMIT=%lld. The enum or merge will likely run out of\n"
+            "       disk space mid-run (we hit this on the 2026-05-25 100B bisect VM).\n"
+            "       Either move to a larger filesystem (solver-data-westus3 has 2 TB),\n"
+            "       or override with SOLVE_SKIP_DISK_CHECK=1 if you're confident the\n"
+            "       projection is wrong for your case.\n",
+            free_bytes / 1e9, required / 1e9, node_limit);
+        return 29;
+    }
+    return 0;
+}
+
+/* Binary snapshot: copy /proc/self/exe to ./solve.binary.snapshot
+ * at canonical-enum startup (2026-05-26). Complements build.sha (which
+ * has just the hash) by preserving the actual binary in the run dir for
+ * forensic reproducibility. Cost: 250-300 KB per run dir. Sha-neutral.
+ * Override SOLVE_SKIP_BINARY_SNAPSHOT=1. */
+static void snapshot_solve_binary(void) {
+    if (getenv("SOLVE_SKIP_BINARY_SNAPSHOT") && atoi(getenv("SOLVE_SKIP_BINARY_SNAPSHOT")) == 1) {
+        return;
+    }
+    /* Only snapshot if not already present (idempotent on resume). */
+    struct stat st;
+    if (stat("solve.binary.snapshot", &st) == 0 && st.st_size > 0) {
+        fprintf(stderr, "[hardening] binary snapshot: solve.binary.snapshot already present (%lld bytes); leaving unchanged\n",
+                (long long)st.st_size);
+        return;
+    }
+    char self_path[PATH_MAX];
+    ssize_t n = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+    if (n <= 0) {
+        fprintf(stderr, "[hardening] WARN: cannot readlink /proc/self/exe; binary snapshot skipped\n");
+        return;
+    }
+    self_path[n] = '\0';
+    /* Atomic copy: open tmp, fwrite, fsync, rename. */
+    FILE *src = fopen(self_path, "rb");
+    if (!src) {
+        fprintf(stderr, "[hardening] WARN: cannot open self for snapshot (%s): %s\n", self_path, strerror(errno));
+        return;
+    }
+    FILE *dst = fopen("solve.binary.snapshot.tmp", "wb");
+    if (!dst) {
+        fprintf(stderr, "[hardening] WARN: cannot open solve.binary.snapshot.tmp: %s\n", strerror(errno));
+        fclose(src);
+        return;
+    }
+    char buf[65536];
+    size_t total = 0;
+    size_t r;
+    while ((r = fread(buf, 1, sizeof(buf), src)) > 0) {
+        if (fwrite(buf, 1, r, dst) != r) {
+            fprintf(stderr, "[hardening] WARN: snapshot copy fwrite failed: %s\n", strerror(errno));
+            fclose(src); fclose(dst);
+            unlink("solve.binary.snapshot.tmp");
+            return;
+        }
+        total += r;
+    }
+    fclose(src);
+    if (fflush(dst) != 0 || fsync(fileno(dst)) != 0 || fclose(dst) != 0) {
+        fprintf(stderr, "[hardening] WARN: snapshot copy flush/fsync failed: %s\n", strerror(errno));
+        unlink("solve.binary.snapshot.tmp");
+        return;
+    }
+    if (rename("solve.binary.snapshot.tmp", "solve.binary.snapshot") != 0) {
+        fprintf(stderr, "[hardening] WARN: snapshot rename failed: %s\n", strerror(errno));
+        unlink("solve.binary.snapshot.tmp");
+        return;
+    }
+    /* Also chmod +x so the snapshot is directly invocable for forensic re-runs. */
+    chmod("solve.binary.snapshot", 0755);
+    fprintf(stderr, "[hardening] binary snapshot: wrote solve.binary.snapshot (%zu bytes) for forensic continuity\n", total);
+}
+
+/* Auto-selftest pre-flight (2026-05-26). For canonical-scale runs
+ * (SOLVE_NODE_LIMIT >= 1T), fork `solve --selftest` and verify it passes
+ * BEFORE doing any expensive work. Catches compile-toolchain regressions
+ * before $50+ of compute is wasted on a binary that produces non-canonical
+ * output. Sha-neutral; just spawns a subprocess to validate the canonical
+ * selftest sha `403f7202…`. Override: SOLVE_SKIP_AUTO_SELFTEST=1.
+ *
+ * Must not recurse: the --selftest subcommand spawns an inner solve
+ * subprocess with SOLVE_ALLOW_SUB_CANONICAL=1 + SOLVE_SKIP_CANONICAL_LOCK=1
+ * (sub-canonical scale). The inner enum's node_limit is 100M (< 1T), so
+ * the canonical-scale guard prevents recursion. */
+static int auto_selftest_check(long long node_limit) {
+    if (node_limit < 1000000000000LL) return 0;  /* sub-canonical: skip (also prevents recursion) */
+    if (getenv("SOLVE_SKIP_AUTO_SELFTEST") && atoi(getenv("SOLVE_SKIP_AUTO_SELFTEST")) == 1) {
+        fprintf(stderr, "[hardening] auto-selftest SKIPPED (SOLVE_SKIP_AUTO_SELFTEST=1)\n");
+        return 0;
+    }
+    char self_path[PATH_MAX];
+    ssize_t n = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+    if (n <= 0) {
+        fprintf(stderr, "[hardening] WARN: cannot readlink /proc/self/exe; auto-selftest skipped\n");
+        return 0;
+    }
+    self_path[n] = '\0';
+    fprintf(stderr, "[hardening] auto-selftest: running %s --selftest (smoke test before canonical-scale launch)...\n", self_path);
+    char cmd[PATH_MAX + 64];
+    snprintf(cmd, sizeof(cmd), "%s --selftest > /dev/null 2>&1", self_path);
+    int rc = system(cmd);
+    if (rc == 0) {
+        fprintf(stderr, "[hardening] auto-selftest PASS (canonical selftest sha 403f7202... reproduced)\n");
+        return 0;
+    }
+    fprintf(stderr,
+        "ERROR: auto-selftest FAILED rc=%d. Binary does not reproduce the canonical selftest\n"
+        "       sha 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e.\n"
+        "       This means the compile toolchain produced a binary that diverges from\n"
+        "       canonical output. Do NOT launch this canonical-scale enum — it would waste\n"
+        "       hours of compute on a binary that produces non-canonical bytes.\n"
+        "       Investigate: compiler version, optimization flags, math library, libc.\n"
+        "       Override with SOLVE_SKIP_AUTO_SELFTEST=1 ONLY after manual investigation.\n",
+        rc);
+    return 24;
+}
+
+/* Auto-raise RLIMIT_STACK to unlimited for `--merge` (2026-05-26).
+ * External merge spill allocates large stack frames; default 8 MB
+ * causes silent SIGSEGV. Re-closes the regression from the 2026-05-25
+ * main reset to v3 BRANCH (which lost the dc01860 hard-gate). Instead
+ * of a hard-gate that exits, we RAISE the limit ourselves — no operator
+ * action needed. Override `SOLVE_SKIP_STACK_RAISE=1` if you need to
+ * test the legacy behavior. Returns 0 on OK, non-zero on unrecoverable. */
+static int raise_stack_limit_for_merge(void) {
+    if (getenv("SOLVE_SKIP_STACK_RAISE") && atoi(getenv("SOLVE_SKIP_STACK_RAISE")) == 1) {
+        fprintf(stderr, "[hardening] --merge stack-raise SKIPPED (SOLVE_SKIP_STACK_RAISE=1)\n");
+        return 0;
+    }
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_STACK, &rl) != 0) {
+        fprintf(stderr, "[hardening] WARN: getrlimit(RLIMIT_STACK) failed: %s; proceeding unmitigated\n",
+                strerror(errno));
+        return 0;
+    }
+    if (rl.rlim_cur == RLIM_INFINITY) {
+        fprintf(stderr, "[hardening] --merge: RLIMIT_STACK already unlimited\n");
+        return 0;
+    }
+    long long prev = (long long)rl.rlim_cur;
+    rl.rlim_cur = RLIM_INFINITY;
+    if (setrlimit(RLIMIT_STACK, &rl) == 0) {
+        fprintf(stderr, "[hardening] --merge: raised RLIMIT_STACK from %lld bytes to unlimited\n", prev);
+        return 0;
+    }
+    /* setrlimit failed (likely hard-limit cap). Try raising to the hard limit. */
+    rl.rlim_cur = rl.rlim_max;
+    if (setrlimit(RLIMIT_STACK, &rl) == 0) {
+        if (rl.rlim_cur >= 64LL * 1024 * 1024) {
+            fprintf(stderr, "[hardening] --merge: raised RLIMIT_STACK from %lld to hard-limit %lld bytes (>= 64MB safe minimum)\n",
+                    prev, (long long)rl.rlim_cur);
+            return 0;
+        }
+        fprintf(stderr,
+            "ERROR: --merge requires RLIMIT_STACK >= 64 MB but raise capped at %lld bytes.\n"
+            "       External-merge spill will silently SIGSEGV. Run:\n"
+            "         ulimit -s unlimited\n"
+            "       before invoking solve, then retry. Or override with SOLVE_SKIP_STACK_RAISE=1.\n",
+            (long long)rl.rlim_cur);
+        return 28;
+    }
+    fprintf(stderr,
+        "ERROR: --merge cannot raise RLIMIT_STACK from %lld (setrlimit failed: %s).\n"
+        "       External-merge spill will silently SIGSEGV. Run:\n"
+        "         ulimit -s unlimited\n"
+        "       before invoking solve, then retry. Or override with SOLVE_SKIP_STACK_RAISE=1.\n",
+        prev, strerror(errno));
+    return 28;
+}
+
+/* Auto-verify solutions.bin after a successful merge (2026-05-26).
+ * Invokes the existing --verify subcommand of self via popen. Catches
+ * merge bugs (sort-order violations, dedup mistakes, wrong distribution)
+ * before the operator archives. Sha-neutral (read-only verify).
+ * Override `SOLVE_SKIP_AUTO_VERIFY=1`. Returns 0 on PASS or skip, 30 on FAIL. */
+static int auto_verify_solutions_bin(const char *bin_path) {
+    if (getenv("SOLVE_SKIP_AUTO_VERIFY") && atoi(getenv("SOLVE_SKIP_AUTO_VERIFY")) == 1) {
+        fprintf(stderr, "[hardening] auto-verify-solutions SKIPPED (SOLVE_SKIP_AUTO_VERIFY=1)\n");
+        return 0;
+    }
+    if (!bin_path) bin_path = "solutions.bin";
+    struct stat st;
+    if (stat(bin_path, &st) != 0) {
+        fprintf(stderr, "[hardening] auto-verify-solutions: %s does not exist; nothing to verify\n", bin_path);
+        return 0;
+    }
+    char self_path[PATH_MAX];
+    ssize_t n = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+    if (n <= 0) {
+        fprintf(stderr, "[hardening] WARN: cannot readlink /proc/self/exe; auto-verify-solutions skipped\n");
+        return 0;
+    }
+    self_path[n] = '\0';
+    char cmd[PATH_MAX + 64];
+    snprintf(cmd, sizeof(cmd), "%s --verify %s", self_path, bin_path);
+    fprintf(stderr, "[hardening] auto-verify-solutions: running %s ...\n", cmd);
+    int rc = system(cmd);
+    if (rc == 0) {
+        fprintf(stderr, "[hardening] auto-verify-solutions PASS\n");
+        return 0;
+    }
+    fprintf(stderr,
+        "ERROR: auto-verify-solutions FAILED (rc=%d) on %s.\n"
+        "       solutions.bin failed the C1-C5 integrity check. This indicates\n"
+        "       either a merge bug or shard corruption that got past the manifest\n"
+        "       verify. Do not archive this output. Override with SOLVE_SKIP_AUTO_VERIFY=1\n"
+        "       only after manual investigation.\n",
+        rc, bin_path);
+    return 30;
+}
+
 /* Outlier #4 (build provenance mismatch on resume). Compute sha256 of
  * /proc/self/exe and compare to build.sha in cwd. First run writes
  * build.sha; subsequent runs MUST match unless SOLVE_ALLOW_BUILD_MISMATCH=1.
@@ -7757,6 +8005,26 @@ int main(int argc, char *argv[]) {
         printf("DFS-iterative: enabled (explicit-stack backtrack)\n");
     }
 
+    /* Canonical-scale defaults (added 2026-05-26 per operator directive
+     * "dummy-proof default"): when SOLVE_NODE_LIMIT >= 1T and neither env
+     * var is explicitly set, default DFS_ITERATIVE=1 and DFS_CHECKPOINT=1.
+     * The canonical reproducibility recipe in CANONICAL_HASHES.md REQUIRES
+     * both for 1T+ canonicals; new operators no longer need to remember
+     * to set them. Per solve.c's own docstrings these flags are sha-neutral
+     * on fresh single-shot enums (sha changes only if CHECKPOINT=1 AND a
+     * .dfs_state file is present AND resume is occurring). Explicit env
+     * vars (set to 0 to opt out, set to 1 to opt in) still take precedence. */
+    if (node_limit >= 1000000000000LL) {
+        if (!env_dfs_iter && !dfs_iterative_enabled) {
+            dfs_iterative_enabled = 1;
+            printf("DFS-iterative: enabled (canonical-scale default, NODE_LIMIT >= 1T)\n");
+        }
+        if (!env_dfs_ckpt && !dfs_checkpoint_enabled) {
+            dfs_checkpoint_enabled = 1;
+            printf("DFS-state checkpoint: enabled (canonical-scale default, NODE_LIMIT >= 1T)\n");
+        }
+    }
+
     /* Reproducibility warning: time_limit and node_limit together create
      * non-determinism. Each sub-branch has a per-sub-branch node budget
      * (node_limit / n_branches). Under node-limit-only operation, every
@@ -10516,6 +10784,12 @@ int main(int argc, char *argv[]) {
 
     /* --- Merge mode: combine sub_*.bin files into one sorted, deduped output --- */
     if (merge_mode) {
+        /* Auto-raise RLIMIT_STACK to unlimited (hardening 2026-05-26).
+         * External merge spill needs unlimited stack; default 8 MB causes
+         * silent SIGSEGV during spill. Re-closes the regression from the
+         * 2026-05-25 main reset. Operator no longer needs to remember
+         * `ulimit -s unlimited` before --merge. */
+        if (raise_stack_limit_for_merge() != 0) return 28;
         printf("\nMerge mode: combining sub_*.bin files...\n");
 
         /* Scan current directory for any sub_*.bin file — handles both
@@ -10830,6 +11104,13 @@ int main(int argc, char *argv[]) {
          * which performs the same C1-C5 + sorted + dedup + KW checks. No
          * canonical-sha behavior change — this only removed a redundant
          * post-merge validation that hung the parent. */
+
+        /* Auto-verify-solutions (hardening 2026-05-26): chain --verify
+         * automatically so operator doesn't need to remember it. Forks
+         * a subprocess (fopen-based --verify, no OpenMP/mmap issue per
+         * the 2026-05-08 fix). Override SOLVE_SKIP_AUTO_VERIFY=1. */
+        int verify_rc = auto_verify_solutions_bin(outname);
+        if (verify_rc != 0) return verify_rc;
 
         return 0;
     }
@@ -12762,11 +13043,15 @@ sub_enum_done:
         current_per_branch_budget = per_sub_branch_override;
     else if (node_limit > 0)
         current_per_branch_budget = node_limit / 3030;
-    /* Hardening audit 2026-05-25 — acquire the canonical-run lock + verify
-     * build provenance BEFORE any shard-file I/O. Order matters: lock first
-     * (prevents concurrent enums on same cwd), then build-sha check (catches
-     * cross-binary resume), then auto-verify any prior shard manifest, then
-     * load_sub_checkpoint + orphan-promotion, then auto-emit a fresh manifest. */
+    /* Hardening audit 2026-05-25/26 — pre-flight gates BEFORE any shard-file
+     * I/O. Order: disk-space (fail-fast on insufficient storage) -> auto-
+     * selftest (smoke test: binary produces canonical sha) -> binary-
+     * snapshot (forensic continuity) -> lock (prevent concurrent enums) ->
+     * build-sha (cross-binary resume detection) -> auto-verify manifest ->
+     * load_sub_checkpoint + orphan-promotion -> auto-emit fresh manifest. */
+    if (disk_space_pre_check(node_limit) != 0) return 29;
+    if (auto_selftest_check(node_limit) != 0) return 24;
+    snapshot_solve_binary();
     if (acquire_canonical_lock() != 0) return 27;
     if (check_build_sha_invariant() != 0) return 26;
 
