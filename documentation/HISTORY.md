@@ -4169,3 +4169,79 @@ The build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) 
 - v3 sha-equivalence confirmed at second scale (1T) alongside Phase 11's 11.2T
 
 The story is honest: a microbench prediction didn't replicate at production scale on different hardware. That's a useful finding even when the answer isn't the expected one.
+
+## May 25, 2026 UTC — v3.1 merge to main attempted, FAILED selftest-resume gate, partial merge declared
+
+Following the PGO work, the operator authorized merging v3 → main (per the long-standing `project_v3_merge_to_main_pre_560T` directive, conditional on Phase 11 + paired bench passing — both of which had). The merge attempt revealed a previously-undetected interaction bug.
+
+### What was attempted
+
+Cherry-pick v3 branch tip (commit `8b1658b` — the v3.1 orphan-promotion patch sitting on top of v3.0) onto main's current HEAD. Pre-merge, `origin/v3` was 1 commit ahead of `origin/main`: just `8b1658b` (v3.1 patch). main already contained all of v3.0 (LTO + bitset + #92 mw_delta + v1 prunes) from the 2026-05-21 v2-bundled merge.
+
+Cherry-pick auto-merged cleanly (no conflicts) and produced commit `c849247` locally. SHA of solve.c on cherry-picked main: `163a7660…`. SHA of solve.c at v3 branch tip `8b1658b`: `10aa1f84…`. **Not byte-identical** because main has `#92 mw_delta` in `DFSStackFrame_v2` which the v3 branch lacks (v3 was forked before #92 landed). The cherry-pick correctly preserved both code paths: main's `mw_delta` AND v3.1's `promote_orphaned_shards`.
+
+### Three-gate validation before push
+
+Spun up a Spot D32als_v7 westus3 (~$0.20) to validate the merged source before pushing:
+
+1. **Gate 1 — `--selftest`**: PASS. Binary produces expected canonical selftest sha `56487ab5…`.
+2. **Gate 2 — `--selftest-resume`**: **FAIL**.
+   ```
+   [--selftest-resume] FAIL — resume sha differs from single-shot
+                This is the c3ad271 bug-3 class failure. See
+                documentation/HISTORY.md §Phase E.2 for context.
+   Resume sha:      0d8451c71dceb85111dda268e6d4b56d262506b74d3bd1160ef92384c6f96b2d
+   Single-shot sha: 1f6a3b4a855759c68f705e01abf4ee9245bd5cb58c3ba8189d85962e3fdb0f80
+   ```
+3. **Gate 3 — 100B canonical sha vs `f1709ab0…`**: not run (gate 2 already failed, halted).
+
+The diagnostic identifies the failure mode as the `c3ad271 bug-3 class` — the same class of resume-bug that commit `c3ad271` (2026-04-30) and task `#92` (2026-05-18) had each addressed in different ways.
+
+### Diagnosis (working hypothesis — investigation queued)
+
+The v3.1 patch's `promote_orphaned_shards()` writes a `[v3.1 promoted]` sentinel entry to `checkpoint.txt`. The `#92 mw_delta`-aware `load_sub_checkpoint()` (solve.c:1406) parses checkpoint.txt and decides which sub-branches to skip vs re-run based on the BUDGETED status + budget field. The interaction: when v3.1 writes its sentinel format, #92's parser may misclassify those entries (e.g., treat them as legacy COMPLETE — always-skip), causing budget-bound sub-branches to be wrongly skipped on resume.
+
+This hypothesis is not yet verified; tracked as task #97. Two possible fixes when investigated:
+- Update v3.1's sentinel to match #92's expected `BUDGETED ... budget N` format
+- Extend `load_sub_checkpoint()` to recognize the `[v3.1 promoted]` sentinel correctly
+
+### Why this didn't fire earlier
+
+| Test | When | What it ran against | Why it didn't catch this |
+|---|---|---|---|
+| Phase 11 Build A 11.2T | 2026-05-24 | v3 branch (lacks #92) | No #92 to interact with |
+| 1T paired benches | 2026-05-24 | v3 branch (lacks #92) | Same |
+| Task #95 v3.1 fast-skip | 2026-05-24 | v3 branch (lacks #92) | Same |
+| `--selftest-resume` post-#92 | 2026-05-18 | main HEAD then (no v3.1) | No v3.1 to interact with |
+| **THIS validation** | 2026-05-25 | cherry-picked main (has BOTH #92 AND v3.1) | First time the two co-exist in one build |
+
+Both code paths are individually correct. The combination is the bug.
+
+### Resolution: partial merge (option 3 per operator)
+
+The operator's decision: declare main as already containing v3.0 (which is true since the 2026-05-21 v2-bundled merge), tag main accordingly, leave v3.1 on the v3 branch + `v3-pre-merge-2026-05-25` tag, and fix the interaction bug separately before any future v3.1 → main merge.
+
+Tags:
+- **`v3.0-on-main-2026-05-25`** (added on main HEAD) — marker that v3.0 is the canonical state on main
+- **`v3-pre-merge-2026-05-25`** (pre-existing) — preserves the v3.1 source state on origin/v3
+
+Cleanup performed:
+- Local main reset to `origin/main` (cherry-pick `c849247` discarded locally)
+- `origin/merge-validate-tmp` deleted (broken combination not preserved on public repo)
+- `merge-validate` Spot VM deallocated
+- `origin/v3` branch retained (working v3.1 codebase for the fix work)
+
+### Track record up to this point
+
+| Claim | Verified | Notes |
+|---|---|---|
+| v3 sha-preserves on v1 at 1T | ✅ | Bench 2026-05-24, both v1 and v3 (built from `8b1658b`) produce `5a0f0bc2…` |
+| v3 sha-preserves on v1 at 11.2T | ✅ | Phase 11 Build A, `0c0fe37c…` byte-identical |
+| v3.1 fast-skip recovery works | ✅ | Task #95, ~2:14 wall — but tested against v3 branch (no #92), not against the merged combination |
+| v3 + #92 interaction | ❌ | **NEW finding — fails --selftest-resume.** The two checkpoint-aware code paths conflict when both are present in the same build. Tracked as task #97. |
+
+### Lesson captured
+
+The `--selftest-resume` gate is **load-bearing** for any merge that touches checkpoint/resume code paths. Without it, the bug would have shipped silently into main, manifested only on a real Spot eviction during 560T (or any future canonical campaign), and produced wrong canonical sha at the worst possible time. **Cost of catch: ~$0.20 + 25 minutes.** Cost of miss: a 560T campaign producing wrong-but-deterministic canonical bytes that wouldn't be detected until external verification.
+
+For future merges that touch resume logic: always run `--selftest-resume` before push, regardless of how clean the cherry-pick looks.
