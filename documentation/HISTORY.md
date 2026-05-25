@@ -4245,3 +4245,60 @@ Cleanup performed:
 The `--selftest-resume` gate is **load-bearing** for any merge that touches checkpoint/resume code paths. Without it, the bug would have shipped silently into main, manifested only on a real Spot eviction during 560T (or any future canonical campaign), and produced wrong canonical sha at the worst possible time. **Cost of catch: ~$0.20 + 25 minutes.** Cost of miss: a 560T campaign producing wrong-but-deterministic canonical bytes that wouldn't be detected until external verification.
 
 For future merges that touch resume logic: always run `--selftest-resume` before push, regardless of how clean the cherry-pick looks.
+
+## May 25, 2026 UTC (afternoon onward) — 100B drift bisect + topology surprise + main reset to v3 BRANCH solve.c
+
+The morning's `--selftest-resume` gate failure (HISTORY May 25 entry above) had blocked the v3.1 push. The afternoon pivot: dig into the 100B drift, then surface a topology surprise about what's actually on `main`, then act on it.
+
+### Six-enum 100B drift bisect (12:46 → 18:03 UTC, ~$1.95)
+
+D32als_v7 Spot in westus3 (`bisect-100b` VM). Six builds tested at `SOLVE_NODE_LIMIT=100000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631545 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=32 ulimit -s unlimited`:
+
+| Commit | Date | 100B sha |
+|---|---|---|
+| `a2ead96` | May 13 (pre-d683794) | `61d2caa5c1842d67e75415d1390aa40cab98861e01c2b6149e825f75ffed123c` |
+| `3258f4c` | May 15 (+d683794) | `30b523362dc8b0a94e5d0cc11ba5f7429b774e3a06618ef093f11996764d579f` ← FLIP |
+| `bf58c65` | May 16 (+#68 C5) | `30b523362dc8b0a94e5d0cc11ba5f7429b774e3a06618ef093f11996764d579f` |
+| `7b5ff6d` | May 17 (+#67 +#70) | `30b523362dc8b0a94e5d0cc11ba5f7429b774e3a06618ef093f11996764d579f` |
+| `b684cca` | May 18 (+#92 mw_delta) | `30b523362dc8b0a94e5d0cc11ba5f7429b774e3a06618ef093f11996764d579f` |
+| Pre-reset `main` HEAD | May 25 | `30b523362dc8b0a94e5d0cc11ba5f7429b774e3a06618ef093f11996764d579f` ← cross-VM witness |
+
+Three findings, in order of impact:
+
+**1. `f1709ab09486ba…` is an imperfect-resume artifact.** Re-running its own baseline commit `3258f4c` today on a fresh enum produced `30b52336…`, not `f1709ab0…`. Same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T): the canonical was bound to a specific interrupted wall-clock state, not to the source-commit alone. Deprecated in this doc.
+
+**2. The 100B sha flips at one commit: `d683794` (Phase E.2 + defense-in-depth).** This was unexpected and important. d683794's full diff is 100% resume-gated assertions plus new subcommand handlers (`--selftest-resume`, `--emit-shard-manifest`, `--verify-shard-manifest`) — no DFS code change. Yet 100B sha empirically flips. The most likely mechanism is LTO compiler-layout effects: added (unreachable-at-runtime) code subtly changes binary layout, which propagates to OpenMP thread scheduling or branch-prediction timing inside the parallel DFS. **The takeaway: at sub-canonical scale, source-reading is insufficient to predict whether a commit will flip the sha — only empirical testing settles it.** See CANONICAL_HASHES.md "100B and sub-canonical reference shas" section for the operational consequence (don't use sub-1T as cross-build gates).
+
+**3. The v2 prunes (#67/#68/#70) do NOT flip 100B sha.** At per-cell budget 631K nodes, the DFS doesn't reach the infeasible subtrees that C5/C3 would skip. Prunes never fire, output identical to pre-prune code. This means at 100B, "v1 lineage" and "main-with-v2-prunes" produce the same sha despite having different DFS code — but at canonical-scale per-cell budgets (70.7M+), the prunes do fire and produce different shas (per the existing v1 11.2T `0c0fe37c…` vs v2 11.2T `2cc966e4…` empirical record).
+
+### Topology surprise — `main` was actually v2-lineage at the solve.c level
+
+A git topology check during the bisect surfaced the headline finding: **current `main` HEAD (`e5a9b79`) had v2 prunes inside it**, brought in via the 2026-05-21 v2-bundled merge `3128942` (commits `bf58c65`/`9f4b630`/`7b5ff6d`/`133e296`). v3 BRANCH (`origin/v3`, `8b1658b`, based on `2cf8771` May 10 pre-v2-prune) is clean of v2 prunes by design — but v3 BRANCH was never merged into main.
+
+The earlier morning "v3 → main partial merge declared" entry (above in this HISTORY.md) was based on the false premise that v3 was already in main; in reality, what was in main since 2026-05-21 was the v2-bundled merge. v3 BRANCH stayed on its own branch. The "v3.0-on-main-2026-05-25" tag set that morning was retired.
+
+The v3 design intent — "v1 prune set + LTO + #72 bitset (no v2 prune tax, no PGO)" — was correctly implemented on v3 BRANCH and validated by Phase 11 (11.2T = `0c0fe37c…`), task #95 (v3.1 fast-skip), and the 1T paired bench (= `5a0f0bc2…`). But the corresponding merge to main never happened — only v2-bundled landed there. The morning's `--selftest-resume` failure was an interaction of `main`'s `#92 mw_delta` (which v3 BRANCH lacks) with v3.1's `promote_orphaned_shards` (a v3 BRANCH feature being cherry-picked onto a v2-lineage main).
+
+### Resolution — `main` solve.c reset to v3 BRANCH (afternoon, ~21:30 UTC)
+
+Per operator direction: replace `main`'s `solve.c` with v3 BRANCH's `solve.c` to get back to the v3 design intent. Done via `git checkout origin/v3 -- solve.c` (not a full `git reset --hard origin/v3` — that would have erased valid doc-only commits about v2 100T canonical, paired bench, PGO retraction, McKenna audit; those stay as the project's historical record). The new `main` HEAD is thus:
+
+- `solve.c` byte-identical to v3 BRANCH `8b1658b` — v1 prune set + #72 bitset + v3.1 orphan-promotion, no v2 prunes
+- All `documentation/` and other files preserved from pre-reset `main` (rich history of v1/v2/v3 work)
+- Selftest sha unchanged at `403f7202…` (v3 BRANCH and pre-reset main both passed this)
+
+**What's lost vs pre-reset main**: `#92 mw_delta` (b684cca), Phase E.2 5-item defense-in-depth (d683794), `--merge` ulimit hard-gate (dc01860), and diagnostic subcommands (`--cpu-features`, `--cpu-freq`, `--verify-rule2`, `--verify-9th-six`). These were useful additions but each was either: a fix for a v3.1×#92 interaction that doesn't exist on v3 BRANCH (#92), or operational/diagnostic conveniences (dc01860 ulimit gate must now be applied via runbook: `ulimit -s unlimited` before `solve --merge`). v3 BRANCH-based code was validated by Phase 11 + paired bench + task #95 without needing those additions, so the production capability is intact.
+
+**Tags / branches retired**:
+- `v3.0-on-main-2026-05-25` (was based on the false premise; deleted)
+- `v3` branch (its content is now main; `origin/v3` deleted)
+- `v3.1-fix-v2` branch (the #97 fix is no longer needed without #92; deleted)
+- `v3.1-mwdelta-fix` branch (superseded earlier; deleted)
+
+**Tag added**: `v2-with-v3.1-attempt-2026-05-25` preserves the pre-reset main HEAD (`e5a9b79`) for forensic reference.
+
+### Why this matters for 560T
+
+The 560T canonical campaign launches off `main`. Pre-reset, `main` would have produced v2-class canonical (different from v1 anchor at 11.2T+) at the ~3× per-node tax of the v2 prune stack. Post-reset, `main` will produce v1-anchored canonical (= `0c0fe37c…` at 11.2T per Phase 11) at v1's per-node cost. This gets the originally-intended v3 design behavior cleanly onto main, sets up 560T to extend the v1 canonical anchor chain.
+
+Operational note for 560T: since the `dc01860` `--merge` ulimit hard-gate was lost in the reset, the 560T merge runbook must include an explicit `ulimit -s unlimited` step before invoking `solve --merge`. Otherwise the merge subprocess will silently SIGSEGV during external-merge spill on the default 8 MB stack.

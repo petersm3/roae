@@ -377,14 +377,6 @@ typedef struct {
     int8_t  prev_tail;
     int8_t  phase;
     int8_t  reserved;
-    /* task #92 (2026-05-18): mw_delta added to v2 frame format. Without this,
-     * resume's RETRY phase used uninitialized fr->mw_delta to undo the
-     * mid-walk-cd contribution, drifting ts->mw_partial_cd_x64 from the
-     * live-path value and causing --selftest-resume to fail. The need for
-     * mw_delta-storage (vs. recompute-on-pop) is documented at the field
-     * declaration in BacktrackFrame. Format version bumped from 2 to 3. */
-    int16_t mw_delta;
-    int8_t  pad[2];   /* 12-byte struct for predictable layout */
 } DFSStackFrame_v2;
 static Pair pairs[32];
 static int n_pairs = 0;
@@ -604,7 +596,6 @@ static int compute_comp_dist_x64(const int seq[64]) {
     return total;
 }
 
-
 /* ---------- Branch definition ---------- */
 typedef struct {
     int pair;
@@ -635,29 +626,6 @@ typedef struct {
 
 /* ---------- Top-N closest solutions ---------- */
 #define TOP_N 20
-
-/* Project-wide thread ceiling. All per-thread stack arrays (ThreadState,
- * pthread_t, thread_sub_count, all_top for top-K merge) are sized to this.
- * SOLVE_THREADS values above this are clamped at parse time with a warning.
- * Bumping this requires verifying selftest sha (403f7202…) is unchanged.
- *
- * IF YOU NEED >256 THREADS (e.g. 384-core EPYC, multi-socket NUMA, 512-core
- * ARM): a simple bump of this macro is NOT sufficient. Open issues:
- *   - ThreadState is ~3-5 KB; threads[SOLVE_MAX_THREADS] at 512 = 1.5-2.5 MB
- *     on the stack in two functions. May exceed RLIMIT_STACK on default
- *     ulimit -s 8192. Move to heap allocation (malloc) — see thread_subs_flat
- *     pattern already used for the 2D thread_subs arrays.
- *   - Performance: solve.c was profiled at 64/96/128 threads. >128 threads
- *     hit diminishing returns (NUMA effects, lock contention on solution
- *     buffers); a refactor to per-socket/per-NUMA-node thread pools may be
- *     needed before raising this ceiling pays off.
- *   - Reproducibility: selftest sha must be re-validated on whatever new
- *     hardware/thread-count this is bumped for. Treat >256 as a new
- *     reproducibility regime, not a free scaling knob.
- *   - The SOLVE_THREADS parser clamps to this value, so an unmodified
- *     binary on a 384-core box silently runs at 256 threads with a stderr
- *     warning. Safe default, but suboptimal for the larger host. */
-#define SOLVE_MAX_THREADS 256
 
 /* Packed solution record: 32 bytes.
  * Byte i (0-31) = pair_index (bits 7-2) | orient (bit 1) | reserved (bit 0)
@@ -937,65 +905,7 @@ typedef struct {
     int8_t dfs_v2_resume_seq[64];
     pair_mask_t dfs_v2_resume_used;   /* task #72 Phase C: was int8_t[32] */
     int8_t dfs_v2_resume_budget[7];
-
-    /* task #67 mid-walk C3 pruning (v2 prune stack). mw_pos[v] = position
-     * v occupies in seq[], -1 if unplaced. mw_partial_cd_x64 is the running
-     * sum 2 * Σ |mw_pos[v] - mw_pos[v⊕63]| over the 32 (v, v⊕63) pairs that
-     * are both currently placed (matches compute_comp_dist_x64's convention).
-     * Prune predicate: if mw_partial_cd_x64 > kw_comp_dist_x64 (= 776), the
-     * subtree contains no C3-valid leaf (correctness proof:
-     * petersm3/x:roae/TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md). */
-    int8_t mw_pos[64];
-    int mw_partial_cd_x64;
 } ThreadState;
-
-/* task #67 — initialize the mid-walk C3 prune state (ts->mw_pos[] +
- * ts->mw_partial_cd_x64) from a seq[] prefix of `placed_hexes` hexagrams.
- * Called at sub-branch entry (after the prefix seq is built) and at v2
- * checkpoint resume (after the saved seq is restored). Conservatively
- * O(64 + placed_hexes); placed_hexes ≤ 32 so this is constant overhead. */
-static inline void mw_c3_init(ThreadState *ts, const int seq[64], int placed_hexes) {
-    for (int i = 0; i < 64; i++) ts->mw_pos[i] = -1;
-    ts->mw_partial_cd_x64 = 0;
-    for (int i = 0; i < placed_hexes; i++) {
-        int v = seq[i];
-        int comp = v ^ 63;
-        if (ts->mw_pos[comp] >= 0) {
-            int d = i - ts->mw_pos[comp];
-            ts->mw_partial_cd_x64 += ((d < 0 ? -d : d) << 1);
-        }
-        ts->mw_pos[v] = (int8_t)i;
-    }
-}
-
-/* task #70: C3 optimistic-completion bound — lower bound on the cd_x64
- * contribution from complement-pairs (v, v⊕63) that are not yet fully
- * placed. For each such pair, when both halves eventually become placed,
- * |pos[v] - pos[v⊕63]| ≥ 1 (positions are distinct integers), so the
- * cd_x64 contribution is at least 2 (the 2× factor of compute_comp_dist_x64).
- *
- * Returns 2 × (count of complement-pairs not yet both-placed).
- *
- * Combined with #67's partial_cd, the tightened prune predicate is:
- *   mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) > kw_comp_dist_x64
- *     ⟹ no valid C3 completion exists from this state; prune.
- *
- * Correctness: any valid completion places all 32 complement-pairs (each at
- * positions ≥ 1 apart). The minimum |pos[v]-pos[v⊕63]| = 1 is achievable
- * only when the two pairs sit in adjacent slots; not every complement-pair
- * can simultaneously achieve this minimum. So this is a strict LOWER BOUND
- * on the future contribution, never an over-estimate. No valid leaf is
- * pruned. */
-static inline int mw_inevitable_remaining_cd_x64(const ThreadState *ts) {
-    /* Iterate v from 0..31; each unordered complement-pair (v, v^63) is
-     * covered exactly once because v ∈ [0,31] ⟹ v^63 ∈ [32,63]. */
-    int n_unmeasured = 0;
-    for (int v = 0; v < 32; v++) {
-        int comp = v ^ 63;
-        if (!(ts->mw_pos[v] >= 0 && ts->mw_pos[comp] >= 0)) n_unmeasured++;
-    }
-    return n_unmeasured * 2;
-}
 
 /* global_timed_out is set both from the signal handler (must be
  * async-signal-safe) and from thread code. sig_atomic_t is the only type
@@ -1182,7 +1092,7 @@ _Static_assert(sizeof(DFSCheckpointState_v1) <= 1024, "DFSCheckpointState_v1 too
  * (step, p, orient, bd, wd, prev_tail) tuple, plus the seq/used/budget
  * arrays. Resume reconstructs the exact DFS state at the moment of budget
  * exhaustion and continues from there. */
-#define DFS_STATE_VERSION_V2 3u   /* bumped 2026-05-18: task #92 — mw_delta added to per-frame format */
+#define DFS_STATE_VERSION_V2 2u
 
 /* DFSStackFrame_v2 is forward-defined near the Pair typedef so ThreadState
  * can hold an array of them. */
@@ -1479,6 +1389,144 @@ static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, in
     return (completed_sub_bitmap_d3[key >> 3] >> (key & 7)) & 1;
 }
 
+/* ---------- v3.1: fast-skip elimination via orphaned-shard promotion ---------- */
+
+/* Delete any sub_*.bin.tmp files left from interrupted flush writes.
+ *
+ * Eviction during flush_sub_solutions[_d3] can leave a .tmp file on disk
+ * before the atomic rename completes. These are by definition incomplete
+ * and must be removed before promote_orphaned_shards() runs so we don't
+ * confuse the directory scan. */
+static void cleanup_orphaned_tmp_files(void) {
+    DIR *d = opendir(".");
+    if (!d) return;
+    struct dirent *entry;
+    int removed = 0;
+    while ((entry = readdir(d)) != NULL) {
+        size_t len = strlen(entry->d_name);
+        if (len < 8) continue;
+        if (strncmp(entry->d_name, "sub_", 4) != 0) continue;
+        if (strcmp(entry->d_name + len - 4, ".tmp") != 0) continue;
+        if (unlink(entry->d_name) == 0) removed++;
+    }
+    closedir(d);
+    if (removed > 0)
+        fprintf(stderr, "[v3.1] Removed %d orphaned .tmp files (incomplete writes from prior eviction)\n",
+                removed);
+}
+
+/* Promote orphaned sub_*.bin files (atomic, durable, but no checkpoint.txt
+ * entry) to the in-memory skip-list. Called after load_sub_checkpoint() at
+ * startup.
+ *
+ * Eviction between flush_sub_solutions[_d3] (which atomically renames the
+ * .bin file) and the subsequent checkpoint.txt append can leave a .bin on
+ * disk that the skip-list doesn't know about. On resume, those sub-branches
+ * would otherwise trigger the expensive dfs_state_load_prior_shard() LOAD
+ * path (~30 sec per sub-branch on D128). Promotion skips that entirely.
+ *
+ * Sha-preservation: yes. The .bin contents are unchanged; promotion only
+ * updates the in-memory skip-list bitmap and appends a checkpoint.txt line
+ * for next-time durability. The final merge reads .bin files independently
+ * of how they got there.
+ *
+ * Integrity check: file_size % SOL_RECORD_SIZE == 0 and size > 0. Files
+ * failing this check are left untouched (the existing LOAD path will see
+ * them, which preserves backward compatibility for malformed leftovers).
+ *
+ * Speedup at canonical scale: 49k orphaned shards × ~30 sec LOAD each /
+ * 128 threads ≈ 3-4h fast-skip → 1-3 min directory scan. ~60-200×. */
+static int promote_orphaned_shards(void) {
+    DIR *d = opendir(".");
+    if (!d) return -1;
+    struct dirent *entry;
+    int promoted = 0, integrity_fail = 0;
+    FILE *ckpt = fopen("checkpoint.txt", "a");
+    while ((entry = readdir(d)) != NULL) {
+        const char *n = entry->d_name;
+        size_t len = strlen(n);
+        if (len < 8 || strncmp(n, "sub_", 4) != 0) continue;
+        if (strcmp(n + len - 4, ".bin") != 0) continue;
+        /* Skip non-canonical shard formats (e.g., sub_ckpt_wrk*.bin from
+         * --sub-branch mode, sub_flush_chunk_*.bin). Match only the
+         * canonical-campaign filename pattern: sub_<int>_<int>_<int>_<int>[_<int>_<int>].bin */
+        int p1, o1, p2, o2, p3 = -1, o3 = -1;
+        int matched = sscanf(n, "sub_%d_%d_%d_%d_%d_%d.bin",
+                             &p1, &o1, &p2, &o2, &p3, &o3);
+        if (matched != 6) {
+            matched = sscanf(n, "sub_%d_%d_%d_%d.bin",
+                             &p1, &o1, &p2, &o2);
+            if (matched != 4) continue;
+            p3 = -1; o3 = -1;
+        }
+        /* Skip-list check — already-known sub-branches are no-ops */
+        int is_done = (p3 >= 0)
+            ? is_sub_branch_completed_d3(p1, o1, p2, o2, p3, o3)
+            : is_sub_branch_completed(p1, o1, p2, o2);
+        if (is_done) continue;
+
+        /* Integrity check: size must be a positive multiple of SOL_RECORD_SIZE */
+        struct stat st;
+        if (stat(n, &st) != 0 || st.st_size <= 0 || st.st_size % SOL_RECORD_SIZE != 0) {
+            fprintf(stderr,
+                    "WARN: orphaned shard %s failed integrity check (size=%lld); leaving for LOAD path\n",
+                    n, (long long)(stat(n, &st) == 0 ? st.st_size : -1));
+            integrity_fail++;
+            continue;
+        }
+        long long records = st.st_size / SOL_RECORD_SIZE;
+
+        /* Append a BUDGETED line to checkpoint.txt for next-resume durability.
+         * Use thread -1 as a "promoted" sentinel so the entry is distinguishable
+         * from real walk-completion entries in post-hoc analysis. */
+        if (ckpt) {
+            if (p3 >= 0) {
+                fprintf(ckpt,
+                    "Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+                    "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
+                    p1, o1, p2, o2, p3, o3, records, current_per_branch_budget);
+            } else {
+                fprintf(ckpt,
+                    "Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d orient2 %d): "
+                    "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
+                    p1, o1, p2, o2, records, current_per_branch_budget);
+            }
+        }
+        /* Update in-memory skip-list */
+        if (p3 >= 0) {
+            int key = completed_sub_key_d3(p1, o1, p2, o2, p3, o3);
+            completed_sub_bitmap_d3[key >> 3] |= (unsigned char)(1 << (key & 7));
+        } else {
+            int key = completed_sub_key(p1, o1, p2, o2);
+            completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
+        }
+        /* Delete the corresponding .dfs_state file if present — no longer
+         * needed since the sub-branch is now in the skip-list and won't
+         * be re-walked. Reduces directory clutter (~150k files per
+         * canonical campaign). */
+        char dfsname[96];
+        if (p3 >= 0)
+            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d_%d_%d.dfs_state",
+                     p1, o1, p2, o2, p3, o3);
+        else
+            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d.dfs_state",
+                     p1, o1, p2, o2);
+        unlink(dfsname);
+        promoted++;
+    }
+    if (ckpt) {
+        if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0)
+            fprintf(stderr, "WARN: promote_orphaned_shards: checkpoint.txt fsync failed (promoted=%d)\n",
+                    promoted);
+        fclose(ckpt);
+    }
+    closedir(d);
+    if (promoted > 0 || integrity_fail > 0)
+        fprintf(stderr, "[v3.1] Orphaned-shard promotion: promoted=%d, integrity_failed=%d\n",
+                promoted, integrity_fail);
+    return promoted;
+}
+
 /* ---------- Hash table resize ---------- */
 
 static void resize_hash_table(ThreadState *ts) {
@@ -1754,10 +1802,6 @@ typedef struct {
     int prev_tail;  /* cached: seq[step*2 - 1] (computed once at frame entry) */
     int bd, wd;     /* distances consumed by current iter's setup (for restore) */
     int phase;      /* DFSITER_PHASE_ENTER or DFSITER_PHASE_RETRY */
-    int mw_delta;   /* task #67: increment added to ts->mw_partial_cd_x64 on push;
-                       reversed symmetrically on pop. Stored because mw_pos values
-                       at pop time may not allow recomputation when a pair's two
-                       hexagrams are mutual complements (e.g. pair (63,0)). */
 } BacktrackFrame;
 
 static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int initial_step) {  /* task #72 Phase B */
@@ -1778,21 +1822,10 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             stack[i].wd = ts->dfs_v2_resume_frames[i].wd;
             stack[i].prev_tail = ts->dfs_v2_resume_frames[i].prev_tail;
             stack[i].phase = ts->dfs_v2_resume_frames[i].phase;
-            stack[i].mw_delta = ts->dfs_v2_resume_frames[i].mw_delta;   /* task #92 */
         }
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
         *used_mask = ts->dfs_v2_resume_used;                  /* task #72 Phase B (was Phase C boundary copy) */
         for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
-        /* task #67: rebuild mid-walk C3 state from the restored seq prefix.
-         * The deepest captured frame at index sp has step = depth at capture
-         * time. The seq prefix is populated up to position 2 * stack[sp].step
-         * (parent's iterate placed first/second for the child's depth-1). */
-        {
-            int placed = (sp >= 0) ? (stack[sp].step * 2) : 0;
-            if (placed < 0) placed = 0;
-            if (placed > 64) placed = 64;
-            mw_c3_init(ts, seq, placed);
-        }
         /* Resume start: ts->branch_nodes already set to prior_nodes_walked
          * at sub-branch entry (in the wrapper). Continue from saved state. */
     } else {
@@ -1866,7 +1899,6 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
                         ts->dfs_v2_frames[i].wd        = (int8_t)stack[i].wd;
                         ts->dfs_v2_frames[i].prev_tail = (int8_t)stack[i].prev_tail;
                         ts->dfs_v2_frames[i].phase     = (int8_t)stack[i].phase;
-                        ts->dfs_v2_frames[i].mw_delta  = (int16_t)stack[i].mw_delta;   /* task #92 */
                     }
                     for (int i = 0; i < 64; i++) ts->dfs_v2_seq[i] = (int8_t)seq[i];
                     ts->dfs_v2_used = *used_mask;             /* task #72 Phase B (was Phase C boundary pack) */
@@ -1912,17 +1944,6 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
              * loop body handles iteration. */
         } else {
             /* === RETRY phase: a child just popped; restore parent state, advance iter === */
-            /* task #67 pop: reverse the partial_cd increment recorded on push;
-             * clear mw_pos[] entries for both hexagrams of this pair. Recompute
-             * first/second from fr->p/fr->orient — both are still valid since
-             * we didn't mutate them between push and now. */
-            {
-                int first = fr->orient ? pairs[fr->p].b : pairs[fr->p].a;
-                int second = fr->orient ? pairs[fr->p].a : pairs[fr->p].b;
-                ts->mw_partial_cd_x64 -= fr->mw_delta;
-                ts->mw_pos[first] = -1;
-                ts->mw_pos[second] = -1;
-            }
             PAIR_MASK_CLR(*used_mask, fr->p);                    /* task #72 Phase B */
             budget[fr->wd]++;
             budget[fr->bd]++;
@@ -1978,45 +1999,6 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             PAIR_MASK_SET(*used_mask, fr->p);                    /* task #72 Phase B */
             fr->bd = bd;
             fr->wd = wd;
-
-            /* task #67 push: update mw_pos[] and compute partial-cd delta. */
-            int mw_delta = 0;
-            {
-                int comp = first ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (fr->step * 2) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[first] = (int8_t)(fr->step * 2);
-            }
-            {
-                int comp = second ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (fr->step * 2 + 1) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[second] = (int8_t)(fr->step * 2 + 1);
-            }
-            ts->mw_partial_cd_x64 += mw_delta;
-
-            /* task #67 + #70 prune predicate (iterative path): partial cd
-             * plus the inevitable future contribution from unmeasured
-             * complement-pairs. If this sum exceeds 776, no C3-valid leaf
-             * exists in this subtree. Revert and advance. #70 strictly
-             * tightens #67's `partial_cd > 776` check. */
-            if (ts->mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) > kw_comp_dist_x64) {
-                ts->mw_partial_cd_x64 -= mw_delta;
-                ts->mw_pos[first] = -1;
-                ts->mw_pos[second] = -1;
-                PAIR_MASK_CLR(*used_mask, fr->p);
-                budget[wd]++;
-                budget[bd]++;
-                fr->orient++;
-                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
-                continue;
-            }
-
-            fr->mw_delta = mw_delta;
             found = 1;
             break;
         }
@@ -2098,35 +2080,6 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
      * entry. The for-loop in the parent frame then captures (p, orient) for
      * its depth on return-from-recurse and propagates upward. */
     if (ts->dfs_capture_active) return;
-    /* v2 C5 feasibility prune (task #68, always-on in v2 lineage).
-     *
-     * Necessary condition for any state to admit a valid completion: for each
-     * Hamming distance d, the remaining budget[d] must be at least the count
-     * of unplaced pairs whose within-pair distance equals d, because each
-     * unplaced pair will consume 1 from budget[pair_wpd[i]] when it is
-     * eventually placed. If this fails for any d, the current state is dead
-     * (no completion exists) and the subtree can be pruned.
-     *
-     * Correctness: at any complete leaf (step==32) used_mask covers all 32
-     * pairs so unused_wd_count = {0,...,0} and budget = {0,...,0}; the check
-     * is trivially satisfied. No valid leaf is excluded.
-     *
-     * Sha relative to v1: this prune is WORK-CHANGING (it skips recursion
-     * into provably-dead subtrees that v1 explored before lazy budget
-     * exhaustion). At a fixed node budget the prune lets each sub-branch
-     * reach more leaves → MORE solutions found → different sha vs v1. This
-     * is the defining property of v2 vs v1. Both lineages are deterministic
-     * from their own recipes. Validation is by solution-set inclusion
-     * (baseline_records ⊆ v2_records at same budget), not by sha-match. */
-    {
-        int unused_wd_count[7] = {0};
-        for (int pp = 0; pp < 32; pp++) {
-            if (!PAIR_MASK_TEST(*used_mask, pp)) unused_wd_count[pair_wpd[pp]]++;
-        }
-        for (int d = 0; d < 7; d++) {
-            if (budget[d] < unused_wd_count[d]) return;
-        }
-    }
     /* Per-branch node limit: checked every node (just an integer compare, cheap).
      * Sets a thread-local flag rather than global_timed_out so other branches
      * on this thread can continue. But for simplicity, we use global_timed_out
@@ -2229,32 +2182,10 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
      * back into this depth (different parent iteration paths) starts fresh. */
     int p_start = 0, o_start = 0;
     if (ts->dfs_resume_active) {
-        /* Phase E.2 follow-up: invariant assertion. dfs_resume_partition_prefix_len
-         * must be set by load_sub_checkpoint before resume is active. A zero
-         * value here would silently mis-index dfs_resume_frames and is exactly
-         * the failure-class behind c34390c0/f7b8c4fb (silent data loss on resume). */
-        if (ts->dfs_resume_partition_prefix_len <= 0) {
-            fprintf(stderr, "FATAL: dfs_resume_active=1 but partition_prefix_len=%d "
-                            "(must be >0). Refusing to continue with malformed resume "
-                            "state. See HISTORY.md §Phase E.2 for context.\n",
-                            ts->dfs_resume_partition_prefix_len);
-            _exit(21);  /* distinct from existing exit codes; resume-invariant violation */
-        }
         int rd = step - ts->dfs_resume_partition_prefix_len;
         if (rd >= 0 && rd < 64 && ts->dfs_resume_frames[rd].pair_idx >= 0) {
-            /* Invariant: a captured pair_idx must be in [0, 31] (32 pairs). A
-             * value outside that range would mis-encode the saved iter and
-             * skip work, again the c34390c0-class undercount pattern. */
-            int8_t saved_p = ts->dfs_resume_frames[rd].pair_idx;
-            int8_t saved_o = ts->dfs_resume_frames[rd].orient;
-            if (saved_p < 0 || saved_p >= 32 || saved_o < 0 || saved_o > 1) {
-                fprintf(stderr, "FATAL: malformed dfs_resume_frame at rd=%d: "
-                                "(p=%d, o=%d) out of (0..31, 0..1). Refusing to "
-                                "continue.\n", rd, (int)saved_p, (int)saved_o);
-                _exit(21);
-            }
-            p_start = saved_p;
-            o_start = saved_o;
+            p_start = ts->dfs_resume_frames[rd].pair_idx;
+            o_start = ts->dfs_resume_frames[rd].orient;
             ts->dfs_resume_frames[rd].pair_idx = -1;  /* mark consumed */
         }
     }
@@ -2278,45 +2209,7 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
             seq[step * 2] = first;
             seq[step * 2 + 1] = second;
             PAIR_MASK_SET(*used_mask, p);                        /* task #72 Phase B */
-
-            /* task #67: mid-walk C3 push — update mw_pos[] for first then
-             * second, and add 2 × |pos_diff| for each newly-measurable
-             * (v, v⊕63) pair to ts->mw_partial_cd_x64. Order matters:
-             * placing `first` may make `second`'s complement test true if
-             * the pair is its own complement (e.g., pair (63,0)). */
-            int mw_delta = 0;
-            {
-                int comp = first ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (step * 2) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[first] = (int8_t)(step * 2);
-            }
-            {
-                int comp = second ^ 63;
-                if (ts->mw_pos[comp] >= 0) {
-                    int d = (step * 2 + 1) - ts->mw_pos[comp];
-                    mw_delta += ((d < 0 ? -d : d) << 1);
-                }
-                ts->mw_pos[second] = (int8_t)(step * 2 + 1);
-            }
-            ts->mw_partial_cd_x64 += mw_delta;
-
-            /* task #67 + #70 prune predicate (recursive path): partial cd
-             * plus the inevitable future contribution from unmeasured
-             * complement-pairs. If this sum is ≤ 776, this subtree could
-             * still admit a C3-valid leaf — recurse. If > 776, skip.
-             * #70 strictly tightens #67's `partial_cd > 776` check. */
-            if (ts->mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) <= kw_comp_dist_x64) {
-                backtrack(ts, seq, used_mask, budget, step + 1);
-            }
-
-            /* task #67: pop — symmetric reversal */
-            ts->mw_partial_cd_x64 -= mw_delta;
-            ts->mw_pos[first] = -1;
-            ts->mw_pos[second] = -1;
-
+            backtrack(ts, seq, used_mask, budget, step + 1);     /* task #72 Phase B */
             PAIR_MASK_CLR(*used_mask, p);                        /* task #72 Phase B */
             budget[wd]++;
             budget[bd]++;
@@ -2895,12 +2788,6 @@ static void *thread_func_single(void *arg) {
                 (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
             }
         }
-
-        /* task #67: initialize mid-walk C3 state from the seq[] prefix that the
-         * loop above just built (positions 0..backtrack_start_step*2 - 1). The
-         * v2-resume path below overrides this with its own init using the saved
-         * seq, so this base init covers the fresh-start case. */
-        mw_c3_init(ts, seq, backtrack_start_step * 2);
 
         if (dfs_iterative_enabled) {
             backtrack_iterative(ts, seq, &used_mask, budget, backtrack_start_step);  /* task #72 Phase B */
@@ -3577,10 +3464,6 @@ static void *thread_func_sub_sub(void *arg) {
          * to publish to the shared counter, and that needs monotone
          * accumulation across all tasks on this worker. */
 
-        /* task #67: initialize mid-walk C3 state from the depth-5 prefix
-         * (positions 0-11 = 12 hexagrams placed). */
-        mw_c3_init(ts, seq, 12);
-
         /* DFS from step 6 (pair 6 placed at positions 12-13). */
         backtrack(ts, seq, &used_mask, budget, 6);      /* task #72 Phase B: pass mask by pointer */
 
@@ -3829,25 +3712,6 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     if (time_limit > 0)
         fprintf(sf, "# Time limit: %d seconds\n", time_limit);
     fprintf(sf, "# SOLVE_THREADS: any (output is thread-independent with node limit)\n");
-    /* Phase E.2 follow-up: record resume-mode flags. c34390c0 forensic mystery
-     * would have been instantly diagnosable if its .sha256 metadata had recorded
-     * these flags + resume history. See documentation/DEVELOPMENT.md
-     * §"Resume-path defense in depth" for the full provenance schema. */
-    fprintf(sf, "# SOLVE_DFS_ITERATIVE=%d\n", dfs_iterative_enabled);
-    fprintf(sf, "# SOLVE_DFS_CHECKPOINT=%d\n", dfs_checkpoint_enabled);
-    if (per_sub_branch_override > 0)
-        fprintf(sf, "# SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", per_sub_branch_override);
-    {
-        /* Resume-history hint: if the run resumed from a checkpoint, the
-         * operator should record interruption/eviction context via the
-         * SOLVE_RESUME_HISTORY env var. Empty is fine for clean single-shot. */
-        const char *rh = getenv("SOLVE_RESUME_HISTORY");
-        if (rh && *rh) {
-            fprintf(sf, "# SOLVE_RESUME_HISTORY: %s\n", rh);
-        } else {
-            fprintf(sf, "# SOLVE_RESUME_HISTORY: (none — clean single-shot run)\n");
-        }
-    }
     fclose(sf);
 }
 
@@ -6180,23 +6044,6 @@ int main(int argc, char *argv[]) {
         prove_shift_mode = 1;
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--merge") == 0) {
-        /* Stack-ulimit hard gate for --merge (added 2026-05-18 after
-         * silent SIGSEGV during external merge on default 8 MB stack).
-         * The in-memory merge path can also allocate large stack frames at
-         * higher shard counts. Require unlimited stack here — exit cleanly
-         * rather than segfault during local-array allocation. */
-        {
-            struct rlimit rl;
-            if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY) {
-                long long cur_kb = (long long)(rl.rlim_cur / 1024);
-                fprintf(stderr,
-                    "ERROR: --merge requires RLIMIT_STACK = unlimited; current soft limit is %lld KB.\n"
-                    "       Default 8 MB stack overflows during external-merge spill (silent SIGSEGV at\n"
-                    "       large shard counts). Run: ulimit -s unlimited   before launching `solve --merge`.\n",
-                    cur_kb);
-                return 11;
-            }
-        }
         merge_mode = 1;
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--merge-layers") == 0) {
@@ -6438,199 +6285,6 @@ int main(int argc, char *argv[]) {
         verify_mode = 1;
         verify_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
-    } else if (argc > 1 && strcmp(argv[1], "--verify-rule2") == 0) {
-        /* McKenna Rule 2 audit (The Invisible Landscape, Ch 9):
-         * "absolutely exclude transition situations with a value of one,
-         * except in cases where this would interfere with rule (1)."
-         * For each record, count value-1 transitions and check whether the
-         * orient-flip alternative for the surrounding pair would have given
-         * a value-5 transition (C2 violation). Records where any value-1
-         * transition is NOT thus "C2-forced" violate Rule 2 in the strong form.
-         * Sha-preserving analysis (no enumeration change). */
-        const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
-        init_pairs();
-        init_kw_dist();
-        FILE *vf = fopen(vpath, "rb");
-        if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
-        fseek(vf, 0, SEEK_END);
-        long vsize = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
-        unsigned char peek[4];
-        int shard = 0;
-        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
-            if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
-        }
-        fseek(vf, 0, SEEK_SET);
-        long long n_records;
-        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
-        else {
-            uint64_t hdr_records = 0;
-            if (sol_read_header(vf, &hdr_records) != 0) {
-                fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version\n", vpath);
-                fclose(vf); return 20;
-            }
-            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
-        }
-        printf("[--verify-rule2] file=%s records=%lld\n", vpath, n_records);
-        printf("[--verify-rule2] McKenna Rule 2: every value-1 transition must be at a C2-forced position\n");
-
-        unsigned long long records_with_violation = 0;
-        unsigned long long records_total = 0;
-        unsigned long long total_ones = 0;
-        unsigned long long ones_c2_forced = 0;
-        unsigned long long ones_wasteful = 0;
-        unsigned long long wasteful_by_boundary[32] = {0};
-        unsigned long long c2_forced_by_boundary[32] = {0};
-
-        unsigned char rec[SOL_RECORD_SIZE];
-        for (long long r = 0; r < n_records; r++) {
-            if (fread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
-                fprintf(stderr, "ERROR: short read at record %lld\n", r); fclose(vf); return 20;
-            }
-            int seq[64];
-            for (int i = 0; i < 32; i++) {
-                int pidx = (rec[i] >> 2) & 0x3F;
-                int orient = (rec[i] >> 1) & 1;
-                if (orient == 0) {
-                    seq[i * 2] = pairs[pidx].a;
-                    seq[i * 2 + 1] = pairs[pidx].b;
-                } else {
-                    seq[i * 2] = pairs[pidx].b;
-                    seq[i * 2 + 1] = pairs[pidx].a;
-                }
-            }
-            int violation = 0;
-            for (int b = 1; b < 32; b++) {
-                int bd = hamming(seq[2*b - 1], seq[2*b]);
-                if (bd != 1) continue;
-                total_ones++;
-                int pidx = (rec[b] >> 2) & 0x3F;
-                int orient = (rec[b] >> 1) & 1;
-                int alt_head = orient ? pairs[pidx].a : pairs[pidx].b;
-                int alt_bd = hamming(seq[2*b - 1], alt_head);
-                if (alt_bd == 5) { ones_c2_forced++; c2_forced_by_boundary[b]++; }
-                else { ones_wasteful++; wasteful_by_boundary[b]++; violation = 1; }
-            }
-            if (violation) records_with_violation++;
-            records_total++;
-            if (r > 0 && r % 10000000 == 0) {
-                printf("  ... scanned %lld / %lld records\n", r, n_records); fflush(stdout);
-            }
-        }
-        fclose(vf);
-
-        printf("\n[--verify-rule2] === RESULTS ===\n");
-        printf("Records scanned:                %llu\n", records_total);
-        printf("Records with Rule-2 violation:  %llu (%.4f%%)\n",
-               records_with_violation, 100.0 * records_with_violation / (records_total ? records_total : 1));
-        printf("Total value-1 transitions seen: %llu (~%.3f per record)\n",
-               total_ones, (double)total_ones / (records_total ? records_total : 1));
-        printf("  at C2-forced positions:       %llu (%.4f%%)\n",
-               ones_c2_forced, total_ones ? 100.0 * ones_c2_forced / total_ones : 0.0);
-        printf("  wasteful (alt orient is NOT 5): %llu (%.4f%%)\n",
-               ones_wasteful, total_ones ? 100.0 * ones_wasteful / total_ones : 0.0);
-        printf("\nC2-forced value-1 by boundary index:\n");
-        for (int b = 0; b < 32; b++) {
-            if (c2_forced_by_boundary[b])
-                printf("  boundary %2d (pair %d <-> pair %d): %llu\n", b, b-1, b, c2_forced_by_boundary[b]);
-        }
-        printf("\nWasteful value-1 by boundary index:\n");
-        for (int b = 0; b < 32; b++) {
-            if (wasteful_by_boundary[b])
-                printf("  boundary %2d (pair %d <-> pair %d): %llu\n", b, b-1, b, wasteful_by_boundary[b]);
-        }
-        return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--verify-9th-six") == 0) {
-        /* McKenna "9th six" audit (The Invisible Landscape, Ch 9):
-         * KW has 9 transitions of distance 6: 8 of these are within-pair (forced
-         * by WPD=6 pairs in the pair table) and exactly 1 is between-pair (the
-         * "synthetic" case at boundary 38->39 in KW). For each record, count
-         * the between-pair value-6 transitions and tabulate which boundary
-         * index they occur at. Tells us whether the between-pair-6 position
-         * is KW-specific or structurally forced. Sha-preserving. */
-        const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
-        init_pairs();
-        init_kw_dist();
-        FILE *vf = fopen(vpath, "rb");
-        if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
-        fseek(vf, 0, SEEK_END);
-        long vsize = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
-        unsigned char peek[4];
-        int shard = 0;
-        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
-            if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
-        }
-        fseek(vf, 0, SEEK_SET);
-        long long n_records;
-        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
-        else {
-            uint64_t hdr_records = 0;
-            if (sol_read_header(vf, &hdr_records) != 0) {
-                fprintf(stderr, "ERROR: %s has invalid magic\n", vpath);
-                fclose(vf); return 20;
-            }
-            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
-        }
-        printf("[--verify-9th-six] file=%s records=%lld\n", vpath, n_records);
-        printf("[--verify-9th-six] McKenna observation: KW has exactly 1 between-pair value-6 (at boundary 38<->39)\n");
-
-        unsigned long long between_six_count_dist[16] = {0};  /* indexed by count of between-pair sixes; cap at 15 */
-        unsigned long long between_six_by_boundary[32] = {0};
-        unsigned long long records_total = 0;
-
-        unsigned char rec[SOL_RECORD_SIZE];
-        for (long long r = 0; r < n_records; r++) {
-            if (fread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
-                fprintf(stderr, "ERROR: short read at record %lld\n", r); fclose(vf); return 20;
-            }
-            int seq[64];
-            for (int i = 0; i < 32; i++) {
-                int pidx = (rec[i] >> 2) & 0x3F;
-                int orient = (rec[i] >> 1) & 1;
-                if (orient == 0) {
-                    seq[i * 2] = pairs[pidx].a;
-                    seq[i * 2 + 1] = pairs[pidx].b;
-                } else {
-                    seq[i * 2] = pairs[pidx].b;
-                    seq[i * 2 + 1] = pairs[pidx].a;
-                }
-            }
-            int between_six = 0;
-            for (int b = 1; b < 32; b++) {
-                int bd = hamming(seq[2*b - 1], seq[2*b]);
-                if (bd == 6) {
-                    between_six++;
-                    between_six_by_boundary[b]++;
-                }
-            }
-            if (between_six < 16) between_six_count_dist[between_six]++;
-            else between_six_count_dist[15]++;  /* clamp */
-            records_total++;
-            if (r > 0 && r % 10000000 == 0) {
-                printf("  ... scanned %lld / %lld records\n", r, n_records); fflush(stdout);
-            }
-        }
-        fclose(vf);
-
-        printf("\n[--verify-9th-six] === RESULTS ===\n");
-        printf("Records scanned: %llu\n", records_total);
-        printf("\nDistribution of between-pair value-6 count per record:\n");
-        for (int c = 0; c < 16; c++) {
-            if (between_six_count_dist[c]) {
-                printf("  %d between-pair 6s: %llu records (%.4f%%)\n", c, between_six_count_dist[c],
-                       100.0 * between_six_count_dist[c] / (records_total ? records_total : 1));
-            }
-        }
-        printf("\nBetween-pair value-6 occurrences by boundary index (out of 31 between-pair boundaries):\n");
-        for (int b = 0; b < 32; b++) {
-            if (between_six_by_boundary[b]) {
-                printf("  boundary %2d (between pair %d and pair %d): %llu records (%.4f%%)\n",
-                       b, b-1, b, between_six_by_boundary[b],
-                       100.0 * between_six_by_boundary[b] / (records_total ? records_total : 1));
-            }
-        }
-        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--show") == 0) {
         show_mode = 1;
         int ai = 2;
@@ -6661,28 +6315,12 @@ int main(int argc, char *argv[]) {
          * that would produce a different solutions.bin from the same inputs.
          *
          * Reference: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, default depth-2.
-         *
-         * v2 lineage expected sha: 56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc
-         * (v2 = v1 + C5 feasibility (#68) + mid-walk C3 (#67) + C3 optimistic-
-         * completion bound (#70). Each prune tightens earlier checks, frees
-         * up node budget, lets each sub-branch reach more leaves at the same
-         * 100M budget, so the v2 selftest sha differs from v1's 403f7202...
-         * v2 sha will change again when additional prunes land (e.g. #71 C2
-         * lookahead). At v2 stabilization, the final v2 selftest sha gets
-         * recorded in CANONICAL_HASHES.md as the v2 lineage baseline. v1
-         * lineage on `main` branch retains expected_sha = 403f7202...
-         *
-         * Lineage progression on v2-bundled:
-         *   v1 alone:                       403f7202... (135,780 records)
-         *   v1 + C5 (bf58c65):              47dac6cb... (228,990 records)
-         *   v1 + C5 + #67 (9f4b630):        98b8c0ef... (234,252 records)
-         *   v1 + C5 + #67 + #70 (current):  56487ab5... (TBD records))
-         *
-         * Historical v1 note: Baseline was 76ada31e... before solutions.bin format v1 landed. The
+         * Expected sha256: 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+         * (Baseline was 76ada31e... before solutions.bin format v1 landed. The
          * content — 135,780 canonical pair orderings — is unchanged; only the
          * file bytes differ because the 32-byte header is now prepended.)
          */
-        const char *expected_sha = "56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc";
+        const char *expected_sha = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
@@ -6744,332 +6382,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
-    } else if (argc > 1 && strcmp(argv[1], "--selftest-resume") == 0) {
-        /* Phase E follow-up item 1: resume sha-equivalence selftest.
-         *
-         * Validates that the iterative+checkpoint resume code path
-         * (SOLVE_DFS_ITERATIVE=1 + SOLVE_DFS_CHECKPOINT=1) produces the
-         * same final solutions.bin sha as a single-shot run at the same
-         * final budget. Phase E.2 (2026-05-14) demonstrated that pre-
-         * c3ad271 code FAILS this test (-138 records via bug 3); post-
-         * fix code (main HEAD) MUST pass.
-         *
-         * Test design: PHASE_A 50M → PHASE_B 200M asymmetric extension
-         * in one tempdir; single-shot 200M in a fresh tempdir; compare
-         * the two solutions.bin shas. The 50M → 200M ratio matches the
-         * c3ad271 commit's own validation test, ensuring this selftest
-         * exercises the historically-buggy code path.
-         *
-         * Wall: ~10-30 sec on a 4-thread machine. Add to pre-commit
-         * hook alongside --selftest to catch resume regressions at
-         * commit time. */
-        char solve_path[4096] = {0};
-        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
-        if (sn <= 0) {
-            fprintf(stderr, "ERROR: readlink failed for --selftest-resume\n");
-            return 10;
-        }
-        solve_path[sn] = 0;
-        const char *tool = sha256_tool();
-        if (!tool) { require_sha256_tool(); return 30; }
-
-        char tdir_A[] = "/tmp/solve_selftest_resume_A_XXXXXX";
-        if (!mkdtemp(tdir_A)) {
-            fprintf(stderr, "ERROR: mkdtemp A failed\n");
-            return 10;
-        }
-        char tdir_B[] = "/tmp/solve_selftest_resume_B_XXXXXX";
-        if (!mkdtemp(tdir_B)) {
-            char rm[4200]; snprintf(rm, sizeof(rm), "rm -rf %s", tdir_A);
-            int _rc = system(rm); (void)_rc;
-            fprintf(stderr, "ERROR: mkdtemp B failed\n");
-            return 10;
-        }
-        printf("[--selftest-resume] PHASE_A 50M → PHASE_B 200M (resume): %s\n", tdir_A);
-        printf("[--selftest-resume] Single-shot 200M baseline:           %s\n", tdir_B);
-
-        char cmd[8192];
-        int rc;
-
-        /* PHASE_A at 50M in tdir_A */
-        snprintf(cmd, sizeof(cmd),
-                 "cd %s && unset SOLVE_DEPTH && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=50000000 "
-                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
-                 "%s 0 > phase_a.log 2>&1",
-                 tdir_A, solve_path);
-        rc = system(cmd);
-        if (rc != 0) {
-            fprintf(stderr, "[--selftest-resume] PHASE_A failed rc=%d (see %s/phase_a.log)\n",
-                    rc, tdir_A);
-            return 40;
-        }
-
-        /* PHASE_B at 200M in same tdir_A (resumes from PHASE_A checkpoint) */
-        snprintf(cmd, sizeof(cmd),
-                 "cd %s && unset SOLVE_DEPTH && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=200000000 "
-                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
-                 "%s 0 > phase_b.log 2>&1",
-                 tdir_A, solve_path);
-        rc = system(cmd);
-        if (rc != 0) {
-            fprintf(stderr, "[--selftest-resume] PHASE_B failed rc=%d (see %s/phase_b.log)\n",
-                    rc, tdir_A);
-            return 40;
-        }
-
-        /* Single-shot 200M in fresh tdir_B */
-        snprintf(cmd, sizeof(cmd),
-                 "cd %s && unset SOLVE_DEPTH && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=200000000 "
-                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
-                 "%s 0 > single.log 2>&1",
-                 tdir_B, solve_path);
-        rc = system(cmd);
-        if (rc != 0) {
-            fprintf(stderr, "[--selftest-resume] Single-shot failed rc=%d (see %s/single.log)\n",
-                    rc, tdir_B);
-            return 40;
-        }
-
-        char sha_resume[128] = {0}, sha_single[128] = {0};
-        snprintf(cmd, sizeof(cmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, tdir_A);
-        FILE *fp = popen(cmd, "r");
-        if (fp) { (void)!fgets(sha_resume, sizeof(sha_resume), fp); pclose(fp); }
-        snprintf(cmd, sizeof(cmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, tdir_B);
-        fp = popen(cmd, "r");
-        if (fp) { (void)!fgets(sha_single, sizeof(sha_single), fp); pclose(fp); }
-        for (char *p = sha_resume; *p; p++) if (*p == '\n') { *p = 0; break; }
-        for (char *p = sha_single; *p; p++) if (*p == '\n') { *p = 0; break; }
-
-        printf("[--selftest-resume] Resume sha:      %s\n", sha_resume);
-        printf("[--selftest-resume] Single-shot sha: %s\n", sha_single);
-
-        char rm[4200];
-        snprintf(rm, sizeof(rm), "rm -rf %s %s", tdir_A, tdir_B);
-        int _rc = system(rm); (void)_rc;
-
-        if (sha_resume[0] != 0 && strcmp(sha_resume, sha_single) == 0) {
-            printf("[--selftest-resume] PASS — resume produces byte-identical "
-                   "output to single-shot\n");
-            return 0;
-        }
-        fprintf(stderr, "[--selftest-resume] FAIL — resume sha differs from single-shot\n");
-        fprintf(stderr, "             This is the c3ad271 bug-3 class failure. See\n");
-        fprintf(stderr, "             documentation/HISTORY.md §Phase E.2 for context.\n");
-        return 40;
-    } else if (argc > 1 && strcmp(argv[1], "--emit-shard-manifest") == 0) {
-        /* Phase E follow-up item 5: write per-shard sha256 manifest.
-         *
-         * Scans the current working directory for sub_*.bin shard files,
-         * computes the sha256 of each, and writes a tab-separated manifest
-         * (default: shard_manifest.txt). One line per shard:
-         *
-         *   <filename>\t<size_bytes>\t<sha256_hex>
-         *
-         * Use case: after PHASE_A enum completes (e.g., before a planned
-         * Spot eviction), emit the manifest. Later PHASE_B (asymmetric
-         * extension or recovery) verifies it via --verify-shard-manifest
-         * to catch silent corruption of resumed shards. */
-        const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
-        const char *tool = sha256_tool();
-        if (!tool) { require_sha256_tool(); return 30; }
-        /* Use a shell pipeline rather than C globbing to handle the
-         * potentially-large (158k) shard file count without overflowing
-         * argv. The pipeline iterates ls output and emits the manifest. */
-        char cmd[8192];
-        snprintf(cmd, sizeof(cmd),
-                 "for f in sub_*.bin; do "
-                 "  [ -f \"$f\" ] || continue; "
-                 "  sz=$(stat -c%%s \"$f\"); "
-                 "  sh=$(%s \"$f\" | cut -d' ' -f1); "
-                 "  printf '%%s\\t%%s\\t%%s\\n' \"$f\" \"$sz\" \"$sh\"; "
-                 "done > %s.tmp && mv %s.tmp %s",
-                 tool, manifest_path, manifest_path, manifest_path);
-        int rc = system(cmd);
-        if (rc != 0) {
-            fprintf(stderr, "ERROR: --emit-shard-manifest failed rc=%d\n", rc);
-            return 30;
-        }
-        /* Report count */
-        char count_cmd[1024];
-        snprintf(count_cmd, sizeof(count_cmd), "wc -l < %s", manifest_path);
-        FILE *fp = popen(count_cmd, "r");
-        if (fp) {
-            char buf[64] = {0};
-            (void)!fgets(buf, sizeof(buf), fp);
-            pclose(fp);
-            for (char *p = buf; *p; p++) if (*p == '\n') { *p = 0; break; }
-            printf("[--emit-shard-manifest] Wrote %s with %s shard entries\n",
-                   manifest_path, buf);
-        } else {
-            printf("[--emit-shard-manifest] Wrote %s\n", manifest_path);
-        }
-        return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--verify-shard-manifest") == 0) {
-        /* Phase E follow-up item 5: verify shards against a prior manifest.
-         *
-         * For each entry in the manifest, asserts:
-         *   1. The shard file still exists.
-         *   2. Current file size >= recorded size (resume can only ADD
-         *      records; legitimate runs never shrink a shard).
-         *   3. sha256 of the first <recorded_size> bytes of the current
-         *      file matches the recorded sha256 (catches mid-write
-         *      corruption + bug-2-class cross-ref divergence).
-         *
-         * Any failure → exit 22 with diagnostic. The third check is the
-         * strongest: it converts silent c34390c0-class data corruption
-         * (resumed shards diverging from PHASE_A's content) into a loud
-         * fault before merge consumes the bad shards. */
-        const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
-        const char *tool = sha256_tool();
-        if (!tool) { require_sha256_tool(); return 30; }
-        FILE *mf = fopen(manifest_path, "r");
-        if (!mf) {
-            fprintf(stderr, "ERROR: cannot open manifest %s: %s\n",
-                    manifest_path, strerror(errno));
-            return 30;
-        }
-        int total = 0, missing = 0, shrunk = 0, diverged = 0;
-        char line[4096];
-        while (fgets(line, sizeof(line), mf)) {
-            total++;
-            char fname[512]; long long sz; char sha[128];
-            if (sscanf(line, "%511s %lld %127s", fname, &sz, sha) != 3) {
-                fprintf(stderr, "WARN: malformed manifest line %d, skipping: %.80s\n",
-                        total, line);
-                continue;
-            }
-            struct stat st;
-            if (stat(fname, &st) != 0) {
-                fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n",
-                        fname, sz);
-                missing++;
-                continue;
-            }
-            if ((long long)st.st_size < sz) {
-                fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
-                        fname, (long long)st.st_size, sz);
-                shrunk++;
-                continue;
-            }
-            /* sha256 of first sz bytes */
-            char cmd[8192], got[128] = {0};
-            snprintf(cmd, sizeof(cmd),
-                     "head -c %lld %s | %s | cut -d' ' -f1", sz, fname, tool);
-            FILE *p = popen(cmd, "r");
-            if (!p) {
-                fprintf(stderr, "ERROR: popen failed for %s\n", fname);
-                fclose(mf);
-                return 30;
-            }
-            (void)!fgets(got, sizeof(got), p);
-            pclose(p);
-            for (char *q = got; *q; q++) if (*q == '\n') { *q = 0; break; }
-            if (strcmp(got, sha) != 0) {
-                fprintf(stderr, "DIVERGED: %s — first %lld bytes sha=%s, manifest=%s\n",
-                        fname, sz, got, sha);
-                diverged++;
-            }
-        }
-        fclose(mf);
-        printf("[--verify-shard-manifest] %d entries checked: "
-               "%d missing, %d shrunk, %d diverged\n",
-               total, missing, shrunk, diverged);
-        if (missing == 0 && shrunk == 0 && diverged == 0) {
-            printf("[--verify-shard-manifest] PASS — all shards match manifest\n");
-            return 0;
-        }
-        fprintf(stderr, "[--verify-shard-manifest] FAIL — resume path corrupted shards\n");
-        fprintf(stderr, "             See documentation/DEVELOPMENT.md "
-                "§\"Resume-path defense in depth\" item 5.\n");
-        return 22;
-    } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
-        /* v2 Phase 1a foundation (2026-05-15): print CPU capability detection
-         * used by future AVX-512 runtime dispatch (per
-         * AVX512_IMPLEMENTATION_PLAN_2026_05_03.md §"Auto-detection").
-         *
-         * No behavioral change to canonical enumeration — this is a diagnostic
-         * subcommand that exercises __builtin_cpu_supports so the operator
-         * can confirm what features the running binary detects on the
-         * current host. Used by v2_bench_d64.sh fingerprint capture, by
-         * pre-flight checks before AVX-512 benchmarking, and by future
-         * runtime-dispatch implementations of cd_sum / hamming / histogram.
-         *
-         * Output is text-formatted for human + grep consumption. */
-        printf("[--cpu-features] CPU feature detection via __builtin_cpu_supports\n");
-        printf("  avx2             : %s\n", __builtin_cpu_supports("avx2") ? "yes" : "no");
-        printf("  avx512f          : %s\n", __builtin_cpu_supports("avx512f") ? "yes" : "no");
-        printf("  avx512bw         : %s\n", __builtin_cpu_supports("avx512bw") ? "yes" : "no");
-        printf("  avx512dq         : %s\n", __builtin_cpu_supports("avx512dq") ? "yes" : "no");
-        printf("  avx512vl         : %s\n", __builtin_cpu_supports("avx512vl") ? "yes" : "no");
-        printf("  avx512vpopcntdq  : %s\n", __builtin_cpu_supports("avx512vpopcntdq") ? "yes" : "no");
-        printf("  avx512vnni       : %s\n", __builtin_cpu_supports("avx512vnni") ? "yes" : "no");
-        printf("  avx512bitalg     : %s\n", __builtin_cpu_supports("avx512bitalg") ? "yes" : "no");
-        printf("  avx512vbmi       : %s\n", __builtin_cpu_supports("avx512vbmi") ? "yes" : "no");
-        printf("  avx512vbmi2      : %s\n", __builtin_cpu_supports("avx512vbmi2") ? "yes" : "no");
-        printf("  bmi2             : %s\n", __builtin_cpu_supports("bmi2") ? "yes" : "no");
-        printf("  popcnt           : %s\n", __builtin_cpu_supports("popcnt") ? "yes" : "no");
-        printf("  fma              : %s\n", __builtin_cpu_supports("fma") ? "yes" : "no");
-        /* Composite verdict: would the planned AVX-512 hot paths actually fire? */
-        int avx512_ready = __builtin_cpu_supports("avx512f")
-                        && __builtin_cpu_supports("avx512bw")
-                        && __builtin_cpu_supports("avx512vpopcntdq");
-        printf("\n  v2 AVX-512 dispatch ready (avx512f + avx512bw + avx512vpopcntdq): %s\n",
-               avx512_ready ? "YES — vectorized path will be selected" :
-                               "NO — scalar fallback will be used");
-        return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--cpu-freq") == 0) {
-        /* --cpu-freq (2026-05-16): sample per-core MHz from /proc/cpuinfo.
-         * Diagnostic for thermal-throttle detection during paired performance
-         * benches. Adds aggregate min / avg / max across all cores plus a
-         * health verdict against an operator-configurable threshold (--cpu-freq
-         * 2200 → flag any core below 2200 MHz). Default threshold: 2000 MHz.
-         *
-         * Why: Standard on-demand D128als_v7 hosts in westus3 can hand back
-         * thermally-throttled physical hosts at ~600 MHz vs the expected
-         * 2596 MHz base / 3700 MHz boost. The pre-bench probe at
-         * scripts/d128_preflight_throttle_probe.sh validates the host before
-         * trial 1 runs; this subcommand lets a bench check mid-run too. */
-        long threshold_mhz = 2000;
-        if (argc > 2) threshold_mhz = atol(argv[2]);
-        FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
-        if (!cpuinfo) {
-            fprintf(stderr, "[--cpu-freq] cannot open /proc/cpuinfo: %s\n", strerror(errno));
-            return 2;
-        }
-        long min_mhz = -1, max_mhz = -1, sum_mhz = 0, count = 0;
-        long below_threshold = 0;
-        char line[512];
-        while (fgets(line, sizeof(line), cpuinfo)) {
-            if (strncmp(line, "cpu MHz", 7) == 0) {
-                char *colon = strchr(line, ':');
-                if (!colon) continue;
-                long mhz = (long)strtod(colon + 1, NULL);
-                if (mhz <= 0) continue;
-                if (min_mhz < 0 || mhz < min_mhz) min_mhz = mhz;
-                if (max_mhz < 0 || mhz > max_mhz) max_mhz = mhz;
-                sum_mhz += mhz;
-                count++;
-                if (mhz < threshold_mhz) below_threshold++;
-            }
-        }
-        fclose(cpuinfo);
-        if (count == 0) {
-            fprintf(stderr, "[--cpu-freq] no 'cpu MHz' lines in /proc/cpuinfo\n");
-            return 2;
-        }
-        long avg_mhz = sum_mhz / count;
-        printf("[--cpu-freq] cores=%ld min=%ld avg=%ld max=%ld threshold=%ld below=%ld\n",
-               count, min_mhz, avg_mhz, max_mhz, threshold_mhz, below_threshold);
-        if (below_threshold > 0) {
-            printf("  ⚠ THROTTLED — %ld of %ld cores below %ld MHz (likely thermal/power cap)\n",
-                   below_threshold, count, threshold_mhz);
-            return 1;
-        }
-        printf("  ✓ HEALTHY — all %ld cores at or above %ld MHz\n", count, threshold_mhz);
-        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
@@ -10825,35 +10137,6 @@ int main(int argc, char *argv[]) {
             return 30;
         }
 
-        /* Phase E follow-up item 2: append provenance metadata to solutions.sha256.
-         * The bare-hash first line stays compatible with `sha256sum -c`; subsequent
-         * lines are `#`-prefixed metadata. c34390c0 forensic mystery would have
-         * been instantly diagnosable with this metadata. */
-        {
-            FILE *sm = fopen(sha_name, "a");
-            if (sm) {
-                char tbuf[64];
-                time_t now = time(NULL);
-                struct tm tmbuf;
-                strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tmbuf));
-                fprintf(sm, "# Date: %s\n", tbuf);
-                fprintf(sm, "# Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
-                fprintf(sm, "# Unique orderings: %lld\n", unique);
-                if (node_limit > 0)
-                    fprintf(sm, "# SOLVE_NODE_LIMIT=%lld\n", node_limit);
-                fprintf(sm, "# SOLVE_DFS_ITERATIVE=%d\n", dfs_iterative_enabled);
-                fprintf(sm, "# SOLVE_DFS_CHECKPOINT=%d\n", dfs_checkpoint_enabled);
-                if (per_sub_branch_override > 0)
-                    fprintf(sm, "# SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", per_sub_branch_override);
-                const char *rh = getenv("SOLVE_RESUME_HISTORY");
-                if (rh && *rh)
-                    fprintf(sm, "# SOLVE_RESUME_HISTORY: %s\n", rh);
-                else
-                    fprintf(sm, "# SOLVE_RESUME_HISTORY: (none — clean single-shot run)\n");
-                fclose(sm);
-            }
-        }
-
         char hash[130] = {0};
         FILE *hf = fopen(sha_name, "r");
         if (!hf) {
@@ -12013,7 +11296,7 @@ sub_enum_done:
             if (n_threads_p > n_sub_sub_tasks) n_threads_p = n_sub_sub_tasks;
 
             /* Worker ThreadStates — one per thread, private hash tables. */
-            ThreadState workers[SOLVE_MAX_THREADS];
+            ThreadState workers[256];  /* up to 256 threads (matches main threads array) */
             time_t now_init = time(NULL);
             for (int i = 0; i < n_threads_p; i++) {
                 memset(&workers[i], 0, sizeof(ThreadState));
@@ -12071,7 +11354,7 @@ sub_enum_done:
             printf("Starting parallel --sub-branch enumeration...\n\n");
             fflush(stdout);
 
-            pthread_t tids_p[SOLVE_MAX_THREADS];
+            pthread_t tids_p[256];  /* up to 256 threads */
             for (int i = 0; i < n_threads_p; i++) {
                 int rc = pthread_create(&tids_p[i], NULL, thread_func_sub_sub, &workers[i]);
                 if (rc != 0) {
@@ -12367,21 +11650,16 @@ sub_enum_done:
         if (arg_offset + 1 < argc) n_threads = atoi(argv[arg_offset + 1]);
         if (n_threads > n_sub) n_threads = n_sub;
         if (n_threads < 1) n_threads = 1;
-        if (n_threads > SOLVE_MAX_THREADS) {
-            fprintf(stderr, "WARNING: SOLVE_THREADS=%d exceeds SOLVE_MAX_THREADS=%d; clamping.\n",
-                    n_threads, SOLVE_MAX_THREADS);
-            n_threads = SOLVE_MAX_THREADS;
-        }
 
-        /* Distribute sub-branches round-robin. Arrays sized to
-         * SOLVE_MAX_THREADS to match the main full-enum path. The
-         * original [64][64] sizes were a buffer overflow at
+        /* Distribute sub-branches round-robin. Arrays sized for up to
+         * 256 threads to match the main threads[256] in the full-enum
+         * path. The original [64][64] sizes were a buffer overflow at
          * SOLVE_THREADS=128 (depth-3 has up to ~2828 sub-branches per
          * first-level branch, so n_threads is unclamped at 128).
          * Use heap allocation for the 2D thread_subs to avoid huge
          * stack allocations at large thread counts. */
-        ThreadState threads[SOLVE_MAX_THREADS];
-        int thread_sub_count[SOLVE_MAX_THREADS];
+        ThreadState threads[256];
+        int thread_sub_count[256];
         int max_sub_per_thread = (n_sub + n_threads - 1) / n_threads + 8;
         SubBranch *thread_subs_flat = malloc((size_t)n_threads *
                                               (size_t)max_sub_per_thread *
@@ -12442,7 +11720,7 @@ sub_enum_done:
 
         start_time = time(NULL);
 
-        pthread_t tids[SOLVE_MAX_THREADS];
+        pthread_t tids[256];
         int n_started = 0;
         for (int i = 0; i < n_threads; i++) {
             int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
@@ -12523,12 +11801,7 @@ sub_enum_done:
         long long total_hash_drops = 0;
         long long total_stored = 0;
         int branches_done = 0;
-        /* Sized SOLVE_MAX_THREADS*TOP_N: same OOB pattern as the main-enum
-         * path at line ~12438 (fixed in f42f2ae 2026-05-06 for main-enum,
-         * missed here in the --sub-branch legacy block). At n_threads>64
-         * each thread contributing up to TOP_N=20 ClosestEntry rows
-         * overwrote past the old 64*TOP_N=1280 slot bound. */
-        ClosestEntry all_top[SOLVE_MAX_THREADS * TOP_N];
+        ClosestEntry all_top[64 * TOP_N];
         int all_top_count = 0;
 
         for (int i = 0; i < n_threads; i++) {
@@ -12835,6 +12108,14 @@ sub_enum_done:
     else if (node_limit > 0)
         current_per_branch_budget = node_limit / 3030;
     load_sub_checkpoint();
+    /* v3.1: orphaned-shard promotion eliminates the costly fast-skip LOAD phase
+     * on Spot-eviction recoveries. Cleanup .tmp files first (interrupted writes),
+     * then promote any .bin without a checkpoint.txt entry into the skip-list.
+     * Promoted shards are credited to n_completed_subs so progress reporting
+     * reflects them correctly. */
+    cleanup_orphaned_tmp_files();
+    int promoted_orphans = promote_orphaned_shards();
+    if (promoted_orphans > 0) n_completed_subs += promoted_orphans;
     if (n_completed_subs > 0) {
         printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
                n_completed_subs);
@@ -12990,17 +12271,12 @@ sub_enum_done:
     if (env_threads) n_threads = atoi(env_threads);
     if (arg_offset < argc - 1) n_threads = atoi(argv[arg_offset + 1]);
     if (n_threads > n_all_subs) n_threads = n_all_subs;
-    if (n_threads > SOLVE_MAX_THREADS) {
-        fprintf(stderr, "WARNING: SOLVE_THREADS=%d exceeds SOLVE_MAX_THREADS=%d; clamping.\n",
-                n_threads, SOLVE_MAX_THREADS);
-        n_threads = SOLVE_MAX_THREADS;
-    }
     if (n_threads < 1) n_threads = 1;
 
     /* Distribute sub-branches round-robin across threads */
-    ThreadState threads[SOLVE_MAX_THREADS];
-    SubBranch *thread_subs[SOLVE_MAX_THREADS];
-    int thread_sub_count[SOLVE_MAX_THREADS];
+    ThreadState threads[256];  /* up to 256 threads */
+    SubBranch *thread_subs[256];
+    int thread_sub_count[256];
     memset(thread_sub_count, 0, sizeof(thread_sub_count));
 
     /* Allocate per-thread sub-branch arrays */
@@ -13065,7 +12341,7 @@ sub_enum_done:
     start_time = time(NULL);
 
     /* Launch threads — use thread_func_single which handles SubBranch work units */
-    pthread_t tids[SOLVE_MAX_THREADS];
+    pthread_t tids[256];
     int n_started = 0;
     for (int i = 0; i < n_threads; i++) {
         int rc = pthread_create(&tids[i], NULL, thread_func_single, &threads[i]);
@@ -13161,10 +12437,13 @@ sub_enum_done:
     long long total_stored = 0;
     int branches_done = 0;
 
-    /* Sized SOLVE_MAX_THREADS*TOP_N. Earlier 64*TOP_N produced a stack-buffer-
-     * overflow once SOLVE_THREADS exceeded 64 — caught by AddressSanitizer
-     * 2026-05-05 (task #54), fixed in f42f2ae 2026-05-06. */
-    ClosestEntry all_top[SOLVE_MAX_THREADS * TOP_N];
+    /* Sized 256*TOP_N to match ThreadState workers[256] / threads[256] ceiling
+     * elsewhere in main(). Earlier 64*TOP_N produced a stack-buffer-overflow
+     * at line 12058 once SOLVE_THREADS exceeded 64 — caught by AddressSanitizer
+     * 2026-05-05 (task #54). With 128 threads × top_count up to TOP_N=20, the
+     * old 1280-slot array could be written 2,560 times. The 256*TOP_N=5,120-
+     * slot array now matches the project's MAX_THREADS=256 ceiling. */
+    ClosestEntry all_top[256 * TOP_N];
     int all_top_count = 0;
 
     for (int i = 0; i < n_threads; i++) {
@@ -13265,21 +12544,6 @@ sub_enum_done:
     char hash_only[65] = {0};
     int total_done_final = 0;
     int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
-
-    /* SOLVE_SKIP_AUTOMERGE: exit cleanly after enum, leaving shards on disk
-     * for a separate merge VM. Use case: canonical re-derivation cascade
-     * where enum runs on parallel-heavy Spot D128 and merge runs on a
-     * right-sized single-thread Standard D8/D16. The default in-process
-     * merge below consumes ~30-50 min of D128 time for what could run on
-     * D16. SOLVE_SKIP_AUTOMERGE lets the operator skip the bundled merge
-     * and run `./solve --merge` separately on the smaller VM after
-     * detaching/transferring the scratch disk. Inert when env var unset. */
-    if (getenv("SOLVE_SKIP_AUTOMERGE") != NULL) {
-        printf("SOLVE_SKIP_AUTOMERGE set; skipping bundled merge. "
-               "Shards remain on disk. Run `solve --merge` separately.\n");
-        fflush(stdout);
-        return 0;
-    }
 
     /* Fork-based merge for the iterative+v2 path. Test A on 2026-04-30
      * surfaced heap corruption when the in-process merge ran after a
