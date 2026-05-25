@@ -624,6 +624,29 @@ keeping the managed disk.
 
 ---
 
+## Canonical run discipline (added 2026-05-25 after the v3.1 hardening audit)
+
+Every canonical-scale enumeration (≥1T `SOLVE_NODE_LIMIT`) MUST run in a clean, dedicated run directory. The solver enforces this in part with startup gates (LOCK file, `build.sha` check, `.budget` sidecar verification) — but those guard against subsets of the failure modes documented in the audit (`petersm3/x:roae/V3_1_HARDENING_AUDIT_2026_05_25.md`). One mode (Outlier #6: filename-pattern false-positive from foreign `sub_*.bin` files in the run dir) is intentionally NOT enforced in code, because a hard "empty cwd" gate would be too operator-unfriendly. Instead, follow this convention:
+
+**One canonical campaign → one fresh subdirectory.** Pattern: `solver-data-westus3:/<YYYYMMDD>_<lineage>_<scale>_<campaign_id>/` (e.g., `20260521_v2_100T_buildA/`).
+
+What goes in the run dir:
+- The solver binary `solve` (or a build-recipe script that produces it)
+- `solutions.bin` and `solutions.bin.sha256` (after the merge)
+- Shard files `sub_*.bin` and `sub_*.bin.budget` (during enum; can be deleted post-archive at operator discretion, except for v3 lineage where the convention is "preserve shards" per `project_v2_100T_precedes_560T` memory)
+- `checkpoint.txt` (always)
+- `solve.lock` (during run only; auto-cleaned on normal exit)
+- `build.sha` (always; first run creates it)
+- Run-metadata file (operator-written, e.g., `RUN_METADATA.txt`, `WITNESS.md`)
+
+What MUST NOT go in the run dir:
+- Files matching `sub_*.bin` from another campaign. Even at a different scale, a manually-copied shard from another campaign with the same filename pattern would be picked up by `promote_orphaned_shards()` and merged into the final output, producing wrong-but-deterministic canonical bytes. The `.budget` sidecar partially mitigates (sidecar mismatch → refuse promotion), but a foreign shard with a coincidentally-matching budget would still slip through.
+- Build artifacts or staging files matching the shard naming pattern.
+
+If you're recovering from a failed run and need to combine partial shards from multiple attempts: do so in a freshly-created run dir, not in either source dir. The `solve --merge` step is meant to be the single point where shards meet `solutions.bin`; do the assembly explicitly.
+
+For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir convention is mandatory pre-launch and the dir must be created on `solver-data-westus3` immediately before the enum VM is provisioned — no shared / reused dirs.
+
 ## Known gotchas
 
 ### Compile

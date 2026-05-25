@@ -1389,6 +1389,11 @@ static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, in
     return (completed_sub_bitmap_d3[key >> 3] >> (key & 7)) & 1;
 }
 
+/* Forward declaration — read_budget_sidecar is defined below v3.1's
+ * orphan-promotion code but is called inside promote_orphaned_shards
+ * for the Outlier #5 budget-mismatch check. */
+static long long read_budget_sidecar(const char *bin_fname);
+
 /* ---------- v3.1: fast-skip elimination via orphaned-shard promotion ---------- */
 
 /* Delete any sub_*.bin.tmp files left from interrupted flush writes,
@@ -1416,6 +1421,8 @@ static void cleanup_orphaned_tmp_files(void) {
         if (len < 8) continue;
         if (strncmp(n, "sub_", 4) != 0) continue;
         if (strcmp(n + len - 4, ".tmp") == 0) {
+            /* matches sub_*.bin.tmp AND sub_*.bin.budget.tmp — both are
+             * incomplete writes from interrupted operations. */
             if (unlink(n) == 0) removed_tmp++;
             continue;
         }
@@ -1505,6 +1512,45 @@ static int promote_orphaned_shards(void) {
         }
         long long records = st.st_size / SOL_RECORD_SIZE;
 
+        /* Outlier #5 (per-sub-branch budget mismatch on resume): read the
+         * `.budget` sidecar (written by flush_sub_solutions[_d3] at the
+         * shard's original budget). If present and equal to the current
+         * budget, promote. If present and different, refuse — let the
+         * LOAD path decide (it may re-walk at the new budget). If absent
+         * (legacy shard from pre-sidecar code), the default is lenient
+         * (WARN, allow); strict mode via SOLVE_REQUIRE_BUDGET_SIDECAR=1
+         * refuses the promotion.
+         *
+         * Both decisions are sha-neutral for the matching-budget case
+         * (the dominant case in practice). */
+        long long shard_budget = read_budget_sidecar(n);
+        if (shard_budget > 0) {
+            if (current_per_branch_budget > 0 && shard_budget != current_per_branch_budget) {
+                fprintf(stderr,
+                        "WARN: orphaned shard %s was generated at per-sub-branch budget %lld, "
+                        "current run is at %lld (Outlier #5); refusing promotion. LOAD path "
+                        "will re-walk this sub-branch at the current budget.\n",
+                        n, shard_budget, current_per_branch_budget);
+                integrity_fail++;
+                continue;
+            }
+        } else {
+            const char *strict = getenv("SOLVE_REQUIRE_BUDGET_SIDECAR");
+            if (strict && atoi(strict) == 1) {
+                fprintf(stderr,
+                        "WARN: orphaned shard %s has no .budget sidecar (Outlier #5; SOLVE_REQUIRE_BUDGET_SIDECAR=1 strict mode); "
+                        "refusing promotion. LOAD path will re-walk.\n",
+                        n);
+                integrity_fail++;
+                continue;
+            }
+            /* lenient default: legacy shard without sidecar; allow but warn */
+            fprintf(stderr,
+                    "[v3.1] Note: orphaned shard %s has no .budget sidecar (legacy or sidecar-write-failed). "
+                    "Allowing promotion under lenient default. Set SOLVE_REQUIRE_BUDGET_SIDECAR=1 for strict mode.\n",
+                    n);
+        }
+
         /* Append a BUDGETED line to checkpoint.txt for next-resume durability.
          * Use thread -1 as a "promoted" sentinel so the entry is distinguishable
          * from real walk-completion entries in post-hoc analysis.
@@ -1571,9 +1617,70 @@ static int promote_orphaned_shards(void) {
     return promoted;
 }
 
-/* Forward declaration — sha256_tool() is defined later in file (line ~3834)
- * but check_build_sha_invariant() below needs it. */
+/* Forward declarations — sha256_tool() defined later (line ~3834);
+ * read_budget_sidecar/write_budget_sidecar defined just below promote_orphaned_shards
+ * but read_budget_sidecar is called inside promote (Outlier #5 sidecar check). */
 static const char *sha256_tool(void);
+static long long read_budget_sidecar(const char *bin_fname);
+
+/* Outlier #5 mitigation (hardening audit 2026-05-25 — landed 2026-05-25):
+ * write a `.budget` sidecar alongside each sub-branch .bin file recording
+ * the per-sub-branch node budget at which the shard was walked. The
+ * sidecar enables promote_orphaned_shards() to refuse cross-budget
+ * promotion (which would silently mix records from different per-cell
+ * exploration depths).
+ *
+ * Format: a single decimal number (the budget) followed by a newline.
+ * Atomic write: .budget.tmp + rename. Sidecar lives at
+ * `sub_<...>.bin.budget` (parallel to `.dfs_state` and `.tmp` patterns).
+ *
+ * Sha-preservation: yes. The .bin file itself is unchanged, and
+ * solutions.bin (the final merge output) is computed over the .bin
+ * record bytes, not over the sidecar. All seven existing canonical
+ * shas (5.6T `f66920c1`, 10T `b85c887128`, 11.2T `0c0fe37c`, 100T
+ * `915abf30`, 1T `5a0f0bc2`, v2 11.2T `2cc966e4`, v2 100T `cc4a5377`)
+ * are preserved across this change. */
+static void write_budget_sidecar(const char *bin_fname, long long budget) {
+    if (budget <= 0) return;  /* nothing meaningful to record */
+    char path[128], tmp[128];
+    int n1 = snprintf(path, sizeof(path), "%s.budget", bin_fname);
+    int n2 = snprintf(tmp, sizeof(tmp), "%s.budget.tmp", bin_fname);
+    if (n1 < 0 || n2 < 0 || (size_t)n1 >= sizeof(path) || (size_t)n2 >= sizeof(tmp)) {
+        fprintf(stderr, "WARN: budget-sidecar path too long for %s; skipping (Outlier #5 unguarded for this shard)\n",
+                bin_fname);
+        return;
+    }
+    FILE *f = fopen(tmp, "w");
+    if (!f) {
+        fprintf(stderr, "WARN: cannot open %s for write: %s\n", tmp, strerror(errno));
+        return;
+    }
+    if (fprintf(f, "%lld\n", budget) < 0 || fflush(f) != 0 || fsync(fileno(f)) != 0 || fclose(f) != 0) {
+        fprintf(stderr, "WARN: budget-sidecar write/fsync failed for %s: %s\n", tmp, strerror(errno));
+        unlink(tmp);
+        return;
+    }
+    if (rename(tmp, path) != 0) {
+        fprintf(stderr, "WARN: budget-sidecar rename %s -> %s failed: %s\n", tmp, path, strerror(errno));
+        unlink(tmp);
+        return;
+    }
+}
+
+/* Read the .budget sidecar for a shard. Returns the recorded budget,
+ * or -1 if missing / unreadable / malformed. Caller decides policy
+ * (strict refuse vs lenient warn-and-proceed). */
+static long long read_budget_sidecar(const char *bin_fname) {
+    char path[128];
+    if (snprintf(path, sizeof(path), "%s.budget", bin_fname) < 0) return -1;
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    long long b = -1;
+    int n = fscanf(f, "%lld", &b);
+    fclose(f);
+    if (n != 1 || b <= 0) return -1;
+    return b;
+}
 
 /* ---------- Canonical-run startup invariants (hardening audit 2026-05-25) ----------
  *
@@ -2806,6 +2913,10 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
         exit(1);
     }
+    /* Outlier #5 mitigation: record per-sub-branch budget alongside the
+     * shard so a future resume can detect budget mismatch. Sha-neutral
+     * (sidecar, not embedded in .bin). */
+    write_budget_sidecar(fname, current_per_branch_budget);
     fprintf(stderr, "  Wrote %lld solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
@@ -2855,6 +2966,8 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
         exit(1);
     }
+    /* Outlier #5 mitigation: see flush_sub_solutions_d3 comment for rationale. */
+    write_budget_sidecar(fname, current_per_branch_budget);
     fprintf(stderr, "  Wrote %lld solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
