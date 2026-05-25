@@ -4415,3 +4415,28 @@ The 2026-05-25 main reset to v3 BRANCH solve.c (commit `9f10f05`) had lost the P
 6. If FAIL (any of MISSING/SHRUNK/DIVERGED): halt; investigate; the LOAD path's re-walk option remains available per the `.budget` sidecar mechanism
 
 The whole "Resume-path defense in depth" capability from d683794 is now back on main (minus the `--selftest-resume` testing harness, which can be re-added later with the #92 fix if that path is wanted).
+
+## May 26, 2026 UTC (00:30) — Auto-emit + auto-verify shard manifest by default
+
+Per operator directive ("dummy-proof and reproducible by default"), the canonical-enum dispatch now automatically protects shards across runs without operator intervention:
+
+- **Auto-verify on startup** (before `load_sub_checkpoint` and `promote_orphaned_shards`): if `shard_manifest.txt` exists from a prior run, the full verify logic runs. MISSING/SHRUNK/DIVERGED triggers exit 22 with the recovery instructions inline.
+- **Auto-emit after promote_orphaned_shards**: a fresh `shard_manifest.txt` is written capturing the just-resumed state (including any orphan-promoted shards from a Spot eviction recovery). The next run's auto-verify will check against this snapshot.
+
+Refactored the `--emit-shard-manifest` and `--verify-shard-manifest` subcommand bodies to call shared `do_emit_shard_manifest()` and `do_verify_shard_manifest()` helpers; the auto-protect path calls the same helpers (no fork/exec overhead). Subcommand behavior unchanged from external observers.
+
+**Override**: `SOLVE_SKIP_AUTO_MANIFEST=1` skips both auto-verify and auto-emit (for dev iteration; not recommended for canonical campaigns).
+
+**Cost at canonical scale**: O(N_shards) sha256 ops at startup. At 11.2T (~48k non-empty shards), ~2-3 min wall on D32 — negligible vs the ~2h enum. The 158k shards at 100T would take ~5-10 min; still negligible.
+
+**Sha-neutral**: helpers only READ shard files (size + sha256); never modify content. `solutions.bin` (the final merge output) is bit-identical regardless of whether manifest checks ran. Selftest sha `403f7202…` preserved.
+
+**Empirical tests** (D2 orchestrator):
+- First run, no manifest: auto-verify skips (log "first-run or fresh dir"); auto-emit writes 0-entry manifest (no shards yet at point of startup); after enum completes shards exist on disk
+- Second run (after first run wrote shards): auto-verify PASS on a clean second startup; auto-emit re-snapshots with 310 entries
+- Second run with TAMPERED shard (mid-content bytes overwritten while size preserved): DIVERGED detected, exit 22, clear ERROR message with recovery guidance
+- `SOLVE_SKIP_AUTO_MANIFEST=1` cleanly bypasses both auto-verify and auto-emit (skipped messages logged)
+
+**For 560T launch**: the manual `--emit-shard-manifest` / `--verify-shard-manifest` invocations from the recommended resume protocol are now redundant — solve.c does it on every canonical-enum start. Operator can still use the subcommands for ad-hoc snapshots / checks; they call the same helpers.
+
+This closes the operational gap for resume-path corruption detection: any DIVERGED shard between two consecutive `solve` invocations on the same cwd is automatically detected before merge. The only remaining uncovered window is mid-process changes within a single `solve` lifetime (not relevant to Spot eviction since process dies).

@@ -1623,10 +1623,13 @@ static int promote_orphaned_shards(void) {
     return promoted;
 }
 
-/* Forward declarations — sha256_tool() defined later (line ~3834);
- * read_budget_sidecar/write_budget_sidecar defined just below promote_orphaned_shards
- * but read_budget_sidecar is called inside promote (Outlier #5 sidecar check). */
+/* Forward declarations — sha256_tool()/require_sha256_tool() defined later
+ * (line ~3834); read_budget_sidecar/write_budget_sidecar defined just below
+ * promote_orphaned_shards but read_budget_sidecar is called inside promote
+ * (Outlier #5 sidecar check); do_emit/do_verify_shard_manifest are called
+ * from the auto-protect helpers in the canonical-enum startup. */
 static const char *sha256_tool(void);
+static int require_sha256_tool(void);
 static long long read_budget_sidecar(const char *bin_fname);
 
 /* Outlier #5 mitigation (hardening audit 2026-05-25 — landed 2026-05-25):
@@ -1778,6 +1781,164 @@ static int acquire_canonical_lock(void) {
     atexit(release_canonical_lock);
     fprintf(stderr, "[hardening] solve.lock acquired (pid=%d host=%s)\n", (int)getpid(), host);
     return 0;
+}
+
+/* Phase E.2 follow-up #5 helpers (refactored 2026-05-26 from the
+ * --emit-shard-manifest / --verify-shard-manifest subcommand bodies so
+ * the canonical-enum auto-protect path can call the same logic without
+ * fork/exec overhead). All sha-neutral — they operate on `.bin` files
+ * but never modify their content, only read for sha256 + size. */
+
+static int do_emit_shard_manifest(const char *manifest_path) {
+    const char *tool = sha256_tool();
+    if (!tool) { require_sha256_tool(); return 30; }
+    char cmd[8192];
+    snprintf(cmd, sizeof(cmd),
+             "for f in sub_*.bin; do "
+             "  [ -f \"$f\" ] || continue; "
+             "  sz=$(stat -c%%s \"$f\"); "
+             "  sh=$(%s \"$f\" | cut -d' ' -f1); "
+             "  printf '%%s\\t%%s\\t%%s\\n' \"$f\" \"$sz\" \"$sh\"; "
+             "done > %s.tmp && mv %s.tmp %s",
+             tool, manifest_path, manifest_path, manifest_path);
+    int rc = system(cmd);
+    if (rc != 0) return 30;
+    return 0;
+}
+
+/* Verify a shard manifest. Returns 0 on PASS, 22 on any failure, 30 on
+ * infrastructure error (manifest unreadable). Out-params receive counts. */
+static int do_verify_shard_manifest(const char *manifest_path,
+                                    int *out_total, int *out_missing,
+                                    int *out_shrunk, int *out_diverged) {
+    if (out_total) *out_total = 0;
+    if (out_missing) *out_missing = 0;
+    if (out_shrunk) *out_shrunk = 0;
+    if (out_diverged) *out_diverged = 0;
+    const char *tool = sha256_tool();
+    if (!tool) { require_sha256_tool(); return 30; }
+    FILE *mf = fopen(manifest_path, "r");
+    if (!mf) {
+        fprintf(stderr, "ERROR: cannot open manifest %s: %s\n",
+                manifest_path, strerror(errno));
+        return 30;
+    }
+    int total = 0, missing = 0, shrunk = 0, diverged = 0;
+    char line[4096];
+    while (fgets(line, sizeof(line), mf)) {
+        total++;
+        char fname[512]; long long sz; char sha[128];
+        if (sscanf(line, "%511s %lld %127s", fname, &sz, sha) != 3) {
+            fprintf(stderr, "WARN: malformed manifest line %d, skipping: %.80s\n",
+                    total, line);
+            continue;
+        }
+        struct stat st;
+        if (stat(fname, &st) != 0) {
+            fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n", fname, sz);
+            missing++;
+            continue;
+        }
+        if ((long long)st.st_size < sz) {
+            fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
+                    fname, (long long)st.st_size, sz);
+            shrunk++;
+            continue;
+        }
+        char cmd[8192], got[128] = {0};
+        snprintf(cmd, sizeof(cmd),
+                 "head -c %lld %s | %s | cut -d' ' -f1", sz, fname, tool);
+        FILE *p = popen(cmd, "r");
+        if (!p) {
+            fprintf(stderr, "ERROR: popen failed for %s\n", fname);
+            fclose(mf);
+            return 30;
+        }
+        (void)!fgets(got, sizeof(got), p);
+        pclose(p);
+        for (char *q = got; *q; q++) if (*q == '\n') { *q = 0; break; }
+        if (strcmp(got, sha) != 0) {
+            fprintf(stderr, "DIVERGED: %s - first %lld bytes sha=%s, manifest=%s\n",
+                    fname, sz, got, sha);
+            diverged++;
+        }
+    }
+    fclose(mf);
+    if (out_total) *out_total = total;
+    if (out_missing) *out_missing = missing;
+    if (out_shrunk) *out_shrunk = shrunk;
+    if (out_diverged) *out_diverged = diverged;
+    return (missing == 0 && shrunk == 0 && diverged == 0) ? 0 : 22;
+}
+
+/* Canonical-enum auto-protect (added 2026-05-26 — operator directive
+ * "dummy-proof and reproducible by default"):
+ *
+ * - auto_verify_shard_manifest_if_exists() at startup, before
+ *   promote_orphaned_shards. If shard_manifest.txt is present, runs the
+ *   full verify; refuses to proceed on MISSING/SHRUNK/DIVERGED unless
+ *   SOLVE_SKIP_AUTO_MANIFEST=1.
+ * - auto_emit_shard_manifest_default() after promote_orphaned_shards.
+ *   Captures the just-resumed state so the NEXT run's auto-verify can
+ *   detect any tampering, eviction-corruption, or foreign-shard injection
+ *   between this run and the next.
+ *
+ * Cost at canonical scale: O(N_shards) sha256 ops. At 11.2T (~48k non-
+ * empty shards), this is ~2-3 minutes wall on D32 — negligible vs the
+ * ~2h enum. Override SOLVE_SKIP_AUTO_MANIFEST=1 if iterating in dev.
+ *
+ * Sha-neutral: never modifies .bin content, only reads. solutions.bin
+ * (the final merge output) is bit-identical. */
+
+static int auto_verify_shard_manifest_if_exists(void) {
+    if (getenv("SOLVE_SKIP_AUTO_MANIFEST") && atoi(getenv("SOLVE_SKIP_AUTO_MANIFEST")) == 1) {
+        fprintf(stderr, "[hardening] auto-verify-manifest SKIPPED (SOLVE_SKIP_AUTO_MANIFEST=1)\n");
+        return 0;
+    }
+    struct stat st;
+    if (stat("shard_manifest.txt", &st) != 0) {
+        fprintf(stderr, "[hardening] no prior shard_manifest.txt; first-run or fresh dir (auto-verify SKIPPED, will emit after promote)\n");
+        return 0;
+    }
+    fprintf(stderr, "[hardening] auto-verify-manifest: checking shard_manifest.txt against current shard state...\n");
+    int total = 0, missing = 0, shrunk = 0, diverged = 0;
+    int rc = do_verify_shard_manifest("shard_manifest.txt", &total, &missing, &shrunk, &diverged);
+    if (rc == 0) {
+        fprintf(stderr, "[hardening] auto-verify-manifest PASS: %d entries checked, all match\n", total);
+        return 0;
+    }
+    fprintf(stderr,
+        "ERROR: auto-verify-manifest FAIL (%d total: %d missing, %d shrunk, %d diverged)\n"
+        "       Shards in this run dir do not match the snapshot in shard_manifest.txt.\n"
+        "       Causes: silent file corruption between runs, foreign shard injection,\n"
+        "       eviction-resume content drift, manual file edits. The .budget sidecar\n"
+        "       mechanism + LOAD-path re-walk can recover from MISSING / SHRUNK by\n"
+        "       refusing those shards' promotion (already in place via Outlier #5\n"
+        "       mitigation) — but DIVERGED shards have new content that should not\n"
+        "       be trusted. To proceed: investigate the diverged files, delete them\n"
+        "       (forcing re-walk), then retry. Or override with SOLVE_SKIP_AUTO_MANIFEST=1\n"
+        "       (NOT recommended for canonical campaigns).\n",
+        total, missing, shrunk, diverged);
+    return 22;
+}
+
+static void auto_emit_shard_manifest_default(void) {
+    if (getenv("SOLVE_SKIP_AUTO_MANIFEST") && atoi(getenv("SOLVE_SKIP_AUTO_MANIFEST")) == 1) return;
+    fprintf(stderr, "[hardening] auto-emit-manifest: snapshotting shard state to shard_manifest.txt\n");
+    int rc = do_emit_shard_manifest("shard_manifest.txt");
+    if (rc != 0) {
+        fprintf(stderr, "[hardening] WARN: auto-emit-manifest failed rc=%d; next-run auto-verify will be a no-op\n", rc);
+        return;
+    }
+    /* Count entries by line count for the log line */
+    FILE *fp = popen("wc -l < shard_manifest.txt", "r");
+    if (fp) {
+        char buf[64] = {0};
+        (void)!fgets(buf, sizeof(buf), fp);
+        pclose(fp);
+        for (char *p = buf; *p; p++) if (*p == '\n') { *p = 0; break; }
+        fprintf(stderr, "[hardening] auto-emit-manifest: wrote %s entries\n", buf);
+    }
 }
 
 /* Outlier #4 (build provenance mismatch on resume). Compute sha256 of
@@ -6761,36 +6922,16 @@ int main(int argc, char *argv[]) {
             return 40;  /* validation mismatch */
         }
     } else if (argc > 1 && strcmp(argv[1], "--emit-shard-manifest") == 0) {
-        /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; originally
-         * d683794 May 15, lost in the 2026-05-25 main reset, re-added
-         * because resume-path defense was specifically what got dropped).
-         *
-         * Scans the current working directory for sub_*.bin shard files,
-         * computes the sha256 of each, and writes a tab-separated manifest
-         * (default: shard_manifest.txt). One line per shard:
-         *
-         *   <filename>\t<size_bytes>\t<sha256_hex>
-         *
-         * Use case: after a planned PHASE_A enum completes (e.g., before
-         * a planned Spot eviction or for a pre-resume integrity snapshot),
-         * emit the manifest. Later --verify-shard-manifest catches silent
-         * corruption of resumed shards. */
+        /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; refactored
+         * 2026-05-26 to call shared do_emit_shard_manifest() helper).
+         * Manual invocation; the canonical-enum dispatch also calls the
+         * helper automatically after promote_orphaned_shards (see
+         * auto_emit_shard_manifest_default()). */
         const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
-        const char *tool = sha256_tool();
-        if (!tool) { require_sha256_tool(); return 30; }
-        char cmd[8192];
-        snprintf(cmd, sizeof(cmd),
-                 "for f in sub_*.bin; do "
-                 "  [ -f \"$f\" ] || continue; "
-                 "  sz=$(stat -c%%s \"$f\"); "
-                 "  sh=$(%s \"$f\" | cut -d' ' -f1); "
-                 "  printf '%%s\\t%%s\\t%%s\\n' \"$f\" \"$sz\" \"$sh\"; "
-                 "done > %s.tmp && mv %s.tmp %s",
-                 tool, manifest_path, manifest_path, manifest_path);
-        int rc = system(cmd);
+        int rc = do_emit_shard_manifest(manifest_path);
         if (rc != 0) {
             fprintf(stderr, "ERROR: --emit-shard-manifest failed rc=%d\n", rc);
-            return 30;
+            return rc;
         }
         char count_cmd[1024];
         snprintf(count_cmd, sizeof(count_cmd), "wc -l < %s", manifest_path);
@@ -6807,82 +6948,23 @@ int main(int argc, char *argv[]) {
         }
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-shard-manifest") == 0) {
-        /* Phase E.2 follow-up item 5 (re-landed 2026-05-25): verify shards
-         * against a prior --emit-shard-manifest snapshot.
-         *
-         * For each entry in the manifest, asserts:
-         *   1. The shard file still exists (else MISSING).
-         *   2. Current file size >= recorded size (resume can only ADD
-         *      records; legitimate runs never shrink a shard). Else SHRUNK.
-         *   3. sha256 of the first <recorded_size> bytes of the current
-         *      file matches the recorded sha256 (catches mid-write
-         *      corruption + cross-ref divergence). Else DIVERGED.
-         *
-         * Any failure → exit 22 with diagnostic. The third check is the
-         * strongest: it converts silent c34390c0-class data corruption
-         * (resumed shards diverging from PHASE_A's content) into a loud
-         * fault before merge consumes the bad shards. */
+        /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; refactored
+         * 2026-05-26 to call shared do_verify_shard_manifest() helper).
+         * The canonical-enum dispatch also calls verify automatically at
+         * startup if a manifest exists (see auto_verify_shard_manifest_if_exists()). */
         const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
-        const char *tool = sha256_tool();
-        if (!tool) { require_sha256_tool(); return 30; }
-        FILE *mf = fopen(manifest_path, "r");
-        if (!mf) {
-            fprintf(stderr, "ERROR: cannot open manifest %s: %s\n",
-                    manifest_path, strerror(errno));
-            return 30;
-        }
         int total = 0, missing = 0, shrunk = 0, diverged = 0;
-        char line[4096];
-        while (fgets(line, sizeof(line), mf)) {
-            total++;
-            char fname[512]; long long sz; char sha[128];
-            if (sscanf(line, "%511s %lld %127s", fname, &sz, sha) != 3) {
-                fprintf(stderr, "WARN: malformed manifest line %d, skipping: %.80s\n",
-                        total, line);
-                continue;
-            }
-            struct stat st;
-            if (stat(fname, &st) != 0) {
-                fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n",
-                        fname, sz);
-                missing++;
-                continue;
-            }
-            if ((long long)st.st_size < sz) {
-                fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
-                        fname, (long long)st.st_size, sz);
-                shrunk++;
-                continue;
-            }
-            char cmd[8192], got[128] = {0};
-            snprintf(cmd, sizeof(cmd),
-                     "head -c %lld %s | %s | cut -d' ' -f1", sz, fname, tool);
-            FILE *p = popen(cmd, "r");
-            if (!p) {
-                fprintf(stderr, "ERROR: popen failed for %s\n", fname);
-                fclose(mf);
-                return 30;
-            }
-            (void)!fgets(got, sizeof(got), p);
-            pclose(p);
-            for (char *q = got; *q; q++) if (*q == '\n') { *q = 0; break; }
-            if (strcmp(got, sha) != 0) {
-                fprintf(stderr, "DIVERGED: %s - first %lld bytes sha=%s, manifest=%s\n",
-                        fname, sz, got, sha);
-                diverged++;
-            }
-        }
-        fclose(mf);
+        int rc = do_verify_shard_manifest(manifest_path, &total, &missing, &shrunk, &diverged);
         printf("[--verify-shard-manifest] %d entries checked: "
                "%d missing, %d shrunk, %d diverged\n",
                total, missing, shrunk, diverged);
-        if (missing == 0 && shrunk == 0 && diverged == 0) {
+        if (rc == 0) {
             printf("[--verify-shard-manifest] PASS - all shards match manifest\n");
             return 0;
         }
         fprintf(stderr, "[--verify-shard-manifest] FAIL - resume path corrupted shards.\n");
         fprintf(stderr, "             See documentation/DEVELOPMENT.md \"Resume-path defense in depth\" item 5.\n");
-        return 22;
+        return rc;
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
@@ -12683,9 +12765,15 @@ sub_enum_done:
     /* Hardening audit 2026-05-25 — acquire the canonical-run lock + verify
      * build provenance BEFORE any shard-file I/O. Order matters: lock first
      * (prevents concurrent enums on same cwd), then build-sha check (catches
-     * cross-binary resume), then load_sub_checkpoint + orphan-promotion. */
+     * cross-binary resume), then auto-verify any prior shard manifest, then
+     * load_sub_checkpoint + orphan-promotion, then auto-emit a fresh manifest. */
     if (acquire_canonical_lock() != 0) return 27;
     if (check_build_sha_invariant() != 0) return 26;
+
+    /* Auto-verify-manifest if shard_manifest.txt exists from a prior run.
+     * Catches shard-level corruption between runs (Phase E.2 item 5,
+     * automated 2026-05-26 per operator directive "dummy-proof default"). */
+    if (auto_verify_shard_manifest_if_exists() != 0) return 22;
 
     load_sub_checkpoint();
     /* v3.1: orphaned-shard promotion eliminates the costly fast-skip LOAD phase
@@ -12701,6 +12789,13 @@ sub_enum_done:
                n_completed_subs);
         total_branches_completed = n_completed_subs;
     }
+
+    /* Auto-emit-manifest: snapshot the just-resumed shard state for next-
+     * run auto-verify. This captures the post-promote_orphaned_shards
+     * state — any sub-branch with a .bin on disk (whether from this run
+     * or a prior run) is recorded. (Phase E.2 item 5, automated
+     * 2026-05-26.) Sha-neutral. Skip with SOLVE_SKIP_AUTO_MANIFEST=1. */
+    auto_emit_shard_manifest_default();
 
     /* Enumerate ALL valid work units across all 56 first-level branches.
      * depth-2: ~3030 units each (p1, o1, p2, o2)
