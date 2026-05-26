@@ -668,6 +668,16 @@ Two more fire on the merge path:
 
 For 560T specifically: do NOT set any of the skip-* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
 
+### Metadata equivalence across enumeration paths (task #102, 2026-05-26)
+
+Every canonical-scale run now ships with **`solutions.provenance.json`** alongside `solutions.bin` + `solutions.sha256` + `solutions.meta.json`. The provenance file aggregates per-shard `.provenance.json` sidecars (written automatically by `flush_sub_solutions[_d3]` and the orphan-promotion path) into a campaign-level rollup: shard count by status (EXHAUSTED / BUDGETED / INTERRUPTED), final budget distribution, extensions observed, binary / git / host fingerprint sets, cumulative node + record counts, earliest + latest write UTCs.
+
+**Equivalence guarantee.** A single-shot 11.2T enum and a (56 × 100B + 56 × 100B-extension)-merged 11.2T composition produce byte-identical `solutions.bin` (partition invariance) AND structurally-equivalent `solutions.provenance.json` (verified via `solve --compare-provenance`). Same guarantee scales to 560T.
+
+`--compare-provenance` normalizes away timestamps, host fingerprints, and merge-invocation metadata. Must-match fields: `solutions_bin_sha256`, `solutions_bin_record_count`, `shard_count`, `shards_by_final_status` (the EXHAUSTED/BUDGETED/INTERRUPTED counts), `final_budget_distribution`, `cumulative.total_nodes_explored`, `cumulative.total_records_emitted`.
+
+For full schema + design rationale see `x/roae/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md`. For per-cli reference see [SOLVE_CLI.md](SOLVE_CLI.md) `--compare-provenance` + Files section.
+
 ## Known gotchas
 
 ### Compile

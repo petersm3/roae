@@ -1031,7 +1031,7 @@ static int solve_depth = 2;
  *   x/roae/INCREMENTAL_EXTENSION_SPIKE_NOTES.md (this implementation's notes,
  *     written during the 2026-04-30 spike).
  */
-static int dfs_checkpoint_enabled = 0;
+int dfs_checkpoint_enabled = 0;
 
 #define DFS_STATE_MAGIC 0x44465353u  /* 'DFSS' */
 #define DFS_STATE_VERSION 1u
@@ -1691,6 +1691,861 @@ static long long read_budget_sidecar(const char *bin_fname) {
     return b;
 }
 
+/* Forward decls for runtime flags read by the provenance helpers below. */
+extern int dfs_iterative_enabled;
+extern int dfs_checkpoint_enabled;
+
+/* ---------- Metadata-equivalence retool 2026-05-26 (task #102) ----------
+ *
+ * Per-shard `.provenance.json` + aggregate `solutions.provenance.json` so
+ * that a single-shot 560T enum and a (many-branch + extension) composition
+ * merging to 560T produce structurally equivalent metadata (verifiable via
+ * `--compare-provenance`).
+ *
+ * Selftest sha 403f7202… invariant: these helpers fire only on canonical
+ * shard writes (post-flush) and the --merge dispatch — selftest's small
+ * fork triggers the per-shard writer (harmless sidecar, doesn't touch
+ * solutions.bin) but not the aggregator. */
+
+/* host_fingerprint = sha256(uname-a-output + "\n" + cpu_model_name).
+ * Avoids leaking raw hostnames / cloud identifiers per feedback_no_cloud_identifiers.
+ * Returns 0 on success, -1 on failure (in which case out_hex is set to "unknown"). */
+static int compute_host_fingerprint(char out_hex[65]) {
+    const char *tool = sha256_tool();
+    if (!tool) { strcpy(out_hex, "unknown"); return -1; }
+    /* Build fingerprint input in /tmp file (avoids shell-quote pain). */
+    char tmp_in[64];
+    snprintf(tmp_in, sizeof(tmp_in), "/tmp/solve_hfp_in_%d", (int)getpid());
+    FILE *tf = fopen(tmp_in, "w");
+    if (!tf) { strcpy(out_hex, "unknown"); return -1; }
+    /* uname -a */
+    FILE *u = popen("uname -a 2>/dev/null", "r");
+    if (u) {
+        char b[512]; size_t n;
+        while ((n = fread(b, 1, sizeof(b), u)) > 0) fwrite(b, 1, n, tf);
+        pclose(u);
+    }
+    fprintf(tf, "\n");
+    /* cpu model name (first occurrence in /proc/cpuinfo) */
+    FILE *c = fopen("/proc/cpuinfo", "r");
+    if (c) {
+        char line[512];
+        while (fgets(line, sizeof(line), c)) {
+            if (strncmp(line, "model name", 10) == 0) {
+                fputs(line, tf);
+                break;
+            }
+        }
+        fclose(c);
+    }
+    fclose(tf);
+    /* sha256 it */
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", tool, tmp_in);
+    FILE *p = popen(cmd, "r");
+    if (!p) { unlink(tmp_in); strcpy(out_hex, "unknown"); return -1; }
+    char buf[256] = {0};
+    if (fgets(buf, sizeof(buf), p) == NULL) {
+        pclose(p); unlink(tmp_in); strcpy(out_hex, "unknown"); return -1;
+    }
+    pclose(p); unlink(tmp_in);
+    /* First whitespace-separated token is the hex */
+    int i = 0;
+    while (i < 64 && buf[i] && buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\n') {
+        out_hex[i] = buf[i]; i++;
+    }
+    out_hex[i] = '\0';
+    if (i != 64) { strcpy(out_hex, "unknown"); return -1; }
+    return 0;
+}
+
+/* Read build.sha (written by check_build_sha_invariant at startup) into out_hex.
+ * Returns 0 on success, -1 if file missing/unreadable. */
+static int read_build_sha_for_provenance(char out_hex[65]) {
+    out_hex[0] = '\0';
+    FILE *f = fopen("build.sha", "r");
+    if (!f) return -1;
+    if (fscanf(f, "%64s", out_hex) != 1) { fclose(f); return -1; }
+    fclose(f);
+    return (strlen(out_hex) == 64) ? 0 : -1;
+}
+
+/* JSON string escaping for fprintf — handles backslash, quote, control chars.
+ * Output buffer must be ≥ 2*strlen(in)+1. */
+static void json_escape(const char *in, char *out, size_t out_sz) {
+    size_t j = 0;
+    for (size_t i = 0; in[i] && j + 7 < out_sz; i++) {
+        unsigned char c = (unsigned char)in[i];
+        if (c == '"' || c == '\\') { out[j++] = '\\'; out[j++] = (char)c; }
+        else if (c == '\n') { out[j++] = '\\'; out[j++] = 'n'; }
+        else if (c == '\r') { out[j++] = '\\'; out[j++] = 'r'; }
+        else if (c == '\t') { out[j++] = '\\'; out[j++] = 't'; }
+        else if (c < 0x20) { j += (size_t)snprintf(out + j, out_sz - j, "\\u%04x", c); }
+        else { out[j++] = (char)c; }
+    }
+    if (j < out_sz) out[j] = '\0';
+    else out[out_sz - 1] = '\0';
+}
+
+/* Read existing .provenance.json's `writes` array into a heap-allocated string
+ * (everything between the opening `[` and matching `]`, NOT inclusive). Used
+ * to append a new write record while preserving history. Returns NULL if file
+ * missing or unparseable; caller treats that as "first write".
+ *
+ * The hand-parser is intentionally minimal: it brace-matches for the writes
+ * array. Adequate because solve.c is the sole writer of this file. */
+static char *read_provenance_writes_array(const char *prov_path) {
+    FILE *f = fopen(prov_path, "r");
+    if (!f) return NULL;
+    /* Read whole file into memory (these files are small — ~1-5 KB each). */
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    if (sz <= 0 || sz > 1048576L) { fclose(f); return NULL; }
+    fseek(f, 0, SEEK_SET);
+    char *buf = malloc((size_t)sz + 1);
+    if (!buf) { fclose(f); return NULL; }
+    size_t got = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    buf[got] = '\0';
+    /* Find `"writes": [` then matching `]`. */
+    char *p = strstr(buf, "\"writes\"");
+    if (!p) { free(buf); return NULL; }
+    p = strchr(p, '[');
+    if (!p) { free(buf); return NULL; }
+    char *start = p + 1;
+    /* Brace-match to find closing ] at depth 0 (string-aware) */
+    int depth = 1; int in_str = 0; int esc = 0;
+    char *q = start;
+    while (*q) {
+        if (esc) { esc = 0; q++; continue; }
+        if (*q == '\\') { esc = 1; q++; continue; }
+        if (*q == '"') { in_str = !in_str; q++; continue; }
+        if (!in_str) {
+            if (*q == '[' || *q == '{') depth++;
+            else if (*q == ']' || *q == '}') { depth--; if (depth == 0) break; }
+        }
+        q++;
+    }
+    if (depth != 0 || *q != ']') { free(buf); return NULL; }
+    size_t inner_len = (size_t)(q - start);
+    char *out = malloc(inner_len + 1);
+    if (!out) { free(buf); return NULL; }
+    memcpy(out, start, inner_len);
+    out[inner_len] = '\0';
+    free(buf);
+    /* Trim leading/trailing whitespace */
+    char *s = out;
+    while (*s && (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r')) s++;
+    if (s != out) memmove(out, s, strlen(s) + 1);
+    size_t outlen = strlen(out);
+    while (outlen > 0 && (out[outlen-1] == ' ' || out[outlen-1] == '\t' || out[outlen-1] == '\n' || out[outlen-1] == '\r')) {
+        out[--outlen] = '\0';
+    }
+    return out;  /* may be empty string if writes was [] */
+}
+
+/* Read prior .provenance.json's final_per_sub_branch_limit. Returns the
+ * value, or -1 if file missing or field unparseable. */
+static long long read_prior_final_budget(const char *prov_path) {
+    FILE *f = fopen(prov_path, "r");
+    if (!f) return -1;
+    char buf[8192]; size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    if (got == 0) return -1;
+    buf[got] = '\0';
+    char *p = strstr(buf, "\"final_per_sub_branch_limit\"");
+    if (!p) return -1;
+    p = strchr(p, ':');
+    if (!p) return -1;
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+    long long v = -1;
+    if (sscanf(p, "%lld", &v) != 1) return -1;
+    return v;
+}
+
+/* Append a write record to the per-shard .provenance.json.
+ *
+ * For first write: creates the file with writes=[<record>].
+ * For subsequent writes (extension or eviction-resume): reads existing
+ * writes array, appends, rewrites file atomically. Auto-detects extension
+ * by comparing prior `final_per_sub_branch_limit` to current budget.
+ *
+ * Best-effort: any IO failure logs WARN and returns — the .bin file is
+ * the authoritative artifact, not this sidecar. */
+static void append_shard_provenance(const char *bin_fname,
+                                     int p1, int o1, int p2, int o2, int p3, int o3,
+                                     long long budget,
+                                     long long nodes_explored,
+                                     long long records_emitted,
+                                     const char *status) {
+    if (budget <= 0) return;  /* nothing meaningful to record */
+    char prov_path[160], tmp_path[160];
+    int n1 = snprintf(prov_path, sizeof(prov_path), "%s.provenance.json", bin_fname);
+    int n2 = snprintf(tmp_path, sizeof(tmp_path), "%s.provenance.json.tmp", bin_fname);
+    if (n1 < 0 || n2 < 0 || (size_t)n1 >= sizeof(prov_path) || (size_t)n2 >= sizeof(tmp_path)) {
+        fprintf(stderr, "WARN: provenance path too long for %s; skipping\n", bin_fname);
+        return;
+    }
+    char build_sha[80] = {0};
+    (void)read_build_sha_for_provenance(build_sha);  /* OK if empty */
+    char host_fp[80] = {0};
+    (void)compute_host_fingerprint(host_fp);
+    char tbuf[64];
+    time_t now = time(NULL); struct tm tm_b;
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
+    const char *rh = getenv("SOLVE_RESUME_HISTORY");
+    char rh_esc[1024]; json_escape(rh && *rh ? rh : "(none - clean single-shot run)", rh_esc, sizeof(rh_esc));
+
+    /* Auto-detect extension: if prior .provenance.json exists and recorded
+     * a smaller final_per_sub_branch_limit than the current budget, this
+     * write is an extension. */
+    long long prior_budget = read_prior_final_budget(prov_path);
+    long long extends_prior_budget = (prior_budget > 0 && prior_budget < budget) ? prior_budget : -1;
+
+    char ext_field[64];
+    if (extends_prior_budget > 0)
+        snprintf(ext_field, sizeof(ext_field), "%lld", extends_prior_budget);
+    else
+        snprintf(ext_field, sizeof(ext_field), "null");
+
+    char rec[2048];
+    char sub_branch_json[128];
+    if (p3 >= 0)
+        snprintf(sub_branch_json, sizeof(sub_branch_json),
+                 "{\"p1\": %d, \"o1\": %d, \"p2\": %d, \"o2\": %d, \"p3\": %d, \"o3\": %d}",
+                 p1, o1, p2, o2, p3, o3);
+    else
+        snprintf(sub_branch_json, sizeof(sub_branch_json),
+                 "{\"p1\": %d, \"o1\": %d, \"p2\": %d, \"o2\": %d}",
+                 p1, o1, p2, o2);
+    snprintf(rec, sizeof(rec),
+        "    {\n"
+        "      \"write_utc\": \"%s\",\n"
+        "      \"binary_sha256\": \"%s\",\n"
+        "      \"git_hash\": \"%s\",\n"
+        "      \"host_fingerprint\": \"%s\",\n"
+        "      \"per_sub_branch_limit\": %lld,\n"
+        "      \"nodes_explored_in_this_shard\": %lld,\n"
+        "      \"records_emitted\": %lld,\n"
+        "      \"status\": \"%s\",\n"
+        "      \"dfs_iterative\": %d,\n"
+        "      \"dfs_checkpoint\": %d,\n"
+        "      \"resume_history\": \"%s\",\n"
+        "      \"extends_prior_budget\": %s\n"
+        "    }",
+        tbuf, build_sha[0] ? build_sha : "", GIT_HASH, host_fp[0] ? host_fp : "unknown",
+        budget, nodes_explored, records_emitted, status,
+        dfs_iterative_enabled, dfs_checkpoint_enabled, rh_esc, ext_field);
+
+    /* Read existing writes array if present (extension/resume case). */
+    char *prior = read_provenance_writes_array(prov_path);
+
+    FILE *fw = fopen(tmp_path, "w");
+    if (!fw) {
+        fprintf(stderr, "WARN: cannot open %s for write: %s\n", tmp_path, strerror(errno));
+        free(prior);
+        return;
+    }
+    fprintf(fw, "{\n");
+    fprintf(fw, "  \"schema_version\": 1,\n");
+    fprintf(fw, "  \"shard_filename\": \"%s\",\n", bin_fname);
+    fprintf(fw, "  \"sub_branch\": %s,\n", sub_branch_json);
+    fprintf(fw, "  \"writes\": [\n");
+    if (prior && *prior) {
+        fprintf(fw, "%s,\n", prior);
+    }
+    fprintf(fw, "%s\n", rec);
+    fprintf(fw, "  ],\n");
+    fprintf(fw, "  \"final_status\": \"%s\",\n", status);
+    fprintf(fw, "  \"final_per_sub_branch_limit\": %lld,\n", budget);
+    /* cumulative_nodes_explored and cumulative_records_emitted are simplified
+     * rollups; for first write they equal this write's values. For appended
+     * writes we'd need to sum across prior records — done at merge-time
+     * aggregation. Here record THIS write's values; aggregator does sums. */
+    fprintf(fw, "  \"cumulative_nodes_explored\": %lld,\n", nodes_explored);
+    fprintf(fw, "  \"cumulative_records_emitted\": %lld\n", records_emitted);
+    fprintf(fw, "}\n");
+    if (fflush(fw) != 0 || fsync(fileno(fw)) != 0 || fclose(fw) != 0) {
+        fprintf(stderr, "WARN: provenance fwrite/fsync failed for %s: %s\n", tmp_path, strerror(errno));
+        unlink(tmp_path);
+        free(prior);
+        return;
+    }
+    if (rename(tmp_path, prov_path) != 0) {
+        fprintf(stderr, "WARN: provenance rename %s -> %s failed: %s\n", tmp_path, prov_path, strerror(errno));
+        unlink(tmp_path);
+        free(prior);
+        return;
+    }
+    free(prior);
+}
+
+/* ---------- Aggregator: solutions.provenance.json (Phase 3 task #102) ----------
+ *
+ * After `--merge` finalizes solutions.bin, walk cwd reading every
+ * `sub_*.bin.provenance.json`, accumulate campaign-level rollups, and write
+ * `solutions.provenance.json`. Sha-neutral.
+ *
+ * Field semantics — see x/roae/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md
+ * for the full schema + equivalence criteria. */
+
+/* A bounded set of distinct strings (binary_sha256, git_hash, host_fingerprint).
+ * Capacity 64 is enough for any realistic campaign (worst case: per-host
+ * fingerprints across many Spot evictions). */
+typedef struct {
+    char items[64][72];
+    int count;
+} ProvStringSet;
+
+static void prov_set_add(ProvStringSet *s, const char *v) {
+    if (!v || !*v) return;
+    for (int i = 0; i < s->count; i++)
+        if (strcmp(s->items[i], v) == 0) return;
+    if (s->count >= 64) return;
+    snprintf(s->items[s->count], sizeof(s->items[0]), "%s", v);
+    s->count++;
+}
+
+/* Bounded budget → count map (small int set). */
+typedef struct {
+    long long budget;
+    long long count;
+} ProvBudgetCount;
+typedef struct {
+    ProvBudgetCount entries[16];
+    int count;
+} ProvBudgetMap;
+
+static void prov_budget_inc(ProvBudgetMap *m, long long b) {
+    if (b <= 0) return;
+    for (int i = 0; i < m->count; i++)
+        if (m->entries[i].budget == b) { m->entries[i].count++; return; }
+    if (m->count >= 16) return;
+    m->entries[m->count].budget = b;
+    m->entries[m->count].count = 1;
+    m->count++;
+}
+
+/* Bounded extension list: from_budget → to_budget tracking. */
+typedef struct {
+    long long from_budget;
+    long long to_budget;
+    long long shard_count;
+    char earliest_utc[32];
+    char latest_utc[32];
+} ProvExtRec;
+typedef struct {
+    ProvExtRec entries[16];
+    int count;
+} ProvExtMap;
+
+static void prov_ext_record(ProvExtMap *m, long long from_b, long long to_b, const char *utc) {
+    for (int i = 0; i < m->count; i++) {
+        if (m->entries[i].from_budget == from_b && m->entries[i].to_budget == to_b) {
+            m->entries[i].shard_count++;
+            if (utc && *utc) {
+                if (!m->entries[i].earliest_utc[0] || strcmp(utc, m->entries[i].earliest_utc) < 0)
+                    snprintf(m->entries[i].earliest_utc, sizeof(m->entries[i].earliest_utc), "%s", utc);
+                if (!m->entries[i].latest_utc[0] || strcmp(utc, m->entries[i].latest_utc) > 0)
+                    snprintf(m->entries[i].latest_utc, sizeof(m->entries[i].latest_utc), "%s", utc);
+            }
+            return;
+        }
+    }
+    if (m->count >= 16) return;
+    m->entries[m->count].from_budget = from_b;
+    m->entries[m->count].to_budget = to_b;
+    m->entries[m->count].shard_count = 1;
+    if (utc && *utc) {
+        snprintf(m->entries[m->count].earliest_utc, sizeof(m->entries[0].earliest_utc), "%s", utc);
+        snprintf(m->entries[m->count].latest_utc, sizeof(m->entries[0].latest_utc), "%s", utc);
+    }
+    m->count++;
+}
+
+/* Aggregated state. */
+typedef struct {
+    int shard_count;
+    int status_exhausted, status_budgeted, status_interrupted, status_other;
+    ProvBudgetMap final_budget;
+    ProvBudgetMap budgets_seen;  /* across all writes, not just final */
+    ProvExtMap extensions;
+    long long total_nodes_explored;
+    long long total_records_emitted;
+    char earliest_write_utc[32];
+    char latest_write_utc[32];
+    ProvStringSet binary_shas;
+    ProvStringSet git_hashes;
+    ProvStringSet host_fingerprints;
+} ProvAggregate;
+
+/* Helper: extract a string field's value from a JSON snippet. Writes up to
+ * out_sz-1 chars + NUL. Returns 1 on success, 0 on failure. */
+static int prov_extract_string(const char *src, const char *key, char *out, size_t out_sz) {
+    char needle[64];
+    snprintf(needle, sizeof(needle), "\"%s\"", key);
+    const char *p = strstr(src, needle);
+    if (!p) return 0;
+    p = strchr(p, ':');
+    if (!p) return 0;
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p != '"') return 0;
+    p++;
+    size_t i = 0;
+    while (*p && *p != '"' && i + 1 < out_sz) {
+        if (*p == '\\' && p[1]) { out[i++] = p[1]; p += 2; }
+        else out[i++] = *p++;
+    }
+    out[i] = '\0';
+    return 1;
+}
+
+/* Helper: extract a numeric field's value. Returns 1 on success. */
+static int prov_extract_int(const char *src, const char *key, long long *out) {
+    char needle[64];
+    snprintf(needle, sizeof(needle), "\"%s\"", key);
+    const char *p = strstr(src, needle);
+    if (!p) return 0;
+    p = strchr(p, ':');
+    if (!p) return 0;
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+    long long v;
+    if (sscanf(p, "%lld", &v) != 1) return 0;
+    *out = v;
+    return 1;
+}
+
+/* Iterate through write records inside a "writes": [...] array. The caller
+ * gets each record as a {...} substring to extract fields from. */
+typedef void (*ProvWriteCallback)(const char *write_rec, void *ud);
+static void prov_iterate_writes(const char *json_buf, ProvWriteCallback cb, void *ud) {
+    const char *w = strstr(json_buf, "\"writes\"");
+    if (!w) return;
+    const char *arr = strchr(w, '[');
+    if (!arr) return;
+    const char *p = arr + 1;
+    while (*p) {
+        while (*p && *p != '{' && *p != ']') p++;
+        if (*p != '{') return;
+        /* Brace-match this object */
+        int depth = 1; int in_str = 0; int esc = 0;
+        const char *start = p;
+        p++;
+        while (*p && depth > 0) {
+            if (esc) { esc = 0; p++; continue; }
+            if (*p == '\\') { esc = 1; p++; continue; }
+            if (*p == '"') { in_str = !in_str; p++; continue; }
+            if (!in_str) {
+                if (*p == '{') depth++;
+                else if (*p == '}') depth--;
+            }
+            p++;
+        }
+        if (depth != 0) return;
+        /* Copy substring [start, p) into a buffer for the callback */
+        size_t len = (size_t)(p - start);
+        char *rec = malloc(len + 1);
+        if (!rec) return;
+        memcpy(rec, start, len);
+        rec[len] = '\0';
+        cb(rec, ud);
+        free(rec);
+    }
+}
+
+/* Callback applied per write record in each shard's provenance file. */
+static void prov_aggregate_write_cb(const char *write_rec, void *ud) {
+    ProvAggregate *agg = (ProvAggregate *)ud;
+    char binary_sha[80], git_hash[64], host_fp[80], status[32], utc[32];
+    long long budget = 0, nodes = 0, records = 0, ext_prior = -1;
+    prov_extract_string(write_rec, "binary_sha256", binary_sha, sizeof(binary_sha));
+    prov_extract_string(write_rec, "git_hash", git_hash, sizeof(git_hash));
+    prov_extract_string(write_rec, "host_fingerprint", host_fp, sizeof(host_fp));
+    prov_extract_string(write_rec, "status", status, sizeof(status));
+    prov_extract_string(write_rec, "write_utc", utc, sizeof(utc));
+    prov_extract_int(write_rec, "per_sub_branch_limit", &budget);
+    prov_extract_int(write_rec, "nodes_explored_in_this_shard", &nodes);
+    prov_extract_int(write_rec, "records_emitted", &records);
+    (void)prov_extract_int(write_rec, "extends_prior_budget", &ext_prior);  /* "null" → unchanged */
+
+    prov_set_add(&agg->binary_shas, binary_sha);
+    prov_set_add(&agg->git_hashes, git_hash);
+    prov_set_add(&agg->host_fingerprints, host_fp);
+    prov_budget_inc(&agg->budgets_seen, budget);
+    agg->total_nodes_explored += nodes;
+    agg->total_records_emitted += records;
+    if (utc[0]) {
+        if (!agg->earliest_write_utc[0] || strcmp(utc, agg->earliest_write_utc) < 0)
+            snprintf(agg->earliest_write_utc, sizeof(agg->earliest_write_utc), "%s", utc);
+        if (!agg->latest_write_utc[0] || strcmp(utc, agg->latest_write_utc) > 0)
+            snprintf(agg->latest_write_utc, sizeof(agg->latest_write_utc), "%s", utc);
+    }
+    if (ext_prior > 0 && budget > ext_prior)
+        prov_ext_record(&agg->extensions, ext_prior, budget, utc);
+}
+
+/* Scan cwd for sub_*.bin.provenance.json files, accumulate aggregate state. */
+static int aggregate_shard_provenance(ProvAggregate *out) {
+    memset(out, 0, sizeof(*out));
+    DIR *d = opendir(".");
+    if (!d) return -1;
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+        const char *n = entry->d_name;
+        size_t len = strlen(n);
+        if (len < 24) continue;
+        if (strncmp(n, "sub_", 4) != 0) continue;
+        if (strcmp(n + len - 20, ".bin.provenance.json") != 0) continue;
+        FILE *f = fopen(n, "r");
+        if (!f) continue;
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f);
+        if (sz <= 0 || sz > 2097152L) { fclose(f); continue; }
+        fseek(f, 0, SEEK_SET);
+        char *buf = malloc((size_t)sz + 1);
+        if (!buf) { fclose(f); continue; }
+        size_t got = fread(buf, 1, (size_t)sz, f);
+        fclose(f);
+        buf[got] = '\0';
+
+        out->shard_count++;
+        /* Pull final_status + final_per_sub_branch_limit (top-level). */
+        char final_status[32] = {0};
+        long long final_budget = 0;
+        prov_extract_string(buf, "final_status", final_status, sizeof(final_status));
+        prov_extract_int(buf, "final_per_sub_branch_limit", &final_budget);
+        if (strcmp(final_status, "EXHAUSTED") == 0) out->status_exhausted++;
+        else if (strcmp(final_status, "BUDGETED") == 0) out->status_budgeted++;
+        else if (strcmp(final_status, "INTERRUPTED") == 0) out->status_interrupted++;
+        else out->status_other++;
+        prov_budget_inc(&out->final_budget, final_budget);
+
+        /* Iterate write records — each contributes to budgets_seen, extensions, sets. */
+        prov_iterate_writes(buf, prov_aggregate_write_cb, out);
+        free(buf);
+    }
+    closedir(d);
+    return 0;
+}
+
+/* Write solutions.provenance.json from aggregate state + merge-invocation metadata. */
+static void write_solutions_provenance_json(const char *path,
+                                             const ProvAggregate *agg,
+                                             const char *bin_sha256,
+                                             long long bin_record_count,
+                                             const char *shard_manifest_sha,
+                                             int analytics_integrated,
+                                             const char *analytics_filename) {
+    char tmp[256];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", path);
+    FILE *fw = fopen(tmp, "w");
+    if (!fw) {
+        fprintf(stderr, "WARN: cannot open %s: %s\n", tmp, strerror(errno));
+        return;
+    }
+    char merge_utc[32], merge_host_fp[80] = {0}, merge_build_sha[80] = {0};
+    time_t now = time(NULL); struct tm tm_b;
+    strftime(merge_utc, sizeof(merge_utc), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
+    (void)compute_host_fingerprint(merge_host_fp);
+    (void)read_build_sha_for_provenance(merge_build_sha);
+
+    /* Compute campaign_wall_seconds. Manual parse of `YYYY-MM-DDTHH:MM:SSZ` —
+     * avoid strptime to keep _XOPEN_SOURCE feature-test macros out of this
+     * codebase. */
+    long long campaign_wall = 0;
+    {
+        int Y1, M1, D1, h1, m1, s1, Y2, M2, D2, h2, m2, s2;
+        if (agg->earliest_write_utc[0] && agg->latest_write_utc[0]
+            && sscanf(agg->earliest_write_utc, "%d-%d-%dT%d:%d:%dZ",
+                      &Y1, &M1, &D1, &h1, &m1, &s1) == 6
+            && sscanf(agg->latest_write_utc, "%d-%d-%dT%d:%d:%dZ",
+                      &Y2, &M2, &D2, &h2, &m2, &s2) == 6) {
+            struct tm tm_e = {0}, tm_l = {0};
+            tm_e.tm_year = Y1 - 1900; tm_e.tm_mon = M1 - 1; tm_e.tm_mday = D1;
+            tm_e.tm_hour = h1; tm_e.tm_min = m1; tm_e.tm_sec = s1;
+            tm_l.tm_year = Y2 - 1900; tm_l.tm_mon = M2 - 1; tm_l.tm_mday = D2;
+            tm_l.tm_hour = h2; tm_l.tm_min = m2; tm_l.tm_sec = s2;
+            time_t te = timegm(&tm_e), tl = timegm(&tm_l);
+            if (tl >= te) campaign_wall = (long long)(tl - te);
+        }
+    }
+
+    fprintf(fw, "{\n");
+    fprintf(fw, "  \"schema_version\": 1,\n");
+    fprintf(fw, "  \"solutions_bin_sha256\": \"%s\",\n", bin_sha256 ? bin_sha256 : "");
+    fprintf(fw, "  \"solutions_bin_record_count\": %lld,\n", bin_record_count);
+    fprintf(fw, "  \"shard_count\": %d,\n", agg->shard_count);
+    fprintf(fw, "  \"shards_by_final_status\": {\n");
+    fprintf(fw, "    \"EXHAUSTED\": %d,\n", agg->status_exhausted);
+    fprintf(fw, "    \"BUDGETED\": %d,\n", agg->status_budgeted);
+    fprintf(fw, "    \"INTERRUPTED\": %d,\n", agg->status_interrupted);
+    fprintf(fw, "    \"OTHER\": %d\n", agg->status_other);
+    fprintf(fw, "  },\n");
+
+    fprintf(fw, "  \"final_budget_distribution\": {");
+    for (int i = 0; i < agg->final_budget.count; i++) {
+        fprintf(fw, "%s\"%lld\": %lld", i == 0 ? "\n    " : ",\n    ",
+                agg->final_budget.entries[i].budget,
+                agg->final_budget.entries[i].count);
+    }
+    fprintf(fw, "%s},\n", agg->final_budget.count > 0 ? "\n  " : "");
+
+    fprintf(fw, "  \"budget_history\": {\n");
+    fprintf(fw, "    \"branches_seen_at_budget\": {");
+    for (int i = 0; i < agg->budgets_seen.count; i++) {
+        fprintf(fw, "%s\"%lld\": %lld", i == 0 ? "\n      " : ",\n      ",
+                agg->budgets_seen.entries[i].budget,
+                agg->budgets_seen.entries[i].count);
+    }
+    fprintf(fw, "%s},\n", agg->budgets_seen.count > 0 ? "\n    " : "");
+    fprintf(fw, "    \"extensions_observed\": [");
+    for (int i = 0; i < agg->extensions.count; i++) {
+        fprintf(fw, "%s\n      {\"from_budget\": %lld, \"to_budget\": %lld, "
+                    "\"shard_count\": %lld, \"earliest_extension_utc\": \"%s\", "
+                    "\"latest_extension_utc\": \"%s\"}%s",
+                i == 0 ? "" : ",",
+                agg->extensions.entries[i].from_budget,
+                agg->extensions.entries[i].to_budget,
+                agg->extensions.entries[i].shard_count,
+                agg->extensions.entries[i].earliest_utc,
+                agg->extensions.entries[i].latest_utc,
+                "");
+    }
+    fprintf(fw, "%s]\n", agg->extensions.count > 0 ? "\n    " : "");
+    fprintf(fw, "  },\n");
+
+    fprintf(fw, "  \"cumulative\": {\n");
+    fprintf(fw, "    \"total_nodes_explored\": %lld,\n", agg->total_nodes_explored);
+    fprintf(fw, "    \"total_records_emitted\": %lld,\n", agg->total_records_emitted);
+    fprintf(fw, "    \"campaign_wall_seconds\": %lld,\n", campaign_wall);
+    fprintf(fw, "    \"sum_compute_seconds_note\": \"not captured per-shard in schema v1; derive from checkpoint.txt if needed\"\n");
+    fprintf(fw, "  },\n");
+    fprintf(fw, "  \"earliest_shard_write_utc\": \"%s\",\n", agg->earliest_write_utc[0] ? agg->earliest_write_utc : "");
+    fprintf(fw, "  \"latest_shard_write_utc\": \"%s\",\n", agg->latest_write_utc[0] ? agg->latest_write_utc : "");
+
+    fprintf(fw, "  \"binary_provenance\": {\n");
+    fprintf(fw, "    \"binary_sha256_set\": [");
+    for (int i = 0; i < agg->binary_shas.count; i++)
+        fprintf(fw, "%s\"%s\"", i == 0 ? "" : ", ", agg->binary_shas.items[i]);
+    fprintf(fw, "],\n");
+    fprintf(fw, "    \"git_hash_set\": [");
+    for (int i = 0; i < agg->git_hashes.count; i++)
+        fprintf(fw, "%s\"%s\"", i == 0 ? "" : ", ", agg->git_hashes.items[i]);
+    fprintf(fw, "],\n");
+    fprintf(fw, "    \"host_fingerprint_set\": [");
+    for (int i = 0; i < agg->host_fingerprints.count; i++)
+        fprintf(fw, "%s\"%s\"", i == 0 ? "" : ", ", agg->host_fingerprints.items[i]);
+    fprintf(fw, "]\n");
+    fprintf(fw, "  },\n");
+
+    fprintf(fw, "  \"merge_invocation\": {\n");
+    fprintf(fw, "    \"merge_utc\": \"%s\",\n", merge_utc);
+    fprintf(fw, "    \"merge_binary_sha256\": \"%s\",\n", merge_build_sha[0] ? merge_build_sha : "");
+    fprintf(fw, "    \"merge_git_hash\": \"%s\",\n", GIT_HASH);
+    fprintf(fw, "    \"merge_host_fingerprint\": \"%s\",\n", merge_host_fp[0] ? merge_host_fp : "unknown");
+    fprintf(fw, "    \"input_shard_manifest_sha256\": \"%s\",\n", shard_manifest_sha ? shard_manifest_sha : "");
+    fprintf(fw, "    \"analytics_integrated\": %s,\n", analytics_integrated ? "true" : "false");
+    fprintf(fw, "    \"analytics_filename\": \"%s\"\n", analytics_filename ? analytics_filename : "");
+    fprintf(fw, "  }\n");
+    fprintf(fw, "}\n");
+
+    if (fflush(fw) != 0 || fsync(fileno(fw)) != 0 || fclose(fw) != 0) {
+        fprintf(stderr, "WARN: solutions.provenance.json write/fsync failed: %s\n", strerror(errno));
+        unlink(tmp);
+        return;
+    }
+    if (rename(tmp, path) != 0) {
+        fprintf(stderr, "WARN: solutions.provenance.json rename failed: %s\n", strerror(errno));
+        unlink(tmp);
+        return;
+    }
+}
+
+/* ---------- Phase 6: --compare-provenance (task #102) ----------
+ *
+ * Compare two solutions.provenance.json files. Returns 0 (PASS) if all
+ * must-match fields are byte-identical; 1 (FAIL) otherwise. Normalizes
+ * away timestamps + host fingerprints + merge-invocation metadata so that
+ * structurally-equivalent campaigns produced via different paths verify
+ * as equal.
+ *
+ * Must-match fields:
+ *   solutions_bin_sha256, solutions_bin_record_count, shard_count,
+ *   shards_by_final_status (EXHAUSTED/BUDGETED/INTERRUPTED counts),
+ *   final_budget_distribution (the map),
+ *   cumulative.total_records_emitted, cumulative.total_nodes_explored
+ */
+
+/* Read whole file into a heap buffer; returns NULL on failure. */
+static char *prov_read_whole_file(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    if (sz <= 0 || sz > 16777216L) { fclose(f); return NULL; }
+    fseek(f, 0, SEEK_SET);
+    char *buf = malloc((size_t)sz + 1);
+    if (!buf) { fclose(f); return NULL; }
+    size_t got = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    buf[got] = '\0';
+    return buf;
+}
+
+/* Extract the literal substring of a top-level JSON sub-object identified
+ * by `key`. E.g., for key="shards_by_final_status" returns the {...} block.
+ * Caller frees. Returns NULL if not found. */
+static char *prov_extract_object(const char *src, const char *key) {
+    char needle[80];
+    snprintf(needle, sizeof(needle), "\"%s\"", key);
+    const char *p = strstr(src, needle);
+    if (!p) return NULL;
+    p = strchr(p, ':');
+    if (!p) return NULL;
+    p++;
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    if (*p != '{') return NULL;
+    int depth = 1; int in_str = 0; int esc = 0;
+    const char *start = p; p++;
+    while (*p && depth > 0) {
+        if (esc) { esc = 0; p++; continue; }
+        if (*p == '\\') { esc = 1; p++; continue; }
+        if (*p == '"') { in_str = !in_str; p++; continue; }
+        if (!in_str) {
+            if (*p == '{') depth++;
+            else if (*p == '}') depth--;
+        }
+        if (depth > 0) p++;
+    }
+    if (depth != 0) return NULL;
+    size_t len = (size_t)(p + 1 - start);
+    char *out = malloc(len + 1);
+    if (!out) return NULL;
+    memcpy(out, start, len);
+    out[len] = '\0';
+    return out;
+}
+
+/* Returns 1 if must-match field is byte-identical between A and B; logs diff if not. */
+static int prov_check_int_field(const char *a, const char *b, const char *key, int *fail_count) {
+    long long va = -1, vb = -1;
+    int ra = prov_extract_int(a, key, &va);
+    int rb = prov_extract_int(b, key, &vb);
+    if (!ra || !rb) {
+        fprintf(stderr, "  [FAIL] field %s: missing in %s\n", key,
+                ra ? "B" : (rb ? "A" : "both"));
+        (*fail_count)++;
+        return 0;
+    }
+    if (va != vb) {
+        fprintf(stderr, "  [FAIL] %s: A=%lld B=%lld\n", key, va, vb);
+        (*fail_count)++;
+        return 0;
+    }
+    fprintf(stderr, "  [PASS] %s = %lld\n", key, va);
+    return 1;
+}
+
+static int prov_check_string_field(const char *a, const char *b, const char *key, int *fail_count) {
+    char va[80] = {0}, vb[80] = {0};
+    int ra = prov_extract_string(a, key, va, sizeof(va));
+    int rb = prov_extract_string(b, key, vb, sizeof(vb));
+    if (!ra || !rb) {
+        fprintf(stderr, "  [FAIL] field %s: missing in %s\n", key,
+                ra ? "B" : (rb ? "A" : "both"));
+        (*fail_count)++;
+        return 0;
+    }
+    if (strcmp(va, vb) != 0) {
+        fprintf(stderr, "  [FAIL] %s: A=\"%s\" B=\"%s\"\n", key, va, vb);
+        (*fail_count)++;
+        return 0;
+    }
+    fprintf(stderr, "  [PASS] %s = %s\n", key, va);
+    return 1;
+}
+
+/* Compare two sub-objects for byte-identity, normalizing only whitespace.
+ * Used for shards_by_final_status + final_budget_distribution. */
+static int prov_check_object_field(const char *a, const char *b, const char *key, int *fail_count) {
+    char *oa = prov_extract_object(a, key);
+    char *ob = prov_extract_object(b, key);
+    if (!oa || !ob) {
+        fprintf(stderr, "  [FAIL] object %s: missing in %s\n", key,
+                oa ? "B" : (ob ? "A" : "both"));
+        free(oa); free(ob);
+        (*fail_count)++;
+        return 0;
+    }
+    /* Normalize whitespace inline (strip all spaces / tabs / newlines outside string literals) */
+    char *na = malloc(strlen(oa) + 1), *nb = malloc(strlen(ob) + 1);
+    if (!na || !nb) { free(oa); free(ob); free(na); free(nb); (*fail_count)++; return 0; }
+    int in_str_a = 0, esc_a = 0;
+    size_t ja = 0;
+    for (size_t i = 0; oa[i]; i++) {
+        if (esc_a) { na[ja++] = oa[i]; esc_a = 0; continue; }
+        if (oa[i] == '\\') { na[ja++] = oa[i]; esc_a = 1; continue; }
+        if (oa[i] == '"') { in_str_a = !in_str_a; na[ja++] = oa[i]; continue; }
+        if (!in_str_a && (oa[i] == ' ' || oa[i] == '\t' || oa[i] == '\n' || oa[i] == '\r')) continue;
+        na[ja++] = oa[i];
+    }
+    na[ja] = '\0';
+    int in_str_b = 0, esc_b = 0;
+    size_t jb = 0;
+    for (size_t i = 0; ob[i]; i++) {
+        if (esc_b) { nb[jb++] = ob[i]; esc_b = 0; continue; }
+        if (ob[i] == '\\') { nb[jb++] = ob[i]; esc_b = 1; continue; }
+        if (ob[i] == '"') { in_str_b = !in_str_b; nb[jb++] = ob[i]; continue; }
+        if (!in_str_b && (ob[i] == ' ' || ob[i] == '\t' || ob[i] == '\n' || ob[i] == '\r')) continue;
+        nb[jb++] = ob[i];
+    }
+    nb[jb] = '\0';
+    int ok = (strcmp(na, nb) == 0);
+    if (!ok) {
+        fprintf(stderr, "  [FAIL] object %s differs:\n    A=%s\n    B=%s\n", key, na, nb);
+        (*fail_count)++;
+    } else {
+        fprintf(stderr, "  [PASS] %s = %s\n", key, na);
+    }
+    free(oa); free(ob); free(na); free(nb);
+    return ok;
+}
+
+/* Public entry: compare two provenance JSON files for equivalence. */
+static int do_compare_provenance(const char *path_a, const char *path_b) {
+    char *a = prov_read_whole_file(path_a);
+    char *b = prov_read_whole_file(path_b);
+    if (!a || !b) {
+        fprintf(stderr, "ERROR: cannot read provenance file(s): A=%s B=%s\n",
+                a ? "OK" : "FAIL", b ? "OK" : "FAIL");
+        free(a); free(b);
+        return 1;
+    }
+    int fail = 0;
+    fprintf(stderr, "[--compare-provenance] %s vs %s\n", path_a, path_b);
+    /* Must-match fields */
+    prov_check_string_field(a, b, "solutions_bin_sha256", &fail);
+    prov_check_int_field(a, b, "solutions_bin_record_count", &fail);
+    prov_check_int_field(a, b, "shard_count", &fail);
+    prov_check_object_field(a, b, "shards_by_final_status", &fail);
+    prov_check_object_field(a, b, "final_budget_distribution", &fail);
+    /* cumulative.total_nodes_explored / total_records_emitted are nested but
+     * the top-level extractors find first-match — fine here since "total_nodes_explored"
+     * appears only inside cumulative. */
+    prov_check_int_field(a, b, "total_nodes_explored", &fail);
+    prov_check_int_field(a, b, "total_records_emitted", &fail);
+    free(a); free(b);
+    if (fail == 0) {
+        fprintf(stderr, "[--compare-provenance] PASS — provenance is structurally equivalent\n");
+        return 0;
+    }
+    fprintf(stderr, "[--compare-provenance] FAIL — %d field(s) mismatched\n", fail);
+    return 1;
+}
+
 /* ---------- Canonical-run startup invariants (hardening audit 2026-05-25) ----------
  *
  * Three startup-time guards that all canonical-enum runs MUST pass before
@@ -2189,6 +3044,49 @@ static int auto_verify_solutions_bin(const char *bin_path) {
     return 30;
 }
 
+/* Metadata-equivalence retool 2026-05-26 (task #102, Phase 4): after a
+ * --merge produces solutions.bin, optionally fork a child `solve --analyze
+ * solutions.bin` and capture the text output to solutions.analytics.txt.
+ * This gives merged solutions.bin the same per-record analytics that
+ * full-enum mode writes to solve_results.json (different format — text vs
+ * JSON — but the substance is equivalent).
+ *
+ * Default OFF (set SOLVE_MERGE_RUN_ANALYZE=1 to enable). At 11.2T the
+ * analyze adds ~30-60 min wall time; at 560T it adds ~2-4h. Operator
+ * decides per campaign.
+ *
+ * Sha-neutral. */
+static void auto_run_analyze_to_text(const char *bin_path) {
+    const char *opt_in = getenv("SOLVE_MERGE_RUN_ANALYZE");
+    if (!(opt_in && atoi(opt_in) == 1)) {
+        fprintf(stderr, "[task #102] post-merge --analyze SKIPPED (set SOLVE_MERGE_RUN_ANALYZE=1 to enable; "
+                        "adds ~30 min at 11.2T, ~2-4h at 560T)\n");
+        return;
+    }
+    if (!bin_path) bin_path = "solutions.bin";
+    struct stat st;
+    if (stat(bin_path, &st) != 0) {
+        fprintf(stderr, "[task #102] post-merge --analyze: %s missing; skipping\n", bin_path);
+        return;
+    }
+    char self_path[PATH_MAX];
+    ssize_t n = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+    if (n <= 0) {
+        fprintf(stderr, "[task #102] post-merge --analyze: cannot readlink /proc/self/exe; skipping\n");
+        return;
+    }
+    self_path[n] = '\0';
+    char cmd[PATH_MAX + 128];
+    snprintf(cmd, sizeof(cmd), "%s --analyze %s > solutions.analytics.txt 2>&1", self_path, bin_path);
+    fprintf(stderr, "[task #102] post-merge --analyze: running %s (this may take 30 min - 4h depending on scale)...\n", cmd);
+    int rc = system(cmd);
+    if (rc == 0) {
+        fprintf(stderr, "[task #102] post-merge --analyze PASS; output -> solutions.analytics.txt\n");
+    } else {
+        fprintf(stderr, "[task #102] WARN: post-merge --analyze rc=%d; solutions.analytics.txt may be incomplete\n", rc);
+    }
+}
+
 /* Outlier #4 (build provenance mismatch on resume). Compute sha256 of
  * /proc/self/exe and compare to build.sha in cwd. First run writes
  * build.sha; subsequent runs MUST match unless SOLVE_ALLOW_BUILD_MISMATCH=1.
@@ -2526,7 +3424,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  *     basic --branch invocations use this path when SOLVE_DFS_ITERATIVE=1.
  *   - Stack depth bounded by 34 frames (depth 0 to 32, plus sentinel).
  */
-static int dfs_iterative_enabled = 0;
+int dfs_iterative_enabled = 0;
 
 #define DFSITER_PHASE_ENTER  0  /* first time at this depth — counter++, budget check, leaf check */
 #define DFSITER_PHASE_RETRY  1  /* return-from-child — restore iter state, advance to next iter */
@@ -3624,6 +4522,26 @@ static void *thread_func_single(void *arg) {
                 flush_sub_solutions_d3(ts, p1, o1, p2, o2, sb->pair3, sb->orient3);
             } else {
                 flush_sub_solutions(ts, p1, o1, p2, o2);
+            }
+            /* Metadata-equivalence retool 2026-05-26 (task #102): per-shard
+             * .provenance.json sidecar. Sha-neutral (sidecar, not embedded
+             * in .bin). Status known here (sb_status computed above);
+             * extension auto-detected by comparing prior recorded budget. */
+            {
+                char prov_bin[96];
+                if (sb->pair3 >= 0)
+                    snprintf(prov_bin, sizeof(prov_bin), "sub_%d_%d_%d_%d_%d_%d.bin",
+                             p1, o1, p2, o2, sb->pair3, sb->orient3);
+                else
+                    snprintf(prov_bin, sizeof(prov_bin), "sub_%d_%d_%d_%d.bin",
+                             p1, o1, p2, o2);
+                append_shard_provenance(prov_bin,
+                                         p1, o1, p2, o2,
+                                         sb->pair3 >= 0 ? sb->pair3 : -1,
+                                         sb->pair3 >= 0 ? sb->orient3 : -1,
+                                         per_branch_node_limit,
+                                         sub_nodes, (long long)sub_solutions,
+                                         sb_status);
             }
         } else if (ts->sol_table) {
             memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
@@ -7213,6 +8131,18 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[--verify-shard-manifest] FAIL - resume path corrupted shards.\n");
         fprintf(stderr, "             See documentation/DEVELOPMENT.md \"Resume-path defense in depth\" item 5.\n");
         return rc;
+    } else if (argc > 1 && strcmp(argv[1], "--compare-provenance") == 0) {
+        /* Metadata-equivalence retool 2026-05-26 (task #102, Phase 6).
+         * Compares two solutions.provenance.json files for must-match
+         * field equivalence (normalizes timestamps + host fingerprints +
+         * merge-invocation metadata). Used to assert that a single-shot
+         * canonical and a (branch-merged + extended) canonical produced
+         * the same campaign-level provenance. */
+        if (argc < 4) {
+            fprintf(stderr, "Usage: solve --compare-provenance A.json B.json\n");
+            return 1;
+        }
+        return do_compare_provenance(argv[2], argv[3]);
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
@@ -11080,11 +12010,51 @@ int main(int argc, char *argv[]) {
          * Contains timestamp + git hash, so it's NOT byte-reproducible
          * across runs (deliberately). solutions.bin and solutions.sha256
          * stay reproducible. */
+        char hash_only[65] = {0};
         {
-            char hash_only[65] = {0};
             for (int i = 0; i < 64 && hash[i] && hash[i] != ' ' && hash[i] != '\n'; i++)
                 hash_only[i] = hash[i];
             sol_write_meta_json(meta_name, outname, (uint64_t)unique, unique, hash_only);
+        }
+
+        /* Metadata-equivalence retool 2026-05-26 (task #102, Phase 3):
+         * aggregate per-shard provenance and write solutions.provenance.json.
+         * Sha-neutral. Op-no-op if no .provenance.json sidecars are present
+         * (e.g., merging legacy shards from pre-2026-05-26 runs). */
+        {
+            ProvAggregate agg;
+            if (aggregate_shard_provenance(&agg) == 0 && agg.shard_count > 0) {
+                /* Compute sha of shard_manifest.txt if present (anchor lineage) */
+                char manifest_sha[65] = {0};
+                {
+                    const char *tool = sha256_tool();
+                    if (tool) {
+                        char cmd2[256];
+                        snprintf(cmd2, sizeof(cmd2), "%s shard_manifest.txt 2>/dev/null", tool);
+                        FILE *pm = popen(cmd2, "r");
+                        if (pm) {
+                            char b[160] = {0};
+                            if (fgets(b, sizeof(b), pm)) {
+                                for (int i = 0; i < 64 && b[i] && b[i] != ' '; i++)
+                                    manifest_sha[i] = b[i];
+                            }
+                            pclose(pm);
+                        }
+                    }
+                }
+                write_solutions_provenance_json("solutions.provenance.json",
+                                                 &agg, hash_only,
+                                                 (long long)unique,
+                                                 manifest_sha,
+                                                 0,        /* analytics_integrated set later */
+                                                 "solutions.analytics.json");
+                fprintf(stderr, "[task #102] solutions.provenance.json written "
+                                "(shards aggregated: %d, EXHAUSTED=%d BUDGETED=%d INTERRUPTED=%d)\n",
+                        agg.shard_count, agg.status_exhausted, agg.status_budgeted, agg.status_interrupted);
+            } else {
+                fprintf(stderr, "[task #102] no .provenance.json sidecars found in cwd; "
+                                "skipping solutions.provenance.json (legacy shards or empty merge)\n");
+            }
         }
 
         printf("\n--- Merge results ---\n");
@@ -11104,6 +12074,12 @@ int main(int argc, char *argv[]) {
          * which performs the same C1-C5 + sorted + dedup + KW checks. No
          * canonical-sha behavior change — this only removed a redundant
          * post-merge validation that hung the parent. */
+
+        /* Metadata-equivalence retool 2026-05-26 (task #102, Phase 4):
+         * optionally chain --analyze on the merged bin to produce
+         * solutions.analytics.txt. Opt-in via SOLVE_MERGE_RUN_ANALYZE=1
+         * to avoid surprising operator with ~30 min - 4h of extra wall. */
+        auto_run_analyze_to_text(outname);
 
         /* Auto-verify-solutions (hardening 2026-05-26): chain --verify
          * automatically so operator doesn't need to remember it. Forks
@@ -13013,6 +13989,27 @@ sub_enum_done:
         printf("  %s:  %s", sha_name, hash);
         printf("  %s:  machine-readable results\n\n", json_name);
 
+        /* Metadata-equivalence retool 2026-05-26 (task #102): preserve prior
+         * results_P_O.json if it exists (e.g., this is an extension run on
+         * the same per-branch dir). Rename to results_P_O.json.<utc>.bak so
+         * the original-budget analytics survive. */
+        {
+            struct stat js_st;
+            if (stat(json_name, &js_st) == 0) {
+                char tbuf[24], bak[160];
+                time_t now_b = time(NULL); struct tm tm_b;
+                strftime(tbuf, sizeof(tbuf), "%Y%m%dT%H%M%SZ", gmtime_r(&now_b, &tm_b));
+                snprintf(bak, sizeof(bak), "%s.%s.bak", json_name, tbuf);
+                if (rename(json_name, bak) == 0) {
+                    fprintf(stderr, "[task #102] Archived prior %s -> %s (extension run preserves history)\n",
+                            json_name, bak);
+                } else {
+                    fprintf(stderr, "WARN: cannot archive prior %s to %s: %s\n",
+                            json_name, bak, strerror(errno));
+                }
+            }
+        }
+
         write_json(json_name, status_str, elapsed, n_threads, n_sub, branches_done,
                    total_nodes, total_sol, total_c3, unique_count, kw_found, total_hash_collisions,
                    pos_match, edit_hist, all_top, final_top_count,
@@ -13892,6 +14889,38 @@ sub_enum_done:
     /* Sidecar: solutions.meta.json (provenance + format info) */
     sol_write_meta_json("solutions.meta.json", "solutions.bin",
                         (uint64_t)unique_count, unique_count, hash_only);
+
+    /* Metadata-equivalence retool 2026-05-26 (task #102, Phase 3): full-enum
+     * auto-merge path also writes solutions.provenance.json from the per-shard
+     * sidecars produced by flush_sub_solutions[_d3]. Sha-neutral. Mirrors the
+     * wire-in in the --merge subcommand dispatch. */
+    {
+        ProvAggregate agg_full;
+        if (aggregate_shard_provenance(&agg_full) == 0 && agg_full.shard_count > 0) {
+            char manifest_sha_full[65] = {0};
+            const char *tool_full = sha256_tool();
+            if (tool_full) {
+                char cmd3[256];
+                snprintf(cmd3, sizeof(cmd3), "%s shard_manifest.txt 2>/dev/null", tool_full);
+                FILE *pm = popen(cmd3, "r");
+                if (pm) {
+                    char b[160] = {0};
+                    if (fgets(b, sizeof(b), pm))
+                        for (int i = 0; i < 64 && b[i] && b[i] != ' '; i++) manifest_sha_full[i] = b[i];
+                    pclose(pm);
+                }
+            }
+            write_solutions_provenance_json("solutions.provenance.json",
+                                             &agg_full, hash_only,
+                                             (long long)unique_count,
+                                             manifest_sha_full, 0,
+                                             "solutions.analytics.txt");
+            fprintf(stderr, "[task #102] (full-enum auto-merge) solutions.provenance.json written "
+                            "(shards=%d, EXHAUSTED=%d BUDGETED=%d INTERRUPTED=%d)\n",
+                    agg_full.shard_count, agg_full.status_exhausted,
+                    agg_full.status_budgeted, agg_full.status_interrupted);
+        }
+    }
   } /* end if (!fork_merge_done) — fork-merge child already wrote solutions.bin/.sha256/.meta.json */
 
     /* Post-merge: in the fork-merge path, the child has already produced

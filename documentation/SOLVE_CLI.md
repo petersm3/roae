@@ -37,6 +37,7 @@ solve --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T
                                                         # streaming KDE scorer
 solve --emit-shard-manifest [dir]                       # write shard_manifest.txt for sub_*.bin in dir
 solve --verify-shard-manifest [dir]                     # check shard_manifest.txt vs current shards
+solve --compare-provenance A.json B.json                # assert two solutions.provenance.json are equivalent
 solve --extended-selftest                               # solve.py-driven 9-subtest harness
 ```
 
@@ -499,6 +500,33 @@ ambiguous prior state.
 warning; the auto-emit at next checkpoint absorbs new shards. MISSING
 / SHRUNK / DIVERGED are fatal.
 
+### --compare-provenance
+
+```
+solve --compare-provenance A.json B.json
+```
+
+Assert that two `solutions.provenance.json` files are structurally
+equivalent — i.e., they were produced by enumerations targeting the
+same canonical set, even if via different execution paths
+(single-shot vs branch-merged vs extension-merged). Normalizes away
+fields that legitimately differ across paths: timestamps, host
+fingerprints, merge-invocation metadata, sum_compute_seconds,
+campaign_wall_seconds, extensions_observed timestamps.
+
+Must-match fields:
+- `solutions_bin_sha256`
+- `solutions_bin_record_count`
+- `shard_count`
+- `shards_by_final_status` (the EXHAUSTED / BUDGETED / INTERRUPTED counts)
+- `final_budget_distribution` (the budget → shard-count map)
+- `cumulative.total_nodes_explored`
+- `cumulative.total_records_emitted`
+
+Exits 0 on PASS, 1 on FAIL (and prints per-field diff on FAIL). Used
+by Phase G of task #101 (pre-560T PI + extension test) to witness
+metadata equivalence end-to-end.
+
 ### --kde-score-stream
 
 ```
@@ -555,6 +583,8 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_SKIP_BINARY_SNAPSHOT` | 0 | `solve.binary.snapshot` write at canonical-enum startup. |
 | `SOLVE_SKIP_STACK_RAISE` | 0 | `setrlimit(RLIMIT_STACK, RLIM_INFINITY)` at `--merge` startup (exit 28). |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
+| `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
+| `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | (existing, repeated for cross-reference) — also bypasses the per-shard `.budget` integrity gate for legacy shards. |
 
 ## EXIT STATUS
 
@@ -666,6 +696,24 @@ solve --double-regression-test
 - `sub_*.bin.budget` — per-shard budget sidecar (auto-written by
   `flush_sub_solutions` / `flush_sub_solutions_d3` after the shard
   rename).
+- `sub_*.bin.provenance.json` — per-shard provenance sidecar
+  (write-utc, binary sha, host fingerprint, budget, nodes explored,
+  records emitted, status, append-only `writes[]` array tracking
+  extension history). Auto-emitted by the same flush sites; auto-
+  detects extension when prior `final_per_sub_branch_limit` < current.
+  Task #102 (metadata equivalence) 2026-05-26.
+- `solutions.provenance.json` — aggregate provenance written by
+  `--merge` and by the full-enum auto-merge path. Rolls up
+  shard-level provenance across the campaign (shard count by status,
+  budget distribution, extensions observed, binary/git/host
+  fingerprint sets, cumulative node + record counts, earliest +
+  latest write UTCs). Comparable via `--compare-provenance`.
+- `solutions.analytics.txt` — optional captured output of
+  `solve --analyze solutions.bin` post-merge; opt-in via
+  `SOLVE_MERGE_RUN_ANALYZE=1`.
+- `results_P_O.json.<utc>.bak` — per-branch run analytics archive
+  (auto-renamed before each `--branch` run's `results_P_O.json` to
+  preserve extension-run history).
 - `checkpoint.txt` — running enumeration state for resume.
 - `progress.txt` — human-readable progress reporting.
 - `solve.lock` — PID + hostname LOCK file. Held for the duration of
@@ -764,6 +812,17 @@ glibc, pthread, m, and gomp. No third-party C dependencies.
 
 Recent material changes (full record in [HISTORY.md](HISTORY.md)):
 
+- 2026-05-26 Metadata equivalence retool (task #102) landed:
+  - Per-shard `.provenance.json` sidecar (append-only `writes[]` array;
+    captures budget, nodes, records, status, binary sha, host fingerprint,
+    write-utc per write; auto-detects extension on subsequent writes)
+  - Aggregate `solutions.provenance.json` written by `--merge` and
+    full-enum auto-merge (campaign-level rollup; comparable across paths)
+  - `--compare-provenance A.json B.json` subcommand for structural
+    equivalence (normalizes timestamps + host fingerprints)
+  - `SOLVE_MERGE_RUN_ANALYZE=1` opt-in for post-merge `--analyze` capture
+  - Per-branch `results_P_O.json` archived to `.<utc>.bak` on extension
+    runs (preserves first-write analytics)
 - 2026-05-25/26 v3.1 hardening + dummy-proof defaults landed:
   - Sub-canonical hard-gate (exit 25) on `SOLVE_NODE_LIMIT < 1T`
   - LOCK file `solve.lock` (exit 27)
