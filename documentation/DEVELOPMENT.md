@@ -647,6 +647,27 @@ If you're recovering from a failed run and need to combine partial shards from m
 
 For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir convention is mandatory pre-launch and the dir must be created on `solver-data-westus3` immediately before the enum VM is provisioned — no shared / reused dirs. The strict-default `.budget` sidecar check means a fresh 560T enum doesn't need an explicit env var to opt into strict mode — strict is the default. Don't set `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` for 560T; let any missing-sidecar shard re-walk via the LOAD path.
 
+### Auto-protect gates that fire on canonical-enum startup (added 2026-05-26)
+
+Beyond the LOCK / `build.sha` / `.budget` gates above, six more dummy-proof gates fire automatically on every canonical-enum dispatch (no `--xxx` subcommand). Each has an explicit env-var escape; setting the escape is operator-acknowledgment of the failure mode being bypassed. See [SOLVE_CLI.md](SOLVE_CLI.md) "Hardening overrides" + "EXIT STATUS" for the full env-var / exit-code table.
+
+| Gate | What it checks | Exit | Escape |
+|---|---|---|---|
+| Auto-selftest | Binary reproduces `--selftest` sha `403f7202…` | 24 | `SOLVE_SKIP_AUTO_SELFTEST=1` |
+| Disk-space pre-check | `cwd` filesystem has projected required bytes free | 29 | `SOLVE_SKIP_DISK_CHECK=1` |
+| Binary snapshot | Copies running binary to `solve.binary.snapshot` for forensics | (warn) | `SOLVE_SKIP_BINARY_SNAPSHOT=1` |
+| Sub-canonical hard-gate | Refuses `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` | 25 | `SOLVE_ALLOW_SUB_CANONICAL=1` |
+| Shard manifest auto-verify | Existing `shard_manifest.txt` matches current shards | 22 | `SOLVE_SKIP_AUTO_MANIFEST=1` |
+| Auto-emit shard manifest | Writes `shard_manifest.txt` after each flush + promote | — | `SOLVE_SKIP_AUTO_MANIFEST=1` |
+
+Two more fire on the merge path:
+| Stack raise | `setrlimit(RLIMIT_STACK, RLIM_INFINITY)` at `--merge` | 28 | `SOLVE_SKIP_STACK_RAISE=1` |
+| Auto-verify-solutions | Runs `solve --verify solutions.bin` after `--merge` completes | 30 | `SOLVE_SKIP_AUTO_VERIFY=1` |
+
+`SOLVE_DFS_ITERATIVE=1` and `SOLVE_DFS_CHECKPOINT=1` also default to ON at canonical scale (`SOLVE_NODE_LIMIT >= 1T`) since 2026-05-26 — the operator does not need to set these explicitly for any 11.2T+ run.
+
+For 560T specifically: do NOT set any of the skip-* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
+
 ## Known gotchas
 
 ### Compile

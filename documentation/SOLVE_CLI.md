@@ -35,6 +35,8 @@ solve --regression-test [scope]                         # canonical-sha regressi
 solve --double-regression-test [base]                   # full-enum vs 56-branch sha equivalence
 solve --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T
                                                         # streaming KDE scorer
+solve --emit-shard-manifest [dir]                       # write shard_manifest.txt for sub_*.bin in dir
+solve --verify-shard-manifest [dir]                     # check shard_manifest.txt vs current shards
 solve --extended-selftest                               # solve.py-driven 9-subtest harness
 ```
 
@@ -462,6 +464,41 @@ verify the partition invariance theorem at empirical scales.
 
 Reads/writes test artifacts under `<base_dir>` (default `./`).
 
+### --emit-shard-manifest
+
+```
+solve --emit-shard-manifest [dir]
+```
+
+Walks `dir` (default CWD), opens each `sub_*.bin`, computes its sha256,
+and writes `shard_manifest.txt` recording `<filename> <size_bytes>
+<sha256>` per line. Header records the manifest version, build sha of
+the emitting binary, and emission timestamp.
+
+Used by the auto-emit gate (default, suppressed via
+`SOLVE_SKIP_AUTO_MANIFEST=1`): solve auto-emits a `shard_manifest.txt`
+after every `flush_sub_solutions` rename + after the
+`promote_orphaned_shards` path completes, so the manifest stays in
+lockstep with the shard set. Operator-invocable for explicit
+re-baselining.
+
+### --verify-shard-manifest
+
+```
+solve --verify-shard-manifest [dir]
+```
+
+Reads `shard_manifest.txt` from `dir` (default CWD), re-computes
+sha256 of every shard, and reports MISSING / SHRUNK / DIVERGED /
+EXTRA entries. Exits 22 on any anomaly. Run at every canonical-enum
+startup as the auto-verify gate — catches cross-run shard-set
+contamination before the new enumeration begins building on top of
+ambiguous prior state.
+
+`EXTRA` (shard present in dir but not in manifest) is a non-fatal
+warning; the auto-emit at next checkpoint absorbs new shards. MISSING
+/ SHRUNK / DIVERGED are fatal.
+
 ### --kde-score-stream
 
 ```
@@ -476,15 +513,17 @@ writes a stream of (record_index, density_score) pairs. Used by
 
 ## ENVIRONMENT
 
+### Core (DFS / merge / threading)
+
 | Variable | Default | Effect |
 |---|---|---|
 | `SOLVE_THREADS` | `min(128, nproc)` | Number of pthreads for enumeration |
 | `SOLVE_DEPTH` | 3 | DFS sub-branch depth: 2 (3,030 sub-branches) or 3 (158,364 sub-branches) |
 | `SOLVE_NODE_LIMIT` | 0 (no limit) | Total node budget across the enumeration |
-| `SOLVE_PER_SUB_BRANCH_LIMIT` | derived | Per-sub-branch node cap; overrides auto-divide of `SOLVE_NODE_LIMIT` |
+| `SOLVE_PER_SUB_BRANCH_LIMIT` | derived | Per-sub-branch node cap; overrides auto-divide of `SOLVE_NODE_LIMIT`. Setting this also suppresses the sub-canonical hard-gate (intended for partition-invariance and within-code-state runs). |
 | `SOLVE_PER_TASK_NODE_LIMIT` | derived | Per-task cap (depth-3 sub-branch granularity for parallel `--sub-branch`) |
-| `SOLVE_DFS_ITERATIVE` | 0 (recursive) | `=1`: iterative DFS using explicit stack frames (resume-capable) |
-| `SOLVE_DFS_CHECKPOINT` | 0 (off) | `=1`: write `.dfs_state` per-sub-branch sidecar + `checkpoint.txt` for resume after interrupt or eviction |
+| `SOLVE_DFS_ITERATIVE` | 0 (recursive); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: iterative DFS using explicit stack frames (resume-capable) |
+| `SOLVE_DFS_CHECKPOINT` | 0 (off); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: write `.dfs_state` per-sub-branch sidecar + `checkpoint.txt` for resume after interrupt or eviction |
 | `SOLVE_CKPT_INTERVAL` | 30 (seconds) | Wall-time interval between checkpoint writes |
 | `SOLVE_TEMP_DIR` | (CWD) | Where `--merge` external sort writes `temp_sorted_*.bin` chunks; needs ~1.5× output size |
 | `SOLVE_MERGE_MODE` | auto | `external`: force external sort (use chunks). `memory`: force in-memory merge (fail if doesn't fit) |
@@ -496,8 +535,26 @@ writes a stream of (record_index, density_score) pairs. Used by
 | `SOLVE_SUB_BRANCH_PARALLELISM` | 0 (off) | `=N`: parallelize `--sub-branch` mode across N CPU cores per task |
 | `SOLVE_REGRESS_DIR` | `./` | Directory for `--regression-test` artifacts |
 | `SOLVE_HASH_LOG2` | 24 | Hash table slots = 2^N; default 16M slots × 32 bytes = 512 MB per thread |
+| `SOLVE_RESUME_HISTORY` | (none) | Operator-supplied annotation written to `solutions.sha256` metadata. Use to record interruption/eviction context for forensic continuity. |
 | `PROVE_CONFIG_TIMEOUT` | unlimited | Wall-time limit for `--prove-*` exhaustive walks |
 | `PATH` | inherited | Used to locate `solve` binary for self-spawning subprocesses |
+
+### Hardening overrides (2026-05-25/26 — every gate has an explicit escape)
+
+All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subcommand). Each can be individually suppressed via env var. Suppressing a gate is operator-acknowledgment that they understand the failure mode being bypassed.
+
+| Variable | Default | What it disables |
+|---|---|---|
+| `SOLVE_ALLOW_SUB_CANONICAL` | 0 | Sub-canonical hard-gate (exit 25): allows `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set. Output sha will be code-specific (see HISTORY.md "100B canonical drift" 2026-05-25). |
+| `SOLVE_SKIP_CANONICAL_LOCK` | 0 | LOCK file (exit 27): allows concurrent `solve` invocations on the same cwd. Risk: interleaved shard writes / checkpoint corruption. |
+| `SOLVE_ALLOW_BUILD_MISMATCH` | 0 | `build.sha` check (exit 26): allows resuming with a binary that differs from the one that last wrote `build.sha`. Risk: cross-lineage merge contamination. |
+| `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | `.budget` sidecar strict-default (orphan refuse): allows promotion of legacy shards without sidecars (pre-2026-05-25 runs). Risk: Outlier #5 budget-mismatch. |
+| `SOLVE_SKIP_AUTO_MANIFEST` | 0 | Auto-emit + auto-verify `shard_manifest.txt` (exit 22): disables both startup verify and post-promote emit. |
+| `SOLVE_SKIP_AUTO_SELFTEST` | 0 | Auto-selftest before canonical launch (exit 24): skips the smoke test that confirms binary produces canonical selftest sha. |
+| `SOLVE_SKIP_DISK_CHECK` | 0 | Disk-space pre-check (exit 29): skips the projected-vs-available check at canonical-enum startup. |
+| `SOLVE_SKIP_BINARY_SNAPSHOT` | 0 | `solve.binary.snapshot` write at canonical-enum startup. |
+| `SOLVE_SKIP_STACK_RAISE` | 0 | `setrlimit(RLIMIT_STACK, RLIM_INFINITY)` at `--merge` startup (exit 28). |
+| `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 
 ## EXIT STATUS
 
@@ -507,7 +564,15 @@ writes a stream of (record_index, density_score) pairs. Used by
 | 1 | General failure (invalid args, constraint check failed, regression test FAIL) |
 | 10 | I/O error (file not found, opendir failed, malloc failed) |
 | 20 | Format error (file size not a multiple of 32 bytes; corrupted header; truncated record) |
-| 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) |
+| **21** | **Resume-state invariant violation** — `backtrack()` detected malformed `dfs_resume_partition_prefix_len` or `(pair_idx, orient)` frame out of `[0,31]×[0,1]`. Indicates checkpoint or `.dfs_state` is corrupted. Recovery: clear affected sub-branches' `.dfs_state` + `.bin` files and let LOAD path re-walk. (Phase E.2 defense, re-landed 2026-05-25.) |
+| **22** | **Shard-manifest verify failed** — MISSING / SHRUNK / DIVERGED shard detected by `--verify-shard-manifest` or by the auto-verify at canonical-enum startup. Recovery: investigate the named shard; for MISSING / SHRUNK delete from manifest and let LOAD path re-walk; for DIVERGED do NOT trust the new content. |
+| **24** | **Auto-selftest failed** — binary does not reproduce canonical selftest sha `403f7202…`. Compile toolchain regression. Recovery: rebuild with verified flags, investigate compiler/libc/optimizer differences. Override: `SOLVE_SKIP_AUTO_SELFTEST=1` only after investigation. |
+| **25** | **Sub-canonical scale gate** — `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set (canonical-grade reproducibility requires ≥1T). Recovery: either raise `SOLVE_NODE_LIMIT` to ≥1T, OR set `SOLVE_PER_SUB_BRANCH_LIMIT` (partition-invariance use case), OR set `SOLVE_ALLOW_SUB_CANONICAL=1` (acknowledged sub-canonical run). |
+| **26** | **Build provenance mismatch** — `build.sha` in cwd was written by a different binary than the current one. Recovery: restore the prior binary (continue cleanly), OR `SOLVE_ALLOW_BUILD_MISMATCH=1` + accept lineage-mix risk, OR `rm build.sha` and restart from scratch. |
+| **27** | **LOCK file held by live process** — concurrent `solve` invocation on same cwd refused. Recovery: kill the conflicting process OR use a different cwd. Stale locks (dead PID or different hostname) auto-reclaimed. |
+| **28** | **`--merge` cannot raise RLIMIT_STACK** — `setrlimit` could not raise to unlimited or to ≥64MB hard cap. External-merge spill would silently SIGSEGV. Recovery: run `ulimit -s unlimited` in shell before `solve --merge`. |
+| **29** | **Disk-space pre-check failed** — projected required bytes for `SOLVE_NODE_LIMIT` exceed free bytes in cwd's filesystem. Recovery: move to a larger filesystem (`solver-data-westus3` has 2 TB free), OR `SOLVE_SKIP_DISK_CHECK=1` if you're confident the projection is wrong. |
+| 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) — or auto-verify-solutions FAIL after merge (C1-C5 violation). For auto-verify case: do NOT archive solutions.bin; investigate. |
 | 50 | Self-test sha mismatch (regression) |
 
 ## EXAMPLES
@@ -573,20 +638,48 @@ solve --double-regression-test
 **Reads:**
 - `sub_*.bin` — shard files (depth-2 or depth-3 naming) in CWD or
   the path implied by subcommand argument.
+- `sub_*.bin.budget` — per-shard budget sidecar (one int64 per line:
+  the `SOLVE_PER_SUB_BRANCH_LIMIT` under which the shard was last
+  written). Read by `promote_orphaned_shards` to gate the orphan-
+  promotion path; mismatch refuses promotion and forces re-walk
+  through `.dfs_state` LOAD (Outlier #5 mitigation). Strict-default
+  since 2026-05-25; override with `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1`.
 - `solutions.bin` (when verifying / analyzing / showing).
 - `checkpoint.txt` (resume state for interrupted runs).
 - `*.dfs_state` (per-sub-branch DFS-frame sidecars when
   `SOLVE_DFS_CHECKPOINT=1`).
+- `build.sha` — sha256 of the binary that last touched this cwd.
+  Read on canonical-enum dispatch; mismatch exits 26 unless
+  `SOLVE_ALLOW_BUILD_MISMATCH=1`.
+- `shard_manifest.txt` — auto-verified at canonical-enum startup
+  (exit 22 on MISSING / SHRUNK / DIVERGED) unless
+  `SOLVE_SKIP_AUTO_MANIFEST=1`.
 
 **Writes:**
 - `solutions.bin` — canonical sorted-deduplicated output.
-- `solutions.sha256` — sha256 of solutions.bin.
+- `solutions.sha256` — sha256 of solutions.bin, with optional metadata
+  trailer (build sha, host, timestamp, `SOLVE_RESUME_HISTORY`).
 - `solutions.meta.json` — record count, format version, encoding,
   generation timestamp, generator commit (when GIT_HASH was passed
   at build).
 - `sub_*.bin` — per-sub-branch shards during enumeration.
+- `sub_*.bin.budget` — per-shard budget sidecar (auto-written by
+  `flush_sub_solutions` / `flush_sub_solutions_d3` after the shard
+  rename).
 - `checkpoint.txt` — running enumeration state for resume.
 - `progress.txt` — human-readable progress reporting.
+- `solve.lock` — PID + hostname LOCK file. Held for the duration of
+  any canonical-enum invocation; refuses concurrent invocations on
+  the same cwd (exit 27). Stale locks (dead PID or different host)
+  are auto-reclaimed. Override: `SOLVE_SKIP_CANONICAL_LOCK=1`.
+- `build.sha` — sha256 of the running binary, written at canonical-
+  enum startup if absent. Future invocations cross-check.
+- `shard_manifest.txt` — auto-emitted after every `flush_sub_solutions`
+  rename + after `promote_orphaned_shards` (unless
+  `SOLVE_SKIP_AUTO_MANIFEST=1`).
+- `solve.binary.snapshot` — copy of the running solve binary, captured
+  at canonical-enum startup (unless `SOLVE_SKIP_BINARY_SNAPSHOT=1`).
+  Forensic artifact for cross-build reproduction.
 - `temp_sorted_*.bin` — external-sort chunks in `SOLVE_TEMP_DIR`
   during `--merge`.
 
@@ -671,6 +764,22 @@ glibc, pthread, m, and gomp. No third-party C dependencies.
 
 Recent material changes (full record in [HISTORY.md](HISTORY.md)):
 
+- 2026-05-25/26 v3.1 hardening + dummy-proof defaults landed:
+  - Sub-canonical hard-gate (exit 25) on `SOLVE_NODE_LIMIT < 1T`
+  - LOCK file `solve.lock` (exit 27)
+  - `build.sha` provenance gate (exit 26)
+  - `.budget` sidecar strict-default (Outlier #5)
+  - Auto-emit + auto-verify `shard_manifest.txt` (exit 22) with new
+    `--emit-shard-manifest` / `--verify-shard-manifest` subcommands
+  - Phase E.2 resume invariants re-landed (exit 21)
+  - Auto-selftest on canonical-enum startup (exit 24)
+  - Auto-raise `RLIMIT_STACK` at `--merge` (exit 28)
+  - Auto-`solve --verify` after `--merge` (exit 30 on C1-C5 fail)
+  - Disk-space pre-check (exit 29)
+  - `solve.binary.snapshot` capture
+  - `SOLVE_DFS_ITERATIVE` + `SOLVE_DFS_CHECKPOINT` default to 1 at
+    canonical scale (`SOLVE_NODE_LIMIT >= 1T`)
+  - `SOLVE_RESUME_HISTORY` env var for forensic continuity notes
 - 2026-05-07 added `--show` for visual sample inspection
 - 2026-05-06 fixed all_top stack-buffer-overflow at line 12058
   (#54); selftest sha `403f7202…` preserved
