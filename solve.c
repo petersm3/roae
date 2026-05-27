@@ -2964,6 +2964,95 @@ static int disk_space_pre_check(long long node_limit) {
     return 0;
 }
 
+/* IOPS pre-check (task #107, 2026-05-27). Measure cwd fsync IOPS at
+ * canonical-enum startup; refuse to launch on slow disk unless the
+ * operator explicitly acknowledges. Catches accidental HDD assignment
+ * for solver-data on a 560T-scale run (would project to ~9h of pure
+ * fsync wait alone vs ~30 min on Premium SSD).
+ *
+ * Probe: 100 iterations of {fopen, write 4B, fsync, fclose, unlink}
+ * on cwd. Measures fsync round-trips — the dominant cost during
+ * canonical enum (every shard rename, .budget sidecar, .provenance.json,
+ * .dfs_state, per-thread checkpoint, all fsync).
+ *
+ * Threshold 1000 fsync/sec catches HDD (~150-300) without false-
+ * positiving Standard SSD (~2-5k) or Premium SSD (~5-20k).
+ *
+ * Override SOLVE_SKIP_IOPS_CHECK=1 (skip probe entirely; tmpfs/test).
+ * Override SOLVE_ALLOW_SLOW_IOPS=1 (probe runs, logs result, but does
+ * NOT fail the launch — operator acknowledges slow wall).
+ *
+ * Sha-neutral: ephemeral files created and immediately unlinked; no
+ * impact on enum hash table or solutions.bin. Sub-canonical scales
+ * (< 1T) skip the check (sub-canonical isn't worth a multi-second
+ * probe at startup). */
+static int disk_iops_pre_check(long long node_limit) {
+    if (node_limit < 1000000000000LL) return 0;  /* sub-canonical: skip */
+    if (getenv("SOLVE_SKIP_IOPS_CHECK") && atoi(getenv("SOLVE_SKIP_IOPS_CHECK")) == 1) {
+        fprintf(stderr, "[hardening] disk-IOPS pre-check SKIPPED (SOLVE_SKIP_IOPS_CHECK=1)\n");
+        return 0;
+    }
+    struct timespec t0, t1;
+    if (clock_gettime(CLOCK_MONOTONIC, &t0) != 0) {
+        fprintf(stderr, "[hardening] WARN: clock_gettime failed; IOPS probe skipped\n");
+        return 0;
+    }
+    const int N = 100;
+    for (int i = 0; i < N; i++) {
+        char p[64];
+        snprintf(p, sizeof(p), ".iops_probe_%d", i);
+        FILE *f = fopen(p, "w");
+        if (!f) {
+            fprintf(stderr, "[hardening] WARN: cannot open probe file %s: %s; IOPS probe skipped\n",
+                    p, strerror(errno));
+            /* Best-effort cleanup of any probe files that did get created. */
+            for (int j = 0; j < i; j++) { snprintf(p, sizeof(p), ".iops_probe_%d", j); unlink(p); }
+            return 0;
+        }
+        if (fwrite("test", 1, 4, f) != 4 || fflush(f) != 0 || fsync(fileno(f)) != 0) {
+            fprintf(stderr, "[hardening] WARN: probe write/fsync failed: %s; IOPS probe skipped\n",
+                    strerror(errno));
+            fclose(f); unlink(p);
+            for (int j = 0; j < i; j++) { snprintf(p, sizeof(p), ".iops_probe_%d", j); unlink(p); }
+            return 0;
+        }
+        fclose(f);
+        unlink(p);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double sec = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+    if (sec <= 0) {
+        fprintf(stderr, "[hardening] WARN: clock anomaly during probe; IOPS check skipped\n");
+        return 0;
+    }
+    double iops = N / sec;
+    const double THRESHOLD = 1000.0;
+    if (iops >= THRESHOLD) {
+        fprintf(stderr, "[hardening] disk-IOPS pre-check: %.0f fsync/sec (threshold %.0f) PASS\n",
+                iops, THRESHOLD);
+        return 0;
+    }
+    /* Below threshold: project expected fsync count, compute projected wait. */
+    long long expected_sub_branches = (node_limit >= 35361598LL)
+                                       ? (node_limit / 35361598LL)
+                                       : 158364LL;
+    if (expected_sub_branches > 158364LL) expected_sub_branches = 158364LL;
+    long long expected_fsyncs = expected_sub_branches * 4LL;
+    double projected_wait_hours = (double)expected_fsyncs / iops / 3600.0;
+    fprintf(stderr,
+            "ERROR: cwd fsync IOPS = %.0f/sec, below threshold %.0f/sec.\n"
+            "       Consistent with Standard HDD (~150-300 IOPS). Canonical-scale enum\n"
+            "       projects to %.1fh of pure fsync wait alone (~%lld fsyncs / %.0f IOPS).\n"
+            "       Recommended: solver-data on Standard SSD (~2-5k IOPS) or Premium SSD\n"
+            "       (~5-20k IOPS). Override SOLVE_ALLOW_SLOW_IOPS=1 to proceed anyway.\n",
+            iops, THRESHOLD, projected_wait_hours, expected_fsyncs, iops);
+    if (getenv("SOLVE_ALLOW_SLOW_IOPS") && atoi(getenv("SOLVE_ALLOW_SLOW_IOPS")) == 1) {
+        fprintf(stderr, "       Continuing with SOLVE_ALLOW_SLOW_IOPS=1 acknowledged.\n");
+        return 0;
+    }
+    return 31;
+}
+
 /* Binary snapshot: copy /proc/self/exe to ./solve.binary.snapshot
  * at canonical-enum startup (2026-05-26). Complements build.sha (which
  * has just the hash) by preserving the actual binary in the run dir for
@@ -14416,6 +14505,7 @@ sub_enum_done:
      * build-sha (cross-binary resume detection) -> auto-verify manifest ->
      * load_sub_checkpoint + orphan-promotion -> auto-emit fresh manifest. */
     if (disk_space_pre_check(node_limit) != 0) return 29;
+    if (disk_iops_pre_check(node_limit) != 0) return 31;
     if (auto_selftest_check(node_limit) != 0) return 24;
     snapshot_solve_binary();
     if (acquire_canonical_lock() != 0) return 27;
