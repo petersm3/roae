@@ -3141,8 +3141,21 @@ static int auto_selftest_check(long long node_limit) {
     }
     self_path[n] = '\0';
     fprintf(stderr, "[hardening] auto-selftest: running %s --selftest (smoke test before canonical-scale launch)...\n", self_path);
-    char cmd[PATH_MAX + 64];
-    snprintf(cmd, sizeof(cmd), "%s --selftest > /dev/null 2>&1", self_path);
+    /* Task #105 (2026-05-27): unset SOLVE_* env vars before invoking the
+     * --selftest child. Without this, parent's SOLVE_DFS_ITERATIVE /
+     * SOLVE_DFS_CHECKPOINT / SOLVE_PER_SUB_BRANCH_LIMIT / SOLVE_FSYNC_BATCH_SIZE
+     * leak into the selftest subprocess, potentially flipping the sha or
+     * skipping the sha-check. The --selftest argv handler itself ALSO unsets
+     * these (defense-in-depth, see solve.c around line 8286), but the outer
+     * env scrub here keeps the system() invocation hygienic so even older
+     * versions of --selftest would work correctly. */
+    char cmd[PATH_MAX + 256];
+    snprintf(cmd, sizeof(cmd),
+             "env -u SOLVE_DEPTH -u SOLVE_THREADS -u SOLVE_NODE_LIMIT "
+             "-u SOLVE_PER_SUB_BRANCH_LIMIT -u SOLVE_DFS_ITERATIVE "
+             "-u SOLVE_DFS_CHECKPOINT -u SOLVE_FSYNC_BATCH_SIZE "
+             "-u SOLVE_TIME_LIMIT -u SOLVE_TEMP_DIR -u SOLVE_MAX_THREADS "
+             "%s --selftest > /dev/null 2>&1", self_path);
     int rc = system(cmd);
     if (rc == 0) {
         fprintf(stderr, "[hardening] auto-selftest PASS (canonical selftest sha 403f7202... reproduced)\n");
@@ -8283,11 +8296,23 @@ int main(int argc, char *argv[]) {
          * under load. Using node-limit only (per-sub-branch budgets) gives
          * byte-exact determinism across thread counts and machines. */
         char cmd[8192];
+        /* Task #105 (2026-05-27): unset ALL SOLVE_* env vars before invoking
+         * the selftest child. Previously only SOLVE_DEPTH was unset, leaking
+         * SOLVE_DFS_ITERATIVE / SOLVE_DFS_CHECKPOINT / SOLVE_PER_SUB_BRANCH_LIMIT
+         * / SOLVE_FSYNC_BATCH_SIZE / SOLVE_TIME_LIMIT / SOLVE_TEMP_DIR /
+         * SOLVE_MAX_THREADS from the parent if set, which could flip the
+         * selftest sha or skip the sha-check. */
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
-                 "unset SOLVE_DEPTH && "
+                 "unset SOLVE_DEPTH SOLVE_THREADS SOLVE_NODE_LIMIT "
+                 "SOLVE_PER_SUB_BRANCH_LIMIT SOLVE_DFS_ITERATIVE "
+                 "SOLVE_DFS_CHECKPOINT SOLVE_FSYNC_BATCH_SIZE "
+                 "SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS && "
                  "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
+                 "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
+                 "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
+                 "SOLVE_SKIP_IOPS_CHECK=1 "
                  "%s 0 > /dev/null 2>&1 && "
                  "%s solutions.bin | cut -d' ' -f1",
                  tempdir_template, solve_path, tool);
