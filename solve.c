@@ -3053,6 +3053,76 @@ static int disk_iops_pre_check(long long node_limit) {
     return 31;
 }
 
+/* Host-fingerprint capture (task #110, 2026-05-27). Write JSON record of
+ * the build + host environment to canonical-host-fingerprint.json
+ * alongside solutions.bin. Required forensic record for canonical
+ * reproducibility: per the 2026-05-27 c72eada 1T-drift investigation
+ * (see x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md Q9 + Q10),
+ * cross-day rebuilds on different VM instances drift canonical sha at
+ * BUDGETED-cell-density-sensitive scales. Cannot fix; CAN document.
+ *
+ * Records: gcc version, glibc version, kernel, OS release, CPU model
+ * + microcode, .text section sha (the only part that affects canonical
+ * output per Q10), full binary sha, Azure IMDS metadata if available.
+ *
+ * Sha-neutral: file is a sidecar, not embedded in solutions.bin.
+ * Override SOLVE_SKIP_HOST_FINGERPRINT=1 (debug only). */
+static void capture_host_fingerprint(long long node_limit) {
+    if (node_limit < 1000000000000LL) return;  /* sub-canonical: skip */
+    if (getenv("SOLVE_SKIP_HOST_FINGERPRINT") && atoi(getenv("SOLVE_SKIP_HOST_FINGERPRINT")) == 1) {
+        fprintf(stderr, "[hardening] host-fingerprint capture SKIPPED (SOLVE_SKIP_HOST_FINGERPRINT=1)\n");
+        return;
+    }
+    struct stat st;
+    if (stat("canonical-host-fingerprint.json", &st) == 0 && st.st_size > 0) {
+        fprintf(stderr, "[hardening] host-fingerprint: canonical-host-fingerprint.json already present, leaving unchanged\n");
+        return;
+    }
+    /* Capture via shell pipeline — much simpler than calling each lib's API.
+     * Output is sidecar JSON; cosmetic if any field fails to capture. */
+    char cmd[8192];
+    int n = snprintf(cmd, sizeof(cmd),
+        "{ "
+        "echo '{'; "
+        "echo '  \"capture_utc\": \"'$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)'\",'; "
+        "echo '  \"gcc_version\": \"'$(gcc --version 2>/dev/null | head -1 | sed 's/\"/\\\\\"/g')'\",'; "
+        "echo '  \"glibc_version\": \"'$(ldd --version 2>/dev/null | head -1 | sed 's/\"/\\\\\"/g')'\",'; "
+        "echo '  \"kernel\": \"'$(uname -r)'\",'; "
+        "echo '  \"uname_a\": \"'$(uname -a | sed 's/\"/\\\\\"/g')'\",'; "
+        "echo '  \"os_release\": \"'$(grep -E '^PRETTY_NAME' /etc/os-release 2>/dev/null | sed 's/.*=\"//' | sed 's/\"$//')'\",'; "
+        "echo '  \"cpu_model\": \"'$(grep -m1 '^model name' /proc/cpuinfo 2>/dev/null | sed 's/^model name\\s*:\\s*//')'\",'; "
+        "echo '  \"cpu_count\": '$(nproc)','; "
+        "echo '  \"cpu_microcode\": \"'$(grep -m1 '^microcode' /proc/cpuinfo 2>/dev/null | sed 's/^microcode\\s*:\\s*//')'\",'; "
+        "echo '  \"memory_total_kb\": '$(grep '^MemTotal' /proc/meminfo 2>/dev/null | awk '{print $2}')','; "
+        "AZURE_META=$(curl -s -H 'Metadata: true' --connect-timeout 1 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' 2>/dev/null || echo ''); "
+        "AZURE_SKU=$(echo \"$AZURE_META\" | grep -o '\"vmSize\":\"[^\"]*\"' | head -1 | cut -d':' -f2 | tr -d '\"'); "
+        "AZURE_LOC=$(echo \"$AZURE_META\" | grep -o '\"location\":\"[^\"]*\"' | head -1 | cut -d':' -f2 | tr -d '\"'); "
+        "AZURE_HOST=$(echo \"$AZURE_META\" | grep -o '\"hostId\":\"[^\"]*\"' | head -1 | cut -d':' -f2 | tr -d '\"'); "
+        "echo '  \"azure_vm_sku\": \"'\"${AZURE_SKU:-unknown}\"'\",'; "
+        "echo '  \"azure_location\": \"'\"${AZURE_LOC:-unknown}\"'\",'; "
+        "echo '  \"azure_host_id\": \"'\"${AZURE_HOST:-unknown}\"'\",'; "
+        "SELF=$(readlink /proc/self/exe 2>/dev/null); "
+        "BIN_SHA=$(sha256sum \"$SELF\" 2>/dev/null | cut -d' ' -f1); "
+        "echo '  \"binary_full_sha256\": \"'\"${BIN_SHA:-unknown}\"'\",'; "
+        "TEXT_SHA=$(objcopy -O binary --only-section=.text \"$SELF\" /tmp/_text_$$.bin 2>/dev/null && sha256sum /tmp/_text_$$.bin 2>/dev/null | cut -d' ' -f1; rm -f /tmp/_text_$$.bin); "
+        "echo '  \"binary_text_sha256\": \"'\"${TEXT_SHA:-unknown}\"'\",'; "
+        "echo '  \"git_hash_macro\": \"%s\",'; "
+        "echo '  \"build_date_time\": \"'\"%s %s\"'\"'; "
+        "echo '}'; "
+        "} > canonical-host-fingerprint.json.tmp 2>/dev/null && mv canonical-host-fingerprint.json.tmp canonical-host-fingerprint.json",
+        GIT_HASH, __DATE__, __TIME__);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        fprintf(stderr, "[hardening] WARN: host-fingerprint capture cmd too long; skipping\n");
+        return;
+    }
+    int rc = system(cmd);
+    if (rc == 0) {
+        fprintf(stderr, "[hardening] host-fingerprint captured to canonical-host-fingerprint.json\n");
+    } else {
+        fprintf(stderr, "[hardening] WARN: host-fingerprint capture rc=%d (continuing; non-fatal)\n", rc);
+    }
+}
+
 /* Binary snapshot: copy /proc/self/exe to ./solve.binary.snapshot
  * at canonical-enum startup (2026-05-26). Complements build.sha (which
  * has just the hash) by preserving the actual binary in the run dir for
@@ -8466,6 +8536,165 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[--selftest-resume] FAIL - resume sha differs from single-shot\n");
         fprintf(stderr, "             This is the c3ad271 bug-3 class failure.\n");
         return 40;
+    } else if (argc > 1 && strcmp(argv[1], "--validate-canonical") == 0) {
+        /* Pre-campaign drift detection gate (task #110, 2026-05-27).
+         *
+         * Usage: ./solve --validate-canonical <expected-sha256> <scale>
+         *   <scale> is one of: 1T, 11.2T, 100T  (alternate forms: 1, 11, 100)
+         *
+         * Workflow:
+         *   1. Capture host fingerprint
+         *   2. Run a small enum at <scale> with the canonical recipe
+         *      (in a fresh temp dir; sha-neutral to current run dir)
+         *   3. Auto-merge produces solutions.bin
+         *   4. sha256(solutions.bin) compared to <expected-sha256>
+         *   5. Exit 0 on match, 33 on mismatch (with host-fingerprint deltas if
+         *      a reference fingerprint is present in $SOLVE_REFERENCE_FINGERPRINT)
+         *
+         * Why: cheap pre-flight gate before $100+ canonical campaigns.
+         * 11.2T gate at $5/5h catches host-environment drift that would
+         * invalidate a 560T campaign at $200+/5days. See
+         * x/roae/TASK_110_CANONICAL_DETERMINISM_HARDENING_ROADMAP_2026_05_27.md.
+         *
+         * Scale recommendations:
+         *   - 1T:    fast (~30 min), drift-sensitive — catches host-env
+         *            drift cheapest, but reference sha is host-specific.
+         *   - 11.2T: slower (~5h), drift-robust — recommended for
+         *            pre-560T validation. Reference reproducible across
+         *            host-env variants we've tested.
+         *   - 100T:  overkill for routine; reserve for "the campaign
+         *            costs $200+ so I'll pay $15 to be sure."
+         */
+        if (argc < 4) {
+            fprintf(stderr, "Usage: ./solve --validate-canonical <expected-sha256-64-hex> <scale>\n");
+            fprintf(stderr, "  <scale> in {1T, 11.2T, 100T}\n");
+            return 2;
+        }
+        const char *expected_sha = argv[2];
+        const char *scale_arg = argv[3];
+        if (strlen(expected_sha) != 64) {
+            fprintf(stderr, "[--validate-canonical] ERROR: expected sha must be 64 hex chars; got %zu\n", strlen(expected_sha));
+            return 2;
+        }
+        /* Validate hex */
+        for (const char *p = expected_sha; *p; p++) {
+            if (!((*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'f') || (*p >= 'A' && *p <= 'F'))) {
+                fprintf(stderr, "[--validate-canonical] ERROR: expected sha contains non-hex char\n");
+                return 2;
+            }
+        }
+        long long scale_nodes = 0;
+        const char *scale_label = NULL;
+        if (strcmp(scale_arg, "1T") == 0 || strcmp(scale_arg, "1") == 0) {
+            scale_nodes = 1000000000000LL; scale_label = "1T";
+        } else if (strcmp(scale_arg, "11.2T") == 0 || strcmp(scale_arg, "11") == 0) {
+            scale_nodes = 11200000000000LL; scale_label = "11.2T";
+        } else if (strcmp(scale_arg, "100T") == 0 || strcmp(scale_arg, "100") == 0) {
+            scale_nodes = 100000000000000LL; scale_label = "100T";
+        } else {
+            fprintf(stderr, "[--validate-canonical] ERROR: unknown scale '%s' (use 1T, 11.2T, or 100T)\n", scale_arg);
+            return 2;
+        }
+        char solve_path[4096] = {0};
+        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
+        if (sn <= 0) {
+            fprintf(stderr, "[--validate-canonical] ERROR: readlink failed\n");
+            return 10;
+        }
+        solve_path[sn] = 0;
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+
+        char tdir[] = "/tmp/solve_validate_canonical_XXXXXX";
+        if (!mkdtemp(tdir)) {
+            fprintf(stderr, "[--validate-canonical] ERROR: mkdtemp failed\n");
+            return 10;
+        }
+        printf("[--validate-canonical] Scale: %s (%lld nodes)\n", scale_label, scale_nodes);
+        printf("[--validate-canonical] Expected sha: %s\n", expected_sha);
+        printf("[--validate-canonical] Temp dir: %s\n", tdir);
+        printf("[--validate-canonical] Running canonical enum (this will take a while)...\n");
+        fflush(stdout);
+
+        time_t t_start = time(NULL);
+        char cmd[8192];
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && "
+                 "unset SOLVE_DEPTH SOLVE_THREADS SOLVE_NODE_LIMIT "
+                 "SOLVE_PER_SUB_BRANCH_LIMIT SOLVE_DFS_ITERATIVE "
+                 "SOLVE_DFS_CHECKPOINT SOLVE_FSYNC_BATCH_SIZE "
+                 "SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS && "
+                 "SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=%lld SOLVE_THREADS=128 "
+                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
+                 "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
+                 "SOLVE_SKIP_CANONICAL_LOCK=1 SOLVE_SKIP_BINARY_SNAPSHOT=1 "
+                 "SOLVE_SKIP_AUTO_MANIFEST=1 SOLVE_SKIP_IOPS_CHECK=1 "
+                 "SOLVE_SKIP_HOST_FINGERPRINT=1 "
+                 "%s 0 > enum.out 2>&1",
+                 tdir, scale_nodes, solve_path);
+        int rc = system(cmd);
+        time_t t_end = time(NULL);
+        if (rc != 0) {
+            fprintf(stderr, "[--validate-canonical] enum failed rc=%d (see %s/enum.out)\n", rc, tdir);
+            return 40;
+        }
+        printf("[--validate-canonical] Enum wall: %ld sec\n", (long)(t_end - t_start));
+
+        /* sha256 the result */
+        char sha_cmd[8192];
+        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s/solutions.bin 2>/dev/null | cut -d' ' -f1", tool, tdir);
+        FILE *fp = popen(sha_cmd, "r");
+        char actual_sha[128] = {0};
+        if (fp) { (void)!fgets(actual_sha, sizeof(actual_sha), fp); pclose(fp); }
+        for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
+        if (!actual_sha[0]) {
+            fprintf(stderr, "[--validate-canonical] ERROR: could not compute sha of %s/solutions.bin\n", tdir);
+            return 40;
+        }
+        printf("[--validate-canonical] Measured sha: %s\n", actual_sha);
+
+        /* Capture current host fingerprint for the diagnostic */
+        char fp_cmd[1024];
+        snprintf(fp_cmd, sizeof(fp_cmd),
+            "{ "
+            "echo \"gcc:    $(gcc --version | head -1)\"; "
+            "echo \"glibc:  $(ldd --version | head -1)\"; "
+            "echo \"kernel: $(uname -r)\"; "
+            "echo \"cpu:    $(grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //')\"; "
+            "echo \"microcode: $(grep -m1 microcode /proc/cpuinfo | sed 's/.*: //')\"; "
+            "echo \"os:     $(grep ^PRETTY_NAME /etc/os-release | sed 's/.*=\"//' | sed 's/\"$//')\"; "
+            "}");
+
+        /* Compare */
+        int match = (strcmp(actual_sha, expected_sha) == 0);
+        printf("[--validate-canonical] Host fingerprint (this VM):\n");
+        int _r = system(fp_cmd); (void)_r;
+
+        /* Cleanup */
+        char rm_cmd[4200];
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tdir);
+        int _rm = system(rm_cmd); (void)_rm;
+
+        if (match) {
+            printf("\n[--validate-canonical] PASS — %s sha matches expected anchor.\n", scale_label);
+            printf("                       Host environment is within drift-tolerance for this scale.\n");
+            printf("                       Safe to launch larger canonical campaigns.\n");
+            return 0;
+        }
+        fprintf(stderr, "\n[--validate-canonical] FAIL — sha mismatch.\n");
+        fprintf(stderr, "    Expected: %s\n", expected_sha);
+        fprintf(stderr, "    Got:      %s\n", actual_sha);
+        fprintf(stderr, "    Possible causes:\n");
+        fprintf(stderr, "      (a) Host environment differs from canonical reference (gcc/glibc/kernel/\n");
+        fprintf(stderr, "          CPU/microcode patch deltas). At %s scale this can flip sha via the\n", scale_label);
+        fprintf(stderr, "          BUDGETED-cell-density mechanism documented in\n");
+        fprintf(stderr, "          x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md Q9-Q10. Try a higher\n");
+        fprintf(stderr, "          scale (11.2T or 100T) which is more drift-resistant.\n");
+        fprintf(stderr, "      (b) solve.c source has regressed since the anchor was set. Run --selftest\n");
+        fprintf(stderr, "          to confirm binary correctness.\n");
+        fprintf(stderr, "      (c) The expected sha is stale (canonical re-anchored on a different\n");
+        fprintf(stderr, "          binary). Check CANONICAL_HASHES.md for the current anchor.\n");
+        return 33;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in 11ba190 2026-05-15). Print CPU capability detection
@@ -14533,6 +14762,7 @@ sub_enum_done:
     if (disk_iops_pre_check(node_limit) != 0) return 31;
     if (auto_selftest_check(node_limit) != 0) return 24;
     snapshot_solve_binary();
+    capture_host_fingerprint(node_limit);
     if (acquire_canonical_lock() != 0) return 27;
     if (check_build_sha_invariant() != 0) return 26;
 

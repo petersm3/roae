@@ -690,6 +690,37 @@ For full schema + design rationale see `x/roae/METADATA_EQUIVALENCE_DESIGN_2026_
 - `-march=native` enables popcount / AVX intrinsics. Required for the
   `__builtin_popcountll` paths to hit hardware popcount.
 
+### Reproducible-build recipe (task #110, 2026-05-27)
+
+For canonical-grade reproducibility, use the **deterministic recipe**:
+
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct -- solve.c) \
+gcc -O3 -g -march=native -flto -pthread -fopenmp \
+    -fno-record-gcc-switches \
+    -Wl,--build-id=sha256 \
+    -ffile-prefix-map="$(pwd)=." \
+    -fdebug-prefix-map="$(pwd)=." \
+    -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" \
+    solve.c -lm -o solve
+```
+
+Compared to the bare `-O3 -flto -pthread -fopenmp -march=native`, these flags add:
+
+| Flag | What it does | Why it matters for reproducibility |
+|---|---|---|
+| `SOURCE_DATE_EPOCH=<unix-ts>` | Pins `__DATE__` and `__TIME__` to a deterministic value | Eliminates the `.rodata` cosmetic non-determinism documented in `x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md` Q10 |
+| `-fno-record-gcc-switches` | Removes embedded build command line from `.GCC.command_line` section | Builds without referencing the build directory |
+| `-Wl,--build-id=sha256` | Derives the ELF build-id deterministically from binary content (instead of random hash) | Two builds of same source on same host produce identical build-ids |
+| `-ffile-prefix-map="$(pwd)=."` | Strips the absolute build path from any embedded references | Same source compiled in different directories produces identical binary |
+| `-fdebug-prefix-map="$(pwd)=."` | Same for debug info (DWARF section) | Debug builds across hosts have identical DWARF paths |
+
+**Result**: two builds of the same source on the same host produce **byte-identical binaries** (the same `.text`, same `.rodata`, same build-id). The empirical Q10 finding showed that without these flags, two builds had byte-identical `.text` but differing `.rodata` and build-id — cosmetic but messy. The deterministic recipe eliminates the mess.
+
+**Caveat — cross-host reproducibility**: even with this recipe, builds across different physical hosts (different gcc patch, glibc patch, kernel, CPU revision) can produce DIFFERENT binaries — and may produce different canonical sha at BUDGETED-cell-density-sensitive scales like 1T. See the structured `validation_history` block in `CANONICAL_HASHES.md` and the `feedback_canonical_sha_drift_management` memory for the operational discipline.
+
+For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does not fire at higher scales per Item 4 empirical evidence 2026-05-27).
+
 ### Solver
 
 - **Independent verifier**: `roae/verify.py` is a ~160-line pure-Python
