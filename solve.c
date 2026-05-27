@@ -278,6 +278,7 @@
  *   SPECIFICATION.md   formal definitions of C1-C5
  *   enumeration/LEADERBOARD.md   per-branch / per-sub-branch enumeration progress
  */
+#define _GNU_SOURCE  /* for syncfs() (task #108b); glibc 2.14+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -960,6 +961,91 @@ static int total_branches = 0;
  * of checkpoint.txt. Initialized from load_sub_checkpoint() at resume. */
 static int total_sub_complete = 0;
 
+/* ---------- Fsync batching for canonical-scale write throughput (task #108b) ----------
+ *
+ * At canonical scale, each non-empty sub-branch issues 3-4 per-write fsyncs
+ * (.bin, .budget, .provenance.json, plus .dfs_state for INTERRUPTED), plus
+ * one for the per-thread checkpoint append. At 158k sub-branches that's
+ * ~792k fsyncs per 11.2T campaign; at 560T (~8M sub-branches) ~32M fsyncs.
+ *
+ * Standard HDD ~200 IOPS → ~55 hours of fsync wait at 560T.
+ * Premium SSD ~10k IOPS → ~1.1 hours.
+ *
+ * Mitigation: each worker tracks completions in TLS, and once per
+ * SOLVE_FSYNC_BATCH_SIZE sub-branches calls syncfs() to coalesce all
+ * pending writes for the cwd's filesystem in one syscall. When batch
+ * mode is active, individual write functions SKIP their per-write fsync
+ * (via maybe_fsync_fd helper) and rely on the periodic syncfs for
+ * durability.
+ *
+ * Correctness (ext4 default mounts): atomic-rename is journaled at
+ * commit boundaries; an unsynced rename + crash either preserves the
+ * rename or loses it entirely — no half-renamed file. If the rename
+ * is lost, the .dfs_state for the same sub-branch is also lost in the
+ * same batch window, so resume re-walks from prior state and produces
+ * byte-identical output (DFS is deterministic).
+ *
+ * Eviction window grows from 0 to ~N sub-branches per thread (N defaults
+ * 16). On D128 with ~5 sb/sec/thread, that's ~3 seconds. Spot eviction
+ * advance notice is typically 30 sec → plenty of time to rely on the
+ * pre-existing checkpoint discipline.
+ *
+ * Default: SOLVE_FSYNC_BATCH_SIZE=1 (legacy per-write fsync, byte-
+ * identical to pre-#108b behavior). To opt in for canonical campaigns:
+ *   SOLVE_FSYNC_BATCH_SIZE=16   ./solve 0
+ *
+ * Skipped in single-threaded code paths (load_sub_checkpoint,
+ * promote_orphaned_shards, solve.lock, etc.) which fsync only at startup. */
+static int g_fsync_batch_size = 1;
+static __thread int tls_subbranches_since_syncfs = 0;
+static __thread int tls_cwd_fd = -1;
+
+static inline int fsync_batch_active(void) { return g_fsync_batch_size > 1; }
+
+/* Conditional fsync — only fsyncs in legacy (non-batched) mode. Used by
+ * the 5 worker-hot-path write functions (.bin, .budget, .provenance.json,
+ * .dfs_state, per-thread checkpoint). Returns the fsync return value
+ * (so existing error-check chains work unchanged) or 0 in batched mode. */
+static inline int maybe_fsync_fd(int fd) {
+    if (fsync_batch_active()) return 0;
+    return fsync(fd);
+}
+
+/* Per-thread periodic syncfs. Called by the worker at the end of each
+ * sub-branch iteration. Coalesces all pending file-system writes once
+ * per g_fsync_batch_size iterations via syncfs(). Falls back to legacy
+ * mode if the cwd fd can't be opened. */
+static void thread_maybe_syncfs(void) {
+    if (!fsync_batch_active()) return;
+    if (++tls_subbranches_since_syncfs < g_fsync_batch_size) return;
+    if (tls_cwd_fd < 0) {
+        tls_cwd_fd = open(".", O_RDONLY);
+        if (tls_cwd_fd < 0) {
+            fprintf(stderr, "WARN: open(\".\", O_RDONLY) for syncfs failed: %s; reverting to legacy per-write fsync\n",
+                    strerror(errno));
+            g_fsync_batch_size = 1;  /* global revert; cheap atomicity for warning purposes */
+            tls_subbranches_since_syncfs = 0;
+            return;
+        }
+    }
+    if (syncfs(tls_cwd_fd) != 0) {
+        fprintf(stderr, "WARN: syncfs failed (errno %d: %s); continuing\n", errno, strerror(errno));
+    }
+    tls_subbranches_since_syncfs = 0;
+}
+
+/* Final syncfs at worker exit. Ensures the trailing batch is durable
+ * before thread completion. Called once per worker. */
+static void thread_final_syncfs(void) {
+    if (!fsync_batch_active()) return;
+    if (tls_cwd_fd >= 0) {
+        (void)syncfs(tls_cwd_fd);
+        close(tls_cwd_fd);
+        tls_cwd_fd = -1;
+    }
+    tls_subbranches_since_syncfs = 0;
+}
+
 /* SIGTERM/SIGINT handler. Uses sigaction (not signal()) because signal() resets
  * the handler after one invocation on some platforms — a bug in an earlier version
  * that caused the second signal to kill the process without clean output.
@@ -1313,9 +1399,10 @@ static inline int completed_sub_key_d3(int p1, int o1, int p2, int o2, int p3, i
  * Set once per run from node_limit / total_branches after total_branches is known. */
 static long long current_per_branch_budget = 0;
 
-static void load_sub_checkpoint(void) {
-    FILE *f = fopen("checkpoint.txt", "r");
-    if (!f) return;
+/* Helper: parse one checkpoint file (legacy checkpoint.txt OR per-thread
+ * checkpoint_t<N>.txt). Both formats are identical line-by-line; the per-
+ * thread file split is only for write-side mutex elimination (task #106). */
+static void load_sub_checkpoint_file(FILE *f) {
     char line[512];
     while (fgets(line, sizeof(line), f)) {
         if (!strstr(line, "Sub-branch")) continue;
@@ -1377,7 +1464,41 @@ static void load_sub_checkpoint(void) {
             }
         }
     }
-    fclose(f);
+}
+
+static void load_sub_checkpoint(void) {
+    /* Read legacy checkpoint.txt (also receives promote_orphaned_shards
+     * entries at startup, which run before workers). */
+    FILE *f = fopen("checkpoint.txt", "r");
+    if (f) {
+        load_sub_checkpoint_file(f);
+        fclose(f);
+    }
+    /* Read per-thread checkpoint files (task #106 mutex-elimination, 2026-05-26):
+     * each worker writes to its own checkpoint_t<N>.txt; resume parses all of
+     * them. Use opendir to scan for any matching files (thread count may vary
+     * across resume invocations). */
+    DIR *d = opendir(".");
+    if (!d) return;
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+        const char *n = entry->d_name;
+        size_t len = strlen(n);
+        /* Match pattern "checkpoint_t<digits>.txt" */
+        if (len < 16 || strncmp(n, "checkpoint_t", 12) != 0) continue;
+        if (strcmp(n + len - 4, ".txt") != 0) continue;
+        /* Verify the middle is all digits */
+        int valid = 1;
+        for (size_t i = 12; i < len - 4; i++) {
+            if (n[i] < '0' || n[i] > '9') { valid = 0; break; }
+        }
+        if (!valid) continue;
+        FILE *tf = fopen(n, "r");
+        if (!tf) continue;
+        load_sub_checkpoint_file(tf);
+        fclose(tf);
+    }
+    closedir(d);
 }
 
 static int is_sub_branch_completed(int p1, int o1, int p2, int o2) {
@@ -1664,7 +1785,7 @@ static void write_budget_sidecar(const char *bin_fname, long long budget) {
         fprintf(stderr, "WARN: cannot open %s for write: %s\n", tmp, strerror(errno));
         return;
     }
-    if (fprintf(f, "%lld\n", budget) < 0 || fflush(f) != 0 || fsync(fileno(f)) != 0 || fclose(f) != 0) {
+    if (fprintf(f, "%lld\n", budget) < 0 || fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0 || fclose(f) != 0) {
         fprintf(stderr, "WARN: budget-sidecar write/fsync failed for %s: %s\n", tmp, strerror(errno));
         unlink(tmp);
         return;
@@ -1966,7 +2087,7 @@ static void append_shard_provenance(const char *bin_fname,
     fprintf(fw, "  \"cumulative_nodes_explored\": %lld,\n", nodes_explored);
     fprintf(fw, "  \"cumulative_records_emitted\": %lld\n", records_emitted);
     fprintf(fw, "}\n");
-    if (fflush(fw) != 0 || fsync(fileno(fw)) != 0 || fclose(fw) != 0) {
+    if (fflush(fw) != 0 || maybe_fsync_fd(fileno(fw)) != 0 || fclose(fw) != 0) {
         fprintf(stderr, "WARN: provenance fwrite/fsync failed for %s: %s\n", tmp_path, strerror(errno));
         unlink(tmp_path);
         free(prior);
@@ -3958,7 +4079,7 @@ static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
         unlink(tmpname);
         return -1;
     }
-    if (fflush(f) != 0 || fsync(fileno(f)) != 0 || fclose(f) != 0) {
+    if (fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0 || fclose(f) != 0) {
         fprintf(stderr, "WARN: dfs_state_write: fsync/close(%s) failed\n", tmpname);
         unlink(tmpname);
         return -1;
@@ -4088,7 +4209,7 @@ static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     if (fwrite(&st, sizeof(st), 1, f) != 1) {
         fclose(f); unlink(tmpname); return -1;
     }
-    if (fflush(f) != 0 || fsync(fileno(f)) != 0 || fclose(f) != 0) {
+    if (fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0 || fclose(f) != 0) {
         unlink(tmpname); return -1;
     }
     if (rename(tmpname, fname) != 0) {
@@ -4231,7 +4352,7 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
             written++;
         }
     }
-    if (write_error || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
+    if (write_error || fflush(sf) != 0 || maybe_fsync_fd(fileno(sf)) != 0) {
         fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %lld of %lld): %s\n",
                 tmpname, written, ts->solution_count, strerror(errno));
         fclose(sf);
@@ -4284,7 +4405,7 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
             written++;
         }
     }
-    if (write_error || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
+    if (write_error || fflush(sf) != 0 || maybe_fsync_fd(fileno(sf)) != 0) {
         fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %lld of %lld): %s\n",
                 tmpname, written, ts->solution_count, strerror(errno));
         fclose(sf);
@@ -4504,7 +4625,22 @@ static void *thread_func_single(void *arg) {
         int done = __sync_add_and_fetch(&total_branches_completed, 1);
         long elapsed = (long)(time(NULL) - start_time);
 
-        pthread_mutex_lock(&checkpoint_mutex);
+        /* Per-thread completion path — no shared mutex needed (task #106
+         * profile 2026-05-26 identified checkpoint_mutex as the dominant
+         * bottleneck at depth-3 canonical scale; 96+/128 threads stuck in
+         * futex_do_wait, ~35% CPU utilization).
+         *
+         * Architecture: each thread writes its own checkpoint_t<tid>.txt;
+         * resume parser unions all per-thread files + the legacy
+         * checkpoint.txt (which still receives promote_orphaned_shards
+         * entries at startup, before workers run, so no contention there).
+         *
+         * The flush_sub_solutions* + append_shard_provenance writes are
+         * per-thread output (each thread writes its own sub_*.bin); they
+         * never needed the mutex in the first place. Total_sub_complete
+         * counter uses __atomic_fetch_add for safe increment. update_progress
+         * is rate-limited to ~1 in 100 sub-branches per thread to avoid
+         * the shared progress.txt becoming a contention point. */
 
         /* Capture solution_count BEFORE flush_sub_solutions zeroes it —
          * the checkpoint line's "solutions" field should record the actual
@@ -4512,11 +4648,7 @@ static void *thread_func_single(void *arg) {
         int sub_solutions = ts->solution_count;
 
         /* Always flush hash table to file after each sub-branch, then clear.
-         * This ensures thread-count independence: each sub-branch's solutions are
-         * written to its own file regardless of how many threads are running.
-         * The final merge reads all sub_*.bin files instead of thread hash tables.
-         * For INTERRUPTED sub-branches, solutions are still saved (they're valid
-         * even if the sub-branch didn't complete). */
+         * Per-thread output — no mutex needed. */
         if (ts->solution_count > 0) {
             if (sb->pair3 >= 0) {
                 flush_sub_solutions_d3(ts, p1, o1, p2, o2, sb->pair3, sb->orient3);
@@ -4550,46 +4682,49 @@ static void *thread_func_single(void *arg) {
             ts->hash_collisions = 0;
         }
 
-        /* Write checkpoint entry. Use fflush + fsync before close so the line
-         * lands on disk before a possible spot eviction (~30s notice window).
-         * Also capture per-sub-branch budget on the line for future budget-aware
-         * resume logic (see status-label taxonomy change — the budget value
-         * tells a future resume whether a BUDGETED entry is still valid under
-         * the current run's budget or needs re-running). */
-        FILE *ckpt = fopen("checkpoint.txt", "a");
-        if (ckpt) {
-            if (sb->pair3 >= 0) {
-                fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
-                        "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
-                        sb_status, ts->thread_id, p1, o1, p2, o2, sb->pair3, sb->orient3,
-                        sub_nodes, sub_c3, sub_solutions, elapsed,
-                        per_branch_node_limit);
+        /* Write per-thread checkpoint entry. No mutex — each thread writes
+         * its own file. */
+        {
+            char ckpt_path[48];
+            snprintf(ckpt_path, sizeof(ckpt_path), "checkpoint_t%d.txt", ts->thread_id);
+            FILE *ckpt = fopen(ckpt_path, "a");
+            if (ckpt) {
+                if (sb->pair3 >= 0) {
+                    fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+                            "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                            sb_status, ts->thread_id, p1, o1, p2, o2, sb->pair3, sb->orient3,
+                            sub_nodes, sub_c3, sub_solutions, elapsed,
+                            per_branch_node_limit);
+                } else {
+                    fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
+                            "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                            sb_status, ts->thread_id, p1, o1, p2, o2,
+                            sub_nodes, sub_c3, sub_solutions, elapsed,
+                            per_branch_node_limit);
+                }
+                if (fflush(ckpt) != 0 || maybe_fsync_fd(fileno(ckpt)) != 0) {
+                    fprintf(stderr, "WARNING: %s fflush/fsync failed — entry may be lost on eviction\n", ckpt_path);
+                }
+                if (fclose(ckpt) != 0) {
+                    fprintf(stderr, "WARNING: %s close failed\n", ckpt_path);
+                }
             } else {
-                fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
-                        "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
-                        sb_status, ts->thread_id, p1, o1, p2, o2,
-                        sub_nodes, sub_c3, sub_solutions, elapsed,
-                        per_branch_node_limit);
+                fprintf(stderr, "WARNING: could not open %s for append\n", ckpt_path);
             }
-            if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0) {
-                fprintf(stderr, "WARNING: checkpoint.txt fflush/fsync failed — entry may be lost on eviction\n");
-            }
-            if (fclose(ckpt) != 0) {
-                fprintf(stderr, "WARNING: checkpoint.txt close failed\n");
-            }
-        } else {
-            fprintf(stderr, "WARNING: could not open checkpoint.txt for append\n");
         }
 
-        /* Update progress file. Use in-memory total_sub_complete counter
-         * (protected by checkpoint_mutex) instead of re-reading checkpoint.txt
-         * after every sub-branch commit. Avoids O(n^2) scan under mutex.
-         * Count both EXHAUSTED and BUDGETED as "processed" — both have
-         * committed their solutions and won't be re-run (at the same budget).
-         * INTERRUPTED does not count because it will re-run on resume. */
+        /* Atomic counter increment + rate-limited progress write. Count both
+         * EXHAUSTED and BUDGETED as "processed". INTERRUPTED re-runs. */
         if (strcmp(sb_status, "EXHAUSTED") == 0 || strcmp(sb_status, "BUDGETED") == 0)
-            total_sub_complete++;
-        update_progress(total_sub_complete, total_branches, elapsed);
+            __atomic_fetch_add(&total_sub_complete, 1, __ATOMIC_RELAXED);
+
+        /* Rate-limit update_progress: only thread 0 writes, only every 100
+         * sub-branches. progress.txt is for human-readable status, doesn't
+         * need precise atomicity. */
+        if (ts->thread_id == 0 && (done % 100 == 0)) {
+            int snapshot = __atomic_load_n(&total_sub_complete, __ATOMIC_RELAXED);
+            update_progress(snapshot, total_branches, elapsed);
+        }
 
         /* Use sub_solutions (captured before flush) rather than ts->solution_count
          * (which flush_sub_solutions already zeroed). */
@@ -4598,8 +4733,17 @@ static void *thread_func_single(void *arg) {
                 done, total_branches, sb_status, p1, o1, p2, o2,
                 sub_nodes / 1000000000LL, sub_c3 / 1000000LL,
                 sub_solutions, elapsed);
-        pthread_mutex_unlock(&checkpoint_mutex);
+
+        /* Task #108b: periodic per-thread syncfs to coalesce all pending
+         * filesystem writes once per g_fsync_batch_size sub-branches. No-op
+         * in legacy mode (g_fsync_batch_size == 1). */
+        thread_maybe_syncfs();
     }
+
+    /* Task #108b: final syncfs flushes the trailing batch before the
+     * thread exits, ensuring per-thread checkpoint + shard durability
+     * regardless of how the loop terminated. */
+    thread_final_syncfs();
 
     __sync_fetch_and_add(&threads_completed, 1);
     return NULL;
@@ -8087,6 +8231,211 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
+    } else if (argc > 1 && strcmp(argv[1], "--selftest-resume") == 0) {
+        /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
+         * landed in d683794 2026-05-15 as Phase E follow-up item 1).
+         *
+         * Resume sha-equivalence selftest. Validates that the iterative+
+         * checkpoint resume code path (SOLVE_DFS_ITERATIVE=1 +
+         * SOLVE_DFS_CHECKPOINT=1) produces the same final solutions.bin
+         * sha as a single-shot run at the same final budget.
+         *
+         * Test design: PHASE_A 50M → PHASE_B 200M asymmetric extension
+         * in one tempdir; single-shot 200M in a fresh tempdir; compare
+         * the two solutions.bin shas. The 50M → 200M ratio matches the
+         * c3ad271 commit's own validation test, ensuring this selftest
+         * exercises the historically-buggy code path.
+         *
+         * Wall: ~10-30 sec on a 4-thread machine. Add to pre-commit
+         * hook alongside --selftest to catch resume regressions at
+         * commit time. The load-bearing CI gate per
+         * `feedback_checkpoint_format_merge_gate`. */
+        char solve_path[4096] = {0};
+        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
+        if (sn <= 0) {
+            fprintf(stderr, "ERROR: readlink failed for --selftest-resume\n");
+            return 10;
+        }
+        solve_path[sn] = 0;
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+
+        char tdir_A[] = "/tmp/solve_selftest_resume_A_XXXXXX";
+        if (!mkdtemp(tdir_A)) {
+            fprintf(stderr, "ERROR: mkdtemp A failed\n");
+            return 10;
+        }
+        char tdir_B[] = "/tmp/solve_selftest_resume_B_XXXXXX";
+        if (!mkdtemp(tdir_B)) {
+            char rm[4200]; snprintf(rm, sizeof(rm), "rm -rf %s", tdir_A);
+            int _rc = system(rm); (void)_rc;
+            fprintf(stderr, "ERROR: mkdtemp B failed\n");
+            return 10;
+        }
+        printf("[--selftest-resume] PHASE_A 50M -> PHASE_B 200M (resume): %s\n", tdir_A);
+        printf("[--selftest-resume] Single-shot 200M baseline:           %s\n", tdir_B);
+
+        char cmd[8192];
+        int rc;
+
+        /* PHASE_A at 50M in tdir_A. SOLVE_ALLOW_SUB_CANONICAL/SOLVE_SKIP_CANONICAL_LOCK
+         * needed because 50M/200M are sub-canonical scales. */
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && unset SOLVE_DEPTH && "
+                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=50000000 "
+                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
+                 "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
+                 "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
+                 "%s 0 > phase_a.log 2>&1",
+                 tdir_A, solve_path);
+        rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "[--selftest-resume] PHASE_A failed rc=%d (see %s/phase_a.log)\n",
+                    rc, tdir_A);
+            return 40;
+        }
+
+        /* PHASE_B at 200M in same tdir_A (resumes from PHASE_A checkpoint) */
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && unset SOLVE_DEPTH && "
+                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=200000000 "
+                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
+                 "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
+                 "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
+                 "%s 0 > phase_b.log 2>&1",
+                 tdir_A, solve_path);
+        rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "[--selftest-resume] PHASE_B failed rc=%d (see %s/phase_b.log)\n",
+                    rc, tdir_A);
+            return 40;
+        }
+
+        /* Single-shot 200M in fresh tdir_B */
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && unset SOLVE_DEPTH && "
+                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=200000000 "
+                 "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
+                 "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
+                 "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
+                 "%s 0 > single.log 2>&1",
+                 tdir_B, solve_path);
+        rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "[--selftest-resume] Single-shot failed rc=%d (see %s/single.log)\n",
+                    rc, tdir_B);
+            return 40;
+        }
+
+        char sha_resume[128] = {0}, sha_single[128] = {0};
+        snprintf(cmd, sizeof(cmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, tdir_A);
+        FILE *fp = popen(cmd, "r");
+        if (fp) { (void)!fgets(sha_resume, sizeof(sha_resume), fp); pclose(fp); }
+        snprintf(cmd, sizeof(cmd), "%s %s/solutions.bin | cut -d' ' -f1", tool, tdir_B);
+        fp = popen(cmd, "r");
+        if (fp) { (void)!fgets(sha_single, sizeof(sha_single), fp); pclose(fp); }
+        for (char *p = sha_resume; *p; p++) if (*p == '\n') { *p = 0; break; }
+        for (char *p = sha_single; *p; p++) if (*p == '\n') { *p = 0; break; }
+
+        printf("[--selftest-resume] Resume sha:      %s\n", sha_resume);
+        printf("[--selftest-resume] Single-shot sha: %s\n", sha_single);
+
+        char rm[4200];
+        snprintf(rm, sizeof(rm), "rm -rf %s %s", tdir_A, tdir_B);
+        int _rc = system(rm); (void)_rc;
+
+        if (sha_resume[0] != 0 && strcmp(sha_resume, sha_single) == 0) {
+            printf("[--selftest-resume] PASS - resume produces byte-identical "
+                   "output to single-shot\n");
+            return 0;
+        }
+        fprintf(stderr, "[--selftest-resume] FAIL - resume sha differs from single-shot\n");
+        fprintf(stderr, "             This is the c3ad271 bug-3 class failure.\n");
+        return 40;
+    } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
+        /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
+         * landed in 11ba190 2026-05-15). Print CPU capability detection
+         * used by future AVX-512 runtime dispatch.
+         *
+         * No behavioral change to canonical enumeration — this is a
+         * diagnostic subcommand that exercises __builtin_cpu_supports so
+         * the operator can confirm what features the running binary
+         * detects on the current host. Used by bench fingerprint capture
+         * and pre-flight checks before AVX-512 benchmarking. */
+        printf("[--cpu-features] CPU feature detection via __builtin_cpu_supports\n");
+        printf("  avx2             : %s\n", __builtin_cpu_supports("avx2") ? "yes" : "no");
+        printf("  avx512f          : %s\n", __builtin_cpu_supports("avx512f") ? "yes" : "no");
+        printf("  avx512bw         : %s\n", __builtin_cpu_supports("avx512bw") ? "yes" : "no");
+        printf("  avx512dq         : %s\n", __builtin_cpu_supports("avx512dq") ? "yes" : "no");
+        printf("  avx512vl         : %s\n", __builtin_cpu_supports("avx512vl") ? "yes" : "no");
+        printf("  avx512vpopcntdq  : %s\n", __builtin_cpu_supports("avx512vpopcntdq") ? "yes" : "no");
+        printf("  avx512vnni       : %s\n", __builtin_cpu_supports("avx512vnni") ? "yes" : "no");
+        printf("  avx512bitalg     : %s\n", __builtin_cpu_supports("avx512bitalg") ? "yes" : "no");
+        printf("  avx512vbmi       : %s\n", __builtin_cpu_supports("avx512vbmi") ? "yes" : "no");
+        printf("  avx512vbmi2      : %s\n", __builtin_cpu_supports("avx512vbmi2") ? "yes" : "no");
+        printf("  bmi2             : %s\n", __builtin_cpu_supports("bmi2") ? "yes" : "no");
+        printf("  popcnt           : %s\n", __builtin_cpu_supports("popcnt") ? "yes" : "no");
+        printf("  fma              : %s\n", __builtin_cpu_supports("fma") ? "yes" : "no");
+        int avx512_ready = __builtin_cpu_supports("avx512f")
+                        && __builtin_cpu_supports("avx512bw")
+                        && __builtin_cpu_supports("avx512vpopcntdq");
+        printf("\n  v2 AVX-512 dispatch ready (avx512f + avx512bw + avx512vpopcntdq): %s\n",
+               avx512_ready ? "YES - vectorized path will be selected" :
+                              "NO - scalar fallback will be used");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--cpu-freq") == 0) {
+        /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
+         * landed in 324318b 2026-05-16). Sample per-core MHz from
+         * /proc/cpuinfo. Diagnostic for thermal-throttle detection during
+         * paired performance benches.
+         *
+         * Aggregates min / avg / max across all cores plus a health verdict
+         * against an operator-configurable threshold (--cpu-freq 2200 →
+         * flag any core below 2200 MHz). Default threshold: 2000 MHz.
+         *
+         * Why: Spot D128als_v7 hosts in westus3 can hand back thermally-
+         * throttled physical hosts at ~600 MHz vs the expected 2596 MHz
+         * base / 3700 MHz boost. Pairs with
+         * scripts/d128_preflight_throttle_probe.sh per
+         * `feedback_preflight_throttle_probe`. */
+        long threshold_mhz = 2000;
+        if (argc > 2) threshold_mhz = atol(argv[2]);
+        FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+        if (!cpuinfo) {
+            fprintf(stderr, "[--cpu-freq] cannot open /proc/cpuinfo: %s\n", strerror(errno));
+            return 2;
+        }
+        long min_mhz = -1, max_mhz = -1, sum_mhz = 0, count = 0;
+        long below_threshold = 0;
+        char line[512];
+        while (fgets(line, sizeof(line), cpuinfo)) {
+            if (strncmp(line, "cpu MHz", 7) == 0) {
+                char *colon = strchr(line, ':');
+                if (!colon) continue;
+                long mhz = (long)strtod(colon + 1, NULL);
+                if (mhz <= 0) continue;
+                if (min_mhz < 0 || mhz < min_mhz) min_mhz = mhz;
+                if (max_mhz < 0 || mhz > max_mhz) max_mhz = mhz;
+                sum_mhz += mhz;
+                count++;
+                if (mhz < threshold_mhz) below_threshold++;
+            }
+        }
+        fclose(cpuinfo);
+        if (count == 0) {
+            fprintf(stderr, "[--cpu-freq] no 'cpu MHz' lines in /proc/cpuinfo\n");
+            return 2;
+        }
+        long avg_mhz = sum_mhz / count;
+        printf("[--cpu-freq] cores=%ld min=%ld avg=%ld max=%ld threshold=%ld below=%ld\n",
+               count, min_mhz, avg_mhz, max_mhz, threshold_mhz, below_threshold);
+        if (below_threshold > 0) {
+            printf("  THROTTLED - %ld of %ld cores below %ld MHz (likely thermal/power cap)\n",
+                   below_threshold, count, threshold_mhz);
+            return 1;
+        }
+        printf("  HEALTHY - all %ld cores at or above %ld MHz\n", count, threshold_mhz);
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--emit-shard-manifest") == 0) {
         /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; refactored
          * 2026-05-26 to call shared do_emit_shard_manifest() helper).
@@ -8933,6 +9282,26 @@ int main(int argc, char *argv[]) {
     if (env_dfs_iter && atoi(env_dfs_iter) == 1) {
         dfs_iterative_enabled = 1;
         printf("DFS-iterative: enabled (explicit-stack backtrack)\n");
+    }
+
+    /* SOLVE_FSYNC_BATCH_SIZE (task #108b, 2026-05-27): coalesce per-write
+     * fsyncs into a single per-thread syncfs() once per N sub-branches.
+     * Default 1 (legacy per-write fsync, byte-identical to pre-#108b).
+     * Recommended for canonical 100T+ campaigns where total fsync count
+     * dominates I/O wait on Standard HDD storage. See the
+     * "Fsync batching" comment near the top of solve.c for correctness
+     * argument + eviction semantics. */
+    char *env_fsync_batch = getenv("SOLVE_FSYNC_BATCH_SIZE");
+    if (env_fsync_batch && *env_fsync_batch) {
+        int v = atoi(env_fsync_batch);
+        if (v < 1) v = 1;
+        if (v > 256) v = 256;  /* safety cap — beyond ~32 the per-thread eviction
+                                  window grows past what's defensible on Spot */
+        g_fsync_batch_size = v;
+        if (v > 1) {
+            printf("SOLVE_FSYNC_BATCH_SIZE=%d (per-thread syncfs() once per %d sub-branches; per-write fsync skipped)\n",
+                   v, v);
+        }
     }
 
     /* Canonical-scale defaults (added 2026-05-26 per operator directive
@@ -14501,6 +14870,28 @@ sub_enum_done:
     char hash_only[65] = {0};
     int total_done_final = 0;
     int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
+
+    /* SOLVE_SKIP_AUTOMERGE (re-landed 2026-05-27 — was lost in 9f10f05 v3 reset,
+     * originally landed in 52cac4a 2026-05-13): exit cleanly after enum,
+     * leaving shards on disk for a separate merge VM. Use case: canonical
+     * re-derivation cascade where enum runs on parallel-heavy Spot D128 and
+     * merge runs on a right-sized single-thread Standard D8/D16. The default
+     * in-process merge below consumes ~30-50 min of D128 time for what could
+     * run on D16. SOLVE_SKIP_AUTOMERGE lets the operator skip the bundled
+     * merge and run `./solve --merge` separately on the smaller VM after
+     * detaching/transferring the scratch disk. Inert when env var unset.
+     *
+     * MANDATORY for any canonical ≥11.2T per `feedback_canonical_pipeline_no_exceptions`
+     * (x/roae memory). Without this env var, scripts depending on the split
+     * enum/merge pipeline pattern silently no-op'd from 2026-05-25 (v3 reset)
+     * through 2026-05-27 (this re-land), running auto-merge on the enum VM
+     * against the canonical-pipeline rule. */
+    if (getenv("SOLVE_SKIP_AUTOMERGE") != NULL) {
+        printf("SOLVE_SKIP_AUTOMERGE set; skipping bundled merge. "
+               "Shards remain on disk. Run `solve --merge` separately.\n");
+        fflush(stdout);
+        return 0;
+    }
 
     /* Fork-based merge for the iterative+v2 path. Test A on 2026-04-30
      * surfaced heap corruption when the in-process merge ran after a

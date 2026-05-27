@@ -1121,3 +1121,67 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 - Empirical: v3 (LTO + bitset, no PGO) measures ~+4.4% over vanilla v1 at full-enum 1T (broken-PGO bench result, which incidentally measured exactly that stack).
 - Empirical: v3 (LTO + PGO + bitset) measures ~0% over vanilla v1 at full-enum 1T (working-PGO bench result).
 - Theoretical with caveats: the +6.5% PGO and +2.53% LTO numbers from prior benches stand for their specific experimental setups (single-branch + LTO-baseline + healthy host). They do not generalize to the canonical full-enum workload.
+
+---
+
+## 2026-05-27 — task #106/#108: per-thread checkpoint files eliminate checkpoint_mutex contention (~2× canonical wall reduction)
+
+**Category**: mechanism (synchronization elimination, hot-path mutex removal)
+**Sha impact**: preserving (at the c72eada 1T anchor; see drift note below for the v3-BRANCH→c72eada layout drift)
+**Decision**: shipped
+
+### Hypothesis
+
+`checkpoint_mutex` serializes per-sub-branch metadata write at depth-3 canonical scale. Profile #106 (5-min perf record + iostat + thread-state samples, D128als_v7 Spot 2026-05-26) found 96+ of 128 threads in `futex_do_wait` per snapshot at ~35% CPU utilization with the solver-data Standard HDD at 64–69% util (not I/O-bound; mutex-bound). Hypothesis: replace the shared `checkpoint.txt` append + mutex with per-thread `checkpoint_t<tid>.txt` files + atomic counter for `total_sub_complete` + rate-limited progress write. Expected ~2× wall reduction at canonical scale by eliminating the serialization tax.
+
+### Methodology
+- Workload (perf bench): Phase-B-equivalent enum, SOLVE_PER_SUB_BRANCH_LIMIT=35,361,598 (matches 5.6T canonical per-cell budget), 128 threads, 5-min steady-state throughput measurement
+- Workload (1T canonical sha gate): SOLVE_NODE_LIMIT=1,000,000,000,000, SOLVE_THREADS=128, default checkpoint flags
+- Hardware: D128als_v7 Spot westus3 (`bench-per-thread` 2026-05-26 perf bench; `t108-validation` 2026-05-27 sha gate)
+- Build: `-O3 -g -march=native -flto -pthread -fopenmp` (LTO + bitset, no PGO)
+- Repetitions: 1 (perf bench at canonical scale; sha gate is deterministic by design)
+- See `x/roae/scripts/bench_per_thread_checkpoint/` (perf bench), `x/roae/scripts/t108_validation/` (sha gate)
+
+### Result (perf at canonical scale)
+- CPU utilization (5 top samples avg): **35% → ~95.3%** (12200/12800 cores active vs 35% baseline pre-#108)
+- Load avg (1-min): **128.17** (full saturation)
+- Sub-branch throughput: **~28 → 40.05 sub-branches/sec** (+43% direct measurement)
+- Per-thread checkpoint files written: 128 (one per worker thread; mechanism confirmed)
+
+### Result (1T canonical sha gate)
+- 1T enum wall on c72eada + #108 bundle: 1679s (default mode) / 1693s (SOLVE_FSYNC_BATCH_SIZE=16)
+- 1T enum wall on unmodified c72eada (drift isolation control): 3430s
+- Bundle's 1T sha: `74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327`
+- Unmodified c72eada's 1T sha: `74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327` (IDENTICAL — #108 confirmed sha-equivalent to current main HEAD at 1T)
+- Note on anchor drift: this `74d39760…` is NOT the 2026-05-24 v3 BRANCH 1T anchor `5a0f0bc24eb9…`. The drift was introduced by one or more of the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (current main HEAD), via the same LTO-layout mechanism #99 100B bisect identified for `d683794`. #108 is innocent of this drift; the drift is in `c72eada` itself. See `project_1T_anchor_drifted_c72eada` (private memory) + `V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` (private docs).
+
+### Delta vs baseline
+- Per-thread CPU-on-DFS at canonical scale: **~+170%** (35% → 95%)
+- 1T enum wall: **3430s → 1679s** = **2.04× faster** (matches the hypothesis prediction)
+- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on D128 Spot per 35→95% util ratio. Confirmed by 1T extrapolation. **560T projection: ~$577 saved per run.**
+- sha changed: no (sha-equivalent to current c72eada main HEAD at 1T)
+
+### Sha gate
+- result: PASS
+- --selftest sha `403f7202…` preserved (4 separate builds: locally + on VM, post-each-bundle-step, all 4 parts together)
+- --selftest-resume PASS on bundle (resume sha = single-shot sha = `e43f2905…`, matches historical reference)
+- 1T canonical default mode sha = `74d39760…` (matches c72eada baseline)
+- 1T canonical SOLVE_FSYNC_BATCH_SIZE=16 sha = `74d39760…` (matches; #108b batched fsync sha-neutral at canonical scale)
+
+### Notes
+This commit bundles four pieces, all sha-neutral relative to unmodified `c72eada`:
+
+1. **#108 (per-thread checkpoint files)** — the headline mutex elimination, hot-path change.
+2. **#108b (opt-in fsync batching)** — `SOLVE_FSYNC_BATCH_SIZE` env var (default 1 = legacy per-write fsync, byte-identical to pre-#108b; >1 = per-thread `syncfs()` once per N sub-branches). Reduces canonical fsync count ~16× when enabled. Recommended for 560T (~50h saved on HDD).
+3. **Restore SOLVE_SKIP_AUTOMERGE** (was `52cac4a` 2026-05-13, lost in 9f10f05 v3 reset) — env var for the canonical pipeline split-enum-merge pattern. Critical for any ≥11.2T canonical per `feedback_canonical_pipeline_no_exceptions`. Was silently no-op'd for 2 weeks until #108 validation surfaced the gap.
+4. **Restore --selftest-resume** (was `d683794` 2026-05-15, lost in 9f10f05 v3 reset) — CI gate per `feedback_checkpoint_format_merge_gate`. PHASE_A 50M → PHASE_B 200M (resume) vs single-shot 200M sha-compare. The `#92` `mw_delta` fix is NOT restored because that fix was for #67 mid-walk C3 pruning which was intentionally dropped in v3 reset.
+
+Also restores two diagnostic subcommands (sha-neutral by construction; not bench-relevant):
+- `--cpu-features` (was `11ba190` 2026-05-15, lost in v3 reset)
+- `--cpu-freq` (was `324318b` 2026-05-16, lost in v3 reset)
+
+See:
+- `x/roae/TASK_106_PROFILE_DEPTH3_BOTTLENECK_2026_05_26.md` — profile that motivated the work
+- `x/roae/TASK_108_BENCH_RESULTS_2026_05_26.md` — perf bench results
+- `x/roae/TASK_108_FINAL_REPORT_2026_05_27.md` — bundle composition, validation, drift finding
+- `x/roae/V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` — audit of what 9f10f05 dropped
