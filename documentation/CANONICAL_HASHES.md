@@ -10,7 +10,46 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 |---|---|---|---|---|---|
 | Selftest baseline (100M nodes) | `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | 135,780 | 1.35780 × 10⁵ | v1 | **Active** — reproducible across every binary build tested |
 | d3 1T (v3 BRANCH lineage @ `8b1658b`) | `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` | 134,039,081 | 1.34039 × 10⁸ | v1 (modern) and v3 BRANCH `8b1658b` | **Historical anchor** for v3 BRANCH state (May 2026). Established 2026-05-24 as a byproduct of the v1-vs-v3 paired speedup bench on Standard D128als_v7 westus3. Both v1 (commit `a2ead96`) and v3+v3.1 (commit `8b1658b`) produced byte-identical sha at 1T budget. **NO LONGER REPRODUCIBLE on current main HEAD `c72eada` or later** due to LTO compiler-layout drift from the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (same mechanism as #99 100B-bisect's `d683794` sha-flip; see `petersm3/x:roae/V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md`). Archived: `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9 solutions.bin.gz 475 MB) + managed disk `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`. |
-| d3 1T (current main HEAD `c72eada`+ lineage) | `74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327` | 134,027,160 | 1.34027 × 10⁸ | c72eada (post-#108 bundle) | **Active** — established 2026-05-27 during #108 validation. Reproduced byte-identically by unmodified `c72eada` (drift-isolation control) AND by `c72eada + #108 + #108b` bundle AND by `c72eada + #108 + #108b + SOLVE_FSYNC_BATCH_SIZE=16` — all three runs produce the same sha, confirming #108's mutex elimination and #108b's batched-fsync option are sha-neutral at canonical scale. Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer; LTO compiler-layout effects from hardening commits, NOT a correctness change). 4,288,869,152 bytes. Three measurements: drift control 1679s/1693s wall; pristine c72eada 3430s wall. NOT archived to cold storage yet (validation-only run). Reproducibility: SOLVE_NODE_LIMIT=1T, SOLVE_DEPTH=3, SOLVE_DFS_ITERATIVE=1, SOLVE_DFS_CHECKPOINT=1, SOLVE_THREADS=128. |
+| d3 1T (current main HEAD `c72eada`+ lineage) | `74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327` | 134,027,160 | 1.34027 × 10⁸ | c72eada (post-#108 bundle) | **Active** — established 2026-05-27 during #108 validation. Reproduced byte-identically by unmodified `c72eada` (drift-isolation control) AND by `c72eada + #108 + #108b` bundle AND by `c72eada + #108 + #108b + SOLVE_FSYNC_BATCH_SIZE=16` — all three runs produce the same sha, confirming #108's mutex elimination and #108b's batched-fsync option are sha-neutral at canonical scale. Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer; LTO compiler-layout effects from hardening commits, NOT a correctness change). 4,288,869,152 bytes. Three measurements: drift control 1679s/1693s wall; pristine c72eada 3430s wall. NOT archived to cold storage yet (validation-only run). |
+
+### Structured-metadata block (2026-05-27, the format being adopted per `feedback_canonical_sha_drift_management.md` Recommendation 3)
+
+The textual descriptions above will be progressively replaced with structured metadata blocks (one per canonical row) that explicitly pin reproducibility-affecting parameters. Cross-binary sha equivalence is **empirical per `(gcc_version, build_flags)` tuple**, NOT a structural guarantee — the 2026-05-27 c72eada drift investigation showed semantically-sha-neutral hardening commits can flip canonical sha via LTO compiler-layout effects.
+
+```yaml
+canonical: d3_1T_c72eada_lineage
+  sha256:           74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327
+  size_bytes:       4288869152
+  records:          134027160
+  binary_sha:       20728b5f40112f25e55673ca23e2f2091aa82cf345c5fa9d0c76e32dc079ac7c  # the #108 bundle binary that produced this
+  source_commit:    6e853fc           # c72eada + #108 + #108b + Bundle A + Bundle B
+  base_lineage:     c72eada (post-2026-05-25 v3 reset; v1-prunes + #72 bitset + v3.1 + 7 hardening commits)
+  gcc_version:      13.x (Ubuntu 24.04 / D128als_v7 Spot westus3)
+  build_flags:      "-O3 -g -march=native -flto -pthread -fopenmp"
+  env_vars_required:
+    SOLVE_DEPTH:            3
+    SOLVE_NODE_LIMIT:       1000000000000
+    SOLVE_THREADS:          128
+    SOLVE_DFS_ITERATIVE:    1
+    SOLVE_DFS_CHECKPOINT:   1
+  env_vars_default_OK:
+    SOLVE_PER_SUB_BRANCH_LIMIT: 0  # explicit value 6314565 produces same sha (see bundle Gate B2 2026-05-27)
+    SOLVE_FSYNC_BATCH_SIZE:     1  # value 16 also produces same sha at this scale
+  per_cell_budget:  6314565  (= 1T / 158,364)
+  total_sub_branches: 158364
+  cross_binary_status:
+    same_gcc_same_flags_same_commit:  byte-identical solutions.bin (empirically verified 4 separate runs on D128 westus3 2026-05-27)
+    different_gcc_or_flags:           UNKNOWN — sha may drift via LTO layout. Empirical re-validation required.
+    different_source_commit:          UNKNOWN — see "1T anchor drifted on c72eada" caveat for the 5a0f0bc2 → 74d39760 drift mechanism.
+  validation_history:
+    - 2026-05-27T04:33Z  c72eada + #108 (auto-merge)               sha 74d39760  wall 1679s
+    - 2026-05-27T05:51Z  c72eada (unmodified, drift-isolation)     sha 74d39760  wall 3430s
+    - 2026-05-27T07:05Z  c72eada + #108 (default fsync, Gate B1)   sha 74d39760  wall 1679s
+    - 2026-05-27T07:05Z  c72eada + #108 + SOLVE_FSYNC_BATCH_SIZE=16 (Gate B2) sha 74d39760  wall 1693s
+  cold_storage: not-yet-archived (validation-only)
+```
+
+Other canonical rows above (5a0f0bc2 v3-BRANCH 1T, 0c0fe37c 11.2T, 915abf30 100T, etc.) will receive analogous structured blocks as they get re-validated on the c72eada+#108 lineage. **Until re-validated, treat the historical anchors as `(gcc_version, build_flags, source_commit)` of THEIR original measurement run, NOT as cross-lineage canonicals.**
 | d3 5.6T | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` | 467,484,167 | 4.67484 × 10⁸ | v1 (modern) | **Active** — cross-build verified 2026-05-12/13: Build A (Spot D128 host α, source commit 2cf8771) + Build B (Spot D128 host β, source commit a2ead96 post-fix) produced byte-identical sha. Both archived to `canonical-archive/20260512_modern_v1_5.6T_buildA/` and `20260513_modern_v1_5.6T_buildB/`. Replaces deprecated `c34390c0` (see below) |
 | d3 10T | `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` | 706,427,594 | 7.06428 × 10⁸ | v1 (modern) | **Active** — established 2026-05-13 via cascade re-derivation; Build A + Build B on different Spot D64 hosts both produced byte-identical sha. **+4,607 records vs deprecated `f7b8c4fb`** (pre-resume-fix code from 2026-04-18 undercount). Archived to `canonical-archive/20260513_modern_v1_10T_buildA/` + `20260513_modern_v1_10T_buildB/` |
 | d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | 7.59609 × 10⁸ | v1 | **Active** — cross-build verified 2026-05-14: modern code (post-fix HEAD a2ead96) re-derivation across two independent Spot D64als_v7 westus3 hosts (Build A + Build B) both produced **byte-identical sha** to the historical 2026-04-30/05-01 generation. Build B used split enum/merge — enum on Spot D64 (SOLVE_THREADS=64, SOLVE_SKIP_AUTOMERGE=1) finished in 3.9 hours, with `solve --merge` then run on a separate Standard D64als_v7 (in-memory merge, 62 min). Confirms the 7-path validation that originally established this canonical. Archived to `canonical-archive/20260514_modern_v1_11.2T_buildA/` and `canonical-archive/20260514_modern_v1_11.2T_buildB/`. **v3 sha-equivalence witness (2026-05-24):** Phase 11 Build A produced byte-identical `0c0fe37c…` from the v3+v3.1 binary (commit `8b1658b`, LTO + PGO + bitset + orphan-promotion patch) on Spot D128als_v7 westus3 — v3 sha-preserves on v1 at 11.2T canonical, confirming v3 inherits v1's full validation chain (including the original Cobalt ARM cross-arch witness from task #61). Witness-only archive at `canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` (no solutions.bin re-upload per operator directive on sha-match). See [HISTORY.md](HISTORY.md) "Phase 11 Build A" section. |
