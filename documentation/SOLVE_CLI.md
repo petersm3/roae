@@ -39,6 +39,9 @@ solve --emit-shard-manifest [dir]                       # write shard_manifest.t
 solve --verify-shard-manifest [dir]                     # check shard_manifest.txt vs current shards
 solve --compare-provenance A.json B.json                # assert two solutions.provenance.json are equivalent
 solve --extended-selftest                               # solve.py-driven 9-subtest harness
+solve --preflight [node_limit]                          # run in-process gates (no enum)
+solve --disk-precheck <mount> [gb] [uuid]               # capacity/writability/identity check
+solve --print-config                                    # dump build provenance + SOLVE_* env values
 ```
 
 ## DESCRIPTION
@@ -168,6 +171,22 @@ no-extra-deps check runnable from the solve binary already on the VM.
 expected UUID passed, or marker missing) / **2** usage / **5**
 identity mismatch (wrong disk — do NOT launch) / **6** insufficient
 capacity / **7** read-write smoke test failed.
+
+### --print-config
+
+```
+solve --print-config
+```
+
+Config introspection (2026-05-28). Dumps build provenance (GIT_HASH,
+build date/time, canonical selftest sha) and every `SOLVE_*` environment
+variable's effective value (its value, or `(unset)` = built-in default in
+effect). Purpose: when a future change drifts the canonical sha, the
+config delta is **explicit** rather than reverse-engineered. Complements
+`--cpu-features` (ISA) and the `canonical-host-fingerprint.json` sidecar
+(host env). Compile-time choices (LTO/PGO/-march/AVX-512) are not
+runtime-introspectable — record them at build time (DEVELOPMENT.md
+reproducible-build recipe + `build.sha`). No enumeration; exits 0.
 
 ### --cpu-features
 

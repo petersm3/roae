@@ -737,6 +737,25 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
   100T solutions.bin with `--jobs 16` (CPU-bound at ~19k records/sec
   per Python worker after the 2026-05-08 streaming-reads patch).
 
+- **Independent completeness reference** (added 2026-05-28):
+  `python3 verify.py --enumerate-reference NPAIRS` (2 ≤ NPAIRS ≤ 9).
+  Does NOT read solutions.bin. Brute-forces the reduced NPAIRS-pair
+  problem under the cleanly-reducible structural constraints (C1 + C2 +
+  C4; C3/C5 are global over the full 64-sequence and excluded) **two
+  ways** — exhaustive generate-then-filter (ground truth) vs
+  prune-as-you-go DFS (mirrors solve.c's incremental pruning) — and
+  asserts the two produce the identical valid set. A mismatch means a
+  pruning step is unsound/incomplete (dropped or added a valid sequence)
+  — the "did an optimization silently drop a real solution" failure
+  class, checked in independent code. **Scope/limit (honest):** this
+  grounds the structural-constraint enumeration *semantics* on a reduced
+  problem; it does NOT differential-test solve.c's full enumeration —
+  that is infeasible (solve.c never exhausts any cell; global C3/C5
+  don't reduce; solve.c has no reduced-pair mode). solve.c prune
+  completeness at canonical scale is covered empirically by the K-pilots
+  (v1 ⊆ v1+prunes at every tested scale). Exit 0 PASS / 1 mismatch / 2
+  bad-arg.
+
   **Streaming-reads memory model (added 2026-05-08, task #84 follow-up):**
   Each worker uses bounded memory (32 MB streaming batch) regardless of
   input size. Total memory at `--jobs N` is `N × 32 MB`, not `file_size`

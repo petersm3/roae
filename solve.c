@@ -8842,6 +8842,48 @@ int main(int argc, char *argv[]) {
         if (warn) { printf("[--disk-precheck] DONE: WARNING (exit 1)\n"); return 1; }
         printf("[--disk-precheck] DONE: PASS (exit 0)\n");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
+        /* Config introspection (2026-05-28). Dumps build provenance + every
+         * SOLVE_* env var's effective value, so that when a future change
+         * drifts the canonical sha the config delta is EXPLICIT rather than
+         * reverse-engineered. Complements the #110 host-fingerprint sidecar
+         * (host env) and --cpu-features (ISA). Sha-neutral (argv-dispatched,
+         * never on the enum path; prints only). Exits 0. */
+        printf("=== solve --print-config ===\n");
+        printf("build:\n");
+        printf("  git_hash       : %s\n", GIT_HASH);
+        printf("  build_datetime : %s %s\n", __DATE__, __TIME__);
+        printf("  canonical_selftest_sha256 : 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e\n");
+        printf("  (ISA/CPU dispatch: run `solve --cpu-features`; full host env: canonical-host-fingerprint.json sidecar at canonical-enum startup)\n");
+        printf("\nSOLVE_* environment (effective values; \"unset\" = built-in default in effect):\n");
+        static const char *cfg_envs[] = {
+            /* scale / run shape */
+            "SOLVE_DEPTH", "SOLVE_NODE_LIMIT", "SOLVE_PER_SUB_BRANCH_LIMIT",
+            "SOLVE_PER_TASK_NODE_LIMIT", "SOLVE_THREADS", "SOLVE_SUB_BRANCH_PARALLELISM",
+            "SOLVE_CONCENTRATE_BUDGET", "SOLVE_DEAD_LIMIT", "SOLVE_DEPTH_PROFILE",
+            /* traversal / checkpoint / resume */
+            "SOLVE_DFS_ITERATIVE", "SOLVE_DFS_CHECKPOINT", "SOLVE_CKPT_INTERVAL",
+            "SOLVE_MEMORY_FLUSH_COUNT", "SOLVE_FSYNC_BATCH_SIZE", "SOLVE_RESUME_HISTORY",
+            /* merge */
+            "SOLVE_MERGE_MODE", "SOLVE_MERGE_CHUNK_GB", "SOLVE_MERGE_RUN_ANALYZE",
+            "SOLVE_TEMP_DIR", "SOLVE_DISK_MARKER", "SOLVE_REGRESS_DIR",
+            /* hardening gates (every one has an explicit escape) */
+            "SOLVE_SKIP_AUTO_SELFTEST", "SOLVE_SKIP_DISK_CHECK", "SOLVE_SKIP_IOPS_CHECK",
+            "SOLVE_ALLOW_SLOW_IOPS", "SOLVE_SKIP_HOST_FINGERPRINT", "SOLVE_SKIP_BINARY_SNAPSHOT",
+            "SOLVE_SKIP_CANONICAL_LOCK", "SOLVE_SKIP_AUTO_MANIFEST", "SOLVE_SKIP_AUTO_VERIFY",
+            "SOLVE_SKIP_AUTOMERGE", "SOLVE_SKIP_STACK_RAISE", "SOLVE_ALLOW_BUILD_MISMATCH",
+            "SOLVE_ALLOW_SUB_CANONICAL", "SOLVE_ALLOW_MISSING_BUDGET_SIDECAR",
+            "PROVE_CONFIG_TIMEOUT",
+            NULL
+        };
+        for (int i = 0; cfg_envs[i]; i++) {
+            const char *v = getenv(cfg_envs[i]);
+            printf("  %-34s = %s\n", cfg_envs[i], (v && v[0]) ? v : "(unset)");
+        }
+        printf("\nNote: this is the in-process view. Compile-time choices (LTO/PGO/-march/\n");
+        printf("AVX-512) are NOT runtime-introspectable here — record them at build time\n");
+        printf("(see documentation/DEVELOPMENT.md reproducible-build recipe + build.sha).\n");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in 11ba190 2026-05-15). Print CPU capability detection

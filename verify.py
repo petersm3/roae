@@ -228,13 +228,126 @@ def stitch_boundary(prev_chunk, next_chunk):
         dup_inc += 1
     return sort_inc, dup_inc
 
+def enumerate_reference(npairs):
+    """Independent completeness reference on a REDUCED npairs-pair problem.
+
+    Enumerates the complete set of valid arrangements of the first `npairs`
+    KW-derived pairs under the structural constraints that reduce cleanly to a
+    truncated sequence — C1 (each pair once), C2 (no hamming-5 transition
+    between consecutive hexagrams), C4 (pair 0 = Creative/Receptive placed
+    first; either orientation). C3/C5 are GLOBAL (defined over the full
+    64-hexagram sequence vs KW's distribution) and do NOT reduce, so they are
+    intentionally excluded here.
+
+    Runs the enumeration TWO independent ways and asserts identical result sets:
+      A. generate-all-then-filter  (exhaustive ground truth — no pruning)
+      B. prune-as-you-go DFS       (C2 checked at each placement — mirrors how
+                                    solve.c prunes during its walk)
+    If B != A, a pruning step dropped or added a valid sequence — exactly the
+    "did an optimization silently drop a real solution" failure class. This is
+    independent of solve.c (different language, separate enumerator) and of the
+    verify.py per-record checker; it grounds the constraint/pruning SEMANTICS.
+
+    SCOPE LIMIT (honest): this validates the structural-constraint enumeration
+    logic on a reduced problem. It does NOT differential-test solve.c's full
+    enumeration — that is infeasible (solve.c never exhausts any cell; global
+    C3/C5 don't reduce; solve.c has no reduced-pair mode). solve.c prune
+    completeness at canonical scale is covered empirically by the K-pilots
+    (v1 ⊆ v1+prunes at every tested scale, tasks #80/#85/#86)."""
+    import itertools
+    if npairs < 2 or npairs > 9:
+        print(f"ERROR: --enumerate-reference N requires 2 <= N <= 9 (got {npairs}); "
+              f"N>9 is too slow for the exhaustive ground-truth pass")
+        return 2
+    pairs = PAIRS[:npairs]
+    rest = list(range(1, npairs))  # non-start pair indices; pair 0 is fixed first (C4)
+
+    def c2_ok_full(seq):
+        return all(hamming(seq[i], seq[i+1]) != 5 for i in range(len(seq) - 1))
+
+    def build(order, orients):
+        seq = []
+        for slot, pi in enumerate(order):
+            a, b = pairs[pi]
+            seq.extend((a, b) if orients[slot] == 0 else (b, a))
+        return tuple(seq)
+
+    # --- Method A: exhaustive generate-all, then filter by C2 (ground truth) ---
+    setA = set()
+    candidates_A = 0
+    for perm in itertools.permutations(rest):
+        order = (0,) + perm
+        for ob in range(1 << npairs):
+            orients = [(ob >> j) & 1 for j in range(npairs)]
+            candidates_A += 1
+            seq = build(order, orients)
+            if c2_ok_full(seq):
+                setA.add(seq)
+
+    # --- Method B: prune-as-you-go DFS (C2 enforced incrementally) ---
+    setB = set()
+    used = [False] * npairs
+
+    def dfs(seq, placed):
+        if placed == npairs:
+            setB.add(tuple(seq))
+            return
+        for pi in range(npairs):
+            if used[pi]:
+                continue
+            a, b = pairs[pi]
+            for (h0, h1) in ((a, b), (b, a)):
+                # incremental C2: check the new internal + boundary transitions
+                if seq and hamming(seq[-1], h0) == 5:
+                    continue
+                if hamming(h0, h1) == 5:
+                    continue
+                used[pi] = True
+                seq.append(h0); seq.append(h1)
+                dfs(seq, placed + 1)
+                seq.pop(); seq.pop()
+                used[pi] = False
+
+    # C4: pair 0 first, both orientations
+    a0, b0 = pairs[0]
+    for (h0, h1) in ((a0, b0), (b0, a0)):
+        if hamming(h0, h1) == 5:
+            continue
+        used[0] = True
+        dfs([h0, h1], 1)
+        used[0] = False
+
+    print(f"=== verify.py --enumerate-reference {npairs} ===")
+    print(f"Reduced problem: first {npairs} KW pairs, constraints C1+C2+C4 "
+          f"(C3/C5 are global, excluded — see docstring)")
+    print(f"Method A (exhaustive generate+filter): {candidates_A:,} candidates -> {len(setA):,} valid")
+    print(f"Method B (prune-as-you-go DFS):        {len(setB):,} valid")
+    if setA == setB:
+        print(f"PASS: both methods produce the IDENTICAL {len(setA):,}-sequence set "
+              f"(prune-as-you-go drops/adds nothing vs exhaustive)")
+        return 0
+    only_a = len(setA - setB)
+    only_b = len(setB - setA)
+    print(f"FAIL: sets differ — only in A (exhaustive): {only_a}, only in B (pruned): {only_b}")
+    print("      A pruning step is unsound/incomplete. Investigate before trusting the predicate.")
+    return 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
     parser.add_argument('--jobs', type=int, default=1,
                         help='Parallel workers (default 1 = single-thread, identical to legacy behavior). '
                              'Recommended: number of physical cores.')
+    parser.add_argument('--enumerate-reference', type=int, metavar='NPAIRS', default=None,
+                        help='Independent completeness reference: brute-force the reduced NPAIRS-pair '
+                             'problem (C1+C2+C4) two ways (exhaustive vs prune-as-you-go) and assert '
+                             'identical sets. Does NOT read solutions.bin. 2<=NPAIRS<=9.')
     args = parser.parse_args()
+
+    if args.enumerate_reference is not None:
+        sys.exit(enumerate_reference(args.enumerate_reference))
+
     path = args.path
     n_jobs = max(1, args.jobs)
 
