@@ -4537,3 +4537,44 @@ Wall times: A (cold-cache) 4696s; B (warm-cache same VM) 1798s — the 2.6× spe
 **Pre-560T implications.** The 11.2T anchor remains drift-robust and is the recommended gate for any pre-560T validation. The 1T anchor is host-fragile but cheaply re-derivable via `./solve --validate-canonical` on the campaign VM. The 100T anchor (`915abf30…`) is NOT yet re-validated on the current lineage; treat as POTENTIALLY drifted until then.
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved.
+
+## May 28, 2026 UTC — in-process pre-flight subcommands + metadata-equivalence verdict
+
+**`--preflight` + `--disk-precheck` subcommands.** Folded the *in-process* half
+of the 560T pre-flight into the binary, so the operator has no-extra-deps checks
+runnable from the solve binary already on a campaign VM. Both are argv-dispatched
+(never on the enum path) and sha-neutral — selftest `403f7202…` preserved.
+
+- `solve --preflight [node_limit]` (default 560T): runs the in-process gates
+  (auto-selftest, disk-space projection, disk-IOPS probe) in report mode WITHOUT
+  running the enum. Exit 0 = all pass, else the first failing gate's code
+  (24/29/31). Run it from the campaign run-dir (the gates check cwd).
+- `solve --disk-precheck <mountpoint> [required_gb] [expected_uuid]`: native
+  capacity (`statvfs`) + writability (write+fsync+read smoke test) + identity
+  (marker file + filesystem UUID via `findmnt`). Exit 0/1/2/5/6/7. SMART + fsck
+  stay in the bash-side `disk_health_precheck.sh` (they shell out regardless).
+
+Design principle behind the split: **solve.c owns what it can verify from inside
+its own process** (capacity / writability / identity / selftest / IOPS); the
+bash + `az` layer owns the *environment around* the process (VM lifecycle,
+eviction, cost cap, SMART/fsck). The two new subcommands are the in-process half;
+the external monitor + Azure-CLI scripts are the control-plane half. `SOLVE_CLI.md`
+documents both (and back-filled `--validate-canonical` + exit-31 doc debt).
+
+**Metadata-equivalence verdict (task #102 acceptance test).** Task #101
+(2026-05-26) witnessed `solutions.bin` partition-invariance + extension at 5.6T +
+11.2T (byte-identical to published anchors), but had not cleanly recorded an
+explicit `solve --compare-provenance` PASS between a single-shot path and a
+branch-merged path. Closed 2026-05-28 with a standalone depth-2 test (single-shot
+full enum vs 52 first-level branches run separately + unioned): **both** produced
+byte-identical `solutions.bin` (`fc1e921e…`) **and** `--compare-provenance`
+returned PASS on all 7 must-match structural fields (sha, record_count,
+shard_count, status distribution, budget distribution, total nodes, total records
+pre-dedup). The comparator normalizes the legitimately-varying history fields
+(timestamps, host fingerprints, wall/compute seconds). This exercises the same
+provenance writer/aggregator/comparator code path as canonical scale; together
+with #101's canonical-scale solutions.bin result the metadata-equivalence claim
+is now as firm as the solutions.bin claim. (#102 gates 560T *archival*, not
+*launch*.)
+
+Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved.
