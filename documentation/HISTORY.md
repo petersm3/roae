@@ -4498,3 +4498,42 @@ That's it. Every gate fires automatically. The disk check, selftest, binary snap
 - F: 322,688-byte binary copied to solve.binary.snapshot with exec bit set
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved through every change.
+
+## May 27/28, 2026 UTC — Task #110 Tier 1 canonical-determinism hardening shipped + 1T sha-gate PASSED
+
+**Context.** The Task #108 drift investigation (Q4-Q10, see `petersm3/x:roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md`) established that 1T canonical sha drift on `c72eada` (anchor `5a0f0bc2…` → `74d39760…`) is **host-environment-level** (gcc/glibc/kernel patch versions, ASLR seed, CPU microcode revision), not source-level. The 7 hardening commits between `9f10f05` and `c72eada` were empirically exonerated. LTO was empirically ruled out as the mechanism. 11.2T anchor `0c0fe37c…` reproduced byte-identically on `c72eada+#108`, confirming the drift is BUDGETED-cell-density-sensitive (fires at 1T's 6.3M nodes/cell, absorbs at 11.2T's 70.7M).
+
+Because the drift mechanism cannot be eliminated at compile-time, Task #110 introduced **operational drift management**: capture host environment as a forensic sidecar, expose a pre-flight gate that compares against a known anchor, and document the deterministic build recipe.
+
+**Shipped in `b579c1e` (2026-05-27):**
+
+1. **`capture_host_fingerprint()`** — at canonical-enum startup (node_limit ≥ 1T), writes `canonical-host-fingerprint.json` alongside `solutions.bin` capturing gcc/glibc/kernel/OS release, CPU model+microcode, Azure IMDS metadata (vmSize, location, hostId, zone), and binary `.text`-section + full-binary sha256. Sidecar only — sha-neutral. Override: `SOLVE_SKIP_HOST_FINGERPRINT=1`.
+
+2. **`./solve --validate-canonical <sha> <scale>`** — pre-campaign drift-detection gate. Validates expected sha (64 hex chars) + scale ∈ {1T, 11.2T, 100T}. Runs canonical enum in a tempdir with canonical env vars (`SOLVE_DEPTH=3 SOLVE_THREADS=128 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1` + all auto-* skips), computes sha256 of `solutions.bin`, exit 0 on match / 33 on mismatch with host-fingerprint deltas. Argv-dispatched before the default `./solve 0` path — sha-neutral.
+
+3. **Reproducible-build recipe in `DEVELOPMENT.md`** — documented gcc flag tuple (`SOURCE_DATE_EPOCH` + `-fno-record-gcc-switches` + `-Wl,--build-id=sha256` + `-ffile-prefix-map` + `-fdebug-prefix-map`) eliminating cosmetic `.rodata`/build-id non-determinism documented in Q10. Cross-host drift is NOT eliminated by this recipe; that's the operational management problem the sidecar + gate address.
+
+Total diff: `solve.c +230 lines, documentation/DEVELOPMENT.md +31 lines`. Selftest sha `403f7202…` preserved.
+
+**Empirical 1T sha-gate (2026-05-28 02:08 UTC, D128als_v7 Spot westus3):**
+
+Built two binaries on the same VM: `c72eada` parent (pre-Tier-1) and `b579c1e` (post-Tier-1). Ran each at 1T canonical with identical env vars. Result:
+
+```
+shaA (c72eada):  74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327  (4,288,869,152 bytes)
+shaB (b579c1e):  74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327  (4,288,869,152 bytes)
+Expected anchor:  74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327
+```
+
+Both `solutions.bin` byte-identical (not just sha-matching — same byte count). **Verdict: Tier 1 is empirically sha-neutral AND the gate host matched the 2026-05-27 anchor host's patch tuple.** Best-case outcome.
+
+Wall times: A (cold-cache) 4696s; B (warm-cache same VM) 1798s — the 2.6× speedup reflects OS page cache warmth, not any solve.c change. Cost ~$2.18 for the gate (~$0.08 attempt-1 monitor-bug retry + ~$2.10 successful gate).
+
+**Operator-deferred (2026-05-28):**
+- Tier 2.1 — Docker container canonical build (substantial; needs container registry policy)
+- Tier 2.3 — CPU affinity pinning (needs cross-host empirical validation; Spot quota=1 makes that awkward)
+- 100T re-validation on c72eada/b579c1e lineage (blocked on solver-data disk-attach authorization)
+
+**Pre-560T implications.** The 11.2T anchor remains drift-robust and is the recommended gate for any pre-560T validation. The 1T anchor is host-fragile but cheaply re-derivable via `./solve --validate-canonical` on the campaign VM. The 100T anchor (`915abf30…`) is NOT yet re-validated on the current lineage; treat as POTENTIALLY drifted until then.
+
+Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved.

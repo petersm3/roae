@@ -46,7 +46,10 @@ canonical: d3_1T_c72eada_lineage
     - 2026-05-27T05:51Z  c72eada (unmodified, drift-isolation)     sha 74d39760  wall 3430s
     - 2026-05-27T07:05Z  c72eada + #108 (default fsync, Gate B1)   sha 74d39760  wall 1679s
     - 2026-05-27T07:05Z  c72eada + #108 + SOLVE_FSYNC_BATCH_SIZE=16 (Gate B2) sha 74d39760  wall 1693s
+    - 2026-05-28T01:18Z  c72eada (pristine parent, Tier 1 gate A)  sha 74d39760  wall 4696s  (cold-cache; D128 Spot westus3)
+    - 2026-05-28T01:48Z  b579c1e (post-#110 Tier 1, gate B)        sha 74d39760  wall 1798s  (warm-cache; D128 Spot westus3)
   cold_storage: not-yet-archived (validation-only)
+  tier1_sha_neutral_witness: b579c1e (commit adding host-fingerprint sidecar + --validate-canonical gate + reproducible-build recipe; +230 lines solve.c + 31 lines DEVELOPMENT.md) produces byte-identical 4,288,869,152-byte solutions.bin matching the c72eada parent at 1T canonical → empirically sha-neutral. See x/roae/TASK_110_TIER1_SHIPPED_2026_05_28.md.
 ```
 
 Other canonical rows above (5a0f0bc2 v3-BRANCH 1T, 0c0fe37c 11.2T, 915abf30 100T, etc.) will receive analogous structured blocks as they get re-validated on the c72eada+#108 lineage. **Until re-validated, treat the historical anchors as `(gcc_version, build_flags, source_commit)` of THEIR original measurement run, NOT as cross-lineage canonicals.**
