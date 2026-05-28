@@ -8695,6 +8695,153 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "      (c) The expected sha is stale (canonical re-anchored on a different\n");
         fprintf(stderr, "          binary). Check CANONICAL_HASHES.md for the current anchor.\n");
         return 33;
+    } else if (argc > 1 && strcmp(argv[1], "--preflight") == 0) {
+        /* In-process pre-flight aggregator (task #63/#64 follow-up, 2026-05-28).
+         * Runs every gate solve.c can check from inside its own process, in
+         * report mode, WITHOUT running the enum — one command to confirm a
+         * campaign VM is ready before committing days of compute. Reuses the
+         * existing canonical-startup gates. Does NOT cover what lives outside
+         * the process: VM/eviction/cost (external monitor #55), full disk
+         * SMART/fsck (disk_health_precheck.sh), or disk identity
+         * (use --disk-precheck). Sha-neutral (argv-dispatched; never on the
+         * enum path).
+         *
+         * Usage: ./solve --preflight [node_limit]   (default 560T)
+         * Run it FROM the campaign run-dir — the gates check the cwd.
+         * Exit 0 if all pass; else the first failing gate's exit code. */
+        long long nl = (argc > 2) ? atoll(argv[2]) : 560000000000000LL;
+        printf("[--preflight] in-process gate check for NODE_LIMIT=%lld\n", nl);
+        printf("[--preflight] checks the CURRENT directory — run from the campaign run-dir\n");
+        printf("[--preflight] does NOT cover: VM/eviction/cost (#55 monitor), disk SMART/fsck\n");
+        printf("              (disk_health_precheck.sh), or disk identity (--disk-precheck)\n\n");
+        int first_fail = 0, rc;
+        printf("[--preflight] (1/3) auto-selftest (canonical sha 403f7202...)\n"); fflush(stdout);
+        rc = auto_selftest_check(nl);
+        printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
+        if (rc && !first_fail) first_fail = rc;
+        printf("[--preflight] (2/3) disk-space projection\n"); fflush(stdout);
+        rc = disk_space_pre_check(nl);
+        printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
+        if (rc && !first_fail) first_fail = rc;
+        printf("[--preflight] (3/3) disk-IOPS probe\n"); fflush(stdout);
+        rc = disk_iops_pre_check(nl);
+        printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
+        if (rc && !first_fail) first_fail = rc;
+        if (first_fail) {
+            printf("[--preflight] RESULT: FAIL - first failing gate exit %d. Do NOT launch.\n", first_fail);
+            return first_fail;
+        }
+        printf("[--preflight] RESULT: all in-process gates PASS.\n");
+        printf("[--preflight] Still confirm externally: --disk-precheck identity, "
+               "disk_health_precheck.sh SMART/fsck, #55 monitor running, Spot quota.\n");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--disk-precheck") == 0) {
+        /* Native local disk pre-check (task #63 follow-up, 2026-05-28).
+         * The in-binary subset of disk_health_precheck.sh: capacity (statvfs),
+         * writability (write+fsync+read+unlink smoke test), identity (marker
+         * file + filesystem UUID via findmnt). SMART + fsck stay in the bash
+         * script (they shell out to smartctl/fsck regardless); this is the
+         * fast no-extra-deps check runnable from the solve binary already on
+         * the VM. Sha-neutral (argv-dispatched; never on the enum path).
+         *
+         * Usage: ./solve --disk-precheck <mountpoint> [required_gb] [expected_uuid]
+         *   required_gb default 1200 (560T placeholder — calibrate from #62)
+         *   marker file: $SOLVE_DISK_MARKER (default solutions.sha256)
+         * Exit: 0 pass / 1 warn / 2 usage / 5 identity-mismatch / 6 capacity / 7 RW-fail */
+        if (argc < 3) {
+            fprintf(stderr, "Usage: ./solve --disk-precheck <mountpoint> [required_gb] [expected_uuid]\n");
+            return 2;
+        }
+        const char *mp = argv[2];
+        long long required_gb = (argc > 3) ? atoll(argv[3]) : 1200LL;
+        const char *expected_uuid = (argc > 4) ? argv[4] : NULL;
+        const char *marker = getenv("SOLVE_DISK_MARKER");
+        if (!marker || !marker[0]) marker = "solutions.sha256";
+        /* Injection guard: mountpoint is embedded in a popen() command below.
+         * Allow only safe path chars (real mountpoints never have shell metachars). */
+        for (const char *p = mp; *p; p++) {
+            char c = *p;
+            int ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                     (c >= '0' && c <= '9') || c == '/' || c == '_' || c == '-' || c == '.';
+            if (!ok) {
+                fprintf(stderr, "[--disk-precheck] ERROR: mountpoint has unsafe character '%c' (exit 2)\n", c);
+                return 2;
+            }
+        }
+        int warn = 0;
+        printf("[--disk-precheck] mountpoint=%s required_free=%lldG marker=%s\n", mp, required_gb, marker);
+
+        /* 1. Capacity */
+        struct statvfs vfs;
+        if (statvfs(mp, &vfs) != 0) {
+            fprintf(stderr, "[--disk-precheck] FAIL: statvfs(%s): %s (exit 6)\n", mp, strerror(errno));
+            return 6;
+        }
+        long long free_gb = (long long)vfs.f_bavail * (long long)vfs.f_frsize / (1024LL * 1024 * 1024);
+        printf("[--disk-precheck] free: %lldG (need >= %lldG)\n", free_gb, required_gb);
+        if (free_gb < required_gb) {
+            fprintf(stderr, "[--disk-precheck] FAIL: insufficient free space (exit 6)\n");
+            return 6;
+        }
+
+        /* 2. Read-write smoke test (catches full / read-only remount / perms) */
+        char smoke[4300];
+        snprintf(smoke, sizeof(smoke), "%s/.solve_disk_precheck_%d", mp, (int)getpid());
+        int rw_ok = 0;
+        FILE *sf = fopen(smoke, "w");
+        if (sf) {
+            if (fputs("solve-disk-precheck\n", sf) >= 0 && fflush(sf) == 0 && fsync(fileno(sf)) == 0) {
+                fclose(sf); sf = NULL;
+                FILE *rf = fopen(smoke, "r");
+                char buf[64];
+                if (rf && fgets(buf, sizeof(buf), rf)) rw_ok = 1;
+                if (rf) fclose(rf);
+            }
+            if (sf) fclose(sf);
+            unlink(smoke);
+        }
+        if (!rw_ok) {
+            fprintf(stderr, "[--disk-precheck] FAIL: write+fsync+read smoke test on %s "
+                            "(disk full / read-only remount / perms?) (exit 7)\n", mp);
+            return 7;
+        }
+        printf("[--disk-precheck] write+fsync+read: PASS\n");
+
+        /* 3. Marker file (proves the mount holds the canonical disk's contents) */
+        char mpath[4400];
+        snprintf(mpath, sizeof(mpath), "%s/%s", mp, marker);
+        struct stat mst;
+        if (stat(mpath, &mst) == 0) {
+            printf("[--disk-precheck] marker %s present: PASS\n", mpath);
+        } else {
+            printf("[--disk-precheck] WARN: marker %s missing (fresh disk or wrong mount?)\n", mpath);
+            warn = 1;
+        }
+
+        /* 4. Identity: filesystem UUID via findmnt (mountpoint already validated) */
+        char actual_uuid[128] = {0};
+        char cmd[4500];
+        snprintf(cmd, sizeof(cmd), "findmnt -no UUID --target '%s' 2>/dev/null", mp);
+        FILE *fp = popen(cmd, "r");
+        if (fp) { if (fgets(actual_uuid, sizeof(actual_uuid), fp)) {} pclose(fp); }
+        for (char *p = actual_uuid; *p; p++) if (*p == '\n') { *p = 0; break; }
+        printf("[--disk-precheck] UUID=%s\n", actual_uuid[0] ? actual_uuid : "(unknown)");
+        if (expected_uuid) {
+            if (strcmp(actual_uuid, expected_uuid) != 0) {
+                fprintf(stderr, "[--disk-precheck] IDENTITY MISMATCH: expected %s, got '%s' "
+                                "- NOT this disk; refusing (exit 5)\n", expected_uuid, actual_uuid);
+                return 5;
+            }
+            printf("[--disk-precheck] UUID matches expected: PASS\n");
+        } else {
+            printf("[--disk-precheck] WARN: no expected UUID given - identity reported, not asserted "
+                   "(pass it as the 3rd argument for 560T)\n");
+            warn = 1;
+        }
+
+        if (warn) { printf("[--disk-precheck] DONE: WARNING (exit 1)\n"); return 1; }
+        printf("[--disk-precheck] DONE: PASS (exit 0)\n");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in 11ba190 2026-05-15). Print CPU capability detection

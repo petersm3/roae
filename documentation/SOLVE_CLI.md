@@ -113,6 +113,62 @@ divergence is a regression.
 
 Exits 0 on PASS, 1 on FAIL.
 
+### --validate-canonical
+
+```
+solve --validate-canonical <expected-sha256> <scale>
+```
+
+Pre-campaign drift-detection gate (task #110). `<scale>` ∈ {`1T`,
+`11.2T`, `100T`} (alternate forms `1`, `11`, `100`). Runs a fresh
+canonical enum at the requested scale in a temp dir with the canonical
+env vars, sha256s the resulting `solutions.bin`, and compares to
+`<expected-sha256>`. The cheapest way to catch host-environment drift
+(gcc/glibc/kernel/CPU-microcode patch deltas) BEFORE committing a
+$100+ campaign. Prints the host fingerprint on mismatch.
+
+Recommended pre-560T: `solve --validate-canonical 0c0fe37c… 11.2T`
+(the drift-robust anchor). Exits **0** match / **33** mismatch /
+**2** usage error / **10** infra error / **40** enum error.
+
+### --preflight
+
+```
+solve --preflight [node_limit]          # default node_limit = 560T
+```
+
+In-process pre-flight aggregator (2026-05-28). Runs every gate solve.c
+can check from inside its own process — auto-selftest (sha
+`403f7202…`), disk-space projection, disk-IOPS probe — in report mode,
+**without running the enum**. One command to confirm a campaign VM is
+ready. Run it FROM the campaign run-dir (the gates check the cwd).
+
+Does NOT cover what lives outside the process: VM/eviction/cost (the
+external monitor, task #55), full disk SMART/fsck
+(`scripts`-side `disk_health_precheck.sh`), or disk identity (use
+`--disk-precheck`). Exits **0** if all gates pass, else the first
+failing gate's exit code (24 / 29 / 31).
+
+### --disk-precheck
+
+```
+solve --disk-precheck <mountpoint> [required_gb] [expected_uuid]
+```
+
+Native local disk pre-check (2026-05-28) — the in-binary subset of
+`disk_health_precheck.sh`: capacity (`statvfs`), writability
+(write+fsync+read smoke test), and identity (marker file +
+filesystem UUID via `findmnt`). SMART + fsck stay in the bash script
+(they shell out to `smartctl`/`fsck` regardless); this is the fast,
+no-extra-deps check runnable from the solve binary already on the VM.
+
+`required_gb` default 1200 (560T placeholder — calibrate from the #62
+11.2T dry-run footprint). Marker file: `$SOLVE_DISK_MARKER` (default
+`solutions.sha256`). Exits **0** pass / **1** warning (e.g. no
+expected UUID passed, or marker missing) / **2** usage / **5**
+identity mismatch (wrong disk — do NOT launch) / **6** insufficient
+capacity / **7** read-write smoke test failed.
+
 ### --cpu-features
 
 ```
@@ -603,7 +659,13 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | **28** | **`--merge` cannot raise RLIMIT_STACK** — `setrlimit` could not raise to unlimited or to ≥64MB hard cap. External-merge spill would silently SIGSEGV. Recovery: run `ulimit -s unlimited` in shell before `solve --merge`. |
 | **29** | **Disk-space pre-check failed** — projected required bytes for `SOLVE_NODE_LIMIT` exceed free bytes in cwd's filesystem. Recovery: move to a larger filesystem (`solver-data-westus3` has 2 TB free), OR `SOLVE_SKIP_DISK_CHECK=1` if you're confident the projection is wrong. |
 | 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) — or auto-verify-solutions FAIL after merge (C1-C5 violation). For auto-verify case: do NOT archive solutions.bin; investigate. |
+| **31** | **Disk-IOPS pre-check failed** (task #107) — measured cwd fsync IOPS below 1000/sec (HDD-class). Canonical enum's per-shard/.budget/.dfs_state/per-thread-checkpoint fsyncs bottleneck on slow storage. Recovery: put the run-dir on Standard/Premium SSD, OR `SOLVE_SKIP_IOPS_CHECK=1` (skip probe) / `SOLVE_ALLOW_SLOW_IOPS=1` (probe + proceed). |
 | 50 | Self-test sha mismatch (regression) |
+
+**Subcommand-specific exit codes** (distinct from the enum-path codes above):
+- `--validate-canonical`: **33** sha mismatch, **40** enum error (in addition to 0/2/10).
+- `--disk-precheck`: **5** identity mismatch (wrong disk), **6** insufficient capacity, **7** read-write smoke test failed (in addition to 0/1/2).
+- `--preflight`: returns the first failing in-process gate's code (24 / 29 / 31), else 0.
 
 ## EXAMPLES
 
