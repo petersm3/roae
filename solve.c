@@ -3225,6 +3225,7 @@ static int auto_selftest_check(long long node_limit) {
              "-u SOLVE_PER_SUB_BRANCH_LIMIT -u SOLVE_DFS_ITERATIVE "
              "-u SOLVE_DFS_CHECKPOINT -u SOLVE_FSYNC_BATCH_SIZE "
              "-u SOLVE_TIME_LIMIT -u SOLVE_TEMP_DIR -u SOLVE_MAX_THREADS "
+             "-u SOLVE_SKIP_AUTOMERGE "  /* #113: the breaker — also scrubbed inside --selftest now */
              "%s --selftest > /dev/null 2>&1", self_path);
     int rc = system(cmd);
     if (rc == 0) {
@@ -8366,18 +8367,19 @@ int main(int argc, char *argv[]) {
          * under load. Using node-limit only (per-sub-branch budgets) gives
          * byte-exact determinism across thread counts and machines. */
         char cmd[8192];
-        /* Task #105 (2026-05-27): unset ALL SOLVE_* env vars before invoking
-         * the selftest child. Previously only SOLVE_DEPTH was unset, leaking
-         * SOLVE_DFS_ITERATIVE / SOLVE_DFS_CHECKPOINT / SOLVE_PER_SUB_BRANCH_LIMIT
-         * / SOLVE_FSYNC_BATCH_SIZE / SOLVE_TIME_LIMIT / SOLVE_TEMP_DIR /
-         * SOLVE_MAX_THREADS from the parent if set, which could flip the
-         * selftest sha or skip the sha-check. */
+        /* Task #105 (2026-05-27) + #113 (2026-05-29): scrub ALL SOLVE_* env
+         * vars before invoking the selftest child, then set only the ones the
+         * selftest needs. The earlier explicit denylist (#105) missed
+         * SOLVE_SKIP_AUTOMERGE — when a parent enum runs enum-only
+         * (SOLVE_SKIP_AUTOMERGE=1, the canonical-pipeline + real-560T setting),
+         * it leaked into this child, so the child's tiny enum skipped its
+         * auto-merge -> no solutions.bin -> the sha-check below failed (exit
+         * non-zero). Caught by the #62 dress-rehearsal. A wildcard scrub of
+         * all SOLVE_* is future-proof: no current or future env var can flip
+         * the selftest sha or break its merge. (sh `for` loop is POSIX.) */
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
-                 "unset SOLVE_DEPTH SOLVE_THREADS SOLVE_NODE_LIMIT "
-                 "SOLVE_PER_SUB_BRANCH_LIMIT SOLVE_DFS_ITERATIVE "
-                 "SOLVE_DFS_CHECKPOINT SOLVE_FSYNC_BATCH_SIZE "
-                 "SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS && "
+                 "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
                  "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
                  "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
