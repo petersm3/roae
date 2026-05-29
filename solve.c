@@ -2985,67 +2985,102 @@ static int disk_space_pre_check(long long node_limit) {
  * Sha-neutral: ephemeral files created and immediately unlinked; no
  * impact on enum hash table or solutions.bin. Sub-canonical scales
  * (< 1T) skip the check (sub-canonical isn't worth a multi-second
- * probe at startup). */
+ * probe at startup).
+ *
+ * RETOOL 2026-05-29 (task #115): the original single-threaded probe vs a fixed
+ * 1000 fsync/sec threshold was mis-calibrated — single-thread fsync is
+ * latency-bound (no network-attached managed disk, even Premium, hits 1000/sec:
+ * measured HDD 134, Premium P40 218), so the gate fired on EVERY durable-disk
+ * canonical run and forced a manual override. It also ignored that the real
+ * enum fsyncs from many workers at once (#108 per-thread checkpoints) and
+ * coalesces them (#108b SOLVE_FSYNC_BATCH_SIZE). New approach: a CONCURRENT
+ * probe (min(threads,32) workers) measures the aggregate fsync throughput the
+ * enum will actually see, and the gate compares projected fsync-WAIT to the
+ * estimated enum WALL — both derived from the live thread count, so it adapts
+ * to D64 / D128 / any VM. Premium passes naturally; genuinely fsync-bound
+ * configs (slow disk + no batching at large scale) are still refused. */
+struct iops_probe_arg { int tid; int iters; int ok; };
+static void *iops_probe_worker(void *a) {
+    struct iops_probe_arg *arg = (struct iops_probe_arg *)a;
+    arg->ok = 1;
+    for (int i = 0; i < arg->iters; i++) {
+        char p[80];
+        snprintf(p, sizeof(p), ".iops_probe_%d_%d", arg->tid, i);
+        FILE *f = fopen(p, "w");
+        if (!f) { arg->ok = 0; return NULL; }
+        if (fwrite("test", 1, 4, f) != 4 || fflush(f) != 0 || fsync(fileno(f)) != 0) {
+            fclose(f); unlink(p); arg->ok = 0; return NULL;
+        }
+        fclose(f);
+        unlink(p);
+    }
+    return NULL;
+}
 static int disk_iops_pre_check(long long node_limit) {
     if (node_limit < 1000000000000LL) return 0;  /* sub-canonical: skip */
     if (getenv("SOLVE_SKIP_IOPS_CHECK") && atoi(getenv("SOLVE_SKIP_IOPS_CHECK")) == 1) {
         fprintf(stderr, "[hardening] disk-IOPS pre-check SKIPPED (SOLVE_SKIP_IOPS_CHECK=1)\n");
         return 0;
     }
+    /* Live thread count (nproc, SOLVE_THREADS override) — same logic the enum
+     * uses, so the gate adapts to the actual VM (D64 -> 64, D128 -> 128). */
+    int threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (threads < 1) threads = 1;
+    { char *et = getenv("SOLVE_THREADS"); if (et && atoi(et) > 0) threads = atoi(et); }
+    int probe_threads = threads > 32 ? 32 : threads;   /* bound probe cost */
+    const int iters = 64;
     struct timespec t0, t1;
-    if (clock_gettime(CLOCK_MONOTONIC, &t0) != 0) {
-        fprintf(stderr, "[hardening] WARN: clock_gettime failed; IOPS probe skipped\n");
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    pthread_t tid[32]; struct iops_probe_arg arg[32];
+    int spawned = 0;
+    for (int i = 0; i < probe_threads; i++) {
+        arg[i].tid = i; arg[i].iters = iters; arg[i].ok = 0;
+        if (pthread_create(&tid[i], NULL, iops_probe_worker, &arg[i]) != 0) break;
+        spawned++;
+    }
+    int probe_ok = (spawned > 0);
+    for (int i = 0; i < spawned; i++) pthread_join(tid[i], NULL);
+    for (int i = 0; i < spawned; i++) if (!arg[i].ok) probe_ok = 0;
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    if (!probe_ok) {
+        fprintf(stderr, "[hardening] WARN: concurrent IOPS probe could not run (fs error); check skipped\n");
         return 0;
     }
-    const int N = 100;
-    for (int i = 0; i < N; i++) {
-        char p[64];
-        snprintf(p, sizeof(p), ".iops_probe_%d", i);
-        FILE *f = fopen(p, "w");
-        if (!f) {
-            fprintf(stderr, "[hardening] WARN: cannot open probe file %s: %s; IOPS probe skipped\n",
-                    p, strerror(errno));
-            /* Best-effort cleanup of any probe files that did get created. */
-            for (int j = 0; j < i; j++) { snprintf(p, sizeof(p), ".iops_probe_%d", j); unlink(p); }
-            return 0;
-        }
-        if (fwrite("test", 1, 4, f) != 4 || fflush(f) != 0 || fsync(fileno(f)) != 0) {
-            fprintf(stderr, "[hardening] WARN: probe write/fsync failed: %s; IOPS probe skipped\n",
-                    strerror(errno));
-            fclose(f); unlink(p);
-            for (int j = 0; j < i; j++) { snprintf(p, sizeof(p), ".iops_probe_%d", j); unlink(p); }
-            return 0;
-        }
-        fclose(f);
-        unlink(p);
-    }
-    clock_gettime(CLOCK_MONOTONIC, &t1);
     double sec = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
     if (sec <= 0) {
         fprintf(stderr, "[hardening] WARN: clock anomaly during probe; IOPS check skipped\n");
         return 0;
     }
-    double iops = N / sec;
-    const double THRESHOLD = 1000.0;
-    if (iops >= THRESHOLD) {
-        fprintf(stderr, "[hardening] disk-IOPS pre-check: %.0f fsync/sec (threshold %.0f) PASS\n",
-                iops, THRESHOLD);
+    double agg_iops = (double)(spawned * iters) / sec;   /* aggregate concurrent fsync/sec */
+
+    /* Dynamic projection: will fsync dominate the estimated enum wall?
+     *   fsync count scales with work: ~1 fsync / 1.4e7 nodes (calibrated from the
+     *     11.2T run, ~8e5 fsyncs), reduced by SOLVE_FSYNC_BATCH_SIZE (#108b).
+     *   est wall = node_limit / (threads * 1.0e7 nodes/sec/thread)
+     *     (11.2T on D128 measured ~1.04e7/thread). Both use the live thread count. */
+    int batch = 1;
+    { char *eb = getenv("SOLVE_FSYNC_BATCH_SIZE"); if (eb && atoi(eb) > 1) batch = atoi(eb); }
+    double expected_fsyncs = (double)node_limit / 1.4e7 / (double)batch;
+    double fsync_wait_sec = expected_fsyncs / agg_iops;
+    double est_wall_sec = (double)node_limit / ((double)threads * 1.0e7);
+    double frac = est_wall_sec > 0 ? fsync_wait_sec / est_wall_sec : 1.0;
+    const double FRAC_CAP = 0.25;   /* refuse if fsync-wait would exceed 25% of est wall */
+
+    if (frac <= FRAC_CAP) {
+        fprintf(stderr,
+                "[hardening] disk-IOPS pre-check PASS: fsync ~%.1f%% of est enum wall "
+                "(agg %.0f fsync/sec x%d threads, batch=%d; ~%.2fh fsync-wait vs ~%.1fh est wall)\n",
+                frac * 100.0, agg_iops, spawned, batch, fsync_wait_sec / 3600.0, est_wall_sec / 3600.0);
         return 0;
     }
-    /* Below threshold: project expected fsync count, compute projected wait. */
-    long long expected_sub_branches = (node_limit >= 35361598LL)
-                                       ? (node_limit / 35361598LL)
-                                       : 158364LL;
-    if (expected_sub_branches > 158364LL) expected_sub_branches = 158364LL;
-    long long expected_fsyncs = expected_sub_branches * 4LL;
-    double projected_wait_hours = (double)expected_fsyncs / iops / 3600.0;
     fprintf(stderr,
-            "ERROR: cwd fsync IOPS = %.0f/sec, below threshold %.0f/sec.\n"
-            "       Consistent with Standard HDD (~150-300 IOPS). Canonical-scale enum\n"
-            "       projects to %.1fh of pure fsync wait alone (~%lld fsyncs / %.0f IOPS).\n"
-            "       Recommended: solver-data on Standard SSD (~2-5k IOPS) or Premium SSD\n"
-            "       (~5-20k IOPS). Override SOLVE_ALLOW_SLOW_IOPS=1 to proceed anyway.\n",
-            iops, THRESHOLD, projected_wait_hours, expected_fsyncs, iops);
+            "ERROR: projected fsync-wait ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh.\n"
+            "       Aggregate %.0f fsync/sec over %d concurrent threads (batch=%d; ~%.0f fsyncs\n"
+            "       at this %lld-node scale). The disk is likely too slow — fsync would\n"
+            "       dominate. Use Premium SSD, raise SOLVE_FSYNC_BATCH_SIZE (sha-neutral),\n"
+            "       or override with SOLVE_ALLOW_SLOW_IOPS=1 to proceed anyway.\n",
+            fsync_wait_sec / 3600.0, frac * 100.0, est_wall_sec / 3600.0,
+            agg_iops, spawned, batch, expected_fsyncs * (double)batch, node_limit);
     if (getenv("SOLVE_ALLOW_SLOW_IOPS") && atoi(getenv("SOLVE_ALLOW_SLOW_IOPS")) == 1) {
         fprintf(stderr, "       Continuing with SOLVE_ALLOW_SLOW_IOPS=1 acknowledged.\n");
         return 0;
