@@ -2999,6 +2999,16 @@ static int disk_space_pre_check(long long node_limit) {
  * estimated enum WALL — both derived from the live thread count, so it adapts
  * to D64 / D128 / any VM. Premium passes naturally; genuinely fsync-bound
  * configs (slow disk + no batching at large scale) are still refused. */
+/* #107 gate results — stashed here so capture_host_fingerprint (runs just after)
+ * can emit them as a structured "disk_iops" block in canonical-host-fingerprint.json
+ * (task #115b 2026-05-29). Defaults reflect "gate did not run". */
+static double g_iops_agg_fsync_per_sec = -1.0;
+static int    g_iops_probe_threads = 0;
+static int    g_iops_batch = 1;
+static double g_iops_fsync_wait_h = -1.0;
+static double g_iops_wall_frac_pct = -1.0;
+static const char *g_iops_verdict = "not-run";
+
 struct iops_probe_arg { int tid; int iters; int ok; };
 static void *iops_probe_worker(void *a) {
     struct iops_probe_arg *arg = (struct iops_probe_arg *)a;
@@ -3020,6 +3030,7 @@ static int disk_iops_pre_check(long long node_limit) {
     if (node_limit < 1000000000000LL) return 0;  /* sub-canonical: skip */
     if (getenv("SOLVE_SKIP_IOPS_CHECK") && atoi(getenv("SOLVE_SKIP_IOPS_CHECK")) == 1) {
         fprintf(stderr, "[hardening] disk-IOPS pre-check SKIPPED (SOLVE_SKIP_IOPS_CHECK=1)\n");
+        g_iops_verdict = "skipped";
         return 0;
     }
     /* Live thread count (nproc, SOLVE_THREADS override) — same logic the enum
@@ -3066,11 +3077,19 @@ static int disk_iops_pre_check(long long node_limit) {
     double frac = est_wall_sec > 0 ? fsync_wait_sec / est_wall_sec : 1.0;
     const double FRAC_CAP = 0.25;   /* refuse if fsync-wait would exceed 25% of est wall */
 
+    /* stash for the host-fingerprint sidecar (#115b) */
+    g_iops_agg_fsync_per_sec = agg_iops;
+    g_iops_probe_threads = spawned;
+    g_iops_batch = batch;
+    g_iops_fsync_wait_h = fsync_wait_sec / 3600.0;
+    g_iops_wall_frac_pct = frac * 100.0;
+
     if (frac <= FRAC_CAP) {
         fprintf(stderr,
                 "[hardening] disk-IOPS pre-check PASS: fsync ~%.1f%% of est enum wall "
                 "(agg %.0f fsync/sec x%d threads, batch=%d; ~%.2fh fsync-wait vs ~%.1fh est wall)\n",
                 frac * 100.0, agg_iops, spawned, batch, fsync_wait_sec / 3600.0, est_wall_sec / 3600.0);
+        g_iops_verdict = "PASS";
         return 0;
     }
     fprintf(stderr,
@@ -3083,8 +3102,10 @@ static int disk_iops_pre_check(long long node_limit) {
             agg_iops, spawned, batch, expected_fsyncs * (double)batch, node_limit);
     if (getenv("SOLVE_ALLOW_SLOW_IOPS") && atoi(getenv("SOLVE_ALLOW_SLOW_IOPS")) == 1) {
         fprintf(stderr, "       Continuing with SOLVE_ALLOW_SLOW_IOPS=1 acknowledged.\n");
+        g_iops_verdict = "override-allow-slow";
         return 0;
     }
+    g_iops_verdict = "refused";
     return 31;
 }
 
@@ -3141,10 +3162,13 @@ static void capture_host_fingerprint(long long node_limit) {
         "echo '  \"binary_full_sha256\": \"'\"${BIN_SHA:-unknown}\"'\",'; "
         "TEXT_SHA=$(objcopy -O binary --only-section=.text \"$SELF\" /tmp/_text_$$.bin 2>/dev/null && sha256sum /tmp/_text_$$.bin 2>/dev/null | cut -d' ' -f1; rm -f /tmp/_text_$$.bin); "
         "echo '  \"binary_text_sha256\": \"'\"${TEXT_SHA:-unknown}\"'\",'; "
+        "echo '  \"disk_iops\": {\"agg_fsync_per_sec\": %.0f, \"probe_threads\": %d, \"fsync_batch_size\": %d, \"projected_fsync_wait_h\": %.3f, \"fsync_wall_fraction_pct\": %.2f, \"verdict\": \"%s\"},'; "
         "echo '  \"git_hash_macro\": \"%s\",'; "
         "echo '  \"build_date_time\": \"'\"%s %s\"'\"'; "
         "echo '}'; "
         "} > canonical-host-fingerprint.json.tmp 2>/dev/null && mv canonical-host-fingerprint.json.tmp canonical-host-fingerprint.json",
+        g_iops_agg_fsync_per_sec, g_iops_probe_threads, g_iops_batch,
+        g_iops_fsync_wait_h, g_iops_wall_frac_pct, g_iops_verdict,
         GIT_HASH, __DATE__, __TIME__);
     if (n < 0 || (size_t)n >= sizeof(cmd)) {
         fprintf(stderr, "[hardening] WARN: host-fingerprint capture cmd too long; skipping\n");
