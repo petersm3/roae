@@ -234,6 +234,25 @@ harness covering single-thread / multi-thread / different node
 limits / clean and resumed runs. Stricter than `--selftest`. Used
 in CI and pre-merge gating.
 
+### --compare-depth-profile (solve.py only)
+
+```
+solve.py --compare-depth-profile RUN_A.log RUN_B.log [--compare-depth-profile-threshold 0.005]
+```
+
+`solve.py` companion command (not a `solve` C subcommand). Tree-walk
+validator: parses the `DEPTH_PROFILE depth=<d> nodes=<n>` lines from
+two run logs (each produced with `SOLVE_DEPTH_PROFILE=1`; `.gz` logs
+accepted) and reports per-depth plus overall **L1 / distribution
+divergence**, PASS if under the threshold (default 0.5%). For
+cross-build / cross-architecture / cross-thread determinism checks.
+Tolerance-based, **not** byte-exact: the parallel per-sub-branch budget
+cutoff overshoots by a thread-timing-dependent amount, so node counts
+wiggle slightly even on identical inputs — the solution sha256 is the
+byte-exact anchor; this catches *gross* tree-walk divergence. For full
+(EXHAUSTED) runs the profiles match exactly. Exit 0 = PASS, 1 = FAIL,
+2 = missing/empty profile.
+
 ### --verify
 
 ```
