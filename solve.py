@@ -5176,6 +5176,74 @@ def extended_selftest(solve_binary):
     return 0
 
 
+def compare_depth_profile(log_a, log_b, threshold=0.005):
+    """Tree-walk validator (#48): compare DEPTH_PROFILE node counts from two run
+    logs (each produced with SOLVE_DEPTH_PROFILE=1) and report per-depth +
+    overall divergence. PASS if total divergence < threshold.
+
+    Tolerance-based, NOT byte-exact: the parallel per-sub-branch budget cutoff
+    overshoots by a thread-timing-dependent amount, so node counts wiggle
+    slightly even on identical inputs (the solution-sha is the byte-exact
+    anchor; this catches GROSS tree-walk divergence across builds / arches /
+    thread counts). For full (EXHAUSTED) runs the profiles match exactly.
+    Accepts .gz logs."""
+    import re
+    import gzip
+    line_re = re.compile(r'^DEPTH_PROFILE depth=(\d+) nodes=(\d+)')
+
+    def parse(path):
+        opener = gzip.open if path.endswith('.gz') else open
+        prof = {}
+        with opener(path, 'rt', errors='replace') as f:
+            for line in f:
+                m = line_re.match(line)
+                if m:
+                    prof[int(m.group(1))] = int(m.group(2))
+        return prof
+
+    a = parse(log_a)
+    b = parse(log_b)
+    if not a or not b:
+        missing = []
+        if not a:
+            missing.append("A=" + log_a)
+        if not b:
+            missing.append("B=" + log_b)
+        print("ERROR: no DEPTH_PROFILE lines in " + ", ".join(missing) +
+              " (re-run solve with SOLVE_DEPTH_PROFILE=1)", flush=True)
+        return 2
+    total_a = sum(a.values())
+    total_b = sum(b.values())
+    diff = total_b - total_a
+    pct = (100.0 * diff / total_a) if total_a else 0.0
+    # Distribution (L1 / total-variation) divergence is the meaningful verdict
+    # metric. Total-count divergence ALONE is fooled by budget-limited runs:
+    # both hit the same node budget regardless of tree shape, so two completely
+    # different cells can have ~identical totals. L1 over per-depth counts
+    # captures whether the two walks explored the SAME shape.
+    l1 = sum(abs(a.get(d, 0) - b.get(d, 0)) for d in set(a) | set(b))
+    denom = max(total_a, total_b) or 1
+    div = l1 / denom
+    print(f"Total nodes A: {total_a:,}")
+    print(f"Total nodes B: {total_b:,}")
+    print(f"Total-count difference: {diff:+,} ({pct:+.4f}%)  [informational]")
+    print(f"Distribution divergence (L1/total): {div*100:.4f}%  [verdict basis]")
+    print("\nPer-depth (depth, A, B, delta%):")
+    for d in sorted(set(a) | set(b)):
+        na, nb = a.get(d, 0), b.get(d, 0)
+        if na == 0 and nb == 0:
+            continue
+        if na == 0:
+            ds, ok = "+inf%", False
+        else:
+            dp = 100.0 * (nb - na) / na
+            ds, ok = f"{dp:+.4f}%", abs(dp) <= threshold * 100.0
+        print(f"  {'OK' if ok else 'XX'} depth={d:2d}: a={na:>16,} b={nb:>16,} delta={ds}")
+    verdict = "PASS" if div < threshold else "FAIL"
+    print(f"\nVERDICT: {verdict} (distribution divergence {div*100:.4f}% vs threshold {threshold*100:.4f}%)")
+    return 0 if div < threshold else 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -5250,6 +5318,12 @@ def main():
                         help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
     parser.add_argument("--sat-c5", action="store_true",
                         help="P3 sat-encode: include C5 cardinality constraints (heavy)")
+    parser.add_argument("--compare-depth-profile", nargs=2, metavar=("RUN_A_LOG", "RUN_B_LOG"),
+                        help="Tree-walk validator (#48): compare DEPTH_PROFILE node counts from two run "
+                             "logs (produced with SOLVE_DEPTH_PROFILE=1; .gz accepted). PASS if total "
+                             "divergence < threshold. Tolerance-based, not byte-exact.")
+    parser.add_argument("--compare-depth-profile-threshold", type=float, default=0.005,
+                        help="Divergence threshold for --compare-depth-profile (default 0.005 = 0.5%%)")
     parser.add_argument("--extended-selftest", metavar="SOLVE_BINARY",
                         help="Run small-scale path-invariance + resume "
                              "regression suite that exercises the fork-merge, "
@@ -5315,6 +5389,11 @@ def main():
 
     if args.extended_selftest:
         sys.exit(extended_selftest(args.extended_selftest))
+
+    if args.compare_depth_profile:
+        sys.exit(compare_depth_profile(args.compare_depth_profile[0],
+                                       args.compare_depth_profile[1],
+                                       threshold=args.compare_depth_profile_threshold))
 
     if args.branch_yield_report:
         branch_yield_report(
