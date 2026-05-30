@@ -160,7 +160,7 @@ circular. A quantified distributional approach sidesteps this:
   (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition
   hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count,
   first_position_deviation).
-- Compute it for every record in the 100T d3 canonical (3,432,399,297 valid
+- Compute it for every record in the 100T d3 canonical (3,432,399,298 valid
   orderings).
 - Fit a kernel density estimator on a uniform sample; locate KW; compute
   KW's density-percentile with bootstrap confidence intervals.

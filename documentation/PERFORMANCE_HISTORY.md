@@ -6,7 +6,7 @@ This log is **append-only**. Entries are chronological. Older entries are not ed
 
 ## Why this exists
 
-Through 2026, we accumulated perf data scattered across HISTORY.md sections, per-change markdowns in the private `x/roae` staging repo, monitor logs, ad-hoc benchmarks, and informal session memory. Reconstructing "what was the cumulative speedup from v1 to v2+PGO?" required reading ten places at once.
+Through 2026, we accumulated perf data scattered across HISTORY.md sections, per-change markdowns in the private `roae-private` staging repo, monitor logs, ad-hoc benchmarks, and informal session memory. Reconstructing "what was the cumulative speedup from v1 to v2+PGO?" required reading ten places at once.
 
 This file collects the data uniformly so that future presentations, decision audits, and regression hunts can read a single source.
 
@@ -124,7 +124,7 @@ Track complement-distance partial sum during the DFS walk, prune subtrees whose 
 - result: PASS — L_v1 ⊆ L_v2 verified at both 100M and 100B scales; zero v1-canon records absent from v2 output
 
 ### Notes
-This is the first v2 entry. The "perf number" for #67 is best understood as **budget efficiency** (records per billion nodes), not wall-time speedup. At canonical scales, #67 mostly shifts the cost curve so each canonical run finds more of the underlying record set in the same budget; combined with #68/#70 the effect compounds. Detailed write-up in HISTORY.md §"May 11, 2026 PDT — task #67". L_v1 ⊆ L_v2 methodology in `x/roae/V1_V2_SEARCH_SPACE_RELATIONSHIP_2026_05_06.md`.
+This is the first v2 entry. The "perf number" for #67 is best understood as **budget efficiency** (records per billion nodes), not wall-time speedup. At canonical scales, #67 mostly shifts the cost curve so each canonical run finds more of the underlying record set in the same budget; combined with #68/#70 the effect compounds. Detailed write-up in HISTORY.md §"May 11, 2026 PDT — task #67". L_v1 ⊆ L_v2 methodology in `roae-private/V1_V2_SEARCH_SPACE_RELATIONSHIP_2026_05_06.md`.
 
 ---
 
@@ -155,7 +155,7 @@ For each within-pair distance d, remaining `budget[d]` must be ≥ count of unpl
 - canonical-level 1B K-pilot (task #80a in tracker): not yet run as a separate validation
 
 ### Notes
-**Methodology pivot landed with this commit**: sha-match-vs-v1 is structurally incompatible with any feasibility prune at budgeted runs — the prune frees up node budget that gets spent finding more solutions → different sha. Replaced by (1) solution-set inclusion via `solve --verify-superset`, (2) independent C1–C5 verification via `solve --verify`, (3) v2 canonical shas at stabilization (task #81). See `x/roae/SEARCH_TREE_PRUNING_BUDGET_INCOMPATIBILITY_2026_05_06.md` (private staging) for the underlying argument.
+**Methodology pivot landed with this commit**: sha-match-vs-v1 is structurally incompatible with any feasibility prune at budgeted runs — the prune frees up node budget that gets spent finding more solutions → different sha. Replaced by (1) solution-set inclusion via `solve --verify-superset`, (2) independent C1–C5 verification via `solve --verify`, (3) v2 canonical shas at stabilization (task #81). See `roae-private/SEARCH_TREE_PRUNING_BUDGET_INCOMPATIBILITY_2026_05_06.md` (private staging) for the underlying argument.
 
 **The +68.6% at 100M does NOT extrapolate linearly to canonical budgets.** Most cells naturally terminate at large per-cell budgets, so the prune's marginal gain tapers. Task #81's 11.2T re-baseline shows the canonical-scale K-ratio: only +4.83% records vs v1 at 11.2T (vs +68.6% at 100M). Empirical scale-dependence captured.
 
@@ -326,7 +326,7 @@ With v2 prune stack (#67 + #68 + #70 + #72) shipped and #71 reverted, re-run the
 ### Notes
 This is the cumulative-v2 anchor. Per-prune contribution to the +4.83% isn't isolated by this run — it's the bundled effect. The +4.83% at 11.2T is much smaller than the +104% at 100B observed for #68 alone — diminishing returns at scale, predicted in the v2 design docs and confirmed empirically. v2 advantage at 100T+ is expected to be ~1-2% (well below the v1 baseline difference at small scales).
 
-Detailed writeup in `x/roae/V2_11_2T_LESSONS_LEARNED_2026_05_17.md` and HISTORY.md.
+Detailed writeup in `roae-private/V2_11_2T_LESSONS_LEARNED_2026_05_17.md` and HISTORY.md.
 
 ---
 
@@ -453,7 +453,7 @@ Cost of v3 rerun: ~$1.51 (D128als_v7 Spot @ ~$0.95/hr × 1h 35m). Bench script a
 **Decision**: shipped (commit `b684cca` 2026-05-18, pushed to v2-bundled)
 
 ### Hypothesis
-Bisect (filed in `x/roae/RESUME_REGRESSION_RCA_2026_05_18.md`) localized the resume divergence to commit `9f4b630` (#67 mid-walk C3 reship): `BacktrackFrame.mw_delta` is required for the RETRY phase's `ts->mw_partial_cd_x64 -= fr->mw_delta;` undo, but was not serialized in `DFSStackFrame_v2`. On resume, every restored frame's `mw_delta` was uninitialized (effectively 0), so the undo subtracted 0 → `mw_partial_cd_x64` drifted from live-path value → prune predicate fired differently → resume sha diverged. Fix: extend the on-disk format to carry `mw_delta`, bump version.
+Bisect (filed in `roae-private/RESUME_REGRESSION_RCA_2026_05_18.md`) localized the resume divergence to commit `9f4b630` (#67 mid-walk C3 reship): `BacktrackFrame.mw_delta` is required for the RETRY phase's `ts->mw_partial_cd_x64 -= fr->mw_delta;` undo, but was not serialized in `DFSStackFrame_v2`. On resume, every restored frame's `mw_delta` was uninitialized (effectively 0), so the undo subtracted 0 → `mw_partial_cd_x64` drifted from live-path value → prune predicate fired differently → resume sha diverged. Fix: extend the on-disk format to carry `mw_delta`, bump version.
 
 ### Methodology (multi-scale validation)
 1. **Bisect gate** (claude orchestrator, ~$0): three commits tested via `--selftest-resume`
@@ -485,7 +485,7 @@ Bisect (filed in `x/roae/RESUME_REGRESSION_RCA_2026_05_18.md`) localized the res
 - Total `DFSCheckpointState_v2` size: 438 → 574 bytes, well under the 2048-byte static assertion
 
 ### Audit of existing canonicals (pre-fix runs)
-Confirmed in `x/roae/RESUME_REGRESSION_RCA_2026_05_18.md`. **Zero existing canonical artifacts are corrupted by the original bug** — all v1 canonicals predate the `mw_delta` field; v2 11.2T canonical `2cc966e4…` had checkpoint mechanism enabled but the resume code path was never exercised (158,364 WROTE markers, 0 READ markers in enum_solve.log); v2 100B canonical `de28fea6…` at commit `bf58c65` (pre-bug) ran without checkpoint mechanism enabled at all.
+Confirmed in `roae-private/RESUME_REGRESSION_RCA_2026_05_18.md`. **Zero existing canonical artifacts are corrupted by the original bug** — all v1 canonicals predate the `mw_delta` field; v2 11.2T canonical `2cc966e4…` had checkpoint mechanism enabled but the resume code path was never exercised (158,364 WROTE markers, 0 READ markers in enum_solve.log); v2 100B canonical `de28fea6…` at commit `bf58c65` (pre-bug) ran without checkpoint mechanism enabled at all.
 
 ### Notes
 The instructive moral: when adding state to `BacktrackFrame`, the checkpoint format must extend simultaneously. The on-disk format is part of the state-machine contract, not separate from it. Today's `feedback_*` operator-memory entries don't capture this lesson yet — worth adding.
@@ -556,8 +556,8 @@ This does NOT close out variable-ordering as a research direction. The disjoint-
 
 ### Notes
 - 22 GB of K-pilot solutions.bin files archived to `solver-data-westus3:/kpilot_69_mrv_20260518_*/` for post-hoc analysis if needed.
-- Detailed K-pilot writeup: `x/roae/MRV_KPILOT_RESULTS_2026_05_18.md`.
-- Design doc that motivated the K-pilot: `x/roae/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
+- Detailed K-pilot writeup: `roae-private/MRV_KPILOT_RESULTS_2026_05_18.md`.
+- Design doc that motivated the K-pilot: `roae-private/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
 
 ### Bug found and fixed during this K-pilot
 The first K-pilot bench attempt hit a silent SIGSEGV on `solve --merge` with `SOLVE_MERGE_MODE=external` on default 8 MB stack. Fixed in commit `dc01860` — `--merge` now hard-exits with a clear error if RLIMIT_STACK ≠ unlimited. See separate entry below.
@@ -633,7 +633,7 @@ Multiple variants reproduced previously-registered shas, validating methodology:
 
 ### Notes
 - The chained D128 sweep was designed to include 1T scale, but the v1_C5_C3_C3opt variant's single-threaded in-memory merge of 70M pre-dedup records bottlenecked the run. 100B sweep completed in time; 1T phase pre-emptively killed to free schedule. The 4-scale data (100M → 100B) already establishes the convergence trajectory decisively.
-- Detailed writeup with set-intersection numbers + cost breakdown + lineage diagrams: `x/roae/PER_PRUNE_ISOLATION_KPILOT_2026_05_18.md`.
+- Detailed writeup with set-intersection numbers + cost breakdown + lineage diagrams: `roae-private/PER_PRUNE_ISOLATION_KPILOT_2026_05_18.md`.
 
 ---
 
@@ -1140,7 +1140,7 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 - Hardware: D128als_v7 Spot westus3 (`bench-per-thread` 2026-05-26 perf bench; `t108-validation` 2026-05-27 sha gate)
 - Build: `-O3 -g -march=native -flto -pthread -fopenmp` (LTO + bitset, no PGO)
 - Repetitions: 1 (perf bench at canonical scale; sha gate is deterministic by design)
-- See `x/roae/scripts/bench_per_thread_checkpoint/` (perf bench), `x/roae/scripts/t108_validation/` (sha gate)
+- See `roae-private/scripts/bench_per_thread_checkpoint/` (perf bench), `roae-private/scripts/t108_validation/` (sha gate)
 
 ### Result (perf at canonical scale)
 - CPU utilization (5 top samples avg): **35% → ~95.3%** (12200/12800 cores active vs 35% baseline pre-#108)
@@ -1181,7 +1181,7 @@ Also restores two diagnostic subcommands (sha-neutral by construction; not bench
 - `--cpu-freq` (was `324318b` 2026-05-16, lost in v3 reset)
 
 See:
-- `x/roae/TASK_106_PROFILE_DEPTH3_BOTTLENECK_2026_05_26.md` — profile that motivated the work
-- `x/roae/TASK_108_BENCH_RESULTS_2026_05_26.md` — perf bench results
-- `x/roae/TASK_108_FINAL_REPORT_2026_05_27.md` — bundle composition, validation, drift finding
-- `x/roae/V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` — audit of what 9f10f05 dropped
+- `roae-private/TASK_106_PROFILE_DEPTH3_BOTTLENECK_2026_05_26.md` — profile that motivated the work
+- `roae-private/TASK_108_BENCH_RESULTS_2026_05_26.md` — perf bench results
+- `roae-private/TASK_108_FINAL_REPORT_2026_05_27.md` — bundle composition, validation, drift finding
+- `roae-private/V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` — audit of what 9f10f05 dropped

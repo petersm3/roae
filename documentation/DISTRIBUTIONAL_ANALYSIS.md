@@ -1,7 +1,7 @@
 # Distributional analysis of the King Wen sequence
 
 Where does the King Wen sequence sit in the joint distribution of observable
-statistics computed across the 3,432,399,297 canonical C1-C5 valid orderings
+statistics computed across the 3,432,399,298 canonical C1-C5 valid orderings
 (the 100T d3 canonical, sha256 `915abf30…`)?
 
 This document reframes the "is King Wen unique?" question into a rigorous
@@ -20,7 +20,7 @@ Claims are about KW's position within that population.
 
 Each canonical ordering is characterized by the following statistics,
 computed over 3.43 billion records using streaming parquet output
-(`solve.py --compute-stats`). See `x/roae/P2_OBSERVABLES_SCHEMA.md` for the
+(`solve.py --compute-stats`). See `roae-private/P2_OBSERVABLES_SCHEMA.md` for the
 frozen schema.
 
 | # | Dim | Meaning | Family |
@@ -41,18 +41,18 @@ frozen schema.
 For each of the 9 non-stratifier dimensions, KW's exact percentile in the
 marginal was computed by streaming histogram aggregation across all 3.43B
 records. (Subcommand: `solve.py --marginals`; full table in
-`x/roae/P2_MARGINALS.md`.)
+`roae-private/P2_MARGINALS.md`.)
 
 | Dim | KW value | Records < KW | Records == KW | **KW percentile** |
 |---|---|---|---|---|
 | `edit_dist_kw` | **0** | 0 | 1 | **0.0000%** (unique to KW) |
 | `c3_total` | **776** | 3,092,219,648 | 340,179,649 | **95.04%** |
 | `c6_c7_count` | **2** | 3,432,200,621 | 198,676 | **99.997%** |
-| `max_transition_hamming` | 6 | 0 | 3,432,399,297 | 50.00% (invariant) |
+| `max_transition_hamming` | 6 | 0 | 3,432,399,298 | 50.00% (invariant) |
 | `fft_dominant_freq` | **16** | 776,656,635 | 433,156,350 | **28.94%** |
 | `shift_conformant_count` | **17** | 3,429,763,541 | 2,635,756 | **99.96%** |
 | `first_position_deviation` | **33** | 3,432,399,296 | 1 | **100.00%** (unique) |
-| `mean_transition_hamming` | 3.3492 | 0 | 3,432,399,297 | 50.00% (invariant) |
+| `mean_transition_hamming` | 3.3492 | 0 | 3,432,399,298 | 50.00% (invariant) |
 | `fft_peak_amplitude` | ~374.77 | ~3,276,971,650 | ~324,161 | **~95.48%** |
 
 **Interpretation of marginals:**
@@ -83,7 +83,7 @@ None is itself dispositive.
 
 Five hexbin heatmaps of the 100T canonical joint distribution (1.7M
 uniformly-sampled points, KW marked with gold star) are archived at
-`x/roae/viz/`:
+`roae-private/viz/`:
 
 - `viz_edit_dist_kw__c3_total.png`
 - `viz_c3_total__shift_conformant_count.png`
@@ -108,7 +108,7 @@ Visual observations:
 A Gaussian-kernel density estimate was fit over the 7 informative
 dimensions (excluding the two invariant transition-Hamming dims and the
 categorical stratifier). See `solve.py --joint-density` and
-`x/roae/P2_JOINT_DENSITY.md` for methodology details.
+`roae-private/P2_JOINT_DENSITY.md` for methodology details.
 
 - **Sample:** 102,990 standardized records (30 per chunk × 3,433 chunks,
   uniform across the canonical)
@@ -183,7 +183,7 @@ dependent.
 All scripts and intermediate data are preserved:
 
 - **Input:** `solutions.bin` on `solver-data-westus3` managed disk (sha256
-  `915abf30…`, 3,432,399,297 records)
+  `915abf30…`, 3,432,399,298 records)
 - **Stat computation:** `solve.py --compute-stats` — per-record 10-dim
   vector, output as per-chunk parquet directory
 - **Marginal analysis:** `solve.py --marginals` (streaming histograms)
@@ -194,8 +194,8 @@ All scripts and intermediate data are preserved:
   single-Python-file rule; previously lived as `scripts/compute_stats.py`,
   `scripts/p2_marginals.py`, `scripts/p2_bivariate.py`,
   `scripts/p2_joint_density.py` in the staging repo.
-- **Archived outputs:** `x/roae/P2_MARGINALS.md`, `x/roae/viz/`,
-  `x/roae/P2_JOINT_DENSITY.md`
+- **Archived outputs:** `roae-private/P2_MARGINALS.md`, `roae-private/viz/`,
+  `roae-private/P2_JOINT_DENSITY.md`
 
 ## Appendix A: Theorem of invariant transition-Hamming distribution
 

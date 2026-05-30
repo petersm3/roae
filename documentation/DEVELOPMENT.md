@@ -190,7 +190,7 @@ Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Add t
 
 #### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
 
-For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`x/roae/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, ~$18 across four attempts vs ~$5 first-shot expected) — every failure mode it documents corresponds to a real overrun.
+For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, ~$18 across four attempts vs ~$5 first-shot expected) — every failure mode it documents corresponds to a real overrun.
 
 The runbook's mandatory invariants for canonical runs:
 
@@ -327,7 +327,7 @@ Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical
 
 #### Benchmark protocol — codified in `v2_bench_d64.sh` (private repo)
 
-The full protocol lives in the private operational repo at `petersm3/x:roae/v2_bench_d64.sh`. It runs as `./v2_bench_d64.sh <binary> <node_limit> <output_tsv>`. Per-trial discipline encoded into the script (so any future session running it inherits the same rigor):
+The full protocol lives in the private operational repo at `petersm3/roae-private:v2_bench_d64.sh`. It runs as `./v2_bench_d64.sh <binary> <node_limit> <output_tsv>`. Per-trial discipline encoded into the script (so any future session running it inherits the same rigor):
 
 | Element | Choice / Encoded in script |
 |---|---|
@@ -377,7 +377,7 @@ sudo reboot
 
 - **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 ($1.50, 1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
 - **#47 LTO:** baseline `-O3 -march=native` vs `-O3 -flto -march=native`. Speedup expected 0–5% (LTO mostly helps cross-translation-unit optimization; single-file project gets modest gains from extra dead-code elimination + cross-function inlining beyond `-O3`'s defaults). On claude.
-- **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `x/roae/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`.
+- **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `roae-private/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`.
 - **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (D-series VM with NUMA-aware OS).
 
 #### Reporting template (one row per Phase 1 task)
@@ -626,7 +626,7 @@ keeping the managed disk.
 
 ## Canonical run discipline (added 2026-05-25 after the v3.1 hardening audit)
 
-Every canonical-scale enumeration (≥1T `SOLVE_NODE_LIMIT`) MUST run in a clean, dedicated run directory. The solver enforces this in part with startup gates (LOCK file, `build.sha` check, `.budget` sidecar verification) — but those guard against subsets of the failure modes documented in the audit (`petersm3/x:roae/V3_1_HARDENING_AUDIT_2026_05_25.md`). One mode (Outlier #6: filename-pattern false-positive from foreign `sub_*.bin` files in the run dir) is intentionally NOT enforced in code, because a hard "empty cwd" gate would be too operator-unfriendly. Instead, follow this convention:
+Every canonical-scale enumeration (≥1T `SOLVE_NODE_LIMIT`) MUST run in a clean, dedicated run directory. The solver enforces this in part with startup gates (LOCK file, `build.sha` check, `.budget` sidecar verification) — but those guard against subsets of the failure modes documented in the audit (`petersm3/roae-private:V3_1_HARDENING_AUDIT_2026_05_25.md`). One mode (Outlier #6: filename-pattern false-positive from foreign `sub_*.bin` files in the run dir) is intentionally NOT enforced in code, because a hard "empty cwd" gate would be too operator-unfriendly. Instead, follow this convention:
 
 **One canonical campaign → one fresh subdirectory.** Pattern: `solver-data-westus3:/<YYYYMMDD>_<lineage>_<scale>_<campaign_id>/` (e.g., `20260521_v2_100T_buildA/`).
 
@@ -676,7 +676,7 @@ Every canonical-scale run now ships with **`solutions.provenance.json`** alongsi
 
 `--compare-provenance` normalizes away timestamps, host fingerprints, and merge-invocation metadata. Must-match fields: `solutions_bin_sha256`, `solutions_bin_record_count`, `shard_count`, `shards_by_final_status` (the EXHAUSTED/BUDGETED/INTERRUPTED counts), `final_budget_distribution`, `cumulative.total_nodes_explored`, `cumulative.total_records_emitted`.
 
-For full schema + design rationale see `x/roae/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md`. For per-cli reference see [SOLVE_CLI.md](SOLVE_CLI.md) `--compare-provenance` + Files section.
+For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md`. For per-cli reference see [SOLVE_CLI.md](SOLVE_CLI.md) `--compare-provenance` + Files section.
 
 ## Known gotchas
 
@@ -709,7 +709,7 @@ Compared to the bare `-O3 -flto -pthread -fopenmp -march=native`, these flags ad
 
 | Flag | What it does | Why it matters for reproducibility |
 |---|---|---|
-| `SOURCE_DATE_EPOCH=<unix-ts>` | Pins `__DATE__` and `__TIME__` to a deterministic value | Eliminates the `.rodata` cosmetic non-determinism documented in `x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md` Q10 |
+| `SOURCE_DATE_EPOCH=<unix-ts>` | Pins `__DATE__` and `__TIME__` to a deterministic value | Eliminates the `.rodata` cosmetic non-determinism documented in `roae-private/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md` Q10 |
 | `-fno-record-gcc-switches` | Removes embedded build command line from `.GCC.command_line` section | Builds without referencing the build directory |
 | `-Wl,--build-id=sha256` | Derives the ELF build-id deterministically from binary content (instead of random hash) | Two builds of same source on same host produce identical build-ids |
 | `-ffile-prefix-map="$(pwd)=."` | Strips the absolute build path from any embedded references | Same source compiled in different directories produces identical binary |
@@ -1151,7 +1151,7 @@ typical inputs (validated bit-identical on a 500-point synthetic test).
 Makes exhaustive distributional analysis on the 100T canonical (3.43B
 records) tractable in ~2 hours on D64 (vs ~9 days pure-Python).
 
-See [`x/roae/DISTRIBUTIONAL_V2_SPEC.md`](../../../x/roae/DISTRIBUTIONAL_V2_SPEC.md)
+See [`roae-private/DISTRIBUTIONAL_V2_SPEC.md`](../../../roae-private/DISTRIBUTIONAL_V2_SPEC.md)
 for the analysis pipeline + Python integration.
 
 ### `solve.py --sat-encode` (DIMACS / OPB encoder for #SAT model counting)
@@ -1171,7 +1171,7 @@ Produces:
 - `kw.cnf.meta.json` — variable/clause counts, sha256 of clauses for
   reproducibility
 
-See [`x/roae/SAT_EXPERIMENT_SPEC.md`](../../../x/roae/SAT_EXPERIMENT_SPEC.md)
+See [`roae-private/SAT_EXPERIMENT_SPEC.md`](../../../roae-private/SAT_EXPERIMENT_SPEC.md)
 for the experimental protocol and validation strategy.
 
 ### Infrastructure
@@ -1377,7 +1377,7 @@ up-to-date status.
 ### Scientific / analysis extensions (longer horizon)
 
 Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
-`~/github/x/roae/`, not committed to this repo). Highlights:
+`~/github/roae-private/`, not committed to this repo). Highlights:
 
 3. **Formal proof of forced-orientation (Theorem 6).** `SPECIFICATION.md`
    cites the theorem with a prose proof reference. Level 1: tighten the
@@ -1400,7 +1400,7 @@ Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
    correcting codes, group actions). Would elevate empirical findings
    to mathematical connections. Exploratory notes in `INSIGHTS.md` and
    `BREAKTHROUGH_REQUIREMENTS.md` (operator staging in
-   `~/github/x/roae/`, not committed to this repo).
+   `~/github/roae-private/`, not committed to this repo).
 
 ### Infrastructure / archival (deferred)
 

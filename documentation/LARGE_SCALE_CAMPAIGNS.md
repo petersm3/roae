@@ -472,10 +472,10 @@ SCRIPT orchestrator():
 
 The project's actual implementation of this pattern lives at:
 
-- `petersm3/x:roae/560t_scripts/560t_branch_runner.sh`
-- `petersm3/x:roae/560t_scripts/560t_orchestrator.sh`
-- `petersm3/x:roae/560t_scripts/branches_A.txt`
-- `petersm3/x:roae/560t_scripts/branches_B.txt`
+- `petersm3/roae-private:560t_scripts/560t_branch_runner.sh`
+- `petersm3/roae-private:560t_scripts/560t_orchestrator.sh`
+- `petersm3/roae-private:560t_scripts/branches_A.txt`
+- `petersm3/roae-private:560t_scripts/branches_B.txt`
 
 Use them as a starting point; adapt VM names, paths, and budgets
 to your campaign.
@@ -1098,7 +1098,7 @@ days, and re-check merge VM RAM requirement.
   - [`DEVELOPMENT.md`](DEVELOPMENT.md) — `--extended-selftest`, build flags, invariants
   - [`DEPLOYMENT.md`](DEPLOYMENT.md) — Azure VM sizing, region notes
   - [`HISTORY.md`](HISTORY.md) — what's been run, when, how it landed
-- `petersm3/x` (private operator log; not public):
+- `petersm3/roae-private` (private operator log; not public):
   - `roae/CAMPAIGN_2026_05_VALIDATION.md` — the campaign that produced the lessons in this guide
   - `roae/CAMPAIGN_560T_PLANNING_2026_05_02.md` — detailed planning for the campaign this guide's worked example refers to
   - `roae/560t_scripts/` — reference scripts (orchestrator, branch runner, branch lists)

@@ -336,7 +336,7 @@ counts come out as:
 | Budget | Sub-branch budget | Unique orderings (canonical form) | sha256 prefix |
 |---|---|---|---|
 | 10T (10^13 nodes) | ~63 M / d3 sub-branch | 706,422,987 | `f7b8c4fb…` |
-| 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,297 | `915abf30…` |
+| 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,298 | `915abf30…` |
 | (unbounded — exhaustion) | (exhausted to true completion) | not yet known | — |
 
 The "canonical form" means we collapse equivalent orderings (orientation

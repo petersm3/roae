@@ -506,7 +506,7 @@ The two-phase architecture above is the right *architecture*. The
 *operational* pattern — pre-flight checklists, recovery procedures
 for the half-dozen failure modes that have actually occurred in
 practice, scale-specific guidance for 100T and 560T — lives in the
-**`x/roae/CANONICAL_PIPELINE_RUNBOOK.md`** runbook (private staging
+**`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** runbook (private staging
 repo). That runbook is the single source of truth for canonical
 runs and supersedes earlier ad-hoc scripts. The 2026-05-16/17 v2
 11.2T saga (~$18 spent across four attempts vs ~$5 expected
@@ -736,7 +736,7 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
    # transient reasons (busy device, kernel state mismatch, etc.).
    #
    # Instead, use the canonical pattern in
-   # `petersm3/x:roae/safe_disk_setup.sh`:
+   # `petersm3/roae-private:safe_disk_setup.sh`:
    #   - existing data disk: identify by UUID, mount-by-UUID, verify
    #     marker file (e.g., solutions.sha256)
    #   - new empty disk: identify by exact size + empty-FS state,
@@ -1032,7 +1032,7 @@ vs D64 K=1 for just 20s faster wall.
 F-series retired on this project (see §Cost control).
 
 **Full measurement data + packing-mechanism analysis + campaign-planning math:**
-`x/roae/P1_SCALING_MEASUREMENTS.md` (staging repo).
+`roae-private/P1_SCALING_MEASUREMENTS.md` (staging repo).
 
 ### Cost reference (2026-04-19 pricing, post-Dalsv7-pivot)
 

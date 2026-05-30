@@ -196,7 +196,7 @@ This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1,
 
 ### 100T d3 canonical results (2026-04-20)
 
-Running the same C1+C2+C3 enumeration at 10× the node budget (100 trillion vs 10 trillion) produced **3,432,399,297 canonical orderings** — roughly 4.86× the 10T count. Findings:
+Running the same C1+C2+C3 enumeration at 10× the node budget (100 trillion vs 10 trillion) produced **3,432,399,298 canonical orderings** — roughly 4.86× the 10T count. Findings:
 
 - **Boundary minimum jumps from 4 to 5.** The d2 10T and d3 10T canonicals have 4 specific boundaries uniquely determining KW. At d3 100T, no 4-subset works; minimum is 5, greedy-optimal set **{1, 4, 21, 25, 27}**. Boundaries {25, 27} remain mandatory across all three partitions — this is the most stable structural finding. The specific "4 boundaries" narrative is SUPERSEDED at deeper enumeration; the true boundary-minimum is a function of partition depth.
 - **Complement distance (C3) = 776 is the CEILING, not the floor.** KW's C3 is at the maximum of the constraint. 340,179,649 records (9.91%) tie at exactly 776; minimum C3 is 424 (221 records). Axiom "minimize C3" does NOT pick KW; KW is in a large ~10% equivalence cohort at the C3 ceiling. Rule 3 is a ceiling constraint, not a minimization (see updated §Rule 3).
@@ -232,7 +232,7 @@ Reproducibility: the built-in `./solve --yield-report` subcommand reads a solve.
 ## Observed distributional regularity: KW's position in joint observable space
 
 Separate from the yield-clustering analysis above — at the record level across
-the 3,432,399,297 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimensional
+the 3,432,399,298 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimensional
 observable-statistics vector was computed per ordering and KW's position in the
 joint distribution was quantified via kernel density estimation + bootstrap.
 

@@ -32,7 +32,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | **Full `roae.py` CLI reference** (28 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md) |
 | Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
-| **Live operational state** (current run, schedule, in-flight work) | `~/github/x/roae/CURRENT_PLAN.md` (**private repo, `petersm3/x`** — not in this repo) |
+| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_PLAN.md` (**private repo, `petersm3/roae-private`** — not in this repo) |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
 
 ## Canonical shas — INVARIANT
@@ -177,7 +177,7 @@ $3-25 and accumulates across sessions.
   commits" for specific paths (currently: the `.claude/` directory).
 - Push anything to `petersm3/roae` without the user having had a
   chance to review non-trivial changes. Staging-doc commits to
-  `petersm3/x` (private) can proceed without per-commit review for
+  `petersm3/roae-private` (private) can proceed without per-commit review for
   routine working-log updates.
 - Launch large compute (≥10T enumeration or ≥3 hr external merge)
   without cost confirmation AND without running the VM-priority
@@ -238,7 +238,7 @@ those safeguards, retroactively codified.
 The helper functions `disk_by_uuid`, `new_disk_by_size`,
 `mount_known_disk`, `safe_mkfs`, and `preflight_assert_empty` are
 canonical implementations of these rules; see
-`petersm3/x:roae/safe_disk_setup.sh` (private staging repo). VM
+`petersm3/roae-private:safe_disk_setup.sh` (private staging repo). VM
 provisioning scripts should source it.
 
 ## Single C source file — `solve.c` — no new `.c` files
@@ -276,14 +276,14 @@ Past violations:
 - `.claude/` — local Claude Code metadata
 - `solutions.bin` itself — too large; the sha256 is the reproducibility
   anchor, not the bytes
-- Outside-repo staging docs — those live in `petersm3/x/roae/` (a
+- Outside-repo staging docs — those live in `petersm3/roae-private/` (a
   separate private repo). If an operator-planning doc is in the
-  working tree here, move it to `x/roae/`.
+  working tree here, move it to `roae-private/`.
 
 ## In-flight state
 
 For "what am I currently doing / what's running / what's next," read
-**`~/github/x/roae/CURRENT_PLAN.md`** first. That doc is refreshed as
+**`~/github/roae-private/CURRENT_PLAN.md`** first. That doc is refreshed as
 operational state changes; this CLAUDE.md is stable.
 
 Also check scheduled wake-ups (the runtime fires these automatically
