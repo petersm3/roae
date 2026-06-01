@@ -398,9 +398,18 @@ What this means for a third-party reproducer:
 - **75-min wait + M-F daytime defer policy.** Off-hours evictions retry
   quickly; M-F daytime evictions defer to 18:01 PT same-day to avoid
   disrupting operator availability windows.
-- **Throttle probe on every new VM.** Spot D128 pool occasionally hands back
-  thermally-throttled hosts at ~600 MHz; treat as a vacated VM, wait, retry,
-  up to 5 attempts.
+- **Throttle probe on every new VM, including post-eviction `az vm start`.**
+  Spot D128 pool occasionally hands back thermally-throttled hosts at ~600 MHz
+  vs the expected 2596 MHz base / 3700 MHz boost. The campaign supervisor runs
+  `solve --cpu-freq <threshold>` after every VM provisioning event — both the
+  initial allocation and any post-eviction `az vm start` (which may relocate
+  the VM identity to a different physical host). On THROTTLED, the supervisor
+  treats the host as another vacated VM: `az vm deallocate`, re-enter the
+  wait-relaunch-window policy, try again. Up to 5 consecutive throttled
+  attempts before ABORT (Premium SSD preserved for human intervention). This
+  is a defensive measure with negligible cost — the probe is a 50ms
+  `/proc/cpuinfo` read — that prevents the long-tail scenario where a
+  thermally-throttled host runs the enum at ~5× normal wall.
 - **Cold archive includes shards + dfs_state + budget tarballs.** Cold
   archive itself is extension-ready (you do not need the live Premium to
   extend).
