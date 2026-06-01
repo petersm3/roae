@@ -398,18 +398,35 @@ What this means for a third-party reproducer:
 - **75-min wait + M-F daytime defer policy.** Off-hours evictions retry
   quickly; M-F daytime evictions defer to 18:01 PT same-day to avoid
   disrupting operator availability windows.
-- **Throttle probe on every new VM, including post-eviction `az vm start`.**
-  Spot D128 pool occasionally hands back thermally-throttled hosts at ~600 MHz
-  vs the expected 2596 MHz base / 3700 MHz boost. The campaign supervisor runs
-  `solve --cpu-freq <threshold>` after every VM provisioning event — both the
-  initial allocation and any post-eviction `az vm start` (which may relocate
-  the VM identity to a different physical host). On THROTTLED, the supervisor
-  treats the host as another vacated VM: `az vm deallocate`, re-enter the
-  wait-relaunch-window policy, try again. Up to 5 consecutive throttled
-  attempts before ABORT (Premium SSD preserved for human intervention). This
-  is a defensive measure with negligible cost — the probe is a 50ms
-  `/proc/cpuinfo` read — that prevents the long-tail scenario where a
-  thermally-throttled host runs the enum at ~5× normal wall.
+- **Throttle probe on every new VM, including post-eviction `az vm start`
+  AND every main-loop poll cycle.** Spot D128 pool occasionally hands back
+  thermally-throttled hosts at ~600 MHz vs the expected 2596 MHz base /
+  3700 MHz boost. The campaign supervisor runs `solve --cpu-freq <threshold>`
+  in three places: (a) after the initial `az vm create` provision; (b) after
+  every post-eviction `az vm start` (which may relocate the VM identity to a
+  different physical host); (c) inline in the main poll loop every 3 minutes
+  against the live VM. The first two probes treat a single THROTTLED reading
+  as a vacated host (`az vm deallocate`, re-enter the wait-relaunch-window
+  policy, retry — up to 5 attempts before ABORT). The mid-run probe is a
+  sustained-throttling gate: `THROTTLE_THRESHOLD` consecutive THROTTLED
+  readings (default 20 = ~60 min) before the supervisor self-deallocates the
+  VM (main loop then sees a normal eviction and routes through the same
+  wait-relaunch-window). Together these three probes catch (i) bad initial
+  hosts, (ii) post-eviction relocations to bad hosts, and (iii) hosts that
+  pass the provisioning probe but degrade hours later. Probe cost is
+  negligible (a 50ms `/proc/cpuinfo` read per cycle); prevents the long-tail
+  scenario where a thermally-throttled host runs the enum at ~5× normal wall.
+- **Live-tunable wait + throttle policy via config file.** The four knobs —
+  `DEFER_START_HR`, `DEFER_END_HR`, `OFFHOURS_WAIT_SEC` (the wait policy)
+  and `THROTTLE_THRESHOLD` (the mid-run probe sensitivity) — live in a
+  config file that the supervisor re-reads on every `wait_relaunch_window`
+  call AND every main-loop cycle. The operator can edit the file mid-run
+  to shift the daytime-defer boundary (e.g. 18:00 → 19:00 PT if a particular
+  hour proves to be a high-eviction bucket) or to tighten/loosen the
+  throttle threshold, without restarting the supervisor. Important for
+  multi-day campaigns where empirical eviction or throttling patterns may
+  diverge from the pre-launch plan and operator intervention needs to be
+  cheap.
 - **Cold archive includes shards + dfs_state + budget tarballs.** Cold
   archive itself is extension-ready (you do not need the live Premium to
   extend).
