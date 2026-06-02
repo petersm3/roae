@@ -427,6 +427,25 @@ What this means for a third-party reproducer:
   multi-day campaigns where empirical eviction or throttling patterns may
   diverge from the pre-launch plan and operator intervention needs to be
   cheap.
+- **Progress measurement: count shard files, don't parse log fields.**
+  The C enumerator's stdout (`enum.out`) has two number-bearing patterns
+  that look like progress indicators but mislead: (a) per-thread
+  `*** Sub-branch NNNNN/158364 BUDGETED ***` announcements are emitted by
+  whichever thread happens to exhaust its current cell's per-cell budget,
+  and post-eviction-resume the new enum process picks cells out of order
+  based on which `.dfs_state` checkpoints exist — so a tail-1 of those
+  announcements returns a stale-looking cell index, not the maximum;
+  (b) the periodic status line's `XXXX/158364 sub-branches (NN%)` field
+  is the count of cells the in-process auto-merger has folded into the
+  shared shard table, which stays at 0 throughout any campaign using
+  `SOLVE_SKIP_AUTOMERGE=1` (the canonical-pipeline pattern). The reliable
+  progress measure is **the filesystem itself**: each fully-closed cell
+  writes one `sub_*.bin` shard file, so `ls $RUNDIR/sub_*.bin | wc -l`
+  is the authoritative cells-closed count. A separate `ls sub_*.dfs_state
+  | wc -l` gives a "frontier" count including mid-walk cells with active
+  checkpoints. Both numbers are cheap to query and unambiguous, and they
+  remain correct across pre-eviction / post-eviction-resume / supervisor
+  takeover transitions where log-field semantics may have drifted.
 - **Cold archive includes shards + dfs_state + budget tarballs.** Cold
   archive itself is extension-ready (you do not need the live Premium to
   extend).
