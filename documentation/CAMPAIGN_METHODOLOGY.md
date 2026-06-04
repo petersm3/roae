@@ -416,6 +416,24 @@ What this means for a third-party reproducer:
   pass the provisioning probe but degrade hours later. Probe cost is
   negligible (a 50ms `/proc/cpuinfo` read per cycle); prevents the long-tail
   scenario where a thermally-throttled host runs the enum at ~5× normal wall.
+- **CPU-frequency warmup is normal; expect a 3-6h ramp after `az vm start`.**
+  Empirical observation from the 2026-06 560T campaign across four
+  post-`az vm start` host instantiations (initial provision + 3
+  eviction-recoveries): on a fresh post-`az vm start` host, the
+  `solve --cpu-freq` probe returns min ≈ 2596 MHz (the EPYC 9V74 base
+  clock = 2.6 GHz), avg ≈ 2620–2690 MHz, max ≈ 4540 MHz (a single momentary
+  core boost). Over the following **3–10 hours of sustained load**, both
+  min and avg climb to **3250–3550 MHz** as Linux DVFS / cpufreq governor
+  decisions adapt, AMD Precision Boost grants sustained elevated clocks
+  across all 128 cores once the workload pattern is observed, and thermal
+  envelopes stabilize. Effective throughput tracks this: ~1,300 M nodes/sec
+  at base clock, ~1,400–1,470 M nodes/sec at the elevated steady-state.
+  **Implication**: do not treat a "low" cpu-freq reading immediately after
+  `az vm start` as a problem — it's the host's cold-cache cold-thermal-
+  cold-governor state. The supervisor's `--cpu-freq 2400` HEALTHY threshold
+  is below the base clock by design, so freshly-started healthy hosts pass
+  cleanly. The warmup is what's worth observing across the next several
+  hours of brief-status polling.
 - **Live-tunable wait + throttle policy via config file.** The four knobs —
   `DEFER_START_HR`, `DEFER_END_HR`, `OFFHOURS_WAIT_SEC` (the wait policy)
   and `THROTTLE_THRESHOLD` (the mid-run probe sensitivity) — live in a
