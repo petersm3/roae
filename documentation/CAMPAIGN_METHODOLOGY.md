@@ -476,7 +476,7 @@ What this means for a third-party reproducer:
   multi-day campaigns where empirical eviction or throttling patterns may
   diverge from the pre-launch plan and operator intervention needs to be
   cheap.
-- **Progress measurement: count shard files, don't parse log fields.**
+- **Progress measurement: count `.dfs_state` files (not `.bin`).**
   The C enumerator's stdout (`enum.out`) has two number-bearing patterns
   that look like progress indicators but mislead: (a) per-thread
   `*** Sub-branch NNNNN/158364 BUDGETED ***` announcements are emitted by
@@ -488,13 +488,34 @@ What this means for a third-party reproducer:
   is the count of cells the in-process auto-merger has folded into the
   shared shard table, which stays at 0 throughout any campaign using
   `SOLVE_SKIP_AUTOMERGE=1` (the canonical-pipeline pattern). The reliable
-  progress measure is **the filesystem itself**: each fully-closed cell
-  writes one `sub_*.bin` shard file, so `ls $RUNDIR/sub_*.bin | wc -l`
-  is the authoritative cells-closed count. A separate `ls sub_*.dfs_state
-  | wc -l` gives a "frontier" count including mid-walk cells with active
-  checkpoints. Both numbers are cheap to query and unambiguous, and they
-  remain correct across pre-eviction / post-eviction-resume / supervisor
-  takeover transitions where log-field semantics may have drifted.
+  progress measure is **the filesystem itself**: each scanned cell writes
+  a `sub_*.dfs_state` checkpoint regardless of whether it found
+  solutions, so:
+
+  ```bash
+  CELLS_SCANNED=$(find $RUN_DIR -maxdepth 1 -name 'sub_*.dfs_state' -type f | wc -l)
+  ```
+
+  is the authoritative cells-scanned count and the right "% of campaign
+  complete" denominator.
+
+  **Important nuance** (empirically established mid-run on the 2026-06
+  560T campaign): the `sub_*.bin` shard-file count is **NOT** a valid
+  progress measure. solve.c writes a `.bin` only for cells that find
+  ≥ 1 solution; cells whose 3.5 B-node budget fully exhausts but
+  finds 0 solutions (C3/C5 prunes deeply enough to rule out valid King
+  Wen orderings) leave a `.dfs_state` checkpoint but no `.bin`. In the
+  2026-06 560T campaign, **63.6 % of fully-scanned cells produced zero
+  solutions** — so the `.bin` count is roughly **0.37× the scanned-cells
+  count**. Reporting `.bin` count as "cells closed" or "cells complete"
+  is misleading. The `.bin` count is the right shard inventory for
+  **merge-stage planning** (how many files the merger consumes), but
+  not for campaign-progress reporting.
+
+  Use `find ... -name '...' -type f | wc -l` rather than shell glob:
+  at canonical scale the glob hits `ARG_MAX` once the file count
+  crosses ~ 30 K and silently fails (returns 0). The `find` invocation
+  does its matching inside the find process and has no `argv` limit.
 - **Cold archive includes shards + dfs_state + budget tarballs.** Cold
   archive itself is extension-ready (you do not need the live Premium to
   extend).
