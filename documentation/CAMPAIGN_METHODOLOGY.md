@@ -416,6 +416,37 @@ What this means for a third-party reproducer:
   pass the provisioning probe but degrade hours later. Probe cost is
   negligible (a 50ms `/proc/cpuinfo` read per cycle); prevents the long-tail
   scenario where a thermally-throttled host runs the enum at ~5× normal wall.
+- **Observed eviction pattern: D128 Spot reclaimed daily around 07:15–07:40 PT.**
+  Live observation from the in-flight 2026-06 560T campaign. Across the
+  first three days every Spot eviction landed within a narrow 27-minute
+  window:
+
+  | Day | Eviction time (UTC) | Eviction time (PT) | cells_done at eviction |
+  |---|---|---|---|
+  | Mon 2026-06-01 | 14:12:20 | 07:12:20 PT | 17,433 |
+  | Tue 2026-06-02 | 14:39:00 | 07:39:00 PT | 17,694 |
+  | Wed 2026-06-03 | 14:33:42 | 07:33:42 PT | 23,553 |
+  | (table updated as campaign progresses) | | | |
+
+  Three datapoints can't distinguish "the westus3 D128als_v7 Spot pool
+  has scheduled reclamation around 07:30 PT" from "this customer of the
+  same pool happens to be aggressively renewing in that window" from
+  coincidence. But the timing has been tight enough to be operationally
+  actionable: the wait-relaunch-window's M-F daytime defer policy
+  (defer to 18:01 PT same day) handles these cleanly without operator
+  intervention. Wall-time cost per such eviction is ~10h 22min of defer
+  (off-hours waits would be 75 min flat instead). Spend impact is
+  negligible: the deallocated D128 doesn't bill; the Premium SSD baseline
+  continues at $0.18/h.
+
+  *Possible interpretation note* for operators planning future campaigns:
+  if the pattern persists, launching a campaign just **after** the
+  07:30 PT eviction window (say 08:00 PT) could give nearly 24 hours
+  of clean runway before the first eviction; launching just **before**
+  (e.g. 06:30 PT) almost guarantees an immediate first eviction. The
+  current 560T campaign launched at 17:01 PT Sun, which gave ~14 hours
+  of clean runway before the Mon 07:12 PT eviction.
+
 - **CPU-frequency warmup is normal; expect a 3-6h ramp after `az vm start`.**
   Empirical observation from the 2026-06 560T campaign across four
   post-`az vm start` host instantiations (initial provision + 3
