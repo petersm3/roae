@@ -421,17 +421,22 @@ What this means for a third-party reproducer:
   first three days every Spot eviction landed within a narrow 27-minute
   window:
 
-  | Day | Eviction time (UTC) | Eviction time (PT) | cells_done at eviction |
+  | Day | Eviction time (UTC) | Eviction time (PT) | cells with solutions at eviction |
   |---|---|---|---|
   | Mon 2026-06-01 | 14:12:20 | 07:12:20 PT | 17,433 |
   | Tue 2026-06-02 | 14:39:00 | 07:39:00 PT | 17,694 |
   | Wed 2026-06-03 | 14:33:42 | 07:33:42 PT | 23,553 |
+  | Thu 2026-06-04 | 14:42:00 | 07:42:00 PT | 32,139 |
+  | Fri 2026-06-05 | 14:49:32 | 07:49:32 PT | 40,396 |
   | (table updated as campaign progresses) | | | |
 
-  Three datapoints can't distinguish "the westus3 D128als_v7 Spot pool
-  has scheduled reclamation around 07:30 PT" from "this customer of the
-  same pool happens to be aggressively renewing in that window" from
-  coincidence. But the timing has been tight enough to be operationally
+  Five datapoints, all within a **37-minute window (07:12–07:49 PT)** —
+  100 % hit rate across the campaign's first M-F sequence. Statistically
+  improbable as coincidence.
+  Still can't fully distinguish "the westus3 D128als_v7 Spot pool has
+  scheduled reclamation around 07:30 PT" from "this customer of the
+  same pool happens to be aggressively renewing in that window."
+  But the timing has been tight enough to be operationally
   actionable: the wait-relaunch-window's M-F daytime defer policy
   (defer to 18:01 PT same day) handles these cleanly without operator
   intervention. Wall-time cost per such eviction is ~10h 22min of defer
