@@ -45,7 +45,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** — Build, self-test, project conventions ("proven" language, dataset-scope, asset preservation, **build reproducibility** + toolchain manifest rules added 2026-05-12).
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** — Azure deployment patterns, SKU sizing, Spot-vs-Regular policy, two-phase enum/merge architecture.
-- **[LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md)** — Patterns and lessons for very-large (100T+) enumeration campaigns.
+- **[CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md)** — Methodology and reproducibility guide for very-large (11.2T+) canonical enumeration campaigns, including the 560T worked example and the milestone-extension recipe. Supersedes the prior `LARGE_SCALE_CAMPAIGNS.md` (now deprecated) as of 2026-06-08.
 
 ### Narrative & meta
 

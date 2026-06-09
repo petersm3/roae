@@ -1,5 +1,21 @@
 # Large-Scale Enumeration Campaign Guide
 
+> **DEPRECATED (2026-06-08): superseded by [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md).**
+>
+> This document was the project's original public guide to large-scale
+> enumeration patterns. It has been **replaced** by
+> [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) as the canonical public
+> reference, following completion of the 560 T campaign on 2026-06-08 (the
+> trigger event named in CAMPAIGN_METHODOLOGY.md's intro). New readers
+> should go to CAMPAIGN_METHODOLOGY.md.
+>
+> A small amount of operational content from this document has not yet
+> been ported to CAMPAIGN_METHODOLOGY.md; the port-progress checklist
+> lives in CAMPAIGN_METHODOLOGY.md's "DRAFT TODO before porting to public"
+> section. This file is retained until the port is complete, then will be
+> removed in a single redirect commit. **Do not extend this file** — make
+> additions to CAMPAIGN_METHODOLOGY.md instead.
+
 This document is for anyone who wants to run their own large-scale
 enumeration of orderings satisfying the King Wen constraints
 (C1–C5) at high node-budget. It captures lessons learned from the
