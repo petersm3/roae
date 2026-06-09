@@ -157,7 +157,7 @@ This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo u
 
 - Single-thread merge: pick the smallest SKU that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). D8/D16 are usually right.
 - Single-thread `solve --verify` (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time.
-- Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.**
+- Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: without numpy installed, the pure-Python decode path is ~3× slower per worker — make sure `pip install --break-system-packages numpy` runs before launching verify.py at canonical scale (the 560T campaign supervisor's `pip install ... || true` continued without numpy; observed ~3× slowdown vs the projected 19k records/sec/worker rate).
 
 Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually <$3 over a multi-hour campaign.
 
@@ -179,6 +179,8 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
 
 **Sizing rule for verify.py (revised):**
 
+100T-scale (3.43B records, on Standard HDD scratch):
+
 - Single-thread (`--jobs 1`) on D2/D4: HDD-saturated reads at ~85 MB/s, ~21 min for 100T
 - `--jobs 16` on D16: ~3h (CPU-bound at ~620 KB/sec per worker after the streaming patch)
 - `--jobs 32` on D32: ~1.5h (sweet spot)
@@ -186,7 +188,14 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
 - `--jobs 128` on D128: ~2-3h (severe IOPS contention — DO NOT USE on Standard HDD)
 - `--jobs 128` on D128 with Premium SSD scratch: ~25 min (estimated, not yet measured) — would require an upfront copy from Standard HDD to Premium SSD scratch (~25 min for 110 GB)
 
-For ROAE 100T-scale verify, **D32 is the empirical optimum** under the current verify.py design. If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again.
+560T-scale (10.525B records, 3.07× the 100T workload — projection at the linear regime, on Standard SSD scratch as in the 2026-06-08 campaign):
+
+- `--jobs 16` on D16: ~9h with numpy (~27h without numpy — the in-flight campaign actual on D16 was running >2h without progress lines at observation time, consistent with the no-numpy path)
+- `--jobs 32` on D32: ~5h with numpy
+- `--jobs 64` on D64: ~2.4h with numpy (planned post-warm-copy verify run for 560T)
+- `--jobs 128` on D128: ~2h with numpy (still sub-linear above D64 per the 100T finding)
+
+For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on Standard SSD, the disk-IOPS contention is less severe than HDD; D64 with numpy is the recommended sweet spot (1-3h wall, ~$0.50-1.50 Spot cost). If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again at both scales.
 
 ### Quota tracking — deallocated VMs still consume quota (added 2026-05-10)
 

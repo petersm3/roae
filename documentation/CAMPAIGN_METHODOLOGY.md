@@ -382,9 +382,7 @@ drops away. Empirically:
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
   main lineage; reproduces the historical sha byte-identically.
-- **560 T canonical (this campaign): TBD-on-completion.** Has no prior
-  anchor; the first 560 T run defines its sha. Cross-host stability is an
-  empirically open question until a second 560 T witness is run.
+- **560 T canonical: established 2026-06-08, sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`.** 10,525,271,997 unique canonical solutions, 336,808,703,904 bytes. No prior anchor; the first 560 T run defined the sha. Cross-host stability is an empirically open question until a second 560 T witness is run (cost-prohibitive at single-campaign scale; would require ≈ $150 + ~9 days).
 
 For extension specifically: **extension byte-faithfulness depends on the
 extension host being in the same sha-stability class as the source host**.
@@ -409,26 +407,33 @@ What this means for a third-party reproducer:
 
 ## 7. Worked example — the 560 T canonical campaign (2026-06)
 
-(Filled in after campaign completion.)
+Completed 2026-06-08; this section now records actuals. The campaign launched 2026-06-01 00:03 UTC; enum completed 2026-06-08 03:34 UTC after 7.15 days of wall time; merge completed 2026-06-08 22:24 UTC after 18 h 42 m; the canonical sha `9a968fa2…` was established as the new deepest published canonical.
 
 | Field | Value |
 |---|---|
 | Campaign | #49 — 560 T full-depth-3 canonical |
-| Source commit | **TBD** (current main HEAD at launch: 31e58ee or descendant) |
-| Compute SKU | D128als_v7 Spot in westus3 (AMD EPYC 9V74 / Bergamo Zen 4c) |
+| Source commit | git `2b01b15` (current main lineage) |
+| Compute SKU (enum) | D128als_v7 Spot in westus3 (AMD EPYC 9V74 / Bergamo Zen 4c) |
+| Compute SKU (merge) | D16als_v7 Standard in westus3 |
 | Per-cell budget | 3,536,157,207 nodes (= 560 T / 158,364 cells) |
 | Total budget | 560,000,000,000,000 nodes |
-| Launch UTC | 2026-06-01 00:01 UTC (= 2026-05-31 17:01 PT) |
-| Final sha256 | **TBD** |
-| Records | **TBD** (projected 5–7 billion) |
-| Bytes | **TBD** (= records × 32) |
-| Final shard count | **TBD** (projected 68–75 k cells with non-empty shards) |
-| Enum wall | **TBD** (projected 5–7 days at full quota) |
-| Merge wall | **TBD** (projected 12–15 h external-sort) |
-| Total cost | **TBD** (projected $150–185 at 2 evictions/day, hard cap $200) |
-| Eviction count handled | **TBD** |
-| Throttled-host re-provisions | **TBD** (pre-flight retry up to 5 attempts) |
-| Cold archive | `solver-data:/canonical-archive/20260601_560T_canonical_<git>/` |
+| Launch UTC | 2026-06-01 00:03 UTC (= 2026-05-31 17:03 PT) |
+| **Final sha256** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** |
+| Records | **10,525,271,997** unique canonical solutions |
+| Bytes | **336,808,703,904** (= records × 32) |
+| Pre-dedup raw records | **43,876,464,466** (4.17× dedup ratio) |
+| Final shard count | **65,281** cells with non-empty shards (41.2 % yield) |
+| Cells with zero solutions | 93,083 (58.8 %) — fully scanned, budget exhausted, no records emitted |
+| `.dfs_state` checkpoint count | 158,364 (100 % of cells scanned) |
+| Enum wall | **171.5 h** (= 7.15 days, including all eviction-recovery defer windows) |
+| Merge wall | **18 h 42 m** (single external chunked-sort pass, 250+ sort chunks) |
+| `solve --verify` | PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found |
+| `verify.py --jobs 16` | (in flight on the merge VM at time of writing; PASS expected; will be re-run on D64 Spot post-warm-tier-copy) |
+| Total realized cost | (compiled at campaign close-out; projected $150–185 at 2 evictions/day, hard cap $200 — actual will be reported in HISTORY.md) |
+| Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:28, Wed 07:25, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
+| Throttled-host re-provisions | 0 (no host returned throttled state) |
+| Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
+| Post-merge SPOF discovered + remediated | Per §4.1: the merge supervisor does NOT auto-copy solutions.bin to solver-data; explicit copy was added mid-campaign before teardown. solver-data resized 2 TB → 4 TB online to fit uncompressed + gzip-mirror artifacts. |
 
 ### Operations design choices made for this campaign
 
@@ -471,11 +476,15 @@ What this means for a third-party reproducer:
   | Wed 2026-06-03 | 14:33:42 | 07:33:42 PT | 23,553 |
   | Thu 2026-06-04 | 14:42:00 | 07:42:00 PT | 32,139 |
   | Fri 2026-06-05 | 14:49:32 | 07:49:32 PT | 40,396 |
-  | (table updated as campaign progresses) | | | |
+  | Sat 2026-06-06 | (none) | (none) | — |
+  | Sun 2026-06-07 | (none) | (none) | — |
 
-  Five datapoints, all within a **37-minute window (07:12–07:49 PT)** —
-  100 % hit rate across the campaign's first M-F sequence. Statistically
-  improbable as coincidence.
+  Five datapoints across M-F all within a **37-minute window (07:12–07:49 PT)** —
+  100 % hit rate across the campaign's M-F sequence. Statistically
+  improbable as coincidence. **Both weekend days produced zero evictions**
+  (~54 hours of continuous Spot runway through Sat 00:00 PT → Sun 23:00 PT),
+  strong empirical support for the M-F-only scheduled-reclamation hypothesis
+  in the westus3 D128als_v7 Spot pool.
   Still can't fully distinguish "the westus3 D128als_v7 Spot pool has
   scheduled reclamation around 07:30 PT" from "this customer of the
   same pool happens to be aggressively renewing in that window."
