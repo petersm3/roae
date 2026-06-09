@@ -281,6 +281,49 @@ The cold archive is the durable, infrastructure-failure-resistant path; the
 live Premium is a convenience (faster to re-attach + run than to gunzip from
 cold archive).
 
+### 4.1 Post-merge artifact preservation: NOT automatic (SPOF caveat)
+
+A subtle, costly trap, surfaced during the 560 T campaign 2026-06-08:
+
+**The merge supervisor copies LOGS, sidecars, and the sha256 sidecar to
+solver-data — but does NOT copy `solutions.bin`, the per-cell `.bin` shards,
+or the per-cell `.dfs_state` checkpoints.** After the supervisor's
+`teardown_vm` step runs, those artifacts exist only on the detached
+Premium SSD that hosted the merge. The Premium SSD is by standing pattern
+the project's "transient external-merge scratch" — meaning, if anyone
+operates on standing-pattern muscle memory and deletes it, the canonical
+is gone.
+
+The fix is two-pronged:
+
+1. **Every canonical campaign at ≥ 11.2 T must include an explicit copy
+   step** of `solutions.bin` + all shards + all `.dfs_state` checkpoints
+   from Premium → solver-data **before** `teardown_vm` fires. The robust
+   place for this is inside `phase_b_merge_supervise.sh` (or its
+   replacement) — bake it in once and every future campaign inherits it.
+2. **Pre-launch disk-space gate** for solver-data: it must be sized to
+   hold uncompressed working copy + gzipped warm-tier mirror BEFORE
+   launch, not after merge completes. The 560 T campaign's solver-data
+   was 2 TB (≈ 800 GB free) at launch, insufficient for the 560 T uncompressed
+   plus mirror (≈ 2.4 TB). It was resized 2 TB → 4 TB online 2026-06-08
+   to fit, but the right policy is to size it before launch.
+
+Capacity planning table (rough, derived from the 560 T artifact sizes,
+power-law-projected for 1120 T):
+
+| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | Uncompressed total | Cold mirror (gzip-9 of binary subset) | Required solver-data free |
+|---|---|---|---|---|---|---|
+| 11.2 T | ~5 GB | ~10 GB | ~50 GB | ~65 GB | + ~30 GB | ~95 GB |
+| 100 T | ~115 GB | ~150 GB | ~300 GB | ~565 GB | + ~250 GB | ~815 GB |
+| 560 T | ~337 GB | ~870 GB | ~400 GB | ~1.6 TB | + ~800 GB | ~2.4 TB |
+| 1120 T (projected) | ~620 GB | ~1.6 TB | ~750 GB | ~3.0 TB | + ~1.5 TB | ~4.5 TB |
+
+This finding is non-obvious from the supervisor's published doc-comments
+(which say "solutions.provenance.json copied to solver-data BEFORE teardown",
+implying the data file is also copied — it isn't). Future maintainers should
+audit any merge supervisor for explicit `cp solutions.bin → solver-data`
+before the `teardown_vm` call.
+
 ---
 
 ## 5. Operations choices are orthogonal to correctness
