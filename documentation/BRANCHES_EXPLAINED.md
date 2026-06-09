@@ -337,6 +337,7 @@ counts come out as:
 |---|---|---|---|
 | 10T (10^13 nodes) | ~63 M / d3 sub-branch | 706,422,987 | `f7b8c4fb…` |
 | 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,298 | `915abf30…` |
+| **560T (5.6 × 10^14 nodes)** | **~3.5 B / d3 sub-branch** | **10,525,271,997** | `9a968fa2…` |
 | (unbounded — exhaustion) | (exhausted to true completion) | not yet known | — |
 
 The "canonical form" means we collapse equivalent orderings (orientation
