@@ -1,8 +1,7 @@
 # Distributional analysis of the King Wen sequence
 
 Where does the King Wen sequence sit in the joint distribution of observable
-statistics computed across the 3,432,399,298 canonical C1-C5 valid orderings
-(the 100T d3 canonical, sha256 `915abf30…`)?
+statistics computed across the canonical C1-C5 valid orderings?
 
 This document reframes the "is King Wen unique?" question into a rigorous
 probabilistic form: compute a k-dimensional observable-statistic vector for
@@ -12,9 +11,19 @@ uses the partial-enumeration data as a Monte Carlo sample of the constraint
 space and produces quantified claims about KW's statistical distinctiveness
 that are defensible without requiring full (infeasible) enumeration.
 
-**Scope:** analysis is specifically over the 100T d3 canonical set (the
-3.43 billion orderings that satisfy C1-C5 at the 100T partition budget).
-Claims are about KW's position within that population.
+**Scope of the analysis below:** this analysis was computed on the
+**100 T d3 canonical** (3,432,399,298 orderings, sha256 `915abf30…`). The
+**560 T canonical** (10,525,271,997 orderings, sha `9a968fa2…`, established
+2026-06-08) is the new deepest published enumeration; a re-run of this
+distributional analysis at 560 T is queued and will appear as a new section
+when complete. The 100 T results below remain valid as a strict-subset
+analysis (the 100 T solution set is a subset of the 560 T set under the same
+partition strategy). Bootstrap percentile shifts at the 560 T scale are
+expected to be small (≤ low single-digit percentile shifts) because the 100 T
+sample is already a 3.4-billion-record sample with tight CIs; any 560 T-only
+findings would surface as either (a) new tail-features in the joint distribution
+that the 100 T sample undersampled, or (b) tighter CIs around the existing
+estimates. Both are next-step questions, not invalidations of the analysis below.
 
 ## Observable-statistics vector (10 dimensions)
 

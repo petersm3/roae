@@ -201,11 +201,12 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 The pair structure is genuinely extraordinary — zero of 1.86 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also genuinely unusual — even random 6-bit Gray codes (explicitly optimized for adjacency) cannot beat KW's 776 total complement distance (minimum observed across 10⁵ random Gray codes: 832). The no-5-line-transition property is real but, as of 2026-04-19 testing, **shared with Mawangdui and Jing Fang 8 Palaces** (3 of 4 ancient Chinese orderings satisfy it) — likely a classical Chinese design principle rather than a KW-unique fingerprint. The genuinely King-Wen-specific properties are the combination (C1 + C2 + C3 together) and the specific C3 threshold of 776.
 
 The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
-- **d3 100T partition: 3,432,399,298** (sha `915abf30…`, 2026-04-20, current deepest)
+- **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, **current deepest**)
+- **d3 100T partition: 3,432,399,298** (sha `915abf30…`, 2026-04-20)
 - **d3 10T partition: 706,422,987** (sha `f7b8c4fb…`)
 - **d2 10T partition: 286,357,503** (sha `a09280fb…`)
 
-Only Position 1 is universally locked. The number of boundary constraints needed to uniquely identify KW **grows with partition depth**: 4 at 10T (both d2 and d3), **5 at 100T d3** (greedy-optimal set {1, 4, 21, 25, 27}). Boundaries **{25, 27} remain mandatory across all three partitions** — the single most stable structural finding. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) and [SOLVE.md](SOLVE.md) §Boundary analysis for the full story.
+Only Position 1 is universally locked. The number of boundary constraints needed to uniquely identify KW **grows with partition depth**: 4 at 10T (both d2 and d3), **5 at 100T d3** (greedy-optimal set {1, 4, 21, 25, 27}); the 560 T re-evaluation of this number is queued and may grow toward 6 if the deeper enumeration surfaces additional 5-subset-indistinguishable KW look-alikes. Boundaries **{25, 27} remain mandatory across all three partitions tested to date** — the single most stable structural finding. See [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) and [SOLVE.md](SOLVE.md) §Boundary analysis for the full story.
 
 ## Frequently asked questions
 

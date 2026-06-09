@@ -1,6 +1,8 @@
 # Known Limitations
 
 > **Note (2026-04-19):** Canonical reference counts re-established: d3 10T = **706,422,987** (sha `f7b8c4fb…`), d2 10T = **286,357,503** (sha `a09280fb…`). Older 742M figure (hash-table bug) superseded. **New partition-stability finding** from the 2026-04-19 analyze runs: boundaries {25, 27} are mandatory at BOTH d2 and d3 scales (stable), but the broader 4-boundary structure (`one-of-{2,3} ∪ one-of-{21,22}`) is **d2-specific**; at d3 the interchangeable boundaries are in the {1..6} range. Any claim involving specific boundaries beyond {25, 27} must be scoped to the partition depth. See updated sections below.
+>
+> **Note (2026-06-08): 560T canonical landed.** A new d3 560T canonical (sha `9a968fa2…`, 10,525,271,997 orderings) became the deepest published enumeration on 2026-06-08, 3.07× the 100T scale. The findings below were computed on the 100T canonical (`915abf30…`); their 560T re-evaluation is queued for the post-560T scoping phase. **Findings whose validity is robust under the 100T → 560T extension** (because the 100T solution set is a strict subset of the 560T set): KW's membership in the canonical, KW vs C3-ceiling, mandatory boundaries {25, 27}, partition-stability claims. **Findings that may shift at 560T**: boundary-minimum (may grow from 5 toward 6), shift-pattern conformance %, edit-distance mode, per-position entropies. Each is flagged inline where mentioned.
 
 A review of the program's methodology, assumptions, and interpretive claims from a mathematical perspective.
 
