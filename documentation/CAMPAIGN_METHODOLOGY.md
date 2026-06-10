@@ -711,20 +711,47 @@ specific symptom that motivated it.
     source wall × (X / source budget)". The relationship is
     sublinear because of cell exhaustion at source budget.
 
-11. **Cold archive completeness includes EXTENSION_RECIPE.txt + analyze log
-    + merge.full.log + verify_c.log.**
-    Original 560T cold archive shipped without any of these. Operator
-    audit caught it. The followup pass had to add them.
-    **Rule:** every canonical cold archive MUST contain:
+11. **Cold archive completeness — split into two categories.**
+    Original 560T cold archive shipped without `EXTENSION_RECIPE.txt`,
+    full analyze log, `merge.full.log`, `verify_c.log`, or per-thread
+    checkpoints. Operator audit caught it. The followup pass had to
+    re-do all of them.
+
+    **Rule — Category A (load-bearing for extension; MUST be present):**
     - `solutions.bin.gz` + `solutions.sha256` + `solutions.bin.computed.sha256`
-    - `sub_*.bin.gz`, `sub_*.dfs_state.gz`, `sub_*.bin.budget.gz`,
-      `sub_*.bin.provenance.json.gz` (ALL four sub_* types)
+    - `sub_*.bin.gz` (per-cell solutions) — **all 4 sub_* types as one set**
+    - `sub_*.dfs_state.gz` (per-cell DFS resume state)
+    - `sub_*.bin.budget.gz` (per-cell source budget)
+    - `sub_*.bin.provenance.json.gz` (per-cell provenance)
     - `solutions.provenance.json`, `canonical-host-fingerprint.json`,
       `build.sha`, `shard_manifest.txt`
-    - `EXTENSION_RECIPE.txt` (extension recipe per §3)
-    - `merge.full.log`, `verify_c.log`, `verify_py_*.log`, `analyze_*.log`
-    A pre-archive checklist that asserts each of these is present in
-    staging before azcopy fires is the right gate.
+    - `EXTENSION_RECIPE.txt` (operational recipe per §3 — frozen at archive
+      time; lives in the archive, not just the live repo)
+
+    Without any one of the above, a fresh-VM + fresh-storage extension
+    cannot resume byte-faithfully.
+
+    **Rule — Category B (forensic / audit completeness; SHOULD be present):**
+    - `merge.full.log` (merge stage trace)
+    - `verify_c.log` (`solve --verify` output)
+    - `verify_py_*.log` (Python verifier output)
+    - `analyze_*.log` (full `solve --analyze` findings)
+    - `checkpoint_t*.txt.gz` (per-thread checkpoint files from the
+      enum's #108 per-thread-state code path; ~27 MB compressed at
+      canonical scale; useful for reconstructing per-thread interleaving
+      across eviction-recovery cycles, NOT load-bearing for extension)
+    - `preserve_logs/cold_archive.log` + `preserve_logs/azcopy_logs/`
+      (supervisor logs from the archive run itself, preserved before VM
+      deallocate per rule 12)
+
+    Without Category B, extension still works but forensic audit of how
+    the campaign actually ran (eviction-recovery sequence, per-thread
+    timing, archive-supervisor failure modes) becomes guesswork.
+
+    A pre-archive checklist that asserts each Category A file is present
+    in staging before azcopy fires is the right gate. Category B files
+    can be missing without blocking, but the supervisor should log a
+    WARN per missing file so it surfaces in the post-archive audit.
 
 12. **Pre-deallocate log preservation: copy /tmp/cold_archive*.log to
     solver-data first.**
