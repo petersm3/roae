@@ -585,6 +585,169 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   env var. Known-bypass, not a fix — the underlying probe-design issue is a
   post-campaign hardening item.
 
+### Close-out lessons learned (added 2026-06-10 — bake into the next extension's supervisors)
+
+The 560T close-out cascade (warm copy → cold archive → analyze → blob upload)
+took ~2 days of operator-attended babysitting because of a chain of small
+failures that each required hand-correction. The next extension (1120T or
+deeper) must not repeat these patterns. Each rule below ships with the
+specific symptom that motivated it.
+
+1. **Separate VMs per disk source for post-merge workloads.**
+   On 2026-06-09 we ran solve --analyze + verify.py (64 workers) +
+   sha256sum + gzip step 2 of the cold archive **all on a single D64 Spot
+   against one Standard SSD**. Aggregate IOPS budget ~5,000 split across
+   130+ concurrent readers = ~38 IOPS each. solve --analyze ran 7+ h
+   instead of expected ~2 h, the Spot eviction window caught it, ~$4 of
+   D64 time + ~8 h of analyze work were lost.
+   **Rule:** post-merge workloads (verify.py, solve --analyze, cold-archive
+   gzip+azcopy, sha256sum) each get their own VM with their own attached
+   disk source. Snapshot the merged solver-data into N independent disks
+   if true parallelism is needed. Within a single VM, serialize — never
+   run two disk-heavy workloads concurrently against the same SSD.
+
+2. **Use account-key SAS tokens for blob writes; user-delegation SAS does
+   not have data-plane permissions on this account.**
+   The 2026-06-10 first cold-archive azcopy failed with
+   `AuthorizationPermissionMismatch` against 354,220 files. Root cause:
+   `az storage container generate-sas --as-user` produces a user-delegation
+   SAS bound to the caller's AD identity, which does not have
+   `Storage Blob Data Contributor` on the `roaecanonical2026` account
+   (open task #87). Account-key SAS via
+   `az storage account keys list` + `az storage container generate-sas
+   --account-key <key>` worked first try.
+   **Rule:** all close-out azcopy scripts generate SAS via account-key,
+   never via `--as-user`. Document the SAS source inline.
+
+3. **Bash supervisor scripts must `set -o pipefail`.**
+   The original cold-archive script ran
+   `azcopy copy ... | tail -30` then checked `$?`. azcopy's non-zero exit
+   was masked by the pipeline (tail exits 0). The script proceeded to
+   touch `cold_archive.done` despite a 100%-failed upload. The fix used
+   `${PIPESTATUS[0]}` to read azcopy's actual exit code; that's correct
+   but easy to forget — `set -o pipefail` makes failure detection
+   default.
+   **Rule:** every supervisor bash script starts with
+   `set -euo pipefail`. Done-marker `touch` is conditional on
+   `if [ $? -eq 0 ]` of the last actual operation, never bare.
+
+4. **Done-markers must be post-condition-checked, not just post-command-fired.**
+   The cold-archive `.done` marker was touched even when the azcopy
+   upload reported 0 bytes transferred and `Final Job Status: Failed`.
+   The downstream watcher then fired, incorrectly indicating success.
+   **Rule:** before `touch done.marker`, run a positive-verification probe
+   (count files in blob = count files in staging; or list one
+   representative file via `azcopy ls`). Touching the marker is the
+   absolute last step after verification PASSes.
+
+5. **Post-upload blob spot-check is mandatory.**
+   On the second 560T cold-archive upload (the working one),
+   `EXTENSION_RECIPE.txt` was silently skipped despite being in the
+   staging dir at upload time. Cause is still unclear — possibly a race
+   between the file's creation timestamp and azcopy's `--overwrite=ifSourceNewer`
+   logic. A blob audit (`azcopy ls | grep -v 'shards/' | sort`)
+   immediately after upload caught the omission within 60 seconds.
+   **Rule:** every close-out upload script runs a blob audit at end:
+   (a) count files in `<blob>/shards/` matches expected per-file-type;
+   (b) listing of `<blob>/` top-level files matches expected manifest.
+   Hard-fail the script if either diverges; do NOT touch the done-marker.
+
+6. **Cold-archive's `find` pattern must enumerate ALL sub_* file types
+   produced by solve.**
+   The original cold-archive script's pattern was
+   `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o -name 'sub_*.budget' \)`.
+   At canonical scale solve.c also produces `sub_*.bin.budget` and
+   `sub_*.bin.provenance.json` per cell — 65,281 files each, 130,562
+   total — silently excluded from the archive. The follow-up pass had to
+   re-do them.
+   **Rule:** the canonical cold-archive find pattern is
+   `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o
+   -name 'sub_*.bin.budget' -o -name 'sub_*.bin.provenance.json' \)`.
+   Pre-script: count files of each pattern on source, compare to expected
+   total; hard-fail on mismatch.
+
+7. **`.azcopy/plans` directory permission must be writable BEFORE the first
+   `azcopy copy`.**
+   On 2026-06-10 the cold-archive's first azcopy attempt failed with
+   `mkdir /home/azureuser/.azcopy/plans: permission denied`. The
+   `.azcopy/plans` dir was mode 000 (created by a prior session's
+   `sudo`-prefixed command). The script needed
+   `chmod -R 755 ~/.azcopy` to recover.
+   **Rule:** any VM that will run azcopy gets a pre-flight
+   `mkdir -p ~/.azcopy/plans && chmod 755 ~/.azcopy ~/.azcopy/plans`
+   AND/OR `export AZCOPY_JOB_PLAN_LOCATION=/tmp/azcopy_plans` in the
+   supervisor. Belt + suspenders.
+
+8. **`solve --analyze` at canonical scale: D64 is both the floor and the
+   ceiling.**
+   Floor: solve --analyze allocates 31 packed bitmaps × ~1.3 GB = 40.79 GB
+   RAM; doesn't fit on D16 (32 GB). Ceiling: the heavy section is §[10]
+   pairwise mutual information (O(N × 2016 pairs) over the records), which
+   runs at ~120-200 % CPU — i.e. mostly single-threaded with a small SIMD
+   parallel fraction. More cores don't help; bitmap-pool RAM is
+   N-independent so 1120T won't push memory either.
+   **Rule:** size analyze VM at D64 Standard regardless of canonical
+   scale (560T or 1120T). Don't waste money on D96 or D128 for analyze.
+   Expect ~16-22 h wall at 10.5 B records (560T), ~24-36 h at 18 B
+   records (1120T extension).
+
+9. **Extension cost is NOT 2× the source's cost; it's incremental.**
+   Initial 1120T-extension cost estimate was $690 (anchored to "2× 560T's
+   $360 total"). Real estimate after working through cell-exhaustion
+   dynamics is **~$390 incremental** ($90 enum + $120 merge + $80 disk +
+   $100 close-out). Reason: cells that exhausted at source budget do zero
+   additional work in the extension. Only cells that hit the per-cell
+   budget cap continue from their `.dfs_state` checkpoints.
+   **Rule:** extension cost = source compute × (fraction of cells that
+   hit per-cell cap) + scaled merge + scaled disk. For 560T → 1120T,
+   that fraction was empirically ~41-50 %. Document this in the
+   cost-estimation section of any pre-launch operator-review doc.
+
+10. **Extension wall time is NOT 2× either; it's incremental.**
+    Initial 1120T wall estimate was 14 days enum (anchored to "2× 560T's
+    7 days"). Real estimate is ~3-5 days enum (60% of source enum at most,
+    since only ~50 % of cells continue past their source budget).
+    **Rule:** never describe "extension to scale X" as "extension wall ≈
+    source wall × (X / source budget)". The relationship is
+    sublinear because of cell exhaustion at source budget.
+
+11. **Cold archive completeness includes EXTENSION_RECIPE.txt + analyze log
+    + merge.full.log + verify_c.log.**
+    Original 560T cold archive shipped without any of these. Operator
+    audit caught it. The followup pass had to add them.
+    **Rule:** every canonical cold archive MUST contain:
+    - `solutions.bin.gz` + `solutions.sha256` + `solutions.bin.computed.sha256`
+    - `sub_*.bin.gz`, `sub_*.dfs_state.gz`, `sub_*.bin.budget.gz`,
+      `sub_*.bin.provenance.json.gz` (ALL four sub_* types)
+    - `solutions.provenance.json`, `canonical-host-fingerprint.json`,
+      `build.sha`, `shard_manifest.txt`
+    - `EXTENSION_RECIPE.txt` (extension recipe per §3)
+    - `merge.full.log`, `verify_c.log`, `verify_py_*.log`, `analyze_*.log`
+    A pre-archive checklist that asserts each of these is present in
+    staging before azcopy fires is the right gate.
+
+12. **Pre-deallocate log preservation: copy /tmp/cold_archive*.log to
+    solver-data first.**
+    The cold-archive VM's /tmp is tmpfs and is lost on `az vm deallocate`
+    (or even on reboot). Almost lost the upload-failure forensic logs
+    that caught the AuthorizationPermissionMismatch.
+    **Rule:** any VM that ran a supervisor script preserves /tmp/*.log
+    + /tmp/azcopy_logs to `solver-data:/canonical-archive/<archive_dir>/preserve_logs/`
+    before `az vm deallocate` is issued.
+
+13. **Analyze + cold-archive can run on separate VMs simultaneously
+    (with separate disk sources) — and should.**
+    On 2026-06-09 attempt 2 (after the Spot eviction): split into
+    c560-d64-coldarchive (on solver-data) + c560-d64-analyze2 (on Premium
+    SSD). Analyze ran ~3× faster than the contended attempt 1 because no
+    I/O competition for the same disk. Cost: one extra D64 hour
+    (~$2.50), saved: 4-5 h of analyze wall = ~$10 of D64 + lower
+    Spot-eviction risk.
+    **Rule:** the canonical post-merge pattern is **two D64 Standard
+    VMs**, each with its own disk: cold-archive on solver-data,
+    analyze on Premium SSD. Don't try to bundle both on one VM unless
+    operator explicitly authorizes for cost reasons.
+
 ---
 
 ## 8. Reproducing a canonical from scratch (third party, no cooperation)
