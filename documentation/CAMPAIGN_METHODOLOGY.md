@@ -689,16 +689,26 @@ specific symptom that motivated it.
    cores at section start to ~4.4 cores after 23h —
    **6.9 % of a D64's compute capacity.** The bottleneck is memory
    bandwidth or single-thread-by-construction inner loops, not cores.
-   After the initial 75-min streaming pass over solutions.bin (which
-   benefits modestly from D64's 128 GB page cache), §[10] operates
-   entirely on the 40 GB packed-bitmap pool and never re-touches
-   solutions.bin — so page-cache size doesn't matter for the
-   dominant section.
-   **Rule:** size analyze VM at **D32als_v7 Standard** regardless of
-   canonical scale. Cost ~$1.30/hr vs $2.50/hr for D64 Standard —
-   ~48 % savings per analyze run with no measurable wall-time penalty.
+   **CAVEAT discovered 2026-06-11 mid-run on 560T**: §[10] is NOT a pure
+   in-memory bitmap-only section as initially assumed. /proc/<pid>/io
+   showed 2.83 TB cumulative reads after 23 h — i.e. **§[10] is
+   actively re-reading solutions.bin at ~32 MB/s sustained**, ~8 full
+   passes so far. The 128 GB page cache on D64 fits 33 % of the 336 GB
+   solutions.bin; D32's 64 GB would fit ~12 %, causing 3× more disk
+   paging during §[10]. Worst-case wall-time penalty on D32: significant
+   (10-30 %); best case (kernel readahead handles sequential access
+   well): negligible. **The D32 recommendation should be validated by
+   an end-to-end paired D32-vs-D64 analyze test before being relied on
+   for the 1120T extension** — until that test runs, D64 Standard is
+   the safer pre-1120T default with the upside of guaranteed wall time.
+   **Rule (provisional, pending D32-vs-D64 paired bench):** target
+   D32als_v7 Standard, fall back to D64 Standard if §[10] paging
+   penalty proves >20 % wall-time impact. Cost delta: $1.30/hr vs
+   $2.50/hr = ~48 % savings if D32 viable, but cost of running 10-30 %
+   longer eats the savings if it isn't.
    Until/unless task #139 progress markers reveal a section that
-   scales to 32+ cores (3200 %+ CPU sustained), D64+ is unjustified.
+   scales to 32+ cores (3200 %+ CPU sustained), D64+ is unjustified
+   for compute reasons (the case is page-cache only).
    §[10] scaling is **O(N × pairs) ≈ linear in records**, validated
    by 100T-vs-560T point comparison (within 10 % of linear, no
    evidence of quadratic or super-linear). Expected wall: ~16-22 h
