@@ -800,9 +800,11 @@ For any campaign producing a sha you intend to publish:
    incomplete output and exits 0 with a wrong sha. For an
    established canonical this is caught by sha mismatch; for a
    new canonical (no reference yet) it is undetectable without
-   an explicit pre-merge audit. The reference scripts in this
-   repository — `merge_audit_pre.sh` and `merge_audit_post.sh`
-   — implement a complete audit framework that gates on:
+   an explicit pre-merge audit. The original `merge_audit_pre.sh`
+   and `merge_audit_post.sh` reference scripts (removed 2026-06-11
+   alongside this doc's retirement) gated on the checks listed
+   below; equivalent functionality is being absorbed into
+   `solve.c` as native subcommands (planned, see project task #58):
 
    *Pre-merge (refuse if anything looks wrong):*
    - Shard count in expected range (vs Tier 1 baseline ~57k)
