@@ -678,42 +678,40 @@ specific symptom that motivated it.
    AND/OR `export AZCOPY_JOB_PLAN_LOCATION=/tmp/azcopy_plans` in the
    supervisor. Belt + suspenders.
 
-8. **`solve --analyze` at canonical scale: D32 Standard is right-sized;
-   D64 is wasted budget. Floor is RAM, not cores.**
-   Floor: solve --analyze allocates 31 packed bitmaps × ~1.3 GB = 40.79 GB
-   RAM; doesn't fit on D16als_v7 (32 GB) — D32als_v7 (64 GB) is the
-   smallest that fits with reasonable headroom. Ceiling on cores:
-   empirical from the 2026-06-10 560T analyze run on D64, the heavy
-   §[10] pairwise mutual information section uses **only 4-5 cores
-   sustained** across a 24h+ wall, monotonically climbing from 1.2
-   cores at section start to ~4.4 cores after 23h —
-   **6.9 % of a D64's compute capacity.** The bottleneck is memory
-   bandwidth or single-thread-by-construction inner loops, not cores.
-   **CAVEAT discovered 2026-06-11 mid-run on 560T**: §[10] is NOT a pure
-   in-memory bitmap-only section as initially assumed. /proc/<pid>/io
-   showed 2.83 TB cumulative reads after 23 h — i.e. **§[10] is
-   actively re-reading solutions.bin at ~32 MB/s sustained**, ~8 full
-   passes so far. The 128 GB page cache on D64 fits 33 % of the 336 GB
-   solutions.bin; D32's 64 GB would fit ~12 %, causing 3× more disk
-   paging during §[10]. Worst-case wall-time penalty on D32: significant
-   (10-30 %); best case (kernel readahead handles sequential access
-   well): negligible. **The D32 recommendation should be validated by
-   an end-to-end paired D32-vs-D64 analyze test before being relied on
-   for the 1120T extension** — until that test runs, D64 Standard is
-   the safer pre-1120T default with the upside of guaranteed wall time.
-   **Rule (provisional, pending D32-vs-D64 paired bench):** target
-   D32als_v7 Standard, fall back to D64 Standard if §[10] paging
-   penalty proves >20 % wall-time impact. Cost delta: $1.30/hr vs
-   $2.50/hr = ~48 % savings if D32 viable, but cost of running 10-30 %
-   longer eats the savings if it isn't.
-   Until/unless task #139 progress markers reveal a section that
-   scales to 32+ cores (3200 %+ CPU sustained), D64+ is unjustified
-   for compute reasons (the case is page-cache only).
-   §[10] scaling is **O(N × pairs) ≈ linear in records**, validated
-   by 100T-vs-560T point comparison (within 10 % of linear, no
-   evidence of quadratic or super-linear). Expected wall: ~16-22 h
-   at 10.5 B records (560T), ~35-40 h at 18 B records (1120T
-   extension), based on this linear projection.
+8. **`solve --analyze` at canonical scale: D128 Standard is right-sized.
+   The bottleneck is page-cache fraction of `solutions.bin`, not cores
+   or RAM-for-bitmaps.**
+   Empirical data from the 2026-06-10/11 560T analyze cascade (three
+   attempts at three VM sizes): D32 (64 GB RAM, holds 19% of 336 GB
+   `solutions.bin` in page cache) projected 3 h total wall — every
+   re-pass-over-records section hits disk at ~450 MB/s Premium SSD
+   bandwidth ≈ 22 min per pass. D64 (128 GB, 38% cache) was where the
+   original §[10] code ran for 24h+ without finishing — but that was a
+   pre-rewrite issue, not a sizing issue per se. **D128 (256 GB, 76%
+   cache)** finished a full --analyze on the 560T canonical in ~1.5 h
+   with the post-#141/#142/#143 rewrites. The cache fraction matters
+   more than core count because multiple sections (§[10] tile-by-records,
+   §[11] hash-set dedup, §[12] null-model, §[13]a/b orbit, §[16] bug-
+   impact, §[20] complement-orbit, §[22] complement-distance, §[24] NN
+   catalog) each do one full pass over `n_sols` records via mmap.
+   Without the cache, each is independently ~22 min disk-bound.
+   With a 76% cache after the first [stream] pass, subsequent sections
+   are largely cache-resident and finish in seconds-to-minutes.
+   Compute ceiling: analyze saturates at ~5-10 effective cores regardless
+   of VM size — the limiting factor is memory bandwidth in the parallel
+   sections (§[10], §[20], §[22]). So a D128 spends compute mostly idle,
+   but the extra RAM is what's actually doing the work.
+   **Rule:** size analyze VM at **D128als_v7 Standard** for 560T+ canonicals.
+   Cost: ~$5/hr × 1.5 h = ~$7.50 per analyze run. Down-sizing to D64
+   ($2.50/hr × ~3-4 h ≈ $10) or D32 ($1.30/hr × ~3 h ≈ $4) saves nothing
+   net once wall time is accounted for, and D32 hits a "this won't fit"
+   regime once the file exceeds ~5× cache size. For 1120T extension
+   (file ~540 GB projected): D128's 256 GB cache still fits 47% of the
+   file — analyze remains feasible there.
+   §[10]/§[11]/§[20] are now algorithmic-rewrite-bound rather than core-
+   count-bound (see rule 14). After the rewrites, expected --analyze
+   wall: ~1.5 h at 10.5 B records (560T) on D128, ~3-5 h at 18 B records
+   (1120T) on D128.
 
 9. **Extension cost is NOT 2× the source's cost; it's incremental.**
    Initial 1120T-extension cost estimate was $690 (anchored to "2× 560T's
@@ -798,6 +796,50 @@ specific symptom that motivated it.
     VMs**, each with its own disk: cold-archive on solver-data,
     analyze on Premium SSD. Don't try to bundle both on one VM unless
     operator explicitly authorizes for cost reasons.
+
+14. **`solve --analyze` section design at canonical scale: one pass over
+    records, never an outer loop with inner full-scan.**
+    The 2026-06-10/11 §[10]/§[11]/§[20] rewrites (commits `8ac5e8f`,
+    `fe58e71`, `bf8d8a5`) all collapse to the same fix: the original code
+    nested an outer loop (over pairs / p1 values / re-orderings) around an
+    inner `for (i = 0; i < n_sols; i++)`, doing K × `n_sols` record
+    reads. At 100T this was unpleasant but tolerable; at 560T (10.5 B
+    records, 336 GB file) it became 100s-of-hours infeasible. The §[10]
+    case was the worst: 496 × `n_sols` = 167 TB of mmap reads = 24h+ on
+    D64 without finishing.
+    **Rule for any new section added to --analyze:** the section must
+    iterate `n_sols` records **at most once**. Aggregation that requires
+    "per-X per-record" updates is done inline during the single record
+    pass (per-thread tables, hash sets, etc.). Multi-pass anti-patterns
+    are forbidden at canonical scale. The same anti-pattern caused the
+    §[20] OLD code to also allocate `n_sols × 32 byte` (336 GB at 560T)
+    — same fix: stream the per-record computation against the already-
+    sorted `all` via binary search; ZERO extra memory.
+    Each canonical section's existing time-and-space pattern after the
+    rewrites:
+    - §[10] pairwise MI: ONE pass + 496 × 1024 = 4 MB joint-count table
+      per thread; reduce at end
+    - §[11] per-p1 distinct configs: ONE pass + 32 × 4096-slot hash
+      sets (~2.2 MB total)
+    - §[20] complement orbit: ONE parallel pass, ZERO extra memory,
+      streams each complement into `all` via binary search
+    Similarly-structured anti-pattern survives in §[12]-§[19]/§[21]-
+    §[28] (each one re-reads the `n_sols` records once for its own
+    aggregate). These remaining sections are cheap individually (~1-3
+    min each at 560T on D128's cached file) but the cumulative effect
+    of N sections × one pass × 336 GB is what makes D128's 76% cache
+    fraction matter so much. A future pass to collapse multiple
+    sections into one shared record-scan (with all their accumulators
+    updated simultaneously) is the next-level optimization, but the
+    current per-section ONE pass design is sufficient for 560T → 1120T
+    extension on D128.
+    **Companion rule for observability:** every n_sols-iterating loop in
+    --analyze must emit per-1% progress to stderr using the shared
+    `ANALYZE_EMIT_PROGRESS` macro at the top of `solve.c`. The macro
+    auto-detects `omp_in_parallel()` × `omp_get_num_threads()` for
+    accurate display under static OpenMP scheduling. Stdout (the
+    canonical analyze output) is never touched — sha-neutral by
+    construction.
 
 ---
 
