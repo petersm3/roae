@@ -294,6 +294,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <omp.h>
 #include <limits.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
@@ -11159,31 +11160,130 @@ int main(int argc, char *argv[]) {
         free(re);
         skip_section9:
 
-        /* === Section 10: pairwise mutual information (parallelized over pairs) === */
+        /* === Section 10: pairwise mutual information (#141 rewrite 2026-06-11)
+         *
+         * Original algorithm: parallelize over pairs, each pair did one full
+         * pass over n_sols → 496 × n_sols = 5.2e12 record-touches at canonical
+         * scale. With strided mmap access on solutions.bin, this is memory-
+         * bandwidth bound and saturates at ~5 cores at canonical scale; one
+         * 560T analyze observed 24h+ wall in §[10] alone, projecting days at
+         * 1120T.
+         *
+         * Rewrite (tile by records): ONE pass over n_sols, updating all 496
+         * pair joint-count tables per record. Each thread maintains a
+         * private 4 MB jc table; reduce at end. Same arithmetic, but file
+         * is read ONCE instead of 496 times.
+         *
+         * Sha-neutrality: bit-for-bit identical jc[] totals (integer sums
+         * commute); identical per-pair MI computation order (k = 0..1023);
+         * identical stdout output. #141 validation: paired output diff.
+         *
+         * Progress markers (#139): emit per-1% record progress to STDERR
+         * during the pass. STDOUT (the canonical analyze output) untouched.
+         */
         printf("[10] Pairwise mutual information I(p; q) — top 20 strongest correlations\n");
         double MI[32][32];
         for (int p = 0; p < 32; p++) MI[p][p] = 0.0;
         time_t t10_start = time(NULL);
-        #pragma omp parallel for schedule(dynamic, 4) collapse(2)
-        for (int p = 0; p < 31; p++) {
-            for (int q = 0; q < 32; q++) {
-                if (q <= p) continue;
-                long long jc[32 * 32]; memset(jc, 0, sizeof(jc));
+        fprintf(stderr, "    [10] start at %s", ctime(&t10_start));
+
+        /* Allocate the shared (reduce-target) joint-count table.
+         * 496 pairs × 1024 cells × 8 bytes = 4 MB; heap to avoid VLA pitfalls. */
+        const int s10_npairs = 32 * 31 / 2;
+        long long *jc_global = calloc((size_t)s10_npairs * 1024, sizeof(long long));
+        if (!jc_global) {
+            fprintf(stderr, "ERROR: malloc failed for jc_global (section 10)\n");
+            printf("    SKIPPED: section 10 (alloc failed)\n\n");
+            goto skip_section10;
+        }
+
+        /* Progress: emit a stderr line every ~1% of records, throttled by
+         * master thread to avoid thread-pile-up on the fprintf path. */
+        long long s10_progress_step = (n_sols + 99) / 100;
+        if (s10_progress_step < 1) s10_progress_step = 1;
+
+        #pragma omp parallel
+        {
+            long long *my_jc = calloc((size_t)s10_npairs * 1024, sizeof(long long));
+            if (!my_jc) {
+                fprintf(stderr, "ERROR: thread %d failed to alloc my_jc; thread skipping\n",
+                        omp_get_thread_num());
+            } else {
+                #pragma omp for schedule(static)
                 for (long long i = 0; i < n_sols; i++) {
-                    int a = all[i * SOL_RECORD_SIZE + p] >> 2;
-                    int b = all[i * SOL_RECORD_SIZE + q] >> 2;
-                    jc[a * 32 + b]++;
-                }
-                double Hpq = 0.0;
-                for (int k = 0; k < 32 * 32; k++) {
-                    if (jc[k] > 0) {
-                        double pr = (double)jc[k] / (double)n_sols;
-                        Hpq -= pr * log2(pr);
+                    const unsigned char *rec = &all[i * SOL_RECORD_SIZE];
+                    /* Read all 32 position values once into a local cache. */
+                    unsigned char vals[32];
+                    for (int k = 0; k < 32; k++) vals[k] = rec[k] >> 2;
+                    /* Update every (p, q) joint-count with one record visit. */
+                    int pair_idx = 0;
+                    for (int p = 0; p < 31; p++) {
+                        int a = vals[p];
+                        for (int q = p + 1; q < 32; q++) {
+                            my_jc[pair_idx * 1024 + a * 32 + vals[q]]++;
+                            pair_idx++;
+                        }
+                    }
+                    /* Throttled progress: only master thread, every ~1% of
+                     * its own work. Static schedule ensures master's progress
+                     * tracks overall completion roughly. */
+                    if (omp_get_thread_num() == 0 && i > 0 &&
+                        (i % s10_progress_step) == 0) {
+                        time_t now = time(NULL);
+                        long elapsed = (long)(now - t10_start);
+                        double pct = 100.0 * (double)i / (double)n_sols;
+                        long eta = (i > 0 && pct > 0.5) ?
+                            (long)((100.0 - pct) / pct * elapsed) : -1;
+                        if (eta >= 0) {
+                            fprintf(stderr, "    [10] record %lld/%lld (%.1f%%) elapsed=%lds ETA=%lds\n",
+                                    i, n_sols, pct, elapsed, eta);
+                        } else {
+                            fprintf(stderr, "    [10] record %lld/%lld (%.1f%%) elapsed=%lds\n",
+                                    i, n_sols, pct, elapsed);
+                        }
+                        fflush(stderr);
                     }
                 }
-                MI[p][q] = MI[q][p] = H[p] + H[q] - Hpq;
+
+                /* Reduce private jc into global. Critical section guards the
+                 * shared write; the reduction itself is O(npairs * 1024) per
+                 * thread — trivial. */
+                #pragma omp critical
+                {
+                    for (long long k = 0; k < (long long)s10_npairs * 1024; k++) {
+                        jc_global[k] += my_jc[k];
+                    }
+                }
+                free(my_jc);
             }
         }
+
+        time_t t10_pass_done = time(NULL);
+        fprintf(stderr, "    [10] record pass done in %lds; computing MI per pair...\n",
+                (long)(t10_pass_done - t10_start));
+        fflush(stderr);
+
+        /* Compute MI per pair from the global joint counts.
+         * Order preserved from the original (p outer, q inner) so FP rounding
+         * cumulates identically. */
+        {
+            int pair_idx = 0;
+            for (int p = 0; p < 31; p++) {
+                for (int q = p + 1; q < 32; q++) {
+                    long long *jc = &jc_global[pair_idx * 1024];
+                    double Hpq = 0.0;
+                    for (int k = 0; k < 32 * 32; k++) {
+                        if (jc[k] > 0) {
+                            double pr = (double)jc[k] / (double)n_sols;
+                            Hpq -= pr * log2(pr);
+                        }
+                    }
+                    MI[p][q] = MI[q][p] = H[p] + H[q] - Hpq;
+                    pair_idx++;
+                }
+            }
+        }
+        free(jc_global);
         printf("    [10] elapsed: %lds\n", (long)(time(NULL) - t10_start));
         typedef struct { double mi; int p, q; } MIEntry;
         int n_mi_pairs = 32 * 31 / 2;
