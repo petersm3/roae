@@ -295,6 +295,33 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <omp.h>
+
+/* Per-1% progress emission for --analyze sections. Master-thread only when
+ * inside an OpenMP region (omp_get_thread_num() returns 0 outside parallel
+ * regions, so single-threaded loops work too). All progress goes to stderr;
+ * stdout (the canonical analyze output) is never touched. */
+#define ANALYZE_EMIT_PROGRESS(label, i, total, t_start, step) do {     \
+    if (omp_get_thread_num() == 0 && (i) > 0 &&                        \
+        ((i) % (step)) == 0) {                                         \
+        time_t _now = time(NULL);                                      \
+        long _e = (long)(_now - (t_start));                            \
+        double _p = 100.0 * (double)(i) / (double)(total);             \
+        long _eta = (_p > 0.5) ?                                       \
+            (long)((100.0 - _p) / _p * _e) : -1;                       \
+        if (_eta >= 0)                                                 \
+            fprintf(stderr,                                            \
+                    "    [%s] %lld/%lld (%.1f%%) elapsed=%lds ETA=%lds\n", \
+                    label, (long long)(i), (long long)(total), _p,     \
+                    _e, _eta);                                         \
+        else                                                           \
+            fprintf(stderr,                                            \
+                    "    [%s] %lld/%lld (%.1f%%) elapsed=%lds\n",      \
+                    label, (long long)(i), (long long)(total), _p, _e); \
+        fflush(stderr);                                                \
+    }                                                                  \
+} while (0)
+#define ANALYZE_PROGRESS_STEP(total) \
+    (((total) + 99) / 100 < 1 ? 1 : ((total) + 99) / 100)
 #include <limits.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
@@ -10808,7 +10835,9 @@ int main(int argc, char *argv[]) {
 
         printf("[stream] Single-pass streaming over %lld records ...\n", n_sols);
         time_t t_stream_start = time(NULL);
+        long long stream_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
         for (long long i = 0; i < n_sols; i++) {
+            ANALYZE_EMIT_PROGRESS("stream", i, n_sols, t_stream_start, stream_progress_step);
             const unsigned char *rec = all + i * SOL_RECORD_SIZE;
             int pi[32];
             int is_kw = 1;
@@ -11432,7 +11461,10 @@ int main(int argc, char *argv[]) {
                 printf("    SKIPPED: section 12 (alloc failed)\n\n");
                 goto skip_section12;
             }
+            time_t t_s12_start = time(NULL);
+            long long s12_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
             for (long long i = 0; i < n_sols; i++) {
+                ANALYZE_EMIT_PROGRESS("12", i, n_sols, t_s12_start, s12_progress_step);
                 const unsigned char *rec = all + i * SOL_RECORD_SIZE;
                 for (int b = 0; b < 31; b++) {
                     int p_b = rec[b] >> 2;
@@ -11484,8 +11516,11 @@ int main(int argc, char *argv[]) {
 
         /* === Section 13: Orbits === */
         printf("[13] Orbit analysis under reversal and pair-complement\n");
+        time_t t_s13_start = time(NULL);
+        long long s13_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
         long long n_palin = 0;
         for (long long i = 0; i < n_sols; i++) {
+            ANALYZE_EMIT_PROGRESS("13-palin", i, n_sols, t_s13_start, s13_progress_step);
             int is_palin = 1;
             for (int p = 0; p < 16; p++) {
                 int a = all[i * SOL_RECORD_SIZE + p] >> 2;
@@ -11504,6 +11539,7 @@ int main(int argc, char *argv[]) {
         for (int p = 0; p < 32; p++) comp_pair[p] = hex_to_pair_local[63 - KW[2 * p]];
         long long n_self_comp = 0;
         for (long long i = 0; i < n_sols; i++) {
+            ANALYZE_EMIT_PROGRESS("13-selfcomp", i, n_sols, t_s13_start, s13_progress_step);
             int is_self_comp = 1;
             for (int p = 0; p < 32; p++) {
                 int pi = all[i * SOL_RECORD_SIZE + p] >> 2;
@@ -11557,7 +11593,9 @@ int main(int argc, char *argv[]) {
             printf("    SKIPPED: malloc(%lld bytes) failed; need more RAM for section 14\n",
                    (long long)((size_t)n_sols * sizeof(PairKey)));
         } else {
+            long long s14_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
             for (long long i = 0; i < n_sols; i++) {
+                ANALYZE_EMIT_PROGRESS("14-build", i, n_sols, t14_start, s14_progress_step);
                 for (int p = 0; p < 32; p++) pkeys[i].pi[p] = all[i * SOL_RECORD_SIZE + p] >> 2;
                 pkeys[i].idx = i;
             }
@@ -11964,7 +12002,9 @@ int main(int argc, char *argv[]) {
             long long (*cnt)[2][32][2] = calloc(32, sizeof(*cnt));
             if (!cnt) { printf("    ERROR: alloc failed\n"); }
             else {
+                long long s16_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
                 for (long long i = 0; i < n_sols; i++) {
+                    ANALYZE_EMIT_PROGRESS("16", i, n_sols, t16, s16_progress_step);
                     const unsigned char *rec = all + i * SOL_RECORD_SIZE;
                     int p1 = rec[1] >> 2, o1 = (rec[1] >> 1) & 1;
                     int p2 = rec[2] >> 2, o2 = (rec[2] >> 1) & 1;
@@ -12380,8 +12420,10 @@ int main(int argc, char *argv[]) {
                 if (!local_hist)
                     fprintf(stderr, "ERROR: calloc failed for local_hist (section 22, thread)\n");
                 /* All threads must enter omp for; threads with no local_hist skip the update */
+                long long s22_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
                 #pragma omp for schedule(static)
                 for (long long i = 0; i < n_sols; i++) {
+                    ANALYZE_EMIT_PROGRESS("22", i, n_sols, t22, s22_progress_step);
                     if (!local_hist) continue;
                     const unsigned char *rec = all + i * SOL_RECORD_SIZE;
                     int seq[64];
@@ -12520,7 +12562,9 @@ int main(int argc, char *argv[]) {
             int nn_count = 0;
             int nn_max_dist = 33;
 
+            long long s24_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
             for (long long i = 0; i < n_sols; i++) {
+                ANALYZE_EMIT_PROGRESS("24", i, n_sols, t24, s24_progress_step);
                 const unsigned char *rec = all + i * SOL_RECORD_SIZE;
                 int dist = 0;
                 for (int p = 0; p < 32; p++)
