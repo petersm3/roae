@@ -1,6 +1,6 @@
 # 100T depth-3 D128als_v7 westus3 canonical enumeration — archive
 
-*Completed run 2026-04-20 00:45 UTC.*
+*Completed run 2026-04-20 00:45 UTC. **Superseded as deepest 2026-06-08 by 560T canonical `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** (10,525,271,997 orderings). 100T canonical remains the standing partition-invariance witness + sha anchor; see [`../../../documentation/CANONICAL_HASHES.md`](../../../documentation/CANONICAL_HASHES.md) for the registry and [`../../../documentation/HISTORY.md`](../../../documentation/HISTORY.md) "June 1-8, 2026" entry for the 560T campaign.*
 
 **Date:** 2026-04-19
 **SKU:** Standard_D128als_v7 (spot, westus3)

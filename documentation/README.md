@@ -26,9 +26,20 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 - **[SOLVE-SUMMARY.md](SOLVE-SUMMARY.md)** — Plain-language summary of what `solve.c` + `solve.py` compute and what the enumeration reveals. Audience: scientifically literate but not necessarily mathematicians.
 - **[SPECIFICATION.md](SPECIFICATION.md)** — Formal constraint definitions (C1–C5), constraint-extraction methodology, theorems with proofs.
 - **[CRITIQUE.md](CRITIQUE.md)** — Honest limitations: the null-model caveat, statistical framing, what the project does NOT prove.
-- **[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)** — Where King Wen sits in the joint distribution of observables across the 3.43B-ordering canonical (0.000%-ile joint density).
+- **[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)** — Where King Wen sits in the joint distribution of observables across the canonical (0.000%-ile joint density at 100T scope; 560T re-eval queued).
 - **[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)** — Theorem that canonical enumeration counts are invariant under partition strategy (full-enum vs `--branch` reconstruction), with the cross-path validation grid.
 - **[BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md)** — Conceptual explainer for "branch / sub-branch / node / budget" terms used throughout.
+
+### Stable scientific findings (paper-citable)
+
+These docs hold **paper-citable scientific findings** that have stabilized beyond working-note status. Each has a clear *Result* sentence, reproduction commands using committed data + `solve.c` (or `roae.py`), and cross-links to working-version analysis. Promoted here only after the result is unlikely to be revised by further work.
+
+(Convention: docs lived in `../findings/` before the 2026-06-11 consolidation; see [`../findings/README.md`](../findings/README.md) for the redirect stub.)
+
+- **[PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md)** — Boundaries {25, 27} are mandatory in every greedy-ordered minimum-boundary set identifying KW across all four canonicals tested (d2 10T, d3 10T, d3 100T, d3 560T). The single most stable structural property of King Wen measured.
+- **[BOUNDARY_MINIMUM_NON_MONOTONE.md](BOUNDARY_MINIMUM_NON_MONOTONE.md)** — The number of boundary constraints required to uniquely identify King Wen is non-monotone with scale: greedy-ordered minimum 4 → 5 → 4 across d3 10T → 100T → 560T; unordered working-4-subset count 8 → 0 across d3 10T → 100T (stays at 0 at 560T). Falsifies the 100T-era prediction that the minimum would grow to 6+ at deeper scales.
+- **[SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md)** — NEGATIVE result: no bit-position permutation is a symmetry of the C1 ∩ C2 ∩ C3 canonical. All 47 non-trivial candidates falsified at 100T-d3 (subset-preserved at 560T).
+- **[PASS1_TRAJECTORY_DETERMINISM.md](PASS1_TRAJECTORY_DETERMINISM.md)** — Two independent multi-threaded runs of `--sub-branch 22 0 30 1 20 0` retrace each other to <0.2% across 10¹⁰ → 10¹³ nodes. Free reproducibility check.
 
 ### Reproducibility & data
 

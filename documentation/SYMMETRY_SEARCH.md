@@ -4,6 +4,8 @@
 
 The constraint set is rigid against bit-permutation symmetries. No factor-of-2-to-48 enumeration cost reduction is available via this class of would-be symmetries.
 
+**560T reaffirmation (2026-06-11):** The 100T result extends trivially to the 560T canonical (`9a968fa2…`, 10,525,271,997 orderings) because the 100T solution set is a strict subset of the 560T set. A bit-position permutation that maps at least 21,000 sub-branches to materially-different-yield sub-branches at the 100T budget continues to do so under the larger 560T budget. The negative existence claim is monotone-preserved by deeper enumeration. No fresh 560T-scope test was run; the subset-relationship argument is dispositive.
+
 This is a clean negative result — paper-citable as a precise quantitative refutation of "King Wen's structure has natural bit-permutation symmetries."
 
 ## Hypothesis tested

@@ -256,7 +256,7 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
     - 720 bit-position permutations of {0..5} enumerated; 48 preserve C1; 47 act non-trivially on (pair, orient) space.
     - **All 47 falsified.** Each maps at least 21,000 of the 60,533 productive sub-branches to sub-branches with materially different yields. Closest near-miss is full bit-reversal σ = [5,4,3,2,1,0] at 43% match / 54% mismatch / max yield difference 811,359 records.
     - **Implication**: no factor-of-2-to-48 enumeration cost reduction available via this symmetry class. The constraint set is rigid against bit-position permutations.
-    - Full writeup: [`findings/SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md).
+    - Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md).
     - **Falsification scope**: tested only the 720-element bit-permutation subgroup of the 46,080-element Aut(Q₆). Bit-flip × bit-perm combinations not tested; weaker forms (σ preserves yield distribution but not exact values) not tested.
 
 ## Summary

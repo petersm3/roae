@@ -727,13 +727,13 @@ B2 exhaustive analysis running on `b2-exhaustive-westus3` (D64als_v7 Spot, 256 G
 - Phase 4 (bijection sampling) not needed — no σ survived Phase 3.
 - Negative result is paper-citable. Constraint set is rigid against bit-position permutations.
 
-Full writeup: [`findings/SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md). Working analysis + iterative spec: [`roae-private/SYMMETRY_SEARCH_SPEC.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_SPEC.md) and [`SYMMETRY_SEARCH_FINDINGS.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_FINDINGS.md).
+Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + iterative spec: [`roae-private/SYMMETRY_SEARCH_SPEC.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_SPEC.md) and [`SYMMETRY_SEARCH_FINDINGS.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_FINDINGS.md).
 
 **Findings directory promoted** (`roae/findings/`): three previously-staging findings curated into the public repo as paper-citable scientific anchors:
 
 - [`SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md) — the negative result above.
-- [`PASS1_TRAJECTORY_DETERMINISM.md`](findings/PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to <0.2% across 10¹⁰ → 10¹³ nodes when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check.
-- [`PARTITION_STABILITY_BOUNDARIES.md`](findings/PARTITION_STABILITY_BOUNDARIES.md) — boundaries {25, 27} are mandatory in every minimum-boundary set identifying KW across all three canonicals tested (d2 10T, d3 10T, d3 100T). Most stable structural property of King Wen measured.
+- [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to <0.2% across 10¹⁰ → 10¹³ nodes when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check.
+- [`PARTITION_STABILITY_BOUNDARIES.md`](PARTITION_STABILITY_BOUNDARIES.md) — boundaries {25, 27} are mandatory in every minimum-boundary set identifying KW across all three canonicals tested (d2 10T, d3 10T, d3 100T). Most stable structural property of King Wen measured.
 
 Convention: working notes stay in `petersm3/roae-private`; findings polished and stable enough for external citation move to `roae/findings/`.
 
