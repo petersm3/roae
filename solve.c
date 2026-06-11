@@ -12225,82 +12225,96 @@ int main(int argc, char *argv[]) {
             printf("    Self-complementary pairs: %d of 32\n\n", n_self_comp_pairs);
 
             if (comp_table_ok) {
-                unsigned char *comp = malloc((size_t)n_sols * SOL_RECORD_SIZE);
-                if (!comp) {
-                    printf("    ERROR: malloc %.1f GB failed\n",
-                           (double)n_sols * SOL_RECORD_SIZE / 1e9);
-                } else {
-                    /* Compute complement of each record */
-                    printf("    Computing complements of %lld records...\n", n_sols);
-                    time_t tc0 = time(NULL);
-                    #pragma omp parallel for schedule(static)
-                    for (long long i = 0; i < n_sols; i++) {
-                        const unsigned char *src = all + i * SOL_RECORD_SIZE;
-                        unsigned char *dst = comp + i * SOL_RECORD_SIZE;
-                        for (int p = 0; p < 32; p++) {
-                            int old_pi = src[p] >> 2;
-                            int old_o  = (src[p] >> 1) & 1;
-                            int new_pi = comp_pair_idx[old_pi];
-                            int new_o  = old_o ^ comp_orient_flip[old_pi];
-                            dst[p] = (unsigned char)((new_pi << 2) | (new_o << 1));
-                        }
-                    }
-                    printf("    Complement done in %lds.\n", (long)(time(NULL) - tc0));
-
-                    /* Sort complemented records */
-                    printf("    Sorting %lld complemented records...\n", n_sols);
-                    time_t ts0 = time(NULL);
-                    qsort(comp, n_sols, SOL_RECORD_SIZE, compare_solutions);
-                    printf("    Sort done in %lds.\n", (long)(time(NULL) - ts0));
-
-                    /* Merge-count: how many records in comp match records in all? */
-                    long long i_all = 0, i_c = 0, matches = 0;
-                    while (i_all < n_sols && i_c < n_sols) {
-                        int cmp = memcmp(all + i_all * SOL_RECORD_SIZE,
-                                         comp + i_c * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
-                        if (cmp == 0) { matches++; i_all++; i_c++; }
-                        else if (cmp < 0) i_all++;
-                        else i_c++;
-                    }
-                    printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
-                           matches, n_sols, 100.0 * matches / n_sols);
-                    if (matches == n_sols)
-                        printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
-                    else
-                        printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
-                               n_sols - matches);
-
-                    /* Check KW specifically (rec#0) */
-                    unsigned char kw_comp[SOL_RECORD_SIZE];
-                    const unsigned char *kw_rec = all;
+                /* #143 rewrite 2026-06-11: instead of materializing comp[] +
+                 * sorting it (which is O(n_sols * 32) bytes — 336 GB at 560T,
+                 * doesn't fit in any reasonable VM), stream the complement
+                 * for each record and binary-search it in `all` (which is
+                 * already sorted by --merge). Total: O(N log N) time,
+                 * ZERO extra memory.
+                 *
+                 * Sha-neutrality: matches count is deterministic; same KW
+                 * binary search as before. Output format preserved.
+                 */
+                printf("    Computing complements + verifying inclusion via binary search...\n");
+                time_t tc0 = time(NULL);
+                long long matches = 0;
+                long long s20_progress_step = (n_sols + 99) / 100;
+                if (s20_progress_step < 1) s20_progress_step = 1;
+                #pragma omp parallel for reduction(+:matches) schedule(static)
+                for (long long i = 0; i < n_sols; i++) {
+                    const unsigned char *src = all + i * SOL_RECORD_SIZE;
+                    unsigned char comp_rec[SOL_RECORD_SIZE] = {0};
                     for (int p = 0; p < 32; p++) {
-                        int old_pi = kw_rec[p] >> 2;
-                        int old_o  = (kw_rec[p] >> 1) & 1;
-                        kw_comp[p] = (unsigned char)((comp_pair_idx[old_pi] << 2) |
-                                     ((old_o ^ comp_orient_flip[old_pi]) << 1));
+                        int old_pi = src[p] >> 2;
+                        int old_o  = (src[p] >> 1) & 1;
+                        int new_pi = comp_pair_idx[old_pi];
+                        int new_o  = old_o ^ comp_orient_flip[old_pi];
+                        comp_rec[p] = (unsigned char)((new_pi << 2) | (new_o << 1));
                     }
-                    /* Binary search for KW's complement */
+                    /* Binary search comp_rec in the already-sorted `all`. */
                     long long lo = 0, hi = n_sols;
-                    int found_kw_comp = 0;
-                    long long kw_comp_idx = -1;
                     while (lo < hi) {
                         long long mid = lo + (hi - lo) / 2;
-                        int cmp = memcmp(kw_comp, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
-                        if (cmp == 0) { found_kw_comp = 1; kw_comp_idx = mid; break; }
+                        int cmp = memcmp(comp_rec, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                        if (cmp == 0) { matches++; break; }
                         else if (cmp < 0) hi = mid;
                         else lo = mid + 1;
                     }
-                    printf("    KW complement in set: %s", found_kw_comp ? "YES" : "NO");
-                    if (found_kw_comp) printf(" (record index %lld)", kw_comp_idx);
-                    printf("\n");
-                    printf("    KW complement pair-seq: ");
-                    for (int p = 0; p < 32; p++) printf("%2d ", kw_comp[p] >> 2);
-                    printf("\n    KW complement orient:   ");
-                    for (int p = 0; p < 32; p++) printf("%d", (kw_comp[p] >> 1) & 1);
-                    printf("\n");
-
-                    free(comp);
+                    if (omp_get_thread_num() == 0 && i > 0 &&
+                        (i % s20_progress_step) == 0) {
+                        time_t now = time(NULL);
+                        long elapsed = (long)(now - tc0);
+                        double pct = 100.0 * (double)i / (double)n_sols;
+                        long eta = (pct > 0.5) ?
+                            (long)((100.0 - pct) / pct * elapsed) : -1;
+                        if (eta >= 0) {
+                            fprintf(stderr, "    [20] record %lld/%lld (%.1f%%) elapsed=%lds ETA=%lds\n",
+                                    i, n_sols, pct, elapsed, eta);
+                        } else {
+                            fprintf(stderr, "    [20] record %lld/%lld (%.1f%%) elapsed=%lds\n",
+                                    i, n_sols, pct, elapsed);
+                        }
+                        fflush(stderr);
+                    }
                 }
+                printf("    Done in %lds.\n", (long)(time(NULL) - tc0));
+
+                printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
+                       matches, n_sols, 100.0 * matches / n_sols);
+                if (matches == n_sols)
+                    printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
+                else
+                    printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
+                           n_sols - matches);
+
+                /* Check KW specifically (rec#0) */
+                unsigned char kw_comp[SOL_RECORD_SIZE] = {0};
+                const unsigned char *kw_rec = all;
+                for (int p = 0; p < 32; p++) {
+                    int old_pi = kw_rec[p] >> 2;
+                    int old_o  = (kw_rec[p] >> 1) & 1;
+                    kw_comp[p] = (unsigned char)((comp_pair_idx[old_pi] << 2) |
+                                 ((old_o ^ comp_orient_flip[old_pi]) << 1));
+                }
+                /* Binary search for KW's complement */
+                long long lo = 0, hi = n_sols;
+                int found_kw_comp = 0;
+                long long kw_comp_idx = -1;
+                while (lo < hi) {
+                    long long mid = lo + (hi - lo) / 2;
+                    int cmp = memcmp(kw_comp, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                    if (cmp == 0) { found_kw_comp = 1; kw_comp_idx = mid; break; }
+                    else if (cmp < 0) hi = mid;
+                    else lo = mid + 1;
+                }
+                printf("    KW complement in set: %s", found_kw_comp ? "YES" : "NO");
+                if (found_kw_comp) printf(" (record index %lld)", kw_comp_idx);
+                printf("\n");
+                printf("    KW complement pair-seq: ");
+                for (int p = 0; p < 32; p++) printf("%2d ", kw_comp[p] >> 2);
+                printf("\n    KW complement orient:   ");
+                for (int p = 0; p < 32; p++) printf("%d", (kw_comp[p] >> 1) & 1);
+                printf("\n");
             }
         }
         printf("    [20] elapsed: %lds\n\n", (long)(time(NULL) - t20));
