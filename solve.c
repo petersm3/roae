@@ -11312,41 +11312,92 @@ int main(int argc, char *argv[]) {
         skip_section10:
         printf("\n");
 
-        /* === Section 11: Per-first-level-branch distinct configurations === */
-        /* For each first-level pair p1, sort+dedup pair_idx[2..18] rows. */
+        /* === Section 11 (#142 rewrite 2026-06-11): per-first-level-branch distinct configs ===
+         *
+         * Original: pre-count pass + 31 full passes (one per p1 value) to
+         * collect rows then qsort+dedup. Total 32 passes over n_sols. At
+         * 560T (10.5B records, 336 GB file) this is 9+ hours with disk
+         * paging on a 64 GB box.
+         *
+         * Rewrite: ONE pass. Per-p1 small open-addressing hash set
+         * (4096 slots × 17-byte keys = 69 KB; HISTORY says "2-29 distinct
+         * configs per reachable branch" so 4096 is hugely conservative).
+         * Total memory: 32 sets × ~70 KB = 2.2 MB. No qsort needed.
+         *
+         * Sha-neutrality: output is (p1, ndist, total) for p1=1..31 in
+         * fixed order; ndist and total are order-independent integer
+         * sums/dedups → byte-identical to the original.
+         */
         printf("[11] Per-first-level-branch distinct configs at positions 3..19\n");
         printf("     %-5s  %-30s  %s\n", "Pair", "Distinct configs at pos 3-19", "Records");
-        /* Pre-count per p1 to size the per-branch buffer */
-        long long p1_count[32] = {0};
-        for (long long i = 0; i < n_sols; i++)
-            p1_count[all[i * SOL_RECORD_SIZE + 1] >> 2]++;
-        long long max_p1_cnt = 0;
-        for (int p1 = 1; p1 < 32; p1++) if (p1_count[p1] > max_p1_cnt) max_p1_cnt = p1_count[p1];
-        unsigned char *rows = malloc((size_t)max_p1_cnt * 17);
-        if (!rows) { printf("    (skipping section 11 — alloc failed for %lld bytes)\n\n", max_p1_cnt * 17); }
-        else {
-            for (int p1 = 1; p1 < 32; p1++) {
-                if (p1_count[p1] == 0) {
-                    printf("     %-5d  %-30s  %lld\n", p1, "(no records)", 0LL);
-                    continue;
-                }
-                long long ridx = 0;
-                for (long long i = 0; i < n_sols; i++) {
-                    if ((all[i * SOL_RECORD_SIZE + 1] >> 2) == p1) {
-                        for (int k = 0; k < 17; k++)
-                            rows[ridx * 17 + k] = all[i * SOL_RECORD_SIZE + 2 + k] >> 2;
-                        ridx++;
-                    }
-                }
-                int cmp17(const void *a, const void *b) { return memcmp(a, b, 17); }
-                qsort(rows, (size_t)ridx, 17, cmp17);
-                long long ndist = ridx > 0 ? 1 : 0;
-                for (long long i = 1; i < ridx; i++)
-                    if (memcmp(&rows[i * 17], &rows[(i - 1) * 17], 17) != 0) ndist++;
-                printf("     %-5d  %-30lld  %lld\n", p1, ndist, ridx);
-            }
-            free(rows);
+        time_t t11_start = time(NULL);
+        fprintf(stderr, "    [11] start at %s", ctime(&t11_start));
+
+        #define S11_SLOTS 4096
+        #define S11_MASK  (S11_SLOTS - 1)
+        typedef struct {
+            unsigned char keys[S11_SLOTS][17];
+            uint8_t occ[S11_SLOTS];
+            long long count;   /* distinct rows */
+        } S11Set;
+        S11Set *s11_sets = calloc(32, sizeof(S11Set));
+        long long *p1_total = calloc(32, sizeof(long long));
+        if (!s11_sets || !p1_total) {
+            free(s11_sets); free(p1_total);
+            printf("    (skipping section 11 — alloc failed)\n\n");
+            goto skip_section11;
         }
+        long long s11_progress_step = (n_sols + 99) / 100;
+        if (s11_progress_step < 1) s11_progress_step = 1;
+
+        for (long long i = 0; i < n_sols; i++) {
+            const unsigned char *rec = &all[i * SOL_RECORD_SIZE];
+            int p1 = rec[1] >> 2;
+            p1_total[p1]++;
+            /* FNV-1a hash of 17 bytes pos 2..18 (>>2). */
+            uint32_t h = 0x811c9dc5;
+            unsigned char key[17];
+            for (int k = 0; k < 17; k++) {
+                key[k] = rec[2 + k] >> 2;
+                h = (h ^ key[k]) * 0x01000193;
+            }
+            uint32_t slot = h & S11_MASK;
+            S11Set *s = &s11_sets[p1];
+            while (s->occ[slot]) {
+                if (memcmp(s->keys[slot], key, 17) == 0) break;
+                slot = (slot + 1) & S11_MASK;
+            }
+            if (!s->occ[slot]) {
+                memcpy(s->keys[slot], key, 17);
+                s->occ[slot] = 1;
+                s->count++;
+            }
+            if (i > 0 && (i % s11_progress_step) == 0) {
+                time_t now = time(NULL);
+                long elapsed = (long)(now - t11_start);
+                double pct = 100.0 * (double)i / (double)n_sols;
+                long eta = (pct > 0.5) ?
+                    (long)((100.0 - pct) / pct * elapsed) : -1;
+                if (eta >= 0) {
+                    fprintf(stderr, "    [11] record %lld/%lld (%.1f%%) elapsed=%lds ETA=%lds\n",
+                            i, n_sols, pct, elapsed, eta);
+                } else {
+                    fprintf(stderr, "    [11] record %lld/%lld (%.1f%%) elapsed=%lds\n",
+                            i, n_sols, pct, elapsed);
+                }
+                fflush(stderr);
+            }
+        }
+        for (int p1 = 1; p1 < 32; p1++) {
+            if (p1_total[p1] == 0) {
+                printf("     %-5d  %-30s  %lld\n", p1, "(no records)", 0LL);
+            } else {
+                printf("     %-5d  %-30lld  %lld\n", p1, s11_sets[p1].count, p1_total[p1]);
+            }
+        }
+        free(s11_sets); free(p1_total);
+        printf("    [11] elapsed: %lds\n", (long)(time(NULL) - t11_start));
+        skip_section11:
         printf("\n");
 
         /* === Section 12: Null-model relative to a non-KW reference === */
