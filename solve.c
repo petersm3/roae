@@ -2765,18 +2765,45 @@ static int acquire_canonical_lock(void) {
  * fork/exec overhead). All sha-neutral — they operate on `.bin` files
  * but never modify their content, only read for sha256 + size. */
 
+/* #116 (2026-05-29): manifest emit/verify thread count.
+ *
+ * The original serial-bash loop took ~25-30 min on the 100T re-validation
+ * resume (~39k shards × ~7.5 MB each, single-threaded sha256). With nproc
+ * workers via xargs -P, this is bound by aggregate disk read + sha256 CPU
+ * across all cores — minutes at canonical scale.
+ *
+ * Default = SOLVE_THREADS or nproc (capped at 128). Override
+ * SOLVE_MANIFEST_THREADS to set explicitly; SOLVE_MANIFEST_THREADS=1
+ * restores serial behavior (for bench A/B or debug).
+ *
+ * Sha-neutral by construction: only READs shard contents; the emitted
+ * manifest is sorted with LC_ALL=C so the byte-output is identical to the
+ * old serial code (which relied on bash's lexical glob expansion) for the
+ * same shard set, regardless of worker count or completion order. */
+static int manifest_thread_count(void) {
+    int threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    const char *et = getenv("SOLVE_MANIFEST_THREADS");
+    if (!et || atoi(et) <= 0) et = getenv("SOLVE_THREADS");
+    if (et && atoi(et) > 0) threads = atoi(et);
+    if (threads < 1) threads = 1;
+    if (threads > 128) threads = 128;
+    return threads;
+}
+
 static int do_emit_shard_manifest(const char *manifest_path) {
     const char *tool = sha256_tool();
     if (!tool) { require_sha256_tool(); return 30; }
+    int threads = manifest_thread_count();
     char cmd[8192];
     snprintf(cmd, sizeof(cmd),
-             "for f in sub_*.bin; do "
-             "  [ -f \"$f\" ] || continue; "
-             "  sz=$(stat -c%%s \"$f\"); "
-             "  sh=$(%s \"$f\" | cut -d' ' -f1); "
-             "  printf '%%s\\t%%s\\t%%s\\n' \"$f\" \"$sz\" \"$sh\"; "
-             "done > %s.tmp && mv %s.tmp %s",
-             tool, manifest_path, manifest_path, manifest_path);
+             "LC_ALL=C find . -maxdepth 1 -name 'sub_*.bin' -type f -printf '%%f\\n' 2>/dev/null | "
+             "LC_ALL=C xargs -P %d -n 1 sh -c '"
+             "f=\"$1\"; "
+             "sz=$(stat -c%%s \"$f\" 2>/dev/null) || exit 0; "
+             "sh=$(%s \"$f\" 2>/dev/null | cut -d\" \" -f1); "
+             "[ -n \"$sh\" ] && printf \"%%s\\t%%s\\t%%s\\n\" \"$f\" \"$sz\" \"$sh\""
+             "' _ | LC_ALL=C sort > %s.tmp && mv %s.tmp %s",
+             threads, tool, manifest_path, manifest_path, manifest_path);
     int rc = system(cmd);
     if (rc != 0) return 30;
     return 0;
@@ -2793,53 +2820,77 @@ static int do_verify_shard_manifest(const char *manifest_path,
     if (out_diverged) *out_diverged = 0;
     const char *tool = sha256_tool();
     if (!tool) { require_sha256_tool(); return 30; }
+    /* First pass: count total + sanity-check manifest readability. */
     FILE *mf = fopen(manifest_path, "r");
     if (!mf) {
         fprintf(stderr, "ERROR: cannot open manifest %s: %s\n",
                 manifest_path, strerror(errno));
         return 30;
     }
-    int total = 0, missing = 0, shrunk = 0, diverged = 0;
-    char line[4096];
-    while (fgets(line, sizeof(line), mf)) {
-        total++;
-        char fname[512]; long long sz; char sha[128];
-        if (sscanf(line, "%511s %lld %127s", fname, &sz, sha) != 3) {
-            fprintf(stderr, "WARN: malformed manifest line %d, skipping: %.80s\n",
-                    total, line);
-            continue;
-        }
-        struct stat st;
-        if (stat(fname, &st) != 0) {
-            fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n", fname, sz);
+    int total = 0;
+    { char buf[4096]; while (fgets(buf, sizeof(buf), mf)) total++; }
+    fclose(mf);
+    if (total == 0) {
+        if (out_total) *out_total = 0;
+        return 0;
+    }
+    /* Parallel verify (#116, 2026-05-29). Each xargs worker receives one
+     * manifest line (TSV: fname \t size \t sha) and emits ONE typed
+     * diagnostic line (MISSING/SHRUNK/DIVERGED, tab-separated) on failure or
+     * nothing on PASS. Parent reads the aggregated pipe, classifies, counts.
+     *
+     * Diagnostic order is worker-completion (not manifest order) — acceptable
+     * for logs; counts and exit code are unaffected. Sha-neutral: read-only
+     * on shards. */
+    int threads = manifest_thread_count();
+    char cmd[8192];
+    snprintf(cmd, sizeof(cmd),
+             "LC_ALL=C xargs -P %d -n 1 -d '\\n' -a '%s' sh -c '"
+             "line=\"$1\"; "
+             "fname=$(printf \"%%s\" \"$line\" | cut -f1); "
+             "sz=$(printf \"%%s\" \"$line\" | cut -f2); "
+             "sha=$(printf \"%%s\" \"$line\" | cut -f3); "
+             "[ -z \"$fname\" ] && exit 0; "
+             "if ! actual_sz=$(stat -c%%s \"$fname\" 2>/dev/null); then "
+             "  printf \"MISSING\\t%%s\\t%%s\\n\" \"$fname\" \"$sz\"; exit 0; "
+             "fi; "
+             "if [ \"$actual_sz\" -lt \"$sz\" ]; then "
+             "  printf \"SHRUNK\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$actual_sz\" \"$sz\"; exit 0; "
+             "fi; "
+             "got=$(head -c \"$sz\" \"$fname\" 2>/dev/null | %s | cut -d\" \" -f1); "
+             "if [ \"$got\" != \"$sha\" ]; then "
+             "  printf \"DIVERGED\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$got\" \"$sha\"; "
+             "fi"
+             "' _",
+             threads, manifest_path, tool);
+    FILE *p = popen(cmd, "r");
+    if (!p) {
+        fprintf(stderr, "ERROR: popen failed for parallel manifest verify\n");
+        return 30;
+    }
+    int missing = 0, shrunk = 0, diverged = 0;
+    char outline[4096];
+    while (fgets(outline, sizeof(outline), p)) {
+        if (strncmp(outline, "MISSING\t", 8) == 0) {
+            char fname[512]; long long sz = 0;
+            if (sscanf(outline + 8, "%511s %lld", fname, &sz) >= 1)
+                fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n", fname, sz);
             missing++;
-            continue;
-        }
-        if ((long long)st.st_size < sz) {
-            fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
-                    fname, (long long)st.st_size, sz);
+        } else if (strncmp(outline, "SHRUNK\t", 7) == 0) {
+            char fname[512]; long long actual_sz = 0, sz = 0;
+            if (sscanf(outline + 7, "%511s %lld %lld", fname, &actual_sz, &sz) >= 1)
+                fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
+                        fname, actual_sz, sz);
             shrunk++;
-            continue;
-        }
-        char cmd[8192], got[128] = {0};
-        snprintf(cmd, sizeof(cmd),
-                 "head -c %lld %s | %s | cut -d' ' -f1", sz, fname, tool);
-        FILE *p = popen(cmd, "r");
-        if (!p) {
-            fprintf(stderr, "ERROR: popen failed for %s\n", fname);
-            fclose(mf);
-            return 30;
-        }
-        (void)!fgets(got, sizeof(got), p);
-        pclose(p);
-        for (char *q = got; *q; q++) if (*q == '\n') { *q = 0; break; }
-        if (strcmp(got, sha) != 0) {
-            fprintf(stderr, "DIVERGED: %s - first %lld bytes sha=%s, manifest=%s\n",
-                    fname, sz, got, sha);
+        } else if (strncmp(outline, "DIVERGED\t", 9) == 0) {
+            char fname[512], got[128] = {0}, sha[128] = {0};
+            if (sscanf(outline + 9, "%511s %127s %127s", fname, got, sha) >= 1)
+                fprintf(stderr, "DIVERGED: %s - sha=%s, manifest=%s\n",
+                        fname, got, sha);
             diverged++;
         }
     }
-    fclose(mf);
+    pclose(p);
     if (out_total) *out_total = total;
     if (out_missing) *out_missing = missing;
     if (out_shrunk) *out_shrunk = shrunk;
