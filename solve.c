@@ -10763,6 +10763,7 @@ int main(int argc, char *argv[]) {
         unsigned char *all = mmap_base + SOL_HEADER_SIZE;   /* record-stream view */
 
         printf("[1] File metadata\n");
+        fprintf(stderr, "[1] START\n"); fflush(stderr);
         printf("    records:    %lld\n", n_sols);
         printf("    file size:  %ld bytes (%d header + %ld records, %.2f GB total)\n",
                full_size, SOL_HEADER_SIZE, file_size, full_size / 1e9);
@@ -10899,6 +10900,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 2: entropy === */
         printf("[2] Per-position Shannon entropy H(p), max log2(32)=5.0\n");
+        fprintf(stderr, "[2] START\n"); fflush(stderr);
         printf("    %-4s  %-10s  %s\n", "Pos", "H (bits)", "#distinct pairs");
         double H[32];
         for (int p = 0; p < 32; p++) {
@@ -10918,6 +10920,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 3: per-boundary survivors === */
         printf("[3] Per-boundary survivors (records matching KW pair_p AND pair_{p+1})\n");
+        fprintf(stderr, "[3] START\n"); fflush(stderr);
         for (int b = 0; b < 31; b++)
             printf("    Boundary %2d (pos %d-%d): %12lld (%.4f%%)\n",
                    b + 1, b + 1, b + 2, single[b], 100.0 * single[b] / n_sols);
@@ -10925,6 +10928,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 4: KW variants === */
         printf("[4] King Wen variants (records with pair_idx == 0,1,2,...,31)\n");
+        fprintf(stderr, "[4] START\n"); fflush(stderr);
         printf("    KW records found: %d\n", kw_count);
         if (kw_count > 0 && kw_count <= 64) {
             printf("    Orient pattern per variant (1=reversed, 0=natural):\n");
@@ -10947,6 +10951,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 5: shift-pattern violations === */
         printf("[5] Shift-pattern violations: at position p in [3..19], pair must be pair_{p-1} or pair_{p-2}\n");
+        fprintf(stderr, "[5] START\n"); fflush(stderr);
         printf("    %-4s  %-14s  %s\n", "Pos", "Exceptions", "Pct of total");
         for (int idx = 2; idx <= 18; idx++)
             printf("    %-4d  %-14lld  %.4f%%\n", idx + 1, shift_exc[idx - 2], 100.0 * shift_exc[idx - 2] / n_sols);
@@ -10963,6 +10968,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 6: greedy minimum boundary search === */
         printf("[6] Greedy minimum-boundary search to uniquely identify KW\n");
+        fprintf(stderr, "[6] START\n"); fflush(stderr);
         uint64_t *alive_mask = malloc((size_t)n_words * sizeof(uint64_t));
         if (!alive_mask) {
             fprintf(stderr, "ERROR: malloc failed for alive_mask (%lld words)\n", n_words);
@@ -11004,6 +11010,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 7: 3-subset disproof (parallelized) === */
         printf("[7] Exhaustive 3-subset disproof: test all C(31,3)=4,495 triples\n");
+        fprintf(stderr, "[7] START\n"); fflush(stderr);
         long long min_t_surv = n_sols + 1;
         int min_t1 = -1, min_t2 = -1, min_t3 = -1, n_t_below = 0;
         time_t t7_start = time(NULL);
@@ -11113,6 +11120,7 @@ int main(int argc, char *argv[]) {
             free(local_report);
         }
         printf("    [8] elapsed: %lds\n", (long)(time(NULL) - t8_start));
+        fprintf(stderr, "[8] DONE\n"); fflush(stderr);
         int reported = n_working < 200 ? n_working : 200;
         for (int i = 0; i < reported; i++)
             printf("    {%2d, %2d, %2d, %2d}  survivors=%lld\n",
@@ -11142,6 +11150,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 9: Boundary redundancy === */
         printf("[9] Boundary redundancy: joint(b1,b2) / min(single(b1), single(b2))\n");
+        fprintf(stderr, "[9] START\n"); fflush(stderr);
         long long joint[31][31]; memset(joint, 0, sizeof(joint));
         #pragma omp parallel for schedule(dynamic, 4)
         for (int b1 = 0; b1 < 30; b1++) {
@@ -11211,6 +11220,7 @@ int main(int argc, char *argv[]) {
          * during the pass. STDOUT (the canonical analyze output) untouched.
          */
         printf("[10] Pairwise mutual information I(p; q) — top 20 strongest correlations\n");
+        fprintf(stderr, "[10] START\n"); fflush(stderr);
         double MI[32][32];
         for (int p = 0; p < 32; p++) MI[p][p] = 0.0;
         time_t t10_start = time(NULL);
@@ -11314,6 +11324,7 @@ int main(int argc, char *argv[]) {
         }
         free(jc_global);
         printf("    [10] elapsed: %lds\n", (long)(time(NULL) - t10_start));
+        fprintf(stderr, "[10] DONE\n"); fflush(stderr);
         typedef struct { double mi; int p, q; } MIEntry;
         int n_mi_pairs = 32 * 31 / 2;
         MIEntry *mi_arr = malloc(n_mi_pairs * sizeof(MIEntry));
@@ -11358,6 +11369,7 @@ int main(int argc, char *argv[]) {
          * sums/dedups → byte-identical to the original.
          */
         printf("[11] Per-first-level-branch distinct configs at positions 3..19\n");
+        fprintf(stderr, "[11] START\n"); fflush(stderr);
         printf("     %-5s  %-30s  %s\n", "Pair", "Distinct configs at pos 3-19", "Records");
         time_t t11_start = time(NULL);
         fprintf(stderr, "    [11] start at %s", ctime(&t11_start));
@@ -11426,11 +11438,13 @@ int main(int argc, char *argv[]) {
         }
         free(s11_sets); free(p1_total);
         printf("    [11] elapsed: %lds\n", (long)(time(NULL) - t11_start));
+        fprintf(stderr, "[11] DONE\n"); fflush(stderr);
         skip_section11:
         printf("\n");
 
         /* === Section 12: Null-model relative to a non-KW reference === */
         printf("[12] Null-model: greedy minimum-boundary search relative to a non-KW reference\n");
+        fprintf(stderr, "[12] START\n"); fflush(stderr);
         long long ref_idx = n_sols / 2;
         unsigned char ref_pairs[32];
         for (int p = 0; p < 32; p++) ref_pairs[p] = all[ref_idx * SOL_RECORD_SIZE + p] >> 2;
@@ -11516,6 +11530,7 @@ int main(int argc, char *argv[]) {
 
         /* === Section 13: Orbits === */
         printf("[13] Orbit analysis under reversal and pair-complement\n");
+        fprintf(stderr, "[13] START\n"); fflush(stderr);
         time_t t_s13_start = time(NULL);
         long long s13_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
         long long n_palin = 0;
@@ -11582,6 +11597,7 @@ int main(int argc, char *argv[]) {
          * question flagged in SOLVE-SUMMARY.md and INSIGHTS.md.
          */
         printf("[14] Orient-coupling generalization\n");
+        fprintf(stderr, "[14] START\n"); fflush(stderr);
         printf("     Grouping %lld records by pair-index sequence (orient masked) ...\n", n_sols);
         time_t t14_start = time(NULL);
 
@@ -11996,6 +12012,7 @@ int main(int argc, char *argv[]) {
          * so the bug-kept total is bounded by [sum(min), sum(max)].
          */
         printf("[16] Per-(p2, o2) collision-key bug-impact map\n");
+        fprintf(stderr, "[16] START\n"); fflush(stderr);
         time_t t16 = time(NULL);
         {
             /* counts[p2][o2][p1][o1] — 32*2*32*2 = 4096 long longs */
@@ -12047,12 +12064,14 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [16] elapsed: %lds\n\n", (long)(time(NULL) - t16));
+        fprintf(stderr, "[16] DONE\n"); fflush(stderr);
 
         /* === Section 17: Survivor structure of best triple {2, 25, 27} ===
          * Take records matching KW at boundaries 2, 25, 27 (0-indexed: 1, 24, 26)
          * and decompose: edit distance to KW, which positions vary, pair-sequences.
          */
         printf("[17] Survivor structure of best triple {2, 25, 27}\n");
+        fprintf(stderr, "[17] START\n"); fflush(stderr);
         time_t t17 = time(NULL);
         {
             long long surv_cap = 256;
@@ -12125,6 +12144,7 @@ int main(int argc, char *argv[]) {
         }
         skip_section17:
         printf("    [17] elapsed: %lds\n\n", (long)(time(NULL) - t17));
+        fprintf(stderr, "[17] DONE\n"); fflush(stderr);
 
         /* === Section 18: Per-boundary conditional entropy ===
          * For each boundary b, compute sum_p H(pair at p | records matching KW
@@ -12133,6 +12153,7 @@ int main(int argc, char *argv[]) {
          * gained by learning that boundary b matches KW.
          */
         printf("[18] Per-boundary conditional entropy\n");
+        fprintf(stderr, "[18] START\n"); fflush(stderr);
         time_t t18 = time(NULL);
         {
             double H_base_total = 0;
@@ -12184,6 +12205,7 @@ int main(int argc, char *argv[]) {
         }
         skip_section18:
         printf("    [18] elapsed: %lds\n\n", (long)(time(NULL) - t18));
+        fprintf(stderr, "[18] DONE\n"); fflush(stderr);
 
         /* === Section 19: Identity-level check of the 4 working 4-sets ===
          * Dump the actual records surviving each of the 4 working 4-sets.
@@ -12191,6 +12213,7 @@ int main(int argc, char *argv[]) {
          * (expected: the 4 KW orient variants, no non-KW) or differ subtly.
          */
         printf("[19] Identity-level survivor dump per working 4-set\n");
+        fprintf(stderr, "[19] START\n"); fflush(stderr);
         time_t t19 = time(NULL);
         {
             /* 0-indexed boundary tuples for {2,21,25,27}, {2,22,25,27}, {3,21,25,27}, {3,22,25,27} */
@@ -12228,6 +12251,7 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [19] elapsed: %lds\n\n", (long)(time(NULL) - t19));
+        fprintf(stderr, "[19] DONE\n"); fflush(stderr);
 
         /* === Section 20: Complement-orbit analysis ===
          * Bitwise-complement each hexagram (h → h^0x3F). This maps valid
@@ -12245,6 +12269,7 @@ int main(int argc, char *argv[]) {
          * ~51 GB — fits on F32 (64 GB).
          */
         printf("[20] Complement-orbit analysis\n");
+        fprintf(stderr, "[20] START\n"); fflush(stderr);
         time_t t20 = time(NULL);
         {
             /* comp_pair_idx[] and comp_orient_flip[] are hoisted to analyze-mode
@@ -12358,12 +12383,14 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [20] elapsed: %lds\n\n", (long)(time(NULL) - t20));
+        fprintf(stderr, "[20] DONE\n"); fflush(stderr);
 
         /* === Section 21: Full per-position pair frequency table ===
          * pos_cnt[p][pair] is already computed in the streaming pass.
          * Emit the full 32×32 table for baseline comparison at 100T.
          */
         printf("[21] Per-position pair frequency table (32 positions × 32 pairs)\n");
+        fprintf(stderr, "[21] START\n"); fflush(stderr);
         time_t t21 = time(NULL);
         {
             printf("    Format: pos (1-indexed), pair_index, count, pct, is_KW_pair\n");
@@ -12389,6 +12416,7 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [21] elapsed: %lds\n\n", (long)(time(NULL) - t21));
+        fprintf(stderr, "[21] DONE\n"); fflush(stderr);
 
         /* === Section 22: Complement-distance distribution ===
          * Uses the same hex-level metric as C3 (compute_comp_dist_x64):
@@ -12404,6 +12432,7 @@ int main(int argc, char *argv[]) {
          * respective reference populations.
          */
         printf("[22] Complement-distance distribution (hex-level, same metric as C3)\n");
+        fprintf(stderr, "[22] START\n"); fflush(stderr);
         time_t t22 = time(NULL);
         {
             #define CD_X64_MAX 2048
@@ -12477,12 +12506,14 @@ int main(int argc, char *argv[]) {
         }
         skip_section22:
         printf("    [22] elapsed: %lds\n\n", (long)(time(NULL) - t22));
+        fprintf(stderr, "[22] DONE\n"); fflush(stderr);
 
         /* === Section 23: {25, 27}-only survivor characterization ===
          * Survivors matching KW at boundaries 25 and 27 (0-indexed: 24 and 26).
          * Updates the old "1,055 survivors" claim from the buggy dataset.
          */
         printf("[23] Survivors after mandatory boundaries {25, 27} only\n");
+        fprintf(stderr, "[23] START\n"); fflush(stderr);
         time_t t23 = time(NULL);
         {
             long long n_surv = 0;
@@ -12542,6 +12573,7 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [23] elapsed: %lds\n\n", (long)(time(NULL) - t23));
+        fprintf(stderr, "[23] DONE\n"); fflush(stderr);
 
         /* === Section 24: KW nearest-neighbor catalog ===
          * Find the N closest solutions to KW by edit distance (pair-position
@@ -12549,6 +12581,7 @@ int main(int argc, char *argv[]) {
          * by edit distance.
          */
         printf("[24] KW nearest-neighbor catalog (top 50 closest)\n");
+        fprintf(stderr, "[24] START\n"); fflush(stderr);
         time_t t24 = time(NULL);
         {
             #define NN_CAP 50
@@ -12611,6 +12644,7 @@ int main(int argc, char *argv[]) {
         }
         skip_section24:
         printf("    [24] elapsed: %lds\n\n", (long)(time(NULL) - t24));
+        fprintf(stderr, "[24] DONE\n"); fflush(stderr);
 
         /* === Section 25: Per-sub-branch yield from checkpoint.txt ===
          * Reads checkpoint.txt next to analyze_file. Parses sub-branch commit
@@ -12618,6 +12652,7 @@ int main(int argc, char *argv[]) {
          * status. Primary input for 10T-vs-100T saturation-curve fitting.
          */
         printf("[25] Per-sub-branch yield from checkpoint.txt\n");
+        fprintf(stderr, "[25] START\n"); fflush(stderr);
         time_t t25 = time(NULL);
         {
             /* Derive checkpoint.txt path: same directory as analyze_file */
@@ -12772,6 +12807,7 @@ int main(int argc, char *argv[]) {
         }
         skip_section25:
         printf("    [25] elapsed: %lds\n\n", (long)(time(NULL) - t25));
+        fprintf(stderr, "[25] DONE\n"); fflush(stderr);
 
         /* === Section 26: Per-first-level-branch solution count ===
          * Uses branch_count[] populated in the streaming pass at top of analyze_mode.
@@ -12779,6 +12815,7 @@ int main(int argc, char *argv[]) {
          * branch, for cross-scale comparison and deep-dive selection.
          */
         printf("[26] Per-first-level-branch solution count\n");
+        fprintf(stderr, "[26] START\n"); fflush(stderr);
         time_t t26 = time(NULL);
         {
             long long tot_by_pair[32] = {0};
@@ -12815,12 +12852,14 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [26] elapsed: %lds\n\n", (long)(time(NULL) - t26));
+        fprintf(stderr, "[26] DONE\n"); fflush(stderr);
 
         /* === Section 27: Budget-exhaustion summary ===
          * Re-reads checkpoint.txt (lightweight second pass) for aggregate counts.
          * Primary saturation signal: fraction of sub-branches that completed naturally.
          */
         printf("[27] Budget-exhaustion summary (from checkpoint.txt)\n");
+        fprintf(stderr, "[27] START\n"); fflush(stderr);
         time_t t27 = time(NULL);
         {
             char ckpt_path[1024];
@@ -12884,12 +12923,14 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("    [27] elapsed: %lds\n\n", (long)(time(NULL) - t27));
+        fprintf(stderr, "[27] DONE\n"); fflush(stderr);
 
         /* === Section 28: Edit-distance-to-KW histogram (full 0-32) ===
          * Uses edit_dist_hist[] populated in the streaming pass. Full histogram
          * across the 742M dataset; baseline for 100T shape comparison.
          */
         printf("[28] Edit-distance-to-KW histogram (full dataset)\n");
+        fprintf(stderr, "[28] START\n"); fflush(stderr);
         time_t t28 = time(NULL);
         {
             long long hist_total = 0;
@@ -12920,6 +12961,7 @@ int main(int argc, char *argv[]) {
                    min_d, max_d, mode_d, mode_count);
         }
         printf("    [28] elapsed: %lds\n\n", (long)(time(NULL) - t28));
+        fprintf(stderr, "[28] DONE\n"); fflush(stderr);
 
         /* bmask freed here (end of analyze_mode) — see lifetime note above
          * section [14]. Sections [3]-[19] all depend on bmask being alive. */
