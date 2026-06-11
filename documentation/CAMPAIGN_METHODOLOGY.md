@@ -678,18 +678,32 @@ specific symptom that motivated it.
    AND/OR `export AZCOPY_JOB_PLAN_LOCATION=/tmp/azcopy_plans` in the
    supervisor. Belt + suspenders.
 
-8. **`solve --analyze` at canonical scale: D64 is both the floor and the
-   ceiling.**
+8. **`solve --analyze` at canonical scale: D32 Standard is right-sized;
+   D64 is wasted budget. Floor is RAM, not cores.**
    Floor: solve --analyze allocates 31 packed bitmaps × ~1.3 GB = 40.79 GB
-   RAM; doesn't fit on D16 (32 GB). Ceiling: the heavy section is §[10]
-   pairwise mutual information (O(N × 2016 pairs) over the records), which
-   runs at ~120-200 % CPU — i.e. mostly single-threaded with a small SIMD
-   parallel fraction. More cores don't help; bitmap-pool RAM is
-   N-independent so 1120T won't push memory either.
-   **Rule:** size analyze VM at D64 Standard regardless of canonical
-   scale (560T or 1120T). Don't waste money on D96 or D128 for analyze.
-   Expect ~16-22 h wall at 10.5 B records (560T), ~24-36 h at 18 B
-   records (1120T extension).
+   RAM; doesn't fit on D16als_v7 (32 GB) — D32als_v7 (64 GB) is the
+   smallest that fits with reasonable headroom. Ceiling on cores:
+   empirical from the 2026-06-10 560T analyze run on D64, the heavy
+   §[10] pairwise mutual information section uses **only 4-5 cores
+   sustained** across a 24h+ wall, monotonically climbing from 1.2
+   cores at section start to ~4.4 cores after 23h —
+   **6.9 % of a D64's compute capacity.** The bottleneck is memory
+   bandwidth or single-thread-by-construction inner loops, not cores.
+   After the initial 75-min streaming pass over solutions.bin (which
+   benefits modestly from D64's 128 GB page cache), §[10] operates
+   entirely on the 40 GB packed-bitmap pool and never re-touches
+   solutions.bin — so page-cache size doesn't matter for the
+   dominant section.
+   **Rule:** size analyze VM at **D32als_v7 Standard** regardless of
+   canonical scale. Cost ~$1.30/hr vs $2.50/hr for D64 Standard —
+   ~48 % savings per analyze run with no measurable wall-time penalty.
+   Until/unless task #139 progress markers reveal a section that
+   scales to 32+ cores (3200 %+ CPU sustained), D64+ is unjustified.
+   §[10] scaling is **O(N × pairs) ≈ linear in records**, validated
+   by 100T-vs-560T point comparison (within 10 % of linear, no
+   evidence of quadratic or super-linear). Expected wall: ~16-22 h
+   at 10.5 B records (560T), ~35-40 h at 18 B records (1120T
+   extension), based on this linear projection.
 
 9. **Extension cost is NOT 2× the source's cost; it's incremental.**
    Initial 1120T-extension cost estimate was $690 (anchored to "2× 560T's
