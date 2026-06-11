@@ -299,24 +299,31 @@
 /* Per-1% progress emission for --analyze sections. Master-thread only when
  * inside an OpenMP region (omp_get_thread_num() returns 0 outside parallel
  * regions, so single-threaded loops work too). All progress goes to stderr;
- * stdout (the canonical analyze output) is never touched. */
+ * stdout (the canonical analyze output) is never touched.
+ *
+ * When called from inside an OpenMP `#pragma omp for` with static schedule,
+ * master's i only walks 1/num_threads of the records (its assigned chunk).
+ * To display overall progress, multiply by num_threads when omp_in_parallel()
+ * is true. Outside parallel regions (serial loops) i is true progress. */
 #define ANALYZE_EMIT_PROGRESS(label, i, total, t_start, step) do {     \
     if (omp_get_thread_num() == 0 && (i) > 0 &&                        \
         ((i) % (step)) == 0) {                                         \
+        long long _est = omp_in_parallel() ?                           \
+            (long long)(i) * omp_get_num_threads() : (long long)(i);   \
+        if (_est > (long long)(total)) _est = (long long)(total);      \
         time_t _now = time(NULL);                                      \
         long _e = (long)(_now - (t_start));                            \
-        double _p = 100.0 * (double)(i) / (double)(total);             \
+        double _p = 100.0 * (double)_est / (double)(total);            \
         long _eta = (_p > 0.5) ?                                       \
             (long)((100.0 - _p) / _p * _e) : -1;                       \
         if (_eta >= 0)                                                 \
             fprintf(stderr,                                            \
                     "    [%s] %lld/%lld (%.1f%%) elapsed=%lds ETA=%lds\n", \
-                    label, (long long)(i), (long long)(total), _p,     \
-                    _e, _eta);                                         \
+                    label, _est, (long long)(total), _p, _e, _eta);    \
         else                                                           \
             fprintf(stderr,                                            \
                     "    [%s] %lld/%lld (%.1f%%) elapsed=%lds\n",      \
-                    label, (long long)(i), (long long)(total), _p, _e); \
+                    label, _est, (long long)(total), _p, _e);          \
         fflush(stderr);                                                \
     }                                                                  \
 } while (0)
