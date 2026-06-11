@@ -4768,3 +4768,30 @@ All three were validated via a paired test on the 11.2T canonical (796 M records
 The §[10]/§[11]/§[20] rewrites collapse to a single architectural pattern: **at canonical scale, the only sustainable per-section design is one pass over `n_sols` records doing all per-record work inline**. Any anti-pattern (outer iteration over pairs/subsets/positions with inner full `n_sols` scan; allocate-then-sort a `n_sols`-sized buffer) becomes infeasible at 560T+ either by wall-time or by RAM. Documented as CAMPAIGN_METHODOLOGY §7 rule 14 (added in same session) so the next operator extending --analyze functionality starts with the right pattern. The §[10]+§[11]+§[20] rewrites + sizing fix together unblock the 1120T extension's analyze step from "infeasible" to **~3-5 h on D128**.
 
 Six solve.c commits, all selftest-sha-preserving: `8ac5e8f` (§[10] + progress markers), `fe58e71` (§[11]), `bf8d8a5` (§[20]), `b1a51ed` (universal progress markers), `a330548` (section START/DONE), `c0ec4c3` (OpenMP progress correctness). Tag `pre-1120T-analyze-fast-2026-06-11` marks the canonical-scale analyze-ready state.
+
+### 560T `--analyze` scientific findings (D128 run, 2026-06-11)
+
+The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
+
+- **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
+- **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)
+- **§[6] greedy minimum-boundary search for KW**: 4 boundaries, set **{4, 27, 25, 21}** applied in order. Step 1: boundary 4 alone reduces 10.5 B non-KW down to 51,404 (99.999% elimination). Step 2: → 481. Step 3: → 14. Step 4: → 1 (KW)
+- **§[7] exhaustive 3-subset disproof**: tested all C(31,3)=4,495 triples. Best 3-set {4, 25, 27} leaves 15 survivors. Triples reaching ≤1: **0**. 4-boundary minimum proven at 560T
+- **§[8] all 4-subsets reducing survivors to ≤1: 0** — significant scale-dependent shift from 742M (4 sets), 11.2T (8 sets); at 560T no *unordered* 4-tuple of boundaries reduces survivors to ≤1 (the greedy ordered minimum in §[6] still works because each chosen boundary's effect compounds on the prior). **Methodological consequence: "4-set uniquely identifies KW" was a scale-bounded empirical observation; the durable claim is "4 boundaries suffice via greedy-ordered application"**
+- **§[9] boundary redundancy**: top-INDEPENDENT pairs include `{6,26}` (ratio 0.007), `{12,26}`, `{25,27}` (ratio 0.007) — quantifying why 25 + 27 appear in every minimum set across all canonicals
+- **§[10] pairwise mutual information** (~365 s on D128 with new tile-by-records algorithm; OLD code 24h+ infeasible): top pair **pos 12 ↔ pos 13 = 1.3417 bits**, followed by 19↔20 = 1.2977, 17↔18 = 1.2422, 13↔14 = 1.2360. Cascade-region positions 11–20 own the entire top-10. Mandatory boundaries 25, 27 do NOT appear in the top-20 MI pairs — confirming structural independence from the cascade-region MI cluster
+- **§[18] per-boundary conditional entropy**: baseline H = **77.81 bits** (sum_p H(pair at p)). Boundary 4 has the highest info gain at **45.14 bits** (over half the total entropy). Boundaries 25, 27 info gain: 10.73, 10.63 bits — mid-pack. The high-information boundaries are *not* the mandatory ones; mandatoriness is structural (specific to which non-KW orderings each boundary eliminates), not information-theoretic
+- **§[19] identity-level survivor dump**: empty at 560T (consistent with §[8]=0)
+- **§[28] edit-distance histogram**: mode at distance 30 with 2,789,988,449 records (26.5% of all canonicals); 96% of records are at edit-distance ≥ 25 from KW; distance 31 holds 1,880,042,588 records (17.9%). KW is structurally rare in the canonical-solution space at 560T scale
+
+**Scale-comparison summary:**
+
+| Metric | 742M | 11.2T | 560T |
+|---|---|---|---|
+| Working 4-sets (unordered) uniquely identifying KW (§[8]) | 4 | 8 | **0** |
+| Greedy-ordered minimum boundaries (§[6]) | 4 | 4 | 4 |
+| Top pairwise MI value (§[10]) | 1.15 (pos 19↔20) | 1.40 (pos 20↔21) | 1.34 (pos 12↔13) |
+| Boundary 4 conditional info gain (§[18]) | – | – | 45.14 bits |
+| Records | 742 M | 800 M | 10.5 B |
+
+The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T no unordered 4-tuple of boundaries reduces survivors to ≤ 1; only the *ordered* greedy application still works. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — has been updated 2026-06-11 to reflect this: greedy-ordered "4 boundaries suffice" is the durable structural claim; the *unordered* "4-set unique to KW" framing is scale-bounded.
