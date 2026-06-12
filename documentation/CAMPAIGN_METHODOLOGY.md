@@ -749,6 +749,13 @@ specific symptom that motivated it.
       `build.sha`, `shard_manifest.txt`
     - `EXTENSION_RECIPE.txt` (operational recipe per §3 — frozen at archive
       time; lives in the archive, not just the live repo)
+    - `parent_canonical.txt` (lineage anchor — `this_canonical_sha`,
+      `this_canonical_scale`, `parent_canonical_sha`, `parent_canonical_scale`;
+      `ROOT` for fresh enums, `<sha> <scale>` for extensions. Convention
+      baked into `phase_b_recover_and_archive_supervise.sh` 2026-06-11
+      after the original 560T archive shipped without it. Required so
+      future archive readers can verify the milestone-extension chain
+      back to the lineage root.)
 
     Without any one of the above, a fresh-VM + fresh-storage extension
     cannot resume byte-faithfully.

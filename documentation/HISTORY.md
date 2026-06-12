@@ -4795,3 +4795,49 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 | Records | 742 M | 800 M | 10.5 B |
 
 The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T no unordered 4-tuple of boundaries reduces survivors to ≤ 1; only the *ordered* greedy application still works. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — has been updated 2026-06-11 to reflect this: greedy-ordered "4 boundaries suffice" is the durable structural claim; the *unordered* "4-set unique to KW" framing is scale-bounded.
+
+## June 11-12, 2026 — 560T closeout completion + per-cell scaling insight + 100T v3 re-derive
+
+The 560T campaign's scientific cascade and infrastructure closeout finished today. Headline event: the **per-cell yield comparison** task #126 (11.2T-vs-560T) surfaced a quantitative finding that refines the project's mental model of "diminishing returns" at deeper enumeration.
+
+### Per-cell scaling result (task #126)
+
+For the same v1 lineage, comparing 11.2T (sha `0c0fe37c…`, 759,608,573 records, 24,152 yielding cells at 70.7M nodes/cell budget) to 560T (sha `9a968fa2…`, 10,525,271,997 records, 65,281 yielding cells at 3.536B nodes/cell budget):
+
+- **50× per-cell budget growth produces 13.86× post-dedup record growth.** Diminishing returns confirmed quantitatively.
+- **Median per-cell yield growth is 23.4×** for cells in both datasets (vs the 50× budget growth). Most cells partially saturate within the 50× budget jump.
+- **Heavy-tailed growth distribution**: mean 353×, P99 5,317×, max 323,572×. A small minority of cells were severely under-sampled at 11.2T.
+- **60.4% of 560T's records come from cells that yielded NOTHING at 11.2T.** 41,129 of 65,281 yielding cells at 560T (63%) had zero solutions at the smaller budget; they contribute 26.5 B of 43.88 B (pre-dedup) records. The 50× budget growth was substantially spent *discovering new cells*, not *deepening existing cells*.
+- **Strict subset validation PASS** (0 violations across 24,152 cells). Canonical enumeration is extension-monotonic at scale.
+
+Implication for the 1120T extension projection: the simple power-law `records ∝ T^0.78` projects ~18.1 B records at 1120T. The mechanism behind that projection is now better understood — a substantial fraction of the additional records will come from cells that produced 0 records at 560T, rather than from deeper trees in cells already yielding at 560T. Realistic 1120T range refined to ~14-22 B records.
+
+Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bin.gz` from cold blob and binning each 32-byte record by bytes 1-3 (= encoded sub-branch key for positions 2, 3, 4; byte 0 is C1-fixed position 1 = pair 0). 560T per-cell data extracted from the 65,281 `sub_*.bin.provenance.json.gz` files in cold blob via parallel curl + `cumulative_records_emitted` parse. Encoding alignment validated by p1-distinct-value cross-check (28 distinct values on both sides; identical set). Total compute cost: ~$0.13 (D2 Spot + cold blob egress).
+
+Full report at `roae-private/PER_CELL_11_2T_VS_560T_COMPARISON_2026_06_11.md` (private; raw data archived to `roae-private/per_cell_comparison_2026_06_11/`).
+
+### v3 100T re-derive launched (task #148)
+
+The original 2026-04-20 100T canonical's bytes were destroyed in the 2026-05-06 `mkfs -F` incident; T9+c.1 + T9+d recovery (2026-05-09/10) re-derived sha `915abf30…` byte-identically. The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were never uploaded to cold blob (the `canonical-archive/20260530_100T_revalidation_4e15885/` path documented in older CANONICAL_HASHES.md text was found empty during today's per-cell work; the doc was corrected).
+
+Today launched a fresh v3 100T re-derive on D128als_v7 Spot to (a) restore preserved bytes for the 100T canonical anchor and (b) preserve per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum). This enables a 3-point per-cell scaling trajectory (11.2T → 100T → 560T) that would refine the 1120T projection further than the current 2-point comparison.
+
+Cost projection: ~$32 (D128 Spot ~16h × $0.95 + D16 Standard merge ~5h × $1.30 + 1 TB Premium SSD ~2 days + archive). Operator authorized "start it now on spot vms" at 2026-06-11 mid-afternoon PT; enum running since 23:22 UTC. Sha-gate: target `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (byte-identical to v1 anchor per v3 sha-preservation).
+
+Launcher: `roae-private/scripts/campaign_100T_v3_rederive/LAUNCH_100T_V3_RE_DERIVE.sh` — thin wrapper over the 560T launcher with PSB / NL / VM / RUN / LOGDIR / EXPECTED_SHA env overrides (the 560T launcher was retrofitted 2026-06-11 to accept these overrides + a parent_canonical.txt convention).
+
+### Repo housekeeping (consolidation + correction)
+
+Two doc-shape changes landed today:
+
+1. **`findings/` → `documentation/` consolidation.** The three previously-staging findings docs (PARTITION_STABILITY_BOUNDARIES, SYMMETRY_SEARCH, PASS1_TRAJECTORY_DETERMINISM) were moved to `documentation/`, alongside a fourth new finding (`BOUNDARY_MINIMUM_NON_MONOTONE.md`) documenting the 4 → 5 → 4 greedy-ordered minimum trajectory across d3 10T → 100T → 560T. The motivation: a pre-Fable-review repo-wide MD sweep caught that the original `findings/` directory was being skipped by the partial `documentation/`-only review pass (#147). Consolidating into one tree eliminates the second-tier hierarchy that was easy to miss. A redirect stub remains at `findings/README.md` for incoming external links (then physically deleted 2026-06-11 PT evening after the redirect transition was confirmed). Commit: `bbf5348` consolidation; later commit deleting the stub.
+
+2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `roaecanonical2026/canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
+
+### Other 560T-derived hardening
+
+- `phase_b_recover_and_archive_supervise.sh` now auto-writes `parent_canonical.txt` per archive (operator directive 2026-06-11 mid-evening, before the 100T re-derive launch). Convention: `ROOT` for fresh enums; `<sha> <scale>` for extensions. The 560T cold blob was backfilled with this file (`ROOT` since 560T was a fresh full enum).
+- LAUNCH_560T_CAMPAIGN.sh was retrofitted with 8 env overrides (PSB / NL / VM / MERGE_VM / ARCHIVE_VM / RUN / LOGDIR / PREMIUM_GB / WALL_CAP / EXPECTED_SHA / EXPECTED_SCALE / ARCHIVE_NAME) so both the 1120T extension launcher and the 100T re-derive launcher are thin delegating wrappers rather than separate ~700-line copies. Backwards-compatible — defaults fall back to the 560T-campaign-specific values.
+- Tag `pre-1120T-analyze-fast-2026-06-11` shipped on the post-#141/#142/#143/#144/#145/#146 main HEAD. Today's commits add to this tag's lineage; a follow-on tag `560T-closed-2026-06-12` marks the campaign's official close.
+
+Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved across all today's commits (sha-neutral by construction — doc + supervisor changes only).
