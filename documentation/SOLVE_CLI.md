@@ -42,6 +42,8 @@ solve --extended-selftest                               # solve.py-driven 9-subt
 solve --preflight [node_limit]                          # run in-process gates (no enum)
 solve --disk-precheck <mount> [gb] [uuid]               # capacity/writability/identity check
 solve --print-config                                    # dump build provenance + SOLVE_* env values
+solve --canonical-config <SCALE> [--full]               # emit env vars to reproduce a canonical sha
+solve --validate-launcher-config <SCALE> <PSB>          # assert launcher PSB matches canonical recipe
 ```
 
 ## DESCRIPTION
@@ -187,6 +189,65 @@ config delta is **explicit** rather than reverse-engineered. Complements
 (host env). Compile-time choices (LTO/PGO/-march/AVX-512) are not
 runtime-introspectable — record them at build time (DEVELOPMENT.md
 reproducible-build recipe + `build.sha`). No enumeration; exits 0.
+
+### --canonical-config
+
+```
+solve --canonical-config <SCALE>            # 3 sha-determining env vars
+solve --canonical-config <SCALE> --full     # also emit DFS_ITERATIVE=1 + DFS_CHECKPOINT=1
+```
+
+PSB calculator (2026-06-13). Hardcoded recipe table inside `solve.c` is
+the authoritative source for `SOLVE_PER_SUB_BRANCH_LIMIT` per canonical
+scale — the same values published in
+[CANONICAL_HASHES.md §Reproducibility parameters](CANONICAL_HASHES.md#reproducibility-parameters).
+Known scales: `1T 5.6T 10T 11.2T 100T 560T d2-10T`.
+
+Output is sha-determining only — `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`,
+`SOLVE_PER_SUB_BRANCH_LIMIT`. Deliberately does NOT emit `SOLVE_THREADS`
+(not sha-determining; depends on caller hardware) or
+campaign-operational vars (`SOLVE_ALLOW_BUILD_MISMATCH`,
+`SOLVE_SKIP_AUTOMERGE`, `SOLVE_SKIP_IOPS_CHECK`).
+
+Use case: launchers that want to avoid hardcoding PSB:
+
+```
+eval $(./solve --canonical-config 100T)
+SOLVE_THREADS=128 ./solve 0 128
+```
+
+Exit 0 on success; exit 25 on unknown scale or missing arg. Sha-neutral:
+argv-dispatched, never on the enum path. No enumeration; exits immediately.
+
+Motivated by the 2026-06-12 PSB math error (see
+`petersm3/roae-private:LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR.md`)
+where two re-derive launchers shipped with PSBs re-derived from a wrong
+floor formula, costing ~$15 of compute and ~16h of wall before being
+caught against the recipe table.
+
+### --validate-launcher-config
+
+```
+solve --validate-launcher-config <SCALE> <PSB>
+```
+
+Pre-flight gate (2026-06-13, companion to `--canonical-config`). Asserts
+the caller's `SOLVE_PER_SUB_BRANCH_LIMIT` matches the canonical recipe
+for the given scale. Intended for launcher pre-flight:
+
+```
+./solve --validate-launcher-config 100T "$PSB_OVERRIDE" || exit 1
+```
+
+Exit codes:
+- `0` — PSB matches recipe; safe to launch.
+- `1` — PSB mismatch; sha-reproduction will fail. Stderr includes the
+  diff and the fix (`solve --canonical-config <SCALE>`).
+- `25` — unknown scale or bad arg count.
+
+Sha-neutral. No enumeration; exits immediately. Bake into every
+canonical-targeting launcher; catches PSB typos before any VM is
+provisioned.
 
 ### --cpu-features
 
@@ -669,7 +730,7 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 |---|---|---|
 | `SOLVE_ALLOW_SUB_CANONICAL` | 0 | Sub-canonical hard-gate (exit 25): allows `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set. Output sha will be code-specific (see HISTORY.md "100B canonical drift" 2026-05-25). |
 | `SOLVE_SKIP_CANONICAL_LOCK` | 0 | LOCK file (exit 27): allows concurrent `solve` invocations on the same cwd. Risk: interleaved shard writes / checkpoint corruption. |
-| `SOLVE_ALLOW_BUILD_MISMATCH` | 0 | `build.sha` check (exit 26): allows resuming with a binary that differs from the one that last wrote `build.sha`. Risk: cross-lineage merge contamination. |
+| `SOLVE_ALLOW_BUILD_MISMATCH` | 0 | `build.sha` check (exit 26): allows resuming with a binary that differs from the one that last wrote `build.sha`. Risk: cross-lineage merge contamination. Canonical launchers (LAUNCH_*) handle legitimate rebuild scenarios by deleting stale `build.sha` post-rebuild (preserved as `parent_build.sha.<timestamp>` for archival), so the override is no longer required for normal campaign flow as of 2026-06-13. Override remains available for ad-hoc operator-authorized resumes after a manual mid-campaign rebuild. See [DEVELOPMENT.md §build.sha invariant](DEVELOPMENT.md#buildsha-invariant-outlier-4). |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | `.budget` sidecar strict-default (orphan refuse): allows promotion of legacy shards without sidecars (pre-2026-05-25 runs). Risk: Outlier #5 budget-mismatch. |
 | `SOLVE_SKIP_AUTO_MANIFEST` | 0 | Auto-emit + auto-verify `shard_manifest.txt` (exit 22): disables both startup verify and post-promote emit. |
 | `SOLVE_SKIP_AUTO_SELFTEST` | 0 | Auto-selftest before canonical launch (exit 24): skips the smoke test that confirms binary produces canonical selftest sha. |

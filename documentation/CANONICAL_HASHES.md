@@ -266,6 +266,14 @@ Both shas are **build-recipe + commit specific**. solutions.bin size = 885,271,5
 Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is the per-thread DFS depth; `SOLVE_NODE_LIMIT` is the global budget; `SOLVE_PER_SUB_BRANCH_LIMIT` is the per-cell budget. Thread count must be 128 for byte-identical reproduction at the depth-3 canonicals (the merge dedup step is order-stable so other counts produce the same sha if the enumeration completes, but eviction-recovery and resume paths assume 128).
 
 > **For any new re-derive launcher, copy the `SOLVE_PER_SUB_BRANCH_LIMIT` value verbatim from this table.** Do not re-derive from a `floor(NL / 158,364)` formula — the published values are the empirical PSBs that produced the canonical shas. See `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR.md` for the incident that motivates this rule.
+>
+> **Programmatic access (2026-06-13):** the same recipe lives in `solve.c` and is reachable via:
+> ```
+> solve --canonical-config 100T            # emit sha-determining env vars
+> solve --canonical-config 100T --full     # also emit canonical DFS_ITERATIVE + DFS_CHECKPOINT
+> solve --validate-launcher-config 100T <PSB>   # exit 0 if PSB matches recipe, 1 if not
+> ```
+> Known scales: `1T 5.6T 10T 11.2T 100T 560T d2-10T`. Launchers should call `--validate-launcher-config` as a pre-flight gate before any compute is spent — see how `petersm3/roae-private:scripts/campaign_*_rederive/LAUNCH_*.sh` use it. Output deliberately omits `SOLVE_THREADS` because thread count is not sha-determining and depends on caller hardware.
 
 | Canonical | Env vars |
 |---|---|
@@ -275,12 +283,22 @@ Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is th
 | d3 10T | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=63146557 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` (also produces same sha at SOLVE_THREADS=64; cascade Build A+B both used 64 due to westus3 D128 Spot capacity issues 2026-05-13) |
 | d3 11.2T | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000 SOLVE_PER_SUB_BRANCH_LIMIT=70723196 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` |
 | d3 100T | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631456644 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` |
-| d3 560T | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=560000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=3536157207 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` (plus `SOLVE_ALLOW_BUILD_MISMATCH=1 SOLVE_SKIP_AUTOMERGE=1 SOLVE_SKIP_IOPS_CHECK=1` per the published campaign command line; merge separately via `solve --merge` on Standard VM) |
+| d3 560T | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=560000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=3536157207 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` (plus `SOLVE_SKIP_AUTOMERGE=1 SOLVE_SKIP_IOPS_CHECK=1` operationally; merge separately via `solve --merge` on Standard VM) |
 | d2 10T | `SOLVE_DEPTH=2 SOLVE_NODE_LIMIT=10000000000000 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` |
 
 Solver invocation for the multi-trillion-node canonicals: `solve 0 128`.
 
 For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced in this document), see [SOLVE_CLI.md](SOLVE_CLI.md).
+
+### Sha-determining vs operational env vars
+
+Only `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`, and `SOLVE_PER_SUB_BRANCH_LIMIT` are **sha-determining** — change them and the resulting `solutions.bin` sha changes. The other variables shown above are **operational** — they affect runtime / scheduling / safety gates but produce byte-identical canonical output:
+
+- `SOLVE_DFS_ITERATIVE=1` + `SOLVE_DFS_CHECKPOINT=1` — enable the iterative-DFS code path with on-disk checkpointing. Required for the multi-trillion-node depth-3 canonicals because the recursive path would blow the stack and there's no resume otherwise; sha-equivalent to the recursive path at scales that fit in memory.
+- `SOLVE_THREADS=128` — parallelism degree. Sha-equivalent across `SOLVE_THREADS` values because the merge dedup step is order-stable (also reproduced at `SOLVE_THREADS=64` for the d3 10T canonical).
+- `SOLVE_SKIP_AUTOMERGE=1` — skips the post-enum auto-merge step; needed when using the canonical pipeline pattern (separate Standard VM for merge).
+- `SOLVE_SKIP_IOPS_CHECK=1` — skips the fsync-throughput pre-flight gate; needed for archival disks that fall below the 1000 fsync/sec threshold (HDD canonical-archive Premium).
+- `SOLVE_ALLOW_BUILD_MISMATCH=1` (**NOT in the recipe above** — historical campaign command lines included it as defense against rebuild-induced binary drift across VM teardown-recreate cycles; the current canonical launchers handle this by deleting stale `build.sha` post-rebuild instead, so the override is no longer required and shipping without it surfaces unexpected binary changes loudly). See [DEVELOPMENT.md](DEVELOPMENT.md#buildsha-invariant-outlier-4) for the build.sha invariant guard this flag overrides.
 
 ### PSB-formula caveat
 

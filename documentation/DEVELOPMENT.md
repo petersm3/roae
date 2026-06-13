@@ -665,6 +665,21 @@ Two more fire on the merge path:
 
 For 560T specifically: do NOT set any of the skip-* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
 
+### build.sha invariant (Outlier #4)
+
+The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from the first solve invocation that ran there. Every subsequent invocation re-computes its own `/proc/self/exe` sha and compares — on mismatch, exit 26 with a "build provenance mismatch" error. Purpose: prevent resuming a checkpointed enumeration across two different binaries. The on-disk `.dfs_state` checkpoint encodes search-tree state computed by binary X's prune-stack logic; a different binary Y interpreting that resumed state can produce wrong-but-deterministic canonical bytes — a sha that looks valid but doesn't match any reference and is hard to bisect.
+
+**When the guard fires in practice:**
+
+1. **Same VM, same OS disk across `az vm deallocate` + `az vm start`** — guard passes naturally; `/proc/self/exe` is byte-identical (OS disk preserved). No override needed.
+2. **Fresh VM rebuild** (campaign failure-recovery deleted the OS disk; new provision rebuilds solve) — the rebuilt binary has a different sha than `build.sha` on the persistent Premium SSD. The canonical launchers handle this by preserving the stale `build.sha` as `parent_build.sha.<timestamp>` for archival, then deleting it so the new binary writes fresh. No override needed in the launcher's env.
+3. **Cross-campaign extension** (e.g., 1120T binary touching 560T's RUN_DIR) — same hygiene step in the launcher's `build()` preserves the parent campaign's `build.sha` and lets the new binary write fresh.
+4. **Mid-campaign manual rebuild** (operator ssh's into the enum VM and rebuilds solve directly, bypassing `build()`) — guard correctly fires. Operator must explicitly delete `build.sha` (audited decision) or set `SOLVE_ALLOW_BUILD_MISMATCH=1` for one invocation (audited decision).
+
+**Why solve binaries vary across rebuilds:** `solve.c` embeds `__DATE__`/`__TIME__` macros in diagnostic strings (~6 sites). Every fresh `gcc` invocation stamps a different build time → different binary sha — even from byte-identical source. `glibc`/`libgomp` patches between rebuilds add further divergence. The `build.sha` invariant is therefore host-fragile by construction; it's a strict cross-binary guard, not a cross-source-version guard. A future improvement is `-DSOURCE_SHA=…` deterministic builds that strip the timestamp dependency.
+
+**Override semantics:** `SOLVE_ALLOW_BUILD_MISMATCH=1` lets solve continue on mismatch and overwrites `build.sha` with the current binary's sha so subsequent runs match. The flag has historically been baked into canonical launchers' env as defense; that's no longer the default as of 2026-06-13 — launchers handle legitimate rebuild scenarios via post-rebuild hygiene instead. See [SOLVE_CLI.md ENVIRONMENT table](SOLVE_CLI.md#environment) for the env-var entry.
+
 ### Metadata equivalence across enumeration paths (task #102, 2026-05-26)
 
 Every canonical-scale run now ships with **`solutions.provenance.json`** alongside `solutions.bin` + `solutions.sha256` + `solutions.meta.json`. The provenance file aggregates per-shard `.provenance.json` sidecars (written automatically by `flush_sub_solutions[_d3]` and the orphan-promotion path) into a campaign-level rollup: shard count by status (EXHAUSTED / BUDGETED / INTERRUPTED), final budget distribution, extensions observed, binary / git / host fingerprint sets, cumulative node + record counts, earliest + latest write UTCs.

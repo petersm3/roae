@@ -9031,6 +9031,126 @@ int main(int argc, char *argv[]) {
         printf("AVX-512) are NOT runtime-introspectable here — record them at build time\n");
         printf("(see documentation/DEVELOPMENT.md reproducible-build recipe + build.sha).\n");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--canonical-config") == 0) {
+        /* PSB calculator (added 2026-06-13 after the LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR
+         * incident where Claude re-derived PSB from a floor formula and got it wrong).
+         *
+         * Outputs the env vars required to reproduce a published canonical's sha
+         * byte-identically. Hardcoded recipe table is the authoritative source for
+         * SOLVE_PER_SUB_BRANCH_LIMIT values per scale — these are the empirical PSBs
+         * that produced each canonical sha (not all equal floor(NL/158,364); see
+         * CANONICAL_HASHES.md §"PSB-formula caveat").
+         *
+         * Usage:
+         *   solve --canonical-config <SCALE>          # output 3 sha-determining vars
+         *   solve --canonical-config <SCALE> --full   # also output canonical-default
+         *                                              # SOLVE_DFS_ITERATIVE=1 + _CHECKPOINT=1
+         *
+         * Deliberately does NOT output:
+         *   - SOLVE_THREADS  (caller picks based on hardware; not sha-determining)
+         *   - SOLVE_ALLOW_BUILD_MISMATCH / SOLVE_SKIP_AUTOMERGE / SOLVE_SKIP_IOPS_CHECK
+         *     (campaign-operational decisions based on host context, not sha-determining)
+         *
+         * Sha-neutral by construction (argv-dispatched; never on the enum path; prints + exits).
+         */
+        if (argc < 3) {
+            fprintf(stderr, "usage: solve --canonical-config <SCALE> [--full]\n");
+            fprintf(stderr, "known scales: 1T 5.6T 10T 11.2T 100T 560T d2-10T\n");
+            return 25;
+        }
+        const char *scale = argv[2];
+        int full = (argc >= 4 && strcmp(argv[3], "--full") == 0);
+
+        /* Authoritative recipe table — these are the empirical PSBs that produced
+         * each published canonical sha byte-identically. Source of truth for the
+         * project; CANONICAL_HASHES.md Reproducibility-parameters section reflects
+         * (and should reference) this table. */
+        static const struct cc_recipe {
+            const char *label;
+            int depth;
+            long long node_limit;
+            long long per_sub_branch_limit;  /* 0 = omit (d2 mechanics differ) */
+        } recipes[] = {
+            { "1T",     3,         1000000000000LL,       6315458LL },
+            { "5.6T",   3,         5600000000000LL,      35361598LL },
+            { "10T",    3,        10000000000000LL,      63146557LL },
+            { "11.2T",  3,        11200000000000LL,      70723196LL },
+            { "100T",   3,       100000000000000LL,     631456644LL },
+            { "560T",   3,       560000000000000LL,    3536157207LL },
+            { "d2-10T", 2,        10000000000000LL,             0LL },
+            { NULL,     0,                       0LL,             0LL }
+        };
+
+        for (const struct cc_recipe *r = recipes; r->label; r++) {
+            if (strcmp(r->label, scale) == 0) {
+                printf("SOLVE_DEPTH=%d\n", r->depth);
+                printf("SOLVE_NODE_LIMIT=%lld\n", r->node_limit);
+                if (r->per_sub_branch_limit > 0) {
+                    printf("SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", r->per_sub_branch_limit);
+                }
+                if (full) {
+                    printf("SOLVE_DFS_ITERATIVE=1\n");
+                    printf("SOLVE_DFS_CHECKPOINT=1\n");
+                }
+                return 0;
+            }
+        }
+        fprintf(stderr, "ERROR: unknown canonical scale '%s'\n", scale);
+        fprintf(stderr, "known scales: 1T 5.6T 10T 11.2T 100T 560T d2-10T\n");
+        fprintf(stderr, "(if you need a scale not in this list, add it to CANONICAL_HASHES.md\n");
+        fprintf(stderr," recipe table + this solve.c table; do not invent PSBs.)\n");
+        return 25;
+    } else if (argc > 1 && strcmp(argv[1], "--validate-launcher-config") == 0) {
+        /* Pre-launch sanity gate (added 2026-06-13 alongside --canonical-config).
+         * Launchers that hardcode SOLVE_PER_SUB_BRANCH_LIMIT for clarity can assert
+         * their value matches the canonical recipe before any compute is spent:
+         *
+         *   PSB=70723196
+         *   ./solve --validate-launcher-config 11.2T $PSB || { echo "PSB mismatch"; exit 1; }
+         *
+         * Exit codes:
+         *   0 = PSB matches the recipe for that scale
+         *   1 = PSB does not match (sha-reproduction will fail; launcher should abort)
+         *   25 = unknown scale or bad arg count
+         *
+         * Sha-neutral by construction. */
+        if (argc < 4) {
+            fprintf(stderr, "usage: solve --validate-launcher-config <SCALE> <PSB>\n");
+            return 25;
+        }
+        const char *scale = argv[2];
+        long long psb = atoll(argv[3]);
+        static const struct cc_recipe2 {
+            const char *label;
+            long long per_sub_branch_limit;
+        } recipes2[] = {
+            { "1T",          6315458LL },
+            { "5.6T",       35361598LL },
+            { "10T",        63146557LL },
+            { "11.2T",      70723196LL },
+            { "100T",      631456644LL },
+            { "560T",     3536157207LL },
+            { NULL, 0LL }
+        };
+        for (const struct cc_recipe2 *r = recipes2; r->label; r++) {
+            if (strcmp(r->label, scale) == 0) {
+                if (psb == r->per_sub_branch_limit) {
+                    fprintf(stderr, "[--validate-launcher-config] PSB=%lld matches recipe for %s.\n",
+                            psb, scale);
+                    return 0;
+                }
+                fprintf(stderr, "[--validate-launcher-config] PSB MISMATCH for %s:\n", scale);
+                fprintf(stderr, "  launcher passed: %lld\n", psb);
+                fprintf(stderr, "  recipe expects:  %lld\n", r->per_sub_branch_limit);
+                fprintf(stderr, "  diff:            %+lld\n", psb - r->per_sub_branch_limit);
+                fprintf(stderr, "  resulting sha would differ from the published canonical anchor.\n");
+                fprintf(stderr, "  fix: use `solve --canonical-config %s` to get the recipe values.\n",
+                        scale);
+                return 1;
+            }
+        }
+        fprintf(stderr, "[--validate-launcher-config] ERROR: unknown scale '%s'\n", scale);
+        return 25;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in 11ba190 2026-05-15). Print CPU capability detection
