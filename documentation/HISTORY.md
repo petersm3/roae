@@ -4914,12 +4914,14 @@ The restructure:
 
 Length went from 206 lines to 359 lines, but readability is much better: scanning for "what canonicals are there?" is now ~10 lines (the quick reference table) instead of 200; each detailed entry has consistent structure rather than wall-of-text prose.
 
-### Tracking forward (when the v3 100T + 11.2T + 3-point pipeline lands ~21:00 PT Sat 2026-06-13)
+### Tracking forward (v3 100T + 11.2T + 3-point pipeline — ETAs revised 2026-06-13 ~10:50 PT from live progress)
 
-The current restart is on track to land:
-- v3 100T (corrected PSB → sha `915abf30…` byte-identical) ~10:00 PT Saturday
-- 11.2T re-derive (corrected PSB → sha `0c0fe37c…` byte-identical) ~17:00 PT Saturday
-- 3-point per-cell trajectory analysis report (the actual scientific deliverable) ~19:30 PT Saturday
+The current restart is on track to land (estimates updated from the enum's actual
+~142 cells/min sustained rate, which put 100T completion ~3h later than the original
+~10:00 PT guess):
+- v3 100T (corrected PSB → sha `915abf30…` byte-identical) **~13:15 PT Saturday** (enum ~86% at revision time; 1 weekend eviction recovered cleanly)
+- 11.2T re-derive (corrected PSB → sha `0c0fe37c…` byte-identical) ~21:00 PT Saturday
+- 3-point per-cell trajectory analysis report (the actual scientific deliverable) ~23:30 PT Saturday — now produced on a dedicated D8 worker (heavy bin/parse offloaded off the orchestrator), not inline
 
 Both re-derive archives will land in cold blob as fresh entries (`20260612_100T_v3_rederive_915abf30/` + `20260612_11.2T_v1_rederive_0c0fe37c/`), establishing additional preserved-byte witnesses for both anchors AND adding per-cell shards (the actual scientific value of these re-derives).
 
