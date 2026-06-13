@@ -4816,11 +4816,11 @@ Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bi
 
 Full report at `roae-private/PER_CELL_11_2T_VS_560T_COMPARISON_2026_06_11.md` (private; raw data archived to `roae-private/per_cell_comparison_2026_06_11/`).
 
-### v3 100T re-derive launched (task #148)
+### v3 100T re-derive launched (task #148) — initial framing corrected 2026-06-12
 
-The original 2026-04-20 100T canonical's bytes were destroyed in the 2026-05-06 `mkfs -F` incident; T9+c.1 + T9+d recovery (2026-05-09/10) re-derived sha `915abf30…` byte-identically. The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were never uploaded to cold blob (the `canonical-archive/20260530_100T_revalidation_4e15885/` path documented in older CANONICAL_HASHES.md text was found empty during today's per-cell work; the doc was corrected).
+The 100T canonical anchor `915abf30…` has multiple preserved-byte witnesses on the project's warm tier (`solver-data-westus3:/canonical_100T/solutions.bin`, originating from the 2026-05-09 T9+c.1 recovery; sha256-verified `915abf30…` byte-identically on 2026-06-12). The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were not uploaded to cold blob (an earlier doc revision referenced an empty cold-blob path; corrected during today's restructure). **Today's v3 100T re-derive was initially framed as motivated partly by "restoring preserved bytes" — that framing was inaccurate; the bytes have been continuously preserved on warm tier since May 9.** The actual unique value of the v3 100T re-derive is preserving per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum, so no 100T per-cell shards have ever been cold-archived), which unlocks the 3-point per-cell scaling trajectory (11.2T → 100T → 560T) with full BUDGETED/EXHAUSTED budget-status decomposition.
 
-Today launched a fresh v3 100T re-derive on D128als_v7 Spot to (a) restore preserved bytes for the 100T canonical anchor and (b) preserve per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum). This enables a 3-point per-cell scaling trajectory (11.2T → 100T → 560T) that would refine the 1120T projection further than the current 2-point comparison.
+See `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_CANONICAL_PRESERVATION_CHECK.md` for the incident detail (mistake: I checked only cold blob to determine "bytes preserved?", missed warm tier; fix: query BOTH tiers before declaring bytes lost).
 
 Cost projection: ~$32 (D128 Spot ~16h × $0.95 + D16 Standard merge ~5h × $1.30 + 1 TB Premium SSD ~2 days + archive). Operator authorized "start it now on spot vms" at 2026-06-11 mid-afternoon PT; enum running since 23:22 UTC. Sha-gate: target `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (byte-identical to v1 anchor per v3 sha-preservation).
 
@@ -4841,3 +4841,86 @@ Two doc-shape changes landed today:
 - Tag `pre-1120T-analyze-fast-2026-06-11` shipped on the post-#141/#142/#143/#144/#145/#146 main HEAD. Today's commits add to this tag's lineage; a follow-on tag `560T-closed-2026-06-12` marks the campaign's official close.
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved across all today's commits (sha-neutral by construction — doc + supervisor changes only).
+
+## June 12-13, 2026 — PSB math-error incident + v3 100T restart + CANONICAL_HASHES.md restructure
+
+Two consecutive 2026-06-12 incidents surfaced root-cause discipline failures around "consult the authoritative source before acting." Both got lessons-learned docs and going-forward rules; both fed into a clean CANONICAL_HASHES.md restructure that improves the doc's usability for any future re-derive author.
+
+### Incident 1 — Canonical preservation check missed warm tier
+
+While discussing whether to launch a v3 100T re-derive, the user asked whether the 100T canonical bytes (`915abf30…`) were preserved. I checked cold blob, found no `20260530_100T_revalidation_4e15885/` archive, and concluded "bytes NOT preserved" — then "corrected" CANONICAL_HASHES.md to that effect (commit `7a3c0d5`).
+
+In reality the bytes were preserved on warm tier at `solver-data-westus3:/canonical_100T/solutions.bin` since 2026-05-09 (T9+c.1 recovery output). I missed this because I implicitly assumed "if it's not in cold blob, it's not preserved." Surface verification 2026-06-12 via `sha256sum` confirmed the warm-tier file is byte-identical to the canonical anchor.
+
+**Going-forward rule** (`feedback_canonical_preservation_check_warm_and_cold`): query BOTH cold blob AND every attached managed data disk before declaring bytes lost. Never write "bytes NOT preserved" — be specific about which tier was checked.
+
+Cost: the v3 100T re-derive was authorized partly on the (incorrect) framing of "no preserved bytes." With the warm-tier copy understood, the re-derive's real motivation is preserving per-cell shards (still useful for the 3-point trajectory analysis) — the compute spend is justified, just for a slightly different reason than originally documented.
+
+### Incident 2 — PSB math error in v3 100T + 11.2T re-derive launchers
+
+When writing `LAUNCH_100T_V3_RE_DERIVE.sh` and `LAUNCH_11_2T_RE_DERIVE.sh`, I needed to set the per-cell budget (`SOLVE_PER_SUB_BRANCH_LIMIT` / PSB). I derived PSB from a `floor(NL / 158,364)` formula in my head — and got the math wrong:
+
+| Launcher | My buggy PSB | Canonical recipe PSB | Off by |
+|---|---:|---:|---:|
+| 100T | 631,527,207 | 631,456,644 | +70,563 |
+| 11.2T | 70,701,176 | 70,723,196 | -22,020 |
+
+Caught while reviewing CANONICAL_HASHES.md for the restructure (the user asked for human-readability cleanup; reading the recipe table carefully surfaced the divergence from my launcher values).
+
+**Implication:** the v3 100T enum that had been running with the buggy PSB would produce a sha distinct from `915abf30…` — not "the canonical 100T" but a different valid 100T-class canonical with a slightly higher per-cell budget.
+
+**Operator decision** (2026-06-12 mid-afternoon PT): kill the buggy run + restart with correct PSB. Quote: "canonical MEANS canonical." Cost: ~$20 sunk (15h × $0.95/hr D128 Spot + 30 min × $1.30/hr D16 Standard merge that had just started + Premium SSD overhead) + ~$22 fresh re-run.
+
+**Fix applied:**
+1. `LAUNCH_100T_V3_RE_DERIVE.sh` PSB corrected to `631,456,644` with a multi-line comment citing CANONICAL_HASHES.md as authoritative + the lessons-learned doc as the incident reference.
+2. `LAUNCH_11_2T_RE_DERIVE.sh` PSB corrected to `70,723,196` IN ADVANCE — before the orchestrator fired it (the 11.2T re-derive is scheduled to auto-fire after the 100T pipeline completes). Caught before any compute was spent.
+3. Buggy artifacts cleaned: c100v3-enum VM deleted, c100v3-merge VM deleted, 1 TB Premium SSD (`c100v3-premium-shards-20260611T232222Z`) holding buggy shards deleted.
+4. Fresh v3 100T launched 2026-06-12T23:17Z with corrected PSB; running cleanly at ~150 cells/min on the new D128 Spot host.
+
+**Going-forward rule** (`feedback_canonical_constants_from_recipe`, to be saved post-restart): for any canonical-reproducing launcher, copy `SOLVE_PER_SUB_BRANCH_LIMIT` verbatim from `CANONICAL_HASHES.md` Reproducibility-parameters table. Do not re-derive from any formula. The recipe values are the authoritative empirical PSBs that produced each published canonical sha; deriving from `floor(NL / 158,364)` will silently produce a different sha at certain scales (since the published recipe PSBs for 1T, 10T, and 11.2T are NOT exactly floor — see the PSB-formula caveat section now added to CANONICAL_HASHES.md).
+
+**Side discovery (worth recording):** the recipe table itself has off-by-small-N divergences from floor at 1T (+186), 10T (+13), and 11.2T (+52). These are the empirical PSBs that produced the canonical shas; either the original solve.c had a slightly different per-cell-budget computation, or the rows are documentation typos that have been faithfully reproduced by everyone using the published recipe. Either way the practical answer is the same: copy verbatim from the recipe.
+
+Full incident write-up: `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR.md`.
+
+### Pattern across both incidents
+
+Both incidents have the same root-cause shape: **I trusted local context (a partial check, an in-head calculation) instead of going to the authoritative source.**
+
+- Preservation check: I checked one tier (cold blob), declared "lost" — should have checked every tier.
+- PSB derivation: I re-computed in my head, got it wrong — should have copied verbatim from the recipe table.
+
+Two earlier incidents this session shared the same shape:
+- `feedback_md_review_full_repo_scope` (2026-06-11): grepped only `documentation/*.md` during a "full repo MD review," missed `findings/`, `enumeration/`, root README, etc.
+- The session's 100T cold-blob-archive correction (commit `7a3c0d5`, now itself being re-corrected for warm-tier framing).
+
+The general fix is going-forward discipline: **always go to the authoritative source for any reproducibility-affecting value, audit-relevant scope, or doc-level claim.** Trusting "what I remember" or "what's in front of me" instead of "what does the source doc say?" is the recurring failure mode.
+
+### CANONICAL_HASHES.md restructure (the work the operator originally asked for)
+
+Operator request 2026-06-12: "clean up that doc for human readability, it's very dense in places." The pre-restructure doc had three readability problems:
+
+1. **560T row at the bottom** of the Active canonicals table instead of the top (the current deepest canonical was buried after 7 historical-era rows; anyone reading the doc for the first time would scroll past 60+ lines of context before finding the most important entry).
+2. **Mega-paragraph rows** — single rows of 1000-3000 characters dense prose mixing record counts, build details, witness history, archive locations, and forensic notes.
+3. **The 2026-05-27 "Structured-metadata block" YAML embedded mid-table** documenting one drift-investigation context for the c72eada 1T anchor; redundant with the prose row above it.
+
+The restructure:
+- **Quick reference table at top** (9-row at-a-glance lookup, deepest first).
+- **Detailed entries reorganized deepest-first** (560T → 100T → 11.2T → 10T → 5.6T → d2 10T → 1T (main) → 1T (v3 BRANCH) → Selftest).
+- **Each canonical's entry rebuilt** as: key facts (sha, records, lineage, status, established) + witness table (for canonicals with multiple cross-build / cross-architecture witnesses) + archives + scoping notes.
+- **Structured-metadata block removed** — the relevant 1T validation history is now in the d3 1T (current main) detailed entry's prose.
+- **New PSB-formula caveat section** under Reproducibility parameters explaining the recipe-vs-floor discrepancy + the going-forward rule of copying verbatim from the recipe.
+- **100T disposition framing corrected** — bytes preserved on warm tier (with full path + sha-verify timestamp), not "currently unavailable." Cold blob upload still pending the in-flight v3 re-derive.
+
+Length went from 206 lines to 359 lines, but readability is much better: scanning for "what canonicals are there?" is now ~10 lines (the quick reference table) instead of 200; each detailed entry has consistent structure rather than wall-of-text prose.
+
+### Tracking forward (when the v3 100T + 11.2T + 3-point pipeline lands ~21:00 PT Sat 2026-06-13)
+
+The current restart is on track to land:
+- v3 100T (corrected PSB → sha `915abf30…` byte-identical) ~10:00 PT Saturday
+- 11.2T re-derive (corrected PSB → sha `0c0fe37c…` byte-identical) ~17:00 PT Saturday
+- 3-point per-cell trajectory analysis report (the actual scientific deliverable) ~19:30 PT Saturday
+
+Both re-derive archives will land in cold blob as fresh entries (`20260612_100T_v3_rederive_915abf30/` + `20260612_11.2T_v1_rederive_0c0fe37c/`), establishing additional preserved-byte witnesses for both anchors AND adding per-cell shards (the actual scientific value of these re-derives).
+
+Selftest sha `403f7202…` preserved across the launcher fixes + doc restructure (sha-neutral by construction).
