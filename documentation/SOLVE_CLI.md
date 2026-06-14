@@ -15,6 +15,7 @@ specification (see [SPECIFICATION.md](SPECIFICATION.md)).
 ```
 solve [time_limit] [threads]                            # default: full enumeration
 solve --selftest                                        # regression check (~5 sec)
+solve --selftest-resume                                 # checkpoint/resume byte-exactness gate
 solve --verify [solutions.bin]                          # constraint check on solutions.bin
 solve --merge                                           # combine sub_*.bin shards in CWD
 solve --merge-layers <root>                             # merge across layered enumerations
@@ -38,7 +39,7 @@ solve --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T
 solve --emit-shard-manifest [dir]                       # write shard_manifest.txt for sub_*.bin in dir
 solve --verify-shard-manifest [dir]                     # check shard_manifest.txt vs current shards
 solve --compare-provenance A.json B.json                # assert two solutions.provenance.json are equivalent
-solve --extended-selftest                               # solve.py-driven 9-subtest harness
+solve.py --extended-selftest <solve>                    # 9-subtest harness (solve.py command, NOT a solve C subcommand)
 solve --preflight [node_limit]                          # run in-process gates (no enum)
 solve --disk-precheck <mount> [gb] [uuid]               # capacity/writability/identity check
 solve --print-config                                    # dump build provenance + SOLVE_* env values
@@ -117,6 +118,23 @@ Runs in ~5 seconds. Every commit to solve.c MUST preserve this sha;
 divergence is a regression.
 
 Exits 0 on PASS, 1 on FAIL.
+
+### --selftest-resume
+
+```
+solve --selftest-resume
+```
+
+Resume-correctness gate (distinct from `--selftest`). Runs a fixed-budget
+enumeration, interrupts and resumes it from the `.dfs_state` checkpoint,
+and confirms the resumed run produces the same `solutions.bin` sha as an
+uninterrupted run — i.e. that mid-walk checkpoint/resume is byte-exact.
+Guards the budget-upgrade-resume / asymmetric-extension code path that
+canonical extensions (e.g. 560T → 1120T) and eviction recovery rely on.
+
+Any commit touching the checkpoint format or resume logic MUST keep this
+passing (see the checkpoint-format merge gate). Exits 0 on PASS, non-zero
+on FAIL.
 
 ### --validate-canonical
 
@@ -284,16 +302,17 @@ boost. Companion to the orchestrator-side
 No enumeration; instantaneous. Exits 0 if HEALTHY, 1 if any core is
 below threshold, 2 on I/O error.
 
-### --extended-selftest
+### --extended-selftest (solve.py, NOT a solve C subcommand)
 
 ```
-solve --extended-selftest
+solve.py --extended-selftest <path-to-solve-binary>
 ```
 
-Calls `solve.py --extended-selftest <self>` to run the 9-subtest
-harness covering single-thread / multi-thread / different node
-limits / clean and resumed runs. Stricter than `--selftest`. Used
-in CI and pre-merge gating.
+A `solve.py` command (`extended_selftest`, solve.py:4684) — **not** a `solve`
+C subcommand; `solve --extended-selftest` is not dispatched by the binary.
+Runs the 9-subtest harness covering single-thread / multi-thread / different
+node limits / clean and resumed runs. Stricter than `--selftest`. Used in CI
+and pre-merge gating.
 
 ### --compare-depth-profile (solve.py only)
 
@@ -345,6 +364,11 @@ both record-level correctness and file-level structure must pass.
 
 ### --verify-rule2
 
+> ⚠️ **Not dispatched by the current `solve` binary** — no `--verify-rule2` handler
+> exists in solve.c (nor solve.py / roae.py) as of 2026-06-14. The spec below is
+> retained for reference (see MCKENNA.md); confirm the current invocation path before
+> relying on it (the audit may have been folded into `--analyze`, or not yet implemented).
+
 ```
 solve --verify-rule2 [solutions.bin]
 ```
@@ -359,6 +383,10 @@ arbitrary solutions.bin. Sha-preserving (post-enumeration analysis,
 no impact on the enumeration code path). See MCKENNA.md for context.
 
 ### --verify-9th-six
+
+> ⚠️ **Not dispatched by the current `solve` binary** — no `--verify-9th-six` handler
+> exists in solve.c (nor solve.py / roae.py) as of 2026-06-14. Spec retained for
+> reference (see MCKENNA.md); confirm the current invocation path before relying on it.
 
 ```
 solve --verify-9th-six [solutions.bin]
@@ -721,6 +749,10 @@ writes a stream of (record_index, density_score) pairs. Used by
 | `SOLVE_RESUME_HISTORY` | (none) | Operator-supplied annotation written to `solutions.sha256` metadata. Use to record interruption/eviction context for forensic continuity. |
 | `PROVE_CONFIG_TIMEOUT` | unlimited | Wall-time limit for `--prove-*` exhaustive walks |
 | `PATH` | inherited | Used to locate `solve` binary for self-spawning subprocesses |
+| `SOLVE_SKIP_AUTOMERGE` | 0 (off) | `=set` (any value): skip the automatic `--merge` at enum completion; leave shards in place. Used for split enum/merge campaigns (separate right-sized merge VM) and the #149 milestone-staging ladder. |
+| `SOLVE_FSYNC_BATCH_SIZE` | 1 | Batch N checkpoint fsyncs per flush to amortize fsync cost on fsync-bound disks (#108b). Higher = fewer fsyncs, larger replay window on crash. |
+| `SOLVE_MANIFEST_THREADS` | `SOLVE_THREADS` | Override the thread count for the parallel `shard_manifest.txt` sha256 sweep (#116). |
+| `SOLVE_DISK_MARKER` | (none) | Custom marker filename for `--disk-precheck` to test free space against (otherwise a default probe path is used). |
 
 ### Hardening overrides (2026-05-25/26 — every gate has an explicit escape)
 
@@ -740,6 +772,9 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 | `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | (existing, repeated for cross-reference) — also bypasses the per-shard `.budget` integrity gate for legacy shards. |
+| `SOLVE_SKIP_IOPS_CHECK` | 0 | IOPS pre-flight gate (exit 31): skips the startup fsync-rate probe entirely. Recommended on every eviction-resume / post-`az vm start` launch (cold caches give noisy readings; the first-launch gate is authoritative). See #107/#115. |
+| `SOLVE_ALLOW_SLOW_IOPS` | 0 | IOPS gate verdict (exit 31): runs the probe but proceeds even when the projected fsync-wall-fraction exceeds threshold (operator accepts the fsync-bound slowdown). |
+| `SOLVE_SKIP_HOST_FINGERPRINT` | 0 | `canonical-host-fingerprint.json` write at canonical-enum startup (Tier 1 determinism-hardening provenance; #110). |
 
 ## EXIT STATUS
 

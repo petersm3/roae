@@ -97,6 +97,7 @@ The 28 analysis sections, each invoked by a single flag:
 | `--windowed-entropy` | Sliding window entropy — where structural order concentrates in the sequence |
 | `--mutual-info` | Mutual information between upper-trigram and lower-trigram changes |
 | `--yinyang` | Yin-yang line-balance wave through the sequence |
+| `--parity` | Odd-vs-even transition parity (McKenna 25/75 model), linear + circular modes |
 | `--neighborhoods` | Hamming-distance-1 neighborhoods for each hexagram |
 | `--recurrence` | Recurrence plot — visualization of where the difference wave repeats |
 
