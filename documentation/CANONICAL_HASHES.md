@@ -35,7 +35,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B raw pre-dedup records → 10.525 B unique canonical (4.17× dedup ratio).
 
-**Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.78 (vs 0.7 from the 11.2T → 100T two-point fit alone). 1120T extension projection ≈ 18 B records.
+**Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.78 (vs 0.7 from the 11.2T → 100T two-point fit alone). 1120T extension projection ≈ 18 B records. The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the total count of C1–C5-satisfying orderings is not yet known. See [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory".
 
 **Verification witnesses:**
 

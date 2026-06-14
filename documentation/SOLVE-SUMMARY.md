@@ -208,6 +208,8 @@ This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1,
 
 Full §[1]–§[28] analyze findings: see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry (public) and `roae-private/560T_FINAL_ANALYSIS.md` (operator-private working analysis log).
 
+**3-point scaling trajectory (11.2T → 100T → 560T, 2026-06-14).** The per-cell record sets across the three deepest canonicals are **strictly nested** (11.2T ⊆ 100T ⊆ 560T) with 0 monotonicity violations under pair-identity keying — records 759,608,573 → 3,432,399,298 → 10,525,271,997, pair-identity cells yielding 9,799 → 10,062 → 10,618. Growth is **sublinear** (×50 per-cell budget → ×13.86 records; power-law α ≈ 0.78) and is **deepening, not broadening**: cells first appearing at a larger scale contribute only ~0.2% (→100T) and ~0.5% (→560T) of that scale's records. Every sampled sub-branch is still BUDGETED (none EXHAUSTED) at 560T, so the total number of C1–C5-satisfying orderings is **not yet known** — each canonical scale is a reproducible slice at a fixed budget, and the planned 1120T extension is a discriminating test of the growth asymptote rather than merely more data.
+
 ### 100T d3 canonical results (2026-04-20; historical reference, superseded by 560T)
 
 The 100T d3 canonical (sha `915abf30…`, 3,432,399,298 orderings, established 2026-04-20) was the deepest published enumeration prior to the 560T canonical above. Its findings are preserved here as a historical scale-comparison reference; 560T headline numbers above are now authoritative. Findings (100T scope):

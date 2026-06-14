@@ -268,6 +268,22 @@ what produced the 560 T canonical. The 11.2 T direct witnesses thus
 serve as the partition-invariance load-bearing evidence for the entire
 canonical chain.
 
+The 2026-06-14 three-point per-cell trajectory analysis adds an
+independent consistency check: keyed by pair-identity (the dedup
+granularity), the canonical record sets are **strictly nested**
+(11.2 T ⊆ 100 T ⊆ 560 T) with **0 monotonicity violations** in either
+jump — exactly what monotone per-cell budget growth predicts under
+scale-invariant dedup semantics. A budget-only extension that violated
+partition/dedup invariance would necessarily drop or reorder records at
+the larger scale; none occur (0 cells lose records; all only gain),
+which is corroborating evidence — not a substitute for the direct
+sha-equality witnesses above — that the 560 T canonical sits on the same
+invariant lineage. (Orientation-specific keying shows spurious
+"violations" that are an artifact of orientation-collapse dedup choosing
+a different representative per scale, not real non-monotonicity; masking
+orientation removes all of them.) See
+[HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory".
+
 ## 6. Citations from other repository docs
 
 This theorem is referenced by:

@@ -4914,15 +4914,35 @@ The restructure:
 
 Length went from 206 lines to 359 lines, but readability is much better: scanning for "what canonicals are there?" is now ~10 lines (the quick reference table) instead of 200; each detailed entry has consistent structure rather than wall-of-text prose.
 
-### Tracking forward (v3 100T + 11.2T + 3-point pipeline — ETAs revised 2026-06-13 ~10:50 PT from live progress)
+### 3-point per-cell scaling trajectory (11.2T → 100T → 560T) — COMPLETE 2026-06-14
 
-The current restart is on track to land (estimates updated from the enum's actual
-~142 cells/min sustained rate, which put 100T completion ~3h later than the original
-~10:00 PT guess):
-- v3 100T (corrected PSB → sha `915abf30…` byte-identical) **~13:15 PT Saturday** (enum ~86% at revision time; 1 weekend eviction recovered cleanly)
-- 11.2T re-derive (corrected PSB → sha `0c0fe37c…` byte-identical) ~21:00 PT Saturday
-- 3-point per-cell trajectory analysis report (the actual scientific deliverable) ~23:30 PT Saturday — now produced on a dedicated D8 worker (heavy bin/parse offloaded off the orchestrator), not inline
+The v3 100T (sha `915abf30…`) and 11.2T (sha `0c0fe37c…`) re-derives landed byte-identical to
+their anchors and were gzip-9 cold-archived with full per-cell shards. The per-cell yield
+trajectory across the three canonical depths is the scientific capstone of the 560T campaign.
+All claims below are scoped to orderings satisfying the **formalized** constraints C1–C5 with
+position 1 forced to Creative/Receptive; canonical = pair-identity-deduped (orientation collapsed).
 
-Both re-derive archives will land in cold blob as fresh entries (`20260612_100T_v3_rederive_915abf30/` + `20260612_11.2T_v1_rederive_0c0fe37c/`), establishing additional preserved-byte witnesses for both anchors AND adding per-cell shards (the actual scientific value of these re-derives).
+| Scale | Per-cell budget (nodes) | Canonical records | Pair-identity cells yielding |
+|---|--:|--:|--:|
+| 11.2T | 70,723,196 | 759,608,573 | 9,799 |
+| 100T  | 631,456,644 | 3,432,399,298 | 10,062 |
+| 560T  | 3,536,157,207 | 10,525,271,997 | 10,618 |
 
-Selftest sha `403f7202…` preserved across the launcher fixes + doc restructure (sha-neutral by construction).
+**Public summary of findings:**
+- **Strictly nested.** Keyed by pair-identity (the granularity at which the canonical dedups),
+  there are **0 monotonicity violations** in either jump: 11.2T ⊆ 100T ⊆ 560T. (Orientation-specific
+  keying shows spurious "violations" — an artifact of orientation-collapse dedup picking a different
+  representative per scale, not real non-monotonicity. Masking orientation removes all of them.)
+- **Sublinear growth.** ×50 per-cell budget (11.2T→560T) yields ×13.86 records (×4.52 then ×3.07).
+  The valid-ordering space is sparse: only ~6–7% of the 158,364 depth-3 prefixes yield any
+  solutions, and that productive set is small and stable.
+- **Deepening, not broadening.** Cells newly appearing at the larger scale contribute only ~0.2%
+  (→100T) and ~0.5% (→560T) of that scale's records; growth is existing productive cells yielding
+  deeper, not new regions opening.
+- **Not yet saturated.** Every sampled sub-branch is `BUDGETED`, none `EXHAUSTED`, at 560T ⇒ **the
+  total number of C1–C5-satisfying orderings is not yet known**; each canonical scale is a
+  reproducible *slice* at a fixed budget, and 560T deepens 100T rather than completing it. This
+  reframes the 1120T extension as a *discriminating test of the growth asymptote*, not merely more data.
+
+Both re-derive archives are preserved-byte witnesses in cold blob with per-cell shards (enabling this
+trajectory and future extension). Selftest sha `403f7202…` preserved throughout (sha-neutral).
