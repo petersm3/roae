@@ -8562,6 +8562,201 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
+    } else if (argc > 1 && strcmp(argv[1], "--verify-rule2") == 0) {
+        /* McKenna Rule 2 audit (The Invisible Landscape, Ch 9): "absolutely
+         * exclude transition situations with a value of one, except in cases
+         * where this would interfere with rule (1)."  For each record, find the
+         * value-1 between-pair transitions and test whether each is "C2-forced".
+         *
+         * "C2-forced" (this implementation): flipping the orientation of the
+         * TRAILING pair at that boundary would turn the boundary transition into
+         * a value-5 (a C2 violation) — so the value-1 cannot be avoided via that
+         * pair's orientation. A value-1 whose trailing-pair-flip alternative is
+         * NOT a 5 is "wasteful" and violates Rule 2 in the strong form.
+         * (Restored from commit a407b78, lost in the 9f10f05 v3 reset; this is
+         * the same definition that produced the documented v2 11.2T result.)
+         * Sha-preserving: read-only post-enumeration analysis, no enum-path change. */
+        const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
+        init_pairs();
+        init_kw_dist();
+        FILE *vf = fopen(vpath, "rb");
+        if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
+        fseek(vf, 0, SEEK_END);
+        long vsize = ftell(vf);
+        fseek(vf, 0, SEEK_SET);
+        unsigned char peek[4];
+        int shard = 0;
+        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+            if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
+        }
+        fseek(vf, 0, SEEK_SET);
+        long long n_records;
+        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
+        else {
+            uint64_t hdr_records = 0;
+            if (sol_read_header(vf, &hdr_records) != 0) {
+                fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version\n", vpath);
+                fclose(vf); return 20;
+            }
+            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
+        }
+        printf("[--verify-rule2] file=%s records=%lld\n", vpath, n_records);
+        printf("[--verify-rule2] McKenna Rule 2: every value-1 transition must be at a C2-forced position\n");
+        printf("[--verify-rule2] 'C2-forced' := flipping the trailing pair's orientation makes that boundary a value-5\n");
+
+        unsigned long long records_with_violation = 0, records_total = 0;
+        unsigned long long total_ones = 0, ones_c2_forced = 0, ones_wasteful = 0;
+        unsigned long long wasteful_by_boundary[32] = {0}, c2_forced_by_boundary[32] = {0};
+
+        /* Block-buffered read + OpenMP reduction (improvement over the original
+         * 1-fread-per-record loop, which was 10.5B syscalls at 560T). Counting is
+         * order-independent, so the parallel reduction is exactly deterministic. */
+        enum { VBLK = 1 << 16 };
+        unsigned char *vbuf = (unsigned char *)malloc((size_t)VBLK * SOL_RECORD_SIZE);
+        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); fclose(vf); return 12; }
+        long long done = 0;
+        while (done < n_records) {
+            long long want = n_records - done; if (want > VBLK) want = VBLK;
+            if (fread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
+                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); fclose(vf); return 20;
+            }
+            unsigned long long b_viol = 0, b_ones = 0, b_forced = 0, b_waste = 0;
+            unsigned long long lw[32] = {0}, lf[32] = {0};
+            #pragma omp parallel for schedule(static) \
+                reduction(+:b_viol,b_ones,b_forced,b_waste) reduction(+:lw[:32],lf[:32])
+            for (long long k = 0; k < want; k++) {
+                const unsigned char *rec = vbuf + (size_t)k * SOL_RECORD_SIZE;
+                int seq[64];
+                for (int i = 0; i < 32; i++) {
+                    int pidx = (rec[i] >> 2) & 0x3F;
+                    int orient = (rec[i] >> 1) & 1;
+                    if (orient == 0) { seq[i*2] = pairs[pidx].a; seq[i*2+1] = pairs[pidx].b; }
+                    else             { seq[i*2] = pairs[pidx].b; seq[i*2+1] = pairs[pidx].a; }
+                }
+                int violation = 0;
+                for (int bb = 1; bb < 32; bb++) {
+                    if (hamming(seq[2*bb - 1], seq[2*bb]) != 1) continue;
+                    b_ones++;
+                    int pidx = (rec[bb] >> 2) & 0x3F;
+                    int orient = (rec[bb] >> 1) & 1;
+                    int alt_head = orient ? pairs[pidx].a : pairs[pidx].b;
+                    if (hamming(seq[2*bb - 1], alt_head) == 5) { b_forced++; lf[bb]++; }
+                    else { b_waste++; lw[bb]++; violation = 1; }
+                }
+                if (violation) b_viol++;
+            }
+            records_with_violation += b_viol; total_ones += b_ones;
+            ones_c2_forced += b_forced; ones_wasteful += b_waste;
+            for (int i = 0; i < 32; i++) { wasteful_by_boundary[i] += lw[i]; c2_forced_by_boundary[i] += lf[i]; }
+            done += want; records_total += (unsigned long long)want;
+            if (((done >> 16) & 0xF) == 0) { printf("  ... scanned %lld / %lld records\n", done, n_records); fflush(stdout); }
+        }
+        free(vbuf); fclose(vf);
+
+        printf("\n[--verify-rule2] === RESULTS ===\n");
+        printf("Records scanned:                 %llu\n", records_total);
+        printf("Records with Rule-2 violation:   %llu (%.4f%%)\n",
+               records_with_violation, 100.0 * records_with_violation / (records_total ? records_total : 1));
+        printf("Total value-1 transitions seen:  %llu (~%.3f per record)\n",
+               total_ones, (double)total_ones / (records_total ? records_total : 1));
+        printf("  at C2-forced positions:        %llu (%.4f%%)\n",
+               ones_c2_forced, total_ones ? 100.0 * ones_c2_forced / total_ones : 0.0);
+        printf("  wasteful (alt orient is NOT 5):%llu (%.4f%%)\n",
+               ones_wasteful, total_ones ? 100.0 * ones_wasteful / total_ones : 0.0);
+        printf("\nC2-forced value-1 by boundary index:\n");
+        for (int b = 0; b < 32; b++)
+            if (c2_forced_by_boundary[b])
+                printf("  boundary %2d (pair %d <-> pair %d): %llu\n", b, b-1, b, c2_forced_by_boundary[b]);
+        printf("\nWasteful value-1 by boundary index:\n");
+        for (int b = 0; b < 32; b++)
+            if (wasteful_by_boundary[b])
+                printf("  boundary %2d (pair %d <-> pair %d): %llu\n", b, b-1, b, wasteful_by_boundary[b]);
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--verify-9th-six") == 0) {
+        /* McKenna "9th six" audit (The Invisible Landscape, Ch 9): every C1-C5
+         * record has 9 value-6 transitions — 8 within-pair (the WPD=6 pairs) plus
+         * exactly 1 between-pair (the "synthetic" six, at boundary 38<->39 in KW).
+         * For each record, count between-pair value-6 transitions and tabulate the
+         * boundary index they fall at. Tells us whether the between-pair-6 position
+         * is KW-specific or structurally varied. (Restored from a407b78, lost in
+         * 9f10f05.) Sha-preserving: read-only analysis. Block-read + OpenMP. */
+        const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
+        init_pairs();
+        init_kw_dist();
+        FILE *vf = fopen(vpath, "rb");
+        if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
+        fseek(vf, 0, SEEK_END);
+        long vsize = ftell(vf);
+        fseek(vf, 0, SEEK_SET);
+        unsigned char peek[4];
+        int shard = 0;
+        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+            if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
+        }
+        fseek(vf, 0, SEEK_SET);
+        long long n_records;
+        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
+        else {
+            uint64_t hdr_records = 0;
+            if (sol_read_header(vf, &hdr_records) != 0) {
+                fprintf(stderr, "ERROR: %s has invalid magic\n", vpath);
+                fclose(vf); return 20;
+            }
+            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
+        }
+        printf("[--verify-9th-six] file=%s records=%lld\n", vpath, n_records);
+        printf("[--verify-9th-six] McKenna observation: KW has exactly 1 between-pair value-6 (at boundary 38<->39)\n");
+
+        unsigned long long between_six_count_dist[16] = {0};
+        unsigned long long between_six_by_boundary[32] = {0};
+        unsigned long long records_total = 0;
+
+        enum { VBLK = 1 << 16 };
+        unsigned char *vbuf = (unsigned char *)malloc((size_t)VBLK * SOL_RECORD_SIZE);
+        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); fclose(vf); return 12; }
+        long long done = 0;
+        while (done < n_records) {
+            long long want = n_records - done; if (want > VBLK) want = VBLK;
+            if (fread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
+                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); fclose(vf); return 20;
+            }
+            unsigned long long cdist[16] = {0}, bbnd[32] = {0};
+            #pragma omp parallel for schedule(static) reduction(+:cdist[:16],bbnd[:32])
+            for (long long k = 0; k < want; k++) {
+                const unsigned char *rec = vbuf + (size_t)k * SOL_RECORD_SIZE;
+                int seq[64];
+                for (int i = 0; i < 32; i++) {
+                    int pidx = (rec[i] >> 2) & 0x3F;
+                    int orient = (rec[i] >> 1) & 1;
+                    if (orient == 0) { seq[i*2] = pairs[pidx].a; seq[i*2+1] = pairs[pidx].b; }
+                    else             { seq[i*2] = pairs[pidx].b; seq[i*2+1] = pairs[pidx].a; }
+                }
+                int between_six = 0;
+                for (int bb = 1; bb < 32; bb++)
+                    if (hamming(seq[2*bb - 1], seq[2*bb]) == 6) { between_six++; bbnd[bb]++; }
+                if (between_six < 16) cdist[between_six]++; else cdist[15]++;
+            }
+            for (int i = 0; i < 16; i++) between_six_count_dist[i] += cdist[i];
+            for (int i = 0; i < 32; i++) between_six_by_boundary[i] += bbnd[i];
+            done += want; records_total += (unsigned long long)want;
+            if (((done >> 16) & 0xF) == 0) { printf("  ... scanned %lld / %lld records\n", done, n_records); fflush(stdout); }
+        }
+        free(vbuf); fclose(vf);
+
+        printf("\n[--verify-9th-six] === RESULTS ===\n");
+        printf("Records scanned: %llu\n", records_total);
+        printf("\nDistribution of between-pair value-6 count per record:\n");
+        for (int c = 0; c < 16; c++)
+            if (between_six_count_dist[c])
+                printf("  %d between-pair 6s: %llu records (%.4f%%)\n", c, between_six_count_dist[c],
+                       100.0 * between_six_count_dist[c] / (records_total ? records_total : 1));
+        printf("\nBetween-pair value-6 occurrences by boundary index (of 31 between-pair boundaries):\n");
+        for (int b = 0; b < 32; b++)
+            if (between_six_by_boundary[b])
+                printf("  boundary %2d (between pair %d and pair %d): %llu records (%.4f%%)\n",
+                       b, b-1, b, between_six_by_boundary[b],
+                       100.0 * between_six_by_boundary[b] / (records_total ? records_total : 1));
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--selftest-resume") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in d683794 2026-05-15 as Phase E follow-up item 1).
@@ -14953,6 +15148,10 @@ sub_enum_done:
         if (arg_offset + 1 < argc) n_threads = atoi(argv[arg_offset + 1]);
         if (n_threads > n_sub) n_threads = n_sub;
         if (n_threads < 1) n_threads = 1;
+        if (n_threads > 256) {  /* restored from 52cac4a (lost in 9f10f05): thread arrays are sized [256]; this clamp prevents a >256-thread stack-buffer overflow (ASan-class bug, cf. task #54). Sha-neutral: no canonical run exceeds 256 threads. */
+            fprintf(stderr, "WARNING: thread count %d exceeds the 256 ceiling (thread arrays sized [256]); clamping to 256.\n", n_threads);
+            n_threads = 256;
+        }
 
         /* Distribute sub-branches round-robin. Arrays sized for up to
          * 256 threads to match the main threads[256] in the full-enum
@@ -15622,6 +15821,10 @@ sub_enum_done:
     if (arg_offset < argc - 1) n_threads = atoi(argv[arg_offset + 1]);
     if (n_threads > n_all_subs) n_threads = n_all_subs;
     if (n_threads < 1) n_threads = 1;
+    if (n_threads > 256) {  /* restored from 52cac4a (lost in 9f10f05): thread arrays are sized [256]; this clamp prevents a >256-thread stack-buffer overflow (ASan-class bug, cf. task #54). Sha-neutral: no canonical run exceeds 256 threads. */
+        fprintf(stderr, "WARNING: thread count %d exceeds the 256 ceiling (thread arrays sized [256]); clamping to 256.\n", n_threads);
+        n_threads = 256;
+    }
 
     /* Distribute sub-branches round-robin across threads */
     ThreadState threads[256];  /* up to 256 threads */
