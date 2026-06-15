@@ -4946,3 +4946,13 @@ position 1 forced to Creative/Receptive; canonical = pair-identity-deduped (orie
 
 Both re-derive archives are preserved-byte witnesses in cold blob with per-cell shards (enabling this
 trajectory and future extension). Selftest sha `403f7202…` preserved throughout (sha-neutral).
+
+### McKenna Rule-2 + 9th-six verified at the 560T canonical — 2026-06-15
+
+`solve --verify-rule2` / `--verify-9th-six` over the 560T canonical (`9a968fa2…`, 10,525,271,997
+records; independently re-verified intact via decompress → sha during this work): **19.97% of records
+strictly obey McKenna's Rule 2** (80.03% violate; 44.59% of value-1 transitions at C2-forced
+positions, ~2.000/record) — the strictly-obeying minority is *larger* at depth (16.23% at 11.2T →
+19.97% at 560T); and **100.0000% of records have exactly one between-pair value-6**, so McKenna's
+"9th six" count is a forced consequence of C1–C5 (only its position varies), not a King-Wen-specific
+signature. See [MCKENNA.md](MCKENNA.md) §"Rule 2" and §"9th six".
