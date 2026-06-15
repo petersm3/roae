@@ -8757,6 +8757,82 @@ int main(int argc, char *argv[]) {
                        b, b-1, b, between_six_by_boundary[b],
                        100.0 * between_six_by_boundary[b] / (records_total ? records_total : 1));
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--verify-wrap-parity") == 0) {
+        /* McKenna wrap-around parity audit (SPECIFICATION.md Theorem "Wrap-around parity is
+         * odd"; The Invisible Landscape Ch 9). For each C1-C5 record compute the circular
+         * transition d(s63,s0) = hamming(last hexagram, first hexagram). The theorem proves
+         * this is ALWAYS odd (C4 + C5 + XOR parity); C2 forbids 5, so d in {1,3}. Tabulate
+         * the d=1 vs d=3 split — the dataset-/budget-dependent quantity (560T supersedes the
+         * retired v2 figure). This is the doc-referenced `--verify-wrap-parity`.
+         * Sha-preserving: read-only analysis. Block-read + OpenMP, mirrors --verify-9th-six. */
+        const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
+        init_pairs();
+        FILE *vf = fopen(vpath, "rb");
+        if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
+        fseek(vf, 0, SEEK_END);
+        long vsize = ftell(vf);
+        fseek(vf, 0, SEEK_SET);
+        unsigned char peek[4];
+        int shard = 0;
+        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+            if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
+        }
+        fseek(vf, 0, SEEK_SET);
+        long long n_records;
+        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
+        else {
+            uint64_t hdr_records = 0;
+            if (sol_read_header(vf, &hdr_records) != 0) {
+                fprintf(stderr, "ERROR: %s has invalid magic\n", vpath);
+                fclose(vf); return 20;
+            }
+            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
+        }
+        printf("[--verify-wrap-parity] file=%s records=%lld\n", vpath, n_records);
+        printf("[--verify-wrap-parity] Theorem: d(s63,s0)=hamming(last,first) is ALWAYS odd (C4+C5+XOR parity); C2 forbids 5 -> d in {1,3}\n");
+
+        unsigned long long wrap_dist[7] = {0};
+        unsigned long long records_total = 0;
+        enum { VBLK = 1 << 16 };
+        unsigned char *vbuf = (unsigned char *)malloc((size_t)VBLK * SOL_RECORD_SIZE);
+        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); fclose(vf); return 12; }
+        long long done = 0;
+        while (done < n_records) {
+            long long want = n_records - done; if (want > VBLK) want = VBLK;
+            if (fread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
+                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); fclose(vf); return 20;
+            }
+            unsigned long long wd[7] = {0};
+            #pragma omp parallel for schedule(static) reduction(+:wd[:7])
+            for (long long k = 0; k < want; k++) {
+                const unsigned char *rec = vbuf + (size_t)k * SOL_RECORD_SIZE;
+                int seq[64];
+                for (int i = 0; i < 32; i++) {
+                    int pidx = (rec[i] >> 2) & 0x3F;
+                    int orient = (rec[i] >> 1) & 1;
+                    if (orient == 0) { seq[i*2] = pairs[pidx].a; seq[i*2+1] = pairs[pidx].b; }
+                    else             { seq[i*2] = pairs[pidx].b; seq[i*2+1] = pairs[pidx].a; }
+                }
+                int d = hamming(seq[63], seq[0]);
+                if (d >= 0 && d <= 6) wd[d]++;
+            }
+            for (int i = 0; i < 7; i++) wrap_dist[i] += wd[i];
+            done += want; records_total += (unsigned long long)want;
+            if (((done >> 16) & 0xF) == 0) { printf("  ... scanned %lld / %lld records\n", done, n_records); fflush(stdout); }
+        }
+        free(vbuf); fclose(vf);
+
+        unsigned long long odd = wrap_dist[1] + wrap_dist[3] + wrap_dist[5];
+        printf("\n[--verify-wrap-parity] === RESULTS ===\n");
+        printf("Records scanned: %llu\n", records_total);
+        printf("Odd wrap-around d(s63,s0): %llu (%.6f%%)  [theorem expects 100.000000%%]\n",
+               odd, 100.0 * odd / (records_total ? records_total : 1));
+        printf("\nWrap-around distance distribution:\n");
+        for (int d = 0; d <= 6; d++)
+            if (wrap_dist[d])
+                printf("  d=%d : %llu records (%.6f%%)\n", d, wrap_dist[d],
+                       100.0 * wrap_dist[d] / (records_total ? records_total : 1));
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--selftest-resume") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in d683794 2026-05-15 as Phase E follow-up item 1).
