@@ -336,6 +336,12 @@
 #ifndef GIT_HASH
 #define GIT_HASH "unknown"
 #endif
+/* SOURCE_SHA — deterministic build identifier replacing __DATE__/__TIME__ (those make the
+ * binary non-reproducible). Pass -DSOURCE_SHA="\"<sha256 of solve.c>\"" at build for a real
+ * value; defaults to "unknown". Informational only — never parsed/compared. (#154) */
+#ifndef SOURCE_SHA
+#define SOURCE_SHA "unknown"
+#endif
 
 /* Pre-main() warning if RLIMIT_STACK is too small for main()'s frame.
  * Production builds need ~8 MB (default Linux). ASan-instrumented builds
@@ -3250,12 +3256,12 @@ static void capture_host_fingerprint(long long node_limit) {
         "echo '  \"binary_text_sha256\": \"'\"${TEXT_SHA:-unknown}\"'\",'; "
         "echo '  \"disk_iops\": {\"agg_fsync_per_sec\": %.0f, \"probe_threads\": %d, \"fsync_batch_size\": %d, \"projected_fsync_wait_h\": %.3f, \"fsync_wall_fraction_pct\": %.2f, \"verdict\": \"%s\"},'; "
         "echo '  \"git_hash_macro\": \"%s\",'; "
-        "echo '  \"build_date_time\": \"'\"%s %s\"'\"'; "
+        "echo '  \"build_source_sha\": \"'\"%s\"'\"'; "
         "echo '}'; "
         "} > canonical-host-fingerprint.json.tmp 2>/dev/null && mv canonical-host-fingerprint.json.tmp canonical-host-fingerprint.json",
         g_iops_agg_fsync_per_sec, g_iops_probe_threads, g_iops_batch,
         g_iops_fsync_wait_h, g_iops_wall_frac_pct, g_iops_verdict,
-        GIT_HASH, __DATE__, __TIME__);
+        GIT_HASH, SOURCE_SHA);
     if (n < 0 || (size_t)n >= sizeof(cmd)) {
         fprintf(stderr, "[hardening] WARN: host-fingerprint capture cmd too long; skipping\n");
         return;
@@ -5847,7 +5853,7 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
 
     fprintf(sf, "# Metadata for reproducibility\n");
     fprintf(sf, "# Date: %s\n", tbuf);
-    fprintf(sf, "# Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
+    fprintf(sf, "# Build: src %s (git: %s)\n", SOURCE_SHA, GIT_HASH);
     fprintf(sf, "# Record format: %d bytes packed (pair_index<<2 | orient<<1)\n", SOL_RECORD_SIZE);
     fprintf(sf, "# Unique orderings: %lld\n", unique_count);
     fprintf(sf, "# Nodes explored: %lld\n", total_nodes);
@@ -6425,7 +6431,7 @@ static void write_json(const char *filename, const char *status,
     fprintf(f, "    \"solve_depth\": %d,\n", solve_depth);
     fprintf(f, "    \"cpu_cores\": %ld,\n", sysconf(_SC_NPROCESSORS_ONLN));
     fprintf(f, "    \"git_hash\": \"%s\",\n", GIT_HASH);
-    fprintf(f, "    \"build_date\": \"%s %s\",\n", __DATE__, __TIME__);
+    fprintf(f, "    \"build_source_sha\": \"%s\",\n", SOURCE_SHA);
     fprintf(f, "    \"resumed_branches\": %d\n", n_completed_from_checkpoint);
     fprintf(f, "  },\n");
 
@@ -9270,7 +9276,7 @@ int main(int argc, char *argv[]) {
         printf("=== solve --print-config ===\n");
         printf("build:\n");
         printf("  git_hash       : %s\n", GIT_HASH);
-        printf("  build_datetime : %s %s\n", __DATE__, __TIME__);
+        printf("  build_source_sha : %s\n", SOURCE_SHA);
         printf("  canonical_selftest_sha256 : 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e\n");
         printf("  (ISA/CPU dispatch: run `solve --cpu-features`; full host env: canonical-host-fingerprint.json sidecar at canonical-enum startup)\n");
         printf("\nSOLVE_* environment (effective values; \"unset\" = built-in default in effect):\n");
@@ -10521,7 +10527,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!show_mode) {
-        printf("Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
+        printf("Build: src %s (git: %s)\n", SOURCE_SHA, GIT_HASH);
         printf("King Wen complement distance (x64): %d (= %.4f)\n",
                kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
         printf("Difference distribution: ");
@@ -13641,7 +13647,7 @@ int main(int argc, char *argv[]) {
                 struct tm tmbuf;
                 strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tmbuf));
                 fprintf(sm, "# Date: %s\n", tbuf);
-                fprintf(sm, "# Build: %s %s (git: %s)\n", __DATE__, __TIME__, GIT_HASH);
+                fprintf(sm, "# Build: src %s (git: %s)\n", SOURCE_SHA, GIT_HASH);
                 fprintf(sm, "# Unique orderings: %lld\n", unique);
                 if (node_limit > 0)
                     fprintf(sm, "# SOLVE_NODE_LIMIT=%lld\n", node_limit);
