@@ -307,9 +307,12 @@ def project_pca(features, n_components=2):
     cov = np.cov(centered.T)
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
     idx = np.argsort(eigenvalues)[::-1]
-    eigenvectors = eigenvectors[:, idx[:n_components]]
+    sel = idx[:n_components]
+    eigenvectors = eigenvectors[:, sel]
     projected = centered @ eigenvectors
-    return projected
+    total_var = float(np.sum(eigenvalues))
+    var_explained = (eigenvalues[sel] / total_var) if total_var else np.zeros(n_components)
+    return projected, var_explained
 
 def subsample_indices(n, max_points, kw_idx=-1):
     """Generate subsample indices, always including King Wen if present."""
@@ -321,11 +324,16 @@ def subsample_indices(n, max_points, kw_idx=-1):
         idx[0] = kw_idx  # ensure KW is included
     return np.sort(idx)
 
-def generate_plots(solutions, features, projected, kw_idx):
+def generate_plots(solutions, features, projected, kw_idx, var_explained=None):
     """Generate all four visualization PNGs and SVGs."""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+
+    # Axis labels carry the % of total variance each principal component captures,
+    # so a reader can see how much structure the 2D projection actually preserves.
+    pc1lab = f'PC1 ({var_explained[0]*100:.1f}% of variance)' if var_explained is not None else 'PC1'
+    pc2lab = f'PC2 ({var_explained[1]*100:.1f}% of variance)' if var_explained is not None else 'PC2'
 
     n = len(features)
     sub_idx = subsample_indices(n, MAX_PLOT_POINTS, kw_idx)
@@ -363,8 +371,8 @@ def generate_plots(solutions, features, projected, kw_idx):
         else:
             subtitle = f"({n:,} solutions" + (f", {n_plotted:,} plotted" if n > MAX_PLOT_POINTS else "") + ")"
         ax.set_title(f"{title}\n{subtitle}", fontsize=14)
-        ax.set_xlabel('PC1', fontsize=12)
-        ax.set_ylabel('PC2', fontsize=12)
+        ax.set_xlabel(pc1lab, fontsize=12)
+        ax.set_ylabel(pc2lab, fontsize=12)
         ax.set_facecolor('#f8f8f8')
         fig.tight_layout()
         fig.savefig(filename + '.png', dpi=150, bbox_inches='tight')
@@ -423,8 +431,8 @@ def generate_plots(solutions, features, projected, kw_idx):
     ax.legend(handles=legend_handles, fontsize=10, loc='upper right')
     subtitle = f"({n:,} solutions" + (f", {n_plotted:,} plotted" if n > MAX_PLOT_POINTS else "") + ")"
     ax.set_title(f'King Wen Solution Space — Adjacency Constraint Satisfaction\n{subtitle}', fontsize=14)
-    ax.set_xlabel('PC1', fontsize=12)
-    ax.set_ylabel('PC2', fontsize=12)
+    ax.set_xlabel(pc1lab, fontsize=12)
+    ax.set_ylabel(pc2lab, fontsize=12)
     ax.set_facecolor('#f8f8f8')
     fig.tight_layout()
     fig.savefig('viz_adjacency.png', dpi=150, bbox_inches='tight')
@@ -449,10 +457,11 @@ def main():
         print("  King Wen not found in solution set")
 
     print("Running PCA projection to 2D...")
-    projected = project_pca(features)
-    print(f"  Projected {len(features):,} solutions to 2D")
+    projected, var_explained = project_pca(features)
+    print(f"  Projected {len(features):,} solutions to 2D "
+          f"(PC1 {var_explained[0]*100:.1f}% / PC2 {var_explained[1]*100:.1f}% of variance)")
 
-    generate_plots(solutions, features, projected, kw_idx)
+    generate_plots(solutions, features, projected, kw_idx, var_explained)
 
     print(f"\nDone. Generated 8 files (4 PNG + 4 SVG).")
 

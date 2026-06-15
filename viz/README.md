@@ -2,10 +2,11 @@
 
 This directory contains:
 
-- **`visualize.py`** — generator script that produces 2D PCA projections of a canonical `solutions.bin`, with four separate color schemes highlighting different properties.
-- **`README.md`** (this file) — how to read and interpret the plots the script produces.
+- **`visualize.py`** — generator script that produces four 2D PCA projections of a canonical `solutions.bin`, with separate color schemes highlighting different properties. PCA axis labels now report the **% of total variance** captured by PC1 and PC2.
+- **`growth_curve.py`** — generator for the **solution-count-vs-enumeration-budget** scaling plot (records vs per-cell node budget, log-log) across the canonical depths, with the power-law fit and the 1120T projection.
+- **`README.md`** (this file) — how to read and interpret the plots.
 
-The plot output files themselves are archived per-run under `../solve_c/runs/<run-id>/viz/` — this directory holds the tooling, not the outputs.
+The PCA tooling lives here; full-resolution plot outputs are archived per-run under `../solve_c/runs/<run-id>/viz/`. The current deepest canonical's figures (d3 **560T**, sha `9a968fa2…`, 10,525,271,997 records, 2026-06-15) (PNG + SVG) are committed under [`../solve_c/runs/20260608_560T_9a968fa2/viz/`](../solve_c/runs/20260608_560T_9a968fa2/viz/) and are the examples referenced below.
 
 ## What you're looking at
 
@@ -50,11 +51,11 @@ so you can find its location on each plot.
 
 ## The four plots
 
-*Example images below are from the 100T d3 canonical run (sha `915abf30…`, 3.43B records). See [`solve_c/runs/20260419_100T_d3_d128westus3/viz/`](../solve_c/runs/20260419_100T_d3_d128westus3/viz/) for the full-resolution SVGs.*
+*Example images below are from the **d3 560T canonical** (sha `9a968fa2…`, 10,525,271,997 records — the current deepest enumeration, 2026-06-15). Full-resolution PNG + SVG are committed under [`solve_c/runs/20260608_560T_9a968fa2/viz/`](../solve_c/runs/20260608_560T_9a968fa2/viz/). Axis labels show the % of total variance each PC captures.*
 
 ### 1. `viz_edit_distance.png/.svg` — colored by edit distance to King Wen
 
-![Edit-distance plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_edit_distance.png)
+![Edit-distance plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
 
 **What's colored:** each solution's "edit distance" to King Wen,
 defined as the number of positions where this solution's pair
@@ -114,7 +115,7 @@ position differs).
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
-![Complement-distance plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_complement_dist.png)
+![Complement-distance plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
 
 **What's colored:** each solution's total complement distance
 (the sum of `|pos[v] - pos[v^63]|` across all 64 hexagrams).
@@ -147,7 +148,7 @@ Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2
 
-![Position-2 cluster plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_position2_cluster.png)
+![Position-2 cluster plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
 
 **What's colored:** the first-level branch identity. Position 2 is
 the first "variable" position in the sequence (position 1 is locked
@@ -177,7 +178,7 @@ at position 2.
 
 ### 4. `viz_adjacency.png/.svg` — colored by C6/C7 adjacency satisfaction
 
-![Adjacency plot for 100T d3 canonical](../solve_c/runs/20260419_100T_d3_d128westus3/viz/viz_adjacency.png)
+![Adjacency plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
 
 **What's colored:** how many of the two "mandatory" KW-adjacency
 constraints (C6 at positions 25-26, C7 at positions 27-28) this
@@ -206,6 +207,28 @@ solution satisfies. Values: 0 (neither), 1 (one), or 2 (both).
   what fraction of valid solutions already satisfy these
   adjacencies? If most are 0, {25, 27} are genuinely selective;
   if most are 2, they're essentially always satisfied.
+
+## Growth-curve plot (`growth_curve.py`)
+
+![Solution-count vs enumeration-budget growth curve](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_growth_curve.png)
+
+A separate, non-PCA plot: **canonical solution count vs per-cell enumeration node budget**, log-log,
+across the three canonical depths (11.2T → 100T → 560T), with a power-law fit and the projected
+1120T point (clearly marked **NOT measured**).
+
+**What it shows:**
+
+- Records grow **sublinearly** with budget: ×50 budget (11.2T→560T) yields only ×13.86 records
+  (global power-law exponent α ≈ 0.67; recent-leg α ≈ 0.65). The three measured points
+  (11.2T = 759,608,573; 100T = 3,432,399,298; 560T = 10,525,271,997) lie close to the fit line.
+- The enumeration is **strictly nested** (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations) and
+  **deepening, not broadening** — growth is existing productive cells yielding more, not new cells
+  opening. None of the sampled sub-branches are exhausted at 560T, so the curve is the growth of a
+  fixed-budget *slice*, not an approach to a total. This reframes the 1120T extension as a
+  **discriminating test of the growth asymptote**, not merely more data.
+
+See [`../documentation/HISTORY.md`](../documentation/HISTORY.md) §"3-point per-cell scaling
+trajectory" for the full analysis.
 
 ## How to read all four together
 
