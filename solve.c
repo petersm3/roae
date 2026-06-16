@@ -16173,6 +16173,20 @@ sub_enum_done:
         free(threads[i].sub_branches);
     }
 
+    /* #163 fix (2026-06-15): re-emit shard_manifest.txt now that this run's
+     * enumeration has FINALIZED the shards. The startup auto-emit (after
+     * promote_orphaned_shards, before the enum) only snapshots the PRE-enum
+     * state. Without this end-of-run refresh, a budget-INCREASE resume that
+     * advances the shards leaves the manifest stale, so the NEXT budget-
+     * increase resume's auto-verify-manifest sees the legitimately-advanced
+     * shards as DIVERGED and false-aborts (exit 22). That is the multi-hop /
+     * milestone-ladder extension failure (#163); single-hop extension and
+     * same-budget eviction-resume never hit it. Purely additive + sha-NEUTRAL:
+     * shard_manifest.txt is metadata, never part of solutions.bin; only runs
+     * on clean enum completion (an evicted-mid-run never reaches here, so the
+     * eviction-recovery path is unchanged). Honors SOLVE_SKIP_AUTO_MANIFEST. */
+    auto_emit_shard_manifest_default();
+
     long long unique_count = 0;
     int fork_merge_done = 0;
     char hash[130] = {0};
