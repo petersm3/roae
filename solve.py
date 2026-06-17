@@ -2604,7 +2604,7 @@ def print_null_debruijn(trials=5000, seed=None):
     distinct B(2, 6) sequences (definitive, not sampled), build and run
     solve.c's `null_debruijn_exact` subroutine:
 
-        gcc -O3 -o solve solve.c -lm -pthread -fopenmp
+        gcc -O3 -o solve solve.c -lm -lz -pthread -fopenmp
         ./solve --null-debruijn-exact
 
     which completes in ~1-5 minutes and prints the exact counts this

@@ -1319,7 +1319,7 @@ Every explored path in this subtree violated the complement distance constraint.
 ## Running the solver
 
 ```bash
-gcc -O3 -pthread -o solve solve.c    # Compile
+gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz    # Compile (-lz: #169 native gzip; -lm: math)
 ./solve --list-branches              # Show all branches
 SOLVE_THREADS=64 ./solve --branch 24 0 0  # Run one branch
 ./solve --merge                       # Combine sub-branch results

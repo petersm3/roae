@@ -774,7 +774,7 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
 
    ```bash
    scp -i ~/.ssh/f64_key ./solve.c solver@$IP:~/solve.c
-   ssh ... solver@$IP 'gcc -O3 -pthread -o solve solve.c'
+   ssh ... solver@$IP 'gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz'
    ssh ... solver@$IP "cd /data && SOLVE_THREADS=64 SOLVE_NODE_LIMIT=$NODE_LIMIT \
        nohup ~/solve 86400 > solve_output.txt 2>&1 &"
    sleep 5
