@@ -295,6 +295,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <omp.h>
+#include <zlib.h>   /* #169: native-gzip large-file I/O (link with -lz) */
 
 /* Per-1% progress emission for --analyze sections. Master-thread only when
  * inside an OpenMP region (omp_get_thread_num() returns 0 outside parallel
@@ -733,12 +734,49 @@ static int sol_write_header(FILE *f, uint64_t n_records) {
     return 0;
 }
 
+/* #169: same header, written to a gz stream (gzfwrite). The header bytes are part
+ * of the logical content, so the decompressed solutions.bin = {header}{records}
+ * exactly as the raw path → canonical sha unchanged. */
+static int sol_write_header_gz(gzFile f, uint64_t n_records) {
+    unsigned char hdr[SOL_HEADER_SIZE] = {0};
+    hdr[0] = 'R'; hdr[1] = 'O'; hdr[2] = 'A'; hdr[3] = 'E';
+    sol_pack_u32_le(&hdr[4], (uint32_t)SOL_FORMAT_VERSION);
+    sol_pack_u64_le(&hdr[8], n_records);
+    if (gzfwrite(hdr, 1, SOL_HEADER_SIZE, f) != SOL_HEADER_SIZE) return -1;
+    return 0;
+}
+
+/* #169: validate the header from an in-memory buffer (the first SOL_HEADER_SIZE
+ * bytes of a decompressed/mmap'd solutions.bin). Returns 0 on success. */
+static int sol_read_header_mem(const unsigned char *hdr, uint64_t *out_records) {
+    if (hdr[0] != 'R' || hdr[1] != 'O' || hdr[2] != 'A' || hdr[3] != 'E')
+        return -1;
+    uint32_t version = sol_unpack_u32_le(&hdr[4]);
+    if (version != SOL_FORMAT_VERSION) return -1;
+    *out_records = sol_unpack_u64_le(&hdr[8]);
+    return 0;
+}
+
 /* Read and validate the header. Returns 0 on success (fills *out_records),
  * or -1 on bad magic, unknown version, or short read.
  * Caller is responsible for seeking the stream to offset 0 first. */
 static int sol_read_header(FILE *f, uint64_t *out_records) {
     unsigned char hdr[SOL_HEADER_SIZE];
     if (fread(hdr, 1, SOL_HEADER_SIZE, f) != SOL_HEADER_SIZE) return -1;
+    if (hdr[0] != 'R' || hdr[1] != 'O' || hdr[2] != 'A' || hdr[3] != 'E')
+        return -1;
+    uint32_t version = sol_unpack_u32_le(&hdr[4]);
+    if (version != SOL_FORMAT_VERSION) return -1;
+    *out_records = sol_unpack_u64_le(&hdr[8]);
+    return 0;
+}
+
+/* #169: read+validate the header from a gz stream (gzfread). Readers should use
+ * the returned record count (*out_records) for n_records — NOT a file-size
+ * computation — since a gz file's on-disk size is compressed. Returns 0 on ok. */
+static int sol_read_header_gz(gzFile f, uint64_t *out_records) {
+    unsigned char hdr[SOL_HEADER_SIZE];
+    if (gzfread(hdr, 1, SOL_HEADER_SIZE, f) != SOL_HEADER_SIZE) return -1;
     if (hdr[0] != 'R' || hdr[1] != 'O' || hdr[2] != 'A' || hdr[3] != 'E')
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
@@ -1052,6 +1090,162 @@ static inline int maybe_fsync_fd(int fd) {
     return fsync(fd);
 }
 
+/* ===================== #169 native-gzip large-file I/O shim =====================
+ * gzip is a NON-sha-determining storage layer: every sha (canonical solutions.bin
+ * + the shard manifest) is computed on DECOMPRESSED bytes, so the published anchors
+ * (403f7202/74d39760/0c0fe37c/915abf30) are unchanged. Filenames stay the same
+ * (sub_*.bin / solutions.bin hold gz content); readers auto-detect raw vs gz.
+ *   SOLVE_GZIP_LEVEL — 1..9, default 9 (archives-always-gzip9). Sha-neutral at any level.
+ *   SOLVE_COMPRESS   — default ON; =0 writes TRANSPARENT (raw, no gz wrapper) bytes,
+ *                      byte-identical to the legacy fwrite path (full back-compat).
+ * zlib's gzfread/gzfwrite share fread/fwrite signatures, and gzopen("rb") reads raw
+ * OR gz transparently, so conversions at the call sites are near-mechanical. */
+static int gz_compress_enabled(void) {
+    const char *e = getenv("SOLVE_COMPRESS");
+    if (e && atoi(e) == 0) return 0;
+    return 1;  /* default ON */
+}
+static int gz_level(void) {
+    const char *e = getenv("SOLVE_GZIP_LEVEL");
+    if (e && *e) { int v = atoi(e); if (v >= 1 && v <= 9) return v; }
+    return 9;
+}
+/* Open a large binary file for writing. Compressed (wb<level>) when SOLVE_COMPRESS!=0,
+ * else transparent/raw (wbT) — same gzfwrite API either way. NULL on error. */
+static gzFile gzw_open(const char *path) {
+    char mode[8];
+    if (gz_compress_enabled()) snprintf(mode, sizeof(mode), "wb%d", gz_level());
+    else                       snprintf(mode, sizeof(mode), "wbT");
+    gzFile gf = gzopen(path, mode);
+    if (gf) gzbuffer(gf, 1u << 20);  /* 1 MB buffer — bulk 32-byte record I/O */
+    return gf;
+}
+/* Finish the gz stream, close (gzclose flushes + closes the fd), then fsync the file
+ * for durability — honoring #108b batching (skip per-file fsync when syncfs batching
+ * is active). Reopen by path because gzclose owns/closes the underlying fd.
+ * Returns 0 on success, -1 on any error. */
+static int gzw_close_durable(gzFile gf, const char *path) {
+    if (gzclose(gf) != Z_OK) return -1;
+    if (fsync_batch_active()) return 0;   /* periodic syncfs handles durability */
+    int dfd = open(path, O_WRONLY);
+    if (dfd < 0) return -1;
+    int rc = fsync(dfd);
+    close(dfd);
+    return rc;
+}
+/* Open a large binary file for reading; transparently handles raw OR gz content. */
+static gzFile gzr_open(const char *path) {
+    gzFile gf = gzopen(path, "rb");
+    if (gf) gzbuffer(gf, 1u << 20);
+    return gf;
+}
+/* True if the file begins with the gzip magic (1f 8b). Used to pick the right
+ * decoder deterministically (never `gzip -dc || cat`, which can concatenate
+ * partial-decompress + raw bytes on a truncated gz and corrupt a hash). */
+static int file_is_gzip(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    unsigned char m[2] = {0, 0};
+    size_t n = fread(m, 1, 2, f);
+    fclose(f);
+    return (n == 2 && m[0] == 0x1f && m[1] == 0x8b);
+}
+/* Logical (decompressed) byte size of a shard-class file: gz → ISIZE trailer
+ * (last 4 bytes, little-endian uint32 = uncompressed size mod 2^32 — valid for the
+ * sub-4 GB per-cell shards here; solutions.bin readers use the header record count,
+ * not this), raw → stat size. Returns -1 on error. Cheap (reads 4 bytes for gz). */
+static long long gz_logical_size(const char *path) {
+    if (!file_is_gzip(path)) {
+        struct stat st;
+        if (stat(path, &st) != 0) return -1;
+        return (long long)st.st_size;
+    }
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    if (fseek(f, -4, SEEK_END) != 0) { fclose(f); return -1; }
+    unsigned char b[4];
+    size_t n = fread(b, 1, 4, f);
+    fclose(f);
+    if (n != 4) return -1;
+    return (long long)((uint32_t)b[0] | ((uint32_t)b[1] << 8) |
+                       ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24));
+}
+/* Native `gzip -t`: fully inflate the file (discarding output), relying on zlib's
+ * built-in CRC-32 + ISIZE trailer check at end-of-stream. Returns 0 if the gz is
+ * intact, -1 if corrupt/truncated. O(decompressed size) — the CRC is in the
+ * trailer, so the whole stream must be read (same cost as `gzip -t`). For a raw
+ * (transparent, non-gz) file this only confirms readability (no CRC to check). */
+static int gz_test(const char *path) {
+    gzFile gf = gzopen(path, "rb");
+    if (!gf) return -1;
+    unsigned char buf[1 << 16];
+    int n;
+    while ((n = gzread(gf, buf, sizeof(buf))) > 0) { /* discard */ }
+    int err = 0;
+    (void)gzerror(gf, &err);
+    int ok = (n == 0 && gzeof(gf) && err == Z_OK);  /* clean EOF + CRC/length OK */
+    gzclose(gf);
+    return ok ? 0 : -1;
+}
+
+/* #169: mmap a solutions.bin that may be gz. mmap cannot read a gz container,
+ * so when the file is gz we decompress it to a temp file (in SOLVE_TEMP_DIR or
+ * /tmp) and mmap THAT — preserving every downstream mmap fast-path (--validate
+ * OpenMP record scan, --analyze packed-bitmap masks) unchanged. Raw files are
+ * mmap'd directly (no temp, no copy). On success: *out_base = mapping base,
+ * *out_size = mapped length (decompressed for gz), *out_tmp set to the temp
+ * path to unlink at cleanup (empty string if none). Returns 0 on success, -1 on
+ * error. Caller pairs with gz_mmap_close. The decompressed-temp footprint is the
+ * full logical size — for the gz mmap paths (analyze/validate) that is the same
+ * RAM/disk cost as the pre-#169 raw file, i.e. no regression vs. raw. */
+static int gz_mmap_open(const char *path, unsigned char **out_base,
+                        long *out_size, char *out_tmp, size_t out_tmp_sz) {
+    *out_base = NULL; *out_size = 0; if (out_tmp_sz) out_tmp[0] = '\0';
+    const char *map_path = path;
+    char tmp[512] = {0};
+    if (file_is_gzip(path)) {
+        const char *td = getenv("SOLVE_TEMP_DIR");
+        if (!td || !*td) td = "/tmp";
+        snprintf(tmp, sizeof(tmp), "%s/roae_gz_mmap_XXXXXX", td);
+        int tfd = mkstemp(tmp);   /* #169 S3: unpredictable temp (no symlink/clobber/pid-collision) */
+        if (tfd < 0) { fprintf(stderr, "ERROR: mkstemp(%s) failed: %s\n", tmp, strerror(errno)); return -1; }
+        /* Decompress via the gz reader (streamed) into the temp file. */
+        gzFile gf = gzr_open(path);
+        if (!gf) { fprintf(stderr, "ERROR: gzr_open(%s) failed\n", path); close(tfd); remove(tmp); return -1; }
+        FILE *tf = fdopen(tfd, "wb");
+        if (!tf) { fprintf(stderr, "ERROR: fdopen temp %s: %s\n", tmp, strerror(errno)); close(tfd); remove(tmp); gzclose(gf); return -1; }
+        unsigned char buf[1 << 16];
+        int n;
+        while ((n = gzread(gf, buf, sizeof(buf))) > 0) {
+            if (fwrite(buf, 1, (size_t)n, tf) != (size_t)n) {
+                fprintf(stderr, "ERROR: write to decompress temp %s failed\n", tmp);
+                fclose(tf); gzclose(gf); remove(tmp); return -1;
+            }
+        }
+        if (n < 0) { fprintf(stderr, "ERROR: gz decompress of %s failed\n", path); fclose(tf); gzclose(gf); remove(tmp); return -1; }
+        if (fflush(tf) != 0 || fclose(tf) != 0) { fprintf(stderr, "ERROR: closing decompress temp %s failed\n", tmp); gzclose(gf); remove(tmp); return -1; }
+        gzclose(gf);
+        map_path = tmp;
+        if (out_tmp_sz) snprintf(out_tmp, out_tmp_sz, "%s", tmp);
+    }
+    int fd = open(map_path, O_RDONLY);
+    if (fd < 0) { fprintf(stderr, "ERROR: cannot open %s\n", map_path); if (tmp[0]) remove(tmp); return -1; }
+    struct stat st;
+    if (fstat(fd, &st) < 0) { fprintf(stderr, "ERROR: fstat failed\n"); close(fd); if (tmp[0]) remove(tmp); return -1; }
+    long sz = (long)st.st_size;
+    if (sz <= 0) { fprintf(stderr, "ERROR: empty/invalid file %s\n", map_path); close(fd); if (tmp[0]) remove(tmp); return -1; }
+    unsigned char *base = mmap(NULL, (size_t)sz, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (base == MAP_FAILED) { fprintf(stderr, "ERROR: mmap of %ld bytes failed (errno %d)\n", sz, errno); if (tmp[0]) remove(tmp); return -1; }
+    madvise(base, (size_t)sz, MADV_SEQUENTIAL);
+    *out_base = base; *out_size = sz;
+    return 0;
+}
+static void gz_mmap_close(unsigned char *base, long size, const char *tmp) {
+    if (base && base != MAP_FAILED) munmap(base, (size_t)size);
+    if (tmp && tmp[0]) remove(tmp);
+}
+
 /* Per-thread periodic syncfs. Called by the worker at the end of each
  * sub-branch iteration. Coalesces all pending file-system writes once
  * per g_fsync_batch_size iterations via syncfs(). Falls back to legacy
@@ -1123,6 +1317,33 @@ static int time_limit = 0;
  * hardware produces the same solutions.bin (reproducible sha256). */
 static long long node_limit = 0;
 static long long per_branch_node_limit = 0;  /* node_limit / n_branches, set at startup */
+
+/* Canonical per-cell PSB recipe table — SINGLE SOURCE OF TRUTH for the empirical
+ * per-sub-branch budgets that reproduce each published canonical sha byte-identically.
+ * MUST stay in sync with documentation/CANONICAL_HASHES.md "Reproducibility parameters".
+ * These are EMPIRICAL values (NOT floor(NODE_LIMIT/158364)); see the "PSB-formula caveat"
+ * in CANONICAL_HASHES.md + roae-private:LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR.md.
+ * Consumed by BOTH --canonical-config (prints them) and --validate-canonical (injects them).
+ * Before the 2026-06-17 fix, --validate-canonical DERIVED the PSB from NODE_LIMIT, which
+ * diverges from these empirical values at 11.2T+ and produced a wrong (non-canonical) sha
+ * (measured 2184bdd8 vs 11.2T anchor 0c0fe37c). psb==0 means "omit" (d2 mechanics differ). */
+struct canonical_recipe { const char *label; int depth; long long node_limit; long long psb; };
+static const struct canonical_recipe CANONICAL_RECIPES[] = {
+    { "1T",     3,         1000000000000LL,       6315458LL },
+    { "5.6T",   3,         5600000000000LL,      35361598LL },
+    { "10T",    3,        10000000000000LL,      63146557LL },
+    { "11.2T",  3,        11200000000000LL,      70723196LL },
+    { "100T",   3,       100000000000000LL,     631456644LL },
+    { "560T",   3,       560000000000000LL,    3536157207LL },
+    { "d2-10T", 2,        10000000000000LL,             0LL },
+    { NULL,     0,                       0LL,             0LL }
+};
+static long long canonical_psb_for_label(const char *label) {
+    for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++)
+        if (strcmp(r->label, label) == 0) return r->psb;
+    return -1;
+}
+
 /* SOLVE_PER_SUB_BRANCH_LIMIT (2026-04-29). When set, overrides the
  * auto-divide computation of per_branch_node_limit. Both full-enum and
  * --branch modes will use the same per-sub-branch budget directly,
@@ -2836,15 +3057,30 @@ static int do_emit_shard_manifest(const char *manifest_path) {
     if (!tool) { require_sha256_tool(); return 30; }
     int threads = manifest_thread_count();
     char cmd[8192];
+    /* #169: shards may be gz or raw (filenames unchanged: sub_*.bin). The
+     * manifest records the LOGICAL (decompressed) size + sha so it is
+     * compression-invariant: a gz shard and its raw equivalent produce the
+     * SAME manifest line. Per-file we sniff the gzip magic (1f 8b) and, for gz,
+     * derive size via `gzip -dc | wc -c` and sha via `gzip -dc | sha256`. A
+     * truncated/corrupt gz decompresses short → smaller logical size (caught as
+     * SHRUNK on verify) and a different sha (caught as DIVERGED). Raw shards use
+     * stat + whole-file sha exactly as before, so existing manifests are
+     * byte-compatible with raw data. */
     snprintf(cmd, sizeof(cmd),
              "LC_ALL=C find . -maxdepth 1 -name 'sub_*.bin' -type f -printf '%%f\\n' 2>/dev/null | "
              "LC_ALL=C xargs -P %d -n 1 sh -c '"
              "f=\"$1\"; "
-             "sz=$(stat -c%%s \"$f\" 2>/dev/null) || exit 0; "
-             "sh=$(%s \"$f\" 2>/dev/null | cut -d\" \" -f1); "
+             "magic=$(dd if=\"$f\" bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d \" \\n\"); "
+             "if [ \"$magic\" = \"1f8b\" ]; then "
+             "  sz=$(gzip -dc \"$f\" 2>/dev/null | wc -c); "
+             "  sh=$(gzip -dc \"$f\" 2>/dev/null | %s | cut -d\" \" -f1); "
+             "else "
+             "  sz=$(stat -c%%s \"$f\" 2>/dev/null) || exit 0; "
+             "  sh=$(%s \"$f\" 2>/dev/null | cut -d\" \" -f1); "
+             "fi; "
              "[ -n \"$sh\" ] && printf \"%%s\\t%%s\\t%%s\\n\" \"$f\" \"$sz\" \"$sh\""
              "' _ | LC_ALL=C sort > %s.tmp && mv %s.tmp %s",
-             threads, tool, manifest_path, manifest_path, manifest_path);
+             threads, tool, tool, manifest_path, manifest_path, manifest_path);
     int rc = system(cmd);
     if (rc != 0) return 30;
     return 0;
@@ -2885,6 +3121,12 @@ static int do_verify_shard_manifest(const char *manifest_path,
      * on shards. */
     int threads = manifest_thread_count();
     char cmd[8192];
+    /* #169: gz-aware verify. Manifest size/sha are LOGICAL (decompressed). For
+     * a gz shard, derive the actual logical size via `gzip -dc | wc -c` and the
+     * logical sha via `gzip -dc | sha256` — NOT head -c on the compressed bytes
+     * (which would hash the wrong region). Raw shards keep the stat + head-c
+     * fast path. SHRUNK/DIVERGED semantics are unchanged (now compared on
+     * logical bytes); a truncated gz both shrinks and diverges and is caught. */
     snprintf(cmd, sizeof(cmd),
              "LC_ALL=C xargs -P %d -n 1 -d '\\n' -a '%s' sh -c '"
              "line=\"$1\"; "
@@ -2892,18 +3134,28 @@ static int do_verify_shard_manifest(const char *manifest_path,
              "sz=$(printf \"%%s\" \"$line\" | cut -f2); "
              "sha=$(printf \"%%s\" \"$line\" | cut -f3); "
              "[ -z \"$fname\" ] && exit 0; "
-             "if ! actual_sz=$(stat -c%%s \"$fname\" 2>/dev/null); then "
+             "if [ ! -f \"$fname\" ]; then "
+             "  printf \"MISSING\\t%%s\\t%%s\\n\" \"$fname\" \"$sz\"; exit 0; "
+             "fi; "
+             "magic=$(dd if=\"$fname\" bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d \" \\n\"); "
+             "if [ \"$magic\" = \"1f8b\" ]; then "
+             "  actual_sz=$(gzip -dc \"$fname\" 2>/dev/null | wc -c); "
+             "  got=$(gzip -dc \"$fname\" 2>/dev/null | %s | cut -d\" \" -f1); "
+             "else "
+             "  actual_sz=$(stat -c%%s \"$fname\" 2>/dev/null); "
+             "  got=$(head -c \"$sz\" \"$fname\" 2>/dev/null | %s | cut -d\" \" -f1); "
+             "fi; "
+             "if [ -z \"$actual_sz\" ]; then "
              "  printf \"MISSING\\t%%s\\t%%s\\n\" \"$fname\" \"$sz\"; exit 0; "
              "fi; "
              "if [ \"$actual_sz\" -lt \"$sz\" ]; then "
              "  printf \"SHRUNK\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$actual_sz\" \"$sz\"; exit 0; "
              "fi; "
-             "got=$(head -c \"$sz\" \"$fname\" 2>/dev/null | %s | cut -d\" \" -f1); "
              "if [ \"$got\" != \"$sha\" ]; then "
              "  printf \"DIVERGED\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$got\" \"$sha\"; "
              "fi"
              "' _",
-             threads, manifest_path, tool);
+             threads, manifest_path, tool, tool);
     FILE *p = popen(cmd, "r");
     if (!p) {
         fprintf(stderr, "ERROR: popen failed for parallel manifest verify\n");
@@ -2958,6 +3210,27 @@ static int do_verify_shard_manifest(const char *manifest_path,
  * Sha-neutral: never modifies .bin content, only reads. solutions.bin
  * (the final merge output) is bit-identical. */
 
+/* #164 (2026-06-16): true if this run dir shows an interrupted / in-progress
+ * enumeration to resume — i.e., any per-cell DFS resume frontier (*.dfs_state)
+ * is present. On such a resume (Spot-eviction recovery, milestone/budget
+ * extension), the shards legitimately advance past any prior manifest snapshot,
+ * so the cross-run exact-byte manifest verify must be ADVISORY, not fatal — that
+ * was the #163 eviction-resume false-abort (exit 22). A truly fresh start has no
+ * .dfs_state and keeps the fatal verify (where byte-identity IS expected).
+ * Read-only directory scan; sha-neutral. */
+static int resuming_in_progress(void) {
+    DIR *d = opendir(".");
+    if (!d) return 0;
+    struct dirent *e;
+    int found = 0;
+    while ((e = readdir(d)) != NULL) {
+        size_t n = strlen(e->d_name);
+        if (n >= 10 && strcmp(e->d_name + n - 10, ".dfs_state") == 0) { found = 1; break; }
+    }
+    closedir(d);
+    return found;
+}
+
 static int auto_verify_shard_manifest_if_exists(void) {
     if (getenv("SOLVE_SKIP_AUTO_MANIFEST") && atoi(getenv("SOLVE_SKIP_AUTO_MANIFEST")) == 1) {
         fprintf(stderr, "[hardening] auto-verify-manifest SKIPPED (SOLVE_SKIP_AUTO_MANIFEST=1)\n");
@@ -2975,17 +3248,38 @@ static int auto_verify_shard_manifest_if_exists(void) {
         fprintf(stderr, "[hardening] auto-verify-manifest PASS: %d entries checked, all match\n", total);
         return 0;
     }
+    /* #164 (2026-06-16): a verify FAILURE is only meaningful on a FRESH start,
+     * where the on-disk shards are expected byte-identical to a prior clean
+     * manifest. On a RESUME / EXTENSION (any *.dfs_state present) the shards
+     * legitimately advance past the last snapshot, so MISSING/SHRUNK/DIVERGED
+     * are EXPECTED and must NOT be fatal — that was the #163 false-abort. In
+     * that mode we downgrade to ADVISORY: log the counts (still a useful signal)
+     * and proceed. Real integrity on resume is enforced by per-shard headers,
+     * the .budget sidecar + Outlier-#5 re-walk, and — authoritatively — the
+     * merge-time sha-gate against the canonical sha. A fresh manifest is
+     * re-emitted right after promotion, so the snapshot is brought current. */
+    if (resuming_in_progress()) {
+        fprintf(stderr,
+            "[hardening] auto-verify-manifest ADVISORY on resume/extension "
+            "(%d total: %d missing, %d shrunk, %d diverged) — expected when shards "
+            "legitimately advanced past the prior snapshot; NOT fatal (#164). Final "
+            "correctness is enforced by the merge-time sha-gate; a fresh manifest is "
+            "re-emitted after promotion. Override with SOLVE_SKIP_AUTO_MANIFEST=1 to "
+            "skip this check entirely.\n",
+            total, missing, shrunk, diverged);
+        return 0;
+    }
     fprintf(stderr,
         "ERROR: auto-verify-manifest FAIL (%d total: %d missing, %d shrunk, %d diverged)\n"
         "       Shards in this run dir do not match the snapshot in shard_manifest.txt.\n"
-        "       Causes: silent file corruption between runs, foreign shard injection,\n"
-        "       eviction-resume content drift, manual file edits. The .budget sidecar\n"
-        "       mechanism + LOAD-path re-walk can recover from MISSING / SHRUNK by\n"
-        "       refusing those shards' promotion (already in place via Outlier #5\n"
-        "       mitigation) — but DIVERGED shards have new content that should not\n"
-        "       be trusted. To proceed: investigate the diverged files, delete them\n"
-        "       (forcing re-walk), then retry. Or override with SOLVE_SKIP_AUTO_MANIFEST=1\n"
-        "       (NOT recommended for canonical campaigns).\n",
+        "       FRESH start (no *.dfs_state present) — shards were expected to be\n"
+        "       byte-identical to the prior clean manifest. Causes: silent file\n"
+        "       corruption between runs, foreign shard injection, manual file edits.\n"
+        "       The .budget sidecar mechanism + LOAD-path re-walk can recover from\n"
+        "       MISSING / SHRUNK by refusing those shards' promotion (Outlier #5) —\n"
+        "       but DIVERGED shards have new content that should not be trusted. To\n"
+        "       proceed: investigate the diverged files, delete them (forcing re-walk),\n"
+        "       then retry. Or override with SOLVE_SKIP_AUTO_MANIFEST=1.\n",
         total, missing, shrunk, diverged);
     return 22;
 }
@@ -4592,7 +4886,7 @@ static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, in
                  p1, o1, p2, o2, p3, o3);
     else
         snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
-    FILE *f = fopen(fname, "rb");
+    gzFile f = gzr_open(fname);          /* #169: auto-detects raw or gz shard */
     if (!f) return 1;  /* no prior shard = nothing to load */
 
     /* Allocate hash table if not already (analyze_solution does this lazily;
@@ -4602,7 +4896,7 @@ static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, in
         ts->sol_occupied = calloc(ts->ht_size, 1);
         if (!ts->sol_table || !ts->sol_occupied) {
             fprintf(stderr, "FATAL: dfs_state_load_prior_shard alloc failed\n");
-            fclose(f);
+            gzclose(f);
             return -1;
         }
     }
@@ -4610,7 +4904,7 @@ static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, in
     pthread_mutex_lock(&ts->ht_mutex);
     long long loaded = 0;
     unsigned char rec[SOL_RECORD_SIZE];
-    while (fread(rec, SOL_RECORD_SIZE, 1, f) == 1) {
+    while (gzfread(rec, SOL_RECORD_SIZE, 1, f) == 1) {
         unsigned char canonical[SOL_RECORD_SIZE];
         for (int i = 0; i < SOL_RECORD_SIZE; i++) canonical[i] = rec[i] & 0xFC;
         unsigned long long ch = 14695981039346656037ULL;
@@ -4641,7 +4935,7 @@ static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, in
         }
     }
     pthread_mutex_unlock(&ts->ht_mutex);
-    fclose(f);
+    gzclose(f);
     fprintf(stderr, "[dfs-checkpoint] LOADED %s into hash table (%lld records)\n",
             fname, loaded);
     return 0;
@@ -4660,7 +4954,7 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
     char fname[96], tmpname[96];
     snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
     snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2, p3, o3);
-    FILE *sf = fopen(tmpname, "wb");
+    gzFile sf = gzw_open(tmpname);   /* #169: gz (or raw if SOLVE_COMPRESS=0) */
     if (!sf) {
         fprintf(stderr, "FATAL: cannot open %s for writing: %s\n", tmpname, strerror(errno));
         exit(1);
@@ -4669,29 +4963,43 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
     int write_error = 0;
     for (int s = 0; s < ts->ht_size; s++) {
         if (ts->sol_occupied[s]) {
-            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf) != 1) {
+            if (gzfwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf) != 1) {
                 write_error = 1;
                 break;
             }
             written++;
         }
     }
-    if (write_error || fflush(sf) != 0 || maybe_fsync_fd(fileno(sf)) != 0) {
-        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %lld of %lld): %s\n",
+    if (write_error) {
+        fprintf(stderr, "FATAL: write failed on %s (wrote %lld of %lld): %s\n",
                 tmpname, written, ts->solution_count, strerror(errno));
-        fclose(sf);
+        gzclose(sf);
         exit(1);
     }
-    if (fclose(sf) != 0) {
-        fprintf(stderr, "FATAL: close failed on %s: %s\n", tmpname, strerror(errno));
+    if (gzw_close_durable(sf, tmpname) != 0) {   /* finish gz stream + fsync + close */
+        fprintf(stderr, "FATAL: flush/fsync/close failed on %s\n", tmpname);
         exit(1);
     }
+    /* #169: on-disk size is now COMPRESSED (or raw under SOLVE_COMPRESS=0), so the
+     * old written*RECORD_SIZE byte check no longer applies. Short/torn writes are
+     * caught by the per-record gzfwrite==1 check above; here we sanity-check the
+     * tmp is present + non-empty (written>0 guaranteed at entry). */
     struct stat st;
-    long long expected = (long long)written * SOL_RECORD_SIZE;
-    if (stat(tmpname, &st) != 0 || st.st_size != expected) {
-        fprintf(stderr, "FATAL: post-write size mismatch on %s: got %lld, expected %lld\n",
-                tmpname, (long long)(stat(tmpname, &st) == 0 ? st.st_size : -1), expected);
+    if (stat(tmpname, &st) != 0 || st.st_size <= 0) {
+        fprintf(stderr, "FATAL: post-write check failed on %s: %s\n",
+                tmpname, strerror(errno));
         exit(1);
+    }
+    /* #169: optional per-shard gz integrity test (gzip -t). Default OFF — a full
+     * decompress per shard ~doubles compression CPU across ~65K shards; the
+     * gzfwrite return-counts + gzw_close_durable's gzclose-check already cover
+     * write completeness. SOLVE_GZ_TEST_SHARDS=1 enables paranoid per-shard CRC. */
+    {
+        const char *gzt = getenv("SOLVE_GZ_TEST_SHARDS");
+        if (gzt && atoi(gzt) == 1 && file_is_gzip(tmpname) && gz_test(tmpname) != 0) {
+            fprintf(stderr, "FATAL: gz integrity test failed on %s\n", tmpname);
+            exit(1);
+        }
     }
     if (rename(tmpname, fname) != 0) {
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
@@ -4713,7 +5021,7 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
     char fname[64], tmpname[64];
     snprintf(fname, sizeof(fname), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
     snprintf(tmpname, sizeof(tmpname), "sub_%d_%d_%d_%d.bin.tmp", p1, o1, p2, o2);
-    FILE *sf = fopen(tmpname, "wb");
+    gzFile sf = gzw_open(tmpname);   /* #169: gz (or raw if SOLVE_COMPRESS=0) */
     if (!sf) {
         fprintf(stderr, "FATAL: cannot open %s for writing: %s\n", tmpname, strerror(errno));
         exit(1);
@@ -4722,29 +5030,41 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
     int write_error = 0;
     for (int s = 0; s < ts->ht_size; s++) {
         if (ts->sol_occupied[s]) {
-            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf) != 1) {
+            if (gzfwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, sf) != 1) {
                 write_error = 1;
                 break;
             }
             written++;
         }
     }
-    if (write_error || fflush(sf) != 0 || maybe_fsync_fd(fileno(sf)) != 0) {
-        fprintf(stderr, "FATAL: write/flush/fsync failed on %s (wrote %lld of %lld): %s\n",
+    if (write_error) {
+        fprintf(stderr, "FATAL: write failed on %s (wrote %lld of %lld): %s\n",
                 tmpname, written, ts->solution_count, strerror(errno));
-        fclose(sf);
+        gzclose(sf);
         exit(1);
     }
-    if (fclose(sf) != 0) {
-        fprintf(stderr, "FATAL: close failed on %s: %s\n", tmpname, strerror(errno));
+    if (gzw_close_durable(sf, tmpname) != 0) {   /* finish gz stream + fsync + close */
+        fprintf(stderr, "FATAL: flush/fsync/close failed on %s\n", tmpname);
         exit(1);
     }
+    /* #169: on-disk size is compressed (or raw under SOLVE_COMPRESS=0); short/torn
+     * writes caught by the per-record gzfwrite==1 check. Sanity: non-empty tmp. */
     struct stat st;
-    long long expected = (long long)written * SOL_RECORD_SIZE;
-    if (stat(tmpname, &st) != 0 || st.st_size != expected) {
-        fprintf(stderr, "FATAL: post-write size mismatch on %s: got %lld, expected %lld\n",
-                tmpname, (long long)(stat(tmpname, &st) == 0 ? st.st_size : -1), expected);
+    if (stat(tmpname, &st) != 0 || st.st_size <= 0) {
+        fprintf(stderr, "FATAL: post-write check failed on %s: %s\n",
+                tmpname, strerror(errno));
         exit(1);
+    }
+    /* #169: optional per-shard gz integrity test (gzip -t). Default OFF — a full
+     * decompress per shard ~doubles compression CPU across ~65K shards; the
+     * gzfwrite return-counts + gzw_close_durable's gzclose-check already cover
+     * write completeness. SOLVE_GZ_TEST_SHARDS=1 enables paranoid per-shard CRC. */
+    {
+        const char *gzt = getenv("SOLVE_GZ_TEST_SHARDS");
+        if (gzt && atoi(gzt) == 1 && file_is_gzip(tmpname) && gz_test(tmpname) != 0) {
+            fprintf(stderr, "FATAL: gz integrity test failed on %s\n", tmpname);
+            exit(1);
+        }
     }
     if (rename(tmpname, fname) != 0) {
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
@@ -5465,7 +5785,11 @@ static void sub_flush_chunk_to_disk(ThreadState *ts) {
     char fname[96], tmpname[112];
     snprintf(fname,   sizeof(fname),   "sub_flush_chunk_%06d_wrk%d.bin",     seq, ts->thread_id);
     snprintf(tmpname, sizeof(tmpname), "sub_flush_chunk_%06d_wrk%d.bin.tmp", seq, ts->thread_id);
-    FILE *f = fopen(tmpname, "wb");
+    /* #169: gz (or raw under SOLVE_COMPRESS=0). These chunk files are read back
+     * by the `--merge sub_flush_chunk_*.bin` path, whose shard readers already
+     * auto-detect raw/gz via gzr_open. Logical content (32-byte records) is
+     * unchanged → merge result is sha-identical. */
+    gzFile f = gzw_open(tmpname);
     if (!f) {
         fprintf(stderr, "WARNING: tier2-flush: cannot open %s: %s\n", tmpname, strerror(errno));
         return;
@@ -5474,21 +5798,19 @@ static void sub_flush_chunk_to_disk(ThreadState *ts) {
     if (ts->sol_table && ts->sol_occupied) {
         for (int s = 0; s < ts->ht_size; s++) {
             if (!ts->sol_occupied[s]) continue;
-            if (fwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE],
+            if (gzfwrite(&ts->sol_table[(size_t)s * SOL_RECORD_SIZE],
                        SOL_RECORD_SIZE, 1, f) != 1) {
                 fprintf(stderr, "WARNING: tier2-flush: short write on %s\n", tmpname);
-                fclose(f);
+                gzclose(f);
                 return;
             }
             written++;
         }
     }
-    if (fflush(f) != 0 || fsync(fileno(f)) != 0) {
-        fprintf(stderr, "WARNING: tier2-flush: fflush/fsync failed on %s\n", tmpname);
-        fclose(f);
+    if (gzw_close_durable(f, tmpname) != 0) {
+        fprintf(stderr, "WARNING: tier2-flush: gz finish/fsync/close failed on %s\n", tmpname);
         return;
     }
-    fclose(f);
     if (rename(tmpname, fname) != 0) {
         fprintf(stderr, "WARNING: tier2-flush: rename %s → %s failed\n", tmpname, fname);
         return;
@@ -5801,6 +6123,30 @@ static int require_sha256_tool(void) {
     return 1;
 }
 
+/* #169: sha256 of a file's LOGICAL (decompressed) content — handles gz AND legacy
+ * raw, decoder picked by magic (file_is_gzip), streamed via a decompress pipe (never
+ * a temp file). Writes 64 hex chars + NUL into out (outsz >= 65). 0 on success.
+ * This is what keeps the canonical/manifest shas defined on decompressed bytes. */
+static int sha256_of_logical(const char *path, char *out, size_t outsz) {
+    const char *tool = sha256_tool();
+    if (!tool || outsz < 65) return -1;
+    char cmd[1024];
+    if (file_is_gzip(path))
+        snprintf(cmd, sizeof(cmd), "gzip -dc '%s' 2>/dev/null | %s", path, tool);
+    else
+        snprintf(cmd, sizeof(cmd), "%s '%s'", tool, path);
+    FILE *p = popen(cmd, "r");
+    if (!p) return -1;
+    char line[160] = {0};
+    char *r = fgets(line, sizeof(line), p);
+    pclose(p);
+    if (!r) return -1;
+    int n = 0;
+    for (; n < 64 && line[n] && line[n] != ' '; n++) out[n] = line[n];
+    out[n] = 0;
+    return (n == 64) ? 0 : -1;
+}
+
 /* Compare for qsort — compare pair identity only (orient bit masked out).
  * Each byte: (pair_index << 2) | (orient << 1). Mask with 0xFC. */
 /* Write sha256 file with metadata for reproducibility.
@@ -5818,27 +6164,15 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
                         "preflight should have caught this.\n");
         return;
     }
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), "%s %s > %s 2>/dev/null", tool, bin_name, sha_name);
-    int rc = system(cmd);
-    if (rc != 0) {
-        fprintf(stderr, "ERROR: sha256 computation failed (rc=%d) for %s\n", rc, bin_name);
+    /* #169: hash the LOGICAL (decompressed) content so the canonical sha is
+     * unchanged whether bin_name is stored gz or raw. */
+    char hash_only64[65] = {0};
+    if (sha256_of_logical(bin_name, hash_only64, sizeof(hash_only64)) != 0) {
+        fprintf(stderr, "ERROR: sha256 (logical) computation failed for %s\n", bin_name);
         return;
     }
-
-    /* Read back the hash line */
     char hash_line[256] = {0};
-    FILE *hf = fopen(sha_name, "r");
-    if (!hf) {
-        fprintf(stderr, "WARNING: cannot re-open %s to verify sha256: %s\n", sha_name, strerror(errno));
-        return;
-    }
-    if (fgets(hash_line, sizeof(hash_line), hf) == NULL) {
-        fprintf(stderr, "WARNING: %s is empty — sha256 tool may have failed silently\n", sha_name);
-        fclose(hf);
-        return;
-    }
-    fclose(hf);
+    snprintf(hash_line, sizeof(hash_line), "%s  %s\n", hash_only64, bin_name);
 
     /* Rewrite with metadata */
     FILE *sf = fopen(sha_name, "w");
@@ -6112,28 +6446,33 @@ static void merge_heap_sift_down(MergeHeapEntry *heap, int n, int i) {
  * from disk-full mid-write is the failure mode being defended against. */
 static int write_sorted_chunk(const char *path, const unsigned char *chunk,
                                long long records, int idx, int is_final) {
-    FILE *sf = fopen(path, "wb");
+    /* #169: sorted-chunk temp files are gz (or raw under SOLVE_COMPRESS=0) so
+     * the external-merge scratch footprint is capped ~8:1. These are transient
+     * intermediate files (removed after Phase 2); the records are byte-faithful
+     * through the round-trip, so the merge result is sha-identical. The raw
+     * post-write byte-size check is replaced with a logical-size check (the
+     * compressed on-disk size is not records*32). */
+    gzFile sf = gzw_open(path);
     if (!sf) {
         fprintf(stderr, "ERROR: cannot create %s: %s\n", path, strerror(errno));
         return 1;
     }
-    size_t w = fwrite(chunk, SOL_RECORD_SIZE, (size_t)records, sf);
-    if ((long long)w != records || fflush(sf) != 0 || fsync(fileno(sf)) != 0) {
-        fprintf(stderr, "FATAL: chunk %d write/flush/fsync failed (wrote %zu of %lld): %s\n",
-                idx, w, records, strerror(errno));
-        fclose(sf);
+    size_t w = gzfwrite(chunk, SOL_RECORD_SIZE, (size_t)records, sf);
+    if ((long long)w != records) {
+        fprintf(stderr, "FATAL: chunk %d write failed (wrote %zu of %lld)\n",
+                idx, w, records);
+        gzclose(sf);
         return 1;
     }
-    if (fclose(sf) != 0) {
-        fprintf(stderr, "FATAL: chunk %d close failed: %s\n", idx, strerror(errno));
+    if (gzw_close_durable(sf, path) != 0) {
+        fprintf(stderr, "FATAL: chunk %d gz finish/fsync/close failed\n", idx);
         return 1;
     }
-    struct stat cst;
     long long expected = records * SOL_RECORD_SIZE;
-    if (stat(path, &cst) != 0 || cst.st_size != expected) {
-        fprintf(stderr, "FATAL: chunk %d post-write size mismatch on %s: got %lld, expected %lld\n",
-                idx, path,
-                (long long)(stat(path, &cst) == 0 ? cst.st_size : -1), expected);
+    long long actual_logical = gz_logical_size(path);
+    if (actual_logical != expected) {
+        fprintf(stderr, "FATAL: chunk %d post-write logical-size mismatch on %s: got %lld, expected %lld\n",
+                idx, path, actual_logical, expected);
         return 1;
     }
     printf("  Chunk %d: %lld records sorted + written%s\n",
@@ -6223,18 +6562,19 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     long long records_in_chunk = 0;
 
     for (int fi = 0; fi < n_files; fi++) {
-        FILE *f = fopen(filenames[fi], "rb");
+        /* #169: shards may be gz or raw — gzr_open auto-detects; logical size
+         * (decompressed bytes) via gz_logical_size, NOT the compressed on-disk
+         * size, so record counting is correct for both. */
+        gzFile f = gzr_open(filenames[fi]);
         if (!f) continue;
-        fseek(f, 0, SEEK_END);
-        long sz = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        if (sz <= 0 || sz % SOL_RECORD_SIZE != 0) { fclose(f); continue; }
+        long long sz = gz_logical_size(filenames[fi]);
+        if (sz <= 0 || sz % SOL_RECORD_SIZE != 0) { gzclose(f); continue; }
         long long file_records = sz / SOL_RECORD_SIZE;
 
         while (file_records > 0) {
             long long space = max_per_chunk - records_in_chunk;
             long long to_read = (file_records < space) ? file_records : space;
-            size_t got = fread(&chunk[records_in_chunk * SOL_RECORD_SIZE],
+            size_t got = gzfread(&chunk[records_in_chunk * SOL_RECORD_SIZE],
                                SOL_RECORD_SIZE, (size_t)to_read, f);
             records_in_chunk += got;
             file_records -= got;
@@ -6260,7 +6600,7 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
                 records_in_chunk = 0;
             }
         }
-        fclose(f);
+        gzclose(f);
     }
 
     if (records_in_chunk > 0) {
@@ -6281,8 +6621,15 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     printf("  %d sorted chunks created\n", n_sorted);
     fflush(stdout);
 
-    /* Phase 2: k-way merge with canonical dedup */
-    FILE **sfiles = calloc(n_sorted, sizeof(FILE*));
+    /* Phase 2: k-way merge with canonical dedup.
+     * #169: chunk temp files are gz (or raw) — gzr_open auto-detects; reads use
+     * gzfread. The unique count is unknown until the merge completes, and a gz
+     * stream cannot be fseek-patched in place, so dedup'd records are streamed
+     * to a headerless gz temp; once `unique` is known the final output is
+     * written as {header}{records} in a single forward pass (header first,
+     * record count correct). The decompressed final = {header}{sorted-deduped
+     * records}, byte-identical to the raw path → canonical sha unchanged. */
+    gzFile *sfiles = calloc(n_sorted, sizeof(gzFile));
     MergeHeapEntry *heap = calloc(n_sorted, sizeof(MergeHeapEntry));
     if (!sfiles || !heap) {
         fprintf(stderr, "ERROR: merge heap allocation failed\n");
@@ -6291,22 +6638,22 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     int heap_size = 0;
 
     for (int i = 0; i < n_sorted; i++) {
-        sfiles[i] = fopen(sorted_names[i], "rb");
+        sfiles[i] = gzr_open(sorted_names[i]);
         if (!sfiles[i]) {
             fprintf(stderr, "FATAL: cannot reopen sorted chunk %s: %s\n",
                     sorted_names[i], strerror(errno));
-            for (int j = 0; j < i; j++) if (sfiles[j]) fclose(sfiles[j]);
+            for (int j = 0; j < i; j++) if (sfiles[j]) gzclose(sfiles[j]);
             free(sfiles); free(heap); return 1;
         }
-        if (fread(heap[heap_size].rec, SOL_RECORD_SIZE, 1, sfiles[i]) == 1) {
+        if (gzfread(heap[heap_size].rec, SOL_RECORD_SIZE, 1, sfiles[i]) == 1) {
             heap[heap_size].file_idx = i;
             heap_size++;
         } else {
             /* Chunk file is empty — shouldn't happen given write_sorted_chunk
              * rejects zero-record writes, but close it defensively to avoid a
-             * FILE* leak. Leaves sfiles[i] dangling but we never reference it
+             * gzFile leak. Leaves sfiles[i] dangling but we never reference it
              * after this loop for non-heap files. */
-            fclose(sfiles[i]);
+            gzclose(sfiles[i]);
             sfiles[i] = NULL;
         }
     }
@@ -6314,17 +6661,13 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     for (int i = heap_size/2 - 1; i >= 0; i--)
         merge_heap_sift_down(heap, heap_size, i);
 
-    FILE *out = fopen(output_path, "wb");
-    if (!out) {
-        fprintf(stderr, "ERROR: cannot open %s for writing\n", output_path);
+    /* Headerless gz temp for the dedup'd record stream (forward-only). */
+    char rec_tmp[320];
+    snprintf(rec_tmp, sizeof(rec_tmp), "%s/temp_merge_records.bin", tmp_dir);
+    gzFile rectmp = gzw_open(rec_tmp);
+    if (!rectmp) {
+        fprintf(stderr, "ERROR: cannot open merge-records temp %s\n", rec_tmp);
         free(sfiles); free(heap); return 1;
-    }
-
-    /* Reserve header space — unique count is unknown until the merge loop
-     * completes, so we write a zero-filled placeholder and patch it below. */
-    if (sol_write_header(out, 0) != 0) {
-        fprintf(stderr, "FATAL: header reserve failed on %s\n", output_path);
-        fclose(out); free(sfiles); free(heap); return 1;
     }
 
     unsigned char last_written[SOL_RECORD_SIZE];
@@ -6336,23 +6679,23 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         total_merged++;
 
         if (compare_canonical(top.rec, last_written) != 0) {
-            if (fwrite(top.rec, SOL_RECORD_SIZE, 1, out) != 1) {
+            if (gzfwrite(top.rec, SOL_RECORD_SIZE, 1, rectmp) != 1) {
                 fprintf(stderr, "FATAL: write failed at record %lld\n", unique);
-                fclose(out); free(sfiles); free(heap); return 1;
+                gzclose(rectmp); remove(rec_tmp); free(sfiles); free(heap); return 1;
             }
             memcpy(last_written, top.rec, SOL_RECORD_SIZE);
             unique++;
         }
 
         int fi = top.file_idx;
-        if (fread(heap[0].rec, SOL_RECORD_SIZE, 1, sfiles[fi]) == 1) {
+        if (gzfread(heap[0].rec, SOL_RECORD_SIZE, 1, sfiles[fi]) == 1) {
             heap[0].file_idx = fi;
             merge_heap_sift_down(heap, heap_size, 0);
         } else {
             heap[0] = heap[heap_size - 1];
             heap_size--;
             if (heap_size > 0) merge_heap_sift_down(heap, heap_size, 0);
-            fclose(sfiles[fi]);
+            gzclose(sfiles[fi]);
         }
 
         if (total_merged % 100000000 == 0) {
@@ -6361,18 +6704,53 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         }
     }
 
-    /* Patch the header's record_count now that the merge loop is done.
-     * fseek to offset 0 and rewrite the 32-byte header with real count. */
-    if (fseek(out, 0, SEEK_SET) != 0 ||
-        sol_write_header(out, (uint64_t)unique) != 0) {
-        fprintf(stderr, "FATAL: header patch failed on %s\n", output_path);
-        fclose(out); free(sfiles); free(heap); return 1;
+    /* Finish the dedup'd-records gz temp. */
+    if (gzw_close_durable(rectmp, rec_tmp) != 0) {
+        fprintf(stderr, "FATAL: merge-records temp finish/close failed on %s\n", rec_tmp);
+        remove(rec_tmp); free(sfiles); free(heap); return 1;
     }
-    if (fflush(out) != 0 || fsync(fileno(out)) != 0) {
-        fprintf(stderr, "FATAL: flush/fsync failed on %s\n", output_path);
-        fclose(out); free(sfiles); free(heap); return 1;
+
+    /* #169: assemble the final output now that `unique` is known — write the
+     * header (correct count) then stream the dedup'd records from the temp,
+     * all through one gzw_open so the decompressed file = {header}{records}
+     * exactly as the raw path produced via header-reserve + fseek-patch. */
+    gzFile out = gzw_open(output_path);
+    if (!out) {
+        fprintf(stderr, "ERROR: cannot open %s for writing\n", output_path);
+        remove(rec_tmp); free(sfiles); free(heap); return 1;
     }
-    fclose(out);
+    if (sol_write_header_gz(out, (uint64_t)unique) != 0) {
+        fprintf(stderr, "FATAL: header write failed on %s\n", output_path);
+        gzclose(out); remove(rec_tmp); free(sfiles); free(heap); return 1;
+    }
+    {
+        gzFile rin = gzr_open(rec_tmp);
+        if (!rin) {
+            fprintf(stderr, "FATAL: cannot reopen merge-records temp %s\n", rec_tmp);
+            gzclose(out); remove(rec_tmp); free(sfiles); free(heap); return 1;
+        }
+        unsigned char rbuf[1 << 16];
+        long long copied = 0;
+        int n;
+        while ((n = gzread(rin, rbuf, sizeof(rbuf))) > 0) {
+            if (gzfwrite(rbuf, 1, (unsigned)n, out) != (unsigned)n) {
+                fprintf(stderr, "FATAL: record copy write failed on %s\n", output_path);
+                gzclose(rin); gzclose(out); remove(rec_tmp); free(sfiles); free(heap); return 1;
+            }
+            copied += n;
+        }
+        gzclose(rin);
+        if (copied != unique * SOL_RECORD_SIZE) {
+            fprintf(stderr, "FATAL: record copy size mismatch on %s: copied %lld, expected %lld\n",
+                    output_path, copied, unique * SOL_RECORD_SIZE);
+            gzclose(out); remove(rec_tmp); free(sfiles); free(heap); return 1;
+        }
+    }
+    if (gzw_close_durable(out, output_path) != 0) {
+        fprintf(stderr, "FATAL: gz finish/fsync/close failed on %s\n", output_path);
+        remove(rec_tmp); free(sfiles); free(heap); return 1;
+    }
+    remove(rec_tmp);
 
     for (int i = 0; i < n_sorted; i++)
         remove(sorted_names[i]);
@@ -8025,20 +8403,18 @@ static void run_symmetry_search(int with_yield_compare) {
 
 static void run_c3_min(const char *filename) {
     init_pairs();
-    FILE *f = fopen(filename, "rb");
+    /* #169: gzr_open auto-detects raw/gz. The header record count (not a
+     * file-size computation, which is compressed for gz) gives n_records. */
+    gzFile f = gzr_open(filename);
     if (!f) { fprintf(stderr, "ERROR: cannot open %s\n", filename); exit(10); }
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);
 
     uint64_t hdr_records = 0;
-    if (sol_read_header(f, &hdr_records) != 0) {
+    if (sol_read_header_gz(f, &hdr_records) != 0) {
         fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version\n", filename);
-        fclose(f);
+        gzclose(f);
         exit(20);
     }
-    long record_bytes = fsize - SOL_HEADER_SIZE;
-    long long n_records = record_bytes / SOL_RECORD_SIZE;
+    long long n_records = (long long)hdr_records;
     printf("# C3-min analysis: %s\n", filename);
     printf("Records: %lld\n", n_records);
     printf("KW C3 (reference): 776\n\n");
@@ -8055,9 +8431,9 @@ static void run_c3_min(const char *filename) {
 
     /* First pass: find minimum */
     for (long long r = 0; r < n_records; r++) {
-        if (fread(rec, SOL_RECORD_SIZE, 1, f) != 1) {
+        if (gzfread(rec, SOL_RECORD_SIZE, 1, f) != 1) {
             fprintf(stderr, "ERROR: short read at record %lld\n", r);
-            fclose(f); exit(20);
+            gzclose(f); exit(20);
         }
         int seq[64];
         for (int i = 0; i < 32; i++) {
@@ -8096,7 +8472,7 @@ static void run_c3_min(const char *filename) {
         }
     }
     time_t end = time(NULL);
-    fclose(f);
+    gzclose(f);
 
     printf("\nResults (wall time %lds):\n", (long)(end - start));
     printf("  Minimum C3 observed:     %d\n", min_c3);
@@ -8537,7 +8913,9 @@ int main(int argc, char *argv[]) {
                  "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
                  "SOLVE_SKIP_IOPS_CHECK=1 "
                  "%s 0 > /dev/null 2>&1 && "
-                 "%s solutions.bin | cut -d' ' -f1",
+                 /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
+                  * content so the canonical selftest sha 403f7202 is unchanged. */
+                 "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
                  tempdir_template, solve_path, tool);
         FILE *fp = popen(cmd, "r");
         if (!fp) {
@@ -8585,26 +8963,28 @@ int main(int argc, char *argv[]) {
         const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
         init_pairs();
         init_kw_dist();
-        FILE *vf = fopen(vpath, "rb");
+        /* #169: gzr_open auto-detects raw/gz. Peek the first 4 DECOMPRESSED
+         * bytes for the ROAE magic; if absent it is a (headerless) shard. Use
+         * the header record count for solutions.bin, gz_logical_size/32 for a
+         * shard (compressed on-disk size is not records*32). After the peek we
+         * gzrewind so the read loop sees the full logical stream. */
+        gzFile vf = gzr_open(vpath);
         if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
-        fseek(vf, 0, SEEK_END);
-        long vsize = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
         unsigned char peek[4];
         int shard = 0;
-        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+        if (gzfread(peek, 1, 4, vf) == 4) {
             if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
         }
-        fseek(vf, 0, SEEK_SET);
+        gzrewind(vf);
         long long n_records;
-        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
+        if (shard) { n_records = gz_logical_size(vpath) / SOL_RECORD_SIZE; }
         else {
             uint64_t hdr_records = 0;
-            if (sol_read_header(vf, &hdr_records) != 0) {
+            if (sol_read_header_gz(vf, &hdr_records) != 0) {
                 fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version\n", vpath);
-                fclose(vf); return 20;
+                gzclose(vf); return 20;
             }
-            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
+            n_records = (long long)hdr_records;
         }
         printf("[--verify-rule2] file=%s records=%lld\n", vpath, n_records);
         printf("[--verify-rule2] McKenna Rule 2: every value-1 transition must be at a C2-forced position\n");
@@ -8619,12 +8999,12 @@ int main(int argc, char *argv[]) {
          * order-independent, so the parallel reduction is exactly deterministic. */
         enum { VBLK = 1 << 16 };
         unsigned char *vbuf = (unsigned char *)malloc((size_t)VBLK * SOL_RECORD_SIZE);
-        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); fclose(vf); return 12; }
+        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); gzclose(vf); return 12; }
         long long done = 0;
         while (done < n_records) {
             long long want = n_records - done; if (want > VBLK) want = VBLK;
-            if (fread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
-                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); fclose(vf); return 20;
+            if (gzfread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
+                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); gzclose(vf); return 20;
             }
             unsigned long long b_viol = 0, b_ones = 0, b_forced = 0, b_waste = 0;
             unsigned long long lw[32] = {0}, lf[32] = {0};
@@ -8657,7 +9037,7 @@ int main(int argc, char *argv[]) {
             done += want; records_total += (unsigned long long)want;
             if (((done >> 16) & 0xF) == 0) { printf("  ... scanned %lld / %lld records\n", done, n_records); fflush(stdout); }
         }
-        free(vbuf); fclose(vf);
+        free(vbuf); gzclose(vf);
 
         printf("\n[--verify-rule2] === RESULTS ===\n");
         printf("Records scanned:                 %llu\n", records_total);
@@ -8689,26 +9069,24 @@ int main(int argc, char *argv[]) {
         const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
         init_pairs();
         init_kw_dist();
-        FILE *vf = fopen(vpath, "rb");
+        /* #169: gz-aware (see --verify-rule2 for the pattern). */
+        gzFile vf = gzr_open(vpath);
         if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
-        fseek(vf, 0, SEEK_END);
-        long vsize = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
         unsigned char peek[4];
         int shard = 0;
-        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+        if (gzfread(peek, 1, 4, vf) == 4) {
             if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
         }
-        fseek(vf, 0, SEEK_SET);
+        gzrewind(vf);
         long long n_records;
-        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
+        if (shard) { n_records = gz_logical_size(vpath) / SOL_RECORD_SIZE; }
         else {
             uint64_t hdr_records = 0;
-            if (sol_read_header(vf, &hdr_records) != 0) {
+            if (sol_read_header_gz(vf, &hdr_records) != 0) {
                 fprintf(stderr, "ERROR: %s has invalid magic\n", vpath);
-                fclose(vf); return 20;
+                gzclose(vf); return 20;
             }
-            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
+            n_records = (long long)hdr_records;
         }
         printf("[--verify-9th-six] file=%s records=%lld\n", vpath, n_records);
         printf("[--verify-9th-six] McKenna observation: KW has exactly 1 between-pair value-6 (at boundary 38<->39)\n");
@@ -8719,12 +9097,12 @@ int main(int argc, char *argv[]) {
 
         enum { VBLK = 1 << 16 };
         unsigned char *vbuf = (unsigned char *)malloc((size_t)VBLK * SOL_RECORD_SIZE);
-        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); fclose(vf); return 12; }
+        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); gzclose(vf); return 12; }
         long long done = 0;
         while (done < n_records) {
             long long want = n_records - done; if (want > VBLK) want = VBLK;
-            if (fread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
-                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); fclose(vf); return 20;
+            if (gzfread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
+                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); gzclose(vf); return 20;
             }
             unsigned long long cdist[16] = {0}, bbnd[32] = {0};
             #pragma omp parallel for schedule(static) reduction(+:cdist[:16],bbnd[:32])
@@ -8747,7 +9125,7 @@ int main(int argc, char *argv[]) {
             done += want; records_total += (unsigned long long)want;
             if (((done >> 16) & 0xF) == 0) { printf("  ... scanned %lld / %lld records\n", done, n_records); fflush(stdout); }
         }
-        free(vbuf); fclose(vf);
+        free(vbuf); gzclose(vf);
 
         printf("\n[--verify-9th-six] === RESULTS ===\n");
         printf("Records scanned: %llu\n", records_total);
@@ -8773,26 +9151,24 @@ int main(int argc, char *argv[]) {
          * Sha-preserving: read-only analysis. Block-read + OpenMP, mirrors --verify-9th-six. */
         const char *vpath = (argc > 2) ? argv[2] : "solutions.bin";
         init_pairs();
-        FILE *vf = fopen(vpath, "rb");
+        /* #169: gz-aware (see --verify-rule2 for the pattern). */
+        gzFile vf = gzr_open(vpath);
         if (!vf) { fprintf(stderr, "ERROR: cannot open %s: %s\n", vpath, strerror(errno)); return 10; }
-        fseek(vf, 0, SEEK_END);
-        long vsize = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
         unsigned char peek[4];
         int shard = 0;
-        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+        if (gzfread(peek, 1, 4, vf) == 4) {
             if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E') shard = 1;
         }
-        fseek(vf, 0, SEEK_SET);
+        gzrewind(vf);
         long long n_records;
-        if (shard) { n_records = vsize / SOL_RECORD_SIZE; }
+        if (shard) { n_records = gz_logical_size(vpath) / SOL_RECORD_SIZE; }
         else {
             uint64_t hdr_records = 0;
-            if (sol_read_header(vf, &hdr_records) != 0) {
+            if (sol_read_header_gz(vf, &hdr_records) != 0) {
                 fprintf(stderr, "ERROR: %s has invalid magic\n", vpath);
-                fclose(vf); return 20;
+                gzclose(vf); return 20;
             }
-            n_records = (vsize - SOL_HEADER_SIZE) / SOL_RECORD_SIZE;
+            n_records = (long long)hdr_records;
         }
         printf("[--verify-wrap-parity] file=%s records=%lld\n", vpath, n_records);
         printf("[--verify-wrap-parity] Theorem: d(s63,s0)=hamming(last,first) is ALWAYS odd (C4+C5+XOR parity); C2 forbids 5 -> d in {1,3}\n");
@@ -8801,12 +9177,12 @@ int main(int argc, char *argv[]) {
         unsigned long long records_total = 0;
         enum { VBLK = 1 << 16 };
         unsigned char *vbuf = (unsigned char *)malloc((size_t)VBLK * SOL_RECORD_SIZE);
-        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); fclose(vf); return 12; }
+        if (!vbuf) { fprintf(stderr, "ERROR: malloc verify buffer\n"); gzclose(vf); return 12; }
         long long done = 0;
         while (done < n_records) {
             long long want = n_records - done; if (want > VBLK) want = VBLK;
-            if (fread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
-                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); fclose(vf); return 20;
+            if (gzfread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
+                fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); gzclose(vf); return 20;
             }
             unsigned long long wd[7] = {0};
             #pragma omp parallel for schedule(static) reduction(+:wd[:7])
@@ -8826,7 +9202,7 @@ int main(int argc, char *argv[]) {
             done += want; records_total += (unsigned long long)want;
             if (((done >> 16) & 0xF) == 0) { printf("  ... scanned %lld / %lld records\n", done, n_records); fflush(stdout); }
         }
-        free(vbuf); fclose(vf);
+        free(vbuf); gzclose(vf);
 
         unsigned long long odd = wrap_dist[1] + wrap_dist[3] + wrap_dist[5];
         printf("\n[--verify-wrap-parity] === RESULTS ===\n");
@@ -9040,6 +9416,19 @@ int main(int argc, char *argv[]) {
         printf("[--validate-canonical] Running canonical enum (this will take a while)...\n");
         fflush(stdout);
 
+        /* 2026-06-17 fix: inject the EMPIRICAL published PSB from the single-source
+         * CANONICAL_RECIPES table — NOT the NODE_LIMIT-derived value. Deriving (the prior
+         * behavior) diverges from the empirical PSB at 11.2T+ and produced a wrong sha
+         * (11.2T measured 2184bdd8 vs anchor 0c0fe37c; derived 70723144 ≠ published 70723196).
+         * The canonical launchers + CANONICAL_HASHES.md both set this explicit PSB. */
+        long long canon_psb = canonical_psb_for_label(scale_label);
+        if (canon_psb <= 0) {
+            fprintf(stderr, "[--validate-canonical] ERROR: no published PSB for scale '%s' in CANONICAL_RECIPES\n", scale_label);
+            return 2;
+        }
+        printf("[--validate-canonical] Per-sub-branch budget (published, NOT derived): %lld\n", canon_psb);
+        fflush(stdout);
+
         time_t t_start = time(NULL);
         char cmd[8192];
         snprintf(cmd, sizeof(cmd),
@@ -9048,14 +9437,14 @@ int main(int argc, char *argv[]) {
                  "SOLVE_PER_SUB_BRANCH_LIMIT SOLVE_DFS_ITERATIVE "
                  "SOLVE_DFS_CHECKPOINT SOLVE_FSYNC_BATCH_SIZE "
                  "SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS && "
-                 "SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=%lld SOLVE_THREADS=128 "
+                 "SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=%lld SOLVE_PER_SUB_BRANCH_LIMIT=%lld SOLVE_THREADS=128 "
                  "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
                  "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
                  "SOLVE_SKIP_CANONICAL_LOCK=1 SOLVE_SKIP_BINARY_SNAPSHOT=1 "
                  "SOLVE_SKIP_AUTO_MANIFEST=1 SOLVE_SKIP_IOPS_CHECK=1 "
                  "SOLVE_SKIP_HOST_FINGERPRINT=1 "
                  "%s 0 > enum.out 2>&1",
-                 tdir, scale_nodes, solve_path);
+                 tdir, scale_nodes, canon_psb, solve_path);
         int rc = system(cmd);
         time_t t_end = time(NULL);
         if (rc != 0) {
@@ -9064,15 +9453,18 @@ int main(int argc, char *argv[]) {
         }
         printf("[--validate-canonical] Enum wall: %ld sec\n", (long)(t_end - t_start));
 
-        /* sha256 the result */
-        char sha_cmd[8192];
-        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s/solutions.bin 2>/dev/null | cut -d' ' -f1", tool, tdir);
-        FILE *fp = popen(sha_cmd, "r");
+        /* sha256 the result — gz-AWARE (#169 completion fix, 2026-06-17). solutions.bin may be
+         * gzip-compressed (SOLVE_COMPRESS default on); sha256_of_logical() decompresses by magic
+         * byte (file_is_gzip) so the sha is computed on LOGICAL content and matches the canonical
+         * anchor. Hashing the gz container directly was a FALSE MISMATCH the 1T gz ladder caught
+         * (gzA measured the container sha f5dfe17f instead of 74d39760). DFS-neutral: validation
+         * path only, never touches the enum — the enum output sha is unchanged. (tool null-guard
+         * above stays as the early "sha256 tool available?" check.) */
+        char sol_path[4096];
+        snprintf(sol_path, sizeof(sol_path), "%s/solutions.bin", tdir);
         char actual_sha[128] = {0};
-        if (fp) { (void)!fgets(actual_sha, sizeof(actual_sha), fp); pclose(fp); }
-        for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
-        if (!actual_sha[0]) {
-            fprintf(stderr, "[--validate-canonical] ERROR: could not compute sha of %s/solutions.bin\n", tdir);
+        if (sha256_of_logical(sol_path, actual_sha, sizeof(actual_sha)) != 0 || !actual_sha[0]) {
+            fprintf(stderr, "[--validate-canonical] ERROR: could not compute (gz-aware) sha of %s\n", sol_path);
             return 40;
         }
         printf("[--validate-canonical] Measured sha: %s\n", actual_sha);
@@ -9338,32 +9730,16 @@ int main(int argc, char *argv[]) {
         const char *scale = argv[2];
         int full = (argc >= 4 && strcmp(argv[3], "--full") == 0);
 
-        /* Authoritative recipe table — these are the empirical PSBs that produced
-         * each published canonical sha byte-identically. Source of truth for the
-         * project; CANONICAL_HASHES.md Reproducibility-parameters section reflects
-         * (and should reference) this table. */
-        static const struct cc_recipe {
-            const char *label;
-            int depth;
-            long long node_limit;
-            long long per_sub_branch_limit;  /* 0 = omit (d2 mechanics differ) */
-        } recipes[] = {
-            { "1T",     3,         1000000000000LL,       6315458LL },
-            { "5.6T",   3,         5600000000000LL,      35361598LL },
-            { "10T",    3,        10000000000000LL,      63146557LL },
-            { "11.2T",  3,        11200000000000LL,      70723196LL },
-            { "100T",   3,       100000000000000LL,     631456644LL },
-            { "560T",   3,       560000000000000LL,    3536157207LL },
-            { "d2-10T", 2,        10000000000000LL,             0LL },
-            { NULL,     0,                       0LL,             0LL }
-        };
-
-        for (const struct cc_recipe *r = recipes; r->label; r++) {
+        /* Authoritative recipe table is the file-scope CANONICAL_RECIPES (single source of
+         * truth; see its definition near per_branch_node_limit). --validate-canonical injects
+         * the SAME PSBs, so the two subcommands can never drift. CANONICAL_HASHES.md
+         * Reproducibility-parameters section reflects (and should reference) this table. */
+        for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++) {
             if (strcmp(r->label, scale) == 0) {
                 printf("SOLVE_DEPTH=%d\n", r->depth);
                 printf("SOLVE_NODE_LIMIT=%lld\n", r->node_limit);
-                if (r->per_sub_branch_limit > 0) {
-                    printf("SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", r->per_sub_branch_limit);
+                if (r->psb > 0) {
+                    printf("SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", r->psb);
                 }
                 if (full) {
                     printf("SOLVE_DFS_ITERATIVE=1\n");
@@ -9397,29 +9773,20 @@ int main(int argc, char *argv[]) {
         }
         const char *scale = argv[2];
         long long psb = atoll(argv[3]);
-        static const struct cc_recipe2 {
-            const char *label;
-            long long per_sub_branch_limit;
-        } recipes2[] = {
-            { "1T",          6315458LL },
-            { "5.6T",       35361598LL },
-            { "10T",        63146557LL },
-            { "11.2T",      70723196LL },
-            { "100T",      631456644LL },
-            { "560T",     3536157207LL },
-            { NULL, 0LL }
-        };
-        for (const struct cc_recipe2 *r = recipes2; r->label; r++) {
-            if (strcmp(r->label, scale) == 0) {
-                if (psb == r->per_sub_branch_limit) {
+        /* Uses the file-scope CANONICAL_RECIPES single source of truth (was a duplicate
+         * local table — consolidated 2026-06-17 so launcher-config / canonical-config /
+         * validate-canonical can never drift). */
+        for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++) {
+            if (strcmp(r->label, scale) == 0 && r->psb > 0) {
+                if (psb == r->psb) {
                     fprintf(stderr, "[--validate-launcher-config] PSB=%lld matches recipe for %s.\n",
                             psb, scale);
                     return 0;
                 }
                 fprintf(stderr, "[--validate-launcher-config] PSB MISMATCH for %s:\n", scale);
                 fprintf(stderr, "  launcher passed: %lld\n", psb);
-                fprintf(stderr, "  recipe expects:  %lld\n", r->per_sub_branch_limit);
-                fprintf(stderr, "  diff:            %+lld\n", psb - r->per_sub_branch_limit);
+                fprintf(stderr, "  recipe expects:  %lld\n", r->psb);
+                fprintf(stderr, "  diff:            %+lld\n", psb - r->psb);
                 fprintf(stderr, "  resulting sha would differ from the published canonical anchor.\n");
                 fprintf(stderr, "  fix: use `solve --canonical-config %s` to get the recipe values.\n",
                         scale);
@@ -10546,13 +10913,15 @@ int main(int argc, char *argv[]) {
         printf("\n=== Independent Constraint Verification ===\n");
         printf("File: %s\n", verify_file);
 
-        FILE *vf = fopen(verify_file, "rb");
+        /* #169: gzr_open auto-detects raw/gz. Peek the first 4 DECOMPRESSED
+         * bytes for the ROAE magic, gzrewind, then read the header (gz) for a
+         * solutions.bin or use gz_logical_size/32 for a (headerless) shard.
+         * vsize_logical is the decompressed byte size for the report lines. */
+        gzFile vf = gzr_open(verify_file);
         if (!vf) { fprintf(stderr, "ERROR: cannot open %s\n", verify_file); return 10; }
-        fseek(vf, 0, SEEK_END);
-        long vsize = ftell(vf);
-        fseek(vf, 0, SEEK_SET);
+        long long vsize = gz_logical_size(verify_file);
 
-        /* Auto-detect file type by peeking at the first 4 bytes:
+        /* Auto-detect file type by peeking at the first 4 (decompressed) bytes:
          *   "ROAE" magic → full solutions.bin (header + sorted deduped records)
          *   otherwise    → raw shard file (e.g., sub_*.bin from --sub-branch or
          *                 mid-run enumeration). Shards have no header and are
@@ -10561,58 +10930,39 @@ int main(int argc, char *argv[]) {
          *                 checks for shard mode. */
         int shard_mode = 0;
         unsigned char peek[4];
-        if (vsize >= 4 && fread(peek, 1, 4, vf) == 4) {
+        if (gzfread(peek, 1, 4, vf) == 4) {
             if (peek[0] != 'R' || peek[1] != 'O' || peek[2] != 'A' || peek[3] != 'E')
                 shard_mode = 1;
         }
-        fseek(vf, 0, SEEK_SET);
+        gzrewind(vf);
 
         long long n_records;
         if (shard_mode) {
             if (vsize == 0) {
                 printf("Empty shard file (0 records). Trivially passes.\n");
-                fclose(vf);
+                gzclose(vf);
                 return 0;
             }
             if (vsize % SOL_RECORD_SIZE != 0) {
-                fprintf(stderr, "ERROR: shard file size %ld not a multiple of %d\n",
+                fprintf(stderr, "ERROR: shard file size %lld not a multiple of %d\n",
                         vsize, SOL_RECORD_SIZE);
-                fclose(vf);
+                gzclose(vf);
                 return 20;
             }
             n_records = vsize / SOL_RECORD_SIZE;
-            printf("Shard mode (no header): %lld records (file %ld bytes)\n\n",
+            printf("Shard mode (no header): %lld records (%lld logical bytes)\n\n",
                    n_records, vsize);
         } else {
-            if (vsize < SOL_HEADER_SIZE) {
-                fprintf(stderr, "ERROR: file size %ld shorter than header (%d bytes)\n",
-                        vsize, SOL_HEADER_SIZE);
-                fclose(vf);
-                return 20;
-            }
             uint64_t hdr_records = 0;
-            if (sol_read_header(vf, &hdr_records) != 0) {
+            if (sol_read_header_gz(vf, &hdr_records) != 0) {
                 fprintf(stderr, "ERROR: %s has invalid magic or unsupported format version "
                                 "(expected magic 'ROAE', version %d)\n",
                         verify_file, SOL_FORMAT_VERSION);
-                fclose(vf);
+                gzclose(vf);
                 return 20;
             }
-            long record_bytes = vsize - SOL_HEADER_SIZE;
-            if (record_bytes < 0 || record_bytes % SOL_RECORD_SIZE != 0) {
-                fprintf(stderr, "ERROR: record stream %ld bytes after header is not a multiple of %d\n",
-                        record_bytes, SOL_RECORD_SIZE);
-                fclose(vf);
-                return 20;
-            }
-            n_records = record_bytes / SOL_RECORD_SIZE;
-            if ((uint64_t)n_records != hdr_records) {
-                fprintf(stderr, "ERROR: header claims %llu records but file has %lld\n",
-                        (unsigned long long)hdr_records, n_records);
-                fclose(vf);
-                return 20;
-            }
-            printf("Header: magic ROAE, version %d, %lld records (file %ld bytes)\n\n",
+            n_records = (long long)hdr_records;
+            printf("Header: magic ROAE, version %d, %lld records (%lld logical bytes)\n\n",
                    SOL_FORMAT_VERSION, n_records, vsize);
         }
 
@@ -10624,9 +10974,9 @@ int main(int argc, char *argv[]) {
         int kw_found_v = 0;
 
         for (long long r = 0; r < n_records; r++) {
-            if (fread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
+            if (gzfread(rec, SOL_RECORD_SIZE, 1, vf) != 1) {
                 fprintf(stderr, "ERROR: short read at record %lld\n", r);
-                fclose(vf);
+                gzclose(vf);
                 return 20;
             }
 
@@ -10707,7 +11057,7 @@ int main(int argc, char *argv[]) {
             if (r > 0 && r % 10000000 == 0)
                 printf("  ... verified %lld / %lld records\n", r, n_records);
         }
-        fclose(vf);
+        gzclose(vf);
 
         printf("\n--- Verification Results ---\n");
         printf("Records checked:        %lld\n", n_records);
@@ -10738,42 +11088,49 @@ int main(int argc, char *argv[]) {
      * (every record starts with the Heaven+Earth pair = KW [1,2]) by eye
      * across a sample. */
     if (show_mode) {
-        FILE *sf = fopen(show_file, "rb");
+        /* #169: gzr_open auto-detects raw/gz. Record access is by index (random
+         * within a small sample) so we use gzseek — correct for gz (forward
+         * seeks decompress through; this is a small-sample inspection tool, not
+         * a hot path). Logical size from the header (solutions.bin) or
+         * gz_logical_size (shard). */
+        gzFile sf = gzr_open(show_file);
         if (!sf) {
             fprintf(stderr, "ERROR: cannot open %s\n", show_file);
             return 10;
         }
-        fseek(sf, 0, SEEK_END);
-        long fsize = ftell(sf);
-        fseek(sf, 0, SEEK_SET);
+        long long fsize = gz_logical_size(show_file);
 
         /* Auto-detect ROAE header vs raw shard. Same logic as --verify. */
         long header_offset = 0;
         long long total_records = 0;
         unsigned char peek[4];
-        if (fsize >= 4 && fread(peek, 1, 4, sf) == 4 &&
+        int has_header = 0;
+        if (gzfread(peek, 1, 4, sf) == 4 &&
             peek[0]=='R' && peek[1]=='O' && peek[2]=='A' && peek[3]=='E') {
+            has_header = 1;
+        }
+        gzrewind(sf);
+        if (has_header) {
             uint64_t hdr_recs = 0;
-            fseek(sf, 0, SEEK_SET);
-            if (sol_read_header(sf, &hdr_recs) != 0) {
+            if (sol_read_header_gz(sf, &hdr_recs) != 0) {
                 fprintf(stderr, "ERROR: header parse failed\n");
-                fclose(sf);
+                gzclose(sf);
                 return 10;
             }
             header_offset = SOL_HEADER_SIZE;
             total_records = (long long)hdr_recs;
         } else {
             if (fsize % SOL_RECORD_SIZE != 0) {
-                fprintf(stderr, "ERROR: file size %ld not a multiple of %d (corrupted?)\n",
+                fprintf(stderr, "ERROR: file size %lld not a multiple of %d (corrupted?)\n",
                         fsize, SOL_RECORD_SIZE);
-                fclose(sf);
+                gzclose(sf);
                 return 20;
             }
             total_records = fsize / SOL_RECORD_SIZE;
         }
         if (total_records == 0) {
             printf("File contains 0 records.\n");
-            fclose(sf);
+            gzclose(sf);
             return 0;
         }
 
@@ -10783,7 +11140,7 @@ int main(int argc, char *argv[]) {
         long long *indices = (long long *)malloc((size_t)n_to_show * sizeof(long long));
         if (!indices) {
             fprintf(stderr, "ERROR: malloc failed\n");
-            fclose(sf);
+            gzclose(sf);
             return 10;
         }
 
@@ -10808,7 +11165,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: unknown --mode '%s' (valid: first, last, random)\n",
                     show_mode_str);
             free(indices);
-            fclose(sf);
+            gzclose(sf);
             return 1;
         }
 
@@ -10820,7 +11177,7 @@ int main(int argc, char *argv[]) {
          * Range: U+4DC0 (KW#1, ䷀) through U+4DFF (KW#64, ䷿). */
 
         printf("=== solve --show ===\n");
-        printf("File:       %s (%ld bytes, header offset %ld)\n",
+        printf("File:       %s (%lld logical bytes, header offset %ld)\n",
                show_file, fsize, header_offset);
         printf("Records:    %lld total\n", total_records);
         printf("Mode:       %s", show_mode_str);
@@ -10836,13 +11193,13 @@ int main(int argc, char *argv[]) {
         unsigned char rec[SOL_RECORD_SIZE];
         for (long long si = 0; si < n_to_show; si++) {
             long long idx = indices[si];
-            long off = header_offset + (long)(idx * SOL_RECORD_SIZE);
-            if (fseek(sf, off, SEEK_SET) != 0) {
-                fprintf(stderr, "[%lld]: <fseek failed>\n", idx);
+            z_off_t off = (z_off_t)header_offset + (z_off_t)(idx * SOL_RECORD_SIZE);
+            if (gzseek(sf, off, SEEK_SET) < 0) {
+                fprintf(stderr, "[%lld]: <gzseek failed>\n", idx);
                 continue;
             }
-            if (fread(rec, 1, SOL_RECORD_SIZE, sf) != SOL_RECORD_SIZE) {
-                fprintf(stderr, "[%lld]: <fread truncated>\n", idx);
+            if (gzfread(rec, 1, SOL_RECORD_SIZE, sf) != SOL_RECORD_SIZE) {
+                fprintf(stderr, "[%lld]: <gzfread truncated>\n", idx);
                 continue;
             }
 
@@ -10902,14 +11259,14 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "\nERROR: unknown --format '%s' (valid: kw, binary, glyph, raw)\n",
                         show_format_str);
                 free(indices);
-                fclose(sf);
+                gzclose(sf);
                 return 1;
             }
             putchar('\n');
         }
 
         free(indices);
-        fclose(sf);
+        gzclose(sf);
         return 0;
     }
 
@@ -10922,46 +11279,38 @@ int main(int argc, char *argv[]) {
                SOL_RECORD_SIZE);
         printf("  Checking: C1-C5, C3, sorted order, no duplicates, King Wen presence.\n\n");
 
-        /* Parse the 32-byte header first. Opens a FILE* just for header parsing
-         * (sol_read_header works on FILE*); the main validate loop uses mmap
-         * at offset SOL_HEADER_SIZE for the record stream. */
+        /* #169: gz-aware mmap. mmap cannot read a gz container, so gz_mmap_open
+         * decompresses a gz solutions.bin to a temp and mmaps that; a raw file
+         * is mmap'd directly. The header is then parsed from the (decompressed)
+         * mapping base, and the OpenMP record-scan fast path is unchanged. */
+        unsigned char *mmap_base = NULL;
+        long full_size = 0;
+        char gz_tmp[512] = {0};
+        if (gz_mmap_open(validate_file, &mmap_base, &full_size, gz_tmp, sizeof(gz_tmp)) != 0) {
+            printf("ERROR: cannot open/map %s\n", validate_file);
+            return 1;
+        }
+        if (full_size < SOL_HEADER_SIZE) {
+            printf("ERROR: file smaller than header\n");
+            gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
+        }
         {
-            FILE *hvf = fopen(validate_file, "rb");
-            if (!hvf) { printf("ERROR: cannot open %s for header read\n", validate_file); return 1; }
             uint64_t hdr_records = 0;
-            if (sol_read_header(hvf, &hdr_records) != 0) {
+            if (sol_read_header_mem(mmap_base, &hdr_records) != 0) {
                 printf("ERROR: %s has invalid magic or unsupported version "
                        "(expected 'ROAE' v%d)\n", validate_file, SOL_FORMAT_VERSION);
-                fclose(hvf);
-                return 1;
+                gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
             }
-            fclose(hvf);
             printf("  Header: ROAE v%d, %llu records declared\n",
                    SOL_FORMAT_VERSION, (unsigned long long)hdr_records);
         }
-
-        /* mmap the file: avoids loading 24 GB into a malloc, OS pages it in.
-         * Records start at byte SOL_HEADER_SIZE (32); subsequent offsets
-         * into vall are record-stream-relative, so we skip past the header. */
-        int vfd = open(validate_file, O_RDONLY);
-        if (vfd < 0) { printf("ERROR: cannot open %s\n", validate_file); return 1; }
-        struct stat vst;
-        if (fstat(vfd, &vst) < 0) { printf("ERROR: fstat failed\n"); close(vfd); return 1; }
-        long full_size = vst.st_size;
-        if (full_size < SOL_HEADER_SIZE) {
-            printf("ERROR: file smaller than header\n"); close(vfd); return 1;
-        }
         long file_size = full_size - SOL_HEADER_SIZE;   /* record stream size */
         long long n_solutions = file_size / SOL_RECORD_SIZE;
-        printf("  File size: %ld bytes (%d header + %ld records), %lld solutions\n",
+        printf("  File size: %ld logical bytes (%d header + %ld records), %lld solutions\n",
                full_size, SOL_HEADER_SIZE, file_size, n_solutions);
         if (file_size % SOL_RECORD_SIZE != 0)
             printf("  WARNING: record stream %ld bytes not a multiple of %d\n",
                    file_size, SOL_RECORD_SIZE);
-        unsigned char *mmap_base = mmap(NULL, full_size, PROT_READ, MAP_PRIVATE, vfd, 0);
-        close(vfd);
-        if (mmap_base == MAP_FAILED) { printf("ERROR: mmap failed\n"); return 1; }
-        madvise(mmap_base, full_size, MADV_SEQUENTIAL);
         unsigned char *vall = mmap_base + SOL_HEADER_SIZE;  /* record-stream view */
 
         long long errors = 0;
@@ -11063,7 +11412,7 @@ int main(int argc, char *argv[]) {
             }
             errors += local_errors;
         }
-        munmap(mmap_base, full_size);
+        gz_mmap_close(mmap_base, full_size, gz_tmp);
 
         printf("\n--- Validation results ---\n");
         printf("  Solutions checked:  %lld\n", n_solutions);
@@ -11125,51 +11474,41 @@ int main(int argc, char *argv[]) {
         printf("\n==== ./solve --analyze %s ====\n\n", analyze_file);
         time_t t_start = time(NULL);
 
-        /* Parse the 32-byte header first. */
-        {
-            FILE *hf = fopen(analyze_file, "rb");
-            if (!hf) { printf("ERROR: cannot open %s for header read\n", analyze_file); return 1; }
-            uint64_t hdr_records = 0;
-            if (sol_read_header(hf, &hdr_records) != 0) {
-                printf("ERROR: %s has invalid magic or unsupported version "
-                       "(expected 'ROAE' v%d)\n", analyze_file, SOL_FORMAT_VERSION);
-                fclose(hf); return 1;
-            }
-            fclose(hf);
+        /* #169: gz-aware mmap. gz_mmap_open decompresses a gz analyze_file to a
+         * temp and mmaps that (raw files map directly), so the packed-bitmap and
+         * OpenMP fast paths below are unchanged. gz_tmp is unlinked at cleanup. */
+        unsigned char *mmap_base = NULL;
+        long full_size = 0;
+        char gz_tmp[512] = {0};
+        if (gz_mmap_open(analyze_file, &mmap_base, &full_size, gz_tmp, sizeof(gz_tmp)) != 0) {
+            printf("ERROR: cannot open/map %s\n", analyze_file); return 1;
         }
-
-        /* mmap the file: no malloc, no fread. OS pages it in on demand.
-         * The record stream starts at byte SOL_HEADER_SIZE; `all` is the
-         * record-stream view. */
-        int afd = open(analyze_file, O_RDONLY);
-        if (afd < 0) { printf("ERROR: cannot open %s\n", analyze_file); return 1; }
-        struct stat ast;
-        if (fstat(afd, &ast) < 0) { printf("ERROR: fstat failed\n"); close(afd); return 1; }
-        long full_size = ast.st_size;
         if (full_size < SOL_HEADER_SIZE) {
             printf("ERROR: file smaller than header (%ld < %d)\n", full_size, SOL_HEADER_SIZE);
-            close(afd); return 1;
+            gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
+        }
+        {
+            uint64_t hdr_records = 0;
+            if (sol_read_header_mem(mmap_base, &hdr_records) != 0) {
+                printf("ERROR: %s has invalid magic or unsupported version "
+                       "(expected 'ROAE' v%d)\n", analyze_file, SOL_FORMAT_VERSION);
+                gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
+            }
         }
         long file_size = full_size - SOL_HEADER_SIZE;
         if (file_size % SOL_RECORD_SIZE != 0) {
             printf("ERROR: record stream %ld bytes after header not a multiple of %d\n",
                    file_size, SOL_RECORD_SIZE);
-            close(afd); return 1;
+            gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
         }
         long long n_sols = file_size / SOL_RECORD_SIZE;
-        unsigned char *mmap_base = mmap(NULL, full_size, PROT_READ, MAP_PRIVATE, afd, 0);
-        close(afd);
-        if (mmap_base == MAP_FAILED) {
-            printf("ERROR: mmap of %ld bytes failed (errno %d)\n", full_size, errno);
-            return 1;
-        }
         madvise(mmap_base, full_size, MADV_SEQUENTIAL);
         unsigned char *all = mmap_base + SOL_HEADER_SIZE;   /* record-stream view */
 
         printf("[1] File metadata\n");
         fprintf(stderr, "[1] START\n"); fflush(stderr);
         printf("    records:    %lld\n", n_sols);
-        printf("    file size:  %ld bytes (%d header + %ld records, %.2f GB total)\n",
+        printf("    file size:  %ld logical bytes (%d header + %ld records, %.2f GB total)\n",
                full_size, SOL_HEADER_SIZE, file_size, full_size / 1e9);
         printf("    format:     ROAE v%d; record fmt %d bytes (pair_index<<2 | orient<<1)\n",
                SOL_FORMAT_VERSION, SOL_RECORD_SIZE);
@@ -11204,7 +11543,7 @@ int main(int argc, char *argv[]) {
         if (!kw_indices) {
             fprintf(stderr, "ERROR: malloc failed for kw_indices (%zu bytes)\n",
                     (size_t)(kw_cap * sizeof(long long)));
-            munmap(mmap_base, full_size);
+            gz_mmap_close(mmap_base, full_size, gz_tmp);
             return 1;
         }
         /* Section [26] input: per-first-level-branch (pair-at-pos-2, orient-at-pos-2) counts */
@@ -11224,7 +11563,7 @@ int main(int argc, char *argv[]) {
         if (!bmask) {
             fprintf(stderr, "ERROR: malloc failed for bmask pointer array\n");
             free(kw_indices); free(sub_solution_count);
-            munmap(mmap_base, full_size);
+            gz_mmap_close(mmap_base, full_size, gz_tmp);
             return 1;
         }
         for (int b = 0; b < 31; b++) {
@@ -11233,7 +11572,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "ERROR: calloc failed for bmask[%d] (%lld words)\n", b, n_words);
                 for (int f = 0; f < b; f++) free(bmask[f]);
                 free(bmask); free(kw_indices); free(sub_solution_count);
-                munmap(mmap_base, full_size);
+                gz_mmap_close(mmap_base, full_size, gz_tmp);
                 return 1;
             }
         }
@@ -13373,7 +13712,7 @@ int main(int argc, char *argv[]) {
         free(bmask);
         free(sub_solution_count);
         free(kw_indices);
-        munmap(mmap_base, full_size);
+        gz_mmap_close(mmap_base, full_size, gz_tmp);
 
         time_t t_end = time(NULL);
         printf("==== analyze done in %lds ====\n", (long)(t_end - t_start));
@@ -13405,14 +13744,10 @@ int main(int argc, char *argv[]) {
             int nlen = strlen(de->d_name);
             if (nlen < 5 || strcmp(de->d_name + nlen - 4, ".bin") != 0) continue;
             if (strstr(de->d_name, ".tmp")) continue;  /* skip in-progress writes */
-            FILE *tf = fopen(de->d_name, "rb");
-            if (!tf) continue;
-            fseek(tf, 0, SEEK_END);
-            long sz = ftell(tf);
-            fclose(tf);
+            long long sz = gz_logical_size(de->d_name);   /* #169: logical (decompressed) size */
             if (sz <= 0) continue;
             if (sz % SOL_RECORD_SIZE != 0) {
-                fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
+                fprintf(stderr, "ERROR: %s logical size %lld is not a multiple of %d — truncated file\n",
                         de->d_name, sz, SOL_RECORD_SIZE);
                 closedir(dir);
                 return 20;
@@ -13435,28 +13770,17 @@ int main(int argc, char *argv[]) {
         /* Read all files into one buffer */
         long long total_records = 0;
         for (int i = 0; i < n_files; i++) {
-            FILE *tf = fopen(filenames[i], "rb");
-            if (!tf) {
-                fprintf(stderr, "ERROR: cannot open %s for size scan: %s\n",
-                        filenames[i], strerror(errno));
+            long long sz = gz_logical_size(filenames[i]);   /* #169: logical (decompressed) size */
+            if (sz < 0) {
+                fprintf(stderr, "ERROR: cannot size %s: %s\n", filenames[i], strerror(errno));
                 return 20;
             }
-            if (fseek(tf, 0, SEEK_END) != 0) {
-                fprintf(stderr, "ERROR: fseek END failed on %s: %s\n", filenames[i], strerror(errno));
-                fclose(tf); return 20;
-            }
-            long sz = ftell(tf);
-            if (sz < 0) {
-                fprintf(stderr, "ERROR: ftell failed on %s: %s\n", filenames[i], strerror(errno));
-                fclose(tf); return 20;
-            }
             if (sz % SOL_RECORD_SIZE != 0) {
-                fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d (corrupt file)\n",
+                fprintf(stderr, "ERROR: %s logical size %lld is not a multiple of %d (corrupt file)\n",
                         filenames[i], sz, SOL_RECORD_SIZE);
-                fclose(tf); return 20;
+                return 20;
             }
             total_records += sz / SOL_RECORD_SIZE;
-            fclose(tf);
         }
         /* Defensive bound. Guards against overflow in subsequent
          * `total_records * SOL_RECORD_SIZE * 2` and malloc-size casts.
@@ -13536,32 +13860,38 @@ int main(int argc, char *argv[]) {
 
             long long offset = 0;
             for (int i = 0; i < n_files; i++) {
-                FILE *tf = fopen(filenames[i], "rb");
+                gzFile tf = gzr_open(filenames[i]);   /* #169: auto raw/gz; stream records */
                 if (!tf) {
                     fprintf(stderr, "ERROR: cannot open %s for read: %s\n", filenames[i], strerror(errno));
                     free(all); return 20;
                 }
-                if (fseek(tf, 0, SEEK_END) != 0) {
-                    fprintf(stderr, "ERROR: fseek END failed on %s: %s\n", filenames[i], strerror(errno));
-                    fclose(tf); free(all); return 20;
+                /* #169 B1 fix: read EXACTLY the file's declared logical record count
+                 * (same contract as the old fread(sz) + short-read-FATAL). A short
+                 * read = truncated/corrupt gz; extra data = ISIZE mismatch/corruption.
+                 * Both are FATAL — never silently merge a short shard or sort/write
+                 * uninitialized buffer tail as canonical records. */
+                long long expect = gz_logical_size(filenames[i]) / SOL_RECORD_SIZE;
+                for (long long k = 0; k < expect; k++) {
+                    if (offset + k >= total_records ||
+                        gzfread(&all[(offset + k) * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, tf) != 1) {
+                        fprintf(stderr, "ERROR: short read on %s at record %lld of %lld (truncated/corrupt gz)\n",
+                                filenames[i], k, expect);
+                        gzclose(tf); free(all); return 20;
+                    }
                 }
-                long sz = ftell(tf);
-                if (sz < 0) {
-                    fprintf(stderr, "ERROR: ftell failed on %s: %s\n", filenames[i], strerror(errno));
-                    fclose(tf); free(all); return 20;
+                unsigned char xtra[SOL_RECORD_SIZE];
+                if (gzfread(xtra, SOL_RECORD_SIZE, 1, tf) != 0 || !gzeof(tf)) {
+                    fprintf(stderr, "ERROR: %s has more data than its declared logical size "
+                            "(corrupt / ISIZE mismatch) — aborting\n", filenames[i]);
+                    gzclose(tf); free(all); return 20;
                 }
-                if (fseek(tf, 0, SEEK_SET) != 0) {
-                    fprintf(stderr, "ERROR: fseek SET failed on %s: %s\n", filenames[i], strerror(errno));
-                    fclose(tf); free(all); return 20;
-                }
-                size_t got = fread(&all[offset * SOL_RECORD_SIZE], 1, (size_t)sz, tf);
-                if (got != (size_t)sz) {
-                    fprintf(stderr, "ERROR: short read on %s: got %zu of %ld bytes: %s\n",
-                            filenames[i], got, sz, strerror(errno));
-                    fclose(tf); free(all); return 20;
-                }
-                offset += sz / SOL_RECORD_SIZE;
-                fclose(tf);
+                gzclose(tf);
+                offset += expect;
+            }
+            if (offset != total_records) {
+                fprintf(stderr, "ERROR: merge read %lld records, size-scan expected %lld — aborting\n",
+                        offset, total_records);
+                free(all); return 20;
             }
 
             printf("  Sorting %lld records...\n", total_records);
@@ -13582,31 +13912,41 @@ int main(int argc, char *argv[]) {
 
             printf("  Writing %s...\n", outname);
 
-            FILE *of = fopen(outname, "wb");
+            gzFile of = gzw_open(outname);   /* #169: gz (or raw if SOLVE_COMPRESS=0) */
             if (!of) { fprintf(stderr, "ERROR: cannot open %s\n", outname); free(all); return 30; }
-            if (sol_write_header(of, (uint64_t)unique) != 0) {
+            if (sol_write_header_gz(of, (uint64_t)unique) != 0) {
                 fprintf(stderr, "ERROR: header write failed on %s\n", outname);
-                fclose(of); free(all); return 30;
+                gzclose(of); free(all); return 30;
             }
-            size_t written = fwrite(all, SOL_RECORD_SIZE, unique, of);
+            size_t written = gzfwrite(all, SOL_RECORD_SIZE, unique, of);
             if ((long long)written != unique) {
                 fprintf(stderr, "ERROR: short write (%zu of %lld)\n", written, unique);
-                fclose(of); free(all); return 30;
+                gzclose(of); free(all); return 30;
             }
-            if (fflush(of) != 0 || fsync(fileno(of)) != 0) {
-                fprintf(stderr, "ERROR: flush/fsync failed\n"); fclose(of); free(all); return 30;
+            if (gzw_close_durable(of, outname) != 0) {
+                fprintf(stderr, "ERROR: flush/fsync/close failed on %s\n", outname); free(all); return 30;
             }
-            fclose(of);
             free(all);
         }
         printf("  Unique solutions: %lld\n", unique);
-        /* Post-write size verification (catches truncation) */
+        /* Post-write size verification (catches truncation). #169: raw byte-size
+         * check only under SOLVE_COMPRESS=0; gz size is compressed (write already
+         * validated by the gzfwrite return-count), so just confirm non-empty + valid gz. */
         {
             struct stat pst;
-            long long expected = (long long)SOL_HEADER_SIZE + unique * SOL_RECORD_SIZE;
-            if (stat(outname, &pst) != 0 || pst.st_size != expected) {
-                fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
-                        outname, (long long)(stat(outname, &pst) == 0 ? pst.st_size : -1), expected);
+            if (stat(outname, &pst) != 0 || pst.st_size <= 0) {
+                fprintf(stderr, "ERROR: post-write check failed on %s\n", outname);
+                return 30;
+            }
+            if (!file_is_gzip(outname)) {
+                long long expected = (long long)SOL_HEADER_SIZE + unique * SOL_RECORD_SIZE;
+                if (pst.st_size != expected) {
+                    fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
+                            outname, (long long)pst.st_size, expected);
+                    return 30;
+                }
+            } else if (gz_test(outname) != 0) {   /* #169: native gzip -t on the artifact */
+                fprintf(stderr, "ERROR: post-write gz integrity test FAILED on %s (torn/corrupt gz)\n", outname);
                 return 30;
             }
         }
@@ -15468,51 +15808,52 @@ sub_enum_done:
 
         printf("Writing %lld unique solutions to %s...\n", unique_count, bin_name);
         fflush(stdout);
-        FILE *bf = fopen(bin_name, "wb");
+        /* #169: per-sub-branch output is gz (or raw under SOLVE_COMPRESS=0).
+         * write_sha256_with_metadata hashes the DECOMPRESSED content, so the
+         * sidecar sha is compression-invariant. Decompressed file =
+         * {header}{records}, same as the raw path. The raw byte-size check
+         * becomes a logical-size check. */
+        gzFile bf = gzw_open(bin_name);
         if (!bf) {
             fprintf(stderr, "ERROR: cannot open %s for writing\n", bin_name);
             free(all_solutions);
             return 30;
         }
-        if (sol_write_header(bf, (uint64_t)unique_count) != 0) {
+        if (sol_write_header_gz(bf, (uint64_t)unique_count) != 0) {
             fprintf(stderr, "ERROR: header write failed on %s\n", bin_name);
-            fclose(bf); free(all_solutions); return 30;
+            gzclose(bf); free(all_solutions); return 30;
         }
         if (all_solutions) {
-            size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, bf);
+            size_t written = gzfwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, bf);
             if ((long long)written != unique_count) {
                 fprintf(stderr, "ERROR: short write to %s (%zu of %lld records) — disk full?\n",
                         bin_name, written, unique_count);
-                fclose(bf);
+                gzclose(bf);
                 free(all_solutions);
                 return 30;
             }
         }
-        if (fflush(bf) != 0 || fsync(fileno(bf)) != 0) {
-            fprintf(stderr, "ERROR: flush/fsync failed on %s\n", bin_name);
-            fclose(bf);
-            free(all_solutions);
-            return 30;
-        }
-        if (fclose(bf) != 0) {
-            fprintf(stderr, "ERROR: close failed on %s — write may be incomplete\n", bin_name);
+        if (gzw_close_durable(bf, bin_name) != 0) {
+            fprintf(stderr, "ERROR: gz finish/fsync/close failed on %s — write may be incomplete\n", bin_name);
             free(all_solutions);
             return 30;
         }
         /* Post-write size verification: catches silent truncation (the bug
          * that produced the 23.7→8 GB incident in the 10T recovery).
-         * File is {header}{records}: SOL_HEADER_SIZE + unique_count * SOL_RECORD_SIZE. */
+         * Logical (decompressed) size = {header}{records}: SOL_HEADER_SIZE +
+         * unique_count * SOL_RECORD_SIZE. For gz, a corrupt/short stream is
+         * also caught by gz_test. */
         {
-            struct stat pst;
             long long expected = (long long)SOL_HEADER_SIZE + (long long)unique_count * SOL_RECORD_SIZE;
-            if (stat(bin_name, &pst) != 0) {
-                fprintf(stderr, "ERROR: post-write stat failed on %s\n", bin_name);
+            long long actual_logical = gz_logical_size(bin_name);
+            if (actual_logical != expected) {
+                fprintf(stderr, "ERROR: post-write logical-size mismatch on %s: got %lld, expected %lld\n",
+                        bin_name, actual_logical, expected);
                 free(all_solutions);
                 return 30;
             }
-            if (pst.st_size != expected) {
-                fprintf(stderr, "ERROR: post-write size mismatch on %s: got %lld, expected %lld\n",
-                        bin_name, (long long)pst.st_size, expected);
+            if (file_is_gzip(bin_name) && gz_test(bin_name) != 0) {
+                fprintf(stderr, "ERROR: post-write gz integrity check (gzip -t) failed on %s\n", bin_name);
                 free(all_solutions);
                 return 30;
             }
@@ -16283,8 +16624,9 @@ sub_enum_done:
 
         /* Recover unique_count from the merged solutions.bin header so
          * the final report has the right number. The child already
-         * wrote solutions.bin, solutions.sha256, and solutions.meta.json. */
-        FILE *sf = fopen("solutions.bin", "rb");
+         * wrote solutions.bin, solutions.sha256, and solutions.meta.json.
+         * #169: solutions.bin may be gz — gzr_open auto-detects. */
+        gzFile sf = gzr_open("solutions.bin");
         if (!sf) {
             fprintf(stderr,
                     "ERROR: cannot open solutions.bin after fork-merge: %s\n",
@@ -16292,13 +16634,13 @@ sub_enum_done:
             return 30;
         }
         uint64_t header_count = 0;
-        if (sol_read_header(sf, &header_count) != 0) {
+        if (sol_read_header_gz(sf, &header_count) != 0) {
             fprintf(stderr,
                     "ERROR: cannot read solutions.bin header after fork-merge\n");
-            fclose(sf);
+            gzclose(sf);
             return 30;
         }
-        fclose(sf);
+        gzclose(sf);
         unique_count = (long long)header_count;
         fork_merge_done = 1;
         printf("Fork-merge complete: %lld unique solutions\n", unique_count);
@@ -16334,14 +16676,10 @@ sub_enum_done:
             int nlen = strlen(de->d_name);
             if (nlen < 5 || strcmp(de->d_name + nlen - 4, ".bin") != 0) continue;
             if (strstr(de->d_name, ".tmp")) continue;
-            FILE *tf = fopen(de->d_name, "rb");
-            if (!tf) continue;
-            fseek(tf, 0, SEEK_END);
-            long sz = ftell(tf);
-            fclose(tf);
+            long long sz = gz_logical_size(de->d_name);   /* #169: logical (decompressed) size */
             if (sz <= 0) continue;
             if (sz % SOL_RECORD_SIZE != 0) {
-                fprintf(stderr, "ERROR: %s size %ld is not a multiple of %d — truncated file\n",
+                fprintf(stderr, "ERROR: %s logical size %lld is not a multiple of %d — truncated file\n",
                         de->d_name, sz, SOL_RECORD_SIZE);
                 closedir(dir);
                 free(merge_filenames);
@@ -16411,9 +16749,9 @@ sub_enum_done:
                     snprintf(expected_fname, sizeof(expected_fname),
                              "sub_%d_%d_%d_%d.bin", cp1, co1, cp2, co2);
 
-                struct stat fst;
-                if (stat(expected_fname, &fst) == 0) {
-                    int file_records = (int)(fst.st_size / SOL_RECORD_SIZE);
+                long long lsz_xref = gz_logical_size(expected_fname);   /* #169: logical size */
+                if (lsz_xref >= 0) {
+                    int file_records = (int)(lsz_xref / SOL_RECORD_SIZE);
                     /* Use < (not !=): a TRUNCATED file has fewer records
                      * than the checkpoint claims, which is the bug we want
                      * to catch. A LARGER file is normal in resume scenarios
@@ -16485,37 +16823,39 @@ sub_enum_done:
         long long sol_offset = 0;
         if (all_solutions) {
             for (int i = 0; i < n_sub_files; i++) {
-                FILE *tf = fopen(merge_filenames[i], "rb");
+                gzFile tf = gzr_open(merge_filenames[i]);   /* #169: auto raw/gz; stream records */
                 if (!tf) {
                     fprintf(stderr, "ERROR: cannot open %s: %s\n", merge_filenames[i], strerror(errno));
                     free(all_solutions); free(merge_filenames); return 20;
                 }
-                if (fseek(tf, 0, SEEK_END) != 0) {
-                    fprintf(stderr, "ERROR: fseek END on %s: %s\n", merge_filenames[i], strerror(errno));
-                    fclose(tf); free(all_solutions); free(merge_filenames); return 20;
-                }
-                long sz = ftell(tf);
-                if (sz < 0) {
-                    fprintf(stderr, "ERROR: ftell on %s: %s\n", merge_filenames[i], strerror(errno));
-                    fclose(tf); free(all_solutions); free(merge_filenames); return 20;
-                }
-                if (fseek(tf, 0, SEEK_SET) != 0) {
-                    fprintf(stderr, "ERROR: fseek SET on %s: %s\n", merge_filenames[i], strerror(errno));
-                    fclose(tf); free(all_solutions); free(merge_filenames); return 20;
-                }
-                if (sz > 0) {
-                    size_t got = fread(&all_solutions[sol_offset * SOL_RECORD_SIZE], 1, (size_t)sz, tf);
-                    if (got != (size_t)sz) {
-                        fprintf(stderr, "ERROR: short read on %s: got %zu of %ld: %s\n",
-                                merge_filenames[i], got, sz, strerror(errno));
-                        fclose(tf); free(all_solutions); free(merge_filenames); return 20;
+                /* #169 B1 fix: read EXACTLY the file's declared logical record count;
+                 * short read = truncated/corrupt gz, extra data = ISIZE mismatch — both
+                 * FATAL (never silently drop or inject records). */
+                long long expect = gz_logical_size(merge_filenames[i]) / SOL_RECORD_SIZE;
+                for (long long k = 0; k < expect; k++) {
+                    if (sol_offset + k >= total_file_records ||
+                        gzfread(&all_solutions[(sol_offset + k) * SOL_RECORD_SIZE], SOL_RECORD_SIZE, 1, tf) != 1) {
+                        fprintf(stderr, "ERROR: short read on %s at record %lld of %lld (truncated/corrupt gz)\n",
+                                merge_filenames[i], k, expect);
+                        gzclose(tf); free(all_solutions); free(merge_filenames); return 20;
                     }
-                    sol_offset += sz / SOL_RECORD_SIZE;
                 }
-                fclose(tf);
+                unsigned char xtra[SOL_RECORD_SIZE];
+                if (gzfread(xtra, SOL_RECORD_SIZE, 1, tf) != 0 || !gzeof(tf)) {
+                    fprintf(stderr, "ERROR: %s has more data than its declared logical size "
+                            "(corrupt / ISIZE mismatch) — aborting\n", merge_filenames[i]);
+                    gzclose(tf); free(all_solutions); free(merge_filenames); return 20;
+                }
+                gzclose(tf);
+                sol_offset += expect;
             }
         }
         free(merge_filenames);
+        if (sol_offset != total_file_records) {
+            fprintf(stderr, "ERROR: merge read %lld records, size-scan expected %lld — aborting\n",
+                    sol_offset, total_file_records);
+            free(all_solutions); return 20;
+        }
         long long total_stored = sol_offset;
 
         printf("Sorting %lld solutions...\n", total_stored);
@@ -16533,34 +16873,28 @@ sub_enum_done:
 
         printf("Writing %lld unique solutions to solutions.bin...\n", unique_count);
         fflush(stdout);
-        FILE *f = fopen("solutions.bin", "wb");
+        gzFile f = gzw_open("solutions.bin");   /* #169: gz (or raw if SOLVE_COMPRESS=0) */
         if (!f) {
             fprintf(stderr, "ERROR: cannot open solutions.bin for writing\n");
             free(all_solutions);
             return 30;
     }
-    if (sol_write_header(f, (uint64_t)unique_count) != 0) {
+    if (sol_write_header_gz(f, (uint64_t)unique_count) != 0) {
         fprintf(stderr, "ERROR: header write failed on solutions.bin\n");
-        fclose(f); free(all_solutions); return 30;
+        gzclose(f); free(all_solutions); return 30;
     }
     if (all_solutions) {
-        size_t written = fwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, f);
+        size_t written = gzfwrite(all_solutions, SOL_RECORD_SIZE, (size_t)unique_count, f);
         if ((long long)written != unique_count) {
             fprintf(stderr, "ERROR: short write to solutions.bin (%zu of %lld records) — disk full?\n",
                     written, unique_count);
-            fclose(f);
+            gzclose(f);
             free(all_solutions);
             return 30;
         }
     }
-    if (fflush(f) != 0 || fsync(fileno(f)) != 0) {
-        fprintf(stderr, "ERROR: flush/fsync failed on solutions.bin\n");
-        fclose(f);
-        free(all_solutions);
-        return 30;
-    }
-    if (fclose(f) != 0) {
-        fprintf(stderr, "ERROR: close failed on solutions.bin — write may be incomplete\n");
+    if (gzw_close_durable(f, "solutions.bin") != 0) {
+        fprintf(stderr, "ERROR: flush/fsync/close failed on solutions.bin — write may be incomplete\n");
         free(all_solutions);
         return 30;
     }
@@ -16568,18 +16902,32 @@ sub_enum_done:
     } /* end in-memory merge */
 
     /* Post-write size verification (both merge paths). Includes the
-     * SOL_HEADER_SIZE prefix — file is {header}{records}. */
+     * SOL_HEADER_SIZE prefix — file is {header}{records}.
+     * #169: for a gz solutions.bin the on-disk size is compressed, so the raw
+     * byte-size assertion only applies under SOLVE_COMPRESS=0 (transparent). The
+     * gz write was already validated by the gzfwrite return-count check; here we
+     * confirm the file is a non-empty, valid gzip. (ISIZE can't be trusted for a
+     * >4 GB solutions.bin, so we don't size-check the gz logical length.) */
     {
         struct stat pst;
-        long long expected = (long long)SOL_HEADER_SIZE + unique_count * SOL_RECORD_SIZE;
         if (stat("solutions.bin", &pst) != 0) {
             fprintf(stderr, "ERROR: post-write stat failed on solutions.bin\n");
             return 30;
         }
-        if (pst.st_size != expected) {
-            fprintf(stderr, "ERROR: post-write size mismatch on solutions.bin: got %lld, expected %lld\n",
-                    (long long)pst.st_size, expected);
-            return 30;
+        if (file_is_gzip("solutions.bin")) {
+            /* #169: native gzip -t (CRC-32 + ISIZE) on the critical artifact — catches
+             * a torn/short/bit-rotted gz that a size check would miss. */
+            if (pst.st_size <= 0 || gz_test("solutions.bin") != 0) {
+                fprintf(stderr, "ERROR: post-write gz integrity test FAILED on solutions.bin (torn/corrupt gz)\n");
+                return 30;
+            }
+        } else {
+            long long expected = (long long)SOL_HEADER_SIZE + unique_count * SOL_RECORD_SIZE;
+            if (pst.st_size != expected) {
+                fprintf(stderr, "ERROR: post-write size mismatch on solutions.bin: got %lld, expected %lld\n",
+                        (long long)pst.st_size, expected);
+                return 30;
+            }
         }
     }
 

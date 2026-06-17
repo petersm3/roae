@@ -321,10 +321,10 @@ The 11.2T / 10T / 1T published PSBs are the empirically-correct values — they'
 
 ```
 # Minimum to reproduce canonical sha:
-gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm
+gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 
 # Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on D64 Zen 4):
-gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm
+gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 ```
 
 Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produces a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 with tight run-to-run variance (stddev 0.11% across 4 trials). Drop it if your toolchain doesn't support LTO.
@@ -352,7 +352,7 @@ Both verifiers operate without reference to the canonical sha; they validate the
 ```
 git clone https://github.com/petersm3/roae
 cd roae
-gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm
+gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 ./solve --selftest                    # must print sha 403f7202
 ulimit -s unlimited                   # required at large scales
 <env vars from the table above> ./solve 0 128

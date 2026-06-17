@@ -18,7 +18,7 @@ N should typically be set to the number of physical cores. The output
 must match --jobs 1 byte-for-byte (modulo the header line that prints
 the chosen worker count).
 """
-import sys, struct, argparse, multiprocessing
+import sys, struct, argparse, multiprocessing, gzip, tempfile, atexit, os, shutil
 
 KW = [
     63,  0, 17, 34, 23, 58,  2, 16, 55, 59,  7, 56, 61, 47,  4,  8,
@@ -351,6 +351,22 @@ def main():
     path = args.path
     n_jobs = max(1, args.jobs)
 
+    # #169: solutions.bin may be gzip-compressed (SOLVE_COMPRESS default on). verify.py uses
+    # byte-offset parallel chunking which gzip cannot seek, so transparently decompress a gz file
+    # to a temp raw file and verify that — the logical (decompressed) content is byte-identical to
+    # a raw solutions.bin, so all constraint/sort/dup checks are unchanged. Temp removed at exit.
+    with open(path, 'rb') as _fh:
+        _is_gz = _fh.read(2) == b'\x1f\x8b'
+    if _is_gz:
+        _fd, _tmp = tempfile.mkstemp(prefix='verify_solbin_', suffix='.bin')
+        os.close(_fd)
+        atexit.register(lambda p=_tmp: os.path.exists(p) and os.remove(p))
+        print(f"Detected gzip-compressed solutions.bin; decompressing to {_tmp} for verification...")
+        with gzip.open(path, 'rb') as _fin, open(_tmp, 'wb') as _fout:
+            shutil.copyfileobj(_fin, _fout, length=1 << 24)
+        path = _tmp
+        print(f"  decompressed: {os.path.getsize(path):,} bytes (logical content)")
+
     # Read header from main process to validate format and get record count.
     with open(path, 'rb') as f:
         head = f.read(SOL_HEADER_SIZE)
@@ -360,7 +376,6 @@ def main():
         print(f"ERROR: invalid solutions.bin header: {e}")
         sys.exit(2)
 
-    import os
     file_size = os.path.getsize(path)
     record_bytes = file_size - SOL_HEADER_SIZE
     if record_bytes % 32 != 0:

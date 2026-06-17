@@ -2718,6 +2718,48 @@ _P2_KW_VALUES = {
 }
 
 
+def _is_gzip(path):
+    """True if the file begins with the gzip magic (1f 8b)."""
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(2) == b"\x1f\x8b"
+    except OSError:
+        return False
+
+
+import contextlib as _contextlib
+
+
+@_contextlib.contextmanager
+def _gz_resolved_path(path):
+    """#169: yield a path to a RAW (uncompressed) solutions.bin. If `path` is a
+    gz container (live-compression output), decompress it once to a temp file
+    and yield that — so the existing seek/getsize/parallel-worker readers below
+    (which require a seekable raw file) work unchanged. Raw inputs are yielded
+    as-is (no copy). The temp is removed on exit. Magic-sniffed, not
+    extension-based: solutions.bin holds gz content under the SAME filename."""
+    import os
+    import tempfile
+    import gzip as _gzip
+    if not _is_gzip(path):
+        yield path
+        return
+    fd, tmp = tempfile.mkstemp(prefix="roae_gz_py_", suffix=".bin")
+    try:
+        with _gzip.open(path, "rb") as gf, os.fdopen(fd, "wb") as out:
+            while True:
+                buf = gf.read(1 << 20)
+                if not buf:
+                    break
+                out.write(buf)
+        yield tmp
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
 def _p2_read_header(f):
     import struct
     header = f.read(_P2_HEADER_SIZE)
@@ -2887,6 +2929,18 @@ def p2_compute_stats(solutions_bin, out_dir, workers=None,
     if workers is None:
         workers = os.cpu_count() or 4
     schema = _p2_parquet_schema()
+    # #169: transparently decompress a gz solutions.bin to a temp so the
+    # offset-seeking parallel workers below read a raw seekable file.
+    with _gz_resolved_path(solutions_bin) as solutions_bin:
+        return _p2_compute_stats_impl(solutions_bin, out_dir, workers,
+                                      chunk_size, max_records, schema)
+
+
+def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
+                           chunk_size, max_records, schema):
+    import multiprocessing as mp
+    import os
+    import time
     with open(solutions_bin, "rb") as f:
         total_records, version = _p2_read_header(f)
     if max_records:
@@ -4206,6 +4260,25 @@ def branch_yield_report(solutions_bin, baseline_bin=None, manifest=None,
     if depth not in (1, 2, 3):
         raise ValueError(f"--depth must be 1, 2, or 3 (got {depth})")
 
+    # #169: transparently decompress gz inputs to temps for the duration of the
+    # report (the readers below use os.path.getsize + seekable reads).
+    _ctx_s = _gz_resolved_path(solutions_bin); solutions_bin = _ctx_s.__enter__()
+    _ctx_b = None
+    if baseline_bin is not None:
+        _ctx_b = _gz_resolved_path(baseline_bin); baseline_bin = _ctx_b.__enter__()
+    try:
+        return _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
+                                         depth, out_csv, out_json,
+                                         os, struct, json, defaultdict)
+    finally:
+        _ctx_s.__exit__(None, None, None)
+        if _ctx_b is not None:
+            _ctx_b.__exit__(None, None, None)
+
+
+def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
+                              depth, out_csv, out_json,
+                              os, struct, json, defaultdict):
     def _read_header(f):
         """Read + validate v1 header. Returns (record_count, header_size)."""
         hdr = f.read(32)
@@ -4499,6 +4572,16 @@ def keystone_analysis(solutions_bin, out_md, dump_dir=None,
     if chunk_size is None:
         chunk_size = _P2_CHUNK_RECORDS_DEFAULT
 
+    # #169: transparently decompress a gz solutions.bin to a temp for the
+    # sequential read + os.path.getsize calls below.
+    with _gz_resolved_path(solutions_bin) as solutions_bin:
+        return _keystone_analysis_impl(solutions_bin, out_md, dump_dir,
+                                       dump_limit, chunk_size,
+                                       time, os, np, bdrys_1idx, bdrys_0idx)
+
+
+def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
+                            chunk_size, time, os, np, bdrys_1idx, bdrys_0idx):
     with open(solutions_bin, "rb") as f:
         total_records, version = _p2_read_header(f)
 

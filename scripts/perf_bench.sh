@@ -120,7 +120,7 @@ $SCP /tmp/solve_trt_${TREATMENT_COMMIT}.c "$ADMIN@$VM_IP:solve_trt.c" >/dev/null
 $SSH "$ADMIN@$VM_IP" "
     set -e
     # Build N (control)
-    gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH=\\\"${CONTROL_COMMIT}\\\" -o solve_N solve_ctl.c -lm 2>&1 | tail -2
+    gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH=\\\"${CONTROL_COMMIT}\\\" -o solve_N solve_ctl.c -lm -lz 2>&1 | tail -2
     sha256sum solve_N
     ./solve_N --selftest 2>&1 | tail -2
 
@@ -139,7 +139,7 @@ $SSH "$ADMIN@$VM_IP" "
         #  See scripts/build_pgo.sh for the canonical reusable form.
         rm -rf profdir && mkdir profdir
         gcc -O3 -flto -pthread -fopenmp -march=native -fprofile-generate=\$PWD/profdir \\
-            -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm 2>&1 | tail -2
+            -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm -lz 2>&1 | tail -2
         mv solve_U solve_inst
         ./solve_inst --selftest > /dev/null 2>&1
         # PGO workload: representative hot paths
@@ -154,9 +154,9 @@ $SSH "$ADMIN@$VM_IP" "
         gcc -O3 -flto -pthread -fopenmp -march=native \\
             -fprofile-use=\$PWD/profdir -fprofile-correction \\
             -Werror=missing-profile \\
-            -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm 2>&1 | tail -3
+            -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm -lz 2>&1 | tail -3
     else
-        gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm 2>&1 | tail -2
+        gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm -lz 2>&1 | tail -2
     fi
     sha256sum solve_U
     ./solve_U --selftest 2>&1 | tail -2

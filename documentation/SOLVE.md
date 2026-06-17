@@ -682,7 +682,7 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 For complete enumeration of the solution space, the C implementation is ~60x faster than the Python version. It counts all solutions satisfying Rules 1-5 + C3, de-duplicates by canonical pair ordering, and reports unique ordering counts.
 
 ```
-gcc -O3 -pthread -fopenmp -o solve solve.c -lm    # Compile
+gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz    # Compile
 SOLVE_NODE_LIMIT=10000000000000 ./solve 0          # Canonical 10T run (deterministic)
 ./solve 3600                                        # Exploratory 1-hour run (non-reproducible)
 ```

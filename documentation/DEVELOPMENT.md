@@ -694,7 +694,7 @@ For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN
 
 ### Compile
 
-- Build flags: `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm` (minimum to reproduce canonical sha); `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15).
+- Build flags: `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz` (minimum to reproduce canonical sha); `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
 - `-fopenmp` parallelizes the `--analyze` hot loops. Without it, pragmas are
   no-ops and everything still compiles + runs single-threaded. `libgomp`
   (gcc's OpenMP runtime) ships with gcc under the GCC Runtime Library
@@ -714,7 +714,7 @@ gcc -O3 -g -march=native -flto -pthread -fopenmp \
     -ffile-prefix-map="$(pwd)=." \
     -fdebug-prefix-map="$(pwd)=." \
     -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" \
-    solve.c -lm -o solve
+    solve.c -lm -lz -o solve
 ```
 
 Compared to the bare `-O3 -flto -pthread -fopenmp -march=native`, these flags add:
@@ -1268,7 +1268,7 @@ then.
 1. **Build the solver.**
    ```
    gcc -O3 -pthread -fopenmp -march=native \
-       -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm
+       -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm -lz
    ```
 
 2. **Run a canonical enumeration.** On a machine with ≥64 cores and ≥64 GB

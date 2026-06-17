@@ -859,7 +859,7 @@ a third party can reproduce any canonical as follows:
 1. Clone the source repository, checkout the git ref named in the canonical's
    row in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 2. Build with the canonical flags (`gcc -O3 -g -march=native -flto -pthread
-   -fopenmp -o solve solve.c -lm`).
+   -fopenmp -o solve solve.c -lm -lz`).
 3. Confirm the built binary's selftest sha matches the published selftest
    anchor (`./solve --selftest` should emit `403f7202...` — see
    [DEVELOPMENT.md](DEVELOPMENT.md)).

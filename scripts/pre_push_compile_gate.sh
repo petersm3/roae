@@ -29,7 +29,7 @@ fi
 TMP_BIN=$(mktemp /tmp/precommit_solve.XXXXXX)
 trap 'rm -f "$TMP_BIN"' EXIT
 
-if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -o "$TMP_BIN" 2>&1; then
+if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -lz -o "$TMP_BIN" 2>&1; then
     echo "FAIL: solve.c does not compile cleanly under -Wall -Wextra"
     exit 1
 fi
