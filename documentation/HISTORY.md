@@ -313,7 +313,7 @@ Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-W
 - Pre-dedup records: 2,772,506,921 (2.77B)
 - Partition: `SOLVE_DEPTH=3`, 158,364 sub-branches, 63.1M per-sub-branch node budget
 - Verified: `--verify` PASS on all 706M records; C1-C5, sorted, no duplicates, King Wen present
-- Archives: `solve_c/runs/20260418_10T_d3_v1/` (Phase B) and `solve_c/runs/20260418_10T_d3_fresh/` (Phase C fresh re-enumeration)
+- Archives: `runs/20260418_10T_d3_v1/` (Phase B) and `runs/20260418_10T_d3_fresh/` (Phase C fresh re-enumeration)
 - Cross-validation: Phase B's re-merge of the 2026-04-17 shards produced this sha; Phase C's fresh re-enumeration on a new VM with new disks, same solver, produced byte-identical output. That validates enumeration determinism (backtracking + hash table + flush all reproduce byte-identically across VM / time / fresh run), shard determinism, and merge determinism simultaneously. This byte-identical match is an empirical instance of the Partition Invariance theorem — see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) for the formal statement and proof.
 
 **D2 10T reference sha** (independent from d3; different partition → different 10T-partial sampling, not expected to match d3):
@@ -321,7 +321,7 @@ Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-W
 - Unique canonical pair orderings: **286,357,503**
 - Partition: `SOLVE_DEPTH=2`, 3,030 sub-branches, 3.3B per-sub-branch node budget
 - Verified: `--verify` PASS on all 286M records
-- Archive: `solve_c/runs/20260418_10T_d2_fresh/`
+- Archive: `runs/20260418_10T_d2_fresh/`
 - Note on the count difference: d2 has 52× fewer sub-branches each with 52× more node budget than d3. At the same 10T total, different partitions sample the solution space differently. d3 reaches more unique orderings at 10T because finer partitioning spreads coverage more broadly; d2 invests more budget per sub-branch (some likely reach EXHAUSTED). Neither is "more correct"; both are valid partial enumerations at 10T budget. Under exhaustive enumeration (no budget limit), both partitions would converge on the same canonical count — but we have not yet run to exhaustion at any depth.
 
 **Old invalidated shas, for historical reference only:**
@@ -378,7 +378,7 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 
 **Measured scaling (D128als_v7 vs F64als_v6 on 10T d3):** enumeration ~3.6× faster on D128 (82:57 vs ~300 min); merge ~1.3× faster per-core (Zen 5 IPC + DDR5-6000 advantage on single-threaded heap-sort); total pipeline ~3× faster and ~2.4× cheaper at spot pricing. This exceeds the pre-run 2.6× projection. Full analysis + SKU sizing recommendations in `DSERIES_ROI_REPORT.md` (kept outside the repo as an operator-review doc).
 
-**Archive**: run artifacts (shas, meta, compressed logs, README) in [solve_c/runs/20260419_10T_d3_d128westus3/](solve_c/runs/20260419_10T_d3_d128westus3/). The canonical `solutions.bin` lives on the new `solver-data-westus3` managed disk (300 GB Standard_LRS, bi-region archival).
+**Archive**: run artifacts (shas, meta, compressed logs, README) in [runs/20260419_10T_d3_d128westus3/](runs/20260419_10T_d3_d128westus3/). The canonical `solutions.bin` lives on the new `solver-data-westus3` managed disk (300 GB Standard_LRS, bi-region archival).
 
 **Supporting documentation.** Full SKU comparison (with authoritative Microsoft Learn sources) and ROI analysis are maintained as operator review docs at top-of-working-tree, outside the git repo.
 
@@ -438,7 +438,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 ## April 20-21, 2026 — 1T single-branch Recon + P2 kickoff + solver-d3 lesson
 
-**Recon campaign (32 sub-branches × 1T budget).** Picked the 32 lowest-yield-at-100T sub-branches, ran each at 1T (1,580× the 100T per-sub-branch budget), serial-by-default solve.c. Full results at `solve_c/runs/20260420_singlebranch1T_d32westus3/` and `roae-private/RECON_1T_RESULTS.md`.
+**Recon campaign (32 sub-branches × 1T budget).** Picked the 32 lowest-yield-at-100T sub-branches, ran each at 1T (1,580× the 100T per-sub-branch budget), serial-by-default solve.c. Full results at `runs/20260420_singlebranch1T_d32westus3/` and `roae-private/RECON_1T_RESULTS.md`.
 
 Key findings:
 - **0 of 32 EXHAUSTED.** All BUDGETED. 1T wasn't enough to exhaust any low-yield branch.
@@ -565,7 +565,7 @@ First real-world test of P1 parallel `--sub-branch` on a scientific workload. Ra
 | `22_0_30_1_20_0` | 16,431,733 | 3h 02m | 502 MB | `e801bc7e47898369f31c7508bde39e48970a821c76ffc61bd82fbf6afab03a31` |
 | `22_1_30_1_20_0` | 16,433,267 | 2h 52m | 502 MB | `7a58a86882faae7b53b4cb41c8300ef3d3b841bfc6852b93d157c75d001202e1` |
 
-Archived at `solve_c/runs/20260422_passA_10T_d64_laggard/<branch>/` (public repo — only sha + meta + log.gz + checkpoint; the 502 MB `sub_*.bin` lives on `solver-data-westus3:/data/archive/passA_10T_d64_laggard/<branch>/` per the new "archival pattern for large outputs" convention).
+Archived at `runs/20260422_passA_10T_d64_laggard/<branch>/` (public repo — only sha + meta + log.gz + checkpoint; the 502 MB `sub_*.bin` lives on `solver-data-westus3:/data/archive/passA_10T_d64_laggard/<branch>/` per the new "archival pattern for large outputs" convention).
 
 **Growth rate:** 1T → 10T: **1,700× super-linear yield growth** (16 sols at 631M budget → 960 at 1T → 16.4M at 10T). Budget grew 15,800× from 631M to 10T; yield grew ~1,000,000×. The tree for these branches is vastly larger than 10T nodes.
 
@@ -602,7 +602,7 @@ Spread 2.0%. Consistent with orientation-symmetry at the level of total yield (w
 
 **Campaign D — yield-1,116 calibration.** Ten branches that all produced exactly 1,116 canonical solutions at the 100T aggregate run ran at 1T-per-branch: yields span **7.05M–19.50M** (2.77× spread), all BUDGETED, growth factors 6,319× to 17,476× vs the 100T-aggregate yield. "Yield = 1,116" was a **budget artifact** from the aggregate-budget sampling, not a structural class. Power-law fit gives α = 0.72-0.77 across these 10 branches — *sub-linear*, inverse to the yield-16 laggards' α = 4.23 *super-linear* (Pass 1). That α-inversion is a real structural signal (direction: these 10 trees are closer to exhaustion than laggards, but still far from it). Full doc: `roae-private/PASSD_FINDINGS.md`.
 
-**Per-branch archival** at `solve_c/runs/20260423_passB_D_10T_d64/{B,D}_<prefix>/` (sha + meta + log.gz) per the 2026-04-22 archival-pattern convention. The 14 `.bin` files (4.0 GB aggregate) live on `solver-data-westus3:/data/20260423_passBD/`.
+**Per-branch archival** at `runs/20260423_passB_D_10T_d64/{B,D}_<prefix>/` (sha + meta + log.gz) per the 2026-04-22 archival-pattern convention. The 14 `.bin` files (4.0 GB aggregate) live on `solver-data-westus3:/data/20260423_passBD/`.
 
 **Operational incident — parallel dual-VM runner coordination gap:** bcd-runs' queue covered B[1..4] + D[1..10]; bcd-runs-2 ran D[6..10] in parallel to halve wall-time. A guard script on bcd-runs was set to kill the bash runner after D[5] completed. The guard fired correctly at D[5]'s completion (`03:39:50`), but between D[5]'s exit and the `pkill` (`03:39:51`), the bash for-loop had already forked the D[6] solve process. That orphaned solve ran for 7 seconds before being manually caught and killed. Partial `D_10_0_6_1_2_0/` dir removed. **No duplicate in final output.** Lesson for future multi-VM coordination: the guard should probe for the NEXT solve process after the kill and verify no orphan remains. Added to `DEPLOYMENT.md` parallel-dual-VM-runner notes.
 
@@ -2624,7 +2624,7 @@ All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modele
   - Premium SSD temp disks for external merges: ephemeral, provisioned/destroyed per merge.
 - **Atomic file writes** in solve.c (write to .tmp, fsync, rename). Prevents mid-eviction corruption.
 - **Rotating checkpoints**: 3 copies maintained locally.
-- **All run outputs archived** in `solve_c/runs/<YYYYMMDD>_<description>/` with README.md + sha256 verification. Most recent: `20260420_singlebranch1T_d32westus3/` (32×1T Recon).
+- **All run outputs archived** in `runs/<YYYYMMDD>_<description>/` with README.md + sha256 verification. Most recent: `20260420_singlebranch1T_d32westus3/` (32×1T Recon).
 
 ## v2 lineage begins (2026-05-16)
 
@@ -4956,3 +4956,13 @@ positions, ~2.000/record) — the strictly-obeying minority is *larger* at depth
 19.97% at 560T); and **100.0000% of records have exactly one between-pair value-6**, so McKenna's
 "9th six" count is a forced consequence of C1–C5 (only its position varies), not a King-Wen-specific
 signature. See [MCKENNA.md](MCKENNA.md) §"Rule 2" and §"9th six".
+
+### Repo layout: `solve_c/runs/` → `runs/` — 2026-06-19
+
+Flattened the run-archive directory from `solve_c/runs/` to a top-level **`runs/`**. The old
+`solve_c/` wrapper held *only* `runs/` (the C source `solve.c` is at the repo root), so the name
+was a confusing single-purpose nesting that read like "solve.c runs." All run archives moved via
+`git mv` (history preserved); all in-repo doc pointers updated to `runs/<run-id>/`. No code path
+depended on the old location. **Pre-2026-06-19 working-session logs in the private operator repo
+still reference the old `solve_c/runs/...` paths and were intentionally left unmodified as a
+historical record** — read them with this rename in mind.

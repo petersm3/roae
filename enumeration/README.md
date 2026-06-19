@@ -3,7 +3,7 @@
 This directory holds the project's **enumeration leaderboard** (headline
 results table) plus archival analysis artifacts from earlier dataset
 eras. Canonical per-run artifacts for 2026-04-18-onward canonical runs
-live under `../solve_c/runs/<run-id>/` instead; this directory is
+live under `../runs/<run-id>/` instead; this directory is
 predominantly historical.
 
 ## Headline reference
@@ -37,7 +37,7 @@ that the counts they describe are superseded.
 
 Full text-mode outputs from `./solve --analyze solutions.bin` on the
 invalidated 742M dataset. Superseded by the per-run
-`analyze_output.log.gz` files under `../solve_c/runs/<run-id>/` for
+`analyze_output.log.gz` files under `../runs/<run-id>/` for
 canonical 2026-04-18 datasets.
 
 - **`analyze_c_742M.txt`** (11 KB) — core analyze output (per-position
@@ -68,10 +68,10 @@ were caught. Deleting them would erase the forensic audit trail.
 - `solutions.bin` itself. Too large to commit (22.6 GB for d3 10T;
   will grow with 100T). Lives on Azure managed disks; see
   `SOLUTIONS_BIN_LOCATION.txt` + the per-run README under
-  `../solve_c/runs/<run-id>/` for access instructions.
+  `../runs/<run-id>/` for access instructions.
 - Current-canonical analyze outputs for d2 10T and d3 10T. Those
-  live at `../solve_c/runs/20260418_10T_d2_fresh/analyze_output.log.gz`
-  and `../solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz`.
+  live at `../runs/20260418_10T_d2_fresh/analyze_output.log.gz`
+  and `../runs/20260418_10T_d3_fresh/analyze_output.log.gz`.
 
 ## Navigation
 

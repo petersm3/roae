@@ -69,7 +69,7 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
 - Copy **all** outputs locally before tearing down the VM: `solutions.bin`,
   `solutions.sha256`, `solve_output.txt`, `solve_results.json`, `checkpoint.txt`,
   and any `sub_*.bin` shards. Sha-verify before deallocating.
-- Archive to `solve_c/runs/<YYYYMMDD>_<label>/`.
+- Archive to `runs/<YYYYMMDD>_<label>/`.
 
 ## Checkpoint granularity must match eviction frequency
 
@@ -887,7 +887,7 @@ for scientific reproducibility. Established pattern (from 2026-04-22 Pass 1):
    `/data/archive/<run-label>/<branch>/sub_<branch>.bin`. Attach the disk
    temporarily to the source VM, `cp` the file, `sync && umount`, detach.
 2. **Commit only the small artifacts** to the public repo at
-   `solve_c/runs/<YYYYMMDD>_<label>/<branch>/`:
+   `runs/<YYYYMMDD>_<label>/<branch>/`:
    - `sub_<branch>.sha256` — 1 line, the sha256 of the big file
    - `sub_<branch>.meta.json` — params, yield, wall, rate, solver commit, archive location
    - `run.log.gz` — solver stdout gzipped (~20-30 KB)

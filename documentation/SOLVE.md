@@ -4,7 +4,7 @@
 >
 > **Novel 2026-04-20 finding (from d3 100T --c3-min analysis):** King Wen's C3 of 776 is the **maximum** observed among the 3.43B canonical records, not the minimum. Minimum C3 = 424 (221 records). KW sits at the ceiling of the constraint C3 ≤ 776, NOT the floor. The common framing "KW places complements unusually close" is now refined: relative to C1-only orderings, yes (KW is at the 3.9th percentile); relative to the intersection C1+C2+C3 that solve.c enumerates, KW is actually at the C3-maximum, with 99.999999%+ of canonical orderings beating it on complement proximity. **This breaks the derivability axiom "minimize C3"** (negative result for Open Question #7 Phase A Day 1 MVP). The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW.
 >
-> Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `roae/solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
+> Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `roae/runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
 
 Can the King Wen sequence be reconstructed from a small set of rules?
 
@@ -357,8 +357,8 @@ The mandatory-{25,27} finding says: **no matter how cleverly you choose the othe
 
 Applying only the mandatory boundaries {25, 27} to the current canonical datasets:
 
-- **d3 10T**: 43,236 total survivors (43,235 non-KW). Positions 1, 25, 26, 27, 28 are locked (5 of 32 positions forced by C4 + {25, 27}). Positions 5-22 show a strong "shift cascade" local structure (pos p is almost always pair p−1, p−2, p−3, or p−4). See `roae/solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz` section [23].
-- **d2 10T**: 13,595 total survivors (13,594 non-KW). Same 5 positions locked. See `roae/solve_c/runs/20260418_10T_d2_fresh/analyze_output.log.gz` section [23].
+- **d3 10T**: 43,236 total survivors (43,235 non-KW). Positions 1, 25, 26, 27, 28 are locked (5 of 32 positions forced by C4 + {25, 27}). Positions 5-22 show a strong "shift cascade" local structure (pos p is almost always pair p−1, p−2, p−3, or p−4). See `roae/runs/20260418_10T_d3_fresh/analyze_output.log.gz` section [23].
+- **d2 10T**: 13,595 total survivors (13,594 non-KW). Same 5 positions locked. See `roae/runs/20260418_10T_d2_fresh/analyze_output.log.gz` section [23].
 
 The ~3.2× ratio between d3 and d2 survivors reflects the dataset size ratio (706M/286M ≈ 2.47×) plus some additional near-miss solutions that d3's deeper partitioning exposes.
 

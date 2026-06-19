@@ -220,7 +220,7 @@ The 100T d3 canonical (sha `915abf30…`, 3,432,399,298 orderings, established 2
 - **Shift-pattern conformance: 0.077%** (2,635,756 of 3.43B). Trajectory: d2 2.69% → d3 10T 0.062% → d3 100T 0.077%. Not monotonically decreasing.
 - **Mean per-position Shannon entropy: 2.37 bits** (of 5.0 max). Similar shape to 10T; KW is identifiable within only ~7% of the 32 position slots without additional constraints.
 
-Canonical sha256: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (102.3 GB). See [`solve_c/runs/20260419_100T_d3_d128westus3/`](solve_c/runs/20260419_100T_d3_d128westus3/) for the run archive and `analyze_output.log.gz` for the full data.
+Canonical sha256: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (102.3 GB). See [`runs/20260419_100T_d3_d128westus3/`](runs/20260419_100T_d3_d128westus3/) for the run archive and `analyze_output.log.gz` for the full data.
 
 ### Within-pair orient freedom: a constraint-geometry finding (not KW-specific)
 

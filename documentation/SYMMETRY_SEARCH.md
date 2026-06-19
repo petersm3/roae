@@ -54,14 +54,14 @@ Every σ has at least 21,000 mismatched (preimage, σ-image) sub-branch pairs ou
 
 ## Reproducibility
 
-Source data: `solve_c/runs/20260419_100T_d3_d128westus3/enum_output.log.gz` (canonical 100T-d3 enum log, sha-anchored archive).
+Source data: `runs/20260419_100T_d3_d128westus3/enum_output.log.gz` (canonical 100T-d3 enum log, sha-anchored archive).
 
 ```bash
 # Phase 1 + 2 (enumeration + orbit structure; ~2 seconds)
 ./solve --symmetry-search
 
 # Phase 3 (yield comparison against the 100T canonical)
-zcat solve_c/runs/20260419_100T_d3_d128westus3/enum_output.log.gz \
+zcat runs/20260419_100T_d3_d128westus3/enum_output.log.gz \
     | ./solve --symmetry-search --validate-counts
 ```
 

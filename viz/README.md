@@ -6,7 +6,7 @@ This directory contains:
 - **`growth_curve.py`** — generator for the **solution-count-vs-enumeration-budget** scaling plot (records vs per-cell node budget, log-log) across the canonical depths, with the power-law fit and the 1120T projection.
 - **`README.md`** (this file) — how to read and interpret the plots.
 
-The PCA tooling lives here; full-resolution plot outputs are archived per-run under `../solve_c/runs/<run-id>/viz/`. The current deepest canonical's figures (d3 **560T**, sha `9a968fa2…`, 10,525,271,997 records, 2026-06-15) (PNG + SVG) are committed under [`../solve_c/runs/20260608_560T_9a968fa2/viz/`](../solve_c/runs/20260608_560T_9a968fa2/viz/) and are the examples referenced below.
+The PCA tooling lives here; full-resolution plot outputs are archived per-run under `../runs/<run-id>/viz/`. The current deepest canonical's figures (d3 **560T**, sha `9a968fa2…`, 10,525,271,997 records, 2026-06-15) (PNG + SVG) are committed under [`../runs/20260608_560T_9a968fa2/viz/`](../runs/20260608_560T_9a968fa2/viz/) and are the examples referenced below.
 
 ## What you're looking at
 
@@ -51,11 +51,11 @@ so you can find its location on each plot.
 
 ## The four plots
 
-*Example images below are from the **d3 560T canonical** (sha `9a968fa2…`, 10,525,271,997 records — the current deepest enumeration, 2026-06-15). Full-resolution PNG + SVG are committed under [`solve_c/runs/20260608_560T_9a968fa2/viz/`](../solve_c/runs/20260608_560T_9a968fa2/viz/). Axis labels show the % of total variance each PC captures.*
+*Example images below are from the **d3 560T canonical** (sha `9a968fa2…`, 10,525,271,997 records — the current deepest enumeration, 2026-06-15). Full-resolution PNG + SVG are committed under [`runs/20260608_560T_9a968fa2/viz/`](../runs/20260608_560T_9a968fa2/viz/). Axis labels show the % of total variance each PC captures.*
 
 ### 1. `viz_edit_distance.png/.svg` — colored by edit distance to King Wen
 
-![Edit-distance plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
+![Edit-distance plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
 
 **What's colored:** each solution's "edit distance" to King Wen,
 defined as the number of positions where this solution's pair
@@ -115,7 +115,7 @@ position differs).
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
-![Complement-distance plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
+![Complement-distance plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
 
 **What's colored:** each solution's total complement distance
 (the sum of `|pos[v] - pos[v^63]|` across all 64 hexagrams).
@@ -148,7 +148,7 @@ Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2
 
-![Position-2 cluster plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
+![Position-2 cluster plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
 
 **What's colored:** the first-level branch identity. Position 2 is
 the first "variable" position in the sequence (position 1 is locked
@@ -178,7 +178,7 @@ at position 2.
 
 ### 4. `viz_adjacency.png/.svg` — colored by C6/C7 adjacency satisfaction
 
-![Adjacency plot for 560T d3 canonical](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
+![Adjacency plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
 
 **What's colored:** how many of the two "mandatory" KW-adjacency
 constraints (C6 at positions 25-26, C7 at positions 27-28) this
@@ -210,7 +210,7 @@ solution satisfies. Values: 0 (neither), 1 (one), or 2 (both).
 
 ## Growth-curve plot (`growth_curve.py`)
 
-![Solution-count vs enumeration-budget growth curve](../solve_c/runs/20260608_560T_9a968fa2/viz/viz_growth_curve.png)
+![Solution-count vs enumeration-budget growth curve](../runs/20260608_560T_9a968fa2/viz/viz_growth_curve.png)
 
 A separate, non-PCA plot: **canonical solution count vs per-cell enumeration node budget**, log-log,
 across the three canonical depths (11.2T → 100T → 560T), with a power-law fit and the projected
@@ -272,7 +272,7 @@ can overlay them mentally:
 ## Where the files live
 
 - **Generator script**: `viz/visualize.py` (alongside this doc)
-- **Per-run plot outputs**: `solve_c/runs/<run-id>/viz/` containing:
+- **Per-run plot outputs**: `runs/<run-id>/viz/` containing:
   - `viz_edit_distance.png` and `.svg`
   - `viz_complement_dist.png` and `.svg`
   - `viz_position2_cluster.png` and `.svg`
@@ -292,7 +292,7 @@ applied across all runs.
 ```bash
 pip install numpy matplotlib
 # Run from the desired output directory so outputs land there:
-cd solve_c/runs/<run-id>/viz/
+cd runs/<run-id>/viz/
 python3 ../../../../viz/visualize.py /path/to/solutions.bin
 ```
 

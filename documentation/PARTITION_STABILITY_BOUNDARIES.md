@@ -16,8 +16,8 @@ Four sha-anchored canonical enumerations:
 
 | Partition | sha256 | Records | Source archive |
 |---|---|---|---|
-| d2 10T | `a09280fbf…` | 286,357,503 | `solve_c/runs/20260418_10T_d2_fresh/` |
-| d3 10T | `f7b8c4fbf…` | 706,422,987 | `solve_c/runs/20260418_10T_d3_fresh/` |
+| d2 10T | `a09280fbf…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` |
+| d3 10T | `f7b8c4fbf…` | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
 | d3 100T | `915abf30c…` | 3,432,399,298 | `canonical-archive/t9c1/` (T9+c.1 recovery; cf. CANONICAL_HASHES.md) |
 | **d3 560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/`** |
 
@@ -67,7 +67,7 @@ The **greedy-ordered minimum is non-monotone with scale** (4 → 5 → 4 across 
 ```
 
 Pre-computed analyze logs:
-- d2 10T, d3 10T, d3 100T: alongside the canonicals in `solve_c/runs/{20260418_10T_d2_fresh, 20260418_10T_d3_fresh, 20260419_100T_d3_d128westus3}/analyze_output.log.gz` (the 100T run archive is the original; T9+c.1 recovery analyze log was not preserved separately)
+- d2 10T, d3 10T, d3 100T: alongside the canonicals in `runs/{20260418_10T_d2_fresh, 20260418_10T_d3_fresh, 20260419_100T_d3_d128westus3}/analyze_output.log.gz` (the 100T run archive is the original; T9+c.1 recovery analyze log was not preserved separately)
 - **d3 560T: `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`** (13,631 s wall on D128 with the algorithmic rewrites in `solve.c` commits 8ac5e8f, fe58e71, bf8d8a5, c0ec4c3; selftest sha `403f7202…`)
 
 ## Limits and scope

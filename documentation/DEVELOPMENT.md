@@ -1295,7 +1295,7 @@ then.
 4. **Reproduce the scientific analyses.**
    ```
    ./solve --analyze solutions.bin > analyze_output.txt
-   zcat solve_c/runs/20260418_10T_d3_fresh/analyze_output.log.gz > expected.txt
+   zcat runs/20260418_10T_d3_fresh/analyze_output.log.gz > expected.txt
    diff analyze_output.txt expected.txt        # headers/timings differ, numbers don't
    ```
 
@@ -1303,8 +1303,8 @@ then.
    numerical claim in HISTORY.md / SOLVE-SUMMARY.md / CRITIQUE.md / LEADERBOARD.md
    has a corresponding section in the analyze output.
 
-The canonical archival artifacts live under `solve_c/runs/<date>_<scale>_<depth>_<runtag>/`
-(e.g., `solve_c/runs/20260418_10T_d3_fresh/` for the 10T d3 canonical). Each
+The canonical archival artifacts live under `runs/<date>_<scale>_<depth>_<runtag>/`
+(e.g., `runs/20260418_10T_d3_fresh/` for the 10T d3 canonical). Each
 per-run directory contains `solutions.sha256`, `solutions.meta.json`, compressed
 enum + merge logs, and a compressed `analyze_output.log.gz` — these are the
 reference against which reproduction is checked.

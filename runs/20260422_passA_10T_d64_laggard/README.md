@@ -20,7 +20,7 @@ Both branches remained BUDGETED at 10T; neither EXHAUSTED. The per-branch node-c
 | Budget | Yield (branch 22_0_30_1_20_0) | Yield (branch 22_1_30_1_20_0) |
 |---|---|---|
 | 631M (100T/158,364 — the 100T per-sub-branch budget) | 16 | (same, per 100T canonical) |
-| 1T (from `solve_c/runs/20260420_singlebranch1T_d32westus3/`) | 960 | 960 (same, per Recon) |
+| 1T (from `runs/20260420_singlebranch1T_d32westus3/`) | 960 | 960 (same, per Recon) |
 | **10T** (this run) | **16,431,733** | **16,433,267** |
 
 Growth from 1T → 10T: **17,118× yield / 10× budget = ~1,700× super-linear.** That's vastly above the √(budget) rule-of-thumb extrapolation and shows these trees are enormous (far larger than 10T nodes).

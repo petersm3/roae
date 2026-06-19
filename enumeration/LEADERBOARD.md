@@ -75,8 +75,8 @@ enumeration has found so far.
 *orderings (all branches combined). Pairs observed and entropy values in this table were*
 *originally computed from the bug-era 742M dataset; they have NOT been refreshed to the*
 *current canonical datasets. For up-to-date per-position entropies see the `--analyze`*
-*output archived at `solve_c/runs/20260419_100T_d3_d128westus3/` (primary, 3.43B records)*
-*or `solve_c/runs/20260418_10T_d3_fresh/` and `20260418_10T_d2_fresh/` (10T baselines),*
+*output archived at `runs/20260419_100T_d3_d128westus3/` (primary, 3.43B records)*
+*or `runs/20260418_10T_d3_fresh/` and `20260418_10T_d2_fresh/` (10T baselines),*
 *or the `D2_D3_ANALYZE_FINDINGS.md` summary (outside the git repo). The gradient shape*
 *(pos 1 locked; pos 3-19 constrained; pos 22-31 free) holds across all three datasets;*
 *specific numbers shift with partition depth. Max possible entropy = log2(32) = 5.0 bits.*

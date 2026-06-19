@@ -20,8 +20,8 @@ Four sha-anchored canonical enumerations:
 
 | Partition | sha256 | Records | Source archive |
 |---|---|---|---|
-| d2 10T | `a09280fbf…` | 286,357,503 | `solve_c/runs/20260418_10T_d2_fresh/` |
-| d3 10T | `f7b8c4fbf…` | 706,422,987 | `solve_c/runs/20260418_10T_d3_fresh/` |
+| d2 10T | `a09280fbf…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` |
+| d3 10T | `f7b8c4fbf…` | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
 | d3 100T | `915abf30c…` | 3,432,399,298 | `canonical-archive/t9c1/` (T9+c.1 recovery) |
 | **d3 560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/`** |
 
@@ -68,7 +68,7 @@ The cumulative-survivor curve for d3 560T's greedy set is striking: boundary 4 A
 ```
 
 Pre-computed analyze logs:
-- d2 10T, d3 10T, d3 100T: alongside the canonicals at `solve_c/runs/{20260418_10T_d2_fresh, 20260418_10T_d3_fresh, 20260419_100T_d3_d128westus3}/analyze_output.log.gz`
+- d2 10T, d3 10T, d3 100T: alongside the canonicals at `runs/{20260418_10T_d2_fresh, 20260418_10T_d3_fresh, 20260419_100T_d3_d128westus3}/analyze_output.log.gz`
 - **d3 560T: `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`** (13,631 s wall on D128 with the algorithmic rewrites in commits `8ac5e8f`, `fe58e71`, `bf8d8a5`, `c0ec4c3`; selftest sha `403f7202…`)
 
 ## Limits and scope
@@ -79,4 +79,4 @@ Pre-computed analyze logs:
 
 ## Working / process documentation
 
-For the original 100T cross-partition analysis surfacing the boundary-minimum-grew-from-4-to-5 finding, see CITATIONS.md and the original 2026-04-19 analyze log archived at `solve_c/runs/20260419_100T_d3_d128westus3/`. For the 560T --analyze algorithmic rewrites that made canonical-scale --analyze tractable (~24h → 3h 47m on D128), see [`HISTORY.md`](HISTORY.md) "June 10-11, 2026" entry. For the full §[1]-§[28] 560T findings, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) §"560T canonical results" and (private) `roae-private/560T_FINAL_ANALYSIS.md`.
+For the original 100T cross-partition analysis surfacing the boundary-minimum-grew-from-4-to-5 finding, see CITATIONS.md and the original 2026-04-19 analyze log archived at `runs/20260419_100T_d3_d128westus3/`. For the 560T --analyze algorithmic rewrites that made canonical-scale --analyze tractable (~24h → 3h 47m on D128), see [`HISTORY.md`](HISTORY.md) "June 10-11, 2026" entry. For the full §[1]-§[28] 560T findings, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) §"560T canonical results" and (private) `roae-private/560T_FINAL_ANALYSIS.md`.
