@@ -1110,16 +1110,39 @@ static int gz_level(void) {
     if (e && *e) { int v = atoi(e); if (v >= 1 && v <= 9) return v; }
     return 9;
 }
-/* Open a large binary file for writing. Compressed (wb<level>) when SOLVE_COMPRESS!=0,
- * else transparent/raw (wbT) — same gzfwrite API either way. NULL on error. */
-static gzFile gzw_open(const char *path) {
+/* Compression level for TRANSIENT external-merge scratch (temp_sorted_*.bin,
+ * temp_merge_records.bin). These files are internal to the merge — never
+ * published, never sha'd, deleted post-merge — so their level is purely a
+ * CPU-vs-scratch-bytes tradeoff and is SHA-NEUTRAL by construction. The merge
+ * gzips single-threaded inline; at level 9 the re-compression of these chunks
+ * can dominate merge wall (gzip-CPU-bound), wasting a fast disk's throughput.
+ * Default 6 (the knee of the curve): empirically on these records −6 gives
+ * ~4.72:1 vs −9's ~4.83:1 (only ~2% larger) but at a fraction of −9's CPU, and
+ * ~13% smaller than −1's ~4.10:1 — near-max compression without the level-9 CPU
+ * tax. Lower it toward 1 if merge SPEED matters more than scratch SIZE (fast
+ * disk); raise toward 9 to minimize scratch on a tight disk.
+ * SOLVE_MERGE_TEMP_GZIP_LEVEL — 1..9, default 6. */
+static int gz_merge_temp_level(void) {
+    const char *e = getenv("SOLVE_MERGE_TEMP_GZIP_LEVEL");
+    if (e && *e) { int v = atoi(e); if (v >= 1 && v <= 9) return v; }
+    return 6;
+}
+/* Open a large binary file for writing at an explicit level. Compressed (wb<level>)
+ * when SOLVE_COMPRESS!=0, else transparent/raw (wbT). NULL on error. */
+static gzFile gzw_open_lvl(const char *path, int level) {
     char mode[8];
-    if (gz_compress_enabled()) snprintf(mode, sizeof(mode), "wb%d", gz_level());
+    if (gz_compress_enabled()) snprintf(mode, sizeof(mode), "wb%d", level);
     else                       snprintf(mode, sizeof(mode), "wbT");
     gzFile gf = gzopen(path, mode);
     if (gf) gzbuffer(gf, 1u << 20);  /* 1 MB buffer — bulk 32-byte record I/O */
     return gf;
 }
+/* Default write path: archival level (SOLVE_GZIP_LEVEL, default 9) — used for
+ * shards + the final solutions.bin. */
+static gzFile gzw_open(const char *path) { return gzw_open_lvl(path, gz_level()); }
+/* Transient merge-scratch write path: fast level (SOLVE_MERGE_TEMP_GZIP_LEVEL,
+ * default 1). SHA-NEUTRAL — these files never reach a sha. */
+static gzFile gzw_open_temp(const char *path) { return gzw_open_lvl(path, gz_merge_temp_level()); }
 /* Finish the gz stream, close (gzclose flushes + closes the fd), then fsync the file
  * for durability — honoring #108b batching (skip per-file fsync when syncfs batching
  * is active). Reopen by path because gzclose owns/closes the underlying fd.
@@ -1154,6 +1177,13 @@ static int file_is_gzip(const char *path) {
  * (last 4 bytes, little-endian uint32 = uncompressed size mod 2^32 — valid for the
  * sub-4 GB per-cell shards here; solutions.bin readers use the header record count,
  * not this), raw → stat size. Returns -1 on error. Cheap (reads 4 bytes for gz). */
+/* Logical (decompressed) size of a file. For gz, reads the 4-byte ISIZE trailer,
+ * which the gzip format stores MODULO 2^32 — so for gz files whose decompressed
+ * size is ≥ 4 GiB this returns (true_size mod 2^32), NOT the true size (#185).
+ * SAFE for all current callers: shards are headerless and < 4 GiB; solutions.bin
+ * uses its embedded header record-count, not this. A caller that needs the true
+ * size of a ≥ 4 GiB gz file must decompress-and-count (or compare modulo 2^32,
+ * as write_sorted_chunk's post-write check does for the up-to-4 GiB sort chunks). */
 static long long gz_logical_size(const char *path) {
     if (!file_is_gzip(path)) {
         struct stat st;
@@ -6451,8 +6481,9 @@ static int write_sorted_chunk(const char *path, const unsigned char *chunk,
      * intermediate files (removed after Phase 2); the records are byte-faithful
      * through the round-trip, so the merge result is sha-identical. The raw
      * post-write byte-size check is replaced with a logical-size check (the
-     * compressed on-disk size is not records*32). */
-    gzFile sf = gzw_open(path);
+     * compressed on-disk size is not records*32). Uses the transient level
+     * (SOLVE_MERGE_TEMP_GZIP_LEVEL, default 6) — sha-neutral; these are deleted. */
+    gzFile sf = gzw_open_temp(path);
     if (!sf) {
         fprintf(stderr, "ERROR: cannot create %s: %s\n", path, strerror(errno));
         return 1;
@@ -6470,8 +6501,22 @@ static int write_sorted_chunk(const char *path, const unsigned char *chunk,
     }
     long long expected = records * SOL_RECORD_SIZE;
     long long actual_logical = gz_logical_size(path);
-    if (actual_logical != expected) {
-        fprintf(stderr, "FATAL: chunk %d post-write logical-size mismatch on %s: got %lld, expected %lld\n",
+    /* #185 FIX: gz_logical_size() returns the gzip ISIZE trailer = uncompressed
+     * size MODULO 2^32. A full sort chunk is exactly chunk_bytes (default 4 GiB,
+     * or a multiple under SOLVE_MERGE_CHUNK_GB), whose ISIZE wraps to
+     * (expected mod 2^32) — e.g. a 4 GiB chunk reports 0, not 4294967296. The old
+     * `actual_logical != expected` check therefore false-FATAL'd on the FIRST 4 GiB
+     * chunk of every external gz merge (first triggered at 100T — 1T/11.2T merge
+     * in-memory and never write 4 GiB chunks). Compare modulo 2^32 for the gz case
+     * (correct for any chunk size; a truncated <4 GiB chunk still mismatches);
+     * raw/transparent files (SOLVE_COMPRESS=0) report true size → compare directly.
+     * SHA-NEUTRAL: this is a post-write VERIFY, not a data path. See
+     * roae-private/FINDING_2026_06_18_GZ_ISIZE_4GIB_WRAP.md. */
+    int size_ok = file_is_gzip(path)
+        ? (actual_logical == (long long)((uint64_t)expected & 0xFFFFFFFFULL))
+        : (actual_logical == expected);
+    if (!size_ok) {
+        fprintf(stderr, "FATAL: chunk %d post-write logical-size mismatch on %s: got %lld, expected %lld (gz ISIZE is mod 2^32)\n",
                 idx, path, actual_logical, expected);
         return 1;
     }
@@ -6479,6 +6524,93 @@ static int write_sorted_chunk(const char *path, const unsigned char *chunk,
            idx, records, is_final ? " (final)" : "");
     fflush(stdout);
     return 0;
+}
+
+/* #174: persistent read cursor across the shard list, so the optional parallel
+ * Phase-1 driver can fill one chunk buffer at a time while preserving the EXACT
+ * record→chunk mapping of the serial path (sequential fill, in file order). */
+typedef struct { int fi; gzFile f; long long file_remaining; } MergeReadCursor;
+
+/* Fill `buf` with up to max_per_chunk records from the shard list, advancing the
+ * cursor across files (skipping empty/misaligned shards, as the serial path does).
+ * Returns records filled (0 at end of all input), or -1 on a short read (treated
+ * as corruption — fail fast; the serial path's silent break is caught instead by
+ * the #176 total_merged==total_records completeness gate). */
+static long long merge_fill_chunk(unsigned char *buf, long long max_per_chunk,
+                                  char (*filenames)[64], int n_files,
+                                  MergeReadCursor *cur) {
+    long long in_buf = 0;
+    while (in_buf < max_per_chunk) {
+        if (!cur->f) {
+            while (cur->fi < n_files) {
+                gzFile f = gzr_open(filenames[cur->fi]);
+                long long sz = f ? gz_logical_size(filenames[cur->fi]) : -1;
+                cur->fi++;
+                if (f && sz > 0 && sz % SOL_RECORD_SIZE == 0) {
+                    cur->f = f; cur->file_remaining = sz / SOL_RECORD_SIZE; break;
+                }
+                if (f) gzclose(f);
+            }
+            if (!cur->f) break;  /* all files consumed */
+        }
+        long long space = max_per_chunk - in_buf;
+        long long to_read = (cur->file_remaining < space) ? cur->file_remaining : space;
+        size_t got = gzfread(&buf[in_buf * SOL_RECORD_SIZE], SOL_RECORD_SIZE, (size_t)to_read, cur->f);
+        in_buf += (long long)got;
+        cur->file_remaining -= (long long)got;
+        if ((long long)got < to_read) { gzclose(cur->f); cur->f = NULL; return -1; }
+        if (cur->file_remaining == 0) { gzclose(cur->f); cur->f = NULL; }
+    }
+    return in_buf;
+}
+
+/* #184: best-effort detect whether SOLVE_TEMP_DIR's backing block device is
+ * rotational. Returns 1=rotational(HDD/SAS), 0=non-rotational(SSD/flash),
+ * -1=unknown. ADVISORY ONLY — never changes behavior, only feeds a warning +
+ * the effective-settings log. Fail-silent (any parse failure → -1). NOTE: Azure
+ * network HDD often reports rotational=0, so 0 is NOT proof of SSD — hence the
+ * signal is advisory, never authoritative (see DISK_TIER_SELECTION_GUIDE.md). */
+static int detect_tmp_rotational(const char *tmp_dir) {
+    char rp[4096];
+    if (!realpath(tmp_dir, rp)) return -1;
+    FILE *m = fopen("/proc/mounts", "r");
+    if (!m) return -1;
+    char line[1024], best_dev[256] = "";
+    size_t best_len = 0;
+    while (fgets(line, sizeof(line), m)) {
+        char dev[256], mp[256];
+        if (sscanf(line, "%255s %255s", dev, mp) != 2) continue;
+        size_t mlen = strlen(mp);
+        if (mlen > 0 && strncmp(rp, mp, mlen) == 0 &&
+            (mp[mlen-1] == '/' || rp[mlen] == '/' || rp[mlen] == '\0') &&
+            mlen > best_len) {
+            best_len = mlen;
+            strncpy(best_dev, dev, sizeof(best_dev) - 1);
+            best_dev[sizeof(best_dev) - 1] = '\0';
+        }
+    }
+    fclose(m);
+    if (strncmp(best_dev, "/dev/", 5) != 0) return -1;
+    char dname[128];
+    strncpy(dname, best_dev + 5, sizeof(dname) - 1);
+    dname[sizeof(dname) - 1] = '\0';
+    /* reduce to the base block device: nvme0n3p1→nvme0n3 (strip pN partition);
+     * sdc1→sdc (strip trailing digits). */
+    if (strncmp(dname, "nvme", 4) == 0) {
+        char *p = strrchr(dname, 'p');
+        if (p && p > dname && p[1] >= '0' && p[1] <= '9') *p = '\0';
+    } else {
+        size_t L = strlen(dname);
+        while (L > 0 && dname[L-1] >= '0' && dname[L-1] <= '9') dname[--L] = '\0';
+    }
+    char path[256];
+    snprintf(path, sizeof(path), "/sys/block/%s/queue/rotational", dname);
+    FILE *r = fopen(path, "r");
+    if (!r) return -1;
+    int rot = -1;
+    if (fscanf(r, "%d", &rot) != 1) rot = -1;
+    fclose(r);
+    return rot;
 }
 
 static int external_merge_sort(char (*filenames)[64], int n_files,
@@ -6511,6 +6643,39 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         if (access(tmp_dir, W_OK) != 0) {
             fprintf(stderr, "ERROR: SOLVE_TEMP_DIR '%s' is not writable\n", tmp_dir);
             return 1;
+        }
+    }
+
+    /* #175 (rec #3): temp-scratch free-space pre-flight. The external sort writes
+     * sorted chunks (≈ the input volume) plus temp_merge_records into SOLVE_TEMP_DIR;
+     * if the disk can't hold them the merge dies on ENOSPC after hours of work.
+     * Estimate the need from the input shards' on-disk (gz) size with 1.5× headroom
+     * (temp level may be below shard level → slightly larger chunks, plus the dedup
+     * temp) and fail fast. Override: SOLVE_SKIP_TEMP_SPACE_CHECK=1. */
+    if (!(getenv("SOLVE_SKIP_TEMP_SPACE_CHECK") && atoi(getenv("SOLVE_SKIP_TEMP_SPACE_CHECK")) == 1)) {
+        long long in_bytes = 0;
+        for (int i = 0; i < n_files; i++) {
+            struct stat sb;
+            if (stat(filenames[i], &sb) == 0) in_bytes += (long long)sb.st_size;
+        }
+        long long need = (long long)((double)in_bytes * 1.5);
+        struct statvfs tvfs;
+        if (statvfs(tmp_dir, &tvfs) == 0) {
+            long long avail = (long long)tvfs.f_bavail * (long long)tvfs.f_frsize;
+            if (avail < need) {
+                fprintf(stderr,
+                    "ERROR: SOLVE_TEMP_DIR '%s' has ~%.1f GB free but the external merge needs "
+                    "~%.1f GB scratch (input shards ~%.1f GB ×1.5). Use a larger scratch disk, "
+                    "raise SOLVE_MERGE_TEMP_GZIP_LEVEL (smaller chunks), or override with "
+                    "SOLVE_SKIP_TEMP_SPACE_CHECK=1.\n",
+                    tmp_dir, (double)avail/1e9, (double)need/1e9, (double)in_bytes/1e9);
+                return 1;
+            }
+            fprintf(stderr, "[merge] temp-space pre-flight OK: ~%.1f GB free in %s vs ~%.1f GB projected need\n",
+                    (double)avail/1e9, tmp_dir, (double)need/1e9);
+        } else {
+            fprintf(stderr, "[merge] WARN: statvfs('%s') failed (%s); temp-space pre-flight skipped\n",
+                    tmp_dir, strerror(errno));
         }
     }
 
@@ -6561,6 +6726,99 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     int n_sorted = 0;
     long long records_in_chunk = 0;
 
+    /* #174: optional PARALLEL Phase 1 (the sort+gzip of each chunk is independent).
+     * SHA-NEUTRAL by construction — Phase 2's k-way merge re-sorts ALL records
+     * globally, so how records are partitioned into chunks (and the order chunks are
+     * produced) cannot change the final sorted+deduped output. Default 1 → the serial
+     * path below runs byte-for-byte unchanged; SOLVE_MERGE_THREADS=N>1 opts into the
+     * parallel path (must be gated parallel==serial==anchor before any canonical use).
+     * Capped by RAM (each worker needs its own chunk_bytes buffer) and by nproc. */
+    int merge_threads = 1;
+    { char *e = getenv("SOLVE_MERGE_THREADS"); if (e && atoi(e) > 1) merge_threads = atoi(e); }
+    if (merge_threads > 1) {
+        long long avail = (long long)sysconf(_SC_AVPHYS_PAGES) * (long long)sysconf(_SC_PAGESIZE);
+        int mem_cap = (avail > 0) ? (int)((double)avail * 0.6 / (double)chunk_bytes) : 1;
+        if (mem_cap < 1) mem_cap = 1;
+        int hw = (int)sysconf(_SC_NPROCESSORS_ONLN); if (hw < 1) hw = 1;
+        if (merge_threads > mem_cap) {
+            fprintf(stderr, "[merge] SOLVE_MERGE_THREADS capped %d→%d by RAM "
+                    "(~%.0f GB avail, %lld GB/buffer)\n",
+                    merge_threads, mem_cap, (double)avail/1e9, chunk_bytes/(1024*1024*1024));
+            merge_threads = mem_cap;
+        }
+        if (merge_threads > hw) merge_threads = hw;
+    }
+    /* #184: log the effective merge settings (provenance / inspectability) and give
+     * an ADVISORY warning if the scratch looks rotational but W is high — never
+     * override the operator's explicit choice. */
+    {
+        int rot = detect_tmp_rotational(tmp_dir);
+        const char *hint = (rot == 1) ? "rotational (HDD/SAS)"
+                         : (rot == 0) ? "non-rotational (SSD/flash)" : "unknown";
+        fprintf(stderr, "[merge] effective: SOLVE_MERGE_THREADS=%d, temp gz level=%d, chunk=%lld GB, "
+                "SOLVE_TEMP_DIR=%s [disk: %s]\n",
+                merge_threads, gz_merge_temp_level(), chunk_bytes/(1024*1024*1024), tmp_dir, hint);
+        if (rot == 1 && merge_threads > 4) {
+            fprintf(stderr, "[merge] ADVISORY: scratch looks rotational but SOLVE_MERGE_THREADS=%d — that "
+                    "many concurrent chunk writes to a spindle can seek-thrash (random I/O). Consider "
+                    "SOLVE_MERGE_THREADS=1-4 on HDD/SAS. (advisory only; not overriding)\n", merge_threads);
+        }
+    }
+    if (merge_threads > 1) {
+        /* Fill W buffers serially (preserving the serial record→chunk mapping), then
+         * sort+gz-write them concurrently. The per-batch barrier (end of the omp
+         * parallel-for) frees the buffers for reuse — no buffer-lifetime races. */
+        free(chunk);  /* the single serial buffer is unused on this path */
+        int W = merge_threads;
+        unsigned char **bufs = calloc((size_t)W, sizeof(unsigned char *));
+        long long *counts = malloc((size_t)W * sizeof(long long));
+        if (!bufs || !counts) { fprintf(stderr, "ERROR: merge worker alloc failed\n"); free(bufs); free(counts); return 1; }
+        for (int w = 0; w < W; w++) {
+            bufs[w] = malloc((size_t)chunk_bytes);
+            if (!bufs[w]) { fprintf(stderr, "ERROR: merge worker buffer %d alloc failed\n", w);
+                for (int j = 0; j < w; j++) free(bufs[j]); free(bufs); free(counts); return 1; }
+        }
+        printf("External merge-sort: PARALLEL Phase 1 — %d workers × %lld GB buffers\n",
+               W, chunk_bytes/(1024*1024*1024));
+        fflush(stdout);
+        MergeReadCursor cur = { 0, NULL, 0 };
+        int abort_flag = 0;
+        while (!abort_flag) {
+            int nb = 0;
+            for (int w = 0; w < W; w++) {
+                long long c = merge_fill_chunk(bufs[w], max_per_chunk, filenames, n_files, &cur);
+                if (c < 0) { fprintf(stderr, "FATAL: short read filling sort chunk (shard corruption)\n"); abort_flag = 1; break; }
+                if (c == 0) break;
+                counts[w] = c; nb++;
+            }
+            if (abort_flag) break;
+            if (nb == 0) break;  /* all input consumed */
+            if (n_sorted + nb > MAX_SORTED_CHUNKS) {
+                fprintf(stderr, "ERROR: reached MAX_SORTED_CHUNKS=%d — raise SOLVE_MERGE_CHUNK_GB.\n", MAX_SORTED_CHUNKS);
+                abort_flag = 1; break;
+            }
+            int base = n_sorted;
+            for (int w = 0; w < nb; w++)
+                snprintf(sorted_names[base + w], sizeof(sorted_names[0]), "%s/temp_sorted_%04d.bin", tmp_dir, base + w);
+            int werr = 0;
+            #pragma omp parallel for num_threads(W) schedule(static)
+            for (int w = 0; w < nb; w++) {
+                heapsort_records(bufs[w], (size_t)counts[w], SOL_RECORD_SIZE, compare_solutions);
+                if (write_sorted_chunk(sorted_names[base + w], bufs[w], counts[w], base + w, 0) != 0) {
+                    #pragma omp atomic write
+                    werr = 1;
+                }
+            }
+            if (werr) { abort_flag = 1; break; }
+            n_sorted += nb;
+        }
+        for (int w = 0; w < W; w++) free(bufs[w]);
+        free(bufs); free(counts);
+        if (abort_flag) return 1;
+        goto phase1_done;
+    }
+
+    /* --- serial Phase 1 (default; byte-identical to pre-#174) --- */
     for (int fi = 0; fi < n_files; fi++) {
         /* #169: shards may be gz or raw — gzr_open auto-detects; logical size
          * (decompressed bytes) via gz_logical_size, NOT the compressed on-disk
@@ -6618,6 +6876,7 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
         n_sorted++;
     }
     free(chunk);
+phase1_done:
     printf("  %d sorted chunks created\n", n_sorted);
     fflush(stdout);
 
@@ -6661,10 +6920,12 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     for (int i = heap_size/2 - 1; i >= 0; i--)
         merge_heap_sift_down(heap, heap_size, i);
 
-    /* Headerless gz temp for the dedup'd record stream (forward-only). */
+    /* Headerless gz temp for the dedup'd record stream (forward-only). Transient
+     * level (SOLVE_MERGE_TEMP_GZIP_LEVEL, default 6) — sha-neutral;
+     * this file is consumed into the final output then removed. */
     char rec_tmp[320];
     snprintf(rec_tmp, sizeof(rec_tmp), "%s/temp_merge_records.bin", tmp_dir);
-    gzFile rectmp = gzw_open(rec_tmp);
+    gzFile rectmp = gzw_open_temp(rec_tmp);
     if (!rectmp) {
         fprintf(stderr, "ERROR: cannot open merge-records temp %s\n", rec_tmp);
         free(sfiles); free(heap); return 1;
@@ -6702,6 +6963,20 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
             printf("  Merged %lld / %lld, %lld unique\n", total_merged, total_records, unique);
             fflush(stdout);
         }
+    }
+
+    /* #176 (rec #6): completeness gate — every input record must have been consumed.
+     * A Phase-2 temp chunk that silently truncates (gz CRC / short-read corruption),
+     * OR a Phase-1 shard short-read, would otherwise drop records and emit an
+     * under-merged solutions.bin with a wrong-but-plausible sha. total_records is the
+     * caller's sum of input shard logical sizes; total_merged is what the k-way merge
+     * actually pulled. Parity is required. */
+    if (total_merged != total_records) {
+        fprintf(stderr, "FATAL: external merge consumed %lld of %lld input records "
+                "(short by %lld) — a temp chunk or shard likely truncated mid-stream; "
+                "refusing to emit a partial canonical. Check disk/temp integrity.\n",
+                total_merged, total_records, total_records - total_merged);
+        gzclose(rectmp); remove(rec_tmp); free(sfiles); free(heap); return 1;
     }
 
     /* Finish the dedup'd-records gz temp. */
