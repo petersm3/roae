@@ -3360,12 +3360,23 @@ static int disk_space_pre_check(long long node_limit) {
      *   11.2T -> ~25 GB output + ~150 GB shards = ~175 GB peak
      *   100T  -> ~110 GB output + ~480 GB shards = ~590 GB peak
      *   560T  -> projected ~500 GB output + ~2 TB shards = ~2.5 TB peak
-     * Linear fit on the upper envelope: required ≈ 20 GB + NODE_LIMIT / 200.
+     * Linear fit on the upper envelope (RAW): data term ≈ NODE_LIMIT / 200.
      * Conservative for the 100B-1T regime, accurate at 11.2T-100T, slightly
-     * under-projects at 560T (where operator should explicitly verify anyway). */
-    long long required = 20LL * 1024 * 1024 * 1024 + node_limit / 200LL;
-    fprintf(stderr, "[hardening] disk-space pre-check: %.1f GB free in cwd; est. %.1f GB needed for NODE_LIMIT=%lld\n",
-            free_bytes / 1e9, required / 1e9, node_limit);
+     * under-projects at 560T (where operator should explicitly verify anyway).
+     *
+     * #169: shards + solutions.bin are now gz on disk (~8.5:1 measured, e.g. the
+     * 100T gz run-dir was ~150 GB vs ~1.3 TB raw). The NODE_LIMIT/200 fit above is
+     * the RAW volume; under compression (default ON) the real peak is ~GZ× smaller,
+     * so divide the data term by a conservative 8× when compression is enabled.
+     * SOLVE_COMPRESS=0 (raw) keeps the original 1× projection. This is what lets a
+     * 1120T run live on a ~2 TB Premium instead of the raw-era ~8 TB (the 20 GB
+     * fixed floor is left un-scaled). Sha-neutral: pre-flight estimate only. */
+    double gz_div = gz_compress_enabled() ? 8.0 : 1.0;
+    long long required = 20LL * 1024 * 1024 * 1024
+                       + (long long)((double)(node_limit / 200LL) / gz_div);
+    fprintf(stderr, "[hardening] disk-space pre-check: %.1f GB free in cwd; est. %.1f GB needed for NODE_LIMIT=%lld (compression %s, /%.0f data term)\n",
+            free_bytes / 1e9, required / 1e9, node_limit,
+            gz_compress_enabled() ? "ON" : "OFF", gz_div);
     if (free_bytes < required) {
         fprintf(stderr,
             "ERROR: free disk in cwd (%.1f GB) is below estimated requirement (%.1f GB)\n"
