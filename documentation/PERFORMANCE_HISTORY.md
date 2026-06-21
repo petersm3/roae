@@ -1185,3 +1185,39 @@ See:
 - `roae-private/TASK_108_BENCH_RESULTS_2026_05_26.md` — perf bench results
 - `roae-private/TASK_108_FINAL_REPORT_2026_05_27.md` — bundle composition, validation, drift finding
 - `roae-private/V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` — audit of what 9f10f05 dropped
+
+## 2026-06-21 — #167: eviction-resume write-order fix + resume guard + #165 kill hook (commit pending)
+
+**Category**: regression (correctness) / mechanism
+**Sha impact**: preserving
+**Decision**: shipped (WORK-IN-PROGRESS — canonical sign-off pending)
+
+### Hypothesis
+A correctness fix for eviction-resume data loss (the `.dfs_state` checkpoint was made durable before its `.bin`
+shard). Expected to be **performance-neutral and sha-neutral**: the write-order reorder and the resume-side
+guard are per-cell finalization / resume-path code (not the DFS inner loop), and the only inner-loop touch is a
+single guarded compare (`SOLVE_KILL_AFTER_NODES` test hook) that is always-false (no-op) when the env var is
+unset, which it always is in production.
+
+### Methodology
+- Workload: `--selftest` (full small enum+merge); full clean enum at PSB=50000 / 16-thread (46,344 shards);
+  multi-thread kill+resume reproduction.
+- Hardware: D16als_v7 Spot westus2 (gcc 11.4) for validation; D128als_v7 westus3 (gcc 13.3) selftest.
+- Build: `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz`, solve.c with the fix.
+- Repetitions: selftest + a full clean run (paired vs stock).
+
+### Result / Delta vs baseline
+- **Sha: UNCHANGED.** `--selftest` = `403f7202…` on both stock and fixed (two toolchains). Full clean run
+  reproduced the stock clean sha byte-identically (`95c2f8f0…`, 46,344 shards). → **sha-preserving confirmed.**
+- enum_wall: no measurable change (formal `perf_bench.sh` paired timing **deferred to the canonical sign-off**;
+  the inner-loop delta is one predictable always-false compare, perf-neutral by construction).
+- Eviction-resume correctness: stock lost cells (1/3 kill trials); fixed = 0/N; deterministic CASE-D recovery PASS.
+
+### Sha gate
+- selftest `403f7202…` PASS (stock == fixed). Canonical-scale gate = 11.2T eviction-resume → `0c0fe37c`
+  **IN PROGRESS** (Phase 1 of the 560T diagnosis campaign).
+
+### Notes
+WIP entry — pushed as work-in-progress per operator direction. Formal `perf_bench.sh` paired benchmark + the
+11.2T canonical sign-off are the remaining gates; this entry will be finalized when they complete. Full detail:
+`roae-private/INCIDENT_167_RESUME_SHA_MISMATCH.md`, `PATCH_167_eviction_resume_fix.diff`.

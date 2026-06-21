@@ -8,7 +8,7 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 
 | Scale | sha256 (prefix) | Records | Status | Solver lineage |
 |---|---|---:|---|---|
-| **d3 560T** | `9a968fa2…` | 10,525,271,997 | **Active — current deepest** | v1/v3 main |
+| **d3 560T** | `9a968fa2…` | 10,525,271,997 | **⚠️ PROVISIONAL — under re-validation (2026-06-21); may be incomplete, see §d3 560T** | v1/v3 main |
 | d3 100T | `915abf30…` | 3,432,399,298 | Active drift + partition anchor | v1 (modern) |
 | d3 11.2T | `0c0fe37c…` | 759,608,573 | Active drift anchor | v1 |
 | d3 10T | `b85c8871…` | 706,427,594 | Active drift anchor | v1 (modern) |
@@ -25,6 +25,17 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 ## Active canonicals — detailed entries
 
 ### d3 560T — current deepest
+
+> **⚠️ STATUS: PROVISIONAL — under re-validation (opened 2026-06-21).** A determinism defect in the solver's
+> eviction-resume path was identified 2026-06-21: a per-cell checkpoint (`.dfs_state`) could be made durable
+> *before* its solutions shard (`.bin`), so a Spot eviction in that window could drop a cell's solutions on
+> resume. The 560T campaign ran across **5 Spot evictions** on a solver build predating the fix, so this sha
+> **may be incomplete** (missing solutions from cells caught mid-finalization during those evictions). The
+> records it contains are valid (C1–C5-verified); the open question is *completeness*. A targeted re-derivation
+> of the potentially-affected cells with the corrected solver is in progress, to either confirm `9a968fa2` or
+> supersede it with a corrected sha. Until that resolves, treat 560T as provisional. The 11.2T (`0c0fe37c`) and
+> 100T (`915abf30`) canonicals are **unaffected** — each was independently re-derived by multiple eviction-free
+> witnesses. (Tracking: private `INCIDENT_167_RESUME_SHA_MISMATCH.md`.)
 
 - **sha256:** `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`
 - **Records:** 10,525,271,997 (= 1.05253 × 10¹⁰)

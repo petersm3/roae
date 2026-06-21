@@ -121,7 +121,30 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 
 ---
 
-## 3. Milestone-based extension (the core idea)
+## 3. Extension (the core idea)
+
+> **FINALIZED METHODOLOGY (2026-06-20) — read first.** This section is the public, host-agnostic
+> statement of how a canonical is extended. The authoritative, finalized points:
+> - **Single-hop only.** Extend directly from the parent canonical to the target budget (e.g. *B* → 2*B*).
+>   Do **not** chain successive budget-increase resumes (*B*→…→*B′*); chained resume is unsupported.
+>   If intermediate scale milestones are wanted, capture each as a *separate* single hop from the same
+>   parent — never a chain.
+> - **What the resume actually reads (per cell):** the partial-solution shard, the DFS checkpoint, and
+>   the budget sidecar (the budget the shard was made at — required, so a budget *increase* is accepted
+>   and the cell is correctly re-walked deeper). The merged solutions file is the enumeration *output*,
+>   **not** an input — it is not needed to resume.
+> - **Working-disk sizing:** per-cell shards stay **compressed on disk**, so the working disk is far
+>   smaller than a raw-bytes projection would suggest. Size the disk with a robust margin over the
+>   measured compressed footprint, and never below the largest measured peak of a prior run. (Do not
+>   size to an estimate alone.)
+> - **Integrity:** measured per-cell counts + per-shard checkpoint verification at restore; a post-merge
+>   sha for the new canonical; and the invariant that the new canonical contains **every** parent record
+>   as a per-cell prefix (verified by an ordered-subset diff).
+>
+> **Pre-publish TODO (operator review):** the concrete recipe below still names specific cloud SKUs,
+> regions, and storage paths — genericize those to host-agnostic terms before publishing (this is a
+> public doc). The operational, cloud-specific runbook is maintained privately and is not part of the
+> public record.
 
 A canonical produced at budget *B* per cell **enables a canonical at any
 budget *B′* > B without redoing the original work**. This is the most

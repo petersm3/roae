@@ -992,6 +992,14 @@ typedef struct {
  * the C standard guarantees safe for signal-handler writes. volatile keeps
  * the compiler from caching reads across observable points in worker loops. */
 static volatile sig_atomic_t global_timed_out = 0;
+/* #165 deterministic eviction-injection test hook. When SOLVE_KILL_AFTER_NODES=N
+ * (N>0) is set, the first DFS thread whose per-thread node counter reaches N
+ * SIGKILLs the whole process — a deterministic, single-threaded-reproducible
+ * proxy for an Azure Spot deallocate striking mid-walk. Default 0 = OFF, in
+ * which case the guarded compare is never taken and output is byte-identical
+ * (sha-neutral; verified against the --selftest anchor). Test-only; never set
+ * in a canonical campaign. */
+static long long g_kill_after_nodes = 0;
 /* SIGUSR1: operator-triggered "dump state now" request. Handler merely
  * flips this flag; the monitor thread observes it and emits a detailed
  * status block on its next 1s poll, then clears the flag. Non-invasive:
@@ -4268,6 +4276,11 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             /* === ENTER phase: one-time-per-frame work === */
             ts->nodes++;
             ts->branch_nodes++;
+            if (g_kill_after_nodes > 0 && ts->nodes >= g_kill_after_nodes) {  /* #165 test hook */
+                fprintf(stderr, "[TEST-KILL] SOLVE_KILL_AFTER_NODES=%lld reached (thread %d nodes=%lld) — SIGKILL self\n",
+                        g_kill_after_nodes, ts->thread_id, (long long)ts->nodes);
+                fflush(stderr); kill(getpid(), SIGKILL);
+            }
             if (fr->step <= 32) {
                 ts->nodes_at_depth[fr->step]++;
                 if (ts->current_task_stats) {
@@ -4450,6 +4463,11 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
 static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int step) {  /* task #72 Phase B */
     ts->nodes++;
     ts->branch_nodes++;
+    if (g_kill_after_nodes > 0 && ts->nodes >= g_kill_after_nodes) {  /* #165 test hook */
+        fprintf(stderr, "[TEST-KILL] SOLVE_KILL_AFTER_NODES=%lld reached (thread %d nodes=%lld) — SIGKILL self\n",
+                g_kill_after_nodes, ts->thread_id, (long long)ts->nodes);
+        fflush(stderr); kill(getpid(), SIGKILL);
+    }
     if ((unsigned)step <= 32) {
         ts->nodes_at_depth[step]++;  /* --depth-profile (aggregate) */
         /* Per-task depth histogram (2026-04-24). Pointer is NULL outside
@@ -5249,6 +5267,31 @@ static void *thread_func_single(void *arg) {
              *     PHASE_B's budget enforce the same total coverage as single-
              *     shot would (the redundant descent's work is dedup'd by the
              *     hash table, which was pre-populated from the prior shard). */
+            /* #167 resume-side guard (defense-in-depth, 2026-06-21): a .dfs_state
+             * asserts "budget reached; my solutions are in the .bin shard." If the
+             * shard is ABSENT — a pre-fix eviction that landed between the (old-order)
+             * checkpoint write and the flush, or a buggy-binary archive being resumed
+             * at a higher budget — then trusting the checkpoint resumes at ~budget and
+             * silently drops this cell's ENTIRE pre-checkpoint solution set. Discard
+             * the resume and walk the cell fresh from scratch (branch_nodes stays 0):
+             * deterministic and complete at the current budget. The write-order fix
+             * below guarantees a clean run never produces this state, so this is
+             * sha-neutral for clean runs; it only repairs damaged/legacy inputs —
+             * critical for the 1120T extension resuming the buggy-binary 560T archive. */
+            if (ts->dfs_resume_active || ts->dfs_v2_resume_active) {
+                char binchk[96];
+                if (p3_arg >= 0)
+                    snprintf(binchk, sizeof(binchk), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3_arg, o3_arg);
+                else
+                    snprintf(binchk, sizeof(binchk), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
+                if (access(binchk, F_OK) != 0) {
+                    fprintf(stderr, "[#167-guard] %s: .dfs_state present but shard ABSENT — "
+                            "discarding resume, walking cell fresh\n", binchk);
+                    ts->dfs_v2_resume_active = 0;
+                    ts->dfs_resume_active = 0;
+                    ts->dfs_resume_prior_nodes = 0;
+                }
+            }
             if (ts->dfs_v2_resume_active) {
                 ts->branch_nodes = ts->dfs_resume_prior_nodes;
             } else if (ts->dfs_resume_active) {
@@ -5267,24 +5310,15 @@ static void *thread_func_single(void *arg) {
             backtrack(ts, seq, &used_mask, budget, backtrack_start_step);             /* task #72 Phase B */
         }
 
-        /* DFS-state checkpoint: if budget exhausted in this run, persist the
-         * captured state. If it ran to completion, delete any prior sidecar
-         * so a future resume doesn't try to re-walk a finished branch. */
-        if (dfs_checkpoint_enabled) {
-            int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
-            int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
-            if (ts->dfs_v2_capture_pending) {
-                /* Iterative path captured full DFS state — write v2. */
-                (void)dfs_state_write_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts);
-            } else if (ts->dfs_capture_active && ts->dfs_iter_top > 0) {
-                /* Recursive path captured iter-only state — write v1. */
-                (void)dfs_state_write(p1, o1, p2, o2, p3_arg, o3_arg, ts);
-            } else {
-                /* Naturally completed (or interrupted before any frame captured) —
-                 * remove any stale sidecar from a prior partial run. */
-                dfs_state_delete(p1, o1, p2, o2, p3_arg, o3_arg);
-            }
-        }
+        /* DFS-state checkpoint write MOVED below, to AFTER the .bin shard flush
+         * (#167 eviction-resume data-loss fix, 2026-06-21). The checkpoint must
+         * become durable only AFTER its solutions shard, never before: a crash
+         * between an early .dfs_state write and the .bin flush used to leave a
+         * checkpoint that claims "budget reached, solutions are in the shard"
+         * while the shard never existed — on resume the cell trusted the
+         * checkpoint (branch_nodes≈budget), walked ~0 nodes, found 0 solutions,
+         * and wrote no shard, silently LOSING that cell's entire solution set.
+         * See INCIDENT_167_RESUME_SHA_MISMATCH.md. */
 
         long long sub_nodes = ts->nodes - nodes_before;
         long long sub_c3 = ts->solutions_c3 - c3_before;
@@ -5365,6 +5399,36 @@ static void *thread_func_single(void *arg) {
             memset(ts->sol_occupied, 0, ts->ht_size);
             ts->solution_count = 0;
             ts->hash_collisions = 0;
+        }
+
+        /* DFS-state checkpoint (#167 eviction-resume fix, 2026-06-21): written
+         * HERE, strictly AFTER the .bin shard + .budget sidecar are durable, so
+         * a .dfs_state never exists without its solutions on disk. Ordering
+         * guarantee for any crash point in this finalization:
+         *   - crash before flush       → no .bin, no .dfs_state → fresh re-walk
+         *                                 at same budget re-finds the set (correct)
+         *   - crash after flush, before .dfs_state → .bin+.budget present →
+         *                                 promote_orphaned_shards adopts it (correct)
+         *   - crash after .dfs_state    → all present; promote/skip (correct)
+         * If budget was exhausted, persist the captured DFS state (for a future
+         * budget-increase extension); if the cell completed naturally, delete any
+         * stale sidecar so a future resume won't re-walk a finished branch.
+         * (prior_solutions_found in the sidecar is written-but-never-read, so the
+         * flush above having zeroed ts->solution_count is harmless.) */
+        if (dfs_checkpoint_enabled) {
+            int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
+            int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
+            if (ts->dfs_v2_capture_pending) {
+                /* Iterative path captured full DFS state — write v2. */
+                (void)dfs_state_write_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            } else if (ts->dfs_capture_active && ts->dfs_iter_top > 0) {
+                /* Recursive path captured iter-only state — write v1. */
+                (void)dfs_state_write(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+            } else {
+                /* Naturally completed (or interrupted before any frame captured)
+                 * — remove any stale sidecar from a prior partial run. */
+                dfs_state_delete(p1, o1, p2, o2, p3_arg, o3_arg);
+            }
         }
 
         /* Write per-thread checkpoint entry. No mutex — each thread writes
@@ -8834,6 +8898,8 @@ static void run_c3_min(const char *filename) {
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
+    /* #165 deterministic eviction-injection hook (test-only; see g_kill_after_nodes). */
+    { const char *e = getenv("SOLVE_KILL_AFTER_NODES"); if (e && *e) g_kill_after_nodes = atoll(e); }
     /* Check for single-branch mode */
     int single_branch_mode = 0;
     int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */

@@ -4966,3 +4966,38 @@ was a confusing single-purpose nesting that read like "solve.c runs." All run ar
 depended on the old location. **Pre-2026-06-19 working-session logs in the private operator repo
 still reference the old `solve_c/runs/...` paths and were intentionally left unmodified as a
 historical record** — read them with this rename in mind.
+
+## June 20-21, 2026 — eviction-resume determinism bug found; 560T set to provisional
+
+A pre-flight rehearsal for the planned 1120T extension surfaced a real solver bug — and it has direct
+bearing on the 560T canonical, so it is recorded here honestly.
+
+**What happened.** The rehearsal re-ran an 11.2T enumeration through a *real* Spot eviction (deallocate →
+restart → resume from per-cell checkpoints) and compared the result to the established 11.2T canonical
+`0c0fe37c`. It produced the **same record count but a different record set** (406,094 records differed each
+way). Since 11.2T has eight independent eviction-free witnesses, the canonical is right and the
+eviction-resumed run was wrong — so the solver's **eviction-resume path was non-deterministic.**
+
+**Root cause (reproduced + confirmed).** At per-cell budget exhaustion the worker made the `.dfs_state`
+checkpoint durable *before* it flushed the cell's `.bin` solutions shard. An eviction in that window leaves a
+checkpoint that asserts "budget reached, my solutions are in the shard" while the shard was never written; on
+resume the cell trusts the checkpoint, walks ~0 further nodes, and writes no shard — **silently dropping that
+cell's entire solution set.** This was reproduced at small scale (a multi-thread run abruptly killed
+mid-finalization deterministically lost cells) and confirmed to the file-and-log level.
+
+**The fix (two parts, both sha-neutral on clean runs).** (1) reorder so the `.bin`+`.budget` are durable
+*before* the `.dfs_state` checkpoint — every crash window is then recoverable; (2) a resume-side guard that, if
+a checkpoint is present but its shard is absent, discards the resume and re-walks the cell fresh — which also
+repairs any already-damaged archive. Both validated: the selftest sha is unchanged, a full clean run reproduces
+its prior sha exactly, and the previously-failing eviction-resume case now reproduces correctly. (The fix is
+staged for review at the time of writing; full canonical sign-off is the 11.2T eviction-resume re-run →
+`0c0fe37c`, in progress.)
+
+**Why 560T is now provisional.** The 560T campaign (June 1-8) ran across **5 real Spot evictions** on a solver
+build predating this fix. It is therefore likely that `9a968fa2` is **missing solutions** from the cells caught
+mid-finalization during those evictions — a completeness defect, not a validity one (every record it contains
+is still C1–C5-valid). 11.2T (`0c0fe37c`) and 100T (`915abf30`) are unaffected (independently re-derived by
+multiple eviction-free witnesses). A targeted re-derivation of the potentially-affected 560T cells with the
+fixed solver is in progress to either confirm `9a968fa2` or supersede it with a corrected sha; until then
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) marks 560T **PROVISIONAL**. The 1120T extension is held pending the
+outcome. This entry will be updated when the re-validation resolves.
