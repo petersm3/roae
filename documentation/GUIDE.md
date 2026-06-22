@@ -1,5 +1,7 @@
 # Guide to ROAE
 
+> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21.** A proven solver eviction-resume defect (CASE-D write-ordering) plus the campaign's 5 Spot evictions on the pre-fix solver mean the 560T run **may be incomplete**, so it is **withheld as a canonical anchor** and 560T-specific figures below may revise. The **11.2T and 100T canonicals are unaffected** (11.2T ⊆ 100T ⊆ 560T held empirically), so subset-derived findings still stand. Resolution: a from-scratch re-run will either reproduce `9a968fa2` (→ **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T".
+
 A plain-language introduction to the King Wen sequence and what this program does with it.
 
 > **Going deeper:** once you've read this guide and want to understand HOW the solver actually finds valid orderings — what a "branch" is, what a "node" represents, how the search tree is partitioned — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md). Same plain-language style; takes you a layer deeper into the enumeration mechanics.

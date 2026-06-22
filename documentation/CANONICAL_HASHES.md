@@ -8,7 +8,7 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 
 | Scale | sha256 (prefix) | Records | Status | Solver lineage |
 |---|---|---:|---|---|
-| **d3 560T** | `9a968fa2…` | 10,525,271,997 | **⚠️ PROVISIONAL — under re-validation (2026-06-21); may be incomplete, see §d3 560T** | v1/v3 main |
+| **d3 560T** | `9a968fa2…` | 10,525,271,997 | **⚠️ SUSPECT — withheld as canonical; under re-validation (2026-06-21); may be incomplete, see §d3 560T** | v1/v3 main |
 | d3 100T | `915abf30…` | 3,432,399,298 | Active drift + partition anchor | v1 (modern) |
 | d3 11.2T | `0c0fe37c…` | 759,608,573 | Active drift anchor | v1 |
 | d3 10T | `b85c8871…` | 706,427,594 | Active drift anchor | v1 (modern) |
@@ -18,7 +18,7 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 | d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | Historical | v1 / v3 BRANCH `8b1658b` |
 | Selftest | `403f7202…` | 135,780 | Active build gate | v1 |
 
-For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's current headline canonical.
+For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's deepest enumeration but is currently **SUSPECT** — withheld as a canonical anchor pending re-validation (see §d3 560T).
 
 The full reproducibility-parameters table (env vars per canonical) is at [§Reproducibility parameters](#reproducibility-parameters) below.
 
@@ -26,14 +26,16 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 ### d3 560T — current deepest
 
-> **⚠️ STATUS: PROVISIONAL — under re-validation (opened 2026-06-21).** A determinism defect in the solver's
+> **⚠️ STATUS: SUSPECT — withheld as a canonical anchor; under re-validation (opened 2026-06-21).** A determinism defect in the solver's
 > eviction-resume path was identified 2026-06-21: a per-cell checkpoint (`.dfs_state`) could be made durable
 > *before* its solutions shard (`.bin`), so a Spot eviction in that window could drop a cell's solutions on
 > resume. The 560T campaign ran across **5 Spot evictions** on a solver build predating the fix, so this sha
 > **may be incomplete** (missing solutions from cells caught mid-finalization during those evictions). The
 > records it contains are valid (C1–C5-verified); the open question is *completeness*. A targeted re-derivation
 > of the potentially-affected cells with the corrected solver is in progress, to either confirm `9a968fa2` or
-> supersede it with a corrected sha. Until that resolves, treat 560T as provisional. The 11.2T (`0c0fe37c`) and
+> supersede it with a corrected sha. Until that resolves, treat 560T as **suspect** (not a canonical anchor); the
+> status resolves to **CANONICAL-verified** if the re-run reproduces `9a968fa2` byte-for-byte, or **SUPERSEDED** if
+> it does not. The 11.2T (`0c0fe37c`) and
 > 100T (`915abf30`) canonicals are **unaffected** — each was independently re-derived by multiple eviction-free
 > witnesses. (Tracking: private `INCIDENT_167_RESUME_SHA_MISMATCH.md`.)
 

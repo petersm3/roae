@@ -4967,7 +4967,7 @@ depended on the old location. **Pre-2026-06-19 working-session logs in the priva
 still reference the old `solve_c/runs/...` paths and were intentionally left unmodified as a
 historical record** — read them with this rename in mind.
 
-## June 20-21, 2026 — eviction-resume determinism bug found; 560T set to provisional
+## June 20-21, 2026 — eviction-resume determinism bug found; 560T set to suspect
 
 A pre-flight rehearsal for the planned 1120T extension surfaced a real solver bug — and it has direct
 bearing on the 560T canonical, so it is recorded here honestly.
@@ -4993,11 +4993,14 @@ its prior sha exactly, and the previously-failing eviction-resume case now repro
 staged for review at the time of writing; full canonical sign-off is the 11.2T eviction-resume re-run →
 `0c0fe37c`, in progress.)
 
-**Why 560T is now provisional.** The 560T campaign (June 1-8) ran across **5 real Spot evictions** on a solver
+**Why 560T is now suspect.** The 560T campaign (June 1-8) ran across **5 real Spot evictions** on a solver
 build predating this fix. It is therefore likely that `9a968fa2` is **missing solutions** from the cells caught
 mid-finalization during those evictions — a completeness defect, not a validity one (every record it contains
 is still C1–C5-valid). 11.2T (`0c0fe37c`) and 100T (`915abf30`) are unaffected (independently re-derived by
 multiple eviction-free witnesses). A targeted re-derivation of the potentially-affected 560T cells with the
 fixed solver is in progress to either confirm `9a968fa2` or supersede it with a corrected sha; until then
-[CANONICAL_HASHES.md](CANONICAL_HASHES.md) marks 560T **PROVISIONAL**. The 1120T extension is held pending the
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) marks 560T **SUSPECT** (withheld as a canonical anchor; status term
+sharpened from "provisional" to "suspect" 2026-06-22 — the defect mechanism and trigger conditions are proven,
+so the doubt is evidence-based, not merely tentative). The status resolves to **CANONICAL-verified** if the
+re-run reproduces `9a968fa2` or **SUPERSEDED** if it does not. The 1120T extension is held pending the
 outcome. This entry will be updated when the re-validation resolves.

@@ -53,6 +53,13 @@ produce a mismatching sha, stop and investigate — don't silently
 Older figures in project history (31.6M filename-collision bug, 742M
 hash-table bug) are invalidated forensic references only.
 
+**Current status note (2026-06-22):** the d3 560T canonical
+(`9a968fa2…`) is **SUSPECT** — withheld as a canonical anchor pending a
+from-scratch re-run (proven eviction-resume defect + 5 Spot evictions on
+the pre-fix solver; may be incomplete). 11.2T/100T are unaffected. Do not
+treat 560T as a trusted anchor until it resolves to CANONICAL-verified
+or SUPERSEDED. See [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md) §"d3 560T".
+
 ## Performance history — required record (parallel to canonical shas)
 
 Any commit modifying solve.c **hot paths** (DFS, prune predicates,

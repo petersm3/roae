@@ -1,5 +1,7 @@
 # Visualization — solution-space PCA plots
 
+> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21.** A proven solver eviction-resume defect (CASE-D write-ordering) plus the campaign's 5 Spot evictions on the pre-fix solver mean the 560T run **may be incomplete**. **The example figures below were rendered from this suspect 560T run and will be regenerated after re-validation** (the underlying record set may change slightly). The 11.2T and 100T canonicals are unaffected. Resolution: a from-scratch re-run will either reproduce `9a968fa2` (→ **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"d3 560T".
+
 This directory contains:
 
 - **`visualize.py`** — generator script that produces four 2D PCA projections of a canonical `solutions.bin`, with separate color schemes highlighting different properties. PCA axis labels now report the **% of total variance** captured by PC1 and PC2.
