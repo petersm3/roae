@@ -5004,3 +5004,27 @@ sharpened from "provisional" to "suspect" 2026-06-22 — the defect mechanism an
 so the doubt is evidence-based, not merely tentative). The status resolves to **CANONICAL-verified** if the
 re-run reproduces `9a968fa2` or **SUPERSEDED** if it does not. The 1120T extension is held pending the
 outcome. This entry will be updated when the re-validation resolves.
+
+## June 22-23, 2026 — 560T re-run launched on the fixed solver (eviction-resume bug); telemetry-pipeline hardening
+
+Following the #167 eviction-resume determinism fix and its canonical-scale validation (11.2T single- and
+multi-eviction reproductions of `0c0fe37c`, a 1T launcher smoke, and an **eviction-injected 11.2T dress
+rehearsal** that reproduced `0c0fe37c` byte-for-byte through 2 real Spot evictions on the production engine),
+the operator authorized a **from-scratch 560T re-run** (`LAUNCH_560T_RERUN.sh`: D128 Spot, 2 TB Premium, fixed
+binary, 5-min IOPS telemetry) to produce a clean, single-lineage 560T that either reproduces the SUSPECT
+`9a968fa2` or supersedes it. The run is in flight (~5 days). The original campaign's per-cell forensic shards
+were cold-archived (`canonical-archive/20260608_560T_9a968fa2_FORENSICS_buggy_shards/`) before the 4 TB Premium
+holding them was retired.
+
+The launch itself surfaced — and we fixed — a series of bugs in the **telemetry sampler and its launch wiring**
+(the enumeration/merge/canonical pipeline was never affected). In honest summary: the engine's sampler-start
+did not fire (an in-heredoc `${VAR:+}` construct, then an inline-ssh interim that self-killed via a `pkill -f`
+matching its own command); the node-count parser first matched nothing, then mis-read a per-cell count instead
+of the global total; `resume_seq` inflated on bare restarts; and a fresh launch could append to a prior run's
+CSV. All were root-caused and fixed (sampler started via a safe `ssh … bash -s` stdin form on every launch and
+eviction-resume; heartbeat-line node-parse; boot-id-keyed `resume_seq`; fresh-launch CSV archival), with the net
+result that telemetry is captured cleanly from launch and self-heals across evictions. Operational lessons also
+recorded: the scheduler's cron clock is UTC (a PT-anchored launch needs a `TZ`-aware guardian), and
+`az vm deallocate` does not free Spot `lowPriorityCores` quota (only deletion does). Operational detail lives in
+the private repo (`TELEMETRY_PIPELINE_FIXES_2026_06_23.md`). 560T remains **SUSPECT** until this re-run resolves
+it to CANONICAL-verified or SUPERSEDED.
