@@ -454,7 +454,7 @@ def plot_telemetry(csv_path, outdir='.'):
     as the project's plotting home. It does not touch solve.c / the canonical (sha-neutral)."""
     import os
     import csv as _csv
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -470,67 +470,140 @@ def plot_telemetry(csv_path, outdir='.'):
     def tparse(s):
         return datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
 
+    def col(k): return [num(r, k) for r in rows]
     t0 = tparse(rows[0]['utc'])
-    hrs = [(tparse(r['utc']) - t0).total_seconds() / 3600.0 for r in rows]
+    secs = [(tparse(r['utc']) - t0).total_seconds() for r in rows]
+    hrs = [s / 3600.0 for s in secs]
     resume = [int(num(r, 'resume_seq')) if num(r, 'resume_seq') == num(r, 'resume_seq') else 0 for r in rows]
     bnds = [hrs[i] for i in range(1, len(rows)) if resume[i] != resume[i - 1]]  # eviction/resume points
+    segs = sorted(set(resume))
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
 
-    # (1) time-course multi-panel
-    panels = [
-        (('throughput_M_s',), 'Throughput (M/s)', ('throughput',)),
-        (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
-        (('cells_scanned', 'cells_with_solutions'), 'Cells', ('scanned', 'with-solns')),
-        (('pct_complete',), 'Progress (% target nodes)', ('compute',)),
-        (('iops_read', 'iops_write'), 'IOPS', ('read', 'write')),
-        (('disk_util_pct', 'iowait_pct'), 'Disk util % / iowait %', ('disk-util', 'iowait')),
-    ]
-    fig, axes = plt.subplots(len(panels), 1, figsize=(13, 2.8 * len(panels)), sharex=True)
-    for ax, (keys, ylabel, labels) in zip(axes, panels):
-        for k, lab in zip(keys, labels):
-            ax.plot(hrs, [num(r, k) for r in rows], lw=1.2, label=lab)
-        if len(keys) > 1: ax.legend(loc='upper left', fontsize=8)
-        ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
-        for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
-    axes[-1].set_xlabel('elapsed hours since launch')
-    axes[0].set_title(f'560T re-run telemetry — {host0} — {len(rows)} samples — '
-                      f'red dashed = eviction/resume', fontsize=11)
-    p1 = os.path.join(outdir, 'telemetry_timecourse.png')
-    fig.savefig(p1, dpi=140, bbox_inches='tight'); plt.close(fig)
+    manifest = []  # (filename, title, description) for index.html
 
-    # (2) per-resume whisker (box) plots — distribution per eviction segment
-    segs = sorted(set(resume))
-    fig2, axs = plt.subplots(1, 2, figsize=(13, 5))
-    for ax, key, ttl in [(axs[0], 'throughput_M_s', 'Throughput (M/s)'),
-                         (axs[1], 'cpu_freq_avg_mhz', 'CPU freq avg (MHz)')]:
+    def timecourse(fname, title, desc, panels):
+        n = len(panels)
+        fig, axes = plt.subplots(n, 1, figsize=(13, 2.5 * n), sharex=True)
+        if n == 1: axes = [axes]
+        for ax, (keys, ylabel, labels) in zip(axes, panels):
+            for k, lab in zip(keys, labels):
+                ax.plot(hrs, col(k), lw=1.2, label=lab)
+            if len(keys) > 1: ax.legend(loc='upper left', fontsize=8)
+            ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
+            for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
+        axes[-1].set_xlabel('elapsed hours since launch')
+        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — red dashed = eviction/resume',
+                          fontsize=11)
+        fig.savefig(os.path.join(outdir, fname), dpi=140, bbox_inches='tight'); plt.close(fig)
+        manifest.append((fname, title, desc))
+
+    # (1) compute & progress time-course
+    timecourse('tc_compute.png', 'Compute & progress',
+        'Throughput (M nodes/s), CPU freq avg/min, cells scanned + cells-with-solutions, progress '
+        '(% of the target node budget), and compute-T (×10¹² nodes) vs elapsed hours.',
+        [(('throughput_M_s',), 'Throughput (M/s)', ('throughput',)),
+         (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
+         (('cells_scanned', 'cells_with_solutions'), 'Cells', ('scanned', 'with-solns')),
+         (('pct_complete',), 'Progress (% target)', ('pct',)),
+         (('compute_T',), 'compute-T (×10¹²)', ('compute_T',))])
+
+    # (2) disk I/O & system-health time-course (the previously-unplotted columns)
+    timecourse('tc_io_system.png', 'Disk I/O & system health',
+        'IOPS read/write, disk bandwidth MB/s read/write, disk utilisation avg + in-tick peak, '
+        'iowait %, disk average queue depth, 1-min load average, and available memory (GB) vs elapsed hours.',
+        [(('iops_read', 'iops_write'), 'IOPS', ('read', 'write')),
+         (('rd_mbps', 'wr_mbps'), 'Disk MB/s', ('read', 'write')),
+         (('disk_util_pct', 'disk_util_peak_pct'), 'Disk util %', ('avg', 'peak')),
+         (('iowait_pct',), 'iowait %', ('iowait',)),
+         (('avg_queue',), 'Disk avg queue', ('queue',)),
+         (('load1',), 'Load avg (1m)', ('load1',)),
+         (('mem_avail_gb',), 'Mem avail (GB)', ('mem',))])
+
+    # (3) per-resume whiskers — 5 metrics
+    wkeys = [('throughput_M_s', 'Throughput (M/s)'), ('cpu_freq_avg_mhz', 'CPU freq avg (MHz)'),
+             ('iops_read', 'IOPS read'), ('iowait_pct', 'iowait %'), ('disk_util_pct', 'disk util %')]
+    figw, axsw = plt.subplots(1, len(wkeys), figsize=(3.6 * len(wkeys), 5))
+    if len(wkeys) == 1: axsw = [axsw]
+    for ax, (key, ttl) in zip(axsw, wkeys):
         data = []
         for s in segs:
-            vals = [num(r, key) for r, rs in zip(rows, resume)
-                    if rs == s and num(r, key) == num(r, key)]
+            vals = [num(r, key) for r, rs in zip(rows, resume) if rs == s and num(r, key) == num(r, key)]
             data.append(vals if vals else [float('nan')])
         ax.boxplot(data, showmeans=True)
-        ax.set_xticks(range(1, len(segs) + 1)); ax.set_xticklabels([f'r{s}' for s in segs])
-        ax.set_title(ttl); ax.set_xlabel('resume segment (per eviction)'); ax.grid(alpha=0.3)
-    fig2.suptitle(f'560T re-run — per-resume distributions ({len(segs)} segment(s))', fontsize=11)
-    p2 = os.path.join(outdir, 'telemetry_per_resume_whisker.png')
-    fig2.savefig(p2, dpi=140, bbox_inches='tight'); plt.close(fig2)
+        ax.set_xticks(range(1, len(segs) + 1)); ax.set_xticklabels([f'r{s}' for s in segs], fontsize=8)
+        ax.set_title(ttl, fontsize=10); ax.set_xlabel('resume seg'); ax.grid(alpha=0.3)
+    figw.suptitle(f'Per-resume distributions ({len(segs)} segment(s); each Spot resume = a segment)',
+                  fontsize=11)
+    figw.savefig(os.path.join(outdir, 'per_resume_whiskers.png'), dpi=140, bbox_inches='tight'); plt.close(figw)
+    manifest.append(('per_resume_whiskers.png', 'Per-resume distributions',
+        'Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume '
+        'segment (boot-id keyed; each Spot eviction-resume opens a segment). Reveals warmup/throttle per resume.'))
 
-    # index.html — loads both PNGs with descriptions; scp the whole outdir locally to view.
+    # (4) ETA projection: cells_scanned vs time + recent-rate fit -> projected finish
+    TOTAL = 158364
+    cs = col('cells_scanned')
+    fitpts = [(h, c) for h, c in zip(hrs, cs) if c == c and c > 0]
+    fige, axe = plt.subplots(figsize=(12, 6))
+    axe.plot(hrs, cs, 'o-', ms=3, lw=1, color='tab:blue', label='cells scanned')
+    axe.axhline(TOTAL, color='gray', ls=':', label=f'target {TOTAL:,}')
+    eta_txt = 'insufficient data for ETA'
+    if len(fitpts) >= 2:
+        xs = np.array([p[0] for p in fitpts]); ys = np.array([p[1] for p in fitpts])
+        k = max(2, len(fitpts) // 2)                       # fit recent half = current rate
+        m, b = np.polyfit(xs[-k:], ys[-k:], 1)
+        if m > 0:
+            eta_h = (TOTAL - b) / m
+            xext = np.linspace(xs[0], max(eta_h, hrs[-1]), 100)
+            axe.plot(xext, m * xext + b, '--', color='tab:green', lw=1.2, label=f'recent rate {m:,.0f} cells/h')
+            axe.plot([eta_h], [TOTAL], '*', color='tab:red', ms=16)
+            rem = eta_h - hrs[-1]
+            eta_dt = t0 + timedelta(hours=eta_h)
+            eta_txt = f'~{rem:.1f}h remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ}'
+    for b in bnds: axe.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.5)
+    axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
+    axe.legend(loc='upper left', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}', fontsize=11)
+    fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
+    manifest.append(('eta_projection.png', 'ETA projection',
+        'Cells scanned vs elapsed hours, with a recent-rate linear fit extrapolated to the 158,364-cell '
+        'target → projected completion (red star). Red dashed = evictions (downtime shifts the ETA right).'))
+
+    # (5) throughput vs cpu-freq scatter (color = elapsed time) — throttle impact
+    tp = col('throughput_M_s'); cf = col('cpu_freq_avg_mhz')
+    xs = [c for c, t in zip(cf, tp) if c == c and t == t]
+    ys = [t for c, t in zip(cf, tp) if c == c and t == t]
+    cz = [h for h, c, t in zip(hrs, cf, tp) if c == c and t == t]
+    figs2, axsc = plt.subplots(figsize=(9, 7))
+    if xs:
+        sc = axsc.scatter(xs, ys, c=cz, cmap='viridis', s=22)
+        figs2.colorbar(sc, ax=axsc, label='elapsed hours')
+    axsc.set_xlabel('CPU freq avg (MHz)'); axsc.set_ylabel('Throughput (M/s)'); axsc.grid(alpha=0.3)
+    axsc.set_title('Throughput vs CPU-freq (color = time)', fontsize=11)
+    figs2.savefig(os.path.join(outdir, 'throughput_vs_cpufreq.png'), dpi=140, bbox_inches='tight'); plt.close(figs2)
+    manifest.append(('throughput_vs_cpufreq.png', 'Throughput vs CPU-freq',
+        'Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how '
+        'host throttling (lower MHz) depresses throughput; clusters reveal per-host/per-resume regimes.'))
+
+    # (6) per-eviction recovery timing (only once evictions have happened)
+    if bnds:
+        gaps = [(resume[i], (secs[i] - secs[i - 1]) / 60.0)
+                for i in range(1, len(rows)) if resume[i] != resume[i - 1]]
+        figr, axr = plt.subplots(figsize=(10, 5))
+        axr.bar([f'r{r}' for r, _ in gaps], [g for _, g in gaps], color='tab:orange')
+        axr.set_ylabel('sample gap across resume (min)'); axr.set_xlabel('resume segment')
+        axr.set_title('Per-eviction sample-gap (≈ downtime + cold-cache recovery; cadence-floored)', fontsize=11)
+        axr.grid(alpha=0.3, axis='y')
+        figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140, bbox_inches='tight'); plt.close(figr)
+        manifest.append(('eviction_recovery.png', 'Eviction recovery',
+            'Sample-gap across each resume boundary (≈ deallocate→resume downtime + cold-cache recovery, '
+            'floored by the 5-min cadence). Appears only once evictions have occurred.'))
+
+    # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
     gen = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    figs = [
-        ("telemetry_timecourse.png", "Time-course (full run)",
-         "Throughput (M nodes/s), CPU freq avg/min (MHz), cells scanned + cells-with-solutions, "
-         "compute progress (% of target nodes), IOPS read/write, and disk-util%/iowait% vs elapsed "
-         "hours. Red dashed verticals mark eviction/resume boundaries."),
-        ("telemetry_per_resume_whisker.png", "Per-resume distributions",
-         "Box-and-whisker of throughput and CPU-freq grouped by resume segment (each Spot "
-         "eviction-resume = a new segment, keyed on boot-id). Shows warmup/throttle behaviour per resume."),
-    ]
     cards = "\n".join(
         f'<section><h2>{t}</h2><p>{d}</p><img src="{f}" alt="{t}"></section>'
-        for f, t, d in figs)
+        for f, t, d in manifest)
     html = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>560T re-run telemetry — {host0}</title><style>
 body{{font-family:system-ui,sans-serif;max-width:1200px;margin:24px auto;padding:0 16px;color:#222}}
@@ -545,12 +618,11 @@ throughput={last.get('throughput_M_s','?')}M/s cpu_freq={last.get('cpu_freq_avg_
 {cards}
 <p class="meta">Generated by <code>visualize.py --telemetry</code>. Transient — regenerated each run; not in git.</p>
 </body></html>"""
-    ph = os.path.join(outdir, 'index.html')
-    with open(ph, 'w') as f:
+    with open(os.path.join(outdir, 'index.html'), 'w') as f:
         f.write(html)
 
-    print(f"wrote:\n  {p1}\n  {p2}\n  {ph}\n({len(rows)} samples, {len(segs)} resume segment(s), "
-          f"{len(bnds)} eviction boundary(ies))")
+    print("wrote %d figures + index.html to %s (%d samples, %d resume segment(s), %d eviction(s))"
+          % (len(manifest), outdir, len(rows), len(segs), len(bnds)))
 
 
 def main():
