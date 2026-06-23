@@ -440,8 +440,94 @@ def generate_plots(solutions, features, projected, kw_idx, var_explained=None):
     plt.close(fig)
     print("  Saved viz_adjacency.png and viz_adjacency.svg")
 
+def plot_telemetry(csv_path, outdir='.'):
+    """Operational campaign-telemetry plots from campaign_telemetry_sampler.sh CSV.
+
+    Produces (1) a time-course multi-panel (throughput / cpu-freq / cells / compute-progress /
+    IOPS / disk-util+iowait) with eviction-resume boundaries marked, and (2) per-resume whisker
+    (box) plots of throughput and cpu-freq. Intended for the 560T re-run (and future canonical
+    campaigns). PNGs are written to outdir — point that OUTSIDE the git repo for transient
+    operator review; at archive time it can target the run's committed viz/ dir.
+
+    This is infra/operational plotting (not solution-space science); it shares this file only
+    because matplotlib already lives here and the single-file rule sanctions viz/visualize.py
+    as the project's plotting home. It does not touch solve.c / the canonical (sha-neutral)."""
+    import os
+    import csv as _csv
+    from datetime import datetime, timezone
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    with open(csv_path) as f:
+        rows = list(_csv.DictReader(f))
+    if not rows:
+        print("plot_telemetry: no rows in", csv_path); return
+
+    def num(r, k):
+        try: return float(r.get(k, 'NA'))
+        except (ValueError, TypeError): return float('nan')
+    def tparse(s):
+        return datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+
+    t0 = tparse(rows[0]['utc'])
+    hrs = [(tparse(r['utc']) - t0).total_seconds() / 3600.0 for r in rows]
+    resume = [int(num(r, 'resume_seq')) if num(r, 'resume_seq') == num(r, 'resume_seq') else 0 for r in rows]
+    bnds = [hrs[i] for i in range(1, len(rows)) if resume[i] != resume[i - 1]]  # eviction/resume points
+    os.makedirs(outdir, exist_ok=True)
+    host0 = rows[0].get('host', '?')
+
+    # (1) time-course multi-panel
+    panels = [
+        (('throughput_M_s',), 'Throughput (M/s)', ('throughput',)),
+        (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
+        (('cells_scanned', 'cells_with_solutions'), 'Cells', ('scanned', 'with-solns')),
+        (('pct_complete',), 'Progress (% target nodes)', ('compute',)),
+        (('iops_read', 'iops_write'), 'IOPS', ('read', 'write')),
+        (('disk_util_pct', 'iowait_pct'), 'Disk util % / iowait %', ('disk-util', 'iowait')),
+    ]
+    fig, axes = plt.subplots(len(panels), 1, figsize=(13, 2.8 * len(panels)), sharex=True)
+    for ax, (keys, ylabel, labels) in zip(axes, panels):
+        for k, lab in zip(keys, labels):
+            ax.plot(hrs, [num(r, k) for r in rows], lw=1.2, label=lab)
+        if len(keys) > 1: ax.legend(loc='upper left', fontsize=8)
+        ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
+        for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
+    axes[-1].set_xlabel('elapsed hours since launch')
+    axes[0].set_title(f'560T re-run telemetry — {host0} — {len(rows)} samples — '
+                      f'red dashed = eviction/resume', fontsize=11)
+    p1 = os.path.join(outdir, 'telemetry_timecourse.png')
+    fig.savefig(p1, dpi=140, bbox_inches='tight'); plt.close(fig)
+
+    # (2) per-resume whisker (box) plots — distribution per eviction segment
+    segs = sorted(set(resume))
+    fig2, axs = plt.subplots(1, 2, figsize=(13, 5))
+    for ax, key, ttl in [(axs[0], 'throughput_M_s', 'Throughput (M/s)'),
+                         (axs[1], 'cpu_freq_avg_mhz', 'CPU freq avg (MHz)')]:
+        data = []
+        for s in segs:
+            vals = [num(r, key) for r, rs in zip(rows, resume)
+                    if rs == s and num(r, key) == num(r, key)]
+            data.append(vals if vals else [float('nan')])
+        ax.boxplot(data, showmeans=True)
+        ax.set_xticks(range(1, len(segs) + 1)); ax.set_xticklabels([f'r{s}' for s in segs])
+        ax.set_title(ttl); ax.set_xlabel('resume segment (per eviction)'); ax.grid(alpha=0.3)
+    fig2.suptitle(f'560T re-run — per-resume distributions ({len(segs)} segment(s))', fontsize=11)
+    p2 = os.path.join(outdir, 'telemetry_per_resume_whisker.png')
+    fig2.savefig(p2, dpi=140, bbox_inches='tight'); plt.close(fig2)
+
+    print(f"wrote:\n  {p1}\n  {p2}\n({len(rows)} samples, {len(segs)} resume segment(s), "
+          f"{len(bnds)} eviction boundary(ies))")
+
+
 def main():
-    filename = sys.argv[1] if len(sys.argv) > 1 else 'solutions.bin'
+    args = sys.argv[1:]
+    if args and args[0] == '--telemetry':
+        csv_path = args[1] if len(args) > 1 else 'telemetry.csv'
+        outdir = args[2] if len(args) > 2 else '.'
+        plot_telemetry(csv_path, outdir)
+        return
+    filename = args[0] if args else 'solutions.bin'
 
     print("Loading solutions...")
     solutions = load_solutions(filename)
