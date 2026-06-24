@@ -533,18 +533,15 @@ def plot_telemetry(csv_path, outdir='.'):
         active_h.append(hrs[i] - _cum)
     downtime_h = _cum
 
-    def mark_evictions(ax, label=False):
-        """Color-code each downtime box's edges: red-dashed + octagon (🛑 stop) at the eviction,
-        green-dashed + dot (go) at the resume. `label` adds the legend entries (once per figure)."""
+    def mark_evictions(ax):
+        """Red octagon (stop) at each eviction + green dot (go) at each resume, at the top of the axes —
+        drawn on EVERY panel that shows the grey band. Explained in the figure title (not the legend,
+        so the legend stays data-series only). No vertical lines (they'd sit on the band edge, invisible)."""
         top = ax.get_ylim()[1]
-        for j, (a, b) in enumerate(gaps_h):
-            ax.axvline(a, color='tab:red', ls='--', lw=0.8, alpha=0.6)
-            ax.axvline(b, color='tab:green', ls='--', lw=0.8, alpha=0.6)
-            if label:
-                ax.plot(a, top, marker='8', color='tab:red', ms=10, ls='none', clip_on=False,
-                        zorder=5, label='eviction' if j == 0 else '_nolegend_')
-                ax.plot(b, top, marker='o', color='tab:green', ms=7, ls='none', clip_on=False,
-                        zorder=5, label='resume' if j == 0 else '_nolegend_')
+        for a, b in gaps_h:
+            ax.plot(a, top, marker='8', color='tab:red', ms=10, ls='none', clip_on=False, zorder=5)
+            ax.plot(b, top, marker='>', color='tab:green', ms=10, ls='none', clip_on=False, zorder=5)
+    marker_note = ' — red octagon = eviction, green ▶ = resume' if gaps_h else ''
 
     manifest = []  # (filename, title, description) for index.html
 
@@ -563,12 +560,11 @@ def plot_telemetry(csv_path, outdir='.'):
                 if rv is not None: ax.axhline(rv, color='0.45', ls=':', lw=1.0, label=rl)
             ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
             ax.yaxis.set_major_formatter(YFMT)
-            mark_evictions(ax, label=(ax is axes[0]))        # red/green band edges; legend on top panel
-            if len(keys) > 1 or refs or (ax is axes[0] and gaps_h):
+            mark_evictions(ax)                                # octagon/▶ on every panel (key in title)
+            if len(keys) > 1 or refs:
                 ax.legend(loc='upper left', fontsize=8)
         axes[-1].set_xlabel('elapsed hours since launch')
-        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — '
-                          f'red dashed = eviction, green dashed = resume{gap_note}', fontsize=11)
+        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples{marker_note}{gap_note}', fontsize=11)
         fig.savefig(os.path.join(outdir, fname), dpi=140, bbox_inches='tight'); plt.close(fig)
         manifest.append((fname, title, desc))
 
@@ -645,10 +641,10 @@ def plot_telemetry(csv_path, outdir='.'):
             eta_dt = t0 + timedelta(hours=x_eta)
             eta_txt = (f'~{rem:.1f}h active remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ} '
                        f'· {downtime_h:.1f}h downtime so far (excluded from rate; future evictions push ETA right)')
-    mark_evictions(axe, label=True)                          # red/green band edges + octagon/dot
+    mark_evictions(axe)                                      # octagon/▶ markers (key in title)
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
     axe.yaxis.set_major_formatter(YFMT)
-    axe.legend(loc='lower right', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{gap_note}', fontsize=10)
+    axe.legend(loc='lower right', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{marker_note}{gap_note}', fontsize=9)
     fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
     manifest.append(('eta_projection.png', 'ETA projection',
         'Cells scanned vs elapsed hours. The rate is fit over ACTIVE-ENUM hours (eviction downtime '
@@ -710,7 +706,7 @@ def plot_telemetry(csv_path, outdir='.'):
                          label='throughput recovery' if idx == 0 else '_nolegend_')
             axr.plot(a, idx, marker='8', color='tab:red', ms=11, ls='none', zorder=3,
                      label='eviction (VM deallocated)' if idx == 0 else '_nolegend_')  # octagon = stop
-            axr.plot(b, idx, 'o', color='tab:green', ms=7, zorder=3,
+            axr.plot(b, idx, marker='>', color='tab:green', ms=10, ls='none', zorder=3,
                      label='resume (→full speed)' if idx == 0 else '_nolegend_')
             rec_s = 'instant' if (rc == rc and rc == 0) else (f'{rc:.0f}m' if rc == rc else 'n/a')
             axr.text(b + 0.4, idx, f'{dh:.1f}h off → recovered {rec_s}', va='center', fontsize=9)
