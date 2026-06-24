@@ -519,6 +519,27 @@ def plot_telemetry(csv_path, outdir='.'):
             _cum = _cmax                                     # ~0.4T dip from a lingering pre-eviction heartbeat
         _cmax = _cum
         rows[i]['compute_T'] = repr(_cum)                    # cumulative; pct recomputed after target_T
+
+    # Bridge SHORT interior telemetry gaps (a few samples where solve.c's heartbeat wasn't in the log
+    # tail at sample time → NA, while the enum kept running — cells_scanned is continuous). Linearly
+    # interpolate interior NA for the rate/progress series so the line is continuous; only bridge gaps
+    # < 1h (never the multi-hour eviction downtime, which series() renders as 0/flat anyway).
+    def _bridge(key, max_gap_s=3600):
+        v = [num(r, key) for r in rows]; n = len(v); i = 0
+        while i < n:
+            if v[i] != v[i]:                                 # NaN run start
+                j = i
+                while j < n and v[j] != v[j]:
+                    j += 1
+                if i > 0 and j < n and (secs[j] - secs[i - 1]) <= max_gap_s:
+                    v0, v1, t0_, t1_ = v[i - 1], v[j], secs[i - 1], secs[j]
+                    for k in range(i, j):
+                        f = (secs[k] - t0_) / (t1_ - t0_) if t1_ > t0_ else 0
+                        rows[k][key] = repr(v0 + (v1 - v0) * f)
+                i = j
+            else:
+                i += 1
+    _bridge('throughput_M_s'); _bridge('compute_T')          # pct recomputed from compute_T after target_T
     segs = sorted(set(resume))
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
