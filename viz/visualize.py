@@ -694,7 +694,9 @@ def plot_telemetry(csv_path, outdir='.'):
             if rc == rc and rc > 0:                          # visible warmup, if any
                 axr.barh(idx, rc / 60.0, left=b, height=0.5, color='tab:orange',
                          label='throughput recovery' if idx == 0 else '_nolegend_')
-            axr.plot(b, idx, 'o', color='tab:orange', ms=7, zorder=3,
+            axr.plot(a, idx, 'o', color='tab:red', ms=7, zorder=3,
+                     label='eviction (VM deallocated)' if idx == 0 else '_nolegend_')
+            axr.plot(b, idx, 'o', color='tab:green', ms=7, zorder=3,
                      label='resume (→full speed)' if idx == 0 else '_nolegend_')
             rec_s = 'instant' if (rc == rc and rc == 0) else (f'{rc:.0f}m' if rc == rc else 'n/a')
             axr.text(b + 0.4, idx, f'{dh:.1f}h off → recovered {rec_s}', va='center', fontsize=9)
