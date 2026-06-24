@@ -608,12 +608,18 @@ def plot_telemetry(csv_path, outdir='.'):
 
     # (1) compute & progress time-course
     timecourse('tc_compute.png', 'Compute & progress',
-        'Throughput (M nodes/s), CPU freq avg/min, cells scanned + cells-with-solutions, progress '
-        '(% of the target node budget), and compute-T (×10¹² nodes) vs elapsed hours.',
-        [(('throughput_M_s',), 'Throughput (M/s)', ('throughput',),
+        'Throughput = the depth-3 DFS ENUMERATION RATE: millions of search-tree nodes visited per '
+        'second, summed over all worker threads — this is search speed, NOT solutions/sec (most '
+        'branches are pruned and valid orderings are rare). CPU freq avg/min across cores. '
+        'Cells: a "cell" is one depth-3 sub-branch — the King Wen search space split by fixing the '
+        'first three (pair, orientation) choices (pair1,orient1,pair2,orient2,pair3,orient3); there '
+        'are 158,364 such cells, each enumerated independently, and "with-solns" counts those that '
+        'yielded ≥1 valid ordering (most yield none). Progress (% of the target node budget) and '
+        'compute-T (×10¹² nodes cumulative) vs elapsed hours.',
+        [(('throughput_M_s',), 'Throughput (M nodes/s)', ('throughput',),
             [(mean_tp, f'mean {mean_tp:,.0f}')] if mean_tp else []),
          (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
-         (('cells_scanned', 'cells_with_solutions'), 'Cells', ('scanned', 'with-solns'),
+         (('cells_scanned', 'cells_with_solutions'), 'Cells (depth-3 sub-branches)', ('scanned', 'with-solns'),
             [(TOTAL, f'target {TOTAL:,}')]),
          (('pct_complete',), 'Progress (% target)', ('pct',), [(100, 'target 100%')]),
          (('compute_T',), 'compute-T (×10¹²)', ('compute_T',),
@@ -634,7 +640,7 @@ def plot_telemetry(csv_path, outdir='.'):
         subtitle=sub_io)
 
     # (3) per-resume whiskers — 5 metrics
-    wkeys = [('throughput_M_s', 'Throughput (M/s)'), ('cpu_freq_avg_mhz', 'CPU freq avg (MHz)'),
+    wkeys = [('throughput_M_s', 'Throughput (M nodes/s)'), ('cpu_freq_avg_mhz', 'CPU freq avg (MHz)'),
              ('iops_read', 'IOPS read'), ('iowait_pct', 'iowait %'), ('disk_util_pct', 'disk util %')]
     figw, axsw = plt.subplots(1, len(wkeys), figsize=(3.6 * len(wkeys), 5))
     if len(wkeys) == 1: axsw = [axsw]
@@ -715,7 +721,7 @@ def plot_telemetry(csv_path, outdir='.'):
             axsc.annotate('post-resume cold start', (ax_[imin], ay_[imin]),
                           textcoords='offset points', xytext=(12, -4), fontsize=8,
                           arrowprops=dict(arrowstyle='->', lw=0.7, color='0.4'))
-    axsc.set_xlabel('CPU freq avg (MHz)'); axsc.set_ylabel('Throughput (M/s)'); axsc.grid(alpha=0.3)
+    axsc.set_xlabel('CPU freq avg (MHz)'); axsc.set_ylabel('Throughput (M nodes/s)'); axsc.grid(alpha=0.3)
     axsc.set_title(f'Throughput vs CPU-freq (color = time){corr_txt}' + (f'\n{sub_cpu}' if sub_cpu else ''), fontsize=11)
     figs2.savefig(os.path.join(outdir, 'throughput_vs_cpufreq.png'), dpi=140, bbox_inches='tight'); plt.close(figs2)
     manifest.append(('throughput_vs_cpufreq.png', 'Throughput vs CPU-freq',
