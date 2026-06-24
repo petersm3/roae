@@ -470,6 +470,17 @@ def plot_telemetry(csv_path, outdir='.'):
     def tparse(s):
         return datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
 
+    # Display guard: the sampler computes disk_util_peak with integer bash math, so sub-1% utilisation
+    # truncates peak to 0 and it can read BELOW the (float) average — logically impossible. Peak is by
+    # definition ≥ average; clamp for display. (Root-cause fix is in campaign_telemetry_sampler.sh.)
+    for _r in rows:
+        try:
+            _a = float(_r.get('disk_util_pct', 'nan')); _p = float(_r.get('disk_util_peak_pct', 'nan'))
+            if _a == _a and _p == _p and _p < _a:
+                _r['disk_util_peak_pct'] = _r['disk_util_pct']
+        except (ValueError, TypeError):
+            pass
+
     def col(k): return [num(r, k) for r in rows]
     t0 = tparse(rows[0]['utc'])
     secs = [(tparse(r['utc']) - t0).total_seconds() for r in rows]
@@ -656,6 +667,7 @@ def plot_telemetry(csv_path, outdir='.'):
         ax.set_title(ttl, fontsize=10); ax.set_xlabel('resume seg'); ax.grid(alpha=0.3)
     figw.suptitle(f'Per-resume distributions ({len(segs)} segment(s); each Spot resume = a segment)'
                   + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
+    figw.subplots_adjust(top=0.80)                            # room for the 2-line suptitle above column titles
     figw.savefig(os.path.join(outdir, 'per_resume_whiskers.png'), dpi=140, bbox_inches='tight'); plt.close(figw)
     manifest.append(('per_resume_whiskers.png', 'Per-resume distributions',
         'Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume '
