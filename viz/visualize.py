@@ -663,6 +663,7 @@ def plot_telemetry(csv_path, outdir='.'):
         for ax, p in zip(axes, panels):
             keys, ylabel, labels = p[0], p[1], p[2]
             refs = p[3] if len(p) > 3 else []   # optional [(value, label), …] dotted reference lines
+            note = p[4] if len(p) > 4 else ''   # optional small in-panel explanatory note
             shade_gaps(ax)
             for k, lab in zip(keys, labels):
                 X, Y = series(k)
@@ -674,6 +675,10 @@ def plot_telemetry(csv_path, outdir='.'):
             mark_evictions(ax)                                # octagon/▶ on every panel (key in title)
             if len(keys) > 1 or refs:
                 ax.legend(loc='upper left', fontsize=8)
+            if note:
+                ax.text(0.012, 0.04, note, transform=ax.transAxes, fontsize=6.5,
+                        color='0.40', va='bottom', ha='left',
+                        bbox=dict(boxstyle='round', fc='white', ec='0.8', alpha=0.75))
         axes[-1].set_xlabel('elapsed hours since launch')
         _ttl = f'{title} — {host0} — {len(rows)} samples' + (f'\n{subtitle}' if subtitle else '')
         axes[0].set_title(_ttl, fontsize=11, pad=(42 if subtitle else 26))
@@ -693,7 +698,12 @@ def plot_telemetry(csv_path, outdir='.'):
         'compute-T (×10¹² nodes cumulative) vs elapsed hours.',
         [(('throughput_M_s',), 'Throughput (M nodes/s)', ('throughput',),
             [(mean_tp, f'mean {mean_tp:,.0f}')] if mean_tp else []),
-         (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
+         (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg (all cores)', 'min core'), [],
+            'avg = mean across all 128 cores.  "min core" = the single slowest core (raw).\n'
+            'Brief dips to ~2.6 GHz base clock = a core momentarily idle between cells (DVFS), NOT\n'
+            'throttling — throughput stays flat through them.  Campaigns from 2026-06-24 report the\n'
+            '10th-percentile core instead, excluding such idle cores (a host-wide throttle still\n'
+            'shows in p10; momentary single-core idles no longer do).'),
          (('cells_scanned', 'cells_with_solutions'), 'Cells (depth-3 sub-branches)', ('scanned', 'with-solutions'),
             [(TOTAL, f'target {TOTAL:,}')]),
          (('pct_complete',), 'Progress (% target)', ('pct',), [(100, 'target 100%')]),
