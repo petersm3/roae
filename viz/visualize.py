@@ -541,7 +541,24 @@ def plot_telemetry(csv_path, outdir='.'):
         for a, b in gaps_h:
             ax.plot(a, top, marker='8', color='tab:red', ms=10, ls='none', clip_on=False, zorder=5)
             ax.plot(b, top, marker='>', color='tab:green', ms=10, ls='none', clip_on=False, zorder=5)
-    marker_note = ' — red octagon = eviction, green ▶ = resume' if gaps_h else ''
+
+    def eviction_key(ax):
+        """A horizontal key strip just above `ax` using the ACTUAL coloured shapes (red octagon =
+        eviction, grey patch = VM off, green ▶ = resume) — a plain title can't colour/shape sub-text.
+        Preserves any existing (data-series) legend on the axes."""
+        if not gaps_h:
+            return
+        from matplotlib.lines import Line2D
+        from matplotlib.patches import Patch
+        prev = ax.get_legend()
+        h = [Line2D([0], [0], marker='8', color='tab:red', ls='none', ms=11),
+             Patch(facecolor='0.82', edgecolor='none', alpha=0.6),
+             Line2D([0], [0], marker='>', color='tab:green', ls='none', ms=11)]
+        ax.legend(handles=h, labels=['= eviction', '= VM off', '= resume'], loc='lower center',
+                  bbox_to_anchor=(0.5, 1.005), ncol=3, frameon=False, fontsize=9,
+                  handletextpad=0.2, columnspacing=1.6)
+        if prev is not None:
+            ax.add_artist(prev)               # re-attach the data-series legend
 
     manifest = []  # (filename, title, description) for index.html
 
@@ -564,7 +581,8 @@ def plot_telemetry(csv_path, outdir='.'):
             if len(keys) > 1 or refs:
                 ax.legend(loc='upper left', fontsize=8)
         axes[-1].set_xlabel('elapsed hours since launch')
-        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples{marker_note}{gap_note}', fontsize=11)
+        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples', fontsize=11, pad=26)
+        eviction_key(axes[0])                                # coloured-shape key in the title area
         fig.savefig(os.path.join(outdir, fname), dpi=140, bbox_inches='tight'); plt.close(fig)
         manifest.append((fname, title, desc))
 
@@ -644,7 +662,9 @@ def plot_telemetry(csv_path, outdir='.'):
     mark_evictions(axe)                                      # octagon/▶ markers (key in title)
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
     axe.yaxis.set_major_formatter(YFMT)
-    axe.legend(loc='lower right', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{marker_note}{gap_note}', fontsize=9)
+    axe.legend(loc='lower right', fontsize=9)
+    axe.set_title(f'ETA projection — {eta_txt}', fontsize=9, pad=22)
+    eviction_key(axe)                                        # coloured-shape key in the title area
     fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
     manifest.append(('eta_projection.png', 'ETA projection',
         'Cells scanned vs elapsed hours. The rate is fit over ACTIVE-ENUM hours (eviction downtime '
@@ -699,7 +719,7 @@ def plot_telemetry(csv_path, outdir='.'):
                 evs.append((hrs[i - 1], hrs[i], seg, hrs[i] - hrs[i - 1], recov))
         figr, axr = plt.subplots(figsize=(13, max(3.4, 0.8 * len(evs) + 2.6)))
         for idx, (a, b, seg, dh, rc) in enumerate(evs):
-            axr.barh(idx, b - a, left=a, height=0.5, color='tab:gray',
+            axr.barh(idx, b - a, left=a, height=0.5, color='0.82', alpha=0.6,
                      label='VM off (downtime)' if idx == 0 else '_nolegend_')
             if rc == rc and rc > 0:                          # visible warmup, if any
                 axr.barh(idx, rc / 60.0, left=b, height=0.5, color='tab:orange',
