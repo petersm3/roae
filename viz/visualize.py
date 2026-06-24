@@ -506,9 +506,11 @@ def plot_telemetry(csv_path, outdir='.'):
         return X, Y
 
     def shade_gaps(ax):
-        for j, (a, b) in enumerate(gaps_h):
-            ax.axvspan(a, b, color='0.82', alpha=0.6, zorder=0,
-                       label='_nolegend_' if j else 'VM off (eviction)')
+        # Shade every downtime span; do NOT put it in the per-panel legend (it's explained once in
+        # the figure title, so it appears consistently on ALL panels, not just multi-series ones).
+        for a, b in gaps_h:
+            ax.axvspan(a, b, color='0.82', alpha=0.6, zorder=0, label='_nolegend_')
+    gap_note = '; grey = VM off (eviction)' if gaps_h else ''
 
     manifest = []  # (filename, title, description) for index.html
 
@@ -525,7 +527,7 @@ def plot_telemetry(csv_path, outdir='.'):
             ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
             for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
         axes[-1].set_xlabel('elapsed hours since launch')
-        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — red dashed = eviction/resume',
+        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — red dashed = eviction/resume{gap_note}',
                           fontsize=11)
         fig.savefig(os.path.join(outdir, fname), dpi=140, bbox_inches='tight'); plt.close(fig)
         manifest.append((fname, title, desc))
@@ -597,7 +599,7 @@ def plot_telemetry(csv_path, outdir='.'):
             eta_txt = f'~{rem:.1f}h remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ}'
     for b in bnds: axe.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.5)
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
-    axe.legend(loc='upper left', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}', fontsize=11)
+    axe.legend(loc='upper left', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{gap_note}', fontsize=11)
     fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
     manifest.append(('eta_projection.png', 'ETA projection',
         'Cells scanned vs elapsed hours, with a recent-rate linear fit extrapolated to the 158,364-cell '
