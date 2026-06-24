@@ -500,7 +500,7 @@ def plot_telemetry(csv_path, outdir='.'):
     # carry the pre-reset value forward as an offset, so the panel shows true cumulative progress —
     # matching cells_scanned (which is filesystem-cumulative and unaffected). pct_complete is recomputed
     # from the cumulative. [Found 2026-06-24; root-cause carry-forward fix belongs in the sampler.]
-    _off = 0.0; _prev_raw = None
+    _off = 0.0; _prev_raw = None; _cmax = 0.0
     for i in range(len(rows)):
         _c = num(rows[i], 'compute_T')
         if _c != _c:
@@ -508,7 +508,11 @@ def plot_telemetry(csv_path, outdir='.'):
         if _prev_raw is not None and _c < _prev_raw - 1.0:   # heartbeat reset (dropped >1T nodes)
             _off += _prev_raw
         _prev_raw = _c
-        rows[i]['compute_T'] = repr(_off + _c)               # cumulative; pct recomputed after target_T
+        _cum = _off + _c
+        if _cum < _cmax:                                     # cumulative compute is monotonic; suppress the
+            _cum = _cmax                                     # ~0.4T dip from a lingering pre-eviction heartbeat
+        _cmax = _cum
+        rows[i]['compute_T'] = repr(_cum)                    # cumulative; pct recomputed after target_T
     segs = sorted(set(resume))
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
