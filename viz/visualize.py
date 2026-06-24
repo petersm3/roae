@@ -556,7 +556,7 @@ def plot_telemetry(csv_path, outdir='.'):
              Line2D([0], [0], marker='>', color='tab:green', ls='none', ms=11)]
         ax.legend(handles=h, labels=['= eviction', '= VM off', '= resume'], loc='lower center',
                   bbox_to_anchor=(0.5, 1.005), ncol=3, frameon=False, fontsize=9,
-                  handletextpad=0.2, columnspacing=1.6)
+                  handletextpad=0.2, columnspacing=1.6, handlelength=2.2, handleheight=1.4)
         if prev is not None:
             ax.add_artist(prev)               # re-attach the data-series legend
 
