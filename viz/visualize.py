@@ -670,48 +670,46 @@ def plot_telemetry(csv_path, outdir='.'):
         'Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how '
         'host throttling (lower MHz) depresses throughput; clusters reveal per-host/per-resume regimes.'))
 
-    # (6) per-eviction recovery: minutes from resume until throughput returns to ≥95% of steady,
-    # AND the downtime per resume — the two distinct costs of an eviction. Only once evictions exist.
-    if bnds:
+    # (6) eviction timeline — one horizontal bar per eviction, placed at its real time on the
+    # elapsed-hours axis, spanning the downtime (VM off); annotated "<Xh> off → recovered <Ym>".
+    # Reads directly as when/how-long/recovery and scales naturally as evictions accumulate.
+    if gaps_h:
         steady = float(np.median(_tp)) if _tp else float('nan')
         thr = 0.95 * steady
-        rec_labels, rec_recov, rec_down = [], [], []
-        for s in segs:
-            if s == segs[0]:
-                continue                                    # r0 = initial launch, not a resume
-            idxs = [i for i in range(len(rows)) if resume[i] == s]
-            if not idxs:
-                continue
-            seg_start = secs[idxs[0]]
-            recov = float('nan')
-            for i in idxs:
-                v = num(rows[i], 'throughput_M_s')
-                if v == v and v >= thr:
-                    recov = (secs[i] - seg_start) / 60.0; break
-            down = (secs[idxs[0]] - secs[idxs[0] - 1]) / 60.0   # deallocate→resume gap
-            rec_labels.append(f'r{s}'); rec_recov.append(recov); rec_down.append(down)
-        if rec_labels:
-            import numpy as _np
-            x = _np.arange(len(rec_labels)); w = 0.38
-            figr, axr = plt.subplots(figsize=(max(5, 1.8 * len(rec_labels) + 3), 5))
-            b1 = axr.bar(x - w / 2, rec_down, w, color='tab:gray', label='downtime (deallocate→resume)')
-            b2 = axr.bar(x + w / 2, [0 if v != v else v for v in rec_recov], w,
-                         color='tab:orange', label='throughput recovery (→95% steady)')
-            for xi, v in zip(x, rec_down):
-                axr.text(xi - w / 2, v, f'{v:.0f}m', ha='center', va='bottom', fontsize=8)
-            for xi, v in zip(x, rec_recov):
-                axr.text(xi + w / 2, 0 if v != v else v, 'n/a' if v != v else f'{v:.0f}m',
-                         ha='center', va='bottom', fontsize=8)
-            axr.set_xticks(x); axr.set_xticklabels(rec_labels)
-            axr.set_ylabel('minutes'); axr.set_xlabel('resume segment')
-            axr.set_title(f'Per-eviction cost — downtime vs throughput-recovery '
-                          f'(steady≈{steady:,.0f} M/s, 95%≈{thr:,.0f})', fontsize=11)
-            axr.legend(fontsize=9); axr.grid(alpha=0.3, axis='y')
-            figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140, bbox_inches='tight'); plt.close(figr)
-            manifest.append(('eviction_recovery.png', 'Eviction cost',
-                'Per resume: grey = deallocate→resume downtime (wall lost); orange = minutes after resume '
-                'until throughput returns to ≥95% of steady (cold-cache/warmup cost). Distinguishes the two '
-                'separate costs of a Spot eviction. Appears only once evictions have occurred.'))
+        evs = []   # (start_h, end_h, seg, downtime_h, recovery_min)
+        for i in range(1, len(rows)):
+            if secs[i] - secs[i - 1] > GAP_SEC:
+                seg = resume[i]; recov = float('nan')
+                for j in range(i, len(rows)):
+                    if resume[j] != seg:
+                        break
+                    v = num(rows[j], 'throughput_M_s')
+                    if v == v and v >= thr:
+                        recov = (secs[j] - secs[i]) / 60.0; break
+                evs.append((hrs[i - 1], hrs[i], seg, hrs[i] - hrs[i - 1], recov))
+        figr, axr = plt.subplots(figsize=(13, max(2.6, 0.8 * len(evs) + 1.8)))
+        for idx, (a, b, seg, dh, rc) in enumerate(evs):
+            axr.barh(idx, b - a, left=a, height=0.5, color='tab:gray',
+                     label='VM off (downtime)' if idx == 0 else '_nolegend_')
+            if rc == rc and rc > 0:                          # visible warmup, if any
+                axr.barh(idx, rc / 60.0, left=b, height=0.5, color='tab:orange',
+                         label='throughput recovery' if idx == 0 else '_nolegend_')
+            axr.plot(b, idx, 'o', color='tab:orange', ms=7, zorder=3,
+                     label='resume (→full speed)' if idx == 0 else '_nolegend_')
+            rec_s = 'instant' if (rc == rc and rc == 0) else (f'{rc:.0f}m' if rc == rc else 'n/a')
+            axr.text(b + 0.4, idx, f'{dh:.1f}h off → recovered {rec_s}', va='center', fontsize=9)
+        axr.set_yticks(range(len(evs))); axr.set_yticklabels([f'eviction {k+1} (r{e[2]})' for k, e in enumerate(evs)])
+        axr.set_xlabel('elapsed hours since launch'); axr.set_xlim(0, hrs[-1] * 1.15)
+        axr.invert_yaxis(); axr.grid(alpha=0.3, axis='x')
+        axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span '
+                      f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)', fontsize=11)
+        axr.legend(loc='lower right', fontsize=9)
+        figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140, bbox_inches='tight'); plt.close(figr)
+        manifest.append(('eviction_recovery.png', 'Eviction timeline',
+            'One horizontal bar per Spot eviction, positioned at its real time on the elapsed-hours axis and '
+            'spanning the VM-off downtime; the orange dot marks resume and the label gives the downtime + the '
+            'minutes to recover to ≥95% of steady throughput ("instant" = recovered on the first sample). '
+            'Appears only once evictions have occurred.'))
 
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
