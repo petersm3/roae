@@ -480,6 +480,25 @@ def plot_telemetry(csv_path, outdir='.'):
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
 
+    # Hardware/context for subtitles — from an optional sidecar telemetry_meta.txt (key=value, next to
+    # the CSV), overridable by VIZ_* env vars, falling back to CSV-derived host/device. Lets the campaign
+    # explain WHY load≈vCPU-count, why iowait is low (fast SSD), and the CPU-clock regime — without
+    # hardcoding hardware into a generic tool. Keys: vm, disk, cpu.
+    _meta = {}
+    _mp = os.path.join(os.path.dirname(os.path.abspath(csv_path)), 'telemetry_meta.txt')
+    if os.path.exists(_mp):
+        for _ln in open(_mp):
+            if '=' in _ln and not _ln.lstrip().startswith('#'):
+                _k, _v = _ln.split('=', 1); _meta[_k.strip()] = _v.strip()
+    def _m(k): return os.environ.get('VIZ_' + k.upper()) or _meta.get(k, '')
+    last_dev = rows[-1].get('prem_dev', '') if rows else ''
+    VM = _m('vm') or f'host {host0}'
+    DISK = _m('disk') or (f'dev {last_dev}' if last_dev else '')
+    CPU = _m('cpu')
+    sub_io  = ' · '.join(x for x in [VM, (f'writes → {DISK}' if DISK else '')] if x)   # load≈vCPU; iowait↔disk
+    sub_cpu = ' · '.join(x for x in [VM, (f'CPU {CPU}' if CPU else '')] if x)           # informs CPU-freq panel
+    sub_vm  = VM
+
     # Downtime gaps: consecutive samples separated by >> the 5-min sample cadence mean the VM was
     # OFF (Spot eviction / deallocation) — there is NO data in that interval. We must NOT connect a
     # straight line across it. Rate/activity metrics are drawn dropping to 0 (no work happened);
@@ -562,7 +581,7 @@ def plot_telemetry(csv_path, outdir='.'):
 
     manifest = []  # (filename, title, description) for index.html
 
-    def timecourse(fname, title, desc, panels):
+    def timecourse(fname, title, desc, panels, subtitle=''):
         n = len(panels)
         fig, axes = plt.subplots(n, 1, figsize=(13, 2.5 * n), sharex=True)
         if n == 1: axes = [axes]
@@ -581,7 +600,8 @@ def plot_telemetry(csv_path, outdir='.'):
             if len(keys) > 1 or refs:
                 ax.legend(loc='upper left', fontsize=8)
         axes[-1].set_xlabel('elapsed hours since launch')
-        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples', fontsize=11, pad=26)
+        _ttl = f'{title} — {host0} — {len(rows)} samples' + (f'\n{subtitle}' if subtitle else '')
+        axes[0].set_title(_ttl, fontsize=11, pad=(42 if subtitle else 26))
         eviction_key(axes[0])                                # coloured-shape key in the title area
         fig.savefig(os.path.join(outdir, fname), dpi=140, bbox_inches='tight'); plt.close(fig)
         manifest.append((fname, title, desc))
@@ -597,7 +617,8 @@ def plot_telemetry(csv_path, outdir='.'):
             [(TOTAL, f'target {TOTAL:,}')]),
          (('pct_complete',), 'Progress (% target)', ('pct',), [(100, 'target 100%')]),
          (('compute_T',), 'compute-T (×10¹²)', ('compute_T',),
-            [(target_T, f'target {target_T:,.0f}T')] if target_T else [])])
+            [(target_T, f'target {target_T:,.0f}T')] if target_T else [])],
+        subtitle=sub_cpu)
 
     # (2) disk I/O & system-health time-course (the previously-unplotted columns)
     timecourse('tc_io_system.png', 'Disk I/O & system health',
@@ -609,7 +630,8 @@ def plot_telemetry(csv_path, outdir='.'):
          (('iowait_pct',), 'iowait %', ('iowait',)),
          (('avg_queue',), 'Disk avg queue', ('queue',)),
          (('load1',), 'Load avg (1m)', ('load1',)),
-         (('mem_avail_gb',), 'Mem avail (GB)', ('mem',))])
+         (('mem_avail_gb',), 'Mem avail (GB)', ('mem',))],
+        subtitle=sub_io)
 
     # (3) per-resume whiskers — 5 metrics
     wkeys = [('throughput_M_s', 'Throughput (M/s)'), ('cpu_freq_avg_mhz', 'CPU freq avg (MHz)'),
@@ -626,8 +648,8 @@ def plot_telemetry(csv_path, outdir='.'):
         ax.set_xticks(range(1, len(segs) + 1))
         ax.set_xticklabels([f'r{s}\n(n={c})' for s, c in zip(segs, _cnt)], fontsize=8)
         ax.set_title(ttl, fontsize=10); ax.set_xlabel('resume seg'); ax.grid(alpha=0.3)
-    figw.suptitle(f'Per-resume distributions ({len(segs)} segment(s); each Spot resume = a segment)',
-                  fontsize=11)
+    figw.suptitle(f'Per-resume distributions ({len(segs)} segment(s); each Spot resume = a segment)'
+                  + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
     figw.savefig(os.path.join(outdir, 'per_resume_whiskers.png'), dpi=140, bbox_inches='tight'); plt.close(figw)
     manifest.append(('per_resume_whiskers.png', 'Per-resume distributions',
         'Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume '
@@ -663,7 +685,7 @@ def plot_telemetry(csv_path, outdir='.'):
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
     axe.yaxis.set_major_formatter(YFMT)
     axe.legend(loc='lower right', fontsize=9)
-    axe.set_title(f'ETA projection — {eta_txt}', fontsize=9, pad=22)
+    axe.set_title(f'ETA projection — {eta_txt}' + (f'\n{sub_vm}' if sub_vm else ''), fontsize=9, pad=22)
     eviction_key(axe)                                        # coloured-shape key in the title area
     fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
     manifest.append(('eta_projection.png', 'ETA projection',
@@ -694,7 +716,7 @@ def plot_telemetry(csv_path, outdir='.'):
                           textcoords='offset points', xytext=(12, -4), fontsize=8,
                           arrowprops=dict(arrowstyle='->', lw=0.7, color='0.4'))
     axsc.set_xlabel('CPU freq avg (MHz)'); axsc.set_ylabel('Throughput (M/s)'); axsc.grid(alpha=0.3)
-    axsc.set_title(f'Throughput vs CPU-freq (color = time){corr_txt}', fontsize=11)
+    axsc.set_title(f'Throughput vs CPU-freq (color = time){corr_txt}' + (f'\n{sub_cpu}' if sub_cpu else ''), fontsize=11)
     figs2.savefig(os.path.join(outdir, 'throughput_vs_cpufreq.png'), dpi=140, bbox_inches='tight'); plt.close(figs2)
     manifest.append(('throughput_vs_cpufreq.png', 'Throughput vs CPU-freq',
         'Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how '
@@ -734,7 +756,8 @@ def plot_telemetry(csv_path, outdir='.'):
         axr.set_xlabel('elapsed hours since launch'); axr.set_xlim(0, hrs[-1] * 1.15)
         axr.invert_yaxis(); axr.grid(alpha=0.3, axis='x')
         axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span '
-                      f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)', fontsize=11)
+                      f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
+                      + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
         axr.legend(loc='lower right', fontsize=9)
         POLICY = ('Relaunch policy: M–F 06:00–18:00 PT → defer relaunch to 18:01 PT; '
                   'M–F off-hours + Sat/Sun → 75-min wait between attempts. '
