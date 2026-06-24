@@ -687,7 +687,7 @@ def plot_telemetry(csv_path, outdir='.'):
                     if v == v and v >= thr:
                         recov = (secs[j] - secs[i]) / 60.0; break
                 evs.append((hrs[i - 1], hrs[i], seg, hrs[i] - hrs[i - 1], recov))
-        figr, axr = plt.subplots(figsize=(13, max(2.6, 0.8 * len(evs) + 1.8)))
+        figr, axr = plt.subplots(figsize=(13, max(3.4, 0.8 * len(evs) + 2.6)))
         for idx, (a, b, seg, dh, rc) in enumerate(evs):
             axr.barh(idx, b - a, left=a, height=0.5, color='tab:gray',
                      label='VM off (downtime)' if idx == 0 else '_nolegend_')
@@ -704,12 +704,19 @@ def plot_telemetry(csv_path, outdir='.'):
         axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span '
                       f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)', fontsize=11)
         axr.legend(loc='lower right', fontsize=9)
-        figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140, bbox_inches='tight'); plt.close(figr)
+        POLICY = ('Relaunch policy: M–F 06:00–18:00 PT → defer relaunch to 18:01 PT; '
+                  'M–F off-hours + Sat/Sun → 75-min wait between attempts. '
+                  'So a long weekday-daytime downtime is the deferral by design, not Spot scarcity.')
+        figr.subplots_adjust(bottom=0.30)                    # room for xlabel + policy footnote
+        figr.text(0.5, 0.04, POLICY, ha='center', va='bottom', fontsize=8, color='0.35')
+        figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140); plt.close(figr)
         manifest.append(('eviction_recovery.png', 'Eviction timeline',
             'One horizontal bar per Spot eviction, positioned at its real time on the elapsed-hours axis and '
             'spanning the VM-off downtime; the orange dot marks resume and the label gives the downtime + the '
             'minutes to recover to ≥95% of steady throughput ("instant" = recovered on the first sample). '
-            'Appears only once evictions have occurred.'))
+            'Relaunch policy: M–F 06:00–18:00 PT defers relaunch to 18:01 PT (so weekday-daytime evictions show '
+            'a long downtime by design, not Spot scarcity); M–F off-hours and Sat/Sun use a 75-min wait between '
+            'attempts. Appears only once evictions have occurred.'))
 
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
