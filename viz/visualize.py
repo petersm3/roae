@@ -512,19 +512,45 @@ def plot_telemetry(csv_path, outdir='.'):
             ax.axvspan(a, b, color='0.82', alpha=0.6, zorder=0, label='_nolegend_')
     gap_note = '; grey = VM off (eviction)' if gaps_h else ''
 
+    # Derived reference levels + a thousands-separator y-formatter (commas for big values, keep
+    # small decimals readable).
+    from matplotlib.ticker import FuncFormatter
+    def _yfmt(x, _):
+        return f'{x:,.0f}' if abs(x) >= 100 else f'{x:,.3g}'
+    YFMT = FuncFormatter(_yfmt)
+    TOTAL = 158364                                          # depth-3 cell count (target)
+    _pc = col('pct_complete'); _ct = col('compute_T')
+    _tt = [c / p * 100.0 for c, p in zip(_ct, _pc) if p == p and c == c and p > 0]
+    target_T = float(np.median(_tt)) if _tt else None       # node budget in ×10¹² (≈560 for 560T)
+    _tp = [v for v in col('throughput_M_s') if v == v and v > 0]
+    mean_tp = float(np.mean(_tp)) if _tp else None
+    # active-enum hours = elapsed minus cumulative downtime (so an eviction's flat-hold can't deflate
+    # the rate fit). Built once; used by the ETA projection.
+    _cum = 0.0; active_h = []
+    for i in range(len(hrs)):
+        if i > 0 and (secs[i] - secs[i - 1] > GAP_SEC):
+            _cum += (secs[i] - secs[i - 1]) / 3600.0
+        active_h.append(hrs[i] - _cum)
+    downtime_h = _cum
+
     manifest = []  # (filename, title, description) for index.html
 
     def timecourse(fname, title, desc, panels):
         n = len(panels)
         fig, axes = plt.subplots(n, 1, figsize=(13, 2.5 * n), sharex=True)
         if n == 1: axes = [axes]
-        for ax, (keys, ylabel, labels) in zip(axes, panels):
+        for ax, p in zip(axes, panels):
+            keys, ylabel, labels = p[0], p[1], p[2]
+            refs = p[3] if len(p) > 3 else []   # optional [(value, label), …] dotted reference lines
             shade_gaps(ax)
             for k, lab in zip(keys, labels):
                 X, Y = series(k)
                 ax.plot(X, Y, lw=1.2, label=lab)
-            if len(keys) > 1: ax.legend(loc='upper left', fontsize=8)
+            for rv, rl in refs:
+                if rv is not None: ax.axhline(rv, color='0.45', ls=':', lw=1.0, label=rl)
+            if len(keys) > 1 or refs: ax.legend(loc='upper left', fontsize=8)
             ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
+            ax.yaxis.set_major_formatter(YFMT)
             for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
         axes[-1].set_xlabel('elapsed hours since launch')
         axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — red dashed = eviction/resume{gap_note}',
@@ -536,11 +562,14 @@ def plot_telemetry(csv_path, outdir='.'):
     timecourse('tc_compute.png', 'Compute & progress',
         'Throughput (M nodes/s), CPU freq avg/min, cells scanned + cells-with-solutions, progress '
         '(% of the target node budget), and compute-T (×10¹² nodes) vs elapsed hours.',
-        [(('throughput_M_s',), 'Throughput (M/s)', ('throughput',)),
+        [(('throughput_M_s',), 'Throughput (M/s)', ('throughput',),
+            [(mean_tp, f'mean {mean_tp:,.0f}')] if mean_tp else []),
          (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
-         (('cells_scanned', 'cells_with_solutions'), 'Cells', ('scanned', 'with-solns')),
-         (('pct_complete',), 'Progress (% target)', ('pct',)),
-         (('compute_T',), 'compute-T (×10¹²)', ('compute_T',))])
+         (('cells_scanned', 'cells_with_solutions'), 'Cells', ('scanned', 'with-solns'),
+            [(TOTAL, f'target {TOTAL:,}')]),
+         (('pct_complete',), 'Progress (% target)', ('pct',), [(100, 'target 100%')]),
+         (('compute_T',), 'compute-T (×10¹²)', ('compute_T',),
+            [(target_T, f'target {target_T:,.0f}T')] if target_T else [])])
 
     # (2) disk I/O & system-health time-course (the previously-unplotted columns)
     timecourse('tc_io_system.png', 'Disk I/O & system health',
@@ -565,7 +594,9 @@ def plot_telemetry(csv_path, outdir='.'):
             vals = [num(r, key) for r, rs in zip(rows, resume) if rs == s and num(r, key) == num(r, key)]
             data.append(vals if vals else [float('nan')])
         ax.boxplot(data, showmeans=True)
-        ax.set_xticks(range(1, len(segs) + 1)); ax.set_xticklabels([f'r{s}' for s in segs], fontsize=8)
+        _cnt = [sum(1 for rs in resume if rs == s) for s in segs]
+        ax.set_xticks(range(1, len(segs) + 1))
+        ax.set_xticklabels([f'r{s}\n(n={c})' for s, c in zip(segs, _cnt)], fontsize=8)
         ax.set_title(ttl, fontsize=10); ax.set_xlabel('resume seg'); ax.grid(alpha=0.3)
     figw.suptitle(f'Per-resume distributions ({len(segs)} segment(s); each Spot resume = a segment)',
                   fontsize=11)
@@ -574,10 +605,11 @@ def plot_telemetry(csv_path, outdir='.'):
         'Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume '
         'segment (boot-id keyed; each Spot eviction-resume opens a segment). Reveals warmup/throttle per resume.'))
 
-    # (4) ETA projection: cells_scanned vs time + recent-rate fit -> projected finish
-    TOTAL = 158364
+    # (4) ETA projection: cells_scanned vs time, rate fit over ACTIVE-ENUM hours (downtime excluded)
+    # so an eviction's flat-hold doesn't deflate the rate. Projection drawn from the last sample
+    # forward at the true rate (assuming no further downtime).
     cs = col('cells_scanned')
-    fitpts = [(h, c) for h, c in zip(hrs, cs) if c == c and c > 0]
+    fit = [(a, c) for a, c in zip(active_h, cs) if c == c and c > 0]
     fige, axe = plt.subplots(figsize=(12, 6))
     shade_gaps(axe)
     Xc, Yc = series('cells_scanned')                       # holds flat across downtime (cumulative)
@@ -585,25 +617,29 @@ def plot_telemetry(csv_path, outdir='.'):
     axe.plot(hrs, cs, 'o', ms=3, color='tab:blue')         # markers on real samples only
     axe.axhline(TOTAL, color='gray', ls=':', label=f'target {TOTAL:,}')
     eta_txt = 'insufficient data for ETA'
-    if len(fitpts) >= 2:
-        xs = np.array([p[0] for p in fitpts]); ys = np.array([p[1] for p in fitpts])
-        k = max(2, len(fitpts) // 2)                       # fit recent half = current rate
-        m, b = np.polyfit(xs[-k:], ys[-k:], 1)
+    if len(fit) >= 2:
+        xa = np.array([p[0] for p in fit]); ya = np.array([p[1] for p in fit])
+        k = max(2, len(fit) // 2)                          # fit recent half on ACTIVE hours
+        m, b = np.polyfit(xa[-k:], ya[-k:], 1)             # cells per ACTIVE hour
         if m > 0:
-            eta_h = (TOTAL - b) / m
-            xext = np.linspace(xs[0], max(eta_h, hrs[-1]), 100)
-            axe.plot(xext, m * xext + b, '--', color='tab:green', lw=1.2, label=f'recent rate {m:,.0f} cells/h')
-            axe.plot([eta_h], [TOTAL], '*', color='tab:red', ms=16)
-            rem = eta_h - hrs[-1]
-            eta_dt = t0 + timedelta(hours=eta_h)
-            eta_txt = f'~{rem:.1f}h remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ}'
+            x_last, y_last = hrs[-1], cs[-1]
+            rem = (TOTAL - y_last) / m                      # active hours remaining (≈ wall, continuous from now)
+            x_eta = x_last + rem
+            axe.plot([x_last, x_eta], [y_last, TOTAL], '--', color='tab:green', lw=1.4,
+                     label=f'active rate {m:,.0f} cells/h')
+            axe.plot([x_eta], [TOTAL], '*', color='tab:red', ms=16)
+            eta_dt = t0 + timedelta(hours=x_eta)
+            eta_txt = (f'~{rem:.1f}h active remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ} '
+                       f'· {downtime_h:.1f}h downtime so far (excluded from rate; future evictions push ETA right)')
     for b in bnds: axe.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.5)
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
-    axe.legend(loc='upper left', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{gap_note}', fontsize=11)
+    axe.yaxis.set_major_formatter(YFMT)
+    axe.legend(loc='upper left', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{gap_note}', fontsize=10)
     fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
     manifest.append(('eta_projection.png', 'ETA projection',
-        'Cells scanned vs elapsed hours, with a recent-rate linear fit extrapolated to the 158,364-cell '
-        'target → projected completion (red star). Red dashed = evictions (downtime shifts the ETA right).'))
+        'Cells scanned vs elapsed hours. The rate is fit over ACTIVE-ENUM hours (eviction downtime '
+        'excluded) so a flat-held gap cannot deflate it; the green line projects from the latest sample '
+        'to the 158,364-cell target (red star). Grey = downtime; ETA assumes no further evictions.'))
 
     # (5) throughput vs cpu-freq scatter (color = elapsed time) — throttle impact
     tp = col('throughput_M_s'); cf = col('cpu_freq_avg_mhz')
@@ -611,29 +647,71 @@ def plot_telemetry(csv_path, outdir='.'):
     ys = [t for c, t in zip(cf, tp) if c == c and t == t]
     cz = [h for h, c, t in zip(hrs, cf, tp) if c == c and t == t]
     figs2, axsc = plt.subplots(figsize=(9, 7))
+    corr_txt = ''
     if xs:
         sc = axsc.scatter(xs, ys, c=cz, cmap='viridis', s=22)
         figs2.colorbar(sc, ax=axsc, label='elapsed hours')
+        if len(xs) >= 3:
+            ax_ = np.array(xs); ay_ = np.array(ys)
+            mm, bb = np.polyfit(ax_, ay_, 1)
+            xr = np.array([ax_.min(), ax_.max()])
+            axsc.plot(xr, mm * xr + bb, '--', color='tab:red', lw=1.3,
+                      label=f'fit {mm:.2f} (M/s)/MHz')
+            r = float(np.corrcoef(ax_, ay_)[0, 1]); corr_txt = f' · r={r:.2f}'
+            axsc.legend(loc='lower right', fontsize=9)
+            imin = int(ax_.argmin())                        # lowest cpu-freq = the cold-start sample
+            axsc.annotate('post-resume cold start', (ax_[imin], ay_[imin]),
+                          textcoords='offset points', xytext=(12, -4), fontsize=8,
+                          arrowprops=dict(arrowstyle='->', lw=0.7, color='0.4'))
     axsc.set_xlabel('CPU freq avg (MHz)'); axsc.set_ylabel('Throughput (M/s)'); axsc.grid(alpha=0.3)
-    axsc.set_title('Throughput vs CPU-freq (color = time)', fontsize=11)
+    axsc.set_title(f'Throughput vs CPU-freq (color = time){corr_txt}', fontsize=11)
     figs2.savefig(os.path.join(outdir, 'throughput_vs_cpufreq.png'), dpi=140, bbox_inches='tight'); plt.close(figs2)
     manifest.append(('throughput_vs_cpufreq.png', 'Throughput vs CPU-freq',
         'Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how '
         'host throttling (lower MHz) depresses throughput; clusters reveal per-host/per-resume regimes.'))
 
-    # (6) per-eviction recovery timing (only once evictions have happened)
+    # (6) per-eviction recovery: minutes from resume until throughput returns to ≥95% of steady,
+    # AND the downtime per resume — the two distinct costs of an eviction. Only once evictions exist.
     if bnds:
-        gaps = [(resume[i], (secs[i] - secs[i - 1]) / 60.0)
-                for i in range(1, len(rows)) if resume[i] != resume[i - 1]]
-        figr, axr = plt.subplots(figsize=(10, 5))
-        axr.bar([f'r{r}' for r, _ in gaps], [g for _, g in gaps], color='tab:orange')
-        axr.set_ylabel('sample gap across resume (min)'); axr.set_xlabel('resume segment')
-        axr.set_title('Per-eviction sample-gap (≈ downtime + cold-cache recovery; cadence-floored)', fontsize=11)
-        axr.grid(alpha=0.3, axis='y')
-        figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140, bbox_inches='tight'); plt.close(figr)
-        manifest.append(('eviction_recovery.png', 'Eviction recovery',
-            'Sample-gap across each resume boundary (≈ deallocate→resume downtime + cold-cache recovery, '
-            'floored by the 5-min cadence). Appears only once evictions have occurred.'))
+        steady = float(np.median(_tp)) if _tp else float('nan')
+        thr = 0.95 * steady
+        rec_labels, rec_recov, rec_down = [], [], []
+        for s in segs:
+            if s == segs[0]:
+                continue                                    # r0 = initial launch, not a resume
+            idxs = [i for i in range(len(rows)) if resume[i] == s]
+            if not idxs:
+                continue
+            seg_start = secs[idxs[0]]
+            recov = float('nan')
+            for i in idxs:
+                v = num(rows[i], 'throughput_M_s')
+                if v == v and v >= thr:
+                    recov = (secs[i] - seg_start) / 60.0; break
+            down = (secs[idxs[0]] - secs[idxs[0] - 1]) / 60.0   # deallocate→resume gap
+            rec_labels.append(f'r{s}'); rec_recov.append(recov); rec_down.append(down)
+        if rec_labels:
+            import numpy as _np
+            x = _np.arange(len(rec_labels)); w = 0.38
+            figr, axr = plt.subplots(figsize=(max(5, 1.8 * len(rec_labels) + 3), 5))
+            b1 = axr.bar(x - w / 2, rec_down, w, color='tab:gray', label='downtime (deallocate→resume)')
+            b2 = axr.bar(x + w / 2, [0 if v != v else v for v in rec_recov], w,
+                         color='tab:orange', label='throughput recovery (→95% steady)')
+            for xi, v in zip(x, rec_down):
+                axr.text(xi - w / 2, v, f'{v:.0f}m', ha='center', va='bottom', fontsize=8)
+            for xi, v in zip(x, rec_recov):
+                axr.text(xi + w / 2, 0 if v != v else v, 'n/a' if v != v else f'{v:.0f}m',
+                         ha='center', va='bottom', fontsize=8)
+            axr.set_xticks(x); axr.set_xticklabels(rec_labels)
+            axr.set_ylabel('minutes'); axr.set_xlabel('resume segment')
+            axr.set_title(f'Per-eviction cost — downtime vs throughput-recovery '
+                          f'(steady≈{steady:,.0f} M/s, 95%≈{thr:,.0f})', fontsize=11)
+            axr.legend(fontsize=9); axr.grid(alpha=0.3, axis='y')
+            figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140, bbox_inches='tight'); plt.close(figr)
+            manifest.append(('eviction_recovery.png', 'Eviction cost',
+                'Per resume: grey = deallocate→resume downtime (wall lost); orange = minutes after resume '
+                'until throughput returns to ≥95% of steady (cold-cache/warmup cost). Distinguishes the two '
+                'separate costs of a Spot eviction. Appears only once evictions have occurred.'))
 
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
