@@ -493,6 +493,22 @@ def plot_telemetry(csv_path, outdir='.'):
     for i in range(len(rows)):
         if i == 0 or resume[i] != resume[i - 1]:
             rows[i]['avg_queue'] = 'nan'
+
+    # Reconstruct CUMULATIVE compute-T across per-resume heartbeat resets. solve.c's global node
+    # counter restarts in each resumed process, so the parsed compute_T collapses to ~0 after a resume
+    # (it then counts only THIS session's nodes). Detect each large drop (>1e12 nodes = a reset) and
+    # carry the pre-reset value forward as an offset, so the panel shows true cumulative progress —
+    # matching cells_scanned (which is filesystem-cumulative and unaffected). pct_complete is recomputed
+    # from the cumulative. [Found 2026-06-24; root-cause carry-forward fix belongs in the sampler.]
+    _off = 0.0; _prev_raw = None
+    for i in range(len(rows)):
+        _c = num(rows[i], 'compute_T')
+        if _c != _c:
+            continue
+        if _prev_raw is not None and _c < _prev_raw - 1.0:   # heartbeat reset (dropped >1T nodes)
+            _off += _prev_raw
+        _prev_raw = _c
+        rows[i]['compute_T'] = repr(_off + _c)               # cumulative; pct recomputed after target_T
     segs = sorted(set(resume))
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
@@ -555,9 +571,20 @@ def plot_telemetry(csv_path, outdir='.'):
         return f'{x:,.0f}' if abs(x) >= 100 else f'{x:,.3g}'
     YFMT = FuncFormatter(_yfmt)
     TOTAL = 158364                                          # depth-3 cell count (target)
-    _pc = col('pct_complete'); _ct = col('compute_T')
-    _tt = [c / p * 100.0 for c, p in zip(_ct, _pc) if p == p and c == c and p > 0]
+    # Derive the node-budget target from the FIRST segment only (compute_T there is unaffected by the
+    # cumulative reconstruction / heartbeat resets, so compute_T/pct is a clean ratio ≈ target_T).
+    _seg0 = resume[0] if resume else 0
+    _tt = [num(r, 'compute_T') / num(r, 'pct_complete') * 100.0
+           for r, rs in zip(rows, resume)
+           if rs == _seg0 and num(r, 'pct_complete') == num(r, 'pct_complete') and num(r, 'pct_complete') > 0
+           and num(r, 'compute_T') == num(r, 'compute_T')]
     target_T = float(np.median(_tt)) if _tt else None       # node budget in ×10¹² (≈560 for 560T)
+    # Now recompute pct_complete from the reconstructed CUMULATIVE compute_T (was heartbeat-reset).
+    if target_T:
+        for r in rows:
+            _c = num(r, 'compute_T')
+            if _c == _c:
+                r['pct_complete'] = repr(_c / target_T * 100.0)
     _tp = [v for v in col('throughput_M_s') if v == v and v > 0]
     mean_tp = float(np.mean(_tp)) if _tp else None
     # active-enum hours = elapsed minus cumulative downtime (so an eviction's flat-hold can't deflate
