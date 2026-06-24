@@ -613,13 +613,13 @@ def plot_telemetry(csv_path, outdir='.'):
         'branches are pruned and valid orderings are rare). CPU freq avg/min across cores. '
         'Cells: a "cell" is one depth-3 sub-branch — the King Wen search space split by fixing the '
         'first three (pair, orientation) choices (pair1,orient1,pair2,orient2,pair3,orient3); there '
-        'are 158,364 such cells, each enumerated independently, and "with-solns" counts those that '
+        'are 158,364 such cells, each enumerated independently, and "with-solutions" counts those that '
         'yielded ≥1 valid ordering (most yield none). Progress (% of the target node budget) and '
         'compute-T (×10¹² nodes cumulative) vs elapsed hours.',
         [(('throughput_M_s',), 'Throughput (M nodes/s)', ('throughput',),
             [(mean_tp, f'mean {mean_tp:,.0f}')] if mean_tp else []),
          (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg', 'min')),
-         (('cells_scanned', 'cells_with_solutions'), 'Cells (depth-3 sub-branches)', ('scanned', 'with-solns'),
+         (('cells_scanned', 'cells_with_solutions'), 'Cells (depth-3 sub-branches)', ('scanned', 'with-solutions'),
             [(TOTAL, f'target {TOTAL:,}')]),
          (('pct_complete',), 'Progress (% target)', ('pct',), [(100, 'target 100%')]),
          (('compute_T',), 'compute-T (×10¹²)', ('compute_T',),
