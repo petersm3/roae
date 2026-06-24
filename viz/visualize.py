@@ -533,6 +533,19 @@ def plot_telemetry(csv_path, outdir='.'):
         active_h.append(hrs[i] - _cum)
     downtime_h = _cum
 
+    def mark_evictions(ax, label=False):
+        """Color-code each downtime box's edges: red-dashed + octagon (🛑 stop) at the eviction,
+        green-dashed + dot (go) at the resume. `label` adds the legend entries (once per figure)."""
+        top = ax.get_ylim()[1]
+        for j, (a, b) in enumerate(gaps_h):
+            ax.axvline(a, color='tab:red', ls='--', lw=0.8, alpha=0.6)
+            ax.axvline(b, color='tab:green', ls='--', lw=0.8, alpha=0.6)
+            if label:
+                ax.plot(a, top, marker='8', color='tab:red', ms=10, ls='none', clip_on=False,
+                        zorder=5, label='eviction' if j == 0 else '_nolegend_')
+                ax.plot(b, top, marker='o', color='tab:green', ms=7, ls='none', clip_on=False,
+                        zorder=5, label='resume' if j == 0 else '_nolegend_')
+
     manifest = []  # (filename, title, description) for index.html
 
     def timecourse(fname, title, desc, panels):
@@ -548,13 +561,14 @@ def plot_telemetry(csv_path, outdir='.'):
                 ax.plot(X, Y, lw=1.2, label=lab)
             for rv, rl in refs:
                 if rv is not None: ax.axhline(rv, color='0.45', ls=':', lw=1.0, label=rl)
-            if len(keys) > 1 or refs: ax.legend(loc='upper left', fontsize=8)
             ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
             ax.yaxis.set_major_formatter(YFMT)
-            for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
+            mark_evictions(ax, label=(ax is axes[0]))        # red/green band edges; legend on top panel
+            if len(keys) > 1 or refs or (ax is axes[0] and gaps_h):
+                ax.legend(loc='upper left', fontsize=8)
         axes[-1].set_xlabel('elapsed hours since launch')
-        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — red dashed = eviction/resume{gap_note}',
-                          fontsize=11)
+        axes[0].set_title(f'{title} — {host0} — {len(rows)} samples — '
+                          f'red dashed = eviction, green dashed = resume{gap_note}', fontsize=11)
         fig.savefig(os.path.join(outdir, fname), dpi=140, bbox_inches='tight'); plt.close(fig)
         manifest.append((fname, title, desc))
 
@@ -631,10 +645,10 @@ def plot_telemetry(csv_path, outdir='.'):
             eta_dt = t0 + timedelta(hours=x_eta)
             eta_txt = (f'~{rem:.1f}h active remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ} '
                        f'· {downtime_h:.1f}h downtime so far (excluded from rate; future evictions push ETA right)')
-    for b in bnds: axe.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.5)
+    mark_evictions(axe, label=True)                          # red/green band edges + octagon/dot
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
     axe.yaxis.set_major_formatter(YFMT)
-    axe.legend(loc='upper left', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{gap_note}', fontsize=10)
+    axe.legend(loc='lower right', fontsize=9); axe.set_title(f'ETA projection — {eta_txt}{gap_note}', fontsize=10)
     fige.savefig(os.path.join(outdir, 'eta_projection.png'), dpi=140, bbox_inches='tight'); plt.close(fige)
     manifest.append(('eta_projection.png', 'ETA projection',
         'Cells scanned vs elapsed hours. The rate is fit over ACTIVE-ENUM hours (eviction downtime '
