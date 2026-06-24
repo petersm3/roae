@@ -487,6 +487,12 @@ def plot_telemetry(csv_path, outdir='.'):
     hrs = [s / 3600.0 for s in secs]
     resume = [int(num(r, 'resume_seq')) if num(r, 'resume_seq') == num(r, 'resume_seq') else 0 for r in rows]
     bnds = [hrs[i] for i in range(1, len(rows)) if resume[i] != resume[i - 1]]  # eviction/resume points
+    # Display guard: the FIRST sample after each (re)start (row 0 + each resume boundary) had its
+    # diskstats delta measured over only the ~5s prime→emit window, so avg_queue is a spurious spike
+    # (e.g. ~662 vs ~0 everywhere else). NaN it for display. (Sampler now skips this row going forward.)
+    for i in range(len(rows)):
+        if i == 0 or resume[i] != resume[i - 1]:
+            rows[i]['avg_queue'] = 'nan'
     segs = sorted(set(resume))
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
