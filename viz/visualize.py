@@ -480,6 +480,36 @@ def plot_telemetry(csv_path, outdir='.'):
     os.makedirs(outdir, exist_ok=True)
     host0 = rows[0].get('host', '?')
 
+    # Downtime gaps: consecutive samples separated by >> the 5-min sample cadence mean the VM was
+    # OFF (Spot eviction / deallocation) — there is NO data in that interval. We must NOT connect a
+    # straight line across it. Rate/activity metrics are drawn dropping to 0 (no work happened);
+    # cumulative/level metrics hold their last value flat (progress paused, not lost). The interval
+    # is shaded. Gap detection is purely time-based so it catches downtime even without a boot flip.
+    GAP_SEC = 900.0   # 3× the 300s cadence
+    gaps_h = [(secs[i - 1] / 3600.0, secs[i] / 3600.0)
+              for i in range(1, len(secs)) if secs[i] - secs[i - 1] > GAP_SEC]
+    RATE_KEYS = {'throughput_M_s', 'cpu_freq_avg_mhz', 'cpu_freq_min_mhz', 'iops_read', 'iops_write',
+                 'rd_mbps', 'wr_mbps', 'disk_util_pct', 'disk_util_peak_pct', 'iowait_pct',
+                 'avg_queue', 'load1'}
+
+    def series(k):
+        """(X, Y) in hours with downtime rendered honestly: rate metrics drop to 0 across each gap,
+        cumulative/level metrics hold the last pre-gap value flat. No straight interpolation."""
+        y = col(k); rate = k in RATE_KEYS; X = []; Y = []
+        eps = 1e-6
+        for i in range(len(rows)):
+            if i > 0 and (secs[i] - secs[i - 1] > GAP_SEC):
+                fill = 0.0 if rate else y[i - 1]
+                X.append(hrs[i - 1] + eps); Y.append(fill)   # drop/hold at gap start
+                X.append(hrs[i] - eps);     Y.append(fill)   # …across the downtime…
+            X.append(hrs[i]); Y.append(y[i])                 # real sample
+        return X, Y
+
+    def shade_gaps(ax):
+        for j, (a, b) in enumerate(gaps_h):
+            ax.axvspan(a, b, color='0.82', alpha=0.6, zorder=0,
+                       label='_nolegend_' if j else 'VM off (eviction)')
+
     manifest = []  # (filename, title, description) for index.html
 
     def timecourse(fname, title, desc, panels):
@@ -487,8 +517,10 @@ def plot_telemetry(csv_path, outdir='.'):
         fig, axes = plt.subplots(n, 1, figsize=(13, 2.5 * n), sharex=True)
         if n == 1: axes = [axes]
         for ax, (keys, ylabel, labels) in zip(axes, panels):
+            shade_gaps(ax)
             for k, lab in zip(keys, labels):
-                ax.plot(hrs, col(k), lw=1.2, label=lab)
+                X, Y = series(k)
+                ax.plot(X, Y, lw=1.2, label=lab)
             if len(keys) > 1: ax.legend(loc='upper left', fontsize=8)
             ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
             for b in bnds: ax.axvline(b, color='tab:red', ls='--', lw=0.8, alpha=0.6)
@@ -545,7 +577,10 @@ def plot_telemetry(csv_path, outdir='.'):
     cs = col('cells_scanned')
     fitpts = [(h, c) for h, c in zip(hrs, cs) if c == c and c > 0]
     fige, axe = plt.subplots(figsize=(12, 6))
-    axe.plot(hrs, cs, 'o-', ms=3, lw=1, color='tab:blue', label='cells scanned')
+    shade_gaps(axe)
+    Xc, Yc = series('cells_scanned')                       # holds flat across downtime (cumulative)
+    axe.plot(Xc, Yc, '-', lw=1, color='tab:blue', label='cells scanned')
+    axe.plot(hrs, cs, 'o', ms=3, color='tab:blue')         # markers on real samples only
     axe.axhline(TOTAL, color='gray', ls=':', label=f'target {TOTAL:,}')
     eta_txt = 'insufficient data for ETA'
     if len(fitpts) >= 2:
