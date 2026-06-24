@@ -482,6 +482,12 @@ def plot_telemetry(csv_path, outdir='.'):
             pass
 
     def col(k): return [num(r, k) for r in rows]
+    # Drop leading pre-heartbeat warm-up rows (the first telemetry tick fires the instant enum launches,
+    # before solve.c's first "…M/s" heartbeat, so throughput/compute_T/pct are NA → the rate/progress
+    # lines would start a sample to the right, looking like a gap). Trim them so every line starts flush;
+    # this matches the sampler's first-emit skip used by later campaigns. cells/cpu-freq are unaffected.
+    while len(rows) > 1 and num(rows[0], 'throughput_M_s') != num(rows[0], 'throughput_M_s'):
+        rows.pop(0)
     t0 = tparse(rows[0]['utc'])
     secs = [(tparse(r['utc']) - t0).total_seconds() for r in rows]
     hrs = [s / 3600.0 for s in secs]
