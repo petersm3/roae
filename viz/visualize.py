@@ -850,7 +850,7 @@ def plot_telemetry(csv_path, outdir='.'):
         axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span '
                       f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
                       + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
-        axr.legend(loc='lower right', fontsize=9)
+        axr.legend(loc='upper left', fontsize=9)
         POLICY = ('Relaunch policy: M–F 06:00–18:00 PT → defer relaunch to 18:01 PT; '
                   'M–F off-hours + Sat/Sun → 75-min wait between attempts. '
                   'So a long weekday-daytime downtime is the deferral by design, not Spot scarcity.')
