@@ -700,8 +700,10 @@ def plot_telemetry(csv_path, outdir='.'):
             [(mean_tp, f'mean {mean_tp:,.0f}')] if mean_tp else []),
          (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg (all cores)', 'min core'), [],
             'avg = mean across all 128 cores.  "min core" = the single slowest core (raw).\n'
-            'Brief dips to ~2.6 GHz base clock = a core momentarily idle between cells (DVFS), NOT\n'
-            'throttling — throughput stays flat through them.  Campaigns from 2026-06-24 report the\n'
+            'Brief dips to ~2.6 GHz base clock = a core momentarily idle at a checkpoint/shard\n'
+            'fsync or sub-branch boundary (DVFS), NOT throttling — throughput stays flat through\n'
+            'them.  Each point is one instantaneous reading, so a coasting core is only caught\n'
+            'intermittently (~1 sample in 9 here).  Campaigns from 2026-06-24 report the\n'
             '10th-percentile core instead, excluding such idle cores (a host-wide throttle still\n'
             'shows in p10; momentary single-core idles no longer do).'),
          (('cells_scanned', 'cells_with_solutions'), 'Cells (depth-3 sub-branches)', ('scanned', 'with-solutions'),
@@ -850,7 +852,7 @@ def plot_telemetry(csv_path, outdir='.'):
         axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span '
                       f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
                       + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
-        axr.legend(loc='upper left', fontsize=9)
+        axr.legend(loc='upper right', fontsize=9)
         POLICY = ('Relaunch policy: M–F 06:00–18:00 PT → defer relaunch to 18:01 PT; '
                   'M–F off-hours + Sat/Sun → 75-min wait between attempts. '
                   'So a long weekday-daytime downtime is the deferral by design, not Spot scarcity.')
