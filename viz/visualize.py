@@ -896,8 +896,15 @@ def plot_telemetry(csv_path, outdir='.'):
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
     gen = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Descriptive alt text per figure = title + first caption sentence, with any inline HTML
+    # (e.g. the green ▶ span) stripped so it doesn't leak into the alt attribute.
+    import re as _re
+    def _alt(t, d):
+        first = _re.split(r'(?<=\.)\s', d, 1)[0]
+        first = _re.sub(r'<[^>]+>', '', first).strip()
+        return f'{t} — {first}' if first else t
     cards = "\n".join(
-        f'<section><h2>{t}</h2><p>{d}</p><img src="{f}" alt="{t}"></section>'
+        f'<section><h2>{t}</h2><p>{d}</p><img src="{f}" alt="{_alt(t, d)}"></section>'
         for f, t, d in manifest)
     html = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>560T re-run telemetry — {host0}</title><style>

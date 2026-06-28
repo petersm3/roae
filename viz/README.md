@@ -57,7 +57,7 @@ so you can find its location on each plot.
 
 ### 1. `viz_edit_distance.png/.svg` — colored by edit distance to King Wen
 
-![Edit-distance plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
+![2-D PCA scatter (PC1 vs PC2) of the 560T d3 canonical solution space, each dot a valid King Wen ordering colored by edit distance to King Wen (0 = KW itself, up to 32 positions differing); King Wen sits in a dense, well-populated central region rather than as an isolated outlier.](../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
 
 **What's colored:** each solution's "edit distance" to King Wen,
 defined as the number of positions where this solution's pair
@@ -117,7 +117,7 @@ position differs).
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
-![Complement-distance plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by total complement distance (the C3 value, summed |pos[v]−pos[v^63]|, ranging 424–776 where C3 caps at King Wen's 776); the color distribution shows how selectively C3 filters the pair-constrained space.](../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
 
 **What's colored:** each solution's total complement distance
 (the sum of `|pos[v] - pos[v^63]|` across all 64 hexagrams).
@@ -150,7 +150,7 @@ Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2
 
-![Position-2 cluster plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by which pair index (0–31) occupies sequence position 2 — the first variable position / first-level branch; reveals whether the position-2 choice partitions the space into visually distinct clusters or interleaves.](../runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
 
 **What's colored:** the first-level branch identity. Position 2 is
 the first "variable" position in the sequence (position 1 is locked
@@ -180,7 +180,7 @@ at position 2.
 
 ### 4. `viz_adjacency.png/.svg` — colored by C6/C7 adjacency satisfaction
 
-![Adjacency plot for 560T d3 canonical](../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored 0/1/2 by how many of the two mandatory King Wen adjacency constraints (C6 at positions 25–26, C7 at positions 27–28) the solution satisfies; 2-colored points mark the structural King Wen neighborhood.](../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
 
 **What's colored:** how many of the two "mandatory" KW-adjacency
 constraints (C6 at positions 25-26, C7 at positions 27-28) this
@@ -212,7 +212,7 @@ solution satisfies. Values: 0 (neither), 1 (one), or 2 (both).
 
 ## Growth-curve plot (`growth_curve.py`)
 
-![Solution-count vs enumeration-budget growth curve](../runs/20260608_560T_9a968fa2/viz/viz_growth_curve.png)
+![Log-log growth curve of canonical solution count versus per-cell enumeration node budget across the 11.2T, 100T and 560T canonicals, with a sublinear power-law fit (exponent α ≈ 0.67) and a projected — explicitly NOT measured — 1120T point; ×50 budget yields only ×13.86 records.](../runs/20260608_560T_9a968fa2/viz/viz_growth_curve.png)
 
 A separate, non-PCA plot: **canonical solution count vs per-cell enumeration node budget**, log-log,
 across the three canonical depths (11.2T → 100T → 560T), with a power-law fit and the projected
