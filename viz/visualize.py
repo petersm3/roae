@@ -890,7 +890,7 @@ def plot_telemetry(csv_path, outdir='.'):
             'One horizontal bar per Spot eviction at its real time on the elapsed-hours axis, spanning the VM-off '
             'downtime and COLORED BY RELAUNCH-POLICY REGIME: purple = weekday-daytime eviction deferred to 18:01 PT '
             '(long by design), cyan = off-hours/weekend 75-min retry (short). Light-blue background marks weekends (PT). '
-            'Green ">" = resume; label gives downtime + minutes to recover to ≥95% steady throughput ("instant" = first '
+            'A green <span style="color:#2ca02c">&#9654;</span> marks resume; label gives downtime + minutes to recover to ≥95% steady throughput ("instant" = first '
             'sample). Directly answers why some VM-off blocks are ~10h and others ~75min. Appears once evictions occur.'))
 
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
