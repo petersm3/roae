@@ -834,9 +834,36 @@ def plot_telemetry(csv_path, outdir='.'):
                         recov = (secs[j] - secs[i]) / 60.0; break
                 evs.append((hrs[i - 1], hrs[i], seg, hrs[i] - hrs[i - 1], recov))
         figr, axr = plt.subplots(figsize=(13, max(3.4, 0.8 * len(evs) + 2.6)))
+        # Classify each downtime by the relaunch-POLICY REGIME it fell under, from the eviction's
+        # wall-clock in Pacific (the policy is defined in PT; PT = UTC-7 / PDT for this campaign). This is
+        # what explains the bar LENGTHS — the operator's first question: weekday-daytime evictions are
+        # DEFERRED to 18:01 PT (long bar, by design), off-hours/weekend ones use a 75-min retry (sliver).
+        PT = timezone(timedelta(hours=-7))
+        def _regime(a_h):
+            d = (t0 + timedelta(hours=a_h)).astimezone(PT)
+            if d.weekday() <= 4 and 6 <= d.hour < 18:        # Mon–Fri 06:00–18:00 PT
+                return ('defer', 'VM off — weekday-daytime → deferred to 18:01 PT', 'weekday-defer', 'tab:purple')
+            return ('retry', 'VM off — off-hours/weekend → 75-min retry', 'off-hrs/wkend 75-min', 'tab:cyan')
+        # Light weekend (PT Sat/Sun) backdrop so each eviction reads against the calendar.
+        _xmax = hrs[-1] * 1.30
+        _day = t0.astimezone(PT).replace(hour=0, minute=0, second=0, microsecond=0)
+        _wk_done = False
+        while True:
+            _hs = (_day.astimezone(timezone.utc) - t0).total_seconds() / 3600.0
+            if _hs > _xmax:
+                break
+            if _day.weekday() >= 5:                          # Sat(5)/Sun(6) PT
+                _a = max(0.0, _hs); _b = min(_xmax, _hs + 24.0)
+                if _b > _a:
+                    axr.axvspan(_a, _b, color='tab:blue', alpha=0.06, zorder=0,
+                                label=('weekend (PT)' if not _wk_done else '_nolegend_'))
+                    _wk_done = True
+            _day = _day + timedelta(days=1)
+        _seen = set()
         for idx, (a, b, seg, dh, rc) in enumerate(evs):
-            axr.barh(idx, b - a, left=a, height=0.5, color='0.82', alpha=0.6,
-                     label='VM off (downtime)' if idx == 0 else '_nolegend_')
+            rk, rleg, rtag, rcol = _regime(a)
+            axr.barh(idx, b - a, left=a, height=0.5, color=rcol, alpha=0.5,
+                     label=(rleg if rk not in _seen else '_nolegend_')); _seen.add(rk)
             if rc == rc and rc > 0:                          # visible warmup, if any
                 axr.barh(idx, rc / 60.0, left=b, height=0.5, color='tab:orange',
                          label='throughput recovery' if idx == 0 else '_nolegend_')
@@ -845,27 +872,26 @@ def plot_telemetry(csv_path, outdir='.'):
             axr.plot(b, idx, marker='>', color='tab:green', ms=10, ls='none', zorder=3,
                      label='resume (→full speed)' if idx == 0 else '_nolegend_')
             rec_s = 'instant' if (rc == rc and rc == 0) else (f'{rc:.0f}m' if rc == rc else 'n/a')
-            axr.text(b + 0.4, idx, f'{dh:.1f}h off → recovered {rec_s}', va='center', fontsize=9)
+            axr.text(b + 0.4, idx, f'{dh:.1f}h off · {rtag} → recovered {rec_s}', va='center', fontsize=9)
         axr.set_yticks(range(len(evs))); axr.set_yticklabels([f'eviction {k+1} (r{e[2]})' for k, e in enumerate(evs)])
-        axr.set_xlabel('elapsed hours since launch'); axr.set_xlim(0, hrs[-1] * 1.15)
+        axr.set_xlabel('elapsed hours since launch'); axr.set_xlim(0, _xmax)
         axr.invert_yaxis(); axr.grid(alpha=0.3, axis='x')
-        axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span '
-                      f'(steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
+        axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span, COLORED BY RELAUNCH-POLICY '
+                      f'REGIME (steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
                       + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
-        axr.legend(loc='upper right', fontsize=9)
-        POLICY = ('Relaunch policy: M–F 06:00–18:00 PT → defer relaunch to 18:01 PT; '
-                  'M–F off-hours + Sat/Sun → 75-min wait between attempts. '
-                  'So a long weekday-daytime downtime is the deferral by design, not Spot scarcity.')
+        axr.legend(loc='upper right', fontsize=8, ncol=2)
+        POLICY = ('Bar length = the relaunch policy, NOT Spot scarcity: M–F 06:00–18:00 PT eviction → defer relaunch '
+                  'to 18:01 PT (long purple bar); M–F off-hours + Sat/Sun → 75-min retry (short cyan bar). '
+                  'Light-blue background = weekend (PT).')
         figr.subplots_adjust(bottom=0.30)                    # room for xlabel + policy footnote
         figr.text(0.5, 0.04, POLICY, ha='center', va='bottom', fontsize=8, color='0.35')
         figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140); plt.close(figr)
         manifest.append(('eviction_recovery.png', 'Eviction timeline',
-            'One horizontal bar per Spot eviction, positioned at its real time on the elapsed-hours axis and '
-            'spanning the VM-off downtime; the orange dot marks resume and the label gives the downtime + the '
-            'minutes to recover to ≥95% of steady throughput ("instant" = recovered on the first sample). '
-            'Relaunch policy: M–F 06:00–18:00 PT defers relaunch to 18:01 PT (so weekday-daytime evictions show '
-            'a long downtime by design, not Spot scarcity); M–F off-hours and Sat/Sun use a 75-min wait between '
-            'attempts. Appears only once evictions have occurred.'))
+            'One horizontal bar per Spot eviction at its real time on the elapsed-hours axis, spanning the VM-off '
+            'downtime and COLORED BY RELAUNCH-POLICY REGIME: purple = weekday-daytime eviction deferred to 18:01 PT '
+            '(long by design), cyan = off-hours/weekend 75-min retry (short). Light-blue background marks weekends (PT). '
+            'Green ">" = resume; label gives downtime + minutes to recover to ≥95% steady throughput ("instant" = first '
+            'sample). Directly answers why some VM-off blocks are ~10h and others ~75min. Appears once evictions occur.'))
 
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
