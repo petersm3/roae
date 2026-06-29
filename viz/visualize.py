@@ -654,6 +654,41 @@ def plot_telemetry(csv_path, outdir='.'):
         if prev is not None:
             ax.add_artist(prev)               # re-attach the data-series legend
 
+    # --- Completion detection: the moment all TOTAL cells were scanned (enumeration finished).
+    # Primary signal = first sample whose cells_scanned reaches the full cell target. The pipeline
+    # may also pass VIZ_COMPLETE_HR (elapsed hours) at archive time if the sampler was killed before
+    # capturing the final sample. complete_hr stays None for an in-flight run → markers are no-ops.
+    _csa = col('cells_scanned')
+    _ci = next((i for i, c in enumerate(_csa) if c == c and c >= TOTAL), None)
+    _env_chr = os.environ.get('VIZ_COMPLETE_HR')
+    if _env_chr:
+        complete_hr = float(_env_chr)
+    elif _ci is not None:
+        complete_hr = hrs[_ci]
+    else:
+        complete_hr = None
+    complete_dt = (t0 + timedelta(hours=complete_hr)) if complete_hr is not None else None
+    complete_wall = complete_hr                                  # elapsed wall hours since launch
+    complete_active = active_h[_ci] if _ci is not None else (
+        (complete_hr - downtime_h) if complete_hr is not None else None)
+
+    def mark_completion(ax, label=True):
+        """Bold green vertical line (+ optional boxed label) at the instant enumeration COMPLETED
+        (all 158,364 cells scanned). Drawn on every elapsed-hours plot so the finish is unambiguous —
+        otherwise the trailing edge of an in-flight run and a finished run look identical, and on the
+        eviction timeline a finish is indistinguishable from a VM-off gap. No-op until the run completes."""
+        if complete_hr is None:
+            return
+        ax.axvline(complete_hr, color='#2ca02c', lw=2.2, ls='-', zorder=6)
+        if label:
+            _wtxt = f' · wall {complete_wall:.1f}h' if complete_wall is not None else ''
+            ax.annotate(f'✓ ENUMERATION COMPLETE\n{TOTAL:,}/{TOTAL:,} cells{_wtxt}\n'
+                        f'{complete_dt:%Y-%m-%d %H:%MZ}',
+                        xy=(complete_hr, 0.5), xycoords=('data', 'axes fraction'),
+                        xytext=(-7, 0), textcoords='offset points', ha='right', va='center',
+                        fontsize=7.5, color='#176317', fontweight='bold', zorder=7,
+                        bbox=dict(boxstyle='round,pad=0.3', fc='#eafbea', ec='#2ca02c', lw=1.1))
+
     manifest = []  # (filename, title, description) for index.html
 
     def timecourse(fname, title, desc, panels, subtitle=''):
@@ -673,6 +708,7 @@ def plot_telemetry(csv_path, outdir='.'):
             ax.set_ylabel(ylabel, fontsize=9); ax.grid(alpha=0.3)
             ax.yaxis.set_major_formatter(YFMT)
             mark_evictions(ax)                                # octagon/▶ on every panel (key in title)
+            mark_completion(ax, label=(ax is axes[0]))        # green ✓ line (label on top panel only)
             if len(keys) > 1 or refs:
                 ax.legend(loc='upper left', fontsize=8)
             if note:
@@ -776,6 +812,7 @@ def plot_telemetry(csv_path, outdir='.'):
             eta_txt = (f'~{rem:.1f}h active remaining (~{rem/24:.1f}d), ETA {eta_dt:%Y-%m-%d %H:%MZ} '
                        f'· {downtime_h:.1f}h downtime so far (excluded from rate; future evictions push ETA right)')
     mark_evictions(axe)                                      # octagon/▶ markers (key in title)
+    mark_completion(axe)                                     # green ✓ line at actual completion
     axe.set_xlabel('elapsed hours'); axe.set_ylabel('cells scanned'); axe.grid(alpha=0.3)
     axe.yaxis.set_major_formatter(YFMT)
     axe.legend(loc='lower right', fontsize=9)
@@ -875,6 +912,7 @@ def plot_telemetry(csv_path, outdir='.'):
             axr.text(b + 0.4, idx, f'{dh:.1f}h off · {rtag} → recovered {rec_s}', va='center', fontsize=9)
         axr.set_yticks(range(len(evs))); axr.set_yticklabels([f'eviction {k+1} (r{e[2]})' for k, e in enumerate(evs)])
         axr.set_xlabel('elapsed hours since launch'); axr.set_xlim(0, _xmax)
+        mark_completion(axr)                                  # green ✓ line marking enumeration finish
         axr.invert_yaxis(); axr.grid(alpha=0.3, axis='x')
         axr.set_title(f'Eviction timeline — {len(evs)} eviction(s); bar = VM-off span, COLORED BY RELAUNCH-POLICY '
                       f'REGIME (steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
