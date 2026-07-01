@@ -6383,15 +6383,22 @@ static int sha256_of_logical(const char *path, char *out, size_t outsz) {
     if (!tool || outsz < 65) return -1;
     char cmd[1024];
     if (file_is_gzip(path))
-        snprintf(cmd, sizeof(cmd), "gzip -dc '%s' 2>/dev/null | %s", path, tool);
+        /* #197 (2026-06-30): run the decompress under `set -o pipefail` and CHECK the
+         * pipeline exit code. The old `gzip -dc … 2>/dev/null | sha256sum` swallowed
+         * gzip's stderr AND its exit status (pclose only saw sha256sum), so a partial or
+         * corrupt decompression silently produced a WRONG "logical" sha (the daab1c48
+         * mislabel on the 560T re-run). Now a failed gzip aborts the whole pipeline →
+         * pclose != 0 → we return an error instead of recording a bogus sha. */
+        snprintf(cmd, sizeof(cmd),
+                 "bash -c 'set -o pipefail; gzip -dc \"%s\" | %s'", path, tool);
     else
         snprintf(cmd, sizeof(cmd), "%s '%s'", tool, path);
     FILE *p = popen(cmd, "r");
     if (!p) return -1;
     char line[160] = {0};
     char *r = fgets(line, sizeof(line), p);
-    pclose(p);
-    if (!r) return -1;
+    int rc = pclose(p);                 /* #197: capture pipeline status */
+    if (!r || rc != 0) return -1;       /* #197: reject on any pipeline failure */
     int n = 0;
     for (; n < 64 && line[n] && line[n] != ' '; n++) out[n] = line[n];
     out[n] = 0;
