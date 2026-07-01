@@ -765,7 +765,7 @@ def plot_telemetry(csv_path, outdir='.'):
     # (3) per-resume whiskers — 5 metrics
     wkeys = [('throughput_M_s', 'Throughput (M nodes/s)'), ('cpu_freq_avg_mhz', 'CPU freq avg (MHz)'),
              ('iops_read', 'IOPS read'), ('iowait_pct', 'iowait %'), ('disk_util_pct', 'disk util %')]
-    figw, axsw = plt.subplots(1, len(wkeys), figsize=(3.6 * len(wkeys), 5))
+    figw, axsw = plt.subplots(1, len(wkeys), figsize=(3.6 * len(wkeys), 5.4))
     if len(wkeys) == 1: axsw = [axsw]
     for ax, (key, ttl) in zip(axsw, wkeys):
         data = []
@@ -775,7 +775,9 @@ def plot_telemetry(csv_path, outdir='.'):
         ax.boxplot(data, showmeans=True)
         _cnt = [sum(1 for rs in resume if rs == s) for s in segs]
         ax.set_xticks(range(1, len(segs) + 1))
-        ax.set_xticklabels([f'r{s}\n(n={c})' for s, c in zip(segs, _cnt)], fontsize=8)
+        # single-line + vertical so the (n=…) counts never overwrite each other, even with many resume segments
+        ax.set_xticklabels([f'r{s} (n={c})' for s, c in zip(segs, _cnt)],
+                           fontsize=7, rotation=90, ha='center', va='top')
         ax.set_title(ttl, fontsize=10); ax.set_xlabel('resume seg'); ax.grid(alpha=0.3)
     figw.suptitle(f'Per-resume distributions ({len(segs)} segment(s); each Spot resume = a segment)'
                   + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
