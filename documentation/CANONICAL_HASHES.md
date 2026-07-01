@@ -61,7 +61,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B raw pre-dedup records → 10.525 B unique canonical (4.17× dedup ratio).
 
-**Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.78 (vs 0.7 from the 11.2T → 100T two-point fit alone). 1120T extension projection ≈ 18 B records. The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the total count of C1–C5-satisfying orderings is not yet known. See [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory".
+**Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.78 (vs 0.7 from the 11.2T → 100T two-point fit alone). 1120T extension projection ≈ 18 B records. The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the exhaustive enumeration cannot state the total count of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate now puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), meaning even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory".
 
 **Verification witnesses:**
 
@@ -393,7 +393,7 @@ The smallest validation reproduces in seconds (selftest). The d3 10T canonical r
 
 `solutions.bin` is a 32-byte header followed by 32-byte records. Each record encodes a canonical ordering of the 64 hexagrams. See [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) for the byte-level encoding and the dedup semantics.
 
-Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here; canonicals at higher node budgets reveal more of it.
+Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here (estimated at ≈3×10³⁷ distinct-canonical orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)); canonicals at higher node budgets reveal more of it but cannot approach exhaustion.
 
 ## Validation status
 

@@ -5068,3 +5068,33 @@ SAS token; re-running the round-trip from the orchestrator with a clean token co
 to `9a968fa2`. No data was ever at risk (warm copy intact + the original June cold blob byte-identical). The
 re-run's artifact is archived 3-copy with extendable shards+checkpoints retained for the 1120T extension. The
 1120T extension remains held pending operator scoping.
+
+## July 1, 2026 — How big is the search space, really?
+
+With the 560T re-run confirmed byte-identical, a long-standing open question could finally be answered: the
+enumerations always reported record counts that were *lower bounds* (every cell budgeted, none exhausted), so
+"how many C1–C5-satisfying orderings exist in total?" had only ever been answered "not yet known." A deterministic
+answer is impossible — you cannot exhaust the tree — but an **estimate** is cheap. We implemented Knuth's 1975
+random-probe backtrack-tree estimator as `solve --estimate-knuth`: one probe is a single random root→dead-end walk
+that reuses the exact `backtrack()` prune predicates, weighted so that its expectation equals the whole tree's
+size. It touches no solution data and needs no mounted disk — pure compute.
+
+Validated first against exact subtree counts (`--estimate-knuth 0`, deterministic): agreement to **<1%** at every
+prefix depth, and an independent cross-check where the 56 per-branch estimates summed to within <1% of the
+whole-tree estimate. The result: **≈1.3×10³⁸ raw C1–C5 orderings (≈3×10³⁷ distinct-canonical after
+orientation-dedup)**, with the 56 first-level branches all comparably enormous (~2×10³⁶, spread only ~2.7× — no
+small or near-exhaustible branch). This reframes everything: the deepest published canonical (560T, 1.05×10¹⁰
+records) has enumerated **≈1 part in 10²⁷** of the space; exhaustion, of the space or of any single branch, is off
+by 24+ orders of magnitude and infeasible at any budget that could ever be funded.
+
+Two corrections fell out. A prior crude "product-of-per-level-averages" estimate had put the tree at 10¹⁴–10¹⁵
+nodes — a **~20-order-of-magnitude undercount**, exactly the downward bias that unbiased random-probe sampling
+exists to correct for heavy-tailed trees. And a natural objection — *if the space is 10³⁸, why does enumeration
+surface King Wen so early?* — has a clean answer: the enumeration is a **systematic** depth-first traversal, not
+random sampling, so the time to reach a specific known ordering depends on its position in the traversal order, not
+on the set's size; King Wen sits at an early-visited prefix within its one cell's budget. King Wen was never a
+needle being hunted (we already have it; verifying it takes microseconds) — the enumeration measures its
+*neighbours*. The estimate's real weight is on the honest framing it forces: King Wen is not special by being rare
+or hard to find; it is an easily-reached member of an astronomically large valid set, and its distinction is
+structural. Full writeup: [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). This is an exploration-track estimate, not a
+canonical result — it changes no sha.
