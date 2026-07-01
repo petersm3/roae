@@ -28,18 +28,34 @@ across the three canonical depths (11.2T → 100T → 560T), with a power-law fi
 See [`../documentation/HISTORY.md`](../documentation/HISTORY.md) §"3-point per-cell scaling
 trajectory" for the full analysis, and [`../documentation/CANONICAL_HASHES.md`](../documentation/CANONICAL_HASHES.md) §"d3 560T" for the canonical record.
 
-## Campaign telemetry (forthcoming, from the 1120T extension onward)
+## Campaign telemetry — 560T re-run (2026-06-22 → 06-29)
 
-Per-campaign telemetry plots — **throughput (M nodes/s), CPU frequency, eviction-recovery
-timeline, cells-scanned over time, per-resume whisker panels, and ETA projection** — are
-sampled at a 5-minute cadence and rendered at archive time. This instrumentation begins with
-the **1120T extension campaign**; it was *not* retrofitted to the 560T canonical (whose figures
-here are the scientific PCA + growth plots only). When the 1120T telemetry lands, its plots join
-this page under the naming convention `tc_*`, `throughput_vs_cpufreq`, `eviction_recovery`,
-`per_resume_whiskers`, `eta_projection`.
+Sampled at a 5-minute cadence across the from-scratch 560T re-run (1,254 samples, **7 real Spot
+evictions / 8 resume segments**). These are *how the run executed* — reproduced from the preserved
+`telemetry.csv`. Grey bands mark VM-off (eviction) intervals; boot-id keys each resume segment.
+Captions/axes carry **no cloud identifiers** — only physical quantities.
 
-> Telemetry captions and axis labels carry **no cloud identifiers** (no VM names, IPs, or
-> resource/subscription IDs) — only the physical quantities (time, throughput, frequency, count).
+### Compute & progress
+![Time-course of throughput (M nodes/s), CPU frequency, cells-scanned, and compute-T / percent-complete across the 560T re-run, with eviction-resume boundaries marked; throughput warms from ~1,300 to ~1,470 M/s per resume as DVFS/boost stabilize.](../runs/20260608_560T_9a968fa2/viz/tc_compute.png)
+
+### Disk I/O & system health
+![Time-course of IOPS (read/write), disk utilization %, and iowait % across the 560T re-run — the fsync-bound checkpoint write pattern on the enum disk, with eviction gaps greyed.](../runs/20260608_560T_9a968fa2/viz/tc_io_system.png)
+
+### Per-resume distributions
+![Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait and disk-util grouped by resume segment (each Spot eviction opens a new segment) — reveals per-resume warmup/throttle regimes.](../runs/20260608_560T_9a968fa2/viz/per_resume_whiskers.png)
+
+### Throughput vs CPU-frequency
+![Scatter of throughput against CPU-frequency colored by elapsed time; the positive slope quantifies how host throttling (lower MHz) depresses throughput, and clusters separate per-host/per-resume regimes.](../runs/20260608_560T_9a968fa2/viz/throughput_vs_cpufreq.png)
+
+### Eviction-recovery timeline
+![Timeline of the 7 Spot evictions and their resume recoveries across the ~5-day re-run, showing downtime gaps and throughput ramp after each restart.](../runs/20260608_560T_9a968fa2/viz/eviction_recovery.png)
+
+### ETA projection
+![Projected completion (cells-scanned trajectory extrapolated to 158,364) versus actual, illustrating how the per-resume slowdowns shifted the finish estimate.](../runs/20260608_560T_9a968fa2/viz/eta_projection.png)
+
+A rendered viewer with all six panels + captions is committed alongside as
+[`index.html`](../runs/20260608_560T_9a968fa2/viz/index.html). Future canonical campaigns
+(1120T onward) emit the same panels from launch.
 
 ## Regeneration
 
