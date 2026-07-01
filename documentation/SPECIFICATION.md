@@ -1,7 +1,5 @@
 # Formal Specification of the King Wen Sequence
 
-> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21.** A proven solver eviction-resume defect (CASE-D write-ordering) plus the campaign's 5 Spot evictions on the pre-fix solver mean the 560T run **may be incomplete**, so it is **withheld as a canonical anchor** and 560T-specific figures below (record count, wrap-parity split, boundary-minimum) may revise. The **11.2T and 100T canonicals are unaffected** (11.2T ⊆ 100T ⊆ 560T held empirically), so subset-derived findings and the theorems still stand. Resolution: a from-scratch re-run will reproduce `9a968fa2` (→ **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T".
-
 The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is the unique permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints.
 
 > Looking for a plain-language version of these constraints and how the solver searches for orderings that satisfy them? See [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md).

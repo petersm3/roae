@@ -1,7 +1,5 @@
 # Documentation
 
-> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21.** A proven solver eviction-resume defect (CASE-D write-ordering) plus the campaign's 5 Spot evictions on the pre-fix solver mean the 560T run **may be incomplete**, so it is **withheld as a canonical anchor** and 560T-specific figures in the docs below may revise. The **11.2T and 100T canonicals are unaffected** (11.2T ⊆ 100T ⊆ 560T held empirically), so subset-derived findings still stand. Resolution: a from-scratch re-run will either reproduce `9a968fa2` (→ **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T".
-
 All project documentation. The root `README.md` is the GitHub repo landing page; everything else lives here.
 
 Three files stay at the repo root for tooling reasons: `README.md` (GitHub landing page), `CLAUDE.md` (orientation file the Claude Code AI auto-discovers), and `LICENSE.md` (GitHub auto-detects).

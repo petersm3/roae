@@ -4969,6 +4969,9 @@ historical record** — read them with this rename in mind.
 
 ## June 20-21, 2026 — eviction-resume determinism bug found; 560T set to suspect
 
+> **[RESOLVED 2026-06-30 → CANONICAL-verified.** The from-scratch re-run reproduced `9a968fa2` byte-for-byte; the
+> old run was complete. This entry records the (now-closed) suspect period — see the June-30 entry below.]**
+
 A pre-flight rehearsal for the planned 1120T extension surfaced a real solver bug — and it has direct
 bearing on the 560T canonical, so it is recorded here honestly.
 
@@ -5028,3 +5031,40 @@ recorded: the scheduler's cron clock is UTC (a PT-anchored launch needs a `TZ`-a
 `az vm deallocate` does not free Spot `lowPriorityCores` quota (only deletion does). Operational detail lives in
 the private repo (`TELEMETRY_PIPELINE_FIXES_2026_06_23.md`). 560T remains **SUSPECT** until this re-run resolves
 it to CANONICAL-verified or SUPERSEDED.
+
+## June 30, 2026 — 560T re-run CONFIRMS the canonical byte-for-byte; SUSPECT cleared
+
+The from-scratch 560T re-run completed: **158,364 cells enumerated across 7 real Spot evictions (all resumed
+cleanly, 0 lost cells), then an external merge → `solutions.bin`.** The result **reproduces the original
+`9a968fa2…` byte-for-byte** — identical sha256, identical 10,525,271,997 records — verified by three independent
+`gzip -dc | sha256sum` passes (the merge supervisor's hash, a neutral third hash, and a round-trip through the
+cold-archive blob). **The original 560T was complete and correct; the eviction-resume defect did not corrupt it.
+SUSPECT clears → 560T is CANONICAL-verified at `9a968fa2`.**
+
+*Why byte-identical despite the original running on the buggy solver?* `solutions.bin` is a **path-independent
+mathematical object** — the sorted, canonically-deduped *set* of all C1–C5-satisfying orderings found within the
+per-cell node budget. The final merge is a projection onto that set, provably invariant to thread count,
+machine/arch, branch-partition order, **and** eviction/resume *provided the resume is correct*. Over-emission (an
+evicted cell re-walking and re-emitting) is deduped away; re-ordering is re-sorted. Only a genuinely **lost** or
+**fabricated** unique solution can change the sha — the byte-match rules out both, for both runs.
+
+A **pre-merge shard comparison** makes this concrete rather than merely argued: the two runs produced solutions in
+the **identical set of 65,281 cells**, and the old run's raw pre-dedup total was **43,880,306,393 records vs the
+new run's 43,876,464,466 — the old run over-emitted exactly +3,841,927 records (0.009%)**, every one a *duplicate*
+that the canonical dedup erased (had any been an invalid ordering, it would have survived dedup and moved the sha).
+So the original run's 5 evictions produced **localized over-emission, not loss and not fabrication** — the exact
+merge-erasable perturbation the path-independence argument predicts. This is the same byte-exact-through-evictions
+property proven at 11.2T (#188 fix; 1 and 4 evictions including a mid-resume double), now demonstrated at the
+deepest (560T) scale across a heavier 7-eviction pattern on a *different* (fixed) binary — an independent,
+same-scale witness, the strongest validation short of an impossible exhaustive re-enumeration.
+
+**Process notes.** (1) The solver's own `solutions.sha256` sidecar reported a *wrong* value (`daab1c48…`) — it was
+the sha of the **compressed `.gz` container bytes**, which `sha256_of_logical` mislabeled as the logical
+(decompressed) sha. A premature "DIFFERENT/SUPERSEDED" read on that sidecar was **retracted** the moment two
+independent decompress-hashes both returned `9a968fa2`. Lesson: never issue a canonical verdict from a single sha
+source; independently recompute first. The sidecar bug is tracked privately. (2) The cold-archive upload completed
+(all blobs present at correct sizes) but its in-VM round-trip check spuriously failed on a transport-corrupted
+SAS token; re-running the round-trip from the orchestrator with a clean token confirmed the cold blob decompresses
+to `9a968fa2`. No data was ever at risk (warm copy intact + the original June cold blob byte-identical). The
+re-run's artifact is archived 3-copy with extendable shards+checkpoints retained for the 1120T extension. The
+1120T extension remains held pending operator scoping.

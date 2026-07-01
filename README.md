@@ -1,7 +1,5 @@
 # Received Order Analysis Engine (ROAE)
 
-> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21.** A proven solver eviction-resume defect (CASE-D write-ordering) plus the campaign's 5 Spot evictions on the pre-fix solver mean the 560T run **may be incomplete**, so it is **withheld as a canonical anchor** and 560T-specific figures below may revise. The **11.2T and 100T canonicals are unaffected** (11.2T ⊆ 100T ⊆ 560T held empirically), so subset-derived findings still stand. Resolution: a from-scratch re-run on the fixed solver will either reproduce `9a968fa2` (→ vindicated, **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md) §"d3 560T".
-
 > **Research in progress.** This project is under active development. Findings are preliminary, based on partial enumeration (no branch of the search tree has been fully explored), and subject to revision as the analysis deepens. Earlier versions of this documentation contained claims that were later invalidated by larger-scale computation — see commit history for the evolution of findings. Nothing here should be treated as definitive.
 
 Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)

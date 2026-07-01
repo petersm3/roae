@@ -53,12 +53,15 @@ produce a mismatching sha, stop and investigate — don't silently
 Older figures in project history (31.6M filename-collision bug, 742M
 hash-table bug) are invalidated forensic references only.
 
-**Current status note (2026-06-22):** the d3 560T canonical
-(`9a968fa2…`) is **SUSPECT** — withheld as a canonical anchor pending a
-from-scratch re-run (proven eviction-resume defect + 5 Spot evictions on
-the pre-fix solver; may be incomplete). 11.2T/100T are unaffected. Do not
-treat 560T as a trusted anchor until it resolves to CANONICAL-verified
-or SUPERSEDED. See [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md) §"d3 560T".
+**Current status note (2026-06-30):** the d3 560T canonical
+(`9a968fa2…`) is **CANONICAL-verified**. It was SUSPECT from 2026-06-21
+(a proven eviction-resume defect + 5 Spot evictions on the pre-fix
+solver); a from-scratch re-run on the eviction-resume-**fixed** solver
+(2026-06-30) reproduced it **byte-for-byte** (identical sha, identical
+10,525,271,997 records), across 7 fresh Spot evictions that all resumed
+cleanly — so the original 560T was complete and the bug did not corrupt
+it. 560T is now a trusted anchor. See
+[CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md) §"d3 560T".
 
 ## Performance history — required record (parallel to canonical shas)
 

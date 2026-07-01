@@ -8,7 +8,7 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 
 | Scale | sha256 (prefix) | Records | Status | Solver lineage |
 |---|---|---:|---|---|
-| **d3 560T** | `9a968fa2…` | 10,525,271,997 | **⚠️ SUSPECT — withheld as canonical; under re-validation (2026-06-21); may be incomplete, see §d3 560T** | v1/v3 main |
+| **d3 560T** | `9a968fa2…` | 10,525,271,997 | **CANONICAL-verified** (2026-06-30: from-scratch re-run on the eviction-resume-fixed solver reproduces it byte-for-byte; see §d3 560T) | v1/v3 main |
 | d3 100T | `915abf30…` | 3,432,399,298 | Active drift + partition anchor | v1 (modern) |
 | d3 11.2T | `0c0fe37c…` | 759,608,573 | Active drift anchor | v1 |
 | d3 10T | `b85c8871…` | 706,427,594 | Active drift anchor | v1 (modern) |
@@ -18,7 +18,7 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 | d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | Historical | v1 / v3 BRANCH `8b1658b` |
 | Selftest | `403f7202…` | 135,780 | Active build gate | v1 |
 
-For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's deepest enumeration but is currently **SUSPECT** — withheld as a canonical anchor pending re-validation (see §d3 560T).
+For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's deepest enumeration; it was **SUSPECT** from 2026-06-21 (a proven eviction-resume defect on the pre-fix solver), and resolved to **CANONICAL-verified** on 2026-06-30 when a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (see §d3 560T).
 
 The full reproducibility-parameters table (env vars per canonical) is at [§Reproducibility parameters](#reproducibility-parameters) below.
 
@@ -26,18 +26,31 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 ### d3 560T — current deepest
 
-> **⚠️ STATUS: SUSPECT — withheld as a canonical anchor; under re-validation (opened 2026-06-21).** A determinism defect in the solver's
-> eviction-resume path was identified 2026-06-21: a per-cell checkpoint (`.dfs_state`) could be made durable
-> *before* its solutions shard (`.bin`), so a Spot eviction in that window could drop a cell's solutions on
-> resume. The 560T campaign ran across **5 Spot evictions** on a solver build predating the fix, so this sha
-> **may be incomplete** (missing solutions from cells caught mid-finalization during those evictions). The
-> records it contains are valid (C1–C5-verified); the open question is *completeness*. A targeted re-derivation
-> of the potentially-affected cells with the corrected solver is in progress, to either confirm `9a968fa2` or
-> supersede it with a corrected sha. Until that resolves, treat 560T as **suspect** (not a canonical anchor); the
-> status resolves to **CANONICAL-verified** if the re-run reproduces `9a968fa2` byte-for-byte, or **SUPERSEDED** if
-> it does not. The 11.2T (`0c0fe37c`) and
-> 100T (`915abf30`) canonicals are **unaffected** — each was independently re-derived by multiple eviction-free
-> witnesses. (Tracking: private `INCIDENT_167_RESUME_SHA_MISMATCH.md`.)
+> **✅ STATUS: CANONICAL-verified (resolved 2026-06-30).** This sha was **SUSPECT** from 2026-06-21 to 2026-06-30.
+> The concern: a determinism defect in the solver's eviction-resume path (identified 2026-06-21) — a per-cell
+> checkpoint (`.dfs_state`) could be made durable *before* its solutions shard (`.bin`), so a Spot eviction in
+> that window could drop a cell's solutions on resume. The original 560T campaign ran across **5 Spot evictions**
+> on a solver build predating the fix, so the sha *might* have been incomplete.
+>
+> **Resolution:** a complete from-scratch 560T re-run on the eviction-resume-**fixed** solver (the #188 fix)
+> **reproduced `9a968fa2` byte-for-byte** — identical sha, identical 10,525,271,997 records. The re-run itself
+> took **7 real Spot evictions** (all resumed cleanly) and still converged to the exact same canonical, verified
+> by three independent `gzip -dc | sha256sum` passes. **Conclusion: the original 560T was complete and correct;
+> the eviction-resume defect did not corrupt it.** SUSPECT clears.
+>
+> *Why byte-identical even though the old run had the bug?* `solutions.bin` is a path-independent object — the
+> sorted, canonically-deduped *set* of all C1–C5-satisfying orderings found within the per-cell node budget. The
+> final merge is a projection onto that set, provably invariant to thread count, machine, branch-partition order,
+> **and eviction/resume provided the resume is correct.** Only two things can change the sha: a genuinely *lost*
+> unique solution or a *fabricated* one. The byte-match rules out both. A pre-merge shard comparison quantifies it:
+> both runs found solutions in the **same 65,281 cells**, and the old run's raw pre-dedup total (43,880,306,393)
+> exceeded the new run's (43,876,464,466) by exactly **+3,841,927 records (0.009%)** — all duplicates the dedup
+> erased. So the old run's 5 evictions caused **over-emission, not loss or fabrication**. This also demonstrates
+> the #188 fix's eviction-resume determinism **at the deepest (560T) scale**, complementing the 11.2T proof.
+>
+> The 11.2T (`0c0fe37c`) and 100T (`915abf30`) canonicals were always **unaffected** — each independently
+> re-derived by multiple eviction-free witnesses. (Tracking: private `INCIDENT_167_RESUME_SHA_MISMATCH.md`,
+> `ANALYSIS_194_CONFIRMED_2026_06_30.md`.)
 
 - **sha256:** `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`
 - **Records:** 10,525,271,997 (= 1.05253 × 10¹⁰)
@@ -56,13 +69,15 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 |---|---|---|
 | 2026-06-08 | `solve --verify` (C) on all 10,525,271,997 records | PASS — C1-C5 + sorted + no duplicates + King Wen found |
 | 2026-06-09 | `verify.py --jobs 64` (Python second-language re-verify) on warm copy, D64als_v7 Spot, solve binary built from main HEAD `74e4140` | PASS — same record set, independent language witness |
+| 2026-06-30 | **from-scratch 560T re-run** on the #188 eviction-resume-fixed solver, D128als_v7 Spot westus3, 7 Spot evictions (all clean) | **PASS — reproduces `9a968fa2` byte-for-byte** (3 independent `gzip -dc \| sha256sum` passes; 10,525,271,997 records). Independent same-scale witness on a different binary + different eviction pattern → SUSPECT cleared |
 
 **Post-merge SPOF discovered + remediated mid-campaign** — see [HISTORY.md](HISTORY.md) entry and [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md). No Build B cross-build at 560T (cost prohibitive).
 
 **Archive triple-storage:**
-- `solver-data-westus3:/run_560T/` — uncompressed working copy (solutions.bin + 65,281 shards + 158,364 .dfs_state checkpoints); cleaned 2026-06-12
-- `solver-data-westus3:/canonical-archive/20260608_560T_9a968fa2/` — gzip warm mirror
-- `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` — cold blob (368 GB Cool tier)
+- `solver-data-westus3:/canonical-archive/20260608_560T_9a968fa2/` — gzip warm mirror (original campaign)
+- `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` — cold blob (original campaign, Cool tier)
+- `solver-data-westus3:/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — gzip warm mirror (2026-06-30 re-run; solutions.bin.gz + shards.tar.gz + checkpoints, byte-identical canonical)
+- `roaecanonical2026/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — cold blob (2026-06-30 re-run; round-trip-verified `9a968fa2`, extendable shards+checkpoints retained per the 11.2T+ cold-shards rule)
 
 ---
 

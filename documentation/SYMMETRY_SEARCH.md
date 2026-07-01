@@ -1,7 +1,5 @@
 # No Hamming-Class-Preserving Symmetry on the C1 ∩ C2 ∩ C3 Canonical
 
-> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21** (proven eviction-resume defect + 5 Spot evictions on the pre-fix solver; may be incomplete). This negative result was **established at 100T** (unaffected) and extends to 560T by the subset argument, so the finding **stands**; only the "560T canonical" label is suspect pending re-validation. Resolution: the re-run will reproduce `9a968fa2` (→ **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T".
-
 **Result:** Among the 720 bit-position permutations of the 6-bit hexagram space, 48 preserve the C1 partition. Of those, 47 act non-trivially on the (pair, orientation) space. **All 47 are falsified** as symmetries of the C1 ∩ C2 ∩ C3 canonical orderings: each maps at least 21,000 depth-3 sub-branches to sub-branches with materially different yields (max yield difference > 800,000 records).
 
 The constraint set is rigid against bit-permutation symmetries. No factor-of-2-to-48 enumeration cost reduction is available via this class of would-be symmetries.

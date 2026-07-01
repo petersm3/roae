@@ -1,7 +1,5 @@
 # Partition Stability of Boundaries {25, 27}
 
-> **⚠️ The d3 560T canonical (`9a968fa2…`) is SUSPECT — opened 2026-06-21.** A proven solver eviction-resume defect (CASE-D write-ordering) plus the campaign's 5 Spot evictions on the pre-fix solver mean the 560T run **may be incomplete**. The headline invariant ({25, 27} mandatory in every greedy minimum) holds across d2 10T / d3 10T / d3 100T independently of 560T; only the **560T data point** (and the non-monotone 4→5→4 count) is suspect pending re-validation. Resolution: a from-scratch re-run will reproduce `9a968fa2` (→ **CANONICAL-verified**) or **supersede** it. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T".
-
 **Result:** Across four independent canonical enumerations of progressively deeper partitions of the C1 ∩ C2 ∩ C3 search space (d2 10T, d3 10T, d3 100T, d3 560T — four different sha-anchored datasets), boundaries **{25, 27} are mandatory in every greedy-ordered minimum-boundary set that uniquely identifies the King Wen ordering**. The greedy-minimum count is partition + scale-dependent and **non-monotone with scale** (4 → 5 → 4 across 10T → 100T → 560T); {25, 27}'s presence in every greedy minimum is the durable invariant.
 
 This is the **most stable structural property of King Wen we have measured**. The boundary count itself, and the OTHER boundaries that round out the minimum set, both vary with partition and scale; {25, 27} do not.
