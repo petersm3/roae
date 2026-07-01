@@ -21,3 +21,4 @@ solve
 /results_*.json
 /solutions_*
 /sub_*
+.claude/
