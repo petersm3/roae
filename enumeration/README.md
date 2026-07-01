@@ -11,8 +11,8 @@ predominantly historical.
 - **[LEADERBOARD.md](LEADERBOARD.md)** — the authoritative enumeration
   scoreboard. Current canonical counts (**d3 560T: 10,525,271,997, sha
   `9a968fa2…`** — current deepest, established 2026-06-08; d3 100T:
-  3,432,399,298, sha `915abf30…`; d3 10T: 706,422,987, sha
-  `f7b8c4fb…`; d2 10T: 286,357,503, sha `a09280fb…`),
+  3,432,399,298, sha `915abf30…`; d3 10T: 706,427,594, sha
+  `b85c8871…`; d2 10T: 286,357,503, sha `a09280fb…`),
   per-first-level-branch solution totals, dead-branch classification,
   sub-branch yields. Read this first.
 

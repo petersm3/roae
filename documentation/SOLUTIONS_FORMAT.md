@@ -223,7 +223,7 @@ of Python).
 ## Reproducing from source
 
     git checkout <commit-hash-from-solve_results.json>
-    gcc -O3 -pthread -march=native -o solve solve.c -lm -lz
+    gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
     SOLVE_NODE_LIMIT=<from-json> SOLVE_DEPTH=<from-json> ./solve 0
 
 For exhaustive enumeration (no node limit):

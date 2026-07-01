@@ -285,7 +285,7 @@ The two tools are complementary:
 
 | | `roae.py` | `solve.c` (see [SOLVE_CLI.md](SOLVE_CLI.md)) |
 |---|---|---|
-| **Analyzes** | KW as a given fixed sequence | The full space of 10⁸⁹ possible orderings, filtered to C1-C5 |
+| **Analyzes** | KW as a given fixed sequence | The unconstrained ~10⁸⁹ (64!) permutation space; the C1–C5-satisfying subset is estimated ≈10³⁸ (Knuth estimate, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) |
 | **Output** | Statistics about KW (28 analyses, optional reports) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), sha256 anchors, statistics across the solution set |
 | **Scale** | Single sequence, prints instantly | Hundreds of millions of orderings; canonical runs take hours on D128 |
 | **Determinism** | Closed-form analyses; deterministic | Fully — given fixed solver + inputs, `solutions.bin` is byte-identical (partition invariance) |

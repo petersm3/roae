@@ -4745,7 +4745,7 @@ The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot 
 
 The structural fix for future campaigns is to bake the explicit copy step into `phase_b_merge_supervise.sh` so it runs before `teardown_vm` unconditionally — see [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md) for the post-merge artifact-preservation rule. This is the third canonical campaign (11.2 T, 100 T, 560 T) where the gap existed but was caught manually each time; the supervisor-level fix is the durable answer.
 
-**Power-law refit:** records ∝ T^α with α empirically computed across the three canonicals (11.2 T → 100 T → 560 T) is approximately 0.78 (vs 0.7 estimated from 11.2 T → 100 T alone). Projecting forward at α = 0.78: 1120 T extension would land ≈ 18 B records (= 7.5 B additional vs the 560 T baseline).
+**Power-law refit:** records ∝ T^α with α empirically computed across the three canonicals (11.2 T → 100 T → 560 T) is approximately 0.78 (vs 0.7 estimated from 11.2 T → 100 T alone). Projecting forward at α = 0.78: 1120 T extension would land ≈ 18 B records (= 7.5 B additional vs the 560 T baseline). *[Corrected 2026-07-01: the arithmetically-correct exponent is **α ≈ 0.67**, not 0.78 — a 3-point log-log fit cannot exceed both pairwise slopes (0.69 for 11.2T→100T, 0.65 for 100T→560T). The 0.78 was an error (it survived into several docs, now fixed). At α ≈ 0.67 the 1120T projection is **≈16.7 B**, consistent with the refined ~14–22 B range noted below.]*
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved. 560 T canonical sha **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** recorded.
 

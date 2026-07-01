@@ -6,7 +6,7 @@ This closes the long-standing "the total count of C1–C5 orderings is not yet k
 
 ## What is being measured
 
-The exhaustive enumerations (`solve.c`) are **budgeted**: each of the 158,364 depth-3 cells receives a fixed node budget, and the reported record count is the number of distinct canonical orderings *found within that budget*. Because no cell is ever exhausted (see [`CRITIQUE.md`](CRITIQUE.md) §"per-branch yield labels" — a single sub-branch budgeted to "yield 16" held ≥664 million orderings on a deeper walk), the canonical counts are **lower bounds**, not the size of the solution space. The three-point scaling trajectory (11.2T → 100T → 560T, α ≈ 0.78, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md)) shows the counts still growing sublinearly with budget, with no visible asymptote.
+The exhaustive enumerations (`solve.c`) are **budgeted**: each of the 158,364 depth-3 cells receives a fixed node budget, and the reported record count is the number of distinct canonical orderings *found within that budget*. Because no cell is ever exhausted (see [`CRITIQUE.md`](CRITIQUE.md) §"per-branch yield labels" — a single sub-branch budgeted to "yield 16" held ≥664 million orderings on a deeper walk), the canonical counts are **lower bounds**, not the size of the solution space. The three-point scaling trajectory (11.2T → 100T → 560T, α ≈ 0.67, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md)) shows the counts still growing sublinearly with budget, with no visible asymptote.
 
 This document measures the **total un-budgeted size** of the C1–C5 backtracking tree directly, without enumerating it — the number the budgeted counts are converging toward.
 
@@ -36,14 +36,14 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 
 ## Result — the whole C1–C5 tree
 
-5×10⁸ probes (a 100×-probe refinement is in progress and is expected to tighten the interval, not move the central value):
+5×10¹⁰ probes (the 100×-probe definitive run, completed 2026-07-01; the earlier 5×10⁸ run gave the same central value at wider CI):
 
 | quantity | estimate | 95% CI | rel. error |
 |---|---|---|---:|
-| **canonical (C1–C5) orderings (raw)** | **1.32×10³⁸** | [1.319, 1.328]×10³⁸ | 0.18% |
-| — distinct canonical (after ~4× orientation-dedup) | **≈3×10³⁷** | — | — |
-| complete orderings satisfying C1/C2/C4/C5 | 1.10×10³⁹ | — | 0.06% |
-| total backtracking-tree nodes | 2.09×10⁴⁰ | — | 0.01% |
+| **canonical (C1–C5) orderings (raw)** | **1.3287×10³⁸** | [1.3283, 1.3292]×10³⁸ | 0.02% |
+| — distinct canonical (after ~4× orientation-dedup) | **≈3.3×10³⁷** | — | — |
+| complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ | — | 0.01% |
+| total backtracking-tree nodes | 2.0875×10⁴⁰ | — | 0.00% |
 
 For scale: the unconstrained permutation space is 64! ≈ 1.3×10⁸⁹ (with the pairing/orientation structure, the C1 skeleton starts from ≈10⁴¹ arrangements). C1–C5 cut this to ≈10³⁸ — an enormous reduction, yet still astronomically beyond enumeration.
 
@@ -54,17 +54,19 @@ The 56 real first-level (position-1 pair, orientation) branches, 10⁸ probes ea
 - canonical orderings per branch: **min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶ — a spread of only ≈2.7×**.
 - **Roughly uniform: there is no small or near-exhaustible branch.** This answers the practical question behind single-branch deep-enumeration ("which branch is cheapest to exhaust, and does its structure extrapolate?"): every branch is comparably enormous (~2×10³⁶), so no single-branch walk can exhaust anything, and extrapolation from one branch to the whole is well-founded. Compare [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md), which partitions the same tree into these 56 branches for the reproducibility argument.
 
-## Result — budgeted yield is uncorrelated with cell size
+## Result — per-cell distribution + budgeted yield is uncorrelated with cell size
 
-A 605-cell sample cross-plotting each cell's **budgeted yield** (distinct orderings found within the 560T per-cell budget, from the campaign shard manifest) against its **total un-budgeted size** (Knuth estimate):
+Per-cell Knuth estimate over all **65,281 productive depth-3 cells** (10⁵ probes each). Total un-budgeted canonical tree size per cell: **min 5.9×10³¹, median 8.1×10³², max 5.6×10³³** — a spread of only **94.6×** (log₁₀ span ≈ 2 orders). The productive-cell trees sum to ≈6.8×10³⁷, ~half the whole-tree raw estimate (the rest lies in the ~93K cells that produced 0 records within the 560T budget but still hold enormous un-budgeted trees).
+
+Cross-plotting each cell's **budgeted yield** (distinct orderings found within the 560T per-cell budget, from the campaign shard manifest) against its **total un-budgeted size** (Knuth), across all 65,281 cells:
 
 | quantity | spread across cells |
 |---|---|
-| budgeted yield (records at the 560T per-cell budget) | 10^2.6 – 10^6.8 (≈4 orders, heavy-tailed) |
-| total un-budgeted tree size | 10^31.9 – 10^33.7 (≈2 orders, relatively uniform) |
-| **log-log correlation** | **Pearson r = 0.15, Spearman ρ = 0.14 → essentially uncorrelated** |
+| budgeted yield (records at the 560T per-cell budget) | 10^1.1 – 10^6.8 (≈5.7 orders, heavy-tailed) |
+| total un-budgeted tree size | 10^31.8 – 10^33.8 (≈2 orders, spread 94.6×) |
+| **log-log correlation (full population)** | **Pearson r = 0.17, Spearman ρ = 0.15 → essentially uncorrelated** |
 
-**A cell's budgeted yield is nearly independent of its total tree size.** The cells are all comparably enormous, but how many orderings each surfaces *within a fixed budget* varies by four orders of magnitude and does not track total size. Yield is therefore a **local-density** phenomenon — how record-rich the shallow frontier is — not a size phenomenon. (A full 65,281-cell version of this distribution is in progress and will replace the sample.)
+**A cell's budgeted yield is nearly independent of its total tree size.** The cells are all comparably enormous, but how many orderings each surfaces *within a fixed budget* varies by nearly six orders of magnitude and does not track total size. Yield is therefore a **local-density** phenomenon — how record-rich the shallow frontier is — not a size phenomenon. (The full-population result confirms the earlier 605-cell sample, r≈0.15.)
 
 ## Why is King Wen found "early" if the space is ≈10³⁸?
 
@@ -94,7 +96,7 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 
 1. **The space is ≈10³⁸ orderings and cannot be exhausted.** The deepest published canonical (d3 560T) found 1.05×10¹⁰ distinct orderings — ≈1 part in 10²⁷ of the ≈3×10³⁷ distinct-canonical total. Exhausting the space, or even any *single* first-level branch (~2×10³⁶), is off by 24+ orders of magnitude — infeasible at any budget that could ever be funded. The scientific value of the enumerations is therefore in the **structural invariants** they expose (mandatory boundaries, KW's position-1 forcing, complement-distance percentile), not in "how many" or in approaching completeness.
 
-2. **The canonicals are reproducible slices, and deeper canonicals stay slices.** Each canonical scale is an exactly-reproducible slice at a fixed budget (see [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md)). Because the space is ≈10³⁸, a deeper canonical (e.g. a 1120T extension) is "more of the same slice," never "closer to complete" — its value is as a **discriminating test of the growth asymptote** (α ≈ 0.78), not as progress toward a total.
+2. **The canonicals are reproducible slices, and deeper canonicals stay slices.** Each canonical scale is an exactly-reproducible slice at a fixed budget (see [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md)). Because the space is ≈10³⁸, a deeper canonical (e.g. a 1120T extension) is "more of the same slice," never "closer to complete" — its value is as a **discriminating test of the growth asymptote** (α ≈ 0.67), not as progress toward a total.
 
 3. **Earlier crude size estimates were vast undercounts.** A prior product-of-averages estimate put the tree at 10¹⁴–10¹⁵ nodes; the unbiased estimator gives 2.09×10⁴⁰ — a ≈20-order-of-magnitude correction. Product-of-per-level-averages is severely biased downward for the heavy-tailed branching this tree exhibits; unbiased random-probe sampling (this method) is the correct tool.
 

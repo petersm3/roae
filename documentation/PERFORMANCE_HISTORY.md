@@ -57,7 +57,7 @@ The standardized paired-bench script lives at `scripts/perf_bench.sh`. It captur
 
 ## Process gate
 
-Per `CLAUDE.md` and `DEVELOPMENT.md`: any commit modifying solve.c hot paths (DFS, prune predicates, hash-table operations, merge inner loops, SIMD-vectorized arithmetic) must add a PERFORMANCE_HISTORY entry before ship. Same way every commit modifying canonical artifacts must update CANONICAL_HASHES.md. Pre-push hook validates the presence of a new entry when solve.c hot paths changed; absent entry blocks the push.
+Per `CLAUDE.md` and `DEVELOPMENT.md`: any commit modifying solve.c hot paths (DFS, prune predicates, hash-table operations, merge inner loops, SIMD-vectorized arithmetic) must add a PERFORMANCE_HISTORY entry before ship. Same way every commit modifying canonical artifacts must update CANONICAL_HASHES.md. Enforcement is process-level (reviewer + this rule); a pre-push gate to block pushes when solve.c hot paths changed without a PERFORMANCE_HISTORY.md entry is planned but not yet shipped.
 
 ---
 

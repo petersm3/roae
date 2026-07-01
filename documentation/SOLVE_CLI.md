@@ -394,10 +394,8 @@ both record-level correctness and file-level structure must pass.
 
 ### --verify-rule2
 
-> ⚠️ **Not dispatched by the current `solve` binary** — no `--verify-rule2` handler
-> exists in solve.c (nor solve.py / roae.py) as of 2026-06-14. The spec below is
-> retained for reference (see MCKENNA.md); confirm the current invocation path before
-> relying on it (the audit may have been folded into `--analyze`, or not yet implemented).
+> ✅ **Live subcommand** — dispatched by `solve.c` (implemented/restored 2026-06, task #156).
+> gz-aware (#169), sha-preserving (post-enumeration analysis, no enumeration-path impact). See MCKENNA.md for context.
 
 ```
 solve --verify-rule2 [solutions.bin]
@@ -414,9 +412,8 @@ no impact on the enumeration code path). See MCKENNA.md for context.
 
 ### --verify-9th-six
 
-> ⚠️ **Not dispatched by the current `solve` binary** — no `--verify-9th-six` handler
-> exists in solve.c (nor solve.py / roae.py) as of 2026-06-14. Spec retained for
-> reference (see MCKENNA.md); confirm the current invocation path before relying on it.
+> ✅ **Live subcommand** — dispatched by `solve.c` (task #156). gz-aware (#169),
+> sha-preserving (post-enumeration analysis). See MCKENNA.md for context.
 
 ```
 solve --verify-9th-six [solutions.bin]
@@ -429,6 +426,17 @@ distribution of which boundary index that between-pair value-6 lands
 at. In King Wen, it lands at boundary 19 (the transition between
 hexagrams 38 and 39, the unique "synthetic" value-6 noted by McKenna
 in Chapter 9). Sha-preserving.
+
+### --verify-wrap-parity
+
+```
+solve --verify-wrap-parity [solutions.bin]
+```
+
+Tabulates the wrap-around parity of every record — whether the value between the
+last and first hexagram is odd (d=1/3 split) — and reports the odd/even fractions
+and the d=1 vs d=3 breakdown. At the 560T canonical, 100% of records are odd-wrap
+(91.83% d=3, 8.17% d=1). gz-aware (#169), sha-preserving (post-enumeration analysis).
 
 ### --merge
 
@@ -590,7 +598,7 @@ dominant branches, and orientation-symmetry patterns.
 ### --symmetry-search
 
 ```
-solve --symmetry-search [--with-yield]
+solve --symmetry-search [--validate-counts]
 ```
 
 Group-theoretic symmetry hunt across the solution space. Searches
@@ -598,7 +606,7 @@ for non-trivial automorphisms of the C1-C5 ordering structure.
 Has produced negative results to date (no non-trivial group
 discovered).
 
-`--with-yield` annotates each candidate symmetry with empirical
+`--validate-counts` annotates each candidate symmetry with empirical
 yield equality across orientations.
 
 ### --null-*
@@ -997,7 +1005,7 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 | `--selftest` | ~5 sec | Runs on 4 threads internally |
 | `solve 0 128` at d3 11.2T | ~2.1 h | Tier 1 canonical |
 | `solve 0 128` at d3 100T | ~11-19 h | 100T canonical; varies with sub-branch yield distribution |
-| `solve 0 128` at d3 560T | ~3.5 days | Planned 560T canonical |
+| `solve 0 128` at d3 560T | ~3.5 days (171.5 h incl. eviction defers) | 560T canonical — completed 2026-06, re-verified 2026-06-30 (`9a968fa2…`, 10.525 B records) |
 | `--branch p o 0 128` at d3 100T | ~12-15 min | One first-level branch |
 | `--verify` on 102 GB solutions.bin | ~30-60 min | I/O bound on Standard HDD |
 | `verify.py --jobs 128` on 102 GB | ~25-30 min | Python parallel verify |

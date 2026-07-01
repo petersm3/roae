@@ -9,8 +9,7 @@
 > (sizing, cost estimation, branch-distribution patterns, the worked
 > 56 × 10 T example) until the relevant content is ported here.
 >
-> **Section 7 (worked example) is intentionally a TBD skeleton** until the
-> 560T campaign completes — the conceptual sections (1–6, 8) are intended
+> **Section 7 (worked example)** is populated with the completed 560T campaign actuals — the conceptual sections (1–6, 8) are intended
 > to be readable and useful as-is; the worked example will be filled in
 > once the campaign produces its actual sha, record count, wall time,
 > cost, and eviction count. The PORT-TODO checklist at the end of this
@@ -405,7 +404,7 @@ drops away. Empirically:
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
   main lineage; reproduces the historical sha byte-identically.
-- **560 T canonical: established 2026-06-08, sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`.** 10,525,271,997 unique canonical solutions, 336,808,703,904 bytes. No prior anchor; the first 560 T run defined the sha. Cross-host stability is an empirically open question until a second 560 T witness is run (cost-prohibitive at single-campaign scale; would require ≈ $150 + ~9 days).
+- **560 T canonical: established 2026-06-08, sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`.** 10,525,271,997 unique canonical solutions, 336,808,703,904 bytes. The first 560 T run defined the sha; a **from-scratch re-run on 2026-06-30** (different binary lineage — the eviction-resume-fixed solver — and a different 7-eviction pattern) **reproduced it byte-for-byte**, providing a second same-scale direct witness and CANONICAL-verifying the result (see HISTORY.md June 30 entry).
 
 For extension specifically: **extension byte-faithfulness depends on the
 extension host being in the same sha-stability class as the source host**.
@@ -451,8 +450,8 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | Enum wall | **171.5 h** (= 7.15 days, including all eviction-recovery defer windows) |
 | Merge wall | **18 h 42 m** (single external chunked-sort pass, 250+ sort chunks) |
 | `solve --verify` | PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found |
-| `verify.py --jobs 16` | (in flight on the merge VM at time of writing; PASS expected; will be re-run on D64 Spot post-warm-tier-copy) |
-| Total realized cost | (compiled at campaign close-out; projected $150–185 at 2 evictions/day, hard cap $200 — actual will be reported in HISTORY.md) |
+| `verify.py --jobs 16` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
+| Total realized cost | recorded in HISTORY.md campaign ledger (projection was $150–185; actual varied with eviction-defer wall-time) |
 | Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:28, Wed 07:25, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
 | Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |

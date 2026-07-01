@@ -121,7 +121,7 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 
 ### What the rules determine — and what remains open
 
-Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,422,987**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger. Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,422,987**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
 | Positions | Pairs observed | KW match rate | Character |
 |-----------|---------------|-------------------|-----------|
@@ -137,7 +137,7 @@ Earlier analysis based on a partial sample (438 solutions from a single search b
 
 Among 6 billion C3-valid solutions (including orientation variants), only 0.0018% satisfy both legacy adjacency constraints (C6+C7). Note: this rate mixes orientation variants (~297 per unique ordering) with unique orderings, so the per-ordering rate would differ. These constraints significantly narrow the space but their sufficiency for uniqueness is unverified at scale.
 
-**What makes King Wen unique among millions of valid orderings is an open question.** It is equally possible that additional mathematical rules exist to be discovered, or that King Wen is simply one choice among many with no further mathematical distinction.
+**What makes King Wen unique among the astronomically many valid orderings is an open question.** The C1–C5 space is estimated at ≈10³⁸ (Knuth random-probe estimate, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), so King Wen is one of astronomically many valid orderings — and its early appearance during enumeration is a search-setup artifact (order-invariant to the findings), not evidence of scarcity. It is equally possible that additional mathematical rules exist to be discovered, or that King Wen is simply one choice among many with no further mathematical distinction.
 
 ### The millions of roads not taken
 
@@ -194,7 +194,7 @@ Joint-survivor analysis (counting how many solutions match KW at *both* of two g
 
 This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1, 4, 25, 27} (d3's greedy pick) works: early boundaries catch the high-entropy choices in the front zone, and 25 and 27 contribute *independent* information not implied by any other boundary. The specific early-zone picks vary by partition depth; the mandatory-status of {25, 27} does not.
 
-### 560T canonical results (2026-06-08; analyze 2026-06-11) — current deepest enumeration
+### 560T canonical results (2026-06-08, CANONICAL-verified 2026-06-30; analyze 2026-06-11) — current deepest enumeration
 
 **560T canonical sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** — 10,525,271,997 canonical orderings, established by full C1+C2+C3 enumeration at 560 trillion node budget (per-cell budget 3.536 × 10⁹ × 158,364 cells). The full `--analyze` pass over the 10.5 B canonical record set was completed 2026-06-11 (3 h 47 m on D128 with the algorithmic rewrites in commits 8ac5e8f / fe58e71 / bf8d8a5 / c0ec4c3 — see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry). Headline findings (560T scope):
 
@@ -208,7 +208,7 @@ This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1,
 
 Full §[1]–§[28] analyze findings: see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry (public) and `roae-private/560T_FINAL_ANALYSIS.md` (operator-private working analysis log).
 
-**3-point scaling trajectory (11.2T → 100T → 560T, 2026-06-14).** The per-cell record sets across the three deepest canonicals are **strictly nested** (11.2T ⊆ 100T ⊆ 560T) with 0 monotonicity violations under pair-identity keying — records 759,608,573 → 3,432,399,298 → 10,525,271,997, pair-identity cells yielding 9,799 → 10,062 → 10,618. Growth is **sublinear** (×50 per-cell budget → ×13.86 records; power-law α ≈ 0.78) and is **deepening, not broadening**: cells first appearing at a larger scale contribute only ~0.2% (→100T) and ~0.5% (→560T) of that scale's records. Every sampled sub-branch is still BUDGETED (none EXHAUSTED) at 560T, so the exhaustive enumeration cannot report the total number of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and no feasible budget approaches exhaustion (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible slice at a fixed budget, and the planned 1120T extension is a discriminating test of the growth asymptote rather than merely more data.
+**3-point scaling trajectory (11.2T → 100T → 560T, 2026-06-14).** The per-cell record sets across the three deepest canonicals are **strictly nested** (11.2T ⊆ 100T ⊆ 560T) with 0 monotonicity violations under pair-identity keying — records 759,608,573 → 3,432,399,298 → 10,525,271,997, pair-identity cells yielding 9,799 → 10,062 → 10,618. Growth is **sublinear** (×50 per-cell budget → ×13.86 records; power-law α ≈ 0.67) and is **deepening, not broadening**: cells first appearing at a larger scale contribute only ~0.2% (→100T) and ~0.5% (→560T) of that scale's records. Every sampled sub-branch is still BUDGETED (none EXHAUSTED) at 560T, so the exhaustive enumeration cannot report the total number of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and no feasible budget approaches exhaustion (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible slice at a fixed budget, and the planned 1120T extension is a discriminating test of the growth asymptote rather than merely more data.
 
 ### 100T d3 canonical results (2026-04-20; historical reference, superseded by 560T)
 
