@@ -36,24 +36,51 @@ evictions / 8 resume segments**). These are *how the run executed* — reproduce
 Captions/axes carry **no cloud identifiers** — only physical quantities.
 
 ### Compute & progress
-![Time-course of throughput (M nodes/s), CPU frequency, cells-scanned, and compute-T / percent-complete across the 560T re-run, with eviction-resume boundaries marked; throughput warms from ~1,300 to ~1,470 M/s per resume as DVFS/boost stabilize.](../runs/20260608_560T_9a968fa2/viz/tc_compute.png)
+![Multi-panel time-course of throughput, CPU frequency, cells-scanned, and compute progress across the 560T re-run, eviction-resume boundaries marked.](../runs/20260608_560T_9a968fa2/viz/tc_compute.png)
+
+**Throughput** = the depth-3 DFS **enumeration rate**: millions of search-tree nodes visited per second,
+summed over all worker threads — this is *search speed, not solutions/sec* (most branches are pruned and
+valid orderings are rare). **CPU freq** avg/min across cores. **Cells:** a "cell" is one depth-3 sub-branch
+— the King Wen search space split by fixing the first three (pair, orientation) choices
+(pair1,orient1,pair2,orient2,pair3,orient3); there are 158,364 such cells, each enumerated independently, and
+"with-solutions" counts those that yielded ≥1 valid ordering (most yield none). **Progress** (% of the target
+node budget) and **compute-T** (×10¹² nodes cumulative) vs elapsed hours.
 
 ### Disk I/O & system health
-![Time-course of IOPS (read/write), disk utilization %, and iowait % across the 560T re-run — the fsync-bound checkpoint write pattern on the enum disk, with eviction gaps greyed.](../runs/20260608_560T_9a968fa2/viz/tc_io_system.png)
+![Multi-panel time-course of IOPS, disk bandwidth, disk utilization, iowait, queue depth, load average, and available memory across the 560T re-run.](../runs/20260608_560T_9a968fa2/viz/tc_io_system.png)
+
+IOPS read/write, disk bandwidth MB/s read/write, disk utilisation avg + in-tick peak, iowait %, disk average
+queue depth, 1-min load average, and available memory (GB) vs elapsed hours.
 
 ### Per-resume distributions
-![Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait and disk-util grouped by resume segment (each Spot eviction opens a new segment) — reveals per-resume warmup/throttle regimes.](../runs/20260608_560T_9a968fa2/viz/per_resume_whiskers.png)
+![Box-and-whisker plots of throughput, CPU-freq, IOPS-read, iowait and disk-util grouped by resume segment.](../runs/20260608_560T_9a968fa2/viz/per_resume_whiskers.png)
 
-### Throughput vs CPU-frequency
-![Scatter of throughput against CPU-frequency colored by elapsed time; the positive slope quantifies how host throttling (lower MHz) depresses throughput, and clusters separate per-host/per-resume regimes.](../runs/20260608_560T_9a968fa2/viz/throughput_vs_cpufreq.png)
-
-### Eviction-recovery timeline
-![Timeline of the 7 Spot evictions and their resume recoveries across the ~5-day re-run, showing downtime gaps and throughput ramp after each restart.](../runs/20260608_560T_9a968fa2/viz/eviction_recovery.png)
+Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume segment (boot-id
+keyed; each Spot eviction-resume opens a segment). Reveals warmup/throttle per resume.
 
 ### ETA projection
-![Projected completion (cells-scanned trajectory extrapolated to 158,364) versus actual, illustrating how the per-resume slowdowns shifted the finish estimate.](../runs/20260608_560T_9a968fa2/viz/eta_projection.png)
+![Cells-scanned trajectory vs elapsed hours with a fitted rate line projecting to the 158,364-cell target.](../runs/20260608_560T_9a968fa2/viz/eta_projection.png)
 
-A rendered viewer with all six panels + captions is committed alongside as
+Cells scanned vs elapsed hours. The rate is fit over **active-enum hours** (eviction downtime excluded) so a
+flat-held gap cannot deflate it; the green line projects from the latest sample to the 158,364-cell target
+(red star). Grey = downtime; ETA assumes no further evictions.
+
+### Throughput vs CPU-frequency
+![Scatter of throughput against CPU-frequency colored by elapsed time, showing the throttle-sensitivity slope.](../runs/20260608_560T_9a968fa2/viz/throughput_vs_cpufreq.png)
+
+Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how host
+throttling (lower MHz) depresses throughput; clusters reveal per-host/per-resume regimes.
+
+### Eviction timeline
+![Horizontal bars for each of the 7 Spot evictions on the elapsed-hours axis, colored by relaunch-policy regime, with weekend shading.](../runs/20260608_560T_9a968fa2/viz/eviction_recovery.png)
+
+One horizontal bar per Spot eviction at its real time on the elapsed-hours axis, spanning the VM-off downtime
+and **colored by relaunch-policy regime**: purple = weekday-daytime eviction deferred to 18:01 PT (long by
+design), cyan = off-hours/weekend 75-min retry (short). Light-blue background marks weekends (PT). A green ▶
+marks resume; the label gives downtime + minutes to recover to ≥95% steady throughput ("instant" = first
+sample). Directly answers why some VM-off blocks are ~10 h and others ~75 min. Appears once evictions occur.
+
+A rendered viewer with all six panels + these captions is committed alongside as
 [`index.html`](../runs/20260608_560T_9a968fa2/viz/index.html). Future canonical campaigns
 (1120T onward) emit the same panels from launch.
 
