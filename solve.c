@@ -4693,6 +4693,152 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
  * This eliminates the "tail problem" where a few large branches monopolize
  * single cores while the rest are idle. */
 
+/* ===================== #195 Knuth (1975) random-probe estimator =====================
+ * Unbiased Monte-Carlo estimate of the UN-budgeted C1-C5 backtrack tree, WITHOUT
+ * enumerating it and WITHOUT any shard data. Each probe is one random root->dead-end
+ * walk: W=1; at a node with d live (C1/C2/C4/C5-satisfying) children, W*=d, descend
+ * to a uniform-random one; stop at a dead end or a depth-32 leaf.
+ *   E[sum of W over path nodes]      = total tree nodes         (Knuth 1975)
+ *   E[W at a reached depth-32 leaf]  = # complete C1/C2/C4/C5 orderings
+ *   E[W at a C3-valid depth-32 leaf] = # canonical (C1-C5) orderings, un-deduped, un-budgeted
+ * Averaging many independent probes converges to the truth; report mean +/- stderr.
+ * Reuses the exact prune predicates from backtrack() (used / C2 bd==5 / C5 budget). */
+typedef struct {
+    int seq0[64]; pair_mask_t used0; int budget0[7]; int start_step;
+    uint64_t n_probes, seed;
+    double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
+    uint64_t hits_leaf, hits_c3;
+} KnuthArg;
+
+static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
+
+static void *knuth_worker(void *vp){
+    KnuthArg *a = (KnuthArg*)vp;
+    uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
+    int seq[64]; pair_mask_t used; int budget[7];
+    for (uint64_t t=0; t<a->n_probes; t++){
+        memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
+        int step = a->start_step;
+        double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
+        for(;;){
+            node_acc += W;
+            if (step == 32){ leaf = W; if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) c3 = W; break; }
+            int prev_tail = seq[step*2 - 1];
+            int cp[64], co[64], d = 0;
+            for (int p=0; p<32; p++){
+                if (PAIR_MASK_TEST(used,p)) continue;
+                for (int orient=0; orient<2; orient++){
+                    int first  = orient ? pairs[p].b : pairs[p].a;
+                    int second = orient ? pairs[p].a : pairs[p].b;
+                    int bd = hamming(prev_tail, first);
+                    if (bd == 5) continue;                 /* C2 */
+                    if (budget[bd] <= 0) continue;         /* C5 between-pair */
+                    budget[bd]--;
+                    int wd = hamming(first, second);
+                    int live = budget[wd] > 0;             /* C5 within-pair (bd==wd safe) */
+                    budget[bd]++;
+                    if (!live) continue;
+                    cp[d]=p; co[d]=orient; d++;
+                }
+            }
+            if (d == 0) break;                             /* dead end, no leaf */
+            int k = (int)(ks_next(&rng) % (uint64_t)d);
+            int p = cp[k], orient = co[k];
+            int first  = orient ? pairs[p].b : pairs[p].a;
+            int second = orient ? pairs[p].a : pairs[p].b;
+            int bd = hamming(prev_tail, first), wd = hamming(first, second);
+            budget[bd]--; budget[wd]--;
+            seq[step*2]=first; seq[step*2+1]=second; PAIR_MASK_SET(used,p);
+            W *= (double)d; step++;
+        }
+        a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf>0) a->hits_leaf++;
+        a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;      if (c3>0)   a->hits_c3++;
+        a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
+    }
+    return NULL;
+}
+
+/* prefix levels: apply (pair,orient) at sequence level POS (1..3); 0 if infeasible */
+static int knuth_apply(int seq0[64], pair_mask_t *used0, int budget0[7], int P, int O, int POS){
+    int f = O ? pairs[P].b : pairs[P].a, s = O ? pairs[P].a : pairs[P].b;
+    int bd = hamming(seq0[POS*2-1], f); if (bd==5 || budget0[bd]<=0) return 0; budget0[bd]--;
+    int wd = hamming(f, s);             if (budget0[wd]<=0) return 0;           budget0[wd]--;
+    seq0[POS*2]=f; seq0[POS*2+1]=s; PAIR_MASK_SET(*used0, P); return 1;
+}
+
+/* Deterministic EXACT count of the subtree below (seq,used,budget,step) — for
+ * validating the Knuth estimator on a small (deep-prefix) subtree. Same prune. */
+static void exact_count(int seq[64], pair_mask_t used, int budget[7], int step,
+                        double *nodes, double *leaves, double *c3){
+    *nodes += 1.0;
+    if (step == 32){ *leaves += 1.0; if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) *c3 += 1.0; return; }
+    int prev_tail = seq[step*2 - 1];
+    for (int p=0;p<32;p++){
+        if (PAIR_MASK_TEST(used,p)) continue;
+        for (int orient=0; orient<2; orient++){
+            int first  = orient ? pairs[p].b : pairs[p].a;
+            int second = orient ? pairs[p].a : pairs[p].b;
+            int bd = hamming(prev_tail, first); if (bd==5) continue; if (budget[bd]<=0) continue; budget[bd]--;
+            int wd = hamming(first, second);    if (budget[wd]<=0){ budget[bd]++; continue; } budget[wd]--;
+            seq[step*2]=first; seq[step*2+1]=second; PAIR_MASK_SET(used,p);
+            exact_count(seq, used, budget, step+1, nodes, leaves, c3);
+            PAIR_MASK_CLR(used,p); budget[wd]++; budget[bd]++;
+        }
+    }
+}
+
+static void estimate_tree_knuth(uint64_t n_total, int nthreads,
+                                int n_levels, int lp[3], int lo[3]){
+    int seq0[64]; memset(seq0,0,sizeof(seq0)); pair_mask_t used0=0; int budget0[7];
+    seq0[0]=63; seq0[1]=0; PAIR_MASK_SET(used0, pair_index_of(63,0));
+    memcpy(budget0, kw_dist, sizeof(budget0)); budget0[hamming(63,0)]--;
+    int start_step = 1;
+    for (int i=0;i<n_levels;i++){
+        if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
+            fprintf(stderr,"KNUTH: prefix infeasible at level %d (pair=%d orient=%d)\n",i+1,lp[i],lo[i]); return; }
+        start_step = i+2;
+    }
+    if (n_total == 0){  /* n=0 => exact deterministic subtree count (validation anchor) */
+        int seq[64]; memcpy(seq,seq0,sizeof(seq)); pair_mask_t used=used0; int budget[7]; memcpy(budget,budget0,sizeof(budget));
+        double nodes=0, leaves=0, c3=0;
+        exact_count(seq, used, budget, start_step, &nodes, &leaves, &c3);
+        printf("EXACT-COUNT start_step=%d prefix_levels=%d\n", start_step, n_levels);
+        printf("  tree_nodes            : %.0f\n", nodes);
+        printf("  leaves_C1C2C4C5       : %.0f\n", leaves);
+        printf("  leaves_canonical_C1C5 : %.0f\n", c3);
+        fflush(stdout); return;
+    }
+    if (nthreads<1) nthreads=1; if (nthreads>256) nthreads=256;
+    if (n_total < (uint64_t)nthreads) nthreads=1;
+    pthread_t tid[256]; KnuthArg arg[256];
+    uint64_t per = n_total/(uint64_t)nthreads;
+    for (int i=0;i<nthreads;i++){
+        memset(&arg[i],0,sizeof(KnuthArg));
+        memcpy(arg[i].seq0,seq0,sizeof(seq0)); arg[i].used0=used0; memcpy(arg[i].budget0,budget0,sizeof(budget0));
+        arg[i].start_step=start_step;
+        arg[i].n_probes = per + (i==0 ? n_total%(uint64_t)nthreads : 0);
+        arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
+        pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
+    }
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; uint64_t hL=0,hC=0,N=0;
+    for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
+        sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
+        sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes; }
+    double dN=(double)N;
+    printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
+           (unsigned long long)N, nthreads, start_step, n_levels);
+    for (int m=0;m<3;m++){
+        const char *nm = m==0?"tree_nodes           " : m==1?"leaves_C1C2C4C5      " : "leaves_canonical_C1C5";
+        double s = m==0?sN:m==1?sL:sC, q = m==0?qN:m==1?qL:qC; uint64_t h = m==0?N:m==1?hL:hC;
+        double mean = s/dN, var = q/dN - mean*mean; if (var<0) var=0;
+        double se = sqrt(var/dN), rel = mean>0 ? 100.0*se/mean : 0.0;
+        printf("  %s : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hitrate=%.3g\n",
+               nm, mean, mean-1.96*se, mean+1.96*se, rel, (double)h/dN);
+    }
+    fflush(stdout);
+}
+
+
 /* Dead sub-branch detection: skip if >N nodes with 0 C3-valid.
  * Default 0 = disabled. Set SOLVE_DEAD_LIMIT=100000000000 for 100B. */
 static long long dead_node_limit = 0;
@@ -10009,6 +10155,33 @@ int main(int argc, char *argv[]) {
 
         if (warn) { printf("[--disk-precheck] DONE: WARNING (exit 1)\n"); return 1; }
         printf("[--disk-precheck] DONE: PASS (exit 0)\n");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--estimate-knuth") == 0) {
+        /* #195 Knuth (1975) random-probe tree-size estimator. Pure compute, NO shard
+         * data / mounts. Usage:
+         *   solve --estimate-knuth <N_probes> [<p1> <o1> [<p2> <o2> [<p3> <o3>]]]
+         * No prefix -> the whole C1-C5 tree (all 56 first-level branches); a prefix
+         * scopes to one branch/sub-branch (e.g. 22 0 30 1 20 0 = the yield-16 laggard).
+         * SOLVE_THREADS overrides parallelism (default nproc). Sha-neutral; exits 0. */
+        if (argc < 3) {
+            fprintf(stderr, "usage: solve --estimate-knuth <N_probes> "
+                            "[<p1> <o1> [<p2> <o2> [<p3> <o3>]]]\n");
+            return 1;
+        }
+        init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+        uint64_t nprobe = strtoull(argv[2], NULL, 10);
+        int rest = argc - 3;
+        if (rest < 0 || rest % 2 != 0 || rest > 56) {
+            fprintf(stderr, "prefix must be up to 28 <pair> <orient> pairs\n"); return 1;
+        }
+        int nlev = rest / 2, lp[28] = {0}, lo[28] = {0};
+        for (int i = 0; i < nlev; i++) { lp[i] = atoi(argv[3+2*i]); lo[i] = atoi(argv[4+2*i]); }
+        int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
+        if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+        if (nthreads < 1) nthreads = 1;
+        fprintf(stderr, "[knuth] %llu probes, %d threads, %d prefix level(s)\n",
+                (unsigned long long)nprobe, nthreads, nlev);
+        estimate_tree_knuth(nprobe, nthreads, nlev, lp, lo);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every

@@ -243,6 +243,36 @@ where two re-derive launchers shipped with PSBs re-derived from a wrong
 floor formula, costing ~$15 of compute and ~16h of wall before being
 caught against the recipe table.
 
+### --estimate-knuth
+
+```
+solve --estimate-knuth <N_probes> [<p1> <o1> [<p2> <o2> [<p3> <o3>]]]
+```
+
+Knuth (1975) random-probe estimator (#195, exploration) for the **un-budgeted**
+C1–C5 backtrack tree — estimates its total size *without enumerating it* and
+without any shard/`solutions.bin` data (pure compute). Each probe is one random
+root→dead-end walk: weight `W=1`; at a node with `d` live (C1/C2/C4/C5-satisfying)
+children, `W*=d` and descend to a uniform-random one; stop at a dead end or a
+depth-32 leaf. Averaging `N` independent probes is an **unbiased** estimate of:
+`tree_nodes` (total nodes), `leaves_C1C2C4C5` (complete orderings), and
+`leaves_canonical_C1C5` (C3-valid = canonical, un-deduped). Prints mean, 95 % CI,
+relative error, and hit-rate for each. `SOLVE_THREADS` sets parallelism (default
+`nproc`); each thread uses an independent xorshift seed.
+
+- No prefix → the whole C1–C5 tree (all 56 first-level branches).
+- A `<p> <o>` prefix (up to 3 levels, e.g. `22 0 30 1 20 0`) scopes the estimate
+  to one branch / sub-branch.
+- `N_probes = 0` → **exact deterministic** subtree count instead of estimation
+  (only tractable for a deep prefix; used to validate the estimator against
+  ground truth — matches to <1 % at prefix depths 22/24/26).
+
+Sha-neutral: argv-dispatched, reuses (copies) the `backtrack()` prune predicates,
+never touches the enumeration/merge path (`--selftest` unchanged). No shard data.
+Exits 0. Reuses the same C1–C5 constraints as the enumerator so it walks the
+identical tree. See `petersm3/roae-private:SEARCH_SPACE_CHARACTERIZATION_PLAN.md`
+and `ANALYSIS_195_*` for method + results.
+
 ### --validate-launcher-config
 
 ```
