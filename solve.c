@@ -4760,6 +4760,8 @@ static void *knuth_worker(void *vp){
 
 /* prefix levels: apply (pair,orient) at sequence level POS (1..3); 0 if infeasible */
 static int knuth_apply(int seq0[64], pair_mask_t *used0, int budget0[7], int P, int O, int POS){
+    if (P < 0 || P > 31 || O < 0 || O > 1) return 0;
+    if (PAIR_MASK_TEST(*used0, P)) return 0;   /* #195: reject a pair already placed (e.g. pair 0 at pos 0) */
     int f = O ? pairs[P].b : pairs[P].a, s = O ? pairs[P].a : pairs[P].b;
     int bd = hamming(seq0[POS*2-1], f); if (bd==5 || budget0[bd]<=0) return 0; budget0[bd]--;
     int wd = hamming(f, s);             if (budget0[wd]<=0) return 0;           budget0[wd]--;
