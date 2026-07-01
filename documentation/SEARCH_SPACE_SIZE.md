@@ -76,7 +76,19 @@ A natural objection: if there are ≈10³⁸ valid orderings and King Wen is jus
 
 3. **The budget is per-cell, and King Wen lives in one cell.** The enumeration splits into 158,364 depth-3 cells, each with its own node budget; King Wen belongs to exactly one cell and is reached within that cell's shallow budgeted region. We never traverse 10²⁷ other solutions before it — the ≈10³⁸ total is spread across all cells and, overwhelmingly, across the **depth beyond every cell's budget**. King Wen is a shallow, early-reachable leaf, not a deep or rare one.
 
-The takeaway reinforces the headline: the ≈10³⁸ estimate shows King Wen is **not special by being hard to find** — valid orderings are astronomically abundant and King Wen is an easily-reached member. Its distinction is **structural** (specific near-extremal properties), never scarcity of existence. This is exactly why the project's claims are about *where King Wen sits in the distribution*, not about it being combinatorially unique.
+### Is finding King Wen early then an artifact of our setup? (Yes — and it doesn't matter.)
+
+It is worth being fully explicit: **King Wen's early appearance is a property of how we set the search up, not a property of King Wen.** Three setup choices produce it, and a different choice on any of them could make a finite-budget search reach King Wen far more slowly — or leave its particular leaf out of the budgeted slice entirely:
+
+- **The constraints** set the ambient *density* of solutions (they shrink ~10⁸⁹ → ~10³⁸, so the constrained tree is nearly all-solutions and any traversal trips over them immediately). Because C1–C5 were reverse-engineered *from* King Wen, King Wen is a member of the solution set by construction and can never be pruned — but that guarantees *membership*, not *early arrival*.
+- **The decomposition** (158,364 per-cell budgets) guarantees *breadth*: every cell, King Wen's included, is serviced regardless of branch order. A single global-budget DFS could instead spend its whole budget deep in another region and never reach King Wen's prefix.
+- **The variable/value ordering** decides where King Wen's one leaf falls relative to its cell's ~3.5 B-node budgeted frontier (out of ~10³³ leaves in that cell). Under the natural ordering it lands inside and is found; an adversarial ordering could push it outside, so a same-budget run would not surface that specific leaf.
+
+So yes — swap the ordering, or use a global budget instead of per-cell breadth, and a finite run could take vastly longer to reach King Wen, or miss its leaf at a given budget.
+
+**Why this changes no finding.** The early appearance is a statement about the *algorithm's convenience*, not King Wen's mathematical status, and every result is invariant to it: (1) King Wen is a **known input**, verified directly in microseconds — the enumeration never needed to *find* it, only to map its neighbours; (2) the claims are **relative comparisons over the whole enumerated set** (complement-distance percentile, mandatory boundaries, position-1 forcing), computed with King Wen held known, so reordering the traversal does not move them; (3) King Wen's **membership** in the C1–C5 set is order-invariant. What *is* setup-dependent — which slice of the other ~10³⁸ solutions a given budgeted run includes — is exactly what the [partition-invariance](PARTITION_INVARIANCE.md) results pin down as reproducible under a fixed budget regime. A worse-ordered search that took years to walk up to King Wen would prove nothing new, because King Wen's significance was never "it is hard to find."
+
+The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by being rare or hard to find** — it is an easily-reached member of an astronomically large valid set, and its distinction is purely **structural**. This is exactly why the project's claims are about *where King Wen sits in the distribution*, never about it being combinatorially unique.
 
 ## Implications
 
