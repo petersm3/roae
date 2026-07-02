@@ -195,17 +195,21 @@ circular. A quantified distributional approach sidesteps this:
 - Fit a kernel density estimator on a uniform sample; locate KW; compute
   KW's density-percentile with bootstrap confidence intervals.
 
-**Finding (documented in DISTRIBUTIONAL_ANALYSIS.md):** KW sits at the
-**0.000%-ile (95% bootstrap CI [0.000%, 0.000%])** of the joint observable-
-density distribution. Its log-density under the sample-fit KDE is ~12,800×
-smaller than any ordering in a 100K uniform subsample.
+**Finding (documented in DISTRIBUTIONAL_ANALYSIS.md):** No ordering in a
+100,000-record uniform sample matches KW's joint feature profile — KW's
+joint-density rank is **below the sample's resolution (<10⁻⁵)**; a 100K
+sample cannot resolve percentiles below ~10⁻⁵, so no tighter figure is
+quoted. KW is simultaneously ≥95th-percentile extreme on 4 of the 8
+discriminating dimensions. Its log-density under the sample-fit KDE is
+~12,800× smaller than any ordering in the subsample (a methodology-dependent
+figure; see the KDE caveats there).
 
 **What this is.** A quantified statement of KW's position in a distribution
 chosen for general information content, not custom-fit to KW. The vector
 schema was frozen before the analysis; two of the ten chosen dimensions
 turned out to be structurally invariant (new finding — see appendix in
 DISTRIBUTIONAL_ANALYSIS.md) and contribute zero discrimination; the remaining
-eight drive the 0%-ile result.
+eight drive the below-resolution joint-density result.
 
 **What this is not.** A uniqueness proof. The distributional result says KW's
 specific configuration of feature values is atypical — not that KW is the
@@ -216,8 +220,11 @@ score similarly, which there are likely millions of such orderings.
 **Caveats properly attached.**
 
 1. KDE bandwidth and anchor-sample size affect the absolute log-density
-   number. The 0%-ile ranking is robust across 1000 bootstrap samples, but
-   the specific −128,260 log-density number is methodology-dependent.
+   number. The below-sample-resolution ranking is robust across 1000
+   bootstrap samples (though a 100K sample cannot resolve ranks below
+   ~10⁻⁵), but the specific −128,260 log-density number is
+   methodology-dependent — high-dimensional KDE is bandwidth-sensitive
+   (curse of dimensionality).
 2. One dimension's marginal report (`fft_dominant_freq` at 29%-ile)
    initially suggested KW was on the low tail of that dimension. Closer
    inspection showed KW's value (k=16) is actually the **mode** of the

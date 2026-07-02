@@ -61,7 +61,7 @@ The selftest baseline confirms this: sha `403f7202a33a9337b781f4ee17e497d5c0773c
 
 Pass 1 archive: `runs/20260422_passA_10T_d64_laggard/22_0_30_1_20_0/run.log.gz`, with sha and metadata in the same directory. Verified end-of-run sha `e801bc7e…` for `sub_22_0_30_1_20_0.bin`.
 
-Fresh run archive (TBD): will be at `runs/<date>_1000T_22_0_30_1_20_0/` upon completion of the 1000T run (ETA 2026-05-02).
+Fresh run archive: none (not archived; the planned 1000T single-branch run was superseded by later canonicals — 100T and 560T).
 
 To verify the trajectory match yourself (against any future run on this branch):
 

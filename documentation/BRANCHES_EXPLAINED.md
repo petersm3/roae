@@ -33,23 +33,33 @@ is different:
   Zhuan* commentary tradition (~5th-3rd c. BCE) and is presented
   rigorously in modern form by Wilhelm & Baynes (1967) and Cook (2006).
   Not novel to ROAE.
-- **C2 — Boundary distance.** Between two consecutive pairs, the last
-  line-pattern of one pair and the first of the next cannot differ by
-  exactly 5 lines. *Identified by Terence McKenna* in *The Invisible
+- **C2 — No 5-line transitions.** No two consecutive hexagrams differ
+  by exactly 5 lines. Within a pair this is automatic, so in practice
+  the rule constrains the boundaries between consecutive pairs.
+  *Identified by Terence McKenna* in *The Invisible
   Landscape* (1975), and independently by Cook (2006) in his combinatorial
   analysis. Not novel to ROAE.
-- **C3 — Distance count.** Across the 64 positions, the number of
-  consecutive-pair-boundary distances of each value (1, 2, 3, 4, 6) has
-  to match a fixed distribution: 1×two, 2×twenty, 3×thirteen, 4×nineteen,
+- **C3 — Complement distance.** Every hexagram has a complement (every
+  line flipped) sitting somewhere else in the sequence. Averaged over
+  all 64 hexagrams, the distance between a hexagram's position and its
+  complement's position must be at most 12.125 — or **776** in the ×64
+  integer form the solver uses. *Formulated by ROAE* as a
+  specifically-quantified constraint; no prior published source
+  identified.
+- **C4 — Starts with (63, 0).** The first hexagram is ䷀ The Creative #1
+  (binary 111111, the all-solid pattern), and the second is its
+  complement ䷁ The Receptive #2 (binary 000000, all-broken). The
+  *choice* of this pair first is classically attested (the *Xugua*
+  commentary's ordering rationale); the *orientation* (Creative before
+  Receptive) is forced by C5 (a theorem — see SPECIFICATION.md).
+- **C5 — Distance count.** Across the 63 consecutive transitions, the
+  number of distances of each value (1, 2, 3, 4, 6) has to match a
+  fixed distribution: 1×two, 2×twenty, 3×thirteen, 4×nineteen,
   6×nine. *Formulated by ROAE* as a specifically-quantified constraint;
   no prior published source identified.
-- **C4 — Pair distance budget.** Same idea for distances inside each
-  pair (between the two members). *Formulated by ROAE.*
-- **C5 — Position 0 forced.** The first hexagram is ䷀ The Creative #1
-  (binary 111111, the all-solid pattern), and the second is its
-  complement ䷁ The Receptive #2 (binary 000000, all-broken).
-  *Direct observation* of the actual King Wen sequence — not a derived
-  rule, just what the data shows.
+
+(These labels match the formal constraint numbering in
+[SPECIFICATION.md](SPECIFICATION.md).)
 
 What ROAE adds is the **conjunction**: treating C1+C2+C3+C4+C5 as a
 single constraint system and asking how many distinct orderings satisfy
@@ -91,7 +101,7 @@ already broken, we *cut off everything below it* and back up.
 
 ## Part 3: The first move is forced
 
-Constraint C5 says the first hexagram must be ䷀ The Creative #1 (binary
+Constraint C4 says the first hexagram must be ䷀ The Creative #1 (binary
 value 63), and the second must be its complement ䷁ The Receptive #2
 (binary value 0). So position 0 = ䷀ #1, position 1 = ䷁ #2. No choice
 there.
@@ -108,7 +118,7 @@ Hexagram:   63 → 0  → ?  → ?  → ?  → ?  → ?  → ?       → ?
             pair0  pair1  pair2  pair3   ... 32 pairs total
 ```
 
-C5 fixes pair 0. The solver is choosing pair 1 (positions 2-3), pair 2
+C4 fixes pair 0. The solver is choosing pair 1 (positions 2-3), pair 2
 (positions 4-5), and so on, all the way to pair 31. The job is to fill
 in 31 pairs, each a member-of and orientation-of choice.
 
@@ -140,7 +150,7 @@ about what pair 1 looks like.
                         START
                           │
                           ▼
-                   pair 0 = (䷀ #1, ䷁ #2)   ← forced by C5
+                   pair 0 = (䷀ #1, ䷁ #2)   ← forced by C4
                           │
             ┌─────┬───────┼─────┬─────────┐
             ▼     ▼       ▼     ▼         ▼
@@ -533,7 +543,7 @@ alone explain.
 | **Hexagram** | One of 64 patterns of 6 stacked solid/broken lines. Has two numberings: **binary value 0-63** (used by the solver) and **King Wen number #1-#64** (the traditional ordering position). Example: ䷀ The Creative #1 has binary value 63 (= 111111). |
 | **King Wen sequence (KW)** | The specific 64-hexagram ordering attributed to ancient China, ~3000 years old. |
 | **Pair** | Two consecutive hexagrams at positions 2k and 2k+1 in the sequence. The 64-hexagram order has 32 pairs. |
-| **C1 through C5** | The five constraints the King Wen sequence satisfies. C1 = pair structure, C2 = no boundary distance 5, C3 = consecutive-pair distance count, C4 = within-pair distance count, C5 = position 0 forced. |
+| **C1 through C5** | The five constraints the King Wen sequence satisfies. C1 = pair structure, C2 = no 5-line transitions, C3 = complement distance ≤ 776 (×64 form), C4 = starts with (63, 0), C5 = transition-distance count. |
 | **Branch (first-level)** | A specific (pair, orientation) choice for pair 1 of the sequence. There are 56 valid first-level branches. |
 | **Sub-branch (depth-2)** | A specific choice for pair 2 inside a first-level branch. About 54 per first-level. |
 | **Sub-sub-branch (depth-3)** | A specific choice for pair 3 inside a sub-branch. About 50 per sub-branch. There are 158,364 depth-3 sub-sub-branches total in the King Wen problem. |

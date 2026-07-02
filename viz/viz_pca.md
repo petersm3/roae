@@ -98,7 +98,7 @@ position differs).
   typical at the C3 ceiling are two views of the same story in the
   *pair-placement* geometry: KW is not a geometric extremum there.
 - **Important distinction: PCA centrality and the 2026-04-21 joint-density
-  extremity (KW at 0.000%-ile, bootstrap 95% CI [0.000%, 0.000%] — see
+  extremity (KW's joint-density rank below the 100K sample's resolution, <10⁻⁵ — see
   [`../documentation/DISTRIBUTIONAL_ANALYSIS.md`](../documentation/DISTRIBUTIONAL_ANALYSIS.md)) are NOT
   contradictory.** They are measurements in *different projection spaces*:
   - PCA here projects raw 32-byte ordering space (what pair is at each

@@ -1,6 +1,6 @@
 # Formal Specification of the King Wen Sequence
 
-The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is the unique permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints.
+The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is a permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints. Within every enumerated dataset to date, constraints C1–C7 plus four greedy-ordered boundary constraints single out King Wen exactly; whether that uniqueness extends to the full constraint-satisfying space is a conjecture, not a theorem — see the [Conjecture (Uniqueness)](#theorems) below. The space satisfying C1–C5 alone is estimated at ≈10³⁸ orderings ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
 
 > Looking for a plain-language version of these constraints and how the solver searches for orderings that satisfy them? See [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md).
 
@@ -32,7 +32,7 @@ where |H| = 64. Under `comp(h) = h ⊕ 63`, no hexagram is self-complementary (t
 
 ## Constraints
 
-**S** is the unique permutation of **H** satisfying the following constraints. Note: C1 and C2 are structural properties observable in the sequence. C3, C4, and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C6 and C7 are specific adjacency choices that no aggregate mathematical property can replace.
+**S** satisfies the following constraints (unique within every enumerated dataset to date; see the [Conjecture (Uniqueness)](#theorems) for full-space status). Note: C1 and C2 are structural properties observable in the sequence. C3 and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C4 stands apart: its pair choice (Heaven/Earth first) is independently attested in the classical tradition (the *Xugua* commentary) centuries before any enumeration, and its orientation is a theorem (Theorem 6), not an extracted parameter. C6 and C7 are specific adjacency choices that no aggregate mathematical property can replace.
 
 **Numbering note.** The narrative document [SOLVE.md](SOLVE.md) uses discovery-order labels (Rule 1–6) which include a "Rule 4 (XOR algebraic)" not listed here — that rule is provably redundant (see Theorem (XOR universality) below) and is therefore not part of the formal constraint set. Mapping: Rule 1↔C1, Rule 2↔C2, Rule 3↔C3, Rule 4↔(Theorem 2, redundant), Rule 5↔C4, Rule 6↔C5. The formal minimum independent rule set is **{C1, C3, C4, C5}** (C2 is mathematically implied by C5's histogram but kept in the solver as an O(1) boundary pre-filter); C6 and C7 are additional adjacency constraints needed to single out KW within the C1–C5 family.
 
@@ -146,7 +146,7 @@ function construct_king_wen():
     return S
 ```
 
-*With all constraints active, this algorithm produces exactly one complete sequence. However, individual steps may have multiple locally valid choices — uniqueness is a global property requiring lookahead or backtracking, not a greedy local property. Run `python3 solve.py --reconstruct` to verify.*
+*With all constraints active, this algorithm produces exactly one complete sequence in the enumerated datasets to date; full-space uniqueness of C1–C7 is the [Conjecture (Uniqueness)](#theorems) above. However, individual steps may have multiple locally valid choices — uniqueness is a global property requiring lookahead or backtracking, not a greedy local property. Run `python3 solve.py --reconstruct` to verify.*
 
 ## Notation summary
 

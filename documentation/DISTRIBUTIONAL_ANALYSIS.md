@@ -124,8 +124,12 @@ categorical stratifier). See `solve.py --joint-density` and
 - **KDE bandwidth:** 0.3253 (Silverman rule)
 - **KW's log-density:** −128,260
 - **Sample log-density range:** [−10.11, −2.98], mean −5.67
-- **KW's density-percentile: 0.000%** (fraction of sample points with
-  log-density ≤ KW's; bootstrap 1000× 95% CI: **[0.000%, 0.000%]**)
+- **KW's joint-density rank: below the sample's resolution (<10⁻⁵).** No
+  ordering in the 100,000-record uniform sample matches KW's joint feature
+  profile; a sample of this size cannot resolve percentiles below ~10⁻⁵, so
+  the rank is reported as a resolution bound, not a percentile. KW is
+  simultaneously ≥95th-percentile extreme on 4 of the 8 discriminating
+  dimensions.
 
 **What this means.** KW's log-density under the sample-fit KDE is approximately
 **−128,260**, while the entire sample's log-density range is
@@ -141,9 +145,11 @@ in multiple dimensions — is what makes KW a density-space outlier. A typical
 C1-C5-valid ordering has its high values scattered or moderated across
 dimensions; KW concentrates them.
 
-**Bootstrap robustness.** 1000 bootstrap resamples each yield KW at 0.000%
-density percentile — the finding is not an artifact of a particular sample.
-The 95% CI is [0.000%, 0.000%].
+**Bootstrap robustness.** 1000 bootstrap resamples each place KW below every
+sampled point's density — the finding is not an artifact of a particular
+sample. Note that bootstrap resampling of a 100K sample cannot resolve
+percentiles below ~10⁻⁵, so no confidence interval tighter than that
+resolution is quoted.
 
 **Caveat on methodology.** A KDE assigns extrapolated density at points far
 from all anchors. KW's extreme log-density reflects that KW's joint feature
@@ -151,15 +157,21 @@ configuration is unrepresented in 100K sampled points. A denser KDE fit (1M+
 anchors, longer compute) would likely produce a less extreme but still very
 low log-density. The qualitative conclusion — "KW is in an atypical joint
 region" — is robust; the quantitative "−128,260 log-density" is methodology-
-dependent.
+dependent. High-dimensional KDE is additionally bandwidth-sensitive (the
+curse of dimensionality): with 100K anchors in 7 dimensions, density
+estimates far from the anchor cloud depend strongly on the bandwidth choice
+(here Silverman's rule), so the magnitude of KW's density deficit should not
+be over-interpreted.
 
 ## What this establishes
 
 1. **KW is statistically atypical in the joint observable distribution** of
    the 100T canonical. Its combination of feature values is not
    representative of the bulk of the 3.43 billion C1-C5 valid orderings.
-   Quantified claim: **0th percentile in joint density estimation**, 95%
-   bootstrap CI [0.000%, 0.000%].
+   Quantified claim: no ordering in a 100,000-record uniform sample matches
+   KW's joint feature profile — KW's joint-density rank is **below the
+   sample's resolution (<10⁻⁵)**, and KW is simultaneously ≥95th-percentile
+   extreme on 4 of the 8 discriminating dimensions.
 
 2. **Individual marginal percentiles are not the full story.** KW is near
    the median in `fft_dominant_freq` (29%-ile) and constant-valued in two
@@ -334,7 +346,7 @@ Chan asks "is KW distinctive vs arbitrary permutations?", ROAE asks
 "is KW distinctive vs other constraint-satisfying orderings?".
 Both find KW at extreme tails of their respective distributions
 (Chan's mean Hamming, lag-1 autocorrelation, asymmetry findings;
-ROAE's joint observable density 0.000%-ile). Where these analyses
+ROAE's below-sample-resolution joint-density rank). Where these analyses
 overlap on common observables (mean Hamming, alternation), Chan's
 prior art is acknowledged — see [CITATIONS.md](CITATIONS.md) and
 SOLVE.md / CRITIQUE.md for inline citations.

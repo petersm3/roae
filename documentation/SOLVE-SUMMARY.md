@@ -39,7 +39,7 @@ To get the binary code, read the 1s and 0s from the top of the table downward. F
 
 ## The rules we found
 
-Five independent rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md)), each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / Cook 2006; Rule 2 from Terence & Dennis McKenna's *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
+Five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four formally independent — C2 is implied by C5), each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / Cook 2006; Rule 2 from Terence & Dennis McKenna's *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
 
 (A sixth "XOR rule" was identified during discovery but later proven mathematically redundant — it follows automatically from Rule 1; see [SOLVE.md](SOLVE.md) Theorem 2. It is therefore not listed below.)
 
@@ -99,7 +99,7 @@ Closest complements highlighted (distance 1 — adjacent in the sequence):<br>
 <mark>**䷀䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ <mark>**䷊䷋**</mark> ䷌䷍ ䷎䷏ <mark>**䷐䷑**</mark> ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ <mark>**䷚䷛**</mark> <mark>**䷜䷝**</mark> ䷞䷟ ䷠䷡ ䷢䷣ ䷤<mark>**䷥**</mark> <mark>**䷦**</mark>䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ <mark>**䷴䷵**</mark> ䷶䷷ ䷸䷹ ䷺䷻ <mark>**䷼䷽**</mark> <mark>**䷾䷿**</mark><br>
 Pairs: 1↔2, 11↔12, 17↔18, 27↔28, 29↔30, 38↔39, 53↔54, 61↔62, 63↔64
 
-10 of 32 complement pairs sit directly next to each other. The farthest apart are ䷂ #3 and ䷱ #50 (distance 47) — but the average is only 12.1. See [all 32 complement pairs](#appendix-all-32-complement-pairs-by-distance) in the appendix.
+9 of 32 complement pairs sit directly next to each other. The farthest apart are ䷂ #3 and ䷱ #50 (distance 47) — but the average is only 12.1. See [all 32 complement pairs](#appendix-all-32-complement-pairs-by-distance) in the appendix.
 
 Farthest complements highlighted (䷂ #3 and ䷱ #50, 47 positions apart):<br>
 ䷀䷁ <mark>**䷂**</mark>䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰<mark>**䷱**</mark> ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
@@ -154,7 +154,7 @@ The millions of alternative arrangements satisfying Rules 1-5 are not random —
 
 Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to hundreds of millions (d3 canonical: 706M; d2 canonical: 286M). Position 1 is fully determined. The cascade region (positions 3-20) is heavily constrained (per-position entropy 0.3-1.9 bits at d3 — far below the 5-bit maximum) but not deterministic: every first-level branch admits multiple distinct pair sequences across positions 3-19. Positions 22-31 have substantially more freedom (entropy 3.4-3.5 bits at d3). The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints so strict that only hundreds of millions of arrangements in the entire universe of 10^89 possibilities can satisfy them all. Exactly **4 boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) are needed to narrow those millions to exactly 1 — King Wen. **The 4-boundary minimum is proven at both d2 and d3 scales** (exhaustive 3-subset testing confirms no triple suffices at either partition depth).
+Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), designed an arrangement of 64 symbols that satisfies a set of interlocking mathematical constraints admitting an estimated **≈3×10³⁷ valid arrangements** of the 10^89 possible ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) — a reduction of more than 50 orders of magnitude. Within every enumerated dataset (up to 10.5 billion orderings at 560T), **4 greedy-ordered boundary constraints** (specifying which pairs must be adjacent at 4 specific positions) then single out King Wen exactly; whether that holds over the full space is open (extrapolation suggests ~15–20 boundaries would be required). **The 4-boundary minimum is proven at both d2 and d3 scales (within the enumerated datasets)** — exhaustive 3-subset testing confirms no triple suffices at either partition depth.
 
 **A key partition-scope finding** (2026-04-19): the *specific* boundaries that work are **partition-dependent**. What IS stable across d2 and d3: boundaries **{25, 27}** are mandatory in every working 4-set. What is NOT stable: the other 2 boundaries.
 
@@ -252,10 +252,12 @@ the 3,432,399,298 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimens
 observable-statistics vector was computed per ordering and KW's position in the
 joint distribution was quantified via kernel density estimation + bootstrap.
 
-**Headline result: KW sits at the 0.000%-ile (bootstrap 95% CI [0.000%, 0.000%])
-of the joint observable-density distribution.** KW's joint-feature configuration
-is unrepresented in a 100,000-record uniform sample from the canonical — the
-KDE assigns KW a log-density ~12,800× lower than any sampled ordering.
+**Headline result: no ordering in a 100,000-record uniform sample matches KW's
+joint feature profile — KW's joint-density rank is below the sample's resolution
+(<10⁻⁵).** A 100K sample cannot resolve percentiles below ~10⁻⁵, so the rank is
+reported as a resolution bound. The KDE assigns KW a log-density ~12,800× lower
+than any sampled ordering (a methodology-dependent figure; see
+[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) caveats).
 
 The distributional extremity is driven by KW simultaneously being at the 95th+
 percentile across four independent structural dimensions (complement distance
@@ -285,7 +287,7 @@ Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 | 3 | Opposites kept close (3.9th percentile) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
 | 5 | Specific transition counts | **706,422,987** (d3 10T canonical); **286,357,503** (d2 10T canonical) |
-| 6 | 4 boundary constraints | **1 (King Wen)** |
+| 6 | 4 boundary constraints | **1 (King Wen)** — within the enumerated slice; see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
 
 ## An important caveat
 

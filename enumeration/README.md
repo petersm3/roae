@@ -79,6 +79,6 @@ For the current state of the project, start at:
 
 - [`../README.md`](../README.md) — project overview
 - [`LEADERBOARD.md`](LEADERBOARD.md) — enumeration results headline
-- [`../HISTORY.md`](../HISTORY.md) — narrative of how we got here
-- [`../SOLVE.md`](../SOLVE.md) or [`../SOLVE-SUMMARY.md`](../SOLVE-SUMMARY.md) —
+- [`../documentation/HISTORY.md`](../documentation/HISTORY.md) — narrative of how we got here
+- [`../documentation/SOLVE.md`](../documentation/SOLVE.md) or [`../documentation/SOLVE-SUMMARY.md`](../documentation/SOLVE-SUMMARY.md) —
   constraint analysis (technical or plain-language)
