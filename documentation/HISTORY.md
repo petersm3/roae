@@ -5161,3 +5161,14 @@ uniqueness. The spec's Conjecture block now records the refutation with the meas
 claim in the project is scoped to the enumerated datasets, where the 4-greedy-boundary result stands. The
 honest arc of the day: the same estimator machinery that sized the C1–C5 space at ≈1.33×10³⁸ settled, for
 about a dollar of Spot compute, a question the project had carried as "unconfirmed at scale" since April.
+
+**Same day, the literature goes under the estimator.** New public findings doc
+LITERATURE_RULES_POPULATION_TESTS.md: the structural rules asserted by Moore (2005 pair-positioning parity;
+1989 rising/falling rhythm), Cook (2006 anchors), and the classical 18:18 split were formalized, verified to
+reproduce their sources' stated King Wen values exactly, and measured against the full constraint-satisfying
+population. Headlines: Moore's parity rule is the strongest known literature discriminator (KW's 16/18 level
+= 1 in 1,362; his two rules jointly = 1 in 54,000, with a previously unobserved negative correlation between
+them); fully-compliant orderings exist on each rule separately (confirming Moore's precursor conjecture per
+rule) while KW is strictly suboptimal on both; Cook's final-pair anchor is real but partially explained by
+C5 budget dynamics; the classical split is historically attested but statistically weak. Nothing promotes to
+the formal constraint system; all credits per CITATIONS.md.
