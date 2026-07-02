@@ -3791,6 +3791,52 @@ static int raise_stack_limit_for_merge(void) {
     return 28;
 }
 
+/* Auto-raise RLIMIT_NOFILE for --merge (hardening 2026-07-01, #196).
+ * The external-merge k-way phase opens ALL sorted chunks simultaneously (one gzFile per
+ * chunk). At canonical scale that is thousands of fds; the default soft limit (often 1024)
+ * is exceeded -> "Too many open files" and the merge dies partway (observed at 560T: 1308
+ * chunks -> died reopening chunk 1021). Mirrors raise_stack_limit_for_merge(). Env overrides,
+ * checked ONLY when set: SOLVE_MERGE_NOFILE=<n> pins a target soft limit; SOLVE_SKIP_NOFILE_RAISE=1
+ * disables the auto-raise. Non-fatal: an unraisable limit surfaces later as a clear error, so we
+ * never block the merge here. Output-independent -> sha-neutral. */
+static void raise_nofile_limit_for_merge(void) {
+    if (getenv("SOLVE_SKIP_NOFILE_RAISE") && atoi(getenv("SOLVE_SKIP_NOFILE_RAISE")) == 1) {
+        fprintf(stderr, "[hardening] --merge nofile-raise SKIPPED (SOLVE_SKIP_NOFILE_RAISE=1)\n");
+        return;
+    }
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_NOFILE, &rl) != 0) {
+        fprintf(stderr, "[hardening] WARN: getrlimit(RLIMIT_NOFILE) failed: %s; proceeding unmitigated\n",
+                strerror(errno));
+        return;
+    }
+    unsigned long long prev = (unsigned long long)rl.rlim_cur;
+    rlim_t target;
+    const char *env = getenv("SOLVE_MERGE_NOFILE");
+    if (env && atoll(env) > 0) {
+        target = (rlim_t)atoll(env);                        /* operator-pinned target */
+        if (rl.rlim_max != RLIM_INFINITY && target > rl.rlim_max) target = rl.rlim_max;
+    } else {
+        target = rl.rlim_max;                               /* env not set -> auto-raise soft to hard */
+    }
+    if (rl.rlim_cur == RLIM_INFINITY ||
+        (target != RLIM_INFINITY && target <= rl.rlim_cur)) {
+        fprintf(stderr, "[hardening] --merge: RLIMIT_NOFILE soft limit %llu already sufficient\n", prev);
+        return;
+    }
+    rl.rlim_cur = target;
+    if (setrlimit(RLIMIT_NOFILE, &rl) == 0) {
+        unsigned long long now = (rl.rlim_cur == RLIM_INFINITY) ? 0ULL : (unsigned long long)rl.rlim_cur;
+        fprintf(stderr, "[hardening] --merge: raised RLIMIT_NOFILE soft limit from %llu to %llu%s\n",
+                prev, now, (rl.rlim_cur == RLIM_INFINITY) ? " (unlimited)" : "");
+    } else {
+        fprintf(stderr,
+            "[hardening] WARN: --merge could not raise RLIMIT_NOFILE from %llu (%s).\n"
+            "       If the k-way merge hits 'Too many open files', run `ulimit -n 65536` before\n"
+            "       solve, or set SOLVE_MERGE_NOFILE=<n>.\n", prev, strerror(errno));
+    }
+}
+
 /* Auto-verify solutions.bin after a successful merge (2026-05-26).
  * Invokes the existing --verify subcommand of self via popen. Catches
  * merge bugs (sort-order violations, dedup mistakes, wrong distribution)
@@ -14261,6 +14307,7 @@ int main(int argc, char *argv[]) {
          * 2026-05-25 main reset. Operator no longer needs to remember
          * `ulimit -s unlimited` before --merge. */
         if (raise_stack_limit_for_merge() != 0) return 28;
+        raise_nofile_limit_for_merge();
         printf("\nMerge mode: combining sub_*.bin files...\n");
 
         /* Scan current directory for any sub_*.bin file — handles both

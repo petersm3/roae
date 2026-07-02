@@ -892,6 +892,12 @@ a third party can reproduce any canonical as follows:
      ./solve 0 <your_thread_count>
    ```
 5. Merge the resulting shards: `SOLVE_MERGE_MODE=external ./solve --merge`.
+   The merge is **sha-invariant to `SOLVE_MERGE_THREADS`**: serial (default `=1`) and parallel
+   (`>1`) both produce the byte-identical canonical — validated at 1T and, on 2026-07-01, at **560T**
+   (threads=16 external merge reproduced `9a968fa2…`). At canonical scale the Phase-2 k-way step opens
+   all sorted chunks at once (a 1 GB-chunk 560T merge makes ~1,308); `solve` auto-raises `RLIMIT_NOFILE`
+   at merge start so this can't hit "Too many open files" (override via `SOLVE_MERGE_NOFILE` /
+   `SOLVE_SKIP_NOFILE_RAISE`; see SOLVE_CLI.md).
 6. Compute `sha256sum solutions.bin` and compare to the published sha.
 
 On a host in the same SKU class as the original campaign (D128als_v7 Spot

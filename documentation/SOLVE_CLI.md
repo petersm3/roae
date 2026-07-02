@@ -812,6 +812,8 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_SKIP_DISK_CHECK` | 0 | Disk-space pre-check (exit 29): skips the projected-vs-available check at canonical-enum startup. |
 | `SOLVE_SKIP_BINARY_SNAPSHOT` | 0 | `solve.binary.snapshot` write at canonical-enum startup. |
 | `SOLVE_SKIP_STACK_RAISE` | 0 | `setrlimit(RLIMIT_STACK, RLIM_INFINITY)` at `--merge` startup (exit 28). |
+| `SOLVE_MERGE_NOFILE` | (auto) | `--merge` auto-raises `RLIMIT_NOFILE` soft→hard at startup so the Phase-2 k-way merge can open every sorted chunk at once (thousands at canonical scale — a 1 GB-chunk 560T merge makes ~1,308). `=N` pins the soft-limit target instead of the hard limit. Only ever *raises*, never lowers. Non-fatal (a low hard cap surfaces later as a clear "Too many open files"). Sha-neutral. #196. |
+| `SOLVE_SKIP_NOFILE_RAISE` | 0 | `=1`: disable the `--merge` `RLIMIT_NOFILE` auto-raise (mirror of `SOLVE_SKIP_STACK_RAISE`). |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 | `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | (existing, repeated for cross-reference) — also bypasses the per-shard `.budget` integrity gate for legacy shards. |
