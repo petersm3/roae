@@ -4757,6 +4757,9 @@ typedef struct {
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
     double sum_rm1s, sum_rm1k;           /* Moore pair-positioning: strict 18/18 / >=16-of-18 (KW level) */
     int max_rm1;                          /* max compliance observed across canonical leaves (Moore-conjecture existence bound) */
+    double sum_rm2k, sum_rm2s;            /* Moore 1989 rising/falling alternation: <=2 breaks (KW level) / 0 breaks */
+    int min_rm2;                          /* min breaks observed (existence bound; KW = 2) */
+    double sum_mj;                        /* joint Moore mass: R-M1>=16 AND R-M2<=2 (independence test) */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -4789,6 +4792,7 @@ static void *knuth_worker(void *vp){
                 if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {
                     c3 = W;
                     if (knuth_score) {
+                        int m1pass = 0;
                         /* R-C1 (Cook 2006, "sB last"): final pair is the alternating pair {21,42} */
                         int la = seq[62], lb = seq[63];
                         if ((la==21&&lb==42)||(la==42&&lb==21)) a->sum_rc1 += W;
@@ -4823,6 +4827,30 @@ static void *knuth_worker(void *vp){
                             if (ok == 18) a->sum_rm1s += W;
                             if (ok >= 16) a->sum_rm1k += W;
                             if (ok > a->max_rm1) a->max_rm1 = ok;
+                            m1pass = (ok >= 16);
+                        }
+                        /* R-M2 (Moore 1989, The Trigrams of Han, Appendix 2 pp.190-192, rule K-8):
+                         * among ADJACENT-in-sequence directional pairs (rev-pairs, popcount != 3),
+                         * Rising/Falling must alternate. Rising := minority lines of the first
+                         * hexagram sit low (sum of (5-2*bit) over minority bits > 0), so they rise
+                         * under reversal. KW has exactly 2 breaks (pairs 7/8 and 22/23). */
+                        {
+                            int prev = 0, have = 0, prev_adj = 0, breaks = 0;
+                            for (int q=0;q<32;q++){
+                                int h = seq[2*q], h2v = seq[2*q+1];
+                                if ((h ^ h2v) == 63) { prev_adj = 0; continue; }
+                                int pcq = __builtin_popcount((unsigned)h);
+                                if (pcq == 3) { prev_adj = 0; continue; }
+                                int mb = (pcq > 3) ? 0 : 1, sc = 0;
+                                for (int i=0;i<6;i++) if (((h>>i)&1) == mb) sc += 5 - 2*i;
+                                int rf = sc > 0;
+                                if (have && prev_adj && rf == prev) breaks++;
+                                prev = rf; have = 1; prev_adj = 1;
+                            }
+                            if (breaks <= 2) a->sum_rm2k += W;
+                            if (breaks == 0) a->sum_rm2s += W;
+                            if (a->min_rm2 < 0 || breaks < a->min_rm2) a->min_rm2 = breaks;
+                            if (m1pass && breaks <= 2) a->sum_mj += W;
                         }
                     }
                 }
@@ -4926,15 +4954,18 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         memcpy(arg[i].seq0,seq0,sizeof(seq0)); arg[i].used0=used0; memcpy(arg[i].budget0,budget0,sizeof(budget0));
         arg[i].start_step=start_step;
         arg[i].n_probes = per + (i==0 ? n_total%(uint64_t)nthreads : 0);
+        arg[i].min_rm2 = -1;
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0; int mxM1=0; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
         sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
+        sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
+        if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double dN=(double)N;
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
@@ -4954,6 +4985,9 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this)\n", sM1s/sC);
         printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level)\n", sM1k/sC);
         printf("  [score] R-M1 max compliance seen : %d of 18 (Moore-2005 precursor existence bound)\n", mxM1);
+        printf("  [score] R-M2 Moore-1989 R/F <=2 breaks: %.6f of canonical mass (KW level)\n", sM2k/sC);
+        printf("  [score] R-M2 strict 0 breaks     : %.6f of canonical mass; min breaks seen = %d (KW = 2)\n", sM2s/sC, mnM2);
+        printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass (independence: %.8f)\n", sMJ/sC, (sM1k/sC)*(sM2k/sC));
     }
     fflush(stdout);
 }
