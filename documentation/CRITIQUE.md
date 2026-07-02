@@ -58,7 +58,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
   | Family | Scope | C1 (pair struct) | C2 (no 5-line) | C3 (comp dist ≤ 776) |
   |---|---|---|---|---|
-  | de Bruijn B(2, 6) | Exhaustive, 134,217,728 circuits | **0 (0.00%)** — also proven analytically | 0 (0.00%) — min observed 1 | 247,048 (0.1841%) |
+  | de Bruijn B(2, 6) | Exhaustive, 134,217,728 circuits | **0 (0.00%)** — also proven analytically | 0 (0.00%) — min observed 1; **≥1 five-line now proven analytically (Claim 3)** | 247,048 (0.1841%) |
   | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0 (0.00%)** — proven ∀ Gray | 256 (100%) — trivial | 0 (0.00%); range [1792, 2048] |
   | 6-bit Gray codes (random) | 10^5 random Hamiltonian walks in Q_6 | **0 (0.00%)** | 100% (trivial) | **0 (0.00%); range [832, 2048], CI ≤ 3×10⁻⁵** |
   | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0 (0.00%)** | **942,243,840 (57.96%)** — see §decomposition below | 108,380,160 (6.67%); range [512, 2048] |
@@ -102,7 +102,31 @@ Both cases are impossible, so no pair can satisfy C1, and therefore no B(2, 6) d
 
 In any Gray code, adjacent positions differ by Hamming distance exactly 1. C1 requires each pair to have Hamming distance in $\{0, 2, 4, 6\}$: the reverse case produces $2 \cdot k$ for $k$ mismatched bit-pairs ($0, 2, 4, 6$), and the symmetric-complement case produces exactly 6 (all bits flipped). Hamming distance 1 is never among these. Therefore no Gray code satisfies the C1 pair-structure constraint at any pair position. ∎
 
-These two results, combined with the computationally exhaustive Latin-square row × column test showing 0/1.6B, give three independent structured-permutation families where C1 is ruled out (two analytically, one computationally exhaustively). **C1 is not an "accidentally satisfied" property of common structured permutation families**; it is a specific constraint that King Wen happens to satisfy.
+**Claim 3 (added 2026-07-02, resolves Open Question 3): Every B(2, 6) de Bruijn permutation contains at least one 5-line transition — C2 is analytically impossible for the de Bruijn family.**
+
+With windows $\mathrm{hex}_i = s_i s_{i+1} \ldots s_{i+5}$ as in Claim 1, the transition distance is
+$d(\mathrm{hex}_i, \mathrm{hex}_{i+1}) = \#\{j \in \{0..5\} : s_{i+j} \neq s_{i+j+1}\}$ — the number of
+alternations among the 6 adjacent bit-pairs of the 7-bit window $s_i \ldots s_{i+6}$. So $d = 5$ iff exactly
+five of those six pairs alternate.
+
+*Proof.* The window $A = 010101$ appears exactly once in the cycle, say at index $i$; let $b = s_{i+6}$. The
+7-window is $0101\,01b$: its first five adjacent pairs all alternate, and the sixth $(1, b)$ alternates iff
+$b = 0$. Hence $d(\mathrm{hex}_i, \mathrm{hex}_{i+1}) = 6$ if $b = 0$ and $= 5$ if $b = 1$. Avoiding a 5-line
+transition here forces $b = 0$, making $\mathrm{hex}_{i+1} = 101010 =: B$. Now let $b' = s_{i+7}$: the 7-window
+at $i+1$ is $1010\,10b'$, alternating in its first five pairs, with the sixth $(0, b')$ alternating iff
+$b' = 1$. So $d(\mathrm{hex}_{i+1}, \mathrm{hex}_{i+2}) = 5$ unless $b' = 1$ — but $b' = 1$ makes
+$\mathrm{hex}_{i+2} = 010101 = A$ again, contradicting the de Bruijn property that each window appears exactly
+once. Therefore one of the two consecutive transitions following $A$ is 5-line. ∎
+
+*Linear reading.* The forced 5-line transition is the successor-transition of $A$ or of $B$. Neither can be
+the cyclic wrap under the standard rotation convention (windows enumerated starting from $000000$): the
+successor window of $A$ has the form $10101b$ and of $B$ the form $01010b'$, neither of which is $000000$, so
+the forced transition lies among the 63 **linear** transitions. This proves the empirically observed exhaustive
+minimum of one 5-line transition per sequence (0 of 134,217,728 sequences avoid it; the bound is tight — the
+minimum observed is exactly 1) and localizes it: **every de Bruijn permutation's unavoidable 5-line transition
+occurs immediately after one of the two alternating windows.**
+
+These three results, combined with the computationally exhaustive Latin-square row × column test showing 0/1.6B for C1, give independent structured-permutation families where C1 is ruled out (two analytically, one computationally exhaustively) — and now the de Bruijn family is *also analytically excluded on C2 grounds alone*. **Neither C1 nor (for de Bruijn) C2 is an "accidentally satisfied" property of common structured permutation families**; they are specific constraints that King Wen happens to satisfy.
 
 ### Latin-square C2-rate decomposition
 
@@ -222,7 +246,7 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
 
 2. **Gray code C3 exhaustive.** The total count of 6-bit Gray codes (Hamiltonian cycles in Q_6) is estimated at ~10²² — exhaustive enumeration is infeasible at any practical compute budget. But the conditional C3 rate could be tightly bounded via biased random Hamiltonian sampling (10⁹ samples in a few hours); would give a firm upper bound on the Gray-code C3 rate rather than the current 0/256 from the restricted orbit.
 
-3. **Analytic C2 impossibility for de Bruijn B(2, 6).** The empirical result is that 0 of 134,217,728 sequences have zero 5-line transitions; minimum observed is 1. An analytic proof complementary to the C1 proof would formalize why. Conjectured approach: the Hamming-distance sequence of a B(2, 6) permutation is determined by adjacent-bit-equality patterns in the underlying binary sequence; pigeonhole + counting may show at least one Hamming-5 transition is forced.
+3. **~~Analytic C2 impossibility for de Bruijn B(2, 6).~~ — RESOLVED 2026-07-02 (proven).** Every B(2, 6) de Bruijn permutation contains at least one 5-line transition, located immediately after one of the two alternating windows (010101 / 101010): avoiding a 5 after 010101 forces the successor window 101010, and avoiding a 5 there forces 010101 to recur — contradicting window uniqueness. Full proof: §"C1 impossibility…" Claim 3 above. The empirical exhaustive minimum (exactly 1 in the best case, 0 of 134,217,728 sequences avoiding it) is thereby explained and shown tight.
 
 ### About the Latin-square decomposition
 

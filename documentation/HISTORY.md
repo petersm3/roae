@@ -5124,3 +5124,10 @@ statistics cannot falsify solution-set symmetries.** Practical upside: orbit-red
 48) is available in principle for exploration runs; adopting it for canonicals would change the canonical
 convention and is gated. SYMMETRY_SEARCH.md was rewritten with the theorem, proof, corroborations, and a
 correction notice; the proof’s working doc is in the private repo.
+
+**Same day, second theorem (de Bruijn C2 impossibility, resolves CRITIQUE Open Question 3).** Every B(2,6)
+de Bruijn permutation provably contains at least one 5-line transition, located immediately after one of the
+two alternating windows: avoiding a 5 after `010101` forces the successor window `101010`, and avoiding one
+there forces `010101` to recur — contradicting window uniqueness. This converts the exhaustive empirical
+observation (0 of 134,217,728 sequences avoid a 5-line transition; minimum exactly 1) into a theorem and
+explains why the bound is tight. Proof added as Claim 3 of CRITIQUE.md's analytic-proofs section.
