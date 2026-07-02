@@ -5142,3 +5142,12 @@ satisfy (×7.26 arrangement-level reduction), with an exact O(1) prefix prune as
 wrap-parity theorem as its total-parity special case. New findings doc PARITY_ALTERNATION.md; theorem
 statements for this and the symmetry group added to SPECIFICATION.md. Prune adoption would change budgeted
 canonical shas (lineage decision, gated); the published canonicals are unaffected.
+
+**Same day, machine-checked formalization lands (`lean/KingWen.lean`).** The finite core of the
+project's theorem base is now kernel-verified in Lean 4 (core only, no mathlib, all claims via
+native_decide): Theorem 1, XOR universality (both directions), the parity-alternation lemmas, King
+Wen's own constraint facts (C1/C4/C5, C3 = 776 exactly, no five-line transition, 15 alternations),
+and the finite component of the symmetry theorem — including the biconditional that a bit permutation
+maps KW to a valid sequence **iff** it commutes with reversal (all 720 checked), and the collapse to
+exactly 24 record-level twins. This closes the long-deferred "Lean/Rocq machine-checking" backlog item
+at the level of every finite computation the pen-and-paper theorems rest on.
