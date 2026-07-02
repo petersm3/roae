@@ -5098,3 +5098,29 @@ needle being hunted (we already have it; verifying it takes microseconds) — th
 or hard to find; it is an easily-reached member of an astronomically large valid set, and its distinction is
 structural. Full writeup: [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). This is an exploration-track estimate, not a
 canonical result — it changes no sha.
+
+## July 2, 2026 — The constraint system has a symmetry group after all: B₃ (order 48), and a published negative result is corrected
+
+During the Fable 5 cross-model review, an analytical re-examination of the 2026-04-25 symmetry search
+produced a proof that the C1–C5 constraint system is **exactly invariant** under the 48 bit permutations
+that commute with bit-reversal — the octahedral group B₃ ≅ Z₂ ≀ S₃ (record-level effective group S₄, order
+24). Every constraint is preserved: bit permutations are Hamming isometries (C2, C5), fix 0 and 63 (C4),
+commute with complementation (C3), and — precisely when they centralize `rev` — commute with the pairing
+(C1). Flips are excluded by C4; the 672 non-centralizing permutations are excluded by a KW witness. Three
+independent corroborations followed within the hour: exhaustive σ(KW) validity (exactly 48 of 720
+permutations produce valid sequences, collapsing to 24 distinct canonical records — **King Wen has 23
+twins**); exact tree isomorphism (σ-related 23-pair prefixes have *identical* subtree counts: 9,422,793
+nodes, 16,504 canonical leaves, to the integer); and orbit-equality of all 65,281 per-cell Knuth size
+estimates within estimator noise (within-orbit CV 0.112 vs population 0.72).
+
+This **reverses SYMMETRY_SEARCH.md's published conclusion** ("all 47 falsified… the constraint set is
+rigid… no enumeration reduction available"). The old test's data was correct but its interpretation wrong:
+it compared budget-truncated per-cell yields, which are non-equivariant because a fixed node budget slices
+σ-isomorphic trees at different frontiers (σ permutes DFS child order) and because the orientation-dedup
+convention is not σ-equivariant. The same mechanism simultaneously explains why orbit-mates of productive
+cells are often unproductive at a fixed budget and the earlier "83.7% of prefix groups show
+variant-dependent yields" observation. Methodological lesson, now in CRITIQUE.md: **budgeted-slice
+statistics cannot falsify solution-set symmetries.** Practical upside: orbit-reduced enumeration (÷ up to
+48) is available in principle for exploration runs; adopting it for canonicals would change the canonical
+convention and is gated. SYMMETRY_SEARCH.md was rewritten with the theorem, proof, corroborations, and a
+correction notice; the proof’s working doc is in the private repo.
