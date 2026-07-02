@@ -242,3 +242,30 @@ Subject to the disclaimer at the top of this document, the following are believe
 10. **Format v1 `solutions.bin`** — canonical binary format with 32-byte header + 32-byte records, designed for partition-invariant sha256 reproducibility.
 
 Each of the above claims to originality is **tentative** — if you find prior work establishing any of them, please contact the author and this document will be updated.
+
+## Attributed candidate rules under population test (2026-07-02)
+
+The following King Wen structural rules are **externally attributed** — ROAE did not discover them. ROAE's
+contribution is limited to formalizing each rule in the C1–C5 pair representation and measuring the fraction
+of the constraint-satisfying population that exhibits it (unbiased weighted-Knuth estimation). Any future
+promotion of these rules into the formal constraint system carries these credits.
+
+- **Final-pair anchor** (the perfectly-alternating pair closes the sequence) and **first-7-pairs level
+  coverage** (the first seven pairs exhibit all seven yang-count levels): **Cook, Richard S.,** *Classical
+  Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence*, STEDT Monograph Series 5,
+  Berkeley, 2006 (his subset-sB terminal rule and "seven levels" opening constraint). For a critical
+  review of Cook's derivation see J. Drasny's review at biroco.com/yijing/cook.htm.
+- **18:18 two-part class split** (18 inversion-classes in each half of the text): classical observation —
+  **Zheng Qiao** (c. 1104–1162) and **Hu Yigui** (b. 1247, the 36-figure condensation); modern treatment
+  **Hacker, E. & Moore, S.,** "A brief note on the two-part division of the received order of the hexagrams
+  in the Zhouyi," *Journal of Chinese Philosophy* 30:2 (2003), 219–221; also Cook 2006.
+- **Pair-positioning parity rule** (yang-preponderant pairs at odd pair-positions, yin-preponderant at even;
+  14 balanced pairs exempt; King Wen complies 16/18 with the two violations at adjacent pair positions
+  22–23): **Moore, Steve,** "Structural Elements in the King Wen Sequence of Hexagrams," *Oracle Papers*
+  No. 1, London, 2005 (revised from *The Trigrams of Han*, Aquarian Press, 1989, pp. 188–198), building on
+  the *Dazhuan* odd=Heaven/yang, even=Earth/yin attribution. Moore also conjectured a fully-compliant
+  (18/18) precursor ordering; ROAE's population measurement addresses that conjecture empirically.
+- **Structural-motif prior art more broadly**: **Schulz, Larry J.,** "Structural motifs in the arrangement
+  of the 64 gua in the Zhouyi," *Journal of Chinese Philosophy* 17:3 (1990), 345–358; **Davis, Scott,**
+  *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
+  *The Oracle* 2:7 (1998).

@@ -4755,14 +4755,22 @@ typedef struct {
     double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
     uint64_t hits_leaf, hits_c3;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
+    double sum_rm1s, sum_rm1k;           /* Moore pair-positioning: strict 18/18 / >=16-of-18 (KW level) */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
 static int knuth_pin_c67 = 0;
-static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scoring of Cook-candidate rules
-                                 * (R-C1 final-pair anchor / R-C2 first-7-level coverage / R-C5 18:18 HEC split).
-                                 * Estimator-only, sha-neutral. #187 population test, 2026-07-02. */   /* SOLVE_KNUTH_C67=1: pin slots 24-27 to KW's pairs (spec C6/C7; orientation free).
+static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scoring of externally-attributed
+                                 * candidate rules. ATTRIBUTION (these rules are NOT ROAE discoveries):
+                                 *   R-C1 final-pair anchor, R-C2 first-7-level coverage — Cook, Richard S.,
+                                 *     "Classical Chinese Combinatorics" (STEDT Monograph 5, 2006).
+                                 *   R-C5 18:18 split — classical: Zheng Qiao (~1150), Hu Yigui (1247);
+                                 *     modern: Hacker & Moore, J. Chinese Philosophy 30:2 (2003); Cook 2006.
+                                 *   R-M1 pair-positioning parity — Moore, Steve, "Structural Elements in the
+                                 *     King Wen Sequence of Hexagrams", Oracle Papers No. 1 (2005).
+                                 * ROAE's contribution is only the population measurement over C1-C5 space.
+                                 * Estimator-only, sha-neutral. #187/#204 population tests, 2026-07-02. */   /* SOLVE_KNUTH_C67=1: pin slots 24-27 to KW's pairs (spec C6/C7; orientation free).
                                  * Estimator-only — no enumeration-path impact (sha-neutral). Uniqueness-conjecture probe. */
 
 static void *knuth_worker(void *vp){
@@ -4780,14 +4788,15 @@ static void *knuth_worker(void *vp){
                 if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {
                     c3 = W;
                     if (knuth_score) {
-                        /* R-C1: final pair is the alternating pair {21,42} (= pairs[31]) */
+                        /* R-C1 (Cook 2006, "sB last"): final pair is the alternating pair {21,42} */
                         int la = seq[62], lb = seq[63];
                         if ((la==21&&lb==42)||(la==42&&lb==21)) a->sum_rc1 += W;
-                        /* R-C2: first 7 pairs' hexagrams cover all 7 popcount levels */
+                        /* R-C2 (Cook 2006, "seven-levels opening"): first 7 pairs cover all 7 levels */
                         unsigned lv = 0;
                         for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
                         if ((lv & 0x7Fu) == 0x7Fu) a->sum_rc2 += W;
-                        /* R-C5: 18 HEC in the first 30 hexagrams == exactly 3 of the 4
+                        /* R-C5 (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006):
+                         * 18 HEC in the first 30 hexagrams == exactly 3 of the 4
                          * complement-pairs (pair idx 0,13,14,30) among slots 0-14 */
                         int cc = 0;
                         for (int q=0;q<15;q++){
@@ -4796,6 +4805,23 @@ static void *knuth_worker(void *vp){
                             if (j==0||j==13||j==14||j==30) cc++;
                         }
                         if (cc == 3) a->sum_rc5 += W;
+                        /* R-M1 (Moore 2005, Oracle Papers No.1, pair-positioning rule; Dazhuan
+                         * odd=yang/even=yin cosmology): for rev-pairs with popcount != 3,
+                         * yang-preponderant (pc>3) must sit at ODD 1-indexed pair position,
+                         * yin-preponderant at EVEN. comp-pairs + pc==3 rev-pairs exempt (14 total). */
+                        {
+                            int ok = 0;
+                            for (int q=0;q<32;q++){
+                                int h = seq[2*q], h2 = seq[2*q+1];
+                                if ((h ^ h2) == 63) continue;             /* comp-pair: exempt */
+                                int pcq = __builtin_popcount((unsigned)h);
+                                if (pcq == 3) continue;                    /* balanced: exempt */
+                                int odd = (q + 1) & 1;                     /* 1-indexed position parity */
+                                if ((pcq > 3) == odd) ok++;
+                            }
+                            if (ok == 18) a->sum_rm1s += W;
+                            if (ok >= 16) a->sum_rm1k += W;
+                        }
                     }
                 }
                 break;
@@ -4901,11 +4927,12 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
-        sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5; }
+        sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
+        sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k; }
     double dN=(double)N;
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
@@ -4921,6 +4948,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass\n", sR1/sC);
         printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass\n", sR2/sC);
         printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass\n", sR5/sC);
+        printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this)\n", sM1s/sC);
+        printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level)\n", sM1k/sC);
     }
     fflush(stdout);
 }
@@ -10275,7 +10304,7 @@ int main(int argc, char *argv[]) {
         if (nthreads < 1) nthreads = 1;
         if (getenv("SOLVE_KNUTH_SCORE") && atoi(getenv("SOLVE_KNUTH_SCORE")) == 1) {
             knuth_score = 1;
-            fprintf(stderr, "[knuth] Cook-rule scoring ACTIVE (R-C1/R-C2/R-C5 weighted canonical fractions)\n");
+            fprintf(stderr, "[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)\n");
         }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
