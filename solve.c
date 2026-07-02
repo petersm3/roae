@@ -4760,11 +4760,24 @@ typedef struct {
     double sum_rm2k, sum_rm2s;            /* Moore 1989 rising/falling alternation: <=2 breaks (KW level) / 0 breaks */
     int min_rm2;                          /* min breaks observed (existence bound; KW = 2) */
     double sum_mj;                        /* joint Moore mass: R-M1>=16 AND R-M2<=2 (independence test) */
+    double sum_rc3, sum_rc3w, sum_rc4k, sum_rc4s, sum_dv1, sum_dv2, sum_par;
+    /* rc3: level-3 class positions == KW's set {7,10,12,19,24,27,30,31,33,36} (Cook 2006, verified on KW);
+     * rc3w: some 6 consecutive level-3 classes have gap pattern {6,4,2,2,0} (Cook's S onset); rc4k: <=2
+     * gender/valence violations (Cook 2006; minority-line gender, pure {pc 0,6} + neuter {pc 3} exempt;
+     * KW = 2 at class positions 25/26 — verified); rc4s: 0 violations; dv1/dv2: >=1 / >=2 pair-aligned
+     * 5-pair popcount-palindromic windows (Davis 2012 claims via review; KW has 2 — verified); par:
+     * leaves weakly Pareto-dominating KW on (m1 up, breaks down, c3 down, rc1/rc2/rc5 binary), strict
+     * on >=1 axis (F4-A Pareto-conjecture instrument). */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
 static int knuth_pin_c67 = 0;
+static int knuth_moore_strict = 0;  /* SOLVE_KNUTH_MOORE_STRICT=1: prune the walk to orderings satisfying
+                                 * BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND 1989
+                                 * rising/falling 0-breaks) — estimates the joint-strict space; any canonical
+                                 * leaf is an existence proof. Sources: Moore 2005 Oracle Papers No.1;
+                                 * Moore 1989 The Trigrams of Han App.2. Estimator-only, sha-neutral. */
 static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scoring of externally-attributed
                                  * candidate rules. ATTRIBUTION (these rules are NOT ROAE discoveries):
                                  *   R-C1 final-pair anchor, R-C2 first-7-level coverage — Cook, Richard S.,
@@ -4785,6 +4798,7 @@ static void *knuth_worker(void *vp){
         memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
         int step = a->start_step;
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
+        int ms_prev_adj = 0, ms_prev_rf = 0;                    /* strict-Moore walk state */
         for(;;){
             node_acc += W;
             if (step == 32){
@@ -4792,14 +4806,15 @@ static void *knuth_worker(void *vp){
                 if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {
                     c3 = W;
                     if (knuth_score) {
-                        int m1pass = 0;
+                        int m1pass = 0, m1ok = -1, m2breaks = -1, f1 = 0, f2 = 0, f5 = 0;
+                        long c3val = compute_comp_dist_x64(seq);
                         /* R-C1 (Cook 2006, "sB last"): final pair is the alternating pair {21,42} */
                         int la = seq[62], lb = seq[63];
-                        if ((la==21&&lb==42)||(la==42&&lb==21)) a->sum_rc1 += W;
+                        if ((la==21&&lb==42)||(la==42&&lb==21)) { a->sum_rc1 += W; f1 = 1; }
                         /* R-C2 (Cook 2006, "seven-levels opening"): first 7 pairs cover all 7 levels */
                         unsigned lv = 0;
                         for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
-                        if ((lv & 0x7Fu) == 0x7Fu) a->sum_rc2 += W;
+                        if ((lv & 0x7Fu) == 0x7Fu) { a->sum_rc2 += W; f2 = 1; }
                         /* R-C5 (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006):
                          * 18 HEC in the first 30 hexagrams == exactly 3 of the 4
                          * complement-pairs (pair idx 0,13,14,30) among slots 0-14 */
@@ -4809,7 +4824,7 @@ static void *knuth_worker(void *vp){
                             for (int p=0;p<32;p++) if ((pairs[p].a==h)||(pairs[p].b==h)){ j=p; break; }
                             if (j==0||j==13||j==14||j==30) cc++;
                         }
-                        if (cc == 3) a->sum_rc5 += W;
+                        if (cc == 3) { a->sum_rc5 += W; f5 = 1; }
                         /* R-M1 (Moore 2005, Oracle Papers No.1, pair-positioning rule; Dazhuan
                          * odd=yang/even=yin cosmology): for rev-pairs with popcount != 3,
                          * yang-preponderant (pc>3) must sit at ODD 1-indexed pair position,
@@ -4827,7 +4842,7 @@ static void *knuth_worker(void *vp){
                             if (ok == 18) a->sum_rm1s += W;
                             if (ok >= 16) a->sum_rm1k += W;
                             if (ok > a->max_rm1) a->max_rm1 = ok;
-                            m1pass = (ok >= 16);
+                            m1pass = (ok >= 16); m1ok = ok;
                         }
                         /* R-M2 (Moore 1989, The Trigrams of Han, Appendix 2 pp.190-192, rule K-8):
                          * among ADJACENT-in-sequence directional pairs (rev-pairs, popcount != 3),
@@ -4851,13 +4866,62 @@ static void *knuth_worker(void *vp){
                             if (breaks == 0) a->sum_rm2s += W;
                             if (a->min_rm2 < 0 || breaks < a->min_rm2) a->min_rm2 = breaks;
                             if (m1pass && breaks <= 2) a->sum_mj += W;
+                            m2breaks = breaks;
+                        }
+                        /* --- HEC-translation scorers (Cook 2006; conventions KW-verified 2026-07-02) --- */
+                        {
+                            int cls_of[64], ncls = 0, l3pos[12], nl3 = 0, viol = 0;
+                            for (int z=0;z<64;z++) cls_of[z] = -1;
+                            for (int z=0;z<64;z++) {
+                                int h = seq[z], r = 0;
+                                for (int b3=0;b3<6;b3++) r |= ((h>>b3)&1) << (5-b3);
+                                int key = h < r ? h : r;
+                                if (cls_of[key] < 0) {
+                                    cls_of[key] = ++ncls;
+                                    int pck = __builtin_popcount((unsigned)h);
+                                    if (pck == 3) { if (nl3 < 12) l3pos[nl3] = ncls; nl3++; }
+                                    else if (pck != 0 && pck != 6) {
+                                        /* minority-line gender: pc<3 male->odd position; pc>3 female->even */
+                                        if ((pck < 3) != ((ncls & 1) == 1)) viol++;
+                                    }
+                                }
+                            }
+                            static const int kwl3[10] = {7,10,12,19,24,27,30,31,33,36};
+                            int exact = (nl3 == 10);
+                            if (exact) for (int z=0;z<10;z++) if (l3pos[z] != kwl3[z]) { exact = 0; break; }
+                            if (exact) a->sum_rc3 += W;
+                            int spat = 0;
+                            if (nl3 == 10) for (int z=0; z+5 < 10; z++) {
+                                if (l3pos[z+1]-l3pos[z]-1 == 6 && l3pos[z+2]-l3pos[z+1]-1 == 4 &&
+                                    l3pos[z+3]-l3pos[z+2]-1 == 2 && l3pos[z+4]-l3pos[z+3]-1 == 2 &&
+                                    l3pos[z+5]-l3pos[z+4]-1 == 0) { spat = 1; break; }
+                            }
+                            if (spat) a->sum_rc3w += W;
+                            if (viol <= 2) a->sum_rc4k += W;
+                            if (viol == 0) a->sum_rc4s += W;
+                            /* --- Davis popcount-palindrome windows (Davis 2012; KW has 2) --- */
+                            int wins = 0;
+                            for (int q=0; q<28; q++) {
+                                int pal = 1;
+                                for (int z=0; z<5; z++)
+                                    if (__builtin_popcount((unsigned)seq[2*q+z]) !=
+                                        __builtin_popcount((unsigned)seq[2*q+9-z])) { pal = 0; break; }
+                                if (pal) { wins++; if (wins >= 2) break; }
+                            }
+                            if (wins >= 1) a->sum_dv1 += W;
+                            if (wins >= 2) a->sum_dv2 += W;
+                            /* --- F4-A Pareto dominance vs KW (m1 16 up, breaks 2 down, c3 776 down,
+                             *     rc1/rc2/rc5 all 1) --- */
+                            if (m1ok >= 16 && m2breaks >= 0 && m2breaks <= 2 && c3val <= 776 &&
+                                f1 && f2 && f5 &&
+                                (m1ok > 16 || m2breaks < 2 || c3val < 776)) a->sum_par += W;
                         }
                     }
                 }
                 break;
             }
             int prev_tail = seq[step*2 - 1];
-            int cp[64], co[64], d = 0;
+            int cp[64], co[64], crf[64], cdir[64], d = 0;
             for (int p=0; p<32; p++){
                 if (PAIR_MASK_TEST(used,p)) continue;
                 if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
@@ -4872,7 +4936,18 @@ static void *knuth_worker(void *vp){
                     int live = budget[wd] > 0;             /* C5 within-pair (bd==wd safe) */
                     budget[bd]++;
                     if (!live) continue;
-                    cp[d]=p; co[d]=orient; d++;
+                    int msrf = 0, msdir = 0;
+                    if (knuth_moore_strict) {
+                        int pcp = __builtin_popcount((unsigned)pairs[p].a);
+                        if ((pairs[p].a ^ pairs[p].b) != 63 && pcp != 3) {
+                            if ((pcp > 3) != (((step + 1) & 1) == 1)) continue;  /* Moore 2005 parity */
+                            int mb2 = (pcp > 3) ? 0 : 1, sc2 = 0;
+                            for (int b2=0;b2<6;b2++) if (((first>>b2)&1) == mb2) sc2 += 5 - 2*b2;
+                            msrf = sc2 > 0; msdir = 1;
+                            if (ms_prev_adj && msrf == ms_prev_rf) continue;     /* Moore 1989 rhythm */
+                        }
+                    }
+                    cp[d]=p; co[d]=orient; crf[d]=msrf; cdir[d]=msdir; d++;
                 }
             }
             if (d == 0) break;                             /* dead end, no leaf */
@@ -4883,6 +4958,7 @@ static void *knuth_worker(void *vp){
             int bd = hamming(prev_tail, first), wd = hamming(first, second);
             budget[bd]--; budget[wd]--;
             seq[step*2]=first; seq[step*2+1]=second; PAIR_MASK_SET(used,p);
+            if (knuth_moore_strict) { ms_prev_adj = cdir[k]; ms_prev_rf = crf[k]; }
             W *= (double)d; step++;
         }
         a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf>0) a->hits_leaf++;
@@ -4958,13 +5034,15 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
         sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
+        sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
+        sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double dN=(double)N;
@@ -4988,6 +5066,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] R-M2 Moore-1989 R/F <=2 breaks: %.6f of canonical mass (KW level)\n", sM2k/sC);
         printf("  [score] R-M2 strict 0 breaks     : %.6f of canonical mass; min breaks seen = %d (KW = 2)\n", sM2s/sC, mnM2);
         printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass (independence: %.8f)\n", sMJ/sC, (sM1k/sC)*(sM2k/sC));
+        printf("  [score] R-C3 level-3 positions == KW : %.8f | S-gap pattern anywhere: %.8f (Cook 2006)\n", sC3/sC, sC3w/sC);
+        printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
+        printf("  [score] Davis palindrome windows >=1 : %.6f | >=2 (KW level): %.6f (Davis 2012)\n", sD1/sC, sD2/sC);
+        printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
     }
     fflush(stdout);
 }
@@ -10340,6 +10422,10 @@ int main(int argc, char *argv[]) {
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;
+        if (getenv("SOLVE_KNUTH_MOORE_STRICT") && atoi(getenv("SOLVE_KNUTH_MOORE_STRICT")) == 1) {
+            knuth_moore_strict = 1;
+            fprintf(stderr, "[knuth] STRICT-MOORE walk ACTIVE (Moore 2005 parity 18/18 + Moore 1989 rhythm 0-breaks enforced in-walk)\n");
+        }
         if (getenv("SOLVE_KNUTH_SCORE") && atoi(getenv("SOLVE_KNUTH_SCORE")) == 1) {
             knuth_score = 1;
             fprintf(stderr, "[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)\n");
