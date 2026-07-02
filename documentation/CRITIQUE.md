@@ -183,24 +183,32 @@ Following from the Latin-square analysis, we can characterize KW's 63 transition
 
 | Hamming distance | Count |
 |---|---|
-| 2 | 11 |
-| 4 | 13 |
+| 2 | 12 |
+| 4 | 12 |
 | 6 | 8 |
 
-The within-pair sum is $11 + 13 + 8 = 32$, all 32 pairs. Zero odd distances by construction.
+The within-pair sum is $12 + 12 + 8 = 32$, all 32 pairs. Zero odd distances by construction.
+*(Corrected 2026-07-02: this table previously read 11/13/8 — a tabulation error caught by recomputation
+during SAT-encoder design; the corrected values are machine-checkable from the KW sequence in seconds.)*
 
 **Between-pair transitions** (KW's 31, where all the "constraint work" happens):
 
 | Hamming distance | KW count | Expected (uniform random adjacency, ×31) | Delta |
 |---|---|---|---|
 | 1 | 2 | 2.95 | −0.95 |
-| 2 | 7 | 7.38 | −0.38 |
-| 3 | **14** | 9.84 | **+4.16** |
+| 2 | 8 | 7.38 | +0.62 |
+| 3 | **13** | 9.84 | **+3.16** |
 | 4 | 7 | 7.38 | −0.38 |
 | 5 | **0** | 2.95 | **−2.95** |
 | 6 | 1 | 0.49 | +0.51 |
 
-The empirical 14:2 ratio of 3-line to 1-line odd transitions (with zero 5-line) matches the feature documented by **McKenna 1975** (*The Invisible Landscape*) and discussed by **Cook 2006** and Wikipedia's [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) article. King Wen's between-pair transitions concentrate on Hamming-3 **4×** the uniform expected rate, and drop the Hamming-5 count to zero. No Hamming-0 transitions (all 64 hexagrams distinct, trivially); minimal Hamming-1 count (just 2 occurrences).
+The linear between-pair odd counts are 13 threes and 2 ones (matching the proven 15-alternation total —
+see [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md)); the widely-quoted **14:2** figure (McKenna 1975, echoed
+by Cook 2006 and Wikipedia) is the **circular** reading — the wrap-around transition (Hamming 3 in KW) adds
+the fourteenth three. *(Corrected 2026-07-02: this passage previously presented the circular 14 in the
+linear table and described the Hamming-3 concentration as "4× the uniform rate" — a misreading of the +4.16
+delta as a ratio; the correct linear excess is 13 vs 9.84 expected, ≈1.3×.)* King Wen's between-pair
+transitions concentrate modestly on Hamming-3 and drop the Hamming-5 count to zero. No Hamming-0 transitions (all 64 hexagrams distinct, trivially); minimal Hamming-1 count (just 2 occurrences).
 
 **Structural interpretation.** Like Latin-square's within-row/between-row decomposition, KW cleanly splits its 63 transitions into: (a) 32 within-pair transitions, trivially {2, 4, 6} by pair-reflection geometry; (b) 31 between-pair transitions, where C2 (no 5-line) and the 14:2 odd-concentration are the substantive structural signals. Prior literature (McKenna 1975, Cook 2006) documents these between-pair features as observed empirical properties of the KW sequence; ROAE's contribution here is to place them alongside the Latin-square decomposition as structurally parallel (different families, same within-group trivialization pattern) and to quantify the deviation from uniform-random between-pair adjacency.
 

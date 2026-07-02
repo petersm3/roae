@@ -5172,3 +5172,13 @@ them); fully-compliant orderings exist on each rule separately (confirming Moore
 rule) while KW is strictly suboptimal on both; Cook's final-pair anchor is real but partially explained by
 C5 budget dynamics; the classical split is historically attested but statistically weak. Nothing promotes to
 the formal constraint system; all credits per CITATIONS.md.
+
+**Same day, a four-cell tabulation error in CRITIQUE's adjacency decomposition falls to the SAT encoder.**
+Designing the CNF encoding of C5 required the exact within/between-pair distance split — and the recomputation
+contradicted CRITIQUE's published table. True values (machine-checked, summing exactly to C5's multiset):
+within-pair {2:12, 4:12, 6:8} (was 11/13/8), between-pair {1:2, 2:8, 3:13, 4:7, 6:1} (was 2/7/14/7/1). The
+"14 threes" belongs to the circular reading (wrap-around adds one), consistent with McKenna's own circular
+framing and the 15-alternation theorem; and the "4×" concentration prose was a delta-misread-as-ratio (true
+linear excess ≈1.3×). Fixed with correction notes. The pattern repeats: every time a claim must be re-derived
+for a machine (Lean, the estimator, now SAT), latent errors surface — formalization is the project's best
+error detector.
