@@ -28,6 +28,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 - **[CRITIQUE.md](CRITIQUE.md)** — Honest limitations: the null-model caveat, statistical framing, what the project does NOT prove.
 - **[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)** — Where King Wen sits in the joint distribution of observables across the canonical (0.000%-ile joint density at 100T scope; 560T re-eval queued).
 - **[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)** — Total C1–C5 search-space size (Monte-Carlo estimate ≈10³⁸; why King Wen is found early in enumeration).
+- **[PARITY_ALTERNATION.md](PARITY_ALTERNATION.md)** — Theorem: every valid ordering has exactly 15 parity-class alternations (proven skeleton constraint; ×7.26 arrangement-level reduction; exact O(1) prefix prune).
 - **[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)** — Theorem that canonical enumeration counts are invariant under partition strategy (full-enum vs `--branch` reconstruction), with the cross-path validation grid.
 - **[BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md)** — Conceptual explainer for "branch / sub-branch / node / budget" terms used throughout.
 

@@ -1,0 +1,59 @@
+# Every Valid Ordering Has Exactly 15 Parity-Class Alternations
+
+**Result (Theorem, 2026-07-02):** In every sequence satisfying C1–C5, the 32 pairs — each of which is
+*parity-homogeneous* (both members share popcount parity) — form exactly 16 even-parity and 16 odd-parity
+pairs, and the pair ordering exhibits **exactly 15 parity-class alternations** across its 31 pair boundaries.
+This is forced by the constraint system, not a King Wen choice; KW satisfies it necessarily (verified: KW's
+alternation count is 15). The theorem generalizes the wrap-around-parity theorem (SPECIFICATION.md), which is
+recovered as its total-parity corollary, and it supplies the "novel structural theorem" that the earlier
+C5-tightening investigation concluded would be required for any further provable pruning.
+
+## Statement and proof
+
+**Lemma 1 (pairs are parity-homogeneous).** For every h ∈ H, popcount(partner(h)) ≡ popcount(h) (mod 2).
+*Proof.* If partner(h) = rev(h): bit reversal permutes bits, preserving popcount exactly. If partner(h) =
+comp(h) = h ⊕ 63: popcount(comp h) = 6 − popcount(h) ≡ popcount(h) (mod 2). ∎
+Each pair therefore has a well-defined **parity class** ε(p) ∈ {even, odd}, independent of orientation.
+
+**Lemma 2 (16/16 class split).** The canonical pairing of H contains exactly 16 even-class and 16 odd-class
+pairs. *Proof.* H has 32 hexagrams of each popcount parity; by Lemma 1 every pair lies wholly inside one
+parity class, so the 32 even-parity hexagrams form 16 pairs and likewise the odd. ∎ (Verified exhaustively.)
+
+**Lemma 3 (transition parities).** Within-pair transitions always have even Hamming distance (reverse-pairs:
+d(h, rev h) ∈ {2, 4, 6} for non-palindromes; complement-pairs: d = 6). A between-pair transition from pair p
+to pair q has parity ε(p) ⊕ ε(q), **independent of the orientation choices**: d(b, a) = popcount(b ⊕ a) ≡
+popcount(b) + popcount(a) (mod 2), and both candidate exit/entry hexagrams of a pair share its class. ∎
+
+**Theorem.** C5 fixes the multiset of the 63 transition distances at {1:2, 2:20, 3:13, 4:19, 6:9}, which
+contains exactly 2 + 13 = **15 odd distances**. By Lemma 3 all odd transitions are between-pair, and the
+number of odd between-pair transitions equals the number of adjacent class-alternations in the 32-pair
+ordering. Hence **every C1–C5-valid ordering has exactly 15 parity-class alternations**. ∎
+
+**Corollary (wrap parity).** Summing parities recovers the wrap-around-parity theorem: total odd count 15 ⇒
+the linear sequence's endpoint popcounts differ in parity ⇒ odd wrap distance, as previously proven.
+
+## Consequences
+
+1. **A provable, orientation-free skeleton constraint.** Before any orientation or within-class choice is
+   made, the *class pattern* of a candidate ordering (a string of 16 E's and 16 O's) must contain exactly 15
+   changes. Only **82,818,450 of the C(32,16) = 601,080,390** class arrangements do — a **×7.26 reduction at
+   the arrangement level** — and C4 further pins the first pair to the even class (pair {63, 0}).
+2. **An O(1) exact prefix prune.** During enumeration, track alternations used and the remaining class
+   counts; the prefix is viable only if the remaining sequence can realize exactly the residual alternation
+   deficit (a two-sided interval check: with e even and o odd pairs left and current end class known, the
+   achievable alternation range is computable in constant time). The prune is *exact* (derived from the
+   theorem, no false negatives) and fires from the earliest placements.
+3. **Sha-lineage caveat.** An exact prune preserves the full solution set but changes node-visit ordering
+   and counts, so per-cell **budgeted** canonical outputs — and therefore canonical shas — would change.
+   Adopting the prune in production enumeration is a lineage decision (as with the v2 prune bundle), gated
+   and exploration-track first. Nothing in the published canonicals is affected by the theorem itself.
+4. **Structure insight.** Combined with the symmetry theorem (SYMMETRY_SEARCH.md), the solution space now has
+   two proven skeletons: a 48-element relabeling group and a rigid 15-alternation parity profile. Both are
+   properties of the *constraint system*; KW inherits them rather than choosing them.
+
+## Verification
+
+All lemma claims and KW's alternation count are verifiable in seconds (popcounts, the canonical pairing, and
+the KW sequence are all in SPECIFICATION.md / solve.py); the arrangement count is the elementary
+compositions identity Σ_start C(15, blocks_E−1)·C(15, blocks_O−1) over the two starting classes for k = 15
+changes. An independent checker needs no enumeration data.

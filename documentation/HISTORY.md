@@ -5131,3 +5131,14 @@ two alternating windows: avoiding a 5 after `010101` forces the successor window
 there forces `010101` to recur — contradicting window uniqueness. This converts the exhaustive empirical
 observation (0 of 134,217,728 sequences avoid a 5-line transition; minimum exactly 1) into a theorem and
 explains why the bound is tight. Proof added as Claim 3 of CRITIQUE.md's analytic-proofs section.
+
+**Same day, third theorem (parity-class alternation — the structural theorem the #88 investigation said
+would be needed).** Every canonical pair is parity-homogeneous (the partner map preserves popcount parity),
+the pairing splits exactly 16 even-class / 16 odd-class, within-pair transitions are always even, and a
+between-pair transition's parity equals the XOR of the adjacent pairs' classes independent of orientation.
+Since C5 fixes exactly 15 odd distances, **every valid ordering has exactly 15 parity-class alternations**
+across its 32-pair sequence — a rigid, orientation-free skeleton that only 13.8% of class arrangements
+satisfy (×7.26 arrangement-level reduction), with an exact O(1) prefix prune as a corollary and the
+wrap-parity theorem as its total-parity special case. New findings doc PARITY_ALTERNATION.md; theorem
+statements for this and the symmetry group added to SPECIFICATION.md. Prune adoption would change budgeted
+canonical shas (lineage decision, gated); the published canonicals are unaffected.
