@@ -4758,6 +4758,9 @@ typedef struct {
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
+static int knuth_pin_c67 = 0;   /* SOLVE_KNUTH_C67=1: pin slots 24-27 to KW's pairs (spec C6/C7; orientation free).
+                                 * Estimator-only — no enumeration-path impact (sha-neutral). Uniqueness-conjecture probe. */
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -4773,6 +4776,7 @@ static void *knuth_worker(void *vp){
             int cp[64], co[64], d = 0;
             for (int p=0; p<32; p++){
                 if (PAIR_MASK_TEST(used,p)) continue;
+                if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
                 for (int orient=0; orient<2; orient++){
                     int first  = orient ? pairs[p].b : pairs[p].a;
                     int second = orient ? pairs[p].a : pairs[p].b;
@@ -4823,6 +4827,7 @@ static void exact_count(int seq[64], pair_mask_t used, int budget[7], int step,
     int prev_tail = seq[step*2 - 1];
     for (int p=0;p<32;p++){
         if (PAIR_MASK_TEST(used,p)) continue;
+        if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
         for (int orient=0; orient<2; orient++){
             int first  = orient ? pairs[p].b : pairs[p].a;
             int second = orient ? pairs[p].a : pairs[p].b;
@@ -10234,6 +10239,10 @@ int main(int argc, char *argv[]) {
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;
+        if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
+            knuth_pin_c67 = 1;
+            fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
+        }
         fprintf(stderr, "[knuth] %llu probes, %d threads, %d prefix level(s)\n",
                 (unsigned long long)nprobe, nthreads, nlev);
         estimate_tree_knuth(nprobe, nthreads, nlev, lp, lo);
