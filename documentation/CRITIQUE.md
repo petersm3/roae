@@ -28,6 +28,34 @@ A review of the program's methodology, assumptions, and interpretive claims from
 - Windowed entropy is exploratory visualization without a null model or significance test. Apparent patterns in the curve are expected from random variation.
 - The full 8-state mutual information between upper and lower trigrams is zero by construction: all 64 hexagrams span every possible (upper, lower) trigram combination exactly once, forming a complete [Latin square](https://en.wikipedia.org/wiki/Latin_square) (an 8×8 grid where each of the 8 trigrams appears exactly once in each row and column). Independence is automatic for any set containing all 64 distinct 6-bit values — it is a property of the binary encoding, not of King Wen's ordering.
 
+### Observable-selection accounting (the look-elsewhere effect) — added 2026-07-02
+
+The constraint set C1–C5 was *selected* after an exploratory sweep of many observables (roae.py's 28
+analysis sections plus solve.c's null-model and verification batteries — on the order of **~30 distinct
+observables** examined across the project's discovery phase). Selecting the most striking properties from a
+battery and then testing them on the same sequence inflates apparent significance; a referee is entitled to
+demand multiple-comparisons accounting across the *whole battery*, not just per-test corrections. Applying
+the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everything examined:
+
+- **Survives by many orders of magnitude:** C1 (pair structure, ~10⁻⁴⁴ under the random null; 0 of 1.86 B
+  across six structured families; analytically impossible in two of them) and C2's conditional rarity given
+  C1 (4.29% measured on a 10⁹ sample — standard error negligible relative to the effect). The wrap-parity
+  and parity-alternation results are theorems (deductive), outside statistical accounting entirely.
+- **Survives comfortably:** C3's 3.9th-percentile complement distance at the C1+C2 reference scope (the
+  effect is far from marginal; the *threshold's* circularity is a separate, already-documented limitation),
+  and the Gray-code result (minimum C3 across 10⁵ samples = 832 > 776, CI ≤ 3×10⁻⁵).
+- **Does NOT survive, and was already reported as such:** the runs-test alternation (p = 0.033), entropy
+  percentiles (12th/6th), palindrome statistics, the canon-split gap, Markov structure, recurrence and
+  clustering measures — all flagged non-significant or within-chance in this document's sections above.
+- **Not applicable:** C4 (its pair choice is classically attested — *Xugua* — rather than selected from the
+  battery) and C5 (descriptive by construction: it is the sequence's own histogram, priced honestly by the
+  null-model caveat below rather than by a significance test).
+
+The accounting therefore *changes no conclusion*: the claims the project leans on were always the ones that
+survive battery-wide correction by wide margins, and every marginal observation was already labeled as
+non-surviving where it appears. The point of stating this explicitly is procedural honesty: the survivors
+were selected from a large explored battery, and their significance claims are made net of that selection.
+
 ## Analytical claims
 
 - The claim that "the designers appear to have been working with a sophisticated understanding of combinatorial structure" is an inference, not a finding. The pair structure could arise from a simple rule ("always place a hexagram next to its mirror or opposite") without any understanding of combinatorics. "Designed" could also mean iterative cultural refinement rather than a single deliberate act.
