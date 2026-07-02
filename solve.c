@@ -4754,11 +4754,15 @@ typedef struct {
     uint64_t n_probes, seed;
     double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
     uint64_t hits_leaf, hits_c3;
+    double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
-static int knuth_pin_c67 = 0;   /* SOLVE_KNUTH_C67=1: pin slots 24-27 to KW's pairs (spec C6/C7; orientation free).
+static int knuth_pin_c67 = 0;
+static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scoring of Cook-candidate rules
+                                 * (R-C1 final-pair anchor / R-C2 first-7-level coverage / R-C5 18:18 HEC split).
+                                 * Estimator-only, sha-neutral. #187 population test, 2026-07-02. */   /* SOLVE_KNUTH_C67=1: pin slots 24-27 to KW's pairs (spec C6/C7; orientation free).
                                  * Estimator-only — no enumeration-path impact (sha-neutral). Uniqueness-conjecture probe. */
 
 static void *knuth_worker(void *vp){
@@ -4771,7 +4775,31 @@ static void *knuth_worker(void *vp){
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
         for(;;){
             node_acc += W;
-            if (step == 32){ leaf = W; if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) c3 = W; break; }
+            if (step == 32){
+                leaf = W;
+                if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {
+                    c3 = W;
+                    if (knuth_score) {
+                        /* R-C1: final pair is the alternating pair {21,42} (= pairs[31]) */
+                        int la = seq[62], lb = seq[63];
+                        if ((la==21&&lb==42)||(la==42&&lb==21)) a->sum_rc1 += W;
+                        /* R-C2: first 7 pairs' hexagrams cover all 7 popcount levels */
+                        unsigned lv = 0;
+                        for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
+                        if ((lv & 0x7Fu) == 0x7Fu) a->sum_rc2 += W;
+                        /* R-C5: 18 HEC in the first 30 hexagrams == exactly 3 of the 4
+                         * complement-pairs (pair idx 0,13,14,30) among slots 0-14 */
+                        int cc = 0;
+                        for (int q=0;q<15;q++){
+                            int h = seq[2*q], j = -1;
+                            for (int p=0;p<32;p++) if ((pairs[p].a==h)||(pairs[p].b==h)){ j=p; break; }
+                            if (j==0||j==13||j==14||j==30) cc++;
+                        }
+                        if (cc == 3) a->sum_rc5 += W;
+                    }
+                }
+                break;
+            }
             int prev_tail = seq[step*2 - 1];
             int cp[64], co[64], d = 0;
             for (int p=0; p<32; p++){
@@ -4873,10 +4901,11 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
-        sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes; }
+        sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
+        sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5; }
     double dN=(double)N;
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
@@ -4887,6 +4916,11 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         double se = sqrt(var/dN), rel = mean>0 ? 100.0*se/mean : 0.0;
         printf("  %s : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hitrate=%.3g\n",
                nm, mean, mean-1.96*se, mean+1.96*se, rel, (double)h/dN);
+    }
+    if (knuth_score && sC > 0) {
+        printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass\n", sR1/sC);
+        printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass\n", sR2/sC);
+        printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass\n", sR5/sC);
     }
     fflush(stdout);
 }
@@ -10239,6 +10273,10 @@ int main(int argc, char *argv[]) {
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;
+        if (getenv("SOLVE_KNUTH_SCORE") && atoi(getenv("SOLVE_KNUTH_SCORE")) == 1) {
+            knuth_score = 1;
+            fprintf(stderr, "[knuth] Cook-rule scoring ACTIVE (R-C1/R-C2/R-C5 weighted canonical fractions)\n");
+        }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
             fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
