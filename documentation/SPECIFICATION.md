@@ -1,6 +1,6 @@
 # Formal Specification of the King Wen Sequence
 
-The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is a permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints. Within every enumerated dataset to date, constraints C1–C7 plus four greedy-ordered boundary constraints single out King Wen exactly; whether that uniqueness extends to the full constraint-satisfying space is a conjecture, not a theorem — see the [Conjecture (Uniqueness)](#theorems) below. The space satisfying C1–C5 alone is estimated at ≈10³⁸ orderings ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
+The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is a permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints. Within every enumerated dataset to date, constraints C1–C7 plus four greedy-ordered boundary constraints single out King Wen exactly; that uniqueness does NOT extend to the full constraint-satisfying space: the full C1–C7 space is measured at ≈5.2×10³¹ orderings (see the refuted [Conjecture (Uniqueness)](#theorems) below). The space satisfying C1–C5 alone is estimated at ≈10³⁸ orderings ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
 
 > Looking for a plain-language version of these constraints and how the solver searches for orderings that satisfy them? See [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md).
 
@@ -73,7 +73,14 @@ pair(s₄₈) and pair(s₅₀) are adjacent.
 
 ## Theorems
 
-**Conjecture (Uniqueness):** Constraints C1-C5 plus C6 and C7 significantly narrow the solution space, but their sufficiency for uniqueness is unconfirmed at scale.
+**~~Conjecture (Uniqueness)~~ — REFUTED 2026-07-02 (measured).** Constraints C1–C5 plus C6 and C7 do NOT
+single out King Wen over the full space: an unbiased Knuth random-probe estimate with the C6/C7 adjacency
+constraints enforced in the walk (5×10¹⁰ probes, `SOLVE_KNUTH_C67=1`) measures the number of C1–C7-satisfying
+orderings at **5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, relative error 0.78%)**. C6+C7 cut the ≈1.33×10³⁸ C1–C5
+space by ×2.55×10⁶ and leave ≈10³¹·⁷ solutions — about 105 further bits of constraint would be required for
+full-space uniqueness (≈15–20 boundary constraints, consistent with the extrapolation in
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Every "uniquely determines King Wen" statement in the project
+is therefore scoped to the enumerated datasets, where 4 greedy-ordered boundary constraints do suffice.
 
 **Evidence (from large-scale enumeration, 10 trillion nodes on 64 cores):**
 - C1 reduces the search space from 64! (~10⁸⁹) to 32! × 2³² (~10⁴⁵).

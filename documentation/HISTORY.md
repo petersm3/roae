@@ -5151,3 +5151,13 @@ and the finite component of the symmetry theorem — including the biconditional
 maps KW to a valid sequence **iff** it commutes with reversal (all 720 checked), and the collapse to
 exactly 24 record-level twins. This closes the long-deferred "Lean/Rocq machine-checking" backlog item
 at the level of every finite computation the pen-and-paper theorems rest on.
+
+**Same day, the Uniqueness Conjecture falls.** With the C6/C7 adjacency constraints enforced inside the
+Knuth random-probe walk (new `SOLVE_KNUTH_C67` estimator mode, sha-neutral), a 5×10¹⁰-probe run measured the
+full-space count of C1–C7-satisfying orderings at **5.21×10³¹ (±0.78%)** — the constraint system that the
+specification's opening line once called uniquely determining admits some fifty nonillion solutions. C6+C7's
+true full-space cut is ×2.55×10⁶; ~105 bits (≈15–20 boundary constraints) separate C1–C7 from genuine
+uniqueness. The spec's Conjecture block now records the refutation with the measurement; every uniqueness
+claim in the project is scoped to the enumerated datasets, where the 4-greedy-boundary result stands. The
+honest arc of the day: the same estimator machinery that sized the C1–C5 space at ≈1.33×10³⁸ settled, for
+about a dollar of Spot compute, a question the project had carried as "unconfirmed at scale" since April.

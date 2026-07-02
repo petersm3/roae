@@ -106,3 +106,24 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 - **Reproducible:** `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`, then `solve --estimate-knuth 500000000` (whole tree) or `solve --estimate-knuth 100000000 <p1> <o1>` (one branch). Pure compute; no data disk required. The exact-count validation is `solve --estimate-knuth 0 <prefix>`.
 - **Cost:** 5×10⁸ probes ≈ 79 s single-machine; the estimates above cost pennies of compute.
 - See also: [`CRITIQUE.md`](CRITIQUE.md) (why budgeted counts are lower bounds), [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) §3-point scaling trajectory, [`BRANCHES_EXPLAINED.md`](BRANCHES_EXPLAINED.md) (what a branch/cell is).
+
+## The C1–C7 space: the Uniqueness Conjecture is refuted (2026-07-02)
+
+Extending the random-probe walk with the spec's C6/C7 adjacency constraints (`SOLVE_KNUTH_C67=1`, slots
+24–27 pinned to King Wen's pairs, orientation free) makes the long-standing Uniqueness Conjecture directly
+measurable. Result (5×10¹⁰ probes, D32):
+
+| Quantity | Estimate | 95% CI | rel. err |
+|---|---|---|---|
+| C1–C7-satisfying orderings | **5.21×10³¹** | [5.13, 5.29]×10³¹ | 0.78% |
+| C1+C2+C4+C5 + C6/C7 pins (no C3) | 5.18×10³² | [5.16, 5.21]×10³² | 0.25% |
+| pinned tree nodes | 1.4539×10³⁵ | — | 0.00% |
+
+**Interpretation.** C6+C7 cut the C1–C5 space (≈1.33×10³⁸) by ×2.55×10⁶ — but ≈5.2×10³¹ orderings survive.
+King Wen is not uniquely determined by the published constraint system over the full space; uniqueness holds
+only within enumerated budgeted datasets (where 4 greedy-ordered boundary constraints isolate it). Closing
+the remaining ≈105 bits would require roughly 15–20 boundary constraints. A first exact corroboration at
+small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 C1–C5 completions
+of which exactly **8** satisfy C6/C7 — KW plus seven others even in its own immediate neighborhood.
+Provenance: estimator extension in solve.c (`SOLVE_KNUTH_C67`), sha-neutral (selftest-gated); run log in
+the private repo (probe on `c207`, 2026-07-02).
