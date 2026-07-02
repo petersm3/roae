@@ -4756,6 +4756,7 @@ typedef struct {
     uint64_t hits_leaf, hits_c3;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
     double sum_rm1s, sum_rm1k;           /* Moore pair-positioning: strict 18/18 / >=16-of-18 (KW level) */
+    int max_rm1;                          /* max compliance observed across canonical leaves (Moore-conjecture existence bound) */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -4821,6 +4822,7 @@ static void *knuth_worker(void *vp){
                             }
                             if (ok == 18) a->sum_rm1s += W;
                             if (ok >= 16) a->sum_rm1k += W;
+                            if (ok > a->max_rm1) a->max_rm1 = ok;
                         }
                     }
                 }
@@ -4927,12 +4929,13 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0; int mxM1=0; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
-        sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k; }
+        sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
+        if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double dN=(double)N;
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
@@ -4950,6 +4953,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass\n", sR5/sC);
         printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this)\n", sM1s/sC);
         printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level)\n", sM1k/sC);
+        printf("  [score] R-M1 max compliance seen : %d of 18 (Moore-2005 precursor existence bound)\n", mxM1);
     }
     fflush(stdout);
 }
