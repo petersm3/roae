@@ -17,7 +17,7 @@ King Wen's uniqueness vs. combinatorial structure.
 
 | Topic | Read |
 |---|---|
-| **Technical report suite (findings in depth, living-versioned)** | [reports/TR0_INDEX.md](reports/TR0_INDEX.md) (+ METHODS.md, certificates/) |
+| **Technical report suite (findings in depth, living-versioned)** | [reports/README.md](reports/README.md) (+ METHODS.md, certificates/) |
 | Detailed findings narrative (former front page) | [PROJECT_OVERVIEW.md](documentation/PROJECT_OVERVIEW.md) |
 | Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
 | Stable paper-citable findings | [PARTITION_STABILITY_BOUNDARIES.md](documentation/PARTITION_STABILITY_BOUNDARIES.md), [BOUNDARY_MINIMUM_NON_MONOTONE.md](documentation/BOUNDARY_MINIMUM_NON_MONOTONE.md), [SYMMETRY_SEARCH.md](documentation/SYMMETRY_SEARCH.md), [PASS1_TRAJECTORY_DETERMINISM.md](documentation/PASS1_TRAJECTORY_DETERMINISM.md) (consolidated from `findings/` 2026-06-11) |

@@ -182,7 +182,7 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 The rules above were only the beginning. Three further instruments — a machine-checked theorem prover, a
 logic solver that can settle "does any ordering with property X exist?" questions definitively, and a
 measurement technique that samples the full space of valid orderings without enumerating it — produced a
-second wave of results, each with a full [technical report](../reports/TR0_INDEX.md):
+second wave of results, each with a full [technical report](../reports/README.md):
 
 - **Every valid ordering has 23 mathematical "twins"** — relabelings that the rules cannot tell apart.
   King Wen is not special in this respect: the twins are a property of the rules themselves.
