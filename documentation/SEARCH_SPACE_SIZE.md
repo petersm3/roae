@@ -127,3 +127,28 @@ small scope: within the KW-following 22-pair prefix subtree, exact counting find
 of which exactly **8** satisfy C6/C7 — KW plus seven others even in its own immediate neighborhood.
 Provenance: estimator extension in solve.c (`SOLVE_KNUTH_C67`), sha-neutral (selftest-gated); run log in
 the private repo (probe on `c207`, 2026-07-02).
+
+## The boundary-information curve S(k) (2026-07-03)
+
+How fast does knowledge of King Wen's boundary structure shrink the full space? Define S(k) = the fraction
+of the full C1–C5 population agreeing with KW on the first k boundaries of the 560T greedy identifying
+order {4, 27, 25, 21} (agreement at boundary b = both flanking slots hold KW's pairs — the
+[PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) predicate). Measured with pinned
+Knuth walks (`SOLVE_KNUTH_PIN_SLOTS`; 2×10⁹ probes per prefix; relative error ≤10%):
+
+| k | pins (boundary) | S(k) | absolute survivors (×1.3287×10³⁸) | per-boundary cut |
+|---|---|---|---|---|
+| 1 | 4 | 7.49×10⁻⁴ | 9.95×10³⁴ | ×1,335 |
+| 2 | +27 | 9.39×10⁻⁷ | 1.25×10³² | ×798 |
+| 3 | +25 | 4.27×10⁻¹⁰ | 5.68×10²⁸ | ×2,196 |
+| 4 | +21 | 6.34×10⁻¹³ | **8.42×10²⁵** | ×674 |
+
+**Headline:** the four boundaries that uniquely identify King Wen inside the 560T slice still admit
+≈**10²⁶ orderings in the full space** — the sharpest quantification yet of the slice-uniqueness vs
+space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
+~10³ per-boundary cut puts full-space uniqueness at roughly 13–14 well-chosen boundaries (wide error; the
+prior structural estimate was 15–20). A bracketing run choosing among the *weakest* remaining boundaries
+(k = 5–8) still cut ×15–17 per boundary, so the decay is robust to boundary choice within an order of
+magnitude per step. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
+masses starve below ~10⁻¹³ hit rates) and is queued as a future measurement. Reproduce:
+`SOLVE_KNUTH_PIN_SLOTS="3,4,26,27,24,25,20,21" SOLVE_KNUTH_BOUNDARY_COND=1 ./solve --estimate-knuth 2000000000`.
