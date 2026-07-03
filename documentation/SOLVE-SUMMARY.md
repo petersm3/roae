@@ -81,19 +81,21 @@ The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No b
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
 <a id="rule-3"></a>
-### Rule 3: Opposites placed below the 776 ceiling — a constraint, not a minimization
+### Rule 3: Opposites stay close — a ceiling, not a target
 
-Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. King Wen's total complement distance (summed across all 64 hexagrams) is exactly 776, which corresponds to a mean of 12.1 positions between each hexagram and its opposite. Compared to random permutations (mean ~22), this is significantly smaller.
+Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. In King
+Wen, opposites sit strikingly near each other: 9 of the 32 opposite-pairs are directly adjacent, and the
+average separation is only 12.1 positions (random arrangements average about 22). Summed over all 64
+hexagrams, King Wen's total opposite-distance is exactly **776**.
 
-**Updated finding (2026-04-20 from 100T d3 canonical analysis)**: The earlier framing — "King Wen actively keeps opposites as close as possible" — was measured relative to *unconstrained* random orderings and relative to C1-only pair-constrained random orderings (where KW sits at the 3.9th percentile). **However, within the filtered set of 3.43 billion valid orderings that satisfy C1+C2+C3 (all three rules), KW is NOT at the minimum of complement distance.** The minimum is 424 (achieved by 221 orderings), and 340 million orderings (~9.91% of the canonical set) tie with KW at exactly 776 — the ceiling of the constraint. KW is in a large equivalence cohort at the maximum-allowed C3, not a distinguished minimum.
+One honest subtlety, learned from the large enumerations: 776 is a **ceiling King Wen sits at, not a
+minimum it achieves**. Among the billions of valid orderings, many have their opposites even closer (the
+minimum seen is 424), and roughly one in ten ties King Wen at exactly 776. So the rule we can actually
+state is "total opposite-distance stays at or below 776" — a bound taken from King Wen's own value. (An
+earlier version of this page framed Rule 3 as active minimization; the enumeration corrected that.)
 
-So Rule 3 is more accurately stated as **"complement distance is bounded ≤ 776"** than **"complement distance is minimized."** The 776 figure defines the constraint ceiling (it's KW's own value); any ordering at or below 776 passes. The 3.9th-percentile claim remains true in the narrow C1-only comparison but is misleading in the context of C1+C2+C3 valid orderings.
-
-To illustrate the updated picture:
-- King Wen's worst complement pair is still ䷂ #3 ↔ ䷱ #50 at distance 47; its best pairs are adjacent (distance 1).
-- Among 3.43B valid C1+C2+C3 orderings, 340M of them have the same total complement distance as KW (776). Within that cohort, what distinguishes KW further remains an open question.
-
-**What this does:** Eliminates orderings with complement distance >776, but does not narrow to KW alone. Among 3.43B C1+C2+C3 orderings, KW is one of ~340M at the ceiling.
+**What this does:** Eliminates orderings whose opposites drift farther apart than King Wen's — but leaves
+an enormous family, King Wen among them.
 
 Closest complements highlighted (distance 1 — adjacent in the sequence):<br>
 <mark>**䷀䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ <mark>**䷊䷋**</mark> ䷌䷍ ䷎䷏ <mark>**䷐䷑**</mark> ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ <mark>**䷚䷛**</mark> <mark>**䷜䷝**</mark> ䷞䷟ ䷠䷡ ䷢䷣ ䷤<mark>**䷥**</mark> <mark>**䷦**</mark>䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ <mark>**䷴䷵**</mark> ䷶䷷ ䷸䷹ ䷺䷻ <mark>**䷼䷽**</mark> <mark>**䷾䷿**</mark><br>
@@ -163,120 +165,6 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 
 **Only {25, 27} can be cited as the stable "mandatory boundaries" result.** The broader phrasing about "one-of-{2,3} ∪ one-of-{21,22}" is a d2-specific statement — at deeper partition sampling, different early-zone boundaries become interchangeable. This is exactly the kind of partition-depth sensitivity the null-model caveat (see [CRITIQUE.md](CRITIQUE.md)) anticipates: structural claims that look specific at one partition may look different at another.
 
-### Per-position constraint strength (Shannon entropy)
-
-Across the canonical datasets, the Shannon entropy H(p) of the pair distribution at each position p quantifies how much "choice" exists at that position (in bits; max possible is log₂(32) = 5.0 bits if any pair were equally likely). Values below are from the d3 10T canonical dataset (706M orderings):
-
-| Positions | H (bits) | Character |
-|-----------|---------:|-----------|
-| 1 | 0.00 | Fully determined (only Creative/Receptive) |
-| 2 | 3.83 | Near-free (28 distinct pairs observed) |
-| 3 | 4.12 | Most free of all positions (31 pairs observed) |
-| 4-20 | 0.28 – 1.72 | Highly constrained — the "cascade region" |
-| 21 | 1.71 | Transition |
-| 22-31 | 3.45 – 3.65 | Moderately free |
-| 32 | 2.66 | Partial constraint (7 pairs) |
-
-Mean H = 2.05 bits per position. The peak at position 3 (not position 2) is because the solver's enumeration fixes position 2 first, so freedom is pushed one step downstream. The cascade region (positions 4-20) carries only 0.3-1.7 bits each — a very different regime from the "free" regions above and below it.
-
-### How positions relate to one another (mutual information)
-
-Pairwise mutual information I(p; q) measures how much knowing the pair at position p reduces uncertainty about position q. The strongest correlations are between adjacent positions in the cascade region (e.g., position 19 ↔ 20 = 1.15 bits), reflecting the tight local propagation. Notably: **boundaries 25 and 27 — both mandatory — have weak mutual information with everything else** (max I ≈ 0.19 bits).
-
-Per-boundary conditional entropy on d3 (`analyze_d3.log` section [18]) directly quantifies how much fixing a boundary to match KW reduces total sequence uncertainty (baseline: 73.17 bits across 32 positions). The most informative boundaries are the early ones: boundary 4 contributes 46.8 bits of information, boundary 5 contributes 42.7 bits, boundary 6 contributes 39.7 bits. **Boundaries 25 and 27 sit mid-pack at 9.96 and 10.64 bits** — roughly one-fifth the information content of the top boundaries. Yet they are mandatory while the high-information boundaries are interchangeable. What makes `{25, 27}` mandatory is not that they carry more information but that the information they carry is **structurally independent** of all other boundaries: they eliminate non-KW solutions that no combination of other boundaries can reach.
-
-### Boundary redundancy and independence
-
-Joint-survivor analysis (counting how many solutions match KW at *both* of two given boundaries simultaneously) reveals two distinct boundary clusters:
-
-- **Boundaries 15-19 are fully redundant.** For every pair within this set, `joint(b1, b2) = min(survivors(b1), survivors(b2))` — knowing one of these boundaries implies all the others. The cascade region propagates so tightly that constraints near its end carry overlapping information.
-- **Boundaries 26 and 27 are highly independent of the cascade region.** Joint/min-single ratios with cascade-region boundaries (3-8) are 0.007-0.010 — essentially uncorrelated. This is what makes them structurally valuable in the minimum-boundary set: they eliminate solutions that the cascade region cannot.
-
-This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1, 4, 25, 27} (d3's greedy pick) works: early boundaries catch the high-entropy choices in the front zone, and 25 and 27 contribute *independent* information not implied by any other boundary. The specific early-zone picks vary by partition depth; the mandatory-status of {25, 27} does not.
-
-### 560T canonical results (2026-06-08, CANONICAL-verified 2026-06-30; analyze 2026-06-11) — current deepest enumeration
-
-**560T canonical sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** — 10,525,271,997 canonical orderings, established by full C1+C2+C3 enumeration at 560 trillion node budget (per-cell budget 3.536 × 10⁹ × 158,364 cells). The full `--analyze` pass over the 10.5 B canonical record set was completed 2026-06-11 (3 h 47 m on D128 with the algorithmic rewrites in commits 8ac5e8f / fe58e71 / bf8d8a5 / c0ec4c3 — see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry). Headline findings (560T scope):
-
-- **Greedy minimum boundaries to uniquely identify KW: 4**, set **{4, 27, 25, 21}** (consumed in that order; each step eliminates the prior survivors). This recovers the same "4 boundaries suffice" headline as the 11.2T canonical, with the *specific* set re-ordering: boundary 4 alone eliminates 10,525,220,592 of 10,525,271,996 non-KW records (99.999%), then 27 → 481 survivors, then 25 → 14, then 21 → 1.
-- **Working 4-subset count (§[8]) collapses to 0 at 560T**, vs 4 at 742M and 8 at 11.2T. At 560T there is no unordered 4-tuple of boundaries that, applied jointly to the 10.5 B record set, reduces survivors to ≤ 1. The greedy ordered result above still works because each chosen boundary's effect compounds on the prior eliminations; *unordered* 4-set identification is the property that fails at this depth. **This makes the "4-set uniquely identifies KW" framing scale-bounded; the durable claim is the greedy-ordered minimum of 4.**
-- **Mandatory boundaries 25 + 27 are still mandatory** under the greedy-ordered framing — both appear in the §[6] minimum set. The boundary-25/27 *independence* (§[9]: 25+27 ratio = 0.007) is reaffirmed: their information is not implied by any other boundary.
-- **Complement distance (C3) = 776 still the CEILING.** KW is at the maximum of the constraint; large equivalence cohort at the 776 ceiling persists.
-- **Edit-distance distribution heavily right-skewed**, mode at distance 30 with 2,789,988,449 records (26.5%). 96% of records are at distance ≥ 25 from KW. KW is structurally rare in the canonical-solution space at 560T scale.
-- **Top pairwise mutual information**: pos 12 ↔ pos 13 = **1.3417 bits**; cascade-region positions 11–20 own the entire top-10 of pairwise MI. Mandatory boundaries 25, 27 do *not* appear in the top-20 MI pairs — confirming their structural independence from the cascade-region MI cluster.
-- **Per-position conditional entropy headline (§[18])**: boundary 4 alone yields 45.14 bits of information gain (baseline H = 77.81 bits across 31 positions). Boundaries 25 and 27 contribute 10.73 and 10.63 bits respectively — mid-pack on info-gain but indispensable in the *combinatorial* sense per the greedy result.
-
-Full §[1]–§[28] analyze findings: see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry (public) and `roae-private/560T_FINAL_ANALYSIS.md` (operator-private working analysis log).
-
-**3-point scaling trajectory (11.2T → 100T → 560T, 2026-06-14).** The per-cell record sets across the three deepest canonicals are **strictly nested** (11.2T ⊆ 100T ⊆ 560T) with 0 monotonicity violations under pair-identity keying — records 759,608,573 → 3,432,399,298 → 10,525,271,997, pair-identity cells yielding 9,799 → 10,062 → 10,618. Growth is **sublinear** (×50 per-cell budget → ×13.86 records; power-law α ≈ 0.67) and is **deepening, not broadening**: cells first appearing at a larger scale contribute only ~0.2% (→100T) and ~0.5% (→560T) of that scale's records. Every sampled sub-branch is still BUDGETED (none EXHAUSTED) at 560T, so the exhaustive enumeration cannot report the total number of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and no feasible budget approaches exhaustion (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible slice at a fixed budget, and the planned 1120T extension is a discriminating test of the growth asymptote rather than merely more data.
-
-### 100T d3 canonical results (2026-04-20; historical reference, superseded by 560T)
-
-The 100T d3 canonical (sha `915abf30…`, 3,432,399,298 orderings, established 2026-04-20) was the deepest published enumeration prior to the 560T canonical above. Its findings are preserved here as a historical scale-comparison reference; 560T headline numbers above are now authoritative. Findings (100T scope):
-
-- **Boundary minimum was 5 at 100T** (greedy-optimal set **{1, 4, 21, 25, 27}**); the d2 10T and d3 10T canonicals had 4 specific boundaries uniquely determining KW. Boundaries {25, 27} remain mandatory across all three partitions. Note: the 560T re-evaluation above shows greedy minimum is **4 again** (set {4, 27, 25, 21}); this is partition + scale-dependent, not monotone-increasing as the 10T→100T trajectory had suggested. The durable structural claim is "4 boundaries suffice via greedy-ordered application"; the *minimum-unordered-set* count fluctuates between 4 and 5 across depths.
-- **Complement distance (C3) = 776 is the CEILING, not the floor.** KW's C3 is at the maximum of the constraint. 340,179,649 records (9.91%) tie at exactly 776; minimum C3 is 424 (221 records). Axiom "minimize C3" does NOT pick KW; KW is in a large ~10% equivalence cohort at the C3 ceiling. Rule 3 is a ceiling constraint, not a minimization (see updated §Rule 3).
-- **Edit-distance distribution heavily right-skewed toward KW's far side.** Mode at edit distance 30 (867M records = 25.3%); only 10.87% of records within edit distance 25 of KW. KW sits in a sparse neighborhood of the solution manifold.
-- **Shift-pattern conformance: 0.077%** (2,635,756 of 3.43B). Trajectory: d2 2.69% → d3 10T 0.062% → d3 100T 0.077%. Not monotonically decreasing.
-- **Mean per-position Shannon entropy: 2.37 bits** (of 5.0 max). Similar shape to 10T; KW is identifiable within only ~7% of the 32 position slots without additional constraints.
-
-Canonical sha256: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (102.3 GB). See [`runs/20260419_100T_d3_d128westus3/`](runs/20260419_100T_d3_d128westus3/) for the run archive and `analyze_output.log.gz` for the full data.
-
-### Within-pair orient freedom: a constraint-geometry finding (not KW-specific)
-
-King Wen appears exactly once per canonical dataset (d3: 1 variant, d2: 1 variant — the canonical dedup keeps the lex-smallest orient variant per pair-sequence). Earlier 742M-era analysis found 4 KW orient variants with coupling at positions {2, 3, 28, 29, 30}; the canonical format v1 with per-canonical-class dedup collapses these to 1. The pair-sequence is the invariant; orient variants are cheaply recoverable by testing 2^31 combinations. Running the orient-coupling generalization analysis (`--analyze` section [14]) across the canonical datasets shows:
-
-In the canonical v1 format, each pair-ordering appears exactly once (lex-smallest orient variant kept; other variants cheaply recoverable by testing 2^31 combinations). The d3 10T dataset contains 706,422,987 unique pair-orderings; the d2 10T dataset contains 286,357,503. The 742M-era "4 KW orient variants" finding was an artifact of pre-format-v1 storage that stored all orient variants rather than collapsing them.
-
-The underlying constraint geometry — that within-pair orient is almost entirely forced across positions 5-20 for every valid pair-sequence — is unchanged. What changes is the STORAGE: canonical format v1 doesn't duplicate-store the orient variants that exist, it stores the canonical form + the implicit fact that some pair-orderings have multiple valid orient variants which could be regenerated on demand.
-
-## Observed structural regularity: yield clustering + orientation-symmetry
-
-An analysis of the 100T d3 canonical enumeration log (60,533 non-zero-yield
-depth-3 sub-branches, one per valid (pair₁, orient₁, pair₂, orient₂, pair₃,
-orient₃) prefix) — reveals strong regularity that is not visible in the merged
-canonical records:
-
-- **Only 9,325 distinct yield values across 60,533 sub-branches** (average of 6.5 sub-branches sharing each yield value). The enumeration is not "flat" across prefix classes; it has a strongly-clustered structure.
-- **380 depth-3 prefix groups** (where a "group" = all 2³ = 8 orientation variants sharing the same (pair₁, pair₂, pair₃) triple) — every one of the 8 variants yields an **identical** solution count. That is: for these prefixes, orientation does not affect how many C1-C5-valid orderings extend the prefix.
-- **16.3% of multi-variant groups overall (1,636 of 10,027)** exhibit this perfect orientation-symmetry. The remaining 83.7% show variant-dependent yields.
-
-This pattern implies a **partial orientation-invariance property** of the C1-C5 constraint system on depth-3 prefixes: for a substantial minority of prefixes, the count of valid continuations depends only on the pair identities, not the hexagram-within-pair orderings.
-
-Reproducibility: the built-in `./solve --yield-report` subcommand reads a solve.c enumeration log on stdin and produces this report. Invoke via `zcat enum_output.log.gz | ./solve --yield-report`. No external dependencies beyond what `solve.c` already requires.
-
-## Observed distributional regularity: KW's position in joint observable space
-
-Separate from the yield-clustering analysis above — at the record level across
-the 3,432,399,298 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimensional
-observable-statistics vector was computed per ordering and KW's position in the
-joint distribution was quantified via kernel density estimation + bootstrap.
-
-**Headline result: no ordering in a 100,000-record uniform sample matches KW's
-joint feature profile — KW's joint-density rank is below the sample's resolution
-(<10⁻⁵).** A 100K sample cannot resolve percentiles below ~10⁻⁵, so the rank is
-reported as a resolution bound. The KDE assigns KW a log-density ~12,800× lower
-than any sampled ordering (a methodology-dependent figure; see
-[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) caveats).
-
-The distributional extremity is driven by KW simultaneously being at the 95th+
-percentile across four independent structural dimensions (complement distance
-at ceiling, both C6/C7 adjacencies satisfied, all 17 shift-pattern positions
-conformant, and literally unique-to-KW position-matching). A typical C1-C5
-valid ordering does not concentrate extreme values across multiple dimensions
-this way.
-
-**A concurrent analytical finding: invariant transition-Hamming distribution.**
-The multiset of 63 consecutive-hexagram Hamming distances is identical across
-every C1-C5 valid ordering (direct consequence of C5's budget constraint —
-it's the constraint itself, re-expressed). So any aggregate statistic of that
-multiset (mean, max, variance) is structurally constant — not observable
-variation to analyze.
-
-Reproducibility: `solve.py --compute-stats` → per-record parquet, then
-`solve.py --marginals`, `solve.py --bivariate`, `solve.py --joint-density`.
-Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
-
 ## The numbers at a glance
 
 | Step | Rule | Arrangements remaining |
@@ -284,10 +172,37 @@ Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 | 0 | All possible orderings | 10^89 |
 | 1 | Pair structure | 10^45 |
 | 2 | No 5-line jumps | ~4% of step 1 |
-| 3 | Opposites kept close (3.9th percentile) | ~0.3% of step 1 |
+| 3 | Opposites ceiling (total distance ≤776) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
 | 5 | Specific transition counts | **706,422,987** (d3 10T canonical); **286,357,503** (d2 10T canonical) |
 | 6 | 4 boundary constraints | **1 (King Wen)** — within the enumerated slice; see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
+
+## The story continued: what deeper tools found (2026)
+
+The rules above were only the beginning. Three further instruments — a machine-checked theorem prover, a
+logic solver that can settle "does any ordering with property X exist?" questions definitively, and a
+measurement technique that samples the full space of valid orderings without enumerating it — produced a
+second wave of results, each with a full [technical report](../reports/TR0_INDEX.md):
+
+- **Every valid ordering has 23 mathematical "twins"** — relabelings that the rules cannot tell apart.
+  King Wen is not special in this respect: the twins are a property of the rules themselves.
+  [[TR-5](../reports/TR5_SYMMETRY.md)]
+- **Some "design choices" turn out to be forced.** Eight regularities that scholars across eight
+  centuries attributed to the arranger's intent are mathematical *consequences* of the rules — any
+  valid ordering has them, chosen or not. And every valid ordering has exactly 15 alternations between
+  even-balanced and odd-balanced pairs — provably, always.
+  [[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-6](../reports/TR6_PARITY_SKELETON.md)]
+- **The classical rules contradict each other.** The most striking result: the four strongest design
+  rules proposed in the literature — two by Steve Moore, two traceable through Larry Schulz back to a
+  13th-century commentator — **cannot all be satisfied by any ordering at all**. King Wen keeps one of
+  them perfectly and misses the other three by the smallest possible margins. Its famous "irregularities,"
+  puzzled over for centuries, are the visible seam of a forced trade-off — not damage, and not sloppiness.
+  [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
+- **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
+  turns out to be mathematically *optimal* (Radisic 2026). The other half is explained by nothing anyone
+  has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
+
+Each of these is machine-verifiable — the reports include the exact commands and certificates.
 
 ## An important caveat
 

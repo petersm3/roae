@@ -45,11 +45,11 @@ Headlines only — each links to its full treatment (technical reports in [repor
   C6–C7 still leaves ~5×10³¹. The folk conjecture that the constraints pin down King Wen is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
   jointly unsatisfiable — no ordering can be perfect under all of them. King Wen keeps one exactly and
-  misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1, [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)]
+  misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are theorems** — forced by the constraint system, not chosen. Others
   are genuinely discriminating (to 1 in 5×10⁷). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
 - **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
-  exactly **15 parity-class alternations** (proven three independent ways). [TR-5, [TR-6](reports/TR6_PARITY_SKELETON.md)]
+  exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
 - **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
   matching (Radisic 2026, machine-verified). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
