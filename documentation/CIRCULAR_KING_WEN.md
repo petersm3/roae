@@ -35,8 +35,7 @@ Under closure, C2 (no 5-line transitions) acquires a 64th application — the wr
 So the circular reading is *not* free: "no 5-line transition anywhere on the cycle" excludes real members
 of the linear solution set. Its absence from the 560T slice is a slice phenomenon — per the twins lesson
 ([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md)), budgeted-slice absence does not measure full-space rarity;
-the full-space mass of 5-wrap orderings is measurable with the estimator (a wrap-value accumulator) and is
-left as a queued measurement.
+the full-space wrap-distance masses are now MEASURED (2×10¹⁰ probes, 2026-07-03): **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%** — the 5-wrap orderings that no budgeted slice has ever contained are between a fifth and a sixth of the full space, and circular C2 would cut the space by ×1.21.
 
 ## Symmetry under closure
 Closure invites a larger symmetry question: without C4 (which pins the starting pair), a circular
