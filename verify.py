@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# https://github.com/petersm3/roae
+# Developed with AI assistance (Claude, Anthropic)
 """Independent constraint verifier for solutions.bin.
 
 Reads every record, reconstructs the 64-hexagram sequence, and checks
