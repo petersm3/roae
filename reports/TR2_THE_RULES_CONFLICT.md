@@ -1,0 +1,84 @@
+# PAPER A (draft v1) — "The Rules Conflict: Moore's Precursor, Schulz's Exceptions, and a Joint
+# Impossibility Theorem for the King Wen Sequence"
+*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide (below as "Defense kit", to be retitled). Journal-submission variant preserved as a dormant option per REPORTS_PLAN.*
+
+Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
+
+Target: *Journal of Chinese Philosophy* (where Moore 2005-adjacent and Schulz 1990/2011 appeared). ~8pp.
+Defense model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
+
+---
+
+## Abstract
+
+Steve Moore (1989, 2005) proposed two design rules for the King Wen sequence, observed that the received
+order complies with one at sixteen of eighteen testable positions with both exceptions adjacent, and
+conjectured an originally compliant order later altered. Larry Schulz (1990, 2011, 2016) independently
+formalized a third rule over Lai Zhide's thirty-six consolidated units, with its own exceptions at the
+same locus — noted as early as the thirteenth century by Zhu Yuansheng — and a fourth, the trigram
+configuration of stations 25–28, which the received order satisfies exactly. Using a Boolean-satisfiability
+encoding of these rules over the space of orderings preserving the sequence's classical pair structure, we
+resolve the conjectures these authors raised. (1) Moore's conjectured compliant order exists: we exhibit
+an ordering perfect under both of his rules, differing from the received order by exactly three
+adjacent-position edits — through the very anomaly he identified — and prove three edits is minimal.
+(2) The same holds with Schulz's third rule added. (3) Decisively: **no ordering whatever satisfies all
+four rules simultaneously** — the rules are jointly unsatisfiable, a fact certified by machine-checkable
+proof. The exceptions that Zhu Yuansheng, Moore, and Schulz each recorded are therefore not evidence of
+damage to a once-perfect original, for no such original could exist; they are the visible seam of a forced
+trade-off among competing regularities — precisely the reading Schulz proposed on interpretive grounds in
+2011 ("exceptions that prove rules"), for which we supply the exact combinatorial content.
+
+## Structure (6 sections)
+1. **The rules and their authors** (fully attributed narrative: Zhu Yuansheng -> Lai Zhide -> Schulz ->
+   Moore; the anomaly locus as an eight-century observation). Humanities register.
+2. **Method in one page**: the pair-structure space; what a SAT solver decides; what a certificate is;
+   the two-way encoding validation (KW-forced tests) in plain language. Verifiability box.
+3. **Moore's precursor exists** (witness, printed in full; 3-edit minimality with certificate).
+4. **The conflict theorem** (statement, certificate, what was checked by whom: kissat -> DRAT ->
+   drat-trim). One paragraph on the data-like character of the trigram rule, honestly.
+5. **Reading the received order** — trade-off, not corruption; Schulz's 2011 principle vindicated in
+   exact form; what remains open (restricted corruption; tendencies), WITHOUT statistics beyond one
+   rarity sentence per rule (cited to the population-measurement record, not developed).
+6. **Coda**: the sequence emerges more, not less, deliberate: it sits where its own tradition's rules
+   force a choice, keeping exactly one perfectly.
+
+## Defense kit
+- Every theorem: a command + a certificate. Encodings: validated two ways in-repo; the encodings' rule
+  semantics were verified to reproduce each author's stated KW values before anything else was trusted.
+- "Did you interpret the rules correctly?" -> the KW-value reproduction gates (16/18 at 22-23; 2 breaks
+  at (7,8),(22,23); 2 violations at 25/26; the trigram faces 31/24/26/29) — the authors' own numbers.
+- Scope honesty: theorem is about the rules AS STATED; no claim about the arranger's intent.
+- AI disclosure per policy; results independent of provenance.
+
+### Commands
+All targets are in the public repo's `sat.py` (encoding derived from solve.py's constraint
+definitions; TR-1's Verification Guide carries the full kit; environment/versions per METHODS.md).
+Every verdict below was re-verified 2026-07-03 on a 2-core box; each command completes in seconds
+(kissat on PATH required for `--witness`).
+- **Grand precursor exists (abstract claims 1–2; §3):** `python3 sat.py --witness grand-strict` →
+  explicit C1–C5-valid ordering with Moore 2005 parity 18/18, Moore 1989 rhythm 0 breaks, Schulz
+  gender 0 violations, C3 = 776 (`python3 sat.py --witness moore-strict` for the Moore-only
+  precursor; published sequences in LITERATURE_RULES_POPULATION_TESTS.md §SAT-decided).
+- **Three edits is minimal (§3):**
+  `python3 sat.py --emit-cnf moore-strict-near-2 f.cnf && kissat f.cnf` → UNSAT (no jointly
+  compliant ordering within 2 slot-edits of KW; a fortiori under C3);
+  `python3 sat.py --emit-cnf moore-strict-near-3 f.cnf && kissat f.cnf` → SAT (3 suffices).
+- **The conflict theorem (§4):**
+  `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf f.drat` → UNSAT;
+  `drat-trim f.cnf f.drat` → `s VERIFIED`.
+- **Encoding gates (§2 — two-way validation against the authors' own KW values), each via
+  `python3 sat.py --emit-cnf <target> f.cnf && kissat f.cnf`:** `rc4-kwtest` → UNSAT (KW violates
+  the gender rule at class positions 25/26); `rc4-kwexempt` → SAT (KW satisfies it with positions
+  25/26 exempt); `ccn4-kwtest` → SAT (KW satisfies the trigram configuration exactly).
+
+## TODO
+- [ ] Full prose (sections 1, 5, 6 need the humanities register — operator voice pass essential).
+- [ ] Print the witness orderings in hexagram-number notation (1..64), not binary.
+- [ ] JCP guidelines; consider Schulz as reader-before-submission (he is the living author engaged).
+- [ ] Coordinate claims with Paper B + the arXiv record (no double-publication of the same theorem as
+  a "new" result — Paper A is the primary home of the conflict theorem).
+
+## Revision history
+| Version | Date | Changes |
+|---|---|---|
+| v1.0 | 2026-07-04 | First public release |

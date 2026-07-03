@@ -1,95 +1,88 @@
-# Received Order Analysis Engine (ROAE)
-
-> **Research in progress.** This project is under active development. Findings are preliminary, based on partial enumeration (no branch of the search tree has been fully explored), and subject to revision as the analysis deepens. Earlier versions of this documentation contained claims that were later invalidated by larger-scale computation — see commit history for the evolution of findings. Nothing here should be treated as definitive.
-
-Analysis engine for the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence)
+# ROAE — Received Order Analysis Engine
 
 <mark>**[䷀䷁](documentation/SOLVE-SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-## Summary
+**The question:** the King Wen sequence — the ~3,000-year-old received ordering of the 64 I Ching
+hexagrams — has attracted structural claims for centuries, almost all asserted by inspection. Can those
+claims be tested? Can the sequence be reconstructed from its mathematical constraints? This project
+treats the sequence as a combinatorial object: it **enumerates** the space of orderings satisfying the
+sequence's constraints, **measures** claimed regularities against that space, and **proves** (with
+machine-checked proofs and SAT certificates) what is forced, what is rare, and what is impossible.
 
-An analysis engine that approaches the King Wen sequence from nearly every mathematical angle available. It started as a script verifying a known structural property of the sequence and grew into a comprehensive toolkit for studying the combinatorial structure of an ancient Chinese ordering system.
+New to the I Ching or combinatorics? Start with [GUIDE.md](documentation/GUIDE.md).
 
-Note: this program analyzes the mathematical structure of the ordering only. The [I Ching](https://en.wikipedia.org/wiki/I_Ching) is a foundational text of Chinese philosophy, divination, and cosmology with over three millennia of commentary and practice. This program does not address the philosophical, divinatory, or literary dimensions of the text.
+## The constraints
 
-## Guide
+The sequence's structural properties, extracted from the received order and its classical commentary,
+are treated as axioms defining a space of orderings ([formal definitions](documentation/SPECIFICATION.md)):
 
-New to the I Ching or combinatorics? See [GUIDE.md](documentation/GUIDE.md) for a plain-language introduction to the King Wen sequence and how to read this program's output. For a step-by-step walkthrough of what the solver actually does — what a "branch," "sub-branch," and "node" mean, what all-branch vs single-branch enumeration is doing, and what the open questions are — see [BRANCHES_EXPLAINED.md](documentation/BRANCHES_EXPLAINED.md).
+- **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
+  when reversal is trivial): the classical pairing, described by Yu Fan in the 3rd century.
+- **C2** — no two adjacent hexagrams differ in exactly five lines (McKenna & McKenna 1975).
+- **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
+- **C4** — the sequence starts with the pair (Qian, Kun): heaven, then earth.
+- **C5** — the multiset of adjacent-transition sizes matches King Wen's exactly.
 
-## Solver
+C1–C2 are robust properties; C3–C5 are extracted from the sequence itself — the distinction matters and
+is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further extracted constraints
+(C6–C7) appear only where marked.
 
-Can the King Wen sequence be reconstructed from its mathematical constraints? Five constraints narrow 10^89 possibilities to billions of valid orderings. The deepest published partial enumeration finds **10,525,271,997 canonical orderings** at the d3 560T budget (sha `9a968fa2…`, established 2026-06-08; CANONICAL-verified 2026-06-30). Canonical counts and the sha256 hashes that anchor them — across multiple partition strategies and node budgets — are listed in [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md). All listed canonicals are partial enumerations; under true exhaustive enumeration they would converge. Across the three deepest canonicals the per-cell record sets are strictly nested (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations under pair-identity keying) and grow sublinearly (×50 budget → ×13.86 records), driven by deepening of existing productive cells rather than new regions — and remain unsaturated (every sampled sub-branch is still budget-limited), so each is a reproducible *slice* at a fixed budget rather than a final count.
+## The instruments
 
-The **number of boundary constraints needed to uniquely identify King Wen is partition + scale-dependent and non-monotone with scale**: greedy-ordered minimum is 4 at d2/d3 10T, 5 at d3 100T, and 4 again at d3 560T (greedy set `{4, 27, 25, 21}` applied in order). Boundaries **{25, 27}** are in every greedy minimum at all four partitions tested (most stable structural finding). See [SPECIFICATION.md](documentation/SPECIFICATION.md) for the formal definition, [SOLVE.md](documentation/SOLVE.md) for the constraint analysis (`solve.py` + `solve.c`), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md) for a plain-language version, or [PARTITION_STABILITY_BOUNDARIES.md](documentation/PARTITION_STABILITY_BOUNDARIES.md) + [BOUNDARY_MINIMUM_NON_MONOTONE.md](documentation/BOUNDARY_MINIMUM_NON_MONOTONE.md) for the paper-citable stable findings. The binary output format is in [SOLUTIONS_FORMAT.md](documentation/SOLUTIONS_FORMAT.md); [REBUILD_FROM_SPEC.md](documentation/REBUILD_FROM_SPEC.md) is a step-by-step recipe for building an independent verifier from those two specs alone. Enumeration results are in `enumeration/`. Full `solve.c` command-line reference (subcommands, env vars, exit codes) is in [SOLVE_CLI.md](documentation/SOLVE_CLI.md).
+| Tool | Role |
+|---|---|
+| **solve.c** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
+| **solve.py** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
+| **sat.py** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
+| **roae.py** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
+| **lean/** | Machine-checked theorems (Lean 4): the core lemmas and both sequence-level theorems, kernel-verified. |
 
-**Important methodological note.** Constraints C1–C2 (pair structure, no 5-line transitions) are genuinely rare statistical properties of King Wen — the pair structure does not appear in any random permutation we tested (0 of 1.86 billion across seven null-model families). Constraint C3 (complement distance ≤ 776) is a ceiling constraint using KW's own value; per the 100T and 560T d3 analyses, **KW sits AT the C3 ceiling, not the floor** — a large fraction of records tie with KW at C3=776, and the minimum C3 is 424 (221 records at 100T). Constraints C4–C7 were **extracted from King Wen** (exact starting pair, exact distance distribution, specific boundary adjacencies) and then shown to be highly constraining against King Wen. A null-model test (see [CRITIQUE.md](documentation/CRITIQUE.md)) found that applying the same extraction methodology to random pair-constrained sequences also produces apparent "uniqueness" in 9/10 cases. The honest claim is therefore: *pair structure + no-5 are the robust findings against random; the "4 boundaries uniquely determine KW" result holds in its greedy-ordered form at every scale tested (10T → 560T), but the *unordered* "exactly 4 specific boundaries" framing is scale-bounded (0 unordered working 4-tuples at d3 100T and d3 560T). This reflects the constraint-extraction methodology rather than evidence of KW's inherent specialness beyond the robust pair-structure + no-5 findings.* The full bit-level accounting — what each constraint explains, at what statement cost, and the ~126-bit unexplained residual — is in [DESCRIPTION_LENGTH.md](documentation/DESCRIPTION_LENGTH.md).
+## What was found
 
-## Example
+Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-See [example output](example/README.md) for a full run of `roae.py` against the King Wen sequence — hexagram reference tables, 28 statistical analyses, and derived visualizations (`.csv`, `.json`, `.svg`, `.html`, `.pdf`, MIDI wave rendering).
+- **The constraints do not determine the sequence.** The C1–C5 space holds 1.33×10³⁸ orderings; adding
+  C6–C7 still leaves ~5×10³¹. The folk conjecture that the constraints pin down King Wen is false. [TR-4]
+- **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
+  jointly unsatisfiable — no ordering can be perfect under all of them. King Wen keeps one exactly and
+  misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1, TR-2, TR-8]
+- **Eight rules asserted as design are theorems** — forced by the constraint system, not chosen. Others
+  are genuinely discriminating (to 1 in 5×10⁷). [TR-1]
+- **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
+  exactly **15 parity-class alternations** (proven three independent ways). [TR-5, TR-6]
+- **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
+  matching (Radisic 2026, machine-verified). [CITATIONS](documentation/CITATIONS.md)
+- **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
+  more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
+  enumerated records: the sharpest demonstration that bounded search sees a biased sample. [TR-7]
+- **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
+  nearly all the explanatory weight (and is provably optimal); the transition histogram is confirmed
+  description, not explanation; ~126 bits remain open. [TR-9]
+- **The record is reproducible**: every published count re-derivable to the byte by one command; the
+  deepest run reproduced from scratch through twelve Spot evictions. [TR-3]
 
-### `roae.py` vs `solve.c` — two different kinds of output
+**Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
+quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
+look-elsewhere accounting, and one corrected published result. It also reports the corpus-control test:
+the same methodology flags a provably algorithmic ordering (Jing Fang) on 9 of 11 axes, and King Wen on
+exactly its three documented constraints — the method does not find design wherever it looks.
 
-These are easy to confuse; they serve different roles:
-
-| | `roae.py` → `example/` | `solve.c` → `runs/<run>/` |
-|---|---|---|
-| **What it analyzes** | King Wen itself as a given 64-hexagram sequence | The full space of 10^89 possible orderings, filtered to solutions satisfying C1-C5 |
-| **Output** | Descriptive statistics about KW (trigrams, pair structure, entropy, complement distances, palindromes, Markov patterns, Gray-code comparisons, 28 analyses total) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), `solutions.sha256` (reproducibility anchor), `analyze_output.log.gz` (statistics across the solution set) |
-| **Deterministic?** | Fully — the sequence is fixed, analyses are closed-form | Fully — given fixed solver + inputs, `solutions.bin` is byte-identical (partition invariance) |
-| **Scale** | Single sequence, prints instantly | Hundreds of millions of orderings; canonical runs take hours on D128 |
-| **Dependencies** | Python 3 stdlib only (optional deps for `.pdf`, `.html`, `.mid`) | `gcc`, `pthread`, `sha256sum` (no library dependencies) |
-| **Who reads it** | Anyone curious about KW's internal structure (the "what"); no enumeration insight | Researchers evaluating the uniqueness question ("how special is KW among all C1-C5 orderings?") |
-
-Both are committed in the repo. The `example/` output is generated by running `roae.py`; the `runs/<run>/` directories archive summaries (sha, meta, compressed logs) of actual enumeration runs against Azure compute. The binary `solutions.bin` files themselves are too large to commit (~10-65 GB each) and live on persistent Azure managed disks — see [enumeration/SOLUTIONS_BIN_LOCATION.txt](enumeration/SOLUTIONS_BIN_LOCATION.txt).
-
-## Observations
-
-The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE). It is not random, but it's also not optimized for any single obvious metric. The evidence stacks up:
-
-- **The pair structure is perfect** — every one of the 32 pairs is a reverse or inverse, and zero random permutations out of 10,000 achieved this. (The pair structure itself is a classical observation — described by Yu Fan, 220–265 AD; Radisic 2026 proved it is the unique Hamming-cost-optimal pairing — see [CITATIONS.md](documentation/CITATIONS.md). The rarity measurement is ROAE's.)
-- **The no-5-line property is real but not astronomically rare** — about 1 in 550 random orderings share it. Notable, not miraculous.
-- **Combined constraints are rare but context matters** — zero unconstrained random permutations satisfy both the pair structure AND the no-5 property together. However, among orderings that already satisfy the pair constraint, ~4% also avoid 5-line transitions (~1 in 23). The pair structure largely explains the no-5 property, since within-pair transitions are always even-distance.
-- **It's more structured than random** — entropy sits at the 13th percentile, meaning it's more ordered than 87% of random permutations.
-- **The wave has no detectable periodicity** — (the difference-wave construction is McKenna & McKenna 1975's) — autocorrelation drops off immediately, and the FFT shows no dominant frequency, though with only N=63 data points the statistical power to detect weak periodicity is limited.
-- **The Markov transition matrix is not unusual** — a permutation test shows King Wen's transition structure is at the 43rd percentile, indistinguishable from random orderings. Apparent patterns (e.g., "6 is always followed by 2") are based on small samples and are not statistically significant.
-- **The path length is typical for its structure** — compared against unconstrained random orderings, King Wen appears rough (97th percentile, 3.35x a Gray code). But compared against the correct null model (random orderings that also satisfy the pair constraint), it's at the 29th percentile — completely typical.
-- **Complements are deliberately close** — King Wen places complementary hexagrams significantly closer than random (0th percentile), suggesting intentional organization around opposition.
-- **The XOR algebra is a theorem** — 32 pairs produce only 7 unique XOR products. This is not a property of King Wen — it is a mathematical consequence of any reverse/inverse pairing of 6-bit values (see [SOLVE.md](documentation/SOLVE.md#theorem-2-xor-regularity-is-a-theorem-not-a-constraint)).
-- **Palindromes, canon split, recurrence, and neighborhoods are unremarkable** — under appropriate null models, all are within chance expectations. Palindromes are at the 49th percentile (pair-constrained), the canon split at the 12th (the split itself is classically attested — Zheng Qiao ~1150, Hu Yigui 1247; see CITATIONS.md), recurrence at the 72nd, and neighborhoods at the 12th.
-- **The no-5-line property is shared, not KW-unique** — `solve.c --null-historical` tests four documented orderings: **King Wen, the [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) silk-text ordering, and Jing Fang's 8 Palaces all avoid 5-line transitions** (3 of 4); only the [Fu Xi](https://en.wikipedia.org/wiki/Shao_Yong) natural-binary ordering does not — suggesting C2 was a shared classical Chinese design principle, not a King-Wen fingerprint. What *is* King-Wen-specific within the tested historical set is the **combination** (C1 + C2 + C3 together) and the specific complement-distance threshold of 776.
-
-The picture that emerges is of a sequence designed under multiple simultaneous constraints — pair relationships and avoidance of certain transitions — none of which individually are impossible by chance, but which together are vanishingly unlikely. The designers (whoever they were, [~3000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou)) appear to have been working with combinatorial rules.
-
-Note: with 28 analyses, some results will appear unusual by chance alone. The strongest findings (pair structure, combined constraints) survive multiple comparison correction. Weaker findings should be interpreted with caution. See [CRITIQUE.md](documentation/CRITIQUE.md) for known limitations.
-
-See [MCKENNA.md](documentation/MCKENNA.md) for how these findings relate to [Terence McKenna's Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero). For the sequence read as a cycle (McKenna's wrap-around) — what closure changes and the SAT-decided 5-line-wrap existence — see [CIRCULAR_KING_WEN.md](documentation/CIRCULAR_KING_WEN.md).
-
-## Usage
-
+## Quick start
 ```
-python3 roae.py                 # run all 28 analyses (default)
-python3 roae.py --quick         # core sections only (fast)
-python3 roae.py --<section>     # run one analysis (e.g., --wave, --pairs, --complements)
-python3 roae.py --help-sections # list all available analysis sections
-python3 roae.py --self-test     # data-integrity invariant checks
-python3 roae.py --lookup 1      # look up a hexagram (by number or name)
-python3 roae.py --html          # export full HTML report (also --json --csv --svg --markdown --midi --dot)
+gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest   # must print PASS
+python3 roae.py            # the 28 analyses
+python3 solve.py --registry-verify   # the two-language ground-truth gates (31/31 must PASS)
+python3 sat.py                       # SAT layer usage + targets
 ```
+Full CLI references: [SOLVE_CLI](documentation/SOLVE_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
 
-Full command-line reference for `roae.py` — all 28 analysis sections, interactive queries, modifiers, output formats, and dependencies — is in [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md).
-
-For `solve.c` (the enumerator that produces the canonical `solutions.bin` artifacts referenced above): see [SOLVE_CLI.md](documentation/SOLVE_CLI.md).
-
-## Requirements
-
-Python 3.6+ with no external dependencies (stdlib only).
-
-Reproducibility note: `--seed N` produces deterministic results, but Python's `random` module implementation may vary across Python versions. The example output was generated with Python 3.12. Results with the same seed on different Python versions may differ slightly.
-
-Optional external programs for export formats:
-- [Graphviz](https://graphviz.org/) — `--dot` auto-generates PNG and SVG alongside the DOT file (`sudo apt install graphviz`)
-- [wkhtmltopdf](https://wkhtmltopdf.org/) — `--html` auto-generates a PDF alongside the HTML report (`sudo apt install wkhtmltopdf`)
+## Going deeper
+**If you read one thing**: [reports/TR1](reports/) — the literature's rules, measured and decided.
+[reports/](reports/) — the full technical report suite (start at TR-0 for the map and reading paths) · [PROJECT_OVERVIEW]
+(documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
+[SOLVE-SUMMARY](documentation/SOLVE-SUMMARY.md) — plain-language results · [CITATIONS]
+(documentation/CITATIONS.md) — every source, every attribution, annotated bibliography · [HISTORY]
+(documentation/HISTORY.md) — the project narrative including its mistakes.
 
 ## References
 
@@ -117,9 +110,4 @@ The links below are reader orientation only:
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
 
 ## Built with
-
-[Claude Code](https://claude.ai/code) (Anthropic)
-
-## License
-
-Public domain ([Unlicense](https://unlicense.org)).
+[Claude Code](https://claude.ai/code) (Anthropic) — see AI-assistance headers in each source file.
