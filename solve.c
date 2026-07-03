@@ -1511,6 +1511,10 @@ _Static_assert(sizeof(DFSCheckpointState_v2) <= 2048, "DFSCheckpointState_v2 too
 
 /* ---------- Init functions ---------- */
 
+/* Pairing = the canonical reverse-priority rule (rev, else comp for palindromes), i.e. constraint C1.
+ * ATTRIBUTION: pairing is classical (Yu Fan, 220-265 AD; Cook 2006 formalization); Radisic 2026
+ * (arXiv:2601.07175, Lean-verified) proved it is the UNIQUE Hamming-cost-minimizing comp/rev matching
+ * on {0,1}^6 (cost 120) and the unique weight-preserving optimum under the full Klein group. */
 static void init_pairs(void) {
     n_pairs = 0;
     for (int i = 0; i < 64; i += 2) {
