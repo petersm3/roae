@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# https://github.com/petersm3/roae
+# Developed with AI assistance (Claude, Anthropic)
 """
 sat.py — SAT/certificate layer for the ROAE constraint system (established 2026-07-02).
 
