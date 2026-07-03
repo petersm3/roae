@@ -78,8 +78,10 @@ constraint definitions, external kissat solver, DRAT certificates) adds *exact* 
    alternations" are UNSAT under C1+C2+C4+C5.
 4. The joint-strict population size (pinned-walk estimate): ≈1.13×10²⁹ canonical orderings (±4.7%).
 
-Certificates and the encoder round-trip validation (whose first solver model, pleasingly, is King Wen
-itself) are archived; reproduce with `python3 sat.py --witness moore-strict` and
+Certificates are archived and **independently verified** (drat-trim, 2026-07-03: all four UNSAT proofs —
+alt-le-14, alt-ge-16, moore-strict-near-2, rc4-strict-near-2 — check `s VERIFIED` against regenerated
+CNFs). The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
+with `python3 sat.py --witness moore-strict` and
 `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
 
 ### Schulz gender rule + the grand unified precursor (2026-07-03)
