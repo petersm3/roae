@@ -318,95 +318,157 @@ ROAE code or finding.)
 
 ---
 
-## Annotated bibliography (A–Z)
+## Annotated bibliography (A–Z, APA 7th edition)
 
-Every article, book, and website analyzed by this project, alphabetical by author, with a one-line
-description and an honest consultation status: **[read]** = read in full first-hand; **[analyzed]** =
-systematically ingested with notes; **[secondary]** = known only through another source's discussion;
-**[pending]** = acquisition in progress; **[unread]** = obtained, deliberately deprioritized;
-**[not obtained]**. The thematic sections above carry the per-finding attribution; this list is the raw
-inventory.
+Every article, book, and website analyzed by this project, with a brief annotation and an honest
+consultation status: **[read]** = read in full first-hand; **[analyzed]** = systematically ingested with
+notes; **[secondary]** = known only through another source's discussion; **[pending]** = acquisition in
+progress; **[unread]** = obtained, deliberately deprioritized; **[not obtained]**. The thematic sections
+above carry the per-finding attribution; this list is the raw inventory.
 
-### Articles, books, dissertations
+### Articles, books, and dissertations
 
-- **Chan, Augustin** (2026). "Statistical Properties of the King Wen Sequence." arXiv:2604.09234. Monte
-  Carlo statistical analysis of KW vs 100,000 random permutations; predates ROAE; overlap scoped above. [read]
-- **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram
-  Sequence.* STEDT Monograph 5, Berkeley. The most extensive modern derivation system; source of several
-  measured rules (final-pair anchor, level coverage; elaborates the Schulz gender rule). [analyzed]
-- **Davis, Scott** (1998). "Operating the Yijing Apparatus: A Compositional Analysis." *The Oracle* 2:7. [not obtained]
-- **Davis, Scott** (2012). *The Classic of Changes in Cultural Context.* Cambria Press. Window-symmetry
-  claims; his flagship rule measured population-typical (×7) from secondary description — purchase
-  deliberately declined on that evidence. [secondary]
-- **Drasny, József** (c. 2007). "The Regular Grouping of the Hexagrams before the Yi jing" + the Yi-globe
-  spherical model (*The Image of the Cosmos in the Yijing*). Early-Predecessor theory; four "alien" pairs
-  as anomaly loci; also author of a critical review of Cook 2006. Paper [analyzed] via mirror; book [not obtained].
-- **Hacker, Edward A.** (1982). "Temperature and the Assignment of the Hexagrams of the I-Ching to the
-  Calendar." *J. Chinese Philosophy* 9, 395–400. [pending]
-- **Hacker, Edward A.** (1983). "A Note on Formal Properties of the Later Heaven Sequence." *JCP* 10,
-  169–171. [pending]
-- **Hacker, Edward A.** (1987). "Order in the Textual Sequence of the Hexagrams of the I Ching." *JCP* 14,
-  59–64. Possibly the earliest Western formal ordering analysis. [pending]
-- **Hacker, Edward A. & Moore, Steve** (2003). "A Brief Note on the Two-Part Division of the Received Order
-  of the Hexagrams in the Zhouyi." *JCP* 30:2, 219–221. Primary source of the 18:18 condensed-figure
-  hypothesis (via Hu Yigui 1247); the 3-vs-1 opposite-pair distribution = the measured R-C5. [read]
-- **Hacker, E., Moore, S. & Patsco, L.** (2002). *I Ching: An Annotated Bibliography.* Routledge. [not obtained]
-- **Huang, Alfred** (2000). *The Numerology of the I Ching.* Inner Traditions. Independent 18:18-aware
-  "hidden balance" reasoning, rejected by Hacker & Moore 2003 as special pleading. [secondary]
-- **Kunst, Richard A.** (1985). *The Original "Yijing."* Ph.D. dissertation, UC Berkeley. Textual
-  scholarship; not used by any ROAE code or finding. [not consulted]
-- **McKenna, Terence & McKenna, Dennis** (1975). *The Invisible Landscape.* Seabury Press. Earliest
-  published source of the no-5-line-transition observation (C2) and the difference-wave construction. [analyzed]
-- **McKenna, Stephen E. & Mair, Victor H.** (1979). "A Reordering of the Hexagrams of the I Ching."
-  *Philosophy East and West* 29:4, 421–441. Gray-code replacement proposal; structural-poverty premise now
-  measured and refuted; first to test KW against constructed alternatives. [analyzed]
-- **Moore, Steve** (1989). *The Trigrams of Han: Inner Structures of the I Ching.* Aquarian Press. Source
-  of the rising/falling rhythm rule (R-M2) and the pairs-22/23 anomaly discussion. [analyzed]
-- **Moore, Steve** (2005). "Structural Elements in the King Wen Sequence." *Oracle Papers* 1. Source of the
-  pair-positioning parity rule (R-M1) and the corruption/precursor conjecture — materialized by SAT 2026. [analyzed]
-- **Radisic, Alejandro** (2026). "Optimal Equivariant Matchings on the 6-Cube, With an Application to the
-  King Wen Sequence." arXiv:2601.07175. Lean-verified proof that the C1 pairing is the unique Hamming-cost
-  optimum — the first first-principles derivation of any constraint layer. [read]
-- **Rutt, Richard** (1996). *Zhouyi: The Book of Changes.* Curzon Press. Bamboo-slat cord-fraying physical
-  corruption mechanism (p. 105), via Hacker & Moore 2003. [secondary]
-- **Schulz, Larry J.** (1982). *Lai Chih-te (1525–1604) and the Phenomenology of Change.* Ph.D.
-  dissertation, Princeton. The study of Lai Zhide; recovers Lai's own 16th-century sequence arguments
-  (36-unit consolidation, 18:18 count, line-balance symmetry). [analyzed]
-- **Schulz, Larry J.** (1990). "Structural Motifs in the Arrangement of the 64 Gua in the Zhouyi." *JCP*
-  17:3, 345–358. Three motifs over the consolidated units; motif 2 = the strongest measured discriminator
-  (×11,364), exceptions at stations 25/26. [read]
-- **Schulz, Larry J. & Cunningham, Thomas J.** (1990). "The Seasonal Structure Underlying the Arrangement
-  of Hexagrams in the Yijing." *JCP* 17, 289–313 (working-paper version: Federal Reserve Bank of Atlanta,
-  1988). The seasonal hypothesis behind the xiaoxi trisection. [pending]
-- **Schulz, Larry J.** (2011). "Structural Elements in the Zhou Yijing Hexagram Sequence." *JCP* 38:4,
-  639–665. Ten-element taxonomy; first formalization of the "exception-proves-the-rule" design principle
-  at stations 25/26. [analyzed]
-- **Schulz, Larry J.** (2016). *Hexagrammatics: Rules and Properties in Binary Sequences.* 2nd ed. Zizai.
-  Consolidated rule inventory; names S25/26 as the double-exception locus for both of his rules. [analyzed]
-- **Schulz, Larry J.** (2018). "N Gua Theory: Imaging Categorical Dynamics Inherent in Binary Structures."
-  ResearchGate. Hamming formalism; Ifa parallel; attributes the parity-exception's first recognition to
+Chan, A. (2026). *Statistical properties of the King Wen sequence: An anti-habituation structure that does
+not improve neural network training*. arXiv. https://arxiv.org/abs/2604.09234
+  Monte Carlo statistical analysis of the sequence against 100,000 random permutations; predates ROAE;
+  per-finding overlap scoped above. [read]
+
+Cook, R. S. (2006). *Classical Chinese combinatorics: Derivation of the Book of Changes hexagram sequence*
+(STEDT Monograph Series No. 5). University of California, Berkeley.
+  The most extensive modern derivation system; source of several measured rules (final-pair anchor, level
+  coverage) and elaborator of the Schulz gender rule. [analyzed]
+
+Davis, S. (1998). Operating the Yijing apparatus: A compositional analysis. *The Oracle: The Journal of
+Yijing Studies, 2*(7). [not obtained]
+
+Davis, S. (2012). *The classic of changes in cultural context: A textual archaeology of the Yi jing*.
+Cambria Press.
+  Window-symmetry claims; the flagship rule measured population-typical (×7) from secondary description —
+  purchase deliberately declined on that evidence. [secondary]
+
+Drasny, J. (c. 2007). *The regular grouping of the hexagrams before the Yi jing* [Paper]; *The Yi-globe:
+The image of the cosmos in the Yijing* [Book].
+  Early-Predecessor theory with four "alien" pairs as anomaly loci; also author of a critical review of
+  Cook (2006). Paper [analyzed, via mirror]; book [not obtained].
+
+Hacker, E. A. (1982). Temperature and the assignment of the hexagrams of the I-Ching to the calendar.
+*Journal of Chinese Philosophy, 9*(4), 395–400. [pending]
+
+Hacker, E. A. (1983). A note on formal properties of the later heaven sequence. *Journal of Chinese
+Philosophy, 10*(2), 169–171. [pending]
+
+Hacker, E. A. (1987). Order in the textual sequence of the hexagrams of the I Ching. *Journal of Chinese
+Philosophy, 14*(1), 59–64.
+  Possibly the earliest Western formal ordering analysis. [pending]
+
+Hacker, E. A., & Moore, S. (2003). A brief note on the two-part division of the received order of the
+hexagrams in the Zhouyi. *Journal of Chinese Philosophy, 30*(2), 219–221.
+  Primary source of the 18:18 condensed-figure hypothesis (via Hu Yigui, 1247); its 3-vs-1 opposite-pair
+  distribution is the measured R-C5. [read]
+
+Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [not obtained]
+
+Huang, A. (2000). *The numerology of the I Ching: A sourcebook of symbols, structures, and traditional
+wisdom*. Inner Traditions.
+  Independent 18:18-aware "hidden balance" reasoning, rejected by Hacker & Moore (2003) as special
+  pleading. [secondary]
+
+Kunst, R. A. (1985). *The original "Yijing": A text, phonetic transcription, translation, and indexes,
+with sample glosses* [Doctoral dissertation, University of California, Berkeley].
+  Textual scholarship; not used by any ROAE code or finding. [not consulted]
+
+McKenna, T., & McKenna, D. (1975). *The invisible landscape: Mind, hallucinogens, and the I Ching*.
+Seabury Press.
+  Earliest published source of the no-5-line-transition observation (C2) and the difference-wave
+  construction. [analyzed]
+
+McKenna, S. E., & Mair, V. H. (1979). A reordering of the hexagrams of the I Ching. *Philosophy East and
+West, 29*(4), 421–441.
+  Gray-code replacement proposal; its structural-poverty premise is now measured and refuted; first to
+  test the sequence against constructed alternatives. [analyzed]
+
+Moore, S. (1989). *The trigrams of Han: Inner structures of the I Ching*. Aquarian Press.
+  Source of the rising/falling rhythm rule (R-M2) and the pairs-22/23 anomaly discussion. [analyzed]
+
+Moore, S. (2005). *Structural elements in the King Wen sequence* (Oracle Papers No. 1).
+  Source of the pair-positioning parity rule (R-M1) and the corruption/precursor conjecture, materialized
+  by SAT in 2026. [analyzed]
+
+Radisic, A. (2026). *Optimal equivariant matchings on the 6-cube, with an application to the King Wen
+sequence*. arXiv. https://arxiv.org/abs/2601.07175
+  Lean-verified proof that the C1 pairing is the unique Hamming-cost optimum — the first first-principles
+  derivation of any constraint layer. [read]
+
+Rutt, R. (1996). *Zhouyi: The Book of Changes*. Curzon Press.
+  Bamboo-slat cord-fraying physical corruption mechanism (p. 105), via Hacker & Moore (2003). [secondary]
+
+Schöter, A. (1998). Boolean algebra and the Yi Jing.
+  Boolean operations and lattice structure on hexagrams; does not address the King Wen ordering.
+  [analyzed, via mirror]
+
+Schulz, L. J. (1982). *Lai Chih-te (1525–1604) and the phenomenology of change* [Doctoral dissertation,
+Princeton University].
+  The study of Lai Zhide; recovers Lai's own 16th-century sequence arguments (36-unit consolidation,
+  18:18 count, line-balance symmetry). [analyzed]
+
+Schulz, L. J. (1990). Structural motifs in the arrangement of the 64 gua in the Zhouyi. *Journal of
+Chinese Philosophy, 17*(3), 345–358.
+  Three motifs over the consolidated units; motif 2 is the strongest measured discriminator (×11,364),
+  with exceptions at stations 25/26. [read]
+
+Schulz, L. J. (2011). Structural elements in the Zhou Yijing hexagram sequence. *Journal of Chinese
+Philosophy, 38*(4), 639–665.
+  Ten-element taxonomy; first formalization of the "exception-proves-the-rule" design principle at
+  stations 25/26. [analyzed]
+
+Schulz, L. J. (2016). *Hexagrammatics: Rules and properties in binary sequences* (2nd ed.). Zizai.
+  Consolidated rule inventory; names stations 25/26 as the double-exception locus for both of his rules.
+  [analyzed]
+
+Schulz, L. J. (2018). *N Gua theory: Imaging categorical dynamics inherent in binary structures*.
+ResearchGate.
+  Hamming formalism; Ifa cross-cultural parallel; attributes the parity-exception's first recognition to
   Zhu Yuansheng (13th c.). [analyzed]
-- **Schöter, Andreas** (1998). "Boolean Algebra and the Yi Jing." Boolean operations and lattice structure
-  on hexagrams; does not address the King Wen ordering. Consulted via mirror. [analyzed]
-- **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes.* Ballantine. Translation of the
-  Mawangdui manuscript; source of the Mawangdui ordering tested by `--null-historical`. [read, data]
-- **Smith, Richard J.** (2000). "A Brief Western-Language Bibliography of the Yijing." Rice University.
-  Bibliography that surfaced the Hacker JCP papers. [analyzed]
-- **Waley, Arthur** (1933). "The Book of Changes." *BMFEA* 5. [unread]
-- **Wilhelm, Richard, trans. Cary F. Baynes.** *The I Ching or Book of Changes.* Princeton UP. Hexagram
-  names used throughout. [read, data]
 
-Classical sources — Yu Fan (220–265, via Li Dingzuo's *Zhouyi jijie*), Zheng Qiao (~1150), Hu Yigui
-(b. 1247, *Zhouyi Qimeng Yizhuan*), Lai Zhide (1525–1604, via Schulz 1982), Zhu Yuansheng (13th c., via
-Schulz 2018) — are all [secondary], known through the modern literature above.
+Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of hexagrams
+in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. (Working-paper version: Federal Reserve
+Bank of Atlanta Occasional Paper Series, 1988.)
+  The seasonal hypothesis behind the xiaoxi trisection. [pending]
+
+Shaughnessy, E. L. (1996). *I Ching: The classic of changes*. Ballantine Books.
+  Translation of the Mawangdui manuscript; source of the Mawangdui ordering tested by
+  `--null-historical`. [read, data]
+
+Smith, R. J. (2000). *A brief Western-language bibliography of the Yijing (Classic of Changes)*. Rice
+University.
+  The bibliography that surfaced the Hacker JCP papers. [analyzed]
+
+Waley, A. (1933). The Book of Changes. *Bulletin of the Museum of Far Eastern Antiquities, 5*, 121–142.
+[unread]
+
+Wilhelm, R. (1967). *The I Ching or Book of Changes* (C. F. Baynes, Trans.; 3rd ed.). Princeton
+University Press.
+  Hexagram names used throughout. [read, data]
+
+### Classical sources
+
+Yu Fan (220–265, via Li Dingzuo's *Zhouyi jijie*), Zheng Qiao (~1150), Hu Yigui (b. 1247, *Zhouyi Qimeng
+Yizhuan*), Lai Zhide (1525–1604, via Schulz, 1982), and Zhu Yuansheng (13th c., via Schulz, 2018) are all
+[secondary], known through the modern literature above.
 
 ### Websites
 
-- **biroco.com/yijing (Yijing Dao)** — Steve Moore's archive; source of the Moore papers, Schulz 1990,
-  Waley, and others. [swept 2026-07]
-- **i-ching.hu (Drasny's Yi-globe)** — HTTP-only, partially blocked; core paper recovered via mirror. [partial]
-- **yijing.co.uk (Schöter's Yijing Algebra)** — HTTP-only, partially blocked; 1998 paper via mirror;
-  three later papers paywalled. [partial]
-- **zhouyi.com (Hacker/Moore/Patsco, archived)** — web.archive.org blocked to our tooling; primarily a
-  link aggregator. [not reached]
-- **Wikipedia / OEIS** — orientation and encoding references (see README). [read]
+Moore, S. (n.d.). *Yijing Dao*. biroco.com. https://www.biroco.com/yijing/
+  Steve Moore's archive; source of the Moore papers, Schulz (1990), Waley (1933), and others. [swept 2026-07]
+
+Drasny, J. (n.d.). *The Yi-globe*. i-ching.hu. https://www.i-ching.hu/
+  HTTP-only, partially blocked; core paper recovered via mirror. [partial]
+
+Schöter, A. (n.d.). *Yijing algebra*. yijing.co.uk. https://www.yijing.co.uk/
+  HTTP-only, partially blocked; 1998 paper via mirror; three later papers paywalled. [partial]
+
+Hacker, E. A., Moore, S., & Patsco, L. (n.d.). *Zhouyi.com* [Archived website]. Internet Archive.
+  Blocked to our tooling; primarily a link aggregator. [not reached]
+
+Wikipedia and OEIS entries used for reader orientation and the binary encoding are listed in
+[README.md](../README.md) §References. [read]
