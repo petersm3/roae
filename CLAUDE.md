@@ -270,8 +270,11 @@ No new `.c` or `.py` files elsewhere, not even for analysis tools.
 - Shell, markdown, binaries outside the two consolidated files are fine.
 
 Why: single source of truth, one compile target, one test matrix, no
-dependency sprawl. `solve.c` and `solve.py` are the two canonical source
-files on this project; they stay that way.
+dependency sprawl. The canonical source files are `solve.c` (enumeration,
+sha-anchored), `solve.py` (analysis + ground truth), and `sat.py` (SAT/
+certificate layer, operator-approved 2026-07-02; imports solve.py and must
+contain NO hand-written constraint semantics — see its header). They stay
+that way; SAT work goes in `sat.py`, not new files.
 
 Past violations:
 - 2026-04-21: `analyze_yields.c` created as a separate file; user directive
