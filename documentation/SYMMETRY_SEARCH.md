@@ -94,7 +94,13 @@ output is correct as *budgeted-yield* data. Proof + full working notes: `roae-pr
 
 - The theorem covers the full hyperoctahedral group: flips are excluded **by C4 specifically** (they move
   0/63). A constraint system without C4 would admit a larger flip-extended analysis — not pursued.
-- Whether KW's 23 twins appear in any *budgeted* canonical (e.g., the 560T set) is budget-contingent and
-  untested; their membership in the full solution set is proven.
+- Whether KW's 23 twins appear in budgeted canonicals is now MEASURED (2026-07-02, direct bisection of the
+  560T canonical): **King Wen is present; all 23 twins are absent.** Their membership in the full solution
+  set is proven — their absence from the budgeted set is a search-orientation effect: the enumeration's
+  variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each
+  relabeled twin is a late leaf of its own cell. Presence in a budgeted canonical therefore reflects the
+  search's frame of reference, not a mathematical property of the ordering — the strongest concrete
+  illustration yet of the caveat in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) §"Is finding King Wen
+  early an artifact?".
 - The orbit-reduction design (enumerate representatives, relabel + re-canonicalize) is specified but not
   implemented; canonical-sha implications make production adoption an explicitly gated decision.

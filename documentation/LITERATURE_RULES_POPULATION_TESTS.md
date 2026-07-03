@@ -54,3 +54,27 @@ rising/falling rule is orientation-sensitive by design); strict-form masses near
 relative sampling error at this probe count; formalizations were verified to reproduce each source's stated
 King Wen values exactly before measurement (16/18 with violations at pair positions 22–23; rhythm breaks at
 (7,8) and (22,23)). Reproduce: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`.
+
+## SAT-decided exact results (2026-07-02, second instrument)
+
+Population fractions above are statistical; a SAT layer (`sat.py`, encoding derived from `solve.py`'s
+constraint definitions, external kissat solver, DRAT certificates) adds *exact* decisions:
+
+1. **Moore's conjectured fully-compliant ordering exists — here is one.** An explicit C1–C5-valid sequence
+   satisfying his 2005 parity rule 18/18 AND his 1989 rhythm rule with 0 breaks, differing from King Wen
+   only by swapping pairs 22↔23 (his anomaly) and flipping two within-pair orientations (pairs 8 and 23):
+   `63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,
+   53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42` (complement-distance
+   sum 776 — it satisfies C3 at the same ceiling as KW). Moore (1989) judged the bare 22/23 swap "too
+   simplistic" because it leaves the rhythm broken; the two orientation flips complete the repair.
+2. **The minimal repair is exactly 3 slot-edits** — SAT-decided: no ordering within 2 slot-edits of King Wen
+   achieves joint compliance (UNSAT, a fortiori under C3), and 3 suffices. If a compliant precursor ever
+   existed, the deviation to KW was a 3-edit event centered on Moore's own anomaly locus.
+3. **The parity-alternation theorem is SAT-verified over the full space** (its third independent
+   verification after the prose proof and the Lean-checked lemmas): both "≤14 alternations" and "≥16
+   alternations" are UNSAT under C1+C2+C4+C5.
+4. The joint-strict population size (pinned-walk estimate): ≈1.13×10²⁹ canonical orderings (±4.7%).
+
+Certificates and the encoder round-trip validation (whose first solver model, pleasingly, is King Wen
+itself) are archived; reproduce with `python3 sat.py --witness moore-strict` and
+`python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
