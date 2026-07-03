@@ -251,3 +251,117 @@ theorem wrap_parity_general (l : List Nat) (hb : ∀ x ∈ l, x < 64)
   rw [htele, hhead] at hodd15
   have : pc6 63 = 6 := by decide
   omega
+
+
+/- ------------------ TIER 2b (2026-07-03): THE GENERAL 15-ALTERNATION THEOREM ------------------
+   alternations_15_general: EVERY C1+C5 sequence of 64 six-bit values has exactly 15 parity-class
+   alternations — structural proof (range-map bridge + decidable-permutation index-parity split +
+   the finite parity lemmas). The KW instance kw_alternations_15 above is now a corollary. -/
+
+theorem transitions_eq_rangeMap (l : List Nat) :
+    transitions l = (List.range (l.length - 1)).map
+      (fun j => ham (l.getD j 0) (l.getD (j+1) 0)) := by
+  induction l with
+  | nil => rfl
+  | cons a t ih =>
+    cases t with
+    | nil => rfl
+    | cons b t2 =>
+      show ham a b :: transitions (b :: t2) = _
+      rw [ih]
+      have h1 : (a :: b :: t2).length - 1 = ((b :: t2).length - 1) + 1 := by simp
+      rw [h1, List.range_succ_eq_map, List.map_cons, List.map_map]
+      simp [Function.comp]
+
+theorem range63_perm :
+    (List.range 63).Perm
+      (((List.range 32).map (fun i => 2*i)) ++ ((List.range 31).map (fun i => 2*i+1))) := by
+  decide
+
+theorem within_even : ∀ h < 64, ham h (partner h) % 2 = 0 := by decide
+
+theorem partner_parity : ∀ h < 64, pc6 (partner h) % 2 = pc6 h % 2 := by decide
+
+/-- boundary-transition value at flat index j. -/
+def ftr (l : List Nat) (j : Nat) : Nat := ham (l.getD j 0) (l.getD (j+1) 0)
+
+/-- THE 15-ALTERNATION THEOREM (general): every C1+C5 sequence of 64 six-bit values has exactly
+    15 parity-class alternations across its 32 pairs. -/
+theorem alternations_15_general (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen : l.length = 64)
+    (h1 : c1ok l = true) (h5 : c5ok l = true) :
+    ((List.range 31).countP fun i =>
+      decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD (2*i+2) 0) % 2)) = 15 := by
+  have hget : ∀ j, j < 64 → l.getD j 0 < 64 := by
+    intro j hj
+    have hjl : j < l.length := by omega
+    have : l.getD j 0 = l[j] := by simp [List.getD, List.getElem?_eq_getElem hjl]
+    rw [this]; exact hb _ (List.getElem_mem hjl)
+  simp only [c1ok, List.all_eq_true, beq_iff_eq] at h1
+  have hc1 : ∀ i, i < 32 → l.getD (2*i+1) 0 = partner (l.getD (2*i) 0) := by
+    intro i hi
+    have h2i : 2*i < l.length := by omega
+    have h2i1 : 2*i+1 < l.length := by omega
+    have e1 : l.getD (2*i+1) 99 = l.getD (2*i+1) 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h2i1]
+    have e2 : l.getD (2*i) 99 = l.getD (2*i) 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h2i]
+    have := h1 i (List.mem_range.mpr hi)
+    rw [e1, e2] at this; exact this
+  -- transitions as range-63 map
+  have htrans : transitions l = (List.range 63).map (ftr l) := by
+    rw [transitions_eq_rangeMap, hlen]; rfl
+  -- all transitions ≤ 6
+  have hbnd : ∀ x ∈ transitions l, x ≤ 6 := by
+    intro x hx
+    rw [htrans] at hx
+    obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
+    have hj63 := List.mem_range.mp hj
+    exact ham_le6 _ (hget j (by omega)) _ (hget (j+1) (by omega))
+  -- odd-transition count = 15 from C5
+  simp only [c5ok, Bool.and_eq_true, beq_iff_eq] at h5
+  have hodd15 : ((transitions l).filter (· % 2 == 1)).length = 15 := by
+    rw [odd_count_partition _ hbnd, h5.1.1.1.1.1.1, h5.1.1.1.1.2, h5.1.1.2]
+  -- split by index parity
+  have hsplit : ((transitions l).filter (· % 2 == 1)).length =
+      ((List.range 32).countP fun i => ftr l (2*i) % 2 == 1) +
+      ((List.range 31).countP fun i => ftr l (2*i+1) % 2 == 1) := by
+    rw [htrans, ← List.countP_eq_length_filter, List.countP_map,
+        range63_perm.countP_eq, List.countP_append, List.countP_map, List.countP_map]
+    rfl
+  -- within term = 0
+  have hwithin : ((List.range 32).countP fun i => ftr l (2*i) % 2 == 1) = 0 := by
+    rw [List.countP_eq_zero]
+    intro i hi
+    have hi32 := List.mem_range.mp hi
+    simp only [ftr]
+    rw [hc1 i hi32]
+    have := within_even _ (hget (2*i) (by omega))
+    simpa [List.getD] using this
+  -- between predicate ⟺ alternation predicate
+  have hcong : ((List.range 31).countP fun i => ftr l (2*i+1) % 2 == 1) =
+      ((List.range 31).countP fun i =>
+        decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD (2*i+2) 0) % 2)) := by
+    apply List.countP_congr
+    intro i hi
+    have hi31 := List.mem_range.mp hi
+    simp only [ftr]
+    have hp1 : pc6 (l.getD (2*i+1) 0) % 2 = pc6 (l.getD (2*i) 0) % 2 := by
+      rw [hc1 i (by omega)]
+      exact partner_parity _ (hget (2*i) (by omega))
+    have hpar := ham_parity_lt64 _ (hget (2*i+1) (by omega)) _ (hget (2*i+1+1) (by omega))
+    have e22 : 2*i+1+1 = 2*i+2 := by omega
+    rw [e22] at hpar
+    constructor
+    · intro h
+      simp only [beq_iff_eq] at h
+      simp only [decide_eq_true_iff]
+      intro hcontra
+      rw [hpar] at h
+      omega
+    · intro h
+      simp only [decide_eq_true_iff] at h
+      simp only [beq_iff_eq]
+      rw [hpar]
+      omega
+  rw [hsplit, hwithin, hcong] at hodd15
+  omega

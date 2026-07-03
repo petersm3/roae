@@ -5208,3 +5208,9 @@ The queued Burnside-census measurement (foothold F3) is closed with zero compute
 KingWen.lean gains structured induction proofs (not finite enumeration): wrap_parity_general verifies the
 wrap-parity theorem for every C4+C5 sequence of 6-bit values. Kernel-checked with core Lean 4 (decide +
 structural induction; no mathlib). First sequence-level theorem in the formal core.
+
+## 2026-07-03: Lean tier 2 COMPLETE — the 15-alternation theorem machine-checked in full generality
+alternations_15_general proves every C1+C5 sequence has exactly 15 parity-class alternations — structural
+induction, kernel-verified, core Lean. With wrap_parity_general, both of the project's sequence-level
+theorems are now formally verified for ALL valid sequences. Techniques: transitions-as-range-map bridge,
+kernel-decided permutation split of range 63, countP congruences over the finite parity lemmas.

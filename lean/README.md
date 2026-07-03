@@ -36,3 +36,10 @@ finite enumeration. Supporting lemmas: `transitions_sum_parity`, `sum_parity_odd
 "finite facts checked" to "sequence-level theorem proven" for the wrap-parity result; the 15-alternation
 general theorem is the next tier-2 target (ingredients present: within-pair evenness, the C5 odd-count,
 the parity identity).
+
+## Tier 2b (2026-07-03): the general 15-alternation theorem
+`alternations_15_general` — every C1+C5 sequence of 64 six-bit values has EXACTLY 15 parity-class
+alternations, machine-checked by structural proof (transitions-as-range-map bridge lemma; index-parity
+split via a kernel-decided permutation of range 63; within-pair evenness from C1; the C5 odd-transition
+count). Both sequence-level theorems of the project (wrap parity + 15 alternations) are now
+kernel-verified for ALL valid sequences, completing the Lean tier-2 program.
