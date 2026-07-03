@@ -22,6 +22,10 @@ King Wen's uniqueness vs. combinatorial structure.
 | Plain-language explainer of branches, sub-branches, nodes, enumeration | [BRANCHES_EXPLAINED.md](documentation/BRANCHES_EXPLAINED.md) |
 | Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](documentation/DISTRIBUTIONAL_ANALYSIS.md) |
 | Total C1–C5 search-space size (Monte-Carlo estimate ≈10³⁸; why KW is found early) | [SEARCH_SPACE_SIZE.md](documentation/SEARCH_SPACE_SIZE.md) |
+| Bit-level constraint pricing (MDL ledger, unexplained residual) | [DESCRIPTION_LENGTH.md](documentation/DESCRIPTION_LENGTH.md) |
+| Circular (wrap-around) reading: theorems + SAT decision | [CIRCULAR_KING_WEN.md](documentation/CIRCULAR_KING_WEN.md) |
+| Literature rules measured at population scale + SAT-decided exact results | [LITERATURE_RULES_POPULATION_TESTS.md](documentation/LITERATURE_RULES_POPULATION_TESTS.md) |
+| Parity-alternation theorem (three-modality verification) | [PARITY_ALTERNATION.md](documentation/PARITY_ALTERNATION.md) |
 | Prior literature + what is classical / prior / novel / methodological citations | [CITATIONS.md](documentation/CITATIONS.md) |
 | Formal constraint definitions + theorems | [SPECIFICATION.md](documentation/SPECIFICATION.md) |
 | **Canonical sha256 registry + reproducibility parameters** | [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md) |
