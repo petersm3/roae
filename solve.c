@@ -10414,7 +10414,9 @@ int main(int argc, char *argv[]) {
         /* McKenna wrap-around parity audit (SPECIFICATION.md Theorem "Wrap-around parity is
          * odd"; The Invisible Landscape Ch 9). For each C1-C5 record compute the circular
          * transition d(s63,s0) = hamming(last hexagram, first hexagram). The theorem proves
-         * this is ALWAYS odd (C4 + C5 + XOR parity); C2 forbids 5, so d in {1,3}. Tabulate
+         * this is ALWAYS odd (C4 + C5 + XOR parity), so d in {1,3,5}. NOTE (corrected 2026-07-04):
+         * linear C2 does NOT constrain the wrap — valid d=5-wrap orderings exist (SAT witness,
+         * CIRCULAR_KING_WEN.md); their absence from budgeted slices is a slice phenomenon. Tabulate
          * the d=1 vs d=3 split — the dataset-/budget-dependent quantity (560T supersedes the
          * retired v2 figure). This is the doc-referenced `--verify-wrap-parity`.
          * Sha-preserving: read-only analysis. Block-read + OpenMP, mirrors --verify-9th-six. */
@@ -10440,7 +10442,7 @@ int main(int argc, char *argv[]) {
             n_records = (long long)hdr_records;
         }
         printf("[--verify-wrap-parity] file=%s records=%lld\n", vpath, n_records);
-        printf("[--verify-wrap-parity] Theorem: d(s63,s0)=hamming(last,first) is ALWAYS odd (C4+C5+XOR parity); C2 forbids 5 -> d in {1,3}\n");
+        printf("[--verify-wrap-parity] Theorem: d(s63,s0)=hamming(last,first) is ALWAYS odd (C4+C5+XOR parity) -> d in {1,3,5}; d=5 is NOT excluded by linear C2 (see CIRCULAR_KING_WEN.md) though absent from budgeted slices\n");
 
         unsigned long long wrap_dist[7] = {0};
         unsigned long long records_total = 0;
