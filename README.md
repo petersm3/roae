@@ -95,7 +95,10 @@ Optional external programs for export formats:
 
 > **See [CITATIONS.md](documentation/CITATIONS.md) for the full, formally scoped reference list** — including prior literature on the mathematical structure of the King Wen sequence (Cook 2006, McKenna 1975), methodological citations (Hierholzer, Fisher-Yates, Marsaglia, Bonferroni, Wilson), and explicit attribution of which observations are classical / prior work vs. independently verified computationally by ROAE vs. believed novel here. CITATIONS.md includes a disclaimer inviting updates from readers aware of prior work not cited.
 
-Selected links (non-exhaustive, see CITATIONS.md for the full list):
+All scholarly attribution — classical sources (Yu Fan, Zhu Yuansheng, Lai Zhide), the modern structural
+literature (Schulz, Moore, Cook, Hacker, McKenna & Mair, Davis, Drasny), the 2026 arXiv treatments (Chan;
+Radisic), and per-finding novelty scoping — lives in CITATIONS.md and is deliberately NOT duplicated here.
+The links below are reader orientation only:
 
 * [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
 * [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) — Wikipedia (traditional attribution, ~1000 BCE; modern scholarship is divided on the exact origin and dating of the sequence)
@@ -108,9 +111,7 @@ Selected links (non-exhaustive, see CITATIONS.md for the full list):
 * [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (hexagram names)
 * Richard A. Kunst, "The Original 'Yijing': A Text, Phonetic Transcription, Translation, and Indexes, with Sample Glosses," Ph.D. dissertation, University of California, Berkeley, 1985
 * Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (Mawangdui manuscript translation)
-* [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia
-* *The Invisible Landscape* — Terence McKenna and Dennis McKenna, Seabury Press, 1975 (earliest published source for the no-5-line-transition observation)
-* [arXiv:2604.09234](https://arxiv.org/abs/2604.09234) — Augustin Chan, *Statistical Properties of the King Wen Sequence: An Anti-Habituation Structure That Does Not Improve Neural Network Training* (2026). Independent Monte Carlo statistical analysis of KW vs 100,000 random permutation baselines; predates ROAE. Several findings overlap with ROAE's via different methodology (statistical-vs-random framing vs constraint enumeration). See [CITATIONS.md](documentation/CITATIONS.md) for per-finding overlap analysis.
+* [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
 
 ## Built with
 
