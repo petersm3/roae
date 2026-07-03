@@ -42,24 +42,24 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
 - **The constraints do not determine the sequence.** The C1–C5 space holds 1.33×10³⁸ orderings; adding
-  C6–C7 still leaves ~5×10³¹. The folk conjecture that the constraints pin down King Wen is false. [TR-4]
+  C6–C7 still leaves ~5×10³¹. The folk conjecture that the constraints pin down King Wen is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
   jointly unsatisfiable — no ordering can be perfect under all of them. King Wen keeps one exactly and
-  misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1, TR-2, TR-8]
+  misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1, [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)]
 - **Eight rules asserted as design are theorems** — forced by the constraint system, not chosen. Others
-  are genuinely discriminating (to 1 in 5×10⁷). [TR-1]
+  are genuinely discriminating (to 1 in 5×10⁷). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
 - **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
-  exactly **15 parity-class alternations** (proven three independent ways). [TR-5, TR-6]
+  exactly **15 parity-class alternations** (proven three independent ways). [TR-5, [TR-6](reports/TR6_PARITY_SKELETON.md)]
 - **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
   matching (Radisic 2026, machine-verified). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
   more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
-  enumerated records: the sharpest demonstration that bounded search sees a biased sample. [TR-7]
+  enumerated records: the sharpest demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal); the transition histogram is confirmed
-  description, not explanation; ~126 bits remain open. [TR-9]
+  description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **The record is reproducible**: every published count re-derivable to the byte by one command; the
-  deepest run reproduced from scratch through twelve Spot evictions. [TR-3]
+  deepest run reproduced from scratch through twelve Spot evictions. [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
 
 **Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
@@ -77,7 +77,7 @@ python3 sat.py                       # SAT layer usage + targets
 Full CLI references: [SOLVE_CLI](documentation/SOLVE_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
 
 ## Going deeper
-**If you read one thing**: [reports/TR1](reports/) — the literature's rules, measured and decided.
+**If you read one thing**: [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md) — the literature's rules, measured and decided.
 [reports/](reports/) — the full technical report suite (start at TR-0 for the map and reading paths) · [PROJECT_OVERVIEW]
 (documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
 [SOLVE-SUMMARY](documentation/SOLVE-SUMMARY.md) — plain-language results · [CITATIONS]
