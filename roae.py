@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # https://github.com/petersm3/roae
 # Developed with AI assistance (Claude, Anthropic)
+# ATTRIBUTION NOTE (operator directive 2026-07-03): externally-sourced rules and observations implemented
+# anywhere in this file carry credit at the implementation site; the master ledger is
+# documentation/CITATIONS.md. Never present a literature-derived rule as a ROAE discovery.
+
 import argparse
 import cmath
 import json

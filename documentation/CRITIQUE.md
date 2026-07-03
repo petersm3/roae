@@ -130,7 +130,7 @@ Both cases are impossible, so no pair can satisfy C1, and therefore no B(2, 6) d
 
 In any Gray code, adjacent positions differ by Hamming distance exactly 1. C1 requires each pair to have Hamming distance in $\{0, 2, 4, 6\}$: the reverse case produces $2 \cdot k$ for $k$ mismatched bit-pairs ($0, 2, 4, 6$), and the symmetric-complement case produces exactly 6 (all bits flipped). Hamming distance 1 is never among these. Therefore no Gray code satisfies the C1 pair-structure constraint at any pair position. ∎
 
-**Claim 3 (added 2026-07-02, resolves Open Question 3): Every B(2, 6) de Bruijn permutation contains at least one 5-line transition — C2 is analytically impossible for the de Bruijn family.**
+**Claim 3 (added 2026-07-02, resolves Open Question 3): Every B(2, 6) de Bruijn permutation contains at least one 5-line transition — C2 is analytically impossible for the de Bruijn family.** *(To our knowledge first proven here; prior-art corrections welcome per CITATIONS.md.)*
 
 With windows $\mathrm{hex}_i = s_i s_{i+1} \ldots s_{i+5}$ as in Claim 1, the transition distance is
 $d(\mathrm{hex}_i, \mathrm{hex}_{i+1}) = \#\{j \in \{0..5\} : s_{i+j} \neq s_{i+j+1}\}$ — the number of

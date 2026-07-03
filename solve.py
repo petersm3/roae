@@ -14,6 +14,10 @@ adjacency / boundary features at a scale you can actually inspect.
 
 See SOLVE.md for methodology and results.
 """
+# ATTRIBUTION NOTE (operator directive 2026-07-03): externally-sourced rules and observations implemented
+# anywhere in this file carry credit at the implementation site; the master ledger is
+# documentation/CITATIONS.md. Never present a literature-derived rule as a ROAE discovery.
+
 import argparse
 import os
 import random
@@ -71,7 +75,10 @@ def bit_diff(a, b):
 # The 32 canonical pairs: each hexagram paired with its reverse (or inverse
 # for the 4 symmetric hexagrams). This pairing is unique and deterministic.
 def build_pairs():
-    """Build the 32 canonical reverse/inverse pairs from the 64 hexagrams."""
+    """Build the 32 canonical reverse/inverse pairs from the 64 hexagrams.
+
+    ATTRIBUTION: the pair structure is classical — described by Yu Fan (220-265 AD; fandui/pangtong,
+    preserved via Li Dingzuo's Zhouyi jijie), formalized combinatorially by Cook 2006. See CITATIONS.md."""
     used = set()
     pairs = []
     for v in range(64):
@@ -107,7 +114,10 @@ def king_wen_xor_products():
 # --- Constraint functions ---
 
 def has_no_five(seq):
-    """Check if a sequence has no 5-line transitions."""
+    """Check if a sequence has no 5-line transitions.
+
+    ATTRIBUTION: the no-five observation is McKenna & McKenna 1975 (The Invisible Landscape, ch. 9);
+    shared by Mawangdui and Jing Fang orderings (pan-tradition). See CITATIONS.md."""
     for i in range(len(seq) - 1):
         if bit_diff(seq[i], seq[i + 1]) == 5:
             return False

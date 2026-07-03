@@ -51,7 +51,12 @@ the linear sequence's endpoint popcounts differ in parity ⇒ odd wrap distance,
    two proven skeletons: a 48-element relabeling group and a rigid 15-alternation parity profile. Both are
    properties of the *constraint system*; KW inherits them rather than choosing them.
 
-## Related prior observations (attribution)
+## Novelty status and related prior observations (attribution)
+
+To our knowledge the theorem as stated (the exact 15-alternation count as a *forced* property of C1–C5) is
+first proven here; given how deep this literature runs (the parity-rule *exception* below was noticed by
+Zhu Yuansheng in the 13th century), we state that with humility — corrections and prior-art pointers are
+welcomed via [CITATIONS.md](CITATIONS.md).
 
 Two independent, differently-formulated parity rules for the King Wen sequence exist in prior literature and
 deserve credit as cousins of (not sources for) this theorem: **Cook (2006)** states a gender/position-valence

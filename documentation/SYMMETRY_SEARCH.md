@@ -19,6 +19,9 @@ relabelings of KW, all with complement distance 776 exactly.
 
 ## Theorem and proof
 
+*Novelty status: we are not aware of a prior statement of this symmetry group for the King Wen constraint
+system; prior-art corrections are welcomed via [CITATIONS.md](CITATIONS.md).*
+
 **Theorem.** Let G = C_{S₆}(rev) act on hexagrams by permuting bit positions (linearly on GF(2)⁶). For every
 σ ∈ G: S satisfies C1–C5 ⟺ σ(S) satisfies C1–C5. Moreover G is maximal with this property inside the full
 hyperoctahedral group Aut(Q₆) = S₆ ⋉ (Z₂)⁶ (order 46,080).
