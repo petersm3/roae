@@ -34,6 +34,10 @@ Targets:
   rc4-kwexempt   encoding validation: KW forced + clauses exempting class positions 25/26  [expect SAT]
   grand-strict   Moore 2005 parity 18/18 AND Moore 1989 rhythm 0-breaks AND Schulz gender 0-violations
                  (the "grand unified precursor" question: all three literature rules simultaneously)
+  wrap-d5        C1+C2+C4+C5 AND wrap distance d(s63, s0) == 5 (i.e., popcount(s63) == 1).
+                 UNSAT => circular C2 is IMPLIED by the linear system (the McKenna circular reading
+                 adds no C2 constraint); SAT => a valid ordering with a 5-line wrap exists.
+                 560T empirical: 0 of 10.5e9 records (wrap is 91.83% d=3 / 8.17% d=1).
 """
 
 import sys, subprocess, os
@@ -244,6 +248,11 @@ def build(target):
             for st in SLOTS:
                 jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
                 cnf.add(Y[(st, jkw)])
+    if target == "wrap-d5":
+        # wrap distance 5 from s0=63  <=>  popcount(second hexagram of slot 31) == 1
+        for j in range(NJ):
+            if pc(ORIENTS[j][3]) != 1:
+                cnf.add(-Y[(31, j)])
     return cnf, Y
 
 def decode(model_lits, Y):

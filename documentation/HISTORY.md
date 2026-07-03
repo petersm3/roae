@@ -5192,3 +5192,9 @@ gender) EXISTS at C3=776; (3) its minimal repair is ALSO exactly 3 slot-edits �
 compatible, converging on one small event. Encoding two-way validated (KW-forced strict UNSAT / 25-26-
 exempt SAT) before any conclusion; ground truth ported to solve.py (rc4_violations, KW-verified 2@{25,26});
 DRAT certs archived. See LITERATURE_RULES_POPULATION_TESTS.md §SAT-decided.
+
+## 2026-07-03: Circular King Wen (#206) — circular C2 is a genuine extra constraint
+Consolidated the circular-reading analysis (CIRCULAR_KING_WEN.md): wrap-parity theorem + McKenna 3:1 +
+circular C5 + 16-alternation corollary; NEW SAT decision — valid orderings with a 5-line wrap EXIST
+(explicit witness, C3=752), so McKenna's circular reading imposes a real constraint the linear system does
+not imply, despite 0 occurrences in 10.5B slice records (slice-absence != rarity; full-space mass queued).
