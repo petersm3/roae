@@ -14,7 +14,7 @@ New to the I Ching or combinatorics? Start with [GUIDE.md](documentation/GUIDE.m
 ## The constraints
 
 The sequence's structural properties, extracted from the received order and its classical commentary,
-are treated as axioms defining a space of orderings ([formal definitions](documentation/SPECIFICATION.md)):
+are treated as axioms defining a space of orderings ([formal definitions](documentation/SPECIFICATION.md) · [plain-language summary](documentation/SOLVE-SUMMARY.md)):
 
 - **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
   when reversal is trivial): the classical pairing, described by Yu Fan in the 3rd century.
