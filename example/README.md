@@ -309,6 +309,57 @@ chi-square) has sufficient power to detect deviations from uniform
 transitions. The matrices are descriptive only.
 ```
 
+### Inferential extension (2026-07-03)
+
+### Trigram change rates vs null (pair-preserving permutation test)
+
+```
+Null: 10,000 orderings preserving the pair structure (permute pairs + flip orientations),
+the correct baseline per CRITIQUE.md. Statistic: upper/lower trigram change counts.
+KW upper changes 59/63: percentile 47.3 (fraction of null <= KW)
+KW lower changes 58/63: percentile 27.3
+```
+
+### Pure (doubled-trigram) hexagram placement
+
+```
+The 8 pure hexagrams (upper == lower trigram). Lai Zhide (1525-1604, via Schulz 1982)
+observed kan/li doubles closing both Classics; measured here against the same null.
+Pure hexagram positions (1-based): [1, 2, 29, 30, 51, 52, 57, 58]
+Pure hexagrams at Classic ends (positions 1,2,29,30,63,64): 4 of a possible 6
+Null P(>= KW's 4) = 0.0336  (pair-preserving null; note KW's C4 fixes 1,2 by
+definition, so interpret against the constrained baseline)
+```
+
+### Nuclear trigram structure
+
+```
+Nuclear hexagram = lines 2-4 (lower nuclear) + 3-5 (upper nuclear). Classical fact
+(commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then to
+the 4 fixed points 63, 0, and the two alternators 21(010101b rendering varies), 42.
+Distinct after 1 application: 16; after 2: 4; after 3: 4 -> [0, 21, 42, 63]
+KW nuclear-hexagram changes along the sequence: 58/63
+```
+
+### Jing Fang Eight-Palaces rank correlation
+
+```
+Spearman rank correlation between KW positions and Jing Fang's palace ordering
+(the trigram-generated classical alternative; ordering as in solve.c --null-historical).
+Spearman rho = 0.1384; null P(|rho| >= observed) = 0.1170 (pair-preserving null)
+```
+
+### Symmetry group vs the trigram decomposition (ROAE SYMMETRY_SEARCH theorem)
+
+```
+The C1-C5 symmetry group B3 (order 48) acts on LINE positions; reversal maps the upper
+trigram to the reversed lower trigram, so most of the group does NOT preserve the
+upper/lower split. Preserving elements = permutations acting within {0,1,2} and {3,4,5}
+blocks (or swapping them wholesale) that also centralize rev.
+Split-respecting subgroup order: 12 of 48 (computed over the rev-centralizer)
+```
+
+
 ## Nuclear hexagram analysis
 
 Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by
