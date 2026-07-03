@@ -4772,6 +4772,9 @@ typedef struct {
      * 5-pair popcount-palindromic windows (Davis 2012 claims via review; KW has 2 — verified); par:
      * leaves weakly Pareto-dominating KW on (m1 up, breaks down, c3 down, rc1/rc2/rc5 binary), strict
      * on >=1 axis (F4-A Pareto-conjecture instrument). */
+    double sum_wrap[7];                   /* SOLVE_KNUTH_SCORE=1: full-space wrap-distance mass d(s63,s0)
+                                           * per value 0..6 (CIRCULAR_KING_WEN.md queued measurement:
+                                           * 5-wrap mass = the price of circular C2; 560T slice has 0). */
     double sum_bcond[31];                 /* SOLVE_KNUTH_BOUNDARY_COND=1: per-boundary KW-agreement mass
                                            * (boundary b agrees iff slots b and b+1 hold KW's pairs; the
                                            * analyze-[6] predicate lifted to the full-space estimator).
@@ -4932,6 +4935,10 @@ static void *knuth_worker(void *vp){
                                 (m1ok > 16 || m2breaks < 2 || c3val < 776)) a->sum_par += W;
                         }
                     }
+                    if (knuth_score) {
+                        int wd5 = hamming(seq[63], seq[0]);
+                        if (wd5 >= 0 && wd5 <= 6) a->sum_wrap[wd5] += W;
+                    }
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -5066,7 +5073,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
@@ -5076,6 +5083,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
         for (int b2=0;b2<31;b2++) sBC[b2]+=arg[i].sum_bcond[b2];
+        for (int w2=0;w2<7;w2++) sWR[w2]+=arg[i].sum_wrap[w2];
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double dN=(double)N;
@@ -5103,6 +5111,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
         printf("  [score] Davis palindrome windows >=1 : %.6f | >=2 (KW level): %.6f (Davis 2012)\n", sD1/sC, sD2/sC);
         printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
+        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f (odd-only per theorem; circular-C2 price = d5 mass)\n",
+               sWR[1]/sC, sWR[3]/sC, sWR[5]/sC);
     }
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
