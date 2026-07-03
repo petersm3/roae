@@ -5029,6 +5029,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     int seq0[64]; memset(seq0,0,sizeof(seq0)); pair_mask_t used0=0; int budget0[7];
     seq0[0]=63; seq0[1]=0; PAIR_MASK_SET(used0, pair_index_of(63,0));
     memcpy(budget0, kw_dist, sizeof(budget0)); budget0[hamming(63,0)]--;
+    if (getenv("SOLVE_KNUTH_RELAX_C5") && atoi(getenv("SOLVE_KNUTH_RELAX_C5")) == 1) {
+        /* Estimator-only: relax C5 to C2 (budgets unbounded except d=5 forbidden) so the walk counts
+         * |C1 ∩ C2 ∩ C4| — used to price C5's MARGINAL compression in DESCRIPTION_LENGTH.md.
+         * sha-neutral (no enumeration-path impact). */
+        for (int bi = 0; bi < 7; bi++) budget0[bi] = 63;
+        budget0[5] = 0;
+        fprintf(stderr, "[knuth] C5 RELAXED to C2-only (counting |C1 C2 C4|; MDL marginal pricing)\n");
+    }
     int start_step = 1;
     for (int i=0;i<n_levels;i++){
         if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
