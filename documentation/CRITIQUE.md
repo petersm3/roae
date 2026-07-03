@@ -328,3 +328,24 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
 The constraint solver (`solve.c`) finds that 5 rules extracted from King Wen narrow 10^89 possible orderings to hundreds of millions — 706,422,987 at d3 10T partition (canonical, sha `f7b8c4fb…`), 286,357,503 at d2 10T. Both are partial enumerations (each sub-branch hits its per-sub-branch node budget rather than completing naturally); the true count under exhaustive enumeration is higher. Only Position 1 is universally locked (forced by Rule 4). The current state is: **greedy-ordered 4-boundary minimum reaffirmed at d3 560T** (set `{4, 27, 25, 21}` applied in that order); the same minimum count holds at d2 10T and d3 10T, with d3 100T being an anomalous 5 in the trajectory. Boundaries **{25, 27} appear in the greedy minimum at every partition tested** (the stable mandatory-boundary finding). The other 2 boundaries in the 4-set are partition + scale-dependent — d2 uses {2,3} and {21,22}; d3 10T uses combinations from {1..6}; d3 560T uses {4, 21}. The rules are confirmatory (extracted from King Wen, then shown to be highly constraining) rather than predictive (derived independently). See [SOLVE.md](SOLVE.md), [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md), [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) (formal theorem guaranteeing the canonical shas are partition-invariant), and [HISTORY.md](HISTORY.md) for details.
 
 The program is honest about what it computes and includes explicit statistical caveats where the evidence is thin. Sensitivity analysis confirms all key mathematical results are invariant under bit-ordering convention (Hamming distance is invariant under bit permutation). The pair structure is the one genuinely extraordinary property — it is vanishingly unlikely by chance. The complement distance is also genuinely unusual (0th percentile). Other findings are either explained by the pair structure (no-5 property, ~4% among pair-constrained orderings), not significant after Bonferroni correction (entropy), indistinguishable from pair-constrained random orderings (Markov, path length, palindromes), or purely descriptive without significance tests (windowed entropy, trigram transitions, Gray code ratio). The Wald-Wolfowitz runs test detects alternation in the difference wave (Z = +2.13, p = 0.033), but this does not survive Bonferroni correction (threshold p < 0.0018). **Note: this alternation phenomenon was independently reported by Chan (2026, arXiv:2604.09234) as "negative lag-1 autocorrelation" of Hamming distances (KW value −0.251, 3.7th percentile, p=0.037). Chan's research predates ROAE; the alternation observation is Chan's prior art under the lag-1 autocorrelation framing. See [CITATIONS.md](CITATIONS.md).** Palindromic subsequences in the wave are unremarkable under pair-constrained null model (49th percentile for count, 14th for longest). The canon split, recurrence rate, and neighborhood clustering are all within chance expectations. Effect sizes (Cohen's d) are reported alongside percentiles for key analyses.
+
+## Corpus control test (2026-07-04): the battery's specificity, validated
+
+A standing attack on extraction methodologies is that they find "design" wherever they look. We ran the
+observable battery (11 axes: transition structure, pairing, trigram dynamics, entropy, autocorrelation,
+complement distances, runs, palindromic windows) on three orderings against a 10,000-permutation uniform
+null, with a provably algorithmic ordering as **positive control**:
+
+| Ordering | Extreme axes (≤1st or ≥99th percentile) | Reading |
+|---|---|---|
+| Jing Fang Eight Palaces (fully algorithmic) | **9 of 11** | positive control PASSES — the battery detects real design |
+| Mawangdui (partially systematic) | 7 of 11 | correctly flagged as structured |
+| **King Wen** | **3 of 11 — exactly the C1/C2/C3 axes** | and **0 of 11** against the pair-preserving null |
+
+The battery is not a design-finding machine: it lights up on provably constructed orderings, and for King
+Wen it flags precisely the three constraints this project documents — nothing else — with every residual
+signal disappearing under the correct (pair-preserving) null. This is the strongest specificity evidence
+in the record: the methodology distinguishes *which* orderings are structured and *where*. (Results file
+with the full table and script: project archive; the Mawangdui sequence used is the data-validated one
+from `--null-historical`, whose true lower-trigram cycle differs from some published generative
+descriptions — noted for the record.)
