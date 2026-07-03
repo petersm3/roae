@@ -5,7 +5,10 @@ them ROAE discoveries — were formalized in the C1–C5 pair representation and
 constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased weighted-Knuth estimation
 (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes; the instrument reproduced the independently-established total space
 size to 0.03%, self-validating the method). This converts decades of by-inspection claims into measured
-population statistics for the first time. **Attribution:** every rule below is credited to its source; see
+population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
+structure itself is attested to Yu Fan, 220–265 AD; the 36-unit consolidation to Lai Zhide, 1525–1604; the
+gender/position-parity rule measured at ×11,364 in the companion registry originates with **Schulz 1990**
+and was elaborated by Cook 2006); see
 [CITATIONS.md](CITATIONS.md) §Attributed candidate rules. ROAE's contribution is formalization + measurement.
 
 ## The scoreboard

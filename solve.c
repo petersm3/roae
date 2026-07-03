@@ -4763,7 +4763,7 @@ typedef struct {
     double sum_rc3, sum_rc3w, sum_rc4k, sum_rc4s, sum_dv1, sum_dv2, sum_par;
     /* rc3: level-3 class positions == KW's set {7,10,12,19,24,27,30,31,33,36} (Cook 2006, verified on KW);
      * rc3w: some 6 consecutive level-3 classes have gap pattern {6,4,2,2,0} (Cook's S onset); rc4k: <=2
-     * gender/valence violations (Cook 2006; minority-line gender, pure {pc 0,6} + neuter {pc 3} exempt;
+     * gender/valence violations (Schulz 1990 JCP 17:3 primary, elab. Cook 2006; minority-line gender, pure {pc 0,6} + neuter {pc 3} exempt;
      * KW = 2 at class positions 25/26 — verified); rc4s: 0 violations; dv1/dv2: >=1 / >=2 pair-aligned
      * 5-pair popcount-palindromic windows (Davis 2012 claims via review; KW has 2 — verified); par:
      * leaves weakly Pareto-dominating KW on (m1 up, breaks down, c3 down, rc1/rc2/rc5 binary), strict

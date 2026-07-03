@@ -265,7 +265,13 @@ promotion of these rules into the formal constraint system carries these credits
   No. 1, London, 2005 (revised from *The Trigrams of Han*, Aquarian Press, 1989, pp. 188–198), building on
   the *Dazhuan* odd=Heaven/yang, even=Earth/yin attribution. Moore also conjectured a fully-compliant
   (18/18) precursor ordering; ROAE's population measurement addresses that conjecture empirically.
-- **Structural-motif prior art more broadly**: **Schulz, Larry J.,** "Structural motifs in the arrangement
-  of the 64 gua in the Zhouyi," *Journal of Chinese Philosophy* 17:3 (1990), 345–358; **Davis, Scott,**
+- **Gender/position-parity rule over the 36 consolidated units** (the strongest measured literature
+  discriminator, ×11,364): **Schulz, Larry J.,** "Structural motifs in the arrangement of the 64 gua in the
+  Zhouyi," *Journal of Chinese Philosophy* 17:3 (1990), 345–358 — his second motif, incl. the exceptions at
+  stations 25–26; elaborated by Cook 2006 (attribution corrected 2026-07-03 upon first-hand reading; Cook
+  had been credited as primary). Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
+  with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
+  structure's classical lineage runs to **Yu Fan (220–265 AD)** (pangtong/fandui, via Li Dingzuo) and the
+  36-unit consolidation + 18:18 reasoning to **Lai Zhide (1525–1604)**; **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
