@@ -47,3 +47,15 @@ reading changes nothing about the symmetry group.
 *Attribution: the circular reading of the sequence is McKenna & McKenna (1975); the wrap-parity theorem,
 its 560T measurement, the alternation corollary, and the wrap-d5 SAT decision are ROAE (to our knowledge —
 corrections welcome via CITATIONS.md).*
+
+## Status decision (operator, 2026-07-03): documented, NOT promoted
+
+Circular C2 is **not** promoted into the formal constraint system and is **not** implemented in `solve.c`
+in any form. Rationale (consistent with the R-series non-promotion discipline): the circular reading is
+McKenna's interpretive frame, not an attested property of the received artifact; enforcing it would add a
+reverse-engineered constraint. For the record, the implementation analysis: as a pure leaf-emission filter
+it would be **byte-identical to the current lineage at every published canonical scale** (zero 5-wrap
+records exist in any slice — divergence begins only in territory no budget has reached, as the SAT witness
+proves); as a prune it would change node consumption and open a new sha lineage. Neither is warranted.
+The full-space mass of 5-wrap orderings remains a queued estimator measurement (knowledge, not
+enforcement).
