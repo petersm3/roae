@@ -297,3 +297,15 @@ first genuine first-principles derivation of any layer of the constraint system,
 ours. His weight-conservation principle is the exact-preservation strengthening of the parity-preservation
 lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md); his K₄ matching analysis and our B₃
 constraint-system symmetry group are complementary results about different objects.
+
+## The 1979 reordering proposal — measured and refuted (with credit)
+
+**McKenna, Stephen E. & Mair, Victor H.** "A Reordering of the Hexagrams of the I Ching," *Philosophy East
+and West* 29:4 (October 1979), 421–441. (Distinct from McKenna & McKenna 1975.) They judged the received
+order structurally indefensible beyond its local pairing and proposed a Gray-code-based replacement. Both
+halves of that position are now formally addressed: population measurement finds discriminating structure
+far beyond pairing (rules to ×11,364 rarity — see
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)), and no Gray-code ordering
+can satisfy the pairing constraint at all ([CRITIQUE.md](CRITIQUE.md) Claim 2). They retain clear priority
+for the idea that drives this project's methodology: evaluating the King Wen sequence against explicitly
+constructed alternatives rather than by inspection alone.
