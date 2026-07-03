@@ -5214,3 +5214,9 @@ alternations_15_general proves every C1+C5 sequence has exactly 15 parity-class 
 induction, kernel-verified, core Lean. With wrap_parity_general, both of the project's sequence-level
 theorems are now formally verified for ALL valid sequences. Techniques: transitions-as-range-map bridge,
 kernel-decided permutation split of range 63, countP congruences over the finite parity lemmas.
+
+## 2026-07-04: THE CONFLICT THEOREM — the literature's four strongest rules are jointly unsatisfiable
+SAT-decided (drat-trim verified): Moore parity + Moore rhythm + Schulz gender + the S25-28 trigram
+configuration cannot all hold in any valid ordering. KW keeps the trigram rule exactly and misses the
+others minimally; the grand precursor does the reverse; nothing does both. The full-rule "uncorrupted
+precursor" never existed — KW's anomaly profile reads as a trade-off position, not a corruption residue.

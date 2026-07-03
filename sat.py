@@ -34,6 +34,10 @@ Targets:
   rc4-kwexempt   encoding validation: KW forced + clauses exempting class positions 25/26  [expect SAT]
   grand-strict   Moore 2005 parity 18/18 AND Moore 1989 rhythm 0-breaks AND Schulz gender 0-violations
                  (the "grand unified precursor" question: all three literature rules simultaneously)
+  grand-ccn4     grand-strict AND CC-N4 (Schulz S25-28 dui-trigram configuration) — the five-rule
+                 conflict decision, increment 1: UNSAT proves no ordering is perfect under Moore
+                 parity + Moore rhythm + Schulz gender + the trigram champion simultaneously.
+  ccn4-kwtest    encoding validation: KW forced + ccn4 clauses  [expect SAT — KW satisfies ccn4]
   wrap-d5        C1+C2+C4+C5 AND wrap distance d(s63, s0) == 5 (i.e., popcount(s63) == 1).
                  UNSAT => circular C2 is IMPLIED by the linear system (the McKenna circular reading
                  adds no C2 constraint); SAT => a valid ordering with a 5-line wrap exists.
@@ -179,7 +183,7 @@ def build(target):
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == s and ORIENTS[j][1] == 0)
             agree.append(Y[(s, jkw)])
         at_least_k(cnf, agree, 31 - k)
-    if target.startswith("moore-strict") or target.startswith("grand-strict"):
+    if target.startswith("moore-strict") or target.startswith("grand-strict") or target == "grand-ccn4":
         for s in SLOTS:                   # parity: static unary forbids
             for j in range(NJ):
                 p = ORIENTS[j][0]
@@ -196,7 +200,7 @@ def build(target):
                     if ORIENTS[j1][0] == ORIENTS[j2][0]: continue
                     if rising(ORIENTS[j2][2], ORIENTS[j2][0]) == r1:
                         cnf.add(-Y[(s, j1)], -Y[(s+1, j2)])
-    if target.startswith("rc4-") or target.startswith("grand-strict"):
+    if target.startswith("rc4-") or target.startswith("grand-") or target.startswith("ccn4-"):
         # Schulz gender/position-parity over the 36 inversion-class positions (solve.rc4_violations).
         # Class position of slot s's pair = s + 2 + c, where c = # palindrome-pairs among slots 1..s-1
         # (slot 0 = pair 0 = palindromes 63,0 = classes 1,2, pure-exempt). Palindrome pairs occupy two
@@ -233,18 +237,39 @@ def build(target):
             pck = bin(h).count("1")
             if pck in (0, 3, 6) or pos in exempt_pos: return False
             return (pck < 3) != (pos % 2 == 1)
-        for st in SLOTS:
-            for j in range(NJ):
-                p, o, first, second = ORIENTS[j]
-                for c in E[st - 1]:
-                    base = st + 2 + c
-                    if p in PALPAIRS:
-                        bad = viol_hex(first, base) or viol_hex(second, base + 1)
-                    else:
-                        bad = viol_hex(first, base)
-                    if bad:
-                        cnf.add(-Y[(st, j)], -E[st - 1][c])
-        if target in ("rc4-kwtest", "rc4-kwexempt"):
+        if not target.startswith("ccn4-"):   # ccn4 validation targets use the counter only
+            for st in SLOTS:
+                for j in range(NJ):
+                    p, o, first, second = ORIENTS[j]
+                    for c in E[st - 1]:
+                        base = st + 2 + c
+                        if p in PALPAIRS:
+                            bad = viol_hex(first, base) or viol_hex(second, base + 1)
+                        else:
+                            bad = viol_hex(first, base)
+                        if bad:
+                            cnf.add(-Y[(st, j)], -E[st - 1][c])
+        if target == "grand-ccn4" or target == "ccn4-kwtest":
+            # CC-N4 (Schulz 2016 pp.23-24 / 2011; convention per registry): stations 25-28 face
+            # hexagrams must be 31, 24, 26, 29 (upper trigram dui; lowers qian/kun/kan/li).
+            # Same E-counter: station of slot s (inverse pair) = s+2+c; palindrome pairs occupy
+            # (s+2+c, s+3+c) and can never match (faces are palindromes) -> forbidden in-window.
+            REQ = {25: 31, 26: 24, 27: 26, 28: 29}
+            for st2 in SLOTS:
+                for j in range(NJ):
+                    p2, o2, first2, second2 = ORIENTS[j]
+                    for c in E[st2 - 1]:
+                        base = st2 + 2 + c
+                        bad = False
+                        if p2 in PALPAIRS:
+                            if base in REQ or base + 1 in REQ:
+                                bad = True    # palindrome faces can't be 31/24/26/29
+                        else:
+                            if base in REQ and first2 != REQ[base]:
+                                bad = True
+                        if bad:
+                            cnf.add(-Y[(st2, j)], -E[st2 - 1][c])
+        if target in ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest"):
             for st in SLOTS:
                 jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
                 cnf.add(Y[(st, jkw)])

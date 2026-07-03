@@ -140,3 +140,25 @@ p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8) · s
 r3 **1.0** · r4 **1.0** · r5 **1.0** · c1 6.6×10⁻² (min deviation seen 4 vs KW 24) · c2 **1.0**.
 Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, **d5 = 17.4%** of the full space — see
 [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) (the slice contains zero d5 records in 10.5B).
+
+## THE CONFLICT THEOREM (2026-07-04, SAT-decided, drat-trim verified): perfection was never available
+
+The literature's four strongest rules are **jointly unsatisfiable**: no C1–C5-valid ordering achieves
+Moore's 2005 parity (18/18), Moore's 1989 rhythm (0 breaks), the Schulz gender rule (0 violations), and
+the Schulz S25–28 trigram configuration simultaneously (UNSAT under C1+C2+C4+C5, hence a fortiori with
+C3; certificate independently verified). The pieces fit together sharply:
+
+- King Wen satisfies the trigram configuration **exactly**, and misses the other three by the minimal
+  measured margins (16/18, 2 breaks, 2 violations).
+- The 3-edit "grand precursor" satisfies those three **perfectly** — and breaks the trigram configuration.
+- Both cannot be had: **the rules compete**, and any ordering must choose which to satisfy.
+
+Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under the literature's full
+rule inventory **never existed** — the corruption reading survives only in the restricted sense (perfect
+under Moore's two rules alone, breaking the trigram structure KW keeps). King Wen's profile now reads
+naturally as a **trade-off optimum**: exact on one strong rule, minimally imperfect on the others, at a
+Pareto position the population measurements already showed to be ~1-in-25-million efficient. The usual
+caveat travels with this: the trigram configuration is a data-like rule (highly specific); the theorem is
+about the literature's rules exactly as its authors stated them. Reproduce:
+`python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf` (encoding two-way validated: ccn4-kwtest SAT,
+rc4-kwtest UNSAT).
