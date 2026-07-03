@@ -23,3 +23,7 @@ finite computation those arguments rest on.
 # install elan (Lean version manager), then:
 lean KingWen.lean   # silence = all theorems check (Lean 4, tested with 4.31.0)
 ```
+
+**Related formal work:** Radisic 2026 (arXiv:2601.07175) independently formalized King Wen pairing
+optimality in Lean 4 + Mathlib (K₄-equivariant matching; different object from the constraint-system
+symmetry group verified here). See CITATIONS.md.

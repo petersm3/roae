@@ -281,3 +281,19 @@ promotion of these rules into the formal constraint system carries these credits
   36-unit consolidation + 18:18 reasoning to **Lai Zhide (1525–1604)**; **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
+
+## First-principles optimality of the pairing (C1) — Radisic 2026
+
+**Radisic, Alejandro.** "Optimal Equivariant Matchings on the 6-Cube, With an Application to the King Wen
+Sequence." arXiv:2601.07175 (v3, May 2026). Proves (Lean 4 + Mathlib verified) that among comp/rev
+matchings on {0,1}⁶ there is a **unique Hamming-cost minimizer** — the reverse-priority rule, which is
+exactly this project's `partner()` function / the C1 pairing — with cost 120 (vs 192 complement-only;
+independently confirmed by our within-pair distance table 2×12+4×12+6×8 = 120); that the King Wen sequence
+realizes precisely this matching; and that under the full Klein four-group the King Wen rule is recovered
+as the unique Hamming-weight-preserving optimum (stable for the energy α|Δw|+βd_H whenever α > β).
+**Effect on this project's claims:** C1's provenance upgrades from "classical + measured-rare" to
+"classical + measured-rare + *derived as the unique optimum of a natural variational principle*" — the
+first genuine first-principles derivation of any layer of the constraint system, and it is Radisic's, not
+ours. His weight-conservation principle is the exact-preservation strengthening of the parity-preservation
+lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md); his K₄ matching analysis and our B₃
+constraint-system symmetry group are complementary results about different objects.
