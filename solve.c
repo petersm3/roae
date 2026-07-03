@@ -4772,11 +4772,20 @@ typedef struct {
      * 5-pair popcount-palindromic windows (Davis 2012 claims via review; KW has 2 — verified); par:
      * leaves weakly Pareto-dominating KW on (m1 up, breaks down, c3 down, rc1/rc2/rc5 binary), strict
      * on >=1 axis (F4-A Pareto-conjecture instrument). */
+    double sum_bcond[31];                 /* SOLVE_KNUTH_BOUNDARY_COND=1: per-boundary KW-agreement mass
+                                           * (boundary b agrees iff slots b and b+1 hold KW's pairs; the
+                                           * analyze-[6] predicate lifted to the full-space estimator).
+                                           * With SOLVE_KNUTH_PIN_SLOTS these are prefix-conditional masses
+                                           * — the S(k) greedy-extension instrument (F2). Estimator-only. */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
 static int knuth_pin_c67 = 0;
+static unsigned knuth_pin_mask = 0;  /* SOLVE_KNUTH_PIN_SLOTS="3,4,20,21": pin listed slots to KW's pairs
+                                      * (orientation free). Generalizes SOLVE_KNUTH_C67 (== slots 24-27).
+                                      * Estimator-only, sha-neutral. F2 S(k) boundary-information curve. */
+static int knuth_bcond = 0;
 static int knuth_moore_strict = 0;  /* SOLVE_KNUTH_MOORE_STRICT=1: prune the walk to orderings satisfying
                                  * BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND 1989
                                  * rising/falling 0-breaks) — estimates the joint-strict space; any canonical
@@ -4793,6 +4802,8 @@ static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scorin
                                  * ROAE's contribution is only the population measurement over C1-C5 space.
                                  * Estimator-only, sha-neutral. #187/#204 population tests, 2026-07-02. */   /* SOLVE_KNUTH_C67=1: pin slots 24-27 to KW's pairs (spec C6/C7; orientation free).
                                  * Estimator-only — no enumeration-path impact (sha-neutral). Uniqueness-conjecture probe. */
+
+static int pair_of_hex(int h);   /* defined in the analyze section below */
 
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
@@ -4921,6 +4932,13 @@ static void *knuth_worker(void *vp){
                                 (m1ok > 16 || m2breaks < 2 || c3val < 776)) a->sum_par += W;
                         }
                     }
+                    if (knuth_bcond) {
+                        /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
+                         * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
+                        for (int b2 = 0; b2 < 31; b2++)
+                            if (pair_of_hex(seq[2*b2]) == b2 && pair_of_hex(seq[2*b2+2]) == b2+1)
+                                a->sum_bcond[b2] += W;
+                    }
                 }
                 break;
             }
@@ -4929,6 +4947,7 @@ static void *knuth_worker(void *vp){
             for (int p=0; p<32; p++){
                 if (PAIR_MASK_TEST(used,p)) continue;
                 if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
+                if (((knuth_pin_mask >> step) & 1u) && p != step) continue;              /* S(k) pins */
                 for (int orient=0; orient<2; orient++){
                     int first  = orient ? pairs[p].b : pairs[p].a;
                     int second = orient ? pairs[p].a : pairs[p].b;
@@ -4992,6 +5011,7 @@ static void exact_count(int seq[64], pair_mask_t used, int budget[7], int step,
     for (int p=0;p<32;p++){
         if (PAIR_MASK_TEST(used,p)) continue;
         if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
+        if (((knuth_pin_mask >> step) & 1u) && p != step) continue;              /* S(k) pins */
         for (int orient=0; orient<2; orient++){
             int first  = orient ? pairs[p].b : pairs[p].a;
             int second = orient ? pairs[p].a : pairs[p].b;
@@ -5038,7 +5058,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
-    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
+    double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
@@ -5047,6 +5067,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
+        for (int b2=0;b2<31;b2++) sBC[b2]+=arg[i].sum_bcond[b2];
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double dN=(double)N;
@@ -5074,6 +5095,12 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
         printf("  [score] Davis palindrome windows >=1 : %.6f | >=2 (KW level): %.6f (Davis 2012)\n", sD1/sC, sD2/sC);
         printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
+    }
+    if (knuth_bcond && sC > 0) {
+        printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
+        printf("  [bcond] conditional on SOLVE_KNUTH_PIN_SLOTS=0x%x prefix if set):\n", knuth_pin_mask);
+        for (int b2 = 0; b2 < 31; b2++)
+            printf("  [bcond] boundary %2d : %.8e\n", b2 + 1, sBC[b2]/sC);
     }
     fflush(stdout);
 }
@@ -10437,6 +10464,20 @@ int main(int argc, char *argv[]) {
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
             fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
+        }
+        if (getenv("SOLVE_KNUTH_PIN_SLOTS")) {
+            const char *pp = getenv("SOLVE_KNUTH_PIN_SLOTS");
+            while (*pp) {
+                if (*pp >= '0' && *pp <= '9') {
+                    int v = (int)strtol(pp, (char**)&pp, 10);
+                    if (v >= 1 && v <= 31) knuth_pin_mask |= (1u << v);
+                } else pp++;
+            }
+            fprintf(stderr, "[knuth] S(k) slot pins ACTIVE mask=0x%x (F2 boundary-information curve)\n", knuth_pin_mask);
+        }
+        if (getenv("SOLVE_KNUTH_BOUNDARY_COND") && atoi(getenv("SOLVE_KNUTH_BOUNDARY_COND")) == 1) {
+            knuth_bcond = 1;
+            fprintf(stderr, "[knuth] per-boundary conditional scoring ACTIVE (31 accumulators)\n");
         }
         fprintf(stderr, "[knuth] %llu probes, %d threads, %d prefix level(s)\n",
                 (unsigned long long)nprobe, nthreads, nlev);
