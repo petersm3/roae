@@ -93,6 +93,19 @@ solution space's orbit structure (and KW's 23 twins) is a new object of study in
 Original 2026-04-25 phases 1–3 (`./solve --symmetry-search [--validate-counts]`) remain reproducible; their
 output is correct as *budgeted-yield* data. Proof + full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md`.
 
+## Corollary (2026-07-03): the action is free — every solution has exactly 23 twins
+
+The S₄ record-action has no fixed points off the identity. *Proof:* every canonical record uses all 32
+pairs of the fixed C1 pairing, position-wise; a record equals its σ-image only if σ stabilizes each pair
+as a set at its slot; an effective σ ≠ id moves at least one pair (otherwise its record-action is trivial,
+putting it in the kernel {id, ρ}); every record contains that pair. ∎
+
+Consequences: **every orbit has size exactly 24** (the action is free), the orbit count is exactly N/24,
+and King Wen's 23 twins are not a special property — every valid ordering has exactly 23. The Burnside
+census that this project had queued as a measurement (fixed-point counts per conjugacy class) is thereby
+settled analytically: all non-identity counts are zero. (To our knowledge first stated here; corrections
+welcome via [CITATIONS.md](CITATIONS.md).)
+
 ## Limits and scope
 
 - The theorem covers the full hyperoctahedral group: flips are excluded **by C4 specifically** (they move

@@ -5198,3 +5198,8 @@ Consolidated the circular-reading analysis (CIRCULAR_KING_WEN.md): wrap-parity t
 circular C5 + 16-alternation corollary; NEW SAT decision — valid orderings with a 5-line wrap EXIST
 (explicit witness, C3=752), so McKenna's circular reading imposes a real constraint the linear system does
 not imply, despite 0 occurrences in 10.5B slice records (slice-absence != rarity; full-space mass queued).
+
+## 2026-07-03: Free-action corollary — the orbit census settles analytically
+The S4 record-action on the solution set is FREE (no fixed points off identity; proof: fixed pairing +
+kernel argument). Every orbit is exactly 24; orbit count = N/24; every solution has exactly 23 twins.
+The queued Burnside-census measurement (foothold F3) is closed with zero compute.
