@@ -350,3 +350,15 @@ ROAE's below-sample-resolution joint-density rank). Where these analyses
 overlap on common observables (mean Hamming, alternation), Chan's
 prior art is acknowledged — see [CITATIONS.md](CITATIONS.md) and
 SOLVE.md / CRITIQUE.md for inline citations.
+
+## Trigram-level addendum (2026-07-03)
+
+The inferential trigram extension (`roae.py --trigrams`) places KW's trigram-level statistics in the same
+pair-preserving null framework used throughout this document: upper/lower trigram change rates are
+population-typical (47th/27th percentile); the pure-hexagram Classic-ends concentration is mildly notable
+(4/6, null P = 0.034, with the C4-fixes-two-positions caveat); KW is statistically independent of Jing
+Fang's palace ordering (Spearman rho = 0.14, null P = 0.12) — the two great classical orderings share
+constraint principles (both avoid 5-line transitions; see the no-5 shared-property analysis) while being
+organizationally unrelated. The nuclear-map terminal set {0, 21, 42, 63} coincides exactly with C4's fixed
+pair plus the final alternating pair — a classical fact whose alignment with the sequence's anchors is
+noted without a significance claim (it is a property of the hexagram set, not of the ordering).
