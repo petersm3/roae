@@ -278,7 +278,10 @@ dependency sprawl. The canonical source files are `solve.c` (enumeration,
 sha-anchored), `solve.py` (analysis + ground truth), and `sat.py` (SAT/
 certificate layer, operator-approved 2026-07-02; imports solve.py and must
 contain NO hand-written constraint semantics — see its header). They stay
-that way; SAT work goes in `sat.py`, not new files.
+that way; SAT work goes in `sat.py`, not new files. The two directory-scoped
+exceptions, each a separate-toolchain component: `viz/` (visualize.py — heavy
+plotting deps) and `lean/` (KingWen.lean — the Lean 4 machine-checked theorem
+file + README; all formal-verification work goes in that one file).
 
 Past violations:
 - 2026-04-21: `analyze_yields.c` created as a separate file; user directive
