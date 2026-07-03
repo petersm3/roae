@@ -25,8 +25,8 @@ compression − statement cost. Conventions, declared up front:
 | Layer | Solution count | log₂ count | Marginal compression | Statement cost | Net |
 |---|---|---|---|---|---|
 | baseline (any ordering) | 64! | 296.0 | — | — | — |
-| + C1 (pairing) + C4 (start) | 31!·2³¹ | 144.4 | **146.3** (C1) + 5.3 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
-| + C2 (no-5) | 7.571×10⁴¹ (±0.01%, measured 2026-07-03) | 139.1 | 5.3 | ~3 (family of per-distance bans) | **+2.3** |
+| + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
+| + C2 (no-5) | 7.571×10⁴¹ (±0.01%, measured 2026-07-03) | 139.1 | 4.6 | ~3 (family of per-distance bans) | **+1.6** |
 | + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 23.3⁴ | **−13.9 (descriptive, measured)** |
 | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
 | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.2 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
@@ -48,7 +48,7 @@ Knowing everything structural in this table, the sequence retains **log₂|C1–
 unexplained information; on the defensible subset (dropping circular C3, data-like C6/C7), the residual
 against honestly-explanatory structure is **~126.6 bits**. The literature's strongest independent rule
 prices at ~13.5 bits gross. **Roughly half the sequence's information is explained — nearly all of it by the classical pairing (now
-known optimal), a further honest 5.3 bits by the no-five rule, and essentially nothing by C5, whose statement costs
+known optimal), a further honest 4.6 bits by the no-five rule, and essentially nothing by C5, whose statement costs
 2.5× what it explains (net −13.9 bits, measured 2026-07-03): the transition
 histogram is confirmed description, not explanation. The other half of the sequence is explained by
 nothing known today.** Design
@@ -58,3 +58,8 @@ bit of statement.
 *Conventions and framework: ROAE (to our knowledge first applied to this object here; corrections welcome
 via [CITATIONS.md](CITATIONS.md)). Constraint provenance per row: see [SPECIFICATION.md](SPECIFICATION.md)
 and [CITATIONS.md](CITATIONS.md).*
+
+*Correction (2026-07-04): an arithmetic error in the first published version of this table — log₂(31!·2³¹)
+stated as 144.4 rather than the correct 143.7 — propagated to C4's marginal (5.3 → 6.0) and C2's marginal
+and net (5.3/+2.3 → 4.6/+1.6). Caught by adversarial replication review; no conclusion changes (C2 remains
+modestly explanatory, C5 remains descriptive).*
