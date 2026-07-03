@@ -31,11 +31,11 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 
 | Tool | Role |
 |---|---|
-| **solve.c** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
-| **solve.py** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
-| **sat.py** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
-| **roae.py** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
-| **lean/** | Machine-checked theorems (Lean 4): the core lemmas and both sequence-level theorems, kernel-verified. |
+| **[solve.c](solve.c)** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
+| **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
+| **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
+| **[roae.py](roae.py)** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
+| **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas and both sequence-level theorems, kernel-verified. |
 
 ## What was found
 

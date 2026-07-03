@@ -12,26 +12,26 @@ record. Reproducibility contract: CANONICAL_HASHES; attribution registry: CITATI
 
 | # | Report | One-line claim | Verification core |
 |---|---|---|---|
-| TR-1 | Eight Centuries, Measured | The literature's rules at population scale: forced / typical / discriminating; the grand precursor; the conflict | the flagship; all modalities |
-| TR-2 | The Rules Conflict | The four strongest rules are jointly unsatisfiable; KW's anomalies are a forced trade-off | SAT + DRAT certs |
-| TR-3 | Reproducible Enumeration at Scale | 10.5B records, twice byte-identical through 12 Spot evictions at ~15% cost | sha registry + gates |
-| TR-4 | The Size of the Space | 1.3287×10³⁸ orderings; uniqueness conjecture false; slice-unique boundaries admit ~10²⁶ | validated estimator |
-| TR-5 | Symmetry | Order-48 group; free action (every solution has exactly 23 twins); a published negative corrected | proof + Lean + tree isomorphism |
-| TR-6 | The Parity Skeleton | Exactly 15 alternations, always | prose + Lean kernel + SAT certs |
-| TR-7 | The Circular Reading | Wrap parity forced; 5-wraps are 17.4% of the space yet 0 in 10.5B slice records | Lean + SAT witness + estimator |
-| TR-8 | A Reordering Revisited | McKenna & Mair (1979): premise refuted; construction impossible by parity | 2-line proof + sampling |
-| TR-9 | Pricing the Constraints | C1 explains ~146 bits (and is optimal); C5 is confirmed description; ~126 bits unexplained | measured ledger (conventions stated) |
+| [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) | Eight Centuries, Measured | The literature's rules at population scale: forced / typical / discriminating; the grand precursor; the conflict | the flagship; all modalities |
+| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules are jointly unsatisfiable; KW's anomalies are a forced trade-off | SAT + DRAT certs |
+| [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) | Reproducible Enumeration at Scale | 10.5B records, twice byte-identical through 12 Spot evictions at ~15% cost | sha registry + gates |
+| [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | 1.3287×10³⁸ orderings; uniqueness conjecture false; slice-unique boundaries admit ~10²⁶ | validated estimator |
+| [TR-5](TR5_SYMMETRY.md) | Symmetry | Order-48 group; free action (every solution has exactly 23 twins); a published negative corrected | proof + Lean + tree isomorphism |
+| [TR-6](TR6_PARITY_SKELETON.md) | The Parity Skeleton | Exactly 15 alternations, always | prose + Lean kernel + SAT certs |
+| [TR-7](TR7_CIRCULAR_READING.md) | The Circular Reading | Wrap parity forced; 5-wraps are 17.4% of the space yet 0 in 10.5B slice records | Lean + SAT witness + estimator |
+| [TR-8](TR8_REORDERING_REVISITED.md) | A Reordering Revisited | McKenna & Mair (1979): premise refuted; construction impossible by parity | 2-line proof + sampling |
+| [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) | Pricing the Constraints | C1 explains ~146 bits (and is optimal); C5 is confirmed description; ~126 bits unexplained | measured ledger (conventions stated) |
 
-**Reading paths.** Newcomer: TR-3 → TR-4 → TR-1. Systems engineer: TR-3 first (its methods transfer
-beyond this project). Mathematician: TR-5 → TR-6 → TR-7. Sinologist: TR-1 → TR-2 → TR-8.
-Skeptic: TR-3's gates, then any Verification Guide.
+**Reading paths.** Newcomer: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) → [TR-4](TR4_SIZE_OF_THE_SPACE.md) → [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md). Systems engineer: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) first (its methods transfer
+beyond this project). Mathematician: [TR-5](TR5_SYMMETRY.md) → [TR-6](TR6_PARITY_SKELETON.md) → [TR-7](TR7_CIRCULAR_READING.md). Sinologist: [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) → [TR-2](TR2_THE_RULES_CONFLICT.md) → [TR-8](TR8_REORDERING_REVISITED.md).
+Skeptic: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md)'s gates, then any Verification Guide.
 
 ## Living documents: the versioning policy
 
 These reports **evolve**. New sources, new measurements, and corrections are incorporated over time —
 never silently: every content change is a version bump with a Revision History entry in the affected
 report, and claim corrections are stated as corrections (the project's standing practice; see the
-corrected result documented in TR-5). Citations should name a version ("TR-2 v1.0"). Snapshots are
+corrected result documented in [TR-5](TR5_SYMMETRY.md)). Citations should name a version ("[TR-2](TR2_THE_RULES_CONFLICT.md) v1.0"). Snapshots are
 archived with versioned DOIs (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what
 you read). Where a journal article is one frozen argument, these reports are the maintained state of what
 is known — with its full history attached.
