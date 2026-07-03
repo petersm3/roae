@@ -5203,3 +5203,8 @@ not imply, despite 0 occurrences in 10.5B slice records (slice-absence != rarity
 The S4 record-action on the solution set is FREE (no fixed points off identity; proof: fixed pairing +
 kernel argument). Every orbit is exactly 24; orbit count = N/24; every solution has exactly 23 twins.
 The queued Burnside-census measurement (foothold F3) is closed with zero compute.
+
+## 2026-07-03: Lean tier 2 — wrap-parity theorem machine-checked for ALL valid sequences
+KingWen.lean gains structured induction proofs (not finite enumeration): wrap_parity_general verifies the
+wrap-parity theorem for every C4+C5 sequence of 6-bit values. Kernel-checked with core Lean 4 (decide +
+structural induction; no mathlib). First sequence-level theorem in the formal core.

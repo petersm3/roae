@@ -27,3 +27,12 @@ lean KingWen.lean   # silence = all theorems check (Lean 4, tested with 4.31.0)
 **Related formal work:** Radisic 2026 (arXiv:2601.07175) independently formalized King Wen pairing
 optimality in Lean 4 + Mathlib (K₄-equivariant matching; different object from the constraint-system
 symmetry group verified here). See CITATIONS.md.
+
+## Tier 2 (2026-07-03): structured sequence-level proofs
+`wrap_parity_general` — the wrap-parity theorem verified for EVERY C4+C5 sequence of 6-bit values by
+structural induction (telescoping transition-parity lemma + sum-parity/odd-count machinery), not by
+finite enumeration. Supporting lemmas: `transitions_sum_parity`, `sum_parity_odd_count`,
+`odd_count_partition`, bounded pointwise facts by kernel `decide`. This upgrades the formal core from
+"finite facts checked" to "sequence-level theorem proven" for the wrap-parity result; the 15-alternation
+general theorem is the next tier-2 target (ingredients present: within-pair evenness, the C5 odd-count,
+the parity identity).

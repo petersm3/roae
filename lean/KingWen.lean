@@ -152,3 +152,102 @@ theorem twins_24_records :
     (((perms [0,1,2,3,4,5]).filter fun p => validC15 (KW.map (applyPerm p))).map
       (fun p => pairKey (KW.map (applyPerm p)))).eraseDups.length = 24 := by
   native_decide
+
+
+/- ------------------ TIER 2 (2026-07-03): structured sequence-level theorems ------------------
+   Unlike the native_decide facts above (finite computations), these are structural proofs by
+   induction over arbitrary bounded lists — the wrap-parity theorem is verified for EVERY C4+C5
+   sequence, not just King Wen. -/
+
+theorem ham_parity_lt64 : ∀ a < 64, ∀ b < 64, ham a b % 2 = (pc6 a + pc6 b) % 2 := by decide
+
+/-- sum parity flips exactly on odd elements. -/
+theorem sum_parity_odd_count (l : List Nat) :
+    l.sum % 2 = (l.filter (· % 2 == 1)).length % 2 := by
+  induction l with
+  | nil => rfl
+  | cons h t ih =>
+    simp only [List.sum_cons, List.filter_cons]
+    by_cases hh : h % 2 = 1
+    · simp [hh, List.length_cons, Nat.add_mod, ih.symm]
+      omega
+    · have h0 : h % 2 = 0 := by omega
+      simp [hh, Nat.add_mod, ih.symm]
+      omega
+
+/-- telescoping: transition-sum parity = end-point popcount parity (bounded lists). -/
+theorem transitions_sum_parity :
+    ∀ (l : List Nat), (∀ x ∈ l, x < 64) → l ≠ [] →
+      (transitions l).sum % 2 = (pc6 (l.headD 0) + pc6 (l.getLastD 0)) % 2 := by
+  intro l
+  induction l with
+  | nil => intro _ h; exact absurd rfl h
+  | cons a t ih =>
+    intro hb _
+    cases t with
+    | nil => simp [transitions]; omega
+    | cons b t2 =>
+      have hab : ham a b % 2 = (pc6 a + pc6 b) % 2 :=
+        ham_parity_lt64 a (hb a (by simp)) b (hb b (by simp))
+      have ih2 := ih (fun x hx => hb x (List.mem_cons_of_mem a hx)) (by simp)
+      have hexp : transitions (a :: b :: t2) = ham a b :: transitions (b :: t2) := by
+        simp [transitions]
+      rw [hexp, List.sum_cons]
+      have hlast : (a :: b :: t2).getLastD 0 = (b :: t2).getLastD 0 := by
+        simp [List.getLastD_cons]
+      rw [hlast]
+      simp only [List.headD] at ih2 ⊢
+      omega
+
+/-- transition values of bounded lists are ≤ 6. -/
+theorem ham_le6 : ∀ a < 64, ∀ b < 64, ham a b ≤ 6 := by decide
+
+/-- for x ≤ 6: x is odd iff x ∈ {1, 3, 5}. -/
+theorem odd_le6 : ∀ x ≤ 6, (x % 2 == 1) = (x == 1 || x == 3 || x == 5) := by decide
+
+/-- odd-count partition for ≤6-bounded lists. -/
+theorem odd_count_partition (l : List Nat) (hb : ∀ x ∈ l, x ≤ 6) :
+    (l.filter (· % 2 == 1)).length =
+    (l.filter (· == 1)).length + (l.filter (· == 3)).length + (l.filter (· == 5)).length := by
+  induction l with
+  | nil => rfl
+  | cons h t ih =>
+    have hh6 : h ≤ 6 := hb h (by simp)
+    have ih2 := ih (fun x hx => hb x (List.mem_cons_of_mem h hx))
+    simp only [List.filter_cons]
+    have hodd := odd_le6 h hh6
+    by_cases h1 : h = 1
+    · subst h1; simp [ih2]; omega
+    · by_cases h3 : h = 3
+      · subst h3; simp [ih2]; omega
+      · by_cases h5 : h = 5
+        · subst h5; simp [ih2]; omega
+        · have : (h % 2 == 1) = false := by
+            rw [hodd]; simp [h1, h3, h5]
+          simp [this, h1, h3, h5, ih2]
+
+/-- WRAP-PARITY THEOREM (general, structured proof): every C4+C5 sequence of 6-bit values
+    ends in a hexagram of ODD popcount — hence the wrap distance d(s63, s0) is odd. -/
+theorem wrap_parity_general (l : List Nat) (hb : ∀ x ∈ l, x < 64)
+    (h4 : c4ok l = true) (h5 : c5ok l = true) (hne : l ≠ []) :
+    pc6 (l.getLastD 0) % 2 = 1 := by
+  have htele := transitions_sum_parity l hb hne
+  have hbound : ∀ x ∈ transitions l, x ≤ 6 := by
+    intro x hx
+    simp only [transitions, List.mem_map] at hx
+    obtain ⟨⟨a, b⟩, hmem, hxab⟩ := hx
+    have hab := List.of_mem_zip hmem
+    exact hxab ▸ ham_le6 a (hb a hab.1) b (hb b (List.mem_of_mem_tail hab.2))
+  have hsump := sum_parity_odd_count (transitions l)
+  have hpart := odd_count_partition (transitions l) hbound
+  simp only [c5ok, Bool.and_eq_true, beq_iff_eq] at h5
+  have hodd15 : (transitions l).sum % 2 = 1 := by
+    rw [hsump, hpart, h5.1.1.1.1.1.1, h5.1.1.1.1.2, h5.1.1.2]
+  have hhead : l.headD 0 = 63 := by
+    simp only [c4ok, Bool.and_eq_true, beq_iff_eq] at h4
+    cases l with
+    | nil => exact absurd rfl hne
+    | cons a t => simpa using h4.1
+  rw [htele, hhead] at hodd15
+  have : pc6 63 = 6 := by decide
+  omega
