@@ -26,8 +26,8 @@ compression − statement cost. Conventions, declared up front:
 |---|---|---|---|---|---|
 | baseline (any ordering) | 64! | 296.0 | — | — | — |
 | + C1 (pairing) + C4 (start) | 31!·2³¹ | 144.4 | **146.3** (C1) + 5.3 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
-| + C2 (no-5) | 6.808×10⁴⁰ (±0.01%, measured 2026-07-03) | 135.6 | 8.8 | ~3 (family of per-distance bans) | **+5.8** |
-| + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 5.9 | 23.3⁴ | **−17.4 (descriptive, measured)** |
+| + C2 (no-5) | 7.571×10⁴¹ (±0.01%, measured 2026-07-03) | 139.1 | 5.3 | ~3 (family of per-distance bans) | **+2.3** |
+| + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 23.3⁴ | **−13.9 (descriptive, measured)** |
 | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
 | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.2 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
 | strongest literature rule (Schulz gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
@@ -48,8 +48,8 @@ Knowing everything structural in this table, the sequence retains **log₂|C1–
 unexplained information; on the defensible subset (dropping circular C3, data-like C6/C7), the residual
 against honestly-explanatory structure is **~126.6 bits**. The literature's strongest independent rule
 prices at ~13.5 bits gross. **Roughly half the sequence's information is explained — nearly all of it by the classical pairing (now
-known optimal), a further honest 8.8 bits by the no-five rule, and essentially nothing by C5, whose
-statement costs four times what it explains (net −17.4 bits, measured 2026-07-03): the transition
+known optimal), a further honest 5.3 bits by the no-five rule, and essentially nothing by C5, whose statement costs
+2.5× what it explains (net −13.9 bits, measured 2026-07-03): the transition
 histogram is confirmed description, not explanation. The other half of the sequence is explained by
 nothing known today.** Design
 hypotheses and emergence hypotheses alike must ultimately be judged in this currency: bits predicted per
