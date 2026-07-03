@@ -27,6 +27,13 @@ Targets:
                  [expect SAT -> explicit witness ordering; C3 enforced by verify-loop]
                  (attribution: Moore 2005 Oracle Papers No.1; Moore 1989 Trigrams of Han App.2)
   plain          C1+C2+C4+C5 only (baseline satisfiability sanity)
+  rc4-strict     C1+C2+C4+C5 AND Schulz gender/position-parity with 0 violations
+                 (attribution: Schulz 1990 JCP 17:3 motif 2, exception first noticed by Zhu
+                 Yuansheng 13th c.; elaborated Cook 2006; semantics = solve.rc4_violations)
+  rc4-kwtest     encoding validation: KW forced + strict clauses  [expect UNSAT — KW violates at 25/26]
+  rc4-kwexempt   encoding validation: KW forced + clauses exempting class positions 25/26  [expect SAT]
+  grand-strict   Moore 2005 parity 18/18 AND Moore 1989 rhythm 0-breaks AND Schulz gender 0-violations
+                 (the "grand unified precursor" question: all three literature rules simultaneously)
 """
 
 import sys, subprocess, os
@@ -160,7 +167,7 @@ def build(target):
             at_most_k(cnf, odd, 14)
         else:
             at_least_k(cnf, odd, 16)
-    if target.startswith("moore-strict-near"):
+    if "-near-" in target:
         # differs from KW in at most k slots (KW slot s = pair s, orient 0 by construction)
         k = int(target.rsplit("-", 1)[1])
         agree = []
@@ -168,7 +175,7 @@ def build(target):
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == s and ORIENTS[j][1] == 0)
             agree.append(Y[(s, jkw)])
         at_least_k(cnf, agree, 31 - k)
-    if target.startswith("moore-strict"):
+    if target.startswith("moore-strict") or target.startswith("grand-strict"):
         for s in SLOTS:                   # parity: static unary forbids
             for j in range(NJ):
                 p = ORIENTS[j][0]
@@ -185,6 +192,58 @@ def build(target):
                     if ORIENTS[j1][0] == ORIENTS[j2][0]: continue
                     if rising(ORIENTS[j2][2], ORIENTS[j2][0]) == r1:
                         cnf.add(-Y[(s, j1)], -Y[(s+1, j2)])
+    if target.startswith("rc4-") or target.startswith("grand-strict"):
+        # Schulz gender/position-parity over the 36 inversion-class positions (solve.rc4_violations).
+        # Class position of slot s's pair = s + 2 + c, where c = # palindrome-pairs among slots 1..s-1
+        # (slot 0 = pair 0 = palindromes 63,0 = classes 1,2, pure-exempt). Palindrome pairs occupy two
+        # positions (first hexagram lower, orientation-dependent); gender from popcount.
+        # ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2 (exception: Zhu Yuansheng 13th c.); Cook 2006 elab.
+        exempt_pos = {25, 26} if target == "rc4-kwexempt" else set()
+        def _rev6(h):
+            r = 0
+            for b in range(6): r |= ((h >> b) & 1) << (5 - b)
+            return r
+        # only true palindrome pairs (rev(h)==h members, paired by complement) occupy TWO inversion
+        # classes; anti-symmetric pairs (rev(h)==comp(h)) also XOR to 63 but form ONE class.
+        PALPAIRS = [p for p in range(1, 32) if _rev6(KW_PAIRS[p][0]) == KW_PAIRS[p][0]]
+        NP = len(PALPAIRS)
+        comp_slot = {}
+        for t in SLOTS:
+            v = cnf.var(); comp_slot[t] = v
+            pal_lits = [Y[(t, j)] for j in range(NJ) if ORIENTS[j][0] in PALPAIRS]
+            for x in pal_lits: cnf.add(-x, v)
+            cnf.add(-v, *pal_lits)
+        # E[t][c] = "exactly c palindrome pairs among slots 1..t"; forward implications + exactly-one
+        E = {}
+        e00 = cnf.var(); cnf.add(e00)
+        E[0] = {0: e00}
+        for t in SLOTS:
+            E[t] = {c: cnf.var() for c in range(0, min(t, NP) + 1)}
+            for c in E[t]:
+                if c in E[t-1]:
+                    cnf.add(-E[t-1][c], comp_slot[t], E[t][c])
+                if c - 1 in E[t-1]:
+                    cnf.add(-E[t-1][c-1], -comp_slot[t], E[t][c])
+            exactly_one(cnf, list(E[t].values()))
+        def viol_hex(h, pos):
+            pck = bin(h).count("1")
+            if pck in (0, 3, 6) or pos in exempt_pos: return False
+            return (pck < 3) != (pos % 2 == 1)
+        for st in SLOTS:
+            for j in range(NJ):
+                p, o, first, second = ORIENTS[j]
+                for c in E[st - 1]:
+                    base = st + 2 + c
+                    if p in PALPAIRS:
+                        bad = viol_hex(first, base) or viol_hex(second, base + 1)
+                    else:
+                        bad = viol_hex(first, base)
+                    if bad:
+                        cnf.add(-Y[(st, j)], -E[st - 1][c])
+        if target in ("rc4-kwtest", "rc4-kwexempt"):
+            for st in SLOTS:
+                jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
+                cnf.add(Y[(st, jkw)])
     return cnf, Y
 
 def decode(model_lits, Y):

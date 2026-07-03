@@ -113,6 +113,35 @@ def king_wen_xor_products():
 
 # --- Constraint functions ---
 
+def rc4_violations(seq):
+    """Schulz gender/position-parity violations over the 36 inversion-class positions.
+
+    ATTRIBUTION: Schulz 1990 (JCP 17:3, 345-358, motif 2; exception first noticed by Zhu Yuansheng,
+    13th c., per Schulz 2018 fn.42), elaborated Cook 2006. Port of solve.c's KW-verified scorer:
+    classes keyed by min(h, rev(h)) in first-appearance order; gender by popcount of the class
+    (pc<3 male -> odd class position, pc>3 female -> even; pc==3 and pure pc 0/6 exempt).
+    Returns (violation_count, violating_class_positions). KW == (2, [25, 26])."""
+    def rev6(h):
+        r = 0
+        for b in range(6):
+            r |= ((h >> b) & 1) << (5 - b)
+        return r
+    seen, ncls, viol, vpos = set(), 0, 0, []
+    for h in seq:
+        key = min(h, rev6(h))
+        if key in seen:
+            continue
+        seen.add(key)
+        ncls += 1
+        pck = bin(h).count("1")
+        if pck in (0, 3, 6):
+            continue
+        if (pck < 3) != (ncls % 2 == 1):
+            viol += 1
+            vpos.append(ncls)
+    return viol, vpos
+
+
 def has_no_five(seq):
     """Check if a sequence has no 5-line transitions.
 

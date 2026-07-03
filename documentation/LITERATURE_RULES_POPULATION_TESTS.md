@@ -81,3 +81,25 @@ constraint definitions, external kissat solver, DRAT certificates) adds *exact* 
 Certificates and the encoder round-trip validation (whose first solver model, pleasingly, is King Wen
 itself) are archived; reproduce with `python3 sat.py --witness moore-strict` and
 `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
+
+### Schulz gender rule + the grand unified precursor (2026-07-03)
+
+5. **Schulz's gender rule is perfectly satisfiable — and its minimal repair is ALSO exactly 3 edits.**
+   The strict form of the strongest measured discriminator (gender/position-parity, Schulz 1990; exception
+   first noticed by Zhu Yuansheng, 13th c.) had 0 hits in 36M samples; SAT decides it: witnesses exist
+   (C1–C5-valid, C3 = 776), and the minimal repair from King Wen is exactly 3 slot-edits (≤2 UNSAT, DRAT
+   cert archived) — a swap of the adjacent pairs at slots 21/22 (= class positions 25/26, precisely the
+   Zhu Yuansheng/Schulz exception locus) plus one orientation flip.
+6. **The grand unified precursor exists: one ordering satisfies ALL THREE literature rules perfectly** —
+   Moore's 2005 parity (18/18), Moore's 1989 rhythm (0 breaks), and Schulz's 1990 gender rule (0
+   violations) — again C1–C5-valid at C3 = 776:
+   `63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,
+   53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42`
+7. **The grand minimal repair is exactly 3 slot-edits** (a fortiori ≥3 from result 5; 3 achieved): an
+   orientation flip at slot 7 and an adjacent-pair swap at slots 21/22. The three rules' minimal repairs
+   are not merely equal-sized — they are *compatible*: a single 3-edit event completes all three at once.
+   If any corruption/precursor reading of the literature is right, the deviation was one small event, and
+   every independently-observed anomaly (Moore's pairs 22–23, Zhu Yuansheng/Schulz's stations 25–26) is a
+   shadow of it. We note the standard caveat: witnesses produced by a solver seeded with King Wen's
+   variable order are biased toward KW-like repairs; minimality (3) is exact, the specific repair need not
+   be unique. Reproduce: `python3 sat.py --witness grand-strict`; certificates in the evidence archive.

@@ -5182,3 +5182,13 @@ framing and the 15-alternation theorem; and the "4×" concentration prose was a 
 linear excess ≈1.3×). Fixed with correction notes. The pattern repeats: every time a claim must be re-derived
 for a machine (Lean, the estimator, now SAT), latent errors surface — formalization is the project's best
 error detector.
+
+## 2026-07-03: The grand unified precursor — all three literature rules, one 3-edit repair
+SAT layer (sat.py) decided three questions in succession: (1) Schulz's 1990 gender rule (the x11,364
+discriminator; exception noticed by Zhu Yuansheng in the 13th c.) is perfectly satisfiable, minimal repair
+from KW exactly 3 slot-edits through the historic exception locus (slots 21/22 = class positions 25/26);
+(2) an ordering satisfying ALL THREE literature rules simultaneously (Moore parity + Moore rhythm + Schulz
+gender) EXISTS at C3=776; (3) its minimal repair is ALSO exactly 3 slot-edits — the rules' repairs are
+compatible, converging on one small event. Encoding two-way validated (KW-forced strict UNSAT / 25-26-
+exempt SAT) before any conclusion; ground truth ported to solve.py (rc4_violations, KW-verified 2@{25,26});
+DRAT certs archived. See LITERATURE_RULES_POPULATION_TESTS.md §SAT-decided.
