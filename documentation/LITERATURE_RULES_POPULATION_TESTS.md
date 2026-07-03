@@ -105,3 +105,38 @@ with `python3 sat.py --witness moore-strict` and
    shadow of it. We note the standard caveat: witnesses produced by a solver seeded with King Wen's
    variable order are biased toward KW-like repairs; minimality (3) is exact, the specific repair need not
    be unique. Reproduce: `python3 sat.py --witness grand-strict`; certificates in the evidence archive.
+
+## The extended scoreboard: 31 further literature rules (2026-07-03 batch, 2×10¹⁰ probes)
+
+The full candidate inventory from the Schulz corpus (1990/2011/2016/2018 + the 1982 dissertation's
+Lai Zhide rules), McKenna & Mair 1979, Drasny, and Schöter — 31 rules formalized (two-language verified,
+each reproducing its source's stated King Wen values), measured in one run. Full per-rule registry and
+attribution: solve.py `--registry-verify` section. Three headline findings:
+
+**1. A new strongest discriminator — with the data-likeness caveat stated plainly.** Schulz's S25–28
+trigram configuration (2011/2016: four consecutive stations sharing the dui top trigram, bottoms = the
+four "right" trigrams in order) holds in 2×10⁻⁸ of the population (×5×10⁷) — three orders beyond the
+previous champion. Like Cook's exact level-3 positions, this is a highly *specific* configuration: its
+registry classification is data-like rather than principled, and it is reported as a measured property,
+not promoted. The exception-co-location meta-rule (both Schulz rules' violations confined to S25/26)
+measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare.
+
+**2. Eight literature rules are THEOREMS of the constraint system** — they measure at exactly 1.0 of
+canonical mass: asserted in the literature as design features, they are in fact *forced* by C1–C5
+(McKenna's 3:1 ratio was the first known case; this batch found seven more, including three consequences
+of Radisic's optimality structure, whose 1.0 readings also validate the instrument end-to-end). Several
+more are near-forced (0.95–0.9998). The literature's design inventory therefore splits three ways:
+forced / typical / genuinely discriminating.
+
+**3. King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7: 8 of 8, and 8 is the observed
+population maximum) — a genuine extremal property, one of very few axes where KW attains the boundary.
+
+Full table (fraction of canonical mass; KW satisfies each at its measured level by construction of the
+threshold forms): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs KW 20) · ccn1 3.4×10⁻⁵ · ccn2 1.5×10⁻³
+· ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** · c2011n1 <10⁻⁹ (0
+hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0 vs KW 4) · mmt4
+**1.0** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0** · p2c3 6.7×10⁻² · p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ ·
+p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8) · s1 **1.0** · s6 **1.0** · m2 8.0×10⁻² ·
+r3 **1.0** · r4 **1.0** · r5 **1.0** · c1 6.6×10⁻² (min deviation seen 4 vs KW 24) · c2 **1.0**.
+Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, **d5 = 17.4%** of the full space — see
+[CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) (the slice contains zero d5 records in 10.5B).
