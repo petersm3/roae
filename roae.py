@@ -466,6 +466,123 @@ def print_trigrams():
             row += f"{count:<6}"
         print(row)
 
+    # ---- Inferential extension (2026-07-03): nulls, placement, nuclear, palaces, symmetry ----
+    import random as _rnd
+    _rng = _rnd.Random(42)
+
+    print("\n--- Trigram change rates vs null (pair-preserving permutation test) ---")
+    print("Null: 10,000 orderings preserving the pair structure (permute pairs + flip orientations),")
+    print("the correct baseline per CRITIQUE.md. Statistic: upper/lower trigram change counts.")
+    pairs_list = [(binary_hexagrams[2*i], binary_hexagrams[2*i+1]) for i in range(32)]
+    def _changes(seq):
+        u = sum(1 for i in range(63) if upper_trigram(seq[i]) != upper_trigram(seq[i+1]))
+        l = sum(1 for i in range(63) if lower_trigram(seq[i]) != lower_trigram(seq[i+1]))
+        return u, l
+    kw_u, kw_l = _changes(binary_hexagrams)
+    le_u = le_l = 0
+    TRIALS = 10000
+    for _ in range(TRIALS):
+        perm = pairs_list[:]
+        _rng.shuffle(perm)
+        seq = []
+        for a, b in perm:
+            if _rng.random() < 0.5: a, b = b, a
+            seq += [a, b]
+        u, l = _changes(seq)
+        if u <= kw_u: le_u += 1
+        if l <= kw_l: le_l += 1
+    print(f"KW upper changes {kw_u}/63: percentile {le_u/TRIALS*100:.1f} (fraction of null <= KW)")
+    print(f"KW lower changes {kw_l}/63: percentile {le_l/TRIALS*100:.1f}")
+
+    print("\n--- Pure (doubled-trigram) hexagram placement ---")
+    print("The 8 pure hexagrams (upper == lower trigram). Lai Zhide (1525-1604, via Schulz 1982)")
+    print("observed kan/li doubles closing both Classics; measured here against the same null.")
+    pure = [h for h in binary_hexagrams if upper_trigram(h) == lower_trigram(h)]
+    pos = {h: i for i, h in enumerate(binary_hexagrams)}
+    pure_pos = sorted(pos[h] + 1 for h in pure)
+    print(f"Pure hexagram positions (1-based): {pure_pos}")
+    kw_stat = sum(1 for h in pure if pos[h] + 1 in (1, 2, 29, 30, 63, 64))
+    print(f"Pure hexagrams at Classic ends (positions 1,2,29,30,63,64): {kw_stat} of a possible 6")
+    ge = 0
+    for _ in range(TRIALS):
+        perm = pairs_list[:]
+        _rng.shuffle(perm)
+        seq = []
+        for a, b in perm:
+            if _rng.random() < 0.5: a, b = b, a
+            seq += [a, b]
+        p2 = {h: i for i, h in enumerate(seq)}
+        st = sum(1 for h in pure if p2[h] + 1 in (1, 2, 29, 30, 63, 64))
+        if st >= kw_stat: ge += 1
+    print(f"Null P(>= KW's {kw_stat}) = {ge/TRIALS:.4f}  (pair-preserving null; note KW's C4 fixes 1,2 by")
+    print("definition, so interpret against the constrained baseline)")
+
+    print("\n--- Nuclear trigram structure ---")
+    print("Nuclear hexagram = lines 2-4 (lower nuclear) + 3-5 (upper nuclear). Classical fact")
+    print("(commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then to")
+    print("the 4 fixed points 63, 0, and the two alternators 21(010101b rendering varies), 42.")
+    def _nuclear(h):
+        lo = (h >> 1) & 7
+        hi = (h >> 2) & 7
+        return (hi << 3) | lo
+    n1 = sorted(set(_nuclear(h) for h in range(64)))
+    n2 = sorted(set(_nuclear(h) for h in n1))
+    n3 = sorted(set(_nuclear(h) for h in n2))
+    print(f"Distinct after 1 application: {len(n1)}; after 2: {len(n2)}; after 3: {len(n3)} -> {n3}")
+    kw_nuc_changes = sum(1 for i in range(63)
+                         if _nuclear(binary_hexagrams[i]) != _nuclear(binary_hexagrams[i+1]))
+    print(f"KW nuclear-hexagram changes along the sequence: {kw_nuc_changes}/63")
+
+    print("\n--- Jing Fang Eight-Palaces rank correlation ---")
+    print("Spearman rank correlation between KW positions and Jing Fang's palace ordering")
+    print("(the trigram-generated classical alternative; ordering as in solve.c --null-historical).")
+    # Jing Fang 8 Palaces generator (c. 77-37 BCE); port of solve.c --null-historical's
+    # construction (two-language cross-check). Palace order Qian->Zhen->Kan->Gen->Kun->Xun->Li->Dui;
+    # per palace: origin, worlds 1-5, wandering soul, returning soul.
+    jf = []
+    for t in (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011):
+        jf += [(t << 3) | t, (t << 3) | (t ^ 0b001), (t << 3) | (t ^ 0b011),
+               (t << 3) | (t ^ 0b111), ((t ^ 0b001) << 3) | (t ^ 0b111),
+               ((t ^ 0b011) << 3) | (t ^ 0b111), ((t ^ 0b010) << 3) | (t ^ 0b111),
+               ((t ^ 0b010) << 3) | t]
+    assert len(set(jf)) == 64, "Jing Fang generator must produce all 64 hexagrams"
+    r_jf = {h: i for i, h in enumerate(jf)}
+    n = 64.0
+    d2 = sum((pos[h] - r_jf[h]) ** 2 for h in range(64))
+    rho = 1 - 6 * d2 / (n * (n * n - 1))
+    # null: rho distribution under the pair-preserving permutation null
+    ge_rho = 0
+    for _ in range(TRIALS):
+        perm = pairs_list[:]
+        _rng.shuffle(perm)
+        seq = []
+        for a, b in perm:
+            if _rng.random() < 0.5: a, b = b, a
+            seq += [a, b]
+        p2 = {h: i for i, h in enumerate(seq)}
+        d2n = sum((p2[h] - r_jf[h]) ** 2 for h in range(64))
+        rn = 1 - 6 * d2n / (n * (n * n - 1))
+        if abs(rn) >= abs(rho): ge_rho += 1
+    print(f"Spearman rho = {rho:.4f}; null P(|rho| >= observed) = {ge_rho/TRIALS:.4f} (pair-preserving null)")
+
+    print("\n--- Symmetry group vs the trigram decomposition (ROAE SYMMETRY_SEARCH theorem) ---")
+    print("The C1-C5 symmetry group B3 (order 48) acts on LINE positions; reversal maps the upper")
+    print("trigram to the reversed lower trigram, so most of the group does NOT preserve the")
+    print("upper/lower split. Preserving elements = permutations acting within {0,1,2} and {3,4,5}")
+    print("blocks (or swapping them wholesale) that also centralize rev.")
+    import itertools as _it
+    def _rev_perm(p):
+        return tuple(5 - p[5 - i] for i in range(6))
+    cnt_split = 0
+    for p in _it.permutations(range(6)):
+        if _rev_perm(p) != p:
+            continue
+        blocks_ok = (all(p[i] < 3 for i in range(3)) and all(p[i] >= 3 for i in range(3, 6))) or \
+                    (all(p[i] >= 3 for i in range(3)) and all(p[i] < 3 for i in range(3, 6)))
+        if blocks_ok:
+            cnt_split += 1
+    print(f"Split-respecting subgroup order: {cnt_split} of 48 (computed over the rev-centralizer)")
+
     print("\n--- Methodological note ---")
     print("With ~1 expected observation per cell, no goodness-of-fit test (e.g.,")
     print("chi-square) has sufficient power to detect deviations from uniform")
