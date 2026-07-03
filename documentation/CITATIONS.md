@@ -309,3 +309,9 @@ far beyond pairing (rules to ×11,364 rarity — see
 can satisfy the pairing constraint at all ([CRITIQUE.md](CRITIQUE.md) Claim 2). They retain clear priority
 for the idea that drives this project's methodology: evaluating the King Wen sequence against explicitly
 constructed alternatives rather than by inspection alone.
+
+## Textual scholarship (reference)
+**Kunst, Richard A.** *The Original "Yijing": A Text, Phonetic Transcription, Translation, and Indexes,
+with Sample Glosses.* Ph.D. dissertation, University of California, Berkeley, 1985. (General textual
+scholarship on the received text; relocated from README's reference list 2026-07-03 — not used by any
+ROAE code or finding.)

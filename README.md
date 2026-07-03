@@ -93,11 +93,13 @@ Optional external programs for export formats:
 
 ## References
 
-> **See [CITATIONS.md](documentation/CITATIONS.md) for the full, formally scoped reference list** — including prior literature on the mathematical structure of the King Wen sequence (Cook 2006, McKenna 1975), methodological citations (Hierholzer, Fisher-Yates, Marsaglia, Bonferroni, Wilson), and explicit attribution of which observations are classical / prior work vs. independently verified computationally by ROAE vs. believed novel here. CITATIONS.md includes a disclaimer inviting updates from readers aware of prior work not cited.
+> **All scholarly attribution lives in [CITATIONS.md](documentation/CITATIONS.md)** and is deliberately
+> not duplicated here — classical sources (Yu Fan, Zhu Yuansheng, Lai Zhide), the modern structural
+> literature (Schulz, Moore, Cook, Hacker, McKenna & Mair, Davis, Drasny), the 2026 arXiv treatments
+> (Chan; Radisic), methodological citations, and per-finding scoping of what is classical / prior work /
+> independently verified / believed novel. CITATIONS.md includes a standing invitation to report prior
+> work not yet cited.
 
-All scholarly attribution — classical sources (Yu Fan, Zhu Yuansheng, Lai Zhide), the modern structural
-literature (Schulz, Moore, Cook, Hacker, McKenna & Mair, Davis, Drasny), the 2026 arXiv treatments (Chan;
-Radisic), and per-finding novelty scoping — lives in CITATIONS.md and is deliberately NOT duplicated here.
 The links below are reader orientation only:
 
 * [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
@@ -105,12 +107,13 @@ The links below are reader orientation only:
 * [OEIS A102241](https://oeis.org/A102241) — binary encoding of King Wen hexagrams
 * [Bagua (eight trigrams)](https://en.wikipedia.org/wiki/Bagua) — Wikipedia (trigram names and associations)
 * [Hexagram (I Ching)](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — Wikipedia (hexagram structure, nuclear trigrams)
-* [I Ching divination](https://en.wikipedia.org/wiki/I_Ching_divination) — Wikipedia (three-coin method)
+* [I Ching divination](https://en.wikipedia.org/wiki/I_Ching_divination) — Wikipedia (three-coin method, simulated by `roae.py --cast`)
 * [Shao Yong](https://en.wikipedia.org/wiki/Shao_Yong) — Wikipedia (Fu Xi binary ordering)
-* [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (alternative hexagram ordering, 168 BCE)
+* [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (alternative hexagram ordering, 168 BCE; tested by `solve.c --null-historical`)
+* [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
 * [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (hexagram names)
-* Richard A. Kunst, "The Original 'Yijing': A Text, Phonetic Transcription, Translation, and Indexes, with Sample Glosses," Ph.D. dissertation, University of California, Berkeley, 1985
-* Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (Mawangdui manuscript translation)
+* Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (translation of the Mawangdui manuscript — the source of the Mawangdui ordering data above)
+* [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — Steve Moore's archive of Yijing structural-analysis literature (source of several documents examined in CITATIONS.md)
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
 
 ## Built with
