@@ -4780,6 +4780,14 @@ typedef struct {
                                            * analyze-[6] predicate lifted to the full-space estimator).
                                            * With SOLVE_KNUTH_PIN_SLOTS these are prefix-conditional masses
                                            * — the S(k) greedy-extension instrument (F2). Estimator-only. */
+    double sum_reg[31];                   /* SOLVE_KNUTH_SCORE_REG=1: per-rule canonical-leaf mass satisfying
+                                           * each of the 31 CANDIDATE_REGISTRY_2026_07 rules at its KW-threshold
+                                           * form. Ground truth: solve.py reg_* (KW-verified); index order =
+                                           * solve.py REGISTRY_KW_EXPECTED. Estimator-only, sha-neutral. */
+    int reg_max_rs2;                      /* max R-S2 compliant-station count seen (KW 20 of 26; existence bound) */
+    int reg_min_mmt3;                     /* min MM-T3 Gray-transition count seen, -1 = none (KW 4) */
+    int reg_max_d7;                       /* max D7 xiaoxi-in-group-B count seen (KW 8 of 8) */
+    int reg_min_c1;                       /* min C1 group-of-4 |yang-12| deviation sum seen, -1 = none (KW 24) */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -4807,6 +4815,438 @@ static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scorin
                                  * Estimator-only — no enumeration-path impact (sha-neutral). Uniqueness-conjecture probe. */
 
 static int pair_of_hex(int h);   /* defined in the analyze section below */
+
+static int knuth_score_reg = 0; /* SOLVE_KNUTH_SCORE_REG=1: per-leaf weighted scoring of the 31 candidate
+                                 * rules in CANDIDATE_REGISTRY_2026_07 (see score_registry below).
+                                 * =2 + SOLVE_REG_TESTVEC: cross-verification hook (main(), prints 31
+                                 * indicators for an explicit sequence). Estimator-only, sha-neutral. */
+
+/* ===================== Candidate-registry scorers (SOLVE_KNUTH_SCORE_REG) =====================
+ * C port of the 31 KW-verified ground-truth checkers in solve.py
+ * ("# ---- Candidate-rule ground truth (CANDIDATE_REGISTRY_2026_07) ----",
+ * functions reg_*). solve.py is the SPEC; where it disagrees with the registry
+ * markdown, the Python is right (roae-private/REGISTRY_IMPL_NOTES_2026_07.md).
+ * Each rule is evaluated at its KW-level THRESHOLD FORM (binary rules: the
+ * predicate itself; count rules: <=/>= KW's value, direction = the rule's
+ * compliance direction): rs2 >= 20, mmt3 <= 4, mmt5 == 0, mmt6 == 0, d7 >= 8,
+ * r4 <= 120, c1 <= 24, c2 == KW's HD histogram ((2,12),(4,12),(6,8)).
+ *
+ * ATTRIBUTION (these rules are NOT ROAE discoveries; ROAE contributes only the
+ * population measurement over C1-C5 space; master ledger documentation/CITATIONS.md;
+ * formalizations transcribed by Claude (Fable) from first-hand reading notes):
+ *   rs1     Schulz & Cunningham 1990 / Schulz 1990, JCP 17 pp. 351-352
+ *   rs2     Schulz 1990, JCP 17 pp. 348-350
+ *   ccn1    Schulz 2016 (Hexagrammatics) pp. 15-16; S36 also Schulz 2018
+ *   ccn2    Schulz 2016 (Hexagrammatics) pp. 17-18
+ *   ccn3    Schulz 2016 pp. 22-24; = Schulz 2011 JCP 38:4 C2011-A6 (cited in Schulz 2018)
+ *   ccn4    Schulz 2016 pp. 23-24; Schulz 2011 JCP 38:4
+ *   ccn6    Schulz 2016 p. 15
+ *   ccn7    Schulz 2016 p. 27 (rules table, SC-19)
+ *   ccn8    Schulz 2016 pp. 14-15 (SC-7 double-exception note); Schulz 1990 JCP 17 for both motifs
+ *   c2011n1 Schulz 2011, JCP 38:4 pp. 651-652 (Element 6)
+ *   c2011n2 Schulz 2011, JCP 38:4 pp. 651-653 (Elements 6 and 10)
+ *   c2011n4 Schulz 2011, JCP 38:4 pp. 651-652 (inferred from Element 6)
+ *   mmt3    McKenna & Mair 1979, PEW 29:4 p. 425 (Gardner 1974 cited for the 'random order' claim)
+ *   mmt4    McKenna & Mair 1979, PEW 29:4 p. 422
+ *   mmt5    McKenna & Mair 1979, PEW 29:4 pp. 428-429
+ *   mmt6    McKenna & Mair 1979, PEW 29:4 p. 425
+ *   p1c4    Schulz 1982 dissertation pp. 139-140 (citing Lai Zhide 1599); same class as Radisic 2026 (see r3)
+ *   p2c3    Schulz 1982 p. 213 (citing Lai Zhide 1599); Schulz 2011 JCP 38:4 pp. 649-651 (SC-8)
+ *   p2c4    Schulz 1982 pp. 207-208 (citing Lai Zhide 1599, CICC 'shou shang' 6a, 1:7b)
+ *   p2c5    Schulz 1982 pp. 211-212 (citing Lai Zhide 1599); overlaps Schulz 2016 p. 27 (SC-19)
+ *   p2c6    Schulz 1982 pp. 207-212 (citing Lai Zhide 1599)
+ *   d4      Drasny (pascal-man.com / i-ching.hu); boundary framing also Schulz 1982 pp. 211-212
+ *   d7      Drasny (i-ching.hu); sovereign identification also Schulz & Cunningham 1990 / Schulz 1990 JCP 17
+ *   s1      Schoter 1998, 'Boolean Algebra and the Yi Jing', The Oracle 2:7 pp. 19-34 (Definition 9)
+ *   s6      Schoter (yijing.co.uk, via biroco.com); formalized+proved Radisic 2026 arXiv:2601.07175 (Lean 4)
+ *   m2      Moore 2005, 'Structural Elements...', The Oracle (biroco.com); Schulz 2011 (SC-16/SC-17)
+ *   r3      Radisic 2026 arXiv:2601.07175 (Theorem 3.3, Lean 4 verified)
+ *   r4      Radisic 2026 arXiv:2601.07175 (Corollary 4.12, Lean 4 verified)
+ *   r5      Radisic 2026 arXiv:2601.07175 (Theorems 1.1, 4.8, Lean 4 verified)
+ *   c1      Chan 2026 arXiv:2604.09234 (Table 2; registry proxy, KW-measured anchor 24)
+ *   c2      Chan 2026 arXiv:2604.09234 (Table 2; deterministic HD-histogram proxy)
+ * The 36-station consolidation used by the station rules is Lai Zhide 1599 (CICC),
+ * used analytically by Schulz 1990 (JCP 17:345-358) and Cook 2006. */
+
+static const char *reg_rule_ids[31] = {
+    "rs1", "rs2", "ccn1", "ccn2", "ccn3", "ccn4", "ccn6", "ccn7",
+    "ccn8", "c2011n1", "c2011n2", "c2011n4", "mmt3", "mmt4", "mmt5", "mmt6",
+    "p1c4", "p2c3", "p2c4", "p2c5", "p2c6", "d4", "d7", "s1",
+    "s6", "m2", "r3", "r4", "r5", "c1", "c2"
+};
+
+static inline int reg_rev6(int h){
+    int r = 0;
+    for (int b = 0; b < 6; b++) r |= ((h >> b) & 1) << (5 - b);
+    return r;
+}
+#define REG_COMP6(h) ((h) ^ 63)
+static inline int reg_pc(int h){ return __builtin_popcount((unsigned)h); }
+
+/* c2011n1/c2011n4 helper: stations a,b (1-based) are a non-right Opposite
+ * (complement-class) pair — {comp(m) : m in class a} == class b, no palindromic
+ * member (solve.py _reg_comp6 / opp_class semantics). */
+static int reg_opp_class(const int st_canon[36], int a, int b){
+    int ca = st_canon[a-1], cb = st_canon[b-1];
+    int ra = reg_rev6(ca), rb = reg_rev6(cb);
+    if (ra == ca || rb == cb) return 0;               /* nonright fails */
+    int x1 = REG_COMP6(ca), x2 = REG_COMP6(ra);
+    return (x1 == cb && x2 == rb) || (x1 == rb && x2 == cb);
+}
+
+/* Evaluate all 31 registry rules on one canonical leaf; add W to a->sum_reg[i]
+ * for each rule whose KW-threshold form holds. Shared structures (stations via
+ * min(h, rev6(h)) first-appearance order, balances, trigrams) computed once. */
+static void score_registry(const int seq[64], double W, KnuthArg *a){
+    int ind[31];
+    /* --- shared: the 36 inversion-class stations, first-appearance order --- */
+    int st_canon[36];        /* class member at the lower seq[] slot */
+    int st_of[64];           /* 1-based station index of each hexagram */
+    int n_st = 0;
+    {
+        unsigned char seen[64] = {0};
+        for (int z = 0; z < 64 && n_st < 36; z++){
+            int h = seq[z], r = reg_rev6(h);
+            int key = h < r ? h : r;
+            if (seen[key]) continue;
+            seen[key] = 1;
+            st_canon[n_st] = h;
+            st_of[h] = n_st + 1; st_of[r] = n_st + 1;
+            n_st++;
+        }
+    }
+    int bal[36];             /* per-station yang-minus-yin balance */
+    for (int s = 0; s < 36; s++) bal[s] = 2 * reg_pc(st_canon[s]) - 6;
+
+    /* --- shared: R-S2 run-segmented adjacent-pairing violations (rs2, ccn8) --- */
+    unsigned char viol_s2[37] = {0};
+    int nz_bal = 0;
+    {
+        int run[36], rl = 0;
+        for (int k = 1; k <= 37; k++){
+            if (k == 37 || bal[k-1] == 0){          /* close current run */
+                for (int i = 0; i + 1 < rl; i += 2)
+                    if (bal[run[i]-1] != -bal[run[i+1]-1]){
+                        viol_s2[run[i]] = 1; viol_s2[run[i+1]] = 1;
+                    }
+                if (rl & 1) viol_s2[run[rl-1]] = 1;
+                rl = 0;
+            } else { run[rl++] = k; nz_bal++; }
+        }
+    }
+
+    /* 0: rs1 — xiaoxi trisection (stations 1/13/25) + Fu balance-minimum -4 among non-pure */
+    {
+        int fu = 0b000001, gou = 0b111110;
+        int tri = (st_of[63] == 1 && st_of[fu] == 13 && st_of[gou] == 25);
+        int minnp = 99;
+        for (int s = 0; s < 36; s++){
+            int p = reg_pc(st_canon[s]);
+            if (p != 0 && p != 6 && bal[s] < minnp) minnp = bal[s];
+        }
+        ind[0] = tri && bal[st_of[fu]-1] == minnp && minnp == -4;
+    }
+    /* 1: rs2 — compliant non-zero-balance stations; KW-threshold >= 20 */
+    {
+        int nv = 0;
+        for (int k = 1; k <= 36; k++) nv += viol_s2[k];
+        int val = nz_bal - nv;
+        ind[1] = (val >= 20);
+        if (val > a->reg_max_rs2) a->reg_max_rs2 = val;
+    }
+    /* 2: ccn1 — the 4 all-resonant stations sit exactly at {7,19,24,36} */
+    {
+        unsigned char sst[37] = {0};
+        int cnt = 0;
+        for (int h = 0; h < 64; h++)
+            if (((h ^ (h >> 3)) & 7) == 7){
+                int s = st_of[h];
+                if (!sst[s]){ sst[s] = 1; cnt++; }
+            }
+        ind[2] = (cnt == 4 && sst[7] && sst[19] && sst[24] && sst[36]);
+    }
+    /* 3: ccn2 — doubled Zhen at S29, doubled Xun at S32 (both in lower classic) */
+    ind[3] = (st_of[0b001001] == 29 && st_of[0b110110] == 32);
+    /* 4: ccn3 — stations {3,4,21,22,23,28} all within HD1 of 010101b/101010b */
+    {
+        static const int ss[6] = {3, 4, 21, 22, 23, 28};
+        int ok = 1;
+        for (int i = 0; i < 6 && ok; i++){
+            int c = st_canon[ss[i]-1], r = reg_rev6(c);
+            int mm[2] = {c, r}, nm = (r == c) ? 1 : 2;
+            for (int j = 0; j < nm; j++)
+                if (hamming(mm[j], 0b010101) > 1 && hamming(mm[j], 0b101010) > 1){ ok = 0; break; }
+        }
+        ind[4] = ok;
+    }
+    /* 5: ccn4 — S25-S28 faces: upper trigram Dui(3); lower trigrams [7,0,2,5] */
+    {
+        static const int lt[4] = {7, 0, 2, 5};
+        int ok = 1;
+        for (int i = 0; i < 4; i++){
+            int f = st_canon[24 + i];
+            if (((f >> 3) & 7) != 0b011 || (f & 7) != lt[i]) ok = 0;
+        }
+        ind[5] = ok;
+    }
+    /* 6: ccn6 — upper-classic station-level net yin surplus (108 lines) */
+    {
+        int yang = 0;
+        for (int s = 0; s < 18; s++) yang += reg_pc(st_canon[s]);
+        ind[6] = (yang < 108 - yang);
+    }
+    /* 7: ccn7 — S17 all-Kan, S18 all-Li, S36 trigram multiset == {Kan,Kan,Li,Li} */
+    {
+        int ok17 = 1, ok18 = 1;
+        {
+            int c = st_canon[16], r = reg_rev6(c), nm = (r == c) ? 1 : 2, mm[2] = {c, r};
+            for (int j = 0; j < nm; j++)
+                if ((mm[j] & 7) != 0b010 || ((mm[j] >> 3) & 7) != 0b010) ok17 = 0;
+        }
+        {
+            int c = st_canon[17], r = reg_rev6(c), nm = (r == c) ? 1 : 2, mm[2] = {c, r};
+            for (int j = 0; j < nm; j++)
+                if ((mm[j] & 7) != 0b101 || ((mm[j] >> 3) & 7) != 0b101) ok18 = 0;
+        }
+        int c36 = st_canon[35], r36 = reg_rev6(c36), nm36 = (r36 == c36) ? 1 : 2;
+        int mm36[2] = {c36, r36}, cnt2 = 0, cnt5 = 0, tot = 0;
+        for (int j = 0; j < nm36; j++){
+            int t1 = mm36[j] & 7, t2 = (mm36[j] >> 3) & 7;
+            tot += 2;
+            cnt2 += (t1 == 0b010) + (t2 == 0b010);
+            cnt5 += (t1 == 0b101) + (t2 == 0b101);
+        }
+        ind[7] = (ok17 && ok18 && tot == 4 && cnt2 == 2 && cnt5 == 2);
+    }
+    /* 8: ccn8 — CC-A2 violation set == {25,26} and both also violate R-S2 */
+    {
+        unsigned char va2[37] = {0};
+        int n_a2 = 0;
+        for (int s = 0; s < 36; s++){
+            int p = reg_pc(st_canon[s]);
+            if (p == 0 || p == 3 || p == 6) continue;
+            if ((p < 3) != (((s + 1) & 1) == 1)){ va2[s+1] = 1; n_a2++; }
+        }
+        ind[8] = (n_a2 == 2 && va2[25] && va2[26] && viol_s2[25] && viol_s2[26]);
+    }
+    /* 9: c2011n1 — self-Opposite S7/S30 flanked by Opposite-class pairs
+     *    (S5<->S8, S6<->S9; S29<->S32, S31<->S33); span offset is constant-true */
+    {
+        int c7 = st_canon[6], c30 = st_canon[29];
+        ind[9] = (reg_rev6(c7) == REG_COMP6(c7)
+                  && reg_rev6(c30) == REG_COMP6(c30)
+                  && reg_opp_class(st_canon, 5, 8) && reg_opp_class(st_canon, 6, 9)
+                  && reg_opp_class(st_canon, 29, 32) && reg_opp_class(st_canon, 31, 33));
+    }
+    /* 10: c2011n2 — the 4 self-Opposite stations are exactly [7,10,30,36] */
+    {
+        int pos[5], n = 0;
+        for (int s = 0; s < 36; s++)
+            if (reg_rev6(st_canon[s]) == REG_COMP6(st_canon[s])){
+                if (n < 5) pos[n] = s + 1;
+                n++;
+            }
+        ind[10] = (n == 4 && pos[0] == 7 && pos[1] == 10 && pos[2] == 30 && pos[3] == 36);
+    }
+    /* 11: c2011n4 — (S22,S23) is the unique adjacent non-right Opposite pair */
+    {
+        int nf = 0, at22 = 0;
+        for (int s = 1; s < 36; s++)
+            if (reg_opp_class(st_canon, s, s + 1)){ nf++; if (s == 22) at22 = 1; }
+        ind[11] = (nf == 1 && at22);
+    }
+    /* 12: mmt3 — HD1 transitions between consecutive pair representatives; KW-threshold <= 4 */
+    {
+        int cnt = 0;
+        for (int k = 0; k < 31; k++)
+            if (hamming(seq[2*k], seq[2*k+2]) == 1) cnt++;
+        ind[12] = (cnt <= 4);
+        if (a->reg_min_mmt3 < 0 || cnt < a->reg_min_mmt3) a->reg_min_mmt3 = cnt;
+    }
+    /* 13: mmt4 — 4 palindromic-first pairs all HD6; inversion pairs not all HD6 */
+    {
+        int ncomp = 0, allc6 = 1, allinv6 = 1;
+        for (int k = 0; k < 32; k++){
+            int A = seq[2*k], B = seq[2*k+1];
+            if (reg_rev6(A) == A){ ncomp++; if (hamming(A, B) != 6) allc6 = 0; }
+            else if (hamming(A, B) != 6) allinv6 = 0;
+        }
+        ind[13] = (ncomp == 4 && allc6 && !allinv6);
+    }
+    /* 14: mmt5 — trigram family order [7,0,1,6,2,5,4,3] in no 8-window; KW-threshold == 0 */
+    {
+        static const int fam[8] = {7, 0, 1, 6, 2, 5, 4, 3};
+        int cnt = 0;
+        for (int i = 0; i < 57; i++){
+            int ok = 1;
+            for (int j = 0; j < 8; j++)
+                if ((seq[i+j] & 7) != fam[j]){ ok = 0; break; }
+            cnt += ok;
+        }
+        ind[14] = (cnt <= 0);
+    }
+    /* 15: mmt6 — no 4-pair window of all-HD1 representative transitions; KW-threshold == 0 */
+    {
+        int cnt = 0;
+        for (int k = 0; k < 29; k++){
+            int ok = 1;
+            for (int j = 0; j < 3; j++)
+                if (hamming(seq[2*(k+j)], seq[2*(k+j+1)]) != 1){ ok = 0; break; }
+            cnt += ok;
+        }
+        ind[15] = (cnt <= 0);
+    }
+    /* 16: p1c4 — the 4 dual (rev==comp) pairs placed as non-palindromic Inverse pairs */
+    {
+        int nd = 0, ok = 1;
+        for (int k = 0; k < 32; k++){
+            int A = seq[2*k], B = seq[2*k+1];
+            if (reg_rev6(A) == REG_COMP6(A) && reg_rev6(B) == REG_COMP6(B)){
+                nd++;
+                if (reg_rev6(A) != B) ok = 0;
+                if (reg_rev6(A) == A || reg_rev6(B) == B) ok = 0;
+            }
+        }
+        ind[16] = (nd == 4 && ok);
+    }
+    /* 17: p2c3 — raw remainders 8/8 (Parts of 30/34), consolidated remainders 4/4 */
+    {
+        int ya = 0, yb = 0, ca = 0, cb = 0;
+        for (int i = 0; i < 30; i++) ya += reg_pc(seq[i]);
+        for (int i = 30; i < 64; i++) yb += reg_pc(seq[i]);
+        for (int s = 0; s < 18; s++) ca += reg_pc(st_canon[s]);
+        for (int s = 18; s < 36; s++) cb += reg_pc(st_canon[s]);
+        ind[17] = ((180 - ya) - ya == 8 && yb - (204 - yb) == 8
+                   && (108 - ca) - ca == 4 && cb - (108 - cb) == 4);
+    }
+    /* 18: p2c4 — median pairs are Tai/Pi at slots 10-11 and Sun/Yi at slots 40-41
+     *     (the 60-line interval arithmetic is position-fixed / constant-true) */
+    ind[18] = (((seq[10] == 0b000111 && seq[11] == 0b111000)
+                || (seq[10] == 0b111000 && seq[11] == 0b000111))
+               && ((seq[40] == 0b100011 && seq[41] == 0b110001)
+                   || (seq[40] == 0b110001 && seq[41] == 0b100011)));
+    /* 19: p2c5 — both Part closures decompose into {Kan,Li} trigrams only */
+    {
+        int cl[4] = {seq[28], seq[29], seq[62], seq[63]}, ok = 1;
+        for (int i = 0; i < 4; i++){
+            int lo = cl[i] & 7, hi = (cl[i] >> 3) & 7;
+            if ((lo != 0b010 && lo != 0b101) || (hi != 0b010 && hi != 0b101)) ok = 0;
+        }
+        ind[19] = ok;
+    }
+    /* 20: p2c6 — median pair trigram-swaps the head pair in each Part */
+    {
+        int ht = (1 << (seq[0] & 7)) | (1 << ((seq[0] >> 3) & 7))
+               | (1 << (seq[1] & 7)) | (1 << ((seq[1] >> 3) & 7));
+        int mt = (1 << (seq[10] & 7)) | (1 << ((seq[10] >> 3) & 7))
+               | (1 << (seq[11] & 7)) | (1 << ((seq[11] >> 3) & 7));
+        int sw10 = ((seq[10] & 7) << 3) | ((seq[10] >> 3) & 7);
+        int sw30 = ((seq[30] & 7) << 3) | ((seq[30] >> 3) & 7);
+        int sw31 = ((seq[31] & 7) << 3) | ((seq[31] >> 3) & 7);
+        ind[20] = (mt == ht && sw10 == seq[11]
+                   && seq[10] != seq[0] && seq[10] != seq[1]
+                   && sw30 == seq[40] && sw31 == seq[41]);
+    }
+    /* 21: d4 — doubled Kan/Li close Part 1, Ji-ji/Wei-ji close Part 2 (+ p2c5) */
+    ind[21] = (seq[28] == 0b010010 && seq[29] == 0b101101
+               && seq[62] == 0b010101 && seq[63] == 0b101010 && ind[19]);
+    /* 22: d7 — xiaoxi count in Drasny group-B slots; KW-threshold >= 8 */
+    {
+        /* xiaoxi: (1<<k)-1 for k=1..6 plus complements = {1,3,7,15,31,63, 62,60,56,48,32,0} */
+        uint64_t xw = 0;
+        for (int k = 1; k <= 6; k++){
+            xw |= 1ULL << ((1 << k) - 1);
+            xw |= 1ULL << (REG_COMP6((1 << k) - 1));
+        }
+        static const int bsl[8] = {18, 19, 22, 23, 32, 33, 42, 43};
+        int cnt = 0;
+        for (int i = 0; i < 8; i++) cnt += (int)((xw >> seq[bsl[i]]) & 1ULL);
+        ind[22] = (cnt >= 8);
+        if (cnt > a->reg_max_d7) a->reg_max_d7 = cnt;
+    }
+    /* 23: s1 — complement pairs XOR to 63; inversion pairs XOR to palindromes */
+    {
+        int nc = 0, okc = 1, oki = 1;
+        for (int k = 0; k < 32; k++){
+            int A = seq[2*k], B = seq[2*k+1], x = A ^ B;
+            if (reg_rev6(A) == A){ nc++; if (x != 63) okc = 0; }
+            else if (reg_rev6(x) != x) oki = 0;
+        }
+        ind[23] = (nc == 4 && okc && oki);
+    }
+    /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev */
+    {
+        int within = 1, s4rev = 1;
+        for (int k = 0; k < 32; k++){
+            int A = seq[2*k], B = seq[2*k+1];
+            int cA = REG_COMP6(A), rA = reg_rev6(A), crA = REG_COMP6(rA);
+            if (!(B == A || B == cA || B == rA || B == crA)) within = 0;
+            if (rA != A && rA != cA && rA != B) s4rev = 0;  /* size-4 orbit, not rev-paired */
+        }
+        int c48 = 0;
+        for (int h = 0; h < 64; h++)
+            if (reg_rev6(h) != h && reg_rev6(h) != REG_COMP6(h)) c48++;
+        ind[24] = (within && s4rev && c48 / 4 == 12);
+    }
+    /* 25: m2 — Kan density slots 1-8 > slots 33-64 (per-slot); Li raw count 2nd half > 1st */
+    {
+        int ke = 0, kl = 0, lf = 0, ls = 0;
+        for (int i = 0; i < 8; i++)  ke += ((seq[i] & 7) == 0b010) + (((seq[i] >> 3) & 7) == 0b010);
+        for (int i = 32; i < 64; i++) kl += ((seq[i] & 7) == 0b010) + (((seq[i] >> 3) & 7) == 0b010);
+        for (int i = 0; i < 32; i++)  lf += ((seq[i] & 7) == 0b101) + (((seq[i] >> 3) & 7) == 0b101);
+        for (int i = 32; i < 64; i++) ls += ((seq[i] & 7) == 0b101) + (((seq[i] >> 3) & 7) == 0b101);
+        ind[25] = (ke * 4 > kl && ls > lf);   /* ke/16 > kl/64  <=>  4*ke > kl */
+    }
+    /* 26: r3 — the 4 anti-symmetric pairs rev-paired with intra-pair HD 6 */
+    {
+        int na = 0, ok = 1;
+        for (int k = 0; k < 32; k++){
+            int A = seq[2*k], B = seq[2*k+1];
+            if (reg_rev6(A) == REG_COMP6(A) && reg_rev6(B) == REG_COMP6(B)){
+                na++;
+                if (!(B == reg_rev6(A) && reg_rev6(A) == REG_COMP6(A))) ok = 0;
+                if (hamming(A, B) != 6) ok = 0;
+            }
+        }
+        ind[26] = (na == 4 && ok);
+    }
+    /* 27+28: r4 — total pairing Hamming cost, KW-threshold <= 120 (optimality direction);
+     *        r5 — hw-preservation failures are exactly the 4 palindrome-complement pairs, cost == 120 */
+    {
+        int total = 0;
+        for (int k = 0; k < 32; k++) total += hamming(seq[2*k], seq[2*k+1]);
+        ind[27] = (total <= 120);
+        int nf = 0, ok = 1;
+        for (int k = 0; k < 32; k++){
+            int A = seq[2*k], B = seq[2*k+1];
+            if (reg_pc(A) != reg_pc(B)){
+                nf++;
+                if (!(reg_rev6(A) == A && B == REG_COMP6(A))) ok = 0;
+            }
+        }
+        ind[28] = (nf == 4 && ok && total == 120);
+    }
+    /* 29: c1 — sum over 16 groups of 4 of |yang_lines - 12|; KW-threshold <= 24 */
+    {
+        int dev = 0;
+        for (int g = 0; g < 64; g += 4){
+            int y = reg_pc(seq[g]) + reg_pc(seq[g+1]) + reg_pc(seq[g+2]) + reg_pc(seq[g+3]);
+            dev += (y > 12) ? (y - 12) : (12 - y);
+        }
+        ind[29] = (dev <= 24);
+        if (a->reg_min_c1 < 0 || dev < a->reg_min_c1) a->reg_min_c1 = dev;
+    }
+    /* 30: c2 — intra-pair HD histogram == KW's ((2,12),(4,12),(6,8)) */
+    {
+        int hist[7] = {0};
+        for (int k = 0; k < 32; k++) hist[hamming(seq[2*k], seq[2*k+1])]++;
+        ind[30] = (hist[0] == 0 && hist[1] == 0 && hist[2] == 12 && hist[3] == 0
+                   && hist[4] == 12 && hist[5] == 0 && hist[6] == 8);
+    }
+
+    for (int i = 0; i < 31; i++)
+        if (ind[i]) a->sum_reg[i] += W;
+}
 
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
@@ -4939,6 +5379,7 @@ static void *knuth_worker(void *vp){
                         int wd5 = hamming(seq[63], seq[0]);
                         if (wd5 >= 0 && wd5 <= 6) a->sum_wrap[wd5] += W;
                     }
+                    if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -5070,10 +5511,12 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].start_step=start_step;
         arg[i].n_probes = per + (i==0 ? n_total%(uint64_t)nthreads : 0);
         arg[i].min_rm2 = -1;
+        arg[i].reg_min_mmt3 = -1; arg[i].reg_min_c1 = -1;
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
+    double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
@@ -5084,6 +5527,11 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
         for (int b2=0;b2<31;b2++) sBC[b2]+=arg[i].sum_bcond[b2];
         for (int w2=0;w2<7;w2++) sWR[w2]+=arg[i].sum_wrap[w2];
+        for (int r2=0;r2<31;r2++) sREG[r2]+=arg[i].sum_reg[r2];
+        if (arg[i].reg_max_rs2 > mxRS2) mxRS2 = arg[i].reg_max_rs2;
+        if (arg[i].reg_min_mmt3 >= 0 && (mnMT3 < 0 || arg[i].reg_min_mmt3 < mnMT3)) mnMT3 = arg[i].reg_min_mmt3;
+        if (arg[i].reg_max_d7 > mxD7) mxD7 = arg[i].reg_max_d7;
+        if (arg[i].reg_min_c1 >= 0 && (mnC1 < 0 || arg[i].reg_min_c1 < mnC1)) mnC1 = arg[i].reg_min_c1;
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double dN=(double)N;
@@ -5113,6 +5561,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
         printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f (odd-only per theorem; circular-C2 price = d5 mass)\n",
                sWR[1]/sC, sWR[3]/sC, sWR[5]/sC);
+    }
+    if (knuth_score_reg && sC > 0) {
+        /* CANDIDATE_REGISTRY_2026_07 rules at KW-threshold form (ground truth: solve.py reg_*;
+         * attribution per rule in the score_registry comment block + CITATIONS.md). */
+        for (int r2 = 0; r2 < 31; r2++)
+            printf("  [reg %02d %-7s] : %.8f of canonical mass\n", r2 + 1, reg_rule_ids[r2], sREG[r2]/sC);
+        printf("  [reg extremes] rs2 max compliant seen = %d (KW 20) | mmt3 min Gray transitions seen = %d (KW 4) | d7 max xiaoxi-in-B seen = %d (KW 8) | c1 min deviation seen = %d (KW 24)\n",
+               mxRS2, mnMT3, mxD7, mnC1);
     }
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
@@ -9338,6 +9794,29 @@ static void run_c3_min(const char *filename) {
 int main(int argc, char *argv[]) {
     /* #165 deterministic eviction-injection hook (test-only; see g_kill_after_nodes). */
     { const char *e = getenv("SOLVE_KILL_AFTER_NODES"); if (e && *e) g_kill_after_nodes = atoll(e); }
+    /* Candidate-registry cross-verification hook (test-only, estimator-independent):
+     * SOLVE_KNUTH_SCORE_REG=2 + SOLVE_REG_TESTVEC="h0,h1,...,h63" -> evaluate
+     * score_registry on the explicit sequence with W=1, print the 31 rule
+     * indicators (0/1, comma-separated, REGISTRY_KW_EXPECTED order), exit.
+     * Used to gate the C port against solve.py reg_* ground truth. Sha-neutral. */
+    { const char *tv = getenv("SOLVE_REG_TESTVEC");
+      const char *kr = getenv("SOLVE_KNUTH_SCORE_REG");
+      if (tv && kr && atoi(kr) == 2) {
+          int tseq[64], n = 0;
+          const char *p = tv;
+          while (*p && n < 64) {
+              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
+              else p++;
+          }
+          if (n != 64) { fprintf(stderr, "SOLVE_REG_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          KnuthArg ta; memset(&ta, 0, sizeof(ta));
+          ta.min_rm2 = -1; ta.reg_min_mmt3 = -1; ta.reg_min_c1 = -1;
+          score_registry(tseq, 1.0, &ta);
+          for (int i = 0; i < 31; i++)
+              printf("%d%s", ta.sum_reg[i] > 0.5 ? 1 : 0, i < 30 ? "," : "\n");
+          return 0;
+      }
+    }
     /* Check for single-branch mode */
     int single_branch_mode = 0;
     int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */
@@ -10478,6 +10957,10 @@ int main(int argc, char *argv[]) {
         if (getenv("SOLVE_KNUTH_SCORE") && atoi(getenv("SOLVE_KNUTH_SCORE")) == 1) {
             knuth_score = 1;
             fprintf(stderr, "[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)\n");
+        }
+        if (getenv("SOLVE_KNUTH_SCORE_REG") && atoi(getenv("SOLVE_KNUTH_SCORE_REG")) >= 1) {
+            knuth_score_reg = 1;
+            fprintf(stderr, "[knuth] candidate-registry scoring ACTIVE (31 rules, CANDIDATE_REGISTRY_2026_07 at KW-threshold form; ground truth solve.py reg_*)\n");
         }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
