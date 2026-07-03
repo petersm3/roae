@@ -73,8 +73,8 @@ box.
   ```
   → `10/100000 = 0.00010` (fraction of uniformly-sampled pair-preserving orderings matching KW's
   Schulz-gender compliance level, ≤2 violations; ~5 s at 10⁵ samples on 2 cores, ~8 min at 10⁷).
-  This is the pair-null quantity; the published ×11,364 (C1–C5 mass fraction) reproduces via TR-1's
-  registry pipeline (`solve.py --registry-verify` gates + the population run in TR-1's Verification
+  This is the pair-null quantity; the published ×11,364 (C1–C5 mass fraction) reproduces via [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s
+  registry pipeline (`solve.py --registry-verify` gates + the population run in [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s Verification
   Guide; per-rule record in LITERATURE_RULES_POPULATION_TESTS.md).
 - "Is the Gray-code theorem yours?" -> elementary; stated with humility; Lean-checked file in repo.
 - "Why should PEW publish computation?" -> because the 1979 claims were published here and are now

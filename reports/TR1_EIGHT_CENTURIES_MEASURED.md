@@ -1,4 +1,4 @@
-# TR-1 — Eight Centuries of Rules, Measured: the Population Scoreboard
+# [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) — Eight Centuries of Rules, Measured: the Population Scoreboard
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -84,7 +84,7 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    6.7×10⁻² · p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8)
    · s1 **1.0** · s6 **1.0** · m2 8.0×10⁻² · r3 **1.0** · r4 **1.0** · r5 **1.0** · c1 6.6×10⁻² (min
    deviation seen 4 vs KW 24) · c2 **1.0**. Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, d5 = 17.4% of
-   the full space (the 560T slice contains zero d5 records in 10.5B — see TR-7 / CIRCULAR_KING_WEN.md).
+   the full space (the 560T slice contains zero d5 records in 10.5B — see [TR-7](TR7_CIRCULAR_READING.md) / CIRCULAR_KING_WEN.md).
 4. **SAT-decided exactness: the precursors and the 3-edit events.** Population fractions are statistical; a
    SAT layer (`sat.py`, encoding derived from solve.py's constraint definitions, external kissat solver,
    DRAT certificates) adds *exact* decisions. (a) **Moore's conjectured fully-compliant ordering exists —
@@ -149,7 +149,7 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    specification, not principle; none of these rules, singly or jointly, approaches uniqueness (the full
    C1–C7 space holds ≈5.2×10³¹ orderings). Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
-   description-length and attestation recorded for each (see TR-9).
+   description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
 
 ## Verification Guide
 - Population fractions, both waves: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`

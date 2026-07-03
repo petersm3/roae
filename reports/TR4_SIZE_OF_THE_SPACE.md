@@ -1,4 +1,4 @@
-# TR-4 — The Size of the Space: Measurement, the Uniqueness Conjecture, and the Boundary-Information Curve
+# [TR-4](TR4_SIZE_OF_THE_SPACE.md) — The Size of the Space: Measurement, the Uniqueness Conjecture, and the Boundary-Information Curve
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).

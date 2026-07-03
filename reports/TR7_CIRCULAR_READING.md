@@ -1,4 +1,4 @@
-# TR-7 — The Circular Reading
+# [TR-7](TR7_CIRCULAR_READING.md) — The Circular Reading
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).

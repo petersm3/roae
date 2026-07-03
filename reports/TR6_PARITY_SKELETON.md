@@ -1,4 +1,4 @@
-# TR-6 — The Parity Skeleton: One Theorem, Three Verifications
+# [TR-6](TR6_PARITY_SKELETON.md) — The Parity Skeleton: One Theorem, Three Verifications
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).

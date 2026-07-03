@@ -1,4 +1,4 @@
-# TR-9 — Pricing the Constraints: Description-Length Accounting
+# [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) — Pricing the Constraints: Description-Length Accounting
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -64,7 +64,7 @@ explicit.
    tractable) but explains nothing: it is confirmed description of King Wen, not explanation. **C3** is
    circular: its threshold (776) is KW's own value, so its 3.0 marginal bits are priced as data and not
    claimed. **C6/C7** pin four slots — definitionally break-even. The strongest literature rule (the
-   Schulz gender rule, ×11,364 — see TR-1) prices at ~13.5 bits gross against ~10–15 bits of rule text:
+   Schulz gender rule, ×11,364 — see [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)) prices at ~13.5 bits gross against ~10–15 bits of rule text:
    ≈ 0 to small positive.
 4. **The residual — the honest thesis.** Knowing everything structural in this table, the sequence retains
    **log₂|C1–C7| = 105.4 bits** of unexplained information; on the defensible subset (dropping circular
@@ -104,7 +104,7 @@ explicit.
 - C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib); within-pair
   distance cross-check 2×12 + 4×12 + 6×8 = 120 per documentation/CITATIONS.md §Radisic 2026
 - Circularity pricing of C3: documentation/CRITIQUE.md Q1
-- Schulz gender rule gross bits: ×11,364 ≈ 13.5 bits — companion registry, TR-1 /
+- Schulz gender rule gross bits: ×11,364 ≈ 13.5 bits — companion registry, [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) /
   documentation/LITERATURE_RULES_POPULATION_TESTS.md
 - Arithmetic spot-checks: log₂ 64! = 296.0; log₂(31!·2³¹) = 143.7; log₂ C(68,5) = 23.3 (all reproducible
   in three lines of Python)

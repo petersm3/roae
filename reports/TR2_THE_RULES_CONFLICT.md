@@ -52,7 +52,7 @@ trade-off among competing regularities — precisely the reading Schulz proposed
 
 ### Commands
 All targets are in the public repo's `sat.py` (encoding derived from solve.py's constraint
-definitions; TR-1's Verification Guide carries the full kit; environment/versions per METHODS.md).
+definitions; [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s Verification Guide carries the full kit; environment/versions per METHODS.md).
 Every verdict below was re-verified 2026-07-03 on a 2-core box; each command completes in seconds
 (kissat on PATH required for `--witness`).
 - **Grand precursor exists (abstract claims 1–2; §3):** `python3 sat.py --witness grand-strict` →

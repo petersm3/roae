@@ -1,4 +1,4 @@
-# TR-3 — Reproducible Combinatorial Enumeration at Scale on Preemptible Cloud Instances
+# [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) — Reproducible Combinatorial Enumeration at Scale on Preemptible Cloud Instances
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
