@@ -4793,6 +4793,12 @@ typedef struct {
     double f4p_sum[13];                   /* weighted sum of each functional's value over canonical leaves */
     double f4p_below[13], f4p_at[13], f4p_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
     int f4p_min[13], f4p_max[13];         /* min/max functional value seen across canonical leaves */
+    double *dav_hist;                     /* SOLVE_KNUTH_SCORE_DAV=1: [9*64] weighted value histogram per
+                                           * Davis-2012 candidate (heap-allocated only when active) */
+    double dav_sum[9];                    /* weighted sum of each candidate's value over canonical leaves */
+    double dav_below[9], dav_at[9], dav_above[9];  /* weighted mass <KW / ==KW / >KW per candidate
+                                           * (booleans: at-mass with kw=1 == mass-of-TRUE) */
+    int dav_min[9], dav_max[9];           /* min/max candidate value seen across canonical leaves */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -5457,6 +5463,228 @@ static void score_f4p(const int seq[64], double W, KnuthArg *a){
     }
 }
 
+/* ===================== Davis (2012) composite candidates (SOLVE_KNUTH_SCORE_DAV) =====================
+ * C port of the 9 pre-registered Davis composite candidate scorers in solve.py
+ * (functions dav_*; registered 2026-07-04 in documentation/CRITIQUE.md "Davis
+ * (2012) structural claims" BEFORE any population measurement; operational
+ * spec frozen in roae-private/books/davis/DAVIS_2012_STRUCTURAL_AUDIT.md §5).
+ * solve.py is the SPEC; the --dav-verify subcommand is the two-language gate
+ * (byte-identical output on KW). Estimator-only, sha-neutral: active only
+ * under SOLVE_KNUTH_SCORE_DAV=1 / --dav-verify; zero effect on enum paths.
+ *
+ * ATTRIBUTION: every structural claim is Scott Davis's (*The Classic of
+ * Changes in Cultural Context*, Cambria Press, 2012); the operationalizations
+ * + population measurement over C1-C5 space are ROAE's (see CITATIONS.md):
+ *   1 termruns     C-D22 terminal-pair one-line-neighborhood run count (pp. 141, 251-255)
+ *   2 compmirror   C-D4  complement-mirror 10-window count (pp. 81-82, 92)
+ *   3 trigarray    C-D15 regular-trigram-array 8-window count (pp. 76-77, 112)
+ *   4 parallel3040 C-D16 30s/40s parallel + Kan/Li chiasmus, boolean (pp. 78, 253-254)
+ *   5 palnbr       C-D13 palindrome-neighborhood adjacency mass (pp. 107, 121-128)
+ *   6 rotinv       C-D3  rotation==inversion exact-set placement, boolean (p. 68)
+ *   7 pureplace    C-D17 pure-hexagram placement, boolean (pp. 80, 82, 183)
+ *   8 eccplace     C-D12+C-D20 eccentric-class placement, boolean (pp. 121, 124-125, 172, 211)
+ *   9 asymhalf     C-D8  both-asym-trigram count in positions 1-30 (pp. 111-112, 126) */
+
+static int knuth_score_dav = 0; /* SOLVE_KNUTH_SCORE_DAV=1: per-leaf weighted scoring of the 9 Davis
+                                 * composite candidates (see block above). Estimator-only, sha-neutral. */
+
+static const char *dav_names[9] = {
+    "termruns", "compmirror", "trigarray", "parallel3040", "palnbr",
+    "rotinv", "pureplace", "eccplace", "asymhalf"
+};
+/* KW expected values — ground truth solve.py DAV_KW_EXPECTED (KW-verified vs audit) */
+static const int dav_kw[9] = {3, 1, 1, 1, 10, 1, 1, 1, 4};
+/* Static value bounds (all ranges <= 58, so exact-value bins; stride 64) */
+static const int dav_lo[9] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
+static const int dav_hi[9] = {12, 28, 57, 1, 24, 1, 1, 1, 16};
+
+static inline int dav_symtri(int t){ return (0xA5 >> t) & 1; }  /* t==rev3(t): {0,2,5,7} */
+
+/* Compute all 9 Davis candidates on one ordering (spec: solve.py dav_*). */
+static void dav_compute(const int seq[64], int v[9]){
+    int pos[64];
+    for (int i = 0; i < 64; i++) pos[seq[i]] = i;
+    /* 1. termruns: maximal contiguous position-runs of the 12 one-line
+     * modifications of the final two hexagrams */
+    {
+        int mark[64] = {0};
+        for (int b = 0; b < 6; b++){
+            mark[pos[seq[62] ^ (1 << b)]] = 1;
+            mark[pos[seq[63] ^ (1 << b)]] = 1;
+        }
+        int runs = 0, prev = 0;
+        for (int i = 0; i < 64; i++){ if (mark[i] && !prev) runs++; prev = mark[i]; }
+        v[0] = runs;
+    }
+    /* 2. compmirror: pair-aligned 10-windows with complement-mirror symmetry
+     * about the center pair (pair-slot level: comp{slot s}=={slot s+3},
+     * comp{slot s+1}=={slot s+4}, center slot internally comp-paired) */
+    {
+        int n = 0;
+        for (int s = 0; s < 28; s++){
+            const int *w = seq + 2*s;
+            int c0 = w[0]^63, c1 = w[1]^63, c2 = w[2]^63, c3 = w[3]^63;
+            if (((c0==w[6] && c1==w[7]) || (c0==w[7] && c1==w[6])) &&
+                ((c2==w[8] && c3==w[9]) || (c2==w[9] && c3==w[8])) &&
+                (w[4]^63) == w[5]) n++;
+        }
+        v[1] = n;
+    }
+    /* 3. trigarray: 8-windows forming the Davis regular trigram array
+     * (one sym + one asym trigram per hexagram; sym in doubled blocks
+     * covering all 4 sym trigrams; asym strictly 2-alternating; sym
+     * vertical placement strictly alternating) */
+    {
+        int n = 0;
+        for (int a = 0; a < 57; a++){
+            int st[8], vp[8], as[8], ok = 1;
+            for (int i = 0; i < 8; i++){
+                int h = seq[a+i], lo = h & 7, up = (h >> 3) & 7;
+                int slo = dav_symtri(lo), sup = dav_symtri(up);
+                if (slo == sup){ ok = 0; break; }
+                st[i] = slo ? lo : up; vp[i] = slo ? 0 : 1; as[i] = slo ? up : lo;
+            }
+            if (!ok) continue;
+            for (int i = 0; i < 4 && ok; i++) if (st[2*i] != st[2*i+1]) ok = 0;
+            if (ok){
+                unsigned cover = 0;
+                for (int i = 0; i < 4; i++) cover |= 1u << st[2*i];
+                if (cover != ((1u<<0)|(1u<<2)|(1u<<5)|(1u<<7))) ok = 0;
+            }
+            if (ok && as[0] == as[1]) ok = 0;
+            for (int i = 2; i < 8 && ok; i++) if (as[i] != as[i-2]) ok = 0;
+            for (int i = 1; i < 8 && ok; i++) if (vp[i] == vp[i-1]) ok = 0;
+            if (ok) n++;
+        }
+        v[2] = n;
+    }
+    /* 4. parallel3040 (boolean): head pairs at slot distance 5 comp-linked
+     * element-wise + audit-verified sym-trigram chiasmus template on
+     * positions 33-40 vs 43-50 (Kan/Li crossed) */
+    {
+        int okv = ((seq[30]^63) == seq[40]) && ((seq[31]^63) == seq[41]);
+        /* per-position (first,second) sym trigram over (lower,upper) order; -1 = absent */
+        static const signed char ta[8][2] = {{7,-1},{7,-1},{0,5},{5,0},{5,-1},{5,-1},{2,-1},{2,-1}};
+        static const signed char tb[8][2] = {{7,-1},{7,-1},{0,-1},{0,-1},{2,-1},{2,-1},{5,-1},{5,-1}};
+        for (int i = 0; i < 8 && okv; i++){
+            int h = seq[32+i], lo = h & 7, up = (h >> 3) & 7;
+            signed char got[2] = {-1, -1}; int ng = 0;
+            if (dav_symtri(lo)) got[ng++] = (signed char)lo;
+            if (dav_symtri(up)) got[ng++] = (signed char)up;
+            if (got[0] != ta[i][0] || got[1] != ta[i][1]) okv = 0;
+        }
+        for (int i = 0; i < 8 && okv; i++){
+            int h = seq[42+i], lo = h & 7, up = (h >> 3) & 7;
+            signed char got[2] = {-1, -1}; int ng = 0;
+            if (dav_symtri(lo)) got[ng++] = (signed char)lo;
+            if (dav_symtri(up)) got[ng++] = (signed char)up;
+            if (got[0] != tb[i][0] || got[1] != tb[i][1]) okv = 0;
+        }
+        v[3] = okv;
+    }
+    /* 5. palnbr: sum over the 4 non-pure palindromic hexagrams of one-line
+     * neighbors within +-4 pair-slots of the palindrome's pair-slot */
+    {
+        static const int np[4] = {0x21, 0x1E, 0x33, 0x0C};  /* KW #27 #28 #61 #62 */
+        int tot = 0;
+        for (int k = 0; k < 4; k++){
+            int s0 = pos[np[k]] / 2;
+            for (int b = 0; b < 6; b++){
+                int ds = pos[np[k] ^ (1 << b)] / 2 - s0;
+                if (ds < 0) ds = -ds;
+                if (ds <= 4) tot++;
+            }
+        }
+        v[4] = tot;
+    }
+    /* 6. rotinv (boolean): the 8-member class {h: rev6(h)==comp6(h),
+     * rev6(h)!=h} occupies positions {11,12,17,18,53,54,63,64} (membership
+     * check == exact-set: the class has exactly 8 members, pos is injective) */
+    {
+        int okv = 1;
+        for (int h = 0; h < 64 && okv; h++){
+            int r = reg_rev6(h);
+            if (r == (h ^ 63) && r != h){
+                int p = pos[h] + 1;
+                if (!(p==11||p==12||p==17||p==18||p==53||p==54||p==63||p==64)) okv = 0;
+            }
+        }
+        v[5] = okv;
+    }
+    /* 7. pureplace (boolean): sym-doubled hexagrams at {1,2,29,30}; the 4
+     * asym-doubled all within one decade (10d+1..10d+10, d<=5) straddling
+     * its 5/6 center */
+    {
+        int okv = 1;
+        uint64_t got = 0;
+        static const int symd[4] = {0, (2<<3)|2, (5<<3)|5, 63};
+        static const int asyd[4] = {(1<<3)|1, (3<<3)|3, (4<<3)|4, (6<<3)|6};
+        for (int k = 0; k < 4; k++) got |= 1ull << pos[symd[k]];
+        if (got != ((1ull<<0)|(1ull<<1)|(1ull<<28)|(1ull<<29))) okv = 0;
+        int mn = 64, mx = 0;
+        for (int k = 0; k < 4; k++){
+            int p = pos[asyd[k]] + 1;
+            if (p < mn) mn = p;
+            if (p > mx) mx = p;
+        }
+        int d = (mn - 1) / 10;
+        if (mx > 10*d + 10 || mx > 60) okv = 0;
+        if (!(mn <= 10*d + 5 && mx >= 10*d + 6)) okv = 0;
+        v[6] = okv;
+    }
+    /* 8. eccplace (boolean): E34 (rotation changes lines 3/4 only) at
+     * pair-slots {5,8,11,24}; E16 (lines 1/6 only) at slots {12,22,28,30};
+     * extreme-ratio E16 subset at positions {23,24,43,44} (membership ==
+     * exact set: 8 members / 4 slots, 2 positions per slot) */
+    {
+        int okv = 1;
+        for (int h = 0; h < 64 && okv; h++){
+            int r = reg_rev6(h);
+            if (r == h) continue;
+            int x = h ^ r, s = pos[h] / 2 + 1;
+            if ((x & 0x33) == 0 && !(s==5||s==8||s==11||s==24)) okv = 0;   /* E34: lines 3/4 = bits 2/3 free */
+            if ((x & 0x1E) == 0 && !(s==12||s==22||s==28||s==30)) okv = 0; /* E16: lines 1/6 = bits 0/5 free */
+        }
+        if (okv){
+            static const int ext[4] = {0x20, 0x01, 0x1F, 0x3E};
+            for (int k = 0; k < 4; k++){
+                int p = pos[ext[k]] + 1;
+                if (!(p==23||p==24||p==43||p==44)) okv = 0;
+            }
+        }
+        v[7] = okv;
+    }
+    /* 9. asymhalf: both-asym-trigram hexagrams among positions 1-30 */
+    {
+        int n = 0;
+        for (int i = 0; i < 30; i++)
+            if (!dav_symtri(seq[i] & 7) && !dav_symtri((seq[i] >> 3) & 7)) n++;
+        v[8] = n;
+    }
+}
+
+/* Evaluate the 9 Davis candidates on one canonical leaf; accumulate weighted
+ * histogram (exact-value bins, stride 64), sum, min/max, below/at/above-KW. */
+static void score_dav(const int seq[64], double W, KnuthArg *a){
+    int v[9];
+    dav_compute(seq, v);
+    for (int k = 0; k < 9; k++){
+        int x = v[k];
+        a->dav_sum[k] += W * (double)x;
+        if (x < a->dav_min[k]) a->dav_min[k] = x;
+        if (x > a->dav_max[k]) a->dav_max[k] = x;
+        if      (x < dav_kw[k]) a->dav_below[k] += W;
+        else if (x == dav_kw[k]) a->dav_at[k]   += W;
+        else                     a->dav_above[k] += W;
+        if (a->dav_hist){
+            int b = x - dav_lo[k];
+            if (b < 0) b = 0;
+            if (b > dav_hi[k] - dav_lo[k]) b = dav_hi[k] - dav_lo[k];
+            a->dav_hist[k * 64 + b] += W;
+        }
+    }
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -5590,6 +5818,7 @@ static void *knuth_worker(void *vp){
                     }
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
+                    if (knuth_score_dav) score_dav(seq, W, a);
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -5726,6 +5955,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].f4p_hist = (double*)calloc(13 * 512, sizeof(double));
             for (int k2 = 0; k2 < 13; k2++){ arg[i].f4p_min[k2] = INT_MAX; arg[i].f4p_max[k2] = INT_MIN; }
         }
+        if (knuth_score_dav) {
+            arg[i].dav_hist = (double*)calloc(9 * 64, sizeof(double));
+            for (int k2 = 0; k2 < 9; k2++){ arg[i].dav_min[k2] = INT_MAX; arg[i].dav_max[k2] = INT_MIN; }
+        }
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
@@ -5765,6 +5998,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             if (f4pH && arg[i].f4p_hist)
                 for (int b2 = 0; b2 < 13 * 512; b2++) f4pH[b2] += arg[i].f4p_hist[b2];
             free(arg[i].f4p_hist); arg[i].f4p_hist = NULL;
+        }
+    }
+    double davS[9]={0}, davBel[9]={0}, davAt[9]={0}, davAbv[9]={0}, *davH = NULL;
+    int davMin[9], davMax[9];
+    if (knuth_score_dav) {
+        davH = (double*)calloc(9 * 64, sizeof(double));
+        for (int k2 = 0; k2 < 9; k2++){ davMin[k2] = INT_MAX; davMax[k2] = INT_MIN; }
+        for (int i = 0; i < nthreads; i++){
+            for (int k2 = 0; k2 < 9; k2++){
+                davS[k2]   += arg[i].dav_sum[k2];
+                davBel[k2] += arg[i].dav_below[k2];
+                davAt[k2]  += arg[i].dav_at[k2];
+                davAbv[k2] += arg[i].dav_above[k2];
+                if (arg[i].dav_min[k2] < davMin[k2]) davMin[k2] = arg[i].dav_min[k2];
+                if (arg[i].dav_max[k2] > davMax[k2]) davMax[k2] = arg[i].dav_max[k2];
+            }
+            if (davH && arg[i].dav_hist)
+                for (int b2 = 0; b2 < 9 * 64; b2++) davH[b2] += arg[i].dav_hist[b2];
+            free(arg[i].dav_hist); arg[i].dav_hist = NULL;
         }
     }
     double dN=(double)N;
@@ -5821,6 +6073,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                f4p_names[k2], f4p_bin_lo(k2, b2), f4pH[k2 * 512 + b2]/sC);
     }
     free(f4pH);
+    if (knuth_score_dav && sC > 0) {
+        /* Davis-2012 composite candidates (ground truth solve.py dav_*;
+         * attribution in the dav comment block + CITATIONS.md; masses =
+         * fraction of canonical mass; boolean candidates (kw=1): at-mass
+         * = mass-of-TRUE). */
+        for (int k2 = 0; k2 < 9; k2++)
+            printf("  [dav %d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+                   k2 + 1, dav_names[k2], davS[k2]/sC,
+                   davMin[k2] == INT_MAX ? 0 : davMin[k2],
+                   davMax[k2] == INT_MIN ? 0 : davMax[k2],
+                   dav_kw[k2], davBel[k2]/sC, davAt[k2]/sC, davAbv[k2]/sC);
+        if (getenv("SOLVE_KNUTH_DAV_HIST") && atoi(getenv("SOLVE_KNUTH_DAV_HIST")) == 1 && davH)
+            for (int k2 = 0; k2 < 9; k2++)
+                for (int b2 = 0; b2 <= dav_hi[k2] - dav_lo[k2]; b2++)
+                    if (davH[k2 * 64 + b2] > 0)
+                        printf("dav_hist %s %d %.10e\n",
+                               dav_names[k2], dav_lo[k2] + b2, davH[k2 * 64 + b2]/sC);
+    }
+    free(davH);
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
         printf("  [bcond] conditional on SOLVE_KNUTH_PIN_SLOTS=0x%x prefix if set):\n", knuth_pin_mask);
@@ -12184,6 +12455,10 @@ int main(int argc, char *argv[]) {
             f4p_pal_init();
             fprintf(stderr, "[knuth] F4' ordering-layer scoring ACTIVE (13 functionals, F4PRIME_PREREGISTRATION; ground truth solve.py f4p_*)\n");
         }
+        if (getenv("SOLVE_KNUTH_SCORE_DAV") && atoi(getenv("SOLVE_KNUTH_SCORE_DAV")) == 1) {
+            knuth_score_dav = 1;
+            fprintf(stderr, "[knuth] Davis-2012 composite scoring ACTIVE (9 candidates, CRITIQUE.md Davis registration; ground truth solve.py dav_*)\n");
+        }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
             fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
@@ -12225,6 +12500,25 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("F4P VERIFY: PASS\n");
         else printf("F4P VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--dav-verify") == 0) {
+        /* Two-language gate for the Davis-2012 composite candidates: compute
+         * the 9 on the King Wen sequence and check against the hardcoded KW
+         * expected values (ground truth solve.py dav_verify; output format
+         * matches solve.py --dav-verify byte-for-byte). Exit 0 iff all match.
+         * Sha-neutral (argv-dispatched, never on the enum path). */
+        int v[9], failures = 0;
+        dav_compute(KW, v);
+        for (int k = 0; k < 9; k++){
+            if (v[k] == dav_kw[k])
+                printf("dav_%s: %d OK\n", dav_names[k], v[k]);
+            else {
+                printf("dav_%s: %d FAIL (expected %d)\n", dav_names[k], v[k], dav_kw[k]);
+                failures++;
+            }
+        }
+        if (failures == 0) printf("DAV VERIFY: PASS\n");
+        else printf("DAV VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
         /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.

@@ -6109,6 +6109,221 @@ F4P_KW_EXPECTED = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Davis (2012) composite candidates (pre-registered 2026-07-04 in
+# documentation/CRITIQUE.md, "Davis (2012) structural claims"; operational
+# spec frozen in roae-private/books/davis/DAVIS_2012_STRUCTURAL_AUDIT.md §5:
+# C-D22, C-D4, C-D15, C-D16, C-D13, C-D3, C-D17, C-D12+20, C-D8).
+# ATTRIBUTION: every structural claim is Scott Davis's (*The Classic of
+# Changes in Cultural Context*, Cambria Press, 2012 — page refs per
+# function); the integer/boolean operationalizations and the population
+# measurement over C1-C5 space are ROAE's. Nine scorers over an
+# orientation-resolved ordering; booleans return 0/1 (population scoring
+# reports mass-of-TRUE). Orientation flags in docstrings follow the audit:
+# (a) = sensitive to reading the sequence back-to-front, (b) = sensitive to
+# global hexagram flip (pointwise rev6). Look-elsewhere gates fixed in
+# CRITIQUE.md BEFORE any population measurement (two-sided p < 0.05/9).
+# ---------------------------------------------------------------------------
+
+_DAV_SYM = (0b000, 0b010, 0b101, 0b111)   # rev3-symmetric trigrams: Kun Kan Li Qian
+
+
+def _dav_symtuple(h):
+    """Ordered (lower, upper) tuple filtered to symmetric trigrams."""
+    return tuple(t for t in (h & 7, (h >> 3) & 7) if t in _DAV_SYM)
+
+
+def dav_termruns(seq):
+    """1. C-D22 (D-22; Davis pp. 141, 251-255): number of maximal contiguous
+    position-runs among the 12 one-line modifications of the final two
+    hexagrams. KW = 3 (union = {3-6, 35-40, 49-50} — Davis's 'rotational
+    expansion' zones; the exact-union template is a sub-event of the at-KW
+    mass, and the min-over-pairs attainment form is a documented secondary
+    not implemented in the batch scorer). Orientation: (a) YES (terminal
+    anchor), (b) NO."""
+    pos = {h: i for i, h in enumerate(seq)}
+    tgt = sorted({pos[seq[62] ^ (1 << b)] for b in range(6)} |
+                 {pos[seq[63] ^ (1 << b)] for b in range(6)})
+    return 1 + sum(1 for i in range(1, len(tgt)) if tgt[i] != tgt[i - 1] + 1)
+
+
+def dav_compmirror(seq):
+    """2. C-D4 (D-4; Davis pp. 81-82, 92, 95-96): count of pair-aligned
+    10-windows (5 consecutive pair-slots) with complement-mirror symmetry
+    about the center pair, at the gauge-safe pair-slot level: comp images of
+    slot s land in slot s+3 (as a set), slot s+1 in slot s+4, and the center
+    slot s+2 is internally complement-paired. KW = 1, at positions 7-16
+    (Davis's flagship 'undeniably designed' Big-and-Little unit).
+    Orientation: (a) YES as anchored count (window set is (a)-stable),
+    (b) NO."""
+    n = 0
+    for s in range(28):
+        w = seq[2 * s: 2 * s + 10]
+        if ({w[0] ^ 63, w[1] ^ 63} == {w[6], w[7]} and
+                {w[2] ^ 63, w[3] ^ 63} == {w[8], w[9]} and
+                (w[4] ^ 63) == w[5]):
+            n += 1
+    return n
+
+
+def dav_trigarray(seq):
+    """3. C-D15 (D-15; Davis pp. 76-77, 86 n22, 112): count of 8-windows
+    forming Davis's regular trigram array — every hexagram exactly one
+    symmetric + one asymmetric trigram; symmetric trigrams in doubled blocks
+    (t,t,u,u,v,v,w,w) covering all four symmetric trigrams; asymmetric
+    trigram strictly 2-alternating; symmetric trigram's vertical placement
+    (lower/upper) strictly alternating (shown in Davis's Fig 16, verbalized
+    in the audit). KW = 1 (at 43-50; Davis's uniqueness claim 'not found
+    anywhere else' MEASURED here, not assumed). Orientation: (a) YES for
+    the anchor, count is (a)-stable; (b) NO (roles exchange)."""
+    n = 0
+    for a in range(57):
+        w = seq[a: a + 8]
+        sym, vpos, asym = [], [], []
+        ok = True
+        for h in w:
+            lo, up = h & 7, (h >> 3) & 7
+            slo, sup = lo in _DAV_SYM, up in _DAV_SYM
+            if slo == sup:
+                ok = False
+                break
+            sym.append(lo if slo else up)
+            vpos.append(0 if slo else 1)
+            asym.append(up if slo else lo)
+        if not ok:
+            continue
+        if not all(sym[2 * i] == sym[2 * i + 1] for i in range(4)):
+            continue
+        if set(sym) != set(_DAV_SYM):
+            continue
+        if asym[0] == asym[1] or not all(asym[i] == asym[i % 2] for i in range(8)):
+            continue
+        if not all(vpos[i] != vpos[i + 1] for i in range(7)):
+            continue
+        n += 1
+    return n
+
+
+def dav_parallel3040(seq):
+    """4. C-D16 (D-16; Davis pp. 78, 253-254), boolean: 30s/40s parallel —
+    (i) head pairs at slot distance 5 complement-linked element-wise
+    (comp(seq[31])==seq[41], comp(seq[32])==seq[42], 1-based); (ii) the
+    audit-verified symmetric-trigram chiasmus template: positions 33-40
+    carry sym-tuples ((7),(7),(0,5),(5,0),(5),(5),(2),(2)) and 43-50 carry
+    ((7),(7),(0),(0),(2),(2),(5),(5)) — fire/water (Li/Kan) crossed between
+    the windows, doubled-sym 35/36 in place of the 40s' single-sym rows.
+    Orientation: (a) YES, (b) NO at pair level."""
+    if not ((seq[30] ^ 63) == seq[40] and (seq[31] ^ 63) == seq[41]):
+        return 0
+    ta = ((7,), (7,), (0, 5), (5, 0), (5,), (5,), (2,), (2,))
+    tb = ((7,), (7,), (0,), (0,), (2,), (2,), (5,), (5,))
+    return int(tuple(_dav_symtuple(h) for h in seq[32:40]) == ta and
+               tuple(_dav_symtuple(h) for h in seq[42:50]) == tb)
+
+
+def dav_palnbr(seq):
+    """5. C-D13 (D-13; Davis pp. 107, 121-128 — the 'compositional device'):
+    palindrome-neighborhood adjacency mass — sum over the four non-pure
+    palindromic hexagrams (values 0b100001, 0b011110, 0b110011, 0b001100;
+    KW #27/#28/#61/#62) of one-line neighbors landing within +-4 pair-slots
+    of the palindrome's own pair-slot. KW = 10 (per-hexagram 4/2/2/2; the
+    audit's firm values 27->4, 61->2, 62->2 reproduce, and its
+    explicitly-deferred '28 -> compute at implementation' resolves to 2:
+    N1(#28) sits at positions {31,32,43,44,47,48}, slot-distances 2/8/10).
+    Orientation: (a) YES, (b) NO (sets flip-stable)."""
+    pos = {h: i for i, h in enumerate(seq)}
+    total = 0
+    for h in (0b100001, 0b011110, 0b110011, 0b001100):
+        s0 = pos[h] // 2
+        total += sum(1 for b in range(6)
+                     if abs(pos[h ^ (1 << b)] // 2 - s0) <= 4)
+    return total
+
+
+def dav_rotinv(seq):
+    """6. C-D3 (D-3; Davis p. 68 Fig 12, p. 118 n14), boolean exact-set:
+    the 8 hexagrams pairing indifferently by rotation or inversion
+    (rev6(h)==comp6(h), rev6(h)!=h — a notation-fixed 8-member class) occupy
+    positions {11,12,17,18,53,54,63,64}. Orientation: (a) YES for the exact
+    set, (b) NO (class closed under rev6)."""
+    pos = {h: i for i, h in enumerate(seq)}
+    S = {pos[h] + 1 for h in range(64)
+         if _f4p_rev6(h) == (h ^ 63) and _f4p_rev6(h) != h}
+    return int(S == {11, 12, 17, 18, 53, 54, 63, 64})
+
+
+def dav_pureplace(seq):
+    """7. C-D17 (D-17 + D-1 component; Davis pp. 80, 82, 183), boolean:
+    the four doubled-symmetric-trigram hexagrams sit at positions
+    {1,2,29,30} (opening and closing Davis's part 1), AND the four
+    doubled-asymmetric ones all sit within one decade (10d+1..10d+10,
+    d<=5) straddling its 5/6 center (KW: 51/52 + 57/58 around 55).
+    Orientation: (a) YES, (b) NO."""
+    pos = {h: i for i, h in enumerate(seq)}
+    symd = {pos[(t << 3) | t] + 1 for t in _DAV_SYM}
+    if symd != {1, 2, 29, 30}:
+        return 0
+    ap = sorted(pos[(t << 3) | t] + 1 for t in range(8) if t not in _DAV_SYM)
+    d = (ap[0] - 1) // 10
+    if ap[-1] > 10 * d + 10 or ap[-1] > 60:
+        return 0
+    return int(ap[0] <= 10 * d + 5 and ap[-1] >= 10 * d + 6)
+
+
+def dav_eccplace(seq):
+    """8. C-D12+C-D20 (D-11/D-12/D-20; Davis pp. 117 n10, 121 Fig 26,
+    124-125 Fig 27, 172, 211), boolean: joint eccentric-class placement —
+    E34 (rotation changes lines 3/4 only) at pair-slots {5,8,11,24}; E16
+    (rotation changes lines 1/6 only) at pair-slots {12,22,28,30}; the
+    extreme-ratio E16 subset {0b100000, 0b000001, 0b011111, 0b111110} at
+    positions {23,24,43,44} (its distance-20 sitting follows from the
+    template). Orientation: (a) YES, (b) NO (classes flip-closed)."""
+    pos = {h: i for i, h in enumerate(seq)}
+    e34 = {pos[h] // 2 + 1 for h in range(64)
+           if _f4p_rev6(h) != h and ((h ^ _f4p_rev6(h)) & 0b110011) == 0}
+    e16 = {pos[h] // 2 + 1 for h in range(64)
+           if _f4p_rev6(h) != h and ((h ^ _f4p_rev6(h)) & 0b011110) == 0}
+    ext = {pos[h] + 1 for h in (0b100000, 0b000001, 0b011111, 0b111110)}
+    return int(e34 == {5, 8, 11, 24} and e16 == {12, 22, 28, 30} and
+               ext == {23, 24, 43, 44})
+
+
+def dav_asymhalf(seq):
+    """9. C-D8 (D-8; Davis pp. 111-112, 126): count of hexagrams in
+    positions 1-30 (Davis's first part) whose trigrams are BOTH
+    asymmetric. 16 such hexagrams exist; KW = 4 (at 17,18,27,28 — the
+    other 12 all in the second half). Orientation: (a) YES (halves swap),
+    (b) NO."""
+    return sum(1 for h in seq[:30]
+               if (h & 7) not in _DAV_SYM and ((h >> 3) & 7) not in _DAV_SYM)
+
+
+DAV_FUNCS = ["termruns", "compmirror", "trigarray", "parallel3040", "palnbr",
+             "rotinv", "pureplace", "eccplace", "asymhalf"]
+
+DAV_KW_EXPECTED = {
+    "termruns": 3, "compmirror": 1, "trigarray": 1, "parallel3040": 1,
+    "palnbr": 10, "rotinv": 1, "pureplace": 1, "eccplace": 1, "asymhalf": 4,
+}
+
+
+def dav_verify():
+    """Print all 9 Davis composite candidate values on KW; gate against
+    embedded expected values (two-language: solve.c --dav-verify must
+    reproduce this output byte-identically)."""
+    seq = list(binary_hexagrams)
+    failures = 0
+    for name in DAV_FUNCS:
+        v = globals()["dav_" + name](seq)
+        exp = DAV_KW_EXPECTED.get(name)
+        tag = "OK" if exp == v else ("FAIL (expected %s)" % exp if exp is not None else "(unset)")
+        if exp is not None and exp != v:
+            failures += 1
+        print(f"dav_{name}: {v} {tag}")
+    print("DAV VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -6191,6 +6406,8 @@ def main():
                         help="Divergence threshold for --compare-depth-profile (default 0.005 = 0.5%%)")
     parser.add_argument("--f4p-verify", action="store_true",
                         help="verify the 13 pre-registered F4' ordering-layer functionals on KW")
+    parser.add_argument("--dav-verify", action="store_true",
+                        help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
     parser.add_argument("--registry-verify", action="store_true",
                         help="Run every candidate-rule ground-truth checker "
                              "(reg_*, CANDIDATE_REGISTRY_2026_07) against the "
@@ -6265,6 +6482,9 @@ def main():
 
     if args.f4p_verify:
         sys.exit(f4p_verify())
+
+    if args.dav_verify:
+        sys.exit(dav_verify())
 
     if args.extended_selftest:
         sys.exit(extended_selftest(args.extended_selftest))
