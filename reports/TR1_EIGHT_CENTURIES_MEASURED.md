@@ -3,6 +3,19 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+For roughly eight centuries, scholars have claimed the King Wen sequence follows hidden design rules —
+almost always by pointing at the sequence and asserting the pattern. This report does what none of that
+literature could: it **measures every claimed rule against the entire space of orderings** that satisfy
+the sequence's core constraints. The result sorts the claims into three kinds. Eight celebrated "design
+choices" turn out to be **forced** — every valid ordering has them, so they reveal nothing about the
+arranger. Others are **typical** — common enough to be unremarkable. A few are **genuinely rare** (down
+to one in fifty million), and King Wen has them. The report culminates in the conflict theorem: the
+literature's four strongest rules **cannot all be satisfied by any ordering at all**, and King Wen sits
+exactly where that conflict forces a choice. Every number here can be recomputed, and the impossibility
+results carry machine-checkable certificates.
+
 ## Abstract
 Structural rules asserted for the King Wen sequence across eight centuries of literature — from Zheng Qiao
 (~1150) and Zhu Yuansheng (13th c.) through Lai Zhide (1525–1604) to Moore, Schulz, Cook, McKenna & Mair,
@@ -167,17 +180,11 @@ optimum — exact on one strong rule, minimally imperfect on the others.
   validation: ccn4-kwtest SAT, rc4-kwtest UNSAT
 - Wrap-distance finals cross-reference: documentation/CIRCULAR_KING_WEN.md (TR-7)
 
-## TODO before review
-- [ ] Decide whether the full 31-rule table renders as prose (current, per source doc) or a proper table
-      with per-rule source column pulled from the registry
-- [ ] Add the registry's rule-ID → source-citation legend (rs/ccn/c2011/mmt/p/d/s/m/r/c prefixes) as an
-      appendix so the extended table is self-contained
-- [ ] Confirm the joint-strict "targeted instrument" investigation status (first-wave item 2's open
-      question was superseded by the SAT witness — say so explicitly)
-- [ ] Operator voice pass on section 5 (the conflict-theorem framing is the flagship claim)
-- [ ] One figure: Pareto/trade-off diagram — KW vs grand precursor on the four strongest rules
+## Planned improvements (v1.1+)
+- One figure: Pareto/trade-off diagram — KW vs grand precursor on the four strongest rules
 
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |

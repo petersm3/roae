@@ -6,7 +6,7 @@ front door, these reports are the findings in depth.*
 *Technical reports — not peer-reviewed. Every claim in every report is machine-verifiable; each report
 ends with a Verification Guide mapping claims to commands and certificates.*
 
-Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
+Every report opens with a plain-language executive summary — start there. Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
 law — impact is audience-relative; see the reading paths). Each stands alone; together they cover the
 record. Reproducibility contract: CANONICAL_HASHES; attribution registry: CITATIONS.
 

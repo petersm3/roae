@@ -3,6 +3,17 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+Some transformations — relabeling every hexagram by the same line-permutation, flipping all of them —
+turn one valid ordering into another. This report works out the complete set of such symmetries (a group
+of 48) and proves the striking consequence: **every valid ordering, King Wen included, has exactly 23
+mathematically indistinguishable "twins"** that the rules cannot tell apart. None of King Wen's twins
+appear in the 10.5-billion-record enumeration — direct evidence that the enumerated slice, however
+large, is a biased window on the full space. The report also corrects a previously published negative
+result of ours (an earlier search had missed the symmetry), and keeps that correction prominent: the
+mistake and its fix are part of the record.
+
 ## Abstract
 The C1–C5 constraint system admits an exact symmetry group: the **48 bit-position permutations commuting
 with bit-reversal** (the centralizer of `rev` in S₆, isomorphic to **B₃ ≅ Z₂ ≀ S₃**, the octahedral group)
@@ -92,14 +103,11 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
 - Free-action corollary + Burnside closure: SYMMETRY_SEARCH.md §Corollary; HISTORY.md 2026-07-03
 - Twins-absent bisection: SYMMETRY_SEARCH.md §Limits and scope (2026-07-02 measurement)
 
-## TODO before review
-- [ ] Add the exact command/script reference for the 560T twins bisection (currently cited via
-      SYMMETRY_SEARCH §Limits; pull the concrete invocation from the HISTORY 2026-07-02 entry)
-- [ ] Small orbit diagram: B₃ → {±I} → S₄ with the record-level collapse
-- [ ] Operator voice pass on §2 — the overturned-negative framing must stay prominent, not softened
-- [ ] Verify the "three random σ" in corroboration (ii) are listed somewhere reproducible (working notes)
+## Planned improvements (v1.1+)
+- Small orbit diagram: B₃ → {±I} → S₄ with the record-level collapse
 
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |

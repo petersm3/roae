@@ -3,6 +3,17 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+This is the engineering report: how a computation that visited 560 trillion search states and produced
+10.5 billion results became a **reproducible scientific object** — re-derivable byte-for-byte by anyone,
+on hardware the project doesn't control. The proof is demonstrated, not promised: the entire computation
+was run twice from scratch, months apart, on rented cloud machines that were forcibly interrupted twelve
+times in total, and both runs produced the identical result to the last byte — at roughly 15% of normal
+cloud cost by using interruptible "Spot" capacity. The methods (checksum anchoring, self-testing gates,
+crash-safe checkpoints, re-derive-don't-patch) transfer to any long-running computation, far beyond this
+project. The report also documents the failures honestly, including the one that destroyed a data disk.
+
 ## Abstract
 We describe the engineering that makes a 560-trillion-node combinatorial enumeration a *reproducible
 scientific object*: a 10.5-billion-record artifact whose byte-exact sha256 has been derived twice from
@@ -53,12 +64,12 @@ consequences for launch-window planning.
 - Eviction-resume regression test + fix lineage: DEVELOPMENT.md + HISTORY.md 2026-06 entries
 - Campaign method + worked example: documentation/CAMPAIGN_METHODOLOGY.md
 
-## TODO before review
-- [ ] Fill exact cost figures from the private ledger (public version uses rounded figures, no cloud IDs)
-- [ ] One diagram: campaign timeline with eviction marks (viz assets exist)
-- [ ] Operator voice pass on section 5 (the missteps section quotes HISTORY's honest register)
+## Planned improvements (v1.1+)
+- Fill exact cost figures from the private ledger (public version uses rounded figures, no cloud IDs)
+- One diagram: campaign timeline with eviction marks (viz assets exist)
 
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |

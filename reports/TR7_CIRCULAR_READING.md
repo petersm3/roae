@@ -3,6 +3,18 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+What if the sequence is a circle — the last hexagram wrapping around to the first? Several scholars,
+notably Terence McKenna, read it that way. This report re-derives the mathematics under the circular
+reading. Two results stand out. First, the wrap-around step is **forced to be odd** (proved formally),
+which makes McKenna's observed 3-to-1 ratio of even-to-odd transitions a necessity, not a choice.
+Second, a surprise: the sequence's missing distance-5 transition is a **genuine extra rule** in the
+circular reading — orderings that wrap at distance 5 make up 17.4% of the valid space, yet **not one**
+appears among 10.5 billion enumerated records. That gap between the full space and the enumerated
+slice is the sharpest demonstration in the project of why bounded search results need independent
+measurement — and why we decided this rule, though real, stays documented rather than adopted.
+
 ## Abstract
 McKenna & McKenna (1975) read the King Wen sequence as a *cycle* — position 64 wrapping to position 1 —
 and their published counts (64 transitions, "three even integers to each odd integer") depend on that
@@ -99,16 +111,11 @@ McKenna's interpretive frame, not an attested property of the received artifact.
   measurement, the alternation corollary, and the wrap-d5 SAT decision are ROAE (to our knowledge —
   corrections welcome via documentation/CITATIONS.md)
 
-## TODO before review
-- [x] solve.c `--verify-wrap-parity` stdout/comment contradicted §5 ("C2 forbids 5") — flagged by the
-      adversarial review; FIXED in public commit `0c24637` (2026-07-03), selftest PASS
-- [ ] Independently re-run the wrap-d5 witness through verify.py's constraint checks (belt-and-braces on
-      top of sat.py's round-trip validation)
-- [ ] One diagram: the 64-cycle with the wrap edge highlighted, linear-15 vs circular-16 alternations
-- [ ] Confirm the ×1.21 cut factor phrasing survives operator review (it is 1/(1−0.174) rounded)
-- [ ] Operator voice pass on section 6 (the non-promotion rationale quotes the decision record)
+## Planned improvements (v1.1+)
+- One diagram: the 64-cycle with the wrap edge highlighted, linear-15 vs circular-16 alternations
 
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |

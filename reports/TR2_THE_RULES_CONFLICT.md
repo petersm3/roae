@@ -4,6 +4,17 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+The King Wen sequence has famous "irregularities" — places where its otherwise elegant patterns break.
+For centuries these were read as mistakes, corruption, or lost meaning. This report proves a different
+explanation: the four strongest design rules proposed for the sequence (two by Steve Moore, two
+traceable through Larry Schulz to a 13th-century commentator) are **mutually contradictory — no
+arrangement of the 64 hexagrams can satisfy all of them**, a fact established by an exhaustive logic
+search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the
+others by the smallest margins possible. Its irregularities are the visible seam of a forced trade-off,
+not damage. A corollary: the "uncorrupted original" that some scholars hypothesized never existed.
+
 Target: *Journal of Chinese Philosophy* (where Moore 2005-adjacent and Schulz 1990/2011 appeared). ~8pp.
 Defense model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
 
@@ -82,3 +93,4 @@ Every verdict below was re-verified 2026-07-03 on a 2-core box; each command com
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |

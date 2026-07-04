@@ -4,6 +4,17 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+In 1979, McKenna and Mair proposed that the King Wen sequence would be "better" reordered — that a
+rearrangement could smooth its irregularities. The proposal sat untested for 47 years. This report
+answers it twice. First, by measurement: the properties their argument assumed to be defects are, when
+checked against the space of valid orderings, among the sequence's rarest and most distinctive features
+— removing them removes what is special. Second, by proof: the specific smooth construction their
+proposal requires (a Gray-code-style path) is **mathematically impossible** for any ordering that keeps
+the classical pairing — a two-line parity argument anyone can verify by hand. The refutation is offered
+with credit: theirs was a concrete, falsifiable proposal, which is exactly what made it answerable.
+
 Target: *Philosophy East and West* (discussion note) or *Journal of Chinese Philosophy*. ~4 pages.
 Defense model: both results are mechanically checkable; the author's defense is procedural.
 
@@ -92,3 +103,4 @@ box.
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |

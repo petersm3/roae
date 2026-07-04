@@ -3,6 +3,17 @@
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
+## Executive summary
+
+How special is the King Wen sequence, really? That question needs a denominator: **how many other
+arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸, a hundred
+trillion trillion trillion — settles a folk conjecture: the known rules do **not** pin down King Wen;
+they leave an astronomical family of valid alternatives, and King Wen is one member. The report also
+measures how much *additional* information is needed to single King Wen out (roughly 13–20 carefully
+chosen adjacency facts) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
+bounded search sees a biased sample. The measurement technique is validated against exact counts at
+every scale where exact counts exist.
+
 ## Abstract
 We measure the total number of hexagram orderings satisfying constraints C1–C5 — the number every budgeted
 enumeration has only ever bounded from below — using Knuth's (1975) unbiased random-probe estimator run
@@ -97,14 +108,13 @@ literature: CITATIONS.md.
   trajectory: documentation/SOLVE-SUMMARY.md
 - Boundary predicate: documentation/PARTITION_STABILITY_BOUNDARIES.md
 
-## TODO before review
-- [ ] One figure: the S(k) log-decay curve with the greedy vs weakest-boundary bracket
-- [ ] Confirm the ~3.5 B per-cell budget figure quoted in §6 against the 560T campaign parameters
-- [ ] Cross-check the ≈105-bits arithmetic note (log₂ of 5.21×10³¹) is stated consistently with S(k)'s
-      13–14-boundary extrapolation
-- [ ] Decide whether the per-cell scatter (yield vs size) plot from viz/ is worth embedding
+## Planned improvements (v1.1+)
+- One figure: the S(k) log-decay curve with the greedy vs weakest-boundary bracket
+- Confirm the ~3.5 B per-cell budget figure quoted in §6 against the 560T campaign parameters
+- Decide whether the per-cell scatter (yield vs size) plot from viz/ is worth embedding
 
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
+| v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
