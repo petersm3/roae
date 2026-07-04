@@ -17,6 +17,7 @@ King Wen's uniqueness vs. combinatorial structure.
 
 | Topic | Read |
 |---|---|
+| Python regression harness (one command: `python3 tests.py`) | [tests.py](tests.py) |
 | **Technical report suite (findings in depth, living-versioned)** | [reports/README.md](reports/README.md) (+ METHODS.md, certificates/) |
 | Detailed findings narrative (former front page) | [PROJECT_OVERVIEW.md](documentation/PROJECT_OVERVIEW.md) |
 | Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
