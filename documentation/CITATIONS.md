@@ -462,6 +462,22 @@ Yizhuan*), Lai Zhide (1525–1604, via Schulz, 1982), and Zhu Yuansheng (13th c.
 Moore, S. (n.d.). *Yijing Dao*. biroco.com. https://www.biroco.com/yijing/
   Steve Moore's archive; source of the Moore papers, Schulz (1990), Waley (1933), and others. [swept 2026-07]
 
+Meyer, P. (1998). *The King Wen sequence and the first order of differences*. Web document (Serendipity
+site; rev. 1998-01-04). [Archived](https://web.archive.org/web/1999/http://www.serendipity.li/dna/kws.html)
+  Publishes the complete cyclic line-change sequence of the King Wen order (Hamming distances including
+  the wraparound term) with an explicit XOR-and-popcount formalization — prior art for the transition
+  multiset AS DATA (C5's axis) and for the cyclic reading's difference data. The absence of distance-5
+  is visible in his published list but unremarked; the no-5 property as a stated claim remains McKenna &
+  McKenna (1975). Found via the zhouyi.com bibliography review, 2026-07-04. [analyzed]
+
+Van den Berghe, D. (c. 1999–2002). *The explanation of King Wen's order of the 64 hexagrams*. Web
+document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.archive.org/web/2002/http://www.ping.be/icrea/explan.html)
+  States the pair structure as a two-rule system — inverse pairing, with complement pairing for the
+  eight self-symmetric hexagrams — matching C1's modern formulation; also notes the four pairs where
+  inverse equals complement and several special-pair placement observations, within an informal
+  seasonal/landscape reconstruction. Modern web prior art for C1's formulation (classical priority
+  remains Yu Fan, 3rd c.). Found via the zhouyi.com bibliography review, 2026-07-04. [analyzed]
+
 Drasny, J. (n.d.). *The Yi-globe*. i-ching.hu. https://www.i-ching.hu/ (unreachable as of 2026-07-04; [archived copy](https://web.archive.org/web/2024/https://www.i-ching.hu/))
   HTTP-only, partially blocked; core paper recovered via mirror. [partial]
 
