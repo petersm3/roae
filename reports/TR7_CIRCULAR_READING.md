@@ -129,8 +129,33 @@ decades before this work; the wrap-parity theorem, the d in {1,3,5} space analys
 17.4%-vs-absent measurement remain, to our knowledge, first stated here. Found during a bibliography
 review 2026-07-04; corrections welcome.
 
+## Corollary (added v1.8): exactly 32 parity switches in every circular reading
+
+The circular transition-parity string (64 values: transition i is "odd" iff an odd number of lines
+change, the wrap included) switches value exactly **32 times** in every C1+C4+C5-valid ordering.
+Proof: index the 64 cyclic transitions 0..63, transition i connecting positions i and i+1 (mod 64,
+0-indexed); pair p occupies positions 2p and 2p+1, so within-pair transitions sit at the 32 even
+indices and are all even (C1: reversal preserves line-count parity; the four self-reverse pairs are
+complement pairs, d = 6), while between-pair transitions sit at odd indices 1..61 and the wrap at
+index 63 — also odd. The parity-alternation theorem (TR-6) gives exactly 15 odd between-pair
+transitions, and the wrap-parity theorem (§2) makes the wrap odd, so there are exactly 16 odd
+transitions (McKenna's 16-of-64, §3), all confined to odd cyclic indices. Adjacent indices on a
+64-cycle have opposite index parity (including the 63/0 seam), so the 16 odd transitions are pairwise
+non-adjacent — 16 isolated values, each contributing exactly two switches: 32. The result is invariant
+across the wrap's distance class (d ∈ {1, 3, 5} are all odd). This fills the one remaining cell in the
+TR-6/TR-7 linear→circular lattice: alternations 15 → 16 (§4), switches 30 (TR-6 corollary) → **32**.
+Verified on King Wen: cyclic odd transitions = 16, all at odd indices; linear switches = 30; cyclic
+switches = 32. Derived in cross-report synthesis 2026-07-04 (composition of TR-6's 30-switches
+corollary with this report's wrap-parity theorem), independently re-derived and re-verified before
+folding in.
+
+*Verification:* both ingredient theorems are kernel-checked (`switches_30_general`,
+`wrap_parity_general` in lean/KingWen.lean); the KW instance is a three-line check from solve.py's
+`binary_hexagrams` (count sign changes of the cyclic Hamming-distance parity string).
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
+| v1.8 | 2026-07-04 | 32-circular-switches corollary added (TR-6 30-switches × wrap-parity composition; derived in cross-report synthesis 2026-07-04, re-verified independently) |
