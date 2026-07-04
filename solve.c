@@ -10040,6 +10040,970 @@ static void run_c3_min(const char *filename) {
     }
 }
 
+/* ===================== #215 F1 exact |C1 & C2 & C4| — S4-orbit-quotient layered DP =====================
+ *
+ * `./solve --f1-exact-c1c2c4 [--layers-dir DIR] [--f1-subset SPEC]`
+ *
+ * Computes the EXACT integer |C1 ∩ C2 ∩ C4| (no C3/C5): the number of complete
+ * 64-hexagram sequences built from the 32 KW pairs (C1), with no Hamming-5
+ * adjacent transition (C2), starting with the fixed pair s0=63, s1=0 (C4;
+ * orientation forced by Theorem 6). Method: layered forward DP over
+ * (used-pair-mask, last-exit-hexagram) states, quotiented by the record-level
+ * symmetry group S4 (order 24) from SYMMETRY_SEARCH.md / TR-5 — the 48
+ * bit-position permutations commuting with rev = (0 5)(1 4)(2 3), modulo the
+ * kernel {id, rev}. The group permutes the 32 pairs (pair 0 = {63,0} fixed
+ * setwise) and is a Hamming isometry, so DP values are constant on orbits:
+ * only canonical masks (min image over the 24 pair-perms) are stored.
+ *
+ * GATHER formulation (exactness): stored F(c, last) at a canonical mask c is
+ * the EXACT plain-DP forward value f(c, last) at the representative c — each
+ * new-layer canonical mask PULLS from its canonicalized predecessors, mapping
+ * the stored `last` through the inverse hexagram lift of the canonicalizing
+ * group element. No weighting inside values. Stabilizer weights
+ * (orbit size = n_eff/|stab| under the faithful restricted index-perm action)
+ * enter only in the per-layer total-mass identity (checked against the plain
+ * DP in subset mode), and the full mask is G-fixed (orbit size 1), so the
+ * final total needs no correction.
+ *
+ * Counts are hand-rolled 192-bit unsigned integers (add-only; carry-out
+ * aborts) — the expected magnitude ~7.6e41 exceeds 2^127, and the
+ * no-third-party-deps rule excludes GMP. Single pass (no CRT).
+ *
+ * Validated two-language against the exact-validated Python prototype
+ * (roae-private scripts/f1_evidence/f1_orbit_dp.py, 3/3 subsets) — this port
+ * mirrors its group construction, canonicalization (first strict min in
+ * sorted-pair-perm order), gather formulation, and stabilizer handling
+ * EXACTLY. `--f1-subset` accepts the same group-closed orbit-union specs
+ * (U1/U2/U3, or generic "L.I,L.I,...@START" = orbits by (size, index)).
+ * In subset mode a plain layered forward DP runs alongside and totals +
+ * per-layer masses are cross-checked (internal consistency gate).
+ *
+ * Checkpointing: with --layers-dir, each completed layer is written
+ * atomically (tmp + rename + fsync, fsync per layer only) with a manifest;
+ * a re-run with the same --layers-dir resumes from the last complete layer
+ * (Spot-safe). Progress: one stderr line per layer (k, canonical masks,
+ * bytes, mass, elapsed) — supervisor-parseable.
+ *
+ * Test/probe-only env knobs (never on enum paths):
+ *   SOLVE_F1_MAX_LAYER=K          — stop after layer K completes (timing probe /
+ *                                   right-sizing; partial result, exit 0)
+ *   SOLVE_F1_TEST_LAYER_DELAY_MS=N — sleep N ms after each layer (kill/resume
+ *                                   gate testing on small subsets)
+ *
+ * Sha-neutral: argv-dispatched, zero interaction with enumeration paths.
+ * Attribution: direction and the orbit-quotient idea are the operator's
+ * (working log F1_ORBIT_QUOTIENT_2026_07.md, private repo); implementation
+ * by Claude (Fable 5), 2026-07-04. Spec: F1_SOLVE_C_PORT_SPEC.md (#215).
+ */
+
+/* ---------- 192-bit unsigned counters (add-only) ---------- */
+typedef struct { uint64_t l0, l1, l2; } F1U192;   /* little-endian limbs */
+
+static void f1_overflow_abort(void) {
+    fprintf(stderr, "ERROR: [f1] 192-bit counter overflow (carry out of high limb)\n");
+    exit(70);
+}
+
+static inline void f1_add(F1U192 *a, const F1U192 *b) {
+    unsigned __int128 s = (unsigned __int128)a->l0 + b->l0;
+    a->l0 = (uint64_t)s;
+    s = (unsigned __int128)a->l1 + b->l1 + (uint64_t)(s >> 64);
+    a->l1 = (uint64_t)s;
+    s = (unsigned __int128)a->l2 + b->l2 + (uint64_t)(s >> 64);
+    a->l2 = (uint64_t)s;
+    if ((uint64_t)(s >> 64)) f1_overflow_abort();
+}
+
+static inline int f1_is_zero(const F1U192 *a) { return (a->l0 | a->l1 | a->l2) == 0; }
+static inline int f1_eq(const F1U192 *a, const F1U192 *b) {
+    return a->l0 == b->l0 && a->l1 == b->l1 && a->l2 == b->l2;
+}
+
+static F1U192 f1_mul_small(F1U192 a, uint32_t m) {
+    unsigned __int128 p = (unsigned __int128)a.l0 * m;
+    F1U192 r;
+    r.l0 = (uint64_t)p;
+    p = (unsigned __int128)a.l1 * m + (uint64_t)(p >> 64);
+    r.l1 = (uint64_t)p;
+    p = (unsigned __int128)a.l2 * m + (uint64_t)(p >> 64);
+    r.l2 = (uint64_t)p;
+    if ((uint64_t)(p >> 64)) f1_overflow_abort();
+    return r;
+}
+
+/* a /= d (in place), returns remainder. d small (10, 24). */
+static uint32_t f1_divmod_small(F1U192 *a, uint32_t d) {
+    unsigned __int128 cur = a->l2;
+    a->l2 = (uint64_t)(cur / d);
+    cur = ((unsigned __int128)(uint64_t)(cur % d) << 64) | a->l1;
+    a->l1 = (uint64_t)(cur / d);
+    cur = ((unsigned __int128)(uint64_t)(cur % d) << 64) | a->l0;
+    a->l0 = (uint64_t)(cur / d);
+    return (uint32_t)(cur % d);
+}
+
+/* Exact decimal rendering (max 58 digits for 192 bits). buf >= 64 bytes. */
+static void f1_dec(F1U192 v, char *buf) {
+    char tmp[64];
+    int i = 0;
+    if (f1_is_zero(&v)) { strcpy(buf, "0"); return; }
+    while (!f1_is_zero(&v)) tmp[i++] = (char)('0' + f1_divmod_small(&v, 10));
+    int j = 0;
+    while (i > 0) buf[j++] = tmp[--i];
+    buf[j] = '\0';
+}
+
+static double f1_to_double(const F1U192 *v) {
+    return ldexp((double)v->l2, 128) + ldexp((double)v->l1, 64) + (double)v->l0;
+}
+
+/* ---------- group construction (mirrors f1_orbit_dp.py section 1-2) ---------- */
+#define F1_CHECK(cond, ...) do { \
+    if (!(cond)) { \
+        fprintf(stderr, "ERROR: [f1] self-check FAILED: " __VA_ARGS__); \
+        fprintf(stderr, "\n"); \
+        exit(71); \
+    } } while (0)
+
+static const uint8_t F1_REV[6] = {5, 4, 3, 2, 1, 0};  /* bit-reversal as position perm */
+
+/* Bit i of h moves to bit position perm[i]. */
+static inline int f1_hex_act(const uint8_t *perm, int h) {
+    int r = 0;
+    for (int i = 0; i < 6; i++) r |= ((h >> i) & 1) << perm[i];
+    return r;
+}
+
+/* Lexicographic next permutation (so generation order == Python sorted order). */
+static int f1_next_perm(uint8_t *a, int n) {
+    int i = n - 2;
+    while (i >= 0 && a[i] >= a[i + 1]) i--;
+    if (i < 0) return 0;
+    int j = n - 1;
+    while (a[j] <= a[i]) j--;
+    uint8_t t = a[i]; a[i] = a[j]; a[j] = t;
+    for (int l = i + 1, r = n - 1; l < r; l++, r--) { t = a[l]; a[l] = a[r]; a[r] = t; }
+    return 1;
+}
+
+typedef struct {
+    uint8_t pp[32];       /* pair-perm on the 32 pairs */
+    uint8_t lift[6];      /* deterministic hexagram-level lift = FIRST lift in lex G48 order */
+    uint8_t lift2[6];     /* second lift (kernel partner), for the identity-coset assert */
+    int nlifts;
+} F1Coset;
+
+static F1Coset f1_g24[24];
+static int f1_pair_a[32], f1_pair_b[32];   /* pair p = (KW[2p], KW[2p+1]) */
+static int f1_pair_of[64];                 /* hexagram -> pair index */
+static int f1_orb_cnt = 0;                 /* pair-orbits of the 31 free pairs */
+static int f1_orb_len[16];
+static int f1_orb_mem[16][31];
+static int f1_group_built = 0;
+
+static int f1_coset_cmp(const void *x, const void *y) {
+    return memcmp(((const F1Coset *)x)->pp, ((const F1Coset *)y)->pp, 32);
+}
+
+static int f1_orb_cmp(const void *x, const void *y) {
+    int a = *(const int *)x, b = *(const int *)y;
+    if (f1_orb_len[a] != f1_orb_len[b]) return f1_orb_len[a] - f1_orb_len[b];
+    for (int i = 0; i < f1_orb_len[a]; i++)
+        if (f1_orb_mem[a][i] != f1_orb_mem[b][i]) return f1_orb_mem[a][i] - f1_orb_mem[b][i];
+    return 0;
+}
+
+static int f1_uf_parent[32];
+static int f1_uf_find(int x) {
+    while (f1_uf_parent[x] != x) {
+        f1_uf_parent[x] = f1_uf_parent[f1_uf_parent[x]];
+        x = f1_uf_parent[x];
+    }
+    return x;
+}
+
+/* Build + verify the group. Startup asserts mirror the Python prototype's
+ * import-time asserts: |G48|=48; per-element Hamming isometry on all 64x64,
+ * 32-pair-set closure, pair-0 setwise fixing, rev-commutation; quotient = 24
+ * pair-perms with 2 lifts each (kernel {id, rev}); closure of the 24. */
+static void f1_build_group(void) {
+    if (f1_group_built) return;
+    for (int i = 0; i < 32; i++) {
+        f1_pair_a[i] = KW[2 * i];
+        f1_pair_b[i] = KW[2 * i + 1];
+    }
+    for (int i = 0; i < 32; i++) {
+        f1_pair_of[f1_pair_a[i]] = i;
+        f1_pair_of[f1_pair_b[i]] = i;
+    }
+
+    /* G48 = centralizer of rev in S6, generated in lexicographic order */
+    uint8_t g48[48][6];
+    int n48 = 0;
+    uint8_t p[6] = {0, 1, 2, 3, 4, 5};
+    do {
+        int comm = 1;
+        for (int i = 0; i < 6 && comm; i++)
+            if (p[F1_REV[i]] != F1_REV[p[i]]) comm = 0;   /* compose(p,REV)==compose(REV,p) */
+        if (comm) {
+            F1_CHECK(n48 < 48, "more than 48 elements commute with rev");
+            memcpy(g48[n48++], p, 6);
+        }
+    } while (f1_next_perm(p, 6));
+    F1_CHECK(n48 == 48, "centralizer of rev in S6 must have order 48 (got %d)", n48);
+
+    /* per-element verification */
+    for (int gi = 0; gi < 48; gi++) {
+        int himg[64];
+        for (int h = 0; h < 64; h++) himg[h] = f1_hex_act(g48[gi], h);
+        /* Hamming isometry, all 64x64 */
+        for (int a = 0; a < 64; a++)
+            for (int b = 0; b < 64; b++)
+                F1_CHECK(__builtin_popcount(himg[a] ^ himg[b]) == __builtin_popcount(a ^ b),
+                         "g48[%d] is not a Hamming isometry", gi);
+        /* maps the 32-pair set to itself (each image {himg[a],himg[b]} is a pair,
+         * and the induced map on pair indices is a bijection) */
+        int used[32] = {0};
+        for (int pi = 0; pi < 32; pi++) {
+            int qa = f1_pair_of[himg[f1_pair_a[pi]]];
+            int qb = f1_pair_of[himg[f1_pair_b[pi]]];
+            F1_CHECK(qa == qb, "g48[%d] does not permute the 32 pairs (pair %d split)", gi, pi);
+            F1_CHECK(!used[qa], "g48[%d]: pair image %d hit twice", gi, qa);
+            used[qa] = 1;
+        }
+        /* fixes pair 0 = {63, 0} setwise */
+        F1_CHECK((himg[63] == 63 && himg[0] == 0) || (himg[63] == 0 && himg[0] == 63),
+                 "g48[%d] moves pair 0", gi);
+        /* commutes with rev at hexagram level (definition check) */
+        for (int h = 0; h < 64; h++)
+            F1_CHECK(f1_hex_act(F1_REV, himg[h]) == f1_hex_act(g48[gi], f1_hex_act(F1_REV, h)),
+                     "g48[%d]: rev-commutation fails on hexagrams", gi);
+    }
+
+    /* quotient to pair-perms; first lift encountered (lex G48 order) is the
+     * deterministic lift — identical to Python's sorted(G48) + lifts[0] */
+    int nc = 0;
+    for (int gi = 0; gi < 48; gi++) {
+        uint8_t pp[32];
+        for (int pi = 0; pi < 32; pi++)
+            pp[pi] = (uint8_t)f1_pair_of[f1_hex_act(g48[gi], f1_pair_a[pi])];
+        int found = -1;
+        for (int c = 0; c < nc; c++)
+            if (memcmp(f1_g24[c].pp, pp, 32) == 0) { found = c; break; }
+        if (found < 0) {
+            F1_CHECK(nc < 24, "more than 24 pair-perms");
+            memcpy(f1_g24[nc].pp, pp, 32);
+            memcpy(f1_g24[nc].lift, g48[gi], 6);
+            f1_g24[nc].nlifts = 1;
+            nc++;
+        } else {
+            F1_CHECK(f1_g24[found].nlifts == 1, "pair-perm with >2 lifts (kernel not {id,rev})");
+            memcpy(f1_g24[found].lift2, g48[gi], 6);
+            f1_g24[found].nlifts = 2;
+        }
+    }
+    F1_CHECK(nc == 24, "record-level group must be S4 (order 24), got %d", nc);
+    for (int c = 0; c < 24; c++) {
+        F1_CHECK(f1_g24[c].nlifts == 2, "kernel must be {+-I} (2 lifts per coset)");
+        F1_CHECK(f1_g24[c].pp[0] == 0, "pair 0 not fixed by pair-perm %d", c);
+    }
+    /* the two lifts of the identity coset are {id, rev} */
+    static const uint8_t idp[6] = {0, 1, 2, 3, 4, 5};
+    for (int c = 0; c < 24; c++) {
+        int is_id = 1;
+        for (int i = 0; i < 32; i++) if (f1_g24[c].pp[i] != i) { is_id = 0; break; }
+        if (is_id) {
+            F1_CHECK(memcmp(f1_g24[c].lift, idp, 6) == 0 && memcmp(f1_g24[c].lift2, F1_REV, 6) == 0,
+                     "identity-coset lifts must be {id, rev}");
+        }
+    }
+
+    /* sort by pair-perm tuple (Python: sorted(coset.items())) */
+    qsort(f1_g24, 24, sizeof(F1Coset), f1_coset_cmp);
+    { int is_id = 1;
+      for (int i = 0; i < 32; i++) if (f1_g24[0].pp[i] != i) { is_id = 0; break; }
+      F1_CHECK(is_id, "sorted G24 must start with the identity pair-perm"); }
+
+    /* closure of the 24 pair-perms */
+    for (int a = 0; a < 24; a++)
+        for (int b = 0; b < 24; b++) {
+            uint8_t comp[32];
+            for (int i = 0; i < 32; i++) comp[i] = f1_g24[a].pp[f1_g24[b].pp[i]];
+            int found = 0;
+            for (int c = 0; c < 24 && !found; c++)
+                if (memcmp(f1_g24[c].pp, comp, 32) == 0) found = 1;
+            F1_CHECK(found, "closure fails for pair-perms %d o %d", a, b);
+        }
+
+    /* pair-orbits of the 31 free pairs (union-find, then sort by (len, members)) */
+    for (int i = 0; i < 32; i++) f1_uf_parent[i] = i;
+    for (int c = 0; c < 24; c++)
+        for (int i = 0; i < 32; i++) {
+            int a = f1_uf_find(i), b = f1_uf_find(f1_g24[c].pp[i]);
+            if (a != b) f1_uf_parent[a] = b;
+        }
+    int roots[32], nroots = 0;
+    for (int i = 1; i < 32; i++) {
+        int r = f1_uf_find(i), seen = -1;
+        for (int j = 0; j < nroots; j++) if (roots[j] == r) { seen = j; break; }
+        if (seen < 0) { roots[nroots] = r; f1_orb_len[nroots] = 0; seen = nroots++; }
+        f1_orb_mem[seen][f1_orb_len[seen]++] = i;   /* i ascending -> members ascending */
+    }
+    f1_orb_cnt = nroots;
+    int order[16];
+    for (int i = 0; i < f1_orb_cnt; i++) order[i] = i;
+    qsort(order, f1_orb_cnt, sizeof(int), f1_orb_cmp);
+    { int tlen[16]; int tmem[16][31];
+      for (int i = 0; i < f1_orb_cnt; i++) {
+          tlen[i] = f1_orb_len[order[i]];
+          memcpy(tmem[i], f1_orb_mem[order[i]], sizeof(int) * 31);
+      }
+      memcpy(f1_orb_len, tlen, sizeof(tlen));
+      memcpy(f1_orb_mem, tmem, sizeof(tmem)); }
+
+    fprintf(stderr, "[f1] group self-checks PASS: |G48|=48 verified elementwise "
+            "(Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); "
+            "quotient = 24 pair-perms, closed under composition, kernel {id,rev}\n");
+    fprintf(stderr, "[f1] pair-orbits of the 31 free pairs:");
+    for (int i = 0; i < f1_orb_cnt; i++) {
+        fprintf(stderr, " %d:[", f1_orb_len[i]);
+        for (int j = 0; j < f1_orb_len[i]; j++)
+            fprintf(stderr, "%s%d", j ? "," : "", f1_orb_mem[i][j]);
+        fprintf(stderr, "]");
+    }
+    fprintf(stderr, "\n");
+    f1_group_built = 1;
+}
+
+/* ---------- restricted action + DP context ---------- */
+typedef struct {
+    uint8_t iperm[32];       /* subset-index perm (restriction of pp to the run's pairs) */
+    uint8_t hmap[64];        /* hexagram map of the deterministic lift */
+    uint8_t hinv[64];        /* inverse hexagram map */
+    uint32_t pt[4][256];     /* byte-permutation tables: apply iperm to a <=31-bit mask */
+    int ipid;                /* id of this iperm among DISTINCT restricted iperms */
+} F1Elem;
+
+typedef struct {
+    int n;                   /* number of pairs in this run (31 = full) */
+    int pl[32];              /* pair indices */
+    int pa[32], pb[32];      /* pair hexagrams per subset index */
+    int start_exit;          /* 0 or 63 (G-fixed) */
+    F1Elem el[24];
+    int n_eff;               /* # distinct restricted iperms (faithful group size) */
+} F1Ctx;
+
+static void f1_ctx_init(F1Ctx *c, int n, const int *pl, int start_exit) {
+    F1_CHECK(start_exit == 0 || start_exit == 63, "start_exit must be G-fixed (0 or 63)");
+    c->n = n;
+    c->start_exit = start_exit;
+    int pos[32];
+    for (int i = 0; i < 32; i++) pos[i] = -1;
+    for (int i = 0; i < n; i++) {
+        F1_CHECK(pl[i] >= 1 && pl[i] <= 31 && pos[pl[i]] < 0, "bad/duplicate pair index %d", pl[i]);
+        c->pl[i] = pl[i];
+        pos[pl[i]] = i;
+        c->pa[i] = f1_pair_a[pl[i]];
+        c->pb[i] = f1_pair_b[pl[i]];
+    }
+    for (int e = 0; e < 24; e++) {
+        F1Elem *E = &c->el[e];
+        for (int i = 0; i < n; i++) {
+            int img = f1_g24[e].pp[pl[i]];
+            F1_CHECK(pos[img] >= 0, "pair set not closed under the group action "
+                     "(pair %d maps to %d, outside the subset)", pl[i], img);
+            E->iperm[i] = (uint8_t)pos[img];
+        }
+        for (int h = 0; h < 64; h++) E->hmap[h] = (uint8_t)f1_hex_act(f1_g24[e].lift, h);
+        for (int h = 0; h < 64; h++) E->hinv[E->hmap[h]] = (uint8_t)h;
+        for (int by = 0; by < 4; by++)
+            for (int v = 0; v < 256; v++) {
+                uint32_t m = 0;
+                for (int j = 0; j < 8; j++)
+                    if ((v >> j) & 1) {
+                        int i = 8 * by + j;
+                        if (i < n) m |= 1u << E->iperm[i];
+                    }
+                E->pt[by][v] = m;
+            }
+        E->ipid = e;
+        for (int e2 = 0; e2 < e; e2++)
+            if (memcmp(c->el[e2].iperm, E->iperm, (size_t)n) == 0) { E->ipid = c->el[e2].ipid; break; }
+    }
+    c->n_eff = 0;
+    for (int e = 0; e < 24; e++) if (c->el[e].ipid == e) c->n_eff++;
+    /* el[0] is the identity coset (sorted G24 starts at identity; restriction is identity) */
+    for (int i = 0; i < n; i++) F1_CHECK(c->el[0].iperm[i] == i, "el[0] must restrict to identity");
+}
+
+static inline uint32_t f1_apply_mask(const F1Elem *e, uint32_t m) {
+    return e->pt[0][m & 0xff] | e->pt[1][(m >> 8) & 0xff] |
+           e->pt[2][(m >> 16) & 0xff] | e->pt[3][(m >> 24) & 0xff];
+}
+
+/* canonical(mask) = min image over the 24 elems; *gout = FIRST elem (in sorted
+ * G24 order) achieving the strict min, else 0 (identity) — exactly the
+ * Python prototype's tie-break. */
+static inline uint32_t f1_canon(const F1Ctx *c, uint32_t m, int *gout) {
+    uint32_t best = m;
+    int bg = 0;
+    for (int e = 1; e < 24; e++) {
+        uint32_t x = f1_apply_mask(&c->el[e], m);
+        if (x < best) { best = x; bg = e; }
+    }
+    *gout = bg;
+    return best;
+}
+
+static inline int f1_is_canonical(const F1Ctx *c, uint32_t m) {
+    for (int e = 1; e < 24; e++)
+        if (f1_apply_mask(&c->el[e], m) < m) return 0;
+    return 1;
+}
+
+/* orbit size = n_eff / |stab|, stab counted over DISTINCT restricted iperms */
+static int f1_orbit_size(const F1Ctx *c, uint32_t m) {
+    int seen[24] = {0}, stab = 0;
+    for (int e = 0; e < 24; e++)
+        if (f1_apply_mask(&c->el[e], m) == m && !seen[c->el[e].ipid]) {
+            seen[c->el[e].ipid] = 1;
+            stab++;
+        }
+    F1_CHECK(stab > 0 && c->n_eff % stab == 0, "orbit-stabilizer violation (n_eff=%d stab=%d)",
+             c->n_eff, stab);
+    return c->n_eff / stab;
+}
+
+/* ---------- combinatorics: colex (== numeric) enumeration of k-subsets ---------- */
+static uint64_t f1_binom[33][33];
+static void f1_binom_init(void) {
+    for (int i = 0; i <= 32; i++)
+        for (int j = 0; j <= 32; j++)
+            f1_binom[i][j] = (j == 0) ? 1 : (j > i) ? 0
+                             : f1_binom[i - 1][j - 1] + f1_binom[i - 1][j];
+}
+
+static uint32_t f1_unrank_colex(uint64_t r, int k, int n) {
+    uint32_t m = 0;
+    for (int j = k; j >= 1; j--) {
+        int cpos = j - 1;
+        while (cpos + 1 <= n - 1 && f1_binom[cpos + 1][j] <= r) cpos++;
+        m |= 1u << cpos;
+        r -= f1_binom[cpos][j];
+    }
+    return m;
+}
+
+static inline uint32_t f1_gosper(uint32_t v) {   /* next same-popcount mask (numeric order) */
+    uint32_t t = v | (v - 1);
+    return (t + 1) | (((~t & (uint32_t)(-(int32_t)~t)) - 1) >> (__builtin_ctz(v) + 1));
+}
+
+static inline int64_t f1_bsearch_u32(const uint32_t *a, uint64_t n, uint32_t key) {
+    uint64_t lo = 0, hi = n;
+    while (lo < hi) {
+        uint64_t mid = (lo + hi) >> 1;
+        if (a[mid] < key) lo = mid + 1; else hi = mid;
+    }
+    return (lo < n && a[lo] == key) ? (int64_t)lo : -1;
+}
+
+/* ---------- layer storage + checkpointing ---------- */
+typedef struct {
+    int k;
+    uint64_t nm;         /* # canonical masks, sorted ascending */
+    uint32_t *masks;
+    F1U192 *vals;        /* nm * 64, indexed [mask_idx*64 + last] */
+} F1Layer;
+
+static void f1_layer_free(F1Layer *L) { free(L->masks); free(L->vals); L->masks = NULL; L->vals = NULL; }
+
+typedef struct {
+    char magic[8];       /* "F1LAYER1" */
+    uint32_t version, n, k, start_exit;
+    uint64_t pl_hash, n_masks;
+} F1LayerHdr;
+
+static uint64_t f1_pl_hash(const F1Ctx *c) {
+    uint64_t h = 0xcbf29ce484222325ULL;
+    #define F1_FNV(x) do { h ^= (uint64_t)(x); h *= 0x100000001b3ULL; } while (0)
+    F1_FNV(c->n);
+    F1_FNV(c->start_exit);
+    for (int i = 0; i < c->n; i++) F1_FNV(c->pl[i]);
+    #undef F1_FNV
+    return h;
+}
+
+static void f1_ckpt_io_abort(const char *what, const char *path) {
+    fprintf(stderr, "ERROR: [f1] checkpoint I/O failed (%s: %s): %s\n", what, path, strerror(errno));
+    exit(72);
+}
+
+static void f1_fsync_dir(const char *dir) {
+    int fd = open(dir, O_RDONLY | O_DIRECTORY);
+    if (fd < 0) f1_ckpt_io_abort("open dir", dir);
+    if (fsync(fd) != 0) f1_ckpt_io_abort("fsync dir", dir);
+    close(fd);
+}
+
+static void f1_write_layer(const char *dir, const F1Ctx *c, const F1Layer *L) {
+    char fin[4096], tmp[4104];
+    snprintf(fin, sizeof(fin), "%s/f1_layer_%02d.bin", dir, L->k);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    FILE *f = fopen(tmp, "wb");
+    if (!f) f1_ckpt_io_abort("fopen", tmp);
+    F1LayerHdr h;
+    memset(&h, 0, sizeof(h));
+    memcpy(h.magic, "F1LAYER1", 8);
+    h.version = 1;
+    h.n = (uint32_t)c->n;
+    h.k = (uint32_t)L->k;
+    h.start_exit = (uint32_t)c->start_exit;
+    h.pl_hash = f1_pl_hash(c);
+    h.n_masks = L->nm;
+    if (fwrite(&h, sizeof(h), 1, f) != 1 ||
+        (L->nm && fwrite(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+        (L->nm && fwrite(L->vals, sizeof(F1U192), L->nm * 64, f) != L->nm * 64))
+        f1_ckpt_io_abort("fwrite", tmp);
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
+    fclose(f);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
+    f1_fsync_dir(dir);
+}
+
+static void f1_write_manifest(const char *dir, const F1Ctx *c, int last_complete_k) {
+    char fin[4096], tmp[4104];
+    snprintf(fin, sizeof(fin), "%s/f1_manifest.txt", dir);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    FILE *f = fopen(tmp, "w");
+    if (!f) f1_ckpt_io_abort("fopen", tmp);
+    fprintf(f, "f1_manifest_v1\nn=%d\nstart_exit=%d\npl=", c->n, c->start_exit);
+    for (int i = 0; i < c->n; i++) fprintf(f, "%s%d", i ? "," : "", c->pl[i]);
+    fprintf(f, "\npl_hash=%016llx\nlast_complete_k=%d\n",
+            (unsigned long long)f1_pl_hash(c), last_complete_k);
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
+    fclose(f);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
+    f1_fsync_dir(dir);
+}
+
+/* Returns last_complete_k and fills *L on successful resume; -1 if no manifest.
+ * Parameter mismatch or corrupt layer file is a hard error (wrong --layers-dir). */
+static int f1_try_resume(const char *dir, const F1Ctx *c, F1Layer *L) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/f1_manifest.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[2048];
+    int n = -1, se = -1, lk = -1;
+    unsigned long long ph = 0;
+    while (fgets(line, sizeof(line), f)) {
+        sscanf(line, "n=%d", &n);
+        sscanf(line, "start_exit=%d", &se);
+        sscanf(line, "pl_hash=%llx", &ph);
+        sscanf(line, "last_complete_k=%d", &lk);
+    }
+    fclose(f);
+    F1_CHECK(n == c->n && se == c->start_exit && ph == (unsigned long long)f1_pl_hash(c),
+             "manifest in %s does not match this run (n=%d/%d start=%d/%d) — wrong --layers-dir?",
+             dir, n, c->n, se, c->start_exit);
+    F1_CHECK(lk >= 0 && lk <= c->n, "manifest last_complete_k=%d out of range", lk);
+    snprintf(path, sizeof(path), "%s/f1_layer_%02d.bin", dir, lk);
+    f = fopen(path, "rb");
+    if (!f) f1_ckpt_io_abort("fopen (resume layer)", path);
+    F1LayerHdr h;
+    if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
+    F1_CHECK(memcmp(h.magic, "F1LAYER1", 8) == 0 && h.version == 1 &&
+             h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
+             h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c),
+             "layer file %s header mismatch", path);
+    L->k = lk;
+    L->nm = h.n_masks;
+    L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
+    L->vals = (F1U192 *)malloc(sizeof(F1U192) * 64 * (L->nm ? L->nm : 1));
+    F1_CHECK(L->masks && L->vals, "resume alloc failed");
+    if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+        (L->nm && fread(L->vals, sizeof(F1U192), L->nm * 64, f) != L->nm * 64))
+        f1_ckpt_io_abort("fread body", path);
+    fclose(f);
+    return lk;
+}
+
+/* ---------- layered orbit-DP core ---------- */
+
+/* Phase A: enumerate the canonical masks of popcount k1 (ascending), parallel
+ * over colex-rank ranges (numeric order == colex order, so per-thread outputs
+ * concatenate into a globally sorted array). */
+static void f1_enum_canonical(const F1Ctx *c, int k1, uint32_t **out, uint64_t *nout) {
+    uint64_t total = f1_binom[c->n][k1];
+    int T = omp_get_max_threads();
+    if ((uint64_t)T > total) T = (int)total;
+    uint32_t **tb = (uint32_t **)calloc((size_t)T, sizeof(uint32_t *));
+    uint64_t *tn = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
+    uint64_t *tc = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
+    F1_CHECK(tb && tn && tc, "enum alloc failed");
+    #pragma omp parallel num_threads(T)
+    {
+        int t = omp_get_thread_num();
+        uint64_t r0 = total * (uint64_t)t / (uint64_t)T;
+        uint64_t r1 = total * (uint64_t)(t + 1) / (uint64_t)T;
+        if (r0 < r1) {
+            uint32_t m = f1_unrank_colex(r0, k1, c->n);
+            for (uint64_t r = r0; r < r1; r++) {
+                if (f1_is_canonical(c, m)) {
+                    if (tn[t] == tc[t]) {
+                        tc[t] = tc[t] ? tc[t] * 2 : 4096;
+                        tb[t] = (uint32_t *)realloc(tb[t], sizeof(uint32_t) * tc[t]);
+                        if (!tb[t]) { fprintf(stderr, "ERROR: [f1] OOM in enum\n"); exit(74); }
+                    }
+                    tb[t][tn[t]++] = m;
+                }
+                if (r + 1 < r1) m = f1_gosper(m);
+            }
+        }
+    }
+    uint64_t nm = 0;
+    for (int t = 0; t < T; t++) nm += tn[t];
+    uint32_t *masks = (uint32_t *)malloc(sizeof(uint32_t) * (nm ? nm : 1));
+    F1_CHECK(masks != NULL, "mask alloc failed (%llu masks)", (unsigned long long)nm);
+    uint64_t off = 0;
+    for (int t = 0; t < T; t++) {
+        if (tn[t]) memcpy(masks + off, tb[t], sizeof(uint32_t) * tn[t]);
+        off += tn[t];
+        free(tb[t]);
+    }
+    free(tb); free(tn); free(tc);
+    *out = masks;
+    *nout = nm;
+}
+
+/* Phase B: gather. For each canonical target of layer k+1, pull from each
+ * canonicalized predecessor, mapping stored `last` keys through the INVERSE
+ * hexagram lift of the canonicalizing element (exact plain-DP forward values
+ * at representatives; see module header). Targets are disjoint across
+ * threads, so no synchronization is needed on writes. */
+static void f1_gather_layer(const F1Ctx *c, const F1Layer *prev, F1Layer *out) {
+    const uint32_t *pmasks = prev->masks;
+    const uint64_t pnm = prev->nm;
+    const F1U192 *pvals = prev->vals;
+    #pragma omp parallel for schedule(dynamic, 16)
+    for (int64_t ti = 0; ti < (int64_t)out->nm; ti++) {
+        uint32_t tm = out->masks[ti];
+        F1U192 *acc = out->vals + (uint64_t)ti * 64;   /* calloc'd = zero */
+        uint32_t rem = tm;
+        while (rem) {
+            int i = __builtin_ctz(rem);
+            rem &= rem - 1;
+            uint32_t pred = tm ^ (1u << i);
+            int g;
+            uint32_t cpred = f1_canon(c, pred, &g);
+            int64_t pi = f1_bsearch_u32(pmasks, pnm, cpred);
+            if (pi < 0) continue;
+            const F1U192 *pv = pvals + (uint64_t)pi * 64;
+            const uint8_t *ginv = c->el[g].hinv;
+            const int fa = c->pa[i], fb = c->pb[i];
+            for (int l = 0; l < 64; l++) {
+                if (f1_is_zero(&pv[l])) continue;
+                int lp = ginv[l];   /* stored key -> raw last at the predecessor */
+                /* two orientations of pair i: enter fa exit fb / enter fb exit fa */
+                if (__builtin_popcount(lp ^ fa) != 5) f1_add(&acc[fb], &pv[l]);
+                if (__builtin_popcount(lp ^ fb) != 5) f1_add(&acc[fa], &pv[l]);
+            }
+        }
+    }
+}
+
+/* stabilizer-weighted layer mass: sum_c orbit_size(c) * sum_l F(c,l).
+ * Equals the plain forward DP's layer mass (checked in subset mode). */
+static F1U192 f1_layer_mass(const F1Ctx *c, const F1Layer *L, uint64_t *entries_out) {
+    F1U192 mass = {0, 0, 0};
+    uint64_t entries = 0;
+    #pragma omp parallel
+    {
+        F1U192 lm = {0, 0, 0};
+        uint64_t le = 0;
+        #pragma omp for schedule(dynamic, 256) nowait
+        for (int64_t i = 0; i < (int64_t)L->nm; i++) {
+            F1U192 s = {0, 0, 0};
+            const F1U192 *v = L->vals + (uint64_t)i * 64;
+            for (int l = 0; l < 64; l++)
+                if (!f1_is_zero(&v[l])) { f1_add(&s, &v[l]); le++; }
+            if (!f1_is_zero(&s)) {
+                F1U192 w = f1_mul_small(s, (uint32_t)f1_orbit_size(c, L->masks[i]));
+                f1_add(&lm, &w);
+            }
+        }
+        #pragma omp critical (f1_mass_merge)
+        { f1_add(&mass, &lm); entries += le; }
+    }
+    if (entries_out) *entries_out = entries;
+    return mass;
+}
+
+/* Plain layered forward DP (verbatim port of the prototype's
+ * plain_layered_forward) — subset-mode internal-consistency gate.
+ * Dense (mask,last) table; n capped at 16 (2^16*64*24B*... memory guard). */
+static int f1_plain_dp(const F1Ctx *c, F1U192 *total, F1U192 *masses /* n+1 */) {
+    int n = c->n;
+    if (n > 16) return -1;
+    size_t nstate = ((size_t)1 << n) * 64;
+    F1U192 *v = (F1U192 *)calloc(nstate, sizeof(F1U192));
+    F1_CHECK(v != NULL, "plain-DP alloc failed");
+    v[(size_t)0 * 64 + c->start_exit].l0 = 1;
+    masses[0].l0 = 1; masses[0].l1 = 0; masses[0].l2 = 0;
+    for (int k = 0; k < n; k++) {
+        uint64_t cnt = f1_binom[n][k];
+        uint32_t m = (k == 0) ? 0 : ((1u << k) - 1);
+        for (uint64_t r = 0; r < cnt; r++) {
+            F1U192 *mv = v + (size_t)m * 64;
+            for (int l = 0; l < 64; l++) {
+                if (f1_is_zero(&mv[l])) continue;
+                for (int i = 0; i < n; i++) {
+                    if ((m >> i) & 1) continue;
+                    F1U192 *tv = v + (size_t)(m | (1u << i)) * 64;
+                    if (__builtin_popcount(l ^ c->pa[i]) != 5) f1_add(&tv[c->pb[i]], &mv[l]);
+                    if (__builtin_popcount(l ^ c->pb[i]) != 5) f1_add(&tv[c->pa[i]], &mv[l]);
+                }
+            }
+            if (r + 1 < cnt) m = f1_gosper(m);
+        }
+        /* mass of layer k+1 */
+        F1U192 mass = {0, 0, 0};
+        uint64_t cnt1 = f1_binom[n][k + 1];
+        uint32_t m1 = (1u << (k + 1)) - 1;
+        for (uint64_t r = 0; r < cnt1; r++) {
+            F1U192 *mv = v + (size_t)m1 * 64;
+            for (int l = 0; l < 64; l++)
+                if (!f1_is_zero(&mv[l])) f1_add(&mass, &mv[l]);
+            if (r + 1 < cnt1) m1 = f1_gosper(m1);
+        }
+        masses[k + 1] = mass;
+    }
+    F1U192 t = {0, 0, 0};
+    F1U192 *fv = v + (size_t)((1u << n) - 1) * 64;
+    for (int l = 0; l < 64; l++) if (!f1_is_zero(&fv[l])) f1_add(&t, &fv[l]);
+    *total = t;
+    free(v);
+    return 0;
+}
+
+/* ---------- subset spec parsing (same orbit-union specs as the prototype) ---------- */
+static int f1_parse_subset(const char *spec, int *pl, int *n_out, int *start_out) {
+    const char *s = spec;
+    if (strcmp(spec, "U1") == 0) s = "3.0,3.1,3.2@0";        /* 3+3+3 = 9 pairs  */
+    else if (strcmp(spec, "U2") == 0) s = "6.0,6.1@0";       /* 6+6   = 12 pairs */
+    else if (strcmp(spec, "U3") == 0) s = "3.0,4.0,6.2@63";  /* 3+4+6 = 13 pairs */
+    int n = 0, start = 0;
+    const char *at = strchr(s, '@');
+    if (at) start = atoi(at + 1);
+    const char *p = s;
+    int used_orb[16] = {0};
+    while (*p && (!at || p < at)) {
+        int L = -1, I = -1;
+        if (sscanf(p, "%d.%d", &L, &I) != 2 || L < 1 || I < 0) {
+            fprintf(stderr, "ERROR: [f1] bad subset token at '%s' (want L.I,L.I,...[@START], "
+                    "orbits by (size,index) in sorted order, or U1|U2|U3)\n", p);
+            return -1;
+        }
+        int oi = -1, cnt = 0;
+        for (int o = 0; o < f1_orb_cnt; o++)
+            if (f1_orb_len[o] == L && cnt++ == I) { oi = o; break; }
+        if (oi < 0) {
+            fprintf(stderr, "ERROR: [f1] no orbit of size %d with index %d\n", L, I);
+            return -1;
+        }
+        if (used_orb[oi]) {
+            fprintf(stderr, "ERROR: [f1] orbit %d.%d selected twice\n", L, I);
+            return -1;
+        }
+        used_orb[oi] = 1;
+        for (int j = 0; j < f1_orb_len[oi]; j++) {
+            if (n >= 31) { fprintf(stderr, "ERROR: [f1] subset too large\n"); return -1; }
+            pl[n++] = f1_orb_mem[oi][j];
+        }
+        const char *comma = strchr(p, ',');
+        if (comma && (!at || comma < at)) p = comma + 1;
+        else break;
+    }
+    if (n == 0) { fprintf(stderr, "ERROR: [f1] empty subset\n"); return -1; }
+    if (start != 0 && start != 63) {
+        fprintf(stderr, "ERROR: [f1] start_exit must be 0 or 63 (got %d)\n", start);
+        return -1;
+    }
+    *n_out = n;
+    *start_out = start;
+    return 0;
+}
+
+/* ---------- driver ---------- */
+static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
+    f1_binom_init();
+    f1_build_group();
+
+    F1Ctx *c = (F1Ctx *)calloc(1, sizeof(F1Ctx));
+    F1_CHECK(c != NULL, "ctx alloc failed");
+    int pl[32], n, start_exit;
+    if (subset_spec) {
+        if (f1_parse_subset(subset_spec, pl, &n, &start_exit) != 0) { free(c); return 2; }
+    } else {
+        n = 31;
+        for (int i = 0; i < 31; i++) pl[i] = i + 1;
+        start_exit = 0;   /* C4: s0=63, s1=0 (orientation forced, Theorem 6) -> exit 0 */
+    }
+    f1_ctx_init(c, n, pl, start_exit);
+
+    int max_layer = n;
+    { const char *e = getenv("SOLVE_F1_MAX_LAYER");
+      if (e && *e) {
+          max_layer = atoi(e);
+          if (max_layer < 1) max_layer = 1;
+          if (max_layer > n) max_layer = n;
+          fprintf(stderr, "[f1] PROBE MODE: stopping after layer k=%d (SOLVE_F1_MAX_LAYER)\n", max_layer);
+      } }
+    int delay_ms = 0;
+    { const char *e = getenv("SOLVE_F1_TEST_LAYER_DELAY_MS");
+      if (e && *e) delay_ms = atoi(e); }
+
+    fprintf(stderr, "[f1] run: %s, n=%d pairs [", subset_spec ? subset_spec : "FULL-31", n);
+    for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
+    fprintf(stderr, "] start_exit=%d n_eff=%d threads=%d layers_dir=%s\n",
+            start_exit, c->n_eff, omp_get_max_threads(), layers_dir ? layers_dir : "(none)");
+
+    double T0 = omp_get_wtime();
+    F1Layer cur;
+    memset(&cur, 0, sizeof(cur));
+    F1U192 *omasses = (F1U192 *)calloc((size_t)n + 1, sizeof(F1U192));
+    F1_CHECK(omasses != NULL, "masses alloc failed");
+    int masses_valid_from = 0;
+    int k0 = 0;
+
+    if (layers_dir) {
+        if (mkdir(layers_dir, 0755) != 0 && errno != EEXIST)
+            f1_ckpt_io_abort("mkdir", layers_dir);
+        int rk = f1_try_resume(layers_dir, c, &cur);
+        if (rk >= 0) {
+            k0 = rk;
+            masses_valid_from = rk + 1;   /* masses of layers <= rk not recomputed */
+            fprintf(stderr, "[f1] RESUME from last complete layer k=%d (%llu canonical masks)\n",
+                    rk, (unsigned long long)cur.nm);
+        }
+    }
+    if (cur.masks == NULL) {   /* fresh layer 0 */
+        cur.k = 0;
+        cur.nm = 1;
+        cur.masks = (uint32_t *)calloc(1, sizeof(uint32_t));
+        cur.vals = (F1U192 *)calloc(64, sizeof(F1U192));
+        F1_CHECK(cur.masks && cur.vals, "layer-0 alloc failed");
+        cur.vals[start_exit].l0 = 1;
+        omasses[0].l0 = 1;
+        if (layers_dir) { f1_write_layer(layers_dir, c, &cur); f1_write_manifest(layers_dir, c, 0); }
+    }
+
+    for (int k = k0; k < max_layer; k++) {
+        double t0 = omp_get_wtime();
+        F1Layer nxt;
+        memset(&nxt, 0, sizeof(nxt));
+        nxt.k = k + 1;
+        f1_enum_canonical(c, k + 1, &nxt.masks, &nxt.nm);
+        double t1 = omp_get_wtime();
+        nxt.vals = (F1U192 *)calloc((size_t)nxt.nm * 64, sizeof(F1U192));
+        F1_CHECK(nxt.vals != NULL, "layer %d value alloc failed (%llu masks x 1536 B)",
+                 k + 1, (unsigned long long)nxt.nm);
+        f1_gather_layer(c, &cur, &nxt);
+        double t2 = omp_get_wtime();
+        uint64_t entries = 0;
+        F1U192 mass = f1_layer_mass(c, &nxt, &entries);
+        omasses[k + 1] = mass;
+        double t3 = omp_get_wtime();
+        double t_ck = 0.0;
+        if (layers_dir) {
+            f1_write_layer(layers_dir, c, &nxt);
+            f1_write_manifest(layers_dir, c, k + 1);
+            if (k >= 1) {   /* keep k and k+1; drop k-1 */
+                char old[4096];
+                snprintf(old, sizeof(old), "%s/f1_layer_%02d.bin", layers_dir, k - 1);
+                unlink(old);
+            }
+            t_ck = omp_get_wtime() - t3;
+        }
+        char mdec[64];
+        f1_dec(mass, mdec);
+        fprintf(stderr, "[f1] layer k=%2d/%d: canonical_masks=%llu (of C(%d,%d)=%llu) "
+                "entries=%llu bytes=%.3fGB mass=%s elapsed=%.2fs "
+                "(enum=%.2fs gather=%.2fs mass=%.2fs ckpt=%.2fs) total=%.1fs\n",
+                k + 1, n, (unsigned long long)nxt.nm, n, k + 1,
+                (unsigned long long)f1_binom[n][k + 1], (unsigned long long)entries,
+                (double)nxt.nm * (4.0 + 1536.0) / 1e9, mdec,
+                omp_get_wtime() - t0, t1 - t0, t2 - t1, t3 - t2, t_ck,
+                omp_get_wtime() - T0);
+        f1_layer_free(&cur);
+        cur = nxt;
+        if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
+    }
+
+    if (max_layer < n) {
+        fprintf(stderr, "[f1] PROBE STOP after layer k=%d (SOLVE_F1_MAX_LAYER); "
+                "partial state %s. No total computed.\n",
+                max_layer, layers_dir ? "checkpointed" : "NOT checkpointed");
+        f1_layer_free(&cur);
+        free(omasses); free(c);
+        return 0;
+    }
+
+    /* final layer: the full mask is G-fixed (orbit size 1) */
+    uint32_t full = (n == 32) ? 0xffffffffu : ((1u << n) - 1);
+    F1_CHECK(cur.nm == 1 && cur.masks[0] == full, "final layer must be exactly the full mask");
+    F1U192 total = {0, 0, 0};
+    for (int l = 0; l < 64; l++)
+        if (!f1_is_zero(&cur.vals[l])) f1_add(&total, &cur.vals[l]);
+    char tdec[64];
+    f1_dec(total, tdec);
+    int rc = 0;
+
+    if (subset_spec) {
+        printf("F1 SUBSET %s: n=%d pairs [", subset_spec, n);
+        for (int i = 0; i < n; i++) printf("%s%d", i ? "," : "", pl[i]);
+        printf("] start_exit=%d\n", start_exit);
+        printf("  orbit-quotient DP total = %s\n", tdec);
+        F1U192 ptotal = {0, 0, 0};
+        F1U192 *pmasses = (F1U192 *)calloc((size_t)n + 1, sizeof(F1U192));
+        F1_CHECK(pmasses != NULL, "plain masses alloc failed");
+        if (f1_plain_dp(c, &ptotal, pmasses) != 0) {
+            printf("  plain layered DP: SKIPPED (n=%d > 16 memory guard)\n", n);
+            printf("F1 SUBSET VERIFY: NO-PLAIN (orbit total above; no internal cross-check)\n");
+        } else {
+            char pdec[64];
+            f1_dec(ptotal, pdec);
+            printf("  plain layered DP total  = %s\n", pdec);
+            int ok_total = f1_eq(&total, &ptotal);
+            int ok_mass = 1;
+            for (int k = masses_valid_from; k <= n; k++)
+                if (!f1_eq(&omasses[k], &pmasses[k])) ok_mass = 0;
+            printf("  totals match exactly: %s; layer-by-layer mass equality (k=%d..%d): %s\n",
+                   ok_total ? "PASS" : "FAIL", masses_valid_from, n, ok_mass ? "PASS" : "FAIL");
+            printf("F1 SUBSET VERIFY: %s\n", (ok_total && ok_mass) ? "PASS" : "FAIL");
+            rc = (ok_total && ok_mass) ? 0 : 1;
+        }
+        free(pmasses);
+    } else {
+        /* Result protocol: S4 acts freely on C1&C2&C4 sequences (fixed-pairing
+         * argument, TR-5), so N must be divisible by 24. */
+        F1U192 q = total;
+        uint32_t rem = f1_divmod_small(&q, 24);
+        F1_CHECK(rem == 0, "N %% 24 = %u != 0 — free-action divisibility violated", rem);
+        char qdec[64];
+        f1_dec(q, qdec);
+        printf("F1 EXACT |C1 & C2 & C4| = %s\n", tdec);
+        printf("  N / 24 (S4-orbit count) = %s\n", qdec);
+        printf("  vs Knuth estimator 7.571e41 (+/-0.01%%): ratio = %.6f\n",
+               f1_to_double(&total) / 7.571e41);
+        printf("F1 EXACT: DONE (%.1fs)\n", omp_get_wtime() - T0);
+    }
+    f1_layer_free(&cur);
+    free(omasses); free(c);
+    return rc;
+}
+
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
@@ -11262,6 +12226,23 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("F4P VERIFY: PASS\n");
         else printf("F4P VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
+        /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.
+         * See the module header above f1_exact_main() for method, gates, and
+         * attribution. Sha-neutral (argv-dispatched, never on the enum path). */
+        const char *f1_layers_dir = NULL, *f1_subset = NULL;
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
+                f1_layers_dir = argv[++ai];
+            else if (strcmp(argv[ai], "--f1-subset") == 0 && ai + 1 < argc)
+                f1_subset = argv[++ai];
+            else {
+                fprintf(stderr, "Usage: solve --f1-exact-c1c2c4 [--layers-dir DIR] "
+                        "[--f1-subset U1|U2|U3|\"L.I,L.I,...[@START]\"]\n");
+                return 2;
+            }
+        }
+        return f1_exact_main(f1_layers_dir, f1_subset);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
