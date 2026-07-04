@@ -365,3 +365,91 @@ theorem alternations_15_general (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen 
       omega
   rw [hsplit, hwithin, hcong] at hodd15
   omega
+
+
+/- ------------------ TIER 2c (2026-07-04): THE 30-PARITY-SWITCH COROLLARY ------------------
+   switches_30_general: in EVERY C1+C5 sequence of 64 six-bit values, the transition-parity
+   sequence (ftr l 0 % 2, …, ftr l 62 % 2) switches parity between consecutive positions
+   exactly 30 times. Within-pair transitions (even flat index) are always even (rev-partners
+   preserve popcount parity; comp-partners have ham = 6), so a switch at flat index j happens
+   iff the adjacent between-pair transition is odd — and each odd between-pair transition is
+   flanked by two even within-pair transitions, contributing exactly 2 switches. With 15 odd
+   between-pair transitions (alternations_15_general), the count is 2 × 15 = 30. -/
+
+theorem range62_perm :
+    (List.range 62).Perm
+      (((List.range 31).map (fun i => 2*i)) ++ ((List.range 31).map (fun i => 2*i+1))) := by
+  decide
+
+theorem switches_30_general (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen : l.length = 64)
+    (h1 : c1ok l = true) (h5 : c5ok l = true) :
+    ((List.range 62).countP fun j => decide (ftr l j % 2 ≠ ftr l (j+1) % 2)) = 30 := by
+  have h15 := alternations_15_general l hb hlen h1 h5
+  have hget : ∀ j, j < 64 → l.getD j 0 < 64 := by
+    intro j hj
+    have hjl : j < l.length := by omega
+    have : l.getD j 0 = l[j] := by simp [List.getD, List.getElem?_eq_getElem hjl]
+    rw [this]; exact hb _ (List.getElem_mem hjl)
+  simp only [c1ok, List.all_eq_true, beq_iff_eq] at h1
+  have hc1 : ∀ i, i < 32 → l.getD (2*i+1) 0 = partner (l.getD (2*i) 0) := by
+    intro i hi
+    have h2i : 2*i < l.length := by omega
+    have h2i1 : 2*i+1 < l.length := by omega
+    have e1 : l.getD (2*i+1) 99 = l.getD (2*i+1) 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h2i1]
+    have e2 : l.getD (2*i) 99 = l.getD (2*i) 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h2i]
+    have := h1 i (List.mem_range.mpr hi)
+    rw [e1, e2] at this; exact this
+  -- step 1: within-pair transitions (even flat index) have even parity
+  have hwithin : ∀ k, k < 32 → ftr l (2*k) % 2 = 0 := by
+    intro k hk
+    simp only [ftr]
+    rw [hc1 k hk]
+    exact within_even _ (hget (2*k) (by omega))
+  -- step 2: between-pair transition parity = parity of the two pair-heads' popcount sum
+  have hbetween : ∀ k, k < 31 →
+      ftr l (2*k+1) % 2 = (pc6 (l.getD (2*k) 0) + pc6 (l.getD (2*k+2) 0)) % 2 := by
+    intro k hk
+    simp only [ftr]
+    have hpar := ham_parity_lt64 _ (hget (2*k+1) (by omega)) _ (hget (2*k+1+1) (by omega))
+    have e22 : 2*k+1+1 = 2*k+2 := by omega
+    rw [e22] at hpar
+    rw [e22, hpar]
+    have hp1 : pc6 (l.getD (2*k+1) 0) % 2 = pc6 (l.getD (2*k) 0) % 2 := by
+      rw [hc1 k (by omega)]
+      exact partner_parity _ (hget (2*k) (by omega))
+    omega
+  -- step 3: split the 62 switch positions by flat-index parity
+  have hsplit : ((List.range 62).countP fun j => decide (ftr l j % 2 ≠ ftr l (j+1) % 2)) =
+      ((List.range 31).countP fun k => decide (ftr l (2*k) % 2 ≠ ftr l (2*k+1) % 2)) +
+      ((List.range 31).countP fun k => decide (ftr l (2*k+1) % 2 ≠ ftr l (2*k+1+1) % 2)) := by
+    rw [range62_perm.countP_eq, List.countP_append, List.countP_map, List.countP_map]
+    rfl
+  -- even flat index: within(2k) = 0, so switch ⟺ between-transition k is odd ⟺ alternation at k
+  have heven : ((List.range 31).countP fun k => decide (ftr l (2*k) % 2 ≠ ftr l (2*k+1) % 2)) =
+      ((List.range 31).countP fun i =>
+        decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD (2*i+2) 0) % 2)) := by
+    apply List.countP_congr
+    intro k hk
+    have hk31 := List.mem_range.mp hk
+    have hw := hwithin k (by omega)
+    have hbet := hbetween k hk31
+    simp only [decide_eq_true_iff]
+    rw [hw, hbet]
+    omega
+  -- odd flat index: within(2k+2) = 0, so switch ⟺ between-transition k is odd ⟺ alternation at k
+  have hodd : ((List.range 31).countP fun k => decide (ftr l (2*k+1) % 2 ≠ ftr l (2*k+1+1) % 2)) =
+      ((List.range 31).countP fun i =>
+        decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD (2*i+2) 0) % 2)) := by
+    apply List.countP_congr
+    intro k hk
+    have hk31 := List.mem_range.mp hk
+    have hbet := hbetween k hk31
+    have e2 : 2*k+1+1 = 2*(k+1) := by omega
+    have hw : ftr l (2*k+1+1) % 2 = 0 := by
+      rw [e2]; exact hwithin (k+1) (by omega)
+    simp only [decide_eq_true_iff]
+    rw [hw, hbet]
+    omega
+  rw [hsplit, heven, hodd, h15]
