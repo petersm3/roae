@@ -123,7 +123,7 @@ King Wen appears exactly once per canonical dataset (d3: 1 variant, d2: 1 varian
 
 In the canonical v1 format, each pair-ordering appears exactly once (lex-smallest orient variant kept; other variants cheaply recoverable by testing 2^31 combinations). The d3 10T dataset contains 706,422,987 unique pair-orderings; the d2 10T dataset contains 286,357,503. The 742M-era "4 KW orient variants" finding was an artifact of pre-format-v1 storage that stored all orient variants rather than collapsing them.
 
-The underlying constraint geometry — that within-pair orient is almost entirely forced across positions 5-20 for every valid pair-sequence — is unchanged. What changes is the STORAGE: canonical format v1 doesn't duplicate-store the orient variants that exist, it stores the canonical form + the implicit fact that some pair-orderings have multiple valid orient variants which could be regenerated on demand.
+The underlying constraint geometry — that within-pair orientation is strongly CORRELATED rather than free — for King Wen's pair sequence, exactly 1,720,320 of the 2³¹ orientation vectors remain valid (~20.7 free bits; only 9 of the 31 bits can be flipped individually, but joint reconfigurations open far more than the old 'almost entirely forced' gloss suggested — corrected 2026-07-04 by exact fiber enumeration) — is unchanged. What changes is the STORAGE: canonical format v1 doesn't duplicate-store the orient variants that exist, it stores the canonical form + the implicit fact that some pair-orderings have multiple valid orient variants which could be regenerated on demand.
 
 ## Observed structural regularity: yield clustering + orientation-symmetry
 
