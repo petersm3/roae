@@ -14,6 +14,11 @@ arrangement preserving the classical pairing can satisfy all of them**, a fact e
 search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the
 others by the smallest margins possible. Its irregularities are the visible seam of a forced trade-off,
 not damage. A corollary: the "uncorrupted original" that some scholars hypothesized never existed.
+New in v1.7: within the three graded rules — where perfection **is** achievable — a pre-registered
+Bayesian comparison finds the received order far better explained as a corrupted rule-perfect ordering
+than as the work of an arranger holding the rules as soft preferences (Bayes factor ≈ 6.6×10³–7.9×10³,
+"strong" on the Jeffreys scale); a two-model comparison conditioned on the literature's rules, not proof
+of corruption in any absolute sense.
 
 Target: *Journal of Chinese Philosophy* (where Moore 2005-adjacent and Schulz 1990/2011 appeared). ~8pp.
 Defense model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
@@ -123,11 +128,88 @@ Certificates: fourteen DRAT proofs covering the union, the repair ladder, all fi
 subsets, and the cores (archive alongside the original conflict certificates; every one drat-trim
 verified, with the full set re-verified against freshly regenerated encodings on a separate machine).
 
+## A Bayesian comparison: corruption vs. tendency (v1.7)
+
+The conflict theorem settles what cannot exist: no pairing-preserving ordering perfect under all four
+rules. The three **graded** rules — Moore's 2005 parity, Moore's 1989 rhythm, Schulz's 1990 gender rule
+(its exceptions first noted by Zhu Yuansheng in the 13th century) — are jointly satisfiable: the grand
+precursor of §3 achieves all three exactly, and the received order sits exactly three slot-edits from it,
+with all six violations (2+2+2 across the three rules) co-located at the historically flagged locus. §5
+left the reading of that residual anomaly open: restricted corruption, or tendencies? This section closes
+that question as far as data can, by a pre-registered Bayesian comparison of the two readings the
+literature itself supplies:
+
+- **M_corr (corruption):** an originally rule-perfect ordering (under the three graded rules) was hit by
+  a small physical transmission accident. Moore (1989, 2005) conjectured a compliant original later
+  altered; Schulz's exceptions sit at the same locus; Rutt (1996) supplies the physical mechanism
+  (re-strung bamboo-slat cords, allowing adjacent transpositions and slat inversions), as discussed by
+  Hacker & Moore (2003). This work quantifies the conjecture Moore and Schulz raised on interpretive
+  grounds.
+- **M_tend (tendency):** the arranger held the three rules as soft preferences (a Gibbs strength λ),
+  never exactly; the anomaly is ordinary imperfection, with no corruption event at all.
+
+**Scope caveat, stated before the result.** This is a comparison of exactly **two** models, conditioned
+on the literature's three rules being the relevant regularities. A Bayes factor between them says which
+of the two the data favor — it is **not proof of corruption in any absolute sense**, and it does not
+test whether the rules themselves are the right lens (e.g., against the rules being post-hoc
+pattern-noise on a sequence arranged by entirely other principles — a separate question, outside this
+test's scope). It also does not conflict with this report's headline: the theorem rules out an
+all-four-rule original; this comparison concerns only the three graded rules, whose joint perfection is
+achievable.
+
+**Pre-registration discipline.** The model forms, the two corruption-location variants (uniform edit
+location; bamboo-adjacent-biased), the 50:50 model prior, and the Jeffreys decision bands (BF > 10
+substantial, BF > 100 strong) were frozen by operator sign-off on 2026-07-04, **before** the runs were
+executed, with a pre-committed publish-whatever-it-says clause: the full sensitivity table would be
+published regardless of direction. Nothing was altered after seeing the numbers except the numbers
+themselves. One disclosed gap: the frozen document left the parameter-prior grids symbolic; they were
+declared wide at computation time (each spanning ~2 orders of magnitude, uniform weights), and the full
+per-gridpoint likelihood tables are published so any reader can re-weight them.
+
+**The result.** Both models are full generative models over the canonical C1–C5 space (the shared
+substrate, which cancels), evaluated at the exact received sequence.
+
+- **BF(corruption/tendency) ≈ 6.6×10³** (variant U, uniform edit location) and **≈ 7.9×10³** (variant A,
+  bamboo-adjacent-biased) at the primary configuration — both exceed the frozen BF > 100 "strong" band
+  by well over an order of magnitude.
+- Under the frozen 50:50 model prior, **posterior P(corruption | data) ≈ 0.9998**.
+- **Sensitivity:** across every one of the 24 pre-committed configurations, the BF ranges
+  **1.4×10³ – 2.7×10⁴**; the direction never flips anywhere in the sensitivity space. Even a reader free
+  to concentrate all prior mass on the single most tendency-favorable gridpoint of both parameter grids
+  cannot push the evidence below the substantial band except marginally at that one corner (worst
+  gridpoint BF = 3.3, still above 1; 46 of 49 gridpoints give BF > 100).
+
+Why so one-sided, in one sentence: the tendency model must pay for the enormous near-compliant
+population its soft preference admits, while the corruption model concentrates its mass on sequences a
+few edits from strictness — and the received order is one of very few such sequences (2 of the 7,975
+possible 3-edit events land in the rule-perfect set, a fact established by exact enumeration, and the
+SAT-certified minimal repair distance of 3 is reproduced by that same enumeration).
+
+**The weakest ingredient, honestly.** The size of the triple-strict (rule-perfect) population, N_gs, is
+a **derived** quantity, not a directly pruned count — the single least-precise ingredient in the
+computation. Its two independent derivations disagree by ×3.5 (3.57×10²⁵ vs 1.03×10²⁵); per the
+strictest-reading rule the **larger** value — which weakens the winning corruption model — is primary,
+and every configuration is reported under both. Flipping the verdict down to the strong threshold would
+require N_gs to be ~66× the larger estimate, far outside any plausible estimator noise.
+
+**What this does NOT say.** Nothing about who altered the sequence, when, or how; no dating, no
+attribution, no reconstruction of events. It licenses no claim beyond the model pair compared: conditional
+on the literature's three rules being the relevant regularities, the received sequence is far better
+explained as a corrupted rule-perfect ordering than as the output of a soft-preference arranger — whether
+the rules are the right lens remains open.
+
+**Reproduction.** The evidence files (raw run outputs and the exact edit-event enumeration) and the
+closed-form integration script live in the project's private archive. The underlying population runs are
+reproducible from `solve.c`'s `--estimate-knuth` estimator with the documented environment flags at the
+stated probe counts (2×10¹⁰, 5×10⁹, 5×10⁹, 2×10⁹); the edit-event geometry (k ≤ 6) is an exact
+enumeration, not sampled.
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.5 | 2026-07-04 | Adversarial round 2 corrections: conflict-theorem claims scoped to pairing-preserving orderings; TR-3 weeks-not-months; TR-9 residual dual-convention phrasing |
 | v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
+| v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |
