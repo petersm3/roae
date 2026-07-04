@@ -7,6 +7,10 @@ mathematical consequence), **withdrawn** (our own claim, retracted under verific
 **confirmed**. The register throughout is respect: every decidable claim below was concrete and
 falsifiable, which is precisely what made it worth testing — vaguer claims survive by being untestable.
 
+**Authority note:** the technical reports are authoritative; this page is an index over them. On any
+discrepancy between a row here and its linked report, the report wins — and the discrepancy is a bug
+in this page (report it).
+
 | Claim | Source | Verdict | Finding | Proof |
 |---|---|---|---|---|
 | A better King Wen exists via reordering | McKenna & Mair 1979 | **REFUTED** (both prongs) | The "defects" are among the sequence's rarest features; the required Gray-code construction is impossible under the pairing (2-line parity proof) | [TR-8](../reports/TR8_REORDERING_REVISITED.md) |
