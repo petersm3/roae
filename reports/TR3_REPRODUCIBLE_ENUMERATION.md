@@ -8,7 +8,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 This is the engineering report: how a computation that visited 560 trillion search states and produced
 10.5 billion results became a **reproducible scientific object** — re-derivable byte-for-byte by anyone,
 on hardware the project doesn't control. The proof is demonstrated, not promised: the entire computation
-was run twice from scratch, months apart, on rented cloud machines that were forcibly interrupted twelve
+was run twice from scratch, weeks apart, on rented cloud machines that were forcibly interrupted twelve
 times in total, and both runs produced the identical result to the last byte — at roughly 15% of normal
 cloud cost by using interruptible "Spot" capacity. The methods (checksum anchoring, self-testing gates,
 crash-safe checkpoints, re-derive-don't-patch) transfer to any long-running computation, far beyond this
