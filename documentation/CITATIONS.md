@@ -361,10 +361,11 @@ Hacker, E. A. (1987). Order in the textual sequence of the hexagrams of the I Ch
 Philosophy, 14*(1), 59–64.
   Possibly the earliest Western formal ordering analysis. [pending]
 
-Schulz, L. J., & Cunningham, W. (1990). The seasonal structure underlying the arrangement of hexagrams
-in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313.
-  The seasonal hypothesis behind the xiaoxi trisection (companion to the Schulz 1990 material already
-  consulted). [pending]
+Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of
+hexagrams in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. (Working-paper version:
+Federal Reserve Bank of Atlanta Occasional Paper Series, 1988.)
+  The guaqi seasonal framework; the seasonal hypothesis behind the xiaoxi trisection. Known so far via
+  Schulz 2011's discussion (cited there as 1990A). [pending]
 
 Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [not obtained]
 
