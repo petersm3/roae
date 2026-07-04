@@ -13,7 +13,7 @@ This document lists prior published work on the mathematical structure of the Ki
 The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs is a **classical observation**, not novel to any modern author. It appears in the earliest layers of I Ching commentary (the *Yi Zhuan* or "Ten Wings," traditionally attributed to Confucius, ~5th–3rd c. BCE, though modern dating is later). The explicit modern formulation is given in:
 
 - **Wilhelm, Richard and Baynes, Cary F. (trans.)** (1967). *The I Ching or Book of Changes*. 3rd edition, Princeton University Press / Bollingen Series. The pairing convention is used throughout. ISBN 978-0-691-09750-3.
-- **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase via [STEDT Web Store](http://www.lulu.com/stedt) (ISBN 0-944613-44-6).
+- **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/2023/http://www.lulu.com/stedt)) (ISBN 0-944613-44-6).
 
 **Status in ROAE:** ROAE independently encodes this rule as constraint C1 and uses it as the starting point of the enumeration. Not novel to ROAE.
 
@@ -361,10 +361,10 @@ Hacker, E. A. (1987). Order in the textual sequence of the hexagrams of the I Ch
 Philosophy, 14*(1), 59–64.
   Possibly the earliest Western formal ordering analysis. [pending]
 
-Hacker, E. A., & Moore, S. (2003). A brief note on the two-part division of the received order of the
-hexagrams in the Zhouyi. *Journal of Chinese Philosophy, 30*(2), 219–221.
-  Primary source of the 18:18 condensed-figure hypothesis (via Hu Yigui, 1247); its 3-vs-1 opposite-pair
-  distribution is the measured R-C5. [read]
+Schulz, L. J., & Cunningham, W. (1990). The seasonal structure underlying the arrangement of hexagrams
+in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313.
+  The seasonal hypothesis behind the xiaoxi trisection (companion to the Schulz 1990 material already
+  consulted). [pending]
 
 Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [not obtained]
 
@@ -461,10 +461,10 @@ Yizhuan*), Lai Zhide (1525–1604, via Schulz, 1982), and Zhu Yuansheng (13th c.
 Moore, S. (n.d.). *Yijing Dao*. biroco.com. https://www.biroco.com/yijing/
   Steve Moore's archive; source of the Moore papers, Schulz (1990), Waley (1933), and others. [swept 2026-07]
 
-Drasny, J. (n.d.). *The Yi-globe*. i-ching.hu. https://www.i-ching.hu/
+Drasny, J. (n.d.). *The Yi-globe*. i-ching.hu. https://www.i-ching.hu/ (unreachable as of 2026-07-04; [archived copy](https://web.archive.org/web/2024/https://www.i-ching.hu/))
   HTTP-only, partially blocked; core paper recovered via mirror. [partial]
 
-Schöter, A. (n.d.). *Yijing algebra*. yijing.co.uk. https://www.yijing.co.uk/
+Schöter, A. (n.d.). *Yijing algebra*. yijing.co.uk. https://www.yijing.co.uk/ (unreachable as of 2026-07-04; [archived copy](https://web.archive.org/web/2024/https://www.yijing.co.uk/))
   HTTP-only, partially blocked; 1998 paper via mirror; three later papers paywalled. [partial]
 
 Hacker, E. A., Moore, S., & Patsco, L. (n.d.). *Zhouyi.com* [Archived website]. Internet Archive.
