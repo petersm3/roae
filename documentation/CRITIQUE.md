@@ -350,7 +350,7 @@ with the full table and script: project archive; the Mawangdui sequence used is 
 from `--null-historical`, whose true lower-trigram cycle differs from some published generative
 descriptions — noted for the record.)
 
-## Pre-registered test in flight: F4' ordering-layer functionals (registered 2026-07-04, results pending)
+## Pre-registered test: F4' ordering-layer functionals (registered 2026-07-04; measured same day — all 13 null, results below)
 
 To keep the look-elsewhere accounting honest, this registration is published BEFORE any population
 number has been observed. Thirteen integer-valued ordering-layer functionals — each derived from an

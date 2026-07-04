@@ -105,7 +105,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Archive disposition (current state, 2026-06-12):**
 - **Bytes preserved on warm tier:** `solver-data-westus3:/canonical_100T/solutions.bin` (109,836,777,536 bytes; sha-verified 2026-06-12). Originate from T9+c.1 recovery May 8-9.
-- **Cold blob:** NOT uploaded. The forward-looking archive path `canonical-archive/20260530_100T_revalidation_4e15885/` referenced in earlier doc revisions is empty in actual cold blob state. A fresh v3 100T re-derive is in flight 2026-06-12/13 specifically to upload a complete archive (solutions.bin.gz + per-cell shards) to cold blob.
+- **Cold blob:** NOT uploaded. The forward-looking archive path `canonical-archive/20260530_100T_revalidation_4e15885/` referenced in earlier doc revisions is empty in actual cold blob state. A fresh v3 100T re-derive is completed 2026-06-13; consumed by the 3-point trajectory analysis (HISTORY.md 2026-06-14); archived per Canonical Archive Spec v1/13 specifically to upload a complete archive (solutions.bin.gz + per-cell shards) to cold blob.
 
 **Record-count correction 2026-05-30:** previously documented count was 3,432,399,**297**; the merge produced 109,836,777,536 bytes which divides cleanly by 32 to give 3,432,399,**298** records. Sha256 is dispositive of byte-identical content; the 1-record discrepancy was an off-by-one in the original 2026-05-12 provenance write. v2/v1 delta consequently is +231,181,**616** records (+6.74%), not +231,181,**617**.
 
@@ -138,7 +138,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Tier 1 incident note:** the 2026-05-31 dress rehearsal supervisor surfaced a phantom drift report from a typo'd hardcoded anchor sha; resolved by independent empirical sha256 against archived bytes — see `petersm3/roae-private:PHANTOM_DRIFT_RESOLUTION_2026_05_31.md`.
 
-A fresh v3 re-derive is in flight 2026-06-12/13 to add a 9th witness + preserve per-cell shards for the 3-point trajectory analysis.
+A fresh v3 re-derive is completed 2026-06-13; consumed by the 3-point trajectory analysis (HISTORY.md 2026-06-14); archived per Canonical Archive Spec v1/13 to add a 9th witness + preserve per-cell shards for the 3-point trajectory analysis.
 
 ---
 

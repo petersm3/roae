@@ -1,6 +1,6 @@
 # Enumeration Leaderboard
 
-> Canonical sha256 hashes, record counts, and reproducibility parameters are listed in [`../CANONICAL_HASHES.md`](../CANONICAL_HASHES.md). The deepest published partial enumeration is the **d3 560T canonical** (established 2026-06-08): **10,525,271,997 orderings** (`9a968fa2…`, current main lineage at git `2b01b15`). **As of 2026-06-30 the 560T canonical is CANONICAL-verified** — it was SUSPECT from 2026-06-21 (a proven eviction-resume determinism bug + 5 Spot evictions on the pre-fix solver), but a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (identical sha and 10,525,271,997-record count, across 7 fresh evictions that all resumed cleanly), so the original run was complete and the count above stands. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 560T. The d3 100T canonical at 3,432,399,298 orderings (`915abf30…`) is the next-deepest and remains an active reference anchor for cross-scale stability checks. The v2 100T row (3,663,580,914 orderings, `cc4a5377…`, +6.74 % over v1 100T) is frozen as historical record — see CANONICAL_HASHES.md §"Historical (frozen lineages)". The d3 10T and d2 10T canonicals remain at fully-validated reference counts and serve as drift-detection anchors at smaller scales. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference. The 100T : 10T ratio of 4.86× (v1) and the **560T : 100T ratio of 3.07×** (v1, current main) both reflect diminishing returns in the search tree (linear node budget yields sublinear new-orderings) — the 3-point fit across 11.2 T → 100 T → 560 T gives an empirical power-law exponent α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). The 2026-06-14 three-point per-cell analysis confirms the trajectory is **strictly nested** — 11.2T ⊆ 100T ⊆ 560T with **0 monotonicity violations** under pair-identity keying (records 759,608,573 → 3,432,399,298 → 10,525,271,997; pair-identity cells yielding 9,799 → 10,062 → 10,618) — and that growth is **deepening of existing productive cells, not new regions** (cells first appearing at a larger scale contribute only ~0.2% then ~0.5% of that scale's records). Every sampled sub-branch remains **BUDGETED (none EXHAUSTED)** at 560T, so the exhaustive enumeration cannot state an exact total — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts the total at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B is ≈1 part in 10²⁷ of the space and exhaustion is infeasible at any budget (see [`SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible *slice* at a fixed budget, and the 1120T extension is a discriminating test of the asymptote. (Orientation-specific keying shows spurious "violations" — an artifact of orientation-collapse dedup, not real non-monotonicity.)
+> Canonical sha256 hashes, record counts, and reproducibility parameters are listed in [`CANONICAL_HASHES.md`](../documentation/CANONICAL_HASHES.md). The deepest published partial enumeration is the **d3 560T canonical** (established 2026-06-08): **10,525,271,997 orderings** (`9a968fa2…`, current main lineage at git `2b01b15`). **As of 2026-06-30 the 560T canonical is CANONICAL-verified** — it was SUSPECT from 2026-06-21 (a proven eviction-resume determinism bug + 5 Spot evictions on the pre-fix solver), but a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (identical sha and 10,525,271,997-record count, across 7 fresh evictions that all resumed cleanly), so the original run was complete and the count above stands. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 560T. The d3 100T canonical at 3,432,399,298 orderings (`915abf30…`) is the next-deepest and remains an active reference anchor for cross-scale stability checks. The v2 100T row (3,663,580,914 orderings, `cc4a5377…`, +6.74 % over v1 100T) is frozen as historical record — see CANONICAL_HASHES.md §"Historical (frozen lineages)". The d3 10T and d2 10T canonicals remain at fully-validated reference counts and serve as drift-detection anchors at smaller scales. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference. The 100T : 10T ratio of 4.86× (v1) and the **560T : 100T ratio of 3.07×** (v1, current main) both reflect diminishing returns in the search tree (linear node budget yields sublinear new-orderings) — the 3-point fit across 11.2 T → 100 T → 560 T gives an empirical power-law exponent α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). The 2026-06-14 three-point per-cell analysis confirms the trajectory is **strictly nested** — 11.2T ⊆ 100T ⊆ 560T with **0 monotonicity violations** under pair-identity keying (records 759,608,573 → 3,432,399,298 → 10,525,271,997; pair-identity cells yielding 9,799 → 10,062 → 10,618) — and that growth is **deepening of existing productive cells, not new regions** (cells first appearing at a larger scale contribute only ~0.2% then ~0.5% of that scale's records). Every sampled sub-branch remains **BUDGETED (none EXHAUSTED)** at 560T, so the exhaustive enumeration cannot state an exact total — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts the total at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B is ≈1 part in 10²⁷ of the space and exhaustion is infeasible at any budget (see [`SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible *slice* at a fixed budget, and the 1120T extension is a discriminating test of the asymptote. (Orientation-specific keying shows spurious "violations" — an artifact of orientation-collapse dedup, not real non-monotonicity.)
 >
 > **Novel finding from 100T `--c3-min` analysis (2026-04-20; 560T re-affirmed 2026-06-11):** KW is **not** the C3-minimum under C1+C2+C3. At 100T: minimum complement distance = **424** (221 records); KW sits at C3 = 776 (ceiling of the constraint). At 560T (3.07× the scale), KW's position at the C3 = 776 *ceiling* is reaffirmed. The simple axiom "minimize C3" does not derive KW — this is a confirmed negative result for Open Question #7 Phase A across both scales.
 >
@@ -9,7 +9,7 @@
 > **Single-branch deep-walk pilot (2026-04-29):** `22_0_30_1_20_0` at d3 100T per-task-cap = 40 G:
 > **664,086,250 canonical orderings** in this *single* depth-3 sub-branch (sha `52c8d308257d3b75041d0743b4b02a37360fe6567fec7c1c07ed49d8d22a29b9`, 20.0 GB). Distinct from the d3 100T full-canonical (`915abf30…`, 3.43 B across all 158,364 branches) — this is *one* branch with a higher per-cell budget. The 100T canonical's per-branch budget reported `22_0_30_1_20_0` as a "yield-16 laggard"; this pilot with 100T concentrated on the single branch found ~50,000,000× more solutions, demonstrating the canonical's per-branch yield labels are scope-bounded by per-branch budget rather than branch yield. 0 of 2,380 walked (p4, o4, p5, o5) cells naturally exhausted under the 40 G per-cell cap. See HISTORY.md §April 28-29 for full details.
 >
-> **5.6T regression-test verification (2026-04-30):** the `--double-regression-test` mode produced sha **`c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd`** (467,483,137 canonical orderings, 14.96 GB) across 4 verification paths: full-enum layer 1, full-enum layer 2 (deterministic re-run), `--merge-layers` of both full-enum layers, AND `--merge-layers` of 56 first-level `--branch p1 o1` reconstruction layers. All four shas match. This empirically confirms partition invariance at depth-3 with controlled per-sub-branch budget (`SOLVE_PER_SUB_BRANCH_LIMIT=35361572`, = 5.6T / 158,364 sub-branches), AND verifies layered-merge correctness via `--merge-layers`. The verification surfaced and fixed a depth-2 bug in `--branch` (commit `cdd8575`). Prior 2026-04-29 attempts were INCONCLUSIVE due to that bug. See [PARTITION_INVARIANCE.md](../PARTITION_INVARIANCE.md) §1 and [HISTORY.md](../HISTORY.md) §"April 29, 2026" for the full retrospective.
+> **5.6T regression-test verification (2026-04-30):** the `--double-regression-test` mode produced sha **`c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd`** (467,483,137 canonical orderings, 14.96 GB) across 4 verification paths: full-enum layer 1, full-enum layer 2 (deterministic re-run), `--merge-layers` of both full-enum layers, AND `--merge-layers` of 56 first-level `--branch p1 o1` reconstruction layers. All four shas match. This empirically confirms partition invariance at depth-3 with controlled per-sub-branch budget (`SOLVE_PER_SUB_BRANCH_LIMIT=35361572`, = 5.6T / 158,364 sub-branches), AND verifies layered-merge correctness via `--merge-layers`. The verification surfaced and fixed a depth-2 bug in `--branch` (commit `cdd8575`). Prior 2026-04-29 attempts were INCONCLUSIVE due to that bug. See [PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md) §1 and [HISTORY.md](../documentation/HISTORY.md) §"April 29, 2026" for the full retrospective.
 
 ## What this is
 
@@ -22,8 +22,8 @@ arrangements satisfy them all. This project is cataloging every valid arrangemen
 to understand what makes the historical one special — or whether it is simply
 one choice among many.
 
-For the rules themselves, see [SOLVE-SUMMARY.md](../SOLVE-SUMMARY.md).
-For formal definitions, see [SPECIFICATION.md](../SPECIFICATION.md).
+For the rules themselves, see [SOLVE-SUMMARY.md](../documentation/SOLVE-SUMMARY.md).
+For formal definitions, see [SPECIFICATION.md](../documentation/SPECIFICATION.md).
 
 ---
 
@@ -156,7 +156,7 @@ valid orderings; others produce zero.
 **Key insight:** Nearly half the possible position-2 choices lead to dead branches —
 no valid orderings exist (or at least none have been found). The viable choices vary
 enormously in how many valid orderings they produce, from hundreds of thousands to
-millions. The [complement distance constraint](../SOLVE-SUMMARY.md#rule-3-opposites-kept-unusually-close)
+millions. The [complement distance constraint](../documentation/SOLVE-SUMMARY.md#rule-3)
 interacts very differently with different position-2 pairs.
 
 ## What remains unknown
@@ -201,7 +201,7 @@ doing and why, see [How the search works](#how-the-search-works) below.
 
 The solver (`solve.c`) uses [backtracking search](https://en.wikipedia.org/wiki/Backtracking)
 with constraint pruning. It tries placing hexagram pairs at each of 32 positions, checking
-the [5 mathematical constraints](../SPECIFICATION.md#constraints) as it goes. Most paths are
+the [5 mathematical constraints](../documentation/SPECIFICATION.md#constraints) as it goes. Most paths are
 eliminated early ("pruned"), but the tree is still enormous — trillions of states to explore.
 
 The search tree splits into 56 **branches** (which pair at position 2) and ~54 **sub-branches**
@@ -217,8 +217,8 @@ is never lost.
 
 | Term | Meaning |
 |------|---------|
-| **Valid ordering** | An arrangement of all 64 hexagrams satisfying constraints [C1-C5](../SPECIFICATION.md#constraints) |
-| **C3-valid solution** | A complete sequence passing all 5 constraints. "C3-valid" because C3 ([complement distance](../SOLVE-SUMMARY.md#rule-3-opposites-kept-unusually-close)) is the last constraint checked. Multiple C3-valid solutions can represent the same valid ordering (different within-pair orientations) |
+| **Valid ordering** | An arrangement of all 64 hexagrams satisfying constraints [C1-C5](../documentation/SPECIFICATION.md#constraints) |
+| **C3-valid solution** | A complete sequence passing all 5 constraints. "C3-valid" because C3 ([complement distance](../documentation/SOLVE-SUMMARY.md#rule-3)) is the last constraint checked. Multiple C3-valid solutions can represent the same valid ordering (different within-pair orientations) |
 | **Stored** | Unique valid orderings saved to the hash table (orientation collapsed) |
 | **Nodes** | Individual states explored by the search algorithm |
 | **Estimated dead** | Produced zero valid orderings in partial exploration. Likely dead, but not proven until fully explored |
@@ -240,7 +240,7 @@ is never lost.
 | Format | v1 (32-byte header + 32-byte records) | v1 |
 | Cross-validation | Phase B external = Phase C fresh = heap-sort merge (byte-identical) | Phase D + heap-sort merge (byte-identical) |
 
-Older figures (742M hash-table-bug, 31.6M filename-collision-bug) superseded. See [HISTORY.md](../HISTORY.md) for full forensic history.
+Older figures (742M hash-table-bug, 31.6M filename-collision-bug) superseded. See [HISTORY.md](../documentation/HISTORY.md) for full forensic history.
 
 **Branch-level table below is from an earlier enumeration era and uses `sub_P2_O2.bin` keying (d2). Per-branch counts are approximate; canonical shard counts differ slightly. Pending refresh at d3 partition.**
 

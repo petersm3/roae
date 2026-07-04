@@ -294,7 +294,7 @@ The two tools are complementary:
 
 The example output bundle in `example/` is what you get from running
 `python3 roae.py` with various output formats enabled. See
-[example/README.md](example/README.md).
+[example/README.md](../example/README.md).
 
 ## SEE ALSO
 
@@ -304,7 +304,7 @@ The example output bundle in `example/` is what you get from running
 - [GUIDE.md](GUIDE.md) — newcomer introduction to the King Wen sequence
 - [SPECIFICATION.md](SPECIFICATION.md) — formal C1-C5 constraint definitions
 - [CRITIQUE.md](CRITIQUE.md) — known methodological limitations
-- [example/README.md](example/README.md) — example output bundle from running roae.py
+- [example/README.md](../example/README.md) — example output bundle from running roae.py
 
 ## NOTES
 

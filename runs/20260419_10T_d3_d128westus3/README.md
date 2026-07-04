@@ -4,7 +4,7 @@
 **SKU:** Standard_D128als_v7 (spot, westus3)
 **Purpose:** Cross-region + cross-SKU + cross-generation empirical
 validation of the Partition Invariance theorem (see
-[PARTITION_INVARIANCE.md](../../PARTITION_INVARIANCE.md)).
+[PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md)).
 **Solver commit:** (pending — this run uses the uncommitted working tree
 containing in-place heapsort, --sub-branch CLI, auto-threshold fix, and
 SOLVE_CONCENTRATE_BUDGET). The solve.c used here is **semantically

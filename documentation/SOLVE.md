@@ -46,7 +46,7 @@ The constraint applies a ceiling on the mean positional distance between each he
 **Note on the threshold (and what's defensible).** The formal constraint in [SPECIFICATION.md](SPECIFICATION.md) is `cd(S) ≤ 12.125`, where 12.125 is King Wen's *exact* complement distance — extracted from the sequence rather than derived independently. The constraint is therefore **reverse-engineered**: King Wen satisfies it by construction.
 
 What is **scientifically defensible** for publication:
-- KW's complement distance is at the **3.9th percentile of orderings satisfying Rules 1-2** (random pair-permutations + no-Hamming-5 transitions). 96% of comparable orderings have higher cd. ([Differential Analysis](#differential-analysis-rules-1-6) below.)
+- KW's complement distance is at the **3.9th percentile of orderings satisfying Rules 1-2** (random pair-permutations + no-Hamming-5 transitions). 96% of comparable orderings have higher cd. ([Differential Analysis](#differential-analysis) below.)
 - Within the **C1+C2+C3 canonical** (3.43B orderings at 100T d3), KW sits at the **C3 ceiling (= 776)**, not the floor; ~340M orderings tie with KW at 776, minimum is 424. ([SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md).)
 - These two statements are about different reference populations and are both true. The "low percentile" framing is appropriate at the C1+C2 scope; the "ceiling cohort" framing is the correct C1+C2+C3 framing.
 

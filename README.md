@@ -78,7 +78,7 @@ Full CLI references: [SOLVE_CLI](documentation/SOLVE_CLI.md) · [ROAE_PY_CLI](do
 
 ## Going deeper
 **If you read one thing**: [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md) — the literature's rules, measured and decided.
-[reports/](reports/) — the full technical report suite (start at TR-0 for the map and reading paths) · [PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
+[reports/](reports/) — the full technical report suite (start at its [index](reports/README.md) for the map and reading paths) · [PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
 [SOLVE-SUMMARY](documentation/SOLVE-SUMMARY.md) — plain-language results · [CITATIONS](documentation/CITATIONS.md) — every source, every attribution, annotated bibliography · [HISTORY](documentation/HISTORY.md) — the project narrative including its mistakes.
 
 ## References

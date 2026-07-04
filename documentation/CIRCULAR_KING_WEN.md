@@ -56,5 +56,5 @@ reverse-engineered constraint. For the record, the implementation analysis: as a
 it would be **byte-identical to the current lineage at every published canonical scale** (zero 5-wrap
 records exist in any slice — divergence begins only in territory no budget has reached, as the SAT witness
 proves); as a prune it would change node consumption and open a new sha lineage. Neither is warranted.
-The full-space mass of 5-wrap orderings remains a queued estimator measurement (knowledge, not
-enforcement).
+The full-space mass of 5-wrap orderings has since been measured (2026-07-03, 2×10¹⁰ probes: 17.4% — see
+above); it remains knowledge, not enforcement.

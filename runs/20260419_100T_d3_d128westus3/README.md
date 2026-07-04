@@ -1,6 +1,6 @@
 # 100T depth-3 D128als_v7 westus3 canonical enumeration — archive
 
-*Completed run 2026-04-20 00:45 UTC. **Superseded as deepest 2026-06-08 by 560T canonical `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** (10,525,271,997 orderings). 100T canonical remains the standing partition-invariance witness + sha anchor; see [`../../../documentation/CANONICAL_HASHES.md`](../../../documentation/CANONICAL_HASHES.md) for the registry and [`../../../documentation/HISTORY.md`](../../../documentation/HISTORY.md) "June 1-8, 2026" entry for the 560T campaign.*
+*Completed run 2026-04-20 00:45 UTC. **Superseded as deepest 2026-06-08 by 560T canonical `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** (10,525,271,997 orderings). 100T canonical remains the standing partition-invariance witness + sha anchor; see [`../../../documentation/CANONICAL_HASHES.md`](../../documentation/CANONICAL_HASHES.md) for the registry and [`../../../documentation/HISTORY.md`](../../documentation/HISTORY.md) "June 1-8, 2026" entry for the 560T campaign.*
 
 **Date:** 2026-04-19
 **SKU:** Standard_D128als_v7 (spot, westus3)
@@ -129,7 +129,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
     - The distribution is heavily right-skewed toward the C3 ceiling (9.91% at max vs 0.0000064% at min)
     - **KW's 776 is the mode of the distribution, not the tail** — a substantial re-framing of the "KW keeps complements close" narrative
   - **Implication for derivability**: simple C3 extremality cannot derive KW. The search for a "natural axiom set" now needs to consider either (a) non-scalar properties or (b) the specific position of KW within the 340M-cohort at the C3 ceiling.
-  - See `c3_min_output.log` in this directory for the full output and [DERIVABILITY_STRATEGY.md](../../../x/roae/DERIVABILITY_STRATEGY.md) context.
+  - See `c3_min_output.log` in this directory for the full output (derivability-strategy context lives in the operator's private planning notes, outside this repository).
 
 ## 4-corners validation context
 

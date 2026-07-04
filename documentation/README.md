@@ -37,7 +37,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 
 These docs hold **paper-citable scientific findings** that have stabilized beyond working-note status. Each has a clear *Result* sentence, reproduction commands using committed data + `solve.c` (or `roae.py`), and cross-links to working-version analysis. Promoted here only after the result is unlikely to be revised by further work.
 
-(Convention: docs lived in `../findings/` before the 2026-06-11 consolidation; see [`../findings/README.md`](../findings/README.md) for the redirect stub.)
+(Convention: docs lived in a top-level `findings/` directory before the 2026-06-11 consolidation into `documentation/`; that directory no longer exists.)
 
 - **[PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md)** — Boundaries {25, 27} are mandatory in every greedy-ordered minimum-boundary set identifying KW across all four canonicals tested (d2 10T, d3 10T, d3 100T, d3 560T). The single most stable structural property of King Wen measured.
 - **[BOUNDARY_MINIMUM_NON_MONOTONE.md](BOUNDARY_MINIMUM_NON_MONOTONE.md)** — The number of boundary constraints required to uniquely identify King Wen is non-monotone with scale: greedy-ordered minimum 4 → 5 → 4 across d3 10T → 100T → 560T; unordered working-4-subset count 8 → 0 across d3 10T → 100T (stays at 0 at 560T). Falsifies the 100T-era prediction that the minimum would grow to 6+ at deeper scales.

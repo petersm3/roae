@@ -8,7 +8,7 @@ For the mathematical rules, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md). For formal
 
 The project began as a mathematical analysis of the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence), built iteratively with [Claude Code](https://claude.ai/code) (Anthropic). What started as exploring a known structural property grew into a comprehensive computational investigation.
 
-**[roae.py](roae.py) — the analysis engine.** A single-file Python program (no external dependencies) was built to approach the King Wen sequence from every mathematical angle available. It grew to include 28 statistical analyses: pair structure, difference wave, trigrams, complements, entropy, autocorrelation, Markov chains, FFT spectral analysis, Gray code comparison, Monte Carlo constraint testing, and more. Each analysis includes appropriate null models and statistical caveats.
+**[roae.py](../roae.py) — the analysis engine.** A single-file Python program (no external dependencies) was built to approach the King Wen sequence from every mathematical angle available. It grew to include 28 statistical analyses: pair structure, difference wave, trigrams, complements, entropy, autocorrelation, Markov chains, FFT spectral analysis, Gray code comparison, Monte Carlo constraint testing, and more. Each analysis includes appropriate null models and statistical caveats.
 
 **Key discoveries during this phase:**
 - **Trigram name swap bug:** Gen/Xun/Dui were cyclically swapped in the original code. Fixed by correcting the trigram_names dict.
@@ -25,7 +25,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 ## April 10, 2026
 
-**Starting point:** The ROAE project had a Python analysis engine ([roae.py](roae.py)) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver ([solve.py](../solve.py)) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
+**Starting point:** The ROAE project had a Python analysis engine ([roae.py](../roae.py)) with 28 statistical analyses of the King Wen sequence, and a Python constraint solver ([solve.py](../solve.py)) that had found 438 valid orderings from a partial search. Based on those 438 solutions, the documentation claimed:
 
 - "23 of 32 pair positions are locked" (identical across all solutions)
 - "2 adjacency constraints uniquely determine King Wen"
@@ -186,7 +186,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
 | XOR=100001 branches always dead | 10T enumeration observation | Empirical (not formally proved) |
 | Super-pair constraint at position 20 | Per-position analysis | Observed |
-| Best-triple survivors: 24 total (20 non-KW + 4 KW orient variants) from best triple {2, 25, 27} — see [SOLVE.md](SOLVE.md#structure-of-the-best-triple-survivors-for-742m) | Characterization of residual after best 3 boundaries; replaces the earlier "18 triple-survivors" finding from the 31.6M bug-era dataset | Observed (742M) |
+| Best-triple survivors: 24 total (20 non-KW + 4 KW orient variants) from best triple {2, 25, 27} — see [SOLVE.md](SOLVE.md#structure-of-the-best-triple-survivors-dataset-scoped) | Characterization of residual after best 3 boundaries; replaces the earlier "18 triple-survivors" finding from the 31.6M bug-era dataset | Observed (742M) |
 | No scalar property uniquely identifies KW | Exhaustive feature search | Proven for 31.6M dataset |
 | 3,030 sub-branch mode eliminates tail problem | Comparative benchmarks | Engineering result |
 | Thread-independent reproducibility | Per-branch node budgets | Verified (1-thread = 2-thread sha256) |
@@ -378,7 +378,7 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 
 **Measured scaling (D128als_v7 vs F64als_v6 on 10T d3):** enumeration ~3.6× faster on D128 (82:57 vs ~300 min); merge ~1.3× faster per-core (Zen 5 IPC + DDR5-6000 advantage on single-threaded heap-sort); total pipeline ~3× faster and ~2.4× cheaper at spot pricing. This exceeds the pre-run 2.6× projection. Full analysis + SKU sizing recommendations in `DSERIES_ROI_REPORT.md` (kept outside the repo as an operator-review doc).
 
-**Archive**: run artifacts (shas, meta, compressed logs, README) in [runs/20260419_10T_d3_d128westus3/](runs/20260419_10T_d3_d128westus3/). The canonical `solutions.bin` lives on the new `solver-data-westus3` managed disk (300 GB Standard_LRS, bi-region archival).
+**Archive**: run artifacts (shas, meta, compressed logs, README) in [runs/20260419_10T_d3_d128westus3/](../runs/20260419_10T_d3_d128westus3/). The canonical `solutions.bin` lives on the new `solver-data-westus3` managed disk (300 GB Standard_LRS, bi-region archival).
 
 **Supporting documentation.** Full SKU comparison (with authoritative Microsoft Learn sources) and ROI analysis are maintained as operator review docs at top-of-working-tree, outside the git repo.
 
@@ -731,7 +731,7 @@ Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + ite
 
 **Findings directory promoted** (`roae/findings/`): three previously-staging findings curated into the public repo as paper-citable scientific anchors:
 
-- [`SYMMETRY_SEARCH.md`](findings/SYMMETRY_SEARCH.md) — the negative result above.
+- [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md) — the negative result above.
 - [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to <0.2% across 10¹⁰ → 10¹³ nodes when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check.
 - [`PARTITION_STABILITY_BOUNDARIES.md`](PARTITION_STABILITY_BOUNDARIES.md) — boundaries {25, 27} are mandatory in every minimum-boundary set identifying KW across all three canonicals tested (d2 10T, d3 10T, d3 100T). Most stable structural property of King Wen measured.
 
