@@ -11275,6 +11275,663 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
     return rc;
 }
 
+/* ===================== #217 F1C5 exact |C1 & C2 & C4 & C5| — orbit DP + capped C5-residual =====================
+ *
+ * `./solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR]`
+ *
+ * Extends the #215 orbit-quotient layered DP (above) with the C5-residual
+ * dimension: state = (canonical-mask, last, capped-C5-residual). C5 fixes the
+ * whole-walk transition multiset to KW's (2,20,13,19,9) over the distance
+ * classes d = (1,2,3,4,6); C1 fixes the 32 within-pair distances (12xd2,
+ * 12xd4, 8xd6), so C5 is equivalent to a budget on the 31 boundary
+ * transitions, B0 = (2,8,13,7,1) (recomputed from KW at startup, asserted).
+ * The DP tracks the prefix boundary-usage multiset p <= B0 as 5 counters,
+ * mixed-radix-packed into rid < prod(B0_d + 1) (= 6048 for the KW budget,
+ * always < 2^16); a transition of class d is killed when p_d == B0_d.
+ * Budget-kill == capping the residual at B0, which is proven EXACT dead-state
+ * pruning (FH1_RESIDUAL_DOMINANCE.md Theorem + Proposition, roae-private).
+ * By the sum invariant (sum_d p_d = k at layer k), full-mask states carry
+ * exactly p = B0, so the final total needs no residual filter: it IS
+ * |C1 & C2 & C4 & C5|. The residual multiset is a Hamming invariant, so it
+ * commutes with the group action — only `last` maps under canonicalization.
+ *
+ * Semantics mirror the exact-validated Python reference
+ * fh1_residual_instrument.py (roae-private scripts/f1_evidence; gates: V1
+ * brute-force DFS, V2 orbit-invariance, V3 achievability) EXACTLY: same
+ * group + canonicalization + gather formulation (inherited verbatim from the
+ * #215 machinery above), same budget-kill predicate (p_d < B0_d), same
+ * deterministic first-completion DFS defining B0 for reduced pair subsets
+ * (--f1-pairs N < 31; the full 31 uses the KW budget). Counts are the same
+ * add-only 192-bit integers as #215 (single pass, no CRT).
+ *
+ * PURPOSE of the staged reduced-pair runs is measuring peak memory: each
+ * layer's stderr line reports canonical_masks, states, entries, bytes, and
+ * the running two-live-layer peak. --f1-pairs N selects a group-closed
+ * pair-orbit union (N in {9,13,16,18,19,24,25,27,28,31}; 13 and 16 are the
+ * instrument's validation unions). Layer storage is ragged-sparse: sorted
+ * canonical masks, per-mask offsets, (last,rid)-keyed 192-bit values
+ * (28 B/entry + 12 B/mask). Gather is two-pass (count, then fill) so no
+ * transient per-thread buffers inflate the measured peak.
+ *
+ * Checkpointing (--layers-dir: atomic per-layer files + manifest, resume
+ * from last complete layer) and the probe/delay env knobs
+ * (SOLVE_F1_MAX_LAYER, SOLVE_F1_TEST_LAYER_DELAY_MS) mirror #215.
+ * Sha-neutral: argv-dispatched, zero interaction with enumeration paths.
+ *
+ * Attribution: FH-1 direction, the residual-dominance conjecture and the
+ * capping idea are the operator's (roae-private FOOTHOLDS.md); the
+ * sum-invariant/dead-state theory, the Python instrument and this port are
+ * by Claude (Fable 5), 2026-07-04. Specs: F1_SOLVE_C_PORT_SPEC.md
+ * (conventions) + FH1_RESIDUAL_DOMINANCE.md (capping exactness).
+ */
+
+/* distance value -> class index in (1,2,3,4,6); d=5 -> -1 (C2-killed).
+ * d=0 cannot occur between distinct hexagrams. */
+static const int8_t F1C5_CLS[7] = {-1, 0, 1, 2, 3, -1, 4};
+static const int F1C5_DVAL[5] = {1, 2, 3, 4, 6};
+
+typedef struct {
+    int b0[5];          /* per-class boundary budget */
+    uint32_t rad[5];    /* mixed-radix place values: rad[d] = prod_{d'<d}(b0[d']+1) */
+    uint32_t R;         /* rid space = prod(b0[d]+1); rid < R < 2^16 */
+    uint32_t rid_full;  /* rid of B0 itself (all digits max = R-1) */
+    uint8_t *dig[5];    /* dig[d][rid] = p_d */
+    uint8_t *rsum;      /* rsum[rid] = sum_d p_d */
+} F1C5Budget;
+
+static void f1c5_budget_init(F1C5Budget *B, const int b0[5]) {
+    uint32_t R = 1;
+    for (int d = 0; d < 5; d++) {
+        F1_CHECK(b0[d] >= 0 && b0[d] <= 31, "bad budget component %d at class d=%d",
+                 b0[d], F1C5_DVAL[d]);
+        B->b0[d] = b0[d];
+        B->rad[d] = R;
+        R *= (uint32_t)(b0[d] + 1);
+    }
+    F1_CHECK(R <= 65535, "rid space %u exceeds uint16 packing", R);
+    B->R = R;
+    B->rid_full = R - 1;
+    B->rsum = (uint8_t *)malloc(R);
+    F1_CHECK(B->rsum != NULL, "budget rsum alloc failed");
+    for (int d = 0; d < 5; d++) {
+        B->dig[d] = (uint8_t *)malloc(R);
+        F1_CHECK(B->dig[d] != NULL, "budget digit alloc failed");
+    }
+    for (uint32_t r = 0; r < R; r++) {
+        uint32_t x = r;
+        int s = 0;
+        for (int d = 0; d < 5; d++) {
+            int dg = (int)(x % (uint32_t)(b0[d] + 1));
+            x /= (uint32_t)(b0[d] + 1);
+            B->dig[d][r] = (uint8_t)dg;
+            s += dg;
+        }
+        B->rsum[r] = (uint8_t)s;
+    }
+}
+
+static void f1c5_budget_free(F1C5Budget *B) {
+    for (int d = 0; d < 5; d++) free(B->dig[d]);
+    free(B->rsum);
+}
+
+/* Deterministic first-completion DFS — EXACT port of the instrument's
+ * find_b0(seed=None): pairs tried in ascending subset-index order,
+ * orientations in (0,1) order where trans[i][o] = (PAIRS[p][o^1], PAIRS[p][o])
+ * i.e. o=0 enters pair_b / exits pair_a. Fills cls[0..n-1]; returns 1 iff a
+ * valid (C2-respecting) completion exists. */
+static int f1c5_b0_dfs(const F1Ctx *c, uint32_t mask, int last, uint8_t *cls, int depth) {
+    if (mask == ((1u << c->n) - 1)) return 1;
+    for (int i = 0; i < c->n; i++) {
+        if ((mask >> i) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            int f = o ? c->pa[i] : c->pb[i];
+            int s = o ? c->pb[i] : c->pa[i];
+            int dd = __builtin_popcount(last ^ f);
+            if (dd == 5) continue;
+            cls[depth] = (uint8_t)F1C5_CLS[dd];
+            if (f1c5_b0_dfs(c, mask | (1u << i), s, cls, depth + 1)) return 1;
+        }
+    }
+    return 0;
+}
+
+/* Boundary budget: full-31 = KW's whole-walk multiset (2,20,13,19,9) minus
+ * the C1-fixed within-pair distances -> (2,8,13,7,1), both asserted; reduced
+ * subsets = multiset of the deterministic-DFS witness completion (achievable
+ * by construction — the instrument's find_b0() semantics). */
+static void f1c5_derive_b0(const F1Ctx *c, int full31, int b0[5]) {
+    for (int d = 0; d < 5; d++) b0[d] = 0;
+    if (full31) {
+        int whole[5] = {0, 0, 0, 0, 0}, within[5] = {0, 0, 0, 0, 0};
+        static const int kw_whole[5] = {2, 20, 13, 19, 9};
+        static const int kw_bound[5] = {2, 8, 13, 7, 1};
+        for (int i = 0; i < 63; i++) {
+            int dd = __builtin_popcount(KW[i] ^ KW[i + 1]);
+            F1_CHECK(dd >= 1 && dd <= 6 && dd != 5, "KW transition d=%d outside classes", dd);
+            whole[F1C5_CLS[dd]]++;
+        }
+        for (int p = 0; p < 32; p++) {
+            int dd = __builtin_popcount(f1_pair_a[p] ^ f1_pair_b[p]);
+            F1_CHECK(dd >= 1 && dd <= 6 && dd != 5, "pair distance d=%d outside classes", dd);
+            within[F1C5_CLS[dd]]++;
+        }
+        int tot = 0;
+        for (int d = 0; d < 5; d++) {
+            F1_CHECK(whole[d] == kw_whole[d], "KW whole-walk multiset mismatch at class d=%d",
+                     F1C5_DVAL[d]);
+            b0[d] = whole[d] - within[d];
+            F1_CHECK(b0[d] == kw_bound[d], "KW boundary budget mismatch at class d=%d",
+                     F1C5_DVAL[d]);
+            tot += b0[d];
+        }
+        F1_CHECK(tot == 31, "boundary budget must sum to 31 (got %d)", tot);
+    } else {
+        uint8_t cls[32];
+        F1_CHECK(f1c5_b0_dfs(c, 0, c->start_exit, cls, 0),
+                 "no valid completion exists for the subset");
+        for (int i = 0; i < c->n; i++) b0[cls[i]]++;
+    }
+}
+
+/* ---------- ragged-sparse layer storage + checkpointing ---------- */
+typedef struct {
+    int k;
+    uint64_t nm, ne;
+    uint32_t *masks;   /* nm canonical masks, sorted ascending */
+    uint64_t *off;     /* nm+1 entry offsets */
+    uint32_t *keys;    /* ne keys: (last << 16) | rid, ascending per mask */
+    F1U192 *vals;      /* ne 192-bit counts */
+} F1C5Layer;
+
+static void f1c5_layer_free(F1C5Layer *L) {
+    free(L->masks); free(L->off); free(L->keys); free(L->vals);
+    L->masks = NULL; L->off = NULL; L->keys = NULL; L->vals = NULL;
+}
+
+static double f1c5_layer_bytes(const F1C5Layer *L) {
+    return (double)L->nm * 4.0 + (double)(L->nm + 1) * 8.0 +
+           (double)L->ne * (4.0 + (double)sizeof(F1U192));
+}
+
+typedef struct {
+    char magic[8];       /* "F1C5LAY1" */
+    uint32_t version, n, k, start_exit;
+    uint64_t pl_hash, n_masks, n_entries;
+    uint32_t b0[5];
+    uint32_t pad;
+} F1C5LayerHdr;
+
+static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                             const F1C5Layer *L) {
+    char fin[4096], tmp[4104];
+    snprintf(fin, sizeof(fin), "%s/f1c5_layer_%02d.bin", dir, L->k);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    FILE *f = fopen(tmp, "wb");
+    if (!f) f1_ckpt_io_abort("fopen", tmp);
+    F1C5LayerHdr h;
+    memset(&h, 0, sizeof(h));
+    memcpy(h.magic, "F1C5LAY1", 8);
+    h.version = 1;
+    h.n = (uint32_t)c->n;
+    h.k = (uint32_t)L->k;
+    h.start_exit = (uint32_t)c->start_exit;
+    h.pl_hash = f1_pl_hash(c);
+    h.n_masks = L->nm;
+    h.n_entries = L->ne;
+    for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
+    if (fwrite(&h, sizeof(h), 1, f) != 1 ||
+        (L->nm && fwrite(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+        fwrite(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
+        (L->ne && fwrite(L->keys, sizeof(uint32_t), L->ne, f) != L->ne) ||
+        (L->ne && fwrite(L->vals, sizeof(F1U192), L->ne, f) != L->ne))
+        f1_ckpt_io_abort("fwrite", tmp);
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
+    fclose(f);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
+    f1_fsync_dir(dir);
+}
+
+static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                                int last_complete_k) {
+    char fin[4096], tmp[4104];
+    snprintf(fin, sizeof(fin), "%s/f1c5_manifest.txt", dir);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    FILE *f = fopen(tmp, "w");
+    if (!f) f1_ckpt_io_abort("fopen", tmp);
+    fprintf(f, "f1c5_manifest_v1\nn=%d\nstart_exit=%d\npl=", c->n, c->start_exit);
+    for (int i = 0; i < c->n; i++) fprintf(f, "%s%d", i ? "," : "", c->pl[i]);
+    fprintf(f, "\npl_hash=%016llx\nb0=%d,%d,%d,%d,%d\nlast_complete_k=%d\n",
+            (unsigned long long)f1_pl_hash(c),
+            B->b0[0], B->b0[1], B->b0[2], B->b0[3], B->b0[4], last_complete_k);
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
+    fclose(f);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
+    f1_fsync_dir(dir);
+}
+
+/* Returns last_complete_k and fills *L on successful resume; -1 if no
+ * manifest. Mismatch or corrupt layer file is a hard error (wrong dir). */
+static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[2048];
+    int n = -1, se = -1, lk = -1, mb0[5] = {-1, -1, -1, -1, -1};
+    unsigned long long ph = 0;
+    while (fgets(line, sizeof(line), f)) {
+        sscanf(line, "n=%d", &n);
+        sscanf(line, "start_exit=%d", &se);
+        sscanf(line, "pl_hash=%llx", &ph);
+        sscanf(line, "b0=%d,%d,%d,%d,%d", &mb0[0], &mb0[1], &mb0[2], &mb0[3], &mb0[4]);
+        sscanf(line, "last_complete_k=%d", &lk);
+    }
+    fclose(f);
+    int b0_ok = 1;
+    for (int d = 0; d < 5; d++) if (mb0[d] != B->b0[d]) b0_ok = 0;
+    F1_CHECK(n == c->n && se == c->start_exit && ph == (unsigned long long)f1_pl_hash(c) && b0_ok,
+             "manifest in %s does not match this run (n=%d/%d start=%d/%d) — wrong --layers-dir?",
+             dir, n, c->n, se, c->start_exit);
+    F1_CHECK(lk >= 0 && lk <= c->n, "manifest last_complete_k=%d out of range", lk);
+    snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, lk);
+    f = fopen(path, "rb");
+    if (!f) f1_ckpt_io_abort("fopen (resume layer)", path);
+    F1C5LayerHdr h;
+    if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
+    int hb0_ok = 1;
+    for (int d = 0; d < 5; d++) if (h.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
+    F1_CHECK(memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1 &&
+             h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
+             h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c) && hb0_ok,
+             "layer file %s header mismatch", path);
+    L->k = lk;
+    L->nm = h.n_masks;
+    L->ne = h.n_entries;
+    L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
+    L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
+    L->keys = (uint32_t *)malloc(sizeof(uint32_t) * (L->ne ? L->ne : 1));
+    L->vals = (F1U192 *)malloc(sizeof(F1U192) * (L->ne ? L->ne : 1));
+    F1_CHECK(L->masks && L->off && L->keys && L->vals, "resume alloc failed");
+    if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+        fread(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
+        (L->ne && fread(L->keys, sizeof(uint32_t), L->ne, f) != L->ne) ||
+        (L->ne && fread(L->vals, sizeof(F1U192), L->ne, f) != L->ne))
+        f1_ckpt_io_abort("fread body", path);
+    fclose(f);
+    F1_CHECK(L->off[0] == 0 && L->off[L->nm] == L->ne, "resume offset table corrupt");
+    return lk;
+}
+
+/* ---------- gather core ---------- */
+
+/* Pull all predecessor contributions for canonical target tm into the dense
+ * per-thread scratch scr[last * vk1 + loc1[rid]], where loc1 maps a global
+ * rid of prefix-sum k+1 to its layer-local index. Mirrors f1_gather_layer's
+ * pull formulation plus the budget-kill (p_d < B0_d) — see module header. */
+static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C5Layer *prev,
+                               uint32_t tm, const int32_t *loc1, int vk1, F1U192 *scr) {
+    uint32_t rem = tm;
+    while (rem) {
+        int i = __builtin_ctz(rem);
+        rem &= rem - 1;
+        uint32_t pred = tm ^ (1u << i);
+        int g;
+        uint32_t cpred = f1_canon(c, pred, &g);
+        int64_t pi = f1_bsearch_u32(prev->masks, prev->nm, cpred);
+        if (pi < 0) continue;
+        const uint8_t *ginv = c->el[g].hinv;
+        const int fa = c->pa[i], fb = c->pb[i];
+        for (uint64_t e = prev->off[pi]; e < prev->off[pi + 1]; e++) {
+            uint32_t key = prev->keys[e];
+            int lp = ginv[key >> 16];   /* stored key -> raw last at the predecessor */
+            uint32_t rid = key & 0xffffu;
+            const F1U192 *pv = &prev->vals[e];
+            /* two orientations of pair i: enter fa exit fb / enter fb exit fa */
+            int cls = F1C5_CLS[__builtin_popcount(lp ^ fa)];
+            if (cls >= 0 && B->dig[cls][rid] < B->b0[cls]) {
+                int32_t lo = loc1[rid + B->rad[cls]];
+                F1_CHECK(lo >= 0, "sum-invariant violation in gather");
+                f1_add(&scr[(size_t)fb * (size_t)vk1 + (size_t)lo], pv);
+            }
+            cls = F1C5_CLS[__builtin_popcount(lp ^ fb)];
+            if (cls >= 0 && B->dig[cls][rid] < B->b0[cls]) {
+                int32_t lo = loc1[rid + B->rad[cls]];
+                F1_CHECK(lo >= 0, "sum-invariant violation in gather");
+                f1_add(&scr[(size_t)fa * (size_t)vk1 + (size_t)lo], pv);
+            }
+        }
+    }
+}
+
+/* Scan the scratch in (last, rid)-ascending order: emit nonzero slots into
+ * keys/vals (or just count when keys == NULL) and zero them, restoring the
+ * all-zero scratch invariant. vlist1 maps layer-local rid index -> global. */
+static uint64_t f1c5_emit_target(F1U192 *scr, int vk1, const uint16_t *vlist1,
+                                 uint32_t *keys, F1U192 *vals) {
+    uint64_t cnt = 0;
+    F1U192 z;
+    z.l0 = z.l1 = z.l2 = 0;
+    for (int l = 0; l < 64; l++) {
+        F1U192 *row = scr + (size_t)l * (size_t)vk1;
+        for (int v = 0; v < vk1; v++) {
+            if (f1_is_zero(&row[v])) continue;
+            if (keys) {
+                keys[cnt] = ((uint32_t)l << 16) | vlist1[v];
+                vals[cnt] = row[v];
+            }
+            row[v] = z;
+            cnt++;
+        }
+    }
+    return cnt;
+}
+
+/* stabilizer-weighted layer mass + state count ((mask,last) pairs with >=1
+ * live residual). Weighted mass equals the plain C5-tracked DP's layer mass
+ * — the two-language per-layer gate vs the Python reference. */
+static F1U192 f1c5_layer_stats(const F1Ctx *c, const F1C5Layer *L, uint64_t *states_out) {
+    F1U192 mass = {0, 0, 0};
+    uint64_t states = 0;
+    #pragma omp parallel
+    {
+        F1U192 lm = {0, 0, 0};
+        uint64_t ls = 0;
+        #pragma omp for schedule(dynamic, 256) nowait
+        for (int64_t i = 0; i < (int64_t)L->nm; i++) {
+            uint64_t a = L->off[i], b = L->off[i + 1];
+            if (a == b) continue;
+            F1U192 s = {0, 0, 0};
+            uint32_t prev_last = 0xffffffffu;
+            for (uint64_t e = a; e < b; e++) {
+                f1_add(&s, &L->vals[e]);
+                uint32_t l = L->keys[e] >> 16;
+                if (l != prev_last) { ls++; prev_last = l; }
+            }
+            F1U192 w = f1_mul_small(s, (uint32_t)f1_orbit_size(c, L->masks[i]));
+            f1_add(&lm, &w);
+        }
+        #pragma omp critical (f1c5_stats_merge)
+        { f1_add(&mass, &lm); states += ls; }
+    }
+    if (states_out) *states_out = states;
+    return mass;
+}
+
+/* Group-closed orbit unions by pair count. 13 and 16 are the instrument's
+ * validation unions ("13" = U13 3+4+6, "16" = U16 4+6+6); the rest cover the
+ * staged memory-validation ladder (26/29 are not realizable as orbit sums). */
+static const struct { int n; const char *spec; } f1c5_unions[] = {
+    {  9, "3.0,3.1,3.2@0" },
+    { 13, "3.0,4.0,6.2@0" },
+    { 16, "4.0,6.0,6.1@0" },
+    { 18, "6.0,6.1,6.2@0" },
+    { 19, "3.0,4.0,6.0,6.1@0" },
+    { 24, "3.0,3.1,6.0,6.1,6.2@0" },
+    { 25, "3.0,4.0,6.0,6.1,6.2@0" },
+    { 27, "3.0,3.1,3.2,6.0,6.1,6.2@0" },
+    { 28, "3.0,3.1,4.0,6.0,6.1,6.2@0" },
+};
+
+/* ---------- driver ---------- */
+static int f1c5_exact_main(const char *layers_dir, int npairs) {
+    f1_binom_init();
+    f1_build_group();
+
+    F1Ctx *c = (F1Ctx *)calloc(1, sizeof(F1Ctx));
+    F1_CHECK(c != NULL, "ctx alloc failed");
+    int pl[32], n, start_exit;
+    int full31 = (npairs == 31);
+    if (full31) {
+        n = 31;
+        for (int i = 0; i < 31; i++) pl[i] = i + 1;
+        start_exit = 0;   /* C4: s0=63, s1=0 (orientation forced, Theorem 6) -> exit 0 */
+    } else {
+        const char *spec = NULL;
+        for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
+            if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
+        if (!spec) {
+            fprintf(stderr, "ERROR: [f1c5] --f1-pairs %d has no group-closed orbit union; "
+                    "supported: 9,13,16,18,19,24,25,27,28,31\n", npairs);
+            free(c);
+            return 2;
+        }
+        if (f1_parse_subset(spec, pl, &n, &start_exit) != 0) { free(c); return 2; }
+        F1_CHECK(n == npairs, "union table inconsistency (%d != %d)", n, npairs);
+    }
+    f1_ctx_init(c, n, pl, start_exit);
+
+    int b0v[5];
+    f1c5_derive_b0(c, full31, b0v);
+    F1C5Budget B;
+    f1c5_budget_init(&B, b0v);
+    { int tot = 0;
+      for (int d = 0; d < 5; d++) tot += b0v[d];
+      F1_CHECK(tot == n, "budget sum %d != n=%d (one boundary transition per pair)", tot, n); }
+
+    /* per-prefix-sum rid tables: vlist[s] = ascending global rids with
+     * rsum == s; vloc[s] = global rid -> layer-local index (-1 invalid) */
+    uint16_t **vlist = (uint16_t **)calloc((size_t)n + 1, sizeof(uint16_t *));
+    int32_t **vloc = (int32_t **)calloc((size_t)n + 1, sizeof(int32_t *));
+    int *vcnt = (int *)calloc((size_t)n + 1, sizeof(int));
+    F1_CHECK(vlist && vloc && vcnt, "rid table alloc failed");
+    int vmax = 0;
+    for (int s = 0; s <= n; s++) {
+        int cnt = 0;
+        for (uint32_t r = 0; r < B.R; r++) if (B.rsum[r] == s) cnt++;
+        vcnt[s] = cnt;
+        if (cnt > vmax) vmax = cnt;
+        vlist[s] = (uint16_t *)malloc(sizeof(uint16_t) * (size_t)(cnt ? cnt : 1));
+        vloc[s] = (int32_t *)malloc(sizeof(int32_t) * (size_t)B.R);
+        F1_CHECK(vlist[s] && vloc[s], "rid table alloc failed (s=%d)", s);
+        int j = 0;
+        for (uint32_t r = 0; r < B.R; r++) {
+            vloc[s][r] = (B.rsum[r] == (uint8_t)s) ? j : -1;
+            if (B.rsum[r] == (uint8_t)s) vlist[s][j++] = (uint16_t)r;
+        }
+    }
+    F1_CHECK(vcnt[0] == 1 && vcnt[n] == 1 && vlist[n][0] == (uint16_t)B.rid_full,
+             "rid layers 0/n must be the singletons {0}/{B0}");
+
+    int max_layer = n;
+    { const char *e = getenv("SOLVE_F1_MAX_LAYER");
+      if (e && *e) {
+          max_layer = atoi(e);
+          if (max_layer < 1) max_layer = 1;
+          if (max_layer > n) max_layer = n;
+          fprintf(stderr, "[f1c5] PROBE MODE: stopping after layer k=%d (SOLVE_F1_MAX_LAYER)\n",
+                  max_layer);
+      } }
+    int delay_ms = 0;
+    { const char *e = getenv("SOLVE_F1_TEST_LAYER_DELAY_MS");
+      if (e && *e) delay_ms = atoi(e); }
+
+    int T = omp_get_max_threads();
+    fprintf(stderr, "[f1c5] run: %s n=%d pairs [", full31 ? "FULL-31" : "SUBSET", n);
+    for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
+    fprintf(stderr, "] start_exit=%d n_eff=%d threads=%d layers_dir=%s\n",
+            start_exit, c->n_eff, T, layers_dir ? layers_dir : "(none)");
+    fprintf(stderr, "[f1c5] B0 boundary budget (d=1,2,3,4,6) = (%d,%d,%d,%d,%d) sum=%d [%s] "
+            "rid_space=%u V_max=%d/layer scratch=%.2f MB/thread x %d threads\n",
+            b0v[0], b0v[1], b0v[2], b0v[3], b0v[4], n,
+            full31 ? "KW-derived" : "deterministic-DFS witness",
+            B.R, vmax, 64.0 * (double)vmax * (double)sizeof(F1U192) / 1e6, T);
+
+    F1U192 *scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)vmax, sizeof(F1U192));
+    F1_CHECK(scratch != NULL, "scratch alloc failed (%d threads x 64 x %d)", T, vmax);
+
+    double T0 = omp_get_wtime();
+    F1C5Layer cur;
+    memset(&cur, 0, sizeof(cur));
+    int k0 = 0;
+    double peak2 = 0.0;
+    int peak2_k = 0;
+
+    if (layers_dir) {
+        if (mkdir(layers_dir, 0755) != 0 && errno != EEXIST)
+            f1_ckpt_io_abort("mkdir", layers_dir);
+        int rk = f1c5_try_resume(layers_dir, c, &B, &cur);
+        if (rk >= 0) {
+            k0 = rk;
+            fprintf(stderr, "[f1c5] RESUME from last complete layer k=%d "
+                    "(%llu canonical masks, %llu entries)\n",
+                    rk, (unsigned long long)cur.nm, (unsigned long long)cur.ne);
+        }
+    }
+    if (cur.masks == NULL) {   /* fresh layer 0: mask 0, (start_exit, rid 0) = 1 */
+        cur.k = 0;
+        cur.nm = 1;
+        cur.ne = 1;
+        cur.masks = (uint32_t *)calloc(1, sizeof(uint32_t));
+        cur.off = (uint64_t *)malloc(2 * sizeof(uint64_t));
+        cur.keys = (uint32_t *)malloc(sizeof(uint32_t));
+        cur.vals = (F1U192 *)calloc(1, sizeof(F1U192));
+        F1_CHECK(cur.masks && cur.off && cur.keys && cur.vals, "layer-0 alloc failed");
+        cur.off[0] = 0;
+        cur.off[1] = 1;
+        cur.keys[0] = ((uint32_t)start_exit << 16);
+        cur.vals[0].l0 = 1;
+        if (layers_dir) {
+            f1c5_write_layer(layers_dir, c, &B, &cur);
+            f1c5_write_manifest(layers_dir, c, &B, 0);
+        }
+    }
+
+    for (int k = k0; k < max_layer; k++) {
+        double t0 = omp_get_wtime();
+        F1C5Layer nxt;
+        memset(&nxt, 0, sizeof(nxt));
+        nxt.k = k + 1;
+        f1_enum_canonical(c, k + 1, &nxt.masks, &nxt.nm);
+        nxt.off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt.nm + 1));
+        F1_CHECK(nxt.off != NULL, "offset alloc failed (layer %d)", k + 1);
+        const int vk1 = vcnt[k + 1];
+        const int32_t *loc1 = vloc[k + 1];
+        const uint16_t *vl1 = vlist[k + 1];
+        double t1 = omp_get_wtime();
+        /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
+         * the second gather pass writes straight into the final arrays, so
+         * the measured peak has no transient duplication) */
+        #pragma omp parallel
+        {
+            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)vmax;
+            #pragma omp for schedule(dynamic, 16)
+            for (int64_t ti = 0; ti < (int64_t)nxt.nm; ti++) {
+                f1c5_gather_target(c, &B, &cur, nxt.masks[ti], loc1, vk1, scr);
+                nxt.off[ti + 1] = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
+            }
+        }
+        nxt.off[0] = 0;
+        for (uint64_t i = 0; i < nxt.nm; i++) nxt.off[i + 1] += nxt.off[i];
+        nxt.ne = nxt.off[nxt.nm];
+        double t2 = omp_get_wtime();
+        nxt.keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(nxt.ne ? nxt.ne : 1));
+        nxt.vals = (F1U192 *)malloc(sizeof(F1U192) * (size_t)(nxt.ne ? nxt.ne : 1));
+        F1_CHECK(nxt.keys && nxt.vals, "layer %d entry alloc failed (%llu entries)",
+                 k + 1, (unsigned long long)nxt.ne);
+        /* pass 2: re-gather, emit into the final ragged arrays */
+        #pragma omp parallel
+        {
+            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)vmax;
+            #pragma omp for schedule(dynamic, 16)
+            for (int64_t ti = 0; ti < (int64_t)nxt.nm; ti++) {
+                f1c5_gather_target(c, &B, &cur, nxt.masks[ti], loc1, vk1, scr);
+                uint64_t got = f1c5_emit_target(scr, vk1, vl1,
+                                                nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti]);
+                F1_CHECK(got == nxt.off[ti + 1] - nxt.off[ti],
+                         "pass-1/pass-2 count drift at target %lld", (long long)ti);
+            }
+        }
+        double t3 = omp_get_wtime();
+        uint64_t states = 0;
+        F1U192 mass = f1c5_layer_stats(c, &nxt, &states);
+        double t4 = omp_get_wtime();
+        double t_ck = 0.0;
+        if (layers_dir) {
+            f1c5_write_layer(layers_dir, c, &B, &nxt);
+            f1c5_write_manifest(layers_dir, c, &B, k + 1);
+            if (k >= 1) {   /* keep k and k+1; drop k-1 */
+                char old[4096];
+                snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", layers_dir, k - 1);
+                unlink(old);
+            }
+            t_ck = omp_get_wtime() - t4;
+        }
+        double bcur = f1c5_layer_bytes(&nxt), bprev = f1c5_layer_bytes(&cur);
+        if (bprev + bcur > peak2) { peak2 = bprev + bcur; peak2_k = k + 1; }
+        char mdec[64];
+        f1_dec(mass, mdec);
+        fprintf(stderr, "[f1c5] layer k=%2d/%d: canonical_masks=%llu (of C(%d,%d)=%llu) "
+                "states=%llu entries=%llu V_k=%d bytes=%.6fGB two_layer=%.6fGB peak2=%.6fGB "
+                "mass=%s elapsed=%.2fs (enum=%.2fs count=%.2fs fill=%.2fs stats=%.2fs ckpt=%.2fs) "
+                "total=%.1fs\n",
+                k + 1, n, (unsigned long long)nxt.nm, n, k + 1,
+                (unsigned long long)f1_binom[n][k + 1],
+                (unsigned long long)states, (unsigned long long)nxt.ne, vk1,
+                bcur / 1e9, (bprev + bcur) / 1e9, peak2 / 1e9, mdec,
+                omp_get_wtime() - t0, t1 - t0, t2 - t1, t3 - t2, t4 - t3, t_ck,
+                omp_get_wtime() - T0);
+        f1c5_layer_free(&cur);
+        cur = nxt;
+        if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
+    }
+
+    int rc = 0;
+    if (max_layer < n) {
+        fprintf(stderr, "[f1c5] PROBE STOP after layer k=%d (SOLVE_F1_MAX_LAYER); partial state %s. "
+                "No total computed. Peak two-live-layer bytes so far: %.6f GB (at k=%d)\n",
+                max_layer, layers_dir ? "checkpointed" : "NOT checkpointed",
+                peak2 / 1e9, peak2_k);
+    } else {
+        /* final layer: the full mask is G-fixed; by the sum invariant every
+         * surviving residual is exactly B0 (asserted) */
+        uint32_t full = (1u << n) - 1;
+        F1_CHECK(cur.nm == 1 && cur.masks[0] == full, "final layer must be exactly the full mask");
+        F1U192 total = {0, 0, 0};
+        for (uint64_t e = 0; e < cur.ne; e++) {
+            F1_CHECK((cur.keys[e] & 0xffffu) == B.rid_full,
+                     "final-layer residual != B0 (sum invariant violated)");
+            f1_add(&total, &cur.vals[e]);
+        }
+        F1_CHECK(!f1_is_zero(&total),
+                 "total = 0 but B0 is achievable by construction — DP defect");
+        char tdec[64];
+        f1_dec(total, tdec);
+        fprintf(stderr, "[f1c5] PEAK two-live-layer bytes: %.6f GB (at layer k=%d); "
+                "scratch %.3f GB total\n", peak2 / 1e9, peak2_k,
+                (double)T * 64.0 * (double)vmax * (double)sizeof(F1U192) / 1e9);
+        if (full31) {
+            /* S4 acts freely on C1-C5 solutions (fixed-pairing argument, TR-5)
+             * and C5 is G-invariant (Hamming isometry) -> N divisible by 24 */
+            F1U192 q = total;
+            uint32_t rem24 = f1_divmod_small(&q, 24);
+            F1_CHECK(rem24 == 0, "N %% 24 = %u != 0 — free-action divisibility violated", rem24);
+            char qdec[64];
+            f1_dec(q, qdec);
+            printf("F1C5 EXACT |C1 & C2 & C4 & C5| = %s\n", tdec);
+            printf("  N / 24 (S4-orbit count) = %s\n", qdec);
+            printf("  vs estimator 1.3287e38 (+/-0.02%%): ratio = %.6f\n",
+                   f1_to_double(&total) / 1.3287e38);
+            printf("F1C5 EXACT: DONE (%.1fs)\n", omp_get_wtime() - T0);
+        } else {
+            printf("F1C5 SUBSET n=%d pairs [", n);
+            for (int i = 0; i < n; i++) printf("%s%d", i ? "," : "", pl[i]);
+            printf("] start_exit=%d B0=(%d,%d,%d,%d,%d)\n", start_exit,
+                   b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
+            printf("  orbit-quotient C5-DP total = %s\n", tdec);
+            printf("F1C5 SUBSET: DONE (%.1fs)\n", omp_get_wtime() - T0);
+        }
+    }
+
+    f1c5_layer_free(&cur);
+    free(scratch);
+    for (int s = 0; s <= n; s++) { free(vlist[s]); free(vloc[s]); }
+    free(vlist); free(vloc); free(vcnt);
+    f1c5_budget_free(&B);
+    free(c);
+    return rc;
+}
+
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
@@ -12537,6 +13194,29 @@ int main(int argc, char *argv[]) {
             }
         }
         return f1_exact_main(f1_layers_dir, f1_subset);
+    } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4c5") == 0) {
+        /* #217: exact |C1 & C2 & C4 & C5| via the orbit DP extended with the
+         * capped C5-residual dimension. See the module header above
+         * f1c5_exact_main() for method, budget semantics, gates, and
+         * attribution. Sha-neutral (argv-dispatched, never on the enum path). */
+        const char *f1c5_layers_dir = NULL;
+        int f1c5_npairs = 31;
+        int f1c5_argerr = 0;
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
+                f1c5_layers_dir = argv[++ai];
+            else if (strcmp(argv[ai], "--f1-pairs") == 0 && ai + 1 < argc)
+                f1c5_npairs = atoi(argv[++ai]);
+            else
+                f1c5_argerr = 1;
+        }
+        if (f1c5_argerr) {
+            fprintf(stderr, "Usage: solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR]\n"
+                    "  N in {9,13,16,18,19,24,25,27,28,31} — group-closed pair-orbit unions "
+                    "(default 31 = full run, KW budget)\n");
+            return 2;
+        }
+        return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
