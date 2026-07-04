@@ -93,11 +93,11 @@ box.
 - "AI assistance?" -> disclosed per repo policy; all results mechanically checkable independent of how
   they were found.
 
-## TODO before submission
-- [ ] Rewrite section 2 fully laptop-runnable (direct sampling, no Knuth machinery in the text).
-- [ ] Operator read-through for voice; humanities-register pass on section 1/4.
-- [ ] PEW author guidelines + length check; JCP as fallback venue.
-- [ ] Optional: Radisic outreach note (his theorem is load-bearing in section 3's coda).
+## Journal-submission track (dormant — activates only on an operator decision to submit)
+- Rewrite section 2 fully laptop-runnable (direct sampling, no Knuth machinery in the text).
+- Operator read-through for voice; humanities-register pass on section 1/4.
+- PEW author guidelines + length check; JCP as fallback venue.
+- Optional: Radisic outreach note (his theorem is load-bearing in section 3's coda).
 
 ## Revision history
 | Version | Date | Changes |

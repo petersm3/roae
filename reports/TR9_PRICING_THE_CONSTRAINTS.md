@@ -121,9 +121,6 @@ explicit.
 - Arithmetic spot-checks: log₂ 64! = 296.0; log₂(31!·2³¹) = 143.7; log₂ C(68,5) = 23.3 (all reproducible
   in three lines of Python)
 
-## Planned improvements (v1.1+)
-- Consider a small sensitivity table (net C1/C2/C5 under family-only vs derivation-allowed) to make     section 5 visual
-
 ## Sensitivity table (planned improvement, v1.3): net bits under both statement-cost conventions
 
 All marginals from the published ledger (documentation/DESCRIPTION_LENGTH.md); the two conventions
@@ -156,5 +153,5 @@ explains the second half of the sequence's information content.
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);
 residual parenthetical reworded to match its arithmetic (the 126.6 figure retains C3's cut; dropping C3
-too gives 129.7). Statement-cost convention families for three rows to be tightened per the review before
+too gives 129.7). Statement-cost convention families for the three priced rows were tightened per the review before
 v1.0.*

@@ -103,9 +103,6 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
 - Free-action corollary + Burnside closure: SYMMETRY_SEARCH.md §Corollary; HISTORY.md 2026-07-03
 - Twins-absent bisection: SYMMETRY_SEARCH.md §Limits and scope (2026-07-02 measurement)
 
-## Planned improvements (v1.1+)
-- Small orbit diagram: B₃ → {±I} → S₄ with the record-level collapse
-
 ## Figure: the symmetry collapse
 
 ![The symmetry collapse and one 24-element orbit](figures/fig_tr5_orbit_collapse.svg)
