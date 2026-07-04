@@ -349,3 +349,18 @@ in the record: the methodology distinguishes *which* orderings are structured an
 with the full table and script: project archive; the Mawangdui sequence used is the data-validated one
 from `--null-historical`, whose true lower-trigram cycle differs from some published generative
 descriptions — noted for the record.)
+
+## Pre-registered test in flight: F4' ordering-layer functionals (registered 2026-07-04, results pending)
+
+To keep the look-elsewhere accounting honest, this registration is published BEFORE any population
+number has been observed. Thirteen integer-valued ordering-layer functionals — each derived from an
+axis already present in the literature (Jing Fang palaces, Zheng Qiao/Hu Yigui trigram clustering,
+Cook nuclear structure, Schulz gender drift, Moore run structure, Davis complement adjacency, Lai
+Zhide halves, Zhu Yuansheng parity, Chan lag-1 autocorrelation, McKenna wave asymmetry, the Fu Xi
+binary axis, symmetric-hexagram placement, and the circular wrap class) — are implemented and gated in
+`solve.py --f4p-verify` / `solve --f4p-verify` (two-language, KW values embedded). Decision thresholds,
+fixed in advance: "notable" = two-sided p < 0.05/13 (Bonferroni); "candidate rule" = < 10⁻⁴ after
+Bonferroni AND passes the corpus-control specificity test (Jing Fang / Mawangdui must not flag on the
+same functional). All 13 results will be reported regardless of outcome; a null result is a finding
+(the ~126-bit residual surviving its first systematic literature-guided attack). Nothing promotes to a
+solver constraint regardless of outcome, per the standing extraction-circularity policy above.
