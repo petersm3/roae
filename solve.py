@@ -5954,6 +5954,161 @@ def registry_verify():
     return 0
 
 
+
+
+# ---------------------------------------------------------------------------
+# F4' ordering-layer functionals (pre-registered 2026-07-04, roae-private/
+# F4PRIME_PREREGISTRATION.md — 13 literature-derived axes, operationalized as
+# integer statistics BEFORE any population measurement; look-elsewhere gates
+# pre-set). Each takes an orientation-resolved 64-hexagram ordering.
+# ATTRIBUTIONS per functional in the docstrings; see documentation/CITATIONS.md.
+# ---------------------------------------------------------------------------
+
+def _f4p_rev6(h):
+    r = 0
+    for b in range(6):
+        r = (r << 1) | ((h >> b) & 1)
+    return r
+
+def _f4p_jf_palace():
+    """Jing Fang palace index per hexagram (palace generator as in roae.py
+    --trigrams / solve.c --null-historical; Jing Fang c. 77-37 BCE)."""
+    pal = {}
+    for pi, t in enumerate((0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011)):
+        for h in ((t << 3) | t, (t << 3) | (t ^ 0b001), (t << 3) | (t ^ 0b011),
+                  (t << 3) | (t ^ 0b111), ((t ^ 0b001) << 3) | (t ^ 0b111),
+                  ((t ^ 0b011) << 3) | (t ^ 0b111), ((t ^ 0b010) << 3) | (t ^ 0b111),
+                  ((t ^ 0b010) << 3) | t):
+            pal[h] = pi
+    return pal
+
+_F4P_PAL = _f4p_jf_palace()
+
+def f4p_housedisp(seq):
+    """1. Positional dispersion of Jing Fang palaces: sum over 8 palaces of
+    (max member position - min member position). Axis: Jing Fang 8 Palaces."""
+    pos = {h: i for i, h in enumerate(seq)}
+    lo = [64] * 8; hi = [-1] * 8
+    for h in range(64):
+        p = _F4P_PAL[h]
+        i = pos[h]
+        lo[p] = min(lo[p], i); hi[p] = max(hi[p], i)
+    return sum(hi[p] - lo[p] for p in range(8))
+
+def f4p_trigram_runs(seq):
+    """2. Longest run of consecutive pairs sharing the lower trigram of the
+    pair's first member. Axis: Zheng Qiao / Hu Yigui trigram clustering."""
+    L = [seq[2 * i] & 7 for i in range(32)]
+    best = cur = 1
+    for i in range(1, 32):
+        cur = cur + 1 if L[i] == L[i - 1] else 1
+        best = max(best, cur)
+    return best
+
+def f4p_nuclear_adj(seq):
+    """3. Adjacent positions sharing the same nuclear hexagram. Axis: Cook
+    nuclear-trigram structure (nuc = lines 2-4 lower, 3-5 upper)."""
+    nuc = lambda h: ((((h >> 2) & 7) << 3) | ((h >> 1) & 7))
+    return sum(1 for i in range(63) if nuc(seq[i]) == nuc(seq[i + 1]))
+
+def f4p_yang_drift(seq):
+    """4. Position-weighted yang mass: sum i*hw(seq[i]). Axis: Schulz gender
+    waning / Mawangdui cumulative-yang comparison."""
+    return sum(i * _reg_hw(h) for i, h in enumerate(seq))
+
+def f4p_dist_runs(seq):
+    """5. Longest run of equal consecutive transition distances. Axis: Moore
+    1988 rhythm/run structure."""
+    d = [_reg_hw(seq[i] ^ seq[i + 1]) for i in range(63)]
+    best = cur = 1
+    for i in range(1, 63):
+        cur = cur + 1 if d[i] == d[i - 1] else 1
+        best = max(best, cur)
+    return best
+
+def f4p_palspan(seq):
+    """6. Highest pair-position holding a palindromic hexagram (rev6(h)==h);
+    lowest is 0 by C4. Axis: biroco/Moore symmetric-hexagram placement."""
+    return max(i // 2 for i, h in enumerate(seq) if _f4p_rev6(h) == h)
+
+def f4p_comp_adj(seq):
+    """7. Complement pair-couples at adjacent pair positions (counted once per
+    couple). Axis: Davis / C3 adjacency form. KW value 1 (the 38/39 couple;
+    SOLVE-SUMMARY's "9 adjacent complements" counts within-pair complements,
+    which are pair-structure facts, not ordering-layer facts)."""
+    ppos = {}
+    for i in range(32):
+        ppos[seq[2 * i]] = i; ppos[seq[2 * i + 1]] = i
+    n = 0
+    for i in range(32):
+        j = ppos[seq[2 * i] ^ 63]
+        if j > i and abs(j - i) == 1:
+            n += 1
+    return n
+
+def f4p_house_balance(seq):
+    """8. Upper-trigram imbalance between sequence halves: sum over 8 trigrams
+    of |count(first 16 pairs) - count(second 16)| using each pair's first
+    member. Axis: Lai Zhide two-halves organization."""
+    c1 = [0] * 8; c2 = [0] * 8
+    for i in range(32):
+        (c1 if i < 16 else c2)[seq[2 * i] >> 3] += 1
+    return sum(abs(c1[t] - c2[t]) for t in range(8))
+
+def f4p_par_switch(seq):
+    """9. Switches in the transition-distance parity string (63 values, 62
+    comparisons). Axis: Zhu Yuansheng parity skeleton, second order."""
+    p = [(_reg_hw(seq[i] ^ seq[i + 1])) & 1 for i in range(63)]
+    return sum(1 for i in range(62) if p[i] != p[i + 1])
+
+def f4p_dist_autocorr(seq):
+    """10. Lag-1 product sum of transition distances: sum d_i*d_{i+1}. Axis:
+    Chan 2026 lag-1 autocorrelation, ordering-layer integer form."""
+    d = [_reg_hw(seq[i] ^ seq[i + 1]) for i in range(63)]
+    return sum(d[i] * d[i + 1] for i in range(62))
+
+def f4p_front_load(seq):
+    """11. Sum of the first 31 transition distances (total is C5-fixed, so this
+    captures front/back asymmetry). Axis: McKenna wave asymmetry."""
+    return sum(_reg_hw(seq[i] ^ seq[i + 1]) for i in range(31))
+
+def f4p_value_trend(seq):
+    """12. Concordant pairs of (position, binary value): #{i<j: seq[i]<seq[j]}.
+    Kendall-tau numerator vs the Fu Xi binary ordering axis."""
+    return sum(1 for i in range(64) for j in range(i + 1, 64) if seq[i] < seq[j])
+
+def f4p_wrap_class(seq):
+    """13. Wrap distance hw(seq[63]^seq[0]) in {1,3,5}. Axis: circular reading
+    (McKenna; TR-7)."""
+    return _reg_hw(seq[63] ^ seq[0])
+
+F4P_FUNCS = ["housedisp", "trigram_runs", "nuclear_adj", "yang_drift",
+             "dist_runs", "palspan", "comp_adj", "house_balance", "par_switch",
+             "dist_autocorr", "front_load", "value_trend", "wrap_class"]
+
+def f4p_verify():
+    """Print all 13 F4' functional values on KW; gate against expected values
+    once embedded (two-language: solve.c must reproduce independently)."""
+    seq = list(binary_hexagrams)
+    failures = 0
+    for name in F4P_FUNCS:
+        v = globals()["f4p_" + name](seq)
+        exp = F4P_KW_EXPECTED.get(name)
+        tag = "OK" if exp == v else ("FAIL (expected %s)" % exp if exp is not None else "(unset)")
+        if exp is not None and exp != v:
+            failures += 1
+        print(f"f4p_{name}: {v} {tag}")
+    print("F4P VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+F4P_KW_EXPECTED = {
+    "housedisp": 385, "trigram_runs": 2, "nuclear_adj": 5, "yang_drift": 6154,
+    "dist_runs": 3, "palspan": 30, "comp_adj": 1, "house_balance": 16,
+    "par_switch": 30, "dist_autocorr": 648, "front_load": 103,
+    "value_trend": 1003, "wrap_class": 3,
+}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -6034,6 +6189,8 @@ def main():
                              "divergence < threshold. Tolerance-based, not byte-exact.")
     parser.add_argument("--compare-depth-profile-threshold", type=float, default=0.005,
                         help="Divergence threshold for --compare-depth-profile (default 0.005 = 0.5%%)")
+    parser.add_argument("--f4p-verify", action="store_true",
+                        help="verify the 13 pre-registered F4' ordering-layer functionals on KW")
     parser.add_argument("--registry-verify", action="store_true",
                         help="Run every candidate-rule ground-truth checker "
                              "(reg_*, CANDIDATE_REGISTRY_2026_07) against the "
@@ -6105,6 +6262,9 @@ def main():
 
     if args.registry_verify:
         sys.exit(registry_verify())
+
+    if args.f4p_verify:
+        sys.exit(f4p_verify())
 
     if args.extended_selftest:
         sys.exit(extended_selftest(args.extended_selftest))
