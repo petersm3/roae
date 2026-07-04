@@ -124,9 +124,12 @@ independent hardware:
    unaffected; its anatomy is now finer: the literature's rules do not fail jointly in one tangle,
    they fail in specific pairs.
 
-Certificates: fourteen DRAT proofs covering the union, the repair ladder, all five leave-one-out
-subsets, and the cores (archive alongside the original conflict certificates; every one drat-trim
-verified, with the full set re-verified against freshly regenerated encodings on a separate machine).
+Certificates: fourteen DRAT proofs — the union (1), its near-2/3/4 repair ladder (3), all five
+leave-one-out subsets (5), the three two-rule cores (3), and two encoding-validation gates
+(ccn8-kwfail, ccn8-kwchain-not) — **all archived in [certificates/](certificates/)** alongside the
+original five conflict certificates (19 total; each mapped to its `sat.py --emit-cnf` regeneration
+command in certificates/README.md and checked by verify_all.sh). Every one drat-trim verified, with
+the full set re-verified against freshly regenerated encodings on a separate machine.
 
 ## A Bayesian comparison: corruption vs. tendency (v1.7)
 
@@ -201,10 +204,15 @@ the rules are the right lens remains open.
 **Reproduction.** The complete evidence bundle is PUBLIC at [evidence/f11/](evidence/f11/): the frozen
 pre-registration, the full results document (model forms, priors grids, sensitivity table), the
 closed-form integration script (`compute_f11_bf.py` — rerun it on the bundled raw outputs to
-reproduce every Bayes factor), and all five raw run outputs. The underlying population runs are
-reproducible from `solve.c`'s `--estimate-knuth` estimator with the documented environment flags at the
-stated probe counts (2×10¹⁰, 5×10⁹, 5×10⁹, 2×10⁹); the edit-event geometry (k ≤ 6) is an exact
-enumeration, not sampled.
+reproduce every Bayes factor; `cd reports/evidence/f11 && python3 compute_f11_bf.py`, ~1 s,
+stdlib-only), and all five raw run outputs plus the exact edit-event enumeration
+(`f11_events.json`, regenerable by the bundled `f11_events.py`). The underlying population runs are
+reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe counts (2×10¹⁰, 5×10⁹,
+5×10⁹, 2×10⁹) with the documented environment flags — `SOLVE_KNUTH_SCORE=1` (scoreboard, all runs),
+`SOLVE_KNUTH_F11_HIST=1` (joint violation histogram, run A), `SOLVE_KNUTH_MOORE_STRICT=1`
+(Moore-joint-strict walks, runs B/C), `SOLVE_KNUTH_GENDER_STRICT=1` (triple-strict prune, available
+for re-derivation) — all in the public `solve.c` and documented in SOLVE_CLI.md §ENVIRONMENT; the
+edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 
 ## Revision history
 | Version | Date | Changes |
@@ -212,6 +220,7 @@ enumeration, not sampled.
 | v1.5 | 2026-07-04 | Adversarial round 2 corrections: conflict-theorem claims scoped to pairing-preserving orderings; TR-3 weeks-not-months; TR-9 residual dual-convention phrasing |
 | v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
 | v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
+| v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |

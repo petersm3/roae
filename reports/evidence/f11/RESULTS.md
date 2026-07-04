@@ -1,6 +1,6 @@
 # F11 — Corruption vs. tendency: Bayes-factor RESULTS (executed under the frozen pre-registration)
 
-**Executed 2026-07-04** under [F11_BAYES_PREREGISTRATION_2026_07.md](F11_BAYES_PREREGISTRATION_2026_07.md)
+**Executed 2026-07-04** under the frozen pre-registration [PREREGISTRATION.md](PREREGISTRATION.md)
 (FROZEN 2026-07-04, operator approval "approve F11 defaults" — PROOF_PROGRAM UPDATE 32). Model forms,
 model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 strong) are as frozen;
 nothing in this document was altered after seeing the numbers except the numbers themselves. Per the
@@ -11,9 +11,9 @@ App. 2) rhythm; Moore 2005 (*Oracle Papers* No. 1) pair-positioning parity; Schu
 gender/position-parity (exception first noted by Zhu Yuansheng, 13th c.), elaborated Cook 2006;
 corruption mechanism Rutt 1996 (bamboo-slat cords) as discussed by Hacker & Moore 2003.
 
-**STATUS: COMPLETE — computed 2026-07-04.** Evidence archived in
-`scripts/f11_evidence/` (`f11_runA.out`, `f11_runB.out`, `f11_runC.out`, `f11_runC2.out`,
-`f11_events.out`, `f11_events.json`); integration script `scripts/f11_evidence/compute_f11_bf.py`.
+**STATUS: COMPLETE — computed 2026-07-04.** Evidence archived in this directory,
+`reports/evidence/f11/` (`f11_runA.out`, `f11_runB.out`, `f11_runC.out`, `f11_runC2.out`,
+`f11_events.out`, `f11_events.json`); integration script `compute_f11_bf.py` (same directory).
 
 **Headline (both frozen corruption-location variants, primary configuration):
 BF(corruption/tendency) ≈ 6.6×10³ (variant U, uniform edit location) and ≈ 7.9×10³
@@ -53,7 +53,7 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 |---|---|---|---|---|
 | 1 | KW violation profile (2,2,2), V=6 | exact | REUSED (re-asserted) | solve.py checkers; sat.py import gates; `f11_events.py` asserts |
 | 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT (LITERATURE_RULES_POPULATION_TESTS.md §results 5–7); independently REPRODUCED by the k≤2 exhaustive event enumeration in RUN D (0 hits) |
-| 3 | \|C1–C5\| canonical space N_can | **1.328702e38** (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the 1.3287e38 anchor; RUN C2 independent: 1.328327e38 | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `scripts/f11_evidence/f11_runA.out` |
+| 3 | \|C1–C5\| canonical space N_can | **1.328702e38** (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the 1.3287e38 anchor; RUN C2 independent: 1.328327e38 | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
 | 4 | Moore-joint strict size N_mj | **1.16583e29** (5e9 probes, relerr 2.98%) — +3.5% vs the 1.1266e29 anchor (inside ±4.7%); RUN C independent: 1.091306e29 (−3.1%) | RE-MEASURED | c208 strict walk; `f11_runB.out` |
 | 5 | Triple-strict ("grand-strict") size N_gs | **3.57e25** primary (RUN C: 1.091306e29 × 3.27e-4); **1.03e25** cross (RUN B (0,0,0) cell: 1.16583e29 × 8.8277e-5). ×3.5 disagreement (rare-cell estimator noise); BOTH carried through the sensitivity table; the LARGER (corruption-conservative) is primary | **DERIVED** — see honest note below the table: the planned in-walk gender-strict prune output did not ship; N_gs comes from the gender-0-violation fraction *within* the delivered Moore-joint walks | `f11_runC.out` (scoreboard), `f11_runB.out` (hist plane); prereg anticipated: "the triple-strict size is measurable" |
 | 6 | Gender-strict-only size | **~1.3e32** (RUN C2: 1.328327e38 × 1e-6; scoreboard precision 1 s.f.) — i.e. gender-strict mass ≈ 1e-6 of canonical, one order LARGER than the prereg data-vector's rough "~<1e-7" guess (flagged in §8; info-only, does not enter the BF) | MEASURED FRESH (info/cross-check) | `f11_runC2.out` |
@@ -261,17 +261,17 @@ such sequences (2 of 7,975 k = 3 events).
 Computed 2026-07-04. Evidence files (archived copies of the worker outputs; byte-identical to the
 `/tmp/f11_*.out` originals delivered from c222-f11):
 
-    roae-private/scripts/f11_evidence/f11_runA.out    # 2e10-probe joint violation histogram (main evidence)
-    roae-private/scripts/f11_evidence/f11_runB.out    # 5e9-probe Moore-joint-strict walk + (0,0,v3) plane
-    roae-private/scripts/f11_evidence/f11_runC.out    # 5e9-probe Moore-joint-strict walk (scoreboard only)
-    roae-private/scripts/f11_evidence/f11_runC2.out   # 2e9-probe unconditioned walk (scoreboard only)
-    roae-private/scripts/f11_evidence/f11_events.out  # RUN D exact edit-event enumeration, k = 1..6
-    roae-private/scripts/f11_evidence/f11_events.json # RUN D full per-k records (hits, zA weights, validity)
+    reports/evidence/f11/f11_runA.out    # 2e10-probe joint violation histogram (main evidence)
+    reports/evidence/f11/f11_runB.out    # 5e9-probe Moore-joint-strict walk + (0,0,v3) plane
+    reports/evidence/f11/f11_runC.out    # 5e9-probe Moore-joint-strict walk (scoreboard only)
+    reports/evidence/f11/f11_runC2.out   # 2e9-probe unconditioned walk (scoreboard only)
+    reports/evidence/f11/f11_events.out  # RUN D exact edit-event enumeration, k = 1..6
+    reports/evidence/f11/f11_events.json # RUN D full per-k records (hits, zA weights, validity)
 
 To reproduce the Bayes factors (pure closed-form integration over the archived outputs, ~1 s,
 no sampling, no network):
 
-    cd /home/claude/github/roae-private/scripts/f11_evidence
+    cd reports/evidence/f11
     python3 compute_f11_bf.py
 
 The script re-derives every population mass from the raw run outputs, re-asserts the sanity gates
@@ -282,12 +282,14 @@ sensitivity table, the per-gridpoint likelihoods, and the 7×7 BF(p_c, λ) matri
 tabulated in §4. To regenerate RUN D from scratch (exact enumeration, ~minutes, needs the repo's
 `solve.py` on PYTHONPATH):
 
-    cd /home/claude/github/roae-private/scripts/f11_evidence
-    PYTHONPATH=/home/claude/github/roae/roae python3 f11_events.py   # rewrites f11_events.json
+    cd reports/evidence/f11
+    PYTHONPATH=../../.. python3 f11_events.py   # rewrites f11_events.json
 
-Instrument provenance: `solve_c_f11.patch` (uncommitted estimator-only extension of solve.c —
-SOLVE_KNUTH_F11_HIST joint histogram + SOLVE_KNUTH_GENDER_STRICT in-walk prune; sha-neutral,
-selftest-gated on the worker). Worker: c222-f11, Spot D32als_v7, launcher `f11_launch.sh`
+Instrument provenance: the F11 estimator extension (SOLVE_KNUTH_F11_HIST joint histogram +
+SOLVE_KNUTH_GENDER_STRICT in-walk prune; estimator-only, sha-neutral) ran on the worker as
+`solve_c_f11.patch` and was **merged into the public `solve.c` on 2026-07-04** (selftest sha
+`403f7202…` unchanged; both flags documented in SOLVE_CLI.md §ENVIRONMENT), so the RUN A
+histogram is re-derivable from the public tree. Worker: c222-f11, Spot D32als_v7, launcher `f11_launch.sh`
 (c215 pattern: throttle probe, selftest gate, auto-shutdown backstop, delete-on-completion).
 Deviation note: the delivered RUN C/C2 outputs contain the scoreboard only — the planned
 gender-strict prune output and its leaf-scorer mismatch line did NOT ship, so N_gs is derived

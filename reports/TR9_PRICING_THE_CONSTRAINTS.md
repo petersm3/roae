@@ -49,7 +49,7 @@ explicit.
    |---|---|---|---|---|---|
    | baseline (any ordering) | 64! | 296.0 | — | — | — |
    | + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
-   | + C2 (no-5) | 7.571×10⁴¹ (±0.01%, measured 2026-07-03) | 139.1 | 4.6 | ~3 (family of per-distance bans) | **+1.6** |
+   | + C2 (no-5) | 7.5706×10⁴¹ (**exact**, orbit-quotient DP `solve --f1-exact-c1c2c4`, 2026-07-04; supersedes the 2026-07-03 estimator value 7.571×10⁴¹ ±0.01%, which it confirms) | 139.1 | 4.6 | ~3 (family of per-distance bans) | **+1.6** |
    | + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 23.3⁴ | **−13.9 (descriptive, measured)** |
    | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
    | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.2 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
@@ -71,8 +71,8 @@ explicit.
    **C2** (no 5-line transitions; McKenna & McKenna 1975) is the one honestly *net-positive* narrow rule:
    4.6 bits of compression against ~3 bits of statement — +1.6 net. **C5** is the ledger's sharpest
    verdict: the transition multiset compresses 9.4 bits but costs 23.3 bits to state (the weak-composition
-   bound), netting −13.9 — a *measured* conclusion (the C2 layer count 7.571×10⁴¹ ±0.01%, measured
-   2026-07-03, pinned the marginal). C5 earns its keep operationally (it is what makes enumeration
+   bound), netting −13.9 — a *measured* conclusion (the C2 layer count, now **exact** at 7.5706×10⁴¹
+   via the orbit-quotient DP `solve --f1-exact-c1c2c4`, pinned the marginal). C5 earns its keep operationally (it is what makes enumeration
    tractable) but explains nothing: it is confirmed description of King Wen, not explanation. **C3** is
    circular: its threshold (776) is KW's own value, so its 3.0 marginal bits are priced as data and not
    claimed. **C6/C7** pin four slots — definitionally break-even. The strongest literature rule (the
@@ -111,8 +111,11 @@ explicit.
 - The ledger, conventions, and footnotes: documentation/DESCRIPTION_LENGTH.md (this TR preserves its
   numbers exactly)
 - Solution counts: exact layers vs documentation/CANONICAL_HASHES.md + enumeration record; estimator
-  layers (7.571×10⁴¹ C2 count, 1.0971×10³⁹ C5 count, 1.3287×10³⁸ full space) via the validated
-  weighted-Knuth instrument — documentation/SEARCH_SPACE_SIZE.md (method + 0.03% self-validation)
+  layers (1.0971×10³⁹ C5 count, 1.3287×10³⁸ full space) via the validated
+  weighted-Knuth instrument — documentation/SEARCH_SPACE_SIZE.md (method + 0.03% self-validation);
+  C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per TR-5;
+  the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to ±0.01% — both documented in
+  SOLVE_CLI.md)
 - C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib); within-pair
   distance cross-check 2×12 + 4×12 + 6×8 = 120 per documentation/CITATIONS.md §Radisic 2026
 - Circularity pricing of C3: documentation/CRITIQUE.md Q1
@@ -141,7 +144,11 @@ Thirteen ordering-layer functionals, each drawn from a literature axis and regis
 BEFORE measurement (documentation/CRITIQUE.md), were scored against the full population (2×10⁹ probes,
 2026-07-04). All thirteen: null. The ~126 unexplained bits therefore survive their first systematic
 literature-guided assault — strengthening this report's central claim that no currently known rule
-explains the second half of the sequence's information content.
+explains the second half of the sequence's information content. Evidence: the archived tier-1 run
+output [evidence/f4p_tier1.out](evidence/f4p_tier1.out) (all 13 scoreboard rows + full per-functional
+value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./solve --estimate-knuth
+2000000000` with the two-language KW gate `./solve --f4p-verify` vs `solve.py --f4p-verify`
+(flags and gates documented in SOLVE_CLI.md).
 
 ## Revision history
 | Version | Date | Changes |
@@ -150,6 +157,7 @@ explains the second half of the sequence's information content.
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives); convention-sensitivity table added |
+| v1.6 | 2026-07-04 | Reproducibility completion: C2-layer count adopted as the exact 7.5706×10⁴¹ (`solve --f1-exact-c1c2c4`, replacing the ±0.01% estimator figure it confirms); F4' tier-1 evidence published (evidence/f4p_tier1.out) and cited; instrument flags (`SOLVE_KNUTH_SCORE_F4P`, `SOLVE_KNUTH_RELAX_C5`) now documented in SOLVE_CLI.md |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);

@@ -84,12 +84,37 @@ solution space's orbit structure (and KW's 23 twins) is a new object of study in
 ## Reproducibility
 
 ```bash
-# sigma(KW) validity over all 720 bit permutations + orbit counts: ~1s, pure python (see HISTORY 2026-07-02)
 # exact tree-isomorphism check (any sigma in G; prefix = 22 (pair,orient) args after the forced first pair):
 ./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0
 ./solve --estimate-knuth 0 22 1 28 0 3 1 21 1 26 0 6 1 11 0 5 0 19 0 27 0 7 1 16 1 30 1 14 0 20 0 18 1 25 0 24 1 1 1 15 0 4 0 9 0
 # -> identical tree_nodes = 9,422,793 and leaves_canonical = 16,504
 ```
+
+σ(KW) validity over all 720 bit permutations + the orbit collapse (<1 s, pure python, run from the
+repo root — verified output: `48 of 720 valid -> 24 distinct canonical records (KW + 23 twins)`):
+
+```python
+from itertools import permutations
+import solve
+KW = solve.binary_hexagrams
+kw_trans = sorted(solve.bit_diff(KW[i], KW[i+1]) for i in range(63))       # C5 multiset
+def apply_sigma(p, h): return sum(((h >> b) & 1) << i for i, b in enumerate(p))
+def valid(s):                                                              # C1..C5
+    return (solve.has_pair_structure_c1(s) and (s[0], s[1]) == (63, 0)
+            and solve.count_five_line_transitions_c2(s) == 0
+            and solve.total_complement_distance_c3(s) <= 776
+            and sorted(solve.bit_diff(s[i], s[i+1]) for i in range(63)) == kw_trans)
+good = [s for s in ([apply_sigma(p, h) for h in KW] for p in permutations(range(6))) if valid(s)]
+recs = {tuple(frozenset(s[2*k:2*k+2]) for k in range(32)) for s in good}   # orientation-dedup
+print(len(good), "of 720 valid ->", len(recs), "distinct canonical records (KW + 23 twins)")
+```
+
+All-cells orbit test (within-orbit CV 0.112): the per-cell estimates are `./solve --estimate-knuth
+100000 <p1> <o1> <p2> <o2> <p3> <o3>` over the 65,281 productive 560T cells (cell list from the 560T
+shard manifest, reproducible per CANONICAL_HASHES.md); the G-orbit partition (4,183 orbits) is the
+σ-action on (pair, orient) prefixes from the snippet above. The per-cell estimate table itself is
+private working data (~65K estimator calls, hours-scale); this rerun spec is the public path.
+
 Original 2026-04-25 phases 1–3 (`./solve --symmetry-search [--validate-counts]`) remain reproducible; their
 output is correct as *budgeted-yield* data. Proof + full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md`.
 

@@ -438,6 +438,57 @@ last and first hexagram is odd (d=1/3 split) — and reports the odd/even fracti
 and the d=1 vs d=3 breakdown. At the 560T canonical, 100% of records are odd-wrap
 (91.83% d=3, 8.17% d=1). gz-aware (#169), sha-preserving (post-enumeration analysis).
 
+### --f4p-verify
+
+```
+solve --f4p-verify
+```
+
+Two-language gate for the 13 F4' ordering-layer functionals (the pre-registered
+battery of documentation/CRITIQUE.md §F4'): computes each on the King Wen sequence
+and checks against the embedded KW expected values. Ground truth is
+`solve.py --f4p-verify`; the two outputs must match line-for-line (verify_all.sh
+diffs them). Exit 0 iff all 13 match. Sha-neutral (argv-dispatched, never on the
+enumeration path). Population scoring of the same functionals:
+`SOLVE_KNUTH_SCORE_F4P` below.
+
+### --dav-verify
+
+```
+solve --dav-verify
+```
+
+Two-language gate for the 9 Davis (2012) composite candidates (pre-registered in
+documentation/CRITIQUE.md §Davis): computes each on the King Wen sequence and checks
+against the embedded KW expected values. Ground truth is `solve.py --dav-verify`;
+outputs must match byte-for-byte. Exit 0 iff all 9 match. Sha-neutral. Population
+scoring: `SOLVE_KNUTH_SCORE_DAV` below.
+
+### --f1-exact-c1c2c4
+
+```
+solve --f1-exact-c1c2c4 [--layers-dir DIR] [--f1-subset U1|U2|U3|"L.I,L.I,...[@START]"]
+```
+
+**Exact** (integer, not estimated) count of |C1 ∩ C2 ∩ C4| via the S₄-orbit-quotient
+layered dynamic program (#215; the quotient uses the TR-5 symmetry group, which is
+what makes the DP fit in memory). Published value: 7.5706×10⁴¹ (4 s.f. of the exact
+42-digit integer) — the C2-layer row of documentation/DESCRIPTION_LENGTH.md, exactly
+divisible by 24 as the TR-5 free-action theorem requires. `--layers-dir` checkpoints per-layer state for
+resume; `--f1-subset` restricts to group-closed subsets (validation gates).
+Sha-neutral (argv-dispatched, never on the enumeration path).
+
+### --f1-exact-c1c2c4c5
+
+```
+solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR]
+```
+
+Extension of the orbit DP with the capped C5-residual dimension (#217): exact
+|C1 ∩ C2 ∩ C4 ∩ C5| over group-closed pair-orbit unions. `--f1-pairs N` with
+N ∈ {9,13,16,18,19,24,25,27,28,31} (default 31 = full run at KW's budget).
+Sha-neutral.
+
 ### --merge
 
 ```
@@ -819,6 +870,14 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_BOUNDARY_COND` | `1` | Per-boundary KW-agreement mass accumulators (31; the `--analyze` §[6] predicate on the estimator); conditional on the pin prefix if set. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_REG` | `1` | Score all 31 registry candidate rules (Schulz 1990/2011/2016/diss, McKenna-Mair 1979, Drasny, Schöter — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage (Cook 2006), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006), R-M1 pair-positioning parity (Moore 2005). See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
+| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND 1989 rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space (TR-1 §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_GENDER_STRICT` | 0 | `=1`: prune the walk to orderings satisfying the Schulz 1990 gender/position-parity rule strictly (0 violations; semantics identical to the rc4 leaf scorer / `solve.py rc4_violations`; exception first noted by Zhu Yuansheng, 13th c.). Composes with `SOLVE_KNUTH_MOORE_STRICT` to estimate the triple-strict ("grand-strict") space (F11 M_corr precursor set). Prints a leaf-scorer cross-check line (mismatches must be 0). Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_F11_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): emit the F11 joint violation histogram — `f11_hist v1 v2 v3 <mass>` lines over (v1 = 18 − Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender violations; KW = (2,2,2)) — the M_tend normalizer ingredient of the TR-2 v1.7 Bayes comparison (archived instance: reports/evidence/f11/f11_runA.out). Under strict walks the fractions are conditional on the pruned space. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_F4P` | 0 | `=1`: score the 13 pre-registered F4' ordering-layer functionals per canonical leaf (below/at/above-KW weighted masses; CRITIQUE.md §F4'; TR-9 v1.3). Ground truth / two-language gate: `--f4p-verify`. Archived tier-1 run: reports/evidence/f4p_tier1.out. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_F4P_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F4P=1`): additionally emit `f4p_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_DAV` | 0 | `=1`: score the 9 pre-registered Davis (2012) composite candidates per canonical leaf (CRITIQUE.md §Davis; TR-10 §3). Ground truth / two-language gate: `--dav-verify`. Archived tier-1 run: reports/evidence/dav_tier1.out. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_DAV_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV=1`): additionally emit `dav_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_RELAX_C5` | 0 | `=1`: relax C5 to C2-only in the Knuth walk (transition budgets unbounded except d=5 forbidden), so `leaves_C1C2C4C5` counts \|C1 ∩ C2 ∩ C4\| — used to price C5's marginal compression in DESCRIPTION_LENGTH.md (superseded for the headline number by the exact `--f1-exact-c1c2c4` DP). Estimator-only, sha-neutral. |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 | `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | (existing, repeated for cross-reference) — also bypasses the per-shard `.budget` integrity gate for legacy shards. |

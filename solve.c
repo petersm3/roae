@@ -4799,6 +4799,18 @@ typedef struct {
     double dav_below[9], dav_at[9], dav_above[9];  /* weighted mass <KW / ==KW / >KW per candidate
                                            * (booleans: at-mass with kw=1 == mass-of-TRUE) */
     int dav_min[9], dav_max[9];           /* min/max candidate value seen across canonical leaves */
+    double *f11_hist;                     /* SOLVE_KNUTH_F11_HIST=1 (requires SOLVE_KNUTH_SCORE=1): joint
+                                           * violation histogram over (v1 = 18 - Moore-2005 parity compliance,
+                                           * v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender/position-
+                                           * parity violations) per canonical leaf. F11 pre-registered Bayes
+                                           * M_tend (Gibbs) normalizer ingredient. Rule ATTRIBUTION as in the
+                                           * knuth_score comment block (Moore 2005 Oracle Papers No.1; Moore
+                                           * 1989 The Trigrams of Han App.2; Schulz 1990 JCP 17:3, elab. Cook
+                                           * 2006). [19*32*40] heap-allocated only when active. Estimator-only,
+                                           * sha-neutral. */
+    uint64_t f11_gs_mismatch;             /* SOLVE_KNUTH_GENDER_STRICT=1 validation: canonical leaves whose
+                                           * leaf-scorer gender-violation count != 0 (two-implementation
+                                           * cross-check of the in-walk prune; MUST be 0). */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -4808,6 +4820,16 @@ static unsigned knuth_pin_mask = 0;  /* SOLVE_KNUTH_PIN_SLOTS="3,4,20,21": pin l
                                       * (orientation free). Generalizes SOLVE_KNUTH_C67 (== slots 24-27).
                                       * Estimator-only, sha-neutral. F2 S(k) boundary-information curve. */
 static int knuth_bcond = 0;
+static int knuth_gender_strict = 0; /* SOLVE_KNUTH_GENDER_STRICT=1: prune the walk to orderings satisfying
+                                 * the Schulz 1990 gender/position-parity rule STRICTLY (0 violations over
+                                 * the 36 inversion-class positions; semantics identical to the rc4 leaf
+                                 * scorer / solve.py rc4_violations — first-occurrence class indexing,
+                                 * popcount {0,3,6} exempt). Composes with SOLVE_KNUTH_MOORE_STRICT to
+                                 * estimate the TRIPLE-strict ("grand-strict") space (F11 preregistration:
+                                 * M_corr precursor-set size). ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2
+                                 * (exception first noted by Zhu Yuansheng, 13th c.); elaborated Cook 2006.
+                                 * Estimator-only, sha-neutral. */
+static int knuth_f11_hist = 0;      /* SOLVE_KNUTH_F11_HIST=1: see KnuthArg.f11_hist. */
 static int knuth_moore_strict = 0;  /* SOLVE_KNUTH_MOORE_STRICT=1: prune the walk to orderings satisfying
                                  * BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND 1989
                                  * rising/falling 0-breaks) — estimates the joint-strict space; any canonical
@@ -5694,6 +5716,18 @@ static void *knuth_worker(void *vp){
         int step = a->start_step;
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
         int ms_prev_adj = 0, ms_prev_rf = 0;                    /* strict-Moore walk state */
+        uint64_t gs_seen = 0; int gs_ncls = 0;                  /* gender-strict walk state: inversion-class
+                                                                 * first-occurrence set (key = min(h, rev6(h)))
+                                                                 * + running class count; replayed from the
+                                                                 * fixed prefix below. */
+        if (knuth_gender_strict) {
+            for (int z0 = 0; z0 < step*2; z0++) {
+                int h = seq[z0], r = 0;
+                for (int b3=0;b3<6;b3++) r |= ((h>>b3)&1) << (5-b3);
+                int key = h < r ? h : r;
+                if (!((gs_seen >> key) & 1ULL)) { gs_seen |= 1ULL << key; gs_ncls++; }
+            }
+        }
         for(;;){
             node_acc += W;
             if (step == 32){
@@ -5794,6 +5828,18 @@ static void *knuth_worker(void *vp){
                             if (spat) a->sum_rc3w += W;
                             if (viol <= 2) a->sum_rc4k += W;
                             if (viol == 0) a->sum_rc4s += W;
+                            /* F11 joint violation histogram (Moore 2005 / Moore 1989 / Schulz 1990;
+                             * KW cell = (2,2,2)). Estimator-only. */
+                            if (a->f11_hist && m1ok >= 0 && m2breaks >= 0) {
+                                int v1 = 18 - m1ok; if (v1 < 0) v1 = 0; if (v1 > 18) v1 = 18;
+                                int v2 = m2breaks > 31 ? 31 : m2breaks;
+                                int v3 = viol > 39 ? 39 : viol;
+                                a->f11_hist[(v1*32 + v2)*40 + v3] += W;
+                            }
+                            /* gender-strict in-walk prune cross-check: every canonical leaf reached
+                             * under the prune must score 0 gender violations here (independent
+                             * implementation of the same rule). */
+                            if (knuth_gender_strict && viol != 0) a->f11_gs_mismatch++;
                             /* --- Davis popcount-palindrome windows (Davis 2012; KW has 2) --- */
                             int wins = 0;
                             for (int q=0; q<28; q++) {
@@ -5846,6 +5892,25 @@ static void *knuth_worker(void *vp){
                     int live = budget[wd] > 0;             /* C5 within-pair (bd==wd safe) */
                     budget[bd]++;
                     if (!live) continue;
+                    if (knuth_gender_strict) {
+                        /* Schulz 1990 gender/position-parity strict prune: any NEW inversion class
+                         * created by this candidate must be gender-compliant with its (prefix-
+                         * determined) class index. Same semantics as the rc4 leaf scorer. */
+                        uint64_t sn = gs_seen; int nc = gs_ncls, bad = 0;
+                        int hh0 = first, hh1 = second;
+                        for (int z2 = 0; z2 < 2 && !bad; z2++) {
+                            int h = z2 ? hh1 : hh0, r = 0;
+                            for (int b3=0;b3<6;b3++) r |= ((h>>b3)&1) << (5-b3);
+                            int key = h < r ? h : r;
+                            if (!((sn >> key) & 1ULL)) {
+                                sn |= 1ULL << key; nc++;
+                                int pck = __builtin_popcount((unsigned)h);
+                                if (pck != 0 && pck != 3 && pck != 6 &&
+                                    ((pck < 3) != ((nc & 1) == 1))) bad = 1;
+                            }
+                        }
+                        if (bad) continue;
+                    }
                     int msrf = 0, msdir = 0;
                     if (knuth_moore_strict) {
                         int pcp = __builtin_popcount((unsigned)pairs[p].a);
@@ -5869,6 +5934,14 @@ static void *knuth_worker(void *vp){
             budget[bd]--; budget[wd]--;
             seq[step*2]=first; seq[step*2+1]=second; PAIR_MASK_SET(used,p);
             if (knuth_moore_strict) { ms_prev_adj = cdir[k]; ms_prev_rf = crf[k]; }
+            if (knuth_gender_strict) {
+                for (int z2 = 0; z2 < 2; z2++) {
+                    int h = z2 ? second : first, r = 0;
+                    for (int b3=0;b3<6;b3++) r |= ((h>>b3)&1) << (5-b3);
+                    int key = h < r ? h : r;
+                    if (!((gs_seen >> key) & 1ULL)) { gs_seen |= 1ULL << key; gs_ncls++; }
+                }
+            }
             W *= (double)d; step++;
         }
         a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf>0) a->hits_leaf++;
@@ -5959,6 +6032,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].dav_hist = (double*)calloc(9 * 64, sizeof(double));
             for (int k2 = 0; k2 < 9; k2++){ arg[i].dav_min[k2] = INT_MAX; arg[i].dav_max[k2] = INT_MIN; }
         }
+        if (knuth_f11_hist)
+            arg[i].f11_hist = (double*)calloc(19 * 32 * 40, sizeof(double));
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
@@ -6092,6 +6167,32 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                dav_names[k2], dav_lo[k2] + b2, davH[k2 * 64 + b2]/sC);
     }
     free(davH);
+    if (knuth_f11_hist) {
+        /* F11 joint violation histogram (fraction of canonical mass per (v1,v2,v3) cell;
+         * v1 = 18 - Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks,
+         * v3 = Schulz-1990 gender violations; KW = (2,2,2)). Under MOORE_STRICT /
+         * GENDER_STRICT walks these are CONDITIONAL fractions of the pruned space. */
+        double *f11H = (double*)calloc(19 * 32 * 40, sizeof(double));
+        for (int i = 0; i < nthreads; i++){
+            if (arg[i].f11_hist)
+                for (int b2 = 0; b2 < 19 * 32 * 40; b2++) f11H[b2] += arg[i].f11_hist[b2];
+            free(arg[i].f11_hist); arg[i].f11_hist = NULL;
+        }
+        if (sC > 0)
+            for (int v1 = 0; v1 < 19; v1++)
+                for (int v2 = 0; v2 < 32; v2++)
+                    for (int v3 = 0; v3 < 40; v3++)
+                        if (f11H[(v1*32 + v2)*40 + v3] > 0)
+                            printf("f11_hist %d %d %d %.10e\n",
+                                   v1, v2, v3, f11H[(v1*32 + v2)*40 + v3]/sC);
+        free(f11H);
+    }
+    if (knuth_gender_strict) {
+        uint64_t mm = 0;
+        for (int i = 0; i < nthreads; i++) mm += arg[i].f11_gs_mismatch;
+        printf("  [f11] gender-strict leaf cross-check mismatches (must be 0): %llu\n",
+               (unsigned long long)mm);
+    }
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
         printf("  [bcond] conditional on SOLVE_KNUTH_PIN_SLOTS=0x%x prefix if set):\n", knuth_pin_mask);
@@ -13095,6 +13196,17 @@ int main(int argc, char *argv[]) {
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;
+        if (getenv("SOLVE_KNUTH_GENDER_STRICT") && atoi(getenv("SOLVE_KNUTH_GENDER_STRICT")) == 1) {
+            knuth_gender_strict = 1;
+            fprintf(stderr, "[knuth] GENDER-STRICT walk ACTIVE (Schulz 1990 gender/position-parity, "
+                            "0 violations enforced in-walk; composes with MOORE_STRICT for the "
+                            "triple-strict space — F11)\n");
+        }
+        if (getenv("SOLVE_KNUTH_F11_HIST") && atoi(getenv("SOLVE_KNUTH_F11_HIST")) == 1) {
+            knuth_f11_hist = 1;
+            fprintf(stderr, "[knuth] F11 joint violation histogram ACTIVE (Moore-parity x Moore-rhythm "
+                            "x Schulz-gender; requires SOLVE_KNUTH_SCORE=1)\n");
+        }
         if (getenv("SOLVE_KNUTH_MOORE_STRICT") && atoi(getenv("SOLVE_KNUTH_MOORE_STRICT")) == 1) {
             knuth_moore_strict = 1;
             fprintf(stderr, "[knuth] STRICT-MOORE walk ACTIVE (Moore 2005 parity 18/18 + Moore 1989 rhythm 0-breaks enforced in-walk)\n");

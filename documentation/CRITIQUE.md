@@ -371,8 +371,11 @@ NULL at the frozen thresholds. Closest calls: dist_autocorr (KW at the ~96.6th p
 (par_switch) turned out to be CONSTANT across the entire space — a theorem, not a statistic (proof in
 reports/TR6; it is a corollary of the 15-alternations theorem plus pair parity structure), joining the
 "forced, not chosen" class of TR-1. Net: the ~126-bit residual (TR-9) survives its first systematic
-literature-guided attack. Evidence and per-functional masses: the F4' entries in the private ledger;
-regeneration: SOLVE_KNUTH_SCORE_F4P=1 ./solve --estimate-knuth <probes>.
+literature-guided attack. Evidence and per-functional masses: the archived tier-1 run output
+`reports/evidence/f4p_tier1.out` (all 13 `[f4p ...]` scoreboard rows — mean/min/max/KW value and
+below/at/above-KW masses — plus full `f4p_hist` per-functional value histograms);
+regeneration: `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./solve --estimate-knuth 2000000000`
+(both flags documented in SOLVE_CLI.md §ENVIRONMENT).
 
 ## Pre-registered test in flight: Davis (2012) structural claims (registered 2026-07-04, results pending)
 

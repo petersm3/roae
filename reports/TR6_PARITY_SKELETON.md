@@ -124,7 +124,10 @@ is even (reversal preserves line-count parity; the four inverse pairs jump all 6
 transitions occupy only the 31 between-pair slots — pairwise non-adjacent and excluding both string
 ends; the main theorem gives exactly 15 odd between-pair transitions; 15 isolated interior odd values
 contribute two switches each. Discovered as a pre-registered F4' functional that came back CONSTANT
-(min=max=30 over 2×10⁹ population probes) before being proved — the measurement found the theorem. As of v1.4 the corollary is also machine-checked: `switches_30_general` in
+(min=max=30 over 2×10⁹ population probes; archived run output: the `par_switch` row of
+[evidence/f4p_tier1.out](evidence/f4p_tier1.out), regenerable via `SOLVE_KNUTH_SCORE_F4P=1 ./solve
+--estimate-knuth 2000000000` — flag documented in SOLVE_CLI.md) before being proved — the measurement
+found the theorem. As of v1.4 the corollary is also machine-checked: `switches_30_general` in
 lean/KingWen.lean (kernel-verified, core Lean, no mathlib) — the same three-modality status as the main
 theorem.
 
@@ -136,3 +139,4 @@ theorem.
 | v1.2 | 2026-07-04 | Figures added |
 | v1.3 | 2026-07-04 | 30-switches corollary added (found by F4' population measurement, then proved) |
 | v1.4 | 2026-07-04 | Corollary machine-checked: switches_30_general kernel-verified in lean/KingWen.lean |
+| v1.5 | 2026-07-04 | Reproducibility completion: F4' discovery-measurement evidence published (reports/evidence/f4p_tier1.out) and cited from the corollary; `SOLVE_KNUTH_SCORE_F4P` documented in SOLVE_CLI.md |

@@ -2,6 +2,12 @@
 
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
 must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See reports/METHODS.md.
+`verify_all.sh` (this directory) checks every certificate below. Full inventory: 19 certificates —
+the original 5 (conflict theorem + repair ladder + alternation theorem) plus the 14 of the TR-2 v1.6
+extension (five-rule union, its near-2/3/4 repair ladder, all five leave-one-out subsets, the three
+two-rule cores, and two encoding-validation gates).
+
+## Original set (conflict theorem, minimal repairs, alternation theorem)
 
 | Certificate | Regenerate CNF | Establishes |
 |---|---|---|
@@ -10,3 +16,26 @@ must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See repor
 | moore-strict-near-2.drat.gz | `python3 sat.py --emit-cnf moore-strict-near-2 f.cnf` | Moore repair ≥3 edits |
 | rc4_near2_unsat.drat.gz | `python3 sat.py --emit-cnf rc4-strict-near-2 f.cnf` | gender-rule repair ≥3 edits |
 | grand_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf grand-ccn4 f.cnf` | THE CONFLICT THEOREM |
+
+## TR-2 v1.6 extension (five-rule union, repair ladder, leave-one-out, two-rule cores, encoding gates)
+
+| Certificate | Regenerate CNF | Establishes |
+|---|---|---|
+| grander_strict_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict f.cnf` | five-rule union UNSAT |
+| grander_strict_near2_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict-near-2 f.cnf` | union repair ≥3 edits |
+| grander_strict_near3_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict-near-3 f.cnf` | union repair ≥4 edits |
+| grander_strict_near4_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict-near-4 f.cnf` | union UNSAT at any repair distance tested (≥5) |
+| five_loo_parity_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-parity f.cnf` | union minus Moore parity: still UNSAT |
+| five_loo_rhythm_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-rhythm f.cnf` | union minus Moore rhythm: still UNSAT |
+| five_loo_gender_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-gender f.cnf` | union minus Schulz gender: still UNSAT |
+| five_loo_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-ccn4 f.cnf` | union minus S25–28 config: still UNSAT |
+| five_loo_ccn8_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-ccn8 f.cnf` | union minus CC-N8 (= grand-ccn4): still UNSAT |
+| core_parity_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-parity+ccn4 f.cnf` | two-rule core: {Moore parity, S25–28} |
+| core_rhythm_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-rhythm+ccn4 f.cnf` | two-rule core: {Moore rhythm, S25–28} |
+| core_gender_ccn8_unsat.drat.gz | `python3 sat.py --emit-cnf gender-ccn8 f.cnf` | two-rule core: {Schulz gender, CC-N8} |
+| ccn8_kwfail_unsat.drat.gz | `python3 sat.py --emit-cnf ccn8-kwfail f.cnf` | encoding gate: CC-N8 at shifted locus (24,25) correctly rejects KW |
+| ccn8_kwchain_not_unsat.drat.gz | `python3 sat.py --emit-cnf ccn8-kwchain-not f.cnf` | encoding gate: R-S2 run-parity chain pinned against its KW value is UNSAT |
+
+SAT-side encoding validations (no DRAT proof exists for SAT results; re-run directly):
+`ccn4-kwtest` SAT, `ccn8-kwtest` SAT, `ccn8-kwchain` SAT, `rc4-kwtest` UNSAT-by-design gate — see
+`sat.py --help` and reports/TR2_THE_RULES_CONFLICT.md §Commands.

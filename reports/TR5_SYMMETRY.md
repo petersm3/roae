@@ -93,10 +93,13 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
 ## Verification Guide
 - Theorem, proof, correction notice, all tables: documentation/SYMMETRY_SEARCH.md; full working notes:
   roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md
-- σ(KW) validity over all 720 bit permutations + orbit counts: ~1 s pure python (HISTORY.md 2026-07-02)
+- σ(KW) validity over all 720 bit permutations + orbit counts: runnable ~15-line python snippet
+  published in documentation/SYMMETRY_SEARCH.md §Reproducibility (<1 s; prints
+  `48 of 720 valid -> 24 distinct canonical records (KW + 23 twins)`)
 - Exact tree-isomorphism check (identical 9,422,793 / 16,504 for σ-related prefixes):
-  `./solve --estimate-knuth 0 1 0 2 0 … 22 0` vs
+  `./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0` vs
   `./solve --estimate-knuth 0 22 1 28 0 3 1 21 1 26 0 6 1 11 0 5 0 19 0 27 0 7 1 16 1 30 1 14 0 20 0 18 1 25 0 24 1 1 1 15 0 4 0 9 0`
+  (both commands also spelled out in documentation/SYMMETRY_SEARCH.md §Reproducibility)
 - Lean finite component: `lean lean/KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0)
 - Original 2026-04-25 budgeted-yield phases: `./solve --symmetry-search [--validate-counts]` (output
   correct as budgeted-yield data)
@@ -126,3 +129,4 @@ then confirmed the theorem's arithmetic signature.
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
+| v1.7 | 2026-07-04 | Reproducibility completion: Verification Guide's tree-isomorphism command spelled out in full (ellipsis removed); 720-permutation σ(KW) test published as a runnable snippet in SYMMETRY_SEARCH.md §Reproducibility; orbit-CV test given an explicit public rerun spec |

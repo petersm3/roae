@@ -15,11 +15,23 @@ echo "== 2. Two-language gates =="
 check "solve.py --registry-verify (31 rules)" "python3 solve.py --registry-verify | grep -q 'ALL 31'"
 check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
 
-echo "== 3. DRAT certificates (regenerated CNF vs archived proof) =="
+echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 19 archived certs) =="
 KISSAT=${KISSAT:-kissat}; DRAT=${DRAT:-drat-trim}
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
-  [grand_ccn4_unsat]="grand-ccn4" )
+  [grand_ccn4_unsat]="grand-ccn4" \
+  [grander_strict_unsat]="grander-strict" [grander_strict_near2_unsat]="grander-strict-near-2" \
+  [grander_strict_near3_unsat]="grander-strict-near-3" [grander_strict_near4_unsat]="grander-strict-near-4" \
+  [five_loo_parity_unsat]="five-loo-parity" [five_loo_rhythm_unsat]="five-loo-rhythm" \
+  [five_loo_gender_unsat]="five-loo-gender" [five_loo_ccn4_unsat]="five-loo-ccn4" \
+  [five_loo_ccn8_unsat]="five-loo-ccn8" \
+  [core_parity_ccn4_unsat]="five-sub-parity+ccn4" [core_rhythm_ccn4_unsat]="five-sub-rhythm+ccn4" \
+  [core_gender_ccn8_unsat]="gender-ccn8" \
+  [ccn8_kwfail_unsat]="ccn8-kwfail" [ccn8_kwchain_not_unsat]="ccn8-kwchain-not" )
+# Completeness gate: every archived .drat.gz must be in the CERTS map above.
+for f in reports/certificates/*.drat.gz; do b=$(basename "$f" .drat.gz)
+  check "cert inventory covers $b" "[ -n \"\${CERTS[$b]+x}\" ]"
+done
 for cert in "${!CERTS[@]}"; do
   t=${CERTS[$cert]}
   check "cert $cert ($t)" \

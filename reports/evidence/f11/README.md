@@ -1,0 +1,1 @@
+# F11 evidence bundle — rerun: `python3 compute_f11_bf.py` (in this directory; ~1 s, stdlib-only) reproduces every published Bayes factor (headline BF ≈ 6.6×10³ variant U / 7.9×10³ variant A) from the archived raw outputs alone. Spec: [PREREGISTRATION.md](PREREGISTRATION.md) (frozen) → [RESULTS.md](RESULTS.md) (full tables + reproduction notes).
