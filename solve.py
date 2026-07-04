@@ -6324,6 +6324,259 @@ def dav_verify():
     return 1 if failures else 0
 
 
+# ---------------------------------------------------------------------------
+# Van den Berghe (c.1998-2005) structural candidates V-1..V-8 (operational
+# spec frozen in roae-private/books/VANDENBERGHE_AUDIT_2026_07.md §3; registry
+# entries in roae-private/CANDIDATE_REGISTRY_2026_07.md).
+# ATTRIBUTION: every structural claim is D.H. "Danny" Van den Berghe's ("The
+# explanation of King Wen's order of the 64 hexagrams", web 1998-2005:
+# web.archive.org/web/20000108054359/http://www.ping.be/icrea/explan.html and
+# later captures; fourpillars.net/pdf/kingwen.pdf; fourpillars.net/pdf/
+# ic_landscape.pdf). The integer/boolean operationalizations and any
+# population measurement over C1-C5 space are ROAE's; errors of
+# operationalization are ours, not his. Eight scorers over an
+# orientation-resolved ordering; booleans return 0/1. VdB's terms: "counter"
+# = complement (h ^ 63); "elementary" trigrams = {Qian 7, Kun 0, Kan 2,
+# Li 5}; pair slots are 1-based (slot k = positions 2k-1, 2k) matching both
+# VdB's pair numbering and the audit.
+# ---------------------------------------------------------------------------
+
+_VDB_ELEM = (7, 0, 2, 5)   # Qian, Kun, Kan, Li — VdB's elementary trigrams
+
+
+def _vdb_counter_map(seq):
+    """1-based pair-slot -> slot of its counter pair (complement images).
+    Well-defined on any C1-valid ordering (complements of a pair's members
+    always form a pair; cf. CC-A1 / VDB-2)."""
+    pos = {h: i for i, h in enumerate(seq)}
+    return {k + 1: pos[seq[2 * k] ^ 63] // 2 + 1 for k in range(32)}
+
+
+def _vdb_nuc(h):
+    """Nuclear hexagram: lower trigram = lines 2-4 (bits 1-3), upper trigram
+    = lines 3-5 (bits 2-4). VdB kingwen.pdf pp.10-11 (tabel3)."""
+    return ((h >> 1) & 7) | (((h >> 2) & 7) << 3)
+
+
+def vdb_elemskel(seq):
+    """1. V-1 (VDB-3; kingwen.pdf p.2), boolean: elementary-pair skeleton at
+    doubling intervals. The pairs built purely from {Qian,Kun} or purely from
+    {Kan,Li} sit at pair slots exactly {1, 6, 15, 32} (gaps 4, 8, 16;
+    32 = 1+4+1+8+1+16+1), with the {Qian,Kun} pairs at {1, 6} and the
+    {Kan,Li} pairs at {15, 32}. Under a uniform random pair order the 4-slot
+    placement alone has P = 4!/(32*31*30*29) = 1/35,960 (VdB's own correct
+    arithmetic). KW = 1."""
+    pure70, pure25 = set(), set()
+    for k in range(32):
+        a, b = seq[2 * k], seq[2 * k + 1]
+        ts = {a & 7, (a >> 3) & 7, b & 7, (b >> 3) & 7}
+        if ts <= {7, 0}:
+            pure70.add(k + 1)
+        elif ts <= {2, 5}:
+            pure25.add(k + 1)
+    return int(pure70 == {1, 6} and pure25 == {15, 32})
+
+
+def vdb_specplace(seq):
+    """2. V-2 (VDB-4/VDB-5; kingwen.pdf p.2): special-pair placement count
+    (0-4). Relative to the slot of the doubled-Kan/Li elementary pair
+    (KW 29/30): (1) palindrome pair 0b100001/0b011110 (KW 27/28) exactly one
+    slot before it; (2) palindrome pair 0b110011/0b001100 (KW 61/62) exactly
+    one slot before the Kan/Li mixed pair 0b010101/0b101010 (KW 63/64);
+    (3) anti-symmetric pair 0b011001/... (KW 17/18) exactly 6 slots before
+    it; (4) anti-symmetric pair 0b110100/... (KW 53/54) exactly 12 slots
+    after it (distance doubling). Pair identities are fixed by C1; only the
+    slots vary. KW = 4 (slots 14->15, 31->32, 9 = 15-6, 27 = 15+12)."""
+    pos = {h: i for i, h in enumerate(seq)}
+    slot = lambda h: pos[h] // 2 + 1
+    s2930 = slot(0b010010)
+    return (int(slot(0b100001) == s2930 - 1) +
+            int(slot(0b110011) == slot(0b010101) - 1) +
+            int(slot(0b011001) == s2930 - 6) +
+            int(slot(0b110100) == s2930 + 12))
+
+
+def vdb_slopeloc(seq):
+    """3. V-3 (VDB-7; kingwen.pdf pp.3-4): counter-couple slope locality —
+    of the 12 counter couples among the 24 non-special pairs, count with
+    both slots in the same segment of VdB's connect.gif row segmentation
+    [slots 1-10 | 11-25 | 26-32]. KW = 9 (cross-segment couples exactly
+    (2,25), (3,18), (10,17) = his six interslope pairs). CAVEAT (audit §3):
+    the segmentation is itself fitted — under the naive wave-slope cuts the
+    KW score is only 4/12; V-4 is the parameter-light closure form."""
+    counter = _vdb_counter_map(seq)
+    row = lambda p: 0 if p <= 10 else (1 if p <= 25 else 2)
+    couples = {tuple(sorted((k, v))) for k, v in counter.items() if k != v}
+    return sum(1 for a, b in couples if row(a) == row(b))
+
+
+def vdb_groupclosure(seq):
+    """4. V-4 (VDB-8; kingwen.pdf p.4, connect.gif): six-pair group closure
+    under counter-pairing, count of 4 sub-predicates. Fixed slot partition
+    {1},{2,3},G1={4-9},{10},G2={11-16},{17,18},G3={19-24},{25},G4={26-31},
+    {32}: (1) G1 closed under counter (image in G1, incl. self-counter);
+    (2) G4 closed; (3) G2 u G3 jointly closed (NOT individually — couples
+    cross the G2/G3 line in KW); (4) connectors map 2<->25, 3<->18, 10<->17.
+    Unblocks/supersedes registry M1 (Moore 2005); VdB's 1998-2000 statement
+    predates Moore. KW = 4."""
+    counter = _vdb_counter_map(seq)
+    g1, g2, g3, g4 = (set(range(4, 10)), set(range(11, 17)),
+                      set(range(19, 25)), set(range(26, 32)))
+    closed = lambda g: all(counter[p] in g for p in g)
+    return (int(closed(g1)) + int(closed(g4)) + int(closed(g2 | g3)) +
+            int(counter[2] == 25 and counter[3] == 18 and counter[10] == 17))
+
+
+def vdb_sunrise(seq):
+    """5. V-5 (VDB-9; kingwen.pdf pp.5-6, ic_landscape.pdf pp.2-4): sunrise
+    azimuth ordering of second-half upper-Li hexagrams, score 0-2.
+    (1) membership: positions n in 29..64 with upper trigram Li are exactly
+    {30, 35, 38, 50, 56, 64}; (2) monotonicity: sunrise southness
+    s = -23.44*cos(2*pi*d/365.25) of the season named by each such
+    hexagram's LOWER trigram (d = season-midpoint days after summer
+    solstice, VdB tabel2: Li=midsummer 0, Kun=late summer 45, Dui=start of
+    autumn 75, Qian=late autumn 135, Kan=midwinter 183, Gen=late winter 225,
+    Xun=full spring 285, Zhen=early spring 255) is strictly increasing in
+    sequence order. KW = 2 (southness -23.4 < -16.8 < -6.5 < -4.4 < 17.5 <
+    23.4). Scope caveats (audit §3): first-half upper-Li (KW 14, 21) are
+    outside VdB's rule; under a strict Later-Heaven equinox reading the
+    38-vs-50 comparison becomes a tie (non-strict monotone)."""
+    import math
+    season_days = {5: 0, 0: 45, 3: 75, 7: 135, 2: 183, 4: 225, 6: 285, 1: 255}
+    upli = [n for n in range(29, 65) if ((seq[n - 1] >> 3) & 7) == 5]
+    s = [-23.44 * math.cos(2 * math.pi * season_days[seq[n - 1] & 7] / 365.25)
+         for n in upli]
+    return (int(upli == [30, 35, 38, 50, 56, 64]) +
+            int(all(s[i] < s[i + 1] for i in range(len(s) - 1))))
+
+
+def vdb_landscape(seq):
+    """6. V-6 (VDB-11a-d/14/15; kingwen.pdf p.4, ic_landscape.pdf pp.7-13,
+    v1 text): trigram run/void/cluster/flank structure, count of 5
+    sub-predicates (positions 1-based): (a) Kan among {lower,upper} for
+    every n in 3..8 and for NO n in 9..28; (b) Gen-upper set == {4, 18, 22,
+    23, 26, 27, 41, 52} and position 20 holds big-Gen 0b110000; (c)
+    Dui-upper set == {17, 28, 31, 43, 45, 47, 49, 58}, Dui trigram
+    occurrences (either position) in 31..64 == 12, and position 34 holds
+    big-Dui 0b001111; (d) flanks: position 41 = Gen-over-Dui, position 52 =
+    doubled Gen 0b100100, position 4 = Gen-over-Kan; (e) river/lake template
+    transfer: (upper,lower) at positions (4, 5, 8) == (Gen,Kan), (Kan,Qian),
+    (Kan,Kun) and at (41, 43, 45) == (Gen,Dui), (Dui,Qian), (Dui,Kun) — the
+    same triple under Kan<->Dui. (The audit's accompanying blocked-
+    continuation identities — Kan-over-Kan / Kan-over-Li are elementary-pair
+    members, Gen-over-Li is Gen-upper — are order-independent facts of the
+    hexagram set, verified, and add nothing to a population score.)
+    KW = 5."""
+    lo = lambda n: seq[n - 1] & 7
+    up = lambda n: (seq[n - 1] >> 3) & 7
+    has_kan = lambda n: 2 in (lo(n), up(n))
+    a = int(all(has_kan(n) for n in range(3, 9)) and
+            not any(has_kan(n) for n in range(9, 29)))
+    genup = {n for n in range(1, 65) if up(n) == 4}
+    b = int(genup == {4, 18, 22, 23, 26, 27, 41, 52} and seq[19] == 0b110000)
+    duiup = {n for n in range(1, 65) if up(n) == 3}
+    dui31 = sum(1 for n in range(31, 65) for t in (lo(n), up(n)) if t == 3)
+    c = int(duiup == {17, 28, 31, 43, 45, 47, 49, 58} and dui31 == 12 and
+            seq[33] == 0b001111)
+    d = int((up(41), lo(41)) == (4, 3) and seq[51] == 0b100100 and
+            (up(4), lo(4)) == (4, 2))
+    e = int([(up(n), lo(n)) for n in (4, 5, 8)] ==
+            [(4, 2), (2, 7), (2, 0)] and
+            [(up(n), lo(n)) for n in (41, 43, 45)] ==
+            [(4, 3), (3, 7), (3, 0)])
+    return a + b + c + d + e
+
+
+def vdb_midclusters(seq):
+    """7. V-7 (VDB-12; kingwen.pdf pp.4-5, bott/top.gif): mid-interval
+    clusters, count 0-3. In the middle two pair slots of each consecutive
+    elementary-pair interval (KW-anchored windows: positions 5-8, 19-22,
+    45-48): >=2 Kan-upper hexagrams in 5-8; >=2 Gen-upper-or-big-Gen
+    (0b110000) in 19-22; >=2 Dui-upper in 45-48. KW = 3 ({5,8}, {20,22},
+    {45,47}). Windows are fixed at VdB's KW-derived midpoints (the motivating
+    'midway between elementary pairs' derivation is only well-defined when
+    V-1 holds)."""
+    kan = sum(1 for n in range(5, 9) if ((seq[n - 1] >> 3) & 7) == 2)
+    gen = sum(1 for n in range(19, 23)
+              if ((seq[n - 1] >> 3) & 7) == 4 or seq[n - 1] == 0b110000)
+    dui = sum(1 for n in range(45, 49) if ((seq[n - 1] >> 3) & 7) == 3)
+    return int(kan >= 2) + int(gen >= 2) + int(dui >= 2)
+
+
+def vdb_nucorient(seq):
+    """8. V-8 (VDB-17; kingwen.pdf p.11, Appendix 2 + tabel3) — the headline
+    candidate: nuclear-hexagram within-pair orientation system, count of
+    correct predicted orientations (0-30). Terminal class T(h) = first of
+    nuc(h), nuc^2(h) in {0b111111, 0, 0b010101, 0b101010} (KW 1/2/63/64;
+    always defined, VDB-16). Per pair (a first): terminal pairs {KW 1/2,
+    63/64} themselves — no prediction (30 predicted of 32); class {63,64}
+    (15 pairs) — the 64-generator leads iff the pair lies within positions
+    17..54, else the 63-generator (window edges = the two anti-symmetric
+    special pairs; fitted, ~2-3 dof — CRITIQUE caveat); class {1,2}
+    (3 pairs) — the 2-generator leads; same-terminal differentiated
+    (8 pairs, first nuclears {KW 23,24} or {KW 43,44}) — the 24-/44-
+    generator (nuc in {0b000001, 0b111110}) leads; undifferentiated
+    non-terminal (4 pairs, equal nuclears) — the member with elementary
+    LOWER trigram leads. Class memberships are order-independent given the
+    C1 pairing (15/3/8/6 incl. terminals); only the window test and the
+    lead member depend on the ordering. KW = 29 of 30 — sole miss pair
+    KW 3/4, exactly VdB's own declared exception. Orientation-layer: F5
+    functional #11 (f5_vdb_nuc) scores this same integer on the orientation
+    fiber; see F5_ORIENTATION_PREREGISTRATION_DRAFT.md addendum."""
+    term = (63, 0, 0b010101, 0b101010)
+    correct = 0
+    for k in range(32):
+        a, b = seq[2 * k], seq[2 * k + 1]
+        if {a, b} == {63, 0} or {a, b} == {0b010101, 0b101010}:
+            continue                                   # terminal pairs
+        na, nb = _vdb_nuc(a), _vdb_nuc(b)
+        ta = na if na in term else _vdb_nuc(na)
+        tb = nb if nb in term else _vdb_nuc(nb)
+        pred = None
+        if {ta, tb} == {0b010101, 0b101010}:           # 63/64 class
+            in_window = (2 * k + 1 >= 17) and (2 * k + 2 <= 54)
+            want = 0b101010 if in_window else 0b010101
+            pred = a if ta == want else b
+        elif {ta, tb} == {63, 0}:                      # 1/2 class
+            pred = a if ta == 0 else b
+        elif ta == tb:
+            if na in (0b000001, 0b111110) or nb in (0b000001, 0b111110):
+                pred = a if na in (0b000001, 0b111110) else b
+            else:                                      # undifferentiated
+                ea, eb = (a & 7) in _VDB_ELEM, (b & 7) in _VDB_ELEM
+                if ea != eb:
+                    pred = a if ea else b
+        if pred == a:
+            correct += 1
+    return correct
+
+
+VDB_FUNCS = ["elemskel", "specplace", "slopeloc", "groupclosure", "sunrise",
+             "landscape", "midclusters", "nucorient"]
+
+VDB_KW_EXPECTED = {
+    "elemskel": 1, "specplace": 4, "slopeloc": 9, "groupclosure": 4,
+    "sunrise": 2, "landscape": 5, "midclusters": 3, "nucorient": 29,
+}
+
+
+def vdb_verify():
+    """Print all 8 Van den Berghe candidate values on KW; gate against
+    embedded expected values (two-language convention: any solve.c
+    --vdb-verify must reproduce this output byte-identically)."""
+    seq = list(binary_hexagrams)
+    failures = 0
+    for name in VDB_FUNCS:
+        v = globals()["vdb_" + name](seq)
+        exp = VDB_KW_EXPECTED.get(name)
+        tag = "OK" if exp == v else ("FAIL (expected %s)" % exp if exp is not None else "(unset)")
+        if exp is not None and exp != v:
+            failures += 1
+        print(f"vdb_{name}: {v} {tag}")
+    print("VDB VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -6408,6 +6661,8 @@ def main():
                         help="verify the 13 pre-registered F4' ordering-layer functionals on KW")
     parser.add_argument("--dav-verify", action="store_true",
                         help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
+    parser.add_argument("--vdb-verify", action="store_true",
+                        help="verify the 8 Van den Berghe (c.1998-2005) structural candidates on KW")
     parser.add_argument("--registry-verify", action="store_true",
                         help="Run every candidate-rule ground-truth checker "
                              "(reg_*, CANDIDATE_REGISTRY_2026_07) against the "
@@ -6485,6 +6740,9 @@ def main():
 
     if args.dav_verify:
         sys.exit(dav_verify())
+
+    if args.vdb_verify:
+        sys.exit(vdb_verify())
 
     if args.extended_selftest:
         sys.exit(extended_selftest(args.extended_selftest))
