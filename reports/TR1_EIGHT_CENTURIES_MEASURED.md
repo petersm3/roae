@@ -9,7 +9,8 @@ For roughly eight centuries, scholars have claimed the King Wen sequence follows
 almost always by pointing at the sequence and asserting the pattern. This report does what none of that
 literature could: it **measures every claimed rule against the entire space of orderings** that satisfy
 the sequence's core constraints. The result sorts the claims into three kinds. Eight celebrated "design
-choices" turn out to be **forced** — every valid ordering has them, so they reveal nothing about the
+choices" behave as **forced** — no valid ordering violating them was found in twenty billion weighted
+probes (one is proven outright), so they reveal nothing about the
 arranger. Others are **typical** — common enough to be unremarkable. A few are **genuinely rare** (down
 to one in fifty million), and King Wen has them. The report culminates in the conflict theorem: the
 literature's four strongest rules **cannot all be satisfied by any ordering that preserves the classical pairing**, and King Wen sits
