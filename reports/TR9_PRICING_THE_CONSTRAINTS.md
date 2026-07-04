@@ -124,11 +124,20 @@ explicit.
 ## Planned improvements (v1.1+)
 - Consider a small sensitivity table (net C1/C2/C5 under family-only vs derivation-allowed) to make     section 5 visual
 
+## Update (v1.3): the residual survives a pre-registered attack
+
+Thirteen ordering-layer functionals, each drawn from a literature axis and registered with thresholds
+BEFORE measurement (documentation/CRITIQUE.md), were scored against the full population (2×10⁹ probes,
+2026-07-04). All thirteen: null. The ~126 unexplained bits therefore survive their first systematic
+literature-guided assault — strengthening this report's central claim that no currently known rule
+explains the second half of the sequence's information content.
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
+| v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives) |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);

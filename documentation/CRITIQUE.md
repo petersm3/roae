@@ -364,3 +364,12 @@ Bonferroni AND passes the corpus-control specificity test (Jing Fang / Mawangdui
 same functional). All 13 results will be reported regardless of outcome; a null result is a finding
 (the ~126-bit residual surviving its first systematic literature-guided attack). Nothing promotes to a
 solver constraint regardless of outcome, per the standing extraction-circularity policy above.
+
+**Results (2026-07-04, tier-1, 2×10⁹ probes — reported in full as pre-committed):** all 13 functionals
+NULL at the frozen thresholds. Closest calls: dist_autocorr (KW at the ~96.6th percentile) and palspan
+(top bin, shared with 12.1% of the space) — neither approaches the Bonferroni gate. One functional
+(par_switch) turned out to be CONSTANT across the entire space — a theorem, not a statistic (proof in
+reports/TR6; it is a corollary of the 15-alternations theorem plus pair parity structure), joining the
+"forced, not chosen" class of TR-1. Net: the ~126-bit residual (TR-9) survives its first systematic
+literature-guided attack. Evidence and per-functional masses: the F4' entries in the private ledger;
+regeneration: SOLVE_KNUTH_SCORE_F4P=1 ./solve --estimate-knuth <probes>.
