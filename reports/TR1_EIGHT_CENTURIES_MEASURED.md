@@ -1,4 +1,4 @@
-# [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) — Eight Centuries of Rules, Measured: the Population Scoreboard
+# TR-1 — Eight Centuries of Rules, Measured: the Population Scoreboard
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).

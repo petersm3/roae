@@ -1,4 +1,4 @@
-# [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) — Pricing the Constraints: Description-Length Accounting
+# TR-9 — Pricing the Constraints: Description-Length Accounting
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).

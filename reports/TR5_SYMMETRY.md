@@ -1,4 +1,4 @@
-# [TR-5](TR5_SYMMETRY.md) — Symmetry: The Automorphism Group, Free Action, and the Twins Demonstration
+# TR-5 — Symmetry: The Automorphism Group, Free Action, and the Twins Demonstration
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
