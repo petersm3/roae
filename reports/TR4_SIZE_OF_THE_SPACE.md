@@ -24,9 +24,9 @@ independent 56-branch cross-sum. Three consequences follow. First, the deepest p
 1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space — exhaustion is infeasible at any
 budget. Second, extending the walk with the spec's C6/C7 adjacency constraints **refutes the long-standing
 Uniqueness Conjecture**: ≈5.21×10³¹ orderings satisfy C1–C7; King Wen is unique only within budgeted
-slices. Third, the boundary-information curve S(k) shows the four boundaries that uniquely identify King
-Wen inside the 560T slice still admit **≈8.4×10²⁵ full-space orderings** — the sharpest quantification yet
-of the slice-uniqueness vs space-uniqueness distinction. We close with why King Wen's *early* appearance
+slices. Third, the boundary-information curve S(k) shows the first four boundaries of King Wen's 560T greedy
+identifying set (the full set has five; see revision v1.8) still admit **≈8.4×10²⁵ full-space orderings** —
+the sharpest quantification yet of the slice-uniqueness vs space-uniqueness distinction. We close with why King Wen's *early* appearance
 in the enumeration is an artifact of the search setup, and why that changes no finding.
 
 ## Sections
@@ -66,11 +66,13 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    prefix subtree, exact counting finds 16,504 C1–C5 completions of which exactly **8** satisfy C6/C7 — KW
    plus seven others even in its own immediate neighborhood.
 5. **The boundary-information curve S(k) (2026-07-03).** S(k) = fraction of the full C1–C5 population
-   agreeing with KW on the first k boundaries of the 560T greedy identifying order {4, 27, 25, 21}
-   (flanking-slots predicate of PARTITION_STABILITY_BOUNDARIES.md), measured by pinned Knuth walks (2×10⁹
+   agreeing with KW on the first k boundaries of the 560T greedy identifying order {4, 27, 25, 21, 1}
+   (first four measured here; flanking-slots predicate of PARTITION_STABILITY_BOUNDARIES.md), measured by
+   pinned Knuth walks (2×10⁹
    probes per prefix, rel. error ≤10%): k=1: 7.49×10⁻⁴ (9.95×10³⁴ survivors, ×1,335 cut); k=2: 9.39×10⁻⁷
    (1.25×10³², ×798); k=3: 4.27×10⁻¹⁰ (5.68×10²⁸, ×2,196); k=4: 6.34×10⁻¹³ (**8.42×10²⁵**, ×674).
-   Headline: the four boundaries that uniquely identify King Wen inside the 560T slice still admit ≈10²⁶
+   Headline: the first four boundaries of KW's identifying set — which inside the 560T slice leave only KW
+   plus a single impostor; the full identifying set has 5 boundaries (v1.8 correction) — still admit ≈10²⁶
    full-space orderings. Extrapolating the roughly constant ~10³ per-boundary cut puts full-space
    uniqueness at roughly 13–14 well-chosen boundaries (wide error; prior structural estimate 15–20). A
    bracketing run on the *weakest* remaining boundaries (k = 5–8) still cut ×15–17 per boundary, so the
@@ -98,9 +100,10 @@ literature: CITATIONS.md.
 
 ![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points falling from 7.49e-4 at k=1 to 6.34e-13 at k=4, a dashed extrapolation at the ~×1000-per-boundary greedy cut, an orange measured bracket for the weakest remaining boundaries (×15–17 per boundary, k=5–8), and a shaded band at k≈13–20 where extrapolation reaches full-space uniqueness.](figures/fig_tr4_boundary_information.png)
 
-*The boundary-information curve S(k) (§5). Red points are the measured pinned-Knuth values on the 560T
-greedy identifying order {4, 27, 25, 21}, annotated with the surviving-orderings counts — the k = 4
-boundaries that uniquely identify King Wen inside the 560T slice still admit ≈8.4×10²⁵ full-space
+*The boundary-information curve S(k) (§5). Red points are the measured pinned-Knuth values on the first
+four boundaries of the 560T greedy identifying order {4, 27, 25, 21, 1}, annotated with the
+surviving-orderings counts — those k = 4 boundaries (which inside the 560T slice leave KW plus one
+impostor; the full identifying set has 5 boundaries) still admit ≈8.4×10²⁵ full-space
 orderings. The dashed line extrapolates the roughly constant ~×10³ per-boundary cut (NOT measured); the
 orange band is the measured weakest-remaining-boundary bracket (×15–17 per boundary at k = 5–8),
 bounding how much the decay depends on boundary choice. The green band marks where extrapolation
@@ -141,3 +144,4 @@ in SEARCH_SPACE_SIZE.md; sharpens further when S(6..8) land.
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |
 | v1.7 | 2026-07-04 | Information floor k>=13 + flat-gains observation (tightens the 13-20 projection) |
+| v1.8 | 2026-07-04 | Correction: the 560T slice-identifying boundary set has 5 boundaries ({4, 27, 25, 21, 1}), not 4 — the earlier "4" was a survivor-counting error in the source finding (see documentation/BOUNDARY_MINIMUM.md); S(k) measurements unchanged (they condition on the first four pins as pins) |

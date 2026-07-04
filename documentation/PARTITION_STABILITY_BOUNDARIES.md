@@ -1,6 +1,6 @@
 # Partition Stability of Boundaries {25, 27}
 
-**Result:** Across four independent canonical enumerations of progressively deeper partitions of the C1 ∩ C2 ∩ C3 search space (d2 10T, d3 10T, d3 100T, d3 560T — four different sha-anchored datasets), boundaries **{25, 27} are mandatory in every greedy-ordered minimum-boundary set that uniquely identifies the King Wen ordering**. The greedy-minimum count is partition + scale-dependent and **non-monotone with scale** (4 → 5 → 4 across 10T → 100T → 560T); {25, 27}'s presence in every greedy minimum is the durable invariant.
+**Result:** Across four independent canonical enumerations of progressively deeper partitions of the C1 ∩ C2 ∩ C3 search space (d2 10T, d3 10T, d3 100T, d3 560T — four different sha-anchored datasets), boundaries **{25, 27} are mandatory in every greedy-ordered minimum-boundary set that uniquely identifies the King Wen ordering**. The greedy-minimum count is **monotone non-decreasing with scale** (4 → 5 → 5 across 10T → 100T → 560T; *corrected 2026-07-04 — an earlier version stated "non-monotone 4 → 5 → 4", a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)*); {25, 27}'s presence in every greedy minimum is the durable invariant.
 
 This is the **most stable structural property of King Wen we have measured**. The boundary count itself, and the OTHER boundaries that round out the minimum set, both vary with partition and scale; {25, 27} do not.
 
@@ -39,17 +39,17 @@ The greedy-ordered minimum (§[6]) and the count of unordered working 4-sets (§
 | d2 10T (286M) | **4** | `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` | 4 | ✓ |
 | d3 10T (706M) | **4** | `{25, 27} ∪ two-of-{1..6}` | 8 | ✓ |
 | d3 100T (3.43B) | **5** | `{1, 4, 21, 25, 27}` | 0 | ✓ |
-| **d3 560T (10.5B)** | **4** | **`{4, 27, 25, 21}`** (in that order; cumulative survivors 51,404 → 481 → 14 → 1) | **0** | **✓** |
+| **d3 560T (10.5B)** | **5** | **`{4, 27, 25, 21, 1}`** (in that order; cumulative non-KW survivors 51,404 → 481 → 14 → 1 → 0) | **0** | **✓** |
 
-The **greedy-ordered minimum is non-monotone with scale** (4 → 5 → 4 across d3 10T → 100T → 560T). The **unordered working-4-set count** is also non-monotone (8 → 0 across d3 10T → 100T, then stays at 0 at 560T, with the prior 742M-era figure of 4 being a smaller-budget intermediate). §[7] at 560T proves no 3-tuple of boundaries works (best `{4, 25, 27}` leaves 15 survivors), so 4 is a tight greedy-minimum at the deepest published scale.
+The **greedy-ordered minimum is monotone non-decreasing with scale** (4 → 5 → 5 across d3 10T → 100T → 560T; the 560T row was corrected 2026-07-04 from "4 / {4, 27, 25, 21}" — a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). The **working-4-set count** collapses with scale (8 → 0 across d3 10T → 100T, then stays at 0 at 560T, with the prior 742M-era figure of 4 being a smaller-budget intermediate). §[7] at 560T proves no 3-tuple of boundaries works (best `{4, 25, 27}` leaves 15 survivors), and §[8] = 0 proves no 4-set works, so 5 is the exact minimum at the deepest published scale.
 
 ## What this implies
 
 **{25, 27} as a stable structural anchor.** No matter the partition depth (10T to 560T tested) and no matter the scale (286M to 10.5B records), boundaries 25 and 27 appear in every greedy-ordered minimum-boundary set. They are the **single most stable structural finding** the project has measured.
 
-**The boundary-minimum size is partition + scale-dependent and non-monotone.** The 100T-era prediction that the greedy-minimum would "continue to grow toward 6 at 1000T+" did NOT hold: at 560T (~5.6× the 100T scale) the greedy minimum dropped back to 4. The non-monotonicity is itself a structural finding — it suggests the 100T budget surfaced a class of survivors that the deeper 560T enumeration ALSO surfaces but combined with additional boundary-4-class eliminators that compound back to a 4-set greedy result.
+**The boundary-minimum size is monotone non-decreasing with scale, and stable at canonical depth.** One increment (4 → 5 across 10T → 100T), then stability: the 560T greedy minimum is 5 with the *identical set in the identical greedy order* as 100T. The 100T-era prediction that the minimum would "continue to grow toward 6 at 1000T+" is so far neither confirmed nor refuted; the 1120T extension provides the next datapoint. *(Corrected 2026-07-04: this paragraph previously reported a "drop back to 4" at 560T and hypothesized a mechanism for it; both rested on a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 
-**Unordered 4-set identification is scale-bounded.** The popular phrasing "exactly 4 specific boundaries uniquely identify KW" was true at 10T scales (when 4 or 8 *unordered* 4-tuples worked) but fails at 100T and 560T (where 0 unordered 4-tuples reduce survivors to ≤ 1). The durable form of the claim is **"4 boundaries suffice via greedy-ordered application,"** which is reaffirmed at the deepest scale.
+**4-set identification is scale-bounded.** The popular phrasing "exactly 4 specific boundaries uniquely identify KW" was true at 10T scales (when 4 or 8 working 4-tuples existed) but fails at 100T and 560T (where 0 4-tuples reduce survivors to ≤ 1). At canonical depth the minimum identifying set has 5 boundaries.
 
 **Partition-stability claims must be scoped.** A finding "X holds at d2 10T" does not imply "X holds at deeper enumeration." Future ROAE results should always specify the partition depth + scale + sha of the underlying canonical at which a claim was verified.
 
@@ -57,7 +57,7 @@ The **greedy-ordered minimum is non-monotone with scale** (4 → 5 → 4 across 
 
 - **§3 (Constraint system and canonical dataset)** can list the four canonical SHAs and their record counts as the empirical anchor.
 - **§4 (Null-model framework results) / §5 (Analytic results)**: the {25, 27} stability across four scales is robust, paper-citable.
-- **§7 (Discussion)**: the non-monotone boundary-minimum size warrants a dedicated paragraph: it argues against extrapolating any specific minimum-size figure to scales beyond what's been measured, while preserving the {25, 27} mandatoriness as the genuine structural invariant. See `BOUNDARY_MINIMUM_NON_MONOTONE.md` for the detailed cross-scale comparison.
+- **§7 (Discussion)**: the boundary-minimum trajectory (monotone 4 → 5, then stable at canonical depth with an identical identifying set) warrants a dedicated paragraph, while preserving the {25, 27} mandatoriness as the genuine structural invariant. See [`BOUNDARY_MINIMUM.md`](BOUNDARY_MINIMUM.md) for the detailed cross-scale comparison.
 
 ## Reproducibility
 
@@ -72,8 +72,8 @@ Pre-computed analyze logs:
 
 ## Limits and scope
 
-- Four datapoints (d2 10T, d3 10T, d3 100T, d3 560T). The non-monotone trajectory observed across d3 {10T, 100T, 560T} cannot be extrapolated to 1120T+ depths without measurement; the 1120T extension campaign (queued) will provide a fifth datapoint.
-- The §[7] / §[8] passes are exhaustive at the relevant subset sizes (all C(31, 3) and C(31, 4)). The greedy §[6] is heuristic-ordered; however at scales where §[8] = 0 (100T+ at 4-set; 560T at 3-set), the greedy minimum equals the exhaustive minimum (a tighter result is precluded by the smaller-subset exhaustiveness).
+- Four datapoints (d2 10T, d3 10T, d3 100T, d3 560T). The 4 → 5 → 5 trajectory observed across d3 {10T, 100T, 560T} cannot be extrapolated to 1120T+ depths without measurement; the 1120T extension campaign (queued) will provide a fifth datapoint.
+- The §[7] / §[8] passes are exhaustive at the relevant subset sizes (all C(31, 3) and C(31, 4)). The greedy §[6] is heuristic-ordered; however where §[8] = 0 (100T, 560T) the greedy 5-set is exactly minimal (no 4-set can work), and at 10T where §[7] = 0 the greedy 4-set is exactly minimal (no 3-set can work).
 - d4+ partitions have not been tested; partition-strategy is held constant at d3 for the 100T/560T datapoints.
 
 ## Working / process documentation

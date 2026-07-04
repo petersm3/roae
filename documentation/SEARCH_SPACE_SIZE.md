@@ -121,7 +121,8 @@ measurable. Result (5×10¹⁰ probes, D32):
 
 **Interpretation.** C6+C7 cut the C1–C5 space (≈1.33×10³⁸) by ×2.55×10⁶ — but ≈5.2×10³¹ orderings survive.
 King Wen is not uniquely determined by the published constraint system over the full space; uniqueness holds
-only within enumerated budgeted datasets (where 4 greedy-ordered boundary constraints isolate it). Closing
+only within enumerated budgeted datasets (where 5 greedy-ordered boundary constraints isolate it at
+canonical depth; corrected 2026-07-04 from "4" — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). Closing
 the remaining ≈105 bits would require roughly 15–20 boundary constraints. A first exact corroboration at
 small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 C1–C5 completions
 of which exactly **8** satisfy C6/C7 — KW plus seven others even in its own immediate neighborhood.
@@ -132,7 +133,7 @@ the private repo (probe on `c207`, 2026-07-02).
 
 How fast does knowledge of King Wen's boundary structure shrink the full space? Define S(k) = the fraction
 of the full C1–C5 population agreeing with KW on the first k boundaries of the 560T greedy identifying
-order {4, 27, 25, 21} (agreement at boundary b = both flanking slots hold KW's pairs — the
+order {4, 27, 25, 21, 1} (the first four measured here; agreement at boundary b = both flanking slots hold KW's pairs — the
 [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) predicate). Measured with pinned
 Knuth walks (`SOLVE_KNUTH_PIN_SLOTS`; 2×10⁹ probes per prefix; relative error ≤10%):
 
@@ -143,7 +144,9 @@ Knuth walks (`SOLVE_KNUTH_PIN_SLOTS`; 2×10⁹ probes per prefix; relative error
 | 3 | +25 | 4.27×10⁻¹⁰ | 5.68×10²⁸ | ×2,196 |
 | 4 | +21 | 6.34×10⁻¹³ | **8.42×10²⁵** | ×674 |
 
-**Headline:** the four boundaries that uniquely identify King Wen inside the 560T slice still admit
+**Headline:** the first four boundaries of the 560T greedy identifying set — which inside the 560T slice
+leave only KW plus a single impostor (the full identifying set has 5 boundaries; corrected 2026-07-04,
+see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 ≈**10²⁶ orderings in the full space** — the sharpest quantification yet of the slice-uniqueness vs
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
 ~10³ per-boundary cut puts full-space uniqueness at roughly 13–14 well-chosen boundaries (wide error; the

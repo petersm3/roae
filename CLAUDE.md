@@ -21,7 +21,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | **Technical report suite (findings in depth, living-versioned)** | [reports/README.md](reports/README.md) (+ METHODS.md, certificates/) |
 | Detailed findings narrative (former front page) | [PROJECT_OVERVIEW.md](documentation/PROJECT_OVERVIEW.md) |
 | Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
-| Stable paper-citable findings | [PARTITION_STABILITY_BOUNDARIES.md](documentation/PARTITION_STABILITY_BOUNDARIES.md), [BOUNDARY_MINIMUM_NON_MONOTONE.md](documentation/BOUNDARY_MINIMUM_NON_MONOTONE.md), [SYMMETRY_SEARCH.md](documentation/SYMMETRY_SEARCH.md), [PASS1_TRAJECTORY_DETERMINISM.md](documentation/PASS1_TRAJECTORY_DETERMINISM.md) (consolidated from `findings/` 2026-06-11) |
+| Stable paper-citable findings | [PARTITION_STABILITY_BOUNDARIES.md](documentation/PARTITION_STABILITY_BOUNDARIES.md), [BOUNDARY_MINIMUM.md](documentation/BOUNDARY_MINIMUM.md), [SYMMETRY_SEARCH.md](documentation/SYMMETRY_SEARCH.md), [PASS1_TRAJECTORY_DETERMINISM.md](documentation/PASS1_TRAJECTORY_DETERMINISM.md) (consolidated from `findings/` 2026-06-11; boundary doc renamed 2026-07-04) |
 | Plain-language explainer of branches, sub-branches, nodes, enumeration | [BRANCHES_EXPLAINED.md](documentation/BRANCHES_EXPLAINED.md) |
 | Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](documentation/DISTRIBUTIONAL_ANALYSIS.md) |
 | Total C1–C5 search-space size (Monte-Carlo estimate ≈10³⁸; why KW is found early) | [SEARCH_SPACE_SIZE.md](documentation/SEARCH_SPACE_SIZE.md) |

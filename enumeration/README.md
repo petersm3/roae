@@ -57,7 +57,7 @@ were caught. Deleting them would erase the forensic audit trail.
 - **`analysis_minimum_constraints.txt`** (5 KB) — a methodological
   memo on the minimum-constraints question that predates the
   solve.c-based enumeration. Historical; superseded by SOLVE.md's
-  "4-boundary minimum" treatment.
+  boundary-minimum treatment (4 at 10T, 5 at canonical depth).
 - **`SOLUTIONS_BIN_LOCATION.txt`** — pointer to where the canonical
   solutions.bin actually lives (Azure managed disk, not committed
   to git). Cross-references from other docs point readers here for

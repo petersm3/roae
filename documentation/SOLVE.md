@@ -267,14 +267,14 @@ Rules C1-C5 narrow 10^89 possibilities to a dataset-dependent count under partia
 
 The difference is a property of partition strategy, not constraints — d3's finer partitioning spreads coverage more broadly at the same total 10T budget. Under true exhaustive enumeration both partitions would converge. XOR regularity and line autocorrelation are redundant (implied by other rules).
 
-**Resolved at 10T scales, REVISED at 100T (2026-04-20), RE-REVISED at 560T (2026-06-11):** Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirms no 3-or-fewer-boundary combination suffices at any tested scale — so the **boundary-minimum is ≥ 4 universally**. The number of *unordered* 4-subsets that uniquely identify KW (`analyze` §[8]) is non-monotone with scale: **4 at d2/d3 10T, 0 at d3 100T, 0 at d3 560T**. So the "exactly-4-subset uniquely identifies KW" framing is scale-bounded. The **greedy-ordered minimum** (`analyze` §[6]), however, recovers: **4 boundaries at 10T, 5 at 100T, 4 again at 560T** (set `{4, 27, 25, 21}` applied in order; boundary 4 alone eliminates 99.999% of non-KW records, then 27 → 481 survivors, 25 → 14, 21 → 1). The durable claim is "4 boundaries suffice via greedy-ordered application," with boundaries 25 and 27 mandatory in every greedy minimum at every scale tested. See SOLVE-SUMMARY.md §"560T canonical results" for the full 560T data.
+**Resolved at 10T scales, REVISED at 100T (2026-04-20), corrected 2026-07-04:** Exhaustive testing of all 31 singles, 465 pairs, and 4,495 triples confirms no 3-or-fewer-boundary combination suffices at any tested scale — so the **boundary-minimum is ≥ 4 universally**. The number of 4-subsets that uniquely identify KW (`analyze` §[8]) collapses with scale: **4 at d2/d3 10T, 0 at d3 100T, 0 at d3 560T** — so the "exactly-4-subset uniquely identifies KW" framing is scale-bounded, and at canonical depth the minimum is **5**. The greedy minimum (`analyze` §[6]) trajectory is **monotone: 4 boundaries at 10T, 5 at 100T, 5 at 560T** — with the identical set `{4, 27, 25, 21, 1}` in the identical greedy order at both canonical scales (boundary 4 alone eliminates 99.999% of non-KW records, then 27 → 481 survivors, 25 → 14, 21 → 1, and boundary 1 kills the last impostor, rec#330177707). *(Correction 2026-07-04: the 2026-06-11 revision of this passage reported "4 again at 560T" — a survivor-counting error that stopped at 1 remaining non-KW survivor instead of 0; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)* Boundaries 25 and 27 are in every greedy minimum at every scale tested.
 
 - **d2 10T**: 4 working unordered 4-subsets, structure `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}`. Greedy-ordered minimum = 4.
 - **d3 10T**: 8 working unordered 4-subsets with interchangeable boundaries in `{1..6}` plus mandatory `{25, 27}`. Greedy-ordered minimum = 4.
 - **d3 100T**: 0 working unordered 4-subsets; exhaustive test confirms no quadruple uniquely identifies KW jointly. Greedy-ordered minimum = 5; greedy set **{1, 4, 21, 25, 27}**.
-- **d3 560T**: 0 working unordered 4-subsets; exhaustive test confirms no quadruple uniquely identifies KW jointly. Greedy-ordered minimum = **4** (set **{4, 27, 25, 21}** applied in order; cumulative survivor counts: 51,404 → 481 → 14 → 1). §[7] proves no 3-tuple works (best `{4, 25, 27}` leaves 15 survivors).
+- **d3 560T**: 0 working unordered 4-subsets; exhaustive test confirms no quadruple uniquely identifies KW jointly. Greedy-ordered minimum = **5** (set **{4, 27, 25, 21, 1}** applied in order; cumulative non-KW survivor counts: 51,404 → 481 → 14 → 1 → 0) — identical to 100T. §[7] proves no 3-tuple works (best `{4, 25, 27}` leaves 15 survivors). *(Corrected 2026-07-04: previously listed as "4".)*
 
-**⚠️ Key scope note (revised 2026-06-11):** boundaries **{25, 27} remain mandatory across all four partitions (d2 10T, d3 10T, d3 100T, d3 560T)** in their respective greedy minimums — the partition-stability of {25, 27} is robust. What is NOT scale-stable: (a) the unordered "working 4-set" count (8 → 0 from 11.2T → 560T — 0 doesn't mean 4-boundary identification stopped working; it means *unordered* 4-set identification stopped working), and (b) the greedy-ordered minimum count (non-monotone: 4 → 5 → 4 across 10T → 100T → 560T). The durable structural claim is "**4 boundaries suffice via greedy-ordered application**," reaffirmed at the deepest scale, with {25, 27} present at every scale.
+**⚠️ Key scope note (revised 2026-06-11; corrected 2026-07-04):** boundaries **{25, 27} remain mandatory across all four partitions (d2 10T, d3 10T, d3 100T, d3 560T)** in their respective greedy minimums — the partition-stability of {25, 27} is robust. What is NOT scale-stable: (a) the working 4-set count (8 → 0 from 11.2T → 560T — at canonical depth 4-boundary identification stops working entirely), and (b) the greedy minimum count (monotone non-decreasing: 4 → 5 → 5 across 10T → 100T → 560T; the earlier "non-monotone 4 → 5 → 4" reading was a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). {25, 27} are present at every scale.
 
 The d3 greedy-optimal set (from `analyze_d3.log` section [6]):
 
@@ -287,7 +287,7 @@ For comparison, the d2 greedy-optimal set is {2, 21, 25, 27}. The four boundarie
 
 ### Search-order provenance (why the result isn't greedy-biased)
 
-The 4-boundary minimum structure was discovered and verified in a specific pipeline, in this order, within the `--analyze` code path:
+The minimum-boundary structure was discovered and verified in a specific pipeline, in this order, within the `--analyze` code path:
 
 1. **Greedy minimum-boundary search** (`analyze.log` section [6]): picks one boundary at a time, each choice maximizing elimination of non-KW survivors. Terminates when only KW remains. Produces ONE working 4-subset as a fast heuristic.
 2. **Exhaustive 3-subset disproof** (`analyze.log` section [7]): tests all C(31,3) = 4,495 triples of boundaries. Confirms no triple suffices (best triple leaves ≥2 survivors at d3, ≥7 at d2). Proves the 4-minimum is tight.
@@ -521,7 +521,7 @@ The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canon
 
 ### Summary
 
-Five constraints (C1-C5) narrow 10^89 possibilities to hundreds of millions of unique pair orderings (d3 canonical: 706M; d2 canonical: 286M — partition-dependent subsets of the exhaustive solution space). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The minimum boundary set to uniquely determine KW is **4 boundaries**, with **{25, 27} mandatory at both d2 and d3 scales** (the other 2 boundaries are partition-dependent; see "Why 4 boundaries" above).
+Five constraints (C1-C5) narrow 10^89 possibilities to hundreds of millions of unique pair orderings (d3 canonical: 706M; d2 canonical: 286M — partition-dependent subsets of the exhaustive solution space). Only Position 1 is universally locked. Positions 3-18 are highly constrained. Positions 19-32 are progressively free. The minimum boundary set to uniquely determine KW is **4 boundaries at the 10T canonicals (5 at canonical depth — 100T/560T; corrected 2026-07-04)**, with **{25, 27} mandatory at every scale tested** (the other boundaries are partition + scale-dependent; see "Why 4 boundaries" above and [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)).
 
 **Note on earlier analyses in this document:** Several analyses above (centrality, pair swap, optimization, boundary bigrams, locked/free region comparison) were conducted on a 438-solution partial sample from a single search branch. Their findings about the "free region" (positions 24-32) were specific to that branch and may not generalize to the full solution space. These analyses are retained as methodological examples but their specific numerical results should be treated with caution.
 
@@ -539,14 +539,14 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 ### ~~Theorem 3: Exactly 2 adjacency constraints are necessary and sufficient~~ (Revised)
 
-**Status: Revised — 4 boundaries needed (proven greedy-ordered minimum at d2/d3 10T and d3 560T; was 5 at d3 100T).** The original claim (2 suffice) was based on 438 solutions. On all canonical datasets tested: exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness. **4 boundaries is the durable minimum via greedy-ordered application.** The number of *unordered* working 4-sets is scale-bounded and non-monotone.
+**Status: Revised — 4 boundaries needed at d2/d3 10T, 5 at d3 100T and d3 560T (corrected 2026-07-04; an earlier revision claimed 4 at 560T — a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)).** The original claim (2 suffice) was based on 438 solutions. On all canonical datasets tested: exhaustive testing of all 4,495 triples confirms no combination of 3 or fewer boundaries gives uniqueness, and at canonical depth exhaustive 4-subset testing (§[8] = 0) proves the minimum is 5. The number of working 4-sets is scale-bounded.
 
 - **d2 10T**: 4 working unordered 4-subsets `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}`. Greedy min = 4.
 - **d3 10T**: 8 working unordered 4-subsets, `{25, 27}` plus pairs from `{1..6}`. Greedy min = 4.
 - **d3 100T**: 0 working unordered 4-subsets (no joint 4-set works). Greedy min = 5 (`{1, 4, 21, 25, 27}`).
-- **d3 560T**: 0 working unordered 4-subsets. **Greedy min = 4 again** (`{4, 27, 25, 21}` applied in order; full §[6] data in SOLVE-SUMMARY.md "560T canonical results").
+- **d3 560T**: 0 working unordered 4-subsets. **Greedy min = 5, identical set to 100T** (`{4, 27, 25, 21, 1}` in greedy order; corrected 2026-07-04 from "4").
 
-**Partition-stable finding**: boundaries `{25, 27}` are mandatory in every greedy minimum at all four scales tested. **Not partition-stable**: the unordered "working 4-set" count (8 → 0 from 11.2T → 560T), and the greedy-ordered count (non-monotone 4 → 5 → 4 across 10T → 100T → 560T).
+**Partition-stable finding**: boundaries `{25, 27}` are mandatory in every greedy minimum at all four scales tested. **Not partition-stable**: the "working 4-set" count (8 → 0 from 11.2T → 560T), and the greedy-minimum count (monotone 4 → 5 → 5 across 10T → 100T → 560T; corrected 2026-07-04).
 
 ### ~~Result 4: Why exactly 23 positions are locked~~ (Revised)
 

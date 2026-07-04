@@ -4775,13 +4775,13 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 
 - **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
 - **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)
-- **§[6] greedy minimum-boundary search for KW**: 4 boundaries, set **{4, 27, 25, 21}** applied in order. Step 1: boundary 4 alone reduces 10.5 B non-KW down to 51,404 (99.999% elimination). Step 2: → 481. Step 3: → 14. Step 4: → 1 (KW)
-- **§[7] exhaustive 3-subset disproof**: tested all C(31,3)=4,495 triples. Best 3-set {4, 25, 27} leaves 15 survivors. Triples reaching ≤1: **0**. 4-boundary minimum proven at 560T
-- **§[8] all 4-subsets reducing survivors to ≤1: 0** — significant scale-dependent shift from 742M (4 sets), 11.2T (8 sets); at 560T no *unordered* 4-tuple of boundaries reduces survivors to ≤1 (the greedy ordered minimum in §[6] still works because each chosen boundary's effect compounds on the prior). **Methodological consequence: "4-set uniquely identifies KW" was a scale-bounded empirical observation; the durable claim is "4 boundaries suffice via greedy-ordered application"**
+- **§[6] greedy minimum-boundary search for KW**: **5 boundaries, set {4, 27, 25, 21, 1} applied in order** — identical to 100T. Step 1: boundary 4 alone reduces 10.5 B non-KW down to 51,404 (99.999% elimination). Step 2: → 481. Step 3: → 14. Step 4: → 1 (a non-KW impostor, rec#330177707 — KW with the position-2/3 pair blocks swapped). Step 5: boundary 1 → 0. *(Corrected 2026-07-04: this entry originally read "4 boundaries, set {4, 27, 25, 21} … Step 4: → 1 (KW)" — the step-4 survivor was mislabeled as KW; it is a non-KW record, and the log's step 5 eliminates it. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
+- **§[7] exhaustive 3-subset disproof**: tested all C(31,3)=4,495 triples. Best 3-set {4, 25, 27} leaves 15 survivors. Triples reaching ≤1: **0**. No 3-subset isolates KW at 560T (minimum ≥ 4)
+- **§[8] all 4-subsets reducing survivors to ≤1: 0** — significant scale-dependent shift from 742M (4 sets), 11.2T (8 sets); at 560T no 4-tuple of boundaries reduces survivors to ≤1, consistent with the §[6] greedy minimum of 5. **Methodological consequence: "4-set uniquely identifies KW" was a scale-bounded empirical observation; at canonical depth the minimum is 5** *(corrected 2026-07-04)*
 - **§[9] boundary redundancy**: top-INDEPENDENT pairs include `{6,26}` (ratio 0.007), `{12,26}`, `{25,27}` (ratio 0.007) — quantifying why 25 + 27 appear in every minimum set across all canonicals
 - **§[10] pairwise mutual information** (~365 s on D128 with new tile-by-records algorithm; OLD code 24h+ infeasible): top pair **pos 12 ↔ pos 13 = 1.3417 bits**, followed by 19↔20 = 1.2977, 17↔18 = 1.2422, 13↔14 = 1.2360. Cascade-region positions 11–20 own the entire top-10. Mandatory boundaries 25, 27 do NOT appear in the top-20 MI pairs — confirming structural independence from the cascade-region MI cluster
 - **§[18] per-boundary conditional entropy**: baseline H = **77.81 bits** (sum_p H(pair at p)). Boundary 4 has the highest info gain at **45.14 bits** (over half the total entropy). Boundaries 25, 27 info gain: 10.73, 10.63 bits — mid-pack. The high-information boundaries are *not* the mandatory ones; mandatoriness is structural (specific to which non-KW orderings each boundary eliminates), not information-theoretic
-- **§[19] identity-level survivor dump**: empty at 560T (consistent with §[8]=0)
+- **§[19] identity-level survivor dump**: dumps the survivor sets of the legacy 742M-era working 4-sets (non-empty output at 560T; none reaches KW-only, consistent with §[8]=0) *(corrected 2026-07-04: originally recorded as "empty at 560T")*
 - **§[28] edit-distance histogram**: mode at distance 30 with 2,789,988,449 records (26.5% of all canonicals); 96% of records are at edit-distance ≥ 25 from KW; distance 31 holds 1,880,042,588 records (17.9%). KW is structurally rare in the canonical-solution space at 560T scale
 
 **Scale-comparison summary:**
@@ -4789,12 +4789,12 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 | Metric | 742M | 11.2T | 560T |
 |---|---|---|---|
 | Working 4-sets (unordered) uniquely identifying KW (§[8]) | 4 | 8 | **0** |
-| Greedy-ordered minimum boundaries (§[6]) | 4 | 4 | 4 |
+| Greedy-ordered minimum boundaries (§[6]) | 4 | 4 | 5 *(corrected 2026-07-04)* |
 | Top pairwise MI value (§[10]) | 1.15 (pos 19↔20) | 1.40 (pos 20↔21) | 1.34 (pos 12↔13) |
 | Boundary 4 conditional info gain (§[18]) | – | – | 45.14 bits |
 | Records | 742 M | 800 M | 10.5 B |
 
-The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T no unordered 4-tuple of boundaries reduces survivors to ≤ 1; only the *ordered* greedy application still works. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — has been updated 2026-06-11 to reflect this: greedy-ordered "4 boundaries suffice" is the durable structural claim; the *unordered* "4-set unique to KW" framing is scale-bounded.
+The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T (as at 100T) no 4-tuple of boundaries reduces survivors to ≤ 1; the minimum identifying set has 5 boundaries. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — was updated 2026-06-11. *(Corrected 2026-07-04: this paragraph originally claimed the "ordered greedy application still works" at 4 boundaries — a survivor-counting artifact; boundary intersection is commutative, so no ordering of a failing 4-set can succeed. The 560T greedy minimum is 5, identical set to 100T. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 
 ## June 11-12, 2026 — 560T closeout completion + per-cell scaling insight + 100T v3 re-derive
 
@@ -4830,7 +4830,7 @@ Launcher: `roae-private/scripts/campaign_100T_v3_rederive/LAUNCH_100T_V3_RE_DERI
 
 Two doc-shape changes landed today:
 
-1. **`findings/` → `documentation/` consolidation.** The three previously-staging findings docs (PARTITION_STABILITY_BOUNDARIES, SYMMETRY_SEARCH, PASS1_TRAJECTORY_DETERMINISM) were moved to `documentation/`, alongside a fourth new finding (`BOUNDARY_MINIMUM_NON_MONOTONE.md`) documenting the 4 → 5 → 4 greedy-ordered minimum trajectory across d3 10T → 100T → 560T. The motivation: a pre-Fable-review repo-wide MD sweep caught that the original `findings/` directory was being skipped by the partial `documentation/`-only review pass (#147). Consolidating into one tree eliminates the second-tier hierarchy that was easy to miss. A redirect stub remains at `findings/README.md` for incoming external links (then physically deleted 2026-06-11 PT evening after the redirect transition was confirmed). Commit: `bbf5348` consolidation; later commit deleting the stub.
+1. **`findings/` → `documentation/` consolidation.** The three previously-staging findings docs (PARTITION_STABILITY_BOUNDARIES, SYMMETRY_SEARCH, PASS1_TRAJECTORY_DETERMINISM) were moved to `documentation/`, alongside a fourth new finding (`BOUNDARY_MINIMUM_NON_MONOTONE.md`; renamed `BOUNDARY_MINIMUM.md` on 2026-07-04 when the "4 → 5 → 4 non-monotone" headline was found to be a survivor-counting error — the corrected trajectory is monotone 4 → 5 → 5) documenting the greedy-ordered minimum trajectory across d3 10T → 100T → 560T. The motivation: a pre-Fable-review repo-wide MD sweep caught that the original `findings/` directory was being skipped by the partial `documentation/`-only review pass (#147). Consolidating into one tree eliminates the second-tier hierarchy that was easy to miss. A redirect stub remains at `findings/README.md` for incoming external links (then physically deleted 2026-06-11 PT evening after the redirect transition was confirmed). Commit: `bbf5348` consolidation; later commit deleting the stub.
 
 2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `roaecanonical2026/canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
 
@@ -5158,7 +5158,7 @@ full-space count of C1–C7-satisfying orderings at **5.21×10³¹ (±0.78%)** �
 specification's opening line once called uniquely determining admits some fifty nonillion solutions. C6+C7's
 true full-space cut is ×2.55×10⁶; ~105 bits (≈15–20 boundary constraints) separate C1–C7 from genuine
 uniqueness. The spec's Conjecture block now records the refutation with the measurement; every uniqueness
-claim in the project is scoped to the enumerated datasets, where the 4-greedy-boundary result stands. The
+claim in the project is scoped to the enumerated datasets, where the greedy-boundary identification result stands (5 boundaries at canonical depth; corrected 2026-07-04 from the earlier "4"). The
 honest arc of the day: the same estimator machinery that sized the C1–C5 space at ≈1.33×10³⁸ settled, for
 about a dollar of Spot compute, a question the project had carried as "unconfirmed at scale" since April.
 
@@ -5220,3 +5220,16 @@ SAT-decided (drat-trim verified): Moore parity + Moore rhythm + Schulz gender + 
 configuration cannot all hold in any valid ordering. KW keeps the trigram rule exactly and misses the
 others minimally; the grand precursor does the reverse; nothing does both. The full-rule "uncorrupted
 precursor" never existed — KW's anomaly profile reads as a trade-off position, not a corruption residue.
+
+## 2026-07-04: Boundary-minimum self-correction — the "non-monotone 4→5→4" headline was a counting artifact
+An adversarial re-verification of the published boundary-minimum finding against the canonical 560T
+analyze log found that the "4 at 560T" figure counted greedy steps until ≤ 1 *non-KW* survivor remained,
+while the "5 at 100T" counted steps to 0 — and the finding doc's own definition requires reduction to
+{KW}. The log's §[6] in fact runs five steps at 560T (`Boundaries chosen: { 1 4 21 25 27 }`, identical to
+100T); the single 4-boundary survivor is rec#330177707 (KW with the position-2/3 pair blocks swapped),
+eliminated only by a front-zone boundary. The corrected trajectory is **monotone 4 → 5 → 5**, and the
+"ordered vs unordered minimum" distinction dissolves (boundary intersection is commutative). The finding
+doc was renamed `BOUNDARY_MINIMUM_NON_MONOTONE.md` → `BOUNDARY_MINIMUM.md` and every downstream doc
+carries a dated correction note; solve.c §[7]'s over-claiming print was reworded (sha-neutral). What
+survives unchanged: {25, 27} mandatoriness, boundary 4's 99.999% single-step elimination, §[7]'s
+minimum ≥ 4 everywhere, §[8] = 0 at 100T/560T, all canonical shas and record counts.

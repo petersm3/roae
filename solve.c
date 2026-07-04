@@ -15345,7 +15345,7 @@ int main(int argc, char *argv[]) {
                min_t_surv, min_t1, min_t2, min_t3, (long)(time(NULL) - t7_start));
         printf("    Triples reaching <=%d survivors: %d\n", kw_count, n_t_below);
         if (n_t_below == 0)
-            printf("    => 4-boundary minimum proven for this dataset.\n\n");
+            printf("    => no 3-subset isolates KW (minimum >= 4) for this dataset.\n\n");
         else
             printf("    => %d 3-subsets reach KW-only level; minimum is <= 3 for this dataset.\n\n", n_t_below);
 
