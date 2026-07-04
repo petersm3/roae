@@ -44,6 +44,16 @@ Targets:
                  UNSAT => circular C2 is IMPLIED by the linear system (the McKenna circular reading
                  adds no C2 constraint); SAT => a valid ordering with a 5-line wrap exists.
                  560T empirical: 0 of 10.5e9 records (wrap is 91.83% d=3 / 8.17% d=1).
+  kw-pin         encoding validation: KW forced, no extra rule clauses (combine with --with-c3)
+Flags (append after the target):
+  --with-c3      encode C3 natively in CNF: sum_h |pos(h) - pos(comp(h))| <= 776, comp(h) = h^63
+                 (the complement-distance ceiling; ground truth = solve.mean_complement_distance,
+                 KW mean 12.125 * 64 hexagrams = 776; see solve.py and CITATIONS.md for lineage).
+                 Derivation (asserted at import): in the pair-slot model the pairing is closed
+                 under complement, so C3 = 2*|self-complement pairs| + 8 * sum over complement
+                 couples of |slot(u) - slot(v)|, independent of orientations. The CNF bounds the
+                 couple slot-distance sum with a Sinz sequential counter.
+  --c3-max N     override the C3 ceiling (default 776); e.g. 775 for the KW-exactness UNSAT gate
 """
 
 import sys, subprocess, os
@@ -71,6 +81,29 @@ for p in range(1, 32):
     ORIENTS.append((p, 1, b, a))
 NJ = len(ORIENTS)                                 # 62
 SLOTS = list(range(1, 32))                        # slot 0 fixed: pair 0 as (63, 0) per C4
+
+# ---- C3 static facts (complement-distance ceiling), derived from solve imports ----
+# ATTRIBUTION: C3 = complement proximity, one of the C1-C5 registry rules; semantics =
+# solve.mean_complement_distance (Rule 3 in solve.py); KW ceiling 776 = 12.125 * 64. CITATIONS.md.
+_kwpos = {h: i for i, h in enumerate(KW)}
+KW_C3 = sum(abs(_kwpos[h] - _kwpos[h ^ 63]) for h in range(64))
+assert KW_C3 == round(solve.mean_complement_distance(KW) * 64) == 776, "C3 ground-truth derivation broke"
+# the canonical pairing is closed under complement: comp of pair {a,b} is pair {a^63,b^63}
+C3_SELFC = [p for p, (a, b) in enumerate(KW_PAIRS) if a ^ b == 63]     # self-complement pairs
+C3_COUPLES = []                                                        # unordered {p,q} complement couples
+for _p, (_a, _b) in enumerate(KW_PAIRS):
+    if _a ^ _b == 63: continue
+    _q = PAIR_IDX[frozenset((_a ^ 63, _b ^ 63))]
+    assert _q != _p and _q != 0, "complement couple derivation broke"
+    if _p < _q: C3_COUPLES.append((_p, _q))
+assert len(C3_SELFC) == 8 and len(C3_COUPLES) == 12 and 0 in C3_SELFC
+# a self-complement pair contributes |diff|=1 per member counted twice = 2; a couple with slots
+# s,t and orientation offsets e1,e2 contributes 2*(|(2s+e1)-(2t+e2)| + |(2s+1-e1)-(2t+1-e2)|)
+# = 8*|s-t| for s != t, orientation-independent (asserted exhaustively):
+assert all(2 * (abs((2*s + e1) - (2*t + e2)) + abs((2*s + 1 - e1) - (2*t + 1 - e2))) == 8 * abs(s - t)
+           for s in range(31) for t in range(31) if s != t for e1 in (0, 1) for e2 in (0, 1))
+# decomposition check on KW itself (KW slot of pair p is p):
+assert 2 * len(C3_SELFC) + 8 * sum(abs(u - v) for u, v in C3_COUPLES) == KW_C3, "C3 decomposition broke"
 
 def directional(p):
     a, b = KW_PAIRS[p]
@@ -123,7 +156,7 @@ def at_least_k(cnf, lits, k):
 def exactly_k(cnf, lits, k):
     at_most_k(cnf, lits, k); at_least_k(cnf, lits, k)
 
-def build(target):
+def build(target, with_c3=False, c3_max=None):
     cnf = CNF()
     Y = {}
     for s in SLOTS:
@@ -280,6 +313,43 @@ def build(target):
         for j in range(NJ):
             if pc(ORIENTS[j][3]) != 1:
                 cnf.add(-Y[(31, j)])
+    if target == "kw-pin":
+        # encoding validation: full KW pin, no extra rule clauses (pair with --with-c3 gates)
+        for st in SLOTS:
+            jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
+            cnf.add(Y[(st, jkw)])
+    if with_c3:
+        # ---- native C3 (complement-distance ceiling; see C3 static facts above) ----
+        # gated on with_c3 ONLY: no clause here may reach any other target's build path.
+        # C3(seq) = 2*|C3_SELFC| + 8*S where S = sum over C3_COUPLES of |slot(u)-slot(v)|,
+        # so C3 <= M  <=>  S <= (M - 2*|C3_SELFC|) // 8.  M=776 -> S<=95; M=775 -> S<=94.
+        bound = KW_C3 if c3_max is None else c3_max
+        sbudget = (bound - 2 * len(C3_SELFC)) // 8
+        # X[p][s] = "pair p occupies slot s" (one-directional Y -> X suffices: spurious-true X
+        # only over-approximates S, so the <= bound stays sound; solver sets non-forced X false)
+        cmembers = sorted(set(u for u, v in C3_COUPLES) | set(v for u, v in C3_COUPLES))
+        X = {}
+        for p in cmembers:
+            for s in SLOTS:
+                X[(p, s)] = cnf.var()
+            for j in range(NJ):
+                if ORIENTS[j][0] == p:
+                    for s in SLOTS:
+                        cnf.add(-Y[(s, j)], X[(p, s)])
+        # per-couple unary distance lits G[c][k] = "|slot(u)-slot(v)| >= k", k = 2..30
+        # (k=1 always holds: two pairs never share a slot), forced by slot-pair clauses + chain
+        dlits = []
+        for (u, v) in C3_COUPLES:
+            G = {k: cnf.var() for k in range(2, 31)}
+            for s in SLOTS:
+                for t in SLOTS:
+                    if abs(s - t) >= 2:
+                        cnf.add(-X[(u, s)], -X[(v, t)], G[abs(s - t)])
+            for k in range(3, 31):
+                cnf.add(-G[k], G[k - 1])
+            dlits += [G[k] for k in range(2, 31)]
+        # S = |C3_COUPLES| + (# true dlits)  =>  bound the unary sum
+        at_most_k(cnf, dlits, sbudget - len(C3_COUPLES))
     return cnf, Y
 
 def decode(model_lits, Y):
@@ -303,13 +373,19 @@ def verify_seq(seq):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    with_c3, c3_max = False, None
+    if "--with-c3" in args:
+        with_c3 = True; args.remove("--with-c3")
+    if "--c3-max" in args:
+        i = args.index("--c3-max")
+        with_c3, c3_max = True, int(args[i + 1]); del args[i:i + 2]
     if args[:1] == ["--emit-cnf"] and len(args) == 3:
-        cnf, Y = build(args[1])
-        cnf.write(args[2], "target=" + args[1])
+        cnf, Y = build(args[1], with_c3=with_c3, c3_max=c3_max)
+        cnf.write(args[2], "target=" + args[1] + (" c3<=%d" % (c3_max or KW_C3) if with_c3 else ""))
         print("vars=%d clauses=%d -> %s" % (cnf.n, len(cnf.cl), args[2]))
     elif args[:1] == ["--witness"] and len(args) == 2:
         target = args[1]
-        cnf, Y = build(target)
+        cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)
         import tempfile
         for attempt in range(200):
             f = tempfile.NamedTemporaryFile("w", suffix=".cnf", delete=False)
