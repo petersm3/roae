@@ -36,7 +36,7 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas and three sequence-level theorems, kernel-verified. |
-| **[tests.py](tests.py)** · [verify.py](verify.py) · [verify_all.sh](reports/certificates/verify_all.sh) | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of every certificate, gate, and proof. |
+| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of every certificate, gate, and proof. |
 
 ## What was found
 
