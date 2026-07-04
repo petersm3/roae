@@ -1,0 +1,43 @@
+KNUTH-ESTIMATE probes=5000000000 threads=32 start_step=1 prefix_levels=0
+  tree_nodes            : est=2.671768e+32  95%CI=[2.6703e+32, 2.6733e+32]  relerr=0.03%  hitrate=1
+  leaves_C1C2C4C5       : est=1.862632e+30  95%CI=[1.8373e+30, 1.8880e+30]  relerr=0.69%  hitrate=0.000821
+  leaves_canonical_C1C5 : est=1.165830e+29  95%CI=[1.0977e+29, 1.2339e+29]  relerr=2.98%  hitrate=9.25e-05
+  [score] R-C1 final-pair-anchor  : 0.063240 of canonical mass
+  [score] R-C2 first7-level-cover : 0.137575 of canonical mass
+  [score] R-C5 18:18-HEC-split    : 0.373410 of canonical mass
+  [score] R-M1 Moore-parity strict : 1.000000 of canonical mass (18/18; KW itself FAILS this)
+  [score] R-M1 Moore-parity >=16/18: 1.000000 of canonical mass (KW level)
+  [score] R-M1 max compliance seen : 18 of 18 (Moore-2005 precursor existence bound)
+  [score] R-M2 Moore-1989 R/F <=2 breaks: 1.000000 of canonical mass (KW level)
+  [score] R-M2 strict 0 breaks     : 1.000000 of canonical mass; min breaks seen = 0 (KW = 2)
+  [score] Moore joint (M1>=16 & M2<=2): 1.00000000 of canonical mass (independence: 1.00000000)
+  [score] R-C3 level-3 positions == KW : 0.00000000 | S-gap pattern anywhere: 0.00000249 (Cook 2006)
+  [score] R-C4 gender/valence <=2 viol : 0.008770 | 0 viol: 0.000088 (Cook 2006)
+  [score] Davis palindrome windows >=1 : 0.836433 | >=2 (KW level): 0.487348 (Davis 2012)
+  [score] Pareto-dominates KW          : 0.00761353 of canonical mass (F4-A)
+  [score] wrap-distance mass d(s63,s0)  : d1=0.000000 d3=0.514831 d5=0.485169 (odd-only per theorem; circular-C2 price = d5 mass)
+f11_hist 0 0 0 8.8276943829e-05
+f11_hist 0 0 1 4.7539464349e-03
+f11_hist 0 0 2 3.9276965045e-03
+f11_hist 0 0 3 1.2578095706e-02
+f11_hist 0 0 4 2.1743871242e-02
+f11_hist 0 0 5 2.6395134629e-02
+f11_hist 0 0 6 3.4187569418e-02
+f11_hist 0 0 7 5.0753872613e-02
+f11_hist 0 0 8 5.9163520679e-02
+f11_hist 0 0 9 8.4372219460e-02
+f11_hist 0 0 10 7.8336458205e-02
+f11_hist 0 0 11 7.4327881098e-02
+f11_hist 0 0 12 8.4143091831e-02
+f11_hist 0 0 13 7.8543565369e-02
+f11_hist 0 0 14 7.3591524594e-02
+f11_hist 0 0 15 7.5865981356e-02
+f11_hist 0 0 16 6.9626734926e-02
+f11_hist 0 0 17 4.9879399118e-02
+f11_hist 0 0 18 4.5638308502e-02
+f11_hist 0 0 19 2.9162574844e-02
+f11_hist 0 0 20 2.4122310862e-02
+f11_hist 0 0 21 1.1168304174e-02
+f11_hist 0 0 22 5.5266172101e-03
+f11_hist 0 0 23 1.5378824986e-03
+f11_hist 0 0 24 5.6516178099e-04

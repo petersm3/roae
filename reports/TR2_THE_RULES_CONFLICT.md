@@ -198,8 +198,10 @@ on the literature's three rules being the relevant regularities, the received se
 explained as a corrupted rule-perfect ordering than as the output of a soft-preference arranger — whether
 the rules are the right lens remains open.
 
-**Reproduction.** The evidence files (raw run outputs and the exact edit-event enumeration) and the
-closed-form integration script live in the project's private archive. The underlying population runs are
+**Reproduction.** The complete evidence bundle is PUBLIC at [evidence/f11/](evidence/f11/): the frozen
+pre-registration, the full results document (model forms, priors grids, sensitivity table), the
+closed-form integration script (`compute_f11_bf.py` — rerun it on the bundled raw outputs to
+reproduce every Bayes factor), and all five raw run outputs. The underlying population runs are
 reproducible from `solve.c`'s `--estimate-knuth` estimator with the documented environment flags at the
 stated probe counts (2×10¹⁰, 5×10⁹, 5×10⁹, 2×10⁹); the edit-event geometry (k ≤ 6) is an exact
 enumeration, not sampled.

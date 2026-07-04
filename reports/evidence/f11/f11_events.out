@@ -1,0 +1,13 @@
+base=KW k=1 events=31 valid=9 hits=0 zA=15.500000 zA_valid=4.500000 zA_hits=0
+base=KW k=2 events=585 valid=68 hits=0 zA=183.750000 zA_valid=21.750000 zA_hits=0
+base=KW k=3 events=7975 valid=446 hits=2 zA=1602.250000 zA_valid=93.875000 zA_hits=0.5
+base=KW k=4 events=86681 valid=2471 hits=9 zA=11891.687500 zA_valid=373.625000 zA_hits=1.375
+base=KW k=5 events=783783 valid=11625 hits=18 zA=75618.562500 zA_valid=1310.687500 zA_hits=1.8125
+base=KW k=6 events=6076161 valid=48197 hits=23 zA=428490.968750 zA_valid=4220.218750 zA_hits=1.75
+base=GRAND k=1 events=31 valid=10 hits=5 zA=15.500000 zA_valid=5.000000 zA_hits=2.5
+base=GRAND k=2 events=585 valid=71 hits=12 zA=183.750000 zA_valid=22.500000 zA_hits=3.75
+base=GRAND k=3 events=7975 valid=448 hits=19 zA=1602.250000 zA_valid=92.625000 zA_hits=4.125
+base=GRAND k=4 events=86681 valid=2453 hits=24 zA=11891.687500 zA_valid=360.062500 zA_hits=4.125
+base=GRAND k=5 events=783783 valid=11334 hits=29 zA=75618.562500 zA_valid=1219.687500 zA_hits=4.0625
+base=GRAND k=6 events=6076161 valid=45697 hits=36 zA=428490.968750 zA_valid=3817.156250 zA_hits=4.53125
+F11_EVENTS_DONE
