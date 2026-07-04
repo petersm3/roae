@@ -40,6 +40,22 @@ Targets:
                  conflict decision, increment 1: UNSAT proves no ordering is perfect under Moore
                  parity + Moore rhythm + Schulz gender + the trigram champion simultaneously.
   ccn4-kwtest    encoding validation: KW forced + ccn4 clauses  [expect SAT — KW satisfies ccn4]
+  grander-strict grand-ccn4 AND CC-N8 (Schulz exception co-location) — the FIVE-rule union
+                 (task #217): Moore parity + Moore rhythm + Schulz gender + CC-N4 + CC-N8.
+                 NOTE: gender-strict (0 violations) and CC-N8 (violations exactly at class
+                 positions 25/26) are incompatible by construction — {gender, ccn8} is a
+                 2-rule core; the encoding keeps CC-N8 as stated (solve.reg_ccn8) so the
+                 semantic conflict is itself certificate-backed.
+  five-loo-RULE  leave-one-out 4-subsets of the five-rule union; RULE names the rule DROPPED,
+                 in {parity, rhythm, gender, ccn4, ccn8} (five-loo-ccn8 == grand-ccn4, the
+                 published four-rule conflict theorem).
+  gender-ccn8    the 2-rule core alone  [expect UNSAT]
+  ccn8-kwtest    encoding validation: KW forced + ccn8 clauses  [expect SAT — KW satisfies ccn8]
+  ccn8-kwfail    encoding validation: KW forced + ccn8 clauses at shifted locus (24,25)
+                 [expect UNSAT — KW's gender-violation set is {25,26}, not {24,25}]
+  ccn8-kwchain   encoding validation: KW forced + R-S2 run-parity chain pinned to its
+                 solve.py-derived KW value  [expect SAT]; ccn8-kwchain-not pins the negation
+                 [expect UNSAT] — two-way gate on the chain recurrence alone
   wrap-d5        C1+C2+C4+C5 AND wrap distance d(s63, s0) == 5 (i.e., popcount(s63) == 1).
                  UNSAT => circular C2 is IMPLIED by the linear system (the McKenna circular reading
                  adds no C2 constraint); SAT => a valid ordering with a 5-line wrap exists.
@@ -105,6 +121,76 @@ assert all(2 * (abs((2*s + e1) - (2*t + e2)) + abs((2*s + 1 - e1) - (2*t + 1 - e
 # decomposition check on KW itself (KW slot of pair p is p):
 assert 2 * len(C3_SELFC) + 8 * sum(abs(u - v) for u, v in C3_COUPLES) == KW_C3, "C3 decomposition broke"
 
+# ---- CC-N8 static facts (Schulz exception co-location), derived from solve imports ----
+# ATTRIBUTION: CC-N8 = Schulz 2016 (Hexagrammatics) pp. 14-15, SC-7 double-exception note;
+# Schulz 1990 JCP 17:3 for both underlying motifs. Semantics = solve.reg_ccn8: the CC-A2
+# (gender) violation set is EXACTLY {25, 26} and both class positions also violate R-S2.
+assert solve.reg_ccn8(KW) is True, "CC-N8 KW ground truth broke"
+assert solve.rc4_violations(KW) == (2, [25, 26]), "CC-A2 KW ground truth broke"
+assert solve._reg_rs2_violations(KW) == [11, 13, 14, 25, 26, 32], "R-S2 KW ground truth broke"
+
+def _rs2_viol_from_bal(bal):
+    """solve._reg_rs2_violations' run-segmented pairing, factored over a station-balance
+    vector (the solve function takes a hexagram sequence; this exposes the balance step so
+    the CNF recurrence below can be validated exhaustively). Asserted == solve on KW and
+    300 seeded random permutations at import, composed with solve's own
+    _reg_balances/_reg_stations — no independent semantics."""
+    viol = []
+    def close(run):
+        for i in range(0, len(run) - 1, 2):
+            if bal[run[i] - 1] != -bal[run[i + 1] - 1]:
+                viol.extend([run[i], run[i + 1]])
+        if len(run) % 2:
+            viol.append(run[-1])
+    run = []
+    for k in range(1, len(bal) + 1):
+        if bal[k - 1] == 0:
+            close(run); run = []
+        else:
+            run.append(k)
+    close(run)
+    return sorted(viol)
+
+import random as _random, itertools as _itertools
+_rng = _random.Random(217)
+for _t in range(300):
+    _perm = list(range(64)); _rng.shuffle(_perm)
+    assert (_rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(_perm)))
+            == solve._reg_rs2_violations(_perm)), "R-S2 balance-replica derivation broke"
+assert _rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(KW))) == [11, 13, 14, 25, 26, 32]
+
+def _rs2_r_after(bal_prefix):
+    """R-S2 run-parity state: True iff the next non-zero station OPENS a pair."""
+    r = True
+    for b in bal_prefix:
+        r = True if b == 0 else (not r)
+    return r
+
+# The CNF's R-S2-co-violation case analysis: "{a, a+1} subset of the violation set" depends
+# only on (r_{a-1}, b_{a-1}, b_a, b_{a+1}, b_{a+2}). Asserted exhaustively — 2 x 7^4 local
+# windows, each embedded in a full 36-vector — against the replica above:
+for _rprev in (True, False):
+    _prefix = [0] * 23 if _rprev else [0] * 22 + [2]     # positions 1..23 realizing r_23
+    assert _rs2_r_after(_prefix) == _rprev
+    for _w in _itertools.product((-6, -4, -2, 0, 2, 4, 6), repeat=4):
+        _b24, _b25, _b26, _b27 = _w                      # positions 24..27
+        _bal = _prefix + list(_w) + [0] * 9
+        _r24 = True if _b24 == 0 else (not _rprev)
+        if _b25 == 0 or _b26 == 0:
+            _pred = False                                # zero-balance stations never violate
+        elif _r24:
+            _pred = (_b25 + _b26) != 0                   # 25 opens, 26 closes: joint mismatch
+        else:                                            # 25 closes 24's pair; 26 opens anew
+            _pred = (_b24 + _b25) != 0 and (_b27 == 0 or (_b26 + _b27) != 0)
+        assert _pred == ({25, 26} <= set(_rs2_viol_from_bal(_bal))), "R-S2 CNF case analysis broke"
+
+KW_BAL = solve._reg_balances(solve._reg_stations(KW))
+KW_RS2_R24 = _rs2_r_after(KW_BAL[:24])   # True on KW: position 24 is zero-balance
+# gender-violation popcounts by class-position parity (solve.rc4_violations semantics:
+# {0,3,6} exempt; violation iff (pc < 3) != (position odd)) — used by the CC-N8 clauses:
+assert all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2)))
+           for w in (1, 2, 4, 5) for pos in (24, 25, 26, 27))
+
 def directional(p):
     a, b = KW_PAIRS[p]
     return (a ^ b) != 63 and pc(a) != 3
@@ -156,7 +242,34 @@ def at_least_k(cnf, lits, k):
 def exactly_k(cnf, lits, k):
     at_most_k(cnf, lits, k); at_least_k(cnf, lits, k)
 
+FIVE_RULES = ("parity", "rhythm", "gender", "ccn4", "ccn8")
+RULESETS = {   # target base -> literature rules enforced strictly (task #217 5-rule family)
+    "plain": (), "kw-pin": (), "wrap-d5": (), "alt-le-14": (), "alt-ge-16": (),
+    "moore-strict": ("parity", "rhythm"),
+    "grand-strict": ("parity", "rhythm", "gender"),
+    "rc4-strict": ("gender",), "rc4-kwtest": ("gender",), "rc4-kwexempt": ("gender",),
+    "ccn4-kwtest": ("ccn4",),
+    "grand-ccn4": ("parity", "rhythm", "gender", "ccn4"),
+    "grander-strict": FIVE_RULES,                       # the five-rule union
+    "gender-ccn8": ("gender", "ccn8"),                  # the 2-rule core
+    "ccn8-kwtest": ("ccn8",), "ccn8-kwfail": ("ccn8",),
+    "ccn8-kwchain": (), "ccn8-kwchain-not": (),         # chain machinery only
+}
+for _r in FIVE_RULES:
+    RULESETS["five-loo-" + _r] = tuple(x for x in FIVE_RULES if x != _r)
+
 def build(target, with_c3=False, c3_max=None):
+    tbase = target.split("-near-")[0]
+    if tbase.startswith("five-sub-"):
+        # generic subset of the five-rule family, e.g. five-sub-parity+ccn8
+        # (used to map the conflict lattice / minimal unsatisfiable cores, task #217)
+        rules = set(tbase[len("five-sub-"):].split("+"))
+        if not rules <= set(FIVE_RULES):
+            raise SystemExit("unknown rules in target: " + target)
+    elif tbase in RULESETS:
+        rules = set(RULESETS[tbase])
+    else:
+        raise SystemExit("unknown target: " + target)
     cnf = CNF()
     Y = {}
     for s in SLOTS:
@@ -218,7 +331,7 @@ def build(target, with_c3=False, c3_max=None):
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == s and ORIENTS[j][1] == 0)
             agree.append(Y[(s, jkw)])
         at_least_k(cnf, agree, 31 - k)
-    if target.startswith("moore-strict") or target.startswith("grand-strict") or target == "grand-ccn4":
+    if "parity" in rules:
         for s in SLOTS:                   # parity: static unary forbids
             for j in range(NJ):
                 p = ORIENTS[j][0]
@@ -226,6 +339,7 @@ def build(target, with_c3=False, c3_max=None):
                     want_odd = pc(KW_PAIRS[p][0]) > 3
                     if want_odd != ((s + 1) % 2 == 1):   # pair POSITION = slot index + 1 (slot 0 = position 1)
                         cnf.add(-Y[(s, j)])
+    if "rhythm" in rules:
         for s in range(1, 31):            # rhythm: static binary forbids between adjacent directional
             for j1 in range(NJ):
                 if not directional(ORIENTS[j1][0]): continue
@@ -235,7 +349,7 @@ def build(target, with_c3=False, c3_max=None):
                     if ORIENTS[j1][0] == ORIENTS[j2][0]: continue
                     if rising(ORIENTS[j2][2], ORIENTS[j2][0]) == r1:
                         cnf.add(-Y[(s, j1)], -Y[(s+1, j2)])
-    if target.startswith("rc4-") or target.startswith("grand-") or target.startswith("ccn4-"):
+    if rules & {"gender", "ccn4", "ccn8"} or tbase.startswith("ccn8-kwchain"):
         # Schulz gender/position-parity over the 36 inversion-class positions (solve.rc4_violations).
         # Class position of slot s's pair = s + 2 + c, where c = # palindrome-pairs among slots 1..s-1
         # (slot 0 = pair 0 = palindromes 63,0 = classes 1,2, pure-exempt). Palindrome pairs occupy two
@@ -272,7 +386,7 @@ def build(target, with_c3=False, c3_max=None):
             pck = bin(h).count("1")
             if pck in (0, 3, 6) or pos in exempt_pos: return False
             return (pck < 3) != (pos % 2 == 1)
-        if not target.startswith("ccn4-"):   # ccn4 validation targets use the counter only
+        if "gender" in rules:             # ccn4-/ccn8- validation targets use the counter only
             for st in SLOTS:
                 for j in range(NJ):
                     p, o, first, second = ORIENTS[j]
@@ -284,7 +398,7 @@ def build(target, with_c3=False, c3_max=None):
                             bad = viol_hex(first, base)
                         if bad:
                             cnf.add(-Y[(st, j)], -E[st - 1][c])
-        if target == "grand-ccn4" or target == "ccn4-kwtest":
+        if "ccn4" in rules:
             # CC-N4 (Schulz 2016 pp.23-24 / 2011; convention per registry): stations 25-28 face
             # hexagrams must be 31, 24, 26, 29 (upper trigram dui; lowers qian/kun/kan/li).
             # Same E-counter: station of slot s (inverse pair) = s+2+c; palindrome pairs occupy
@@ -304,7 +418,84 @@ def build(target, with_c3=False, c3_max=None):
                                 bad = True
                         if bad:
                             cnf.add(-Y[(st2, j)], -E[st2 - 1][c])
-        if target in ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest"):
+        if "ccn8" in rules or tbase.startswith("ccn8-kwchain"):
+            # CC-N8 (Schulz 2016 pp. 14-15 SC-7 double-exception note; Schulz 1990 for both
+            # motifs; semantics = solve.reg_ccn8, KW-asserted at import): the CC-A2 gender
+            # violation set is EXACTLY {A, A+1} AND both class positions also violate R-S2
+            # (run-segmented adjacent pairing, solve._reg_rs2_violations). Locus (A, A+1) =
+            # (25, 26); the ccn8-kwfail gate shifts it to (24, 25), which KW fails both ways.
+            A = 24 if target == "ccn8-kwfail" else 25
+            PMAX = A + 2
+            # P[p][w]: the inversion class at class position p has popcount w (station
+            # balance = 2w - 6, class-invariant since reversal preserves popcount — see
+            # solve._reg_balances). Every position 1..36 is occupied exactly once in any
+            # assignment satisfying the Y/E structure, so the (Y, E) -> P implications
+            # force the true value and exactly-one kills the rest.
+            P = {}
+            for pp in range(1, PMAX + 1):
+                P[pp] = {w: cnf.var() for w in range(7)}
+                exactly_one(cnf, list(P[pp].values()))
+            cnf.add(P[1][6]); cnf.add(P[2][0])   # slot 0 fixed by C4: Qian at 1, Kun at 2
+            for st3 in SLOTS:
+                for j in range(NJ):
+                    p3, o3, first3, second3 = ORIENTS[j]
+                    for c in E[st3 - 1]:
+                        occ = [(st3 + 2 + c, pc(first3))]
+                        if p3 in PALPAIRS:
+                            occ.append((st3 + 3 + c, pc(second3)))
+                        for ppos, w in occ:
+                            if ppos <= PMAX:
+                                cnf.add(-Y[(st3, j)], -E[st3 - 1][c], P[ppos][w])
+            # R-S2 run-parity chain (recurrence asserted vs the solve-derived replica at
+            # import): R[p] = "the next non-zero station opens a pair" after position p;
+            # zero balance (popcount 3) closes the current run and resets.
+            R = {0: cnf.var()}
+            cnf.add(R[0])
+            for ppos in range(1, A):
+                R[ppos] = cnf.var()
+                z = P[ppos][3]
+                cnf.add(-z, R[ppos])                    # zero balance -> reset to opener
+                cnf.add(z, R[ppos - 1], R[ppos])        # non-zero -> R[p] = NOT R[p-1]
+                cnf.add(z, -R[ppos - 1], -R[ppos])
+            ropen = R[A - 1]                            # position A opens a pair iff R[A-1]
+            if tbase.startswith("ccn8-kwchain"):
+                # two-way chain gate: pin r_24 to (kwchain) / against (kwchain-not) its
+                # solve.py-derived KW value — validates the chain recurrence end-to-end
+                want = KW_RS2_R24 if tbase == "ccn8-kwchain" else not KW_RS2_R24
+                cnf.add(R[24] if want else -R[24])
+            else:
+                # (i) gender violations REQUIRED at A and A+1 (odd position: violating
+                # popcounts {4,5}; even: {1,2} — parity table asserted at import)
+                for ppos in (A, A + 1):
+                    cnf.add(*[P[ppos][w] for w in ((4, 5) if ppos % 2 else (1, 2))])
+                # (ii) ... and FORBIDDEN everywhere else (locus-exempt forbids)
+                def viol_ex(h, pos5):
+                    pck = bin(h).count("1")
+                    if pck in (0, 3, 6) or pos5 in (A, A + 1): return False
+                    return (pck < 3) != (pos5 % 2 == 1)
+                for st5 in SLOTS:
+                    for j in range(NJ):
+                        p5, o5, first5, second5 = ORIENTS[j]
+                        for c in E[st5 - 1]:
+                            b5 = st5 + 2 + c
+                            if p5 in PALPAIRS:
+                                bad5 = viol_ex(first5, b5) or viol_ex(second5, b5 + 1)
+                            else:
+                                bad5 = viol_ex(first5, b5)
+                            if bad5:
+                                cnf.add(-Y[(st5, j)], -E[st5 - 1][c])
+                # (iii) R-S2 violation at BOTH A and A+1 — exhaustive case analysis
+                # asserted at import; (i) already forces A, A+1 non-zero (balances are
+                # opposite iff popcounts sum to 6: (2w1-6)+(2w2-6) == 0 <=> w1+w2 == 6)
+                for w1 in range(7):     # A opens: its closer A+1 must MISMATCH
+                    cnf.add(-ropen, -P[A][w1], -P[A + 1][6 - w1])
+                for w1 in range(7):     # A closes the pair opened at A-1: mismatch required
+                    cnf.add(ropen, -P[A - 1][w1], -P[A][6 - w1])
+                for w1 in range(7):     # then A+1 opens: orphan (zero at A+2) or mismatch
+                    if 6 - w1 != 3:
+                        cnf.add(ropen, -P[A + 1][w1], -P[A + 2][6 - w1])
+        if target in ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest",
+                      "ccn8-kwtest", "ccn8-kwfail", "ccn8-kwchain", "ccn8-kwchain-not"):
             for st in SLOTS:
                 jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
                 cnf.add(Y[(st, jkw)])
