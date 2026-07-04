@@ -232,7 +232,7 @@ Subject to the disclaimer at the top of this document, the following are believe
 
 1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across hardware, region, thread count, and merge algorithm for fixed solver + input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
 2. **4-corners validation grid** — cross-SKU, cross-region, cross-merge-algorithm empirical confirmation of partition invariance. See [HISTORY.md](HISTORY.md) and [SOLVE.md](SOLVE.md).
-3. **Exhaustive enumeration under the C1+C2+C3 conjunction at 10T, 100T, and 560T scale** — 10,525,271,997 d3 560T (sha `9a968fa2…`, 2026-06-08, **current deepest**) / 3,432,399,298 d3 100T (sha `915abf30…`) / 706,422,987 d3 10T / 286,357,503 d2 10T. Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T, 5 at 100T, 5 at 560T with the identical set {1, 4, 21, 25, 27}; working 4-set count drops 8 → 0 across 11.2T → 560T — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); corrected 2026-07-04 from an earlier "non-monotone, 4 again at 560T" reading, a survivor-counting error) and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.
+3. **Exhaustive enumeration under the C1+C2+C3 conjunction at 10T, 100T, and 560T scale** — 10,525,271,997 d3 560T (sha `9a968fa2…`, 2026-06-08, **current deepest**) / 3,432,399,297 d3 100T (sha `915abf30…`) / 706,422,987 d3 10T / 286,357,503 d2 10T. Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T, 5 at 100T, 5 at 560T with the identical set {1, 4, 21, 25, 27}; working 4-set count drops 8 → 0 across 11.2T → 560T, where the 8 is log-verified at d3 10T and the 11.2T attribution is pending archived-log confirmation (note added 2026-07-04) — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); corrected 2026-07-04 from an earlier "non-monotone, 4 again at 560T" reading, a survivor-counting error) and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.
 4. **Comprehensive null-model testing framework** — seven structured and unstructured permutation families tested via `solve.c --null-*` subroutines: de Bruijn, Gray, Latin-square, lexicographic, historical, random, pair-constrained.
 5. **Analytic C1 impossibility proofs** for the de Bruijn B(2, 6) family (period-4 contradiction) and the Gray code family (Hamming-1 disjoint). See [CRITIQUE.md](CRITIQUE.md).
 6. **Latin-square C2 rate decomposition** — analytic explanation of the 57.96% rate as a function of row-permutation class (Hamiltonian-path popcount distribution in the 3-cube). See [CRITIQUE.md](CRITIQUE.md).
@@ -489,3 +489,7 @@ Hacker, E. A., Moore, S., & Patsco, L. (n.d.). *Zhouyi.com* [Archived website]. 
 
 Wikipedia and OEIS entries used for reader orientation and the binary encoding are listed in
 [README.md](../README.md) §References. [read]
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

@@ -28,7 +28,7 @@ Four sha-anchored canonical enumerations:
 |---|---|---|---|
 | d2 10T | `a09280fbf…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` |
 | d3 10T | `f7b8c4fbf…` | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
-| d3 100T | `915abf30c…` | 3,432,399,298 | `canonical-archive/t9c1/` (T9+c.1 recovery) |
+| d3 100T | `915abf30c…` | 3,432,399,297 | `canonical-archive/t9c1/` (T9+c.1 recovery) |
 | **d3 560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/`** |
 
 The 742M figure cited below is the pre-format-v1 (pre-2026-04-19) hash-table-bug dataset; it is historical-only and is not sha-anchored as a valid canonical. It is included in the unordered-count trajectory for completeness because it was the dataset under which the original "exactly 4 specific boundaries" finding was first reported.
@@ -86,3 +86,7 @@ Pre-computed analyze logs:
 ## Working / process documentation
 
 For the original 100T cross-partition analysis surfacing the boundary-minimum-grew-from-4-to-5 finding, see CITATIONS.md and the original 2026-04-19 analyze log archived at `runs/20260419_100T_d3_d128westus3/`. For the 560T --analyze algorithmic rewrites that made canonical-scale --analyze tractable (~24h → 3h 47m on D128), see [`HISTORY.md`](HISTORY.md) "June 10-11, 2026" entry. For the full §[1]-§[28] 560T findings, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) and (private) `roae-private/560T_FINAL_ANALYSIS.md`. The 2026-07-04 verification that surfaced this correction (defense-then-fail adversarial audit of the published headline against the canonical 560T log) is documented privately in `roae-private/BOUNDARY_CONVENTION_VERIFICATION_2026_07.md`.
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

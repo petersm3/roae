@@ -226,7 +226,7 @@ circular. A quantified distributional approach sidesteps this:
   (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition
   hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count,
   first_position_deviation).
-- Compute it for every record in the 100T d3 canonical (3,432,399,298 valid
+- Compute it for every record in the 100T d3 canonical (3,432,399,297 valid
   orderings).
 - Fit a kernel density estimator on a uniform sample; locate KW; compute
   KW's density-percentile with bootstrap confidence intervals.
@@ -399,3 +399,7 @@ mass at 2×10⁹ probes) and, per the standing circularity policy, carry no desi
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided
 convention nothing reaches the candidate-rule level; nothing promotes. Full treatment:
 [reports/TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

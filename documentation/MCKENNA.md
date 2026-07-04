@@ -107,7 +107,7 @@ This makes the 25/75 observation one of McKenna's most accurate quantitative cla
 - The XOR algebraic regularity (`--symmetry`) is a mathematical theorem — any reverse/inverse pairing of 6-bit values produces exactly 7 XOR products. It is not specific to King Wen.
 - The constraint solver (`solve.c`) finds that 5 rules narrow 10^89 possible orderings to billions. Canonical counts:
   - **d3 560T: 10,525,271,997** orderings (sha `9a968fa2…`, 2026-06-08, **current deepest**)
-  - **d3 100T: 3,432,399,298** orderings (sha `915abf30…`, 2026-04-20)
+  - **d3 100T: 3,432,399,297** orderings (sha `915abf30…`, 2026-04-20)
   - **d3 10T: 706,422,987** (sha `f7b8c4fb…`)
   - **d2 10T: 286,357,503** (sha `a09280fb…`)
   All are partial enumerations at different partition strategies + node budgets; under true exhaustive enumeration they would converge. Only Position 1 is universally locked. The **number of boundary constraints needed to uniquely identify KW is 4 at d2/d3 10T and 5 at both d3 100T and d3 560T** — monotone non-decreasing with scale, with the identical greedy set `{1, 4, 21, 25, 27}` at both canonical scales *(corrected 2026-07-04: an earlier version said "4 again at 560T, non-monotone" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. The working-4-set count is scale-bounded (8 → 0 across 11.2T → 560T). Boundaries `{25, 27}` are **partition-stable across all four partitions tested to date** (in every greedy minimum at d2 10T, d3 10T, d3 100T, AND d3 560T). Other boundaries in the minimum set are partition + scale-dependent. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) + [SOLVE.md](SOLVE.md) §Boundary analysis for the full analysis.
@@ -127,3 +127,7 @@ The King Wen sequence is genuinely remarkable as a combinatorial object — 5 co
 The program cannot answer whether the wave "maps onto history" because that is an interpretive claim, not a mathematical one.
 
 See [CRITIQUE.md](CRITIQUE.md) for known limitations of the program's methodology.
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

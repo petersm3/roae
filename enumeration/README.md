@@ -11,7 +11,7 @@ predominantly historical.
 - **[LEADERBOARD.md](LEADERBOARD.md)** — the authoritative enumeration
   scoreboard. Current canonical counts (**d3 560T: 10,525,271,997, sha
   `9a968fa2…`** — current deepest, established 2026-06-08; d3 100T:
-  3,432,399,298, sha `915abf30…`; d3 10T: 706,427,594, sha
+  3,432,399,297, sha `915abf30…`; d3 10T: 706,427,594, sha
   `b85c8871…`; d2 10T: 286,357,503, sha `a09280fb…`),
   per-first-level-branch solution totals, dead-branch classification,
   sub-branch yields. Read this first.
@@ -82,3 +82,7 @@ For the current state of the project, start at:
 - [`../documentation/HISTORY.md`](../documentation/HISTORY.md) — narrative of how we got here
 - [`../documentation/SOLVE.md`](../documentation/SOLVE.md) or [`../documentation/SOLVE-SUMMARY.md`](../documentation/SOLVE-SUMMARY.md) —
   constraint analysis (technical or plain-language)
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 100T.*

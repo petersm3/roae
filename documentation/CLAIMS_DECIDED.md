@@ -28,9 +28,12 @@ in this page (report it).
 | The pairing is the unique Hamming-optimal matching | Radisic 2026 | **CONFIRMED** (independent) | Machine-verified independently | [CITATIONS](CITATIONS.md) |
 
 Corrections to our own published numbers (the never-silent ledger): the MDL arithmetic (144.4→143.7
-cascade), a false theorem in `--verify-wrap-parity`'s output, and the TR-1/2/3/9 v1.5 scope corrections
-— each documented in place with a correction note. Self-corrections are listed beside external ones
-deliberately: the method is the same, and it has to cut both ways to mean anything.
+cascade), a false theorem in `--verify-wrap-parity`'s output, the TR-1/2/3/9 v1.5 scope corrections,
+and the 100T canonical record count (a 2026-05-30 doc-level "correction" to 3,432,399,298 divided the
+file size by 32 without subtracting the 32-byte header; re-corrected to 3,432,399,297 on 2026-07-04
+against the primary logs, `solutions.meta.json`, and the verify output — the sha256 anchors were never
+affected) — each documented in place with a correction note. Self-corrections are listed beside external
+ones deliberately: the method is the same, and it has to cut both ways to mean anything.
 
 Every verdict above is reproducible: [reports/certificates/verify_all.sh](../reports/certificates/verify_all.sh)
 re-checks the certified impossibilities; per-claim commands live in each report's Verification Guide.

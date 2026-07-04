@@ -15,7 +15,7 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 ## Canonical sha (100T partition, 2026-04-19)
 
 - **sha256**: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`
-- **Records (canonical unique orderings)**: **3,432,399,298** (~3.43 billion) <!-- corrected from 3,432,399,297: off-by-one in the 2026-05-12 provenance write; bytes/32 = …,298 is byte-dispositive. See documentation/CANONICAL_HASHES.md §d3 100T. -->
+- **Records (canonical unique orderings)**: **3,432,399,297** (~3.43 billion) <!-- re-corrected 2026-07-04: a 2026-05-30 doc pass changed this to 3,432,399,298 via bytes/32, but that quotient includes the 32-byte header; (109,836,777,536 - 32)/32 = 3,432,399,297, matching analyze section [1]/[28], solutions.meta.json, and the verify log. sha unaffected. See documentation/CANONICAL_HASHES.md section d3 100T. -->
 
 - **Solutions.bin size**: 109,836,777,536 bytes (102.3 GB)
 - **Pre-dedup records processed**: 13,832,832,979
@@ -28,7 +28,7 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 
 **Count comparison:**
 - 10T d3: 706,422,987 canonical orderings
-- 100T d3: **3,432,399,298** canonical orderings
+- 100T d3: **3,432,399,297** canonical orderings
 - Ratio: **~4.86×** at 10× the node budget (diminishing-returns scaling — expected, since early sub-branches saturate quickly while deep/hard sub-branches need proportionally more budget to surface more orderings).
 
 Expected count at launch was 1-2B; actual 3.43B exceeded the estimate.
@@ -85,7 +85,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 
 - `./solve --merge` internal post-validation: **PASS** ("ALL CONSTRAINTS VERIFIED" in merge log; 0 errors)
 - King Wen present: YES (in merge-stage validation)
-- All records C1-C5 valid: YES (0 errors across all 3,432,399,298 records)
+- All records C1-C5 valid: YES (0 errors across all 3,432,399,297 records)
 - Sort order + dedup: OK (no duplicates, strict sort order)
 - Independent `--verify` pass: **PASS** — *"VERIFY PASS: all 3432399297 records satisfy C1-C5, sorted, no duplicates"*, KW present. See `verify_output.log` in this directory.
 - `--analyze` output: **COMPLETE** (wall 4156s = 69m 16s). Headline findings:

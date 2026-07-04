@@ -18,7 +18,7 @@ Four sha-anchored canonical enumerations:
 |---|---|---|---|
 | d2 10T | `a09280fbf…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` |
 | d3 10T | `f7b8c4fbf…` | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
-| d3 100T | `915abf30c…` | 3,432,399,298 | `canonical-archive/t9c1/` (T9+c.1 recovery; cf. CANONICAL_HASHES.md) |
+| d3 100T | `915abf30c…` | 3,432,399,297 | `canonical-archive/t9c1/` (T9+c.1 recovery; cf. CANONICAL_HASHES.md) |
 | **d3 560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/`** |
 
 Each was independently enumerated and merged on Azure compute; canonical SHAs reproducible across hardware/region/merge-algorithm via the partition-invariance theorem (see [`PARTITION_INVARIANCE.md`](../documentation/PARTITION_INVARIANCE.md)).
@@ -79,3 +79,7 @@ Pre-computed analyze logs:
 ## Working / process documentation
 
 For the original 2026-04-19 cross-partition analysis (d2 10T + d3 10T + d3 100T), see the `petersm3/roae-private` staging repo's `D2_D3_ANALYZE_FINDINGS.md` (now `petersm3/roae-private` per the 2026-05-29 rename). For the 560T `--analyze` algorithmic rewrites that made canonical-scale analyze tractable, see `documentation/HISTORY.md` "June 10-11, 2026" entry; for the full §[1]-§[28] 560T findings, see `documentation/SOLVE-SUMMARY.md` §"560T canonical results" and (private) `roae-private/560T_FINAL_ANALYSIS.md`.
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

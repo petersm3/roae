@@ -416,7 +416,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **Canonical result:**
 - sha256: `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`
-- Records (canonical unique orderings): **3,432,399,298** (~4.86× the 10T count)
+- Records (canonical unique orderings): **3,432,399,297** (~4.86× the 10T count)
 - Solutions.bin: 102.3 GB
 - Pre-dedup input: 13.8B records, 60,533 merge chunks
 
@@ -459,7 +459,7 @@ Key findings:
 
 **Scientific reframing executed.** The "is King Wen unique?" question — long a sticking point for honest scoping in SOLVE.md / CRITIQUE.md — reframed as a quantified distributional claim. Details in [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 
-**Computational pipeline executed on 3,432,399,298-record 100T d3 canonical** using Python scripts in `scripts/` (compute_stats, p2_marginals, p2_bivariate, p2_joint_density): per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation); per-chunk parquet directory output (3,433 files); streaming-histogram marginals + hexbin bivariate heatmaps + sklearn KDE on 7 informative dimensions with bootstrap 1000× CI. Ran in 66 min on D16als_v7.
+**Computational pipeline executed on 3,432,399,297-record 100T d3 canonical** using Python scripts in `scripts/` (compute_stats, p2_marginals, p2_bivariate, p2_joint_density): per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation); per-chunk parquet directory output (3,433 files); streaming-histogram marginals + hexbin bivariate heatmaps + sklearn KDE on 7 informative dimensions with bootstrap 1000× CI. Ran in 66 min on D16als_v7.
 
 **Headline result: KW sits at 0.000% in the joint observable-density distribution, bootstrap 95% CI [0.000%, 0.000%].** KW's log-density under the sample-fit KDE is −128,260 while the entire 100K sample spans log-density [−10.11, −2.98]. The extremity is driven by simultaneous 95th+ percentile values across four independent structural dimensions (c3_total, c6_c7_count, shift_conformant_count, first_position_deviation), not any single dimension — a typical canonical ordering does not concentrate extremes that way.
 
@@ -741,7 +741,7 @@ Convention: working notes stay in `petersm3/roae-private`; findings polished and
 
 Investigated *why* boundaries {25, 27} are partition-stable keystones (per the
 finding promoted earlier the same morning). Implemented `solve.py
---keystone-analysis`: for each of the 3,432,399,298 canonical records at the
+--keystone-analysis`: for each of the 3,432,399,297 canonical records at the
 100T-d3 canonical, computes a 5-bit match-mask against the {1, 4, 21, 25, 27}
 greedy-minimum boundary set, plus drop-one analysis (records each boundary
 *uniquely* eliminates from the 4-subset's solution space).
@@ -1972,7 +1972,7 @@ The campaign was scoped as two parallel runs:
 - **T9+c.1** — full-enumeration re-derivation using `solve 0 128` (the same execution path as the original 2026-04-19/20 100T canonical). Tests that the recovery is reproducible via the original code path.
 - **T9+d** — per-branch-loop re-derivation: 62 separate `solve --branch p1 o1` invocations (31 non-fixed pairs × 2 orientations) followed by `solve --merge` to combine. Tests **partition invariance** at 100T scale — that the canonical sha is robust to execution strategy, not just to inputs (PARTITION_INVARIANCE.md theorem).
 
-Both target the canonical `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (3,432,399,298 records, 109,836,777,536 bytes).
+Both target the canonical `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (3,432,399,297 records, 109,836,777,536 bytes).
 
 ### Phase 1 — enumeration on Spot D128, three Spot evictions, two recoveries
 
@@ -2067,7 +2067,7 @@ The campaign exposed these because it stress-tested execution paths the original
 
 **T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`roaecanonical2026/canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
 
-**T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on D64als_v7 Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to D16als_v7 Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to D128als_v7 Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,298 records satisfy C1-C5 + sorted + no duplicates + KW present. D128 deleted post-archive. t9d-data-westus3 disk preserved Unattached pending operator deletion decision.
+**T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on D64als_v7 Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to D16als_v7 Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to D128als_v7 Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,297 records satisfy C1-C5 + sorted + no duplicates + KW present. D128 deleted post-archive. t9d-data-westus3 disk preserved Unattached pending operator deletion decision.
 
 **The canonical 100T solutions.bin is now FULLY RECOVERED** with two independent witnesses:
 - **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, cold backup in `roaecanonical2026/canonical-archive/t9c1/`.
@@ -2500,7 +2500,7 @@ All five ship in this commit; selftest sha `403f7202` verified unchanged. Phase 
 | d3 10T | `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` | 706,427,594 | Cross-build verified Build A + Build B (May 13) |
 | d2 10T | `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` | 286,357,503 | Cross-build verified Build A + Build B (May 13) |
 | d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | Cross-build verified Build A + Build B (May 14) + independent cold-storage re-checksum (May 15) — three witnesses |
-| d3 100T | `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` | 3,432,399,298 | T9+c.1 + T9+d post-fix cross-build pair (May 9-10) |
+| d3 100T | `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` | 3,432,399,297 | T9+c.1 + T9+d post-fix cross-build pair (May 9-10) |
 
 **Deprecated canonicals retired:** `c34390c0` (d3 5.6T, +1,030-record undercount via pre-fix resume bug class) and `f7b8c4fb` (d3 10T, +4,607-record undercount). Both have replacement pointers in CANONICAL_HASHES.md and full forensic narrative in HISTORY.md + the private investigation doc.
 
@@ -2581,7 +2581,7 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 
 All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modeled on the single-C-file rule): the P2 subcommands `solve.py --compute-stats`, `solve.py --marginals`, `solve.py --bivariate`, `solve.py --joint-density` read the 100T canonical `solutions.bin` / per-chunk parquet outputs and produce the distributional-analysis artifacts. The only Python file outside `solve.py` is `viz/visualize.py` (PCA plots); the `scripts/` subdirectory that briefly held `compute_stats.py`/`p2_marginals.py`/`p2_bivariate.py`/`p2_joint_density.py` during P2 development was retired on 2026-04-21 as those scripts were consolidated into `solve.py`.
 
-**Data.** Canonical v1 reference shas, record counts, reproducibility parameters, and validation status are centralized in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The current deepest partial enumeration is the d3 100T canonical (3,432,399,298 orderings). 100T solutions.bin (102 GB) lives on `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS, preserved across VM tear-down).
+**Data.** Canonical v1 reference shas, record counts, reproducibility parameters, and validation status are centralized in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The current deepest partial enumeration is the d3 100T canonical (3,432,399,297 orderings). 100T solutions.bin (102 GB) lives on `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS, preserved across VM tear-down).
 
 **Selftest baseline.** sha `403f7202…` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only. Full sha + parameters in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 
@@ -2927,7 +2927,7 @@ v2/v1 record ratio collapses fast as budget grows:
 | 100B | 12,386,121 | 25,318,023 | **2.04×** |
 | 10T | 706,422,987 | (not measured) | ~1.07× (interpolated) |
 | 11.2T | 759,608,573 | 796,357,285 | **1.05×** |
-| 100T (extrapolated) | 3,432,399,298 | est. ~3.5B | ~1.02× |
+| 100T (extrapolated) | 3,432,399,297 | est. ~3.5B | ~1.02× |
 
 The v2 prunes (C5 / #67 / #70) don't create new solutions — they
 only redirect search effort by killing dead branches earlier. They
@@ -3950,7 +3950,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 - solutions.bin sha256: **`cc4a5377199f0710c99406c6e82e44f311ef34b2e53b152d67f5d0fcd2ace091`**
 - Unique records: **3,663,580,914** (3.66 B)
 - File size: 117,234,589,280 bytes (117.23 GB)
-- **+231,181,616 records (+6.74%) vs v1 100T `915abf30…`** — much larger than the "~1-2% diminishing returns" extrapolation in CANONICAL_HASHES.md had predicted. The v2 prune stack retains substantive uplift at 100T depth, not saturation. That doc's lineage note was updated to reflect the corrected empirical scaling (+4.83% at 11.2T → +6.74% at 100T).
+- **+231,181,617 records (+6.74%) vs v1 100T `915abf30…`** — much larger than the "~1-2% diminishing returns" extrapolation in CANONICAL_HASHES.md had predicted. The v2 prune stack retains substantive uplift at 100T depth, not saturation. That doc's lineage note was updated to reflect the corrected empirical scaling (+4.83% at 11.2T → +6.74% at 100T).
 - `solve --verify` PASS: sort-order violations 0, duplicates 0, King Wen found.
 
 **Phase 4 archive** (2026-05-23 20:33 → ~23:45 UTC):
@@ -4668,6 +4668,8 @@ count is what the docs now reflect. The v2-vs-v1 100T delta, computed from
 the two counts, consequently becomes +231,181,**616** records (+6.74%),
 not +231,181,**617**. The percentage uplift is unchanged.
 
+*(Correction 2026-07-04: the "off-by-one correction" above is itself wrong — kept verbatim as historical record. The "divides cleanly by 32" quotient **includes the file's 32-byte header**; the correct arithmetic is (109,836,777,536 − 32) / 32 = **3,432,399,297**, which matches every primary source: analyze §[1] and §[28], the solver-written `solutions.meta.json`, and the independent verify log ("all 3432399297 records"). The 2026-05-12 count this entry "corrected" was right all along, and the merge supervisor's rc=22 described below was computing the same header-inclusive quotient. All docs were re-corrected to 3,432,399,297 on 2026-07-04; the v2/v1 delta reverts to +231,181,617. The sha256 anchors were never affected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.)*
+
 The cold archive landed at
 `solver-data-westus3:/canonical-archive/20260530_100T_revalidation_4e15885/`,
 containing `solutions.bin.gz` (12.6 GB at gzip -9, ~8.9× compression),
@@ -4793,6 +4795,8 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 | Top pairwise MI value (§[10]) | 1.15 (pos 19↔20) | 1.40 (pos 20↔21) | 1.34 (pos 12↔13) |
 | Boundary 4 conditional info gain (§[18]) | – | – | 45.14 bits |
 | Records | 742 M | 800 M | 10.5 B |
+
+*(Table caveats, added 2026-07-04 primary-evidence sweep: no 11.2T analyze log is locally available, so the 11.2T column is pending archive confirmation. Its "1.40 (pos 20↔21)" MI entry exactly matches the **d3 10T** log's top pair (1.3948, 20↔21) — possibly a dataset mislabel. "Records 800 M" is ambiguous between v1 11.2T (759,608,573) and v2 11.2T (796,357,285). The 742M §[8] figure of 4 was computed under the pre-format-v1 "survivors ≤ 4" convention (that format stored 4 orientation variants per ordering), whereas canonical-era §[8] uses "≤ 1" — the cross-era series is directionally sound but not convention-identical. The §[8] = 8 value is log-verified at **d3 10T**; whether 11.2T is also 8 awaits the archived 11.2T analyze output.)*
 
 The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T (as at 100T) no 4-tuple of boundaries reduces survivors to ≤ 1; the minimum identifying set has 5 boundaries. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — was updated 2026-06-11. *(Corrected 2026-07-04: this paragraph originally claimed the "ordered greedy application still works" at 4 boundaries — a survivor-counting artifact; boundary intersection is commutative, so no ordering of a failing 4-set can succeed. The 560T greedy minimum is 5, identical set to 100T. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 
@@ -4925,7 +4929,7 @@ position 1 forced to Creative/Receptive; canonical = pair-identity-deduped (orie
 | Scale | Per-cell budget (nodes) | Canonical records | Pair-identity cells yielding |
 |---|--:|--:|--:|
 | 11.2T | 70,723,196 | 759,608,573 | 9,799 |
-| 100T  | 631,456,644 | 3,432,399,298 | 10,062 |
+| 100T  | 631,456,644 | 3,432,399,297 | 10,062 |
 | 560T  | 3,536,157,207 | 10,525,271,997 | 10,618 |
 
 **Public summary of findings:**

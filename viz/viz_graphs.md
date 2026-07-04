@@ -18,7 +18,7 @@ across the three canonical depths (11.2T → 100T → 560T), with a power-law fi
 
 - Records grow **sublinearly** with budget: ×50 budget (11.2T→560T) yields only ×13.86 records
   (global power-law exponent α ≈ 0.67; recent-leg α ≈ 0.65). The three measured points
-  (11.2T = 759,608,573; 100T = 3,432,399,298; 560T = 10,525,271,997) lie close to the fit line.
+  (11.2T = 759,608,573; 100T = 3,432,399,297; 560T = 10,525,271,997) lie close to the fit line.
 - The enumeration is **strictly nested** (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations) and
   **deepening, not broadening** — growth is existing productive cells yielding more, not new cells
   opening. None of the sampled sub-branches are exhausted at 560T, so the curve is the growth of a
@@ -94,3 +94,7 @@ A rendered viewer with all six panels + these captions is committed alongside as
 
 Figures live under `runs/<run-id>/viz/` and are never inlined into `viz/` itself.
 See [README.md](README.md) for the full recipe.
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 100T.*

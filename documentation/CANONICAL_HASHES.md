@@ -9,7 +9,7 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 | Scale | sha256 (prefix) | Records | Status | Solver lineage |
 |---|---|---:|---|---|
 | **d3 560T** | `9a968fa2…` | 10,525,271,997 | **CANONICAL-verified** (2026-06-30: from-scratch re-run on the eviction-resume-fixed solver reproduces it byte-for-byte; see §d3 560T) | v1/v3 main |
-| d3 100T | `915abf30…` | 3,432,399,298 | Active drift + partition anchor | v1 (modern) |
+| d3 100T | `915abf30…` | 3,432,399,297 | Active drift + partition anchor | v1 (modern) |
 | d3 11.2T | `0c0fe37c…` | 759,608,573 | Active drift anchor | v1 |
 | d3 10T | `b85c8871…` | 706,427,594 | Active drift anchor | v1 (modern) |
 | d3 5.6T | `f66920c1…` | 467,484,167 | Active drift anchor | v1 (modern) |
@@ -84,7 +84,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 ### d3 100T
 
 - **sha256:** `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`
-- **Records:** 3,432,399,298 (= 3.43240 × 10⁹)
+- **Records:** 3,432,399,297 (= 3.43240 × 10⁹)
 - **File size:** 109,836,777,536 bytes
 - **Solver:** v1 (modern); v3 sha-preserves on v1 at this scale
 - **Established:** 2026-04-29 by post-`f42f2ae` code
@@ -107,7 +107,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 - **Bytes preserved on warm tier:** `solver-data-westus3:/canonical_100T/solutions.bin` (109,836,777,536 bytes; sha-verified 2026-06-12). Originate from T9+c.1 recovery May 8-9.
 - **Cold blob:** NOT uploaded. The forward-looking archive path `canonical-archive/20260530_100T_revalidation_4e15885/` referenced in earlier doc revisions is empty in actual cold blob state. A fresh v3 100T re-derive is completed 2026-06-13; consumed by the 3-point trajectory analysis (HISTORY.md 2026-06-14); archived per Canonical Archive Spec v1/13 specifically to upload a complete archive (solutions.bin.gz + per-cell shards) to cold blob.
 
-**Record-count correction 2026-05-30:** previously documented count was 3,432,399,**297**; the merge produced 109,836,777,536 bytes which divides cleanly by 32 to give 3,432,399,**298** records. Sha256 is dispositive of byte-identical content; the 1-record discrepancy was an off-by-one in the original 2026-05-12 provenance write. v2/v1 delta consequently is +231,181,**616** records (+6.74%), not +231,181,**617**.
+**Record-count correction 2026-07-04 (reverses the erroneous 2026-05-30 note that previously stood here):** the canonical 100T record count is **3,432,399,297**. The 2026-05-30 revision "corrected" the original 3,432,399,297 to 3,432,399,298 by dividing the file size (109,836,777,536 bytes) by 32 — but that quotient **includes the 32-byte file header**. Correct arithmetic: (109,836,777,536 − 32) / 32 = 3,432,399,297, which matches every primary source: `--analyze` §[1] (`records: 3432399297` / `32 header + 109836777504 records`) and §[28], the solver-written `solutions.meta.json` (`"record_count": 3432399297`), and the independent verifier (`VERIFY PASS: all 3432399297 records satisfy C1-C5`). The original 2026-05-12 provenance count was right all along. **The sha256 anchors are UNAFFECTED — only this derived count field was wrong.** The v2/v1 100T delta is consequently +231,181,**617** records (+6.74%). Convention rule going forward: record counts come only from `solutions.meta.json` / analyze §[1] / verify output — never from raw file-size division; if size arithmetic is used as a cross-check, it is (size − 32) / 32.
 
 ---
 
@@ -252,7 +252,7 @@ Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's 
 
 **v2 11.2T details:** established 2026-05-17. +36,748,712 records (+4.83%) vs v1 11.2T. Deterministic across two independent runs. Triple-storage archived: `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/` + `canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/` + claude `/tmp` fallback. solutions.bin.gz `4f1cd8b3…`. **Cross-architecture witness (2026-05-21):** ARM Cobalt Neoverse-N2 (D96ps_v6 + D32ps_v6, gcc 13.3.0 `-mcpu=native`, ARM binary sha `e5cfc6cd…`) produces byte-identical sha. G2 proof artifacts at `solver-data-westus3:/20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`.
 
-**v2 100T details:** established 2026-05-23 (campaign `20260521_v2_100T_buildA`). Phase 1 enum ~40h across 3 Spot evictions on D128als_v7 westus3; 61,550 shards, 481 GB raw. Phase 3 merge: Standard D32als_v7 + 1.5 TB Premium SSD scratch, external chunked-sort. +231,181,616 records (+6.74%) vs v1 100T. `solve --verify` PASS. Binary sha `6fdb10da…`. Dual-storage: `solver-data-westus3:/20260521_v2_100T_buildA/final/` + `canonical-archive/20260521_v2_100T_buildA/`. No Build B cross-build (v2 100T was a comparison baseline, not load-bearing). v2 100T shards deleted from managed disk post-archive (~481 GB freed). solutions.bin.gz size 13,462,264,289 bytes (sha `f6b554ea…`, ~9.35× compression).
+**v2 100T details:** established 2026-05-23 (campaign `20260521_v2_100T_buildA`). Phase 1 enum ~40h across 3 Spot evictions on D128als_v7 westus3; 61,550 shards, 481 GB raw. Phase 3 merge: Standard D32als_v7 + 1.5 TB Premium SSD scratch, external chunked-sort. +231,181,617 records (+6.74%) vs v1 100T. `solve --verify` PASS. Binary sha `6fdb10da…`. Dual-storage: `solver-data-westus3:/20260521_v2_100T_buildA/final/` + `canonical-archive/20260521_v2_100T_buildA/`. No Build B cross-build (v2 100T was a comparison baseline, not load-bearing). v2 100T shards deleted from managed disk post-archive (~481 GB freed). solutions.bin.gz size 13,462,264,289 bytes (sha `f6b554ea…`, ~9.35× compression).
 
 **Lineage notes (corrected 2026-05-25):** The 2026-05-21 merge `3128942` was a v2-bundled merge that brought the v2 prune stack into `main`. v3 BRANCH `origin/v3` (`8b1658b` based on `2cf8771` May 10 pre-v2-prune) is the clean v3-design code — v1 prune set + #72 bitset + v3.1 orphan-promotion, no v2 prune tax. **On 2026-05-25 (afternoon), `main`'s `solve.c` was reset to v3 BRANCH's `solve.c`** so future `main`-based canonicals reproduce v1's sha family at every tested scale. The doc history on `main` (v2 100T canonical, paired bench, PGO retraction, McKenna audit, etc.) is preserved as project record. Pre-reset state preserved at tags `v2-merged-2026-05-21` and `v2-with-v3.1-attempt-2026-05-25`.
 

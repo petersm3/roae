@@ -202,7 +202,7 @@ The pair structure is genuinely extraordinary — zero of 1.86 billion permutati
 
 The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
 - **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30, **current deepest**)
-- **d3 100T partition: 3,432,399,298** (sha `915abf30…`, 2026-04-20)
+- **d3 100T partition: 3,432,399,297** (sha `915abf30…`, 2026-04-20)
 - **d3 10T partition: 706,422,987** (sha `f7b8c4fb…`)
 - **d2 10T partition: 286,357,503** (sha `a09280fb…`)
 
@@ -242,3 +242,7 @@ The percentiles are Monte Carlo estimates based on 10,000-100,000 random permuta
 - [CRITIQUE.md](CRITIQUE.md) — Known limitations of the program's statistical methodology
 - [Example output](../example/README.md) — Full program output with all 28 analyses
 - Run it yourself: `python3 roae.py --seed 42` for reproducible results, or just `python3 roae.py` for a fresh random run
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

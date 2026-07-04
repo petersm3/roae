@@ -60,23 +60,26 @@ These sections — per-position entropy, mutual information, the 560T/100T canon
 
 ### Per-position constraint strength (Shannon entropy)
 
-Across the canonical datasets, the Shannon entropy H(p) of the pair distribution at each position p quantifies how much "choice" exists at that position (in bits; max possible is log₂(32) = 5.0 bits if any pair were equally likely). Values below are from the d3 10T canonical dataset (706M orderings):
+Across the canonical datasets, the Shannon entropy H(p) of the pair distribution at each position p quantifies how much "choice" exists at that position (in bits; max possible is log₂(32) = 5.0 bits if any pair were equally likely). Values below are from the d3 10T canonical dataset (706M orderings; §[2], `runs/20260418_10T_d3_fresh/analyze_output.log.gz`):
 
 | Positions | H (bits) | Character |
 |-----------|---------:|-----------|
 | 1 | 0.00 | Fully determined (only Creative/Receptive) |
-| 2 | 3.83 | Near-free (28 distinct pairs observed) |
-| 3 | 4.12 | Most free of all positions (31 pairs observed) |
-| 4-20 | 0.28 – 1.72 | Highly constrained — the "cascade region" |
-| 21 | 1.71 | Transition |
-| 22-31 | 3.45 – 3.65 | Moderately free |
-| 32 | 2.66 | Partial constraint (7 pairs) |
+| 2 | 4.29 | Near-free (28 distinct pairs observed) |
+| 3-4 | 4.52, 4.50 | Most free of all positions (31 pairs each) |
+| 5-20 | 0.48 – 1.85 | Highly constrained — the "cascade region" |
+| 21-22 | 1.61, 1.74 | Transition |
+| 23 | 3.15 | Transition into the freer back zone |
+| 24-31 | 3.41 – 3.54 | Moderately free (14 pairs each) |
+| 32 | 2.58 | Partial constraint (7 pairs) |
 
-Mean H = 2.05 bits per position. The peak at position 3 (not position 2) is because the solver's enumeration fixes position 2 first, so freedom is pushed one step downstream. The cascade region (positions 4-20) carries only 0.3-1.7 bits each — a very different regime from the "free" regions above and below it.
+Mean H = 2.29 bits per position. Positions 2-4 are all high-entropy at d3 because the depth-3 enumeration partition leaves three near-free pair choices at the front (position 1 is forced); the cascade region proper begins at position 5 and carries only 0.5-1.9 bits each — a very different regime from the "free" regions above and below it.
+
+*(Revision 2026-07-04, primary-evidence sweep: this table and the MI example below previously presented values from the legacy 742M dataset — an invalidated-era artifact retained for forensic reference only — mislabeled as "d3 10T" (pos 2 = 3.83, pos 3 = 4.12, "cascade 4-20", mean H = 2.05, top MI 19↔20 = 1.15). They have been replaced with the actual d3 10T log values, which also change the structural narrative: at d3 positions 2-4 are all near-free, and the cascade region is 5-20, not 4-20.)*
 
 ### How positions relate to one another (mutual information)
 
-Pairwise mutual information I(p; q) measures how much knowing the pair at position p reduces uncertainty about position q. The strongest correlations are between adjacent positions in the cascade region (e.g., position 19 ↔ 20 = 1.15 bits), reflecting the tight local propagation. Notably: **boundaries 25 and 27 — both mandatory — have weak mutual information with everything else** (max I ≈ 0.19 bits).
+Pairwise mutual information I(p; q) measures how much knowing the pair at position p reduces uncertainty about position q. The strongest correlations are between adjacent positions in the cascade region (top pair at d3 10T: position 20 ↔ 21 = 1.39 bits; §[10]), reflecting the tight local propagation. Notably: **boundaries 25 and 27 — both mandatory — have weak mutual information with everything else** (max I ≈ 0.19 bits).
 
 Per-boundary conditional entropy on d3 (`analyze_d3.log` section [18]) directly quantifies how much fixing a boundary to match KW reduces total sequence uncertainty (baseline: 73.17 bits across 32 positions). The most informative boundaries are the early ones: boundary 4 contributes 46.8 bits of information, boundary 5 contributes 42.7 bits, boundary 6 contributes 39.7 bits. **Boundaries 25 and 27 sit mid-pack at 9.96 and 10.64 bits** — roughly one-fifth the information content of the top boundaries. Yet they are mandatory while the high-information boundaries are interchangeable. What makes `{25, 27}` mandatory is not that they carry more information but that the information they carry is **structurally independent** of all other boundaries: they eliminate non-KW solutions that no combination of other boundaries can reach.
 
@@ -94,20 +97,20 @@ This explains why a minimum 4-set like {2, 21, 25, 27} (d2's greedy pick) or {1,
 **560T canonical sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** — 10,525,271,997 canonical orderings, established by full C1+C2+C3 enumeration at 560 trillion node budget (per-cell budget 3.536 × 10⁹ × 158,364 cells). The full `--analyze` pass over the 10.5 B canonical record set was completed 2026-06-11 (3 h 47 m on D128 with the algorithmic rewrites in commits 8ac5e8f / fe58e71 / bf8d8a5 / c0ec4c3 — see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry). Headline findings (560T scope):
 
 - **Greedy minimum boundaries to uniquely identify KW: 5**, set **{4, 27, 25, 21, 1}** (consumed in that order; each step eliminates the prior survivors) — identical in membership and greedy order to the 100T result. Boundary 4 alone eliminates 10,525,220,592 of 10,525,271,996 non-KW records (99.999%), then 27 → 481 survivors, then 25 → 14, then 21 → 1, then 1 → 0. The single record surviving the first four boundaries is rec#330177707 — KW with the pair blocks at positions 2 and 3 interchanged. *(Corrected 2026-07-04: previously reported as "4, set {4, 27, 25, 21}" — a survivor-counting error that stopped at 1 non-KW survivor instead of 0; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
-- **Working 4-subset count (§[8]) collapses to 0 at 560T**, vs 4 at 742M and 8 at 11.2T. At 560T (as at 100T) there is no 4-tuple of boundaries that, applied jointly to the 10.5 B record set, reduces survivors to ≤ 1 — consistent with the §[6] greedy minimum of 5. **This makes the "4-set uniquely identifies KW" framing scale-bounded; at canonical depth the minimum is 5.**
+- **Working 4-subset count (§[8]) collapses to 0 at 560T**, vs 4 at 742M and 8 at 11.2T. At 560T (as at 100T) there is no 4-tuple of boundaries that, applied jointly to the 10.5 B record set, reduces survivors to ≤ 1 — consistent with the §[6] greedy minimum of 5. **This makes the "4-set uniquely identifies KW" framing scale-bounded; at canonical depth the minimum is 5.** *(Cross-era caveats, added 2026-07-04: the "8" is log-verified at d3 10T; the 11.2T attribution awaits confirmation from the archived 11.2T analyze log. The 742M figure of 4 was computed under the pre-format-v1 "survivors ≤ 4" convention — that format stored 4 orientation variants per ordering — whereas canonical-era §[8] uses "≤ 1"; the series is directionally sound but not convention-identical.)*
 - **Mandatory boundaries 25 + 27 are still mandatory** under the greedy-ordered framing — both appear in the §[6] minimum set. The boundary-25/27 *independence* (§[9]: 25+27 ratio = 0.007) is reaffirmed: their information is not implied by any other boundary.
 - **Complement distance (C3) = 776 still the CEILING.** KW is at the maximum of the constraint; large equivalence cohort at the 776 ceiling persists.
 - **Edit-distance distribution heavily right-skewed**, mode at distance 30 with 2,789,988,449 records (26.5%). 96% of records are at distance ≥ 25 from KW. KW is structurally rare in the canonical-solution space at 560T scale.
 - **Top pairwise mutual information**: pos 12 ↔ pos 13 = **1.3417 bits**; cascade-region positions 11–20 own the entire top-10 of pairwise MI. Mandatory boundaries 25, 27 do *not* appear in the top-20 MI pairs — confirming their structural independence from the cascade-region MI cluster.
-- **Per-position conditional entropy headline (§[18])**: boundary 4 alone yields 45.14 bits of information gain (baseline H = 77.81 bits across 31 positions). Boundaries 25 and 27 contribute 10.73 and 10.63 bits respectively — mid-pack on info-gain but indispensable in the *combinatorial* sense per the greedy result.
+- **Per-position conditional entropy headline (§[18])**: boundary 4 alone yields 45.14 bits of information gain (baseline H = 77.81 bits, summed over all 32 positions — position 1 contributes 0.00; wording corrected 2026-07-04 from "across 31 positions"). Boundaries 25 and 27 contribute 10.73 and 10.63 bits respectively — mid-pack on info-gain but indispensable in the *combinatorial* sense per the greedy result.
 
 Full §[1]–§[28] analyze findings: see [HISTORY.md](HISTORY.md) "June 10-11, 2026" entry (public) and `roae-private/560T_FINAL_ANALYSIS.md` (operator-private working analysis log).
 
-**3-point scaling trajectory (11.2T → 100T → 560T, 2026-06-14).** The per-cell record sets across the three deepest canonicals are **strictly nested** (11.2T ⊆ 100T ⊆ 560T) with 0 monotonicity violations under pair-identity keying — records 759,608,573 → 3,432,399,298 → 10,525,271,997, pair-identity cells yielding 9,799 → 10,062 → 10,618. Growth is **sublinear** (×50 per-cell budget → ×13.86 records; power-law α ≈ 0.67) and is **deepening, not broadening**: cells first appearing at a larger scale contribute only ~0.2% (→100T) and ~0.5% (→560T) of that scale's records. Every sampled sub-branch is still BUDGETED (none EXHAUSTED) at 560T, so the exhaustive enumeration cannot report the total number of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and no feasible budget approaches exhaustion (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible slice at a fixed budget, and the planned 1120T extension is a discriminating test of the growth asymptote rather than merely more data.
+**3-point scaling trajectory (11.2T → 100T → 560T, 2026-06-14).** The per-cell record sets across the three deepest canonicals are **strictly nested** (11.2T ⊆ 100T ⊆ 560T) with 0 monotonicity violations under pair-identity keying — records 759,608,573 → 3,432,399,297 → 10,525,271,997, pair-identity cells yielding 9,799 → 10,062 → 10,618. Growth is **sublinear** (×50 per-cell budget → ×13.86 records; power-law α ≈ 0.67) and is **deepening, not broadening**: cells first appearing at a larger scale contribute only ~0.2% (→100T) and ~0.5% (→560T) of that scale's records. Every sampled sub-branch is still BUDGETED (none EXHAUSTED) at 560T, so the exhaustive enumeration cannot report the total number of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and no feasible budget approaches exhaustion (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible slice at a fixed budget, and the planned 1120T extension is a discriminating test of the growth asymptote rather than merely more data.
 
 ### 100T d3 canonical results (2026-04-20; historical reference, superseded by 560T)
 
-The 100T d3 canonical (sha `915abf30…`, 3,432,399,298 orderings, established 2026-04-20) was the deepest published enumeration prior to the 560T canonical above. Its findings are preserved here as a historical scale-comparison reference; 560T headline numbers above are now authoritative. Findings (100T scope):
+The 100T d3 canonical (sha `915abf30…`, 3,432,399,297 orderings, established 2026-04-20) was the deepest published enumeration prior to the 560T canonical above. Its findings are preserved here as a historical scale-comparison reference; 560T headline numbers above are now authoritative. *(Revision 2026-07-04: the 100T record count throughout this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-level "correction" had divided the file size by 32 without subtracting the 32-byte header; sha256 anchors unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.)* Findings (100T scope):
 
 - **Boundary minimum was 5 at 100T** (greedy-optimal set **{1, 4, 21, 25, 27}**); the d2 10T and d3 10T canonicals had 4 specific boundaries uniquely determining KW. Boundaries {25, 27} remain mandatory across all three partitions. Note: the 560T re-evaluation above confirms the greedy minimum **stays 5 at 560T with the identical set {1, 4, 21, 25, 27}** — the trajectory is monotone 4 → 5 → 5 *(corrected 2026-07-04: this note previously claimed "4 again at 560T"; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*.
 - **Complement distance (C3) = 776 is the CEILING, not the floor.** KW's C3 is at the maximum of the constraint. 340,179,649 records (9.91%) tie at exactly 776; minimum C3 is 424 (221 records). Axiom "minimize C3" does NOT pick KW; KW is in a large ~10% equivalence cohort at the C3 ceiling. Rule 3 is a ceiling constraint, not a minimization (see updated §Rule 3).
@@ -143,7 +146,7 @@ Reproducibility: the built-in `./solve --yield-report` subcommand reads a solve.
 ## Observed distributional regularity: KW's position in joint observable space
 
 Separate from the yield-clustering analysis above — at the record level across
-the 3,432,399,298 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimensional
+the 3,432,399,297 C1-C5 valid orderings in the 100T d3 canonical — a 10-dimensional
 observable-statistics vector was computed per ordering and KW's position in the
 joint distribution was quantified via kernel density estimation + bootstrap.
 

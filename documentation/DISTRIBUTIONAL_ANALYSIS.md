@@ -12,7 +12,7 @@ space and produces quantified claims about KW's statistical distinctiveness
 that are defensible without requiring full (infeasible) enumeration.
 
 **Scope of the analysis below:** this analysis was computed on the
-**100 T d3 canonical** (3,432,399,298 orderings, sha256 `915abf30…`). The
+**100 T d3 canonical** (3,432,399,297 orderings, sha256 `915abf30…`). The
 **560 T canonical** (10,525,271,997 orderings, sha `9a968fa2…`, established
 2026-06-08) is the new deepest published enumeration; a re-run of this
 distributional analysis at 560 T is queued and will appear as a new section
@@ -57,11 +57,11 @@ records. (Subcommand: `solve.py --marginals`; full table in
 | `edit_dist_kw` | **0** | 0 | 1 | **0.0000%** (unique to KW) |
 | `c3_total` | **776** | 3,092,219,648 | 340,179,649 | **95.04%** |
 | `c6_c7_count` | **2** | 3,432,200,621 | 198,676 | **99.997%** |
-| `max_transition_hamming` | 6 | 0 | 3,432,399,298 | 50.00% (invariant) |
+| `max_transition_hamming` | 6 | 0 | 3,432,399,297 | 50.00% (invariant) |
 | `fft_dominant_freq` | **16** | 776,656,635 | 433,156,350 | **28.94%** |
 | `shift_conformant_count` | **17** | 3,429,763,541 | 2,635,756 | **99.96%** |
 | `first_position_deviation` | **33** | 3,432,399,296 | 1 | **100.00%** (unique) |
-| `mean_transition_hamming` | 3.3492 | 0 | 3,432,399,298 | 50.00% (invariant) |
+| `mean_transition_hamming` | 3.3492 | 0 | 3,432,399,297 | 50.00% (invariant) |
 | `fft_peak_amplitude` | ~374.77 | ~3,276,971,650 | ~324,161 | **~95.48%** |
 
 **Interpretation of marginals:**
@@ -204,7 +204,7 @@ be over-interpreted.
 All scripts and intermediate data are preserved:
 
 - **Input:** `solutions.bin` on `solver-data-westus3` managed disk (sha256
-  `915abf30…`, 3,432,399,298 records)
+  `915abf30…`, 3,432,399,297 records)
 - **Stat computation:** `solve.py --compute-stats` — per-record 10-dim
   vector, output as per-chunk parquet directory
 - **Marginal analysis:** `solve.py --marginals` (streaming histograms)
@@ -362,3 +362,7 @@ constraint principles (both avoid 5-line transitions; see the no-5 shared-proper
 organizationally unrelated. The nuclear-map terminal set {0, 21, 42, 63} coincides exactly with C4's fixed
 pair plus the final alternating pair — a classical fact whose alignment with the sequence's anchors is
 noted without a significance claim (it is a property of the hexagram set, not of the ordering).
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

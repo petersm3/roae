@@ -346,7 +346,7 @@ counts come out as:
 | Budget | Sub-branch budget | Unique orderings (canonical form) | sha256 prefix |
 |---|---|---|---|
 | 10T (10^13 nodes) | ~63 M / d3 sub-branch | 706,422,987 | `f7b8c4fb…` |
-| 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,298 | `915abf30…` |
+| 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,297 | `915abf30…` |
 | **560T (5.6 × 10^14 nodes)** | **~3.5 B / d3 sub-branch** | **10,525,271,997** | `9a968fa2…` |
 | (unbounded — exhaustion) | (exhausted to true completion) | ≈3×10³⁷ distinct-canonical (est.)¹ | — |
 
@@ -583,3 +583,7 @@ gap is one of the primary research goals of the project.
 
 For implementation details and the actual C source code, see
 [solve.c](../solve.c) and the per-mode comments at the top of that file.
+
+---
+
+*Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
