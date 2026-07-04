@@ -1,0 +1,50 @@
+KNUTH-ESTIMATE probes=2000000000 threads=32 start_step=1 prefix_levels=0
+  tree_nodes            : est=2.087365e+40  95%CI=[2.0871e+40, 2.0876e+40]  relerr=0.01%  hitrate=1
+  leaves_C1C2C4C5       : est=1.096517e+39  95%CI=[1.0959e+39, 1.0972e+39]  relerr=0.03%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.327511e+38  95%CI=[1.3252e+38, 1.3298e+38]  relerr=0.09%  hitrate=0.0018
+  [dav 1 termruns    ] mean=5.162448 min=1 max=6 kw=3 below=0.00181462 at=0.02517824 above=0.97300714
+  [dav 2 compmirror  ] mean=0.011253 min=0 max=2 kw=1 below=0.98879171 at=0.01116315 above=0.00004514
+  [dav 3 trigarray   ] mean=0.000679 min=0 max=1 kw=1 below=0.99932104 at=0.00067896 above=0.00000000
+  [dav 4 parallel3040] mean=0.000000 min=0 max=0 kw=1 below=1.00000000 at=0.00000000 above=0.00000000
+  [dav 5 palnbr      ] mean=4.923239 min=0 max=20 kw=10 below=0.92133285 at=0.05816653 above=0.02050062
+  [dav 6 rotinv      ] mean=0.000065 min=0 max=1 kw=1 below=0.99993469 at=0.00006531 above=0.00000000
+  [dav 7 pureplace   ] mean=0.005562 min=0 max=1 kw=1 below=0.99443848 at=0.00556152 above=0.00000000
+  [dav 8 eccplace    ] mean=0.000000 min=0 max=0 kw=1 below=1.00000000 at=0.00000000 above=0.00000000
+  [dav 9 asymhalf    ] mean=7.335240 min=0 max=16 kw=4 below=0.04980830 at=0.14540542 above=0.80478628
+dav_hist termruns 1 3.7073544811e-05
+dav_hist termruns 2 1.7775495965e-03
+dav_hist termruns 3 2.5178240089e-02
+dav_hist termruns 4 1.5991384368e-01
+dav_hist termruns 5 4.3489438562e-01
+dav_hist termruns 6 3.7819890747e-01
+dav_hist compmirror 0 9.8879171285e-01
+dav_hist compmirror 1 1.1163147820e-02
+dav_hist compmirror 2 4.5139326076e-05
+dav_hist trigarray 0 9.9932104241e-01
+dav_hist trigarray 1 6.7895758543e-04
+dav_hist parallel3040 0 1.0000000000e+00
+dav_hist palnbr 0 6.4299055100e-02
+dav_hist palnbr 2 1.9611841189e-01
+dav_hist palnbr 4 2.7725342288e-01
+dav_hist palnbr 6 2.4163088825e-01
+dav_hist palnbr 8 1.4203106846e-01
+dav_hist palnbr 10 5.8166531386e-02
+dav_hist palnbr 12 1.6837076956e-02
+dav_hist palnbr 14 3.2172442466e-03
+dav_hist palnbr 16 4.1690976127e-04
+dav_hist palnbr 18 2.7956444011e-05
+dav_hist palnbr 20 1.4346245987e-06
+dav_hist rotinv 0 9.9993468902e-01
+dav_hist rotinv 1 6.5310975716e-05
+dav_hist pureplace 0 9.9443847576e-01
+dav_hist pureplace 1 5.5615242360e-03
+dav_hist eccplace 0 1.0000000000e+00
+dav_hist asymhalf 0 5.5658106039e-03
+dav_hist asymhalf 2 4.4242491151e-02
+dav_hist asymhalf 4 1.4540541784e-01
+dav_hist asymhalf 6 2.5914281139e-01
+dav_hist asymhalf 8 2.7646894751e-01
+dav_hist asymhalf 10 1.8248859453e-01
+dav_hist asymhalf 12 7.1137719781e-02
+dav_hist asymhalf 14 1.4392515153e-02
+dav_hist asymhalf 16 1.1556920441e-03

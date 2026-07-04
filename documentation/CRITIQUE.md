@@ -390,3 +390,12 @@ additionally requires the corpus-control specificity gate. All nine will be repo
 outcome; nothing promotes to a solver constraint regardless. Full operationalizations with KW values are
 frozen in the private audit (derived-insights-only handling of the copyrighted source; claims cited by
 page in the eventual report).
+
+**Davis results (2026-07-04, reported in full as pre-committed):** of the nine registered candidates,
+Davis's flagship compositional claims (terminal contiguity, the 7–16 mirror, palindrome adjacency, the
+asymmetric half-split) are NULL after Bonferroni; the #43–50 trigram array is notable (6.8×10⁻⁴); the
+exact-placement templates are rare-by-construction (data-like class — including two with zero sampled
+mass at 2×10⁹ probes) and, per the standing circularity policy, carry no design inference; corpus
+controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided
+convention nothing reaches the candidate-rule level; nothing promotes. Full treatment:
+[reports/TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).

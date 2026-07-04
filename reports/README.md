@@ -20,6 +20,7 @@ record. Reproducibility contract: CANONICAL_HASHES; attribution registry: CITATI
 | [TR-6](TR6_PARITY_SKELETON.md) | The Parity Skeleton | Exactly 15 alternations, always | prose + Lean kernel + SAT certs |
 | [TR-7](TR7_CIRCULAR_READING.md) | The Circular Reading | Wrap parity forced; 5-wraps are 17.4% of the space yet 0 in 10.5B slice records | Lean + SAT witness + estimator |
 | [TR-8](TR8_REORDERING_REVISITED.md) | A Reordering Revisited | McKenna & Mair (1979): premise refuted; construction impossible by parity | 2-line proof + sampling |
+| [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) | A Textual Archaeology, Measured | Davis's (2012) structural claims tested against the population: flagship units typical, one uniqueness claim corrected, exact templates data-like | pre-registered batch + corpus control |
 | [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) | Pricing the Constraints | C1 explains ~146 bits (and is optimal); C5 is confirmed description; ~126 bits unexplained | measured ledger (conventions stated) |
 
 **Reading paths.** Newcomer: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) → [TR-4](TR4_SIZE_OF_THE_SPACE.md) → [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md). Systems engineer: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) first (its methods transfer
