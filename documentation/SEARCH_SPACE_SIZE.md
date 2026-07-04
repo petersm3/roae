@@ -152,3 +152,13 @@ prior structural estimate was 15–20). A bracketing run choosing among the *wea
 magnitude per step. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
 masses starve below ~10⁻¹³ hit rates) and is queued as a future measurement. Reproduce:
 `SOLVE_KNUTH_PIN_SLOTS="3,4,26,27,24,25,20,21" SOLVE_KNUTH_BOUNDARY_COND=1 ./solve --estimate-knuth 2000000000`.
+
+## Absolute validation against an exact count (2026-07-04)
+
+The estimator now has a full-scale ground-truth anchor: |C1∩C2∩C4| was computed EXACTLY
+(757,058,601,340,255,440,651,419,713,405,330,315,358,208, via the S4-orbit-quotient dynamic program — see
+DESCRIPTION_LENGTH.md and reports/TR5). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
+±0.01%) deviates from the exact value by 5.5×10⁻⁵ — about half its stated error bound. Every other
+estimate in this document uses the same machinery at comparable or better hit rates; this is direct
+evidence the stated envelopes are honest. (The full C1–C5 count remains an estimate: the exact DP's
+state space with C5 tracking is ~2.5 TB even quotiented — see the F1 working notes.)

@@ -26,7 +26,7 @@ compression − statement cost. Conventions, declared up front:
 |---|---|---|---|---|---|
 | baseline (any ordering) | 64! | 296.0 | — | — | — |
 | + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
-| + C2 (no-5) | 7.571×10⁴¹ (±0.01%, measured 2026-07-03) | 139.1 | 4.6 | ~3 (family of per-distance bans) | **+1.6** |
+| + C2 (no-5) | **7.5706×10⁴¹ — EXACT** (757,058,601,340,255,440,651,419,713,405,330,315,358,208; S4-orbit dynamic program, 2026-07-04) | 139.12 | 4.6 | ~3 (family of per-distance bans) | **+1.6** |
 | + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 23.3⁴ | **−13.9 (descriptive, measured)** |
 | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
 | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.2 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
@@ -63,3 +63,9 @@ and [CITATIONS.md](CITATIONS.md).*
 stated as 144.4 rather than the correct 143.7 — propagated to C4's marginal (5.3 → 6.0) and C2's marginal
 and net (5.3/+2.3 → 4.6/+1.6). Caught by adversarial replication review; no conclusion changes (C2 remains
 modestly explanatory, C5 remains descriptive).*
+
+*Exactness note (2026-07-04): the |C1∩C2∩C4| cell is now an EXACT integer — computed by the
+symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4`, ~4 minutes on 64 cores), exactly divisible
+by 24 as the free-action theorem requires. The prior Knuth estimate (7.571×10⁴¹ ±0.01%) deviates from
+the exact value by 5.5×10⁻⁵ — well inside its stated envelope — the estimator's first validation
+against full-scale ground truth.*
