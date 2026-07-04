@@ -45,7 +45,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **The constraints do not determine the sequence.** The C1–C5 space holds 1.33×10³⁸ orderings; adding
   C6–C7 still leaves ~5×10³¹. The folk conjecture that the constraints pin down King Wen is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
-  jointly unsatisfiable — no ordering can be perfect under all of them. King Wen keeps one exactly and
+  jointly unsatisfiable for any ordering preserving the classical pairing — none can be perfect under all of them. King Wen keeps one exactly and
   misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are theorems** — forced by the constraint system, not chosen. Others
   are genuinely discriminating (to 1 in 5×10⁷). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)

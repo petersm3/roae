@@ -10,8 +10,8 @@ the known "design rules" save you? This report prices every rule in bits, the ac
 information theory. The verdict: the classical pairing rule does almost all the work (~146 of ~296
 bits) and is provably the *best possible* rule of its kind; the no-distance-5 rule adds a small honest
 saving; and the celebrated transition-count recipe turns out to cost more to state than it saves — it
-is **description, not explanation**. After all known rules are applied, **about 126 bits of the
-sequence remain unexplained** — the honest measure of how much structure is still unaccounted for.
+is **description, not explanation**. After all known rules are applied, **between about 105 and 127 bits of the
+sequence remain unexplained (exact figure depends on the stated accounting convention)** — the honest measure of how much structure is still unaccounted for.
 This is the most judgment-dependent report in the suite; its accounting conventions are stated
 explicitly so a skeptic can re-price everything under their own.
 
@@ -146,6 +146,7 @@ explains the second half of the sequence's information content.
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
+| v1.5 | 2026-07-04 | Adversarial round 2 corrections: conflict-theorem claims scoped to pairing-preserving orderings; TR-3 weeks-not-months; TR-9 residual dual-convention phrasing |
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives); convention-sensitivity table added |
