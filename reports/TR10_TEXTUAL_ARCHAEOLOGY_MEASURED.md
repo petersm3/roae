@@ -1,7 +1,6 @@
 # TR-10 — A Textual Archaeology, Measured: Scott Davis's Structural Reading Against the Population of Valid Orderings
 
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
-*PRIVATE DRAFT (roae-private staging) — adversarial review precedes publication; do not cite.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
