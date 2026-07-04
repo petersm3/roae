@@ -23,7 +23,7 @@ a constraint system K explains 296.0 − log₂|solutions(K)| bits at statement 
 ledger under two declared statement-cost conventions (family selection vs derivation from principle). The
 measured result: the classical pairing C1 explains 146.3 bits and, post-Radisic (2026), is essentially free
 to state under the derivation convention — the unique Hamming-optimal comp/rev matching; C2 nets a modest
-+2.3 bits; C5 nets **−13.9 bits** — its statement costs 2.5× what it explains; the transition histogram is
++1.6 bits; C5 nets **−13.9 bits** — its statement costs 2.5× what it explains; the transition histogram is
 confirmed *description*, not explanation; C3's threshold is circular by construction and its 3.0 marginal
 bits are not claimed; C6/C7 are data-like and definitionally break-even. The honest thesis: roughly half
 the sequence's information is explained — nearly all of it by the pairing — leaving a residual of 105.4
@@ -69,7 +69,7 @@ explicit.
    so under the derivation convention it costs only the optimality principle. That upgrade is Radisic's,
    not ours; it is the first genuine first-principles derivation of any layer of the constraint system.
    **C2** (no 5-line transitions; McKenna & McKenna 1975) is the one honestly *net-positive* narrow rule:
-   5.3 bits of compression against ~3 bits of statement — +2.3 net. **C5** is the ledger's sharpest
+   4.6 bits of compression against ~3 bits of statement — +1.6 net. **C5** is the ledger's sharpest
    verdict: the transition multiset compresses 9.4 bits but costs 23.3 bits to state (the weak-composition
    bound), netting −13.9 — a *measured* conclusion (the C2 layer count 7.571×10⁴¹ ±0.01%, measured
    2026-07-03, pinned the marginal). C5 earns its keep operationally (it is what makes enumeration
@@ -124,6 +124,20 @@ explicit.
 ## Planned improvements (v1.1+)
 - Consider a small sensitivity table (net C1/C2/C5 under family-only vs derivation-allowed) to make     section 5 visual
 
+## Sensitivity table (planned improvement, v1.3): net bits under both statement-cost conventions
+
+All marginals from the published ledger (documentation/DESCRIPTION_LENGTH.md); the two conventions
+bracket the honest range:
+
+| Rule | Compression (bits) | Statement cost: derivation-allowed | Statement cost: family-only | Net (bracket) |
+|---|---:|---:|---:|---|
+| C1 (pairing) | 146.3 | ~0 (derived from a stated optimality principle) | ~13 (choice within the matching family) | **+133 to +146** |
+| C2 (no-5) | 4.6 | ~3 | ~3 (per-distance ban family) | **+1.6** |
+| C5 (transition multiset) | 9.4 | 23.3 (weak-composition bound) | 23.3 | **−13.9 (descriptive either way)** |
+
+The verdicts are convention-stable: C1 dominates under both readings, C2 stays marginally explanatory,
+and C5's cost exceeds its compression under any defensible statement convention.
+
 ## Update (v1.3): the residual survives a pre-registered attack
 
 Thirteen ordering-layer functionals, each drawn from a literature axis and registered with thresholds
@@ -137,7 +151,7 @@ explains the second half of the sequence's information content.
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
-| v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives) |
+| v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives); convention-sensitivity table added |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);

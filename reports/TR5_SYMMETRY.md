@@ -106,6 +106,15 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
 ## Planned improvements (v1.1+)
 - Small orbit diagram: B₃ → {±I} → S₄ with the record-level collapse
 
+## Figure: the symmetry collapse
+
+![The symmetry collapse and one 24-element orbit](figures/fig_tr5_orbit_collapse.svg)
+
+*Left: the order-48 group B₃ of C1–C5-preserving signed line-permutations collapses to a faithful
+S₄ (order 24) on solution records — {±I} acts trivially. Right: the free-action theorem means every
+valid ordering, King Wen included, sits in an orbit of exactly 24 mutually indistinguishable orderings;
+the solution count is divisible by 24, exactly.*
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
