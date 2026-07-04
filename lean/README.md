@@ -43,3 +43,9 @@ alternations, machine-checked by structural proof (transitions-as-range-map brid
 split via a kernel-decided permutation of range 63; within-pair evenness from C1; the C5 odd-transition
 count). Both sequence-level theorems of the project (wrap parity + 15 alternations) are now
 kernel-verified for ALL valid sequences, completing the Lean tier-2 program.
+
+## switches_30_general (2026-07-04)
+Third sequence-level theorem: every C1+C5-valid ordering's transition-parity string switches exactly 30
+times. Kernel-checked corollary of `alternations_15_general` + the within-pair-even lemma; discovered as
+a pre-registered F4' population functional that measured CONSTANT before being proved (reports/TR6,
+v1.3-v1.4).

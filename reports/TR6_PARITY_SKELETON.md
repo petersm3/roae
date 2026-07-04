@@ -124,7 +124,9 @@ is even (reversal preserves line-count parity; the four inverse pairs jump all 6
 transitions occupy only the 31 between-pair slots — pairwise non-adjacent and excluding both string
 ends; the main theorem gives exactly 15 odd between-pair transitions; 15 isolated interior odd values
 contribute two switches each. Discovered as a pre-registered F4' functional that came back CONSTANT
-(min=max=30 over 2×10⁹ population probes) before being proved — the measurement found the theorem.
+(min=max=30 over 2×10⁹ population probes) before being proved — the measurement found the theorem. As of v1.4 the corollary is also machine-checked: `switches_30_general` in
+lean/KingWen.lean (kernel-verified, core Lean, no mathlib) — the same three-modality status as the main
+theorem.
 
 ## Revision history
 | Version | Date | Changes |
@@ -133,3 +135,4 @@ contribute two switches each. Discovered as a pre-registered F4' functional that
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |
 | v1.3 | 2026-07-04 | 30-switches corollary added (found by F4' population measurement, then proved) |
+| v1.4 | 2026-07-04 | Corollary machine-checked: switches_30_general kernel-verified in lean/KingWen.lean |
