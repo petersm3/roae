@@ -92,6 +92,17 @@ inherits.
    15 alternations — derived and machine-checked independently of each source, but the family resemblance
    is real and the credits stand.
 
+## Figure
+
+![King Wen's 32-pair parity-class string: 32 colored squares (blue E = even popcount parity, orange O = odd), 16 of each class, with red marks at each of the exactly 15 class alternations across the 31 pair boundaries.](figures/fig_tr6_parity_alternations.png)
+
+*King Wen's parity-class string. Each square is one of the 32 pairs in sequence order (pair p = King Wen
+positions 2p−1, 2p); its class is the popcount parity of its hexagrams (parity-homogeneous per Lemma 1, so
+the first member determines it). The split is exactly 16 E / 16 O (Lemma 2), the first pair {63, 0} is even
+(pinned by C4), and the red marks count exactly 15 alternations — the theorem's forced value, which every
+C1–C5-valid ordering shares. Computed directly from solve.py's King Wen sequence by
+[`viz/report_figures.py`](../viz/report_figures.py); [SVG](figures/fig_tr6_parity_alternations.svg).*
+
 ## Verification Guide
 - Theorem statement, lemmas, arrangement count: documentation/PARITY_ALTERNATION.md (lemma claims and KW's
   count verifiable in seconds from SPECIFICATION.md / solve.py; the arrangement count is the elementary
@@ -105,11 +116,9 @@ inherits.
 - Lineage and full citations: documentation/CITATIONS.md §Attributed candidate rules
 - Wrap-parity corollary source theorem: documentation/SPECIFICATION.md
 
-## Planned improvements (v1.1+)
-- One figure: the 16E/16O class string of King Wen with its 15 alternations marked
-
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
+| v1.2 | 2026-07-04 | Figures added |

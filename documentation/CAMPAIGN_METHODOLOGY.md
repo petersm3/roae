@@ -452,7 +452,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | `solve --verify` | PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found |
 | `verify.py --jobs 16` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
 | Total realized cost | recorded in HISTORY.md campaign ledger (projection was $150–185; actual varied with eviction-defer wall-time) |
-| Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:28, Wed 07:25, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
+| Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
 | Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
 | Post-merge SPOF discovered + remediated | Per §4.1: the merge supervisor does NOT auto-copy solutions.bin to solver-data; explicit copy was added mid-campaign before teardown. solver-data resized 2 TB → 4 TB online to fit uncompressed + gzip-mirror artifacts. |
