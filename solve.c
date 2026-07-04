@@ -4788,6 +4788,11 @@ typedef struct {
     int reg_min_mmt3;                     /* min MM-T3 Gray-transition count seen, -1 = none (KW 4) */
     int reg_max_d7;                       /* max D7 xiaoxi-in-group-B count seen (KW 8 of 8) */
     int reg_min_c1;                       /* min C1 group-of-4 |yang-12| deviation sum seen, -1 = none (KW 24) */
+    double *f4p_hist;                     /* SOLVE_KNUTH_SCORE_F4P=1: [13*512] weighted value histogram per
+                                           * F4' functional (heap-allocated only when active; NULL otherwise) */
+    double f4p_sum[13];                   /* weighted sum of each functional's value over canonical leaves */
+    double f4p_below[13], f4p_at[13], f4p_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
+    int f4p_min[13], f4p_max[13];         /* min/max functional value seen across canonical leaves */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -5248,6 +5253,210 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
         if (ind[i]) a->sum_reg[i] += W;
 }
 
+/* ===================== F4' ordering-layer functionals (SOLVE_KNUTH_SCORE_F4P) =====================
+ * C port of the 13 pre-registered F4' ordering-layer functionals in solve.py
+ * ("# F4' ordering-layer functionals", functions f4p_*; pre-registered
+ * 2026-07-04, roae-private/F4PRIME_PREREGISTRATION.md — axes and look-elsewhere
+ * gates fixed BEFORE any population measurement). solve.py is the SPEC; the
+ * --f4p-verify subcommand is the two-language gate (both must reproduce
+ * F4P_KW_EXPECTED on KW). Estimator-only, sha-neutral: active only under
+ * SOLVE_KNUTH_SCORE_F4P=1 / --f4p-verify; zero effect on enumeration paths.
+ *
+ * ATTRIBUTION (the axes are NOT ROAE discoveries; ROAE contributes only the
+ * integer operationalization + the population measurement over C1-C5 space;
+ * master ledger documentation/CITATIONS.md):
+ *   1 housedisp     Jing Fang (c. 77-37 BCE) 8-palace organization
+ *   2 trigram_runs  Zheng Qiao (~1150) / Hu Yigui (1247) trigram clustering
+ *   3 nuclear_adj   Cook 2006 (STEDT Monograph 5) nuclear-trigram structure
+ *   4 yang_drift    Schulz 1990 (JCP 17) gender waning / Mawangdui comparison
+ *   5 dist_runs     Moore 1988 rhythm/run structure
+ *   6 palspan       biroco.com / Moore symmetric-hexagram placement
+ *   7 comp_adj      Davis 2012 / C3 adjacency form
+ *   8 house_balance Lai Zhide 1599 (CICC) two-halves organization
+ *   9 par_switch    Zhu Yuansheng parity skeleton, second order
+ *  10 dist_autocorr Chan 2026 (arXiv:2604.09234) lag-1 autocorrelation
+ *  11 front_load    McKenna & Mair 1979 (PEW 29:4) wave asymmetry
+ *  12 value_trend   Fu Xi binary-ordering axis (Kendall-tau numerator)
+ *  13 wrap_class    McKenna circular reading (TR-7; CIRCULAR_KING_WEN.md) */
+
+static int knuth_score_f4p = 0; /* SOLVE_KNUTH_SCORE_F4P=1: per-leaf weighted scoring of the 13 F4'
+                                 * ordering-layer functionals (see block above). Estimator-only, sha-neutral. */
+
+static const char *f4p_names[13] = {
+    "housedisp", "trigram_runs", "nuclear_adj", "yang_drift", "dist_runs",
+    "palspan", "comp_adj", "house_balance", "par_switch", "dist_autocorr",
+    "front_load", "value_trend", "wrap_class"
+};
+/* KW expected values — ground truth solve.py F4P_KW_EXPECTED (KW-verified) */
+static const int f4p_kw[13] = {385, 2, 5, 6154, 3, 30, 1, 16, 30, 648, 103, 1003, 3};
+/* Static value bounds per functional (histogram range) */
+static const int f4p_lo[13] = {0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0};
+static const int f4p_hi[13] = {504, 32, 63, 12096, 63, 31, 31, 32, 62, 2268, 200, 2016, 6};
+/* 1 = large range -> 512 uniform bins; 0 = exact-value bins (hi-lo+1 <= 512) */
+static const unsigned char f4p_wide[13] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0};
+#define F4P_NBINS(k) (f4p_wide[k] ? 512 : (f4p_hi[k] - f4p_lo[k] + 1))
+
+/* Jing Fang palace index per hexagram (palace generator as in solve.py
+ * _f4p_jf_palace; same trigram order + member order, so any overwrite
+ * semantics match the Python dict exactly). */
+static int f4p_pal[64];
+static int f4p_pal_ready = 0;
+static void f4p_pal_init(void){
+    if (f4p_pal_ready) return;
+    static const int tg[8] = {007, 001, 002, 004, 000, 006, 005, 003};
+    for (int pi = 0; pi < 8; pi++){
+        int t = tg[pi];
+        int mem[8] = { (t<<3)|t,         (t<<3)|(t^001),   (t<<3)|(t^003),
+                       (t<<3)|(t^007),   ((t^001)<<3)|(t^007), ((t^003)<<3)|(t^007),
+                       ((t^002)<<3)|(t^007), ((t^002)<<3)|t };
+        for (int m = 0; m < 8; m++) f4p_pal[mem[m]] = pi;
+    }
+    f4p_pal_ready = 1;
+}
+
+/* Compute all 13 F4' functionals on one ordering (spec: solve.py f4p_*). */
+static void f4p_compute(const int seq[64], int v[13]){
+    int d[63];                                          /* transition distances */
+    for (int i = 0; i < 63; i++) d[i] = reg_pc(seq[i] ^ seq[i+1]);
+    /* 1. housedisp: sum over 8 Jing Fang palaces of (max pos - min pos) */
+    {
+        int lo[8], hi[8];
+        for (int p = 0; p < 8; p++){ lo[p] = 64; hi[p] = -1; }
+        for (int i = 0; i < 64; i++){
+            int p = f4p_pal[seq[i]];
+            if (i < lo[p]) lo[p] = i;
+            if (i > hi[p]) hi[p] = i;
+        }
+        int s = 0;
+        for (int p = 0; p < 8; p++) s += hi[p] - lo[p];
+        v[0] = s;
+    }
+    /* 2. trigram_runs: longest run of consecutive pairs sharing the lower
+     * trigram of the pair's first member */
+    {
+        int best = 1, cur = 1;
+        for (int i = 1; i < 32; i++){
+            cur = ((seq[2*i] & 7) == (seq[2*(i-1)] & 7)) ? cur + 1 : 1;
+            if (cur > best) best = cur;
+        }
+        v[1] = best;
+    }
+    /* 3. nuclear_adj: adjacent positions sharing the same nuclear hexagram */
+    {
+        int n = 0;
+        for (int i = 0; i < 63; i++){
+            int na = ((((seq[i]   >> 2) & 7) << 3) | ((seq[i]   >> 1) & 7));
+            int nb = ((((seq[i+1] >> 2) & 7) << 3) | ((seq[i+1] >> 1) & 7));
+            if (na == nb) n++;
+        }
+        v[2] = n;
+    }
+    /* 4. yang_drift: sum i*hw(seq[i]) */
+    {
+        int s = 0;
+        for (int i = 0; i < 64; i++) s += i * reg_pc(seq[i]);
+        v[3] = s;
+    }
+    /* 5. dist_runs: longest run of equal consecutive transition distances */
+    {
+        int best = 1, cur = 1;
+        for (int i = 1; i < 63; i++){
+            cur = (d[i] == d[i-1]) ? cur + 1 : 1;
+            if (cur > best) best = cur;
+        }
+        v[4] = best;
+    }
+    /* 6. palspan: highest pair-position holding a palindromic hexagram */
+    {
+        int best = 0;
+        for (int i = 0; i < 64; i++)
+            if (reg_rev6(seq[i]) == seq[i]) best = i / 2;   /* i ascending: last hit = max */
+        v[5] = best;
+    }
+    /* 7. comp_adj: complement pair-couples at adjacent pair positions */
+    {
+        int ppos[64];
+        for (int i = 0; i < 32; i++){ ppos[seq[2*i]] = i; ppos[seq[2*i+1]] = i; }
+        int n = 0;
+        for (int i = 0; i < 32; i++){
+            int j = ppos[seq[2*i] ^ 63];
+            if (j > i && j - i == 1) n++;
+        }
+        v[6] = n;
+    }
+    /* 8. house_balance: upper-trigram imbalance between sequence halves */
+    {
+        int c1[8] = {0}, c2[8] = {0};
+        for (int i = 0; i < 32; i++) (i < 16 ? c1 : c2)[seq[2*i] >> 3]++;
+        int s = 0;
+        for (int t = 0; t < 8; t++) s += c1[t] > c2[t] ? c1[t] - c2[t] : c2[t] - c1[t];
+        v[7] = s;
+    }
+    /* 9. par_switch: switches in the transition-distance parity string */
+    {
+        int n = 0;
+        for (int i = 0; i < 62; i++) if ((d[i] & 1) != (d[i+1] & 1)) n++;
+        v[8] = n;
+    }
+    /* 10. dist_autocorr: lag-1 product sum of transition distances */
+    {
+        int s = 0;
+        for (int i = 0; i < 62; i++) s += d[i] * d[i+1];
+        v[9] = s;
+    }
+    /* 11. front_load: sum of the first 31 transition distances */
+    {
+        int s = 0;
+        for (int i = 0; i < 31; i++) s += d[i];
+        v[10] = s;
+    }
+    /* 12. value_trend: concordant (position, binary value) pairs */
+    {
+        int n = 0;
+        for (int i = 0; i < 64; i++)
+            for (int j = i + 1; j < 64; j++)
+                if (seq[i] < seq[j]) n++;
+        v[11] = n;
+    }
+    /* 13. wrap_class: hw(seq[63]^seq[0]) */
+    v[12] = reg_pc(seq[63] ^ seq[0]);
+}
+
+/* Histogram bin index for functional k, value x (clamped into range). */
+static inline int f4p_bin(int k, int x){
+    int lo = f4p_lo[k], hi = f4p_hi[k], nb = F4P_NBINS(k), b;
+    if (x < lo) x = lo;
+    if (x > hi) x = hi;
+    if (f4p_wide[k]) b = (int)(((long)(x - lo) * 512) / (hi - lo + 1));
+    else             b = x - lo;
+    if (b < 0) b = 0;
+    if (b >= nb) b = nb - 1;
+    return b;
+}
+
+/* Lower edge of bin b for functional k (for f4p_hist output lines). */
+static inline int f4p_bin_lo(int k, int b){
+    if (f4p_wide[k]) return f4p_lo[k] + (int)(((long)b * (f4p_hi[k] - f4p_lo[k] + 1)) / 512);
+    return f4p_lo[k] + b;
+}
+
+/* Evaluate the 13 F4' functionals on one canonical leaf; accumulate weighted
+ * histogram, weighted sum, min/max, and below/at/above-KW masses. */
+static void score_f4p(const int seq[64], double W, KnuthArg *a){
+    int v[13];
+    f4p_compute(seq, v);
+    for (int k = 0; k < 13; k++){
+        int x = v[k];
+        a->f4p_sum[k] += W * (double)x;
+        if (x < a->f4p_min[k]) a->f4p_min[k] = x;
+        if (x > a->f4p_max[k]) a->f4p_max[k] = x;
+        if      (x < f4p_kw[k]) a->f4p_below[k] += W;
+        else if (x == f4p_kw[k]) a->f4p_at[k]   += W;
+        else                     a->f4p_above[k] += W;
+        if (a->f4p_hist) a->f4p_hist[k * 512 + f4p_bin(k, x)] += W;
+    }
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -5380,6 +5589,7 @@ static void *knuth_worker(void *vp){
                         if (wd5 >= 0 && wd5 <= 6) a->sum_wrap[wd5] += W;
                     }
                     if (knuth_score_reg) score_registry(seq, W, a);
+                    if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -5512,6 +5722,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         arg[i].n_probes = per + (i==0 ? n_total%(uint64_t)nthreads : 0);
         arg[i].min_rm2 = -1;
         arg[i].reg_min_mmt3 = -1; arg[i].reg_min_c1 = -1;
+        if (knuth_score_f4p) {
+            arg[i].f4p_hist = (double*)calloc(13 * 512, sizeof(double));
+            for (int k2 = 0; k2 < 13; k2++){ arg[i].f4p_min[k2] = INT_MAX; arg[i].f4p_max[k2] = INT_MIN; }
+        }
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
@@ -5534,6 +5748,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         if (arg[i].reg_min_c1 >= 0 && (mnC1 < 0 || arg[i].reg_min_c1 < mnC1)) mnC1 = arg[i].reg_min_c1;
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
+    double f4pS[13]={0}, f4pBel[13]={0}, f4pAt[13]={0}, f4pAbv[13]={0}, *f4pH = NULL;
+    int f4pMin[13], f4pMax[13];
+    if (knuth_score_f4p) {
+        f4pH = (double*)calloc(13 * 512, sizeof(double));
+        for (int k2 = 0; k2 < 13; k2++){ f4pMin[k2] = INT_MAX; f4pMax[k2] = INT_MIN; }
+        for (int i = 0; i < nthreads; i++){
+            for (int k2 = 0; k2 < 13; k2++){
+                f4pS[k2]   += arg[i].f4p_sum[k2];
+                f4pBel[k2] += arg[i].f4p_below[k2];
+                f4pAt[k2]  += arg[i].f4p_at[k2];
+                f4pAbv[k2] += arg[i].f4p_above[k2];
+                if (arg[i].f4p_min[k2] < f4pMin[k2]) f4pMin[k2] = arg[i].f4p_min[k2];
+                if (arg[i].f4p_max[k2] > f4pMax[k2]) f4pMax[k2] = arg[i].f4p_max[k2];
+            }
+            if (f4pH && arg[i].f4p_hist)
+                for (int b2 = 0; b2 < 13 * 512; b2++) f4pH[b2] += arg[i].f4p_hist[b2];
+            free(arg[i].f4p_hist); arg[i].f4p_hist = NULL;
+        }
+    }
     double dN=(double)N;
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
@@ -5570,6 +5803,24 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [reg extremes] rs2 max compliant seen = %d (KW 20) | mmt3 min Gray transitions seen = %d (KW 4) | d7 max xiaoxi-in-B seen = %d (KW 8) | c1 min deviation seen = %d (KW 24)\n",
                mxRS2, mnMT3, mxD7, mnC1);
     }
+    if (knuth_score_f4p && sC > 0) {
+        /* F4' ordering-layer functionals (ground truth solve.py f4p_*; attribution
+         * in the f4p comment block + CITATIONS.md; masses = fraction of canonical
+         * mass, so below+at+above ~= 1 per functional). */
+        for (int k2 = 0; k2 < 13; k2++)
+            printf("  [f4p %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+                   k2 + 1, f4p_names[k2], f4pS[k2]/sC,
+                   f4pMin[k2] == INT_MAX ? 0 : f4pMin[k2],
+                   f4pMax[k2] == INT_MIN ? 0 : f4pMax[k2],
+                   f4p_kw[k2], f4pBel[k2]/sC, f4pAt[k2]/sC, f4pAbv[k2]/sC);
+        if (getenv("SOLVE_KNUTH_F4P_HIST") && atoi(getenv("SOLVE_KNUTH_F4P_HIST")) == 1 && f4pH)
+            for (int k2 = 0; k2 < 13; k2++)
+                for (int b2 = 0; b2 < F4P_NBINS(k2); b2++)
+                    if (f4pH[k2 * 512 + b2] > 0)
+                        printf("f4p_hist %s %d %.10e\n",
+                               f4p_names[k2], f4p_bin_lo(k2, b2), f4pH[k2 * 512 + b2]/sC);
+    }
+    free(f4pH);
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
         printf("  [bcond] conditional on SOLVE_KNUTH_PIN_SLOTS=0x%x prefix if set):\n", knuth_pin_mask);
@@ -10964,6 +11215,11 @@ int main(int argc, char *argv[]) {
             knuth_score_reg = 1;
             fprintf(stderr, "[knuth] candidate-registry scoring ACTIVE (31 rules, CANDIDATE_REGISTRY_2026_07 at KW-threshold form; ground truth solve.py reg_*)\n");
         }
+        if (getenv("SOLVE_KNUTH_SCORE_F4P") && atoi(getenv("SOLVE_KNUTH_SCORE_F4P")) == 1) {
+            knuth_score_f4p = 1;
+            f4p_pal_init();
+            fprintf(stderr, "[knuth] F4' ordering-layer scoring ACTIVE (13 functionals, F4PRIME_PREREGISTRATION; ground truth solve.py f4p_*)\n");
+        }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
             fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
@@ -10986,6 +11242,26 @@ int main(int argc, char *argv[]) {
                 (unsigned long long)nprobe, nthreads, nlev);
         estimate_tree_knuth(nprobe, nthreads, nlev, lp, lo);
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f4p-verify") == 0) {
+        /* Two-language gate for the F4' ordering-layer functionals: compute the
+         * 13 on the King Wen sequence and check against the hardcoded KW
+         * expected values (ground truth solve.py f4p_verify; output format
+         * matches solve.py --f4p-verify line-for-line). Exit 0 iff all match.
+         * Sha-neutral (argv-dispatched, never on the enum path). */
+        f4p_pal_init();
+        int v[13], failures = 0;
+        f4p_compute(KW, v);
+        for (int k = 0; k < 13; k++){
+            if (v[k] == f4p_kw[k])
+                printf("f4p_%s: %d OK\n", f4p_names[k], v[k]);
+            else {
+                printf("f4p_%s: %d FAIL (expected %d)\n", f4p_names[k], v[k], f4p_kw[k]);
+                failures++;
+            }
+        }
+        if (failures == 0) printf("F4P VERIFY: PASS\n");
+        else printf("F4P VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
