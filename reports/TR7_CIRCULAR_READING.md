@@ -111,8 +111,14 @@ McKenna's interpretive frame, not an attested property of the received artifact.
   measurement, the alternation corollary, and the wrap-d5 SAT decision are ROAE (to our knowledge —
   corrections welcome via documentation/CITATIONS.md)
 
-## Planned improvements (v1.1+)
-- One diagram: the 64-cycle with the wrap edge highlighted, linear-15 vs circular-16 alternations
+## Figure: the cycle
+
+![The King Wen cycle with the wrap edge](figures/fig_tr7_circular_cycle.svg)
+
+*The 64 hexagrams as a cycle in King Wen order (computed from the sequence itself). Red edges are odd
+transitions; the highlighted wrap edge 64→1 jumps d = 3 — odd, as the wrap-parity theorem forces. The
+circular reading has 16 odd transitions where the linear reading has 15: the wrap adds exactly one,
+always.*
 
 ## Revision history
 | Version | Date | Changes |
