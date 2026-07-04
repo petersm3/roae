@@ -120,6 +120,15 @@ transitions; the highlighted wrap edge 64→1 jumps d = 3 — odd, as the wrap-p
 circular reading has 16 odd transitions where the linear reading has 15: the wrap adds exactly one,
 always.*
 
+## Prior work note (v1.7)
+
+Peter Meyer (1998, web) published the complete cyclic line-change sequence of the King Wen order —
+the 64 Hamming distances including the wraparound term — with an explicit XOR-and-popcount
+formalization (see CITATIONS.md). His data thus contains the wrap value d=3 this report analyzes,
+decades before this work; the wrap-parity theorem, the d in {1,3,5} space analysis, and the
+17.4%-vs-absent measurement remain, to our knowledge, first stated here. Found during a bibliography
+review 2026-07-04; corrections welcome.
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
