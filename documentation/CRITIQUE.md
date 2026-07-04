@@ -373,3 +373,20 @@ reports/TR6; it is a corollary of the 15-alternations theorem plus pair parity s
 "forced, not chosen" class of TR-1. Net: the ~126-bit residual (TR-9) survives its first systematic
 literature-guided attack. Evidence and per-functional masses: the F4' entries in the private ledger;
 regeneration: SOLVE_KNUTH_SCORE_F4P=1 ./solve --estimate-knuth <probes>.
+
+## Pre-registered test in flight: Davis (2012) structural claims (registered 2026-07-04, results pending)
+
+Scott Davis, *The Classic of Changes in Cultural Context* (Cambria, 2012), asserts specific positional
+structures in the King Wen ordering and argues against purely mathematical explanation. Following the F4'
+discipline, nine composite candidates operationalized from his claims are registered here BEFORE any
+population number has been observed: (1) terminal-pair one-line-neighborhood contiguity (n_runs; KW=3) +
+exact-union template; (2) the hexagram 7-16 complement-mirror block (10-window mirror about its center);
+(3) the #43-50 regular trigram array (+ count of qualifying 8-windows); (4) the 30s/40s parallel
+(head-pair complementation at slot distance 5 + chiasmus template); (5) palindrome-neighborhood
+adjacency mass; (6) rotation-equals-inversion pair placement; (7) pure-hexagram placement; (8)
+eccentric-class placements (incl. the 23/24-43/44 distance-20 subset); (9) both-asymmetric-trigram
+half-split (KW=4/16). Thresholds as F4': two-sided p < 0.05/9 Bonferroni "notable"; "candidate rule"
+additionally requires the corpus-control specificity gate. All nine will be reported regardless of
+outcome; nothing promotes to a solver constraint regardless. Full operationalizations with KW values are
+frozen in the private audit (derived-insights-only handling of the copyrighted source; claims cited by
+page in the eventual report).
