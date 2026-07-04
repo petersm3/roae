@@ -35,7 +35,8 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 | **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
-| **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas and both sequence-level theorems, kernel-verified. |
+| **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas and three sequence-level theorems, kernel-verified. |
+| **[tests.py](tests.py)** · [verify.py](verify.py) · [verify_all.sh](reports/certificates/verify_all.sh) | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of every certificate, gate, and proof. |
 
 ## What was found
 
@@ -73,6 +74,8 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest   # mus
 python3 roae.py            # the 28 analyses
 python3 solve.py --registry-verify   # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                       # SAT layer usage + targets
+python3 tests.py                     # regression harness (15 tests)
+bash reports/certificates/verify_all.sh   # everything above + all DRAT certs + Lean, one command
 ```
 Full CLI references: [SOLVE_CLI](documentation/SOLVE_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
 
