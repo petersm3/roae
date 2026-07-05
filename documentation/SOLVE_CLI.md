@@ -464,6 +464,21 @@ against the embedded KW expected values. Ground truth is `solve.py --dav-verify`
 outputs must match byte-for-byte. Exit 0 iff all 9 match. Sha-neutral. Population
 scoring: `SOLVE_KNUTH_SCORE_DAV` below.
 
+### --f5-verify
+
+```
+solve --f5-verify
+```
+
+Two-language gate for the 11 frozen F5 orientation-layer functionals
+(pre-registered and frozen 2026-07-05 before any population measurement;
+Bonferroni N=11): computes each on the King Wen sequence and checks against
+the embedded frozen-spec KW values (computed against `solve.py`
+`binary_hexagrams`; #11 `f5_vdb_nuc` is a port of `solve.py vdb_nucorient` —
+`solve.py --vdb-verify`, KW=29). Exit 0 iff all 11 match. Sha-neutral.
+Population scoring: `SOLVE_KNUTH_SCORE_F5` below; explicit-sequence hook:
+`SOLVE_F5_TESTVEC`.
+
 ### --f1-exact-c1c2c4
 
 ```
@@ -899,6 +914,9 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_F4P_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F4P=1`): additionally emit `f4p_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_DAV` | 0 | `=1`: score the 9 pre-registered Davis (2012) composite candidates per canonical leaf (CRITIQUE.md §Davis; TR-10 §3). Ground truth / two-language gate: `--dav-verify`. Archived tier-1 run: reports/evidence/dav_tier1.out. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_DAV_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV=1`): additionally emit `dav_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_F5` | 0 | `=1`: score the 11 FROZEN F5 orientation-layer functionals per canonical leaf (below/at/above-KW weighted masses). Leaves are orientation-BEARING (the walk enumerates orientation branches pre-dedup) as the F5 preregistration §4 requires — canonical `solutions.bin` records are orient-dedup'd and must NOT feed F5 scoring. Ground truth / two-language gate: `--f5-verify` (+ `solve.py --vdb-verify` for #11). `=2` + `SOLVE_F5_TESTVEC`: cross-verification hook. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_F5_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F5=1`): additionally emit `f5_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
+| `SOLVE_F5_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F5=2`: evaluate the 11 F5 functionals on an explicit sequence (`"h0,h1,...,h63"`, hexagram VALUES not KW indices), print them comma-separated, exit. Verifies a non-lex-oriented sequence scores as itself (F5 preregistration §4 gate); also used for corpus/gauge control snapshots. Test-only, sha-neutral. |
 | `SOLVE_KNUTH_RELAX_C5` | 0 | `=1`: relax C5 to C2-only in the Knuth walk (transition budgets unbounded except d=5 forbidden), so `leaves_C1C2C4C5` counts \|C1 ∩ C2 ∩ C4\| — used to price C5's marginal compression in DESCRIPTION_LENGTH.md (superseded for the headline number by the exact `--f1-exact-c1c2c4` DP). Estimator-only, sha-neutral. |
 | `SOLVE_F1_OOC_READ_MB` | 256 | `--f1-out-of-core` (#221): read-window buffer size in MB for the bucketed streaming gather (auto-raised to fit one full predecessor span, auto-clamped to the previous layer's size). Sha-neutral. |
 | `SOLVE_F1_OOC_SCRATCH_MB` | 1024 | `--f1-out-of-core` (#221): dense per-chunk gather-scratch budget in MB; sets how many targets are gathered per streaming pass (larger = fewer passes = less read amplification; the emit staging buffer scales with it, total RSS ~2.2x this value). For full-31 raise it (e.g. 16384 on a 64 GiB box) to keep per-layer read amplification tractable. Sha-neutral. |

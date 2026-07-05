@@ -4799,6 +4799,13 @@ typedef struct {
     double dav_below[9], dav_at[9], dav_above[9];  /* weighted mass <KW / ==KW / >KW per candidate
                                            * (booleans: at-mass with kw=1 == mass-of-TRUE) */
     int dav_min[9], dav_max[9];           /* min/max candidate value seen across canonical leaves */
+    double *f5_hist;                      /* SOLVE_KNUTH_SCORE_F5=1: [11*64] weighted value histogram per
+                                           * F5 orientation-layer functional (heap-allocated only when active).
+                                           * Leaves are orientation-BEARING (walk enumerates orientation
+                                           * branches pre-dedup) — required by F5 preregistration §4. */
+    double f5_sum[11];                    /* weighted sum of each functional's value over canonical leaves */
+    double f5_below[11], f5_at[11], f5_above[11];  /* weighted mass <KW / ==KW / >KW per functional */
+    int f5_min[11], f5_max[11];           /* min/max functional value seen across canonical leaves */
     double *f11_hist;                     /* SOLVE_KNUTH_F11_HIST=1 (requires SOLVE_KNUTH_SCORE=1): joint
                                            * violation histogram over (v1 = 18 - Moore-2005 parity compliance,
                                            * v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender/position-
@@ -5707,6 +5714,211 @@ static void score_dav(const int seq[64], double W, KnuthArg *a){
     }
 }
 
+/* ===================== F5 orientation-layer functionals (SOLVE_KNUTH_SCORE_F5) =====================
+ * C port of the 11 FROZEN orientation-layer functionals in
+ * roae-private/F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN.md §5 + addendum
+ * (frozen 2026-07-05 BEFORE any population measurement; Bonferroni N=11; no
+ * post-hoc additions or removals). The frozen spec's integer
+ * operationalizations are the SPEC; KW gate values were computed against
+ * solve.py binary_hexagrams 2026-07-04 and are embedded below; #11 is a port
+ * of solve.py vdb_nucorient (the V-8 registry candidate, single ground-truth
+ * implementation, --vdb-verify KW=29). Two-language gate: --f5-verify (KW) +
+ * SOLVE_F5_TESTVEC (arbitrary sequence, incl. non-lex-oriented — spec §4).
+ * Estimator-only, sha-neutral: active only under SOLVE_KNUTH_SCORE_F5 /
+ * --f5-verify; zero effect on enumeration paths. Scored leaves are
+ * orientation-BEARING DFS leaves (orientation is a walk branch variable,
+ * pre-dedup) — canonical solutions.bin records CANNOT be used (they are
+ * dedup'd to the lex-smallest orient variant; spec §4).
+ *
+ * ATTRIBUTION (per the frozen spec §8; operationalizations are ROAE's):
+ *   1 correct_lead  Cook 2006 sO/xo() correct-line orientation stage      KW=15
+ *   2 rising        Moore 1989 Trigrams of Han App.2 K-7/K-10 Rising count KW=10
+ *   3 rf_alt        Moore 1989 K-8 Rising/Falling alternation             KW=10
+ *   4 gender_lead   Dazhuan/Xici yang-precedence via Schulz 1990/Cook 2006 KW=2
+ *   5 mirror_order  Davis 2012 pp.81-82 order-true complement links       KW=7
+ *   6 lex_dev       Shao Yong / Leibniz 1703 binary axis + ROAE convention KW=17
+ *   7 orient_alt    Chan 2026 (arXiv:2604.09234) lag-1 alternation axis   KW=13
+ *   8 greedy_entry  McKenna & McKenna 1975 wave-smoothness (greedy entry) KW=23
+ *   9 bpd_six_pos   McKenna 1975 (placement of the unique between-pair 6) KW=18
+ *  10 bpd_one_span  McKenna 1975 rule (2) (span of the two forced 1s)     KW=4
+ *  11 vdb_nuc       Van den Berghe c.1999 kingwen.pdf p.11 App.2 (V-8)    KW=29 */
+
+static int knuth_score_f5 = 0;  /* SOLVE_KNUTH_SCORE_F5=1: per-leaf weighted scoring of the 11 frozen F5
+                                 * orientation functionals (see block above). =2 + SOLVE_F5_TESTVEC:
+                                 * cross-verification hook (main(); prints the 11 values for an explicit
+                                 * sequence — non-lex sequences score as THEMSELVES, spec §4 gate).
+                                 * Estimator-only, sha-neutral. */
+
+static const char *f5_names[11] = {
+    "correct_lead", "rising", "rf_alt", "gender_lead", "mirror_order",
+    "lex_dev", "orient_alt", "greedy_entry", "bpd_six_pos", "bpd_one_span",
+    "vdb_nuc"
+};
+/* KW expected values — frozen spec §5/addendum (computed vs solve.py binary_hexagrams;
+ * #11 ground truth solve.py vdb_nucorient / --vdb-verify) */
+static const int f5_kw[11] = {15, 10, 10, 2, 7, 17, 13, 23, 18, 4, 29};
+/* Static value bounds (all ranges <= 33, so exact-value bins; stride 64) */
+static const int f5_lo[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static const int f5_hi[11] = {32, 18, 17, 4, 12, 32, 31, 31, 30, 30, 30};
+
+/* Cook 2006 correct-line count: line n (1-based, bottom=1) is correct iff
+ * yang at odd n (bits 0,2,4) / yin at even n (bits 1,3,5). */
+static inline int f5_correct(int h){
+    return __builtin_popcount((unsigned)(h & 0x15)) + 3 -
+           __builtin_popcount((unsigned)(h & 0x2A));
+}
+/* VdB nuclear hexagram: lower trigram = lines 2-4 (bits 1-3), upper = lines
+ * 3-5 (bits 2-4). Port of solve.py _vdb_nuc. */
+static inline int f5_nuc(int h){ return ((h >> 1) & 7) | (((h >> 2) & 7) << 3); }
+/* VdB terminal set {hex 1,2,63,64} = {63, 0, 0b010101, 0b101010} */
+static inline int f5_vdb_term(int h){ return h == 63 || h == 0 || h == 0x15 || h == 0x2A; }
+
+/* Compute all 11 F5 functionals on one ordering (spec: the frozen preregistration;
+ * #11 spec: solve.py vdb_nucorient). Defensive defaults (0) where a T2b-forced
+ * object is absent keep the testvec hook total on arbitrary sequences; on valid
+ * C1-C5 leaves the forced objects always exist. */
+static void f5_compute(const int seq[64], int v[11]){
+    /* 1. correct_lead: slots whose FIRST member has strictly more correct lines */
+    {
+        int n = 0;
+        for (int k = 0; k < 32; k++)
+            if (f5_correct(seq[2*k]) > f5_correct(seq[2*k+1])) n++;
+        v[0] = n;
+    }
+    /* 2+3. rising / rf_alt over the directional pairs (rev-pairs, hw != 3) in
+     * slot order. Rising iff sum of 1-based minority-line positions in the
+     * SECOND member > same in first; tie = "T". rf_alt counts adjacencies that
+     * are not an R-R / F-F continuation (a T always breaks a run = change). */
+    {
+        int nr = 0, alt = 0, prev = -1, have = 0;
+        for (int k = 0; k < 32; k++){
+            int a2 = seq[2*k], b2 = seq[2*k+1];
+            if ((a2 ^ b2) == 63) continue;                 /* complement pair */
+            int pc = __builtin_popcount((unsigned)a2);
+            if (pc == 3) continue;                         /* non-directional */
+            int mb = (pc > 3) ? 0 : 1, sa = 0, sb = 0;
+            for (int i = 0; i < 6; i++){
+                if (((a2 >> i) & 1) == mb) sa += i + 1;
+                if (((b2 >> i) & 1) == mb) sb += i + 1;
+            }
+            int sym = sb > sa ? 1 : (sb < sa ? 0 : 2);     /* F=0 R=1 T=2 */
+            if (sym == 1) nr++;
+            if (have && !(sym == prev && sym != 2)) alt++;
+            prev = sym; have = 1;
+        }
+        v[1] = nr; v[2] = alt;
+    }
+    /* 4. gender_lead: among the 4 weight-asymmetric pairs (complement pairs
+     * with hw != 3), count where the yang-heavier member leads */
+    {
+        int n = 0;
+        for (int k = 0; k < 32; k++)
+            if ((seq[2*k] ^ seq[2*k+1]) == 63 &&
+                __builtin_popcount((unsigned)seq[2*k]) > 3) n++;
+        v[3] = n;
+    }
+    /* 5. mirror_order: the comp involution on pair-slots has 12 two-cycles
+     * (universal given C1 pairing); a 2-cycle (j,k) is order-true iff
+     * comp(first_j) == first_k (symmetric; count each cycle once) */
+    {
+        int pos[64];
+        for (int i = 0; i < 64; i++) pos[seq[i]] = i;
+        int n = 0;
+        for (int k = 0; k < 32; k++){
+            int cs = pos[seq[2*k] ^ 63] / 2;
+            if (cs > k && (seq[2*k] ^ 63) == seq[2*cs]) n++;
+        }
+        v[4] = n;
+    }
+    /* 6+7. lex_dev (slots where the numerically larger member leads) +
+     * orient_alt (alternations of the o_lex string, 31 adjacencies) */
+    {
+        int n = 0, alt = 0, prev = 0;
+        for (int k = 0; k < 32; k++){
+            int ol = seq[2*k] > seq[2*k+1];
+            n += ol;
+            if (k > 0 && ol != prev) alt++;
+            prev = ol;
+        }
+        v[5] = n; v[6] = alt;
+    }
+    /* 8. greedy_entry: slots k>=1 whose ENTERING member is the one closer
+     * (<=) to the previous hexagram */
+    {
+        int n = 0;
+        for (int k = 1; k < 32; k++)
+            if (hamming(seq[2*k-1], seq[2*k]) <= hamming(seq[2*k-1], seq[2*k+1])) n++;
+        v[7] = n;
+    }
+    /* 9+10. between-pair distance structure (T2b: every valid ordering has
+     * exactly one between-pair 6 and exactly two between-pair 1s) */
+    {
+        int six = -1, one1 = -1, one2 = -1;
+        for (int b = 0; b < 31; b++){
+            int d2 = hamming(seq[2*b+1], seq[2*b+2]);
+            if (d2 == 6 && six < 0) six = b;
+            else if (d2 == 1){ if (one1 < 0) one1 = b; else if (one2 < 0) one2 = b; }
+        }
+        v[8] = six < 0 ? 0 : six;
+        v[9] = (one1 >= 0 && one2 >= 0) ? one2 - one1 : 0;
+    }
+    /* 11. vdb_nuc: exact port of solve.py vdb_nucorient (V-8; VdB c.1999,
+     * kingwen.pdf p.11 Appendix 2 + tabel3). Count of the 30 predicted pairs
+     * whose first member matches VdB's nuclear decision procedure. */
+    {
+        int n = 0;
+        for (int k = 0; k < 32; k++){
+            int a2 = seq[2*k], b2 = seq[2*k+1];
+            int plo = a2 < b2 ? a2 : b2, phi = a2 < b2 ? b2 : a2;
+            if ((plo == 0 && phi == 63) || (plo == 0x15 && phi == 0x2A))
+                continue;                                  /* terminal pairs: no prediction */
+            int na = f5_nuc(a2), nb = f5_nuc(b2);
+            int ta = f5_vdb_term(na) ? na : f5_nuc(na);
+            int tb = f5_vdb_term(nb) ? nb : f5_nuc(nb);
+            int tlo = ta < tb ? ta : tb, thi = ta < tb ? tb : ta;
+            int pred = -1;
+            if (tlo == 0x15 && thi == 0x2A){               /* 63/64 class: window test */
+                int want = (2*k+1 >= 17 && 2*k+2 <= 54) ? 0x2A : 0x15;
+                pred = (ta == want) ? a2 : b2;
+            } else if (tlo == 0 && thi == 63){             /* 1/2 class: 2-generator leads */
+                pred = (ta == 0) ? a2 : b2;
+            } else if (ta == tb){
+                int da = (na == 0x01 || na == 0x3E), db = (nb == 0x01 || nb == 0x3E);
+                if (da || db) pred = da ? a2 : b2;         /* 24-/44-generator leads */
+                else {                                     /* undifferentiated: elementary lower trigram */
+                    int ea = (0xA5 >> (a2 & 7)) & 1, eb = (0xA5 >> (b2 & 7)) & 1;
+                    if (ea != eb) pred = ea ? a2 : b2;
+                }
+            }
+            if (pred == a2) n++;
+        }
+        v[10] = n;
+    }
+}
+
+/* Evaluate the 11 F5 functionals on one orientation-bearing canonical leaf;
+ * accumulate weighted histogram (exact-value bins, stride 64), sum, min/max,
+ * below/at/above-KW — same output family as score_dav. */
+static void score_f5(const int seq[64], double W, KnuthArg *a){
+    int v[11];
+    f5_compute(seq, v);
+    for (int k = 0; k < 11; k++){
+        int x = v[k];
+        a->f5_sum[k] += W * (double)x;
+        if (x < a->f5_min[k]) a->f5_min[k] = x;
+        if (x > a->f5_max[k]) a->f5_max[k] = x;
+        if      (x < f5_kw[k]) a->f5_below[k] += W;
+        else if (x == f5_kw[k]) a->f5_at[k]   += W;
+        else                    a->f5_above[k] += W;
+        if (a->f5_hist){
+            int b = x - f5_lo[k];
+            if (b < 0) b = 0;
+            if (b > f5_hi[k] - f5_lo[k]) b = f5_hi[k] - f5_lo[k];
+            a->f5_hist[k * 64 + b] += W;
+        }
+    }
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -5865,6 +6077,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_score_dav) score_dav(seq, W, a);
+                    if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -6032,6 +6245,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].dav_hist = (double*)calloc(9 * 64, sizeof(double));
             for (int k2 = 0; k2 < 9; k2++){ arg[i].dav_min[k2] = INT_MAX; arg[i].dav_max[k2] = INT_MIN; }
         }
+        if (knuth_score_f5) {
+            arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
+            for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
+        }
         if (knuth_f11_hist)
             arg[i].f11_hist = (double*)calloc(19 * 32 * 40, sizeof(double));
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
@@ -6092,6 +6309,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             if (davH && arg[i].dav_hist)
                 for (int b2 = 0; b2 < 9 * 64; b2++) davH[b2] += arg[i].dav_hist[b2];
             free(arg[i].dav_hist); arg[i].dav_hist = NULL;
+        }
+    }
+    double f5S[11]={0}, f5Bel[11]={0}, f5At[11]={0}, f5Abv[11]={0}, *f5H = NULL;
+    int f5Min[11], f5Max[11];
+    if (knuth_score_f5) {
+        f5H = (double*)calloc(11 * 64, sizeof(double));
+        for (int k2 = 0; k2 < 11; k2++){ f5Min[k2] = INT_MAX; f5Max[k2] = INT_MIN; }
+        for (int i = 0; i < nthreads; i++){
+            for (int k2 = 0; k2 < 11; k2++){
+                f5S[k2]   += arg[i].f5_sum[k2];
+                f5Bel[k2] += arg[i].f5_below[k2];
+                f5At[k2]  += arg[i].f5_at[k2];
+                f5Abv[k2] += arg[i].f5_above[k2];
+                if (arg[i].f5_min[k2] < f5Min[k2]) f5Min[k2] = arg[i].f5_min[k2];
+                if (arg[i].f5_max[k2] > f5Max[k2]) f5Max[k2] = arg[i].f5_max[k2];
+            }
+            if (f5H && arg[i].f5_hist)
+                for (int b2 = 0; b2 < 11 * 64; b2++) f5H[b2] += arg[i].f5_hist[b2];
+            free(arg[i].f5_hist); arg[i].f5_hist = NULL;
         }
     }
     double dN=(double)N;
@@ -6167,6 +6403,26 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                dav_names[k2], dav_lo[k2] + b2, davH[k2 * 64 + b2]/sC);
     }
     free(davH);
+    if (knuth_score_f5 && sC > 0) {
+        /* F5 orientation-layer functionals (frozen preregistration; ground
+         * truth solve.py + frozen-spec KW values, #11 solve.py vdb_nucorient;
+         * attribution in the f5 comment block + CITATIONS.md; masses =
+         * fraction of canonical mass, so below+at+above ~= 1 per functional.
+         * Leaves are orientation-BEARING (pre-dedup) per spec §4. */
+        for (int k2 = 0; k2 < 11; k2++)
+            printf("  [f5 %02d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+                   k2 + 1, f5_names[k2], f5S[k2]/sC,
+                   f5Min[k2] == INT_MAX ? 0 : f5Min[k2],
+                   f5Max[k2] == INT_MIN ? 0 : f5Max[k2],
+                   f5_kw[k2], f5Bel[k2]/sC, f5At[k2]/sC, f5Abv[k2]/sC);
+        if (getenv("SOLVE_KNUTH_F5_HIST") && atoi(getenv("SOLVE_KNUTH_F5_HIST")) == 1 && f5H)
+            for (int k2 = 0; k2 < 11; k2++)
+                for (int b2 = 0; b2 <= f5_hi[k2] - f5_lo[k2]; b2++)
+                    if (f5H[k2 * 64 + b2] > 0)
+                        printf("f5_hist %s %d %.10e\n",
+                               f5_names[k2], f5_lo[k2] + b2, f5H[k2 * 64 + b2]/sC);
+    }
+    free(f5H);
     if (knuth_f11_hist) {
         /* F11 joint violation histogram (fraction of canonical mass per (v1,v2,v3) cell;
          * v1 = 18 - Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks,
@@ -12560,6 +12816,30 @@ int main(int argc, char *argv[]) {
           return 0;
       }
     }
+    /* F5 orientation-functional cross-verification hook (test-only, estimator-
+     * independent; the F5 preregistration §4 implementation gate):
+     * SOLVE_KNUTH_SCORE_F5=2 + SOLVE_F5_TESTVEC="h0,h1,...,h63" -> evaluate
+     * f5_compute on the explicit sequence, print the 11 values (comma-
+     * separated, f5_names order), exit. Verifies a non-lex-oriented sequence
+     * scores as ITSELF, not as its lex-canonical form (canonical records are
+     * orient-dedup'd and MUST NOT feed F5 scoring). Sha-neutral. */
+    { const char *tv = getenv("SOLVE_F5_TESTVEC");
+      const char *kf = getenv("SOLVE_KNUTH_SCORE_F5");
+      if (tv && kf && atoi(kf) == 2) {
+          int tseq[64], n = 0;
+          const char *p = tv;
+          while (*p && n < 64) {
+              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
+              else p++;
+          }
+          if (n != 64) { fprintf(stderr, "SOLVE_F5_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          int v[11];
+          f5_compute(tseq, v);
+          for (int i = 0; i < 11; i++)
+              printf("%d%s", v[i], i < 10 ? "," : "\n");
+          return 0;
+      }
+    }
     /* Check for single-branch mode */
     int single_branch_mode = 0;
     int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */
@@ -13727,6 +14007,10 @@ int main(int argc, char *argv[]) {
             knuth_score_dav = 1;
             fprintf(stderr, "[knuth] Davis-2012 composite scoring ACTIVE (9 candidates, CRITIQUE.md Davis registration; ground truth solve.py dav_*)\n");
         }
+        if (getenv("SOLVE_KNUTH_SCORE_F5") && atoi(getenv("SOLVE_KNUTH_SCORE_F5")) == 1) {
+            knuth_score_f5 = 1;
+            fprintf(stderr, "[knuth] F5 orientation-layer scoring ACTIVE (11 frozen functionals, F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN; orientation-bearing leaves pre-dedup; KW gate --f5-verify)\n");
+        }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
             fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
@@ -13787,6 +14071,27 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("DAV VERIFY: PASS\n");
         else printf("DAV VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f5-verify") == 0) {
+        /* Two-language gate for the 11 FROZEN F5 orientation-layer
+         * functionals: compute them on the King Wen sequence and check
+         * against the embedded frozen-spec KW values (ground truth: the
+         * frozen preregistration §5/addendum, computed vs solve.py
+         * binary_hexagrams; #11 == solve.py vdb_nucorient / --vdb-verify,
+         * KW=29). Exit 0 iff all 11 match. Sha-neutral (argv-dispatched,
+         * never on the enum path). */
+        int v[11], failures = 0;
+        f5_compute(KW, v);
+        for (int k = 0; k < 11; k++){
+            if (v[k] == f5_kw[k])
+                printf("f5_%s: %d OK\n", f5_names[k], v[k]);
+            else {
+                printf("f5_%s: %d FAIL (expected %d)\n", f5_names[k], v[k], f5_kw[k]);
+                failures++;
+            }
+        }
+        if (failures == 0) printf("F5 VERIFY: PASS\n");
+        else printf("F5 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
         /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.
