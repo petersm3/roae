@@ -505,3 +505,12 @@ Wikipedia and OEIS entries used for reader orientation and the binary encoding a
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
+
+## Goldenberg, Daniel S. (1975)
+"The Algebra of the I Ching and Its Philosophical Implications." *Journal of Chinese Philosophy* 2
+(March 1975): 149–79. The earliest algebraic formalization of the hexagram set known to this
+project: line symbols as GF(2), hexagrams as the mod-2 ring (= GF(2)⁶), the inversion automorphism,
+and the "mediating hexagram" (XOR difference) of any pair — set-level prior art for the vector-space
+framing used throughout this repository, distinct from our ordering-level constraint results
+([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Related work). Located via Hacker, Moore & Patsco (2002),
+entry B:154; annotation-level knowledge only until the article is acquired (JCP basket, July 2026).
