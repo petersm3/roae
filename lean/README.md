@@ -20,8 +20,11 @@ finite computation those arguments rest on.
 ## Verify yourself
 
 ```bash
-# install elan (Lean version manager), then:
-lean KingWen.lean   # silence = all theorems check (Lean 4, tested with 4.31.0)
+# install elan (Lean version manager), then (each file is standalone; no lake project):
+lean KingWen.lean          # silence = all theorems check (Lean 4, tested with 4.31.0)
+lean C3Decomposition.lean  # C3 slot-decomposition theorem (sat.py's C3-encoding soundness core)
+lean PruneSafety.lean      # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
+lean Automorphism.lean     # the sequence-level symmetry layer (see below)
 ```
 
 **Related formal work:** Radisic 2026 (arXiv:2601.07175) independently formalized King Wen pairing
@@ -49,3 +52,23 @@ Third sequence-level theorem: every C1+C5-valid ordering's transition-parity str
 times. Kernel-checked corollary of `alternations_15_general` + the within-pair-even lemma; discovered as
 a pre-registered F4' population functional that measured CONSTANT before being proved (reports/TR6,
 v1.3-v1.4).
+
+## Automorphism.lean (2026-07-05): the sequence-level symmetry layer
+Formalizes the [SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md) theorem and its 2026-07-03
+free-action corollary end-to-end — from the finite centralizer facts to the divisibility of the
+solution count. Core Lean 4 only, standalone file, structural proofs over ALL orderings (native_decide
+carries only the finite group facts). Verified statements:
+
+| Theorem | Statement |
+|---|---|
+| `c1ok_mapP` … `c4ok_mapP`, `transitions_mapP`, `c3x64_mapP`, `validC15_mapP` | **Invariance**: every σ in the 48-element centralizer of bit-reversal maps every valid C1–C5 ordering (any permutation of the 64 hexagrams, not just King Wen) to a valid C1–C5 ordering; the transition list and the C3 sum are exactly preserved |
+| `pairKey_mapP` | **Compatibility**: canonicalization commutes with the action — pairKey(σ·l) = σ·pairKey(l) (record-level action = relabel pair keys) |
+| `act_rho_solrec`, `act_fix_id_or_rho` | **Kernel + freeness**: bit-reversal acts trivially on every solution record; any element of G₄₈ fixing ANY solution record is the identity or bit-reversal — so the record-level S₄ (order 24) acts freely ("every solution has exactly 23 twins", now for all solutions) |
+| `twenty_four_dvd_count` | **Orbit partition** (generic engine): for any G-invariant constraint predicate containing C1, every duplicate-free complete listing of the record-level solution set has length divisible by 24 |
+| `twenty_four_dvd_solution_count` | **The corollary**: 24 ∣ number of canonical C1–C5 solution records — the theorem behind the DIV-24 integrity gate on exact counts |
+| `twenty_four_dvd_c1c2c4_count`, `twenty_four_dvd_c1c2c4c5_count` | The same divisibility for the exact-count constraint systems C1∩C2∩C4 and C1∩C2∩C4∩C5 (record level; see the file's scope note on record-level vs orientation-resolved counts) |
+| `kw_solution_record` | Sanity witness: King Wen's canonical record is a solution record (the count is a positive multiple of 24) |
+
+The count statement is exact-matching by construction: `SolRec Q r` says r = pairKey(l) for some
+permutation l of the 64 hexagrams with Q(l), the same record-level object (pair-sequences after
+orientation dedup) counted by the enumeration pipeline and `twins_24_records`.

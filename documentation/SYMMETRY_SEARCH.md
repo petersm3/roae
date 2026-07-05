@@ -1,6 +1,6 @@
 # The Symmetry Group of the C1–C5 Constraint System is the Octahedral Group (order 48)
 
-**Result (CORRECTED 2026-07-02, supersedes this document's earlier negative claim):** The C1–C5 constraint
+**Result (CORRECTED 2026-07-02; machine-checked in Lean 2026-07-05, supersedes this document's earlier negative claim):** The C1–C5 constraint
 system admits an exact symmetry group: the **48 bit-position permutations that commute with bit-reversal**
 (the centralizer of `rev` in S₆, isomorphic to **B₃ ≅ Z₂ ≀ S₃**, the octahedral group). For every σ in this
 group and every sequence S, **S satisfies C1–C5 if and only if σ(S) does** — proven, not sampled. The full
@@ -132,6 +132,12 @@ and King Wen's 23 twins are not a special property — every valid ordering has 
 census that this project had queued as a measurement (fixed-point counts per conjugacy class) is thereby
 settled analytically: all non-identity counts are zero. (To our knowledge first stated here; corrections
 welcome via [CITATIONS.md](CITATIONS.md).)
+
+**Machine-checked (2026-07-05):** this document's sequence-level layer — G-invariance of C1–C5 over all
+orderings, freeness of the record-level S₄ action, and the corollary 24 ∣ |canonical solution records| —
+is kernel-verified in core Lean 4 (no Mathlib): [lean/Automorphism.lean](../lean/Automorphism.lean),
+theorems `validC15_mapP`, `act_fix_id_or_rho`, `twenty_four_dvd_solution_count` (finite lemmas:
+[lean/KingWen.lean](../lean/KingWen.lean)).
 
 ## Limits and scope
 
