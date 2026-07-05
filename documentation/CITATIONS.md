@@ -514,3 +514,15 @@ and the "mediating hexagram" (XOR difference) of any pair — set-level prior ar
 framing used throughout this repository, distinct from our ordering-level constraint results
 ([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Related work). Located via Hacker, Moore & Patsco (2002),
 entry B:154; annotation-level knowledge only until the article is acquired (JCP basket, July 2026).
+
+## Nielsen, Bent (2003)
+*A Companion to Yi jing Numerology and Cosmology.* RoutledgeCurzon. Encyclopedic reference for the
+Han-through-Song numerological systems; used here as the authoritative source for classical-sequence
+definitions. Three specific debts: (1) his Jing Fang eight-palace table (after Hui Dong) verified our
+corpus-gate generator cell-for-cell (all 64), grounding TR-1 §7's Jing Fang control; (2) his Wu Deng
+(1249–1333) entry records a "warp/weft" structural skeleton of the received order — 16 hexagrams with
+upper trigram equal to the lower or its complement, at pair-slots {1,6,15,16,21,26,29,32} — a
+13th-century strict extension of what we credited to Van den Berghe as V-1; (3) his Lai Zhide (~1600)
+entry shows the arrangement idea we credited as VdB-4 has a Ming-dynasty precedent. Where our reports
+credit modern authors for structural observations, these classical precedents take priority; the
+modern authors' contribution is independent rediscovery and, in VdB's case, quantification.
