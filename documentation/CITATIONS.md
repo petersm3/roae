@@ -471,12 +471,24 @@ site; rev. 1998-01-04). [Archived](https://web.archive.org/web/1999/http://www.s
   McKenna (1975). Found via the zhouyi.com bibliography review, 2026-07-04. [analyzed]
 
 Van den Berghe, D. (c. 1999–2002). *The explanation of King Wen's order of the 64 hexagrams*. Web
-document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.archive.org/web/2002/http://www.ping.be/icrea/explan.html)
+document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.archive.org/web/2002/http://www.ping.be/icrea/explan.html); live PDF: https://fourpillars.net/pdf/kingwen.pdf (with a 2005 sequel, https://fourpillars.net/pdf/ic_landscape.pdf)
   States the pair structure as a two-rule system — inverse pairing, with complement pairing for the
   eight self-symmetric hexagrams — matching C1's modern formulation; also notes the four pairs where
   inverse equals complement and several special-pair placement observations, within an informal
   seasonal/landscape reconstruction. Modern web prior art for C1's formulation (classical priority
   remains Yu Fan, 3rd c.). Found via the zhouyi.com bibliography review, 2026-07-04. [analyzed]
+  **Source and sole author of the nuclear orientation rule** (kingwen.pdf p. 11, Appendix 2): a
+  nuclear-hexagram decision procedure predicting which member of each pair comes first, which he
+  reported King Wen follows in 29 of the 30 pairs it addresses, with one declared exception (hexagram
+  pair 3/4). Our measurement (TR-1 §7, 2026-07-05) confirms his 29/30 exactly and sharpens it: 29 is
+  the maximum of the entire 1,720,320-vector orientation fiber of King Wen's pair sequence (12 vectors
+  attain it; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided, 1.3951×10⁻⁵ two-sided), and 30/30 is
+  unattainable — **his declared exception is forced**, making the rule perfect up to impossibility
+  rather than "almost perfect". The rule was derived from King Wen, so this is exact population
+  atypicality of his description, not independent confirmation; see TR-1 §7 for the full scoping.
+  His broader reconstruction also audits cleanly: 17 of 19 checkable claim-groups verify exactly,
+  and his two self-declared exceptions sit precisely where computation finds the misfits. The finding
+  is his; the operationalization, exact enumeration, and population placement are ROAE's.
 
 Drasny, J. (n.d.). *The Yi-globe*. i-ching.hu. https://www.i-ching.hu/ (unreachable as of 2026-07-04; [archived copy](https://web.archive.org/web/2024/https://www.i-ching.hu/))
   HTTP-only, partially blocked; core paper recovered via mirror. [partial]

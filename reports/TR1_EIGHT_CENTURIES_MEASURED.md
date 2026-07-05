@@ -14,8 +14,12 @@ probes (one is proven outright), so they reveal nothing about the
 arranger. Others are **typical** — common enough to be unremarkable. A few are **genuinely rare** (down
 to one in fifty million), and King Wen has them. The report culminates in the conflict theorem: the
 literature's four strongest rules **cannot all be satisfied by any ordering that preserves the classical pairing**, and King Wen sits
-exactly where that conflict forces a choice. Every number here can be recomputed, and the impossibility
-results carry machine-checkable certificates.
+exactly where that conflict forces a choice. A follow-up battery (§7) turns the same measurement on the
+sequence's most-ignored layer — which member of each pair comes first — and finds that the one rule the
+literature ever offered for it, Van den Berghe's hand-derived nuclear rule (c. 1999–2002), places King Wen
+at the exact maximum of everything achievable: of 1,720,320 possible orientation configurations, only 12
+score as high, none higher — and his rule's single declared exception turns out to be forced. Every number
+here can be recomputed, and the impossibility results carry machine-checkable certificates.
 
 ## Abstract
 Structural rules asserted for the King Wen sequence across eight centuries of literature — from Zheng Qiao
@@ -164,6 +168,76 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    C1–C7 space holds ≈5.2×10³¹ orderings). Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
    description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
+7. **The orientation layer, measured (2026-07-05).** Everything above concerns which pair goes where. A
+   final pre-registered battery measures the layer the literature has almost entirely ignored — **which
+   member of each pair comes first**. Of the 32 within-pair orientation choices, slot 0 is forced
+   (Theorem 6), leaving 31 binary choices; but conditioning on King Wen's pair sequence, exact
+   enumeration shows the constraints leave a valid orientation **fiber of exactly 1,720,320 vectors**
+   (= 3·5·7·2¹⁴ ≈ 2^20.7 — far below the naive 2³¹; 30 of the 31 bits vary somewhere in the fiber, and
+   slot 30, hexagrams 61/62, is the only additionally forced bit). This already corrects our own earlier
+   gloss that orientation "appears to be a free choice at each pair": the freedom is real but coupled and
+   ~20.7 bits, not 31. Eleven functionals were frozen before measurement (Bonferroni N = 11; two-sided
+   atom-inclusive p; the exact fiber is the dispositive null; all results published regardless of
+   outcome), each anchored to a named author's idea:
+
+   | # | Functional (source) | KW | Exact fiber p (two-sided) | Verdict |
+   |---|---|---|---|---|
+   | 1 | Correct-line lead — Cook 2006's `sO` orientation stage | 15/32 | 9.499×10⁻² | null |
+   | 2 | Rising count — Moore 1989 (reproduces his own 10R/8F) | 10/18 | 0.8144 | null |
+   | 3 | Rising/falling alternation — Moore 1989 rule K-8 | 10/17 | 0.6972 | null |
+   | 4 | Yang-heavier member leads — the *Dazhuan*/Xici yang-precedence reading, via Schulz 1990 and Cook 2006 | 2/4 | 0.6667 | null |
+   | 5 | Order-true mirror links — Davis 2012 | 7/12 | 0.8214 | null |
+   | 6 | Binary-larger member leads — the Shao Yong / Leibniz 1703 axis | 17/32 | 1.0 | null |
+   | 7 | Orientation-string alternation — Chan 2026's anti-habituation axis, transported | 13/31 | 0.3732 | null |
+   | 8 | Greedy smooth entry — McKenna & McKenna 1975 | 23/31 | constant on fiber | **forced** |
+   | 9 | Placement of the unique between-pair 6 — McKenna & McKenna 1975 | 18 | constant on fiber | **forced** |
+   | 10 | Span of the two between-pair 1s — McKenna & McKenna 1975 | 4 | constant on fiber | **forced** |
+   | 11 | **Nuclear orientation rule — Van den Berghe c. 1999–2002** | **29/30** | **1.3951×10⁻⁵** | **notable — the fiber maximum** |
+
+   Rows 8–10 join the forced class of §3: three of McKenna's difference-wave statistics turn out to be
+   **constant across all 1,720,320 valid orientations** — given the pair sequence they measure constraint
+   geometry, not an arranger's orientation choice. Rows 1–7: seven literature-anchored orientation ideas,
+   from Cook's correct-line stage (the one explicit within-pair orientation rule in the modern academic
+   literature) through Moore's rising/falling system (our count reproduces his published 10R/8F exactly)
+   to the classical yang-precedence reading, are all **null** — dead-typical of the choices actually
+   available. The orientation layer is not decorated with weak echoes of the ordering rules; it is silent
+   on every axis but one.
+
+   **The headline: Van den Berghe found, by hand, the single most extreme orientation regularity
+   achievable.** Around the turn of the millennium, D.H. Van den Berghe — working independently and
+   publishing on the open web (c. 1999–2002) — proposed a nuclear-hexagram decision procedure predicting
+   which member of each pair comes first, and reported that King Wen follows it in 29 of the 30 pairs it
+   addresses, with one declared exception (hexagram pair 3/4). Both halves of his claim verify exactly —
+   and exact enumeration sharpens both in his favor. King Wen's agreement count of 29 is the **maximum
+   attained anywhere on its orientation fiber**: exactly **12 of 1,720,320** vectors reach 29 (King Wen
+   among them; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided), and **none reaches 30** — perfect agreement is
+   unattainable, so his declared exception is not a blemish his rule tolerates but a **forced** feature:
+   no valid orientation of King Wen's pair sequence satisfies all 30 predictions. That clarifies the
+   rule's standing — it is not "almost perfect"; it is **perfect up to impossibility**. The unconditional
+   population concurs: zero mass at ≥ 29 in ≈2.9×10⁷ weighted valid-sequence leaves (2×10⁹-probe run).
+   Credit where it is due: Van den Berghe **found** this regularity, a quarter-century ago and without
+   any of this machinery; ROAE's contribution is to operationalize it, enumerate its null exactly, and
+   locate it in the population — the finding is his, the measurement is ours. It is of a piece with his
+   work overall: our audit of his web-published reconstruction verified 17 of 19 checkable claim-groups
+   exactly, with his two self-declared exceptions falling precisely where computation finds the misfits.
+
+   The honest scoping travels with the headline. Under the frozen thresholds the result is **notable**
+   (two-sided p = 1.3951×10⁻⁵, ~2.5 orders of magnitude past the 0.05/11 = 4.545×10⁻³ bar) but, on the
+   strictest pre-registered reading, **not** a "candidate rule": the two-sided p exceeds the
+   10⁻⁴/11 = 9.091×10⁻⁶ bar (the one-sided 6.9754×10⁻⁶ would pass, but the frozen convention is
+   two-sided and the strictest reading governs), and the strict gauge-control reading additionally marks
+   the flag convention-tied (it inverts, attenuated ~50× in p, under direction-reversing gauge
+   relabelings — arguably covariant behavior for a rule about which member *leads*, but reported as
+   frozen). More fundamentally: Van den Berghe derived the rule *from* King Wen, so this is
+   population-atypicality of a **fitted description** — the described configuration carries
+   ≈17.1 bits of atypicality (≥ ~14 after discounting the rule's ~2–3 fitted degrees of freedom) out of
+   the layer's ≈20.7-bit budget — and **not** independent confirmation of a design rule; no out-of-sample
+   test is possible from the same document the rule was read off of. The corpus gate is clean and
+   KW-specific: Mawangdui scores 14 (dead central, p ≈ 0.97) and Jing Fang scores 6 — the *opposite*
+   tail, anti-agreeing with the rule — so no classical-norm explanation is available. Per the frozen
+   pre-commitment, nothing here promotes into the constraint system; it is a measured property of King
+   Wen. Raw outputs, the exact-fiber script, and exercised reproduction commands (the fiber analysis
+   reruns byte-identically in ~11 s): [evidence/f5/](evidence/f5/README.md).
 
 ## Figure
 
@@ -195,6 +269,13 @@ All values are the reports' stated numbers; generated by
 - THE CONFLICT THEOREM: `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf` → UNSAT; encoding
   validation: ccn4-kwtest SAT, rc4-kwtest UNSAT
 - Wrap-distance finals cross-reference: documentation/CIRCULAR_KING_WEN.md (TR-7)
+- Orientation battery (§7), KW ground-truth gates: `./solve --f5-verify` (11/11) and `python3 solve.py
+  --vdb-verify` (Van den Berghe rule, KW = 29)
+- Orientation battery, exact fiber (dispositive): `cd reports/evidence/f5 && python3 f5_modec_fiber.py`
+  (~11 s; rerun exercised 2026-07-05, byte-identical to the archived reports/evidence/f5/f5_modec_fiber.out)
+- Orientation battery, population run: `SOLVE_KNUTH_SCORE_F5=1 SOLVE_KNUTH_F5_HIST=1 ./solve
+  --estimate-knuth 2000000000` (archived instance: reports/evidence/f5/f5_tier1.out; flags documented in
+  SOLVE_CLI.md §ENVIRONMENT)
 
 ## Revision history
 | Version | Date | Changes |
@@ -204,3 +285,4 @@ All values are the reports' stated numbers; generated by
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |
 | v1.6 | 2026-07-04 | Reproducibility completion: joint-strict population estimate (§4, ≈1.13×10²⁹) given an explicit rerun line in the Verification Guide; its `SOLVE_KNUTH_MOORE_STRICT` flag documented in SOLVE_CLI.md; archived instance cross-referenced (reports/evidence/f11/f11_runB.out) |
+| v1.7 | 2026-07-05 | New §7 "The orientation layer, measured": pre-registered 11-functional battery over the exact 1,720,320-vector orientation fiber (+ 2×10⁹-probe population run). Van den Berghe's nuclear rule (c. 1999–2002) shown to be the fiber maximum (12/1,720,320; his declared exception proven forced); three McKenna statistics forced; seven other literature axes null. Evidence bundle reports/evidence/f5/ with exercised reproduction |

@@ -1,0 +1,79 @@
+=== c230 F5 batch launch Sun Jul  5 03:49:24 UTC 2026 ===
+WARNING: The default value of '--size' will be changed to 'Standard_D2s_v5' from 'Standard_DS1_v2' in a future release.
+WARNING: Argument '--max-price' is in preview and under development. Reference and support levels: https://aka.ms/CLI_refstatus
+WARNING: Consider upgrading security for your workloads using Azure Trusted Launch VMs. To know more about Trusted Launch, please visit https://aka.ms/TrustedLaunch.
+c230-f5 created Sun Jul  5 03:50:01 UTC 2026 (F5 tier-1 batch, Spot D64 westus3)
+backstop VERIFIED BY READBACK: Enabled @ 0650 UTC (+3h)
+cpu-freq probe: 2596 MHz
+debconf: unable to initialize frontend: Dialog
+debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+dpkg-preconfigure: unable to re-open stdin: 
+solve.c: In function ‘auto_selftest_check.part.0’:
+solve.c:3722:14: warning: ‘ --selftest > /dev/null 2>&1’ directive output may be truncated writing 28 bytes into a region of size between 15 and 4110 [-Wformat-truncation=]
+ 3722 |              "env -u SOLVE_DEPTH -u SOLVE_THREADS -u SOLVE_NODE_LIMIT "
+      |              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+solve.c:3727:17: note: format string is defined here
+ 3727 |              "%s --selftest > /dev/null 2>&1", self_path);
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /usr/include/stdio.h:894,
+                 from solve.c:282:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:71:10: note: ‘__builtin___snprintf_chk’ output between 271 and 4366 bytes into a destination of size 4352
+   71 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   72 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   73 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+solve.c: In function ‘main’:
+solve.c:12942:41: warning: ‘%s’ directive output may be truncated writing up to 65535 bytes into a region of size 256 [-Wformat-truncation=]
+12942 |                     snprintf(tmp, 256, "%s", layer_names[a]);
+      |                                         ^~
+In file included from /usr/include/stdio.h:894,
+                 from solve.c:282:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:71:10: note: ‘__builtin_snprintf’ output between 1 and 65536 bytes into a destination of size 256
+   71 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   72 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   73 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[--selftest] Running in /tmp/solve_selftest_RFiUAC
+[--selftest] Expected sha256: 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+[--selftest] Actual sha256:   403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+[--selftest] PASS — sha256 matches canonical baseline
+f5_correct_lead: 15 OK
+f5_rising: 10 OK
+f5_rf_alt: 10 OK
+f5_gender_lead: 2 OK
+f5_mirror_order: 7 OK
+f5_lex_dev: 17 OK
+f5_orient_alt: 13 OK
+f5_greedy_entry: 23 OK
+f5_bpd_six_pos: 18 OK
+f5_bpd_one_span: 4 OK
+f5_vdb_nuc: 29 OK
+F5 VERIFY: PASS
+vdb_elemskel: 1 OK
+vdb_specplace: 4 OK
+vdb_slopeloc: 9 OK
+vdb_groupclosure: 4 OK
+vdb_sunrise: 2 OK
+vdb_landscape: 5 OK
+vdb_midclusters: 3 OK
+vdb_nucorient: 29 OK
+VDB VERIFY: PASS
+# f5 corpus/gauge control values (f5_names order: correct_lead,rising,rf_alt,gender_lead,mirror_order,lex_dev,orient_alt,greedy_entry,bpd_six_pos,bpd_one_span,vdb_nuc)
+# KW frozen-spec expected: 15,10,10,2,7,17,13,23,18,4,29
+KW: 15,10,10,2,7,17,13,23,18,4,29
+MAWANGDUI_VALUES: 16,22,4,0,16,16,15,24,0,1,14
+JINGFANG_VALUES: 16,22,17,0,16,16,18,29,0,1,6
+GAUGE_UPDOWN_BITREV6: 7,8,10,2,7,17,12,23,18,4,4
+GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5
+=== tier-1 run: 2e9 probes, SCORE_F5 + HIST, 64 threads Sun Jul  5 03:51:04 UTC 2026 ===
+--- teardown Sun Jul  5 03:55:05 UTC 2026
+c230-f5 deleted Sun Jul  5 03:55:18 UTC 2026
+=== c230 F5 TIER-1 COMPLETE Sun Jul  5 03:55:18 UTC 2026; results /tmp/f5_batch/ + /home/claude/github/roae-private/scripts/f5_evidence/ ===

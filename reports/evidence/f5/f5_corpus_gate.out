@@ -1,0 +1,7 @@
+# f5 corpus/gauge control values (f5_names order: correct_lead,rising,rf_alt,gender_lead,mirror_order,lex_dev,orient_alt,greedy_entry,bpd_six_pos,bpd_one_span,vdb_nuc)
+# KW frozen-spec expected: 15,10,10,2,7,17,13,23,18,4,29
+KW: 15,10,10,2,7,17,13,23,18,4,29
+MAWANGDUI_VALUES: 16,22,4,0,16,16,15,24,0,1,14
+JINGFANG_VALUES: 16,22,17,0,16,16,18,29,0,1,6
+GAUGE_UPDOWN_BITREV6: 7,8,10,2,7,17,12,23,18,4,4
+GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5

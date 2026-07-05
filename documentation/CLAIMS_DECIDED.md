@@ -26,6 +26,7 @@ in this page (report it).
 | Davis's per-trigram rotation quartet has "no further example" | Davis 2012, p.114 | **WITHDRAWN** (our challenge) | Our initial refutation failed hostile verification — under the fairest reading his claim holds; we retracted before publication | [TR-10 methods note](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) |
 | The no-5-transition property | McKenna & McKenna 1975 | **CONFIRMED** + contextualized | Verified at scale; shared by Mawangdui and Jing Fang (a classical design norm, not KW-specific) | [CRITIQUE](CRITIQUE.md), [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) |
 | The pairing is the unique Hamming-optimal matching | Radisic 2026 | **CONFIRMED** (independent) | Machine-verified independently | [CITATIONS](CITATIONS.md) |
+| Nuclear rule orients 29/30 pairs, one declared exception (pair 3/4) | Van den Berghe c. 1999–2002 | **CONFIRMED** + sharpened | His 29/30 verifies exactly; exact fiber enumeration shows 29 is the maximum of all 1,720,320 valid orientations of KW's pair sequence (12 attain it, P = 6.9754×10⁻⁶) and 30/30 is unattainable — his exception is proven forced. A fitted description at the fiber ceiling, not independent confirmation | [TR-1 §7](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [evidence/f5](../reports/evidence/f5/README.md) |
 
 Corrections to our own published numbers (the never-silent ledger): the MDL arithmetic (144.4→143.7
 cascade), a false theorem in `--verify-wrap-parity`'s output, the TR-1/2/3/9 v1.5 scope corrections,

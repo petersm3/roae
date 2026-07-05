@@ -1,0 +1,202 @@
+== F5 Mode C: exact fiber enumeration (frozen spec section 3 method) ==
+fiber size = 1720320
+marginals gate PASS (28x0.5, slot13=0.4, slot14=0.5333, slot30 forced)
+single-flip-valid slots = [3, 5, 9, 10, 11, 12, 17, 21, 31]
+KW-in-fiber score gate PASS: [np.int32(15), np.int32(10), np.int32(10), np.int32(2), np.int32(7), np.int32(17), np.int32(13), np.int32(23), np.int32(18), np.int32(4), np.int32(29)]
+200-sample cross-implementation + C5-validity gate PASS (numpy fast path == f5_ground_truth.f5_all; two-language gated vs solve.c)
+
+== Mode C exact results (dispositive; N = 1,720,320) ==
+functional       kw min max         P<=kw         P>=kw   two-sided p support
+correct_lead     15   2  20  9.849005e-01  4.749349e-02  9.498698e-02      19
+rising           10   1  17  7.605399e-01  4.072242e-01  8.144485e-01      17
+rf_alt           10   1  16  8.178339e-01  3.486049e-01  6.972098e-01      16
+gender_lead       2   2   4  3.333333e-01  1.000000e+00  6.666667e-01       3
+mirror_order      7   1  11  8.044271e-01  4.106771e-01  8.213542e-01      11
+lex_dev          17   6  28  5.565453e-01  5.957287e-01  1.000000e+00      23
+orient_alt       13   6  25  1.866013e-01  8.896833e-01  3.732027e-01      20
+greedy_entry     23  23  23  1.000000e+00  1.000000e+00  1.000000e+00       1  FORCED-ON-FIBER
+bpd_six_pos      18  18  18  1.000000e+00  1.000000e+00  1.000000e+00       1  FORCED-ON-FIBER
+bpd_one_span      4   4   4  1.000000e+00  1.000000e+00  1.000000e+00       1  FORCED-ON-FIBER
+vdb_nuc          29   1  29  1.000000e+00  6.975446e-06  1.395089e-05      29
+
+== Mode C exact fiber histograms (counts / 1,720,320) ==
+modec_hist correct_lead 2 4
+modec_hist correct_lead 3 104
+modec_hist correct_lead 4 952
+modec_hist correct_lead 5 5192
+modec_hist correct_lead 6 19724
+modec_hist correct_lead 7 55728
+modec_hist correct_lead 8 121444
+modec_hist correct_lead 9 208952
+modec_hist correct_lead 10 287956
+modec_hist correct_lead 11 320208
+modec_hist correct_lead 12 287956
+modec_hist correct_lead 13 208952
+modec_hist correct_lead 14 121444
+modec_hist correct_lead 15 55728
+modec_hist correct_lead 16 19724
+modec_hist correct_lead 17 5192
+modec_hist correct_lead 18 952
+modec_hist correct_lead 19 104
+modec_hist correct_lead 20 4
+modec_hist rising 1 28
+modec_hist rising 2 480
+modec_hist rising 3 3792
+modec_hist rising 4 17664
+modec_hist rising 5 54896
+modec_hist rising 6 123328
+modec_hist rising 7 211760
+modec_hist rising 8 288608
+modec_hist rising 9 319208
+modec_hist rising 10 288608
+modec_hist rising 11 211760
+modec_hist rising 12 123328
+modec_hist rising 13 54896
+modec_hist rising 14 17664
+modec_hist rising 15 3792
+modec_hist rising 16 480
+modec_hist rising 17 28
+modec_hist rf_alt 1 32
+modec_hist rf_alt 2 520
+modec_hist rf_alt 3 3920
+modec_hist rf_alt 4 18152
+modec_hist rf_alt 5 57824
+modec_hist rf_alt 6 134616
+modec_hist rf_alt 7 237360
+modec_hist rf_alt 8 323640
+modec_hist rf_alt 9 344544
+modec_hist rf_alt 10 286328
+modec_hist rf_alt 11 183856
+modec_hist rf_alt 12 89240
+modec_hist rf_alt 13 31520
+modec_hist rf_alt 14 7592
+modec_hist rf_alt 15 1104
+modec_hist rf_alt 16 72
+modec_hist gender_lead 2 573440
+modec_hist gender_lead 3 688128
+modec_hist gender_lead 4 458752
+modec_hist mirror_order 1 1344
+modec_hist mirror_order 2 13888
+modec_hist mirror_order 3 64960
+modec_hist mirror_order 4 180992
+modec_hist mirror_order 5 332416
+modec_hist mirror_order 6 420224
+modec_hist mirror_order 7 370048
+modec_hist mirror_order 8 224000
+modec_hist mirror_order 9 89152
+modec_hist mirror_order 10 21056
+modec_hist mirror_order 11 2240
+modec_hist lex_dev 6 2
+modec_hist lex_dev 7 26
+modec_hist lex_dev 8 220
+modec_hist lex_dev 9 1228
+modec_hist lex_dev 10 4869
+modec_hist lex_dev 11 14930
+modec_hist lex_dev 12 37073
+modec_hist lex_dev 13 75984
+modec_hist lex_dev 14 130452
+modec_hist lex_dev 15 190644
+modec_hist lex_dev 16 240048
+modec_hist lex_dev 17 261960
+modec_hist lex_dev 18 248386
+modec_hist lex_dev 19 204660
+modec_hist lex_dev 20 145858
+modec_hist lex_dev 21 89040
+modec_hist lex_dev 22 45986
+modec_hist lex_dev 23 19762
+modec_hist lex_dev 24 6876
+modec_hist lex_dev 25 1868
+modec_hist lex_dev 26 385
+modec_hist lex_dev 27 58
+modec_hist lex_dev 28 5
+modec_hist orient_alt 6 16
+modec_hist orient_alt 7 16
+modec_hist orient_alt 8 1877
+modec_hist orient_alt 9 1877
+modec_hist orient_alt 10 27380
+modec_hist orient_alt 11 27380
+modec_hist orient_alt 12 131234
+modec_hist orient_alt 13 131234
+modec_hist orient_alt 14 271632
+modec_hist orient_alt 15 271632
+modec_hist orient_alt 16 268152
+modec_hist orient_alt 17 268152
+modec_hist orient_alt 18 128676
+modec_hist orient_alt 19 128676
+modec_hist orient_alt 20 28566
+modec_hist orient_alt 21 28566
+modec_hist orient_alt 22 2568
+modec_hist orient_alt 23 2568
+modec_hist orient_alt 24 59
+modec_hist orient_alt 25 59
+modec_hist greedy_entry 23 1720320
+modec_hist bpd_six_pos 18 1720320
+modec_hist bpd_one_span 4 1720320
+modec_hist vdb_nuc 1 2
+modec_hist vdb_nuc 2 18
+modec_hist vdb_nuc 3 104
+modec_hist vdb_nuc 4 474
+modec_hist vdb_nuc 5 1666
+modec_hist vdb_nuc 6 4660
+modec_hist vdb_nuc 7 10888
+modec_hist vdb_nuc 8 21898
+modec_hist vdb_nuc 9 38698
+modec_hist vdb_nuc 10 61304
+modec_hist vdb_nuc 11 88594
+modec_hist vdb_nuc 12 118286
+modec_hist vdb_nuc 13 146892
+modec_hist vdb_nuc 14 169948
+modec_hist vdb_nuc 15 183220
+modec_hist vdb_nuc 16 184160
+modec_hist vdb_nuc 17 172658
+modec_hist vdb_nuc 18 151094
+modec_hist vdb_nuc 19 123360
+modec_hist vdb_nuc 20 93522
+modec_hist vdb_nuc 21 65222
+modec_hist vdb_nuc 22 41328
+modec_hist vdb_nuc 23 23428
+modec_hist vdb_nuc 24 11638
+modec_hist vdb_nuc 25 4930
+modec_hist vdb_nuc 26 1728
+modec_hist vdb_nuc 27 486
+modec_hist vdb_nuc 28 102
+modec_hist vdb_nuc 29 12
+vdb_nuc: exact #fiber vectors with X >= 28: 114  (P = 6.626674e-05)
+vdb_nuc: exact #fiber vectors with X >= 29: 12  (P = 6.975446e-06)
+vdb_nuc: exact #fiber vectors with X >= 30: 0  (P = 0.000000e+00)
+
+== Convention control (frozen spec 6b): lex-minimal fiber element ==
+lexmin orientation bitmask = 0x3ec1fc40 (popcount 15)
+functional      lexmin  ModeC two-sided p   (KW p for comparison)
+correct_lead        15       9.498698e-02   (KW 9.498698e-02)
+rising               7       4.789202e-01   (KW 8.144485e-01)
+rf_alt               9       1.000000e+00   (KW 6.972098e-01)
+gender_lead          4       5.333333e-01   (KW 6.666667e-01)
+mirror_order         3       9.322917e-02   (KW 8.213542e-01)
+lex_dev              8       2.883185e-04   (KW 1.000000e+00)
+orient_alt          11       6.806408e-02   (KW 3.732027e-01)
+greedy_entry        23       1.000000e+00   (KW 1.000000e+00)
+bpd_six_pos         18       1.000000e+00   (KW 1.000000e+00)
+bpd_one_span         4       1.000000e+00   (KW 1.000000e+00)
+vdb_nuc             14       7.712891e-01   (KW 1.395089e-05)
+
+== Mode U tier-1 (2e9 probes) two-sided p, atom-inclusive, from f5_tier1.out ==
+correct_lead    kw=15 P<= 0.97850657 P>= 0.05913452 two-sided p = 0.11826904
+rising          kw=10 P<= 0.75083693 P>= 0.41094570 two-sided p = 0.82189140
+rf_alt          kw=10 P<= 0.86963503 P>= 0.26417361 two-sided p = 0.52834722
+gender_lead     kw=2 P<= 0.50169241 P>= 0.87254174 two-sided p = 1.00000000
+mirror_order    kw=7 P<= 0.83098492 P>= 0.36421973 two-sided p = 0.72843946
+lex_dev         kw=17 P<= 0.64387034 P>= 0.49973283 two-sided p = 0.99946566
+orient_alt      kw=13 P<= 0.18508619 P>= 0.89810449 two-sided p = 0.37017238
+greedy_entry    kw=23 P<= 0.39994194 P>= 0.78936906 two-sided p = 0.79988388
+bpd_six_pos     kw=18 P<= 0.57984410 P>= 0.44705759 two-sided p = 0.89411518
+bpd_one_span    kw=4 P<= 0.24048956 P>= 0.81867002 two-sided p = 0.48097912
+vdb_nuc         kw=29 sampled range [2,28]: ZERO sampled mass at/above KW -> p_hat = 0; report as bound (see results doc)
+
+== corpus/gauge control re-computation (local python vs on-VM C values) ==
+KW: 15,10,10,2,7,17,13,23,18,4,29 OK
+MAWANGDUI_VALUES: 16,22,4,0,16,16,15,24,0,1,14 OK
+JINGFANG_VALUES: 16,22,17,0,16,16,18,29,0,1,6 OK
+GAUGE_UPDOWN_BITREV6: 7,8,10,2,7,17,12,23,18,4,4 OK
+GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5 OK
+corpus/gauge two-language gate PASS
