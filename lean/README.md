@@ -1,5 +1,26 @@
 # Machine-checked proofs (Lean 4)
 
+## Executive summary (plain English)
+
+This directory contains **machine-checked mathematical proofs**. Instead of trusting a human
+argument (or this project's own C and Python code), the Lean 4 proof assistant re-derives each
+statement from first principles and its small trusted kernel certifies the logic. What that buys:
+
+- **The constraint system's basic facts are beyond dispute.** Every hexagram pair's distance
+  properties, the exact set of XOR products, the parity structure, and King Wen's satisfaction of
+  the constraints are proved by exhaustive kernel-verified computation — not by our software, which
+  could have bugs, but by a checker whose only trusted component is Lean's core.
+- **The symmetry theorem is fully machine-checked** (finite component + the sequence-level layer in
+  `Automorphism.lean`): the constraint system has exactly 48 relabeling symmetries, they act freely
+  at the record level in 24-element orbits, and therefore **24 divides every exact solution count**.
+  This is the theorem behind the "divisible by 24" sanity gate applied to the project's exact counts;
+  if a count ever failed that gate, the computation — not the mathematics — would be at fault.
+- **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
+  `lake build` re-verifies the whole suite from scratch in seconds on any machine.
+
+In short: the deepest structural claims this project relies on do not depend on trusting us.
+
+
 `KingWen.lean` contains kernel-checked proofs of the ROAE constraint system's finite core lemmas —
 **core Lean 4 only, no mathlib**; every hexagram-level claim is proved by `native_decide`
 (exhaustive, kernel-verified computation). Verified statements:

@@ -1,5 +1,24 @@
 # UNSAT certificates (DRAT)
 
+## Executive summary (plain English)
+
+This directory contains **impossibility proofs with independently checkable receipts**. Several
+historical claims about the King Wen sequence amount to rules it "should" satisfy. We encoded those
+rules as logical formulas and used an industry-standard SAT solver to prove that certain
+combinations admit **no possible sequence at all** — most notably the conflict theorem: the five
+classical rules cannot all hold together, and specific two-rule pairs are already incompatible.
+
+The point of this directory is that **you do not have to trust our solver, our code, or us**:
+each result ships as a DRAT certificate — a step-by-step logical derivation that any third-party
+checker (the standard `drat-trim` tool) verifies mechanically. Regenerate the formula with the
+documented command, run the checker on the archived certificate, and it prints `s VERIFIED`.
+`verify_all.sh` does this for every certificate in one command. The certificates were additionally
+re-verified end-to-end on separate hardware before publication.
+
+In short: "these rules cannot coexist" is not our opinion or our program's output — it is a
+machine-checkable mathematical fact, and the receipt is in this directory.
+
+
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
 must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See reports/METHODS.md.
 `verify_all.sh` (this directory) checks every certificate below. Full inventory: 19 certificates —
