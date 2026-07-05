@@ -6118,6 +6118,110 @@ F4P_KW_EXPECTED = {
 
 
 # ---------------------------------------------------------------------------
+# F6 — Nielsen-audit functional families (FROZEN 2026-07-05 in roae-private/
+# F6_BOOKS_PREREGISTRATION_2026_07_FROZEN.md, before any population
+# measurement; Bonferroni N=7; two-sided atom-inclusive convention).
+# ATTRIBUTION: #1-5 operationalize the warp/weft skeleton of Wu Deng 吳澄
+# (1249-1333, Yi zuan yan), via Nielsen 2003 p. 132 (JING GUA def. 2): warp
+# class W = {h : up(h) = lo(h) or up(h) = comp(lo(h))}, |W| = 16, and the
+# power-of-2 weft-block profile of the received order. #6-7 operationalize
+# palace-partition alignment for Jing Fang's 京房 (77-37 BCE) eight palaces,
+# tabulation per Hui Dong 惠棟 (1697-1758) as printed in Nielsen 2003 pp. 1-4
+# Table 2 (generator _f4p_jf_palace, verified against all 64 cells). The
+# classical observations are the named scholars'; the integer
+# operationalizations and the population measurement over C1-C5 space are
+# ROAE's (Claude, Fable, 2026-07-05).
+# Forced-class facts (frozen spec §2, NOT scored): W is C1-partner-closed, so
+# every valid ordering has exactly 8 all-warp pair-slots (slot 0 warp by C4);
+# no C1 pair shares a palace (0/32, universal), so palace adjacency lives
+# entirely on the 31 between-pair boundaries; #1-5 are orientation-blind.
+# ---------------------------------------------------------------------------
+
+_F6_WARP = frozenset(h for h in range(64)
+                     if (h >> 3) == (h & 7) or (h >> 3) == ((h & 7) ^ 7))
+
+def _f6_warp_slots(seq):
+    """0-based pair-slots whose BOTH members are Wu Deng warp hexagrams
+    (positional definition; degenerate-safe on non-C1 corpus sequences)."""
+    return [k for k in range(32)
+            if seq[2 * k] in _F6_WARP and seq[2 * k + 1] in _F6_WARP]
+
+def _f6_weft_blocks(seq):
+    """Sizes of maximal runs of non-warp pair-slots among slots 0..31."""
+    warp = set(_f6_warp_slots(seq))
+    blocks, cur = [], 0
+    for k in range(32):
+        if k in warp:
+            if cur:
+                blocks.append(cur)
+            cur = 0
+        else:
+            cur += 1
+    if cur:
+        blocks.append(cur)
+    return blocks
+
+def f6_warp_blocks(seq):
+    """1. Number of maximal weft blocks (Wu Deng warp/weft skeleton)."""
+    return len(_f6_weft_blocks(seq))
+
+def f6_warp_pow2(seq):
+    """2. Count of weft blocks whose size is a power of two (1,2,4,8,16)."""
+    return sum(1 for x in _f6_weft_blocks(seq) if x & (x - 1) == 0)
+
+def f6_warp_adj(seq):
+    """3. Count of adjacent warp-slot pairs (slots k, k+1 both warp)."""
+    s = _f6_warp_slots(seq)
+    return sum(1 for i in range(len(s) - 1) if s[i + 1] == s[i] + 1)
+
+def f6_wudeng_profile(seq):
+    """4. Indicator: weft-block size multiset equals Wu Deng's printed
+    profile {2,2,4,4,4,8} (Nielsen p. 132 control blocks)."""
+    return 1 if sorted(_f6_weft_blocks(seq)) == [2, 2, 4, 4, 4, 8] else 0
+
+def f6_wudeng_slots(seq):
+    """5. Warp slots at Wu Deng's printed control slots (0-based
+    {0,5,14,15,20,25,28,31}); data-like positional statistic, floor 1 by C4."""
+    return len(set(_f6_warp_slots(seq)) & {0, 5, 14, 15, 20, 25, 28, 31})
+
+def f6_palace_adj(seq):
+    """6. Between-pair boundaries (31) whose adjacent hexagrams share a Jing
+    Fang palace (within-pair sharing is 0/32 universally — frozen spec FT4)."""
+    return sum(1 for b in range(31)
+               if _F4P_PAL[seq[2 * b + 1]] == _F4P_PAL[seq[2 * b + 2]])
+
+def f6_palace_types(seq):
+    """7. Distinct unordered palace-transition types over the 31 between-pair
+    boundaries (integer surrogate for palace-transition entropy)."""
+    return len({frozenset((_F4P_PAL[seq[2 * b + 1]], _F4P_PAL[seq[2 * b + 2]]))
+                for b in range(31)})
+
+F6_FUNCS = ["warp_blocks", "warp_pow2", "warp_adj", "wudeng_profile",
+            "wudeng_slots", "palace_adj", "palace_types"]
+
+F6_KW_EXPECTED = {
+    "warp_blocks": 6, "warp_pow2": 6, "warp_adj": 1, "wudeng_profile": 1,
+    "wudeng_slots": 8, "palace_adj": 2, "palace_types": 24,
+}
+
+def f6_verify():
+    """Print all 7 frozen F6 functional values on KW and gate against the
+    frozen-spec expected values (two-language: solve.c --f6-verify must
+    reproduce independently)."""
+    seq = list(binary_hexagrams)
+    failures = 0
+    for name in F6_FUNCS:
+        v = globals()["f6_" + name](seq)
+        exp = F6_KW_EXPECTED[name]
+        tag = "OK" if exp == v else "FAIL (expected %s)" % exp
+        if exp != v:
+            failures += 1
+        print(f"f6_{name}: {v} {tag}")
+    print("F6 VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+
+# ---------------------------------------------------------------------------
 # Davis (2012) composite candidates (pre-registered 2026-07-04 in
 # documentation/CRITIQUE.md, "Davis (2012) structural claims"; operational
 # spec frozen in roae-private/books/davis/DAVIS_2012_STRUCTURAL_AUDIT.md §5:
@@ -7077,6 +7181,9 @@ def main():
                         help="Divergence threshold for --compare-depth-profile (default 0.005 = 0.5%%)")
     parser.add_argument("--f4p-verify", action="store_true",
                         help="verify the 13 pre-registered F4' ordering-layer functionals on KW")
+    parser.add_argument("--f6-verify", action="store_true",
+                        help="verify the 7 frozen F6 Nielsen-audit functionals "
+                             "(Wu Deng warp/weft + Jing Fang bagong) on KW")
     parser.add_argument("--dav-verify", action="store_true",
                         help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
     parser.add_argument("--vdb-verify", action="store_true",
@@ -7165,6 +7272,9 @@ def main():
 
     if args.f4p_verify:
         sys.exit(f4p_verify())
+
+    if args.f6_verify:
+        sys.exit(f6_verify())
 
     if args.dav_verify:
         sys.exit(dav_verify())

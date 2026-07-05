@@ -4806,6 +4806,14 @@ typedef struct {
     double f5_sum[11];                    /* weighted sum of each functional's value over canonical leaves */
     double f5_below[11], f5_at[11], f5_above[11];  /* weighted mass <KW / ==KW / >KW per functional */
     int f5_min[11], f5_max[11];           /* min/max functional value seen across canonical leaves */
+    double *f6_hist;                      /* SOLVE_KNUTH_SCORE_F6=1: [7*64] weighted value histogram per
+                                           * F6 Nielsen-audit functional (Wu Deng warp/weft #1-5, Jing Fang
+                                           * bagong #6-7; heap-allocated only when active). Leaves are
+                                           * orientation-bearing pre-dedup (needed by #6-7; #1-5 are
+                                           * orientation-blind — frozen spec FT5). */
+    double f6_sum[7];                     /* weighted sum of each functional's value over canonical leaves */
+    double f6_below[7], f6_at[7], f6_above[7];  /* weighted mass <KW / ==KW / >KW per functional */
+    int f6_min[7], f6_max[7];             /* min/max functional value seen across canonical leaves */
     double *f11_hist;                     /* SOLVE_KNUTH_F11_HIST=1 (requires SOLVE_KNUTH_SCORE=1): joint
                                            * violation histogram over (v1 = 18 - Moore-2005 parity compliance,
                                            * v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender/position-
@@ -5919,6 +5927,127 @@ static void score_f5(const int seq[64], double W, KnuthArg *a){
     }
 }
 
+/* ===================== F6 Nielsen-audit functionals (SOLVE_KNUTH_SCORE_F6) =====================
+ * C port of the 7 FROZEN functionals in
+ * roae-private/F6_BOOKS_PREREGISTRATION_2026_07_FROZEN.md (frozen 2026-07-05
+ * BEFORE any population measurement; Bonferroni N=7; no post-hoc additions or
+ * removals). Ground truth: solve.py f6_* / --f6-verify (two-language gate;
+ * SOLVE_F6_TESTVEC hook for arbitrary sequences). Estimator-only, sha-neutral:
+ * active only under SOLVE_KNUTH_SCORE_F6 / --f6-verify; zero effect on
+ * enumeration paths.
+ *
+ * ATTRIBUTION (frozen spec §6; operationalizations are ROAE's):
+ *  #1-5 Wu Deng (1249-1333, Yi zuan yan) warp/weft skeleton, via Nielsen 2003
+ *       p.132 (JING GUA def.2): warp class W = {h: up==lo or up==comp(lo)},
+ *       |W|=16; power-of-2 weft-block profile of the received order.
+ *  #6-7 Jing Fang (77-37 BCE) eight-palaces partition, tabulated by Hui Dong
+ *       (1697-1758), as printed in Nielsen 2003 pp.1-4 Table 2 (generator
+ *       f4p_pal_init, verified against all 64 cells).
+ * Forced-class facts (frozen spec §2, NOT scored): W is C1-partner-closed
+ * (every valid ordering has exactly 8 all-warp pair-slots; slot 0 warp by
+ * C4); no C1 pair shares a palace (0/32 universal — palace adjacency lives
+ * entirely on the 31 between-pair boundaries); #1-5 orientation-blind.
+ *   1 warp_blocks    number of maximal weft blocks                     KW=6
+ *   2 warp_pow2      weft blocks with power-of-2 size (1,2,4,8,16)     KW=6
+ *   3 warp_adj       adjacent warp-slot pairs                          KW=1
+ *   4 wudeng_profile weft-block multiset == {2,2,4,4,4,8} (0/1)        KW=1
+ *   5 wudeng_slots   warp slots at Wu Deng's printed set (data-like)   KW=8
+ *   6 palace_adj     between-pair boundaries sharing a palace          KW=2
+ *   7 palace_types   distinct unordered palace-transition types        KW=24 */
+
+static int knuth_score_f6 = 0;  /* SOLVE_KNUTH_SCORE_F6=1: per-leaf weighted scoring of the 7 frozen F6
+                                 * functionals (see block above). =2 + SOLVE_F6_TESTVEC: cross-verification
+                                 * hook (main(); prints the 7 values for an explicit sequence).
+                                 * Estimator-only, sha-neutral. */
+
+static const char *f6_names[7] = {
+    "warp_blocks", "warp_pow2", "warp_adj", "wudeng_profile", "wudeng_slots",
+    "palace_adj", "palace_types"
+};
+/* KW expected values — frozen spec §3 (computed vs solve.py binary_hexagrams;
+ * ground truth solve.py f6_* / --f6-verify) */
+static const int f6_kw[7] = {6, 6, 1, 1, 8, 2, 24};
+/* Static value bounds (all ranges <= 32, exact-value bins, stride 64) */
+static const int f6_lo[7] = {0, 0, 0, 0, 0, 0, 0};
+static const int f6_hi[7] = {9, 9, 7, 1, 8, 31, 31};
+
+/* Wu Deng warp membership: up(h) == lo(h) or up(h) == comp(lo(h)) */
+static inline int f6_warp(int h){
+    int lo = h & 7, up = (h >> 3) & 7;
+    return up == lo || up == (lo ^ 7);
+}
+
+/* Compute all 7 F6 functionals on one ordering (spec: solve.py f6_*).
+ * REQUIRES f4p_pal_init() to have run (done at activation sites). Total on
+ * arbitrary 64-value sequences (warp pair-slot = both members warp; corpus
+ * sequences that fail C1 simply score their positional slots). */
+static void f6_compute(const int seq[64], int v[7]){
+    /* warp pair-slot mask */
+    unsigned wmask = 0;
+    for (int k = 0; k < 32; k++)
+        if (f6_warp(seq[2*k]) && f6_warp(seq[2*k+1])) wmask |= 1u << k;
+    /* weft blocks (maximal runs of non-warp slots), warp adjacencies */
+    int blocks[33], nb = 0, cur = 0, adj = 0, prevwarp = -2;
+    for (int k = 0; k < 32; k++){
+        if ((wmask >> k) & 1u){
+            if (cur){ blocks[nb++] = cur; cur = 0; }
+            if (prevwarp == k - 1) adj++;
+            prevwarp = k;
+        } else cur++;
+    }
+    if (cur) blocks[nb++] = cur;
+    int pow2 = 0, cnt2 = 0, cnt4 = 0, cnt8 = 0;
+    for (int i = 0; i < nb; i++){
+        int x = blocks[i];
+        if ((x & (x - 1)) == 0) pow2++;                 /* 1,2,4,8,16 (x >= 1) */
+        if (x == 2) cnt2++; else if (x == 4) cnt4++; else if (x == 8) cnt8++;
+    }
+    /* Wu Deng printed control slots {0,5,14,15,20,25,28,31} (0-based) */
+    const unsigned wd_slots = (1u<<0)|(1u<<5)|(1u<<14)|(1u<<15)|(1u<<20)|(1u<<25)|(1u<<28)|(1u<<31);
+    v[0] = nb;
+    v[1] = pow2;
+    v[2] = adj;
+    v[3] = (nb == 6 && cnt2 == 2 && cnt4 == 3 && cnt8 == 1) ? 1 : 0;
+    v[4] = __builtin_popcount(wmask & wd_slots);
+    /* palace boundary functionals (Jing Fang partition, f4p_pal) */
+    {
+        int padj = 0, types = 0;
+        uint64_t seen = 0;
+        for (int b = 0; b < 31; b++){
+            int pa = f4p_pal[seq[2*b+1]], pb = f4p_pal[seq[2*b+2]];
+            if (pa == pb) padj++;
+            int klo = pa < pb ? pa : pb, khi = pa < pb ? pb : pa;
+            int key = klo * 8 + khi;                    /* unordered type key 0..63 */
+            if (!((seen >> key) & 1ULL)){ seen |= 1ULL << key; types++; }
+        }
+        v[5] = padj;
+        v[6] = types;
+    }
+}
+
+/* Evaluate the 7 F6 functionals on one orientation-bearing canonical leaf;
+ * accumulate weighted histogram (exact-value bins, stride 64), sum, min/max,
+ * below/at/above-KW — same output family as score_f5. */
+static void score_f6(const int seq[64], double W, KnuthArg *a){
+    int v[7];
+    f6_compute(seq, v);
+    for (int k = 0; k < 7; k++){
+        int x = v[k];
+        a->f6_sum[k] += W * (double)x;
+        if (x < a->f6_min[k]) a->f6_min[k] = x;
+        if (x > a->f6_max[k]) a->f6_max[k] = x;
+        if      (x < f6_kw[k]) a->f6_below[k] += W;
+        else if (x == f6_kw[k]) a->f6_at[k]   += W;
+        else                    a->f6_above[k] += W;
+        if (a->f6_hist){
+            int b = x - f6_lo[k];
+            if (b < 0) b = 0;
+            if (b > f6_hi[k] - f6_lo[k]) b = f6_hi[k] - f6_lo[k];
+            a->f6_hist[k * 64 + b] += W;
+        }
+    }
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -6078,6 +6207,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_score_dav) score_dav(seq, W, a);
                     if (knuth_score_f5)  score_f5(seq, W, a);
+                    if (knuth_score_f6)  score_f6(seq, W, a);
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -6249,6 +6379,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
             for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
         }
+        if (knuth_score_f6) {
+            arg[i].f6_hist = (double*)calloc(7 * 64, sizeof(double));
+            for (int k2 = 0; k2 < 7; k2++){ arg[i].f6_min[k2] = INT_MAX; arg[i].f6_max[k2] = INT_MIN; }
+        }
         if (knuth_f11_hist)
             arg[i].f11_hist = (double*)calloc(19 * 32 * 40, sizeof(double));
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
@@ -6328,6 +6462,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             if (f5H && arg[i].f5_hist)
                 for (int b2 = 0; b2 < 11 * 64; b2++) f5H[b2] += arg[i].f5_hist[b2];
             free(arg[i].f5_hist); arg[i].f5_hist = NULL;
+        }
+    }
+    double f6S[7]={0}, f6Bel[7]={0}, f6At[7]={0}, f6Abv[7]={0}, *f6H = NULL;
+    int f6Min[7], f6Max[7];
+    if (knuth_score_f6) {
+        f6H = (double*)calloc(7 * 64, sizeof(double));
+        for (int k2 = 0; k2 < 7; k2++){ f6Min[k2] = INT_MAX; f6Max[k2] = INT_MIN; }
+        for (int i = 0; i < nthreads; i++){
+            for (int k2 = 0; k2 < 7; k2++){
+                f6S[k2]   += arg[i].f6_sum[k2];
+                f6Bel[k2] += arg[i].f6_below[k2];
+                f6At[k2]  += arg[i].f6_at[k2];
+                f6Abv[k2] += arg[i].f6_above[k2];
+                if (arg[i].f6_min[k2] < f6Min[k2]) f6Min[k2] = arg[i].f6_min[k2];
+                if (arg[i].f6_max[k2] > f6Max[k2]) f6Max[k2] = arg[i].f6_max[k2];
+            }
+            if (f6H && arg[i].f6_hist)
+                for (int b2 = 0; b2 < 7 * 64; b2++) f6H[b2] += arg[i].f6_hist[b2];
+            free(arg[i].f6_hist); arg[i].f6_hist = NULL;
         }
     }
     double dN=(double)N;
@@ -6423,6 +6576,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                f5_names[k2], f5_lo[k2] + b2, f5H[k2 * 64 + b2]/sC);
     }
     free(f5H);
+    if (knuth_score_f6 && sC > 0) {
+        /* F6 Nielsen-audit functionals (frozen preregistration; ground truth
+         * solve.py f6_* / --f6-verify; attribution in the f6 comment block +
+         * CITATIONS.md; masses = fraction of canonical mass, so
+         * below+at+above ~= 1 per functional). */
+        for (int k2 = 0; k2 < 7; k2++)
+            printf("  [f6 %d %-14s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+                   k2 + 1, f6_names[k2], f6S[k2]/sC,
+                   f6Min[k2] == INT_MAX ? 0 : f6Min[k2],
+                   f6Max[k2] == INT_MIN ? 0 : f6Max[k2],
+                   f6_kw[k2], f6Bel[k2]/sC, f6At[k2]/sC, f6Abv[k2]/sC);
+        if (getenv("SOLVE_KNUTH_F6_HIST") && atoi(getenv("SOLVE_KNUTH_F6_HIST")) == 1 && f6H)
+            for (int k2 = 0; k2 < 7; k2++)
+                for (int b2 = 0; b2 <= f6_hi[k2] - f6_lo[k2]; b2++)
+                    if (f6H[k2 * 64 + b2] > 0)
+                        printf("f6_hist %s %d %.10e\n",
+                               f6_names[k2], f6_lo[k2] + b2, f6H[k2 * 64 + b2]/sC);
+    }
+    free(f6H);
     if (knuth_f11_hist) {
         /* F11 joint violation histogram (fraction of canonical mass per (v1,v2,v3) cell;
          * v1 = 18 - Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks,
@@ -12840,6 +13012,29 @@ int main(int argc, char *argv[]) {
           return 0;
       }
     }
+    /* F6 functional cross-verification hook (test-only, estimator-independent;
+     * two-language gate vs solve.py f6_*): SOLVE_KNUTH_SCORE_F6=2 +
+     * SOLVE_F6_TESTVEC="h0,h1,...,h63" -> evaluate f6_compute on the explicit
+     * sequence, print the 7 values (comma-separated, f6_names order), exit.
+     * Sha-neutral. */
+    { const char *tv6 = getenv("SOLVE_F6_TESTVEC");
+      const char *kf6 = getenv("SOLVE_KNUTH_SCORE_F6");
+      if (tv6 && kf6 && atoi(kf6) == 2) {
+          int tseq[64], n = 0;
+          const char *p = tv6;
+          while (*p && n < 64) {
+              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
+              else p++;
+          }
+          if (n != 64) { fprintf(stderr, "SOLVE_F6_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          f4p_pal_init();
+          int v[7];
+          f6_compute(tseq, v);
+          for (int i = 0; i < 7; i++)
+              printf("%d%s", v[i], i < 6 ? "," : "\n");
+          return 0;
+      }
+    }
     /* Check for single-branch mode */
     int single_branch_mode = 0;
     int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */
@@ -14011,6 +14206,11 @@ int main(int argc, char *argv[]) {
             knuth_score_f5 = 1;
             fprintf(stderr, "[knuth] F5 orientation-layer scoring ACTIVE (11 frozen functionals, F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN; orientation-bearing leaves pre-dedup; KW gate --f5-verify)\n");
         }
+        if (getenv("SOLVE_KNUTH_SCORE_F6") && atoi(getenv("SOLVE_KNUTH_SCORE_F6")) == 1) {
+            knuth_score_f6 = 1;
+            f4p_pal_init();
+            fprintf(stderr, "[knuth] F6 Nielsen-audit scoring ACTIVE (7 frozen functionals, F6_BOOKS_PREREGISTRATION_2026_07_FROZEN; Wu Deng warp/weft + Jing Fang bagong; KW gate --f6-verify)\n");
+        }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;
             fprintf(stderr, "[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)\n");
@@ -14092,6 +14292,26 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("F5 VERIFY: PASS\n");
         else printf("F5 VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f6-verify") == 0) {
+        /* Two-language gate for the 7 FROZEN F6 Nielsen-audit functionals
+         * (Wu Deng warp/weft + Jing Fang bagong): compute them on the King
+         * Wen sequence and check against the embedded frozen-spec KW values
+         * (ground truth: solve.py f6_* / --f6-verify). Exit 0 iff all 7
+         * match. Sha-neutral (argv-dispatched, never on the enum path). */
+        f4p_pal_init();
+        int v[7], failures = 0;
+        f6_compute(KW, v);
+        for (int k = 0; k < 7; k++){
+            if (v[k] == f6_kw[k])
+                printf("f6_%s: %d OK\n", f6_names[k], v[k]);
+            else {
+                printf("f6_%s: %d FAIL (expected %d)\n", f6_names[k], v[k], f6_kw[k]);
+                failures++;
+            }
+        }
+        if (failures == 0) printf("F6 VERIFY: PASS\n");
+        else printf("F6 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
         /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.
