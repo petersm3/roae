@@ -149,7 +149,7 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    rc4-strict-near-2) plus the conflict-theorem CNF check `s VERIFIED` under drat-trim against regenerated
    CNFs (2026-07-03); the conflict encoding is two-way validated (ccn4-kwtest SAT, rc4-kwtest UNSAT).
 6. **Attribution, lineage, and what is claimed.** Every rule is credited to its source, with lineage where
-   it runs deep: the pair structure itself is attested to **Yu Fan (220–265 AD)** (pangtong/fandui, via Li
+   it runs deep: the pair structure itself is attested to **Yu Fan (164–233 AD)** (pangtong/fandui, via Li
    Dingzuo); the 36-unit consolidation to **Lai Zhide (1525–1604)** (via Schulz 1982); the 18:18 split to
    **Zheng Qiao (~1150)** and **Hu Yigui (1247)**, modern treatment **Hacker & Moore 2003**; the
    pair-positioning parity rule and rhythm rule to **Moore (2005, 1989)**, building on the *Dazhuan*

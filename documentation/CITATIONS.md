@@ -277,7 +277,7 @@ promotion of these rules into the formal constraint system carries these credits
   hypothesis: Schulz & Cunningham, "The Seasonal Structure Underlying the Arrangement of Hexagrams in the
   Yijing," *JCP* 17 (1990), 289–313. Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
-  structure's classical lineage runs to **Yu Fan (220–265 AD)** (pangtong/fandui, via Li Dingzuo) and the
+  structure's classical lineage runs to **Yu Fan (164–233 AD)** (pangtong/fandui, via Li Dingzuo) and the
   36-unit consolidation + 18:18 reasoning to **Lai Zhide (1525–1604)**; **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
@@ -453,7 +453,7 @@ University Press.
 
 ### Classical sources
 
-Yu Fan (220–265, via Li Dingzuo's *Zhouyi jijie*), Zheng Qiao (~1150), Hu Yigui (b. 1247, *Zhouyi Qimeng
+Yu Fan (164–233, via Li Dingzuo's *Zhouyi jijie*), Zheng Qiao (~1150), Hu Yigui (b. 1247, *Zhouyi Qimeng
 Yizhuan*), Lai Zhide (1525–1604, via Schulz, 1982), and Zhu Yuansheng (13th c., via Schulz, 2018) are all
 [secondary], known through the modern literature above.
 
