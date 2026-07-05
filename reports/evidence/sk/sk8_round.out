@@ -1,0 +1,25 @@
+  cand 3: IMPLIED
+  cand 5: est=0.000000e+00
+  cand 6: est=6.458768e+15
+  cand 7: est=7.710405e+15
+  cand 8: est=6.139658e+15
+  cand 9: est=4.707464e+15
+  cand 10: est=4.883334e+15
+  cand 11: est=3.492025e+16
+  cand 13: est=0.000000e+00
+  cand 14: est=0.000000e+00
+  cand 15: est=1.413143e+16
+  cand 16: est=6.342241e+15
+  cand 17: est=0.000000e+00
+  cand 18: est=6.852592e+15
+  cand 19: est=6.935122e+15
+  cand 20: est=6.525255e+15
+  cand 22: est=0.000000e+00
+  cand 23: est=1.271301e+16
+  cand 24: est=0.000000e+00
+  cand 26: IMPLIED
+  cand 28: est=0.000000e+00
+  cand 29: est=0.000000e+00
+  cand 31: est=5.502603e+17
+round 8 PICK=5 VALUE est=1.092786e+16 pins=3,4,26,27,24,25,20,21,1,2,29,30,11,12,4,5
+SK8 COMPLETE

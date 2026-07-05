@@ -137,11 +137,30 @@ identifying King Wen in the C1–C5 space requires 126.6 bits, this gives a heur
 single-boundary maximum, but five steps show none — gains behave as near-independent.) Full arithmetic
 in SEARCH_SPACE_SIZE.md; sharpens further when S(6..8) land.
 
+
+### Update (2026-07-05): the marginal-gain curve bends — S(6)-S(8) measured
+
+Extending the greedy boundary chain three more rounds (2x10^10-probe value runs per round; certified
+selection caveat below) gives S(6) = 1.879x10^20, S(7) = 7.695x10^17, S(8) = 1.093x10^16. The
+per-boundary information gains are now, for k = 1..8: 10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93,
+6.14 bits. The "flat ~10.1 bits/boundary" pattern reported in v1.7 holds through k = 5 and then
+enters a clear declining tail. Consequences: (1) the heuristic PROJECTION for the number of
+boundary-adjacency facts needed to isolate King Wen moves UP from ~13 to roughly 15-20; (2) the hard
+floor k >= 13 (information-theoretic, from the space size) is unaffected; (3) the synergy caveat of
+v1.7 resolves in the anti-synergy direction — later boundaries overlap more with what earlier ones
+already say. Honesty caveats: at k >= 7 the 2x10^9-probe SELECTION sweeps are starvation-limited
+(several candidates sample zero mass), so greedy CHOICE optimality is soft — each S(k) is an honest
+measurement of its chosen boundary set but possibly not the minimal one, making these values upper
+bounds on the greedy-optimal masses (and the bit-gains correspondingly conservative); and estimator
+relative error grows with depth at fixed probe count. Evidence: reports/evidence/ (sk8 outputs) and
+the private working log.
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |
+| v1.8 | 2026-07-05 | S(6)-S(8) measured; flat-gains law bends at k=6; projection 13 -> 15-20; floor k>=13 unchanged |
 | v1.7 | 2026-07-04 | Information floor k>=13 + flat-gains observation (tightens the 13-20 projection) |
 | v1.8 | 2026-07-04 | Correction: the 560T slice-identifying boundary set has 5 boundaries ({4, 27, 25, 21, 1}), not 4 — the earlier "4" was a survivor-counting error in the source finding (see documentation/BOUNDARY_MINIMUM.md); S(k) measurements unchanged (they condition on the first four pins as pins) |

@@ -1,0 +1,34 @@
+--- round 5: selection sweep (2e9/candidate) ---
+  cand 1: est=1.689464e+24
+  cand 2: est=7.596231e+22
+  cand 3: est=4.684382e+24
+  cand 5: est=2.741626e+24
+  cand 6: est=2.152997e+23
+  cand 7: est=3.720531e+23
+  cand 8: est=2.685182e+23
+  cand 9: est=2.810348e+23
+  cand 10: est=3.151793e+23
+  cand 11: est=1.435090e+23
+  cand 12: est=2.581219e+23
+  cand 13: est=2.044096e+23
+  cand 14: est=1.714464e+23
+  cand 15: est=2.948628e+23
+  cand 16: est=1.679773e+23
+  cand 17: est=1.160977e+23
+  cand 18: est=1.287311e+23
+  cand 19: est=2.543162e+23
+  cand 20: est=2.599976e+24
+  cand 22: est=5.797785e+24
+  cand 23: est=2.661028e+23
+  cand 24: est=4.156114e+24
+  cand 26: IMPLIED, skip
+  cand 28: est=5.123237e+24
+  cand 29: est=3.134765e+23
+  cand 30: est=5.678082e+23
+  cand 31: est=1.761267e+24
+round 5 PICK=2 (selection est=7.596231e+22); VALUE run 2e10:
+round 5 S(5 ) VALUE est=7.519490e+22 pins=3,4,26,27,24,25,20,21,1,2
+--- round 6: selection sweep (2e9/candidate) ---
+  cand 1: est=7.596231e+22
+  cand 3: IMPLIED, skip
+S(6)=1.879066e20 PICK=30 marginal=8.64bits (first sub-10 reading; flat-law test pending rounds 7-8)
