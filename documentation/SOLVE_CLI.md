@@ -481,13 +481,30 @@ Sha-neutral (argv-dispatched, never on the enumeration path).
 ### --f1-exact-c1c2c4c5
 
 ```
-solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR]
+solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]
 ```
 
 Extension of the orbit DP with the capped C5-residual dimension (#217): exact
 |C1 ∩ C2 ∩ C4 ∩ C5| over group-closed pair-orbit unions. `--f1-pairs N` with
 N ∈ {9,13,16,18,19,24,25,27,28,31} (default 31 = full run at KW's budget).
 Sha-neutral.
+
+`--f1-out-of-core DIR` (#221) runs the same DP with a different memory
+strategy: at most ONE layer (the one being built) plus fixed streaming buffers
+in RAM. Completed layers are written to DIR (same atomic per-layer files +
+manifest as `--layers-dir`; the two modes' layer files are byte-identical) and
+freed; the next layer's gather streams the previous layer's file via bucketed,
+coalesced sequential reads (no per-entry random file access). Purpose:
+(a) reproducibility of the exact count on commodity hardware (~64 GB RAM +
+~4 TB disk); (b) independent-path validation — the identical integer via a
+different memory strategy; (c) Spot-safety — layer files are free checkpoints.
+Per-layer `[f1c5-ooc]` stderr telemetry reports bytes read/written, effective
+MB/s, and current/peak RSS so the memory claim is verifiable from the log.
+Buffer knobs: `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_OOC_SCRATCH_MB`,
+`SOLVE_F1_OOC_GAP_KB` (see env table). `--resume-from-layers` requires resume
+from DIR's last complete layer (hard error if there is nothing to resume);
+without it resume is still automatic when a matching manifest exists,
+mirroring `--layers-dir`. Mutually exclusive with `--layers-dir`.
 
 ### --merge
 
@@ -878,6 +895,9 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_SCORE_DAV` | 0 | `=1`: score the 9 pre-registered Davis (2012) composite candidates per canonical leaf (CRITIQUE.md §Davis; TR-10 §3). Ground truth / two-language gate: `--dav-verify`. Archived tier-1 run: reports/evidence/dav_tier1.out. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_DAV_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV=1`): additionally emit `dav_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_RELAX_C5` | 0 | `=1`: relax C5 to C2-only in the Knuth walk (transition budgets unbounded except d=5 forbidden), so `leaves_C1C2C4C5` counts \|C1 ∩ C2 ∩ C4\| — used to price C5's marginal compression in DESCRIPTION_LENGTH.md (superseded for the headline number by the exact `--f1-exact-c1c2c4` DP). Estimator-only, sha-neutral. |
+| `SOLVE_F1_OOC_READ_MB` | 256 | `--f1-out-of-core` (#221): read-window buffer size in MB for the bucketed streaming gather (auto-raised to fit one full predecessor span, auto-clamped to the previous layer's size). Sha-neutral. |
+| `SOLVE_F1_OOC_SCRATCH_MB` | 1024 | `--f1-out-of-core` (#221): dense per-chunk gather-scratch budget in MB; sets how many targets are gathered per streaming pass (larger = fewer passes = less read amplification). Sha-neutral. |
+| `SOLVE_F1_OOC_GAP_KB` | 1024 | `--f1-out-of-core` (#221): gap read-through threshold in KB — adjacent needed file spans closer than this are coalesced into one sequential read instead of a seek. Sha-neutral. |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 | `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | (existing, repeated for cross-reference) — also bypasses the per-shard `.budget` integrity gate for legacy shards. |
