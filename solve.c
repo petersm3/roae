@@ -11784,20 +11784,46 @@ static F1U192 f1c5_layer_stats(const F1Ctx *c, const F1C5Layer *L, uint64_t *sta
 
 /* ===================== #221 out-of-core mode (--f1-out-of-core DIR) =====================
  *
- * Same DP, different storage strategy: at any time at most ONE layer (the one
- * being BUILT) plus fixed streaming buffers reside in RAM. Layer k's entries
- * live in DIR/f1c5_layer_kk.bin (the SAME atomic checkpoint files --layers-dir
- * writes — the two modes' layer files are byte-identical, another cross-mode
- * gate); only its index (masks + off, 12 B/mask) is kept in RAM. Layer k+1's
+ * Same DP, different storage strategy: NO layer's entries ever reside in RAM
+ * in full — only fixed streaming buffers plus the two live layers' indexes
+ * (masks + off, 12 B/mask). Layer k's entries live in DIR/f1c5_layer_kk.bin
+ * (the SAME atomic checkpoint files --layers-dir writes — the two modes'
+ * layer files are byte-identical, another cross-mode gate). Layer k+1's
  * gather is served by bucketed streaming reads: targets are processed in
  * ascending order in chunks sized by SOLVE_F1_OOC_SCRATCH_MB; each chunk's
  * predecessor requests are sorted by source-file position and served
  * window-by-window with large coalesced sequential reads (window size
  * SOLVE_F1_OOC_READ_MB, gap read-through threshold SOLVE_F1_OOC_GAP_KB) —
- * never per-entry random file access. The per-entry arithmetic is the SAME
+ * never per-entry random file access. Each chunk's emitted entries are
+ * STREAMED to disk as they complete (2026-07-05 fix, see below): keys are
+ * pwritten straight into the layer's .tmp file at their final offsets (the
+ * keys section's base depends only on n_masks, known up front); vals go to a
+ * sidecar .vals.tmp and are relocated into the .tmp at finalize time by a
+ * tail-first copy that progressively ftruncates the sidecar, so the transient
+ * disk peak is ~1x the final layer + one copy buffer, then hdr+masks+off are
+ * pwritten, the file is fsynced and atomically renamed (same protocol as
+ * f1c5_write_layer). Layer stats (mass/states) are accumulated per chunk at
+ * emit time — 192-bit adds are exact and commutative, so they equal the
+ * in-RAM f1c5_layer_stats values. The per-entry arithmetic is the SAME
  * f1c5_gather_entries kernel as the in-RAM path (192-bit adds commute, and
  * emission is in the same (target, last, rid)-ascending order), so totals —
  * and the layer files themselves — are bit-identical across modes.
+ *
+ * 2026-07-05 FULL-SCALE FIX: as shipped in 01bf3ef the builder accumulated
+ * the ENTIRE layer being built in realloc-grown RAM arrays ("one layer in
+ * RAM"). That premise fails at full-31: layer 10 alone is 4,522,319,129
+ * entries x 28 B = 126.6 GB, and mid layers are far larger — the c228
+ * full-31 run on a 64-GiB D32als_v7 was OOM-SIGKILLed mid-layer-10 at
+ * MaxRSS 61.6 GiB (/usr/bin/time -v: "Command terminated by signal 9";
+ * its trailing "Exit status: 0" field is a GNU-time artifact, not a clean
+ * exit). All entry counts/offsets were audited uint64_t — no 32-bit
+ * overflow; the failure was memory, not integer width. Peak RSS is now
+ * O(scratch + staging + read buffers + indexes), independent of layer size.
+ *
+ * RAM budget (defaults): scratch 1 GiB + staging (28/24 x scratch) + read
+ * window 2x256 MB + indexes -> ~2.7 GiB. For full-31 read-amplification
+ * economics raise SOLVE_F1_OOC_SCRATCH_MB (chunks per layer scale inversely);
+ * RAM scales ~2.2x scratch_mb.
  *
  * PURPOSE (operator-committed): (a) REPRODUCIBILITY — the exact |C1..C5|
  * count must verify on commodity hardware (~64 GB RAM + ~4 TB disk), not
@@ -11862,17 +11888,50 @@ static void f1c5_ooc_pread(int fd, void *buf, uint64_t len, uint64_t off,
     io->sec_read += omp_get_wtime() - t0;
 }
 
+/* Full pwrite with timing + byte accounting (writes are multi-MB chunks). */
+static void f1c5_ooc_pwrite(int fd, const void *buf, uint64_t len, uint64_t off,
+                            const char *path, F1C5OocIo *io) {
+    double t0 = omp_get_wtime();
+    io->bytes_written += len;
+    const uint8_t *p = (const uint8_t *)buf;
+    while (len > 0) {
+        size_t want = len > (1ull << 30) ? (1ull << 30) : (size_t)len;
+        ssize_t r = pwrite(fd, p, want, (off_t)off);
+        if (r <= 0) f1_ckpt_io_abort("pwrite", path);
+        p += r;
+        off += (uint64_t)r;
+        len -= (uint64_t)r;
+    }
+    io->sec_write += omp_get_wtime() - t0;
+}
+
 /* Build layer k+1 (nxt: masks/nm enumerated, off allocated by the caller) by
- * streaming layer k (= cur; index in RAM, entries on disk). See the module
- * header above for the chunk/window strategy. */
+ * streaming layer k (= cur; index in RAM, entries on disk) — and stream the
+ * RESULT to disk as well: on return the layer file is complete and atomically
+ * renamed, nxt->keys/vals stay NULL (2026-07-05 full-scale fix; see module
+ * header). Layer mass/states (== f1c5_layer_stats of the in-RAM path) are
+ * accumulated at emit time into mass_out/states_out. */
 static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char *dir,
                                  const F1C5Layer *cur, F1C5Layer *nxt,
                                  const int32_t *loc1, int vk1, const uint16_t *vl1,
-                                 const F1C5OocCfg *cfg, F1C5OocIo *io) {
+                                 const F1C5OocCfg *cfg, F1C5OocIo *io,
+                                 F1U192 *mass_out, uint64_t *states_out) {
     char path[4096];
     snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, cur->k);
     int fd = open(path, O_RDONLY);
     if (fd < 0) f1_ckpt_io_abort("open (ooc gather)", path);
+    /* output: .tmp holds hdr+masks+off+keys (+vals after finalize); vals are
+     * staged in a sidecar because their base offset depends on the final
+     * entry count, unknown until every chunk has emitted */
+    char ofin[4096], otmp[4104], ovtmp[4112];
+    snprintf(ofin, sizeof(ofin), "%s/f1c5_layer_%02d.bin", dir, nxt->k);
+    snprintf(otmp, sizeof(otmp), "%s.tmp", ofin);
+    snprintf(ovtmp, sizeof(ovtmp), "%s.vals.tmp", ofin);
+    int ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    if (ofd < 0) f1_ckpt_io_abort("open (ooc layer .tmp)", otmp);
+    int vfd = open(ovtmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    if (vfd < 0) f1_ckpt_io_abort("open (ooc layer .vals.tmp)", ovtmp);
+    const uint64_t okeys_base = sizeof(F1C5LayerHdr) + 4ull * nxt->nm + 8ull * (nxt->nm + 1);
     const uint64_t keys_base = sizeof(F1C5LayerHdr) + 4ull * cur->nm + 8ull * (cur->nm + 1);
     const uint64_t vals_base = keys_base + 4ull * cur->ne;
     const uint64_t entry_b = 4ull + sizeof(F1U192);
@@ -11898,13 +11957,18 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     uint32_t *rcur = (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap);
     uint64_t *needed = (uint64_t *)malloc(sizeof(uint64_t) * chunk_cap * (uint64_t)c->n);
     uint64_t *cnts = (uint64_t *)malloc(sizeof(uint64_t) * chunk_cap);
-    F1_CHECK(kbuf && vbuf && scr && reqs && rlen && rcur && needed && cnts,
+    /* per-chunk emit staging: a chunk emits at most one entry per scratch
+     * slot, so capacity chunk_cap*scr_per_tgt bounds it deterministically
+     * (28/24 x the scratch budget; no reallocation, RSS stays flat) */
+    uint32_t *skeys = (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap * scr_per_tgt);
+    F1U192 *svals = (F1U192 *)malloc(sizeof(F1U192) * chunk_cap * scr_per_tgt);
+    F1_CHECK(kbuf && vbuf && scr && reqs && rlen && rcur && needed && cnts && skeys && svals,
              "ooc buffer alloc failed (chunk=%llu window=%llu entries)",
              (unsigned long long)chunk_cap, (unsigned long long)buf_entries);
 
-    uint64_t cap = 0;   /* growing capacity of nxt->keys/vals (glibc mremap's
-                         * large blocks, so growth does not double RSS) */
-    nxt->keys = NULL;
+    F1U192 mass = {0, 0, 0};
+    uint64_t states = 0;
+    nxt->keys = NULL;   /* entries stream to disk; they never live in RAM */
     nxt->vals = NULL;
     nxt->off[0] = 0;
 
@@ -11985,8 +12049,9 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             }
             wi = wj;
         }
-        /* count nonzero slots per target (no zeroing yet), then grow + emit
-         * in the same (target, last, rid)-ascending order as the in-RAM path */
+        /* count nonzero slots per target (no zeroing yet), then emit into the
+         * chunk staging buffers in the same (target, last, rid)-ascending
+         * order as the in-RAM path, accumulating layer stats as we go */
         #pragma omp parallel for schedule(dynamic, 8)
         for (int64_t t = 0; t < (int64_t)tc; t++) {
             F1_CHECK(rcur[t] == rlen[t], "ooc request sweep incomplete at target %lld",
@@ -11999,36 +12064,86 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         }
         for (uint64_t t = 0; t < tc; t++)
             nxt->off[t0 + t + 1] = nxt->off[t0 + t] + cnts[t];
-        uint64_t need_ne = nxt->off[t0 + tc];
-        if (need_ne > cap) {
-            uint64_t ncap = cap ? cap : 65536;
-            while (ncap < need_ne) ncap *= 2;
-            nxt->keys = (uint32_t *)realloc(nxt->keys, sizeof(uint32_t) * ncap);
-            nxt->vals = (F1U192 *)realloc(nxt->vals, sizeof(F1U192) * ncap);
-            F1_CHECK(nxt->keys && nxt->vals, "ooc layer growth alloc failed (%llu entries)",
-                     (unsigned long long)ncap);
-            cap = ncap;
+        const uint64_t cbase = nxt->off[t0];   /* chunk's first absolute entry offset */
+        #pragma omp parallel
+        {
+            F1U192 lm = {0, 0, 0};
+            uint64_t ls = 0;
+            #pragma omp for schedule(dynamic, 8) nowait
+            for (int64_t t = 0; t < (int64_t)tc; t++) {
+                const uint64_t doff = nxt->off[t0 + (uint64_t)t] - cbase;
+                uint64_t got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, vl1,
+                                                skeys + doff, svals + doff);
+                F1_CHECK(got == cnts[t], "ooc count/emit drift at target %lld",
+                         (long long)(t0 + (uint64_t)t));
+                if (got) {   /* per-target stats == f1c5_layer_stats' inner loop */
+                    F1U192 s = {0, 0, 0};
+                    uint32_t prev_last = 0xffffffffu;
+                    for (uint64_t e = doff; e < doff + got; e++) {
+                        f1_add(&s, &svals[e]);
+                        uint32_t l = skeys[e] >> 16;
+                        if (l != prev_last) { ls++; prev_last = l; }
+                    }
+                    F1U192 w = f1_mul_small(s, (uint32_t)f1_orbit_size(c, nxt->masks[t0 + (uint64_t)t]));
+                    f1_add(&lm, &w);
+                }
+            }
+            #pragma omp critical (f1c5_ooc_stats_merge)
+            { f1_add(&mass, &lm); states += ls; }
         }
-        #pragma omp parallel for schedule(dynamic, 8)
-        for (int64_t t = 0; t < (int64_t)tc; t++) {
-            uint64_t got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, vl1,
-                                            nxt->keys + nxt->off[t0 + (uint64_t)t],
-                                            nxt->vals + nxt->off[t0 + (uint64_t)t]);
-            F1_CHECK(got == cnts[t], "ooc count/emit drift at target %lld",
-                     (long long)(t0 + (uint64_t)t));
+        /* stream the chunk out: keys at their final position, vals to the
+         * sidecar (relocated at finalize once the total entry count is known) */
+        const uint64_t cents = nxt->off[t0 + tc] - cbase;
+        if (cents) {
+            f1c5_ooc_pwrite(ofd, skeys, sizeof(uint32_t) * cents,
+                            okeys_base + sizeof(uint32_t) * cbase, otmp, io);
+            f1c5_ooc_pwrite(vfd, svals, sizeof(F1U192) * cents,
+                            sizeof(F1U192) * cbase, ovtmp, io);
         }
     }
     nxt->ne = nxt->off[nxt->nm];
-    if (nxt->ne && nxt->ne < cap) {   /* shrink to fit */
-        nxt->keys = (uint32_t *)realloc(nxt->keys, sizeof(uint32_t) * nxt->ne);
-        nxt->vals = (F1U192 *)realloc(nxt->vals, sizeof(F1U192) * nxt->ne);
-        F1_CHECK(nxt->keys && nxt->vals, "ooc shrink realloc failed");
+    /* finalize: hdr+masks+off up front (byte-identical to f1c5_write_layer),
+     * then relocate vals from the sidecar tail-first with progressive
+     * ftruncate so the transient disk peak stays ~1x the final layer */
+    {
+        F1C5LayerHdr h;
+        memset(&h, 0, sizeof(h));
+        memcpy(h.magic, "F1C5LAY1", 8);
+        h.version = 1;
+        h.n = (uint32_t)c->n;
+        h.k = (uint32_t)nxt->k;
+        h.start_exit = (uint32_t)c->start_exit;
+        h.pl_hash = f1_pl_hash(c);
+        h.n_masks = nxt->nm;
+        h.n_entries = nxt->ne;
+        for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
+        f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
+        f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
+        f1c5_ooc_pwrite(ofd, nxt->off, sizeof(uint64_t) * (nxt->nm + 1),
+                        sizeof(h) + sizeof(uint32_t) * nxt->nm, otmp, io);
+        const uint64_t ovals_base = okeys_base + sizeof(uint32_t) * nxt->ne;
+        const uint64_t cchunk = sizeof(F1U192) * buf_entries;   /* reuse vbuf */
+        uint64_t remain = sizeof(F1U192) * nxt->ne;
+        while (remain > 0) {
+            uint64_t take = remain > cchunk ? cchunk : remain;
+            uint64_t src = remain - take;
+            f1c5_ooc_pread(vfd, vbuf, take, src, ovtmp, io);
+            f1c5_ooc_pwrite(ofd, vbuf, take, ovals_base + src, otmp, io);
+            if (ftruncate(vfd, (off_t)src) != 0) f1_ckpt_io_abort("ftruncate", ovtmp);
+            remain = src;
+        }
+        double tw = omp_get_wtime();
+        if (fsync(ofd) != 0) f1_ckpt_io_abort("fsync", otmp);
+        close(ofd);
+        close(vfd);
+        if (rename(otmp, ofin) != 0) f1_ckpt_io_abort("rename", ofin);
+        f1_fsync_dir(dir);
+        unlink(ovtmp);
+        io->sec_write += omp_get_wtime() - tw;
     }
-    if (!nxt->keys) {   /* ne == 0: keep the write/free paths' invariants */
-        nxt->keys = (uint32_t *)malloc(sizeof(uint32_t));
-        nxt->vals = (F1U192 *)malloc(sizeof(F1U192));
-        F1_CHECK(nxt->keys && nxt->vals, "ooc empty-layer alloc failed");
-    }
+    *mass_out = mass;
+    *states_out = states;
+    free(svals); free(skeys);
     free(cnts); free(needed); free(rcur); free(rlen); free(reqs);
     free(scr); free(vbuf); free(kbuf);
     close(fd);
@@ -12229,10 +12344,20 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         double t2;
         F1C5OocIo io;
         memset(&io, 0, sizeof(io));
+        F1U192 ooc_mass = {0, 0, 0};
+        uint64_t ooc_states = 0;
         if (ooc) {
-            /* #221: single streaming pass over layer k's file; counts + emission
-             * happen chunk-by-chunk inside the builder (identical layout) */
-            f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io);
+            if (k >= 1) {   /* resume needs only layer k; drop k-1 BEFORE k+1
+                             * grows on disk (halves the transient disk peak) */
+                char old[4096];
+                snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
+                unlink(old);
+            }
+            /* #221: single streaming pass over layer k's file; counts, emission,
+             * stats AND the (atomic) layer-file write happen chunk-by-chunk
+             * inside the builder — entries never reside in RAM (2026-07-05 fix) */
+            f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
+                                 &ooc_mass, &ooc_states);
             t2 = omp_get_wtime();
         } else {
         /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
@@ -12271,21 +12396,30 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         }
         double t3 = omp_get_wtime();
         uint64_t states = 0;
-        F1U192 mass = f1c5_layer_stats(c, &nxt, &states);
+        F1U192 mass;
+        if (ooc) {   /* accumulated at emit time inside the builder; 192-bit
+                      * adds are exact + commutative, so == f1c5_layer_stats */
+            mass = ooc_mass;
+            states = ooc_states;
+        } else {
+            mass = f1c5_layer_stats(c, &nxt, &states);
+        }
         double t4 = omp_get_wtime();
         double t_ck = 0.0;
         if (dir) {
-            f1c5_write_layer(dir, c, &B, &nxt);
+            if (!ooc)   /* ooc: the builder already wrote + renamed the layer file */
+                f1c5_write_layer(dir, c, &B, &nxt);
             f1c5_write_manifest(dir, c, &B, k + 1);
-            if (k >= 1) {   /* keep k and k+1; drop k-1 */
+            if (!ooc && k >= 1) {   /* keep k and k+1; drop k-1 (ooc drops it pre-build) */
                 char old[4096];
                 snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
                 unlink(old);
             }
             t_ck = omp_get_wtime() - t4;
             io.sec_write += t_ck;
-            io.bytes_written += sizeof(F1C5LayerHdr) + 4ull * nxt.nm + 8ull * (nxt.nm + 1)
-                                + (4ull + sizeof(F1U192)) * nxt.ne;
+            if (!ooc)   /* ooc: the builder accounted its actual write bytes */
+                io.bytes_written += sizeof(F1C5LayerHdr) + 4ull * nxt.nm + 8ull * (nxt.nm + 1)
+                                    + (4ull + sizeof(F1U192)) * nxt.ne;
         }
         double bcur = f1c5_layer_bytes(&nxt), bprev = f1c5_layer_bytes(&cur);
         if (bprev + bcur > peak2) { peak2 = bprev + bcur; peak2_k = k + 1; }
@@ -12313,11 +12447,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                     (unsigned long long)io.windows, rss_cur, rss_peak);
         }
         f1c5_layer_free(&cur);
-        cur = nxt;
-        if (ooc && k + 1 < max_layer) {   /* just checkpointed; only the index stays in RAM */
-            free(cur.keys); free(cur.vals);
-            cur.keys = NULL; cur.vals = NULL;
-        }
+        cur = nxt;   /* ooc: keys/vals are NULL — entries live on disk only */
         if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
     }
 
@@ -12332,6 +12462,24 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
          * surviving residual is exactly B0 (asserted) */
         uint32_t full = (1u << n) - 1;
         F1_CHECK(cur.nm == 1 && cur.masks[0] == full, "final layer must be exactly the full mask");
+        if (ooc && cur.keys == NULL) {
+            /* entries were streamed to disk during the build; the final layer
+             * is tiny (single canonical mask, <= 64 entries) — load them back */
+            char fpath[4096];
+            snprintf(fpath, sizeof(fpath), "%s/f1c5_layer_%02d.bin", dir, cur.k);
+            int ffd = open(fpath, O_RDONLY);
+            if (ffd < 0) f1_ckpt_io_abort("open (final layer)", fpath);
+            const uint64_t fkb = sizeof(F1C5LayerHdr) + 4ull * cur.nm + 8ull * (cur.nm + 1);
+            cur.keys = (uint32_t *)malloc(sizeof(uint32_t) * (cur.ne ? cur.ne : 1));
+            cur.vals = (F1U192 *)malloc(sizeof(F1U192) * (cur.ne ? cur.ne : 1));
+            F1_CHECK(cur.keys && cur.vals, "final-layer readback alloc failed");
+            F1C5OocIo fio;
+            memset(&fio, 0, sizeof(fio));
+            f1c5_ooc_pread(ffd, cur.keys, sizeof(uint32_t) * cur.ne, fkb, fpath, &fio);
+            f1c5_ooc_pread(ffd, cur.vals, sizeof(F1U192) * cur.ne,
+                           fkb + sizeof(uint32_t) * cur.ne, fpath, &fio);
+            close(ffd);
+        }
         F1U192 total = {0, 0, 0};
         for (uint64_t e = 0; e < cur.ne; e++) {
             F1_CHECK((cur.keys[e] & 0xffffu) == B.rid_full,
