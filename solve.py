@@ -77,7 +77,7 @@ def bit_diff(a, b):
 def build_pairs():
     """Build the 32 canonical reverse/inverse pairs from the 64 hexagrams.
 
-    ATTRIBUTION: the pair structure is classical — described by Yu Fan (220-265 AD; fandui/pangtong,
+    ATTRIBUTION: the pair structure is classical — described by Yu Fan (164-233 AD; fandui/pangtong,
     preserved via Li Dingzuo's Zhouyi jijie), formalized combinatorially by Cook 2006. See CITATIONS.md."""
     used = set()
     pairs = []
@@ -5997,7 +5997,8 @@ def f4p_housedisp(seq):
 
 def f4p_trigram_runs(seq):
     """2. Longest run of consecutive pairs sharing the lower trigram of the
-    pair's first member. Axis: Zheng Qiao / Hu Yigui trigram clustering."""
+    pair's first member. Axis: Zheng Qiao (~1150) / Hu Yigui (b. 1247)
+    trigram clustering (via Hacker & Moore 2003)."""
     L = [seq[2 * i] & 7 for i in range(32)]
     best = cur = 1
     for i in range(1, 32):
@@ -6006,19 +6007,22 @@ def f4p_trigram_runs(seq):
     return best
 
 def f4p_nuclear_adj(seq):
-    """3. Adjacent positions sharing the same nuclear hexagram. Axis: Cook
-    nuclear-trigram structure (nuc = lines 2-4 lower, 3-5 upper)."""
+    """3. Adjacent positions sharing the same nuclear hexagram. Axis: Cook 2006
+    (STEDT Monograph 5) nuclear-trigram structure (nuc = lines 2-4 lower,
+    3-5 upper)."""
     nuc = lambda h: ((((h >> 2) & 7) << 3) | ((h >> 1) & 7))
     return sum(1 for i in range(63) if nuc(seq[i]) == nuc(seq[i + 1]))
 
 def f4p_yang_drift(seq):
-    """4. Position-weighted yang mass: sum i*hw(seq[i]). Axis: Schulz gender
-    waning / Mawangdui cumulative-yang comparison."""
+    """4. Position-weighted yang mass: sum i*hw(seq[i]). Axis: Schulz 1990
+    (JCP 17:3) gender waning / Mawangdui cumulative-yang comparison."""
     return sum(i * _reg_hw(h) for i, h in enumerate(seq))
 
 def f4p_dist_runs(seq):
     """5. Longest run of equal consecutive transition distances. Axis: Moore
-    1988 rhythm/run structure."""
+    1989 (*The Trigrams of Han*, Aquarian Press) rhythm/run structure (the
+    F4' preregistration doc's 'Moore 1988' is a year typo; CITATIONS.md
+    carries the correct 1989)."""
     d = [_reg_hw(seq[i] ^ seq[i + 1]) for i in range(63)]
     best = cur = 1
     for i in range(1, 63):
@@ -6028,12 +6032,13 @@ def f4p_dist_runs(seq):
 
 def f4p_palspan(seq):
     """6. Highest pair-position holding a palindromic hexagram (rev6(h)==h);
-    lowest is 0 by C4. Axis: biroco/Moore symmetric-hexagram placement."""
+    lowest is 0 by C4. Axis: Moore, *Yijing Dao*
+    (biroco.com, n.d.) symmetric-hexagram placement."""
     return max(i // 2 for i, h in enumerate(seq) if _f4p_rev6(h) == h)
 
 def f4p_comp_adj(seq):
     """7. Complement pair-couples at adjacent pair positions (counted once per
-    couple). Axis: Davis / C3 adjacency form. KW value 1 (the 38/39 couple;
+    couple). Axis: Davis 2012 / C3 adjacency form. KW value 1 (the 38/39 couple;
     SOLVE-SUMMARY's "9 adjacent complements" counts within-pair complements,
     which are pair-structure facts, not ordering-layer facts)."""
     ppos = {}
@@ -6049,7 +6054,7 @@ def f4p_comp_adj(seq):
 def f4p_house_balance(seq):
     """8. Upper-trigram imbalance between sequence halves: sum over 8 trigrams
     of |count(first 16 pairs) - count(second 16)| using each pair's first
-    member. Axis: Lai Zhide two-halves organization."""
+    member. Axis: Lai Zhide 1599 (via Schulz 1982) two-halves organization."""
     c1 = [0] * 8; c2 = [0] * 8
     for i in range(32):
         (c1 if i < 16 else c2)[seq[2 * i] >> 3] += 1
@@ -6057,7 +6062,8 @@ def f4p_house_balance(seq):
 
 def f4p_par_switch(seq):
     """9. Switches in the transition-distance parity string (63 values, 62
-    comparisons). Axis: Zhu Yuansheng parity skeleton, second order."""
+    comparisons). Axis: Zhu Yuansheng (13th c., via Schulz 2018) parity skeleton, second
+    order."""
     p = [(_reg_hw(seq[i] ^ seq[i + 1])) & 1 for i in range(63)]
     return sum(1 for i in range(62) if p[i] != p[i + 1])
 
@@ -6069,17 +6075,19 @@ def f4p_dist_autocorr(seq):
 
 def f4p_front_load(seq):
     """11. Sum of the first 31 transition distances (total is C5-fixed, so this
-    captures front/back asymmetry). Axis: McKenna wave asymmetry."""
+    captures front/back asymmetry). Axis: McKenna & McKenna 1975 (*The Invisible Landscape* ch. 9) wave
+    asymmetry."""
     return sum(_reg_hw(seq[i] ^ seq[i + 1]) for i in range(31))
 
 def f4p_value_trend(seq):
     """12. Concordant pairs of (position, binary value): #{i<j: seq[i]<seq[j]}.
-    Kendall-tau numerator vs the Fu Xi binary ordering axis."""
+    Kendall-tau numerator vs the Fu Xi binary ordering axis (Shao Yong
+    11th c. / Leibniz 1703)."""
     return sum(1 for i in range(64) for j in range(i + 1, 64) if seq[i] < seq[j])
 
 def f4p_wrap_class(seq):
     """13. Wrap distance hw(seq[63]^seq[0]) in {1,3,5}. Axis: circular reading
-    (McKenna; TR-7)."""
+    (McKenna & McKenna 1975; TR-7)."""
     return _reg_hw(seq[63] ^ seq[0])
 
 F4P_FUNCS = ["housedisp", "trigram_runs", "nuclear_adj", "yang_drift",
@@ -6577,6 +6585,416 @@ def vdb_verify():
     return 1 if failures else 0
 
 
+# ---------------------------------------------------------------------------
+# Book-claims verification battery (--books-verify), added 2026-07-05
+# (operator-approved: "write code to prove the statements in the book").
+# Programmatically verifies, against the received King Wen sequence, every
+# machine-checkable structural claim surfaced by the 2026-07-05 book audits:
+#   roae-private/books/nielsen_companion/{AUDIT.md, CANDIDATE_CONSTRAINTS.md,
+#     VISION_TRANSCRIPTIONS_2026_07_05.md}  (Nielsen 2003 audit)
+#   roae-private/books/hacker_bibliography/PRIOR_ART_NOTES.md  (Goldenberg)
+# ATTRIBUTION: each claim belongs to the named classical or modern author
+# (per-function comments give author, work, year, page/entry, and the audit
+# doc that surfaced it). The scholarly source for the classical items is
+# Nielsen, Bent (2003), *A Companion to Yi jing Numerology and Cosmology*,
+# RoutledgeCurzon. The operationalizations are ROAE's; errors of
+# operationalization are ours, not the authors'. Master ledger: CITATIONS.md.
+# ---------------------------------------------------------------------------
+
+_BOOKS_KAN, _BOOKS_LI = 0b010, 0b101
+
+
+def _books_kwnum():
+    """KW number (1-based) per 6-bit hexagram value."""
+    return {h: i + 1 for i, h in enumerate(binary_hexagrams)}
+
+
+def _books_wudeng_warp():
+    """Wu Deng's 'warp hexagram' (jing gua) class, parameter-free algebraic
+    form: upper trigram equals the lower trigram or its complement (8 pure
+    doubles + 8 complement-trigram doubles).
+    ATTRIBUTION: Wu Deng (1249-1333), *Yi zuan yan* [YJJC 149:9-12], via
+    Nielsen 2003, JING GUA entry def. 2, p. 132. Surfaced by roae-private/
+    books/nielsen_companion/AUDIT.md par.4 / CANDIDATE_CONSTRAINTS.md N-1."""
+    return {h for h in range(64)
+            if ((h >> 3) & 7) == (h & 7) or ((h >> 3) & 7) == ((h & 7) ^ 7)}
+
+
+def books_wd1():
+    """WD-1 — Wu Deng warp-class membership: the 16 warp hexagrams are KW
+    {1,2,11,12,29,30,31,32,41,42,51,52,57,58,63,64}, Nielsen's printed list
+    (p. 132; the OCR's doubled '[52],[52]' is [51],[52] per AUDIT.md par.4).
+    ATTRIBUTION: Wu Deng (1249-1333) via Nielsen 2003 p. 132; see
+    _books_wudeng_warp."""
+    kwn = _books_kwnum()
+    expected = (1, 2, 11, 12, 29, 30, 31, 32, 41, 42, 51, 52, 57, 58, 63, 64)
+    computed = tuple(sorted(kwn[h] for h in _books_wudeng_warp()))
+    return expected, computed
+
+
+def books_wd2():
+    """WD-2 — Wu Deng warp pair-slot skeleton: the warp hexagrams occupy
+    exactly the received-order pair-slots {1, 6, 15, 16, 21, 26, 29, 32}
+    (slot k = KW positions 2k-1, 2k).
+    ATTRIBUTION: Wu Deng (1249-1333) via Nielsen 2003 p. 132 ('control'
+    blocks [1],[2]->3-10 ... [63],[64] terminate); formalized as slot set by
+    roae-private/books/nielsen_companion/CANDIDATE_CONSTRAINTS.md N-1."""
+    kwn = _books_kwnum()
+    expected = (1, 6, 15, 16, 21, 26, 29, 32)
+    computed = tuple(sorted({(kwn[h] + 1) // 2 for h in _books_wudeng_warp()}))
+    return expected, computed
+
+
+def books_wd3():
+    """WD-3 — Wu Deng weft-block sizes: the maximal weft (non-warp) blocks
+    between/after warp pairs have sizes, in pair-slots, {4, 8, 4, 4, 2, 2} —
+    ALL powers of two — i.e. Wu's 'controlled' counts 8/16/8/8/4/4 hexagrams.
+    ATTRIBUTION: Wu Deng (1249-1333) via Nielsen 2003 p. 132; power-of-two
+    reading per CANDIDATE_CONSTRAINTS.md N-1 sub-predicate (c)."""
+    kwn = _books_kwnum()
+    slots = sorted({(kwn[h] + 1) // 2 for h in _books_wudeng_warp()})
+    gaps = ([slots[0] - 1] +
+            [slots[i] - slots[i - 1] - 1 for i in range(1, len(slots))] +
+            [32 - slots[-1]])
+    blocks = tuple(g for g in gaps if g > 0)
+    expected = ((4, 8, 4, 4, 2, 2), "all powers of 2", (8, 16, 8, 8, 4, 4))
+    computed = (blocks,
+                "all powers of 2" if all((g & (g - 1)) == 0 for g in blocks)
+                else "NOT all powers of 2",
+                tuple(2 * g for g in blocks))
+    return expected, computed
+
+
+def books_wd4():
+    """WD-4 — Warp-class C1 closure: every warp hexagram's received-order
+    partner is warp (so warp occupies whole pair-slots). KW-verified here;
+    provably automatic given C1 + the class definition (rev and comp both
+    preserve the up==lo / up==comp(lo) property), so a theorem, not a
+    coincidence — per CANDIDATE_CONSTRAINTS.md N-1 sub-predicate (a).
+    ATTRIBUTION: Wu Deng (1249-1333) via Nielsen 2003 p. 132."""
+    w = _books_wudeng_warp()
+    computed = all((binary_hexagrams[2 * k] in w) ==
+                   (binary_hexagrams[2 * k + 1] in w) for k in range(32))
+    return True, computed
+
+
+def books_lz1():
+    """LZ-1 — Lai Zhide 'great images' identities (order-independent half):
+    KW 27/28 are the outer-frame magnifications of trigrams Li/Kan (outer
+    lines kept, middle line expanded to four), KW 61/62 the line-doubled
+    magnifications of Li/Kan, KW 29/30 the doubled Kan/Li pair, and KW 63/64
+    the Kan-over-Li / Li-over-Kan mixed pair.
+    ATTRIBUTION: Lai Zhide (1525-1604) [YXJH 2:1541], via Nielsen 2003,
+    GUA XU entry p. 84 (da gua def. 2, 'great images'). Surfaced by
+    roae-private/books/nielsen_companion/AUDIT.md par.2 /
+    CANDIDATE_CONSTRAINTS.md N-4."""
+    kwn = _books_kwnum()
+
+    def exp_mid(t):   # keep outer lines, middle line x4
+        return (t & 1) | (0b011110 if t & 2 else 0) | ((t >> 2) << 5)
+
+    def dbl(t):       # double each line
+        return ((t & 1) * 0b11 | ((t >> 1) & 1) * 0b1100 |
+                ((t >> 2) & 1) * 0b110000)
+
+    li, kan = _BOOKS_LI, _BOOKS_KAN
+    expected = (27, 28, 61, 62, 29, 30, 63, 64)
+    computed = (kwn[exp_mid(li)], kwn[exp_mid(kan)],
+                kwn[dbl(li)], kwn[dbl(kan)],
+                kwn[(kan << 3) | kan], kwn[(li << 3) | li],
+                kwn[(kan << 3) | li], kwn[(li << 3) | kan])
+    return expected, computed
+
+
+def books_lz2():
+    """LZ-2 — Lai Zhide endpoint feeders (positional half): the great-image
+    pair 27/28 immediately precedes the doubled Kan/Li pair 29/30 (pair-slot
+    14 -> 15), and 61/62 immediately precedes the mixed pair 63/64 (slot
+    31 -> 32) — the ~400-year Ming-dynasty precedent of the arrangement idea
+    ROAE registers as Van den Berghe V-2/VDB-4 (see vdb_specplace).
+    ATTRIBUTION: Lai Zhide (1525-1604) via Nielsen 2003, GUA XU p. 84;
+    surfaced by CANDIDATE_CONSTRAINTS.md N-4 (KW slots 14->15, 31->32)."""
+    kwn = _books_kwnum()
+    slot = lambda h: (kwn[h] + 1) // 2
+    expected = ((14, 15), (31, 32))
+    computed = ((slot(0b100001), slot(0b010010)),
+                (slot(0b110011), slot(0b010101)))
+    return expected, computed
+
+
+# Goldenberg theorem numbers follow Hacker, Moore & Patsco (2002) entry B:154
+# (the annotation quotes the theorem statements; primary JCP text pending
+# acquisition — annotation-level knowledge, per CITATIONS.md par.Goldenberg).
+# ATTRIBUTION for G-T1..G-T7: Goldenberg, Daniel S., "The Algebra of the
+# I Ching and Its Philosophical Implications", Journal of Chinese Philosophy
+# 2 (1975): 149-79. Surfaced by roae-private/books/hacker_bibliography/
+# PRIOR_ART_NOTES.md par.4 + VISION-READ addendum.
+
+def books_g_t1():
+    """G-T1 — Goldenberg 1975 Theorem 1: the permutations of the 6 hexagram
+    line positions form a non-abelian group. Verified exhaustively: |S6| =
+    720, closure under composition, identity, inverses, plus a non-commuting
+    witness pair. (Associativity is inherited from function composition.)"""
+    import itertools
+    perms = list(itertools.permutations(range(6)))
+    pset = set(perms)
+    comp = lambda p, q: tuple(p[q[i]] for i in range(6))
+    ident = tuple(range(6))
+    closure = all(comp(p, q) in pset for p in perms for q in perms)
+    inverses = all(tuple(sorted(range(6), key=lambda i: p[i])) in pset and
+                   comp(p, tuple(sorted(range(6), key=lambda i: p[i])))
+                   == ident for p in perms)
+    nonabelian = any(comp(p, q) != comp(q, p)
+                     for p in perms[:8] for q in perms[:8])
+    expected = (720, "group", "non-abelian")
+    computed = (len(pset),
+                "group" if closure and inverses and ident in pset
+                else "NOT a group",
+                "non-abelian" if nonabelian else "abelian")
+    return expected, computed
+
+
+def books_g_t2():
+    """G-T2 — Goldenberg 1975 Theorem 2: the two line symbols form a field
+    under addition and multiplication mod 2 (= GF(2); yang/solid = 1,
+    yin/broken = 0). All field axioms checked exhaustively over {0,1}."""
+    F = (0, 1)
+    add = lambda a, b: a ^ b
+    mul = lambda a, b: a & b
+    ok = (all(add(a, b) in F and mul(a, b) in F for a in F for b in F) and
+          all(add(add(a, b), c) == add(a, add(b, c)) and
+              mul(mul(a, b), c) == mul(a, mul(b, c)) and
+              mul(a, add(b, c)) == add(mul(a, b), mul(a, c))
+              for a in F for b in F for c in F) and
+          all(add(a, b) == add(b, a) and mul(a, b) == mul(b, a)
+              for a in F for b in F) and
+          all(add(a, 0) == a and mul(a, 1) == a and add(a, a) == 0
+              for a in F) and
+          mul(1, 1) == 1 and 0 != 1)
+    return True, ok
+
+
+def books_g_t3():
+    """G-T3 — Goldenberg 1975 Theorem 3: the 64 hexagrams form a commutative
+    ring under the modulo-2 line operations (componentwise XOR / AND on
+    GF(2)^6; a Boolean ring, with AND-identity 111111 = Qian). Associativity
+    and distributivity checked exhaustively over all 64^3 triples,
+    commutativity/identities/additive inverses over all pairs."""
+    R = range(64)
+    ok = (all(((a ^ b) ^ c) == (a ^ (b ^ c)) and
+              ((a & b) & c) == (a & (b & c)) and
+              (a & (b ^ c)) == ((a & b) ^ (a & c))
+              for a in R for b in R for c in R) and
+          all((a ^ b) == (b ^ a) and (a & b) == (b & a)
+              for a in R for b in R) and
+          all((a ^ 0) == a and (a & 63) == a and (a ^ a) == 0 for a in R))
+    return True, ok
+
+
+def books_g_t4():
+    """G-T4 — Goldenberg 1975 Theorem 4: the inversion mapping (turning a
+    hexagram upside down, rev6) is an automorphism of the hexagram ring,
+    and its fixed structure is exactly the subring of the 8 symmetric
+    (self-inverted) hexagrams — KW {1,2,27,28,29,30,61,62}. Verified:
+    bijectivity, preservation of XOR and AND over all pairs, the fixed-point
+    set, and subring closure. (Complementation, by contrast, is NOT an
+    additive automorphism — it moves the zero.)"""
+    kwn = _books_kwnum()
+    hom = all(reverse_6bit(a ^ b) == reverse_6bit(a) ^ reverse_6bit(b) and
+              reverse_6bit(a & b) == reverse_6bit(a) & reverse_6bit(b)
+              for a in range(64) for b in range(64))
+    bij = sorted(reverse_6bit(h) for h in range(64)) == list(range(64))
+    fixed = {h for h in range(64) if reverse_6bit(h) == h}
+    subring = all((a ^ b) in fixed and (a & b) in fixed
+                  for a in fixed for b in fixed)
+    expected = ("automorphism", (1, 2, 27, 28, 29, 30, 61, 62), "subring")
+    computed = ("automorphism" if hom and bij else "NOT an automorphism",
+                tuple(sorted(kwn[h] for h in fixed)),
+                "subring" if subring else "NOT closed")
+    return expected, computed
+
+
+def books_g_t7():
+    """G-T7 — Goldenberg 1975 Theorem 7: every hexagram pair has a UNIQUE
+    mediating hexagram transforming either member into the other under
+    mod-2 line addition (the XOR difference vector) — verified exhaustively
+    over all 64x64 ordered pairs. Worked example (per the Hacker 2002
+    annotation): H5 <-> H63 mediated by H7. CONVENTION DERIVED: his H-numbers
+    are King Wen numbers and lines encode yang(solid)=1 / yin(broken)=0;
+    under those conventions KW5 (Waiting, Qian-under-Kan) XOR KW63 (After
+    Completion, Li-under-Kan) = 6-bit 000010 = KW7 (The Army) exactly. The
+    example is invariant to line-ORDER convention (rev6 of all three
+    preserves it) but pins the POLARITY: under yin=1 the mediating pattern
+    decodes to KW13, so Goldenberg's example requires yang=1."""
+    unique = all(sum(1 for m in range(64) if (a ^ m) == b) == 1
+                 for a in range(64) for b in range(64))
+    kwn = _books_kwnum()
+    expected = ("unique mediator for all 4096 pairs", 7)
+    computed = ("unique mediator for all 4096 pairs" if unique
+                else "mediator NOT unique",
+                kwn[binary_hexagrams[4] ^ binary_hexagrams[62]])
+    return expected, computed
+
+
+# Nielsen 2003 Table 2 (p. 3, BA GONG GUA entry, adapted from Hui Dong
+# (1697-1758), *Ba gong gua ci tu* [YJJC 119:105-8]): the eight-palace
+# table as KW numbers, palace head -> (origin, generations 1-5, roaming
+# soul, returning soul). Transcribed in roae-private/books/
+# nielsen_companion/VISION_TRANSCRIPTIONS_2026_07_05.md page_0591.
+_BOOKS_NIELSEN_T2 = {
+    0b111: (1, 44, 33, 12, 20, 23, 35, 14),    # Qian palace
+    0b001: (51, 16, 40, 32, 46, 48, 28, 17),   # Zhen palace
+    0b010: (29, 60, 3, 63, 49, 55, 36, 7),     # Kan palace
+    0b100: (52, 22, 26, 41, 38, 10, 61, 53),   # Gen palace
+    0b000: (2, 24, 19, 11, 34, 43, 5, 8),      # Kun palace
+    0b110: (57, 9, 37, 42, 25, 21, 27, 18),    # Xun palace
+    0b101: (30, 56, 50, 64, 4, 59, 6, 13),     # Li palace
+    0b011: (58, 47, 45, 31, 39, 15, 62, 54),   # Dui palace
+}
+
+
+def books_jf1():
+    """JF-1 — Jing Fang eight-palace generation table: building each palace
+    from Nielsen's prose construction (origin = doubled trigram; generations
+    1-5 = cumulatively flip lines 1..5; roaming soul = flip line 4 of the
+    5th generation; returning soul = restore the lower trigram) reproduces
+    Nielsen's authoritative Table 2 in ALL 64 cells, and agrees with ROAE's
+    existing generator (_f4p_jf_palace / roae.py --trigrams / solve.c
+    --null-historical). Re-exposes the 2026-07-05 corpus-gate check.
+    ATTRIBUTION: Jing Fang (77-37 BCE), *Ba gong gua* arrangement; table via
+    Nielsen 2003 pp. 1-4 (Table 2, p. 3, after Hui Dong 1697-1758). Surfaced
+    by roae-private/books/nielsen_companion/AUDIT.md par.3 +
+    VISION_TRANSCRIPTIONS_2026_07_05.md page_0591."""
+    kwn = _books_kwnum()
+
+    def palace(t):
+        out = [(t << 3) | t]                      # origin (upper generation)
+        for k in range(5):                        # 1st..5th generations
+            out.append(out[-1] ^ (1 << k))        # flip line k+1
+        out.append(out[5] ^ (1 << 3))             # roaming soul: flip line 4
+        out.append((out[6] & 0b111000) | t)       # returning soul: lower = t
+        return out
+
+    heads = (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011)
+    match = sum(1 for t in heads
+                if tuple(kwn[h] for h in palace(t)) == _BOOKS_NIELSEN_T2[t])
+    agree = all(_F4P_PAL[h] == pi
+                for pi, t in enumerate(heads) for h in palace(t))
+    expected = ("64/64 cells match Nielsen Table 2", "generators agree")
+    computed = (f"{8 * match}/64 cells match Nielsen Table 2",
+                "generators agree" if agree else "generators DISAGREE")
+    return expected, computed
+
+
+def books_yf1():
+    """YF-1 — Classical pair-structure statement (= ROAE C1): the received
+    order's 32 pairs split as 28 'overturned' (fan gua / fandui — reversal)
+    pairs + 4 'laterally linked' (pangtong — complementation) pairs, the
+    latter being the 8 self-reversal hexagrams KW {1,2,27,28,29,30,61,62}.
+    ATTRIBUTION: pairing modes are classical; the complementation
+    terminology's earliest technical use is Yu Fan (164-233), preserved via
+    Li Dingzuo's *Zhouyi jijie*; reversal-pairing term genealogy Za gua ->
+    Wang Bi -> Li Zhicai (d. 1045). Via Nielsen 2003, FAN GUA pp. 57-58 /
+    PANG TONG GUA pp. 185-187 / GUA XU pp. 82-85. Surfaced by roae-private/
+    books/nielsen_companion/AUDIT.md par.2, par.4."""
+    kwn = _books_kwnum()
+    nrev = sum(1 for k in range(32)
+               if binary_hexagrams[2 * k + 1] ==
+               reverse_6bit(binary_hexagrams[2 * k]) !=
+               binary_hexagrams[2 * k])
+    ncomp = sum(1 for k in range(32)
+                if reverse_6bit(binary_hexagrams[2 * k]) ==
+                binary_hexagrams[2 * k] ==
+                binary_hexagrams[2 * k + 1] ^ 63)
+    selfrev = tuple(sorted(kwn[h] for h in range(64)
+                           if reverse_6bit(h) == h))
+    expected = (28, 4, (1, 2, 27, 28, 29, 30, 61, 62))
+    computed = (nrev, ncomp, selfrev)
+    return expected, computed
+
+
+# Nielsen 2003 Table 1 (p. 187, PANG TONG GUA entry): the 32 complement
+# ('laterally linked') couples of the full pangtong involution, as KW-number
+# pairs. Transcribed in VISION_TRANSCRIPTIONS_2026_07_05.md page_0781.
+_BOOKS_PANGTONG_T1 = (
+    (1, 2), (3, 50), (4, 49), (5, 35), (6, 36), (7, 13), (8, 14), (9, 16),
+    (10, 15), (11, 12), (17, 18), (19, 33), (20, 34), (21, 48), (22, 47),
+    (23, 43), (24, 44), (25, 46), (26, 45), (27, 28), (29, 30), (31, 41),
+    (32, 42), (37, 40), (38, 39), (51, 57), (52, 58), (53, 54), (55, 59),
+    (56, 60), (61, 62), (63, 64),
+)
+
+
+def books_yf2():
+    """YF-2 — The full pangtong (complementation) involution: Nielsen's
+    printed table of all 32 'laterally linked' couples is exactly the
+    all-lines-flipped map h -> comp(h), each couple a complement pair and
+    the 32 couples covering all 64 hexagrams.
+    ATTRIBUTION: Yu Fan (164-233) pangtong, via Nielsen 2003, PANG TONG GUA
+    Table 1, p. 187. Surfaced by VISION_TRANSCRIPTIONS_2026_07_05.md
+    page_0781 + AUDIT.md par.4."""
+    ok = (len(_BOOKS_PANGTONG_T1) == 32 and
+          sorted(x for p in _BOOKS_PANGTONG_T1 for x in p) ==
+          list(range(1, 65)) and
+          all(binary_hexagrams[a - 1] ^ 63 == binary_hexagrams[b - 1]
+              for a, b in _BOOKS_PANGTONG_T1))
+    return ("32/32 couples are complement pairs covering all 64",
+            "32/32 couples are complement pairs covering all 64" if ok
+            else "table does NOT match complementation")
+
+
+BOOKS_CLAIMS = (
+    ("WD-1", "Wu Deng 1249-1333 (Nielsen 2003 p.132) warp-class membership",
+     books_wd1),
+    ("WD-2", "Wu Deng warp pairs at received pair-slots {1,6,15,16,21,26,29,32}",
+     books_wd2),
+    ("WD-3", "Wu Deng weft blocks {4,8,4,4,2,2} pair-slots (powers of 2)",
+     books_wd3),
+    ("WD-4", "Wu Deng warp class is C1-closed (pairs stay whole)",
+     books_wd4),
+    ("LZ-1", "Lai Zhide 1525-1604 (Nielsen 2003 p.84) great-image identities",
+     books_lz1),
+    ("LZ-2", "Lai Zhide endpoint feeders 27/28->29/30, 61/62->63/64 adjacency",
+     books_lz2),
+    ("G-T1", "Goldenberg 1975 (JCP 2:149-79) T1 line-permutation group non-abelian",
+     books_g_t1),
+    ("G-T2", "Goldenberg 1975 T2 line symbols form the field GF(2)",
+     books_g_t2),
+    ("G-T3", "Goldenberg 1975 T3 hexagrams form a commutative ring (GF(2)^6)",
+     books_g_t3),
+    ("G-T4", "Goldenberg 1975 T4 inversion automorphism fixes the 8 symmetric hexagrams",
+     books_g_t4),
+    ("G-T7", "Goldenberg 1975 T7 unique XOR mediator; example H5<->H63 via H7",
+     books_g_t7),
+    ("JF-1", "Jing Fang 77-37 BCE eight-palace table == Nielsen 2003 Table 2 (all 64)",
+     books_jf1),
+    ("YF-1", "Yu Fan 164-233 (Nielsen 2003 pp.57-58,185-187) 28 fandui + 4 pangtong pairs",
+     books_yf1),
+    ("YF-2", "Yu Fan pangtong: Nielsen p.187 32-couple table == complementation",
+     books_yf2),
+)
+
+
+def books_verify():
+    """Run the book-claims verification battery: one PASS/FAIL line per
+    claim with expected and computed values. Returns 0 on full pass, 1 on
+    any mismatch. See the block comment above for sources and attribution."""
+    failures = 0
+    for cid, desc, fn in BOOKS_CLAIMS:
+        expected, computed = fn()
+        ok = expected == computed
+        if not ok:
+            failures += 1
+        print(f"{cid} {'PASS' if ok else 'FAIL'} {desc}\n"
+              f"     expected: {expected}\n"
+              f"     computed: {computed}")
+    if failures:
+        print(f"BOOKS VERIFY: {failures} of {len(BOOKS_CLAIMS)} CLAIMS FAILED")
+        return 1
+    print(f"BOOKS VERIFY: ALL {len(BOOKS_CLAIMS)} CLAIMS PASS")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -6663,6 +7081,13 @@ def main():
                         help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
     parser.add_argument("--vdb-verify", action="store_true",
                         help="verify the 8 Van den Berghe (c.1998-2005) structural candidates on KW")
+    parser.add_argument("--books-verify", action="store_true",
+                        help="verify the machine-checkable structural claims "
+                             "from the audited books (Wu Deng via Nielsen "
+                             "2003, Lai Zhide, Goldenberg 1975, Jing Fang, "
+                             "Yu Fan) against the King Wen sequence; one "
+                             "PASS/FAIL line per claim with expected + "
+                             "computed values")
     parser.add_argument("--registry-verify", action="store_true",
                         help="Run every candidate-rule ground-truth checker "
                              "(reg_*, CANDIDATE_REGISTRY_2026_07) against the "
@@ -6731,6 +7156,9 @@ def main():
                         help="Print progress during search")
 
     args = parser.parse_args()
+
+    if args.books_verify:
+        sys.exit(books_verify())
 
     if args.registry_verify:
         sys.exit(registry_verify())

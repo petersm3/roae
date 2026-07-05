@@ -479,6 +479,30 @@ the embedded frozen-spec KW values (computed against `solve.py`
 Population scoring: `SOLVE_KNUTH_SCORE_F5` below; explicit-sequence hook:
 `SOLVE_F5_TESTVEC`.
 
+### --books-verify (solve.py only)
+
+```
+solve.py --books-verify
+```
+
+`solve.py` companion command (not a `solve` C subcommand). Book-claims
+verification battery (added 2026-07-05, operator-approved "write code to prove
+the statements in the book"): programmatically verifies, against the King Wen
+sequence, the 14 machine-checkable structural claims surfaced by the 2026-07
+book audits — Wu Deng's (1249–1333) warp/weft skeleton (WD-1..4), Lai Zhide's
+(1525–1604) great-image endpoint feeders (LZ-1..2), Goldenberg's (1975, JCP 2)
+GF(2)⁶ algebra theorems T1–T4 + T7 including his H5↔H63-via-H7 mediator
+example (G-T1..T7), the Jing Fang (77–37 BCE) eight-palace table against
+Nielsen 2003 Table 2 in all 64 cells (JF-1, re-exposing the corpus-gate
+check), and the classical Yu Fan (164–233) fandui/pangtong pair-structure
+statement including Nielsen's printed 32-couple pangtong table (YF-1..2).
+Classical items sourced via Nielsen, Bent (2003), *A Companion to Yi jing
+Numerology and Cosmology*; Goldenberg via Hacker, Moore & Patsco (2002) B:154
+(annotation-level; primary text pending). Prints one PASS/FAIL line per claim
+with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
+Attribution per claim function in solve.py; master ledger
+[CITATIONS.md](CITATIONS.md).
+
 ### --f1-exact-c1c2c4
 
 ```

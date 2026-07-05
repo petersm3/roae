@@ -526,3 +526,9 @@ upper trigram equal to the lower or its complement, at pair-slots {1,6,15,16,21,
 entry shows the arrangement idea we credited as VdB-4 has a Ming-dynasty precedent. Where our reports
 credit modern authors for structural observations, these classical precedents take priority; the
 modern authors' contribution is independent rediscovery and, in VdB's case, quantification.
+
+*Verification pointer:* the machine-checkable claims from both book audits — Wu Deng's warp/weft
+skeleton, Lai Zhide's endpoint feeders, the Jing Fang eight-palace table, Yu Fan's fandui/pangtong
+pair structure (all via Nielsen 2003), and Goldenberg's (1975) theorems T1–T4 + T7 — are
+programmatically verified against the King Wen sequence by `solve.py --books-verify`
+(14 claims, one PASS/FAIL line each with expected + computed values; all 14 PASS as of 2026-07-05).

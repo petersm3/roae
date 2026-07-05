@@ -89,6 +89,11 @@ class TestGates(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertIn("F4P VERIFY: PASS", r.stdout)
 
+    def test_books_verify(self):
+        r = subprocess.run([sys.executable, "solve.py", "--books-verify"],
+                           capture_output=True, text=True)
+        self.assertIn("BOOKS VERIFY: ALL 14 CLAIMS PASS", r.stdout)
+
     def test_sat_import_assertions(self):
         r = subprocess.run([sys.executable, "-c", "import sat"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr[-300:])
