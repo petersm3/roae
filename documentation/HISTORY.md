@@ -5237,3 +5237,62 @@ doc was renamed `BOUNDARY_MINIMUM_NON_MONOTONE.md` → `BOUNDARY_MINIMUM.md` and
 carries a dated correction note; solve.c §[7]'s over-claiming print was reworded (sha-neutral). What
 survives unchanged: {25, 27} mandatoriness, boundary 4's 99.999% single-step elimination, §[7]'s
 minimum ≥ 4 everywhere, §[8] = 0 at 100T/560T, all canonical shas and record counts.
+
+## 2026-07-04/05: The exact-count program — from "needs a 5 TB machine" to a kernel-checked count on 128 GB
+
+The full-31 exact count |C1∩C2∩C4∩C5| ran as a two-path race. PATH A (in-RAM, symmetry-quotient
+layered DP with C5-residual tracking, `--f1-exact-c1c2c4c5`): validated on a subset ladder
+(24p = 7,477,248,378,538,061,907,099,648 exact in 93 s at 4.6 GB; 25/27/28p likewise), then attempted
+at full scale on the largest reachable memory (2.79 TB M-series Spot + 5.6 TB striped swap). It
+failed honestly: layer 15 exceeded 2.45 TB *while still growing* — with layer-14 co-residency the true
+in-RAM peak is ~4.2–5 TB, beyond any machine our quotas reach — and the run was retired at a
+pre-committed swap tripwire after a single pre-agreed grace period. **Lesson (memory math):** the
+C(31,k)-proportional model underestimates in-RAM peaks ~55%+ at full scale; measure layer footprints
+from real telemetry, and treat "just add swap" as a falsifiable hypothesis with an abort line, not a plan.
+
+PATH B (out-of-core, #221): the same DP with both source and built layers streamed from disk —
+layer files double as free checkpoints (`--resume-from-layers`). Shipped after a 4/4 exact-match
+ladder against in-RAM results including a deliberate kill-and-resume, then survived, in one
+continuous run: a builder OOM at full scale (fixed by chunk-streamed emission — RSS flat at 1.5 GB
+at the layer that had OOM'd), a 22.8× read-amplification discovery (fixed by window tuning env
+knobs), a mid-flight stripe migration at a layer boundary when measured layer sizes outgrew the
+4 TB array (byte-verified copy, zero compute lost), a Sunday Spot eviction (15-minute recovery from
+the layer-14 checkpoint), and a final move to Standard hardware. Peak memory: **128 GB** — a ~35×
+reduction against the in-RAM requirement, which is the reproducibility point: the exact count needs
+a big disk and patience, not exotic hardware. The DP's measured peak is layer 13 (40.8 B entries);
+C5 pruning overtakes binomial growth past the middle. Exact result: [COUNT — lands with this
+section's next revision; gates: ÷24 exactness + Knuth-estimator cross-check].
+
+The ÷24 gate itself was upgraded mid-campaign: the symmetry theorem's sequence-level layer
+(invariance, record-level freeness, orbit counting) was formalized in `lean/Automorphism.lean`
+(#222) — `twenty_four_dvd_solution_count` is kernel-checked for both constraint systems, so the
+count's primary sanity gate rests on machine-verified mathematics.
+
+## 2026-07-05: The literature program's measurement day — two notables from eight centuries, and a corpus-gate erratum
+
+The orientation layer got its pre-registered battery (F5, frozen→measured→published in ~5 hours):
+7 literature functionals null, 3 forced, and one notable — **Van den Berghe's nuclear-rule
+agreement (29/30) is the exact maximum of King Wen's 1,720,320-vector orientation fiber**
+(12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). A second
+battery (F6) measured the two candidates surfaced by the Nielsen audit: bagong palace-alignment
+null across the board, but **Wu Deng's (1249–1333) weft-block profile is population-atypical**
+(p = 1.1×10⁻³, gauge-robust) — the second notable, and the older by six centuries. Both are framed
+as fitted-description atypicality (their authors derived the rules *from* King Wen); both held at
+report-only under the frozen thresholds, including the demotion of a tempting p = 7.9×10⁻⁷
+statistic that failed the data-like/gauge-strict clauses.
+
+The same day's source auditing (Hacker/Moore/Patsco 2002 bibliography, Nielsen 2003 Companion,
+Shaughnessy 2022 — all captured, audited, and machine-verified via `solve.py --books-verify`,
+14/14 claims PASS) resolved the Olsvanger prior-art question (binary-square decorations, no
+constraint content), established classical precedence chains (Wu Deng anticipates the V-1 family;
+Lai Zhide anticipates VdB-4; Goldenberg 1975 is set-level GF(2) prior art), verified the Jing Fang
+corpus control cell-for-cell — and caught a real error: **the Mawangdui array used since April was
+wrong** (synthesized by a buggy generator with a 3-cycle confusion among the visually similar
+trigrams ☶/☱/☴; the cited Wikipedia article contains no sequence at all; validity self-tests had
+been mistaken for correctness tests). Corrected against five concordant independent sources, zero
+discordant; no statistical verdict flipped — the V-8 corpus gate *strengthened* (authentic
+Mawangdui scores 1, the opposite tail) — but "Mawangdui satisfies C2" was withdrawn (the authentic
+order has a 5-line seam, #48→#51). Anchor tests against primary sources now guard every imported
+sequence. **Lesson:** a comment describing the correct rule above data that violates it survived
+three months of reviews; correctness must be *tested against sources*, never inferred from
+documentation or from two copies agreeing with each other.
