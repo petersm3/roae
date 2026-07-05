@@ -53,6 +53,56 @@ class TestSequenceGround(unittest.TestCase):
         pos = {h: i for i, h in enumerate(KW)}
         self.assertEqual(sum(abs(pos[h] - pos[h ^ 63]) for h in range(64)), 776)
 
+class TestMawangdui(unittest.TestCase):
+    """Primary-source anchors for the Mawangdui corpus-control array.
+
+    Added 2026-07-05 after the array was found wrong (see incident notes /
+    TR errata): the original 2026-04-06 array had correct octet membership
+    but wrong octet order and wrong within-octet order, and no test asserted
+    anything beyond permutation validity. Anchors below are from Shaughnessy,
+    *The Origin and Early Development of the Zhou Changes* (Brill, 2022),
+    p. 50 + Table 11.2; concordant with Cook 2006 and Shaughnessy 1996.
+    RULE: any hardcoded sequence imported from a source gets anchor tests
+    asserting positions stated by a PRIMARY source."""
+    MD = list(roae.mawangdui_kw_indices)
+
+    def test_md_is_permutation(self):
+        self.assertEqual(sorted(self.MD), list(range(64)))
+
+    def test_md_prose_anchors(self):
+        # Qian 1st, Kun 33rd, Jiji (#63) 22nd, Weiji (#64) 54th (1-based)
+        self.assertEqual(self.MD[0], 0)
+        self.assertEqual(self.MD[32], 1)
+        self.assertEqual(self.MD[21], 62)
+        self.assertEqual(self.MD[53], 63)
+
+    def test_md_generation_rule(self):
+        # Octets by upper trigram Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun; lower
+        # cycles Qian,Kun,Gen,Dui,Kan,Li,Zhen,Xun with own trigram promoted
+        # to first (each octet opens with the pure doubled hexagram).
+        val = {b: i for i, b in enumerate(KW)}
+        upper = [0b111, 0b100, 0b010, 0b001, 0b000, 0b011, 0b101, 0b110]
+        lower = [0b111, 0b000, 0b100, 0b011, 0b010, 0b101, 0b001, 0b110]
+        gen = [val[(u << 3) | l] for u in upper
+               for l in [u] + [t for t in lower if t != u]]
+        self.assertEqual(self.MD, gen)
+
+    def test_md_single_five_line_transition_at_octet_seam(self):
+        # Authentic Mawangdui FAILS C2: exactly one 5-line transition,
+        # positions 24->25 (#48 Jing -> #51 Zhen), an octet boundary.
+        seq = [KW[i] for i in self.MD]
+        fives = [i for i in range(63)
+                 if bin(seq[i] ^ seq[i + 1]).count("1") == 5]
+        self.assertEqual(fives, [23])
+        self.assertEqual((self.MD[23], self.MD[24]), (47, 50))
+
+    def test_md_transition_histogram(self):
+        # Linear (63-step) histogram per Shaughnessy-derived sequence.
+        seq = [KW[i] for i in self.MD]
+        d = [bin(seq[i] ^ seq[i + 1]).count("1") for i in range(63)]
+        self.assertEqual({k: d.count(k) for k in sorted(set(d))},
+                         {1: 21, 2: 10, 3: 29, 4: 2, 5: 1})
+
 class TestKnownValues(unittest.TestCase):
     def test_rc4_violations(self):
         n, slots = solve.rc4_violations(KW)

@@ -146,7 +146,9 @@ def has_no_five(seq):
     """Check if a sequence has no 5-line transitions.
 
     ATTRIBUTION: the no-five observation is McKenna & McKenna 1975 (The Invisible Landscape, ch. 9);
-    shared by Mawangdui and Jing Fang orderings (pan-tradition). See CITATIONS.md."""
+    shared by the Jing Fang ordering. (Corrected 2026-07-05: the authentic Mawangdui sequence
+    per Shaughnessy 2022 has exactly one 5-line transition at its Kan->Zhen octet seam; an
+    earlier erroneous Mawangdui array here had zero.) See CITATIONS.md."""
     for i in range(len(seq) - 1):
         if bit_diff(seq[i], seq[i + 1]) == 5:
             return False

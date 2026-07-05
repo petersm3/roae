@@ -51,8 +51,9 @@ The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~70
 ### Mawangdui silk-text ordering
 
 - **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
+- **Shaughnessy, Edward L.** (2022). *The Origin and Early Development of the Zhou Changes*. Leiden: Brill (Prognostication in History 9). Open access. **The authority for the Mawangdui ordering array used by ROAE** (p. 50 + Table 11.2: eight octets by upper trigram Qian, Gen, Kan, Zhen, Kun, Dui, Li, Xun; lower trigrams cycling Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with the octet's own trigram promoted to first).
 
-ROAE observation that **both Mawangdui and Jing Fang 8 Palaces satisfy C2** (zero 5-line transitions) while failing C1 and C3 is, to our knowledge, a novel comparative finding. Combined with King Wen, this gives three of four tested ancient Chinese hexagram orderings satisfying C2 exactly — reframing McKenna's observation as likely a **classical Chinese design principle** shared across multiple traditions rather than unique to King Wen. Surfaced here during null-model testing (`./solve --null-historical`). See also:
+**ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped (TR-1's F5 corpus gate and TR-10's specificity gate both still pass — in both cases more cleanly). See also:
 
 - **Jing Fang** (京房, 77–37 BCE). The *Ba Gong Gua* (八宫卦) arrangement is preserved in traditional Yi Jing commentary and divinatory practice. The specific "origin → five worlds → wandering soul (游魂) → returning soul (归魂)" convention ROAE uses follows standard sinological sources. Alternative orderings within the same palaces exist; PR welcome for corrections. Traditional attribution of the arrangement to Jing Fang; historical certainty of the full ordering is debated in scholarly literature.
 
@@ -237,7 +238,7 @@ Subject to the disclaimer at the top of this document, the following are believe
 5. **Analytic C1 impossibility proofs** for the de Bruijn B(2, 6) family (period-4 contradiction) and the Gray code family (Hamming-1 disjoint). See [CRITIQUE.md](CRITIQUE.md).
 6. **Latin-square C2 rate decomposition** — analytic explanation of the 57.96% rate as a function of row-permutation class (Hamiltonian-path popcount distribution in the 3-cube). See [CRITIQUE.md](CRITIQUE.md).
 7. **Partition-stability analysis** — the finding that boundaries {25, 27} are mandatory in every working 4-boundary set at BOTH d2 and d3, while the other two boundaries are partition-dependent.
-8. **Mawangdui C2 observation** — that the ancient silk-text ordering accidentally satisfies C2 (zero 5-line transitions) while failing C1 and C3.
+8. ~~**Mawangdui C2 observation** — that the ancient silk-text ordering accidentally satisfies C2 (zero 5-line transitions) while failing C1 and C3.~~ **WITHDRAWN 2026-07-05**: this was an artifact of an erroneous Mawangdui array (see the erratum in §Mawangdui above). The authentic ordering (Shaughnessy 2022, Table 11.2) has exactly one 5-line transition, at a trigram-octet seam. The replacement observation — that Mawangdui's sole C2 breach sits exactly at a mechanical block boundary — is noted but not claimed as novel.
 9. **C3 total complement distance as a specifically quantified constraint** — 776 (= 12.125 × 64) as the King Wen value, positioning KW at the 3.9th percentile within C1-satisfying orderings.
 10. **Format v1 `solutions.bin`** — canonical binary format with 32-byte header + 32-byte records, designed for partition-invariant sha256 reproducibility.
 
@@ -437,8 +438,11 @@ Bank of Atlanta Occasional Paper Series, 1988.)
   The seasonal hypothesis behind the xiaoxi trisection. [pending]
 
 Shaughnessy, E. L. (1996). *I Ching: The classic of changes*. Ballantine Books.
-  Translation of the Mawangdui manuscript; source of the Mawangdui ordering tested by
-  `--null-historical`. [read, data]
+  Translation of the Mawangdui manuscript. [read, data]
+
+Shaughnessy, E. L. (2022). *The origin and early development of the Zhou Changes*. Brill.
+  Authority for the Mawangdui ordering tested by `--null-historical` (p. 50 + Table 11.2;
+  adopted 2026-07-05, correcting an erroneous earlier array). [read, data]
 
 Smith, R. J. (2000). *A brief Western-language bibliography of the Yijing (Classic of Changes)*. Rice
 University.
@@ -505,6 +509,8 @@ Wikipedia and OEIS entries used for reader orientation and the binary encoding a
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
+
+*Revision 2026-07-05 (Mawangdui correction): the Mawangdui array was wrong from 2026-04-06 to 2026-07-05; novel-claim #8 is withdrawn and the §Mawangdui erratum added. Authority: Shaughnessy 2022, Table 11.2; discovery credit: the Shaughnessy-2022 literature-audit cross-check.*
 
 ## Goldenberg, Daniel S. (1975)
 "The Algebra of the I Ching and Its Philosophical Implications." *Journal of Chinese Philosophy* 2

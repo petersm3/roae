@@ -92,7 +92,8 @@ notational scoring — is accepted and stated.
    | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3) | **NULL** |
 
    Corpus control: every flagged predicate evaluates to zero on both Jing Fang and Mawangdui — the
-   specificity gate passes; nothing here is an artifact of the instrument lighting up on any
+   specificity gate passes *(re-verified 2026-07-05 on the corrected Mawangdui array — see the v1.2
+   revision row; all flagged predicates remain zero)*; nothing here is an artifact of the instrument lighting up on any
    structured ordering. **The population-informative findings are the nulls.** Davis's flagship
    compositional claims — the terminal contiguity his final chapter builds toward, the 7–16 mirror he
    describes as laid out in "strictest symmetry", the palindrome-neighborhood device of his central
@@ -183,7 +184,9 @@ notational scoring — is accepted and stated.
   (2012)" — registered at commit `2d19a3f` (2026-07-04) before any population number existed;
   thresholds and the nothing-promotes policy are in the registration text
 - Corpus-control specificity gate: evaluate the `dav_*` predicates (solve.py) on the Jing Fang and
-  Mawangdui orderings (the `--null-historical` data) → 0 on every flagged predicate
+  Mawangdui orderings (the `--null-historical` data) → 0 on every flagged predicate (holds on both the
+  pre- and post-2026-07-05-correction Mawangdui arrays; corrected-array non-flagged values: termruns 5,
+  palnbr 13, asymhalf 7)
 - The refutation (§4): recomputable in a few lines from solve.py's `binary_hexagrams` — for each of
   the 32 pairs, take the 12 one-line transforms, map to positions, count distinct targets and maximal
   contiguous position runs. Checks: #63/64 → 12 distinct in 3 runs; #51/52 → 12 distinct in 3 runs
@@ -200,4 +203,5 @@ notational scoring — is accepted and stated.
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | Initial private draft (roae-private staging); adversarial review pending before any public release |
+| v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per Shaughnessy 2022, Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
 | v1.1-draft | 2026-07-04 | Hostile pre-publication review pass: "strictest symmetry" page cite corrected (p. 112 → p. 96, verified against the book); "undeniably designed" (p. 116) re-scoped to the Big-and-Little group rather than the 7–16 block; §5(a) "came back null" corrected to reflect the one Bonferroni-notable row; §5(b) softened to "largely against him" with the trigarray exception stated, and mixed percentile conventions replaced by the table's tail masses; pureplace "exactly at threshold" → "at the threshold to reported precision" (measured 5.56×10⁻³ vs 0.05/9 = 5.56×10⁻³ at 3 s.f.). All table masses re-derived from dav_tier1.out; refutation and corpus-control numbers independently recomputed; both `--dav-verify` gates re-run (PASS) |

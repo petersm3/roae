@@ -125,18 +125,25 @@ fuxi_order = list(range(64))  # Binary values 0–63 in natural order
 
 # Mawangdui ordering: an alternative ancient sequence found on silk manuscripts
 # in the Mawangdui tomb (168 BCE). Upper trigrams cycle through Qian, Gen, Kan,
-# Zhen, Kun, Dui, Li, Xun, with each lower trigram cycling within.
-# Represented as King Wen index (0-based) for each position.
-# https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts
+# Zhen, Kun, Dui, Li, Xun (eight octets, one per upper trigram); within each
+# octet the lower trigram cycles Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with
+# the octet's own trigram promoted to first (each octet opens with the pure
+# doubled hexagram). Represented as King Wen index (0-based) for each position.
+# Source: Shaughnessy, The Origin and Early Development of the Zhou Changes
+# (Brill, 2022), Table 11.2; concordant with Cook 2006 (full 64-table) and
+# Shaughnessy 1996. Anchors: Qian 1st, Kun 33rd, Jiji (#63) 22nd, Weiji
+# (#64) 54th. Corrected 2026-07-05 — the previous array (2026-04-06) had
+# correct octet membership but wrong octet order and wrong within-octet
+# order; caught by cross-checking Shaughnessy 2022 Table 11.2.
 mawangdui_kw_indices = [
-     0, 43, 12, 24, 11,  9,  5, 32,  # Qian upper
-    42, 27, 48, 16, 44, 57, 46, 30,  # Gen upper
-     4, 47, 62,  2,  7, 59, 28, 38,  # Kan upper
-    33, 31, 54, 50, 15, 53, 39, 61,  # Zhen upper
-    10, 45, 35, 23,  1, 18,  6, 14,  # Kun upper
-     8, 56, 36, 41, 19, 60, 58, 52,  # Dui upper
-    13, 49, 29, 20, 34, 37, 63, 55,  # Li upper
-    25, 17, 21, 26, 22, 40,  3, 51,  # Xun upper
+     0, 11, 32,  9,  5, 12, 24, 43,  # Qian upper
+    51, 25, 22, 40,  3, 21, 26, 17,  # Gen upper
+    28,  4,  7, 38, 59, 62,  2, 47,  # Kan upper
+    50, 33, 15, 61, 53, 39, 54, 31,  # Zhen upper
+     1, 10, 14, 18,  6, 35, 23, 45,  # Kun upper
+    57, 42, 44, 30, 46, 48, 16, 27,  # Dui upper
+    29, 13, 34, 55, 37, 63, 20, 49,  # Li upper
+    56,  8, 19, 52, 60, 58, 36, 41,  # Xun upper
 ]
 
 # Module-level lookup: binary value -> King Wen 0-based index

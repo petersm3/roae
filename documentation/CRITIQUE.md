@@ -12,7 +12,7 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 - The binary hexagram encodings follow [OEIS A102241](https://oeis.org/A102241) with bit 0 = bottom line. Sensitivity analysis confirms the difference wave, pair structure, and no-5 property are all invariant under bit reversal (since Hamming distance is invariant under bit permutation). Trigram assignments do change under reversal, affecting display labels but not mathematical results.
 - The hexagram names are attributed to the [Wilhelm/Baynes translation](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) but several are simplified or variant. A rigorous treatment would cite each name individually, not give a blanket attribution.
-- The [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering was recomputed from trigram cycling rules, but the actual silk manuscript ordering has scholarly disagreements. The program treats one reconstruction as definitive.
+- The [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering used from 2026-04-06 to 2026-07-05 was **wrong** (a mis-synthesized array, not the manuscript's); it was corrected 2026-07-05 to the sequence in Shaughnessy 2022 (Brill), p. 50 + Table 11.2, verified against multiple independent sources. Every published Mawangdui-derived number was recomputed; the former "Mawangdui satisfies C2" claim is withdrawn (the authentic order has exactly one 5-line transition, at a trigram-octet seam).
 - The sequence is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE), but modern scholarship is divided on the exact origin, authorship, and dating. The program uses the traditional attribution as a label without taking a position on historicity.
 
 ## Statistical methodology
@@ -91,7 +91,7 @@ were selected from a large explored battery, and their significance claims are m
   | 6-bit Gray codes (random) | 10^5 random Hamiltonian walks in Q_6 | **0 (0.00%)** | 100% (trivial) | **0 (0.00%); range [832, 2048], CI ≤ 3×10⁻⁵** |
   | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0 (0.00%)** | **942,243,840 (57.96%)** — see §decomposition below | 108,380,160 (6.67%); range [512, 2048] |
   | Lexicographic (bit-order) | Exhaustive, 6! = 720 | 0 (0%) | 0 (0%) — always 2 five-line | 0 (0%) — always 2048 |
-  | Historical (4 orderings) | Fu Xi, KW, Mawangdui, Jing Fang 8 Palaces | KW only | KW + **Mawangdui + Jing Fang** (3 of 4) | KW only |
+  | Historical (4 orderings) | Fu Xi, KW, Mawangdui, Jing Fang 8 Palaces | KW only | KW + **Jing Fang** (2 of 4; corrected 2026-07-05 — authentic Mawangdui has one 5-line transition) | KW only |
   | Random 64-permutations | 10^9 uniform samples | **0 / 10^9 (0%)** | 1,827,703 (0.1828%) | 28,356 (0.002836%) |
   | **Pair-constrained (C1 baked in)** | 10^9 samples, C1 guaranteed | 100% (by construction) | 4.29% conditional on C1 | 6.42% conditional on C1 |
 
@@ -101,7 +101,7 @@ were selected from a large explored battery, and their significance claims are m
 
   - **C1 is astronomically KW-specific.** Zero of 1.86 billion permutations sampled across six unconditional families satisfy C1, consistent with the theoretical rate of ~10^-44. For de Bruijn and Gray code families the 0% result is not just empirical — it is provable (see §C1 impossibility below).
   - **C1 is doing most of the structural work.** Given C1 (pair-constrained null), the conditional C2 rate jumps from 0.18% (random) to **4.29% — a ~23.5× multiplier** — and the conditional C3 rate jumps from 0.003% to **6.42% — a ~2,264× multiplier**. The pair structure C1 alone enormously constrains the space toward KW-like adjacency and complement geometry; C2 and C3 are then relatively modest additional filters.
-  - **C2 (no 5-line transitions) is mildly structural and may be a classical Chinese design principle.** Rare in random (0.18%), impossible in de Bruijn, automatic in Gray codes (construction tautology), majority-satisfied in Latin-square row×col (**57.96%**, analytically decomposed below). Most strikingly, **3 of 4 tested ancient Chinese hexagram orderings** (King Wen, Mawangdui silk-text, Jing Fang 8 Palaces) satisfy C2 exactly — only Fu Xi's natural-binary ordering does not. Since Fu Xi is a mathematical/Leibnizian construction rather than a traditional divinatory ordering, this suggests **C2 was likely a shared classical design principle** across multiple ancient arrangements, not something McKenna discovered as unique to KW. C2 alone is not especially distinguishing among historical orderings; the pair-constrained null shows C2 | C1 ≈ 4.29%.
+  - **C2 (no 5-line transitions) is mildly structural.** Rare in random (0.18%), impossible in de Bruijn, automatic in Gray codes (construction tautology), majority-satisfied in Latin-square row×col (**57.96%**, analytically decomposed below). Among the four tested ancient orderings, King Wen and Jing Fang 8 Palaces satisfy C2 exactly; the authentic Mawangdui silk-text order has **exactly one** 5-line transition (at the octet seam #48 Jing → #51 Zhen, where its trigram-block construction resets), and Fu Xi has two. *(Corrected 2026-07-05: this paragraph previously claimed 3 of 4 and inferred a "shared classical design principle" — that was computed on an erroneous Mawangdui array and is withdrawn; see CITATIONS.md errata.)* C2 alone is not especially distinguishing among historical orderings; the pair-constrained null shows C2 | C1 ≈ 4.29%.
   - **C3 concentration varies by family.** Random: 0.003%. de Bruijn: 0.18% (~65× random). Latin-square: 6.67% (~2,350× random). Pair-constrained (C1): 6.42%. Gray: 0%, with the strong additional observation that the minimum Gray-code C3 across 10^5 random samples is 832 — **strictly greater than KW's 776**. No Gray code beats KW on complement distance, empirically. The pair-constrained rate being similar to Latin-square is suggestive — both impose strong structural symmetry on complement placement.
   - **Simultaneous C1+C2+C3 satisfaction is uniquely King Wen across all tested unconditional families.** No family has a nonzero fraction achieving all three, because C1 is 0% in each. Under the pair-constrained null (C1 given), the independence estimate 4.29% × 6.42% ≈ 0.28% gives a rough ceiling on "random pair-permutation that also satisfies C2 and C3"; this aligns with solve.c's canonical enumeration finding (706M orderings under C1+C2+C3 at d3 10T).
 
@@ -295,7 +295,7 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
 
 4. **Does King Wen have an analogous adjacency decomposition?** Latin-square row×col traversals split 63 transitions into 56 within-row (Hamming ≤ 3, cannot be 5) and 7 between-row (can be 5). KW has 32 pairs with 32 within-pair transitions (Hamming 2/4/6 by C1 construction, cannot be 5) and 31 between-pair boundaries (where all the C2 work happens). Concrete follow-up: (a) characterize the 31 between-pair boundary Hamming distances in KW; (b) compare to random permutations satisfying C1 to measure how much additional structure the between-pair distribution has.
 
-5. **Why does Mawangdui satisfy C2?** The ancient silk-text ordering has zero 5-line transitions despite a completely different pair geometry than KW. Is there a trigram-cycling argument analogous to KW's pair-Hamming-even property that explains it? Concrete follow-up: analyze Mawangdui's adjacency Hamming distribution and see if it decomposes like KW's (pair-interior = even) or like Latin-square (row-interior = small), or something else entirely.
+5. ~~**Why does Mawangdui satisfy C2?**~~ **RESOLVED 2026-07-05 — it doesn't.** The question was premised on an erroneous array. The authentic Mawangdui order decomposes like Latin-square (block-interior = small): within octets the upper trigram is constant, so 56 of 63 adjacencies have Hamming distance ≤ 3; at the 7 octet seams the distance is the seam's trigram distance sum, and exactly one seam (Kan→Zhen: #48 Jing → #51 Zhen) reaches 5. Its transition histogram is {1: 21, 2: 10, 3: 29, 4: 2, 5: 1}.
 
 ### About the constraint system
 
@@ -339,16 +339,19 @@ null, with a provably algorithmic ordering as **positive control**:
 | Ordering | Extreme axes (≤1st or ≥99th percentile) | Reading |
 |---|---|---|
 | Jing Fang Eight Palaces (fully algorithmic) | **9 of 11** | positive control PASSES — the battery detects real design |
-| Mawangdui (partially systematic) | 7 of 11 | correctly flagged as structured |
+| Mawangdui (trigram-block sorted) | 9 of 11 | correctly flagged as structured |
 | **King Wen** | **3 of 11 — exactly the C1/C2/C3 axes** | and **0 of 11** against the pair-preserving null |
 
 The battery is not a design-finding machine: it lights up on provably constructed orderings, and for King
 Wen it flags precisely the three constraints this project documents — nothing else — with every residual
 signal disappearing under the correct (pair-preserving) null. This is the strongest specificity evidence
 in the record: the methodology distinguishes *which* orderings are structured and *where*. (Results file
-with the full table and script: project archive; the Mawangdui sequence used is the data-validated one
-from `--null-historical`, whose true lower-trigram cycle differs from some published generative
-descriptions — noted for the record.)
+with the full table and script: project archive.) *(Corrected 2026-07-05: the original 2026-07-03 run
+used the erroneous pre-correction Mawangdui array and reported 7 of 11 extremes with a parenthetical
+rationalizing the rule/data mismatch its own cross-validation had flagged — that rationalization was
+wrong; the array was simply incorrect. Rerun on the corrected array (Shaughnessy 2022 Table 11.2),
+Mawangdui flags 9 of 11 extremes — the battery detects the authentic trigram-block construction even
+more strongly. KW rows are unaffected.)*
 
 ## Pre-registered test: F4' ordering-layer functionals (registered 2026-07-04; measured same day — all 13 null, results below)
 

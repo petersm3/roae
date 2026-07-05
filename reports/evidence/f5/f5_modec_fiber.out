@@ -195,7 +195,10 @@ vdb_nuc         kw=29 sampled range [2,28]: ZERO sampled mass at/above KW -> p_h
 
 == corpus/gauge control re-computation (local python vs on-VM C values) ==
 KW: 15,10,10,2,7,17,13,23,18,4,29 OK
-MAWANGDUI_VALUES: 16,22,4,0,16,16,15,24,0,1,14 OK
+MAWANGDUI_VALUES: 15,19,11,0,4,7,8,12,0,1,1 OK
+# ^ Mawangdui row corrected 2026-07-05 (erroneous array in the original run; see
+#   CITATIONS.md errata). Regenerated output differs from the archived original
+#   on this line only (verified by full-file diff).
 JINGFANG_VALUES: 16,22,17,0,16,16,18,29,0,1,6 OK
 GAUGE_UPDOWN_BITREV6: 7,8,10,2,7,17,12,23,18,4,4 OK
 GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5 OK

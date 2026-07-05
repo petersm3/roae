@@ -9742,12 +9742,19 @@ static void run_null_historical(void) {
     uint8_t fuxi[64];
     for (int i = 0; i < 64; i++) fuxi[i] = (uint8_t)i;
 
-    /* Mawangdui: 0-based KW indices (from roae.py::mawangdui_kw_indices) */
+    /* Mawangdui: 0-based KW indices (from roae.py::mawangdui_kw_indices).
+     * Eight octets by upper trigram (Qian, Gen, Kan, Zhen, Kun, Dui, Li,
+     * Xun); within each octet the lower trigram cycles Qian, Kun, Gen, Dui,
+     * Kan, Li, Zhen, Xun with the octet's own trigram promoted to first.
+     * Source: Shaughnessy, The Origin and Early Development of the Zhou
+     * Changes (Brill, 2022), Table 11.2; concordant with Cook 2006 and
+     * Shaughnessy 1996. Corrected 2026-07-05 (previous array had wrong
+     * octet order + wrong within-octet order; octet membership was right). */
     int md_idx[64] = {
-         0, 43, 12, 24, 11,  9,  5, 32, 42, 27, 48, 16, 44, 57, 46, 30,
-         4, 47, 62,  2,  7, 59, 28, 38, 33, 31, 54, 50, 15, 53, 39, 61,
-        10, 45, 35, 23,  1, 18,  6, 14,  8, 56, 36, 41, 19, 60, 58, 52,
-        13, 49, 29, 20, 34, 37, 63, 55, 25, 17, 21, 26, 22, 40,  3, 51,
+         0, 11, 32,  9,  5, 12, 24, 43, 51, 25, 22, 40,  3, 21, 26, 17,
+        28,  4,  7, 38, 59, 62,  2, 47, 50, 33, 15, 61, 53, 39, 54, 31,
+         1, 10, 14, 18,  6, 35, 23, 45, 57, 42, 44, 30, 46, 48, 16, 27,
+        29, 13, 34, 55, 37, 63, 20, 49, 56,  8, 19, 52, 60, 58, 36, 41,
     };
     uint8_t mawangdui[64];
     for (int i = 0; i < 64; i++) mawangdui[i] = kw[md_idx[i]];
@@ -9794,10 +9801,11 @@ static void run_null_historical(void) {
                all3 ? "YES (C1+C2+C3)" : "no");
     }
     printf("\nKing Wen passes all three (sanity check). Fu Xi is a binary-count\n");
-    printf("ordering and fails all three. Mawangdui and Jing Fang both satisfy\n");
-    printf("C2 (no 5-line transitions) — suggesting that avoiding Hamming-5\n");
-    printf("may be a classical Chinese design principle rather than unique to\n");
-    printf("King Wen. None of Fu Xi, Mawangdui, or Jing Fang satisfy C1 (pair\n");
+    printf("ordering and fails all three. Jing Fang satisfies C2 (no 5-line\n");
+    printf("transitions); Mawangdui is near-C2 with exactly one 5-line\n");
+    printf("transition, at the octet seam between positions 24 and 25\n");
+    printf("(#48 Jing -> #51 Zhen), where its trigram-block construction\n");
+    printf("resets. None of Fu Xi, Mawangdui, or Jing Fang satisfy C1 (pair\n");
     printf("structure is KW-specific among these) or C3 (complement-distance\n");
     printf("minimization is also KW-specific).\n");
 }

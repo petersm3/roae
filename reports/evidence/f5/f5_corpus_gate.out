@@ -1,7 +1,12 @@
 # f5 corpus/gauge control values (f5_names order: correct_lead,rising,rf_alt,gender_lead,mirror_order,lex_dev,orient_alt,greedy_entry,bpd_six_pos,bpd_one_span,vdb_nuc)
 # KW frozen-spec expected: 15,10,10,2,7,17,13,23,18,4,29
 KW: 15,10,10,2,7,17,13,23,18,4,29
-MAWANGDUI_VALUES: 16,22,4,0,16,16,15,24,0,1,14
+MAWANGDUI_VALUES: 15,19,11,0,4,7,8,12,0,1,1
+# ^ MAWANGDUI row corrected 2026-07-05: the on-VM c230 run scored an erroneous
+#   Mawangdui array (its output was 16,22,4,0,16,16,15,24,0,1,14). Corrected
+#   sequence per Shaughnessy 2022 Table 11.2; corrected values recomputed
+#   two-language (python f5_ground_truth + SOLVE_KNUTH_SCORE_F5=2 testvec).
+#   All other rows are as produced on-VM and unaffected.
 JINGFANG_VALUES: 16,22,17,0,16,16,18,29,0,1,6
 GAUGE_UPDOWN_BITREV6: 7,8,10,2,7,17,12,23,18,4,4
 GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5

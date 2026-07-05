@@ -11,7 +11,7 @@ Raw outputs and the exact-fiber instrument behind [TR-1](../../TR1_EIGHT_CENTURI
 | `f5_modec_fiber.out` | Archived Mode C output: exact histograms, two-sided p-values, structure gates, convention control |
 | `f5_ground_truth.py` | Independent pure-Python implementation of the 11 functionals (two-language gate vs the `solve.c` scorer; #11 delegates to `solve.py vdb_nucorient`, the single implementation) |
 | `f5_tier1.out` | Mode U (unconditional population): 2×10⁹ weighted Knuth probes, per-functional below/at/above masses + full `f5_hist` histograms (Spot D64, 2026-07-05) |
-| `f5_corpus_gate.out` | Corpus + gauge control values (KW / Mawangdui / Jing Fang / upside-down / back-to-front), on-VM C scorer |
+| `f5_corpus_gate.out` | Corpus + gauge control values (KW / Mawangdui / Jing Fang / upside-down / back-to-front), on-VM C scorer. Mawangdui row corrected 2026-07-05 (the on-VM run scored an erroneous array; see the in-file note + CITATIONS.md errata) |
 | `c230_launch.log` | VM launch/teardown log for the tier-1 run (≈5 min VM life) |
 
 ## Reproduce

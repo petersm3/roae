@@ -155,7 +155,7 @@ This section checks each of the 32 consecutive pairs and classifies them as reve
 
 This section computes the Hamming distance between each pair of consecutive hexagrams, producing 63 values (for 64 hexagrams). These values range from 1 to 6, but notably, 5 never appears — no two consecutive hexagrams in the King Wen sequence differ by exactly 5 lines.
 
-**What it means:** The absence of 5-line transitions is real but largely explained by the pair structure. Within reverse/inverse pairs, 5-line transitions are mathematically impossible. This observation is attributed to Terence & Dennis McKenna (*The Invisible Landscape*, 1975); see [CITATIONS.md](CITATIONS.md). As of 2026-04-19 testing, the property is also present in the Mawangdui silk-text ordering and Jing Fang's 8 Palaces arrangement — suggesting C2 was a shared classical Chinese design principle rather than unique to King Wen.
+**What it means:** The absence of 5-line transitions is real but largely explained by the pair structure. Within reverse/inverse pairs, 5-line transitions are mathematically impossible. This observation is attributed to Terence & Dennis McKenna (*The Invisible Landscape*, 1975); see [CITATIONS.md](CITATIONS.md). The property is also present in Jing Fang's 8 Palaces arrangement. *(Corrected 2026-07-05: earlier text claimed the Mawangdui ordering shared it too and inferred a classical design principle — that was computed on an erroneous Mawangdui array. The authentic Mawangdui order, per Shaughnessy 2022 Table 11.2, has exactly one 5-line transition, at its Kan→Zhen octet seam; the shared-design-principle inference is withdrawn.)*
 
 ### --stats (Monte Carlo analysis)
 
@@ -198,7 +198,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | Recurrence rate (72nd percentile) | Not significant | No |
 | Neighborhood clustering (12th percentile) | Not significant | No |
 
-The pair structure is genuinely extraordinary — zero of 1.86 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also genuinely unusual — even random 6-bit Gray codes (explicitly optimized for adjacency) cannot beat KW's 776 total complement distance (minimum observed across 10⁵ random Gray codes: 832). The no-5-line-transition property is real but, as of 2026-04-19 testing, **shared with Mawangdui and Jing Fang 8 Palaces** (3 of 4 ancient Chinese orderings satisfy it) — likely a classical Chinese design principle rather than a KW-unique fingerprint. The genuinely King-Wen-specific properties are the combination (C1 + C2 + C3 together) and the specific C3 threshold of 776.
+The pair structure is genuinely extraordinary — zero of 1.86 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also genuinely unusual — even random 6-bit Gray codes (explicitly optimized for adjacency) cannot beat KW's 776 total complement distance (minimum observed across 10⁵ random Gray codes: 832). The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (2 of 4 tested ancient orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). The genuinely King-Wen-specific properties are the combination (C1 + C2 + C3 together) and the specific C3 threshold of 776.
 
 The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
 - **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30, **current deepest**)
@@ -220,7 +220,7 @@ Terence McKenna believed the difference wave encoded a fractal pattern mapping o
 
 **Why does 5 never appear in the difference wave?**
 
-Because of the pair structure. Within each reverse or inverse pair, the Hamming distance is always even (for reverse pairs) or exactly 6 (for inverse pairs), so a distance of 5 is impossible within pairs. At the 31 between-pair boundaries, 5 *could* appear but doesn't — though 4.29% of pair-constrained orderings also avoid it (from `solve.c --null-pair-constrained`, 10⁹ samples), so it's not as rare as it first appears. Additionally, Mawangdui's silk-text ordering and Jing Fang's 8 Palaces arrangement also avoid 5-line transitions — suggesting this was a shared classical Chinese design principle.
+Because of the pair structure. Within each reverse or inverse pair, the Hamming distance is always even (for reverse pairs) or exactly 6 (for inverse pairs), so a distance of 5 is impossible within pairs. At the 31 between-pair boundaries, 5 *could* appear but doesn't — though 4.29% of pair-constrained orderings also avoid it (from `solve.c --null-pair-constrained`, 10⁹ samples), so it's not as rare as it first appears. Additionally, Jing Fang's 8 Palaces arrangement also avoids 5-line transitions; the authentic Mawangdui silk-text ordering does not quite — it has exactly one, at its Kan→Zhen octet seam (corrected 2026-07-05; see CITATIONS.md errata).
 
 **What is the single most important finding?**
 

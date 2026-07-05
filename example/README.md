@@ -948,27 +948,33 @@ Comparing the same analyses across orderings reveals what is unique to King Wen.
 ```
 Metric                            King Wen   Fu Xi (binary)        Mawangdui
 ------------------------- ---------------- ---------------- ----------------
-Total path length                      211              120              104
-Mean change                           3.35             1.90             1.65
-1-line transitions                       2               32               32
-2-line transitions                      20               16               24
-3-line transitions                      13                8                4
-4-line transitions                      19                4                3
-5-line transitions                       0                2                0
+Total path length                      211              120              141
+Mean change                           3.35             1.90             2.24
+1-line transitions                       2               32               21
+2-line transitions                      20               16               10
+3-line transitions                      13                8               29
+4-line transitions                      19                4                2
+5-line transitions                       0                2                1
 6-line transitions                       9                1                0
 
 Waves:
   King Wen             █▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█
   Fu Xi (binary)       ▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁█▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁▆▁▂▁▃▁▂▁▅▁▂▁▃▁▂▁
-  Mawangdui            ▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▅▁▂▁▁▂▁▂▃▁▂▁▁▂▁▂
+  Mawangdui            ▃▁▃▁▃▁▃▃▂▃▂▁▃▁▃▃▂▃▁▃▂▁▃▆▂▃▁▃▁▃▂▃▃▂▃▁▃▁▃▅▁▃▁▂▃▁▃▅▁▃▁▃▁▂▃▂▁▃▁▃▁▃▁
 ```
 
 ### What makes King Wen unique
 
 ```
-Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=0
+Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=1
 Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
 ```
+
+*(Mawangdui column regenerated 2026-07-05: the Mawangdui array previously used
+here was erroneous — see the errata note in
+[CITATIONS.md](../documentation/CITATIONS.md); the corrected sequence follows
+Shaughnessy 2022, Table 11.2, and has exactly one 5-line transition, at its
+Kan→Zhen octet seam.)*
 
 ## Windowed entropy analysis
 
