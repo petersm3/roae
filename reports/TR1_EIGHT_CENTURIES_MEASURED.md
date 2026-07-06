@@ -185,7 +185,7 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    | 1 | Correct-line lead — Cook 2006's `sO` orientation stage | 15/32 | 9.499×10⁻² | null |
    | 2 | Rising count — Moore 1989 (reproduces his own 10R/8F) | 10/18 | 0.8144 | null |
    | 3 | Rising/falling alternation — Moore 1989 rule K-8 | 10/17 | 0.6972 | null |
-   | 4 | Yang-heavier member leads — the *Dazhuan*/Xici yang-precedence reading, via Schulz 1990 and Cook 2006 | 2/4 | 0.6667 | null |
+   | 4 | Yang-heavier member leads — the *Dazhuan*/Xici yang-precedence reading, via Cook 2006 (Schulz 1990 quotes the Xici passage but his own placement statement runs the opposite polarity — the negative-balance unit leads; at 2/4 the functional is polarity-symmetric, so the verdict is identical under either reading) | 2/4 | 0.6667 | null |
    | 5 | Order-true mirror links — Davis 2012 | 7/12 | 0.8214 | null |
    | 6 | Binary-larger member leads — the Shao Yong / Leibniz 1703 axis | 17/32 | 1.0 | null |
    | 7 | Orientation-string alternation — Chan 2026's anti-habituation axis, transported | 13/31 | 0.3732 | null |
