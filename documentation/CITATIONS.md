@@ -362,7 +362,7 @@ Hacker, E. A. (1987). Order in the textual sequence of the hexagrams of the I Ch
 Philosophy, 14*(1), 59–64.
   Possibly the earliest Western formal ordering analysis. [analyzed]
   *Erratum (reader's note, 2026-07-07):* in Fig. 2 (p. 61) the cell for hexagram 41 (Olsvanger square,
-  row 6, rightmost) is misprinted **39**; the correct value is **49** (hexagram 41 written bottom-line-
+  row 6, rightmost) is misprinted <mark>**39**</mark>; the correct value is <mark>**49**</mark> (hexagram 41 written bottom-line-
   first is 110001 = 49). Confirmed three ways: direct computation; 63 of the 64 cells match; and
   Hacker's own Fig. 4 (p. 63) prints 49 at that same cell, which the Fig. 2 → Fig. 4 transformation
   leaves unchanged. A minor typographical error introduced in Hacker's reproduction: the primary source
