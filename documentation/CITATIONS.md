@@ -360,7 +360,13 @@ Philosophy, 10*(2), 169–171. [pending]
 
 Hacker, E. A. (1987). Order in the textual sequence of the hexagrams of the I Ching. *Journal of Chinese
 Philosophy, 14*(1), 59–64.
-  Possibly the earliest Western formal ordering analysis. [pending]
+  Possibly the earliest Western formal ordering analysis. [analyzed]
+  *Erratum (reader's note, 2026-07-07):* in Fig. 2 (p. 61) the cell for hexagram 41 (Olsvanger square,
+  row 6, rightmost) is misprinted **39**; the correct value is **49** (hexagram 41 written bottom-line-
+  first is 110001 = 49). Confirmed three ways: direct computation; 63 of the 64 cells match; and
+  Hacker's own Fig. 4 (p. 63) prints 49 at that same cell, which the Fig. 2 → Fig. 4 transformation
+  leaves unchanged. A minor typographical error that does not affect the paper's argument; we have not
+  checked whether it originates in Olsvanger (1984), the source that Fig. 2 reproduces.
 
 Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of
 hexagrams in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. (Working-paper version:
