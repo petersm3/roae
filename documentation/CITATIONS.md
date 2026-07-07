@@ -546,3 +546,19 @@ skeleton, Lai Zhide's endpoint feeders, the Jing Fang eight-palace table, Yu Fan
 pair structure (all via Nielsen 2003), and Goldenberg's (1975) theorems T1–T4 + T7 — are
 programmatically verified against the King Wen sequence by `solve.py --books-verify`
 (14 claims, one PASS/FAIL line each with expected + computed values; all 14 PASS as of 2026-07-05).
+
+## Encyclopedic & reference links (Wikipedia, OEIS)
+
+*Mirrored from the [README](../README.md) so this file is a single source of references. Reader
+orientation only — not primary scholarly sources; the primary literature is cited in full above.*
+
+- [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) — Wikipedia
+- [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) — Wikipedia (traditional attribution ~1000 BCE; modern scholarship divided on exact origin/dating)
+- [OEIS A102241](https://oeis.org/A102241) — binary encoding of King Wen hexagrams
+- [Bagua (eight trigrams)](https://en.wikipedia.org/wiki/Bagua) — Wikipedia (trigram names and associations)
+- [Hexagram (I Ching)](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — Wikipedia (hexagram structure, nuclear trigrams)
+- [I Ching divination](https://en.wikipedia.org/wiki/I_Ching_divination) — Wikipedia (three-coin method, simulated by `roae.py --cast`)
+- [Shao Yong](https://en.wikipedia.org/wiki/Shao_Yong) — Wikipedia (Fu Xi binary ordering)
+- [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (background; the ordering array follows Shaughnessy 2022, tested by `solve.c --null-historical`)
+- [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
+- [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](MCKENNA.md); full scholarly citation above)
