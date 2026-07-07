@@ -365,8 +365,10 @@ Philosophy, 14*(1), 59–64.
   row 6, rightmost) is misprinted **39**; the correct value is **49** (hexagram 41 written bottom-line-
   first is 110001 = 49). Confirmed three ways: direct computation; 63 of the 64 cells match; and
   Hacker's own Fig. 4 (p. 63) prints 49 at that same cell, which the Fig. 2 → Fig. 4 transformation
-  leaves unchanged. A minor typographical error that does not affect the paper's argument; we have not
-  checked whether it originates in Olsvanger (1984), the source that Fig. 2 reproduces.
+  leaves unchanged. A minor typographical error introduced in Hacker's reproduction: the primary source
+  (Olsvanger, *Fû-Hsî: The Sage of Ancient China*, Massadah, Jerusalem, 1948, p. 10) prints **49**
+  correctly and consistently across all three copies of the square, so the error is Hacker's typesetting,
+  not inherited from the source. (Hacker cites Olsvanger as 1984; the original is 1948 — 1984 is a reprint.)
 
 Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of
 hexagrams in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. (Working-paper version:
