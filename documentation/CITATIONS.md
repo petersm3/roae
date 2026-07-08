@@ -361,13 +361,17 @@ Ge, Z. (2026). The cycle structure of the King Wen permutation. Zenodo. [doi:10.
   3.3492 — a small cross-check anchor. [analyzed 2026-07-08]
 
 Hacker, E. A. (1982). Temperature and the assignment of the hexagrams of the I-Ching to the calendar.
-*Journal of Chinese Philosophy, 9*(4), 395–400. [pending]
+*Journal of Chinese Philosophy, 9*(4), 395–400. [doi:10.1163/15406253-00904002](https://doi.org/10.1163/15406253-00904002)
+  [analyzed 2026-07-08 — OUT-OF-SCOPE: guaqi calendar/temperature assignment (monthly yang-line counts
+  correlate ~.96 with temperature records), not the King Wen 64-order; no C1–C5. Background only.]
 
 Hacker, E. A. (1983). A note on formal properties of the later heaven sequence. *Journal of Chinese
-Philosophy, 10*(2), 169–171. [pending]
+Philosophy, 10*(2), 169–171. [doi:10.1163/15406253-01002004](https://doi.org/10.1163/15406253-01002004)
+  [analyzed 2026-07-08 — OUT-OF-SCOPE: the **8-trigram** Later Heaven (bagua) arrangement (a magic-square
+  generative recipe for the trigram circle), a different object from ROAE's 64-hexagram order. Background only.]
 
 Hacker, E. A. (1987). Order in the textual sequence of the hexagrams of the I Ching. *Journal of Chinese
-Philosophy, 14*(1), 59–64.
+Philosophy, 14*(1), 59–64. [doi:10.1163/15406253-01401003](https://doi.org/10.1163/15406253-01401003)
   Possibly the earliest Western formal ordering analysis. [analyzed]
   *Erratum (reader's note, 2026-07-07):* in Fig. 2 (p. 61) the cell for hexagram 41 (Olsvanger square,
   row 6, rightmost) is misprinted <mark>**39**</mark>; the correct value is <mark>**49**</mark> (hexagram 41 written bottom-line-
