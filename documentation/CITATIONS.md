@@ -195,11 +195,11 @@ ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjace
 
 ### Random number generation
 
-- **Marsaglia, George** (2003). "Xorshift RNGs." *Journal of Statistical Software* 8(14): 1–6. Xorshift64 variant used in `--null-random` and `--null-pair-constrained`.
+- **Marsaglia, George** (2003). "Xorshift RNGs." *Journal of Statistical Software* 8(14): 1–6. [doi:10.18637/jss.v008.i14](https://doi.org/10.18637/jss.v008.i14) Xorshift64 variant used in `--null-random` and `--null-pair-constrained`.
 
 ### Statistical methodology
 
-- **Wilson, E. B.** (1927). "Probable inference, the law of succession, and statistical inference." *Journal of the American Statistical Association* 22: 209–212. Wilson score interval, used for confidence intervals on the null-model proportions.
+- **Wilson, E. B.** (1927). "Probable inference, the law of succession, and statistical inference." *Journal of the American Statistical Association* 22: 209–212. [doi:10.1080/01621459.1927.10502953](https://doi.org/10.1080/01621459.1927.10502953) Wilson score interval, used for confidence intervals on the null-model proportions.
 - **Bonferroni, Carlo Emilio** (1936). "Teoria statistica delle classi e calcolo delle probabilità." *Pubblicazioni del R Istituto Superiore di Scienze Economiche e Commerciali di Firenze*. Bonferroni correction for multiple testing.
 - **Rule of Three** for upper bounds on zero-observed-event rates: see Hanley & Lippman-Hand (1983), "If nothing goes wrong, is everything all right? Interpreting zero numerators." *JAMA* 249(13): 1743–1745.
 
