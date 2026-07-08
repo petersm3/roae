@@ -16,22 +16,22 @@ to one in fifty million), and King Wen has them. The report culminates in the co
 literature's four strongest rules **cannot all be satisfied by any ordering that preserves the classical pairing**, and King Wen sits
 exactly where that conflict forces a choice. A follow-up battery (§7) turns the same measurement on the
 sequence's most-ignored layer — which member of each pair comes first — and finds that the one rule the
-literature ever offered for it, Van den Berghe's hand-derived nuclear rule (c. 1999–2002), places King Wen
+literature ever offered for it, [Van den Berghe's](../documentation/CITATIONS.md#vandenberghe1999) hand-derived nuclear rule (c. 1999–2002), places King Wen
 at the exact maximum of everything achievable: of 1,720,320 possible orientation configurations, only 12
 score as high, none higher — and his rule's single declared exception turns out to be forced. Every number
 here can be recomputed, and the impossibility results carry machine-checkable certificates.
 
 ## Abstract
 Structural rules asserted for the King Wen sequence across eight centuries of literature — from Zheng Qiao
-(~1150) and Zhu Yuansheng (13th c.) through Lai Zhide (1525–1604) to Moore, Schulz, Cook, McKenna & Mair,
-Drasny, and Schöter — none of them ROAE discoveries — were formalized in the C1–C5 pair representation and
+(~1150) and Zhu Yuansheng (13th c.) through Lai Zhide (1525–1604) to Moore, Schulz, [Cook](../documentation/CITATIONS.md#cook2006), [McKenna & Mair](../documentation/CITATIONS.md#mckenna-mair1979),
+[Drasny](../documentation/CITATIONS.md#drasny2007), and [Schöter](../documentation/CITATIONS.md#schoter1998) — none of them ROAE discoveries — were formalized in the C1–C5 pair representation and
 measured against the *entire* constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased
 weighted-Knuth estimation (2×10¹⁰ probes; the instrument reproduced the independently-established total
 space size to 0.03%, self-validating the method). This converts decades of by-inspection claims into
 measured population statistics for the first time. The literature's design inventory splits three ways:
 **forced** (eight rules measure at exactly 1.0 of canonical mass — they are theorems of C1–C5, asserted as
 design features), **typical** (e.g., the classical 18:18 split holds in 36.4% of all valid orderings), and
-**genuinely discriminating** (down to 2×10⁻⁸ for Schulz's S25–28 trigram configuration). A SAT layer adds
+**genuinely discriminating** (down to 2×10⁻⁸ for [Schulz's](../documentation/CITATIONS.md#schulz2011) S25–28 trigram configuration). A SAT layer adds
 exact decisions: Moore's conjectured "uncorrupted precursor" exists, its minimal repair from King Wen is
 exactly 3 slot-edits, and one ordering — the grand unified precursor — perfects Moore's two rules and
 Schulz's gender rule simultaneously via a single compatible 3-edit event centered on the literature's own
@@ -50,21 +50,21 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    source's stated King Wen values exactly before measurement (Moore's 16/18 with violations at pair
    positions 22–23; rhythm breaks at (7,8) and (22,23)); rule predicates are two-language verified
    (independent C and Python implementations). Caveats stated up front: fractions are over raw
-   orientation-resolved sequences (orientation-invariant rules unaffected; Moore's 1989 rising/falling
+   orientation-resolved sequences (orientation-invariant rules unaffected; [Moore's 1989](../documentation/CITATIONS.md#moore1989) rising/falling
    rule is orientation-sensitive by design); strict-form masses near 10⁻⁶ carry ~±10-15% relative sampling
    error at this probe count.
 2. **The first-wave scoreboard (2026-07-02).**
 
    | Rule (source) | Fraction of C1–C5 mass | Cut factor | King Wen |
    |---|---|---|---|
-   | Pair-positioning parity, strict 18/18 (Moore 2005) | 5×10⁻⁶ | ×200,000 | **fails** (16/18) |
+   | Pair-positioning parity, strict 18/18 ([Moore 2005](../documentation/CITATIONS.md#moore2005)) | 5×10⁻⁶ | ×200,000 | **fails** (16/18) |
    | Both Moore rules at KW's level (joint) | 1.85×10⁻⁵ | ×54,000 | satisfies |
    | Pair-positioning parity ≥16/18 (Moore 2005) | 7.3×10⁻⁴ | ×1,362 | satisfies (exactly 16/18) |
    | Rising/falling alternation, 0 breaks (Moore 1989) | 6.3×10⁻⁴ | ×1,598 | **fails** (2 breaks) |
    | Rising/falling alternation ≤2 breaks (Moore 1989) | 3.85% | ×26 | satisfies |
    | Final-pair anchor: alternating pair last (Cook 2006) | 7.84% | ×12.8 | satisfies |
    | First 7 pairs cover all 7 levels (Cook 2006) | 12.03% | ×8.3 | satisfies |
-   | 18:18 two-part class split (Zheng Qiao ~1150; Hu Yigui 1247; Hacker & Moore 2003; Cook 2006) | 36.4% | ×2.7 | satisfies |
+   | 18:18 two-part class split (Zheng Qiao ~1150; Hu Yigui 1247; [Hacker & Moore 2003](../documentation/CITATIONS.md#hacker-moore2003); Cook 2006) | 36.4% | ×2.7 | satisfies |
 
    What this wave establishes: (a) Moore's pair-positioning rule was the strongest first-wave
    discriminator — KW's 16-of-18 compliance is shared by ~1 in 1,362 valid orderings, its joint Moore
@@ -89,8 +89,8 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    exception-co-location meta-rule (both Schulz rules' violations confined to S25/26) measures 2.6×10⁻⁷
    (×3.8M) — the anomaly locus itself is population-rare. **(2) Eight literature rules are THEOREMS of the
    constraint system** — they measure at exactly 1.0 of canonical mass: asserted in the literature as
-   design features, they are in fact *forced* by C1–C5. McKenna's 3:1 ratio was the first known case; this
-   batch found seven more (mmt4, p1c4, s1, s6, r3, r4, r5, c2), including three consequences of Radisic's
+   design features, they are in fact *forced* by C1–C5. [McKenna's](../documentation/CITATIONS.md#mckenna-mckenna1975) 3:1 ratio was the first known case; this
+   batch found seven more (mmt4, p1c4, s1, s6, r3, r4, r5, c2), including three consequences of [Radisic's](../documentation/CITATIONS.md#radisic2026)
    optimality structure, whose 1.0 readings also validate the instrument end-to-end. Several more are
    near-forced (0.95–0.9998). **(3) King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7:
    8 of 8, and 8 is the observed population maximum) — a genuine extremal property, one of very few axes
@@ -112,7 +112,7 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    ceiling as KW. Moore (1989) judged the bare 22/23 swap "too simplistic" because it leaves the rhythm
    broken; the two orientation flips complete the repair. (b) **The minimal repair is exactly 3
    slot-edits** — SAT-decided: no ordering within 2 slot-edits of KW achieves joint compliance (UNSAT, a
-   fortiori under C3), and 3 suffices. (c) **Schulz's gender rule** (Schulz 1990; exception first noticed
+   fortiori under C3), and 3 suffices. (c) **Schulz's gender rule** ([Schulz 1990](../documentation/CITATIONS.md#schulz1990-motifs); exception first noticed
    by Zhu Yuansheng, 13th c.; strict form had 0 hits in 36M samples) is perfectly satisfiable, and its
    minimal repair is ALSO exactly 3 edits — a swap of the adjacent pairs at slots 21/22 (= class positions
    25/26, precisely the Zhu Yuansheng/Schulz exception locus) plus one orientation flip. (d) **The grand
@@ -150,13 +150,13 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    CNFs (2026-07-03); the conflict encoding is two-way validated (ccn4-kwtest SAT, rc4-kwtest UNSAT).
 6. **Attribution, lineage, and what is claimed.** Every rule is credited to its source, with lineage where
    it runs deep: the pair structure itself is attested to **Yu Fan (164–233 AD)** (pangtong/fandui, via Li
-   Dingzuo); the 36-unit consolidation to **Lai Zhide (1525–1604)** (via Schulz 1982); the 18:18 split to
+   Dingzuo); the 36-unit consolidation to **Lai Zhide (1525–1604)** (via [Schulz 1982](../documentation/CITATIONS.md#schulz1982)); the 18:18 split to
    **Zheng Qiao (~1150)** and **Hu Yigui (1247)**, modern treatment **Hacker & Moore 2003**; the
    pair-positioning parity rule and rhythm rule to **Moore (2005, 1989)**, building on the *Dazhuan*
    odd=Heaven/yang attribution; the gender/position-parity rule (measured at ×11,364 in the companion
    registry) originates with **Schulz 1990** — attribution corrected 2026-07-03 upon first-hand reading
    (Cook had been credited as primary) — elaborated by **Cook 2006**, its single exception first
-   recognized by **Zhu Yuansheng (13th c.)** per Schulz 2018 fn. 42; the trigram configuration to
+   recognized by **Zhu Yuansheng (13th c.)** per [Schulz 2018](../documentation/CITATIONS.md#schulz2018) fn. 42; the trigram configuration to
    **Schulz 2011/2016**; further rules to **McKenna & Mair 1979**, **Drasny**, and **Schöter**. McKenna &
    Mair 1979 also retain clear priority for the idea driving this methodology: evaluating King Wen against
    explicitly constructed alternatives rather than by inspection alone. ROAE's contribution is
@@ -176,7 +176,7 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    (= 3·5·7·2¹⁴ ≈ 2^20.7 — far below the naive 2³¹; 30 of the 31 bits vary somewhere in the fiber, and
    slot 30, hexagrams 61/62, is the only additionally forced bit). This already corrects our own earlier
    gloss that orientation "appears to be a free choice at each pair": the freedom is real but coupled and
-   ~20.7 bits, not 31. Eleven functionals were frozen before measurement (Bonferroni N = 11; two-sided
+   ~20.7 bits, not 31. Eleven functionals were frozen before measurement ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936) N = 11; two-sided
    atom-inclusive p; the exact fiber is the dispositive null; all results published regardless of
    outcome), each anchored to a named author's idea:
 
@@ -186,9 +186,9 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    | 2 | Rising count — Moore 1989 (reproduces his own 10R/8F) | 10/18 | 0.8144 | null |
    | 3 | Rising/falling alternation — Moore 1989 rule K-8 | 10/17 | 0.6972 | null |
    | 4 | Yang-heavier member leads — the *Dazhuan*/Xici yang-precedence reading, via Cook 2006 (Schulz 1990 quotes the Xici passage but his own placement statement runs the opposite polarity — the negative-balance unit leads; at 2/4 the functional is polarity-symmetric, so the verdict is identical under either reading) | 2/4 | 0.6667 | null |
-   | 5 | Order-true mirror links — Davis 2012 | 7/12 | 0.8214 | null |
-   | 6 | Binary-larger member leads — the Shao Yong / Leibniz 1703 axis | 17/32 | 1.0 | null |
-   | 7 | Orientation-string alternation — Chan 2026's anti-habituation axis, transported | 13/31 | 0.3732 | null |
+   | 5 | Order-true mirror links — [Davis 2012](../documentation/CITATIONS.md#davis2012) | 7/12 | 0.8214 | null |
+   | 6 | Binary-larger member leads — the [Shao Yong](../documentation/CITATIONS.md#shaoyong) / [Leibniz 1703](../documentation/CITATIONS.md#leibniz1703) axis | 17/32 | 1.0 | null |
+   | 7 | Orientation-string alternation — [Chan 2026](../documentation/CITATIONS.md#chan2026)'s anti-habituation axis, transported | 13/31 | 0.3732 | null |
    | 8 | Greedy smooth entry — McKenna & McKenna 1975 | 23/31 | constant on fiber | **forced** |
    | 9 | Placement of the unique between-pair 6 — McKenna & McKenna 1975 | 18 | constant on fiber | **forced** |
    | 10 | Span of the two between-pair 1s — McKenna & McKenna 1975 | 4 | constant on fiber | **forced** |
@@ -234,11 +234,11 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    the layer's ≈20.7-bit budget — and **not** independent confirmation of a design rule; no out-of-sample
    test is possible from the same document the rule was read off of. The corpus gate is clean and
    KW-specific: Mawangdui scores 1 — below the entire 2×10⁹-probe sampled range [2, 28], i.e. the
-   *opposite* tail at population-extreme depth (a by-product of its trigram-block sort) — and Jing Fang
+   *opposite* tail at population-extreme depth (a by-product of its trigram-block sort) — and [Jing Fang](../documentation/CITATIONS.md#jingfang)
    scores 6, also the opposite tail; both historical controls anti-agree with the rule, so no
    classical-norm explanation is available. *(Corrected 2026-07-05: the Mawangdui control was
    originally reported as 14, "dead central, p ≈ 0.97" — computed on an erroneous Mawangdui array;
-   the corrected array (Shaughnessy 2022, Table 11.2) makes the gate verdict stronger, not weaker.
+   the corrected array ([Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2) makes the gate verdict stronger, not weaker.
    All 11 F5 functionals on the corrected Mawangdui: 15, 19, 11, 0, 4, 7, 8, 12, 0, 1, 1 in f5_names
    order, two-language verified.)* Per the frozen
    pre-commitment, nothing here promotes into the constraint system; it is a measured property of King

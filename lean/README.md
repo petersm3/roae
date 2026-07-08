@@ -48,7 +48,7 @@ lean PruneSafety.lean      # v4 walk-level prune-safety lemma (isomorph-free gen
 lean Automorphism.lean     # the sequence-level symmetry layer (see below)
 ```
 
-**Related formal work:** Radisic 2026 (arXiv:2601.07175) independently formalized King Wen pairing
+**Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
 optimality in Lean 4 + Mathlib (K₄-equivariant matching; different object from the constraint-system
 symmetry group verified here). See CITATIONS.md.
 

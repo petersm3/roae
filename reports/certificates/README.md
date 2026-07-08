@@ -44,9 +44,9 @@ two-rule cores, and two encoding-validation gates).
 | grander_strict_near2_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict-near-2 f.cnf` | union repair ≥3 edits |
 | grander_strict_near3_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict-near-3 f.cnf` | union repair ≥4 edits |
 | grander_strict_near4_unsat.drat.gz | `python3 sat.py --emit-cnf grander-strict-near-4 f.cnf` | union UNSAT at any repair distance tested (≥5) |
-| five_loo_parity_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-parity f.cnf` | union minus Moore parity: still UNSAT |
-| five_loo_rhythm_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-rhythm f.cnf` | union minus Moore rhythm: still UNSAT |
-| five_loo_gender_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-gender f.cnf` | union minus Schulz gender: still UNSAT |
+| five_loo_parity_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-parity f.cnf` | union minus [Moore](../../documentation/CITATIONS.md#moore2005) parity: still UNSAT |
+| five_loo_rhythm_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-rhythm f.cnf` | union minus [Moore](../../documentation/CITATIONS.md#moore1989) rhythm: still UNSAT |
+| five_loo_gender_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-gender f.cnf` | union minus [Schulz](../../documentation/CITATIONS.md#schulz1990-motifs) gender: still UNSAT |
 | five_loo_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-ccn4 f.cnf` | union minus S25–28 config: still UNSAT |
 | five_loo_ccn8_unsat.drat.gz | `python3 sat.py --emit-cnf five-loo-ccn8 f.cnf` | union minus CC-N8 (= grand-ccn4): still UNSAT |
 | core_parity_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-parity+ccn4 f.cnf` | two-rule core: {Moore parity, S25–28} |

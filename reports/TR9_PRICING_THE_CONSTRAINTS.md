@@ -21,7 +21,7 @@ King Wen sequence's information does each constraint *explain*, net of what the 
 state? We fix a two-part MDL framework — an arbitrary ordering of 64 hexagrams costs log₂ 64! = 296.0 bits;
 a constraint system K explains 296.0 − log₂|solutions(K)| bits at statement cost L(K) — and compute the
 ledger under two declared statement-cost conventions (family selection vs derivation from principle). The
-measured result: the classical pairing C1 explains 146.3 bits and, post-Radisic (2026), is essentially free
+measured result: the classical pairing C1 explains 146.3 bits and, post-[Radisic (2026)](../documentation/CITATIONS.md#radisic2026), is essentially free
 to state under the derivation convention — the unique Hamming-optimal comp/rev matching; C2 nets a modest
 +1.6 bits; C5 nets **−13.9 bits** — its statement costs 2.5× what it explains; the transition histogram is
 confirmed *description*, not explanation; C3's threshold is circular by construction and its 3.0 marginal
@@ -53,7 +53,7 @@ explicit.
    | + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 23.3⁴ | **−13.9 (descriptive, measured)** |
    | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
    | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.2 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
-   | strongest literature rule (Schulz gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
+   | strongest literature rule ([Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
    ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits; forced-orientation theorem
    returns 1. ² Radisic 2026: the pairing is the unique Hamming-optimal comp/rev matching — under the
@@ -68,7 +68,7 @@ explicit.
    verified) proved the pairing is the *unique* Hamming-cost minimizer among comp/rev matchings on {0,1}⁶,
    so under the derivation convention it costs only the optimality principle. That upgrade is Radisic's,
    not ours; it is the first genuine first-principles derivation of any layer of the constraint system.
-   **C2** (no 5-line transitions; McKenna & McKenna 1975) is the one honestly *net-positive* narrow rule:
+   **C2** (no 5-line transitions; [McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975)) is the one honestly *net-positive* narrow rule:
    4.6 bits of compression against ~3 bits of statement — +1.6 net. **C5** is the ledger's sharpest
    verdict: the transition multiset compresses 9.4 bits but costs 23.3 bits to state (the weak-composition
    bound), netting −13.9 — a *measured* conclusion (the C2 layer count, now **exact** at 7.5706×10⁴¹

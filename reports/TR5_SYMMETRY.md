@@ -29,8 +29,8 @@ the search's frame of reference. The methodological lesson is the report's spine
 statistics cannot decide set-level properties.
 
 *Novelty status: we are not aware of a prior statement of this symmetry group for the King Wen constraint
-system; prior-art corrections are welcomed via CITATIONS.md. (Related but distinct formal work: Radisic
-2026, arXiv:2601.07175, formalizes King Wen pairing optimality in Lean 4 + Mathlib — a different object.)*
+system; prior-art corrections are welcomed via CITATIONS.md. (Related but distinct formal work: [Radisic
+2026](../documentation/CITATIONS.md#radisic2026), arXiv:2601.07175, formalizes King Wen pairing optimality in Lean 4 + Mathlib — a different object.)*
 
 ## Sections
 1. **Theorem and proof.** For every σ in G = C_{S₆}(rev), acting linearly on GF(2)⁶: S satisfies C1–C5 ⟺

@@ -16,7 +16,7 @@ compression − statement cost. Conventions, declared up front:
   referee should see both: (i) **family convention** — the constraint is selected from a declared
   enumerable family of comparable rules (cost = log₂ of the family size; families stated per row);
   (ii) **derivation convention** — a constraint that is *derivable* from a stated principle costs the
-  principle, not the parameters (post-Radisic, this matters for C1).
+  principle, not the parameters (post-[Radisic](CITATIONS.md#radisic2026), this matters for C1).
 - The look-elsewhere accounting for the ~30-observable extraction battery lives in
   [CRITIQUE.md](CRITIQUE.md) and is not double-counted here.
 
@@ -30,7 +30,7 @@ compression − statement cost. Conventions, declared up front:
 | + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 23.3⁴ | **−13.9 (descriptive, measured)** |
 | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
 | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.2 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
-| strongest literature rule (Schulz gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
+| strongest literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
 ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits; forced-orientation theorem returns 1.
 ² Radisic 2026: the pairing is the unique Hamming-optimal comp/rev matching — under the derivation

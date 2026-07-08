@@ -58,7 +58,7 @@ The 28 analysis sections, each invoked by a single flag:
 |---|---|
 | `--table` | Hexagram reference table with binary encoding, trigrams, names, and properties for all 64 hexagrams |
 | `--pairs` | Reverse vs. inverse pair analysis — tests whether KW's 32 pairs all satisfy the pairing structure (C1 in [SPECIFICATION.md](SPECIFICATION.md)) |
-| `--trigrams` | Trigram (upper/lower 3-line) frequency, transitions, 8×8 matrices — plus (2026-07-03) pair-preserving permutation nulls, pure-hexagram Classic-ends placement (Lai Zhide via Schulz 1982), nuclear-trigram reduction 64→16→4, Jing Fang palace rank-correlation + null, symmetry-group trigram-split subgroup |
+| `--trigrams` | Trigram (upper/lower 3-line) frequency, transitions, 8×8 matrices — plus (2026-07-03) pair-preserving permutation nulls, pure-hexagram Classic-ends placement (Lai Zhide via [Schulz 1982](CITATIONS.md#schulz1982)), nuclear-trigram reduction 64→16→4, [Jing Fang](CITATIONS.md#jingfang) palace rank-correlation + null, symmetry-group trigram-split subgroup |
 | `--nuclear` | Nuclear hexagram chains — lines 2-3-4 and 3-4-5 generate inner hexagrams; this analysis traces the nuclear-derivation chains and their cycles |
 | `--lines` | Line-change positional analysis — which of the 6 line positions changes most often as you walk the sequence |
 | `--complements` | Complement distance — for each hexagram, where its bit-flipped opposite sits in the sequence |
@@ -97,7 +97,7 @@ The 28 analysis sections, each invoked by a single flag:
 | `--windowed-entropy` | Sliding window entropy — where structural order concentrates in the sequence |
 | `--mutual-info` | Mutual information between upper-trigram and lower-trigram changes |
 | `--yinyang` | Yin-yang line-balance wave through the sequence |
-| `--parity` | Odd-vs-even transition parity (McKenna 25/75 model), linear + circular modes |
+| `--parity` | Odd-vs-even transition parity ([McKenna](CITATIONS.md#mckenna-mckenna1975) 25/75 model), linear + circular modes |
 | `--neighborhoods` | Hamming-distance-1 neighborhoods for each hexagram |
 | `--recurrence` | Recurrence plot — visualization of where the difference wave repeats |
 

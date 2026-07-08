@@ -26,7 +26,7 @@ alternations" are UNSAT under C1+C2+C4+C5, with DRAT certificates independently 
 Building the SAT encoding surfaced and corrected a four-cell tabulation error in the published
 within/between-pair distance decomposition — formalization is the project's best error detector. The
 skeleton sits beneath a genuine literature lineage of empirical parity observations (Zhu Yuansheng, 13th
-c. → Schulz 1990 → Moore 2005), which the theorem does not derive from but visibly rhymes with: those are
+c. → [Schulz 1990](../documentation/CITATIONS.md#schulz1990-motifs) → [Moore 2005](../documentation/CITATIONS.md#moore2005)), which the theorem does not derive from but visibly rhymes with: those are
 KW-specific observations; this is a forced property of the constraint system that every valid ordering
 inherits.
 
@@ -82,9 +82,9 @@ inherits.
    literature runs, we state that with humility — corrections and prior-art pointers are welcomed via
    CITATIONS.md. The empirical parity observations sitting atop the skeleton deserve their credits as
    cousins of (not sources for) the theorem: **Zhu Yuansheng (13th century)** first recognized the single
-   exception to the gender/position-parity rule (per Schulz 2018, fn. 42); **Schulz (1990, *JCP* 17:3)**
+   exception to the gender/position-parity rule (per [Schulz 2018](../documentation/CITATIONS.md#schulz2018), fn. 42); **Schulz (1990, *JCP* 17:3)**
    stated that rule over his 36 consolidated units — the strongest measured literature discriminator, with
-   exceptions at stations 25–26 (elaborated by Cook 2006; attribution corrected 2026-07-03 upon first-hand
+   exceptions at stations 25–26 (elaborated by [Cook 2006](../documentation/CITATIONS.md#cook2006); attribution corrected 2026-07-03 upon first-hand
    reading — Cook had been credited as primary); **Moore (2005, *Oracle Papers* No. 1)** stated the
    yin/yang pair-positioning parity rule over the 32 pair positions (King Wen complies 16/18). Cook (2006)
    separately states a gender/position-valence rule over his 36-class ordering. All are empirical,

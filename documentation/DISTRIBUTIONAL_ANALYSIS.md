@@ -336,7 +336,7 @@ Both are latent findings in the 100T canonical that were not visible
 until the appropriate analytical lens was applied. Neither requires
 further enumeration.
 
-**Relationship to Chan 2026 (arXiv:2604.09234).** Chan's independent
+**Relationship to [Chan 2026](CITATIONS.md#chan2026) (arXiv:2604.09234).** Chan's independent
 work analyzes King Wen against 100,000 random permutations of all
 64 hexagrams (no constraint pre-filter). ROAE's framing is different
 — we measure KW's position within the C1+C2+C3+C4+C5-constrained

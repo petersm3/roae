@@ -18,7 +18,7 @@ are treated as axioms defining a space of orderings ([formal definitions](docume
 
 - **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
   when reversal is trivial): the classical pairing, described by Yu Fan in the 3rd century.
-- **C2** — no two adjacent hexagrams differ in exactly five lines (McKenna & McKenna 1975).
+- **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975)).
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
 - **C4** — the sequence starts with the pair (Qian, Kun): heaven, then earth.
 - **C5** — the multiset of adjacent-transition sizes matches King Wen's exactly.
@@ -52,7 +52,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
   exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
 - **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
-  matching (Radisic 2026, machine-verified). [CITATIONS](documentation/CITATIONS.md)
+  matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026), machine-verified). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
   more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
   enumerated records: the sharpest demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
@@ -65,7 +65,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
 **Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
 look-elsewhere accounting, and one corrected published result. It also reports the corpus-control test:
-the same methodology flags a provably algorithmic ordering (Jing Fang) on 9 of 11 axes, and King Wen on
+the same methodology flags a provably algorithmic ordering ([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes, and King Wen on
 exactly its three documented constraints — the method does not find design wherever it looks.
 
 ## Quick start

@@ -1,6 +1,6 @@
 # The Circular King Wen Sequence
 
-**Question (operator-queued 2026-07-02; McKenna's reading):** what do the project's constraints, theorems,
+**Question (operator-queued 2026-07-02; [McKenna](CITATIONS.md#mckenna-mckenna1975)'s reading):** what do the project's constraints, theorems,
 and measurements say when the King Wen sequence is read as a *cycle* — position 64 wrapping to position 1 —
 as McKenna & McKenna (1975) did in constructing the difference wave (their counts use 64 transitions
 including the wrap; see [MCKENNA.md](MCKENNA.md) and [CITATIONS.md](CITATIONS.md))?

@@ -1,6 +1,6 @@
 # Received Order Analysis Engine (ROAE)
 
-Analysis of the King Wen sequence including observations by Terence McKenna.
+Analysis of the King Wen sequence including observations by [Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975).
 
 ## Hexagram reference table
 
@@ -331,7 +331,7 @@ Distinct after 1 application: 16; after 2: 4; after 3: 4 -> [0, 21, 42, 63]
 KW nuclear-hexagram changes along the sequence: 58/63
 ```
 
-### Jing Fang Eight-Palaces rank correlation
+### [Jing Fang](../documentation/CITATIONS.md#jingfang) Eight-Palaces rank correlation
 
 ```
 Spearman rank correlation between KW positions and Jing Fang's palace ordering

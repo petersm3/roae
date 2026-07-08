@@ -20,16 +20,16 @@ than as the work of an arranger holding the rules as soft preferences (Bayes fac
 "strong" on the Jeffreys scale); a two-model comparison conditioned on the literature's rules, not proof
 of corruption in any absolute sense.
 
-Target: *Journal of Chinese Philosophy* (where Moore 2005-adjacent and Schulz 1990/2011 appeared). ~8pp.
+Target: *Journal of Chinese Philosophy* (where [Moore 2005](../documentation/CITATIONS.md#moore2005)-adjacent and [Schulz 1990](../documentation/CITATIONS.md#schulz1990-motifs)/2011 appeared). ~8pp.
 Defense model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
 
 ---
 
 ## Abstract
 
-Steve Moore (1989, 2005) proposed two design rules for the King Wen sequence, observed that the received
+Steve Moore ([1989](../documentation/CITATIONS.md#moore1989), 2005) proposed two design rules for the King Wen sequence, observed that the received
 order complies with one at sixteen of eighteen testable positions with both exceptions adjacent, and
-conjectured an originally compliant order later altered. Larry Schulz (1990, 2011, 2016) independently
+conjectured an originally compliant order later altered. Larry Schulz (1990, [2011](../documentation/CITATIONS.md#schulz2011), [2016](../documentation/CITATIONS.md#schulz2016)) independently
 formalized a third rule over Lai Zhide's thirty-six consolidated units, with its own exceptions at the
 same locus — noted as early as the thirteenth century by Zhu Yuansheng — and a fourth, the trigram
 configuration of stations 25–28, which the received order satisfies exactly. Using a Boolean-satisfiability
@@ -149,9 +149,9 @@ literature itself supplies:
 
 - **M_corr (corruption):** an originally rule-perfect ordering (under the three graded rules) was hit by
   a small physical transmission accident. Moore (1989, 2005) conjectured a compliant original later
-  altered; Schulz's exceptions sit at the same locus; Rutt (1996) supplies the physical mechanism
+  altered; Schulz's exceptions sit at the same locus; [Rutt (1996)](../documentation/CITATIONS.md#rutt1996) supplies the physical mechanism
   (re-strung bamboo-slat cords, allowing adjacent transpositions and slat inversions), as discussed by
-  Hacker & Moore (2003). This work quantifies the conjecture Moore and Schulz raised on interpretive
+  [Hacker & Moore (2003)](../documentation/CITATIONS.md#hacker-moore2003). This work quantifies the conjecture Moore and Schulz raised on interpretive
   grounds.
 - **M_tend (tendency):** the arranger held the three rules as soft preferences (a Gibbs strength λ),
   never exactly; the anomaly is ordinary imperfection, with no corruption event at all.

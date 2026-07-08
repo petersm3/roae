@@ -67,7 +67,7 @@ The sequence begins with ䷀ The Creative (#1, 111111) and ䷁ The Receptive (#2
 
 The difference wave (Hamming distances between consecutive hexagrams) must have exactly this distribution: two 1-line transitions, twenty 2-line, thirteen 3-line, nineteen 4-line, and nine 6-line. No 0-line or 5-line transitions.
 
-The mean of this distribution is `(1·2 + 2·20 + 3·13 + 4·19 + 6·9) / 63 = 211/63 ≈ 3.349`. **Note:** Chan (2026, arXiv:2604.09234) independently reported KW's mean Hamming distance between consecutive hexagrams as 3.35 at the 98.2nd percentile vs 100,000 random permutation baselines — i.e., ROAE's structural constraint C5 and Chan's statistical-vs-random framing describe the same numerical phenomenon. Chan's research predates ROAE; the distinctness-of-mean-Hamming observation is Chan's prior art under the statistical framing. ROAE's contribution is encoding the EXACT distribution multiset (not just the mean) as a hard constraint and enumerating its solution space. See [CITATIONS.md](CITATIONS.md).
+The mean of this distribution is `(1·2 + 2·20 + 3·13 + 4·19 + 6·9) / 63 = 211/63 ≈ 3.349`. **Note:** [Chan (2026, arXiv:2604.09234)](CITATIONS.md#chan2026) independently reported KW's mean Hamming distance between consecutive hexagrams as 3.35 at the 98.2nd percentile vs 100,000 random permutation baselines — i.e., ROAE's structural constraint C5 and Chan's statistical-vs-random framing describe the same numerical phenomenon. Chan's research predates ROAE; the distinctness-of-mean-Hamming observation is Chan's prior art under the statistical framing. ROAE's contribution is encoding the EXACT distribution multiset (not just the mean) as a hard constraint and enumerating its solution space. See [CITATIONS.md](CITATIONS.md).
 
 ## Method
 
@@ -335,7 +335,7 @@ Per-boundary conditional entropy at d3 (`analyze_d3.log` section [18], baseline 
 
 A boundary constraint is a **pair-adjacency constraint**: boundary $N$ specifies that the pair at position $N$ matches KW's pair at position $N$ AND the pair at position $N+1$ matches KW's pair at position $N+1$. It locks a 4-hexagram window (two consecutive pairs).
 
-Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; hexagram names in Wilhelm/Baynes translation):
+Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; hexagram names in [Wilhelm/Baynes](CITATIONS.md#wilhelm-baynes1967) translation):
 
 **Boundary 25 (between pair 25 and pair 26):**
 - Pair 25 = ䷰ Ge (Revolution, 革) / ䷱ Ding (The Cauldron, 鼎) — a reverse pair
@@ -620,7 +620,7 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** (decomposed) | 6.67% — range [512, 2048] |
 | Latin-square column × row | Exhaustive 8!×8! (direction-invariance check) | **0** | 57.96% (**identical**) | 6.67% (**identical**) |
 | Lexicographic (6! bit-orders) | Exhaustive 720 | 0 | 0 | 0 — always 2048 |
-| Historical (Fu Xi, KW, Mawangdui, Jing Fang) | 4 point-tests | KW only | **KW + Jing Fang** (corrected 2026-07-05: authentic Mawangdui has one 5-line transition) | KW only |
+| Historical (Fu Xi, KW, Mawangdui, [Jing Fang](CITATIONS.md#jingfang)) | 4 point-tests | KW only | **KW + Jing Fang** (corrected 2026-07-05: authentic Mawangdui has one 5-line transition) | KW only |
 | Random 64-permutations | 10^9 uniform samples | **0 / 10^9** | 0.1828% | 0.002836% |
 | **Pair-constrained (C1 given)** | 10^9 samples | 100% (construction) | **4.29%** cond. on C1 | **6.42%** cond. on C1 |
 
@@ -632,7 +632,7 @@ Across **~1.86 billion permutations** from the six unconditional families, **zer
 
 **Remaining gap**: Costas arrays of order 64. Existence via Welch/Lempel–Golomb constructions is uncertain (those give adjacent orders 62 and 66, not 64), and full 64! enumeration is infeasible (~10^89). Deferred.
 
-**Credit.** C1 (pair structure) is **classical** — see [CITATIONS.md](CITATIONS.md) for Cook (2006) and the I Ching commentarial tradition. C2 (no-5-line transitions) is attributed to **Terence McKenna (1975)** in *The Invisible Landscape*. ROAE's contribution here is the **null-model testing framework** across seven families, the **analytic C1 impossibility proofs** for de Bruijn and Gray code, and the **Latin-square C2-rate decomposition** (see CRITIQUE.md §Latin-square C2-rate decomposition). C3 as a specific quantified threshold (776) is believed ROAE-original; if prior work exists, see CITATIONS.md disclaimer.
+**Credit.** C1 (pair structure) is **classical** — see [CITATIONS.md](CITATIONS.md) for [Cook (2006)](CITATIONS.md#cook2006) and the I Ching commentarial tradition. C2 (no-5-line transitions) is attributed to **[Terence McKenna (1975)](CITATIONS.md#mckenna-mckenna1975)** in *The Invisible Landscape*. ROAE's contribution here is the **null-model testing framework** across seven families, the **analytic C1 impossibility proofs** for de Bruijn and Gray code, and the **Latin-square C2-rate decomposition** (see CRITIQUE.md §Latin-square C2-rate decomposition). C3 as a specific quantified threshold (776) is believed ROAE-original; if prior work exists, see CITATIONS.md disclaimer.
 
 ## Usage
 

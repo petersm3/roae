@@ -11,7 +11,7 @@ Raw outputs and the exact-fiber instrument behind [TR-1](../../TR1_EIGHT_CENTURI
 | `f5_modec_fiber.out` | Archived Mode C output: exact histograms, two-sided p-values, structure gates, convention control |
 | `f5_ground_truth.py` | Independent pure-Python implementation of the 11 functionals (two-language gate vs the `solve.c` scorer; #11 delegates to `solve.py vdb_nucorient`, the single implementation) |
 | `f5_tier1.out` | Mode U (unconditional population): 2×10⁹ weighted Knuth probes, per-functional below/at/above masses + full `f5_hist` histograms (Spot D64, 2026-07-05) |
-| `f5_corpus_gate.out` | Corpus + gauge control values (KW / Mawangdui / Jing Fang / upside-down / back-to-front), on-VM C scorer. Mawangdui row corrected 2026-07-05 (the on-VM run scored an erroneous array; see the in-file note + CITATIONS.md errata) |
+| `f5_corpus_gate.out` | Corpus + gauge control values (KW / Mawangdui / [Jing Fang](../../../documentation/CITATIONS.md#jingfang) / upside-down / back-to-front), on-VM C scorer. Mawangdui row corrected 2026-07-05 (the on-VM run scored an erroneous array; see the in-file note + CITATIONS.md errata) |
 | `c230_launch.log` | VM launch/teardown log for the tier-1 run (≈5 min VM life) |
 
 ## Reproduce
@@ -46,8 +46,8 @@ portability edit each — the `solve.py` import path is located relative to this
 (repo root = `../../..`) instead of the original machine-absolute path. No other change;
 the byte-identical rerun above was performed with the edited (published) copies.*
 
-*Attribution: the 11 functionals are anchored to Cook 2006 (f1), Moore 1989 (f2, f3), the
-Dazhuan/Xici yang-precedence reading via Schulz 1990 and Cook 2006 (f4), Davis 2012 (f5),
-Shao Yong / Leibniz 1703 (f6), Chan 2026 (f7), McKenna & McKenna 1975 (f8–f10), and Van den
-Berghe c. 1999–2002 (f11, the nuclear orientation rule). Operationalizations, fiber method,
+*Attribution: the 11 functionals are anchored to [Cook 2006](../../../documentation/CITATIONS.md#cook2006) (f1), [Moore 1989](../../../documentation/CITATIONS.md#moore1989) (f2, f3), the
+Dazhuan/Xici yang-precedence reading via [Schulz 1990](../../../documentation/CITATIONS.md#schulz1990-motifs) and Cook 2006 (f4), [Davis 2012](../../../documentation/CITATIONS.md#davis2012) (f5),
+[Shao Yong](../../../documentation/CITATIONS.md#shaoyong) / [Leibniz 1703](../../../documentation/CITATIONS.md#leibniz1703) (f6), [Chan 2026](../../../documentation/CITATIONS.md#chan2026) (f7), [McKenna & McKenna 1975](../../../documentation/CITATIONS.md#mckenna-mckenna1975) (f8–f10), and [Van den
+Berghe](../../../documentation/CITATIONS.md#vandenberghe1999) c. 1999–2002 (f11, the nuclear orientation rule). Operationalizations, fiber method,
 and analysis: Claude (Fable), 2026-07-05; errors are Claude's — corrections invited.*

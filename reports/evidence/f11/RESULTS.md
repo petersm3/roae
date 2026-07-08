@@ -6,10 +6,10 @@ model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 str
 nothing in this document was altered after seeing the numbers except the numbers themselves. Per the
 pre-registered commitment, the FULL sensitivity table is published regardless of direction.
 
-Developed with AI assistance (Claude, Anthropic). Rule attribution: Moore 1989 (*The Trigrams of Han*,
-App. 2) rhythm; Moore 2005 (*Oracle Papers* No. 1) pair-positioning parity; Schulz 1990 (JCP 17:3)
-gender/position-parity (exception first noted by Zhu Yuansheng, 13th c.), elaborated Cook 2006;
-corruption mechanism Rutt 1996 (bamboo-slat cords) as discussed by Hacker & Moore 2003.
+Developed with AI assistance (Claude, Anthropic). Rule attribution: [Moore 1989](../../../documentation/CITATIONS.md#moore1989) (*The Trigrams of Han*,
+App. 2) rhythm; [Moore 2005](../../../documentation/CITATIONS.md#moore2005) (*Oracle Papers* No. 1) pair-positioning parity; [Schulz 1990](../../../documentation/CITATIONS.md#schulz1990-motifs) (JCP 17:3)
+gender/position-parity (exception first noted by Zhu Yuansheng, 13th c.), elaborated [Cook 2006](../../../documentation/CITATIONS.md#cook2006);
+corruption mechanism [Rutt 1996](../../../documentation/CITATIONS.md#rutt1996) (bamboo-slat cords) as discussed by [Hacker & Moore 2003](../../../documentation/CITATIONS.md#hacker-moore2003).
 
 **STATUS: COMPLETE — computed 2026-07-04.** Evidence archived in this directory,
 `reports/evidence/f11/` (`f11_runA.out`, `f11_runB.out`, `f11_runC.out`, `f11_runC2.out`,

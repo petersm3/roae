@@ -7,22 +7,22 @@ constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased weight
 size to 0.03%, self-validating the method). This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
 structure itself is attested to Yu Fan, 164–233 AD; the 36-unit consolidation to Lai Zhide, 1525–1604; the
-gender/position-parity rule measured at ×11,364 in the companion registry originates with **Schulz 1990**
-and was elaborated by Cook 2006); see
+gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
+and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 [CITATIONS.md](CITATIONS.md) §Attributed candidate rules. ROAE's contribution is formalization + measurement.
 
 ## The scoreboard
 
 | Rule (source) | Fraction of C1–C5 mass | Cut factor | King Wen |
 |---|---|---|---|
-| Pair-positioning parity, strict 18/18 (Moore 2005) | 5×10⁻⁶ | ×200,000 | **fails** (16/18) |
+| Pair-positioning parity, strict 18/18 ([Moore 2005](CITATIONS.md#moore2005)) | 5×10⁻⁶ | ×200,000 | **fails** (16/18) |
 | Both Moore rules at KW's level (joint) | 1.85×10⁻⁵ | ×54,000 | satisfies |
 | Pair-positioning parity ≥16/18 (Moore 2005) | 7.3×10⁻⁴ | ×1,362 | satisfies (exactly 16/18) |
-| Rising/falling alternation, 0 breaks (Moore 1989) | 6.3×10⁻⁴ | ×1,598 | **fails** (2 breaks) |
+| Rising/falling alternation, 0 breaks ([Moore 1989](CITATIONS.md#moore1989)) | 6.3×10⁻⁴ | ×1,598 | **fails** (2 breaks) |
 | Rising/falling alternation ≤2 breaks (Moore 1989) | 3.85% | ×26 | satisfies |
 | Final-pair anchor: alternating pair last (Cook 2006) | 7.84% | ×12.8 | satisfies |
 | First 7 pairs cover all 7 levels (Cook 2006) | 12.03% | ×8.3 | satisfies |
-| 18:18 two-part class split (Zheng Qiao ~1150; Hu Yigui 1247; Hacker & Moore 2003; Cook 2006) | 36.4% | ×2.7 | satisfies |
+| 18:18 two-part class split (Zheng Qiao ~1150; Hu Yigui 1247; [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003); Cook 2006) | 36.4% | ×2.7 | satisfies |
 
 ## What the measurements establish
 
@@ -109,7 +109,7 @@ with `python3 sat.py --witness moore-strict` and
 ## The extended scoreboard: 31 further literature rules (2026-07-03 batch, 2×10¹⁰ probes)
 
 The full candidate inventory from the Schulz corpus (1990/2011/2016/2018 + the 1982 dissertation's
-Lai Zhide rules), McKenna & Mair 1979, Drasny, and Schöter — 31 rules formalized (two-language verified,
+Lai Zhide rules), [McKenna & Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), and [Schöter](CITATIONS.md#schoter1998) — 31 rules formalized (two-language verified,
 each reproducing its source's stated King Wen values), measured in one run. Full per-rule registry and
 attribution: solve.py `--registry-verify` section. Three headline findings:
 

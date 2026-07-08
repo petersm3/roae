@@ -17,7 +17,7 @@ relabelings of KW, all with complement distance 776 exactly.
 > but it measured **budget/dedup artifacts, not solution-set asymmetry** (mechanism below). The lesson is
 > recorded in CRITIQUE.md; the original data is preserved in §"What the 2026-04-25 test actually measured."
 
-> Related work: see the Goldenberg 1975 note at the end of this document — the earliest algebraic (GF(2)) formalization of the hexagram set we know of; scoped as set-level, not ordering-level, prior art.
+> Related work: see the [Goldenberg 1975](CITATIONS.md#goldenberg1975) note at the end of this document — the earliest algebraic (GF(2)) formalization of the hexagram set we know of; scoped as set-level, not ordering-level, prior art.
 
 ## Theorem and proof
 
@@ -162,5 +162,5 @@ the 64 hexagrams as the corresponding commutative ring (equivalently GF(2)⁶, t
 project assumes throughout), the inversion mapping as an automorphism, and a "mediating hexagram"
 (the XOR difference vector) for every pair. His results concern the hexagram *set*; the theorem
 here concerns the automorphism group of the C1–C5 *constraint system on orderings*, which has no
-counterpart in Goldenberg. Credit to Hacker, Moore & Patsco (2002), entry B:154, whose annotation
+counterpart in Goldenberg. Credit to [Hacker, Moore & Patsco (2002)](CITATIONS.md#hacker-moore2002), entry B:154, whose annotation
 surfaced this work to us; full-text verification pending acquisition.

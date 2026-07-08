@@ -401,7 +401,7 @@ both record-level correctness and file-level structure must pass.
 solve --verify-rule2 [solutions.bin]
 ```
 
-McKenna Rule 2 audit (cf. *The Invisible Landscape*, Chapter 9): for
+[McKenna](CITATIONS.md#mckenna-mckenna1975) Rule 2 audit (cf. *The Invisible Landscape*, Chapter 9): for
 each record, count value-1 transitions and check whether each occurs
 at a "C2-forced position" — i.e., the orient-flip alternative for
 the surrounding pair would have produced a value-5 transition. King
@@ -458,7 +458,7 @@ enumeration path). Population scoring of the same functionals:
 solve --dav-verify
 ```
 
-Two-language gate for the 9 Davis (2012) composite candidates (pre-registered in
+Two-language gate for the 9 [Davis (2012)](CITATIONS.md#davis2012) composite candidates (pre-registered in
 documentation/CRITIQUE.md §Davis): computes each on the King Wen sequence and checks
 against the embedded KW expected values. Ground truth is `solve.py --dav-verify`;
 outputs must match byte-for-byte. Exit 0 iff all 9 match. Sha-neutral. Population
@@ -472,7 +472,7 @@ solve --f5-verify
 
 Two-language gate for the 11 frozen F5 orientation-layer functionals
 (pre-registered and frozen 2026-07-05 before any population measurement;
-Bonferroni N=11): computes each on the King Wen sequence and checks against
+[Bonferroni](CITATIONS.md#bonferroni1936) N=11): computes each on the King Wen sequence and checks against
 the embedded frozen-spec KW values (computed against `solve.py`
 `binary_hexagrams`; #11 `f5_vdb_nuc` is a port of `solve.py vdb_nucorient` —
 `solve.py --vdb-verify`, KW=29). Exit 0 iff all 11 match. Sha-neutral.
@@ -490,14 +490,14 @@ verification battery (added 2026-07-05, operator-approved "write code to prove
 the statements in the book"): programmatically verifies, against the King Wen
 sequence, the 14 machine-checkable structural claims surfaced by the 2026-07
 book audits — Wu Deng's (1249–1333) warp/weft skeleton (WD-1..4), Lai Zhide's
-(1525–1604) great-image endpoint feeders (LZ-1..2), Goldenberg's (1975, JCP 2)
+(1525–1604) great-image endpoint feeders (LZ-1..2), [Goldenberg's (1975, JCP 2)](CITATIONS.md#goldenberg1975)
 GF(2)⁶ algebra theorems T1–T4 + T7 including his H5↔H63-via-H7 mediator
-example (G-T1..T7), the Jing Fang (77–37 BCE) eight-palace table against
-Nielsen 2003 Table 2 in all 64 cells (JF-1, re-exposing the corpus-gate
+example (G-T1..T7), the [Jing Fang](CITATIONS.md#jingfang) (77–37 BCE) eight-palace table against
+[Nielsen 2003](CITATIONS.md#nielsen2003) Table 2 in all 64 cells (JF-1, re-exposing the corpus-gate
 check), and the classical Yu Fan (164–233) fandui/pangtong pair-structure
 statement including Nielsen's printed 32-couple pangtong table (YF-1..2).
 Classical items sourced via Nielsen, Bent (2003), *A Companion to Yi jing
-Numerology and Cosmology*; Goldenberg via Hacker, Moore & Patsco (2002) B:154
+Numerology and Cosmology*; Goldenberg via [Hacker, Moore & Patsco (2002)](CITATIONS.md#hacker-moore2002) B:154
 (annotation-level; primary text pending). Prints one PASS/FAIL line per claim
 with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
 Attribution per claim function in solve.py; master ledger
@@ -929,9 +929,9 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_C67` | 0 | `=1`: `--estimate-knuth` (both probe and exact modes) additionally enforces the spec's C6/C7 adjacency constraints (slots 24–27 pinned to KW's pairs, orientation free) — estimates \|C1–C7\| instead of \|C1–C5\|. Estimator-only; sha-neutral. Uniqueness-conjecture probe (2026-07-02). |
 | `SOLVE_KNUTH_PIN_SLOTS` | comma list of slots 1–31 | Pin listed slots to KW's pairs during Knuth walks (orientation free); generalizes `SOLVE_KNUTH_C67`. F2 S(k) boundary-information curve. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_BOUNDARY_COND` | `1` | Per-boundary KW-agreement mass accumulators (31; the `--analyze` §[6] predicate on the estimator); conditional on the pin prefix if set. Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_SCORE_REG` | `1` | Score all 31 registry candidate rules (Schulz 1990/2011/2016/diss, McKenna-Mair 1979, Drasny, Schöter — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage (Cook 2006), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006), R-M1 pair-positioning parity (Moore 2005). See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
-| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND 1989 rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space (TR-1 §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_REG` | `1` | Score all 31 registry candidate rules ([Schulz 1990](CITATIONS.md#schulz1990-motifs)/[2011](CITATIONS.md#schulz2011)/[2016](CITATIONS.md#schulz2016)/diss, [McKenna-Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), [Schöter](CITATIONS.md#schoter1998) — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
+| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space (TR-1 §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_GENDER_STRICT` | 0 | `=1`: prune the walk to orderings satisfying the Schulz 1990 gender/position-parity rule strictly (0 violations; semantics identical to the rc4 leaf scorer / `solve.py rc4_violations`; exception first noted by Zhu Yuansheng, 13th c.). Composes with `SOLVE_KNUTH_MOORE_STRICT` to estimate the triple-strict ("grand-strict") space (F11 M_corr precursor set). Prints a leaf-scorer cross-check line (mismatches must be 0). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F11_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): emit the F11 joint violation histogram — `f11_hist v1 v2 v3 <mass>` lines over (v1 = 18 − Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender violations; KW = (2,2,2)) — the M_tend normalizer ingredient of the TR-2 v1.7 Bayes comparison (archived instance: reports/evidence/f11/f11_runA.out). Under strict walks the fractions are conditional on the pruned space. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_F4P` | 0 | `=1`: score the 13 pre-registered F4' ordering-layer functionals per canonical leaf (below/at/above-KW weighted masses; CRITIQUE.md §F4'; TR-9 v1.3). Ground truth / two-language gate: `--f4p-verify`. Archived tier-1 run: reports/evidence/f4p_tier1.out. Estimator-only, sha-neutral. |

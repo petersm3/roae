@@ -59,8 +59,8 @@ Zhu Yuansheng in the 13th century), we state that with humility — corrections 
 welcomed via [CITATIONS.md](CITATIONS.md).
 
 Two independent, differently-formulated parity rules for the King Wen sequence exist in prior literature and
-deserve credit as cousins of (not sources for) this theorem: **Cook (2006)** states a gender/position-valence
-parity rule over his 36-class ordering, and **Moore (2005, *Oracle Papers* No. 1)** states a yin/yang
+deserve credit as cousins of (not sources for) this theorem: **[Cook (2006)](CITATIONS.md#cook2006)** states a gender/position-valence
+parity rule over his 36-class ordering, and **[Moore (2005, *Oracle Papers* No. 1)](CITATIONS.md#moore2005)** states a yin/yang
 pair-positioning parity rule over the 32 pair positions (King Wen complies 16/18). Both are empirical
 KW-specific observations over different partitions; the theorem above differs in kind — it is a *forced*
 property of the C1–C5 constraint system (every valid ordering has exactly 15 alternations), derived and

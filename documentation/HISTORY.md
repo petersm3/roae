@@ -388,20 +388,20 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **solve.c gained eight new subroutines** for structured-null testing (all present alongside the existing enumeration machinery, not replacing it):
 
-- `--null-debruijn-exact`: exhaustive enumeration of all 2^27 = 134,217,728 B(2, 6) Eulerian circuits starting at vertex 0 via randomized Hierholzer. In C, ~80 seconds total. Result: 0 satisfy C1 (proven analytically too — any B(2, 6) satisfying C1 is forced to period-4 structure, contradicting the 64-distinct-window requirement), 0 satisfy C2, 247,048 (0.1841%) satisfy C3.
+- `--null-debruijn-exact`: exhaustive enumeration of all 2^27 = 134,217,728 B(2, 6) Eulerian circuits starting at vertex 0 via randomized [Hierholzer](CITATIONS.md#hierholzer1873). In C, ~80 seconds total. Result: 0 satisfy C1 (proven analytically too — any B(2, 6) satisfying C1 is forced to period-4 structure, contradicting the 64-distinct-window requirement), 0 satisfy C2, 247,048 (0.1841%) satisfy C3.
 - `--null-gray`: 256-member orbit of the binary-reflected 6-bit Gray code under rotations × reversal × bit-complement. 0 C1 (analytic: Hamming-1 adjacency is disjoint from C1's required {0, 2, 4, 6}), 256 C2 (trivial), 0 C3 (null range [1792, 2048]).
 - `--null-latin`: exhaustive 8! × 8! = 1,625,702,400 Latin-square row × column traversals (each of the 64 hexagrams indexed by upper × lower trigram). 0 C1, **57.96% C2** (strikingly high), 6.67% C3.
 - `--null-latin-explain`: analytic decomposition of the 57.96% figure. Row-permutation class census (144 all-Hamming-1 paths in Q_3, 13,680 "some-2-no-3", 1,008 "some-3-no-2", 25,488 "both") weighted by column-perm good counts reproduces the 942,243,840 empirical count exactly.
 - `--null-lex`: exhaustive 6! = 720 lexicographic bit-order variants. 0 on all three constraints.
-- `--null-historical`: point-tests Fu Xi (natural binary), King Wen, Mawangdui silk-text, Jing Fang 8 Palaces. Original claim: three of four (KW, Mawangdui, Jing Fang) satisfy C2 exactly, suggesting a shared classical design principle. **[CORRECTED 2026-07-05: the Mawangdui array used was erroneous. The authentic Mawangdui order (Shaughnessy 2022, Table 11.2) has exactly one 5-line transition, at its Kan→Zhen octet seam — so C2 is satisfied by KW and Jing Fang only (2 of 4), and the shared-design-principle inference is withdrawn. See CITATIONS.md errata.]**
-- `--null-random`: 10^9 uniformly random 64-permutations via Fisher-Yates + xorshift64. 0/10^9 satisfy C1 (consistent with the theoretical rate of ~10^-44), 0.1828% satisfy C2, 0.002836% satisfy C3.
+- `--null-historical`: point-tests Fu Xi (natural binary), King Wen, Mawangdui silk-text, [Jing Fang](CITATIONS.md#jingfang) 8 Palaces. Original claim: three of four (KW, Mawangdui, Jing Fang) satisfy C2 exactly, suggesting a shared classical design principle. **[CORRECTED 2026-07-05: the Mawangdui array used was erroneous. The authentic Mawangdui order ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2) has exactly one 5-line transition, at its Kan→Zhen octet seam — so C2 is satisfied by KW and Jing Fang only (2 of 4), and the shared-design-principle inference is withdrawn. See CITATIONS.md errata.]**
+- `--null-random`: 10^9 uniformly random 64-permutations via [Fisher-Yates](CITATIONS.md#fisher-yates1938) + [xorshift64](CITATIONS.md#marsaglia2003). 0/10^9 satisfy C1 (consistent with the theoretical rate of ~10^-44), 0.1828% satisfy C2, 0.002836% satisfy C3.
 - `--null-pair-constrained`: 10^9 pair-permutations with random 2-choice orientations (C1 baked in). Measures conditional rates: C2 | C1 = 4.29% (23.5× the unconditional rate) and C3 | C1 = 6.42% (2,264× unconditional). Shows that C1 alone does most of the structural work KW relies on.
 - `--null-gray-random`: biased sampler for 6-bit Gray codes via random Hamiltonian walks in Q_6; bounds the C3 rate over the ~10^22 Gray code family tighter than the 256-orbit alone.
 
 **CITATIONS.md** was created to distinguish prior-literature findings from ROAE-original contributions. Key credits:
 
-- C1 (pair structure): classical (Yi Zhuan commentary), formalized in **Cook 2006** *Classical Chinese Combinatorics* (STEDT Monograph 5, 656 pages).
-- C2 (no-5-line-transitions): **Terence & Dennis McKenna, *The Invisible Landscape*** (Seabury Press, 1975). Earliest documented public reference per web search; the 1971 Amazonian experience described there is pre-publication but no pre-1975 lectures are indexed.
+- C1 (pair structure): classical (Yi Zhuan commentary), formalized in **[Cook 2006](CITATIONS.md#cook2006)** *Classical Chinese Combinatorics* (STEDT Monograph 5, 656 pages).
+- C2 (no-5-line-transitions): **[Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975), *The Invisible Landscape*** (Seabury Press, 1975). Earliest documented public reference per web search; the 1971 Amazonian experience described there is pre-publication but no pre-1975 lectures are indexed.
 - C3 (complement-distance ceiling of 776): no prior citation found; believed ROAE-original, with the standing disclaimer that PR-based updates to CITATIONS.md are welcome.
 
 **Doc audit for citation integrity.** At the user's direction, SOLVE.md, SOLVE-SUMMARY.md, CRITIQUE.md, README.md, and CLAUDE.md were updated to soften "we discovered" language where prior literature exists, and to cross-reference CITATIONS.md. Softened 2026-04-19 in commit `5de0676`.
@@ -708,7 +708,7 @@ Pipeline for the experiment: feed to `ganak`, `d4`, or `sharpSAT-TD` for exact m
 
 - `--joint-density-v2 CHUNKS_DIR OUT_MD` (`--joint-density-bandwidth cv|silverman`, `--joint-density-exhaustive`, `--native-solve-binary PATH`): KDE joint density with auto variance-filter (drops columns with stdev/|mean| < 1e-6), CV bandwidth selection (5-fold GridSearchCV over 12 candidates), either sampled-with-bootstrap-CI scoring (default) or fully exhaustive scoring when paired with the native C scorer.
 - `--stratified-by-position-2-pair CHUNKS_DIR OUT_MD` (`--stratified-exhaustive`): per-stratum KDE reanalysis conditioning on which pair occupies positions 2-3. Tests whether `position_2_pair` is part of the discriminative signal.
-- `--joint-permutation-test CHUNKS_DIR OUT_MD`: always-exhaustive. Per-dim |z|-extremity ≥ |z_KW| counts + Bonferroni-adjusted p-values, plus a joint extremity distribution (for each record, count how many dims it ties or beats KW on; cumulative over the full 3.43B canonical population).
+- `--joint-permutation-test CHUNKS_DIR OUT_MD`: always-exhaustive. Per-dim |z|-extremity ≥ |z_KW| counts + [Bonferroni](CITATIONS.md#bonferroni1936)-adjusted p-values, plus a joint extremity distribution (for each record, count how many dims it ties or beats KW on; cumulative over the full 3.43B canonical population).
 
 Full spec: [`roae-private/DISTRIBUTIONAL_V2_SPEC.md`](../../../roae-private/DISTRIBUTIONAL_V2_SPEC.md). Launcher: [`roae-private/launch_b2_exhaustive_d64.sh`](../../../roae-private/launch_b2_exhaustive_d64.sh) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
 
@@ -5167,8 +5167,8 @@ honest arc of the day: the same estimator machinery that sized the C1–C5 space
 about a dollar of Spot compute, a question the project had carried as "unconfirmed at scale" since April.
 
 **Same day, the literature goes under the estimator.** New public findings doc
-LITERATURE_RULES_POPULATION_TESTS.md: the structural rules asserted by Moore (2005 pair-positioning parity;
-1989 rising/falling rhythm), Cook (2006 anchors), and the classical 18:18 split were formalized, verified to
+LITERATURE_RULES_POPULATION_TESTS.md: the structural rules asserted by [Moore (2005](CITATIONS.md#moore2005) pair-positioning parity;
+[1989](CITATIONS.md#moore1989) rising/falling rhythm), Cook (2006 anchors), and the classical 18:18 split were formalized, verified to
 reproduce their sources' stated King Wen values exactly, and measured against the full constraint-satisfying
 population. Headlines: Moore's parity rule is the strongest known literature discriminator (KW's 16/18 level
 = 1 in 1,362; his two rules jointly = 1 in 54,000, with a previously unobserved negative correlation between
@@ -5188,7 +5188,7 @@ for a machine (Lean, the estimator, now SAT), latent errors surface — formaliz
 error detector.
 
 ## 2026-07-03: The grand unified precursor — all three literature rules, one 3-edit repair
-SAT layer (sat.py) decided three questions in succession: (1) Schulz's 1990 gender rule (the x11,364
+SAT layer (sat.py) decided three questions in succession: (1) [Schulz's 1990](CITATIONS.md#schulz1990-motifs) gender rule (the x11,364
 discriminator; exception noticed by Zhu Yuansheng in the 13th c.) is perfectly satisfiable, minimal repair
 from KW exactly 3 slot-edits through the historic exception locus (slots 21/22 = class positions 25/26);
 (2) an ordering satisfying ALL THREE literature rules simultaneously (Moore parity + Moore rhythm + Schulz
@@ -5271,21 +5271,21 @@ count's primary sanity gate rests on machine-verified mathematics.
 ## 2026-07-05: The literature program's measurement day — two notables from eight centuries, and a corpus-gate erratum
 
 The orientation layer got its pre-registered battery (F5, frozen→measured→published in ~5 hours):
-7 literature functionals null, 3 forced, and one notable — **Van den Berghe's nuclear-rule
+7 literature functionals null, 3 forced, and one notable — **[Van den Berghe](CITATIONS.md#vandenberghe1999)'s nuclear-rule
 agreement (29/30) is the exact maximum of King Wen's 1,720,320-vector orientation fiber**
 (12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). A second
-battery (F6) measured the two candidates surfaced by the Nielsen audit: bagong palace-alignment
+battery (F6) measured the two candidates surfaced by the [Nielsen](CITATIONS.md#nielsen2003) audit: bagong palace-alignment
 null across the board, but **Wu Deng's (1249–1333) weft-block profile is population-atypical**
 (p = 1.1×10⁻³, gauge-robust) — the second notable, and the older by six centuries. Both are framed
 as fitted-description atypicality (their authors derived the rules *from* King Wen); both held at
 report-only under the frozen thresholds, including the demotion of a tempting p = 7.9×10⁻⁷
 statistic that failed the data-like/gauge-strict clauses.
 
-The same day's source auditing (Hacker/Moore/Patsco 2002 bibliography, Nielsen 2003 Companion,
+The same day's source auditing ([Hacker/Moore/Patsco 2002](CITATIONS.md#hacker-moore2002) bibliography, Nielsen 2003 Companion,
 Shaughnessy 2022 — all captured, audited, and machine-verified via `solve.py --books-verify`,
-14/14 claims PASS) resolved the Olsvanger prior-art question (binary-square decorations, no
+14/14 claims PASS) resolved the [Olsvanger](CITATIONS.md#olsvanger1948) prior-art question (binary-square decorations, no
 constraint content), established classical precedence chains (Wu Deng anticipates the V-1 family;
-Lai Zhide anticipates VdB-4; Goldenberg 1975 is set-level GF(2) prior art), verified the Jing Fang
+Lai Zhide anticipates VdB-4; [Goldenberg 1975](CITATIONS.md#goldenberg1975) is set-level GF(2) prior art), verified the Jing Fang
 corpus control cell-for-cell — and caught a real error: **the Mawangdui array used since April was
 wrong** (synthesized by a buggy generator with a 3-cycle confusion among the visually similar
 trigrams ☶/☱/☴; the cited Wikipedia article contains no sequence at all; validity self-tests had

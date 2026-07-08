@@ -39,7 +39,7 @@ To get the binary code, read the 1s and 0s from the top of the table downward. F
 
 ## The rules we found
 
-Five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four formally independent — C2 is implied by C5), each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / Cook 2006; Rule 2 from Terence & Dennis McKenna's *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
+Five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four formally independent — C2 is implied by C5), each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / [Cook 2006](CITATIONS.md#cook2006); Rule 2 from [Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975)'s *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
 
 (A sixth "XOR rule" was identified during discovery but later proven mathematically redundant — it follows automatically from Rule 1; see [SOLVE.md](SOLVE.md) Theorem 2. It is therefore not listed below.)
 
@@ -204,7 +204,7 @@ second wave of results, each with a full [technical report](../reports/README.md
   puzzled over for centuries, are the visible seam of a forced trade-off — not damage, and not sloppiness.
   [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
 - **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
-  turns out to be mathematically *optimal* (Radisic 2026). The other half is explained by nothing anyone
+  turns out to be mathematically *optimal* ([Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
   has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
 
 Each of these is machine-verifiable — the reports include the exact commands and certificates.
@@ -227,7 +227,7 @@ ROAE's contribution to the study of the King Wen sequence — distinct from what
 
 - The pair structure (Rule 1) is ancient, discussed in *Yi Zhuan* commentary (5th–3rd c. BCE), formalized in modern combinatorial terms in **Cook 2006** (*Classical Chinese Combinatorics*).
 - The no-5-line-transition property (our Rule 2 = C2) is documented in **McKenna & McKenna 1975** (*The Invisible Landscape*, Chapter 9 "Order in the I Ching and Order in the World"). In the same chapter McKenna also identifies two additional design rules: a secondary "minimize transitions of value 1 except where doing so would force a value 5" rule and a "three to one ratio of even to odd transitions" rule. The 3:1 ratio is provably forced by C4+C5 per the Theorem in [SPECIFICATION.md](SPECIFICATION.md) — derived from first principles, not a separate constraint. The value-1 rule was empirically measured (`solve --verify-rule2` on the v2 11.2T canonical, 2026-05-19) and found to be a real KW-specific regularity (83.77% of C1-C5 records violate it) but NOT promoted to a formal C-rule, because it would be reverse-engineered from KW's specific value-1 placements; see [MCKENNA.md](MCKENNA.md) for the full peer-review-defensibility analysis.
-- **Statistical properties of King Wen vs random permutations** are documented in **Chan 2026** (arXiv:2604.09234) — Monte Carlo permutation analysis against 100,000 random baselines, reporting KW's higher-than-random mean Hamming distance (3.35 at 98.2nd percentile), negative lag-1 autocorrelation of Hamming distances (3.7th percentile), within-pair vs between-pair distance asymmetry (99.2nd percentile), yang-balanced groups of four (99.8th percentile), and surprise-distribution variance. Chan's research predates ROAE; where ROAE's findings overlap with Chan's (specifically: the mean-Hamming, lag-1 autocorrelation, and within/between-pair asymmetry observations) Chan's prior art is acknowledged.
+- **Statistical properties of King Wen vs random permutations** are documented in **[Chan 2026](CITATIONS.md#chan2026)** (arXiv:2604.09234) — Monte Carlo permutation analysis against 100,000 random baselines, reporting KW's higher-than-random mean Hamming distance (3.35 at 98.2nd percentile), negative lag-1 autocorrelation of Hamming distances (3.7th percentile), within-pair vs between-pair distance asymmetry (99.2nd percentile), yang-balanced groups of four (99.8th percentile), and surprise-distribution variance. Chan's research predates ROAE; where ROAE's findings overlap with Chan's (specifically: the mean-Hamming, lag-1 autocorrelation, and within/between-pair asymmetry observations) Chan's prior art is acknowledged.
 
 **What ROAE adds:**
 
@@ -239,7 +239,7 @@ ROAE's contribution to the study of the King Wen sequence — distinct from what
 
 4. **C3 (complement-distance ceiling of 776) as a specifically quantified constraint.** Believed ROAE-original; if prior work exists, please see [CITATIONS.md](CITATIONS.md).
 
-5. **Mawangdui and Jing Fang 8 Palaces comparison** *(corrected 2026-07-05)*. Of four tested historical orderings (Fu Xi, King Wen, Mawangdui, Jing Fang), **King Wen and Jing Fang's 8 Palaces (c. 77-37 BCE) satisfy C2** (zero 5-line transitions) despite Jing Fang failing C1 and C3. The authentic **Mawangdui silk-text ordering (168 BCE) does not**: it has exactly one 5-line transition, at the octet seam where its trigram-block construction resets (#48 Jing → #51 Zhen). An earlier version of this item reported that Mawangdui also satisfied C2 and inferred a "shared classical Chinese design principle" — that was computed on an erroneous Mawangdui array and is **withdrawn** (see CITATIONS.md errata; corrected array per Shaughnessy 2022, Table 11.2).
+5. **Mawangdui and [Jing Fang](CITATIONS.md#jingfang) 8 Palaces comparison** *(corrected 2026-07-05)*. Of four tested historical orderings (Fu Xi, King Wen, Mawangdui, Jing Fang), **King Wen and Jing Fang's 8 Palaces (c. 77-37 BCE) satisfy C2** (zero 5-line transitions) despite Jing Fang failing C1 and C3. The authentic **Mawangdui silk-text ordering (168 BCE) does not**: it has exactly one 5-line transition, at the octet seam where its trigram-block construction resets (#48 Jing → #51 Zhen). An earlier version of this item reported that Mawangdui also satisfied C2 and inferred a "shared classical Chinese design principle" — that was computed on an erroneous Mawangdui array and is **withdrawn** (see CITATIONS.md errata; corrected array per [Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2).
 
 6. **Latin-square C2-rate decomposition.** The 8! × 8! Latin-square row × column traversal family has a surprisingly high C2 rate (57.96%). ROAE provides an analytic decomposition that reproduces this rate exactly from first principles: only 7 of 63 transitions in a Latin-square traversal can be 5-line, and the rate is controlled by the row-permutation's Hamming profile (Hamiltonian path in the 3-cube) combined with the column-permutation's first-last XOR. See [CRITIQUE.md §Latin-square C2-rate decomposition](CRITIQUE.md).
 

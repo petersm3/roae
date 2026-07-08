@@ -9,7 +9,7 @@ sign-off) BEFORE computation, and the sensitivity grid reported in full.
 ## The question
 KW deviates from perfect compliance with the literature's three strongest rules by exactly one 3-edit
 event at the historically-flagged locus. Two live readings:
-- **M_corr (corruption):** an originally rule-perfect ordering; a small transmission corruption (Rutt's
+- **M_corr (corruption):** an originally rule-perfect ordering; a small transmission corruption ([Rutt's](../../../documentation/CITATIONS.md#rutt1996)
   bamboo-slat mechanism gives physical plausibility) produced the received sequence.
 - **M_tend (tendency):** the arranger followed the rules as soft preferences (strength λ), never exactly;
   the anomaly is an ordinary imperfection.

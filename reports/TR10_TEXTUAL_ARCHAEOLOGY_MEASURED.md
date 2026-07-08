@@ -6,7 +6,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 ## Executive summary
 
-In 2012 the anthropologist Scott Davis published the most detailed structural reading of the King Wen
+In 2012 the anthropologist [Scott Davis](../documentation/CITATIONS.md#davis2012) published the most detailed structural reading of the King Wen
 sequence in decades — arguing that the received ordering is a deliberate, holistic design built from
 mid-scale compositional units, and that the centuries-old hunt for a global generating algorithm misses
 how its composers actually worked. Unusually for this literature, Davis made **concrete, checkable
@@ -52,7 +52,7 @@ notational scoring — is accepted and stated.
    5/6 slot, assembled from mid-scale modules — Big and Little Hexagram segments, paired compositional
    devices, a designed terminal (pp. 59–120, 121–148, 247–258). He is explicit that the design idiom is
    "ethnomathematical" and modular, *not* an algorithm: the search for a closed-form generator "runs a
-   high risk" of anachronism (paraphrase, p. 67), and he cites Gardner (1974) approvingly for the
+   high risk" of anachronism (paraphrase, p. 67), and he cites [Gardner (1974)](../documentation/CITATIONS.md#gardner) approvingly for the
    absence of global mathematical pattern beyond the pairing (p. 84 n6) — while asserting rich local
    and mid-scale structure, e.g. the first Big-and-Little segment laid out in "strictest symmetry" (p. 96) and
    the Big and Little group as "undeniably designed" (p. 116). Two things deserve plain credit. First,
@@ -69,7 +69,7 @@ notational scoring — is accepted and stated.
    commit `2d19a3f`, 2026-07-04) **before any population number had been observed**, with decision
    thresholds frozen in advance: "notable" = two-sided p < 0.05/9 (Bonferroni, 5.56×10⁻³); "candidate
    rule" = < 10⁻⁴ AND passing the corpus-control specificity gate (the same functional must not flag on
-   Jing Fang's Eight Palaces or the Mawangdui ordering); all nine reported regardless of outcome; and —
+   [Jing Fang](../documentation/CITATIONS.md#jingfang)'s Eight Palaces or the Mawangdui ordering); all nine reported regardless of outcome; and —
    per the standing extraction-circularity policy — **nothing promotes to a solver constraint
    regardless of outcome**. Operationalizations are embedded, two-language verified, and public:
    `solve.py` is the spec (`dav_*` functions), `solve.c` the measurement engine, and the cross-gate
@@ -162,7 +162,7 @@ notational scoring — is accepted and stated.
    (solve.py); errors of formalization are ours, not Davis's; corrections are welcome via
    CITATIONS.md. Davis's own formal debts are credited as he states them: Dai Sike (1978) for the 7–16
    symmetry, Li Shangxin for the pair-unit trisection, Gardner (1974) for the no-global-pattern
-   verdict; overlaps between his observations and Schulz's and Cook's are recorded in the attribution
+   verdict; overlaps between his observations and Schulz's and [Cook's](../documentation/CITATIONS.md#cook2006) are recorded in the attribution
    registry. What is claimed here: nine pre-registered population measurements (four null, one
    notable, one borderline, three data-like), one exact refutation of a uniqueness claim, one
    withdrawn refutation, and no promotion of anything into the constraint system. What is *not*
@@ -203,5 +203,5 @@ notational scoring — is accepted and stated.
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | Initial private draft (roae-private staging); adversarial review pending before any public release |
-| v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per Shaughnessy 2022, Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
+| v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per [Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
 | v1.1-draft | 2026-07-04 | Hostile pre-publication review pass: "strictest symmetry" page cite corrected (p. 112 → p. 96, verified against the book); "undeniably designed" (p. 116) re-scoped to the Big-and-Little group rather than the 7–16 block; §5(a) "came back null" corrected to reflect the one Bonferroni-notable row; §5(b) softened to "largely against him" with the trigarray exception stated, and mixed percentile conventions replaced by the table's tail masses; pureplace "exactly at threshold" → "at the threshold to reported precision" (measured 5.56×10⁻³ vs 0.05/9 = 5.56×10⁻³ at 3 s.f.). All table masses re-derived from dav_tier1.out; refutation and corpus-control numbers independently recomputed; both `--dav-verify` gates re-run (PASS) |

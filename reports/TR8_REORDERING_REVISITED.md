@@ -6,7 +6,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 ## Executive summary
 
-In 1979, McKenna and Mair proposed that the King Wen sequence would be "better" reordered — that a
+In 1979, [McKenna and Mair](../documentation/CITATIONS.md#mckenna-mair1979) proposed that the King Wen sequence would be "better" reordered — that a
 rearrangement could smooth its irregularities. The proposal sat untested for 47 years. This report
 answers it twice. First, by measurement: the properties their argument assumed to be defects are, when
 checked against the space of valid orderings, among the sequence's rarest and most distinctive features
@@ -48,7 +48,7 @@ analysis. We supply the instruments their question required.
    mass fractions; note C2/C5 are themselves regularities read off the received order, so this null is
    conservative, not "undisputed"; (b) the pair-only (C1) space, 32!·2³² ≈ 1.1×10⁴⁵ — the truly
    undisputed structure, checkable by direct seeded sampling on a laptop (Commands below). Table of
-   measured rule rarities for THREE rules only (over population (a): Moore parity ×1,362; Schulz gender
+   measured rule rarities for THREE rules only (over population (a): [Moore](../documentation/CITATIONS.md#moore2005) parity ×1,362; [Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender
    ×11,364; the 18:18 split ×2.7 as the honest weak case; the gender rule re-measured against null (b)
    by direct sampling lands at the same order, ~1×10⁻⁴) with sources credited (rules are
    Zhu Yuansheng/Schulz/Moore observations, not ours; measurement is ours). Verifiability box: exact
@@ -56,7 +56,7 @@ analysis. We supply the instruments their question required.
 3. **The proposal, decided** — Theorem: no Gray-code ordering satisfies the pair structure. Proof:
    within-pair Hamming distances are always even and nonzero (machine-checked, kernel-verified; also a
    two-line parity argument in-text); Gray adjacency requires distance 1. Their specific construction
-   also evaluated directly. (Also cite the modern complement: Radisic 2026 proves the pairing is the
+   also evaluated directly. (Also cite the modern complement: [Radisic 2026](../documentation/CITATIONS.md#radisic2026) proves the pairing is the
    unique Hamming-optimal matching — the structure they discarded is, by a natural criterion, the optimal
    part.)
 4. **What their question opened** — the constructed-alternative methodology at scale; one forward pointer

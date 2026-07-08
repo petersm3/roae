@@ -6,7 +6,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 ## Executive summary
 
 What if the sequence is a circle — the last hexagram wrapping around to the first? Several scholars,
-notably Terence McKenna, read it that way. This report re-derives the mathematics under the circular
+notably [Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975), read it that way. This report re-derives the mathematics under the circular
 reading. Two results stand out. First, the wrap-around step is **forced to be odd** (proved formally),
 which makes McKenna's observed 3-to-1 ratio of even-to-odd transitions a necessity, not a choice.
 Second, a surprise: the sequence's missing distance-5 transition is a **genuine extra rule** in the
@@ -122,7 +122,7 @@ always.*
 
 ## Prior work note (v1.7)
 
-Peter Meyer (1998, web) published the complete cyclic line-change sequence of the King Wen order —
+[Peter Meyer](../documentation/CITATIONS.md#meyer1998) (1998, web) published the complete cyclic line-change sequence of the King Wen order —
 the 64 Hamming distances including the wraparound term — with an explicit XOR-and-popcount
 formalization (see CITATIONS.md). His data thus contains the wrap value d=3 this report analyzes,
 decades before this work; the wrap-parity theorem, the d in {1,3,5} space analysis, and the

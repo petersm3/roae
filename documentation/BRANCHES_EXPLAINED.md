@@ -31,12 +31,12 @@ is different:
   each other (every line flipped) or upside-down versions of each
   other. *This is a classical observation* — it appears in the *Yi
   Zhuan* commentary tradition (~5th-3rd c. BCE) and is presented
-  rigorously in modern form by Wilhelm & Baynes (1967) and Cook (2006).
+  rigorously in modern form by [Wilhelm & Baynes (1967)](CITATIONS.md#wilhelm-baynes1967) and [Cook (2006)](CITATIONS.md#cook2006).
   Not novel to ROAE.
 - **C2 — No 5-line transitions.** No two consecutive hexagrams differ
   by exactly 5 lines. Within a pair this is automatic, so in practice
   the rule constrains the boundaries between consecutive pairs.
-  *Identified by Terence McKenna* in *The Invisible
+  *Identified by [Terence McKenna](CITATIONS.md#mckenna-mckenna1975)* in *The Invisible
   Landscape* (1975), and independently by Cook (2006) in his combinatorial
   analysis. Not novel to ROAE.
 - **C3 — Complement distance.** Every hexagram has a complement (every
