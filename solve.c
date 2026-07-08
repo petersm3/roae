@@ -13062,7 +13062,9 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     }
     /* intra-layer checkpoint cadence + deterministic kill hook (test-only) */
     double last_ckpt_wt = omp_get_wtime();
-    const double CKPT_INTERVAL_S = 300.0;   /* ~5 min wall between snapshots */
+    double CKPT_INTERVAL_S = 300.0;   /* ~5 min wall between snapshots */
+    { const char *e = getenv("SOLVE_F1_CKPT_SEC");   /* test/tuning override of the cadence */
+      if (e && *e) { double v = atof(e); if (v > 0.0) CKPT_INTERVAL_S = v; } }
     long long kill_after_chunk = -1;
     { const char *e = getenv("SOLVE_F1_KILL_AFTER_CHUNK");
       if (e && *e) kill_after_chunk = atoll(e); }
