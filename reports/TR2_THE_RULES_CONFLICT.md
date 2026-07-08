@@ -46,7 +46,12 @@ trade-off among competing regularities — precisely the reading Schulz proposed
 
 ## Structure (6 sections)
 1. **The rules and their authors** (fully attributed narrative: Zhu Yuansheng -> Lai Zhide -> Schulz ->
-   Moore; the anomaly locus as an eight-century observation). Humanities register.
+   Moore; the anomaly locus as an eight-century observation). Humanities register. **Precision (per the
+   2026-07-08 first-hand "Structural Motifs" audit): make the Schulz year-split explicit — the *gender
+   rule* is Schulz 1990; the *S25–28 dui-trigram configuration* (CC-N4) and *exception co-location*
+   (CC-N8) are Schulz 2011/2016. The four conflicting rules span three Schulz publications; the 1990
+   paper is internally consistent (its three motifs are compatible tendencies), so the reader must not
+   infer the conflict lives inside any single paper.**
 2. **Method in one page**: the pair-structure space; what a SAT solver decides; what a certificate is;
    the two-way encoding validation (KW-forced tests) in plain language. Verifiability box.
 3. **Moore's precursor exists** (witness, printed in full; 3-edit minimality with certificate).
