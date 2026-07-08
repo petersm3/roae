@@ -12407,14 +12407,21 @@ static void f1c5_ooc_pwrite(int fd, const void *buf, uint64_t len, uint64_t off,
  * consecutive blocks → sequential inflate). SHA-NEUTRAL: the count is computed on
  * DECOMPRESSED bytes, byte-identical to v1 (validated by --f1c5-gzip-selftest and
  * small-n v1==v2). Native zlib only (compress2/uncompress; internal transient
- * files, never a published .gz). Level = SOLVE_F1_OOC_GZIP_LEVEL (default 6, 1..9;
- * the OOC count is I/O-bound with idle CPU, so higher levels are ~free — test 9).
- * Retool 2026-07-07, Claude (Opus), operator-directed. */
+ * files, never a published .gz). Level = SOLVE_F1_OOC_GZIP_LEVEL (env override, 1..9);
+ * embedded DEFAULT is 9 (decided 2026-07-08). Rationale: the OOC count is read-heavy +
+ * I/O-bound (each layer is written once, then read to build the next), and gzip DECOMPRESS
+ * speed is level-independent — so level 9's smaller files make the recurring reads faster
+ * at zero read-side cost and shrink the disk (the retool's cost goal); only the one-time
+ * write per layer pays 9's extra compression CPU, spent on cores idle during I/O waits.
+ * Level-INVARIANT for the count (validated 1==6==9). Confirm at GB scale via the launcher
+ * startup probe — toy-n test layers are KB, too small for I/O to show. (The transient
+ * merge, SOLVE_MERGE_TEMP_GZIP_LEVEL, stays 6: it is CPU-bound on fast disk, a different
+ * workload.) Retool 2026-07-07 / level default 2026-07-08, Claude (Opus), operator-directed. */
 
 static int f1c5_ooc_gzip_level(void) {
     const char *e = getenv("SOLVE_F1_OOC_GZIP_LEVEL");
     if (e && *e) { int v = atoi(e); if (v >= 1 && v <= 9) return v; }
-    return 6;
+    return 9;   /* embedded default — see rationale above */
 }
 
 /* Compress srcLen bytes into dst (must have capacity >= compressBound(srcLen));
