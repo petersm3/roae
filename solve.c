@@ -13059,6 +13059,7 @@ int main(int argc, char *argv[]) {
     int prove_self_comp_mode = 0;
     int prove_shift_mode = 0;
     int analyze_mode = 0;
+    int c3dist_only = 0;   /* --c3-dist: run only the C3 histogram fast-path in the analyze block */
     int show_mode = 0;
     char *validate_file = NULL;
     char *verify_file = NULL;
@@ -13321,6 +13322,10 @@ int main(int argc, char *argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
+        analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
+        arg_offset = argc;
+    } else if (argc > 1 && strcmp(argv[1], "--c3-dist") == 0) {
+        analyze_mode = 1; c3dist_only = 1;   /* only the C3 (complement-distance) histogram */
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--verify") == 0) {
@@ -16235,6 +16240,59 @@ int main(int argc, char *argv[]) {
         printf("    format:     ROAE v%d; record fmt %d bytes (pair_index<<2 | orient<<1)\n",
                SOL_FORMAT_VERSION, SOL_RECORD_SIZE);
         printf("    backed by:  mmap (PROT_READ, MAP_PRIVATE)\n\n");
+
+        if (c3dist_only) {
+            /* --c3-dist: ONLY the total complement-distance (C3, x64) distribution
+             * over the record set — a single parallel pass, tiny memory. Added
+             * 2026-07-08 to re-measure the C3=776 tie-fraction at 560T without the
+             * full --analyze (whose ~40 GB bitmaps + subset/MI sections are
+             * infeasible on 10.5B records). Read-only → sha-neutral; reuses the
+             * same mmap/header/pairs/KW setup as --analyze. Mirrors section [22]. */
+            #define C3D_MAX 2048
+            long long *cd_hist = calloc(C3D_MAX, sizeof(long long));
+            if (!cd_hist) { printf("ERROR: c3-dist hist alloc failed\n");
+                            gz_mmap_close(mmap_base, full_size, gz_tmp); return 1; }
+            time_t tc3 = time(NULL);
+            #pragma omp parallel
+            {
+                long long *lh = calloc(C3D_MAX, sizeof(long long));
+                #pragma omp for schedule(static)
+                for (long long i = 0; i < n_sols; i++) {
+                    const unsigned char *rec = all + i * SOL_RECORD_SIZE;
+                    int seq[64];
+                    for (int p = 0; p < 32; p++) {
+                        int pi = rec[p] >> 2, o = (rec[p] >> 1) & 1;
+                        seq[2*p]     = o ? pairs[pi].b : pairs[pi].a;
+                        seq[2*p + 1] = o ? pairs[pi].a : pairs[pi].b;
+                    }
+                    int cd = compute_comp_dist_x64(seq);
+                    if (lh && cd >= 0 && cd < C3D_MAX) lh[cd]++;
+                }
+                if (lh) {
+                    #pragma omp critical
+                    for (int c = 0; c < C3D_MAX; c++) cd_hist[c] += lh[c];
+                    free(lh);
+                }
+            }
+            long long tie = (kw_comp_dist_x64 >= 0 && kw_comp_dist_x64 < C3D_MAX)
+                            ? cd_hist[kw_comp_dist_x64] : 0;
+            long long total = 0; int cmin = -1, cmax = -1;
+            for (int c = 0; c < C3D_MAX; c++)
+                if (cd_hist[c] > 0) { if (cmin < 0) cmin = c; cmax = c; total += cd_hist[c]; }
+            printf("[c3-dist] complement-distance (C3, x64) over %lld records — %lds\n",
+                   n_sols, (long)(time(NULL) - tc3));
+            printf("    KW C3 value: %d  (the C3 ceiling; enforced cd <= this)\n", kw_comp_dist_x64);
+            printf("    records tying KW at %d: %lld  (%.6f%% of %lld)\n",
+                   kw_comp_dist_x64, tie, total ? 100.0 * (double)tie / (double)total : 0.0, total);
+            printf("    C3 range in dataset: [%d, %d]; records histogrammed: %lld\n",
+                   cmin, cmax, total);
+            printf("    full non-zero distribution (C3_value: count):\n");
+            for (int c = 0; c < C3D_MAX; c++)
+                if (cd_hist[c] > 0) printf("      %4d: %lld\n", c, cd_hist[c]);
+            free(cd_hist);
+            gz_mmap_close(mmap_base, full_size, gz_tmp);
+            return 0;
+        }
 
         /* Complement-pair table: used by sections [20] and [22].
          * For each pair p, comp_pair_idx[p] = pair index of (a^0x3F, b^0x3F).
