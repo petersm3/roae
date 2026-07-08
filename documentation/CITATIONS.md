@@ -259,7 +259,7 @@ promotion of these rules into the formal constraint system carries these credits
 - **18:18 two-part class split** (18 inversion-classes in each half of the text): classical observation —
   **Zheng Qiao** (c. 1104–1162) and **Hu Yigui** (b. 1247, the 36-figure condensation); modern treatment
   **Hacker, E. & Moore, S.,** "A brief note on the two-part division of the received order of the hexagrams
-  in the Zhouyi," *Journal of Chinese Philosophy* 30:2 (2003), 219–221; also Cook 2006.
+  in the Zhouyi," *Journal of Chinese Philosophy* 30:2 (2003), 219–221 ([doi:10.1163/15406253-03002005](https://doi.org/10.1163/15406253-03002005)); also Cook 2006.
 - **Pair-positioning parity rule** (yang-preponderant pairs at odd pair-positions, yin-preponderant at even;
   14 balanced pairs exempt; King Wen complies 16/18 with the two violations at adjacent pair positions
   22–23): **Moore, Steve,** "Structural Elements in the King Wen Sequence of Hexagrams," *Oracle Papers*
@@ -399,7 +399,7 @@ Seabury Press.
   construction. [analyzed]
 
 McKenna, S. E., & Mair, V. H. (1979). A reordering of the hexagrams of the I Ching. *Philosophy East and
-West, 29*(4), 421–441.
+West, 29*(4), 421–441. [doi:10.2307/1398813](https://doi.org/10.2307/1398813)
   Gray-code replacement proposal; its structural-poverty premise is now measured and refuted; first to
   test the sequence against constructed alternatives. [analyzed]
 
@@ -409,6 +409,18 @@ Moore, S. (1989). *The trigrams of Han: Inner structures of the I Ching*. Aquari
 Moore, S. (2005). *Structural elements in the King Wen sequence* (Oracle Papers No. 1).
   Source of the pair-positioning parity rule (R-M1) and the corruption/precursor conjecture, materialized
   by SAT in 2026. [analyzed]
+
+Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah. (OCLC 29364796.)
+  Earliest source located by us that represents the King Wen hexagrams as binary numbers under the
+  bottom-line-as-least-significant-bit convention ROAE also uses (p. 7), and lays the sequence out as an
+  8×8 numeric square. Olsvanger himself attributes the 0/1 line-valuation to Leibniz (p. 15), claiming
+  novelty only for the binary analysis of the square. His symmetric "magic-group" sum properties (pp. 11–14)
+  are arithmetic features of that specific layout, not constraints on the ordering; his pairing rule
+  (a hexagram with its reversal, or its complement when self-reversal-invariant, p. 4) is the classical
+  pair structure, obtained under free within-pair orientation — the orientation layer is relaxed, not
+  resolved. No adjacency (C2), complement-distance (C3), fixed-start (C4), or wrap-around content. We credit
+  the binary-representation precedent to Olsvanger 1948 and invite correction on earlier sources.
+  [analyzed first-hand 2026-07-08]
 
 Radisic, A. (2026). *Optimal equivariant matchings on the 6-cube, with an application to the King Wen
 sequence*. arXiv. https://arxiv.org/abs/2601.07175
@@ -428,12 +440,14 @@ Princeton University].
   18:18 count, line-balance symmetry). [analyzed]
 
 Schulz, L. J. (1990). Structural motifs in the arrangement of the 64 gua in the Zhouyi. *Journal of
-Chinese Philosophy, 17*(3), 345–358.
+Chinese Philosophy, 17*(3), 345–358. [doi:10.1163/15406253-01703004](https://doi.org/10.1163/15406253-01703004)
   Three motifs over the consolidated units; motif 2 is the strongest measured discriminator (×11,364),
-  with exceptions at stations 25/26. [read]
+  with exceptions at stations 25/26. First-hand read 2026-07-08 confirms ROAE's attribution + dual-CNF
+  encoding are correct: the gender rule (motif 2) originates here, but the other conflict-theorem rules
+  (S25–28 trigram, exception co-location) are Schulz 2011/2016 — no internal conflict in this paper. [read]
 
 Schulz, L. J. (2011). Structural elements in the Zhou Yijing hexagram sequence. *Journal of Chinese
-Philosophy, 38*(4), 639–665.
+Philosophy, 38*(4), 639–665. [doi:10.1163/15406253-03804010](https://doi.org/10.1163/15406253-03804010)
   Ten-element taxonomy; first formalization of the "exception-proves-the-rule" design principle at
   stations 25/26. [analyzed]
 
@@ -538,7 +552,7 @@ Wikipedia and OEIS entries used for reader orientation and the binary encoding a
 
 ## Goldenberg, Daniel S. (1975)
 "The Algebra of the I Ching and Its Philosophical Implications." *Journal of Chinese Philosophy* 2
-(March 1975): 149–79. The earliest algebraic formalization of the hexagram set known to this
+(March 1975): 149–79. [doi:10.1163/15406253-00202003](https://doi.org/10.1163/15406253-00202003) The earliest algebraic formalization of the hexagram set known to this
 project: line symbols as GF(2), hexagrams as the mod-2 ring (= GF(2)⁶), the inversion automorphism,
 and the "mediating hexagram" (XOR difference) of any pair — set-level prior art for the vector-space
 framing used throughout this repository, distinct from our ordering-level constraint results
