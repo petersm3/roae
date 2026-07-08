@@ -1,3 +1,5 @@
+-- https://github.com/petersm3/roae
+-- Developed with AI assistance (Claude, Anthropic)
 /-
   Automorphism.lean — machine-checked sequence-level symmetry layer (2026-07-05).
   Core Lean 4 only (no mathlib). Formalizes the passage from the finite symmetry

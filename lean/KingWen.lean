@@ -1,3 +1,5 @@
+-- https://github.com/petersm3/roae
+-- Developed with AI assistance (Claude, Anthropic)
 /-
   KingWen.lean — machine-checked core lemmas of the ROAE constraint system (2026-07-02).
   Core Lean 4 only (no mathlib). All hexagram-level claims are finite and proved by

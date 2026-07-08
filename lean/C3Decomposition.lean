@@ -1,3 +1,5 @@
+-- https://github.com/petersm3/roae
+-- Developed with AI assistance (Claude, Anthropic)
 /-
   C3Decomposition.lean — machine-checked C3 slot-decomposition theorem (2026-07-04).
   Core Lean 4 only (no mathlib). Formalizes the mini-theorem discovered during the
