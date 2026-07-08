@@ -26,6 +26,8 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 ### d3 560T — current deepest
 
+**Visualization:** [PCA scatter plots](../viz/viz_pca.md) (this 560T canonical solution set projected into 2-D) · [growth curve & campaign telemetry](../viz/viz_graphs.md) (how the space fills and how the run executed).
+
 > **✅ STATUS: CANONICAL-verified (resolved 2026-06-30).** This sha was **SUSPECT** from 2026-06-21 to 2026-06-30.
 > The concern: a determinism defect in the solver's eviction-resume path (identified 2026-06-21) — a per-cell
 > checkpoint (`.dfs_state`) could be made durable *before* its solutions shard (`.bin`), so a Spot eviction in
