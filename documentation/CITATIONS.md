@@ -12,8 +12,8 @@ This document lists prior published work on the mathematical structure of the Ki
 
 The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs is a **classical observation**, not novel to any modern author. It appears in the earliest layers of I Ching commentary (the *Yi Zhuan* or "Ten Wings," traditionally attributed to Confucius, ~5th–3rd c. BCE, though modern dating is later). The explicit modern formulation is given in:
 
-- **Wilhelm, Richard and Baynes, Cary F. (trans.)** (1967). *The I Ching or Book of Changes*. 3rd edition, Princeton University Press / Bollingen Series. The pairing convention is used throughout. ISBN 978-0-691-09750-3.
-- **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/2023/http://www.lulu.com/stedt)) (ISBN 0-944613-44-6).
+- **Wilhelm, Richard and Baynes, Cary F. (trans.)** (1967). *The I Ching or Book of Changes*. 3rd edition, Princeton University Press / Bollingen Series. The pairing convention is used throughout. ISBN 978-0-691-09750-3. [Open Library](https://openlibrary.org/isbn/9780691097503)
+- **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. [Open Library](https://openlibrary.org/isbn/9780944613443) Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/2023/http://www.lulu.com/stedt)) (ISBN 0-944613-44-6).
 
 **Status in ROAE:** ROAE independently encodes this rule as constraint C1 and uses it as the starting point of the enumeration. Not novel to ROAE.
 
@@ -21,7 +21,7 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 
 The observation that consecutive hexagrams in the King Wen sequence **never differ by exactly five lines** is attributed to Terence McKenna.
 
-- **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (reprinted HarperCollins 1994, ISBN 0-06-250635-8 / 978-0062506351). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 (= our **C2**); (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
+- **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (reprinted HarperCollins 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 (= our **C2**); (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
 - *Status of earlier references:* The 1975 first edition (Seabury Press) contains the same I Ching analysis as the 1994 HarperCollins reprint; the work was reprinted, not revised. The underlying intuitions date to the McKennas' 1971 Amazonian expedition (see *True Hallucinations*, 1993, and Timewave-Zero biographical sources). No pre-1975 peer-reviewed paper or published lecture transcript on the I Ching analysis has been located via open web sources.
 - Cook (2006) also presents the 5-line absence as part of the broader combinatorial analysis; independently derived within his framework.
 
@@ -50,7 +50,7 @@ The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~70
 
 ### Mawangdui silk-text ordering
 
-- **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
+- **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. [Open Library](https://openlibrary.org/isbn/9780345362438) Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
 - **Shaughnessy, Edward L.** (2022). *The Origin and Early Development of the Zhou Changes*. Leiden: Brill (Prognostication in History 9). Open access. **The authority for the Mawangdui ordering array used by ROAE** (p. 50 + Table 11.2: eight octets by upper trigram Qian, Gen, Kan, Zhen, Kun, Dui, Li, Xun; lower trigrams cycling Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with the octet's own trigram promoted to first).
 
 **ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped (TR-1's F5 corpus gate and TR-10's specificity gate both still pass — in both cases more cleanly). See also:
@@ -385,7 +385,7 @@ Philosophy, 14*(1), 59–64. [doi:10.1163/15406253-01401003](https://doi.org/10.
 Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [not obtained]
 
 Huang, A. (2000). *The numerology of the I Ching: A sourcebook of symbols, structures, and traditional
-wisdom*. Inner Traditions.
+wisdom*. Inner Traditions. [Open Library](https://openlibrary.org/works/OL8444700W)
   Independent 18:18-aware "hidden balance" reasoning, rejected by Hacker & Moore (2003) as special
   pleading. [secondary]
 
@@ -403,14 +403,14 @@ West, 29*(4), 421–441. [doi:10.2307/1398813](https://doi.org/10.2307/1398813)
   Gray-code replacement proposal; its structural-poverty premise is now measured and refuted; first to
   test the sequence against constructed alternatives. [analyzed]
 
-Moore, S. (1989). *The trigrams of Han: Inner structures of the I Ching*. Aquarian Press.
+Moore, S. (1989). *The trigrams of Han: Inner structures of the I Ching*. Aquarian Press. [Open Library](https://openlibrary.org/works/OL2534956W)
   Source of the rising/falling rhythm rule (R-M2) and the pairs-22/23 anomaly discussion. [analyzed]
 
 Moore, S. (2005). *Structural elements in the King Wen sequence* (Oracle Papers No. 1).
   Source of the pair-positioning parity rule (R-M1) and the corruption/precursor conjecture, materialized
   by SAT in 2026. [analyzed]
 
-Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah. (OCLC 29364796.)
+Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah. (OCLC [29364796](https://search.worldcat.org/oclc/29364796).)
   Earliest source located by us that represents the King Wen hexagrams as binary numbers under the
   bottom-line-as-least-significant-bit convention ROAE also uses (p. 7), and lays the sequence out as an
   8×8 numeric square. Olsvanger himself attributes the 0/1 line-valuation to Leibniz (p. 15), claiming
@@ -427,7 +427,7 @@ sequence*. arXiv. https://arxiv.org/abs/2601.07175
   Lean-verified proof that the C1 pairing is the unique Hamming-cost optimum — the first first-principles
   derivation of any constraint layer. [read]
 
-Rutt, R. (1996). *Zhouyi: The Book of Changes*. Curzon Press.
+Rutt, R. (1996). *Zhouyi: The Book of Changes*. Curzon Press. [Open Library](https://openlibrary.org/works/OL4988348W)
   Bamboo-slat cord-fraying physical corruption mechanism (p. 105), via Hacker & Moore (2003). [secondary]
 
 Schöter, A. (1998). Boolean algebra and the Yi Jing.
@@ -560,7 +560,7 @@ framing used throughout this repository, distinct from our ordering-level constr
 entry B:154; annotation-level knowledge only until the article is acquired (JCP basket, July 2026).
 
 ## Nielsen, Bent (2003)
-*A Companion to Yi jing Numerology and Cosmology.* RoutledgeCurzon. Encyclopedic reference for the
+*A Companion to Yi jing Numerology and Cosmology.* RoutledgeCurzon. [Open Library](https://openlibrary.org/works/OL4004550W) Encyclopedic reference for the
 Han-through-Song numerological systems; used here as the authoritative source for classical-sequence
 definitions. Three specific debts: (1) his Jing Fang eight-palace table (after Hui Dong) verified our
 corpus-gate generator cell-for-cell (all 64), grounding TR-1 §7's Jing Fang control; (2) his Wu Deng
