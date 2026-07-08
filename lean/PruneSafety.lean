@@ -1,3 +1,5 @@
+-- https://github.com/petersm3/roae
+-- Developed with AI assistance (Claude, Anthropic)
 /-
   PruneSafety.lean — machine-checked v4 walk-level prune-safety lemma (2026-07-04).
   Core Lean 4 only (no mathlib). Formalizes V4_PRUNE_SAFETY_LEMMA.md in full
