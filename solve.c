@@ -12763,6 +12763,211 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
     free(o->bk); free(o->bv); free(o->kc); free(o->vc);
 }
 
+/* ===================== INTRA-LAYER CHECKPOINT (Technique 1: STATE-SNAPSHOT/RESTORE)
+ * ================================================================================
+ * Resume a PARTIAL v2 layer mid-build after a Spot eviction WITHOUT redoing the
+ * (multi-hour) layer. Written at chunk boundaries (~5-min wall cadence + always
+ * on the kill hook). CORRECTNESS-CRITICAL — a bug is a SILENT WRONG COUNT — so:
+ *   (a) crash-consistent: the sidecars (.kblk.tmp/.vblk.tmp) are fsync'd BEFORE
+ *       the marker is written, and the marker is written tmp+fsync+rename+dir-fsync
+ *       (atomic). A kill can only APPEND to the sidecars past the marker, never
+ *       shorten them, so on resume the recorded byte offsets are always durable.
+ *   (b) validated before ANY bytes are reinterpreted: magic + nxt->k + pl_hash +
+ *       chunk_cap + F1C5_OOC_BLK must all match, the sidecars must exist and be at
+ *       least the marker's recorded size, and the entry-conservation invariant
+ *       off[t0_next] == nblk*BLK + fill must hold. Any mismatch => discard the
+ *       marker and rebuild the layer fresh (always correct; overwrites the file).
+ *   (c) block-aligned: fill/bk/bv restore the partial-block accumulator so the
+ *       resumed push sequence is byte-identical => deterministic gzip => the final
+ *       layer file is byte-for-byte identical to the straight-through build.
+ * v2 ONLY. The v1 path and the fresh (no-checkpoint) path are byte-for-byte
+ * unchanged. Attribution: design + implementation by Claude (Opus), operator-
+ * directed N-version checkpoint effort 2026-07-08. */
+#define F1C5_BUILD_CKPT_MAGIC "F1C5BLD1"
+
+/* Serialize a chunk-boundary snapshot to <dir>/f1c5_build.ckpt. Order (all little-
+ * endian native, matching f1c5_build_ckpt_read): magic[8], nxt_k, pl_hash,
+ * chunk_cap, BLK, t0_next, off[0..t0_next], nblk, kidx[0..nblk], vidx[0..nblk],
+ * fill, bk[0..fill], bv[0..fill], mass{l0,l1,l2}, states, io{read,written,windows}. */
+static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_hash,
+                                  uint64_t chunk_cap, uint64_t t0_next,
+                                  const uint64_t *off, const F1C5V2Out *o,
+                                  const F1U192 *mass, uint64_t states,
+                                  const F1C5OocIo *io) {
+    /* (a) sidecars durable FIRST — the marker must never reference bytes that
+     * are not yet on stable storage. */
+    if (fsync(o->kfd) != 0) f1_ckpt_io_abort("fsync (ckpt kblk)", o->kpath);
+    if (fsync(o->vfd) != 0) f1_ckpt_io_abort("fsync (ckpt vblk)", o->vpath);
+    char fin[4200], tmp[4224];
+    snprintf(fin, sizeof(fin), "%s/f1c5_build.ckpt", dir);
+    snprintf(tmp, sizeof(tmp), "%s/f1c5_build.ckpt.tmp", dir);
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0) f1_ckpt_io_abort("open (build ckpt tmp)", tmp);
+    const uint64_t blk = (uint64_t)F1C5_OOC_BLK;
+    const uint64_t nblk = o->nblk, fill = o->fill;
+    f1c5_v2out_write_all(fd, F1C5_BUILD_CKPT_MAGIC, 8, tmp);
+    f1c5_v2out_write_all(fd, &nxt_k, 8, tmp);
+    f1c5_v2out_write_all(fd, &pl_hash, 8, tmp);
+    f1c5_v2out_write_all(fd, &chunk_cap, 8, tmp);
+    f1c5_v2out_write_all(fd, &blk, 8, tmp);
+    f1c5_v2out_write_all(fd, &t0_next, 8, tmp);
+    f1c5_v2out_write_all(fd, off, 8ull * (t0_next + 1), tmp);
+    f1c5_v2out_write_all(fd, &nblk, 8, tmp);
+    f1c5_v2out_write_all(fd, o->kidx, 8ull * (nblk + 1), tmp);
+    f1c5_v2out_write_all(fd, o->vidx, 8ull * (nblk + 1), tmp);
+    f1c5_v2out_write_all(fd, &fill, 8, tmp);
+    if (fill) {
+        f1c5_v2out_write_all(fd, o->bk, 4ull * fill, tmp);
+        f1c5_v2out_write_all(fd, o->bv, (uint64_t)sizeof(F1U192) * fill, tmp);
+    }
+    f1c5_v2out_write_all(fd, mass, (uint64_t)sizeof(F1U192), tmp);
+    f1c5_v2out_write_all(fd, &states, 8, tmp);
+    uint64_t triplet[3] = { io->bytes_read, io->bytes_written, io->windows };
+    f1c5_v2out_write_all(fd, triplet, 24, tmp);
+    if (fsync(fd) != 0) f1_ckpt_io_abort("fsync (build ckpt tmp)", tmp);
+    close(fd);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename (build ckpt)", fin);
+    f1_fsync_dir(dir);
+}
+
+/* Parsed checkpoint payload (heap arrays owned by the caller; freed via
+ * f1c5_build_ckpt_free). */
+typedef struct {
+    uint64_t t0_next, nblk, fill, states;
+    uint64_t *off;          /* t0_next+1 entries */
+    uint64_t *kidx, *vidx;  /* nblk+1 entries each */
+    uint32_t *bk;           /* fill keys (partial accumulator) */
+    F1U192 *bv;             /* fill vals */
+    F1U192 mass;
+    uint64_t bytes_read, bytes_written, windows;
+} F1C5BuildCkptData;
+
+static void f1c5_build_ckpt_free(F1C5BuildCkptData *d) {
+    free(d->off); free(d->kidx); free(d->vidx); free(d->bk); free(d->bv);
+    memset(d, 0, sizeof(*d));
+}
+
+/* Read + validate <dir>/f1c5_build.ckpt for the current layer. Returns 1 and
+ * fills *d on a valid, usable resume point; returns 0 (fresh build) otherwise,
+ * unlinking a present-but-unusable marker so it can never mislead a later run.
+ * ofin is the final layer path (its .kblk.tmp/.vblk.tmp sidecars are checked). */
+static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_k,
+                                uint64_t pl_hash, uint64_t chunk_cap,
+                                F1C5BuildCkptData *d) {
+    char path[4200];
+    snprintf(path, sizeof(path), "%s/f1c5_build.ckpt", dir);
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;   /* no marker => fresh (not an error) */
+    memset(d, 0, sizeof(*d));
+    int ok = 1;
+    #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; } while (0)
+    char magic[8]; CK_RD(magic, 8);
+    if (ok && memcmp(magic, F1C5_BUILD_CKPT_MAGIC, 8) != 0) ok = 0;
+    uint64_t k = 0, ph = 0, cc = 0, blk = 0;
+    CK_RD(&k, 8); CK_RD(&ph, 8); CK_RD(&cc, 8); CK_RD(&blk, 8);
+    if (ok && (k != nxt_k || ph != pl_hash || cc != chunk_cap ||
+               blk != (uint64_t)F1C5_OOC_BLK)) ok = 0;   /* stale / config-changed */
+    CK_RD(&d->t0_next, 8);
+    if (ok) {
+        d->off = (uint64_t *)malloc(8ull * (d->t0_next + 1));
+        F1_CHECK(d->off, "build ckpt off alloc");
+        CK_RD(d->off, 8ull * (d->t0_next + 1));
+    }
+    CK_RD(&d->nblk, 8);
+    if (ok) {
+        d->kidx = (uint64_t *)malloc(8ull * (d->nblk + 1));
+        d->vidx = (uint64_t *)malloc(8ull * (d->nblk + 1));
+        F1_CHECK(d->kidx && d->vidx, "build ckpt idx alloc");
+        CK_RD(d->kidx, 8ull * (d->nblk + 1));
+        CK_RD(d->vidx, 8ull * (d->nblk + 1));
+    }
+    CK_RD(&d->fill, 8);
+    if (ok) {
+        d->bk = (uint32_t *)malloc(4ull * (d->fill ? d->fill : 1));
+        d->bv = (F1U192 *)malloc((uint64_t)sizeof(F1U192) * (d->fill ? d->fill : 1));
+        F1_CHECK(d->bk && d->bv, "build ckpt accum alloc");
+        if (d->fill) {
+            CK_RD(d->bk, 4ull * d->fill);
+            CK_RD(d->bv, (uint64_t)sizeof(F1U192) * d->fill);
+        }
+    }
+    CK_RD(&d->mass, (uint64_t)sizeof(F1U192));
+    CK_RD(&d->states, 8);
+    uint64_t triplet[3] = {0, 0, 0}; CK_RD(triplet, 24);
+    d->bytes_read = triplet[0]; d->bytes_written = triplet[1]; d->windows = triplet[2];
+    #undef CK_RD
+    fclose(f);
+    if (ok) {
+        /* entry-conservation invariant: everything pushed for masks [0,t0_next)
+         * is exactly nblk full blocks + a fill-entry partial. A violation means
+         * an internally-inconsistent marker — refuse it (rebuild fresh), never
+         * trust it into a wrong count. */
+        if (d->off[d->t0_next] != d->nblk * (uint64_t)F1C5_OOC_BLK + d->fill) ok = 0;
+    }
+    if (ok) {
+        /* sidecars must exist and hold at least the marker's committed bytes
+         * (they were fsync'd before the marker; a later kill can only append).
+         * If they are gone/short (e.g. finalize already ran but the marker was
+         * not yet unlinked), the layer is complete or unrecoverable here — go
+         * fresh, which safely overwrites. */
+        char kp[4300], vp[4312]; struct stat sk, sv;
+        snprintf(kp, sizeof(kp), "%s.kblk.tmp", ofin);
+        snprintf(vp, sizeof(vp), "%s.vblk.tmp", ofin);
+        if (stat(kp, &sk) != 0 || stat(vp, &sv) != 0 ||
+            (uint64_t)sk.st_size < d->kidx[d->nblk] ||
+            (uint64_t)sv.st_size < d->vidx[d->nblk]) ok = 0;
+    }
+    if (!ok) {
+        f1c5_build_ckpt_free(d);
+        unlink(path);   /* present but unusable => never let it mislead a later run */
+        return 0;
+    }
+    return 1;
+}
+
+/* Set up the streaming v2 compressor to RESUME from a validated checkpoint:
+ * reopen the sidecars WITHOUT truncating (preserving the committed compressed
+ * blocks), ftruncate them down to the marker's recorded size (discarding any
+ * post-marker partial block a kill may have left), position at end for the next
+ * sequential append, then restore nblk/kidx/vidx and the partial accumulator.
+ * Mirrors f1c5_v2out_init's allocations but never O_TRUNCs. */
+static void f1c5_v2out_resume(F1C5V2Out *o, const char *ofin, int level,
+                              const F1C5BuildCkptData *d) {
+    memset(o, 0, sizeof(*o));
+    o->level = level;
+    snprintf(o->kpath, sizeof(o->kpath), "%s.kblk.tmp", ofin);
+    snprintf(o->vpath, sizeof(o->vpath), "%s.vblk.tmp", ofin);
+    o->kfd = open(o->kpath, O_WRONLY | O_CREAT, 0666);   /* NO O_TRUNC */
+    if (o->kfd < 0) f1_ckpt_io_abort("open (v2 resume kblk)", o->kpath);
+    o->vfd = open(o->vpath, O_WRONLY | O_CREAT, 0666);
+    if (o->vfd < 0) f1_ckpt_io_abort("open (v2 resume vblk)", o->vpath);
+    if (ftruncate(o->kfd, (off_t)d->kidx[d->nblk]) != 0)
+        f1_ckpt_io_abort("ftruncate (v2 resume kblk)", o->kpath);
+    if (ftruncate(o->vfd, (off_t)d->vidx[d->nblk]) != 0)
+        f1_ckpt_io_abort("ftruncate (v2 resume vblk)", o->vpath);
+    if (lseek(o->kfd, (off_t)d->kidx[d->nblk], SEEK_SET) == (off_t)-1)
+        f1_ckpt_io_abort("lseek (v2 resume kblk)", o->kpath);
+    if (lseek(o->vfd, (off_t)d->vidx[d->nblk], SEEK_SET) == (off_t)-1)
+        f1_ckpt_io_abort("lseek (v2 resume vblk)", o->vpath);
+    o->bk = (uint32_t *)malloc(sizeof(uint32_t) * F1C5_OOC_BLK);
+    o->bv = (F1U192 *)malloc(sizeof(F1U192) * F1C5_OOC_BLK);
+    o->kcap = compressBound(4ull * F1C5_OOC_BLK);
+    o->vcap = compressBound(24ull * F1C5_OOC_BLK);
+    o->kc = (Bytef *)malloc(o->kcap); o->vc = (Bytef *)malloc(o->vcap);
+    o->idx_cap = d->nblk > 1024 ? d->nblk : 1024;   /* room for kidx[0..nblk] + growth */
+    o->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (o->idx_cap + 1));
+    o->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (o->idx_cap + 1));
+    F1_CHECK(o->bk && o->bv && o->kc && o->vc && o->kidx && o->vidx, "v2out resume alloc failed");
+    memcpy(o->kidx, d->kidx, sizeof(uint64_t) * (d->nblk + 1));
+    memcpy(o->vidx, d->vidx, sizeof(uint64_t) * (d->nblk + 1));
+    o->nblk = d->nblk;
+    o->fill = d->fill;
+    if (d->fill) {
+        memcpy(o->bk, d->bk, sizeof(uint32_t) * d->fill);
+        memcpy(o->bv, d->bv, sizeof(F1U192) * d->fill);
+    }
+}
+
 /* Build layer k+1 (nxt: masks/nm enumerated, off allocated by the caller) by
  * streaming layer k (= cur; index in RAM, entries on disk) — and stream the
  * RESULT to disk as well: on return the layer file is complete and atomically
@@ -12787,14 +12992,15 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     snprintf(ovtmp, sizeof(ovtmp), "%s.vals.tmp", ofin);
     int ofd = -1, vfd = -1;
     F1C5V2Out v2o;
-    if (use_v2) {
-        f1c5_v2out_init(&v2o, ofin, gzip_level);
-    } else {
+    if (!use_v2) {
         ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
         if (ofd < 0) f1_ckpt_io_abort("open (ooc layer .tmp)", otmp);
         vfd = open(ovtmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
         if (vfd < 0) f1_ckpt_io_abort("open (ooc layer .vals.tmp)", ovtmp);
     }
+    /* The v2 streaming compressor (fresh f1c5_v2out_init OR checkpoint-resume via
+     * f1c5_v2out_resume) is set up below, once chunk_cap is known — the marker's
+     * chunk partition must match chunk_cap for its off[]/entry layout to apply. */
     const uint64_t okeys_base = sizeof(F1C5LayerHdr) + 4ull * nxt->nm + 8ull * (nxt->nm + 1);
     const uint64_t keys_base = sizeof(F1C5LayerHdr) + 4ull * cur->nm + 8ull * (cur->nm + 1);
     const uint64_t vals_base = keys_base + 4ull * cur->ne;
@@ -12817,6 +13023,35 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     uint64_t chunk_cap = (cfg->scratch_mb << 20) / (scr_per_tgt * sizeof(F1U192));
     if (chunk_cap < 1) chunk_cap = 1;
     if (nxt->nm && chunk_cap > nxt->nm) chunk_cap = nxt->nm;
+
+    /* v2 streaming compressor: RESUME from a validated intra-layer checkpoint if
+     * one is present for THIS layer (same k / pl_hash / chunk_cap / BLK, sidecars
+     * intact), else fresh init. resume_t0 is the first chunk to (re)process. */
+    uint64_t resume_t0 = 0;
+    F1C5BuildCkptData ckpt;
+    int have_ckpt = 0;
+    if (use_v2) {
+        have_ckpt = f1c5_build_ckpt_read(dir, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+                                         chunk_cap, &ckpt);
+        if (have_ckpt) {
+            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
+            resume_t0 = ckpt.t0_next;
+            fprintf(stderr, "[f1c5-ooc] RESUME intra-layer checkpoint: layer k=%d "
+                    "restart at chunk t0=%llu (%llu/%llu masks done, %llu blocks + "
+                    "%llu partial committed)\n",
+                    nxt->k, (unsigned long long)resume_t0, (unsigned long long)resume_t0,
+                    (unsigned long long)nxt->nm, (unsigned long long)ckpt.nblk,
+                    (unsigned long long)ckpt.fill);
+        } else {
+            f1c5_v2out_init(&v2o, ofin, gzip_level);
+        }
+    }
+    /* intra-layer checkpoint cadence + deterministic kill hook (test-only) */
+    double last_ckpt_wt = omp_get_wtime();
+    const double CKPT_INTERVAL_S = 300.0;   /* ~5 min wall between snapshots */
+    long long kill_after_chunk = -1;
+    { const char *e = getenv("SOLVE_F1_KILL_AFTER_CHUNK");
+      if (e && *e) kill_after_chunk = atoll(e); }
 
     /* read window: at least one full predecessor span (<= 64 * R entries),
      * at most the whole previous layer */
@@ -12847,8 +13082,21 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     nxt->keys = NULL;   /* entries stream to disk; they never live in RAM */
     nxt->vals = NULL;
     nxt->off[0] = 0;
+    if (have_ckpt) {
+        /* restore the exact accounting state as of the checkpointed chunk:
+         * off[0..t0_next] partition, layer mass/states, and I/O byte counters.
+         * The V2Out data-plane (sidecars + partial accumulator) is already
+         * restored by f1c5_v2out_resume above. */
+        memcpy(nxt->off, ckpt.off, sizeof(uint64_t) * (ckpt.t0_next + 1));
+        mass = ckpt.mass;
+        states = ckpt.states;
+        io->bytes_read = ckpt.bytes_read;
+        io->bytes_written = ckpt.bytes_written;
+        io->windows = ckpt.windows;
+        f1c5_build_ckpt_free(&ckpt);
+    }
 
-    for (uint64_t t0 = 0; t0 < nxt->nm; t0 += chunk_cap) {
+    for (uint64_t t0 = resume_t0; t0 < nxt->nm; t0 += chunk_cap) {
         const uint64_t tc = (nxt->nm - t0 < chunk_cap) ? nxt->nm - t0 : chunk_cap;
         /* per-target predecessor requests, sorted by file position */
         #pragma omp parallel for schedule(dynamic, 64)
@@ -12985,6 +13233,29 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                 sizeof(F1U192) * cbase, ovtmp, io);
             }
         }
+        /* v2 intra-layer checkpoint at this chunk boundary: on the ~5-min cadence
+         * OR always when the kill hook fires. All state pushed for masks
+         * [0, t0+tc) is now durable-eligible; the snapshot records t0_next=t0+tc
+         * so a resume restarts at the next unprocessed chunk. */
+        if (use_v2) {
+            const uint64_t ci = t0 / chunk_cap;   /* absolute 0-based chunk index */
+            const uint64_t t0_next = t0 + tc;
+            const int do_kill = (kill_after_chunk >= 0 &&
+                                 (uint64_t)kill_after_chunk == ci);
+            const double now = omp_get_wtime();
+            if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
+                f1c5_build_ckpt_write(dir, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                                      t0_next, nxt->off, &v2o, &mass, states, io);
+                last_ckpt_wt = now;
+                if (do_kill) {
+                    fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_AFTER_CHUNK=%lld reached "
+                            "(layer k=%d chunk=%llu t0_next=%llu) — checkpointed, _exit(137)\n",
+                            kill_after_chunk, nxt->k, (unsigned long long)ci,
+                            (unsigned long long)t0_next);
+                    _exit(137);
+                }
+            }
+        }
     }
     nxt->ne = nxt->off[nxt->nm];
     /* finalize: hdr+masks+off up front. v1 relocates vals from the sidecar
@@ -13005,6 +13276,10 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
                             dir, &nxt->kidx, &nxt->vidx, io);
         free(v2cbuf); free(v2ktmp); free(v2vtmp);
+        /* layer file is committed (rename+dir-fsync inside finalize); the
+         * intra-layer marker is now obsolete — remove it so a later resume of the
+         * NEXT layer can never misread a complete layer's stale checkpoint. */
+        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/f1c5_build.ckpt", dir); unlink(ckp); }
     } else {
         f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
         f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
