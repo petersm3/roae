@@ -22,3 +22,12 @@ solve
 /solutions_*
 /sub_*
 .claude/
+# solve runtime artifacts (regenerable outputs; never source)
+solve.lock
+build.sha
+solve_results.json
+solutions.meta.json
+solutions.sha256
+shard_manifest.txt
+checkpoint_t0.txt
+solve.binary.snapshot
