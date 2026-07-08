@@ -382,12 +382,6 @@ Philosophy, 14*(1), 59–64. [doi:10.1163/15406253-01401003](https://doi.org/10.
   correctly and consistently across all three copies of the square, so the error is Hacker's typesetting,
   not inherited from the source. (Hacker cites Olsvanger as 1984; the original is 1948 — 1984 is a reprint.)
 
-Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of
-hexagrams in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. (Working-paper version:
-Federal Reserve Bank of Atlanta Occasional Paper Series, 1988.)
-  The guaqi seasonal framework; the seasonal hypothesis behind the xiaoxi trisection. Known so far via
-  Schulz 2011's discussion (cited there as 1990A). [pending]
-
 Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [not obtained]
 
 Huang, A. (2000). *The numerology of the I Ching: A sourcebook of symbols, structures, and traditional
@@ -453,9 +447,19 @@ ResearchGate.
   Zhu Yuansheng (13th c.). [analyzed]
 
 Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of hexagrams
-in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. (Working-paper version: Federal Reserve
-Bank of Atlanta Occasional Paper Series, 1988.)
-  The seasonal hypothesis behind the xiaoxi trisection. [pending]
+in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. [doi:10.1163/15406253-01703002](https://doi.org/10.1163/15406253-01703002)
+(Working-paper version: Federal Reserve Bank of Atlanta Occasional Paper Series, 1988.)
+  Prior documenter of C1 and C4 (verified first-hand, 2026-07-08): §III (p. 296) states the invert-pairing
+  rule and its self-inverse exception (the eight palindromic gua paired instead with their polar opposite/
+  complement) explicitly, and p. 298 states the qian/kun "pure yang / pure yin" precedence as an "unavoidable
+  priority"; it also motivates the circular reading, tying the *zhou/zhounian* ("rounded year") etymology to
+  reading the order as an annual cycle (p. 297) — a thematic motivation, not a wrap-around adjacency claim.
+  Novelty-humility caveat: C1 and C4 are classical facts the paper reports (from the Xugua/Tuan/Xici
+  commentary tradition), not ones it invents — ROAE claims only the conjoint C1–C5 system, its exhaustive
+  enumeration, and the population-scale measurements, never the pair or start primitives themselves. Its own
+  contribution is orthogonal: the guaqi/xiaoxi seasonal framework and a temperature/humidity regression on a
+  running line-sum (a descriptive statistical axis); it anticipates none of C2, C3, C5, the ~10^38
+  search-space size, the S4 symmetry theorem, or exhaustive enumeration. [analyzed]
 
 Shaughnessy, E. L. (1996). *I Ching: The classic of changes*. Ballantine Books.
   Translation of the Mawangdui manuscript. [read, data]
