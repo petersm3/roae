@@ -1,6 +1,6 @@
-# PAPER B (draft v1) — "A Reordering Revisited: Two Computational Answers to McKenna and Mair (1979)"
+# TR-8 — A Reordering Revisited: Two Computational Answers to McKenna and Mair (1979)
 
-*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide (below as "Defense kit", to be retitled). Journal-submission variant preserved as a dormant option per REPORTS_PLAN.*
+*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide below.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
@@ -16,7 +16,7 @@ the classical pairing — a two-line parity argument anyone can verify by hand. 
 with credit: theirs was a concrete, falsifiable proposal, which is exactly what made it answerable.
 
 Target: *Philosophy East and West* (discussion note) or *Journal of Chinese Philosophy*. ~4 pages.
-Defense model: both results are mechanically checkable; the author's defense is procedural.
+Verification model: both results are mechanically checkable; the verification is procedural.
 
 ---
 
@@ -60,9 +60,9 @@ analysis. We supply the instruments their question required.
    unique Hamming-optimal matching — the structure they discarded is, by a natural criterion, the optimal
    part.)
 4. **What their question opened** — the constructed-alternative methodology at scale; one forward pointer
-   to the conflict result (Paper A) without developing it.
+   to the conflict result ([TR-2](TR2_THE_RULES_CONFLICT.md)) without developing it.
 
-## Defense kit (referee Q -> answer)
+## Verification Guide (question → answer)
 - "How do we trust the 10³⁸ number?" -> reproduce-command; validated <1% vs exhaustive slices at
   overlapping scales; but NOTE: section 2 can be written so that NOTHING depends on the estimator's
   absolute value — rarities can ALSO be stated vs the pair-only (C1) null by direct sampling
