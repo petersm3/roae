@@ -352,6 +352,14 @@ The image of the cosmos in the Yijing* [Book].
   Early-Predecessor theory with four "alien" pairs as anomaly loci; also author of a critical review of
   Cook (2006). Paper [analyzed, via mirror]; book [not obtained].
 
+Ge, Z. (2026). The cycle structure of the King Wen permutation. Zenodo. [doi:10.5281/zenodo.19143997](https://doi.org/10.5281/zenodo.19143997)
+  Related quantitative analysis — NOT prior art for ROAE's constraints. Treats the (much later) Shao Yong
+  binary → King Wen map as an element of S₆₄ and reports its cycle type **(52, 10, 2)**, order 260 — a
+  descriptive permutation statistic of the same sequence, not a generative rule, constraint, or count. A
+  different lens (post-hoc permutation structure vs. ROAE's generative C1–C5 frame). Its mean adjacent
+  Hamming distance (3.349 over the 63 transitions) independently reproduces our C2 tooling — we confirm
+  3.3492 — a small cross-check anchor. [analyzed 2026-07-08]
+
 Hacker, E. A. (1982). Temperature and the assignment of the hexagrams of the I-Ching to the calendar.
 *Journal of Chinese Philosophy, 9*(4), 395–400. [pending]
 
