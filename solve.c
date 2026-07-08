@@ -12408,20 +12408,22 @@ static void f1c5_ooc_pwrite(int fd, const void *buf, uint64_t len, uint64_t off,
  * DECOMPRESSED bytes, byte-identical to v1 (validated by --f1c5-gzip-selftest and
  * small-n v1==v2). Native zlib only (compress2/uncompress; internal transient
  * files, never a published .gz). Level = SOLVE_F1_OOC_GZIP_LEVEL (env override, 1..9);
- * embedded DEFAULT is 9 (decided 2026-07-08). Rationale: the OOC count is read-heavy +
- * I/O-bound (each layer is written once, then read to build the next), and gzip DECOMPRESS
- * speed is level-independent — so level 9's smaller files make the recurring reads faster
- * at zero read-side cost and shrink the disk (the retool's cost goal); only the one-time
- * write per layer pays 9's extra compression CPU, spent on cores idle during I/O waits.
- * Level-INVARIANT for the count (validated 1==6==9). Confirm at GB scale via the launcher
- * startup probe — toy-n test layers are KB, too small for I/O to show. (The transient
- * merge, SOLVE_MERGE_TEMP_GZIP_LEVEL, stays 6: it is CPU-bound on fast disk, a different
- * workload.) Retool 2026-07-07 / level default 2026-07-08, Claude (Opus), operator-directed. */
+ * embedded DEFAULT is 6 (MEASURED 2026-07-08). A -9 default was briefly tried but REVERSED
+ * after a real-scale measurement (n=27 layer 11, ~789 MB compressed, healthy 16-core host):
+ *   level 1: 953s / 881 MB    level 6: 1002s / 789 MB    level 9: 2071s / 767 MB
+ * -> level 9 is ~2x SLOWER than 6 for only ~3% smaller (gzip 6 already captures nearly all
+ * the compression; 9's extra CPU buys almost nothing). Level 6 is the knee (barely slower
+ * than 1, meaningfully smaller). The earlier "-9 ~free because the count is I/O-bound and
+ * decompress is level-independent" reasoning was empirically WRONG: the write-side
+ * compression cost (~2x at level 9) dominates the tiny (~3%) read/disk saving. Level-
+ * INVARIANT for the count (validated 1==6==9), so this is a pure speed/disk choice; the
+ * transient merge (SOLVE_MERGE_TEMP_GZIP_LEVEL) is also 6. Retool 2026-07-07 / level
+ * measured 2026-07-08, Claude (Opus), operator-directed. */
 
 static int f1c5_ooc_gzip_level(void) {
     const char *e = getenv("SOLVE_F1_OOC_GZIP_LEVEL");
     if (e && *e) { int v = atoi(e); if (v >= 1 && v <= 9) return v; }
-    return 9;   /* embedded default — see rationale above */
+    return 6;   /* embedded default — see the measured rationale above */
 }
 
 /* Compress srcLen bytes into dst (must have capacity >= compressBound(srcLen));
