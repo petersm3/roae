@@ -12805,25 +12805,30 @@ static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_h
     if (fd < 0) f1_ckpt_io_abort("open (build ckpt tmp)", tmp);
     const uint64_t blk = (uint64_t)F1C5_OOC_BLK;
     const uint64_t nblk = o->nblk, fill = o->fill;
-    f1c5_v2out_write_all(fd, F1C5_BUILD_CKPT_MAGIC, 8, tmp);
-    f1c5_v2out_write_all(fd, &nxt_k, 8, tmp);
-    f1c5_v2out_write_all(fd, &pl_hash, 8, tmp);
-    f1c5_v2out_write_all(fd, &chunk_cap, 8, tmp);
-    f1c5_v2out_write_all(fd, &blk, 8, tmp);
-    f1c5_v2out_write_all(fd, &t0_next, 8, tmp);
-    f1c5_v2out_write_all(fd, off, 8ull * (t0_next + 1), tmp);
-    f1c5_v2out_write_all(fd, &nblk, 8, tmp);
-    f1c5_v2out_write_all(fd, o->kidx, 8ull * (nblk + 1), tmp);
-    f1c5_v2out_write_all(fd, o->vidx, 8ull * (nblk + 1), tmp);
-    f1c5_v2out_write_all(fd, &fill, 8, tmp);
-    if (fill) {
-        f1c5_v2out_write_all(fd, o->bk, 4ull * fill, tmp);
-        f1c5_v2out_write_all(fd, o->bv, (uint64_t)sizeof(F1U192) * fill, tmp);
-    }
-    f1c5_v2out_write_all(fd, mass, (uint64_t)sizeof(F1U192), tmp);
-    f1c5_v2out_write_all(fd, &states, 8, tmp);
+    const uint64_t lvl = (uint64_t)o->level;   /* Fix #3: pin the gzip level so a resume at a
+                                                * different level rebuilds fresh (byte-identity). */
+    /* Fix #1: accumulate a CRC32 over the whole payload; a trailing CRC lets the
+     * reader reject a bit-rotted marker BEFORE trusting an interior off[]/kidx
+     * value (the entry-conservation invariant only checks the last off[]). */
+    uLong crc = crc32(0L, Z_NULL, 0);
+    #define CKW(ptr, n) do { f1c5_v2out_write_all(fd, (ptr), (uint64_t)(n), tmp); \
+                             crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
+    CKW(F1C5_BUILD_CKPT_MAGIC, 8);
+    CKW(&nxt_k, 8); CKW(&pl_hash, 8); CKW(&chunk_cap, 8); CKW(&blk, 8); CKW(&lvl, 8);
+    CKW(&t0_next, 8);
+    CKW(off, 8ull * (t0_next + 1));
+    CKW(&nblk, 8);
+    CKW(o->kidx, 8ull * (nblk + 1));
+    CKW(o->vidx, 8ull * (nblk + 1));
+    CKW(&fill, 8);
+    if (fill) { CKW(o->bk, 4ull * fill); CKW(o->bv, (uint64_t)sizeof(F1U192) * fill); }
+    CKW(mass, (uint64_t)sizeof(F1U192));
+    CKW(&states, 8);
     uint64_t triplet[3] = { io->bytes_read, io->bytes_written, io->windows };
-    f1c5_v2out_write_all(fd, triplet, 24, tmp);
+    CKW(triplet, 24);
+    #undef CKW
+    uint32_t crc32v = (uint32_t)crc;   /* trailing CRC (itself not part of the CRC) */
+    f1c5_v2out_write_all(fd, &crc32v, 4, tmp);
     if (fsync(fd) != 0) f1_ckpt_io_abort("fsync (build ckpt tmp)", tmp);
     close(fd);
     if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename (build ckpt)", fin);
@@ -12860,13 +12865,16 @@ static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_
     if (!f) return 0;   /* no marker => fresh (not an error) */
     memset(d, 0, sizeof(*d));
     int ok = 1;
-    #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; } while (0)
+    uLong crc = crc32(0L, Z_NULL, 0);   /* Fix #1: whole-payload CRC, verified below */
+    #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; \
+                               else if (ok) crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
     char magic[8]; CK_RD(magic, 8);
     if (ok && memcmp(magic, F1C5_BUILD_CKPT_MAGIC, 8) != 0) ok = 0;
-    uint64_t k = 0, ph = 0, cc = 0, blk = 0;
-    CK_RD(&k, 8); CK_RD(&ph, 8); CK_RD(&cc, 8); CK_RD(&blk, 8);
+    uint64_t k = 0, ph = 0, cc = 0, blk = 0, lvl = 0;
+    CK_RD(&k, 8); CK_RD(&ph, 8); CK_RD(&cc, 8); CK_RD(&blk, 8); CK_RD(&lvl, 8);
     if (ok && (k != nxt_k || ph != pl_hash || cc != chunk_cap ||
-               blk != (uint64_t)F1C5_OOC_BLK)) ok = 0;   /* stale / config-changed */
+               blk != (uint64_t)F1C5_OOC_BLK ||
+               lvl != (uint64_t)f1c5_ooc_gzip_level())) ok = 0;   /* stale / config / level-changed (Fix #3) */
     CK_RD(&d->t0_next, 8);
     if (ok) {
         d->off = (uint64_t *)malloc(8ull * (d->t0_next + 1));
@@ -12895,6 +12903,12 @@ static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_
     CK_RD(&d->states, 8);
     uint64_t triplet[3] = {0, 0, 0}; CK_RD(triplet, 24);
     d->bytes_read = triplet[0]; d->bytes_written = triplet[1]; d->windows = triplet[2];
+    /* Fix #1: verify the whole-payload CRC BEFORE trusting any field. An interior
+     * off[]/kidx bit-flip passes the entry-conservation invariant (only off[t0_next]
+     * is checked) but fails here => reject + fresh rebuild, never a silent wrong count. */
+    uint32_t stored_crc = 0;
+    if (ok && fread(&stored_crc, 1, 4, f) != 4) ok = 0;
+    if (ok && stored_crc != (uint32_t)crc) ok = 0;
     #undef CK_RD
     fclose(f);
     if (ok) {
