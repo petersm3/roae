@@ -1221,3 +1221,43 @@ unset, which it always is in production.
 WIP entry — pushed as work-in-progress per operator direction. Formal `perf_bench.sh` paired benchmark + the
 11.2T canonical sign-off are the remaining gates; this entry will be finalized when they complete. Full detail:
 `roae-private/INCIDENT_167_RESUME_SHA_MISMATCH.md`, `PATCH_167_eviction_resume_fix.diff`.
+
+## 2026-07-09 — #223: f1c5 OOC per-block-gzip layer format + intra-layer checkpoint (merge of `f1c5-gzip-retool`)
+
+**Category**: mechanism (out-of-core **f1c5 exact-count** path — NOT the enumeration DFS/merge hot path)
+**Sha impact**: preserving
+**Decision**: shipped (merged `f1c5-gzip-retool` → `main`)
+
+### Hypothesis
+The f1c5 exact-count out-of-core DP (`--f1-exact-c1c2c4c5 --f1-out-of-core`) wrote raw per-layer files that
+dominate disk (~8 TB at n=31) and could not survive a Spot eviction mid-layer. Adding (a) a **per-block gzip
+layer format (v2)** with a kidx/vidx seek index and (b) an **intra-layer chunk-boundary checkpoint**
+(`f1c5_build.ckpt`, CRC32-guarded, ~5-min cadence) should shrink disk + I/O and make the multi-day count
+eviction-resilient — **without changing the computed count** (the DP is deterministic).
+
+### Methodology
+- Workload: f1c5 exact count at n=24/27/28 (byte-identical v1-raw vs v2-gzip) + the live n=31 canonical run.
+- Hardware: D16/D64als_v7 Spot westus3.
+- Build: `gcc -O3 -g -march=native -flto -pthread -fopenmp`; merged solve.c.
+- gzip level A/B: single-instance real-scale, n=27 layer 11 (~789 MB) at levels 1 / 6 / 9.
+- Kill-resume: 60+ clean chunk-boundary kills + **15/15 real-random-timing SIGKILLs**, all byte-identical resume.
+
+### Result / f1c5-specific perf (enumeration metrics N/A — separate subsystem)
+- gzip level: **L1 = 953 s / 881 MB · L6 = 1002 s / 789 MB · L9 = 2071 s / 767 MB** → L9 is ~2× slower for ~3%
+  smaller. **Embedded default = 6** (a −9 default was tried, commit `6465418`, then reversed, `c810600`).
+- Compression (live n=31): ~12–16× on the layer data; disk footprint projecting **< 1 TB** vs ~8 TB raw.
+- The count DP is **compute-bound** (layer wall ≈ count time; gzip/I-O negligible) → this is a
+  disk/cost/eviction-resilience win, **not a speed change** to the count.
+- **Level-invariant**: identical count at gzip levels 1 / 6 / 9.
+
+### Sha gate — PRESERVING
+- `--selftest` sha prefix `403f7202`: **UNCHANGED** (the f1c5 OOC path is separate from enumeration; the retool
+  is sha-neutral for `solutions.bin`).
+- f1c5 count **byte-identical v1(raw) == v2(gzip)** at n=24 / 27 / 28.
+- Merge with main's `--c3-dist`: **non-overlapping** solve.c regions, auto-merged clean.
+
+### Notes
+New env/CLI surface (see SOLVE_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OOC_GZIP_LEVEL` (default 6),
+`SOLVE_F1_OOC_SCRATCH_MB`, `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_CKPT_SEC` (default 300 s), `--resume-from-layers`.
+Full validation + measurement detail: `roae-private/RETOOL_DESIGN_2026_07_07.md`,
+`OVERNIGHT_SUMMARY_2026_07_08.md`.
