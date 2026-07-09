@@ -2750,6 +2750,8 @@ _P2_KW_VALUES = {
     "c3_total": 776,
     "c6_c7_count": 2,
     "position_2_pair": 1,
+    # mean-Hamming-vs-random observation is Chan 2026 prior art (CITATIONS.md#chan2026 / SOLVE.md);
+    # ROAE's own contribution is the exact multiset {1:2,2:20,3:13,4:19,6:9} as a hard C5 consequence.
     "mean_transition_hamming": 3.3492064,
     "max_transition_hamming": 6,
     "fft_dominant_freq": 16,

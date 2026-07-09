@@ -387,13 +387,23 @@ The image of the cosmos in the Yijing* [Book].
   Cook (2006). Paper [analyzed, via mirror]; book [not obtained].
 
 <a id="ge2026"></a>
-Ge, Z. (2026). The cycle structure of the King Wen permutation. Zenodo. [doi:10.5281/zenodo.19143997](https://doi.org/10.5281/zenodo.19143997)
-  Related quantitative analysis — NOT prior art for ROAE's constraints. Treats the (much later) Shao Yong
-  binary → King Wen map as an element of S₆₄ and reports its cycle type **(52, 10, 2)**, order 260 — a
-  descriptive permutation statistic of the same sequence, not a generative rule, constraint, or count. A
-  different lens (post-hoc permutation structure vs. ROAE's generative C1–C5 frame). Its mean adjacent
-  Hamming distance (3.349 over the 63 transitions) independently reproduces our C2 tooling — we confirm
-  3.3492 — a small cross-check anchor. [analyzed 2026-07-08]
+Ge, Z. (2026). The cycle structure of the King Wen permutation: A group-theoretic analysis of two classical
+hexagram orderings (v1.0). Zenodo. [doi:10.5281/zenodo.19143997](https://doi.org/10.5281/zenodo.19143997)
+(CC BY 4.0; code MIT). Published 2026-03-21.
+  Related quantitative analysis — **not prior art for any ROAE constraint or count.** Ge treats the (much
+  later) Shao Yong binary → King Wen map as an element of S₆₄ and reports its cycle type **(52, 10, 2)**,
+  order 260, zero fixed points — a descriptive, post-hoc permutation statistic of the same sequence, not a
+  generative rule, constraint, or enumeration. That cycle-decomposition result is Ge's own contribution:
+  ROAE never claimed it (our C2 tooling reproduces it, but we make no priority claim on it, and Ge reports
+  finding no prior instance in the literature surveyed). Where Ge and ROAE numerically coincide is only in
+  trivially-reproducible descriptive statistics of the fixed sequence — mean adjacent Hamming 3.349 over the
+  63 transitions (ROAE's exact multiset `{1:2, 2:20, 3:13, 4:19, 6:9}`, mean 211/63 ≈ 3.3492) and the ~3:1
+  even:odd step ratio — and **neither is novel to ROAE or Ge**: ROAE credits the mean-Hamming-vs-random
+  observation to [Chan (2026)](#chan2026) and the even:odd ratio to [McKenna 1975](#mckenna-mckenna1975) /
+  [Cook 2006](#cook2006) as prior art. So this is not a ROAE-vs-Ge concurrent discovery; it is an independent
+  third computation of shared, well-trodden statistics — which we welcome as an external cross-check that our
+  C2 encoding reproduces Ge's numbers byte-for-byte (verified 2026-07-09, including Ge's exact permutation
+  array). Corrections invited. [analyzed 2026-07-08; timing + independent-computation framing added 2026-07-09]
 
 <a id="hacker1982"></a>
 Hacker, E. A. (1982). Temperature and the assignment of the hexagrams of the I-Ching to the calendar.

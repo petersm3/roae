@@ -5296,3 +5296,81 @@ order has a 5-line seam, #48→#51). Anchor tests against primary sources now gu
 sequence. **Lesson:** a comment describing the correct rule above data that violates it survived
 three months of reviews; correctness must be *tested against sources*, never inferred from
 documentation or from two copies agreeing with each other.
+
+## 2026-07-06/08: Literature audit — attribution precision, an erratum, a competitor, and DOI hardening
+
+Closing the literature program's loose ends produced four small results and one housekeeping sweep.
+
+**Attribution precision (Schulz 1990 primary text).** A first-hand read of Schulz's *Structural Motifs*
+(1990) sharpened two credits: the F5 row-4 yang-precedence functional is attributed to [Cook](CITATIONS.md#cook2006)
+(Schulz's own statement is polarity-opposite; the measured verdict is unchanged), and the precursor
+conjecture is credited to Moore (Schulz read the exceptions as deliberate design). Nothing measured moved —
+the change is who-gets-credit, not what-holds.
+
+**An erratum in the literature, not ours.** [Hacker 1987](CITATIONS.md#hacker1987) Fig. 2 (the Olsvanger 8×8
+square) misprints the hexagram-41 cell as **39**; the correct value is **49** (110001). Confirmed three ways —
+direct computation, 63 of 64 cells matching, and Hacker's own Fig. 4 printing 49 at that cell. The primary
+source ([Olsvanger 1948](CITATIONS.md#olsvanger1948), p. 10) prints 49 correctly and consistently, so the
+error is Hacker's typesetting, not inherited. Recorded as a reader's-note erratum on the citation.
+
+**A competitor that cross-validates us.** [Ge 2026](CITATIONS.md#ge2026), "The Cycle Structure of the King Wen
+Permutation" (Zenodo), is an independent permutation-theory note: it computes the cycle decomposition of the
+binary-natural-order → King Wen map in S₆₄ (cycle type (52, 10, 2), order 260, zero fixed points; mean
+adjacent Hamming 3.349). It is *descriptive* — statistics of the same public sequence — not *generative*: no
+C1–C5-style constraint, no enumeration, no search-space claim. It is not found to be prior art for any ROAE
+ordering or uniqueness result (hedged; correction invited). Its statistics reproduce element-for-element under
+ROAE's own C2 encoding once the bit convention is pinned (Ge uses bit0 = top, the reversal of ours) — so an
+outside author's independent computation doubles as a free external cross-check of our encoding and tooling.
+Ge published on 2026-03-21; the overlapping statistics, though, are not novel to either project — ROAE
+already credits [Chan 2026](CITATIONS.md#chan2026) for the mean-Hamming-vs-random observation and
+McKenna 1975 / Cook 2006 for the even:odd ratio — so this is an independent *third* computation of
+well-trodden statistics, not a ROAE-vs-Ge priority contest, while Ge's distinctive cycle-decomposition
+result is Ge's own.
+
+**DOI and anchor hardening (#227, #229).** Every journal entry in [CITATIONS.md](CITATIONS.md) gained a
+resolvable DOI (Goldenberg, McKenna–Mair, the Schulz papers, Hacker–Moore, Marsaglia, Wilson), every book
+entry an Open Library / WorldCat link, and the reference apparatus was wired with 55 HTML anchors + 172
+first-mention deep-links across 36 public docs — so any factual claim in the corpus reaches its source in one
+hop. In the same window the technical-report suite was reframed: TR-2 and TR-8 were rewritten to stand as
+self-contained technical reports rather than paper drafts.
+
+## 2026-07-08/09: The exact-count engine, retooled for the production run (#223)
+
+The out-of-core count path (#221, 2026-07-04/05) was retooled into a production engine (#223) for the
+multi-day full-31 run:
+
+- **Per-block gzip layer format (v2).** Layer files are written as independently-gzipped blocks at a
+  selectable level (default 6; a direct measurement retired the tempting level-9 default — L9 ran ~2× slower
+  for only ~3% smaller output at this data's entropy). Compression cuts the on-disk layer footprint that
+  dominates a disk-streamed count.
+- **Intra-layer checkpointing.** `--resume-from-layers` previously resumed only at layer boundaries; the
+  retool adds a mid-layer checkpoint (CRC32-marked marker record, pinned gzip level, ~300 s cadence via
+  `SOLVE_F1_CKPT_SEC`) so a run interrupted *inside* a multi-hour layer resumes from the last committed chunk
+  rather than restarting the layer. Validated across a deliberate machine swap: a layer resumed at its exact
+  interrupted chunk and completed identically.
+- **`--c3-dist`** fast-path for the C3 complement-distance histogram.
+
+The checkpoint code was adversarially reviewed before merge (the technique was Fable-implemented,
+Opus-verified; the marker-CRC and pinned-level hardening came out of that review). Merged as `14db3f5`; the
+self-test canonical sha (`403f7202…`) is unchanged, so the retool is behavior-preserving for the enumerator.
+
+With the engine in place, the production count launched and is **in flight** — a symmetry-quotient
+out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer
+|C1∩C2∩C4∩C5| lands in this record when the run completes (gates: divisibility-by-24, which is kernel-checked
+mathematics per #222, plus a Knuth-estimator cross-check).
+
+## 2026-07-09: Documentation consolidation and a prior-art round-out
+
+Two cleanups. First, a full **CLI-documentation sync**: every subcommand and environment variable in
+`solve.c`, `solve.py`, `roae.py`, and `sat.py` was reconciled against its reference doc, `SOLVE_CLI.md` was
+renamed to [SOLVE_C_CLI.md](SOLVE_C_CLI.md) (with all in-repo references updated), and two missing references —
+[SOLVE_PY_CLI.md](SOLVE_PY_CLI.md) and [SAT_CLI.md](SAT_CLI.md) — were written, so each of the four programs
+now has a complete, navigable CLI reference. Repo-wide cross-links were added in the same pass.
+
+Second, three prior-art entries were rounded out: [Clarke 1987](CITATIONS.md#clarke1987) added as
+clearly-labelled out-of-scope background (it computes yarrow-vs-coin *divination* line-change probabilities,
+not orderings — not prior art for any ROAE result); the [Goldenberg 1975](CITATIONS.md#goldenberg1975) entry
+now notes that [Schöter 1998](CITATIONS.md#schoter1998) independently corroborates its XOR/complement algebra
+first-hand; and the Schöter entry gained its verified venue (*The Oracle* 2:7) and a lineage cross-link. The
+Goldenberg primary text remains unobtained (paywalled at Brill/Wiley, absent from JSTOR; interlibrary loan is
+the route).
