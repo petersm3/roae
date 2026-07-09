@@ -15,7 +15,7 @@ relabelings of KW, all with complement distance 776 exactly.
 > factor-of-2-to-48 enumeration cost reduction is available."* That conclusion was **wrong**. The empirical
 > data behind it (budget-truncated per-cell yields differ across σ-related cells) was and remains correct —
 > but it measured **budget/dedup artifacts, not solution-set asymmetry** (mechanism below). The lesson is
-> recorded in CRITIQUE.md; the original data is preserved in §"What the 2026-04-25 test actually measured."
+> recorded in [CRITIQUE.md](CRITIQUE.md); the original data is preserved in §"What the 2026-04-25 test actually measured."
 
 > Related work: see the [Goldenberg 1975](CITATIONS.md#goldenberg1975) note at the end of this document — the earliest algebraic (GF(2)) formalization of the hexagram set we know of; scoped as set-level, not ordering-level, prior art.
 
@@ -113,11 +113,11 @@ print(len(good), "of 720 valid ->", len(recs), "distinct canonical records (KW +
 
 All-cells orbit test (within-orbit CV 0.112): the per-cell estimates are `./solve --estimate-knuth
 100000 <p1> <o1> <p2> <o2> <p3> <o3>` over the 65,281 productive 560T cells (cell list from the 560T
-shard manifest, reproducible per CANONICAL_HASHES.md); the G-orbit partition (4,183 orbits) is the
+shard manifest, reproducible per [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the G-orbit partition (4,183 orbits) is the
 σ-action on (pair, orient) prefixes from the snippet above. The per-cell estimate table itself is
 private working data (~65K estimator calls, hours-scale); this rerun spec is the public path.
 
-Original 2026-04-25 phases 1–3 (`./solve --symmetry-search [--validate-counts]`) remain reproducible; their
+Original 2026-04-25 phases 1–3 ([`./solve --symmetry-search [--validate-counts]`](SOLVE_C_CLI.md#--symmetry-search)) remain reproducible; their
 output is correct as *budgeted-yield* data. Proof + full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md`.
 
 ## Corollary (2026-07-03): the action is free — every solution has exactly 23 twins

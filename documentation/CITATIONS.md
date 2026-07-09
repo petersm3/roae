@@ -57,7 +57,7 @@ The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~70
 - **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. [Open Library](https://openlibrary.org/isbn/9780345362438) Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
 - **Shaughnessy, Edward L.** (2022). *The Origin and Early Development of the Zhou Changes*. Leiden: Brill (Prognostication in History 9). Open access. **The authority for the Mawangdui ordering array used by ROAE** (p. 50 + Table 11.2: eight octets by upper trigram Qian, Gen, Kan, Zhen, Kun, Dui, Li, Xun; lower trigrams cycling Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with the octet's own trigram promoted to first).
 
-**ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped (TR-1's F5 corpus gate and TR-10's specificity gate both still pass — in both cases more cleanly). See also:
+**ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)'s F5 corpus gate and [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)'s specificity gate both still pass — in both cases more cleanly). See also:
 
 <a id="jingfang"></a>
 - **Jing Fang** (京房, 77–37 BCE). The *Ba Gong Gua* (八宫卦) arrangement is preserved in traditional Yi Jing commentary and divinatory practice. The specific "origin → five worlds → wandering soul (游魂) → returning soul (归魂)" convention ROAE uses follows standard sinological sources. Alternative orderings within the same palaces exist; PR welcome for corrections. Traditional attribution of the arrangement to Jing Fang; historical certainty of the full ordering is debated in scholarly literature.
@@ -296,8 +296,8 @@ promotion of these rules into the formal constraint system carries these credits
   hypothesis: Schulz & Cunningham, "The Seasonal Structure Underlying the Arrangement of Hexagrams in the
   Yijing," *JCP* 17 (1990), 289–313. Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
-  structure's classical lineage runs to **Yu Fan (164–233 AD)** (pangtong/fandui, via Li Dingzuo) and the
-  36-unit consolidation + 18:18 reasoning to **Lai Zhide (1525–1604)**; **Davis, Scott,**
+  structure's classical lineage runs to <a id="yufan"></a>**Yu Fan (164–233 AD)** (pangtong/fandui, via Li Dingzuo) and the
+  36-unit consolidation + 18:18 reasoning to <a id="laizhide"></a>**Lai Zhide (1525–1604)**; **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
 
@@ -620,7 +620,7 @@ entry B:154; annotation-level knowledge only until the article is acquired (JCP 
 *A Companion to Yi jing Numerology and Cosmology.* RoutledgeCurzon. [Open Library](https://openlibrary.org/works/OL4004550W) Encyclopedic reference for the
 Han-through-Song numerological systems; used here as the authoritative source for classical-sequence
 definitions. Three specific debts: (1) his Jing Fang eight-palace table (after Hui Dong) verified our
-corpus-gate generator cell-for-cell (all 64), grounding TR-1 §7's Jing Fang control; (2) his Wu Deng
+corpus-gate generator cell-for-cell (all 64), grounding TR-1 §7's Jing Fang control; (2) his <a id="wudeng"></a>Wu Deng
 (1249–1333) entry records a "warp/weft" structural skeleton of the received order — 16 hexagrams with
 upper trigram equal to the lower or its complement, at pair-slots {1,6,15,16,21,26,29,32} — a
 13th-century strict extension of what we credited to Van den Berghe as V-1; (3) his Lai Zhide (~1600)
@@ -628,10 +628,10 @@ entry shows the arrangement idea we credited as VdB-4 has a Ming-dynasty precede
 credit modern authors for structural observations, these classical precedents take priority; the
 modern authors' contribution is independent rediscovery and, in VdB's case, quantification.
 
-*Verification pointer:* the machine-checkable claims from both book audits — Wu Deng's warp/weft
-skeleton, Lai Zhide's endpoint feeders, the Jing Fang eight-palace table, Yu Fan's fandui/pangtong
+*Verification pointer:* the machine-checkable claims from both book audits — [Wu Deng](#wudeng)'s warp/weft
+skeleton, [Lai Zhide](#laizhide)'s endpoint feeders, the Jing Fang eight-palace table, [Yu Fan](#yufan)'s fandui/pangtong
 pair structure (all via Nielsen 2003), and Goldenberg's (1975) theorems T1–T4 + T7 — are
-programmatically verified against the King Wen sequence by `solve.py --books-verify`
+programmatically verified against the King Wen sequence by [`solve.py --books-verify`](SOLVE_C_CLI.md#--books-verify-solvepy-only)
 (14 claims, one PASS/FAIL line each with expected + computed values; all 14 PASS as of 2026-07-05).
 
 ## Encyclopedic & reference links (Wikipedia, OEIS)

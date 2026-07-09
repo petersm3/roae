@@ -283,7 +283,7 @@ a single `solutions.bin`.
         └─ writes one solutions.bin
 ```
 
-**Single-branch enumeration** (`solve --branch 22 0`): the solver jumps
+**Single-branch enumeration** ([`solve --branch 22 0`](SOLVE_C_CLI.md#--branch)): the solver jumps
 straight into one specific first-level branch — say pair 22, orientation 0
 — and only walks that subtree. To cover the whole problem with this mode,
 you'd run it 56 times (once per valid first-level branch) and merge the

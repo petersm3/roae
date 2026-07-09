@@ -53,7 +53,7 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    *dedup convention* — the lex-smallest-orientation representative is not σ-equivariant, so records
    migrate between orbit-mate cells. Diagnostic confirmation: the old test's closest "near-miss" was
    σ = [5,4,3,2,1,0] (bit reversal, 43% match) — precisely the central element acting trivially on
-   pair-sequences, leaving only the artifacts. The lesson is recorded in CRITIQUE.md.
+   pair-sequences, leaving only the artifacts. The lesson is recorded in [CRITIQUE.md](../documentation/CRITIQUE.md).
 3. **Empirical corroboration at three independent levels.** (i) Exhaustive σ(KW) test over all 720 bit
    permutations: exactly the 48 σ ∈ G yield valid C1–C5 sequences (the other 672 fail C1); the 48 raw
    sequences are distinct and collapse to 24 distinct canonical pair-orderings (KW + 23 twins), each with
@@ -78,7 +78,7 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each
    relabeled twin is a late leaf of its own cell. Presence in a budgeted canonical therefore reflects the
    search's frame of reference, not a mathematical property of the ordering — the strongest concrete
-   illustration yet of SEARCH_SPACE_SIZE.md §"Is finding King Wen early an artifact?".
+   illustration yet of [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) §"Is finding King Wen early an artifact?".
 6. **Methodological lesson and consequences.** Budgeted-slice statistics cannot decide set-level
    properties: the 2026-04-25 negative was a category error (budget/dedup artifacts read as solution-set
    asymmetry), and the twins demonstration is the same error's mirror image made vivid. Corrected
@@ -91,7 +91,7 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    flip-extended analysis — not pursued.
 
 ## Verification Guide
-- Theorem, proof, correction notice, all tables: documentation/SYMMETRY_SEARCH.md; full working notes:
+- Theorem, proof, correction notice, all tables: [documentation/SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md); full working notes:
   roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md
 - σ(KW) validity over all 720 bit permutations + orbit counts: runnable ~15-line python snippet
   published in documentation/SYMMETRY_SEARCH.md §Reproducibility (<1 s; prints
@@ -103,7 +103,7 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
 - Lean finite component: `lean lean/KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0)
 - Original 2026-04-25 budgeted-yield phases: `./solve --symmetry-search [--validate-counts]` (output
   correct as budgeted-yield data)
-- Free-action corollary + Burnside closure: SYMMETRY_SEARCH.md §Corollary; HISTORY.md 2026-07-03
+- Free-action corollary + Burnside closure: SYMMETRY_SEARCH.md §Corollary; [HISTORY.md](../documentation/HISTORY.md) 2026-07-03
 - Twins-absent bisection: SYMMETRY_SEARCH.md §Limits and scope (2026-07-02 measurement)
 
 ## Figure: the symmetry collapse

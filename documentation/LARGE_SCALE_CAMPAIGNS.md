@@ -30,7 +30,7 @@ and reproducibility-evidence capture, not just compute throughput.
 
 For the full `solve.c` command-line reference (every subcommand and
 environment variable referenced in this guide), see
-[SOLVE_CLI.md](SOLVE_CLI.md).
+[SOLVE_C_CLI.md](SOLVE_C_CLI.md).
 
 ## 1. Decide what you actually want
 
@@ -76,7 +76,7 @@ Before sizing anything, answer these questions:
 
 ### 2a. Architectural cap: ~64 useful threads per single-branch run
 
-`solve --branch <p1> <o1>` parallelizes across ~2,824 depth-3
+[`solve --branch <p1> <o1>`](SOLVE_C_CLI.md#--branch) parallelizes across ~2,824 depth-3
 sub-branches per first-level branch. Empirically, per-thread rate
 **halves past 64 threads** due to NUMA boundaries (D128 has two
 sockets) and hash-table contention. **D64-class VMs are the right
@@ -215,7 +215,7 @@ production-scale spot-checks — the project calls these "Tier 9+":
   intended VM size. Validates real wall time, real shard size,
   real disk-write throughput. Cost: 1/N of the campaign cost
   where N is the branch count (e.g., 1/56 of the total).
-- **Merge memory-pressure test** — run `--merge` on a representative
+- **Merge memory-pressure test** — run [`--merge`](SOLVE_C_CLI.md#--merge) on a representative
   shard set, sample peak RSS. Tells you whether your intended
   merge VM has enough RAM. (For ≥5.6 PT campaigns, expect peak
   RSS in the 200–900 GB range; D64's 256 GB may not suffice.)

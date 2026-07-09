@@ -39,11 +39,11 @@ inherits.
    independent of orientation choices. Theorem: C5 fixes the 63-transition distance multiset at
    {1:2, 2:20, 3:13, 4:19, 6:9}, containing exactly 2 + 13 = **15 odd distances**; all odd transitions are
    between-pair, and their count equals the number of adjacent class-alternations — hence exactly 15.
-   Corollary: summing parities recovers the wrap-around-parity theorem (SPECIFICATION.md). The theorem
+   Corollary: summing parities recovers the wrap-around-parity theorem ([SPECIFICATION.md](../documentation/SPECIFICATION.md)). The theorem
    generalizes it and supplies the "novel structural theorem" the earlier C5-tightening investigation
    concluded would be required for any further provable pruning.
 2. **The corrected within/between decomposition.** Designing the CNF encoding of C5 required the exact
-   within/between-pair distance split — and the recomputation contradicted CRITIQUE's published table.
+   within/between-pair distance split — and the recomputation contradicted [CRITIQUE](../documentation/CRITIQUE.md)'s published table.
    True values (machine-checked, summing exactly to C5's multiset): within-pair **{2:12, 4:12, 6:8}** (was
    11/13/8), between-pair **{1:2, 2:8, 3:13, 4:7, 6:1}** (was 2/7/14/7/1). The "14 threes" belongs to the
    circular reading (wrap-around adds one), consistent with McKenna's own circular framing and this
@@ -74,7 +74,7 @@ inherits.
    exact by derivation, firing from the earliest placements. (c) Sha-lineage caveat: an exact prune
    preserves the solution set but changes node-visit ordering and counts, so budgeted canonical outputs —
    and canonical shas — would change; production adoption is a gated lineage decision. Nothing in the
-   published canonicals is affected by the theorem itself. (d) Combined with the symmetry theorem (TR-5),
+   published canonicals is affected by the theorem itself. (d) Combined with the symmetry theorem ([TR-5](TR5_SYMMETRY.md)),
    the solution space has two proven skeletons: a 48-element relabeling group and a rigid 15-alternation
    parity profile — both properties of the constraint system that KW inherits rather than chooses.
 6. **The lineage atop the skeleton (attribution).** To our knowledge the theorem as stated (the exact
@@ -104,14 +104,14 @@ C1–C5-valid ordering shares. Computed directly from solve.py's King Wen sequen
 [`viz/report_figures.py`](../viz/report_figures.py); [SVG](figures/fig_tr6_parity_alternations.svg).*
 
 ## Verification Guide
-- Theorem statement, lemmas, arrangement count: documentation/PARITY_ALTERNATION.md (lemma claims and KW's
+- Theorem statement, lemmas, arrangement count: [documentation/PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md) (lemma claims and KW's
   count verifiable in seconds from SPECIFICATION.md / solve.py; the arrangement count is the elementary
   compositions identity Σ_start C(15, blocks_E−1)·C(15, blocks_O−1); no enumeration data needed)
 - Lean general theorem: `lean lean/KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0) —
   `alternations_15_general`, `wrap_parity_general`, plus the finite lemmas
 - SAT UNSAT both sides: `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf` (and alt-ge-16);
-  drat-trim verification record: documentation/LITERATURE_RULES_POPULATION_TESTS.md §SAT-decided
-- Corrected decomposition + error narrative: documentation/HISTORY.md 2026-07-02 ("four-cell tabulation
+  drat-trim verification record: [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §SAT-decided
+- Corrected decomposition + error narrative: [documentation/HISTORY.md](../documentation/HISTORY.md) 2026-07-02 ("four-cell tabulation
   error"); corrected table in documentation/CRITIQUE.md
 - Lineage and full citations: documentation/CITATIONS.md §Attributed candidate rules
 - Wrap-parity corollary source theorem: documentation/SPECIFICATION.md
@@ -126,7 +126,7 @@ ends; the main theorem gives exactly 15 odd between-pair transitions; 15 isolate
 contribute two switches each. Discovered as a pre-registered F4' functional that came back CONSTANT
 (min=max=30 over 2×10⁹ population probes; archived run output: the `par_switch` row of
 [evidence/f4p_tier1.out](evidence/f4p_tier1.out), regenerable via `SOLVE_KNUTH_SCORE_F4P=1 ./solve
---estimate-knuth 2000000000` — flag documented in SOLVE_CLI.md) before being proved — the measurement
+--estimate-knuth 2000000000` — flag documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md)) before being proved — the measurement
 found the theorem. As of v1.4 the corollary is also machine-checked: `switches_30_general` in
 lean/KingWen.lean (kernel-verified, core Lean, no mathlib) — the same three-modality status as the main
 theorem.
@@ -139,4 +139,4 @@ theorem.
 | v1.2 | 2026-07-04 | Figures added |
 | v1.3 | 2026-07-04 | 30-switches corollary added (found by F4' population measurement, then proved) |
 | v1.4 | 2026-07-04 | Corollary machine-checked: switches_30_general kernel-verified in lean/KingWen.lean |
-| v1.5 | 2026-07-04 | Reproducibility completion: F4' discovery-measurement evidence published (reports/evidence/f4p_tier1.out) and cited from the corollary; `SOLVE_KNUTH_SCORE_F4P` documented in SOLVE_CLI.md |
+| v1.5 | 2026-07-04 | Reproducibility completion: F4' discovery-measurement evidence published (reports/evidence/f4p_tier1.out) and cited from the corollary; `SOLVE_KNUTH_SCORE_F4P` documented in SOLVE_C_CLI.md |

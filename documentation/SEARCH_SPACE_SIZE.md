@@ -20,7 +20,7 @@ Knuth (1975, *Estimating the efficiency of backtrack programs*, Math. Comp. 29).
 
 Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **canonical (C1–C5)** count. Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces variance as `1/√N`. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
 
-Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_CLI.md`](SOLVE_CLI.md)). Sha-neutral to the enumerator: the subcommand shares the prune predicates but adds no code on the enumeration path (`--selftest` unchanged).
+Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_C_CLI.md`](SOLVE_C_CLI.md)). Sha-neutral to the enumerator: the subcommand shares the prune predicates but adds no code on the enumeration path (`--selftest` unchanged).
 
 ## Validation — the estimator is correct
 
@@ -160,7 +160,7 @@ masses starve below ~10⁻¹³ hit rates) and is queued as a future measurement.
 
 The estimator now has a full-scale ground-truth anchor: |C1∩C2∩C4| was computed EXACTLY
 (757,058,601,340,255,440,651,419,713,405,330,315,358,208, via the S4-orbit-quotient dynamic program — see
-DESCRIPTION_LENGTH.md and reports/TR5). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
+[DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) and [reports/TR5](../reports/TR5_SYMMETRY.md)). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
 ±0.01%) deviates from the exact value by 5.5×10⁻⁵ — about half its stated error bound. Every other
 estimate in this document uses the same machinery at comparable or better hit rates; this is direct
 evidence the stated envelopes are honest. (The full C1–C5 count remains an estimate: the exact DP's

@@ -20,7 +20,7 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 - **Solutions.bin size**: 109,836,777,536 bytes (102.3 GB)
 - **Pre-dedup records processed**: 13,832,832,979
 - **Merge chunks produced**: 60,533 (external merge via P40 Premium SSD scratch)
-- **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. Both are valid canonical references at their respective budgets (per PARTITION_INVARIANCE.md, sha is a function of solver + inputs).
+- **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. Both are valid canonical references at their respective budgets (per [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md), sha is a function of solver + inputs).
 
 ## Relationship to 10T canonical
 

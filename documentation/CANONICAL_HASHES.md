@@ -69,7 +69,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 | Date | Path | Result |
 |---|---|---|
-| 2026-06-08 | `solve --verify` (C) on all 10,525,271,997 records | PASS — C1-C5 + sorted + no duplicates + King Wen found |
+| 2026-06-08 | [`solve --verify`](SOLVE_C_CLI.md#--verify) (C) on all 10,525,271,997 records | PASS — C1-C5 + sorted + no duplicates + King Wen found |
 | 2026-06-09 | `verify.py --jobs 64` (Python second-language re-verify) on warm copy, D64als_v7 Spot, solve binary built from main HEAD `74e4140` | PASS — same record set, independent language witness |
 | 2026-06-30 | **from-scratch 560T re-run** on the #188 eviction-resume-fixed solver, D128als_v7 Spot westus3, 7 Spot evictions (all clean) | **PASS — reproduces `9a968fa2` byte-for-byte** (3 independent `gzip -dc \| sha256sum` passes; 10,525,271,997 records). Independent same-scale witness on a different binary + different eviction pattern → SUSPECT cleared |
 
@@ -99,7 +99,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 | Date | Path | Solver | Result |
 |---|---|---|---|
 | 2026-05-09 | T9+c.1 full-enum `solve 0 128` recovery | v1 modern | `915abf30…` byte-identical |
-| 2026-05-10 | T9+d 62-branch loop `solve --branch p1 o1` ×62 + `solve --merge` | v1 modern | `915abf30…` byte-identical (partition-invariance witness) |
+| 2026-05-10 | T9+d 62-branch loop [`solve --branch p1 o1`](SOLVE_C_CLI.md#--branch) ×62 + [`solve --merge`](SOLVE_C_CLI.md#--merge) | v1 modern | `915abf30…` byte-identical (partition-invariance witness) |
 | 2026-05-30 (#114) | Re-validation on current main lineage `4e15885` | c72eada + #108 + Tier-1 hardening | `915abf30…` byte-identical (109,836,777,536 bytes); merge VM = D16als_v7 Standard, external-merge mode with Premium scratch |
 | 2026-06-12 | `sha256sum` on warm-tier `/mnt/solver-data/canonical_100T/solutions.bin` | (independent of solve.c) | `915abf30…` byte-identical — 4th witness |
 
@@ -318,7 +318,7 @@ Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is th
 
 Solver invocation for the multi-trillion-node canonicals: `solve 0 128`.
 
-For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced in this document), see [SOLVE_CLI.md](SOLVE_CLI.md).
+For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced in this document), see [SOLVE_C_CLI.md](SOLVE_C_CLI.md).
 
 ### Sha-determining vs operational env vars
 

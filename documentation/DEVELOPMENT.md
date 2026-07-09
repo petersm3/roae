@@ -16,7 +16,7 @@ live in:
 - [DEPLOYMENT.md](DEPLOYMENT.md) — cloud-VM deployment architecture + lessons.
 - [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md) — current state of
   the enumeration.
-- [SOLVE_CLI.md](SOLVE_CLI.md) — full `solve.c` command-line reference
+- [SOLVE_C_CLI.md](SOLVE_C_CLI.md) — full `solve.c` command-line reference
   (subcommands, env vars, exit codes).
 - [ROAE_PY_CLI.md](ROAE_PY_CLI.md) — full `roae.py` analysis-CLI reference.
 
@@ -156,7 +156,7 @@ reproducibility guarantee. (Internal performance tuning runs can still use `-mar
 
 #### Cross-build regression gate
 
-Before adding any new sha to `CANONICAL_HASHES.md`, the canonical must reproduce on a **second independent binary build**:
+Before adding any new sha to [CANONICAL_HASHES.md](CANONICAL_HASHES.md), the canonical must reproduce on a **second independent binary build**:
 
 1. Build A on VM-A (e.g., westus3 Spot D128, day 1). Capture full manifest. Run canonical workload. Record sha.
 2. Build B on VM-B (different day, different host or region, ideally different CPU generation if available). Capture full manifest. Run
@@ -646,7 +646,7 @@ For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir
 
 ### Auto-protect gates that fire on canonical-enum startup (added 2026-05-26)
 
-Beyond the LOCK / `build.sha` / `.budget` gates above, six more dummy-proof gates fire automatically on every canonical-enum dispatch (no `--xxx` subcommand). Each has an explicit env-var escape; setting the escape is operator-acknowledgment of the failure mode being bypassed. See [SOLVE_CLI.md](SOLVE_CLI.md) "Hardening overrides" + "EXIT STATUS" for the full env-var / exit-code table.
+Beyond the LOCK / `build.sha` / `.budget` gates above, six more dummy-proof gates fire automatically on every canonical-enum dispatch (no `--xxx` subcommand). Each has an explicit env-var escape; setting the escape is operator-acknowledgment of the failure mode being bypassed. See [SOLVE_C_CLI.md](SOLVE_C_CLI.md) "Hardening overrides" + "EXIT STATUS" for the full env-var / exit-code table.
 
 | Gate | What it checks | Exit | Escape |
 |---|---|---|---|
@@ -678,7 +678,7 @@ The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from th
 
 **Why solve binaries vary across rebuilds:** `solve.c` embeds `__DATE__`/`__TIME__` macros in diagnostic strings (~6 sites). Every fresh `gcc` invocation stamps a different build time → different binary sha — even from byte-identical source. `glibc`/`libgomp` patches between rebuilds add further divergence. The `build.sha` invariant is therefore host-fragile by construction; it's a strict cross-binary guard, not a cross-source-version guard. A future improvement is `-DSOURCE_SHA=…` deterministic builds that strip the timestamp dependency.
 
-**Override semantics:** `SOLVE_ALLOW_BUILD_MISMATCH=1` lets solve continue on mismatch and overwrites `build.sha` with the current binary's sha so subsequent runs match. The flag has historically been baked into canonical launchers' env as defense; that's no longer the default as of 2026-06-13 — launchers handle legitimate rebuild scenarios via post-rebuild hygiene instead. See [SOLVE_CLI.md ENVIRONMENT table](SOLVE_CLI.md#environment) for the env-var entry.
+**Override semantics:** `SOLVE_ALLOW_BUILD_MISMATCH=1` lets solve continue on mismatch and overwrites `build.sha` with the current binary's sha so subsequent runs match. The flag has historically been baked into canonical launchers' env as defense; that's no longer the default as of 2026-06-13 — launchers handle legitimate rebuild scenarios via post-rebuild hygiene instead. See [SOLVE_C_CLI.md ENVIRONMENT table](SOLVE_C_CLI.md#environment) for the env-var entry.
 
 ### Metadata equivalence across enumeration paths (task #102, 2026-05-26)
 
@@ -688,7 +688,7 @@ Every canonical-scale run now ships with **`solutions.provenance.json`** alongsi
 
 `--compare-provenance` normalizes away timestamps, host fingerprints, and merge-invocation metadata. Must-match fields: `solutions_bin_sha256`, `solutions_bin_record_count`, `shard_count`, `shards_by_final_status` (the EXHAUSTED/BUDGETED/INTERRUPTED counts), `final_budget_distribution`, `cumulative.total_nodes_explored`, `cumulative.total_records_emitted`.
 
-For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md`. For per-cli reference see [SOLVE_CLI.md](SOLVE_CLI.md) `--compare-provenance` + Files section.
+For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md`. For per-cli reference see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) `--compare-provenance` + Files section.
 
 ## Known gotchas
 

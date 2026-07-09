@@ -52,8 +52,10 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 ### CLI references
 
-- **[SOLVE_CLI.md](SOLVE_CLI.md)** — Complete `solve.c` command-line reference (subcommands, environment variables, exit codes).
+- **[SOLVE_C_CLI.md](SOLVE_C_CLI.md)** — Complete `solve.c` command-line reference (subcommands, environment variables, exit codes).
+- **[SOLVE_PY_CLI.md](SOLVE_PY_CLI.md)** — Complete `solve.py` analysis + ground-truth CLI reference (constraint-structure analyses, P2 distributional pipeline, P3 SAT encoders, verification batteries, modifiers).
 - **[ROAE_PY_CLI.md](ROAE_PY_CLI.md)** — Complete `roae.py` analysis-CLI reference (28 analysis sections, modifiers, export formats).
+- **[SAT_CLI.md](SAT_CLI.md)** — Complete `sat.py` SAT/certificate-layer reference (`--emit-cnf` / `--witness`, constraint targets, `--with-c3` / `--c3-max`).
 
 ### Development & deployment
 

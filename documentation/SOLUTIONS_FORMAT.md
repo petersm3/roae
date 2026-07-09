@@ -195,7 +195,7 @@ Each record in solutions.bin satisfies:
 - `solutions.meta.json` is the human-readable sidecar (format version,
   record count, embedded sha, generation timestamp, git hash).
 - `solve_results.json` contains run parameters, git hash, and analytics.
-- `./solve --verify solutions.bin` parses the header (fails loudly on bad
+- [`./solve --verify solutions.bin`](SOLVE_C_CLI.md#--verify) parses the header (fails loudly on bad
   magic or unknown version), then independently checks every record against
   C1-C5, verifies sort order, and checks for duplicates.
 

@@ -1,5 +1,7 @@
 # roae.py(1) — King Wen sequence descriptive analyses
 
+> **CLI references:** this documents **`roae.py`** (descriptive analyses). See also the [`solve` C binary](SOLVE_C_CLI.md) (enumerator/verifier) · [`solve.py`](SOLVE_PY_CLI.md) (analysis + ground truth) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
+
 A man-page-style command-line reference for `roae.py`, the Python
 analysis tool that runs 28 descriptive statistical analyses against
 the King Wen hexagram sequence as a fixed 64-element ordering.
@@ -31,7 +33,7 @@ python3 roae.py --json|--csv|--svg|--html|--markdown|--midi|--dot
 
 `roae.py` analyzes the King Wen sequence **as a given 64-hexagram
 ordering** — it does NOT enumerate the space of possible orderings
-(that's `solve.c`'s job; see [SOLVE_CLI.md](SOLVE_CLI.md)). Instead,
+(that's `solve.c`'s job; see [SOLVE_C_CLI.md](SOLVE_C_CLI.md)). Instead,
 it computes 28 different descriptive measures of the King Wen
 sequence's structure and compares each measure to appropriate null
 models.
@@ -283,7 +285,7 @@ sit within that space?
 
 The two tools are complementary:
 
-| | `roae.py` | `solve.c` (see [SOLVE_CLI.md](SOLVE_CLI.md)) |
+| | `roae.py` | `solve.c` (see [SOLVE_C_CLI.md](SOLVE_C_CLI.md)) |
 |---|---|---|
 | **Analyzes** | KW as a given fixed sequence | The unconstrained ~10⁸⁹ (64!) permutation space; the C1–C5-satisfying subset is estimated ≈10³⁸ (Knuth estimate, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) |
 | **Output** | Statistics about KW (28 analyses, optional reports) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), sha256 anchors, statistics across the solution set |
@@ -298,7 +300,7 @@ The example output bundle in `example/` is what you get from running
 
 ## SEE ALSO
 
-- [SOLVE_CLI.md](SOLVE_CLI.md) — `solve.c` enumerator/verifier reference
+- [SOLVE_C_CLI.md](SOLVE_C_CLI.md) — `solve.c` enumerator/verifier reference
 - [SOLVE.md](SOLVE.md) — the constraint analysis with both tools
 - [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) — plain-language overview
 - [GUIDE.md](GUIDE.md) — newcomer introduction to the King Wen sequence

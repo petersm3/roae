@@ -3397,7 +3397,7 @@ on `v2-bundled`:
 
 - `70a895a` (2026-05-15): `--cpu-features` diagnostic subcommand
 - `33e78b5` (2026-05-16): `--cpu-freq [THRESHOLD_MHZ]` subcommand
-  + companion docs in SOLVE_CLI.md and LARGE_SCALE_CAMPAIGNS.md
+  + companion docs in SOLVE_C_CLI.md and LARGE_SCALE_CAMPAIGNS.md
 
 Both are diagnostic-only (no enumeration; sha-preserving), and
 both are companions to
@@ -3410,7 +3410,7 @@ bench harness can call it between phases to detect throttling that
 would invalidate paired wall-clock comparisons.
 
 Both commits were cherry-picked onto `v2-bundled`
-(`11ba190` + `324318b`). One trivial conflict in SOLVE_CLI.md
+(`11ba190` + `324318b`). One trivial conflict in SOLVE_C_CLI.md
 (no overlap on HEAD side, just adjacency to the `--extended-selftest`
 section) was resolved by taking the incoming sections. Selftest
 sha `56487ab5…` confirmed unchanged post-merge. The `avx512`
@@ -3830,7 +3830,7 @@ Both subcommands sha-preserving (post-enumeration only). Both above the 30% rest
 
 Detailed audit + decision criteria in `roae-private/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` (private). Cost: ~$0.05 D2 Spot, ~7 min wall.
 
-The two new subcommands documented in `documentation/SOLVE_CLI.md` under `--verify-rule2` and `--verify-9th-six`.
+The two new subcommands documented in `documentation/SOLVE_C_CLI.md` under `--verify-rule2` and `--verify-9th-six`.
 
 ## May 19, 2026 PT evening — McKenna Rule 2 + 9th-six declined for promotion to formal C-rule
 
@@ -3900,7 +3900,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 1. **G3 selftest on v2-bundled HEAD `25c7d4d`** PASS: expected/actual `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` byte-identical. (The selftest sha advanced from `56487ab5…` at 9d00c48 to `403f7202…` at HEAD because the post-9d00c48 McKenna diagnostic subcommands `--verify-rule2` and `--verify-9th-six` added new code paths the selftest exercises. The canonical-output sha `2cc966e4…` is unchanged — only the selftest-output sha moved.)
 
-2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE-SUMMARY.md, SOLVE_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
+2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE-SUMMARY.md, SOLVE_C_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
 
 3. **Tags placed** to preserve lineage:
    - `v2-pre-merge` -> `25c7d4d57c7dcb927ba5af713255394d89c01f76` (the v2-bundled tip immediately before merge)
@@ -4558,7 +4558,7 @@ Design principle behind the split: **solve.c owns what it can verify from inside
 its own process** (capacity / writability / identity / selftest / IOPS); the
 bash + `az` layer owns the *environment around* the process (VM lifecycle,
 eviction, cost cap, SMART/fsck). The two new subcommands are the in-process half;
-the external monitor + Azure-CLI scripts are the control-plane half. `SOLVE_CLI.md`
+the external monitor + Azure-CLI scripts are the control-plane half. `SOLVE_C_CLI.md`
 documents both (and back-filled `--validate-canonical` + exit-31 doc debt).
 
 **Metadata-equivalence verdict (task #102 acceptance test).** Task #101

@@ -37,8 +37,10 @@ King Wen's uniqueness vs. combinatorial structure.
 | Project narrative + why-decisions-were-made | [HISTORY.md](documentation/HISTORY.md) |
 | Enumeration leaderboard | [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) |
 | Build / self-test / developer invariants | [DEVELOPMENT.md](documentation/DEVELOPMENT.md) |
-| **Full `solve.c` CLI reference** (subcommands, env vars, exit codes) | [SOLVE_CLI.md](documentation/SOLVE_CLI.md) |
+| **Full `solve` (C binary) CLI reference** (subcommands, env vars, exit codes) | [SOLVE_C_CLI.md](documentation/SOLVE_C_CLI.md) |
+| **Full `solve.py` CLI reference** (analysis sections + verification/companion commands) | [SOLVE_PY_CLI.md](documentation/SOLVE_PY_CLI.md) |
 | **Full `roae.py` CLI reference** (28 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md) |
+| **`sat.py` SAT/certificate-layer CLI** (CNF emit, witness, C3 encoding) | [SAT_CLI.md](documentation/SAT_CLI.md) |
 | Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
 | **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_PLAN.md` (**private repo, `petersm3/roae-private`** — not in this repo) |

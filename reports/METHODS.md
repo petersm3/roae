@@ -31,7 +31,7 @@ the adversarial replication reviews (archived alongside this suite).*
   requires them public). Each cert pairs with the exact `sat.py --emit-cnf <target>` regeneration
   command; encodings are deterministic, so regenerated CNF + archived proof must check.
 - **solutions.bin artifacts** are not distributed (size); they are re-derivable to the byte
-  (CANONICAL_HASHES.md per-anchor commands) and their shas are the scientific anchor.
+  ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) per-anchor commands) and their shas are the scientific anchor.
 
 ## Independence ladder (what requires trusting project code)
 1. **Nothing**: DRAT certificates (drat-trim), Lean theorems (kernel), the two-line parity proofs.

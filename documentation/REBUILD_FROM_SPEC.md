@@ -4,7 +4,7 @@ A step-by-step recipe for building an independent `solutions.bin` verifier using
 
 ## What this document is
 
-A forcing function for spec completeness and a 20-year resilience artifact. Every question you have to answer from `solve.c` rather than from the authoritative specs is a gap in the specs and should be fixed. The companion implementation that proves this recipe works is `verify.py` in this repository — written in Python, ~130 lines, shares zero code with `solve.c`. (For the canonical reference C-side verifier, see `solve --verify` documented in [SOLVE_CLI.md](SOLVE_CLI.md).)
+A forcing function for spec completeness and a 20-year resilience artifact. Every question you have to answer from `solve.c` rather than from the authoritative specs is a gap in the specs and should be fixed. The companion implementation that proves this recipe works is `verify.py` in this repository — written in Python, ~130 lines, shares zero code with `solve.c`. (For the canonical reference C-side verifier, see `solve --verify` documented in [SOLVE_C_CLI.md](SOLVE_C_CLI.md).)
 
 ## What this document is NOT
 
@@ -31,7 +31,7 @@ Any verifier that does these nine things correctly IS a conformant implementatio
 - Any programming language with: fixed-size integer types (at least `uint8`, `uint32`, `uint64`), binary file I/O, arrays, and bitwise operations.
 - [`SPECIFICATION.md`](SPECIFICATION.md) — the mathematical definitions of **C1**–**C5**.
 - [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) — the binary format (header + records).
-- A `solutions.bin` file to verify (produced by `solve --merge` or a normal enumeration run).
+- A `solutions.bin` file to verify (produced by [`solve --merge`](SOLVE_C_CLI.md#--merge) or a normal enumeration run).
 
 ## Step 1. Parse the header
 
@@ -303,7 +303,7 @@ Notes on what this verifier recipe does NOT cover, so a future maintainer extend
 
 - **Enumeration.** This recipe produces a verifier, not an enumerator. Re-implementing the search (backtracking with C5 budget pruning, the 2^32 orientation search, the sharded merge) is a substantially larger task not addressed here.
 - **The C6/C7 boundary adjacencies** (from [`SPECIFICATION.md`](SPECIFICATION.md) §C6, §C7) are NOT required in `solutions.bin` — the file contains all C1–C5 solutions, and C6/C7 are additional constraints used to narrow the C1–C5 solution set toward King Wen specifically. Your verifier should NOT reject a record that fails C6 or C7; the file intentionally contains many such records. (For concrete scale: the d3 100T canonical contains 3,432,399,297 records, d3 10T contains 706,427,594, d2 10T contains 286,357,503; C6/C7 narrow from whichever canonical you are verifying against.)
-- **Analysis outputs** (`--analyze` with its 24+ sections on entropy, boundary scoring, structural families, etc.) are not part of the verifier. Those are downstream interpretations of a valid `solutions.bin` and live in `solve.c`'s analysis code path.
+- **Analysis outputs** ([`--analyze`](SOLVE_C_CLI.md#--analyze) with its 24+ sections on entropy, boundary scoring, structural families, etc.) are not part of the verifier. Those are downstream interpretations of a valid `solutions.bin` and live in `solve.c`'s analysis code path.
 - **Format versioning.** This recipe is written for format v1. If v2 ever exists, it will change the header layout and may change the record layout; a v1 verifier should reject v2 files loudly rather than attempt to parse them.
 
 ## Spec gaps found while writing this document

@@ -14,7 +14,7 @@ The 100T-era prediction that the minimum would "continue to grow toward 6 at 100
 
 Two views of the boundary identification problem are measured:
 
-**(A) Greedy-ordered minimum size (§[6] in `solve --analyze`).** The smallest tuple of boundaries `(b_1, b_2, ..., b_k)` such that sequential application **reduces survivors to {KW}** (zero non-KW survivors), where boundary `b_i` is chosen at each step to maximize elimination on the current surviving set. The algorithm is deterministic given the canonical solution set.
+**(A) Greedy-ordered minimum size (§[6] in [`solve --analyze`](SOLVE_C_CLI.md#--analyze)).** The smallest tuple of boundaries `(b_1, b_2, ..., b_k)` such that sequential application **reduces survivors to {KW}** (zero non-KW survivors), where boundary `b_i` is chosen at each step to maximize elimination on the current surviving set. The algorithm is deterministic given the canonical solution set.
 
 **(B) Unordered minimum-set count (§[8] in `solve --analyze`).** The number of *unordered* subsets of size 4 such that the conjunction of "matches KW on every boundary in this set" reduces survivors to ≤ 1. This is the count of "exactly-4-boundary unique identifications" that the popular framing assumes exists.
 

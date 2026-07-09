@@ -90,7 +90,7 @@ position differs).
   among valid orderings.
 - **Canonical d2 10T, d3 10T, and d3 100T all show KW sitting in a
   well-populated central region of PCA space**, not an isolated outlier.
-  This is consistent with (a) CRITIQUE.md's note that KW's specific
+  This is consistent with (a) [CRITIQUE.md](../documentation/CRITIQUE.md)'s note that KW's specific
   C4-C7 properties aren't distinguishing beyond the robust C1-C3
   findings, and (b) the d3 100T C3-ceiling result (KW ties ~340M
   other canonical orderings at C3=776; KW is the *mode* of the C3

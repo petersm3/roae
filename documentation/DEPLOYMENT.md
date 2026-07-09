@@ -5,7 +5,7 @@ for multi-hour (or multi-day) enumerations. Cloud-specific examples (Azure spot
 VMs) appear at the end as an appendix; the architectural rules earlier in this
 doc apply on any provider.
 
-For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced below), see [SOLVE_CLI.md](SOLVE_CLI.md).
+For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced below), see [SOLVE_C_CLI.md](SOLVE_C_CLI.md).
 
 ## Architecture: separate orchestrator, solver, and monitor
 
@@ -156,7 +156,7 @@ This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo u
 **Rule of thumb for VM-sizing decisions:**
 
 - Single-thread merge: pick the smallest SKU that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). D8/D16 are usually right.
-- Single-thread `solve --verify` (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time.
+- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time.
 - Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: without numpy installed, the pure-Python decode path is ~3× slower per worker — make sure `pip install --break-system-packages numpy` runs before launching verify.py at canonical scale (the 560T campaign supervisor's `pip install ... || true` continued without numpy; observed ~3× slowdown vs the projected 19k records/sec/worker rate).
 
 Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually <$3 over a multi-hour campaign.
@@ -434,7 +434,7 @@ Two compile-time / runtime limits cap how far external merge can scale:
 | Limit | Source | Ceiling at default | Mitigation |
 |---|---|---|---|
 | `MAX_SORTED_CHUNKS = 4096` | `solve.c` constant | 4096 × 4 GB = **16 TB pre-dedup** (~2,000T node enumeration at d3 rates) | Raise `SOLVE_MERGE_CHUNK_GB` (e.g., to 16 or 32) — multiplies ceiling; no code change. Or bump the constant (one-line source change) |
-| `ulimit -n` (open FDs) | OS per-shell default | Linux default 1024 → ~500T before hitting it | `ulimit -n 16384` before running `./solve --merge` |
+| `ulimit -n` (open FDs) | OS per-shell default | Linux default 1024 → ~500T before hitting it | `ulimit -n 16384` before running [`./solve --merge`](SOLVE_C_CLI.md#--merge) |
 
 **Implications.** At any enumeration scale we're realistically considering
 (10T through 1,000T), both limits have comfortable headroom with default

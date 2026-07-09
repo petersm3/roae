@@ -41,7 +41,7 @@ explicit.
    selected from a declared enumerable family of comparable rules (cost = log₂ of the family size;
    families stated per row); (ii) **derivation convention** — a constraint *derivable* from a stated
    principle costs the principle, not the parameters (post-Radisic, this matters for C1). The
-   look-elsewhere accounting for the ~30-observable extraction battery lives in CRITIQUE.md and is not
+   look-elsewhere accounting for the ~30-observable extraction battery lives in [CRITIQUE.md](../documentation/CRITIQUE.md) and is not
    double-counted here.
 2. **The measured ledger.**
 
@@ -104,23 +104,23 @@ explicit.
    the observable-extraction battery is accounted in CRITIQUE.md and deliberately not double-counted here;
    a referee preferring it folded in should charge it against the data-like rows, which are already ≈ 0.
    Framework attribution: conventions and framework are ROAE (to our knowledge first applied to this
-   object here; corrections welcome via CITATIONS.md); constraint provenance per row: SPECIFICATION.md and
+   object here; corrections welcome via CITATIONS.md); constraint provenance per row: [SPECIFICATION.md](../documentation/SPECIFICATION.md) and
    CITATIONS.md.
 
 ## Verification Guide
-- The ledger, conventions, and footnotes: documentation/DESCRIPTION_LENGTH.md (this TR preserves its
+- The ledger, conventions, and footnotes: [documentation/DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) (this TR preserves its
   numbers exactly)
-- Solution counts: exact layers vs documentation/CANONICAL_HASHES.md + enumeration record; estimator
+- Solution counts: exact layers vs [documentation/CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) + enumeration record; estimator
   layers (1.0971×10³⁹ C5 count, 1.3287×10³⁸ full space) via the validated
-  weighted-Knuth instrument — documentation/SEARCH_SPACE_SIZE.md (method + 0.03% self-validation);
-  C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per TR-5;
+  weighted-Knuth instrument — [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) (method + 0.03% self-validation);
+  C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per [TR-5](TR5_SYMMETRY.md);
   the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to ±0.01% — both documented in
-  SOLVE_CLI.md)
+  SOLVE_C_CLI.md)
 - C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib); within-pair
   distance cross-check 2×12 + 4×12 + 6×8 = 120 per documentation/CITATIONS.md §Radisic 2026
 - Circularity pricing of C3: documentation/CRITIQUE.md Q1
 - Schulz gender rule gross bits: ×11,364 ≈ 13.5 bits — companion registry, [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) /
-  documentation/LITERATURE_RULES_POPULATION_TESTS.md
+  [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)
 - Arithmetic spot-checks: log₂ 64! = 296.0; log₂(31!·2³¹) = 143.7; log₂ C(68,5) = 23.3 (all reproducible
   in three lines of Python)
 
@@ -148,7 +148,7 @@ explains the second half of the sequence's information content. Evidence: the ar
 output [evidence/f4p_tier1.out](evidence/f4p_tier1.out) (all 13 scoreboard rows + full per-functional
 value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./solve --estimate-knuth
 2000000000` with the two-language KW gate `./solve --f4p-verify` vs `solve.py --f4p-verify`
-(flags and gates documented in SOLVE_CLI.md).
+(flags and gates documented in SOLVE_C_CLI.md).
 
 ## Revision history
 | Version | Date | Changes |
@@ -157,7 +157,7 @@ value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./s
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives); convention-sensitivity table added |
-| v1.6 | 2026-07-04 | Reproducibility completion: C2-layer count adopted as the exact 7.5706×10⁴¹ (`solve --f1-exact-c1c2c4`, replacing the ±0.01% estimator figure it confirms); F4' tier-1 evidence published (evidence/f4p_tier1.out) and cited; instrument flags (`SOLVE_KNUTH_SCORE_F4P`, `SOLVE_KNUTH_RELAX_C5`) now documented in SOLVE_CLI.md |
+| v1.6 | 2026-07-04 | Reproducibility completion: C2-layer count adopted as the exact 7.5706×10⁴¹ (`solve --f1-exact-c1c2c4`, replacing the ±0.01% estimator figure it confirms); F4' tier-1 evidence published (evidence/f4p_tier1.out) and cited; instrument flags (`SOLVE_KNUTH_SCORE_F4P`, `SOLVE_KNUTH_RELAX_C5`) now documented in SOLVE_C_CLI.md |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);

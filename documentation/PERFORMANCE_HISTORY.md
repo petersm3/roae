@@ -1257,7 +1257,7 @@ eviction-resilient — **without changing the computed count** (the DP is determ
 - Merge with main's `--c3-dist`: **non-overlapping** solve.c regions, auto-merged clean.
 
 ### Notes
-New env/CLI surface (see SOLVE_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OOC_GZIP_LEVEL` (default 6),
+New env/CLI surface (see SOLVE_C_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OOC_GZIP_LEVEL` (default 6),
 `SOLVE_F1_OOC_SCRATCH_MB`, `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_CKPT_SEC` (default 300 s), `--resume-from-layers`.
 Full validation + measurement detail: `roae-private/RETOOL_DESIGN_2026_07_07.md`,
 `OVERNIGHT_SUMMARY_2026_07_08.md`.

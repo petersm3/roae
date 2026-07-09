@@ -77,7 +77,7 @@ python3 sat.py                       # SAT layer usage + targets
 python3 tests.py                     # regression harness (15 tests)
 bash reports/certificates/verify_all.sh   # everything above + all DRAT certs + Lean, one command
 ```
-Full CLI references: [SOLVE_CLI](documentation/SOLVE_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
+Full CLI references: [SOLVE_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
 
 ## Going deeper
 **If you read one thing**: [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md) — the literature's rules, measured and decided.

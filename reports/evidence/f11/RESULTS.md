@@ -52,7 +52,7 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 | # | Ingredient | Value | Status | Source / evidence |
 |---|---|---|---|---|
 | 1 | KW violation profile (2,2,2), V=6 | exact | REUSED (re-asserted) | solve.py checkers; sat.py import gates; `f11_events.py` asserts |
-| 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT (LITERATURE_RULES_POPULATION_TESTS.md §results 5–7); independently REPRODUCED by the k≤2 exhaustive event enumeration in RUN D (0 hits) |
+| 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT ([LITERATURE_RULES_POPULATION_TESTS.md](../../../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §results 5–7); independently REPRODUCED by the k≤2 exhaustive event enumeration in RUN D (0 hits) |
 | 3 | \|C1–C5\| canonical space N_can | **1.328702e38** (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the 1.3287e38 anchor; RUN C2 independent: 1.328327e38 | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
 | 4 | Moore-joint strict size N_mj | **1.16583e29** (5e9 probes, relerr 2.98%) — +3.5% vs the 1.1266e29 anchor (inside ±4.7%); RUN C independent: 1.091306e29 (−3.1%) | RE-MEASURED | c208 strict walk; `f11_runB.out` |
 | 5 | Triple-strict ("grand-strict") size N_gs | **3.57e25** primary (RUN C: 1.091306e29 × 3.27e-4); **1.03e25** cross (RUN B (0,0,0) cell: 1.16583e29 × 8.8277e-5). ×3.5 disagreement (rare-cell estimator noise); BOTH carried through the sensitivity table; the LARGER (corruption-conservative) is primary | **DERIVED** — see honest note below the table: the planned in-walk gender-strict prune output did not ship; N_gs comes from the gender-0-violation fraction *within* the delivered Moore-joint walks | `f11_runC.out` (scoreboard), `f11_runB.out` (hist plane); prereg anticipated: "the triple-strict size is measurable" |
@@ -288,7 +288,7 @@ tabulated in §4. To regenerate RUN D from scratch (exact enumeration, ~minutes,
 Instrument provenance: the F11 estimator extension (SOLVE_KNUTH_F11_HIST joint histogram +
 SOLVE_KNUTH_GENDER_STRICT in-walk prune; estimator-only, sha-neutral) ran on the worker as
 `solve_c_f11.patch` and was **merged into the public `solve.c` on 2026-07-04** (selftest sha
-`403f7202…` unchanged; both flags documented in SOLVE_CLI.md §ENVIRONMENT), so the RUN A
+`403f7202…` unchanged; both flags documented in [SOLVE_C_CLI.md](../../../documentation/SOLVE_C_CLI.md) §ENVIRONMENT), so the RUN A
 histogram is re-derivable from the public tree. Worker: c222-f11, Spot D32als_v7, launcher `f11_launch.sh`
 (c215 pattern: throttle probe, selftest gate, auto-shutdown backstop, delete-on-completion).
 Deviation note: the delivered RUN C/C2 outputs contain the scoreboard only — the planned

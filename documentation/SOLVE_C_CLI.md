@@ -1,5 +1,7 @@
 # solve(1) — King Wen sequence enumerator and verifier
 
+> **CLI references:** this documents the **`solve` C binary** (compiled from `solve.c`). See also [`solve.py`](SOLVE_PY_CLI.md) (analysis + ground truth) · [`roae.py`](ROAE_PY_CLI.md) (descriptive analyses) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
+
 A man-page-style command-line reference for the `solve` binary compiled
 from `solve.c`. Covers every subcommand, all environment variables,
 exit codes, and common workflows.
@@ -395,7 +397,7 @@ both record-level correctness and file-level structure must pass.
 ### --verify-rule2
 
 > ✅ **Live subcommand** — dispatched by `solve.c` (implemented/restored 2026-06, task #156).
-> gz-aware (#169), sha-preserving (post-enumeration analysis, no enumeration-path impact). See MCKENNA.md for context.
+> gz-aware (#169), sha-preserving (post-enumeration analysis, no enumeration-path impact). See [MCKENNA.md](MCKENNA.md) for context.
 
 ```
 solve --verify-rule2 [solutions.bin]
@@ -408,12 +410,12 @@ the surrounding pair would have produced a value-5 transition. King
 Wen's two value-1 transitions occur only at such C2-forced positions
 per McKenna; this subcommand measures the violation rate across an
 arbitrary solutions.bin. Sha-preserving (post-enumeration analysis,
-no impact on the enumeration code path). See MCKENNA.md for context.
+no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) for context.
 
 ### --verify-9th-six
 
 > ✅ **Live subcommand** — dispatched by `solve.c` (task #156). gz-aware (#169),
-> sha-preserving (post-enumeration analysis). See MCKENNA.md for context.
+> sha-preserving (post-enumeration analysis). See [MCKENNA.md](MCKENNA.md) for context.
 
 ```
 solve --verify-9th-six [solutions.bin]
@@ -445,7 +447,7 @@ solve --f4p-verify
 ```
 
 Two-language gate for the 13 F4' ordering-layer functionals (the pre-registered
-battery of documentation/CRITIQUE.md §F4'): computes each on the King Wen sequence
+battery of [documentation/CRITIQUE.md](CRITIQUE.md) §F4'): computes each on the King Wen sequence
 and checks against the embedded KW expected values. Ground truth is
 `solve.py --f4p-verify`; the two outputs must match line-for-line (verify_all.sh
 diffs them). Exit 0 iff all 13 match. Sha-neutral (argv-dispatched, never on the
@@ -479,6 +481,52 @@ the embedded frozen-spec KW values (computed against `solve.py`
 Population scoring: `SOLVE_KNUTH_SCORE_F5` below; explicit-sequence hook:
 `SOLVE_F5_TESTVEC`.
 
+### --f6-verify
+
+```
+solve --f6-verify
+```
+
+Two-language gate for the 7 FROZEN F6 Nielsen-audit functionals — Wu Deng's
+warp/weft skeleton (`warp_blocks`, `warp_pow2`, `warp_adj`, `wudeng_profile`,
+`wudeng_slots`) plus the [Jing Fang](CITATIONS.md#jingfang) eight-palace
+(bagong) measures (`palace_adj`, `palace_types`). Computes each on the King Wen
+sequence and checks against the embedded frozen-spec KW values (KW =
+6,6,1,1,8,2,24, computed against `solve.py binary_hexagrams`). Ground truth is
+`solve.py --f6-verify`; the two outputs must match. Exit 0 iff all 7 match.
+Sha-neutral (argv-dispatched, never on the enumeration path). Population
+scoring: `SOLVE_KNUTH_SCORE_F6` below; `=2` + `SOLVE_F6_TESTVEC`:
+explicit-sequence cross-verification hook.
+
+### --vdb-verify (solve.py only)
+
+```
+solve.py --vdb-verify
+```
+
+`solve.py` companion command (not a `solve` C subcommand). Verifies the 8 Van
+den Berghe (c.1998–2005) structural candidates (elementary-pair skeleton,
+special-pair placement, counter-couple slope locality, six-pair group closure,
+sunrise, landscape, …) on the King Wen sequence against embedded expected
+values. Prints one `vdb_<name>: <value> OK/FAIL` line per candidate. Exit 0 iff
+all 8 match. Two-language convention: any `solve` C `--vdb-verify` must
+reproduce this output byte-identically. `f5_vdb_nuc` (#11 of the F5 battery) is
+a port of this tool's `vdb_nucorient` (KW=29). Sha-neutral.
+
+### --registry-verify (solve.py only)
+
+```
+solve.py --registry-verify
+```
+
+`solve.py` companion command (not a `solve` C subcommand). Ground-truth checker
+for the candidate-rule registry (`CANDIDATE_REGISTRY_2026_07`): runs every
+`reg_*` checker against the King Wen sequence and asserts each equals its
+registry KW-expected value. Prints one `reg_<id>: <value> OK/FAIL` line per
+rule, then an `ALL N REGISTRY CHECKS PASS` / `N of M ... FAILED` summary. Exit 0
+on full PASS, 1 on any mismatch. This is the ground truth for the per-leaf
+`SOLVE_KNUTH_SCORE_REG` population scorer. Sha-neutral.
+
 ### --books-verify (solve.py only)
 
 ```
@@ -503,6 +551,51 @@ with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
 Attribution per claim function in solve.py; master ledger
 [CITATIONS.md](CITATIONS.md).
 
+### --compute-stats (solve.py only)
+
+```
+solve.py --compute-stats SOLUTIONS_BIN OUT_DIR
+```
+
+`solve.py` companion command (P2 distributional-analysis pipeline, stage 1). Streams
+a `solutions.bin` and emits per-chunk parquet files of the observable statistics for
+every enumerated ordering. `OUT_DIR` becomes the `CHUNKS_DIR` input to the
+`--marginals` / `--bivariate` / `--joint-density` stages below. See
+[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) for the full pipeline and
+interpretation.
+
+### --marginals (solve.py only)
+
+```
+solve.py --marginals CHUNKS_DIR OUT_MD
+```
+
+`solve.py` companion command (P2 stage 2). Computes per-dimension marginal
+percentiles across the enumerated population, with King Wen's position marked, and
+writes a Markdown report to `OUT_MD`. Consumes the `CHUNKS_DIR` from `--compute-stats`.
+
+### --bivariate (solve.py only)
+
+```
+solve.py --bivariate CHUNKS_DIR OUT_DIR
+```
+
+`solve.py` companion command (P2 stage 2). Renders hexbin heatmaps for 5 observable
+pairs with King Wen marked, into `OUT_DIR`. Consumes the `--compute-stats` chunks.
+
+### --joint-density (solve.py only)
+
+```
+solve.py --joint-density CHUNKS_DIR OUT_MD
+```
+
+`solve.py` companion command (P2 stage 3). KDE joint density over the 7 informative
+dimensions plus a bootstrap confidence interval on King Wen's percentile; writes a
+Markdown report to `OUT_MD`. A refined `--joint-density-v2` variant adds an automatic
+variance filter and CV bandwidth selection (`--joint-density-bandwidth silverman|cv`,
+default `cv`; sampled by default, `--joint-density-exhaustive` for exact). See
+[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+
 ### --f1-exact-c1c2c4
 
 ```
@@ -510,9 +603,9 @@ solve --f1-exact-c1c2c4 [--layers-dir DIR] [--f1-subset U1|U2|U3|"L.I,L.I,...[@S
 ```
 
 **Exact** (integer, not estimated) count of |C1 ∩ C2 ∩ C4| via the S₄-orbit-quotient
-layered dynamic program (#215; the quotient uses the TR-5 symmetry group, which is
+layered dynamic program (#215; the quotient uses the [TR-5](../reports/TR5_SYMMETRY.md) symmetry group, which is
 what makes the DP fit in memory). Published value: 7.5706×10⁴¹ (4 s.f. of the exact
-42-digit integer) — the C2-layer row of documentation/DESCRIPTION_LENGTH.md, exactly
+42-digit integer) — the C2-layer row of [documentation/DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md), exactly
 divisible by 24 as the TR-5 free-action theorem requires. `--layers-dir` checkpoints per-layer state for
 resume; `--f1-subset` restricts to group-closed subsets (validation gates).
 Sha-neutral (argv-dispatched, never on the enumeration path).
@@ -556,6 +649,33 @@ gzip level via `SOLVE_F1_OOC_GZIP_LEVEL`, default 6) — smaller disk/I-O than t
 (e.g. the full n=31 count) the DP also writes an **intra-layer checkpoint** every
 `SOLVE_F1_CKPT_SEC` seconds (default 300), so `--resume-from-layers` resumes *mid-layer*
 after a Spot eviction rather than restarting the current layer. (#223)
+
+### --f1c5-gzip-selftest
+
+```
+solve --f1c5-gzip-selftest
+```
+
+Self-test of the `--f1-out-of-core` **v2** per-block gzip layer codec (#223
+retool): round-trips the per-block zlib compress/decompress path across gzip
+levels and asserts byte-identical recovery of the key/value block payload. Exit
+0 on PASS, non-zero on any round-trip mismatch or allocation failure. Verifies
+the on-disk layer-file format layer in isolation; sha-neutral (argv-dispatched,
+never on the enumeration path).
+
+### --f1c5-verify-layer
+
+```
+solve --f1c5-verify-layer <v1_raw> <v2_gzip>
+```
+
+Cross-checks one `--f1-out-of-core` layer file written in the **v1** raw format
+(`F1C5LAY1` magic) against the same layer written in the **v2** per-block gzip
+format (`F1C5LAY2` magic), asserting they decode to byte-identical mask/entry
+content (#223). Both path arguments are required (exit 2 on usage error or read
+error); exit 1 on a content mismatch, 0 on match. This is the format-invariance
+check that backs the "count is format-invariant" claim for the OOC DP.
+Sha-neutral.
 
 ### --merge
 
@@ -703,6 +823,19 @@ solve --c3-min
 Searches the canonical solution set for the orderings with minimum
 total complement distance. Used in the c3-minimum analysis that
 established KW sits at the C3 *ceiling* (776), not the floor.
+
+### --c3-dist
+
+```
+solve --c3-dist [SOLUTIONS_BIN]
+```
+
+`--analyze` fast-path that emits **only** the C3 complement-distance
+histogram over the solution set (sibling of `--c3-min`; the same C3
+observable, tabulated across the whole population rather than reduced to
+the minimum). Runs the analyze reader with the `c3dist_only` flag set, so
+it skips the other analyze passes. `SOLUTIONS_BIN` defaults to
+`solutions.bin`. Read-only; sha-neutral.
 
 ### --yield-report
 
@@ -922,7 +1055,7 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 
 | Variable | Default | What it disables |
 |---|---|---|
-| `SOLVE_ALLOW_SUB_CANONICAL` | 0 | Sub-canonical hard-gate (exit 25): allows `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set. Output sha will be code-specific (see HISTORY.md "100B canonical drift" 2026-05-25). |
+| `SOLVE_ALLOW_SUB_CANONICAL` | 0 | Sub-canonical hard-gate (exit 25): allows `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set. Output sha will be code-specific (see [HISTORY.md](HISTORY.md) "100B canonical drift" 2026-05-25). |
 | `SOLVE_SKIP_CANONICAL_LOCK` | 0 | LOCK file (exit 27): allows concurrent `solve` invocations on the same cwd. Risk: interleaved shard writes / checkpoint corruption. |
 | `SOLVE_ALLOW_BUILD_MISMATCH` | 0 | `build.sha` check (exit 26): allows resuming with a binary that differs from the one that last wrote `build.sha`. Risk: cross-lineage merge contamination. Canonical launchers (LAUNCH_*) handle legitimate rebuild scenarios by deleting stale `build.sha` post-rebuild (preserved as `parent_build.sha.<timestamp>` for archival), so the override is no longer required for normal campaign flow as of 2026-06-13. Override remains available for ad-hoc operator-authorized resumes after a manual mid-campaign rebuild. See [DEVELOPMENT.md §build.sha invariant](DEVELOPMENT.md#buildsha-invariant-outlier-4). |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | `.budget` sidecar strict-default (orphan refuse): allows promotion of legacy shards without sidecars (pre-2026-05-25 runs). Risk: Outlier #5 budget-mismatch. |
@@ -938,16 +1071,18 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_BOUNDARY_COND` | `1` | Per-boundary KW-agreement mass accumulators (31; the `--analyze` §[6] predicate on the estimator); conditional on the pin prefix if set. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_REG` | `1` | Score all 31 registry candidate rules ([Schulz 1990](CITATIONS.md#schulz1990-motifs)/[2011](CITATIONS.md#schulz2011)/[2016](CITATIONS.md#schulz2016)/diss, [McKenna-Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), [Schöter](CITATIONS.md#schoter1998) — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
-| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space (TR-1 §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_GENDER_STRICT` | 0 | `=1`: prune the walk to orderings satisfying the Schulz 1990 gender/position-parity rule strictly (0 violations; semantics identical to the rc4 leaf scorer / `solve.py rc4_violations`; exception first noted by Zhu Yuansheng, 13th c.). Composes with `SOLVE_KNUTH_MOORE_STRICT` to estimate the triple-strict ("grand-strict") space (F11 M_corr precursor set). Prints a leaf-scorer cross-check line (mismatches must be 0). Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_F11_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): emit the F11 joint violation histogram — `f11_hist v1 v2 v3 <mass>` lines over (v1 = 18 − Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender violations; KW = (2,2,2)) — the M_tend normalizer ingredient of the TR-2 v1.7 Bayes comparison (archived instance: reports/evidence/f11/f11_runA.out). Under strict walks the fractions are conditional on the pruned space. Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_SCORE_F4P` | 0 | `=1`: score the 13 pre-registered F4' ordering-layer functionals per canonical leaf (below/at/above-KW weighted masses; CRITIQUE.md §F4'; TR-9 v1.3). Ground truth / two-language gate: `--f4p-verify`. Archived tier-1 run: reports/evidence/f4p_tier1.out. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_F11_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): emit the F11 joint violation histogram — `f11_hist v1 v2 v3 <mass>` lines over (v1 = 18 − Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender violations; KW = (2,2,2)) — the M_tend normalizer ingredient of the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 Bayes comparison (archived instance: reports/evidence/f11/f11_runA.out). Under strict walks the fractions are conditional on the pruned space. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_F4P` | 0 | `=1`: score the 13 pre-registered F4' ordering-layer functionals per canonical leaf (below/at/above-KW weighted masses; CRITIQUE.md §F4'; [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) v1.3). Ground truth / two-language gate: `--f4p-verify`. Archived tier-1 run: reports/evidence/f4p_tier1.out. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F4P_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F4P=1`): additionally emit `f4p_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_SCORE_DAV` | 0 | `=1`: score the 9 pre-registered Davis (2012) composite candidates per canonical leaf (CRITIQUE.md §Davis; TR-10 §3). Ground truth / two-language gate: `--dav-verify`. Archived tier-1 run: reports/evidence/dav_tier1.out. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_DAV` | 0 | `=1`: score the 9 pre-registered Davis (2012) composite candidates per canonical leaf (CRITIQUE.md §Davis; [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3). Ground truth / two-language gate: `--dav-verify`. Archived tier-1 run: reports/evidence/dav_tier1.out. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_DAV_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV=1`): additionally emit `dav_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_F5` | 0 | `=1`: score the 11 FROZEN F5 orientation-layer functionals per canonical leaf (below/at/above-KW weighted masses). Leaves are orientation-BEARING (the walk enumerates orientation branches pre-dedup) as the F5 preregistration §4 requires — canonical `solutions.bin` records are orient-dedup'd and must NOT feed F5 scoring. Ground truth / two-language gate: `--f5-verify` (+ `solve.py --vdb-verify` for #11). `=2` + `SOLVE_F5_TESTVEC`: cross-verification hook. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F5_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F5=1`): additionally emit `f5_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_F5_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F5=2`: evaluate the 11 F5 functionals on an explicit sequence (`"h0,h1,...,h63"`, hexagram VALUES not KW indices), print them comma-separated, exit. Verifies a non-lex-oriented sequence scores as itself (F5 preregistration §4 gate); also used for corpus/gauge control snapshots. Test-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_F6` | 0 | `=1`: score the 7 FROZEN F6 Nielsen-audit functionals per canonical leaf (below/at/above-KW weighted masses; Wu Deng warp/weft + [Jing Fang](CITATIONS.md#jingfang) bagong). Ground truth / two-language gate: `--f6-verify`. `=2` + `SOLVE_F6_TESTVEC`: explicit-sequence cross-verification hook. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_F6_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F6=1`): additionally emit `f6_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_RELAX_C5` | 0 | `=1`: relax C5 to C2-only in the Knuth walk (transition budgets unbounded except d=5 forbidden), so `leaves_C1C2C4C5` counts \|C1 ∩ C2 ∩ C4\| — used to price C5's marginal compression in DESCRIPTION_LENGTH.md (superseded for the headline number by the exact `--f1-exact-c1c2c4` DP). Estimator-only, sha-neutral. |
 | `SOLVE_F1_OOC_READ_MB` | 256 | `--f1-out-of-core` (#221): read-window buffer size in MB for the bucketed streaming gather (auto-raised to fit one full predecessor span, auto-clamped to the previous layer's size). Sha-neutral. |
 | `SOLVE_F1_OOC_SCRATCH_MB` | 1024 | `--f1-out-of-core` (#221): dense per-chunk gather-scratch budget in MB; sets how many targets are gathered per streaming pass (larger = fewer passes = less read amplification; the emit staging buffer scales with it, total RSS ~2.2x this value). For full-31 raise it (e.g. 16384 on a 64 GiB box) to keep per-layer read amplification tractable. Sha-neutral. |
@@ -955,12 +1090,30 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_F1_OOC_FORMAT` | `v2` | `--f1-out-of-core` (#223): per-layer file format. `v2` (default) = per-block gzip with a kidx/vidx seek index (smaller disk + I/O). `v1` = raw uncompressed (pristine reference). The count is **format-invariant** → Sha-neutral. |
 | `SOLVE_F1_OOC_GZIP_LEVEL` | 6 | `--f1-out-of-core` (#223, `v2` only): gzip level 1–9 for the per-block layer compression. Default 6 — measured knee (level 9 is ~2× slower for only ~3% smaller). **Level-invariant** → Sha-neutral. |
 | `SOLVE_F1_CKPT_SEC` | 300 | `--f1-out-of-core` (#223): intra-layer checkpoint cadence in seconds. The DP snapshots a CRC32-guarded chunk-boundary marker (`f1c5_build.ckpt`) every interval; `--resume-from-layers` then resumes **mid-layer** from it after an interruption/eviction (not just at a layer boundary). Sha-neutral. |
+| `SOLVE_F1_MAX_LAYER` | `n` (all layers) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core` "PROBE MODE": stop the layered DP after layer `k=N` (clamped to `[1, n]`) instead of running to completion. Used for validation and partial builds (e.g. checking early-layer counts or exercising resume without a full multi-day run). Emits a `[f1] PROBE MODE` stderr line. A capped build is a partial count, not the published exact integer. Sha-neutral. |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 | `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | (existing, repeated for cross-reference) — also bypasses the per-shard `.budget` integrity gate for legacy shards. |
 | `SOLVE_SKIP_IOPS_CHECK` | 0 | IOPS pre-flight gate (exit 31): skips the startup fsync-rate probe entirely. Recommended on every eviction-resume / post-`az vm start` launch (cold caches give noisy readings; the first-launch gate is authoritative). See #107/#115. |
 | `SOLVE_ALLOW_SLOW_IOPS` | 0 | IOPS gate verdict (exit 31): runs the probe but proceeds even when the projected fsync-wall-fraction exceeds threshold (operator accepts the fsync-bound slowdown). |
 | `SOLVE_SKIP_HOST_FINGERPRINT` | 0 | `canonical-host-fingerprint.json` write at canonical-enum startup (Tier 1 determinism-hardening provenance; #110). |
+
+### Test / internal hooks (not for production use)
+
+These variables exist for the test harness, the two-language cross-verification
+gates, and the checkpoint kill-resume drills. They are **not** user-facing
+features — they inject failures or feed explicit test vectors, and have no place
+in a canonical or analysis run. All are sha-neutral. Listed here for
+completeness and honesty, not as knobs to set.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SOLVE_KILL_AFTER_NODES` | unset | Deterministic eviction-injection hook (#165): abort the enumeration after `g_kill_after_nodes` DFS nodes, simulating a Spot eviction at a fixed point so checkpoint/resume can be tested reproducibly. |
+| `SOLVE_F1_KILL_AFTER_CHUNK` | unset (`-1`) | `--f1-out-of-core` deterministic kill hook: terminate the layer build after N emitted chunks, to exercise mid-layer `--resume-from-layers` recovery. |
+| `SOLVE_F1_TEST_LAYER_DELAY_MS` | 0 | `--f1-out-of-core` per-layer artificial delay in milliseconds; widens the eviction window in resume drills / timing tests. |
+| `SOLVE_F6_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F6=2`: evaluate the 7 F6 functionals on an explicit 64-int sequence (`"h0,h1,...,h63"`), print them comma-separated in `f6_names` order, exit. Two-language test vector gating the C port against `solve.py` f6_* ground truth. |
+| `SOLVE_REG_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_REG=2`: evaluate `score_registry` on an explicit 64-int sequence with W=1, print the 31 candidate-rule indicators (0/1, comma-separated, `REGISTRY_KW_EXPECTED` order), exit. Gates the C registry port against `solve.py` reg_* ground truth. |
+| `SOLVE_GZ_TEST_SHARDS` | 0 | `=1`: run a paranoid per-shard `gzip -t` CRC integrity test after each shard write (#169). Default OFF — a full decompress per shard roughly doubles compression CPU across ~65K shards, and the gzfwrite return-count + durable-close checks already cover write completeness. |
 
 ## EXIT STATUS
 

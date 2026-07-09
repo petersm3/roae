@@ -2,7 +2,7 @@
 
 Raw outputs and the exact-fiber instrument behind [TR-1](../../TR1_EIGHT_CENTURIES_MEASURED.md)
 §"The orientation layer, measured" (2026-07-05). Instrument: public `solve.c` / `solve.py` @
-`db66657` (`SOLVE_KNUTH_SCORE_F5`, `--f5-verify`, `SOLVE_F5_TESTVEC`, `vdb_nucorient` /
+`db66657` (`SOLVE_KNUTH_SCORE_F5`, [`--f5-verify`](../../../documentation/SOLVE_C_CLI.md#--f5-verify), `SOLVE_F5_TESTVEC`, `vdb_nucorient` /
 `--vdb-verify`).
 
 | File | What it is |

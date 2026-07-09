@@ -6,7 +6,7 @@
 validation of the Partition Invariance theorem (see
 [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md)).
 **Solver commit:** (pending — this run uses the uncommitted working tree
-containing in-place heapsort, --sub-branch CLI, auto-threshold fix, and
+containing in-place heapsort, [--sub-branch](../../documentation/SOLVE_C_CLI.md#--sub-branch) CLI, auto-threshold fix, and
 SOLVE_CONCENTRATE_BUDGET). The solve.c used here is **semantically
 identical** to the F64 canonical in enumeration path; changes affect
 merge path + new CLI mode only. Matching sha proves this.
@@ -71,6 +71,6 @@ PARTITION_INVARIANCE.md Theorem.
 
 ## Verification status at archive time
 
-- `./solve --merge` internal post-validation: PASS (both in-memory and external runs)
+- [`./solve --merge`](../../documentation/SOLVE_C_CLI.md#--merge) internal post-validation: PASS (both in-memory and external runs)
 - sha256 match: PASS against canonical
 - External-merge self-validation: "ALL CONSTRAINTS VERIFIED" emitted by solver

@@ -71,7 +71,7 @@ kernel-verified for ALL valid sequences, completing the Lean tier-2 program.
 ## switches_30_general (2026-07-04)
 Third sequence-level theorem: every C1+C5-valid ordering's transition-parity string switches exactly 30
 times. Kernel-checked corollary of `alternations_15_general` + the within-pair-even lemma; discovered as
-a pre-registered F4' population functional that measured CONSTANT before being proved (reports/TR6,
+a pre-registered F4' population functional that measured CONSTANT before being proved ([reports/TR6](../reports/TR6_PARITY_SKELETON.md),
 v1.3-v1.4).
 
 ## Automorphism.lean (2026-07-05): the sequence-level symmetry layer

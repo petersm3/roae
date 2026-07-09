@@ -77,7 +77,7 @@ Every verdict below was re-verified 2026-07-03 on a 2-core box; each command com
 - **Grand precursor exists (abstract claims 1–2; §3):** `python3 sat.py --witness grand-strict` →
   explicit C1–C5-valid ordering with Moore 2005 parity 18/18, Moore 1989 rhythm 0 breaks, Schulz
   gender 0 violations, C3 = 776 (`python3 sat.py --witness moore-strict` for the Moore-only
-  precursor; published sequences in LITERATURE_RULES_POPULATION_TESTS.md §SAT-decided).
+  precursor; published sequences in [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §SAT-decided).
 - **Three edits is minimal (§3):**
   `python3 sat.py --emit-cnf moore-strict-near-2 f.cnf && kissat f.cnf` → UNSAT (no jointly
   compliant ordering within 2 slot-edits of KW; a fortiori under C3);
@@ -210,7 +210,7 @@ reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe c
 5×10⁹, 2×10⁹) with the documented environment flags — `SOLVE_KNUTH_SCORE=1` (scoreboard, all runs),
 `SOLVE_KNUTH_F11_HIST=1` (joint violation histogram, run A), `SOLVE_KNUTH_MOORE_STRICT=1`
 (Moore-joint-strict walks, runs B/C), `SOLVE_KNUTH_GENDER_STRICT=1` (triple-strict prune, available
-for re-derivation) — all in the public `solve.c` and documented in SOLVE_CLI.md §ENVIRONMENT; the
+for re-derivation) — all in the public `solve.c` and documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md) §ENVIRONMENT; the
 edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 
 ## Revision history
@@ -219,7 +219,7 @@ edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 | v1.5 | 2026-07-04 | Adversarial round 2 corrections: conflict-theorem claims scoped to pairing-preserving orderings; TR-3 weeks-not-months; TR-9 residual dual-convention phrasing |
 | v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
 | v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
-| v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
+| v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_C_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |

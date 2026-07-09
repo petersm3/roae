@@ -372,13 +372,13 @@ solver constraint regardless of outcome, per the standing extraction-circularity
 NULL at the frozen thresholds. Closest calls: dist_autocorr (KW at the ~96.6th percentile) and palspan
 (top bin, shared with 12.1% of the space) — neither approaches the Bonferroni gate. One functional
 (par_switch) turned out to be CONSTANT across the entire space — a theorem, not a statistic (proof in
-reports/TR6; it is a corollary of the 15-alternations theorem plus pair parity structure), joining the
-"forced, not chosen" class of TR-1. Net: the ~126-bit residual (TR-9) survives its first systematic
+[reports/TR6](../reports/TR6_PARITY_SKELETON.md); it is a corollary of the 15-alternations theorem plus pair parity structure), joining the
+"forced, not chosen" class of [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md). Net: the ~126-bit residual ([TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)) survives its first systematic
 literature-guided attack. Evidence and per-functional masses: the archived tier-1 run output
 `reports/evidence/f4p_tier1.out` (all 13 `[f4p ...]` scoreboard rows — mean/min/max/KW value and
 below/at/above-KW masses — plus full `f4p_hist` per-functional value histograms);
 regeneration: `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./solve --estimate-knuth 2000000000`
-(both flags documented in SOLVE_CLI.md §ENVIRONMENT).
+(both flags documented in [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §ENVIRONMENT).
 
 ## Pre-registered test in flight: Davis (2012) structural claims (registered 2026-07-04, results pending)
 

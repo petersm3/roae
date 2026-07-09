@@ -8,7 +8,7 @@ ends with a Verification Guide mapping claims to commands and certificates.*
 
 Every report opens with a plain-language executive summary — start there. For a one-page scorecard of what the suite has settled (refuted / corrected / forced / confirmed), see [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md). Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
 law — impact is audience-relative; see the reading paths). Each stands alone; together they cover the
-record. Reproducibility contract: CANONICAL_HASHES; attribution registry: CITATIONS.
+record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md); attribution registry: [CITATIONS](../documentation/CITATIONS.md).
 
 | # | Report | One-line claim | Verification core |
 |---|---|---|---|
@@ -45,7 +45,7 @@ entry — never a silent edit.
 ## Completeness principle
 The nine reports cover the project's **findings**. Instruments, engineering internals, and the
 exploratory statistical corpus (the 28-analysis suite, trigram profile, distributional studies) are
-covered by the standing documentation set (CLI references, DEVELOPMENT, DISTRIBUTIONAL_ANALYSIS,
+covered by the standing documentation set (CLI references, [DEVELOPMENT](../documentation/DEVELOPMENT.md), [DISTRIBUTIONAL_ANALYSIS](../documentation/DISTRIBUTIONAL_ANALYSIS.md),
 example/) — deliberately not duplicated as reports. If a future result rises to finding-grade, it becomes
 a new report or a version bump of the one it extends; the README's "What was found" list and this index
 are maintained in lockstep.

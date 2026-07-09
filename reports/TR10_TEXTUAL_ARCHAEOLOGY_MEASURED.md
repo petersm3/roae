@@ -19,7 +19,7 @@ His exact configurations are rare, but only in the way *every* exact configurati
 specific sequence is rare — rarity by construction, not evidence of design. One specific uniqueness
 claim is refuted with a concrete counterexample he did not scan for; a second candidate refutation was
 **withdrawn under our own hostile review** — his claim survives its fairest reading. Nothing promotes
-to a constraint; the ~126-bit unexplained residual (TR-9) survives its second literature-guided attack.
+to a constraint; the ~126-bit unexplained residual ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md)) survives its second literature-guided attack.
 
 ## Abstract
 Scott Davis, *The Classic of Changes in Cultural Context: A Textual Archaeology of the Yi jing*
@@ -28,7 +28,7 @@ symmetric blocks, coordinated placements of notation-defined hexagram classes, a
 transformation structure — while arguing explicitly against global algorithmic explanation. His claims
 were formalized in the pair representation (operationalizations ours; each verified to reproduce his
 stated King Wen facts before measurement), and nine composites were pre-registered in the public record
-(CRITIQUE, commit `2d19a3f`, thresholds frozen: two-sided p < 0.05/9 "notable"; < 10⁻⁴ plus a
+([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen: two-sided p < 0.05/9 "notable"; < 10⁻⁴ plus a
 corpus-control specificity gate "candidate rule") before any population number was observed.
 Measurement by weighted-Knuth estimation (2×10⁹ probes; the instrument reproduced the
 independently-established C1–C5 space size to 0.09% in the same run) yields: **four of nine NULL** —
@@ -73,7 +73,7 @@ notational scoring — is accepted and stated.
    per the standing extraction-circularity policy — **nothing promotes to a solver constraint
    regardless of outcome**. Operationalizations are embedded, two-language verified, and public:
    `solve.py` is the spec (`dav_*` functions), `solve.c` the measurement engine, and the cross-gate
-   (`--dav-verify` in both) confirms each candidate reproduces its expected King Wen value exactly.
+   ([`--dav-verify`](../documentation/SOLVE_C_CLI.md#--dav-verify) in both) confirms each candidate reproduces its expected King Wen value exactly.
    Formalization choices are ours, not Davis's; errors of operationalization are ours.
 3. **The scoreboard (2026-07-04, 2×10⁹ probes).** Population = the C1–C5 constraint-satisfying space
    (≈1.33×10³⁸ orderings; the run's own canonical-leaf estimate, 1.3275×10³⁸, matches the established
@@ -178,7 +178,7 @@ notational scoring — is accepted and stated.
   is the spec, solve.c the engine)
 - Population masses and histograms (§3 table): `SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_DAV_HIST=1
   ./solve --estimate-knuth 2000000000` (evidence file: `dav_tier1.out`, tier-1 run 2026-07-04;
-  self-validation: same run's canonical-leaf estimate 1.3275×10³⁸ vs SEARCH_SPACE_SIZE.md's
+  self-validation: same run's canonical-leaf estimate 1.3275×10³⁸ vs [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)'s
   1.3287×10³⁸, 0.09%)
 - Pre-registration prior to measurement: documentation/CRITIQUE.md §"Pre-registered test … Davis
   (2012)" — registered at commit `2d19a3f` (2026-07-04) before any population number existed;

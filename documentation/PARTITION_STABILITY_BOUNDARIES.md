@@ -25,7 +25,7 @@ Each was independently enumerated and merged on Azure compute; canonical SHAs re
 
 ## Method
 
-For each canonical, ran `./solve --analyze solutions.bin`:
+For each canonical, ran [`./solve --analyze solutions.bin`](SOLVE_C_CLI.md#--analyze):
 - §[6] greedy minimum-boundary search — iteratively picks one boundary at a time, each maximizing elimination of non-KW survivors; terminates when only KW remains
 - §[7] exhaustive 3-subset test — all C(31, 3) = 4,495 triples; reports the best (minimum-survivors) triple
 - §[8] exhaustive 4-subset enumeration — all C(31, 4) = 31,465 quadruples; reports every joint 4-set whose conjunction reduces survivors to ≤ 1

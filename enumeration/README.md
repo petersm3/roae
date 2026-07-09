@@ -35,7 +35,7 @@ that the counts they describe are superseded.
 
 ## Historical `--analyze` outputs (742M era)
 
-Full text-mode outputs from `./solve --analyze solutions.bin` on the
+Full text-mode outputs from [`./solve --analyze solutions.bin`](../documentation/SOLVE_C_CLI.md#--analyze) on the
 invalidated 742M dataset. Superseded by the per-run
 `analyze_output.log.gz` files under `../runs/<run-id>/` for
 canonical 2026-04-18 datasets.
@@ -56,7 +56,7 @@ were caught. Deleting them would erase the forensic audit trail.
 
 - **`analysis_minimum_constraints.txt`** (5 KB) — a methodological
   memo on the minimum-constraints question that predates the
-  solve.c-based enumeration. Historical; superseded by SOLVE.md's
+  solve.c-based enumeration. Historical; superseded by [SOLVE.md](../documentation/SOLVE.md)'s
   boundary-minimum treatment (4 at 10T, 5 at canonical depth).
 - **`SOLUTIONS_BIN_LOCATION.txt`** — pointer to where the canonical
   solutions.bin actually lives (Azure managed disk, not committed

@@ -20,9 +20,9 @@ machine-checkable mathematical fact, and the receipt is in this directory.
 
 
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
-must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See reports/METHODS.md.
+must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See [reports/METHODS.md](../METHODS.md).
 `verify_all.sh` (this directory) checks every certificate below. Full inventory: 19 certificates —
-the original 5 (conflict theorem + repair ladder + alternation theorem) plus the 14 of the TR-2 v1.6
+the original 5 (conflict theorem + repair ladder + alternation theorem) plus the 14 of the [TR-2](../TR2_THE_RULES_CONFLICT.md) v1.6
 extension (five-rule union, its near-2/3/4 repair ladder, all five leave-one-out subsets, the three
 two-rule cores, and two encoding-validation gates).
 

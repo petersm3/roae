@@ -29,7 +29,7 @@ estimates. Both are next-step questions, not invalidations of the analysis below
 
 Each canonical ordering is characterized by the following statistics,
 computed over 3.43 billion records using streaming parquet output
-(`solve.py --compute-stats`). See `roae-private/P2_OBSERVABLES_SCHEMA.md` for the
+([`solve.py --compute-stats`](SOLVE_C_CLI.md#--compute-stats-solvepy-only)). See `roae-private/P2_OBSERVABLES_SCHEMA.md` for the
 frozen schema.
 
 | # | Dim | Meaning | Family |
@@ -189,7 +189,7 @@ be over-interpreted.
 
 - **Not a uniqueness proof.** The analysis demonstrates KW is
   distributionally atypical, not that KW is the unique optimum of any
-  principle. Recall from SOLVE-SUMMARY.md: specific "KW-property
+  principle. Recall from [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md): specific "KW-property
   extraction" can make almost any C1+C2 ordering appear uniquely determined;
   this analysis avoids that extraction problem by using dimensions chosen
   for general information content.
@@ -349,11 +349,11 @@ Both find KW at extreme tails of their respective distributions
 ROAE's below-sample-resolution joint-density rank). Where these analyses
 overlap on common observables (mean Hamming, alternation), Chan's
 prior art is acknowledged — see [CITATIONS.md](CITATIONS.md) and
-SOLVE.md / CRITIQUE.md for inline citations.
+[SOLVE.md](SOLVE.md) / [CRITIQUE.md](CRITIQUE.md) for inline citations.
 
 ## Trigram-level addendum (2026-07-03)
 
-The inferential trigram extension (`roae.py --trigrams`) places KW's trigram-level statistics in the same
+The inferential trigram extension ([`roae.py --trigrams`](ROAE_PY_CLI.md)) places KW's trigram-level statistics in the same
 pair-preserving null framework used throughout this document: upper/lower trigram change rates are
 population-typical (47th/27th percentile); the pure-hexagram Classic-ends concentration is mildly notable
 (4/6, null P = 0.034, with the C4-fixes-two-positions caveat); KW is statistically independent of Jing

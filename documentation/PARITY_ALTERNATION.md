@@ -4,7 +4,7 @@
 *parity-homogeneous* (both members share popcount parity) — form exactly 16 even-parity and 16 odd-parity
 pairs, and the pair ordering exhibits **exactly 15 parity-class alternations** across its 31 pair boundaries.
 This is forced by the constraint system, not a King Wen choice; KW satisfies it necessarily (verified: KW's
-alternation count is 15). The theorem generalizes the wrap-around-parity theorem (SPECIFICATION.md), which is
+alternation count is 15). The theorem generalizes the wrap-around-parity theorem ([SPECIFICATION.md](SPECIFICATION.md)), which is
 recovered as its total-parity corollary, and it supplies the "novel structural theorem" that the earlier
 C5-tightening investigation concluded would be required for any further provable pruning.
 
@@ -47,7 +47,7 @@ the linear sequence's endpoint popcounts differ in parity ⇒ odd wrap distance,
    and counts, so per-cell **budgeted** canonical outputs — and therefore canonical shas — would change.
    Adopting the prune in production enumeration is a lineage decision (as with the v2 prune bundle), gated
    and exploration-track first. Nothing in the published canonicals is affected by the theorem itself.
-4. **Structure insight.** Combined with the symmetry theorem (SYMMETRY_SEARCH.md), the solution space now has
+4. **Structure insight.** Combined with the symmetry theorem ([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md)), the solution space now has
    two proven skeletons: a 48-element relabeling group and a rigid 15-alternation parity profile. Both are
    properties of the *constraint system*; KW inherits them rather than choosing them.
 
