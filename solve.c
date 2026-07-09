@@ -11976,6 +11976,11 @@ static void f1c5_derive_b0(const F1Ctx *c, int full31, int b0[5]) {
 }
 
 /* ---------- ragged-sparse layer storage + checkpointing ---------- */
+#ifndef F1C5_OOC_BLK
+#define F1C5_OOC_BLK 65536u   /* v2 gzip: entries per compressed block (see codec below).
+                               * Override at compile time (-DF1C5_OOC_BLK=7u) to stress-test the
+                               * block-boundary / partial-block / multi-block-window logic. */
+#endif
 typedef struct {
     int k;
     uint64_t nm, ne;
@@ -11983,11 +11988,18 @@ typedef struct {
     uint64_t *off;     /* nm+1 entry offsets */
     uint32_t *keys;    /* ne keys: (last << 16) | rid, ascending per mask */
     F1U192 *vals;      /* ne 192-bit counts */
+    /* v2 (gzip) only: per-block compressed-byte seek index, carried in RAM so
+     * the next layer's build can read this layer's compressed entries. NULL for
+     * v1 (raw). nblk = ceil(ne/F1C5_OOC_BLK). See f1c5_ooc_build_layer_v2. */
+    uint64_t *kidx;    /* nblk+1 compressed offsets of keys blocks (0 if v1) */
+    uint64_t *vidx;    /* nblk+1 compressed offsets of vals blocks (0 if v1) */
 } F1C5Layer;
 
 static void f1c5_layer_free(F1C5Layer *L) {
     free(L->masks); free(L->off); free(L->keys); free(L->vals);
+    free(L->kidx); free(L->vidx);
     L->masks = NULL; L->off = NULL; L->keys = NULL; L->vals = NULL;
+    L->kidx = NULL; L->vidx = NULL;
 }
 
 static double f1c5_layer_bytes(const F1C5Layer *L) {
@@ -12057,8 +12069,9 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
  * stay on disk and are streamed by the gather. The FINAL layer (lk == n) is
  * always loaded in full — the total needs its entries, and it is tiny (one
  * canonical mask). */
+static uint64_t f1c5_v2_kblk_base(uint64_t nm, uint64_t ne);   /* fwd decl (defined w/ the v2 codec) */
 static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
-                           int index_only) {
+                           int index_only, int *out_is_v2) {
     char path[4096];
     snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
     FILE *f = fopen(path, "r");
@@ -12087,24 +12100,69 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
     if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
     int hb0_ok = 1;
     for (int d = 0; d < 5; d++) if (h.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
-    F1_CHECK(memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1 &&
+    int is_v2 = (memcmp(h.magic, "F1C5LAY2", 8) == 0 && h.version == 2);
+    int is_v1 = (memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1);
+    F1_CHECK((is_v1 || is_v2) &&
              h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
              h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c) && hb0_ok,
-             "layer file %s header mismatch", path);
+             "layer file %s header mismatch (magic/version)", path);
+    if (out_is_v2) *out_is_v2 = is_v2;   /* the driver ADOPTS the on-disk format (Fable Finding 1) */
     L->k = lk;
     L->nm = h.n_masks;
     L->ne = h.n_entries;
     int idx_only = index_only && lk < c->n;
     L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
     L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
-    L->keys = idx_only ? NULL : (uint32_t *)malloc(sizeof(uint32_t) * (L->ne ? L->ne : 1));
-    L->vals = idx_only ? NULL : (F1U192 *)malloc(sizeof(F1U192) * (L->ne ? L->ne : 1));
-    F1_CHECK(L->masks && L->off && (idx_only || (L->keys && L->vals)), "resume alloc failed");
-    if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
-        fread(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
-        (!idx_only && L->ne && fread(L->keys, sizeof(uint32_t), L->ne, f) != L->ne) ||
-        (!idx_only && L->ne && fread(L->vals, sizeof(F1U192), L->ne, f) != L->ne))
-        f1_ckpt_io_abort("fread body", path);
+    F1_CHECK(L->masks && L->off, "resume alloc failed");
+    if (is_v2) {
+        /* v2: masks+off then the compressed-block seek index (kidx/vidx); entries
+         * stay compressed on disk (OOC index-only), read on demand by the builder.
+         * NB: use `index_only` (the OOC flag), NOT `idx_only` — at lk==n (eviction
+         * after the final layer was written but before the total printed) idx_only
+         * is false, but we still want the index-only load so the driver's final-
+         * readback path decompresses and prints the total. (Fable review Finding 2.) */
+        F1_CHECK(index_only, "v2 layer resume requires OOC (in-RAM path uses v1)");
+        L->keys = NULL; L->vals = NULL;
+        uint64_t nblk = (L->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+        L->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
+        L->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
+        F1_CHECK(L->kidx && L->vidx, "resume v2 index alloc failed");
+        if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+            fread(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
+            fread(L->kidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1 ||
+            fread(L->vidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1)
+            f1_ckpt_io_abort("fread body (v2)", path);
+        /* validate the loaded index BEFORE any read uses it — a corrupt/cross-BLK
+         * index would otherwise drive an unbounded pread into a fixed cbuf
+         * (heap smash). Turn every such case into a clean abort. (Fable Findings 4,5) */
+        F1_CHECK(h.pad == F1C5_OOC_BLK,
+                 "v2 layer %s block size mismatch (file=%u, build=%u) — rebuild with matching F1C5_OOC_BLK",
+                 path, h.pad, (unsigned)F1C5_OOC_BLK);
+        F1_CHECK(L->kidx[0] == 0 && L->vidx[0] == 0, "v2 index base nonzero (%s corrupt)", path);
+        const uint64_t maxblk = (uint64_t)compressBound(24ull * F1C5_OOC_BLK);
+        for (uint64_t b = 0; b < nblk; b++)
+            F1_CHECK(L->kidx[b + 1] >= L->kidx[b] && L->vidx[b + 1] >= L->vidx[b] &&
+                     L->kidx[b + 1] - L->kidx[b] <= maxblk && L->vidx[b + 1] - L->vidx[b] <= maxblk,
+                     "v2 index block %llu out of range (%s corrupt)", (unsigned long long)b, path);
+        uint64_t kblk_base = f1c5_v2_kblk_base(L->nm, L->ne);
+        long cur_pos = ftell(f);
+        fseek(f, 0, SEEK_END);
+        uint64_t fsz = (uint64_t)ftell(f);
+        fseek(f, cur_pos, SEEK_SET);
+        F1_CHECK(fsz == kblk_base + L->kidx[nblk] + L->vidx[nblk],
+                 "v2 layer %s size %llu != expected %llu (corrupt/truncated)", path,
+                 (unsigned long long)fsz,
+                 (unsigned long long)(kblk_base + L->kidx[nblk] + L->vidx[nblk]));
+    } else {
+        L->keys = idx_only ? NULL : (uint32_t *)malloc(sizeof(uint32_t) * (L->ne ? L->ne : 1));
+        L->vals = idx_only ? NULL : (F1U192 *)malloc(sizeof(F1U192) * (L->ne ? L->ne : 1));
+        F1_CHECK(idx_only || (L->keys && L->vals), "resume alloc failed");
+        if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+            fread(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
+            (!idx_only && L->ne && fread(L->keys, sizeof(uint32_t), L->ne, f) != L->ne) ||
+            (!idx_only && L->ne && fread(L->vals, sizeof(F1U192), L->ne, f) != L->ne))
+            f1_ckpt_io_abort("fread body", path);
+    }
     fclose(f);
     F1_CHECK(L->off[0] == 0 && L->off[L->nm] == L->ne, "resume offset table corrupt");
     return lk;
@@ -12341,6 +12399,598 @@ static void f1c5_ooc_pwrite(int fd, const void *buf, uint64_t len, uint64_t off,
     io->sec_write += omp_get_wtime() - t0;
 }
 
+/* ===================== f1c5 OOC v2: per-block zlib compression =====================
+ * v1 stores keys[]/vals[] raw. v2 stores them as independently-compressed
+ * fixed-size ENTRY BLOCKS (F1C5_OOC_BLK entries each) + a seek index of per-block
+ * compressed offsets, so an arbitrary entry range [e0,e1) is served by
+ * decompressing only the covering blocks (reads are large forward windows →
+ * consecutive blocks → sequential inflate). SHA-NEUTRAL: the count is computed on
+ * DECOMPRESSED bytes, byte-identical to v1 (validated by --f1c5-gzip-selftest and
+ * small-n v1==v2). Native zlib only (compress2/uncompress; internal transient
+ * files, never a published .gz). Level = SOLVE_F1_OOC_GZIP_LEVEL (env override, 1..9);
+ * embedded DEFAULT is 6 (MEASURED 2026-07-08). A -9 default was briefly tried but REVERSED
+ * after a real-scale measurement (n=27 layer 11, ~789 MB compressed, healthy 16-core host):
+ *   level 1: 953s / 881 MB    level 6: 1002s / 789 MB    level 9: 2071s / 767 MB
+ * -> level 9 is ~2x SLOWER than 6 for only ~3% smaller (gzip 6 already captures nearly all
+ * the compression; 9's extra CPU buys almost nothing). Level 6 is the knee (barely slower
+ * than 1, meaningfully smaller). The earlier "-9 ~free because the count is I/O-bound and
+ * decompress is level-independent" reasoning was empirically WRONG: the write-side
+ * compression cost (~2x at level 9) dominates the tiny (~3%) read/disk saving. Level-
+ * INVARIANT for the count (validated 1==6==9), so this is a pure speed/disk choice; the
+ * transient merge (SOLVE_MERGE_TEMP_GZIP_LEVEL) is also 6. Retool 2026-07-07 / level
+ * measured 2026-07-08, Claude (Opus), operator-directed. */
+
+static int f1c5_ooc_gzip_level(void) {
+    const char *e = getenv("SOLVE_F1_OOC_GZIP_LEVEL");
+    if (e && *e) { int v = atoi(e); if (v >= 1 && v <= 9) return v; }
+    return 6;   /* embedded default — see the measured rationale above */
+}
+
+/* Compress srcLen bytes into dst (must have capacity >= compressBound(srcLen));
+ * sets *dstLen to the compressed length. Aborts on any zlib error. */
+static void f1c5_deflate_block(const void *src, uLong srcLen,
+                               Bytef *dst, uLongf *dstLen, int level) {
+    int rc = compress2(dst, dstLen, (const Bytef *)src, srcLen, level);
+    F1_CHECK(rc == Z_OK, "f1c5 deflate block failed (zlib rc=%d, srcLen=%lu)",
+             rc, (unsigned long)srcLen);
+}
+
+/* Decompress srcLen bytes into dst; the caller-supplied expected decompressed
+ * size dstLen is verified exactly (torn/short data hard-fails). */
+static void f1c5_inflate_block(const void *src, uLong srcLen,
+                               Bytef *dst, uLongf dstLen) {
+    uLongf out = dstLen;
+    int rc = uncompress(dst, &out, (const Bytef *)src, srcLen);
+    F1_CHECK(rc == Z_OK && out == dstLen,
+             "f1c5 inflate block failed (zlib rc=%d, got=%lu want=%lu)",
+             rc, (unsigned long)out, (unsigned long)dstLen);
+}
+
+/* Round-trip self-test of the block codec (called by --f1c5-gzip-selftest):
+ * deterministic pseudo-random entry bytes, compress+decompress at levels 1/6/9,
+ * assert byte-identical and report ratios. Returns 0 on success. */
+static int f1c5_gzip_selftest(void) {
+    const uint64_t nent = 4ull * F1C5_OOC_BLK + 12345;   /* a few blocks + partial */
+    const uint64_t klen = 4ull * nent, vlen = 24ull * nent;
+    uint8_t *kbuf = (uint8_t *)malloc(klen);
+    uint8_t *vbuf = (uint8_t *)malloc(vlen);
+    uint8_t *back = (uint8_t *)malloc(vlen);
+    F1_CHECK(kbuf && vbuf && back, "f1c5_gzip_selftest alloc failed");
+    uint64_t s = 0x243f6a8885a308d3ull;   /* fixed seed — no Math.random equivalent */
+    for (uint64_t i = 0; i < klen; i++) { s = s * 6364136223846793005ull + 1442695040888963407ull; kbuf[i] = (uint8_t)(s >> 33); }
+    for (uint64_t i = 0; i < vlen; i++) { s = s * 6364136223846793005ull + 1442695040888963407ull; vbuf[i] = (uint8_t)(s >> 40); }
+    /* NOTE structured (low-entropy) data compresses far better than this random
+     * worst case; the ratios here are a floor, not the layer ratio. */
+    uLong cap = compressBound(24ull * F1C5_OOC_BLK);
+    Bytef *cbuf = (Bytef *)malloc(cap);
+    F1_CHECK(cbuf, "f1c5_gzip_selftest cbuf alloc failed");
+    int levels[3] = {1, 6, 9};
+    for (int li = 0; li < 3; li++) {
+        int lv = levels[li];
+        uint64_t nblk = (nent + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK, csum = 0;
+        for (uint64_t b = 0; b < nblk; b++) {
+            uint64_t e0 = b * F1C5_OOC_BLK, e1 = e0 + F1C5_OOC_BLK; if (e1 > nent) e1 = nent;
+            uint64_t bytes = 24ull * (e1 - e0);
+            uLongf cl = cap;
+            f1c5_deflate_block(vbuf + 24ull * e0, bytes, cbuf, &cl, lv);
+            f1c5_inflate_block(cbuf, cl, back + 24ull * e0, bytes);
+            csum += cl;
+        }
+        F1_CHECK(memcmp(vbuf, back, vlen) == 0, "f1c5_gzip_selftest ROUND-TRIP MISMATCH at level %d", lv);
+        printf("[f1c5-gzip-selftest] level %d: vals round-trip OK, ratio %.3f:1 (%llu -> %llu B, worst-case random)\n",
+               lv, (double)vlen / (double)csum, (unsigned long long)vlen, (unsigned long long)csum);
+    }
+    free(cbuf); free(back); free(vbuf); free(kbuf);
+    printf("[f1c5-gzip-selftest] PASS (round-trip byte-identical at levels 1/6/9)\n");
+    return 0;
+}
+
+/* --f1c5-verify-layer <v1_raw> <v2_gzip>: read a v1 raw layer and a v2 gzip layer
+ * (same k of the same run), decompress the v2 blocks, and assert masks/off/keys/
+ * vals are BYTE-IDENTICAL. Proves the v2 format preserves exact content, not just
+ * the aggregate count. Returns 0 on identical, 1 on mismatch. */
+static int f1c5_verify_layer(const char *v1path, const char *v2path) {
+    FILE *f1 = fopen(v1path, "rb");
+    if (!f1) { fprintf(stderr, "cannot open v1 %s\n", v1path); return 2; }
+    F1C5LayerHdr h1;
+    if (fread(&h1, sizeof(h1), 1, f1) != 1) { fprintf(stderr, "v1 hdr read\n"); return 2; }
+    if (memcmp(h1.magic, "F1C5LAY1", 8) != 0) { fprintf(stderr, "v1 file not F1C5LAY1\n"); return 2; }
+    uint64_t nm = h1.n_masks, ne = h1.n_entries;
+    uint32_t *m1 = (uint32_t *)malloc(4 * (nm ? nm : 1));
+    uint64_t *o1 = (uint64_t *)malloc(8 * (nm + 1));
+    uint32_t *k1 = (uint32_t *)malloc(4 * (ne ? ne : 1));
+    F1U192 *val1 = (F1U192 *)malloc(sizeof(F1U192) * (ne ? ne : 1));
+    F1_CHECK(m1 && o1 && k1 && val1, "verify v1 alloc");
+    if ((nm && fread(m1, 4, nm, f1) != nm) || fread(o1, 8, nm + 1, f1) != nm + 1 ||
+        (ne && fread(k1, 4, ne, f1) != ne) || (ne && fread(val1, sizeof(F1U192), ne, f1) != ne))
+        { fprintf(stderr, "v1 body read\n"); return 2; }
+    fclose(f1);
+    FILE *f2 = fopen(v2path, "rb");
+    if (!f2) { fprintf(stderr, "cannot open v2 %s\n", v2path); return 2; }
+    F1C5LayerHdr h2;
+    if (fread(&h2, sizeof(h2), 1, f2) != 1) { fprintf(stderr, "v2 hdr read\n"); return 2; }
+    if (memcmp(h2.magic, "F1C5LAY2", 8) != 0) { fprintf(stderr, "v2 file not F1C5LAY2\n"); return 2; }
+    if (h2.pad != F1C5_OOC_BLK) { fprintf(stderr, "v2 file BLK=%u != build BLK=%u\n", h2.pad, (unsigned)F1C5_OOC_BLK); return 2; }
+    if (h2.n_masks != nm || h2.n_entries != ne) {
+        fprintf(stderr, "MISMATCH: nm %llu/%llu ne %llu/%llu\n",
+                (unsigned long long)h2.n_masks, (unsigned long long)nm,
+                (unsigned long long)h2.n_entries, (unsigned long long)ne);
+        return 1;
+    }
+    uint64_t nblk = (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+    uint32_t *m2 = (uint32_t *)malloc(4 * (nm ? nm : 1));
+    uint64_t *o2 = (uint64_t *)malloc(8 * (nm + 1));
+    uint64_t *kidx = (uint64_t *)malloc(8 * (nblk + 1));
+    uint64_t *vidx = (uint64_t *)malloc(8 * (nblk + 1));
+    F1_CHECK(m2 && o2 && kidx && vidx, "verify v2 index alloc");
+    if ((nm && fread(m2, 4, nm, f2) != nm) || fread(o2, 8, nm + 1, f2) != nm + 1 ||
+        fread(kidx, 8, nblk + 1, f2) != nblk + 1 || fread(vidx, 8, nblk + 1, f2) != nblk + 1)
+        { fprintf(stderr, "v2 index read\n"); return 2; }
+    long kblk_base = ftell(f2);
+    long vblk_base = kblk_base + (long)kidx[nblk];
+    uint32_t *k2 = (uint32_t *)malloc(4 * (ne ? ne : 1));
+    F1U192 *val2 = (F1U192 *)malloc(sizeof(F1U192) * (ne ? ne : 1));
+    Bytef *cb = (Bytef *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+    F1_CHECK(k2 && val2 && cb, "verify v2 decompress alloc");
+    for (uint64_t b = 0; b < nblk; b++) {
+        uint64_t e0 = b * F1C5_OOC_BLK, e1 = e0 + F1C5_OOC_BLK; if (e1 > ne) e1 = ne;
+        uint64_t bn = e1 - e0;
+        uint64_t kc = kidx[b + 1] - kidx[b];
+        fseek(f2, kblk_base + (long)kidx[b], SEEK_SET);
+        if (fread(cb, 1, kc, f2) != kc) { fprintf(stderr, "v2 kblock read\n"); return 2; }
+        f1c5_inflate_block(cb, kc, (Bytef *)(k2 + e0), 4ull * bn);
+        uint64_t vc = vidx[b + 1] - vidx[b];
+        fseek(f2, vblk_base + (long)vidx[b], SEEK_SET);
+        if (fread(cb, 1, vc, f2) != vc) { fprintf(stderr, "v2 vblock read\n"); return 2; }
+        f1c5_inflate_block(cb, vc, (Bytef *)(val2 + e0), 24ull * bn);
+    }
+    fclose(f2);
+    int bad = 0;
+    if (nm && memcmp(m1, m2, 4 * nm) != 0) { fprintf(stderr, "MISMATCH: masks\n"); bad = 1; }
+    if (memcmp(o1, o2, 8 * (nm + 1)) != 0) { fprintf(stderr, "MISMATCH: off[]\n"); bad = 1; }
+    if (ne && memcmp(k1, k2, 4 * ne) != 0) { fprintf(stderr, "MISMATCH: keys\n"); bad = 1; }
+    if (ne && memcmp(val1, val2, sizeof(F1U192) * ne) != 0) { fprintf(stderr, "MISMATCH: vals\n"); bad = 1; }
+    printf("[f1c5-verify-layer] k=%u nm=%llu ne=%llu: %s (masks/off/keys/vals byte-identical)\n",
+           h2.k, (unsigned long long)nm, (unsigned long long)ne, bad ? "*** MISMATCH ***" : "IDENTICAL");
+    return bad ? 1 : 0;
+}
+
+/* v2 read: decompress entry range [e0,e1) of a v2 layer into kbuf/vbuf such that
+ * kbuf[i]=keys[e0+i], vbuf[i]=vals[e0+i]. Uses the in-RAM block index kidx/vidx;
+ * preads each covering compressed block and inflates it. Scratch ktmp/vtmp hold
+ * one decompressed block (F1C5_OOC_BLK entries); cbuf holds one compressed block
+ * (>= compressBound(24*BLK)). Windows are contiguous so covering blocks are
+ * consecutive → sequential preads. */
+static void f1c5_v2_read_range(int fd, const uint64_t *kidx, const uint64_t *vidx,
+                               uint64_t kblk_base, uint64_t vblk_base,
+                               uint64_t e0, uint64_t e1, uint64_t ne,
+                               uint32_t *kbuf, F1U192 *vbuf,
+                               uint8_t *cbuf, uint32_t *ktmp, F1U192 *vtmp,
+                               const char *path, F1C5OocIo *io) {
+    if (e1 <= e0) return;
+    uint64_t b0 = e0 / F1C5_OOC_BLK, b1 = (e1 - 1) / F1C5_OOC_BLK;
+    for (uint64_t b = b0; b <= b1; b++) {
+        uint64_t be0 = b * F1C5_OOC_BLK, be1 = be0 + F1C5_OOC_BLK;
+        if (be1 > ne) be1 = ne;
+        uint64_t bn = be1 - be0;
+        uint64_t kc = kidx[b + 1] - kidx[b];
+        f1c5_ooc_pread(fd, cbuf, kc, kblk_base + kidx[b], path, io);
+        f1c5_inflate_block(cbuf, kc, (Bytef *)ktmp, 4ull * bn);
+        uint64_t vc = vidx[b + 1] - vidx[b];
+        f1c5_ooc_pread(fd, cbuf, vc, vblk_base + vidx[b], path, io);
+        f1c5_inflate_block(cbuf, vc, (Bytef *)vtmp, 24ull * bn);
+        uint64_t s = be0 > e0 ? be0 : e0, e = be1 < e1 ? be1 : e1;
+        for (uint64_t x = s; x < e; x++) {
+            kbuf[x - e0] = ktmp[x - be0];
+            vbuf[x - e0] = vtmp[x - be0];
+        }
+    }
+}
+
+/* v2 in-RAM writer: write a fully-populated layer L (masks/off/keys/vals in RAM)
+ * as a v2 file, compressing keys/vals in F1C5_OOC_BLK-entry blocks. Also sets
+ * L->kidx/L->vidx (freeing any prior) so the caller can read this layer back
+ * without reloading the index. Used for the tiny layer 0 and the non-OOC path.
+ * Compressed blocks are staged in RAM (< the raw layer already resident). */
+static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                                F1C5Layer *L, int level) {
+    char fin[4096], tmp[4104];
+    snprintf(fin, sizeof(fin), "%s/f1c5_layer_%02d.bin", dir, L->k);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    const uint64_t ne = L->ne;
+    const uint64_t nblk = (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;   /* 0 if ne==0 */
+    uint64_t *kidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
+    uint64_t *vidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
+    const uLong kcap = compressBound(4ull * F1C5_OOC_BLK);
+    const uLong vcap = compressBound(24ull * F1C5_OOC_BLK);
+    Bytef *kc = (Bytef *)malloc(kcap), *vc = (Bytef *)malloc(vcap);
+    F1_CHECK(kidx && vidx && kc && vc, "f1c5_write_layer_v2 alloc failed");
+    uint8_t *kbuf = NULL, *vbuf = NULL;
+    uint64_t kcap_t = 0, vcap_t = 0, klen = 0, vlen = 0;
+    kidx[0] = 0; vidx[0] = 0;
+    for (uint64_t b = 0; b < nblk; b++) {
+        uint64_t e0 = b * F1C5_OOC_BLK, e1 = e0 + F1C5_OOC_BLK; if (e1 > ne) e1 = ne;
+        uint64_t bn = e1 - e0;
+        uLongf cl = kcap; f1c5_deflate_block(L->keys + e0, 4ull * bn, kc, &cl, level);
+        if (klen + cl > kcap_t) { kcap_t = (klen + cl) * 2 + 4096; kbuf = (uint8_t *)realloc(kbuf, kcap_t); F1_CHECK(kbuf, "realloc kbuf"); }
+        memcpy(kbuf + klen, kc, cl); klen += cl; kidx[b + 1] = klen;
+        uLongf vl = vcap; f1c5_deflate_block(L->vals + e0, 24ull * bn, vc, &vl, level);
+        if (vlen + vl > vcap_t) { vcap_t = (vlen + vl) * 2 + 4096; vbuf = (uint8_t *)realloc(vbuf, vcap_t); F1_CHECK(vbuf, "realloc vbuf"); }
+        memcpy(vbuf + vlen, vc, vl); vlen += vl; vidx[b + 1] = vlen;
+    }
+    FILE *f = fopen(tmp, "wb");
+    if (!f) f1_ckpt_io_abort("fopen", tmp);
+    F1C5LayerHdr h; memset(&h, 0, sizeof(h));
+    memcpy(h.magic, "F1C5LAY2", 8);
+    h.version = 2; h.n = (uint32_t)c->n; h.k = (uint32_t)L->k;
+    h.start_exit = (uint32_t)c->start_exit; h.pl_hash = f1_pl_hash(c);
+    h.n_masks = L->nm; h.n_entries = ne;
+    for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
+    h.pad = F1C5_OOC_BLK;   /* v2: record block size so a cross-BLK read is caught (Fable Finding 4) */
+    if (fwrite(&h, sizeof(h), 1, f) != 1 ||
+        (L->nm && fwrite(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+        fwrite(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
+        fwrite(kidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1 ||
+        fwrite(vidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1 ||
+        (klen && fwrite(kbuf, 1, klen, f) != klen) ||
+        (vlen && fwrite(vbuf, 1, vlen, f) != vlen))
+        f1_ckpt_io_abort("fwrite", tmp);
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
+    fclose(f);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
+    f1_fsync_dir(dir);
+    free(kbuf); free(vbuf); free(kc); free(vc);
+    free(L->kidx); free(L->vidx); L->kidx = kidx; L->vidx = vidx;
+}
+
+/* v2 layout offsets for a layer with nm masks and ne entries: the compressed
+ * keys section begins at kblk_base; vals at vblk_base = kblk_base + kidx[nblk]. */
+static uint64_t f1c5_v2_kblk_base(uint64_t nm, uint64_t ne) {
+    uint64_t nblk = (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+    return sizeof(F1C5LayerHdr) + 4ull * nm + 8ull * (nm + 1) + 2ull * 8ull * (nblk + 1);
+}
+
+/* Streaming v2 output context: the builder pushes emitted entries in order; full
+ * F1C5_OOC_BLK-entry blocks are compressed and appended to two sidecars
+ * (.kblk.tmp/.vblk.tmp) with a growable kidx/vidx. finalize assembles the final
+ * v2 file (hdr|masks|off|kidx|vidx|kblocks|vblocks) — the block copies are of
+ * COMPRESSED data, so the transient disk peak is ~2x the (small) compressed layer. */
+typedef struct {
+    int kfd, vfd;
+    char kpath[4200], vpath[4200];
+    uint32_t *bk; F1U192 *bv; uint64_t fill;   /* block accumulator */
+    uint64_t *kidx, *vidx, nblk, idx_cap;      /* growable seek index */
+    Bytef *kc, *vc; uLong kcap, vcap;          /* compressed scratch */
+    int level;
+} F1C5V2Out;
+
+static void f1c5_v2out_init(F1C5V2Out *o, const char *ofin, int level) {
+    memset(o, 0, sizeof(*o));
+    o->level = level;
+    snprintf(o->kpath, sizeof(o->kpath), "%s.kblk.tmp", ofin);
+    snprintf(o->vpath, sizeof(o->vpath), "%s.vblk.tmp", ofin);
+    o->kfd = open(o->kpath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (o->kfd < 0) f1_ckpt_io_abort("open (v2 kblk)", o->kpath);
+    o->vfd = open(o->vpath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (o->vfd < 0) f1_ckpt_io_abort("open (v2 vblk)", o->vpath);
+    o->bk = (uint32_t *)malloc(sizeof(uint32_t) * F1C5_OOC_BLK);
+    o->bv = (F1U192 *)malloc(sizeof(F1U192) * F1C5_OOC_BLK);
+    o->kcap = compressBound(4ull * F1C5_OOC_BLK);
+    o->vcap = compressBound(24ull * F1C5_OOC_BLK);
+    o->kc = (Bytef *)malloc(o->kcap); o->vc = (Bytef *)malloc(o->vcap);
+    o->idx_cap = 1024;
+    o->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (o->idx_cap + 1));
+    o->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (o->idx_cap + 1));
+    F1_CHECK(o->bk && o->bv && o->kc && o->vc && o->kidx && o->vidx, "v2out alloc failed");
+    o->kidx[0] = 0; o->vidx[0] = 0; o->nblk = 0;
+}
+
+static void f1c5_v2out_write_all(int fd, const void *buf, uint64_t len, const char *path) {
+    const uint8_t *p = (const uint8_t *)buf;
+    while (len > 0) {
+        ssize_t w = write(fd, p, len > (1u << 30) ? (1u << 30) : (size_t)len);
+        if (w <= 0) f1_ckpt_io_abort("write", path);
+        p += w; len -= (uint64_t)w;
+    }
+}
+
+/* compress the current accumulator (o->fill entries) into a block, append to
+ * sidecars, record kidx/vidx; reset fill. */
+static void f1c5_v2out_flush_block(F1C5V2Out *o) {
+    if (o->fill == 0) return;
+    if (o->nblk >= o->idx_cap) {
+        o->idx_cap *= 2;
+        o->kidx = (uint64_t *)realloc(o->kidx, sizeof(uint64_t) * (o->idx_cap + 1));
+        o->vidx = (uint64_t *)realloc(o->vidx, sizeof(uint64_t) * (o->idx_cap + 1));
+        F1_CHECK(o->kidx && o->vidx, "v2out idx realloc failed");
+    }
+    uLongf cl = o->kcap; f1c5_deflate_block(o->bk, 4ull * o->fill, o->kc, &cl, o->level);
+    f1c5_v2out_write_all(o->kfd, o->kc, cl, o->kpath);
+    o->kidx[o->nblk + 1] = o->kidx[o->nblk] + cl;
+    uLongf vl = o->vcap; f1c5_deflate_block(o->bv, 24ull * o->fill, o->vc, &vl, o->level);
+    f1c5_v2out_write_all(o->vfd, o->vc, vl, o->vpath);
+    o->vidx[o->nblk + 1] = o->vidx[o->nblk] + vl;
+    o->nblk++;
+    o->fill = 0;
+}
+
+static void f1c5_v2out_push(F1C5V2Out *o, const uint32_t *keys, const F1U192 *vals, uint64_t n) {
+    for (uint64_t i = 0; i < n; i++) {
+        o->bk[o->fill] = keys[i];
+        o->bv[o->fill] = vals[i];
+        o->fill++;
+        if (o->fill == F1C5_OOC_BLK) f1c5_v2out_flush_block(o);
+    }
+}
+
+/* Finalize the v2 layer file: flush partial block, write hdr|masks|off|kidx|vidx
+ * to otmp, append the two compressed-block sidecars, fsync+rename. Steals the
+ * kidx/vidx arrays into *out_kidx/*out_vidx (caller frees). */
+static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin,
+                                const F1C5LayerHdr *h, const uint32_t *masks,
+                                const uint64_t *off, uint64_t nm, uint64_t ne,
+                                const char *dir, uint64_t **out_kidx, uint64_t **out_vidx,
+                                F1C5OocIo *io) {
+    f1c5_v2out_flush_block(o);
+    if (fsync(o->kfd) != 0) f1_ckpt_io_abort("fsync (v2 kblk)", o->kpath);
+    if (fsync(o->vfd) != 0) f1_ckpt_io_abort("fsync (v2 vblk)", o->vpath);
+    close(o->kfd); close(o->vfd);
+    F1_CHECK(o->nblk == (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK,
+             "v2out nblk drift: got %llu want %llu (ne=%llu)",
+             (unsigned long long)o->nblk,
+             (unsigned long long)((ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK), (unsigned long long)ne);
+    int ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    if (ofd < 0) f1_ckpt_io_abort("open (v2 otmp)", otmp);
+    double tw = omp_get_wtime();
+    uint64_t off_pos = 0;
+    f1c5_ooc_pwrite(ofd, h, sizeof(*h), off_pos, otmp, io); off_pos += sizeof(*h);
+    if (nm) { f1c5_ooc_pwrite(ofd, masks, 4ull * nm, off_pos, otmp, io); off_pos += 4ull * nm; }
+    f1c5_ooc_pwrite(ofd, off, 8ull * (nm + 1), off_pos, otmp, io); off_pos += 8ull * (nm + 1);
+    f1c5_ooc_pwrite(ofd, o->kidx, 8ull * (o->nblk + 1), off_pos, otmp, io); off_pos += 8ull * (o->nblk + 1);
+    f1c5_ooc_pwrite(ofd, o->vidx, 8ull * (o->nblk + 1), off_pos, otmp, io); off_pos += 8ull * (o->nblk + 1);
+    /* append compressed-block sidecars (streamed copy; compressed data is small) */
+    uint8_t *cpy = (uint8_t *)malloc(1u << 22); F1_CHECK(cpy, "v2 finalize copy buf");
+    const char *paths[2] = {o->kpath, o->vpath};
+    for (int s = 0; s < 2; s++) {
+        int rf = open(paths[s], O_RDONLY);
+        if (rf < 0) f1_ckpt_io_abort("open (v2 sidecar read)", paths[s]);
+        for (;;) {
+            ssize_t r = read(rf, cpy, 1u << 22);
+            if (r < 0) f1_ckpt_io_abort("read (v2 sidecar)", paths[s]);
+            if (r == 0) break;
+            f1c5_ooc_pwrite(ofd, cpy, (uint64_t)r, off_pos, otmp, io); off_pos += (uint64_t)r;
+        }
+        close(rf); unlink(paths[s]);
+    }
+    free(cpy);
+    if (fsync(ofd) != 0) f1_ckpt_io_abort("fsync (v2 otmp)", otmp);
+    close(ofd);
+    if (rename(otmp, ofin) != 0) f1_ckpt_io_abort("rename (v2)", ofin);
+    f1_fsync_dir(dir);
+    io->sec_write += omp_get_wtime() - tw;
+    *out_kidx = o->kidx; *out_vidx = o->vidx; o->kidx = o->vidx = NULL;
+    free(o->bk); free(o->bv); free(o->kc); free(o->vc);
+}
+
+/* ===================== INTRA-LAYER CHECKPOINT (Technique 1: STATE-SNAPSHOT/RESTORE)
+ * ================================================================================
+ * Resume a PARTIAL v2 layer mid-build after a Spot eviction WITHOUT redoing the
+ * (multi-hour) layer. Written at chunk boundaries (~5-min wall cadence + always
+ * on the kill hook). CORRECTNESS-CRITICAL — a bug is a SILENT WRONG COUNT — so:
+ *   (a) crash-consistent: the sidecars (.kblk.tmp/.vblk.tmp) are fsync'd BEFORE
+ *       the marker is written, and the marker is written tmp+fsync+rename+dir-fsync
+ *       (atomic). A kill can only APPEND to the sidecars past the marker, never
+ *       shorten them, so on resume the recorded byte offsets are always durable.
+ *   (b) validated before ANY bytes are reinterpreted: magic + nxt->k + pl_hash +
+ *       chunk_cap + F1C5_OOC_BLK must all match, the sidecars must exist and be at
+ *       least the marker's recorded size, and the entry-conservation invariant
+ *       off[t0_next] == nblk*BLK + fill must hold. Any mismatch => discard the
+ *       marker and rebuild the layer fresh (always correct; overwrites the file).
+ *   (c) block-aligned: fill/bk/bv restore the partial-block accumulator so the
+ *       resumed push sequence is byte-identical => deterministic gzip => the final
+ *       layer file is byte-for-byte identical to the straight-through build.
+ * v2 ONLY. The v1 path and the fresh (no-checkpoint) path are byte-for-byte
+ * unchanged. Attribution: design + implementation by Claude (Opus), operator-
+ * directed N-version checkpoint effort 2026-07-08. */
+#define F1C5_BUILD_CKPT_MAGIC "F1C5BLD1"
+
+/* Serialize a chunk-boundary snapshot to <dir>/f1c5_build.ckpt. Order (all little-
+ * endian native, matching f1c5_build_ckpt_read): magic[8], nxt_k, pl_hash,
+ * chunk_cap, BLK, t0_next, off[0..t0_next], nblk, kidx[0..nblk], vidx[0..nblk],
+ * fill, bk[0..fill], bv[0..fill], mass{l0,l1,l2}, states, io{read,written,windows}. */
+static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_hash,
+                                  uint64_t chunk_cap, uint64_t t0_next,
+                                  const uint64_t *off, const F1C5V2Out *o,
+                                  const F1U192 *mass, uint64_t states,
+                                  const F1C5OocIo *io) {
+    /* (a) sidecars durable FIRST — the marker must never reference bytes that
+     * are not yet on stable storage. */
+    if (fsync(o->kfd) != 0) f1_ckpt_io_abort("fsync (ckpt kblk)", o->kpath);
+    if (fsync(o->vfd) != 0) f1_ckpt_io_abort("fsync (ckpt vblk)", o->vpath);
+    char fin[4200], tmp[4224];
+    snprintf(fin, sizeof(fin), "%s/f1c5_build.ckpt", dir);
+    snprintf(tmp, sizeof(tmp), "%s/f1c5_build.ckpt.tmp", dir);
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0) f1_ckpt_io_abort("open (build ckpt tmp)", tmp);
+    const uint64_t blk = (uint64_t)F1C5_OOC_BLK;
+    const uint64_t nblk = o->nblk, fill = o->fill;
+    const uint64_t lvl = (uint64_t)o->level;   /* Fix #3: pin the gzip level so a resume at a
+                                                * different level rebuilds fresh (byte-identity). */
+    /* Fix #1: accumulate a CRC32 over the whole payload; a trailing CRC lets the
+     * reader reject a bit-rotted marker BEFORE trusting an interior off[]/kidx
+     * value (the entry-conservation invariant only checks the last off[]). */
+    uLong crc = crc32(0L, Z_NULL, 0);
+    #define CKW(ptr, n) do { f1c5_v2out_write_all(fd, (ptr), (uint64_t)(n), tmp); \
+                             crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
+    CKW(F1C5_BUILD_CKPT_MAGIC, 8);
+    CKW(&nxt_k, 8); CKW(&pl_hash, 8); CKW(&chunk_cap, 8); CKW(&blk, 8); CKW(&lvl, 8);
+    CKW(&t0_next, 8);
+    CKW(off, 8ull * (t0_next + 1));
+    CKW(&nblk, 8);
+    CKW(o->kidx, 8ull * (nblk + 1));
+    CKW(o->vidx, 8ull * (nblk + 1));
+    CKW(&fill, 8);
+    if (fill) { CKW(o->bk, 4ull * fill); CKW(o->bv, (uint64_t)sizeof(F1U192) * fill); }
+    CKW(mass, (uint64_t)sizeof(F1U192));
+    CKW(&states, 8);
+    uint64_t triplet[3] = { io->bytes_read, io->bytes_written, io->windows };
+    CKW(triplet, 24);
+    #undef CKW
+    uint32_t crc32v = (uint32_t)crc;   /* trailing CRC (itself not part of the CRC) */
+    f1c5_v2out_write_all(fd, &crc32v, 4, tmp);
+    if (fsync(fd) != 0) f1_ckpt_io_abort("fsync (build ckpt tmp)", tmp);
+    close(fd);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename (build ckpt)", fin);
+    f1_fsync_dir(dir);
+}
+
+/* Parsed checkpoint payload (heap arrays owned by the caller; freed via
+ * f1c5_build_ckpt_free). */
+typedef struct {
+    uint64_t t0_next, nblk, fill, states;
+    uint64_t *off;          /* t0_next+1 entries */
+    uint64_t *kidx, *vidx;  /* nblk+1 entries each */
+    uint32_t *bk;           /* fill keys (partial accumulator) */
+    F1U192 *bv;             /* fill vals */
+    F1U192 mass;
+    uint64_t bytes_read, bytes_written, windows;
+} F1C5BuildCkptData;
+
+static void f1c5_build_ckpt_free(F1C5BuildCkptData *d) {
+    free(d->off); free(d->kidx); free(d->vidx); free(d->bk); free(d->bv);
+    memset(d, 0, sizeof(*d));
+}
+
+/* Read + validate <dir>/f1c5_build.ckpt for the current layer. Returns 1 and
+ * fills *d on a valid, usable resume point; returns 0 (fresh build) otherwise,
+ * unlinking a present-but-unusable marker so it can never mislead a later run.
+ * ofin is the final layer path (its .kblk.tmp/.vblk.tmp sidecars are checked). */
+static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_k,
+                                uint64_t pl_hash, uint64_t chunk_cap,
+                                F1C5BuildCkptData *d) {
+    char path[4200];
+    snprintf(path, sizeof(path), "%s/f1c5_build.ckpt", dir);
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;   /* no marker => fresh (not an error) */
+    memset(d, 0, sizeof(*d));
+    int ok = 1;
+    uLong crc = crc32(0L, Z_NULL, 0);   /* Fix #1: whole-payload CRC, verified below */
+    #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; \
+                               else if (ok) crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
+    char magic[8]; CK_RD(magic, 8);
+    if (ok && memcmp(magic, F1C5_BUILD_CKPT_MAGIC, 8) != 0) ok = 0;
+    uint64_t k = 0, ph = 0, cc = 0, blk = 0, lvl = 0;
+    CK_RD(&k, 8); CK_RD(&ph, 8); CK_RD(&cc, 8); CK_RD(&blk, 8); CK_RD(&lvl, 8);
+    if (ok && (k != nxt_k || ph != pl_hash || cc != chunk_cap ||
+               blk != (uint64_t)F1C5_OOC_BLK ||
+               lvl != (uint64_t)f1c5_ooc_gzip_level())) ok = 0;   /* stale / config / level-changed (Fix #3) */
+    CK_RD(&d->t0_next, 8);
+    if (ok) {
+        d->off = (uint64_t *)malloc(8ull * (d->t0_next + 1));
+        F1_CHECK(d->off, "build ckpt off alloc");
+        CK_RD(d->off, 8ull * (d->t0_next + 1));
+    }
+    CK_RD(&d->nblk, 8);
+    if (ok) {
+        d->kidx = (uint64_t *)malloc(8ull * (d->nblk + 1));
+        d->vidx = (uint64_t *)malloc(8ull * (d->nblk + 1));
+        F1_CHECK(d->kidx && d->vidx, "build ckpt idx alloc");
+        CK_RD(d->kidx, 8ull * (d->nblk + 1));
+        CK_RD(d->vidx, 8ull * (d->nblk + 1));
+    }
+    CK_RD(&d->fill, 8);
+    if (ok) {
+        d->bk = (uint32_t *)malloc(4ull * (d->fill ? d->fill : 1));
+        d->bv = (F1U192 *)malloc((uint64_t)sizeof(F1U192) * (d->fill ? d->fill : 1));
+        F1_CHECK(d->bk && d->bv, "build ckpt accum alloc");
+        if (d->fill) {
+            CK_RD(d->bk, 4ull * d->fill);
+            CK_RD(d->bv, (uint64_t)sizeof(F1U192) * d->fill);
+        }
+    }
+    CK_RD(&d->mass, (uint64_t)sizeof(F1U192));
+    CK_RD(&d->states, 8);
+    uint64_t triplet[3] = {0, 0, 0}; CK_RD(triplet, 24);
+    d->bytes_read = triplet[0]; d->bytes_written = triplet[1]; d->windows = triplet[2];
+    /* Fix #1: verify the whole-payload CRC BEFORE trusting any field. An interior
+     * off[]/kidx bit-flip passes the entry-conservation invariant (only off[t0_next]
+     * is checked) but fails here => reject + fresh rebuild, never a silent wrong count. */
+    uint32_t stored_crc = 0;
+    if (ok && fread(&stored_crc, 1, 4, f) != 4) ok = 0;
+    if (ok && stored_crc != (uint32_t)crc) ok = 0;
+    #undef CK_RD
+    fclose(f);
+    if (ok) {
+        /* entry-conservation invariant: everything pushed for masks [0,t0_next)
+         * is exactly nblk full blocks + a fill-entry partial. A violation means
+         * an internally-inconsistent marker — refuse it (rebuild fresh), never
+         * trust it into a wrong count. */
+        if (d->off[d->t0_next] != d->nblk * (uint64_t)F1C5_OOC_BLK + d->fill) ok = 0;
+    }
+    if (ok) {
+        /* sidecars must exist and hold at least the marker's committed bytes
+         * (they were fsync'd before the marker; a later kill can only append).
+         * If they are gone/short (e.g. finalize already ran but the marker was
+         * not yet unlinked), the layer is complete or unrecoverable here — go
+         * fresh, which safely overwrites. */
+        char kp[4300], vp[4312]; struct stat sk, sv;
+        snprintf(kp, sizeof(kp), "%s.kblk.tmp", ofin);
+        snprintf(vp, sizeof(vp), "%s.vblk.tmp", ofin);
+        if (stat(kp, &sk) != 0 || stat(vp, &sv) != 0 ||
+            (uint64_t)sk.st_size < d->kidx[d->nblk] ||
+            (uint64_t)sv.st_size < d->vidx[d->nblk]) ok = 0;
+    }
+    if (!ok) {
+        f1c5_build_ckpt_free(d);
+        unlink(path);   /* present but unusable => never let it mislead a later run */
+        return 0;
+    }
+    return 1;
+}
+
+/* Set up the streaming v2 compressor to RESUME from a validated checkpoint:
+ * reopen the sidecars WITHOUT truncating (preserving the committed compressed
+ * blocks), ftruncate them down to the marker's recorded size (discarding any
+ * post-marker partial block a kill may have left), position at end for the next
+ * sequential append, then restore nblk/kidx/vidx and the partial accumulator.
+ * Mirrors f1c5_v2out_init's allocations but never O_TRUNCs. */
+static void f1c5_v2out_resume(F1C5V2Out *o, const char *ofin, int level,
+                              const F1C5BuildCkptData *d) {
+    memset(o, 0, sizeof(*o));
+    o->level = level;
+    snprintf(o->kpath, sizeof(o->kpath), "%s.kblk.tmp", ofin);
+    snprintf(o->vpath, sizeof(o->vpath), "%s.vblk.tmp", ofin);
+    o->kfd = open(o->kpath, O_WRONLY | O_CREAT, 0666);   /* NO O_TRUNC */
+    if (o->kfd < 0) f1_ckpt_io_abort("open (v2 resume kblk)", o->kpath);
+    o->vfd = open(o->vpath, O_WRONLY | O_CREAT, 0666);
+    if (o->vfd < 0) f1_ckpt_io_abort("open (v2 resume vblk)", o->vpath);
+    if (ftruncate(o->kfd, (off_t)d->kidx[d->nblk]) != 0)
+        f1_ckpt_io_abort("ftruncate (v2 resume kblk)", o->kpath);
+    if (ftruncate(o->vfd, (off_t)d->vidx[d->nblk]) != 0)
+        f1_ckpt_io_abort("ftruncate (v2 resume vblk)", o->vpath);
+    if (lseek(o->kfd, (off_t)d->kidx[d->nblk], SEEK_SET) == (off_t)-1)
+        f1_ckpt_io_abort("lseek (v2 resume kblk)", o->kpath);
+    if (lseek(o->vfd, (off_t)d->vidx[d->nblk], SEEK_SET) == (off_t)-1)
+        f1_ckpt_io_abort("lseek (v2 resume vblk)", o->vpath);
+    o->bk = (uint32_t *)malloc(sizeof(uint32_t) * F1C5_OOC_BLK);
+    o->bv = (F1U192 *)malloc(sizeof(F1U192) * F1C5_OOC_BLK);
+    o->kcap = compressBound(4ull * F1C5_OOC_BLK);
+    o->vcap = compressBound(24ull * F1C5_OOC_BLK);
+    o->kc = (Bytef *)malloc(o->kcap); o->vc = (Bytef *)malloc(o->vcap);
+    o->idx_cap = d->nblk > 1024 ? d->nblk : 1024;   /* room for kidx[0..nblk] + growth */
+    o->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (o->idx_cap + 1));
+    o->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (o->idx_cap + 1));
+    F1_CHECK(o->bk && o->bv && o->kc && o->vc && o->kidx && o->vidx, "v2out resume alloc failed");
+    memcpy(o->kidx, d->kidx, sizeof(uint64_t) * (d->nblk + 1));
+    memcpy(o->vidx, d->vidx, sizeof(uint64_t) * (d->nblk + 1));
+    o->nblk = d->nblk;
+    o->fill = d->fill;
+    if (d->fill) {
+        memcpy(o->bk, d->bk, sizeof(uint32_t) * d->fill);
+        memcpy(o->bv, d->bv, sizeof(F1U192) * d->fill);
+    }
+}
+
 /* Build layer k+1 (nxt: masks/nm enumerated, off allocated by the caller) by
  * streaming layer k (= cur; index in RAM, entries on disk) — and stream the
  * RESULT to disk as well: on return the layer file is complete and atomically
@@ -12351,32 +13001,82 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                  const F1C5Layer *cur, F1C5Layer *nxt,
                                  const int32_t *loc1, int vk1, const uint16_t *vl1,
                                  const F1C5OocCfg *cfg, F1C5OocIo *io,
-                                 F1U192 *mass_out, uint64_t *states_out) {
+                                 F1U192 *mass_out, uint64_t *states_out,
+                                 int use_v2, int gzip_level) {
     char path[4096];
     snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, cur->k);
     int fd = open(path, O_RDONLY);
     if (fd < 0) f1_ckpt_io_abort("open (ooc gather)", path);
-    /* output: .tmp holds hdr+masks+off+keys (+vals after finalize); vals are
-     * staged in a sidecar because their base offset depends on the final
-     * entry count, unknown until every chunk has emitted */
+    /* v1 output: .tmp holds hdr+masks+off+keys, vals staged in a sidecar (base
+     * unknown until ne known). v2 output: streaming per-block compressor (V2Out). */
     char ofin[4096], otmp[4104], ovtmp[4112];
     snprintf(ofin, sizeof(ofin), "%s/f1c5_layer_%02d.bin", dir, nxt->k);
     snprintf(otmp, sizeof(otmp), "%s.tmp", ofin);
     snprintf(ovtmp, sizeof(ovtmp), "%s.vals.tmp", ofin);
-    int ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    if (ofd < 0) f1_ckpt_io_abort("open (ooc layer .tmp)", otmp);
-    int vfd = open(ovtmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    if (vfd < 0) f1_ckpt_io_abort("open (ooc layer .vals.tmp)", ovtmp);
+    int ofd = -1, vfd = -1;
+    F1C5V2Out v2o;
+    if (!use_v2) {
+        ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+        if (ofd < 0) f1_ckpt_io_abort("open (ooc layer .tmp)", otmp);
+        vfd = open(ovtmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+        if (vfd < 0) f1_ckpt_io_abort("open (ooc layer .vals.tmp)", ovtmp);
+    }
+    /* The v2 streaming compressor (fresh f1c5_v2out_init OR checkpoint-resume via
+     * f1c5_v2out_resume) is set up below, once chunk_cap is known — the marker's
+     * chunk partition must match chunk_cap for its off[]/entry layout to apply. */
     const uint64_t okeys_base = sizeof(F1C5LayerHdr) + 4ull * nxt->nm + 8ull * (nxt->nm + 1);
     const uint64_t keys_base = sizeof(F1C5LayerHdr) + 4ull * cur->nm + 8ull * (cur->nm + 1);
     const uint64_t vals_base = keys_base + 4ull * cur->ne;
     const uint64_t entry_b = 4ull + sizeof(F1U192);
+    /* v2 read: cur's compressed-block section bases + one-block decompress scratch */
+    const uint64_t cur_kblk_base = use_v2 ? f1c5_v2_kblk_base(cur->nm, cur->ne) : 0;
+    const uint64_t cur_vblk_base = use_v2
+        ? cur_kblk_base + (cur->ne ? cur->kidx[(cur->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK] : 0)
+        : 0;
+    uint8_t *v2cbuf = NULL; uint32_t *v2ktmp = NULL; F1U192 *v2vtmp = NULL;
+    if (use_v2) {
+        v2cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+        v2ktmp = (uint32_t *)malloc(sizeof(uint32_t) * F1C5_OOC_BLK);
+        v2vtmp = (F1U192 *)malloc(sizeof(F1U192) * F1C5_OOC_BLK);
+        F1_CHECK(v2cbuf && v2ktmp && v2vtmp, "v2 read scratch alloc failed");
+    }
 
     /* chunk sizing: dense per-target scratch is 64 * vk1 F1U192 slots */
     const uint64_t scr_per_tgt = 64ull * (uint64_t)vk1;
     uint64_t chunk_cap = (cfg->scratch_mb << 20) / (scr_per_tgt * sizeof(F1U192));
     if (chunk_cap < 1) chunk_cap = 1;
     if (nxt->nm && chunk_cap > nxt->nm) chunk_cap = nxt->nm;
+
+    /* v2 streaming compressor: RESUME from a validated intra-layer checkpoint if
+     * one is present for THIS layer (same k / pl_hash / chunk_cap / BLK, sidecars
+     * intact), else fresh init. resume_t0 is the first chunk to (re)process. */
+    uint64_t resume_t0 = 0;
+    F1C5BuildCkptData ckpt;
+    int have_ckpt = 0;
+    if (use_v2) {
+        have_ckpt = f1c5_build_ckpt_read(dir, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+                                         chunk_cap, &ckpt);
+        if (have_ckpt) {
+            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
+            resume_t0 = ckpt.t0_next;
+            fprintf(stderr, "[f1c5-ooc] RESUME intra-layer checkpoint: layer k=%d "
+                    "restart at chunk t0=%llu (%llu/%llu masks done, %llu blocks + "
+                    "%llu partial committed)\n",
+                    nxt->k, (unsigned long long)resume_t0, (unsigned long long)resume_t0,
+                    (unsigned long long)nxt->nm, (unsigned long long)ckpt.nblk,
+                    (unsigned long long)ckpt.fill);
+        } else {
+            f1c5_v2out_init(&v2o, ofin, gzip_level);
+        }
+    }
+    /* intra-layer checkpoint cadence + deterministic kill hook (test-only) */
+    double last_ckpt_wt = omp_get_wtime();
+    double CKPT_INTERVAL_S = 300.0;   /* ~5 min wall between snapshots */
+    { const char *e = getenv("SOLVE_F1_CKPT_SEC");   /* test/tuning override of the cadence */
+      if (e && *e) { double v = atof(e); if (v > 0.0) CKPT_INTERVAL_S = v; } }
+    long long kill_after_chunk = -1;
+    { const char *e = getenv("SOLVE_F1_KILL_AFTER_CHUNK");
+      if (e && *e) kill_after_chunk = atoll(e); }
 
     /* read window: at least one full predecessor span (<= 64 * R entries),
      * at most the whole previous layer */
@@ -12407,8 +13107,21 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     nxt->keys = NULL;   /* entries stream to disk; they never live in RAM */
     nxt->vals = NULL;
     nxt->off[0] = 0;
+    if (have_ckpt) {
+        /* restore the exact accounting state as of the checkpointed chunk:
+         * off[0..t0_next] partition, layer mass/states, and I/O byte counters.
+         * The V2Out data-plane (sidecars + partial accumulator) is already
+         * restored by f1c5_v2out_resume above. */
+        memcpy(nxt->off, ckpt.off, sizeof(uint64_t) * (ckpt.t0_next + 1));
+        mass = ckpt.mass;
+        states = ckpt.states;
+        io->bytes_read = ckpt.bytes_read;
+        io->bytes_written = ckpt.bytes_written;
+        io->windows = ckpt.windows;
+        f1c5_build_ckpt_free(&ckpt);
+    }
 
-    for (uint64_t t0 = 0; t0 < nxt->nm; t0 += chunk_cap) {
+    for (uint64_t t0 = resume_t0; t0 < nxt->nm; t0 += chunk_cap) {
         const uint64_t tc = (nxt->nm - t0 < chunk_cap) ? nxt->nm - t0 : chunk_cap;
         /* per-target predecessor requests, sorted by file position */
         #pragma omp parallel for schedule(dynamic, 64)
@@ -12463,10 +13176,15 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             F1_CHECK(e1 - e0 <= buf_entries, "ooc window exceeds read buffer");
             const uint64_t phi = needed[wj - 1];
             if (e1 > e0) {
-                f1c5_ooc_pread(fd, kbuf, sizeof(uint32_t) * (e1 - e0),
-                               keys_base + sizeof(uint32_t) * e0, path, io);
-                f1c5_ooc_pread(fd, vbuf, sizeof(F1U192) * (e1 - e0),
-                               vals_base + sizeof(F1U192) * e0, path, io);
+                if (use_v2) {
+                    f1c5_v2_read_range(fd, cur->kidx, cur->vidx, cur_kblk_base, cur_vblk_base,
+                                       e0, e1, cur->ne, kbuf, vbuf, v2cbuf, v2ktmp, v2vtmp, path, io);
+                } else {
+                    f1c5_ooc_pread(fd, kbuf, sizeof(uint32_t) * (e1 - e0),
+                                   keys_base + sizeof(uint32_t) * e0, path, io);
+                    f1c5_ooc_pread(fd, vbuf, sizeof(F1U192) * (e1 - e0),
+                                   vals_base + sizeof(F1U192) * e0, path, io);
+                }
             }
             io->windows++;
             #pragma omp parallel for schedule(dynamic, 8)
@@ -12531,28 +13249,63 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
          * sidecar (relocated at finalize once the total entry count is known) */
         const uint64_t cents = nxt->off[t0 + tc] - cbase;
         if (cents) {
-            f1c5_ooc_pwrite(ofd, skeys, sizeof(uint32_t) * cents,
-                            okeys_base + sizeof(uint32_t) * cbase, otmp, io);
-            f1c5_ooc_pwrite(vfd, svals, sizeof(F1U192) * cents,
-                            sizeof(F1U192) * cbase, ovtmp, io);
+            if (use_v2) {
+                f1c5_v2out_push(&v2o, skeys, svals, cents);
+            } else {
+                f1c5_ooc_pwrite(ofd, skeys, sizeof(uint32_t) * cents,
+                                okeys_base + sizeof(uint32_t) * cbase, otmp, io);
+                f1c5_ooc_pwrite(vfd, svals, sizeof(F1U192) * cents,
+                                sizeof(F1U192) * cbase, ovtmp, io);
+            }
+        }
+        /* v2 intra-layer checkpoint at this chunk boundary: on the ~5-min cadence
+         * OR always when the kill hook fires. All state pushed for masks
+         * [0, t0+tc) is now durable-eligible; the snapshot records t0_next=t0+tc
+         * so a resume restarts at the next unprocessed chunk. */
+        if (use_v2) {
+            const uint64_t ci = t0 / chunk_cap;   /* absolute 0-based chunk index */
+            const uint64_t t0_next = t0 + tc;
+            const int do_kill = (kill_after_chunk >= 0 &&
+                                 (uint64_t)kill_after_chunk == ci);
+            const double now = omp_get_wtime();
+            if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
+                f1c5_build_ckpt_write(dir, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                                      t0_next, nxt->off, &v2o, &mass, states, io);
+                last_ckpt_wt = now;
+                if (do_kill) {
+                    fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_AFTER_CHUNK=%lld reached "
+                            "(layer k=%d chunk=%llu t0_next=%llu) — checkpointed, _exit(137)\n",
+                            kill_after_chunk, nxt->k, (unsigned long long)ci,
+                            (unsigned long long)t0_next);
+                    _exit(137);
+                }
+            }
         }
     }
     nxt->ne = nxt->off[nxt->nm];
-    /* finalize: hdr+masks+off up front (byte-identical to f1c5_write_layer),
-     * then relocate vals from the sidecar tail-first with progressive
-     * ftruncate so the transient disk peak stays ~1x the final layer */
-    {
-        F1C5LayerHdr h;
-        memset(&h, 0, sizeof(h));
-        memcpy(h.magic, "F1C5LAY1", 8);
-        h.version = 1;
-        h.n = (uint32_t)c->n;
-        h.k = (uint32_t)nxt->k;
-        h.start_exit = (uint32_t)c->start_exit;
-        h.pl_hash = f1_pl_hash(c);
-        h.n_masks = nxt->nm;
-        h.n_entries = nxt->ne;
-        for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
+    /* finalize: hdr+masks+off up front. v1 relocates vals from the sidecar
+     * tail-first (peak ~1x layer); v2 appends the compressed-block sidecars. */
+    F1C5LayerHdr h;
+    memset(&h, 0, sizeof(h));
+    memcpy(h.magic, use_v2 ? "F1C5LAY2" : "F1C5LAY1", 8);
+    h.version = use_v2 ? 2u : 1u;
+    h.n = (uint32_t)c->n;
+    h.k = (uint32_t)nxt->k;
+    h.start_exit = (uint32_t)c->start_exit;
+    h.pl_hash = f1_pl_hash(c);
+    h.n_masks = nxt->nm;
+    h.n_entries = nxt->ne;
+    for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
+    h.pad = use_v2 ? F1C5_OOC_BLK : 0u;   /* v2: block size for cross-BLK safety (Fable Finding 4) */
+    if (use_v2) {
+        f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
+                            dir, &nxt->kidx, &nxt->vidx, io);
+        free(v2cbuf); free(v2ktmp); free(v2vtmp);
+        /* layer file is committed (rename+dir-fsync inside finalize); the
+         * intra-layer marker is now obsolete — remove it so a later resume of the
+         * NEXT layer can never misread a complete layer's stale checkpoint. */
+        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/f1c5_build.ckpt", dir); unlink(ckp); }
+    } else {
         f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
         f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
         f1c5_ooc_pwrite(ofd, nxt->off, sizeof(uint64_t) * (nxt->nm + 1),
@@ -12622,6 +13375,15 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         if ((e = getenv("SOLVE_F1_OOC_GAP_KB")) && *e && atoll(e) >= 0)
             ooc_cfg.gap_kb = (uint64_t)atoll(e);
     }
+    /* retool 2026-07-07: v2 = per-block-gzip layer format (default). v1 = raw
+     * (pristine reference; SOLVE_F1_OOC_FORMAT=v1). Count is format-invariant. */
+    int use_v2 = 1;
+    { const char *e = getenv("SOLVE_F1_OOC_FORMAT");
+      if (e && (strcmp(e, "v1") == 0 || strcmp(e, "1") == 0)) use_v2 = 0; }
+    int gzip_level = f1c5_ooc_gzip_level();
+    if (ooc)
+        fprintf(stderr, "[f1c5-ooc] layer format: %s%s\n", use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
+                use_v2 ? "" : " [reference]");
 
     F1Ctx *c = (F1Ctx *)calloc(1, sizeof(F1Ctx));
     F1_CHECK(c != NULL, "ctx alloc failed");
@@ -12724,9 +13486,18 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     if (dir) {
         if (mkdir(dir, 0755) != 0 && errno != EEXIST)
             f1_ckpt_io_abort("mkdir", dir);
-        int rk = f1c5_try_resume(dir, c, &B, &cur, ooc);
+        int resumed_is_v2 = -1;
+        int rk = f1c5_try_resume(dir, c, &B, &cur, ooc, &resumed_is_v2);
         if (rk >= 0) {
             k0 = rk;
+            /* ADOPT the on-disk format so a dropped/wrong SOLVE_F1_OOC_FORMAT env on a
+             * relaunch can NEVER reinterpret existing bytes as the other format (Fable
+             * review Finding 1 — was a silent-wrong-count path). */
+            if (resumed_is_v2 >= 0 && resumed_is_v2 != use_v2) {
+                fprintf(stderr, "[f1c5] resume ADOPTS on-disk layer format %s (env requested %s)\n",
+                        resumed_is_v2 ? "v2" : "v1", use_v2 ? "v2" : "v1");
+                use_v2 = resumed_is_v2;
+            }
             fprintf(stderr, "[f1c5] RESUME from last complete layer k=%d "
                     "(%llu canonical masks, %llu entries%s)\n",
                     rk, (unsigned long long)cur.nm, (unsigned long long)cur.ne,
@@ -12756,10 +13527,14 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         cur.keys[0] = ((uint32_t)start_exit << 16);
         cur.vals[0].l0 = 1;
         if (dir) {
-            f1c5_write_layer(dir, c, &B, &cur);
+            /* v2 layer files only in OOC mode; the in-RAM --layers-dir path writes v1
+             * for ALL layers (0..n), so layer 0 must be v1 too or the dir is mixed-
+             * format and can't resume (Fable review Finding 3). */
+            if (ooc && use_v2) f1c5_write_layer_v2(dir, c, &B, &cur, gzip_level);  /* sets cur.kidx/vidx */
+            else               f1c5_write_layer(dir, c, &B, &cur);
             f1c5_write_manifest(dir, c, &B, 0);
         }
-        if (ooc && max_layer > 0) {   /* entries live on disk from here on */
+        if (ooc && max_layer > 0) {   /* entries live on disk from here on (index stays in RAM) */
             free(cur.keys); free(cur.vals);
             cur.keys = NULL; cur.vals = NULL;
         }
@@ -12793,7 +13568,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
              * stats AND the (atomic) layer-file write happen chunk-by-chunk
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
             f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
-                                 &ooc_mass, &ooc_states);
+                                 &ooc_mass, &ooc_states, use_v2, gzip_level);
             t2 = omp_get_wtime();
         } else {
         /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
@@ -12905,15 +13680,28 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             snprintf(fpath, sizeof(fpath), "%s/f1c5_layer_%02d.bin", dir, cur.k);
             int ffd = open(fpath, O_RDONLY);
             if (ffd < 0) f1_ckpt_io_abort("open (final layer)", fpath);
-            const uint64_t fkb = sizeof(F1C5LayerHdr) + 4ull * cur.nm + 8ull * (cur.nm + 1);
             cur.keys = (uint32_t *)malloc(sizeof(uint32_t) * (cur.ne ? cur.ne : 1));
             cur.vals = (F1U192 *)malloc(sizeof(F1U192) * (cur.ne ? cur.ne : 1));
             F1_CHECK(cur.keys && cur.vals, "final-layer readback alloc failed");
             F1C5OocIo fio;
             memset(&fio, 0, sizeof(fio));
-            f1c5_ooc_pread(ffd, cur.keys, sizeof(uint32_t) * cur.ne, fkb, fpath, &fio);
-            f1c5_ooc_pread(ffd, cur.vals, sizeof(F1U192) * cur.ne,
-                           fkb + sizeof(uint32_t) * cur.ne, fpath, &fio);
+            if (use_v2) {   /* final layer is 1 block; decompress via the v2 index */
+                uint64_t fkblk = f1c5_v2_kblk_base(cur.nm, cur.ne);
+                uint64_t fvblk = fkblk + (cur.ne ? cur.kidx[(cur.ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK] : 0);
+                uint8_t *fcb = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+                uint32_t *fkt = (uint32_t *)malloc(sizeof(uint32_t) * F1C5_OOC_BLK);
+                F1U192 *fvt = (F1U192 *)malloc(sizeof(F1U192) * F1C5_OOC_BLK);
+                F1_CHECK(fcb && fkt && fvt, "final-layer v2 scratch alloc failed");
+                if (cur.ne)
+                    f1c5_v2_read_range(ffd, cur.kidx, cur.vidx, fkblk, fvblk, 0, cur.ne, cur.ne,
+                                       cur.keys, cur.vals, fcb, fkt, fvt, fpath, &fio);
+                free(fcb); free(fkt); free(fvt);
+            } else {
+                const uint64_t fkb = sizeof(F1C5LayerHdr) + 4ull * cur.nm + 8ull * (cur.nm + 1);
+                f1c5_ooc_pread(ffd, cur.keys, sizeof(uint32_t) * cur.ne, fkb, fpath, &fio);
+                f1c5_ooc_pread(ffd, cur.vals, sizeof(F1U192) * cur.ne,
+                               fkb + sizeof(uint32_t) * cur.ne, fpath, &fio);
+            }
             close(ffd);
         }
         F1U192 total = {0, 0, 0};
@@ -14326,6 +15114,13 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("F6 VERIFY: PASS\n");
         else printf("F6 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
+        /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */
+        return f1c5_gzip_selftest();
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-verify-layer") == 0) {
+        /* retool: byte-identical content check of a v1 raw vs v2 gzip layer file. */
+        if (argc < 4) { fprintf(stderr, "usage: --f1c5-verify-layer <v1_raw> <v2_gzip>\n"); return 2; }
+        return f1c5_verify_layer(argv[2], argv[3]);
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
         /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.
          * See the module header above f1_exact_main() for method, gates, and
