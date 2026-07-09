@@ -353,6 +353,17 @@ not improve neural network training*. arXiv. https://arxiv.org/abs/2604.09234
   Monte Carlo statistical analysis of the sequence against 100,000 random permutations; predates ROAE;
   per-finding overlap scoped above. [read]
 
+<a id="clarke1987"></a>
+Clarke, A. G. (1987). Probability theory applied to the I Ching. *Journal of Chinese Philosophy, 14*(1),
+65–72. [doi:10.1163/15406253-01401004](https://doi.org/10.1163/15406253-01401004)
+  [analyzed 2026-07-09 — OUT-OF-SCOPE: divination mechanics, not the ordering. Computes yarrow-stalk vs.
+  three-coin line-change probabilities over the 4,096 = 64×64 cast → related-hexagram space and derives a
+  hexagram study-prioritization heuristic; never permutes or statistically tests the King Wen sequence, so
+  not found to be prior art for any ROAE null-model / ordering result. Appears in the same JCP 14:1 issue
+  as Hacker (1987), immediately following it. Cites Gardner (1974, *Scientific American*) for the yarrow
+  1/16-yin vs. 3/16-yang per-line change probabilities — divination content distinct from the Gray-code
+  work in ROAE's [Gardner](#gardner) entry. Background only.]
+
 <a id="cook2006"></a>
 Cook, R. S. (2006). *Classical Chinese combinatorics: Derivation of the Book of Changes hexagram sequence*
 (STEDT Monograph Series No. 5). University of California, Berkeley.
@@ -468,9 +479,12 @@ Rutt, R. (1996). *Zhouyi: The Book of Changes*. Curzon Press. [Open Library](htt
   Bamboo-slat cord-fraying physical corruption mechanism (p. 105), via Hacker & Moore (2003). [secondary]
 
 <a id="schoter1998"></a>
-Schöter, A. (1998). Boolean algebra and the Yi Jing.
-  Boolean operations and lattice structure on hexagrams; does not address the King Wen ordering.
-  [analyzed, via mirror]
+Schöter, A. (1998). Boolean algebra and the Yi Jing. *The Oracle: The Journal of Yijing Studies, 2*(7),
+19–34.
+  Boolean operations and lattice structure on hexagrams — a functionally complete Boolean algebra
+  (complement, OR, AND, XOR) extending the XOR/AND algebra of [Goldenberg (1975)](#goldenberg1975) with
+  the complement operation Goldenberg lacked; does not address the King Wen ordering. [read in full
+  2026-07; previously analyzed via mirror]
 
 <a id="schulz1982"></a>
 Schulz, L. J. (1982). *Lai Chih-te (1525–1604) and the phenomenology of change* [Doctoral dissertation,
@@ -614,6 +628,12 @@ and the "mediating hexagram" (XOR difference) of any pair — set-level prior ar
 framing used throughout this repository, distinct from our ordering-level constraint results
 ([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Related work). Located via Hacker, Moore & Patsco (2002),
 entry B:154; annotation-level knowledge only until the article is acquired (JCP basket, July 2026).
+[Schöter (1998)](#schoter1998) independently corroborates this lineage first-hand: he credits
+Goldenberg's ⊕ (XOR) and ⊗ (AND) as the direct parallels of his own bit-wise operators, reports that the
+bulk of his own work predated his awareness of Goldenberg, and notes his divinatory change operator
+matches Goldenberg's Theorem 7 — Schöter's addition being the complement operation Goldenberg lacked.
+The primary text remains unobtained: JCP is not on JSTOR; its archive sits behind the Brill (current
+publisher) and Wiley (legacy) paywalls, so the acquisition route is interlibrary loan or pay-per-view.
 
 <a id="nielsen2003"></a>
 ## Nielsen, Bent (2003)
