@@ -153,10 +153,10 @@ value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./s
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
-| v1.5 | 2026-07-04 | Adversarial round 2 corrections: conflict-theorem claims scoped to pairing-preserving orderings; TR-3 weeks-not-months; TR-9 residual dual-convention phrasing |
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives); convention-sensitivity table added |
+| v1.5 | 2026-07-04 | Adversarial round 2 correction: residual dual-convention phrasing |
 | v1.6 | 2026-07-04 | Reproducibility completion: C2-layer count adopted as the exact 7.5706×10⁴¹ (`solve --f1-exact-c1c2c4`, replacing the ±0.01% estimator figure it confirms); F4' tier-1 evidence published (evidence/f4p_tier1.out) and cited; instrument flags (`SOLVE_KNUTH_SCORE_F4P`, `SOLVE_KNUTH_RELAX_C5`) now documented in SOLVE_C_CLI.md |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →

@@ -1203,8 +1203,8 @@ for the experimental protocol and validation strategy.
 ### Solver-VM network topology: private IP only
 
 Solver VMs live on the shared `claude-vnet/default` subnet alongside the
-orchestrator (`claude` VM at 10.0.0.4). Each new solver VM is created with
-a private IP (e.g., 10.0.0.5) and **no public IP, no NSG rule**. The
+orchestrator (`claude` VM at `$ORCH_IP`). Each new solver VM is created with
+a private IP (e.g., the next free private IP on the subnet) and **no public IP, no NSG rule**. The
 orchestrator SSHes to the private IP directly.
 
 **Why:** zero external attack surface (no port 22 reachable from the

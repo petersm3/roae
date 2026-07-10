@@ -216,10 +216,10 @@ edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
-| v1.5 | 2026-07-04 | Adversarial round 2 corrections: conflict-theorem claims scoped to pairing-preserving orderings; TR-3 weeks-not-months; TR-9 residual dual-convention phrasing |
-| v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
-| v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
-| v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_C_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-04 | Figures added |
+| v1.5 | 2026-07-04 | Adversarial round 2 correction: conflict-theorem claims scoped to pairing-preserving orderings |
+| v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
+| v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
+| v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_C_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |

@@ -250,7 +250,7 @@ Subject to the disclaimer at the top of this document, the following are believe
 
 1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across hardware, region, thread count, and merge algorithm for fixed solver + input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
 2. **4-corners validation grid** — cross-SKU, cross-region, cross-merge-algorithm empirical confirmation of partition invariance. See [HISTORY.md](HISTORY.md) and [SOLVE.md](SOLVE.md).
-3. **Exhaustive enumeration under the C1+C2+C3 conjunction at 10T, 100T, and 560T scale** — 10,525,271,997 d3 560T (sha `9a968fa2…`, 2026-06-08, **current deepest**) / 3,432,399,297 d3 100T (sha `915abf30…`) / 706,422,987 d3 10T / 286,357,503 d2 10T. Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T, 5 at 100T, 5 at 560T with the identical set {1, 4, 21, 25, 27}; working 4-set count drops 8 → 0 across 11.2T → 560T, where the 8 is log-verified at d3 10T and the 11.2T attribution is pending archived-log confirmation (note added 2026-07-04) — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); corrected 2026-07-04 from an earlier "non-monotone, 4 again at 560T" reading, a survivor-counting error) and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.
+3. **Exhaustive enumeration under the C1+C2+C3 conjunction at 10T, 100T, and 560T scale** — 10,525,271,997 d3 560T (sha `9a968fa2…`, 2026-06-08, **current deepest**) / 3,432,399,297 d3 100T (sha `915abf30…`) / 706,427,594 d3 10T (current canonical `b85c8871…`) / 286,357,503 d2 10T. Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T, 5 at 100T, 5 at 560T with the identical set {1, 4, 21, 25, 27}; working 4-set count drops 8 → 0 across 11.2T → 560T, where the 8 is log-verified at d3 10T and the 11.2T attribution is pending archived-log confirmation (note added 2026-07-04) — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); corrected 2026-07-04 from an earlier "non-monotone, 4 again at 560T" reading, a survivor-counting error) and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.
 4. **Comprehensive null-model testing framework** — seven structured and unstructured permutation families tested via `solve.c --null-*` subroutines: de Bruijn, Gray, Latin-square, lexicographic, historical, random, pair-constrained.
 5. **Analytic C1 impossibility proofs** for the de Bruijn B(2, 6) family (period-4 contradiction) and the Gray code family (Hamming-1 disjoint). See [CRITIQUE.md](CRITIQUE.md).
 6. **Latin-square C2 rate decomposition** — analytic explanation of the 57.96% rate as a function of row-permutation class (Hamiltonian-path popcount distribution in the 3-cube). See [CRITIQUE.md](CRITIQUE.md).
@@ -285,7 +285,8 @@ promotion of these rules into the formal constraint system carries these credits
   the *Dazhuan* odd=Heaven/yang, even=Earth/yin attribution. Moore also conjectured a fully-compliant
   (18/18) precursor ordering; ROAE's population measurement addresses that conjecture empirically.
 - **Gender/position-parity rule over the 36 consolidated units** (the strongest measured literature
-  discriminator, ×11,364): **Schulz, Larry J.,** "Structural motifs in the arrangement of the 64 gua in the
+  discriminator at the time of the SAT work, ×11,364; later exceeded by the S25–28 trigram rule at
+  ×5×10⁷ — see [LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)): **Schulz, Larry J.,** "Structural motifs in the arrangement of the 64 gua in the
   Zhouyi," *Journal of Chinese Philosophy* 17:3 (1990), 345–358 — his second motif, incl. the exceptions at
   stations 25–26; elaborated by Cook 2006 (attribution corrected 2026-07-03 upon first-hand reading; Cook
   had been credited as primary). The lineage extends further back: per Schulz 2018 (fn. 42), the single
@@ -378,8 +379,11 @@ Yijing Studies, 2*(7). [not obtained]
 <a id="davis2012"></a>
 Davis, S. (2012). *The classic of changes in cultural context: A textual archaeology of the Yi jing*.
 Cambria Press.
-  Window-symmetry claims; the flagship rule measured population-typical (×7) from secondary description —
-  purchase deliberately declined on that evidence. [secondary]
+  Window-symmetry claims; the flagship compositional-unit rule measures population-typical (×7). Audited
+  first-hand 2026-07-04 (26-claim structural audit of the purchased e-book): two Davis structural claims
+  are refuted on first-hand verification — the p.257 n.2 uniqueness of hexagrams #63/64, and the p.114
+  "no further example" — while the flagship D-claims are audited but deliberately not yet measured. (The
+  ×7 population figure predates the purchase.) [read]
 
 <a id="drasny2007"></a>
 Drasny, J. (c. 2007). *The regular grouping of the hexagrams before the Yi jing* [Paper]; *The Yi-globe:
@@ -520,7 +524,8 @@ Princeton University].
 <a id="schulz1990-motifs"></a>
 Schulz, L. J. (1990). Structural motifs in the arrangement of the 64 gua in the Zhouyi. *Journal of
 Chinese Philosophy, 17*(3), 345–358. [doi:10.1163/15406253-01703004](https://doi.org/10.1163/15406253-01703004)
-  Three motifs over the consolidated units; motif 2 is the strongest measured discriminator (×11,364),
+  Three motifs over the consolidated units; motif 2 is the strongest measured discriminator at the time
+  of the SAT work (×11,364; later exceeded by S25–28 at ×5×10⁷),
   with exceptions at stations 25/26. First-hand read 2026-07-08 confirms ROAE's attribution + dual-CNF
   encoding are correct: the gender rule (motif 2) originates here, but the other conflict-theorem rules
   (S25–28 trigram, exception co-location) are Schulz 2011/2016 — no internal conflict in this paper. [read]

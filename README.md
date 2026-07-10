@@ -59,8 +59,11 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal); the transition histogram is confirmed
   description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
+- **A structural reading, measured.** Davis's (2012) flagship compositional units come out
+  population-typical; one uniqueness claim is corrected; the ~126-bit residual survives its second
+  literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **The record is reproducible**: every published count re-derivable to the byte by one command; the
-  deepest run reproduced from scratch through twelve Spot evictions. [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
+  deepest run reproduced from scratch through seven fresh Spot evictions (twelve across both runs). [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
 
 **Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
@@ -77,7 +80,7 @@ python3 sat.py                       # SAT layer usage + targets
 python3 tests.py                     # regression harness (15 tests)
 bash reports/certificates/verify_all.sh   # everything above + all DRAT certs + Lean, one command
 ```
-Full CLI references: [SOLVE_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
+Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
 
 ## Going deeper
 **If you read one thing**: [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md) — the literature's rules, measured and decided.

@@ -4735,7 +4735,7 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 
 ## June 1-8, 2026 — 560 T canonical campaign + post-merge SPOF discovery
 
-The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot in westus3 with a 4 TB Premium SSD attached for shards (`SOLVE_PER_SUB_BRANCH_LIMIT=3,536,157,207` per cell × 158,364 cells = 560 T total node budget). Enumeration reached natural completion at 2026-06-08 03:34 UTC after 171.5 h of wall time, having scanned 100 % of cells (every `sub_<cell>.dfs_state` file present) and recorded solutions for 65,281 cells (41.2 % yield; ~58.8 % of cells produced zero solutions within budget). The supervisor handed off to the merge stage automatically — torn down the enum VM (Premium + solver-data detached and preserved), spun up a D16als_v7 Standard merge VM, re-attached both disks, ran selftest + throttle probe, launched `solve --merge`. Merge ran 18 h 42 m and produced **`solutions.bin`** with sha256 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`, **10,525,271,997 unique canonical solutions** (336,808,703,904 bytes / 32 records ratio is exact), with a 4.17× dedup ratio against the 43.88 B pre-dedup raw records. `solve --verify` PASSED clean — all records satisfy C1-C5, sorted, no duplicates, **King Wen found: YES**. (Tier 1c `verify.py` two-language re-verify still in flight at time of writing.)
+The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot in westus3 with a 4 TB Premium SSD attached for shards (`SOLVE_PER_SUB_BRANCH_LIMIT=3,536,157,207` per cell × 158,364 cells = 560 T total node budget). Enumeration reached natural completion at 2026-06-08 03:34 UTC after 171.5 h of wall time, having scanned 100 % of cells (every `sub_<cell>.dfs_state` file present) and recorded solutions for 65,281 cells (41.2 % yield; ~58.8 % of cells produced zero solutions within budget). The supervisor handed off to the merge stage automatically — torn down the enum VM (Premium + solver-data detached and preserved), spun up a D16als_v7 Standard merge VM, re-attached both disks, ran selftest + throttle probe, launched `solve --merge`. Merge ran 18 h 42 m and produced **`solutions.bin`** with sha256 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`, **10,525,271,997 unique canonical solutions** (336,808,703,936 bytes on disk = 32-byte header + records × 32; the merge log's 336,808,703,904 is record-bytes only — the same header fence-post the 100T 2026-07-04 correction warns about), with a 4.17× dedup ratio against the 43.88 B pre-dedup raw records. `solve --verify` PASSED clean — all records satisfy C1-C5, sorted, no duplicates, **King Wen found: YES**. (Tier 1c `verify.py` two-language re-verify still in flight at time of writing.)
 
 **Spot eviction pattern, 5-for-5 weekday with 0 weekend evictions.** The 560 T enum ran across five weekdays Mon-Fri 2026-06-01 → 06-05 and the full weekend 06-06 / 06-07. Spot reclamation occurred once per weekday, all five times in a 37-minute morning window 07:12-07:49 PT (Mon 07:12, Tue 07:28, Wed 07:25, Thu 07:42, Fri 07:49 PT). The weekend ran 0/2 evictions — strong empirical evidence that the eviction-generating mechanism in westus3's D128als_v7 Spot pool is **M-F scheduled reclamation**, not stochastic. This launch-window heuristic is now documented in [CAMPAIGN_METHODOLOGY.md §7](CAMPAIGN_METHODOLOGY.md). Per-eviction recovery used the PT-aware deferral policy (M-F 06:00-18:00 PT evictions defer to 18:01 PT same day; off-hours / weekend use 75-minute flat wait) which kept the campaign's eviction-recovery flow out of the M-F-daytime risk window in every case.
 
@@ -4814,7 +4814,7 @@ For the same v1 lineage, comparing 11.2T (sha `0c0fe37c…`, 759,608,573 records
 - **60.4% of 560T's records come from cells that yielded NOTHING at 11.2T.** 41,129 of 65,281 yielding cells at 560T (63%) had zero solutions at the smaller budget; they contribute 26.5 B of 43.88 B (pre-dedup) records. The 50× budget growth was substantially spent *discovering new cells*, not *deepening existing cells*.
 - **Strict subset validation PASS** (0 violations across 24,152 cells). Canonical enumeration is extension-monotonic at scale.
 
-Implication for the 1120T extension projection: the simple power-law `records ∝ T^0.78` projects ~18.1 B records at 1120T. The mechanism behind that projection is now better understood — a substantial fraction of the additional records will come from cells that produced 0 records at 560T, rather than from deeper trees in cells already yielding at 560T. Realistic 1120T range refined to ~14-22 B records.
+Implication for the 1120T extension projection: the simple power-law `records ∝ T^0.78` projects ~18.1 B records at 1120T *(corrected: α ≈ 0.67, ≈16.7 B — the 0.78 exponent was an arithmetic error; see the α refit correction in the June 1-8 entry above)*. The mechanism behind that projection is now better understood — a substantial fraction of the additional records will come from cells that produced 0 records at 560T, rather than from deeper trees in cells already yielding at 560T. Realistic 1120T range refined to ~14-22 B records.
 
 Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bin.gz` from cold blob and binning each 32-byte record by bytes 1-3 (= encoded sub-branch key for positions 2, 3, 4; byte 0 is C1-fixed position 1 = pair 0). 560T per-cell data extracted from the 65,281 `sub_*.bin.provenance.json.gz` files in cold blob via parallel curl + `cumulative_records_emitted` parse. Encoding alignment validated by p1-distinct-value cross-check (28 distinct values on both sides; identical set). Total compute cost: ~$0.13 (D2 Spot + cold blob egress).
 
@@ -5161,7 +5161,7 @@ Knuth random-probe walk (new `SOLVE_KNUTH_C67` estimator mode, sha-neutral), a 5
 full-space count of C1–C7-satisfying orderings at **5.21×10³¹ (±0.78%)** — the constraint system that the
 specification's opening line once called uniquely determining admits some fifty nonillion solutions. C6+C7's
 true full-space cut is ×2.55×10⁶; ~105 bits (≈15–20 boundary constraints) separate C1–C7 from genuine
-uniqueness. The spec's Conjecture block now records the refutation with the measurement; every uniqueness
+uniqueness (distinct from the ~126-bit total MDL residual — this is the C1–C7 → uniqueness gap only). The spec's Conjecture block now records the refutation with the measurement; every uniqueness
 claim in the project is scoped to the enumerated datasets, where the greedy-boundary identification result stands (5 boundaries at canonical depth; corrected 2026-07-04 from the earlier "4"). The
 honest arc of the day: the same estimator machinery that sized the C1–C5 space at ≈1.33×10³⁸ settled, for
 about a dollar of Spot compute, a question the project had carried as "unconfirmed at scale" since April.
@@ -5260,7 +5260,7 @@ knobs), a mid-flight stripe migration at a layer boundary when measured layer si
 the layer-14 checkpoint), and a final move to Standard hardware. Peak memory: **128 GB** — a ~35×
 reduction against the in-RAM requirement, which is the reproducibility point: the exact count needs
 a big disk and patience, not exotic hardware. The DP's measured peak is layer 13 (40.8 B entries);
-C5 pruning overtakes binomial growth past the middle. Exact result: [COUNT — lands with this
+C5 pruning overtakes binomial growth past the middle. Exact result: [COUNT — PENDING, do not cite; lands with this
 section's next revision; gates: ÷24 exactness + Knuth-estimator cross-check].
 
 The ÷24 gate itself was upgraded mid-campaign: the symmetry theorem's sequence-level layer
@@ -5308,7 +5308,7 @@ conjecture is credited to Moore (Schulz read the exceptions as deliberate design
 the change is who-gets-credit, not what-holds.
 
 **An erratum in the literature, not ours.** [Hacker 1987](CITATIONS.md#hacker1987) Fig. 2 (the Olsvanger 8×8
-square) misprints the hexagram-41 cell as **39**; the correct value is **49** (110001). Confirmed three ways —
+square): the cell whose correct 6-bit value is **49** (110001) is misprinted as **39**. Confirmed three ways —
 direct computation, 63 of 64 cells matching, and Hacker's own Fig. 4 printing 49 at that cell. The primary
 source ([Olsvanger 1948](CITATIONS.md#olsvanger1948), p. 10) prints 49 correctly and consistently, so the
 error is Hacker's typesetting, not inherited. Recorded as a reader's-note erratum on the citation.
@@ -5356,7 +5356,7 @@ self-test canonical sha (`403f7202…`) is unchanged, so the retool is behavior-
 
 With the engine in place, the production count launched and is **in flight** — a symmetry-quotient
 out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer
-|C1∩C2∩C4∩C5| lands in this record when the run completes (gates: divisibility-by-24, which is kernel-checked
+|C1∩C2∩C4∩C5| lands in this record when the run completes (PENDING — do not cite until then; gates: divisibility-by-24, which is kernel-checked
 mathematics per #222, plus a Knuth-estimator cross-check).
 
 ## 2026-07-09: Documentation consolidation and a prior-art round-out

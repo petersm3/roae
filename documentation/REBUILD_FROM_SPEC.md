@@ -24,7 +24,7 @@ Concretely:
 6. Verify the King Wen sequence appears among the records.
 7. Report pass/fail with per-constraint counts.
 
-Any verifier that does these nine things correctly IS a conformant implementation. There is no hidden behavior to match.
+Any verifier that does these seven things correctly IS a conformant implementation. There is no hidden behavior to match.
 
 ## Prerequisites
 

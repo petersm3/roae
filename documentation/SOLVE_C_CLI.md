@@ -3,8 +3,12 @@
 > **CLI references:** this documents the **`solve` C binary** (compiled from `solve.c`). See also [`solve.py`](SOLVE_PY_CLI.md) (analysis + ground truth) · [`roae.py`](ROAE_PY_CLI.md) (descriptive analyses) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
 
 A man-page-style command-line reference for the `solve` binary compiled
-from `solve.c`. Covers every subcommand, all environment variables,
-exit codes, and common workflows.
+from `solve.c`. Covers the subcommands, environment variables,
+exit codes, and common workflows. The SYNOPSIS below lists the principal
+forms; a number of specialized analysis/verification subcommands (e.g.
+`--verify-rule2`, `--verify-9th-six`, `--validate-canonical`, `--preflight`,
+`--print-config`, `--estimate-knuth`, `--f1-exact-*`) are documented in the
+body but omitted from the SYNOPSIS block for brevity.
 
 ## NAME
 
@@ -293,7 +297,11 @@ Exit codes:
 - `0` — PSB matches recipe; safe to launch.
 - `1` — PSB mismatch; sha-reproduction will fail. Stderr includes the
   diff and the fix (`solve --canonical-config <SCALE>`).
-- `25` — unknown scale or bad arg count.
+- `25` — unknown scale or bad arg count. (Note: exit 25 is also used elsewhere
+  by the sub-canonical hard-gate — `SOLVE_NODE_LIMIT < 1T` without
+  `SOLVE_PER_SUB_BRANCH_LIMIT` set and without `SOLVE_ALLOW_SUB_CANONICAL=1`;
+  see the Hardening overrides table. The two uses are distinguished by the
+  stderr message and by which subcommand was invoked.)
 
 Sha-neutral. No enumeration; exits immediately. Bake into every
 canonical-targeting launcher; catches PSB typos before any VM is

@@ -14,7 +14,7 @@ merge path + new CLI mode only. Matching sha proves this.
 ## Canonical sha confirmation
 
 - **sha256**: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`
-- **Matches canonical**: YES (byte-identical to F64 westus2 Phase B / Phase C / heap-sort merge)
+- **Matches canonical**: YES (byte-identical to F64 westus2 Phase B / Phase C / heap-sort merge) — *note: the `f7b8c4fb…` 10T canonical was later deprecated 2026-05-13 and superseded by the modern-code re-derivation `b85c8871…` / 706,427,594 records (+4,607); the values here are the historical 2026-04-18 canonical, preserved as recorded. See [CANONICAL_HASHES.md](../../documentation/CANONICAL_HASHES.md).*
 - **Records**: 706,422,987 canonical pair orderings
 - **Solutions.bin size**: 22,605,535,616 bytes (22.6 GB)
 

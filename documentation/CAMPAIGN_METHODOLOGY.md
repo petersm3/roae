@@ -404,7 +404,7 @@ drops away. Empirically:
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
   main lineage; reproduces the historical sha byte-identically.
-- **560 T canonical: established 2026-06-08, sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`.** 10,525,271,997 unique canonical solutions, 336,808,703,904 bytes. The first 560 T run defined the sha; a **from-scratch re-run on 2026-06-30** (different binary lineage — the eviction-resume-fixed solver — and a different 7-eviction pattern) **reproduced it byte-for-byte**, providing a second same-scale direct witness and CANONICAL-verifying the result (see HISTORY.md June 30 entry).
+- **560 T canonical: established 2026-06-08, sha `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`.** 10,525,271,997 unique canonical solutions, 336,808,703,936 bytes on disk (32-byte header + records × 32; the merge log's 336,808,703,904 is record-bytes only). The first 560 T run defined the sha; a **from-scratch re-run on 2026-06-30** (different binary lineage — the eviction-resume-fixed solver — and a different 7-eviction pattern) **reproduced it byte-for-byte**, providing a second same-scale direct witness and CANONICAL-verifying the result (see HISTORY.md June 30 entry).
 
 For extension specifically: **extension byte-faithfulness depends on the
 extension host being in the same sha-stability class as the source host**.
@@ -442,7 +442,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | Launch UTC | 2026-06-01 00:03 UTC (= 2026-05-31 17:03 PT) |
 | **Final sha256** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** |
 | Records | **10,525,271,997** unique canonical solutions |
-| Bytes | **336,808,703,904** (= records × 32) |
+| Bytes | **336,808,703,936** on disk (32-byte header + records × 32; record-bytes = 336,808,703,904) |
 | Pre-dedup raw records | **43,876,464,466** (4.17× dedup ratio) |
 | Final shard count | **65,281** cells with non-empty shards (41.2 % yield) |
 | Cells with zero solutions | 93,083 (58.8 %) — fully scanned, budget exhausted, no records emitted |

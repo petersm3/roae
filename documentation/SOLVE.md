@@ -508,7 +508,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 - **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾After Completion #63 / ䷿Before Completion #64) is the most common (35% of solutions) but not forced. The starting orientation, however, is forced: ䷀The Creative must come before ䷁The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It is a free choice at each pair.
-- **Complement proximity detail.** 10 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
+- **Complement proximity detail.** 9 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
 
 ### The millions of roads not taken
 
@@ -672,7 +672,7 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 ./solve --null-latin-col          # Column-first variant (direction-invariance check) — ~6 min
 ./solve --null-latin-explain      # Analytic decomposition of the 57.96% C2 rate — <1 sec
 ./solve --null-lex                # 6! = 720 lexicographic bit-order variants — <1 sec
-./solve --null-historical         # Fu Xi, King Wen, Mawangdui — <1 sec
+./solve --null-historical         # Fu Xi, King Wen, Mawangdui, Jing Fang — <1 sec
 ./solve --null-random [N]         # N uniform random 64-permutations (default 10^9) — ~10 min
 ./solve --null-pair-constrained [N]  # Random pair-order + orientation (C1 baked in), conditional C2|C1, C3|C1 — ~10 min
 ```

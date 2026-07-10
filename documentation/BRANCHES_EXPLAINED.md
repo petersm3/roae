@@ -368,11 +368,11 @@ What this tells us about King Wen:
   valid orderings, the constraints alone don't pick out King Wen.
 - **King Wen MAY be statistically special.** Other measures
   (distributional position, observable extremity) are how we test that.
-  See [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md): KW sits
-  at the 0.000th percentile of the joint observable density across the
-  3.43-billion-record d3 100T enumeration. That's "rare in a precise
-  measurable sense" — different from "uniquely forced," but still
-  remarkable.
+  See [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md): KW's
+  joint-density rank falls below the sample's resolution (<10⁻⁵) across the
+  3.43-billion-record d3 100T enumeration — reported as a resolution bound,
+  not a percentile. That's "rare in a precise measurable sense" — different
+  from "uniquely forced," but still remarkable.
 
 ---
 
@@ -443,7 +443,7 @@ This is an active research project. The current open questions:
    proven count. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md).
 
 2. **Is KW statistically special, and HOW?** We have one strong result
-   (the 0.000th percentile finding from
+   (the below-resolution-bound joint-density rank, <10⁻⁵, from
    [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)). We want
    more independent measurements.
 

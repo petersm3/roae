@@ -26,7 +26,9 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 
 ## What the measurements establish
 
-1. **Moore's pair-positioning rule is the strongest known literature discriminator.** King Wen's 16-of-18
+1. **Moore's pair-positioning rule is the strongest literature discriminator among the population-measured
+   rules in this table** (later exceeded by the SAT-decided S25–28 trigram rule at ×5×10⁷ — see "A new
+   strongest discriminator" below). King Wen's 16-of-18
    compliance is shared by ~1 in 1,362 constraint-satisfying orderings; its *joint* profile under Moore's
    two rules by ~1 in 54,000. The rules are **negatively correlated** (joint mass = 0.66× the independence
    prediction) — the parity and rhythm constraints compete, a structural fact not previously observed.

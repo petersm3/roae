@@ -56,7 +56,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 - **sha256:** `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`
 - **Records:** 10,525,271,997 (= 1.05253 × 10¹⁰)
-- **File size:** 336,808,703,904 bytes
+- **File size:** 336,808,703,936 bytes (32-byte header + 10,525,271,997 × 32-byte records)
 - **Solver:** v1/v3 (current main, git `2b01b15`)
 - **Established:** 2026-06-08 by the 560T canonical campaign
 - **King Wen found:** YES
@@ -394,6 +394,8 @@ The smallest validation reproduces in seconds (selftest). The d3 10T canonical r
 ## Format
 
 `solutions.bin` is a 32-byte header followed by 32-byte records. Each record encodes a canonical ordering of the 64 hexagrams. See [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) for the byte-level encoding and the dedup semantics.
+
+**Size convention (applies to every entry above):** the **File size** field is always the on-disk size *including* the 32-byte header; the record count is `(size − 32) / 32`. A merge/`--analyze` log line that reports "records × 32" (record-bytes only) is 32 bytes short of the on-disk size — that fence-post is the source of the 2026-06-14 false-corruption alarm and the 2026-07-04 100T count re-correction.
 
 Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here (estimated at ≈3×10³⁷ distinct-canonical orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)); canonicals at higher node budgets reveal more of it but cannot approach exhaustion.
 

@@ -814,7 +814,7 @@ With NUMA-local now measured, the CPU optimization bundle (task #47) is fully cl
 | jemalloc | DONE 2026-05-19 (NULL, no dep) | 0% (workload mismatch) |
 | NUMA-local | DONE 2026-05-19 (NULL, this entry) | 0% (Linux first-touch already NUMA-local) |
 
-**Cumulative engineered speedup banked from the #47 bundle: ~+9.2% sha-preserving at canonical scale** (LTO ×1.0253 × PGO ×1.065 = ×1.092). All other items contributed zero. The CPU optimization surface for the canonical workload is fully explored at this point.
+**Cumulative engineered speedup banked from the #47 bundle: ~+9.2% sha-preserving at canonical scale** (LTO ×1.0253 × PGO ×1.065 = ×1.092). All other items contributed zero. The CPU optimization surface for the canonical workload is fully explored at this point. *(Spoiler from 2026-05-25: this multiplicative composite did NOT replicate — measured ~0% over vanilla v1 at full-enum 1T. See "The +9.2% headline was multiplicative theory" below; the number is retracted as a forward-looking claim.)*
 
 ---
 
@@ -869,7 +869,7 @@ The table below summarizes what's measured so far. Numbers in brackets are the e
 
 **v3 measured 4.38% faster than v1 at 1T enum-only**, well below the +9.2% prediction. **The cause is NOT a regression in v3's speed claims — PGO did not apply during the v3 Pass 2 build.** Under `-flto`, GCC keys the `.gcda` profile-data lookup on the output binary's name; Pass 1 built to `solve_v3_instr` and Pass 2 built to `solve_v3` → different output names → Pass 2 missed the profile data → silent fallback to no-PGO with a single `-Wmissing-profile` warning. **The measured 4.38% therefore reflects LTO + bitset only, not LTO + PGO + bitset.** Sha-equivalence at 1T was preserved (both `5a0f0bc2…`); only the *speed* number is under-measured.
 
-**Treat this entry as a known-under-measurement.** The +9.2% prediction from #47 closure still stands — it has not been falsified by this bench because PGO simply wasn't operating. Re-run with the fixed `scripts/build_pgo.sh` (shipped same day, commit `bab4be6`) is required for the true v3-vs-v1 speedup measurement.
+**Treat this entry as a known-under-measurement.** The +9.2% prediction from #47 closure still stands — it has not been falsified by this bench because PGO simply wasn't operating. Re-run with the fixed `scripts/build_pgo.sh` (shipped same day, commit `bab4be6`) is required for the true v3-vs-v1 speedup measurement. *(Spoiler from 2026-05-25: the +9.2% prediction was subsequently retracted — the combined stack measured ~0% over vanilla v1 at 1T. See "The +9.2% headline was multiplicative theory" below.)*
 
 ### Setup
 
