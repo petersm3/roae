@@ -4814,6 +4814,16 @@ typedef struct {
     double f6_sum[7];                     /* weighted sum of each functional's value over canonical leaves */
     double f6_below[7], f6_at[7], f6_above[7];  /* weighted mass <KW / ==KW / >KW per functional */
     int f6_min[7], f6_max[7];             /* min/max functional value seen across canonical leaves */
+    double *perm_hist;                    /* SOLVE_KNUTH_SCORE_PERM=1: [13*512] weighted value histogram per
+                                           * R3 permutation-cycle functional (ord wide-binned; heap-allocated
+                                           * only when active). Leaves are orientation-BEARING (pre-dedup) —
+                                           * required by R3 prereg §2 (a single within-pair flip changes the
+                                           * cycle structure / flips the sign). */
+    double perm_sum[13];                  /* weighted sum of each functional's value over canonical leaves */
+    double perm_below[13], perm_at[13], perm_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
+    int perm_min[13], perm_max[13];       /* min/max functional value seen across canonical leaves */
+    double perm_tmatch[2];                /* report-only template-match mass (full cycle type == KW's;
+                                           * [bot,top]; data-like descriptive, no verdict — R3 prereg §4) */
     double *f11_hist;                     /* SOLVE_KNUTH_F11_HIST=1 (requires SOLVE_KNUTH_SCORE=1): joint
                                            * violation histogram over (v1 = 18 - Moore-2005 parity compliance,
                                            * v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender/position-
@@ -6048,6 +6058,175 @@ static void score_f6(const int seq[64], double W, KnuthArg *a){
     }
 }
 
+/* ===================== R3 permutation-cycle-structure functionals (SOLVE_KNUTH_SCORE_PERM) =====================
+ * C port of the 13 FROZEN functionals in
+ * roae-private/R3_PERMUTATION_OBSERVABLE_PREREG_2026_07_09.md §4 (design half
+ * compiled by Claude (Fable), execution half by Claude (Opus); frozen BEFORE
+ * any C1-C5 population measurement; Bonferroni N=13, both bit conventions
+ * pooled under one umbrella — no post-hoc additions or removals). Ground truth:
+ * solve.py perm_* / --perm-verify (two-language gate; SOLVE_PERM_TESTVEC hook
+ * for arbitrary sequences / corpus controls). Estimator-only, sha-neutral:
+ * active only under SOLVE_KNUTH_SCORE_PERM; zero effect on enumeration/DFS/
+ * prune/checkpoint paths and on the f1c5 exact-count path — the canonical
+ * selftest sha 403f7202... is unchanged.
+ *
+ * ATTRIBUTION (frozen spec §1; operationalizations are ROAE's):
+ *   The cycle-structure OBSERVABLE AXIS is Zhengwen Ge, "The Cycle Structure of
+ *   the King Wen Permutation" (2026, DOI 10.5281/zenodo.19143997;
+ *   documentation/CITATIONS.md#ge2026), who computed KW's cycle type (52,10,2),
+ *   order 260, and zero fixed points under the bit0=top convention (rows 8-12
+ *   below reproduce exactly Ge's point values). Ge's contribution is the point
+ *   values of that one fixed map; ROAE claims no priority on them. What this
+ *   family adds — the POPULATION test of these observables over the C1-C5
+ *   constraint-satisfying space — is the prereg's contribution (Ge does not
+ *   compute a population distribution). Classical permutation-statistic sources
+ *   (de Montmort, Goncharov, Golomb/Dickman, Erdos-Turan, Landau, Euler) anchor
+ *   the §6 context rows only, not claims. To our knowledge no population test of
+ *   permutation-cycle observables over a classically-constrained hexagram-
+ *   ordering space has been published; hedged, corrections invited.
+ *
+ * TIER: REPORT-ONLY — this family carries no promotion path to a C-rule under
+ * any outcome (frozen spec §1: cycle structure is measured against Shao Yong's
+ * ~11th c. binary indexing, ~2,000 yr after King Wen, so even a population-
+ * extreme result is a descriptive fact about the map between two orderings, not
+ * evidence of design intent).
+ *
+ * The permutation of an orientation-bearing ordering seq[0..63] (position ->
+ * value): pi_bot(v) = the position i with seq[i]=v (position-of-value map;
+ * ROAE-native bit0=bottom). pi_top(v) = pi_bot(bitrev6(v)) (Ge's bit0=top). Per
+ * frozen-spec §2 (Orientation sensitivity) scoring MUST use orientation-BEARING
+ * leaves (the walk's pre-dedup orientation branches) — orient-dedup'd canonical
+ * records must NOT feed this family, since a single within-pair flip changes the
+ * cycle structure and flips the sign.
+ *    1 perm_ncyc_bot  cycles of pi_bot                              KW=7
+ *    2 perm_lcyc_bot  longest cycle of pi_bot                       KW=33
+ *    3 perm_fix_bot   fixed points of pi_bot                        KW=1
+ *    4 perm_c2_bot    2-cycles of pi_bot                            KW=1
+ *    5 perm_ord_bot   order (lcm of cycle lengths) of pi_bot        KW=1320
+ *    6 perm_desc_bot  descents of the word seq (bot values)         KW=31
+ *    7 perm_sign      parity (64-ncyc)%2, convention-invariant (F-3) KW=1 (odd)
+ *    8 perm_ncyc_top  cycles of pi_top                              KW=3   [Ge]
+ *    9 perm_lcyc_top  longest cycle of pi_top                       KW=52  [Ge]
+ *   10 perm_fix_top   fixed points of pi_top                        KW=0   [Ge]
+ *   11 perm_c2_top    2-cycles of pi_top                            KW=1
+ *   12 perm_ord_top   order of pi_top                               KW=260 [Ge]
+ *   13 perm_desc_top  descents of the word under top values        KW=30
+ * Plus two REPORT-ONLY template indicators (data-like, no verdict, no p-value;
+ * frozen spec §4): perm_type_bot_match (full cycle type == (33,11,8,5,4,2,1)),
+ * perm_type_top_match (== (52,10,2)). */
+
+static int knuth_score_perm = 0;  /* SOLVE_KNUTH_SCORE_PERM=1: per-leaf weighted scoring of the 13 frozen R3
+                                   * permutation-cycle functionals (see block above). =2 + SOLVE_PERM_TESTVEC:
+                                   * cross-verification hook (main(); prints the 13 values + 2 template
+                                   * indicators for an explicit sequence). Estimator-only, sha-neutral. */
+
+static const char *perm_names[13] = {
+    "perm_ncyc_bot", "perm_lcyc_bot", "perm_fix_bot", "perm_c2_bot",
+    "perm_ord_bot", "perm_desc_bot", "perm_sign", "perm_ncyc_top",
+    "perm_lcyc_top", "perm_fix_top", "perm_c2_top", "perm_ord_top",
+    "perm_desc_top"
+};
+/* KW expected values — frozen spec §4 (ground truth solve.py perm_* / --perm-verify) */
+static const int perm_kw[13] = {7, 33, 1, 1, 1320, 31, 1, 3, 52, 0, 1, 260, 30};
+/* Histogram bounds. ord (idx 4,11) is wide-binned (Landau bound g(64)=2,042,040,
+ * frozen spec T-d) into 512 bins; all others are exact-value bins. */
+static const int perm_lo[13] = {1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0};
+static const int perm_hi[13] = {64, 64, 64, 32, 2042040, 63, 1, 64, 64, 64, 32, 2042040, 63};
+static const unsigned char perm_wide[13] = {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0};
+#define PERM_NBINS(k) (perm_wide[k] ? 512 : (perm_hi[k] - perm_lo[k] + 1))
+
+/* Cycle statistics of a permutation p[64] (fixed points count as 1-cycles).
+ * Returns ncyc/lcyc/fix/c2 and the order (lcm of cycle lengths, <= g(64)=
+ * 2,042,040 so it fits an int); ctype (sorted DESC, ntype entries) is the full
+ * cycle type for the report-only template indicators. */
+static void perm_cycle_stats(const int p[64], int *pncyc, int *plcyc, int *pfix,
+                             int *pc2, int *pord, int ctype[64], int *pntype){
+    char seen[64]; memset(seen, 0, sizeof(seen));
+    int nt = 0, lens[64];
+    for (int i = 0; i < 64; i++){
+        if (seen[i]) continue;
+        int c = 0, j = i;
+        while (!seen[j]){ seen[j] = 1; c++; j = p[j]; }
+        lens[nt++] = c;
+    }
+    /* insertion-sort DESC (nt <= 64) */
+    for (int a = 1; a < nt; a++){ int x = lens[a], b = a - 1;
+        while (b >= 0 && lens[b] < x){ lens[b+1] = lens[b]; b--; } lens[b+1] = x; }
+    int fix = 0, c2 = 0; long ord = 1;
+    for (int a = 0; a < nt; a++){
+        int c = lens[a];
+        if (c == 1) fix++; else if (c == 2) c2++;
+        long g = ord, y = c; while (y){ long t = g % y; g = y; y = t; }  /* gcd */
+        ord = (ord / g) * c;                                            /* lcm */
+    }
+    *pncyc = nt; *plcyc = lens[0]; *pfix = fix; *pc2 = c2; *pord = (int)ord;
+    *pntype = nt; for (int a = 0; a < nt; a++) ctype[a] = lens[a];
+}
+
+/* Compute the 13 R3 functionals + 2 template-match indicators on one
+ * orientation-bearing ordering seq[64] (spec: solve.py perm_*). */
+static void perm_compute(const int seq[64], int v[13], int tm[2]){
+    int pi_bot[64], pi_top[64];
+    for (int i = 0; i < 64; i++) pi_bot[seq[i]] = i;      /* position-of-value */
+    for (int val = 0; val < 64; val++) pi_top[val] = pi_bot[reverse6(val)];
+    int nb, lb, fb, cb, ob, tb[64], ntb;
+    int nt, lt, ft, ct, ot, tt[64], ntt;
+    perm_cycle_stats(pi_bot, &nb, &lb, &fb, &cb, &ob, tb, &ntb);
+    perm_cycle_stats(pi_top, &nt, &lt, &ft, &ct, &ot, tt, &ntt);
+    /* descents of the word (spec §2 F-2: on w=seq, the artifact's reading order) */
+    int db = 0, dt = 0;
+    for (int i = 0; i < 63; i++){
+        if (seq[i+1] < seq[i]) db++;
+        if (reverse6(seq[i+1]) < reverse6(seq[i])) dt++;
+    }
+    v[0]=nb; v[1]=lb; v[2]=fb; v[3]=cb; v[4]=ob; v[5]=db;
+    v[6]=(64 - nb) & 1;                                  /* sign, convention-invariant (F-3) */
+    v[7]=nt; v[8]=lt; v[9]=ft; v[10]=ct; v[11]=ot; v[12]=dt;
+    /* report-only template indicators (full cycle type match; data-like) */
+    static const int kw_type_bot[7] = {33, 11, 8, 5, 4, 2, 1};
+    static const int kw_type_top[3] = {52, 10, 2};
+    int mb = (ntb == 7); if (mb) for (int a=0;a<7;a++) if (tb[a] != kw_type_bot[a]) { mb = 0; break; }
+    int mt = (ntt == 3); if (mt) for (int a=0;a<3;a++) if (tt[a] != kw_type_top[a]) { mt = 0; break; }
+    tm[0] = mb; tm[1] = mt;
+}
+
+/* Histogram bin index for perm functional k, value x (clamped). */
+static inline int perm_bin(int k, int x){
+    int lo = perm_lo[k], hi = perm_hi[k], nb = PERM_NBINS(k), b;
+    if (x < lo) x = lo;
+    if (x > hi) x = hi;
+    if (perm_wide[k]) b = (int)(((long)(x - lo) * 512) / (hi - lo + 1));
+    else              b = x - lo;
+    if (b < 0) b = 0;
+    if (b >= nb) b = nb - 1;
+    return b;
+}
+/* Lower edge of bin b for perm functional k (for perm_hist output lines). */
+static inline int perm_bin_lo(int k, int b){
+    if (perm_wide[k]) return perm_lo[k] + (int)(((long)b * (perm_hi[k] - perm_lo[k] + 1)) / 512);
+    return perm_lo[k] + b;
+}
+
+/* Evaluate the 13 R3 functionals on one orientation-bearing canonical leaf;
+ * accumulate weighted histogram (512-stride, wide-safe), sum, min/max,
+ * below/at/above-KW, + the two report-only template-match masses. */
+static void score_perm(const int seq[64], double W, KnuthArg *a){
+    int v[13], tm[2];
+    perm_compute(seq, v, tm);
+    for (int k = 0; k < 13; k++){
+        int x = v[k];
+        a->perm_sum[k] += W * (double)x;
+        if (x < a->perm_min[k]) a->perm_min[k] = x;
+        if (x > a->perm_max[k]) a->perm_max[k] = x;
+        if      (x < perm_kw[k]) a->perm_below[k] += W;
+        else if (x == perm_kw[k]) a->perm_at[k]   += W;
+        else                      a->perm_above[k] += W;
+        if (a->perm_hist) a->perm_hist[k * 512 + perm_bin(k, x)] += W;
+    }
+    if (tm[0]) a->perm_tmatch[0] += W;
+    if (tm[1]) a->perm_tmatch[1] += W;
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -6208,6 +6387,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_dav) score_dav(seq, W, a);
                     if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_score_f6)  score_f6(seq, W, a);
+                    if (knuth_score_perm) score_perm(seq, W, a);
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -6383,6 +6563,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].f6_hist = (double*)calloc(7 * 64, sizeof(double));
             for (int k2 = 0; k2 < 7; k2++){ arg[i].f6_min[k2] = INT_MAX; arg[i].f6_max[k2] = INT_MIN; }
         }
+        if (knuth_score_perm) {
+            arg[i].perm_hist = (double*)calloc(13 * 512, sizeof(double));
+            for (int k2 = 0; k2 < 13; k2++){ arg[i].perm_min[k2] = INT_MAX; arg[i].perm_max[k2] = INT_MIN; }
+        }
         if (knuth_f11_hist)
             arg[i].f11_hist = (double*)calloc(19 * 32 * 40, sizeof(double));
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
@@ -6481,6 +6665,28 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             if (f6H && arg[i].f6_hist)
                 for (int b2 = 0; b2 < 7 * 64; b2++) f6H[b2] += arg[i].f6_hist[b2];
             free(arg[i].f6_hist); arg[i].f6_hist = NULL;
+        }
+    }
+    double permS[13]={0}, permBel[13]={0}, permAt[13]={0}, permAbv[13]={0};
+    double permTM[2]={0}, *permH = NULL;
+    int permMin[13], permMax[13];
+    if (knuth_score_perm) {
+        permH = (double*)calloc(13 * 512, sizeof(double));
+        for (int k2 = 0; k2 < 13; k2++){ permMin[k2] = INT_MAX; permMax[k2] = INT_MIN; }
+        for (int i = 0; i < nthreads; i++){
+            for (int k2 = 0; k2 < 13; k2++){
+                permS[k2]   += arg[i].perm_sum[k2];
+                permBel[k2] += arg[i].perm_below[k2];
+                permAt[k2]  += arg[i].perm_at[k2];
+                permAbv[k2] += arg[i].perm_above[k2];
+                if (arg[i].perm_min[k2] < permMin[k2]) permMin[k2] = arg[i].perm_min[k2];
+                if (arg[i].perm_max[k2] > permMax[k2]) permMax[k2] = arg[i].perm_max[k2];
+            }
+            permTM[0] += arg[i].perm_tmatch[0];
+            permTM[1] += arg[i].perm_tmatch[1];
+            if (permH && arg[i].perm_hist)
+                for (int b2 = 0; b2 < 13 * 512; b2++) permH[b2] += arg[i].perm_hist[b2];
+            free(arg[i].perm_hist); arg[i].perm_hist = NULL;
         }
     }
     double dN=(double)N;
@@ -6595,6 +6801,29 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                f6_names[k2], f6_lo[k2] + b2, f6H[k2 * 64 + b2]/sC);
     }
     free(f6H);
+    if (knuth_score_perm && sC > 0) {
+        /* R3 permutation-cycle functionals (frozen preregistration §4; ground
+         * truth solve.py perm_* / --perm-verify; cycle-observable axis + rows
+         * 8-12 point values attributed to Ge 2026, see the perm comment block +
+         * CITATIONS.md#ge2026; masses = fraction of canonical mass, so
+         * below+at+above ~= 1 per functional. REPORT-ONLY family — no promotion
+         * path under any outcome). Leaves are orientation-BEARING (pre-dedup). */
+        for (int k2 = 0; k2 < 13; k2++)
+            printf("  [perm %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+                   k2 + 1, perm_names[k2], permS[k2]/sC,
+                   permMin[k2] == INT_MAX ? 0 : permMin[k2],
+                   permMax[k2] == INT_MIN ? 0 : permMax[k2],
+                   perm_kw[k2], permBel[k2]/sC, permAt[k2]/sC, permAbv[k2]/sC);
+        printf("  [perm type-match] bot=%.10e top=%.10e (report-only, data-like; no p-value, no verdict)\n",
+               permTM[0]/sC, permTM[1]/sC);
+        if (getenv("SOLVE_KNUTH_PERM_HIST") && atoi(getenv("SOLVE_KNUTH_PERM_HIST")) == 1 && permH)
+            for (int k2 = 0; k2 < 13; k2++)
+                for (int b2 = 0; b2 < PERM_NBINS(k2); b2++)
+                    if (permH[k2 * 512 + b2] > 0)
+                        printf("perm_hist %s %d %.10e\n",
+                               perm_names[k2], perm_bin_lo(k2, b2), permH[k2 * 512 + b2]/sC);
+    }
+    free(permH);
     if (knuth_f11_hist) {
         /* F11 joint violation histogram (fraction of canonical mass per (v1,v2,v3) cell;
          * v1 = 18 - Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks,
@@ -13831,6 +14060,30 @@ int main(int argc, char *argv[]) {
           return 0;
       }
     }
+    /* R3 permutation-cycle cross-verification hook (test-only, estimator-
+     * independent; two-language gate vs solve.py perm_* + corpus controls):
+     * SOLVE_KNUTH_SCORE_PERM=2 + SOLVE_PERM_TESTVEC="h0,h1,...,h63" -> evaluate
+     * perm_compute on the explicit sequence and print the 13 functional values
+     * (perm_names order) followed by the 2 report-only template indicators
+     * (perm_type_bot_match, perm_type_top_match), comma-separated, then exit.
+     * solve.py --perm-verify <seq> prints an identical line. Sha-neutral. */
+    { const char *tvp = getenv("SOLVE_PERM_TESTVEC");
+      const char *kfp = getenv("SOLVE_KNUTH_SCORE_PERM");
+      if (tvp && kfp && atoi(kfp) == 2) {
+          int tseq[64], n = 0;
+          const char *p = tvp;
+          while (*p && n < 64) {
+              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
+              else p++;
+          }
+          if (n != 64) { fprintf(stderr, "SOLVE_PERM_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          int v[13], tm[2];
+          perm_compute(tseq, v, tm);
+          for (int i = 0; i < 13; i++) printf("%d,", v[i]);
+          printf("%d,%d\n", tm[0], tm[1]);
+          return 0;
+      }
+    }
     /* Check for single-branch mode */
     int single_branch_mode = 0;
     int single_sub_branch_mode = 0;   /* --sub-branch: run ONE d3 sub-branch to exhaustion */
@@ -15011,6 +15264,10 @@ int main(int argc, char *argv[]) {
             knuth_score_f6 = 1;
             f4p_pal_init();
             fprintf(stderr, "[knuth] F6 Nielsen-audit scoring ACTIVE (7 frozen functionals, F6_BOOKS_PREREGISTRATION_2026_07_FROZEN; Wu Deng warp/weft + Jing Fang bagong; KW gate --f6-verify)\n");
+        }
+        if (getenv("SOLVE_KNUTH_SCORE_PERM") && atoi(getenv("SOLVE_KNUTH_SCORE_PERM")) == 1) {
+            knuth_score_perm = 1;
+            fprintf(stderr, "[knuth] R3 permutation-cycle scoring ACTIVE (13 frozen functionals, R3_PERMUTATION_OBSERVABLE_PREREG_2026_07_09; orientation-bearing leaves; cycle observables per Ge 2026; REPORT-ONLY; KW gate solve.py --perm-verify)\n");
         }
         if (getenv("SOLVE_KNUTH_C67") && atoi(getenv("SOLVE_KNUTH_C67")) == 1) {
             knuth_pin_c67 = 1;

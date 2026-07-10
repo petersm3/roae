@@ -6226,6 +6226,126 @@ def f6_verify():
 
 
 # ---------------------------------------------------------------------------
+# R3 — permutation-cycle-structure functional family (FROZEN 2026-07-09 in
+# roae-private/R3_PERMUTATION_OBSERVABLE_PREREG_2026_07_09.md §4, before any
+# C1-C5 population measurement; Bonferroni N=13, both bit conventions pooled
+# under one umbrella; two-sided atom-inclusive convention; REPORT-ONLY — this
+# family has NO promotion path to a C-rule under any outcome, cycle structure
+# being measured against Shao Yong's ~11th-c. binary indexing that postdates
+# King Wen by ~2,000 years).
+# ATTRIBUTION: the cycle-structure OBSERVABLE AXIS is Zhengwen Ge, "The Cycle
+# Structure of the King Wen Permutation" (2026, DOI 10.5281/zenodo.19143997;
+# documentation/CITATIONS.md#ge2026), who computed KW's cycle type (52,10,2),
+# order 260, zero fixed points under bit0=top (functionals 8-12 below reproduce
+# Ge's point values exactly). Ge's contribution is those point values; ROAE
+# claims no priority on them. What this family adds — the POPULATION test of
+# these observables over the C1-C5 constraint space — is the prereg's
+# contribution. Classical permutation-statistic sources (de Montmort, Goncharov,
+# Golomb/Dickman, Erdos-Turan, Landau, Euler) anchor context rows only. The
+# integer operationalizations and the population measurement are ROAE's (Claude:
+# design half Fable, execution half Opus, 2026-07-09/10). Two-language ground
+# truth: solve.c perm_compute / SOLVE_KNUTH_SCORE_PERM (must reproduce these
+# byte-for-byte). Novelty hedged; corrections invited.
+#
+# Encoding: bit0=bottom (binary_hexagrams, OEIS A102241). For an ordering seq
+# (position -> value), pi_bot(v) = the position i with seq[i]=v; pi_top(v) =
+# pi_bot(bitrev6(v)) (Ge's bit0=top). Orientation-BEARING leaves required (a
+# single within-pair flip changes cycle structure / flips sign; prereg §2).
+# ---------------------------------------------------------------------------
+
+PERM_NAMES = ["perm_ncyc_bot", "perm_lcyc_bot", "perm_fix_bot", "perm_c2_bot",
+              "perm_ord_bot", "perm_desc_bot", "perm_sign", "perm_ncyc_top",
+              "perm_lcyc_top", "perm_fix_top", "perm_c2_top", "perm_ord_top",
+              "perm_desc_top"]
+
+PERM_KW_EXPECTED = {
+    "perm_ncyc_bot": 7, "perm_lcyc_bot": 33, "perm_fix_bot": 1, "perm_c2_bot": 1,
+    "perm_ord_bot": 1320, "perm_desc_bot": 31, "perm_sign": 1, "perm_ncyc_top": 3,
+    "perm_lcyc_top": 52, "perm_fix_top": 0, "perm_c2_top": 1, "perm_ord_top": 260,
+    "perm_desc_top": 30,
+}
+# KW full cycle types (report-only template indicators; data-like, no verdict).
+_PERM_KW_TYPE_BOT = [33, 11, 8, 5, 4, 2, 1]
+_PERM_KW_TYPE_TOP = [52, 10, 2]
+
+
+def _perm_cycle_stats(p):
+    """Cycle statistics of a permutation p[64] (fixed points = 1-cycles):
+    returns (ncyc, lcyc, fix, c2, order, cycle_type_desc)."""
+    from math import gcd
+    seen, lens = set(), []
+    for i in range(64):
+        if i in seen:
+            continue
+        c, j = 0, i
+        while j not in seen:
+            seen.add(j)
+            c += 1
+            j = p[j]
+        lens.append(c)
+    lens.sort(reverse=True)
+    order = 1
+    for c in lens:
+        order = order * c // gcd(order, c)
+    return (len(lens), lens[0], lens.count(1), lens.count(2), order, lens)
+
+
+def perm_compute(seq):
+    """The 13 frozen R3 functionals + 2 report-only template indicators on an
+    orientation-bearing ordering seq[64]. Returns (values_dict, (tmatch_bot,
+    tmatch_top)). Ground truth for solve.c perm_compute / SOLVE_PERM_TESTVEC."""
+    pi_bot = [None] * 64
+    for i, v in enumerate(seq):
+        pi_bot[v] = i
+    pi_top = [pi_bot[reverse_6bit(v)] for v in range(64)]
+    nb, lb, fb, cb, ob, tb = _perm_cycle_stats(pi_bot)
+    nt, lt, ft, ct, ot, tt = _perm_cycle_stats(pi_top)
+    db = sum(1 for i in range(63) if seq[i + 1] < seq[i])
+    dt = sum(1 for i in range(63)
+             if reverse_6bit(seq[i + 1]) < reverse_6bit(seq[i]))
+    vals = {
+        "perm_ncyc_bot": nb, "perm_lcyc_bot": lb, "perm_fix_bot": fb,
+        "perm_c2_bot": cb, "perm_ord_bot": ob, "perm_desc_bot": db,
+        "perm_sign": (64 - nb) & 1,       # convention-invariant (prereg F-3)
+        "perm_ncyc_top": nt, "perm_lcyc_top": lt, "perm_fix_top": ft,
+        "perm_c2_top": ct, "perm_ord_top": ot, "perm_desc_top": dt,
+    }
+    tmatch = (1 if tb == _PERM_KW_TYPE_BOT else 0,
+              1 if tt == _PERM_KW_TYPE_TOP else 0)
+    return vals, tmatch
+
+
+def perm_verify(seq_arg=None):
+    """Two-language ground-truth gate for the R3 permutation-cycle family.
+
+    No argument: recompute all 13 functionals on King Wen and assert each equals
+    its frozen §4 expected value; print PASS/FAIL. With a 64-int sequence
+    argument (comma/space-separated): print the 13 values + 2 template
+    indicators comma-separated (identical ordering to solve.c
+    SOLVE_PERM_TESTVEC), for cross-language / corpus-control gating."""
+    if seq_arg is not None:
+        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        if len(seq) != 64:
+            print(f"perm-verify testvec: need 64 ints, got {len(seq)}")
+            return 1
+        vals, tmatch = perm_compute(seq)
+        row = [vals[n] for n in PERM_NAMES] + [tmatch[0], tmatch[1]]
+        print(",".join(str(x) for x in row))
+        return 0
+    vals, _ = perm_compute(list(binary_hexagrams))
+    failures = 0
+    for name in PERM_NAMES:
+        v = vals[name]
+        exp = PERM_KW_EXPECTED[name]
+        tag = "OK" if exp == v else "FAIL (expected %s)" % exp
+        if exp != v:
+            failures += 1
+        print(f"{name}: {v} {tag}")
+    print("PERM VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+
+# ---------------------------------------------------------------------------
 # Davis (2012) composite candidates (pre-registered 2026-07-04 in
 # documentation/CRITIQUE.md, "Davis (2012) structural claims"; operational
 # spec frozen in roae-private/books/davis/DAVIS_2012_STRUCTURAL_AUDIT.md §5:
@@ -7188,6 +7308,14 @@ def main():
     parser.add_argument("--f6-verify", action="store_true",
                         help="verify the 7 frozen F6 Nielsen-audit functionals "
                              "(Wu Deng warp/weft + Jing Fang bagong) on KW")
+    parser.add_argument("--perm-verify", nargs="?", const="", default=None,
+                        metavar="SEQ",
+                        help="verify the 13 frozen R3 permutation-cycle "
+                             "functionals (cycle observables per Ge 2026) on KW; "
+                             "with an optional 64-int SEQ argument, instead print "
+                             "the 13 values + 2 template indicators (identical "
+                             "ordering to solve.c SOLVE_PERM_TESTVEC) for "
+                             "cross-language / corpus-control gating")
     parser.add_argument("--dav-verify", action="store_true",
                         help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
     parser.add_argument("--vdb-verify", action="store_true",
@@ -7279,6 +7407,9 @@ def main():
 
     if args.f6_verify:
         sys.exit(f6_verify())
+
+    if args.perm_verify is not None:
+        sys.exit(perm_verify(args.perm_verify if args.perm_verify else None))
 
     if args.dav_verify:
         sys.exit(dav_verify())

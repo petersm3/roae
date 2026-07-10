@@ -145,6 +145,20 @@ class TestGates(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertIn("BOOKS VERIFY: ALL 14 CLAIMS PASS", r.stdout)
 
+    def test_perm_verify(self):
+        # R3 permutation-cycle family: KW gate (13 frozen functionals) +
+        # Fu Xi natural-order identity free-correctness check (prereg §6c).
+        r = subprocess.run([sys.executable, "solve.py", "--perm-verify"],
+                           capture_output=True, text=True)
+        self.assertIn("PERM VERIFY: PASS", r.stdout)
+        seq = ",".join(str(i) for i in range(64))
+        r2 = subprocess.run([sys.executable, "solve.py", "--perm-verify", seq],
+                            capture_output=True, text=True)
+        # bit0=bottom identity -> pi_bot=id: ncyc=64,lcyc=1,fix=64,c2=0,ord=1,
+        # desc=0,sign=0 (top convention non-trivial); template indicators 0,0.
+        self.assertEqual(r2.stdout.strip().split(",")[:7],
+                         ["64", "1", "64", "0", "1", "0", "0"])
+
     def test_sat_import_assertions(self):
         r = subprocess.run([sys.executable, "-c", "import sat"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr[-300:])
