@@ -147,9 +147,11 @@
  * - [FIXED 232d688] Merge integrity: checkpoint cross-reference catches
  *   truncated sub_*.bin files. --verify mode independently checks C1-C5.
  * - [FIXED] pair_index_of() replaced with O(1) lookup table.
- * - Merge loads all records into RAM for sort+dedup. At exhaustive enumeration
- *   scale (billions of solutions), this may exceed available memory. An external
- *   merge-sort would handle arbitrary scale but is not yet implemented.
+ * - [FIXED] Merge defaulted to loading all records into RAM for sort+dedup,
+ *   which exceeds memory at exhaustive scale. An external merge-sort now
+ *   handles arbitrary scale: SOLVE_MERGE_MODE={auto,memory,external} (auto
+ *   spills to external when projected RAM > 80% physical). See
+ *   external_merge_sort() and the SOLVE_MERGE_MODE env var below.
  *
  * BUILD
  * =====
@@ -4759,6 +4761,13 @@ typedef struct {
     double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
     uint64_t hits_leaf, hits_c3;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
+    /* R-C1c (R6, Cook 2006 anchor + McKenna & McKenna 1975 circular frame): circular
+     * anchor-adjacency indicator — the alternating pair A2={21,42} occupies pair slot 2 or
+     * slot 32 (slot 1 is the C4-pinned pure pair). sum_rc1c_s32 == sum_rc1 by construction
+     * (final pair == A2), carried separately for the slot breakout. a2_slot[1..32] is the
+     * descriptive A2 pair-slot histogram (report-only, R6 §3). Estimator-only, sha-neutral. */
+    double sum_rc1c_s2, sum_rc1c_s32, sum_rc1c_adj;
+    double a2_slot[33];
     double sum_rm1s, sum_rm1k;           /* Moore pair-positioning: strict 18/18 / >=16-of-18 (KW level) */
     int max_rm1;                          /* max compliance observed across canonical leaves (Moore-conjecture existence bound) */
     double sum_rm2k, sum_rm2s;            /* Moore 1989 rising/falling alternation: <=2 breaks (KW level) / 0 breaks */
@@ -4836,6 +4845,16 @@ typedef struct {
     uint64_t f11_gs_mismatch;             /* SOLVE_KNUTH_GENDER_STRICT=1 validation: canonical leaves whose
                                            * leaf-scorer gender-violation count != 0 (two-implementation
                                            * cross-check of the in-walk prune; MUST be 0). */
+    uint32_t *r11_keys;                   /* SOLVE_KNUTH_R11_HIST=1: per-thread sparse open-addressing hash
+                                           * of the R11 8-axis violation vector (g1..g6 T1 + g7,g8 T2),
+                                           * packed into 26 bits (see r11_pack). Empty slot = 0xFFFFFFFF.
+                                           * Heap-allocated only when active. R11 §9.1 (widened F11 hist). */
+    double  *r11_vals;                    /* parallel weighted-mass values for r11_keys. */
+    int r11_cap, r11_n;                   /* table capacity (power of two) and live-entry count. */
+    double *depth_wk;                     /* SOLVE_KNUTH_DEPTH_PROFILE=1: [33*65] W-weighted offspring
+                                           * histogram, index depth*65 + live_children (0..64). Heap-
+                                           * allocated only when active. R5 §8 Stage B1. */
+    double *depth_visit;                  /* [33] unweighted probe-visit count per depth (diagnostic). */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -4855,6 +4874,15 @@ static int knuth_gender_strict = 0; /* SOLVE_KNUTH_GENDER_STRICT=1: prune the wa
                                  * (exception first noted by Zhu Yuansheng, 13th c.); elaborated Cook 2006.
                                  * Estimator-only, sha-neutral. */
 static int knuth_f11_hist = 0;      /* SOLVE_KNUTH_F11_HIST=1: see KnuthArg.f11_hist. */
+static int knuth_r11_hist = 0;      /* SOLVE_KNUTH_R11_HIST=1 (R11 §9.1): joint violation histogram over
+                                     * the 8-axis R11 bundle (g1..g6 T1 principled rules + g7,g8 T2
+                                     * data-like) per canonical leaf, sparse-hashed. Requires
+                                     * SOLVE_KNUTH_SCORE=1 (shares the canonical-leaf loop). Ground truth
+                                     * solve.c/solve.py --r11-verify (KW vector = 2,2,2,0,0,0,0,0).
+                                     * Estimator-only, sha-neutral. */
+static int knuth_depth_profile = 0; /* SOLVE_KNUTH_DEPTH_PROFILE=1 (R5 §8 Stage B1): per-DFS-depth live-
+                                     * children offspring histogram (W-weighted) for the truncated-GW fit.
+                                     * Estimator-only, sha-neutral. */
 static int knuth_moore_strict = 0;  /* SOLVE_KNUTH_MOORE_STRICT=1: prune the walk to orderings satisfying
                                  * BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND 1989
                                  * rising/falling 0-breaks) — estimates the joint-strict space; any canonical
@@ -6227,6 +6255,139 @@ static void score_perm(const int seq[64], double W, KnuthArg *a){
     if (tm[1]) a->perm_tmatch[1] += W;
 }
 
+/* ===================== R11 four-class Bayes: 8-axis violation vector =====================
+ * Canonical computation of the R11 frozen axis bundle (R11_BAYES_V2_DESIGN_2026_07_10 §3) on
+ * an orientation-resolved sequence. Single source of truth for both the SOLVE_KNUTH_R11_HIST
+ * population instrument and the --r11-verify two-language gate. Ground truth twin: solve.py
+ * r11_axes(); KW vector = {2,2,2,0,0,0,0,0}. ATTRIBUTION (rules are NOT ROAE discoveries):
+ *   g1 Moore 2005 (Oracle Papers No.1) pair-positioning parity; g2 Moore 1989 (Trigrams of Han
+ *   App.2) rising/falling rhythm; g3 Schulz 1990 (JCP 17:3, Zhu Yuansheng exception) gender/parity;
+ *   g4/g5 Cook 2006 (STEDT Mono.5) first-7-level coverage / final-pair anchor; g6 Zheng Qiao ~1150
+ *   / Hu Yigui 1247 / Hacker & Moore 2003 18:18 split; g7 Schulz 2011/2016 S25-28 dui config (ccn4);
+ *   g8 Drasny / Schulz xiaoxi-in-group-B count (d7). ROAE contributes only the population measurement.
+ * Estimator/gate-only, sha-neutral. */
+static void r11_axes(const int seq[64], int g[8]){
+    /* g1 = 18 - Moore-2005 pair-positioning compliance (comp-pairs + pc==3 rev-pairs exempt) */
+    {
+        int ok = 0;
+        for (int q=0;q<32;q++){
+            int h = seq[2*q], h2 = seq[2*q+1];
+            if ((h ^ h2) == 63) continue;
+            int pcq = __builtin_popcount((unsigned)h);
+            if (pcq == 3) continue;
+            int odd = (q + 1) & 1;
+            if ((pcq > 3) == odd) ok++;
+        }
+        int v = 18 - ok; g[0] = v < 0 ? 0 : v;
+    }
+    /* g2 = Moore-1989 rising/falling rhythm breaks among adjacent directional pairs */
+    {
+        int prev = 0, have = 0, prev_adj = 0, breaks = 0;
+        for (int q=0;q<32;q++){
+            int h = seq[2*q], h2v = seq[2*q+1];
+            if ((h ^ h2v) == 63) { prev_adj = 0; continue; }
+            int pcq = __builtin_popcount((unsigned)h);
+            if (pcq == 3) { prev_adj = 0; continue; }
+            int mb = (pcq > 3) ? 0 : 1, sc = 0;
+            for (int i=0;i<6;i++) if (((h>>i)&1) == mb) sc += 5 - 2*i;
+            int rf = sc > 0;
+            if (have && prev_adj && rf == prev) breaks++;
+            prev = rf; have = 1; prev_adj = 1;
+        }
+        g[1] = breaks;
+    }
+    /* g3 = Schulz-1990 gender/position-parity violations over inversion-class stations */
+    {
+        int ncls = 0, viol = 0; unsigned char seen[64] = {0};
+        for (int z=0;z<64;z++){
+            int h = seq[z], r = 0;
+            for (int b3=0;b3<6;b3++) r |= ((h>>b3)&1) << (5-b3);
+            int key = h < r ? h : r;
+            if (seen[key]) continue;
+            seen[key] = 1; ncls++;
+            int pck = __builtin_popcount((unsigned)h);
+            if (pck == 0 || pck == 3 || pck == 6) continue;
+            if ((pck < 3) != ((ncls & 1) == 1)) viol++;
+        }
+        g[2] = viol;
+    }
+    /* g4 = 7 - distinct levels (popcount) covered by the first 7 pairs (Cook 2006) */
+    {
+        unsigned lv = 0;
+        for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
+        g[3] = 7 - __builtin_popcount(lv & 0x7Fu);
+    }
+    /* g5 = 1 - [final pair is the alternating pair {21,42}] (Cook 2006) */
+    {
+        int la = seq[62], lb = seq[63];
+        g[4] = ((la==21&&lb==42)||(la==42&&lb==21)) ? 0 : 1;
+    }
+    /* g6 = 1 - [18:18 two-part HEC split: exactly 3 of the 4 comp-pairs among slots 0-14] */
+    {
+        int cc = 0;
+        for (int q=0;q<15;q++){
+            int h = seq[2*q], j = -1;
+            for (int p=0;p<32;p++) if ((pairs[p].a==h)||(pairs[p].b==h)){ j=p; break; }
+            if (j==0||j==13||j==14||j==30) cc++;
+        }
+        g[5] = (cc == 3) ? 0 : 1;
+    }
+    /* g7 = 1 - [ccn4: S25-S28 upper trigram Dui(3), lower trigrams 7,0,2,5] (Schulz 2011/2016) */
+    {
+        int st_canon[36], n_st = 0; unsigned char seen2[64] = {0};
+        for (int z=0; z<64 && n_st<36; z++){
+            int h = seq[z], r = reg_rev6(h), key = h < r ? h : r;
+            if (seen2[key]) continue;
+            seen2[key] = 1; st_canon[n_st++] = h;
+        }
+        static const int lt[4] = {7, 0, 2, 5};
+        int ok = 1;
+        for (int i=0;i<4;i++){
+            int f = st_canon[24 + i];
+            if (((f >> 3) & 7) != 0b011 || (f & 7) != lt[i]) { ok = 0; break; }
+        }
+        g[6] = ok ? 0 : 1;
+    }
+    /* g8 = 8 - xiaoxi count in Drasny group-B slots (d7; Drasny / Schulz) */
+    {
+        uint64_t xw = 0;
+        for (int k=1;k<=6;k++){ xw |= 1ULL << ((1 << k) - 1); xw |= 1ULL << (REG_COMP6((1 << k) - 1)); }
+        static const int bsl[8] = {18, 19, 22, 23, 32, 33, 42, 43};
+        int cnt = 0;
+        for (int i=0;i<8;i++) cnt += (int)((xw >> seq[bsl[i]]) & 1ULL);
+        g[7] = 8 - cnt;
+    }
+}
+
+/* Pack the 8-axis R11 violation vector into a 26-bit key (field caps guard against overflow). */
+static inline uint32_t r11_pack(const int g[8]){
+    unsigned a1 = g[0] > 31 ? 31 : (g[0] < 0 ? 0 : g[0]);
+    unsigned a2 = g[1] > 31 ? 31 : (g[1] < 0 ? 0 : g[1]);
+    unsigned a3 = g[2] > 63 ? 63 : (g[2] < 0 ? 0 : g[2]);
+    unsigned a4 = g[3] >  7 ?  7 : (g[3] < 0 ? 0 : g[3]);
+    unsigned a5 = g[4] ? 1 : 0, a6 = g[5] ? 1 : 0, a7 = g[6] ? 1 : 0;
+    unsigned a8 = g[7] > 15 ? 15 : (g[7] < 0 ? 0 : g[7]);
+    return a1 | (a2<<5) | (a3<<10) | (a4<<16) | (a5<<19) | (a6<<20) | (a7<<21) | (a8<<22);
+}
+static inline void r11_unpack(uint32_t k, int g[8]){
+    g[0]=k&31; g[1]=(k>>5)&31; g[2]=(k>>10)&63; g[3]=(k>>16)&7;
+    g[4]=(k>>19)&1; g[5]=(k>>20)&1; g[6]=(k>>21)&1; g[7]=(k>>22)&15;
+}
+/* Accumulate weight W into the sparse hash keyed by packed vector (open addressing, linear probe). */
+static void r11_hash_add(KnuthArg *a, uint32_t key, double W){
+    if (!a->r11_keys) return;
+    unsigned mask = (unsigned)a->r11_cap - 1u;
+    unsigned idx = (key * 2654435761u) & mask;
+    for (;;){
+        if (a->r11_keys[idx] == 0xFFFFFFFFu){
+            if (a->r11_n >= (a->r11_cap * 7) / 8) return;  /* table saturated (should not happen); drop */
+            a->r11_keys[idx] = key; a->r11_vals[idx] = W; a->r11_n++; return;
+        }
+        if (a->r11_keys[idx] == key){ a->r11_vals[idx] += W; return; }
+        idx = (idx + 1u) & mask;
+    }
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -6260,6 +6421,20 @@ static void *knuth_worker(void *vp){
                         /* R-C1 (Cook 2006, "sB last"): final pair is the alternating pair {21,42} */
                         int la = seq[62], lb = seq[63];
                         if ((la==21&&lb==42)||(la==42&&lb==21)) { a->sum_rc1 += W; f1 = 1; }
+                        /* R-C1c (R6 — Cook 2006 anchor under McKenna & McKenna 1975 circular frame):
+                         * the alternating pair A2={21,42} sits in pair slot 2 or slot 32 (slot 1 =
+                         * pinned pure pair; slot 32 == final pair == R-C1). Plus the descriptive
+                         * A2 pair-slot histogram. Estimator-only, sha-neutral. */
+                        {
+                            int s2 = ((seq[2]==21&&seq[3]==42)||(seq[2]==42&&seq[3]==21));
+                            if (s2)  a->sum_rc1c_s2  += W;
+                            if (f1)  a->sum_rc1c_s32 += W;
+                            if (s2 || f1) a->sum_rc1c_adj += W;
+                            for (int q=0;q<32;q++){
+                                int qa=seq[2*q], qb=seq[2*q+1];
+                                if ((qa==21&&qb==42)||(qa==42&&qb==21)){ a->a2_slot[q+1] += W; break; }
+                            }
+                        }
                         /* R-C2 (Cook 2006, "seven-levels opening"): first 7 pairs cover all 7 levels */
                         unsigned lv = 0;
                         for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
@@ -6388,6 +6563,10 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_score_f6)  score_f6(seq, W, a);
                     if (knuth_score_perm) score_perm(seq, W, a);
+                    if (a->r11_keys) {   /* R11 §9.1: 8-axis joint violation histogram (sparse) */
+                        int g8[8]; r11_axes(seq, g8);
+                        r11_hash_add(a, r11_pack(g8), W);
+                    }
                     if (knuth_bcond) {
                         /* per-boundary KW-agreement mass (analyze-[6] predicate: slots b, b+1 hold
                          * KW's pairs); prefix-conditional under SOLVE_KNUTH_PIN_SLOTS — F2 S(k). */
@@ -6447,6 +6626,11 @@ static void *knuth_worker(void *vp){
                     }
                     cp[d]=p; co[d]=orient; crf[d]=msrf; cdir[d]=msdir; d++;
                 }
+            }
+            if (a->depth_wk && step >= 0 && step < 33) {   /* R5: W-weighted offspring hist at this depth */
+                int kk = d > 64 ? 64 : d;
+                a->depth_wk[step * 65 + kk] += W;
+                a->depth_visit[step] += 1.0;
             }
             if (d == 0) break;                             /* dead end, no leaf */
             int k = (int)(ks_next(&rng) % (uint64_t)d);
@@ -6520,6 +6704,29 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         budget0[5] = 0;
         fprintf(stderr, "[knuth] C5 RELAXED to C2-only (counting |C1 C2 C4|; MDL marginal pricing)\n");
     }
+    if (getenv("SOLVE_KNUTH_C5_BUDGET")) {
+        /* R6 §4 — override the C5 transition-budget vector with an explicit multiset
+         * "d:count,d:count,..." (e.g. the circular subspace's M' = "1:1,2:20,3:14,4:19,6:9").
+         * Same mechanism as SOLVE_KNUTH_RELAX_C5: estimator-only, sha-neutral (no enumeration-path
+         * impact). Self-gate: passing KW's standard LINEAR multiset "1:2,2:20,3:13,4:19,6:9" must
+         * reproduce N_lin within CI. The pure-pair within-transition d(63,0)=6 is decremented below
+         * exactly as in the standard path, so the override vector is the FULL 63-transition budget. */
+        int bvec[7] = {0}; const char *bp = getenv("SOLVE_KNUTH_C5_BUDGET");
+        while (*bp) {
+            if (*bp >= '0' && *bp <= '9') {
+                int d = (int)strtol(bp, (char**)&bp, 10);
+                int cnt = 0;
+                if (*bp == ':') { bp++; cnt = (int)strtol(bp, (char**)&bp, 10); }
+                if (d >= 0 && d <= 6) bvec[d] = cnt;
+            } else bp++;
+        }
+        for (int bi = 0; bi < 7; bi++) budget0[bi] = bvec[bi];
+        budget0[5] = 0;                         /* C2: d=5 always forbidden */
+        budget0[hamming(63,0)]--;               /* pure pair {63,0} within-transition already placed */
+        fprintf(stderr, "[knuth] C5 BUDGET OVERRIDE ACTIVE (R6): d0=%d d1=%d d2=%d d3=%d d4=%d d6=%d "
+                        "(post pure-pair decrement; estimator-only, sha-neutral)\n",
+                budget0[0], budget0[1], budget0[2], budget0[3], budget0[4], budget0[6]);
+    }
     int start_step = 1;
     for (int i=0;i<n_levels;i++){
         if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
@@ -6569,15 +6776,29 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
         if (knuth_f11_hist)
             arg[i].f11_hist = (double*)calloc(19 * 32 * 40, sizeof(double));
+        if (knuth_r11_hist) {
+            arg[i].r11_cap = 1 << 20;   /* 1,048,576 slots (12 MB/thread); >> expected distinct combos */
+            arg[i].r11_keys = (uint32_t*)malloc((size_t)arg[i].r11_cap * sizeof(uint32_t));
+            arg[i].r11_vals = (double*)calloc((size_t)arg[i].r11_cap, sizeof(double));
+            for (int z = 0; z < arg[i].r11_cap; z++) arg[i].r11_keys[z] = 0xFFFFFFFFu;
+            arg[i].r11_n = 0;
+        }
+        if (knuth_depth_profile) {
+            arg[i].depth_wk = (double*)calloc(33 * 65, sizeof(double));
+            arg[i].depth_visit = (double*)calloc(33, sizeof(double));
+        }
         arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
+    double sRC1cS2=0, sRC1cS32=0, sRC1cAdj=0, sA2[33]={0};  /* R-C1c (R6) */
     double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
+        sRC1cS2+=arg[i].sum_rc1c_s2; sRC1cS32+=arg[i].sum_rc1c_s32; sRC1cAdj+=arg[i].sum_rc1c_adj;
+        for (int q2=1;q2<=32;q2++) sA2[q2]+=arg[i].a2_slot[q2];
         sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
@@ -6702,6 +6923,13 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     }
     if (knuth_score && sC > 0) {
         printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass\n", sR1/sC);
+        printf("  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=%.6f slot2=%.6f slot32=%.6f (McKenna 1975 frame; slot32 must reproduce R-C1=%.6f)\n",
+               sRC1cAdj/sC, sRC1cS2/sC, sRC1cS32/sC, sR1/sC);
+        {
+            printf("  [score] R-C1c A2 pair-slot histogram (report-only; fraction of canonical mass, slots 1-32):\n");
+            for (int q2=1;q2<=32;q2++) if (sA2[q2] > 0)
+                printf("  a2slot %d %.10e\n", q2, sA2[q2]/sC);
+        }
         printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass\n", sR2/sC);
         printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass\n", sR5/sC);
         printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this)\n", sM1s/sC);
@@ -6844,6 +7072,70 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                    v1, v2, v3, f11H[(v1*32 + v2)*40 + v3]/sC);
         free(f11H);
     }
+    if (knuth_r11_hist) {
+        /* R11 §9.1 joint violation histogram: merge per-thread sparse hashes into one, print
+         * `r11_hist g1 g2 g3 g4 g5 g6 g7 g8 mass` (fraction of canonical mass; only nonzero cells).
+         * Axes: g1 Moore-2005 parity | g2 Moore-1989 rhythm | g3 Schulz-1990 gender | g4 Cook level
+         * coverage | g5 Cook final-pair anchor | g6 18:18 split | g7 ccn4 (T2) | g8 8-d7 (T2).
+         * KW cell = (2,2,2,0,0,0,0,0). Under strict-pruned walks these are CONDITIONAL fractions. */
+        int mcap = 1 << 21; unsigned mmask = (unsigned)mcap - 1u;
+        uint32_t *mk = (uint32_t*)malloc((size_t)mcap * sizeof(uint32_t));
+        double *mv = (double*)calloc((size_t)mcap, sizeof(double));
+        for (int z = 0; z < mcap; z++) mk[z] = 0xFFFFFFFFu;
+        int mn = 0, dropped = 0;
+        for (int i = 0; i < nthreads; i++){
+            if (!arg[i].r11_keys) continue;
+            for (int z = 0; z < arg[i].r11_cap; z++){
+                if (arg[i].r11_keys[z] == 0xFFFFFFFFu) continue;
+                uint32_t key = arg[i].r11_keys[z]; double w = arg[i].r11_vals[z];
+                unsigned idx = (key * 2654435761u) & mmask;
+                for (;;){
+                    if (mk[idx] == 0xFFFFFFFFu){
+                        if (mn >= (mcap * 7) / 8){ dropped++; break; }
+                        mk[idx] = key; mv[idx] = w; mn++; break;
+                    }
+                    if (mk[idx] == key){ mv[idx] += w; break; }
+                    idx = (idx + 1u) & mmask;
+                }
+            }
+            free(arg[i].r11_keys); free(arg[i].r11_vals);
+            arg[i].r11_keys = NULL; arg[i].r11_vals = NULL;
+        }
+        if (sC > 0)
+            for (int z = 0; z < mcap; z++){
+                if (mk[z] == 0xFFFFFFFFu) continue;
+                int g8[8]; r11_unpack(mk[z], g8);
+                printf("r11_hist %d %d %d %d %d %d %d %d %.10e\n",
+                       g8[0],g8[1],g8[2],g8[3],g8[4],g8[5],g8[6],g8[7], mv[z]/sC);
+            }
+        printf("  [r11] distinct violation cells = %d%s\n", mn,
+               dropped ? " (WARNING: merge table saturated, some cells dropped)" : "");
+        free(mk); free(mv);
+    }
+    if (knuth_depth_profile) {
+        /* R5 §8 Stage B1 per-depth offspring profile. For each DFS depth d, emit W-weighted
+         * live-children histogram (population-unbiased: the walk visits a depth-d node with prob
+         * 1/W, so weighting by W estimates the uniform-over-nodes offspring law that the extinction
+         * recursion consumes). meanK and p0 are derived from the histogram. `visits` is the raw
+         * unweighted probe count reaching that depth (diagnostic). */
+        double *dwk = (double*)calloc(33 * 65, sizeof(double)), *dvi = (double*)calloc(33, sizeof(double));
+        for (int i = 0; i < nthreads; i++){
+            if (arg[i].depth_wk) for (int z = 0; z < 33*65; z++) dwk[z] += arg[i].depth_wk[z];
+            if (arg[i].depth_visit) for (int z = 0; z < 33; z++) dvi[z] += arg[i].depth_visit[z];
+            free(arg[i].depth_wk); free(arg[i].depth_visit);
+            arg[i].depth_wk = NULL; arg[i].depth_visit = NULL;
+        }
+        for (int d0 = 0; d0 < 33; d0++){
+            double wsum = 0, wk = 0, w0 = 0;
+            for (int kk = 0; kk <= 64; kk++){ double w = dwk[d0*65+kk]; wsum += w; wk += w*kk; if (kk==0) w0 = w; }
+            if (dvi[d0] <= 0) continue;
+            printf("KNUTH_DEPTH d=%d visits=%.0f wmass=%.10e meanK=%.6f p0=%.6f hist=",
+                   d0, dvi[d0], wsum, wsum > 0 ? wk/wsum : 0.0, wsum > 0 ? w0/wsum : 0.0);
+            for (int kk = 0; kk <= 64; kk++){ printf("%.10e", dwk[d0*65+kk]); if (kk < 64) printf(","); }
+            printf("\n");
+        }
+        free(dwk); free(dvi);
+    }
     if (knuth_gender_strict) {
         uint64_t mm = 0;
         for (int i = 0; i < nthreads; i++) mm += arg[i].f11_gs_mismatch;
@@ -6855,6 +7147,88 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [bcond] conditional on SOLVE_KNUTH_PIN_SLOTS=0x%x prefix if set):\n", knuth_pin_mask);
         for (int b2 = 0; b2 < 31; b2++)
             printf("  [bcond] boundary %2d : %.8e\n", b2 + 1, sBC[b2]/sC);
+    }
+    fflush(stdout);
+}
+
+/* R5 §8 Stage B2 — two-stage subtree sampler. Stage 1 uniformly random-descends the DFS tree from
+ * the fixed depth-3 prefix to `target_depth` (recording the importance weight Wroot = product of
+ * branching factors = 1/P(reach this root)); Stage 2 runs K independent Knuth probes from that root,
+ * giving unbiased per-root estimates Shat (subtree node count) and Lhat (canonical C3 leaves below
+ * the root). Emits one KNUTH_SUBTREE line per root, consumed by the Hill tail-index (P2) and the
+ * E[L|S] coupling fit. Standard C5 budget (kw_dist); estimator-only, sha-neutral. */
+static void estimate_subtree_sampler(int target_depth, int M, int K,
+                                     int n_levels, int lp[3], int lo[3]){
+    int seq0[64]; memset(seq0,0,sizeof(seq0)); pair_mask_t used0=0; int budget0[7];
+    seq0[0]=63; seq0[1]=0; PAIR_MASK_SET(used0, pair_index_of(63,0));
+    memcpy(budget0, kw_dist, sizeof(budget0)); budget0[hamming(63,0)]--;
+    int start_step = 1;
+    for (int i=0;i<n_levels;i++){
+        if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
+            fprintf(stderr,"KNUTH-SUBTREE: prefix infeasible at level %d\n", i+1); return; }
+        start_step = i+2;
+    }
+    if (target_depth <= start_step || target_depth > 31){
+        fprintf(stderr, "KNUTH-SUBTREE: target depth %d out of range (%d..31)\n", target_depth, start_step+1);
+        return;
+    }
+    uint64_t rng = 0xD1B54A32D192ED03ULL ^ ((uint64_t)target_depth * 0x9E3779B97F4A7C15ULL);
+    printf("KNUTH_SUBTREE_HEADER depth=%d roots=%d probes=%d start_step=%d\n",
+           target_depth, M, K, start_step);
+    for (int r=0; r<M; r++){
+        int seq[64]; memcpy(seq, seq0, sizeof(seq)); pair_mask_t used=used0; int budget[7]; memcpy(budget,budget0,sizeof(budget));
+        int step = start_step; double Wroot = 1.0; int dead = 0;
+        while (step < target_depth){
+            int prev_tail = seq[step*2-1]; int cp[64],co[64],d=0;
+            for (int p=0;p<32;p++){
+                if (PAIR_MASK_TEST(used,p)) continue;
+                for (int orient=0;orient<2;orient++){
+                    int first=orient?pairs[p].b:pairs[p].a, second=orient?pairs[p].a:pairs[p].b;
+                    int bd=hamming(prev_tail,first); if(bd==5)continue; if(budget[bd]<=0)continue; budget[bd]--;
+                    int wd=hamming(first,second); int live=budget[wd]>0; budget[bd]++;
+                    if(!live)continue;
+                    cp[d]=p; co[d]=orient; d++;
+                }
+            }
+            if (d==0){ dead=1; break; }
+            int kk=(int)(ks_next(&rng)%(uint64_t)d); int p=cp[kk],orient=co[kk];
+            int first=orient?pairs[p].b:pairs[p].a, second=orient?pairs[p].a:pairs[p].b;
+            int bd=hamming(prev_tail,first), wd=hamming(first,second);
+            budget[bd]--; budget[wd]--;
+            seq[step*2]=first; seq[step*2+1]=second; PAIR_MASK_SET(used,p);
+            Wroot *= (double)d; step++;
+        }
+        if (dead){ printf("KNUTH_SUBTREE root=%d depth=%d w=0 Shat=0 Lhat=0 dead=1\n", r, target_depth); continue; }
+        double sumN=0, sumC=0;
+        for (int t=0;t<K;t++){
+            int s2[64]; memcpy(s2, seq, sizeof(s2)); pair_mask_t u2=used; int b2[7]; memcpy(b2,budget,sizeof(b2));
+            int st2=step; double W=1.0, nacc=0.0, c3=0.0;
+            for(;;){
+                nacc += W;
+                if (st2==32){ if (compute_comp_dist_x64(s2) <= kw_comp_dist_x64) c3 = W; break; }
+                int prev_tail=s2[st2*2-1]; int cp[64],co[64],d=0;
+                for (int p=0;p<32;p++){
+                    if (PAIR_MASK_TEST(u2,p)) continue;
+                    for (int orient=0;orient<2;orient++){
+                        int first=orient?pairs[p].b:pairs[p].a, second=orient?pairs[p].a:pairs[p].b;
+                        int bd=hamming(prev_tail,first); if(bd==5)continue; if(b2[bd]<=0)continue; b2[bd]--;
+                        int wd=hamming(first,second); int live=b2[wd]>0; b2[bd]++;
+                        if(!live)continue;
+                        cp[d]=p; co[d]=orient; d++;
+                    }
+                }
+                if (d==0) break;
+                int kk=(int)(ks_next(&rng)%(uint64_t)d); int p=cp[kk],orient=co[kk];
+                int first=orient?pairs[p].b:pairs[p].a, second=orient?pairs[p].a:pairs[p].b;
+                int bd=hamming(prev_tail,first), wd=hamming(first,second);
+                b2[bd]--; b2[wd]--;
+                s2[st2*2]=first; s2[st2*2+1]=second; PAIR_MASK_SET(u2,p);
+                W *= (double)d; st2++;
+            }
+            sumN += nacc; sumC += c3;
+        }
+        printf("KNUTH_SUBTREE root=%d depth=%d w=%.10e Shat=%.10e Lhat=%.10e\n",
+               r, target_depth, Wroot, sumN/(double)K, sumC/(double)K);
     }
     fflush(stdout);
 }
@@ -15235,6 +15609,17 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[knuth] F11 joint violation histogram ACTIVE (Moore-parity x Moore-rhythm "
                             "x Schulz-gender; requires SOLVE_KNUTH_SCORE=1)\n");
         }
+        if (getenv("SOLVE_KNUTH_R11_HIST") && atoi(getenv("SOLVE_KNUTH_R11_HIST")) == 1) {
+            knuth_r11_hist = 1;
+            fprintf(stderr, "[knuth] R11 8-axis joint violation histogram ACTIVE (g1..g6 T1 principled + "
+                            "g7,g8 T2 data-like; sparse-hashed; requires SOLVE_KNUTH_SCORE=1; KW cell "
+                            "2,2,2,0,0,0,0,0; gate --r11-verify)\n");
+        }
+        if (getenv("SOLVE_KNUTH_DEPTH_PROFILE") && atoi(getenv("SOLVE_KNUTH_DEPTH_PROFILE")) == 1) {
+            knuth_depth_profile = 1;
+            fprintf(stderr, "[knuth] R5 per-depth offspring profile ACTIVE (W-weighted live-children "
+                            "histogram per DFS depth; truncated-GW fit Stage B1)\n");
+        }
         if (getenv("SOLVE_KNUTH_MOORE_STRICT") && atoi(getenv("SOLVE_KNUTH_MOORE_STRICT")) == 1) {
             knuth_moore_strict = 1;
             fprintf(stderr, "[knuth] STRICT-MOORE walk ACTIVE (Moore 2005 parity 18/18 + Moore 1989 rhythm 0-breaks enforced in-walk)\n");
@@ -15286,6 +15671,17 @@ int main(int argc, char *argv[]) {
         if (getenv("SOLVE_KNUTH_BOUNDARY_COND") && atoi(getenv("SOLVE_KNUTH_BOUNDARY_COND")) == 1) {
             knuth_bcond = 1;
             fprintf(stderr, "[knuth] per-boundary conditional scoring ACTIVE (31 accumulators)\n");
+        }
+        if (getenv("SOLVE_KNUTH_SUBTREE_DEPTH")) {
+            /* R5 §8 Stage B2 — two-stage subtree sampler (bypasses the aggregate estimator). */
+            int td = atoi(getenv("SOLVE_KNUTH_SUBTREE_DEPTH"));
+            int Mroots = getenv("SOLVE_KNUTH_SUBTREE_ROOTS") ? atoi(getenv("SOLVE_KNUTH_SUBTREE_ROOTS")) : 10000;
+            int Kprobes = getenv("SOLVE_KNUTH_SUBTREE_PROBES") ? atoi(getenv("SOLVE_KNUTH_SUBTREE_PROBES")) : 1000;
+            if (Mroots < 1) Mroots = 1; if (Kprobes < 1) Kprobes = 1;
+            fprintf(stderr, "[knuth] R5 SUBTREE SAMPLER: depth=%d roots=%d probes/root=%d, %d prefix level(s)\n",
+                    td, Mroots, Kprobes, nlev);
+            estimate_subtree_sampler(td, Mroots, Kprobes, nlev, lp, lo);
+            return 0;
         }
         fprintf(stderr, "[knuth] %llu probes, %d threads, %d prefix level(s)\n",
                 (unsigned long long)nprobe, nthreads, nlev);
@@ -15370,6 +15766,64 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("F6 VERIFY: PASS\n");
         else printf("F6 VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--rc1c-verify") == 0) {
+        /* R6 two-language gate — circular anchor-adjacency (R-C1c). Compute slot2 / slot32 /
+         * adjacent for the alternating pair A2={21,42} on King Wen (or on an explicit
+         * "h0,...,h63" argument) and check the KW expected values (slot2=0, slot32=1,
+         * adjacent=1). Ground truth twin: solve.py --rc1c-verify. Sha-neutral (argv-dispatched). */
+        init_pairs();
+        int seq[64]; int have_arg = (argc > 2);
+        if (have_arg) {
+            int n = 0; char *tv = strdup(argv[2]);
+            for (char *tok = strtok(tv, ", "); tok && n < 64; tok = strtok(NULL, ", ")) seq[n++] = atoi(tok);
+            free(tv);
+            if (n != 64) { fprintf(stderr, "--rc1c-verify: need 64 ints, got %d\n", n); return 1; }
+        } else memcpy(seq, KW, sizeof(seq));
+        int s2 = ((seq[2]==21&&seq[3]==42)||(seq[2]==42&&seq[3]==21));
+        int s32 = ((seq[62]==21&&seq[63]==42)||(seq[62]==42&&seq[63]==21));
+        int adj = (s2 || s32);
+        if (have_arg) {
+            printf("%d,%d,%d\n", s2, s32, adj);   /* cross-language / witness form */
+            return 0;
+        }
+        int failures = 0;
+        if (s2 != 0)  { failures++; printf("rc1c_slot2: %d FAIL (expected 0)\n", s2); } else printf("rc1c_slot2: 0 OK\n");
+        if (s32 != 1) { failures++; printf("rc1c_slot32: %d FAIL (expected 1)\n", s32); } else printf("rc1c_slot32: 1 OK\n");
+        if (adj != 1) { failures++; printf("rc1c_adjacent: %d FAIL (expected 1)\n", adj); } else printf("rc1c_adjacent: 1 OK\n");
+        if (failures == 0) printf("RC1C VERIFY: PASS\n");
+        else printf("RC1C VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--r11-verify") == 0) {
+        /* R11 two-language gate — the 8-axis frozen violation bundle (g1..g6 T1, g7,g8 T2).
+         * Compute on King Wen (or on an explicit "h0,...,h63" argument) and check the KW
+         * expected vector (2,2,2,0,0,0,0,0). Ground truth twin: solve.py --r11-verify. This is
+         * the KW-reproduction gate for the SOLVE_KNUTH_R11_HIST population instrument.
+         * Sha-neutral (argv-dispatched, never on the enum path). */
+        init_pairs();
+        static const int r11_kw[8] = {2,2,2,0,0,0,0,0};
+        static const char *r11_nm[8] = {"g1_moore_parity","g2_moore_rhythm","g3_schulz_gender",
+            "g4_level_cover","g5_final_anchor","g6_split1818","g7_ccn4_T2","g8_d7_T2"};
+        int seq[64]; int have_arg = (argc > 2);
+        if (have_arg) {
+            int n = 0; char *tv = strdup(argv[2]);
+            for (char *tok = strtok(tv, ", "); tok && n < 64; tok = strtok(NULL, ", ")) seq[n++] = atoi(tok);
+            free(tv);
+            if (n != 64) { fprintf(stderr, "--r11-verify: need 64 ints, got %d\n", n); return 1; }
+        } else memcpy(seq, KW, sizeof(seq));
+        int g[8]; r11_axes(seq, g);
+        if (have_arg) {
+            for (int k=0;k<8;k++){ printf("%d", g[k]); if (k<7) printf(","); }
+            printf("\n");
+            return 0;
+        }
+        int failures = 0;
+        for (int k=0;k<8;k++){
+            if (g[k] == r11_kw[k]) printf("%s: %d OK\n", r11_nm[k], g[k]);
+            else { printf("%s: %d FAIL (expected %d)\n", r11_nm[k], g[k], r11_kw[k]); failures++; }
+        }
+        if (failures == 0) printf("R11 VERIFY: PASS\n");
+        else printf("R11 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */

@@ -2188,6 +2188,7 @@ def print_help_sections():
         ("--mutual-info", "Mutual information between upper/lower trigram changes"),
         ("--bootstrap", "Bootstrap confidence intervals for Monte Carlo estimates"),
         ("--yinyang", "Yin-yang balance wave through the sequence"),
+        ("--parity", "Odd-vs-even transition parity (McKenna 25/75), linear + circular"),
         ("--neighborhoods", "Hamming distance-1 neighborhoods for each hexagram"),
         ("--recurrence", "Recurrence plot — where the difference wave repeats"),
         ("--codons", "DNA codon mapping — structural comparison with genetics"),

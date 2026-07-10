@@ -6346,6 +6346,455 @@ def perm_verify(seq_arg=None):
 
 
 # ---------------------------------------------------------------------------
+# R6 — Circular anchor-adjacency (R-C1c) ground truth (design:
+# roae-private/R6_CIRCULAR_DESIGN_2026_07_10.md §3). Two-language twin of the
+# solve.c SOLVE_KNUTH_SCORE R-C1c scorer / --rc1c-verify gate.
+# ATTRIBUTION: final-pair anchor Cook 2006; circular frame McKenna & McKenna
+# 1975. ROAE contributes only the population measurement. Developed with AI
+# assistance (Claude, Anthropic).
+# ---------------------------------------------------------------------------
+
+def rc1c_indicator(seq):
+    """Does the alternating pair A2={21,42} occupy pair slot 2 or slot 32?
+
+    Slots are 1-indexed pair slots (slot 1 = the C4-pinned pure pair at
+    seq[0:2]; slot 2 = seq[2:4]; slot 32 = seq[62:64]). Returns
+    (slot2, slot32, adjacent). KW == (0, 1, 1)."""
+    s2 = 1 if {seq[2], seq[3]} == {21, 42} else 0
+    s32 = 1 if {seq[62], seq[63]} == {21, 42} else 0
+    return s2, s32, (1 if (s2 or s32) else 0)
+
+
+def rc1c_verify(seq_arg=None):
+    """Two-language ground-truth gate for R-C1c (R6). No argument: recompute on
+    King Wen and assert (slot2, slot32, adjacent) == (0, 1, 1). With a 64-int
+    SEQ argument: print `slot2,slot32,adjacent` (same ordering as solve.c
+    --rc1c-verify SEQ) for witness / corpus-control cross-language gating."""
+    if seq_arg is not None:
+        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        if len(seq) != 64:
+            print(f"rc1c-verify: need 64 ints, got {len(seq)}")
+            return 1
+        s2, s32, adj = rc1c_indicator(seq)
+        print(f"{s2},{s32},{adj}")
+        return 0
+    seq = list(binary_hexagrams)
+    s2, s32, adj = rc1c_indicator(seq)
+    fails = 0
+    for nm, v, exp in (("rc1c_slot2", s2, 0), ("rc1c_slot32", s32, 1),
+                       ("rc1c_adjacent", adj, 1)):
+        if v == exp:
+            print(f"{nm}: {v} OK")
+        else:
+            print(f"{nm}: {v} FAIL (expected {exp})")
+            fails += 1
+    print("RC1C VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    return 1 if fails else 0
+
+
+# ---------------------------------------------------------------------------
+# R11 — four-class Bayes v2: the frozen 8-axis violation bundle (design:
+# roae-private/R11_BAYES_V2_DESIGN_2026_07_10.md §3) + greedy-builder (M_G)
+# machinery (§2.2/§9.3). Two-language twin of solve.c r11_axes / --r11-verify
+# and the SOLVE_KNUTH_R11_HIST population instrument.
+# ATTRIBUTION (rules are NOT ROAE discoveries): g1 Moore 2005; g2 Moore 1989;
+# g3 Schulz 1990 (Zhu Yuansheng exception); g4/g5 Cook 2006; g6 Zheng Qiao
+# ~1150 / Hu Yigui 1247 / Hacker & Moore 2003; g7 Schulz 2011/2016; g8 Drasny
+# / Schulz. The greedy-builder class is ROAE's formalization of a folk idea
+# (novelty hedged; corrections welcome). Developed with AI assistance
+# (Claude, Anthropic). NOTE: per the R11 design freeze protocol (§9.3) the
+# KW-facing four-class Bayes integration (compute_r11_bf.py) is the Spot/
+# post-freeze deliverable; the code below is instrument + structural-smoke
+# only and computes no KW verdict.
+# ---------------------------------------------------------------------------
+
+R11_AXIS_NAMES = ["g1_moore_parity", "g2_moore_rhythm", "g3_schulz_gender",
+                  "g4_level_cover", "g5_final_anchor", "g6_split1818",
+                  "g7_ccn4_T2", "g8_d7_T2"]
+R11_KW_EXPECTED = [2, 2, 2, 0, 0, 0, 0, 0]
+
+
+def r11_axes(seq):
+    """The R11 frozen 8-axis violation vector on an orientation-resolved
+    sequence. g1..g6 = Tier-1 principled rules; g7,g8 = Tier-2 data-like.
+    Byte-for-byte twin of solve.c r11_axes(). KW == (2,2,2,0,0,0,0,0)."""
+    # g1 = 18 - Moore-2005 pair-positioning parity compliance (comp-pairs + pc==3 exempt)
+    ok = 0
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            continue
+        pcq = bin(h).count("1")
+        if pcq == 3:
+            continue
+        odd = (q + 1) & 1
+        if (1 if pcq > 3 else 0) == odd:
+            ok += 1
+    g1 = max(0, 18 - ok)
+    # g2 = Moore-1989 rising/falling rhythm breaks
+    prev, have, prev_adj, breaks = 0, False, False, 0
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            prev_adj = False
+            continue
+        pcq = bin(h).count("1")
+        if pcq == 3:
+            prev_adj = False
+            continue
+        mb = 0 if pcq > 3 else 1
+        sc = sum(5 - 2 * i for i in range(6) if ((h >> i) & 1) == mb)
+        rf = 1 if sc > 0 else 0
+        if have and prev_adj and rf == prev:
+            breaks += 1
+        prev, have, prev_adj = rf, True, True
+    g2 = breaks
+    # g3 = Schulz-1990 gender/position-parity violations
+    g3 = rc4_violations(seq)[0]
+    # g4 = 7 - distinct popcount-levels covered by the first 7 pairs
+    lv = 0
+    for q in range(14):
+        lv |= 1 << bin(seq[q]).count("1")
+    g4 = 7 - bin(lv & 0x7F).count("1")
+    # g5 = 1 - [final pair is the alternating pair {21,42}]
+    g5 = 0 if {seq[62], seq[63]} == {21, 42} else 1
+    # g6 = 1 - [18:18 split: exactly 3 of the 4 complement-pairs among the first
+    # 15 pair-slots]. A hexagram belongs to a complement-pair iff it is a 6-bit
+    # palindrome (rev(h)==h) — those pair with their inverse (XOR 63). This is
+    # the C ordering's pair-idx {0,13,14,30} membership, computed by property so
+    # it is independent of the pair-list ordering.
+    cc = 0
+    for q in range(15):
+        if reverse_6bit(seq[2 * q]) == seq[2 * q]:
+            cc += 1
+    g6 = 0 if cc == 3 else 1
+    # g7 = 1 - ccn4 (T2)
+    g7 = 0 if reg_ccn4(seq) else 1
+    # g8 = 8 - d7 count (T2)
+    g8 = 8 - reg_d7(seq)
+    return [g1, g2, g3, g4, g5, g6, g7, g8]
+
+
+def r11_verify(seq_arg=None):
+    """Two-language ground-truth gate for the R11 8-axis bundle. No argument:
+    recompute on King Wen and assert == (2,2,2,0,0,0,0,0). With a 64-int SEQ:
+    print the 8 values comma-separated (same ordering as solve.c --r11-verify
+    SEQ) for cross-language gating. This is the KW-reproduction gate the
+    SOLVE_KNUTH_R11_HIST population instrument must pass before it is trusted."""
+    if seq_arg is not None:
+        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        if len(seq) != 64:
+            print(f"r11-verify: need 64 ints, got {len(seq)}")
+            return 1
+        print(",".join(str(x) for x in r11_axes(seq)))
+        return 0
+    seq = list(binary_hexagrams)
+    g = r11_axes(seq)
+    fails = 0
+    for nm, v, exp in zip(R11_AXIS_NAMES, g, R11_KW_EXPECTED):
+        if v == exp:
+            print(f"{nm}: {v} OK")
+        else:
+            print(f"{nm}: {v} FAIL (expected {exp})")
+            fails += 1
+    print("R11 VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    return 1 if fails else 0
+
+
+# --- M_G greedy-builder machinery (R11 §2.2 / §9.3) -------------------------
+# A sequential softmax builder over the C1/C2/C4/C5 child space. At each slot
+# the local child set A_t is exactly the Knuth-walk child predicate (C1 pair
+# uniqueness, C2 no-5-transition, C4 pure-pair pin at slot 0, C5 transition-
+# budget feasibility incrementally maintained). The builder chooses a
+# placement a with probability softmax(beta * s_w(a)), s_w = sum_j w_j * dj(a)
+# over the incremental Tier-1 axes (g1..g5).
+#
+# Frozen Delta_j operationalization (this implementer's explicit choice, per
+# section 3's "increment of axis j's compliance"; documented so it can be
+# reviewed at freeze — NOT a hidden convention):
+#   d1 (Moore parity):  +1 if the placed pair is non-exempt AND parity-compliant
+#                        at its 1-indexed slot, else 0.
+#   d2 (Moore rhythm):  -1 if the placement BREAKS rising/falling alternation
+#                        vs the previous adjacent directional pair, else 0.
+#   d3 (Schulz gender): -(new gender violations introduced by the placement's
+#                        newly-seen inversion-class stations).
+#   d4 (Cook levels):   number of NEW popcount-levels the placement adds among
+#                        the first 7 pairs (slots < 7), else 0.
+#   d5 (Cook anchor):   +1 iff at the final slot (31) the placed pair is A2.
+# Higher s_w = "more rule-compliant placement", matching the greedy-arranger
+# narrative. Orientation is chosen jointly with the pair.
+_R11_PAIRS = None
+
+
+def _r11_pairs():
+    global _R11_PAIRS
+    if _R11_PAIRS is None:
+        _R11_PAIRS = build_pairs()
+    return _R11_PAIRS
+
+
+def r11_children(last_hex, used_mask, budget):
+    """Enumerate locally-valid (pair_idx, orient, first, second, bd, wd)
+    placements at the next slot. Mirrors the solve.c Knuth-walk child predicate
+    exactly (bd==5 forbidden; between- then within-transition budget check with
+    bd decremented while testing wd). `budget` is a length-7 list, mutated and
+    restored internally."""
+    pr = _r11_pairs()
+    out = []
+    for p in range(32):
+        if used_mask & (1 << p):
+            continue
+        a, b = pr[p]
+        for orient in range(2):
+            first, second = (b, a) if orient else (a, b)
+            bd = bit_diff(last_hex, first)
+            if bd == 5:
+                continue
+            if budget[bd] <= 0:
+                continue
+            budget[bd] -= 1
+            wd = bit_diff(first, second)
+            live = budget[wd] > 0
+            budget[bd] += 1
+            if not live:
+                continue
+            out.append((p, orient, first, second, bd, wd))
+    return out
+
+
+def _r11_kw_budget():
+    """KW's linear transition multiset (length-7 list indexed by Hamming
+    distance) — the standard C5 budget the builder consumes."""
+    kw = list(binary_hexagrams)
+    b = [0] * 7
+    for i in range(len(kw) - 1):
+        b[bit_diff(kw[i], kw[i + 1])] += 1
+    return b
+
+
+def _r11_seen_classes(seq_prefix):
+    """First-appearance inversion-class count + set over a hexagram prefix."""
+    seen, ncls = set(), 0
+    for h in seq_prefix:
+        key = min(h, reverse_6bit(h))
+        if key not in seen:
+            seen.add(key)
+            ncls += 1
+    return seen, ncls
+
+
+def _r11_step_score(slot, first, second, seen, ncls,
+                    prev_rf, prev_adj, levels7, weights):
+    """s_w for placing (first, second) at pair `slot` (0-indexed), given running
+    builder state. Returns (score, new_prev_rf, new_prev_adj, new_seen,
+    new_ncls, new_levels7). Implements the frozen Delta_j above."""
+    w1, w2, w3, w4, w5 = weights
+    d1 = d2 = d3 = d4 = d5 = 0
+    comp = ((first ^ second) == 63)
+    pcf = bin(first).count("1")
+    new_prev_rf, new_prev_adj = prev_rf, prev_adj
+    if not comp and pcf != 3:
+        odd = (slot + 1) & 1
+        if (1 if pcf > 3 else 0) == odd:
+            d1 = 1
+        mb = 0 if pcf > 3 else 1
+        sc = sum(5 - 2 * i for i in range(6) if ((first >> i) & 1) == mb)
+        rf = 1 if sc > 0 else 0
+        if prev_adj and rf == prev_rf:
+            d2 = -1
+        new_prev_rf, new_prev_adj = rf, True
+    else:
+        new_prev_adj = False
+    new_seen = set(seen)
+    new_ncls = ncls
+    for h in (first, second):
+        key = min(h, reverse_6bit(h))
+        if key not in new_seen:
+            new_seen.add(key)
+            new_ncls += 1
+            pck = bin(h).count("1")
+            if pck not in (0, 3, 6) and ((pck < 3) != (new_ncls % 2 == 1)):
+                d3 -= 1
+    new_levels7 = levels7
+    if slot < 7:
+        for h in (first, second):
+            lvl = bin(h).count("1")
+            if not (new_levels7 & (1 << lvl)):
+                new_levels7 |= (1 << lvl)
+                d4 += 1
+    if slot == 31 and {first, second} == {21, 42}:
+        d5 = 1
+    score = w1 * d1 + w2 * d2 + w3 * d3 + w4 * d4 + w5 * d5
+    return score, new_prev_rf, new_prev_adj, new_seen, new_ncls, new_levels7
+
+
+def r11_builder_numerator(seq, beta, weights=(1, 1, 1, 1, 1)):
+    """Exact M_G path likelihood NUMERATOR for a full sequence: the product of
+    the 31 per-slot softmax factors P(a_t | state_t, beta, w) along `seq`
+    (slot 0 is the forced pure pair). Returns the raw product (float). Raises
+    ValueError if `seq` is not a builder-reachable C1..C5 path."""
+    import math
+    budget = _r11_kw_budget()
+    first0, second0 = seq[0], seq[1]
+    budget[bit_diff(first0, second0)] -= 1
+    used_mask = 0
+    pr = _r11_pairs()
+    for p in range(32):
+        if {pr[p][0], pr[p][1]} == {first0, second0}:
+            used_mask |= (1 << p)
+            break
+    seen, ncls = _r11_seen_classes([first0, second0])
+    prev_rf, prev_adj, levels7 = 0, False, 0
+    for h in (first0, second0):
+        levels7 |= (1 << bin(h).count("1"))
+    prod = 1.0
+    for slot in range(1, 32):
+        last = seq[2 * slot - 1]
+        kids = r11_children(last, used_mask, budget)
+        if not kids:
+            raise ValueError(f"builder dead-ended at slot {slot}")
+        scores, chosen = [], None
+        target = (seq[2 * slot], seq[2 * slot + 1])
+        for (p, orient, f, s, bd, wd) in kids:
+            sc, nrf, nadj, nseen, nncls, nlv = _r11_step_score(
+                slot, f, s, seen, ncls, prev_rf, prev_adj, levels7, weights)
+            scores.append(sc)
+            if (f, s) == target:
+                chosen = (len(scores) - 1, p, f, s, bd, wd, nrf, nadj, nseen, nncls, nlv)
+        if chosen is None:
+            raise ValueError(f"seq step at slot {slot} not in the local child set")
+        m = max(scores)
+        denom = sum(math.exp(beta * (sc - m)) for sc in scores)
+        num = math.exp(beta * (scores[chosen[0]] - m))
+        prod *= (num / denom)
+        _, p, f, s, bd, wd, nrf, nadj, nseen, nncls, nlv = chosen
+        budget[bd] -= 1
+        budget[wd] -= 1
+        used_mask |= (1 << p)
+        prev_rf, prev_adj, seen, ncls, levels7 = nrf, nadj, nseen, nncls, nlv
+    return prod
+
+
+def r11_builder_run(beta, weights, rng):
+    """Draw ONE builder run: sequential softmax choices from slot 1. Returns
+    (seq_or_partial, completed_bool). Dead-ends (A_t empty under C5 budget
+    exhaustion) return (partial, False) — the P_complete failure event."""
+    import math
+    budget = _r11_kw_budget()
+    seq = [63, 0]  # C4 pure-pair pin (slot 0), canonical gauge
+    budget[bit_diff(63, 0)] -= 1
+    pr = _r11_pairs()
+    used_mask = 0
+    for p in range(32):
+        if {pr[p][0], pr[p][1]} == {63, 0}:
+            used_mask |= (1 << p)
+            break
+    seen, ncls = _r11_seen_classes([63, 0])
+    prev_rf, prev_adj = 0, False
+    levels7 = (1 << bin(63).count("1")) | (1 << bin(0).count("1"))
+    for slot in range(1, 32):
+        last = seq[-1]
+        kids = r11_children(last, used_mask, budget)
+        if not kids:
+            return seq, False
+        scored = []
+        for (p, orient, f, s, bd, wd) in kids:
+            sc, nrf, nadj, nseen, nncls, nlv = _r11_step_score(
+                slot, f, s, seen, ncls, prev_rf, prev_adj, levels7, weights)
+            scored.append((sc, p, f, s, bd, wd, nrf, nadj, nseen, nncls, nlv))
+        m = max(x[0] for x in scored)
+        weights_e = [math.exp(beta * (x[0] - m)) for x in scored]
+        total = sum(weights_e)
+        r = rng.random() * total
+        acc = 0.0
+        pick = scored[-1]
+        for x, we in zip(scored, weights_e):
+            acc += we
+            if r <= acc:
+                pick = x
+                break
+        _, p, f, s, bd, wd, nrf, nadj, nseen, nncls, nlv = pick
+        seq.extend([f, s])
+        budget[bd] -= 1
+        budget[wd] -= 1
+        used_mask |= (1 << p)
+        prev_rf, prev_adj, seen, ncls, levels7 = nrf, nadj, nseen, nncls, nlv
+    return seq, True
+
+
+def r11_builder_pcomplete(beta, weights=(1, 1, 1, 1, 1), n_runs=100000, seed=0):
+    """Estimate P_complete(beta, w) = P(a builder run reaches slot 31 without
+    dead-ending), with a normal-approx 95% CI. Returns (phat, halfwidth, n)."""
+    import random
+    import math
+    rng = random.Random(seed)
+    comp = 0
+    for _ in range(n_runs):
+        _, ok = r11_builder_run(beta, weights, rng)
+        comp += 1 if ok else 0
+    phat = comp / n_runs
+    hw = 1.96 * math.sqrt(max(phat * (1 - phat), 0.0) / n_runs)
+    return phat, hw, n_runs
+
+
+def r11_builder_synthetic(beta, weights=(1, 1, 1, 1, 1), seed=0, max_tries=1000):
+    """Draw one COMPLETED synthetic sequence from M_G (rejection over dead-ends).
+    Returns the 64-int sequence, or None if no completion within max_tries."""
+    import random
+    rng = random.Random(seed)
+    for _ in range(max_tries):
+        seq, ok = r11_builder_run(beta, weights, rng)
+        if ok:
+            return seq
+    return None
+
+
+def r11_builder_verify():
+    """Structural smoke-test of the M_G builder machinery (NOT the KW verdict —
+    the four-class Bayes integration is the post-freeze Spot deliverable).
+    Checks: (1) the exact KW-path numerator is a well-defined product in (0,1]
+    for a couple of beta values; (2) a small P_complete simulation returns a
+    fraction in [0,1]; (3) a synthetic draw is a valid C1..C5 sequence (its
+    r11_axes are computable and its transition multiset matches KW's).
+    Returns 0 on pass, 1 on any failure."""
+    fails = 0
+    kw = list(binary_hexagrams)
+    for beta in (0.5, 2.0):
+        try:
+            num = r11_builder_numerator(kw, beta)
+        except ValueError as e:
+            print(f"builder numerator (beta={beta}): FAIL ({e})")
+            fails += 1
+            continue
+        ok = (0.0 < num <= 1.0)
+        print(f"builder KW-path numerator (beta={beta}): {num:.6e} {'OK' if ok else 'FAIL'}")
+        if not ok:
+            fails += 1
+    phat, hw, n = r11_builder_pcomplete(1.0, n_runs=3000, seed=1)
+    ok = (0.0 <= phat <= 1.0)
+    print(f"builder P_complete (beta=1, n={n}): {phat:.4f} +/- {hw:.4f} {'OK' if ok else 'FAIL'}")
+    if not ok:
+        fails += 1
+    synth = r11_builder_synthetic(1.0, seed=2)
+    if synth is None or len(synth) != 64 or len(set(synth)) != 64:
+        print("builder synthetic draw: FAIL (no valid completion)")
+        fails += 1
+    else:
+        b = [0] * 7
+        for i in range(63):
+            b[bit_diff(synth[i], synth[i + 1])] += 1
+        kwb = _r11_kw_budget()
+        match = (b == kwb)
+        g = r11_axes(synth)
+        print(f"builder synthetic draw: valid C1..C5={match} axes={g} "
+              f"{'OK' if match else 'FAIL'}")
+        if not match:
+            fails += 1
+    print("R11 BUILDER VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    return 1 if fails else 0
+
+
+# ---------------------------------------------------------------------------
 # Davis (2012) composite candidates (pre-registered 2026-07-04 in
 # documentation/CRITIQUE.md, "Davis (2012) structural claims"; operational
 # spec frozen in roae-private/books/davis/DAVIS_2012_STRUCTURAL_AUDIT.md §5:
@@ -7316,6 +7765,24 @@ def main():
                              "the 13 values + 2 template indicators (identical "
                              "ordering to solve.c SOLVE_PERM_TESTVEC) for "
                              "cross-language / corpus-control gating")
+    parser.add_argument("--rc1c-verify", nargs="?", const="", default=None,
+                        metavar="SEQ",
+                        help="R6: verify the circular anchor-adjacency indicator "
+                             "R-C1c (A2={21,42} in pair slot 2 or 32) on KW "
+                             "(expected slot2=0, slot32=1, adjacent=1); with a "
+                             "64-int SEQ argument print `slot2,slot32,adjacent` "
+                             "(ordering matches solve.c --rc1c-verify SEQ)")
+    parser.add_argument("--r11-verify", nargs="?", const="", default=None,
+                        metavar="SEQ",
+                        help="R11: verify the frozen 8-axis violation bundle "
+                             "(g1..g6 T1 + g7,g8 T2) on KW (expected "
+                             "2,2,2,0,0,0,0,0); with a 64-int SEQ print the 8 "
+                             "values (ordering matches solve.c --r11-verify SEQ)")
+    parser.add_argument("--r11-builder-verify", action="store_true",
+                        help="R11: structural smoke-test of the M_G greedy-builder "
+                             "machinery (KW-path softmax numerator, P_complete "
+                             "simulation, synthetic draw). NOT the four-class "
+                             "Bayes verdict (that is the post-freeze Spot job).")
     parser.add_argument("--dav-verify", action="store_true",
                         help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
     parser.add_argument("--vdb-verify", action="store_true",
@@ -7410,6 +7877,15 @@ def main():
 
     if args.perm_verify is not None:
         sys.exit(perm_verify(args.perm_verify if args.perm_verify else None))
+
+    if args.rc1c_verify is not None:
+        sys.exit(rc1c_verify(args.rc1c_verify if args.rc1c_verify else None))
+
+    if args.r11_verify is not None:
+        sys.exit(r11_verify(args.r11_verify if args.r11_verify else None))
+
+    if args.r11_builder_verify:
+        sys.exit(r11_builder_verify())
 
     if args.dav_verify:
         sys.exit(dav_verify())
