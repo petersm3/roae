@@ -21,15 +21,30 @@ Subcommands:
   --decode MODEL.txt [TARGET]   decode a solver model (v-lines, or a bare int list) back to a
                                 hexagram sequence and re-verify vs solve.py (TARGET default
                                 'plain'; add --f1-pairs N to decode a reduced-subset model)
-  --witness TARGET              emit CNF, run solver (kissat on PATH or pysat), decode, verify,
+  --witness TARGET              emit CNF, run the external solver (REQUIRES kissat on PATH;
+                                exits with a clear install message if missing), decode, verify,
                                 iterate blocking clauses until a C3-passing witness is found
+  --certify-count TARGET        emit CNF, compile it with D4 (d-DNNF), then generate + verify a
+                                CPOG certificate (cpog-gen / cpog-check) and print the CERTIFIED
+                                model count. REQUIRES the OPTIONAL external binaries d4,
+                                cpog-gen, cpog-check on PATH — no other subcommand needs them;
+                                if absent this exits gracefully with a clear install message and
+                                the rest of sat.py is unaffected (see SAT_CLI.md). Combine with
+                                --f1-pairs N for the reduced-subset certified-count probe
+                                (TASK #225 §6.4); the native reference count to compare against
+                                comes from `solve --f1-exact-c1c2c4c5 --f1-pairs N` (run by the
+                                caller — sat.py never invokes solve.c).
 Modifiers:
   --f1-pairs N                  build the REDUCED C1&C2&C4&C5 instance for the group-closed
                                 N-pair orbit union (N in {9,13,16,18,19,24,25,27,28}) — the
                                 object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies
-                                to --emit-cnf and --decode; the C5 budget B0 is derived per
-                                subset (deterministic-DFS, solve.c f1c5 semantics). This is the
-                                small-n certified-count probe instance (TASK #225 §6.4).
+                                to --emit-cnf, --decode and --certify-count; the C5 budget B0 is
+                                derived per subset (deterministic-DFS, solve.c f1c5 semantics).
+                                This is the small-n certified-count probe instance (#225 §6.4).
+  --expect N                    (--certify-count only) assert certified count == N; prints
+                                PASS/FAIL and exits nonzero on FAIL
+  --keep DIR                    (--certify-count only) preserve instance.cnf/.nnf/.cpog in DIR
+                                (default: a temporary directory, removed after the run)
 Targets:
   alt-le-14      C1+C2+C4+C5 AND (odd between-pair transitions <= 14)   [expect UNSAT]
   alt-ge-16      C1+C2+C4+C5 AND (odd between-pair transitions >= 16)   [expect UNSAT]
@@ -805,6 +820,104 @@ def _read_model_lits(path):
         lits = [int(x) for x in text.split() if x.lstrip("-").isdigit() and x != "0"]
     return lits
 
+# ============================================================================
+# --certify-count: independently CERTIFIED model count via D4 + CPOG.
+# ----------------------------------------------------------------------------
+# EXTERNAL DEPENDENCY (OPTIONAL — this subcommand ONLY). --certify-count
+# requires the D4 d-DNNF compiler (https://github.com/crillab/d4) and the CPOG
+# certified-knowledge-compilation toolchain's cpog-gen + cpog-check
+# (https://github.com/rebryant/cpog; Bryant/Nawrocki/Avigad, SAT 2023) on
+# PATH. NOTHING else in sat.py needs them: if they are absent, the subcommand
+# exits gracefully with an install message (same idiom as roae.py's optional
+# wkhtmltopdf PDF step) and every other subcommand is unaffected — mirroring
+# how kissat is an external requirement of --witness only.
+#
+# Pipeline (all artifacts under one work dir):
+#   1. instance.cnf   — the DIMACS this file already emits (build/build_subset)
+#   2. d4 -dDNNF instance.cnf -out=instance.nnf   — compile to Decision-DNNF
+#   3. cpog-gen  instance.cnf instance.nnf instance.cpog  — CPOG certificate
+#   4. cpog-check instance.cnf instance.cpog     — verify + certified count
+# The count reported by step 4 is the CERTIFIED number: cpog-check validates
+# the certificate against the ORIGINAL CNF, independently of d4's own answer.
+# d4's own (uncertified) count is cross-checked against it when parseable.
+# The native C reference count (`solve --f1-exact-c1c2c4c5 --f1-pairs N`) is
+# supplied by the caller via --expect; sat.py never invokes solve.c.
+#
+# RUN-VALIDATION NOTE (2026-07-10): the argv forms and output-parsing patterns
+# below follow D4 v1's and the CPOG repo's documented interfaces, but they
+# have NOT yet been executed against built binaries (none are installed in
+# the dev environment). They are to be RUN-validated during the R2-c
+# cross-check campaign (Spot VM with d4/cpog-gen/cpog-check built) before any
+# certified count from this path is cited. The absent-tools graceful path IS
+# tested (tests.py TestGates.test_certify_count_absent_tools).
+# ============================================================================
+
+_CERTIFY_TOOLS_MSG = (
+    "D4 and CPOG are required to run --certify-count but '%s' was not found on PATH.\n"
+    "Install D4 (d-DNNF compiler, https://github.com/crillab/d4) and the CPOG toolchain\n"
+    "cpog-gen/cpog-check (https://github.com/rebryant/cpog); see documentation/SAT_CLI.md.\n"
+    "The rest of sat.py works without them.")
+
+def _run_tool(argv):
+    """Run one external certificate-toolchain binary. Graceful-absence idiom
+    (roae.py wkhtmltopdf): a missing binary exits with a clear install
+    message instead of an unhandled FileNotFoundError traceback."""
+    try:
+        return subprocess.run(argv, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise SystemExit(_CERTIFY_TOOLS_MSG % argv[0])
+
+def _tool_tail(r):
+    return (r.stdout + r.stderr)[-600:]
+
+def certify_count(cnf_obj, label, keep_dir=None):
+    """Compile `cnf_obj` with D4, then generate and verify a CPOG certificate,
+    returning (certified_count, d4_uncertified_count_or_None). REQUIRES d4,
+    cpog-gen, cpog-check on PATH — exits gracefully with an install message if
+    any is absent (see _CERTIFY_TOOLS_MSG; the rest of sat.py never needs
+    them). Artifacts land in keep_dir (preserved) or a temp dir (removed)."""
+    import tempfile, shutil, re
+    wd = keep_dir or tempfile.mkdtemp(prefix="sat_certify_")
+    if keep_dir:
+        os.makedirs(wd, exist_ok=True)
+    try:
+        cnf_path = os.path.join(wd, "instance.cnf")
+        nnf_path = os.path.join(wd, "instance.nnf")
+        cpog_path = os.path.join(wd, "instance.cpog")
+        cnf_obj.write(cnf_path, label)
+        # 1) D4 v1: compile to Decision-DNNF (argv per D4 v1 README; the CPOG
+        #    toolchain consumes D4 v1 .nnf — RUN-validate, see section header)
+        r_d4 = _run_tool(["d4", "-dDNNF", cnf_path, "-out=" + nnf_path])
+        if not (os.path.exists(nnf_path) and os.path.getsize(nnf_path) > 0):
+            raise SystemExit("d4 produced no d-DNNF at %s\n--- d4 output tail ---\n%s"
+                             % (nnf_path, _tool_tail(r_d4)))
+        # d4's own UNCERTIFIED count (advisory cross-check only; tolerant of
+        # both the classic "s <N>" line and the model-counting-competition
+        # "c s exact arb int <N>" form)
+        m = re.findall(r"(?m)^(?:c s exact arb int|s)\s+(\d+)\s*$", r_d4.stdout)
+        d4_count = int(m[-1]) if m else None
+        # 2) cpog-gen: CNF + d-DNNF -> CPOG certificate
+        r_gen = _run_tool(["cpog-gen", cnf_path, nnf_path, cpog_path])
+        if r_gen.returncode != 0 or not os.path.exists(cpog_path):
+            raise SystemExit("cpog-gen failed (rc=%s)\n--- output tail ---\n%s"
+                             % (r_gen.returncode, _tool_tail(r_gen)))
+        # 3) cpog-check: verify the certificate against the ORIGINAL CNF; the
+        #    count it reports is the CERTIFIED model count
+        r_chk = _run_tool(["cpog-check", cnf_path, cpog_path])
+        m = re.findall(r"(?im)^.*\bmodel count\b[^0-9]*(\d+)\s*$", r_chk.stdout)
+        if r_chk.returncode != 0 or not m:
+            raise SystemExit("cpog-check did not certify a count (rc=%s)\n--- output tail ---\n%s"
+                             % (r_chk.returncode, _tool_tail(r_chk)))
+        certified = int(m[-1])
+        if d4_count is not None and d4_count != certified:
+            raise SystemExit("d4 uncertified count %d != CPOG-certified count %d "
+                             "— toolchain misuse or bug; investigate before trusting either"
+                             % (d4_count, certified))
+        return certified, d4_count
+    finally:
+        if keep_dir is None:
+            shutil.rmtree(wd, ignore_errors=True)
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     with_c3, c3_max, npairs = False, None, None
@@ -816,6 +929,13 @@ if __name__ == "__main__":
     if "--f1-pairs" in args:                         # reduced subset instance (TASK #225 probe)
         i = args.index("--f1-pairs")
         npairs = int(args[i + 1]); del args[i:i + 2]
+    expect, keep_dir = None, None                    # --certify-count modifiers
+    if "--expect" in args:
+        i = args.index("--expect")
+        expect = int(args[i + 1]); del args[i:i + 2]
+    if "--keep" in args:
+        i = args.index("--keep")
+        keep_dir = args[i + 1]; del args[i:i + 2]
 
     def _emit_label(target):
         if npairs is not None:
@@ -854,6 +974,28 @@ if __name__ == "__main__":
             ok, c3 = verify_seq(seq)
             print("SEQ:", seq)
             print("verify=%s  c3=%d  %s" % (ok, c3, "c3<=776 PASS" if c3 <= 776 else "fail C3"))
+    elif args[:1] == ["--certify-count"] and len(args) == 2:
+        # Certified model count via external D4 + CPOG (cpog-gen/cpog-check) —
+        # OPTIONAL binaries, required by THIS subcommand only; certify_count()
+        # exits gracefully with an install message if they are not on PATH.
+        target = args[1]
+        if npairs is not None:
+            cnf, _ctx = build_subset(npairs)
+        else:
+            cnf, _Y = build(target, with_c3=with_c3, c3_max=c3_max)
+        certified, d4_count = certify_count(cnf, "target=" + _emit_label(target),
+                                            keep_dir=keep_dir)
+        print("CERTIFIED count=%d  (%s; D4 d-DNNF + CPOG-checked certificate)"
+              % (certified, _emit_label(target)))
+        if d4_count is not None:
+            print("d4 uncertified count agrees: %d" % d4_count)
+        if keep_dir:
+            print("artifacts kept in %s (instance.cnf/.nnf/.cpog)" % keep_dir)
+        if expect is not None:
+            ok = certified == expect
+            print("expect=%d certified=%d  %s" % (expect, certified, "PASS" if ok else "FAIL"))
+            if not ok:
+                sys.exit(1)
     elif args[:1] == ["--witness"] and len(args) == 2:
         target = args[1]
         cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)
@@ -861,7 +1003,16 @@ if __name__ == "__main__":
         for attempt in range(200):
             f = tempfile.NamedTemporaryFile("w", suffix=".cnf", delete=False)
             cnf.write(f.name, "target=" + target)
-            r = subprocess.run(["kissat", "-q", f.name], capture_output=True, text=True)
+            try:
+                r = subprocess.run(["kissat", "-q", f.name], capture_output=True, text=True)
+            except FileNotFoundError:
+                # graceful-absence idiom (roae.py wkhtmltopdf): external solver
+                # missing is a clear install message, not a traceback
+                os.unlink(f.name)
+                raise SystemExit(
+                    "kissat is required to run --witness but was not found on PATH.\n"
+                    "Install kissat (https://github.com/arminbiere/kissat); see "
+                    "documentation/SAT_CLI.md.\nThe rest of sat.py works without it.")
             os.unlink(f.name)
             if "s SATISFIABLE" not in r.stdout:
                 print("UNSAT (or solver error) at attempt", attempt); print(r.stdout[-400:]); break

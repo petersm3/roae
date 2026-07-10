@@ -163,6 +163,36 @@ class TestGates(unittest.TestCase):
         r = subprocess.run([sys.executable, "-c", "import sat"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr[-300:])
 
+    def test_certify_count_absent_tools(self):
+        # sat.py --certify-count depends on OPTIONAL external binaries
+        # (d4/cpog-gen/cpog-check). With them absent it must exit gracefully
+        # with the clear install message (roae.py wkhtmltopdf idiom), never a
+        # traceback. PATH is scrubbed to an empty dir so this gate holds even
+        # on hosts that DO have the tools installed. The present-tools path is
+        # RUN-validated during the R2-c cross-check campaign (see sat.py's
+        # certify-count section header).
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as empty:
+            env = dict(os.environ, PATH=empty)
+            r = subprocess.run([sys.executable, "sat.py", "--certify-count", "f1c5",
+                                "--f1-pairs", "9", "--expect", "26112"],
+                               capture_output=True, text=True, env=env)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("required to run --certify-count", r.stderr)
+        self.assertIn("The rest of sat.py works without them.", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_witness_absent_kissat(self):
+        # same graceful-absence contract for --witness's kissat dependency
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as empty:
+            env = dict(os.environ, PATH=empty)
+            r = subprocess.run([sys.executable, "sat.py", "--witness", "plain"],
+                               capture_output=True, text=True, env=env)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("kissat is required to run --witness", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
 
 class TestSatC5Subset(unittest.TestCase):
     """Gate for the C5 cardinality/budget encoding + the reduced-subset

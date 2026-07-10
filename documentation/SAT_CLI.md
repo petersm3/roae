@@ -21,10 +21,27 @@ ground truth.
 python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--f1-pairs N]
 python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--f1-pairs N]
 python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N]
+python3 sat.py --certify-count TARGET               [--with-c3] [--c3-max N] [--f1-pairs N]
+                                                    [--expect N] [--keep DIR]
 ```
 
 With no recognized subcommand, `sat.py` prints its module docstring
 (the full target catalogue) and exits.
+
+## EXTERNAL-BINARY REQUIREMENTS (all optional)
+
+`sat.py` itself is stdlib-only Python: `--emit-cnf` and `--decode` need
+**no** third-party binaries. Two subcommands invoke optional external
+tools and **exit gracefully with a clear install message** (never a
+traceback) if the tool is not on `PATH`:
+
+| Subcommand | Requires on `PATH` | Role |
+|---|---|---|
+| `--witness` | [`kissat`](https://github.com/arminbiere/kissat) | external SAT solver for the witness-search loop |
+| `--certify-count` | [`d4`](https://github.com/crillab/d4) **and** `cpog-gen` + `cpog-check` ([CPOG](https://github.com/rebryant/cpog)) | d-DNNF compilation + certified model counting |
+
+No other part of `sat.py` (or of the project's Python layer) needs any
+of these; everything else works without them.
 
 ## DESCRIPTION
 
@@ -47,7 +64,7 @@ by an independent verified checker (third-party solver use authorized
 by the operator 2026-07-02).
 
 Argument parsing is hand-rolled `sys.argv` inspection (no `argparse`);
-the dispatch lives at `sat.py:565–599`.
+the dispatch lives in the `__main__` block at the bottom of the file.
 
 ## SUBCOMMANDS
 
@@ -110,8 +127,48 @@ C3 complement-distance bound (≤ 776, KW's ceiling). If the witness
 fails C3 it adds a blocking clause and iterates (up to 200 attempts)
 until a C3-passing witness is found or the solver returns UNSAT. On
 success prints `WITNESS: [...]` (the explicit ordering); on UNSAT
-prints the UNSAT line and the tail of the solver output. Requires
-`kissat` on `PATH`.
+prints the UNSAT line and the tail of the solver output. **Requires
+`kissat` on `PATH`** (see the requirements table above); if it is
+missing, `sat.py` exits with a clear install message.
+
+### --certify-count TARGET
+
+```
+python3 sat.py --certify-count f1c5 --f1-pairs 9 --expect 26112
+python3 sat.py --certify-count plain --keep certs/plain
+```
+
+Produces an **independently certified model count** of the `TARGET`
+CNF (or, with `--f1-pairs N`, of the reduced small-n probe instance —
+the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
+
+> **External dependency (this subcommand only):** `--certify-count`
+> requires the **D4** d-DNNF compiler
+> (<https://github.com/crillab/d4>) and the **CPOG** toolchain's
+> `cpog-gen` / `cpog-check`
+> (<https://github.com/rebryant/cpog>; Bryant, Nawrocki & Avigad,
+> SAT 2023) on `PATH`. If any of the three binaries is missing, the
+> subcommand exits gracefully with an install message — **the rest of
+> `sat.py` works without them**, exactly as `kissat` is required only
+> by `--witness`.
+
+Pipeline: (1) emit the DIMACS CNF (the same `build()` /
+`build_subset()` machinery as `--emit-cnf`); (2) `d4 -dDNNF … -out=…`
+compiles it to Decision-DNNF; (3) `cpog-gen` derives a CPOG
+certificate from the CNF + d-DNNF; (4) `cpog-check` verifies the
+certificate **against the original CNF** and reports the model count.
+The count printed as `CERTIFIED count=…` is `cpog-check`'s — it is
+trusted because the certificate is checked independently of the
+compiler, the same trust model as the DRAT/LRAT-checked UNSAT
+verdicts. D4's own (uncertified) count is cross-checked against it
+when parseable; a disagreement is a hard error.
+
+With `--expect N` (the reference count, e.g. from
+`solve --f1-exact-c1c2c4c5 --f1-pairs N` — `sat.py` never invokes the
+C binary itself) it prints `PASS`/`FAIL` and exits non-zero on `FAIL`.
+With `--keep DIR` the `instance.cnf` / `instance.nnf` /
+`instance.cpog` artifacts are preserved in `DIR` instead of a deleted
+temp directory.
 
 ## MODIFIERS
 
@@ -119,9 +176,11 @@ prints the UNSAT line and the tail of the solver output. Requires
 |---|---|
 | `--with-c3` | Include the C3 complement-distance constraint in the encoding (bounded at KW's C3, 776, unless `--c3-max` overrides). |
 | `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Consumes the following token as the integer bound. |
-| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf` and `--decode`. The C5 budget `B0` is derived per subset. Consumes the following token as the integer `N`. |
+| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count`. The C5 budget `B0` is derived per subset. Consumes the following token as the integer `N`. |
+| `--expect N` | (`--certify-count` only) Assert the certified count equals `N` (the caller-supplied native reference count); prints `PASS`/`FAIL` and exits non-zero on `FAIL`. Consumes the following token as the integer `N`. |
+| `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory. Consumes the following token as the directory path. |
 
-Both modifiers may precede or follow the subcommand tokens — they are
+All modifiers may precede or follow the subcommand tokens — they are
 stripped from `argv` before the subcommand is dispatched.
 
 ## TARGETS
@@ -174,13 +233,23 @@ Reproduce the grand-strict witness:
 python3 sat.py --witness grand-strict
 ```
 
+Certified count of the N=9 probe instance, checked against the native
+reference count (requires `d4` + `cpog-gen`/`cpog-check` on `PATH`):
+
+```
+python3 sat.py --certify-count f1c5 --f1-pairs 9 --expect 26112
+```
+
 ## EXIT STATUS
 
-`sat.py` does not set explicit exit codes for the subcommands; the
+`sat.py` does not set explicit exit codes for most subcommands; the
 scientific verdict is conveyed on stdout (`vars=/clauses=` summary for
 `--emit-cnf`; `WITNESS: …` / `UNSAT …` for `--witness`). Trust in an
 UNSAT verdict comes from an external DRAT/LRAT certificate checker, not
-from `sat.py`'s own exit status.
+from `sat.py`'s own exit status. Exceptions: `--certify-count` exits
+non-zero on a `--expect` `FAIL`, on any toolchain failure, and (like
+`--witness` with `kissat`) when its required external binaries are not
+on `PATH` — the latter with a clear install message.
 
 ## NOTES
 
@@ -191,8 +260,12 @@ from `sat.py`'s own exit status.
   group-closed pair-orbit partition and the C5 budget `B0` — from `solve.py`
   primitives, ported from `solve.c`'s `f1c5` path. As with every target, no
   constraint clause is hand-written; the reduced B0 values and reference counts
-  are pinned in `tests.py` (`TestSatC5Subset`), and a proof-emitting `#SAT` /
-  C-binary model-count cross-check at these N is the intended follow-up.
+  are pinned in `tests.py` (`TestSatC5Subset`); `--certify-count` is the
+  proof-emitting `#SAT` side of the model-count cross-check at these N
+  (the C-binary side is `solve --f1-exact-c1c2c4c5 --f1-pairs N`, run
+  separately). The D4/CPOG invocation format is pending run-validation on a
+  host with the tools built (the absent-tools graceful path is gated in
+  `tests.py`); no certified count from it has been recorded yet.
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 
