@@ -7,9 +7,13 @@ ordering-of-operations, calibration and the KW-facing integration are
 post-freeze deliverables. This directory currently holds instrument outputs
 only:
 
-- `r11_hist.out.gz` — unconditioned 8-axis joint violation histogram
-  (gzip -9; 150,758 cells; mass sums to 1; seven marginals reproduce the run's
-  independent scoreboard lines to <0.3%). The KW cell (2,2,2,0,0,0,0,0) is
+- unconditioned 8-axis joint violation histogram — 150,758 cells; mass sums
+  to 1; seven marginals reproduce the run's independent scoreboard lines to
+  <0.3%. The raw dump (`r11_hist.out`, 6.5 MB; gzip -9 → 1.7 MB) is **not
+  committed** (over the repository's 1 MB asset threshold) and is exactly
+  regenerable from the pushed code:
+  `SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_R11_HIST=1 ./solve --estimate-knuth 20000000000`.
+  The KW cell (2,2,2,0,0,0,0,0) is
   absent by rarity, as expected: its estimated mass (~10⁻²³ of canonical
   mass) is ~11 orders below the run's smallest sampled cell (5.9×10⁻¹²);
   scorer correctness is established by the two-language `--r11-verify` gate,
