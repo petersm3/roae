@@ -380,6 +380,28 @@ below/at/above-KW masses — plus full `f4p_hist` per-functional value histogram
 regeneration: `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./solve --estimate-knuth 2000000000`
 (both flags documented in [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §ENVIRONMENT).
 
+## Pre-registered test: permutation cycle structure (registered 2026-07-09; measured 2026-07-10 — all 13 null)
+
+Following the F4' discipline, a second observable family was frozen BEFORE measurement: treat King Wen as a
+permutation of the binary hexagram index and score its cycle structure. Thirteen functionals — cycle count,
+longest cycle, fixed points, 2-cycles, order (lcm), and word-descents, each under BOTH the native
+(bit0=bottom, OEIS A102241) and the [Ge 2026](CITATIONS.md#ge2026) (bit0=top) conventions, plus the
+convention-invariant sign — are implemented and gated in `solve.py --perm-verify` / `solve` (two-language,
+KW values embedded). Same frozen thresholds as F4' (notable = two-sided p < 0.05/13; candidate < 10⁻⁴ +
+corpus-control specificity). Operative null = the C1–C5 canonical-mass population. This axis is deliberately
+**report-only with no promotion path**: the binary indexing postdates King Wen by ~2 millennia, so even a
+positive result could not be a design principle its authors used.
+
+**Results (2026-07-10, tier-1, 2×10⁹ probes — reported in full as pre-committed):** all 13 functionals NULL
+at the frozen thresholds. Closest call: cycle count (native), KW = 7 at ~the 94th percentile (two-sided
+p ≈ 0.13) — nowhere near the Bonferroni gate; nothing reached the tier-2 escalation band. The exact
+cycle-type-match rate (5.2×10⁻⁶ native / 9.1×10⁻⁴ Ge) is reported data-like with no p-value, since an exact
+multiset match is rare for any specific permutation. So [Ge 2026](CITATIONS.md#ge2026)'s cycle-type
+observation stands as a descriptive fact about the sequence, not a King-Wen-distinguishing signal; the
+residual survives this attack too. Evidence: `reports/evidence/perm_tier1.out`; regeneration:
+`SOLVE_KNUTH_SCORE_PERM=1 SOLVE_KNUTH_PERM_HIST=1 ./solve --estimate-knuth 2000000000`. Look-elsewhere
+ledger: global observable count → ~83.
+
 ## Pre-registered test in flight: Davis (2012) structural claims (registered 2026-07-04, results pending)
 
 Scott Davis, *The Classic of Changes in Cultural Context* (Cambria, 2012), asserts specific positional
