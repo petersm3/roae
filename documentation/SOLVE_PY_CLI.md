@@ -46,7 +46,7 @@ python3 solve.py --branch-yield-report SOLUTIONS_BIN [--branch-yield-depth 1|2|3
 python3 solve.py --keystone-analysis SOLUTIONS_BIN OUT_MD
 
 # Ground-truth verifiers (details in SOLVE_C_CLI.md)
-python3 solve.py --f4p-verify | --f6-verify | --dav-verify | --vdb-verify
+python3 solve.py --f4p-verify | --f6-verify | --dav-verify | --vdb-verify | --perm-verify [SEQ]
 python3 solve.py --books-verify | --registry-verify | --extended-selftest SOLVE_BINARY
 ```
 
@@ -221,6 +221,7 @@ discovery — follow the link for the authoritative description:
 | `--f5-verify` | The 11 frozen F5 orientation-layer functionals — a **`solve` C** gate; `solve.py`'s side of #11 (`f5_vdb_nuc`) is `--vdb-verify`'s `vdb_nucorient`. | [SOLVE_C_CLI.md#--f5-verify](SOLVE_C_CLI.md#--f5-verify) |
 | `--books-verify` | Verify the machine-checkable structural claims from the audited books (Wu Deng via [Nielsen 2003](CITATIONS.md#nielsen2003), [Lai Zhide](CITATIONS.md#laizhide), [Goldenberg 1975](CITATIONS.md#goldenberg1975), Jing Fang, [Yu Fan](CITATIONS.md#yufan)) on KW. | [SOLVE_C_CLI.md#--books-verify-solvepy-only](SOLVE_C_CLI.md#--books-verify-solvepy-only) |
 | `--registry-verify` | Run every `reg_*` candidate-rule ground-truth checker and assert each equals its registry KW-expected value. | [SOLVE_C_CLI.md#--registry-verify-solvepy-only](SOLVE_C_CLI.md#--registry-verify-solvepy-only) |
+| `--perm-verify [SEQ]` | Two-language ground truth for the 13 FROZEN R3 permutation-cycle functionals (`perm_ncyc_bot` … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30) on KW — or on an explicit `"h0,...,h63"` hexagram-value sequence. Prints one `perm_<name>: <value> OK/FAIL` line each; exit 0 iff all 13 match. This is the authoritative ground truth for the C `SOLVE_KNUTH_SCORE_PERM` population scorer (no `solve` C subcommand equivalent; the C side is the env-var scorer). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026). Sha-neutral. | [SOLVE_C_CLI.md#environment](SOLVE_C_CLI.md#environment) (`SOLVE_KNUTH_SCORE_PERM`) |
 | `--extended-selftest SOLVE_BINARY` | Small-scale path-invariance + resume regression suite against a compiled `solve` binary (CI gate; wall ~10 min). | [SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand](SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand) |
 | `--compare-depth-profile RUN_A_LOG RUN_B_LOG` | Tree-walk validator (#48): compare `DEPTH_PROFILE` node counts from two run logs; PASS if divergence < `--compare-depth-profile-threshold` (default 0.005). | [SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only](SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only) |
 | `--compute-stats SOLUTIONS_BIN OUT_DIR` | P2 stage 1: stream `solutions.bin`, emit per-chunk parquet stats. | [SOLVE_C_CLI.md#--compute-stats-solvepy-only](SOLVE_C_CLI.md#--compute-stats-solvepy-only) |
@@ -241,7 +242,7 @@ terminal and take precedence.
 | Code | Meaning |
 |---|---|
 | 0 | Success (or, for a verifier, all checks PASS). |
-| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--vdb-verify`, `--books-verify`, `--registry-verify`, `--extended-selftest`), or an invalid argument. |
+| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--vdb-verify`, `--perm-verify`, `--books-verify`, `--registry-verify`, `--extended-selftest`), or an invalid argument. |
 
 The descriptive analyses print to stdout and exit 0; they do not encode
 findings in the exit status.

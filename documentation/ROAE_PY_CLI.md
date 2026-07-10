@@ -3,7 +3,7 @@
 > **CLI references:** this documents **`roae.py`** (descriptive analyses). See also the [`solve` C binary](SOLVE_C_CLI.md) (enumerator/verifier) · [`solve.py`](SOLVE_PY_CLI.md) (analysis + ground truth) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
 
 A man-page-style command-line reference for `roae.py`, the Python
-analysis tool that runs 28 descriptive statistical analyses against
+analysis tool that runs 29 descriptive statistical analyses against
 the King Wen hexagram sequence as a fixed 64-element ordering.
 
 ## NAME
@@ -11,12 +11,12 @@ the King Wen hexagram sequence as a fixed 64-element ordering.
 **roae.py** — descriptive statistical analyses of the King Wen
 sequence: pair structure, difference wave, trigrams, complements,
 entropy, autocorrelation, Markov patterns, FFT spectral analysis,
-Gray-code comparisons, neighborhood analysis, and 18 more.
+Gray-code comparisons, neighborhood analysis, and 19 more.
 
 ## SYNOPSIS
 
 ```
-python3 roae.py                      # run all 28 analyses (default)
+python3 roae.py                      # run all 29 analyses (default)
 python3 roae.py --quick              # core sections only (fast)
 python3 roae.py --<section>          # run a specific analysis
 python3 roae.py --help-sections      # list all available sections
@@ -34,11 +34,11 @@ python3 roae.py --json|--csv|--svg|--html|--markdown|--midi|--dot
 `roae.py` analyzes the King Wen sequence **as a given 64-hexagram
 ordering** — it does NOT enumerate the space of possible orderings
 (that's `solve.c`'s job; see [SOLVE_C_CLI.md](SOLVE_C_CLI.md)). Instead,
-it computes 28 different descriptive measures of the King Wen
+it computes 29 different descriptive measures of the King Wen
 sequence's structure and compares each measure to appropriate null
 models.
 
-The default action (no flags) runs all 28 analyses. With a single
+The default action (no flags) runs all 29 analyses. With a single
 `--<section>` flag, runs only that section. With `--quick`, runs a
 core subset for fast iteration.
 
@@ -52,7 +52,7 @@ content. For Monte Carlo analyses (`--stats`, `--bootstrap`,
 
 ## ANALYSIS SECTIONS
 
-The 28 analysis sections, each invoked by a single flag:
+The 29 analysis sections, each invoked by a single flag:
 
 ### Hexagram structure
 
@@ -106,7 +106,7 @@ The 28 analysis sections, each invoked by a single flag:
 ## META FLAGS
 
 ```
---all              Run all 28 analyses (default if no flags given)
+--all              Run all 29 analyses (default if no flags given)
 --quick            Run core subset only (table, pairs, wave, barchart, ...)
 --self-test        Run mathematical-invariant data-integrity checks (~21 checks)
 --help-sections    List all available analysis sections with one-line descriptions
@@ -167,7 +167,7 @@ data that gets computed by whatever analyses ran.
 
 `roae.py` requires:
 
-- **Python 3 standard library** — sufficient for all 28 analyses and
+- **Python 3 standard library** — sufficient for all 29 analyses and
   most output formats. No external packages required for default use.
 
 Optional packages enable richer output:
@@ -288,7 +288,7 @@ The two tools are complementary:
 | | `roae.py` | `solve.c` (see [SOLVE_C_CLI.md](SOLVE_C_CLI.md)) |
 |---|---|---|
 | **Analyzes** | KW as a given fixed sequence | The unconstrained ~10⁸⁹ (64!) permutation space; the C1–C5-satisfying subset is estimated ≈10³⁸ (Knuth estimate, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) |
-| **Output** | Statistics about KW (28 analyses, optional reports) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), sha256 anchors, statistics across the solution set |
+| **Output** | Statistics about KW (29 analyses, optional reports) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), sha256 anchors, statistics across the solution set |
 | **Scale** | Single sequence, prints instantly | Hundreds of millions of orderings; canonical runs take hours on D128 |
 | **Determinism** | Closed-form analyses; deterministic | Fully — given fixed solver + inputs, `solutions.bin` is byte-identical (partition invariance) |
 | **Dependencies** | Python 3 stdlib only (optional output deps) | `gcc`, `pthread`, `sha256sum` |
@@ -336,7 +336,7 @@ Recent material changes (full record in [HISTORY.md](HISTORY.md)):
   (XOR algebra reframed as a theorem; null-model framings added
   for constraints, palindromes, canon split, recurrence,
   neighborhoods)
-- 2026-03 28-section coverage stabilized; output formats expanded
+- 2026-03 28-section coverage stabilized (parity added later → 29); output formats expanded
   (HTML, PDF, MIDI, Graphviz)
 - Pre-2026 initial 6-round adversarial scientific review surfaced
   the trigram name swap bug, the complement-distance direction

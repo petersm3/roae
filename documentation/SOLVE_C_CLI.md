@@ -5,10 +5,7 @@
 A man-page-style command-line reference for the `solve` binary compiled
 from `solve.c`. Covers the subcommands, environment variables,
 exit codes, and common workflows. The SYNOPSIS below lists the principal
-forms; a number of specialized analysis/verification subcommands (e.g.
-`--verify-rule2`, `--verify-9th-six`, `--validate-canonical`, `--preflight`,
-`--print-config`, `--estimate-knuth`, `--f1-exact-*`) are documented in the
-body but omitted from the SYNOPSIS block for brevity.
+forms; every subcommand also has its own section under SUBCOMMANDS below.
 
 ## NAME
 
@@ -51,6 +48,20 @@ solve --disk-precheck <mount> [gb] [uuid]               # capacity/writability/i
 solve --print-config                                    # dump build provenance + SOLVE_* env values
 solve --canonical-config <SCALE> [--full]               # emit env vars to reproduce a canonical sha
 solve --validate-launcher-config <SCALE> <PSB>          # assert launcher PSB matches canonical recipe
+solve --verify-rule2 [solutions.bin]                    # McKenna Rule-2 audit
+solve --verify-9th-six [solutions.bin]                  # 9th-six between-pair value-6 audit
+solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tabulation
+solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify
+                                                        # two-language functional-battery gates
+solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
+solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
+solve --c3-dist [solutions.bin]                         # C3 complement-distance histogram
+solve --f1-exact-c1c2c4 [--layers-dir DIR]              # exact |C1∩C2∩C4| orbit DP
+solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--f1-out-of-core DIR]
+                                                        # exact |C1∩C2∩C4∩C5| orbit DP
+solve --f1c5-gzip-selftest | --f1c5-verify-layer <v1> <v2>
+                                                        # f1c5 layer-codec self-test / cross-check
+solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
 ```
 
 ## DESCRIPTION
@@ -904,7 +915,7 @@ solve --prove-cascade
 Symbolic proof: cascade theorem (C1-C5 implies certain structural
 properties). Walks the proof tree exhaustively up to depth-N
 configurations, verifying invariants. Finishes in seconds at small
-N; exponential at deeper N. Limited by `PROVE_CONFIG_TIMEOUT` env var.
+N; exponential at deeper N. Each config is capped at `PROVE_CONFIG_TIMEOUT` seconds (default 300; `0` = no cap).
 
 ### --prove-self-comp
 
@@ -1050,7 +1061,7 @@ writes a stream of (record_index, density_score) pairs. Used by
 | `SOLVE_REGRESS_DIR` | `./` | Directory for `--regression-test` artifacts |
 | `SOLVE_HASH_LOG2` | 24 | Hash table slots = 2^N; default 16M slots × 32 bytes = 512 MB per thread |
 | `SOLVE_RESUME_HISTORY` | (none) | Operator-supplied annotation written to `solutions.sha256` metadata. Use to record interruption/eviction context for forensic continuity. |
-| `PROVE_CONFIG_TIMEOUT` | unlimited | Wall-time limit for `--prove-*` exhaustive walks |
+| `PROVE_CONFIG_TIMEOUT` | 300 (per-config; `0` = no limit) | Per-config wall-time cap (seconds) for the `--prove-cascade` multi-config survey. Default 300 s (5-min survey); set `0` to run each config to completion. |
 | `PATH` | inherited | Used to locate `solve` binary for self-spawning subprocesses |
 | `SOLVE_SKIP_AUTOMERGE` | 0 (off) | `=set` (any value): skip the automatic `--merge` at enum completion; leave shards in place. Used for split enum/merge campaigns (separate right-sized merge VM) and the #149 milestone-staging ladder. |
 | `SOLVE_FSYNC_BATCH_SIZE` | 1 | Batch N checkpoint fsyncs per flush to amortize fsync cost on fsync-bound disks (#108b). Higher = fewer fsyncs, larger replay window on crash. |
@@ -1078,6 +1089,8 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_PIN_SLOTS` | comma list of slots 1–31 | Pin listed slots to KW's pairs during Knuth walks (orientation free); generalizes `SOLVE_KNUTH_C67`. F2 S(k) boundary-information curve. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_BOUNDARY_COND` | `1` | Per-boundary KW-agreement mass accumulators (31; the `--analyze` §[6] predicate on the estimator); conditional on the pin prefix if set. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_REG` | `1` | Score all 31 registry candidate rules ([Schulz 1990](CITATIONS.md#schulz1990-motifs)/[2011](CITATIONS.md#schulz2011)/[2016](CITATIONS.md#schulz2016)/diss, [McKenna-Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), [Schöter](CITATIONS.md#schoter1998) — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_PERM` | 0 | `=1`: score the 13 FROZEN R3 permutation-cycle functionals per canonical leaf (`perm_ncyc_bot`, `perm_lcyc_bot`, `perm_ord_bot`, … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026) (KW cycle type of the top permutation (52,10,2)). Ground truth / two-language gate: `solve.py --perm-verify`. `=2` + `SOLVE_PERM_TESTVEC`: explicit-sequence cross-verification hook. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_PERM_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE_PERM=1`): additionally emit `perm_hist <name> <value> <mass>` per-functional weighted value histograms (the two `ord` functionals are wide-binned into 512 bins, Landau bound g(64)=2,042,040). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
 | `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_GENDER_STRICT` | 0 | `=1`: prune the walk to orderings satisfying the Schulz 1990 gender/position-parity rule strictly (0 violations; semantics identical to the rc4 leaf scorer / `solve.py rc4_violations`; exception first noted by Zhu Yuansheng, 13th c.). Composes with `SOLVE_KNUTH_MOORE_STRICT` to estimate the triple-strict ("grand-strict") space (F11 M_corr precursor set). Prints a leaf-scorer cross-check line (mismatches must be 0). Estimator-only, sha-neutral. |
@@ -1121,6 +1134,7 @@ completeness and honesty, not as knobs to set.
 | `SOLVE_F1_TEST_LAYER_DELAY_MS` | 0 | `--f1-out-of-core` per-layer artificial delay in milliseconds; widens the eviction window in resume drills / timing tests. |
 | `SOLVE_F6_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F6=2`: evaluate the 7 F6 functionals on an explicit 64-int sequence (`"h0,h1,...,h63"`), print them comma-separated in `f6_names` order, exit. Two-language test vector gating the C port against `solve.py` f6_* ground truth. |
 | `SOLVE_REG_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_REG=2`: evaluate `score_registry` on an explicit 64-int sequence with W=1, print the 31 candidate-rule indicators (0/1, comma-separated, `REGISTRY_KW_EXPECTED` order), exit. Gates the C registry port against `solve.py` reg_* ground truth. |
+| `SOLVE_PERM_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_PERM=2`: evaluate the 13 R3 perm functionals + 2 template-match indicators on an explicit 64-int sequence (`"h0,...,h63"`), print them, exit. Two-language test vector gating the C `perm_*` port against `solve.py` `perm_*` / `--perm-verify` ground truth. |
 | `SOLVE_GZ_TEST_SHARDS` | 0 | `=1`: run a paranoid per-shard `gzip -t` CRC integrity test after each shard write (#169). Default OFF — a full decompress per shard roughly doubles compression CPU across ~65K shards, and the gzfwrite return-count + durable-close checks already cover write completeness. |
 
 ## EXIT STATUS
@@ -1147,6 +1161,9 @@ completeness and honesty, not as knobs to set.
 - `--validate-canonical`: **33** sha mismatch, **40** enum error (in addition to 0/2/10).
 - `--disk-precheck`: **5** identity mismatch (wrong disk), **6** insufficient capacity, **7** read-write smoke test failed (in addition to 0/1/2).
 - `--preflight`: returns the first failing in-process gate's code (24 / 29 / 31), else 0.
+- `--canonical-config` / `--validate-launcher-config`: **25** = unknown scale or bad arg count
+  (distinct from the enum-path sub-canonical gate that also uses 25; disambiguated by which
+  subcommand was invoked and by the stderr message — see those subcommands' sections).
 
 ## EXAMPLES
 

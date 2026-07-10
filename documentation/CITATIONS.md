@@ -184,10 +184,40 @@ The natural correspondence between B(2, 6) de Bruijn sequences (cyclic 64-bit se
 
 ROAE's **exhaustive enumeration of all 2^27 B(2, 6) permutations and analytic proof that 0 satisfy C1** (via the period-4 contradiction) is believed novel. If a prior rigorous null-model test of B(2, 6) permutations against King Wen's structural constraints exists, please notify.
 
-### Gray codes and I Ching
+### Gray codes, recreational mathematics, and the I Ching
 
-<a id="gardner"></a>
-- **Gardner, Martin** (various columns, *Scientific American*, 1960s–1970s). Discussed binary Gray codes and noted connections to combinatorial structures including the I Ching at times.
+<a id="vanderblij1967"></a>
+- **van der Blij, F.** (1967). "Combinatorial aspects of the hexagrams in the Chinese Book of
+  Changes." *Scripta Mathematica* 28(1): 37–49 (Zbl 0157.33001; Hacker, Moore & Patsco 2002,
+  B:437, date the same issue 1966 — we follow zbMATH, Cook 2006, and Nielsen 2003 in citing
+  1967). The earliest Western mathematical-journal treatment of the hexagrams we have located.
+  Per the H/M/P annotation it explains the Fu Xi ordering as binary counting, relates the
+  Ho Tu / Lo Shu diagrams to the trigram arrangements, computes yarrow probabilities, and
+  concedes the King Wen order is *still unsolved* — seven years before Gardner's column. Not
+  prior art for any ROAE constraint; it documents that the ordering problem was formally open.
+  Known at annotation level only; primary text not yet obtained (*Scripta Mathematica* ceased
+  1973; interlibrary-loan route). Corrections welcome.
+<a id="gardner"></a><a id="gardner1974"></a>
+- **Gardner, Martin** (1974, January). "Mathematical Games: The combinatorial basis of the
+  *I Ching*, the Chinese book of divination and wisdom." *Scientific American* 230(1): 108–113.
+  [doi:10.1038/scientificamerican0174-108](https://doi.org/10.1038/scientificamerican0174-108)
+  (Reprinted in *Knotted Doughnuts and Other Mathematical Entertainments*, 1986.) States the C1
+  pairing rule (each odd-numbered hexagram followed by its inverse, or its complement when
+  reversal-symmetric), then asks whether any mathematical order determines the succession of the
+  hexagram *pairs* — "This is an unsolved problem" (p. 108). The mainstream-1974 statement, at
+  exactly the pair-quotient granularity ROAE enumerates over, that the ordering problem was
+  open; the column Davis (2012, p. 84 n6) cites for the absence of global mathematical pattern
+  beyond the pairing, and the source of the yarrow vs. three-coin moving-line probabilities
+  (1/16 vs. 3/16) that Clarke (1987) builds on. [read — scan in hand; page span verified against
+  the scan, the publisher's metadata, and Beebe's *Scientific American* bibliography. Hacker,
+  Moore & Patsco (2002, B:147) print the span as 109–113; 108–113 is correct.]
+<a id="gardner1972"></a>
+- **Gardner, Martin** (1972, August). "Mathematical Games: The curious properties of the Gray
+  code and how it can be used to solve puzzles." *Scientific American* 227(2): 106–109.
+  [doi:10.1038/scientificamerican0872-106](https://doi.org/10.1038/scientificamerican0872-106)
+  The Gray-code column; background for ROAE's Gray-code null family. (We have not read this
+  column first-hand; whether it itself connects Gray codes to the I Ching is unverified, so the
+  I Ching connection is scoped to the 1974 column.)
 <a id="savage1997"></a>
 - **Savage, Carla D.** (1997). "A survey of combinatorial Gray codes." *SIAM Review* 39: 605–629. [doi:10.1137/S0036144595295272](https://doi.org/10.1137/S0036144595295272) Standard reference on Gray code families.
 
@@ -293,7 +323,7 @@ promotion of these rules into the formal constraint system carries these credits
   exception to the parity rule was first recognized by **Zhu Yuansheng (13th century)**. Schulz's later
   treatments: "Structural Elements in the Zhou Yijing Hexagram Sequence," *JCP* 38:4 (2011), 639–665
   (formalizes the "exception-proves-the-rule" design principle); *Hexagrammatics: Rules and Properties in
-  Binary Sequences*, 2nd ed. (Zizai, 2016); "N Gua Theory" (ResearchGate, 2018). The companion seasonal
+  Binary Sequences*, 2nd ed. (Zizai, 2016); "N Gua Theory" (ZiZai, 2018). The companion seasonal
   hypothesis: Schulz & Cunningham, "The Seasonal Structure Underlying the Arrangement of Hexagrams in the
   Yijing," *JCP* 17 (1990), 289–313. Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
@@ -363,14 +393,32 @@ Clarke, A. G. (1987). Probability theory applied to the I Ching. *Journal of Chi
   hexagram study-prioritization heuristic; never permutes or statistically tests the King Wen sequence, so
   not found to be prior art for any ROAE null-model / ordering result. Appears in the same JCP 14:1 issue
   as Hacker (1987), immediately following it. Cites Gardner (1974, *Scientific American*) for the yarrow
-  1/16-yin vs. 3/16-yang per-line change probabilities — divination content distinct from the Gray-code
-  work in ROAE's [Gardner](#gardner) entry. Background only.]
+  1/16-yin vs. 3/16-yang per-line change probabilities — divination content from the same Jan-1974
+  column cited in full at [Gardner (1974)](#gardner1974); Clarke builds on its divination-probability
+  content, ROAE leans on its ordering-problem statement. Background only.]
 
 <a id="cook2006"></a>
 Cook, R. S. (2006). *Classical Chinese combinatorics: Derivation of the Book of Changes hexagram sequence*
 (STEDT Monograph Series No. 5). University of California, Berkeley.
   The most extensive modern derivation system; source of several measured rules (final-pair anchor, level
   coverage) and elaborator of the Schulz gender rule. [analyzed]
+
+<a id="davis1987"></a>
+Davis, S. [= Dai Sike 戴思客] (1987 [or 1995 — see note]). *Jiegou yu lishi: Lüetan Zhongguo gujingwen
+de zucheng wenti* 結構與歷史：略談中國古經文的組成問題 [Structure and history: Remarks on the problems
+in the composition of ancient Chinese classical texts]. Taipei: Wenshizhe (The Liberal Arts Press).
+81 pp., bilingual (English text pp. 29–81); ISBN 957-547-951-3.
+  Dating conflict we cannot yet resolve: Hacker, Moore & Patsco (2002, entry A:109) date it 1987;
+  the memorial bibliography in *Sino-Platonic Papers* 359 (von Falkenhausen, 2024) dates it 1995.
+  Either way it predates the 1998 *Oracle* article: per the H/M/P annotation it already contains the
+  #7–#16 block-symmetry observation (measured at population scale in
+  [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)) and Davis's position that the received
+  order cannot be described by a mathematical formula. The block-symmetry observation itself is older
+  still: SPP 359 identifies Dai Sike 戴思客 as Davis's own Chinese name, under which he published
+  "Cong jiegouguan zhankan Yijing daxiaogua" 從結構觀點看易經大小卦, *Ehu yuekan* 43: 33–35 (1979 per
+  SPP 359; Davis's own 2012 footnote dates it 1978) — the article Davis (2012, p. 87 n32) cites for
+  the 7–16 symmetry. Not prior art for any ROAE constraint; origin-dating for the Davis structural
+  program only. Corrections welcome — primary texts not obtained. [secondary]
 
 <a id="davis1998"></a>
 Davis, S. (1998). Operating the Yijing apparatus: A compositional analysis. *The Oracle: The Journal of
@@ -467,6 +515,17 @@ Kunst, R. A. (1985). *The original "Yijing": A text, phonetic transcription, tra
 with sample glosses* [Doctoral dissertation, University of California, Berkeley].
   Textual scholarship; not used by any ROAE code or finding. [not consulted]
 
+<a id="li2008"></a>
+Li, S. 李尚信 (2008). *Guaxu yu jiegua lilu* 卦序与解卦理路 [The hexagram sequence and the logic of
+hexagram interpretation]. Bashu Shushe. (228 pp.)
+  Book-length study of the received sequence's arrangement logic, working from the 36-unit
+  consolidated view. Known to us only through others' citations: Davis (2012, p. 119 n19) credits Li
+  for the pair-unit trisection at units 13/25 (the same object as our R-S1 measurement — any published
+  R-S1 result credits Li alongside Schulz); Schulz (2018, fn. 42) cites him alongside Zhu Yuansheng
+  (13th c.) on the first recognition of the parity-rule exception; Shaughnessy (2022, p. 50) cites him
+  as arguing the received sequence's antiquity. Acquisition candidate (see the Shaughnessy audit); this
+  characterization is second-hand and corrections are welcome. [secondary]
+
 <a id="mckenna-mckenna1975"></a>
 McKenna, T., & McKenna, D. (1975). *The invisible landscape: Mind, hallucinogens, and the I Ching*.
 Seabury Press.
@@ -547,9 +606,11 @@ Schulz, L. J. (2016). *Hexagrammatics: Rules and properties in binary sequences*
 
 <a id="schulz2018"></a>
 Schulz, L. J. (2018). *N Gua theory: Imaging categorical dynamics inherent in binary structures*.
-ResearchGate.
-  Hamming formalism; Ifa cross-cultural parallel; attributes the parity-exception's first recognition to
-  Zhu Yuansheng (13th c.). [analyzed]
+Atlanta: ZiZai. (55 pp.; ISBN 978-1-387-73732-1. ZiZai appears to be the author's own imprint — it
+also carries *Hexagrammatics* — with the PDF circulated via ResearchGate and Academia.edu, which is
+how it was obtained.)
+  Hamming formalism; Ifa cross-cultural parallel; attributes the parity-exception's first recognition
+  to Zhu Yuansheng (13th c.), citing [Li Shangxin (2008)](#li2008). [analyzed]
 
 <a id="schulz-cunningham1990"></a>
 Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of hexagrams
