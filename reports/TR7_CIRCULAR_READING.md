@@ -197,22 +197,29 @@ enrichment, but the parity-forced eligibility baseline is 1/16 = 6.25%, so of th
 (7.84 / 6.25). Within its own d = 3 class A₂ carries 7.84% against a 6.52% class average (the other nine
 d = 3 closers average 6.37%) — mildly, not dramatically, over-represented.
 
-**Pre-registered measurement (not yet run).** What remains genuinely contingent is the adjacency
-*placement* itself. Its circular population frequency — R-C1c, the weighted C1–C5-mass fraction in which
-the alternating pair occupies slot 2 or slot 32 — is registered here BEFORE measurement, in the F4′/F11
-pre-registration discipline: a 2×10¹⁰ weighted-Knuth run with the built-in gate that its slot-32 mass
-must reproduce the published R-C1 ≈ 7.84% (a miss is a scorer bug, not a result), against baselines
-uniform-slots 6.45% and the eligibility-adjusted lower bound 7.84%. **PENDING — the pinned walk has not
-been run; no adjacency frequency is reported here.** The KW ground truth (slot 2 = 0, slot 32 = 1,
-adjacent = 1) and the negative control (the wrap-d5 SAT witness scores adjacent = 0) are fixed in
-advance. Likewise the *circular solution-space size* |C_circ| — fixing KW's circular transition multiset
-{1:2, 2:20, 3:14, 4:19, 6:9} and anchoring the cut at the pure pair (a bijection: the pure pair occurs
-once per cycle) decomposes exactly by wrap value w ∈ {1, 3} into 0.652·|C1–C5| + f₁(M′)·N(M′) — is
-**PENDING** on one further C5-budget-override walk; the first term ≈ 8.66×10³⁷ follows from the
-published masses, the second is not yet measured. This registers one report-only R-series observable in
-the look-elsewhere ledger; per the §6 non-promotion decision it is measurement and theorem, not
-constraint — neither the circular reading (McKenna's frame) nor the anchor rule (Cook's observation)
-enters the formal system.
+**Measured circular anchor adjacency (v2.0).** What remains genuinely contingent is the adjacency
+*placement* itself. Its circular population frequency — R-C1c, the weighted C1–C5-mass fraction in
+which the alternating pair occupies slot 2 or slot 32 — was pre-registered above (v1.9) and has now
+been measured (2×10¹⁰ weighted-Knuth probes; evidence `evidence/r6/rc1c_primary.out`): **13.05% of
+C1–C5 mass** (slot 32: 7.85%, reproducing the published R-C1 = 7.84% — the built-in scorer gate;
+slot 2: 5.20%). Against the pre-registered references that is ×2.0 the uniform-slots baseline
+(6.45%) and ×1.66 the eligibility-adjusted lower bound (7.84%). The descriptive A₂ slot histogram
+is U-shaped: slot 2 is the largest non-final slot (5.20%, vs 3.84% at slot 3 and a 2.68% minimum at
+slot 17), so the alternating pair is enriched at *both* circle-adjacent slots, not merely
+late-biased — though slot 32 remains the global maximum. The KW ground truth (slot 2 = 0,
+slot 32 = 1, adjacent = 1) and the negative control (the wrap-d5 SAT witness scores adjacent = 0)
+were verified in both languages before the run. In plain terms: roughly one in eight valid
+orderings places the two anchor pairs adjacent on the circle — KW's configuration is
+population-common, and this measurement prices it; it does not elevate it. Likewise the *circular
+solution-space size* is now measured: the C5-budget-override walk passed its self-gate (the
+standard-multiset override reproduces N_lin byte-identically) and gives N(M′) = 6.507×10³⁷
+(95% CI [6.50, 6.51]×10³⁷) with wrap-d1 mass f₁(M′) = 0.175, so the exact decomposition yields
+**|C_circ| = 0.652·|C1–C5| + 0.175·6.507×10³⁷ ≈ 9.80×10³⁷ — about 0.74× the linear space**
+(using the fresh run's f₃ = 0.6518 instead of the published 0.652 changes nothing at 3
+significant figures). This resolves the one report-only R-series observable registered in v1.9;
+per the §6 non-promotion decision it is measurement and theorem, not constraint — neither the
+circular reading (McKenna's frame) nor the anchor rule (Cook's observation) enters the formal
+system.
 
 *Attribution: circular frame McKenna & McKenna (1975); the final-pair anchor rule Cook (2006); the
 rigidity/eligibility theorems, the 10:3:3 classification, and the eligibility-adjusted re-pricing are
@@ -224,12 +231,14 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
   re-check in one Python session from `solve.py`'s `binary_hexagrams`; a Lean formalization
   (`anchor_cross_distance_three`, `no_even_pair_closes`, `closer_classes_10_3_3`) is planned for
   `lean/KingWen.lean` (PENDING, not yet merged).
-- Circular anchor adjacency R-C1c + A₂ slot histogram (**PENDING run**):
+- Circular anchor adjacency R-C1c + A₂ slot histogram:
   `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (KW gate: slot2 = 0, slot32 = 1,
-  adjacent = 1; d5-witness negative control = 0; slot-32 mass must reproduce R-C1 ≈ 7.84%).
-- Circular-space size (**PENDING run**):
+  adjacent = 1; d5-witness negative control = 0; the run's slot-32 mass must reproduce
+  R-C1 ≈ 7.84% — measured run: `evidence/r6/rc1c_primary.out`, adjacent = 0.130472).
+- Circular-space size:
   `SOLVE_KNUTH_C5_BUDGET="1:1,2:20,3:14,4:19,6:9" SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
-  (self-gate: standard-budget override reproduces N_lin).
+  (self-gate: standard-budget override `1:2,2:20,3:13,4:19,6:9` reproduces N_lin — verified
+  byte-identical, `evidence/r6/budget_selfgate.out`; M′ run: `evidence/r6/mprime_walk.out`).
 
 ## Revision history
 | Version | Date | Changes |
@@ -238,3 +247,4 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.8 | 2026-07-04 | 32-circular-switches corollary added (TR-6 30-switches × wrap-parity composition; derived in cross-report synthesis 2026-07-04, re-verified independently) |
 | v1.9 | 2026-07-10 | "The anchors on the circle" section added: anchor-transition rigidity (T1) + seam eligibility (T2i) + pair-determined 10:3:3 wrap classification (T2ii) — elementary, exhaustively finite-verified (Lean formalization planned); Cook's final-pair anchor re-priced against the parity-forced 1/16 eligibility baseline (apparent ×2.4 = ×1.9 forced · ×1.25 contingent). Circular anchor-adjacency population frequency (R-C1c) and circular-space size |C_circ| pre-registered but PENDING measurement (walks not yet run). |
+| v2.0 | 2026-07-10 | R-C1c and \|C_circ\| measured (evidence `reports/evidence/r6/`): circular anchor adjacency = 13.05% of C1–C5 mass (slot 32 = 7.85%, reproducing the R-C1 gate; slot 2 = 5.20%, the largest non-final slot — U-shaped A₂ histogram), vs pre-registered references 6.45% uniform-slots / 7.84% eligibility lower bound; \|C_circ\| = 0.652·N_lin + 0.175·6.507×10³⁷ ≈ 9.80×10³⁷ ≈ 0.74× the linear space. Report-only; no promotion. |
