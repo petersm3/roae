@@ -17,7 +17,7 @@ The sequence's structural properties, extracted from the received order and its 
 are treated as axioms defining a space of orderings ([formal definitions](documentation/SPECIFICATION.md) · [plain-language summary](documentation/SOLVE-SUMMARY.md)):
 
 - **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
-  when reversal is trivial): the classical pairing, described by Yu Fan in the 3rd century.
+  when reversal is trivial): the classical pairing, described by [Yu Fan](documentation/CITATIONS.md#yufan) in the 3rd century.
 - **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975)).
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
 - **C4** — the sequence starts with the pair (Qian, Kun): heaven, then earth.

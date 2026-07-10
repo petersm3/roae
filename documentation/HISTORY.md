@@ -388,7 +388,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **solve.c gained eight new subroutines** for structured-null testing (all present alongside the existing enumeration machinery, not replacing it):
 
-- `--null-debruijn-exact`: exhaustive enumeration of all 2^27 = 134,217,728 B(2, 6) Eulerian circuits starting at vertex 0 via randomized [Hierholzer](CITATIONS.md#hierholzer1873). In C, ~80 seconds total. Result: 0 satisfy C1 (proven analytically too — any B(2, 6) satisfying C1 is forced to period-4 structure, contradicting the 64-distinct-window requirement), 0 satisfy C2, 247,048 (0.1841%) satisfy C3.
+- `--null-debruijn-exact`: exhaustive enumeration of all [2^27 = 134,217,728 B(2, 6) Eulerian circuits](CITATIONS.md#vanaardenne-debruijn1951) starting at vertex 0 via randomized [Hierholzer](CITATIONS.md#hierholzer1873). In C, ~80 seconds total. Result: 0 satisfy C1 (proven analytically too — any B(2, 6) satisfying C1 is forced to period-4 structure, contradicting the 64-distinct-window requirement), 0 satisfy C2, 247,048 (0.1841%) satisfy C3.
 - `--null-gray`: 256-member orbit of the binary-reflected 6-bit Gray code under rotations × reversal × bit-complement. 0 C1 (analytic: Hamming-1 adjacency is disjoint from C1's required {0, 2, 4, 6}), 256 C2 (trivial), 0 C3 (null range [1792, 2048]).
 - `--null-latin`: exhaustive 8! × 8! = 1,625,702,400 Latin-square row × column traversals (each of the 64 hexagrams indexed by upper × lower trigram). 0 C1, **57.96% C2** (strikingly high), 6.67% C3.
 - `--null-latin-explain`: analytic decomposition of the 57.96% figure. Row-permutation class census (144 all-Hamming-1 paths in Q_3, 13,680 "some-2-no-3", 1,008 "some-3-no-2", 25,488 "both") weighted by column-perm good counts reproduces the 942,243,840 empirical count exactly.
@@ -5275,7 +5275,7 @@ The orientation layer got its pre-registered battery (F5, frozen→measured→pu
 agreement (29/30) is the exact maximum of King Wen's 1,720,320-vector orientation fiber**
 (12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). A second
 battery (F6) measured the two candidates surfaced by the [Nielsen](CITATIONS.md#nielsen2003) audit: bagong palace-alignment
-null across the board, but **Wu Deng's (1249–1333) weft-block profile is population-atypical**
+null across the board, but **[Wu Deng's](CITATIONS.md#wudeng) (1249–1333) weft-block profile is population-atypical**
 (p = 1.1×10⁻³, gauge-robust) — the second notable, and the older by six centuries. Both are framed
 as fitted-description atypicality (their authors derived the rules *from* King Wen); both held at
 report-only under the frozen thresholds, including the demotion of a tempting p = 7.9×10⁻⁷
@@ -5285,7 +5285,7 @@ The same day's source auditing ([Hacker/Moore/Patsco 2002](CITATIONS.md#hacker-m
 Shaughnessy 2022 — all captured, audited, and machine-verified via `solve.py --books-verify`,
 14/14 claims PASS) resolved the [Olsvanger](CITATIONS.md#olsvanger1948) prior-art question (binary-square decorations, no
 constraint content), established classical precedence chains (Wu Deng anticipates the V-1 family;
-Lai Zhide anticipates VdB-4; [Goldenberg 1975](CITATIONS.md#goldenberg1975) is set-level GF(2) prior art), verified the Jing Fang
+[Lai Zhide](CITATIONS.md#laizhide) anticipates VdB-4; [Goldenberg 1975](CITATIONS.md#goldenberg1975) is set-level GF(2) prior art), verified the Jing Fang
 corpus control cell-for-cell — and caught a real error: **the Mawangdui array used since April was
 wrong** (synthesized by a buggy generator with a 3-cycle confusion among the visually similar
 trigrams ☶/☱/☴; the cited Wikipedia article contains no sequence at all; validity self-tests had

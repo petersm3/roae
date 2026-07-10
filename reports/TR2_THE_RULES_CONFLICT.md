@@ -27,8 +27,8 @@ Verification model: every load-bearing claim is an artifact check (witness verif
 
 Steve Moore ([1989](../documentation/CITATIONS.md#moore1989), 2005) proposed two design rules for the King Wen sequence, observed that the received
 order complies with one at sixteen of eighteen testable positions with both exceptions adjacent, and
-conjectured an originally compliant order later altered. Larry Schulz (1990, [2011](../documentation/CITATIONS.md#schulz2011), [2016](../documentation/CITATIONS.md#schulz2016)) independently
-formalized a third rule over Lai Zhide's thirty-six consolidated units, with its own exceptions at the
+conjectured an originally compliant order later altered. Larry Schulz ([1990](../documentation/CITATIONS.md#schulz1990-motifs), [2011](../documentation/CITATIONS.md#schulz2011), [2016](../documentation/CITATIONS.md#schulz2016)) independently
+formalized a third rule over [Lai Zhide's](../documentation/CITATIONS.md#laizhide) thirty-six consolidated units, with its own exceptions at the
 same locus — noted as early as the thirteenth century by Zhu Yuansheng — and a fourth, the trigram
 configuration of stations 25–28, which the received order satisfies exactly. Using a Boolean-satisfiability
 encoding of these rules over the space of orderings preserving the sequence's classical pair structure, we

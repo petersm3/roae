@@ -6,7 +6,7 @@ constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased weight
 (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes; the instrument reproduced the independently-established total space
 size to 0.03%, self-validating the method). This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
-structure itself is attested to Yu Fan, 164–233 AD; the 36-unit consolidation to Lai Zhide, 1525–1604; the
+structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604; the
 gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
 and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 [CITATIONS.md](CITATIONS.md) §Attributed candidate rules. ROAE's contribution is formalization + measurement.
@@ -124,7 +124,7 @@ measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare.
 **2. Eight literature rules are THEOREMS of the constraint system** — they measure at exactly 1.0 of
 canonical mass: asserted in the literature as design features, they are in fact *forced* by C1–C5
 (McKenna's 3:1 ratio was the first known case; this batch found seven more, including three consequences
-of Radisic's optimality structure, whose 1.0 readings also validate the instrument end-to-end). Several
+of [Radisic's](CITATIONS.md#radisic2026) optimality structure, whose 1.0 readings also validate the instrument end-to-end). Several
 more are near-forced (0.95–0.9998). The literature's design inventory therefore splits three ways:
 forced / typical / genuinely discriminating.
 

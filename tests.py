@@ -23,6 +23,7 @@ def _load(name):
 
 solve = _load("solve")
 roae = _load("roae")
+sat = _load("sat")
 
 KW = list(solve.binary_hexagrams)
 
@@ -147,6 +148,173 @@ class TestGates(unittest.TestCase):
     def test_sat_import_assertions(self):
         r = subprocess.run([sys.executable, "-c", "import sat"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr[-300:])
+
+
+class TestSatC5Subset(unittest.TestCase):
+    """Gate for the C5 cardinality/budget encoding + the reduced-subset
+    (small-n certified-count probe) instances in sat.py (TASK #225 §6.4).
+
+    Cross-checks sat.py's CNF against an INDEPENDENT reference count computed
+    here from solve.py primitives only (no sat.py code path reused):
+      * decisive: at tiny N the set of Y-assignments the CNF accepts (decided
+        by unit propagation over the emitted clauses — a genuine SAT decision,
+        Sinz counters being UP-complete once the Y/T inputs are fixed) equals
+        exactly the valid C1&C2&C4&C5 sequences and the reference DP count;
+      * pinned: the B0 budget and exact |C1&C2&C4&C5| at the group-closed
+        N in {9,13,16} match the values a #SAT/C-binary cross-check must also
+        reproduce (that heavier cross-check is the noted follow-up).
+    Python-only, stdlib-only, <1 s."""
+    DVAL = (1, 2, 3, 4, 6)
+    CLS = {1: 0, 2: 1, 3: 2, 4: 3, 6: 4}
+
+    @classmethod
+    def _pairs(cls):
+        return [(KW[2 * i], KW[2 * i + 1]) for i in range(32)]
+
+    @classmethod
+    def _ref_b0(cls, pl, start):
+        # independent port of solve.c f1c5_b0_dfs (deterministic first completion)
+        P = cls._pairs(); n = len(pl)
+        pa = [P[p][0] for p in pl]; pb = [P[p][1] for p in pl]; out = [None] * n
+        def dfs(mask, last, dep):
+            if mask == (1 << n) - 1:
+                return True
+            for i in range(n):
+                if (mask >> i) & 1:
+                    continue
+                for o in (0, 1):   # o=0: enter pair_b / exit pair_a (solve.c f1c5_b0_dfs)
+                    f = pa[i] if o else pb[i]; s = pb[i] if o else pa[i]
+                    if bin(last ^ f).count("1") == 5:
+                        continue
+                    out[dep] = cls.CLS[bin(last ^ f).count("1")]
+                    if dfs(mask | (1 << i), s, dep + 1):
+                        return True
+            return False
+        assert dfs(0, start, 0)
+        b = {d: 0 for d in cls.DVAL}
+        for c in out:
+            b[cls.DVAL[c]] += 1
+        return b
+
+    @classmethod
+    def _ref_count(cls, pl, start, b0):
+        from functools import lru_cache
+        P = cls._pairs(); n = len(pl)
+        trans = [[(P[p][o ^ 1], P[p][o]) for o in (0, 1)] for p in pl]
+        b0t = tuple(b0[d] for d in cls.DVAL)
+        @lru_cache(maxsize=None)
+        def rec(mask, last, res):
+            if mask == (1 << n) - 1:
+                return 1 if res == b0t else 0
+            t = 0
+            for i in range(n):
+                if (mask >> i) & 1:
+                    continue
+                for f, s in trans[i]:
+                    dd = bin(last ^ f).count("1")
+                    if dd == 5:
+                        continue
+                    c = cls.CLS[dd]
+                    if res[c] >= b0t[c]:
+                        continue
+                    nr = list(res); nr[c] += 1
+                    t += rec(mask | (1 << i), s, tuple(nr))
+            return t
+        return rec(0, start, (0, 0, 0, 0, 0))
+
+    @staticmethod
+    def _up_ok(clauses, units):
+        """Unit-propagation SAT decision: False iff the units force a conflict."""
+        val = {}
+        for l in units:
+            v = abs(l); s = l > 0
+            if val.get(v, s) != s:
+                return False
+            val[v] = s
+        changed = True
+        while changed:
+            changed = False
+            for cl in clauses:
+                un = []; done = False
+                for l in cl:
+                    v = abs(l); w = l > 0
+                    if v in val:
+                        if val[v] == w:
+                            done = True; break
+                    else:
+                        un.append(l)
+                if done:
+                    continue
+                if not un:
+                    return False
+                if len(un) == 1:
+                    l = un[0]; v = abs(l); s = l > 0
+                    if val.get(v, s) != s:
+                        return False
+                    if v not in val:
+                        val[v] = s; changed = True
+        return True
+
+    def test_tiny_encoding_equivalence(self):
+        # exhaustive: CNF-accepts(arrangement) == valid(arrangement) == ref count
+        import itertools
+        P = self._pairs()
+        for N in (2, 3, 4):
+            for start in (0, 63):
+                pl = list(range(1, N + 1))
+                b0 = self._ref_b0(pl, start)
+                self.assertEqual(b0, sat.derive_b0(pl, start))  # port agrees with sat.py
+                cnf, ctx = sat.build_subset_pl(pl, start, b0)
+                Y = ctx["Y"]; nj = ctx["nj"]; slots = ctx["slots"]; ors = ctx["orients"]
+                accepted = 0; valid = 0
+                for perm in itertools.permutations(range(N)):
+                    for oc in itertools.product((0, 1), repeat=N):
+                        units = []; seq = []
+                        for si, s in enumerate(slots):
+                            j = perm[si] * 2 + oc[si]
+                            for jj in range(nj):
+                                units.append(Y[(s, jj)] if jj == j else -Y[(s, jj)])
+                            seq += [ors[j][2], ors[j][3]]
+                        bnd = [bin(start ^ seq[0]).count("1")] + \
+                              [bin(seq[2 * i + 1] ^ seq[2 * i + 2]).count("1") for i in range(N - 1)]
+                        got = {d: 0 for d in self.DVAL}; ok = len(set(seq)) == 2 * N
+                        for bd in bnd:
+                            if bd in got:
+                                got[bd] += 1
+                            else:
+                                ok = False
+                        is_valid = ok and got == b0
+                        is_acc = self._up_ok(cnf.cl, units)
+                        self.assertEqual(is_acc, is_valid,
+                                         f"N={N} start={start} perm={perm} oc={oc}")
+                        accepted += is_acc; valid += is_valid
+                self.assertEqual(accepted, self._ref_count(pl, start, b0))
+                self.assertEqual(accepted, valid)
+
+    def test_subset_probe_pins(self):
+        # group-closed certified-count-probe instances: B0 + exact |C1&C2&C4&C5|.
+        # Pinned oracle values; a proof-emitting #SAT / C-binary model-count
+        # cross-check at these N is the intended follow-up (see R2 private note).
+        # N=9's exact count is recomputed live here (cheap); N=13/16 counts are
+        # pinned literals (their reference DP has a ~10^7-10^9 state space — too
+        # heavy for a per-run gate; verified once out-of-band, see the R2 note).
+        EXPECT = {
+            9:  {"b0": {1: 2, 2: 5, 3: 0, 4: 2, 6: 0}, "count": 26_112, "live": True},
+            13: {"b0": {1: 1, 2: 6, 3: 0, 4: 6, 6: 0}, "count": 2_063_395_607_040, "live": False},
+            16: {"b0": {1: 1, 2: 8, 3: 1, 4: 6, 6: 0}, "count": 267_765_117_419_520, "live": False},
+        }
+        for N, exp in EXPECT.items():
+            pl, start = sat.subset_pairlist(N)
+            self.assertEqual(len(pl), N)
+            b0 = sat.derive_b0(pl, start)
+            self.assertEqual(b0, exp["b0"], f"B0 mismatch at N={N}")
+            if exp["live"]:
+                self.assertEqual(self._ref_count(pl, start, b0), exp["count"], f"count N={N}")
+            # sanity: the emitted CNF builds and its recorded budget matches
+            cnf, ctx = sat.build_subset(N)
+            self.assertGreater(len(cnf.cl), 0)
+            self.assertEqual(ctx["b0"], exp["b0"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

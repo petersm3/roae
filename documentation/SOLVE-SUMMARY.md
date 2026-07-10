@@ -198,7 +198,7 @@ second wave of results, each with a full [technical report](../reports/README.md
   even-balanced and odd-balanced pairs — provably, always.
   [[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-6](../reports/TR6_PARITY_SKELETON.md)]
 - **The classical rules contradict each other.** The most striking result: the four strongest design
-  rules proposed in the literature — two by Steve Moore, two traceable through Larry Schulz back to a
+  rules proposed in the literature — two by [Steve Moore](CITATIONS.md#moore1989), two traceable through [Larry Schulz](CITATIONS.md#schulz1990-motifs) back to a
   13th-century commentator — **cannot all be satisfied by any ordering at all**. King Wen keeps one of
   them perfectly and misses the other three by the smallest possible margins. Its famous "irregularities,"
   puzzled over for centuries, are the visible seam of a forced trade-off — not damage, and not sloppiness.

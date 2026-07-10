@@ -18,8 +18,9 @@ ground truth.
 ## SYNOPSIS
 
 ```
-python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N]
-python3 sat.py --witness  TARGET         [--with-c3] [--c3-max N]
+python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--f1-pairs N]
+python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--f1-pairs N]
+python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N]
 ```
 
 With no recognized subcommand, `sat.py` prints its module docstring
@@ -63,6 +64,39 @@ file is fed to an external `#SAT` / SAT solver (e.g.
 `kissat f.cnf`). `TARGET` is one of the named constraint bundles
 below.
 
+### --decode MODEL.txt [TARGET]
+
+```
+python3 sat.py --decode model.txt plain
+python3 sat.py --decode model.txt --f1-pairs 13
+```
+
+Rebuilds the CNF for `TARGET` (default `plain`, or the reduced subset when
+`--f1-pairs N` is given) to recover the variable map, parses the model
+(`v`-lines, or a bare whitespace/newline-separated list of signed integers),
+decodes the true position variables into a hexagram sequence, and re-verifies
+it against `solve.py` ground truth. For a full-31 target it prints the
+64-hexagram sequence, `verify=…`, and the C3 complement distance; for a
+`--f1-pairs N` subset it prints the 2N-hexagram sequence and the per-class
+boundary histogram against the derived budget `B0`. This is the standalone
+form of the `decode()` helper the `--witness` loop uses internally.
+
+### --emit-cnf … --f1-pairs N
+
+```
+python3 sat.py --emit-cnf f1c5 n13.cnf --f1-pairs 13
+```
+
+Emits the **reduced** C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit
+union (`N ∈ {9,13,16,18,19,24,25,27,28}`) — exactly the object that
+`solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. The C5 budget `B0` (the target
+boundary distance-class multiset) is derived per subset from `solve.py`
+semantics via the deterministic first-completion DFS (a port of `solve.c`'s
+`f1c5_derive_b0`/`f1c5_b0_dfs`); the print line reports the pair list,
+`start_exit`, and `B0`. This is the small-n certified-count probe instance
+(TASK #225 §6.4): a scale at which a proof-emitting `#SAT` counter (D4/CPOG)
+can compile a certificate, cross-checked against the exact DP count.
+
 ### --witness TARGET
 
 ```
@@ -85,6 +119,7 @@ prints the UNSAT line and the tail of the solver output. Requires
 |---|---|
 | `--with-c3` | Include the C3 complement-distance constraint in the encoding (bounded at KW's C3, 776, unless `--c3-max` overrides). |
 | `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Consumes the following token as the integer bound. |
+| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf` and `--decode`. The C5 budget `B0` is derived per subset. Consumes the following token as the integer `N`. |
 
 Both modifiers may precede or follow the subcommand tokens — they are
 stripped from `argv` before the subcommand is dispatched.
@@ -104,7 +139,7 @@ catalogue and the expected SAT/UNSAT verdict of each):
 | `rc4-strict` | Base AND [Schulz 1990](CITATIONS.md#schulz1990-motifs) gender/position-parity, 0 violations (semantics = `solve.rc4_violations`). |
 | `grand-strict` | Moore parity + Moore rhythm + Schulz gender simultaneously ("grand unified precursor" question). |
 | `grand-ccn4` / `grander-strict` | The four- / five-rule conflict decisions (#217); UNSAT proves no ordering is perfect under the combined rule set. |
-| `wrap-d5` | Base AND wrap distance d(s63, s0) = 5 — the McKenna circular-reading decision (see [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md)). |
+| `wrap-d5` | Base AND wrap distance d(s63, s0) = 5 — the [McKenna](CITATIONS.md#mckenna-mckenna1975) circular-reading decision (see [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md)). |
 | `*-kwtest` / `*-kwexempt` / `*-kwfail` / `*-kwchain` | Encoding-validation targets that force KW and assert the expected verdict — the two-language gate that the clauses match `solve.py` semantics. |
 
 ## EXAMPLES
@@ -149,11 +184,15 @@ from `sat.py`'s own exit status.
 
 ## NOTES
 
-- The module docstring lists a `--decode MODEL.txt` subcommand and a
-  `decode()` helper is present, but the `__main__` dispatch
-  (`sat.py:565–599`) only wires `--emit-cnf` and `--witness`; `--decode`
-  is used internally by `--witness` rather than exposed as a standalone
-  token. (purpose of the standalone form: see `sat.py:565`.)
+- `--decode MODEL.txt [TARGET]` is now wired in `__main__` as a standalone
+  subcommand (it decodes/re-verifies a solver model; `--witness` uses the same
+  `decode()` helper internally).
+- `--f1-pairs N` reduced-subset instances derive two *parameters* — the
+  group-closed pair-orbit partition and the C5 budget `B0` — from `solve.py`
+  primitives, ported from `solve.c`'s `f1c5` path. As with every target, no
+  constraint clause is hand-written; the reduced B0 values and reference counts
+  are pinned in `tests.py` (`TestSatC5Subset`), and a proof-emitting `#SAT` /
+  C-binary model-count cross-check at these N is the intended follow-up.
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 

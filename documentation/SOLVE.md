@@ -614,7 +614,7 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 
 | Family | Scope | C1 | C2 (no 5-line) | C3 (≤ 776) |
 |---|---|---|---|---|
-| de Bruijn B(2, 6) | Exhaustive 2^27 = 134,217,728 | **0** — also analytic | 0 — min observed 1 | 0.1841% |
+| [de Bruijn B(2, 6)](CITATIONS.md#vanaardenne-debruijn1951) | Exhaustive 2^27 = 134,217,728 | **0** — also analytic | 0 — min observed 1 | 0.1841% |
 | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0** — analytic ∀ Gray | 100% (trivial) | 0% — range [1792, 2048] |
 | 6-bit Gray codes (random) | 10^5 random Q_6 walks | **0** — analytic ∀ Gray | 100% (trivial) | **0 — min C3 = 832 > KW's 776** |
 | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0** | **57.96%** (decomposed) | 6.67% — range [512, 2048] |

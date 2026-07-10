@@ -18,9 +18,18 @@ solver use authorized by operator 2026-07-02.
 
 Subcommands:
   --emit-cnf TARGET OUT.cnf     write DIMACS for TARGET
-  --decode MODEL.txt            decode a solver model (v-lines) to a 64-hexagram sequence + verify
+  --decode MODEL.txt [TARGET]   decode a solver model (v-lines, or a bare int list) back to a
+                                hexagram sequence and re-verify vs solve.py (TARGET default
+                                'plain'; add --f1-pairs N to decode a reduced-subset model)
   --witness TARGET              emit CNF, run solver (kissat on PATH or pysat), decode, verify,
                                 iterate blocking clauses until a C3-passing witness is found
+Modifiers:
+  --f1-pairs N                  build the REDUCED C1&C2&C4&C5 instance for the group-closed
+                                N-pair orbit union (N in {9,13,16,18,19,24,25,27,28}) — the
+                                object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies
+                                to --emit-cnf and --decode; the C5 budget B0 is derived per
+                                subset (deterministic-DFS, solve.c f1c5 semantics). This is the
+                                small-n certified-count probe instance (TASK #225 §6.4).
 Targets:
   alt-le-14      C1+C2+C4+C5 AND (odd between-pair transitions <= 14)   [expect UNSAT]
   alt-ge-16      C1+C2+C4+C5 AND (odd between-pair transitions >= 16)   [expect UNSAT]
@@ -543,6 +552,227 @@ def build(target, with_c3=False, c3_max=None):
         at_most_k(cnf, dlits, sbudget - len(C3_COUPLES))
     return cnf, Y
 
+# ============================================================================
+# Small-n subset instances — the C1&C2&C4&C5 certified-count probe (TASK #225).
+# ----------------------------------------------------------------------------
+# Emits the *reduced* C1&C2&C4&C5 CNF for a group-closed N-pair orbit union
+# (N in {9,13,16,18,19,24,25,27,28}), i.e. the exact object that
+# `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. This is the missing piece
+# that unblocks the small-n end-to-end certificate probe (TASK_225 §6.4): a
+# checkable — not merely re-runnable — count at a scale where a proof-emitting
+# #SAT counter (D4/CPOG) can run.
+#
+# HEADER-RULE COMPLIANCE. As with the full-31 targets, NOTHING here hand-writes
+# a C-rule. C1 (pair atoms), C2 (dist-5/0 forbids) and the C5 boundary
+# cardinality all reuse the same clause primitives as build(); every distance
+# is solve.bit_diff and every hexagram/pair is a solve import. Two *parameters*
+# are derived — the group-closed pair-orbit partition and the C5 target multiset
+# B0 — both ported from solve.c's f1c5 path (f1_build_group / f1c5_unions /
+# f1c5_derive_b0 / f1c5_b0_dfs) and using only solve primitives. They emit no
+# clauses; they name the same numbers solve.c derives. The full-31 B0 this port
+# would produce equals the KW-derived between-multiset already asserted at the
+# top of this file (BETWEEN_MULTISET); the reduced-subset B0 values + reference
+# counts are pinned in tests.py (test_sat_c5_subset_*), and a #SAT/C-binary
+# cross-check at N in {9,13,16} is the intended follow-up (see the private
+# R2 note). C5 itself is the boundary budget: the N boundary transitions
+# realize the class multiset B0 exactly (exactly_k over the class indicators).
+# ============================================================================
+
+_DVAL = (1, 2, 3, 4, 6)                 # solve.c F1C5_DVAL: the five distance classes (5 forbidden)
+_CLS = {1: 0, 2: 1, 3: 2, 4: 3, 6: 4}   # solve.c F1C5_CLS: distance -> class index
+_REV = (5, 4, 3, 2, 1, 0)               # bit-reversal as a bit-position permutation
+
+def _perm_compose(a, b): return tuple(a[b[i]] for i in range(6))
+def _hex_act(perm, h):
+    r = 0
+    for i in range(6):
+        r |= ((h >> i) & 1) << perm[i]
+    return r
+
+# --- S4 pair-orbit structure (port of solve.c f1_build_group; = f1_orbit_dp.py) ---
+_G48 = [p for p in _itertools.permutations(range(6))
+        if _perm_compose(p, _REV) == _perm_compose(_REV, p)]
+assert len(_G48) == 48, "centralizer of rev in S6 must have order 48"
+_PSETS = [frozenset(pr) for pr in KW_PAIRS]
+_SET2PAIR = {s: i for i, s in enumerate(_PSETS)}
+def _pair_perm(g):
+    return tuple(_SET2PAIR[frozenset(_hex_act(g, h) for h in _PSETS[p])] for p in range(32))
+_coset = {}
+for _g in sorted(_G48):
+    _coset.setdefault(_pair_perm(_g), []).append(_g)
+assert len(_coset) == 24, "record-level pair group must be S4 (order 24)"
+_G24_PP = sorted(_coset)                                    # 24 pair-perms of the 32 pairs
+_parent = list(range(32))                                   # union-find over the 32 pairs
+def _uf_find(x):
+    while _parent[x] != x:
+        _parent[x] = _parent[_parent[x]]; x = _parent[x]
+    return x
+for _pp in _G24_PP:
+    for _i in range(32):
+        _ra, _rb = _uf_find(_i), _uf_find(_pp[_i])
+        if _ra != _rb: _parent[_ra] = _rb
+_orbmap = {}
+for _i in range(1, 32):                                     # the 31 free pairs (pair 0 fixed)
+    _orbmap.setdefault(_uf_find(_i), []).append(_i)
+PAIR_ORBITS = sorted(_orbmap.values(), key=lambda o: (len(o), o))  # == solve.c f1_orb_cmp order
+assert sorted(len(o) for o in PAIR_ORBITS) == [3, 3, 3, 4, 6, 6, 6], "pair-orbit sizes broke"
+
+# group-closed orbit-union specs, verbatim from solve.c f1c5_unions[]
+F1C5_UNIONS = {
+    9:  "3.0,3.1,3.2@0",       13: "3.0,4.0,6.2@0",       16: "4.0,6.0,6.1@0",
+    18: "6.0,6.1,6.2@0",       19: "3.0,4.0,6.0,6.1@0",   24: "3.0,3.1,6.0,6.1,6.2@0",
+    25: "3.0,4.0,6.0,6.1,6.2@0", 27: "3.0,3.1,3.2,6.0,6.1,6.2@0",
+    28: "3.0,3.1,4.0,6.0,6.1,6.2@0",
+}
+def _orbit_by(size, idx):
+    cnt = 0
+    for o in PAIR_ORBITS:
+        if len(o) == size:
+            if cnt == idx: return o
+            cnt += 1
+    raise KeyError((size, idx))
+
+def subset_pairlist(npairs):
+    """(pair-index list pl, start_exit) for the group-closed orbit union of N
+    pairs — matches solve.c f1_parse_subset (orbit-append order, NOT sorted)."""
+    spec = F1C5_UNIONS.get(npairs)
+    if spec is None:
+        raise SystemExit("--f1-pairs %r: no group-closed orbit union; have %s"
+                         % (npairs, ",".join(map(str, sorted(F1C5_UNIONS)))))
+    at = spec.index("@"); start = int(spec[at + 1:]); body = spec[:at]
+    pl = []
+    for tok in body.split(","):
+        L, I = tok.split("."); pl += _orbit_by(int(L), int(I))
+    assert len(pl) == npairs, "union table inconsistency"
+    return pl, start
+
+def derive_b0(pl, start_exit):
+    """C5 boundary-budget multiset for a reduced subset via the deterministic
+    first-completion DFS — EXACT port of solve.c f1c5_b0_dfs / f1c5_derive_b0
+    (pairs tried in ascending subset-index order; orientations (0,1) with o=0
+    ENTERING pair_b / EXITING pair_a, matching solve.c `f = o ? pa : pb` and the
+    validated f1_orbit_dp.py `trans[i][o] = (PAIRS[p][o^1], PAIRS[p][o])`; the
+    order picks WHICH witness completion defines B0, so it must match solve.c
+    exactly). Distances are solve.bit_diff. Returns {distance: count} over the
+    classes {1,2,3,4,6}; sums to len(pl)."""
+    n = len(pl)
+    pa = [KW_PAIRS[p][0] for p in pl]
+    pb = [KW_PAIRS[p][1] for p in pl]
+    cls = [None] * n
+    def dfs(mask, last, depth):
+        if mask == (1 << n) - 1:
+            return True
+        for i in range(n):
+            if (mask >> i) & 1:
+                continue
+            for o in (0, 1):
+                f = pa[i] if o else pb[i]    # o=0: enter pair_b (KW[2p+1])
+                s = pb[i] if o else pa[i]    # o=0: exit  pair_a (KW[2p])
+                dd = solve.bit_diff(last, f)
+                if dd == 5:
+                    continue
+                cls[depth] = _CLS[dd]
+                if dfs(mask | (1 << i), s, depth + 1):
+                    return True
+        return False
+    assert dfs(0, start_exit, 0), "no valid completion exists for the subset"
+    b0 = {dv: 0 for dv in _DVAL}
+    for c in cls:
+        b0[_DVAL[c]] += 1
+    return b0
+
+def build_subset_pl(pl, start_exit, b0):
+    """Base C1&C2&C4&C5 CNF over an explicit pair list `pl` with the boundary
+    budget `b0` ({distance: count}). Pair-slot model identical to build(): each
+    of the |pl| slots holds one (pair, orientation); C2 forbids dist-5/0
+    boundaries; C5 = exactly_k over the per-class boundary indicators against
+    b0. `start_exit` is the (C4-fixed) exit hexagram feeding boundary 0.
+    Returns (cnf, ctx). Small-n arbitrary lists are used by the tests.py gate;
+    the group-closed unions are reached via build_subset()."""
+    n = len(pl)
+    orients = []                          # j -> (local pair 0..n-1, orient, first_hex, second_hex)
+    for lp, p in enumerate(pl):
+        a, b = KW_PAIRS[p]
+        orients.append((lp, 0, a, b))
+        orients.append((lp, 1, b, a))
+    nj = len(orients)
+    slots = list(range(1, n + 1))
+    cnf = CNF()
+    Y = {}
+    for s in slots:
+        for j in range(nj):
+            Y[(s, j)] = cnf.var()
+    for s in slots:                       # one (pair,orient) per slot
+        exactly_one(cnf, [Y[(s, j)] for j in range(nj)])
+    for lp in range(n):                   # each pair used exactly once
+        exactly_one(cnf, [Y[(s, j)] for s in slots for j in range(nj) if orients[j][0] == lp])
+
+    def exit_hex(j):  return orients[j][3]
+    def entry_hex(j): return orients[j][2]
+
+    T = {}                                # boundary distance-class indicators (n boundaries)
+    for s in range(n):
+        for dv in _DVAL:
+            T[(s, dv)] = cnf.var()
+        exactly_one(cnf, [T[(s, dv)] for dv in _DVAL])
+    for j in range(nj):                   # boundary 0: fixed exit = start_exit (C4)
+        dd = solve.bit_diff(start_exit, entry_hex(j))
+        if dd == 5 or dd == 0:
+            cnf.add(-Y[(1, j)])
+        else:
+            cnf.add(-Y[(1, j)], T[(0, dd)])
+    for s in range(1, n):
+        for j1 in range(nj):
+            for j2 in range(nj):
+                if orients[j1][0] == orients[j2][0]:
+                    continue
+                dd = solve.bit_diff(exit_hex(j1), entry_hex(j2))
+                if dd == 5 or dd == 0:
+                    cnf.add(-Y[(s, j1)], -Y[(s + 1, j2)])
+                else:
+                    cnf.add(-Y[(s, j1)], -Y[(s + 1, j2)], T[(s, dd)])
+    for dv in _DVAL:                      # C5 boundary budget (k=0 forbids that class)
+        exactly_k(cnf, [T[(s, dv)] for s in range(n)], b0[dv])
+    ctx = {"Y": Y, "orients": orients, "slots": slots, "nj": nj, "n": n,
+           "pl": pl, "start_exit": start_exit, "b0": b0}
+    return cnf, ctx
+
+def build_subset(npairs):
+    """C1&C2&C4&C5 CNF for the group-closed N-pair orbit union (the object
+    `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts). Returns (cnf, ctx)."""
+    pl, start_exit = subset_pairlist(npairs)
+    return build_subset_pl(pl, start_exit, derive_b0(pl, start_exit))
+
+def decode_subset(model_lits, ctx):
+    """Decode a solver model to the placed-pair hexagram sequence (length 2N)."""
+    tru = set(l for l in model_lits if l > 0)
+    seq = []
+    for s in ctx["slots"]:
+        for j in range(ctx["nj"]):
+            if ctx["Y"][(s, j)] in tru:
+                seq += [ctx["orients"][j][2], ctx["orients"][j][3]]
+                break
+    return seq
+
+def verify_subset(seq, ctx):
+    """Re-verify a decoded subset sequence against solve.py ground truth:
+    distinct hexagrams (C1), no dist-5 boundary (C2), and boundary class
+    multiset == B0 (C5, over the N boundaries incl. start_exit -> seq[0]).
+    Returns (ok, boundary_distances)."""
+    n = ctx["n"]
+    ok = len(seq) == 2 * n and len(set(seq)) == 2 * n
+    bnd = ([solve.bit_diff(ctx["start_exit"], seq[0])]
+           + [solve.bit_diff(seq[2 * i + 1], seq[2 * i + 2]) for i in range(n - 1)]) if seq else []
+    ok = ok and all(bd != 5 for bd in bnd)
+    got = {dv: 0 for dv in _DVAL}
+    for bd in bnd:
+        if bd in got:
+            got[bd] += 1
+        else:
+            ok = False
+    ok = ok and got == ctx["b0"]
+    return ok, bnd
+
 def decode(model_lits, Y):
     seq = [63, 0]
     tru = set(l for l in model_lits if l > 0)
@@ -562,18 +792,68 @@ def verify_seq(seq):
     c3 = sum(abs(pos[h] - pos[h ^ 63]) for h in range(64))
     return ok, c3
 
+def _read_model_lits(path):
+    """Parse a solver model: DIMACS 'v '-lines, or a bare whitespace/newline
+    separated list of signed ints (trailing 0 terminator ignored)."""
+    lits = []
+    with open(path) as fh:
+        text = fh.read()
+    for ln in text.splitlines():
+        if ln.startswith("v "):
+            lits += [int(x) for x in ln[2:].split() if x != "0"]
+    if not lits:                                    # no v-lines: treat whole file as a token list
+        lits = [int(x) for x in text.split() if x.lstrip("-").isdigit() and x != "0"]
+    return lits
+
 if __name__ == "__main__":
     args = sys.argv[1:]
-    with_c3, c3_max = False, None
+    with_c3, c3_max, npairs = False, None, None
     if "--with-c3" in args:
         with_c3 = True; args.remove("--with-c3")
     if "--c3-max" in args:
         i = args.index("--c3-max")
         with_c3, c3_max = True, int(args[i + 1]); del args[i:i + 2]
+    if "--f1-pairs" in args:                         # reduced subset instance (TASK #225 probe)
+        i = args.index("--f1-pairs")
+        npairs = int(args[i + 1]); del args[i:i + 2]
+
+    def _emit_label(target):
+        if npairs is not None:
+            return "f1c5 --f1-pairs %d (C1&C2&C4&C5)" % npairs
+        return target + (" c3<=%d" % (c3_max or KW_C3) if with_c3 else "")
+
     if args[:1] == ["--emit-cnf"] and len(args) == 3:
-        cnf, Y = build(args[1], with_c3=with_c3, c3_max=c3_max)
-        cnf.write(args[2], "target=" + args[1] + (" c3<=%d" % (c3_max or KW_C3) if with_c3 else ""))
-        print("vars=%d clauses=%d -> %s" % (cnf.n, len(cnf.cl), args[2]))
+        if npairs is not None:
+            cnf, ctx = build_subset(npairs)
+            cnf.write(args[2], _emit_label(args[1]))
+            print("vars=%d clauses=%d -> %s" % (cnf.n, len(cnf.cl), args[2]))
+            print("f1-pairs=%d pl=%s start_exit=%d B0(d1,2,3,4,6)=%s"
+                  % (npairs, ctx["pl"], ctx["start_exit"], [ctx["b0"][dv] for dv in _DVAL]))
+        else:
+            cnf, Y = build(args[1], with_c3=with_c3, c3_max=c3_max)
+            cnf.write(args[2], "target=" + _emit_label(args[1]))
+            print("vars=%d clauses=%d -> %s" % (cnf.n, len(cnf.cl), args[2]))
+    elif args[:1] == ["--decode"] and len(args) in (2, 3):
+        # --decode MODEL.txt [TARGET]  (rebuilds the CNF to recover the Y map,
+        # decodes the model's v-lines to a sequence, re-verifies vs solve.py).
+        # Use --f1-pairs N to decode a reduced-subset model; else TARGET (default
+        # 'plain') selects a full-31 encoding.
+        lits = _read_model_lits(args[1])
+        if npairs is not None:
+            cnf, ctx = build_subset(npairs)
+            seq = decode_subset(lits, ctx)
+            ok, bnd = verify_subset(seq, ctx)
+            cls = {dv: bnd.count(dv) for dv in _DVAL}
+            print("SEQ (2N=%d):" % len(seq), seq)
+            print("verify=%s  boundary-classes=%s  B0=%s"
+                  % (ok, [cls[dv] for dv in _DVAL], [ctx["b0"][dv] for dv in _DVAL]))
+        else:
+            target = args[2] if len(args) == 3 else "plain"
+            cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)
+            seq = decode(lits, Y)
+            ok, c3 = verify_seq(seq)
+            print("SEQ:", seq)
+            print("verify=%s  c3=%d  %s" % (ok, c3, "c3<=776 PASS" if c3 <= 776 else "fail C3"))
     elif args[:1] == ["--witness"] and len(args) == 2:
         target = args[1]
         cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)

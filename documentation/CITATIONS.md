@@ -189,7 +189,7 @@ ROAE's **exhaustive enumeration of all 2^27 B(2, 6) permutations and analytic pr
 <a id="gardner"></a>
 - **Gardner, Martin** (various columns, *Scientific American*, 1960s–1970s). Discussed binary Gray codes and noted connections to combinatorial structures including the I Ching at times.
 <a id="savage1997"></a>
-- **Savage, Carla D.** (1997). "A survey of combinatorial Gray codes." *SIAM Review* 39: 605–629. Standard reference on Gray code families.
+- **Savage, Carla D.** (1997). "A survey of combinatorial Gray codes." *SIAM Review* 39: 605–629. [doi:10.1137/S0036144595295272](https://doi.org/10.1137/S0036144595295272) Standard reference on Gray code families.
 
 ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjacency is disjoint from C1's required {0, 2, 4, 6}) is believed novel but straightforward; it follows trivially from the Gray code definition.
 
@@ -200,7 +200,7 @@ ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjace
 ### Enumeration algorithms
 
 <a id="hierholzer1873"></a>
-- **Hierholzer, Carl** (1873). "Ueber die Möglichkeit, einen Linienzug ohne Wiederholung und ohne Unterbrechung zu umfahren." *Mathematische Annalen* 6(1): 30–32. Eulerian-circuit algorithm, used by ROAE's randomized de Bruijn sampler.
+- **Hierholzer, Carl** (1873). "Ueber die Möglichkeit, einen Linienzug ohne Wiederholung und ohne Unterbrechung zu umfahren." *Mathematische Annalen* 6(1): 30–32. [doi:10.1007/BF01442866](https://doi.org/10.1007/BF01442866) Eulerian-circuit algorithm, used by ROAE's randomized de Bruijn sampler.
 <a id="fisher-yates1938"></a>
 - **Fisher, R. A. and Yates, F.** (1938). *Statistical Tables for Biological, Agricultural and Medical Research* (3rd ed.), Oliver & Boyd, London. Fisher-Yates shuffle algorithm, used in `--null-random` and `--null-pair-constrained`.
 
@@ -216,12 +216,12 @@ ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjace
 <a id="bonferroni1936"></a>
 - **Bonferroni, Carlo Emilio** (1936). "Teoria statistica delle classi e calcolo delle probabilità." *Pubblicazioni del R Istituto Superiore di Scienze Economiche e Commerciali di Firenze*. Bonferroni correction for multiple testing.
 <a id="hanley-lippmanhand1983"></a>
-- **Rule of Three** for upper bounds on zero-observed-event rates: see Hanley & Lippman-Hand (1983), "If nothing goes wrong, is everything all right? Interpreting zero numerators." *JAMA* 249(13): 1743–1745.
+- **Rule of Three** for upper bounds on zero-observed-event rates: see Hanley & Lippman-Hand (1983), "If nothing goes wrong, is everything all right? Interpreting zero numerators." *JAMA* 249(13): 1743–1745. [doi:10.1001/jama.1983.03330370053031](https://doi.org/10.1001/jama.1983.03330370053031)
 
 ### File formats and cryptographic hashing
 
 <a id="nist2015"></a>
-- **National Institute of Standards and Technology** (2015). "Secure Hash Standard (SHS)." *FIPS PUB 180-4*. SHA-256 specification, used for the canonical `solutions.bin` integrity anchor.
+- **National Institute of Standards and Technology** (2015). "Secure Hash Standard (SHS)." *FIPS PUB 180-4*. [doi:10.6028/NIST.FIPS.180-4](https://doi.org/10.6028/NIST.FIPS.180-4) SHA-256 specification, used for the canonical `solutions.bin` integrity anchor.
 
 ### Combinatorial identities
 
@@ -350,6 +350,7 @@ above carry the per-finding attribution; this list is the raw inventory.
 <a id="chan2026"></a>
 Chan, A. (2026). *Statistical properties of the King Wen sequence: An anti-habituation structure that does
 not improve neural network training*. arXiv. https://arxiv.org/abs/2604.09234
+[doi:10.48550/arXiv.2604.09234](https://doi.org/10.48550/arXiv.2604.09234)
   Monte Carlo statistical analysis of the sequence against 100,000 random permutations; predates ROAE;
   per-finding overlap scoped above. [read]
 
@@ -480,7 +481,7 @@ Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah
 
 <a id="radisic2026"></a>
 Radisic, A. (2026). *Optimal equivariant matchings on the 6-cube, with an application to the King Wen
-sequence*. arXiv. https://arxiv.org/abs/2601.07175
+sequence*. arXiv. https://arxiv.org/abs/2601.07175 [doi:10.48550/arXiv.2601.07175](https://doi.org/10.48550/arXiv.2601.07175)
   Lean-verified proof that the C1 pairing is the unique Hamming-cost optimum — the first first-principles
   derivation of any constraint layer. [read]
 

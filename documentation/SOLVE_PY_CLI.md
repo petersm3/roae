@@ -215,11 +215,11 @@ discovery — follow the link for the authoritative description:
 | Command | One-liner | Reference |
 |---|---|---|
 | `--f4p-verify` | Verify the 13 pre-registered F4′ ordering-layer functionals on KW. | [SOLVE_C_CLI.md#--f4p-verify](SOLVE_C_CLI.md#--f4p-verify) |
-| `--f6-verify` | Verify the 7 frozen F6 Nielsen-audit functionals (Wu Deng warp/weft + Jing Fang bagong) on KW. | [SOLVE_C_CLI.md#--f6-verify](SOLVE_C_CLI.md#--f6-verify) |
-| `--dav-verify` | Verify the 9 pre-registered Davis (2012) composite candidates on KW. | [SOLVE_C_CLI.md#--dav-verify](SOLVE_C_CLI.md#--dav-verify) |
-| `--vdb-verify` | Verify the 8 Van den Berghe structural candidates on KW. | [SOLVE_C_CLI.md#--vdb-verify-solvepy-only](SOLVE_C_CLI.md#--vdb-verify-solvepy-only) |
+| `--f6-verify` | Verify the 7 frozen F6 Nielsen-audit functionals ([Wu Deng](CITATIONS.md#wudeng) warp/weft + [Jing Fang](CITATIONS.md#jingfang) bagong) on KW. | [SOLVE_C_CLI.md#--f6-verify](SOLVE_C_CLI.md#--f6-verify) |
+| `--dav-verify` | Verify the 9 pre-registered [Davis (2012)](CITATIONS.md#davis2012) composite candidates on KW. | [SOLVE_C_CLI.md#--dav-verify](SOLVE_C_CLI.md#--dav-verify) |
+| `--vdb-verify` | Verify the 8 [Van den Berghe](CITATIONS.md#vandenberghe1999) structural candidates on KW. | [SOLVE_C_CLI.md#--vdb-verify-solvepy-only](SOLVE_C_CLI.md#--vdb-verify-solvepy-only) |
 | `--f5-verify` | The 11 frozen F5 orientation-layer functionals — a **`solve` C** gate; `solve.py`'s side of #11 (`f5_vdb_nuc`) is `--vdb-verify`'s `vdb_nucorient`. | [SOLVE_C_CLI.md#--f5-verify](SOLVE_C_CLI.md#--f5-verify) |
-| `--books-verify` | Verify the machine-checkable structural claims from the audited books (Wu Deng via Nielsen 2003, Lai Zhide, Goldenberg 1975, Jing Fang, Yu Fan) on KW. | [SOLVE_C_CLI.md#--books-verify-solvepy-only](SOLVE_C_CLI.md#--books-verify-solvepy-only) |
+| `--books-verify` | Verify the machine-checkable structural claims from the audited books (Wu Deng via [Nielsen 2003](CITATIONS.md#nielsen2003), [Lai Zhide](CITATIONS.md#laizhide), [Goldenberg 1975](CITATIONS.md#goldenberg1975), Jing Fang, [Yu Fan](CITATIONS.md#yufan)) on KW. | [SOLVE_C_CLI.md#--books-verify-solvepy-only](SOLVE_C_CLI.md#--books-verify-solvepy-only) |
 | `--registry-verify` | Run every `reg_*` candidate-rule ground-truth checker and assert each equals its registry KW-expected value. | [SOLVE_C_CLI.md#--registry-verify-solvepy-only](SOLVE_C_CLI.md#--registry-verify-solvepy-only) |
 | `--extended-selftest SOLVE_BINARY` | Small-scale path-invariance + resume regression suite against a compiled `solve` binary (CI gate; wall ~10 min). | [SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand](SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand) |
 | `--compare-depth-profile RUN_A_LOG RUN_B_LOG` | Tree-walk validator (#48): compare `DEPTH_PROFILE` node counts from two run logs; PASS if divergence < `--compare-depth-profile-threshold` (default 0.005). | [SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only](SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only) |

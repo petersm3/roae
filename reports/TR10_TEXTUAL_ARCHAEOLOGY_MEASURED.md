@@ -67,7 +67,7 @@ notational scoring — is accepted and stated.
 2. **The pre-registration discipline.** Following the F4' protocol, the nine composites were registered
    in the public record (documentation/CRITIQUE.md §"Pre-registered test in flight: Davis (2012)",
    commit `2d19a3f`, 2026-07-04) **before any population number had been observed**, with decision
-   thresholds frozen in advance: "notable" = two-sided p < 0.05/9 (Bonferroni, 5.56×10⁻³); "candidate
+   thresholds frozen in advance: "notable" = two-sided p < 0.05/9 ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936), 5.56×10⁻³); "candidate
    rule" = < 10⁻⁴ AND passing the corpus-control specificity gate (the same functional must not flag on
    [Jing Fang](../documentation/CITATIONS.md#jingfang)'s Eight Palaces or the Mawangdui ordering); all nine reported regardless of outcome; and —
    per the standing extraction-circularity policy — **nothing promotes to a solver constraint
@@ -162,7 +162,7 @@ notational scoring — is accepted and stated.
    (solve.py); errors of formalization are ours, not Davis's; corrections are welcome via
    CITATIONS.md. Davis's own formal debts are credited as he states them: Dai Sike (1978) for the 7–16
    symmetry, Li Shangxin for the pair-unit trisection, Gardner (1974) for the no-global-pattern
-   verdict; overlaps between his observations and Schulz's and [Cook's](../documentation/CITATIONS.md#cook2006) are recorded in the attribution
+   verdict; overlaps between his observations and [Schulz's](../documentation/CITATIONS.md#schulz1990-motifs) and [Cook's](../documentation/CITATIONS.md#cook2006) are recorded in the attribution
    registry. What is claimed here: nine pre-registered population measurements (four null, one
    notable, one borderline, three data-like), one exact refutation of a uniqueness claim, one
    withdrawn refutation, and no promotion of anything into the constraint system. What is *not*

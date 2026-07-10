@@ -487,7 +487,7 @@ Population scoring: `SOLVE_KNUTH_SCORE_F5` below; explicit-sequence hook:
 solve --f6-verify
 ```
 
-Two-language gate for the 7 FROZEN F6 Nielsen-audit functionals — Wu Deng's
+Two-language gate for the 7 FROZEN F6 Nielsen-audit functionals — [Wu Deng's](CITATIONS.md#wudeng)
 warp/weft skeleton (`warp_blocks`, `warp_pow2`, `warp_adj`, `wudeng_profile`,
 `wudeng_slots`) plus the [Jing Fang](CITATIONS.md#jingfang) eight-palace
 (bagong) measures (`palace_adj`, `palace_types`). Computes each on the King Wen
@@ -537,12 +537,12 @@ solve.py --books-verify
 verification battery (added 2026-07-05, operator-approved "write code to prove
 the statements in the book"): programmatically verifies, against the King Wen
 sequence, the 14 machine-checkable structural claims surfaced by the 2026-07
-book audits — Wu Deng's (1249–1333) warp/weft skeleton (WD-1..4), Lai Zhide's
+book audits — Wu Deng's (1249–1333) warp/weft skeleton (WD-1..4), [Lai Zhide's](CITATIONS.md#laizhide)
 (1525–1604) great-image endpoint feeders (LZ-1..2), [Goldenberg's (1975, JCP 2)](CITATIONS.md#goldenberg1975)
 GF(2)⁶ algebra theorems T1–T4 + T7 including his H5↔H63-via-H7 mediator
 example (G-T1..T7), the [Jing Fang](CITATIONS.md#jingfang) (77–37 BCE) eight-palace table against
 [Nielsen 2003](CITATIONS.md#nielsen2003) Table 2 in all 64 cells (JF-1, re-exposing the corpus-gate
-check), and the classical Yu Fan (164–233) fandui/pangtong pair-structure
+check), and the classical [Yu Fan](CITATIONS.md#yufan) (164–233) fandui/pangtong pair-structure
 statement including Nielsen's printed 32-couple pangtong table (YF-1..2).
 Classical items sourced via Nielsen, Bent (2003), *A Companion to Yi jing
 Numerology and Cosmology*; Goldenberg via [Hacker, Moore & Patsco (2002)](CITATIONS.md#hacker-moore2002) B:154

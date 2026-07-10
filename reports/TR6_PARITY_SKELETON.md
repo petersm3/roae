@@ -46,7 +46,7 @@ inherits.
    within/between-pair distance split — and the recomputation contradicted [CRITIQUE](../documentation/CRITIQUE.md)'s published table.
    True values (machine-checked, summing exactly to C5's multiset): within-pair **{2:12, 4:12, 6:8}** (was
    11/13/8), between-pair **{1:2, 2:8, 3:13, 4:7, 6:1}** (was 2/7/14/7/1). The "14 threes" belongs to the
-   circular reading (wrap-around adds one), consistent with McKenna's own circular framing and this
+   circular reading (wrap-around adds one), consistent with [McKenna's](../documentation/CITATIONS.md#mckenna-mckenna1975) own circular framing and this
    theorem; the "4×" concentration prose was a delta-misread-as-ratio (true linear excess ≈1.3×). Fixed
    with correction notes. The pattern repeats across the project: every time a claim must be re-derived
    for a machine (Lean, the estimator, now SAT), latent errors surface.

@@ -29,7 +29,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 - **[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)** — Where King Wen sits in the joint distribution of observables across the canonical (joint-density rank below the 100K sample's resolution, <10⁻⁵, at 100T scope; 560T re-eval queued).
 - **[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)** — Total C1–C5 search-space size (Monte-Carlo estimate ≈10³⁸; why King Wen is found early in enumeration).
 - **[PARITY_ALTERNATION.md](PARITY_ALTERNATION.md)** — Theorem: every valid ordering has exactly 15 parity-class alternations (proven skeleton constraint; ×7.26 arrangement-level reduction; exact O(1) prefix prune).
-- **[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)** — Prior literature's structural rules (Moore, Cook, classical) measured against the full ≈10³⁸ population; Moore's parity rule = strongest known discriminator (×1,362 at KW's level; joint ×54,000).
+- **[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)** — Prior literature's structural rules ([Moore](CITATIONS.md#moore2005), [Cook](CITATIONS.md#cook2006), classical) measured against the full ≈10³⁸ population; Moore's parity rule = strongest known discriminator (×1,362 at KW's level; joint ×54,000).
 - **[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)** — Theorem that canonical enumeration counts are invariant under partition strategy (full-enum vs `--branch` reconstruction), with the cross-path validation grid.
 - **[BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md)** — Conceptual explainer for "branch / sub-branch / node / budget" terms used throughout.
 
@@ -67,7 +67,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 - **[HISTORY.md](HISTORY.md)** — Day-by-day project narrative. The honest record of how the analysis evolved, including bugs found, claims invalidated, and corrections made. Largest single document; the canonical source of "how did we get here."
 - **[CITATIONS.md](CITATIONS.md)** — Prior literature, what is classical vs. prior vs. novel vs. methodological in this work.
-- **[MCKENNA.md](MCKENNA.md)** — Relationship to Terence McKenna's Timewave Zero theory, where the data does and does not support related claims.
+- **[MCKENNA.md](MCKENNA.md)** — Relationship to [Terence McKenna's](CITATIONS.md#mckenna-mckenna1975) Timewave Zero theory, where the data does and does not support related claims.
 
 ## Cross-references that live outside this directory
 

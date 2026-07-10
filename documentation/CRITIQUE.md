@@ -12,12 +12,12 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 - The binary hexagram encodings follow [OEIS A102241](https://oeis.org/A102241) with bit 0 = bottom line. Sensitivity analysis confirms the difference wave, pair structure, and no-5 property are all invariant under bit reversal (since Hamming distance is invariant under bit permutation). Trigram assignments do change under reversal, affecting display labels but not mathematical results.
 - The hexagram names are attributed to the [Wilhelm/Baynes translation](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) but several are simplified or variant. A rigorous treatment would cite each name individually, not give a blanket attribution.
-- The [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering used from 2026-04-06 to 2026-07-05 was **wrong** (a mis-synthesized array, not the manuscript's); it was corrected 2026-07-05 to the sequence in Shaughnessy 2022 (Brill), p. 50 + Table 11.2, verified against multiple independent sources. Every published Mawangdui-derived number was recomputed; the former "Mawangdui satisfies C2" claim is withdrawn (the authentic order has exactly one 5-line transition, at a trigram-octet seam).
+- The [Mawangdui](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) ordering used from 2026-04-06 to 2026-07-05 was **wrong** (a mis-synthesized array, not the manuscript's); it was corrected 2026-07-05 to the sequence in [Shaughnessy 2022](CITATIONS.md#shaughnessy2022) (Brill), p. 50 + Table 11.2, verified against multiple independent sources. Every published Mawangdui-derived number was recomputed; the former "Mawangdui satisfies C2" claim is withdrawn (the authentic order has exactly one 5-line transition, at a trigram-octet seam).
 - The sequence is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE), but modern scholarship is divided on the exact origin, authorship, and dating. The program uses the traditional attribution as a label without taking a position on historicity.
 
 ## Statistical methodology
 
-- The entropy analysis now includes both unconstrained and pair-constrained null models. King Wen remains more structured than random under both (12th and 6th percentile respectively), but neither survives Bonferroni correction (p > 0.0018).
+- The entropy analysis now includes both unconstrained and pair-constrained null models. King Wen remains more structured than random under both (12th and 6th percentile respectively), but neither survives [Bonferroni](CITATIONS.md#bonferroni1936) correction (p > 0.0018).
 - The autocorrelation uses the biased estimator (divides by n rather than n-lag), which attenuates values at higher lags. This is the standard estimator but may understate weak periodicity.
 - The DFT significance threshold (2x noise floor) is ad hoc. A proper test would use Fisher's g-statistic or Bonferroni correction across frequency bins.
 - The DNA codon mapping uses one of 24 possible bit-to-base assignments. Different mappings produce different results. The comparison is illustrative, not evidence of a biological connection.
@@ -86,7 +86,7 @@ were selected from a large explored battery, and their significance claims are m
 
   | Family | Scope | C1 (pair struct) | C2 (no 5-line) | C3 (comp dist ≤ 776) |
   |---|---|---|---|---|
-  | de Bruijn B(2, 6) | Exhaustive, 134,217,728 circuits | **0 (0.00%)** — also proven analytically | 0 (0.00%) — min observed 1; **≥1 five-line now proven analytically (Claim 3)** | 247,048 (0.1841%) |
+  | [de Bruijn B(2, 6)](CITATIONS.md#vanaardenne-debruijn1951) | Exhaustive, 134,217,728 circuits | **0 (0.00%)** — also proven analytically | 0 (0.00%) — min observed 1; **≥1 five-line now proven analytically (Claim 3)** | 247,048 (0.1841%) |
   | 6-bit Gray code orbit | 256 (rot × rev × compl) | **0 (0.00%)** — proven ∀ Gray | 256 (100%) — trivial | 0 (0.00%); range [1792, 2048] |
   | 6-bit Gray codes (random) | 10^5 random Hamiltonian walks in Q_6 | **0 (0.00%)** | 100% (trivial) | **0 (0.00%); range [832, 2048], CI ≤ 3×10⁻⁵** |
   | Latin-square row × column | Exhaustive 8!×8! = 1,625,702,400 | **0 (0.00%)** | **942,243,840 (57.96%)** — see §decomposition below | 108,380,160 (6.67%); range [512, 2048] |
@@ -358,8 +358,8 @@ more strongly. KW rows are unaffected.)*
 To keep the look-elsewhere accounting honest, this registration is published BEFORE any population
 number has been observed. Thirteen integer-valued ordering-layer functionals — each derived from an
 axis already present in the literature (Jing Fang palaces, Zheng Qiao/Hu Yigui trigram clustering,
-Cook nuclear structure, [Schulz](CITATIONS.md#schulz1990-motifs) gender drift, Moore run structure, [Davis](CITATIONS.md#davis2012) complement adjacency, Lai
-Zhide halves, Zhu Yuansheng parity, Chan lag-1 autocorrelation, McKenna wave asymmetry, the Fu Xi
+Cook nuclear structure, [Schulz](CITATIONS.md#schulz1990-motifs) gender drift, [Moore](CITATIONS.md#moore1989) run structure, [Davis](CITATIONS.md#davis2012) complement adjacency,
+[Lai Zhide](CITATIONS.md#laizhide) halves, Zhu Yuansheng parity, Chan lag-1 autocorrelation, McKenna wave asymmetry, the Fu Xi
 binary axis, symmetric-hexagram placement, and the circular wrap class) — are implemented and gated in
 `solve.py --f4p-verify` / `solve --f4p-verify` (two-language, KW values embedded). Decision thresholds,
 fixed in advance: "notable" = two-sided p < 0.05/13 (Bonferroni); "candidate rule" = < 10⁻⁴ after
