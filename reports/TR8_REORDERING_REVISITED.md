@@ -7,7 +7,9 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 ## Executive summary
 
 In 1979, [McKenna and Mair](../documentation/CITATIONS.md#mckenna-mair1979) proposed that the King Wen sequence would be "better" reordered — that a
-rearrangement could smooth its irregularities. The proposal sat untested for 47 years. This report
+rearrangement could smooth its irregularities. The proposal drew one published reply — a philosophical
+critique ([Hershock 1991](../documentation/CITATIONS.md#hershock1991)) that rejected its method but
+shared its premise and tested neither claim — and sat computationally untested for 47 years. This report
 answers it twice. First, by measurement: the properties their argument assumed to be defects are, when
 checked against the space of valid orderings, among the sequence's rarest and most distinctive features
 — removing them removes what is special. Second, by proof: the specific smooth construction their
@@ -41,7 +43,11 @@ analysis. We supply the instruments their question required.
 ## Structure (4 sections)
 1. **The 1979 position** — fair summary: their premise (no defensible global structure), their proposal
    (Gray-code reordering starting from Kun), their motivation. One paragraph of historical respect: first
-   constructive test proposal in the literature.
+   constructive test proposal in the literature. Reception note: the only published reply we have located
+   ([Hershock 1991](../documentation/CITATIONS.md#hershock1991), JCP) critiqued their method on
+   philosophical grounds while sharing their premise of global randomness and proposing a mandala
+   reordering of his own — so the premise itself went unmeasured, and the construction's feasibility
+   undecided, until now.
 2. **The premise, measured** — two null populations, stated precisely (they are different spaces and give
    different numbers): (a) the C1–C5 constraint-satisfying population (≈1.33×10³⁸ orderings, estimator
    validated against exhaustive slices) — this is the population over which the quoted rarities are
@@ -89,7 +95,10 @@ box.
   Guide; per-rule record in [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)).
 - "Is the Gray-code theorem yours?" -> elementary; stated with humility; Lean-checked file in repo.
 - "Why should PEW publish computation?" -> because the 1979 claims were published here and are now
-  decidable; the note closes a 47-year-old open question in the journal's own record.
+  decidable; the note closes a 47-year-old open question in the journal's own record. (The only prior
+  published reply — [Hershock 1991](../documentation/CITATIONS.md#hershock1991) — appeared in JCP and
+  was philosophical, not empirical, which also strengthens JCP as the fallback venue: both journals'
+  records hold an open end of this thread.)
 - "AI assistance?" -> disclosed per repo policy; all results mechanically checkable independent of how
   they were found.
 
@@ -104,3 +113,4 @@ box.
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
+| v1.2 | 2026-07-10 | Reception history added: Hershock (1991), the one published reply to McKenna & Mair, acquired (ILL) and audited — philosophical critique, premise shared, neither claim tested; "sat untested" sharpened to "computationally untested" |
