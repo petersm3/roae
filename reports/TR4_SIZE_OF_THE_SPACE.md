@@ -45,8 +45,10 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    <1% at every rung (5 free positions: 443 exact vs 442.9; 7: 62,256 vs 62,257; 9: 9,422,793 vs 9,424,649
    nodes, 16,504 vs 16,422 canonical). Independent cross-check: 56 per-branch estimates sum to 1.33×10³⁸ vs
    the independently-estimated whole-tree 1.32×10³⁸ (<1%).
-3. **The measurement.** 5×10¹⁰ probes (definitive 100×-probe run, 2026-07-01; the earlier 5×10⁸ run gave the
-   same central value at wider CI): canonical C1–C5 raw **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
+3. **The measurement.** 5×10¹⁰ probes (definitive 100×-probe run, 2026-07-01; the earlier 5×10⁸ run gave 1.32×10³⁸
+   (rel. err 0.18%), ≈2σ below the definitive value — an unremarkable deviation for one early draw from a
+   right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
+   canonical C1–C5 raw **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
    orderings 1.0971×10³⁹ (0.01%); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
    the reduction funnel (64! ≈ 1.3×10⁸⁹ → C1 skeleton 32!·2³² ≈ 1.1×10⁴⁵ → ~10⁴⁰ → ≈1.3×10³⁸). Structure:
    the 56 first-level branches are roughly uniform (min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶, spread

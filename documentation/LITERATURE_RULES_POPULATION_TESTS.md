@@ -40,8 +40,13 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
    Both readings of the pairs-22/23 anomaly therefore remain live: deliberate/corrupted deviation from a
    compliant precursor (Moore), or the rules being strong tendencies rather than exact laws.
 3. **Cook's anchor rules are real but partially explained.** The final-pair anchor holds in 7.8% of the
-   population — far above the naive 1/31 ≈ 3.2%, because C5's transition budget favors closing on a
-   distance-6 pair; the rule is genuine but its surprise is smaller than raw position-counting suggests.
+   population — far above the naive 1/31 ≈ 3.2%, **but most of that gap is forced: the wrap-parity theorem
+   makes 16 of the 31 non-initial pairs ineligible to close ([TR-7](../reports/TR7_CIRCULAR_READING.md)
+   §"The anchors on the circle"), so the eligibility-adjusted baseline is 1/16 = 6.25% and the residual
+   enrichment is only ×1.25** — the rule is genuine but its surprise is smaller than raw position-counting
+   suggests. (The earlier "because C5's transition budget favors closing on a distance-6 pair" reading is
+   demoted to at most a candidate mechanism for the ×1.25 residual: only 4 of the 16 eligible closers are
+   distance-6-within pairs, so it cannot carry the main effect.)
 4. **The classical 18:18 split is weak as a discriminator** (36% of all valid orderings have it) — its
    significance is historical attestation, not statistical rarity.
 5. None of these rules, singly or jointly, approaches uniqueness (the full C1–C7 space itself holds

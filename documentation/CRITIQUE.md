@@ -428,6 +428,24 @@ controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the
 convention nothing reaches the candidate-rule level; nothing promotes. Full treatment:
 [reports/TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).
 
+## Pre-registered model comparison in flight: four-class generative comparison (registered 2026-07-10, results pending)
+
+Following the F4′/permutation pre-registration discipline, a four-class Bayesian model comparison over
+the C1–C5 canonical-mass population has been frozen BEFORE any measurement. The classes: **M0**
+uniform-valid (null), **M_G** greedy-builder (a sequential softmax arranger), **M_D** global-design
+(Gibbs energy over the frozen literature-rule bundle, per-axis strengths), and **M_C** corrupted-precursor
+(the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 corruption model, unchanged, with the grand-strict
+population size N_gs measured directly this time). Model forms, numeric grids and priors, Jeffreys
+decision bands, a synthetic-draw calibration run BEFORE the KW verdict (with a frozen confusability
+veto), and a posterior-predictive adequacy layer against the full published functional battery are all
+fixed in the frozen design. Publish-regardless: every marginal likelihood, all six pairwise Bayes
+factors, and the full sensitivity grid will be reported whatever the direction — including a verdict
+against M_C, which would complicate (not rewrite) the TR-2 v1.7 headline. This axis is **report-only with
+no promotion path**, and it does NOT grow the observable look-elsewhere ledger (it is a model comparison,
+not a KW-rarity observable). **Results pending — the compute half (ingredient runs, calibration,
+integration) has not been run; no Bayes factor or verdict is stated here.** Bundle to land in
+`reports/evidence/r11/`.
+
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*

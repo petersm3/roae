@@ -36,7 +36,7 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 
 ## Result — the whole C1–C5 tree
 
-5×10¹⁰ probes (the 100×-probe definitive run, completed 2026-07-01; the earlier 5×10⁸ run gave the same central value at wider CI):
+5×10¹⁰ probes (the 100×-probe definitive run, completed 2026-07-01; the earlier 5×10⁸ run gave 1.32×10³⁸ (rel. err 0.18%), ≈2σ below the definitive value — an unremarkable deviation for one early draw from a right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
 
 | quantity | estimate | 95% CI | rel. error |
 |---|---|---|---:|

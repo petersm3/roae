@@ -153,9 +153,88 @@ folding in.
 `wrap_parity_general` in lean/KingWen.lean); the KW instance is a three-line check from solve.py's
 `binary_hexagrams` (count sign changes of the cyclic Hamming-distance parity string).
 
+## The anchors on the circle (added v1.9)
+
+The sequence's two endpoint pairs are individually distinguished: the pure pair {Qian, Kun} that opens
+it (C4) and the alternating pair {Jiji, Weiji} that closes it — [Cook 2006](../documentation/CITATIONS.md#cook2006)'s
+"pure opens, mixed closes," measured linearly as the final-pair anchor (7.84% of C1–C5 mass,
+[LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)). They are
+also the only *intrinsically* extremal pairs: the unique pair of run-length-6 (constant) hexagrams and
+the unique pair of run-length-1 (strictly alternating) hexagrams. Under McKenna's circular reading the
+two observations become one: **the two anchor pairs are neighbors on the circle** — KW places the
+alternating pair in the last slot, adjacent to the pure pair across the wrap.
+
+How much of that is forced? Three theorems (elementary; each exhaustively verified by finite computation
+over the 64 hexagrams / 32 pairs — a Lean formalization is planned, see the Verification Guide):
+
+(i) *Transition rigidity (T1):* every hexagram of the pure pair is at Hamming distance exactly 3 from
+every hexagram of the alternating pair (an alternating 6-bit string has exactly three 1s, so it differs
+from 111111 and from 000000 in three positions each) — so an anchor adjacency, wherever it occurs and
+however oriented, is a d = 3 transition: C2-legal, odd, one unit of the largest odd budget class. In
+particular KW's wrap distance 3 (§2) is forced by *which pair closes*, not by any orientation choice.
+
+(ii) *Seam eligibility (T2i):* pairs are parity-homogeneous (16 even / 16 odd — [TR-6](TR6_PARITY_SKELETON.md)
+ingredients), and the wrap-parity theorem (§2) then forbids all 16 even pairs — including all four
+self-reverse pairs and the pure pair itself — from ever occupying the final slot.
+
+(iii) *Pair-determined wrap (T2ii):* for each of the 16 eligible (odd) pairs the wrap distance is a
+function of the pair alone (orientation-free), classifying them **10 : 3 : 3** into d = 3, 1, 5 closers
+(the 4 antipalindromic pairs — A₂ among them — plus the 6 popcount-3 reverse-pairs at d = 3; the 3
+popcount-5 reverse-pairs at d = 1; the 3 popcount-1 reverse-pairs at d = 5; the wrap-d5 SAT witness of
+§5, which closes on (32, 1), is one of the latter — consistent). Eligibility is a *necessary* condition:
+that all 16 eligible pairs are actually realized as closers is not proven here (the measured wrap masses
+show every class is realized, and explicit witnesses realize A₂ and (32, 1)).
+
+The measured full-space wrap masses (§5: 65.2 / 17.5 / 17.4% for d = 3 / 1 / 5) sit remarkably close to
+the bare eligible-pair-counting baseline (62.5 / 18.75 / 18.75%) — the wrap-distance profile is, to first
+order, pair-counting, with only a mild residual tilt toward d = 3. (Hedge: the baseline is a heuristic
+reference, not a null; per-class CIs are heavy-tail dominated per §5; the per-pair spread within classes
+is unknown except for A₂.)
+
+**This re-prices Cook's anchor.** Against the naive 1/31 ≈ 3.2% the measured 7.84% looks like a ×2.4
+enrichment, but the parity-forced eligibility baseline is 1/16 = 6.25%, so of that apparent enrichment
+×1.9 is parity-forced (it holds for *every* C4+C5 ordering) and only **×1.25 is the contingent residual**
+(7.84 / 6.25). Within its own d = 3 class A₂ carries 7.84% against a 6.52% class average (the other nine
+d = 3 closers average 6.37%) — mildly, not dramatically, over-represented.
+
+**Pre-registered measurement (not yet run).** What remains genuinely contingent is the adjacency
+*placement* itself. Its circular population frequency — R-C1c, the weighted C1–C5-mass fraction in which
+the alternating pair occupies slot 2 or slot 32 — is registered here BEFORE measurement, in the F4′/F11
+pre-registration discipline: a 2×10¹⁰ weighted-Knuth run with the built-in gate that its slot-32 mass
+must reproduce the published R-C1 ≈ 7.84% (a miss is a scorer bug, not a result), against baselines
+uniform-slots 6.45% and the eligibility-adjusted lower bound 7.84%. **PENDING — the pinned walk has not
+been run; no adjacency frequency is reported here.** The KW ground truth (slot 2 = 0, slot 32 = 1,
+adjacent = 1) and the negative control (the wrap-d5 SAT witness scores adjacent = 0) are fixed in
+advance. Likewise the *circular solution-space size* |C_circ| — fixing KW's circular transition multiset
+{1:2, 2:20, 3:14, 4:19, 6:9} and anchoring the cut at the pure pair (a bijection: the pure pair occurs
+once per cycle) decomposes exactly by wrap value w ∈ {1, 3} into 0.652·|C1–C5| + f₁(M′)·N(M′) — is
+**PENDING** on one further C5-budget-override walk; the first term ≈ 8.66×10³⁷ follows from the
+published masses, the second is not yet measured. This registers one report-only R-series observable in
+the look-elsewhere ledger; per the §6 non-promotion decision it is measurement and theorem, not
+constraint — neither the circular reading (McKenna's frame) nor the anchor rule (Cook's observation)
+enters the formal system.
+
+*Attribution: circular frame McKenna & McKenna (1975); the final-pair anchor rule Cook (2006); the
+rigidity/eligibility theorems, the 10:3:3 classification, and the eligibility-adjusted re-pricing are
+ROAE (to our knowledge first stated here — the ingredients are elementary and may appear elsewhere;
+corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
+
+### Verification Guide additions (v1.9)
+- Anchor rigidity (T1) + seam eligibility (T2i) + 10:3:3 classification (T2ii): exhaustive finite
+  re-check in one Python session from `solve.py`'s `binary_hexagrams`; a Lean formalization
+  (`anchor_cross_distance_three`, `no_even_pair_closes`, `closer_classes_10_3_3`) is planned for
+  `lean/KingWen.lean` (PENDING, not yet merged).
+- Circular anchor adjacency R-C1c + A₂ slot histogram (**PENDING run**):
+  `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (KW gate: slot2 = 0, slot32 = 1,
+  adjacent = 1; d5-witness negative control = 0; slot-32 mass must reproduce R-C1 ≈ 7.84%).
+- Circular-space size (**PENDING run**):
+  `SOLVE_KNUTH_C5_BUDGET="1:1,2:20,3:14,4:19,6:9" SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
+  (self-gate: standard-budget override reproduces N_lin).
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.8 | 2026-07-04 | 32-circular-switches corollary added (TR-6 30-switches × wrap-parity composition; derived in cross-report synthesis 2026-07-04, re-verified independently) |
+| v1.9 | 2026-07-10 | "The anchors on the circle" section added: anchor-transition rigidity (T1) + seam eligibility (T2i) + pair-determined 10:3:3 wrap classification (T2ii) — elementary, exhaustively finite-verified (Lean formalization planned); Cook's final-pair anchor re-priced against the parity-forced 1/16 eligibility baseline (apparent ×2.4 = ×1.9 forced · ×1.25 contingent). Circular anchor-adjacency population frequency (R-C1c) and circular-space size |C_circ| pre-registered but PENDING measurement (walks not yet run). |

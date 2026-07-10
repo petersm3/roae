@@ -14,10 +14,19 @@ the adversarial replication reviews (archived alongside this suite).*
 | Lean | 4.31.0 via elan; core only (no mathlib) | `lean lean/KingWen.lean` exits 0 |
 
 ## Statistics conventions
-- **Knuth estimator CIs**: per-thread means of walk weights; 95% CI = mean ± 1.96·SE across probes
-  (SE from the weight variance; printed by `--estimate-knuth` as `95%CI=[..]  relerr=..`). CIs degrade
-  visibly at hit rates below ~10⁻⁷ per probe; every reported number states its probe count, and
-  strict-form masses near 10⁻⁶ carry the ±10–15% relative-error caveat in-text.
+- **Knuth estimator CIs**: probes are i.i.d.; for each reported quantity the per-probe weight X and X²
+  are accumulated exactly, and the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard
+  Wald CI on Knuth's (1975) unbiased estimator. Weighted fractions (masses of canonical weight) are
+  same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces exactly to the numerator's
+  own relative variance, so a fraction's honest relerr equals the relerr of its numerator. S(k)-style
+  ratios of separate runs add relative variances (the whole-space denominator's 0.02% is negligible).
+  Caveats: weights are right-skewed, so CIs at low effective sample size (n_eff = 1/relerr²; e.g. relerr
+  10% → n_eff ≈ 100) are approximate and skew toward underestimation — figures at ≥10% relerr should be
+  read as ±20% with ~90–93% practical coverage; zero-hit estimates print 0 with a degenerate CI and are
+  reported as starvation, not as bounds. PRNG seeds are fixed constants: re-runs at identical (probes,
+  threads) reproduce identical output (a reproducibility feature; runs at the same thread count and
+  different probe counts share stream prefixes and are not independent draws). CIs degrade visibly at hit
+  rates below ~10⁻⁷ per probe; every reported number states its probe count.
 - **Permutation-test nulls**: seeded (`random.Random(42)` unless stated); N=10,000 default; the
   pair-preserving null = shuffle the 32 canonical pairs + independent uniform orientation flips, first
   pair fixed by C4 where stated.

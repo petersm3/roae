@@ -17,7 +17,9 @@ New in v1.7: within the three graded rules — where perfection **is** achievabl
 Bayesian comparison finds the received order far better explained as a corrupted rule-perfect ordering
 than as the work of an arranger holding the rules as soft preferences (Bayes factor ≈ 6.6×10³–7.9×10³,
 "strong" on the Jeffreys scale); a two-model comparison conditioned on the literature's rules, not proof
-of corruption in any absolute sense.
+of corruption in any absolute sense. A wider four-class comparison (adding a greedy-builder and a
+global-design class plus a uniform-valid null) has since been pre-registered under the same discipline;
+its measurement is pending and no result is stated in this report.
 
 Verification model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
 
@@ -213,6 +215,43 @@ reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe c
 for re-derivation) — all in the public `solve.c` and documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md) §ENVIRONMENT; the
 edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 
+## Pre-registered extension (v1.9): a four-class model comparison — design frozen, measurement pending
+
+The v1.7 Bayesian comparison above is deliberately a **two-model** test (M_corr vs M_tend), and its own
+scope note names the gap: it cannot weigh "the rules are real" against models outside that pair. A wider
+**four-class** comparison has now been pre-registered — its design frozen BEFORE any measurement, in the
+same F4′/F11 discipline (publish-whatever-it-says; primary configuration designated before any number
+exists). The four classes:
+
+- **M0 — uniform-valid:** KW is an unremarkable member of the C1–C5 space; every rule-compliance is
+  coincidence at its measured population rate.
+- **M_G — greedy-builder:** a sequential softmax arranger placing pairs one slot at a time under local
+  preferences, never optimizing globally — the natural generator of "near-miss on every axis" profiles,
+  and the rival F11 never tested.
+- **M_D — global-design:** a Gibbs arranger weighing the frozen rule bundle globally with per-axis
+  strengths (generalizes M_tend).
+- **M_C — corrupted-precursor:** F11's M_corr, carried unchanged, with the grand-strict population size
+  N_gs measured directly this time (closing F11's weakest ingredient — the ×3.5 spread between its two
+  derived estimates).
+
+The axis bundle, numeric priors and grids, the Jeffreys decision bands (as v1.7), a synthetic-draw
+calibration that runs BEFORE the KW verdict and can veto an unreliable one, and an adequacy layer
+auditing every model against the full published functional battery are all fixed in the frozen design.
+The comparison is **report-only, with no promotion path**, and it does not revise the v1.7 two-model
+result, which stands as published (if the wider comparison ever dethrones corruption, this section gains
+a forward-pointer; it is not rewritten).
+
+**PENDING — measurement not yet run.** The compute half (instrument wiring, the ingredient runs
+including the direct N_gs measurement, the synthetic-draw calibration, and the closed-form integration)
+has NOT been executed. **No Bayes factor, posterior, or verdict is reported here** — this subsection
+registers the design only. Results, when computed, land in `reports/evidence/r11/` under the frozen
+verdict template.
+
+*Attribution: the modeled rules belong to their authors (Moore, Schulz, Cook; the corruption mechanism
+to Rutt via Hacker & Moore); the greedy-builder formalization and the four-class design are ROAE,
+developed with AI assistance (Claude, Anthropic). Corrections welcome via
+[CITATIONS.md](../documentation/CITATIONS.md).*
+
 ## Revision history
 | Version | Date | Changes |
 |---|---|---|
@@ -222,4 +261,5 @@ edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 | v1.5 | 2026-07-04 | Adversarial round 2 correction: conflict-theorem claims scoped to pairing-preserving orderings |
 | v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
 | v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
+| v1.9 | 2026-07-10 | Pre-registered four-class model comparison (M0 uniform-valid / M_G greedy-builder / M_D global-design / M_C corrupted-precursor) added as a frozen design under F4′/F11 discipline; measurement pending — no Bayes factor, posterior, or verdict reported. Executive summary notes the registration. The v1.7 two-model result stands unchanged. |
 | v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_C_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
