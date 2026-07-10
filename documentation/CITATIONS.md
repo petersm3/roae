@@ -379,11 +379,15 @@ Yijing Studies, 2*(7). [not obtained]
 <a id="davis2012"></a>
 Davis, S. (2012). *The classic of changes in cultural context: A textual archaeology of the Yi jing*.
 Cambria Press.
-  Window-symmetry claims; the flagship compositional-unit rule measures population-typical (×7). Audited
-  first-hand 2026-07-04 (26-claim structural audit of the purchased e-book): two Davis structural claims
-  are refuted on first-hand verification — the p.257 n.2 uniqueness of hexagrams #63/64, and the p.114
-  "no further example" — while the flagship D-claims are audited but deliberately not yet measured. (The
-  ×7 population figure predates the purchase.) [read]
+  Window-symmetry claims; the flagship compositional-unit rule measures population-typical (×7;
+  figure predates the purchase). Audited first-hand 2026-07-04 (26-claim structural audit of the
+  purchased e-book) and measured at population scale the same day in
+  [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md): nine pre-registered composites — four
+  null, one Bonferroni-notable (the #43–50 trigram array), one borderline, three data-like; nothing
+  promotes. One uniqueness claim (p. 257 n.2, fewest-derivatives status of #63/64) is refuted with
+  a concrete counterexample (#51/52), his worked examples confirmed; a second candidate refutation
+  (p. 114) was withdrawn under our own hostile review — that claim survives its fairest reading
+  (TR-10 §4). [read]
 
 <a id="drasny2007"></a>
 Drasny, J. (c. 2007). *The regular grouping of the hexagrams before the Yi jing* [Paper]; *The Yi-globe:
