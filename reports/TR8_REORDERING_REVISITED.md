@@ -17,14 +17,13 @@ proposal requires (a Gray-code-style path) is **mathematically impossible** for 
 the classical pairing — a two-line parity argument anyone can verify by hand. The refutation is offered
 with credit: theirs was a concrete, falsifiable proposal, which is exactly what made it answerable.
 
-Target: *Philosophy East and West* (discussion note) or *Journal of Chinese Philosophy*. ~4 pages.
 Verification model: both results are mechanically checkable; the verification is procedural.
 
 ---
 
 ## Abstract
 
-In a 1979 article in this journal, Stephen E. McKenna and Victor H. Mair argued that the received (King
+In a 1979 article in *Philosophy East and West*, Stephen E. McKenna and Victor H. Mair argued that the received (King
 Wen) ordering of the sixty-four hexagrams is structurally indefensible beyond its local pairing, and
 proposed a replacement ordering constructed on Gray-code principles. Both halves of their position can
 now be evaluated computationally. First, exhaustive and sampling analyses show that the received order
@@ -94,19 +93,8 @@ box.
   registry pipeline ([`solve.py --registry-verify`](../documentation/SOLVE_C_CLI.md) gates + the population run in [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s Verification
   Guide; per-rule record in [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)).
 - "Is the Gray-code theorem yours?" -> elementary; stated with humility; Lean-checked file in repo.
-- "Why should PEW publish computation?" -> because the 1979 claims were published here and are now
-  decidable; the note closes a 47-year-old open question in the journal's own record. (The only prior
-  published reply — [Hershock 1991](../documentation/CITATIONS.md#hershock1991) — appeared in JCP and
-  was philosophical, not empirical, which also strengthens JCP as the fallback venue: both journals'
-  records hold an open end of this thread.)
 - "AI assistance?" -> disclosed per repo policy; all results mechanically checkable independent of how
   they were found.
-
-## Journal-submission track (dormant — activates only on an operator decision to submit)
-- Rewrite section 2 fully laptop-runnable (direct sampling, no Knuth machinery in the text).
-- Operator read-through for voice; humanities-register pass on section 1/4.
-- PEW author guidelines + length check; JCP as fallback venue.
-- Optional: Radisic outreach note (his theorem is load-bearing in section 3's coda).
 
 ## Revision history
 | Version | Date | Changes |
@@ -114,3 +102,4 @@ box.
 | v1.0 | 2026-07-04 | First public release |
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-10 | Reception history added: Hershock (1991), the one published reply to McKenna & Mair, acquired (ILL) and audited — philosophical critique, premise shared, neither claim tested; "sat untested" sharpened to "computationally untested" |
+| v1.3 | 2026-07-11 | Process sections relocated: the venue-targeting line, the venue Q&A bullet, and the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). "this journal" in the abstract made explicit (*Philosophy East and West*). No findings changed |
