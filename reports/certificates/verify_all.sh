@@ -38,9 +38,11 @@ for cert in "${!CERTS[@]}"; do
     "python3 sat.py --emit-cnf $t /tmp/roae_$t.cnf && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && $DRAT /tmp/roae_$t.cnf /tmp/roae_$t.drat | grep -q 's VERIFIED'"
 done
 
-echo "== 4. Lean kernel check =="
+echo "== 4. Lean kernel check (every lean/*.lean file) =="
 LEAN=${LEAN:-lean}; command -v "$LEAN" >/dev/null || LEAN="$HOME/.elan/bin/lean"
-check "lean/KingWen.lean" "\"$LEAN\" lean/KingWen.lean"
+for f in lean/*.lean; do
+  check "$f" "\"$LEAN\" \"$f\""
+done
 
 echo; echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
