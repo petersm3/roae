@@ -119,6 +119,37 @@ merge produces byte-identical `solutions.bin` given equal input sets.
 Therefore the two paths produce byte-identical `solutions.bin` and
 hence identical sha256. ∎
 
+## 2a. Machine-checked formalization (Lean 4) — and its exact scope
+
+The mathematical core of the argument above is machine-checked:
+[`lean/PartitionInvariance.lean`](../lean/PartitionInvariance.lean)
+(Lean 4.31.0, core only, standalone file, zero `sorry`; toolchain
+pinned in [`lean/lean-toolchain`](../lean/lean-toolchain)) proves that
+the abstract merge model — sort by the two-tier comparator, keep the
+first record of each canonical class — is invariant to input order
+(T1), partition choice (T3, including cross-depth prefix-cell
+partitions), invocation grouping (T5), and merge hierarchy / dedup
+placement (T4), and characterizes the output's content exactly (T2).
+See [`lean/README.md`](../lean/README.md) §Tier 3 for the theorem
+list.
+
+**Scope of the machine-checked result — read carefully.** What is
+machine-proven is the abstract merge **model**. The connection between
+that model and the actual C enumerator (`solve.c`) runs through four
+stated **bridge facts B1–B4** — per-cell exhaustive
+completeness/determinism (§2.1), content-addressed shard union
+semantics (§2.2), min-selection at every dedup site, and
+serialization determinism — which are explicit modeling assumptions,
+cited in the Lean file's header by `solve.c` function name, and are
+**NOT themselves machine-checked**. In particular, nothing in the
+Lean development proves the enumeration pipeline or `solve.c` itself
+correct or bug-free; the machine-checked theorem is a model-level
+result. The end-to-end evidence for the real pipeline remains the
+empirical sha-reproduction record in §5a (cross-hardware, cross-ISA,
+cross-region, cross-merge-mode, cross-invocation-mode byte-identical
+canonicals) — the formal model and the empirical record are
+complements, not substitutes.
+
 ## 3. Scope restriction: exhaustive vs budgeted
 
 The theorem as stated requires **exhaustive enumeration** of each
@@ -207,8 +238,14 @@ depth from the output.
 We have **not empirically verified** depth-invariance under exhaustion
 because neither a 10T d3 run nor a 10T d2 run reaches exhaustion on
 any sub-branch at current budgets. Both hit BUDGETED on every
-sub-branch. This remains a conjecture pending eventual exhaustion of
-at least one sub-branch at each depth.
+sub-branch. This remains an empirical conjecture pending eventual
+exhaustion of at least one sub-branch at each depth. At the **model
+level** it is now machine-checked: `cross_depth_invariance` in
+[`lean/PartitionInvariance.lean`](../lean/PartitionInvariance.lean)
+proves that exhaustive enumeration sharded at any two depths merges to
+identical canonical output — subject to the same B1–B4 bridge-fact
+scope stated in §2a (the theorem is about the merge model, not about
+`solve.c` itself).
 
 ## 5. Practical applications
 
@@ -317,6 +354,9 @@ This theorem is referenced by:
 - `solve.c` — the `compare_solutions` and `compare_canonical` comment
   block gives the proof-of-correctness argument for the merge's
   determinism in terms of the code path.
+- [`lean/PartitionInvariance.lean`](../lean/PartitionInvariance.lean) +
+  [`lean/README.md`](../lean/README.md) §Tier 3 — the machine-checked
+  model-level formalization of §2 (scope note in §2a above).
 - [`REBUILD_FROM_SPEC.md`](REBUILD_FROM_SPEC.md) — a language-agnostic
   recipe for an independent verifier; demonstrates by construction
   that the solution set is specification-derivable.

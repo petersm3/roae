@@ -4,26 +4,48 @@
 
 This directory contains **machine-checked mathematical proofs**. Instead of trusting a human
 argument (or this project's own C and Python code), the Lean 4 proof assistant re-derives each
-statement from first principles and its small trusted kernel certifies the logic. What that buys:
+statement from first principles and certifies the logic (see the trust-base note below for
+exactly which proofs are checked by Lean's small kernel alone and which additionally trust
+Lean's compiler). What that buys:
 
 - **The constraint system's basic facts are beyond dispute.** Every hexagram pair's distance
   properties, the exact set of XOR products, the parity structure, and King Wen's satisfaction of
-  the constraints are proved by exhaustive kernel-verified computation — not by our software, which
-  could have bugs, but by a checker whose only trusted component is Lean's core.
+  the constraints are proved by exhaustive computation checked by Lean — not by our software, which
+  could have bugs. (See the trust-base note below: `decide` proofs are checked by Lean's small
+  kernel alone; the finite lemmas proved by `native_decide` additionally trust Lean's compiler and
+  native code generator.)
 - **The symmetry theorem is fully machine-checked** (finite component + the sequence-level layer in
   `Automorphism.lean`): the constraint system has exactly 48 relabeling symmetries, they act freely
   at the record level in 24-element orbits, and therefore **24 divides every exact solution count**.
   This is the theorem behind the "divisible by 24" sanity gate applied to the project's exact counts;
   if a count ever failed that gate, the computation — not the mathematics — would be at fault.
+- **The merge's reproducibility mathematics is machine-checked at the model level**
+  (`PartitionInvariance.lean`): the abstract merge model is proven invariant to input order,
+  partition choice, invocation grouping, and merge hierarchy. Its connection to the actual C
+  enumerator runs through stated bridge facts that are NOT machine-checked — this is a model-level
+  result, not a proof of the C code; see the Tier 3 section's scope note.
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
-  `lake build` re-verifies the whole suite from scratch in seconds on any machine.
+  each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
+  the toolchain is pinned in this directory's `lean-toolchain`).
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
 
-`KingWen.lean` contains kernel-checked proofs of the ROAE constraint system's finite core lemmas —
+`KingWen.lean` contains machine-checked proofs of the ROAE constraint system's finite core lemmas —
 **core Lean 4 only, no mathlib**; every hexagram-level claim is proved by `native_decide`
-(exhaustive, kernel-verified computation). Verified statements:
+(exhaustive computation over the finite domain).
+
+**Trust-base note (what "machine-checked" means here, precisely).** Lean proofs by `decide` are
+verified by Lean's small trusted kernel. Proofs by `native_decide` are NOT kernel-only: they
+additionally trust Lean's compiler and native code generator (a strictly larger trusted base, which
+has had real soundness bugs historically). In this suite, `native_decide` carries only finite
+exhaustive computations (hexagram-level lemmas, group facts, sanity witnesses); the structural
+sequence-level theorems (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems
+in `PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel. Where a
+finite lemma is small enough, migrating `native_decide` → `decide` is a standing opportunistic
+cleanup.
+
+Verified statements:
 
 | Theorem | Statement |
 |---|---|
@@ -41,11 +63,13 @@ finite computation those arguments rest on.
 ## Verify yourself
 
 ```bash
-# install elan (Lean version manager), then (each file is standalone; no lake project):
-lean KingWen.lean          # silence = all theorems check (Lean 4, tested with 4.31.0)
-lean C3Decomposition.lean  # C3 slot-decomposition theorem (sat.py's C3-encoding soundness core)
-lean PruneSafety.lean      # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
-lean Automorphism.lean     # the sequence-level symmetry layer (see below)
+# install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
+# (leanprover/lean4:v4.31.0). Each file is standalone; no lake project:
+lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0)
+lean C3Decomposition.lean    # C3 slot-decomposition theorem (sat.py's C3-encoding soundness core)
+lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
+lean Automorphism.lean       # the sequence-level symmetry layer (see below)
+lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
 ```
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
@@ -93,3 +117,32 @@ carries only the finite group facts). Verified statements:
 The count statement is exact-matching by construction: `SolRec Q r` says r = pairKey(l) for some
 permutation l of the 64 hexagrams with Q(l), the same record-level object (pair-sequences after
 orientation dedup) counted by the enumeration pipeline and `twins_24_records`.
+
+## Tier 3 (2026-07-11): PartitionInvariance.lean — model-level merge/partition invariance
+
+Formalizes the mathematical core of
+[PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md): the canonical merge modeled as
+`dedupKeyFirst ∘ sortLe` (sort by the two-tier comparator, keep the first record of each canonical
+class) under the four `MergeOrder` hypotheses. Core Lean 4 only, standalone file, zero `sorry`;
+`native_decide` carries only the §12 sanity witnesses — the theorems are structural. Verified
+statements:
+
+| Theorem | Statement |
+|---|---|
+| `merge_perm` (T1) | The merge is a function of the input multiset: shard/readdir order and choice of (correct) sort algorithm are irrelevant |
+| `merge_spec` (T2) | The output is sorted, one record per canonical class, each retained record the byte-least member of its class, every input class represented — SOLUTIONS_FORMAT.md's dedup semantics as a theorem |
+| `partition_invariance` (T3) + `cross_depth_invariance` | ANY two partitions of a duplicate-free solution listing into cells merge identically — including take-d prefix cells at any two depths (the cross-depth exhaustion conjecture of PARTITION_INVARIANCE.md §4, at the model level) |
+| `merge_map_merge_flatten` (T4 family) | Dedup placement irrelevance: pre-merging at any interior node of any merge hierarchy leaves the root output unchanged |
+| `grouping_invariance` (T5) | The same per-cell shard family, regrouped/reordered into invocations arbitrarily, merges identically (the empirically-validated 1-invocation-vs-56-invocations headline) |
+| `dedupAdjacent_eq` | Code-faithfulness bridge: the pipeline's collapse-adjacent-equal-key-runs pass equals `dedupKeyFirst` on sorted input |
+| `recMergeOrder` | The real comparator/key pair (two-tier `compare_solutions` order, `& 0xFC` mask) satisfies all four `MergeOrder` hypotheses |
+
+**Scope — read this before citing (model-level result).** What is machine-proven is the abstract
+merge MODEL: order-, partition-, grouping-, and hierarchy-invariance of `dedupKeyFirst ∘ sortLe`.
+The connection between that model and the actual C enumerator (`solve.c`) runs through four stated
+bridge facts B1–B4 (per-cell exhaustive completeness, shard union semantics, min-selection at every
+dedup site, serialization determinism) — explicit modeling assumptions, cited in the file header by
+function name, that are **NOT themselves machine-checked**. Nothing here proves the C pipeline or
+`solve.c` correct. The end-to-end evidence for the pipeline remains the empirical cross-hardware /
+cross-mode / cross-depth sha-reproduction record (PARTITION_INVARIANCE.md §5a); this file and that
+record are complements, not substitutes.

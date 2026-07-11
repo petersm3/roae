@@ -3,7 +3,9 @@
 /-
   KingWen.lean — machine-checked core lemmas of the ROAE constraint system (2026-07-02).
   Core Lean 4 only (no mathlib). All hexagram-level claims are finite and proved by
-  native_decide (exhaustive kernel-checked computation); the sequence-level theorems
+  native_decide (exhaustive computation; trusts Lean's compiler + native code
+  generator in addition to the kernel — see lean/README.md's trust-base note);
+  the sequence-level theorems
   (wrap parity, alternation theorem) follow from these lemmas by the short pen-and-paper
   telescoping arguments in SPECIFICATION.md / PARITY_ALTERNATION.md.
 

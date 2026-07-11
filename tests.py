@@ -335,6 +335,63 @@ class TestSatC5Subset(unittest.TestCase):
                 self.assertEqual(accepted, self._ref_count(pl, start, b0))
                 self.assertEqual(accepted, valid)
 
+    @staticmethod
+    def _count_models(clauses, nvars):
+        """Exhaustive DPLL TOTAL-model counter (all variables, no projection).
+        Unassigned-anywhere variables contribute 2^free once the clause set
+        is satisfied, so this is the true #SAT count over nvars variables."""
+        def simplify(cls, lit):
+            out = []
+            for c in cls:
+                if lit in c:
+                    continue
+                if -lit in c:
+                    nc = [l for l in c if l != -lit]
+                    if not nc:
+                        return None  # empty clause: conflict
+                    out.append(nc)
+                else:
+                    out.append(c)
+            return out
+        def rec(cls, nfree):
+            while True:  # unit propagation
+                units = [c[0] for c in cls if len(c) == 1]
+                if not units:
+                    break
+                cls = simplify(cls, units[0])
+                if cls is None:
+                    return 0
+                nfree -= 1
+            if not cls:
+                return 1 << nfree
+            v = abs(cls[0][0])
+            pos, neg = simplify(cls, v), simplify(cls, -v)
+            return ((rec(pos, nfree - 1) if pos is not None else 0) +
+                    (rec(neg, nfree - 1) if neg is not None else 0))
+        return rec([list(c) for c in clauses], nvars)
+
+    def test_tiny_total_model_count(self):
+        # #SAT-safety gate (R2 review §1e): the certified-count cross-check
+        # (D4/CPOG) counts TOTAL models over ALL variables — Y, T indicators,
+        # AND Sinz counter registers — not projections onto Y. That is safe
+        # only because in an exactly_k context the auxiliary variables are
+        # functionally determined in every model. Pin the property: exhaustive
+        # DPLL total-model count == walk count at N in {2,3}, both start
+        # values, so a future encoding change (e.g. swapping the cardinality
+        # encoding for a non-count-safe one) cannot silently break #SAT-safety
+        # before a model-counter run. NOTE the standing caveat: at_most_k
+        # ALONE (as used by --with-c3 / alt-le-14 / -near-) is NOT
+        # model-count-safe; this gate covers the exactly_k subset targets.
+        for N in (2, 3):
+            for start in (0, 63):
+                pl = list(range(1, N + 1))
+                b0 = self._ref_b0(pl, start)
+                cnf, _ = sat.build_subset_pl(pl, start, b0)
+                walks = self._ref_count(pl, start, b0)
+                self.assertGreater(walks, 0)
+                self.assertEqual(self._count_models(cnf.cl, cnf.n), walks,
+                                 f"total-model count != walk count at N={N} start={start}")
+
     def test_subset_probe_pins(self):
         # group-closed certified-count-probe instances: B0 + exact |C1&C2&C4&C5|.
         # Pinned oracle values; a proof-emitting #SAT / C-binary model-count

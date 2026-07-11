@@ -22,7 +22,8 @@
   note there on record-level vs orientation-resolved counts.
 
   Structure:
-  (a) finite facts about G48/G24 (kernel-checked by native_decide, the repo style);
+  (a) finite facts about G48/G24 (checked by native_decide — extended trust base,
+      see lean/README.md's trust-base note; the repo style for finite facts);
   (b) structural invariance proofs: each constraint C1/C2/C3/C4/C5 is preserved by
       every σ ∈ G48 on EVERY permutation of the 64 hexagrams (not just King Wen);
   (c) the record-level action (relabel pair keys) and its compatibility with
@@ -174,7 +175,7 @@ def SolRec (Q : List Nat → Bool) (r : List Nat) : Prop :=
 /-- well-formed pair key: two 6-bit digits in canonical (sorted) order. -/
 def WFkey (k : Nat) : Prop := k < 4096 ∧ k / 64 ≤ k % 64
 
-/- ------------------ §2 finite group facts (kernel-checked) ------------------ -/
+/- ------- §2 finite group facts (native_decide; extended trust base) ------- -/
 
 theorem G48_length : G48.length = 48 := by native_decide
 

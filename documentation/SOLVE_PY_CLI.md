@@ -157,9 +157,23 @@ workflow lives in the sibling `sat.py`; see [SAT_CLI.md](SAT_CLI.md).)
 | Flag | Description |
 |---|---|
 | `--sat-encode OUT_CNF` | Emit DIMACS CNF for C1+C2 over the King Wen sequence to `OUT_CNF`. |
-| `--sat-c3 none\|pb\|adder` | Include C3 in the encoding as a pseudo-Boolean (`pb`) or adder-network (`adder`) cardinality constraint (default `none`). |
+| `--sat-c3 none\|pb\|adder` | Include C3 in the encoding as a pseudo-Boolean (`pb`) constraint (default `none`). `adder` is **deferred/superseded** — see the note below. |
 | `--sat-c4` | Force position 0 = hexagram 0 (the Qian/Kun orientation convention). |
-| `--sat-c5` | Include the C5 cardinality constraints (heavy). |
+| `--sat-c5` | C5 cardinality constraints — **deferred/superseded**; see the note below. |
+
+**Deferred/superseded flags — `--sat-c3 adder` and `--sat-c5` (honest
+status, operator decision 2026-07-10).** Neither encoder is built: both
+flags emit a `status: deferred_superseded_by_pairslot_model` entry in the
+JSON sidecar instead of clauses. They are not on any live path — C3 (Sinz
+sequential counters) and C5 are **native in `sat.py`'s pair-slot model**,
+which is the only certification-path model (see
+[SAT_CLI.md](SAT_CLI.md)). This legacy position-hexagram `x[i][p]` encoder
+gets those constraints only if a future **variable-pairing analysis** ever
+needs an instance the pair-slot model cannot express (e.g. relaxing the
+fixed pairing). Effort on record if that day comes: C5 is heavy (31
+per-boundary distance-class indicator families, each boundary touching
+64×64 (p,q) tuples, plus `exactly_k` cardinality); C3 needs a DIMACS
+adder summing network (large, and likely not faster than the PB route).
 
 ## BRANCH-YIELD REPORTING
 

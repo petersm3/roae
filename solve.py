@@ -3985,10 +3985,15 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     encoding C1 ∩ C2 of the King Wen sequence.
 
     include_c3: "none", "pb" (Pseudo-Boolean linear constraint), or
-                "adder" (DIMACS sequential adder encoding — TODO).
+                "adder" (DIMACS adder network — deferred/superseded: emits a
+                status sidecar entry only; C3 is native in sat.py's pair-slot
+                model, the certification path).
     include_c4: force x[0][0] and x[1][partner(0)] = 1.
-    include_c5: emit cardinality constraints matching KW's Hamming distribution
-                (heavy; defer in v1 unless explicitly requested).
+    include_c5: KW's Hamming-distribution cardinality constraints —
+                deferred/superseded likewise (status sidecar entry only;
+                native in sat.py's pair-slot model). Both deferred encoders
+                are built only if a future variable-pairing analysis needs
+                this legacy position-hexagram x[i][p] model.
     """
     import hashlib
     import json
@@ -4094,24 +4099,45 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
                 "opb_terms": opb_terms,  # will be emitted to .opb
             })
         elif include_c3 == "adder":
-            # DIMACS sequential adder — TODO. Significantly more involved
-            # (build a binary adder over the per-pair distances) and probably
-            # not faster in practice than PB. Documenting only.
+            # DEFERRED / SUPERSEDED (operator decision 2026-07-10). C3 is
+            # native (Sinz sequential counters) in sat.py's pair-slot model —
+            # the only certification-path model. A DIMACS adder summing
+            # network in THIS legacy position-hexagram x[i][p] encoder would
+            # be large and probably not faster in practice than PB; implement
+            # it only if a future variable-pairing analysis needs the x[i][p]
+            # model specifically (an instance the pair-slot model can't
+            # express, e.g. relaxing the fixed pairing). Not dead — deferred.
             pb_constraints.append({
                 "form": "abs_sum_complement_distance",
                 "bound": 776,
                 "n_aux_vars": pair_var_count,
                 "n_link_clauses": len(pair_aux_clauses),
-                "status": "TODO_implement_DIMACS_adder_summing_network",
+                "status": "deferred_superseded_by_pairslot_model",
+                "note": "C3 is native (Sinz) in sat.py's pair-slot model (the "
+                        "certification path). Build the x[i][p] adder network "
+                        "only if a variable-pairing analysis ever needs this "
+                        "model; effort if built: binary adder summing network "
+                        "over per-pair distances — large, and likely not "
+                        "faster than the PB route.",
             })
     # include_c3 == "none" -> no C3 emitted
 
-    # --- C5: KW's exact Hamming distribution (heavy, optional) ---
+    # --- C5: KW's exact Hamming distribution ---
+    # DEFERRED / SUPERSEDED (operator decision 2026-07-10): C5 is native in
+    # sat.py's pair-slot model (the certification path). Implement here only
+    # if a variable-pairing analysis ever needs the x[i][p] model; effort if
+    # built is heavy — 31 per-boundary distance-class indicator families,
+    # each boundary touching 64x64 (p,q) tuples, plus exactly_k cardinality.
     if include_c5:
         pb_constraints.append({
             "form": "hamming_distribution_match",
-            "status": "TODO_implement_C5_cardinality",
-            "note": "31 cardinality constraints, one per boundary",
+            "status": "deferred_superseded_by_pairslot_model",
+            "note": "C5 is native in sat.py's pair-slot model (the "
+                    "certification path). Build here only if a "
+                    "variable-pairing analysis ever needs the x[i][p] model; "
+                    "effort if built: 31 per-boundary distance-class "
+                    "indicator families (64x64 tuples per boundary) + "
+                    "exactly_k cardinality.",
         })
 
     # Emit DIMACS
@@ -4210,9 +4236,12 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
               f"{len(pb_constraints[0]['opb_terms'])} terms in C3 sum)", flush=True)
     print(f"[sat-encode] wrote {meta_path}", flush=True)
     if pb_constraints and include_c3 != "pb":
-        print(f"[sat-encode] WARNING: {len(pb_constraints)} PB/cardinality "
-              "constraint(s) requested but emission TODO. v1 ships C1+C2 "
-              "only; C3/C5 deferred to v2.", flush=True)
+        print(f"[sat-encode] WARNING: {len(pb_constraints)} requested "
+              "constraint(s) NOT emitted as clauses (status recorded in the "
+              ".meta.json sidecar): the adder-C3/C5 encoders here are "
+              "deferred/superseded — C3 (Sinz) and C5 are native in sat.py's "
+              "pair-slot model (the certification path). This file carries "
+              "C1+C2" + ("+C4" if include_c4 else "") + " only.", flush=True)
 
 
 # ============================================================================
@@ -7742,11 +7771,15 @@ def main():
     parser.add_argument("--sat-encode", metavar="OUT_CNF",
                         help="P3: emit DIMACS CNF for C1+C2 over the King Wen sequence; for #SAT model counting")
     parser.add_argument("--sat-c3", choices=("none", "pb", "adder"), default="none",
-                        help="P3 sat-encode: include C3 as PB constraint or adder (default: none)")
+                        help="P3 sat-encode: include C3 as PB constraint (default: none). "
+                             "'adder' is deferred/superseded by sat.py's pair-slot model "
+                             "(emits a status sidecar entry only; see SOLVE_PY_CLI.md)")
     parser.add_argument("--sat-c4", action="store_true",
                         help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
     parser.add_argument("--sat-c5", action="store_true",
-                        help="P3 sat-encode: include C5 cardinality constraints (heavy)")
+                        help="P3 sat-encode: C5 cardinality constraints — deferred/superseded "
+                             "by sat.py's pair-slot model (emits a status sidecar entry only; "
+                             "see SOLVE_PY_CLI.md)")
     parser.add_argument("--compare-depth-profile", nargs=2, metavar=("RUN_A_LOG", "RUN_B_LOG"),
                         help="Tree-walk validator (#48): compare DEPTH_PROFILE node counts from two run "
                              "logs (produced with SOLVE_DEPTH_PROFILE=1; .gz accepted). PASS if total "
