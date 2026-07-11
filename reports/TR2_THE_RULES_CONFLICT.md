@@ -20,6 +20,12 @@ than as the work of an arranger holding the rules as soft preferences (Bayes fac
 of corruption in any absolute sense. A wider four-class comparison (adding a greedy-builder and a
 global-design class plus a uniform-valid null) has since been pre-registered under the same discipline;
 its measurement is pending and no result is stated in this report.
+**Update (v1.10, 2026-07-11):** the four-class extension's first ingredient run measured the
+rule-perfect population size N_gs **directly** for the first time, and the value fell **outside** the
+derived bracket used by the v1.7 computation — a pre-registered stop-and-investigate flag. Per that
+rule, the v1.7 Bayes factor and posterior reported below are **UNDER REVIEW** pending investigation;
+this update neither revises nor re-affirms the verdict. Details in the stop-flag annotation to the
+Bayesian section.
 
 Verification model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
 
@@ -139,8 +145,9 @@ rules. The three **graded** rules — Moore's 2005 parity, Moore's 1989 rhythm, 
 (its exceptions first noted by Zhu Yuansheng in the 13th century) — are jointly satisfiable: the grand
 precursor of §3 achieves all three exactly, and the received order sits exactly three slot-edits from it,
 with all six violations (2+2+2 across the three rules) co-located at the historically flagged locus. §5
-left the reading of that residual anomaly open: restricted corruption, or tendencies? This section closes
-that question as far as data can, by a pre-registered Bayesian comparison of the two readings the
+left the reading of that residual anomaly open: restricted corruption, or tendencies? This section weighs
+that question — within a two-model comparison conditioned on the literature's rules, the strongest reading
+the data support and no more — by a pre-registered Bayesian comparison of the two readings the
 literature itself supplies:
 
 - **M_corr (corruption):** an originally rule-perfect ordering (under the three graded rules) was hit by
@@ -196,6 +203,18 @@ strictest-reading rule the **larger** value — which weakens the winning corrup
 and every configuration is reported under both. Flipping the verdict down to the strong threshold would
 require N_gs to be ~66× the larger estimate, far outside any plausible estimator noise.
 
+**Stop-flag annotation (v1.10, 2026-07-11): the pre-registered gate FIRED — verdict UNDER REVIEW.**
+The four-class extension's ingredient run (see [evidence/r11/](evidence/r11/)) measured N_gs
+**directly** for the first time: **N_gs = 5.00×10²⁵** (relative error 16.7%), which falls **outside**
+the derived bracket [1.03, 3.57]×10²⁵ above. Per the pre-registered rule, a direct measurement outside
+the derived bracket is a stop-and-investigate finding before any integration. Accordingly, the Bayes
+factor and posterior reported in this section are **UNDER REVIEW** until the discrepancy is
+investigated and resolved; no updated number is reported here, and this annotation neither revises nor
+re-affirms the verdict. For calibration only: the measured value is ~1.4× the larger derived estimate,
+against the ~66× threshold stated above for dropping the verdict a band — but whether the derivation
+error is isolated to N_gs or symptomatic of the derivation chain is exactly what the investigation must
+determine, and this report will be updated with its outcome either way.
+
 **What this does NOT say.** Nothing about who altered the sequence, when, or how; no dating, no
 attribution, no reconstruction of events. It licenses no claim beyond the model pair compared: conditional
 on the literature's three rules being the relevant regularities, the received sequence is far better
@@ -232,7 +251,9 @@ exists). The four classes:
   strengths (generalizes M_tend).
 - **M_C — corrupted-precursor:** F11's M_corr, carried unchanged, with the grand-strict population size
   N_gs measured directly this time (closing F11's weakest ingredient — the ×3.5 spread between its two
-  derived estimates).
+  derived estimates). *This measurement has since been run: the direct value fell outside the derived
+  bracket, firing the pre-registered stop-and-investigate flag — see the stop-flag annotation in the
+  v1.7 section above.*
 
 The axis bundle, numeric priors and grids, the Jeffreys decision bands (as v1.7), a synthetic-draw
 calibration that runs BEFORE the KW verdict and can veto an unreliable one, and an adequacy layer
@@ -262,4 +283,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.6 | 2026-07-04 | Extension: five-rule union unconditionally UNSAT; conflict decomposes into three two-rule minimal cores (14 new certificates, re-verified on independent hardware) |
 | v1.7 | 2026-07-04 | Bayesian comparison section added: pre-registered corruption-vs-tendency Bayes factor (BF ≈ 6.6×10³ / 7.9×10³, strong; sensitivity 1.4×10³–2.7×10⁴, direction never flips); executive summary updated |
 | v1.9 | 2026-07-10 | Pre-registered four-class model comparison (M0 uniform-valid / M_G greedy-builder / M_D global-design / M_C corrupted-precursor) added as a frozen design under F4′/F11 discipline; measurement pending — no Bayes factor, posterior, or verdict reported. Executive summary notes the registration. The v1.7 two-model result stands unchanged. |
+| v1.10 | 2026-07-11 | Stop-flag annotation: the direct N_gs measurement ([evidence/r11/](evidence/r11/)) yielded 5.00×10²⁵, outside the v1.7 derived bracket [1.03, 3.57]×10²⁵ — the pre-registered stop-and-investigate gate fired. The v1.7 Bayes verdict is marked UNDER REVIEW pending investigation (neither revised nor re-affirmed). "closes that question as far as data can" tightened to the section's own conditional scope. |
 | v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_C_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
