@@ -4760,6 +4760,11 @@ typedef struct {
     uint64_t n_probes, seed;
     double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
     uint64_t hits_leaf, hits_c3;
+    /* R11 Phase-2 (2026-07-11) estimator-only instruments (sha-neutral: knuth path,
+     * never exercised by --selftest). sumsq/hits twin on the gender-0-violation
+     * accumulator gives the DERIVED N_gs path a propagated 95% CI (§5.2); max_w_c3
+     * is the top single-probe canonical-leaf weight for the skew/ESS audit. */
+    double sumsq_rc4s; uint64_t hits_rc4s; double max_w_c3;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
     /* R-C1c (R6, Cook 2006 anchor + McKenna & McKenna 1975 circular frame): circular
      * anchor-adjacency indicator — the alternating pair A2={21,42} occupies pair slot 2 or
@@ -4886,6 +4891,11 @@ static int knuth_gender_strict = 0; /* SOLVE_KNUTH_GENDER_STRICT=1: prune the wa
                                  * (exception first noted by Zhu Yuansheng, 13th c.); elaborated Cook 2006.
                                  * Estimator-only, sha-neutral. */
 static int knuth_f11_hist = 0;      /* SOLVE_KNUTH_F11_HIST=1: see KnuthArg.f11_hist. */
+static uint64_t knuth_seed_base = 0; /* SOLVE_KNUTH_SEED=<u64>: overrides the fixed per-thread RNG
+                                      * base constant so independent-seed replicate runs draw
+                                      * disjoint sample paths (R11 Phase-2 §5.1). 0 (unset) keeps
+                                      * the historical constant 0x243F6A8885A308D3 — sha-neutral,
+                                      * and the knuth estimator is unbiased for any seed. */
 static int knuth_r11_hist = 0;      /* SOLVE_KNUTH_R11_HIST=1 (R11 §9.1): joint violation histogram over
                                      * the 8-axis R11 bundle (g1..g6 T1 principled rules + g7,g8 T2
                                      * data-like) per canonical leaf, sparse-hashed. Requires
@@ -6780,7 +6790,7 @@ static void *knuth_worker(void *vp){
                             }
                             if (spat) a->sum_rc3w += W;
                             if (viol <= 2) a->sum_rc4k += W;
-                            if (viol == 0) a->sum_rc4s += W;
+                            if (viol == 0) { a->sum_rc4s += W; a->sumsq_rc4s += W*W; a->hits_rc4s++; }
                             /* F11 joint violation histogram (Moore 2005 / Moore 1989 / Schulz 1990;
                              * KW cell = (2,2,2)). Estimator-only. */
                             if (a->f11_hist && m1ok >= 0 && m2breaks >= 0) {
@@ -6913,6 +6923,7 @@ static void *knuth_worker(void *vp){
         }
         a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf>0) a->hits_leaf++;
         a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;      if (c3>0)   a->hits_c3++;
+        if (c3 > a->max_w_c3) a->max_w_c3 = c3;   /* R11 P2: top single-probe weight (skew audit) */
         a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
     }
     return NULL;
@@ -7006,6 +7017,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     if (nthreads<1) nthreads=1; if (nthreads>256) nthreads=256;
     if (n_total < (uint64_t)nthreads) nthreads=1;
     pthread_t tid[256]; KnuthArg arg[256];
+    time_t _knuth_t0 = time(NULL);   /* R11 P2 provenance: wall-clock start of the probe phase */
     uint64_t per = n_total/(uint64_t)nthreads;
     for (int i=0;i<nthreads;i++){
         memset(&arg[i],0,sizeof(KnuthArg));
@@ -7052,10 +7064,12 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].depth_wk = (double*)calloc(33 * 65, sizeof(double));
             arg[i].depth_visit = (double*)calloc(33, sizeof(double));
         }
-        arg[i].seed = 0x243F6A8885A308D3ULL ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
+        arg[i].seed = (knuth_seed_base ? knuth_seed_base : 0x243F6A8885A308D3ULL)
+                      ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
         pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
+    double qC4s=0, maxWc3=0; uint64_t hC4s=0;   /* R11 P2: derived-N_gs CI twin + skew audit */
     double sRC1cS2=0, sRC1cS32=0, sRC1cAdj=0, sA2[33]={0};  /* R-C1c (R6) */
     double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
@@ -7067,6 +7081,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
+        qC4s+=arg[i].sumsq_rc4s; hC4s+=arg[i].hits_rc4s; if (arg[i].max_w_c3 > maxWc3) maxWc3 = arg[i].max_w_c3;
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
         for (int b2=0;b2<31;b2++) sBC[b2]+=arg[i].sum_bcond[b2];
         for (int w2=0;w2<7;w2++) sWR[w2]+=arg[i].sum_wrap[w2];
@@ -7208,6 +7223,12 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     double dN=(double)N;
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
+    /* R11 Phase-2 provenance line (§5.2): seed base, prune flags, wall time. Build sha is
+     * recorded by the launcher/log (the binary does not self-hash). Estimator-only. */
+    printf("KNUTH-PROVENANCE seed_base=0x%016llx moore_strict=%d gender_strict=%d score=%d r11_hist=%d wall_s=%ld\n",
+           (unsigned long long)(knuth_seed_base ? knuth_seed_base : 0x243F6A8885A308D3ULL),
+           knuth_moore_strict, knuth_gender_strict, knuth_score, knuth_r11_hist,
+           (long)(time(NULL) - _knuth_t0));
     for (int m=0;m<3;m++){
         const char *nm = m==0?"tree_nodes           " : m==1?"leaves_C1C2C4C5      " : "leaves_canonical_C1C5";
         double s = m==0?sN:m==1?sL:sC, q = m==0?qN:m==1?qL:qC; uint64_t h = m==0?N:m==1?hL:hC;
@@ -7216,6 +7237,12 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  %s : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hitrate=%.3g\n",
                nm, mean, mean-1.96*se, mean+1.96*se, rel, (double)h/dN);
     }
+    /* R11 P2 skew audit (§5.2): the single heaviest probe's share of the canonical-leaf
+     * estimate. A large share means the estimate rides on one rare heavy path (low ESS,
+     * fat right tail) — the mechanism the F11 bracket ignored. Lower is better. */
+    if (sC > 0)
+        printf("  [diag] canonical top single-probe share : max_w=%.6e = %.4f%% of estimate mass (skew/ESS audit; lower=better)\n",
+               maxWc3, 100.0 * maxWc3 / sC);
     if (knuth_score && sC > 0) {
         printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass\n", sR1/sC);
         printf("  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=%.6f slot2=%.6f slot32=%.6f (McKenna 1975 frame; slot32 must reproduce R-C1=%.6f)\n",
@@ -7235,6 +7262,18 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass (independence: %.8f)\n", sMJ/sC, (sM1k/sC)*(sM2k/sC));
         printf("  [score] R-C3 level-3 positions == KW : %.8f | S-gap pattern anywhere: %.8f (Cook 2006)\n", sC3/sC, sC3w/sC);
         printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
+        /* R11 Phase-2 §5.2: DERIVED N_gs with a propagated 95% CI. sum_rc4s/N is itself an
+         * unbiased Knuth estimate of the ABSOLUTE triple-strict count (canonical AND Moore-strict
+         * [prune-enforced in the derived run] AND 0 gender violations); its sumsq twin gives the
+         * SE the F11 "0 viol" scoreboard line lacked. In the composed triple-strict walk this
+         * equals leaves_canonical (all leaves are 0-viol); it is the gate-3 comparator only in the
+         * Moore-strict-only derived run. */
+        {
+            double m4 = sC4s/dN, v4 = qC4s/dN - m4*m4; if (v4 < 0) v4 = 0;
+            double se4 = sqrt(v4/dN), rel4 = m4>0 ? 100.0*se4/m4 : 0.0;
+            printf("  [score] R-C4 0-viol DERIVED-N_gs abs : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hits=%llu\n",
+                   m4, m4-1.96*se4, m4+1.96*se4, rel4, (unsigned long long)hC4s);
+        }
         printf("  [score] Davis palindrome windows >=1 : %.6f | >=2 (KW level): %.6f (Davis 2012)\n", sD1/sC, sD2/sC);
         printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
         printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f (odd-only per theorem; circular-C2 price = d5 mass)\n",
@@ -15903,6 +15942,45 @@ int main(int argc, char *argv[]) {
         if (warn) { printf("[--disk-precheck] DONE: WARNING (exit 1)\n"); return 1; }
         printf("[--disk-precheck] DONE: PASS (exit 0)\n");
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--knuth-dump-prefix") == 0) {
+        /* R11 Phase-2 §5.1(4): emit a random VALID (C1-C5) deep prefix as a
+         * "<pair> <orient> ..." list, for the exact-count calibration audit
+         * (feed the output back to `--estimate-knuth 0 <prefix>` for the exact
+         * subtree count and to `--estimate-knuth <N> <prefix>` for the Knuth
+         * estimate, then compare). Random first-feasible greedy descent using
+         * the tested knuth_apply primitive. Utility-only; sha-neutral; never
+         * touches the enumeration or estimator hot path. */
+        if (argc < 4) { fprintf(stderr, "usage: solve --knuth-dump-prefix <depth> <seed>\n"); return 1; }
+        init_pairs(); init_kw_dist();
+        int depth = atoi(argv[2]); if (depth < 1) depth = 1; if (depth > 30) depth = 30;
+        uint64_t rng = strtoull(argv[3], NULL, 0); if (!rng) rng = 0x9E3779B97F4A7C15ULL;
+        int seq0[64]; memset(seq0, 0, sizeof(seq0)); pair_mask_t used0 = 0; int budget0[7];
+        seq0[0] = 63; seq0[1] = 0; PAIR_MASK_SET(used0, pair_index_of(63, 0));
+        memcpy(budget0, kw_dist, sizeof(budget0)); budget0[hamming(63, 0)]--;
+        printf("PREFIX depth=%s seed=%s :", argv[2], argv[3]);
+        int placed = 0;
+        for (int step = 1; step <= depth; step++) {
+            int cand[64][2], nc = 0;
+            for (int p = 0; p < 32; p++) for (int o = 0; o < 2; o++) { cand[nc][0] = p; cand[nc][1] = o; nc++; }
+            for (int i = nc - 1; i > 0; i--) {           /* Fisher-Yates, xorshift64 */
+                rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17;
+                int j = (int)(rng % (uint64_t)(i + 1));
+                int a0 = cand[i][0], a1 = cand[i][1];
+                cand[i][0] = cand[j][0]; cand[i][1] = cand[j][1]; cand[j][0] = a0; cand[j][1] = a1;
+            }
+            int ok = 0;
+            for (int c = 0; c < nc; c++) {
+                int seqT[64]; memcpy(seqT, seq0, sizeof(seqT));
+                pair_mask_t usedT = used0; int budT[7]; memcpy(budT, budget0, sizeof(budT));
+                if (knuth_apply(seqT, &usedT, budT, cand[c][0], cand[c][1], step)) {
+                    memcpy(seq0, seqT, sizeof(seq0)); used0 = usedT; memcpy(budget0, budT, sizeof(budget0));
+                    printf(" %d %d", cand[c][0], cand[c][1]); placed++; ok = 1; break;
+                }
+            }
+            if (!ok) break;   /* dead end before target depth */
+        }
+        printf("\nPREFIX_DEPTH_REACHED %d\n", placed);
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--estimate-knuth") == 0) {
         /* #195 Knuth (1975) random-probe tree-size estimator. Pure compute, NO shard
          * data / mounts. Usage:
@@ -15942,6 +16020,12 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[knuth] R11 8-axis joint violation histogram ACTIVE (g1..g6 T1 principled + "
                             "g7,g8 T2 data-like; sparse-hashed; requires SOLVE_KNUTH_SCORE=1; KW cell "
                             "2,2,2,0,0,0,0,0; gate --r11-verify)\n");
+        }
+        if (getenv("SOLVE_KNUTH_SEED")) {
+            knuth_seed_base = (uint64_t)strtoull(getenv("SOLVE_KNUTH_SEED"), NULL, 0);
+            fprintf(stderr, "[knuth] RNG SEED OVERRIDE ACTIVE: base=0x%016llx "
+                            "(R11 Phase-2 independent-seed replicate; estimator-only, sha-neutral)\n",
+                    (unsigned long long)knuth_seed_base);
         }
         if (getenv("SOLVE_KNUTH_DEPTH_PROFILE") && atoi(getenv("SOLVE_KNUTH_DEPTH_PROFILE")) == 1) {
             knuth_depth_profile = 1;
