@@ -150,6 +150,11 @@ p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8) · s
 r3 **1.0** · r4 **1.0** · r5 **1.0** · c1 6.6×10⁻² (min deviation seen 4 vs KW 24) · c2 **1.0**.
 Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, **d5 = 17.4%** of the full space — see
 [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) (the slice contains zero d5 records in 10.5B).
+**Deep-tail caveat (travels with the smallest figures; details in
+[reports/METHODS.md](../reports/METHODS.md)):** below ~10⁻⁷ per-probe hit rates the estimator's CIs
+degrade (low effective sample size, right-skewed weights) — read ccn4 (2×10⁻⁸) and ccn8 (2.6×10⁻⁷) as
+order-of-magnitude figures, not point estimates, and c2011n1's "<10⁻⁹ (0 hits)" as sampling starvation,
+not a bound.
 
 ## THE CONFLICT THEOREM (2026-07-04, SAT-decided, drat-trim verified): perfection was never available
 
