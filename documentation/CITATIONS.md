@@ -616,7 +616,10 @@ how it was obtained.)
 Schulz, L. J., & Cunningham, T. J. (1990). The seasonal structure underlying the arrangement of hexagrams
 in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. [doi:10.1163/15406253-01703002](https://doi.org/10.1163/15406253-01703002)
 (Working-paper version: Federal Reserve Bank of Atlanta Occasional Paper Series, 1988.)
-  Prior documenter of C1 and C4 (verified first-hand, 2026-07-08): §III (p. 296) states the invert-pairing
+  Prior documenter of C4, and an independent documenter of C1 (verified first-hand, 2026-07-08) — though
+  [Goldenberg (1975)](#goldenberg1975) documents C1 fifteen years earlier, making Schulz & Cunningham the
+  crisper prior source for C4 and the circular-year framing rather than the earliest C1 documenter: §III
+  (p. 296) states the invert-pairing
   rule and its self-inverse exception (the eight palindromic gua paired instead with their polar opposite/
   complement) explicitly, and p. 298 states the qian/kun "pure yang / pure yin" precedence as an "unavoidable
   priority"; it also motivates the circular reading, tying the *zhou/zhounian* ("rounded year") etymology to
@@ -722,13 +725,22 @@ project: line symbols as GF(2), hexagrams as the mod-2 ring (= GF(2)⁶), the in
 and the "mediating hexagram" (XOR difference) of any pair — set-level prior art for the vector-space
 framing used throughout this repository, distinct from our ordering-level constraint results
 ([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Related work). Located via Hacker, Moore & Patsco (2002),
-entry B:154; annotation-level knowledge only until the article is acquired (JCP basket, July 2026).
+entry B:154; read in full 2026-07-11 — official interlibrary-loan scan in the private trove; all
+repo-encoded claims (G-T1–T4, T7, incl. the KW5↔KW63-via-KW7 worked example, p. 170) verified against
+the primary text.
 [Schöter (1998)](#schoter1998) independently corroborates this lineage first-hand: he credits
 Goldenberg's ⊕ (XOR) and ⊗ (AND) as the direct parallels of his own bit-wise operators, reports that the
 bulk of his own work predated his awareness of Goldenberg, and notes his divinatory change operator
 matches Goldenberg's Theorem 7 — Schöter's addition being the complement operation Goldenberg lacked.
-The primary text remains unobtained: JCP is not on JSTOR; its archive sits behind the Brill (current
-publisher) and Wiley (legacy) paywalls, so the acquisition route is interlibrary loan or pay-per-view.
+The primary text also documents C1 explicitly: the King Wen mirror-pairing with complement fallback for
+the eight symmetric hexagrams (p. 157) and their KW placement {1, 2, 27, 28, 29, 30, 61, 62} (pp. 165–66)
+— the earliest explicit statement of C1 in the modern formal literature known to this project, predating
+[Schulz & Cunningham (1990)](#schulz-cunningham1990) by fifteen years. Both are post-classical documenters
+of a classical fact (the fandui/pangtong pairing, credited via [Nielsen (2003)](#nielsen2003)/Yu Fan);
+Goldenberg documents, does not invent, and ROAE never claimed C1 as novel. His Lemma 3 / Table VI prefigure
+[SPECIFICATION.md](SPECIFICATION.md)'s XOR-universality theorem at the set level. Caution when quoting his
+Fu Hsi numerals: Fig. 2's numbering polarity is inverted relative to his own in-text yang=1 convention, and
+the "60" on p. 166 is a misprint for 63.
 
 <a id="nielsen2003"></a>
 ## Nielsen, Bent (2003)

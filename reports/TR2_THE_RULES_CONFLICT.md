@@ -27,7 +27,7 @@ Verification model: every load-bearing claim is an artifact check (witness verif
 
 ## Abstract
 
-Steve Moore ([1989](../documentation/CITATIONS.md#moore1989), 2005) proposed two design rules for the King Wen sequence, observed that the received
+Steve Moore ([1989](../documentation/CITATIONS.md#moore1989), [2005](../documentation/CITATIONS.md#moore2005)) proposed two design rules for the King Wen sequence, observed that the received
 order complies with one at sixteen of eighteen testable positions with both exceptions adjacent, and
 conjectured an originally compliant order later altered. Larry Schulz ([1990](../documentation/CITATIONS.md#schulz1990-motifs), [2011](../documentation/CITATIONS.md#schulz2011), [2016](../documentation/CITATIONS.md#schulz2016)) independently
 formalized a third rule over [Lai Zhide's](../documentation/CITATIONS.md#laizhide) thirty-six consolidated units, with its own exceptions at the

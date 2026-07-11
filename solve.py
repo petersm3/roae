@@ -7400,8 +7400,9 @@ def books_lz2():
 
 
 # Goldenberg theorem numbers follow Hacker, Moore & Patsco (2002) entry B:154
-# (the annotation quotes the theorem statements; primary JCP text pending
-# acquisition — annotation-level knowledge, per CITATIONS.md par.Goldenberg).
+# (which first surfaced the theorem statements); confirmed against the primary
+# text 2026-07-11 (official ILL scan; all five encoded claims G-T1..T4,T7 verified
+# first-hand — see roae-private GOLDENBERG_1975_NOTES.md).
 # ATTRIBUTION for G-T1..G-T7: Goldenberg, Daniel S., "The Algebra of the
 # I Ching and Its Philosophical Implications", Journal of Chinese Philosophy
 # 2 (1975): 149-79. Surfaced by roae-private/books/hacker_bibliography/

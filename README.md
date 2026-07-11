@@ -59,7 +59,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal); the transition histogram is confirmed
   description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
-- **A structural reading, measured.** Davis's (2012) flagship compositional units come out
+- **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
   population-typical; one uniqueness claim is corrected; the ~126-bit residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **The record is reproducible**: every published count re-derivable to the byte by one command; the

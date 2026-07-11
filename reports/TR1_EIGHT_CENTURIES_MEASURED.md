@@ -151,8 +151,8 @@ optimum — exact on one strong rule, minimally imperfect on the others.
 6. **Attribution, lineage, and what is claimed.** Every rule is credited to its source, with lineage where
    it runs deep: the pair structure itself is attested to **[Yu Fan](../documentation/CITATIONS.md#yufan) (164–233 AD)** (pangtong/fandui, via Li
    Dingzuo); the 36-unit consolidation to **Lai Zhide (1525–1604)** (via [Schulz 1982](../documentation/CITATIONS.md#schulz1982)); the 18:18 split to
-   **Zheng Qiao (~1150)** and **Hu Yigui (1247)**, modern treatment **Hacker & Moore 2003**; the
-   pair-positioning parity rule and rhythm rule to **Moore (2005, 1989)**, building on the *Dazhuan*
+   **Zheng Qiao (~1150)** and **Hu Yigui (1247)**, modern treatment **[Hacker & Moore 2003](../documentation/CITATIONS.md#hacker-moore2003)**; the
+   pair-positioning parity rule and rhythm rule to **Moore ([2005](../documentation/CITATIONS.md#moore2005), [1989](../documentation/CITATIONS.md#moore1989))**, building on the *Dazhuan*
    odd=Heaven/yang attribution; the gender/position-parity rule (measured at ×11,364 in the companion
    registry) originates with **Schulz 1990** — attribution corrected 2026-07-03 upon first-hand reading
    (Cook had been credited as primary) — elaborated by **Cook 2006**, its single exception first

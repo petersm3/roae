@@ -5,12 +5,12 @@ the adversarial replication reviews (archived alongside this suite).*
 ## Environment (version pinning)
 | Component | Version | Source |
 |---|---|---|
-| Repository | pin to the release tag stamped at publication (git tag per suite version) | github.com/petersm3/roae |
+| Repository | pin to the release tag stamped at publication (git tag per suite version) | [github.com/petersm3/roae](https://github.com/petersm3/roae) |
 | C toolchain | gcc (Ubuntu 22.04 class), flags: `-O2 -pthread -fopenmp` (canonical); `-march=native` allowed for estimator-only runs | — |
 | solve.c selftest anchor | sha256 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | every commit gate |
 | Python | 3.10+ stdlib-only (solve.py, sat.py, roae.py, verify.py) | — |
-| SAT solver | kissat 4.0.4 (build from source) | github.com/arminbiere/kissat |
-| Proof checker | drat-trim (2024+ master) | github.com/marijnheule/drat-trim |
+| SAT solver | kissat 4.0.4 (build from source) | [github.com/arminbiere/kissat](https://github.com/arminbiere/kissat) |
+| Proof checker | drat-trim (2024+ master) | [github.com/marijnheule/drat-trim](https://github.com/marijnheule/drat-trim) |
 | Lean | 4.31.0 via elan; core only (no mathlib) | `lean lean/KingWen.lean` exits 0 |
 
 ## Statistics conventions
