@@ -155,7 +155,15 @@ notational scoring — is accepted and stated.
    space of objects. **On (c), his scope warning is accepted and stated plainly**: this report
    measures only the notational shadow of his claims. His textual layers — word-repetition sets,
    seasonal loci, numerological sitings (his chs. 2, 10, and passim) — are outside the bit domain and
-   outside this instrument; nothing here bears on them, for or against.
+   outside this instrument; nothing here bears on them, for or against. That scope line has since
+   proven load-bearing: on 2026-07-11 the project declined, **without measurement**, a conditionally
+   pre-registered follow-up candidate built on his big/little hexagram *names* (pp. 94–96, the six
+   "big"/"small"-named hexagrams sited small–big–big–big–big–small by pair-slot) — the first candidate
+   that would have taken a semantic attribute rather than bit structure as a predicate input —
+   precisely to keep names outside the instrument. The observation is Davis's; the decline is ours and
+   says nothing for or against his reading. The follow-up family's Bonferroni denominator remains
+   frozen at /12, fixed in advance so the decline cannot be read as weakening the correction
+   (decision log: [HISTORY.md](../documentation/HISTORY.md), 2026-07-11).
 6. **Attribution, copyright discipline, and what is claimed.** All Davis material above is paraphrase
    with page citation; no extended quotation is used (single short phrases at most), per the project's
    derived-insights-only handling of copyrighted sources. The operationalizations are ours and public
@@ -203,5 +211,6 @@ notational scoring — is accepted and stated.
 | Version | Date | Changes |
 |---|---|---|
 | v1.0 | 2026-07-04 | Initial private draft (roae-private staging); adversarial review pending before any public release |
-| v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per [Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
 | v1.1-draft | 2026-07-04 | Hostile pre-publication review pass: "strictest symmetry" page cite corrected (p. 112 → p. 96, verified against the book); "undeniably designed" (p. 116) re-scoped to the Big-and-Little group rather than the 7–16 block; §5(a) "came back null" corrected to reflect the one Bonferroni-notable row; §5(b) softened to "largely against him" with the trigarray exception stated, and mixed percentile conventions replaced by the table's tail masses; pureplace "exactly at threshold" → "at the threshold to reported precision" (measured 5.56×10⁻³ vs 0.05/9 = 5.56×10⁻³ at 3 s.f.). All table masses re-derived from dav_tier1.out; refutation and corpus-control numbers independently recomputed; both `--dav-verify` gates re-run (PASS) |
+| v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per [Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
+| v1.3 | 2026-07-11 | **Scope-decision note (§5(c)):** Davis's big/little named-hexagram size pattern (pp. 94–96), conditionally pre-registered as a follow-up candidate, was declined without measurement on 2026-07-11 — hexagram names (tradition/translation-dependent semantic attributes) are not admitted as predicate inputs, consistent with §5(c)'s published scope statement. The follow-up family's Bonferroni denominator stays frozen at /12. No measured number in this report changes |

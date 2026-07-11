@@ -4,7 +4,9 @@ One page for the question "what has ROAE actually settled?" Every entry: the cla
 we found, and where the proof lives. "Decided" spans a spectrum — **refuted** (shown false as stated),
 **corrected** (true with a different scope/value), **forced** (asserted as design, shown to be a
 mathematical consequence), **withdrawn** (our own claim, retracted under verification), and
-**confirmed**. The register throughout is respect: every decidable claim below was concrete and
+**confirmed**. One further class, **declined**, records a claim deliberately left *unmeasured* by a
+recorded scope decision — kept on this ledger so the choice not to test something is as public as the
+tests. The register throughout is respect: every decidable claim below was concrete and
 falsifiable, which is precisely what made it worth testing — vaguer claims survive by being untestable.
 
 **Authority note:** the technical reports are authoritative; this page is an index over them. On any
@@ -27,6 +29,7 @@ in this page (report it).
 | The no-5-transition property | [McKenna & McKenna 1975](CITATIONS.md#mckenna-mckenna1975) | **CONFIRMED** + contextualized | Verified at scale; shared by [Jing Fang](CITATIONS.md#jingfang); the authentic Mawangdui order has exactly one 5-line transition, at a trigram-octet seam (corrected 2026-07-05 per [Shaughnessy 2022](CITATIONS.md#shaughnessy2022) Table 11.2 — an earlier erroneous array scored zero; the "classical design norm" framing is withdrawn) | [CRITIQUE](CRITIQUE.md), [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) |
 | The pairing is the unique Hamming-optimal matching | [Radisic 2026](CITATIONS.md#radisic2026) | **CONFIRMED** (independent) | Machine-verified independently | [CITATIONS](CITATIONS.md) |
 | Nuclear rule orients 29/30 pairs, one declared exception (pair 3/4) | [Van den Berghe](CITATIONS.md#vandenberghe1999) c. 1999–2002 | **CONFIRMED** + sharpened | His 29/30 verifies exactly; exact fiber enumeration shows 29 is the maximum of all 1,720,320 valid orientations of KW's pair sequence (12 attain it, P = 6.9754×10⁻⁶) and 30/30 is unattainable — his exception is proven forced. A fitted description at the fiber ceiling, not independent confirmation | [TR-1 §7](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [evidence/f5](../reports/evidence/f5/README.md) |
+| The six "big"/"small"-named hexagrams (#9/#14/#26/#28/#34/#62) sit small at the ends, big in the middle by pair-slot | Davis 2012, pp. 94–96 | **DECLINED** (unmeasured, 2026-07-11) | Not tested, by a recorded scope decision: hexagram *names* are tradition/translation-dependent semantic attributes, outside the bit-structure instrument ([TR-10 §5(c)](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)), and the (S,B,B,B,B,S) target is itself a KW-extracted template (the circularity caveat). Not a verdict on Davis's reading; the follow-up Davis-family Bonferroni denominator stays frozen at /12 | [HISTORY 2026-07-11](HISTORY.md) |
 
 Corrections to our own published numbers (the never-silent ledger): the MDL arithmetic (144.4→143.7
 cascade), a false theorem in `--verify-wrap-parity`'s output, the TR-1/2/3/9 v1.5 scope corrections,

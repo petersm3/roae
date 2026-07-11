@@ -5378,3 +5378,41 @@ now notes that [Schöter 1998](CITATIONS.md#schoter1998) independently corrobora
 first-hand; and the Schöter entry gained its verified venue (*The Oracle* 2:7) and a lineage cross-link. The
 Goldenberg primary text remains unobtained (paywalled at Brill/Wiley, absent from JSTOR; interlibrary loan is
 the route).
+
+## 2026-07-11: A scope decision — hexagram names stay outside the instrument (Davis's named-size claim declined unmeasured)
+
+[Davis (2012)](CITATIONS.md#davis2012), pp. 94–96, observes that the six hexagrams whose received names carry
+"big"/"small" — #9, #14, #26, #28, #34, #62 — are sited small at both ends and big in the middle: read by
+pair-slot, the size attributes run exactly (small, big, big, big, big, small), and the King Wen sequence
+satisfies the pattern. The claim is concrete and checkable, and it was frozen as a follow-up population
+candidate (`dav2_namedsize`) in the project's private pre-registration of 2026-07-10 — but *conditionally*: it
+would have been the first ROAE functional ever to take a **semantic attribute** (the received names) rather
+than bit structure as a predicate input, so its implementation and measurement were gated on an explicit
+project decision about whether name-attributes are admissible at all.
+
+On 2026-07-11 that decision was made: **names are not admitted, and the candidate is declined without
+measurement.** Three reasons, none of which is a judgment on the pattern as a reading of the text:
+
+1. **Names are not translation-independent.** Every other ROAE functional keys on the hexagrams' bit
+   structure, which is invariant across traditions and translations; the names are tradition- and
+   translation-dependent, and the project's own name data is blanket-attributed to Wilhelm/Baynes with
+   simplified variants ([CRITIQUE.md](CRITIQUE.md) has carried that caveat from the start) — not an input
+   layer at evidential grade.
+2. **The target is read off the object under test.** The (S,B,B,B,B,S) template is a 0/1 predicate extracted
+   from King Wen itself — the constraint-extraction circularity the project's methodology polices everywhere
+   else. Whatever its population mass turned out to be, a KW-extracted binary template is data-like by the
+   project's own taxonomy: evidential of nothing.
+3. **A published scope commitment holds.** [TR-10 §5(c)](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
+   states publicly that Davis's textual layers are "outside the bit domain and outside this instrument;
+   nothing here bears on them, for or against." Measuring a name-keyed functional would renege on that
+   published scope statement; declining it keeps the commitment. The decision *reinforces* TR-10's scope
+   line rather than carving an exception to it.
+
+Two bookkeeping notes travel with the decision. First, **no rigor is bought back by the decline**: the
+follow-up Davis family's Bonferroni denominator stays frozen at **/12** — the pre-registration fixed it at
+the full cross-wave family size in advance, precisely so that later declining a candidate could not be read
+as quietly weakening the correction. Second, attribution: the named-size observation is Davis's (2012,
+pp. 94–96), recorded here with credit; the decision not to measure it is the project's, and it says nothing
+for or against his reading — his textual arguments remain unmeasured by construction, as TR-10 already
+states. The decision is also logged on the [Claims Decided](CLAIMS_DECIDED.md) ledger, so the choice *not*
+to test something is as public as the tests themselves.

@@ -470,7 +470,15 @@ Cambria Press.
   promotes. One uniqueness claim (p. 257 n.2, fewest-derivatives status of #63/64) is refuted with
   a concrete counterexample (#51/52), his worked examples confirmed; a second candidate refutation
   (p. 114) was withdrawn under our own hostile review — that claim survives its fairest reading
-  (TR-10 §4). [read]
+  (TR-10 §4). One further claim of his — the big/little named-hexagram size pattern (pp. 94–96: the
+  six "big"/"small"-named hexagrams #9/#14/#26/#28/#34/#62 sited small–big–big–big–big–small by
+  pair-slot, which King Wen satisfies) — was conditionally frozen as a follow-up candidate and then
+  **declined without measurement on 2026-07-11** by a project scope decision: it would take hexagram
+  *names* (a tradition/translation-dependent semantic attribute) rather than bit structure as input,
+  its target template is itself read off King Wen, and TR-10 §5(c) had already placed names "outside
+  this instrument." The observation remains Davis's, credited here; the decline is ours and is not a
+  verdict on it. The follow-up family's Bonferroni denominator stays frozen at /12, fixed before the
+  decision so the decline cannot weaken the correction (see [HISTORY.md](HISTORY.md), 2026-07-11). [read]
 
 <a id="drasny2007"></a>
 Drasny, J. (c. 2007). *The regular grouping of the hexagrams before the Yi jing* [Paper]; *The Yi-globe:
