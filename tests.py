@@ -145,6 +145,13 @@ class TestGates(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertIn("BOOKS VERIFY: ALL 14 CLAIMS PASS", r.stdout)
 
+    def test_trigram_verify(self):
+        # Two-language check of lean/TrigramTheorems.lean (finite facts +
+        # KW instances); see documentation/TRIGRAM_STRUCTURE.md.
+        r = subprocess.run([sys.executable, "solve.py", "--trigram-verify"],
+                           capture_output=True, text=True)
+        self.assertIn("TRIGRAM VERIFY: ALL 18 CLAIMS PASS", r.stdout)
+
     def test_perm_verify(self):
         # R3 permutation-cycle family: KW gate (13 frozen functionals) +
         # Fu Xi natural-order identity free-correctness check (prereg §6c).

@@ -35,7 +35,7 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 | **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
-| **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, three sequence-level theorems, and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
+| **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
 | **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of every certificate, gate, and proof. |
 
 ## What was found
@@ -51,6 +51,10 @@ Headlines only — each links to its full treatment (technical reports in [repor
   are genuinely discriminating (to 1 in 5×10⁷). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
 - **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
   exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
+- **McKenna's "ninth six" is forced.** The 1975 observation that exactly one adjacent transition flips
+  all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget is
+  a theorem of the constraints, turning the 10.5-billion-record measurement into a corollary (the
+  *position* of that transition remains ordering-dependent). [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
 - **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
   matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026), machine-verified). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
@@ -77,7 +81,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest   # mus
 python3 roae.py            # the 28 analyses
 python3 solve.py --registry-verify   # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                       # SAT layer usage + targets
-python3 tests.py                     # regression harness (15 tests)
+python3 tests.py                     # regression harness (28 tests)
 bash reports/certificates/verify_all.sh   # everything above + all DRAT certs + Lean, one command
 ```
 Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).

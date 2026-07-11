@@ -70,6 +70,7 @@ lean C3Decomposition.lean    # C3 slot-decomposition theorem (sat.py's C3-encodi
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
+lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below)
 ```
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
@@ -146,3 +147,23 @@ function name, that are **NOT themselves machine-checked**. Nothing here proves 
 `solve.c` correct. The end-to-end evidence for the pipeline remains the empirical cross-hardware /
 cross-mode / cross-depth sha-reproduction record (PARTITION_INVARIANCE.md §5a); this file and that
 record are complements, not substitutes.
+
+## TrigramTheorems.lean (2026-07-11): trigram-level structure
+
+Formalizes the trigram layer of the constraint system — prose companion with the full scope and
+attribution discussion in [TRIGRAM_STRUCTURE.md](../documentation/TRIGRAM_STRUCTURE.md) (**read its
+scope notes before citing anything below**, in particular the distinction from
+[Hershock 1991](../documentation/CITATIONS.md#hershock1991)'s hexagram-set group). Core Lean 4 only,
+standalone file, zero `sorry`; every statement was verified numerically in Python before drafting
+(`python3 solve.py --trigram-verify` re-runs the two-language check). Finite facts use
+`decide`/`native_decide` (the trust-base note above applies — this file's group facts lean on
+`native_decide`); the TG-2 sequence-level theorems are structural proofs over EVERY valid ordering.
+Verified statements, by family:
+
+| Family | Theorems | One-line honest scope |
+|---|---|---|
+| **TG-1** trigram factorization | `rev6_trigram_factor`, `comp6_trigram_componentwise`, `ham_trigram_split`, `symmetric_iff_trigram`, `pure_hexagrams_explicit`, `pure_pairs_explicit`, … | Classical facts, formalized ([Goldenberg 1975](../documentation/CITATIONS.md#goldenberg1975) ambient; pure-pair placement Lai Zhide / Wu Deng) — nothing claimed as a discovery; the contribution is the kernel-checked lemma layer |
+| **TG-2** forced boundary budget | `within_multiset_general`, **`boundary_budget_general`** (lead), `ninth_six_trigram`, `single_line_carry`, `c2_trigram_reading`, `pangtong_successor`, `flanking_exclusion` | The project's fourth sequence-level theorem: in EVERY C1+C5-valid ordering the 31 between-pair distances form exactly {1:2, 2:8, 3:13, 4:7, 6:1} — so the "9th six" ([McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975)'s observation, credited) is forced, exactly once, in every valid ordering |
+| **TG-3** trigram-compatible symmetry subgroup | `G12_length`, `G6_length`, `G12_decomposition_covers`/`_nodup`, `mirrorDouble_hom`/`_inj`, `blockPreserving_iff_blockwise`, `uChange_mapP`, `lChange_mapP`, `trigram_functional_not_orbit_invariant` | About the TR-5 **line-position** constraint-symmetry group G₄₈ ONLY (exactly 12 of 48 respect the trigram bipartition, ≅ S₃ × C₂; order 6 at record level) — a different group and object from Hershock 1991's complement/reverse/trigram-swap group on the hexagram set; see TRIGRAM_STRUCTURE.md §"What TG-3 is not" |
+| **TG-4** nuclear naturality | `nuc_comm_rev`, `nuc_comm_comp`, `nuc_partner_descent`, `nuc_image_16`, `nuc_nuc_image_terminal`, `nuc_terminal_closed` | Presumably classical/implicit facts (the 64→16→4 chain is commentary-tradition), formalized to certify the nuclear-battery substrate; no discovery claimed, corrections invited |
+| **TG-5** vacuity guards | `trigram_balance_invariant`, `pure_pairslot_couple`, `pure_pairslot_count` | Guards, not results: trigram balance holds in ANY permutation (so it says nothing about King Wen), and pure-hexagram adjacency is forced by C1, not a design choice |

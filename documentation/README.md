@@ -31,6 +31,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 - **[PARITY_ALTERNATION.md](PARITY_ALTERNATION.md)** — Theorem: every valid ordering has exactly 15 parity-class alternations (proven skeleton constraint; ×7.26 arrangement-level reduction; exact O(1) prefix prune).
 - **[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)** — Prior literature's structural rules ([Moore](CITATIONS.md#moore2005), [Cook](CITATIONS.md#cook2006), classical) measured against the full ≈10³⁸ population; Moore's parity rule = strongest known discriminator (×1,362 at KW's level; joint ×54,000).
 - **[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)** — Theorem that canonical enumeration counts are invariant under partition strategy (full-enum vs `--branch` reconstruction), with the cross-path validation grid.
+- **[TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md)** — Machine-checked trigram-level theorems: the forced between-pair transition budget (McKenna's "9th six" derived from C1+C5), the trigram-compatible symmetry subgroup (S₃ × C₂), nuclear-map naturality, and two vacuity guards — with the attribution ledger and the scope distinction from [Hershock 1991](CITATIONS.md#hershock1991).
 - **[BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md)** — Conceptual explainer for "branch / sub-branch / node / budget" terms used throughout.
 
 ### Stable scientific findings (paper-citable)

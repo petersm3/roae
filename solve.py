@@ -7702,6 +7702,455 @@ def books_verify():
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Trigram-theorem verification battery (--trigram-verify), added 2026-07-11.
+# The two-language ground-truth companion of lean/TrigramTheorems.lean: every
+# finite fact and every King Wen instance of that file's machine-checked
+# statements is independently re-computed here from the definitions (the
+# Lean file's sequence-level theorems quantify over EVERY valid ordering;
+# Python re-checks their finite engines and their KW instantiations).
+# Prose companion + scope notes: documentation/TRIGRAM_STRUCTURE.md — read
+# its §1-§2 before citing (in particular: the TG-3 group acts on LINE
+# POSITIONS and is distinct from Hershock 1991's hexagram-set group).
+# ATTRIBUTION (mirrors the Lean header's novelty ledger, which is binding):
+# TG-1/TG-4 classical facts (Goldenberg 1975; Schöter 1998; Lai Zhide via
+# Schulz 1982; Wu Deng via Nielsen 2003; Hershock 1991 "linking"; Cook 2006)
+# — nothing claimed as discovery. TG-2's "9th six" observation is McKenna &
+# McKenna 1975; the budget derivation is the project's. Master ledger:
+# documentation/CITATIONS.md.
+# Definitions below deliberately mirror the Lean file's §0 layer (pc6/rev6/
+# partner/upperT/lowerT/nuc/applyPerm/...) rather than reusing this file's
+# other internals, so the two implementations stay independent.
+# ---------------------------------------------------------------------------
+
+
+def _tg_rev6(n):
+    """6-bit reversal (Lean rev6)."""
+    return ((n & 1) << 5 | (n >> 1 & 1) << 4 | (n >> 2 & 1) << 3 |
+            (n >> 3 & 1) << 2 | (n >> 4 & 1) << 1 | (n >> 5 & 1))
+
+
+def _tg_rev3(t):
+    """3-bit reversal (Lean rev3)."""
+    return (t & 1) << 2 | (t & 2) | (t >> 2 & 1)
+
+
+def _tg_partner(h):
+    """Canonical partner: reversal, or complement for palindromes."""
+    return h ^ 63 if _tg_rev6(h) == h else _tg_rev6(h)
+
+
+def _tg_ham(a, b):
+    return bin(a ^ b).count("1")
+
+
+def _tg_up(h):
+    return (h >> 3) & 7
+
+
+def _tg_lo(h):
+    return h & 7
+
+
+def _tg_d3(a, b):
+    return bin(a ^ b).count("1")
+
+
+def _tg_nuc(h):
+    """Nuclear hexagram: lower nuclear = lines 2-4, upper nuclear = lines 3-5."""
+    return ((h >> 2) & 7) * 8 + ((h >> 1) & 7)
+
+
+def _tg_transitions(l):
+    return [_tg_ham(a, b) for a, b in zip(l, l[1:])]
+
+
+def _tg_multiset(vals):
+    return {v: vals.count(v) for v in sorted(set(vals))}
+
+
+def _tg_apply_perm(p, n):
+    """Bit i of n goes to position p[i] (Lean applyPerm)."""
+    return sum(((n >> i) & 1) << p[i] for i in range(6))
+
+
+def _tg_pcomp(p, q):
+    """applyPerm(pcomp(p,q)) = applyPerm(p) o applyPerm(q) (Lean pcomp)."""
+    return [p[j] for j in q]
+
+
+def _tg_g48():
+    """The centralizer of bit-reversal among the 720 bit permutations."""
+    from itertools import permutations
+    return [list(p) for p in permutations(range(6))
+            if all(_tg_apply_perm(p, _tg_rev6(h)) ==
+                   _tg_rev6(_tg_apply_perm(p, h)) for h in range(64))]
+
+
+def _tg_block_preserving(p):
+    """The image of {bit 0,1,2} is {0,1,2} (blocks fixed) or {3,4,5} (swapped)."""
+    return all(x < 3 for x in p[:3]) or all(x >= 3 for x in p[:3])
+
+
+def _tg_mirror_double(q):
+    """Embed q in S3 as the block-fixing G48 element (Lean mirrorDouble)."""
+    return list(q) + [5 - x for x in reversed(q)]
+
+
+def _tg_valid_c15(l):
+    """C1 + C4 + C5 + C3 (Lean validC15), restated from the Lean file."""
+    if len(l) != 64 or sorted(l) != list(range(64)):
+        return False
+    if not all(l[2 * i + 1] == _tg_partner(l[2 * i]) for i in range(32)):
+        return False
+    if l[0] != 63 or l[1] != 0:
+        return False
+    t = _tg_transitions(l)
+    if _tg_multiset(t) != {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}:
+        return False
+    pos = {h: i for i, h in enumerate(l)}
+    return sum(abs(pos[h] - pos[h ^ 63]) for h in range(64)) <= 776
+
+
+def _tg_uchange(l):
+    return sum(1 for a, b in zip(l, l[1:]) if _tg_up(a) != _tg_up(b))
+
+
+def _tg_lchange(l):
+    return sum(1 for a, b in zip(l, l[1:]) if _tg_lo(a) != _tg_lo(b))
+
+
+def trigram_tg1a():
+    """TG1-a — factorization: rev6 swaps + 3-bit-reverses the trigrams;
+    complement acts componentwise (all 64). Classical; Goldenberg 1975
+    ambient (Lean rev6_trigram_factor / comp6_trigram_componentwise)."""
+    computed = all(_tg_up(_tg_rev6(h)) == _tg_rev3(_tg_lo(h)) and
+                   _tg_lo(_tg_rev6(h)) == _tg_rev3(_tg_up(h)) and
+                   _tg_up(h ^ 63) == _tg_up(h) ^ 7 and
+                   _tg_lo(h ^ 63) == _tg_lo(h) ^ 7 for h in range(64))
+    return True, computed
+
+
+def trigram_tg1b():
+    """TG1-b — Hamming distance splits over the trigram bipartition
+    (all 64x64; Lean ham_trigram_split)."""
+    computed = all(_tg_ham(a, b) ==
+                   _tg_d3(_tg_up(a), _tg_up(b)) + _tg_d3(_tg_lo(a), _tg_lo(b))
+                   for a in range(64) for b in range(64))
+    return True, computed
+
+
+def trigram_tg1c():
+    """TG1-c — symmetric iff upper = rev3(lower); 8 symmetric, 8
+    anti-symmetric, disjoint (Lean symmetric_iff_trigram + counts)."""
+    sym = [h for h in range(64) if _tg_rev6(h) == h]
+    asym = [h for h in range(64) if _tg_rev6(h) == h ^ 63]
+    iff = all((_tg_rev6(h) == h) == (_tg_up(h) == _tg_rev3(_tg_lo(h)))
+              for h in range(64))
+    expected = (True, 8, 8, 0)
+    computed = (iff, len(sym), len(asym), len(set(sym) & set(asym)))
+    return expected, computed
+
+
+def trigram_tg1d():
+    """TG1-d — the pure (doubled-trigram) hexagrams, partner-closure, and
+    the 4 canonical pure pairs (classical placement: Lai Zhide via Schulz
+    1982; Wu Deng via Nielsen 2003; Lean pure_hexagrams_explicit /
+    pure_closed_partner / pure_pairs_explicit)."""
+    pure = [h for h in range(64) if _tg_up(h) == _tg_lo(h)]
+    expected = ([0, 9, 18, 27, 36, 45, 54, 63], True, (63, 36, 45, 54))
+    computed = (pure,
+                all(_tg_up(_tg_partner(h)) == _tg_lo(_tg_partner(h))
+                    for h in pure),
+                (_tg_partner(0), _tg_partner(9), _tg_partner(18),
+                 _tg_partner(27)))
+    return expected, computed
+
+
+def trigram_tg2a():
+    """TG2-a — within-pair distance population over the 64 hexagrams:
+    {2:24, 4:24, 6:16}, i.e. multiset {2:12, 4:12, 6:8} over the 32 pairs
+    (Lean pairdist_count_*; the CITATIONS.md 120-table's engine)."""
+    expected = {2: 24, 4: 24, 6: 16}
+    computed = _tg_multiset([_tg_ham(h, _tg_partner(h)) for h in range(64)])
+    return expected, computed
+
+
+def trigram_tg2b():
+    """TG2-b — trigram readings of d=6 / d=5 / d=1 over all 64x64 pairs
+    (Lean ham_six/five/one_trigram_bool): 6 = both trigrams complemented
+    (McKenna's 9th-six condition); 5 = one complemented + 2 lines of the
+    other (the C2 content); 1 = one trigram carried intact + 1 line."""
+    def ok(a, b):
+        du, dl = _tg_d3(_tg_up(a), _tg_up(b)), _tg_d3(_tg_lo(a), _tg_lo(b))
+        return ((_tg_ham(a, b) == 6) == (du == 3 and dl == 3) and
+                (_tg_ham(a, b) == 5) == ((du == 3 and dl == 2) or
+                                         (du == 2 and dl == 3)) and
+                (_tg_ham(a, b) == 1) == ((du == 0 and dl == 1) or
+                                         (dl == 0 and du == 1)))
+    computed = all(ok(a, b) for a in range(64) for b in range(64))
+    return True, computed
+
+
+def trigram_tg2c():
+    """TG2-c — the pangtong engine partner(comp(partner h)) = comp h (all
+    64), and exactly 16 hexagrams sit in self-complementary pairs, exactly
+    the symmetric + anti-symmetric classes (Lean partner_comp_partner /
+    selfcomp_pair_iff / selfcomp_pair_count)."""
+    engine = all(_tg_partner(_tg_partner(h) ^ 63) == h ^ 63
+                 for h in range(64))
+    selfc = [h for h in range(64) if _tg_partner(h) == h ^ 63]
+    iff = all((_tg_partner(h) == h ^ 63) ==
+              (_tg_rev6(h) == h or _tg_rev6(h) == h ^ 63) for h in range(64))
+    expected = (True, 16, True)
+    computed = (engine, len(selfc), iff)
+    return expected, computed
+
+
+def trigram_tg2d():
+    """TG2-d — KW instance of the two multiset theorems: within-pair
+    {2:12, 4:12, 6:8} and boundary {1:2, 2:8, 3:13, 4:7, 6:1} (Lean
+    within_multiset_general / boundary_budget_general instantiated; the
+    boundary theorem holds for EVERY C1+C5 ordering — Lean proves that;
+    Python checks the KW instance)."""
+    kw = binary_hexagrams
+    t = _tg_transitions(kw)
+    expected = ({2: 12, 4: 12, 6: 8}, {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+    computed = (_tg_multiset(t[0::2]), _tg_multiset(t[1::2]))
+    return expected, computed
+
+
+def trigram_tg2e():
+    """TG2-e — KW's unique 9th six (McKenna & McKenna 1975, credited) is
+    boundary k=18 (flat transition 37, pairs #37-38 -> #39-40); the
+    pangtong-successor identities hold there; neither flanking pair is
+    self-complementary (Lean ninth_six_trigram / pangtong_successor /
+    flanking_exclusion instantiated)."""
+    kw = binary_hexagrams
+    t = _tg_transitions(kw)
+    sixes = [k for k in range(31) if t[2 * k + 1] == 6]
+    expected = ([18], True, True, (False, False))
+    computed = (sixes,
+                kw[38] == kw[37] ^ 63,
+                kw[39] == kw[36] ^ 63,
+                (_tg_partner(kw[36]) == kw[36] ^ 63,
+                 _tg_partner(kw[38]) == kw[38] ^ 63))
+    return expected, computed
+
+
+def trigram_tg3a():
+    """TG3-a — |G48| = 48; exactly 12 preserve the trigram bipartition;
+    6 at record level (Lean G48_length / G12_length / G6_length).
+    SCOPE: G48 acts on LINE POSITIONS (TR-5's constraint-symmetry group)
+    — NOT Hershock 1991's hexagram-set group; see TRIGRAM_STRUCTURE.md §2."""
+    g48 = _tg_g48()
+    g12 = [p for p in g48 if _tg_block_preserving(p)]
+    g6 = [p for p in g12 if p[0] < p[5]]
+    expected = (48, 12, 6)
+    computed = (len(g48), len(g12), len(g6))
+    return expected, computed
+
+
+def trigram_tg3b():
+    """TG3-b — G12 is a genuine subgroup (closed under composition and
+    inverses); rho (bit reversal) is in G12 and central in G48 (Lean
+    G12_closed_pcomp / G12_closed_inv / rho_mem_G12 / rho_central_G48)."""
+    g48 = _tg_g48()
+    g12 = [p for p in g48 if _tg_block_preserving(p)]
+    idp, rho = list(range(6)), [5, 4, 3, 2, 1, 0]
+    closed = all(_tg_pcomp(p, q) in g12 for p in g12 for q in g12)
+    inv = all(any(_tg_pcomp(q, p) == idp and _tg_pcomp(p, q) == idp
+                  for q in g12) for p in g12)
+    central = all(_tg_pcomp(p, rho) == _tg_pcomp(rho, p) for p in g48)
+    expected = (True, True, True, True)
+    computed = (closed, inv, rho in g12, central)
+    return expected, computed
+
+
+def trigram_tg3c():
+    """TG3-c — structure G12 = mirrorDouble(S3) + mirrorDouble(S3)*rho,
+    exactly (12 distinct elements); mirrorDouble is an injective
+    homomorphism; G6 is exactly its image (Lean G12_decomposition_covers/
+    _nodup / mirrorDouble_hom / mirrorDouble_inj / G6_eq_mirrorDouble_image
+    — i.e. G12 iso S3 x C2, record level S3)."""
+    from itertools import permutations
+    g48 = _tg_g48()
+    g12 = [p for p in g48 if _tg_block_preserving(p)]
+    g6 = [p for p in g12 if p[0] < p[5]]
+    rho = [5, 4, 3, 2, 1, 0]
+    s3 = [list(q) for q in permutations(range(3))]
+    md = [_tg_mirror_double(q) for q in s3]
+    cosets = md + [_tg_pcomp(m, rho) for m in md]
+    hom = all(_tg_pcomp(_tg_mirror_double(q1), _tg_mirror_double(q2)) ==
+              _tg_mirror_double(_tg_pcomp(q1, q2)) for q1 in s3 for q2 in s3)
+    expected = (True, 12, True, True)
+    computed = (sorted(map(tuple, cosets)) == sorted(map(tuple, g12)),
+                len(set(map(tuple, cosets))),
+                hom and len(set(map(tuple, md))) == 6,
+                sorted(map(tuple, md)) == sorted(map(tuple, g6)))
+    return expected, computed
+
+
+def trigram_tg3d():
+    """TG3-d — characterization over all 720 line permutations: p preserves
+    the bipartition iff the upper trigram of the image is a well-defined
+    function of a single trigram of the input (Lean
+    blockPreserving_iff_blockwise)."""
+    from itertools import permutations
+
+    def blockwise(p):
+        for proj in (_tg_up, _tg_lo):
+            img = {}
+            if all(img.setdefault(proj(h), _tg_up(_tg_apply_perm(p, h))) ==
+                   _tg_up(_tg_apply_perm(p, h)) for h in range(64)):
+                return True
+        return False
+    computed = all(_tg_block_preserving(list(p)) == blockwise(p)
+                   for p in permutations(range(6)))
+    return True, computed
+
+
+def trigram_tg3e():
+    """TG3-e — the invariance/non-invariance pair: uChange(KW)=59,
+    lChange(KW)=58, preserved by every record-level trigram-compatible
+    symmetry (G6), while the witness sigma=[0,1,3,2,4,5] (in G24, NOT
+    block-preserving) maps KW to a validC15 ordering with uChange 62 —
+    trigram functionals are NOT 24-orbit invariants (Lean uChange_mapP /
+    lChange_mapP / trigram_functional_not_orbit_invariant)."""
+    kw = binary_hexagrams
+    g48 = _tg_g48()
+    g24 = [p for p in g48 if p[0] < p[5]]
+    g6 = [p for p in g24 if _tg_block_preserving(p)]
+    sigma = [0, 1, 3, 2, 4, 5]
+    img = [_tg_apply_perm(sigma, h) for h in kw]
+    g6_inv = all(_tg_uchange([_tg_apply_perm(p, h) for h in kw]) == 59 and
+                 _tg_lchange([_tg_apply_perm(p, h) for h in kw]) == 58
+                 for p in g6)
+    expected = (59, 58, True, True, False, True, 62)
+    computed = (_tg_uchange(kw), _tg_lchange(kw), g6_inv, sigma in g24,
+                _tg_block_preserving(sigma), _tg_valid_c15(img),
+                _tg_uchange(img))
+    return expected, computed
+
+
+def trigram_tg4a():
+    """TG4-a — nuclear naturality (presumably classical/implicit; Hershock
+    1991 'linking', Cook 2006; no discovery claimed): nuc commutes with
+    rev6 and complement, preserves symmetric hexagrams, and descends along
+    the C1 pairing (Lean nuc_comm_rev / nuc_comm_comp /
+    nuc_preserves_symmetric / nuc_partner_descent)."""
+    comm = all(_tg_nuc(_tg_rev6(h)) == _tg_rev6(_tg_nuc(h)) and
+               _tg_nuc(h ^ 63) == _tg_nuc(h) ^ 63 for h in range(64))
+    sym = all(_tg_rev6(_tg_nuc(h)) == _tg_nuc(h)
+              for h in range(64) if _tg_rev6(h) == h)
+    descent = all(_tg_nuc(_tg_partner(h)) ==
+                  (_tg_nuc(h) ^ 63 if _tg_rev6(h) == h
+                   else _tg_rev6(_tg_nuc(h))) for h in range(64))
+    expected = (True, True, True)
+    computed = (comm, sym, descent)
+    return expected, computed
+
+
+def trigram_tg4b():
+    """TG4-b — the 64 -> 16 -> 4 nuclear image chain with terminal set
+    {0, 21, 42, 63} (= solve.c's f5_vdb_term set), nuc-closed with 21<->42
+    swapped (classical chain; Lean nuc_image_16 / nuc_nuc_image_terminal /
+    nuc_terminal_closed)."""
+    img1 = {_tg_nuc(h) for h in range(64)}
+    img2 = {_tg_nuc(_tg_nuc(h)) for h in range(64)}
+    expected = (16, [0, 21, 42, 63], (0, 63, 42, 21))
+    computed = (len(img1), sorted(img2),
+                (_tg_nuc(0), _tg_nuc(63), _tg_nuc(21), _tg_nuc(42)))
+    return expected, computed
+
+
+def trigram_tg5a():
+    """TG5-a — VACUITY GUARD: each of the 8 trigrams appears exactly 8
+    times as upper and 8 as lower in the SET of 64 hexagrams, so trigram
+    balance holds in ANY ordering and says nothing about King Wen (Lean
+    trigram_balance_range / trigram_balance_invariant)."""
+    computed = all(sum(1 for h in range(64) if _tg_up(h) == t) == 8 and
+                   sum(1 for h in range(64) if _tg_lo(h) == t) == 8
+                   for t in range(8))
+    return True, computed
+
+
+def trigram_tg5b():
+    """TG5-b — VACUITY GUARD: pure hexagrams pair with pure hexagrams under
+    C1 (their adjacency is forced, not designed); KW's 4 pure pair-slots
+    are {0, 14, 25, 28} = KW #1-2, #29-30, #51-52, #57-58 (Lean
+    pure_pairslot_couple / pure_pairslot_count + the KW sanity example)."""
+    kw = binary_hexagrams
+    couple = all((_tg_up(kw[2 * i]) == _tg_lo(kw[2 * i])) ==
+                 (_tg_up(kw[2 * i + 1]) == _tg_lo(kw[2 * i + 1]))
+                 for i in range(32))
+    slots = [i for i in range(32) if _tg_up(kw[2 * i]) == _tg_lo(kw[2 * i])]
+    expected = (True, [0, 14, 25, 28])
+    computed = (couple, slots)
+    return expected, computed
+
+
+TRIGRAM_CLAIMS = (
+    ("TG1-a", "rev6 swaps+reverses trigrams; comp componentwise (classical)",
+     trigram_tg1a),
+    ("TG1-b", "Hamming distance splits over the trigram bipartition",
+     trigram_tg1b),
+    ("TG1-c", "symmetric iff up=rev3(lo); 8 symmetric + 8 anti, disjoint",
+     trigram_tg1c),
+    ("TG1-d", "pure hexagrams {9t}, partner-closed, 4 pairs (Lai Zhide/Wu Deng)",
+     trigram_tg1d),
+    ("TG2-a", "within-pair distance population {2:24, 4:24, 6:16}",
+     trigram_tg2a),
+    ("TG2-b", "trigram readings of d=6/5/1 over all 64x64",
+     trigram_tg2b),
+    ("TG2-c", "pangtong engine + 16 self-complementary-pair members",
+     trigram_tg2c),
+    ("TG2-d", "KW within {2:12,4:12,6:8} + boundary {1:2,2:8,3:13,4:7,6:1}",
+     trigram_tg2d),
+    ("TG2-e", "KW 9th six unique at k=18 + pangtong + flanking exclusion (McKenna 1975 obs.)",
+     trigram_tg2e),
+    ("TG3-a", "|G48|=48, |G12|=12, |G6|=6 (line-position group, NOT Hershock's)",
+     trigram_tg3a),
+    ("TG3-b", "G12 subgroup closure/inverses; rho in G12, central in G48",
+     trigram_tg3b),
+    ("TG3-c", "G12 = S3 x C2 via mirrorDouble (injective hom); G6 = image",
+     trigram_tg3c),
+    ("TG3-d", "block-preservation iff blockwise action (all 720 perms)",
+     trigram_tg3d),
+    ("TG3-e", "uChange/lChange G6-invariant on KW; sigma witness breaks 24-orbit invariance",
+     trigram_tg3e),
+    ("TG4-a", "nuc commutes with rev/comp; preserves symmetric; C1 descent",
+     trigram_tg4a),
+    ("TG4-b", "nuclear chain 64->16->4, terminal {0,21,42,63} nuc-closed",
+     trigram_tg4b),
+    ("TG5-a", "vacuity guard: trigram balance is ordering-invariant",
+     trigram_tg5a),
+    ("TG5-b", "vacuity guard: pure adjacency C1-forced; KW slots {0,14,25,28}",
+     trigram_tg5b),
+)
+
+
+def trigram_verify():
+    """Run the trigram-theorem verification battery: one PASS/FAIL line per
+    claim with expected and computed values. Returns 0 on full pass, 1 on
+    any mismatch. See the block comment above for scope and attribution."""
+    failures = 0
+    for cid, desc, fn in TRIGRAM_CLAIMS:
+        expected, computed = fn()
+        ok = expected == computed
+        if not ok:
+            failures += 1
+        print(f"{cid} {'PASS' if ok else 'FAIL'} {desc}\n"
+              f"      expected: {expected}\n"
+              f"      computed: {computed}")
+    if failures:
+        print(f"TRIGRAM VERIFY: {failures} of {len(TRIGRAM_CLAIMS)} CLAIMS FAILED")
+        return 1
+    print(f"TRIGRAM VERIFY: ALL {len(TRIGRAM_CLAIMS)} CLAIMS PASS "
+          f"(two-language check of lean/TrigramTheorems.lean)")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -7828,6 +8277,13 @@ def main():
                              "Yu Fan) against the King Wen sequence; one "
                              "PASS/FAIL line per claim with expected + "
                              "computed values")
+    parser.add_argument("--trigram-verify", action="store_true",
+                        help="verify every finite fact + King Wen instance "
+                             "of lean/TrigramTheorems.lean's machine-checked "
+                             "trigram-level statements (two-language ground "
+                             "truth; see documentation/TRIGRAM_STRUCTURE.md); "
+                             "one PASS/FAIL line per claim with expected + "
+                             "computed values")
     parser.add_argument("--registry-verify", action="store_true",
                         help="Run every candidate-rule ground-truth checker "
                              "(reg_*, CANDIDATE_REGISTRY_2026_07) against the "
@@ -7899,6 +8355,8 @@ def main():
 
     if args.books_verify:
         sys.exit(books_verify())
+    if args.trigram_verify:
+        sys.exit(trigram_verify())
 
     if args.registry_verify:
         sys.exit(registry_verify())
