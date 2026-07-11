@@ -110,7 +110,9 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 ## The C1–C7 space: the Uniqueness Conjecture is refuted (2026-07-02)
 
 Extending the random-probe walk with the spec's C6/C7 adjacency constraints (`SOLVE_KNUTH_C67=1`, slots
-24–27 pinned to King Wen's pairs, orientation free) makes the long-standing Uniqueness Conjecture directly
+24–27 pinned to King Wen's pairs, orientation free) makes the Uniqueness Conjecture — our name for the
+strong determinism reading of the literature's derivation claims and this project's own early working
+hypothesis ([attribution note](CITATIONS.md#uniqueness-conjecture)) — directly
 measurable. Result (5×10¹⁰ probes, D32):
 
 | Quantity | Estimate | 95% CI | rel. err |
