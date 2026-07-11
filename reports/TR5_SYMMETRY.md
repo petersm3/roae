@@ -63,8 +63,10 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    65,281 productive 560T cells partition into 4,183 G-orbits; within-orbit CV of per-cell Knuth size
    estimates (10⁵ probes/cell) is 0.112 (median) — indistinguishable from the estimator's noise floor
    (median relerr 0.130) and 6× below the population CV (0.72). The finite component (48-of-720,
-   24 record-twins) is additionally kernel-checked in Lean 4 (`sigma_kw_valid_48`,
-   `valid_iff_centralizes_rev`, `twins_24_records`; lean/KingWen.lean).
+   24 record-twins) is additionally machine-checked in Lean 4 (`sigma_kw_valid_48`,
+   `valid_iff_centralizes_rev`, `twins_24_records`; lean/KingWen.lean — proved by `native_decide`,
+   which extends the trusted base to Lean's compiler and code generator; see lean/README.md's
+   trust-base note. The sequence-level symmetry layer, Automorphism.lean, is structural).
 4. **The free-action corollary (2026-07-03): every solution has exactly 23 twins.** The S₄ record-action
    has no fixed points off the identity: every canonical record uses all 32 pairs of the fixed C1 pairing
    position-wise; a record equals its σ-image only if σ stabilizes each pair as a set at its slot; an
@@ -131,3 +133,4 @@ then confirmed the theorem's arithmetic signature.
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.6 | 2026-07-04 | Numerical instantiation added: the free-action prediction checked against the exact count \|C1∩C2∩C4\| = 7.5706×10⁴¹ (symmetry-quotient DP), divisible by 24 exactly |
 | v1.7 | 2026-07-04 | Reproducibility completion: Verification Guide's tree-isomorphism command spelled out in full (ellipsis removed); 720-permutation σ(KW) test published as a runnable snippet in SYMMETRY_SEARCH.md §Reproducibility; orbit-CV test given an explicit public rerun spec |
+| v1.8 | 2026-07-11 | Trust-base wording precision: the Lean finite component is `native_decide`-checked (extended trust base — Lean's compiler), not "kernel-checked"; phrasing corrected per lean/README.md's trust-base note. No result changes |

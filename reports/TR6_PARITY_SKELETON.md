@@ -50,9 +50,10 @@ inherits.
    theorem; the "4×" concentration prose was a delta-misread-as-ratio (true linear excess ≈1.3×). Fixed
    with correction notes. The pattern repeats across the project: every time a claim must be re-derived
    for a machine (Lean, the estimator, now SAT), latent errors surface.
-3. **Modality 2 — Lean, kernel-checked.** lean/KingWen.lean (core Lean 4 only, no mathlib) first pins the
+3. **Modality 2 — Lean, machine-checked.** lean/KingWen.lean (core Lean 4 only, no mathlib) first pins the
    finite lemmas by `native_decide` (`partner_preserves_parity`, `parity_split_32_32`,
-   `xor_parity_identity`; plus `kw_alternations_15` — King Wen's own count). Tier 2b (2026-07-03) then
+   `xor_parity_identity`; plus `kw_alternations_15` — King Wen's own count; `native_decide` extends the
+   trusted base to Lean's compiler — see lean/README.md's trust-base note). Tier 2b (2026-07-03) then
    proves the **general theorem**: `alternations_15_general` — every C1+C5 sequence of 64 six-bit values
    has EXACTLY 15 parity-class alternations, by structural proof (transitions-as-range-map bridge lemma;
    index-parity split via a kernel-decided permutation of range 63; within-pair evenness from C1; the C5
@@ -128,8 +129,8 @@ contribute two switches each. Discovered as a pre-registered F4' functional that
 [evidence/f4p_tier1.out](evidence/f4p_tier1.out), regenerable via `SOLVE_KNUTH_SCORE_F4P=1 ./solve
 --estimate-knuth 2000000000` — flag documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md)) before being proved — the measurement
 found the theorem. As of v1.4 the corollary is also machine-checked: `switches_30_general` in
-lean/KingWen.lean (kernel-verified, core Lean, no mathlib) — the same three-modality status as the main
-theorem.
+lean/KingWen.lean (a structural proof checked by the kernel; core Lean, no mathlib) — the same
+three-modality status as the main theorem.
 
 ## Revision history
 | Version | Date | Changes |
@@ -140,3 +141,4 @@ theorem.
 | v1.3 | 2026-07-04 | 30-switches corollary added (found by F4' population measurement, then proved) |
 | v1.4 | 2026-07-04 | Corollary machine-checked: switches_30_general kernel-verified in lean/KingWen.lean |
 | v1.5 | 2026-07-04 | Reproducibility completion: F4' discovery-measurement evidence published (reports/evidence/f4p_tier1.out) and cited from the corollary; `SOLVE_KNUTH_SCORE_F4P` documented in SOLVE_C_CLI.md |
+| v1.6 | 2026-07-11 | Trust-base wording precision: §3's modality heading is "machine-checked" (its finite lemmas are `native_decide` — extended trust base per lean/README.md); the general theorems (`alternations_15_general`, `wrap_parity_general`, `switches_30_general`) remain kernel-checked structural proofs, stated as such. No result changes |

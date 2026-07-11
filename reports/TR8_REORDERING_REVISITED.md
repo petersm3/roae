@@ -59,8 +59,10 @@ analysis. We supply the instruments their question required.
    Zhu Yuansheng/Schulz/Moore observations, not ours; measurement is ours). Verifiability box: exact
    commands, open repository.
 3. **The proposal, decided** — Theorem: no Gray-code ordering satisfies the pair structure. Proof:
-   within-pair Hamming distances are always even and nonzero (machine-checked, kernel-verified; also a
-   two-line parity argument in-text); Gray adjacency requires distance 1. Their specific construction
+   within-pair Hamming distances are always even and nonzero (machine-checked in Lean via
+   `native_decide` — extended trust base per lean/README.md; the evenness half, which alone rules out
+   Gray adjacency, is also kernel-`decide`d as `within_even`; a two-line parity argument is in-text);
+   Gray adjacency requires distance 1. Their specific construction
    also evaluated directly. (Also cite the modern complement: [Radisic 2026](../documentation/CITATIONS.md#radisic2026) proves the pairing is the
    unique Hamming-optimal matching — the structure they discarded is, by a natural criterion, the optimal
    part.)
@@ -81,8 +83,9 @@ box.
 - **Gray-code impossibility (§3):**
   `python3 -c "import solve; print(sorted({solve.bit_diff(a,b) for a,b in solve.king_wen_pairs()}))"`
   → `[2, 4, 6]` — every within-pair Hamming distance is even and nonzero, never 1, so no Gray-code
-  ordering can realize the pairing. Kernel-checked general form: `within_pair_even_nonzero` in
-  `lean/KingWen.lean` (`lean lean/KingWen.lean`, exit 0). Runs in <1 s.
+  ordering can realize the pairing. Machine-checked form: `within_pair_even_nonzero` in
+  `lean/KingWen.lean` (`native_decide`; the evenness half is also kernel-`decide`d as `within_even`;
+  `lean lean/KingWen.lean`, exit 0). Runs in <1 s.
 - **Pair-rarity direct sampling (§2, null (b) — the pair-only space, seeded per METHODS.md):**
   ```
   python3 -c "import random,solve; rng=random.Random(42); P=solve.king_wen_pairs(); N=100000; sh=(lambda: (lambda q: (rng.shuffle(q), q)[1])(list(P))); hit=sum(solve.rc4_violations([x for a,b in sh() for x in ((b,a) if rng.random()<0.5 else (a,b))])[0]<=2 for _ in range(N)); print(f'{hit}/{N} = {hit/N:.5f}')"
@@ -103,3 +106,4 @@ box.
 | v1.1 | 2026-07-04 | Plain-language executive summary added; internal drafting TODOs resolved (figures kept as planned improvements) |
 | v1.2 | 2026-07-10 | Reception history added: Hershock (1991), the one published reply to McKenna & Mair, acquired (ILL) and audited — philosophical critique, premise shared, neither claim tested; "sat untested" sharpened to "computationally untested" |
 | v1.3 | 2026-07-11 | Process sections relocated: the venue-targeting line, the venue Q&A bullet, and the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). "this journal" in the abstract made explicit (*Philosophy East and West*). No findings changed |
+| v1.4 | 2026-07-11 | Trust-base wording precision: the within-pair evenness/nonzero lemma is `native_decide`-checked (extended trust base per lean/README.md), not "kernel-verified"; noted that the evenness half — which alone rules out Gray adjacency — is also kernel-`decide`d (`within_even`). No result changes |
