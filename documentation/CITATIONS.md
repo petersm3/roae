@@ -506,7 +506,7 @@ Cambria Press.
 Drasny, J. (c. 2007). *The regular grouping of the hexagrams before the Yi jing* [Paper]; *The Yi-globe:
 The image of the cosmos in the Yijing* [Book].
   Early-Predecessor theory with four "alien" pairs as anomaly loci; also author of a critical review of
-  Cook (2006). Paper [analyzed, via mirror]; book [not obtained].
+  Cook (2006). Paper [analyzed, via mirror]; book [read].
 
 <a id="ge2026"></a>
 Ge, Z. (2026). The cycle structure of the King Wen permutation: A group-theoretic analysis of two classical
