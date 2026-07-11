@@ -1,5 +1,11 @@
 # How the King Wen Sequence Was Built
 
+> **Authority note (legacy narrative).** This page predates the 2026-07 technical-report suite and is
+> retained as the project's plain-language narrative. Where this page and the
+> [technical reports](../reports/README.md) (or [CRITIQUE.md](CRITIQUE.md)) disagree, **the reports
+> win** — the discrepancy is a bug in this page; please report it (the same convention as
+> [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md)).
+
 A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
 For deeper material referenced throughout this article:

@@ -171,7 +171,7 @@ This section tests both constraints together: perfect pair structure AND no 5-li
 
 ### --entropy (Shannon entropy)
 
-Entropy measures disorder. High entropy means the difference values are spread evenly (random-looking); low entropy means certain values dominate (structured). King Wen sits at about the 13th percentile — more structured than 87% of random orderings, but not significant after correcting for multiple comparisons.
+Entropy measures disorder. High entropy means the difference values are spread evenly (random-looking); low entropy means certain values dominate (structured). King Wen sits at about the 12th percentile against unconstrained random orderings (6th against the pair-constrained null) — more structured than most, but not significant after correcting for multiple comparisons ([CRITIQUE.md](CRITIQUE.md)).
 
 **What it means:** The sequence is somewhat more ordered than random, but this alone doesn't prove intentional design.
 
@@ -189,7 +189,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | Complement distance (0th / 3.9th percentile) | Moderate (see [caveat](SOLVE-SUMMARY.md#an-important-caveat)) | Yes |
 | XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
-| Entropy (13th percentile) | Weak | No |
+| Entropy (≈12th percentile) | Weak | No |
 | No detectable periodicity | Null result | N/A |
 | Markov transitions (43rd percentile) | Not significant | No |
 | Path length, pair-constrained (29th percentile) | Not significant | No |
@@ -228,7 +228,7 @@ The perfect pair structure. Every one of the 32 consecutive pairs is either a re
 
 **Is the complement distance finding new?**
 
-The program discovers that King Wen places complementary hexagrams significantly closer together than random (0th percentile). This appears to be a genuine structural regularity that hasn't been widely discussed in prior analyses.
+The program finds that King Wen places complementary hexagrams closer together than random (0th percentile against unconstrained random orderings; 3.9th against the pair-constrained null). It appears to be a genuine structural regularity not widely discussed in prior analyses — with one important scope note: within the fully constrained C1+C2+C3 population, KW sits at the complement-distance *maximum* (most valid orderings place complements closer; see [SOLVE.md](SOLVE.md)).
 
 **Can I trust the percentiles?**
 
