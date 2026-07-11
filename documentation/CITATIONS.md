@@ -488,7 +488,7 @@ Philosophy, 14*(1), 59–64. [doi:10.1163/15406253-01401003](https://doi.org/10.
   not inherited from the source. (Hacker cites Olsvanger as 1984; the original is 1948 — 1984 is a reprint.)
 
 <a id="hacker-moore2002"></a>
-Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [not obtained]
+Hacker, E. A., Moore, S., & Patsco, L. (2002). *I Ching: An annotated bibliography*. Routledge. [analyzed]
 
 <a id="hershock1991"></a>
 Hershock, P. D. (1991). The structure of change in the I Ching. *Journal of Chinese Philosophy, 18*(3),
