@@ -83,7 +83,7 @@ notational scoring — is accepted and stated.
    |---|---|---|---|---|
    | 1 | `termruns` — terminal-pair one-line-neighborhood contiguity (flagship, pp. 251–255) | 3 runs | P(≤3) = 2.7×10⁻² (two-sided ~5.4×10⁻²; population mean 5.2 runs) | **NULL** |
    | 2 | `compmirror` — the 7–16 complement-mirror block (pp. 81–82, 92, 95–96) | 1 block | P(≥1) = 1.12×10⁻² (~1 in 89 orderings) | **NULL** |
-   | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴ | notable (below candidate gate) |
+   | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴ | notable (below candidate gate; does not survive the global ~83-observable ledger) |
    | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | zero sampled mass in 2×10⁹ | extreme / data-like class |
    | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9) | **NULL** |
    | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | P = 6.5×10⁻⁵ | meets candidate-rule numerically — data-like; does not promote |
@@ -105,6 +105,9 @@ notational scoring — is accepted and stated.
    **nothing promotes**. The single honest bright spot for Davis is the #43–50 trigram array (row 3):
    a pattern-form (not a placement template) that ~1 in 1,500 valid orderings contains anywhere —
    notable at the Bonferroni gate, well short of the candidate gate, and his best-performing claim.
+   The "notable" is family-scoped: it survives its frozen family correction (0.05/9 = 5.56×10⁻³) but
+   does **not** survive the global ~83-observable ledger (bar ≈ 0.05/83 ≈ 6.0×10⁻⁴; 6.8×10⁻⁴ falls
+   just outside it — see [METHODS.md](METHODS.md) §"Global observable ledger").
 4. **One refutation, and one withdrawn.** Davis claims that the terminal pair is transformationally
    unique: transforming each of #63/64's twelve lines yields derivative hexagrams confined to three
    contiguous groups (#3–6, #35–40, #49/50), and "in no other case" does a pair transform into so few
@@ -213,4 +216,5 @@ notational scoring — is accepted and stated.
 | v1.0 | 2026-07-04 | Initial private draft (roae-private staging); adversarial review pending before any public release |
 | v1.1-draft | 2026-07-04 | Hostile pre-publication review pass: "strictest symmetry" page cite corrected (p. 112 → p. 96, verified against the book); "undeniably designed" (p. 116) re-scoped to the Big-and-Little group rather than the 7–16 block; §5(a) "came back null" corrected to reflect the one Bonferroni-notable row; §5(b) softened to "largely against him" with the trigarray exception stated, and mixed percentile conventions replaced by the table's tail masses; pureplace "exactly at threshold" → "at the threshold to reported precision" (measured 5.56×10⁻³ vs 0.05/9 = 5.56×10⁻³ at 3 s.f.). All table masses re-derived from dav_tier1.out; refutation and corpus-control numbers independently recomputed; both `--dav-verify` gates re-run (PASS) |
 | v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per [Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
+| v1.4 | 2026-07-11 | Global-ledger qualifier on the trigarray "notable" (§3 row 3 + narrative): survives its family correction (0.05/9) but not the global ~83-observable ledger (≈6.0×10⁻⁴ bar; measured 6.8×10⁻⁴) — see METHODS §"Global observable ledger". No measured number changes |
 | v1.3 | 2026-07-11 | **Scope-decision note (§5(c)):** Davis's big/little named-hexagram size pattern (pp. 94–96), conditionally pre-registered as a follow-up candidate, was declined without measurement on 2026-07-11 — hexagram names (tradition/translation-dependent semantic attributes) are not admitted as predicate inputs, consistent with §5(c)'s published scope statement. The follow-up family's Bonferroni denominator stays frozen at /12. No measured number in this report changes |
