@@ -22,7 +22,7 @@ closure. We work out exactly what the ROAE constraint system says under the circ
 theorems and one SAT decision result: (i) the wrap-around Hamming distance d(s₆₃, s₀) is odd for *every*
 C4+C5-valid ordering — now machine-checked in Lean 4 at full generality (`wrap_parity_general`, structural
 induction, not finite enumeration); (ii) McKenna's exact 3:1 even:odd transition ratio is a *forced
-consequence* of C4 + C5 plus the XOR parity identity — a design feature he observed empirically that turns
+consequence* of C4 + C5 plus the XOR parity identity — a regularity he read as a design feature that turns
 out to be a theorem, not a choice; (iii) every valid circular reading has exactly 16 parity-class
 alternations, and the first and last hexagrams of any valid linear ordering lie in opposite
 popcount-parity classes. Finally, the circular form of C2 ("no 5-line transition anywhere on the cycle")

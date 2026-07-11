@@ -86,8 +86,8 @@ determined. Position 2 is a major branching point (16 options). Positions 3-18 a
 highly constrained (per-position Shannon entropy 0.28-1.72 bits vs a maximum of 5.0),
 though not fully locked — each branch admits 2-29 distinct configurations across
 positions 3-19. Positions 19-32 open up dramatically — up to 16 pairs are possible,
-and King Wen's choice is one among many. The ancient designers had limited freedom
-in the first half but considerable choice in the second half.
+and King Wen's choice is one among many. Whoever arranged the sequence had limited
+freedom in the first half but considerable freedom in the second half.
 
 ## How close are the nearest alternatives?
 

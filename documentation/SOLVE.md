@@ -92,7 +92,7 @@ With `--seed 42 --trials 100000`:
 
 **Level 1 (4.27%):** The no-5 constraint eliminates ~96% of pair-constrained orderings. This is consistent with ROAE's finding that ~4% of pair-constrained orderings avoid 5-line transitions.
 
-**Level 2 (0.31%):** Complement proximity is a powerful constraint, eliminating ~93% of the Level 1 survivors. This confirms that complement placement is a genuine design feature, not a side effect of the pair structure.
+**Level 2 (0.31%):** Complement proximity is a powerful constraint, eliminating ~93% of the Level 1 survivors. This confirms that complement placement is a genuine independent constraint, not a side effect of the pair structure.
 
 **Level 3 (0.31%):** The XOR constraint adds nothing — every sequence that satisfies Levels 1-2 also satisfies Level 3. The XOR algebraic regularity is a *consequence* of the pair structure and complement proximity, not an independent rule.
 
@@ -209,7 +209,7 @@ A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-dupli
 
 **Two genuinely non-trivial extremal features, confirmed at scale:**
 
-1. **Complement distance: 12.125 (3.9th percentile among all Rule 1-6 solutions).** King Wen keeps complements unusually close *relative to the Rule 1-6 reference population*. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter (KW's own value defines the ceiling). The meaningful finding at this scope: KW's cd of 12.125 is in the lowest 4% of orderings satisfying Rules 1-6, suggesting deliberate design pressure toward complement proximity. **Within the full C1+C2+C3 canonical (3.43B records at 100T d3), KW sits at the C3 CEILING, not the floor** — 340M orderings tie with KW at exactly 776; minimum is 424. See [SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md) for the C1+C2+C3-scoped framing.
+1. **Complement distance: 12.125 (3.9th percentile among all Rule 1-6 solutions).** King Wen keeps complements unusually close *relative to the Rule 1-6 reference population*. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter (KW's own value defines the ceiling). The meaningful finding at this scope: KW's cd of 12.125 is in the lowest 4% of orderings satisfying Rules 1-6 — an unusually tight complement placement relative to that reference population. **Within the full C1+C2+C3 canonical (3.43B records at 100T d3), KW sits at the C3 CEILING, not the floor** — 340M orderings tie with KW at exactly 776; minimum is 424. See [SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md) for the C1+C2+C3-scoped framing.
 
 2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Confirmed across all 13,296 orderings.
 
@@ -219,7 +219,7 @@ No individual line autocorrelation is extremal — the effect is distributed acr
 
 The complement distance finding is striking *at this scope*: among orderings satisfying Rules 1-5 (without C3 yet applied), King Wen's complement distance of 12.125 is at the **3.9th percentile** — only 3.9% of valid orderings place complements closer. Most valid orderings have complement distances of 12-14.5. The "actively minimizes complement distance" framing is appropriate against this reference population (Rules 1-5 / C1+C2+C5 in the new naming). **It is not appropriate against the C1+C2+C3 canonical**: once C3 ≤ 776 is applied (using KW's exact value as the ceiling), KW sits at the maximum allowed cd, not the minimum. ~10% of the 3.43B C1+C2+C3 canonical orderings tie with KW at 776; the minimum is 424. The 3.9th-percentile claim and the "ceiling cohort" claim are both true, at different scopes — see [SOLVE-SUMMARY.md §Rule 3](SOLVE-SUMMARY.md). Either framing represents a research design choice on what reference population to compare against; the threshold value 12.125 itself is reverse-engineered from KW (no first-principles derivation).
 
-The line autocorrelation finding suggests the designers preferred smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
+The line autocorrelation finding shows the sequence favors smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
 
 These two features are candidates for a 7th rule that could further narrow the solution space toward King Wen uniquely.
 
@@ -424,7 +424,7 @@ Analysis of the two critical boundaries reveals no underlying pattern:
 
 The two boundaries don't share a common trigram property. No sorting principle (by XOR, sum, within-pair distance, or trigram type) governs the free region (positions 24-32). The free pairs are not arranged by any measured scalar property.
 
-The 2 adjacency constraints appear to be **irreducible choices** — the final creative decisions of whoever designed the sequence, not consequences of a deeper mathematical principle.
+The 2 adjacency constraints appear to be **irreducible** — features of the arrangement not explained by any deeper mathematical principle tested here, whether they were deliberate decisions or accidents of history.
 
 ### Pair swap analysis
 
@@ -516,7 +516,7 @@ The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canon
 
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
-- **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing design choices, not mathematical necessity.
+- **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing selections among genuinely available alternatives, not mathematical necessity.
 - **King Wen minimizes complement distance** among valid orderings, keeping opposites as close as possible (3.9th percentile).
 
 ### Summary

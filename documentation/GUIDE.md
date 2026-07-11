@@ -14,7 +14,7 @@ The ordering is not alphabetical, not sorted by number of solid lines, and not r
 
 ## Why should I care?
 
-The King Wen sequence is one of the oldest known examples of deliberate combinatorial design. Whoever created it was working with mathematical rules — pairing, complementation, transition constraints — roughly 2,500 years before the formal study of combinatorics began in Europe. The sequence predates Euler, Pascal, and even Euclid.
+The King Wen sequence is one of the oldest known objects exhibiting strong combinatorial structure. However it came to be, the result obeys mathematical regularities — pairing, complementation, transition constraints — that were fixed roughly 2,500 years before the formal study of combinatorics began in Europe. The sequence predates Euler, Pascal, and even Euclid.
 
 This doesn't mean the creators thought of it as "mathematics." They may have understood the structure through divination practice, cosmological principles, or aesthetic intuition. But the result is a permutation of 64 objects that satisfies constraints which are vanishingly unlikely by chance. Understanding what those constraints are — and which apparent patterns are real versus illusory — is the point of this program.
 
@@ -149,7 +149,7 @@ Terms used in the program output:
 
 This section checks each of the 32 consecutive pairs and classifies them as reverse, inverse, or neither. The key result: all 32 are one or the other. The program tests how often this happens by chance — the answer is effectively never (0 out of 10,000 random permutations).
 
-**What it means:** Whoever arranged the sequence deliberately placed each hexagram next to its mirror image or its opposite. This is the strongest finding in the entire program.
+**What it means:** In the sequence, every hexagram sits next to its mirror image or its opposite, without exception — a property zero of 10,000 random permutations reproduce. This is the strongest finding in the entire program.
 
 ### --wave (First order of difference)
 
@@ -167,7 +167,7 @@ This section shuffles the 64 hexagrams randomly (typically 100,000 times) and ch
 
 This section tests both constraints together: perfect pair structure AND no 5-line transitions. Zero random permutations satisfy both. But there's a crucial subtlety: among orderings that already have perfect pair structure, about 4% also avoid 5-line transitions. So the no-5 property is mostly a *consequence* of the pair structure, not an independent constraint.
 
-**What it means:** The sequence was designed under deliberate mathematical rules. The pair structure is the primary constraint; the no-5 property follows largely from it.
+**What it means:** The sequence satisfies mathematical constraints that are vanishingly unlikely by chance — zero random permutations satisfy both together. The pair structure is the primary constraint; the no-5 property follows largely from it.
 
 ### --entropy (Shannon entropy)
 
@@ -212,7 +212,7 @@ Only Position 1 is universally locked. The number of boundary constraints needed
 
 **Does this prove the I Ching is mathematical?**
 
-It proves the *ordering* of the hexagrams was constructed under mathematical constraints, whether or not the creators would have described it that way. It says nothing about the text, the divination practice, or the philosophical tradition — those are entirely separate from the sequence structure.
+It shows the *ordering* of the hexagrams satisfies strict mathematical constraints that are vanishingly unlikely by chance, whether or not whoever arranged it would have described them that way. It says nothing about the text, the divination practice, or the philosophical tradition — those are entirely separate from the sequence structure.
 
 **What about Timewave Zero?**
 
@@ -228,7 +228,7 @@ The perfect pair structure. Every one of the 32 consecutive pairs is either a re
 
 **Is the complement distance finding new?**
 
-The program discovers that King Wen places complementary hexagrams significantly closer together than random (0th percentile). This appears to be a genuine design constraint that hasn't been widely discussed in prior analyses.
+The program discovers that King Wen places complementary hexagrams significantly closer together than random (0th percentile). This appears to be a genuine structural regularity that hasn't been widely discussed in prior analyses.
 
 **Can I trust the percentiles?**
 

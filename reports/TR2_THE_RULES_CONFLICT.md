@@ -60,7 +60,7 @@ trade-off among competing regularities — precisely the reading Schulz proposed
 5. **Reading the received order** — trade-off, not corruption; Schulz's 2011 principle vindicated in
    exact form; what remains open (restricted corruption; tendencies), WITHOUT statistics beyond one
    rarity sentence per rule (cited to the population-measurement record, not developed).
-6. **Coda**: the sequence emerges more, not less, deliberate: it sits where its own tradition's rules
+6. **Coda**: the sequence emerges more, not less, coherent: it sits where its own tradition's rules
    force a choice, keeping exactly one perfectly.
 
 ## Verification Guide
