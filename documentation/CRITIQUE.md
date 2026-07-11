@@ -345,9 +345,14 @@ null, with a provably algorithmic ordering as **positive control**:
 
 The battery is not a design-finding machine: it lights up on provably constructed orderings, and for King
 Wen it flags precisely the three constraints this project documents — nothing else — with every residual
-signal disappearing under the correct (pair-preserving) null. This is the strongest specificity evidence
-in the record: the methodology distinguishes *which* orderings are structured and *where*. (Results file
-with the full table and script: project archive.) *(Corrected 2026-07-05: the original 2026-07-03 run
+signal disappearing under the correct (pair-preserving) null. The scope of this evidence should be stated
+plainly: the control corpus is the **two** documented historical alternatives available to us (Jing Fang,
+Mawangdui) plus Fu Xi in the null tables — n = 2 non-KW historical controls is a real limit on how strong
+any "specificity" claim can be, and the positive-control logic (the battery detects provably algorithmic
+construction) is sound only as far as it goes. Within that limit, the methodology distinguishes *which*
+orderings are structured and *where*; additional attested historical orderings, if verifiable to
+source-grade standards, would harden this gate and are sought (see the standing invitation in
+[CITATIONS.md](CITATIONS.md)). (Results file with the full table and script: project archive.) *(Corrected 2026-07-05: the original 2026-07-03 run
 used the erroneous pre-correction Mawangdui array and reported 7 of 11 extremes with a parenthetical
 rationalizing the rule/data mismatch its own cross-validation had flagged — that rationalization was
 wrong; the array was simply incorrect. Rerun on the corrected array (Shaughnessy 2022 Table 11.2),

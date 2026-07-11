@@ -73,7 +73,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
 look-elsewhere accounting, and one corrected published result. It also reports the corpus-control test:
 the same methodology flags a provably algorithmic ordering ([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes, and King Wen on
-exactly its three documented constraints — the method does not find design wherever it looks.
+exactly its three documented constraints — the method does not find design wherever it looks (a control
+corpus of the two documented historical alternatives available; the small n is stated in CRITIQUE).
 
 ## Quick start
 ```
