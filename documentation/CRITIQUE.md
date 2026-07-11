@@ -32,7 +32,11 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 The constraint set C1–C5 was *selected* after an exploratory sweep of many observables (roae.py's 28
 analysis sections plus solve.c's null-model and verification batteries — on the order of **~30 distinct
-observables** examined across the project's discovery phase). Selecting the most striking properties from a
+observables** examined across the project's discovery phase). Adding the five later pre-registered testing
+families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13) on top of that discovery-phase
+battery brings the enterprise-wide running total to **~83 distinct observables** — the global ledger that
+[reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar ≈ 0.05/83 ≈
+6.0×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
 battery and then testing them on the same sequence inflates apparent significance; a referee is entitled to
 demand multiple-comparisons accounting across the *whole battery*, not just per-test corrections. Applying
 the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everything examined:
@@ -427,7 +431,8 @@ page in the eventual report).
 
 **Davis results (2026-07-04, reported in full as pre-committed):** of the nine registered candidates,
 Davis's flagship compositional claims (terminal contiguity, the 7–16 mirror, palindrome adjacency, the
-asymmetric half-split) are NULL after Bonferroni; the #43–50 trigram array is notable (6.8×10⁻⁴); the
+asymmetric half-split) are NULL after Bonferroni; the #43–50 trigram array is notable (6.8×10⁻⁴ — at its
+family correction; it does not survive the global ~83-observable ledger's ≈6.0×10⁻⁴ bar); the
 exact-placement templates are rare-by-construction (data-like class — including two with zero sampled
 mass at 2×10⁹ probes) and, per the standing circularity policy, carry no design inference; corpus
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided
