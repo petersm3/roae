@@ -720,9 +720,9 @@ def print_complements():
     print("(solid becomes broken, broken becomes solid). For example, The Creative (all")
     print("solid) and The Receptive (all broken) are complements. This section finds where")
     print("each hexagram's complement sits in the King Wen sequence and how far apart they")
-    print("are. If complements tend to be near each other, it suggests the sequence was")
-    print("deliberately organized around opposition; if far apart, they may serve as")
-    print("bookends for larger structural sections.")
+    print("are. If complements sit nearer each other than a null model predicts, opposition")
+    print("is an organizing feature of the sequence's structure; if farther, complements")
+    print("may serve as bookends for larger structural sections.")
     print("---")
 
 
@@ -764,26 +764,25 @@ def print_complements():
     print(f"King Wen mean complement distance: {kw_mean:.1f}")
     print(f"King Wen percentile vs random: {percentile:.1f}%")
     if percentile <= 5:
-        print("Complements are significantly closer together than chance would predict,")
-        print("suggesting the sequence was deliberately organized around opposition.")
+        print("Complements are significantly closer together than chance would predict:")
+        print("the ordering keeps opposites unusually near one another.")
     elif percentile >= 95:
-        print("Complements are significantly farther apart than chance would predict,")
-        print("suggesting deliberate separation of opposites into distant structural sections.")
+        print("Complements are significantly farther apart than chance would predict:")
+        print("the ordering separates opposites into distant structural sections.")
     else:
         print("Complement distances are within the range expected by chance;")
-        print("no strong evidence of deliberate placement based on opposition alone.")
+        print("no strong evidence that opposition alone shapes placement.")
 
 def print_palindromes():
     """Search for palindromic subsequences in the first-order difference wave.
-    Palindromes suggest intentional symmetry in the King Wen ordering."""
+    Palindromes measure mirror symmetry in the King Wen ordering."""
     _reseed(1)
     print("---")
     print("Palindrome analysis of the difference wave")
-    print("A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding")
-    print("palindromic runs in the difference wave suggests the King Wen sequence contains")
-    print("deliberate mirror symmetry — sections where the pattern of change rises and falls")
-    print("in a balanced way. Longer palindromes are less likely to occur by chance and more")
-    print("likely to reflect intentional design.")
+    print("A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Palindromic")
+    print("runs in the difference wave are mirror symmetry — sections where the pattern of")
+    print("change rises and falls in a balanced way. Longer palindromes are less likely to")
+    print("occur by chance, so counts and lengths are measured against null models below.")
     print("---")
 
     diffs = compute_diffs(wrap=False)
@@ -1360,8 +1359,8 @@ def print_stats(trials=100000):
     print("differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference")
     print("values (0-6), is avoiding 5 remarkable or just a coincidence? To find out, we")
     print("randomly shuffle the 64 hexagrams thousands of times and check how often a")
-    print("random ordering also avoids 5-line transitions. The rarer it is, the more")
-    print("likely the King Wen sequence was intentionally designed with this constraint.")
+    print("random ordering also avoids 5-line transitions. The rarer it is, the less")
+    print("plausible chance becomes as an explanation for the avoidance.")
     print("---")
 
     # Shuffle the 64 binary hexagram values and check whether any consecutive
@@ -2722,10 +2721,10 @@ def print_parity():
     print()
 
     # C8 candidate discussion
-    print("--- 'C8' candidate: is the wrap-around parity a design feature? ---")
+    print("--- 'C8' candidate: is the wrap-around parity a structural constraint? ---")
     print(f"The spec's C1-C7 do not constrain the wrap-around s_63 -> s_0. So if")
-    print(f"McKenna's exact 25/75 was an intentional design feature, it would imply")
-    print(f"a new constraint:")
+    print(f"McKenna's exact 25/75 reflects a real constraint on the sequence rather")
+    print(f"than a numerical coincidence, it would imply a new constraint:")
     print(f"  C8 (weak):   hamming(s_63, s_0) is odd  (admits {{1, 3, 5}}; C2 may extend to 64th)")
     print(f"  C8 (strict): hamming(s_63, s_0) = {wrap_d}  (King Wen's exact value)")
     print()
@@ -3471,9 +3470,24 @@ def export_markdown(filename="report.md"):
     out = open(filename, "w")
     _print = lambda *a, **k: print(*a, **k, file=out)
 
+    # First-mention citation anchor-links (see documentation/CITATIONS.md).
+    # Relative paths resolve from the committed copy's location in example/.
+    _cite_links = {
+        "Jing Fang": "[Jing Fang](../documentation/CITATIONS.md#jingfang)",
+    }
+    _linked = set()
+
+    def _linkify(text):
+        for name, link in _cite_links.items():
+            if name not in _linked and name in text:
+                text = text.replace(name, link, 1)
+                _linked.add(name)
+        return text
+
     _print("# Received Order Analysis Engine (ROAE)")
     _print("")
-    _print("Analysis of the King Wen sequence including observations by Terence McKenna.")
+    _print("Analysis of the King Wen sequence including observations by "
+           "[Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975).")
     _print("")
 
     for title, func in sections:
@@ -3490,7 +3504,7 @@ def export_markdown(filename="report.md"):
                 _print(text)
                 _print("")
             elif btype == 'subheader':
-                _print(f"### {text}")
+                _print(f"### {_linkify(text)}")
                 _print("")
             elif btype == 'pre':
                 _print("```")

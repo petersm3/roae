@@ -1,4 +1,4 @@
-# Received Order Analysis Engine
+# Received Order Analysis Engine (ROAE)
 
 Analysis of the King Wen sequence including observations by [Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975).
 
@@ -301,16 +301,6 @@ Xun       1     1     2     2     1     1     0     0
 Qian      3     1     1     1     1     0     1     0     
 ```
 
-### Methodological note
-
-```
-With ~1 expected observation per cell, no goodness-of-fit test (e.g.,
-chi-square) has sufficient power to detect deviations from uniform
-transitions. The matrices are descriptive only.
-```
-
-### Inferential extension (2026-07-03)
-
 ### Trigram change rates vs null (pair-preserving permutation test)
 
 ```
@@ -359,6 +349,13 @@ blocks (or swapping them wholesale) that also centralize rev.
 Split-respecting subgroup order: 12 of 48 (computed over the rev-centralizer)
 ```
 
+### Methodological note
+
+```
+With ~1 expected observation per cell, no goodness-of-fit test (e.g.,
+chi-square) has sufficient power to detect deviations from uniform
+transitions. The matrices are descriptive only.
+```
 
 ## Nuclear hexagram analysis
 
@@ -506,9 +503,9 @@ Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines
 (solid becomes broken, broken becomes solid). For example, The Creative (all
 solid) and The Receptive (all broken) are complements. This section finds where
 each hexagram's complement sits in the King Wen sequence and how far apart they
-are. If complements tend to be near each other, it suggests the sequence was
-deliberately organized around opposition; if far apart, they may serve as
-bookends for larger structural sections.
+are. If complements sit nearer each other than a null model predicts, opposition
+is an organizing feature of the sequence's structure; if farther, complements
+may serve as bookends for larger structural sections.
 
 ```
 01 ䷀ <-> 02 ䷁  distance:  1  The Creative <-> The Receptive
@@ -592,17 +589,16 @@ Max distance:    47
 Random mean complement distance (over 10000 shuffles): 21.7
 King Wen mean complement distance: 12.1
 King Wen percentile vs random: 0.0%
-Complements are significantly closer together than chance would predict,
-suggesting the sequence was deliberately organized around opposition.
+Complements are significantly closer together than chance would predict:
+the ordering keeps opposites unusually near one another.
 ```
 
 ## Palindrome analysis of the difference wave
 
-A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Finding
-palindromic runs in the difference wave suggests the King Wen sequence contains
-deliberate mirror symmetry — sections where the pattern of change rises and falls
-in a balanced way. Longer palindromes are less likely to occur by chance and more
-likely to reflect intentional design.
+A palindrome reads the same forwards and backwards (like 2,4,6,4,2). Palindromic
+runs in the difference wave are mirror symmetry — sections where the pattern of
+change rises and falls in a balanced way. Longer palindromes are less likely to
+occur by chance, so counts and lengths are measured against null models below.
 
 ```
 Found 27 palindromic subsequences (showing longest 20)
@@ -970,12 +966,6 @@ Zero 5-line transitions: King Wen=0, Fu Xi=2, Mawangdui=1
 Zero 0-line transitions: King Wen=0, Fu Xi=0, Mawangdui=0
 ```
 
-*(Mawangdui column regenerated 2026-07-05: the Mawangdui array previously used
-here was erroneous — see the errata note in
-[CITATIONS.md](../documentation/CITATIONS.md); the corrected sequence follows
-[Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2, and has exactly one 5-line transition, at its
-Kan→Zhen octet seam.)*
-
 ## Windowed entropy analysis
 
 Instead of one entropy value for the whole wave, we slide a window across it
@@ -1174,6 +1164,62 @@ Yang count spark: █ ▂▂▅▅▁▁▆▆▃▃▆▆▁▁▃▃▂▂▃�
 
 ```
   Positions 02-04: 3 consecutive yin-dominant hexagrams
+```
+
+## Odd-vs-even transition parity (McKenna 25/75)
+
+```
+Each transition d(s_i, s_{i+1}) is between 1 and 6 line changes.
+Theorem 1 says within-pair distances are always even (in {2,4,6}),
+so all 32 within-pair transitions are forced even by C1. The 31
+between-pair transitions can be any non-5 value.
+
+McKenna (The Invisible Landscape, 1975) noted that ~25% of King Wen's
+transitions are odd-distance and ~75% are even-distance. We report both
+the LINEAR reading (the standard 63-transition difference wave) and the
+CIRCULAR reading (64 transitions, including the wrap-around s_63 -> s_0).
+
+Last hexagram (position 64): #42 (101010)
+First hexagram (position 1): #63 (111111)
+Wrap-around distance: hamming(#42, #63) = 3 (odd)
+
+Mode                       Total    Odd       %Odd   Even      %Even
+LINEAR (63 trans)             63     15   23.8095%     48   76.1905%
+CIRCULAR (64 trans)           64     16   25.0000%     48   75.0000%
+
+CIRCULAR parity is EXACTLY 25.0000% / 75.0000% — McKenna's 25/75 holds exactly
+when the wrap-around transition is included. Without wrap-around, the linear
+split is 23.8095% / 76.1905% — approximately but not exactly 25/75.
+```
+
+### Structural note
+
+```
+All 32 within-pair transitions are forced even by C1 + Theorem 1.
+So the parity split is determined entirely by the 31 (or 32 with wrap)
+between-pair transitions:
+  Between-pair transitions: 15 odd, 16 even
+  Within-pair transitions: 0 odd (forced), 32 even (forced)
+  Plus wrap-around: 1 odd
+```
+
+### 'C8' candidate: is the wrap-around parity a structural constraint?
+
+```
+The spec's C1-C7 do not constrain the wrap-around s_63 -> s_0. So if
+McKenna's exact 25/75 reflects a real constraint on the sequence rather
+than a numerical coincidence, it would imply a new constraint:
+  C8 (weak):   hamming(s_63, s_0) is odd  (admits {1, 3, 5}; C2 may extend to 64th)
+  C8 (strict): hamming(s_63, s_0) = 3  (King Wen's exact value)
+
+Restrictiveness: the prior for wrap-around distance among {1,2,3,4,6} (5 forbidden
+by C2 if extended, 0 impossible for a permutation) is uniform → P(odd) ≈ 40%, so
+the weak form eliminates ~60% of completions; the strict form eliminates ~80%.
+
+Whether C8 is a real constraint or a numerical coincidence is empirical: a Monte
+Carlo sample of sequences satisfying C1-C7 would tell us how non-uniform the
+wrap-around distribution actually is among King Wen-eligible orderings. Today
+this is NOT in the formal spec — it remains an observation, not a constraint.
 ```
 
 ## Hexagram neighborhoods
@@ -1609,8 +1655,8 @@ The King Wen sequence has a striking property: no two consecutive hexagrams
 differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference
 values (0-6), is avoiding 5 remarkable or just a coincidence? To find out, we
 randomly shuffle the 64 hexagrams thousands of times and check how often a
-random ordering also avoids 5-line transitions. The rarer it is, the more
-likely the King Wen sequence was intentionally designed with this constraint.
+random ordering also avoids 5-line transitions. The rarer it is, the less
+plausible chance becomes as an explanation for the avoidance.
 
 ```
 Permutations with no 5-line transitions: 21/10,000 (0.21%)
