@@ -7039,6 +7039,87 @@ def dav_verify():
 
 
 # ---------------------------------------------------------------------------
+# Davis (2012) measurement WAVE 2 (dav2_*) — the unmeasured tail of the
+# 26-claim structural audit's §5 queue, frozen in
+# roae-private/R8_DAVIS_PREREG_2026_07_10.md §3.1/§3.2 BEFORE any population
+# measurement. solve.py is the SPEC; --dav2-verify is the two-language gate
+# (solve.c --dav2-verify must reproduce this output byte-for-byte). Two
+# functionals only: tquartet (C-D9, flagship) and xunslots (C-D10, rider).
+# C-D5 (dav2_namedsize) is OPERATOR-DECLINED (2026-07-11, prereg §3.3) —
+# deliberately NOT implemented here; the Bonferroni denominator stays /12.
+# ATTRIBUTION: every structural claim is Scott Davis's (*The Classic of
+# Changes in Cultural Context*, Cambria Press, 2012); the integer
+# operationalizations and population measurement over C1-C5 space are ROAE's
+# (see CITATIONS.md). Errors of operationalization are ROAE's, not Davis's.
+# ---------------------------------------------------------------------------
+
+
+def dav2_tquartet(seq):
+    """C-D9 (Davis 2012 pp. 113-114; REFEREE_PASS_4 reading R2c). Count of
+    coordinated cross-pair T-link couples at region spread <= 2 pair-slots on
+    both ends. Total on arbitrary orderings: links exist only where the T-image
+    of a pair-slot's 2-set is exactly another pair-slot's 2-set (always, under
+    C2; possibly not, on non-C2 corpus controls -> those couples simply don't
+    count). KW = 1 (Davis's quartet: slots {9,11} -> {27,28}, i.e. 17/18 &
+    21/22 -> 53/54 & 55/56). Orientation: (a) NO (slot differences preserved
+    under sequence reversal), (b) NO (T commutes with rev6; slot-level)."""
+    def rev3(t): return ((t & 1) << 2) | (t & 2) | ((t >> 2) & 1)
+    def T(h): return rev3(h & 7) | (rev3((h >> 3) & 7) << 3)
+    slots = [frozenset(seq[2*s:2*s+2]) for s in range(32)]
+    idx = {p: s for s, p in enumerate(slots)}
+    links = []
+    for s in range(32):
+        img = frozenset(T(h) for h in slots[s])
+        t = idx.get(img)
+        if t is not None and t > s:
+            links.append((s + 1, t + 1))
+    n = 0
+    for i in range(len(links)):
+        a1, b1 = links[i]
+        for j in range(i + 1, len(links)):
+            a2, b2 = links[j]
+            if ((abs(a1-a2) <= 2 and abs(b1-b2) <= 2) or
+                    (abs(a1-b2) <= 2 and abs(b1-a2) <= 2)):
+                n += 1
+    return n
+
+
+def dav2_xunslots(seq):
+    """C-D10 (Davis 2012 p. 114). Count of x7/x8-slot positions (all six full
+    decades: 7,8,17,18,...,57,58) whose hexagram has Xun (0b110) as lower or
+    upper trigram. KW = 5 (positions 18, 28, 37, 48, 57 — Davis's four plus
+    #28). Orientation: (a) NO (the 12-position set is closed under p -> 65-p);
+    (b) YES (flip maps Xun to Dui; primary is registered in the published-KW
+    gauge, with the Dui-count as declared descriptive companion, KW = 5)."""
+    xun = 6
+    return sum(1 for p in (7,8,17,18,27,28,37,38,47,48,57,58)
+               if (seq[p-1] & 7) == xun or ((seq[p-1] >> 3) & 7) == xun)
+
+
+DAV2_FUNCS = ["tquartet", "xunslots"]
+
+DAV2_KW_EXPECTED = {"tquartet": 1, "xunslots": 5}
+
+
+def dav2_verify():
+    """Print the 2 Davis wave-2 candidate values on KW; gate against embedded
+    expected values (two-language: solve.c --dav2-verify must reproduce this
+    output byte-identically). C-D5 (namedsize) is operator-declined and NOT
+    part of this bank (prereg §3.3)."""
+    seq = list(binary_hexagrams)
+    failures = 0
+    for name in DAV2_FUNCS:
+        v = globals()["dav2_" + name](seq)
+        exp = DAV2_KW_EXPECTED.get(name)
+        tag = "OK" if exp == v else ("FAIL (expected %s)" % exp if exp is not None else "(unset)")
+        if exp is not None and exp != v:
+            failures += 1
+        print(f"dav2_{name}: {v} {tag}")
+    print("DAV2 VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+
+# ---------------------------------------------------------------------------
 # Van den Berghe (c.1998-2005) structural candidates V-1..V-8 (operational
 # spec frozen in roae-private/books/VANDENBERGHE_AUDIT_2026_07.md §3; registry
 # entries in roae-private/CANDIDATE_REGISTRY_2026_07.md).
@@ -8268,6 +8349,9 @@ def main():
                              "Bayes verdict (that is the post-freeze Spot job).")
     parser.add_argument("--dav-verify", action="store_true",
                         help="verify the 9 pre-registered Davis (2012) composite candidates on KW")
+    parser.add_argument("--dav2-verify", action="store_true",
+                        help="verify the 2 pre-registered Davis (2012) wave-2 candidates "
+                             "(tquartet C-D9, xunslots C-D10) on KW")
     parser.add_argument("--vdb-verify", action="store_true",
                         help="verify the 8 Van den Berghe (c.1998-2005) structural candidates on KW")
     parser.add_argument("--books-verify", action="store_true",
@@ -8381,6 +8465,9 @@ def main():
 
     if args.dav_verify:
         sys.exit(dav_verify())
+
+    if args.dav2_verify:
+        sys.exit(dav2_verify())
 
     if args.vdb_verify:
         sys.exit(vdb_verify())

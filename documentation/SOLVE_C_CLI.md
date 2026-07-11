@@ -51,7 +51,7 @@ solve --validate-launcher-config <SCALE> <PSB>          # assert launcher PSB ma
 solve --verify-rule2 [solutions.bin]                    # McKenna Rule-2 audit
 solve --verify-9th-six [solutions.bin]                  # 9th-six between-pair value-6 audit
 solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tabulation
-solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify
+solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify
                                                         # two-language functional-battery gates
 solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
 solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
@@ -484,6 +484,21 @@ documentation/CRITIQUE.md §Davis): computes each on the King Wen sequence and c
 against the embedded KW expected values. Ground truth is `solve.py --dav-verify`;
 outputs must match byte-for-byte. Exit 0 iff all 9 match. Sha-neutral. Population
 scoring: `SOLVE_KNUTH_SCORE_DAV` below.
+
+### --dav2-verify
+
+```
+solve --dav2-verify
+```
+
+Two-language gate for the 2 [Davis (2012)](CITATIONS.md#davis2012) wave-2 candidates
+(`tquartet` = C-D9 coordinated per-trigram-rotation quartet at Davis's compactness, KW=1;
+`xunslots` = C-D10 Xun-bearing hexagrams at the twelve x7/x8 decade slots, KW=5;
+pre-registered in `roae-private/R8_DAVIS_PREREG_2026_07_10.md` §3.1/§3.2): computes each
+on the King Wen sequence and checks against the embedded KW expected values. Ground truth
+is `solve.py --dav2-verify`; outputs must match byte-for-byte. Exit 0 iff both match.
+Sha-neutral. Population scoring: `SOLVE_KNUTH_SCORE_DAV2` below. (C-D5 `namedsize` is
+operator-declined — prereg §3.3 — and is deliberately not implemented.)
 
 ### --f5-verify
 
@@ -1099,6 +1114,8 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_F4P_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F4P=1`): additionally emit `f4p_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_DAV` | 0 | `=1`: score the 9 pre-registered Davis (2012) composite candidates per canonical leaf (CRITIQUE.md §Davis; [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3). Ground truth / two-language gate: `--dav-verify`. Archived tier-1 run: reports/evidence/dav_tier1.out. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_DAV_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV=1`): additionally emit `dav_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_DAV2` | 0 | `=1`: score the 2 pre-registered Davis (2012) wave-2 candidates (`tquartet` C-D9 bounds 0..55; `xunslots` C-D10 bounds 0..12) per canonical leaf (`roae-private/R8_DAVIS_PREREG_2026_07_10.md` §3.1/§3.2). Ground truth / two-language gate: `--dav2-verify`. Estimator-only, sha-neutral. C-D5 `namedsize` is operator-declined (prereg §3.3). |
+| `SOLVE_KNUTH_DAV2_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV2=1`): additionally emit `dav2_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_F5` | 0 | `=1`: score the 11 FROZEN F5 orientation-layer functionals per canonical leaf (below/at/above-KW weighted masses). Leaves are orientation-BEARING (the walk enumerates orientation branches pre-dedup) as the F5 preregistration §4 requires — canonical `solutions.bin` records are orient-dedup'd and must NOT feed F5 scoring. Ground truth / two-language gate: `--f5-verify` (+ `solve.py --vdb-verify` for #11). `=2` + `SOLVE_F5_TESTVEC`: cross-verification hook. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F5_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F5=1`): additionally emit `f5_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_F5_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F5=2`: evaluate the 11 F5 functionals on an explicit sequence (`"h0,h1,...,h63"`, hexagram VALUES not KW indices), print them comma-separated, exit. Verifies a non-lex-oriented sequence scores as itself (F5 preregistration §4 gate); also used for corpus/gauge control snapshots. Test-only, sha-neutral. |

@@ -4808,6 +4808,11 @@ typedef struct {
     double dav_below[9], dav_at[9], dav_above[9];  /* weighted mass <KW / ==KW / >KW per candidate
                                            * (booleans: at-mass with kw=1 == mass-of-TRUE) */
     int dav_min[9], dav_max[9];           /* min/max candidate value seen across canonical leaves */
+    double *dav2_hist;                    /* SOLVE_KNUTH_SCORE_DAV2=1: [2*64] weighted value histogram per
+                                           * Davis-2012 wave-2 candidate (heap-allocated only when active) */
+    double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
+    double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
+    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
     double *f5_hist;                      /* SOLVE_KNUTH_SCORE_F5=1: [11*64] weighted value histogram per
                                            * F5 orientation-layer functional (heap-allocated only when active).
                                            * Leaves are orientation-BEARING (walk enumerates orientation
@@ -5760,6 +5765,104 @@ static void score_dav(const int seq[64], double W, KnuthArg *a){
     }
 }
 
+/* ===================== Davis (2012) WAVE 2 candidates (SOLVE_KNUTH_SCORE_DAV2) =====================
+ * C port of the 2 pre-registered Davis wave-2 candidate scorers in solve.py
+ * (functions dav2_*; frozen 2026-07-10 in roae-private/R8_DAVIS_PREREG_2026_07_10.md
+ * §3.1/§3.2 BEFORE any population measurement). This is the unmeasured tail of
+ * the 26-claim structural audit's §5 queue (items 10 & 13). solve.py is the
+ * SPEC; the --dav2-verify subcommand is the two-language gate (byte-identical
+ * output on KW). Estimator-only, sha-neutral: active only under
+ * SOLVE_KNUTH_SCORE_DAV2=1 / --dav2-verify; zero effect on enum paths.
+ *
+ * NOTE: C-D5 (dav2_namedsize) is OPERATOR-DECLINED (2026-07-11, prereg §3.3) —
+ * deliberately NOT implemented; the Bonferroni denominator stays /12.
+ *
+ * ATTRIBUTION: every structural claim is Scott Davis's (*The Classic of
+ * Changes in Cultural Context*, Cambria Press, 2012); the operationalizations
+ * + population measurement over C1-C5 space are ROAE's (see CITATIONS.md):
+ *   1 tquartet  C-D9  coordinated per-trigram-rotation quartet at compactness (pp. 113-114)
+ *   2 xunslots  C-D10 Xun-bearing hexagrams at the twelve x7/x8 decade slots (p. 114) */
+
+static int knuth_score_dav2 = 0; /* SOLVE_KNUTH_SCORE_DAV2=1: per-leaf weighted scoring of the 2 Davis
+                                  * wave-2 candidates (see block above). Estimator-only, sha-neutral. */
+
+static const char *dav2_names[2] = { "tquartet", "xunslots" };
+/* KW expected values — ground truth solve.py DAV2_KW_EXPECTED (KW-verified vs prereg) */
+static const int dav2_kw[2] = {1, 5};
+/* Static value bounds: tquartet 0..55 (=C(11,2)), xunslots 0..12 (exact-value bins, stride 64) */
+static const int dav2_lo[2] = {0, 0};
+static const int dav2_hi[2] = {55, 12};
+
+static inline int dav2_rev3(int t){ return ((t & 1) << 2) | (t & 2) | ((t >> 2) & 1); }
+static inline int dav2_T(int h){ return dav2_rev3(h & 7) | (dav2_rev3((h >> 3) & 7) << 3); }
+
+/* Compute both Davis wave-2 candidates on one ordering (spec: solve.py dav2_*). */
+static void dav2_compute(const int seq[64], int v[2]){
+    /* 1. tquartet: count of cross-pair T-link couples ({s1,t1},{s2,t2}, four
+     * distinct pair-slots) admitting a grouping into a source region and a
+     * target region both of pair-slot spread <= 2 (Davis's own compactness). */
+    {
+        /* map each pair-slot's unordered 2-set (key = (min<<6)|max) -> slot idx */
+        int keyToSlot[4096];
+        for (int i = 0; i < 4096; i++) keyToSlot[i] = -1;
+        for (int s = 0; s < 32; s++){
+            int a = seq[2*s], b = seq[2*s+1];
+            int lo = a < b ? a : b, hi = a < b ? b : a;
+            keyToSlot[(lo << 6) | hi] = s;
+        }
+        int la[16], lb[16], nl = 0;   /* at most 16 links across 32 slots */
+        for (int s = 0; s < 32; s++){
+            int ia = dav2_T(seq[2*s]), ib = dav2_T(seq[2*s+1]);
+            int lo = ia < ib ? ia : ib, hi = ia < ib ? ib : ia;
+            int t = keyToSlot[(lo << 6) | hi];
+            if (t >= 0 && t > s){ la[nl] = s + 1; lb[nl] = t + 1; nl++; }
+        }
+        int n = 0;
+        for (int i = 0; i < nl; i++){
+            int a1 = la[i], b1 = lb[i];
+            for (int j = i + 1; j < nl; j++){
+                int a2 = la[j], b2 = lb[j];
+                if ((abs(a1-a2) <= 2 && abs(b1-b2) <= 2) ||
+                    (abs(a1-b2) <= 2 && abs(b1-a2) <= 2)) n++;
+            }
+        }
+        v[0] = n;
+    }
+    /* 2. xunslots: count of the 12 x7/x8 decade positions whose hexagram
+     * carries Xun (0b110) as lower or upper trigram */
+    {
+        static const int P[12] = {7,8,17,18,27,28,37,38,47,48,57,58};
+        int n = 0;
+        for (int i = 0; i < 12; i++){
+            int h = seq[P[i]-1];
+            if ((h & 7) == 6 || ((h >> 3) & 7) == 6) n++;
+        }
+        v[1] = n;
+    }
+}
+
+/* Evaluate both Davis wave-2 candidates on one canonical leaf; accumulate
+ * weighted histogram (exact-value bins, stride 64), sum, min/max, below/at/above-KW. */
+static void score_dav2(const int seq[64], double W, KnuthArg *a){
+    int v[2];
+    dav2_compute(seq, v);
+    for (int k = 0; k < 2; k++){
+        int x = v[k];
+        a->dav2_sum[k] += W * (double)x;
+        if (x < a->dav2_min[k]) a->dav2_min[k] = x;
+        if (x > a->dav2_max[k]) a->dav2_max[k] = x;
+        if      (x < dav2_kw[k]) a->dav2_below[k] += W;
+        else if (x == dav2_kw[k]) a->dav2_at[k]   += W;
+        else                      a->dav2_above[k] += W;
+        if (a->dav2_hist){
+            int b = x - dav2_lo[k];
+            if (b < 0) b = 0;
+            if (b > dav2_hi[k] - dav2_lo[k]) b = dav2_hi[k] - dav2_lo[k];
+            a->dav2_hist[k * 64 + b] += W;
+        }
+    }
+}
+
 /* ===================== F5 orientation-layer functionals (SOLVE_KNUTH_SCORE_F5) =====================
  * C port of the 11 FROZEN orientation-layer functionals in
  * roae-private/F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN.md §5 + addendum
@@ -6560,6 +6663,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_score_dav) score_dav(seq, W, a);
+                    if (knuth_score_dav2) score_dav2(seq, W, a);
                     if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_score_f6)  score_f6(seq, W, a);
                     if (knuth_score_perm) score_perm(seq, W, a);
@@ -6762,6 +6866,10 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].dav_hist = (double*)calloc(9 * 64, sizeof(double));
             for (int k2 = 0; k2 < 9; k2++){ arg[i].dav_min[k2] = INT_MAX; arg[i].dav_max[k2] = INT_MIN; }
         }
+        if (knuth_score_dav2) {
+            arg[i].dav2_hist = (double*)calloc(2 * 64, sizeof(double));
+            for (int k2 = 0; k2 < 2; k2++){ arg[i].dav2_min[k2] = INT_MAX; arg[i].dav2_max[k2] = INT_MIN; }
+        }
         if (knuth_score_f5) {
             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
             for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
@@ -6848,6 +6956,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             if (davH && arg[i].dav_hist)
                 for (int b2 = 0; b2 < 9 * 64; b2++) davH[b2] += arg[i].dav_hist[b2];
             free(arg[i].dav_hist); arg[i].dav_hist = NULL;
+        }
+    }
+    double dav2S[2]={0}, dav2Bel[2]={0}, dav2At[2]={0}, dav2Abv[2]={0}, *dav2H = NULL;
+    int dav2Min[2], dav2Max[2];
+    if (knuth_score_dav2) {
+        dav2H = (double*)calloc(2 * 64, sizeof(double));
+        for (int k2 = 0; k2 < 2; k2++){ dav2Min[k2] = INT_MAX; dav2Max[k2] = INT_MIN; }
+        for (int i = 0; i < nthreads; i++){
+            for (int k2 = 0; k2 < 2; k2++){
+                dav2S[k2]   += arg[i].dav2_sum[k2];
+                dav2Bel[k2] += arg[i].dav2_below[k2];
+                dav2At[k2]  += arg[i].dav2_at[k2];
+                dav2Abv[k2] += arg[i].dav2_above[k2];
+                if (arg[i].dav2_min[k2] < dav2Min[k2]) dav2Min[k2] = arg[i].dav2_min[k2];
+                if (arg[i].dav2_max[k2] > dav2Max[k2]) dav2Max[k2] = arg[i].dav2_max[k2];
+            }
+            if (dav2H && arg[i].dav2_hist)
+                for (int b2 = 0; b2 < 2 * 64; b2++) dav2H[b2] += arg[i].dav2_hist[b2];
+            free(arg[i].dav2_hist); arg[i].dav2_hist = NULL;
         }
     }
     double f5S[11]={0}, f5Bel[11]={0}, f5At[11]={0}, f5Abv[11]={0}, *f5H = NULL;
@@ -6990,6 +7117,24 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                dav_names[k2], dav_lo[k2] + b2, davH[k2 * 64 + b2]/sC);
     }
     free(davH);
+    if (knuth_score_dav2 && sC > 0) {
+        /* Davis-2012 wave-2 candidates (ground truth solve.py dav2_*;
+         * attribution in the dav2 comment block + CITATIONS.md; masses =
+         * fraction of canonical mass). C-D5 (namedsize) operator-declined. */
+        for (int k2 = 0; k2 < 2; k2++)
+            printf("  [dav2 %d %-9s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+                   k2 + 1, dav2_names[k2], dav2S[k2]/sC,
+                   dav2Min[k2] == INT_MAX ? 0 : dav2Min[k2],
+                   dav2Max[k2] == INT_MIN ? 0 : dav2Max[k2],
+                   dav2_kw[k2], dav2Bel[k2]/sC, dav2At[k2]/sC, dav2Abv[k2]/sC);
+        if (getenv("SOLVE_KNUTH_DAV2_HIST") && atoi(getenv("SOLVE_KNUTH_DAV2_HIST")) == 1 && dav2H)
+            for (int k2 = 0; k2 < 2; k2++)
+                for (int b2 = 0; b2 <= dav2_hi[k2] - dav2_lo[k2]; b2++)
+                    if (dav2H[k2 * 64 + b2] > 0)
+                        printf("dav2_hist %s %d %.10e\n",
+                               dav2_names[k2], dav2_lo[k2] + b2, dav2H[k2 * 64 + b2]/sC);
+    }
+    free(dav2H);
     if (knuth_score_f5 && sC > 0) {
         /* F5 orientation-layer functionals (frozen preregistration; ground
          * truth solve.py + frozen-spec KW values, #11 solve.py vdb_nucorient;
@@ -15641,6 +15786,10 @@ int main(int argc, char *argv[]) {
             knuth_score_dav = 1;
             fprintf(stderr, "[knuth] Davis-2012 composite scoring ACTIVE (9 candidates, CRITIQUE.md Davis registration; ground truth solve.py dav_*)\n");
         }
+        if (getenv("SOLVE_KNUTH_SCORE_DAV2") && atoi(getenv("SOLVE_KNUTH_SCORE_DAV2")) == 1) {
+            knuth_score_dav2 = 1;
+            fprintf(stderr, "[knuth] Davis-2012 wave-2 scoring ACTIVE (2 candidates: tquartet C-D9, xunslots C-D10; R8_DAVIS_PREREG_2026_07_10; ground truth solve.py dav2_*; C-D5 operator-declined)\n");
+        }
         if (getenv("SOLVE_KNUTH_SCORE_F5") && atoi(getenv("SOLVE_KNUTH_SCORE_F5")) == 1) {
             knuth_score_f5 = 1;
             fprintf(stderr, "[knuth] F5 orientation-layer scoring ACTIVE (11 frozen functionals, F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN; orientation-bearing leaves pre-dedup; KW gate --f5-verify)\n");
@@ -15725,6 +15874,26 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("DAV VERIFY: PASS\n");
         else printf("DAV VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--dav2-verify") == 0) {
+        /* Two-language gate for the Davis-2012 wave-2 candidates: compute the
+         * 2 on the King Wen sequence and check against the hardcoded KW
+         * expected values (ground truth solve.py dav2_verify; output format
+         * matches solve.py --dav2-verify byte-for-byte). Exit 0 iff all match.
+         * Sha-neutral (argv-dispatched, never on the enum path). C-D5
+         * (namedsize) is operator-declined and not part of this bank. */
+        int v[2], failures = 0;
+        dav2_compute(KW, v);
+        for (int k = 0; k < 2; k++){
+            if (v[k] == dav2_kw[k])
+                printf("dav2_%s: %d OK\n", dav2_names[k], v[k]);
+            else {
+                printf("dav2_%s: %d FAIL (expected %d)\n", dav2_names[k], v[k], dav2_kw[k]);
+                failures++;
+            }
+        }
+        if (failures == 0) printf("DAV2 VERIFY: PASS\n");
+        else printf("DAV2 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f5-verify") == 0) {
         /* Two-language gate for the 11 FROZEN F5 orientation-layer
