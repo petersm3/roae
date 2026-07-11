@@ -21,7 +21,8 @@ King Wen sequence's information does each constraint *explain*, net of what the 
 state? We fix a two-part MDL framework — an arbitrary ordering of 64 hexagrams costs log₂ 64! = 296.0 bits;
 a constraint system K explains 296.0 − log₂|solutions(K)| bits at statement cost L(K) — and compute the
 ledger under two declared statement-cost conventions (family selection vs derivation from principle). The
-measured result: the classical pairing C1 explains 146.3 bits and, post-[Radisic (2026)](../documentation/CITATIONS.md#radisic2026), is essentially free
+measured result: the classical pairing C1 explains 146.3 bits and, post-[Radisic (2026)](../documentation/CITATIONS.md#radisic2026) (preprint,
+machine-verified), is essentially free
 to state under the derivation convention — the unique Hamming-optimal comp/rev matching; C2 nets ≈ 0
 (break-even, sign convention-dependent); C5 nets between **−6.3 and −13.9 bits** — its statement costs
 1.7–2.5× what it explains; the transition histogram is
@@ -69,8 +70,10 @@ explicit.
    priced as data (CRITIQUE.md Q1); its marginal 3.0 bits are NOT claimed as explanation. ⁶ C6/C7 pin four
    slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
 3. **Reading the ledger, row by row.** **C1** is where nearly all the explanation lives: 146.3 bits of
-   compression, and its statement cost collapsed in 2026 — Radisic (arXiv:2601.07175, Lean 4 + Mathlib
-   verified) proved the pairing is the *unique* Hamming-cost minimizer among comp/rev matchings on {0,1}⁶,
+   compression, and its statement cost collapsed in 2026 — Radisic (arXiv:2601.07175 — an unrefereed
+   preprint whose Lean 4 + Mathlib proof artifact is independently checkable; the ledger leans on the
+   machine verification, not on refereeing) proved the pairing is the *unique* Hamming-cost minimizer
+   among comp/rev matchings on {0,1}⁶,
    so under the derivation convention it costs only the optimality principle. That upgrade is Radisic's,
    not ours; it is the first genuine first-principles derivation of any layer of the constraint system.
    **C2** (no 5-line transitions; [McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975)) compresses 4.5 bits
@@ -114,7 +117,11 @@ explicit.
    figure is the full-multiset convention, "1.7×" the marginal one. (c) **What counts as derivable** is philosophy-laden: the derivation convention
    credits C1 because Radisic's principle is independently stated and machine-verified; no comparable
    derivation exists for C2 or C5, and admitting looser "principles" would smuggle parameters into free
-   statements. (d) **Circularity discipline**: C3/C6/C7 are deliberately zeroed rather than argued over —
+   statements. A referee may also ask why Hamming-cost-among-comp/rev-matchings is *the* natural
+   optimality criterion, rather than one selected because King Wen's pairing wins it — that
+   criterion-selection question is fair, is itself a choice, and is exactly what the dual-convention
+   bracket exists to bound: the family convention charges C1 as a selected rule with no appeal to
+   naturalness, and the conclusion (C1 dominates) is stable under both readings. (d) **Circularity discipline**: C3/C6/C7 are deliberately zeroed rather than argued over —
    pricing KW's own values as explanation would be self-confirmation (CRITIQUE.md Q1). (e) **Estimator
    precision** is not a sensitivity: ±0.02% on solution counts is ±0.0003 bits. (f) **Look-elsewhere** for
    the observable-extraction battery is accounted in CRITIQUE.md and deliberately not double-counted here;
@@ -174,6 +181,7 @@ value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./s
 | v1.3 | 2026-07-04 | Pre-registered F4' null result added (residual survives); convention-sensitivity table added |
 | v1.5 | 2026-07-04 | Adversarial round 2 correction: residual dual-convention phrasing |
 | v1.6 | 2026-07-04 | Reproducibility completion: C2-layer count adopted as the exact 7.5706×10⁴¹ (`solve --f1-exact-c1c2c4`, replacing the ±0.01% estimator figure it confirms); F4' tier-1 evidence published (evidence/f4p_tier1.out) and cited; instrument flags (`SOLVE_KNUTH_SCORE_F4P`, `SOLVE_KNUTH_RELAX_C5`) now documented in SOLVE_C_CLI.md |
+| v1.8 | 2026-07-11 | Radisic status labeled at the load-bearing citations ("preprint, machine-verified" — the ledger leans on the checkable Lean artifact, not refereeing); §5(c) gains the criterion-selection acknowledgment (why Hamming-optimality counts as natural is itself a choice; the dual-convention bracket bounds it). No numbers change |
 | v1.7 | 2026-07-10 | Referee-hardening (explicit-coding MDL pass): C2 net restated +1.6 → ≈ 0 (break-even, sign convention-dependent); C5 net widened −13.9 → bracket −6.3 to −13.9 (the marginal-consistent statement cost of the 31 unimplied boundary transitions given C1+C2 is log₂ C(35,4) = 15.7, net −6.3); §5 sensitivity paragraph rewritten with the explicit three-point C5 bracket (15.7/19.5/23.3, literal ~30) + the sign-flip bound and exact C1 family sizes (12.0/19.0 bits); sub-0.1-bit rounding fixes C2 4.6→4.5, C6+C7 21.2→21.3; abstract, executive summary, footnote 4, and sensitivity table made consistent. No conclusion changes (C5 descriptive under every convention; C1 dominant). Mirrors DESCRIPTION_LENGTH.md. |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →

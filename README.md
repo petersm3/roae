@@ -58,7 +58,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   a theorem of the constraints, turning the 10.5-billion-record measurement into a corollary (the
   *position* of that transition remains ordering-dependent). [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
 - **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
-  matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026), machine-verified). [CITATIONS](documentation/CITATIONS.md)
+  matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) — preprint, machine-verified). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
   more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
   enumerated records: the sharpest demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
