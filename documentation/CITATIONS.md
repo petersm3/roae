@@ -291,6 +291,28 @@ Subject to the disclaimer at the top of this document, the following are believe
 
 Each of the above claims to originality is **tentative** — if you find prior work establishing any of them, please contact the author and this document will be updated.
 
+<a id="uniqueness-conjecture"></a>
+## The "Uniqueness Conjecture" — attribution note (added 2026-07-11)
+
+The conjecture refuted in [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) — that the published constraints
+uniquely determine the King Wen sequence — carries a name **coined by this project**, and honesty
+requires saying who actually held it. To our knowledge, **no author asserted in so many words that the
+C1–C7 constraint inventory pins down the sequence**. What the refutation decides is:
+
+- **The strong reading of the literature's derivation-flavored claims.** Several programs present the
+  sequence as derivable from structural principles — most prominently [Cook (2006)](#cook2006), whose
+  monograph is titled *…Derivation of the Book of Changes Hexagram Sequence* and derives the full
+  sequence within his own framework. Each such program invokes principles beyond the C1–C7 inventory
+  tested in TR-4, so the refutation does **not** contradict any of those works as stated; it decides the
+  narrower, natural question their framing raises — whether the published constraint system alone
+  determines the sequence. It does not: ≈5.2×10³¹ orderings survive C1–C7.
+- **This project's own early working hypothesis.** ROAE's discovery phase operated on the assumption
+  that the extracted constraints might isolate King Wen at scale; the measurement refuted our own
+  expectation along with the strong reading.
+
+If you know of prior work asserting constraint-determinism of the sequence directly, please report it
+and this note will be upgraded to a direct attribution.
+
 ## Attributed candidate rules under population test (2026-07-02)
 
 The following King Wen structural rules are **externally attributed** — ROAE did not discover them. ROAE's

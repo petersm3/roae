@@ -43,7 +43,9 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
 - **The constraints do not determine the sequence.** The C1–C5 space holds 1.33×10³⁸ orderings; adding
-  C6–C7 still leaves ~5×10³¹. The folk conjecture that the constraints pin down King Wen is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
+  C6–C7 still leaves ~5×10³¹. The hypothesis that the constraints pin down King Wen — the strong reading
+  of the literature's derivation claims, and this project's own early working assumption
+  ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)) — is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
   jointly unsatisfiable for any ordering preserving the classical pairing — none can be perfect under all of them. King Wen keeps one exactly and
   misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)

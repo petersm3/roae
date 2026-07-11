@@ -7,7 +7,9 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 How special is the King Wen sequence, really? That question needs a denominator: **how many other
 arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸, a hundred
-trillion trillion trillion — settles a folk conjecture: the known rules do **not** pin down King Wen;
+trillion trillion trillion — settles a determinism hypothesis this suite calls the Uniqueness Conjecture
+(the name is ours; who held it, and in what form, is scoped honestly in
+[CITATIONS.md](../documentation/CITATIONS.md#uniqueness-conjecture)): the known rules do **not** pin down King Wen;
 they leave an astronomical family of valid alternatives, and King Wen is one member. The report also
 measures how much *additional* information is needed to single King Wen out (roughly 13–20 carefully
 chosen adjacency facts) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
@@ -22,8 +24,11 @@ over the *exact* production search tree: **1.3287×10³⁸ raw canonical orderin
 a proven cardinality, validated to <1% against exact subtree counts on a three-rung ladder plus an
 independent 56-branch cross-sum. Three consequences follow. First, the deepest published canonical (560T;
 1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space — exhaustion is infeasible at any
-budget. Second, extending the walk with the spec's C6/C7 adjacency constraints **refutes the long-standing
-Uniqueness Conjecture**: ≈5.21×10³¹ orderings satisfy C1–C7; King Wen is unique only within budgeted
+budget. Second, extending the walk with the spec's C6/C7 adjacency constraints **refutes the
+Uniqueness Conjecture** — our name for the strong determinism reading of the literature's
+derivation-flavored claims, and this project's own early working hypothesis; to our knowledge no author
+asserted it in exactly this form (attribution note:
+[CITATIONS.md](../documentation/CITATIONS.md#uniqueness-conjecture)): ≈5.21×10³¹ orderings satisfy C1–C7; King Wen is unique only within budgeted
 slices. Third, the boundary-information curve S(k) shows the first four boundaries of King Wen's 560T greedy
 identifying set (the full set has five; see revision v1.8) still admit **≈8.4×10²⁵ full-space orderings** —
 the sharpest quantification yet of the slice-uniqueness vs space-uniqueness distinction. We close with why King Wen's *early* appearance
@@ -170,3 +175,4 @@ the private working log.
 | v1.7 | 2026-07-04 | Information floor k>=13 + flat-gains observation (tightens the 13-20 projection) |
 | v1.7.1 | 2026-07-04 | Correction: the 560T slice-identifying boundary set has 5 boundaries ({4, 27, 25, 21, 1}), not 4 — the earlier "4" was a survivor-counting error in the source finding (see [documentation/BOUNDARY_MINIMUM.md](../documentation/BOUNDARY_MINIMUM.md)); S(k) measurements unchanged (they condition on the first four pins as pins) |
 | v1.8 | 2026-07-05 | S(6)-S(8) measured; flat-gains law bends at k=6; projection 13 -> 15-20; floor k>=13 unchanged |
+| v1.9 | 2026-07-11 | Attribution honesty on the "Uniqueness Conjecture": named as ours — the strong determinism reading of the literature's derivation-flavored claims plus this project's own early working hypothesis; "long-standing"/"folk conjecture (multiple authors)" framing retired; anchored attribution note added to CITATIONS.md. The refutation's content (≈5.21×10³¹ C1–C7 survivors) unchanged |
