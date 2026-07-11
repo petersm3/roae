@@ -51,7 +51,7 @@ solve --validate-launcher-config <SCALE> <PSB>          # assert launcher PSB ma
 solve --verify-rule2 [solutions.bin]                    # McKenna Rule-2 audit
 solve --verify-9th-six [solutions.bin]                  # 9th-six between-pair value-6 audit
 solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tabulation
-solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify
+solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify | --db1-verify
                                                         # two-language functional-battery gates
 solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
 solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
@@ -499,6 +499,29 @@ on the King Wen sequence and checks against the embedded KW expected values. Gro
 is `solve.py --dav2-verify`; outputs must match byte-for-byte. Exit 0 iff both match.
 Sha-neutral. Population scoring: `SOLVE_KNUTH_SCORE_DAV2` below. (C-D5 `namedsize` is
 operator-declined — prereg §3.3 — and is deliberately not implemented.)
+
+### --db1-verify
+
+```
+solve --db1-verify
+```
+
+Two-language gate for Drasny's **"Rule of Ten"** candidate **D-B1** (Rule-of-Ten
+conformity count), operational spec frozen in
+`roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md` (scoping only; not yet
+pre-registered/measured). Asserts that the bit-structural precedence classifier
+(`B ≻ A ≻ F ≻ C ≻ D ≻ E ≻ G`) reproduces Drasny's Table 4.1 (book p. 75) eight-group
+system EXACTLY for all 64 hexagrams — flip-equivariant, C1-pair-consistent, zero
+residue, group sizes (A,B,C,D,E,F,G)=(5,4,4,4,6,3,6) — and that the King Wen
+pair→slot conformity count **X = 22** (deviant slots 2 5 7 10 11 15 18 24 31 32, i.e.
+Drasny's Table 4.2 list of 10 deviant pairs), plus the analytic uniform-permutation
+null mean **E[X] = 190/32**. Ground truth / SPEC is `solve.py --db1-verify`; outputs
+must match byte-for-byte. Exit 0 iff all pass. Sha-neutral (argv-dispatched, never on
+the enum/selftest path). Population scoring (Null B): `SOLVE_KNUTH_SCORE_DB1` below.
+Attribution: József Drasny (*The Yi-globe*, 2007/2011); the classifier reduction and
+conformity operationalization are ROAE's. **Name-collision note:** unrelated to Scott
+Davis's (2012, p. 126) separately-named "rule of ten" (#18/#27 ten ordinals apart,
+registry C-D14).
 
 ### --f5-verify
 
@@ -1116,6 +1139,8 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_DAV_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV=1`): additionally emit `dav_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_DAV2` | 0 | `=1`: score the 2 pre-registered Davis (2012) wave-2 candidates (`tquartet` C-D9 bounds 0..55; `xunslots` C-D10 bounds 0..12) per canonical leaf (`roae-private/R8_DAVIS_PREREG_2026_07_10.md` §3.1/§3.2). Ground truth / two-language gate: `--dav2-verify`. Estimator-only, sha-neutral. C-D5 `namedsize` is operator-declined (prereg §3.3). |
 | `SOLVE_KNUTH_DAV2_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DAV2=1`): additionally emit `dav2_hist` per-candidate weighted value histograms. Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_SCORE_DB1` | 0 | `=1`: score Drasny's "Rule of Ten" candidate D-B1 (conformity count X, bounds 0..32; KW X=22) per canonical leaf — **Null B**, the dispositive population null over C1–C5 space (`roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md` §2). Emits `[db1 rule-of-ten] mean … below/at/above/atinc` (weighted canonical-mass fractions relative to KW's X=22). Ground truth / two-language gate: `--db1-verify`. Estimator-only, sha-neutral. Attribution: József Drasny (*The Yi-globe* 2007/2011); classifier reduction ROAE's. Unrelated to Davis 2012's separately-named "rule of ten" (C-D14). |
+| `SOLVE_KNUTH_DB1_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_DB1=1`): additionally emit `db1_hist <X> <mass>` weighted conformity-count histogram lines (X = 0..32). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_F5` | 0 | `=1`: score the 11 FROZEN F5 orientation-layer functionals per canonical leaf (below/at/above-KW weighted masses). Leaves are orientation-BEARING (the walk enumerates orientation branches pre-dedup) as the F5 preregistration §4 requires — canonical `solutions.bin` records are orient-dedup'd and must NOT feed F5 scoring. Ground truth / two-language gate: `--f5-verify` (+ `solve.py --vdb-verify` for #11). `=2` + `SOLVE_F5_TESTVEC`: cross-verification hook. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F5_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F5=1`): additionally emit `f5_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |
 | `SOLVE_F5_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F5=2`: evaluate the 11 F5 functionals on an explicit sequence (`"h0,h1,...,h63"`, hexagram VALUES not KW indices), print them comma-separated, exit. Verifies a non-lex-oriented sequence scores as itself (F5 preregistration §4 gate); also used for corpus/gauge control snapshots. Test-only, sha-neutral. |

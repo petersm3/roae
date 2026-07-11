@@ -7120,6 +7120,313 @@ def dav2_verify():
 
 
 # ---------------------------------------------------------------------------
+# Drasny "Rule of Ten" — candidate D-B1 (Rule-of-Ten conformity count).
+# Operational spec frozen in
+# roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md (SCOPING ONLY, held
+# for operator; NOT yet pre-registered, NOT yet measured). solve.py is the
+# SPEC; the --db1-verify subcommand is the two-language gate (solve.c
+# --db1-verify must reproduce this output byte-for-byte). Nothing here is on
+# the enum / selftest / checkpoint path.
+#
+# ATTRIBUTION: every structural observation operationalized here is József
+# Drasny's (*The Yi-globe: The Image of the Cosmos in the Yijing*, 2nd rev.
+# English ed. 2007/2011, self-published via i-ching.hu; Hungarian 1st ed.
+# 2005, Budapest: Szenzár — Ch. IV pp. 71-88, Ch. III pp. 39-40; the
+# eight-group partition is his Table 4.1 p. 75, the "Rule of Ten" his §1-3
+# pp. 76-84). No ISBN/DOI exists; do not invent one. The bit-structural
+# precedence-classifier reduction, the pair->slot conformity operationalization,
+# and the exact permutation-null DP are ROAE's; errors of operationalization
+# are ROAE's, not Drasny's. Drasny asserts the Rule of Ten was "previously
+# unknown" — that is HIS claim; ROAE has not verified priority and does not
+# repeat it as fact (decade/columnar readings of the KW ordinals appear
+# independently elsewhere). Corrections welcome. See CITATIONS.md.
+#
+# NAME-COLLISION DISAMBIGUATION: Drasny's "Rule of Ten" (this functional — a
+# decade-arithmetic room<->group coincidence over ALL 32 pair-slots) is
+# UNRELATED to Scott Davis's (2012, p. 126) separately-named "rule of ten"
+# (the single observation that hexagrams #18 and #27 sit ten ordinals apart;
+# ROAE registry C-D14 context, dav_* family). Same three-word name, different
+# authors, different claims — never conflate the two.
+#
+# WELL-POSEDNESS / RESEARCHER-DOF NOTE (must accompany any registration): the
+# group criteria overlap; Table 4.1's resolutions are choices Drasny made with
+# the KW arrangement in hand, and the deviant set shrank 10->4 between the book
+# and his later paper. A population p-value under the frozen system quantifies
+# KW's atypicality GIVEN the system; it cannot quantify selection of the system
+# itself. Nothing here promotes to the C-rule system regardless of outcome.
+# ---------------------------------------------------------------------------
+
+# Group codes: A=0 B=1 C=2 D=3 E=4 F=5 G=6 (G = book's G1 u G2; the classifier
+# does not distinguish G1/G2 — the Rule of Ten maps the whole union F u G1 u G2
+# to room f, so the split is irrelevant here). Trigram values (bit 0 = bottom
+# line, yang = 1): Qian=7, Kun=0, Li=5, Kan=2, Xun=6, Zhen=1, Kan=2, Gen=4,
+# Dui=3.
+DB1_GROUP_NAMES = ("A", "B", "C", "D", "E", "F", "G")
+
+# The 8 doubled-trigram hexagrams (DBL) and the 12 monotone line-stacks (MONO,
+# the xiaoxi/calendar/tidal class incl. Qian/Kun) as pure bit predicates.
+_DB1_DBL = frozenset((t | (t << 3)) for t in range(8))
+
+
+def _db1_ispow2(x):
+    return x > 0 and (x & (x - 1)) == 0
+
+
+def _db1_is_mono(h):
+    """h is a monotone line-stack (one of the 12 tidal/xiaoxi hexagrams): its
+    set bits are a contiguous block anchored at the bottom (h+1 a power of two)
+    or at the top (complement's set bits a bottom-anchored block). Incl.
+    Qian(63)/Kun(0)."""
+    return _db1_ispow2(h + 1) or _db1_ispow2((h ^ 63) + 1)
+
+
+def db1_group(h):
+    """Bit-structural classifier reproducing Drasny's Table 4.1 (book p. 75)
+    eight-group system EXACTLY for all 64 hexagrams (verified: flip-equivariant,
+    C1-pair-consistent, zero residue). Linear precedence B > A > F > C > D > E > G
+    (frozen spec §1.2). lo=h&7 (lower trigram), up=(h>>3)&7 (upper trigram),
+    w()=Hamming weight. Returns a group code 0..6 (see DB1_GROUP_NAMES)."""
+    lo = h & 7
+    up = (h >> 3) & 7
+    # 1. B: complementary trigrams (lower = upper XOR 7 = Earlier-Heaven diagonals)
+    if lo == (up ^ 7):
+        return 1
+    # 2. A: one trigram in {Qian=7, Kun=0}, the other in {Qian, Kun, Li=5, Kan=2}
+    if (lo in (7, 0) and up in (7, 0, 5, 2)) or (up in (7, 0) and lo in (7, 0, 5, 2)):
+        return 0
+    # 3. F: doubled trigram
+    if lo == up:
+        return 5
+    # 4. C: monotone calendar stack (1-2 and 11-12 already captured by A/B above)
+    if _db1_is_mono(h):
+        return 2
+    # 5. D: trigram-exchanged hexagram is a calendar stack ("exchanged calendar")
+    if _db1_is_mono(up | (lo << 3)):
+        return 3
+    # 6. E: equal-weight-1 (son x son) or equal-weight-2 (daughter x daughter)
+    wl = bin(lo).count("1")
+    wu = bin(up).count("1")
+    if (wl == 1 and wu == 1) or (wl == 2 and wu == 2):
+        return 4
+    # 7. G (= book's G1 u G2): balanced 3-yang, one line-change from a doubled trigram
+    if bin(h).count("1") == 3 and any(bin(h ^ d).count("1") == 1 for d in _DB1_DBL):
+        return 6
+    return -1   # no residue in a correct classifier (verified over all 64)
+
+
+def _db1_partner(h):
+    """C1 partner of hexagram h: its 6-bit reverse, or its complement (h^63)
+    for the 8 palindromes. The 32 C1 pair-sets are forced constants of every
+    valid ordering (frozen spec §1.2)."""
+    r = reverse_6bit(h)
+    return r if r != h else (h ^ 63)
+
+
+# Rooms (frozen spec §1.2 table): expected group per 1-based pair-slot.
+# Rooms a<->A, b<->B, c<->C, d<->D, e<->E, f<->F u G. Stored as an inclusive
+# group-code range [lo, hi] per slot (lo==hi for single-group rooms a-e; room f
+# is [F=5, G=6]). Index below is 0-based (slot s in 1..32 -> index s-1).
+_DB1_ROOM = {  # 1-based slot -> (lo, hi)
+    **{s: (0, 0) for s in (1, 2, 3, 4, 5)},          # room a <-> A
+    **{s: (1, 1) for s in (6, 11, 16, 21)},          # room b <-> B
+    **{s: (2, 2) for s in (7, 12, 17, 22)},          # room c <-> C
+    **{s: (3, 3) for s in (8, 13, 18, 23)},          # room d <-> D
+    **{s: (4, 4) for s in (14, 19, 24, 15, 20, 25)}, # room e <-> E
+    **{s: (5, 6) for s in (26, 27, 28, 29, 30, 9, 10, 31, 32)},  # room f <-> F u G
+}
+DB1_ROOM_LO = tuple(_DB1_ROOM[s][0] for s in range(1, 33))
+DB1_ROOM_HI = tuple(_DB1_ROOM[s][1] for s in range(1, 33))
+# Room sizes (a..f) = (5,4,4,4,6,9); equal the group sizes by construction.
+DB1_ROOM_SIZES = (5, 4, 4, 4, 6, 9)
+
+
+def db1_conformity(seq):
+    """X(seq) = # of pair-slots whose pair's functional group matches the group
+    assigned to that slot's room (frozen spec §2). For each 1-based slot s the
+    positional 2-set {seq[2s-2], seq[2s-1]} is looked up; a 2-set that is NOT
+    one of the 32 forced C1 pair-sets scores nonconforming (F6 corpus-degeneracy
+    convention). On a C1-valid ordering both members share a group (theorem), so
+    the room match is well-defined. KW value = 22 (frozen anchor)."""
+    x = 0
+    for s in range(32):
+        a, b = seq[2 * s], seq[2 * s + 1]
+        if _db1_partner(a) != b or a == b:
+            continue   # not a forced C1 pair-set -> nonconforming
+        g = db1_group(a)                  # == db1_group(b) on any valid pair
+        if DB1_ROOM_LO[s] <= g <= DB1_ROOM_HI[s]:
+            x += 1
+    return x
+
+
+def db1_deviant_slots(seq):
+    """The 1-based slots that do NOT conform (the complement of db1_conformity).
+    KW = [2, 5, 7, 10, 11, 15, 18, 24, 31, 32] (== Drasny's Table 4.2 deviant
+    list of 10 pairs: 3-4, 9-10, 13-14, 19-20, 21-22, 29-30, 35-36, 47-48,
+    61-62, 63-64)."""
+    out = []
+    for s in range(32):
+        a, b = seq[2 * s], seq[2 * s + 1]
+        ok = (_db1_partner(a) == b and a != b and
+              DB1_ROOM_LO[s] <= db1_group(a) <= DB1_ROOM_HI[s])
+        if not ok:
+            out.append(s + 1)
+    return out
+
+
+def db1_null_a_distribution(condition_c4=False):
+    """Null A (frozen spec §2, EXACT — no Monte Carlo, no subsampling): the
+    distribution of X under a uniform pair->slot permutation of the 32 forced
+    pair-sets (orientation flips drop out; X is slot-level). Computed by exact
+    dynamic programming over rooms on the 6-vector of remaining group counts,
+    accumulating the X-generating polynomial. Returns {x: exact_integer_ways};
+    the pmf is ways/32! (or /31! for the C4-conditioned variant). Total mass
+    equals 32! (resp. 31!). `condition_c4`: pin slot 1 to pair {#1,#2} (group A,
+    room a -> one forced conforming slot; C1-C5 population variant).
+
+    NOTE (discipline): this returns the FULL exact distribution but the
+    --db1-verify gate deliberately does NOT print any percentile / p-value of
+    KW's X=22 — no dispositive "look" is consumed pre-registration. The
+    dispositive population null is Null B (solve.c SOLVE_KNUTH_SCORE_DB1=1),
+    run on Spot later. Only the analytic mean E[X]=190/32 (already disclosed in
+    the frozen scoping) is surfaced."""
+    from math import comb, factorial
+    # group counts (A,B,C,D,E,FuG) == room sizes; rooms want group i in order.
+    counts = list(DB1_ROOM_SIZES)     # [5,4,4,4,6,9]
+    rooms = list(DB1_ROOM_SIZES)      # room i has size m_i and wants group i
+    base_x = 0
+    if condition_c4:
+        counts[0] -= 1                # one group-A pair pinned at slot 1
+        rooms[0] -= 1                 # room a loses its pinned slot
+        base_x = 1                    # the pinned slot conforms (A in room a)
+
+    states = {tuple(counts): {base_x: 1}}   # remaining-count-vector -> {X: ways}
+    for i, m in enumerate(rooms):
+        new = {}
+        for rem, poly in states.items():
+            # enumerate compositions c0..c5 with sum m and cj <= rem[j]
+            def gen(j, left, acc):
+                if j == 6:
+                    if left == 0:
+                        yield tuple(acc)
+                    return
+                for cj in range(0, min(rem[j], left) + 1):
+                    yield from gen(j + 1, left - cj, acc + [cj])
+            for c in gen(0, m, []):
+                # ways to fill room i's m distinct slots with distinct pairs of
+                # this group-composition: m! * prod_j C(rem_j, c_j)
+                w = factorial(m)
+                for j in range(6):
+                    w *= comb(rem[j], c[j])
+                newrem = tuple(rem[j] - c[j] for j in range(6))
+                match = c[i]          # group-i pairs landing in room i conform
+                np_ = new.setdefault(newrem, {})
+                for x, ways in poly.items():
+                    np_[x + match] = np_.get(x + match, 0) + ways * w
+        states = new
+    assert len(states) == 1           # all groups consumed -> single empty state
+    return next(iter(states.values()))
+
+
+def db1_null_a_mean():
+    """Exact E[X] under Null A from the DP (Fraction). Cross-checks the analytic
+    closed form sum(room_size^2)/32 = 190/32. Unconditioned variant."""
+    from fractions import Fraction
+    dist = db1_null_a_distribution(condition_c4=False)
+    tot = sum(dist.values())
+    return Fraction(sum(x * w for x, w in dist.items()), tot)
+
+
+def db1_verify():
+    """Two-language gate for candidate D-B1 (solve.c --db1-verify must reproduce
+    this output byte-for-byte). Asserts: (1) the bit-structural classifier
+    reproduces Drasny's Table 4.1 for all 64 KW hexagrams; (2) zero residue;
+    (3) flip-equivariance; (4) C1-pair-consistency; (5) group sizes
+    (A,B,C,D,E,F,G)=(5,4,4,4,6,3,6); (6) KW conformity X=22 with the frozen
+    deviant slot list; (7) the analytic Null-A mean E[X]=190/32. No percentile /
+    p-value of KW is printed (no dispositive look). Exit 0 iff all pass."""
+    from fractions import Fraction
+    seq = list(binary_hexagrams)
+    failures = 0
+
+    # (1) classifier == Drasny Table 4.1 (book p.75), G1/G2 collapsed to G.
+    # Reference by 1-based pair slot; covers all 64 hexagrams (both members).
+    ref = {1: 0, 2: 4, 3: 0, 4: 0, 5: 3, 6: 1, 7: 0, 8: 3, 9: 6, 10: 2,
+           11: 6, 12: 2, 13: 3, 14: 4, 15: 5, 16: 1, 17: 2, 18: 0, 19: 4,
+           20: 4, 21: 1, 22: 2, 23: 3, 24: 6, 25: 4, 26: 5, 27: 6, 28: 6,
+           29: 5, 30: 6, 31: 4, 32: 1}
+    bad = 0
+    for s in range(1, 33):
+        for h in (seq[2 * (s - 1)], seq[2 * (s - 1) + 1]):
+            if db1_group(h) != ref[s]:
+                bad += 1
+    if bad == 0:
+        print("db1 classifier vs Drasny Table 4.1 (64/64 hexagrams): OK")
+    else:
+        print(f"db1 classifier vs Drasny Table 4.1 (64/64 hexagrams): FAIL ({bad})")
+        failures += 1
+
+    # (2) zero residue over all 64 hexagrams
+    res = [h for h in range(64) if db1_group(h) < 0]
+    if not res:
+        print("db1 zero-residue (all 64 classified A-G): OK")
+    else:
+        print(f"db1 zero-residue (all 64 classified A-G): FAIL ({len(res)})")
+        failures += 1
+
+    # (3) flip-equivariance group(h) == group(h^63)
+    fe = sum(1 for h in range(64) if db1_group(h) != db1_group(h ^ 63))
+    if fe == 0:
+        print("db1 flip-equivariant group(h)==group(h^63): OK")
+    else:
+        print(f"db1 flip-equivariant group(h)==group(h^63): FAIL ({fe})")
+        failures += 1
+
+    # (4) C1-pair-consistency: partners share a group
+    pc = sum(1 for h in range(64) if db1_group(h) != db1_group(_db1_partner(h)))
+    if pc == 0:
+        print("db1 C1-pair-consistent (partners share group): OK")
+    else:
+        print(f"db1 C1-pair-consistent (partners share group): FAIL ({pc})")
+        failures += 1
+
+    # (5) group sizes by pair
+    sizes = [0] * 7
+    for s in range(32):
+        sizes[db1_group(seq[2 * s])] += 1
+    exp_sizes = [5, 4, 4, 4, 6, 3, 6]
+    if sizes == exp_sizes:
+        print("db1 group sizes A,B,C,D,E,F,G = 5,4,4,4,6,3,6 (F+G=9): OK")
+    else:
+        print(f"db1 group sizes A,B,C,D,E,F,G = {','.join(map(str, sizes))} "
+              "(expected 5,4,4,4,6,3,6): FAIL")
+        failures += 1
+
+    # (6) KW conformity X = 22 with the frozen deviant slots
+    x = db1_conformity(seq)
+    dev = db1_deviant_slots(seq)
+    exp_dev = [2, 5, 7, 10, 11, 15, 18, 24, 31, 32]
+    if x == 22 and dev == exp_dev:
+        print("db1 KW conformity X = 22 (deviant slots "
+              + " ".join(map(str, dev)) + "): OK")
+    else:
+        print(f"db1 KW conformity X = {x} (deviant slots "
+              + " ".join(map(str, dev)) + f", expected 22 / {exp_dev}): FAIL")
+        failures += 1
+
+    # (7) analytic Null-A mean E[X] = sum(room_size^2)/32 = 190/32 (disclosed)
+    ex = Fraction(sum(sz * sz for sz in DB1_ROOM_SIZES), 32)
+    if ex == Fraction(190, 32):
+        print(f"db1 Null-A E[X] = 190/32 = {float(ex):.6f} "
+              "(uniform pair-perm, analytic): OK")
+    else:
+        print(f"db1 Null-A E[X] = {ex} (expected 190/32): FAIL")
+        failures += 1
+
+    print("DB1 VERIFY:", "PASS" if failures == 0 else f"{failures} FAILURES")
+    return 1 if failures else 0
+
+
+# ---------------------------------------------------------------------------
 # Van den Berghe (c.1998-2005) structural candidates V-1..V-8 (operational
 # spec frozen in roae-private/books/VANDENBERGHE_AUDIT_2026_07.md §3; registry
 # entries in roae-private/CANDIDATE_REGISTRY_2026_07.md).
@@ -8352,6 +8659,10 @@ def main():
     parser.add_argument("--dav2-verify", action="store_true",
                         help="verify the 2 pre-registered Davis (2012) wave-2 candidates "
                              "(tquartet C-D9, xunslots C-D10) on KW")
+    parser.add_argument("--db1-verify", action="store_true",
+                        help="verify Drasny's 'Rule of Ten' D-B1 classifier (== Table 4.1, "
+                             "all 64 hexagrams) and KW conformity count (X=22) — the "
+                             "two-language SPEC gate for solve.c --db1-verify")
     parser.add_argument("--vdb-verify", action="store_true",
                         help="verify the 8 Van den Berghe (c.1998-2005) structural candidates on KW")
     parser.add_argument("--books-verify", action="store_true",
@@ -8468,6 +8779,9 @@ def main():
 
     if args.dav2_verify:
         sys.exit(dav2_verify())
+
+    if args.db1_verify:
+        sys.exit(db1_verify())
 
     if args.vdb_verify:
         sys.exit(vdb_verify())

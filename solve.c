@@ -4813,6 +4813,13 @@ typedef struct {
     double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
     int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
+    /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
+     * canonical-leaf mass of the conformity count X (see the DB1 block below).
+     * db1_hist[0..32] = exact-value histogram; below/at/above split at KW's X=22.
+     * Estimator-only, sha-neutral (never on the enum/selftest path). */
+    double db1_hist[33];
+    double db1_sum, db1_below, db1_at, db1_above;
+    int db1_min, db1_max;
     double *f5_hist;                      /* SOLVE_KNUTH_SCORE_F5=1: [11*64] weighted value histogram per
                                            * F5 orientation-layer functional (heap-allocated only when active).
                                            * Leaves are orientation-BEARING (walk enumerates orientation
@@ -5863,6 +5870,154 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
     }
 }
 
+/* ===================== Drasny "Rule of Ten" candidate D-B1 (SOLVE_KNUTH_SCORE_DB1) =====================
+ * Rule-of-Ten conformity count X = # of pair-slots whose functional group matches
+ * the group assigned to that slot's "room". Operational spec frozen in
+ * roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md (SCOPING ONLY, held for
+ * operator; NOT yet pre-registered, NOT yet measured). Ground truth = solve.py
+ * db1_* / --db1-verify; the --db1-verify subcommand below is the two-language gate
+ * (byte-identical to solve.py). All D-B1 code is behind SOLVE_KNUTH_SCORE_DB1=1 /
+ * --db1-verify — zero effect on the enum / --selftest / checkpoint paths.
+ *
+ * ATTRIBUTION: every structural observation operationalized here is Jozsef Drasny's
+ * (*The Yi-globe: The Image of the Cosmos in the Yijing*, 2nd rev. English ed.
+ * 2007/2011, self-published via i-ching.hu; Hungarian 1st ed. 2005, Budapest:
+ * Szenzar -- Ch. IV pp. 71-88, Ch. III pp. 39-40; the eight-group partition is his
+ * Table 4.1 p. 75, the "Rule of Ten" his sections 1-3 pp. 76-84). No ISBN/DOI
+ * exists; do not invent one. The bit-structural precedence-classifier reduction,
+ * the pair->slot conformity operationalization, and the exact permutation-null DP
+ * (solve.py) are ROAE's; errors of operationalization are ROAE's, not Drasny's.
+ * Drasny asserts the Rule of Ten was "previously unknown" -- that is HIS claim,
+ * unverified by ROAE and not repeated as fact. Corrections welcome (CITATIONS.md).
+ *
+ * NAME-COLLISION DISAMBIGUATION: Drasny's "Rule of Ten" (this functional -- a
+ * decade-arithmetic room<->group coincidence over ALL 32 pair-slots) is UNRELATED
+ * to Scott Davis's (2012, p. 126) separately-named "rule of ten" (hexagrams #18
+ * and #27 sitting ten ordinals apart; ROAE registry C-D14, dav_* family). Same
+ * three-word name, different authors, different claims -- never conflate them.
+ *
+ * Nothing here promotes to the C-rule system regardless of outcome. A population
+ * p-value under the frozen classification quantifies KW's atypicality GIVEN the
+ * system, not the (KW-informed) selection of the system itself.
+ * Group codes: A=0 B=1 C=2 D=3 E=4 F=5 G=6 (G = book's G1 u G2). Trigrams
+ * (bit 0 = bottom line, yang = 1): Qian=7 Kun=0 Li=5 Kan=2 Xun=6 Zhen=1 Gen=4 Dui=3. */
+
+static int knuth_score_db1 = 0; /* SOLVE_KNUTH_SCORE_DB1=1: per-leaf weighted scoring of the D-B1
+                                 * conformity count (Null B, the dispositive population null). */
+
+static const char *db1_group_names[7] = { "A", "B", "C", "D", "E", "F", "G" };
+static const int db1_kw_x = 22;         /* frozen KW conformity anchor */
+
+/* Expected group-code range [lo,hi] per 1-based pair-slot (room<->group map,
+ * frozen spec section 1.2). Rooms a-e are single-group (lo==hi); room f is
+ * [F=5, G=6]. Index below is 0-based (slot s -> index s-1). */
+static const int db1_room_lo[32] = {
+    0,0,0,0,0,   /* room a: slots 1-5   <-> A */
+    1,           /* slot 6  (room b) <-> B */
+    2,           /* slot 7  (room c) <-> C */
+    3,           /* slot 8  (room d) <-> D */
+    5,5,         /* slots 9,10 (room f) <-> F u G */
+    1,2,3,       /* slots 11,12,13 (rooms b,c,d) */
+    4,4,         /* slots 14,15 (room e) <-> E */
+    1,2,3,       /* slots 16,17,18 (rooms b,c,d) */
+    4,4,         /* slots 19,20 (room e) */
+    1,2,3,       /* slots 21,22,23 (rooms b,c,d) */
+    4,4,         /* slots 24,25 (room e) */
+    5,5,5,5,5,   /* slots 26-30 (room f) <-> F u G */
+    5,5          /* slots 31,32 (room f) */
+};
+static const int db1_room_hi[32] = {
+    0,0,0,0,0,   1,   2,   3,   6,6,   1,2,3,   4,4,   1,2,3,   4,4,   1,2,3,   4,4,
+    6,6,6,6,6,   6,6
+};
+
+/* Drasny Table 4.1 (book p.75) group by 1-based pair-slot, G1/G2 collapsed to
+ * G=6. Reference used ONLY to gate the bit-structural classifier below (which is
+ * the actual spec) in --db1-verify; covers all 64 hexagrams (both pair members). */
+static const int db1_table41_ref[32] = {
+    0,4,0,0,3,1,0,3,6,2,6,2,3,4,5,1,2,0,4,4,1,2,3,6,4,5,6,6,5,6,4,1
+};
+
+static inline int db1_ispow2(int x){ return x > 0 && (x & (x - 1)) == 0; }
+
+/* h is a monotone line-stack (one of the 12 tidal/xiaoxi hexagrams incl.
+ * Qian/Kun): set bits are a bottom-anchored contiguous block (h+1 a power of
+ * two) or a top-anchored one (complement's set bits bottom-anchored). */
+static inline int db1_is_mono(int h){
+    return db1_ispow2(h + 1) || db1_ispow2((h ^ 63) + 1);
+}
+
+/* Bit-structural classifier: reproduces Drasny's Table 4.1 EXACTLY for all 64
+ * hexagrams (flip-equivariant, C1-pair-consistent, zero residue -- verified).
+ * Linear precedence B > A > F > C > D > E > G (frozen spec section 1.2). Returns
+ * a group code 0..6 (db1_group_names). */
+static int db1_group(int h){
+    int lo = h & 7, up = (h >> 3) & 7;
+    /* 1. B: complementary trigrams (lower = upper XOR 7) */
+    if (lo == (up ^ 7)) return 1;
+    /* 2. A: one trigram in {Qian=7,Kun=0}, other in {Qian,Kun,Li=5,Kan=2} */
+    {
+        int lqk = (lo == 7 || lo == 0), uqk = (up == 7 || up == 0);
+        int lqklk = (lo == 7 || lo == 0 || lo == 5 || lo == 2);
+        int uqklk = (up == 7 || up == 0 || up == 5 || up == 2);
+        if ((lqk && uqklk) || (uqk && lqklk)) return 0;
+    }
+    /* 3. F: doubled trigram */
+    if (lo == up) return 5;
+    /* 4. C: monotone calendar stack */
+    if (db1_is_mono(h)) return 2;
+    /* 5. D: trigram-exchanged hexagram is a calendar stack */
+    if (db1_is_mono(up | (lo << 3))) return 3;
+    /* 6. E: son x son (w=1 each) or daughter x daughter (w=2 each) */
+    {
+        int wl = __builtin_popcount(lo), wu = __builtin_popcount(up);
+        if ((wl == 1 && wu == 1) || (wl == 2 && wu == 2)) return 4;
+    }
+    /* 7. G (= book G1 u G2): balanced 3-yang, one line-change from a double */
+    if (__builtin_popcount(h) == 3){
+        for (int t = 0; t < 8; t++){
+            int d = t | (t << 3);   /* the 8 doubled-trigram hexagrams */
+            if (__builtin_popcount(h ^ d) == 1) return 6;
+        }
+    }
+    return -1;   /* no residue in a correct classifier (verified over all 64) */
+}
+
+/* C1 partner of hexagram h: its 6-bit reverse, or its complement (h^63) for the
+ * 8 palindromes. The 32 C1 pair-sets are forced constants of every valid order. */
+static inline int db1_partner(int h){
+    int r = reverse6(h);
+    return (r != h) ? r : (h ^ 63);
+}
+
+/* X(seq): # of pair-slots whose pair's group matches its room's group (frozen
+ * spec section 2). A positional 2-set that is not a forced C1 pair-set scores
+ * nonconforming (F6 corpus-degeneracy convention); on a valid ordering both
+ * members share a group. KW = 22. */
+static int db1_conformity(const int seq[64]){
+    int x = 0;
+    for (int s = 0; s < 32; s++){
+        int a = seq[2*s], b = seq[2*s+1];
+        if (db1_partner(a) != b || a == b) continue;   /* not a forced C1 pair */
+        int g = db1_group(a);
+        if (g >= db1_room_lo[s] && g <= db1_room_hi[s]) x++;
+    }
+    return x;
+}
+
+/* Null B scorer: accumulate weighted canonical-leaf mass of X (histogram +
+ * below/at/above KW's X=22). Called only under knuth_score_db1. */
+static void score_db1(const int seq[64], double W, KnuthArg *a){
+    int x = db1_conformity(seq);
+    a->db1_sum += W * (double)x;
+    if (x < a->db1_min) a->db1_min = x;
+    if (x > a->db1_max) a->db1_max = x;
+    if      (x < db1_kw_x) a->db1_below += W;
+    else if (x == db1_kw_x) a->db1_at   += W;
+    else                    a->db1_above += W;
+    if (x >= 0 && x <= 32) a->db1_hist[x] += W;
+}
+
 /* ===================== F5 orientation-layer functionals (SOLVE_KNUTH_SCORE_F5) =====================
  * C port of the 11 FROZEN orientation-layer functionals in
  * roae-private/F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN.md §5 + addendum
@@ -6664,6 +6819,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_score_dav) score_dav(seq, W, a);
                     if (knuth_score_dav2) score_dav2(seq, W, a);
+                    if (knuth_score_db1)  score_db1(seq, W, a);
                     if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_score_f6)  score_f6(seq, W, a);
                     if (knuth_score_perm) score_perm(seq, W, a);
@@ -6870,6 +7026,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].dav2_hist = (double*)calloc(2 * 64, sizeof(double));
             for (int k2 = 0; k2 < 2; k2++){ arg[i].dav2_min[k2] = INT_MAX; arg[i].dav2_max[k2] = INT_MIN; }
         }
+        if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
         if (knuth_score_f5) {
             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
             for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
@@ -6975,6 +7132,17 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             if (dav2H && arg[i].dav2_hist)
                 for (int b2 = 0; b2 < 2 * 64; b2++) dav2H[b2] += arg[i].dav2_hist[b2];
             free(arg[i].dav2_hist); arg[i].dav2_hist = NULL;
+        }
+    }
+    double db1S=0, db1Bel=0, db1At=0, db1Abv=0, db1H[33]={0};
+    int db1Min=INT_MAX, db1Max=INT_MIN;
+    if (knuth_score_db1) {
+        for (int i = 0; i < nthreads; i++){
+            db1S += arg[i].db1_sum; db1Bel += arg[i].db1_below;
+            db1At += arg[i].db1_at; db1Abv += arg[i].db1_above;
+            if (arg[i].db1_min < db1Min) db1Min = arg[i].db1_min;
+            if (arg[i].db1_max > db1Max) db1Max = arg[i].db1_max;
+            for (int b2 = 0; b2 < 33; b2++) db1H[b2] += arg[i].db1_hist[b2];
         }
     }
     double f5S[11]={0}, f5Bel[11]={0}, f5At[11]={0}, f5Abv[11]={0}, *f5H = NULL;
@@ -7135,6 +7303,21 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                dav2_names[k2], dav2_lo[k2] + b2, dav2H[k2 * 64 + b2]/sC);
     }
     free(dav2H);
+    if (knuth_score_db1 && sC > 0) {
+        /* Drasny "Rule of Ten" D-B1 conformity count X, Null B (dispositive
+         * population null): weighted fraction of canonical mass with X below /
+         * at / above KW's X=22. Ground truth classifier solve.py db1_* /
+         * --db1-verify; attribution in the DB1 comment block + CITATIONS.md.
+         * The 'atinc' (at-or-above, atom-inclusive) figure is the two-sided
+         * upper tail the frozen scoping's gate reads. */
+        printf("  [db1 rule-of-ten] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f atinc=%.8f\n",
+               db1S/sC, db1Min == INT_MAX ? 0 : db1Min, db1Max == INT_MIN ? 0 : db1Max,
+               db1_kw_x, db1Bel/sC, db1At/sC, db1Abv/sC, (db1At + db1Abv)/sC);
+        if (getenv("SOLVE_KNUTH_DB1_HIST") && atoi(getenv("SOLVE_KNUTH_DB1_HIST")) == 1)
+            for (int b2 = 0; b2 <= 32; b2++)
+                if (db1H[b2] > 0)
+                    printf("db1_hist %d %.10e\n", b2, db1H[b2]/sC);
+    }
     if (knuth_score_f5 && sC > 0) {
         /* F5 orientation-layer functionals (frozen preregistration; ground
          * truth solve.py + frozen-spec KW values, #11 solve.py vdb_nucorient;
@@ -15790,6 +15973,10 @@ int main(int argc, char *argv[]) {
             knuth_score_dav2 = 1;
             fprintf(stderr, "[knuth] Davis-2012 wave-2 scoring ACTIVE (2 candidates: tquartet C-D9, xunslots C-D10; R8_DAVIS_PREREG_2026_07_10; ground truth solve.py dav2_*; C-D5 operator-declined)\n");
         }
+        if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
+            knuth_score_db1 = 1;
+            fprintf(stderr, "[knuth] Drasny Rule-of-Ten D-B1 scoring ACTIVE (conformity count X, Null B / dispositive population null; DRASNY_RULE_OF_TEN_SCOPING_2026_07_11; ground truth solve.py db1_* / --db1-verify; KW X=22)\n");
+        }
         if (getenv("SOLVE_KNUTH_SCORE_F5") && atoi(getenv("SOLVE_KNUTH_SCORE_F5")) == 1) {
             knuth_score_f5 = 1;
             fprintf(stderr, "[knuth] F5 orientation-layer scoring ACTIVE (11 frozen functionals, F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN; orientation-bearing leaves pre-dedup; KW gate --f5-verify)\n");
@@ -15894,6 +16081,79 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("DAV2 VERIFY: PASS\n");
         else printf("DAV2 VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
+        /* Two-language gate for Drasny's "Rule of Ten" candidate D-B1: assert the
+         * bit-structural classifier reproduces Table 4.1 (all 64 hexagrams) and
+         * the KW conformity count X=22. Output format matches solve.py db1_verify
+         * byte-for-byte. Sha-neutral (argv-dispatched, never on the enum path). */
+        int failures = 0;
+
+        /* (1) classifier == Drasny Table 4.1 (both members of every KW pair) */
+        int bad = 0;
+        for (int s = 0; s < 32; s++)
+            for (int m = 0; m < 2; m++)
+                if (db1_group(KW[2*s + m]) != db1_table41_ref[s]) bad++;
+        if (bad == 0) printf("db1 classifier vs Drasny Table 4.1 (64/64 hexagrams): OK\n");
+        else { printf("db1 classifier vs Drasny Table 4.1 (64/64 hexagrams): FAIL (%d)\n", bad); failures++; }
+
+        /* (2) zero residue over all 64 hexagrams */
+        int res = 0;
+        for (int h = 0; h < 64; h++) if (db1_group(h) < 0) res++;
+        if (res == 0) printf("db1 zero-residue (all 64 classified A-G): OK\n");
+        else { printf("db1 zero-residue (all 64 classified A-G): FAIL (%d)\n", res); failures++; }
+
+        /* (3) flip-equivariance group(h) == group(h^63) */
+        int fe = 0;
+        for (int h = 0; h < 64; h++) if (db1_group(h) != db1_group(h ^ 63)) fe++;
+        if (fe == 0) printf("db1 flip-equivariant group(h)==group(h^63): OK\n");
+        else { printf("db1 flip-equivariant group(h)==group(h^63): FAIL (%d)\n", fe); failures++; }
+
+        /* (4) C1-pair-consistency: partners share a group */
+        int pc = 0;
+        for (int h = 0; h < 64; h++) if (db1_group(h) != db1_group(db1_partner(h))) pc++;
+        if (pc == 0) printf("db1 C1-pair-consistent (partners share group): OK\n");
+        else { printf("db1 C1-pair-consistent (partners share group): FAIL (%d)\n", pc); failures++; }
+
+        /* (5) group sizes by pair */
+        int sizes[7] = {0,0,0,0,0,0,0};
+        for (int s = 0; s < 32; s++) sizes[db1_group(KW[2*s])]++;
+        int exp_sizes[7] = {5,4,4,4,6,3,6}, sz_ok = 1;
+        for (int k = 0; k < 7; k++) if (sizes[k] != exp_sizes[k]) sz_ok = 0;
+        if (sz_ok)
+            printf("db1 group sizes A,B,C,D,E,F,G = %d,%d,%d,%d,%d,%d,%d (F+G=9): OK\n",
+                   sizes[0],sizes[1],sizes[2],sizes[3],sizes[4],sizes[5],sizes[6]);
+        else { printf("db1 group sizes A,B,C,D,E,F,G = %d,%d,%d,%d,%d,%d,%d (expected 5,4,4,4,6,3,6): FAIL\n",
+                   sizes[0],sizes[1],sizes[2],sizes[3],sizes[4],sizes[5],sizes[6]); failures++; }
+
+        /* (6) KW conformity X=22 with the frozen deviant slot list */
+        int x = db1_conformity(KW);
+        char devbuf[160]; int dp = 0;
+        int exp_dev[10] = {2,5,7,10,11,15,18,24,31,32}, dn = 0, dev_ok = 1;
+        for (int s = 0; s < 32; s++){
+            int a = KW[2*s], b = KW[2*s+1];
+            int ok = (db1_partner(a) == b && a != b &&
+                      db1_group(a) >= db1_room_lo[s] && db1_group(a) <= db1_room_hi[s]);
+            if (!ok){
+                dp += snprintf(devbuf + dp, sizeof(devbuf) - dp, dp ? " %d" : "%d", s + 1);
+                if (dn >= 10 || exp_dev[dn] != s + 1) dev_ok = 0;
+                dn++;
+            }
+        }
+        if (dn != 10) dev_ok = 0;
+        if (x == 22 && dev_ok)
+            printf("db1 KW conformity X = 22 (deviant slots %s): OK\n", devbuf);
+        else { printf("db1 KW conformity X = %d (deviant slots %s, expected 22 / 2 5 7 10 11 15 18 24 31 32): FAIL\n", x, devbuf); failures++; }
+
+        /* (7) analytic Null-A mean E[X] = sum(room_size^2)/32 = 190/32 (disclosed) */
+        int room_sizes[6] = {5,4,4,4,6,9}, ssq = 0;
+        for (int k = 0; k < 6; k++) ssq += room_sizes[k]*room_sizes[k];
+        if (ssq == 190)
+            printf("db1 Null-A E[X] = 190/32 = %.6f (uniform pair-perm, analytic): OK\n", 190.0/32.0);
+        else { printf("db1 Null-A E[X] = %d/32 (expected 190/32): FAIL\n", ssq); failures++; }
+
+        if (failures == 0) printf("DB1 VERIFY: PASS\n");
+        else printf("DB1 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f5-verify") == 0) {
         /* Two-language gate for the 11 FROZEN F5 orientation-layer
