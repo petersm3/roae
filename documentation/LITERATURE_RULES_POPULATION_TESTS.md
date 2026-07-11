@@ -128,12 +128,15 @@ registry classification is data-like rather than principled, and it is reported 
 not promoted. The exception-co-location meta-rule (both Schulz rules' violations confined to S25/26)
 measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare.
 
-**2. Eight literature rules are THEOREMS of the constraint system** — they measure at exactly 1.0 of
-canonical mass: asserted in the literature as design features, they are in fact *forced* by C1–C5
-(McKenna's 3:1 ratio was the first known case; this batch found seven more, including three consequences
-of [Radisic's](CITATIONS.md#radisic2026) optimality structure, whose 1.0 readings also validate the instrument end-to-end). Several
-more are near-forced (0.95–0.9998). The literature's design inventory therefore splits three ways:
-forced / typical / genuinely discriminating.
+**2. Eight literature rules behave as consequences of the constraint system** — they measure at 1.0 of
+canonical mass with no violating ordering found in 2×10¹⁰ weighted probes: asserted in the literature as
+design features, they are *empirically forced* under C1–C5 (McKenna's 3:1 ratio was the first known
+case; this batch found seven more, including three consequences of [Radisic's](CITATIONS.md#radisic2026) optimality structure, whose
+1.0 readings also validate the instrument end-to-end). One — the no-5 rule's implication chain — is
+additionally proven analytically, a theorem; the others are zero-hit sampling results (sampling cannot
+distinguish mass 1 from mass 1−ε), reported as empirically forced to the estimator's precision, not as
+theorems. Several more are near-forced (0.95–0.9998). The literature's design inventory therefore splits
+three ways: empirically forced / typical / genuinely discriminating.
 
 **3. King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7: 8 of 8, and 8 is the observed
 population maximum) — a genuine extremal property, one of very few axes where KW attains the boundary.
