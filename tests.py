@@ -166,6 +166,17 @@ class TestGates(unittest.TestCase):
         self.assertEqual(r2.stdout.strip().split(",")[:7],
                          ["64", "1", "64", "0", "1", "0", "0"])
 
+    def test_r7_verify(self):
+        # R7 cross-tradition corpus-control: frozen anchors (FC-2 construction
+        # cross-validation; J1-J5 reproduce Jing Fang; M1-M5 + exact Mawangdui
+        # reconstruction; cross-application matrix a-priori cells; FC-1
+        # positive-control expectation at pilot N=10^4). See roae-private/
+        # R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md.
+        r = subprocess.run([sys.executable, "solve.py", "--r7-verify"],
+                           capture_output=True, text=True)
+        self.assertIn("R7 VERIFY: ALL ANCHORS PASS", r.stdout)
+        self.assertEqual(r.returncode, 0)
+
     def test_sat_import_assertions(self):
         r = subprocess.run([sys.executable, "-c", "import sat"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr[-300:])

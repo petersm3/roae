@@ -8631,6 +8631,860 @@ def trigram_verify():
     return 0
 
 
+# ===========================================================================
+# R7 — Cross-tradition corpus-control battery (--r7-corpus / --r7-verify)
+# ---------------------------------------------------------------------------
+# Frozen pre-registered design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_
+# 2026_07_11.md (commit b00911b). Referee question: does ROAE's extraction
+# methodology manufacture x10^3-class "design" discriminators for ANY
+# systematic ordering of the 64 hexagrams, or does it correctly identify which
+# orderings are structured, where, and how much? R7 answers by defining each
+# historical ordering's OWN natural constraint family in its OWN representation
+# (KW: C1-C5; Jing Fang: J1-J5, palace-generator repn; Mawangdui: M1-M5,
+# trigram-octet repn; Fu Xi: B1, identity), cross-applying every family to
+# every ordering (the manufacture alarm), and pricing each family against
+# matched nulls. Report-only: nothing here promotes to a solver constraint;
+# every cell is reported whatever it says (standing extraction-circularity
+# policy).
+#
+# ATTRIBUTION / NOVELTY HUMILITY (mirrors the frozen design's declaration,
+# which is binding): the Jing Fang (c. 77-37 BCE, eight-palaces) and Mawangdui
+# (silk text, tomb sealed 168 BCE) orderings are classical Chinese artifacts,
+# NOT project inventions. The J/M constraint-family operationalizations below
+# are Claude's formalizations of standard classical constructions (JF palace
+# generator: standard sinological convention, see CITATIONS.md; MD two-key
+# trigram sort: Shaughnessy 2022, Brill, p.50 + Table 11.2, corrected 2026-07-05
+# per the public CITATIONS.md erratum). None of the generative descriptions is
+# claimed as novel; only their use as a symmetric corpus-control instrument is,
+# to our knowledge, the project's own -- and that is hedged, not asserted.
+# Sinological corrections are invited; a correction reopens the freeze via a
+# dated amendment. Developed with AI assistance (Claude, Anthropic).
+#
+# DISCLOSED LIMITS (frozen design section 9 -- must survive downstream):
+#   * n = 3 alternative orderings, all classical Chinese: R7 tests the
+#     historical recension corpus, NOT "any systematic ordering" in the
+#     mathematical sense. A finite corpus cannot settle the universal claim.
+#   * Post-erratum, BOTH JF and MD are fully algorithmic (positive controls of
+#     two different generative styles); the corpus carries NO genuine middle
+#     case, so the battery's response to *partial* design is uncalibrated here.
+#   * The L0 11x3 matrix was observed at N=10^4 pre-freeze (pilot); R7's weight
+#     rests on the genuinely-unobserved cells (L1/L2 nulls, off-home predicates).
+#   * The Fu Xi off-home M1 pass is a deliberate, honest feature (M1 alone is a
+#     weak predicate any upper-sorted ordering satisfies); it is excluded from
+#     the manufacture alarm only by the joint-M requirement (Fu Xi fails M2/M3/
+#     M4 a-priori), and R7 flags it itself rather than leaving it for a referee.
+#
+# sha-NEUTRALITY: this is a solve.py-only subcommand (single-file rule). It
+# makes NO solve.c change and is off every enum/selftest path, so the canonical
+# `./solve --selftest` sha is untouched.
+# ===========================================================================
+
+_R7_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# Trigram values (frozen convention): Qian 7, Kun 0, Zhen 1, Kan 2, Gen 4,
+# Xun 6, Li 5, Dui 3. bit 0 = bottom line (OEIS A102241); L(h)=h&7,
+# U(h)=(h>>3)&7; comp6=h^63, comp3=t^7.
+
+def _r7_kw():
+    """King Wen ordering -- solve.py ground truth (binary_hexagrams)."""
+    return list(binary_hexagrams)
+
+def _r7_fuxi():
+    """Fu Xi natural-binary ordering: seq[i] = i."""
+    return list(range(64))
+
+def _r7_jingfang():
+    """Jing Fang Eight Palaces (c. 77-37 BCE) generator -- palace-orbit
+    representation. Verbatim copy of roae.py print_trigrams / solve.c
+    --null-historical construction (three-language cross-check). Palace order
+    Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui; within each palace the eight world
+    stages W_0..W_7 (see _r7_W)."""
+    jf = []
+    for t in (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011):
+        jf += _r7_W(t)
+    return jf
+
+def _r7_W(t):
+    """The 8 world-stage hexagrams of Jing Fang palace with pure trigram t,
+    written (upper<<3)|lower. Frozen design section 3:
+    W_0(t)=(t,t) W_1=(t,t^1) W_2=(t,t^3) W_3=(t,t^7) W_4=(t^1,t^7)
+    W_5=(t^3,t^7) W_6=(t^2,t^7) [wandering soul] W_7=(t^2,t) [returning soul]."""
+    return [(t << 3) | t, (t << 3) | (t ^ 1), (t << 3) | (t ^ 3),
+            (t << 3) | (t ^ 7), ((t ^ 1) << 3) | (t ^ 7),
+            ((t ^ 3) << 3) | (t ^ 7), ((t ^ 2) << 3) | (t ^ 7),
+            ((t ^ 2) << 3) | t]
+
+def _r7_mawangdui_indices():
+    """Parse roae.py::mawangdui_kw_indices (single-file rule: the data is
+    PARSED, never re-typed). Corrected array (Shaughnessy 2022 Table 11.2;
+    2026-07-05 erratum)."""
+    import re
+    src = open(os.path.join(_R7_ROOT, "roae.py")).read()
+    m = re.search(r"mawangdui_kw_indices = \[(.*?)\]", src, re.S)
+    idx = [int(x) for x in re.findall(r"\d+", m.group(1))]
+    if len(idx) != 64:
+        raise RuntimeError("R7: could not parse 64 mawangdui indices from roae.py")
+    return idx
+
+def _r7_mawangdui():
+    """Mawangdui silk-text ordering as hexagram values (roae.py indices into
+    KW). Octet-by-upper-trigram representation."""
+    kw = _r7_kw()
+    return [kw[i] for i in _r7_mawangdui_indices()]
+
+def _r7_solve_c_kw_md():
+    """Independently parse solve.c --null-historical's kw[] and md_idx[] and
+    return (kw_values, mawangdui_values) for the FC-2 cross-validation gate.
+    A mismatch is NEVER rationalized through (2026-07-05 erratum lesson)."""
+    import re
+    src = open(os.path.join(_R7_ROOT, "solve.c")).read()
+    mkw = re.search(r"uint8_t kw\[64\] = \{(.*?)\};", src, re.S)
+    kw_c = [int(x) for x in re.findall(r"\d+", mkw.group(1))]
+    mmd = re.search(r"int md_idx\[64\] = \{(.*?)\};", src, re.S)
+    md_c = [int(x) for x in re.findall(r"-?\d+", mmd.group(1))]
+    if len(kw_c) != 64 or len(md_c) != 64:
+        raise RuntimeError("R7: could not parse 64 kw[]/md_idx[] from solve.c")
+    return kw_c, [kw_c[i] for i in md_c]
+
+# ------------------------------------------------------------- observables
+# The 11 F8 observables (a,b,c1,c2,d,e,f,g,h,i,j), verbatim from the pilot's
+# normative implementation (F8_BATTERY_RESULTS_2026_07.md Appendix A). No
+# additions (frozen: additions would dilute the pre-registration story).
+
+def _r7_rev6(h):
+    r = 0
+    for b in range(6):
+        r = (r << 1) | ((h >> b) & 1)
+    return r
+
+def _r7_partner(h):
+    r = _r7_rev6(h)
+    return r if r != h else h ^ 0b111111
+
+def _r7_diff_wave(s):
+    return [bin(s[i] ^ s[i + 1]).count("1") for i in range(63)]
+
+def _r7_obs_a(s):   # Hamming-5 transition count (no-5 property <=> 0)
+    return sum(1 for d in _r7_diff_wave(s) if d == 5)
+
+def _r7_obs_b(s):   # partner-adjacent pairs at slots (2k,2k+1)
+    return sum(1 for k in range(32) if _r7_partner(s[2 * k]) == s[2 * k + 1])
+
+def _r7_obs_c1(s):  # upper-trigram change count
+    return sum(1 for i in range(63) if (s[i] >> 3) != (s[i + 1] >> 3))
+
+def _r7_obs_c2(s):  # lower-trigram change count
+    return sum(1 for i in range(63) if (s[i] & 7) != (s[i + 1] & 7))
+
+def _r7_obs_d(s):   # Shannon entropy of the 63 diff-wave values
+    import math
+    d = _r7_diff_wave(s)
+    ent = 0.0
+    for v in set(d):
+        p = d.count(v) / 63.0
+        ent -= p * math.log2(p)
+    return ent
+
+def _r7_obs_e(s):   # lag-1 autocorrelation of the diff wave
+    import math
+    d = _r7_diff_wave(s)
+    x, y = d[:-1], d[1:]
+    n = len(x)
+    mx = sum(x) / n
+    my = sum(y) / n
+    cov = sum((a - mx) * (b - my) for a, b in zip(x, y))
+    vx = sum((a - mx) ** 2 for a in x)
+    vy = sum((b - my) ** 2 for b in y)
+    if vx == 0 or vy == 0:
+        return 0.0
+    return cov / math.sqrt(vx * vy)
+
+def _r7_obs_f(s):   # complement-distance sum over 32 pairs (/2 convention)
+    pos = {h: i for i, h in enumerate(s)}
+    return sum(abs(pos[h] - pos[h ^ 63]) for h in range(64)) // 2
+
+def _r7_obs_g(s):   # doubled-trigram hexagrams at block starts (positions 8b, 8b+1)
+    idxs = [b * 8 + o for b in range(8) for o in (0, 1)]
+    return sum(1 for i in idxs if (s[i] >> 3) == (s[i] & 7))
+
+def _r7_obs_h(s):   # longest weakly-monotone run in the diff wave
+    d = _r7_diff_wave(s)
+    best = 1
+    for cmpf in (lambda a, b: b >= a, lambda a, b: b <= a):
+        run = 1
+        for i in range(1, len(d)):
+            run = run + 1 if cmpf(d[i - 1], d[i]) else 1
+            best = max(best, run)
+    return best
+
+def _r7_obs_i(s):   # adjacent pairs differing in exactly 1 bit
+    return sum(1 for d in _r7_diff_wave(s) if d == 1)
+
+def _r7_obs_j(s):   # width-5 popcount-palindromic windows (of 60)
+    pc = [bin(h).count("1") for h in s]
+    return sum(1 for i in range(60)
+               if pc[i] == pc[i + 4] and pc[i + 1] == pc[i + 3])
+
+_R7_OBSERVABLES = [
+    ("a. Hamming-5 transition count (no-5 <=> 0)", _r7_obs_a),
+    ("b. partner-adjacent pairs (of 32 slots)", _r7_obs_b),
+    ("c1. upper-trigram changes (of 63)", _r7_obs_c1),
+    ("c2. lower-trigram changes (of 63)", _r7_obs_c2),
+    ("d. diff-wave Shannon entropy (bits)", _r7_obs_d),
+    ("e. diff-wave lag-1 autocorrelation", _r7_obs_e),
+    ("f. complement-distance sum (32 pairs)", _r7_obs_f),
+    ("g. doubled trigrams at block starts (of 16)", _r7_obs_g),
+    ("h. longest monotone diff-wave run", _r7_obs_h),
+    ("i. 1-bit transitions", _r7_obs_i),
+    ("j. popcount-palindromic width-5 windows (of 60)", _r7_obs_j),
+]
+
+def _r7_percentile(null_vals, obs):
+    """Mid-percentile (lt + 0.5*eq), F8 convention."""
+    lt = sum(1 for v in null_vals if v < obs)
+    eq = sum(1 for v in null_vals if v == obs)
+    return 100.0 * (lt + 0.5 * eq) / len(null_vals)
+
+# ------------------------------------------------- constraint families J/M/B/C
+# Each family predicate is extracted from its own tradition exactly as C1-C5
+# were from KW (symmetric extraction circularity, disclosed). Trigram helpers:
+def _r7_U(h):
+    return (h >> 3) & 7
+
+def _r7_L(h):
+    return h & 7
+
+# Jing Fang's natural family J1-J5 (palace-orbit representation) --------------
+
+def _r7_J1(s):
+    """J1 (palace-orbit partition, PRIMARY): the sequence splits into 8
+    consecutive blocks of 8 and each block b equals some pure trigram t_b's
+    world-stage orbit W(t_b). Returns [t_0..t_7] if J1 holds, else None.
+    Residual freedom given J1: 8! = 40,320 sequences."""
+    tb = []
+    for b in range(8):
+        blk = s[8 * b:8 * b + 8]
+        found = None
+        for t in range(8):
+            if _r7_W(t) == blk:
+                found = t
+                break
+        if found is None:
+            return None
+        tb.append(found)
+    return tb
+
+def _r7_J2(s):
+    """J2 (yang/yin palace bipartition): popcount(t_b) odd for b in 0..3, even
+    for b in 4..7, with t_0 = Qian(7) and t_4 = Kun(0) heading each half.
+    Conditional on J1."""
+    tb = _r7_J1(s)
+    if tb is None:
+        return False
+    if tb[0] != 7 or tb[4] != 0:
+        return False
+    if not all(bin(tb[b]).count("1") % 2 == 1 for b in range(4)):
+        return False
+    if not all(bin(tb[b]).count("1") % 2 == 0 for b in range(4, 8)):
+        return False
+    return True
+
+def _r7_J3(s):
+    """J3 (seniority order within halves): sons Zhen(1),Kan(2),Gen(4) then
+    daughters Xun(6),Li(5),Dui(3). J1^J2^J3 determines the sequence
+    completely (residual 0 bits) -- the provably-algorithmic statement."""
+    tb = _r7_J1(s)
+    if tb is None:
+        return False
+    return tb == [7, 1, 2, 4, 0, 6, 5, 3]
+
+def _r7_J4(s):
+    """J4 (complement palace symmetry; DERIVED from J2^J3, not independent):
+    t_{b+4} = comp3(t_b) for b=0..3. Forces every complement pair 32 apart ->
+    complement-distance sum 1024 (max). Flagged derived so it is not
+    double-counted."""
+    tb = _r7_J1(s)
+    if tb is None:
+        return False
+    return all(tb[b + 4] == (tb[b] ^ 7) for b in range(4))
+
+_R7_JF_DIFFWAVE = {1: 48, 3: 15}
+
+def _r7_J5(s):
+    """J5 (difference-wave signature): diff-wave multiset exactly {1:48, 3:15}."""
+    return _r7_dw_multiset(s) == _R7_JF_DIFFWAVE
+
+# Mawangdui's natural family M1-M5 (trigram-octet representation) -------------
+
+_R7_LAMBDA = [7, 0, 4, 3, 2, 5, 1, 6]   # base lower cycle: Qian,Kun,Gen,Dui,Kan,Li,Zhen,Xun
+_R7_MD_UPPER_ORDER = [7, 4, 2, 1, 0, 3, 5, 6]  # M4: Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun
+
+def _r7_lambda_promote(u):
+    """Lambda with trigram u moved to the front, remaining order preserved."""
+    return [u] + [x for x in _R7_LAMBDA if x != u]
+
+def _r7_M1(s):
+    """M1 (constant-upper octet partition, PRIMARY): 8 consecutive blocks of 8
+    with constant upper trigram per block, the 8 uppers distinct. Returns the
+    8 block-uppers if M1 holds, else None."""
+    ups = []
+    for b in range(8):
+        if len({_r7_U(s[8 * b + o]) for o in range(8)}) != 1:
+            return None
+        ups.append(_r7_U(s[8 * b]))
+    if len(set(ups)) != 8:
+        return None
+    return ups
+
+def _r7_M2(s):
+    """M2 (pure head): each octet opens with its doubled hexagram
+    L(seq[8b]) == U(seq[8b]). (Implied by M3 -- promotion puts the octet's
+    own trigram first.)"""
+    ups = _r7_M1(s)
+    if ups is None:
+        return False
+    return all(_r7_L(s[8 * b]) == _r7_U(s[8 * b]) for b in range(8))
+
+def _r7_M3(s):
+    """M3 (fixed lower cycle Lambda with promotion): each octet's lower
+    trigrams are Lambda with the octet's own upper trigram promoted to front,
+    the remaining order preserved."""
+    ups = _r7_M1(s)
+    if ups is None:
+        return False
+    for b in range(8):
+        exp = _r7_lambda_promote(ups[b])
+        if [_r7_L(s[8 * b + o]) for o in range(8)] != exp:
+            return False
+    return True
+
+def _r7_M4(s):
+    """M4 (gender-blocked upper order): upper octet order equals
+    [Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun] (father, sons youngest->eldest, mother,
+    daughters youngest->eldest)."""
+    ups = _r7_M1(s)
+    if ups is None:
+        return False
+    return ups == _R7_MD_UPPER_ORDER
+
+_R7_MD_DIFFWAVE = {1: 21, 2: 10, 3: 29, 4: 2, 5: 1}
+
+def _r7_M5(s):
+    """M5 (difference-wave signature): diff-wave multiset exactly
+    {1:21, 2:10, 3:29, 4:2, 5:1}, the single Hamming-5 at the octet seam."""
+    return _r7_dw_multiset(s) == _R7_MD_DIFFWAVE
+
+def _r7_M_joint(s):
+    """Joint-M = M1 ^ M3 ^ M4 -- the reconstruction set that recovers the
+    corrected Mawangdui sequence exactly. This is the frozen manufacture-alarm
+    unit for the M family (a single weak predicate such as M1 is deliberately
+    NOT the alarm unit; see the Fu Xi off-home M1 pass)."""
+    return _r7_M1(s) is not None and _r7_M3(s) and _r7_M4(s)
+
+def _r7_md_reconstruct():
+    """Build the Mawangdui sequence from M1^M3^M4 alone (M4 upper order +
+    Lambda-promotion lowers). Frozen anchor: this equals the corrected MD data
+    exactly (residual 0 bits given the two conventions)."""
+    rec = []
+    for u in _R7_MD_UPPER_ORDER:
+        for l in _r7_lambda_promote(u):
+            rec.append((u << 3) | l)
+    return rec
+
+# Fu Xi's family B1 (identity) -----------------------------------------------
+
+def _r7_B1(s):
+    """B1 (identity): seq[i] == i. Fully algorithmic, zero conventions."""
+    return s == list(range(64))
+
+# King Wen's C1-C3 (the published axes, for the cross-application matrix) -----
+
+def _r7_C1(s):
+    """C1: all 32 pair-slots partner-adjacent (obs b == 32)."""
+    return _r7_obs_b(s) == 32
+
+def _r7_C2(s):
+    """C2: no Hamming-5 transition (obs a == 0)."""
+    return _r7_obs_a(s) == 0
+
+_R7_C3_CEILING = 776  # KW total complement distance (full-sum convention; solve.c KW_C3_CEILING)
+
+def _r7_C3(s):
+    """C3: total complement distance <= 776 (full-sum convention; obs f is the
+    /2 form, so 2*obs_f). KW = 776 (pass); JF/MD/Fu Xi = 2048 (fail)."""
+    return 2 * _r7_obs_f(s) <= _R7_C3_CEILING
+
+def _r7_dw_multiset(s):
+    import collections
+    return dict(sorted(collections.Counter(_r7_diff_wave(s)).items()))
+
+# ------------------------------------------------------- cross-validation (FC-2)
+
+def _r7_cross_validation_checks():
+    """FC-2 data-integrity gate (frozen section 2 / section 8). Every line must
+    PASS before any measurement; a mismatch is fixed + logged, never
+    rationalized (2026-07-05 Mawangdui erratum lesson)."""
+    kw = _r7_kw()
+    jf = _r7_jingfang()
+    md = _r7_mawangdui()
+    fx = _r7_fuxi()
+    kw_c, md_c = _r7_solve_c_kw_md()
+    checks = []
+    checks.append(("solve.c kw[] == solve.py binary_hexagrams", kw_c == kw))
+    checks.append(("Mawangdui (roae.py indices) == solve.c --null-historical", md == md_c))
+    for nm, s in (("KW", kw), ("Jing Fang", jf), ("Mawangdui", md), ("Fu Xi", fx)):
+        checks.append((f"{nm} is a permutation of 0..63", sorted(s) == list(range(64))))
+    return checks
+
+def _r7_family_anchor_checks():
+    """FC-2 family anchors (frozen section 3-4, section 7 already-observed ledger):
+    the J/M families reproduce their traditions, and the frozen structural
+    facts hold. Each entry is (label, expected, computed)."""
+    kw, jf, md, fx = _r7_kw(), _r7_jingfang(), _r7_mawangdui(), _r7_fuxi()
+    out = []
+    # Jing Fang reproduces its tradition
+    out.append(("J1 holds on Jing Fang (palace-orbit octets)", True, _r7_J1(jf) is not None))
+    out.append(("J1 t_b on JF == [Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui]",
+                [7, 1, 2, 4, 0, 6, 5, 3], _r7_J1(jf)))
+    out.append(("J2 holds on Jing Fang", True, _r7_J2(jf)))
+    out.append(("J3 holds on Jing Fang (J1^J2^J3 -> residual 0)", True, _r7_J3(jf)))
+    out.append(("J4 (derived complement symmetry) holds on JF", True, _r7_J4(jf)))
+    out.append(("J5 diff-wave multiset == {1:48, 3:15}", True, _r7_J5(jf)))
+    out.append(("J1^J2^J3 determines the JF sequence uniquely",
+                jf, _r7_jf_from_conventions()))
+    # Mawangdui reproduces its tradition
+    out.append(("M1 holds on Mawangdui (constant-upper octets)", True, _r7_M1(md) is not None))
+    out.append(("M1 uppers on MD == [Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun]",
+                _R7_MD_UPPER_ORDER, _r7_M1(md)))
+    out.append(("M2 holds on Mawangdui (pure heads)", True, _r7_M2(md)))
+    out.append(("M3 holds on Mawangdui (Lambda-promotion lowers)", True, _r7_M3(md)))
+    out.append(("M4 holds on Mawangdui (gender-blocked uppers)", True, _r7_M4(md)))
+    out.append(("M5 diff-wave multiset == {1:21,2:10,3:29,4:2,5:1}", True, _r7_M5(md)))
+    out.append(("M1^M3^M4 reconstruct the corrected Mawangdui EXACTLY",
+                md, _r7_md_reconstruct()))
+    # Complement sums (frozen section 7 already-observed ledger; /2 convention)
+    out.append(("comp-sum (obs f): KW / JF / MD == 388 / 1024 / 1024",
+                (388, 1024, 1024), (_r7_obs_f(kw), _r7_obs_f(jf), _r7_obs_f(md))))
+    # B1
+    out.append(("B1 (identity) holds on Fu Xi", True, _r7_B1(fx)))
+    return out
+
+def _r7_jf_from_conventions():
+    """Reconstruct Jing Fang from J1^J2^J3 (t_b = [7,1,2,4,0,6,5,3], each block
+    = W(t_b)). Frozen: this equals the JF generator sequence exactly."""
+    out = []
+    for t in [7, 1, 2, 4, 0, 6, 5, 3]:
+        out += _r7_W(t)
+    return out
+
+# --------------------------------------------- cross-application matrix (section 5)
+# home tradition of each alarm predicate: C1->KW, J1->JF, M-joint->MD, B1->Fu Xi.
+_R7_MATRIX_PREDICATES = [
+    ("C1 (32 partner-adjacent pairs)", _r7_C1, "KW"),
+    ("C2 (no Hamming-5)", _r7_C2, None),
+    ("C3 (comp-dist sum <= 776)", _r7_C3, None),
+    ("J1 (palace-orbit octets)", lambda s: _r7_J1(s) is not None, "Jing Fang"),
+    ("M1 (constant-upper octets)", lambda s: _r7_M1(s) is not None, None),
+    ("M-joint (M1^M3^M4 reconstruct)", _r7_M_joint, "Mawangdui"),
+    ("B1 (identity)", _r7_B1, "Fu Xi"),
+]
+# alarm predicates whose OFF-HOME pass triggers FC-3 (frozen section 5 tally):
+_R7_ALARM_PREDICATES = {"C1 (32 partner-adjacent pairs)": "KW",
+                        "J1 (palace-orbit octets)": "Jing Fang",
+                        "M-joint (M1^M3^M4 reconstruct)": "Mawangdui",
+                        "B1 (identity)": "Fu Xi"}
+
+
+def r7_verify():
+    """--r7-verify: assert the frozen R7 anchors deterministically (no
+    N=10^6 measurement). Gates: FC-2 construction cross-validation; the J/M
+    families reproduce their traditions (J1-J5 on JF; M1-M5 + exact MD
+    reconstruction; the two diff-wave multisets); the cross-application matrix
+    a-priori/theorem cells; and the FC-1 positive-control EXPECTATION
+    reproduced at the pilot N=10^4 (already-observed ledger: JF/MD >= 8/11
+    EXTREME, KW extremes == {a,b,f}). Returns 0 on full PASS, 1 on any
+    mismatch. This is code-verification of frozen anchors, NOT the operator-
+    gated N=10^6 battery."""
+    failures = 0
+    print("# R7 --r7-verify : frozen corpus-control anchors")
+    print("# design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)\n")
+
+    print("## FC-2 construction cross-validation (data integrity)")
+    for name, ok in _r7_cross_validation_checks():
+        if not ok:
+            failures += 1
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
+
+    print("\n## FC-2 family anchors (J/M families reproduce their traditions)")
+    for label, expected, computed in _r7_family_anchor_checks():
+        ok = (expected == computed)
+        if not ok:
+            failures += 1
+        extra = "" if ok else f"  expected={expected} computed={computed}"
+        print(f"  [{'PASS' if ok else 'FAIL'}] {label}{extra}")
+
+    print("\n## Cross-application matrix -- a-priori / theorem cells (section 5)")
+    kw, jf, md, fx = _r7_kw(), _r7_jingfang(), _r7_mawangdui(), _r7_fuxi()
+    seqs = [("KW", kw), ("Jing Fang", jf), ("Mawangdui", md), ("Fu Xi", fx)]
+    # Frozen expected pass/fail per (predicate, ordering) for the anchored cells.
+    matrix_expected = {
+        "C1 (32 partner-adjacent pairs)": {"KW": True, "Jing Fang": False,
+                                           "Mawangdui": False, "Fu Xi": False},
+        "C2 (no Hamming-5)": {"KW": True, "Jing Fang": True,
+                              "Mawangdui": False, "Fu Xi": False},
+        "C3 (comp-dist sum <= 776)": {"KW": True, "Jing Fang": False,
+                                      "Mawangdui": False, "Fu Xi": False},
+        "J1 (palace-orbit octets)": {"KW": False, "Jing Fang": True,
+                                     "Mawangdui": False, "Fu Xi": False},
+        "M1 (constant-upper octets)": {"KW": False, "Jing Fang": False,
+                                       "Mawangdui": True, "Fu Xi": True},
+        "M-joint (M1^M3^M4 reconstruct)": {"KW": False, "Jing Fang": False,
+                                           "Mawangdui": True, "Fu Xi": False},
+        "B1 (identity)": {"KW": False, "Jing Fang": False,
+                          "Mawangdui": False, "Fu Xi": True},
+    }
+    for label, pred, home in _R7_MATRIX_PREDICATES:
+        exp = matrix_expected[label]
+        cells = []
+        for nm, s in seqs:
+            got = bool(pred(s))
+            ok = (got == exp[nm])
+            if not ok:
+                failures += 1
+            tag = "P" if got else "."
+            mark = "" if ok else "!"
+            cells.append(f"{nm[:2]}={tag}{mark}")
+        print(f"  [{label}] " + " ".join(cells)
+              + (f"  (home={home})" if home else ""))
+    # The honest off-home pass we flag ourselves (frozen section 5 note i):
+    print("  NOTE: M1 passes off-home on Fu Xi (upper-sorted by construction) --")
+    print("        excluded from the FC-3 alarm ONLY by the joint-M requirement,")
+    print("        which Fu Xi fails a-priori at M2/M3/M4. Flagged, not hidden.")
+
+    print("\n## FC-1 positive-control expectation (pilot N=10^4, seed 42 -- ledger anchor)")
+    counts = _r7_l0_extreme_counts(n=10_000, seed=42)
+    for nm, expect in (("KW", 3), ("Jing Fang", 9), ("Mawangdui", 9)):
+        cnt = counts[nm]["count"]
+        ex = counts[nm]["extremes"]
+        ok = (cnt == expect)
+        # FC-1 broken-instrument gate is >= 8 for JF/MD; anchor is the exact pilot value.
+        if not ok:
+            failures += 1
+        print(f"  [{'PASS' if ok else 'FAIL'}] {nm}: {cnt}/11 EXTREME "
+              f"(pilot anchor {expect}) {ex}")
+    kw_ex = set(counts["KW"]["extremes"])
+    ok_kw = (kw_ex == {"a", "b", "f"})
+    if not ok_kw:
+        failures += 1
+    print(f"  [{'PASS' if ok_kw else 'FAIL'}] KW L0 extremes == {{a,b,f}} "
+          f"(the C1/C2/C3 axes; FC-3 growth-of-set watch)")
+    jf_ok = counts["Jing Fang"]["count"] >= 8
+    md_ok = counts["Mawangdui"]["count"] >= 8
+    print(f"  [{'PASS' if jf_ok else 'FAIL'}] FC-1 broken-instrument gate: "
+          f"Jing Fang >= 8/11 EXTREME (provably algorithmic)")
+    print(f"  [{'PASS' if md_ok else 'FAIL'}] FC-1 broken-instrument gate: "
+          f"Mawangdui >= 8/11 EXTREME")
+    if not jf_ok:
+        failures += 1
+    if not md_ok:
+        failures += 1
+
+    print()
+    if failures:
+        print(f"R7 VERIFY: {failures} FAILURES")
+        return 1
+    print("R7 VERIFY: ALL ANCHORS PASS")
+    return 0
+
+
+def _r7_uniform_nulls(n, seed):
+    """L0 uniform null: n uniform random permutations of 0..63, all 11
+    observables per permutation. Shared RNG discipline random.Random(seed)."""
+    rng = random.Random(seed)
+    base = list(range(64))
+    out = {name: [] for name, _ in _R7_OBSERVABLES}
+    for _ in range(n):
+        p = base[:]
+        rng.shuffle(p)
+        for name, fn in _R7_OBSERVABLES:
+            out[name].append(fn(p))
+    return out
+
+
+def _r7_l0_extreme_counts(n, seed):
+    """For each ordering, count observables flagged EXTREME (percentile <=1 or
+    >=99) vs the L0 uniform null. Returns {name: {count, extremes}}. The letter
+    key of each observable is the token before '.' in its label."""
+    nulls = _r7_uniform_nulls(n, seed)
+    seqs = [("KW", _r7_kw()), ("Jing Fang", _r7_jingfang()),
+            ("Mawangdui", _r7_mawangdui()), ("Fu Xi", _r7_fuxi())]
+    res = {}
+    for nm, s in seqs:
+        extremes = []
+        for label, fn in _R7_OBSERVABLES:
+            key = label.split(".")[0]
+            p = _r7_percentile(nulls[label], fn(s))
+            if p <= 1.0 or p >= 99.0:
+                extremes.append(key)
+        res[nm] = {"count": len(extremes), "extremes": extremes}
+    return res
+
+
+def _r7_pair_preserving_nulls(n, seed):
+    """Project-standard KW null: shuffle the 32 KW pairs + random orientation."""
+    rng = random.Random(seed)
+    kw = _r7_kw()
+    pairs = [(kw[2 * k], kw[2 * k + 1]) for k in range(32)]
+    out = {name: [] for name, _ in _R7_OBSERVABLES}
+    for _ in range(n):
+        perm = pairs[:]
+        rng.shuffle(perm)
+        seq = []
+        for a, b in perm:
+            if rng.random() < 0.5:
+                a, b = b, a
+            seq += [a, b]
+        for name, fn in _R7_OBSERVABLES:
+            out[name].append(fn(seq))
+    return out
+
+
+def _r7_jf_l1_exact():
+    """Jing Fang L1 (J1-conditioned) null: EXACT enumeration of all 8! = 40,320
+    block-assignments b -> t_b (each block = W(t_b)). Honors the no-subsampling
+    norm where the space permits. Returns (list_of_comp_sums, count_j4, count_j2j3)."""
+    import itertools
+    comp_sums = []
+    count_j4 = 0
+    count_j2j3 = 0
+    for perm in itertools.permutations(range(8)):
+        seq = []
+        for t in perm:
+            seq += _r7_W(t)
+        comp_sums.append(_r7_obs_f(seq))
+        tb = list(perm)
+        if all(tb[b + 4] == (tb[b] ^ 7) for b in range(4)):
+            count_j4 += 1
+        if tb == [7, 1, 2, 4, 0, 6, 5, 3]:
+            count_j2j3 += 1
+    return comp_sums, count_j4, count_j2j3
+
+
+def _r7_md_l1_nulls(n, seed, pure_head):
+    """Mawangdui L1 null (sampled). M1-conditioned: random upper permutation
+    (8!) x within each block a random permutation of the 8 lowers ((8!)^8). If
+    pure_head, additionally condition on M2 (each block opens lower==upper),
+    permuting only the remaining 7 lowers. Returns {name: [values]}."""
+    rng = random.Random(seed)
+    out = {name: [] for name, _ in _R7_OBSERVABLES}
+    trigs = list(range(8))
+    for _ in range(n):
+        uppers = trigs[:]
+        rng.shuffle(uppers)
+        seq = []
+        for u in uppers:
+            if pure_head:
+                rest = [x for x in trigs if x != u]
+                rng.shuffle(rest)
+                lowers = [u] + rest
+            else:
+                lowers = trigs[:]
+                rng.shuffle(lowers)
+            seq += [(u << 3) | l for l in lowers]
+        for name, fn in _R7_OBSERVABLES:
+            out[name].append(fn(seq))
+    return out
+
+
+def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
+    """--r7-corpus: run the full R7 cross-tradition corpus-control battery and
+    emit the markdown scoreboard. Frozen run parameters: L0 uniform N=10^6
+    seed 42 (all four orderings, 11 observables); Jing Fang L1 EXACT (all 8! =
+    40,320 J1-conditioned block assignments); Mawangdui L1 sampled N=10^6 x2
+    (M1-conditioned and M1^M2-conditioned). The cross-application matrix, the
+    MDL pricing row, and the FC-1..FC-4 verdicts follow. Report-only; every
+    cell printed whatever it says (standing extraction-circularity policy).
+
+    HEAVY-OPS: at the frozen N=10^6 this is hours-class on one core and MUST run
+    on a Spot D4/D8 worker per the heavy-ops-offboard rule, NOT the 2-core
+    orchestrator. Use --r7-n / --r7-seed to override for smoke tests only; the
+    canonical measurement uses the defaults. Nothing here is sha-gated."""
+    print("# R7 -- Cross-tradition corpus-control battery")
+    print("# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)")
+    print(f"# L0 uniform N={n:,}, seed {seed}; Jing Fang L1 "
+          f"{'EXACT (8!=40,320)' if jf_exact else 'skipped'}; report-only.")
+    print("# Developed with AI assistance (Claude, Anthropic). Classical orderings")
+    print("# are not project inventions; J/M formalizations are hedged, not novel.\n")
+
+    # --- FC-2 construction cross-validation ---
+    print("## FC-2 construction cross-validation\n")
+    cv_ok = True
+    for name, ok in _r7_cross_validation_checks():
+        cv_ok = cv_ok and ok
+        print(f"- {'PASS' if ok else 'FAIL'}: {name}")
+    print()
+    print("## FC-2 family anchors\n")
+    fam_ok = True
+    for label, expected, computed in _r7_family_anchor_checks():
+        ok = (expected == computed)
+        fam_ok = fam_ok and ok
+        print(f"- {'PASS' if ok else 'FAIL'}: {label}")
+    print()
+    if not (cv_ok and fam_ok):
+        print("**FC-2 FAILED -- STOP. Fix data/family definitions and log a dated "
+              "amendment BEFORE any interpretation (2026-07-05 erratum lesson).**\n")
+        return 1
+
+    kw, jf, md, fx = _r7_kw(), _r7_jingfang(), _r7_mawangdui(), _r7_fuxi()
+    seqs = [("KW", kw), ("Jing Fang", jf), ("Mawangdui", md), ("Fu Xi", fx)]
+
+    # --- L0 battery ---
+    print(f"## L0 battery: observable x ordering, percentile vs uniform null "
+          f"(N={n:,}, seed {seed})\n")
+    print("Cell format: `value (pN)`; **EXTREME** if percentile <=1 or >=99.\n")
+    nulls = _r7_uniform_nulls(n, seed)
+    extremes = {nm: [] for nm, _ in seqs}
+    print("| Observable | " + " | ".join(nm for nm, _ in seqs) + " |")
+    print("|---" * (len(seqs) + 1) + "|")
+    for label, fn in _R7_OBSERVABLES:
+        key = label.split(".")[0]
+        row = [label]
+        for nm, s in seqs:
+            v = fn(s)
+            p = _r7_percentile(nulls[label], v)
+            ex = (p <= 1.0 or p >= 99.0)
+            if ex:
+                extremes[nm].append(key)
+            vs = f"{v:.4f}" if isinstance(v, float) else str(v)
+            row.append(f"{vs} (p{p:.2f})" + (" **EXTREME**" if ex else ""))
+        print("| " + " | ".join(row) + " |")
+    print()
+    print("| Ordering | EXTREME (of 11) | which |")
+    print("|---|---|---|")
+    for nm, _ in seqs:
+        print(f"| {nm} | {len(extremes[nm])} | {','.join(extremes[nm])} |")
+    print()
+
+    # --- KW pair-preserving null (project-standard second null) ---
+    print("## KW vs pair-preserving null (project-standard, KW only)\n")
+    pnulls = _r7_pair_preserving_nulls(n, seed)
+    print("| Observable | KW value | percentile |")
+    print("|---|---|---|")
+    kw_pp_ex = 0
+    for label, fn in _R7_OBSERVABLES:
+        v = fn(kw)
+        p = _r7_percentile(pnulls[label], v)
+        ex = (p <= 1.0 or p >= 99.0)
+        kw_pp_ex += ex
+        vs = f"{v:.4f}" if isinstance(v, float) else str(v)
+        print(f"| {label} | {vs} | p{p:.2f}" + (" **EXTREME**" if ex else "") + " |")
+    print(f"\nKW EXTREME vs pair-preserving null: {kw_pp_ex}/11 "
+          "(observable b is invariant under this null by construction).\n")
+
+    # --- cross-application matrix ---
+    print("## Cross-application matrix (section 5 -- the manufacture alarm)\n")
+    print("`P` = predicate holds, `.` = fails, `n/a` = conditional parent fails.\n")
+    print("| Predicate | " + " | ".join(nm for nm, _ in seqs) + " | home |")
+    print("|---" * (len(seqs) + 2) + "|")
+    alarm_hits = []
+    for label, pred, home in _R7_MATRIX_PREDICATES:
+        row = [label]
+        for nm, s in seqs:
+            got = bool(pred(s))
+            row.append("P" if got else ".")
+            if label in _R7_ALARM_PREDICATES and got and nm != _R7_ALARM_PREDICATES[label]:
+                alarm_hits.append((label, nm))
+        row.append(home or "-")
+        print("| " + " | ".join(row) + " |")
+    print()
+    # Fu Xi M1 off-home pass is expected + excluded by joint-M; do not count it.
+    real_alarms = [(lbl, nm) for (lbl, nm) in alarm_hits]
+    print("Off-home passes among alarm predicates {C1, J1, M-joint, B1}: "
+          f"{real_alarms if real_alarms else 'NONE'}")
+    print("(The Fu Xi off-home M1 pass is NOT an alarm predicate -- M1 alone is a")
+    print("weak predicate excluded by the joint-M requirement; Fu Xi fails M2/M3/M4.)\n")
+
+    # --- Jing Fang L1 exact enrichment ---
+    if jf_exact:
+        print("## Jing Fang L1 (J1-conditioned) EXACT enrichment -- all 8! = 40,320\n")
+        comp_sums, c_j4, c_j2j3 = _r7_jf_l1_exact()
+        jf_f = _r7_obs_f(jf)
+        pctl = _r7_percentile(comp_sums, jf_f)
+        n_max = sum(1 for v in comp_sums if v == jf_f)
+        print(f"- P(J2^J3 | J1) = {c_j2j3}/40,320 (exact count = the canonical "
+              "palace order; residual 0 bits)")
+        print(f"- P(J4 | J1) = {c_j4}/40,320 = {100.0*c_j4/40320:.4f}% "
+              "(complement-respecting assignments)")
+        print(f"- JF comp-sum (obs f) = {jf_f} (the exact-space maximum), reached "
+              f"by {n_max}/40,320 = {100.0*n_max/40320:.4f}% of assignments; "
+              f"percentile {pctl:.2f} of the exact J1 distribution.")
+        print("  DISCREPANCY WITH FROZEN FC-4: the design (section 8) predicts "
+              "comp-sum 1024 at the >=99th percentile, reasoning that 384/40,320 "
+              "(~0.95%) reach it. The exact enumeration shows comp-sum 1024 is "
+              "reached by the LARGER set that maximizes total block-distance "
+              f"({n_max}/40,320), while J4 (the 384 count) is a strict subset. "
+              "The frozen FC-4 anchor conflated 'reaches comp-sum 1024' with "
+              "'satisfies J4'; it needs a dated amendment (this cell was not "
+              "measured pre-freeze). The measurement itself stands; only the "
+              "design's stated percentile prediction is affected.\n")
+
+    # --- Mawangdui L1 sampled enrichment ---
+    print("## Mawangdui L1 (sampled) enrichment ladder\n")
+    print(f"Sampled at N={n:,}, seed {seed} (M1-null space 8!*(8!)^8 too large to "
+          "enumerate); labeled sampled per the F8 precedent.\n")
+    md_m1 = _r7_md_l1_nulls(n, seed, pure_head=False)
+    md_m1m2 = _r7_md_l1_nulls(n, seed, pure_head=True)
+    g_label = "g. doubled trigrams at block starts (of 16)"
+    g_target = _r7_obs_g(md)
+    g_pctl_m1 = _r7_percentile(md_m1[g_label], g_target)
+    g_pctl_m1m2 = _r7_percentile(md_m1m2[g_label], g_target)
+    print(f"- MD obs g (doubled block-starts) = {g_target}; percentile "
+          f"{g_pctl_m1:.2f} vs M1-conditioned null, {g_pctl_m1m2:.2f} vs "
+          "M1^M2-conditioned null (pure-head proxy for the M2 layer).")
+    print("- P(M1 | L0), P(M2|M1), P(M3|M1^M2): analytical (frozen section 6); "
+          "0/N expected under sampling. The exact factor structure "
+          "8!(Lambda) x 8!(upper order) = 1,625,702,400 gives residual 0 bits "
+          "given the two conventions.\n")
+
+    # --- MDL pricing row ---
+    print("## MDL pricing (ties to DESCRIPTION_LENGTH.md)\n")
+    print("| Ordering | family | residual bits (log2 |sequences satisfying full family|) |")
+    print("|---|---|---|")
+    print("| King Wen | C1-C5 | ~126.6 (published) |")
+    print("| Jing Fang | J1-J3 | 0 |")
+    print("| Mawangdui | M1^M3^M4 | 0 (conventions priced separately, <= log2(8!*8!) ~ 30.7 bits) |")
+    print("| Fu Xi | B1 | 0 |")
+    print("\nThesis: applied symmetrically, the methodology assigns each ordering "
+          "its ACTUAL compression -- total for the algorithmic recensions, "
+          "partial-with-vast-residual for KW -- not 'design' uniformly.\n")
+
+    # --- FC verdicts ---
+    print("## Falsification-gate verdicts (FC-1..FC-4)\n")
+    jf_n = len(extremes["Jing Fang"])
+    md_n = len(extremes["Mawangdui"])
+    kw_set = set(extremes["KW"])
+    fc1 = (jf_n >= 8 and md_n >= 8)
+    print(f"- FC-1 (battery detects real design): Jing Fang {jf_n}/11, "
+          f"Mawangdui {md_n}/11 EXTREME. {'PASS' if fc1 else 'BROKEN INSTRUMENT'} "
+          "(gate: both >= 8; a battery that fails to flag the provably-"
+          "algorithmic JF is declared broken, published as such -- NO threshold "
+          "tuning).")
+    print(f"- FC-2 (data integrity): construction + family anchors PASS "
+          "(checked above).")
+    fc3 = (len(real_alarms) == 0 and kw_set == {"a", "b", "f"})
+    print(f"- FC-3 (manufacture alarm): off-home alarm passes = "
+          f"{real_alarms if real_alarms else 'NONE'}; KW L0 extremes = "
+          f"{sorted(kw_set)}. {'PASS (specificity holds)' if fc3 else 'ALARM -- adverse conclusion pre-committed'}.")
+    print("- FC-4 (matched-null coherence): JF comp-sum percentile vs exact J1 "
+          "null reported above; full-L2 residual flags vanish trivially "
+          "(JF/MD residual space is a point / conventions only).")
+    print()
+    print("_All cells reported regardless of outcome. A pass shows the instrument "
+          "distinguishes which orderings are structured, where, and by how much -- "
+          "it does NOT show KW is 'designed'. Intent language stays out._")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -8749,6 +9603,30 @@ def main():
                              "pass); with a 64-int SEQ argument print "
                              "`viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w` "
                              "(ordering matches solve.c --rc4b-verify SEQ)")
+    parser.add_argument("--r7-corpus", action="store_true",
+                        help="R7: run the cross-tradition corpus-control battery "
+                             "(KW C1-C5 vs Jing Fang J1-J5, Mawangdui M1-M5, "
+                             "Fu Xi B1) -- L0 uniform null, JF L1 exact 8!, MD "
+                             "L1 sampled, cross-application matrix, MDL pricing, "
+                             "FC-1..FC-4 verdicts; markdown to stdout. HEAVY at "
+                             "the default N=10^6 (Spot D4/D8 worker, NOT the "
+                             "orchestrator). Report-only, sha-neutral. Frozen "
+                             "design: roae-private/R7_CORPUS_CONTROL_DESIGN_"
+                             "FROZEN_2026_07_11.md")
+    parser.add_argument("--r7-n", type=int, default=1_000_000,
+                        help="--r7-corpus: null sample size N (default 10^6, the "
+                             "frozen canonical value; lower only for smoke tests)")
+    parser.add_argument("--r7-seed", type=int, default=42,
+                        help="--r7-corpus: shared RNG seed (frozen default 42)")
+    parser.add_argument("--r7-verify", action="store_true",
+                        help="R7: assert the frozen corpus-control anchors "
+                             "deterministically (FC-2 construction cross-"
+                             "validation; J1-J5 reproduce Jing Fang; M1-M5 + "
+                             "exact Mawangdui reconstruction; the cross-"
+                             "application matrix a-priori cells; the FC-1 "
+                             "positive-control expectation at the pilot N=10^4). "
+                             "No N=10^6 measurement. Returns 0 on PASS, 1 on any "
+                             "mismatch.")
     parser.add_argument("--r11-builder-verify", action="store_true",
                         help="R11: structural smoke-test of the M_G greedy-builder "
                              "machinery (KW-path softmax numerator, P_complete "
@@ -8873,6 +9751,12 @@ def main():
 
     if args.rc4b_verify is not None:
         sys.exit(rc4b_verify(args.rc4b_verify if args.rc4b_verify else None))
+
+    if args.r7_verify:
+        sys.exit(r7_verify())
+
+    if args.r7_corpus:
+        sys.exit(r7_corpus(n=args.r7_n, seed=args.r7_seed))
 
     if args.r11_builder_verify:
         sys.exit(r11_builder_verify())

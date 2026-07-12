@@ -643,6 +643,82 @@ with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
 Attribution per claim function in solve.py; master ledger
 [CITATIONS.md](CITATIONS.md).
 
+### --r7-verify (solve.py only)
+
+```
+solve.py --r7-verify
+```
+
+`solve.py` companion command (not a `solve` C subcommand). Deterministic anchor gate for
+**R7 — the cross-tradition corpus-control battery** (design frozen 2026-07-11, private repo
+`R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md`). R7 asks whether ROAE's extraction
+methodology manufactures ×10³-class "design" discriminators for *any* systematic ordering
+of the 64 hexagrams, or correctly identifies which orderings are structured, where, and how
+much. `--r7-verify` asserts the frozen anchors without running the N=10⁶ measurement:
+
+- **FC-2 construction cross-validation** — the [Mawangdui](CITATIONS.md#shaughnessy2022) array parsed from
+  `roae.py` equals the one built from `solve.c --null-historical`'s `kw[]`/`md_idx[]`
+  (corrected 2026-07-05 erratum array); each of KW / [Jing Fang](CITATIONS.md#jingfang) / Mawangdui /
+  Fu Xi is a permutation of 0..63.
+- **Jing Fang family J1–J5** reproduces its tradition (palace-orbit representation): J1
+  partition holds with t_b = [Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui]; J2∧J3 determine the
+  sequence uniquely (residual 0 bits); the derived J4 complement symmetry; J5 diff-wave
+  multiset {1:48, 3:15}.
+- **Mawangdui family M1–M5** (trigram-octet representation): M1 constant-upper octets with
+  M4 upper order [Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun]; M2 pure heads; M3 Λ-promotion lowers;
+  M5 diff-wave {1:21,2:10,3:29,4:2,5:1}; and **M1∧M3∧M4 reconstruct the corrected silk-text
+  array EXACTLY** (Shaughnessy 2022 Table 11.2).
+- **Cross-application matrix** a-priori/theorem cells (§5): C1/C2/C3 and J1/M1/M-joint/B1
+  applied to all four orderings match the frozen pass/fail table — including the honest
+  off-home M1 pass on Fu Xi (excluded from the manufacture alarm only by the joint-M
+  requirement, which Fu Xi fails at M2/M3/M4).
+- **FC-1 positive-control expectation** reproduced at the pilot N=10⁴ (already-observed
+  ledger): Jing Fang and Mawangdui each flag ≥8/11 EXTREME (both 9/11), KW extremes ==
+  {a,b,f} (the C1/C2/C3 axes). A battery that fails to flag the provably-algorithmic Jing
+  Fang is declared broken, published as such — no threshold tuning.
+
+Prints one PASS/FAIL line per anchor; exit 0 iff all pass. Report-only (nothing promotes to
+a solver constraint). Sha-neutral (solve.py-only; no `solve.c` change; off every
+enum/selftest path). Attribution: the classical orderings are not project inventions and the
+J/M formalizations are hedged, not claimed novel — see the solve.py `r7_verify` header and
+[CITATIONS.md](CITATIONS.md).
+
+### --r7-corpus (solve.py only)
+
+```
+solve.py --r7-corpus [--r7-n N] [--r7-seed S]
+```
+
+`solve.py` companion command (not a `solve` C subcommand). Runs the full R7 battery — the
+operator-gated **measurement** (execution is separate from code review). For each historical
+ordering it evaluates that ordering's own natural constraint family in its own
+representation, then emits, as markdown to stdout:
+
+- the **L0 uniform-null scoreboard** — the 11 F8 observables (a,b,c1,c2,d,e,f,g,h,i,j,
+  normative implementation from the F8 pilot) × 4 orderings, percentile + EXTREME flags;
+- the **KW pair-preserving second null** (project-standard);
+- the **cross-application matrix** (families × orderings) with the off-home manufacture
+  alarm — FC-3 fires on any off-home pass among {C1, J1, joint-M, B1} or any off-home
+  ×10³-class enrichment;
+- the **Jing Fang L1 exact** enrichment (all 8!=40,320 J1-conditioned block assignments —
+  no subsampling where the space permits) and the **Mawangdui L1 sampled** ladder;
+- the **MDL pricing row** (KW ≈126.6-bit residual vs Jing Fang / Mawangdui / Fu Xi 0-bit
+  residuals);
+- the **FC-1..FC-4 falsification-gate verdicts**, stated as outcomes of pre-committed gates.
+
+Report-only; every cell is printed whatever it says. **Heavy** at the frozen defaults
+(`--r7-n 1000000 --r7-seed 42`): hours-class on one core → run on a **Spot D4/D8 worker**,
+NOT the 2-core orchestrator (heavy-ops-offboard rule). `--r7-n`/`--r7-seed` override only for
+smoke tests; the canonical measurement uses the frozen defaults. Sha-neutral.
+
+> **Note (design vs. code, surfaced during implementation):** the exact Jing Fang L1
+> enumeration shows comp-sum 1024 is reached by the full block-distance-maximizing set
+> (9,216/40,320 ≈ 22.9%, percentile ≈88.6), not by the 384/40,320 (~0.95%, ≥99th percentile)
+> the frozen §8 FC-4 anchor states — the design conflated "reaches comp-sum 1024" with
+> "satisfies J4" (J4=384 is a strict subset). The measurement stands; only the design's
+> stated FC-4 percentile prediction needs a dated amendment. `--r7-corpus` prints this
+> discrepancy inline.
+
 ### --compute-stats (solve.py only)
 
 ```
