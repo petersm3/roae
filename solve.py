@@ -9100,14 +9100,18 @@ def r7_verify():
     N=10^6 measurement). Gates: FC-2 construction cross-validation; the J/M
     families reproduce their traditions (J1-J5 on JF; M1-M5 + exact MD
     reconstruction; the two diff-wave multisets); the cross-application matrix
-    a-priori/theorem cells; and the FC-1 positive-control EXPECTATION
+    a-priori/theorem cells; the FC-1 positive-control EXPECTATION
     reproduced at the pilot N=10^4 (already-observed ledger: JF/MD >= 8/11
-    EXTREME, KW extremes == {a,b,f}). Returns 0 on full PASS, 1 on any
-    mismatch. This is code-verification of frozen anchors, NOT the operator-
-    gated N=10^6 battery."""
+    EXTREME, KW extremes == {a,b,f}); and the Amendment-1 (2026-07-12)
+    corrected FC-4 anchor counts over the exact J1 space (comp-sum-1024
+    attainers 9,216/40,320, mid-percentile 88.57; J4 count 384; J2^J3 count 1
+    -- counts-only fast path, no observable distributions). Returns 0 on full
+    PASS, 1 on any mismatch. This is code-verification of frozen anchors, NOT
+    the operator-gated N=10^6 battery."""
     failures = 0
     print("# R7 --r7-verify : frozen corpus-control anchors")
-    print("# design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)\n")
+    print("# design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)")
+    print("# + Amendment 1 (2026-07-12, 53e088a): corrected FC-4 anchor counts\n")
 
     print("## FC-2 construction cross-validation (data integrity)")
     for name, ok in _r7_cross_validation_checks():
@@ -9189,6 +9193,28 @@ def r7_verify():
     if not md_ok:
         failures += 1
 
+    print("\n## Amendment-1 (2026-07-12) corrected FC-4 anchors -- exact "
+          "J1-space counts (8! = 40,320)")
+    comp_sums, c_j4, c_j2j3, _ = _r7_jf_l1_exact(observables=False)
+    n_max = sum(1 for v in comp_sums if v == 1024)
+    pctl_1024 = _r7_percentile(comp_sums, 1024)
+    for label, expected, computed in (
+            ("J1 space size == 40,320", 40320, len(comp_sums)),
+            ("comp-sum exact-space maximum == 1024", 1024, max(comp_sums)),
+            ("comp-sum-1024 attainers == 9,216 (4!*4!*2^4, ~22.86%)",
+             9216, n_max),
+            ("P(J4 | J1) numerator == 384 (8*6*4*2)", 384, c_j4),
+            ("P(J2^J3 | J1) numerator == 1 (canonical palace order)",
+             1, c_j2j3),
+            ("comp-sum-1024 mid-percentile == 88.57 (NOT >=99; the "
+             "erroneous pre-amendment clause)", 88.57, round(pctl_1024, 2)),
+    ):
+        ok = (expected == computed)
+        if not ok:
+            failures += 1
+        extra = "" if ok else f"  expected={expected} computed={computed}"
+        print(f"  [{'PASS' if ok else 'FAIL'}] {label}{extra}")
+
     print()
     if failures:
         print(f"R7 VERIFY: {failures} FAILURES")
@@ -9249,11 +9275,19 @@ def _r7_pair_preserving_nulls(n, seed):
     return out
 
 
-def _r7_jf_l1_exact():
+def _r7_jf_l1_exact(observables=True):
     """Jing Fang L1 (J1-conditioned) null: EXACT enumeration of all 8! = 40,320
     block-assignments b -> t_b (each block = W(t_b)). Honors the no-subsampling
-    norm where the space permits. Returns (list_of_comp_sums, count_j4, count_j2j3)."""
+    norm where the space permits. With observables=True (the battery), scores
+    ALL 11 F8 observables over the exact space (frozen section 7: 'each
+    observable is scored ... against each tradition's own L1/L2 nulls').
+    observables=False is the fast counts-only path used by --r7-verify to gate
+    the Amendment-1 (2026-07-12) corrected FC-4 anchor counts.
+    Returns (comp_sums, count_j4, count_j2j3, obs_dists) where obs_dists =
+    {label: [40,320 values]} or None when observables=False."""
     import itertools
+    f_label = next(nm for nm, _ in _R7_OBSERVABLES if nm.startswith("f."))
+    obs_dists = {name: [] for name, _ in _R7_OBSERVABLES} if observables else None
     comp_sums = []
     count_j4 = 0
     count_j2j3 = 0
@@ -9261,26 +9295,37 @@ def _r7_jf_l1_exact():
         seq = []
         for t in perm:
             seq += _r7_W(t)
-        comp_sums.append(_r7_obs_f(seq))
+        if observables:
+            for name, fn in _R7_OBSERVABLES:
+                obs_dists[name].append(fn(seq))
+            comp_sums.append(obs_dists[f_label][-1])
+        else:
+            comp_sums.append(_r7_obs_f(seq))
         tb = list(perm)
         if all(tb[b + 4] == (tb[b] ^ 7) for b in range(4)):
             count_j4 += 1
         if tb == [7, 1, 2, 4, 0, 6, 5, 3]:
             count_j2j3 += 1
-    return comp_sums, count_j4, count_j2j3
+    return comp_sums, count_j4, count_j2j3, obs_dists
 
 
 def _r7_md_l1_nulls(n, seed, pure_head):
     """Mawangdui L1 null (sampled). M1-conditioned: random upper permutation
     (8!) x within each block a random permutation of the 8 lowers ((8!)^8). If
     pure_head, additionally condition on M2 (each block opens lower==upper),
-    permuting only the remaining 7 lowers. Returns {name: [values]}."""
+    permuting only the remaining 7 lowers. Returns ({name: [values]}, m4_hits)
+    where m4_hits counts samples whose upper order equals the M4 order --
+    the sampled cross-check of the exact P(M4|M1) = 1/8! (Amendment 1 item 4;
+    counting is observation-only and does not touch the RNG stream)."""
     rng = random.Random(seed)
     out = {name: [] for name, _ in _R7_OBSERVABLES}
     trigs = list(range(8))
+    m4_hits = 0
     for _ in range(n):
         uppers = trigs[:]
         rng.shuffle(uppers)
+        if uppers == _R7_MD_UPPER_ORDER:
+            m4_hits += 1
         seq = []
         for u in uppers:
             if pure_head:
@@ -9293,17 +9338,51 @@ def _r7_md_l1_nulls(n, seed, pure_head):
             seq += [(u << 3) | l for l in lowers]
         for name, fn in _R7_OBSERVABLES:
             out[name].append(fn(seq))
+    return out, m4_hits
+
+
+def _r7_md_l2_nulls(n, seed):
+    """Mawangdui L2 null (frozen section 6, MD L2 row): M1^M3-conditioned with
+    BOTH conventions free -- a random upper order (8!) x a random base cycle
+    Lambda' (8!); each octet's lowers are Lambda' with the octet's own upper
+    trigram promoted to the front (exact factor structure 8! x 8! =
+    1,625,702,400). Frozen decision rule (section 10): the exact grid is
+    attempted only if a factorized / vectorized route keeps it under ~2 h on
+    the worker; 1.63e9 sequence evaluations x 11 observables in pure Python
+    does not, so the sampled N=10^6 seed-42 fallback is used and the deviation
+    is logged in the battery output (no mid-run judgment calls). Draw order
+    per sample: uppers first, then Lambda'. Returns {name: [values]}."""
+    rng = random.Random(seed)
+    out = {name: [] for name, _ in _R7_OBSERVABLES}
+    trigs = list(range(8))
+    for _ in range(n):
+        uppers = trigs[:]
+        rng.shuffle(uppers)
+        lam = trigs[:]
+        rng.shuffle(lam)
+        seq = []
+        for u in uppers:
+            lowers = [u] + [x for x in lam if x != u]
+            seq += [(u << 3) | l for l in lowers]
+        for name, fn in _R7_OBSERVABLES:
+            out[name].append(fn(seq))
     return out
 
 
 def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     """--r7-corpus: run the full R7 cross-tradition corpus-control battery and
     emit the markdown scoreboard. Frozen run parameters: L0 uniform N=10^6
-    seed 42 (all four orderings, 11 observables); Jing Fang L1 EXACT (all 8! =
-    40,320 J1-conditioned block assignments); Mawangdui L1 sampled N=10^6 x2
-    (M1-conditioned and M1^M2-conditioned). The cross-application matrix, the
-    MDL pricing row, and the FC-1..FC-4 verdicts follow. Report-only; every
-    cell printed whatever it says (standing extraction-circularity policy).
+    seed 42 (all four orderings, 11 observables, incl. the pilot-vs-rerun
+    EXTREME-boundary halt rule and the P(comp-sum=1024|L0) rate); Jing Fang L1
+    EXACT (all 8! = 40,320 J1-conditioned block assignments, full 11-observable
+    battery + exact predicate rates); Mawangdui L1 sampled N=10^6 x2
+    (M1-conditioned and M1^M2-conditioned, full battery, + exact P(M4|M1) with
+    sampled cross-check); Mawangdui L2 sampled N=10^6 (M1^M3-conditioned, both
+    conventions free; frozen exact-grid-if-<2h-else-sampled rule). The
+    cross-application matrix, the MDL pricing row, and the FC-1..FC-4 verdicts
+    (FC-4 per the corrected Amendment-1 anchor, 2026-07-12) follow.
+    Report-only; every cell printed whatever it says (standing
+    extraction-circularity policy).
 
     HEAVY-OPS: at the frozen N=10^6 this is hours-class on one core and MUST run
     on a Spot D4/D8 worker per the heavy-ops-offboard rule, NOT the 2-core
@@ -9311,8 +9390,11 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     canonical measurement uses the defaults. Nothing here is sha-gated."""
     print("# R7 -- Cross-tradition corpus-control battery")
     print("# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)")
+    print("# + Amendment 1 (2026-07-12, 53e088a): corrected FC-4 anchor "
+          "(comp-sum 1024 is NOT extreme under the exact J1 null).")
     print(f"# L0 uniform N={n:,}, seed {seed}; Jing Fang L1 "
-          f"{'EXACT (8!=40,320)' if jf_exact else 'skipped'}; report-only.")
+          f"{'EXACT (8!=40,320)' if jf_exact else 'skipped'}; MD L1 x2 + MD L2 "
+          f"sampled N={n:,}; report-only.")
     print("# Developed with AI assistance (Claude, Anthropic). Classical orderings")
     print("# are not project inventions; J/M formalizations are hedged, not novel.\n")
 
@@ -9364,6 +9446,41 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     for nm, _ in seqs:
         print(f"| {nm} | {len(extremes[nm])} | {','.join(extremes[nm])} |")
     print()
+    # P(comp-sum = 1024 | L0) sampled rate (frozen section 6 rho set).
+    f_label = next(nm for nm, _ in _R7_OBSERVABLES if nm.startswith("f."))
+    f1024 = sum(1 for v in nulls[f_label] if v == 1024)
+    print(f"P(comp-sum = 1024 | L0) = {f1024}/{n:,} "
+          f"= {f1024 / n:.3e} (sampled rate, frozen section 6 rho set; "
+          "the JF/MD home value is the 32-pair maximum).\n")
+    # E3 rider (frozen section 7 / TRIGRAM_ANALYSIS_SCOPING_2026_07_11 sec E3):
+    print("E3 rider note (TG-3): the c1/c2 columns above are the two canonical")
+    print("trigram-locality functionals -- a factual KW-vs-recensions table with")
+    print("no significance claims. Both are S3-relabel-invariant (they test only")
+    print("trigram equality across a transition, so any relabeling of the eight")
+    print("trigram values leaves them unchanged; verified reasoning, to be")
+    print("certified with TG-3).\n")
+    # Pilot-vs-rerun EXTREME-boundary halt rule (frozen section 7): any
+    # percentile shifting across an EXTREME boundary halts interpretation.
+    print("### Pilot-vs-rerun EXTREME-set diff (frozen section 7 halt rule)\n")
+    pilot = _r7_l0_extreme_counts(n=10_000, seed=42)
+    halt = False
+    for nm, _ in seqs:
+        pset = set(pilot[nm]["extremes"])
+        rset = set(extremes[nm])
+        gained = sorted(rset - pset)
+        lost = sorted(pset - rset)
+        diff = (f"gained={gained} lost={lost}" if (gained or lost)
+                else "no boundary crossings")
+        if gained or lost:
+            halt = True
+        print(f"- {nm}: pilot(N=10^4, seed 42) {sorted(pset)} vs "
+              f"rerun {sorted(rset)} -- {diff}")
+    if halt:
+        print("\n**HALT RULE TRIGGERED (frozen section 7): a pilot-vs-rerun "
+              "percentile shifted across an EXTREME boundary -- interpretation "
+              "halts pending investigation.** (Expected when run at non-frozen "
+              "smoke parameters; dispositive only at the frozen N=10^6, seed 42.)")
+    print()
 
     # --- KW pair-preserving null (project-standard second null) ---
     print("## KW vs pair-preserving null (project-standard, KW only)\n")
@@ -9404,47 +9521,125 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     print("(The Fu Xi off-home M1 pass is NOT an alarm predicate -- M1 alone is a")
     print("weak predicate excluded by the joint-M requirement; Fu Xi fails M2/M3/M4.)\n")
 
-    # --- Jing Fang L1 exact enrichment ---
+    # --- Jing Fang L1 exact enrichment (full battery, frozen section 7) ---
+    jf_l1_extreme = None
     if jf_exact:
-        print("## Jing Fang L1 (J1-conditioned) EXACT enrichment -- all 8! = 40,320\n")
-        comp_sums, c_j4, c_j2j3 = _r7_jf_l1_exact()
+        print("## Jing Fang L1 (J1-conditioned) EXACT -- all 8! = 40,320, "
+              "full 11-observable battery\n")
+        comp_sums, c_j4, c_j2j3, jf_dists = _r7_jf_l1_exact(observables=True)
+        print("Exact enumeration (no sampling; frozen section 6 mandates exact "
+              "where the space permits).\n")
+        print("| Observable | JF value | percentile (exact J1 null) |")
+        print("|---|---|---|")
+        jf_l1_extreme = []
+        for label, fn in _R7_OBSERVABLES:
+            key = label.split(".")[0]
+            v = fn(jf)
+            p = _r7_percentile(jf_dists[label], v)
+            ex = (p <= 1.0 or p >= 99.0)
+            if ex:
+                jf_l1_extreme.append(key)
+            vs = f"{v:.4f}" if isinstance(v, float) else str(v)
+            print(f"| {label} | {vs} | p{p:.2f}"
+                  + (" **EXTREME**" if ex else "") + " |")
+        print(f"\nJF EXTREME vs its own exact L1 null: {len(jf_l1_extreme)}/11 "
+              f"({','.join(jf_l1_extreme) if jf_l1_extreme else 'none'}).\n")
         jf_f = _r7_obs_f(jf)
         pctl = _r7_percentile(comp_sums, jf_f)
         n_max = sum(1 for v in comp_sums if v == jf_f)
+        import math as _math
+        p_j1_l0 = _math.factorial(8) / _math.factorial(64)
+        print(f"- P(J1 | L0) = 8!/64! ~= {p_j1_l0:.3e} (analytic, frozen "
+              "section 6 -- the J1 space has exactly 8! members; 0 sampled "
+              "hits expected at any feasible N).")
         print(f"- P(J2^J3 | J1) = {c_j2j3}/40,320 (exact count = the canonical "
               "palace order; residual 0 bits)")
         print(f"- P(J4 | J1) = {c_j4}/40,320 = {100.0*c_j4/40320:.4f}% "
-              "(complement-respecting assignments)")
+              "(complement-respecting assignments; below the 1% EXTREME line)")
         print(f"- JF comp-sum (obs f) = {jf_f} (the exact-space maximum), reached "
               f"by {n_max}/40,320 = {100.0*n_max/40320:.4f}% of assignments; "
-              f"percentile {pctl:.2f} of the exact J1 distribution.")
-        print("  DISCREPANCY WITH FROZEN FC-4: the design (section 8) predicts "
-              "comp-sum 1024 at the >=99th percentile, reasoning that 384/40,320 "
-              "(~0.95%) reach it. The exact enumeration shows comp-sum 1024 is "
-              "reached by the LARGER set that maximizes total block-distance "
-              f"({n_max}/40,320), while J4 (the 384 count) is a strict subset. "
-              "The frozen FC-4 anchor conflated 'reaches comp-sum 1024' with "
-              "'satisfies J4'; it needs a dated amendment (this cell was not "
-              "measured pre-freeze). The measurement itself stands; only the "
-              "design's stated percentile prediction is affected.\n")
+              f"mid-percentile {pctl:.2f} of the exact J1 distribution.")
+        print("  CORRECTED FC-4 ANCHOR (design Amendment 1, 2026-07-12): "
+              "comp-sum 1024 is NOT rare under the exact J1 null -- the whole "
+              "block-distance-maximizing class (4! x 4! x 2^4 = 9,216 "
+              "assignments, ~22.86%) attains it, so it is expected NOT to flag "
+              "EXTREME here. The original frozen FC-4 clause ('>=99th "
+              "percentile, since 384/40,320 reach it') conflated 'reaches "
+              "comp-sum 1024' with 'satisfies J4' (J4 is a strict subset). The "
+              "palace ORDER is what is rare (the predicate rates above); the "
+              "comp-sum scalar is a coarse proxy the whole maximizing class "
+              "achieves.\n")
 
-    # --- Mawangdui L1 sampled enrichment ---
-    print("## Mawangdui L1 (sampled) enrichment ladder\n")
+    # --- Mawangdui L1 sampled enrichment (full battery, frozen section 7) ---
+    print("## Mawangdui L1 (sampled) enrichment ladder -- full 11-observable "
+          "battery\n")
     print(f"Sampled at N={n:,}, seed {seed} (M1-null space 8!*(8!)^8 too large to "
           "enumerate); labeled sampled per the F8 precedent.\n")
-    md_m1 = _r7_md_l1_nulls(n, seed, pure_head=False)
-    md_m1m2 = _r7_md_l1_nulls(n, seed, pure_head=True)
-    g_label = "g. doubled trigrams at block starts (of 16)"
-    g_target = _r7_obs_g(md)
-    g_pctl_m1 = _r7_percentile(md_m1[g_label], g_target)
-    g_pctl_m1m2 = _r7_percentile(md_m1m2[g_label], g_target)
-    print(f"- MD obs g (doubled block-starts) = {g_target}; percentile "
-          f"{g_pctl_m1:.2f} vs M1-conditioned null, {g_pctl_m1m2:.2f} vs "
-          "M1^M2-conditioned null (pure-head proxy for the M2 layer).")
-    print("- P(M1 | L0), P(M2|M1), P(M3|M1^M2): analytical (frozen section 6); "
-          "0/N expected under sampling. The exact factor structure "
-          "8!(Lambda) x 8!(upper order) = 1,625,702,400 gives residual 0 bits "
-          "given the two conventions.\n")
+    md_m1, m4_hits = _r7_md_l1_nulls(n, seed, pure_head=False)
+    md_m1m2, _ = _r7_md_l1_nulls(n, seed, pure_head=True)
+    print("| Observable | MD value | pctl (M1-cond null) | pctl (M1^M2-cond null) |")
+    print("|---|---|---|---|")
+    md_l1_extreme = []
+    for label, fn in _R7_OBSERVABLES:
+        key = label.split(".")[0]
+        v = fn(md)
+        p1 = _r7_percentile(md_m1[label], v)
+        p2 = _r7_percentile(md_m1m2[label], v)
+        ex1 = (p1 <= 1.0 or p1 >= 99.0)
+        ex2 = (p2 <= 1.0 or p2 >= 99.0)
+        if ex1:
+            md_l1_extreme.append(key)
+        vs = f"{v:.4f}" if isinstance(v, float) else str(v)
+        print(f"| {label} | {vs} | p{p1:.2f}"
+              + (" **EXTREME**" if ex1 else "")
+              + f" | p{p2:.2f}" + (" **EXTREME**" if ex2 else "") + " |")
+    print(f"\nMD EXTREME vs its own M1-conditioned L1 null: "
+          f"{len(md_l1_extreme)}/11 "
+          f"({','.join(md_l1_extreme) if md_l1_extreme else 'none'}). "
+          "(The M1^M2 column is the pure-head proxy for the M2 layer.)\n")
+    import math as _math
+    p_m1_l0 = (_math.factorial(8) * _math.factorial(8) ** 8) / _math.factorial(64)
+    print(f"- P(M1 | L0) = 8! * (8!)^8 / 64! ~= {p_m1_l0:.3e} (analytic, frozen "
+          "section 6: 8! block-upper assignments x (8!)^8 within-block lower "
+          "orders; 0 sampled hits expected at any feasible N).")
+    print("- P(M2 | M1) = (1/8)^8 ~= 5.96e-8 and P(M3 | M1^M2): analytical "
+          "(frozen section 6); 0/N expected under sampling. The exact factor "
+          "structure 8!(Lambda) x 8!(upper order) = 1,625,702,400 gives "
+          "residual 0 bits given the two conventions.")
+    print(f"- P(M4 | M1) = 1/8! = 1/40,320 ~= {1.0/40320:.3e} (exact -- the "
+          "upper order is uniform over 8! under the M1 null; frozen section 6 "
+          "rho set, Amendment 1 item 4). Sampled cross-check from the "
+          f"M1-conditioned draw: {m4_hits}/{n:,} hits "
+          f"(expected ~{n/40320:.1f} at this N -- NOT 0-expected, unlike the "
+          "L0-conditioned rates above).\n")
+
+    # --- Mawangdui L2 (M1^M3-conditioned, both conventions free) ---
+    print("## Mawangdui L2 (M1^M3-conditioned, both conventions free) -- "
+          "full 11-observable battery\n")
+    print("Frozen decision rule (section 10): exact 8! x 8! grid "
+          "(1,625,702,400 sequence evaluations) only if < ~2 h on the worker; "
+          "pure Python does not meet that, so the SAMPLED fallback is used and "
+          f"the deviation is logged here (N={n:,}, seed {seed}; frozen rule, "
+          "no mid-run judgment call).\n")
+    md_l2 = _r7_md_l2_nulls(n, seed)
+    print("| Observable | MD value | percentile (L2 null) |")
+    print("|---|---|---|")
+    md_l2_extreme = []
+    for label, fn in _R7_OBSERVABLES:
+        key = label.split(".")[0]
+        v = fn(md)
+        p = _r7_percentile(md_l2[label], v)
+        ex = (p <= 1.0 or p >= 99.0)
+        if ex:
+            md_l2_extreme.append(key)
+        vs = f"{v:.4f}" if isinstance(v, float) else str(v)
+        print(f"| {label} | {vs} | p{p:.2f}"
+              + (" **EXTREME**" if ex else "") + " |")
+    print(f"\nMD EXTREME vs its own full-family L2 null: "
+          f"{len(md_l2_extreme)}/11 "
+          f"({','.join(md_l2_extreme) if md_l2_extreme else 'none'}). "
+          "FC-4 expects residual flags to vanish under full L2 conditioning; "
+          "a nonzero count is design incoherence, not a finding.\n")
 
     # --- MDL pricing row ---
     print("## MDL pricing (ties to DESCRIPTION_LENGTH.md)\n")
@@ -9475,9 +9670,23 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     print(f"- FC-3 (manufacture alarm): off-home alarm passes = "
           f"{real_alarms if real_alarms else 'NONE'}; KW L0 extremes = "
           f"{sorted(kw_set)}. {'PASS (specificity holds)' if fc3 else 'ALARM -- adverse conclusion pre-committed'}.")
-    print("- FC-4 (matched-null coherence): JF comp-sum percentile vs exact J1 "
-          "null reported above; full-L2 residual flags vanish trivially "
-          "(JF/MD residual space is a point / conventions only).")
+    md_l2_txt = (f"{len(md_l2_extreme)}/11 "
+                 f"({','.join(md_l2_extreme) if md_l2_extreme else 'none'})")
+    jf_l1_txt = ("skipped" if jf_l1_extreme is None else
+                 f"{len(jf_l1_extreme)}/11 "
+                 f"({','.join(jf_l1_extreme) if jf_l1_extreme else 'none'})")
+    print("- FC-4 (matched-null coherence; corrected anchor per design "
+          "Amendment 1, 2026-07-12): JF comp-sum is expected NOT EXTREME under "
+          "the exact J1 null (the 9,216/40,320 ~ 22.86% distance-maximizing "
+          "class attains 1024; mid-percentile 88.57) -- the secondary-structure "
+          "rarity lives in the predicates P(J2^J3|J1) = 1/40,320 and "
+          "P(J4|J1) = 384/40,320 ~ 0.952%, both reported above. JF full-battery "
+          f"EXTREME vs its exact L1 null: {jf_l1_txt}. Under full L2 "
+          "conditioning residual flags must vanish: JF L2 is a single point "
+          "(residual 0 bits -- nothing to sample); MD L2 EXTREME flags "
+          f"measured above: {md_l2_txt}; KW analogue = the pilot 0/11 "
+          f"pair-preserving anchor (re-measured above: {kw_pp_ex}/11). "
+          "Incoherence = design error, not a finding.")
     print()
     print("_All cells reported regardless of outcome. A pass shows the instrument "
           "distinguishes which orderings are structured, where, and by how much -- "
@@ -9606,13 +9815,16 @@ def main():
     parser.add_argument("--r7-corpus", action="store_true",
                         help="R7: run the cross-tradition corpus-control battery "
                              "(KW C1-C5 vs Jing Fang J1-J5, Mawangdui M1-M5, "
-                             "Fu Xi B1) -- L0 uniform null, JF L1 exact 8!, MD "
-                             "L1 sampled, cross-application matrix, MDL pricing, "
-                             "FC-1..FC-4 verdicts; markdown to stdout. HEAVY at "
+                             "Fu Xi B1) -- L0 uniform null (+ halt-rule diff), "
+                             "JF L1 exact 8! full battery, MD L1 sampled x2 "
+                             "full battery, MD L2 sampled (both conventions "
+                             "free), rho rates, cross-application matrix, MDL "
+                             "pricing, FC-1..FC-4 verdicts (FC-4 per Amendment "
+                             "1); markdown to stdout. HEAVY at "
                              "the default N=10^6 (Spot D4/D8 worker, NOT the "
                              "orchestrator). Report-only, sha-neutral. Frozen "
                              "design: roae-private/R7_CORPUS_CONTROL_DESIGN_"
-                             "FROZEN_2026_07_11.md")
+                             "FROZEN_2026_07_11.md + Amendment 1 (2026-07-12)")
     parser.add_argument("--r7-n", type=int, default=1_000_000,
                         help="--r7-corpus: null sample size N (default 10^6, the "
                              "frozen canonical value; lower only for smoke tests)")
@@ -9624,9 +9836,10 @@ def main():
                              "validation; J1-J5 reproduce Jing Fang; M1-M5 + "
                              "exact Mawangdui reconstruction; the cross-"
                              "application matrix a-priori cells; the FC-1 "
-                             "positive-control expectation at the pilot N=10^4). "
-                             "No N=10^6 measurement. Returns 0 on PASS, 1 on any "
-                             "mismatch.")
+                             "positive-control expectation at the pilot N=10^4; "
+                             "the Amendment-1 corrected FC-4 exact J1-space "
+                             "counts). No N=10^6 measurement. Returns 0 on "
+                             "PASS, 1 on any mismatch.")
     parser.add_argument("--r11-builder-verify", action="store_true",
                         help="R11: structural smoke-test of the M_G greedy-builder "
                              "machinery (KW-path softmax numerator, P_complete "
