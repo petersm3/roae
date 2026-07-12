@@ -34,9 +34,11 @@ The constraint set C1–C5 was *selected* after an exploratory sweep of many obs
 analysis sections plus solve.c's null-model and verification batteries — on the order of **~30 distinct
 observables** examined across the project's discovery phase). Adding the five later pre-registered testing
 families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13) on top of that discovery-phase
-battery brings the enterprise-wide running total to **~83 distinct observables** — the global ledger that
-[reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar ≈ 0.05/83 ≈
-6.0×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
+battery brought the running total to ~83; the R7 corpus-control battery's five off-home family predicates
+applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all failed; see §"Corpus control II" below)
+bring the enterprise-wide running total to **~88 distinct observables** — the global ledger that
+[reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar ≈ 0.05/88 ≈
+5.7×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
 battery and then testing them on the same sequence inflates apparent significance; a referee is entitled to
 demand multiple-comparisons accounting across the *whole battery*, not just per-test corrections. Applying
 the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everything examined:
@@ -363,6 +365,119 @@ wrong; the array was simply incorrect. Rerun on the corrected array (Shaughnessy
 Mawangdui flags 9 of 11 extremes — the battery detects the authentic trigram-block construction even
 more strongly. KW rows are unaffected.)*
 
+Superseded in depth by Corpus control II below (constraint-family level, N = 10⁶, matched nulls,
+pre-registered). The results in this section remain valid anchors.
+
+## Corpus control II: cross-tradition constraint-family test (design frozen 2026-07-11; measured 2026-07-12)
+
+The corpus-control test above ran King Wen's observable battery on the alternatives. Its sequel
+completes the symmetric experiment at the constraint-family level, against the standing referee
+attack: *does this project's extraction methodology manufacture ×10³-class "design discriminators"
+for ANY systematic ordering of the 64 hexagrams (cf. ρ(C2|C1) ≈ 23.5×, ρ(C3|C1) ≈ 2,264× in the
+null-model table), or does it correctly identify which orderings are structured, where, and by how
+much?* Each historical ordering received its OWN constraint family, extracted from its own data in
+its own natural representation, exactly as C1–C5 were extracted from King Wen: **J1–J5** for the
+Jing Fang Eight Palaces arrangement (palace-generator representation; the standard classical
+construction — [CITATIONS.md](CITATIONS.md#jingfang)), **M1–M5** for the Mawangdui silk-manuscript
+ordering (trigram-octet representation; [Shaughnessy 2022](CITATIONS.md), Table 11.2 — the
+corrected array of the 2026-07-05 erratum), **B1** for Fu Xi (identity on the binary axis). None of
+these generative descriptions is novel — the palace construction is standard sinology, and the
+Mawangdui two-key trigram sort is described by Shaughnessy (upper-trigram octets in
+[Schulz & Cunningham's (1990)](CITATIONS.md#schulz-cunningham1990) gender-blocked order; lower
+trigrams a fixed couple-interleaved family cycle with own-trigram promotion). Only their use as a
+symmetric corpus-control instrument is, to our knowledge, this project's own — and that is hedged,
+not asserted. The design was pre-registered and frozen 2026-07-11 (families, cross-application
+matrix, null ladder, sample sizes, seeds, thresholds, falsification gates), with one dated
+pre-measurement amendment (below); measured 2026-07-12; every cell reported as pre-committed;
+report-only — nothing promotes to a solver constraint regardless of outcome, per the standing
+extraction-circularity policy. Implementation: `solve.py --r7-corpus` / `--r7-verify` (sha-neutral).
+Evidence: `reports/evidence/r7/`.
+
+**Specificity, measured three ways.**
+
+1. *The battery flags the algorithmic recensions, not King Wen* (uniform null upgraded ×100 to
+   N = 10⁶; pilot-vs-rerun EXTREME sets identical, no boundary crossings): Jing Fang — provably
+   algorithmic; J1∧J2∧J3 determine the sequence uniquely, residual 0 bits — flags **9 of 11**
+   observables EXTREME; the corrected Mawangdui — also fully algorithmic given its two classical
+   conventions — **9 of 11**; Fu Xi 7 of 11; King Wen **3 of 11, exactly the C1/C2/C3 axes**, and
+   0 of 11 against the pair-preserving null. Both positive controls pass the pre-committed FC-1
+   gate (≥ 8 of 11); a battery that failed to flag Jing Fang would have been published as
+   "instrument broken, no specificity conclusion available" — no threshold tuning.
+2. *The manufacture alarm is clean.* The cross-application matrix — every family applied to every
+   ordering — shows **zero off-home passes** among the alarm predicates {C1, J1, joint-M, B1}. The
+   one off-home partial pass, pre-registered by us as an expected pass, is Fu Xi satisfying M1
+   (any upper-sorted ordering does — M1 alone is a weak predicate); it is excluded by the joint-M
+   requirement, which Fu Xi fails a-priori at M2/M3/M4. We flag it ourselves rather than leave it
+   for a reviewer. No off-home ×10³-class enrichment appears anywhere in the grid, and King Wen's
+   uniform-null EXTREME set remained exactly {a, b, f} at N = 10⁶.
+3. *Matched nulls price each ordering's actual structure.* Under its own exact J1-conditioned null
+   (all 8! = 40,320 palace assignments enumerated), Jing Fang is EXTREME on **0 of 11**
+   observables — its remaining rarity is precisely the palace order: P(J2∧J3 | J1) = 1/40,320
+   (exact). Mawangdui under its M1-conditioned null: 3 of 11; under the fuller M1∧M3-conditioned
+   null: 1 of 11 (the obs-h disposition below). Residual description lengths
+   ([DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md)): Jing Fang **0 bits**, Mawangdui **0 bits**
+   (plus ≤ log₂(8!·8!) ≈ 30.7 bits of classical convention choice), Fu Xi **0 bits** — versus King
+   Wen's **~126.6-bit residual**. The home-family enrichments for the recensions are astronomically
+   larger than King Wen's (P(J1 | L0) ≈ 3.2×10⁻⁸⁵, P(M1 | L0) ≈ 2.2×10⁻⁴⁸, analytic) — predicted
+   in advance: a fully generated ordering is more compressed than a constrained-but-vast one.
+
+**The thesis, and its limits.** Applied symmetrically, the methodology assigns each ordering its
+ACTUAL compression — near-total for the algorithmic recensions, partial-with-vast-residual for King
+Wen. It is not a design-finding machine: it does not flag every systematic ordering as "designed"
+and it does not manufacture off-home discriminators. The critical framing: **this is a specificity
+result about the instrument, not evidence that King Wen is "designed"** — no cell of this
+experiment licenses any intent inference. Honest limits: (i) n = 3 alternative orderings, all
+classical Chinese — a finite historical corpus cannot settle the universal "manufactures for ANY
+ordering" claim (the seven structured mathematical families elsewhere in this document are the
+complementary synthetic arm); (ii) post-erratum BOTH recensions are fully algorithmic, so the
+corpus contains no genuine middle case and the battery's response to *partial* design is
+uncalibrated here; (iii) the extraction circularity is symmetric, not eliminated — J1–J5 and M1–M5
+were extracted from their own traditions' data exactly as C1–C5 were from King Wen, so the result
+demonstrates specificity and calibration, never independence of any family from its sequence;
+(iv) the uniform-null matrix was observed at N = 10⁴ in the pilot before the freeze — the
+evidentiary weight rests on the genuinely-unobserved cells (the matched-null ladders, the off-home
+predicate cells, the exact rates).
+
+**Two pre-registration corrections, disclosed.** (1) A dated pre-measurement amendment (2026-07-12)
+corrected the FC-4 coherence anchor: the frozen text predicted Jing Fang's complement-distance sum
+(1024) at the ≥99th percentile of the exact J1 null, conflating the J4 count (384/40,320 ≈ 0.95%)
+with the full distance-maximizing class (9,216/40,320 ≈ 22.86%; measured mid-percentile 88.57,
+exactly as the corrected anchor predicts). (2) One residual flag survived where FC-4's frozen
+wording said flags "must vanish": under Mawangdui's fullest sampled matched null (M1∧M3
+conditioned, both classical conventions freed over the 8!×8! space), the longest-monotone-run
+observable still flags — Mawangdui's value 3 is the observed floor of that space, mid-percentile
+0.52 (P(run ≤ 3) ≈ 1.03%; reproduced at three further seeds). Exact single-convention slices
+(8! each, enumerated) attribute the rarity to the classical lower-cycle convention Λ itself: its
+couple-interleaved order — father, mother, then the three complement couples — forces a strictly
+alternating 3,1,3,1,… within-octet difference pattern (the same mechanism places the lag-1
+autocorrelation observable at p1.58, just above the line). That is, the battery is detecting real
+structure in a classically documented convention that this null deliberately leaves free — not
+unpriced structure in the sequence: M1∧M3∧M4 reconstruct Mawangdui exactly (residual 0 bits), and
+under true full-family conditioning the null is a single point where flags vanish trivially. We
+record this — diagnosed *after* the L2 cell was measured, so the freeze forbids a further amendment and it is disclosed as a dated post-hoc diagnosis — as a wording error in our own frozen FC-4 anchor ("vanish" is guaranteed only under
+full-family conditioning), and as a general caution about mid-percentile EXTREME calls on
+distribution-floor atoms of near-threshold mass. Neither correction touches the gate-bearing
+controls: FC-1 (positive controls) and FC-3 (manufacture alarm) reference no matched-null quantity.
+
+Look-elsewhere ledger: the five off-home family predicates applied to King Wen (J1, M1, M3, M4,
+B1 — all expected-fail, all failed) are logged conservatively: global observable count ~83 → ~88.
+
+*Attribution.* The Jing Fang and Mawangdui orderings are classical Chinese artifacts, not project
+inventions (traditional attribution to Jing Fang, 77–37 BCE; the Mawangdui manuscript's tomb was
+sealed 168 BCE; historical certainty of the palace ordering's authorship is debated). Sources:
+[Shaughnessy (2022)](CITATIONS.md) for the Mawangdui construction, with
+[Cook's (2006)](CITATIONS.md#cook2006) concordance table and Marshall's biroco.com conversion chart
+as cross-checks per the 2026-07-05 erratum; [Schulz & Cunningham (1990)](CITATIONS.md#schulz-cunningham1990)
+for the gender-blocked upper axis; the standard palace construction for J1–J5
+([CITATIONS.md](CITATIONS.md#jingfang) — alternative palace-internal conventions exist; corrections
+welcome). [Drasny (c. 2007)](CITATIONS.md#drasny2007) discussed the regular grouping of the
+pre-Yijing hexagram arrangement well before this project — the reading of the recensions as
+regular/algorithmic has prior art and is recorded as such. The corpus-control specificity gate
+defined here is the one consumed by the F4′, cycle-structure, and Davis pre-registered tracks above
+([Davis 2012](CITATIONS.md#davis2012); [Li Shangxin](CITATIONS.md#li2008) credited there per Davis
+p. 119 n19). Errors of operationalization are ours (developed with AI assistance — Claude,
+Anthropic); sinological corrections are invited and reopen the frozen design via dated amendment.
+
 ## Pre-registered test: F4' ordering-layer functionals (registered 2026-07-04; measured same day — all 13 null, results below)
 
 To keep the look-elsewhere accounting honest, this registration is published BEFORE any population
@@ -432,7 +547,7 @@ page in the eventual report).
 **Davis results (2026-07-04, reported in full as pre-committed):** of the nine registered candidates,
 Davis's flagship compositional claims (terminal contiguity, the 7–16 mirror, palindrome adjacency, the
 asymmetric half-split) are NULL after Bonferroni; the #43–50 trigram array is notable (6.8×10⁻⁴ — at its
-family correction; it does not survive the global ~83-observable ledger's ≈6.0×10⁻⁴ bar); the
+family correction; it does not survive the global ~88-observable ledger's ≈5.7×10⁻⁴ bar); the
 exact-placement templates are rare-by-construction (data-like class — including two with zero sampled
 mass at 2×10⁹ probes) and, per the standing circularity policy, carry no design inference; corpus
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided

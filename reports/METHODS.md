@@ -36,11 +36,11 @@ the adversarial replication reviews (archived alongside this suite).*
 - **Global observable ledger (enterprise-wide multiple comparisons).** Bonferroni corrections in this
   suite are applied within each pre-registered family (F5 /11, F4′ /13, Davis /9, Davis follow-up /12,
   permutation /13). Family-wise control does not control the error rate of the whole enterprise: across
-  the project's discovery and testing history, on the order of **~83 distinct observables** have been
+  the project's discovery and testing history, on the order of **~88 distinct observables** have been
   examined against the same single sequence (running count maintained in
   [CRITIQUE.md](../documentation/CRITIQUE.md) §"Observable-selection accounting"). A per-family
   "notable" label is therefore a family-scoped claim; against the global ledger the corresponding bar is
-  ≈ 0.05/83 ≈ 6.0×10⁻⁴, and each "notable" verdict states in place whether it clears that bar. This
+  ≈ 0.05/88 ≈ 5.7×10⁻⁴, and each "notable" verdict states in place whether it clears that bar. This
   accounting does not touch the suite's headline findings — the nulls, and the proven/certified
   impossibilities, which are deductive.
 

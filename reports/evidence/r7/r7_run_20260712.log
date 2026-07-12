@@ -1,0 +1,201 @@
+# R7 -- Cross-tradition corpus-control battery
+# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)
+# + Amendment 1 (2026-07-12, 53e088a): corrected FC-4 anchor (comp-sum 1024 is NOT extreme under the exact J1 null).
+# L0 uniform N=1,000,000, seed 42; Jing Fang L1 EXACT (8!=40,320); MD L1 x2 + MD L2 sampled N=1,000,000; report-only.
+# Developed with AI assistance (Claude, Anthropic). Classical orderings
+# are not project inventions; J/M formalizations are hedged, not novel.
+
+## FC-2 construction cross-validation
+
+- PASS: solve.c kw[] == solve.py binary_hexagrams
+- PASS: Mawangdui (roae.py indices) == solve.c --null-historical
+- PASS: KW is a permutation of 0..63
+- PASS: Jing Fang is a permutation of 0..63
+- PASS: Mawangdui is a permutation of 0..63
+- PASS: Fu Xi is a permutation of 0..63
+
+## FC-2 family anchors
+
+- PASS: J1 holds on Jing Fang (palace-orbit octets)
+- PASS: J1 t_b on JF == [Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui]
+- PASS: J2 holds on Jing Fang
+- PASS: J3 holds on Jing Fang (J1^J2^J3 -> residual 0)
+- PASS: J4 (derived complement symmetry) holds on JF
+- PASS: J5 diff-wave multiset == {1:48, 3:15}
+- PASS: J1^J2^J3 determines the JF sequence uniquely
+- PASS: M1 holds on Mawangdui (constant-upper octets)
+- PASS: M1 uppers on MD == [Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun]
+- PASS: M2 holds on Mawangdui (pure heads)
+- PASS: M3 holds on Mawangdui (Lambda-promotion lowers)
+- PASS: M4 holds on Mawangdui (gender-blocked uppers)
+- PASS: M5 diff-wave multiset == {1:21,2:10,3:29,4:2,5:1}
+- PASS: M1^M3^M4 reconstruct the corrected Mawangdui EXACTLY
+- PASS: comp-sum (obs f): KW / JF / MD == 388 / 1024 / 1024
+- PASS: B1 (identity) holds on Fu Xi
+
+## L0 battery: observable x ordering, percentile vs uniform null (N=1,000,000, seed 42)
+
+Cell format: `value (pN)`; **EXTREME** if percentile <=1 or >=99.
+
+| Observable | KW | Jing Fang | Mawangdui | Fu Xi |
+|---|---|---|---|---|
+| a. Hamming-5 transition count (no-5 <=> 0) | 0 (p0.09) **EXTREME** | 0 (p0.09) **EXTREME** | 1 (p0.78) **EXTREME** | 2 (p3.33) |
+| b. partner-adjacent pairs (of 32 slots) | 32 (p100.00) **EXTREME** | 0 (p30.08) | 0 (p30.08) | 0 (p30.08) |
+| c1. upper-trigram changes (of 63) | 59 (p88.64) | 31 (p0.00) **EXTREME** | 7 (p0.00) **EXTREME** | 7 (p0.00) **EXTREME** |
+| c2. lower-trigram changes (of 63) | 58 (p77.83) | 39 (p0.00) **EXTREME** | 62 (p99.71) **EXTREME** | 63 (p99.97) **EXTREME** |
+| d. diff-wave Shannon entropy (bits) | 2.0759 (p13.06) | 0.7919 (p0.00) **EXTREME** | 1.7179 (p0.01) **EXTREME** | 1.8820 (p0.40) **EXTREME** |
+| e. diff-wave lag-1 autocorrelation | -0.2635 (p3.02) | 0.3254 (p99.82) **EXTREME** | -0.5070 (p0.00) **EXTREME** | -0.5915 (p0.00) **EXTREME** |
+| f. complement-distance sum (32 pairs) | 388 (p0.00) **EXTREME** | 1024 (p100.00) **EXTREME** | 1024 (p100.00) **EXTREME** | 1024 (p100.00) **EXTREME** |
+| g. doubled trigrams at block starts (of 16) | 4 (p94.06) | 8 (p100.00) **EXTREME** | 8 (p100.00) **EXTREME** | 2 (p51.72) |
+| h. longest monotone diff-wave run | 5 (p16.07) | 8 (p91.24) | 3 (p0.00) **EXTREME** | 2 (p0.00) **EXTREME** |
+| i. 1-bit transitions | 2 (p3.37) | 48 (p100.00) **EXTREME** | 21 (p100.00) **EXTREME** | 32 (p100.00) **EXTREME** |
+| j. popcount-palindromic width-5 windows (of 60) | 1 (p14.66) | 12 (p100.00) **EXTREME** | 7 (p98.90) | 0 (p2.93) |
+
+| Ordering | EXTREME (of 11) | which |
+|---|---|---|
+| KW | 3 | a,b,f |
+| Jing Fang | 9 | a,c1,c2,d,e,f,g,i,j |
+| Mawangdui | 9 | a,c1,c2,d,e,f,g,h,i |
+| Fu Xi | 7 | c1,c2,d,e,f,h,i |
+
+P(comp-sum = 1024 | L0) = 0/1,000,000 = 0.000e+00 (sampled rate, frozen section 6 rho set; the JF/MD home value is the 32-pair maximum).
+
+E3 rider note (TG-3): the c1/c2 columns above are the two canonical
+trigram-locality functionals -- a factual KW-vs-recensions table with
+no significance claims. Both are S3-relabel-invariant (they test only
+trigram equality across a transition, so any relabeling of the eight
+trigram values leaves them unchanged; verified reasoning, to be
+certified with TG-3).
+
+### Pilot-vs-rerun EXTREME-set diff (frozen section 7 halt rule)
+
+- KW: pilot(N=10^4, seed 42) ['a', 'b', 'f'] vs rerun ['a', 'b', 'f'] -- no boundary crossings
+- Jing Fang: pilot(N=10^4, seed 42) ['a', 'c1', 'c2', 'd', 'e', 'f', 'g', 'i', 'j'] vs rerun ['a', 'c1', 'c2', 'd', 'e', 'f', 'g', 'i', 'j'] -- no boundary crossings
+- Mawangdui: pilot(N=10^4, seed 42) ['a', 'c1', 'c2', 'd', 'e', 'f', 'g', 'h', 'i'] vs rerun ['a', 'c1', 'c2', 'd', 'e', 'f', 'g', 'h', 'i'] -- no boundary crossings
+- Fu Xi: pilot(N=10^4, seed 42) ['c1', 'c2', 'd', 'e', 'f', 'h', 'i'] vs rerun ['c1', 'c2', 'd', 'e', 'f', 'h', 'i'] -- no boundary crossings
+
+## KW vs pair-preserving null (project-standard, KW only)
+
+| Observable | KW value | percentile |
+|---|---|---|
+| a. Hamming-5 transition count (no-5 <=> 0) | 0 | p2.13 |
+| b. partner-adjacent pairs (of 32 slots) | 32 | p50.00 |
+| c1. upper-trigram changes (of 63) | 59 | p36.98 |
+| c2. lower-trigram changes (of 63) | 58 | p20.07 |
+| d. diff-wave Shannon entropy (bits) | 2.0759 | p5.82 |
+| e. diff-wave lag-1 autocorrelation | -0.2635 | p5.08 |
+| f. complement-distance sum (32 pairs) | 388 | p6.15 |
+| g. doubled trigrams at block starts (of 16) | 4 | p85.33 |
+| h. longest monotone diff-wave run | 5 | p10.84 |
+| i. 1-bit transitions | 2 | p29.86 |
+| j. popcount-palindromic width-5 windows (of 60) | 1 | p28.08 |
+
+KW EXTREME vs pair-preserving null: 0/11 (observable b is invariant under this null by construction).
+
+## Cross-application matrix (section 5 -- the manufacture alarm)
+
+`P` = predicate holds, `.` = fails, `n/a` = conditional parent fails.
+
+| Predicate | KW | Jing Fang | Mawangdui | Fu Xi | home |
+|---|---|---|---|---|---|
+| C1 (32 partner-adjacent pairs) | P | . | . | . | KW |
+| C2 (no Hamming-5) | P | P | . | . | - |
+| C3 (comp-dist sum <= 776) | P | . | . | . | - |
+| J1 (palace-orbit octets) | . | P | . | . | Jing Fang |
+| M1 (constant-upper octets) | . | . | P | P | - |
+| M-joint (M1^M3^M4 reconstruct) | . | . | P | . | Mawangdui |
+| B1 (identity) | . | . | . | P | Fu Xi |
+
+Off-home passes among alarm predicates {C1, J1, M-joint, B1}: NONE
+(The Fu Xi off-home M1 pass is NOT an alarm predicate -- M1 alone is a
+weak predicate excluded by the joint-M requirement; Fu Xi fails M2/M3/M4.)
+
+## Jing Fang L1 (J1-conditioned) EXACT -- all 8! = 40,320, full 11-observable battery
+
+Exact enumeration (no sampling; frozen section 6 mandates exact where the space permits).
+
+| Observable | JF value | percentile (exact J1 null) |
+|---|---|---|
+| a. Hamming-5 transition count (no-5 <=> 0) | 0 | p4.92 |
+| b. partner-adjacent pairs (of 32 slots) | 0 | p50.00 |
+| c1. upper-trigram changes (of 63) | 31 | p82.86 |
+| c2. lower-trigram changes (of 63) | 39 | p50.00 |
+| d. diff-wave Shannon entropy (bits) | 0.7919 | p11.59 |
+| e. diff-wave lag-1 autocorrelation | 0.3254 | p98.57 |
+| f. complement-distance sum (32 pairs) | 1024 | p88.57 |
+| g. doubled trigrams at block starts (of 16) | 8 | p50.00 |
+| h. longest monotone diff-wave run | 8 | p19.52 |
+| i. 1-bit transitions | 48 | p17.14 |
+| j. popcount-palindromic width-5 windows (of 60) | 12 | p94.85 |
+
+JF EXTREME vs its own exact L1 null: 0/11 (none).
+
+- P(J1 | L0) = 8!/64! ~= 3.178e-85 (analytic, frozen section 6 -- the J1 space has exactly 8! members; 0 sampled hits expected at any feasible N).
+- P(J2^J3 | J1) = 1/40,320 (exact count = the canonical palace order; residual 0 bits)
+- P(J4 | J1) = 384/40,320 = 0.9524% (complement-respecting assignments; below the 1% EXTREME line)
+- JF comp-sum (obs f) = 1024 (the exact-space maximum), reached by 9216/40,320 = 22.8571% of assignments; mid-percentile 88.57 of the exact J1 distribution.
+  CORRECTED FC-4 ANCHOR (design Amendment 1, 2026-07-12): comp-sum 1024 is NOT rare under the exact J1 null -- the whole block-distance-maximizing class (4! x 4! x 2^4 = 9,216 assignments, ~22.86%) attains it, so it is expected NOT to flag EXTREME here. The original frozen FC-4 clause ('>=99th percentile, since 384/40,320 reach it') conflated 'reaches comp-sum 1024' with 'satisfies J4' (J4 is a strict subset). The palace ORDER is what is rare (the predicate rates above); the comp-sum scalar is a coarse proxy the whole maximizing class achieves.
+
+## Mawangdui L1 (sampled) enrichment ladder -- full 11-observable battery
+
+Sampled at N=1,000,000, seed 42 (M1-null space 8!*(8!)^8 too large to enumerate); labeled sampled per the F8 precedent.
+
+| Observable | MD value | pctl (M1-cond null) | pctl (M1^M2-cond null) |
+|---|---|---|---|
+| a. Hamming-5 transition count (no-5 <=> 0) | 1 | p64.30 | p59.67 |
+| b. partner-adjacent pairs (of 32 slots) | 0 | p50.00 | p50.00 |
+| c1. upper-trigram changes (of 63) | 7 | p50.00 | p50.00 |
+| c2. lower-trigram changes (of 63) | 62 | p41.10 | p46.22 |
+| d. diff-wave Shannon entropy (bits) | 1.7179 | p63.29 | p66.13 |
+| e. diff-wave lag-1 autocorrelation | -0.5070 | p0.02 **EXTREME** | p0.03 **EXTREME** |
+| f. complement-distance sum (32 pairs) | 1024 | p88.59 | p88.60 |
+| g. doubled trigrams at block starts (of 16) | 8 | p100.00 **EXTREME** | p50.00 |
+| h. longest monotone diff-wave run | 3 | p0.01 **EXTREME** | p0.01 **EXTREME** |
+| i. 1-bit transitions | 21 | p18.67 | p18.32 |
+| j. popcount-palindromic width-5 windows (of 60) | 7 | p98.78 | p98.64 |
+
+MD EXTREME vs its own M1-conditioned L1 null: 3/11 (e,g,h). (The M1^M2 column is the pure-head proxy for the M2 layer.)
+
+- P(M1 | L0) = 8! * (8!)^8 / 64! ~= 2.220e-48 (analytic, frozen section 6: 8! block-upper assignments x (8!)^8 within-block lower orders; 0 sampled hits expected at any feasible N).
+- P(M2 | M1) = (1/8)^8 ~= 5.96e-8 and P(M3 | M1^M2): analytical (frozen section 6); 0/N expected under sampling. The exact factor structure 8!(Lambda) x 8!(upper order) = 1,625,702,400 gives residual 0 bits given the two conventions.
+- P(M4 | M1) = 1/8! = 1/40,320 ~= 2.480e-05 (exact -- the upper order is uniform over 8! under the M1 null; frozen section 6 rho set, Amendment 1 item 4). Sampled cross-check from the M1-conditioned draw: 28/1,000,000 hits (expected ~24.8 at this N -- NOT 0-expected, unlike the L0-conditioned rates above).
+
+## Mawangdui L2 (M1^M3-conditioned, both conventions free) -- full 11-observable battery
+
+Frozen decision rule (section 10): exact 8! x 8! grid (1,625,702,400 sequence evaluations) only if < ~2 h on the worker; pure Python does not meet that, so the SAMPLED fallback is used and the deviation is logged here (N=1,000,000, seed 42; frozen rule, no mid-run judgment call).
+
+| Observable | MD value | percentile (L2 null) |
+|---|---|---|
+| a. Hamming-5 transition count (no-5 <=> 0) | 1 | p58.19 |
+| b. partner-adjacent pairs (of 32 slots) | 0 | p50.00 |
+| c1. upper-trigram changes (of 63) | 7 | p50.00 |
+| c2. lower-trigram changes (of 63) | 62 | p50.01 |
+| d. diff-wave Shannon entropy (bits) | 1.7179 | p74.75 |
+| e. diff-wave lag-1 autocorrelation | -0.5070 | p1.58 |
+| f. complement-distance sum (32 pairs) | 1024 | p88.57 |
+| g. doubled trigrams at block starts (of 16) | 8 | p50.00 |
+| h. longest monotone diff-wave run | 3 | p0.52 **EXTREME** |
+| i. 1-bit transitions | 21 | p34.56 |
+| j. popcount-palindromic width-5 windows (of 60) | 7 | p96.51 |
+
+MD EXTREME vs its own full-family L2 null: 1/11 (h). FC-4 expects residual flags to vanish under full L2 conditioning; a nonzero count is design incoherence, not a finding.
+
+## MDL pricing (ties to DESCRIPTION_LENGTH.md)
+
+| Ordering | family | residual bits (log2 |sequences satisfying full family|) |
+|---|---|---|
+| King Wen | C1-C5 | ~126.6 (published) |
+| Jing Fang | J1-J3 | 0 |
+| Mawangdui | M1^M3^M4 | 0 (conventions priced separately, <= log2(8!*8!) ~ 30.7 bits) |
+| Fu Xi | B1 | 0 |
+
+Thesis: applied symmetrically, the methodology assigns each ordering its ACTUAL compression -- total for the algorithmic recensions, partial-with-vast-residual for KW -- not 'design' uniformly.
+
+## Falsification-gate verdicts (FC-1..FC-4)
+
+- FC-1 (battery detects real design): Jing Fang 9/11, Mawangdui 9/11 EXTREME. PASS (gate: both >= 8; a battery that fails to flag the provably-algorithmic JF is declared broken, published as such -- NO threshold tuning).
+- FC-2 (data integrity): construction + family anchors PASS (checked above).
+- FC-3 (manufacture alarm): off-home alarm passes = NONE; KW L0 extremes = ['a', 'b', 'f']. PASS (specificity holds).
+- FC-4 (matched-null coherence; corrected anchor per design Amendment 1, 2026-07-12): JF comp-sum is expected NOT EXTREME under the exact J1 null (the 9,216/40,320 ~ 22.86% distance-maximizing class attains 1024; mid-percentile 88.57) -- the secondary-structure rarity lives in the predicates P(J2^J3|J1) = 1/40,320 and P(J4|J1) = 384/40,320 ~ 0.952%, both reported above. JF full-battery EXTREME vs its exact L1 null: 0/11 (none). Under full L2 conditioning residual flags must vanish: JF L2 is a single point (residual 0 bits -- nothing to sample); MD L2 EXTREME flags measured above: 1/11 (h); KW analogue = the pilot 0/11 pair-preserving anchor (re-measured above: 0/11). Incoherence = design error, not a finding.
+
+_All cells reported regardless of outcome. A pass shows the instrument distinguishes which orderings are structured, where, and by how much -- it does NOT show KW is 'designed'. Intent language stays out._

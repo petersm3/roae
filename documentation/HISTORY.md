@@ -5416,3 +5416,64 @@ pp. 94–96), recorded here with credit; the decision not to measure it is the p
 for or against his reading — his textual arguments remain unmeasured by construction, as TR-10 already
 states. The decision is also logged on the [Claims Decided](CLAIMS_DECIDED.md) ledger, so the choice *not*
 to test something is as public as the tests themselves.
+
+## 2026-07-12: Corpus control II — a cross-tradition constraint-family specificity test, pre-registered and measured
+
+The 2026-07-04 corpus-control test ran King Wen's observable battery on the historical alternatives; the
+question it left open is the symmetric one at the constraint-family level — does the project's
+extraction methodology manufacture ×10³-class "design discriminators" for *any* systematic ordering, or
+does it correctly identify which orderings are structured, where, and by how much? To answer it without
+post-hoc freedom, the full design was **pre-registered and frozen 2026-07-11** (families J1–J5 for
+[Jing Fang](CITATIONS.md#jingfang), M1–M5 for the corrected [Mawangdui](CITATIONS.md#shaughnessy2022)
+array, B1 for Fu Xi; the cross-application matrix; the null ladder; sample sizes, seeds, thresholds; and
+four falsification gates FC-1..FC-4), then
+measured 2026-07-12 with every cell reported as pre-committed. The instrument (`solve.py --r7-corpus` /
+`--r7-verify`) is docs-neutral — it shipped earlier and this landing changed no solver code; nothing
+promotes to a constraint regardless of outcome.
+
+**What it shows — instrument specificity, not a design finding.** Under the ×100-upgraded uniform null
+(N = 10⁶), the battery flags the provably-algorithmic recensions and not King Wen: Jing Fang 9/11
+EXTREME, corrected Mawangdui 9/11, Fu Xi 7/11, King Wen 3/11 (exactly the C1/C2/C3 axes) and 0/11 against
+the pair-preserving null. Both positive controls clear the pre-committed FC-1 gate (≥ 8/11) with no
+threshold tuning; the manufacture alarm is clean (zero off-home passes among {C1, J1, joint-M, B1}); and
+the matched nulls price each ordering's actual structure (Jing Fang 0/11 under its exact J1 null, its
+residual rarity being the palace order P(J2∧J3 | J1) = 1/40,320). The framing is stated plainly and held
+to: **this is a specificity result about the instrument — it does NOT show King Wen is "designed," and no
+cell licenses any intent inference.** The scope limits travel with the result: n = 3 alternative
+orderings, all classical Chinese; post-erratum both recensions are fully algorithmic, so there is no
+genuine middle case; the extraction circularity is symmetric (each family was extracted from its own
+tradition's data), demonstrating calibration, never independence; and the uniform-null matrix was seen
+at N = 10⁴ in the pilot before the freeze, so the evidentiary weight rests on the genuinely-unobserved
+cells.
+
+**Two pre-registration corrections, disclosed as rigor.** First, a dated **pre-measurement Amendment 1
+(2026-07-12)** corrected the FC-4 coherence anchor before the affected cell was measured: the frozen text
+had predicted Jing Fang's complement-distance sum (1024) at the ≥99th percentile of the exact J1 null,
+conflating the J4 count (384/40,320 ≈ 0.95%) with the full distance-maximizing class (9,216/40,320 ≈
+22.86%; measured mid-percentile 88.57, exactly as the corrected anchor predicts). Second, an **owned
+wording over-reach**: FC-4's frozen text said residual flags "must vanish" under full L2 conditioning, yet
+one flag survived — under Mawangdui's fullest *sampled* matched null (M1∧M3 conditioned, both classical
+conventions freed over the 8!×8! space) the longest-monotone-run observable still flags, Mawangdui's
+value 3 being the observed floor of that space (mid-percentile 0.52, P(run ≤ 3) ≈ 1.03%, reproduced at
+three further seeds). Exact single-convention slices (8! each, enumerated) attribute the rarity to the
+classical lower-cycle convention Λ itself: its couple-interleaved order forces a strictly alternating
+3,1,3,1,… within-octet difference pattern. That is the battery correctly detecting real structure in a
+classically documented convention the null deliberately leaves free — not unpriced structure in the
+sequence (M1∧M3∧M4 reconstruct Mawangdui exactly, residual 0 bits; under true full-family conditioning
+the null is a single point where flags vanish trivially). Because the freeze permits amendments only
+*before* the affected cell is measured and the L2 cell was measured 2026-07-12, no Amendment 2 is filed;
+this is recorded as a dated **post-hoc diagnosis** of a pre-committed-to-be-published cell and owned as a
+wording error in our own frozen anchor, not a finding about Mawangdui, per FC-4's pre-committed fallback
+language ("incoherence = design error, not a finding"). Neither correction touches the gate-bearing
+controls: FC-1 and FC-3 reference no matched-null quantity.
+
+The five off-home family predicates applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all
+failed) are logged conservatively on the global observable ledger (~83 → ~88). The Jing Fang and
+Mawangdui orderings are classical Chinese artifacts, not project inventions; sources are credited in
+[CRITIQUE.md](CRITIQUE.md) §"Corpus control II" ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022);
+[Schulz & Cunningham 1990](CITATIONS.md#schulz-cunningham1990); the standard palace construction; with
+[Drasny c. 2007](CITATIONS.md#drasny2007) noted as prior art for reading the recensions as
+regular/algorithmic), and the only claimed originality is the use of the families as a symmetric
+corpus-control instrument — hedged, not asserted. Developed with AI assistance (Claude, Anthropic);
+sinological corrections are invited and reopen the frozen design via dated amendment. Full treatment:
+[CRITIQUE.md](CRITIQUE.md) §"Corpus control II"; evidence: `reports/evidence/r7/r7_run_20260712.log`.

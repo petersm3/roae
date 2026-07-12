@@ -35,7 +35,7 @@ independently-established C1–C5 space size to 0.09% in the same run) yields: *
 including both flagship compositional claims (the hexagram-7–16 complement-mirror block, present in
 ~1.1% of valid orderings; terminal-pair neighborhood contiguity, two-sided ~5.4×10⁻²); one notable
 (the #43–50 regular trigram array, 6.8×10⁻⁴ — survives its family correction but not the global
-~83-observable ledger's ≈6.0×10⁻⁴ bar; §3); one borderline at the threshold to reported precision; and three
+~88-observable ledger's ≈5.7×10⁻⁴ bar; §3); one borderline at the threshold to reported precision; and three
 exact-placement templates rare-to-unsampled — the data-like class whose rarity is expected by
 construction (the circularity caveat) and evidential of nothing. Nothing promotes. Separately, exact
 recomputation refutes one Davis uniqueness claim — that #63/64 transforms into the fewest derivative
@@ -84,7 +84,7 @@ notational scoring — is accepted and stated.
    |---|---|---|---|---|
    | 1 | `termruns` — terminal-pair one-line-neighborhood contiguity (flagship, pp. 251–255) | 3 runs | P(≤3) = 2.7×10⁻² (two-sided ~5.4×10⁻²; population mean 5.2 runs) | **NULL** |
    | 2 | `compmirror` — the 7–16 complement-mirror block (pp. 81–82, 92, 95–96) | 1 block | P(≥1) = 1.12×10⁻² (~1 in 89 orderings) | **NULL** |
-   | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴ | notable (below candidate gate; does not survive the global ~83-observable ledger) |
+   | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴ | notable (below candidate gate; does not survive the global ~88-observable ledger) |
    | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | zero sampled mass in 2×10⁹ | extreme / data-like class |
    | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9) | **NULL** |
    | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | P = 6.5×10⁻⁵ | meets candidate-rule numerically — data-like; does not promote |
@@ -107,7 +107,7 @@ notational scoring — is accepted and stated.
    a pattern-form (not a placement template) that ~1 in 1,500 valid orderings contains anywhere —
    notable at the Bonferroni gate, well short of the candidate gate, and his best-performing claim.
    The "notable" is family-scoped: it survives its frozen family correction (0.05/9 = 5.56×10⁻³) but
-   does **not** survive the global ~83-observable ledger (bar ≈ 0.05/83 ≈ 6.0×10⁻⁴; 6.8×10⁻⁴ falls
+   does **not** survive the global ~88-observable ledger (bar ≈ 0.05/88 ≈ 5.7×10⁻⁴; 6.8×10⁻⁴ falls
    just outside it — see [METHODS.md](METHODS.md) §"Global observable ledger").
 
    3b. **Wave-2 addendum (measured 2026-07-11, 2×10⁹ probes).** The private structural audit's

@@ -239,8 +239,8 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    two-sided and the strictest reading governs), and the strict gauge-control reading additionally marks
    the flag convention-tied (it inverts, attenuated ~50× in p, under direction-reversing gauge
    relabelings — arguably covariant behavior for a rule about which member *leads*, but reported as
-   frozen). Against the global ~83-observable ledger ([METHODS.md](METHODS.md) §"Global observable
-   ledger"; bar ≈ 0.05/83 ≈ 6.0×10⁻⁴) the two-sided p = 1.3951×10⁻⁵ does clear the global bar as well
+   frozen). Against the global ~88-observable ledger ([METHODS.md](METHODS.md) §"Global observable
+   ledger"; bar ≈ 0.05/88 ≈ 5.7×10⁻⁴) the two-sided p = 1.3951×10⁻⁵ does clear the global bar as well
    as its family correction. More fundamentally: Van den Berghe derived the rule *from* King Wen, so this is
    population-atypicality of a **fitted description** — the described configuration carries
    ≈17.1 bits of atypicality (≥ ~14 after discounting the rule's ~2–3 fitted degrees of freedom) out of
