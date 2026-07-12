@@ -7059,7 +7059,7 @@ def dav2_tquartet(seq):
     coordinated cross-pair T-link couples at region spread <= 2 pair-slots on
     both ends. Total on arbitrary orderings: links exist only where the T-image
     of a pair-slot's 2-set is exactly another pair-slot's 2-set (always, under
-    C2; possibly not, on non-C2 corpus controls -> those couples simply don't
+    C1; possibly not, on non-C1 corpus controls -> those couples simply don't
     count). KW = 1 (Davis's quartet: slots {9,11} -> {27,28}, i.e. 17/18 &
     21/22 -> 53/54 & 55/56). Orientation: (a) NO (slot differences preserved
     under sequence reversal), (b) NO (T commutes with rev6; slot-level)."""
