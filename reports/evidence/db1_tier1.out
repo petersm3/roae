@@ -1,0 +1,25 @@
+KNUTH-ESTIMATE probes=2000000000 threads=32 start_step=1 prefix_levels=0
+  tree_nodes            : est=2.087365e+40  95%CI=[2.0871e+40, 2.0876e+40]  relerr=0.01%  hitrate=1
+  leaves_C1C2C4C5       : est=1.096517e+39  95%CI=[1.0959e+39, 1.0972e+39]  relerr=0.03%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.327511e+38  95%CI=[1.3252e+38, 1.3298e+38]  relerr=0.09%  hitrate=0.0018
+  [db1 rule-of-ten] mean=6.872474 min=1 max=20 kw=22 below=1.00000000 at=0.00000000 above=0.00000000 atinc=0.00000000
+db1_hist 1 1.2804174121e-03
+db1_hist 2 1.0092925613e-02
+db1_hist 3 3.7134822581e-02
+db1_hist 4 8.5599260152e-02
+db1_hist 5 1.4111697893e-01
+db1_hist 6 1.7769877824e-01
+db1_hist 7 1.7904425362e-01
+db1_hist 8 1.4801390288e-01
+db1_hist 9 1.0317332234e-01
+db1_hist 10 6.1637160818e-02
+db1_hist 11 3.2156369299e-02
+db1_hist 12 1.4427650157e-02
+db1_hist 13 5.7545471140e-03
+db1_hist 14 1.9754534485e-03
+db1_hist 15 6.3909242837e-04
+db1_hist 16 1.8682840816e-04
+db1_hist 17 5.1455904356e-05
+db1_hist 18 1.2670964176e-05
+db1_hist 19 1.7850338044e-06
+db1_hist 20 2.3246625986e-06

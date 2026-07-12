@@ -1,0 +1,24 @@
+KNUTH-ESTIMATE probes=2000000000 threads=32 start_step=1 prefix_levels=0
+  tree_nodes            : est=2.087365e+40  95%CI=[2.0871e+40, 2.0876e+40]  relerr=0.01%  hitrate=1
+  leaves_C1C2C4C5       : est=1.096517e+39  95%CI=[1.0959e+39, 1.0972e+39]  relerr=0.03%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.327511e+38  95%CI=[1.3252e+38, 1.3298e+38]  relerr=0.09%  hitrate=0.0018
+  [dav2 1 tquartet ] mean=1.857600 min=0 max=10 kw=1 below=0.12384403 at=0.30043256 above=0.57572340
+  [dav2 2 xunslots ] mean=2.896190 min=0 max=6 kw=5 below=0.92610507 at=0.06665567 above=0.00723926
+dav2_hist tquartet 0 1.2384403346e-01
+dav2_hist tquartet 1 3.0043256492e-01
+dav2_hist tquartet 2 3.0319699044e-01
+dav2_hist tquartet 3 1.7523182522e-01
+dav2_hist tquartet 4 6.9564443641e-02
+dav2_hist tquartet 5 2.1157266175e-02
+dav2_hist tquartet 6 5.2480599726e-03
+dav2_hist tquartet 7 1.0890367350e-03
+dav2_hist tquartet 8 2.0377804349e-04
+dav2_hist tquartet 9 2.8090919517e-05
+dav2_hist tquartet 10 3.9104676768e-06
+dav2_hist xunslots 0 1.1938970556e-02
+dav2_hist xunslots 1 9.1903980896e-02
+dav2_hist xunslots 2 2.5980421216e-01
+dav2_hist xunslots 3 3.4186829389e-01
+dav2_hist xunslots 4 2.2058961440e-01
+dav2_hist xunslots 5 6.6655670409e-02
+dav2_hist xunslots 6 7.2392576943e-03

@@ -66,7 +66,7 @@ notational scoring — is accepted and stated.
    about whether his patterns are *there* — they are — but about what they are evidence *of*: the
    population question his method could not ask.
 2. **The pre-registration discipline.** Following the F4' protocol, the nine composites were registered
-   in the public record (documentation/CRITIQUE.md §"Pre-registered test in flight: Davis (2012)",
+   in the public record (documentation/CRITIQUE.md §"Pre-registered tests: Davis (2012)",
    commit `2d19a3f`, 2026-07-04) **before any population number had been observed**, with decision
    thresholds frozen in advance: "notable" = two-sided p < 0.05/9 ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936), 5.56×10⁻³); "candidate
    rule" = < 10⁻⁴ AND passing the corpus-control specificity gate (the same functional must not flag on
@@ -109,6 +109,111 @@ notational scoring — is accepted and stated.
    The "notable" is family-scoped: it survives its frozen family correction (0.05/9 = 5.56×10⁻³) but
    does **not** survive the global ~83-observable ledger (bar ≈ 0.05/83 ≈ 6.0×10⁻⁴; 6.8×10⁻⁴ falls
    just outside it — see [METHODS.md](METHODS.md) §"Global observable ledger").
+
+   3b. **Wave-2 addendum (measured 2026-07-11, 2×10⁹ probes).** The private structural audit's
+   frozen queue left four items unmeasured after §3. Wave 2 disposes of all four: two measured
+   (the table below), one subsumed — the pair-unit trisection (Davis p. 119 n19, crediting
+   Li Shangxin) is the trisection sub-predicate of an already-registered functional and is not
+   double-measured under a second name — and one declined on scope without measurement
+   (§5(c); power note below). The freeze mechanism differed from wave 1's public
+   pre-registration and we state it plainly: the wave-2 design — functional definitions, King Wen
+   values, gates — was frozen in a **git-timestamped private pre-registration (2026-07-10) before
+   any population number was observed**, with the operationalizations landed **publicly first**
+   (`dav2_*` in solve.py/solve.c at commit `09e2107`, two-language [`--dav2-verify`](../documentation/SOLVE_C_CLI.md#--dav2-verify) gate), and
+   the results land here as a batch. The anti-HARKing guarantee is the same in substance — code
+   and design both fixed before measurement, all registered functionals reported regardless of
+   outcome — but the freeze timestamp is a private-repository commit rather than a public one.
+   The Bonferroni denominator was frozen in advance at **0.05/12 across the full cross-wave Davis
+   family** (stricter than wave 1's /9, fixed so that neither wave-splitting nor the later C-D5
+   decline could weaken the correction). Same instrument and self-check as §3: the run's own
+   canonical-leaf estimate, 1.3275×10³⁸, matches the established figure to 0.09%.
+
+   | # | Candidate (Davis claim, pages) | KW | Population | Verdict |
+   |---|---|---|---|---|
+   | 10 | `tquartet` — coordinated per-trigram-rotation quartet at Davis's own compactness (pp. 113–114; the §4 open thread) | 1 | P(≥1) = 0.876; mean 1.86; two-sided p = 0.849 | **NULL** |
+   | 11 | `xunslots` — Xun-bearing hexagrams at the twelve x7/x8 decade slots (p. 114) | 5 | P(≥5) = 7.4×10⁻²; mean 2.90; two-sided p = 0.148 | **NULL** |
+
+   **Row 10 answers §4's open thread, and the answer is a plain null.** A quartet at the
+   compactness of Davis's own instance is a *common* configuration among valid orderings: about
+   88% of them contain at least one, the population mean is 1.86 such quartets, and King Wen's
+   single instance sits *below* that mean (observed range 0–10). What §4 shows to be unique
+   *within* King Wen is unremarkable *across* the population — the classical constraints already
+   make Davis-compact quartets ordinary, so his surviving uniqueness claim, true as stated,
+   carries no population force and licenses no design inference. Row 11 was registered at low
+   prior (the audit had flagged the underlying list as selective, and the pattern's stated form
+   needed correction — §4's note that #28 also qualifies); it lands mildly above expectation
+   (KW at roughly the 93rd percentile), nowhere near the 0.05/12 gate, and is reported for
+   completeness rather than featured. Neither functional triggered the candidate gate, so no
+   corpus-control step fired. Per the standing pre-commitment, **nothing promotes**.
+
+   **The declined candidate, completed with a power analysis.** The scope decline of the
+   named-size candidate (§5(c)) stands on its own grounds. Independently of them, an analytic
+   result added at this landing shows the declined test was also *incapable* of producing a
+   significant result:
+
+   > **Power note (analytic).** Independently of the scope grounds for declining it, this
+   > test could never have produced a significant result, for a reason that has nothing to
+   > do with what its labels mean. The declined predicate belongs to the class of
+   > "2-of-6 ordering predicates": mark six of the 32 pairs (here the six marked hexagrams
+   > do lie in six distinct pairs — none is another's reversal-partner, and the two
+   > palindromic ones pair by complement outside the set), attach a binary attribute to each
+   > pair, two of one kind and four of the other, and ask whether the six attributes, read
+   > in pair-slot order, spell one specific arrangement. Under the pair-exchangeable null —
+   > the 32 pairs assigned uniformly at random to the 32 pair-slots, within-pair
+   > orientations free, i.e. the pair structure C1 baked in and nothing else conditioned —
+   > the relative slot order of any six fixed pairs is exactly uniform over the 6! = 720
+   > orderings: relabeling the six pairs is a measure-preserving bijection of the null space
+   > that carries any ordering to any other, and orientations cannot move a pair between
+   > slots. A two-plus-four attribute multiset collapses those 720 equiprobable orderings
+   > into C(6,2) = 15 distinguishable strings of exactly 2!·4! = 48 orderings each, so every
+   > arrangement — the observed one included — has null probability exactly 48/720 = 1/15 ≈
+   > 0.067. The smallest p-value any predicate of this class can attain, for any choice of
+   > labels and any target arrangement, is therefore 1/15: above the unadjusted 0.05 gate,
+   > and sixteen-fold above the 0.05/12 family-corrected gate this test would have faced.
+   > The test was uninformative by construction — even its maximally favorable outcome,
+   > which the King Wen sequence happens to realize, could never have registered as
+   > significant. (The bound is exact under the pair-exchangeable null; conditioning further
+   > on the boundary constraints perturbs the fifteen arrangement probabilities through the
+   > pairs' bit patterns alone — a label-independent, purely structural effect — and
+   > breaching the family gate would require a sixteen-fold depletion of the target
+   > arrangement, an order of magnitude beyond any pair-position coupling measured in this
+   > project.)
+
+   The note is fully reproducible without any ROAE code and without implementing the declined
+   predicate — see the Verification Guide. The exchangeability argument is elementary and may
+   well exist elsewhere in the statistics literature; no novelty is claimed for it, and
+   corrections are welcome. As throughout, the six-hexagram observation itself is Davis's
+   (pp. 94–96), credited; the power analysis and any errors in it are ours.
+
+   **A tautology from a different source, reported in the same data-like class (D-B1, landed
+   with this addendum).** József Drasny's "Rule of Ten" (*The Yi-globe*, 2007/2011, ch. IV; no
+   relation to Davis's separately-named "rule of ten", p. 126) observes that his eight
+   trigram-defined functional groups occupy decade-arithmetic "rooms" of the King Wen table —
+   group A within ordinals 1–10, group B at 11, 21, 31, 41, and so on — with ten deviant pairs.
+   The observation is true and verified: his group classifier reduces to pure bit predicates
+   (Table 4.1 reproduced 64/64; two-language [`--db1-verify`](../documentation/SOLVE_C_CLI.md#--db1-verify) gate), and King Wen's conformity
+   count is X = 22 of 32 pair-slots, with his ten deviant pairs reproducing exactly. But the
+   rooms are King-Wen-derived: Drasny's own derivation (pp. 76–77) reads each room off the
+   listed KW ordinals of each group's members, and mechanical re-verification shows every room
+   is exactly the **maximum-coverage decade window for its group's King Wen positions** — the
+   one group whose best single window covers only 2 is the only group granted two windows, and
+   the leftover cells are swept into a residue room — so the fitted per-group coverages sum to
+   3+3+3+3+4+5+1 = 22: **KW's conformity count equals the fitted argmax total by construction.**
+   Scored against this KW-fitted template, the received sequence naturally sits above the entire
+   sampled canonical population (population mean 6.87, observed range 1–20 at 2×10⁹ probes) —
+   the same signature as the exact-placement templates of §3 (rows 4, 6, 8), and diagnostic of
+   the same thing: extraction, not design. The count is therefore reported as a fitted
+   *description* — Drasny's, credited, and the strongest ordinal observation in his book — and
+   carries no design inference; no p-value is attached, per the standing extraction-circularity
+   policy. (D-B1 belongs to a separate Drasny test family, not the Davis /12 above; it was not
+   publicly pre-registered — the operationalization landed publicly first, commit `64e4a42`,
+   before any population number was observed — and its classification and process record live in
+   [CRITIQUE](../documentation/CRITIQUE.md).) Together, the power note and D-B1 make this
+   addendum's methodological theme concrete: literature functionals can be data-like for
+   stateable, checkable reasons — C-D5 could never have registered under its null (min p =
+   1/15), and D-B1's conformity count scores the sequence against a template extracted from the
+   sequence.
+
 4. **One refutation, and one withdrawn.** Davis claims that the terminal pair is transformationally
    unique: transforming each of #63/64's twelve lines yields derivative hexagrams confined to three
    contiguous groups (#3–6, #35–40, #49/50), and "in no other case" does a pair transform into so few
@@ -136,7 +241,12 @@ notational scoring — is accepted and stated.
    about Davis, and one of them lost. (Two caveats travel with his surviving claim: pair-onto-pair
    transport under that transformation is notation-forced — true in every pairing-compliant ordering —
    so only the placement coordination is distinctive; and the uniqueness depends on an unstated
-   compactness threshold, which any future population scoring must pre-register.)
+   compactness threshold, which any future population scoring must pre-register.) That scoring
+   has since been done: the coordination window was frozen in advance at his own instance's
+   compactness (both regions within two pair-slots; design git-timestamped 2026-07-10 before
+   measurement, operationalization public at commit `09e2107`), and the population answer is
+   that the configuration is common — about 88% of valid orderings contain such a quartet, with
+   a population mean of 1.86 and King Wen's single instance below it (§3b).
 5. **His anti-mathematical argument, measured.** Davis's position implies three predictions:
    (a) global algorithmic compressions of the sequence will fail; (b) mid-scale block and symmetry
    structure will score far above chance; (c) many patterns are jointly formal-textual and invisible
@@ -167,7 +277,10 @@ notational scoring — is accepted and stated.
    precisely to keep names outside the instrument. The observation is Davis's; the decline is ours and
    says nothing for or against his reading. The follow-up family's Bonferroni denominator remains
    frozen at /12, fixed in advance so the decline cannot be read as weakening the correction
-   (decision log: [HISTORY.md](../documentation/HISTORY.md), 2026-07-11).
+   (decision log: [HISTORY.md](../documentation/HISTORY.md), 2026-07-11). A power analysis added
+   at the wave-2 landing shows the declined test was additionally uninformative by construction:
+   under the pair-exchangeable null its minimum attainable p is exactly 1/15, sixteen-fold above
+   the family gate it would have faced (§3b).
 6. **Attribution, copyright discipline, and what is claimed.** All Davis material above is paraphrase
    with page citation; no extended quotation is used (single short phrases at most), per the project's
    derived-insights-only handling of copyrighted sources. The operationalizations are ours and public
@@ -192,7 +305,7 @@ notational scoring — is accepted and stated.
   ./solve --estimate-knuth 2000000000` (evidence file: `dav_tier1.out`, tier-1 run 2026-07-04;
   self-validation: same run's canonical-leaf estimate 1.3275×10³⁸ vs [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)'s
   1.3287×10³⁸, 0.09%)
-- Pre-registration prior to measurement: documentation/CRITIQUE.md §"Pre-registered test … Davis
+- Pre-registration prior to measurement: documentation/CRITIQUE.md §"Pre-registered tests … Davis
   (2012)" — registered at commit `2d19a3f` (2026-07-04) before any population number existed;
   thresholds and the nothing-promotes policy are in the registration text
 - Corpus-control specificity gate: evaluate the `dav_*` predicates (solve.py) on the Jing Fang and
@@ -210,6 +323,46 @@ notational scoring — is accepted and stated.
   tightest coordinated instance at its region spans
 - Claims sourced by page to Davis 2012 (Cambria Press, ISBN 978-1-60497-808-7); full page-cited claim
   inventory in the private audit (copyright: paraphrase-only handling)
+- Wave-2 KW-value reproduction, two-language gate: `python3 solve.py --dav2-verify` and
+  `./solve --dav2-verify` → `DAV2 VERIFY: PASS` (`tquartet` = 1, `xunslots` = 5; solve.py is the
+  spec, solve.c the engine)
+- Wave-2 population masses and histograms (§3b table): `SOLVE_KNUTH_SCORE_DAV2=1
+  SOLVE_KNUTH_DAV2_HIST=1 ./solve --estimate-knuth 2000000000` (evidence file: `dav2_tier1.out`,
+  tier-1 run 2026-07-11; self-validation: same run's canonical-leaf estimate 1.3275×10³⁸ vs
+  [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)'s 1.3287×10³⁸, 0.09%)
+- The C-D5 power note (§3b) — self-contained; **requires no ROAE binary, no data files, and no
+  implementation of the declined predicate** (which remains unimplemented everywhere). Inputs:
+  hexagrams #9, #14, #26, #28, #34, #62, bit patterns 110111, 101111, 100111, 011110, 001111,
+  001100 (bit 0 = bottom line, 1 = yang), labels S,B,B,B,B,S. (1) Six distinct pairs, by finger
+  arithmetic: no couple among the six satisfies rev6(a) = b; the two palindromes (011110, 001100)
+  pair by complement with #27 and #61, outside the set. (2) Exchangeability, purely analytic from
+  the null's definition: a uniform bijection of 32 pairs onto 32 slots is invariant under
+  relabeling the six marked pairs, so all 720 relative orders are equiprobable, and orientations
+  cannot move a pair between slots. (3) The count — pure combinatorics, checkable with a few
+  lines of the reviewer's own code:
+
+  ```python
+  from itertools import permutations
+  labels = ('S', 'B', 'B', 'B', 'B', 'S')        # any 2-vs-4 labeling
+  counts = {}
+  for p in permutations(range(6)):               # the 720 relative orders
+      s = tuple(labels[i] for i in p)
+      counts[s] = counts.get(s, 0) + 1
+  assert len(counts) == 15 and set(counts.values()) == {48}
+  target = ('S', 'B', 'B', 'B', 'B', 'S')        # both minority labels at the extremes
+  print(counts[target], "/ 720 =", counts[target] / 720)   # -> 48 / 720 = 1/15
+  ```
+
+  Conclusion: min-p = 1/15 > 0.05 > 0.05/12 — the declined test could never have produced a
+  significant result under the stated null, whatever the labels mean.
+- The D-B1 tautology (§3b): KW-value + classifier reproduction, two-language gate:
+  `python3 solve.py --db1-verify` and `./solve --db1-verify` → `DB1 VERIFY: PASS` (Table 4.1
+  reproduced 64/64; KW conformity X = 22, ten deviant pairs listed). Population descriptives:
+  `SOLVE_KNUTH_SCORE_DB1=1 SOLVE_KNUTH_DB1_HIST=1 ./solve --estimate-knuth 2000000000` (evidence
+  file: `db1_tier1.out`). The argmax verification is arithmetic on the received sequence alone:
+  for each group, list its members' KW ordinals and check that Drasny's room is the
+  maximum-coverage decade window (or step-10 window) for that list, with per-group coverages
+  3+3+3+3+4+5 plus the residue conformity = 22
 
 ## Revision history
 | Version | Date | Changes |
@@ -219,3 +372,4 @@ notational scoring — is accepted and stated.
 | v1.2 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the project-wide Mawangdui array was found wrong (corrected 2026-07-05 per [Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2 — see CITATIONS.md errata). The nine `dav_*` predicates were recomputed on the corrected array: every flagged predicate still evaluates to zero on Mawangdui (and Jing Fang, unaffected), so the specificity gate and all TR-10 verdicts stand unchanged. Non-flagged Mawangdui values shifted: palnbr 16 → 13 (termruns 5, asymhalf 7 unchanged) |
 | v1.3 | 2026-07-11 | **Scope-decision note (§5(c)):** Davis's big/little named-hexagram size pattern (pp. 94–96), conditionally pre-registered as a follow-up candidate, was declined without measurement on 2026-07-11 — hexagram names (tradition/translation-dependent semantic attributes) are not admitted as predicate inputs, consistent with §5(c)'s published scope statement. The follow-up family's Bonferroni denominator stays frozen at /12. No measured number in this report changes |
 | v1.4 | 2026-07-11 | Global-ledger qualifier on the trigarray "notable" (§3 row 3 + narrative): survives its family correction (0.05/9) but not the global ~83-observable ledger (≈6.0×10⁻⁴ bar; measured 6.8×10⁻⁴) — see METHODS §"Global observable ledger". No measured number changes |
+| v1.5 | 2026-07-12 | **Wave-2 addendum (§3b):** the §4 compactness thread closed by pre-registered measurement — `tquartet` NULL (a Davis-compact quartet is population-common, P(≥1) = 0.876; KW = 1 below the mean 1.86), `xunslots` NULL (p = 0.148, registered at low prior); Bonferroni 0.05/12 across both waves, frozen in advance; design frozen in a git-timestamped private pre-registration 2026-07-10, code public first (`09e2107`), results batch-landed. C-D5 decline (§5(c)) augmented with an analytic power note: min attainable p = 1/15 under the pair-exchangeable null, 16× the family gate — reproducible with no ROAE code (Verification Guide). Companion D-B1 paragraph (§3b): Drasny's Rule of Ten conformity count verified true (X = 22) and shown tautological — every room is the argmax decade window for its group's KW positions, so the count scores KW against a KW-extracted template; data-like, no p attached, separate Drasny family. Nothing promotes; no §3 number changes |

@@ -500,13 +500,31 @@ Cambria Press.
   its target template is itself read off King Wen, and TR-10 §5(c) had already placed names "outside
   this instrument." The observation remains Davis's, credited here; the decline is ours and is not a
   verdict on it. The follow-up family's Bonferroni denominator stays frozen at /12, fixed before the
-  decision so the decline cannot weaken the correction (see [HISTORY.md](HISTORY.md), 2026-07-11). [read]
+  decision so the decline cannot weaken the correction (see [HISTORY.md](HISTORY.md), 2026-07-11).
+  A second pre-registered wave (design frozen 2026-07-10, measured 2026-07-11) closed the audit
+  queue: the coordinated rotation-quartet configuration behind his surviving p. 114 claim measures
+  population-common (~88% of valid orderings contain one at his own compactness — NULL; the in-KW
+  uniqueness stands), and the wind-trigram slot count lands mildly above expectation (NULL); an
+  analytic power note at the same landing shows the declined named-size test could never have
+  attained p below 1/15 under the pair-exchangeable null
+  ([TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)). [read]
 
 <a id="drasny2007"></a>
 Drasny, J. (c. 2007). *The regular grouping of the hexagrams before the Yi jing* [Paper]; *The Yi-globe:
 The image of the cosmos in the Yijing* [Book].
   Early-Predecessor theory with four "alien" pairs as anomaly loci; also author of a critical review of
-  Cook (2006). Paper [analyzed, via mirror]; book [read].
+  Cook (2006). His book's ch. IV "Rule of Ten" (presented there as a previously unreported
+  regularity — his claim, recorded as his) — the eight trigram-defined functional groups occupy
+  decade-arithmetic "rooms" of the King Wen table, with ten deviant pairs — was operationalized
+  and measured (D-B1; measured 2026-07-11, landed 2026-07-12): the observation is true and
+  verified (his Table 4.1 group classifier reproduces 64/64 from pure bit predicates,
+  two-language `--db1-verify` gate;
+  KW conformity X = 22/32 with his ten deviant pairs exact), but each "room" is verifiably the
+  maximum-coverage decade window for its own group's King Wen positions plus a residue, so the
+  count is a fitted description scored against its own source — classified data-like, no p-value
+  attached, no design inference ([TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md);
+  process record in [CRITIQUE.md](CRITIQUE.md)). Unrelated to Davis 2012's separately-named
+  "rule of ten" (p. 126). Paper [analyzed, via mirror]; book [read].
 
 <a id="ge2026"></a>
 Ge, Z. (2026). The cycle structure of the King Wen permutation: A group-theoretic analysis of two classical
@@ -781,6 +799,11 @@ Wikipedia and OEIS entries used for reader orientation and the binary encoding a
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
 
 *Revision 2026-07-05 (Mawangdui correction): the Mawangdui array was wrong from 2026-04-06 to 2026-07-05; novel-claim #8 is withdrawn and the §Mawangdui erratum added. Authority: Shaughnessy 2022, Table 11.2; discovery credit: the Shaughnessy-2022 literature-audit cross-check.*
+
+*Revision 2026-07-12 (Davis wave 2 + Drasny D-B1): davis2012 annotation extended with the wave-2
+measurement outcomes (both null; TR-10 §3b) and the C-D5 power note; drasny2007 annotation extended
+with the D-B1 Rule-of-Ten fitted-description classification (verified true, X = 22; data-like, no
+p-value attached). No other entry touched.*
 
 <a id="goldenberg1975"></a>
 ## Goldenberg, Daniel S. (1975)

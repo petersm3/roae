@@ -412,7 +412,7 @@ residual survives this attack too. Evidence: `reports/evidence/perm_tier1.out`; 
 `SOLVE_KNUTH_SCORE_PERM=1 SOLVE_KNUTH_PERM_HIST=1 ./solve --estimate-knuth 2000000000`. Look-elsewhere
 ledger: global observable count → ~83.
 
-## Pre-registered test in flight: Davis (2012) structural claims (registered 2026-07-04, results pending)
+## Pre-registered tests: Davis (2012) structural claims (wave 1 registered 2026-07-04; wave 2 frozen 2026-07-10, measured 2026-07-11)
 
 Scott Davis, *The Classic of Changes in Cultural Context* (Cambria, 2012), asserts specific positional
 structures in the King Wen ordering and argues against purely mathematical explanation. Following the F4'
@@ -438,6 +438,61 @@ mass at 2×10⁹ probes) and, per the standing circularity policy, carry no desi
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided
 convention nothing reaches the candidate-rule level; nothing promotes. Full treatment:
 [reports/TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).
+
+**Davis wave 2 (2026-07-11, reported in full as pre-committed):** the structural audit queue's
+unmeasured tail — two functionals: the coordinated rotation-quartet count at Davis's own
+compactness (pp. 113–114), and the Xun-at-x7/x8-slot count (p. 114) — was frozen in a
+git-timestamped **private** pre-registration (2026-07-10; KW values and gates fixed before any
+population number was observed) with the operationalizations landed **publicly first** (`dav2_*`,
+commit `09e2107`, two-language `--dav2-verify` gate), and measured 2026-07-11 at 2×10⁹ probes —
+a batch-landing variant of wave 1's public pre-registration, stated plainly as such. Both
+**NULL** at the cross-wave 0.05/12 gate (frozen in advance, stricter than wave 1's /9): a
+Davis-compact quartet is population-common (P(≥1) = 0.876, mean 1.86; KW = 1, *below* the mean;
+two-sided p = 0.849), and the Xun-slot count is mildly above expectation (KW = 5, mean 2.90,
+two-sided p = 0.148). One further queue item was subsumed, not separately measured (the pair-unit
+trisection is a sub-predicate of an already-registered functional; Li Shangxin credited per
+Davis p. 119 n19), and one was declined on scope without measurement (the named-size candidate —
+see the 2026-07-11 [HISTORY](HISTORY.md) entry; a landing-time power note shows its minimum
+attainable p is 1/15 under the pair-exchangeable null, so it could never have registered).
+Neither measured functional triggered the candidate gate; no corpus-control step fired; nothing
+promotes. These two functionals were already counted in the ~83-observable global ledger when
+the /12 family was registered — the ledger does not grow. Evidence:
+`reports/evidence/dav2_tier1.out`; regeneration: `SOLVE_KNUTH_SCORE_DAV2=1
+SOLVE_KNUTH_DAV2_HIST=1 ./solve --estimate-knuth 2000000000`. Full treatment:
+[TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).
+
+## Measured descriptive scoring, not a pre-registered test: Drasny's "Rule of Ten" (D-B1, measured 2026-07-11)
+
+József Drasny (*The Yi-globe*, 2007/2011, ch. IV — [drasny2007](CITATIONS.md#drasny2007); no relation
+to Davis 2012's separately-named "rule of ten") observes that his eight trigram-defined functional
+groups occupy decade-arithmetic "rooms" of the King Wen table, with ten deviant pairs. The
+operationalization landed publicly first (commit `64e4a42`: bit-predicate classifier reproducing his
+Table 4.1 64/64, KW conformity X = 22 embedded, two-language `--db1-verify` gate) before any
+population number was observed, and the conformity count was then measured over the canonical C1–C5
+population (2×10⁹ probes; population mean 6.87, observed range 1–20). **Process, stated plainly:
+D-B1 was NOT publicly pre-registered** — the public-registration step this document applies to test
+families was skipped (the only freeze was the public code commit), and the omission is recorded here
+rather than repaired after the fact; the pre-registration step is mandatory for any future
+population measurement. **Classification: data-like (a fitted description), and verifiably so.**
+KW's X = 22 sits above the entire sampled population — but the rooms are King-Wen-derived: Drasny's
+own derivation (pp. 76–77) reads each room off the listed KW ordinals of each group's members, and
+mechanical re-verification shows every room is exactly the maximum-coverage decade window for its
+group's KW positions (the one group whose best single window covers only 2 is the only group granted
+two windows; the leftover cells form a residue room), so the fitted per-group coverages sum to
+3+3+3+3+4+5+1 = 22 — **the conformity count scores the sequence against a template extracted from
+the sequence, and its population extremity is the predicted signature of that extraction** (the same
+signature as the Davis exact-placement templates above), not evidence of design. Accordingly no
+p-value is attached and no design inference is drawn; what stands is Drasny's — credited —
+descriptive observation, true as stated and the strongest ordinal observation in his book, now
+population-quantified as a fitted description. His paper's revised variant (ten groups, four
+"alien" pairs) inherits the same classification a fortiori: the revision that shrank the deviants
+from ten to four is additional fitting. D-B1 belongs to a separate Drasny family (N = 4 if any
+member is ever scored inferentially, at which point the family enters the global observable ledger
+first); nothing here is scored inferentially, so the ~83-observable ledger is unchanged — the
+descriptive-by-construction handling already applied to C5 above. Nothing promotes. Evidence:
+`reports/evidence/db1_tier1.out`; regeneration: `SOLVE_KNUTH_SCORE_DB1=1 SOLVE_KNUTH_DB1_HIST=1
+./solve --estimate-knuth 2000000000`; gates: `--db1-verify` (both languages). Full treatment:
+[TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).
 
 ## Pre-registered model comparison in flight: four-class generative comparison (registered 2026-07-10, results pending)
 
