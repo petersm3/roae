@@ -508,8 +508,9 @@ solve --db1-verify
 
 Two-language gate for Drasny's **"Rule of Ten"** candidate **D-B1** (Rule-of-Ten
 conformity count), operational spec frozen in
-`roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md` (scoping only; not yet
-pre-registered/measured). Asserts that the bit-structural precedence classifier
+`roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md` (measured 2026-07-11:
+verified true and reported as a data-like fitted description — a tautology of a
+KW-extracted template, no p attached; [TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)). Asserts that the bit-structural precedence classifier
 (`B ≻ A ≻ F ≻ C ≻ D ≻ E ≻ G`) reproduces Drasny's Table 4.1 (book p. 75) eight-group
 system EXACTLY for all 64 hexagrams — flip-equivariant, C1-pair-consistent, zero
 residue, group sizes (A,B,C,D,E,F,G)=(5,4,4,4,6,3,6) — and that the King Wen

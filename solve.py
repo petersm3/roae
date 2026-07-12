@@ -7122,8 +7122,9 @@ def dav2_verify():
 # ---------------------------------------------------------------------------
 # Drasny "Rule of Ten" — candidate D-B1 (Rule-of-Ten conformity count).
 # Operational spec frozen in
-# roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md (SCOPING ONLY, held
-# for operator; NOT yet pre-registered, NOT yet measured). solve.py is the
+# roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md (measured 2026-07-11:
+# verified true, X = 22, and reported as a data-like fitted description — a
+# tautology of a KW-extracted template, no p attached; TR-10 §3b). solve.py is the
 # SPEC; the --db1-verify subcommand is the two-language gate (solve.c
 # --db1-verify must reproduce this output byte-for-byte). Nothing here is on
 # the enum / selftest / checkpoint path.

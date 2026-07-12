@@ -501,7 +501,8 @@ Cambria Press.
   this instrument." The observation remains Davis's, credited here; the decline is ours and is not a
   verdict on it. The follow-up family's Bonferroni denominator stays frozen at /12, fixed before the
   decision so the decline cannot weaken the correction (see [HISTORY.md](HISTORY.md), 2026-07-11).
-  A second pre-registered wave (design frozen 2026-07-10, measured 2026-07-11) closed the audit
+  A second pre-registered wave (design frozen 2026-07-10 in a **private**, git-timestamped
+  commit rather than a public registration — see TR-10 §3b; measured 2026-07-11) closed the audit
   queue: the coordinated rotation-quartet configuration behind his surviving p. 114 claim measures
   population-common (~88% of valid orderings contain one at his own compactness — NULL; the in-KW
   uniqueness stands), and the wind-trigram slot count lands mildly above expectation (NULL); an
