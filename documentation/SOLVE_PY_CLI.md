@@ -47,6 +47,7 @@ python3 solve.py --keystone-analysis SOLUTIONS_BIN OUT_MD
 
 # Ground-truth verifiers (details in SOLVE_C_CLI.md)
 python3 solve.py --f4p-verify | --f6-verify | --dav-verify | --vdb-verify | --perm-verify [SEQ]
+python3 solve.py --rc4b-verify [SEQ]
 python3 solve.py --books-verify | --trigram-verify | --registry-verify | --extended-selftest SOLVE_BINARY
 ```
 
@@ -237,6 +238,7 @@ discovery — follow the link for the authoritative description:
 | `--trigram-verify` | Two-language ground truth for [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean): independently re-compute every finite fact and every KW instance of its machine-checked trigram-level statements (18 claims, TG1-a … TG5-b). No `solve` C equivalent. Sha-neutral. Scope + attribution: [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md). | [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md) |
 | `--registry-verify` | Run every `reg_*` candidate-rule ground-truth checker and assert each equals its registry KW-expected value. | [SOLVE_C_CLI.md#--registry-verify-solvepy-only](SOLVE_C_CLI.md#--registry-verify-solvepy-only) |
 | `--perm-verify [SEQ]` | Two-language ground truth for the 13 FROZEN R3 permutation-cycle functionals (`perm_ncyc_bot` … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30) on KW — or on an explicit `"h0,...,h63"` hexagram-value sequence. Prints one `perm_<name>: <value> OK/FAIL` line each; exit 0 iff all 13 match. This is the authoritative ground truth for the C `SOLVE_KNUTH_SCORE_PERM` population scorer (no `solve` C subcommand equivalent; the C side is the env-var scorer). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026). Sha-neutral. | [SOLVE_C_CLI.md#environment](SOLVE_C_CLI.md#environment) (`SOLVE_KNUTH_SCORE_PERM`) |
+| `--rc4b-verify [SEQ]` | Two-language ground truth for the R13 HEC two-convention parity predicates ([Schulz 1990](CITATIONS.md#schulz1990-motifs) gender/position-parity, elaborated [Cook 2006](CITATIONS.md#cook2006)): asserts the KW anchors — 2 violations at adjacent class positions [25, 26]; R-C4-A (published ≤2 relaxation), R-C4-B (exception form: 0 violations OR 2 adjacent), R-C4-C (exactly {25,26}) and the rc3/rc3w level-3 checks all pass. With a 64-int SEQ prints `viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w`. Sha-neutral. | [SOLVE_C_CLI.md#--rc4b-verify](SOLVE_C_CLI.md#--rc4b-verify) |
 | `--extended-selftest SOLVE_BINARY` | Small-scale path-invariance + resume regression suite against a compiled `solve` binary (CI gate; wall ~10 min). | [SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand](SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand) |
 | `--compare-depth-profile RUN_A_LOG RUN_B_LOG` | Tree-walk validator (#48): compare `DEPTH_PROFILE` node counts from two run logs; PASS if divergence < `--compare-depth-profile-threshold` (default 0.005). | [SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only](SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only) |
 | `--compute-stats SOLUTIONS_BIN OUT_DIR` | P2 stage 1: stream `solutions.bin`, emit per-chunk parquet stats. | [SOLVE_C_CLI.md#--compute-stats-solvepy-only](SOLVE_C_CLI.md#--compute-stats-solvepy-only) |
@@ -257,7 +259,7 @@ terminal and take precedence.
 | Code | Meaning |
 |---|---|
 | 0 | Success (or, for a verifier, all checks PASS). |
-| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--vdb-verify`, `--perm-verify`, `--books-verify`, `--trigram-verify`, `--registry-verify`, `--extended-selftest`), or an invalid argument. |
+| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--vdb-verify`, `--perm-verify`, `--rc4b-verify`, `--books-verify`, `--trigram-verify`, `--registry-verify`, `--extended-selftest`), or an invalid argument. |
 
 The descriptive analyses print to stdout and exit 0; they do not encode
 findings in the exit status.

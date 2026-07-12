@@ -4786,6 +4786,24 @@ typedef struct {
      * 5-pair popcount-palindromic windows (Davis 2012 claims via review; KW has 2 — verified); par:
      * leaves weakly Pareto-dominating KW on (m1 up, breaks down, c3 down, rc1/rc2/rc5 binary), strict
      * on >=1 axis (F4-A Pareto-conjecture instrument). */
+    double sum_rc4b, sum_rc4c;            /* R13 HEC two-convention re-run (frozen design 2026-07-11 §4):
+                                           * rc4b = exception-clause Cook-faithful form of the gender/parity
+                                           * rule — pass iff viol==0 OR (viol==2 at ADJACENT class positions);
+                                           * by Lemma B1 this is "strict parity up to one adjacent-transposition
+                                           * defect", the candidate-level reading of Cook's exception-free
+                                           * statement of the rule (Cook 2006 p. 558). rc4b implies rc4k
+                                           * (one-sided by construction). rc4c = viol==2 exactly at positions
+                                           * {25,26} — KW's marked exception locus (KW-anchored, data-like,
+                                           * report-only). Same class-position and gender conventions as
+                                           * rc4k/rc4s above. Ground truth: solve.py rc4b_pass/rc4c_pass; KW
+                                           * gate --rc4b-verify. Attribution: Schulz 1990 (motif 2; exception
+                                           * per Zhu Yuansheng via Schulz 2018 fn.42), elaborated Cook 2006.
+                                           * Estimator-only, sha-neutral. */
+    uint64_t rc4b_t1_checked, rc4b_t1_fail; /* SOLVE_RC4B_ASSERT_T1=1 (optional, R13 §5.1): per-leaf T1 assert
+                                           * — on every adjacent-defect leaf, the level-3 (neuter, exempt)
+                                           * position set must be disjoint from the B1 repair pair, so the
+                                           * repair transposition moves no level-3 class (theorem T1
+                                           * bookkeeping; expected fail == 0). An assertion, not a measurement. */
     double sum_wrap[7];                   /* SOLVE_KNUTH_SCORE=1: full-space wrap-distance mass d(s63,s0)
                                            * per value 0..6 (CIRCULAR_KING_WEN.md queued measurement:
                                            * 5-wrap mass = the price of circular C2; 560T slice has 0). */
@@ -4923,6 +4941,12 @@ static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scorin
                                  * Estimator-only — no enumeration-path impact (sha-neutral). Uniqueness-conjecture probe. */
 
 static int pair_of_hex(int h);   /* defined in the analyze section below */
+
+static int knuth_rc4b_t1 = 0;   /* SOLVE_RC4B_ASSERT_T1=1 (requires SOLVE_KNUTH_SCORE=1): per-leaf T1
+                                 * assertion for the R13 R-C4-B instrument — on every leaf where the
+                                 * adjacent-defect clause fires, assert the level-3 position set is
+                                 * disjoint from the B1 repair pair (see KnuthArg.rc4b_t1_* above).
+                                 * Estimator-only, sha-neutral. */
 
 static int knuth_score_reg = 0; /* SOLVE_KNUTH_SCORE_REG=1: per-leaf weighted scoring of the 31 candidate
                                  * rules in CANDIDATE_REGISTRY_2026_07 (see score_registry below).
@@ -6762,7 +6786,7 @@ static void *knuth_worker(void *vp){
                         }
                         /* --- HEC-translation scorers (Cook 2006; conventions KW-verified 2026-07-02) --- */
                         {
-                            int cls_of[64], ncls = 0, l3pos[12], nl3 = 0, viol = 0;
+                            int cls_of[64], ncls = 0, l3pos[12], nl3 = 0, viol = 0, vp0 = 0, vp1 = 0;
                             for (int z=0;z<64;z++) cls_of[z] = -1;
                             for (int z=0;z<64;z++) {
                                 int h = seq[z], r = 0;
@@ -6774,7 +6798,12 @@ static void *knuth_worker(void *vp){
                                     if (pck == 3) { if (nl3 < 12) l3pos[nl3] = ncls; nl3++; }
                                     else if (pck != 0 && pck != 6) {
                                         /* minority-line gender: pc<3 male->odd position; pc>3 female->even */
-                                        if ((pck < 3) != ((ncls & 1) == 1)) viol++;
+                                        if ((pck < 3) != ((ncls & 1) == 1)) {
+                                            viol++;
+                                            /* R13: record the first two violating class positions
+                                             * (all that R-C4-B/C need; count-only beyond two). */
+                                            if (viol == 1) vp0 = ncls; else if (viol == 2) vp1 = ncls;
+                                        }
                                     }
                                 }
                             }
@@ -6791,6 +6820,26 @@ static void *knuth_worker(void *vp){
                             if (spat) a->sum_rc3w += W;
                             if (viol <= 2) a->sum_rc4k += W;
                             if (viol == 0) { a->sum_rc4s += W; a->sumsq_rc4s += W*W; a->hits_rc4s++; }
+                            /* R13 R-C4-B / R-C4-C (HEC two-convention; frozen 2026-07-11 §4). No
+                             * separate class-position numbering is scored: the design's
+                             * definitional verification (§2, private) resolved that the published
+                             * first-occurrence numbering is the unique sequence-derived one and
+                             * matches Cook's on KW; the exception-clause form is the only live
+                             * convention freedom, so the paired A(rc4k)/B/C masses on identical
+                             * probes are the entire two-convention instrument. */
+                            {
+                                int rc4b = (viol == 0) || (viol == 2 && vp1 == vp0 + 1);
+                                if (rc4b) a->sum_rc4b += W;
+                                if (viol == 2 && vp0 == 25 && vp1 == 26) a->sum_rc4c += W;
+                                if (knuth_rc4b_t1 && viol == 2 && vp1 == vp0 + 1) {
+                                    /* T1 assert: the B1 repair swaps two GENDERED classes, so no
+                                     * level-3 (neuter, exempt) position may coincide with either
+                                     * violating position. Expected fail == 0 on every leaf. */
+                                    a->rc4b_t1_checked++;
+                                    for (int z = 0; z < nl3 && z < 12; z++)
+                                        if (l3pos[z] == vp0 || l3pos[z] == vp1) { a->rc4b_t1_fail++; break; }
+                                }
+                            }
                             /* F11 joint violation histogram (Moore 2005 / Moore 1989 / Schulz 1990;
                              * KW cell = (2,2,2)). Estimator-only. */
                             if (a->f11_hist && m1ok >= 0 && m2breaks >= 0) {
@@ -7070,6 +7119,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     double qC4s=0, maxWc3=0; uint64_t hC4s=0;   /* R11 P2: derived-N_gs CI twin + skew audit */
+    double sC4b=0, sC4c=0; uint64_t t1chk=0, t1fail=0;   /* R13: R-C4-B/C masses + T1 assert tallies */
     double sRC1cS2=0, sRC1cS32=0, sRC1cAdj=0, sA2[33]={0};  /* R-C1c (R6) */
     double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
@@ -7082,6 +7132,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
         qC4s+=arg[i].sumsq_rc4s; hC4s+=arg[i].hits_rc4s; if (arg[i].max_w_c3 > maxWc3) maxWc3 = arg[i].max_w_c3;
+        sC4b+=arg[i].sum_rc4b; sC4c+=arg[i].sum_rc4c;
+        t1chk+=arg[i].rc4b_t1_checked; t1fail+=arg[i].rc4b_t1_fail;
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
         for (int b2=0;b2<31;b2++) sBC[b2]+=arg[i].sum_bcond[b2];
         for (int w2=0;w2<7;w2++) sWR[w2]+=arg[i].sum_wrap[w2];
@@ -7262,6 +7314,15 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass (independence: %.8f)\n", sMJ/sC, (sM1k/sC)*(sM2k/sC));
         printf("  [score] R-C3 level-3 positions == KW : %.8f | S-gap pattern anywhere: %.8f (Cook 2006)\n", sC3/sC, sC3w/sC);
         printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
+        /* R13 HEC two-convention paired re-run (frozen 2026-07-11): B = Cook-faithful
+         * exception form (0 viol OR exactly 2 at adjacent positions; subset of the <=2 line
+         * above, one-sided); C = KW's exception locus exactly (viol==2 at {25,26}; data-like,
+         * report-only). Measured on the SAME probes as the A line, so r = f_A/f_B is free of
+         * cross-run estimator noise. */
+        printf("  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : %.10e | R-C4-C KW locus [25,26]: %.10e (R13 two-convention; Schulz 1990/Cook 2006)\n", sC4b/sC, sC4c/sC);
+        if (knuth_rc4b_t1)
+            printf("  [score] R-C4-B T1 assert (level-3 positions disjoint from the B1 repair pair): checked=%llu fail=%llu (expected fail=0)\n",
+                   (unsigned long long)t1chk, (unsigned long long)t1fail);
         /* R11 Phase-2 §5.2: DERIVED N_gs with a propagated 95% CI. sum_rc4s/N is itself an
          * unbiased Knuth estimate of the ABSOLUTE triple-strict count (canonical AND Moore-strict
          * [prune-enforced in the derived run] AND 0 gender violations); its sumsq twin gives the
@@ -16040,6 +16101,10 @@ int main(int argc, char *argv[]) {
             knuth_score = 1;
             fprintf(stderr, "[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)\n");
         }
+        if (getenv("SOLVE_RC4B_ASSERT_T1") && atoi(getenv("SOLVE_RC4B_ASSERT_T1")) == 1) {
+            knuth_rc4b_t1 = 1;
+            fprintf(stderr, "[knuth] R-C4-B T1 per-leaf assert ACTIVE (level-3 positions disjoint from the B1 repair pair; R13 frozen design 2026-07-11 §5.1; requires SOLVE_KNUTH_SCORE=1)\n");
+        }
         if (getenv("SOLVE_KNUTH_SCORE_REG") && atoi(getenv("SOLVE_KNUTH_SCORE_REG")) >= 1) {
             knuth_score_reg = 1;
             fprintf(stderr, "[knuth] candidate-registry scoring ACTIVE (31 rules, CANDIDATE_REGISTRY_2026_07 at KW-threshold form; ground truth solve.py reg_*)\n");
@@ -16337,6 +16402,77 @@ int main(int argc, char *argv[]) {
         }
         if (failures == 0) printf("R11 VERIFY: PASS\n");
         else printf("R11 VERIFY: %d FAILURES\n", failures);
+        return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--rc4b-verify") == 0) {
+        /* R13 two-language gate — HEC two-convention parity predicates (frozen design
+         * 2026-07-11 §4 KW gates). Computes, on King Wen (or on an explicit "h0,...,h63"
+         * argument), the gender/parity violation count + first two violating class
+         * positions and the derived indicators:
+         *   rc4a = published <=2-violation relaxation (R-C4-A);
+         *   rc4b = Cook-faithful exception form (viol==0 OR viol==2 at adjacent
+         *          positions; Lemma B1) — R-C4-B, subset of rc4a by construction;
+         *   rc4c = KW's exception locus exactly (viol==2 at {25,26}) — R-C4-C;
+         *   rc3  = level-3 class positions == KW's {7,10,12,19,24,27,30,31,33,36};
+         *   rc3w = some 6 consecutive level-3 classes have gap pattern {6,4,2,2,0}.
+         * KW anchors asserted (analytic, design §2 V2/V3): viol=2 at ADJACENT positions
+         * {25,26}; A, B, C, rc3, rc3w all pass. Ground truth twin: solve.py --rc4b-verify
+         * (outputs must match byte-for-byte). Attribution: Schulz 1990 motif 2 (exception
+         * per Zhu Yuansheng, 13th c., via Schulz 2018 fn.42); elaborated Cook 2006.
+         * Sha-neutral (argv-dispatched, never on the enum/selftest path). */
+        init_pairs();
+        int seq[64]; int have_arg = (argc > 2);
+        if (have_arg) {
+            int n = 0; char *tv = strdup(argv[2]);
+            for (char *tok = strtok(tv, ", "); tok && n < 64; tok = strtok(NULL, ", ")) seq[n++] = atoi(tok);
+            free(tv);
+            if (n != 64) { fprintf(stderr, "--rc4b-verify: need 64 ints, got %d\n", n); return 1; }
+        } else memcpy(seq, KW, sizeof(seq));
+        int cls_of[64], ncls = 0, l3pos[12], nl3 = 0, viol = 0, vp0 = 0, vp1 = 0;
+        for (int z=0;z<64;z++) cls_of[z] = -1;
+        for (int z=0;z<64;z++) {
+            int h = seq[z], r = 0;
+            for (int b3=0;b3<6;b3++) r |= ((h>>b3)&1) << (5-b3);
+            int key = h < r ? h : r;
+            if (cls_of[key] < 0) {
+                cls_of[key] = ++ncls;
+                int pck = __builtin_popcount((unsigned)h);
+                if (pck == 3) { if (nl3 < 12) l3pos[nl3] = ncls; nl3++; }
+                else if (pck != 0 && pck != 6) {
+                    if ((pck < 3) != ((ncls & 1) == 1)) {
+                        viol++;
+                        if (viol == 1) vp0 = ncls; else if (viol == 2) vp1 = ncls;
+                    }
+                }
+            }
+        }
+        static const int kwl3v[10] = {7,10,12,19,24,27,30,31,33,36};
+        int rc3 = (nl3 == 10);
+        if (rc3) for (int z=0;z<10;z++) if (l3pos[z] != kwl3v[z]) { rc3 = 0; break; }
+        int rc3w = 0;
+        if (nl3 == 10) for (int z=0; z+5 < 10; z++) {
+            if (l3pos[z+1]-l3pos[z]-1 == 6 && l3pos[z+2]-l3pos[z+1]-1 == 4 &&
+                l3pos[z+3]-l3pos[z+2]-1 == 2 && l3pos[z+4]-l3pos[z+3]-1 == 2 &&
+                l3pos[z+5]-l3pos[z+4]-1 == 0) { rc3w = 1; break; }
+        }
+        int rc4a = (viol <= 2);
+        int rc4b = (viol == 0) || (viol == 2 && vp1 == vp0 + 1);
+        int rc4c = (viol == 2 && vp0 == 25 && vp1 == 26);
+        if (have_arg) {
+            printf("%d,%d,%d,%d,%d,%d,%d,%d\n", viol, vp0, vp1, rc4a, rc4b, rc4c, rc3, rc3w);
+            return 0;
+        }
+        int failures = 0;
+        struct { const char *nm; int v, exp; } chk[8] = {
+            {"rc4_viol", viol, 2}, {"rc4_vpos0", vp0, 25}, {"rc4_vpos1", vp1, 26},
+            {"rc4a_le2", rc4a, 1}, {"rc4b_exc_form", rc4b, 1}, {"rc4c_kw_locus", rc4c, 1},
+            {"rc3_exact", rc3, 1}, {"rc3w_sgap", rc3w, 1}
+        };
+        for (int k=0;k<8;k++){
+            if (chk[k].v == chk[k].exp) printf("%s: %d OK\n", chk[k].nm, chk[k].v);
+            else { printf("%s: %d FAIL (expected %d)\n", chk[k].nm, chk[k].v, chk[k].exp); failures++; }
+        }
+        if (failures == 0) printf("RC4B VERIFY: PASS\n");
+        else printf("RC4B VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */

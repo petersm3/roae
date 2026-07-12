@@ -53,6 +53,7 @@ solve --verify-9th-six [solutions.bin]                  # 9th-six between-pair v
 solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tabulation
 solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify | --db1-verify
                                                         # two-language functional-battery gates
+solve --rc4b-verify [SEQ]                               # R13 HEC two-convention parity gate (KW anchors)
 solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
 solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
 solve --c3-dist [solutions.bin]                         # C3 complement-distance histogram
@@ -523,6 +524,39 @@ Attribution: József Drasny (*The Yi-globe*, 2007/2011); the classifier reductio
 conformity operationalization are ROAE's. **Name-collision note:** unrelated to Scott
 Davis's (2012, p. 126) separately-named "rule of ten" (#18/#27 ten ordinals apart,
 registry C-D14).
+
+### --rc4b-verify
+
+```
+solve --rc4b-verify [SEQ]
+```
+
+Two-language gate for the **R13 HEC two-convention** parity predicates (exception-clause
+robustness re-run of the published R-C4 rows; design frozen 2026-07-11, private repo).
+Without an argument, computes on the King Wen sequence — over the 36 inversion-class
+positions in first-occurrence order, with [Schulz 1990](CITATIONS.md#schulz1990-motifs) /
+[Cook 2006](CITATIONS.md#cook2006) minority-line gender (popcount < 3 male → odd class
+position, > 3 female → even; popcounts {0, 3, 6} exempt) — and asserts the analytic KW
+anchors:
+
+- `rc4_viol` = 2, at class positions 25 and 26 (adjacent; the exception pair first
+  recognized by Zhu Yuansheng, 13th c., per Schulz 2018 fn. 42);
+- `rc4a_le2` — the published ≤2-violation relaxation (R-C4-A) passes;
+- `rc4b_exc_form` — the Cook-faithful exception form (**R-C4-B**: 0 violations OR exactly
+  2 at adjacent positions, i.e. strict parity up to one adjacent-transposition defect;
+  a subset of R-C4-A by construction) passes;
+- `rc4c_kw_locus` — 2 violations exactly at {25, 26} (**R-C4-C**; KW-anchored,
+  data-like, report-only) passes;
+- `rc3_exact` / `rc3w_sgap` — the level-3 class positions equal KW's
+  {7,10,12,19,24,27,30,31,33,36} and contain the {6,4,2,2,0} gap window.
+
+With a 64-int `SEQ` argument, instead prints
+`viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w` for cross-language / corpus-control gating.
+Ground truth is `solve.py --rc4b-verify`; outputs must match byte-for-byte. Exit 0 iff
+all anchors pass. Sha-neutral (argv-dispatched, never on the enum/selftest path).
+Population scoring: the R-C4-B/R-C4-C mass lines ride `SOLVE_KNUTH_SCORE=1` (paired with
+the published R-C4 line on identical probes); optional per-leaf T1 assertion:
+`SOLVE_RC4B_ASSERT_T1` below.
 
 ### --f5-verify
 
@@ -1130,9 +1164,10 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_SCORE_REG` | `1` | Score all 31 registry candidate rules ([Schulz 1990](CITATIONS.md#schulz1990-motifs)/[2011](CITATIONS.md#schulz2011)/[2016](CITATIONS.md#schulz2016)/diss, [McKenna-Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), [Schöter](CITATIONS.md#schoter1998) — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_PERM` | 0 | `=1`: score the 13 FROZEN R3 permutation-cycle functionals per canonical leaf (`perm_ncyc_bot`, `perm_lcyc_bot`, `perm_ord_bot`, … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026) (KW cycle type of the top permutation (52,10,2)). Ground truth / two-language gate: `solve.py --perm-verify`. `=2` + `SOLVE_PERM_TESTVEC`: explicit-sequence cross-verification hook. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_PERM_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE_PERM=1`): additionally emit `perm_hist <name> <value> <mass>` per-functional weighted value histograms (the two `ord` functionals are wide-binned into 512 bins, Landau bound g(64)=2,042,040). Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
+| `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zheng Qiao ~1150 / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). Since 2026-07-12 also reports, paired on the same probes as the R-C4 gender/parity line, the R13 two-convention masses **R-C4-B** (exception form: 0 violations OR exactly 2 at adjacent class positions; subset of the published ≤2 relaxation) and **R-C4-C** (2 violations exactly at {25,26}; data-like, report-only) — KW gate `--rc4b-verify`. See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
 | `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_GENDER_STRICT` | 0 | `=1`: prune the walk to orderings satisfying the Schulz 1990 gender/position-parity rule strictly (0 violations; semantics identical to the rc4 leaf scorer / `solve.py rc4_violations`; exception first noted by Zhu Yuansheng, 13th c.). Composes with `SOLVE_KNUTH_MOORE_STRICT` to estimate the triple-strict ("grand-strict") space (F11 M_corr precursor set). Prints a leaf-scorer cross-check line (mismatches must be 0). Estimator-only, sha-neutral. |
+| `SOLVE_RC4B_ASSERT_T1` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): per-leaf T1 assertion for the R13 R-C4-B instrument — on every canonical leaf where the adjacent-defect clause fires, assert that the level-3 (neuter, gender-exempt) class-position set is disjoint from the two violating positions, so the repairing adjacent transposition moves no level-3 class (the analytic convention-invariance argument for the level-3 rows). Prints `checked=<n> fail=<n>` (expected fail=0). An assertion, not a measurement. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F11_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): emit the F11 joint violation histogram — `f11_hist v1 v2 v3 <mass>` lines over (v1 = 18 − Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender violations; KW = (2,2,2)) — the M_tend normalizer ingredient of the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 Bayes comparison (archived instance: reports/evidence/f11/f11_runA.out). Under strict walks the fractions are conditional on the pruned space. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE_F4P` | 0 | `=1`: score the 13 pre-registered F4' ordering-layer functionals per canonical leaf (below/at/above-KW weighted masses; CRITIQUE.md §F4'; [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) v1.3). Ground truth / two-language gate: `--f4p-verify`. Archived tier-1 run: reports/evidence/f4p_tier1.out. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F4P_HIST` | 0 | `=1` (with `SOLVE_KNUTH_SCORE_F4P=1`): additionally emit `f4p_hist <name> <value> <mass>` full per-functional weighted value histograms. Estimator-only, sha-neutral. |

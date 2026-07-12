@@ -6422,6 +6422,97 @@ def rc1c_verify(seq_arg=None):
 
 
 # ---------------------------------------------------------------------------
+# R13 — HEC two-convention robustness predicates (R-C4-B / R-C4-C) + KW gate.
+# Frozen design: roae-private R13 HEC two-convention doc (2026-07-11) §4.
+# Two-language twin of solve.c's R13 scorer accumulators / --rc4b-verify.
+# ATTRIBUTION (the rule is NOT a ROAE discovery): Schulz 1990 (JCP 17:3,
+# 345-358, motif 2; the exception first recognized by Zhu Yuansheng, 13th c.,
+# per Schulz 2018 fn. 42); Cook 2006 elaborates it in his 36-class (HEC)
+# coordinates; the 36-class frame is Lai Zhide 1599. ROAE contributes only the
+# exception-clause formalization + the population measurement. Lemma B1 below
+# is elementary — no novelty claimed; corrections invited. Developed with AI
+# assistance (Claude, Anthropic).
+# ---------------------------------------------------------------------------
+
+def rc4b_pass(seq):
+    """R-C4-B — the Cook-faithful exception form of the gender/position-
+    parity rule: pass iff 0 violations OR exactly 2 violations at ADJACENT
+    class positions. Lemma B1 (elementary): a violation at an odd position is
+    a female class and at an even position a male class, so two adjacent
+    violations are oppositely gendered and one adjacent transposition repairs
+    both while moving no other class — i.e. "strict parity up to at most one
+    adjacent-transposition defect", the candidate-level translation of Cook's
+    exception-free statement of the rule (Cook 2006 p. 558). Subset of the
+    published <=2-violation relaxation (R-C4-A) by construction (one-sided).
+    KW passes: (2, [25, 26])."""
+    viol, vpos = rc4_violations(seq)
+    return viol == 0 or (viol == 2 and vpos[1] == vpos[0] + 1)
+
+
+def rc4c_pass(seq):
+    """R-C4-C — KW's marked exception locus exactly: 2 violations precisely at
+    class positions {25, 26} (KW-anchored, data-like; report-only per the
+    frozen design, never headlined). KW passes."""
+    return rc4_violations(seq) == (2, [25, 26])
+
+
+def hec_level3_positions(seq):
+    """1-based first-occurrence class positions of the level-3 (popcount-3)
+    inversion classes. KW == [7, 10, 12, 19, 24, 27, 30, 31, 33, 36] (Cook
+    2006, KW-verified). Twin of the l3pos[] array in solve.c's rc3/rc3w
+    scorers (popcount is class-invariant: 6-bit reversal preserves it)."""
+    return [i for i, (c, _) in enumerate(_reg_stations(seq), 1)
+            if bin(c).count("1") == 3]
+
+
+def rc4b_verify(seq_arg=None):
+    """Two-language ground-truth gate for the R13 predicates. No argument:
+    recompute on King Wen and assert the analytic anchors (frozen design §2
+    V2/V3 + §4 KW gates) — viol=2 at adjacent class positions [25, 26]; the
+    published relaxation A, the exception-form B, and the KW-locus C all pass;
+    the rc3 exact level-3 positions and the rc3w S-gap pattern {6,4,2,2,0}
+    pass. With a 64-int SEQ argument: print
+    `viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w` (same ordering as solve.c
+    --rc4b-verify SEQ) for cross-language gating."""
+    if seq_arg is not None:
+        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        if len(seq) != 64:
+            print(f"rc4b-verify: need 64 ints, got {len(seq)}")
+            return 1
+    else:
+        seq = list(binary_hexagrams)
+    viol, vpos = rc4_violations(seq)
+    vp0 = vpos[0] if len(vpos) >= 1 else 0
+    vp1 = vpos[1] if len(vpos) >= 2 else 0
+    rc4a = 1 if viol <= 2 else 0
+    rc4b = 1 if rc4b_pass(seq) else 0
+    rc4c = 1 if rc4c_pass(seq) else 0
+    l3 = hec_level3_positions(seq)
+    rc3 = 1 if l3 == [7, 10, 12, 19, 24, 27, 30, 31, 33, 36] else 0
+    rc3w = 0
+    if len(l3) == 10:
+        for z in range(5):
+            if [l3[z + k + 1] - l3[z + k] - 1 for k in range(5)] == [6, 4, 2, 2, 0]:
+                rc3w = 1
+                break
+    if seq_arg is not None:
+        print(f"{viol},{vp0},{vp1},{rc4a},{rc4b},{rc4c},{rc3},{rc3w}")
+        return 0
+    fails = 0
+    for nm, v, exp in (("rc4_viol", viol, 2), ("rc4_vpos0", vp0, 25),
+                       ("rc4_vpos1", vp1, 26), ("rc4a_le2", rc4a, 1),
+                       ("rc4b_exc_form", rc4b, 1), ("rc4c_kw_locus", rc4c, 1),
+                       ("rc3_exact", rc3, 1), ("rc3w_sgap", rc3w, 1)):
+        if v == exp:
+            print(f"{nm}: {v} OK")
+        else:
+            print(f"{nm}: {v} FAIL (expected {exp})")
+            fails += 1
+    print("RC4B VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    return 1 if fails else 0
+
+
+# ---------------------------------------------------------------------------
 # R11 — four-class Bayes v2: the frozen 8-axis violation bundle (design:
 # roae-private/R11_BAYES_V2_DESIGN_2026_07_10.md §3) + greedy-builder (M_G)
 # machinery (§2.2/§9.3). Two-language twin of solve.c r11_axes / --r11-verify
@@ -8650,6 +8741,14 @@ def main():
                              "(g1..g6 T1 + g7,g8 T2) on KW (expected "
                              "2,2,2,0,0,0,0,0); with a 64-int SEQ print the 8 "
                              "values (ordering matches solve.c --r11-verify SEQ)")
+    parser.add_argument("--rc4b-verify", nargs="?", const="", default=None,
+                        metavar="SEQ",
+                        help="R13: verify the HEC two-convention parity "
+                             "predicates on KW (expected viol=2 at adjacent "
+                             "positions [25,26]; R-C4-A/B/C + rc3/rc3w all "
+                             "pass); with a 64-int SEQ argument print "
+                             "`viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w` "
+                             "(ordering matches solve.c --rc4b-verify SEQ)")
     parser.add_argument("--r11-builder-verify", action="store_true",
                         help="R11: structural smoke-test of the M_G greedy-builder "
                              "machinery (KW-path softmax numerator, P_complete "
@@ -8771,6 +8870,9 @@ def main():
 
     if args.r11_verify is not None:
         sys.exit(r11_verify(args.r11_verify if args.r11_verify else None))
+
+    if args.rc4b_verify is not None:
+        sys.exit(rc4b_verify(args.rc4b_verify if args.rc4b_verify else None))
 
     if args.r11_builder_verify:
         sys.exit(r11_builder_verify())
