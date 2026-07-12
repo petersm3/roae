@@ -99,6 +99,20 @@ with `python3 sat.py --witness moore-strict` and
    (C1–C5-valid, C3 = 776), and the minimal repair from King Wen is exactly 3 slot-edits (≤2 UNSAT, DRAT
    cert archived) — a swap of the adjacent pairs at slots 21/22 (= class positions 25/26, precisely the
    Zhu Yuansheng/Schulz exception locus) plus one orientation flip.
+
+   *Convention-stability note (2026-07-12).* The rule admits two natural predicate forms: the form its
+   sources state — parity throughout, with at most one exception pair at adjacent class positions
+   ([Schulz 1990](CITATIONS.md#schulz1990-motifs), elaborated by [Cook 2006](CITATIONS.md#cook2006); the
+   exception first recognized by Zhu Yuansheng, 13th c.) — and the "≤2 violations anywhere" relaxation
+   under which the ×11,364 figure was measured. Re-measured under the source-stated exception form,
+   paired on identical probes with the published form, the population fraction comes out the same order —
+   within about one order of magnitude (≈11× smaller, hence a somewhat *stronger* cut; no weaker is
+   possible, the exception form being a subset of the relaxation by construction) — so the ×11,364
+   discriminator is robust to the choice of convention, not an artifact of the relaxation. King Wen passes
+   both forms: its two violations are adjacent, at class positions 25/26, precisely the Zhu
+   Yuansheng/Schulz exception locus (two-language verifier `--rc4b-verify`; predicates R-C4-A/R-C4-B,
+   [SOLVE_C_CLI.md](SOLVE_C_CLI.md#--rc4b-verify)). Two-convention re-measurement is standard robustness
+   practice, recorded as due diligence rather than claimed as a result.
 6. **The grand unified precursor exists: one ordering satisfies ALL THREE literature rules perfectly** —
    Moore's 2005 parity (18/18), Moore's 1989 rhythm (0 breaks), and Schulz's 1990 gender rule (0
    violations) — again C1–C5-valid at C3 = 776:
