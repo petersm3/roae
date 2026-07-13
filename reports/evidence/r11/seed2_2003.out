@@ -1,0 +1,123 @@
+[knuth] GENDER-STRICT walk ACTIVE (Schulz 1990 gender/position-parity, 0 violations enforced in-walk; composes with MOORE_STRICT for the triple-strict space — F11)
+[knuth] R11 8-axis joint violation histogram ACTIVE (g1..g6 T1 principled + g7,g8 T2 data-like; sparse-hashed; requires SOLVE_KNUTH_SCORE=1; KW cell 2,2,2,0,0,0,0,0; gate --r11-verify)
+[knuth] RNG SEED OVERRIDE ACTIVE: base=0x00000000000007d3 (R11 Phase-2 independent-seed replicate; estimator-only, sha-neutral)
+[knuth] STRICT-MOORE walk ACTIVE (Moore 2005 parity 18/18 + Moore 1989 rhythm 0-breaks enforced in-walk)
+[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)
+[knuth] 55000000000 probes, 64 threads, 0 prefix level(s)
+KNUTH-ESTIMATE probes=55000000000 threads=64 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x00000000000007d3 moore_strict=1 gender_strict=1 score=1 r11_hist=1 wall_s=9698
+  tree_nodes            : est=6.784436e+29  95%CI=[6.7805e+29, 6.7883e+29]  relerr=0.03%  hitrate=1
+  leaves_C1C2C4C5       : est=5.720843e+26  95%CI=[5.3392e+26, 6.1025e+26]  relerr=3.40%  hitrate=5.05e-07
+  leaves_canonical_C1C5 : est=4.990590e+25  95%CI=[3.6391e+25, 6.3420e+25]  relerr=13.82%  hitrate=5.38e-08
+  [diag] canonical top single-probe share : max_w=1.922237e+35 = 7.0031% of estimate mass (skew/ESS audit; lower=better)
+  [score] R-C1 final-pair-anchor  : 0.202355 of canonical mass
+  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=0.264990 slot2=0.062635 slot32=0.202355 (McKenna 1975 frame; slot32 must reproduce R-C1=0.202355)
+  [score] R-C1c A2 pair-slot histogram (report-only; fraction of canonical mass, slots 1-32):
+  a2slot 2 6.2635368321e-02
+  a2slot 3 2.2607202982e-02
+  a2slot 4 2.1574961306e-02
+  a2slot 5 2.3679739244e-02
+  a2slot 6 1.9197996645e-02
+  a2slot 7 2.0966329952e-02
+  a2slot 8 1.8796729519e-02
+  a2slot 9 1.4676285923e-02
+  a2slot 10 2.9671449976e-02
+  a2slot 11 1.3442142317e-02
+  a2slot 12 4.5001863204e-02
+  a2slot 13 1.3841189490e-02
+  a2slot 14 1.5077533065e-02
+  a2slot 15 2.3510690167e-02
+  a2slot 16 1.4084264709e-02
+  a2slot 17 1.4580544541e-02
+  a2slot 18 1.5110635181e-02
+  a2slot 19 1.1255821412e-02
+  a2slot 20 6.9298549257e-02
+  a2slot 21 1.1987811992e-02
+  a2slot 22 3.3608621566e-02
+  a2slot 23 1.9863911949e-02
+  a2slot 24 4.6804142478e-02
+  a2slot 25 2.3767333697e-02
+  a2slot 26 6.1026014424e-03
+  a2slot 27 1.0253960173e-01
+  a2slot 28 1.3033046301e-02
+  a2slot 29 2.1037394718e-02
+  a2slot 30 2.1067266975e-02
+  a2slot 31 2.8824062245e-02
+  a2slot 32 2.0235490769e-01
+  [score] R-C2 first7-level-cover : 0.209972 of canonical mass
+  [score] R-C5 18:18-HEC-split    : 0.503161 of canonical mass
+  [score] R-M1 Moore-parity strict : 1.000000 of canonical mass (18/18; KW itself FAILS this)
+  [score] R-M1 Moore-parity >=16/18: 1.000000 of canonical mass (KW level)
+  [score] R-M1 max compliance seen : 18 of 18 (Moore-2005 precursor existence bound)
+  [score] R-M2 Moore-1989 R/F <=2 breaks: 1.000000 of canonical mass (KW level)
+  [score] R-M2 strict 0 breaks     : 1.000000 of canonical mass; min breaks seen = 0 (KW = 2)
+  [score] Moore joint (M1>=16 & M2<=2): 1.00000000 of canonical mass (independence: 1.00000000)
+  [score] R-C3 level-3 positions == KW : 0.00000000 | S-gap pattern anywhere: 0.00000000 (Cook 2006)
+  [score] R-C4 gender/valence <=2 viol : 1.000000 | 0 viol: 1.000000 (Cook 2006)
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=4.990590e+25  95%CI=[3.6391e+25, 6.3420e+25]  relerr=13.82%  hits=2957
+  [score] Davis palindrome windows >=1 : 0.902201 | >=2 (KW level): 0.524736 (Davis 2012)
+  [score] Pareto-dominates KW          : 0.07835858 of canonical mass (F4-A)
+  [score] wrap-distance mass d(s63,s0)  : d1=0.000000 d3=1.000000 d5=0.000000 (odd-only per theorem; circular-C2 price = d5 mass)
+r11_hist 0 0 0 0 0 0 1 6 7.7185287773e-02
+r11_hist 0 0 0 0 0 0 1 8 8.9890800381e-04
+r11_hist 0 0 0 0 0 0 1 4 2.7438853041e-04
+r11_hist 0 0 0 1 0 1 1 6 5.3260344067e-03
+r11_hist 0 0 0 1 0 1 1 8 1.8351662891e-02
+r11_hist 0 0 0 1 0 1 1 4 8.4580253574e-03
+r11_hist 0 0 0 1 0 1 1 2 6.7979310843e-05
+r11_hist 0 0 0 2 0 0 1 8 8.1762276442e-03
+r11_hist 0 0 0 2 0 0 1 6 3.7934343857e-03
+r11_hist 0 0 0 2 0 0 1 4 2.7882965238e-02
+r11_hist 0 0 0 2 0 0 1 2 1.0138372274e-06
+r11_hist 0 0 0 3 0 1 1 8 1.6814597486e-04
+r11_hist 0 0 0 3 0 1 1 6 7.5508941645e-05
+r11_hist 0 0 0 3 0 1 1 2 4.6216318694e-05
+r11_hist 0 0 0 3 0 1 1 4 2.3565552186e-05
+r11_hist 0 0 0 4 0 0 1 6 4.0241851697e-08
+r11_hist 0 0 0 0 1 0 1 6 1.1631946573e-02
+r11_hist 0 0 0 0 1 0 1 8 1.9392457634e-02
+r11_hist 0 0 0 0 1 0 1 4 1.0391495275e-02
+r11_hist 0 0 0 0 1 0 1 2 4.5770870773e-04
+r11_hist 0 0 0 1 1 1 1 6 9.5433399772e-02
+r11_hist 0 0 0 1 1 1 1 4 2.2980478911e-02
+r11_hist 0 0 0 1 1 1 1 8 1.4566703121e-01
+r11_hist 0 0 0 1 1 1 1 2 2.5698817459e-04
+r11_hist 0 0 0 2 1 0 1 8 1.1085021979e-01
+r11_hist 0 0 0 2 1 0 1 4 7.2513299631e-03
+r11_hist 0 0 0 2 1 0 1 6 4.0847192711e-02
+r11_hist 0 0 0 2 1 0 1 2 6.7908788027e-05
+r11_hist 0 0 0 2 1 0 1 0 4.8566583549e-05
+r11_hist 0 0 0 3 1 1 1 8 5.3815164253e-04
+r11_hist 0 0 0 3 1 1 1 6 1.3024137393e-03
+r11_hist 0 0 0 3 1 1 1 4 8.4536916972e-05
+r11_hist 0 0 0 0 0 1 1 6 1.0426089025e-03
+r11_hist 0 0 0 0 0 1 1 8 5.3668992737e-03
+r11_hist 0 0 0 1 0 0 1 8 4.8662484079e-03
+r11_hist 0 0 0 1 0 0 1 6 2.0944200095e-02
+r11_hist 0 0 0 1 0 0 1 4 6.3068834099e-04
+r11_hist 0 0 0 1 0 0 1 2 4.1665981754e-06
+r11_hist 0 0 0 2 0 1 1 8 1.1819218157e-02
+r11_hist 0 0 0 2 0 1 1 6 5.2779755906e-03
+r11_hist 0 0 0 2 0 1 1 4 1.4587157111e-03
+r11_hist 0 0 0 2 0 1 1 2 1.3323321964e-04
+r11_hist 0 0 0 3 0 0 1 4 4.1084062677e-05
+r11_hist 0 0 0 3 0 0 1 6 3.9342066341e-05
+r11_hist 0 0 0 3 0 0 1 8 1.1228580126e-06
+r11_hist 0 0 0 0 1 1 1 8 5.6512333370e-02
+r11_hist 0 0 0 0 1 1 1 4 5.3937394124e-04
+r11_hist 0 0 0 0 1 1 1 6 2.5919623120e-02
+r11_hist 0 0 0 0 1 1 1 2 3.5858491708e-04
+r11_hist 0 0 0 1 1 0 1 8 6.8726568786e-02
+r11_hist 0 0 0 1 1 0 1 6 2.7865471317e-02
+r11_hist 0 0 0 1 1 0 1 4 1.5122641759e-02
+r11_hist 0 0 0 1 1 0 1 2 3.2170600171e-04
+r11_hist 0 0 0 2 1 1 1 8 6.2467483907e-02
+r11_hist 0 0 0 2 1 1 1 6 2.0167230543e-02
+r11_hist 0 0 0 2 1 1 1 2 3.4381831641e-04
+r11_hist 0 0 0 2 1 1 1 4 6.6508819350e-03
+r11_hist 0 0 0 3 1 0 1 8 4.5255129600e-02
+r11_hist 0 0 0 3 1 0 1 6 1.7791333257e-04
+r11_hist 0 0 0 3 1 0 1 4 1.3896542512e-05
+r11_hist 0 0 0 4 1 1 1 6 6.0853026825e-07
+  [r11] distinct violation cells = 61
+  [f11] gender-strict leaf cross-check mismatches (must be 0): 0

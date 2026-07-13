@@ -1,0 +1,168 @@
+### branch 1 0 probes=357142857
+  leaves_canonical_C1C5 : est=8.950939e+23  95%CI=[-3.2881e+23, 2.1190e+24]  relerr=69.76%  hitrate=6.72e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.950939e+23  95%CI=[-3.2881e+23, 2.1190e+24]  relerr=69.76%  hits=24
+### branch 1 1 probes=357142857
+  leaves_canonical_C1C5 : est=2.450365e+24  95%CI=[-3.7270e+23, 5.2734e+24]  relerr=58.78%  hitrate=5.88e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=2.450365e+24  95%CI=[-3.7270e+23, 5.2734e+24]  relerr=58.78%  hits=21
+### branch 2 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 2 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 3 0 probes=357142857
+  leaves_canonical_C1C5 : est=4.446742e+23  95%CI=[4.6412e+22, 8.4294e+23]  relerr=45.70%  hitrate=6.44e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=4.446742e+23  95%CI=[4.6412e+22, 8.4294e+23]  relerr=45.70%  hits=23
+### branch 3 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.756541e+24  95%CI=[-6.8865e+23, 4.2017e+24]  relerr=71.02%  hitrate=1.15e-07
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.756541e+24  95%CI=[-6.8865e+23, 4.2017e+24]  relerr=71.02%  hits=41
+### branch 5 0 probes=357142857
+  leaves_canonical_C1C5 : est=7.150208e+22  95%CI=[5.5699e+21, 1.3743e+23]  relerr=47.05%  hitrate=3.92e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=7.150208e+22  95%CI=[5.5699e+21, 1.3743e+23]  relerr=47.05%  hits=14
+### branch 5 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.233380e+23  95%CI=[2.9271e+22, 2.1740e+23]  relerr=38.91%  hitrate=5.32e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.233380e+23  95%CI=[2.9271e+22, 2.1740e+23]  relerr=38.91%  hits=19
+### branch 7 0 probes=357142857
+  leaves_canonical_C1C5 : est=8.986996e+23  95%CI=[-2.2887e+22, 1.8203e+24]  relerr=52.32%  hitrate=7e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.986996e+23  95%CI=[-2.2887e+22, 1.8203e+24]  relerr=52.32%  hits=25
+### branch 7 1 probes=357142857
+  leaves_canonical_C1C5 : est=8.959778e+23  95%CI=[4.5306e+22, 1.7466e+24]  relerr=48.44%  hitrate=8.68e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.959778e+23  95%CI=[4.5306e+22, 1.7466e+24]  relerr=48.44%  hits=31
+### branch 8 0 probes=357142857
+  leaves_canonical_C1C5 : est=4.784190e+22  95%CI=[8.0211e+21, 8.7663e+22]  relerr=42.47%  hitrate=3.36e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=4.784190e+22  95%CI=[8.0211e+21, 8.7663e+22]  relerr=42.47%  hits=12
+### branch 8 1 probes=357142857
+  leaves_canonical_C1C5 : est=6.722091e+22  95%CI=[1.6745e+22, 1.1770e+23]  relerr=38.31%  hitrate=5.04e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=6.722091e+22  95%CI=[1.6745e+22, 1.1770e+23]  relerr=38.31%  hits=18
+### branch 9 0 probes=357142857
+  leaves_canonical_C1C5 : est=2.349887e+24  95%CI=[-4.0979e+23, 5.1096e+24]  relerr=59.92%  hitrate=1.01e-07
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=2.349887e+24  95%CI=[-4.0979e+23, 5.1096e+24]  relerr=59.92%  hits=36
+### branch 9 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.270841e+24  95%CI=[4.3294e+23, 2.1087e+24]  relerr=33.64%  hitrate=1.06e-07
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.270841e+24  95%CI=[4.3294e+23, 2.1087e+24]  relerr=33.64%  hits=38
+### branch 10 0 probes=357142857
+  leaves_canonical_C1C5 : est=1.192730e+22  95%CI=[-2.1592e+21, 2.6014e+22]  relerr=60.26%  hitrate=1.96e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.192730e+22  95%CI=[-2.1592e+21, 2.6014e+22]  relerr=60.26%  hits=7
+### branch 10 1 probes=357142857
+  leaves_canonical_C1C5 : est=5.280038e+23  95%CI=[-3.4594e+23, 1.4019e+24]  relerr=84.45%  hitrate=3.64e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=5.280038e+23  95%CI=[-3.4594e+23, 1.4019e+24]  relerr=84.45%  hits=13
+### branch 11 0 probes=357142857
+  leaves_canonical_C1C5 : est=8.443852e+23  95%CI=[5.3132e+22, 1.6356e+24]  relerr=47.81%  hitrate=8.96e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.443852e+23  95%CI=[5.3132e+22, 1.6356e+24]  relerr=47.81%  hits=32
+### branch 11 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.431835e+24  95%CI=[-9.3699e+22, 2.9574e+24]  relerr=54.36%  hitrate=9.8e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.431835e+24  95%CI=[-9.3699e+22, 2.9574e+24]  relerr=54.36%  hits=35
+### branch 12 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 12 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 13 0 probes=357142857
+  leaves_canonical_C1C5 : est=3.535236e+22  95%CI=[5.2114e+21, 6.5493e+22]  relerr=43.50%  hitrate=3.36e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=3.535236e+22  95%CI=[5.2114e+21, 6.5493e+22]  relerr=43.50%  hits=12
+### branch 13 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 14 0 probes=357142857
+  leaves_canonical_C1C5 : est=1.395635e+24  95%CI=[-5.6974e+23, 3.3610e+24]  relerr=71.85%  hitrate=4.76e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.395635e+24  95%CI=[-5.6974e+23, 3.3610e+24]  relerr=71.85%  hits=17
+### branch 14 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 15 0 probes=357142857
+  leaves_canonical_C1C5 : est=2.168549e+23  95%CI=[2.0777e+22, 4.1293e+23]  relerr=46.13%  hitrate=6.44e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=2.168549e+23  95%CI=[2.0777e+22, 4.1293e+23]  relerr=46.13%  hits=23
+### branch 15 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.170668e+22  95%CI=[2.3891e+20, 2.3174e+22]  relerr=49.98%  hitrate=3.36e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.170668e+22  95%CI=[2.3891e+20, 2.3174e+22]  relerr=49.98%  hits=12
+### branch 16 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 16 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 17 0 probes=357142857
+  leaves_canonical_C1C5 : est=1.296863e+24  95%CI=[-4.4603e+23, 3.0398e+24]  relerr=68.57%  hitrate=6.16e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.296863e+24  95%CI=[-4.4603e+23, 3.0398e+24]  relerr=68.57%  hits=22
+### branch 17 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.189514e+25  95%CI=[-9.5877e+24, 3.3378e+25]  relerr=92.14%  hitrate=7.28e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.189514e+25  95%CI=[-9.5877e+24, 3.3378e+25]  relerr=92.14%  hits=26
+### branch 18 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 18 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 19 0 probes=357142857
+  leaves_canonical_C1C5 : est=8.750963e+23  95%CI=[-4.7431e+23, 2.2245e+24]  relerr=78.67%  hitrate=3.36e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.750963e+23  95%CI=[-4.7431e+23, 2.2245e+24]  relerr=78.67%  hits=12
+### branch 19 1 probes=357142857
+  leaves_canonical_C1C5 : est=6.841487e+23  95%CI=[1.2465e+23, 1.2436e+24]  relerr=41.72%  hitrate=5.04e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=6.841487e+23  95%CI=[1.2465e+23, 1.2436e+24]  relerr=41.72%  hits=18
+### branch 20 0 probes=357142857
+  leaves_canonical_C1C5 : est=1.871137e+23  95%CI=[2.7476e+22, 3.4675e+23]  relerr=43.53%  hitrate=7.28e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.871137e+23  95%CI=[2.7476e+22, 3.4675e+23]  relerr=43.53%  hits=26
+### branch 20 1 probes=357142857
+  leaves_canonical_C1C5 : est=8.217677e+22  95%CI=[-3.4937e+22, 1.9929e+23]  relerr=72.71%  hitrate=4.48e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.217677e+22  95%CI=[-3.4937e+22, 1.9929e+23]  relerr=72.71%  hits=16
+### branch 22 0 probes=357142857
+  leaves_canonical_C1C5 : est=3.706017e+23  95%CI=[1.1287e+23, 6.2833e+23]  relerr=35.48%  hitrate=5.32e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=3.706017e+23  95%CI=[1.1287e+23, 6.2833e+23]  relerr=35.48%  hits=19
+### branch 22 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.057700e+23  95%CI=[1.1131e+21, 2.1043e+23]  relerr=50.48%  hitrate=4.48e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.057700e+23  95%CI=[1.1131e+21, 2.1043e+23]  relerr=50.48%  hits=16
+### branch 23 0 probes=357142857
+  leaves_canonical_C1C5 : est=4.038262e+22  95%CI=[2.8075e+21, 7.7958e+22]  relerr=47.47%  hitrate=4.2e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=4.038262e+22  95%CI=[2.8075e+21, 7.7958e+22]  relerr=47.47%  hits=15
+### branch 23 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.286668e+23  95%CI=[-1.9418e+22, 2.7675e+23]  relerr=58.72%  hitrate=3.08e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.286668e+23  95%CI=[-1.9418e+22, 2.7675e+23]  relerr=58.72%  hits=11
+### branch 24 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 24 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 25 0 probes=357142857
+  leaves_canonical_C1C5 : est=7.750487e+24  95%CI=[-4.6306e+24, 2.0132e+25]  relerr=81.50%  hitrate=5.04e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=7.750487e+24  95%CI=[-4.6306e+24, 2.0132e+25]  relerr=81.50%  hits=18
+### branch 25 1 probes=357142857
+  leaves_canonical_C1C5 : est=5.649257e+23  95%CI=[-4.1007e+22, 1.1709e+24]  relerr=54.72%  hitrate=4.48e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=5.649257e+23  95%CI=[-4.1007e+22, 1.1709e+24]  relerr=54.72%  hits=16
+### branch 26 0 probes=357142857
+  leaves_canonical_C1C5 : est=8.104070e+23  95%CI=[-7.3029e+23, 2.3511e+24]  relerr=97.00%  hitrate=3.36e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.104070e+23  95%CI=[-7.3029e+23, 2.3511e+24]  relerr=97.00%  hits=12
+### branch 26 1 probes=357142857
+  leaves_canonical_C1C5 : est=7.501979e+23  95%CI=[-5.9104e+23, 2.0914e+24]  relerr=91.22%  hitrate=3.92e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=7.501979e+23  95%CI=[-5.9104e+23, 2.0914e+24]  relerr=91.22%  hits=14
+### branch 27 0 probes=357142857
+  leaves_canonical_C1C5 : est=2.016548e+23  95%CI=[-1.4223e+23, 5.4554e+23]  relerr=87.01%  hitrate=2.8e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=2.016548e+23  95%CI=[-1.4223e+23, 5.4554e+23]  relerr=87.01%  hits=10
+### branch 27 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.274495e+23  95%CI=[-1.0790e+22, 2.6569e+23]  relerr=55.34%  hitrate=4.76e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.274495e+23  95%CI=[-1.0790e+22, 2.6569e+23]  relerr=55.34%  hits=17
+### branch 28 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 28 1 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 29 0 probes=357142857
+  leaves_canonical_C1C5 : est=3.934890e+22  95%CI=[-2.4285e+20, 7.8941e+22]  relerr=51.34%  hitrate=2.8e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=3.934890e+22  95%CI=[-2.4285e+20, 7.8941e+22]  relerr=51.34%  hits=10
+### branch 29 1 probes=357142857
+  leaves_canonical_C1C5 : est=8.607961e+22  95%CI=[1.6859e+22, 1.5530e+23]  relerr=41.03%  hitrate=5.04e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=8.607961e+22  95%CI=[1.6859e+22, 1.5530e+23]  relerr=41.03%  hits=18
+### branch 30 0 probes=357142857
+[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — the strict subtree count under this prefix is exactly 0; reporting zero estimates (R11 gate-2 repair)
+  leaves_canonical_C1C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%  hitrate=0
+### branch 30 1 probes=357142857
+  leaves_canonical_C1C5 : est=1.135819e+24  95%CI=[-3.5425e+23, 2.6259e+24]  relerr=66.93%  hitrate=2.52e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=1.135819e+24  95%CI=[-3.5425e+23, 2.6259e+24]  relerr=66.93%  hits=9
+### branch 31 0 probes=357142857
+  leaves_canonical_C1C5 : est=5.005432e+23  95%CI=[-3.2343e+23, 1.3245e+24]  relerr=83.99%  hitrate=4.76e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=5.005432e+23  95%CI=[-3.2343e+23, 1.3245e+24]  relerr=83.99%  hits=17
+### branch 31 1 probes=357142857
+  leaves_canonical_C1C5 : est=2.200018e+22  95%CI=[-6.0537e+20, 4.4606e+22]  relerr=52.42%  hitrate=3.36e-08
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=2.200018e+22  95%CI=[-6.0537e+20, 4.4606e+22]  relerr=52.42%  hits=12

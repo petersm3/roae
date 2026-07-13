@@ -20,12 +20,18 @@ than as the work of an arranger holding the rules as soft preferences (Bayes fac
 of corruption in any absolute sense. A wider four-class comparison (adding a greedy-builder and a
 global-design class plus a uniform-valid null) has since been pre-registered under the same discipline;
 its measurement is pending and no result is stated in this report.
-**Update (v1.10, 2026-07-11):** the four-class extension's first ingredient run measured the
-rule-perfect population size N_gs **directly** for the first time, and the value fell **outside** the
-derived bracket used by the v1.7 computation — a pre-registered stop-and-investigate flag. Per that
-rule, the v1.7 Bayes factor and posterior reported below are **UNDER REVIEW** pending investigation;
-this update neither revises nor re-affirms the verdict. Details in the stop-flag annotation to the
-Bayesian section.
+**Update (v1.12, 2026-07-13): the stop-flag is RESOLVED — verdict re-affirmed on a stronger
+footing, with a slightly smaller headline number.** The four-class extension's first ingredient
+run had measured the rule-perfect population size N_gs **directly** for the first time and found
+it outside the derived bracket the v1.7 computation used — a pre-registered stop-and-investigate
+flag (v1.10). The investigation is complete: the discrepancy was a defect in the **bracket**, not
+in the model, the data, or the new measurement — the "bracket" was the span between two point
+estimates that carried no propagated uncertainty, and was never a confidence interval. A four-seed
+re-measurement battery puts N_gs = 4.50×10²⁵ (±6% conservative), and all three pre-registered
+convergence gates pass; under the measured value the Bayes factor becomes ≈ 5.2×10³–6.3×10³ — still
+an order of magnitude above the pre-registered "strong" band in every one of the 24 pre-committed
+sensitivity configurations. Details, evidence, and the honest residuals are in the stop-flag
+resolution within the Bayesian section.
 
 Verification model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
 
@@ -192,24 +198,74 @@ few edits from strictness — and the received order is one of very few such seq
 possible 3-edit events land in the rule-perfect set, a fact established by exact enumeration, and the
 SAT-certified minimal repair distance of 3 is reproduced by that same enumeration).
 
-**The weakest ingredient, honestly.** The size of the triple-strict (rule-perfect) population, N_gs, is
-a **derived** quantity, not a directly pruned count — the single least-precise ingredient in the
-computation. Its two independent derivations disagree by ×3.5 (3.57×10²⁵ vs 1.03×10²⁵); per the
-strictest-reading rule the **larger** value — which weakens the winning corruption model — is primary,
-and every configuration is reported under both. Flipping the verdict down to the strong threshold would
-require N_gs to be ~66× the larger estimate, far outside any plausible estimator noise.
+**The weakest ingredient, honestly.** The size of the triple-strict (rule-perfect) population,
+N_gs, was at publication time a **derived** quantity — the single least-precise ingredient in the
+computation, its two derivations disagreeing by ×3.5 (3.57×10²⁵ vs 1.03×10²⁵); per the
+strictest-reading rule the larger (corruption-weakening) value was primary. It has since been
+measured **directly** at N_gs = 4.50×10²⁵ (±6%, four independent seeds) — see the stop-flag
+resolution below, which this paragraph's original wording triggered: the pre-registered gate on the
+derived bracket fired, was investigated, and is closed. Under the measured value the headline
+weakens by ×0.79 and no configuration leaves the strong band; the flip threshold is 52× away.
 
-**Stop-flag annotation (v1.10, 2026-07-11): the pre-registered gate FIRED — verdict UNDER REVIEW.**
-The four-class extension's ingredient run (see [evidence/r11/](evidence/r11/)) measured N_gs
-**directly** for the first time: **N_gs = 5.00×10²⁵** (relative error 16.7%), which falls **outside**
-the derived bracket [1.03, 3.57]×10²⁵ above. Per the pre-registered rule, a direct measurement outside
-the derived bracket is a stop-and-investigate finding before any integration. Accordingly, the Bayes
-factor and posterior reported in this section are **UNDER REVIEW** until the discrepancy is
-investigated and resolved; no updated number is reported here, and this annotation neither revises nor
-re-affirms the verdict. For calibration only: the measured value is ~1.4× the larger derived estimate,
-against the ~66× threshold stated above for dropping the verdict a band — but whether the derivation
-error is isolated to N_gs or symptomatic of the derivation chain is exactly what the investigation must
-determine, and this report will be updated with its outcome either way.
+**Stop-flag resolution (v1.12, 2026-07-13): the pre-registered gate fired, was investigated, and
+is CLOSED — verdict re-affirmed.** The v1.10 annotation recorded that the four-class extension's
+ingredient run measured N_gs **directly** for the first time (5.00×10²⁵, relative error 16.7%)
+and that this fell outside the derived bracket [1.03, 3.57]×10²⁵, triggering the pre-registered
+stop-and-investigate rule. The investigation ran in stages, all archived in
+[evidence/r11/](evidence/r11/):
+
+*Diagnosis.* The "bracket" was never a confidence interval. Its endpoints are two **point
+estimates** of the same derived quantity — a rare conditional fraction times a population size —
+and neither carried propagated uncertainty: one multiplies a three-significant-figure scoreboard
+fraction whose sampling error was unknown; the other is a single sparse histogram cell with no
+interval at all. Empirically, independent draws of that derived estimator at comparable budgets
+span 1.03–3.57×10²⁵ with a higher-budget draw between them at 1.73×10²⁵ — a per-draw scatter of
+roughly ×2–4. Weighted rare-event estimators of this kind are also right-skewed (typical draws land
+below the mean), so a span of typical draws is predictably centered low, and a correct direct
+measurement landing **above** it is the expected signature of the flaw. The stop rule itself worked
+exactly as designed — it halted integration and forced this investigation; the defective part was
+the reference interval it compared against.
+
+*Re-measurement.* Four independent-seed direct runs (5.5×10¹⁰ probes each, composed in-walk
+triple-strict prune) give 4.15, 4.99, 4.34, 4.53 ×10²⁵ — mutually consistent (χ²₃ = 1.4,
+p ≈ 0.7) — pooling to **N_gs = 4.50×10²⁵** with a conservative propagated relative error of 6.1%
+(95% CI [3.96, 5.05]×10²⁵; the empirical between-seed scatter gives 4.0%, and the larger figure is
+adopted). Correctness evidence: every run reproduces the build's self-test sha and the two-language
+KW axis-reproduction gate; an independent in-walk full-scan re-scorer reports zero mismatches on
+every reached leaf in all four runs; and exact brute-force counts of three non-empty deep subtrees
+are reproduced by the estimator machinery to within 0.11%.
+
+*The three convergence gates.* The pre-registered convergence rule required three cross-checks, and
+all three now pass. (1) The four-seed χ² consistency check agrees at ~1σ. (2) A Moore-strict-only
+derived re-run — now instrumented with a propagated CI, closing the gap that made the original
+bracket unsound — lands 1.9σ below the direct value (consistent; that path is intrinsically noisy).
+(3) A stratified-start cross-check was at first un-poolable: its estimator was found to mis-compose
+the strict prunes with fixed-prefix starts, biasing the naive branch sum upward (3.35σ high). That
+composition defect was repaired with an estimator-only, self-test-neutral fix (the build's self-test
+sha is unchanged), and the repaired run — which correctly zeroes the 15 of 56 branches whose fixed
+prefix violates a strict predicate — pools to 4.34×10²⁵, **0.12σ** from the direct value, inside its
+pre-committed 2σ gate. With all three gates green (1σ / 2.0σ / 0.12σ), the pre-registered "all three
+gates pass" criterion is literally satisfied.
+
+*Resolution.* Under the directly measured N_gs, the headline Bayes factors become
+**≈ 5.2×10³ (variant U) / ≈ 6.3×10³ (variant A)** — modestly smaller than the v1.7 values, as
+expected, since the direct count exceeds the derived value the v1.7 computation used and the
+corruption likelihood scales as 1/N_gs. The direction is unchanged in **every one** of the 24
+pre-committed sensitivity configurations, whose floor rescales to ≈ 1.1×10³ (≈ 9.9×10² even at the
+conservative CI's upper endpoint) — an order of magnitude above the frozen "strong" band. Flipping
+the primary configuration down to that band would require N_gs ≈ 52× the measured value. Notably,
+the direct measurement **excludes** the smaller derived endpoint (1.03×10²⁵) — the value that most
+flattered the corruption model — vindicating in direction the v1.7 strictest-reading choice of the
+larger endpoint as primary. The v1.7 numbers above stand as the as-computed 2026-07-04 record; the
+primary N_gs for any future computation is the pooled direct measurement, with the two derived
+values retained as sensitivity rows.
+
+*Honest residuals.* The direct estimator's CI rests on ~300 effective samples pooled, so its far
+tails are not guaranteed — which is why the conservative error convention is adopted and both
+conventions are reported. The re-measured value is 1.4σ above the Phase-1 single run it re-checks
+(5.00×10²⁵) — consistent. No value in the plausible range moves any configuration below "strong";
+the resolution changes the headline by a factor of ~0.8 and the evidential footing from a derived,
+unquantified-uncertainty ingredient to a directly measured one with stated error.
 
 **What this does NOT say.** Nothing about who altered the sequence, when, or how; no dating, no
 attribution, no reconstruction of events. It licenses no claim beyond the model pair compared: conditional
@@ -247,9 +303,8 @@ exists). The four classes:
   strengths (generalizes M_tend).
 - **M_C — corrupted-precursor:** F11's M_corr, carried unchanged, with the grand-strict population size
   N_gs measured directly this time (closing F11's weakest ingredient — the ×3.5 spread between its two
-  derived estimates). *This measurement has since been run: the direct value fell outside the derived
-  bracket, firing the pre-registered stop-and-investigate flag — see the stop-flag annotation in the
-  v1.7 section above.*
+  derived estimates). *This measurement has since been run and its stop-gate episode resolved — the
+  direct value is N_gs = 4.50×10²⁵ (±6%); see the stop-flag resolution in the v1.7 section above.*
 
 The axis bundle, numeric priors and grids, the Jeffreys decision bands (as v1.7), a synthetic-draw
 calibration that runs BEFORE the KW verdict and can veto an unreliable one, and an adequacy layer
@@ -258,11 +313,20 @@ The comparison is **report-only, with no promotion path**, and it does not revis
 result, which stands as published (if the wider comparison ever dethrones corruption, this section gains
 a forward-pointer; it is not rewritten).
 
-**PENDING — measurement not yet run.** The compute half (instrument wiring, the ingredient runs
-including the direct N_gs measurement, the synthetic-draw calibration, and the closed-form integration)
-has NOT been executed. **No Bayes factor, posterior, or verdict is reported here** — this subsection
-registers the design only. Results, when computed, land in `reports/evidence/r11/` under the frozen
-verdict template.
+**STATUS (v1.12): ingredients collected; verdict not computed.** The instrument wiring and the
+ingredient runs — including the direct N_gs measurement, whose stop-gate firing and resolution are
+documented in the v1.7 section above — have been executed; the synthetic-draw calibration and the
+KW-facing integration have **not** run, and **no Bayes factor, posterior, or verdict exists or is
+reported here**. Per the frozen design's own ordering, calibration (with its confusability veto) runs
+before any KW-facing verdict, and a set of pre-verdict ingredient gates — hardened after the
+stop-flag episode — must pass first; the N_gs solidity gate, including the now-repaired stratified
+cross-check, has passed, and the remaining gates and their outcomes will be published with the
+results. One ordering-of-operations deviation is disclosed now, in the F11 "honest note" style: the
+ingredient runs (population measurements, blind to any KW-facing verdict) were executed before the
+design's formal operator freeze stamp; the design summarized here was committed publicly (v1.9,
+2026-07-10) before any of those measurements, which is the tamper-evident witness that no
+verdict-relevant element moved in response. Results, when computed, land in
+`reports/evidence/r11/` under the frozen verdict template, whatever their direction.
 
 *Attribution: the modeled rules belong to their authors (Moore, Schulz, Cook; the corruption mechanism
 to Rutt via Hacker & Moore); the greedy-builder formalization and the four-class design are ROAE,
@@ -282,3 +346,4 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.10 | 2026-07-11 | Stop-flag annotation: the direct N_gs measurement ([evidence/r11/](evidence/r11/)) yielded 5.00×10²⁵, outside the v1.7 derived bracket [1.03, 3.57]×10²⁵ — the pre-registered stop-and-investigate gate fired. The v1.7 Bayes verdict is marked UNDER REVIEW pending investigation (neither revised nor re-affirmed). "closes that question as far as data can" tightened to the section's own conditional scope. |
 | v1.11 | 2026-07-11 | Process section relocated: the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). No findings changed |
 | v1.8 | 2026-07-04 | Reproducibility completion (TR-audit fixes): F11 bundle completed — `f11_events.json` + generator `f11_events.py` published, so `compute_f11_bf.py` reruns from the bundle alone (verified: reproduces BF 6.6×10³/7.9×10³); F11 instrument (`SOLVE_KNUTH_F11_HIST`, `SOLVE_KNUTH_GENDER_STRICT`) merged into public solve.c (selftest sha unchanged) and documented in SOLVE_C_CLI.md with `SOLVE_KNUTH_MOORE_STRICT`; the v1.6 "fourteen DRAT proofs" fully archived in certificates/ (19 total incl. the three two-rule cores), each mapped in certificates/README.md and covered by verify_all.sh; §Reproduction names every flag explicitly |
+| v1.12 | 2026-07-13 | Stop-flag resolution: the v1.10 UNDER REVIEW annotation is closed. Investigation ([evidence/r11/](evidence/r11/)) found the derived bracket [1.03, 3.57]×10²⁵ was never a confidence interval (two point estimates, no propagated uncertainty); a 4-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6% conservative), with all three pre-registered convergence gates passing (χ² seed-consistency ~1σ; derived-CI cross-path 2.0σ; repaired stratified cross-check 0.12σ — the stratified instrument's strict-prefix composition defect was repaired by an estimator-only, self-test-neutral fix). Under the measured value BF ≈ 5.2×10³ (U) / 6.3×10³ (A) — direction unchanged in all 24 pre-committed configurations; verdict re-affirmed (headline ×0.79 smaller, footing stronger). Weakest-ingredient paragraph updated; four-class section status corrected (ingredients collected, verdict not computed, N_gs solidity gate passed); no theorem or certificate touched |

@@ -1,0 +1,60 @@
+=== R11 Phase-2 battery start 2026-07-11T19:05:43Z host=c237-r11p2 threads=64 ===
+--- gate: --selftest ---
+selftest sha=403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+--- gate: --r11-verify ---
+--- gate: instrument smoke (2e9 strict) ---
+smoke gate PASS
+--- direct seed=1001 probes=55000000000 -> /home/solver/r11p2/results/seed1_1001.out 2026-07-11T19:11:46Z ---
+seed 1 (=1001) wall=9633s
+ABORT-CHECK: projected total wall=13.6h cost=$6.81
+--- direct seed=2003 probes=55000000000 -> /home/solver/r11p2/results/seed2_2003.out 2026-07-11T21:52:19Z ---
+=== R11 Phase-2 battery start 2026-07-12T04:35:01Z host=c237-r11p2 threads=64 ===
+--- gate: --selftest ---
+selftest sha=403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+--- gate: --r11-verify ---
+--- gate: instrument smoke (2e9 strict) ---
+smoke gate PASS
+--- direct seed=1001 already complete (/home/solver/r11p2/results/seed1_1001.out) — SKIP (eviction-resume) ---
+seed 1 (=1001) wall=0s
+ABORT-CHECK: projected total wall=0.0h cost=$0.00
+--- direct seed=2003 probes=55000000000 -> /home/solver/r11p2/results/seed2_2003.out 2026-07-12T04:41:22Z ---
+seed 2 (=2003) wall=9698s
+--- direct seed=3011 probes=55000000000 -> /home/solver/r11p2/results/seed3_3011.out 2026-07-12T07:23:00Z ---
+seed 3 (=3011) wall=9630s
+--- direct seed=4013 probes=55000000000 -> /home/solver/r11p2/results/seed4_4013.out 2026-07-12T10:03:30Z ---
+seed 4 (=4013) wall=9728s
+--- stratified run (56 branches) 2026-07-12T12:45:38Z ---
+branches=56
+stratified done
+--- derived-CI run (Moore-strict only) 2026-07-12T13:39:26Z ---
+derived done
+--- exact-count audits 2026-07-12T15:16:03Z ---
+audit d=20 seed=20008 reached=20 exact=0 est=0.000000e+00
+audit d=20 seed=20015 reached=20 exact=0 est=0.000000e+00
+audit d=20 seed=20022 reached=20 exact=0 est=0.000000e+00
+audit d=20 seed=20029 reached=20 exact=0 est=0.000000e+00
+audit d=20 seed=20036 reached=20 exact=253232 est=2.529657e+05
+audit d=20 seed=20043 reached=20 exact=0 est=0.000000e+00
+audit d=20 seed=20050 reached=20 exact=0 est=0.000000e+00
+audit d=20 seed=20057 reached=20 exact=75971424 est=7.595817e+07
+audit d=22 seed=22008 reached=22 exact=0 est=0.000000e+00
+audit d=22 seed=22015 reached=22 exact=1106032 est=1.106336e+06
+audit d=22 seed=22022 reached=22 exact=0 est=0.000000e+00
+audit d=22 seed=22029 reached=22 exact=0 est=0.000000e+00
+audit d=22 seed=22036 reached=22 exact=0 est=0.000000e+00
+audit d=22 seed=22043 reached=22 exact=0 est=0.000000e+00
+audit d=22 seed=22050 reached=22 exact=0 est=0.000000e+00
+audit d=22 seed=22057 reached=22 exact=0 est=0.000000e+00
+audit d=24 seed=24008 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24015 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24022 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24029 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24036 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24043 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24050 reached=24 exact=0 est=0.000000e+00
+audit d=24 seed=24057 reached=24 exact=0 est=0.000000e+00
+audits done
+=== BATTERY COMPLETE 2026-07-12T15:26:52Z ===
+=== battery finish rc=0 2026-07-12T15:26:52Z ===
+guest self-halt in +3 min (orchestrator monitor is primary teardown)
+Shutdown scheduled for Sun 2026-07-12 15:29:52 UTC, use 'shutdown -c' to cancel.

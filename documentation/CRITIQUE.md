@@ -623,9 +623,17 @@ fixed in the frozen design. Publish-regardless: every marginal likelihood, all s
 factors, and the full sensitivity grid will be reported whatever the direction — including a verdict
 against M_C, which would complicate (not rewrite) the TR-2 v1.7 headline. This axis is **report-only with
 no promotion path**, and it does NOT grow the observable look-elsewhere ledger (it is a model comparison,
-not a KW-rarity observable). **Results pending — the compute half (ingredient runs, calibration,
-integration) has not been run; no Bayes factor or verdict is stated here.** Bundle to land in
-`reports/evidence/r11/`.
+not a KW-rarity observable). **Ingredients collected; verdict not computed — no Bayes factor,
+posterior, or verdict for the four-class comparison exists or is stated here.** The direct N_gs
+ingredient run fired the pre-registered stop-and-investigate gate (its measured value fell outside
+the F11 derived bracket) and the flag was resolved 2026-07-13: the bracket was never a valid
+confidence interval, a four-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6%, all three
+convergence gates passing), and the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 corruption
+verdict is re-affirmed (see TR-2 v1.12 §"Stop-flag resolution"). The remaining ingredients
+(greedy-builder numerator, completion simulation, synthetic-draw calibration) and the KW-facing
+integration have not been run; the full four-class design is staged as a separate private freeze
+under the operator's resolve-first decision. Ingredient bundle in
+[`reports/evidence/r11/`](../reports/evidence/r11/).
 
 ---
 

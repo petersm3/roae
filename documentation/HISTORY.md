@@ -5477,3 +5477,48 @@ regular/algorithmic), and the only claimed originality is the use of the familie
 corpus-control instrument — hedged, not asserted. Developed with AI assistance (Claude, Anthropic);
 sinological corrections are invited and reopen the frozen design via dated amendment. Full treatment:
 [CRITIQUE.md](CRITIQUE.md) §"Corpus control II"; evidence: `reports/evidence/r7/r7_run_20260712.log`.
+
+## 2026-07-13: The N_gs stop-flag — fired by the book, closed by the book
+
+On 2026-07-11 the four-class extension's first ingredient run measured N_gs — the size of the
+triple-strict (rule-perfect) population, the single weakest ingredient of the TR-2 v1.7
+corruption-vs-tendency Bayes factor — **directly** for the first time, at 5.00×10²⁵. That value fell
+outside the F11 "derived bracket" [1.03, 3.57]×10²⁵, and the pre-registered stop-and-investigate rule
+fired: the v1.7 verdict was marked UNDER REVIEW (TR-2 v1.10), neither revised nor re-affirmed, pending
+investigation. This is the record of how that flag was closed.
+
+The diagnosis was that the flag fired on a mis-derived reference, not a real conflict. The F11
+"bracket" was never a confidence interval — its two endpoints were two *point* estimates of the same
+derived quantity (a rare conditional fraction times a population size), neither carrying propagated
+uncertainty. Weighted rare-event estimators of this kind are right-skewed, so a span of typical draws
+sits predictably low, and a correct direct measurement landing *above* it is the expected signature of
+the flaw, not evidence against the model. The stop rule itself worked exactly as designed: it halted
+integration and forced the investigation; the defective part was the interval it compared against.
+
+The re-measurement was a four-seed direct battery (5.5×10¹⁰ probes each, composed in-walk triple-strict
+prune), pooling to **N_gs = 4.50×10²⁵** at a conservative 6.1% relative error (the larger of two SE
+conventions, adopted honestly; it grazes the pre-registered ≤6% target and the verdict is insensitive
+to the difference). All three pre-registered convergence gates pass: χ² seed-consistency (~1σ), a
+CI'd derived cross-path (1.9σ), and a stratified cross-check (0.12σ). The stratified gate took a
+detour worth recording: the stratified-start estimator was at first un-poolable (naive branch sum
+3.35σ high) because its instrument mis-composed the strict prunes with fixed-prefix starts — the
+Moore-strict walk state was not replayed from the prefix and prefix placements were not validated
+against the strict predicates, so branches whose fixed prefix already violates a strict rule were
+counted rather than pruned. The fix was estimator-only and self-test-neutral (the build self-test sha
+`403f7202…` is unchanged): replay the Moore-strict state from the prefix and refuse to run on a
+strict-violating prefix. The repaired run correctly zeroes the 15 of 56 branches whose fixed prefix is
+strict-dead and pools to 4.34×10²⁵, 0.12σ from the direct value.
+
+Under the directly measured N_gs the headline Bayes factor becomes ≈ 5.2×10³ (variant U) / 6.3×10³
+(variant A) — modestly *smaller* than the v1.7 values (the corruption likelihood scales as 1/N_gs, and
+the direct count exceeds the derived value the v1.7 computation used), still an order of magnitude
+above the "strong" band in every one of the 24 pre-committed configurations, with the flip threshold
+≈ 52× away. Notably the direct measurement excludes the smaller derived endpoint (1.03×10²⁵) — the
+value that most flattered corruption — vindicating in direction the v1.7 strictest-reading choice of
+the larger endpoint. The verdict is **re-affirmed**, not strengthened: the headline number went down
+by ×0.79; what improved is the evidential footing, from a derived ingredient with unpropagated error
+to a directly measured one with stated error. The flag was closed as *mis-derived*, not as "we were
+wrong." Landed as TR-2 v1.12 (docs-only, sha-neutral); evidence in
+[`reports/evidence/r11/`](../reports/evidence/r11/) (`PHASE2_README.md` + the seed/gate outputs). The
+full four-class comparison remains a separate, unpublished private freeze under the operator's
+resolve-first decision; no four-class verdict exists. Developed with AI assistance (Claude, Anthropic).

@@ -1,11 +1,14 @@
 # F11 — Corruption vs. tendency: Bayes-factor RESULTS (executed under the frozen pre-registration)
 
-> **Bayes verdict UNDER REVIEW (2026-07-11).** After this document was computed, the direct N_gs
-> measurement in [../r11/](../r11/) fell **outside** the derived bracket used here, firing a
-> pre-registered stop-and-investigate gate. The verdict stated below is therefore **UNDER REVIEW**
-> pending investigation — neither revised nor re-affirmed. See the stop-flag annotation in
-> [TR-2 v1.10](../../TR2_THE_RULES_CONFLICT.md). Everything below is the as-computed 2026-07-04 record,
-> unchanged.
+> **Bayes verdict RESOLVED and RE-AFFIRMED (2026-07-13).** After this document was computed, the
+> direct N_gs measurement in [../r11/](../r11/) fell **outside** the derived bracket used here,
+> firing a pre-registered stop-and-investigate gate (2026-07-11). That gate is now closed: the
+> derived bracket [1.03, 3.57]×10²⁵ was two point estimates carrying no propagated uncertainty —
+> never a valid confidence interval — and a four-seed direct re-measurement gives
+> N_gs = 4.50×10²⁵ (±6%, all three pre-registered convergence gates passing), which **re-affirms**
+> the verdict at BF ≈ 5.2×10³ (U) / 6.3×10³ (A). See [TR-2 v1.12](../../TR2_THE_RULES_CONFLICT.md)
+> §"Stop-flag resolution" and [../r11/](../r11/). Everything below is the as-computed 2026-07-04
+> record, unchanged.
 
 **Executed 2026-07-04** under the frozen pre-registration [PREREGISTRATION.md](PREREGISTRATION.md)
 (FROZEN 2026-07-04, operator approval "approve F11 defaults" — PROOF_PROGRAM UPDATE 32). Model forms,
@@ -230,11 +233,13 @@ Frozen decision bands: BF > 10 substantial, BF > 100 strong.
   including every per-gridpoint cell.
 
 The verdict is stated at the corruption-conservative (larger, RUN-C) N_gs; the RUN-B N_gs would
-make it ~3.5× stronger still. **(UNDER REVIEW, 2026-07-11:** the later direct N_gs measurement
+make it ~3.5× stronger still. **(RESOLVED 2026-07-13:** the later direct N_gs measurement
 ([../r11/](../r11/)) landed outside this bundle's derived bracket and fired the pre-registered
-stop-and-investigate gate; this Jeffreys-band verdict is annotated under review pending investigation —
-see [TR-2 v1.10](../../TR2_THE_RULES_CONFLICT.md). For calibration only, the robustness margin below
-still stands: dropping to the strong threshold needs N_gs ≈ 66× the larger estimate.**)**
+stop-and-investigate gate (2026-07-11); the investigation found the bracket was never a valid
+confidence interval, and a four-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6%, all three
+convergence gates passing) — **re-affirming** this Jeffreys-band verdict at BF ≈ 5.2×10³ (U) /
+6.3×10³ (A). See [TR-2 v1.12](../../TR2_THE_RULES_CONFLICT.md) §"Stop-flag resolution". The
+as-computed record here is unchanged; the flip threshold at the directly measured value is ≈ 52×.**)**
 
 ## 6. Sensitivity — which ingredient dominates
 
