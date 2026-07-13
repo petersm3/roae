@@ -4757,6 +4757,14 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
  * Reuses the exact prune predicates from backtrack() (used / C2 bd==5 / C5 budget). */
 typedef struct {
     int seq0[64]; pair_mask_t used0; int budget0[7]; int start_step;
+    /* R11 gate-2 repair (2026-07-13): strict-prefix composition state, computed ONCE in
+     * estimate_tree_knuth from the fixed prefix and replayed into every probe. ms0_adj/ms0_rf
+     * seed the Moore-1989 rhythm walk state at start_step (mirrors the per-probe gender-state
+     * replay already in knuth_worker); prefix_dead=1 marks a prefix the ACTIVE strict walk can
+     * never reach (Moore 2005 parity, Moore 1989 rhythm, or Schulz 1990 gender violated inside
+     * the prefix) — its strict subtree count is exactly 0 and the worker contributes all-zero
+     * sums instead of estimating an unreachable subtree as if valid. Estimator-only, sha-neutral. */
+    int ms0_adj, ms0_rf, prefix_dead;
     uint64_t n_probes, seed;
     double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
     uint64_t hits_leaf, hits_c3;
@@ -6684,11 +6692,18 @@ static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
     int seq[64]; pair_mask_t used; int budget[7];
+    if (a->prefix_dead) return NULL;   /* strict-invalid prefix: strict subtree count is exactly 0
+                                        * (all sums stay 0 -> est=0, CI=[0,0]). R11 gate-2 repair. */
     for (uint64_t t=0; t<a->n_probes; t++){
         memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
         int step = a->start_step;
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
-        int ms_prev_adj = 0, ms_prev_rf = 0;                    /* strict-Moore walk state */
+        int ms_prev_adj = a->ms0_adj, ms_prev_rf = a->ms0_rf;   /* strict-Moore walk state, REPLAYED
+                                                                 * from the fixed prefix (R11 gate-2
+                                                                 * repair; was zero-initialized, which
+                                                                 * dropped the Moore-1989 rhythm
+                                                                 * constraint across the prefix
+                                                                 * boundary in stratified runs). */
         uint64_t gs_seen = 0; int gs_ncls = 0;                  /* gender-strict walk state: inversion-class
                                                                  * first-occurrence set (key = min(h, rev6(h)))
                                                                  * + running class count; replayed from the
@@ -7053,6 +7068,62 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             fprintf(stderr,"KNUTH: prefix infeasible at level %d (pair=%d orient=%d)\n",i+1,lp[i],lo[i]); return; }
         start_step = i+2;
     }
+    /* R11 gate-2 repair (2026-07-13): strict-prefix composition. When a strict walk
+     * (SOLVE_KNUTH_MOORE_STRICT / SOLVE_KNUTH_GENDER_STRICT) is composed with a fixed prefix,
+     * (a) the Moore-1989 rhythm state must be REPLAYED across the prefix (the gender class-count
+     * state was already replayed per-probe in knuth_worker; ms_prev_adj/ms_prev_rf were silently
+     * zero-initialized, un-enforcing the rhythm constraint at the prefix boundary), and (b) the
+     * prefix itself must be VALIDATED against the active strict predicates — a prefix the strict
+     * direct walk can never reach roots a subtree whose strict count is exactly 0 and must be
+     * reported as 0, not estimated as if reachable. Pre-fix, both omissions biased per-branch
+     * stratified estimates upward (Phase-2 naive 56-branch sum 1.088e26 vs direct-pooled 4.50e25,
+     * 3.35 sigma — the gate-2 defect, R11_PHASE2_VERDICT addendum). The predicate/replay logic
+     * below mirrors the knuth_worker candidate checks exactly (same exemptions: comp-pairs and
+     * pc==3 pairs rhythm/parity-exempt; pc 0/3/6 gender-exempt). For a direct run (no prefix,
+     * start_step=1) the loop sees only the slot-0 pure pair {63,0} (comp: rhythm-exempt; pc 6/0:
+     * gender-exempt) and reproduces the old zero-init state bit-for-bit — direct estimates are
+     * unchanged. Estimator-only, sha-neutral (knuth path; never exercised by --selftest). */
+    int ms0_adj = 0, ms0_rf = 0, prefix_dead = 0;
+    if (knuth_moore_strict || knuth_gender_strict) {
+        uint64_t gs_seen0 = 0; int gs_ncls0 = 0;
+        for (int q = 0; q < start_step && !prefix_dead; q++) {
+            int h = seq0[2*q], h2 = seq0[2*q+1];
+            if (knuth_moore_strict) {
+                if ((h ^ h2) == 63) ms0_adj = 0;                      /* comp-pair: exempt */
+                else {
+                    int pcq = __builtin_popcount((unsigned)h);
+                    if (pcq == 3) ms0_adj = 0;                        /* balanced: exempt */
+                    else if ((pcq > 3) != (((q + 1) & 1) == 1)) {     /* Moore 2005 parity */
+                        prefix_dead = 1; break;
+                    } else {
+                        int mb2 = (pcq > 3) ? 0 : 1, sc2 = 0;
+                        for (int b2 = 0; b2 < 6; b2++) if (((h >> b2) & 1) == mb2) sc2 += 5 - 2*b2;
+                        int rf = sc2 > 0;
+                        if (ms0_adj && rf == ms0_rf) { prefix_dead = 1; break; }  /* Moore 1989 rhythm */
+                        ms0_adj = 1; ms0_rf = rf;
+                    }
+                }
+            }
+            if (knuth_gender_strict) {
+                for (int z2 = 0; z2 < 2 && !prefix_dead; z2++) {
+                    int hh = z2 ? h2 : h, r = 0;
+                    for (int b3 = 0; b3 < 6; b3++) r |= ((hh >> b3) & 1) << (5 - b3);
+                    int key = hh < r ? hh : r;
+                    if (!((gs_seen0 >> key) & 1ULL)) {
+                        gs_seen0 |= 1ULL << key; gs_ncls0++;
+                        int pck = __builtin_popcount((unsigned)hh);
+                        if (pck != 0 && pck != 3 && pck != 6 &&
+                            ((pck < 3) != ((gs_ncls0 & 1) == 1))) prefix_dead = 1;  /* Schulz 1990 gender */
+                    }
+                }
+            }
+        }
+        if (prefix_dead)
+            fprintf(stderr, "[knuth] STRICT-PREFIX DEAD: the fixed prefix violates an active strict "
+                            "predicate (Moore 2005 parity / Moore 1989 rhythm / Schulz 1990 gender) — "
+                            "the strict subtree count under this prefix is exactly 0; reporting zero "
+                            "estimates (R11 gate-2 repair)\n");
+    }
     if (n_total == 0){  /* n=0 => exact deterministic subtree count (validation anchor) */
         int seq[64]; memcpy(seq,seq0,sizeof(seq)); pair_mask_t used=used0; int budget[7]; memcpy(budget,budget0,sizeof(budget));
         double nodes=0, leaves=0, c3=0;
@@ -7072,6 +7143,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         memset(&arg[i],0,sizeof(KnuthArg));
         memcpy(arg[i].seq0,seq0,sizeof(seq0)); arg[i].used0=used0; memcpy(arg[i].budget0,budget0,sizeof(budget0));
         arg[i].start_step=start_step;
+        arg[i].ms0_adj=ms0_adj; arg[i].ms0_rf=ms0_rf; arg[i].prefix_dead=prefix_dead;   /* R11 gate-2 repair */
         arg[i].n_probes = per + (i==0 ? n_total%(uint64_t)nthreads : 0);
         arg[i].min_rm2 = -1;
         arg[i].reg_min_mmt3 = -1; arg[i].reg_min_c1 = -1;
