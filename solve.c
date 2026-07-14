@@ -14951,9 +14951,14 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * membership (positives = all brute walks; negatives = mutated non-solutions
  * checked against the brute set); exact-uniform sampling (member + chi-square
  * vs uniform over rank buckets); C3-in-path enumeration == brute-filtered
- * list; PARTITION INVARIANCE (layers rebuilt serial / reversed target order /
- * 3-way sliced-and-merged / single-thread are byte-identical to the
- * OMP-parallel build); disk round-trip (write + load == in-RAM bytes).
+ * list; PARTITION INVARIANCE — every layer rebuilt three ways, all
+ * byte-identical to the reference build: (i) single-threaded serial with
+ * Fisher-Yates-scrambled target order, (ii) OMP-parallel natural order
+ * (gate A7), and (iii) 3 disjoint target-index slices each built
+ * independently then merged by target index (gate A7b — the direct
+ * executable witness, at small n, of the sliced-build/merge partition-
+ * invariance property; kc_build_layer_sliced); disk round-trip (write +
+ * load == in-RAM bytes).
  *
  * Credits (novelty humility): unranking/ranking and uniform generation from
  * counting DPs are CLASSICAL (Nijenhuis & Wilf 1975/78; Knuth TAOCP 4A
@@ -15155,6 +15160,81 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
         }
     }
     free(scratch);
+}
+
+/* Slice-then-merge rebuild (verification-only; gates A7b/M5b). Partition the
+ * canonical target-mask list of layer k1 = prev->k + 1 into nslices disjoint
+ * CONTIGUOUS index ranges; build each slice INDEPENDENTLY (own count pass,
+ * own entry buffers, no state shared between slices), then MERGE the partial
+ * results by target index into a whole layer. Because emission is keyed to a
+ * target's own offset slot and slices are disjoint, the merged bytes must
+ * equal the whole-build layer exactly — this function is the executable
+ * witness (at small n) of the merged-partial-slices clause of the compiled-
+ * layer partition-invariance property. Serial, small-n gates only. */
+static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
+                                  F1C5Layer *nxt, int nslices) {
+    const int k1 = prev->k + 1;
+    nxt->k = k1;
+    f1_enum_canonical(&kc->c, k1, &nxt->masks, &nxt->nm);
+    nxt->off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt->nm + 1));
+    F1_CHECK(nxt->off != NULL, "[kc] sliced offset alloc failed (layer %d)", k1);
+    const int vk1 = kc->vcnt[k1];
+    const int32_t *loc1 = kc->vloc[k1];
+    const uint16_t *vl1 = kc->vlist[k1];
+    if (nslices < 1) nslices = 1;
+    if (nxt->nm && (uint64_t)nslices > nxt->nm) nslices = (int)nxt->nm;
+    uint32_t **skeys = (uint32_t **)calloc((size_t)nslices, sizeof(uint32_t *));
+    F1U192 **svals = (F1U192 **)calloc((size_t)nslices, sizeof(F1U192 *));
+    uint64_t *sne = (uint64_t *)calloc((size_t)nslices, sizeof(uint64_t));
+    F1U192 *scr = (F1U192 *)calloc((size_t)64 * (size_t)kc->vmax, sizeof(F1U192));
+    F1_CHECK(skeys && svals && sne && scr, "[kc] slice alloc failed (layer %d)", k1);
+    /* phase 1: per-slice independent partial builds (slice-local buffers;
+     * nxt->off[ti+1] holds RAW per-target counts until the merge phase) */
+    for (int s = 0; s < nslices; s++) {
+        const uint64_t lo = nxt->nm * (uint64_t)s / (uint64_t)nslices;
+        const uint64_t hi = nxt->nm * (uint64_t)(s + 1) / (uint64_t)nslices;
+        uint64_t tot = 0;
+        for (uint64_t ti = lo; ti < hi; ti++) {
+            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            uint64_t cnt = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
+            nxt->off[ti + 1] = cnt;
+            tot += cnt;
+        }
+        skeys[s] = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(tot ? tot : 1));
+        svals[s] = (F1U192 *)malloc(sizeof(F1U192) * (size_t)(tot ? tot : 1));
+        F1_CHECK(skeys[s] && svals[s], "[kc] slice %d entry alloc failed", s);
+        sne[s] = tot;
+        uint64_t at = 0;
+        for (uint64_t ti = lo; ti < hi; ti++) {
+            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            uint64_t got = f1c5_emit_target(scr, vk1, vl1, skeys[s] + at, svals[s] + at);
+            F1_CHECK(got == nxt->off[ti + 1], "[kc] slice pass drift at target %llu",
+                     (unsigned long long)ti);
+            at += got;
+        }
+        F1_CHECK(at == tot, "[kc] slice %d total drift", s);
+    }
+    /* phase 2: MERGE by target index — global prefix sum over the per-target
+     * counts, then each slice's concatenated run lands at its range's slot */
+    nxt->off[0] = 0;
+    for (uint64_t i = 0; i < nxt->nm; i++) nxt->off[i + 1] += nxt->off[i];
+    nxt->ne = nxt->off[nxt->nm];
+    nxt->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(nxt->ne ? nxt->ne : 1));
+    nxt->vals = (F1U192 *)malloc(sizeof(F1U192) * (size_t)(nxt->ne ? nxt->ne : 1));
+    F1_CHECK(nxt->keys && nxt->vals, "[kc] sliced layer %d entry alloc failed", k1);
+    for (int s = 0; s < nslices; s++) {
+        const uint64_t lo = nxt->nm * (uint64_t)s / (uint64_t)nslices;
+        if (sne[s]) {
+            memcpy(nxt->keys + nxt->off[lo], skeys[s], sizeof(uint32_t) * (size_t)sne[s]);
+            memcpy(nxt->vals + nxt->off[lo], svals[s], sizeof(F1U192) * (size_t)sne[s]);
+        }
+        free(skeys[s]);
+        free(svals[s]);
+    }
+    free(skeys);
+    free(svals);
+    free(sne);
+    free(scr);
 }
 
 static void kc_layer0(const KC *kc, F1C5Layer *L0) {
@@ -16310,15 +16390,21 @@ static int kc_selftest(void) {
             free(FC.buf);
         }
 
-        /* A7: partition invariance — rebuild every layer under scrambled target
-         * order / serial / single-thread; must be byte-identical */
+        /* A7: partition invariance — rebuild every layer (i) single-threaded
+         * serial with Fisher-Yates-scrambled target order and (ii) OMP-
+         * parallel natural order; must be byte-identical to the reference.
+         * A7b: rebuild every layer from 3 disjoint target-index slices built
+         * independently then MERGED by target index (kc_build_layer_sliced)
+         * — the explicit executable witness of the merged-partial-slices
+         * clause of compiled-layer partition invariance. */
         {
-            int ok = 1;
+            int ok = 1, sok = 1;
             uint64_t rng = 0x5eedULL;
-            for (int k = 0; k < kc->n && ok; k++) {
-                F1C5Layer R1, R2;
+            for (int k = 0; k < kc->n && ok && sok; k++) {
+                F1C5Layer R1, R2, R3;
                 memset(&R1, 0, sizeof(R1));
                 memset(&R2, 0, sizeof(R2));
+                memset(&R3, 0, sizeof(R3));
                 uint64_t nt = kc->L[k + 1].nm;
                 uint64_t *order = (uint64_t *)malloc(sizeof(uint64_t) * (nt ? nt : 1));
                 for (uint64_t i = 0; i < nt; i++) order[i] = i;
@@ -16328,13 +16414,17 @@ static int kc_selftest(void) {
                 }
                 kc_build_layer(kc, &kc->L[k], &R1, order, 1);       /* serial, shuffled */
                 kc_build_layer(kc, &kc->L[k], &R2, NULL, 0);        /* parallel, natural */
+                kc_build_layer_sliced(kc, &kc->L[k], &R3, 3);       /* 3 slices, merged */
                 if (!kc_layers_equal(kc, &kc->L[k + 1], &R1)) ok = 0;
                 if (!kc_layers_equal(kc, &kc->L[k + 1], &R2)) ok = 0;
+                if (!kc_layers_equal(kc, &kc->L[k + 1], &R3)) sok = 0;
                 f1c5_layer_free(&R1);
                 f1c5_layer_free(&R2);
+                f1c5_layer_free(&R3);
                 free(order);
             }
             KC_GATE("A7 partition/order invariance: rebuilt layers byte-identical", ok);
+            KC_GATE("A7b slice-merge: 3 disjoint slices merged == whole build", sok);
         }
 
         /* A8: disk round-trip — write, load, byte-compare, query equivalence */
@@ -16694,7 +16784,9 @@ static int kc_selftest(void) {
  *   M4  exact-uniform sampling: M samples all members; chi-square over 16
  *       rank buckets < 37.70 (15 dof, 99.9%; deterministic seed)
  *   M5  partition/order invariance on the LARGEST layer (serial + Fisher-
- *       Yates-scrambled target order rebuild == byte-identical)
+ *       Yates-scrambled target order rebuild == byte-identical); M5b same
+ *       layer rebuilt from 3 disjoint target slices then merged by target
+ *       index (kc_build_layer_sliced) == byte-identical
  * Prints a machine-parseable KC-MIDN summary line for the driver's table. */
 static int kc_midn(int npairs, int R, int M) {
     int fails = 0;
@@ -16829,6 +16921,13 @@ static int kc_midn(int npairs, int R, int M) {
         KC_GATE(g, kc_layers_equal(kc, &kc->L[kmax], &R1));
         f1c5_layer_free(&R1);
         free(order);
+        /* M5b: same layer, 3 disjoint slices built independently then merged */
+        F1C5Layer R2;
+        memset(&R2, 0, sizeof(R2));
+        kc_build_layer_sliced(kc, &kc->L[kmax - 1], &R2, 3);
+        snprintf(g, sizeof(g), "M5b largest layer (k=%d) 3-slice-merged == whole", kmax);
+        KC_GATE(g, kc_layers_equal(kc, &kc->L[kmax], &R2));
+        f1c5_layer_free(&R2);
     }
 
     double peak_mb = 0.0;
