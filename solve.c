@@ -8877,6 +8877,32 @@ static int orb_expand_shard(const OrbitProblem *op, const int pomap[48][64], int
     return 0;
 }
 
+/* v4 orbit metadata sidecar helper (sha-neutral; read-only). Reads the
+ * node/solution/budget bookkeeping fields from a per-cell `.dfs_state`
+ * (DFSCheckpointState_v2) for the orbit_manifest.tsv emitter. Uses gzr_open so
+ * it transparently reads BOTH a raw run-dir `.dfs_state` (plain fwrite) AND a
+ * gz-compressed archive member (#169). Returns 1 if a valid v2 state was read
+ * (out-params set), 0 if the file is absent / not-v2 / unreadable (out-params
+ * set to -1). Does NOT drive resume — informational only. */
+static int orb_read_dfs_meta(const char *path, long long *nodes_walked,
+                             long long *solutions_ckpt, long long *budget) {
+    if (nodes_walked)   *nodes_walked = -1;
+    if (solutions_ckpt) *solutions_ckpt = -1;
+    if (budget)         *budget = -1;
+    gzFile gf = gzr_open(path);
+    if (!gf) return 0;
+    DFSCheckpointState_v2 st;
+    int got = gzread(gf, &st, (unsigned)sizeof(st));
+    gzclose(gf);
+    if (got != (int)sizeof(st)) return 0;
+    if (st.magic != DFS_STATE_MAGIC) return 0;
+    if (st.format_version != DFS_STATE_VERSION_V2) return 0;
+    if (nodes_walked)   *nodes_walked = (long long)st.prior_nodes_walked;
+    if (solutions_ckpt) *solutions_ckpt = (long long)st.prior_solutions_found;
+    if (budget)         *budget = (long long)st.prior_budget;
+    return 1;
+}
+
 /* --- Toy problem for --orbit-selftest ---
  * 7 pairs over the G48-closed hexagram subset {0,63} ∪ weight-1 ∪ weight-5
  * (14 values, closed under complement and under every bit permutation;
@@ -16459,6 +16485,90 @@ int main(int argc, char *argv[]) {
             }
         }
         return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--orbit-manifest") == 0) {
+        /* v4 metadata sidecar (sha-neutral; read-only over a rep shard dir).
+         * Emits per-ORBIT productivity + per-rep node-count rows so per-orbit
+         * productivity, the ×36 node-work witness, and gate-A's `.dfs_state`
+         * node-count strengthening are FIRST-CLASS reproducible artifacts
+         * instead of a post-hoc join of the stdout-only orbit table with the
+         * shard manifest.
+         * Usage: solve --orbit-manifest <rep_shard_dir> [out_path]
+         *   default out_path = orbit_manifest.tsv (in cwd). */
+        if (argc < 3) {
+            fprintf(stderr, "usage: solve --orbit-manifest <rep_shard_dir> [out_path]\n");
+            return 10;
+        }
+        init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+        orbit_real_init();
+        const char *rdir = argv[2];
+        const char *out_path = (argc > 3) ? argv[3] : "orbit_manifest.tsv";
+        int S = orb_real_table.S;
+        /* orbit sizes: count valid cells per representative */
+        int32_t *cnt = (int32_t *)calloc((size_t)S * S * S, sizeof(int32_t));
+        if (!cnt) { fprintf(stderr, "FATAL: alloc\n"); return 12; }
+        for (long long i = 0; i < (long long)S * S * S; i++)
+            if (orb_real_table.val[i]) cnt[orb_real_table.rep[i]]++;
+        char tmp_path[1200];
+        snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", out_path);
+        FILE *mf = fopen(tmp_path, "w");
+        if (!mf) { fprintf(stderr, "FATAL: cannot open %s: %s\n", tmp_path, strerror(errno)); free(cnt); return 20; }
+        fprintf(mf, "# v4 orbit_manifest — rep_shard_dir=%s generated_by=solve.c(%s)\n", rdir, GIT_HASH);
+        fprintf(mf, "orbit_id\trep_p1\trep_o1\trep_p2\trep_o2\trep_p3\trep_o3\t"
+                    "orbit_size\tproductive\trep_record_count\trep_nodes_walked\t"
+                    "rep_solutions_ckpt\trep_budget\n");
+        long long orbit_id = 0, n_productive = 0;
+        long long total_records = 0, total_nodes = 0;
+        /* node-weighted mean orbit size = Σ(orbit_size · rep_nodes) / Σ(rep_nodes)
+         * over reps with a node count — the effective ×N work-saving factor for
+         * THIS workload (the ×36-for-this-workload witness, test-plan nice-to-have). */
+        double nw_num = 0.0;   /* Σ orbit_size · nodes */
+        double nw_den = 0.0;   /* Σ nodes */
+        for (int c1 = 2; c1 < S; c1++)
+        for (int c2 = 2; c2 < S; c2++)
+        for (int c3 = 2; c3 < S; c3++) {
+            long long idx = ((long long)c1 * S + c2) * S + c3;
+            if (!orb_real_table.val[idx] || orb_real_table.rep[idx] != (int32_t)idx) continue;
+            int p1 = c1 >> 1, o1 = c1 & 1, p2 = c2 >> 1, o2 = c2 & 1, p3 = c3 >> 1, o3 = c3 & 1;
+            int osize = cnt[idx];
+            char bin_path[512], dfs_path[512];
+            snprintf(bin_path, sizeof(bin_path), "%s/sub_%d_%d_%d_%d_%d_%d.bin", rdir, p1, o1, p2, o2, p3, o3);
+            snprintf(dfs_path, sizeof(dfs_path), "%s/sub_%d_%d_%d_%d_%d_%d.dfs_state", rdir, p1, o1, p2, o2, p3, o3);
+            long long rec_count = -1;
+            struct stat bst;
+            int productive = 0;
+            if (stat(bin_path, &bst) == 0) {
+                long long lsz = gz_logical_size(bin_path);
+                if (lsz >= 0 && lsz % SOL_RECORD_SIZE == 0) {
+                    rec_count = lsz / SOL_RECORD_SIZE;
+                    if (rec_count > 0) { productive = 1; n_productive++; total_records += rec_count; }
+                }
+            }
+            long long nodes = -1, sols = -1, bud = -1;
+            orb_read_dfs_meta(dfs_path, &nodes, &sols, &bud);
+            if (nodes >= 0) { total_nodes += nodes; nw_num += (double)osize * (double)nodes; nw_den += (double)nodes; }
+            fprintf(mf, "%lld\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%lld\t%lld\t%lld\t%lld\n",
+                    orbit_id, p1, o1, p2, o2, p3, o3, osize, productive,
+                    rec_count, nodes, sols, bud);
+            orbit_id++;
+        }
+        double ww_mean = (orbit_id > 0) ? (double)orb_real_table.ncells / (double)orbit_id : 0.0;
+        double nw_mean = (nw_den > 0.0) ? nw_num / nw_den : 0.0;
+        fprintf(mf, "# summary\tn_orbits=%lld\tn_productive_reps=%lld\ttotal_records=%lld\t"
+                    "total_nodes=%lld\twork_weighted_mean_orbit_size=%.4f\tnode_weighted_mean_orbit_size=%.4f\n",
+                orbit_id, n_productive, total_records, total_nodes, ww_mean, nw_mean);
+        int wr_ok = (fflush(mf) == 0 && fsync(fileno(mf)) == 0);
+        if (fclose(mf) != 0) wr_ok = 0;
+        free(cnt);
+        if (!wr_ok || rename(tmp_path, out_path) != 0) {
+            fprintf(stderr, "FATAL: orbit_manifest write/rename failed for %s\n", out_path);
+            unlink(tmp_path);
+            return 20;
+        }
+        printf("[--orbit-manifest] wrote %s: %lld orbits, %lld productive reps, %lld records, %lld nodes\n",
+               out_path, orbit_id, n_productive, total_records, total_nodes);
+        printf("[--orbit-manifest] work-weighted mean orbit size %.2f; node-weighted mean orbit size %.2f\n",
+               ww_mean, nw_mean);
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--orbit-expand") == 0) {
         /* v4: expand representative shards to all orbit members.
          * Usage: solve --orbit-expand <rep_shard_dir> <out_dir>
@@ -16477,6 +16587,22 @@ int main(int argc, char *argv[]) {
         int S = orb_real_table.S;
         long long reps_seen = 0, reps_with_shards = 0, recs_in = 0, recs_out = 0, members_written = 0;
         unsigned char *inbuf = NULL; size_t incap = 0;
+        /* v4 expansion audit trail (sha-neutral sidecar): per (rep, member) row
+         * recording the σ applied + the per-member record count so the hard
+         * per-member-count==rep-count invariant (enforced at runtime as a FATAL)
+         * is also auditable post-hoc and `--orbit-expand` is debuggable from a
+         * file. Best-effort: a write failure WARNs but does not abort the
+         * expansion (the shard bytes are the authoritative artifact). */
+        char emf_path[1200];
+        snprintf(emf_path, sizeof(emf_path), "%s/orbit_expand_manifest.tsv", odir);
+        FILE *emf = fopen(emf_path, "w");
+        if (!emf)
+            fprintf(stderr, "WARN: cannot open expansion audit %s: %s (continuing; sidecar skipped)\n",
+                    emf_path, strerror(errno));
+        else
+            fprintf(emf, "rep_p1\trep_o1\trep_p2\trep_o2\trep_p3\trep_o3\t"
+                         "member_p1\tmember_o1\tmember_p2\tmember_o2\tmember_p3\tmember_o3\t"
+                         "sigma\trep_record_count\tmember_record_count\tequal\n");
         for (int c1 = 2; c1 < S; c1++)
         for (int c2 = 2; c2 < S; c2++)
         for (int c3 = 2; c3 < S; c3++) {
@@ -16519,6 +16645,11 @@ int main(int argc, char *argv[]) {
                 snprintf(cmd, sizeof(cmd), "cp -f '%s' '%s'", fname, oname);
                 if (system(cmd) != 0) { fprintf(stderr, "FATAL: cp rep shard failed\n"); return 20; }
             }
+            /* rep self-row (sigma=-1 = identity/verbatim copy) */
+            if (emf)
+                fprintf(emf, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t-1\t%lld\t%lld\t1\n",
+                        c1 >> 1, c1 & 1, c2 >> 1, c2 & 1, c3 >> 1, c3 & 1,
+                        c1 >> 1, c1 & 1, c2 >> 1, c2 & 1, c3 >> 1, c3 & 1, n, n);
             unsigned char *outbuf = (unsigned char *)malloc((size_t)(n ? n : 1) * SOL_RECORD_SIZE);
             if (!outbuf) { fprintf(stderr, "FATAL: outbuf alloc\n"); return 12; }
             /* every member of this orbit (rep[midx] == idx, midx != idx) */
@@ -16542,6 +16673,13 @@ int main(int argc, char *argv[]) {
                 if (rename(tname, oname) != 0) { fprintf(stderr, "FATAL: rename %s\n", oname); return 20; }
                 members_written++;
                 recs_out += n;
+                /* member row: per-member count == rep count is enforced by
+                 * orb_expand_shard (would have returned 20 above on violation),
+                 * so equal=1 here by construction — recorded for post-hoc audit. */
+                if (emf)
+                    fprintf(emf, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%lld\t%lld\t1\n",
+                            c1 >> 1, c1 & 1, c2 >> 1, c2 & 1, c3 >> 1, c3 & 1,
+                            m1 >> 1, m1 & 1, m2 >> 1, m2 & 1, m3 >> 1, m3 & 1, s, n, n);
             }
             free(outbuf);
             if (reps_with_shards % 100 == 0)
@@ -16549,6 +16687,12 @@ int main(int argc, char *argv[]) {
                         reps_with_shards, recs_in, recs_out);
         }
         free(inbuf);
+        if (emf) {
+            if (fflush(emf) != 0 || fsync(fileno(emf)) != 0)
+                fprintf(stderr, "WARN: expansion audit %s flush/fsync failed\n", emf_path);
+            fclose(emf);
+            printf("[--orbit-expand] expansion audit written: %s\n", emf_path);
+        }
         printf("[--orbit-expand] representatives: %lld (with shards: %lld)\n", reps_seen, reps_with_shards);
         printf("[--orbit-expand] member shards written: %lld\n", members_written);
         printf("[--orbit-expand] records: %lld in (rep, copied verbatim) + %lld expanded\n", recs_in, recs_out);
