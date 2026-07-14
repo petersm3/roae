@@ -14443,13 +14443,16 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
 
 /* Group-closed orbit unions by pair count. 13 and 16 are the instrument's
  * validation unions ("13" = U13 3+4+6, "16" = U16 4+6+6); the rest cover the
- * staged memory-validation ladder (26/29 are not realizable as orbit sums). */
+ * staged memory-validation ladder (17/20/26/29 are not realizable as orbit
+ * sums; 21/22 added 2026-07-14 for the kc mid-n validation harness). */
 static const struct { int n; const char *spec; } f1c5_unions[] = {
     {  9, "3.0,3.1,3.2@0" },
     { 13, "3.0,4.0,6.2@0" },
     { 16, "4.0,6.0,6.1@0" },
     { 18, "6.0,6.1,6.2@0" },
     { 19, "3.0,4.0,6.0,6.1@0" },
+    { 21, "3.0,3.1,3.2,6.0,6.1@0" },
+    { 22, "3.0,3.1,4.0,6.0,6.1@0" },
     { 24, "3.0,3.1,6.0,6.1,6.2@0" },
     { 25, "3.0,4.0,6.0,6.1,6.2@0" },
     { 27, "3.0,3.1,3.2,6.0,6.1,6.2@0" },
@@ -14483,6 +14486,18 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     int use_v2 = 1;
     { const char *e = getenv("SOLVE_F1_OOC_FORMAT");
       if (e && (strcmp(e, "v1") == 0 || strcmp(e, "1") == 0)) use_v2 = 0; }
+    /* v4-compiler (2026-07-14): SOLVE_F1_KEEP_LAYERS=1 retains EVERY layer file
+     * 0..n instead of rolling the two-layer window — the preserve-all-layers
+     * substrate for the --kc-* knowledge-compiler query tool. Count and layer
+     * bytes are unchanged (the flag only suppresses the k-2 unlink); disk peak
+     * becomes the FULL ladder (full-31: ~2.5-2.7 TB v2-gz — plan a 4 TB disk),
+     * not the ~1x-largest-layer transient. Env-gated, sha-neutral. */
+    int keep_layers = 0;
+    { const char *e = getenv("SOLVE_F1_KEEP_LAYERS");
+      if (e && atoi(e) != 0) keep_layers = 1; }
+    if (keep_layers && dir)
+        fprintf(stderr, "[f1c5] KEEP-LAYERS: retaining all layer files 0..n in %s "
+                "(SOLVE_F1_KEEP_LAYERS; kc query substrate)\n", dir);
     int gzip_level = f1c5_ooc_gzip_level();
     if (ooc)
         fprintf(stderr, "[f1c5-ooc] layer format: %s%s\n", use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
@@ -14502,7 +14517,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
         if (!spec) {
             fprintf(stderr, "ERROR: [f1c5] --f1-pairs %d has no group-closed orbit union; "
-                    "supported: 9,13,16,18,19,24,25,27,28,31\n", npairs);
+                    "supported: 9,13,16,18,19,21,22,24,25,27,28,31\n", npairs);
             free(c);
             return 2;
         }
@@ -14661,8 +14676,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         F1U192 ooc_mass = {0, 0, 0};
         uint64_t ooc_states = 0;
         if (ooc) {
-            if (k >= 1) {   /* resume needs only layer k; drop k-1 BEFORE k+1
-                             * grows on disk (halves the transient disk peak) */
+            if (k >= 1 && !keep_layers) {   /* resume needs only layer k; drop k-1 BEFORE
+                             * k+1 grows on disk (halves the transient disk peak) */
                 char old[4096];
                 snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
                 unlink(old);
@@ -14724,7 +14739,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             if (!ooc)   /* ooc: the builder already wrote + renamed the layer file */
                 f1c5_write_layer(dir, c, &B, &nxt);
             f1c5_write_manifest(dir, c, &B, k + 1);
-            if (!ooc && k >= 1) {   /* keep k and k+1; drop k-1 (ooc drops it pre-build) */
+            if (!ooc && k >= 1 && !keep_layers) {   /* keep k and k+1; drop k-1
+                                                     * (ooc drops it pre-build) */
                 char old[4096];
                 snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
                 unlink(old);
@@ -14856,6 +14872,1361 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     free(vlist); free(vloc); free(vcnt);
     f1c5_budget_free(&B);
     free(c);
+    return rc;
+}
+
+/* ===================== KC — v4-compiler PROTOTYPE: the f1c5 DP as a knowledge compiler =====================
+ *
+ * Branch v4-compiler (HELD — comparison prototype, NOT canonical). Implements
+ * review E1/E2 (V4_REVIEW_E_INNOVATION_2026_07_13.md, roae-private) at small
+ * exhaustive n: the #217 orbit-quotient C5-residual layered DP above is not
+ * just a counter — its retained layers + the transition rule form a
+ * deterministic, layer-structured decision-DAG (an implicit ZDD-like compiled
+ * representation) of the C1&C2&C4&C5 space, on which classical algorithms
+ * give rank/unrank, exact uniform sampling, membership, and in-order
+ * enumeration with C3 applied in-path.
+ *
+ * Subcommands (all argv-dispatched, sha-neutral, zero interaction with the
+ * enumeration/merge/checkpoint paths; hard-capped at n <= 22 pairs — the
+ * measured LIGHT ceiling of the 2-core/8GB orchestrator lives below that cap
+ * (see scripts/kc_midn_validate.sh); the full-31 substrate is the production
+ * --f1-out-of-core run + a preserve-all-layers rerun, NOT this code):
+ *
+ *   --kc-selftest [--f1-pairs N]        full verification vs brute force (default n=9
+ *                                       exhaustive + n=13 spot gates; see kc_selftest)
+ *   --kc-midn N [--kc-roundtrips R] [--kc-chi2-samples M]
+ *                                       mid-n gate suite (rank/unrank/member roundtrips,
+ *                                       mutation coherence, chi-square sampling, largest-
+ *                                       layer order invariance) at n where brute force is
+ *                                       infeasible; count cross-check vs the production
+ *                                       rolling-window path runs in the shell driver
+ *   --kc-build DIR [--f1-pairs N]       build + RETAIN all n+1 layers (v1 format) + manifest
+ *   --kc-count DIR                      exact model count from the compiled layers
+ *   --kc-unrank DIR RANK                the RANK-th walk in the canonical descent order
+ *   --kc-rank DIR "e,x,e,x,..."         rank of an explicit walk (inverse of unrank)
+ *   --kc-member DIR "e,x,e,x,..."       membership query against the compiled structure
+ *   --kc-sample DIR COUNT SEED [--kc-c3-max T]   exact-uniform samples via unranking
+ *   --kc-enum DIR [--kc-c3-max T] [--kc-limit M] in-order enumeration, C3 in-path optional
+ *
+ * Semantics. A "walk" is a raw oriented pair-sequence: n placements, each
+ * consuming one subset pair (entry hexagram then exit hexagram, positions
+ * 2(k-1), 2k-1), starting from the G-fixed virtual exit start_exit, every
+ * boundary transition in distance class {1,2,3,4,6} (C2) within the C5
+ * boundary budget B0. The DP total IS the number of such walks (for full-31:
+ * |C1 & C2 & C4 & C5|). The canonical total order is REVERSE-EXIT
+ * LEXICOGRAPHIC: walks ordered by (exit_n, exit_n-1, ..., exit_1) ascending
+ * (raw hexagram values). This order is realized by reverse-order descent over
+ * the stored forward layers ALONE — the last placement is resolved first, so
+ * no backward/suffix-count DP run is needed (review E1's key claim,
+ * demonstrated here). The exit sequence determines the walk uniquely (an exit
+ * hexagram determines its pair AND orientation), so the order is total.
+ *
+ * C3 in-path: the complement-distance partial sum (couples {h, 63^h} with
+ * both endpoints placed contribute |pos(h)-pos(63^h)|, each couple once) is
+ * monotone nondecreasing along a descent, so "prune when partial > T" is
+ * admissible (never removes a walk with final cd <= T) and exact as a filter.
+ * At reduced n the threshold T is a test parameter, NOT KW's 776 — the
+ * full-scale C3 uses cd <= 776 over all 64 hexagrams.
+ *
+ * Verification (kc_selftest, all gates vs an INDEPENDENT forward brute-force
+ * DFS): exact count; full-enumeration byte-equality in rank order;
+ * rank(unrank(i)) == i for ALL i; unrank(i) == i-th brute walk for ALL i;
+ * membership (positives = all brute walks; negatives = mutated non-solutions
+ * checked against the brute set); exact-uniform sampling (member + chi-square
+ * vs uniform over rank buckets); C3-in-path enumeration == brute-filtered
+ * list; PARTITION INVARIANCE (layers rebuilt serial / reversed target order /
+ * 3-way sliced-and-merged / single-thread are byte-identical to the
+ * OMP-parallel build); disk round-trip (write + load == in-RAM bytes).
+ *
+ * Credits (novelty humility): unranking/ranking and uniform generation from
+ * counting DPs are CLASSICAL (Nijenhuis & Wilf 1975/78; Knuth TAOCP 4A
+ * §7.2.1); the compiled-DAG query taxonomy is classical knowledge compilation
+ * (Minato's ZDDs 1993; Darwiche's d-DNNF 2001-04; Bryant's BDDs 1986). The DP
+ * substrate is the #215/#217/#221 machinery above (operator direction +
+ * prior Fable work). This module only composes them; nothing here is claimed
+ * novel beyond the composition. Prototype by Claude (Fable 5), 2026-07-13,
+ * developed with AI assistance (Claude, Anthropic).
+ */
+
+#define KC_MAX_PAIRS 22   /* scope guard (raised 16->22 for the mid-n harness; n=21/22 are
+                           * the largest orbit-realizable unions below 24): full-31 needs the
+                           * OOC engine + a preserve-all-layers run (~$75-105, corrected from
+                           * red-team R6's $120-170) — not this code. The orchestrator-LIGHT
+                           * ceiling within this cap is MEASURED, not assumed — see
+                           * scripts/kc_midn_validate.sh + V4_COMPILER_FULLBUILD_PLAN. */
+
+/* ---------- 192-bit extras (compare / subtract / decimal parse) ---------- */
+static inline int kc_u192_cmp(const F1U192 *a, const F1U192 *b) {
+    if (a->l2 != b->l2) return a->l2 < b->l2 ? -1 : 1;
+    if (a->l1 != b->l1) return a->l1 < b->l1 ? -1 : 1;
+    if (a->l0 != b->l0) return a->l0 < b->l0 ? -1 : 1;
+    return 0;
+}
+
+static inline void kc_u192_sub(F1U192 *a, const F1U192 *b) {   /* a -= b; caller ensures a >= b */
+    uint64_t bor0 = (a->l0 < b->l0);
+    a->l0 -= b->l0;
+    uint64_t t = b->l1 + bor0;
+    uint64_t bor1 = (t < b->l1) || (a->l1 < t);
+    a->l1 -= t;
+    a->l2 -= b->l2 + bor1;
+}
+
+static int kc_u192_from_dec(const char *s, F1U192 *out) {
+    F1U192 v = {0, 0, 0};
+    int any = 0;
+    for (; *s; s++) {
+        if (*s < '0' || *s > '9') return -1;
+        v = f1_mul_small(v, 10);
+        F1U192 d = {(uint64_t)(*s - '0'), 0, 0};
+        f1_add(&v, &d);
+        any = 1;
+    }
+    if (!any) return -1;
+    *out = v;
+    return 0;
+}
+
+static inline uint64_t kc_splitmix64(uint64_t *st) {
+    uint64_t z = (*st += 0x9E3779B97F4A7C15ull);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+    return z ^ (z >> 31);
+}
+
+/* ---------- compiled-structure context ---------- */
+typedef struct {
+    F1Ctx c;
+    F1C5Budget B;
+    int b0v[5];
+    int n;                       /* pairs */
+    int start_exit;
+    F1C5Layer L[KC_MAX_PAIRS + 1];   /* layers 0..n, ALL retained */
+    F1U192 total;
+    int pair_of_sub[64];         /* raw hexagram -> subset pair index, -1 if absent */
+    int partner[64];             /* raw hexagram -> the other hexagram of its pair, -1 */
+    /* per-prefix-sum rid tables (same construction as f1c5_exact_main) */
+    uint16_t *vlist[KC_MAX_PAIRS + 1];
+    int32_t *vloc[KC_MAX_PAIRS + 1];
+    int vcnt[KC_MAX_PAIRS + 1];
+    int vmax;
+} KC;
+
+static int kc_resolve_pairs(int npairs, int *pl, int *n_out, int *start_out) {
+    if (npairs == 31) {
+        fprintf(stderr, "ERROR: [kc] full-31 is out of prototype scope (needs the OOC "
+                "engine + a preserve-all-layers run); n <= %d only\n", KC_MAX_PAIRS);
+        return -1;
+    }
+    const char *spec = NULL;
+    for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
+        if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
+    if (!spec || npairs > KC_MAX_PAIRS) {
+        fprintf(stderr, "ERROR: [kc] --f1-pairs %d unsupported here "
+                "(orbit-realizable n <= %d: 9, 13, 16, 18, 19, 21, 22)\n",
+                npairs, KC_MAX_PAIRS);
+        return -1;
+    }
+    if (f1_parse_subset(spec, pl, n_out, start_out) != 0) return -1;
+    return 0;
+}
+
+static void kc_finish_init(KC *kc, const int b0v[5]) {
+    memcpy(kc->b0v, b0v, sizeof(kc->b0v));
+    f1c5_budget_init(&kc->B, b0v);
+    { int tot = 0;
+      for (int d = 0; d < 5; d++) tot += b0v[d];
+      F1_CHECK(tot == kc->n, "[kc] budget sum %d != n=%d", tot, kc->n); }
+    for (int h = 0; h < 64; h++) { kc->pair_of_sub[h] = -1; kc->partner[h] = -1; }
+    for (int i = 0; i < kc->n; i++) {
+        kc->pair_of_sub[kc->c.pa[i]] = i;
+        kc->pair_of_sub[kc->c.pb[i]] = i;
+        kc->partner[kc->c.pa[i]] = kc->c.pb[i];
+        kc->partner[kc->c.pb[i]] = kc->c.pa[i];
+    }
+    kc->vmax = 0;
+    for (int s = 0; s <= kc->n; s++) {
+        int cnt = 0;
+        for (uint32_t r = 0; r < kc->B.R; r++) if (kc->B.rsum[r] == s) cnt++;
+        kc->vcnt[s] = cnt;
+        if (cnt > kc->vmax) kc->vmax = cnt;
+        kc->vlist[s] = (uint16_t *)malloc(sizeof(uint16_t) * (size_t)(cnt ? cnt : 1));
+        kc->vloc[s] = (int32_t *)malloc(sizeof(int32_t) * (size_t)kc->B.R);
+        F1_CHECK(kc->vlist[s] && kc->vloc[s], "[kc] rid table alloc failed");
+        int j = 0;
+        for (uint32_t r = 0; r < kc->B.R; r++) {
+            kc->vloc[s][r] = (kc->B.rsum[r] == (uint8_t)s) ? j : -1;
+            if (kc->B.rsum[r] == (uint8_t)s) kc->vlist[s][j++] = (uint16_t)r;
+        }
+    }
+}
+
+static int kc_init(KC *kc, int npairs) {
+    f1_binom_init();
+    f1_build_group();
+    int pl[32], n, start_exit;
+    if (kc_resolve_pairs(npairs, pl, &n, &start_exit) != 0) return -1;
+    kc->n = n;
+    kc->start_exit = start_exit;
+    f1_ctx_init(&kc->c, n, pl, start_exit);
+    int b0v[5];
+    f1c5_derive_b0(&kc->c, 0, b0v);
+    kc_finish_init(kc, b0v);
+    return 0;
+}
+
+static void kc_free(KC *kc) {
+    for (int k = 0; k <= kc->n; k++) f1c5_layer_free(&kc->L[k]);
+    for (int s = 0; s <= kc->n; s++) { free(kc->vlist[s]); free(kc->vloc[s]); }
+    f1c5_budget_free(&kc->B);
+}
+
+/* Build one layer k1 = prev->k + 1 from prev, into nxt (freshly zeroed).
+ * order (optional): a permutation of [0, n_targets) giving target PROCESSING
+ * order; emission always lands at the target's own off[] slot, so the output
+ * bytes are order-independent BY CONSTRUCTION (pull-gather + exact-integer
+ * adds) — the partition-invariance gate rebuilds with scrambled orders and
+ * byte-compares to regression-proof exactly this property. serial != 0
+ * forces single-threaded processing. */
+static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
+                           const uint64_t *order, int serial) {
+    const int k1 = prev->k + 1;
+    nxt->k = k1;
+    f1_enum_canonical(&kc->c, k1, &nxt->masks, &nxt->nm);
+    nxt->off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt->nm + 1));
+    F1_CHECK(nxt->off != NULL, "[kc] offset alloc failed (layer %d)", k1);
+    const int vk1 = kc->vcnt[k1];
+    const int32_t *loc1 = kc->vloc[k1];
+    const uint16_t *vl1 = kc->vlist[k1];
+    int T = serial ? 1 : omp_get_max_threads();
+    F1U192 *scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)kc->vmax, sizeof(F1U192));
+    F1_CHECK(scratch != NULL, "[kc] scratch alloc failed");
+    /* pass 1: per-target counts */
+    #pragma omp parallel num_threads(T)
+    {
+        F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)kc->vmax;
+        #pragma omp for schedule(dynamic, 16)
+        for (int64_t oi = 0; oi < (int64_t)nxt->nm; oi++) {
+            int64_t ti = order ? (int64_t)order[oi] : oi;
+            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            nxt->off[ti + 1] = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
+        }
+    }
+    nxt->off[0] = 0;
+    for (uint64_t i = 0; i < nxt->nm; i++) nxt->off[i + 1] += nxt->off[i];
+    nxt->ne = nxt->off[nxt->nm];
+    nxt->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(nxt->ne ? nxt->ne : 1));
+    nxt->vals = (F1U192 *)malloc(sizeof(F1U192) * (size_t)(nxt->ne ? nxt->ne : 1));
+    F1_CHECK(nxt->keys && nxt->vals, "[kc] layer %d entry alloc failed", k1);
+    /* pass 2: fill */
+    #pragma omp parallel num_threads(T)
+    {
+        F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)kc->vmax;
+        #pragma omp for schedule(dynamic, 16)
+        for (int64_t oi = 0; oi < (int64_t)nxt->nm; oi++) {
+            int64_t ti = order ? (int64_t)order[oi] : oi;
+            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            uint64_t got = f1c5_emit_target(scr, vk1, vl1,
+                                            nxt->keys + nxt->off[ti], nxt->vals + nxt->off[ti]);
+            F1_CHECK(got == nxt->off[ti + 1] - nxt->off[ti],
+                     "[kc] pass-1/pass-2 drift at target %lld", (long long)ti);
+        }
+    }
+    free(scratch);
+}
+
+static void kc_layer0(const KC *kc, F1C5Layer *L0) {
+    memset(L0, 0, sizeof(*L0));
+    L0->k = 0;
+    L0->nm = 1;
+    L0->ne = 1;
+    L0->masks = (uint32_t *)calloc(1, sizeof(uint32_t));
+    L0->off = (uint64_t *)malloc(2 * sizeof(uint64_t));
+    L0->keys = (uint32_t *)malloc(sizeof(uint32_t));
+    L0->vals = (F1U192 *)calloc(1, sizeof(F1U192));
+    F1_CHECK(L0->masks && L0->off && L0->keys && L0->vals, "[kc] layer-0 alloc failed");
+    L0->off[0] = 0;
+    L0->off[1] = 1;
+    L0->keys[0] = ((uint32_t)kc->start_exit << 16);
+    L0->vals[0].l0 = 1;
+}
+
+static void kc_total_from_final(KC *kc) {
+    const F1C5Layer *F = &kc->L[kc->n];
+    uint32_t full = (1u << kc->n) - 1;
+    F1_CHECK(F->nm == 1 && F->masks[0] == full, "[kc] final layer must be the full mask");
+    F1U192 total = {0, 0, 0};
+    for (uint64_t e = 0; e < F->ne; e++) {
+        F1_CHECK((F->keys[e] & 0xffffu) == kc->B.rid_full,
+                 "[kc] final-layer residual != B0 (sum invariant violated)");
+        f1_add(&total, &F->vals[e]);
+    }
+    kc->total = total;
+}
+
+static void kc_build(KC *kc, int verbose) {
+    kc_layer0(kc, &kc->L[0]);
+    double t0 = omp_get_wtime();
+    double bytes = f1c5_layer_bytes(&kc->L[0]);
+    for (int k = 0; k < kc->n; k++) {
+        memset(&kc->L[k + 1], 0, sizeof(F1C5Layer));
+        kc_build_layer(kc, &kc->L[k], &kc->L[k + 1], NULL, 0);
+        bytes += f1c5_layer_bytes(&kc->L[k + 1]);
+        if (verbose)
+            fprintf(stderr, "[kc] layer k=%2d/%d: canonical_masks=%llu entries=%llu "
+                    "bytes=%.6f MB cumulative=%.6f MB\n",
+                    k + 1, kc->n, (unsigned long long)kc->L[k + 1].nm,
+                    (unsigned long long)kc->L[k + 1].ne,
+                    f1c5_layer_bytes(&kc->L[k + 1]) / 1e6, bytes / 1e6);
+    }
+    kc_total_from_final(kc);
+    if (verbose) {
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        fprintf(stderr, "[kc] build: n=%d layers=0..%d total_bytes=%.6f MB "
+                "count=%s elapsed=%.3fs\n",
+                kc->n, kc->n, bytes / 1e6, tdec, omp_get_wtime() - t0);
+    }
+}
+
+/* ---------- disk round-trip (compiled artifact = retained v1 layer files + manifest) ---------- */
+static void kc_write(const KC *kc, const char *dir) {
+    if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
+    for (int k = 0; k <= kc->n; k++) f1c5_write_layer(dir, &kc->c, &kc->B, &kc->L[k]);
+    f1c5_write_manifest(dir, &kc->c, &kc->B, kc->n);
+}
+
+static int kc_load(KC *kc, const char *dir) {
+    f1_binom_init();
+    f1_build_group();
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) { fprintf(stderr, "ERROR: [kc] no manifest in %s\n", dir); return -1; }
+    char line[2048];
+    int n = -1, start_exit = -1, last_k = -1, b0v[5] = {-1, -1, -1, -1, -1};
+    int pl[32], npl = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (sscanf(line, "n=%d", &n) == 1) continue;
+        if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
+        if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
+        if (sscanf(line, "last_complete_k=%d", &last_k) == 1) continue;
+        if (strncmp(line, "pl=", 3) == 0) {
+            for (char *tok = strtok(line + 3, ",\n"); tok && npl < 32; tok = strtok(NULL, ",\n"))
+                pl[npl++] = atoi(tok);
+        }
+    }
+    fclose(f);
+    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 || last_k != n || b0v[0] < 0) {
+        fprintf(stderr, "ERROR: [kc] manifest in %s unusable for kc (n=%d npl=%d "
+                "last_complete_k=%d; kc needs ALL layers 0..n retained — build with --kc-build)\n",
+                dir, n, npl, last_k);
+        return -1;
+    }
+    kc->n = n;
+    kc->start_exit = start_exit;
+    f1_ctx_init(&kc->c, n, pl, start_exit);
+    kc_finish_init(kc, b0v);
+    for (int k = 0; k <= n; k++) {
+        snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, k);
+        FILE *lf = fopen(path, "rb");
+        if (!lf) { fprintf(stderr, "ERROR: [kc] missing layer file %s\n", path); return -1; }
+        F1C5LayerHdr h;
+        if (fread(&h, sizeof(h), 1, lf) != 1) f1_ckpt_io_abort("fread hdr", path);
+        F1_CHECK(memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1,
+                 "[kc] %s: not a v1 f1c5 layer (kc reads the --kc-build/--layers-dir v1 format)", path);
+        F1_CHECK((int)h.n == n && (int)h.k == k && (int)h.start_exit == start_exit &&
+                 h.pl_hash == f1_pl_hash(&kc->c), "[kc] %s: header/ctx mismatch", path);
+        for (int d = 0; d < 5; d++)
+            F1_CHECK((int)h.b0[d] == b0v[d], "[kc] %s: budget mismatch", path);
+        F1C5Layer *L = &kc->L[k];
+        memset(L, 0, sizeof(*L));
+        L->k = k;
+        L->nm = h.n_masks;
+        L->ne = h.n_entries;
+        L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(L->nm ? L->nm : 1));
+        L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
+        L->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(L->ne ? L->ne : 1));
+        L->vals = (F1U192 *)malloc(sizeof(F1U192) * (size_t)(L->ne ? L->ne : 1));
+        F1_CHECK(L->masks && L->off && L->keys && L->vals, "[kc] layer %d load alloc failed", k);
+        if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, lf) != L->nm) ||
+            fread(L->off, sizeof(uint64_t), L->nm + 1, lf) != L->nm + 1 ||
+            (L->ne && fread(L->keys, sizeof(uint32_t), L->ne, lf) != L->ne) ||
+            (L->ne && fread(L->vals, sizeof(F1U192), L->ne, lf) != L->ne))
+            f1_ckpt_io_abort("fread body", path);
+        fclose(lf);
+    }
+    kc_total_from_final(kc);
+    return 0;
+}
+
+/* ---------- the core query primitive ----------
+ * f(m, l, rid) for a RAW mask m: number of walks-prefixes with placed-pair
+ * set m, last exit l, C5 residual rid. Stored only at canonical masks; the
+ * G-equivariance of the constraint system (Hamming isometry, proven — same
+ * lemma the gather itself relies on) gives f(m, l, rid) = f(g.m, g.l, rid)
+ * for the canonicalizing g. */
+static F1U192 kc_flookup(const KC *kc, int k, uint32_t m, int last, uint32_t rid) {
+    F1U192 z = {0, 0, 0};
+    const F1C5Layer *L = &kc->L[k];
+    int g;
+    uint32_t cm = f1_canon(&kc->c, m, &g);
+    int64_t mi = f1_bsearch_u32(L->masks, L->nm, cm);
+    if (mi < 0) return z;
+    uint32_t key = ((uint32_t)kc->c.el[g].hmap[last] << 16) | (rid & 0xffffu);
+    uint64_t lo = L->off[mi], hi = L->off[mi + 1];
+    while (lo < hi) {   /* keys ascending within a mask */
+        uint64_t mid = (lo + hi) >> 1;
+        if (L->keys[mid] < key) lo = mid + 1; else hi = mid;
+    }
+    if (lo < L->off[mi + 1] && L->keys[lo] == key) return L->vals[lo];
+    return z;
+}
+
+/* ---------- walk validation (forward semantics, independent of descent) ----------
+ * E[0..n-1] = exit hexagrams. Returns 0 and fills rids[0..n] (rids[k] =
+ * residual after k placements) + *cd_out (complement-distance analog) on a
+ * valid walk; -1 otherwise. */
+static int kc_validate(const KC *kc, const uint8_t *E, uint32_t *rids, int *cd_out) {
+    uint32_t m = 0, rid = 0;
+    int last = kc->start_exit;
+    int8_t pos[64];
+    memset(pos, -1, sizeof(pos));
+    int cd = 0;
+    if (rids) rids[0] = 0;
+    for (int k = 1; k <= kc->n; k++) {
+        int x = E[k - 1];
+        if (x < 0 || x > 63) return -1;
+        int i = kc->pair_of_sub[x];
+        if (i < 0 || (m >> i) & 1) return -1;
+        int entry = kc->partner[x];
+        int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+        if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) return -1;
+        rid += kc->B.rad[cls];
+        m |= 1u << i;
+        last = x;
+        pos[entry] = (int8_t)(2 * (k - 1));
+        if (pos[63 ^ entry] >= 0) cd += abs((int)pos[entry] - (int)pos[63 ^ entry]);
+        pos[x] = (int8_t)(2 * k - 1);
+        if (pos[63 ^ x] >= 0) cd += abs((int)pos[x] - (int)pos[63 ^ x]);
+        if (rids) rids[k] = rid;
+    }
+    if (m != (1u << kc->n) - 1u) return -1;
+    F1_CHECK(rid == kc->B.rid_full, "[kc] sum invariant: full walk residual != B0");
+    if (cd_out) *cd_out = cd;
+    return 0;
+}
+
+/* membership against the COMPILED structure: forward-valid AND every prefix
+ * state present in the stored layers (belt and braces — a valid walk's states
+ * must all be present; absence is a structure defect, checked hard). */
+static int kc_member(const KC *kc, const uint8_t *E) {
+    uint32_t rids[KC_MAX_PAIRS + 1];
+    if (kc_validate(kc, E, rids, NULL) != 0) return 0;
+    uint32_t m = 0;
+    for (int k = 1; k <= kc->n; k++) {
+        m |= 1u << kc->pair_of_sub[E[k - 1]];
+        F1U192 v = kc_flookup(kc, k, m, E[k - 1], rids[k]);
+        F1_CHECK(!f1_is_zero(&v),
+                 "[kc] valid walk has a missing compiled state at k=%d — structure defect", k);
+    }
+    return 1;
+}
+
+/* ---------- unrank: the r-th walk in reverse-exit-lex order ---------- */
+static int kc_unrank(const KC *kc, F1U192 r, uint8_t *E) {
+    if (kc_u192_cmp(&r, &kc->total) >= 0) return -1;
+    uint32_t m = (1u << kc->n) - 1u;
+    uint32_t rid = kc->B.rid_full;
+    int l = -1;
+    for (int lc = 0; lc < 64; lc++) {
+        F1U192 v = kc_flookup(kc, kc->n, m, lc, rid);
+        if (f1_is_zero(&v)) continue;
+        if (kc_u192_cmp(&r, &v) < 0) { l = lc; break; }
+        kc_u192_sub(&r, &v);
+    }
+    F1_CHECK(l >= 0, "[kc] unrank: rank exceeded final-layer mass");
+    E[kc->n - 1] = (uint8_t)l;
+    for (int k = kc->n; k >= 2; k--) {
+        int i = kc->pair_of_sub[l];
+        int entry = kc->partner[l];
+        m ^= 1u << i;
+        int nl = -1;
+        uint32_t nrid = 0;
+        for (int lc = 0; lc < 64; lc++) {
+            int cls = F1C5_CLS[__builtin_popcount((unsigned)(lc ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] == 0) continue;
+            uint32_t rid2 = rid - kc->B.rad[cls];
+            F1U192 v = kc_flookup(kc, k - 1, m, lc, rid2);
+            if (f1_is_zero(&v)) continue;
+            if (kc_u192_cmp(&r, &v) < 0) { nl = lc; nrid = rid2; break; }
+            kc_u192_sub(&r, &v);
+        }
+        F1_CHECK(nl >= 0, "[kc] unrank: descent exhausted predecessors (defect)");
+        E[k - 2] = (uint8_t)nl;
+        l = nl;
+        rid = nrid;
+    }
+    /* final placement: predecessor must be the layer-0 singleton */
+    {
+        int i = kc->pair_of_sub[l];
+        int entry = kc->partner[l];
+        m ^= 1u << i;
+        F1_CHECK(m == 0, "[kc] unrank: nonempty mask after last placement");
+        int cls = F1C5_CLS[__builtin_popcount((unsigned)(kc->start_exit ^ entry))];
+        F1_CHECK(cls >= 0 && rid == kc->B.rad[cls] && f1_is_zero(&r),
+                 "[kc] unrank: layer-0 anchor mismatch (defect)");
+    }
+    return 0;
+}
+
+/* ---------- rank: inverse of unrank (walk must be valid) ---------- */
+static int kc_rank(const KC *kc, const uint8_t *E, F1U192 *out) {
+    uint32_t rids[KC_MAX_PAIRS + 1];
+    if (kc_validate(kc, E, rids, NULL) != 0) return -1;
+    F1U192 r = {0, 0, 0};
+    uint32_t m = (1u << kc->n) - 1u;
+    for (int lc = 0; lc < E[kc->n - 1]; lc++) {
+        F1U192 v = kc_flookup(kc, kc->n, m, lc, kc->B.rid_full);
+        f1_add(&r, &v);
+    }
+    for (int k = kc->n; k >= 2; k--) {
+        int l = E[k - 1];
+        int entry = kc->partner[l];
+        uint32_t rid = rids[k];
+        m ^= 1u << kc->pair_of_sub[l];
+        for (int lc = 0; lc < E[k - 2]; lc++) {
+            int cls = F1C5_CLS[__builtin_popcount((unsigned)(lc ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] == 0) continue;
+            F1U192 v = kc_flookup(kc, k - 1, m, lc, rid - kc->B.rad[cls]);
+            f1_add(&r, &v);
+        }
+    }
+    *out = r;
+    return 0;
+}
+
+/* ---------- exact-uniform sampling (rejection to [0, total)) ---------- */
+static void kc_rand_rank(const KC *kc, uint64_t *st, F1U192 *out) {
+    /* mask to the bit-width of total-1, reject until < total */
+    F1U192 nmax = kc->total;
+    F1U192 one = {1, 0, 0};
+    kc_u192_sub(&nmax, &one);   /* total >= 1 always (B0 achievable) */
+    uint64_t m2 = nmax.l2, m1 = nmax.l1, m0 = nmax.l0;
+    /* saturate masks downward: e.g. if l2 != 0, l1/l0 masks are all-ones */
+    uint64_t k2 = m2, k1, k0;
+    if (m2) { k2 = (~0ull) >> __builtin_clzll(m2); k1 = ~0ull; k0 = ~0ull; }
+    else if (m1) { k2 = 0; k1 = (~0ull) >> __builtin_clzll(m1); k0 = ~0ull; }
+    else { k2 = 0; k1 = 0; k0 = m0 ? (~0ull) >> __builtin_clzll(m0) : 0; }
+    for (;;) {
+        F1U192 r;
+        r.l0 = kc_splitmix64(st) & k0;
+        r.l1 = kc_splitmix64(st) & k1;
+        r.l2 = kc_splitmix64(st) & k2;
+        if (kc_u192_cmp(&r, &kc->total) < 0) { *out = r; return; }
+    }
+}
+
+/* ---------- in-order enumeration by descent (optional C3 in-path) ----------
+ * cb returns nonzero to stop. Returns number of walks emitted. */
+typedef int (*KcWalkCb)(void *ud, const uint8_t *E);
+
+static uint64_t kc_enum_rec(const KC *kc, int k, uint32_t m, int l, uint32_t rid,
+                            uint8_t *E, int8_t *pos, int partial_cd, int c3max,
+                            KcWalkCb cb, void *ud, int *stop) {
+    /* commit placement k: pair of exit l, entry = partner, positions 2(k-1), 2k-1 */
+    int i = kc->pair_of_sub[l];
+    int entry = kc->partner[l];
+    E[k - 1] = (uint8_t)l;
+    int add = 0;
+    pos[entry] = (int8_t)(2 * (k - 1));
+    if (pos[63 ^ entry] >= 0) add += abs((int)pos[entry] - (int)pos[63 ^ entry]);
+    pos[l] = (int8_t)(2 * k - 1);
+    if (pos[63 ^ l] >= 0) add += abs((int)pos[l] - (int)pos[63 ^ l]);
+    partial_cd += add;
+    uint64_t emitted = 0;
+    if (c3max < 0 || partial_cd <= c3max) {   /* monotone bound: admissible prune */
+        uint32_t m2 = m ^ (1u << i);
+        for (int lc = 0; lc < 64 && !*stop; lc++) {
+            int cls = F1C5_CLS[__builtin_popcount((unsigned)(lc ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] == 0) continue;
+            uint32_t rid2 = rid - kc->B.rad[cls];
+            F1U192 v = kc_flookup(kc, k - 1, m2, lc, rid2);
+            if (f1_is_zero(&v)) continue;
+            if (k == 1) {
+                /* layer-0 singleton reached: full walk in E */
+                emitted++;
+                if (cb && cb(ud, E)) *stop = 1;
+            } else {
+                emitted += kc_enum_rec(kc, k - 1, m2, lc, rid2, E, pos, partial_cd,
+                                       c3max, cb, ud, stop);
+            }
+        }
+    }
+    pos[entry] = -1;
+    pos[l] = -1;
+    return emitted;
+}
+
+static uint64_t kc_enum(const KC *kc, int c3max, KcWalkCb cb, void *ud) {
+    uint8_t E[KC_MAX_PAIRS];
+    int8_t pos[64];
+    memset(pos, -1, sizeof(pos));
+    int stop = 0;
+    uint64_t emitted = 0;
+    uint32_t full = (1u << kc->n) - 1u;
+    for (int lc = 0; lc < 64 && !stop; lc++) {
+        F1U192 v = kc_flookup(kc, kc->n, full, lc, kc->B.rid_full);
+        if (f1_is_zero(&v)) continue;
+        emitted += kc_enum_rec(kc, kc->n, full, lc, kc->B.rid_full, E, pos, 0,
+                               c3max, cb, ud, &stop);
+    }
+    return emitted;
+}
+
+/* ---------- independent forward brute force (the verification oracle) ---------- */
+typedef struct {
+    uint8_t *walks;      /* cnt * n exit sequences */
+    uint64_t cnt, cap;
+    int n;
+    uint64_t nodes;
+    int *cds;            /* per-walk complement-distance analog */
+} KcList;
+
+static void kc_list_push(KcList *L, const uint8_t *E, int cd) {
+    if (L->cnt == L->cap) {
+        L->cap = L->cap ? L->cap * 2 : 4096;
+        L->walks = (uint8_t *)realloc(L->walks, (size_t)L->cap * (size_t)L->n);
+        L->cds = (int *)realloc(L->cds, (size_t)L->cap * sizeof(int));
+        F1_CHECK(L->walks && L->cds, "[kc] brute list OOM");
+    }
+    memcpy(L->walks + L->cnt * (size_t)L->n, E, (size_t)L->n);
+    L->cds[L->cnt] = cd;
+    L->cnt++;
+}
+
+static void kc_brute_rec(const KC *kc, int depth, uint32_t m, int last, uint32_t rid,
+                         uint8_t *E, int8_t *pos, int cd, KcList *out) {
+    out->nodes++;
+    if (depth == kc->n) { kc_list_push(out, E, cd); return; }
+    for (int i = 0; i < kc->n; i++) {
+        if ((m >> i) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            int entry = o ? kc->c.pa[i] : kc->c.pb[i];
+            int exitx = o ? kc->c.pb[i] : kc->c.pa[i];
+            int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            int add = 0;
+            pos[entry] = (int8_t)(2 * depth);
+            if (pos[63 ^ entry] >= 0) add += abs((int)pos[entry] - (int)pos[63 ^ entry]);
+            pos[exitx] = (int8_t)(2 * depth + 1);
+            if (pos[63 ^ exitx] >= 0) add += abs((int)pos[exitx] - (int)pos[63 ^ exitx]);
+            E[depth] = (uint8_t)exitx;
+            kc_brute_rec(kc, depth + 1, m | (1u << i), exitx, rid + kc->B.rad[cls],
+                         E, pos, cd + add, out);
+            pos[entry] = -1;
+            pos[exitx] = -1;
+        }
+    }
+}
+
+static void kc_brute(const KC *kc, KcList *out) {
+    memset(out, 0, sizeof(*out));
+    out->n = kc->n;
+    uint8_t E[KC_MAX_PAIRS];
+    int8_t pos[64];
+    memset(pos, -1, sizeof(pos));
+    kc_brute_rec(kc, 0, 0, kc->start_exit, 0, E, pos, 0, out);
+}
+
+/* reverse-exit-lex comparator over n-byte exit sequences */
+static int kc_n_for_cmp;
+static int kc_walk_cmp(const void *a, const void *b) {
+    const uint8_t *x = (const uint8_t *)a, *y = (const uint8_t *)b;
+    for (int j = kc_n_for_cmp - 1; j >= 0; j--)
+        if (x[j] != y[j]) return x[j] < y[j] ? -1 : 1;
+    return 0;
+}
+
+/* ---------- selftest support ---------- */
+static int kc_layers_equal(const KC *a, const F1C5Layer *X, const F1C5Layer *Y) {
+    (void)a;
+    if (X->k != Y->k || X->nm != Y->nm || X->ne != Y->ne) return 0;
+    if (memcmp(X->masks, Y->masks, sizeof(uint32_t) * X->nm) != 0) return 0;
+    if (memcmp(X->off, Y->off, sizeof(uint64_t) * (X->nm + 1)) != 0) return 0;
+    if (X->ne && memcmp(X->keys, Y->keys, sizeof(uint32_t) * X->ne) != 0) return 0;
+    if (X->ne && memcmp(X->vals, Y->vals, sizeof(F1U192) * X->ne) != 0) return 0;
+    return 1;
+}
+
+typedef struct {
+    uint8_t *buf;        /* collected walks, n bytes each */
+    uint64_t cnt, cap;
+    int n;
+} KcCollect;
+
+static int kc_collect_cb(void *ud, const uint8_t *E) {
+    KcCollect *C = (KcCollect *)ud;
+    if (C->cnt == C->cap) {
+        C->cap = C->cap ? C->cap * 2 : 4096;
+        C->buf = (uint8_t *)realloc(C->buf, (size_t)C->cap * (size_t)C->n);
+        F1_CHECK(C->buf != NULL, "[kc] collect OOM");
+    }
+    memcpy(C->buf + C->cnt * (size_t)C->n, E, (size_t)C->n);
+    C->cnt++;
+    return 0;
+}
+
+#define KC_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-selftest] %-52s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+static int kc_int_cmp(const void *a, const void *b) {
+    return *(const int *)a - *(const int *)b;
+}
+
+static int kc_selftest(void) {
+    int fails = 0;
+    printf("[kc-selftest] v4-compiler prototype verification "
+           "(exhaustive n=9; spot n=13, n=16)\n");
+
+    /* ============ Phase A: n=9, exhaustive vs brute force ============ */
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc] init n=9 failed");
+        double t0 = omp_get_wtime();
+        kc_build(kc, 0);
+        double t_build = omp_get_wtime() - t0;
+
+        t0 = omp_get_wtime();
+        KcList BR;
+        kc_brute(kc, &BR);
+        double t_brute = omp_get_wtime() - t0;
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        printf("[kc-selftest] n=9: DP count=%s brute count=%llu "
+               "(build %.3fs, brute %.3fs, brute nodes=%llu)\n",
+               tdec, (unsigned long long)BR.cnt, t_build, t_brute,
+               (unsigned long long)BR.nodes);
+        F1U192 bcnt = {BR.cnt, 0, 0};
+        KC_GATE("A1 exact count == brute-force count", f1_eq(&kc->total, &bcnt));
+
+        /* sort brute walks in reverse-exit-lex order (the canonical order) */
+        kc_n_for_cmp = kc->n;
+        /* keep cds aligned: sort an index array, then rebuild */
+        uint64_t N = BR.cnt;
+        uint8_t *sorted = (uint8_t *)malloc((size_t)N * kc->n);
+        int *sorted_cd = (int *)malloc((size_t)N * sizeof(int));
+        F1_CHECK(sorted && sorted_cd, "[kc] sort alloc");
+        {
+            uint64_t *idx = (uint64_t *)malloc(sizeof(uint64_t) * N);
+            for (uint64_t i = 0; i < N; i++) idx[i] = i;
+            /* simple index sort via qsort on copies: copy walks with trailing index */
+            /* (n+8 bytes per element) */
+            size_t w = (size_t)kc->n + 8;
+            uint8_t *tmp = (uint8_t *)malloc(w * N);
+            F1_CHECK(tmp != NULL, "[kc] sort tmp alloc");
+            for (uint64_t i = 0; i < N; i++) {
+                memcpy(tmp + i * w, BR.walks + i * (size_t)kc->n, (size_t)kc->n);
+                memcpy(tmp + i * w + kc->n, &i, 8);
+            }
+            qsort(tmp, N, w, kc_walk_cmp);   /* compares first n bytes only */
+            for (uint64_t i = 0; i < N; i++) {
+                memcpy(sorted + i * (size_t)kc->n, tmp + i * w, (size_t)kc->n);
+                uint64_t oi;
+                memcpy(&oi, tmp + i * w + kc->n, 8);
+                sorted_cd[i] = BR.cds[oi];
+            }
+            free(tmp);
+            free(idx);
+        }
+
+        /* A2: full in-order descent enumeration == sorted brute list */
+        KcCollect EN;
+        memset(&EN, 0, sizeof(EN));
+        EN.n = kc->n;
+        t0 = omp_get_wtime();
+        uint64_t emitted = kc_enum(kc, -1, kc_collect_cb, &EN);
+        double t_enum = omp_get_wtime() - t0;
+        KC_GATE("A2 descent enumeration == brute list (bytes, order)",
+                emitted == N && EN.cnt == N &&
+                memcmp(EN.buf, sorted, (size_t)N * kc->n) == 0);
+        printf("[kc-selftest] n=9: descent enum %.3fs (%.0f walks/s), "
+               "brute %.3fs\n", t_enum, N / (t_enum > 0 ? t_enum : 1e-9), t_brute);
+
+        /* A3: rank(unrank(i)) == i and unrank(i) == i-th walk, ALL i */
+        {
+            int ok = 1;
+            uint8_t E[KC_MAX_PAIRS];
+            t0 = omp_get_wtime();
+            for (uint64_t i = 0; i < N && ok; i++) {
+                F1U192 r = {i, 0, 0};
+                if (kc_unrank(kc, r, E) != 0) { ok = 0; break; }
+                if (memcmp(E, sorted + i * (size_t)kc->n, (size_t)kc->n) != 0) { ok = 0; break; }
+                F1U192 rr;
+                if (kc_rank(kc, E, &rr) != 0 || !f1_eq(&r, &rr)) { ok = 0; break; }
+            }
+            double t_rt = omp_get_wtime() - t0;
+            KC_GATE("A3 unrank(i)==i-th walk && rank o unrank == id, ALL i", ok);
+            printf("[kc-selftest] n=9: %llu unrank+rank roundtrips in %.3fs "
+                   "(%.1f us/op)\n", (unsigned long long)N, t_rt, 1e6 * t_rt / (double)N / 2.0);
+            /* out-of-range rank must be rejected */
+            F1U192 rN = kc->total;
+            KC_GATE("A3b unrank(N) rejected (range check)", kc_unrank(kc, rN, E) != 0);
+        }
+
+        /* A4: membership — positives (all brute walks) + mutation agreement */
+        {
+            int ok = 1;
+            for (uint64_t i = 0; i < N && ok; i++)
+                if (!kc_member(kc, sorted + i * (size_t)kc->n)) ok = 0;
+            KC_GATE("A4 membership: all brute walks are members", ok);
+            int neg_seen = 0, agree = 1;
+            uint8_t E[KC_MAX_PAIRS];
+            kc_n_for_cmp = kc->n;
+            for (uint64_t i = 0; i < N && i < 2000; i++) {
+                memcpy(E, sorted + i * (size_t)kc->n, (size_t)kc->n);
+                int j = (int)(i % kc->n);
+                E[j] = (uint8_t)kc->partner[E[j]];   /* flip one orientation */
+                int in_set = bsearch(E, sorted, N, kc->n, kc_walk_cmp) != NULL;
+                int mem = kc_member(kc, E);
+                if (mem != in_set) agree = 0;
+                if (!in_set) neg_seen++;
+            }
+            KC_GATE("A4b membership agrees with brute set on mutations", agree && neg_seen > 0);
+            printf("[kc-selftest] n=9: %d true-negative mutations exercised\n", neg_seen);
+        }
+
+        /* A5: exact-uniform sampling — members + chi-square over 16 rank buckets */
+        {
+            uint64_t seed = 20260713ull;
+            const int M = 20000, NB = 16;
+            long buckets[16] = {0};
+            int ok = 1;
+            uint8_t E[KC_MAX_PAIRS];
+            double dN = f1_to_double(&kc->total);
+            for (int s = 0; s < M; s++) {
+                F1U192 r;
+                kc_rand_rank(kc, &seed, &r);
+                int b = (int)(f1_to_double(&r) / dN * NB);
+                if (b >= NB) b = NB - 1;
+                buckets[b]++;
+                if (kc_unrank(kc, r, E) != 0 || !kc_member(kc, E)) { ok = 0; break; }
+            }
+            double chi2 = 0.0, exp1 = (double)M / NB;
+            for (int b = 0; b < NB; b++)
+                chi2 += (buckets[b] - exp1) * (buckets[b] - exp1) / exp1;
+            KC_GATE("A5 sampling: all samples are members", ok);
+            /* chi2(15 dof) 99.9% quantile = 37.70; deterministic seed */
+            KC_GATE("A5b sampling: chi-square uniform over rank buckets", chi2 < 37.70);
+            printf("[kc-selftest] n=9: %d samples, chi2=%.2f (15 dof, crit 37.70)\n",
+                   M, chi2);
+        }
+
+        /* A6: C3-in-path filtered enumeration == brute-filtered list */
+        {
+            int *cds = (int *)malloc(sizeof(int) * N);
+            memcpy(cds, sorted_cd, sizeof(int) * N);
+            qsort(cds, N, sizeof(int), kc_int_cmp);
+            /* threshold = second-largest DISTINCT cd value, so the filter is
+             * guaranteed nontrivial (0% < acceptance < 100%); at n=9 the cd
+             * distribution is coarse ({23,31,39}), so percentile picks can
+             * degenerate to the max */
+            int T = cds[0];
+            for (uint64_t i = 1; i < N; i++)
+                if (cds[i] != cds[N - 1]) T = cds[i]; else break;
+            F1_CHECK(T < cds[N - 1], "[kc] cd distribution degenerate at n=9 — "
+                     "C3 gate cannot be made nontrivial");
+            free(cds);
+            uint64_t nf = 0;
+            uint8_t *filt = (uint8_t *)malloc((size_t)N * kc->n);
+            for (uint64_t i = 0; i < N; i++)
+                if (sorted_cd[i] <= T)
+                    memcpy(filt + (nf++) * (size_t)kc->n, sorted + i * (size_t)kc->n, (size_t)kc->n);
+            KcCollect FC;
+            memset(&FC, 0, sizeof(FC));
+            FC.n = kc->n;
+            uint64_t fe = kc_enum(kc, T, kc_collect_cb, &FC);
+            KC_GATE("A6 C3-in-path enumeration == brute-filtered list",
+                    fe == nf && FC.cnt == nf &&
+                    memcmp(FC.buf, filt, (size_t)nf * kc->n) == 0);
+            printf("[kc-selftest] n=9: C3 analog threshold T=%d, acceptance "
+                   "%llu/%llu = %.2f%%\n", T, (unsigned long long)nf,
+                   (unsigned long long)N, 100.0 * nf / (double)N);
+            free(filt);
+            free(FC.buf);
+        }
+
+        /* A7: partition invariance — rebuild every layer under scrambled target
+         * order / serial / single-thread; must be byte-identical */
+        {
+            int ok = 1;
+            uint64_t rng = 0x5eedULL;
+            for (int k = 0; k < kc->n && ok; k++) {
+                F1C5Layer R1, R2;
+                memset(&R1, 0, sizeof(R1));
+                memset(&R2, 0, sizeof(R2));
+                uint64_t nt = kc->L[k + 1].nm;
+                uint64_t *order = (uint64_t *)malloc(sizeof(uint64_t) * (nt ? nt : 1));
+                for (uint64_t i = 0; i < nt; i++) order[i] = i;
+                for (uint64_t i = nt; i > 1; i--) {   /* Fisher-Yates */
+                    uint64_t j = kc_splitmix64(&rng) % i;
+                    uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
+                }
+                kc_build_layer(kc, &kc->L[k], &R1, order, 1);       /* serial, shuffled */
+                kc_build_layer(kc, &kc->L[k], &R2, NULL, 0);        /* parallel, natural */
+                if (!kc_layers_equal(kc, &kc->L[k + 1], &R1)) ok = 0;
+                if (!kc_layers_equal(kc, &kc->L[k + 1], &R2)) ok = 0;
+                f1c5_layer_free(&R1);
+                f1c5_layer_free(&R2);
+                free(order);
+            }
+            KC_GATE("A7 partition/order invariance: rebuilt layers byte-identical", ok);
+        }
+
+        /* A8: disk round-trip — write, load, byte-compare, query equivalence */
+        {
+            char dir[] = "/tmp/kc_selftest_XXXXXX";
+            F1_CHECK(mkdtemp(dir) != NULL, "[kc] mkdtemp failed");
+            kc_write(kc, dir);
+            KC *kc2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(kc2 != NULL, "[kc] alloc");
+            int ok = kc_load(kc2, dir) == 0 && f1_eq(&kc2->total, &kc->total);
+            for (int k = 0; k <= kc->n && ok; k++)
+                if (!kc_layers_equal(kc, &kc->L[k], &kc2->L[k])) ok = 0;
+            uint8_t E1[KC_MAX_PAIRS], E2[KC_MAX_PAIRS];
+            uint64_t seed = 99ull;
+            for (int s = 0; s < 100 && ok; s++) {
+                F1U192 r;
+                kc_rand_rank(kc, &seed, &r);
+                if (kc_unrank(kc, r, E1) != 0 || kc_unrank(kc2, r, E2) != 0 ||
+                    memcmp(E1, E2, (size_t)kc->n) != 0) ok = 0;
+            }
+            KC_GATE("A8 disk round-trip: layers + queries identical", ok);
+            /* cleanup */
+            char p[4200];
+            for (int k = 0; k <= kc->n; k++) {
+                snprintf(p, sizeof(p), "%s/f1c5_layer_%02d.bin", dir, k);
+                unlink(p);
+            }
+            snprintf(p, sizeof(p), "%s/f1c5_manifest.txt", dir);
+            unlink(p);
+            rmdir(dir);
+            kc_free(kc2);
+            free(kc2);
+        }
+
+        free(sorted);
+        free(sorted_cd);
+        free(EN.buf);
+        free(BR.walks);
+        free(BR.cds);
+        kc_free(kc);
+        free(kc);
+    }
+
+    /* ============ Phases B/C: n=13, n=16 — build + spot roundtrips ============ */
+    for (int pn = 0; pn < 2; pn++) {
+        int np = pn == 0 ? 13 : 16;
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc] alloc");
+        F1_CHECK(kc_init(kc, np) == 0, "[kc] init failed");
+        double t0 = omp_get_wtime();
+        kc_build(kc, 0);
+        double t_build = omp_get_wtime() - t0;
+        double bytes = 0;
+        for (int k = 0; k <= kc->n; k++) bytes += f1c5_layer_bytes(&kc->L[k]);
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        printf("[kc-selftest] n=%d: count=%s layers=%.3f MB build=%.3fs\n",
+               np, tdec, bytes / 1e6, t_build);
+
+        int R = 2000, ok = 1, mono_ok = 1;
+        uint8_t E[KC_MAX_PAIRS], Eprev[KC_MAX_PAIRS];
+        F1U192 *rs = (F1U192 *)malloc(sizeof(F1U192) * R);
+        uint64_t seed = 4242ull + np;
+        t0 = omp_get_wtime();
+        for (int s = 0; s < R; s++) kc_rand_rank(kc, &seed, &rs[s]);
+        /* sort ranks ascending (insertion into order via qsort on 192-bit LE) */
+        qsort(rs, R, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);
+        kc_n_for_cmp = kc->n;
+        for (int s = 0; s < R && ok; s++) {
+            if (kc_unrank(kc, rs[s], E) != 0) { ok = 0; break; }
+            if (!kc_member(kc, E)) { ok = 0; break; }
+            F1U192 rr;
+            if (kc_rank(kc, E, &rr) != 0 || !f1_eq(&rs[s], &rr)) { ok = 0; break; }
+            if (s > 0 && kc_u192_cmp(&rs[s - 1], &rs[s]) < 0 &&
+                kc_walk_cmp(Eprev, E) >= 0) mono_ok = 0;
+            memcpy(Eprev, E, (size_t)kc->n);
+        }
+        double t_rt = omp_get_wtime() - t0;
+        char g1[64], g2[64];
+        snprintf(g1, sizeof(g1), "%c1 n=%d rank/unrank/member roundtrips", 'B' + pn, np);
+        snprintf(g2, sizeof(g2), "%c2 n=%d rank order == reverse-exit-lex order", 'B' + pn, np);
+        KC_GATE(g1, ok);
+        KC_GATE(g2, mono_ok);
+        printf("[kc-selftest] n=%d: %d roundtrips in %.3fs (%.1f us/unrank+rank)\n",
+               np, R, t_rt, 1e6 * t_rt / R);
+        /* partition invariance on the largest layer */
+        {
+            int kmax = 1;
+            for (int k = 1; k <= kc->n; k++)
+                if (kc->L[k].ne > kc->L[kmax].ne) kmax = k;
+            F1C5Layer R1;
+            memset(&R1, 0, sizeof(R1));
+            uint64_t nt = kc->L[kmax].nm;
+            uint64_t *order = (uint64_t *)malloc(sizeof(uint64_t) * (nt ? nt : 1));
+            uint64_t rng = 0xabcdULL;
+            for (uint64_t i = 0; i < nt; i++) order[i] = i;
+            for (uint64_t i = nt; i > 1; i--) {
+                uint64_t j = kc_splitmix64(&rng) % i;
+                uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
+            }
+            kc_build_layer(kc, &kc->L[kmax - 1], &R1, order, 1);
+            char g3[64];
+            snprintf(g3, sizeof(g3), "%c3 n=%d largest layer (k=%d) order-invariant",
+                     'B' + pn, np, kmax);
+            KC_GATE(g3, kc_layers_equal(kc, &kc->L[kmax], &R1));
+            f1c5_layer_free(&R1);
+            free(order);
+        }
+        free(rs);
+        kc_free(kc);
+        free(kc);
+    }
+
+    printf("[kc-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
+           fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
+/* ---------- mid-n validation harness (--kc-midn; Deliverable A, 2026-07-14) ----------
+ * Extends the n=9/13/16 prototype gates to n where the full brute force is
+ * infeasible but the exhaustive build is still orchestrator-LIGHT. The count
+ * cross-check vs the production rolling-window path (--f1-exact-c1c2c4c5) is
+ * gate M1 and runs in the shell driver scripts/kc_midn_validate.sh — a
+ * separate process AND a separate code path (rolling two-layer window vs
+ * retained layers). In-binary gates:
+ *   M2  rank/unrank/member roundtrips on R sampled 192-bit ranks + rank 0 +
+ *       rank N-1; unrank(N) rejected; sorted ranks => reverse-exit-lex
+ *       monotone walk order
+ *   M3  mutation coherence (brute-force-free membership gate): mutants of
+ *       sampled walks classified by the INDEPENDENT forward validator
+ *       (kc_validate — forward semantics only, no compiled-layer access);
+ *       valid mutants must be members (this exercises the compiled-state-
+ *       presence F1_CHECK on walks NOT produced by unrank) with
+ *       self-consistent ranks differing from the source walk; invalid
+ *       mutants (orientation flips that break C2/C5 + duplicate-pair
+ *       mutants) must be NON-members; both classes must be nonempty
+ *   M4  exact-uniform sampling: M samples all members; chi-square over 16
+ *       rank buckets < 37.70 (15 dof, 99.9%; deterministic seed)
+ *   M5  partition/order invariance on the LARGEST layer (serial + Fisher-
+ *       Yates-scrambled target order rebuild == byte-identical)
+ * Prints a machine-parseable KC-MIDN summary line for the driver's table. */
+static int kc_midn(int npairs, int R, int M) {
+    int fails = 0;
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[kc] alloc");
+    if (kc_init(kc, npairs) != 0) { free(kc); return 2; }
+    printf("[kc-midn] n=%d: exhaustive build + gate suite (R=%d roundtrips, M=%d samples)\n",
+           kc->n, R, M);
+    double t0 = omp_get_wtime();
+    kc_build(kc, 1);
+    double t_build = omp_get_wtime() - t0;
+    double bytes = 0;
+    for (int k = 0; k <= kc->n; k++) bytes += f1c5_layer_bytes(&kc->L[k]);
+    char tdec[64];
+    f1_dec(kc->total, tdec);
+
+    /* M2: roundtrips over R random ranks + the two boundary ranks */
+    int NR = R + 2, ok = 1, mono_ok = 1;
+    uint8_t *walks = (uint8_t *)malloc((size_t)NR * kc->n);
+    F1U192 *rs = (F1U192 *)malloc(sizeof(F1U192) * (size_t)NR);
+    F1_CHECK(walks && rs, "[kc-midn] sample alloc");
+    uint64_t seed = 20260714ull + (uint64_t)npairs;
+    rs[0].l0 = 0; rs[0].l1 = 0; rs[0].l2 = 0;                 /* rank 0 */
+    rs[1] = kc->total;                                        /* rank N-1 */
+    { F1U192 one = {1, 0, 0}; kc_u192_sub(&rs[1], &one); }
+    for (int s = 2; s < NR; s++) kc_rand_rank(kc, &seed, &rs[s]);
+    qsort(rs, NR, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);
+    kc_n_for_cmp = kc->n;
+    t0 = omp_get_wtime();
+    for (int s = 0; s < NR && ok; s++) {
+        uint8_t *E = walks + (size_t)s * kc->n;
+        if (kc_unrank(kc, rs[s], E) != 0) { ok = 0; break; }
+        if (!kc_member(kc, E)) { ok = 0; break; }
+        F1U192 rr;
+        if (kc_rank(kc, E, &rr) != 0 || !f1_eq(&rs[s], &rr)) { ok = 0; break; }
+        if (s > 0 && kc_u192_cmp(&rs[s - 1], &rs[s]) < 0 &&
+            kc_walk_cmp(walks + (size_t)(s - 1) * kc->n, E) >= 0) mono_ok = 0;
+    }
+    double t_rt = omp_get_wtime() - t0;
+    {
+        uint8_t Ez[KC_MAX_PAIRS];
+        KC_GATE("M2 rank/unrank/member roundtrips (incl. rank 0, N-1)", ok);
+        KC_GATE("M2b rank order == reverse-exit-lex walk order", mono_ok);
+        KC_GATE("M2c unrank(N) rejected (range check)", kc_unrank(kc, kc->total, Ez) != 0);
+    }
+    printf("[kc-midn] n=%d: %d roundtrips in %.3fs (%.1f us/unrank+rank)\n",
+           kc->n, NR, t_rt, 1e6 * t_rt / NR);
+
+    /* M3: mutation coherence — validator-classified mutants vs membership */
+    {
+        int MM = NR < 2000 ? NR : 2000;
+        int n_valid = 0, n_invalid = 0, coherent = 1;
+        uint8_t E[KC_MAX_PAIRS];
+        for (int s = 0; s < MM && coherent; s++) {
+            const uint8_t *src = walks + (size_t)s * kc->n;
+            /* mutant A: flip one pair's orientation (may or may not stay valid) */
+            memcpy(E, src, (size_t)kc->n);
+            int j = s % kc->n;
+            E[j] = (uint8_t)kc->partner[E[j]];
+            uint32_t rids[KC_MAX_PAIRS + 1];
+            int valid = kc_validate(kc, E, rids, NULL) == 0;
+            int mem = kc_member(kc, E);
+            if (mem != valid) coherent = 0;
+            if (valid) {
+                n_valid++;
+                F1U192 rm, rs2;
+                if (kc_rank(kc, E, &rm) != 0) coherent = 0;
+                else {
+                    uint8_t E2[KC_MAX_PAIRS];
+                    if (kc_unrank(kc, rm, E2) != 0 ||
+                        memcmp(E, E2, (size_t)kc->n) != 0) coherent = 0;
+                    /* a different walk must not share the source walk's rank */
+                    if (kc_rank(kc, src, &rs2) == 0 && f1_eq(&rm, &rs2)) coherent = 0;
+                }
+            } else n_invalid++;
+            /* mutant B: duplicate-pair (always invalid) must be NON-member */
+            memcpy(E, src, (size_t)kc->n);
+            E[j] = E[(j + 1) % kc->n];
+            if (kc_validate(kc, E, rids, NULL) == 0 || kc_member(kc, E)) coherent = 0;
+            n_invalid++;
+        }
+        KC_GATE("M3 mutation coherence (validator == membership, ranks sane)",
+                coherent && n_valid > 0 && n_invalid > 0);
+        printf("[kc-midn] n=%d: mutants exercised: %d valid (member+rank), %d invalid "
+               "(rejected)\n", kc->n, n_valid, n_invalid);
+    }
+
+    /* M4: exact-uniform sampling + chi-square over 16 rank buckets */
+    {
+        const int NB = 16;
+        long buckets[16] = {0};
+        int sok = 1;
+        uint8_t E[KC_MAX_PAIRS];
+        double dN = f1_to_double(&kc->total);
+        uint64_t sseed = 424242ull + (uint64_t)npairs;
+        for (int s = 0; s < M; s++) {
+            F1U192 r;
+            kc_rand_rank(kc, &sseed, &r);
+            int b = (int)(f1_to_double(&r) / dN * NB);
+            if (b >= NB) b = NB - 1;
+            buckets[b]++;
+            if (kc_unrank(kc, r, E) != 0 || !kc_member(kc, E)) { sok = 0; break; }
+        }
+        double chi2 = 0.0, exp1 = (double)M / NB;
+        for (int b = 0; b < NB; b++)
+            chi2 += (buckets[b] - exp1) * (buckets[b] - exp1) / exp1;
+        KC_GATE("M4 sampling: all samples are members", sok);
+        KC_GATE("M4b sampling: chi-square uniform over rank buckets", chi2 < 37.70);
+        printf("[kc-midn] n=%d: %d samples, chi2=%.2f (15 dof, crit 37.70)\n",
+               kc->n, M, chi2);
+    }
+
+    /* M5: partition/order invariance on the largest layer */
+    {
+        int kmax = 1;
+        for (int k = 1; k <= kc->n; k++)
+            if (kc->L[k].ne > kc->L[kmax].ne) kmax = k;
+        F1C5Layer R1;
+        memset(&R1, 0, sizeof(R1));
+        uint64_t nt = kc->L[kmax].nm;
+        uint64_t *order = (uint64_t *)malloc(sizeof(uint64_t) * (nt ? nt : 1));
+        F1_CHECK(order != NULL, "[kc-midn] order alloc");
+        uint64_t rng = 0xabcdULL + (uint64_t)npairs;
+        for (uint64_t i = 0; i < nt; i++) order[i] = i;
+        for (uint64_t i = nt; i > 1; i--) {
+            uint64_t j = kc_splitmix64(&rng) % i;
+            uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
+        }
+        kc_build_layer(kc, &kc->L[kmax - 1], &R1, order, 1);
+        char g[80];
+        snprintf(g, sizeof(g), "M5 largest layer (k=%d) order-invariant (bytes)", kmax);
+        KC_GATE(g, kc_layers_equal(kc, &kc->L[kmax], &R1));
+        f1c5_layer_free(&R1);
+        free(order);
+    }
+
+    double peak_mb = 0.0;
+    { struct rusage ru;
+      if (getrusage(RUSAGE_SELF, &ru) == 0) peak_mb = (double)ru.ru_maxrss / 1024.0; }
+    printf("KC-MIDN n=%d count=%s layers_raw_mb=%.3f build_s=%.3f peak_rss_mb=%.1f "
+           "roundtrips=%d chi2_samples=%d result=%s\n",
+           kc->n, tdec, bytes / 1e6, t_build, peak_mb, NR, M, fails ? "FAIL" : "PASS");
+    free(walks);
+    free(rs);
+    kc_free(kc);
+    free(kc);
+    return fails ? 1 : 0;
+}
+
+/* ---------- CLI driver (all --kc-* subcommands) ---------- */
+static int kc_parse_walk(const KC *kc, const char *s, uint8_t *E) {
+    int vals[2 * KC_MAX_PAIRS], nv = 0;
+    const char *p = s;
+    while (*p && nv < 2 * kc->n) {
+        if (*p >= '0' && *p <= '9') vals[nv++] = (int)strtol(p, (char **)&p, 10);
+        else p++;
+    }
+    if (nv != 2 * kc->n) {
+        fprintf(stderr, "ERROR: [kc] walk needs %d hexagrams (entry,exit per pair), got %d\n",
+                2 * kc->n, nv);
+        return -1;
+    }
+    for (int k = 0; k < kc->n; k++) {
+        int e = vals[2 * k], x = vals[2 * k + 1];
+        if (e < 0 || e > 63 || x < 0 || x > 63 ||
+            kc->pair_of_sub[x] < 0 || kc->partner[x] != e)
+            return 1;   /* structurally not a walk over this pair subset */
+        E[k] = (uint8_t)x;
+    }
+    return 0;
+}
+
+static void kc_print_walk(const KC *kc, const uint8_t *E, FILE *f) {
+    for (int k = 0; k < kc->n; k++)
+        fprintf(f, "%s%d,%d", k ? "," : "", kc->partner[E[k]], E[k]);
+    fprintf(f, "\n");
+}
+
+typedef struct { const KC *kc; uint64_t limit, done; } KcEnumUd;
+static int kc_enum_print_cb(void *ud, const uint8_t *E) {
+    KcEnumUd *u = (KcEnumUd *)ud;
+    kc_print_walk(u->kc, E, stdout);
+    u->done++;
+    return u->limit && u->done >= u->limit;
+}
+
+static int kc_cli(int argc, char *argv[]) {
+    const char *cmd = argv[1];
+    if (strcmp(cmd, "--kc-selftest") == 0) return kc_selftest();
+    if (strcmp(cmd, "--kc-midn") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "Usage: solve --kc-midn N [--kc-roundtrips R] "
+                    "[--kc-chi2-samples M]\n");
+            return 2;
+        }
+        int npairs = atoi(argv[2]), R = 4000, M = 20000;
+        for (int ai = 3; ai + 1 < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[ai + 1]);
+            else if (strcmp(argv[ai], "--kc-chi2-samples") == 0) M = atoi(argv[ai + 1]);
+        }
+        if (R < 2) R = 2;
+        if (M < 16) M = 16;
+        return kc_midn(npairs, R, M);
+    }
+
+    /* common option scan */
+    int npairs = 9;
+    long long c3max = -1, limit = 0;
+    for (int ai = 2; ai + 1 < argc; ai++) {
+        if (strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[ai + 1]);
+        else if (strcmp(argv[ai], "--kc-c3-max") == 0) c3max = atoll(argv[ai + 1]);
+        else if (strcmp(argv[ai], "--kc-limit") == 0) limit = atoll(argv[ai + 1]);
+    }
+    if (argc < 3) {
+        fprintf(stderr, "Usage: solve %s DIR [args] [--f1-pairs N] "
+                "[--kc-c3-max T] [--kc-limit M]\n", cmd);
+        return 2;
+    }
+    const char *dir = argv[2];
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[kc] alloc");
+    int rc = 0;
+
+    if (strcmp(cmd, "--kc-build") == 0) {
+        if (kc_init(kc, npairs) != 0) { free(kc); return 2; }
+        double t0 = omp_get_wtime();
+        kc_build(kc, 1);
+        kc_write(kc, dir);
+        double bytes = 0;
+        for (int k = 0; k <= kc->n; k++) bytes += f1c5_layer_bytes(&kc->L[k]);
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        printf("KC BUILD n=%d dir=%s count=%s layers=%.6f MB elapsed=%.3fs\n",
+               kc->n, dir, tdec, bytes / 1e6, omp_get_wtime() - t0);
+    } else if (strcmp(cmd, "--kc-count") == 0) {
+        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        printf("KC COUNT n=%d = %s\n", kc->n, tdec);
+    } else if (strcmp(cmd, "--kc-unrank") == 0) {
+        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-unrank DIR RANK\n"); free(kc); return 2; }
+        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        F1U192 r;
+        uint8_t E[KC_MAX_PAIRS];
+        if (kc_u192_from_dec(argv[3], &r) != 0 || kc_unrank(kc, r, E) != 0) {
+            fprintf(stderr, "ERROR: [kc] rank out of range or unparsable\n");
+            rc = 1;
+        } else kc_print_walk(kc, E, stdout);
+    } else if (strcmp(cmd, "--kc-rank") == 0) {
+        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-rank DIR \"e,x,...\"\n"); free(kc); return 2; }
+        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        uint8_t E[KC_MAX_PAIRS];
+        F1U192 r;
+        if (kc_parse_walk(kc, argv[3], E) != 0 || kc_rank(kc, E, &r) != 0) {
+            fprintf(stderr, "ERROR: [kc] not a valid walk\n");
+            rc = 1;
+        } else {
+            char tdec[64];
+            f1_dec(r, tdec);
+            printf("%s\n", tdec);
+        }
+    } else if (strcmp(cmd, "--kc-member") == 0) {
+        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-member DIR \"e,x,...\"\n"); free(kc); return 2; }
+        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        uint8_t E[KC_MAX_PAIRS];
+        int pr = kc_parse_walk(kc, argv[3], E);
+        int mem = (pr == 0) && kc_member(kc, E);
+        printf("%s\n", mem ? "MEMBER" : "NON-MEMBER");
+        rc = mem ? 0 : 1;
+    } else if (strcmp(cmd, "--kc-sample") == 0) {
+        if (argc < 5) { fprintf(stderr, "Usage: solve --kc-sample DIR COUNT SEED [--kc-c3-max T]\n"); free(kc); return 2; }
+        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        long long M = atoll(argv[3]);
+        uint64_t seed = (uint64_t)strtoull(argv[4], NULL, 10);
+        uint8_t E[KC_MAX_PAIRS];
+        for (long long s = 0; s < M; s++) {
+            F1U192 r;
+            int cd;
+            for (;;) {   /* rejection on the C3 analog if requested */
+                kc_rand_rank(kc, &seed, &r);
+                F1_CHECK(kc_unrank(kc, r, E) == 0, "[kc] sample unrank failed");
+                uint32_t rids[KC_MAX_PAIRS + 1];
+                F1_CHECK(kc_validate(kc, E, rids, &cd) == 0, "[kc] sample walk invalid");
+                if (c3max < 0 || cd <= c3max) break;
+            }
+            char tdec[64];
+            f1_dec(r, tdec);
+            printf("%s\tcd=%d\t", tdec, cd);
+            kc_print_walk(kc, E, stdout);
+        }
+    } else if (strcmp(cmd, "--kc-enum") == 0) {
+        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        KcEnumUd ud = {kc, (uint64_t)(limit > 0 ? limit : 0), 0};
+        uint64_t emitted = kc_enum(kc, (int)c3max, kc_enum_print_cb, &ud);
+        fprintf(stderr, "[kc] enumerated %llu walk(s)%s\n",
+                (unsigned long long)emitted, c3max >= 0 ? " (C3 in-path)" : "");
+    } else {
+        fprintf(stderr, "ERROR: [kc] unknown subcommand %s\n", cmd);
+        rc = 2;
+    }
+    if (kc->n) kc_free(kc);
+    free(kc);
     return rc;
 }
 
@@ -16612,6 +17983,13 @@ int main(int argc, char *argv[]) {
             return 2;
         }
         return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume);
+    } else if (argc > 1 && strncmp(argv[1], "--kc-", 5) == 0) {
+        /* v4-compiler prototype: the f1c5 DP layers as a compiled knowledge
+         * structure (count / rank / unrank / sample / member / enum). See the
+         * KC module header above kc_selftest() for scope, order semantics,
+         * verification gates, and credits. Sha-neutral (argv-dispatched,
+         * never on the enumeration path); prototype-capped at n <= 16. */
+        return kc_cli(argc, argv);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
