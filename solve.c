@@ -422,6 +422,16 @@ typedef struct {
     int8_t  prev_tail;
     int8_t  phase;
     int8_t  reserved;
+    /* task #92 (2026-05-18, re-adopted for v4 2026-07-13): mw_delta added to
+     * the v2 frame format. Without this, resume's RETRY phase used an
+     * uninitialized fr->mw_delta to undo the mid-walk-cd contribution,
+     * drifting ts->mw_partial_cd_x64 from the live-path value and causing
+     * --selftest-resume to fail. The need for mw_delta-storage (vs.
+     * recompute-on-pop) is documented at the field declaration in
+     * BacktrackFrame. Format version bumped from 2 to 3 (v4 prune stack
+     * re-adoption; same 12-byte layout the v2 lineage used). */
+    int16_t mw_delta;
+    int8_t  pad[2];   /* 12-byte struct for predictable layout */
 } DFSStackFrame_v2;
 static Pair pairs[32];
 static int n_pairs = 0;
@@ -668,6 +678,16 @@ typedef struct {
     int pair3;      /* third-level (depth 3) pair — -1 in depth-2 mode */
     int orient3;    /* third-level orientation    — -1 in depth-2 mode */
 } SubBranch;
+
+/* ---------- v4 selftest anchor ----------
+ * The v4 lineage's own --selftest sha (prunes-ON pass; SOLVE_THREADS=4
+ * SOLVE_NODE_LIMIT=100000000, depth-2). Sha-CHANGING vs the v1/v3 anchor
+ * 403f7202… BY DESIGN: the exact prune stack #67/#68/#70 skips provably
+ * solution-free subtrees, so the same node budget reaches more leaves.
+ * The OFF-mode pass (SOLVE_V4_PRUNES=0) must still reproduce 403f7202….
+ * Sourced from a measured local run on this branch (2026-07-13), per the
+ * "never hardcode a sha from a doc" rule. */
+#define V4_SELFTEST_SHA "56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc"
 
 /* ---------- Top-N closest solutions ---------- */
 #define TOP_N 20
@@ -987,7 +1007,79 @@ typedef struct {
     int8_t dfs_v2_resume_seq[64];
     pair_mask_t dfs_v2_resume_used;   /* task #72 Phase C: was int8_t[32] */
     int8_t dfs_v2_resume_budget[7];
+
+    /* task #67 mid-walk C3 pruning (v2 prune stack, re-adopted for v4
+     * 2026-07-13). mw_pos[v] = position v occupies in seq[], -1 if unplaced.
+     * mw_partial_cd_x64 is the running sum 2 * Σ |mw_pos[v] - mw_pos[v⊕63]|
+     * over the 32 (v, v⊕63) pairs that are both currently placed (matches
+     * compute_comp_dist_x64's convention). Prune predicate: if
+     * mw_partial_cd_x64 > kw_comp_dist_x64 (= 776), the subtree contains no
+     * C3-valid leaf (correctness proof: roae-private/
+     * TASK_67_MID_WALK_C3_CORRECTNESS_2026_05_05.md + lean/PruneExactness.lean).
+     * State is maintained unconditionally (cheap, side-effect-free on walk
+     * order); the prune DECISIONS are gated on v4_prunes_enabled so
+     * SOLVE_V4_PRUNES=0 reproduces the v1/v3 walk byte-identically. */
+    int8_t mw_pos[64];
+    int mw_partial_cd_x64;
 } ThreadState;
+
+/* v4 prune-stack master switch (2026-07-13). Default ON (the v4 lineage is
+ * defined WITH the exact prune stack #67/#68/#70 active). SOLVE_V4_PRUNES=0
+ * disables the prune *decisions* (state maintenance still runs) so the walk
+ * is byte-identical to the v1/v3 lineage — used by (a) the --selftest
+ * OFF-pass, which must still reproduce the v1/v3 anchor 403f7202…, and
+ * (b) the v4 acceptance gate's rep-shard byte-equality leg against the
+ * preserved 560T per-cell shards (red-team §1.3.1). */
+static int v4_prunes_enabled = 1;
+
+/* task #67 — initialize the mid-walk C3 prune state (ts->mw_pos[] +
+ * ts->mw_partial_cd_x64) from a seq[] prefix of `placed_hexes` hexagrams.
+ * Called at sub-branch entry (after the prefix seq is built), at parallel
+ * task entry (depth-5 prefix), and at v2 checkpoint resume (after the saved
+ * seq is restored). Conservatively O(64 + placed_hexes); placed_hexes ≤ 32
+ * so this is constant overhead. */
+static inline void mw_c3_init(ThreadState *ts, const int seq[64], int placed_hexes) {
+    for (int i = 0; i < 64; i++) ts->mw_pos[i] = -1;
+    ts->mw_partial_cd_x64 = 0;
+    for (int i = 0; i < placed_hexes; i++) {
+        int v = seq[i];
+        int comp = v ^ 63;
+        if (ts->mw_pos[comp] >= 0) {
+            int d = i - ts->mw_pos[comp];
+            ts->mw_partial_cd_x64 += ((d < 0 ? -d : d) << 1);
+        }
+        ts->mw_pos[v] = (int8_t)i;
+    }
+}
+
+/* task #70: C3 optimistic-completion bound — lower bound on the cd_x64
+ * contribution from complement-pairs (v, v⊕63) that are not yet fully
+ * placed. For each such pair, when both halves eventually become placed,
+ * |pos[v] - pos[v⊕63]| ≥ 1 (positions are distinct integers), so the
+ * cd_x64 contribution is at least 2 (the 2× factor of compute_comp_dist_x64).
+ *
+ * Returns 2 × (count of complement-pairs not yet both-placed).
+ *
+ * Combined with #67's partial_cd, the tightened prune predicate is:
+ *   mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) > kw_comp_dist_x64
+ *     ⟹ no valid C3 completion exists from this state; prune.
+ *
+ * Correctness: any valid completion places all 32 complement-pairs (each at
+ * positions ≥ 1 apart). The minimum |pos[v]-pos[v⊕63]| = 1 is achievable
+ * only when the two hexagrams sit in adjacent slots; not every complement-
+ * pair can simultaneously achieve this minimum. So this is a strict LOWER
+ * BOUND on the future contribution, never an over-estimate. No valid leaf is
+ * pruned. Machine-checked: lean/PruneExactness.lean. */
+static inline int mw_inevitable_remaining_cd_x64(const ThreadState *ts) {
+    /* Iterate v from 0..31; each unordered complement-pair (v, v^63) is
+     * covered exactly once because v ∈ [0,31] ⟹ v^63 ∈ [32,63]. */
+    int n_unmeasured = 0;
+    for (int v = 0; v < 32; v++) {
+        int comp = v ^ 63;
+        if (!(ts->mw_pos[v] >= 0 && ts->mw_pos[comp] >= 0)) n_unmeasured++;
+    }
+    return n_unmeasured * 2;
+}
 
 /* global_timed_out is set both from the signal handler (must be
  * async-signal-safe) and from thread code. sig_atomic_t is the only type
@@ -1480,7 +1572,11 @@ _Static_assert(sizeof(DFSCheckpointState_v1) <= 1024, "DFSCheckpointState_v1 too
  * (step, p, orient, bd, wd, prev_tail) tuple, plus the seq/used/budget
  * arrays. Resume reconstructs the exact DFS state at the moment of budget
  * exhaustion and continues from there. */
-#define DFS_STATE_VERSION_V2 2u
+#define DFS_STATE_VERSION_V2 3u  /* bumped 2→3 (v4, 2026-07-13): task #92 mw_delta re-added to the
+                                  * per-frame format with the v2 prune-stack re-adoption. v3-lineage
+                                  * version-2 .dfs_state files are rejected by the reader (returns
+                                  * "not v2" → fresh walk), which is correct: v4 is a new sha lineage
+                                  * and must not resume from a v3-frontier checkpoint. */
 
 /* DFSStackFrame_v2 is forward-defined near the Pair typedef so ThreadState
  * can hold an array of them. */
@@ -4276,6 +4372,10 @@ typedef struct {
     int prev_tail;  /* cached: seq[step*2 - 1] (computed once at frame entry) */
     int bd, wd;     /* distances consumed by current iter's setup (for restore) */
     int phase;      /* DFSITER_PHASE_ENTER or DFSITER_PHASE_RETRY */
+    int mw_delta;   /* task #67: increment added to ts->mw_partial_cd_x64 on push;
+                       reversed symmetrically on pop. Stored because mw_pos values
+                       at pop time may not allow recomputation when a pair's two
+                       hexagrams are mutual complements (e.g. pair (63,0)). */
 } BacktrackFrame;
 
 static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int budget[7], int initial_step) {  /* task #72 Phase B */
@@ -4296,10 +4396,21 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             stack[i].wd = ts->dfs_v2_resume_frames[i].wd;
             stack[i].prev_tail = ts->dfs_v2_resume_frames[i].prev_tail;
             stack[i].phase = ts->dfs_v2_resume_frames[i].phase;
+            stack[i].mw_delta = ts->dfs_v2_resume_frames[i].mw_delta;   /* task #92 */
         }
         for (int i = 0; i < 64; i++) seq[i] = ts->dfs_v2_resume_seq[i];
         *used_mask = ts->dfs_v2_resume_used;                  /* task #72 Phase B (was Phase C boundary copy) */
         for (int i = 0; i < 7;  i++) budget[i] = ts->dfs_v2_resume_budget[i];
+        /* task #67: rebuild mid-walk C3 state from the restored seq prefix.
+         * The deepest captured frame at index sp has step = depth at capture
+         * time. The seq prefix is populated up to position 2 * stack[sp].step
+         * (parent's iterate placed first/second for the child's depth-1). */
+        {
+            int placed = (sp >= 0) ? (stack[sp].step * 2) : 0;
+            if (placed < 0) placed = 0;
+            if (placed > 64) placed = 64;
+            mw_c3_init(ts, seq, placed);
+        }
         /* Resume start: ts->branch_nodes already set to prior_nodes_walked
          * at sub-branch entry (in the wrapper). Continue from saved state. */
     } else {
@@ -4346,6 +4457,31 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
                 if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
                 continue;
             }
+            /* v2 C5 feasibility prune (task #68) — iterative-path mirror of
+             * the block at recursive backtrack() entry (see the full comment
+             * there). Placed at the same point in the per-node lifecycle
+             * (after the node is counted and the capture check, before the
+             * per-branch budget check) so the two paths stay byte-equivalent.
+             * NOTE: the v2 lineage carried #68 in the RECURSIVE path only —
+             * v4 closes that gap; iterative-vs-recursive path equivalence is
+             * part of the v4 selftest surface. Pop-self = the iterative
+             * equivalent of the recursive early return (parent's RETRY phase
+             * restores mask/budget/mw state). */
+            if (v4_prunes_enabled && fr->step < 32) {
+                int unused_wd_count[7] = {0};
+                for (int pp = 0; pp < 32; pp++) {
+                    if (!PAIR_MASK_TEST(*used_mask, pp)) unused_wd_count[pair_wpd[pp]]++;
+                }
+                int dead = 0;
+                for (int d = 0; d < 7; d++) {
+                    if (budget[d] < unused_wd_count[d]) { dead = 1; break; }
+                }
+                if (dead) {
+                    sp--;
+                    if (sp >= 0) stack[sp].phase = DFSITER_PHASE_RETRY;
+                    continue;
+                }
+            }
             /* Per-branch budget check (non-parallel path). */
             if (per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit) {
                 if (dfs_checkpoint_enabled) {
@@ -4378,6 +4514,7 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
                         ts->dfs_v2_frames[i].wd        = (int8_t)stack[i].wd;
                         ts->dfs_v2_frames[i].prev_tail = (int8_t)stack[i].prev_tail;
                         ts->dfs_v2_frames[i].phase     = (int8_t)stack[i].phase;
+                        ts->dfs_v2_frames[i].mw_delta  = (int16_t)stack[i].mw_delta;   /* task #92 */
                     }
                     for (int i = 0; i < 64; i++) ts->dfs_v2_seq[i] = (int8_t)seq[i];
                     ts->dfs_v2_used = *used_mask;             /* task #72 Phase B (was Phase C boundary pack) */
@@ -4423,6 +4560,17 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
              * loop body handles iteration. */
         } else {
             /* === RETRY phase: a child just popped; restore parent state, advance iter === */
+            /* task #67 pop: reverse the partial_cd increment recorded on push;
+             * clear mw_pos[] entries for both hexagrams of this pair. Recompute
+             * first/second from fr->p/fr->orient — both are still valid since
+             * we didn't mutate them between push and now. */
+            {
+                int first = fr->orient ? pairs[fr->p].b : pairs[fr->p].a;
+                int second = fr->orient ? pairs[fr->p].a : pairs[fr->p].b;
+                ts->mw_partial_cd_x64 -= fr->mw_delta;
+                ts->mw_pos[first] = -1;
+                ts->mw_pos[second] = -1;
+            }
             PAIR_MASK_CLR(*used_mask, fr->p);                    /* task #72 Phase B */
             budget[fr->wd]++;
             budget[fr->bd]++;
@@ -4478,6 +4626,47 @@ static void backtrack_iterative(ThreadState *ts, int seq[64], pair_mask_t *used_
             PAIR_MASK_SET(*used_mask, fr->p);                    /* task #72 Phase B */
             fr->bd = bd;
             fr->wd = wd;
+
+            /* task #67 push: update mw_pos[] and compute partial-cd delta. */
+            int mw_delta = 0;
+            {
+                int comp = first ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (fr->step * 2) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[first] = (int8_t)(fr->step * 2);
+            }
+            {
+                int comp = second ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (fr->step * 2 + 1) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[second] = (int8_t)(fr->step * 2 + 1);
+            }
+            ts->mw_partial_cd_x64 += mw_delta;
+
+            /* task #67 + #70 prune predicate (iterative path): partial cd
+             * plus the inevitable future contribution from unmeasured
+             * complement-pairs. If this sum exceeds 776, no C3-valid leaf
+             * exists in this subtree. Revert and advance. #70 strictly
+             * tightens #67's `partial_cd > 776` check. Gated on
+             * v4_prunes_enabled (SOLVE_V4_PRUNES=0 → never reject here). */
+            if (v4_prunes_enabled &&
+                ts->mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) > kw_comp_dist_x64) {
+                ts->mw_partial_cd_x64 -= mw_delta;
+                ts->mw_pos[first] = -1;
+                ts->mw_pos[second] = -1;
+                PAIR_MASK_CLR(*used_mask, fr->p);
+                budget[wd]++;
+                budget[bd]++;
+                fr->orient++;
+                if (fr->orient >= 2) { fr->p++; fr->orient = 0; }
+                continue;
+            }
+
+            fr->mw_delta = mw_delta;
             found = 1;
             break;
         }
@@ -4564,6 +4753,39 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
      * entry. The for-loop in the parent frame then captures (p, orient) for
      * its depth on return-from-recurse and propagates upward. */
     if (ts->dfs_capture_active) return;
+    /* v2 C5 feasibility prune (task #68; re-adopted for v4 2026-07-13,
+     * gated on v4_prunes_enabled — default ON in the v4 lineage,
+     * SOLVE_V4_PRUNES=0 restores the v1/v3 walk byte-identically).
+     *
+     * Necessary condition for any state to admit a valid completion: for each
+     * Hamming distance d, the remaining budget[d] must be at least the count
+     * of unplaced pairs whose within-pair distance equals d, because each
+     * unplaced pair will consume 1 from budget[pair_wpd[i]] when it is
+     * eventually placed. If this fails for any d, the current state is dead
+     * (no completion exists) and the subtree can be pruned.
+     *
+     * Correctness: at any complete leaf (step==32) used_mask covers all 32
+     * pairs so unused_wd_count = {0,...,0} and budget = {0,...,0}; the check
+     * is trivially satisfied. No valid leaf is excluded. Machine-checked:
+     * lean/PruneExactness.lean (pigeonhole form).
+     *
+     * Sha relative to v1/v3: this prune is WORK-CHANGING (it skips recursion
+     * into provably-dead subtrees that v1 explored before lazy budget
+     * exhaustion). At a fixed node budget the prune lets each sub-branch
+     * reach more leaves → MORE solutions found → different sha vs v1/v3.
+     * This is a defining property of the v4 lineage. Both lineages are
+     * deterministic from their own recipes. Validation is by per-rep-cell
+     * solution-set inclusion (records(off) ⊆ records(on) at same budget),
+     * not by sha-match. */
+    if (v4_prunes_enabled) {
+        int unused_wd_count[7] = {0};
+        for (int pp = 0; pp < 32; pp++) {
+            if (!PAIR_MASK_TEST(*used_mask, pp)) unused_wd_count[pair_wpd[pp]]++;
+        }
+        for (int d = 0; d < 7; d++) {
+            if (budget[d] < unused_wd_count[d]) return;
+        }
+    }
     /* Per-branch node limit: checked every node (just an integer compare, cheap).
      * Sets a thread-local flag rather than global_timed_out so other branches
      * on this thread can continue. But for simplicity, we use global_timed_out
@@ -4719,7 +4941,48 @@ static void backtrack(ThreadState *ts, int seq[64], pair_mask_t *used_mask, int 
             seq[step * 2] = first;
             seq[step * 2 + 1] = second;
             PAIR_MASK_SET(*used_mask, p);                        /* task #72 Phase B */
-            backtrack(ts, seq, used_mask, budget, step + 1);     /* task #72 Phase B */
+
+            /* task #67: mid-walk C3 push — update mw_pos[] for first then
+             * second, and add 2 × |pos_diff| for each newly-measurable
+             * (v, v⊕63) pair to ts->mw_partial_cd_x64. Order matters:
+             * placing `first` may make `second`'s complement test true if
+             * the pair is its own complement (e.g., pair (63,0)). */
+            int mw_delta = 0;
+            {
+                int comp = first ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (step * 2) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[first] = (int8_t)(step * 2);
+            }
+            {
+                int comp = second ^ 63;
+                if (ts->mw_pos[comp] >= 0) {
+                    int d = (step * 2 + 1) - ts->mw_pos[comp];
+                    mw_delta += ((d < 0 ? -d : d) << 1);
+                }
+                ts->mw_pos[second] = (int8_t)(step * 2 + 1);
+            }
+            ts->mw_partial_cd_x64 += mw_delta;
+
+            /* task #67 + #70 prune predicate (recursive path): partial cd
+             * plus the inevitable future contribution from unmeasured
+             * complement-pairs. If this sum is ≤ 776, this subtree could
+             * still admit a C3-valid leaf — recurse. If > 776, skip.
+             * #70 strictly tightens #67's `partial_cd > 776` check.
+             * Gated on v4_prunes_enabled (SOLVE_V4_PRUNES=0 → always recurse,
+             * byte-identical to the v1/v3 walk). */
+            if (!v4_prunes_enabled ||
+                ts->mw_partial_cd_x64 + mw_inevitable_remaining_cd_x64(ts) <= kw_comp_dist_x64) {
+                backtrack(ts, seq, used_mask, budget, step + 1); /* task #72 Phase B */
+            }
+
+            /* task #67: pop — symmetric reversal */
+            ts->mw_partial_cd_x64 -= mw_delta;
+            ts->mw_pos[first] = -1;
+            ts->mw_pos[second] = -1;
+
             PAIR_MASK_CLR(*used_mask, p);                        /* task #72 Phase B */
             budget[wd]++;
             budget[bd]++;
@@ -8041,6 +8304,602 @@ static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, in
     return 0;
 }
 
+/* ==================================================================== *
+ *  v4 ORBIT REDUCTION (G48 symmetry) — 2026-07-13, v4-canonical branch  *
+ * ==================================================================== *
+ * Theorem basis (THEOREM_C15_SYMMETRY_GROUP_2026_07 + lean/Automorphism.lean):
+ * the C1–C5 constraint system is invariant under G = C_{S6}(ρ), the
+ * centralizer of bit-reversal ρ = (0 5)(1 4)(2 3) among the bit
+ * permutations of GF(2)^6 — |G| = 48 (octahedral group B3). G maps the
+ * solution set to itself, maps backtrack subtrees isomorphically, and
+ * induces an action on the 158,364 depth-3 cells that partitions them
+ * into 4,382 orbits (histogram {48:2362, 24:1736, 12:270, 6:14};
+ * independently re-executed census, red-team R3 CONFIRMED-SOLID).
+ *
+ * Pipeline (ORBIT_REDUCTION_DESIGN_2026_07 + the ×36 correction):
+ *   --orbit-table    build + print the cell→orbit-representative table
+ *   SOLVE_ORBIT_REDUCE=1  enumerate ONLY representative cells (~×36
+ *                    enum-phase work cut, work-weighted mean orbit size)
+ *   --orbit-expand   regenerate every non-representative cell's shard
+ *                    from its representative's shard via the group action
+ *                    (record relabel + orientation re-canonicalization)
+ *   --orbit-selftest exhaustive small-problem byte-equality check
+ *                    (reduced+expanded vs direct — the ONLY regime where
+ *                    byte-equality is a theorem is per-cell EXHAUSTION)
+ *
+ * Convention notes (v4 lineage, sha-CHANGING by design):
+ *   - Representative = lexicographically least cell tuple
+ *     (p1,o1,p2,o2,p3,o3) in its orbit (matches the census reference
+ *     implementation, scripts/v4_redteam/census_verify.py).
+ *   - σ enumeration order = lexicographic order of the 6-bit permutation
+ *     arrays (matches itertools.permutations); the expansion σ chosen for
+ *     a member is the SMALLEST index mapping rep→member. At exhaustive
+ *     scope any such σ yields the same member record set (setwise cell
+ *     stabilizers permute the rep's record set); the fixed choice makes
+ *     budgeted-scope expansion deterministic.
+ *   - Expanded member shards are SORTED (memcmp order) and store, per
+ *     canonical key, the lex-least VALID orientation completion (the
+ *     member cell's prefix orientations are forced by the cell). At
+ *     per-cell exhaustion this equals what direct enumeration retains
+ *     (lex-smallest-record-wins over all valid raws); at budgeted scope
+ *     it is the v4 convention (deterministic, but NOT byte-comparable to
+ *     any direct budgeted walk — see ORBIT_REDUCTION_DESIGN §3–4 and the
+ *     rewritten acceptance gate, red-team §1.3).
+ *   - Representative shards are the walk's own output, byte-untouched
+ *     (they carry the rep-shard byte-equality gate vs the preserved 560T
+ *     per-cell shards, prunes OFF).
+ */
+
+/* A "problem" for the orbit machinery: a pair table (pt[0] = the anchor
+ * pair, walked first with orientation 0), a full transition-distance
+ * budget (all 2*npairs-1 transitions, including pt[0]'s within-pair
+ * distance), and a C3 threshold. The REAL problem is (pairs, kw_dist,
+ * 776, 32); the toy problem used by --orbit-selftest is a 7-pair
+ * G48-closed miniature that can be enumerated EXHAUSTIVELY. */
+typedef struct {
+    int npairs;
+    const Pair *pt;
+    int budget0[7];
+    int cd_thresh_x64;
+} OrbitProblem;
+
+/* --- G48 = centralizer of bit reversal, in lexicographic order --- */
+static int orb_g48_vmap[48][64];   /* value maps: vmap[s][h] */
+static int orb_g48_n = 0;
+static void orb_g48_init(void) {
+    if (orb_g48_n == 48) return;
+    static const int ORB_REV[6] = {5, 4, 3, 2, 1, 0};
+    int perm[6];
+    orb_g48_n = 0;
+    /* All 720 permutations of {0..5} in lexicographic order (matches the
+     * census reference's itertools.permutations order — the σ INDEX is
+     * part of the v4 expansion convention). */
+    for (perm[0] = 0; perm[0] < 6; perm[0]++)
+    for (perm[1] = 0; perm[1] < 6; perm[1]++) { if (perm[1] == perm[0]) continue;
+    for (perm[2] = 0; perm[2] < 6; perm[2]++) { if (perm[2] == perm[0] || perm[2] == perm[1]) continue;
+    for (perm[3] = 0; perm[3] < 6; perm[3]++) { if (perm[3] == perm[0] || perm[3] == perm[1] || perm[3] == perm[2]) continue;
+    for (perm[4] = 0; perm[4] < 6; perm[4]++) { if (perm[4] == perm[0] || perm[4] == perm[1] || perm[4] == perm[2] || perm[4] == perm[3]) continue;
+    for (perm[5] = 0; perm[5] < 6; perm[5]++) { if (perm[5] == perm[0] || perm[5] == perm[1] || perm[5] == perm[2] || perm[5] == perm[3] || perm[5] == perm[4]) continue;
+        int ok = 1;
+        for (int i = 0; i < 6; i++) {
+            if (perm[ORB_REV[i]] != ORB_REV[perm[i]]) { ok = 0; break; }
+        }
+        if (!ok) continue;
+        if (orb_g48_n >= 48) { fprintf(stderr, "FATAL: >48 centralizer elements — impossible\n"); exit(1); }
+        for (int h = 0; h < 64; h++) {
+            int v = 0;
+            for (int i = 0; i < 6; i++) v |= ((h >> i) & 1) << perm[i];
+            orb_g48_vmap[orb_g48_n][h] = v;
+        }
+        orb_g48_n++;
+    }}}}}
+    if (orb_g48_n != 48) {
+        fprintf(stderr, "FATAL: |C_S6(rev)| = %d, expected 48\n", orb_g48_n);
+        exit(1);
+    }
+}
+
+/* Induced action on (pair, orient) codes. Code = 2*P + O. pomap[s][code]
+ * gives the image code under σ_s: pair {a,b} maps to the pair containing
+ * {σa, σb} (a pair by the symmetry theorem — hard-fail otherwise), with
+ * the orientation that reproduces the mapped VALUE order. Returns 0 on
+ * success, -1 if some pair image is not a pair (problem not G-closed). */
+static int orb_build_pomap(const OrbitProblem *op, int pomap[48][64]) {
+    orb_g48_init();
+    for (int s = 0; s < 48; s++) {
+        for (int P = 0; P < op->npairs; P++) {
+            int a2 = orb_g48_vmap[s][op->pt[P].a];
+            int b2 = orb_g48_vmap[s][op->pt[P].b];
+            int Q = -1, e = -1;
+            for (int q = 0; q < op->npairs; q++) {
+                if (op->pt[q].a == a2 && op->pt[q].b == b2) { Q = q; e = 1; break; }
+                if (op->pt[q].a == b2 && op->pt[q].b == a2) { Q = q; e = 0; break; }
+            }
+            if (Q < 0) return -1;
+            pomap[s][2 * P]     = 2 * Q + (e ? 0 : 1);
+            pomap[s][2 * P + 1] = 2 * Q + (e ? 1 : 0);
+        }
+    }
+    return 0;
+}
+
+/* Depth-3 cell validity — the same budget-walk predicate the sub-branch
+ * generation loops apply (anchor pair first, then the three cell pairs;
+ * C2 bd==5 reject; C5 budget decrement per transition). */
+static int orb_cell_valid(const OrbitProblem *op, int c1, int c2, int c3) {
+    int P1 = c1 >> 1, P2 = c2 >> 1, P3 = c3 >> 1;
+    if (P1 < 1 || P2 < 1 || P3 < 1) return 0;
+    if (P1 >= op->npairs || P2 >= op->npairs || P3 >= op->npairs) return 0;
+    if (P1 == P2 || P1 == P3 || P2 == P3) return 0;
+    int budget[7];
+    memcpy(budget, op->budget0, sizeof(budget));
+    int wd0 = hamming(op->pt[0].a, op->pt[0].b);
+    if (budget[wd0] <= 0) return 0;
+    budget[wd0]--;
+    int tail = op->pt[0].b;
+    int codes[3] = { c1, c2, c3 };
+    for (int k = 0; k < 3; k++) {
+        int P = codes[k] >> 1, O = codes[k] & 1;
+        int f = O ? op->pt[P].b : op->pt[P].a;
+        int s = O ? op->pt[P].a : op->pt[P].b;
+        int bd = hamming(tail, f);
+        if (bd == 5 || budget[bd] <= 0) return 0;
+        budget[bd]--;
+        int wd = hamming(f, s);
+        if (budget[wd] <= 0) return 0;
+        budget[wd]--;
+        tail = s;
+    }
+    return 1;
+}
+
+/* Orbit table over the valid depth-3 cells. Cells are indexed
+ * idx = (c1*S + c2)*S + c3 with S = 2*npairs. rep[idx] = index of the
+ * orbit's lexicographically least member (or -1 invalid); sig[idx] = the
+ * smallest σ index with σ(rep) = cell. */
+typedef struct {
+    int S;
+    int ncells, norbits;
+    int32_t *rep;
+    int8_t  *sig;
+    char    *val;
+} OrbitTable;
+
+static void orb_table_free(OrbitTable *ot) {
+    free(ot->rep); free(ot->sig); free(ot->val);
+    memset(ot, 0, sizeof(*ot));
+}
+
+static int orb_table_build(const OrbitProblem *op, const int pomap[48][64], OrbitTable *ot) {
+    int S = 2 * op->npairs;
+    long long N = (long long)S * S * S;
+    ot->S = S;
+    ot->rep = (int32_t *)malloc((size_t)N * sizeof(int32_t));
+    ot->sig = (int8_t *)malloc((size_t)N);
+    ot->val = (char *)calloc((size_t)N, 1);
+    if (!ot->rep || !ot->sig || !ot->val) { fprintf(stderr, "FATAL: orbit table alloc\n"); exit(1); }
+    for (long long i = 0; i < N; i++) { ot->rep[i] = -1; ot->sig[i] = -1; }
+    ot->ncells = 0;
+    for (int c1 = 2; c1 < S; c1++)
+        for (int c2 = 2; c2 < S; c2++)
+            for (int c3 = 2; c3 < S; c3++)
+                if (orb_cell_valid(op, c1, c2, c3)) {
+                    ot->val[((long long)c1 * S + c2) * S + c3] = 1;
+                    ot->ncells++;
+                }
+    ot->norbits = 0;
+    /* Lexicographic scan: (c1,c2,c3) ascending == (P1,O1,P2,O2,P3,O3)
+     * ascending, so the first unassigned valid cell of each orbit IS the
+     * orbit's lex-min — it becomes the representative. */
+    for (int c1 = 2; c1 < S; c1++)
+    for (int c2 = 2; c2 < S; c2++)
+    for (int c3 = 2; c3 < S; c3++) {
+        long long idx = ((long long)c1 * S + c2) * S + c3;
+        if (!ot->val[idx] || ot->rep[idx] >= 0) continue;
+        ot->norbits++;
+        for (int s = 0; s < 48; s++) {
+            int m1 = pomap[s][c1], m2 = pomap[s][c2], m3 = pomap[s][c3];
+            long long midx = ((long long)m1 * S + m2) * S + m3;
+            if (!ot->val[midx]) {
+                fprintf(stderr, "FATAL: orbit closure violated — σ%d image of valid cell "
+                        "(%d,%d,%d) is invalid (%d,%d,%d). Symmetry theorem broken?\n",
+                        s, c1, c2, c3, m1, m2, m3);
+                exit(1);
+            }
+            if (ot->rep[midx] < 0) {
+                ot->rep[midx] = (int32_t)idx;
+                ot->sig[midx] = (int8_t)s;
+            } else if (ot->rep[midx] != (int32_t)idx) {
+                fprintf(stderr, "FATAL: orbit table inconsistency at cell %lld\n", midx);
+                exit(1);
+            }
+        }
+    }
+    return 0;
+}
+
+/* --- The REAL problem (32 KW pairs, kw_dist budget, C3 = 776) --- */
+static OrbitProblem orb_real_op;
+static int orb_real_pomap[48][64];
+static OrbitTable orb_real_table;
+static int orb_real_ready = 0;
+static int orbit_reduce_enabled = 0;   /* SOLVE_ORBIT_REDUCE=1 */
+
+/* Frozen census of the real problem (red-team-confirmed, 2026-07-13):
+ * 158,364 valid depth-3 cells → 4,382 orbits, sizes {48:2362, 24:1736,
+ * 12:270, 6:14}. Any deviation = the build is wrong; refuse to run. */
+static void orb_real_census_assert(void) {
+    int hist[49];
+    memset(hist, 0, sizeof(hist));
+    int S = orb_real_table.S;
+    int32_t *cnt = (int32_t *)calloc((size_t)S * S * S, sizeof(int32_t));
+    if (!cnt) { fprintf(stderr, "FATAL: census alloc\n"); exit(1); }
+    for (long long i = 0; i < (long long)S * S * S; i++)
+        if (orb_real_table.val[i]) cnt[orb_real_table.rep[i]]++;
+    for (long long i = 0; i < (long long)S * S * S; i++)
+        if (orb_real_table.val[i] && orb_real_table.rep[i] == (int32_t)i) {
+            if (cnt[i] < 1 || cnt[i] > 48) { fprintf(stderr, "FATAL: orbit size %d\n", cnt[i]); exit(1); }
+            hist[cnt[i]]++;
+        }
+    free(cnt);
+    if (orb_real_table.ncells != 158364 || orb_real_table.norbits != 4382 ||
+        hist[48] != 2362 || hist[24] != 1736 || hist[12] != 270 || hist[6] != 14) {
+        fprintf(stderr, "FATAL: orbit census mismatch — cells=%d (exp 158364) orbits=%d (exp 4382) "
+                "hist48=%d (2362) hist24=%d (1736) hist12=%d (270) hist6=%d (14). REFUSING to run.\n",
+                orb_real_table.ncells, orb_real_table.norbits, hist[48], hist[24], hist[12], hist[6]);
+        exit(1);
+    }
+}
+
+static void orbit_real_init(void) {
+    if (orb_real_ready) return;
+    orb_real_op.npairs = 32;
+    orb_real_op.pt = pairs;
+    memcpy(orb_real_op.budget0, kw_dist, sizeof(orb_real_op.budget0));
+    orb_real_op.cd_thresh_x64 = kw_comp_dist_x64;
+    if (orb_build_pomap(&orb_real_op, orb_real_pomap) != 0) {
+        fprintf(stderr, "FATAL: real pair table not G48-closed — symmetry theorem broken?\n");
+        exit(1);
+    }
+    if (orb_table_build(&orb_real_op, orb_real_pomap, &orb_real_table) != 0) exit(1);
+    orb_real_census_assert();
+    orb_real_ready = 1;
+}
+
+/* Enum-guard predicate: is (p1,o1,p2,o2,p3,o3) its orbit's representative? */
+static int orbit_cell_is_rep(int p1, int o1, int p2, int o2, int p3, int o3) {
+    orbit_real_init();
+    int S = orb_real_table.S;
+    long long idx = ((long long)(2 * p1 + o1) * S + (2 * p2 + o2)) * S + (2 * p3 + o3);
+    if (!orb_real_table.val[idx]) return 0;  /* invalid cells are never work units anyway */
+    return orb_real_table.rep[idx] == (int32_t)idx;
+}
+
+/* --- Orientation re-canonicalization ---
+ * Given a pair-order key (key[i] = pair index at slot i, key[0] == 0) and
+ * FORCED orientations for slots 0..3 (slot 0 is the anchor, slots 1..3 the
+ * cell prefix), find the lexicographically least orientation completion of
+ * slots 4..npairs-1 such that the raw sequence satisfies the full
+ * constraint set (C2 bd!=5, C5 budget, C3 cd<=thresh; C1/C4 by
+ * construction). Trying orient 0 before 1 depth-first and returning the
+ * first valid completion IS the lex-min (record bytes increase with the
+ * orient bit at fixed pair order). This equals what direct enumeration
+ * retains per key at per-cell EXHAUSTION (lex-smallest-record-wins over
+ * all valid raws in the cell). Returns 1 + out_or[] filled, or 0 if no
+ * valid completion exists. */
+static int orb_recanon_dfs(const OrbitProblem *op, const int *key, int *out_or,
+                           int *seq, int budget[7], int slot) {
+    int np = op->npairs;
+    if (slot == np) {
+        /* leaf: C3 over the placed values (every value's complement is in
+         * the value set for both the real and toy problems) */
+        int pos[64];
+        for (int i = 0; i < 64; i++) pos[i] = -1;
+        for (int i = 0; i < 2 * np; i++) pos[seq[i]] = i;
+        int cd = 0;
+        for (int v = 0; v < 32; v++) {
+            int c = v ^ 63;
+            if (pos[v] >= 0 && pos[c] >= 0) {
+                int d = pos[v] - pos[c];
+                cd += ((d < 0 ? -d : d) << 1);
+            }
+        }
+        return cd <= op->cd_thresh_x64;
+    }
+    int P = key[slot];
+    int tail = seq[slot * 2 - 1];
+    for (int O = 0; O < 2; O++) {
+        int f = O ? op->pt[P].b : op->pt[P].a;
+        int s = O ? op->pt[P].a : op->pt[P].b;
+        int bd = hamming(tail, f);
+        if (bd == 5 || budget[bd] <= 0) continue;
+        budget[bd]--;
+        int wd = hamming(f, s);
+        if (budget[wd] <= 0) { budget[bd]++; continue; }
+        budget[wd]--;
+        seq[slot * 2] = f;
+        seq[slot * 2 + 1] = s;
+        if (orb_recanon_dfs(op, key, out_or, seq, budget, slot + 1)) {
+            out_or[slot] = O;
+            budget[wd]++; budget[bd]++;
+            return 1;
+        }
+        budget[wd]++;
+        budget[bd]++;
+    }
+    return 0;
+}
+
+static int orb_recanon(const OrbitProblem *op, const int *key, const int *fixed_or, int *out_or) {
+    int np = op->npairs;
+    int seq[64];
+    int budget[7];
+    memcpy(budget, op->budget0, sizeof(budget));
+    /* place slots 0..3 with forced orientations */
+    for (int i = 0; i < 4 && i < np; i++) {
+        int P = key[i], O = fixed_or[i];
+        int f = O ? op->pt[P].b : op->pt[P].a;
+        int s = O ? op->pt[P].a : op->pt[P].b;
+        if (i > 0) {
+            int bd = hamming(seq[i * 2 - 1], f);
+            if (bd == 5 || budget[bd] <= 0) return 0;
+            budget[bd]--;
+        }
+        int wd = hamming(f, s);
+        if (budget[wd] <= 0) return 0;
+        budget[wd]--;
+        seq[i * 2] = f;
+        seq[i * 2 + 1] = s;
+        out_or[i] = O;
+    }
+    return orb_recanon_dfs(op, key, out_or, seq, budget, 4);
+}
+
+/* Expand ONE record of a representative cell to a member cell via σ_s:
+ * map each slot's (pair, orient) code, force slots 0..3 to the member
+ * cell's prefix orientations, re-canonicalize the free orientations.
+ * in/out are op->npairs-byte records ((P<<2)|(O<<1) per slot). Returns 0
+ * OK, -1 on any invariant violation. */
+static int orb_expand_record(const OrbitProblem *op, const int pomap[48][64], int s,
+                             int mc1, int mc2, int mc3,
+                             const unsigned char *in, unsigned char *out) {
+    int np = op->npairs;
+    int key[32], fixed_or[4], out_or[32];
+    if (pomap[s][0] != 0) return -1;              /* anchor pair must be fixed by σ */
+    for (int i = 0; i < np; i++) {
+        int b = in[i];
+        int code = 2 * (b >> 2) + ((b >> 1) & 1);
+        if ((b >> 2) >= np) return -1;
+        int mcode = pomap[s][code];
+        key[i] = mcode >> 1;
+        if (i >= 4) continue;
+        /* slots 1..3 must land exactly on the member cell's codes */
+        if (i == 1 && mcode != mc1) return -1;
+        if (i == 2 && mcode != mc2) return -1;
+        if (i == 3 && mcode != mc3) return -1;
+    }
+    if (key[0] != 0) return -1;
+    fixed_or[0] = 0;
+    fixed_or[1] = mc1 & 1;
+    fixed_or[2] = mc2 & 1;
+    fixed_or[3] = mc3 & 1;
+    if (!orb_recanon(op, key, fixed_or, out_or)) return -1;  /* theory guarantees existence */
+    for (int i = 0; i < np; i++)
+        out[i] = (unsigned char)((key[i] << 2) | (out_or[i] << 1));
+    return 0;
+}
+
+/* memcmp comparator for op->npairs-byte records (single-threaded qsort) */
+static int g_orb_recsize = SOL_RECORD_SIZE;
+static int orb_rec_cmp(const void *a, const void *b) {
+    return memcmp(a, b, (size_t)g_orb_recsize);
+}
+
+/* Expand a whole representative shard to one member cell. recs = n records
+ * of np bytes. out must hold n*np bytes. Output is sorted and must be
+ * duplicate-free (keys are bijective under σ). Returns 0 OK. */
+static int orb_expand_shard(const OrbitProblem *op, const int pomap[48][64], int s,
+                            int mc1, int mc2, int mc3,
+                            const unsigned char *recs, long long n, unsigned char *out) {
+    int np = op->npairs;
+    for (long long i = 0; i < n; i++) {
+        if (orb_expand_record(op, pomap, s, mc1, mc2, mc3,
+                              recs + (size_t)i * np, out + (size_t)i * np) != 0) {
+            fprintf(stderr, "FATAL: orbit expansion invariant violated (σ=%d record %lld)\n", s, i);
+            return -1;
+        }
+    }
+    g_orb_recsize = np;
+    qsort(out, (size_t)n, (size_t)np, orb_rec_cmp);
+    for (long long i = 1; i < n; i++) {
+        if (memcmp(out + (size_t)(i - 1) * np, out + (size_t)i * np, (size_t)np) == 0) {
+            fprintf(stderr, "FATAL: duplicate record after expansion (σ=%d) — key bijection broken\n", s);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/* --- Toy problem for --orbit-selftest ---
+ * 7 pairs over the G48-closed hexagram subset {0,63} ∪ weight-1 ∪ weight-5
+ * (14 values, closed under complement and under every bit permutation;
+ * every pair is a partner pair a↔rev(a)). Budget {d1:1, d2:9, d4:2, d6:1}
+ * (13 transitions) + C3 threshold 58 x64-units: chosen so the toy has a
+ * rich solution set (3,264 raw orderings; 1,728 below the C3 threshold)
+ * across 384 valid cells forming 12 orbits
+ * (sizes {24:8, 48:4}). All values verified against an independent Python
+ * census (2026-07-13). Small enough to enumerate EXHAUSTIVELY — the only
+ * regime where reduced+expanded == direct is a theorem. */
+static const Pair orb_toy_pairs[7] = {
+    {63, 0}, {1, 32}, {2, 16}, {4, 8}, {31, 62}, {47, 61}, {55, 59}
+};
+
+/* Direct exhaustive per-cell enumeration of the toy problem, in the
+ * production child order (pair ascending, orient 0 then 1), with an
+ * optional generic analog of the v4 prune stack (#67/#68/#70). At
+ * exhaustion the found record set is prune-independent (exactness) —
+ * asserted by the selftest. Emits one lex-least record per canonical key
+ * (pair-order), exactly like analyze_solution's lex-smallest-record-wins.
+ * Returns count; records appended to buf (cap records). */
+typedef struct {
+    const OrbitProblem *op;
+    unsigned char *buf;
+    long long n, cap;
+    int use_prunes;
+    int pos[64];             /* mid-walk C3 analog state */
+    int partial_cd;
+    int wpd[32];             /* within-pair distances */
+} OrbToyWalk;
+
+static void orb_toy_leaf(OrbToyWalk *w, const int *order, const int *orients) {
+    const OrbitProblem *op = w->op;
+    int np = op->npairs;
+    if (w->partial_cd > op->cd_thresh_x64) return;   /* full cd known at leaf */
+    unsigned char rec[32];
+    for (int i = 0; i < np; i++)
+        rec[i] = (unsigned char)((order[i] << 2) | (orients[i] << 1));
+    /* canonical-key dedup, lex-least record wins (linear scan — toy scale) */
+    for (long long i = 0; i < w->n; i++) {
+        unsigned char *ex = w->buf + (size_t)i * np;
+        int same = 1;
+        for (int k = 0; k < np; k++)
+            if ((ex[k] & 0xFC) != (rec[k] & 0xFC)) { same = 0; break; }
+        if (same) {
+            if (memcmp(rec, ex, (size_t)np) < 0) memcpy(ex, rec, (size_t)np);
+            return;
+        }
+    }
+    if (w->n >= w->cap) { fprintf(stderr, "FATAL: toy walk buffer overflow\n"); exit(1); }
+    memcpy(w->buf + (size_t)w->n * np, rec, (size_t)np);
+    w->n++;
+}
+
+static void orb_toy_dfs(OrbToyWalk *w, int *order, int *orients, int used,
+                        int budget[7], int slot) {
+    const OrbitProblem *op = w->op;
+    int np = op->npairs;
+    if (slot == np) { orb_toy_leaf(w, order, orients); return; }
+    if (w->use_prunes) {
+        /* #68 analog: each unplaced pair will consume budget[wpd] */
+        int need[7] = {0};
+        for (int P = 0; P < np; P++)
+            if (!(used & (1 << P))) need[w->wpd[P]]++;
+        for (int d = 0; d < 7; d++)
+            if (budget[d] < need[d]) return;
+    }
+    int prev_P = order[slot - 1];
+    int prev_O = orients[slot - 1];
+    int tail = prev_O ? op->pt[prev_P].a : op->pt[prev_P].b;
+    for (int P = 1; P < np; P++) {
+        if (used & (1 << P)) continue;
+        for (int O = 0; O < 2; O++) {
+            int f = O ? op->pt[P].b : op->pt[P].a;
+            int s2 = O ? op->pt[P].a : op->pt[P].b;
+            int bd = hamming(tail, f);
+            if (bd == 5 || budget[bd] <= 0) continue;
+            budget[bd]--;
+            int wd = hamming(f, s2);
+            if (budget[wd] <= 0) { budget[bd]++; continue; }
+            budget[wd]--;
+            /* #67 push analog */
+            int mwd = 0;
+            {
+                int c = f ^ 63;
+                if (w->pos[c] >= 0) { int d = (slot * 2) - w->pos[c]; mwd += ((d < 0 ? -d : d) << 1); }
+                w->pos[f] = slot * 2;
+                c = s2 ^ 63;
+                if (w->pos[c] >= 0) { int d = (slot * 2 + 1) - w->pos[c]; mwd += ((d < 0 ? -d : d) << 1); }
+                w->pos[s2] = slot * 2 + 1;
+            }
+            w->partial_cd += mwd;
+            /* #67+#70 analog: inevitable = 2 per complement-class not yet
+             * fully placed WITHIN THE TOY VALUE SET (the set is closed
+             * under complement, so every class completes by the leaf). */
+            int prune = 0;
+            if (w->use_prunes) {
+                /* Sound only when BOTH members of the complement class are
+                 * in the problem's value set (then any completion places
+                 * both, at distance ≥ 1). The toy set is closed under
+                 * complement, so every in-set class qualifies. */
+                int inevitable = 0;
+                for (int v = 0; v < 32; v++) {
+                    int c = v ^ 63;
+                    int v_in = 0, c_in = 0;
+                    for (int P2 = 0; P2 < np; P2++) {
+                        if (op->pt[P2].a == v || op->pt[P2].b == v) v_in = 1;
+                        if (op->pt[P2].a == c || op->pt[P2].b == c) c_in = 1;
+                    }
+                    if (!(v_in && c_in)) continue;
+                    if (!(w->pos[v] >= 0 && w->pos[c] >= 0)) inevitable += 2;
+                }
+                if (w->partial_cd + inevitable > op->cd_thresh_x64) prune = 1;
+            }
+            if (!prune) {
+                order[slot] = P;
+                orients[slot] = O;
+                orb_toy_dfs(w, order, orients, used | (1 << P), budget, slot + 1);
+            }
+            w->partial_cd -= mwd;
+            w->pos[f] = -1;
+            w->pos[s2] = -1;
+            budget[wd]++;
+            budget[bd]++;
+        }
+    }
+}
+
+/* Direct exhaustive enumeration of one toy cell. Returns record count. */
+static long long orb_toy_enum_cell(const OrbitProblem *op, int c1, int c2, int c3,
+                                   int use_prunes, unsigned char *buf, long long cap) {
+    OrbToyWalk w;
+    memset(&w, 0, sizeof(w));
+    w.op = op; w.buf = buf; w.cap = cap; w.use_prunes = use_prunes;
+    for (int i = 0; i < 64; i++) w.pos[i] = -1;
+    for (int P = 0; P < op->npairs; P++) w.wpd[P] = hamming(op->pt[P].a, op->pt[P].b);
+    int order[32], orients[32];
+    int budget[7];
+    memcpy(budget, op->budget0, sizeof(budget));
+    int used = 1;                                  /* anchor pair placed */
+    order[0] = 0; orients[0] = 0;
+    int wd0 = hamming(op->pt[0].a, op->pt[0].b);
+    if (budget[wd0] <= 0) return 0;
+    budget[wd0]--;
+    w.pos[op->pt[0].a] = 0;
+    w.pos[op->pt[0].b] = 1;
+    w.partial_cd = 2;                              /* |0-1|*2 for the anchor pair */
+    int codes[3] = { c1, c2, c3 };
+    int tail = op->pt[0].b;
+    for (int k = 0; k < 3; k++) {
+        int P = codes[k] >> 1, O = codes[k] & 1;
+        int f = O ? op->pt[P].b : op->pt[P].a;
+        int s2 = O ? op->pt[P].a : op->pt[P].b;
+        int bd = hamming(tail, f);
+        if (bd == 5 || budget[bd] <= 0) return 0;
+        budget[bd]--;
+        int wd = hamming(f, s2);
+        if (budget[wd] <= 0) return 0;
+        budget[wd]--;
+        int mwd = 0;
+        {
+            int c = f ^ 63;
+            if (w.pos[c] >= 0) { int d = ((k + 1) * 2) - w.pos[c]; mwd += ((d < 0 ? -d : d) << 1); }
+            w.pos[f] = (k + 1) * 2;
+            c = s2 ^ 63;
+            if (w.pos[c] >= 0) { int d = ((k + 1) * 2 + 1) - w.pos[c]; mwd += ((d < 0 ? -d : d) << 1); }
+            w.pos[s2] = (k + 1) * 2 + 1;
+        }
+        w.partial_cd += mwd;
+        order[k + 1] = P;
+        orients[k + 1] = O;
+        used |= (1 << P);
+        tail = s2;
+    }
+    orb_toy_dfs(&w, order, orients, used, budget, 4);
+    return w.n;
+}
+
+/* ==================================================================== */
+
 /* Write per-sub-branch solution file from thread's hash table.
  * Called with checkpoint_mutex held.
  * Filename encodes full (p1, o1, p2, o2) to avoid collisions — see bug note
@@ -8344,6 +9203,12 @@ static void *thread_func_single(void *arg) {
                 (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
             }
         }
+
+        /* task #67: initialize mid-walk C3 state from the seq[] prefix that the
+         * loop above just built (positions 0..backtrack_start_step*2 - 1). The
+         * v2-resume path inside backtrack_iterative overrides this with its own
+         * init using the saved seq, so this base init covers the fresh-start case. */
+        mw_c3_init(ts, seq, backtrack_start_step * 2);
 
         if (dfs_iterative_enabled) {
             backtrack_iterative(ts, seq, &used_mask, budget, backtrack_start_step);  /* task #72 Phase B */
@@ -9085,6 +9950,10 @@ static void *thread_func_sub_sub(void *arg) {
          * backtrack uses (branch_nodes - pending_shared_flush) as the delta
          * to publish to the shared counter, and that needs monotone
          * accumulation across all tasks on this worker. */
+
+        /* task #67: initialize mid-walk C3 state from the depth-5 prefix
+         * (positions 0-11 = 12 hexagrams placed). */
+        mw_c3_init(ts, seq, 12);
 
         /* DFS from step 6 (pair 6 placed at positions 12-13). */
         backtrack(ts, seq, &used_mask, budget, 6);      /* task #72 Phase B: pass mask by pointer */
@@ -15282,7 +16151,17 @@ int main(int argc, char *argv[]) {
          * content — 135,780 canonical pair orderings — is unchanged; only the
          * file bytes differ because the 32-byte header is now prepended.)
          */
-        const char *expected_sha = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
+        /* v4 lineage (2026-07-13): the selftest is TWO passes.
+         *   Pass 1 — SOLVE_V4_PRUNES=0 (prune decisions off): must reproduce
+         *     the v1/v3 anchor 403f7202… byte-identically. This proves the
+         *     v4 prune re-adoption did not disturb the walk itself.
+         *   Pass 2 — prunes ON (v4 default): must reproduce the v4 selftest
+         *     anchor below. This is the v4 lineage's own regression anchor
+         *     (sha-CHANGING vs v1/v3 BY DESIGN — the exact prune stack lets
+         *     the same node budget reach more leaves).
+         * Both anchors: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, depth-2. */
+        const char *expected_sha_v1 = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
+        const char *expected_sha_v4 = V4_SELFTEST_SHA;  /* defined near the top of solve.c */
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
@@ -15293,74 +16172,318 @@ int main(int argc, char *argv[]) {
         ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
         if (sn > 0) solve_path[sn] = 0;
 
-        char tempdir_template[] = "/tmp/solve_selftest_XXXXXX";
-        if (!mkdtemp(tempdir_template)) {
-            fprintf(stderr, "ERROR: mkdtemp failed\n");
-            return 10;
-        }
-        printf("[--selftest] Running in %s\n", tempdir_template);
-        printf("[--selftest] Expected sha256: %s\n", expected_sha);
         const char *tool = sha256_tool();
         if (!tool) { require_sha256_tool(); return 30; }
-        /* IMPORTANT: pass time_limit = 0 (no wall-clock cap). A non-zero time
-         * limit interrupts sub-branches that haven't hit their node budget,
-         * and which sub-branches are still running at the interrupt moment
-         * depends on thread scheduling. The result: sha256 varies run-to-run
-         * under load. Using node-limit only (per-sub-branch budgets) gives
-         * byte-exact determinism across thread counts and machines. */
-        char cmd[8192];
-        /* Task #105 (2026-05-27) + #113 (2026-05-29): scrub ALL SOLVE_* env
-         * vars before invoking the selftest child, then set only the ones the
-         * selftest needs. The earlier explicit denylist (#105) missed
-         * SOLVE_SKIP_AUTOMERGE — when a parent enum runs enum-only
-         * (SOLVE_SKIP_AUTOMERGE=1, the canonical-pipeline + real-560T setting),
-         * it leaked into this child, so the child's tiny enum skipped its
-         * auto-merge -> no solutions.bin -> the sha-check below failed (exit
-         * non-zero). Caught by the #62 dress-rehearsal. A wildcard scrub of
-         * all SOLVE_* is future-proof: no current or future env var can flip
-         * the selftest sha or break its merge. (sh `for` loop is POSIX.) */
-        snprintf(cmd, sizeof(cmd),
-                 "cd %s && "
-                 "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 "
-                 "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
-                 "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
-                 "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
-                 "SOLVE_SKIP_IOPS_CHECK=1 "
-                 "%s 0 > /dev/null 2>&1 && "
-                 /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
-                  * content so the canonical selftest sha 403f7202 is unchanged. */
-                 "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
-                 tempdir_template, solve_path, tool);
-        FILE *fp = popen(cmd, "r");
-        if (!fp) {
-            fprintf(stderr, "ERROR: popen failed\n");
-            return 30;
-        }
-        char actual_sha[128] = {0};
-        if (fgets(actual_sha, sizeof(actual_sha), fp) == NULL) {
+        for (int pass = 0; pass < 2; pass++) {
+            const char *expected_sha = pass == 0 ? expected_sha_v1 : expected_sha_v4;
+            const char *pass_env     = pass == 0 ? "SOLVE_V4_PRUNES=0 " : "";
+            const char *pass_name    = pass == 0 ? "prunes-OFF (v1/v3 anchor)" : "prunes-ON (v4 anchor)";
+            char tempdir_template[] = "/tmp/solve_selftest_XXXXXX";
+            if (!mkdtemp(tempdir_template)) {
+                fprintf(stderr, "ERROR: mkdtemp failed\n");
+                return 10;
+            }
+            printf("[--selftest] Pass %d/2 [%s] in %s\n", pass + 1, pass_name, tempdir_template);
+            printf("[--selftest] Expected sha256: %s\n", expected_sha);
+            /* IMPORTANT: pass time_limit = 0 (no wall-clock cap). A non-zero time
+             * limit interrupts sub-branches that haven't hit their node budget,
+             * and which sub-branches are still running at the interrupt moment
+             * depends on thread scheduling. The result: sha256 varies run-to-run
+             * under load. Using node-limit only (per-sub-branch budgets) gives
+             * byte-exact determinism across thread counts and machines. */
+            char cmd[8192];
+            /* Task #105 (2026-05-27) + #113 (2026-05-29): scrub ALL SOLVE_* env
+             * vars before invoking the selftest child, then set only the ones the
+             * selftest needs. The earlier explicit denylist (#105) missed
+             * SOLVE_SKIP_AUTOMERGE — when a parent enum runs enum-only
+             * (SOLVE_SKIP_AUTOMERGE=1, the canonical-pipeline + real-560T setting),
+             * it leaked into this child, so the child's tiny enum skipped its
+             * auto-merge -> no solutions.bin -> the sha-check below failed (exit
+             * non-zero). Caught by the #62 dress-rehearsal. A wildcard scrub of
+             * all SOLVE_* is future-proof: no current or future env var can flip
+             * the selftest sha or break its merge. (sh `for` loop is POSIX.)
+             * The v4 pass-specific SOLVE_V4_PRUNES is injected AFTER the scrub. */
+            snprintf(cmd, sizeof(cmd),
+                     "cd %s && "
+                     "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
+                     "%s"
+                     "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 "
+                     "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
+                     "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
+                     "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
+                     "SOLVE_SKIP_IOPS_CHECK=1 "
+                     "%s 0 > /dev/null 2>&1 && "
+                     /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
+                      * content so the canonical selftest shas are unchanged. */
+                     "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
+                     tempdir_template, pass_env, solve_path, tool);
+            FILE *fp = popen(cmd, "r");
+            if (!fp) {
+                fprintf(stderr, "ERROR: popen failed\n");
+                return 30;
+            }
+            char actual_sha[128] = {0};
+            if (fgets(actual_sha, sizeof(actual_sha), fp) == NULL) {
+                pclose(fp);
+                fprintf(stderr, "ERROR: selftest child produced no output\n");
+                return 40;
+            }
             pclose(fp);
-            fprintf(stderr, "ERROR: selftest child produced no output\n");
+            /* Strip trailing newline */
+            for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
+            printf("[--selftest] Actual sha256:   %s\n", actual_sha);
+            /* Cleanup temp dir */
+            char rm_cmd[4200];
+            snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tempdir_template);
+            int _rm = system(rm_cmd); (void)_rm;
+            if (strcmp(actual_sha, expected_sha) != 0) {
+                fprintf(stderr, "[--selftest] FAIL — sha mismatch on pass %d [%s]!\n", pass + 1, pass_name);
+                fprintf(stderr, "             Expected: %s\n", expected_sha);
+                fprintf(stderr, "             Got:      %s\n", actual_sha);
+                fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
+                return 40;  /* validation mismatch */
+            }
+            printf("[--selftest] Pass %d/2 [%s] OK\n", pass + 1, pass_name);
+        }
+        printf("[--selftest] PASS — both lineage anchors reproduced (v1/v3 OFF-mode + v4 ON-mode)\n");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--orbit-table") == 0) {
+        /* v4: build + summarize (and optionally dump) the G48 orbit table
+         * over the 158,364 depth-3 cells. `--orbit-table dump` emits the
+         * full cell→rep TSV on stdout. */
+        init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+        orbit_real_init();
+        printf("[--orbit-table] |G| = 48 (centralizer of bit reversal, octahedral B3)\n");
+        printf("[--orbit-table] valid depth-3 cells: %d\n", orb_real_table.ncells);
+        printf("[--orbit-table] orbits (representatives to walk): %d\n", orb_real_table.norbits);
+        {
+            int S = orb_real_table.S;
+            int32_t *cnt = (int32_t *)calloc((size_t)S * S * S, sizeof(int32_t));
+            if (!cnt) { fprintf(stderr, "FATAL: alloc\n"); return 12; }
+            for (long long i = 0; i < (long long)S * S * S; i++)
+                if (orb_real_table.val[i]) cnt[orb_real_table.rep[i]]++;
+            int hist[49]; memset(hist, 0, sizeof(hist));
+            for (long long i = 0; i < (long long)S * S * S; i++)
+                if (orb_real_table.val[i] && orb_real_table.rep[i] == (int32_t)i) hist[cnt[i]]++;
+            printf("[--orbit-table] orbit-size histogram:");
+            for (int k = 1; k <= 48; k++) if (hist[k]) printf(" %d:%d", k, hist[k]);
+            printf("\n");
+            printf("[--orbit-table] work-weighted mean orbit size (uniform cell weights): %.2f\n",
+                   (double)orb_real_table.ncells / (double)orb_real_table.norbits);
+            printf("[--orbit-table] census asserts PASSED (158364 cells / 4382 orbits / {48:2362,24:1736,12:270,6:14})\n");
+            free(cnt);
+        }
+        if (argc > 2 && strcmp(argv[2], "dump") == 0) {
+            int S = orb_real_table.S;
+            printf("p1\to1\tp2\to2\tp3\to3\trep_p1\trep_o1\trep_p2\trep_o2\trep_p3\trep_o3\tsigma\n");
+            for (int c1 = 2; c1 < S; c1++)
+            for (int c2 = 2; c2 < S; c2++)
+            for (int c3 = 2; c3 < S; c3++) {
+                long long idx = ((long long)c1 * S + c2) * S + c3;
+                if (!orb_real_table.val[idx]) continue;
+                int32_t r = orb_real_table.rep[idx];
+                int r3 = (int)(r % S), r2 = (int)((r / S) % S), r1 = (int)(r / ((long long)S * S));
+                printf("%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+                       c1 >> 1, c1 & 1, c2 >> 1, c2 & 1, c3 >> 1, c3 & 1,
+                       r1 >> 1, r1 & 1, r2 >> 1, r2 & 1, r3 >> 1, r3 & 1,
+                       (int)orb_real_table.sig[idx]);
+            }
+        }
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--orbit-expand") == 0) {
+        /* v4: expand representative shards to all orbit members.
+         * Usage: solve --orbit-expand <rep_shard_dir> <out_dir>
+         * For every representative cell whose shard exists in rep_shard_dir:
+         * copy the rep shard verbatim to out_dir, and write each member
+         * cell's shard as the σ-mapped, orientation-re-canonicalized,
+         * SORTED record set. Per-member record count must equal the rep's
+         * (key bijection — hard invariant). */
+        if (argc < 4) {
+            fprintf(stderr, "usage: solve --orbit-expand <rep_shard_dir> <out_dir>\n");
+            return 10;
+        }
+        init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+        orbit_real_init();
+        const char *rdir = argv[2], *odir = argv[3];
+        int S = orb_real_table.S;
+        long long reps_seen = 0, reps_with_shards = 0, recs_in = 0, recs_out = 0, members_written = 0;
+        unsigned char *inbuf = NULL; size_t incap = 0;
+        for (int c1 = 2; c1 < S; c1++)
+        for (int c2 = 2; c2 < S; c2++)
+        for (int c3 = 2; c3 < S; c3++) {
+            long long idx = ((long long)c1 * S + c2) * S + c3;
+            if (!orb_real_table.val[idx] || orb_real_table.rep[idx] != (int32_t)idx) continue;
+            reps_seen++;
+            char fname[512];
+            snprintf(fname, sizeof(fname), "%s/sub_%d_%d_%d_%d_%d_%d.bin", rdir,
+                     c1 >> 1, c1 & 1, c2 >> 1, c2 & 1, c3 >> 1, c3 & 1);
+            gzFile f = gzr_open(fname);
+            if (!f) continue;      /* rep produced no shard (no solutions found) */
+            reps_with_shards++;
+            long long n = 0;
+            {
+                size_t used = 0;
+                for (;;) {
+                    if (used + 65536 > incap) {
+                        incap = incap ? incap * 2 : (1 << 20);
+                        inbuf = (unsigned char *)realloc(inbuf, incap);
+                        if (!inbuf) { fprintf(stderr, "FATAL: realloc\n"); return 12; }
+                    }
+                    int got = gzread(f, inbuf + used, 65536);
+                    if (got < 0) { fprintf(stderr, "FATAL: gzread %s\n", fname); return 20; }
+                    if (got == 0) break;
+                    used += (size_t)got;
+                }
+                gzclose(f);
+                if (used % SOL_RECORD_SIZE != 0) {
+                    fprintf(stderr, "FATAL: %s size %%32 != 0\n", fname);
+                    return 20;
+                }
+                n = (long long)(used / SOL_RECORD_SIZE);
+            }
+            recs_in += n;
+            /* rep shard: verbatim copy (walk evidence — byte-untouched) */
+            {
+                char oname[512], cmd[1200];
+                snprintf(oname, sizeof(oname), "%s/sub_%d_%d_%d_%d_%d_%d.bin", odir,
+                         c1 >> 1, c1 & 1, c2 >> 1, c2 & 1, c3 >> 1, c3 & 1);
+                snprintf(cmd, sizeof(cmd), "cp -f '%s' '%s'", fname, oname);
+                if (system(cmd) != 0) { fprintf(stderr, "FATAL: cp rep shard failed\n"); return 20; }
+            }
+            unsigned char *outbuf = (unsigned char *)malloc((size_t)(n ? n : 1) * SOL_RECORD_SIZE);
+            if (!outbuf) { fprintf(stderr, "FATAL: outbuf alloc\n"); return 12; }
+            /* every member of this orbit (rep[midx] == idx, midx != idx) */
+            for (int s = 0; s < 48; s++) {
+                int m1 = orb_real_pomap[s][c1], m2 = orb_real_pomap[s][c2], m3 = orb_real_pomap[s][c3];
+                long long midx = ((long long)m1 * S + m2) * S + m3;
+                if (midx == idx) continue;
+                if (orb_real_table.sig[midx] != (int8_t)s) continue;  /* expand once, via the canonical σ */
+                if (orb_expand_shard(&orb_real_op, orb_real_pomap, s, m1, m2, m3,
+                                     inbuf, n, outbuf) != 0) return 20;
+                char oname[512], tname[560];
+                snprintf(oname, sizeof(oname), "%s/sub_%d_%d_%d_%d_%d_%d.bin", odir,
+                         m1 >> 1, m1 & 1, m2 >> 1, m2 & 1, m3 >> 1, m3 & 1);
+                snprintf(tname, sizeof(tname), "%s.tmp", oname);
+                gzFile of = gzw_open(tname);
+                if (!of) { fprintf(stderr, "FATAL: cannot write %s\n", tname); return 20; }
+                if (n > 0 && gzwrite(of, outbuf, (unsigned)(n * SOL_RECORD_SIZE)) != (int)(n * SOL_RECORD_SIZE)) {
+                    fprintf(stderr, "FATAL: short write %s\n", tname); return 20;
+                }
+                gzclose(of);
+                if (rename(tname, oname) != 0) { fprintf(stderr, "FATAL: rename %s\n", oname); return 20; }
+                members_written++;
+                recs_out += n;
+            }
+            free(outbuf);
+            if (reps_with_shards % 100 == 0)
+                fprintf(stderr, "[--orbit-expand] %lld rep shards expanded (%lld records in, %lld out)\n",
+                        reps_with_shards, recs_in, recs_out);
+        }
+        free(inbuf);
+        printf("[--orbit-expand] representatives: %lld (with shards: %lld)\n", reps_seen, reps_with_shards);
+        printf("[--orbit-expand] member shards written: %lld\n", members_written);
+        printf("[--orbit-expand] records: %lld in (rep, copied verbatim) + %lld expanded\n", recs_in, recs_out);
+        printf("[--orbit-expand] invariant: every member shard's record count == its rep's (enforced per shard)\n");
+        printf("[--orbit-expand] NOTE (convention): expanded member shards are SORTED and carry\n"
+               "                 lex-least VALID orientation completions — at budgeted scope they are\n"
+               "                 the v4 convention, NOT byte-comparable to any direct budgeted walk.\n"
+               "                 Byte-equality vs direct enumeration is a theorem ONLY at per-cell\n"
+               "                 exhaustion (validated by --orbit-selftest / the #112-style oracle).\n");
+        return 0;
+    } else if (argc > 1 && strcmp(argv[1], "--orbit-selftest") == 0) {
+        /* v4 orbit machinery selftest (LOCAL, sub-minute):
+         *  Phase 1 — real-problem census asserts (158,364 cells → 4,382
+         *            orbits, histogram check) via orbit_real_init().
+         *  Phase 2 — toy problem (7 pairs, EXHAUSTIVE): for every valid
+         *            cell, direct exhaustive enumeration (prunes off AND
+         *            prunes on — must be identical: prune exactness at
+         *            exhaustion), then orbit-reduced+expanded vs direct
+         *            byte-equality across all 384 cells. This is the
+         *            regime where equality is a THEOREM; a pass certifies
+         *            the group action, representative selection, record
+         *            relabeling, and orientation re-canonicalization. */
+        init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+        printf("[--orbit-selftest] Phase 1: real-problem orbit census...\n");
+        orbit_real_init();
+        printf("[--orbit-selftest] Phase 1 PASS: 158364 cells / 4382 orbits / {48:2362,24:1736,12:270,6:14}\n");
+
+        printf("[--orbit-selftest] Phase 2: exhaustive toy problem (7 pairs, budget {1:1,2:9,4:2,6:1}, C3<=58)...\n");
+        OrbitProblem toy;
+        memset(&toy, 0, sizeof(toy));
+        toy.npairs = 7;
+        toy.pt = orb_toy_pairs;
+        toy.budget0[1] = 1; toy.budget0[2] = 9; toy.budget0[4] = 2; toy.budget0[6] = 1;
+        toy.cd_thresh_x64 = 58;
+        static int toy_pomap[48][64];
+        if (orb_build_pomap(&toy, toy_pomap) != 0) {
+            fprintf(stderr, "[--orbit-selftest] FAIL: toy pair table not G48-closed\n");
             return 40;
         }
-        pclose(fp);
-        /* Strip trailing newline */
-        for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
-        printf("[--selftest] Actual sha256:   %s\n", actual_sha);
-        /* Cleanup temp dir */
-        char rm_cmd[4200];
-        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tempdir_template);
-        int _rm = system(rm_cmd); (void)_rm;
-        if (strcmp(actual_sha, expected_sha) == 0) {
-            printf("[--selftest] PASS — sha256 matches canonical baseline\n");
-            return 0;
-        } else {
-            fprintf(stderr, "[--selftest] FAIL — sha mismatch!\n");
-            fprintf(stderr, "             Expected: %s\n", expected_sha);
-            fprintf(stderr, "             Got:      %s\n", actual_sha);
-            fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
-            return 40;  /* validation mismatch */
+        OrbitTable tt;
+        memset(&tt, 0, sizeof(tt));
+        if (orb_table_build(&toy, toy_pomap, &tt) != 0) return 40;
+        printf("[--orbit-selftest] toy cells: %d, orbits: %d\n", tt.ncells, tt.norbits);
+        if (tt.ncells != 384 || tt.norbits != 12) {
+            fprintf(stderr, "[--orbit-selftest] FAIL: toy census mismatch (expected 384 cells / 12 orbits)\n");
+            return 40;
         }
+        int St = tt.S;
+        enum { TOYCAP = 8192 };
+        /* direct record sets per cell, both prune modes */
+        long long total_direct = 0;
+        unsigned char bufA[TOYCAP * 7], bufB[TOYCAP * 7], bufE[TOYCAP * 7], bufR[TOYCAP * 7];
+        long long cells_checked = 0, cells_nonempty = 0, mismatches = 0;
+        for (int c1 = 2; c1 < St; c1++)
+        for (int c2 = 2; c2 < St; c2++)
+        for (int c3 = 2; c3 < St; c3++) {
+            long long idx = ((long long)c1 * St + c2) * St + c3;
+            if (!tt.val[idx]) continue;
+            cells_checked++;
+            long long nA = orb_toy_enum_cell(&toy, c1, c2, c3, 0, bufA, TOYCAP);  /* prunes OFF */
+            long long nB = orb_toy_enum_cell(&toy, c1, c2, c3, 1, bufB, TOYCAP);  /* prunes ON  */
+            g_orb_recsize = 7;
+            qsort(bufA, (size_t)nA, 7, orb_rec_cmp);
+            qsort(bufB, (size_t)nB, 7, orb_rec_cmp);
+            if (nA != nB || memcmp(bufA, bufB, (size_t)nA * 7) != 0) {
+                fprintf(stderr, "[--orbit-selftest] FAIL: prune exactness at exhaustion broken in toy cell "
+                        "(%d,%d,%d): off=%lld on=%lld\n", c1, c2, c3, nA, nB);
+                return 40;
+            }
+            total_direct += nA;
+            if (nA > 0) cells_nonempty++;
+            /* orbit path: rep's direct set expanded to this cell */
+            int32_t r = tt.rep[idx];
+            int s = tt.sig[idx];
+            int r3 = (int)(r % St), r2 = (int)((r / St) % St), r1 = (int)(r / ((long long)St * St));
+            long long nR = orb_toy_enum_cell(&toy, r1, r2, r3, 1, bufR, TOYCAP);
+            if (nR != nA) {
+                fprintf(stderr, "[--orbit-selftest] FAIL: rep (%d,%d,%d) count %lld != member (%d,%d,%d) count %lld\n",
+                        r1, r2, r3, nR, c1, c2, c3, nA);
+                return 40;
+            }
+            if ((long long)idx == r) {
+                /* member IS the rep — direct set is the orbit-path output */
+                continue;
+            }
+            if (orb_expand_shard(&toy, toy_pomap, s, c1, c2, c3, bufR, nR, bufE) != 0) return 40;
+            if (memcmp(bufA, bufE, (size_t)nA * 7) != 0) {
+                mismatches++;
+                fprintf(stderr, "[--orbit-selftest] FAIL: expanded vs direct byte mismatch in toy cell (%d,%d,%d)\n",
+                        c1, c2, c3);
+                return 40;
+            }
+        }
+        orb_table_free(&tt);
+        printf("[--orbit-selftest] toy cells checked: %lld (non-empty: %lld, canonical records: %lld)\n",
+               cells_checked, cells_nonempty, total_direct);
+        if (cells_nonempty == 0 || total_direct == 0) {
+            fprintf(stderr, "[--orbit-selftest] FAIL: degenerate toy (no solutions) — test has no power\n");
+            return 40;
+        }
+        printf("[--orbit-selftest] Phase 2 PASS: reduced+expanded == direct BYTE-IDENTICAL on all %lld cells\n"
+               "                   (both prune modes; exhaustive scope — the theorem regime)\n", cells_checked);
+        printf("[--orbit-selftest] PASS\n");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-rule2") == 0) {
         /* McKenna Rule 2 audit (The Invisible Landscape, Ch 9): "absolutely
          * exclude transition situations with a value of one, except in cases
@@ -17680,6 +18803,19 @@ int main(int argc, char *argv[]) {
         dfs_iterative_enabled = 1;
         printf("DFS-iterative: enabled (explicit-stack backtrack)\n");
     }
+    /* SOLVE_V4_PRUNES (v4 lineage, 2026-07-13): the exact prune stack
+     * #67/#68/#70 is ON by default (it is part of the v4 canonical
+     * definition). Setting SOLVE_V4_PRUNES=0 disables the prune decisions,
+     * reproducing the v1/v3 walk byte-identically — required by the v4
+     * acceptance gate (rep-shard byte-equality vs the preserved 560T shards
+     * runs prunes-OFF) and by the per-rep-cell inclusion gate (OFF ⊆ ON). */
+    {
+        char *env_v4p = getenv("SOLVE_V4_PRUNES");
+        if (env_v4p && atoi(env_v4p) == 0) {
+            v4_prunes_enabled = 0;
+            printf("v4 prune stack (#67/#68/#70): DISABLED (SOLVE_V4_PRUNES=0 — v1/v3-equivalent walk)\n");
+        }
+    }
 
     /* SOLVE_FSYNC_BATCH_SIZE (task #108b, 2026-05-27): coalesce per-write
      * fsyncs into a single per-thread syncfs() once per N sub-branches.
@@ -17767,6 +18903,36 @@ int main(int argc, char *argv[]) {
     init_kw_pair_positions();
     init_super_pairs();
     init_pair_order();
+
+    /* SOLVE_ORBIT_REDUCE (v4, 2026-07-13): walk ONLY orbit-representative
+     * cells (4,382 of 158,364; ~×36 enum-phase work cut, work-weighted).
+     * Requires depth-3 partitioning AND an explicit per-cell budget (the v4
+     * convention is "same per-cell budget as an unreduced run" — auto-divide
+     * semantics would silently change meaning when 97% of cells are
+     * skipped). Non-representative cells are regenerated afterwards by
+     * `solve --orbit-expand <shards> <out>`. Placed after init_pairs()/
+     * init_kw_dist() because the orbit table needs the pair table. */
+    {
+        char *env_orb = getenv("SOLVE_ORBIT_REDUCE");
+        if (env_orb && atoi(env_orb) == 1) {
+            if (solve_depth != 3) {
+                fprintf(stderr, "FATAL: SOLVE_ORBIT_REDUCE=1 requires SOLVE_DEPTH=3 "
+                        "(orbits are defined on depth-3 cells).\n");
+                return 10;
+            }
+            if (per_sub_branch_override <= 0) {
+                fprintf(stderr, "FATAL: SOLVE_ORBIT_REDUCE=1 requires SOLVE_PER_SUB_BRANCH_LIMIT "
+                        "(explicit per-cell budget). Auto-divide over representatives would "
+                        "change the per-cell budget semantics vs an unreduced run.\n");
+                return 10;
+            }
+            orbit_reduce_enabled = 1;
+            orbit_real_init();   /* build + census-assert the orbit table NOW (fail fast) */
+            printf("ORBIT REDUCTION: enabled — walking orbit-representative cells only "
+                   "(%d/%d; expand afterwards with --orbit-expand)\n",
+                   orb_real_table.norbits, orb_real_table.ncells);
+        }
+    }
 
     /* KW self-check: validate that the canonical KW[] sequence satisfies C1-C5
      * with the exact values stated in SPECIFICATION.md.
@@ -21915,6 +23081,7 @@ int main(int argc, char *argv[]) {
          */
         int n_sub = 0;
         int n_skipped = 0;
+        int n_orbit_skipped = 0;   /* v4: non-representative cells skipped under SOLVE_ORBIT_REDUCE */
         int all_sub_cap = (solve_depth == 3) ? 4096 : 64;
         SubBranch *all_sub = malloc(all_sub_cap * sizeof(SubBranch));
         if (!all_sub) {
@@ -22044,6 +23211,12 @@ int main(int argc, char *argv[]) {
                             int wd3 = hamming(f3, s3);
                             if (test_budget3[wd3] <= 0) continue;
 
+                            /* v4 orbit reduction: only representative cells are work units. */
+                            if (orbit_reduce_enabled &&
+                                !orbit_cell_is_rep(sb_pair, sb_orient, p2, o2, p3, o3)) {
+                                n_orbit_skipped++;
+                                continue;
+                            }
                             if (is_sub_branch_completed_d3(sb_pair, sb_orient, p2, o2, p3, o3)) {
                                 n_skipped++;
                                 continue;
@@ -22069,6 +23242,7 @@ int main(int argc, char *argv[]) {
 sub_enum_done:
         printf("Sub-branches for pair %d orient %d: %d remaining", sb_pair, sb_orient, n_sub);
         if (n_skipped > 0) printf(" (%d completed from checkpoint)", n_skipped);
+        if (n_orbit_skipped > 0) printf(" (%d non-representative cells orbit-skipped)", n_orbit_skipped);
         printf("\n");
         total_branches = n_sub + n_skipped;
 
@@ -23108,6 +24282,7 @@ sub_enum_done:
      * Default allocation 4096 for depth-2, 131072 for depth-3. */
     int n_all_subs = 0;
     int n_skipped_subs = 0;
+    int n_orbit_skipped_subs = 0;   /* v4: non-representative cells skipped under SOLVE_ORBIT_REDUCE */
     int subs_cap = (solve_depth == 3) ? 262144 : 4096;
     SubBranch *all_subs = malloc(subs_cap * sizeof(SubBranch));
     if (!all_subs) {
@@ -23185,6 +24360,12 @@ sub_enum_done:
                                 int wd3 = hamming(f3, s3);
                                 if (budget3[wd3] <= 0) continue;
 
+                                /* v4 orbit reduction: only representative cells are work units. */
+                                if (orbit_reduce_enabled &&
+                                    !orbit_cell_is_rep(p1, o1, p2, o2, p3, o3)) {
+                                    n_orbit_skipped_subs++;
+                                    continue;
+                                }
                                 if (is_sub_branch_completed_d3(p1, o1, p2, o2, p3, o3)) {
                                     n_skipped_subs++;
                                     continue;
@@ -23208,6 +24389,7 @@ sub_enum_done:
     total_branches = n_all_subs + n_skipped_subs;
     printf("Sub-branches: %d remaining", n_all_subs);
     if (n_skipped_subs > 0) printf(" (%d completed from checkpoint)", n_skipped_subs);
+    if (n_orbit_skipped_subs > 0) printf(" (%d non-representative cells orbit-skipped)", n_orbit_skipped_subs);
     printf(" of %d total\n", total_branches);
 
     /* Per-sub-branch node limit. Default divides SOLVE_NODE_LIMIT by the full
