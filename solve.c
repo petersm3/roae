@@ -685,9 +685,17 @@ typedef struct {
  * 403f7202… BY DESIGN: the exact prune stack #67/#68/#70 skips provably
  * solution-free subtrees, so the same node budget reaches more leaves.
  * The OFF-mode pass (SOLVE_V4_PRUNES=0) must still reproduce 403f7202….
- * Sourced from a measured local run on this branch (2026-07-13), per the
- * "never hardcode a sha from a doc" rule. */
-#define V4_SELFTEST_SHA "56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc"
+ *
+ * RE-MINTED 2026-07-14 for the RATIFIED v4 record convention: the merge now
+ * stream-normalizes each survivor's orientation bits to the global
+ * slot-0-only repr(k) (V4_RECORD_CONVENTION_DECISION / RecordConvention.lean;
+ * merge-stage only, behind the v4 flag). This changes RECORD BYTES (not the
+ * 235,083 unique-class count) vs the pre-convention anchor
+ * 56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc (SUPERSEDED).
+ * The OFF pass 403f7202… is UNAFFECTED (normalization is inactive under the
+ * v1/v3 bridge). Sourced from a measured local run on this branch
+ * (2026-07-14), per the "never hardcode a sha from a doc" rule. */
+#define V4_SELFTEST_SHA "e26c68500c2b07389a32cd147c37a732c7f333c69c1547e8a60a4ac578f91a77"
 
 /* ---------- Top-N closest solutions ---------- */
 #define TOP_N 20
@@ -8655,6 +8663,155 @@ static int orb_recanon(const OrbitProblem *op, const int *key, const int *fixed_
     return orb_recanon_dfs(op, key, out_or, seq, budget, 4);
 }
 
+/* --- v4 RATIFIED RECORD CONVENTION: global slot-0-only repr(k) ---
+ *
+ * repr(k) = the lexicographically least orientation completion of the
+ * pair-order key k valid under C1-C5 with ONLY slot 0 forced (anchor pair,
+ * orient 0 = C4). A PURE function of k: no cell, no budget, no slice.
+ *
+ * CORRECTNESS-CRITICAL DISTINCTION from orb_recanon (above): orb_recanon
+ * forces slots 0..3 to the MEMBER CELL's orientations (cell-scoped) — the
+ * right convention for cell-faithful expansion SHARDS, but PROVEN
+ * insufficient as a record representative (V4_RECORD_CONVENTION_DECISION
+ * 2026-07-14 §1; RecordConvention.lean `visitedMin_not_nested`): the merged
+ * cross-cell min still moves with budget, breaking partition-invariance and
+ * record-level nesting. The record convention MUST force slot 0 ONLY and
+ * take the GLOBAL lex-min completion, independent of which depth-3 cell
+ * produced the walk. This function is that global recanon; it is the
+ * `dfsFirst` model of RecordConvention.lean §3 instantiated over solve.c's
+ * orientation bits (bridge fact B6). Returns 1 + out_or[] filled, else 0. */
+static int orb_repr_global(const OrbitProblem *op, const int *key, int *out_or) {
+    int np = op->npairs;
+    int seq[64];
+    int budget[7];
+    memcpy(budget, op->budget0, sizeof(budget));
+    /* slot 0 ONLY: anchor pair, orient 0 forced (C4). Slots 1..np-1 are ALL
+     * free — the DFS finds their lex-min valid completion (0-before-1). */
+    int P0 = key[0];
+    int f0 = op->pt[P0].a, s0 = op->pt[P0].b;      /* orient 0 => (a, b) */
+    int wd0 = hamming(f0, s0);
+    if (budget[wd0] <= 0) return 0;
+    budget[wd0]--;
+    seq[0] = f0; seq[1] = s0;
+    out_or[0] = 0;
+    return orb_recanon_dfs(op, key, out_or, seq, budget, 1);
+}
+
+/* Rewrite a record's orientation bits to repr(k) (global, slot-0-only),
+ * in place, using OrbitProblem `op`. Masked bytes (pair identities) are
+ * left untouched, so the record's sort key and dedup class are unchanged
+ * — the merge stream stays sorted with no re-sort. Aborts on the
+ * theory-impossible no-completion case (the record's own orientation is a
+ * valid completion, so repr always exists — B7). */
+static void orb_normalize_rec_op(const OrbitProblem *op, unsigned char *rec) {
+    int np = op->npairs;
+    int key[32], out_or[32];
+    for (int i = 0; i < np; i++) key[i] = (rec[i] >> 2) & 0x3F;
+    if (!orb_repr_global(op, key, out_or)) {
+        fprintf(stderr, "FATAL: v4 record normalization found NO valid orientation "
+                "completion for a record's pair-order key — impossible (the record "
+                "itself witnesses a valid completion). Refusing to emit a corrupt "
+                "canonical.\n");
+        exit(1);
+    }
+    for (int i = 0; i < np; i++)
+        rec[i] = (unsigned char)((key[i] << 2) | (out_or[i] << 1));
+}
+
+/* Independent brute-force reference for repr(k): enumerate ALL 2^(np-1)
+ * orientation completions (slot 0 forced orient 0) in record-byte lex order
+ * (slot 1 most-significant) and return the FIRST that is valid under
+ * C2/C5/C3 — i.e. the lex-min of Valid(k), by definition, not via the DFS.
+ * Used ONLY by --orbit-selftest to certify orb_repr_global (the pruned DFS)
+ * against the RecordConvention model's `repr` definition. Feasible only at
+ * toy np (np=7 → 64 completions). Returns 1 + out_or, or 0 if Valid(k)=∅. */
+static int orb_brute_repr(const OrbitProblem *op, const int *key, int *out_or) {
+    int np = op->npairs;
+    long long total = 1LL << (np - 1);
+    for (long long v = 0; v < total; v++) {
+        int orient[32];
+        orient[0] = 0;
+        for (int i = 1; i < np; i++)
+            orient[i] = (int)((v >> ((np - 1) - i)) & 1);   /* slot 1 = MSB ⇒ byte-lex order */
+        int seq[64], budget[7];
+        memcpy(budget, op->budget0, sizeof(budget));
+        int P0 = key[0], f0 = op->pt[P0].a, s0 = op->pt[P0].b;   /* orient 0 => (a,b) */
+        int wd0 = hamming(f0, s0);
+        if (budget[wd0] <= 0) continue;
+        budget[wd0]--; seq[0] = f0; seq[1] = s0;
+        int ok = 1;
+        for (int i = 1; i < np; i++) {
+            int P = key[i], O = orient[i];
+            int f = O ? op->pt[P].b : op->pt[P].a;
+            int s = O ? op->pt[P].a : op->pt[P].b;
+            int bd = hamming(seq[i * 2 - 1], f);
+            if (bd == 5 || budget[bd] <= 0) { ok = 0; break; }
+            budget[bd]--;
+            int wd = hamming(f, s);
+            if (budget[wd] <= 0) { ok = 0; break; }
+            budget[wd]--;
+            seq[i * 2] = f; seq[i * 2 + 1] = s;
+        }
+        if (!ok) continue;
+        int pos[64];
+        for (int i = 0; i < 64; i++) pos[i] = -1;
+        for (int i = 0; i < 2 * np; i++) pos[seq[i]] = i;
+        int cd = 0;
+        for (int val = 0; val < 32; val++) {
+            int c = val ^ 63;
+            if (pos[val] >= 0 && pos[c] >= 0) {
+                int dd = pos[val] - pos[c];
+                cd += ((dd < 0 ? -dd : dd) << 1);
+            }
+        }
+        if (cd <= op->cd_thresh_x64) {
+            for (int i = 0; i < np; i++) out_or[i] = orient[i];
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The real-problem OrbitProblem for merge-stage record normalization.
+ * Requires pairs[], kw_dist[], kw_comp_dist_x64 already initialized (they
+ * are, in every solutions.bin-writing path, before any merge). Lightweight:
+ * needs NO orbit table, unlike orbit_real_init(). */
+static OrbitProblem v4_norm_op;
+static int v4_norm_op_ready = 0;
+static void v4_norm_op_init(void) {
+    if (v4_norm_op_ready) return;
+    memset(&v4_norm_op, 0, sizeof(v4_norm_op));
+    v4_norm_op.npairs = 32;
+    v4_norm_op.pt = pairs;
+    memcpy(v4_norm_op.budget0, kw_dist, sizeof(v4_norm_op.budget0));
+    v4_norm_op.cd_thresh_x64 = kw_comp_dist_x64;
+    v4_norm_op_ready = 1;
+}
+
+/* Is v4 record-convention normalization active for this merge?
+ *   SOLVE_V4_RECORD_NORM (explicit override, 1/0) wins if set; otherwise
+ *   it follows the v4 mode signal `v4_prunes_enabled` — so the --selftest
+ *   OFF pass (SOLVE_V4_PRUNES=0, the v1/v3 bridge to 403f7202…) does NOT
+ *   normalize, and the v4 default (prunes ON) DOES. Merge-stage only;
+ *   walk/shard/expansion layers never call it. */
+static int v4_norm_state = -1;   /* lazy; -1 = unresolved */
+static int v4_norm_active(void) {
+    if (v4_norm_state < 0) {
+        const char *e = getenv("SOLVE_V4_RECORD_NORM");
+        if (e && *e) v4_norm_state = (atoi(e) != 0) ? 1 : 0;
+        else         v4_norm_state = v4_prunes_enabled ? 1 : 0;
+    }
+    return v4_norm_state;
+}
+
+/* Merge-stage normalization of the final canonical: rewrite one survivor's
+ * orientation bits to the global repr(k). Real problem (32 pairs). No-op
+ * when v4 normalization is inactive (v1/v3 bridge). */
+static void v4_normalize_record(unsigned char *rec) {
+    v4_norm_op_init();
+    orb_normalize_rec_op(&v4_norm_op, rec);
+}
+
 /* Expand ONE record of a representative cell to a member cell via σ_s:
  * map each slot's (pair, orient) code, force slots 0..3 to the member
  * cell's prefix orientations, re-canonicalize the free orientations.
@@ -10932,7 +11089,14 @@ phase1_done:
         total_merged++;
 
         if (compare_canonical(top.rec, last_written) != 0) {
-            if (gzfwrite(top.rec, SOL_RECORD_SIZE, 1, rectmp) != 1) {
+            /* v4 record convention: normalize the survivor's orient bits to
+             * repr(k) before emit (merge-stage only; masked bytes untouched,
+             * so last_written / sort order are unaffected). No-op under the
+             * v1/v3 bridge (SOLVE_V4_PRUNES=0). */
+            unsigned char outrec[SOL_RECORD_SIZE];
+            memcpy(outrec, top.rec, SOL_RECORD_SIZE);
+            if (v4_norm_active()) v4_normalize_record(outrec);
+            if (gzfwrite(outrec, SOL_RECORD_SIZE, 1, rectmp) != 1) {
                 fprintf(stderr, "FATAL: write failed at record %lld\n", unique);
                 gzclose(rectmp); remove(rec_tmp); free(sfiles); free(heap); return 1;
             }
@@ -16158,7 +16322,12 @@ int main(int argc, char *argv[]) {
          *   Pass 2 — prunes ON (v4 default): must reproduce the v4 selftest
          *     anchor below. This is the v4 lineage's own regression anchor
          *     (sha-CHANGING vs v1/v3 BY DESIGN — the exact prune stack lets
-         *     the same node budget reach more leaves).
+         *     the same node budget reach more leaves). As of the 2026-07-14
+         *     record-convention ratification it ALSO exercises the merge-stage
+         *     global slot-0-only repr(k) normalization (v4-flag-gated), which
+         *     re-mints this anchor vs the pre-convention 56487ab5… (same class
+         *     count, different record bytes). Pass 1's bridge is untouched:
+         *     under SOLVE_V4_PRUNES=0 normalization is inactive (v1/v3 rule).
          * Both anchors: SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000, depth-2. */
         const char *expected_sha_v1 = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
         const char *expected_sha_v4 = V4_SELFTEST_SHA;  /* defined near the top of solve.c */
@@ -16432,7 +16601,9 @@ int main(int argc, char *argv[]) {
         /* direct record sets per cell, both prune modes */
         long long total_direct = 0;
         unsigned char bufA[TOYCAP * 7], bufB[TOYCAP * 7], bufE[TOYCAP * 7], bufR[TOYCAP * 7];
+        static unsigned char bufAn[TOYCAP * 7], bufBn[TOYCAP * 7];   /* normalized copies */
         long long cells_checked = 0, cells_nonempty = 0, mismatches = 0;
+        long long norm_records_checked = 0;
         for (int c1 = 2; c1 < St; c1++)
         for (int c2 = 2; c2 < St; c2++)
         for (int c3 = 2; c3 < St; c3++) {
@@ -16451,6 +16622,54 @@ int main(int argc, char *argv[]) {
             }
             total_direct += nA;
             if (nA > 0) cells_nonempty++;
+
+            /* ── v4 RATIFIED RECORD CONVENTION checks (2026-07-14) ──
+             * (i) model conformance: orb_repr_global (pruned slot-0-only DFS)
+             *     == orb_brute_repr (independent lex-min of Valid(k)); the
+             *     normalized record's orient bits ARE that repr(k).
+             * (ii) both prune modes agree AFTER normalization.
+             * (iii) normalization is idempotent (purity). */
+            memcpy(bufAn, bufA, (size_t)nA * 7);
+            memcpy(bufBn, bufB, (size_t)nB * 7);
+            for (long long i = 0; i < nA; i++) {
+                orb_normalize_rec_op(&toy, bufAn + (size_t)i * 7);
+                orb_normalize_rec_op(&toy, bufBn + (size_t)i * 7);
+                int key[7], og[7], ob[7];
+                for (int j = 0; j < 7; j++) key[j] = (bufA[(size_t)i * 7 + j] >> 2) & 0x3F;
+                if (!orb_repr_global(&toy, key, og) || !orb_brute_repr(&toy, key, ob)) {
+                    fprintf(stderr, "[--orbit-selftest] FAIL: repr(k) empty for a toy key at cell (%d,%d,%d)\n", c1, c2, c3);
+                    return 40;
+                }
+                for (int j = 0; j < 7; j++) {
+                    if (og[j] != ob[j]) {
+                        fprintf(stderr, "[--orbit-selftest] FAIL: orb_repr_global != brute lex-min "
+                                "at cell (%d,%d,%d) slot %d (dfs=%d brute=%d)\n", c1, c2, c3, j, og[j], ob[j]);
+                        return 40;
+                    }
+                    if (((bufAn[(size_t)i * 7 + j] >> 1) & 1) != og[j]) {
+                        fprintf(stderr, "[--orbit-selftest] FAIL: normalized record != repr(k) "
+                                "at cell (%d,%d,%d) slot %d\n", c1, c2, c3, j);
+                        return 40;
+                    }
+                }
+            }
+            if (memcmp(bufAn, bufBn, (size_t)nA * 7) != 0) {
+                fprintf(stderr, "[--orbit-selftest] FAIL: normalized direct differs between prune "
+                        "modes at cell (%d,%d,%d)\n", c1, c2, c3);
+                return 40;
+            }
+            for (long long i = 0; i < nA; i++) {
+                unsigned char tmp[7];
+                memcpy(tmp, bufAn + (size_t)i * 7, 7);
+                orb_normalize_rec_op(&toy, tmp);
+                if (memcmp(tmp, bufAn + (size_t)i * 7, 7) != 0) {
+                    fprintf(stderr, "[--orbit-selftest] FAIL: normalization not idempotent "
+                            "at cell (%d,%d,%d)\n", c1, c2, c3);
+                    return 40;
+                }
+            }
+            norm_records_checked += nA;
+
             /* orbit path: rep's direct set expanded to this cell */
             int32_t r = tt.rep[idx];
             int s = tt.sig[idx];
@@ -16472,6 +16691,14 @@ int main(int argc, char *argv[]) {
                         c1, c2, c3);
                 return 40;
             }
+            /* reduced+expand+normalize == direct+normalize, byte-identical
+             * (the v4 record-convention leg of the theorem-regime gate) */
+            for (long long i = 0; i < nA; i++) orb_normalize_rec_op(&toy, bufE + (size_t)i * 7);
+            if (memcmp(bufE, bufAn, (size_t)nA * 7) != 0) {
+                fprintf(stderr, "[--orbit-selftest] FAIL: reduced+expand+normalize != direct+normalize "
+                        "in toy cell (%d,%d,%d)\n", c1, c2, c3);
+                return 40;
+            }
         }
         orb_table_free(&tt);
         printf("[--orbit-selftest] toy cells checked: %lld (non-empty: %lld, canonical records: %lld)\n",
@@ -16482,6 +16709,33 @@ int main(int argc, char *argv[]) {
         }
         printf("[--orbit-selftest] Phase 2 PASS: reduced+expanded == direct BYTE-IDENTICAL on all %lld cells\n"
                "                   (both prune modes; exhaustive scope — the theorem regime)\n", cells_checked);
+        printf("[--orbit-selftest] v4 record convention PASS: %lld records normalized through global\n"
+               "                   slot-0-only repr(k); DFS==brute lex-min, idempotent, prune-mode-\n"
+               "                   invariant, reduced+expand+normalize == direct+normalize.\n",
+               norm_records_checked);
+
+        /* Phase 3 — KW record exactness (ratified corollary, decision doc §5):
+         * repr(kw_key) = the all-orient-0 variant = KW's exact bytes, on the
+         * REAL 32-pair problem. KW's pair order is the identity (pair i at
+         * slot i), so its all-orient-0 record is byte i = (i<<2). */
+        {
+            OrbitProblem realop;
+            memset(&realop, 0, sizeof(realop));
+            realop.npairs = 32;
+            realop.pt = pairs;
+            memcpy(realop.budget0, kw_dist, sizeof(realop.budget0));
+            realop.cd_thresh_x64 = kw_comp_dist_x64;
+            unsigned char kwrec[32], kwn[32];
+            for (int i = 0; i < 32; i++) kwrec[i] = (unsigned char)(i << 2);   /* all orient 0 */
+            memcpy(kwn, kwrec, 32);
+            orb_normalize_rec_op(&realop, kwn);
+            if (memcmp(kwn, kwrec, 32) != 0) {
+                fprintf(stderr, "[--orbit-selftest] FAIL: repr(kw_key) != KW's all-orient-0 bytes "
+                        "(the record convention's KW corollary is broken)\n");
+                return 40;
+            }
+            printf("[--orbit-selftest] Phase 3 PASS: repr(kw_key) = KW's exact bytes (all orient 0)\n");
+        }
         printf("[--orbit-selftest] PASS\n");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-rule2") == 0) {
@@ -22084,6 +22338,14 @@ int main(int argc, char *argv[]) {
             printf("  Unique: %lld (removed %lld orient duplicates)\n",
                    unique, total_records - unique);
 
+            /* v4 record convention: normalize each survivor's orient bits to
+             * repr(k) (merge-stage only; masked bytes untouched ⇒ already-
+             * sorted order preserved, no re-sort). No-op under the v1/v3
+             * bridge (SOLVE_V4_PRUNES=0). */
+            if (v4_norm_active())
+                for (long long i = 0; i < unique; i++)
+                    v4_normalize_record(&all[i * SOL_RECORD_SIZE]);
+
             printf("  Writing %s...\n", outname);
 
             gzFile of = gzw_open(outname);   /* #169: gz (or raw if SOLVE_COMPRESS=0) */
@@ -25060,6 +25322,14 @@ sub_enum_done:
                 unique_count++;
             }
         }
+
+        /* v4 record convention: normalize each survivor's orient bits to
+         * repr(k) (merge-stage only; masked bytes untouched ⇒ sorted order
+         * preserved, no re-sort). No-op under the v1/v3 bridge
+         * (SOLVE_V4_PRUNES=0 → pass-1 selftest stays 403f7202…). */
+        if (v4_norm_active())
+            for (long long i = 0; i < unique_count; i++)
+                v4_normalize_record(&all_solutions[(size_t)i * SOL_RECORD_SIZE]);
 
         printf("Writing %lld unique solutions to solutions.bin...\n", unique_count);
         fflush(stdout);
