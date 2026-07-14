@@ -14897,8 +14897,9 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * LRU block cache (SOLVE_KC_CACHE_MB, default 2048); entries never resident
  * in full, working set layer-size-independent):
  *
- *   --kc-selftest [--f1-pairs N]        full verification vs brute force (default n=9
- *                                       exhaustive + n=13/16 spot gates; see kc_selftest)
+ *   --kc-selftest                       full verification vs brute force (FIXED n=9
+ *                                       exhaustive + n=13/16 spot gates; takes no
+ *                                       options — review C-9; see kc_selftest)
  *   --kc-midn N [--kc-roundtrips R] [--kc-chi2-samples M]
  *                                       mid-n gate suite (rank/unrank/member roundtrips,
  *                                       mutation coherence, chi-square sampling, largest-
@@ -14911,7 +14912,9 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       count/unrank/rank/member/sample/enum byte-equal
  *   --kc-build DIR [--f1-pairs N]       build + RETAIN all n+1 layers (v1 format) + manifest
  *   --kc-count DIR                      exact model count from the compiled layers
- *   --kc-unrank DIR RANK [--kc-record]  the RANK-th walk in the canonical descent order
+ *   --kc-unrank DIR RANK [--kc-record [--kc-c3-max T]]
+ *                                       the RANK-th walk in the canonical descent order;
+ *                                       --kc-record appends the class record m(k)+repr(k)
  *   --kc-rank DIR "e,x,e,x,..."         rank of an explicit walk (inverse of unrank)
  *   --kc-member DIR "e,x,e,x,..."       membership query against the compiled structure
  *   --kc-repr DIR "e,x,..." [--kc-c3-max T]      class multiplicity m(k) + global repr(k)
@@ -14924,6 +14927,11 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *
  *   Common: [--kc-ooc] force the out-of-core reader at any n (v2 dirs and
  *   n > 22 select it automatically); [--kc-cache-mb MB] block-cache size.
+ *   Record-facing outputs (--kc-repr; --kc-record; --kc-class-uniform)
+ *   DEFAULT to the C1&C2&C4&C5 SUPERSPACE repr/m(k) — no C3 filter;
+ *   C1-C5-conforming records need an explicit --kc-c3-max (387 at full-31,
+ *   see the UNITS note below) — and always end with a "#provenance" trailer
+ *   naming build identity, convention, and the validity scope applied.
  *
  * Semantics. A "walk" is a raw oriented pair-sequence: n placements, each
  * consuming one subset pair (entry hexagram then exit hexagram, positions
@@ -14942,8 +14950,15 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * both endpoints placed contribute |pos(h)-pos(63^h)|, each couple once) is
  * monotone nondecreasing along a descent, so "prune when partial > T" is
  * admissible (never removes a walk with final cd <= T) and exact as a filter.
- * At reduced n the threshold T is a test parameter, NOT KW's 776 — the
- * full-scale C3 uses cd <= 776 over all 64 hexagrams.
+ * UNITS (review C-1): this walk functional counts each couple ONCE and, at
+ * full-31, never sees the anchor couple {63,0} (neither endpoint is a walk
+ * hexagram), whereas true C3 counts every couple TWICE over all 64 hexagrams
+ * and includes the anchor couple. So at full-31 cd_true = 2*(walk_cd + 1),
+ * and C3 <= 776 (KW's ceiling) <=> walk cd <= T = 387 (derivation:
+ * V4_COMPILER_CORRECTNESS_PROOFS_2026_07_14 §2.6/KB7; gate CT1.6). The T to
+ * pass for the C1-C5 space at full-31 is 387 — passing 776 in these units
+ * is a ~2x-too-loose filter, NOT C1-C5. At reduced n, T is a test parameter
+ * in the same walk-functional units.
  *
  * Verification (kc_selftest, all gates vs an INDEPENDENT forward brute-force
  * DFS): exact count; full-enumeration byte-equality in rank order;
@@ -15164,13 +15179,21 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
 
 /* Slice-then-merge rebuild (verification-only; gates A7b/M5b). Partition the
  * canonical target-mask list of layer k1 = prev->k + 1 into nslices disjoint
- * CONTIGUOUS index ranges; build each slice INDEPENDENTLY (own count pass,
- * own entry buffers, no state shared between slices), then MERGE the partial
- * results by target index into a whole layer. Because emission is keyed to a
- * target's own offset slot and slices are disjoint, the merged bytes must
- * equal the whole-build layer exactly — this function is the executable
- * witness (at small n) of the merged-partial-slices clause of the compiled-
- * layer partition-invariance property. Serial, small-n gates only. */
+ * CONTIGUOUS index ranges; build each slice with its own count pass and its
+ * own slice-local entry buffers, then MERGE the partial results by target
+ * index into a whole layer. Because emission is keyed to a target's own
+ * offset slot and slices are disjoint, the merged bytes must equal the
+ * whole-build layer exactly — an executable witness (at small n) of the
+ * merged-partial-slices clause of the compiled-layer partition-invariance
+ * property, with an HONEST SCOPE (review C-10): this is a SAME-PROCESS
+ * witness. Slices are built sequentially reusing ONE shared 64*vmax scratch
+ * (cleanliness rides on the emitter's re-zero contract, not on buffer
+ * isolation); ranges are contiguous only (theorem K2a covers arbitrary
+ * subsets); and the "merge" is in-process array placement, not a file-level
+ * merge of independently serialized slice artifacts. It witnesses the
+ * offset/merge arithmetic; if Stage F ever resumes mid-layer by building
+ * target subsets in separate processes/files, add a file-level variant of
+ * this gate then. Serial, small-n gates only. */
 static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
                                   F1C5Layer *nxt, int nslices) {
     const int k1 = prev->k + 1;
@@ -15928,8 +15951,23 @@ static void kc_rand_rank(const KC *kc, uint64_t *st, F1U192 *out) {
  * slot 0 most significant.
  *
  * Validity here is the COMPILED space (C1&C2&C4&C5); an optional c3max >= 0
- * additionally filters completions by the complement-distance analog, giving
- * the C1-C5 repr at full-31 (cd <= 776). m(k) and (for c3max < 0) repr come
+ * additionally filters completions by the WALK-FUNCTIONAL complement
+ * distance (couples once, anchor couple excluded — see the module header's
+ * UNITS note), giving the C1-C5 repr at full-31 with c3max = 387, the
+ * CT1.6-gated threshold (C3 <= 776 <=> walk cd <= 387; review C-1 — NOT
+ * 776: in these units 776 is ~2x too loose and its lex-min can be a
+ * C3-VIOLATING variant emitted as "repr").
+ *
+ * DEFAULT C3 SCOPE (review C-3): every record-facing CLI path defaults to
+ * c3max < 0, i.e. the SUPERSPACE repr — lex-min over C1&C2&C4&C5
+ * completions — which for some keys DIFFERS from the ratified C1-C5 repr(k)
+ * (freeze §3.2); m(k) likewise has two semantics (superspace vs C3-filtered)
+ * under one name. C1-C5-conforming record output therefore requires an
+ * explicit --kc-c3-max with the gated constant; the #provenance trailer
+ * labels which scope was applied. Whether the DEFAULT should change is an
+ * operator convention decision, deliberately not made in code.
+ *
+ * m(k) and (for c3max < 0) repr come
  * from an O(n*2*R) chain DP over (slot, orient, residual) — near-linear per
  * key, the freeze's obligation #9; with c3max >= 0 the DP is a feasibility
  * oracle for an output-sensitive lex-order DFS (cost O(m_valid * n)). */
@@ -17098,6 +17136,32 @@ static void kc_print_walk(const KC *kc, const uint8_t *E, FILE *f) {
     fprintf(f, "\n");
 }
 
+/* ---------- provenance trailer (CT0.7 / review B7) ----------
+ * One "#provenance" line after ALL record-facing output (--kc-repr;
+ * --kc-unrank / --kc-sample with --kc-record; --kc-sample
+ * --kc-class-uniform): engine + build identity, the ratified convention id,
+ * and the VALIDITY SCOPE actually applied — so superspace output can never
+ * be silently read as C1-C5 output (reviews C-3/C-8). Printed to stdout,
+ * "#"-prefixed: it travels with redirected artifacts and parsers can skip
+ * it. Called ONLY from kc_cli record-facing branches — never from
+ * selftest/enum/count or any enumeration-path code, so --selftest
+ * sha-neutrality is untouched. */
+static void kc_provenance_trailer(const KC *kc, long long c3max) {
+    printf("#provenance\tengine=solve.c/kc\tbranch=v4-compiler\tgit=%s\t"
+           "source_sha=%s\tn=%d\t"
+           "convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14"
+           "(repr=orient-lex-min,slot-0-only)\t",
+           GIT_HASH, SOURCE_SHA, kc->n);
+    if (c3max >= 0)
+        printf("validity=C1C2C4C5+walk-cd<=%lld%s\n", c3max,
+               (kc->n == 31 && c3max == 387)
+                   ? "(=C1-C5-at-full-31;T=387<=>C3<=776)"
+                   : "(walk-functional-units;see-module-header)");
+    else
+        printf("validity=C1C2C4C5-SUPERSPACE"
+               "(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))\n");
+}
+
 typedef struct { const KC *kc; uint64_t limit, done; } KcEnumUd;
 static int kc_enum_print_cb(void *ud, const uint8_t *E) {
     KcEnumUd *u = (KcEnumUd *)ud;
@@ -17140,8 +17204,16 @@ static int kc_cli(int argc, char *argv[]) {
         return kc_oocverify(npairs, R, scratch);
     }
 
-    /* common option scan */
+    /* common option scan. C3 SCOPE (review C-3, freeze §3.2): c3max defaults
+     * to -1 = NO C3 filter, so record-facing output (--kc-repr, --kc-record,
+     * --kc-class-uniform) defaults to the C1&C2&C4&C5 SUPERSPACE repr/m(k) —
+     * NOT the ratified C1-C5 repr(k). C1-C5-conforming records require an
+     * explicit --kc-c3-max with the CT1.6-gated WALK-FUNCTIONAL constant
+     * (387 at full-31, NOT 776 — see the adapter header). Changing this
+     * default is an operator convention decision, deliberately not made
+     * here; the #provenance trailer labels the scope actually applied. */
     int npairs = 9, force_ooc = 0, cache_mb = 0, class_uniform = 0, want_record = 0;
+    int emitted_record = 0;
     long long c3max = -1, limit = 0;
     for (int ai = 2; ai < argc; ai++) {
         if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[ai + 1]);
@@ -17180,7 +17252,7 @@ static int kc_cli(int argc, char *argv[]) {
         f1_dec(kc->total, tdec);
         printf("KC COUNT n=%d = %s\n", kc->n, tdec);
     } else if (strcmp(cmd, "--kc-unrank") == 0) {
-        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-unrank DIR RANK [--kc-record]\n"); free(kc); return 2; }
+        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-unrank DIR RANK [--kc-record [--kc-c3-max T]]\n"); free(kc); return 2; }
         if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         F1U192 r;
         uint8_t E[KC_MAX_PAIRS];
@@ -17194,6 +17266,7 @@ static int kc_cli(int argc, char *argv[]) {
                 uint64_t m = kc_class_repr(kc, E, repr, c3max);
                 printf("record\tm=%llu\t", (unsigned long long)m);
                 kc_print_walk(kc, repr, stdout);
+                emitted_record = 1;
             }
         }
     } else if (strcmp(cmd, "--kc-rank") == 0) {
@@ -17230,6 +17303,7 @@ static int kc_cli(int argc, char *argv[]) {
             rc = 1;
         } else {
             uint64_t m = kc_class_repr(kc, E, repr, c3max);
+            emitted_record = 1;
             if (m == 0) {
                 printf("m=0\t(class has no valid orientation completion)\n");
                 rc = 1;
@@ -17277,6 +17351,7 @@ static int kc_cli(int argc, char *argv[]) {
                 }
             }
         }
+        if (M > 0 && (class_uniform || want_record)) emitted_record = 1;
     } else if (strcmp(cmd, "--kc-enum") == 0) {
         if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         KcEnumUd ud = {kc, (uint64_t)(limit > 0 ? limit : 0), 0};
@@ -17287,6 +17362,7 @@ static int kc_cli(int argc, char *argv[]) {
         fprintf(stderr, "ERROR: [kc] unknown subcommand %s\n", cmd);
         rc = 2;
     }
+    if (emitted_record && kc->n) kc_provenance_trailer(kc, c3max);   /* CT0.7 */
     if (kc->n) kc_free(kc);
     free(kc);
     return rc;
