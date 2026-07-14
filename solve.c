@@ -14887,26 +14887,43 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * enumeration with C3 applied in-path.
  *
  * Subcommands (all argv-dispatched, sha-neutral, zero interaction with the
- * enumeration/merge/checkpoint paths; hard-capped at n <= 22 pairs — the
+ * enumeration/merge/checkpoint paths. BUILD is capped at n <= 22 pairs — the
  * measured LIGHT ceiling of the 2-core/8GB orchestrator lives below that cap
  * (see scripts/kc_midn_validate.sh); the full-31 substrate is the production
- * --f1-out-of-core run + a preserve-all-layers rerun, NOT this code):
+ * engine's preserve-all-layers run (SOLVE_F1_KEEP_LAYERS=1, Stage F).
+ * QUERIES are full-n-capable (Stage Q, 2026-07-14): any retained-layers dir —
+ * v1 raw or v2 per-block-gzip, n up to 31 — is served OUT-OF-CORE (see the
+ * kc_ooc_* module below): per-layer mask/offset indexes in RAM + a bounded
+ * LRU block cache (SOLVE_KC_CACHE_MB, default 2048); entries never resident
+ * in full, working set layer-size-independent):
  *
  *   --kc-selftest [--f1-pairs N]        full verification vs brute force (default n=9
- *                                       exhaustive + n=13 spot gates; see kc_selftest)
+ *                                       exhaustive + n=13/16 spot gates; see kc_selftest)
  *   --kc-midn N [--kc-roundtrips R] [--kc-chi2-samples M]
  *                                       mid-n gate suite (rank/unrank/member roundtrips,
  *                                       mutation coherence, chi-square sampling, largest-
  *                                       layer order invariance) at n where brute force is
  *                                       infeasible; count cross-check vs the production
  *                                       rolling-window path runs in the shell driver
+ *   --kc-oocverify N [--kc-roundtrips R] [--kc-scratch DIR]
+ *                                       Stage Q gate: build in-memory, write v1 AND v2
+ *                                       dirs, reopen each OUT-OF-CORE, require
+ *                                       count/unrank/rank/member/sample/enum byte-equal
  *   --kc-build DIR [--f1-pairs N]       build + RETAIN all n+1 layers (v1 format) + manifest
  *   --kc-count DIR                      exact model count from the compiled layers
- *   --kc-unrank DIR RANK                the RANK-th walk in the canonical descent order
+ *   --kc-unrank DIR RANK [--kc-record]  the RANK-th walk in the canonical descent order
  *   --kc-rank DIR "e,x,e,x,..."         rank of an explicit walk (inverse of unrank)
  *   --kc-member DIR "e,x,e,x,..."       membership query against the compiled structure
- *   --kc-sample DIR COUNT SEED [--kc-c3-max T]   exact-uniform samples via unranking
+ *   --kc-repr DIR "e,x,..." [--kc-c3-max T]      class multiplicity m(k) + global repr(k)
+ *                                       (record adapter, ratified convention: freeze §3.4)
+ *   --kc-sample DIR COUNT SEED [--kc-c3-max T] [--kc-class-uniform] [--kc-record]
+ *                                       exact-uniform samples via unranking; with
+ *                                       --kc-class-uniform: exact 1/m(k) rejection to
+ *                                       class-uniform, emitting repr(k) records
  *   --kc-enum DIR [--kc-c3-max T] [--kc-limit M] in-order enumeration, C3 in-path optional
+ *
+ *   Common: [--kc-ooc] force the out-of-core reader at any n (v2 dirs and
+ *   n > 22 select it automatically); [--kc-cache-mb MB] block-cache size.
  *
  * Semantics. A "walk" is a raw oriented pair-sequence: n placements, each
  * consuming one subset pair (entry hexagram then exit hexagram, positions
@@ -14948,12 +14965,18 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * developed with AI assistance (Claude, Anthropic).
  */
 
-#define KC_MAX_PAIRS 22   /* scope guard (raised 16->22 for the mid-n harness; n=21/22 are
-                           * the largest orbit-realizable unions below 24): full-31 needs the
-                           * OOC engine + a preserve-all-layers run (~$75-105, corrected from
-                           * red-team R6's $120-170) — not this code. The orchestrator-LIGHT
-                           * ceiling within this cap is MEASURED, not assumed — see
-                           * scripts/kc_midn_validate.sh + V4_COMPILER_FULLBUILD_PLAN. */
+#define KC_MAX_PAIRS 31       /* walk/state buffer sizing: FULL-n capable (Stage Q, 2026-07-14).
+                               * Queries at any n up to 31 run against ON-DISK layers via the
+                               * out-of-core reader below (kc_ooc_*) — layer entries are never
+                               * resident in full; only per-layer indexes (masks+off, 12 B/mask)
+                               * + a bounded LRU block cache (SOLVE_KC_CACHE_MB). */
+#define KC_MEM_MAX_PAIRS 22   /* in-memory BUILD/LOAD ceiling, unchanged from the prototype
+                               * (raised 16->22 for the mid-n harness; n=21/22 are the largest
+                               * orbit-realizable unions below 24). The full-31 SUBSTRATE is a
+                               * preserve-all-layers production run (SOLVE_F1_KEEP_LAYERS=1
+                               * --f1-out-of-core, Stage F, ~$75-105) — --kc-build stays capped.
+                               * The orchestrator-LIGHT ceiling within this cap is MEASURED, not
+                               * assumed — see scripts/kc_midn_validate.sh + the full-build plan. */
 
 /* ---------- 192-bit extras (compare / subtract / decimal parse) ---------- */
 static inline int kc_u192_cmp(const F1U192 *a, const F1U192 *b) {
@@ -14995,13 +15018,15 @@ static inline uint64_t kc_splitmix64(uint64_t *st) {
 }
 
 /* ---------- compiled-structure context ---------- */
+struct KcOoc;                    /* fwd decl: out-of-core reader state (Stage Q) */
 typedef struct {
     F1Ctx c;
     F1C5Budget B;
     int b0v[5];
     int n;                       /* pairs */
     int start_exit;
-    F1C5Layer L[KC_MAX_PAIRS + 1];   /* layers 0..n, ALL retained */
+    F1C5Layer L[KC_MAX_PAIRS + 1];   /* layers 0..n, ALL retained (in-memory mode only) */
+    struct KcOoc *ooc;           /* non-NULL => queries served out-of-core from disk */
     F1U192 total;
     int pair_of_sub[64];         /* raw hexagram -> subset pair index, -1 if absent */
     int partner[64];             /* raw hexagram -> the other hexagram of its pair, -1 */
@@ -15014,17 +15039,18 @@ typedef struct {
 
 static int kc_resolve_pairs(int npairs, int *pl, int *n_out, int *start_out) {
     if (npairs == 31) {
-        fprintf(stderr, "ERROR: [kc] full-31 is out of prototype scope (needs the OOC "
-                "engine + a preserve-all-layers run); n <= %d only\n", KC_MAX_PAIRS);
+        fprintf(stderr, "ERROR: [kc] full-31 layers are BUILT by the production engine "
+                "(SOLVE_F1_KEEP_LAYERS=1 --f1-exact-c1c2c4c5 / --f1-out-of-core, Stage F), "
+                "not --kc-build; --kc-* QUERIES read such a dir out-of-core directly\n");
         return -1;
     }
     const char *spec = NULL;
     for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
         if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
-    if (!spec || npairs > KC_MAX_PAIRS) {
+    if (!spec || npairs > KC_MEM_MAX_PAIRS) {
         fprintf(stderr, "ERROR: [kc] --f1-pairs %d unsupported here "
                 "(orbit-realizable n <= %d: 9, 13, 16, 18, 19, 21, 22)\n",
-                npairs, KC_MAX_PAIRS);
+                npairs, KC_MEM_MAX_PAIRS);
         return -1;
     }
     if (f1_parse_subset(spec, pl, n_out, start_out) != 0) return -1;
@@ -15075,11 +15101,7 @@ static int kc_init(KC *kc, int npairs) {
     return 0;
 }
 
-static void kc_free(KC *kc) {
-    for (int k = 0; k <= kc->n; k++) f1c5_layer_free(&kc->L[k]);
-    for (int s = 0; s <= kc->n; s++) { free(kc->vlist[s]); free(kc->vloc[s]); }
-    f1c5_budget_free(&kc->B);
-}
+static void kc_free(KC *kc);   /* fwd decl: kc_ooc_free is defined below */
 
 /* Build one layer k1 = prev->k + 1 from prev, into nxt (freshly zeroed).
  * order (optional): a permutation of [0, n_targets) giving target PROCESSING
@@ -15196,6 +15218,28 @@ static void kc_write(const KC *kc, const char *dir) {
     f1c5_write_manifest(dir, &kc->c, &kc->B, kc->n);
 }
 
+/* write the SAME layers in the v2 per-block-gzip production format (used by
+ * the OOC equivalence gates: v1 and v2 must serve byte-identical queries) */
+static void kc_write_v2(KC *kc, const char *dir) {
+    if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
+    int lvl = f1c5_ooc_gzip_level();
+    for (int k = 0; k <= kc->n; k++)
+        f1c5_write_layer_v2(dir, &kc->c, &kc->B, &kc->L[k], lvl);
+    f1c5_write_manifest(dir, &kc->c, &kc->B, kc->n);
+}
+
+/* remove a kc layer dir written by kc_write/kc_write_v2 (selftest cleanup) */
+static void kc_rm_dir(const char *dir, int n) {
+    char p[4300];
+    for (int k = 0; k <= n; k++) {
+        snprintf(p, sizeof(p), "%s/f1c5_layer_%02d.bin", dir, k);
+        unlink(p);
+    }
+    snprintf(p, sizeof(p), "%s/f1c5_manifest.txt", dir);
+    unlink(p);
+    rmdir(dir);
+}
+
 static int kc_load(KC *kc, const char *dir) {
     f1_binom_init();
     f1_build_group();
@@ -15217,10 +15261,11 @@ static int kc_load(KC *kc, const char *dir) {
         }
     }
     fclose(f);
-    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 || last_k != n || b0v[0] < 0) {
-        fprintf(stderr, "ERROR: [kc] manifest in %s unusable for kc (n=%d npl=%d "
-                "last_complete_k=%d; kc needs ALL layers 0..n retained — build with --kc-build)\n",
-                dir, n, npl, last_k);
+    if (n < 1 || n > KC_MEM_MAX_PAIRS || npl != n || start_exit < 0 || last_k != n || b0v[0] < 0) {
+        fprintf(stderr, "ERROR: [kc] manifest in %s unusable for the in-memory loader "
+                "(n=%d npl=%d last_complete_k=%d; needs ALL layers 0..n retained, n <= %d — "
+                "larger/v2 dirs are served by the out-of-core reader)\n",
+                dir, n, npl, last_k, KC_MEM_MAX_PAIRS);
         return -1;
     }
     kc->n = n;
@@ -15260,13 +15305,372 @@ static int kc_load(KC *kc, const char *dir) {
     return 0;
 }
 
+/* ===================== KC out-of-core reader (Stage Q, 2026-07-14) =====================
+ *
+ * Serves every query primitive (count/rank/unrank/member/sample/enum) against
+ * ON-DISK layer files — v1 raw (F1C5LAY1) or v2 per-block-gzip (F1C5LAY2, the
+ * format the full-31 production run lands, ~2.5-2.7 TB) — without ever holding
+ * a layer's entries in RAM. Resident per layer: the mask/offset index only
+ * (12 B/mask + 16 B/block of v2 seek index); entry access goes through a
+ * bounded LRU cache of decompressed F1C5_OOC_BLK-entry blocks (28 B/entry =>
+ * 1.75 MiB/block at the default 65536), capacity SOLVE_KC_CACHE_MB (default
+ * 2048). Working set is therefore LAYER-SIZE-INDEPENDENT: indexes + cache —
+ * single-digit GB at full-31 (13.05M-mask layers ~ 157 MB index each), the
+ * eval sheet's D3 architecture property, now implemented for the query side.
+ *
+ * A descent step resolves <= 64 candidate (mask,last,rid) lookups that all
+ * share ONE predecessor mask, so their key binary-searches touch the same
+ * entry span => the same blocks => cache-warm after the first probe. Random-
+ * access queries are microseconds when warm, block-IO-bound when cold.
+ *
+ * v1 files are windowed by the SAME synthetic block geometry (pread of the
+ * raw key/val ranges), so one cache path serves both formats and the
+ * OOC==in-memory equivalence gates (A9, --kc-oocverify) exercise v1 and v2
+ * identically. NOT thread-safe (single query stream; matches the CLI).
+ * Stage Q by Claude (Fable 5), 2026-07-14, developed with AI assistance
+ * (Claude, Anthropic); block codec + index layout are the #221/f1c5-v2
+ * production machinery above, reused verbatim. */
+
+typedef struct {
+    int is_v2;
+    int fd;
+    uint64_t nm, ne, nblk;
+    uint32_t *masks;               /* in-RAM index */
+    uint64_t *off;                 /* in-RAM index */
+    uint64_t *kidx, *vidx;         /* v2 only: per-block compressed offsets */
+    uint64_t kbase, vbase;         /* v2: compressed section bases; v1: raw keys/vals bases */
+    char path[4200];
+} KcOocLayer;
+
+typedef struct {
+    uint32_t *keys;                /* F1C5_OOC_BLK entries (tail block partially used) */
+    F1U192 *vals;
+    int k;                         /* layer, -1 = empty slot */
+    uint64_t blk;
+    uint64_t stamp;                /* LRU clock */
+    int hnext;                     /* bucket chain */
+} KcCacheSlot;
+
+typedef struct KcOoc {
+    KcOocLayer L[KC_MAX_PAIRS + 1];
+    KcCacheSlot *slot;
+    int nslot;
+    int *htab;                     /* bucket heads, size hsize (pow2), -1 empty */
+    int hsize;
+    uint64_t tick, hits, misses;
+    uint8_t *cbuf;                 /* compressed-block scratch (v2 inflate source) */
+    F1C5OocIo io;
+} KcOoc;
+
+static inline uint32_t kc_ooc_hash(const KcOoc *o, int k, uint64_t blk) {
+    uint64_t h = (uint64_t)k * 0x9E3779B97F4A7C15ull ^ (blk + 0x632BE59BD9B4E019ull);
+    h ^= h >> 29; h *= 0xBF58476D1CE4E5B9ull; h ^= h >> 32;
+    return (uint32_t)h & (uint32_t)(o->hsize - 1);
+}
+
+/* unlink slot s from its current bucket chain (no-op if empty) */
+static void kc_ooc_unhash(KcOoc *o, int s) {
+    if (o->slot[s].k < 0) return;
+    uint32_t h = kc_ooc_hash(o, o->slot[s].k, o->slot[s].blk);
+    int *p = &o->htab[h];
+    while (*p >= 0) {
+        if (*p == s) { *p = o->slot[s].hnext; return; }
+        p = &o->slot[*p].hnext;
+    }
+    F1_CHECK(0, "[kc-ooc] cache hash chain corrupt");
+}
+
+/* Return the cache slot holding block blk of layer k, fetching from disk on
+ * a miss (evicting the least-recently-used slot). */
+static KcCacheSlot *kc_ooc_block(KcOoc *o, int k, uint64_t blk) {
+    uint32_t h = kc_ooc_hash(o, k, blk);
+    for (int s = o->htab[h]; s >= 0; s = o->slot[s].hnext)
+        if (o->slot[s].k == k && o->slot[s].blk == blk) {
+            o->slot[s].stamp = ++o->tick;
+            o->hits++;
+            return &o->slot[s];
+        }
+    o->misses++;
+    /* evict exact-LRU (linear min-stamp scan; slots are few thousand and a
+     * miss already pays block IO + inflate, so the scan is noise) */
+    int v = 0;
+    for (int s = 1; s < o->nslot; s++)
+        if (o->slot[s].stamp < o->slot[v].stamp) v = s;
+    kc_ooc_unhash(o, v);
+    KcOocLayer *L = &o->L[k];
+    uint64_t e0 = blk * F1C5_OOC_BLK, e1 = e0 + F1C5_OOC_BLK;
+    if (e1 > L->ne) e1 = L->ne;
+    uint64_t bn = e1 - e0;
+    F1_CHECK(bn > 0 && blk < L->nblk, "[kc-ooc] block %llu/%llu out of range (layer %d)",
+             (unsigned long long)blk, (unsigned long long)L->nblk, k);
+    KcCacheSlot *S = &o->slot[v];
+    if (L->is_v2) {
+        uint64_t kcb = L->kidx[blk + 1] - L->kidx[blk];
+        f1c5_ooc_pread(L->fd, o->cbuf, kcb, L->kbase + L->kidx[blk], L->path, &o->io);
+        f1c5_inflate_block(o->cbuf, kcb, (Bytef *)S->keys, 4ull * bn);
+        uint64_t vcb = L->vidx[blk + 1] - L->vidx[blk];
+        f1c5_ooc_pread(L->fd, o->cbuf, vcb, L->vbase + L->vidx[blk], L->path, &o->io);
+        f1c5_inflate_block(o->cbuf, vcb, (Bytef *)S->vals, 24ull * bn);
+    } else {
+        f1c5_ooc_pread(L->fd, S->keys, 4ull * bn, L->kbase + 4ull * e0, L->path, &o->io);
+        f1c5_ooc_pread(L->fd, S->vals, 24ull * bn, L->vbase + 24ull * e0, L->path, &o->io);
+    }
+    S->k = k;
+    S->blk = blk;
+    S->stamp = ++o->tick;
+    S->hnext = o->htab[h];
+    o->htab[h] = v;
+    return S;
+}
+
+static inline uint32_t kc_ooc_key_at(KcOoc *o, int k, uint64_t e) {
+    KcCacheSlot *S = kc_ooc_block(o, k, e / F1C5_OOC_BLK);
+    return S->keys[e % F1C5_OOC_BLK];
+}
+
+static inline F1U192 kc_ooc_val_at(KcOoc *o, int k, uint64_t e) {
+    KcCacheSlot *S = kc_ooc_block(o, k, e / F1C5_OOC_BLK);
+    return S->vals[e % F1C5_OOC_BLK];
+}
+
+static void kc_ooc_free(KcOoc *o) {
+    if (!o) return;
+    for (int k = 0; k <= KC_MAX_PAIRS; k++) {
+        KcOocLayer *L = &o->L[k];
+        if (L->fd >= 0) close(L->fd);
+        free(L->masks); free(L->off); free(L->kidx); free(L->vidx);
+    }
+    if (o->slot)
+        for (int s = 0; s < o->nslot; s++) { free(o->slot[s].keys); free(o->slot[s].vals); }
+    free(o->slot); free(o->htab); free(o->cbuf);
+    free(o);
+}
+
+/* Open a retained-all-layers dir OUT-OF-CORE: manifest (n up to 31), per-layer
+ * header + index load (v1 or v2, per-layer autodetected), integrity checks
+ * (the same pad/monotone/size validations f1c5_try_resume performs), cache
+ * allocation, and the exact total streamed from the (tiny) final layer.
+ * cache_mb <= 0 => SOLVE_KC_CACHE_MB env (default 2048). */
+static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
+    f1_binom_init();
+    f1_build_group();
+    char path[4300];
+    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) { fprintf(stderr, "ERROR: [kc-ooc] no manifest in %s\n", dir); return -1; }
+    char line[2048];
+    int n = -1, start_exit = -1, last_k = -1, b0v[5] = {-1, -1, -1, -1, -1};
+    int pl[32], npl = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (sscanf(line, "n=%d", &n) == 1) continue;
+        if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
+        if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
+        if (sscanf(line, "last_complete_k=%d", &last_k) == 1) continue;
+        if (strncmp(line, "pl=", 3) == 0) {
+            for (char *tok = strtok(line + 3, ",\n"); tok && npl < 32; tok = strtok(NULL, ",\n"))
+                pl[npl++] = atoi(tok);
+        }
+    }
+    fclose(f);
+    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 || last_k != n || b0v[0] < 0) {
+        fprintf(stderr, "ERROR: [kc-ooc] manifest in %s unusable (n=%d npl=%d "
+                "last_complete_k=%d; kc needs ALL layers 0..n retained — "
+                "build with --kc-build or SOLVE_F1_KEEP_LAYERS=1)\n", dir, n, npl, last_k);
+        return -1;
+    }
+    kc->n = n;
+    kc->start_exit = start_exit;
+    f1_ctx_init(&kc->c, n, pl, start_exit);
+    kc_finish_init(kc, b0v);
+    KcOoc *o = (KcOoc *)calloc(1, sizeof(KcOoc));
+    F1_CHECK(o != NULL, "[kc-ooc] alloc");
+    for (int k = 0; k <= KC_MAX_PAIRS; k++) o->L[k].fd = -1;
+    double idx_bytes = 0;
+    int n_v2 = 0;
+    for (int k = 0; k <= n; k++) {
+        KcOocLayer *L = &o->L[k];
+        snprintf(L->path, sizeof(L->path), "%s/f1c5_layer_%02d.bin", dir, k);
+        L->fd = open(L->path, O_RDONLY);
+        if (L->fd < 0) {
+            fprintf(stderr, "ERROR: [kc-ooc] missing layer file %s\n", L->path);
+            kc_ooc_free(o);
+            return -1;
+        }
+        F1C5LayerHdr h;
+        ssize_t got = pread(L->fd, &h, sizeof(h), 0);
+        F1_CHECK(got == (ssize_t)sizeof(h), "[kc-ooc] %s: short header read", L->path);
+        int is_v1 = (memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1);
+        int is_v2 = (memcmp(h.magic, "F1C5LAY2", 8) == 0 && h.version == 2);
+        F1_CHECK(is_v1 || is_v2, "[kc-ooc] %s: not an f1c5 layer file", L->path);
+        F1_CHECK((int)h.n == n && (int)h.k == k && (int)h.start_exit == start_exit &&
+                 h.pl_hash == f1_pl_hash(&kc->c), "[kc-ooc] %s: header/ctx mismatch", L->path);
+        for (int d = 0; d < 5; d++)
+            F1_CHECK((int)h.b0[d] == b0v[d], "[kc-ooc] %s: budget mismatch", L->path);
+        L->is_v2 = is_v2;
+        n_v2 += is_v2;
+        L->nm = h.n_masks;
+        L->ne = h.n_entries;
+        L->nblk = (L->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+        L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(L->nm ? L->nm : 1));
+        L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
+        F1_CHECK(L->masks && L->off, "[kc-ooc] layer %d index alloc failed", k);
+        uint64_t pos = sizeof(F1C5LayerHdr);
+        f1c5_ooc_pread(L->fd, L->masks, 4ull * L->nm, pos, L->path, &o->io);
+        pos += 4ull * L->nm;
+        f1c5_ooc_pread(L->fd, L->off, 8ull * (L->nm + 1), pos, L->path, &o->io);
+        pos += 8ull * (L->nm + 1);
+        idx_bytes += 12.0 * (double)L->nm + 8.0;
+        uint64_t fsz = (uint64_t)lseek(L->fd, 0, SEEK_END);
+        if (is_v2) {
+            F1_CHECK(h.pad == F1C5_OOC_BLK,
+                     "[kc-ooc] %s: block size mismatch (file=%u, build=%u)",
+                     L->path, h.pad, (unsigned)F1C5_OOC_BLK);
+            L->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (L->nblk + 1));
+            L->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (L->nblk + 1));
+            F1_CHECK(L->kidx && L->vidx, "[kc-ooc] layer %d seek-index alloc failed", k);
+            f1c5_ooc_pread(L->fd, L->kidx, 8ull * (L->nblk + 1), pos, L->path, &o->io);
+            pos += 8ull * (L->nblk + 1);
+            f1c5_ooc_pread(L->fd, L->vidx, 8ull * (L->nblk + 1), pos, L->path, &o->io);
+            idx_bytes += 16.0 * (double)(L->nblk + 1);
+            F1_CHECK(L->kidx[0] == 0 && L->vidx[0] == 0,
+                     "[kc-ooc] v2 index base nonzero (%s corrupt)", L->path);
+            const uint64_t maxblk = (uint64_t)compressBound(24ull * F1C5_OOC_BLK);
+            for (uint64_t b = 0; b < L->nblk; b++)
+                F1_CHECK(L->kidx[b + 1] >= L->kidx[b] && L->vidx[b + 1] >= L->vidx[b] &&
+                         L->kidx[b + 1] - L->kidx[b] <= maxblk &&
+                         L->vidx[b + 1] - L->vidx[b] <= maxblk,
+                         "[kc-ooc] v2 index block %llu out of range (%s corrupt)",
+                         (unsigned long long)b, L->path);
+            L->kbase = f1c5_v2_kblk_base(L->nm, L->ne);
+            L->vbase = L->kbase + L->kidx[L->nblk];
+            F1_CHECK(fsz == L->kbase + L->kidx[L->nblk] + L->vidx[L->nblk],
+                     "[kc-ooc] %s size %llu != expected (corrupt/truncated)", L->path,
+                     (unsigned long long)fsz);
+        } else {
+            L->kbase = sizeof(F1C5LayerHdr) + 4ull * L->nm + 8ull * (L->nm + 1);
+            L->vbase = L->kbase + 4ull * L->ne;
+            F1_CHECK(fsz == L->vbase + 24ull * L->ne,
+                     "[kc-ooc] %s size %llu != expected (corrupt/truncated)", L->path,
+                     (unsigned long long)fsz);
+        }
+        F1_CHECK(L->off[0] == 0 && L->off[L->nm] == L->ne,
+                 "[kc-ooc] %s offset table corrupt", L->path);
+    }
+    /* LRU block cache */
+    if (cache_mb <= 0) {
+        const char *e = getenv("SOLVE_KC_CACHE_MB");
+        cache_mb = (e && *e) ? atoi(e) : 0;
+        if (cache_mb <= 0) cache_mb = 2048;
+    }
+    uint64_t slot_bytes = 28ull * F1C5_OOC_BLK;
+    int nslot = (int)(((uint64_t)cache_mb << 20) / slot_bytes);
+    if (nslot < 4) nslot = 4;
+    o->nslot = nslot;
+    o->slot = (KcCacheSlot *)calloc((size_t)nslot, sizeof(KcCacheSlot));
+    F1_CHECK(o->slot != NULL, "[kc-ooc] cache slot alloc failed");
+    for (int s = 0; s < nslot; s++) {
+        o->slot[s].keys = (uint32_t *)malloc(4ull * F1C5_OOC_BLK);
+        o->slot[s].vals = (F1U192 *)malloc(24ull * F1C5_OOC_BLK);
+        F1_CHECK(o->slot[s].keys && o->slot[s].vals, "[kc-ooc] cache buffer alloc failed");
+        o->slot[s].k = -1;
+        o->slot[s].hnext = -1;
+    }
+    int hs = 1;
+    while (hs < 2 * nslot) hs <<= 1;
+    o->hsize = hs;
+    o->htab = (int *)malloc(sizeof(int) * (size_t)hs);
+    F1_CHECK(o->htab != NULL, "[kc-ooc] cache htab alloc failed");
+    for (int i = 0; i < hs; i++) o->htab[i] = -1;
+    o->cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+    F1_CHECK(o->cbuf != NULL, "[kc-ooc] cbuf alloc failed");
+    kc->ooc = o;
+    /* exact total from the (tiny, single-mask) final layer */
+    {
+        KcOocLayer *F = &o->L[n];
+        uint32_t full = (n == 32) ? 0xffffffffu : ((1u << n) - 1u);
+        F1_CHECK(F->nm == 1 && F->masks[0] == full, "[kc-ooc] final layer must be the full mask");
+        F1U192 total = {0, 0, 0};
+        for (uint64_t e = 0; e < F->ne; e++) {
+            F1_CHECK((kc_ooc_key_at(o, n, e) & 0xffffu) == kc->B.rid_full,
+                     "[kc-ooc] final-layer residual != B0 (sum invariant violated)");
+            F1U192 v = kc_ooc_val_at(o, n, e);
+            f1_add(&total, &v);
+        }
+        kc->total = total;
+    }
+    fprintf(stderr, "[kc-ooc] opened %s: n=%d layers=0..%d format=%s index=%.1f MB "
+            "cache=%d MB (%d blocks of %u entries)\n",
+            dir, n, n, n_v2 == 0 ? "v1" : (n_v2 == n + 1 ? "v2" : "mixed"),
+            idx_bytes / 1e6, cache_mb, nslot, (unsigned)F1C5_OOC_BLK);
+    return 0;
+}
+
+/* Unified open: in-memory for small all-v1 dirs (prototype behavior), OOC for
+ * v2 dirs, n > KC_MEM_MAX_PAIRS, or when forced (--kc-ooc). */
+static int kc_open(KC *kc, const char *dir, int force_ooc, int cache_mb) {
+    char path[4300];
+    int n = -1;
+    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f))
+            if (sscanf(line, "n=%d", &n) == 1) break;
+        fclose(f);
+    }
+    int any_v2 = 0;
+    if (n >= 1 && n <= KC_MEM_MAX_PAIRS && !force_ooc) {
+        for (int k = 0; k <= n && !any_v2; k++) {
+            snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, k);
+            FILE *lf = fopen(path, "rb");
+            if (!lf) break;
+            char magic[8];
+            if (fread(magic, 1, 8, lf) == 8 && memcmp(magic, "F1C5LAY2", 8) == 0) any_v2 = 1;
+            fclose(lf);
+        }
+    }
+    if (force_ooc || n > KC_MEM_MAX_PAIRS || any_v2)
+        return kc_ooc_open(kc, dir, cache_mb);
+    return kc_load(kc, dir);
+}
+
+static void kc_free(KC *kc) {
+    for (int k = 0; k <= kc->n; k++) f1c5_layer_free(&kc->L[k]);
+    for (int s = 0; s <= kc->n; s++) { free(kc->vlist[s]); free(kc->vloc[s]); }
+    f1c5_budget_free(&kc->B);
+    kc_ooc_free(kc->ooc);
+    kc->ooc = NULL;
+}
+
 /* ---------- the core query primitive ----------
  * f(m, l, rid) for a RAW mask m: number of walks-prefixes with placed-pair
  * set m, last exit l, C5 residual rid. Stored only at canonical masks; the
  * G-equivariance of the constraint system (Hamming isometry, proven — same
  * lemma the gather itself relies on) gives f(m, l, rid) = f(g.m, g.l, rid)
- * for the canonicalizing g. */
+ * for the canonicalizing g. Served from RAM (in-memory mode) or through the
+ * OOC block cache (identical arithmetic — the A9/--kc-oocverify gates hold
+ * the two paths byte-equal). */
+static F1U192 kc_ooc_flookup(const KC *kc, int k, uint32_t m, int last, uint32_t rid) {
+    F1U192 z = {0, 0, 0};
+    KcOoc *o = kc->ooc;
+    KcOocLayer *L = &o->L[k];
+    int g;
+    uint32_t cm = f1_canon(&kc->c, m, &g);
+    int64_t mi = f1_bsearch_u32(L->masks, L->nm, cm);
+    if (mi < 0) return z;
+    uint32_t key = ((uint32_t)kc->c.el[g].hmap[last] << 16) | (rid & 0xffffu);
+    uint64_t lo = L->off[mi], hi = L->off[mi + 1];
+    while (lo < hi) {   /* keys ascending within a mask */
+        uint64_t mid = (lo + hi) >> 1;
+        if (kc_ooc_key_at(o, k, mid) < key) lo = mid + 1; else hi = mid;
+    }
+    if (lo < L->off[mi + 1] && kc_ooc_key_at(o, k, lo) == key) return kc_ooc_val_at(o, k, lo);
+    return z;
+}
+
+/* (original in-memory lookup below; kc_flookup dispatches) */
 static F1U192 kc_flookup(const KC *kc, int k, uint32_t m, int last, uint32_t rid) {
+    if (kc->ooc) return kc_ooc_flookup(kc, k, m, last, rid);
     F1U192 z = {0, 0, 0};
     const F1C5Layer *L = &kc->L[k];
     int g;
@@ -15424,6 +15828,152 @@ static void kc_rand_rank(const KC *kc, uint64_t *st, F1U192 *out) {
         r.l1 = kc_splitmix64(st) & k1;
         r.l2 = kc_splitmix64(st) & k2;
         if (kc_u192_cmp(&r, &kc->total) < 0) { *out = r; return; }
+    }
+}
+
+/* ---------- record adapter: class key + global repr(k) + m(k) ----------
+ * Ratified convention (V4_CONVENTION_FREEZE_RECONCILED_2026_07_14 §3): records
+ * are orientation-masked CLASSES; the stored representative is the GLOBAL
+ * repr(k) = lexicographically least orientation completion of the class valid
+ * under the constraint system — computed with NO cell/slice scoping (the
+ * slot-0-only rule; in walk space the anchor start_exit plays slot 0, and at
+ * full-31 the anchored pair is orientation-fixed in every walk, so the forcing
+ * is automatic). The compiler ranks/samples WALKS internally; every
+ * record-facing output passes through this adapter, and walk-uniform draws
+ * become class-uniform by exact 1/m(k) rejection (freeze §3.4).
+ *
+ * Orient bit convention = the record byte layout ((pidx<<2)|(orient<<1)):
+ * orient=0 => seq[2j]=pair.a (entry=pa, exit=pb); orient=1 => exit=pa.
+ * Lex-min record at fixed pair order == orient-vector lex-min, 0-before-1,
+ * slot 0 most significant.
+ *
+ * Validity here is the COMPILED space (C1&C2&C4&C5); an optional c3max >= 0
+ * additionally filters completions by the complement-distance analog, giving
+ * the C1-C5 repr at full-31 (cd <= 776). m(k) and (for c3max < 0) repr come
+ * from an O(n*2*R) chain DP over (slot, orient, residual) — near-linear per
+ * key, the freeze's obligation #9; with c3max >= 0 the DP is a feasibility
+ * oracle for an output-sensitive lex-order DFS (cost O(m_valid * n)). */
+
+/* cnt[(j*2+o)*R + rid] = # valid completions of slots j+1..n-1 given slot j
+ * placed with orient o and residual rid (boundaries into slots 0..j consumed). */
+static uint64_t *kc_repr_dp(const KC *kc, const int *p) {
+    const int n = kc->n, R = (int)kc->B.R;
+    uint64_t *cnt = (uint64_t *)calloc((size_t)n * 2 * (size_t)R, sizeof(uint64_t));
+    F1_CHECK(cnt != NULL, "[kc] repr DP alloc failed");
+    for (int o = 0; o < 2; o++)
+        for (int rid = 0; rid < R; rid++)
+            cnt[(((size_t)(n - 1) * 2 + o) * (size_t)R) + rid] = 1;
+    for (int j = n - 2; j >= 0; j--)
+        for (int o = 0; o < 2; o++) {
+            int xj = o ? kc->c.pa[p[j]] : kc->c.pb[p[j]];              /* exit of slot j */
+            for (int rid = 0; rid < R; rid++) {
+                uint64_t s = 0;
+                for (int o2 = 0; o2 < 2; o2++) {
+                    int e2 = o2 ? kc->c.pb[p[j + 1]] : kc->c.pa[p[j + 1]];   /* entry of j+1 */
+                    int cls = F1C5_CLS[__builtin_popcount((unsigned)(xj ^ e2))];
+                    if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+                    s += cnt[(((size_t)(j + 1) * 2 + o2) * (size_t)R) + rid + kc->B.rad[cls]];
+                }
+                cnt[(((size_t)j * 2 + o) * (size_t)R) + rid] = s;
+            }
+        }
+    return cnt;
+}
+
+/* lex-order DFS over valid orientation completions (feasibility-pruned by the
+ * DP, so every explored branch completes); with c3max >= 0 leaves are filtered
+ * by cd. Counts survivors; the FIRST survivor is the lex-min = repr. */
+static uint64_t kc_repr_dfs(const KC *kc, const int *p, const uint64_t *cnt,
+                            int j, int last, uint32_t rid, int cd, long long c3max,
+                            int8_t *pos, uint8_t *cur, uint8_t *repr, uint64_t *m) {
+    const int n = kc->n, R = (int)kc->B.R;
+    uint64_t found = 0;
+    for (int o = 0; o < 2; o++) {   /* orient 0 first => lex order */
+        int entry = o ? kc->c.pb[p[j]] : kc->c.pa[p[j]];
+        int exitx = o ? kc->c.pa[p[j]] : kc->c.pb[p[j]];
+        int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+        if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+        uint32_t rid2 = rid + kc->B.rad[cls];
+        if (cnt[(((size_t)j * 2 + o) * (size_t)R) + rid2] == 0) continue;
+        int add = 0;
+        pos[entry] = (int8_t)(2 * j);
+        if (pos[63 ^ entry] >= 0) add += abs((int)pos[entry] - (int)pos[63 ^ entry]);
+        pos[exitx] = (int8_t)(2 * j + 1);
+        if (pos[63 ^ exitx] >= 0) add += abs((int)pos[exitx] - (int)pos[63 ^ exitx]);
+        cur[j] = (uint8_t)exitx;
+        if (j == n - 1) {
+            if (c3max < 0 || cd + add <= c3max) {
+                if (*m == 0 && repr) memcpy(repr, cur, (size_t)n);
+                (*m)++;
+                found++;
+            }
+        } else {
+            found += kc_repr_dfs(kc, p, cnt, j + 1, exitx, rid2, cd + add, c3max,
+                                 pos, cur, repr, m);
+        }
+        pos[entry] = -1;
+        pos[exitx] = -1;
+    }
+    return found;
+}
+
+/* m(k) for walk E's class; fills repr (exit seq of the representative) when
+ * m > 0 and repr != NULL. c3max < 0 => pure compiled-space adapter (DP count +
+ * O(n) greedy repr descent); c3max >= 0 => cd-filtered (DFS). */
+static uint64_t kc_class_repr(const KC *kc, const uint8_t *E, uint8_t *repr, long long c3max) {
+    const int n = kc->n, R = (int)kc->B.R;
+    int p[KC_MAX_PAIRS];
+    for (int j = 0; j < n; j++) {
+        p[j] = kc->pair_of_sub[E[j]];
+        if (p[j] < 0) return 0;
+    }
+    uint64_t *cnt = kc_repr_dp(kc, p);
+    uint64_t m = 0;
+    if (c3max >= 0) {
+        int8_t pos[64];
+        memset(pos, -1, sizeof(pos));
+        uint8_t cur[KC_MAX_PAIRS];
+        kc_repr_dfs(kc, p, cnt, 0, kc->start_exit, 0, 0, c3max, pos, cur, repr, &m);
+    } else {
+        for (int o = 0; o < 2; o++) {
+            int entry = o ? kc->c.pb[p[0]] : kc->c.pa[p[0]];
+            int cls = F1C5_CLS[__builtin_popcount((unsigned)(kc->start_exit ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][0] >= kc->B.b0[cls]) continue;
+            m += cnt[(((size_t)0 * 2 + o) * (size_t)R) + kc->B.rad[cls]];
+        }
+        if (m > 0 && repr) {   /* greedy lex-min descent: orient 0 preferred */
+            int last = kc->start_exit;
+            uint32_t rid = 0;
+            for (int j = 0; j < n; j++) {
+                int done = 0;
+                for (int o = 0; o < 2 && !done; o++) {
+                    int entry = o ? kc->c.pb[p[j]] : kc->c.pa[p[j]];
+                    int exitx = o ? kc->c.pa[p[j]] : kc->c.pb[p[j]];
+                    int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+                    if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+                    uint32_t rid2 = rid + kc->B.rad[cls];
+                    if (cnt[(((size_t)j * 2 + o) * (size_t)R) + rid2] == 0) continue;
+                    repr[j] = (uint8_t)exitx;
+                    last = exitx;
+                    rid = rid2;
+                    done = 1;
+                }
+                F1_CHECK(done, "[kc] repr descent dead-ended (DP/descent drift)");
+            }
+        }
+    }
+    free(cnt);
+    return m;
+}
+
+/* exact uniform draw in [0, m) — rejection, no modulo bias */
+static uint64_t kc_rand_below(uint64_t *st, uint64_t m) {
+    if (m <= 1) return 0;
+    uint64_t rem = ((UINT64_MAX % m) + 1) % m;   /* 2^64 mod m */
+    uint64_t bound = UINT64_MAX - rem;           /* accept r <= bound */
+    for (;;) {
+        uint64_t r = kc_splitmix64(st);
+        if (rem == 0 || r <= bound) return r % m;
     }
 }
 
@@ -15819,6 +16369,201 @@ static int kc_selftest(void) {
             free(kc2);
         }
 
+        /* A9: OUT-OF-CORE equivalence (Stage Q) — the same queries served from
+         * on-disk v1 AND v2 layers through the block cache must equal the
+         * in-memory engine exactly, exhaustively at n=9 */
+        {
+            char d1[] = "/tmp/kc_ooc1_XXXXXX", d2[] = "/tmp/kc_ooc2_XXXXXX";
+            F1_CHECK(mkdtemp(d1) != NULL && mkdtemp(d2) != NULL, "[kc] mkdtemp failed");
+            kc_write(kc, d1);
+            kc_write_v2(kc, d2);
+            KC *o1 = (KC *)calloc(1, sizeof(KC));
+            KC *o2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(o1 && o2, "[kc] alloc");
+            int ok = kc_ooc_open(o1, d1, 64) == 0 && kc_ooc_open(o2, d2, 64) == 0;
+            KC_GATE("A9a OOC open: v1 + v2 dirs, totals equal",
+                    ok && f1_eq(&o1->total, &kc->total) && f1_eq(&o2->total, &kc->total));
+            {   /* exhaustive: every rank unranks identically through OOC-v2;
+                 * rank() inverts through OOC; v1 OOC spot-checked */
+                int aok = 1;
+                uint8_t E[KC_MAX_PAIRS];
+                for (uint64_t i = 0; i < N && aok; i++) {
+                    F1U192 r = {i, 0, 0}, rr;
+                    if (kc_unrank(o2, r, E) != 0 ||
+                        memcmp(E, sorted + i * (size_t)kc->n, (size_t)kc->n) != 0) aok = 0;
+                    else if (kc_rank(o2, E, &rr) != 0 || !f1_eq(&r, &rr)) aok = 0;
+                    else if ((i % 13) == 0) {
+                        if (kc_unrank(o1, r, E) != 0 ||
+                            memcmp(E, sorted + i * (size_t)kc->n, (size_t)kc->n) != 0) aok = 0;
+                        else if (!kc_member(o1, E)) aok = 0;
+                    }
+                }
+                KC_GATE("A9b OOC unrank/rank/member == in-memory, ALL ranks", aok);
+            }
+            {   /* eviction stress: cache smaller than the layer-block count
+                 * (4 slots vs 10 layers) — results must be unchanged */
+                KC *o3 = (KC *)calloc(1, sizeof(KC));
+                F1_CHECK(o3 != NULL, "[kc] alloc");
+                int aok = kc_ooc_open(o3, d2, 1) == 0 && f1_eq(&o3->total, &kc->total);
+                uint8_t E[KC_MAX_PAIRS];
+                uint64_t seed = 777ull;
+                for (int s = 0; s < 200 && aok; s++) {
+                    F1U192 r, rr;
+                    kc_rand_rank(kc, &seed, &r);
+                    uint64_t i = r.l0;   /* n=9 ranks fit in l0 */
+                    if (kc_unrank(o3, r, E) != 0 ||
+                        memcmp(E, sorted + i * (size_t)kc->n, (size_t)kc->n) != 0 ||
+                        kc_rank(o3, E, &rr) != 0 || !f1_eq(&r, &rr)) aok = 0;
+                }
+                /* eviction witness: with 4 slots vs ~10 distinct blocks, blocks
+                 * must have been refetched — misses strictly exceed the total
+                 * block population (a no-eviction run would have misses <= 10) */
+                aok = aok && o3->ooc->misses > 20;
+                KC_GATE("A9c OOC tiny-cache (forced eviction) identical", aok);
+                kc_free(o3);
+                free(o3);
+            }
+            printf("[kc-selftest] n=9 OOC: v2 cache hits=%llu misses=%llu read=%.1f MB\n",
+                   (unsigned long long)o2->ooc->hits, (unsigned long long)o2->ooc->misses,
+                   (double)o2->ooc->io.bytes_read / 1e6);
+            kc_free(o1); free(o1);
+            kc_free(o2); free(o2);
+            kc_rm_dir(d1, kc->n);
+            kc_rm_dir(d2, kc->n);
+        }
+
+        /* A10: record adapter — m(k) + repr(k) vs exhaustive class grouping.
+         * Group the brute list by pair-order class; for every class, m(k) must
+         * equal the class size and repr(k) must be the orient-vector-lex-min
+         * member ((pidx<<2)|(orient<<1) byte order, slot 0 most significant). */
+        {
+            /* build (pseq | orient | walk) rows, sort by pseq then orient */
+            const int n9 = kc->n;
+            size_t w = (size_t)(2 * n9);
+            uint8_t *rows = (uint8_t *)malloc(w * N + (size_t)n9 * N);
+            uint8_t *rowwalk = rows + w * N;
+            F1_CHECK(rows != NULL, "[kc] A10 alloc");
+            for (uint64_t i = 0; i < N; i++) {
+                const uint8_t *E = sorted + i * (size_t)n9;
+                for (int j = 0; j < n9; j++) {
+                    int pj = kc->pair_of_sub[E[j]];
+                    rows[i * w + j] = (uint8_t)pj;
+                    /* orient=1 iff exit == pa (record convention) */
+                    rows[i * w + n9 + j] = (uint8_t)(E[j] == kc->c.pa[pj] ? 1 : 0);
+                }
+                memcpy(rowwalk + i * (size_t)n9, E, (size_t)n9);
+            }
+            /* sort rows+walk together via index sort */
+            uint8_t *tmp = (uint8_t *)malloc((w + n9) * N);
+            F1_CHECK(tmp != NULL, "[kc] A10 sort alloc");
+            for (uint64_t i = 0; i < N; i++) {
+                memcpy(tmp + i * (w + n9), rows + i * w, w);
+                memcpy(tmp + i * (w + n9) + w, rowwalk + i * (size_t)n9, (size_t)n9);
+            }
+            /* shell sort on (pseq|orient) forward lex — row width is small and
+             * fixed within this gate, avoiding another comparator global */
+            {
+                const size_t rw = w + (size_t)n9;
+                F1_CHECK(rw <= 128, "[kc] A10 row width");
+                for (uint64_t gap = N / 2; gap > 0; gap /= 2)
+                    for (uint64_t i = gap; i < N; i++)
+                        for (uint64_t j = i; j >= gap &&
+                             memcmp(tmp + (j - gap) * rw, tmp + j * rw, w) > 0; j -= gap) {
+                            uint8_t sw[128];
+                            memcpy(sw, tmp + (j - gap) * rw, rw);
+                            memcpy(tmp + (j - gap) * rw, tmp + j * rw, rw);
+                            memcpy(tmp + j * rw, sw, rw);
+                        }
+            }
+            /* walk groups, verify m + repr per class */
+            int aok = 1;
+            uint64_t nclass = 0, mtot = 0;
+            uint64_t gi = 0;
+            while (gi < N && aok) {
+                uint64_t gj = gi;
+                while (gj < N && memcmp(tmp + gi * (w + n9), tmp + gj * (w + n9), (size_t)n9) == 0)
+                    gj++;
+                uint64_t gsz = gj - gi;
+                nclass++;
+                mtot += gsz;
+                /* rows are sorted (pseq, orient) => first row of the group IS
+                 * the orient-lex-min member */
+                const uint8_t *minwalk = tmp + gi * (w + n9) + w;
+                uint8_t repr[KC_MAX_PAIRS];
+                uint64_t m = kc_class_repr(kc, minwalk, repr, -1);
+                if (m != gsz || memcmp(repr, minwalk, (size_t)n9) != 0) aok = 0;
+                /* adapter must give the same answer from ANY member */
+                if (aok && gsz > 1) {
+                    const uint8_t *other = tmp + (gj - 1) * (w + n9) + w;
+                    uint8_t repr2[KC_MAX_PAIRS];
+                    if (kc_class_repr(kc, other, repr2, -1) != gsz ||
+                        memcmp(repr2, minwalk, (size_t)n9) != 0) aok = 0;
+                }
+                gi = gj;
+            }
+            KC_GATE("A10 adapter: m(k)==class size && repr==lex-min, ALL classes", aok);
+            printf("[kc-selftest] n=9: %llu classes, %llu walks, mean m=%.3f\n",
+                   (unsigned long long)nclass, (unsigned long long)mtot,
+                   (double)mtot / (double)(nclass ? nclass : 1));
+            /* A10b: class-uniform sampling — exact 1/m(k) rejection; chi-square
+             * over 16 class-index buckets (expectation weighted by bucket size) */
+            {
+                uint64_t seed = 20260714ull;
+                const int M = 20000, NB = 16;
+                long buckets[16] = {0};
+                double expb[16] = {0};
+                /* class start offsets for bsearch: record each group's first row idx */
+                uint64_t *gstart = (uint64_t *)malloc(sizeof(uint64_t) * (nclass + 1));
+                F1_CHECK(gstart != NULL, "[kc] A10b alloc");
+                uint64_t ci = 0;
+                for (uint64_t i = 0; i < N;) {
+                    uint64_t j2 = i;
+                    while (j2 < N && memcmp(tmp + i * (w + n9), tmp + j2 * (w + n9), (size_t)n9) == 0) j2++;
+                    gstart[ci++] = i;
+                    i = j2;
+                }
+                gstart[nclass] = N;
+                for (uint64_t c = 0; c < nclass; c++)
+                    expb[(int)(c * NB / nclass)] += (double)M / (double)nclass;
+                int sok = 1;
+                uint8_t E[KC_MAX_PAIRS], repr[KC_MAX_PAIRS], pcur[KC_MAX_PAIRS];
+                for (int s = 0; s < M && sok; s++) {
+                    uint64_t m;
+                    for (;;) {   /* walk-uniform draw, accept w.p. 1/m(k) */
+                        F1U192 r;
+                        kc_rand_rank(kc, &seed, &r);
+                        F1_CHECK(kc_unrank(kc, r, E) == 0, "[kc] A10b unrank failed");
+                        m = kc_class_repr(kc, E, repr, -1);
+                        if (m == 0) { sok = 0; break; }
+                        if (kc_rand_below(&seed, m) == 0) break;
+                    }
+                    if (!sok) break;
+                    /* locate the class by its pseq among the sorted groups */
+                    for (int j = 0; j < n9; j++) pcur[j] = (uint8_t)kc->pair_of_sub[repr[j]];
+                    int64_t lo = 0, hi = (int64_t)nclass - 1, at = -1;
+                    while (lo <= hi) {
+                        int64_t mid = (lo + hi) >> 1;
+                        int cres = memcmp(pcur, tmp + gstart[mid] * (w + n9), (size_t)n9);
+                        if (cres == 0) { at = mid; break; }
+                        if (cres < 0) hi = mid - 1; else lo = mid + 1;
+                    }
+                    if (at < 0) { sok = 0; break; }
+                    /* the emitted record must be the class's stored repr */
+                    if (memcmp(repr, tmp + gstart[at] * (w + n9) + w, (size_t)n9) != 0) { sok = 0; break; }
+                    buckets[(int)((uint64_t)at * NB / nclass)]++;
+                }
+                double chi2 = 0.0;
+                for (int b = 0; b < NB; b++)
+                    if (expb[b] > 0) chi2 += (buckets[b] - expb[b]) * (buckets[b] - expb[b]) / expb[b];
+                KC_GATE("A10b class-uniform sampling: members + chi-square", sok && chi2 < 37.70);
+                printf("[kc-selftest] n=9: %d class-uniform samples, chi2=%.2f "
+                       "(15 dof, crit 37.70)\n", M, chi2);
+                free(gstart);
+            }
+            free(tmp);
+            free(rows);
+        }
+
         free(sorted);
         free(sorted_cd);
         free(EN.buf);
@@ -15892,6 +16637,31 @@ static int kc_selftest(void) {
             KC_GATE(g3, kc_layers_equal(kc, &kc->L[kmax], &R1));
             f1c5_layer_free(&R1);
             free(order);
+        }
+        /* OOC spot: v2 on-disk (multi-block at n=16) must reproduce the
+         * in-memory engine on the same sorted rank set */
+        {
+            char d2[] = "/tmp/kc_oocs_XXXXXX";
+            F1_CHECK(mkdtemp(d2) != NULL, "[kc] mkdtemp failed");
+            kc_write_v2(kc, d2);
+            KC *o2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(o2 != NULL, "[kc] alloc");
+            int aok = kc_ooc_open(o2, d2, 32) == 0 && f1_eq(&o2->total, &kc->total);
+            uint8_t E1[KC_MAX_PAIRS], E2[KC_MAX_PAIRS];
+            for (int s = 0; s < R && aok; s += 4) {
+                F1U192 rr;
+                if (kc_unrank(kc, rs[s], E1) != 0 || kc_unrank(o2, rs[s], E2) != 0 ||
+                    memcmp(E1, E2, (size_t)kc->n) != 0 ||
+                    kc_rank(o2, E2, &rr) != 0 || !f1_eq(&rs[s], &rr) ||
+                    !kc_member(o2, E2)) aok = 0;
+            }
+            char g4[64];
+            snprintf(g4, sizeof(g4), "%c4 n=%d OOC(v2) == in-memory (count+queries)",
+                     'B' + pn, np);
+            KC_GATE(g4, aok);
+            kc_free(o2);
+            free(o2);
+            kc_rm_dir(d2, kc->n);
         }
         free(rs);
         kc_free(kc);
@@ -16074,6 +16844,132 @@ static int kc_midn(int npairs, int R, int M) {
     return fails ? 1 : 0;
 }
 
+/* ---------- OOC == in-memory verification (--kc-oocverify; Stage Q gate) ----------
+ * Builds the compiled structure in memory at mid-n, writes it as BOTH v1 (raw)
+ * and v2 (per-block gzip — the full-31 production format), reopens each
+ * OUT-OF-CORE, and requires count/unrank/rank/member/sample to be byte-equal
+ * to the in-memory engine. This is the worker gate for "OOC == in-memory at
+ * n <= 22"; the full-n rungs (V1 at n=24/27/28 and full-31) are COMPUTE-GATED
+ * (see V4_COMPILER_ENGINE_STATUS / the full-build plan §3). */
+typedef struct { KcCollect C; uint64_t limit; } KcCollectLim;
+static int kc_collect_lim_cb(void *ud, const uint8_t *E) {
+    KcCollectLim *L = (KcCollectLim *)ud;
+    kc_collect_cb(&L->C, E);
+    return L->C.cnt >= L->limit;
+}
+
+static int kc_oocverify(int npairs, int R, const char *scratch) {
+    int fails = 0;
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[kc] alloc");
+    if (kc_init(kc, npairs) != 0) { free(kc); return 2; }
+    printf("[kc-oocverify] n=%d roundtrips=%d scratch=%s\n", kc->n, R, scratch);
+    kc_build(kc, 1);
+    char d1[4200], d2[4200];
+    snprintf(d1, sizeof(d1), "%s/kc_oocverify_v1_n%02d", scratch, kc->n);
+    snprintf(d2, sizeof(d2), "%s/kc_oocverify_v2_n%02d", scratch, kc->n);
+    double t0 = omp_get_wtime();
+    kc_write(kc, d1);
+    kc_write_v2(kc, d2);
+    printf("[kc-oocverify] wrote v1+v2 layer dirs in %.1fs\n", omp_get_wtime() - t0);
+    KC *o1 = (KC *)calloc(1, sizeof(KC));
+    KC *o2 = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(o1 && o2, "[kc] alloc");
+    int ok = kc_ooc_open(o1, d1, 0) == 0 && kc_ooc_open(o2, d2, 0) == 0;
+    char t1[64], t2[64], t3[64];
+    f1_dec(kc->total, t1);
+    f1_dec(o1->total, t2);
+    f1_dec(o2->total, t3);
+    printf("[kc-oocverify] count: mem=%s ooc-v1=%s ooc-v2=%s\n", t1, t2, t3);
+    KC_GATE("Q1 exact count: OOC(v1) == OOC(v2) == in-memory",
+            ok && f1_eq(&o1->total, &kc->total) && f1_eq(&o2->total, &kc->total));
+
+    /* Q2: sorted random ranks (plus 0 and N-1): unrank byte-equal across all
+     * three engines; rank and member invert through the OOC readers */
+    {
+        F1U192 *rs = (F1U192 *)malloc(sizeof(F1U192) * (size_t)R);
+        F1_CHECK(rs != NULL, "[kc] rank alloc");
+        uint64_t seed = 20260714ull + (uint64_t)npairs;
+        rs[0].l0 = 0; rs[0].l1 = 0; rs[0].l2 = 0;
+        rs[1] = kc->total;
+        { F1U192 one = {1, 0, 0}; kc_u192_sub(&rs[1], &one); }
+        for (int s = 2; s < R; s++) kc_rand_rank(kc, &seed, &rs[s]);
+        qsort(rs, R, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);
+        int aok = 1, mono_ok = 1;
+        uint8_t E0[KC_MAX_PAIRS], E1[KC_MAX_PAIRS], E2[KC_MAX_PAIRS], Ep[KC_MAX_PAIRS];
+        t0 = omp_get_wtime();
+        kc_n_for_cmp = kc->n;
+        for (int s = 0; s < R && aok; s++) {
+            F1U192 rr1, rr2;
+            if (kc_unrank(kc, rs[s], E0) != 0 ||
+                kc_unrank(o1, rs[s], E1) != 0 ||
+                kc_unrank(o2, rs[s], E2) != 0 ||
+                memcmp(E0, E1, (size_t)kc->n) != 0 ||
+                memcmp(E0, E2, (size_t)kc->n) != 0) { aok = 0; break; }
+            if (kc_rank(o1, E1, &rr1) != 0 || !f1_eq(&rs[s], &rr1) ||
+                kc_rank(o2, E2, &rr2) != 0 || !f1_eq(&rs[s], &rr2)) { aok = 0; break; }
+            if (!kc_member(o2, E2)) { aok = 0; break; }
+            if (s > 0 && kc_u192_cmp(&rs[s - 1], &rs[s]) < 0 &&
+                kc_walk_cmp(Ep, E2) >= 0) mono_ok = 0;
+            memcpy(Ep, E2, (size_t)kc->n);
+        }
+        double dt = omp_get_wtime() - t0;
+        KC_GATE("Q2 unrank/rank/member: OOC(v1+v2) == in-memory", aok);
+        KC_GATE("Q2b rank order == reverse-exit-lex through OOC", mono_ok);
+        printf("[kc-oocverify] %d 3-way roundtrips in %.1fs (%.1f us each incl. in-mem)\n",
+               R, dt, 1e6 * dt / (R > 0 ? R : 1));
+        free(rs);
+    }
+
+    /* Q3: seeded sampling determinism — identical draw sequence via OOC */
+    {
+        int aok = 1;
+        uint8_t E0[KC_MAX_PAIRS], E2[KC_MAX_PAIRS];
+        uint64_t s0 = 4242ull, s2 = 4242ull;
+        for (int s = 0; s < 64 && aok; s++) {
+            F1U192 r0, r2;
+            kc_rand_rank(kc, &s0, &r0);
+            kc_rand_rank(o2, &s2, &r2);
+            if (!f1_eq(&r0, &r2) ||
+                kc_unrank(kc, r0, E0) != 0 || kc_unrank(o2, r2, E2) != 0 ||
+                memcmp(E0, E2, (size_t)kc->n) != 0) aok = 0;
+        }
+        KC_GATE("Q3 seeded sampling identical through OOC", aok);
+    }
+
+    /* Q4: in-order enumeration prefix identical through OOC */
+    {
+        KcCollectLim Cm, Co;
+        memset(&Cm, 0, sizeof(Cm)); memset(&Co, 0, sizeof(Co));
+        Cm.C.n = kc->n; Cm.limit = 5000;
+        Co.C.n = kc->n; Co.limit = 5000;
+        kc_enum(kc, -1, kc_collect_lim_cb, &Cm);
+        kc_enum(o2, -1, kc_collect_lim_cb, &Co);
+        KC_GATE("Q4 enumeration prefix (5000) identical through OOC",
+                Cm.C.cnt == Co.C.cnt &&
+                memcmp(Cm.C.buf, Co.C.buf, (size_t)Cm.C.cnt * kc->n) == 0);
+        free(Cm.C.buf); free(Co.C.buf);
+    }
+
+    {
+        double cur_mb, peak_mb;
+        f1_rss_mb(&cur_mb, &peak_mb);
+        printf("[kc-oocverify] v2 cache: hits=%llu misses=%llu read=%.1f MB; "
+               "rss_peak=%.0f MB (build included)\n",
+               (unsigned long long)o2->ooc->hits, (unsigned long long)o2->ooc->misses,
+               (double)o2->ooc->io.bytes_read / 1e6, peak_mb);
+    }
+    kc_free(o1); free(o1);
+    kc_free(o2); free(o2);
+    kc_rm_dir(d1, kc->n);
+    kc_rm_dir(d2, kc->n);
+    kc_free(kc);
+    free(kc);
+    printf("[kc-oocverify] n=%d %s (%d failure%s)\n", npairs, fails ? "FAIL" : "PASS",
+           fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
 /* ---------- CLI driver (all --kc-* subcommands) ---------- */
 static int kc_parse_walk(const KC *kc, const char *s, uint8_t *E) {
     int vals[2 * KC_MAX_PAIRS], nv = 0;
@@ -16129,18 +17025,38 @@ static int kc_cli(int argc, char *argv[]) {
         if (M < 16) M = 16;
         return kc_midn(npairs, R, M);
     }
+    if (strcmp(cmd, "--kc-oocverify") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "Usage: solve --kc-oocverify N [--kc-roundtrips R] "
+                    "[--kc-scratch DIR]\n");
+            return 2;
+        }
+        int npairs = atoi(argv[2]), R = 2000;
+        const char *scratch = "/tmp";
+        for (int ai = 3; ai + 1 < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[ai + 1]);
+            else if (strcmp(argv[ai], "--kc-scratch") == 0) scratch = argv[ai + 1];
+        }
+        if (R < 8) R = 8;
+        return kc_oocverify(npairs, R, scratch);
+    }
 
     /* common option scan */
-    int npairs = 9;
+    int npairs = 9, force_ooc = 0, cache_mb = 0, class_uniform = 0, want_record = 0;
     long long c3max = -1, limit = 0;
-    for (int ai = 2; ai + 1 < argc; ai++) {
-        if (strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[ai + 1]);
-        else if (strcmp(argv[ai], "--kc-c3-max") == 0) c3max = atoll(argv[ai + 1]);
-        else if (strcmp(argv[ai], "--kc-limit") == 0) limit = atoll(argv[ai + 1]);
+    for (int ai = 2; ai < argc; ai++) {
+        if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[ai + 1]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) c3max = atoll(argv[ai + 1]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-limit") == 0) limit = atoll(argv[ai + 1]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[ai + 1]);
+        else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (strcmp(argv[ai], "--kc-class-uniform") == 0) class_uniform = 1;
+        else if (strcmp(argv[ai], "--kc-record") == 0) want_record = 1;
     }
     if (argc < 3) {
-        fprintf(stderr, "Usage: solve %s DIR [args] [--f1-pairs N] "
-                "[--kc-c3-max T] [--kc-limit M]\n", cmd);
+        fprintf(stderr, "Usage: solve %s DIR [args] [--f1-pairs N] [--kc-c3-max T] "
+                "[--kc-limit M] [--kc-ooc] [--kc-cache-mb MB] "
+                "[--kc-class-uniform] [--kc-record]\n", cmd);
         return 2;
     }
     const char *dir = argv[2];
@@ -16160,22 +17076,30 @@ static int kc_cli(int argc, char *argv[]) {
         printf("KC BUILD n=%d dir=%s count=%s layers=%.6f MB elapsed=%.3fs\n",
                kc->n, dir, tdec, bytes / 1e6, omp_get_wtime() - t0);
     } else if (strcmp(cmd, "--kc-count") == 0) {
-        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         char tdec[64];
         f1_dec(kc->total, tdec);
         printf("KC COUNT n=%d = %s\n", kc->n, tdec);
     } else if (strcmp(cmd, "--kc-unrank") == 0) {
-        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-unrank DIR RANK\n"); free(kc); return 2; }
-        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-unrank DIR RANK [--kc-record]\n"); free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         F1U192 r;
         uint8_t E[KC_MAX_PAIRS];
         if (kc_u192_from_dec(argv[3], &r) != 0 || kc_unrank(kc, r, E) != 0) {
             fprintf(stderr, "ERROR: [kc] rank out of range or unparsable\n");
             rc = 1;
-        } else kc_print_walk(kc, E, stdout);
+        } else {
+            kc_print_walk(kc, E, stdout);
+            if (want_record) {   /* class + repr(k) adapter (freeze §3.4) */
+                uint8_t repr[KC_MAX_PAIRS];
+                uint64_t m = kc_class_repr(kc, E, repr, c3max);
+                printf("record\tm=%llu\t", (unsigned long long)m);
+                kc_print_walk(kc, repr, stdout);
+            }
+        }
     } else if (strcmp(cmd, "--kc-rank") == 0) {
         if (argc < 4) { fprintf(stderr, "Usage: solve --kc-rank DIR \"e,x,...\"\n"); free(kc); return 2; }
-        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         uint8_t E[KC_MAX_PAIRS];
         F1U192 r;
         if (kc_parse_walk(kc, argv[3], E) != 0 || kc_rank(kc, E, &r) != 0) {
@@ -16188,35 +17112,74 @@ static int kc_cli(int argc, char *argv[]) {
         }
     } else if (strcmp(cmd, "--kc-member") == 0) {
         if (argc < 4) { fprintf(stderr, "Usage: solve --kc-member DIR \"e,x,...\"\n"); free(kc); return 2; }
-        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         uint8_t E[KC_MAX_PAIRS];
         int pr = kc_parse_walk(kc, argv[3], E);
         int mem = (pr == 0) && kc_member(kc, E);
         printf("%s\n", mem ? "MEMBER" : "NON-MEMBER");
         rc = mem ? 0 : 1;
+    } else if (strcmp(cmd, "--kc-repr") == 0) {
+        /* record-facing adapter: class multiplicity m(k) + global repr(k)
+         * (orientation-lex-min valid variant; ratified convention). The input
+         * walk need only be structurally over the pair subset — its class is
+         * what's normalized. c3max >= 0 restricts Valid(k) by the cd analog. */
+        if (argc < 4) { fprintf(stderr, "Usage: solve --kc-repr DIR \"e,x,...\" [--kc-c3-max T]\n"); free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
+        uint8_t E[KC_MAX_PAIRS], repr[KC_MAX_PAIRS];
+        if (kc_parse_walk(kc, argv[3], E) != 0) {
+            fprintf(stderr, "ERROR: [kc] not a walk over this pair subset\n");
+            rc = 1;
+        } else {
+            uint64_t m = kc_class_repr(kc, E, repr, c3max);
+            if (m == 0) {
+                printf("m=0\t(class has no valid orientation completion)\n");
+                rc = 1;
+            } else {
+                printf("m=%llu\trepr\t", (unsigned long long)m);
+                kc_print_walk(kc, repr, stdout);
+            }
+        }
     } else if (strcmp(cmd, "--kc-sample") == 0) {
-        if (argc < 5) { fprintf(stderr, "Usage: solve --kc-sample DIR COUNT SEED [--kc-c3-max T]\n"); free(kc); return 2; }
-        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        if (argc < 5) { fprintf(stderr, "Usage: solve --kc-sample DIR COUNT SEED "
+                                "[--kc-c3-max T] [--kc-class-uniform] [--kc-record]\n"); free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         long long M = atoll(argv[3]);
         uint64_t seed = (uint64_t)strtoull(argv[4], NULL, 10);
-        uint8_t E[KC_MAX_PAIRS];
+        uint8_t E[KC_MAX_PAIRS], repr[KC_MAX_PAIRS];
         for (long long s = 0; s < M; s++) {
             F1U192 r;
             int cd;
-            for (;;) {   /* rejection on the C3 analog if requested */
+            uint64_t m = 0;
+            for (;;) {   /* rejection: C3 analog and/or exact 1/m(k) class reweight */
                 kc_rand_rank(kc, &seed, &r);
                 F1_CHECK(kc_unrank(kc, r, E) == 0, "[kc] sample unrank failed");
                 uint32_t rids[KC_MAX_PAIRS + 1];
                 F1_CHECK(kc_validate(kc, E, rids, &cd) == 0, "[kc] sample walk invalid");
-                if (c3max < 0 || cd <= c3max) break;
+                if (c3max >= 0 && cd > c3max) continue;
+                if (class_uniform) {   /* walk-uniform -> class-uniform (freeze §3.4) */
+                    m = kc_class_repr(kc, E, repr, c3max);
+                    F1_CHECK(m > 0, "[kc] member walk with m=0 (adapter defect)");
+                    if (kc_rand_below(&seed, m) != 0) continue;
+                }
+                break;
             }
             char tdec[64];
             f1_dec(r, tdec);
-            printf("%s\tcd=%d\t", tdec, cd);
-            kc_print_walk(kc, E, stdout);
+            if (class_uniform) {
+                printf("%s\tcd=%d\tm=%llu\trecord\t", tdec, cd, (unsigned long long)m);
+                kc_print_walk(kc, repr, stdout);   /* record-facing: emit repr(k) */
+            } else {
+                printf("%s\tcd=%d\t", tdec, cd);
+                kc_print_walk(kc, E, stdout);
+                if (want_record) {
+                    m = kc_class_repr(kc, E, repr, c3max);
+                    printf("record\tm=%llu\t", (unsigned long long)m);
+                    kc_print_walk(kc, repr, stdout);
+                }
+            }
         }
     } else if (strcmp(cmd, "--kc-enum") == 0) {
-        if (kc_load(kc, dir) != 0) { free(kc); return 2; }
+        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
         KcEnumUd ud = {kc, (uint64_t)(limit > 0 ? limit : 0), 0};
         uint64_t emitted = kc_enum(kc, (int)c3max, kc_enum_print_cb, &ud);
         fprintf(stderr, "[kc] enumerated %llu walk(s)%s\n",
@@ -17984,11 +18947,13 @@ int main(int argc, char *argv[]) {
         }
         return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume);
     } else if (argc > 1 && strncmp(argv[1], "--kc-", 5) == 0) {
-        /* v4-compiler prototype: the f1c5 DP layers as a compiled knowledge
-         * structure (count / rank / unrank / sample / member / enum). See the
-         * KC module header above kc_selftest() for scope, order semantics,
-         * verification gates, and credits. Sha-neutral (argv-dispatched,
-         * never on the enumeration path); prototype-capped at n <= 16. */
+        /* v4-compiler: the f1c5 DP layers as a compiled knowledge structure
+         * (count / rank / unrank / sample / member / enum / repr adapter).
+         * In-memory at n <= 22 (--kc-build); FULL-n-capable out-of-core
+         * reader (Stage Q) for v1/v2 layer dirs of any n up to 31. See the
+         * KC module header for scope, order semantics, verification gates,
+         * and credits. Sha-neutral (argv-dispatched, never on the
+         * enumeration path). */
         return kc_cli(argc, argv);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
