@@ -20,7 +20,7 @@ are treated as axioms defining a space of orderings ([formal definitions](docume
   when reversal is trivial): the classical pairing, described by [Yu Fan](documentation/CITATIONS.md#yufan) in the 3rd century.
 - **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975)).
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
-- **C4** — the sequence starts with the pair (Qian, Kun): heaven, then earth.
+- **C4** — the sequence starts with the pair ䷀ Qian (The Creative) #1 and ䷁ Kun (The Receptive) #2: heaven, then earth.
 - **C5** — the multiset of adjacent-transition sizes matches King Wen's exactly.
 
 C1–C2 are robust properties; C3–C5 are extracted from the sequence itself — the distinction matters and

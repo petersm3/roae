@@ -118,7 +118,7 @@ Pair: 3↔50
 
 ### Rule 4: It starts with Heaven and Earth
 
-The sequence begins with the two most extreme hexagrams: all solid lines (䷀ The Creative #1, representing Heaven) followed by all broken lines (䷁ The Receptive #2, representing Earth).
+The sequence begins with the two most extreme hexagrams: all solid lines — ䷀ Qian (The Creative) #1, representing Heaven — followed by all broken lines — ䷁ Kun (The Receptive) #2, representing Earth.
 
 **What this does:** Eliminates another 98%.
 
