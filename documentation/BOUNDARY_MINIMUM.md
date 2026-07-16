@@ -85,7 +85,7 @@ Pre-computed analyze logs:
 
 ## Working / process documentation
 
-For the original 100T cross-partition analysis surfacing the boundary-minimum-grew-from-4-to-5 finding, see CITATIONS.md and the original 2026-04-19 analyze log archived at `runs/20260419_100T_d3_d128westus3/`. For the 560T --analyze algorithmic rewrites that made canonical-scale --analyze tractable (~24h → 3h 47m on D128), see [`HISTORY.md`](HISTORY.md) "June 10-11, 2026" entry. For the full §[1]-§[28] 560T findings, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) and (private) `roae-private/560T_FINAL_ANALYSIS.md`. The 2026-07-04 verification that surfaced this correction (defense-then-fail adversarial audit of the published headline against the canonical 560T log) is documented privately in `roae-private/BOUNDARY_CONVENTION_VERIFICATION_2026_07.md`.
+For the original 100T cross-partition analysis surfacing the boundary-minimum-grew-from-4-to-5 finding, see CITATIONS.md and the original 2026-04-19 analyze log archived at `runs/20260419_100T_d3_d128westus3/`. For the 560T --analyze algorithmic rewrites that made canonical-scale --analyze tractable (~24h → 3h 47m on D128), see [`HISTORY.md`](HISTORY.md) "June 10-11, 2026" entry. For the full §[1]-§[28] 560T findings, see [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) and (private) `roae-private/560T_FINAL_ANALYSIS.md`. The 2026-07-04 verification that surfaced this correction (defense-then-fail adversarial audit of the published headline against the canonical 560T log) is documented privately in `roae-private/BOUNDARY_CONVENTION_VERIFICATION_2026_07.md`.
 
 ---
 

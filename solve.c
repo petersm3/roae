@@ -184,7 +184,7 @@
  *         3-subset disproof, all 4-subsets, redundancy, mutual information,
  *         per-branch cascade configs, null-model, orbits.
  *       Reproducible source for every numerical claim in HISTORY.md and
- *       SOLVE-SUMMARY.md.
+ *       SOLVE_SUMMARY.md.
  *
  *   ./solve --merge
  *       Combine sub_*.bin files into solutions.bin (used after enumeration
@@ -276,7 +276,7 @@
  *
  * Companion docs (one directory up, in roae/):
  *   HISTORY.md         project narrative, missteps, "what advanced understanding"
- *   SOLVE-SUMMARY.md   plain-language explanation of the constraints + findings
+ *   SOLVE_SUMMARY.md   plain-language explanation of the constraints + findings
  *   SPECIFICATION.md   formal definitions of C1-C5
  *   enumeration/LEADERBOARD.md   per-branch / per-sub-branch enumeration progress
  */
@@ -18383,7 +18383,7 @@ int main(int argc, char *argv[]) {
     /* --- Analyze mode: post-enumeration scientific analyses on solutions.bin ---
      *
      * Single-shot reproducibility surface for all numerical claims cited in
-     * HISTORY.md and SOLVE-SUMMARY.md. Designed to scale to large datasets:
+     * HISTORY.md and SOLVE_SUMMARY.md. Designed to scale to large datasets:
      *
      *   - Memory-maps solutions.bin (no full malloc; OS pages in on demand)
      *   - Builds packed-bit boundary masks (1 bit per record per boundary,
@@ -19344,7 +19344,7 @@ int main(int argc, char *argv[]) {
          * variants). For each unique pair-ordering, count its variants and which
          * positions show orient variation across them. Compare KW's pattern to
          * the population. Resolves the "does the KW orient-coupling generalize?"
-         * question flagged in SOLVE-SUMMARY.md and INSIGHTS.md.
+         * question flagged in SOLVE_SUMMARY.md and INSIGHTS.md.
          */
         printf("[14] Orient-coupling generalization\n");
         fprintf(stderr, "[14] START\n"); fflush(stderr);
@@ -20176,7 +20176,7 @@ int main(int argc, char *argv[]) {
          * information here is the SHAPE of the distribution — how tightly
          * solutions cluster near the ceiling vs. spread toward low cd.
          *
-         * The "3.9th percentile" claim in SOLVE-SUMMARY.md is a DIFFERENT
+         * The "3.9th percentile" claim in SOLVE_SUMMARY.md is a DIFFERENT
          * comparison: KW vs all pair-constrained orderings (C1 only, from
          * roae.py Monte Carlo), not within C1-C5. Both are correct in their
          * respective reference populations.
@@ -20238,7 +20238,7 @@ int main(int argc, char *argv[]) {
             printf("    KW percentile within C1-C5 dataset: %.2f%%\n", kw_pct);
             printf("    NOTE: KW at %.0f%% is tautological — C3 enforces cd <= %d.\n",
                    kw_pct, kw_comp_dist_x64);
-            printf("    The '3.9th percentile' in SOLVE-SUMMARY.md compares KW against\n");
+            printf("    The '3.9th percentile' in SOLVE_SUMMARY.md compares KW against\n");
             printf("    ALL pair-constrained orderings (C1 only), not within C1-C5.\n");
             printf("    Range within C1-C5 dataset: [%d, %d]\n", cd_min, cd_max_val);
             printf("    Distribution (20-unit bins, non-zero):\n");

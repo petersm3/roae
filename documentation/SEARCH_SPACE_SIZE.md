@@ -2,11 +2,11 @@
 
 **Result:** The total number of hexagram orderings satisfying constraints C1–C5 is **estimated at ≈1.3×10³⁸** (raw), or **≈3×10³⁷ distinct canonical orderings** after orientation-deduplication — the quantity the published enumerations count. This is a **statistical estimate** from an unbiased Monte-Carlo tree-size estimator (Knuth 1975), validated to **<1%** against exact subtree counts; it is **not a proven cardinality** and is **not a canonical result**. Its purpose is to put a hard number on a question the exhaustive enumerations could only bound from below: *the deepest published canonical (d3 560T, 1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space, and exhaustion is infeasible at any conceivable budget.*
 
-This closes the long-standing "the total count of C1–C5 orderings is not yet known" caveat carried in [`enumeration/LEADERBOARD.md`](../enumeration/LEADERBOARD.md), [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), and [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) — replacing "not yet known" with "known to ≈1% as an estimate, still astronomically unexhaustible."
+This closes the long-standing "the total count of C1–C5 orderings is not yet known" caveat carried in [`enumeration/LEADERBOARD.md`](../enumeration/LEADERBOARD.md), [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), and [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) — replacing "not yet known" with "known to ≈1% as an estimate, still astronomically unexhaustible."
 
 ## What is being measured
 
-The exhaustive enumerations (`solve.c`) are **budgeted**: each of the 158,364 depth-3 cells receives a fixed node budget, and the reported record count is the number of distinct canonical orderings *found within that budget*. Because no cell is ever exhausted (see [`CRITIQUE.md`](CRITIQUE.md) §"per-branch yield labels" — a single sub-branch budgeted to "yield 16" held ≥664 million orderings on a deeper walk), the canonical counts are **lower bounds**, not the size of the solution space. The three-point scaling trajectory (11.2T → 100T → 560T, α ≈ 0.67, see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md)) shows the counts still growing sublinearly with budget, with no visible asymptote.
+The exhaustive enumerations (`solve.c`) are **budgeted**: each of the 158,364 depth-3 cells receives a fixed node budget, and the reported record count is the number of distinct canonical orderings *found within that budget*. Because no cell is ever exhausted (see [`CRITIQUE.md`](CRITIQUE.md) §"per-branch yield labels" — a single sub-branch budgeted to "yield 16" held ≥664 million orderings on a deeper walk), the canonical counts are **lower bounds**, not the size of the solution space. The three-point scaling trajectory (11.2T → 100T → 560T, α ≈ 0.67, see [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md)) shows the counts still growing sublinearly with budget, with no visible asymptote.
 
 This document measures the **total un-budgeted size** of the C1–C5 backtracking tree directly, without enumerating it — the number the budgeted counts are converging toward.
 
@@ -45,7 +45,7 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 | complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ | — | 0.01% |
 | total backtracking-tree nodes | 2.0875×10⁴⁰ | — | 0.00% |
 
-For scale, this sits inside the standard reduction funnel (see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) "numbers at a glance"): the unconstrained permutation space is 64! ≈ 1.3×10⁸⁹; the **C1 pair-structure skeleton is 32! × 2³² ≈ 1.1×10⁴⁵**; C2/C3/C4 successively cut that to ~10⁴⁰; and **C5 brings the true (un-budgeted) C1–C5 total to ≈1.3×10³⁸** (this estimate). Consistent with the funnel's earlier steps; it supplies the terminal count the funnel could previously give only as a budgeted lower bound (the 706 M found at the 10T budget). Still an enormous reduction, yet astronomically beyond enumeration.
+For scale, this sits inside the standard reduction funnel (see [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) "numbers at a glance"): the unconstrained permutation space is 64! ≈ 1.3×10⁸⁹; the **C1 pair-structure skeleton is 32! × 2³² ≈ 1.1×10⁴⁵**; C2/C3/C4 successively cut that to ~10⁴⁰; and **C5 brings the true (un-budgeted) C1–C5 total to ≈1.3×10³⁸** (this estimate). Consistent with the funnel's earlier steps; it supplies the terminal count the funnel could previously give only as a budgeted lower bound (the 706 M found at the 10T budget). Still an enormous reduction, yet astronomically beyond enumeration.
 
 ## Result — per first-level branch
 
@@ -105,7 +105,7 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 - **Estimate, not canonical.** These numbers are Monte-Carlo estimates on the exploration track. They do not change, and are not gated by, any canonical sha256. No "proven" claim is made about the exact cardinality — only that it is ≈10³⁸ to within the stated ≈1% sampling error.
 - **Reproducible:** `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`, then `solve --estimate-knuth 500000000` (whole tree) or `solve --estimate-knuth 100000000 <p1> <o1>` (one branch). Pure compute; no data disk required. The exact-count validation is `solve --estimate-knuth 0 <prefix>`.
 - **Cost:** 5×10⁸ probes ≈ 79 s single-machine; the estimates above cost pennies of compute.
-- See also: [`CRITIQUE.md`](CRITIQUE.md) (why budgeted counts are lower bounds), [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) §3-point scaling trajectory, [`BRANCHES_EXPLAINED.md`](BRANCHES_EXPLAINED.md) (what a branch/cell is).
+- See also: [`CRITIQUE.md`](CRITIQUE.md) (why budgeted counts are lower bounds), [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) §3-point scaling trajectory, [`BRANCHES_EXPLAINED.md`](BRANCHES_EXPLAINED.md) (what a branch/cell is).
 
 ## The C1–C7 space: the Uniqueness Conjecture is refuted (2026-07-02)
 

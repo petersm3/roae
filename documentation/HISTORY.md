@@ -2,7 +2,7 @@
 
 An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how computational research actually works, as opposed to the clean narrative of published results.
 
-For the mathematical rules, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md).
+For the mathematical rules, see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md).
 
 ## Prelude — Before April 10, 2026
 
@@ -21,7 +21,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 **Six rounds of scientific review.** The documentation was iteratively attacked from mathematical and scientific perspectives — testing every claim for rigor, checking null models, correcting statistical framing, and adding appropriate caveats. This adversarial review process caught the complement distance error, the XOR theorem, and the null model caveat.
 
-**Documentation suite.** [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) (plain-language), [SOLVE.md](SOLVE.md) (technical), [SPECIFICATION.md](SPECIFICATION.md) (formal), [CRITIQUE.md](CRITIQUE.md) (known limitations), [MCKENNA.md](MCKENNA.md) (relationship to [Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)), and [GUIDE.md](GUIDE.md) (newcomer introduction) were all written during this phase.
+**Documentation suite.** [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) (plain-language), [SOLVE.md](SOLVE.md) (technical), [SPECIFICATION.md](SPECIFICATION.md) (formal), [CRITIQUE.md](CRITIQUE.md) (known limitations), [MCKENNA.md](MCKENNA.md) (relationship to [Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)), and [GUIDE.md](GUIDE.md) (newcomer introduction) were all written during this phase.
 
 ## April 10, 2026
 
@@ -221,7 +221,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **OpenMP also added to `--validate` and `--prove-cascade`.** Predicted ~10s `--validate` on 742M (was ~2 min). `--prove-cascade` Phase 1 outer loop now parallelized across 31 branches with per-branch result buffer for ordered output (output is identical to the pre-parallel version; only the wall time changes).
 
-**Documentation rewrite.** `solve.c` top-of-file comment updated to reflect the 3030-sub-branch architecture (the older "56-branch" description was stale), bug-history section, all current run modes including `--analyze`, build flags including `-fopenmp -march=native`, OpenMP licensing note. New `DEPLOYMENT.md` captures architecture + lessons + Azure spot-VM provisioning instructions in an appendix. `HISTORY.md`, `SOLVE-SUMMARY.md`, and `LEADERBOARD.md` all updated with the corrected 742M numbers and the {25, 27} truly-mandatory finding. Methodological rule established: any "proven" claim must be either universal or explicitly scoped (e.g., "proven for the 742M dataset"); applied throughout.
+**Documentation rewrite.** `solve.c` top-of-file comment updated to reflect the 3030-sub-branch architecture (the older "56-branch" description was stale), bug-history section, all current run modes including `--analyze`, build flags including `-fopenmp -march=native`, OpenMP licensing note. New `DEPLOYMENT.md` captures architecture + lessons + Azure spot-VM provisioning instructions in an appendix. `HISTORY.md`, `SOLVE_SUMMARY.md`, and `LEADERBOARD.md` all updated with the corrected 742M numbers and the {25, 27} truly-mandatory finding. Methodological rule established: any "proven" claim must be either universal or explicitly scoped (e.g., "proven for the 742M dataset"); applied throughout.
 
 **Pushed to GitHub.** 4 commits: solve.c (bug fix + --analyze + parallelization + doc), DEPLOYMENT.md, doc updates, run artifacts.
 
@@ -235,7 +235,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 - **[19] Identity-level equivalence of 4 working 4-sets.** All four leave exactly the same 4 records (KW orient variants, zero non-KW). Rigorous confirmation of what was previously only probabilistically inferred.
 - **[20] Complement-orbit analysis.** Bitwise complement (h → h^0x3F) maps pairs to pairs, preserving C1/C2/C5. Tested whether complement is an automorphism of the C1-C5 solution set. Result: **0 of 742M records have their complement in the dataset.** Complement is NOT closed — C3 (complement distance) breaks under the map. KW's complement has pair-sequence `[0 24 17 6 7 5 3 4 8 16 23 21 22 13 14 20 9 2 19 18 15 11 12 10 1 28 26 29 25 27 30 31]`, not in the dataset. The solution space is fundamentally asymmetric under bitwise complement.
 - **[21] Full per-position pair frequency table.** 32×32 baseline for 100T comparison. Confirms cascade structure: positions 4-20 have exactly 3 distinct pairs each; positions 22-31 have 14 each.
-- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE-SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
+- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE_SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
 - **[23] {25, 27}-only survivor characterization.** 37,356 total survivors (37,352 non-KW), replacing the old buggy "1,055." Positions 1, 25-28 are locked (5 of 32). Positions 4-20 still have exactly 3 distinct pairs each in this subspace.
 - **[24] KW nearest-neighbor catalog.** 44 solutions at edit distance 2 (the minimum); 6 at distance 3. All dist-2 neighbors are single pair-swaps in the free region (positions 21-32), except 2 records that swap pairs 1↔2 at positions 2-3. Consistent with the earlier pair-swap analysis.
 
@@ -243,7 +243,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **Two-phase deployment pattern documented.** DEPLOYMENT.md now describes separating enumeration (core-dense F-series) from merge (RAM-dense E/M-series) to cut costs. Saves ~50% at 100T, becomes architecturally necessary at 1000T.
 
-**Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE-SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ Waiting #5 to Hamming distance example.
+**Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE_SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ Waiting #5 to Hamming distance example.
 
 ## April 16-17, 2026
 
@@ -300,7 +300,7 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 - **Reproducibility footgun removed from selftest.** The selftest harness previously passed `60` as a wall-clock safety net. Under load or on slower VMs, that limit fired mid-enumeration, interrupting whatever sub-branches happened to be running — producing non-deterministic sha mismatches in an otherwise correct solver. Now uses node-limit only. Related: the solver prints a startup WARNING if both `SOLVE_NODE_LIMIT` and a wall-clock time_limit are set simultaneously, and a new `REPRODUCIBILITY RULE OF THUMB` block at the top of solve.c documents why canonical runs must use node-limit exclusively.
 - **Documentation corrections.**
   - **SPECIFICATION.md §Complement distance** had `|C| = 60` — a documentation error. The correct divisor is 64: `comp(h) = h` requires `63 = 0` and is never true, so all 64 hexagrams contribute to the sum, giving `776 / 64 = 12.125` as the mean complement-pair distance.
-  - **Null-model caveat elevated** from a single paragraph in `CRITIQUE.md:136` to lead notes in `README.md` and `SOLVE-SUMMARY.md`. The honest framing: C1+C2+C3 are robust findings; the "4 boundaries uniquely determine KW" result is a property of the constraint-extraction methodology (which produces apparent uniqueness for 9/10 random pair-constrained sequences), not evidence of KW specialness beyond the robust findings.
+  - **Null-model caveat elevated** from a single paragraph in `CRITIQUE.md:136` to lead notes in `README.md` and `SOLVE_SUMMARY.md`. The honest framing: C1+C2+C3 are robust findings; the "4 boundaries uniquely determine KW" result is a property of the constraint-extraction methodology (which produces apparent uniqueness for 9/10 random pair-constrained sequences), not evidence of KW specialness beyond the robust findings.
   - **"{25, 27} mandatory"** reformulated: the minimum structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` — two mandatory + two interchangeable slots, yielding exactly 2 × 2 = 4 working quadruples. Old phrasing was true but elided the interchangeability.
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
@@ -404,7 +404,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 - C2 (no-5-line-transitions): **[Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975), *The Invisible Landscape*** (Seabury Press, 1975). Earliest documented public reference per web search; the 1971 Amazonian experience described there is pre-publication but no pre-1975 lectures are indexed.
 - C3 (complement-distance ceiling of 776): no prior citation found; believed ROAE-original, with the standing disclaimer that PR-based updates to CITATIONS.md are welcome.
 
-**Doc audit for citation integrity.** At the user's direction, SOLVE.md, SOLVE-SUMMARY.md, CRITIQUE.md, README.md, and CLAUDE.md were updated to soften "we discovered" language where prior literature exists, and to cross-reference CITATIONS.md. Softened 2026-04-19 in commit `5de0676`.
+**Doc audit for citation integrity.** At the user's direction, SOLVE.md, SOLVE_SUMMARY.md, CRITIQUE.md, README.md, and CLAUDE.md were updated to soften "we discovered" language where prior literature exists, and to cross-reference CITATIONS.md. Softened 2026-04-19 in commit `5de0676`.
 
 **New analytical results consolidated in CRITIQUE.md.** (a) C1 impossibility proofs for de Bruijn B(2, 6) (period-4 contradiction) and all 6-bit Gray codes (Hamming-disjoint). (b) Latin-square C2-rate decomposition with exact reproduction of the empirical 57.96%. (c) King Wen's own adjacency decomposition: 32 within-pair transitions (Hamming 2/4/6 by C1 construction) + 31 between-pair transitions, with the 14:2 odd-transition concentration and zero Hamming-5 matching the prior-documented 3:1 even:odd ratio (McKenna 1975 / Cook 2006). (d) Open Questions section with 11 falsifiable follow-ups.
 
@@ -776,7 +776,7 @@ that exhaustive is unreachable):
   workhorses — they catch fewer records than boundary 4, but their work is
   irreplaceable: no combination of other boundaries kills the families they
   catch.
-- This bridges to the per-position Shannon entropy table in `SOLVE-SUMMARY.md`
+- This bridges to the per-position Shannon entropy table in `SOLVE_SUMMARY.md`
   (positions 22–31 carry 3.4–3.7 bits each, the high-entropy back half) — the
   keystones are the minimum local fixings that collapse that back-half freedom
   to KW's specific choice.
@@ -1777,8 +1777,8 @@ limitations section, and DEVELOPMENT.md (added a stack-`ulimit`
 subsection covering the production-vs-ASan threshold). Public
 commit `463c4b4`.
 
-**SOLVE-SUMMARY trimmed to introductory-article tone.** Three
-blockquote front-matter blocks at the top of SOLVE-SUMMARY.md
+**SOLVE_SUMMARY trimmed to introductory-article tone.** Three
+blockquote front-matter blocks at the top of SOLVE_SUMMARY.md
 duplicated material that already lives in CLAUDE.md (canonical
 shas), PARTITION_INVARIANCE.md (cross-path validation grid),
 CRITIQUE.md (null-model caveat), and DISTRIBUTIONAL_ANALYSIS.md
@@ -3816,7 +3816,7 @@ After the wrap-around parity theorem was derived earlier in the session (see The
 
 - McKenna's Rule 2 as a candidate constraint (potential "C8") — pending K-pilot to measure violation rate at canonical scale. Implementation sketch: add `solve --verify-rule2` subcommand iterating each between-pair boundary and checking that value-1 transitions occur only at C2-forced positions. Cost ~$0.05 to run on the v2 11.2T canonical.
 
-**Files updated** in this batch: `documentation/CITATIONS.md`, `documentation/SPECIFICATION.md`, `documentation/MCKENNA.md`, `documentation/SOLVE-SUMMARY.md`, this `documentation/HISTORY.md`.
+**Files updated** in this batch: `documentation/CITATIONS.md`, `documentation/SPECIFICATION.md`, `documentation/MCKENNA.md`, `documentation/SOLVE_SUMMARY.md`, this `documentation/HISTORY.md`.
 
 ## May 19, 2026 UTC — McKenna Rule 2 + 9th-six K-pilots run on v2 11.2T canonical
 
@@ -3844,7 +3844,7 @@ After the K-pilot data landed (`solve --verify-rule2` and `--verify-9th-six` on 
 
 **What was retained as diagnostic tools**: `solve --verify-rule2` and `solve --verify-9th-six` remain in solve.c as post-enumeration analysis subcommands. They're useful for future research but do not enforce constraints in the enumeration code path. Sha-preserving.
 
-**Public-doc updates from this decision**: `documentation/MCKENNA.md` (Rule 2 framing changed from "NEW candidate" to "Declined for promotion" with full peer-review rationale), `documentation/CITATIONS.md` (Rule 2 attribution clarified as empirical observation, not promoted), `documentation/SOLVE-SUMMARY.md` (same), this HISTORY.md entry.
+**Public-doc updates from this decision**: `documentation/MCKENNA.md` (Rule 2 framing changed from "NEW candidate" to "Declined for promotion" with full peer-review rationale), `documentation/CITATIONS.md` (Rule 2 attribution clarified as empirical observation, not promoted), `documentation/SOLVE_SUMMARY.md` (same), this HISTORY.md entry.
 
 **Private-doc updates**: `roae-private/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` decision sections updated to "NOT PROMOTED" with full reasoning.
 
@@ -3900,7 +3900,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 1. **G3 selftest on v2-bundled HEAD `25c7d4d`** PASS: expected/actual `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` byte-identical. (The selftest sha advanced from `56487ab5…` at 9d00c48 to `403f7202…` at HEAD because the post-9d00c48 McKenna diagnostic subcommands `--verify-rule2` and `--verify-9th-six` added new code paths the selftest exercises. The canonical-output sha `2cc966e4…` is unchanged — only the selftest-output sha moved.)
 
-2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE-SUMMARY.md, SOLVE_C_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
+2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE_SUMMARY.md, SOLVE_C_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
 
 3. **Tags placed** to preserve lineage:
    - `v2-pre-merge` -> `25c7d4d57c7dcb927ba5af713255394d89c01f76` (the v2-bundled tip immediately before merge)
@@ -4798,7 +4798,7 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 
 *(Table caveats, added 2026-07-04 primary-evidence sweep: no 11.2T analyze log is locally available, so the 11.2T column is pending archive confirmation. Its "1.40 (pos 20↔21)" MI entry exactly matches the **d3 10T** log's top pair (1.3948, 20↔21) — possibly a dataset mislabel. "Records 800 M" is ambiguous between v1 11.2T (759,608,573) and v2 11.2T (796,357,285). The 742M §[8] figure of 4 was computed under the pre-format-v1 "survivors ≤ 4" convention (that format stored 4 orientation variants per ordering), whereas canonical-era §[8] uses "≤ 1" — the cross-era series is directionally sound but not convention-identical. The §[8] = 8 value is log-verified at **d3 10T**; whether 11.2T is also 8 awaits the archived 11.2T analyze output.)*
 
-The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T (as at 100T) no 4-tuple of boundaries reduces survivors to ≤ 1; the minimum identifying set has 5 boundaries. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — was updated 2026-06-11. *(Corrected 2026-07-04: this paragraph originally claimed the "ordered greedy application still works" at 4 boundaries — a survivor-counting artifact; boundary intersection is commutative, so no ordering of a failing 4-set can succeed. The 560T greedy minimum is 5, identical set to 100T. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
+The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T (as at 100T) no 4-tuple of boundaries reduces survivors to ≤ 1; the minimum identifying set has 5 boundaries. The downstream cascade — SOLVE_SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — was updated 2026-06-11. *(Corrected 2026-07-04: this paragraph originally claimed the "ordered greedy application still works" at 4 boundaries — a survivor-counting artifact; boundary intersection is commutative, so no ordering of a failing 4-set can succeed. The 560T greedy minimum is 5, identical set to 100T. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 
 ## June 11-12, 2026 — 560T closeout completion + per-cell scaling insight + 100T v3 re-derive
 

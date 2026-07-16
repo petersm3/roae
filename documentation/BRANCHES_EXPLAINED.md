@@ -4,7 +4,7 @@ A plain-language walkthrough of what the ROAE solver actually does, what
 a "branch" is, what a "node" means, and how the picture builds up.
 
 For the formal version, see [SPECIFICATION.md](SPECIFICATION.md). For
-the findings in plain language, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md).
+the findings in plain language, see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md).
 This document is the bridge: how the math actually gets done.
 
 ---
@@ -12,7 +12,7 @@ This document is the bridge: how the math actually gets done.
 ## Part 1: The puzzle
 
 There are exactly **64 hexagrams** — patterns of 6 stacked lines, each
-line either solid or broken. ([SOLVE-SUMMARY.md §What a hexagram is](SOLVE-SUMMARY.md)
+line either solid or broken. ([SOLVE_SUMMARY.md §What a hexagram is](SOLVE_SUMMARY.md)
 shows the picture.)
 
 About 3,000 years ago, somebody in ancient China arranged all 64 in a

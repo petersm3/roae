@@ -302,7 +302,7 @@ The example output bundle in `example/` is what you get from running
 
 - [SOLVE_C_CLI.md](SOLVE_C_CLI.md) — `solve.c` enumerator/verifier reference
 - [SOLVE.md](SOLVE.md) — the constraint analysis with both tools
-- [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) — plain-language overview
+- [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) — plain-language overview
 - [GUIDE.md](GUIDE.md) — newcomer introduction to the King Wen sequence
 - [SPECIFICATION.md](SPECIFICATION.md) — formal C1-C5 constraint definitions
 - [CRITIQUE.md](CRITIQUE.md) — known methodological limitations

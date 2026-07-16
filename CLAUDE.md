@@ -20,7 +20,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | Python regression harness (one command: `python3 tests.py`) | [tests.py](tests.py) |
 | **Technical report suite (findings in depth, living-versioned)** | [reports/README.md](reports/README.md) (+ METHODS.md, certificates/) |
 | Detailed findings narrative (former front page) | [PROJECT_OVERVIEW.md](documentation/PROJECT_OVERVIEW.md) |
-| Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
+| Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE_SUMMARY.md](documentation/SOLVE_SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
 | Stable paper-citable findings | [PARTITION_STABILITY_BOUNDARIES.md](documentation/PARTITION_STABILITY_BOUNDARIES.md), [BOUNDARY_MINIMUM.md](documentation/BOUNDARY_MINIMUM.md), [SYMMETRY_SEARCH.md](documentation/SYMMETRY_SEARCH.md), [PASS1_TRAJECTORY_DETERMINISM.md](documentation/PASS1_TRAJECTORY_DETERMINISM.md) (consolidated from `findings/` 2026-06-11; boundary doc renamed 2026-07-04) |
 | Plain-language explainer of branches, sub-branches, nodes, enumeration | [BRANCHES_EXPLAINED.md](documentation/BRANCHES_EXPLAINED.md) |
 | Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](documentation/DISTRIBUTIONAL_ANALYSIS.md) |

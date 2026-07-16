@@ -8,7 +8,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 
 | If you want… | Read |
 |---|---|
-| Plain-language explainer (no math background needed) | [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) |
+| Plain-language explainer (no math background needed) | [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) |
 | A newcomer's guided introduction | [GUIDE.md](GUIDE.md) |
 | Conceptual explanation of branches, sub-branches, nodes, budgets | [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md) |
 | The technical scientific record (what holds, what doesn't, why) | [SOLVE.md](SOLVE.md) |
@@ -23,7 +23,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 ### Scientific record
 
 - **[SOLVE.md](SOLVE.md)** — Technical analysis of all 28 statistical findings, with appropriate null-model caveats. The primary scientific document.
-- **[SOLVE-SUMMARY.md](SOLVE-SUMMARY.md)** — Plain-language summary of what `solve.c` + `solve.py` compute and what the enumeration reveals. Audience: scientifically literate but not necessarily mathematicians.
+- **[SOLVE_SUMMARY.md](SOLVE_SUMMARY.md)** — Plain-language summary of what `solve.c` + `solve.py` compute and what the enumeration reveals. Audience: scientifically literate but not necessarily mathematicians.
 - **[SPECIFICATION.md](SPECIFICATION.md)** — Formal constraint definitions (C1–C5), constraint-extraction methodology, theorems with proofs.
 - **[CRITIQUE.md](CRITIQUE.md)** — Honest limitations: the null-model caveat, statistical framing, what the project does NOT prove.
 - **[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)** — Where King Wen sits in the joint distribution of observables across the canonical (joint-density rank below the 100K sample's resolution, <10⁻⁵, at 100T scope; 560T re-eval queued).
@@ -83,7 +83,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 For a first-time read of the project:
 
 1. Root [README.md](../README.md) (1–2 min)
-2. [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) (10 min, gives you the scientific shape)
+2. [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) (10 min, gives you the scientific shape)
 3. [CRITIQUE.md](CRITIQUE.md) (5 min, sets the honest framing)
 4. Skim [HISTORY.md](HISTORY.md) (long — read the recent dated sections to see where things currently stand)
 5. Then dig into whichever specialty document maps to your interest (technical = [SOLVE.md](SOLVE.md), formal = [SPECIFICATION.md](SPECIFICATION.md), reproducibility = [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md), distribution = [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md))

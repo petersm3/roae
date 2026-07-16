@@ -6072,7 +6072,7 @@ def f4p_palspan(seq):
 def f4p_comp_adj(seq):
     """7. Complement pair-couples at adjacent pair positions (counted once per
     couple). Axis: Davis 2012 / C3 adjacency form. KW value 1 (the 38/39 couple;
-    SOLVE-SUMMARY's "9 adjacent complements" counts within-pair complements,
+    SOLVE_SUMMARY's "9 adjacent complements" counts within-pair complements,
     which are pair-structure facts, not ordering-layer facts)."""
     ppos = {}
     for i in range(32):

@@ -10,7 +10,7 @@ live in:
   history, build flags, environment variables.
 - [HISTORY.md](HISTORY.md) — day-by-day project narrative, including missteps
   and the forensic trail that led to each correction.
-- [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) — plain-language findings.
+- [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) — plain-language findings.
 - [SPECIFICATION.md](SPECIFICATION.md) — formal constraint definitions.
 - [CRITIQUE.md](CRITIQUE.md) — limitations, statistical caveats.
 - [DEPLOYMENT.md](DEPLOYMENT.md) — cloud-VM deployment architecture + lessons.
@@ -1300,7 +1300,7 @@ then.
    ```
 
 5. **Cross-check downstream doc claims** against `analyze_output.txt`. Every
-   numerical claim in HISTORY.md / SOLVE-SUMMARY.md / CRITIQUE.md / LEADERBOARD.md
+   numerical claim in HISTORY.md / SOLVE_SUMMARY.md / CRITIQUE.md / LEADERBOARD.md
    has a corresponding section in the analyze output.
 
 The canonical archival artifacts live under `runs/<date>_<scale>_<depth>_<runtag>/`

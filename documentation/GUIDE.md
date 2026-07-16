@@ -179,14 +179,14 @@ Entropy measures disorder. High entropy means the difference values are spread e
 
 Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile vs all orderings, 3.9th percentile vs pair-constrained orderings).
 
-**What it means:** The sequence keeps opposites unusually close. However, the [constraint solver's null model test](SOLVE-SUMMARY.md#an-important-caveat) shows that complement distance, starting pair, and diff distribution narrow *any* sequence to near-uniqueness — so this property, while real, is less distinctive than the pair structure and no-5 property.
+**What it means:** The sequence keeps opposites unusually close. However, the [constraint solver's null model test](SOLVE_SUMMARY.md#an-important-caveat) shows that complement distance, starting pair, and diff distribution narrow *any* sequence to near-uniqueness — so this property, while real, is less distinctive than the pair structure and no-5 property.
 
 ## Summary of findings
 
 | Finding | Strength | Survives correction? |
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
-| Complement distance (0th / 3.9th percentile) | Moderate (see [caveat](SOLVE-SUMMARY.md#an-important-caveat)) | Yes |
+| Complement distance (0th / 3.9th percentile) | Moderate (see [caveat](SOLVE_SUMMARY.md#an-important-caveat)) | Yes |
 | XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (≈12th percentile) | Weak | No |
@@ -236,7 +236,7 @@ The percentiles are Monte Carlo estimates based on 10,000-100,000 random permuta
 
 ## Where to go deeper
 
-- [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) — Plain-language summary of how the King Wen sequence was built (start here)
+- [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) — Plain-language summary of how the King Wen sequence was built (start here)
 - [SOLVE.md](SOLVE.md) — Full technical details: the constraint solver and generative recipe (`solve.py`)
 - [MCKENNA.md](MCKENNA.md) — How these findings relate to Terence McKenna's Timewave Zero theory, what holds up and what doesn't
 - [CRITIQUE.md](CRITIQUE.md) — Known limitations of the program's statistical methodology

@@ -1109,7 +1109,7 @@ days, and re-check merge VM RAM requirement.
 ## 15. References
 
 - `petersm3/roae`:
-  - [`SOLVE.md`](SOLVE.md), [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) — what's been computed and what holds
+  - [`SOLVE.md`](SOLVE.md), [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) — what's been computed and what holds
   - [`SPECIFICATION.md`](SPECIFICATION.md) — formal constraint definitions
   - [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md) — the theorem this guide's correctness story rests on
   - [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) — `solutions.bin` byte format

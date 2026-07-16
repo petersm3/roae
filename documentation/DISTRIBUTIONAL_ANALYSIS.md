@@ -189,7 +189,7 @@ be over-interpreted.
 
 - **Not a uniqueness proof.** The analysis demonstrates KW is
   distributionally atypical, not that KW is the unique optimum of any
-  principle. Recall from [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md): specific "KW-property
+  principle. Recall from [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md): specific "KW-property
   extraction" can make almost any C1+C2 ordering appear uniquely determined;
   this analysis avoids that extraction problem by using dimensions chosen
   for general information content.
@@ -327,7 +327,7 @@ joint-density narrative.
 ## Relationship to other claims
 
 This analysis is distinct from, and complementary to, the yield-clustering
-and orientation-symmetry finding documented in SOLVE-SUMMARY.md §Observed
+and orientation-symmetry finding documented in SOLVE_SUMMARY.md §Observed
 structural regularity. The yield-clustering result is about the enumeration
 tree's per-sub-branch partition structure; this result is about the
 record-level feature distribution.
