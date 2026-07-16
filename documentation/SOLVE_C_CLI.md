@@ -54,8 +54,11 @@ solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tab
 solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify | --db1-verify
                                                         # two-language functional-battery gates
 solve --rc4b-verify [SEQ]                               # R13 HEC two-convention parity gate (KW anchors)
+solve --rc1c-verify [SEQ]                               # R6 circular anchor-adjacency (R-C1c) gate (KW A2={21,42})
+solve --r11-verify [SEQ]                                # R11 frozen 8-axis violation-bundle gate (KW 2,2,2,0,0,0,0,0)
 solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
 solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
+solve --knuth-dump-prefix <depth> <seed>                # dev utility: emit a random VALID deep prefix
 solve --c3-dist [solutions.bin]                         # C3 complement-distance histogram
 solve --f1-exact-c1c2c4 [--layers-dir DIR]              # exact |C1∩C2∩C4| orbit DP
 solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--f1-out-of-core DIR]
@@ -290,6 +293,20 @@ never touches the enumeration/merge path (`--selftest` unchanged). No shard data
 Exits 0. Reuses the same C1–C5 constraints as the enumerator so it walks the
 identical tree. See `petersm3/roae-private:SEARCH_SPACE_CHARACTERIZATION_PLAN.md`
 and `ANALYSIS_195_*` for method + results.
+
+### --knuth-dump-prefix
+
+```
+solve --knuth-dump-prefix <depth> <seed>
+```
+
+**Dev/calibration utility** (companion to `--estimate-knuth`). Emits a single random
+VALID (C1–C5) deep prefix, to the requested `<depth>`, as a `"<pair> <orient> ..."`
+list on stdout — the input format the `--estimate-knuth` prefix argument consumes.
+Used to generate the deep prefixes for the exact-count calibration audit that
+validates the Knuth random-probe estimator against ground truth. `<seed>` seeds the
+walk so a prefix is reproducible. Sha-neutral: argv-dispatched, off the
+enumeration/estimator hot path — never touches `--selftest` or the enum. Exits 0.
 
 ### --validate-launcher-config
 
@@ -557,6 +574,36 @@ all anchors pass. Sha-neutral (argv-dispatched, never on the enum/selftest path)
 Population scoring: the R-C4-B/R-C4-C mass lines ride `SOLVE_KNUTH_SCORE=1` (paired with
 the published R-C4 line on identical probes); optional per-leaf T1 assertion:
 `SOLVE_RC4B_ASSERT_T1` below.
+
+### --rc1c-verify
+
+```
+solve --rc1c-verify [SEQ]
+```
+
+Two-language gate for the **R6 circular anchor-adjacency** predicate (**R-C1c**):
+whether the A2 anchor pair `{21, 42}` falls in pair slot 2 or slot 32, and whether
+those slots are adjacent, on a circular (wrap-around) reading. Without an argument,
+computes on the King Wen sequence and asserts the analytic KW anchors — `slot2 = 0`,
+`slot32 = 1`, `adjacent = 1`. With a 64-int `SEQ` argument, instead prints
+`slot2,slot32,adjacent` for cross-language / corpus-control gating. Ground truth is
+`solve.py --rc1c-verify`; outputs must match byte-for-byte. Exit 0 iff all anchors
+pass. Sha-neutral (argv-dispatched, never on the enum/selftest path).
+
+### --r11-verify
+
+```
+solve --r11-verify [SEQ]
+```
+
+Two-language gate for the **R11 frozen 8-axis violation bundle** — the g1..g6
+tier-1 (T1) axes plus the g7, g8 tier-2 (T2) axes. Without an argument, computes each
+on the King Wen sequence and asserts the frozen KW expected vector `2,2,2,0,0,0,0,0`.
+With a 64-int `SEQ` argument, instead prints the 8 values for cross-language /
+corpus-control gating. This is the KW-reproduction gate for the `SOLVE_KNUTH_R11_HIST`
+instrument. Ground truth is `solve.py --r11-verify`; outputs must match byte-for-byte.
+Exit 0 iff the vector matches. Sha-neutral (argv-dispatched, never on the enum/selftest
+path).
 
 ### --f5-verify
 
