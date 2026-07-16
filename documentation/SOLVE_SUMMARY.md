@@ -87,23 +87,23 @@ The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No b
 **What this does:** Eliminates about 96% of the remaining arrangements.
 
 <a id="rule-3"></a>
-### Rule 3: Opposites stay close — a ceiling, not a target
+### Rule 3: Complements stay close — a ceiling, not a target
 
-Every hexagram has an "opposite" — the one where every solid line becomes broken and vice versa. In King
-Wen, opposites sit strikingly near each other: 9 of the 32 opposite-pairs are directly adjacent, and the
+Every hexagram has a **complement** (its "opposite") — the one where every line is flipped, solid↔broken. In King
+Wen, complements sit strikingly near each other: 9 of the 32 complement pairs are directly adjacent, and the
 average separation is only 12.1 positions (random arrangements average about 22). Summed over all 64
-hexagrams, King Wen's total opposite-distance is exactly **776**.
+hexagrams, King Wen's total complement-distance is exactly **776**.
 
 One honest subtlety, learned from the large enumerations: 776 is a **ceiling King Wen sits at, not a
-minimum it achieves**. Among the billions of valid orderings, many have their opposites even closer —
+minimum it achieves**. Among the billions of valid orderings, many have their complements even closer —
 the minimum seen is 424 at the 100T canonical and 392 at the deeper 560T canonical — and roughly one
 in ten (10.11% at the 560T canonical — re-measured 2026-07-08, 1,063,580,364 of 10,525,271,997 records; was 9.91% at 100T) ties King Wen at exactly 776. So the rule
-we can actually state is "total opposite-distance stays at or below 776" — a bound taken from King Wen's
+we can actually state is "total complement-distance stays at or below 776" — a bound taken from King Wen's
 own value. (An earlier version of this page framed Rule 3 as active minimization; the enumeration
 corrected that. Scope note added 2026-07-04: the minimum was previously quoted unscoped as 424 — that
 is the 100T value; the 560T §[22] range is [392, 776].)
 
-**What this does:** Eliminates orderings whose opposites drift farther apart than King Wen's — but leaves
+**What this does:** Eliminates orderings whose complements drift farther apart than King Wen's — but leaves
 an enormous family, King Wen among them.
 
 Closest complements highlighted (distance 1 — adjacent in the sequence):<br>
@@ -183,7 +183,7 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 0 | All possible orderings | 10^89 |
 | 1 | Pair structure | 10^45 |
 | 2 | No 5-line jumps | ~4% of step 1 |
-| 3 | Opposites ceiling (total distance ≤776) | ~0.3% of step 1 |
+| 3 | Complements ceiling (total distance ≤776) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
 | 5 | Specific transition counts | **706,422,987** (d3 10T canonical); **286,357,503** (d2 10T canonical) |
 | 6 | 4 boundary constraints (5 at canonical depth) | **1 (King Wen)** — within the enumerated slice; see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
@@ -223,7 +223,7 @@ What IS genuinely special about King Wen is **Rules 1 and 2**: the perfect pair 
 
 ## What we can and cannot say
 
-The analysis shows the King Wen sequence satisfies a set of interlocking mathematical constraints. It cannot show whether whoever arranged it understood those constraints explicitly or arrived at them through centuries of refinement. A simple practice — "pair each hexagram with its mirror, keep opposites nearby, avoid jarring transitions" — applied consistently over generations could produce the same result as deliberate mathematical design. The sequence is the same either way; only the history differs, and the history is outside the reach of computation.
+The analysis shows the King Wen sequence satisfies a set of interlocking mathematical constraints. It cannot show whether whoever arranged it understood those constraints explicitly or arrived at them through centuries of refinement. A simple practice — "pair each hexagram with its mirror, keep complements nearby, avoid jarring transitions" — applied consistently over generations could produce the same result as deliberate mathematical design. The sequence is the same either way; only the history differs, and the history is outside the reach of computation.
 
 ## Impact and scientific implications
 
@@ -258,7 +258,7 @@ For full technical details, methodology, and reproducible commands, see [SOLVE.m
 <a id="appendix-all-32-complement-pairs-by-distance"></a>
 ## Appendix: All 32 complement pairs by distance
 
-Visualization of [Rule 3 (Opposites stay close)](#rule-3). Each line shows the King Wen sequence with one complement pair highlighted. Sorted from closest (distance 1 — adjacent) to farthest (distance 47). The mean across all 32 pairs is 12.1.
+Visualization of [Rule 3 (Complements stay close)](#rule-3). Each line shows the King Wen sequence with one complement pair highlighted. Sorted from closest (distance 1 — adjacent) to farthest (distance 47). The mean across all 32 pairs is 12.1.
 
 Close complement pairs (distance 1-7) are always in the same half of the sequence. Far complement pairs (distance 19+) always cross the midpoint. No exceptions. (Note: some distance groups show highlights on both sides — e.g., distance 6 has four pairs, two in the first half and two in the second. Each individual pair stays in its own half.)
 
