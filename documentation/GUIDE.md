@@ -149,7 +149,7 @@ Terms used in the program output:
 
 This section checks each of the 32 consecutive pairs and classifies them as reverse, inverse, or neither. The key result: all 32 are one or the other. The program tests how often this happens by chance — the answer is effectively never (0 out of 10,000 random permutations).
 
-**What it means:** In the sequence, every hexagram sits next to its mirror image or its opposite, without exception — a property zero of 10,000 random permutations reproduce. This is the strongest finding in the entire program.
+**What it means:** In the sequence, every hexagram sits next to its mirror image or its complement, without exception — a property zero of 10,000 random permutations reproduce. This is the strongest finding in the entire program.
 
 ### --wave (First order of difference)
 

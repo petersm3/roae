@@ -523,7 +523,7 @@ The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canon
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
 - **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing selections among genuinely available alternatives, not mathematical necessity.
-- **King Wen minimizes complement distance** among valid orderings, keeping opposites as close as possible (3.9th percentile).
+- **King Wen minimizes complement distance** among valid orderings, keeping complements as close as possible (3.9th percentile).
 
 ### Summary
 

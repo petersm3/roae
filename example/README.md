@@ -590,7 +590,7 @@ Random mean complement distance (over 10000 shuffles): 21.7
 King Wen mean complement distance: 12.1
 King Wen percentile vs random: 0.0%
 Complements are significantly closer together than chance would predict:
-the ordering keeps opposites unusually near one another.
+the ordering keeps complements unusually near one another.
 ```
 
 ## Palindrome analysis of the difference wave
