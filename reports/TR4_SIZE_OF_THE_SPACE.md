@@ -54,7 +54,10 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    (rel. err 0.18%), ≈2σ below the definitive value — an unremarkable deviation for one early draw from a
    right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
    canonical C1–C5 raw **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
-   orderings 1.0971×10³⁹ (0.01%); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
+   orderings 1.0971×10³⁹ (0.01%) — subsequently computed **exactly** at 1.097051×10³⁹
+   ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16): the estimate deviated by
+   0.0044%, well inside its stated envelope — the estimator's second absolute full-scale validation
+   (the C1–C5 raw figure itself remains an estimate); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
    the reduction funnel (64! ≈ 1.3×10⁸⁹ → C1 skeleton 32!·2³² ≈ 1.1×10⁴⁵ → ~10⁴⁰ → ≈1.3×10³⁸). Structure:
    the 56 first-level branches are roughly uniform (min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶, spread
    ≈2.7× — no small or near-exhaustible branch exists); the 65,281 productive depth-3 cells span only 94.6×
@@ -176,3 +179,4 @@ the private working log.
 | v1.7.1 | 2026-07-04 | Correction: the 560T slice-identifying boundary set has 5 boundaries ({4, 27, 25, 21, 1}), not 4 — the earlier "4" was a survivor-counting error in the source finding (see [documentation/BOUNDARY_MINIMUM.md](../documentation/BOUNDARY_MINIMUM.md)); S(k) measurements unchanged (they condition on the first four pins as pins) |
 | v1.8 | 2026-07-05 | S(6)-S(8) measured; flat-gains law bends at k=6; projection 13 -> 15-20; floor k>=13 unchanged |
 | v1.9 | 2026-07-11 | Attribution honesty on the "Uniqueness Conjecture": named as ours — the strong determinism reading of the literature's derivation-flavored claims plus this project's own early working hypothesis; "long-standing"/"folk conjecture (multiple authors)" framing retired; anchored attribution note added to CITATIONS.md. The refutation's content (≈5.21×10³¹ C1–C7 survivors) unchanged |
+| v1.10 | 2026-07-16 | The C1/C2/C4/C5 layer figure (1.0971×10³⁹, stated ±0.01%) validated absolutely: [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)'s exact count 1.097051×10³⁹ shows a 0.0044% deviation, well inside the stated envelope (§3 annotated). The headline C1–C5 figure 1.3287×10³⁸ remains a statistical estimate; no other numbers change |

@@ -22,9 +22,10 @@ record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_
 | [TR-8](TR8_REORDERING_REVISITED.md) | A Reordering Revisited | [McKenna & Mair (1979)](../documentation/CITATIONS.md#mckenna-mair1979): premise refuted; construction impossible by parity | 2-line proof + sampling |
 | [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) | Pricing the Constraints | C1 explains ~146 bits (and is optimal); C5 is confirmed description; ~126 bits unexplained | measured ledger (conventions stated) |
 | [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) | A Textual Archaeology, Measured | [Davis's (2012)](../documentation/CITATIONS.md#davis2012) structural claims tested against the population: flagship units typical, one uniqueness claim corrected, exact templates data-like | pre-registered batch + corpus control |
+| [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) | Exact Counting by Symmetry Quotient | The suite's first exact full-scale count: \|C1∩C2∩C4∩C5\| = 1.097051×10³⁹ computed to the last digit; the estimator validated absolutely at 10³⁹ | symmetry-quotient DP + out-of-core mode + mod-24 gate |
 
 **Reading paths.** Newcomer: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) → [TR-4](TR4_SIZE_OF_THE_SPACE.md) → [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md). Systems engineer: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) first (its methods transfer
-beyond this project). Mathematician: [TR-5](TR5_SYMMETRY.md) → [TR-6](TR6_PARITY_SKELETON.md) → [TR-7](TR7_CIRCULAR_READING.md). Sinologist: [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) → [TR-2](TR2_THE_RULES_CONFLICT.md) → [TR-8](TR8_REORDERING_REVISITED.md).
+beyond this project), then [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) (out-of-core exact counting on commodity hardware). Mathematician: [TR-5](TR5_SYMMETRY.md) → [TR-6](TR6_PARITY_SKELETON.md) → [TR-7](TR7_CIRCULAR_READING.md) → [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md). Sinologist: [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) → [TR-2](TR2_THE_RULES_CONFLICT.md) → [TR-8](TR8_REORDERING_REVISITED.md).
 Skeptic: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md)'s gates, then any Verification Guide.
 
 ## Living documents: the versioning policy
@@ -43,7 +44,7 @@ is known — with its full history attached.
 entry — never a silent edit.
 
 ## Completeness principle
-The ten reports cover the project's **findings**. Instruments, engineering internals, and the
+The eleven reports cover the project's **findings**. Instruments, engineering internals, and the
 exploratory statistical corpus (the 28-analysis suite, trigram profile, distributional studies) are
 covered by the standing documentation set (CLI references, [DEVELOPMENT](../documentation/DEVELOPMENT.md), [DISTRIBUTIONAL_ANALYSIS](../documentation/DISTRIBUTIONAL_ANALYSIS.md),
 example/) — deliberately not duplicated as reports. If a future result rises to finding-grade, it becomes

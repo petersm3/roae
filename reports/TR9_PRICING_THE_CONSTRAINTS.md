@@ -52,7 +52,7 @@ explicit.
    | baseline (any ordering) | 64! | 296.0 | — | — | — |
    | + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
    | + C2 (no-5) | 7.5706×10⁴¹ (**exact**, orbit-quotient DP `solve --f1-exact-c1c2c4`, 2026-07-04; supersedes the 2026-07-03 estimator value 7.571×10⁴¹ ±0.01%, which it confirms) | 139.1 | 4.5 | ~3 (family of per-distance bans) | **≈ 0 (+2.0 selection-only; −0.6 to −4 under explicit-grammar codings)** |
-   | + C5 (transition multiset) | 1.0971×10³⁹ | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
+   | + C5 (transition multiset) | 1.097051×10³⁹ (**exact**, out-of-core orbit-quotient DP `solve --f1-exact-c1c2c4c5`, 2026-07-16 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); supersedes the estimator value 1.0971×10³⁹ ±0.01%, which it confirms to 0.0044%) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
    | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
    | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
    | strongest literature rule ([Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
@@ -134,11 +134,13 @@ explicit.
 - The ledger, conventions, and footnotes: [documentation/DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) (this TR preserves its
   numbers exactly)
 - Solution counts: exact layers vs [documentation/CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) + enumeration record; estimator
-  layers (1.0971×10³⁹ C5 count, 1.3287×10³⁸ full space) via the validated
+  layer (1.3287×10³⁸ full space) via the validated
   weighted-Knuth instrument — [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) (method + 0.03% self-validation);
   C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per [TR-5](TR5_SYMMETRY.md);
   the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to ±0.01% — both documented in
-  SOLVE_C_CLI.md)
+  SOLVE_C_CLI.md); C5 layer count **exact**: `solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`
+  (1.097051×10³⁹, divisible by 24 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); the prior
+  estimator value 1.0971×10³⁹ ±0.01% matches it to 0.0044%)
 - C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib); within-pair
   distance cross-check 2×12 + 4×12 + 6×8 = 120 per documentation/CITATIONS.md §Radisic 2026
 - Circularity pricing of C3: documentation/CRITIQUE.md Q1
@@ -183,6 +185,7 @@ value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./s
 | v1.6 | 2026-07-04 | Reproducibility completion: C2-layer count adopted as the exact 7.5706×10⁴¹ (`solve --f1-exact-c1c2c4`, replacing the ±0.01% estimator figure it confirms); F4' tier-1 evidence published (evidence/f4p_tier1.out) and cited; instrument flags (`SOLVE_KNUTH_SCORE_F4P`, `SOLVE_KNUTH_RELAX_C5`) now documented in SOLVE_C_CLI.md |
 | v1.8 | 2026-07-11 | Radisic status labeled at the load-bearing citations ("preprint, machine-verified" — the ledger leans on the checkable Lean artifact, not refereeing); §5(c) gains the criterion-selection acknowledgment (why Hamming-optimality counts as natural is itself a choice; the dual-convention bracket bounds it). No numbers change |
 | v1.7 | 2026-07-10 | Referee-hardening (explicit-coding MDL pass): C2 net restated +1.6 → ≈ 0 (break-even, sign convention-dependent); C5 net widened −13.9 → bracket −6.3 to −13.9 (the marginal-consistent statement cost of the 31 unimplied boundary transitions given C1+C2 is log₂ C(35,4) = 15.7, net −6.3); §5 sensitivity paragraph rewritten with the explicit three-point C5 bracket (15.7/19.5/23.3, literal ~30) + the sign-flip bound and exact C1 family sizes (12.0/19.0 bits); sub-0.1-bit rounding fixes C2 4.6→4.5, C6+C7 21.2→21.3; abstract, executive summary, footnote 4, and sensitivity table made consistent. No conclusion changes (C5 descriptive under every convention; C1 dominant). Mirrors DESCRIPTION_LENGTH.md. |
+| v1.9 | 2026-07-16 | C5-layer count adopted as the exact 1.097051×10³⁹ (out-of-core symmetry-quotient DP, [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); the prior estimator value 1.0971×10³⁹ ±0.01% matches it to 0.0044%, ratio 0.999956); ledger row and Verification Guide flipped estimate → exact. All bits values unchanged (log₂ = 129.7); C5's net and verdict unchanged (descriptive under every convention); the C3 layer and the flagship 1.3287×10³⁸ remain estimates |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);

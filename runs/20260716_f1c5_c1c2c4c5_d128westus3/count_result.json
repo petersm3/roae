@@ -1,0 +1,35 @@
+{
+  "quantity": "|C1 & C2 & C4 & C5|",
+  "constraints": ["C1 classical pairing", "C2 no distance-5 adjacency", "C4 fixed opening pair (pinned orientation)", "C5 KW transition-distance multiset"],
+  "convention": "orientation-explicit, C4 pair pinned; raw baseline 64!, C1+C4 layer 31!*2^31",
+  "exact_count": "1097051278789181790036112071176579186688",
+  "exact_count_sci": "1.097051e39",
+  "log2_bits": 129.7,
+  "gates": {
+    "free_action_mod24": {"value": 0, "pass": true, "note": "N mod 24 == 0 exactly; run hard-aborts otherwise"},
+    "orbit_count_N_over_24": "45710469949549241251504669632357466112",
+    "estimator_ratio": {"knuth_estimate": "1.0971e39", "ratio": 0.999956, "note": "estimate accurate to 0.0044%"},
+    "burnside_palindrome": {"pairs_verified": 6, "note": "masks(k)=masks(31-k); k10..k21 through k15..k16 recoverable from retained log; peak k15=k16=13047760; terminal k31=1; k0..k9 prints scrolled out on final resume but checked live during campaign"}
+  },
+  "run": {
+    "n_free_pairs": 31,
+    "n_eff": 24,
+    "threads": 128,
+    "layer_format": "out-of-core v2 (per-block gzip)",
+    "b0_boundary_budget": [2, 8, 13, 7, 1],
+    "b0_over_distances": [1, 2, 3, 4, 6],
+    "pair_list_hash": "da2d4756d0535d0e",
+    "solver_commit": "14db3f5",
+    "hardware": "D128als_v7 Spot, westus3, 4 TB scratch disk",
+    "launched": "2026-07-09",
+    "landed": "2026-07-16",
+    "wall_days_approx": 7,
+    "spot_evictions": 12,
+    "eviction_recovery": "all auto-recovered from last complete-layer checkpoint; no lost work",
+    "peak_rss_mb": 13
+  },
+  "reproduce": "./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR   (~64 GB RAM + ~4 TB disk; --resume-from-layers after interruption)",
+  "report": "TR-11 section 9",
+  "status": "published (operator review completed 2026-07-16); TR-11 v1.0 is the authoritative report",
+  "attribution": "direction + orbit-quotient idea: operator; recursion/OOC design + implementation: Claude (Fable 5); landing record: Claude (Opus 4.8); symmetry theorem: TR-5"
+}
