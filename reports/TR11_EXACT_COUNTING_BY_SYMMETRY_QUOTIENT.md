@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.0** (first public release, 2026-07-16; operator review completed and publication approved).*
+*Technical report — **v1.1** (2026-07-17; erratum — see Revision history).*
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -42,8 +42,9 @@ The exact value validates the Knuth estimator absolutely at full scale (stated 7
 deviation 5.5×10⁻⁵) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
 exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension is
 mathematically closed — an exact dead-state-pruning theorem plus a proof that no further state collapse
-exists — and now engineered: measured per-layer footprints reach >2.45 TB for a single layer, refuting
-in-RAM execution on any single purchasable machine, and an out-of-core mode (`--f1-out-of-core`,
+exists — and now engineered: measured per-layer footprints reach >2.45 TB for a single layer — beyond the in-RAM reach of the
+machine classes this project provisioned (up to 2.75 TB RAM + 3.55 TB striped swap; larger single
+nodes exist commercially but were not economically sensible here) — and an out-of-core mode (`--f1-out-of-core`,
 2026-07-05) replaces the RAM requirement with ~4 TB of streamed layer files, validated 4/4 exactly
 against the in-RAM path on independent hardware; the full-scale count **landed 2026-07-16 at
 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, divisible by 24 exactly and
@@ -167,9 +168,11 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
    forward DP holds two adjacent layers live, so the in-RAM peak is at least L14 + L15 > 4.05 TB before
    overheads — layer 15 alone grew past 2.45 TB, 55%+ over the combinatorial-bound estimate
    (entries-per-state growth at full scale exceeded all models), and the in-RAM attempt was retired at
-   that line under its pre-committed abort protocol. **No single purchasable machine suffices**: the
+   that line under its pre-committed abort protocol. **No machine class this project provisioned sufficed**: the
    largest single-node RAM class used (2.75 TB) plus terabyte-scale swap still lost to layer 15's tail.
-   The multi-terabyte-RAM route is not merely expensive; it is empirically dead at full scale — the
+   (Larger single nodes — 6-24 TiB — exist commercially; what is established here is that the
+   multi-terabyte route was empirically dead at the price points this project could justify, not that
+   no such machine exists.) The in-RAM route at this scale is not merely expensive — the
    out-of-core mode was not the fallback, it was the answer. *Second*, the table is the report's answer
    to "what does this computation need": ~64 GB of RAM and ~4 TB of disk (§7), because at most two
    adjacent layers need exist at once and neither needs to be in memory.
@@ -235,7 +238,9 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
      gate above checks directly.
 9. **The full-scale exact count — LANDED (2026-07-16).** The full-31 run completed on 2026-07-16 on the
    retooled solver (gzip'd layers + intra-layer checkpointing, merged to `main` 2026-07-09 commit
-   `14db3f5`; D128als_v7 Spot, westus3, 4 TB disk — the earlier c228/c231/c235 attempts were retired and
+   `14db3f5`; D128als_v7 Spot, westus3, 4 TB disk (the run's first ~3 hours were on a D64 before a same-disk
+   migration to the D128 — layer-checkpoint resume is shape-independent by design, and the migration
+   preceded every layer that reached the final artifact's retained state) — the earlier c228/c231/c235 attempts were retired and
    this was a from-scratch re-run launched 2026-07-09, ~7 days wall spanning 12 Spot evictions, every one
    auto-recovered from the last complete layer checkpoint with no lost work). The result:
    **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**
@@ -328,4 +333,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.0-draft | 2026-07-04 | Initial draft for operator review (not published; not to be cited) |
 | v1.0-draft | 2026-07-05 | #221 fold-in: out-of-core mode (§7, commits 01bf3ef + dbdfb0e) + commodity-hardware reproducibility claim; 4/4 Spot validation ladder incl. kill+resume (§8); OOM/amplification engineering history as limitations-and-mitigations (§8); measured per-layer footprint table L9–L15 (§6); full-31 placeholders [COUNT]/[DIV24]/[RATIO] (§9, c228 in flight). Status unchanged: draft, operator review gates publication |
 | v1.0-draft | 2026-07-16 | **Full-31 count LANDED** (2026-07-16, D128als_v7 Spot westus3, ~7 days / 12 auto-recovered evictions): §9 filled with the exact value **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, N mod 24 = 0 exactly (orbit count N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112), ratio 0.999956 vs the 1.0971×10³⁹ Knuth estimate; tail-layer Burnside-palindrome integrity (6/6 recoverable pairs) + k0–k9-logging caveat recorded; in-flight/placeholder language in exec summary, abstract, §5, §10, and Verification Guide replaced with the landed value. **Landing data-fill by Claude (Opus 4.8); report body authored by Claude (Fable 5) per Attribution. Status: draft, HELD for operator review before publication — do not cite.** |
+| v1.1 | 2026-07-17 | **Erratum (operator-approved):** §abstract/§6's "no single purchasable machine" universal narrowed to the honest measured scope (the machine classes this project provisioned — up to 2.75 TB + 3.55 TB swap — failed; 6–24 TiB single nodes exist commercially and were not tested); §9 discloses the run's first ~3 h ran on a D64 before the same-disk migration to the D128 (layer-checkpoint resume is shape-independent). Neither change affects any number or verification gate. |
 | v1.0 | 2026-07-16 | **First public release.** Operator review completed and publication approved ("do not cite" lifted); relocated from roae-private staging to public `reports/`; §9/§10 staged-for-review status language replaced with published status. No numbers change |
