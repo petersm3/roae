@@ -3275,6 +3275,148 @@ static int resuming_in_progress(void) {
     return found;
 }
 
+/* ---------- Resume-shape contract sidecar (2026-07-17 gate-failure hardening) ----------
+ *
+ * Context: the 2026-07-17 depth-3 100B kill/resume gate FAILED on the
+ * v4-compiler pin 86ec533 (sha_A uninterrupted != sha_B 2x SIGKILL+resume;
+ * root cause under investigation as of this writing). One candidate cause is
+ * thread-shape sensitivity of the depth-3 checkpoint/resume path (project docs
+ * historically describe resume as "same thread count / 128"); the other is a
+ * branch regression. This sidecar is valid hardening under EITHER outcome:
+ * the engine's kill/resume byte-reproducibility contract is only ASSERTED for
+ * (same build, same shape), so a mismatched-shape resume must fail CLOSED
+ * instead of silently producing possibly-shape-dependent bytes.
+ *
+ * Design constraints (deliberately minimal):
+ *   - Does NOT touch the .dfs_state binary format. Additive text sidecar
+ *     "resume_contract.txt" in the run dir; never read by --merge, never part
+ *     of any hashed artifact => sha-neutral to solutions.bin and all shards.
+ *   - FATAL (exit 34) ONLY when a live resume frontier (*.dfs_state) is
+ *     present AND the stamped thread count or depth differs from this run's.
+ *     SOLVE_RESUME_SHAPE_OVERRIDE=1 downgrades to a LOUD warning (operator
+ *     explicitly accepts that byte-reproducibility vs a same-shape
+ *     uninterrupted run is VOIDED for this run dir).
+ *   - Budget changes (node_limit / per-sub-branch) are NOT violations:
+ *     budget extension over a frontier is a designed flow (--selftest-resume's
+ *     50M -> 200M is exactly that); they are logged as a note.
+ *   - Legacy dirs (frontier present, no contract file — every pre-2026-07-17
+ *     campaign dir): WARN + stamp current shape; never fatal retroactively.
+ *   - Stamp write is best-effort (a read-only fs must not kill an enum);
+ *     the CHECK is the load-bearing part and needs no write access.
+ * Called from the full-enum and legacy --branch paths once the final thread
+ * count is known, gated on dfs_checkpoint_enabled (no checkpointing = no
+ * resume machinery = nothing to contract). The f1c5/Stage-G layer builders
+ * intentionally have NO analogous assert: their chunk checkpoint already pins
+ * every byte-determining shape knob (layer k, pl_hash, chunk_cap, BLK, gzip
+ * level, whole-payload CRC), and their emission is slot-ordered per target
+ * mask with exact integer arithmetic, so OMP thread count is provably not
+ * byte-determining there (see f1c5_build_ckpt_read). */
+static int resume_contract_check_and_stamp(int n_threads, int depth,
+                                           long long node_limit_now,
+                                           long long per_sub_limit_now) {
+    const char *fname = "resume_contract.txt";
+    int frontier = resuming_in_progress();
+    FILE *f = fopen(fname, "r");
+    if (f) {
+        int st_threads = -1, st_depth = -1;
+        long long st_nl = -1, st_psb = -1;
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            if (strncmp(line, "threads=", 8) == 0) st_threads = atoi(line + 8);
+            else if (strncmp(line, "depth=", 6) == 0) st_depth = atoi(line + 6);
+            else if (strncmp(line, "node_limit=", 11) == 0) st_nl = atoll(line + 11);
+            else if (strncmp(line, "per_sub_branch_limit=", 21) == 0) st_psb = atoll(line + 21);
+        }
+        fclose(f);
+        if (frontier) {
+            int mismatch = (st_threads > 0 && st_threads != n_threads) ||
+                           (st_depth > 0 && st_depth != depth);
+            if (mismatch) {
+                const char *ov = getenv("SOLVE_RESUME_SHAPE_OVERRIDE");
+                if (ov && atoi(ov) == 1) {
+                    fprintf(stderr,
+                        "[resume-contract] WARNING: resume SHAPE MISMATCH overridden "
+                        "(SOLVE_RESUME_SHAPE_OVERRIDE=1).\n"
+                        "[resume-contract]   stamped: threads=%d depth=%d — current: threads=%d depth=%d\n"
+                        "[resume-contract]   Byte-reproducibility vs an uninterrupted same-shape run is\n"
+                        "[resume-contract]   VOIDED for this run dir. Do NOT treat its outputs as\n"
+                        "[resume-contract]   canonical-grade evidence (2026-07-17 hardening).\n",
+                        st_threads, st_depth, n_threads, depth);
+                } else {
+                    fprintf(stderr,
+                        "FATAL: resume-shape contract violation in this run dir.\n"
+                        "       A resume frontier (*.dfs_state) is present, and %s records that\n"
+                        "       the interrupted run used threads=%d depth=%d — but this run has\n"
+                        "       threads=%d depth=%d. The kill/resume byte-reproducibility contract\n"
+                        "       is only asserted for SAME build + SAME shape; resuming with a\n"
+                        "       different shape may produce silently different bytes\n"
+                        "       (2026-07-17 depth-3 gate-failure hardening).\n"
+                        "       Fix: rerun with SOLVE_THREADS=%d (and SOLVE_DEPTH=%d), or set\n"
+                        "       SOLVE_RESUME_SHAPE_OVERRIDE=1 to proceed anyway (voids\n"
+                        "       byte-reproducibility for this dir).\n",
+                        fname, st_threads, st_depth, n_threads, depth,
+                        st_threads, st_depth);
+                    return 34;
+                }
+            } else {
+                fprintf(stderr, "[resume-contract] OK: resume shape matches stamp "
+                        "(threads=%d depth=%d)\n", n_threads, depth);
+                if ((st_nl >= 0 && st_nl != node_limit_now) ||
+                    (st_psb >= 0 && st_psb != per_sub_limit_now)) {
+                    fprintf(stderr, "[resume-contract] note: budget changed "
+                            "(node_limit %lld -> %lld, per-sub %lld -> %lld) — "
+                            "legitimate extension flow, not a violation.\n",
+                            st_nl, node_limit_now, st_psb, per_sub_limit_now);
+                }
+            }
+        }
+    } else if (frontier) {
+        fprintf(stderr,
+            "[resume-contract] WARN: resume frontier present but no %s (legacy / "
+            "pre-contract run dir) — cannot verify the interrupted run's thread shape. "
+            "Proceeding; stamping current shape (threads=%d depth=%d).\n",
+            fname, n_threads, depth);
+    }
+    /* (Re)stamp the CURRENT shape — atomic tmp+rename, fsync'd so the stamp
+     * is durable before the first checkpoint that could reference it. */
+    char tmpname[64];
+    snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
+    FILE *w = fopen(tmpname, "w");
+    if (!w) {
+        fprintf(stderr, "[resume-contract] WARN: cannot write %s (%s); shape stamp "
+                "skipped (check above still enforced)\n", tmpname, strerror(errno));
+        return 0;   /* stamp is best-effort; never abort a run for it */
+    }
+    char build_sha[80] = {0};
+    (void)read_build_sha_for_provenance(build_sha);  /* OK if empty */
+    char tbuf[64];
+    time_t now = time(NULL); struct tm tm_b;
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
+    fprintf(w,
+        "# resume_contract.txt — resume-shape contract sidecar (2026-07-17 hardening).\n"
+        "# Written at enum start when SOLVE_DFS_CHECKPOINT=1. Read back on resume: a\n"
+        "# threads/depth mismatch against a live *.dfs_state frontier is FATAL (exit 34)\n"
+        "# unless SOLVE_RESUME_SHAPE_OVERRIDE=1. Additive sidecar — never read by\n"
+        "# --merge; sha-neutral. Budget lines are informational (extension is legal).\n"
+        "schema=1\n"
+        "threads=%d\n"
+        "depth=%d\n"
+        "node_limit=%lld\n"
+        "per_sub_branch_limit=%lld\n"
+        "build_sha=%s\n"
+        "stamped_utc=%s\n",
+        n_threads, depth, node_limit_now, per_sub_limit_now,
+        build_sha[0] ? build_sha : "unknown", tbuf);
+    fflush(w);
+    (void)fsync(fileno(w));
+    if (fclose(w) != 0 || rename(tmpname, fname) != 0) {
+        fprintf(stderr, "[resume-contract] WARN: stamp finalize failed (%s); shape "
+                "stamp skipped\n", strerror(errno));
+        unlink(tmpname);
+    }
+    return 0;
+}
+
 static int auto_verify_shard_manifest_if_exists(void) {
     if (getenv("SOLVE_SKIP_AUTO_MANIFEST") && atoi(getenv("SOLVE_SKIP_AUTO_MANIFEST")) == 1) {
         fprintf(stderr, "[hardening] auto-verify-manifest SKIPPED (SOLVE_SKIP_AUTO_MANIFEST=1)\n");
@@ -20165,6 +20307,271 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[--selftest-resume] FAIL - resume sha differs from single-shot\n");
         fprintf(stderr, "             This is the c3ad271 bug-3 class failure.\n");
         return 40;
+    } else if (argc > 1 && strcmp(argv[1], "--selftest-resume-d3") == 0) {
+        /* Depth-3 hard-kill/resume sha-equivalence mini-gate (2026-07-17).
+         *
+         * THE MISSING COVERAGE behind the 2026-07-17 gate failure:
+         * --selftest-resume exercises depth-2 budget-EXTENSION resume only,
+         * while the canonical campaign path is depth-3 with hard-kill (Spot
+         * eviction / SIGKILL) resume. The 2026-07-17 depth-3 100B kill/resume
+         * gate FAILED on pin 86ec533 (sha_A uninterrupted != sha_B 2x
+         * SIGKILL+resume) with no minutes-scale reproducer available. This
+         * subcommand IS that reproducer: a fully-deterministic-inputs
+         * miniature of the failed gate, cheap enough for the pre-push
+         * checkpoint-format gate set.
+         *
+         * Design (defaults pinned; every knob env-overridable):
+         *   Shape: SOLVE_DEPTH=3, SOLVE_THREADS=4 (the gate's pinned shape),
+         *     SOLVE_DFS_ITERATIVE=1, SOLVE_DFS_CHECKPOINT=1,
+         *     SOLVE_FSYNC_BATCH_SIZE=16 (canonical recipe),
+         *     SOLVE_NODE_LIMIT=1583640000 (~1.58B = ~158,364 depth-3 cells
+         *     x PSB; informational once PSB is set),
+         *     SOLVE_PER_SUB_BRANCH_LIMIT=10000 (the operative per-cell
+         *     budget), SOLVE_SKIP_AUTOMERGE=1 + explicit `--merge` per leg
+         *     (the canonical split-pipeline pattern).
+         *   Leg A (dir A): straight-through enum, then merge.
+         *   Leg B (dir B): enum with SOLVE_KILL_AFTER_NODES=<K> — the #165
+         *     deterministic eviction-injection hook (first thread whose
+         *     cumulative node counter reaches K SIGKILLs the process) —
+         *     repeated SOLVE_D3_GATE_KILLS times (default 2, matching the
+         *     failed gate's 2x SIGKILL+resume), then a final uninterrupted
+         *     resume to completion, then merge.
+         *   PASS iff gz-aware sha256(A solutions.bin) == sha256(B).
+         *
+         * Env knobs:
+         *   SOLVE_D3_GATE_ENGINE     — path of the solve binary to TEST
+         *     (default: self). Lets this harness drive a DIFFERENT build
+         *     (e.g. a main-HEAD binary) as a fast regression discriminator;
+         *     the engine only needs the standard checkpoint env surface +
+         *     SOLVE_KILL_AFTER_NODES (#165, 2026-06-16) + `--merge`.
+         *   SOLVE_D3_GATE_THREADS    (default 4)
+         *   SOLVE_D3_GATE_PSB        (default 10000 nodes/cell)
+         *   SOLVE_D3_GATE_NODE_LIMIT (default 1583640000)
+         *   SOLVE_D3_GATE_KILL_NODES (default 130000000 — ~35% of the ~396M
+         *     per-thread total at the default shape, so both kills land
+         *     mid-run)
+         *   SOLVE_D3_GATE_KILLS      (default 2)
+         *   SOLVE_D3_GATE_TMPBASE    (default /tmp; point at /dev/shm on
+         *     slow-OS-disk VMs — each leg dir holds ~160K checkpoint
+         *     sidecars, so fsync cost dominates on low-IOPS disks)
+         *
+         * Wall: minutes at defaults on 4+ modern cores with tmpfs dirs.
+         * Argv-sandboxed (unreachable from any enum run) + sha-neutral.
+         * Exit: 0 PASS; 10/30 setup failure; 40 leg/merge infrastructure
+         * failure; 41 sha MISMATCH (the regression signal); 42 vacuous gate
+         * (kill never fired / no checkpoint state was on disk — retune the
+         * knobs, the gate proved nothing).
+         *
+         * HONESTY NOTE: at this sub-canonical scale shas are code-specific
+         * (CANONICAL_HASHES.md "100B and sub-canonical"), so shas compare
+         * WITHIN one engine build only — leg A vs leg B of the SAME binary.
+         * Cross-build sha equality is neither expected nor checked here. */
+        char solve_path[4096] = {0};
+        ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
+        if (sn <= 0) {
+            fprintf(stderr, "ERROR: readlink failed for --selftest-resume-d3\n");
+            return 10;
+        }
+        solve_path[sn] = 0;
+        const char *engine = getenv("SOLVE_D3_GATE_ENGINE");
+        if (!engine || !*engine) engine = solve_path;
+        const char *tool = sha256_tool();
+        if (!tool) { require_sha256_tool(); return 30; }
+
+        int g_threads = 4, g_kills = 2;
+        long long g_psb = 10000LL, g_nl = 1583640000LL, g_kill = 130000000LL;
+        const char *tmpbase = "/tmp";
+        { const char *e = getenv("SOLVE_D3_GATE_THREADS");    if (e && atoi(e) > 0)  g_threads = atoi(e); }
+        { const char *e = getenv("SOLVE_D3_GATE_PSB");        if (e && atoll(e) > 0) g_psb = atoll(e); }
+        { const char *e = getenv("SOLVE_D3_GATE_NODE_LIMIT"); if (e && atoll(e) > 0) g_nl = atoll(e); }
+        { const char *e = getenv("SOLVE_D3_GATE_KILL_NODES"); if (e && atoll(e) > 0) g_kill = atoll(e); }
+        { const char *e = getenv("SOLVE_D3_GATE_KILLS");      if (e && atoi(e) >= 1) g_kills = atoi(e); }
+        { const char *e = getenv("SOLVE_D3_GATE_TMPBASE");    if (e && *e)           tmpbase = e; }
+
+        char tdir_A[4200], tdir_B[4200];
+        snprintf(tdir_A, sizeof(tdir_A), "%s/solve_d3gate_A_XXXXXX", tmpbase);
+        snprintf(tdir_B, sizeof(tdir_B), "%s/solve_d3gate_B_XXXXXX", tmpbase);
+        if (!mkdtemp(tdir_A)) {
+            fprintf(stderr, "ERROR: mkdtemp A failed under %s\n", tmpbase);
+            return 10;
+        }
+        if (!mkdtemp(tdir_B)) {
+            char rm0[4300]; snprintf(rm0, sizeof(rm0), "rm -rf %s", tdir_A);
+            int _rc0 = system(rm0); (void)_rc0;
+            fprintf(stderr, "ERROR: mkdtemp B failed under %s\n", tmpbase);
+            return 10;
+        }
+
+        char cmd[16384];
+        int rc;
+
+        /* Engine identity for the report (raw file sha; NOT an output sha). */
+        char engine_sha[128] = {0};
+        snprintf(cmd, sizeof(cmd), "%s %s | cut -d' ' -f1", tool, engine);
+        { FILE *fp0 = popen(cmd, "r");
+          if (fp0) { (void)!fgets(engine_sha, sizeof(engine_sha), fp0); pclose(fp0); }
+          for (char *p = engine_sha; *p; p++) if (*p == '\n') { *p = 0; break; } }
+
+        printf("[--selftest-resume-d3] depth-3 hard-kill/resume mini-gate\n");
+        printf("[--selftest-resume-d3] engine: %s\n", engine);
+        printf("[--selftest-resume-d3] engine file sha256: %s\n",
+               engine_sha[0] ? engine_sha : "(unavailable)");
+        printf("[--selftest-resume-d3] shape: threads=%d depth=3 node_limit=%lld psb=%lld "
+               "kill_after=%lld x%d fsync_batch=16\n",
+               g_threads, g_nl, g_psb, g_kill, g_kills);
+        printf("[--selftest-resume-d3] leg A (uninterrupted):    %s\n", tdir_A);
+        printf("[--selftest-resume-d3] leg B (%dx kill+resume):  %s\n", g_kills, tdir_B);
+        fflush(stdout);
+
+        /* Shared env plumbing. The unset scrubs the parent's shape/test vars
+         * (mirrors --selftest's #113 lesson: parent env must not leak into
+         * gate legs); the explicit sets pin the gate's deterministic shape. */
+        #define D3GATE_UNSET \
+            "unset SOLVE_DEPTH SOLVE_THREADS SOLVE_NODE_LIMIT " \
+            "SOLVE_PER_SUB_BRANCH_LIMIT SOLVE_DFS_ITERATIVE SOLVE_DFS_CHECKPOINT " \
+            "SOLVE_FSYNC_BATCH_SIZE SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS " \
+            "SOLVE_KILL_AFTER_NODES SOLVE_CONCENTRATE_BUDGET SOLVE_MEMORY_FLUSH_COUNT " \
+            "SOLVE_RESUME_SHAPE_OVERRIDE SOLVE_SKIP_AUTOMERGE SOLVE_GZIP_LEVEL && "
+        #define D3GATE_ENV \
+            "SOLVE_DEPTH=3 SOLVE_THREADS=%d SOLVE_NODE_LIMIT=%lld " \
+            "SOLVE_PER_SUB_BRANCH_LIMIT=%lld " \
+            "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_FSYNC_BATCH_SIZE=16 " \
+            "SOLVE_SKIP_AUTOMERGE=1 SOLVE_ALLOW_SUB_CANONICAL=1 " \
+            "SOLVE_SKIP_CANONICAL_LOCK=1 SOLVE_SKIP_AUTO_SELFTEST=1 " \
+            "SOLVE_SKIP_AUTO_MANIFEST=1 SOLVE_SKIP_IOPS_CHECK=1 " \
+            "SOLVE_SKIP_HOST_FINGERPRINT=1 SOLVE_SKIP_BINARY_SNAPSHOT=1 " \
+            "SOLVE_SKIP_DISK_CHECK=1 "
+
+        /* ---- Leg A: uninterrupted enum ---- */
+        time_t t0 = time(NULL);
+        snprintf(cmd, sizeof(cmd),
+                 "cd %s && " D3GATE_UNSET D3GATE_ENV "%s 0 > leg_a.log 2>&1",
+                 tdir_A, g_threads, g_nl, g_psb, engine);
+        rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "[--selftest-resume-d3] LEG A enum failed rc=0x%x "
+                    "(see %s/leg_a.log; dirs kept for evidence)\n", rc, tdir_A);
+            return 40;
+        }
+        printf("[--selftest-resume-d3] leg A enum done (%ld s)\n",
+               (long)(time(NULL) - t0));
+        fflush(stdout);
+
+        /* ---- Leg B: g_kills x (enum -> SIGKILL mid-run) then resume to done ---- */
+        int completed_early = 0;
+        for (int k = 1; k <= g_kills; k++) {
+            t0 = time(NULL);
+            snprintf(cmd, sizeof(cmd),
+                     "cd %s && " D3GATE_UNSET D3GATE_ENV
+                     "SOLVE_KILL_AFTER_NODES=%lld %s 0 >> leg_b.log 2>&1",
+                     tdir_B, g_threads, g_nl, g_psb, g_kill, engine);
+            rc = system(cmd);
+            int killed = (WIFEXITED(rc) && WEXITSTATUS(rc) == 137) ||
+                         (WIFSIGNALED(rc) && WTERMSIG(rc) == SIGKILL);
+            if (rc == 0) {
+                if (k == 1) {
+                    fprintf(stderr, "[--selftest-resume-d3] VACUOUS: kill #1 never fired — "
+                            "the run completed before any thread reached %lld nodes. The gate "
+                            "proved nothing. Lower SOLVE_D3_GATE_KILL_NODES or raise the budget. "
+                            "(dirs kept: %s %s)\n", g_kill, tdir_A, tdir_B);
+                    return 42;
+                }
+                printf("[--selftest-resume-d3] note: kill #%d did not fire (resume completed "
+                       "the remaining work first) — %d kill(s) were injected; proceeding\n",
+                       k, k - 1);
+                completed_early = 1;
+                break;
+            }
+            if (!killed) {
+                fprintf(stderr, "[--selftest-resume-d3] LEG B kill-run #%d ended with "
+                        "unexpected status 0x%x (wanted SIGKILL/137; see %s/leg_b.log; "
+                        "dirs kept for evidence)\n", k, rc, tdir_B);
+                return 40;
+            }
+            /* Filesystem truth (not log parsing): mid-run checkpoint state must
+             * exist for the resume to be a real resume. find, not glob (ARG_MAX). */
+            long long nstate = 0;
+            snprintf(cmd, sizeof(cmd),
+                     "find %s -maxdepth 1 -name 'sub_*.dfs_state' 2>/dev/null | wc -l",
+                     tdir_B);
+            { FILE *fp1 = popen(cmd, "r");
+              if (fp1) { char b[64] = {0}; (void)!fgets(b, sizeof(b), fp1);
+                         pclose(fp1); nstate = atoll(b); } }
+            printf("[--selftest-resume-d3] kill #%d fired mid-run (%ld s in); "
+                   "%lld .dfs_state frontier file(s) on disk\n",
+                   k, (long)(time(NULL) - t0), nstate);
+            fflush(stdout);
+            if (nstate <= 0 && k == 1) {
+                fprintf(stderr, "[--selftest-resume-d3] VACUOUS: kill #1 fired but ZERO "
+                        ".dfs_state frontier files exist — nothing checkpointed yet, so the "
+                        "resume degenerates to a fresh start. Raise SOLVE_D3_GATE_KILL_NODES. "
+                        "(dirs kept: %s %s)\n", tdir_A, tdir_B);
+                return 42;
+            }
+        }
+        if (!completed_early) {
+            t0 = time(NULL);
+            snprintf(cmd, sizeof(cmd),
+                     "cd %s && " D3GATE_UNSET D3GATE_ENV "%s 0 >> leg_b.log 2>&1",
+                     tdir_B, g_threads, g_nl, g_psb, engine);
+            rc = system(cmd);
+            if (rc != 0) {
+                fprintf(stderr, "[--selftest-resume-d3] LEG B final resume failed rc=0x%x "
+                        "(see %s/leg_b.log; dirs kept for evidence)\n", rc, tdir_B);
+                return 40;
+            }
+            printf("[--selftest-resume-d3] leg B final resume done (%ld s)\n",
+                   (long)(time(NULL) - t0));
+            fflush(stdout);
+        }
+
+        /* ---- Merge both legs with the SAME engine (split-pipeline pattern) ---- */
+        snprintf(cmd, sizeof(cmd), "cd %s && %s --merge > merge.log 2>&1", tdir_A, engine);
+        rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "[--selftest-resume-d3] LEG A merge failed rc=0x%x "
+                    "(see %s/merge.log; dirs kept)\n", rc, tdir_A);
+            return 40;
+        }
+        snprintf(cmd, sizeof(cmd), "cd %s && %s --merge > merge.log 2>&1", tdir_B, engine);
+        rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "[--selftest-resume-d3] LEG B merge failed rc=0x%x "
+                    "(see %s/merge.log; dirs kept)\n", rc, tdir_B);
+            return 40;
+        }
+        #undef D3GATE_UNSET
+        #undef D3GATE_ENV
+
+        /* gz-aware logical shas (the anchors are decompressed-content shas). */
+        char sol_A[4300], sol_B[4300], sha_A[128] = {0}, sha_B[128] = {0};
+        snprintf(sol_A, sizeof(sol_A), "%s/solutions.bin", tdir_A);
+        snprintf(sol_B, sizeof(sol_B), "%s/solutions.bin", tdir_B);
+        if (sha256_of_logical(sol_A, sha_A, sizeof(sha_A)) != 0 || !sha_A[0] ||
+            sha256_of_logical(sol_B, sha_B, sizeof(sha_B)) != 0 || !sha_B[0]) {
+            fprintf(stderr, "[--selftest-resume-d3] ERROR: could not sha256 merged outputs "
+                    "(dirs kept: %s %s)\n", tdir_A, tdir_B);
+            return 40;
+        }
+
+        printf("[--selftest-resume-d3] sha_A (uninterrupted):   %s\n", sha_A);
+        printf("[--selftest-resume-d3] sha_B (%dx kill+resume): %s\n", g_kills, sha_B);
+
+        if (strcmp(sha_A, sha_B) == 0) {
+            char rm[8600];
+            snprintf(rm, sizeof(rm), "rm -rf %s %s", tdir_A, tdir_B);
+            int _rc = system(rm); (void)_rc;
+            printf("[--selftest-resume-d3] PASS — depth-3 hard-kill/resume produces "
+                   "byte-identical merged output at the pinned shape\n");
+            return 0;
+        }
+        fprintf(stderr, "[--selftest-resume-d3] FAIL — depth-3 kill/resume sha diverges "
+                "from the uninterrupted run at the SAME build + SAME shape.\n");
+        fprintf(stderr, "[--selftest-resume-d3] This is the 2026-07-17 100B gate failure "
+                "class. Run dirs KEPT for evidence:\n");
+        fprintf(stderr, "[--selftest-resume-d3]   A: %s\n", tdir_A);
+        fprintf(stderr, "[--selftest-resume-d3]   B: %s\n", tdir_B);
+        return 41;
     } else if (argc > 1 && strcmp(argv[1], "--validate-canonical") == 0) {
         /* Pre-campaign drift detection gate (task #110, 2026-05-27).
          *
@@ -27060,6 +27467,14 @@ sub_enum_done:
             n_threads = 256;
         }
 
+        /* Resume-shape contract (2026-07-17 hardening) — same assert as the
+         * full-enum path; --branch dirs also carry .dfs_state frontiers. */
+        if (dfs_checkpoint_enabled) {
+            int rc_contract = resume_contract_check_and_stamp(
+                n_threads, solve_depth, node_limit, per_branch_node_limit);
+            if (rc_contract != 0) return rc_contract;
+        }
+
         /* Distribute sub-branches round-robin. Arrays sized for up to
          * 256 threads to match the main threads[256] in the full-enum
          * path. The original [64][64] sizes were a buffer overflow at
@@ -27732,6 +28147,15 @@ sub_enum_done:
     if (n_threads > 256) {  /* restored from 52cac4a (lost in 9f10f05): thread arrays are sized [256]; this clamp prevents a >256-thread stack-buffer overflow (ASan-class bug, cf. task #54). Sha-neutral: no canonical run exceeds 256 threads. */
         fprintf(stderr, "WARNING: thread count %d exceeds the 256 ceiling (thread arrays sized [256]); clamping to 256.\n", n_threads);
         n_threads = 256;
+    }
+
+    /* Resume-shape contract (2026-07-17 hardening): with checkpointing on,
+     * assert this run's shape against the one stamped by the interrupted run
+     * (FATAL on threads/depth mismatch over a live frontier; see helper). */
+    if (dfs_checkpoint_enabled) {
+        int rc_contract = resume_contract_check_and_stamp(
+            n_threads, solve_depth, node_limit, per_branch_node_limit);
+        if (rc_contract != 0) return rc_contract;
     }
 
     /* Distribute sub-branches round-robin across threads */

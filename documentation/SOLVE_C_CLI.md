@@ -156,6 +156,35 @@ Any commit touching the checkpoint format or resume logic MUST keep this
 passing (see the checkpoint-format merge gate). Exits 0 on PASS, non-zero
 on FAIL.
 
+### --selftest-resume-d3
+
+```
+solve --selftest-resume-d3
+```
+
+Depth-3 **hard-kill**/resume sha-equivalence mini-gate (2026-07-17). The
+depth-3 sibling of `--selftest-resume`, covering what that gate does not:
+`--selftest-resume` exercises depth-2 budget-**extension** resume, while
+canonical campaigns run depth-3 with hard-kill (Spot-eviction / SIGKILL)
+resume. Runs two legs at a pinned deterministic shape (depth 3, 4 threads,
+`SOLVE_PER_SUB_BRANCH_LIMIT=10000`, `SOLVE_NODE_LIMIT`≈1.58B,
+iterative+checkpoint, fsync batch 16, `SOLVE_SKIP_AUTOMERGE=1` + explicit
+`--merge` per leg): leg A uninterrupted; leg B interrupted mid-run by the
+`SOLVE_KILL_AFTER_NODES` (#165) SIGKILL hook (default twice), then resumed
+to completion. PASS iff both merged `solutions.bin` gz-aware shas match.
+
+Knobs (defaults in parentheses): `SOLVE_D3_GATE_ENGINE` (self — path of the
+solve binary to drive, enabling cross-build regression discrimination),
+`SOLVE_D3_GATE_THREADS` (4), `SOLVE_D3_GATE_PSB` (10000),
+`SOLVE_D3_GATE_NODE_LIMIT` (1583640000), `SOLVE_D3_GATE_KILL_NODES`
+(130000000), `SOLVE_D3_GATE_KILLS` (2), `SOLVE_D3_GATE_TMPBASE` (`/tmp`;
+use `/dev/shm` on low-IOPS OS disks). Sub-canonical scale ⇒ shas are
+code-specific: legs compare within one engine build only, never across
+builds. Exits **0** PASS / **41** sha mismatch (regression signal) /
+**42** vacuous (kill never fired or no frontier existed) / **40** leg or
+merge infrastructure failure / **10**/**30** setup errors. On FAIL the
+two run dirs are kept for evidence.
+
 ### --validate-canonical
 
 ```
@@ -1241,7 +1270,8 @@ writes a stream of (record_index, density_score) pairs. Used by
 | `SOLVE_PER_SUB_BRANCH_LIMIT` | derived | Per-sub-branch node cap; overrides auto-divide of `SOLVE_NODE_LIMIT`. Setting this also suppresses the sub-canonical hard-gate (intended for partition-invariance and within-code-state runs). |
 | `SOLVE_PER_TASK_NODE_LIMIT` | derived | Per-task cap (depth-3 sub-branch granularity for parallel `--sub-branch`) |
 | `SOLVE_DFS_ITERATIVE` | 0 (recursive); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: iterative DFS using explicit stack frames (resume-capable) |
-| `SOLVE_DFS_CHECKPOINT` | 0 (off); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: write `.dfs_state` per-sub-branch sidecar + `checkpoint.txt` for resume after interrupt or eviction |
+| `SOLVE_DFS_CHECKPOINT` | 0 (off); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: write `.dfs_state` per-sub-branch sidecar + `checkpoint.txt` for resume after interrupt or eviction. Also stamps/enforces the **resume-shape contract** (`resume_contract.txt`, 2026-07-17): resuming over a live `*.dfs_state` frontier with a different thread count or depth than the interrupted run is **FATAL (exit 34)** — kill/resume byte-reproducibility is only asserted for same build + same shape. Legacy dirs without a stamp get a WARN + stamp. |
+| `SOLVE_RESUME_SHAPE_OVERRIDE` | 0 | `=1`: downgrade a resume-shape contract violation from FATAL to a loud WARNING and proceed. Byte-reproducibility vs an uninterrupted same-shape run is **voided** for that run dir — never use on a canonical campaign. |
 | `SOLVE_CKPT_INTERVAL` | 30 (seconds) | Wall-time interval between checkpoint writes |
 | `SOLVE_TEMP_DIR` | (CWD) | Where `--merge` external sort writes `temp_sorted_*.bin` chunks; needs ~1.5× output size |
 | `SOLVE_MERGE_MODE` | auto | `external`: force external sort (use chunks). `memory`: force in-memory merge (fail if doesn't fit) |
@@ -1336,6 +1366,7 @@ completeness and honesty, not as knobs to set.
 | Variable | Default | Effect |
 |---|---|---|
 | `SOLVE_KILL_AFTER_NODES` | unset | Deterministic eviction-injection hook (#165): abort the enumeration after `g_kill_after_nodes` DFS nodes, simulating a Spot eviction at a fixed point so checkpoint/resume can be tested reproducibly. |
+| `SOLVE_D3_GATE_ENGINE` / `_THREADS` / `_PSB` / `_NODE_LIMIT` / `_KILL_NODES` / `_KILLS` / `_TMPBASE` | see `--selftest-resume-d3` | Knobs of the depth-3 hard-kill/resume mini-gate; read only by `--selftest-resume-d3`, never by an enum run. |
 | `SOLVE_F1_KILL_AFTER_CHUNK` | unset (`-1`) | `--f1-out-of-core` deterministic kill hook: terminate the layer build after N emitted chunks, to exercise mid-layer `--resume-from-layers` recovery. |
 | `SOLVE_F1_TEST_LAYER_DELAY_MS` | 0 | `--f1-out-of-core` per-layer artificial delay in milliseconds; widens the eviction window in resume drills / timing tests. |
 | `SOLVE_F6_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_F6=2`: evaluate the 7 F6 functionals on an explicit 64-int sequence (`"h0,h1,...,h63"`), print them comma-separated in `f6_names` order, exit. Two-language test vector gating the C port against `solve.py` f6_* ground truth. |
@@ -1361,10 +1392,12 @@ completeness and honesty, not as knobs to set.
 | **29** | **Disk-space pre-check failed** — projected required bytes for `SOLVE_NODE_LIMIT` exceed free bytes in cwd's filesystem. Recovery: move to a larger filesystem (`solver-data-westus3` has 2 TB free), OR `SOLVE_SKIP_DISK_CHECK=1` if you're confident the projection is wrong. |
 | 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) — or auto-verify-solutions FAIL after merge (C1-C5 violation). For auto-verify case: do NOT archive solutions.bin; investigate. |
 | **31** | **Disk-IOPS pre-check failed** (task #107, retooled #115) — the projected fsync-wait would consume too large a fraction of the estimated enum wall (default cap 25%). The gate runs a **concurrent** probe (`min(threads,32)` pthreads measuring *aggregate* fsync/sec, so it adapts to the box — D64 vs D128 — and to the storage's real parallel throughput, not a single-thread number), projects expected fsyncs (`node_limit / 1.4e7 / SOLVE_FSYNC_BATCH_SIZE`) against estimated wall (`node_limit / (threads × 1e7)`), and refuses if `fsync_wait / est_wall > 0.25`. (The earlier revision gated on a raw single-thread "below 1000 fsync/sec" threshold, which mis-fired on Premium SSD — 218/sec single-thread but 2464/sec concurrent.) Canonical enum's per-shard/.budget/.dfs_state/per-thread-checkpoint fsyncs bottleneck on slow storage. The probe result is recorded in `canonical-host-fingerprint.json` under `disk_iops`. Recovery: put the run-dir on Standard/Premium SSD, OR `SOLVE_SKIP_IOPS_CHECK=1` (skip probe) / `SOLVE_ALLOW_SLOW_IOPS=1` (probe + proceed). |
+| **34** | **Resume-shape contract violation** (2026-07-17) — a live `*.dfs_state` frontier is present and `resume_contract.txt` records a different thread count or depth than this run's. Kill/resume byte-reproducibility is only asserted for same build + same shape. Recovery: rerun with the stamped `SOLVE_THREADS`/`SOLVE_DEPTH`, or `SOLVE_RESUME_SHAPE_OVERRIDE=1` (voids byte-reproducibility for that dir). |
 | 50 | Self-test sha mismatch (regression) |
 
 **Subcommand-specific exit codes** (distinct from the enum-path codes above):
 - `--validate-canonical`: **33** sha mismatch, **40** enum error (in addition to 0/2/10).
+- `--selftest-resume-d3`: **41** sha mismatch (regression signal), **42** vacuous gate (kill never fired / no frontier), **40** leg or merge failure (in addition to 0/10/30).
 - `--disk-precheck`: **5** identity mismatch (wrong disk), **6** insufficient capacity, **7** read-write smoke test failed (in addition to 0/1/2).
 - `--preflight`: returns the first failing in-process gate's code (24 / 29 / 31), else 0.
 - `--canonical-config` / `--validate-launcher-config`: **25** = unknown scale or bad arg count
