@@ -5522,3 +5522,50 @@ wrong." Landed as TR-2 v1.12 (docs-only, sha-neutral); evidence in
 [`reports/evidence/r11/`](../reports/evidence/r11/) (`PHASE2_README.md` + the seed/gate outputs). The
 full four-class comparison remains a separate, unpublished private freeze under the operator's
 resolve-first decision; no four-class verdict exists. Developed with AI assistance (Claude, Anthropic).
+
+## 2026-07-09/16: The exact count lands — twelve evictions, zero lost work, and a 40-digit integer
+
+The full-31 production count — launched 2026-07-09 on the #223-retooled engine (see the 2026-07-08/09
+entry) — ran seven days on a D128als_v7 Spot in westus3 with a 4 TB scratch disk and landed 2026-07-16
+~06:18 UTC:
+
+**|C1 ∩ C2 ∩ C4 ∩ C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688** (≈ 1.097051 × 10³⁹,
+log₂ ≈ 129.7 bits; orientation-explicit sequences, C4's opening pair pinned).
+
+Every pre-committed verification gate passes. **N mod 24 = 0 exactly** — the
+[TR-5](../reports/TR5_SYMMETRY.md) free-action theorem's divisibility gate, predicted before the run and
+re-derivable by any reader with a big-integer library (the orbit count is N/24 =
+45,710,469,949,549,241,251,504,669,632,357,466,112). The ratio to the Knuth estimate is **0.999956** — the
+estimator's second absolute calibration against ground truth (after the 10⁴¹ validation in TR-11), this
+time at 10³⁹, accurate to 0.0044%. And the full 32-layer Burnside palindrome holds: masks(k) = masks(31−k)
+across every recoverable pair, 93,939,712 canonical masks in total, peaking at k = 15/16 with 13,047,760
+each. The operational story is as much the record as the number: **twelve Spot evictions over the seven
+days, every one auto-recovered** from the layer/intra-layer checkpoints with no lost work — the #223
+retool doing precisely what it was built for — while the counting process itself held peak RSS near
+~13 MB, the out-of-core design keeping the terabyte-scale layers on disk throughout.
+
+[TR-11 — Exact Counting by Symmetry Quotient](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+**published the same day** as v1.0 (`438eb24`, operator review completed): the orbit-DP instrument, the
+validation ladder, the 7.5706×10⁴¹ four-minute precursor count, the landed full-31 number, and a
+reproducibility record at
+[`runs/20260716_f1c5_c1c2c4c5_d128westus3/`](../runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md)
+(machine-readable result + gates, per-layer curve, run manifest, preserve-shas — any reader can reproduce
+the count on ~64 GB RAM + ~4 TB of disk). The estimate→exact flips cascaded surgically:
+[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)'s C5-layer ledger row,
+[TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), and
+[DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) now carry the exact value where they previously carried the
+estimate — while **the C1–C5 flagship 1.3287×10³⁸ remains an estimate and C3 remains the open
+obstruction**, stated in every flipped location.
+
+In the same landing window, `sat.py`'s certified model counting was hardened out of an adversarial
+R2-delta review (`cc3663c`): `--certify-count` now **refuses count-unsafe targets** (`--with-c3`/
+`--c3-max` and near-k — the C3 X-variables are one-directional and bare Sinz registers are undetermined,
+so a certified CNF model count would not equal the orderings count) and requires the checker's
+FULL-PROOF SUCCESS line in the proof-check output before declaring a certified count — defense-in-depth
+against ever publishing a "certified" number the certificate doesn't actually carry.
+
+Attribution, as stated in the TR and the run record: direction and the orbit-quotient idea are the
+operator's; the recursion reconstruction, out-of-core streaming design, and implementation are by Claude
+(Fable 5); the count-landing data-fill by Claude (Opus 4.8). The underlying symmetry theorem is TR-5's;
+the technique itself (Burnside/orbit counting, canonical-representative generation, external-memory
+layered DP) is classical — no novelty is claimed for it.
