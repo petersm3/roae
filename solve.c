@@ -15918,6 +15918,407 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     return rc;
 }
 
+/* ==================================================================== */
+/* --walker-subset N — DFS-walker enumeration of a group-closed n-pair
+ * subset instance (R-1 tooling-gap closure, 2026-07-17).
+ *
+ * PURPOSE. The H1/H2 oracle's executed layer needs an engine-to-engine
+ * record-stream compare at exhaustive small-n scopes: the v4-compiler
+ * branch enumerates group-closed pair-subset instances (--f1-pairs N /
+ * --kc-*), but the v4-canonical DFS walker had no matching scope mode.
+ * This mode walks the SAME subset instance — identical pair set (the
+ * f1c5_unions group-closed orbit unions, parsed by the same
+ * f1_parse_subset) and identical boundary budget B0 (the same
+ * deterministic-first-completion f1c5_derive_b0) — EXHAUSTIVELY (no
+ * node budget) with a walker-style DFS, then pushes every leaf through
+ * the PRODUCTION record path:
+ *   - record bytes: (pair<<2)|(orient<<1); slot 0 = anchor pair 0,
+ *     orient 0 (C4); slots 1..n = subset pairs in walk order; slots
+ *     n+1..31 zero-padded (SOL_RECORD_SIZE stays 32; padding is
+ *     masked-equal, so every comparator below behaves exactly as at
+ *     full scope);
+ *   - per-leaf insert: masked-key (0xFC) hash + memcmp-min survivor —
+ *     the add_solution rule;
+ *   - merge: heapsort_records(compare_solutions) + compare_canonical
+ *     dedup + (convention ON) orb_normalize_rec_op — the ratified
+ *     global slot-0-only repr(k), the very functions the production
+ *     merge calls — over a subset OrbitProblem (npairs = n+1,
+ *     pt = pairs, budget0 = within-pair distances + B0; see below for
+ *     why the combined within+boundary budget is exact).
+ *
+ * VALIDITY SCOPE (review C-3 discipline, mirrors the compiler's record
+ * rule): default = the C1&C2&C4&C5 SUPERSPACE (C3-unfiltered), which
+ * is the compiler's record-facing default. --walker-c3-max T applies
+ * the WALK-FUNCTIONAL complement-distance cap (couples counted once,
+ * anchor couple excluded — the compiler's --kc-c3-max units, NOT true
+ * C3 units); the repr search then uses the equivalent orb_recanon_dfs
+ * leaf threshold cd_x64 = 2*T + 2 (that leaf cd counts couples once,
+ * doubles, and INCLUDES the anchor couple {63,0} at |0-1| ⇒ +2).
+ *
+ * Combined-budget exactness (why budget0 = within + boundary is the
+ * same constraint as the class budget B0): each pair's within-pair
+ * distance is FIXED by its identity, so over any complete walk the
+ * within consumption per distance is a constant multiset; a combined
+ * budget is exhausted at a leaf iff the boundary budget alone is
+ * exceeded. Mid-walk, a combined-budget kill fires only when even the
+ * remaining fixed within-consumption cannot fit — i.e. only on truly
+ * dead branches (may explore, never accepts, an invalid completion).
+ *
+ * OUTPUT. stderr = run summary (walks, classes, the sum-m(k)==walks
+ * invariant). stdout = optional streams for the cross-engine compare:
+ *   --walker-stream walks     every walk, one line "e,x,e,x,..."
+ *                             (compiler kc_print_walk format; subset
+ *                             slots only, anchor excluded);
+ *   --walker-stream records   every class record after the full merge
+ *                             path, "m=<m(k)>\trepr\t<e,x,...>" — the
+ *                             same line the compiler's --kc-repr emits;
+ *   --walker-stream both      walks then records;
+ * plus a kc-style "#provenance" trailer ('#'-prefixed so compare glue
+ * can strip it). --walker-out FILE additionally writes a
+ * solutions.bin-format artifact (32-byte ROAE header + 32-byte
+ * records, zero-padded subset slots as above; raw/uncompressed).
+ * --walker-count-only skips the class table + record path entirely
+ * (exhaustive walk count only; O(1) memory — for scopes whose class
+ * count would not fit in RAM).
+ *
+ * Sha-neutral: argv-dispatched only; touches no state used by any
+ * other mode. SOLVE_V4_PRUNES is read inside the dispatch branch with
+ * the same semantics as the enumeration prologue (which this branch
+ * returns before reaching); the record-convention gate is the
+ * production v4_norm_active() (so SOLVE_V4_PRUNES=0 gives the
+ * un-normalized v1/v3-bridge stream, and SOLVE_V4_RECORD_NORM
+ * overrides, exactly as at full scale).
+ *
+ * Attribution: R-1 gap identified in the H1/H2 oracle charter review
+ * (operator direction); mode design and implementation by Claude
+ * (Fable 5), 2026-07-17, developed with AI assistance (Claude,
+ * Anthropic). */
+
+typedef struct {
+    int n;                     /* # subset pairs (anchor excluded) */
+    int pl[32];                /* global pair ids (1..31), f1_parse_subset order */
+    int pa[32], pb[32];        /* pair hexagrams per subset index (== pairs[pl[i]].a/.b, asserted) */
+    int b0[5];                 /* boundary budget per class (f1c5_derive_b0) */
+    int start_exit;
+    long long c3max;           /* walk-functional cd cap; < 0 = superspace */
+    int stream_walks;
+    int count_only;
+    /* DFS state */
+    int rem[5];                /* remaining boundary budget */
+    int8_t pos[64];            /* walk position of placed hexagrams (subset slots; anchor NOT placed) */
+    int order[32], orient[32];
+    int cd;                    /* walk-functional partial complement distance */
+    unsigned long long walks;
+    /* class table: open addressing, masked-key (0xFC), memcmp-min survivor */
+    unsigned char *tab;        /* cap * SOL_RECORD_SIZE */
+    unsigned long long *mult;  /* m(k) per occupied slot */
+    unsigned char *occ;
+    size_t cap, used;
+} WalkerSubset;
+
+static int wsub_masked_eq(const unsigned char *a, const unsigned char *b) {
+    for (int i = 0; i < SOL_RECORD_SIZE; i++)
+        if ((a[i] & 0xFC) != (b[i] & 0xFC)) return 0;
+    return 1;
+}
+
+static size_t wsub_hash_slot(const unsigned char *rec, size_t cap) {
+    unsigned long long ch = 14695981039346656037ULL;
+    for (int i = 0; i < SOL_RECORD_SIZE; i++) { ch ^= (rec[i] & 0xFC); ch *= 1099511628211ULL; }
+    SOL_HASH_MIX(ch);
+    return (size_t)(ch & (cap - 1));
+}
+
+static void wsub_tab_alloc(WalkerSubset *W, size_t cap) {
+    W->cap = cap;
+    W->used = 0;
+    W->tab = (unsigned char *)calloc(cap, SOL_RECORD_SIZE);
+    W->mult = (unsigned long long *)calloc(cap, sizeof(unsigned long long));
+    W->occ = (unsigned char *)calloc(cap, 1);
+    if (!W->tab || !W->mult || !W->occ) {
+        fprintf(stderr, "FATAL: [walker-subset] class table alloc failed (cap=%zu)\n", cap);
+        exit(1);
+    }
+}
+
+static void wsub_tab_grow(WalkerSubset *W) {
+    unsigned char *otab = W->tab, *oocc = W->occ;
+    unsigned long long *omult = W->mult;
+    size_t ocap = W->cap;
+    wsub_tab_alloc(W, ocap * 4);
+    for (size_t i = 0; i < ocap; i++) {
+        if (!oocc[i]) continue;
+        const unsigned char *rec = &otab[i * SOL_RECORD_SIZE];
+        size_t idx = wsub_hash_slot(rec, W->cap);
+        while (W->occ[idx]) idx = (idx + 1) & (W->cap - 1);
+        memcpy(&W->tab[idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
+        W->mult[idx] = omult[i];
+        W->occ[idx] = 1;
+        W->used++;
+    }
+    free(otab); free(omult); free(oocc);
+}
+
+/* add_solution's dedup rule at subset scope: one slot per masked key,
+ * memcmp-min full record survives; m(k) accumulates the class size. */
+static void wsub_insert(WalkerSubset *W, const unsigned char *rec) {
+    if ((W->used + 1) * 10 >= W->cap * 7) wsub_tab_grow(W);
+    size_t idx = wsub_hash_slot(rec, W->cap);
+    while (W->occ[idx]) {
+        unsigned char *ex = &W->tab[idx * SOL_RECORD_SIZE];
+        if (wsub_masked_eq(ex, rec)) {
+            W->mult[idx]++;
+            if (memcmp(rec, ex, SOL_RECORD_SIZE) < 0)
+                memcpy(ex, rec, SOL_RECORD_SIZE);
+            return;
+        }
+        idx = (idx + 1) & (W->cap - 1);
+    }
+    memcpy(&W->tab[idx * SOL_RECORD_SIZE], rec, SOL_RECORD_SIZE);
+    W->mult[idx] = 1;
+    W->occ[idx] = 1;
+    W->used++;
+}
+
+/* One walk as a compiler-format text line: "e,x,e,x,...\n" over the n
+ * subset slots (anchor excluded) — byte-compatible with kc_print_walk. */
+static void wsub_print_walk_line(const WalkerSubset *W) {
+    for (int j = 0; j < W->n; j++) {
+        int i = W->order[j], o = W->orient[j];
+        printf("%s%d,%d", j ? "," : "",
+               o ? W->pb[i] : W->pa[i],    /* entry */
+               o ? W->pa[i] : W->pb[i]);   /* exit  */
+    }
+    printf("\n");
+}
+
+/* One class record as the compiler's --kc-repr line:
+ * "m=<m>\trepr\t<e,x,...>\n" (subset slots 1..n of the 32-byte record). */
+static void wsub_print_record_line(const unsigned char *rec, int n, unsigned long long m) {
+    printf("m=%llu\trepr\t", m);
+    for (int j = 1; j <= n; j++) {
+        int P = (rec[j] >> 2) & 0x3F, O = (rec[j] >> 1) & 1;
+        printf("%s%d,%d", j > 1 ? "," : "",
+               O ? pairs[P].b : pairs[P].a,
+               O ? pairs[P].a : pairs[P].b);
+    }
+    printf("\n");
+}
+
+static void wsub_dfs(WalkerSubset *W, uint32_t used, int depth, int last) {
+    if (depth == W->n) {
+        W->walks++;
+        if (W->stream_walks) wsub_print_walk_line(W);
+        if (!W->count_only) {
+            unsigned char rec[SOL_RECORD_SIZE];
+            memset(rec, 0, SOL_RECORD_SIZE);
+            /* slot 0 = anchor pair 0, orient 0 (C4) => byte 0x00 */
+            for (int j = 0; j < W->n; j++)
+                rec[1 + j] = (unsigned char)((W->pl[W->order[j]] << 2) | (W->orient[j] << 1));
+            wsub_insert(W, rec);
+        }
+        if ((W->walks % 1000000000ULL) == 0)
+            fprintf(stderr, "[walker-subset] ... %llu walks\n", W->walks);
+        return;
+    }
+    for (int i = 0; i < W->n; i++) {
+        if (used & (1u << i)) continue;
+        for (int o = 0; o < 2; o++) {
+            int e = o ? W->pb[i] : W->pa[i];
+            int x = o ? W->pa[i] : W->pb[i];
+            int bd = hamming(last, e);
+            if (bd == 5) continue;                       /* C2 */
+            int cls = F1C5_CLS[bd];
+            if (W->rem[cls] == 0) continue;              /* C5 boundary budget */
+            /* walk-functional C3 partial (couples once, walk positions;
+             * matches kc_repr_dfs / --kc-c3-max semantics exactly) */
+            int add = 0;
+            W->pos[e] = (int8_t)(2 * depth);
+            if (W->pos[63 ^ e] >= 0) add += abs((int)W->pos[e] - (int)W->pos[63 ^ e]);
+            W->pos[x] = (int8_t)(2 * depth + 1);
+            if (W->pos[63 ^ x] >= 0) add += abs((int)W->pos[x] - (int)W->pos[63 ^ x]);
+            if (W->c3max >= 0 && (long long)(W->cd + add) > W->c3max) {
+                /* monotone partial sum ⇒ admissible exact prune */
+                W->pos[e] = -1; W->pos[x] = -1;
+                continue;
+            }
+            W->rem[cls]--;
+            W->cd += add;
+            W->order[depth] = i;
+            W->orient[depth] = o;
+            wsub_dfs(W, used | (1u << i), depth + 1, x);
+            W->rem[cls]++;
+            W->cd -= add;
+            W->pos[e] = -1;
+            W->pos[x] = -1;
+        }
+    }
+}
+
+static int walker_subset_main(int npairs, long long c3max, const char *outfile,
+                              int stream_mode, int count_only) {
+    init_pairs();
+    init_kw_dist();
+    kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+    f1_build_group();
+    const char *spec = NULL;
+    for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
+        if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
+    if (!spec) {
+        fprintf(stderr, "ERROR: [walker-subset] N=%d has no group-closed orbit union; "
+                "supported: 9,13,16,18,19,24,25,27,28 (full-31 IS the production walker)\n",
+                npairs);
+        return 2;
+    }
+    int pl[32], n, start_exit;
+    if (f1_parse_subset(spec, pl, &n, &start_exit) != 0) return 2;
+    F1_CHECK(n == npairs, "union table inconsistency (%d != %d)", n, npairs);
+    if (start_exit != 0) {
+        fprintf(stderr, "ERROR: [walker-subset] requires an @0 union "
+                "(anchor exit 0 = the C4 orientation)\n");
+        return 2;
+    }
+    F1Ctx *c = (F1Ctx *)calloc(1, sizeof(F1Ctx));
+    F1_CHECK(c != NULL, "ctx alloc failed");
+    f1_ctx_init(c, n, pl, start_exit);
+    int b0[5];
+    f1c5_derive_b0(c, 0, b0);
+    /* cross-table asserts: the F1 pair table and the production pairs[]
+     * table must agree (both are (KW[2p], KW[2p+1]), asserted not assumed) */
+    F1_CHECK(pairs[0].a == 63 && pairs[0].b == 0, "anchor pair must be (63,0)");
+    for (int i = 0; i < n; i++)
+        F1_CHECK(c->pa[i] == pairs[pl[i]].a && c->pb[i] == pairs[pl[i]].b,
+                 "F1 vs production pair-table drift at pair %d", pl[i]);
+
+    /* SOLVE_V4_PRUNES: same semantics as the enumeration prologue (this
+     * argv branch returns before that code runs). Convention gate below
+     * is the production v4_norm_active(). */
+    { char *e = getenv("SOLVE_V4_PRUNES");
+      if (e && atoi(e) == 0) v4_prunes_enabled = 0; }
+    int norm_on = v4_norm_active();
+
+    WalkerSubset *W = (WalkerSubset *)calloc(1, sizeof(WalkerSubset));
+    F1_CHECK(W != NULL, "walker-subset alloc failed");
+    W->n = n;
+    W->start_exit = start_exit;
+    W->c3max = c3max;
+    W->stream_walks = (stream_mode & 1);
+    W->count_only = count_only;
+    for (int i = 0; i < n; i++) { W->pl[i] = pl[i]; W->pa[i] = c->pa[i]; W->pb[i] = c->pb[i]; }
+    for (int d = 0; d < 5; d++) { W->b0[d] = b0[d]; W->rem[d] = b0[d]; }
+    memset(W->pos, -1, sizeof(W->pos));
+    if (!count_only) wsub_tab_alloc(W, 1u << 12);
+
+    fprintf(stderr, "[walker-subset] n=%d pairs [", n);
+    for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
+    fprintf(stderr, "] start_exit=%d B0=(%d,%d,%d,%d,%d) scope=%s convention=%s\n",
+            start_exit, b0[0], b0[1], b0[2], b0[3], b0[4],
+            c3max >= 0 ? "C1C2C4C5+walk-cd-cap" : "C1C2C4C5-SUPERSPACE(C3-unfiltered)",
+            norm_on ? "v4-repr(k)-ON" : "OFF(v1/v3-bridge)");
+
+    double t0 = omp_get_wtime();
+    wsub_dfs(W, 0, 0, start_exit);
+    fprintf(stderr, "[walker-subset] exhaustive DFS done: walks=%llu (%.2fs)\n",
+            W->walks, omp_get_wtime() - t0);
+
+    int rc = 0;
+    if (!count_only) {
+        /* production merge path: sort (compare_solutions) + dedup
+         * (compare_canonical) + repr(k) normalization (merge-stage only) */
+        size_t nc = W->used;
+        unsigned char *all = (unsigned char *)malloc(nc ? nc * SOL_RECORD_SIZE : 1);
+        F1_CHECK(all != NULL, "merge buffer alloc failed");
+        unsigned long long summ = 0;
+        { size_t w = 0;
+          for (size_t i = 0; i < W->cap; i++)
+              if (W->occ[i]) {
+                  memcpy(&all[w * SOL_RECORD_SIZE], &W->tab[i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
+                  summ += W->mult[i];
+                  w++;
+              }
+          F1_CHECK(w == nc, "class table walk inconsistency"); }
+        F1_CHECK(summ == W->walks, "sum m(k) (%llu) != walks (%llu) — class accounting broken",
+                 summ, W->walks);
+        if (nc > 0)
+            heapsort_records(all, nc, SOL_RECORD_SIZE, compare_solutions);
+        size_t unique = 0;
+        for (size_t i = 0; i < nc; i++) {
+            if (i == 0 || compare_canonical(&all[i * SOL_RECORD_SIZE],
+                                            &all[(i - 1) * SOL_RECORD_SIZE]) != 0) {
+                if (unique != i)
+                    memcpy(&all[unique * SOL_RECORD_SIZE], &all[i * SOL_RECORD_SIZE], SOL_RECORD_SIZE);
+                unique++;
+            }
+        }
+        F1_CHECK(unique == nc, "post-sort dedup removed records — masked-key table broken");
+        if (norm_on && nc > 0) {
+            OrbitProblem wop;
+            memset(&wop, 0, sizeof(wop));
+            wop.npairs = n + 1;
+            wop.pt = pairs;
+            /* combined within+boundary budget (exact — see module header) */
+            wop.budget0[hamming(pairs[0].a, pairs[0].b)]++;      /* anchor within (d=6) */
+            for (int i = 0; i < n; i++)
+                wop.budget0[hamming(pairs[pl[i]].a, pairs[pl[i]].b)]++;
+            for (int d = 0; d < 5; d++) wop.budget0[F1C5_DVAL[d]] += b0[d];
+            /* repr validity scope == enumeration scope: walker leaf cd is
+             * couples-once, doubled, anchor couple included ⇒ 2*T + 2 */
+            wop.cd_thresh_x64 = (c3max >= 0) ? (int)(2 * c3max + 2) : (1 << 30);
+            for (size_t i = 0; i < unique; i++)
+                orb_normalize_rec_op(&wop, &all[i * SOL_RECORD_SIZE]);
+        }
+        if (stream_mode & 2) {
+            for (size_t i = 0; i < unique; i++) {
+                const unsigned char *rec = &all[i * SOL_RECORD_SIZE];
+                /* m(k) lookup by masked key (normalization leaves it unchanged) */
+                size_t idx = wsub_hash_slot(rec, W->cap);
+                while (W->occ[idx] && !wsub_masked_eq(&W->tab[idx * SOL_RECORD_SIZE], rec))
+                    idx = (idx + 1) & (W->cap - 1);
+                F1_CHECK(W->occ[idx], "record lost from class table");
+                wsub_print_record_line(rec, n, W->mult[idx]);
+            }
+        }
+        if (outfile) {
+            FILE *f = fopen(outfile, "wb");
+            if (!f) {
+                fprintf(stderr, "ERROR: [walker-subset] cannot open %s\n", outfile);
+                rc = 1;
+            } else {
+                if (sol_write_header(f, (uint64_t)unique) != 0 ||
+                    (unique > 0 &&
+                     fwrite(all, SOL_RECORD_SIZE, unique, f) != unique)) {
+                    fprintf(stderr, "ERROR: [walker-subset] write failed on %s\n", outfile);
+                    rc = 1;
+                }
+                if (fclose(f) != 0) rc = 1;
+                if (rc == 0)
+                    fprintf(stderr, "[walker-subset] wrote %zu records to %s "
+                            "(solutions.bin v1 format; subset slots 0..%d, zero-padded to 32)\n",
+                            unique, outfile, n);
+            }
+        }
+        fprintf(stderr, "[walker-subset] walks=%llu classes(records)=%zu sum_m=%llu\n",
+                W->walks, unique, summ);
+        free(all);
+        free(W->tab); free(W->mult); free(W->occ);
+    } else {
+        fprintf(stderr, "[walker-subset] walks=%llu (count-only; no record path)\n", W->walks);
+    }
+    /* kc-style provenance trailer ('#'-prefixed; compare glue strips it) */
+    printf("#provenance\tengine=solve.c/walker-subset\tbranch=v4-canonical\tgit=%s\t"
+           "source_sha=%s\tn=%d\t"
+           "convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14"
+           "(repr=orient-lex-min,slot-0-only)%s\t",
+           GIT_HASH, SOURCE_SHA, n, norm_on ? "" : "[INACTIVE:v1/v3-bridge]");
+    if (c3max >= 0)
+        printf("validity=C1C2C4C5+walk-cd<=%lld(walk-functional-units;see-module-header)\n", c3max);
+    else
+        printf("validity=C1C2C4C5-SUPERSPACE(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))\n");
+    free(W);
+    free(c);
+    return rc;
+}
+
 /* ---------- Main ---------- */
 
 int main(int argc, char *argv[]) {
@@ -18133,6 +18534,44 @@ int main(int argc, char *argv[]) {
             return 2;
         }
         return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume);
+    } else if (argc > 1 && strcmp(argv[1], "--walker-subset") == 0) {
+        /* R-1 tooling-gap closure (2026-07-17): exhaustive DFS-walker
+         * enumeration of a group-closed n-pair subset instance through the
+         * production record path — see the walker_subset_main module header. */
+        int ws_npairs = (argc > 2) ? atoi(argv[2]) : -1;
+        long long ws_c3max = -1;
+        const char *ws_out = NULL;
+        int ws_stream = 0, ws_count_only = 0, ws_argerr = (ws_npairs <= 0);
+        for (int ai = 3; ai < argc && !ws_argerr; ai++) {
+            if (strcmp(argv[ai], "--walker-c3-max") == 0 && ai + 1 < argc)
+                ws_c3max = atoll(argv[++ai]);
+            else if (strcmp(argv[ai], "--walker-out") == 0 && ai + 1 < argc)
+                ws_out = argv[++ai];
+            else if (strcmp(argv[ai], "--walker-count-only") == 0)
+                ws_count_only = 1;
+            else if (strcmp(argv[ai], "--walker-stream") == 0 && ai + 1 < argc) {
+                ++ai;
+                if (strcmp(argv[ai], "walks") == 0) ws_stream = 1;
+                else if (strcmp(argv[ai], "records") == 0) ws_stream = 2;
+                else if (strcmp(argv[ai], "both") == 0) ws_stream = 3;
+                else if (strcmp(argv[ai], "none") == 0) ws_stream = 0;
+                else ws_argerr = 1;
+            } else
+                ws_argerr = 1;
+        }
+        if (ws_argerr) {
+            fprintf(stderr, "Usage: solve --walker-subset N [--walker-c3-max T] "
+                    "[--walker-out FILE] [--walker-stream walks|records|both|none] "
+                    "[--walker-count-only]\n"
+                    "  N in {9,13,16,18,19,24,25,27,28} — group-closed pair-orbit unions "
+                    "(same table as --f1-pairs; full-31 IS the production walker)\n"
+                    "  T: walk-functional complement-distance cap (the compiler's "
+                    "--kc-c3-max units); default = C1&C2&C4&C5 superspace (C3-unfiltered)\n"
+                    "  streams (stdout) byte-match the v4-compiler kc formats "
+                    "(kc_print_walk / --kc-repr lines) for cross-engine compares\n");
+            return 2;
+        }
+        return walker_subset_main(ws_npairs, ws_c3max, ws_out, ws_stream, ws_count_only);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
