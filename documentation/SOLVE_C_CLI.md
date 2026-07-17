@@ -62,6 +62,8 @@ solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--f1-out-of-core DIR]
                                                         # exact |C1∩C2∩C4∩C5| orbit DP
 solve --f1c5-gzip-selftest | --f1c5-verify-layer <v1> <v2>
                                                         # f1c5 layer-codec self-test / cross-check
+solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]          # sha256 of a layer's DECOMPRESSED stream
+solve --f1c5-layer-cmp FILE_A FILE_B                    # decompressed-stream layer byte-compare
 solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
 ```
 
@@ -844,6 +846,53 @@ content (#223). Both path arguments are required (exit 2 on usage error or read
 error); exit 1 on a content mismatch, 0 on match. This is the format-invariance
 check that backs the "count is format-invariant" claim for the OOC DP.
 Sha-neutral.
+
+### --f1c5-layer-sha
+
+```
+solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]
+```
+
+Prints, for each f1c5 layer file, the sha256 of its **decompressed logical
+stream** — `masks[nm] | off[nm+1] | keys[ne] | vals[ne]`, exactly the bytes the
+v2 layer reader yields to the DP, inflated in order through the same per-block
+codec the engine uses (CR-3b, 2026-07-16). Because the digest is defined on
+decompressed bytes, it is **immune to zlib version/level byte differences** in
+the compressed file: the same layer written at `SOLVE_F1_OOC_GZIP_LEVEL=1` and
+`=9` (raw-byte shas differ) produces the same `--f1c5-layer-sha`. Both formats
+are accepted — a **v1** raw (`F1C5LAY1`) and **v2** per-block-gzip (`F1C5LAY2`)
+layer of the same build digest identically (for v1 the logical stream *is* the
+file body after the 72-byte header, so `tail -c +73 file | sha256sum`
+reproduces the digest independently). The layer header is not digested. This is
+the zlib-independent registration digest for Stage-F layer ladders (V2
+layer-sha registration).
+
+Output per file: `sha256(decompressed) <hex>  <file>  (blocks=N, bytes=M)`
+where N is the number of compressed blocks inflated (0 for v1) and M the
+decompressed logical byte count. A DIR argument expands to its
+`f1c5_layer_NN.bin` files in layer order. The digest itself is computed by the
+system SHA-256 tool (`sha256sum` / `shasum -a 256` — the project's standard
+external digest mechanism), streamed with bounded memory (one block in
+flight). Integrity checks (block-size match, index monotonicity, exact file
+size) mirror the resume loader's; truncation or corruption fails loudly. Exit
+0 on success, 2 on file/tool error, 30 if no SHA-256 tool is on PATH.
+Sha-neutral (argv-dispatched, never on the enumeration/count path).
+
+### --f1c5-layer-cmp
+
+```
+solve --f1c5-layer-cmp FILE_A FILE_B
+```
+
+Byte-compares the **decompressed logical streams** of two f1c5 layer files,
+streaming both in lockstep with bounded memory (CR-3b, 2026-07-16). Formats
+and compression levels may differ (v1 vs v2, or v2 written at different zlib
+levels) — equality is defined on the logical stream, so this is the
+zlib-independent equality check for Stage-F layer comparisons. On mismatch it
+reports the **first divergence offset** in the decompressed stream, the
+section it falls in (`masks`/`off`/`keys`/`vals`) with the element index, and
+the differing byte values; a length divergence reports which stream ended
+first and at what offset. Exit 0 identical, 1 divergent, 2 error. Sha-neutral.
 
 ### --merge
 

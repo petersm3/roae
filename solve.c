@@ -13118,16 +13118,22 @@ typedef struct {
     uint32_t pad;
 } F1C5LayerHdr;
 
-static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                             const F1C5Layer *L) {
+/* Prefix/magic-parameterized v1 layer writer (Stage G, 2026-07-16): the g
+ * suffix-DP ladder shares this exact serialization with "g_layer_%02d.bin"
+ * file names and "F1C5GLY1" magic, so f- and g-layer files can never be
+ * confused by a reader. f1c5_write_layer() below keeps the historical
+ * signature and behavior byte-for-byte (pfx="f1c5", magic="F1C5LAY1"). */
+static void f1c5_write_layer_as(const char *dir, const char *pfx, const char *magic,
+                                const F1Ctx *c, const F1C5Budget *B,
+                                const F1C5Layer *L) {
     char fin[4096], tmp[4104];
-    snprintf(fin, sizeof(fin), "%s/f1c5_layer_%02d.bin", dir, L->k);
+    snprintf(fin, sizeof(fin), "%s/%s_layer_%02d.bin", dir, pfx, L->k);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
     FILE *f = fopen(tmp, "wb");
     if (!f) f1_ckpt_io_abort("fopen", tmp);
     F1C5LayerHdr h;
     memset(&h, 0, sizeof(h));
-    memcpy(h.magic, "F1C5LAY1", 8);
+    memcpy(h.magic, magic, 8);
     h.version = 1;
     h.n = (uint32_t)c->n;
     h.k = (uint32_t)L->k;
@@ -13148,14 +13154,24 @@ static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *
     f1_fsync_dir(dir);
 }
 
-static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                                int last_complete_k) {
+static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                             const F1C5Layer *L) {
+    f1c5_write_layer_as(dir, "f1c5", "F1C5LAY1", c, B, L);
+}
+
+/* Prefix-parameterized manifest writer (Stage G, 2026-07-16): the g ladder
+ * writes "g_manifest.txt" with first line "g_manifest_v1" and the SAME fields.
+ * last_complete_k semantics per direction: forward (f) manifests record the
+ * HIGHEST built layer (complete ladder <=> n); backward (g) manifests record
+ * the LOWEST built layer (layers K..n present; complete ladder <=> 0). */
+static void f1c5_write_manifest_as(const char *dir, const char *pfx, const F1Ctx *c,
+                                   const F1C5Budget *B, int last_complete_k) {
     char fin[4096], tmp[4104];
-    snprintf(fin, sizeof(fin), "%s/f1c5_manifest.txt", dir);
+    snprintf(fin, sizeof(fin), "%s/%s_manifest.txt", dir, pfx);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
     FILE *f = fopen(tmp, "w");
     if (!f) f1_ckpt_io_abort("fopen", tmp);
-    fprintf(f, "f1c5_manifest_v1\nn=%d\nstart_exit=%d\npl=", c->n, c->start_exit);
+    fprintf(f, "%s_manifest_v1\nn=%d\nstart_exit=%d\npl=", pfx, c->n, c->start_exit);
     for (int i = 0; i < c->n; i++) fprintf(f, "%s%d", i ? "," : "", c->pl[i]);
     fprintf(f, "\npl_hash=%016llx\nb0=%d,%d,%d,%d,%d\nlast_complete_k=%d\n",
             (unsigned long long)f1_pl_hash(c),
@@ -13166,6 +13182,11 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
     f1_fsync_dir(dir);
 }
 
+static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                                int last_complete_k) {
+    f1c5_write_manifest_as(dir, "f1c5", c, B, last_complete_k);
+}
+
 /* Returns last_complete_k and fills *L on successful resume; -1 if no
  * manifest. Mismatch or corrupt layer file is a hard error (wrong dir).
  * index_only (#221 out-of-core): load only masks+off (the index); entries
@@ -13173,10 +13194,18 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
  * always loaded in full — the total needs its entries, and it is tiny (one
  * canonical mask). */
 static uint64_t f1c5_v2_kblk_base(uint64_t nm, uint64_t ne);   /* fwd decl (defined w/ the v2 codec) */
-static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
-                           int index_only, int *out_is_v2) {
+/* Prefix/direction-parameterized resume loader (Stage G, 2026-07-16): the g
+ * (backward suffix-DP) ladder resumes through this same code with pfx="g",
+ * is_g=1 — g layer files carry "F1C5GLY1"/"F1C5GLY2" magic, and the manifest's
+ * last_complete_k counts DOWN (lowest built layer; layers lk..n present).
+ * The final-total layer for g is layer 0 (for f it is layer n), which flips
+ * the always-load-the-total-layer-in-full special case. f1c5_try_resume()
+ * keeps the historical production signature/behavior. */
+static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
+                              const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
+                              int index_only, int *out_is_v2) {
     char path[4096];
-    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     char line[2048];
@@ -13196,15 +13225,15 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
              "manifest in %s does not match this run (n=%d/%d start=%d/%d) — wrong --layers-dir?",
              dir, n, c->n, se, c->start_exit);
     F1_CHECK(lk >= 0 && lk <= c->n, "manifest last_complete_k=%d out of range", lk);
-    snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, lk);
+    snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, lk);
     f = fopen(path, "rb");
     if (!f) f1_ckpt_io_abort("fopen (resume layer)", path);
     F1C5LayerHdr h;
     if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
     int hb0_ok = 1;
     for (int d = 0; d < 5; d++) if (h.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
-    int is_v2 = (memcmp(h.magic, "F1C5LAY2", 8) == 0 && h.version == 2);
-    int is_v1 = (memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1);
+    int is_v2 = (memcmp(h.magic, is_g ? "F1C5GLY2" : "F1C5LAY2", 8) == 0 && h.version == 2);
+    int is_v1 = (memcmp(h.magic, is_g ? "F1C5GLY1" : "F1C5LAY1", 8) == 0 && h.version == 1);
     F1_CHECK((is_v1 || is_v2) &&
              h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
              h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c) && hb0_ok,
@@ -13213,7 +13242,7 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
     L->k = lk;
     L->nm = h.n_masks;
     L->ne = h.n_entries;
-    int idx_only = index_only && lk < c->n;
+    int idx_only = index_only && (is_g ? lk > 0 : lk < c->n);
     L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
     L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
     F1_CHECK(L->masks && L->off, "resume alloc failed");
@@ -13269,6 +13298,11 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
     fclose(f);
     F1_CHECK(L->off[0] == 0 && L->off[L->nm] == L->ne, "resume offset table corrupt");
     return lk;
+}
+
+static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
+                           int index_only, int *out_is_v2) {
+    return f1c5_try_resume_as(dir, "f1c5", 0, c, B, L, index_only, out_is_v2);
 }
 
 /* ---------- gather core ---------- */
@@ -13658,6 +13692,312 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
     return bad ? 1 : 0;
 }
 
+/* ============ CR-3b: decompressed-stream layer sha256 / byte-compare ============
+ * --f1c5-layer-sha FILE|DIR [...]   and   --f1c5-layer-cmp FILE_A FILE_B
+ *
+ * Layer files are an interchange asset (Stage F preserve-all-layers substrate,
+ * V2 layer-sha registration), but a v2 (F1C5LAY2) file's RAW bytes are zlib-
+ * artifact-dependent: the same logical content recompressed at a different
+ * level — or by a different zlib build — changes every compressed block, so a
+ * raw-file sha256 cannot certify layer equality across hosts/levels. These
+ * subcommands digest/compare the DECOMPRESSED logical stream instead — exactly
+ * the bytes the v2 reader yields to the DP, in reader order:
+ *
+ *     masks[nm] (u32) || off[nm+1] (u64) || keys[ne] (u32) || vals[ne] (u192)
+ *
+ * i.e. byte-identical to the F1C5LAY1 (v1 raw) body and to what
+ * f1c5_verify_layer compares. v2 blocks are inflated IN ORDER through
+ * f1c5_inflate_block — the same core codec helper every engine v2 read path
+ * uses (f1c5_v2_read_range, the kc OOC block cache, f1c5_verify_layer) — so
+ * the digest covers precisely what the engine reads and is immune to zlib
+ * version/level byte differences. v1 files are accepted too (their body IS the
+ * logical stream), so a v1 and v2 layer of the same build digest identically.
+ * The layer HEADER is not digested (it carries format metadata — version,
+ * block size — that legitimately differs across formats of equal content).
+ *
+ * sha256 comes from the project's existing external-tool mechanism
+ * (sha256_tool(): sha256sum / shasum -a 256 — the same tool the selftest and
+ * every canonical digest use), fed via a streaming write-mode pipe: no new
+ * dependencies, no in-process hash implementation, bounded memory (one block
+ * in flight). --f1c5-layer-cmp streams both files in lockstep and reports the
+ * first divergence offset (in the logical stream) on mismatch.
+ *
+ * Sha-neutral: argv-dispatched only; zero interaction with the enumeration /
+ * count paths. Integrity checks mirror f1c5_try_resume (block-size match,
+ * index monotonicity + compressBound bound, exact file-size check) so
+ * truncation/corruption fails loudly before or during the stream.
+ * CR-3b (campaign-review pre-verdict deliverable), 2026-07-16,
+ * Claude (Fable), operator-directed. */
+
+typedef struct {
+    FILE *f;
+    const char *path;
+    F1C5LayerHdr h;
+    int is_v2;
+    uint64_t nm, ne, nblk;     /* nblk = v2 entry blocks (0 for v1) */
+    uint64_t *kidx, *vidx;     /* v2 only: per-block compressed offsets */
+    int section;               /* 0 masks, 1 off, 2 keys, 3 vals, 4 EOF */
+    uint64_t raw_left;         /* bytes left in the current raw-read section */
+    uint64_t blk;              /* next block index (v2 keys/vals sections) */
+    uint64_t logical;          /* logical (decompressed) bytes yielded */
+    uint64_t blocks;           /* compressed blocks inflated */
+    uint8_t *cbuf;             /* one compressed block (v2 only) */
+    uint8_t *dbuf;             /* one decompressed block / raw chunk */
+    uint64_t dcap;
+} F1c5LayerStream;
+
+static void f1c5_lstream_close(F1c5LayerStream *S) {
+    if (S->f) fclose(S->f);
+    free(S->kidx); free(S->vidx); free(S->cbuf); free(S->dbuf);
+    memset(S, 0, sizeof(*S));
+}
+
+/* Open a layer file (v1 or v2) for logical-stream reading. Prints and returns
+ * -1 on any structural problem (wrong magic, truncation, corrupt index). */
+static int f1c5_lstream_open(const char *path, F1c5LayerStream *S) {
+    memset(S, 0, sizeof(*S));
+    S->path = path;
+    S->f = fopen(path, "rb");
+    if (!S->f) { fprintf(stderr, "ERROR: cannot open %s\n", path); return -1; }
+    if (fread(&S->h, sizeof(S->h), 1, S->f) != 1) {
+        fprintf(stderr, "ERROR: %s: short read on layer header\n", path);
+        f1c5_lstream_close(S); return -1;
+    }
+    S->is_v2 = (memcmp(S->h.magic, "F1C5LAY2", 8) == 0 && S->h.version == 2);
+    int is_v1 = (memcmp(S->h.magic, "F1C5LAY1", 8) == 0 && S->h.version == 1);
+    if (!S->is_v2 && !is_v1) {
+        fprintf(stderr, "ERROR: %s is not an f1c5 layer file (magic/version mismatch)\n", path);
+        f1c5_lstream_close(S); return -1;
+    }
+    S->nm = S->h.n_masks;
+    S->ne = S->h.n_entries;
+    S->nblk = S->is_v2 ? (S->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK : 0;
+    fseek(S->f, 0, SEEK_END);
+    uint64_t fsz = (uint64_t)ftell(S->f);
+    uint64_t expect;
+    if (S->is_v2) {
+        if (S->h.pad != F1C5_OOC_BLK) {
+            fprintf(stderr, "ERROR: %s: v2 block size mismatch (file=%u, build=%u)\n",
+                    path, S->h.pad, (unsigned)F1C5_OOC_BLK);
+            f1c5_lstream_close(S); return -1;
+        }
+        S->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (S->nblk + 1));
+        S->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (S->nblk + 1));
+        F1_CHECK(S->kidx && S->vidx, "layer-stream index alloc failed");
+        uint64_t idx_off = sizeof(F1C5LayerHdr) + 4ull * S->nm + 8ull * (S->nm + 1);
+        fseek(S->f, (long)idx_off, SEEK_SET);
+        if (fread(S->kidx, sizeof(uint64_t), S->nblk + 1, S->f) != S->nblk + 1 ||
+            fread(S->vidx, sizeof(uint64_t), S->nblk + 1, S->f) != S->nblk + 1) {
+            fprintf(stderr, "ERROR: %s: short read on v2 block index (truncated?)\n", path);
+            f1c5_lstream_close(S); return -1;
+        }
+        /* index sanity BEFORE any block read drives a pread/inflate — mirrors
+         * f1c5_try_resume's corrupt-index guards. */
+        const uint64_t maxblk = (uint64_t)compressBound(24ull * F1C5_OOC_BLK);
+        int idx_ok = (S->kidx[0] == 0 && S->vidx[0] == 0);
+        for (uint64_t b = 0; idx_ok && b < S->nblk; b++)
+            if (S->kidx[b + 1] < S->kidx[b] || S->vidx[b + 1] < S->vidx[b] ||
+                S->kidx[b + 1] - S->kidx[b] > maxblk || S->vidx[b + 1] - S->vidx[b] > maxblk)
+                idx_ok = 0;
+        if (!idx_ok) {
+            fprintf(stderr, "ERROR: %s: v2 block index corrupt\n", path);
+            f1c5_lstream_close(S); return -1;
+        }
+        expect = f1c5_v2_kblk_base(S->nm, S->ne) + S->kidx[S->nblk] + S->vidx[S->nblk];
+    } else {
+        expect = sizeof(F1C5LayerHdr) + 4ull * S->nm + 8ull * (S->nm + 1) +
+                 4ull * S->ne + 24ull * S->ne;
+    }
+    if (fsz != expect) {
+        fprintf(stderr, "ERROR: %s: file size %llu != expected %llu (truncated/corrupt)\n",
+                path, (unsigned long long)fsz, (unsigned long long)expect);
+        f1c5_lstream_close(S); return -1;
+    }
+    fseek(S->f, (long)sizeof(F1C5LayerHdr), SEEK_SET);   /* -> masks */
+    S->section = 0;
+    S->raw_left = 4ull * S->nm;
+    S->dcap = 24ull * F1C5_OOC_BLK;   /* >= any inflated block; raw chunk size too */
+    S->dbuf = (uint8_t *)malloc(S->dcap);
+    S->cbuf = S->is_v2 ? (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK)) : NULL;
+    F1_CHECK(S->dbuf && (!S->is_v2 || S->cbuf), "layer-stream buffer alloc failed");
+    return 0;
+}
+
+/* Advance to the next section, resetting the per-section cursor. For v2 the
+ * file layout is masks|off|kidx|vidx|kblocks|vblocks and kidx/vidx were
+ * pre-loaded at open, so entering the keys section skips over the index bytes
+ * (block reads are then purely sequential: kblocks are contiguous, vblocks
+ * follow immediately). */
+static void f1c5_lstream_advance(F1c5LayerStream *S) {
+    S->section++;
+    switch (S->section) {
+    case 1: S->raw_left = 8ull * (S->nm + 1); break;
+    case 2:
+        if (S->is_v2) { fseek(S->f, (long)(2 * 8 * (S->nblk + 1)), SEEK_CUR); S->blk = 0; }
+        else S->raw_left = 4ull * S->ne;
+        break;
+    case 3:
+        if (S->is_v2) S->blk = 0;
+        else S->raw_left = 24ull * S->ne;
+        break;
+    default: break;   /* 4 = EOF */
+    }
+}
+
+/* Yield the next chunk of the logical stream (raw for masks/off/v1 body,
+ * inflated block for v2 keys/vals). Returns the chunk length (0 = EOF) and
+ * sets *out to an internal buffer valid until the next call. Hard-fails
+ * (F1_CHECK) on short reads / inflate errors. */
+static uint64_t f1c5_lstream_next(F1c5LayerStream *S, const uint8_t **out) {
+    while (S->section < 4) {
+        int raw = (S->section <= 1) || !S->is_v2;
+        if (raw) {
+            if (S->raw_left == 0) { f1c5_lstream_advance(S); continue; }
+            uint64_t want = S->raw_left < S->dcap ? S->raw_left : S->dcap;
+            F1_CHECK(fread(S->dbuf, 1, want, S->f) == want,
+                     "%s: short read at logical offset %llu",
+                     S->path, (unsigned long long)S->logical);
+            S->raw_left -= want;
+            S->logical += want;
+            *out = S->dbuf;
+            return want;
+        }
+        if (S->blk >= S->nblk) { f1c5_lstream_advance(S); continue; }
+        uint64_t b = S->blk++;
+        uint64_t e0 = b * F1C5_OOC_BLK, e1 = e0 + F1C5_OOC_BLK;
+        if (e1 > S->ne) e1 = S->ne;
+        uint64_t bn = e1 - e0;
+        const uint64_t *idx = (S->section == 2) ? S->kidx : S->vidx;
+        uint64_t clen = idx[b + 1] - idx[b];
+        uint64_t unit = (S->section == 2) ? 4ull : 24ull;
+        F1_CHECK(fread(S->cbuf, 1, clen, S->f) == clen,
+                 "%s: short read on %s block %llu",
+                 S->path, S->section == 2 ? "keys" : "vals", (unsigned long long)b);
+        f1c5_inflate_block(S->cbuf, clen, (Bytef *)S->dbuf, unit * bn);
+        S->blocks++;
+        S->logical += unit * bn;
+        *out = S->dbuf;
+        return unit * bn;
+    }
+    return 0;
+}
+
+/* Classify a logical-stream offset into its section for divergence reports. */
+static const char *f1c5_lstream_locate(const F1c5LayerStream *S, uint64_t off, uint64_t *idx) {
+    uint64_t a = 4ull * S->nm, b = a + 8ull * (S->nm + 1), c = b + 4ull * S->ne;
+    if (off < a) { *idx = off / 4; return "masks"; }
+    if (off < b) { *idx = (off - a) / 8; return "off"; }
+    if (off < c) { *idx = (off - b) / 4; return "keys"; }
+    *idx = (off - c) / 24; return "vals";
+}
+
+/* --f1c5-layer-sha worker: digest one layer file's decompressed logical stream
+ * through the external sha256 tool (streamed via a write-mode pipe; the tool's
+ * one-line output goes to a /tmp file read back after pclose). Returns 0 ok,
+ * 2 on any error. */
+static int f1c5_layer_sha_file(const char *path) {
+    F1c5LayerStream S;
+    if (f1c5_lstream_open(path, &S) != 0) return 2;
+    const char *tool = sha256_tool();   /* caller ran require_sha256_tool() */
+    char tmp[128];
+    snprintf(tmp, sizeof(tmp), "/tmp/solve_lsha_%d", (int)getpid());
+    char cmd[192];
+    snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
+    FILE *p = popen(cmd, "w");
+    if (!p) {
+        fprintf(stderr, "ERROR: popen(%s) failed\n", cmd);
+        f1c5_lstream_close(&S); return 2;
+    }
+    const uint8_t *chunk;
+    uint64_t len;
+    while ((len = f1c5_lstream_next(&S, &chunk)) > 0) {
+        if (fwrite(chunk, 1, len, p) != len) {
+            fprintf(stderr, "ERROR: pipe write to %s failed\n", tool);
+            pclose(p); unlink(tmp); f1c5_lstream_close(&S); return 2;
+        }
+    }
+    int prc = pclose(p);
+    if (prc != 0) {
+        fprintf(stderr, "ERROR: %s exited rc=%d\n", tool, prc);
+        unlink(tmp); f1c5_lstream_close(&S); return 2;
+    }
+    char hex[65] = {0};
+    FILE *tf = fopen(tmp, "r");
+    int ok = 0;
+    if (tf) {
+        char buf[256] = {0};
+        if (fgets(buf, sizeof(buf), tf)) {
+            int i = 0;
+            while (i < 64 && buf[i] && buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\n') {
+                hex[i] = buf[i]; i++;
+            }
+            hex[i] = '\0';
+            ok = (i == 64);
+        }
+        fclose(tf);
+    }
+    unlink(tmp);
+    if (!ok) {
+        fprintf(stderr, "ERROR: could not parse %s output for %s\n", tool, path);
+        f1c5_lstream_close(&S); return 2;
+    }
+    printf("sha256(decompressed) %s  %s  (blocks=%llu, bytes=%llu)\n",
+           hex, path, (unsigned long long)S.blocks, (unsigned long long)S.logical);
+    f1c5_lstream_close(&S);
+    return 0;
+}
+
+/* --f1c5-layer-cmp worker: lockstep byte-compare of two layers' decompressed
+ * logical streams (bounded memory: one chunk per stream in flight). Formats
+ * may differ (v1 vs v2, or v2 at different zlib levels) — equality is defined
+ * on the logical stream. Returns 0 identical, 1 divergent, 2 error. */
+static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
+    F1c5LayerStream A, B;
+    if (f1c5_lstream_open(pa, &A) != 0) return 2;
+    if (f1c5_lstream_open(pb, &B) != 0) { f1c5_lstream_close(&A); return 2; }
+    if (A.nm != B.nm || A.ne != B.ne)
+        fprintf(stderr, "WARN: header geometry differs (nm %llu/%llu, ne %llu/%llu) — "
+                "streams cannot match; locating first byte divergence\n",
+                (unsigned long long)A.nm, (unsigned long long)B.nm,
+                (unsigned long long)A.ne, (unsigned long long)B.ne);
+    const uint8_t *ca = NULL, *cb = NULL;
+    uint64_t la = 0, lb = 0, ia = 0, ib = 0, off = 0;
+    int rc = 0;
+    for (;;) {
+        if (ia == la) { la = f1c5_lstream_next(&A, &ca); ia = 0; }
+        if (ib == lb) { lb = f1c5_lstream_next(&B, &cb); ib = 0; }
+        if (la == 0 || lb == 0) {
+            if (la != lb) {
+                printf("[f1c5-layer-cmp] *** DIVERGENT *** at offset %llu: %s ends, %s continues "
+                       "(decompressed streams differ in length)\n",
+                       (unsigned long long)off, la == 0 ? pa : pb, la == 0 ? pb : pa);
+                rc = 1;
+            }
+            break;
+        }
+        uint64_t m = la - ia < lb - ib ? la - ia : lb - ib;
+        if (memcmp(ca + ia, cb + ib, m) != 0) {
+            uint64_t j = 0;
+            while (j < m && ca[ia + j] == cb[ib + j]) j++;
+            uint64_t sidx;
+            const char *sec = f1c5_lstream_locate(&A, off + j, &sidx);
+            printf("[f1c5-layer-cmp] *** DIVERGENT *** first difference at decompressed offset "
+                   "%llu (section %s, index %llu): 0x%02x vs 0x%02x\n",
+                   (unsigned long long)(off + j), sec, (unsigned long long)sidx,
+                   ca[ia + j], cb[ib + j]);
+            rc = 1;
+            break;
+        }
+        ia += m; ib += m; off += m;
+    }
+    if (rc == 0)
+        printf("[f1c5-layer-cmp] IDENTICAL decompressed streams (bytes=%llu)\n",
+               (unsigned long long)off);
+    f1c5_lstream_close(&A);
+    f1c5_lstream_close(&B);
+    return rc;
+}
+
 /* v2 read: decompress entry range [e0,e1) of a v2 layer into kbuf/vbuf such that
  * kbuf[i]=keys[e0+i], vbuf[i]=vals[e0+i]. Uses the in-RAM block index kidx/vidx;
  * preads each covering compressed block and inflates it. Scratch ktmp/vtmp hold
@@ -13695,10 +14035,13 @@ static void f1c5_v2_read_range(int fd, const uint64_t *kidx, const uint64_t *vid
  * L->kidx/L->vidx (freeing any prior) so the caller can read this layer back
  * without reloading the index. Used for the tiny layer 0 and the non-OOC path.
  * Compressed blocks are staged in RAM (< the raw layer already resident). */
-static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                                F1C5Layer *L, int level) {
+/* Prefix/magic-parameterized v2 writer (Stage G, 2026-07-16; see
+ * f1c5_write_layer_as). f1c5_write_layer_v2() keeps the production behavior. */
+static void f1c5_write_layer_v2_as(const char *dir, const char *pfx, const char *magic,
+                                   const F1Ctx *c, const F1C5Budget *B,
+                                   F1C5Layer *L, int level) {
     char fin[4096], tmp[4104];
-    snprintf(fin, sizeof(fin), "%s/f1c5_layer_%02d.bin", dir, L->k);
+    snprintf(fin, sizeof(fin), "%s/%s_layer_%02d.bin", dir, pfx, L->k);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
     const uint64_t ne = L->ne;
     const uint64_t nblk = (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;   /* 0 if ne==0 */
@@ -13724,7 +14067,7 @@ static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budge
     FILE *f = fopen(tmp, "wb");
     if (!f) f1_ckpt_io_abort("fopen", tmp);
     F1C5LayerHdr h; memset(&h, 0, sizeof(h));
-    memcpy(h.magic, "F1C5LAY2", 8);
+    memcpy(h.magic, magic, 8);
     h.version = 2; h.n = (uint32_t)c->n; h.k = (uint32_t)L->k;
     h.start_exit = (uint32_t)c->start_exit; h.pl_hash = f1_pl_hash(c);
     h.n_masks = L->nm; h.n_entries = ne;
@@ -13744,6 +14087,11 @@ static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budge
     f1_fsync_dir(dir);
     free(kbuf); free(vbuf); free(kc); free(vc);
     free(L->kidx); free(L->vidx); L->kidx = kidx; L->vidx = vidx;
+}
+
+static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                                F1C5Layer *L, int level) {
+    f1c5_write_layer_v2_as(dir, "f1c5", "F1C5LAY2", c, B, L, level);
 }
 
 /* v2 layout offsets for a layer with nm masks and ne entries: the compressed
@@ -13901,7 +14249,12 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
  * endian native, matching f1c5_build_ckpt_read): magic[8], nxt_k, pl_hash,
  * chunk_cap, BLK, t0_next, off[0..t0_next], nblk, kidx[0..nblk], vidx[0..nblk],
  * fill, bk[0..fill], bv[0..fill], mass{l0,l1,l2}, states, io{read,written,windows}. */
-static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_hash,
+/* pfx (Stage G, 2026-07-16): the marker file is "<pfx>_build.ckpt" — the g
+ * (backward) ladder builder reuses this exact machinery with pfx="g", so an
+ * f and a g build can never read each other's marker even in a shared dir.
+ * Production callers pass "f1c5" (marker path byte-identical to before). */
+static void f1c5_build_ckpt_write(const char *dir, const char *pfx,
+                                  uint64_t nxt_k, uint64_t pl_hash,
                                   uint64_t chunk_cap, uint64_t t0_next,
                                   const uint64_t *off, const F1C5V2Out *o,
                                   const F1U192 *mass, uint64_t states,
@@ -13911,8 +14264,8 @@ static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_h
     if (fsync(o->kfd) != 0) f1_ckpt_io_abort("fsync (ckpt kblk)", o->kpath);
     if (fsync(o->vfd) != 0) f1_ckpt_io_abort("fsync (ckpt vblk)", o->vpath);
     char fin[4200], tmp[4224];
-    snprintf(fin, sizeof(fin), "%s/f1c5_build.ckpt", dir);
-    snprintf(tmp, sizeof(tmp), "%s/f1c5_build.ckpt.tmp", dir);
+    snprintf(fin, sizeof(fin), "%s/%s_build.ckpt", dir, pfx);
+    snprintf(tmp, sizeof(tmp), "%s/%s_build.ckpt.tmp", dir, pfx);
     int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (fd < 0) f1_ckpt_io_abort("open (build ckpt tmp)", tmp);
     const uint64_t blk = (uint64_t)F1C5_OOC_BLK;
@@ -13968,11 +14321,12 @@ static void f1c5_build_ckpt_free(F1C5BuildCkptData *d) {
  * fills *d on a valid, usable resume point; returns 0 (fresh build) otherwise,
  * unlinking a present-but-unusable marker so it can never mislead a later run.
  * ofin is the final layer path (its .kblk.tmp/.vblk.tmp sidecars are checked). */
-static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_k,
+static int f1c5_build_ckpt_read(const char *dir, const char *pfx,
+                                const char *ofin, uint64_t nxt_k,
                                 uint64_t pl_hash, uint64_t chunk_cap,
                                 F1C5BuildCkptData *d) {
     char path[4200];
-    snprintf(path, sizeof(path), "%s/f1c5_build.ckpt", dir);
+    snprintf(path, sizeof(path), "%s/%s_build.ckpt", dir, pfx);
     FILE *f = fopen(path, "rb");
     if (!f) return 0;   /* no marker => fresh (not an error) */
     memset(d, 0, sizeof(*d));
@@ -14157,7 +14511,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     F1C5BuildCkptData ckpt;
     int have_ckpt = 0;
     if (use_v2) {
-        have_ckpt = f1c5_build_ckpt_read(dir, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+        have_ckpt = f1c5_build_ckpt_read(dir, "f1c5", ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt);
         if (have_ckpt) {
             f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
@@ -14372,7 +14726,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                  (uint64_t)kill_after_chunk == ci);
             const double now = omp_get_wtime();
             if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
-                f1c5_build_ckpt_write(dir, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                f1c5_build_ckpt_write(dir, "f1c5", (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
                                       t0_next, nxt->off, &v2o, &mass, states, io);
                 last_ckpt_wt = now;
                 if (do_kill) {
@@ -14925,6 +15279,12 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       class-uniform, emitting repr(k) records
  *   --kc-enum DIR [--kc-c3-max T] [--kc-limit M] in-order enumeration, C3 in-path optional
  *
+ *   Stage G (the backward suffix-count DP; see the KC-G module header below
+ *   for semantics, the f*g identity, and gates):
+ *   --kc-g-selftest                     n=9 exhaustive + n=13 spot g gates
+ *   --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc]   build + retain the g ladder
+ *   --kc-g-check FDIR GDIR              f*g cut identity at every layer (V3)
+ *
  *   Common: [--kc-ooc] force the out-of-core reader at any n (v2 dirs and
  *   n > 22 select it automatically); [--kc-cache-mb MB] block-cache size.
  *   Record-facing outputs (--kc-repr; --kc-record; --kc-class-uniform)
@@ -15013,6 +15373,30 @@ static inline void kc_u192_sub(F1U192 *a, const F1U192 *b) {   /* a -= b; caller
     uint64_t bor1 = (t < b->l1) || (a->l1 < t);
     a->l1 -= t;
     a->l2 -= b->l2 + bor1;
+}
+
+/* Exact 192x192 -> 192 product; any bits beyond 2^192 hard-abort via the same
+ * f1_overflow_abort discipline as f1_add/f1_mul_small. Used by the Stage-G
+ * f*g cut-identity gate: each product f(k,s)*g(k,s) counts the walks through
+ * state s, hence is <= N_total < 2^192 whenever the ladder itself fit — an
+ * overflow is a defect, never a representable value. */
+static F1U192 kc_u192_mul(const F1U192 *a, const F1U192 *b) {
+    /* partial products with limb weight i+j >= 3 must vanish */
+    if ((a->l2 && (b->l1 | b->l2)) || (a->l1 && b->l2)) f1_overflow_abort();
+    F1U192 r = {0, 0, 0};
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j + i < 3; j++) {
+            const uint64_t x = (&a->l0)[i], y = (&b->l0)[j];
+            if (!x || !y) continue;
+            unsigned __int128 p = (unsigned __int128)x * y;
+            F1U192 t = {0, 0, 0};
+            (&t.l0)[i + j] = (uint64_t)p;
+            uint64_t hi = (uint64_t)(p >> 64);
+            if (i + j + 1 < 3) (&t.l0)[i + j + 1] = hi;
+            else if (hi) f1_overflow_abort();
+            f1_add(&r, &t);   /* aborts on carry out of the high limb */
+        }
+    return r;
 }
 
 static int kc_u192_from_dec(const char *s, F1U192 *out) {
@@ -15123,16 +15507,121 @@ static int kc_init(KC *kc, int npairs) {
 
 static void kc_free(KC *kc);   /* fwd decl: kc_ooc_free is defined below */
 
+/* ---------- Stage-G backward gather core (the g suffix-DP; 2026-07-16) ----------
+ * g(k, m, l, rid) = the number of valid COMPLETIONS (suffixes x_{k+1}..x_n)
+ * from a layer-k state — the reverse-direction analogue of f. Recurrence
+ * (pull form, per layer-k target from the layer-k+1 g-values):
+ *
+ *   g(k, m, l, rid) = sum over pairs i not in m, exits x in {pa[i], pb[i]},
+ *                     e = partner(x), cls = class(d(l, e)) valid,
+ *                     dig[cls][rid] < b0[cls]:
+ *                         g(k+1, m | bit(i), x, rid + rad[cls])
+ *
+ * g is G-equivariant under the SAME hexagram lifts as f (the L3 bijection
+ * applied to suffixes: transitions are Hamming-isometric, P\m maps to
+ * P\pi.m, final counts preserved), so g is stored on the SAME canonical-mask
+ * quotient with the same (last << 16 | rid) keys and kc_flookup serves it
+ * unchanged. STORED DOMAIN (mirrors f exactly): keys with last in the
+ * elements of m's pairs (k >= 1; last = start_exit at k = 0) — precisely the
+ * states f can reach, which is closed under the recurrence (x belongs to
+ * pair i, a pair of the successor mask) and is all the f*g identity and the
+ * O3 ranker ever consume. g is well-defined on other `last` values too but
+ * they are never stored (keeps the g ladder f-sized; documented deviation). */
+
+/* last-exit domain of states at (k, tm): the 2k elements of tm's pairs, or
+ * the anchor at k=0. Returns the count; dom must hold 2*KC_MAX_PAIRS ints. */
+static int kc_g_dom(const F1Ctx *c, int start_exit, uint32_t tm, int k, int *dom) {
+    if (k == 0) { dom[0] = start_exit; return 1; }
+    int nd = 0;
+    uint32_t rem = tm;
+    while (rem) {
+        int i = __builtin_ctz(rem);
+        rem &= rem - 1;
+        dom[nd++] = c->pa[i];
+        dom[nd++] = c->pb[i];
+    }
+    return nd;
+}
+
+/* lower bound: first index in [0, ne) with keys[idx] >= key */
+static inline uint64_t kc_g_lb(const uint32_t *keys, uint64_t ne, uint32_t key) {
+    uint64_t lo = 0, hi = ne;
+    while (lo < hi) {
+        uint64_t mid = (lo + hi) >> 1;
+        if (keys[mid] < key) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+}
+
+/* Per-successor-span backward kernel (analogue of f1c5_gather_entries): apply
+ * ONE canonical successor's entry span (g-layer k+1) to the layer-k target
+ * scratch scr[last * vk0 + loc0[rid]]. hmap = the canonicalizing element's
+ * hexagram map (raw successor frame -> stored frame); fa/fb = pair i's two
+ * hexagrams (raw). Only entries whose stored last-exit is pair i's element
+ * (the walk's k+1-th placement) contribute — located by binary search on the
+ * two mapped key ranges, entries within a mask being key-ascending. Budget:
+ * a successor rid' descends to rid = rid' - rad[cls] iff dig[cls][rid'] >= 1
+ * (then dig[cls][rid] < b0[cls] automatically). Pull-only + exact adds =>
+ * the same per-target purity (K2a) as the forward kernel. */
+static inline void kc_g_gather_pair(const F1C5Budget *B, const uint32_t *keys,
+                                    const F1U192 *vals, uint64_t ne,
+                                    const uint8_t *hmap, int fa, int fb,
+                                    const int *dom, int ndom,
+                                    const int32_t *loc0, int vk0, F1U192 *scr) {
+    for (int o = 0; o < 2; o++) {
+        const int x = o ? fa : fb;        /* exit committed at the successor */
+        const int ehex = o ? fb : fa;     /* entry hexagram = partner(x) */
+        const uint32_t chi = hmap[x];     /* stored last-exit in the canonical frame */
+        const uint64_t lo = kc_g_lb(keys, ne, chi << 16);
+        const uint64_t hi = kc_g_lb(keys, ne, (chi + 1u) << 16);
+        for (uint64_t e = lo; e < hi; e++) {
+            const uint32_t rid1 = keys[e] & 0xffffu;
+            const F1U192 *gv = &vals[e];
+            for (int d = 0; d < ndom; d++) {
+                const int l = dom[d];
+                const int cls = F1C5_CLS[__builtin_popcount((unsigned)(l ^ ehex))];
+                if (cls < 0 || B->dig[cls][rid1] == 0) continue;
+                const int32_t l0 = loc0[rid1 - B->rad[cls]];
+                F1_CHECK(l0 >= 0, "[kc-g] sum-invariant violation in backward gather");
+                f1_add(&scr[(size_t)l * (size_t)vk0 + (size_t)l0], gv);
+            }
+        }
+    }
+}
+
+/* Pull all successor contributions for canonical layer-k target tm from the
+ * in-RAM g layer k+1 (src). Mirrors f1c5_gather_target with the transition
+ * reversed: successors tm | bit(i) canonicalized, spans read via the SAME
+ * f1_canon/hmap frame mapping kc_flookup uses. */
+static void kc_g_gather_target(const KC *kc, const F1C5Layer *src, uint32_t tm,
+                               int k, const int32_t *loc0, int vk0, F1U192 *scr) {
+    int dom[2 * KC_MAX_PAIRS];
+    const int ndom = kc_g_dom(&kc->c, kc->start_exit, tm, k, dom);
+    for (int i = 0; i < kc->n; i++) {
+        if ((tm >> i) & 1) continue;
+        int g;
+        uint32_t csucc = f1_canon(&kc->c, tm | (1u << i), &g);
+        int64_t si = f1_bsearch_u32(src->masks, src->nm, csucc);
+        if (si < 0) continue;
+        kc_g_gather_pair(&kc->B, src->keys + src->off[si], src->vals + src->off[si],
+                         src->off[si + 1] - src->off[si], kc->c.el[g].hmap,
+                         kc->c.pa[i], kc->c.pb[i], dom, ndom, loc0, vk0, scr);
+    }
+}
+
 /* Build one layer k1 = prev->k + 1 from prev, into nxt (freshly zeroed).
  * order (optional): a permutation of [0, n_targets) giving target PROCESSING
  * order; emission always lands at the target's own off[] slot, so the output
  * bytes are order-independent BY CONSTRUCTION (pull-gather + exact-integer
  * adds) — the partition-invariance gate rebuilds with scrambled orders and
  * byte-compares to regression-proof exactly this property. serial != 0
- * forces single-threaded processing. */
+ * forces single-threaded processing. gdir != 0 (Stage G, 2026-07-16) builds
+ * BACKWARD: nxt is layer k1 = prev->k - 1 gathered from the g layer prev via
+ * kc_g_gather_target — the identical two-pass/emit/offset skeleton, so the
+ * partition-invariance argument (and its gates) covers both directions. */
 static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
-                           const uint64_t *order, int serial) {
-    const int k1 = prev->k + 1;
+                           const uint64_t *order, int serial, int gdir) {
+    const int k1 = gdir ? prev->k - 1 : prev->k + 1;
     nxt->k = k1;
     f1_enum_canonical(&kc->c, k1, &nxt->masks, &nxt->nm);
     nxt->off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt->nm + 1));
@@ -15150,7 +15639,8 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
         #pragma omp for schedule(dynamic, 16)
         for (int64_t oi = 0; oi < (int64_t)nxt->nm; oi++) {
             int64_t ti = order ? (int64_t)order[oi] : oi;
-            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
             nxt->off[ti + 1] = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
         }
     }
@@ -15167,7 +15657,8 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
         #pragma omp for schedule(dynamic, 16)
         for (int64_t oi = 0; oi < (int64_t)nxt->nm; oi++) {
             int64_t ti = order ? (int64_t)order[oi] : oi;
-            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
             uint64_t got = f1c5_emit_target(scr, vk1, vl1,
                                             nxt->keys + nxt->off[ti], nxt->vals + nxt->off[ti]);
             F1_CHECK(got == nxt->off[ti + 1] - nxt->off[ti],
@@ -15193,10 +15684,11 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
  * merge of independently serialized slice artifacts. It witnesses the
  * offset/merge arithmetic; if Stage F ever resumes mid-layer by building
  * target subsets in separate processes/files, add a file-level variant of
- * this gate then. Serial, small-n gates only. */
+ * this gate then. Serial, small-n gates only. gdir as in kc_build_layer
+ * (Stage G): nonzero = backward g-layer slice-merge (gates G-A7b analogue). */
 static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
-                                  F1C5Layer *nxt, int nslices) {
-    const int k1 = prev->k + 1;
+                                  F1C5Layer *nxt, int nslices, int gdir) {
+    const int k1 = gdir ? prev->k - 1 : prev->k + 1;
     nxt->k = k1;
     f1_enum_canonical(&kc->c, k1, &nxt->masks, &nxt->nm);
     nxt->off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt->nm + 1));
@@ -15218,7 +15710,8 @@ static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
         const uint64_t hi = nxt->nm * (uint64_t)(s + 1) / (uint64_t)nslices;
         uint64_t tot = 0;
         for (uint64_t ti = lo; ti < hi; ti++) {
-            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
             uint64_t cnt = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
             nxt->off[ti + 1] = cnt;
             tot += cnt;
@@ -15229,7 +15722,8 @@ static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
         sne[s] = tot;
         uint64_t at = 0;
         for (uint64_t ti = lo; ti < hi; ti++) {
-            f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
             uint64_t got = f1c5_emit_target(scr, vk1, vl1, skeys[s] + at, svals[s] + at);
             F1_CHECK(got == nxt->off[ti + 1], "[kc] slice pass drift at target %llu",
                      (unsigned long long)ti);
@@ -15295,7 +15789,7 @@ static void kc_build(KC *kc, int verbose) {
     double bytes = f1c5_layer_bytes(&kc->L[0]);
     for (int k = 0; k < kc->n; k++) {
         memset(&kc->L[k + 1], 0, sizeof(F1C5Layer));
-        kc_build_layer(kc, &kc->L[k], &kc->L[k + 1], NULL, 0);
+        kc_build_layer(kc, &kc->L[k], &kc->L[k + 1], NULL, 0, 0);
         bytes += f1c5_layer_bytes(&kc->L[k + 1]);
         if (verbose)
             fprintf(stderr, "[kc] layer k=%2d/%d: canonical_masks=%llu entries=%llu "
@@ -15332,28 +15826,50 @@ static void kc_write_v2(KC *kc, const char *dir) {
 }
 
 /* remove a kc layer dir written by kc_write/kc_write_v2 (selftest cleanup) */
-static void kc_rm_dir(const char *dir, int n) {
+static void kc_rm_dir_as(const char *dir, const char *pfx, int n) {
     char p[4300];
     for (int k = 0; k <= n; k++) {
-        snprintf(p, sizeof(p), "%s/f1c5_layer_%02d.bin", dir, k);
+        snprintf(p, sizeof(p), "%s/%s_layer_%02d.bin", dir, pfx, k);
         unlink(p);
     }
-    snprintf(p, sizeof(p), "%s/f1c5_manifest.txt", dir);
+    snprintf(p, sizeof(p), "%s/%s_manifest.txt", dir, pfx);
     unlink(p);
     rmdir(dir);
 }
 
-static int kc_load(KC *kc, const char *dir) {
+static void kc_rm_dir(const char *dir, int n) { kc_rm_dir_as(dir, "f1c5", n); }
+
+/* g-ladder totals: layer 0 is the singleton state (empty mask, anchor exit,
+ * rid 0), whose g-value is the number of valid completions of the EMPTY
+ * prefix = the whole-space walk count seen from the suffix side. For a g-KC,
+ * kc->total is set from here (the f-KC's total comes from layer n). */
+static void kc_g_total_from_layer0(KC *kc) {
+    const F1C5Layer *L0 = &kc->L[0];
+    F1_CHECK(L0->nm == 1 && L0->masks[0] == 0 && L0->ne == 1 &&
+             L0->keys[0] == ((uint32_t)kc->start_exit << 16),
+             "[kc-g] layer 0 must be the anchor singleton");
+    kc->total = L0->vals[0];
+}
+
+/* Prefix/direction-parameterized in-memory loader (Stage G, 2026-07-16):
+ * pfx="g", is_g=1 loads a g (suffix-DP) ladder — "g_layer_%02d.bin" files
+ * with "F1C5GLY1" magic and a "g_manifest_v1" manifest whose last_complete_k
+ * counts DOWN (complete ladder <=> 0). The first manifest line is verified,
+ * so an f dir can never be silently opened as a g ladder or vice versa.
+ * kc_load() keeps the historical behavior. */
+static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
     f1_binom_init();
     f1_build_group();
-    char path[4096];
-    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    char path[4096], expect1[64];
+    snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
+    snprintf(expect1, sizeof(expect1), "%s_manifest_v1", pfx);
     FILE *f = fopen(path, "r");
-    if (!f) { fprintf(stderr, "ERROR: [kc] no manifest in %s\n", dir); return -1; }
+    if (!f) { fprintf(stderr, "ERROR: [kc] no %s_manifest.txt in %s\n", pfx, dir); return -1; }
     char line[2048];
-    int n = -1, start_exit = -1, last_k = -1, b0v[5] = {-1, -1, -1, -1, -1};
-    int pl[32], npl = 0;
+    int n = -1, start_exit = -1, last_k = -2, b0v[5] = {-1, -1, -1, -1, -1};
+    int pl[32], npl = 0, first = 1, hdr_ok = 0;
     while (fgets(line, sizeof(line), f)) {
+        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
@@ -15364,7 +15880,13 @@ static int kc_load(KC *kc, const char *dir) {
         }
     }
     fclose(f);
-    if (n < 1 || n > KC_MEM_MAX_PAIRS || npl != n || start_exit < 0 || last_k != n || b0v[0] < 0) {
+    if (!hdr_ok) {
+        fprintf(stderr, "ERROR: [kc] %s is not a %s ladder manifest (first line != %s)\n",
+                path, is_g ? "g (suffix-DP)" : "f1c5", expect1);
+        return -1;
+    }
+    if (n < 1 || n > KC_MEM_MAX_PAIRS || npl != n || start_exit < 0 ||
+        last_k != (is_g ? 0 : n) || b0v[0] < 0) {
         fprintf(stderr, "ERROR: [kc] manifest in %s unusable for the in-memory loader "
                 "(n=%d npl=%d last_complete_k=%d; needs ALL layers 0..n retained, n <= %d — "
                 "larger/v2 dirs are served by the out-of-core reader)\n",
@@ -15376,13 +15898,14 @@ static int kc_load(KC *kc, const char *dir) {
     f1_ctx_init(&kc->c, n, pl, start_exit);
     kc_finish_init(kc, b0v);
     for (int k = 0; k <= n; k++) {
-        snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, k);
+        snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, k);
         FILE *lf = fopen(path, "rb");
         if (!lf) { fprintf(stderr, "ERROR: [kc] missing layer file %s\n", path); return -1; }
         F1C5LayerHdr h;
         if (fread(&h, sizeof(h), 1, lf) != 1) f1_ckpt_io_abort("fread hdr", path);
-        F1_CHECK(memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1,
-                 "[kc] %s: not a v1 f1c5 layer (kc reads the --kc-build/--layers-dir v1 format)", path);
+        F1_CHECK(memcmp(h.magic, is_g ? "F1C5GLY1" : "F1C5LAY1", 8) == 0 && h.version == 1,
+                 "[kc] %s: not a v1 %s layer (kc reads the --kc-build/--layers-dir v1 format)",
+                 path, is_g ? "g" : "f1c5");
         F1_CHECK((int)h.n == n && (int)h.k == k && (int)h.start_exit == start_exit &&
                  h.pl_hash == f1_pl_hash(&kc->c), "[kc] %s: header/ctx mismatch", path);
         for (int d = 0; d < 5; d++)
@@ -15404,9 +15927,23 @@ static int kc_load(KC *kc, const char *dir) {
             f1_ckpt_io_abort("fread body", path);
         fclose(lf);
     }
-    kc_total_from_final(kc);
+    if (is_g) {
+        /* g integrity: layer n = the seed (full mask, all rid_full, value 1);
+         * the total comes from layer 0 (whole-space count, suffix side). */
+        const F1C5Layer *F = &kc->L[n];
+        uint32_t full = (1u << n) - 1u;
+        F1_CHECK(F->nm == 1 && F->masks[0] == full, "[kc-g] final layer must be the full mask");
+        for (uint64_t e = 0; e < F->ne; e++)
+            F1_CHECK((F->keys[e] & 0xffffu) == kc->B.rid_full,
+                     "[kc-g] seed-layer residual != B0 (sum invariant violated)");
+        kc_g_total_from_layer0(kc);
+    } else {
+        kc_total_from_final(kc);
+    }
     return 0;
 }
+
+static int kc_load(KC *kc, const char *dir) { return kc_load_as(kc, dir, "f1c5", 0); }
 
 /* ===================== KC out-of-core reader (Stage Q, 2026-07-14) =====================
  *
@@ -15553,18 +16090,23 @@ static void kc_ooc_free(KcOoc *o) {
  * header + index load (v1 or v2, per-layer autodetected), integrity checks
  * (the same pad/monotone/size validations f1c5_try_resume performs), cache
  * allocation, and the exact total streamed from the (tiny) final layer.
- * cache_mb <= 0 => SOLVE_KC_CACHE_MB env (default 2048). */
-static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
+ * cache_mb <= 0 => SOLVE_KC_CACHE_MB env (default 2048).
+ * pfx/is_g (Stage G, 2026-07-16): pfx="g", is_g=1 opens a g (suffix-DP)
+ * ladder — g_layer files, F1C5GLY1/2 magic, g_manifest_v1 first line,
+ * last_complete_k counting DOWN (complete <=> 0), total from layer 0. */
+static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, int cache_mb) {
     f1_binom_init();
     f1_build_group();
-    char path[4300];
-    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    char path[4300], expect1[64];
+    snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
+    snprintf(expect1, sizeof(expect1), "%s_manifest_v1", pfx);
     FILE *f = fopen(path, "r");
-    if (!f) { fprintf(stderr, "ERROR: [kc-ooc] no manifest in %s\n", dir); return -1; }
+    if (!f) { fprintf(stderr, "ERROR: [kc-ooc] no %s_manifest.txt in %s\n", pfx, dir); return -1; }
     char line[2048];
-    int n = -1, start_exit = -1, last_k = -1, b0v[5] = {-1, -1, -1, -1, -1};
-    int pl[32], npl = 0;
+    int n = -1, start_exit = -1, last_k = -2, b0v[5] = {-1, -1, -1, -1, -1};
+    int pl[32], npl = 0, first = 1, hdr_ok = 0;
     while (fgets(line, sizeof(line), f)) {
+        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
@@ -15575,10 +16117,17 @@ static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
         }
     }
     fclose(f);
-    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 || last_k != n || b0v[0] < 0) {
+    if (!hdr_ok) {
+        fprintf(stderr, "ERROR: [kc-ooc] %s is not a %s ladder manifest (first line != %s)\n",
+                path, is_g ? "g (suffix-DP)" : "f1c5", expect1);
+        return -1;
+    }
+    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 ||
+        last_k != (is_g ? 0 : n) || b0v[0] < 0) {
         fprintf(stderr, "ERROR: [kc-ooc] manifest in %s unusable (n=%d npl=%d "
                 "last_complete_k=%d; kc needs ALL layers 0..n retained — "
-                "build with --kc-build or SOLVE_F1_KEEP_LAYERS=1)\n", dir, n, npl, last_k);
+                "build with %s)\n", dir, n, npl, last_k,
+                is_g ? "--kc-g-build" : "--kc-build or SOLVE_F1_KEEP_LAYERS=1");
         return -1;
     }
     kc->n = n;
@@ -15592,7 +16141,7 @@ static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
     int n_v2 = 0;
     for (int k = 0; k <= n; k++) {
         KcOocLayer *L = &o->L[k];
-        snprintf(L->path, sizeof(L->path), "%s/f1c5_layer_%02d.bin", dir, k);
+        snprintf(L->path, sizeof(L->path), "%s/%s_layer_%02d.bin", dir, pfx, k);
         L->fd = open(L->path, O_RDONLY);
         if (L->fd < 0) {
             fprintf(stderr, "ERROR: [kc-ooc] missing layer file %s\n", L->path);
@@ -15602,9 +16151,10 @@ static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
         F1C5LayerHdr h;
         ssize_t got = pread(L->fd, &h, sizeof(h), 0);
         F1_CHECK(got == (ssize_t)sizeof(h), "[kc-ooc] %s: short header read", L->path);
-        int is_v1 = (memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1);
-        int is_v2 = (memcmp(h.magic, "F1C5LAY2", 8) == 0 && h.version == 2);
-        F1_CHECK(is_v1 || is_v2, "[kc-ooc] %s: not an f1c5 layer file", L->path);
+        int is_v1 = (memcmp(h.magic, is_g ? "F1C5GLY1" : "F1C5LAY1", 8) == 0 && h.version == 1);
+        int is_v2 = (memcmp(h.magic, is_g ? "F1C5GLY2" : "F1C5LAY2", 8) == 0 && h.version == 2);
+        F1_CHECK(is_v1 || is_v2, "[kc-ooc] %s: not a%s layer file", L->path,
+                 is_g ? " g (suffix-DP)" : "n f1c5");
         F1_CHECK((int)h.n == n && (int)h.k == k && (int)h.start_exit == start_exit &&
                  h.pl_hash == f1_pl_hash(&kc->c), "[kc-ooc] %s: header/ctx mismatch", L->path);
         for (int d = 0; d < 5; d++)
@@ -15687,7 +16237,9 @@ static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
     o->cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
     F1_CHECK(o->cbuf != NULL, "[kc-ooc] cbuf alloc failed");
     kc->ooc = o;
-    /* exact total from the (tiny, single-mask) final layer */
+    /* exact total: f from the (tiny, single-mask) final layer; g from the
+     * layer-0 anchor singleton (whole-space count, suffix side) — the g seed
+     * layer n is integrity-checked (full mask, all residuals == B0). */
     {
         KcOocLayer *F = &o->L[n];
         uint32_t full = (n == 32) ? 0xffffffffu : ((1u << n) - 1u);
@@ -15695,25 +16247,39 @@ static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
         F1U192 total = {0, 0, 0};
         for (uint64_t e = 0; e < F->ne; e++) {
             F1_CHECK((kc_ooc_key_at(o, n, e) & 0xffffu) == kc->B.rid_full,
-                     "[kc-ooc] final-layer residual != B0 (sum invariant violated)");
+                     "[kc-ooc] %s-layer residual != B0 (sum invariant violated)",
+                     is_g ? "seed" : "final");
             F1U192 v = kc_ooc_val_at(o, n, e);
             f1_add(&total, &v);
         }
+        if (is_g) {
+            KcOocLayer *Z = &o->L[0];
+            F1_CHECK(Z->nm == 1 && Z->masks[0] == 0 && Z->ne == 1 &&
+                     kc_ooc_key_at(o, 0, 0) == ((uint32_t)kc->start_exit << 16),
+                     "[kc-ooc] g layer 0 must be the anchor singleton");
+            total = kc_ooc_val_at(o, 0, 0);
+        }
         kc->total = total;
     }
-    fprintf(stderr, "[kc-ooc] opened %s: n=%d layers=0..%d format=%s index=%.1f MB "
+    fprintf(stderr, "[kc-ooc] opened %s: n=%d layers=0..%d kind=%s format=%s index=%.1f MB "
             "cache=%d MB (%d blocks of %u entries)\n",
-            dir, n, n, n_v2 == 0 ? "v1" : (n_v2 == n + 1 ? "v2" : "mixed"),
+            dir, n, n, is_g ? "g" : "f", n_v2 == 0 ? "v1" : (n_v2 == n + 1 ? "v2" : "mixed"),
             idx_bytes / 1e6, cache_mb, nslot, (unsigned)F1C5_OOC_BLK);
     return 0;
 }
 
+static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
+    return kc_ooc_open_as(kc, dir, "f1c5", 0, cache_mb);
+}
+
 /* Unified open: in-memory for small all-v1 dirs (prototype behavior), OOC for
- * v2 dirs, n > KC_MEM_MAX_PAIRS, or when forced (--kc-ooc). */
-static int kc_open(KC *kc, const char *dir, int force_ooc, int cache_mb) {
+ * v2 dirs, n > KC_MEM_MAX_PAIRS, or when forced (--kc-ooc). pfx/is_g select
+ * the f (default) or g (suffix-DP) ladder conventions (Stage G, 2026-07-16). */
+static int kc_open_as(KC *kc, const char *dir, const char *pfx, int is_g,
+                      int force_ooc, int cache_mb) {
     char path[4300];
     int n = -1;
-    snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
+    snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
     FILE *f = fopen(path, "r");
     if (f) {
         char line[256];
@@ -15724,17 +16290,22 @@ static int kc_open(KC *kc, const char *dir, int force_ooc, int cache_mb) {
     int any_v2 = 0;
     if (n >= 1 && n <= KC_MEM_MAX_PAIRS && !force_ooc) {
         for (int k = 0; k <= n && !any_v2; k++) {
-            snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, k);
+            snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, k);
             FILE *lf = fopen(path, "rb");
             if (!lf) break;
             char magic[8];
-            if (fread(magic, 1, 8, lf) == 8 && memcmp(magic, "F1C5LAY2", 8) == 0) any_v2 = 1;
+            if (fread(magic, 1, 8, lf) == 8 &&
+                memcmp(magic, is_g ? "F1C5GLY2" : "F1C5LAY2", 8) == 0) any_v2 = 1;
             fclose(lf);
         }
     }
     if (force_ooc || n > KC_MEM_MAX_PAIRS || any_v2)
-        return kc_ooc_open(kc, dir, cache_mb);
-    return kc_load(kc, dir);
+        return kc_ooc_open_as(kc, dir, pfx, is_g, cache_mb);
+    return kc_load_as(kc, dir, pfx, is_g);
+}
+
+static int kc_open(KC *kc, const char *dir, int force_ooc, int cache_mb) {
+    return kc_open_as(kc, dir, "f1c5", 0, force_ooc, cache_mb);
 }
 
 static void kc_free(KC *kc) {
@@ -16450,9 +17021,9 @@ static int kc_selftest(void) {
                     uint64_t j = kc_splitmix64(&rng) % i;
                     uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
                 }
-                kc_build_layer(kc, &kc->L[k], &R1, order, 1);       /* serial, shuffled */
-                kc_build_layer(kc, &kc->L[k], &R2, NULL, 0);        /* parallel, natural */
-                kc_build_layer_sliced(kc, &kc->L[k], &R3, 3);       /* 3 slices, merged */
+                kc_build_layer(kc, &kc->L[k], &R1, order, 1, 0);    /* serial, shuffled */
+                kc_build_layer(kc, &kc->L[k], &R2, NULL, 0, 0);     /* parallel, natural */
+                kc_build_layer_sliced(kc, &kc->L[k], &R3, 3, 0);    /* 3 slices, merged */
                 if (!kc_layers_equal(kc, &kc->L[k + 1], &R1)) ok = 0;
                 if (!kc_layers_equal(kc, &kc->L[k + 1], &R2)) ok = 0;
                 if (!kc_layers_equal(kc, &kc->L[k + 1], &R3)) sok = 0;
@@ -16758,7 +17329,7 @@ static int kc_selftest(void) {
                 uint64_t j = kc_splitmix64(&rng) % i;
                 uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
             }
-            kc_build_layer(kc, &kc->L[kmax - 1], &R1, order, 1);
+            kc_build_layer(kc, &kc->L[kmax - 1], &R1, order, 1, 0);
             char g3[64];
             snprintf(g3, sizeof(g3), "%c3 n=%d largest layer (k=%d) order-invariant",
                      'B' + pn, np, kmax);
@@ -16953,7 +17524,7 @@ static int kc_midn(int npairs, int R, int M) {
             uint64_t j = kc_splitmix64(&rng) % i;
             uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
         }
-        kc_build_layer(kc, &kc->L[kmax - 1], &R1, order, 1);
+        kc_build_layer(kc, &kc->L[kmax - 1], &R1, order, 1, 0);
         char g[80];
         snprintf(g, sizeof(g), "M5 largest layer (k=%d) order-invariant (bytes)", kmax);
         KC_GATE(g, kc_layers_equal(kc, &kc->L[kmax], &R1));
@@ -16962,7 +17533,7 @@ static int kc_midn(int npairs, int R, int M) {
         /* M5b: same layer, 3 disjoint slices built independently then merged */
         F1C5Layer R2;
         memset(&R2, 0, sizeof(R2));
-        kc_build_layer_sliced(kc, &kc->L[kmax - 1], &R2, 3);
+        kc_build_layer_sliced(kc, &kc->L[kmax - 1], &R2, 3, 0);
         snprintf(g, sizeof(g), "M5b largest layer (k=%d) 3-slice-merged == whole", kmax);
         KC_GATE(g, kc_layers_equal(kc, &kc->L[kmax], &R2));
         f1c5_layer_free(&R2);
@@ -17108,6 +17679,1063 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
 }
 
 /* ---------- CLI driver (all --kc-* subcommands) ---------- */
+/* ===================== KC-G — Stage G: the backward suffix-count DP (g ladder) =====================
+ *
+ * Branch v4-compiler (HELD — written-and-gated, launches nothing). Stage G of
+ * V4_COMPILER_FULLBUILD_PLAN_2026_07_13.md (operator-AUTHORIZED 2026-07-16,
+ * D3): g(k, state) = the number of valid COMPLETIONS from a layer-k state to
+ * a full walk — the suffix-side mirror of the forward f-DP (#215/#217/#221
+ * substrate). Same canonical-mask orbit quotient, same 192-bit exact
+ * arithmetic, same v1/v2 layer serialization; files are g_layer_NN.bin with
+ * F1C5GLY1/F1C5GLY2 magic + g_manifest.txt ("g_manifest_v1" first line,
+ * last_complete_k counting DOWN: layers K..n present, complete <=> K == 0),
+ * so f- and g-ladders can never be confused by any reader, and both can share
+ * one directory or live on separate disks (--kc-g-dir topology open per plan
+ * §8.3: 2x4TB vs 1x8TB is a run-time decision; this code takes any dir).
+ *
+ * NOTE (implementation vs plan wording): the plan sketches G as "the same
+ * engine run on the reversed transition (entry/exit swapped)". The forward
+ * engine cannot express the reversed run directly — its layer 0 is a single
+ * G-fixed anchor and every placement consumes a boundary class, whereas the
+ * reversed walk STARTS free (2n possible last exits, no boundary consumed)
+ * and ENDS at the anchor. G is therefore implemented as the mathematically
+ * identical direct backward pull (kc_g_gather_pair/kc_g_gather_target above):
+ * seed layer n = 1 at (full mask, x, rid_full) for every pair element x,
+ * then gather layer k from layer k+1. Deviation is wording-only; documented.
+ *
+ * STORED DOMAIN (deviation from "all 64 last values", documented): layer-k
+ * keys are restricted to last in the elements of the mask's pairs (k >= 1;
+ * the anchor at k = 0) — exactly the forward-reachable states, closed under
+ * the backward recurrence, and everything the f*g identity and the O3 ranker
+ * (proofs doc §K3-end/R3; consumes f*g products per descent position) ever
+ * read. This keeps the g ladder the same size class as f (~2.5-2.7 TB v2-gz
+ * at full-31, hedged, unmeasured until the run).
+ *
+ * THE IDENTITY GATE (the mathematical self-check; --kc-g-selftest core and
+ * the V3 primitive --kc-g-check). For every layer k in 0..n:
+ *
+ *     sum over canonical masks cm at layer k of
+ *         orbit(cm) * sum over stored keys (last, rid) of
+ *             f(k, cm, last, rid) * g(k, cm, last, rid)
+ *       ==  N_total   (the f-DP total; |C1&C2&C4&C5| walks at full-31)
+ *
+ * where orbit(cm) = n_eff/|stab| = f1_orbit_size (the SAME weight the
+ * production layer-mass gate uses). Derivation: (1) by the suffix property
+ * L5 (V4_COMPILER_CORRECTNESS_PROOFS_2026_07_14 §2.5) and its mirror,
+ * prefix-x-suffix concatenation is a bijection onto the walks whose layer-k
+ * state is s, so exactly f(s)*g(s) walks cross state s; (2) each walk
+ * crosses layer k in EXACTLY ONE state, so summing f*g over all RAW states
+ * counts each walk once: N = sum_raw f*g; (3) f and g are equivariant under
+ * the SAME hexagram lifts (L3 + its suffix mirror), so the per-mask key sum
+ * is orbit-constant (change of variables last -> g.last, a bijection of the
+ * 64 hexagrams), and grouping raw masks into orbits yields the orbit(cm)
+ * weight. At k = n it degenerates to sum f == N (g == 1 on the seed); at
+ * k = 0 to g(0, empty, anchor, 0) == N — the whole-space count re-derived
+ * from the suffix side. The weight here is the ORBIT size, NOT the record
+ * adapter's orientation-class multiplicity m(k) (unrelated to this gate).
+ *
+ * Subcommands (argv-dispatched, sha-neutral, zero interaction with the
+ * enumeration/merge/checkpoint paths):
+ *   --kc-g-selftest                 n=9 exhaustive + n=13 spot gates (below)
+ *   --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc]
+ *                                   build + retain the FULL g ladder 0..n.
+ *                                   n <= 22: in-memory backward build, v1
+ *                                   files (mirrors --kc-build). n = 24..31
+ *                                   (or --kc-g-ooc at any n): OUT-OF-CORE
+ *                                   streaming build (kc_g_ooc_build_layer),
+ *                                   v2 per-block-gzip by default
+ *                                   (SOLVE_F1_OOC_FORMAT=v1 override),
+ *                                   layer-granular eviction resume via
+ *                                   g_manifest + intra-layer chunk
+ *                                   checkpoints (g_build.ckpt; the SAME
+ *                                   production ckpt machinery, marker name
+ *                                   prefixed). Envs honored:
+ *                                   SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB,
+ *                                   SOLVE_F1_OOC_GZIP_LEVEL, SOLVE_F1_CKPT_SEC,
+ *                                   SOLVE_F1_KILL_AFTER_CHUNK (drill hook),
+ *                                   SOLVE_KC_G_STOP_AT_K (probe stop >= K).
+ *   --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB]
+ *                                   the f*g identity at EVERY layer against
+ *                                   the f ladder in FDIR (in-memory or OOC,
+ *                                   any n up to 31) — the plan's V3 gate.
+ *
+ * --kc-g-selftest gates: GA1 g/f mask-list mirror per layer; GA2 g(0)==N
+ *   (26,112) incl. through kc_flookup; GA3 the identity at EVERY layer;
+ *   GA4 EXHAUSTIVE brute-force cross-check at every layer (g(s) == #distinct
+ *   suffixes from s, f(s) == #distinct prefixes reaching s, and
+ *   #walks-through-s == f(s)*g(s), over all 26,112 walks' states); GA5
+ *   partition invariance of the g build (largest layer: serial-scrambled,
+ *   parallel-natural, and 3-slice-merged rebuilds byte-identical); GA6 v1
+ *   disk round-trip; GA7 OOC builder == in-memory builder (v1 files
+ *   byte-identical under forced multi-chunk/multi-window cfg; v2 ladder
+ *   opened OOC with a forced-eviction tiny cache serves every stored state
+ *   byte-equal); GA8 the identity re-run THROUGH the OOC reader; GA9
+ *   layer-granular resume (probe-stop at k=5, resume to 0, files
+ *   byte-identical to straight-through). GB1/GB2 repeat g(0)==N and the
+ *   all-layer identity at n=13 (N = 2,063,395,607,040). The intra-layer
+ *   chunk-kill resume drill (SOLVE_F1_KILL_AFTER_CHUNK + relaunch,
+ *   byte-compare) needs process death, so it stays a documented pre-launch
+ *   worker gate, mirroring the f-side drill of the same machinery.
+ *
+ * Credits (novelty humility): suffix counts from a reversed layered DP are
+ * the classical forward-backward decomposition on a DAG (textbook dynamic
+ * programming; cf. Nijenhuis & Wilf 1975/78 for the counting-DP query
+ * frame); nothing here is claimed novel beyond composition with the existing
+ * #215/#217/#221 substrate (operator direction + prior Fable/Opus sessions).
+ * Stage-G engine by Claude (Fable 5), 2026-07-16, developed with AI
+ * assistance (Claude, Anthropic); corrections invited. */
+
+#define KC_G_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-g-selftest] %-52s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* pair resolution for the g build: like kc_resolve_pairs but full-31 is
+ * ALLOWED (the g ladder has no production keep-layers run to defer to — this
+ * IS the full-31 g engine) and the in-memory cap is enforced by the caller
+ * (OOC handles n > KC_MEM_MAX_PAIRS). */
+static int kc_g_resolve_pairs(int npairs, int *pl, int *n_out, int *start_out) {
+    if (npairs == 31) {
+        for (int i = 0; i < 31; i++) pl[i] = i + 1;
+        *n_out = 31;
+        *start_out = 0;   /* C4: s0=63, s1=0 -> anchor exit 0 (Theorem 6) */
+        return 0;
+    }
+    const char *spec = NULL;
+    for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
+        if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
+    if (!spec) {
+        fprintf(stderr, "ERROR: [kc-g] --f1-pairs %d has no group-closed orbit union; "
+                "supported: 9,13,16,18,19,21,22,24,25,27,28,31\n", npairs);
+        return -1;
+    }
+    if (f1_parse_subset(spec, pl, n_out, start_out) != 0) return -1;
+    return 0;
+}
+
+static int kc_g_init(KC *kc, int npairs) {
+    f1_binom_init();
+    f1_build_group();
+    int pl[32], n, start_exit;
+    if (kc_g_resolve_pairs(npairs, pl, &n, &start_exit) != 0) return -1;
+    kc->n = n;
+    kc->start_exit = start_exit;
+    f1_ctx_init(&kc->c, n, pl, start_exit);
+    int b0v[5];
+    f1c5_derive_b0(&kc->c, npairs == 31, b0v);
+    kc_finish_init(kc, b0v);
+    return 0;
+}
+
+/* seed layer n: g == 1 at (full mask, x, rid_full) for every pair element x
+ * (the empty suffix completes exactly those states whose counts are already
+ * B0; the sum invariant forces rid == rid_full at layer n). The full mask is
+ * canonical and G-fixed, and the identity lift is el[0], so raw == stored. */
+static void kc_g_layer_n(const KC *kc, F1C5Layer *L) {
+    const int n = kc->n;
+    memset(L, 0, sizeof(*L));
+    L->k = n;
+    L->nm = 1;
+    L->ne = (uint64_t)(2 * n);
+    L->masks = (uint32_t *)malloc(sizeof(uint32_t));
+    L->off = (uint64_t *)malloc(2 * sizeof(uint64_t));
+    L->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)L->ne);
+    L->vals = (F1U192 *)calloc((size_t)L->ne, sizeof(F1U192));
+    F1_CHECK(L->masks && L->off && L->keys && L->vals, "[kc-g] seed layer alloc failed");
+    L->masks[0] = (1u << n) - 1u;
+    L->off[0] = 0;
+    L->off[1] = L->ne;
+    int elems[2 * KC_MAX_PAIRS];
+    for (int i = 0; i < n; i++) { elems[2 * i] = kc->c.pa[i]; elems[2 * i + 1] = kc->c.pb[i]; }
+    qsort(elems, (size_t)(2 * n), sizeof(int), kc_int_cmp);
+    for (int j = 0; j < 2 * n; j++) {
+        L->keys[j] = ((uint32_t)elems[j] << 16) | kc->B.rid_full;
+        L->vals[j].l0 = 1;
+    }
+}
+
+/* in-memory backward ladder build into kc->L[n..0]; sets kc->total = g(0). */
+static void kc_g_build_mem(KC *kc, int verbose) {
+    kc_g_layer_n(kc, &kc->L[kc->n]);
+    double t0 = omp_get_wtime();
+    double bytes = f1c5_layer_bytes(&kc->L[kc->n]);
+    for (int k = kc->n - 1; k >= 0; k--) {
+        memset(&kc->L[k], 0, sizeof(F1C5Layer));
+        kc_build_layer(kc, &kc->L[k + 1], &kc->L[k], NULL, 0, 1);
+        bytes += f1c5_layer_bytes(&kc->L[k]);
+        if (verbose)
+            fprintf(stderr, "[kc-g] layer k=%2d/%d: canonical_masks=%llu entries=%llu "
+                    "bytes=%.6f MB cumulative=%.6f MB\n",
+                    k, kc->n, (unsigned long long)kc->L[k].nm,
+                    (unsigned long long)kc->L[k].ne,
+                    f1c5_layer_bytes(&kc->L[k]) / 1e6, bytes / 1e6);
+    }
+    kc_g_total_from_layer0(kc);
+    if (verbose) {
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        fprintf(stderr, "[kc-g] build: n=%d layers=%d..0 total_bytes=%.6f MB "
+                "g(0)=%s elapsed=%.3fs\n",
+                kc->n, kc->n, bytes / 1e6, tdec, omp_get_wtime() - t0);
+    }
+}
+
+/* write the in-memory g ladder (v1 or v2) + g manifest (complete <=> 0) */
+static void kc_g_write(KC *kc, const char *dir, int use_v2) {
+    if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
+    int lvl = f1c5_ooc_gzip_level();
+    for (int k = 0; k <= kc->n; k++) {
+        if (use_v2) f1c5_write_layer_v2_as(dir, "g", "F1C5GLY2", &kc->c, &kc->B, &kc->L[k], lvl);
+        else        f1c5_write_layer_as(dir, "g", "F1C5GLY1", &kc->c, &kc->B, &kc->L[k]);
+    }
+    f1c5_write_manifest_as(dir, "g", &kc->c, &kc->B, 0);
+}
+
+/* ---------- engine-agnostic layer access (in-memory or OOC) for the identity ---------- */
+static void kc_any_geom(const KC *kc, int k, const uint32_t **masks,
+                        const uint64_t **off, uint64_t *nm) {
+    if (kc->ooc) { *masks = kc->ooc->L[k].masks; *off = kc->ooc->L[k].off; *nm = kc->ooc->L[k].nm; }
+    else         { *masks = kc->L[k].masks;      *off = kc->L[k].off;      *nm = kc->L[k].nm; }
+}
+static inline uint32_t kc_any_key(KC *kc, int k, uint64_t e) {
+    return kc->ooc ? kc_ooc_key_at(kc->ooc, k, e) : kc->L[k].keys[e];
+}
+static inline F1U192 kc_any_val(KC *kc, int k, uint64_t e) {
+    return kc->ooc ? kc_ooc_val_at(kc->ooc, k, e) : kc->L[k].vals[e];
+}
+
+/* The f*g cut identity (module header) at every layer; expect = the f total.
+ * Streams both ladders' entry lists per mask (two-pointer merge over the
+ * key-sorted spans; sequential => OOC-cache-friendly). Returns the number of
+ * FAILING layers; prints one line per layer (always on mismatch, all layers
+ * when verbose). */
+static int kc_g_identity(KC *fkc, KC *gkc, const F1U192 *expect, int verbose) {
+    F1_CHECK(fkc->n == gkc->n && fkc->start_exit == gkc->start_exit &&
+             f1_pl_hash(&fkc->c) == f1_pl_hash(&gkc->c),
+             "[kc-g] f/g ladder context mismatch");
+    for (int d = 0; d < 5; d++)
+        F1_CHECK(fkc->b0v[d] == gkc->b0v[d], "[kc-g] f/g budget mismatch");
+    int fails = 0;
+    for (int k = 0; k <= fkc->n; k++) {
+        const uint32_t *fm, *gm;
+        const uint64_t *fo, *go;
+        uint64_t fnm, gnm;
+        kc_any_geom(fkc, k, &fm, &fo, &fnm);
+        kc_any_geom(gkc, k, &gm, &go, &gnm);
+        if (fnm != gnm || memcmp(fm, gm, sizeof(uint32_t) * fnm) != 0) {
+            printf("[kc-g] layer k=%2d: MASK LIST MISMATCH (f=%llu g=%llu masks)\n",
+                   k, (unsigned long long)fnm, (unsigned long long)gnm);
+            fails++;
+            continue;
+        }
+        F1U192 acc = {0, 0, 0};
+        for (uint64_t mi = 0; mi < fnm; mi++) {
+            F1U192 msum = {0, 0, 0};
+            uint64_t ef = fo[mi], eg = go[mi];
+            const uint64_t ef1 = fo[mi + 1], eg1 = go[mi + 1];
+            while (ef < ef1 && eg < eg1) {
+                uint32_t kf = kc_any_key(fkc, k, ef), kg = kc_any_key(gkc, k, eg);
+                if (kf < kg) ef++;
+                else if (kg < kf) eg++;
+                else {
+                    F1U192 fv = kc_any_val(fkc, k, ef), gv = kc_any_val(gkc, k, eg);
+                    F1U192 p = kc_u192_mul(&fv, &gv);
+                    f1_add(&msum, &p);
+                    ef++;
+                    eg++;
+                }
+            }
+            if (!f1_is_zero(&msum)) {
+                F1U192 w = f1_mul_small(msum, (uint32_t)f1_orbit_size(&fkc->c, fm[mi]));
+                f1_add(&acc, &w);
+            }
+        }
+        int ok = f1_eq(&acc, expect);
+        if (!ok || verbose) {
+            char adec[64], edec[64];
+            f1_dec(acc, adec);
+            f1_dec(*expect, edec);
+            printf("[kc-g] layer k=%2d: sum orbit*f*g = %s (expect %s) %s\n",
+                   k, adec, edec, ok ? "OK" : "MISMATCH");
+        }
+        if (!ok) fails++;
+    }
+    return fails;
+}
+
+/* ---------- Stage-G out-of-core backward layer builder ----------
+ * Structural clone of f1c5_ooc_build_layer (#221) with the transition
+ * reversed: targets are layer k (= src->k - 1), requests point at canonical
+ * SUCCESSOR masks in the g layer k+1 (src), and the per-entry kernel is
+ * kc_g_gather_pair. All IO/compressor/checkpoint machinery is the production
+ * code reused verbatim (f1c5_ooc_pread/pwrite, f1c5_v2_read_range, F1C5V2Out,
+ * f1c5_build_ckpt_* with marker g_build.ckpt); emission order, offset
+ * arithmetic, atomic finalize, and stats mirror the forward builder line for
+ * line, so the partition-invariance and byte-identity arguments carry over. */
+static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char *dir,
+                                 const F1C5Layer *src, F1C5Layer *nxt,
+                                 const int32_t *loc0, int vk0, const uint16_t *vl0,
+                                 const F1C5OocCfg *cfg, F1C5OocIo *io,
+                                 F1U192 *mass_out, uint64_t *states_out,
+                                 int use_v2, int gzip_level) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/g_layer_%02d.bin", dir, src->k);
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) f1_ckpt_io_abort("open (kc-g ooc gather)", path);
+    char ofin[4096], otmp[4104], ovtmp[4112];
+    snprintf(ofin, sizeof(ofin), "%s/g_layer_%02d.bin", dir, nxt->k);
+    snprintf(otmp, sizeof(otmp), "%s.tmp", ofin);
+    snprintf(ovtmp, sizeof(ovtmp), "%s.vals.tmp", ofin);
+    int ofd = -1, vfd = -1;
+    F1C5V2Out v2o;
+    if (!use_v2) {
+        ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+        if (ofd < 0) f1_ckpt_io_abort("open (kc-g layer .tmp)", otmp);
+        vfd = open(ovtmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
+        if (vfd < 0) f1_ckpt_io_abort("open (kc-g layer .vals.tmp)", ovtmp);
+    }
+    const uint64_t okeys_base = sizeof(F1C5LayerHdr) + 4ull * nxt->nm + 8ull * (nxt->nm + 1);
+    const uint64_t keys_base = sizeof(F1C5LayerHdr) + 4ull * src->nm + 8ull * (src->nm + 1);
+    const uint64_t vals_base = keys_base + 4ull * src->ne;
+    const uint64_t entry_b = 4ull + sizeof(F1U192);
+    const uint64_t src_kblk_base = use_v2 ? f1c5_v2_kblk_base(src->nm, src->ne) : 0;
+    const uint64_t src_vblk_base = use_v2
+        ? src_kblk_base + (src->ne ? src->kidx[(src->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK] : 0)
+        : 0;
+    uint8_t *v2cbuf = NULL; uint32_t *v2ktmp = NULL; F1U192 *v2vtmp = NULL;
+    if (use_v2) {
+        v2cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+        v2ktmp = (uint32_t *)malloc(sizeof(uint32_t) * F1C5_OOC_BLK);
+        v2vtmp = (F1U192 *)malloc(sizeof(F1U192) * F1C5_OOC_BLK);
+        F1_CHECK(v2cbuf && v2ktmp && v2vtmp, "[kc-g] v2 read scratch alloc failed");
+    }
+
+    const uint64_t scr_per_tgt = 64ull * (uint64_t)vk0;
+    uint64_t chunk_cap = (cfg->scratch_mb << 20) / (scr_per_tgt * sizeof(F1U192));
+    if (chunk_cap < 1) chunk_cap = 1;
+    if (nxt->nm && chunk_cap > nxt->nm) chunk_cap = nxt->nm;
+
+    uint64_t resume_t0 = 0;
+    F1C5BuildCkptData ckpt;
+    int have_ckpt = 0;
+    if (use_v2) {
+        have_ckpt = f1c5_build_ckpt_read(dir, "g", ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+                                         chunk_cap, &ckpt);
+        if (have_ckpt) {
+            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
+            resume_t0 = ckpt.t0_next;
+            fprintf(stderr, "[kc-g-ooc] RESUME intra-layer checkpoint: layer k=%d "
+                    "restart at chunk t0=%llu (%llu/%llu masks done, %llu blocks + "
+                    "%llu partial committed)\n",
+                    nxt->k, (unsigned long long)resume_t0, (unsigned long long)resume_t0,
+                    (unsigned long long)nxt->nm, (unsigned long long)ckpt.nblk,
+                    (unsigned long long)ckpt.fill);
+        } else {
+            f1c5_v2out_init(&v2o, ofin, gzip_level);
+        }
+    }
+    double last_ckpt_wt = omp_get_wtime();
+    double CKPT_INTERVAL_S = 300.0;
+    { const char *e = getenv("SOLVE_F1_CKPT_SEC");
+      if (e && *e) { double v = atof(e); if (v > 0.0) CKPT_INTERVAL_S = v; } }
+    long long kill_after_chunk = -1;
+    { const char *e = getenv("SOLVE_F1_KILL_AFTER_CHUNK");
+      if (e && *e) kill_after_chunk = atoll(e); }
+
+    uint64_t buf_entries = (cfg->read_mb << 20) / entry_b;
+    if (buf_entries < 64ull * (uint64_t)B->R) buf_entries = 64ull * (uint64_t)B->R;
+    if (buf_entries > src->ne) buf_entries = src->ne ? src->ne : 1;
+    const uint64_t gap_entries = (cfg->gap_kb << 10) / entry_b;
+
+    uint32_t *kbuf = (uint32_t *)malloc(sizeof(uint32_t) * buf_entries);
+    F1U192 *vbuf = (F1U192 *)malloc(sizeof(F1U192) * buf_entries);
+    F1U192 *scr = (F1U192 *)calloc(chunk_cap * scr_per_tgt, sizeof(F1U192));
+    F1C5Req *reqs = (F1C5Req *)malloc(sizeof(F1C5Req) * chunk_cap * (uint64_t)c->n);
+    uint32_t *rlen = (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap);
+    uint32_t *rcur = (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap);
+    uint64_t *needed = (uint64_t *)malloc(sizeof(uint64_t) * chunk_cap * (uint64_t)c->n);
+    uint64_t *cnts = (uint64_t *)malloc(sizeof(uint64_t) * chunk_cap);
+    uint32_t *skeys = (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap * scr_per_tgt);
+    F1U192 *svals = (F1U192 *)malloc(sizeof(F1U192) * chunk_cap * scr_per_tgt);
+    F1_CHECK(kbuf && vbuf && scr && reqs && rlen && rcur && needed && cnts && skeys && svals,
+             "[kc-g] ooc buffer alloc failed (chunk=%llu window=%llu entries)",
+             (unsigned long long)chunk_cap, (unsigned long long)buf_entries);
+
+    F1U192 mass = {0, 0, 0};
+    uint64_t states = 0;
+    nxt->keys = NULL;
+    nxt->vals = NULL;
+    nxt->off[0] = 0;
+    if (have_ckpt) {
+        memcpy(nxt->off, ckpt.off, sizeof(uint64_t) * (ckpt.t0_next + 1));
+        mass = ckpt.mass;
+        states = ckpt.states;
+        io->bytes_read = ckpt.bytes_read;
+        io->bytes_written = ckpt.bytes_written;
+        io->windows = ckpt.windows;
+        f1c5_build_ckpt_free(&ckpt);
+    }
+
+    for (uint64_t t0 = resume_t0; t0 < nxt->nm; t0 += chunk_cap) {
+        const uint64_t tc = (nxt->nm - t0 < chunk_cap) ? nxt->nm - t0 : chunk_cap;
+        /* per-target SUCCESSOR requests, sorted by source-file position */
+        #pragma omp parallel for schedule(dynamic, 64)
+        for (int64_t t = 0; t < (int64_t)tc; t++) {
+            uint32_t tm = nxt->masks[t0 + (uint64_t)t];
+            F1C5Req *tr = reqs + (uint64_t)t * (uint64_t)c->n;
+            uint32_t nr = 0;
+            for (int i = 0; i < c->n; i++) {
+                if ((tm >> i) & 1) continue;
+                int g;
+                uint32_t csucc = f1_canon(c, tm | (1u << i), &g);
+                int64_t si = f1_bsearch_u32(src->masks, src->nm, csucc);
+                if (si < 0) continue;
+                tr[nr].pi = (uint64_t)si;
+                tr[nr].g = (uint16_t)g;
+                tr[nr].i = (uint16_t)i;
+                nr++;
+            }
+            for (uint32_t a = 1; a < nr; a++) {
+                F1C5Req x = tr[a];
+                uint32_t b = a;
+                while (b > 0 && tr[b - 1].pi > x.pi) { tr[b] = tr[b - 1]; b--; }
+                tr[b] = x;
+            }
+            rlen[t] = nr;
+            rcur[t] = 0;
+        }
+        uint64_t nn = 0;
+        for (uint64_t t = 0; t < tc; t++)
+            for (uint32_t j = 0; j < rlen[t]; j++)
+                needed[nn++] = reqs[t * (uint64_t)c->n + j].pi;
+        qsort(needed, nn, sizeof(uint64_t), f1c5_cmp_u64);
+        uint64_t un = 0;
+        for (uint64_t j = 0; j < nn; j++)
+            if (j == 0 || needed[j] != needed[j - 1]) needed[un++] = needed[j];
+        nn = un;
+        uint64_t wi = 0;
+        while (wi < nn) {
+            uint64_t e0 = src->off[needed[wi]];
+            uint64_t e1 = src->off[needed[wi] + 1];
+            uint64_t wj = wi + 1;
+            while (wj < nn) {
+                uint64_t q = needed[wj];
+                if (src->off[q] - e1 > gap_entries) break;
+                if (src->off[q + 1] - e0 > buf_entries) break;
+                e1 = src->off[q + 1];
+                wj++;
+            }
+            F1_CHECK(e1 - e0 <= buf_entries, "[kc-g] ooc window exceeds read buffer");
+            const uint64_t phi = needed[wj - 1];
+            if (e1 > e0) {
+                if (use_v2) {
+                    f1c5_v2_read_range(fd, src->kidx, src->vidx, src_kblk_base, src_vblk_base,
+                                       e0, e1, src->ne, kbuf, vbuf, v2cbuf, v2ktmp, v2vtmp, path, io);
+                } else {
+                    f1c5_ooc_pread(fd, kbuf, sizeof(uint32_t) * (e1 - e0),
+                                   keys_base + sizeof(uint32_t) * e0, path, io);
+                    f1c5_ooc_pread(fd, vbuf, sizeof(F1U192) * (e1 - e0),
+                                   vals_base + sizeof(F1U192) * e0, path, io);
+                }
+            }
+            io->windows++;
+            #pragma omp parallel for schedule(dynamic, 8)
+            for (int64_t t = 0; t < (int64_t)tc; t++) {
+                const F1C5Req *tr = reqs + (uint64_t)t * (uint64_t)c->n;
+                F1U192 *ts = scr + (uint64_t)t * scr_per_tgt;
+                uint32_t r = rcur[t];
+                if (r < rlen[t] && tr[r].pi <= phi) {
+                    int dom[2 * KC_MAX_PAIRS];
+                    const int ndom = kc_g_dom(c, c->start_exit,
+                                              nxt->masks[t0 + (uint64_t)t], nxt->k, dom);
+                    while (r < rlen[t] && tr[r].pi <= phi) {
+                        uint64_t a = src->off[tr[r].pi], b = src->off[tr[r].pi + 1];
+                        kc_g_gather_pair(B, kbuf + (a - e0), vbuf + (a - e0), b - a,
+                                         c->el[tr[r].g].hmap, c->pa[tr[r].i], c->pb[tr[r].i],
+                                         dom, ndom, loc0, vk0, ts);
+                        r++;
+                    }
+                }
+                rcur[t] = r;
+            }
+            wi = wj;
+        }
+        #pragma omp parallel for schedule(dynamic, 8)
+        for (int64_t t = 0; t < (int64_t)tc; t++) {
+            F1_CHECK(rcur[t] == rlen[t], "[kc-g] ooc request sweep incomplete at target %lld",
+                     (long long)(t0 + (uint64_t)t));
+            const F1U192 *ts = scr + (uint64_t)t * scr_per_tgt;
+            uint64_t cnt = 0;
+            for (uint64_t s = 0; s < scr_per_tgt; s++)
+                if (!f1_is_zero(&ts[s])) cnt++;
+            cnts[t] = cnt;
+        }
+        for (uint64_t t = 0; t < tc; t++)
+            nxt->off[t0 + t + 1] = nxt->off[t0 + t] + cnts[t];
+        const uint64_t cbase = nxt->off[t0];
+        #pragma omp parallel
+        {
+            F1U192 lm = {0, 0, 0};
+            uint64_t ls = 0;
+            #pragma omp for schedule(dynamic, 8) nowait
+            for (int64_t t = 0; t < (int64_t)tc; t++) {
+                const uint64_t doff = nxt->off[t0 + (uint64_t)t] - cbase;
+                uint64_t got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk0, vl0,
+                                                skeys + doff, svals + doff);
+                F1_CHECK(got == cnts[t], "[kc-g] ooc count/emit drift at target %lld",
+                         (long long)(t0 + (uint64_t)t));
+                if (got) {
+                    F1U192 s = {0, 0, 0};
+                    uint32_t prev_last = 0xffffffffu;
+                    for (uint64_t e = doff; e < doff + got; e++) {
+                        f1_add(&s, &svals[e]);
+                        uint32_t l = skeys[e] >> 16;
+                        if (l != prev_last) { ls++; prev_last = l; }
+                    }
+                    F1U192 w = f1_mul_small(s, (uint32_t)f1_orbit_size(c, nxt->masks[t0 + (uint64_t)t]));
+                    f1_add(&lm, &w);
+                }
+            }
+            #pragma omp critical (kc_g_ooc_stats_merge)
+            { f1_add(&mass, &lm); states += ls; }
+        }
+        const uint64_t cents = nxt->off[t0 + tc] - cbase;
+        if (cents) {
+            if (use_v2) {
+                f1c5_v2out_push(&v2o, skeys, svals, cents);
+            } else {
+                f1c5_ooc_pwrite(ofd, skeys, sizeof(uint32_t) * cents,
+                                okeys_base + sizeof(uint32_t) * cbase, otmp, io);
+                f1c5_ooc_pwrite(vfd, svals, sizeof(F1U192) * cents,
+                                sizeof(F1U192) * cbase, ovtmp, io);
+            }
+        }
+        if (use_v2) {
+            const uint64_t ci = t0 / chunk_cap;
+            const uint64_t t0_next = t0 + tc;
+            const int do_kill = (kill_after_chunk >= 0 &&
+                                 (uint64_t)kill_after_chunk == ci);
+            const double now = omp_get_wtime();
+            if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
+                f1c5_build_ckpt_write(dir, "g", (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                                      t0_next, nxt->off, &v2o, &mass, states, io);
+                last_ckpt_wt = now;
+                if (do_kill) {
+                    fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_AFTER_CHUNK=%lld reached "
+                            "(g layer k=%d chunk=%llu t0_next=%llu) — checkpointed, _exit(137)\n",
+                            kill_after_chunk, nxt->k, (unsigned long long)ci,
+                            (unsigned long long)t0_next);
+                    _exit(137);
+                }
+            }
+        }
+    }
+    nxt->ne = nxt->off[nxt->nm];
+    F1C5LayerHdr h;
+    memset(&h, 0, sizeof(h));
+    memcpy(h.magic, use_v2 ? "F1C5GLY2" : "F1C5GLY1", 8);
+    h.version = use_v2 ? 2u : 1u;
+    h.n = (uint32_t)c->n;
+    h.k = (uint32_t)nxt->k;
+    h.start_exit = (uint32_t)c->start_exit;
+    h.pl_hash = f1_pl_hash(c);
+    h.n_masks = nxt->nm;
+    h.n_entries = nxt->ne;
+    for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
+    h.pad = use_v2 ? F1C5_OOC_BLK : 0u;
+    if (use_v2) {
+        f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
+                            dir, &nxt->kidx, &nxt->vidx, io);
+        free(v2cbuf); free(v2ktmp); free(v2vtmp);
+        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/g_build.ckpt", dir); unlink(ckp); }
+    } else {
+        f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
+        f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
+        f1c5_ooc_pwrite(ofd, nxt->off, sizeof(uint64_t) * (nxt->nm + 1),
+                        sizeof(h) + sizeof(uint32_t) * nxt->nm, otmp, io);
+        const uint64_t ovals_base = okeys_base + sizeof(uint32_t) * nxt->ne;
+        const uint64_t cchunk = sizeof(F1U192) * buf_entries;
+        uint64_t remain = sizeof(F1U192) * nxt->ne;
+        while (remain > 0) {
+            uint64_t take = remain > cchunk ? cchunk : remain;
+            uint64_t src2 = remain - take;
+            f1c5_ooc_pread(vfd, vbuf, take, src2, ovtmp, io);
+            f1c5_ooc_pwrite(ofd, vbuf, take, ovals_base + src2, otmp, io);
+            if (ftruncate(vfd, (off_t)src2) != 0) f1_ckpt_io_abort("ftruncate", ovtmp);
+            remain = src2;
+        }
+        double tw = omp_get_wtime();
+        if (fsync(ofd) != 0) f1_ckpt_io_abort("fsync", otmp);
+        close(ofd);
+        close(vfd);
+        if (rename(otmp, ofin) != 0) f1_ckpt_io_abort("rename", ofin);
+        f1_fsync_dir(dir);
+        unlink(ovtmp);
+        io->sec_write += omp_get_wtime() - tw;
+    }
+    *mass_out = mass;
+    *states_out = states;
+    free(svals); free(skeys);
+    free(cnts); free(needed); free(rcur); free(rlen); free(reqs);
+    free(scr); free(vbuf); free(kbuf);
+    close(fd);
+}
+
+/* out-of-core g-ladder driver: seed layer n (or eviction-resume from the
+ * g manifest), then build k = n-1 .. stop_at_k, committing layer file then
+ * manifest after each layer (write-order invariant: the layer is durable
+ * BEFORE the manifest references it). stop_at_k > 0 = probe stop (the
+ * SOLVE_KC_G_STOP_AT_K hook + gate GA9); a later call resumes and finishes. */
+static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
+                          int use_v2, int gzip_level, int stop_at_k, int verbose) {
+    const int n = kc->n;
+    if (mkdir(gdir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", gdir);
+    F1C5Layer cur;
+    memset(&cur, 0, sizeof(cur));
+    int resumed_is_v2 = -1;
+    int rk = f1c5_try_resume_as(gdir, "g", 1, &kc->c, &kc->B, &cur, 1, &resumed_is_v2);
+    double T0 = omp_get_wtime();
+    if (rk >= 0) {
+        if (resumed_is_v2 >= 0 && resumed_is_v2 != use_v2) {
+            fprintf(stderr, "[kc-g] resume ADOPTS on-disk layer format %s (requested %s)\n",
+                    resumed_is_v2 ? "v2" : "v1", use_v2 ? "v2" : "v1");
+            use_v2 = resumed_is_v2;
+        }
+        fprintf(stderr, "[kc-g] RESUME from last complete layer k=%d "
+                "(%llu canonical masks, %llu entries; building down to k=%d)\n",
+                rk, (unsigned long long)cur.nm, (unsigned long long)cur.ne, stop_at_k);
+    } else {
+        kc_g_layer_n(kc, &cur);
+        if (use_v2) f1c5_write_layer_v2_as(gdir, "g", "F1C5GLY2", &kc->c, &kc->B, &cur, gzip_level);
+        else        f1c5_write_layer_as(gdir, "g", "F1C5GLY1", &kc->c, &kc->B, &cur);
+        f1c5_write_manifest_as(gdir, "g", &kc->c, &kc->B, n);
+        rk = n;
+        if (verbose)
+            fprintf(stderr, "[kc-g] seed layer k=%d written (%llu entries)\n",
+                    n, (unsigned long long)cur.ne);
+    }
+    for (int k = rk - 1; k >= stop_at_k; k--) {
+        double t0 = omp_get_wtime();
+        F1C5Layer nxt;
+        memset(&nxt, 0, sizeof(nxt));
+        nxt.k = k;
+        f1_enum_canonical(&kc->c, k, &nxt.masks, &nxt.nm);
+        nxt.off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt.nm + 1));
+        F1_CHECK(nxt.off != NULL, "[kc-g] offset alloc failed (layer %d)", k);
+        F1C5OocIo io;
+        memset(&io, 0, sizeof(io));
+        F1U192 mass;
+        uint64_t states = 0;
+        kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, &cur, &nxt,
+                             kc->vloc[k], kc->vcnt[k], kc->vlist[k],
+                             cfg, &io, &mass, &states, use_v2, gzip_level);
+        f1c5_write_manifest_as(gdir, "g", &kc->c, &kc->B, k);
+        if (verbose) {
+            char mdec[64];
+            f1_dec(mass, mdec);
+            double rss_cur, rss_peak;
+            f1_rss_mb(&rss_cur, &rss_peak);
+            fprintf(stderr, "[kc-g] layer k=%2d/%d: canonical_masks=%llu states=%llu "
+                    "entries=%llu V_k=%d mass=%s elapsed=%.2fs total=%.1fs | "
+                    "read=%.6f GB write=%.6f GB windows=%llu rss_peak=%.1f MB\n",
+                    k, n, (unsigned long long)nxt.nm, (unsigned long long)states,
+                    (unsigned long long)nxt.ne, kc->vcnt[k], mdec,
+                    omp_get_wtime() - t0, omp_get_wtime() - T0,
+                    (double)io.bytes_read / 1e9, (double)io.bytes_written / 1e9,
+                    (unsigned long long)io.windows, rss_peak);
+        }
+        f1c5_layer_free(&cur);
+        cur = nxt;   /* entries live on disk; index (+v2 seek index) in RAM */
+    }
+    f1c5_layer_free(&cur);
+    if (stop_at_k > 0)
+        fprintf(stderr, "[kc-g] PROBE STOP at layer k=%d (SOLVE_KC_G_STOP_AT_K); "
+                "ladder INCOMPLETE — rerun without the hook to finish\n", stop_at_k);
+    return 0;
+}
+
+/* --kc-g-build driver */
+static int kc_g_build_main(const char *gdir, int npairs, int force_ooc_build) {
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[kc-g] alloc");
+    if (kc_g_init(kc, npairs) != 0) { free(kc); return 2; }
+    const int ooc = force_ooc_build || npairs > KC_MEM_MAX_PAIRS;
+    int stop_at_k = 0;
+    { const char *e = getenv("SOLVE_KC_G_STOP_AT_K");
+      if (e && *e) {
+          stop_at_k = atoi(e);
+          if (stop_at_k < 0) stop_at_k = 0;
+          if (stop_at_k > kc->n) stop_at_k = kc->n;
+          if (stop_at_k > 0)
+              fprintf(stderr, "[kc-g] PROBE MODE: stopping after layer k=%d "
+                      "(SOLVE_KC_G_STOP_AT_K)\n", stop_at_k);
+      } }
+    int rc = 0;
+    if (!ooc) {
+        if (stop_at_k > 0) {
+            fprintf(stderr, "ERROR: [kc-g] SOLVE_KC_G_STOP_AT_K needs the OOC builder "
+                    "(--kc-g-ooc); the in-memory build is all-or-nothing\n");
+            kc_free(kc);
+            free(kc);
+            return 2;
+        }
+        double t0 = omp_get_wtime();
+        kc_g_build_mem(kc, 1);
+        kc_g_write(kc, gdir, 0);
+        double bytes = 0;
+        for (int k = 0; k <= kc->n; k++) bytes += f1c5_layer_bytes(&kc->L[k]);
+        char tdec[64];
+        f1_dec(kc->total, tdec);
+        printf("KC-G BUILD n=%d dir=%s g0=%s layers=%.6f MB elapsed=%.3fs\n",
+               kc->n, gdir, tdec, bytes / 1e6, omp_get_wtime() - t0);
+    } else {
+        F1C5OocCfg cfg = {256, 1024, 1024};
+        const char *e;
+        if ((e = getenv("SOLVE_F1_OOC_READ_MB")) && *e && atoll(e) > 0)
+            cfg.read_mb = (uint64_t)atoll(e);
+        if ((e = getenv("SOLVE_F1_OOC_SCRATCH_MB")) && *e && atoll(e) > 0)
+            cfg.scratch_mb = (uint64_t)atoll(e);
+        if ((e = getenv("SOLVE_F1_OOC_GAP_KB")) && *e && atoll(e) >= 0)
+            cfg.gap_kb = (uint64_t)atoll(e);
+        int use_v2 = 1;
+        { const char *fe = getenv("SOLVE_F1_OOC_FORMAT");
+          if (fe && (strcmp(fe, "v1") == 0 || strcmp(fe, "1") == 0)) use_v2 = 0; }
+        fprintf(stderr, "[kc-g] out-of-core backward build: n=%d dir=%s format=%s "
+                "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d\n",
+                kc->n, gdir, use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
+                (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
+                (unsigned long long)cfg.gap_kb, omp_get_max_threads());
+        kc_g_build_ooc(kc, gdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1);
+        if (stop_at_k == 0) {
+            /* readback + integrity: reopen the finished ladder OOC and print
+             * g(0) — the whole-space count re-derived from the suffix side */
+            KC *g2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(g2 != NULL, "[kc-g] alloc");
+            if (kc_ooc_open_as(g2, gdir, "g", 1, 256) != 0) {
+                rc = 2;
+            } else {
+                char tdec[64];
+                f1_dec(g2->total, tdec);
+                printf("KC-G BUILD n=%d dir=%s g0=%s (out-of-core; compare g0 to the "
+                       "f-DP total / TR-11 N)\n", kc->n, gdir, tdec);
+                kc_free(g2);
+            }
+            free(g2);
+        }
+    }
+    kc_free(kc);
+    free(kc);
+    return rc;
+}
+
+/* --kc-g-check driver: the plan's V3 gate (f*g cut identity, every layer) */
+static int kc_g_check_main(const char *fdir, const char *gdir, int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-g] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc);
+        free(fkc);
+        free(gkc);
+        return 2;
+    }
+    char fdec[64], gdec[64];
+    f1_dec(fkc->total, fdec);
+    f1_dec(gkc->total, gdec);
+    int g0_ok = f1_eq(&fkc->total, &gkc->total);
+    printf("[kc-g] f total (layer n) = %s\n[kc-g] g(0)  (layer 0) = %s  %s\n",
+           fdec, gdec, g0_ok ? "EQUAL" : "MISMATCH");
+    int fails = kc_g_identity(fkc, gkc, &fkc->total, 1) + !g0_ok;
+    printf("KC-G CHECK n=%d %s (%d failing layer%s)\n", fkc->n,
+           fails ? "FAIL" : "PASS (sum orbit*f*g == N at every layer 0..n)",
+           fails, fails == 1 ? "" : "s");
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    return fails ? 1 : 0;
+}
+
+/* fixed-length row comparator for the GA4 brute cross-check sorts */
+static size_t kc_g_rowlen;
+static int kc_g_row_cmp(const void *a, const void *b) {
+    return memcmp(a, b, kc_g_rowlen);
+}
+
+/* raw byte-compare of two files (small gate files only) */
+static int kc_g_files_equal(const char *pa, const char *pb) {
+    FILE *fa = fopen(pa, "rb"), *fb = fopen(pb, "rb");
+    if (!fa || !fb) { if (fa) fclose(fa); if (fb) fclose(fb); return 0; }
+    int eq = 1;
+    for (;;) {
+        uint8_t ba[65536], bb[65536];
+        size_t ra = fread(ba, 1, sizeof(ba), fa);
+        size_t rb = fread(bb, 1, sizeof(bb), fb);
+        if (ra != rb || memcmp(ba, bb, ra) != 0) { eq = 0; break; }
+        if (ra == 0) break;
+    }
+    fclose(fa);
+    fclose(fb);
+    return eq;
+}
+
+/* ---------- --kc-g-selftest ---------- */
+static int kc_g_selftest(void) {
+    int fails = 0;
+    printf("[kc-g-selftest] Stage-G suffix-DP verification (exhaustive n=9; spot n=13)\n");
+
+    /* ============ Phase GA: n=9, exhaustive ============ */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-g] alloc");
+        F1_CHECK(kc_init(fkc, 9) == 0 && kc_init(gkc, 9) == 0, "[kc-g] init failed");
+        kc_build(fkc, 0);
+        kc_g_build_mem(gkc, 0);
+        const int n = fkc->n;
+
+        /* GA1: the g ladder lives on the SAME canonical mask lists as f */
+        {
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++)
+                ok = fkc->L[k].nm == gkc->L[k].nm &&
+                     memcmp(fkc->L[k].masks, gkc->L[k].masks,
+                            sizeof(uint32_t) * fkc->L[k].nm) == 0;
+            KC_G_GATE("GA1 n=9 g/f canonical mask lists identical", ok);
+        }
+        /* GA2: g(0, root) == N, both as the ladder total and via kc_flookup */
+        {
+            F1U192 v = kc_flookup(gkc, 0, 0, gkc->start_exit, 0);
+            KC_G_GATE("GA2 n=9 g(0,root) == f total (26,112)",
+                      f1_eq(&gkc->total, &fkc->total) && f1_eq(&v, &fkc->total) &&
+                      fkc->total.l0 == 26112 && fkc->total.l1 == 0 && fkc->total.l2 == 0);
+        }
+        /* GA3: the f*g cut identity at EVERY layer */
+        KC_G_GATE("GA3 n=9 sum orbit*f*g == N at every layer 0..9",
+                  kc_g_identity(fkc, gkc, &fkc->total, 0) == 0);
+
+        /* GA4: exhaustive brute-force cross-check. For every layer k and
+         * every state s reached by any of the 26,112 brute walks:
+         * g(s) == #distinct suffixes from s, f(s) == #distinct prefixes
+         * reaching s, and #walks through s == f(s)*g(s) (the L5 product). */
+        {
+            KcList BR;
+            kc_brute(fkc, &BR);
+            int ok = BR.cnt == 26112;
+            const size_t rl = 8 + (size_t)n;   /* state key (BE) + walk bytes */
+            uint8_t *rows = (uint8_t *)malloc(BR.cnt * rl);
+            uint8_t *rowp = (uint8_t *)malloc(BR.cnt * rl);
+            F1_CHECK(rows && rowp, "[kc-g] brute rows alloc");
+            for (int k = 0; k <= n && ok; k++) {
+                for (uint64_t w = 0; w < BR.cnt; w++) {
+                    const uint8_t *E = BR.walks + w * (size_t)n;
+                    uint32_t rids[KC_MAX_PAIRS + 1];
+                    F1_CHECK(kc_validate(fkc, E, rids, NULL) == 0, "[kc-g] brute walk invalid");
+                    uint32_t m = 0;
+                    for (int j = 0; j < k; j++) m |= 1u << fkc->pair_of_sub[E[j]];
+                    int l = k == 0 ? fkc->start_exit : E[k - 1];
+                    uint64_t skey = ((uint64_t)m << 22) | ((uint64_t)l << 16) | rids[k];
+                    uint8_t *r1 = rows + w * rl, *r2 = rowp + w * rl;
+                    for (int b = 0; b < 8; b++)
+                        r1[b] = r2[b] = (uint8_t)(skey >> (56 - 8 * b));
+                    /* rows: state + suffix bytes; rowp: state + prefix bytes */
+                    memcpy(r1 + 8, E + k, (size_t)(n - k));
+                    memset(r1 + 8 + (n - k), 0, (size_t)k);
+                    memcpy(r2 + 8, E, (size_t)k);
+                    memset(r2 + 8 + k, 0, (size_t)(n - k));
+                }
+                kc_g_rowlen = rl;
+                qsort(rows, BR.cnt, rl, kc_g_row_cmp);
+                qsort(rowp, BR.cnt, rl, kc_g_row_cmp);
+                /* walk the suffix-sorted rows in state groups; count walks W,
+                 * distinct suffixes S; find the same state group in rowp for
+                 * distinct prefixes P; gate against the compiled f and g. */
+                uint64_t i = 0, ip = 0, states_checked = 0;
+                while (i < BR.cnt && ok) {
+                    uint64_t j = i + 1, S = 1;
+                    while (j < BR.cnt && memcmp(rows + j * rl, rows + i * rl, 8) == 0) {
+                        if (memcmp(rows + j * rl, rows + (j - 1) * rl, rl) != 0) S++;
+                        j++;
+                    }
+                    uint64_t W = j - i;
+                    uint64_t jp = ip + 1, P = 1;
+                    F1_CHECK(memcmp(rowp + ip * rl, rows + i * rl, 8) == 0,
+                             "[kc-g] prefix/suffix group walk drift");
+                    while (jp < BR.cnt && memcmp(rowp + jp * rl, rowp + ip * rl, 8) == 0) {
+                        if (memcmp(rowp + jp * rl, rowp + (jp - 1) * rl, rl) != 0) P++;
+                        jp++;
+                    }
+                    F1_CHECK(jp - ip == W, "[kc-g] group size drift");
+                    uint64_t skey = 0;
+                    for (int b = 0; b < 8; b++) skey = (skey << 8) | rows[i * rl + b];
+                    uint32_t m = (uint32_t)(skey >> 22);
+                    int l = (int)((skey >> 16) & 0x3f);
+                    uint32_t rid = (uint32_t)(skey & 0xffffu);
+                    F1U192 gv = kc_flookup(gkc, k, m, l, rid);
+                    F1U192 fv = kc_flookup(fkc, k, m, l, rid);
+                    if (!(gv.l1 == 0 && gv.l2 == 0 && gv.l0 == S &&
+                          fv.l1 == 0 && fv.l2 == 0 && fv.l0 == P &&
+                          W == P * S)) ok = 0;
+                    states_checked++;
+                    i = j;
+                    ip = jp;
+                }
+                if (k == 0 && ok) ok = states_checked == 1;
+            }
+            KC_G_GATE("GA4 n=9 exhaustive: g==#suffixes, f==#prefixes, W==f*g", ok);
+            free(rows);
+            free(rowp);
+            free(BR.walks);
+            free(BR.cds);
+        }
+
+        /* GA5: g-build partition invariance on the largest g layer */
+        {
+            int kmax = 0;
+            for (int k = 0; k < n; k++)
+                if (gkc->L[k].ne > gkc->L[kmax].ne) kmax = k;
+            F1C5Layer R1, R2, R3;
+            memset(&R1, 0, sizeof(R1));
+            memset(&R2, 0, sizeof(R2));
+            memset(&R3, 0, sizeof(R3));
+            const uint64_t nt = gkc->L[kmax].nm;
+            uint64_t *order = (uint64_t *)malloc(sizeof(uint64_t) * (nt ? nt : 1));
+            uint64_t rng = 0x5eedULL;
+            for (uint64_t i = 0; i < nt; i++) order[i] = i;
+            for (uint64_t i = nt; i > 1; i--) {
+                uint64_t j = kc_splitmix64(&rng) % i;
+                uint64_t t = order[i - 1]; order[i - 1] = order[j]; order[j] = t;
+            }
+            kc_build_layer(gkc, &gkc->L[kmax + 1], &R1, order, 1, 1);   /* serial, shuffled */
+            kc_build_layer(gkc, &gkc->L[kmax + 1], &R2, NULL, 0, 1);    /* parallel, natural */
+            kc_build_layer_sliced(gkc, &gkc->L[kmax + 1], &R3, 3, 1);   /* 3 slices, merged */
+            KC_G_GATE("GA5 n=9 g layer invariance (scrambled/parallel/sliced)",
+                      kc_layers_equal(gkc, &gkc->L[kmax], &R1) &&
+                      kc_layers_equal(gkc, &gkc->L[kmax], &R2) &&
+                      kc_layers_equal(gkc, &gkc->L[kmax], &R3));
+            f1c5_layer_free(&R1);
+            f1c5_layer_free(&R2);
+            f1c5_layer_free(&R3);
+            free(order);
+        }
+
+        /* GA6: v1 disk round-trip through the g reader */
+        char d1[] = "/tmp/kc_g_v1_XXXXXX";
+        F1_CHECK(mkdtemp(d1) != NULL, "[kc-g] mkdtemp failed");
+        kc_g_write(gkc, d1, 0);
+        {
+            KC *g2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(g2 != NULL, "[kc-g] alloc");
+            int ok = kc_open_as(g2, d1, "g", 1, 0, 0) == 0 && g2->ooc == NULL &&
+                     f1_eq(&g2->total, &gkc->total);
+            for (int k = 0; k <= n && ok; k++)
+                ok = kc_layers_equal(gkc, &gkc->L[k], &g2->L[k]);
+            KC_G_GATE("GA6 n=9 v1 write + reload == in-memory bytes", ok);
+            if (g2->n) kc_free(g2);
+            free(g2);
+        }
+
+        /* GA7a: OOC backward builder (v1, forced multi-chunk/multi-window)
+         * produces files byte-identical to the in-memory-built v1 ladder */
+        char d2[] = "/tmp/kc_g_oocv1_XXXXXX";
+        F1_CHECK(mkdtemp(d2) != NULL, "[kc-g] mkdtemp failed");
+        {
+            F1C5OocCfg tiny = {1, 1, 1};   /* 1 MB window, 1 MB scratch, 1 KB gap */
+            kc_g_build_ooc(gkc, d2, &tiny, 0, f1c5_ooc_gzip_level(), 0, 0);
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++) {
+                char pa[4300], pb[4300];
+                snprintf(pa, sizeof(pa), "%s/g_layer_%02d.bin", d1, k);
+                snprintf(pb, sizeof(pb), "%s/g_layer_%02d.bin", d2, k);
+                ok = kc_g_files_equal(pa, pb);
+            }
+            KC_G_GATE("GA7a n=9 OOC(v1) builder == in-memory files (byte)", ok);
+        }
+        /* GA7b: OOC v2 ladder, opened through the OOC reader with a forced-
+         * eviction tiny cache, serves EVERY stored state byte-equal */
+        char d3[] = "/tmp/kc_g_oocv2_XXXXXX";
+        F1_CHECK(mkdtemp(d3) != NULL, "[kc-g] mkdtemp failed");
+        {
+            F1C5OocCfg tiny = {1, 1, 1};
+            kc_g_build_ooc(gkc, d3, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0);
+            KC *g3 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(g3 != NULL, "[kc-g] alloc");
+            int ok = kc_ooc_open_as(g3, d3, "g", 1, 1) == 0 &&   /* ~4-slot cache */
+                     f1_eq(&g3->total, &gkc->total);
+            for (int k = 0; k <= n && ok; k++) {
+                const F1C5Layer *L = &gkc->L[k];
+                for (uint64_t mi = 0; mi < L->nm && ok; mi++)
+                    for (uint64_t e = L->off[mi]; e < L->off[mi + 1] && ok; e++) {
+                        F1U192 v = kc_flookup(g3, k, L->masks[mi],
+                                              (int)(L->keys[e] >> 16),
+                                              L->keys[e] & 0xffffu);
+                        ok = f1_eq(&v, &L->vals[e]);
+                    }
+            }
+            KC_G_GATE("GA7b n=9 OOC(v2) reader == in-memory g (all states)", ok);
+            /* GA8: the identity gate re-run THROUGH the OOC reader */
+            KC_G_GATE("GA8 n=9 identity via OOC g reader",
+                      ok && kc_g_identity(fkc, g3, &fkc->total, 0) == 0);
+            if (g3->n) kc_free(g3);
+            free(g3);
+        }
+        /* GA9: layer-granular eviction resume — probe-stop at k=5, resume to
+         * completion, files byte-identical to the straight-through v2 build */
+        char d4[] = "/tmp/kc_g_resume_XXXXXX";
+        F1_CHECK(mkdtemp(d4) != NULL, "[kc-g] mkdtemp failed");
+        {
+            F1C5OocCfg tiny = {1, 1, 1};
+            kc_g_build_ooc(gkc, d4, &tiny, 1, f1c5_ooc_gzip_level(), 5, 0);   /* stop at k=5 */
+            kc_g_build_ooc(gkc, d4, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0);   /* resume */
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++) {
+                char pa[4300], pb[4300];
+                snprintf(pa, sizeof(pa), "%s/g_layer_%02d.bin", d3, k);
+                snprintf(pb, sizeof(pb), "%s/g_layer_%02d.bin", d4, k);
+                ok = kc_g_files_equal(pa, pb);
+            }
+            KC_G_GATE("GA9 n=9 probe-stop + resume == straight-through (byte)", ok);
+        }
+        kc_rm_dir_as(d1, "g", n);
+        kc_rm_dir_as(d2, "g", n);
+        kc_rm_dir_as(d3, "g", n);
+        kc_rm_dir_as(d4, "g", n);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+
+    /* ============ Phase GB: n=13 spot ============ */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-g] alloc");
+        F1_CHECK(kc_init(fkc, 13) == 0 && kc_init(gkc, 13) == 0, "[kc-g] init failed");
+        double t0 = omp_get_wtime();
+        kc_build(fkc, 0);
+        kc_g_build_mem(gkc, 0);
+        char tdec[64];
+        f1_dec(gkc->total, tdec);
+        printf("[kc-g-selftest] n=13: g(0)=%s f_total_matches=%d build=%.3fs\n",
+               tdec, f1_eq(&gkc->total, &fkc->total), omp_get_wtime() - t0);
+        KC_G_GATE("GB1 n=13 g(0,root) == 2,063,395,607,040",
+                  f1_eq(&gkc->total, &fkc->total) && strcmp(tdec, "2063395607040") == 0);
+        KC_G_GATE("GB2 n=13 sum orbit*f*g == N at every layer 0..13",
+                  kc_g_identity(fkc, gkc, &fkc->total, 0) == 0);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+
+    printf("[kc-g-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
+           fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
 static int kc_parse_walk(const KC *kc, const char *s, uint8_t *E) {
     int vals[2 * KC_MAX_PAIRS], nv = 0;
     const char *p = s;
@@ -17202,6 +18830,45 @@ static int kc_cli(int argc, char *argv[]) {
         }
         if (R < 8) R = 8;
         return kc_oocverify(npairs, R, scratch);
+    }
+    if (strcmp(cmd, "--kc-g-selftest") == 0) return kc_g_selftest();
+    if (strcmp(cmd, "--kc-g-build") == 0) {
+        /* Stage G: build + retain the FULL backward suffix-count (g) ladder.
+         * See the KC-G module header for semantics, gates, and env knobs. */
+        if (argc < 3) {
+            fprintf(stderr, "Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc]\n"
+                    "  GDIR: the g-ladder directory (g_layer_NN.bin + g_manifest.txt).\n"
+                    "  Full-31 needs its own ~2.5-2.7 TB (hedged) — a second 4 TB disk or a\n"
+                    "  shared 8 TB with the f ladder both work (plan §8.3; decision open).\n"
+                    "  n <= 22 builds in-memory (v1); n >= 24 or --kc-g-ooc streams\n"
+                    "  out-of-core (v2 default; SOLVE_F1_OOC_FORMAT=v1 override) with\n"
+                    "  eviction resume (g_manifest counts DOWN) + intra-layer checkpoints.\n");
+            return 2;
+        }
+        int npairs = 9, gooc = 0;
+        for (int ai = 3; ai < argc; ai++) {
+            if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[++ai]);
+            else if (strcmp(argv[ai], "--kc-g-ooc") == 0) gooc = 1;
+        }
+        return kc_g_build_main(argv[2], npairs, gooc);
+    }
+    if (strcmp(cmd, "--kc-g-check") == 0) {
+        /* Stage G / V3: the f*g cut identity at every layer (KC-G header). */
+        if (argc < 4) {
+            fprintf(stderr, "Usage: solve --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB]\n"
+                    "  FDIR: an f (forward) retained-layers dir (--kc-build or Stage F);\n"
+                    "  GDIR: the matching g ladder (--kc-g-build). Verifies, for EVERY\n"
+                    "  layer k, sum over canonical masks of orbit * sum f*g == N, plus\n"
+                    "  g(0,root) == N — 31 independent exact identities at full-31 (V3).\n");
+            return 2;
+        }
+        int gfooc = 0, gcache = 0;
+        for (int ai = 4; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-ooc") == 0) gfooc = 1;
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
+                gcache = atoi(argv[++ai]);
+        }
+        return kc_g_check_main(argv[2], argv[3], gfooc, gcache);
     }
 
     /* common option scan. C3 SCOPE (review C-3, freeze §3.2): c3max defaults
@@ -19062,6 +20729,62 @@ int main(int argc, char *argv[]) {
         /* retool: byte-identical content check of a v1 raw vs v2 gzip layer file. */
         if (argc < 4) { fprintf(stderr, "usage: --f1c5-verify-layer <v1_raw> <v2_gzip>\n"); return 2; }
         return f1c5_verify_layer(argv[2], argv[3]);
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-layer-sha") == 0) {
+        /* CR-3b (2026-07-16): sha256 over the DECOMPRESSED logical layer stream
+         * (masks|off|keys|vals — exactly the bytes the v2 reader yields to the
+         * DP), so the digest is invariant to zlib version/level byte
+         * differences in the compressed file. See the module header above
+         * f1c5_lstream_open(). Sha-neutral (argv-dispatched only). */
+        if (argc < 3) {
+            fprintf(stderr,
+                "Usage: solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]\n"
+                "  Streams each f1c5 layer file (v1 raw or v2 per-block-zlib) through the\n"
+                "  engine's block decompressor and prints sha256 of the DECOMPRESSED logical\n"
+                "  stream (masks|off|keys|vals) — the exact bytes the v2 reader yields to the\n"
+                "  DP. Immune to zlib-version/level byte differences; a v1 and v2 layer of\n"
+                "  the same build digest identically. DIR expands to its f1c5_layer_NN.bin\n"
+                "  files. Digest via the system sha256 tool (sha256sum / shasum -a 256).\n");
+            return 2;
+        }
+        if (require_sha256_tool()) return 30;
+        int lsha_rc = 0;
+        for (int ai = 2; ai < argc; ai++) {
+            struct stat lsha_st;
+            if (stat(argv[ai], &lsha_st) == 0 && S_ISDIR(lsha_st.st_mode)) {
+                int found = 0;
+                for (int k = 0; k <= 99; k++) {   /* layer files are f1c5_layer_%02d.bin */
+                    char lp[4096];
+                    snprintf(lp, sizeof(lp), "%s/f1c5_layer_%02d.bin", argv[ai], k);
+                    if (access(lp, R_OK) != 0) continue;
+                    found = 1;
+                    int r = f1c5_layer_sha_file(lp);
+                    if (r > lsha_rc) lsha_rc = r;
+                }
+                if (!found) {
+                    fprintf(stderr, "ERROR: no f1c5_layer_NN.bin files in %s\n", argv[ai]);
+                    lsha_rc = 2;
+                }
+            } else {
+                int r = f1c5_layer_sha_file(argv[ai]);
+                if (r > lsha_rc) lsha_rc = r;
+            }
+        }
+        return lsha_rc;
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-layer-cmp") == 0) {
+        /* CR-3b (2026-07-16): lockstep byte-compare of two layers' decompressed
+         * logical streams; first-divergence offset on mismatch. Formats/levels
+         * may differ (v1 vs v2, v2@level1 vs v2@level9) — equality is defined
+         * on the decompressed stream. Sha-neutral (argv-dispatched only). */
+        if (argc != 4) {
+            fprintf(stderr,
+                "Usage: solve --f1c5-layer-cmp FILE_A FILE_B\n"
+                "  Byte-compares the DECOMPRESSED logical streams (masks|off|keys|vals) of\n"
+                "  two f1c5 layer files (v1/v2 in any combination), streaming with bounded\n"
+                "  memory. Prints IDENTICAL, or the first divergence offset on mismatch.\n"
+                "  Exit 0 identical, 1 divergent, 2 error.\n");
+            return 2;
+        }
+        return f1c5_layer_cmp_files(argv[2], argv[3]);
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
         /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.
          * See the module header above f1_exact_main() for method, gates, and
