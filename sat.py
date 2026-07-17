@@ -908,6 +908,13 @@ def certify_count(cnf_obj, label, keep_dir=None):
         if r_chk.returncode != 0 or not m:
             raise SystemExit("cpog-check did not certify a count (rc=%s)\n--- output tail ---\n%s"
                              % (r_chk.returncode, _tool_tail(r_chk)))
+        # gate on the FULL-proof verdict, not just rc+count: cpog-check
+        # distinguishes full from one-sided/partial verification, and only a
+        # full proof certifies the count (defense-in-depth; R2-delta review)
+        if "FULL-PROOF SUCCESS" not in r_chk.stdout:
+            raise SystemExit("cpog-check succeeded without FULL-PROOF SUCCESS — "
+                             "partial/one-sided verification is not a certified count"
+                             "\n--- output tail ---\n%s" % _tool_tail(r_chk))
         certified = int(m[-1])
         if d4_count is not None and d4_count != certified:
             raise SystemExit("d4 uncertified count %d != CPOG-certified count %d "
@@ -979,6 +986,20 @@ if __name__ == "__main__":
         # OPTIONAL binaries, required by THIS subcommand only; certify_count()
         # exits gracefully with an install message if they are not on PATH.
         target = args[1]
+        # model-count safety: the C3 X-vars are one-directional (unforced X
+        # floats true, inflating the count) and near-k targets leave bare
+        # at_most/at_least Sinz registers undetermined — validly certified
+        # for the CNF, but NOT the count of orderings. Refuse rather than
+        # print a certified-but-unsupportable number.
+        if with_c3 or c3_max is not None:
+            raise SystemExit("--certify-count refuses --with-c3/--c3-max: the C3 "
+                             "encoding is one-directional and not total-model-count-"
+                             "safe (the certified CNF count would not equal the "
+                             "orderings count)")
+        if "-near-" in target:
+            raise SystemExit("--certify-count refuses near-k targets: bare "
+                             "at_most/at_least cardinality registers are not "
+                             "total-model-count-safe")
         if npairs is not None:
             cnf, _ctx = build_subset(npairs)
         else:

@@ -21,7 +21,7 @@ ground truth.
 python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--f1-pairs N]
 python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--f1-pairs N]
 python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N]
-python3 sat.py --certify-count TARGET               [--with-c3] [--c3-max N] [--f1-pairs N]
+python3 sat.py --certify-count TARGET               [--f1-pairs N]
                                                     [--expect N] [--keep DIR]
 ```
 
@@ -141,6 +141,15 @@ python3 sat.py --certify-count plain --keep certs/plain
 Produces an **independently certified model count** of the `TARGET`
 CNF (or, with `--f1-pairs N`, of the reduced small-n probe instance —
 the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
+
+> **Model-count-safe targets only:** `--certify-count` refuses
+> `--with-c3` / `--c3-max` and `*-near-k` targets. The C3 encoding's
+> auxiliary `X` variables are deliberately one-directional (an unforced
+> `X` may float true, multiplying the model count), and near-k targets
+> leave bare at-most/at-least cardinality registers undetermined — the
+> tool would certify a count that is valid **for the CNF** but is *not*
+> the count of orderings. Plain/exact-k targets (all auxiliary
+> variables functionally determined) are safe and accepted.
 
 > **External dependency (this subcommand only):** `--certify-count`
 > requires the **D4** d-DNNF compiler
