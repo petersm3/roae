@@ -13265,6 +13265,11 @@ typedef struct {
  * file names and "F1C5GLY1" magic, so f- and g-layer files can never be
  * confused by a reader. f1c5_write_layer() below keeps the historical
  * signature and behavior byte-for-byte (pfx="f1c5", magic="F1C5LAY1"). */
+/* catalog future-proofing sidecar (module below the layer-sha tools): emitted
+ * at every layer commit on all writer paths; sha-neutral, non-fatal. */
+static void f1c5_sidecar_emit(const char *dir, const char *pfx,
+                              const F1Ctx *c, const F1C5Budget *B, int k);
+
 static void f1c5_write_layer_as(const char *dir, const char *pfx, const char *magic,
                                 const F1Ctx *c, const F1C5Budget *B,
                                 const F1C5Layer *L) {
@@ -13294,6 +13299,7 @@ static void f1c5_write_layer_as(const char *dir, const char *pfx, const char *ma
     fclose(f);
     if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
     f1_fsync_dir(dir);
+    f1c5_sidecar_emit(dir, pfx, c, B, L->k);   /* catalog sidecar (non-fatal) */
 }
 
 static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *B,
@@ -13848,7 +13854,10 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
  *     masks[nm] (u32) || off[nm+1] (u64) || keys[ne] (u32) || vals[ne] (u192)
  *
  * i.e. byte-identical to the F1C5LAY1 (v1 raw) body and to what
- * f1c5_verify_layer compares. v2 blocks are inflated IN ORDER through
+ * f1c5_verify_layer compares. Stage-G g-ladder layers (F1C5GLY1/2 magic,
+ * g_layer_NN.bin) share the identical binary format and are accepted by both
+ * subcommands (operator g-ladder directive, 2026-07-17); the printed line
+ * carries kind=f|g. v2 blocks are inflated IN ORDER through
  * f1c5_inflate_block — the same core codec helper every engine v2 read path
  * uses (f1c5_v2_read_range, the kc OOC block cache, f1c5_verify_layer) — so
  * the digest covers precisely what the engine reads and is immune to zlib
@@ -13876,6 +13885,7 @@ typedef struct {
     const char *path;
     F1C5LayerHdr h;
     int is_v2;
+    int is_g;                  /* g (suffix-DP) ladder layer: F1C5GLY1/2 magic */
     uint64_t nm, ne, nblk;     /* nblk = v2 entry blocks (0 for v1) */
     uint64_t *kidx, *vidx;     /* v2 only: per-block compressed offsets */
     int section;               /* 0 masks, 1 off, 2 keys, 3 vals, 4 EOF */
@@ -13905,10 +13915,16 @@ static int f1c5_lstream_open(const char *path, F1c5LayerStream *S) {
         fprintf(stderr, "ERROR: %s: short read on layer header\n", path);
         f1c5_lstream_close(S); return -1;
     }
-    S->is_v2 = (memcmp(S->h.magic, "F1C5LAY2", 8) == 0 && S->h.version == 2);
-    int is_v1 = (memcmp(S->h.magic, "F1C5LAY1", 8) == 0 && S->h.version == 1);
+    /* f (F1C5LAY*) and g (F1C5GLY*, Stage G) layers share one binary format —
+     * only the magic differs — so the logical-stream digest/compare machinery
+     * serves both ladders (operator g-ladder directive, 2026-07-17). */
+    S->is_v2 = ((memcmp(S->h.magic, "F1C5LAY2", 8) == 0 ||
+                 memcmp(S->h.magic, "F1C5GLY2", 8) == 0) && S->h.version == 2);
+    int is_v1 = ((memcmp(S->h.magic, "F1C5LAY1", 8) == 0 ||
+                  memcmp(S->h.magic, "F1C5GLY1", 8) == 0) && S->h.version == 1);
+    S->is_g = (memcmp(S->h.magic, "F1C5GLY", 7) == 0);
     if (!S->is_v2 && !is_v1) {
-        fprintf(stderr, "ERROR: %s is not an f1c5 layer file (magic/version mismatch)\n", path);
+        fprintf(stderr, "ERROR: %s is not an f1c5/g layer file (magic/version mismatch)\n", path);
         f1c5_lstream_close(S); return -1;
     }
     S->nm = S->h.n_masks;
@@ -14033,14 +14049,18 @@ static const char *f1c5_lstream_locate(const F1c5LayerStream *S, uint64_t off, u
     *idx = (off - c) / 24; return "vals";
 }
 
-/* --f1c5-layer-sha worker: digest one layer file's decompressed logical stream
- * through the external sha256 tool (streamed via a write-mode pipe; the tool's
- * one-line output goes to a /tmp file read back after pclose). Returns 0 ok,
- * 2 on any error. */
-static int f1c5_layer_sha_file(const char *path) {
+/* Digest one layer file's decompressed logical stream through the external
+ * sha256 tool (streamed via a write-mode pipe; the tool's one-line output
+ * goes to a /tmp file read back after pclose). Fills hex[65] (+ optional
+ * blocks/bytes/kind). Returns 0 ok, 2 on any error. Split out of the
+ * --f1c5-layer-sha worker so the layer-stats sidecar hash chain uses the
+ * IDENTICAL digest the registry tool prints (2026-07-17). */
+static int f1c5_layer_sha_hex(const char *path, char hex[65],
+                              uint64_t *blocks_out, uint64_t *bytes_out,
+                              int *is_g_out) {
     F1c5LayerStream S;
     if (f1c5_lstream_open(path, &S) != 0) return 2;
-    const char *tool = sha256_tool();   /* caller ran require_sha256_tool() */
+    const char *tool = sha256_tool();   /* caller checked availability */
     char tmp[128];
     snprintf(tmp, sizeof(tmp), "/tmp/solve_lsha_%d", (int)getpid());
     char cmd[192];
@@ -14063,7 +14083,7 @@ static int f1c5_layer_sha_file(const char *path) {
         fprintf(stderr, "ERROR: %s exited rc=%d\n", tool, prc);
         unlink(tmp); f1c5_lstream_close(&S); return 2;
     }
-    char hex[65] = {0};
+    hex[0] = '\0';
     FILE *tf = fopen(tmp, "r");
     int ok = 0;
     if (tf) {
@@ -14083,9 +14103,22 @@ static int f1c5_layer_sha_file(const char *path) {
         fprintf(stderr, "ERROR: could not parse %s output for %s\n", tool, path);
         f1c5_lstream_close(&S); return 2;
     }
-    printf("sha256(decompressed) %s  %s  (blocks=%llu, bytes=%llu)\n",
-           hex, path, (unsigned long long)S.blocks, (unsigned long long)S.logical);
+    if (blocks_out) *blocks_out = S.blocks;
+    if (bytes_out) *bytes_out = S.logical;
+    if (is_g_out) *is_g_out = S.is_g;
     f1c5_lstream_close(&S);
+    return 0;
+}
+
+/* --f1c5-layer-sha worker: digest + print. Returns 0 ok, 2 on any error. */
+static int f1c5_layer_sha_file(const char *path) {
+    char hex[65];
+    uint64_t blocks = 0, bytes = 0;
+    int is_g = 0;
+    if (f1c5_layer_sha_hex(path, hex, &blocks, &bytes, &is_g) != 0) return 2;
+    printf("sha256(decompressed) %s  %s  (kind=%s, blocks=%llu, bytes=%llu)\n",
+           hex, path, is_g ? "g" : "f",
+           (unsigned long long)blocks, (unsigned long long)bytes);
     return 0;
 }
 
@@ -14097,6 +14130,9 @@ static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
     F1c5LayerStream A, B;
     if (f1c5_lstream_open(pa, &A) != 0) return 2;
     if (f1c5_lstream_open(pb, &B) != 0) { f1c5_lstream_close(&A); return 2; }
+    if (A.is_g != B.is_g)
+        fprintf(stderr, "WARN: comparing an %s layer against a %s layer (kinds differ) — "
+                "streams are compared anyway\n", A.is_g ? "g" : "f", B.is_g ? "g" : "f");
     if (A.nm != B.nm || A.ne != B.ne)
         fprintf(stderr, "WARN: header geometry differs (nm %llu/%llu, ne %llu/%llu) — "
                 "streams cannot match; locating first byte divergence\n",
@@ -14137,6 +14173,473 @@ static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
                (unsigned long long)off);
     f1c5_lstream_close(&A);
     f1c5_lstream_close(&B);
+    return rc;
+}
+
+/* ===================== CATALOG FUTURE-PROOFING SIDECARS (2026-07-17) =====================
+ *
+ * Per-layer `<pfx>_layer_stats_NN.json` sidecars, emitted at every layer
+ * COMMIT on the shared writer paths (both the f/Stage-F and g/Stage-G builds,
+ * in-memory AND out-of-core), per the operator-confirmed R4_RUNBOOK
+ * "CATALOG FUTURE-PROOFING SIDECARS" spec:
+ *
+ *   (1) value histograms (log2-bucketed), entries-per-mask distribution, and
+ *       the branching-factor distribution (EXACT admissible-forward-successor
+ *       count per state, via per-(mask,last) class-count folding — O(1)/entry
+ *       amortized, no layer lookups);
+ *   (2) marginal aggregates: per-layer u192 mass sums grouped by `last` and
+ *       by budget vector (rid) — recorded in the CANONICAL-QUOTIENT frame
+ *       (orbit-UNweighted; the stats are G-equivariant, but raw-frame
+ *       positional marginals still require the G-expanding --kc-scan pass);
+ *   (3) top-K extreme states (K=16 heaviest + 16 lightest, with identities);
+ *   (4) the SHA HASH-CHAIN: each sidecar records its OWN layer's
+ *       decompressed-stream sha256 (the IDENTICAL digest --f1c5-layer-sha
+ *       registers — same code path, f1c5_layer_sha_hex) plus its INPUT
+ *       layer's sha (input = k-1 for f, k+1 for g; "genesis" at the seed),
+ *       chained from the input's sidecar when present, else re-digested from
+ *       the input layer file, else recorded "unavailable" — a
+ *       self-authenticating ladder;
+ *   (5) numerical-headroom telemetry: peak u192 value magnitude in bits vs
+ *       the 192-bit overflow guard.
+ *
+ * SHA-NEUTRALITY + BYTE-NEUTRALITY (structural): the emitter runs AFTER the
+ * layer file's atomic rename, opens it READ-ONLY through the same
+ * f1c5_lstream machinery as the registry tool, and writes only separate
+ * .json files (tmp+fsync+rename, atomic). It never touches layer bytes, the
+ * count arithmetic, or any enumeration path; every failure is a WARN, never
+ * an abort (a sidecar can not kill a build). Env gate: default ON;
+ * SOLVE_F1_LAYER_SIDECARS=0 disables (the f1c5_progress.json pattern).
+ * Retrofit for pre-existing ladders (e.g. a finished Stage-F dir):
+ * `solve --f1c5-sidecar-retrofit DIR [DIR...]` regenerates all sidecars in
+ * chain order from the retained layers + manifest.
+ *
+ * KNOWN BOUNDARY (from the spec, restated): extended-state questions (e.g.
+ * exact C3-value distributions) are NOT retrofittable from these f/g
+ * aggregates — they are re-runs by design (FH-1 no-lumping); the ladders
+ * answer everything within their (mask,last,rid) state, nothing outside it.
+ *
+ * Cost note (honest): emission re-reads each committed layer twice (one sha
+ * pass, one stats pass) — at full-31 this adds roughly two decompressed-
+ * stream passes over the ladder to the build wall (single-digit % of a
+ * Stage-F/G build; measured small at gate scale). Fusing the two passes is a
+ * possible follow-up; correctness-first per the operator directive.
+ * Scope: f1c5/g layer formats only (the legacy #215 F1LAYER1 format is not
+ * covered). Claude (Fable 5), 2026-07-17, operator-directed; developed with
+ * AI assistance (Claude, Anthropic). */
+
+static int f1c5_sidecars_enabled(void) {
+    const char *e = getenv("SOLVE_F1_LAYER_SIDECARS");
+    return !(e && *e && atoi(e) == 0);
+}
+
+static inline int f1c5_u192_bits(const F1U192 *v) {
+    if (v->l2) return 192 - __builtin_clzll(v->l2);
+    if (v->l1) return 128 - __builtin_clzll(v->l1);
+    if (v->l0) return 64 - __builtin_clzll(v->l0);
+    return 0;
+}
+
+static inline int f1c5_u192_lt(const F1U192 *a, const F1U192 *b) {
+    if (a->l2 != b->l2) return a->l2 < b->l2;
+    if (a->l1 != b->l1) return a->l1 < b->l1;
+    return a->l0 < b->l0;
+}
+
+typedef struct {
+    F1U192 v;
+    uint32_t mask_idx;   /* index into the layer's canonical mask list */
+    uint32_t mask;
+    uint16_t last, rid;
+} F1c5TopState;
+
+/* keep the K extreme states; want_max=1 keeps largest, 0 keeps smallest.
+ * Ties keep the earlier stream entry (deterministic: stream order is the
+ * layer's canonical serialization order). */
+static void f1c5_top_insert(F1c5TopState *arr, int *cnt, int K, int want_max,
+                            const F1U192 *v, uint32_t mask_idx, uint32_t mask,
+                            int last, uint32_t rid) {
+    int pos = *cnt;
+    while (pos > 0) {
+        const int better = want_max ? f1c5_u192_lt(&arr[pos - 1].v, v)
+                                    : f1c5_u192_lt(v, &arr[pos - 1].v);
+        if (!better) break;
+        pos--;
+    }
+    if (pos >= K) return;
+    const int move = (*cnt < K ? *cnt : K - 1) - pos;
+    if (move > 0) memmove(&arr[pos + 1], &arr[pos], (size_t)move * sizeof(*arr));
+    arr[pos].v = *v;
+    arr[pos].mask_idx = mask_idx;
+    arr[pos].mask = mask;
+    arr[pos].last = (uint16_t)last;
+    arr[pos].rid = (uint16_t)rid;
+    if (*cnt < K) (*cnt)++;
+}
+
+/* read "own_sha256_decompressed": "<64 hex>" out of a sidecar JSON */
+static int f1c5_sidecar_read_own_sha(const char *path, char hex[65]) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char buf[8192];
+    size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    buf[got] = '\0';
+    const char *key = "\"own_sha256_decompressed\": \"";
+    const char *p = strstr(buf, key);
+    if (!p) return -1;
+    p += strlen(key);
+    for (int i = 0; i < 64; i++) {
+        if (!((p[i] >= '0' && p[i] <= '9') || (p[i] >= 'a' && p[i] <= 'f'))) return -1;
+        hex[i] = p[i];
+    }
+    hex[64] = '\0';
+    return 0;
+}
+
+#define F1C5_SIDECAR_WARN(...) do { \
+    fprintf(stderr, "WARN: [sidecar] " __VA_ARGS__); \
+    fprintf(stderr, "\n"); \
+} while (0)
+
+/* Emit the layer-stats sidecar for <dir>/<pfx>_layer_<k>.bin. force=1 skips
+ * the env gate (the explicit retrofit subcommand). NON-FATAL by contract. */
+static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
+                                   const F1Ctx *c, const F1C5Budget *B,
+                                   int k, int force) {
+    if (!force && !f1c5_sidecars_enabled()) return;
+    const int is_g = (pfx[0] == 'g' && pfx[1] == '\0');
+    char lpath[4300], jfin[4300], jtmp[4310];
+    snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
+    snprintf(jfin, sizeof(jfin), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
+    snprintf(jtmp, sizeof(jtmp), "%s.tmp", jfin);
+    if (!sha256_tool()) {
+        F1C5_SIDECAR_WARN("no sha256 tool on PATH — sidecar for %s skipped", lpath);
+        return;
+    }
+    /* (4) own decompressed-stream sha — the registry digest, same code path */
+    char own_sha[65];
+    if (f1c5_layer_sha_hex(lpath, own_sha, NULL, NULL, NULL) != 0) {
+        F1C5_SIDECAR_WARN("digest failed for %s — sidecar skipped", lpath);
+        return;
+    }
+    /* input-layer sha (hash chain) */
+    const int input_k = is_g ? k + 1 : k - 1;
+    const int genesis = is_g ? (k >= c->n) : (k <= 0);
+    char input_sha[80];
+    if (genesis) {
+        snprintf(input_sha, sizeof(input_sha), "genesis");
+    } else {
+        char ijson[4300], ilayer[4300];
+        snprintf(ijson, sizeof(ijson), "%s/%s_layer_stats_%02d.json", dir, pfx, input_k);
+        snprintf(ilayer, sizeof(ilayer), "%s/%s_layer_%02d.bin", dir, pfx, input_k);
+        char ih[65];
+        if (f1c5_sidecar_read_own_sha(ijson, ih) == 0) {
+            snprintf(input_sha, sizeof(input_sha), "%s", ih);
+        } else if (access(ilayer, R_OK) == 0 &&
+                   f1c5_layer_sha_hex(ilayer, ih, NULL, NULL, NULL) == 0) {
+            snprintf(input_sha, sizeof(input_sha), "%s", ih);
+        } else {
+            snprintf(input_sha, sizeof(input_sha), "unavailable");
+        }
+    }
+    /* stats pass: two lockstep logical streams over the same file — SK
+     * yields masks/off/keys (buffering masks+off), SV is advanced into the
+     * vals section, entries joined key[i]<->val[i] in stream order. */
+    F1c5LayerStream SK, SV;
+    if (f1c5_lstream_open(lpath, &SK) != 0) {
+        F1C5_SIDECAR_WARN("stats open failed for %s", lpath);
+        return;
+    }
+    if (f1c5_lstream_open(lpath, &SV) != 0) {
+        f1c5_lstream_close(&SK);
+        F1C5_SIDECAR_WARN("stats open (vals) failed for %s", lpath);
+        return;
+    }
+    const uint64_t nm = SK.nm, ne = SK.ne;
+    const uint32_t R = B->R;
+    uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
+    uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
+    F1U192 *marg_last = (F1U192 *)calloc(64, sizeof(F1U192));
+    F1U192 *marg_rid = (F1U192 *)calloc(R, sizeof(F1U192));
+    uint64_t *vh = (uint64_t *)calloc(192, sizeof(uint64_t));
+    uint64_t *bh = (uint64_t *)calloc(64, sizeof(uint64_t));
+    if (!masks || !off || !marg_last || !marg_rid || !vh || !bh) {
+        F1C5_SIDECAR_WARN("stats alloc failed for %s", lpath);
+        free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
+        f1c5_lstream_close(&SK); f1c5_lstream_close(&SV);
+        return;
+    }
+    const uint8_t *chunk;
+    uint64_t len, have;
+    /* SK: masks then off (chunks never span sections) */
+    for (have = 0; have < 4ull * nm; have += len) {
+        len = f1c5_lstream_next(&SK, &chunk);
+        memcpy((uint8_t *)masks + have, chunk, len);
+    }
+    for (have = 0; have < 8ull * (nm + 1); have += len) {
+        len = f1c5_lstream_next(&SK, &chunk);
+        memcpy((uint8_t *)off + have, chunk, len);
+    }
+    /* SV: skip masks+off+keys */
+    for (have = 0; have < 4ull * nm + 8ull * (nm + 1) + 4ull * ne; have += len)
+        len = f1c5_lstream_next(&SV, &chunk);
+    /* joined entry walk */
+    F1U192 mass = {0, 0, 0};
+    F1c5TopState heavy[16], light[16];
+    int nheavy = 0, nlight = 0;
+    uint64_t br_sum = 0;
+    int br_min = 2 * c->n + 1, br_max = -1, peak_bits = 0;
+    const uint32_t *kbuf = NULL;
+    const F1U192 *vbuf = NULL;
+    uint64_t kleft = 0, vleft = 0, e = 0, mi = 0;
+    int64_t grp_mi = -1;
+    int grp_last = -1, cpc[5] = {0, 0, 0, 0, 0};
+    while (e < ne) {
+        if (kleft == 0) {
+            len = f1c5_lstream_next(&SK, &chunk);
+            kbuf = (const uint32_t *)(const void *)chunk;
+            kleft = len / 4;
+        }
+        if (vleft == 0) {
+            len = f1c5_lstream_next(&SV, &chunk);
+            vbuf = (const F1U192 *)(const void *)chunk;
+            vleft = len / 24;
+        }
+        uint64_t take = kleft < vleft ? kleft : vleft;
+        if (take > ne - e) take = ne - e;
+        for (uint64_t i = 0; i < take; i++, e++) {
+            const uint32_t key = kbuf[i];
+            const F1U192 *v = &vbuf[i];
+            const int last = (int)(key >> 16);
+            const uint32_t rid = key & 0xffffu;
+            while (mi < nm && off[mi + 1] <= e) mi++;
+            /* (1) value histogram + (5) headroom */
+            const int bits = f1c5_u192_bits(v);
+            if (bits > 0) vh[bits - 1]++;
+            if (bits > peak_bits) peak_bits = bits;
+            /* (2) marginals (canonical-quotient frame) */
+            f1_add(&mass, v);
+            f1_add(&marg_last[last & 63], v);
+            if (rid < R) f1_add(&marg_rid[rid], v);
+            /* (1) branching factor: admissible forward successors, exact via
+             * per-(mask,last) class counts folded with the rid budget */
+            if (grp_mi != (int64_t)mi || grp_last != last) {
+                grp_mi = (int64_t)mi;
+                grp_last = last;
+                memset(cpc, 0, sizeof(cpc));
+                const uint32_t mk = masks[mi];
+                for (int q = 0; q < c->n; q++) {
+                    if ((mk >> q) & 1) continue;
+                    for (int o = 0; o < 2; o++) {
+                        const int entry = o ? c->pb[q] : c->pa[q];
+                        const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+                        if (cls >= 0) cpc[cls]++;
+                    }
+                }
+            }
+            int br = 0;
+            for (int d = 0; d < 5; d++)
+                if (B->dig[d][rid] < B->b0[d]) br += cpc[d];
+            bh[br]++;
+            br_sum += (uint64_t)br;
+            if (br < br_min) br_min = br;
+            if (br > br_max) br_max = br;
+            /* (3) top-K extremes */
+            f1c5_top_insert(heavy, &nheavy, 16, 1, v, (uint32_t)mi, masks[mi], last, rid);
+            f1c5_top_insert(light, &nlight, 16, 0, v, (uint32_t)mi, masks[mi], last, rid);
+        }
+        kbuf += take;
+        vbuf += take;
+        kleft -= take;
+        vleft -= take;
+    }
+    f1c5_lstream_close(&SK);
+    f1c5_lstream_close(&SV);
+    /* entries-per-mask from the offset table */
+    uint64_t epm_min = UINT64_MAX, epm_max = 0, n_empty = 0, eph[65];
+    memset(eph, 0, sizeof(eph));
+    for (uint64_t i = 0; i < nm; i++) {
+        const uint64_t cnt = off[i + 1] - off[i];
+        if (cnt == 0) { n_empty++; continue; }
+        if (cnt < epm_min) epm_min = cnt;
+        if (cnt > epm_max) epm_max = cnt;
+        int b = 63 - __builtin_clzll(cnt);
+        eph[b]++;
+    }
+    if (epm_min == UINT64_MAX) epm_min = 0;
+    /* atomic JSON write (tmp + fsync + rename + dir fsync; non-fatal) */
+    FILE *jf = fopen(jtmp, "w");
+    if (!jf) {
+        F1C5_SIDECAR_WARN("cannot open %s", jtmp);
+        goto out;
+    }
+    {
+        char dec[64];
+        fprintf(jf, "{\n  \"sidecar\": \"f1c5_layer_stats_v1\",\n");
+        fprintf(jf, "  \"kind\": \"%s\",\n  \"layer_file\": \"%s_layer_%02d.bin\",\n",
+                is_g ? "g" : "f", pfx, k);
+        fprintf(jf, "  \"n\": %d,\n  \"k\": %d,\n  \"start_exit\": %d,\n",
+                c->n, k, c->start_exit);
+        fprintf(jf, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(c));
+        fprintf(jf, "  \"b0\": [%d,%d,%d,%d,%d],\n",
+                B->b0[0], B->b0[1], B->b0[2], B->b0[3], B->b0[4]);
+        fprintf(jf, "  \"n_masks\": %llu,\n  \"n_empty_masks\": %llu,\n  \"n_entries\": %llu,\n",
+                (unsigned long long)nm, (unsigned long long)n_empty, (unsigned long long)ne);
+        fprintf(jf, "  \"own_sha256_decompressed\": \"%s\",\n", own_sha);
+        fprintf(jf, "  \"input_layer_k\": %d,\n", genesis ? -1 : input_k);
+        fprintf(jf, "  \"input_sha256_decompressed\": \"%s\",\n", input_sha);
+        f1_dec(mass, dec);
+        fprintf(jf, "  \"mass_total\": \"%s\",\n", dec);
+        fprintf(jf, "  \"frame\": \"canonical-quotient(orbit-unweighted;G-equivariant)\",\n");
+        fprintf(jf, "  \"headroom\": {\"peak_value_bits\": %d, \"guard_bits\": 192, "
+                "\"headroom_bits\": %d},\n", peak_bits, 192 - peak_bits);
+        fprintf(jf, "  \"value_hist_log2\": [");
+        int first = 1;
+        for (int b = 0; b < 192; b++)
+            if (vh[b]) {
+                fprintf(jf, "%s[%d,%llu]", first ? "" : ",", b, (unsigned long long)vh[b]);
+                first = 0;
+            }
+        fprintf(jf, "],\n");
+        fprintf(jf, "  \"entries_per_mask\": {\"min\": %llu, \"max\": %llu, \"mean\": %.6f, "
+                "\"hist_log2\": [",
+                (unsigned long long)epm_min, (unsigned long long)epm_max,
+                nm > n_empty ? (double)ne / (double)(nm - n_empty) : 0.0);
+        first = 1;
+        for (int b = 0; b < 65; b++)
+            if (eph[b]) {
+                fprintf(jf, "%s[%d,%llu]", first ? "" : ",", b, (unsigned long long)eph[b]);
+                first = 0;
+            }
+        fprintf(jf, "]},\n");
+        fprintf(jf, "  \"branching\": {\"min\": %d, \"max\": %d, \"mean\": %.6f, \"hist\": [",
+                br_max < 0 ? 0 : br_min, br_max < 0 ? 0 : br_max,
+                ne ? (double)br_sum / (double)ne : 0.0);
+        first = 1;
+        for (int b = 0; b < 64; b++)
+            if (bh[b]) {
+                fprintf(jf, "%s[%d,%llu]", first ? "" : ",", b, (unsigned long long)bh[b]);
+                first = 0;
+            }
+        fprintf(jf, "]},\n");
+        fprintf(jf, "  \"marginal_last_mass\": [");
+        first = 1;
+        for (int h = 0; h < 64; h++)
+            if (!f1_is_zero(&marg_last[h])) {
+                f1_dec(marg_last[h], dec);
+                fprintf(jf, "%s[%d,\"%s\"]", first ? "" : ",", h, dec);
+                first = 0;
+            }
+        fprintf(jf, "],\n");
+        fprintf(jf, "  \"marginal_rid_mass\": [");
+        first = 1;
+        for (uint32_t rr = 0; rr < R; rr++)
+            if (!f1_is_zero(&marg_rid[rr])) {
+                f1_dec(marg_rid[rr], dec);
+                fprintf(jf, "%s[%u,\"%s\"]", first ? "" : ",", rr, dec);
+                first = 0;
+            }
+        fprintf(jf, "],\n");
+        for (int side = 0; side < 2; side++) {
+            const F1c5TopState *arr = side ? light : heavy;
+            const int cnt = side ? nlight : nheavy;
+            fprintf(jf, "  \"%s\": [", side ? "top_light" : "top_heavy");
+            for (int i = 0; i < cnt; i++) {
+                f1_dec(arr[i].v, dec);
+                fprintf(jf, "%s{\"mask\": %u, \"last\": %u, \"rid\": %u, \"value\": \"%s\"}",
+                        i ? "," : "", arr[i].mask, arr[i].last, arr[i].rid, dec);
+            }
+            fprintf(jf, "]%s\n", side ? "" : ",");
+        }
+        fprintf(jf, "}\n");
+    }
+    if (fflush(jf) != 0 || fsync(fileno(jf)) != 0) {
+        F1C5_SIDECAR_WARN("write/fsync failed for %s", jtmp);
+        fclose(jf);
+        unlink(jtmp);
+        goto out;
+    }
+    fclose(jf);
+    if (rename(jtmp, jfin) != 0) {
+        F1C5_SIDECAR_WARN("rename %s -> %s failed", jtmp, jfin);
+        unlink(jtmp);
+        goto out;
+    }
+    {   /* dir fsync, non-fatal */
+        int dfd = open(dir, O_RDONLY | O_DIRECTORY);
+        if (dfd >= 0) { (void)fsync(dfd); close(dfd); }
+    }
+    fprintf(stderr, "[sidecar] wrote %s (k=%d, %llu entries, chain=%s)\n",
+            jfin, k, (unsigned long long)ne,
+            genesis ? "genesis" : (input_sha[0] == 'u' ? "UNAVAILABLE" : "linked"));
+out:
+    free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
+}
+
+static void f1c5_sidecar_emit(const char *dir, const char *pfx,
+                              const F1Ctx *c, const F1C5Budget *B, int k) {
+    f1c5_sidecar_emit_impl(dir, pfx, c, B, k, 0);
+}
+
+/* --f1c5-sidecar-retrofit worker: regenerate sidecars for every retained
+ * layer in DIR, in chain order (f ascending, g descending), from the
+ * manifest's context. Returns 0 ok, 2 on error. */
+static int f1c5_sidecar_retrofit_dir(const char *dir) {
+    static const struct { const char *pfx; int is_g; } kinds[2] = {{"f1c5", 0}, {"g", 1}};
+    int any = 0, rc = 0;
+    f1_binom_init();
+    f1_build_group();
+    for (int ki = 0; ki < 2; ki++) {
+        const char *pfx = kinds[ki].pfx;
+        const int is_g = kinds[ki].is_g;
+        char path[4300], expect1[64], line[2048];
+        snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
+        snprintf(expect1, sizeof(expect1), "%s_manifest_v1", pfx);
+        FILE *f = fopen(path, "r");
+        if (!f) continue;
+        int n = -1, start_exit = -1, b0v[5] = {-1, -1, -1, -1, -1};
+        int pl[32], npl = 0, first = 1, hdr_ok = 0;
+        while (fgets(line, sizeof(line), f)) {
+            if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
+            if (sscanf(line, "n=%d", &n) == 1) continue;
+            if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
+            if (sscanf(line, "b0=%d,%d,%d,%d,%d",
+                       &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
+            if (strncmp(line, "pl=", 3) == 0)
+                for (char *tok = strtok(line + 3, ",\n"); tok && npl < 32;
+                     tok = strtok(NULL, ",\n"))
+                    pl[npl++] = atoi(tok);
+        }
+        fclose(f);
+        if (!hdr_ok || n < 1 || n > 31 || npl != n || start_exit < 0 || b0v[0] < 0) {
+            fprintf(stderr, "ERROR: [sidecar] unusable %s manifest in %s\n", pfx, dir);
+            rc = 2;
+            continue;
+        }
+        F1Ctx *c = (F1Ctx *)calloc(1, sizeof(F1Ctx));
+        F1_CHECK(c != NULL, "[sidecar] ctx alloc");
+        f1_ctx_init(c, n, pl, start_exit);
+        F1C5Budget B;
+        f1c5_budget_init(&B, b0v);
+        int done = 0;
+        for (int i = 0; i <= n; i++) {
+            const int k = is_g ? n - i : i;   /* chain order */
+            char lpath[4300];
+            snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
+            if (access(lpath, R_OK) != 0) continue;
+            f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1);
+            done++;
+        }
+        printf("[sidecar-retrofit] %s: %s ladder, %d layer sidecar(s) regenerated\n",
+               dir, pfx, done);
+        f1c5_budget_free(&B);
+        free(c);
+        any = 1;
+    }
+    if (!any && rc == 0) {
+        fprintf(stderr, "ERROR: [sidecar] no f1c5/g manifest found in %s\n", dir);
+        rc = 2;
+    }
     return rc;
 }
 
@@ -14229,6 +14732,7 @@ static void f1c5_write_layer_v2_as(const char *dir, const char *pfx, const char 
     f1_fsync_dir(dir);
     free(kbuf); free(vbuf); free(kc); free(vc);
     free(L->kidx); free(L->vidx); L->kidx = kidx; L->vidx = vidx;
+    f1c5_sidecar_emit(dir, pfx, c, B, L->k);   /* catalog sidecar (non-fatal) */
 }
 
 static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budget *B,
@@ -15405,6 +15909,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
             f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
                                  &ooc_mass, &ooc_states, use_v2, gzip_level);
+            f1c5_sidecar_emit(dir, "f1c5", c, &B, nxt.k);   /* catalog sidecar (non-fatal) */
             t2 = omp_get_wtime();
         } else {
         /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
@@ -15662,6 +16167,16 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *   --kc-g-selftest                     n=9 exhaustive + n=13 spot g gates
  *   --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc]   build + retain the g ladder
  *   --kc-g-check FDIR GDIR              f*g cut identity at every layer (V3)
+ *
+ *   Stage O3 (the CITABLE-order ranker; KC-O3 module header below for the
+ *   order/object/space semantics, the walk-rank vs class-rank pin, and gates):
+ *   --kc-o3-selftest                    n=9 exhaustive + n=13 spot O3 gates
+ *   --kc-o3-rank FDIR GDIR "e,x,..." [--kc-trace] [--kc-bracket]
+ *                                       WALK rank in the ratified O3 order
+ *                                       (needs BOTH the f and g ladders)
+ *   --kc-o3-unrank FDIR GDIR RANK [--kc-trace] [--kc-bracket]
+ *                                       inverse; --kc-bracket emits the
+ *                                       r-1/r/r+1 neighbor certificate
  *
  *   Common: [--kc-ooc] force the out-of-core reader at any n (v2 dirs and
  *   n > 22 select it automatically); [--kc-cache-mb MB] block-cache size.
@@ -16208,6 +16723,8 @@ static void kc_rm_dir_as(const char *dir, const char *pfx, int n) {
     char p[4300];
     for (int k = 0; k <= n; k++) {
         snprintf(p, sizeof(p), "%s/%s_layer_%02d.bin", dir, pfx, k);
+        unlink(p);
+        snprintf(p, sizeof(p), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
         unlink(p);
     }
     snprintf(p, sizeof(p), "%s/%s_manifest.txt", dir, pfx);
@@ -17433,15 +17950,7 @@ static int kc_selftest(void) {
                     memcmp(E1, E2, (size_t)kc->n) != 0) ok = 0;
             }
             KC_GATE("A8 disk round-trip: layers + queries identical", ok);
-            /* cleanup */
-            char p[4200];
-            for (int k = 0; k <= kc->n; k++) {
-                snprintf(p, sizeof(p), "%s/f1c5_layer_%02d.bin", dir, k);
-                unlink(p);
-            }
-            snprintf(p, sizeof(p), "%s/f1c5_manifest.txt", dir);
-            unlink(p);
-            rmdir(dir);
+            kc_rm_dir(dir, kc->n);   /* cleanup (incl. catalog sidecars) */
             kc_free(kc2);
             free(kc2);
         }
@@ -18259,11 +18768,14 @@ static void kc_g_build_mem(KC *kc, int verbose) {
     }
 }
 
-/* write the in-memory g ladder (v1 or v2) + g manifest (complete <=> 0) */
+/* write the in-memory g ladder (v1 or v2) + g manifest (complete <=> 0).
+ * Layers land in DESCENDING k (the g build's natural direction) so each
+ * layer's catalog sidecar finds its input layer's (k+1) sidecar already on
+ * disk — per-file bytes are unaffected (2026-07-17). */
 static void kc_g_write(KC *kc, const char *dir, int use_v2) {
     if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
     int lvl = f1c5_ooc_gzip_level();
-    for (int k = 0; k <= kc->n; k++) {
+    for (int k = kc->n; k >= 0; k--) {
         if (use_v2) f1c5_write_layer_v2_as(dir, "g", "F1C5GLY2", &kc->c, &kc->B, &kc->L[k], lvl);
         else        f1c5_write_layer_as(dir, "g", "F1C5GLY1", &kc->c, &kc->B, &kc->L[k]);
     }
@@ -18708,6 +19220,7 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
         kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, &cur, &nxt,
                              kc->vloc[k], kc->vcnt[k], kc->vlist[k],
                              cfg, &io, &mass, &states, use_v2, gzip_level);
+        f1c5_sidecar_emit(gdir, "g", &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
         f1c5_write_manifest_as(gdir, "g", &kc->c, &kc->B, k);
         if (verbose) {
             char mdec[64];
@@ -19168,6 +19681,972 @@ static void kc_provenance_trailer(const KC *kc, long long c3max) {
                "(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))\n");
 }
 
+/* ===================== KC-O3 — rank/unrank in the RATIFIED CITABLE ORDER =====================
+ *
+ * The O3 order (V4_CONVENTION_FREEZE_RECONCILED_2026_07_14 §1.1/§3.4, ratified):
+ * the `compare_solutions` total order projected onto walks — PRIMARY key = the
+ * pair-identity vector (the record's masked bytes; global pair-table indices
+ * pl[i], slot 0 = the anchor pair, constant across all walks at full-31),
+ * lexicographic most-significant-first in placement order; SECONDARY key = the
+ * orient-bit vector (0 before 1, slot 0 most significant). This is genuinely
+ * HIERARCHICAL (the whole pair vector compares before ANY orient bit), so it
+ * is NOT the O1 reverse-exit-lex order served by --kc-rank/--kc-unrank, and it
+ * cannot be ranked from the forward (f) layers alone: block masses at each
+ * descent position aggregate over ALL valid orient-assignments of the shared
+ * pair prefix, weighted by Stage-G suffix counts (proofs doc §4-end, R3;
+ * TR12_QUERY_PROGRAM §0/§8 item 1).
+ *
+ * MECHANISM (the K3 block-scan skeleton, CompilerCorrectness.lean §B shape:
+ * rank = sum of earlier-block masses + in-block rank — applied twice):
+ *
+ *   Phase 1 (pair vector). Descend placements j = 0..n-1 maintaining the
+ *   FRONTIER of the fixed pair prefix q_0..q_{j-1}: the map
+ *   (last_exit, rid) -> #valid orient-assignments of the prefix reaching that
+ *   state (<= 2*R entries: last takes 2 values per layer, rid < R). For each
+ *   candidate next pair q (ascending GLOBAL pair index = ascending record
+ *   byte, `ord[]`), the O3 block mass is
+ *       W(prefix+q) = sum over frontier states (l,rid,c), orientations o:
+ *                     c * g(j+1, mask|q, exit(q,o), rid+rad[cls])
+ *   = the EXACT number of walks whose pair vector extends prefix+q (suffix
+ *   property L5 applied to g, aggregated over the prefix's orient fiber).
+ *   rank adds W for every unused q ordered strictly below the walk's q_j;
+ *   unrank scans blocks subtracting until the residual falls inside one.
+ *
+ *   Phase 2 (orient tiebreak, within the class = fixed pair vector). The
+ *   orient-completion chain DP (kc_repr_dp: cnt[(j,o,rid)] = #valid
+ *   completions of slots j+1.. given slot j orient o, residual rid) yields
+ *   the standard lex rank/unrank over the class's valid orient-assignments.
+ *   Cross-check hard-asserted on EVERY query: frontier mass at depth n ==
+ *   chain-DP class size m(k) — the f*g machinery and the adapter DP must
+ *   agree on every class touched.
+ *
+ * CORRECTNESS (K3-analogue, same partition argument as §4 of the proofs doc):
+ * walks grouped by pair vector form O3-CONTIGUOUS blocks (pair vector is the
+ * primary key); within a fixed prefix, blocks over the next pair are ordered
+ * by pl and partition the prefix's walk set (every walk extends by exactly
+ * one pair); W is exact by L5 + L3 (g served on the same canonical quotient
+ * as f); within a class the orient order is plain lex with exact branch
+ * counts from the chain DP. Hence rank3(w) = #{u : u <_O3 w} and unrank3 is
+ * its inverse; strict monotonicity follows from the partition structure.
+ * The formal K3b write-up + Lean §B-instantiation remain proofs-doc
+ * obligations (§8 item 5); the executable witness here is the n=9 EXHAUSTIVE
+ * total-order gate (rank3 == index in the compare_solutions-projected sorted
+ * enumeration, all 26,112 walks, both directions) — the gate named by the
+ * freeze (§4 row 5) and the fullbuild plan.
+ *
+ * WALK-RANK vs CLASS-RANK (pinned per TR12_QUERY_PROGRAM §0 + freeze row E3):
+ * N counts WALKS (orientation-explicit); stored records are orientation-
+ * masked CLASSES with data-dependent multiplicity m(k). rank3 here is the
+ * WALK rank: rank3(w) = #{u in SUPER : u <_O3 w}, u ranging over walks.
+ * Because the pair vector is O3's primary key, each class occupies a
+ * CONTIGUOUS rank block [rank3(repr(k)), rank3(repr(k)) + m(k)); every query
+ * prints the decomposition rank3(w) = class_first_rank3 + orient_idx(w),
+ * where orient_idx(repr(k)) = 0 — repr(k) IS the O3-least member (freeze
+ * §1.2; SUPERSPACE repr/m: no C3 axis exists on this ranker, see below).
+ * The CLASS rank (# of DISTINCT records preceding) is a DIFFERENT quantity
+ * and is NOT computable from the f/g ladders (it needs the shelved
+ * class-collapsed DP, freeze §2 option b); it is deliberately not
+ * implemented. Published figures must say WALK rank; the printed class-block
+ * decomposition lets class-level statements be made without conflation.
+ *
+ * SPACE (H3b superspace ruling, TR12 §0): exact O3 ranks exist ONLY in the
+ * compiled C1&C2&C4&C5 SUPERSPACE. The C1-C5 (C15) rank is NOT exactly
+ * computable (C3 counting obstruction, TR-11 §10(ii)) and is published only
+ * as a labeled sampling ESTIMATE (rides --kc-sample; not implemented here).
+ * There is deliberately NO --kc-c3-max axis on --kc-o3-rank/--kc-o3-unrank.
+ * All output carries order/object/space labels + a #provenance trailer.
+ *
+ * SUBCOMMANDS (argv-dispatched, sha-neutral, never on the enumeration path;
+ * naming: TR12 §8 item 1 pins --kc-o3-rank/--kc-o3-unrank):
+ *   --kc-o3-rank FDIR GDIR "e,x,..." [--kc-trace] [--kc-bracket]
+ *                [--kc-ooc] [--kc-cache-mb MB]
+ *   --kc-o3-unrank FDIR GDIR RANK    [--kc-trace] [--kc-bracket]
+ *                [--kc-ooc] [--kc-cache-mb MB]
+ *   --kc-o3-selftest
+ * BOTH ladders are required: FDIR = f (forward) retained-layers dir (Stage F
+ * / --kc-build), GDIR = the matching g ladder (--kc-g-build). Belt-and-braces
+ * per Stage-G review SG-1: for EVERY state whose g is consumed by a block
+ * mass, the state's presence in the f ladder is hard-asserted (f >= 1 —
+ * reachable-prefix states must be stored; absence is a structure defect and
+ * aborts rather than misreports). f-total == g(0) is asserted at open.
+ *
+ * --kc-trace (the f*g descent trace; TR-12 Q3/EW-1 rides this): one row per
+ * placement along the QUERY WALK's own oriented path —
+ *   #o3-trace step pair entry exit orient alts mass_below f g g_parent p bits
+ * where g = g(s_i) (completions remaining), f = f(s_i) (prefixes reaching),
+ * p = g(s_i)/g(s_{i-1}) exact (the conditional probability of the walk's
+ * i-th choice under uniform-on-SUPER), bits = -log2 p (float, display only),
+ * alts = #admissible oriented successor choices with g > 0, and mass_below =
+ * this position's O3 pair-block contribution to rank3. Per-step FLOW IDENTITY
+ * verified exactly: sum over ALL admissible successors of g == g(parent) (the
+ * DP recurrence); endpoints verified g(s_0) = N, g(s_n) = 1 — hence
+ * product(p_i) telescopes to 1/N EXACTLY (the Q3 self-check).
+ *
+ * --kc-bracket (the neighbor-bracket certificate; TR-12 Q1): at rank r, emit
+ * unrank3(r-1), unrank3(r), unrank3(r+1) (boundary-aware), re-rank each
+ * (roundtrip), and verify STRICT O3 order via the independent walk comparator
+ * (kc_o3_cmp — a pure byte-level comparison, no ladder involvement), with
+ * first-divergence positions (pair-vector vs orient-tiebreak) printed.
+ *
+ * COST: rank/unrank perform O(n^2/2) candidate block masses; each mass is
+ * O(|frontier| * 2) g-lookups + the same number of f-presence asserts, with
+ * |frontier| <= 2 * #rids at the layer (<= 2*R = 12,096 at full-31, typically
+ * far fewer). All lookups within one descent position share the predecessor
+ * mask's key span (OOC-cache-friendly, same locality argument as the O1
+ * descent). Phase 2 is O(n * 2 * R) integer DP, ~3 MB at full-31.
+ *
+ * GATES (--kc-o3-selftest; recorded verbatim in the build report): n=9
+ * EXHAUSTIVE — rank3 == sorted-index and unrank3(i) == i-th walk for ALL
+ * 26,112 walks against the independently sorted brute enumeration (the
+ * total-order gate), unrank3(N) rejected, 10 seeded neighbor brackets,
+ * trace flow-identity/product checks, class-block coherence vs the RATIFIED
+ * adapter (m == kc_class_repr's m; unrank3(class_first) == repr(k) bytes),
+ * OOC v2 tiny-cache equivalence; n=13 spot — grid + seeded roundtrips,
+ * O3 strict monotonicity of sorted ranks, brackets, trace checks.
+ *
+ * Credits (novelty humility): ranking/unranking against a counting DP is
+ * classical (Nijenhuis & Wilf 1975/78; Knuth TAOCP 4A §7.2.1); the two-phase
+ * hierarchical rank is the standard lex-rank on a product order; suffix-count
+ * weighting is the textbook backward-DP trick. Nothing here is claimed novel
+ * beyond composing them onto the #215/#217/#221 substrate and the ratified
+ * record convention (operator direction + prior Fable/Opus sessions; Stage-G
+ * engine 2026-07-16). O3 ranker by Claude (Fable 5), 2026-07-17, developed
+ * with AI assistance (Claude, Anthropic); corrections invited. */
+
+/* O3 walk comparator — independent of the ranker (used by gates + the
+ * neighbor-bracket certificate). Hierarchical: pair-identity vector first
+ * (GLOBAL pair-table indices pl[i] — exactly the record's pidx bytes, so a
+ * monotone image of compare_solutions' masked-byte primary), then the
+ * orient-bit vector (orient = 1 iff exit == pair.a, the record convention),
+ * both most-significant-first in placement order. Total on walks: the
+ * (pair, orient) vector determines the exit sequence. */
+static int kc_o3_cmp(const KC *kc, const uint8_t *u, const uint8_t *v) {
+    for (int j = 0; j < kc->n; j++) {
+        int pu = kc->c.pl[kc->pair_of_sub[u[j]]];
+        int pv = kc->c.pl[kc->pair_of_sub[v[j]]];
+        if (pu != pv) return pu < pv ? -1 : 1;
+    }
+    for (int j = 0; j < kc->n; j++) {
+        int iu = kc->pair_of_sub[u[j]], iv = kc->pair_of_sub[v[j]];
+        int ou = (u[j] == kc->c.pa[iu]) ? 1 : 0;
+        int ov = (v[j] == kc->c.pa[iv]) ? 1 : 0;
+        if (ou != ov) return ou < ov ? -1 : 1;
+    }
+    return 0;
+}
+
+/* first-divergence locator for the bracket certificate */
+static void kc_o3_divergence(const KC *kc, const uint8_t *u, const uint8_t *v,
+                             char *buf, size_t bl) {
+    for (int j = 0; j < kc->n; j++) {
+        int pu = kc->c.pl[kc->pair_of_sub[u[j]]];
+        int pv = kc->c.pl[kc->pair_of_sub[v[j]]];
+        if (pu != pv) {
+            snprintf(buf, bl, "placement %d (pair-vector: pl %d vs %d)", j + 1, pu, pv);
+            return;
+        }
+    }
+    for (int j = 0; j < kc->n; j++) {
+        int iu = kc->pair_of_sub[u[j]];
+        int ou = (u[j] == kc->c.pa[iu]) ? 1 : 0;
+        int ov = (v[j] == kc->c.pa[iu]) ? 1 : 0;
+        if (ou != ov) {
+            snprintf(buf, bl, "slot %d (orient tiebreak %d vs %d; SAME class)", j + 1, ou, ov);
+            return;
+        }
+    }
+    snprintf(buf, bl, "IDENTICAL (defect)");
+}
+
+/* frontier: states (last_exit, rid) of the valid orient-assignments of a
+ * FIXED pair prefix, with multiplicities. Dedup via a 64*R slot map that
+ * always reflects the current contents (cleared entry-wise on reuse). */
+typedef struct {
+    uint32_t *keys;      /* (last << 16) | rid */
+    uint64_t *cnt;       /* #orient-assignments reaching the state (<= 2^n) */
+    int n, cap;
+    uint32_t R;
+    int32_t *slot;       /* 64*R -> entry index, -1 empty */
+} KcO3Front;
+
+typedef struct {
+    KC *f, *g;                  /* both ladders, opened + cross-checked */
+    int ord[KC_MAX_PAIRS];      /* subset indices ascending by GLOBAL pair index pl */
+    KcO3Front fa, fb;           /* ping-pong frontiers (NOT reentrant; single query stream) */
+} KcO3;
+
+static void kc_o3_front_alloc(KcO3Front *fr, const KC *kc) {
+    fr->R = kc->B.R;
+    fr->cap = (int)(2u * kc->B.R + 2u);
+    fr->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)fr->cap);
+    fr->cnt = (uint64_t *)malloc(sizeof(uint64_t) * (size_t)fr->cap);
+    fr->slot = (int32_t *)malloc(sizeof(int32_t) * 64u * (size_t)fr->R);
+    F1_CHECK(fr->keys && fr->cnt && fr->slot, "[kc-o3] frontier alloc failed");
+    for (size_t i = 0; i < 64u * (size_t)fr->R; i++) fr->slot[i] = -1;
+    fr->n = 0;
+}
+
+static void kc_o3_front_free(KcO3Front *fr) {
+    free(fr->keys); free(fr->cnt); free(fr->slot);
+    memset(fr, 0, sizeof(*fr));
+}
+
+static void kc_o3_front_clear(KcO3Front *fr) {
+    for (int t = 0; t < fr->n; t++)
+        fr->slot[(size_t)(fr->keys[t] >> 16) * fr->R + (fr->keys[t] & 0xffffu)] = -1;
+    fr->n = 0;
+}
+
+static void kc_o3_front_root(KcO3Front *fr, const KC *kc) {
+    kc_o3_front_clear(fr);
+    uint32_t key = ((uint32_t)kc->start_exit << 16);
+    fr->slot[(size_t)kc->start_exit * fr->R] = 0;
+    fr->keys[0] = key;
+    fr->cnt[0] = 1;
+    fr->n = 1;
+}
+
+static void kc_o3_ctx_init(KcO3 *o3, KC *f, KC *g) {
+    F1_CHECK(f->n == g->n && f->start_exit == g->start_exit &&
+             f1_pl_hash(&f->c) == f1_pl_hash(&g->c),
+             "[kc-o3] f/g ladder context mismatch (n/start/pairs)");
+    for (int d = 0; d < 5; d++)
+        F1_CHECK(f->b0v[d] == g->b0v[d], "[kc-o3] f/g budget mismatch");
+    F1_CHECK(f1_eq(&f->total, &g->total),
+             "[kc-o3] f total (layer n) != g(0) — mismatched ladders");
+    o3->f = f;
+    o3->g = g;
+    for (int i = 0; i < f->n; i++) o3->ord[i] = i;
+    for (int i = 1; i < f->n; i++) {   /* insertion sort by global pair index */
+        int v = o3->ord[i], j = i;
+        while (j > 0 && f->c.pl[o3->ord[j - 1]] > f->c.pl[v]) {
+            o3->ord[j] = o3->ord[j - 1];
+            j--;
+        }
+        o3->ord[j] = v;
+    }
+    kc_o3_front_alloc(&o3->fa, f);
+    kc_o3_front_alloc(&o3->fb, f);
+}
+
+static void kc_o3_ctx_free(KcO3 *o3) {
+    kc_o3_front_free(&o3->fa);
+    kc_o3_front_free(&o3->fb);
+}
+
+/* O3 pair-block mass: exact #walks whose pair vector = (prefix at depth j,
+ * with mask m and frontier fr) + pair q. SG-1: every consumed g state is
+ * f-presence-asserted (reachable => stored; absence hard-aborts). */
+static F1U192 kc_o3_mass(const KcO3 *o3, int j, uint32_t m, int q, const KcO3Front *fr) {
+    const KC *kc = o3->f;
+    F1U192 W = {0, 0, 0};
+    const uint32_t m2 = m | (1u << q);
+    for (int t = 0; t < fr->n; t++) {
+        const int l = (int)(fr->keys[t] >> 16);
+        const uint32_t rid = fr->keys[t] & 0xffffu;
+        for (int o = 0; o < 2; o++) {   /* orient: 1 <=> exit == pa (record convention) */
+            const int entry = o ? kc->c.pb[q] : kc->c.pa[q];
+            const int ex = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(l ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            const uint32_t rid2 = rid + kc->B.rad[cls];
+            F1U192 fv = kc_flookup(o3->f, j + 1, m2, ex, rid2);
+            F1_CHECK(!f1_is_zero(&fv),
+                     "[kc-o3] reachable state missing from the f ladder at k=%d "
+                     "(structure defect)", j + 1);
+            F1U192 gv = kc_flookup(o3->g, j + 1, m2, ex, rid2);
+            if (f1_is_zero(&gv)) continue;
+            F1U192 c192 = {fr->cnt[t], 0, 0};
+            F1U192 p = kc_u192_mul(&gv, &c192);
+            f1_add(&W, &p);
+        }
+    }
+    return W;
+}
+
+/* extend frontier by pair q (valid transitions only, both orientations) */
+static void kc_o3_extend(const KcO3 *o3, const KcO3Front *fr, int q, KcO3Front *out) {
+    const KC *kc = o3->f;
+    kc_o3_front_clear(out);
+    for (int t = 0; t < fr->n; t++) {
+        const int l = (int)(fr->keys[t] >> 16);
+        const uint32_t rid = fr->keys[t] & 0xffffu;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pb[q] : kc->c.pa[q];
+            const int ex = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(l ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            const uint32_t rid2 = rid + kc->B.rad[cls];
+            const size_t si = (size_t)ex * out->R + rid2;
+            if (out->slot[si] < 0) {
+                F1_CHECK(out->n < out->cap, "[kc-o3] frontier overflow (defect)");
+                out->slot[si] = out->n;
+                out->keys[out->n] = ((uint32_t)ex << 16) | rid2;
+                out->cnt[out->n] = 0;
+                out->n++;
+            }
+            out->cnt[out->slot[si]] += fr->cnt[t];
+        }
+    }
+}
+
+/* class size m(k) from the orient chain DP (same computation as the ratified
+ * adapter's c3max<0 branch in kc_class_repr) */
+static uint64_t kc_o3_class_m(const KC *kc, const int *p, const uint64_t *cnt) {
+    const int R = (int)kc->B.R;
+    uint64_t m = 0;
+    for (int o = 0; o < 2; o++) {
+        int entry = o ? kc->c.pb[p[0]] : kc->c.pa[p[0]];
+        int cls = F1C5_CLS[__builtin_popcount((unsigned)(kc->start_exit ^ entry))];
+        if (cls < 0 || kc->B.dig[cls][0] >= kc->B.b0[cls]) continue;
+        m += cnt[(size_t)o * (size_t)R + kc->B.rad[cls]];
+    }
+    return m;
+}
+
+/* orient-lex rank of E within its class (phase-2 block scan) */
+static uint64_t kc_o3_orient_rank(const KC *kc, const int *p, const uint64_t *cnt,
+                                  const uint8_t *E) {
+    const int R = (int)kc->B.R;
+    uint64_t B = 0;
+    int last = kc->start_exit;
+    uint32_t rid = 0;
+    for (int j = 0; j < kc->n; j++) {
+        const int oj = (E[j] == kc->c.pa[p[j]]) ? 1 : 0;
+        if (oj) {   /* count valid completions with orient 0 at this slot */
+            const int entry0 = kc->c.pa[p[j]];
+            const int cls0 = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry0))];
+            if (cls0 >= 0 && kc->B.dig[cls0][rid] < kc->B.b0[cls0])
+                B += cnt[((size_t)j * 2 + 0) * (size_t)R + rid + kc->B.rad[cls0]];
+        }
+        const int entry = oj ? kc->c.pb[p[j]] : kc->c.pa[p[j]];
+        const int ex = oj ? kc->c.pa[p[j]] : kc->c.pb[p[j]];
+        const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+        F1_CHECK(cls >= 0 && kc->B.dig[cls][rid] < kc->B.b0[cls],
+                 "[kc-o3] orient rank: validated walk hit an invalid transition (defect)");
+        rid += kc->B.rad[cls];
+        last = ex;
+    }
+    return B;
+}
+
+/* orient-lex unrank: the r-th valid orient assignment of pair vector p[] */
+static void kc_o3_orient_unrank(const KC *kc, const int *p, const uint64_t *cnt,
+                                uint64_t r, uint8_t *E) {
+    const int R = (int)kc->B.R;
+    int last = kc->start_exit;
+    uint32_t rid = 0;
+    for (int j = 0; j < kc->n; j++) {
+        uint64_t c0 = 0;
+        const int entry0 = kc->c.pa[p[j]];
+        const int cls0 = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry0))];
+        if (cls0 >= 0 && kc->B.dig[cls0][rid] < kc->B.b0[cls0])
+            c0 = cnt[((size_t)j * 2 + 0) * (size_t)R + rid + kc->B.rad[cls0]];
+        int oj;
+        if (r < c0) oj = 0;
+        else { r -= c0; oj = 1; }
+        const int entry = oj ? kc->c.pb[p[j]] : kc->c.pa[p[j]];
+        const int ex = oj ? kc->c.pa[p[j]] : kc->c.pb[p[j]];
+        const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+        F1_CHECK(cls >= 0 && kc->B.dig[cls][rid] < kc->B.b0[cls],
+                 "[kc-o3] orient unrank: descended into an invalid branch (defect)");
+        F1_CHECK(r < cnt[((size_t)j * 2 + oj) * (size_t)R + rid + kc->B.rad[cls]],
+                 "[kc-o3] orient unrank: residual exceeds branch mass (defect)");
+        E[j] = (uint8_t)ex;
+        rid += kc->B.rad[cls];
+        last = ex;
+    }
+    F1_CHECK(r == 0, "[kc-o3] orient unrank: nonzero residual at the leaf (defect)");
+}
+
+static double kc_u192_to_d(const F1U192 *a) {
+    return (double)a->l0 + ldexp((double)a->l1, 64) + ldexp((double)a->l2, 128);
+}
+
+/* rank3(E): WALK rank in O3 over the C1&C2&C4&C5 superspace. Returns 0 and
+ * fills *rank_out, *m_out (class size), *oidx_out (in-class orient index) on
+ * a valid walk; -1 otherwise. trace_print prints the f*g descent trace along
+ * E's own oriented path; if trace_ok_out != NULL the trace identities are
+ * computed (quietly unless trace_print) and their verdict stored. */
+static int kc_o3_rank(KcO3 *o3, const uint8_t *E, F1U192 *rank_out,
+                      uint64_t *m_out, uint64_t *oidx_out,
+                      int trace_print, int *trace_ok_out) {
+    KC *kc = o3->f;
+    const int n = kc->n;
+    const int do_trace = trace_print || trace_ok_out != NULL;
+    uint32_t rids[KC_MAX_PAIRS + 1];
+    if (kc_validate(kc, E, rids, NULL) != 0) return -1;
+    F1U192 A = {0, 0, 0};
+    KcO3Front *cur = &o3->fa, *nxt = &o3->fb;
+    kc_o3_front_root(cur, kc);
+    uint32_t m = 0;
+    int trace_ok = 1, flow_n = 0;
+    double sum_bits = 0.0;
+    F1U192 g_child = kc->total;   /* g(s_0) = N when the loop starts */
+    if (do_trace) {
+        F1U192 g0 = kc_flookup(o3->g, 0, 0, kc->start_exit, 0);
+        trace_ok = trace_ok && f1_eq(&g0, &kc->total);   /* g(s_0) == N */
+    }
+    for (int j = 0; j < n; j++) {
+        const int qj = kc->pair_of_sub[E[j]];
+        const int last_own = j ? E[j - 1] : kc->start_exit;
+        F1U192 g_parent = g_child;
+        int alts = 0;
+        if (do_trace) {
+            /* flow identity at s_j: sum of g over ALL admissible oriented
+             * successors == g(s_j) — the DP recurrence, exact */
+            F1U192 gsum = {0, 0, 0};
+            for (int q = 0; q < n; q++) {
+                if ((m >> q) & 1) continue;
+                for (int o = 0; o < 2; o++) {
+                    const int entry = o ? kc->c.pb[q] : kc->c.pa[q];
+                    const int ex = o ? kc->c.pa[q] : kc->c.pb[q];
+                    const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last_own ^ entry))];
+                    if (cls < 0 || kc->B.dig[cls][rids[j]] >= kc->B.b0[cls]) continue;
+                    F1U192 gv = kc_flookup(o3->g, j + 1, m | (1u << q), ex,
+                                           rids[j] + kc->B.rad[cls]);
+                    if (!f1_is_zero(&gv)) { f1_add(&gsum, &gv); alts++; }
+                }
+            }
+            if (!f1_eq(&gsum, &g_parent)) trace_ok = 0;
+            else flow_n++;
+        }
+        /* O3 pair blocks strictly below the walk's own pair (ascending pl) */
+        F1U192 below = {0, 0, 0};
+        for (int t = 0; t < n; t++) {
+            const int q = o3->ord[t];
+            if (q == qj) break;
+            if ((m >> q) & 1) continue;
+            F1U192 W = kc_o3_mass(o3, j, m, q, cur);
+            f1_add(&below, &W);
+        }
+        f1_add(&A, &below);
+        kc_o3_extend(o3, cur, qj, nxt);
+        { KcO3Front *sw = cur; cur = nxt; nxt = sw; }
+        m |= 1u << qj;
+        if (do_trace) {
+            g_child = kc_flookup(o3->g, j + 1, m, E[j], rids[j + 1]);
+            F1U192 f_child = kc_flookup(o3->f, j + 1, m, E[j], rids[j + 1]);
+            F1_CHECK(!f1_is_zero(&f_child),
+                     "[kc-o3] own-path state missing from the f ladder (structure defect)");
+            if (f1_is_zero(&g_child)) trace_ok = 0;   /* a valid walk always completes */
+            double bits = log2(kc_u192_to_d(&g_parent)) - log2(kc_u192_to_d(&g_child));
+            sum_bits += bits;
+            if (trace_print) {
+                char bd[64], fd[64], gd[64], gp[64];
+                f1_dec(below, bd);
+                f1_dec(f_child, fd);
+                f1_dec(g_child, gd);
+                f1_dec(g_parent, gp);
+                printf("#o3-trace\tstep=%d\tpair=%d\tentry=%d\texit=%d\torient=%d\t"
+                       "alts=%d\tmass_below=%s\tf=%s\tg=%s\tg_parent=%s\tp=%s/%s\tbits=%.6f\n",
+                       j + 1, kc->c.pl[qj], kc->partner[E[j]], E[j],
+                       (E[j] == kc->c.pa[qj]) ? 1 : 0,
+                       alts, bd, fd, gd, gp, gd, gp, bits);
+            }
+        }
+    }
+    if (do_trace) {
+        F1U192 one = {1, 0, 0};
+        if (!f1_eq(&g_child, &one)) trace_ok = 0;   /* g(s_n) == 1 (seed layer) */
+        if (trace_print) {
+            char nd[64];
+            f1_dec(kc->total, nd);
+            printf("#o3-trace-summary\tn=%d\tN=%s\tg(s_0)=N %s\tg(s_n)=1 %s\t"
+                   "flow_identities=%d/%d\tsum_bits=%.6f\tlog2N=%.6f\t%s\n",
+                   n, nd,
+                   trace_ok ? "VERIFIED" : "FAILED",
+                   f1_eq(&g_child, &one) ? "VERIFIED" : "FAILED",
+                   flow_n, n, sum_bits, log2(kc_u192_to_d(&kc->total)),
+                   trace_ok ? "product(p_i)=1/N EXACT (telescoping + per-step flow identities)"
+                            : "product check FAILED");
+        }
+        if (trace_ok_out) *trace_ok_out = trace_ok;
+    }
+    /* phase 2: orient tiebreak within the class */
+    int p[KC_MAX_PAIRS];
+    for (int j = 0; j < n; j++) p[j] = kc->pair_of_sub[E[j]];
+    uint64_t *cnt = kc_repr_dp(kc, p);
+    const uint64_t mdp = kc_o3_class_m(kc, p, cnt);
+    uint64_t mfr = 0;
+    for (int t = 0; t < cur->n; t++) {
+        F1_CHECK((cur->keys[t] & 0xffffu) == kc->B.rid_full,
+                 "[kc-o3] final frontier residual != B0 (sum invariant violated)");
+        mfr += cur->cnt[t];
+    }
+    F1_CHECK(mfr == mdp, "[kc-o3] frontier class mass %llu != chain-DP m(k) %llu (defect)",
+             (unsigned long long)mfr, (unsigned long long)mdp);
+    const uint64_t B = kc_o3_orient_rank(kc, p, cnt, E);
+    F1_CHECK(B < mdp, "[kc-o3] orient index >= m(k) (defect)");
+    free(cnt);
+    F1U192 b192 = {B, 0, 0};
+    f1_add(&A, &b192);
+    *rank_out = A;
+    if (m_out) *m_out = mdp;
+    if (oidx_out) *oidx_out = B;
+    return 0;
+}
+
+/* unrank3(r): inverse of rank3 on [0, N). Returns 0 and fills E (+ class
+ * decomposition) on success; -1 if r >= N. */
+static int kc_o3_unrank(KcO3 *o3, F1U192 r, uint8_t *E,
+                        uint64_t *m_out, uint64_t *oidx_out) {
+    KC *kc = o3->f;
+    const int n = kc->n;
+    if (kc_u192_cmp(&r, &kc->total) >= 0) return -1;
+    KcO3Front *cur = &o3->fa, *nxt = &o3->fb;
+    kc_o3_front_root(cur, kc);
+    uint32_t m = 0;
+    int pvec[KC_MAX_PAIRS];
+    for (int j = 0; j < n; j++) {
+        int chosen = -1;
+        for (int t = 0; t < n; t++) {
+            const int q = o3->ord[t];
+            if ((m >> q) & 1) continue;
+            F1U192 W = kc_o3_mass(o3, j, m, q, cur);
+            if (kc_u192_cmp(&r, &W) < 0) { chosen = q; break; }
+            kc_u192_sub(&r, &W);
+        }
+        F1_CHECK(chosen >= 0, "[kc-o3] unrank: pair descent exhausted candidates (defect)");
+        pvec[j] = chosen;
+        kc_o3_extend(o3, cur, chosen, nxt);
+        { KcO3Front *sw = cur; cur = nxt; nxt = sw; }
+        m |= 1u << chosen;
+    }
+    F1_CHECK(r.l1 == 0 && r.l2 == 0, "[kc-o3] unrank: in-class residual exceeds 64 bits (defect)");
+    uint64_t *cnt = kc_repr_dp(kc, pvec);
+    const uint64_t mdp = kc_o3_class_m(kc, pvec, cnt);
+    uint64_t mfr = 0;
+    for (int t = 0; t < cur->n; t++) mfr += cur->cnt[t];
+    F1_CHECK(mfr == mdp, "[kc-o3] frontier class mass %llu != chain-DP m(k) %llu (defect)",
+             (unsigned long long)mfr, (unsigned long long)mdp);
+    F1_CHECK(r.l0 < mdp, "[kc-o3] unrank: orient residual >= m(k) (defect)");
+    kc_o3_orient_unrank(kc, pvec, cnt, r.l0, E);
+    free(cnt);
+    F1_CHECK(kc_validate(kc, E, NULL, NULL) == 0, "[kc-o3] unranked walk invalid (defect)");
+    if (m_out) *m_out = mdp;
+    if (oidx_out) *oidx_out = r.l0;
+    return 0;
+}
+
+/* neighbor-bracket certificate at rank r (TR-12 Q1): unrank r-1, r, r+1
+ * (boundary-aware), rank-roundtrip each, verify STRICT O3 order via the
+ * independent comparator, print first-divergence positions. Returns the
+ * number of failed checks (0 = certificate holds). */
+static int kc_o3_bracket(KcO3 *o3, const F1U192 *rank, int verbose) {
+    const KC *kc = o3->f;
+    int bad = 0;
+    F1U192 one = {1, 0, 0};
+    F1U192 rm = *rank, rp = *rank;
+    const int have_m = !f1_is_zero(rank);
+    if (have_m) kc_u192_sub(&rm, &one);
+    f1_add(&rp, &one);
+    const int have_p = kc_u192_cmp(&rp, &kc->total) < 0;
+    uint8_t Em[KC_MAX_PAIRS], Ec[KC_MAX_PAIRS], Ep[KC_MAX_PAIRS];
+    char d1[64], d2[64], div[160];
+    if (kc_o3_unrank(o3, *rank, Ec, NULL, NULL) != 0) {
+        if (verbose) printf("[kc-o3-bracket] rank out of range\n");
+        return 1;
+    }
+    if (have_m && kc_o3_unrank(o3, rm, Em, NULL, NULL) != 0) bad++;
+    if (have_p && kc_o3_unrank(o3, rp, Ep, NULL, NULL) != 0) bad++;
+    /* rank roundtrips (recomputed, not assumed) */
+    F1U192 rr;
+    if (kc_o3_rank(o3, Ec, &rr, NULL, NULL, 0, NULL) != 0 || !f1_eq(&rr, rank)) bad++;
+    if (have_m && (kc_o3_rank(o3, Em, &rr, NULL, NULL, 0, NULL) != 0 || !f1_eq(&rr, &rm))) bad++;
+    if (have_p && (kc_o3_rank(o3, Ep, &rr, NULL, NULL, 0, NULL) != 0 || !f1_eq(&rr, &rp))) bad++;
+    /* strict O3 order via the independent comparator */
+    const int cmp_m = have_m ? kc_o3_cmp(kc, Em, Ec) : -1;
+    const int cmp_p = have_p ? kc_o3_cmp(kc, Ec, Ep) : -1;
+    if (cmp_m >= 0 || cmp_p >= 0) bad++;
+    if (verbose) {
+        if (have_m) {
+            f1_dec(rm, d1);
+            printf("[kc-o3-bracket] r-1=%s\t", d1);
+            kc_print_walk(kc, Em, stdout);
+        } else {
+            printf("[kc-o3-bracket] r-1: NONE (r=0 is the O3-least walk)\n");
+        }
+        f1_dec(*rank, d1);
+        printf("[kc-o3-bracket] r  =%s\t", d1);
+        kc_print_walk(kc, Ec, stdout);
+        if (have_p) {
+            f1_dec(rp, d2);
+            printf("[kc-o3-bracket] r+1=%s\t", d2);
+            kc_print_walk(kc, Ep, stdout);
+        } else {
+            printf("[kc-o3-bracket] r+1: NONE (r=N-1 is the O3-greatest walk)\n");
+        }
+        if (have_m) {
+            kc_o3_divergence(kc, Em, Ec, div, sizeof(div));
+            printf("[kc-o3-bracket] O3(w[r-1]) < O3(w[r]): %s (first divergence: %s)\n",
+                   cmp_m < 0 ? "STRICT OK" : "VIOLATED", div);
+        }
+        if (have_p) {
+            kc_o3_divergence(kc, Ec, Ep, div, sizeof(div));
+            printf("[kc-o3-bracket] O3(w[r]) < O3(w[r+1]): %s (first divergence: %s)\n",
+                   cmp_p < 0 ? "STRICT OK" : "VIOLATED", div);
+        }
+        printf("[kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE %s\n",
+               bad ? "FAIL" : "PASS");
+    }
+    return bad;
+}
+
+/* provenance trailer for O3 output (order/object/space labels, H3b ruling) */
+static void kc_o3_trailer(const KC *kc) {
+    printf("#provenance\tengine=solve.c/kc-o3\tbranch=v4-compiler\tgit=%s\t"
+           "source_sha=%s\tn=%d\t"
+           "order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)\t"
+           "object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;"
+           "class-block=[class_first_rank3,+m))\t"
+           "space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)\n",
+           GIT_HASH, SOURCE_SHA, kc->n);
+}
+
+/* --kc-o3-rank / --kc-o3-unrank driver */
+static int kc_o3_query_main(const char *cmd, const char *fdir, const char *gdir,
+                            const char *arg, int trace, int bracket,
+                            int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-o3] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    KcO3 o3;
+    kc_o3_ctx_init(&o3, fkc, gkc);
+    int rc = 0;
+    uint8_t E[KC_MAX_PAIRS];
+    F1U192 r;
+    uint64_t mk = 0, oidx = 0;
+    printf("order=O3\tobject=WALK\tspace=C1C2C4C5-SUPERSPACE\n");
+    if (strcmp(cmd, "--kc-o3-rank") == 0) {
+        if (kc_parse_walk(fkc, arg, E) != 0 ||
+            kc_o3_rank(&o3, E, &r, &mk, &oidx, trace, NULL) != 0) {
+            fprintf(stderr, "ERROR: [kc-o3] not a valid walk over this pair subset\n");
+            rc = 1;
+        } else {
+            char tdec[64], cdec[64];
+            f1_dec(r, tdec);
+            printf("rank3\t%s\n", tdec);
+            F1U192 cf = r, ob = {oidx, 0, 0};
+            kc_u192_sub(&cf, &ob);
+            f1_dec(cf, cdec);
+            printf("class\tm=%llu\torient_idx=%llu\tclass_first_rank3=%s\t"
+                   "(records are orientation-masked classes; repr(k) = the O3-least "
+                   "member = rank class_first_rank3; SUPERSPACE m — see module header)\n",
+                   (unsigned long long)mk, (unsigned long long)oidx, cdec);
+            if (bracket && kc_o3_bracket(&o3, &r, 1) != 0) rc = 1;
+        }
+    } else {   /* --kc-o3-unrank */
+        if (kc_u192_from_dec(arg, &r) != 0) {
+            fprintf(stderr, "ERROR: [kc-o3] unparsable rank\n");
+            rc = 1;
+        } else if (kc_o3_unrank(&o3, r, E, &mk, &oidx) != 0) {
+            fprintf(stderr, "ERROR: [kc-o3] rank out of range (>= N)\n");
+            rc = 1;
+        } else {
+            kc_print_walk(fkc, E, stdout);
+            char cdec[64];
+            F1U192 cf = r, ob = {oidx, 0, 0};
+            kc_u192_sub(&cf, &ob);
+            f1_dec(cf, cdec);
+            printf("class\tm=%llu\torient_idx=%llu\tclass_first_rank3=%s\n",
+                   (unsigned long long)mk, (unsigned long long)oidx, cdec);
+            if (trace) {   /* trace along the resolved walk; also a roundtrip check */
+                F1U192 rr;
+                F1_CHECK(kc_o3_rank(&o3, E, &rr, NULL, NULL, 1, NULL) == 0 && f1_eq(&rr, &r),
+                         "[kc-o3] unrank->rank roundtrip failed (defect)");
+            }
+            if (bracket && kc_o3_bracket(&o3, &r, 1) != 0) rc = 1;
+        }
+    }
+    if (rc == 0) kc_o3_trailer(fkc);
+    kc_o3_ctx_free(&o3);
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    return rc;
+}
+
+#define KC_O3_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-o3-selftest] %-56s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* ---------- --kc-o3-selftest ---------- */
+static int kc_o3_selftest(void) {
+    int fails = 0;
+    printf("[kc-o3-selftest] O3 (citable-order) ranker verification "
+           "(exhaustive n=9; spot n=13)\n");
+
+    /* ============ Phase OA: n=9, exhaustive vs the sorted brute list ============ */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-o3] alloc");
+        F1_CHECK(kc_init(fkc, 9) == 0 && kc_init(gkc, 9) == 0, "[kc-o3] init failed");
+        kc_build(fkc, 0);
+        kc_g_build_mem(gkc, 0);
+        KcO3 o3;
+        kc_o3_ctx_init(&o3, fkc, gkc);
+        const int n = fkc->n;
+
+        KcList BR;
+        kc_brute(fkc, &BR);
+        const uint64_t N = BR.cnt;
+        KC_O3_GATE("OA1 n=9 count: brute == f total == g(0) == 26,112",
+                   N == 26112 && fkc->total.l0 == 26112 &&
+                   fkc->total.l1 == 0 && fkc->total.l2 == 0 &&
+                   f1_eq(&fkc->total, &gkc->total));
+
+        /* sort ALL walks by the O3 projection: key = (pl bytes | orient bytes),
+         * memcmp = pair-vector lex then orient-vector lex (hierarchical) */
+        const size_t rl = 3u * (size_t)n;   /* 2n key + n walk payload */
+        uint8_t *rows = (uint8_t *)malloc(rl * N);
+        F1_CHECK(rows != NULL, "[kc-o3] sort alloc");
+        for (uint64_t i = 0; i < N; i++) {
+            const uint8_t *E = BR.walks + i * (size_t)n;
+            uint8_t *row = rows + i * rl;
+            for (int j = 0; j < n; j++) {
+                const int pj = fkc->pair_of_sub[E[j]];
+                row[j] = (uint8_t)fkc->c.pl[pj];                       /* GLOBAL pair index */
+                row[n + j] = (uint8_t)(E[j] == fkc->c.pa[pj] ? 1 : 0); /* record orient bit */
+            }
+            memcpy(row + 2 * n, E, (size_t)n);
+        }
+        kc_g_rowlen = rl;   /* key determines the walk, so full-row memcmp is safe */
+        qsort(rows, N, rl, kc_g_row_cmp);
+        /* the projected sort must agree with the independent comparator */
+        {
+            int ok = 1;
+            for (uint64_t i = 1; i + 0 < N && ok; i++)
+                ok = kc_o3_cmp(fkc, rows + (i - 1) * rl + 2 * n, rows + i * rl + 2 * n) < 0;
+            KC_O3_GATE("OA2 n=9 projected sort strictly increasing (comparator)", ok);
+        }
+
+        /* OA3 (the total-order gate): rank3 assigns 0..26,111 in EXACTLY the
+         * sorted order — every walk, exhaustive */
+        {
+            int ok = 1;
+            uint64_t mtot = 0;
+            for (uint64_t i = 0; i < N && ok; i++) {
+                F1U192 r;
+                uint64_t mk, oi;
+                if (kc_o3_rank(&o3, rows + i * rl + 2 * n, &r, &mk, &oi, 0, NULL) != 0 ||
+                    r.l0 != i || r.l1 || r.l2) ok = 0;
+                if (oi == 0) mtot += mk;   /* class blocks tile the rank space */
+            }
+            ok = ok && mtot == N;
+            KC_O3_GATE("OA3 n=9 EXHAUSTIVE rank3 == sorted index (all 26,112)", ok);
+        }
+
+        /* OA4: unrank3(i) == i-th sorted walk, exhaustive; unrank3(N) rejected */
+        {
+            int ok = 1;
+            uint8_t E[KC_MAX_PAIRS];
+            for (uint64_t i = 0; i < N && ok; i++) {
+                F1U192 r = {i, 0, 0};
+                if (kc_o3_unrank(&o3, r, E, NULL, NULL) != 0 ||
+                    memcmp(E, rows + i * rl + 2 * n, (size_t)n) != 0) ok = 0;
+            }
+            F1U192 rN = {N, 0, 0};
+            ok = ok && kc_o3_unrank(&o3, rN, E, NULL, NULL) != 0;
+            KC_O3_GATE("OA4 n=9 EXHAUSTIVE unrank3(i) == i-th walk + unrank3(N) rejected", ok);
+        }
+
+        /* OA5 (gate d): neighbor brackets at 10 seeded random ranks */
+        {
+            int ok = 1;
+            uint64_t seed = 0x03b7ac4e7ull;
+            for (int s = 0; s < 10 && ok; s++) {
+                F1U192 r = {kc_rand_below(&seed, N), 0, 0};
+                ok = kc_o3_bracket(&o3, &r, 0) == 0;
+            }
+            KC_O3_GATE("OA5 n=9 neighbor brackets at 10 random ranks", ok);
+        }
+
+        /* OA6 (gate e): f*g descent-trace identities — per-step flow
+         * conservation + endpoints (product(p_i) telescopes to 1/26,112) —
+         * on 60 seeded random walks + the O3-least and O3-greatest */
+        {
+            int ok = 1;
+            uint64_t seed = 0x0e5717ace5ull;
+            for (int s = 0; s < 62 && ok; s++) {
+                uint64_t i = (s == 0) ? 0 : (s == 1) ? N - 1 : kc_rand_below(&seed, N);
+                F1U192 rr;
+                int tok = 0;
+                if (kc_o3_rank(&o3, rows + i * rl + 2 * n, &rr, NULL, NULL, 0, &tok) != 0 ||
+                    !tok || rr.l0 != i) ok = 0;
+            }
+            KC_O3_GATE("OA6 n=9 trace: flow identities + product(p)==1/N (62 walks)", ok);
+        }
+
+        /* OA7: class-block coherence vs the RATIFIED adapter — for 200 seeded
+         * walks: ranker m(k) == kc_class_repr's m(k) (superspace), and
+         * unrank3(class_first_rank3) == repr(k) byte-identical */
+        {
+            int ok = 1;
+            uint64_t seed = 0xc1a55b10c5ull;
+            uint8_t repr[KC_MAX_PAIRS], E2[KC_MAX_PAIRS];
+            for (int s = 0; s < 200 && ok; s++) {
+                uint64_t i = kc_rand_below(&seed, N);
+                const uint8_t *E = rows + i * rl + 2 * n;
+                F1U192 r;
+                uint64_t mk, oi;
+                if (kc_o3_rank(&o3, E, &r, &mk, &oi, 0, NULL) != 0) { ok = 0; break; }
+                uint64_t madapt = kc_class_repr(fkc, E, repr, -1);
+                if (madapt != mk) { ok = 0; break; }
+                F1U192 cf = r, ob = {oi, 0, 0};
+                kc_u192_sub(&cf, &ob);
+                if (kc_o3_unrank(&o3, cf, E2, NULL, NULL) != 0 ||
+                    memcmp(E2, repr, (size_t)n) != 0) ok = 0;
+            }
+            KC_O3_GATE("OA7 n=9 class blocks: m==adapter m, unrank3(first)==repr(k)", ok);
+        }
+
+        /* OA8: OOC v2 (tiny forced-eviction cache) serves identical answers */
+        {
+            char d1[] = "/tmp/kc_o3_f_XXXXXX", d2[] = "/tmp/kc_o3_g_XXXXXX";
+            F1_CHECK(mkdtemp(d1) != NULL && mkdtemp(d2) != NULL, "[kc-o3] mkdtemp failed");
+            kc_write_v2(fkc, d1);
+            kc_g_write(gkc, d2, 1);
+            KC *fo = (KC *)calloc(1, sizeof(KC));
+            KC *go = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(fo && go, "[kc-o3] alloc");
+            int ok = kc_ooc_open(fo, d1, 1) == 0 &&
+                     kc_ooc_open_as(go, d2, "g", 1, 1) == 0;
+            if (ok) {
+                KcO3 oo;
+                kc_o3_ctx_init(&oo, fo, go);
+                uint64_t seed = 0x00c0ffee1ull;
+                uint8_t E1[KC_MAX_PAIRS], E2[KC_MAX_PAIRS];
+                for (int s = 0; s < 200 && ok; s++) {
+                    F1U192 r = {kc_rand_below(&seed, N), 0, 0}, rr;
+                    if (kc_o3_unrank(&o3, r, E1, NULL, NULL) != 0 ||
+                        kc_o3_unrank(&oo, r, E2, NULL, NULL) != 0 ||
+                        memcmp(E1, E2, (size_t)n) != 0 ||
+                        kc_o3_rank(&oo, E2, &rr, NULL, NULL, 0, NULL) != 0 ||
+                        !f1_eq(&r, &rr)) ok = 0;
+                }
+                kc_o3_ctx_free(&oo);
+            }
+            KC_O3_GATE("OA8 n=9 OOC v2 tiny-cache rank3/unrank3 identical", ok);
+            if (fo->n) kc_free(fo);
+            if (go->n) kc_free(go);
+            free(fo);
+            free(go);
+            kc_rm_dir_as(d1, "f1c5", n);
+            kc_rm_dir_as(d2, "g", n);
+        }
+
+        free(rows);
+        free(BR.walks);
+        free(BR.cds);
+        kc_o3_ctx_free(&o3);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+
+    /* ============ Phase OB: n=13 spot (brute force infeasible) ============ */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-o3] alloc");
+        F1_CHECK(kc_init(fkc, 13) == 0 && kc_init(gkc, 13) == 0, "[kc-o3] init failed");
+        double t0 = omp_get_wtime();
+        kc_build(fkc, 0);
+        kc_g_build_mem(gkc, 0);
+        KcO3 o3;
+        kc_o3_ctx_init(&o3, fkc, gkc);
+        const int n = fkc->n;
+        char tdec[64];
+        f1_dec(fkc->total, tdec);
+        printf("[kc-o3-selftest] n=13: N=%s build=%.3fs\n", tdec, omp_get_wtime() - t0);
+        KC_O3_GATE("OB1 n=13 f total == g(0) == 2,063,395,607,040",
+                   f1_eq(&fkc->total, &gkc->total) && strcmp(tdec, "2063395607040") == 0);
+
+        /* OB2: grid + seeded roundtrips (rank3(unrank3(r)) == r), incl. 0,
+         * N-1, mid; sorted ranks => strictly O3-increasing walks (V5.2 form) */
+        {
+            const int M = 403;
+            uint64_t *rs = (uint64_t *)malloc(sizeof(uint64_t) * M);
+            uint8_t *ws = (uint8_t *)malloc((size_t)M * n);
+            F1_CHECK(rs && ws, "[kc-o3] OB2 alloc");
+            const uint64_t N13 = fkc->total.l0;
+            rs[0] = 0;
+            rs[1] = N13 - 1;
+            rs[2] = N13 / 2;
+            uint64_t seed = 0x0b2137ull;
+            for (int s = 3; s < M; s++) rs[s] = kc_rand_below(&seed, N13);
+            int ok = 1;
+            for (int s = 0; s < M && ok; s++) {
+                F1U192 r = {rs[s], 0, 0}, rr;
+                if (kc_o3_unrank(&o3, r, ws + (size_t)s * n, NULL, NULL) != 0 ||
+                    kc_o3_rank(&o3, ws + (size_t)s * n, &rr, NULL, NULL, 0, NULL) != 0 ||
+                    !f1_eq(&r, &rr)) ok = 0;
+            }
+            KC_O3_GATE("OB2 n=13 rank3(unrank3(r))==r on grid {0,N-1,mid}+400 random", ok);
+            /* monotonicity: sort ranks, walks must strictly increase in O3 */
+            for (int a = 1; a < M && ok; a++)   /* insertion sort ranks+walks together */
+                for (int b = a; b > 0 && rs[b - 1] > rs[b]; b--) {
+                    uint64_t tr = rs[b - 1]; rs[b - 1] = rs[b]; rs[b] = tr;
+                    uint8_t tw[KC_MAX_PAIRS];
+                    memcpy(tw, ws + (size_t)(b - 1) * n, (size_t)n);
+                    memcpy(ws + (size_t)(b - 1) * n, ws + (size_t)b * n, (size_t)n);
+                    memcpy(ws + (size_t)b * n, tw, (size_t)n);
+                }
+            int mono = 1;
+            for (int s = 1; s < M && mono; s++) {
+                if (rs[s] == rs[s - 1]) continue;   /* random duplicates compare equal */
+                mono = kc_o3_cmp(fkc, ws + (size_t)(s - 1) * n, ws + (size_t)s * n) < 0;
+            }
+            KC_O3_GATE("OB3 n=13 sorted ranks -> strictly O3-increasing walks", mono);
+            free(rs);
+            free(ws);
+        }
+
+        /* OB4: brackets at 5 seeded ranks; OB5: trace identities on 20 walks */
+        {
+            int ok = 1;
+            uint64_t seed = 0x0b4acce7ull;
+            const uint64_t N13 = fkc->total.l0;
+            for (int s = 0; s < 5 && ok; s++) {
+                F1U192 r = {kc_rand_below(&seed, N13), 0, 0};
+                ok = kc_o3_bracket(&o3, &r, 0) == 0;
+            }
+            KC_O3_GATE("OB4 n=13 neighbor brackets at 5 random ranks", ok);
+            int tok_all = 1;
+            uint8_t E[KC_MAX_PAIRS];
+            for (int s = 0; s < 20 && tok_all; s++) {
+                F1U192 r = {kc_rand_below(&seed, N13), 0, 0}, rr;
+                int tok = 0;
+                if (kc_o3_unrank(&o3, r, E, NULL, NULL) != 0 ||
+                    kc_o3_rank(&o3, E, &rr, NULL, NULL, 0, &tok) != 0 ||
+                    !tok || !f1_eq(&r, &rr)) tok_all = 0;
+            }
+            KC_O3_GATE("OB5 n=13 trace flow identities + product==1/N (20 walks)", tok_all);
+        }
+
+        kc_o3_ctx_free(&o3);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+
+    printf("[kc-o3-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
+           fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
 typedef struct { const KC *kc; uint64_t limit, done; } KcEnumUd;
 static int kc_enum_print_cb(void *ud, const uint8_t *E) {
     KcEnumUd *u = (KcEnumUd *)ud;
@@ -19229,6 +20708,35 @@ static int kc_cli(int argc, char *argv[]) {
             else if (strcmp(argv[ai], "--kc-g-ooc") == 0) gooc = 1;
         }
         return kc_g_build_main(argv[2], npairs, gooc);
+    }
+    if (strcmp(cmd, "--kc-o3-selftest") == 0) return kc_o3_selftest();
+    if (strcmp(cmd, "--kc-o3-rank") == 0 || strcmp(cmd, "--kc-o3-unrank") == 0) {
+        /* Stage O3: rank/unrank in the RATIFIED CITABLE ORDER (KC-O3 module
+         * header above: order/object/space semantics, trace, bracket). */
+        if (argc < 5) {
+            fprintf(stderr, "Usage: solve %s FDIR GDIR %s [--kc-trace] [--kc-bracket] "
+                    "[--kc-ooc] [--kc-cache-mb MB]\n"
+                    "  FDIR: an f (forward) retained-layers dir (--kc-build or Stage F);\n"
+                    "  GDIR: the matching g (suffix-DP) ladder (--kc-g-build). BOTH required.\n"
+                    "  Order = O3 (the ratified compare_solutions record order on walks:\n"
+                    "  pair-vector lex primary, orient-vector lex tiebreak). WALK rank over\n"
+                    "  the C1&C2&C4&C5 SUPERSPACE — see the KC-O3 module header for the\n"
+                    "  walk-rank vs class-rank pin and the H3b space ruling.\n"
+                    "  --kc-trace: per-placement f*g descent trace (rarity profile rows);\n"
+                    "  --kc-bracket: the rank r-1/r/r+1 neighbor certificate.\n",
+                    cmd, strcmp(cmd, "--kc-o3-rank") == 0 ? "\"e,x,...\"" : "RANK");
+            return 2;
+        }
+        int o3ooc = 0, o3cache = 0, o3trace = 0, o3bracket = 0;
+        for (int ai = 5; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-ooc") == 0) o3ooc = 1;
+            else if (strcmp(argv[ai], "--kc-trace") == 0) o3trace = 1;
+            else if (strcmp(argv[ai], "--kc-bracket") == 0) o3bracket = 1;
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
+                o3cache = atoi(argv[++ai]);
+        }
+        return kc_o3_query_main(cmd, argv[2], argv[3], argv[4],
+                                o3trace, o3bracket, o3ooc, o3cache);
     }
     if (strcmp(cmd, "--kc-g-check") == 0) {
         /* Stage G / V3: the f*g cut identity at every layer (KC-G header). */
@@ -21381,11 +22889,12 @@ int main(int argc, char *argv[]) {
         if (argc < 3) {
             fprintf(stderr,
                 "Usage: solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]\n"
-                "  Streams each f1c5 layer file (v1 raw or v2 per-block-zlib) through the\n"
-                "  engine's block decompressor and prints sha256 of the DECOMPRESSED logical\n"
-                "  stream (masks|off|keys|vals) — the exact bytes the v2 reader yields to the\n"
-                "  DP. Immune to zlib-version/level byte differences; a v1 and v2 layer of\n"
-                "  the same build digest identically. DIR expands to its f1c5_layer_NN.bin\n"
+                "  Streams each layer file (f1c5 F1C5LAY1/2 or Stage-G g-ladder F1C5GLY1/2;\n"
+                "  v1 raw or v2 per-block-zlib) through the engine's block decompressor and\n"
+                "  prints sha256 of the DECOMPRESSED logical stream (masks|off|keys|vals) —\n"
+                "  the exact bytes the v2 reader yields to the DP. Immune to zlib-version/\n"
+                "  level byte differences; a v1 and v2 layer of the same build digest\n"
+                "  identically. DIR expands to its f1c5_layer_NN.bin AND g_layer_NN.bin\n"
                 "  files. Digest via the system sha256 tool (sha256sum / shasum -a 256).\n");
             return 2;
         }
@@ -21395,16 +22904,19 @@ int main(int argc, char *argv[]) {
             struct stat lsha_st;
             if (stat(argv[ai], &lsha_st) == 0 && S_ISDIR(lsha_st.st_mode)) {
                 int found = 0;
-                for (int k = 0; k <= 99; k++) {   /* layer files are f1c5_layer_%02d.bin */
-                    char lp[4096];
-                    snprintf(lp, sizeof(lp), "%s/f1c5_layer_%02d.bin", argv[ai], k);
-                    if (access(lp, R_OK) != 0) continue;
-                    found = 1;
-                    int r = f1c5_layer_sha_file(lp);
-                    if (r > lsha_rc) lsha_rc = r;
-                }
+                static const char *lsha_pfx[2] = {"f1c5", "g"};
+                for (int pi = 0; pi < 2; pi++)
+                    for (int k = 0; k <= 99; k++) {   /* f1c5_layer_%02d.bin / g_layer_%02d.bin */
+                        char lp[4096];
+                        snprintf(lp, sizeof(lp), "%s/%s_layer_%02d.bin", argv[ai], lsha_pfx[pi], k);
+                        if (access(lp, R_OK) != 0) continue;
+                        found = 1;
+                        int r = f1c5_layer_sha_file(lp);
+                        if (r > lsha_rc) lsha_rc = r;
+                    }
                 if (!found) {
-                    fprintf(stderr, "ERROR: no f1c5_layer_NN.bin files in %s\n", argv[ai]);
+                    fprintf(stderr, "ERROR: no f1c5_layer_NN.bin or g_layer_NN.bin files in %s\n",
+                            argv[ai]);
                     lsha_rc = 2;
                 }
             } else {
@@ -21422,12 +22934,38 @@ int main(int argc, char *argv[]) {
             fprintf(stderr,
                 "Usage: solve --f1c5-layer-cmp FILE_A FILE_B\n"
                 "  Byte-compares the DECOMPRESSED logical streams (masks|off|keys|vals) of\n"
-                "  two f1c5 layer files (v1/v2 in any combination), streaming with bounded\n"
-                "  memory. Prints IDENTICAL, or the first divergence offset on mismatch.\n"
-                "  Exit 0 identical, 1 divergent, 2 error.\n");
+                "  two layer files (f1c5 F1C5LAY1/2 or Stage-G g-ladder F1C5GLY1/2; v1/v2 in\n"
+                "  any combination), streaming with bounded memory. Prints IDENTICAL, or the\n"
+                "  first divergence offset on mismatch. Exit 0 identical, 1 divergent, 2 error.\n");
             return 2;
         }
         return f1c5_layer_cmp_files(argv[2], argv[3]);
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-sidecar-retrofit") == 0) {
+        /* Catalog future-proofing sidecars (2026-07-17): regenerate the
+         * per-layer <pfx>_layer_stats_NN.json sidecars for a finished/partial
+         * ladder dir from its retained layers + manifest, in hash-chain order
+         * (f ascending, g descending). See the sidecar module header above
+         * f1c5_sidecar_emit_impl(). Sha-neutral (argv-dispatched, read-only
+         * on layer bytes; writes only the .json sidecars). */
+        if (argc < 3) {
+            fprintf(stderr,
+                "Usage: solve --f1c5-sidecar-retrofit DIR [DIR ...]\n"
+                "  Regenerates the catalog layer-stats sidecars (value/branching/entries\n"
+                "  histograms, canonical-frame mass marginals by last and rid, top-16\n"
+                "  extreme states, decompressed-stream sha hash-chain, u192 headroom) for\n"
+                "  every retained f1c5/g layer in DIR, using DIR's manifest context.\n"
+                "  Builds emit these automatically (SOLVE_F1_LAYER_SIDECARS=0 disables);\n"
+                "  this subcommand retrofits ladders built before the feature or with the\n"
+                "  gate off. Non-destructive: layer bytes are never touched.\n");
+            return 2;
+        }
+        if (require_sha256_tool()) return 30;
+        int sr_rc = 0;
+        for (int ai = 2; ai < argc; ai++) {
+            int r = f1c5_sidecar_retrofit_dir(argv[ai]);
+            if (r > sr_rc) sr_rc = r;
+        }
+        return sr_rc;
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2c4") == 0) {
         /* #215: exact |C1 & C2 & C4| via the S4-orbit-quotient layered DP.
          * See the module header above f1_exact_main() for method, gates, and

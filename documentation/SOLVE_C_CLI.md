@@ -62,8 +62,9 @@ solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--f1-out-of-core DIR]
                                                         # exact |C1∩C2∩C4∩C5| orbit DP
 solve --f1c5-gzip-selftest | --f1c5-verify-layer <v1> <v2>
                                                         # f1c5 layer-codec self-test / cross-check
-solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]          # sha256 of a layer's DECOMPRESSED stream
-solve --f1c5-layer-cmp FILE_A FILE_B                    # decompressed-stream layer byte-compare
+solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]          # sha256 of a layer's DECOMPRESSED stream (f + g ladders)
+solve --f1c5-layer-cmp FILE_A FILE_B                    # decompressed-stream layer byte-compare (f + g ladders)
+solve --f1c5-sidecar-retrofit DIR [DIR ...]             # regenerate catalog layer-stats sidecars
 solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
 ```
 
@@ -892,14 +893,17 @@ the compressed file: the same layer written at `SOLVE_F1_OOC_GZIP_LEVEL=1` and
 are accepted — a **v1** raw (`F1C5LAY1`) and **v2** per-block-gzip (`F1C5LAY2`)
 layer of the same build digest identically (for v1 the logical stream *is* the
 file body after the 72-byte header, so `tail -c +73 file | sha256sum`
-reproduces the digest independently). The layer header is not digested. This is
-the zlib-independent registration digest for Stage-F layer ladders (V2
-layer-sha registration).
+reproduces the digest independently). **Stage-G g-ladder layers** (`F1C5GLY1`/
+`F1C5GLY2` magic, `g_layer_NN.bin`) share the identical binary format and are
+accepted the same way (operator g-ladder directive, 2026-07-17). The layer
+header is not digested. This is the zlib-independent registration digest for
+Stage-F **and Stage-G** layer ladders (V2 layer-sha registration).
 
-Output per file: `sha256(decompressed) <hex>  <file>  (blocks=N, bytes=M)`
-where N is the number of compressed blocks inflated (0 for v1) and M the
-decompressed logical byte count. A DIR argument expands to its
-`f1c5_layer_NN.bin` files in layer order. The digest itself is computed by the
+Output per file: `sha256(decompressed) <hex>  <file>  (kind=f|g, blocks=N, bytes=M)`
+where `kind` reports the ladder family from the magic, N is the number of
+compressed blocks inflated (0 for v1) and M the decompressed logical byte
+count. A DIR argument expands to its `f1c5_layer_NN.bin` **and**
+`g_layer_NN.bin` files in layer order. The digest itself is computed by the
 system SHA-256 tool (`sha256sum` / `shasum -a 256` — the project's standard
 external digest mechanism), streamed with bounded memory (one block in
 flight). Integrity checks (block-size match, index monotonicity, exact file
@@ -913,15 +917,44 @@ Sha-neutral (argv-dispatched, never on the enumeration/count path).
 solve --f1c5-layer-cmp FILE_A FILE_B
 ```
 
-Byte-compares the **decompressed logical streams** of two f1c5 layer files,
-streaming both in lockstep with bounded memory (CR-3b, 2026-07-16). Formats
+Byte-compares the **decompressed logical streams** of two layer files (f1c5
+`F1C5LAY1/2` or Stage-G g-ladder `F1C5GLY1/2`), streaming both in lockstep
+with bounded memory (CR-3b, 2026-07-16; g acceptance 2026-07-17). Formats
 and compression levels may differ (v1 vs v2, or v2 written at different zlib
 levels) — equality is defined on the logical stream, so this is the
-zlib-independent equality check for Stage-F layer comparisons. On mismatch it
-reports the **first divergence offset** in the decompressed stream, the
-section it falls in (`masks`/`off`/`keys`/`vals`) with the element index, and
-the differing byte values; a length divergence reports which stream ended
-first and at what offset. Exit 0 identical, 1 divergent, 2 error. Sha-neutral.
+zlib-independent equality check for Stage-F/G layer comparisons. Comparing an
+f layer against a g layer prints a kind-mismatch warning but proceeds. On
+mismatch it reports the **first divergence offset** in the decompressed
+stream, the section it falls in (`masks`/`off`/`keys`/`vals`) with the element
+index, and the differing byte values; a length divergence reports which stream
+ended first and at what offset. Exit 0 identical, 1 divergent, 2 error.
+Sha-neutral.
+
+### --f1c5-sidecar-retrofit
+
+```
+solve --f1c5-sidecar-retrofit DIR [DIR ...]
+```
+
+Regenerates the **catalog future-proofing layer-stats sidecars**
+(`<pfx>_layer_stats_NN.json`) for every retained f1c5/g layer in DIR, using
+DIR's manifest for context, in hash-chain order (f ascending, g descending
+layer index). Each sidecar records: log2-bucketed value histograms,
+entries-per-mask and exact branching-factor distributions, per-layer u192 mass
+marginals grouped by `last` and by budget vector (rid) in the
+canonical-quotient frame, the top-16 heaviest/lightest states with
+identities, numerical-headroom telemetry (peak u192 magnitude vs the 192-bit
+overflow guard), and a **decompressed-stream sha256 hash chain** (own layer +
+input layer, same digest as `--f1c5-layer-sha`) making the ladder
+self-authenticating. Builds emit these sidecars automatically at every layer
+commit (both the Stage-F f-build and the Stage-G g-build, in-memory and
+out-of-core; `SOLVE_F1_LAYER_SIDECARS=0` disables); this subcommand retrofits
+ladders built before the feature or with the gate off. Emission is structurally
+byte-neutral (read-only on layer bytes; writes only separate `.json` files,
+atomically) and non-fatal (any sidecar failure warns, never aborts a build).
+Known boundary: extended-state questions (e.g. exact C3-value distributions)
+are **not** retrofittable from these aggregates — they are re-runs by design.
+Exit 0 ok, 2 error, 30 if no SHA-256 tool is on PATH. Sha-neutral.
 
 ### --merge
 
