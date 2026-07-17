@@ -5,7 +5,11 @@
 A man-page-style command-line reference for the `solve` binary compiled
 from `solve.c`. Covers the subcommands, environment variables,
 exit codes, and common workflows. The SYNOPSIS below lists the principal
-forms; every subcommand also has its own section under SUBCOMMANDS below.
+forms; every subcommand also has its own section under SUBCOMMANDS below,
+**except the `--kc-*` family** (the v4-compiler knowledge-compiler branch
+tools), which is documented in-source in `solve.c` (see the KC and KC-H
+module headers) by branch convention — the SYNOPSIS lists only their
+entry points.
 
 ## NAME
 
@@ -54,6 +58,9 @@ solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tab
 solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify | --db1-verify
                                                         # two-language functional-battery gates
 solve --rc4b-verify [SEQ]                               # R13 HEC two-convention parity gate (KW anchors)
+solve --check-arrangement "h0,...,h63"|KW               # first-principles C1..C5 verdict (H3a/CAP-2)
+solve --check-arrangement-selftest                      # its KW/historical/mutation battery
+solve --verify-certificate CERT.json [--kc-mutate]      # H6 certificate re-verifier + non-vacuity battery
 solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
 solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
 solve --c3-dist [solutions.bin]                         # C3 complement-distance histogram
@@ -955,6 +962,62 @@ atomically) and non-fatal (any sidecar failure warns, never aborts a build).
 Known boundary: extended-state questions (e.g. exact C3-value distributions)
 are **not** retrofittable from these aggregates — they are re-runs by design.
 Exit 0 ok, 2 error, 30 if no SHA-256 tool is on PATH. Sha-neutral.
+
+### --check-arrangement
+
+```
+solve --check-arrangement "h0,h1,...,h63"|KW [--cert-out FILE]
+solve --check-arrangement-selftest
+```
+
+**First-principles constraint verdict** for an explicit 64-hexagram
+arrangement (values 0–63; `KW` = the built-in King Wen sequence) — the
+H3a/CAP-2 claim-verifier (TR-12 Q7). Deliberately an **independent
+re-implementation** of C1–C5 inside the KC-H module (self-contained; derives
+the pair-partner table and C5's distance multiset from the KW array alone;
+calls nothing on the enumeration path), so it can serve as a cross-check
+against `verify.py`/`solve.py` and the enum predicates rather than
+restating them. Reports, in the **pinned check order C1→C2→C3→C4→C5**:
+per-constraint HOLD/FAIL with first-offending detail, the exact C3
+complement-distance value (ceiling 776), the boundary-distance histogram,
+the first violated constraint, and BOTH space verdicts — SUPER
+(C1∧C2∧C4∧C5, the compiled walk superspace) and C15 (SUPER ∧ C3≤776).
+`--cert-out` writes a JSON arrangement certificate re-verifiable (and
+mutation-testable) via `--verify-certificate`. The selftest battery covers
+KW (IN, C3=776 exactly), a distinct IN member (orientation-flip variant),
+single-constraint violations (reversed KW = C4 only), and the three
+historical arrangements (Fu Xi, Jing Fang, Mawangdui — all OUT with pinned
+expected profiles incl. Mawangdui's single d=5 seam and C3=2048). Exit
+**0** = IN (C15), **1** = OUT, **2** = parse/usage. Sha-neutral.
+
+### --verify-certificate
+
+```
+solve --verify-certificate CERT.json [--kc-mutate]
+                                     [--kc-fdir F] [--kc-gdir G]
+                                     [--kc-ooc] [--kc-cache-mb MB]
+```
+
+**H6 one-command certificate re-verifier.** Reads a JSON certificate emitted
+by the H-tier tools and **re-derives every claim** from the referenced
+dirs/files, fail-closed per check. Supported types: `roae-h3b-rank-certificate`
+(from `--kc-o3-cert`: rank3/m/orient_idx/class_first recomputed via the O3
+ranker, unrank roundtrip, neighbor bracket re-unranked + re-ranked +
+strict-order-checked via the independent comparator, N/pl_hash/n
+cross-checked), `roae-h1-oracle-certificate` (from `--kc-oracle`: every input
+file re-streamed, stream shas + all tallies + verdict compared), and
+`roae-arrangement-certificate` (from `--check-arrangement`: full recompute).
+`--kc-fdir`/`--kc-gdir` override the ladder paths recorded in the
+certificate (e.g. after a dir move). `--kc-mutate` runs the **non-vacuity
+mutation battery** ("test the test"): after the baseline verification
+passes, every certificate field is mutated in memory and the verifier must
+CATCH each mutation; any uncaught mutation fails the run. Outputs are
+certificates, not proofs. Exit **0** verified (and, with `--kc-mutate`, all
+mutations caught) / **1** any mismatch or uncaught mutation / **2**
+usage/parse/open errors. Sha-neutral. The `--kc-*` H-tier family
+(`--kc-oracle`, `--kc-ladder-verify`, `--kc-o3-cert`, `--kc-scan`,
+`--kc-ar2` + their selftests) is documented in-source in the KC/KC-H module
+headers in `solve.c`, per the `--kc-*` convention.
 
 ### --merge
 

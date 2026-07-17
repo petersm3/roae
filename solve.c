@@ -16178,6 +16178,19 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       inverse; --kc-bracket emits the
  *                                       r-1/r/r+1 neighbor certificate
  *
+ *   H-tier verifier bundle (KC-H module header below for full semantics;
+ *   charter V4_CANONICAL_CHARTER_2026_07_17 §4, TR12 §8; all sha-neutral,
+ *   never inside --selftest):
+ *   --kc-oracle FDIR BIN [BIN...]       H1 merge oracle (R-3.5/V5-100T harness)
+ *   --kc-ladder-verify FDIR [GDIR]      H2 ladder + sidecar + hash-chain verify
+ *   --kc-o3-cert FDIR GDIR WALK|KW      H3b SUPERSPACE rank certificate (JSON)
+ *   --kc-scan FDIR GDIR OUT.json        TR-12 atlas extractor (Q6/V1/V2/V5/XA)
+ *   --kc-ar2 FDIR GDIR [WALK|KW]        AR-2 emission-witness battery
+ *   --kc-oracle-selftest / --kc-ladder-selftest / --kc-cert-selftest /
+ *   --kc-scan-selftest / --kc-ar2-selftest   per-tool gates (n=9/13)
+ *   (main()-dispatched siblings: --check-arrangement[-selftest] = H3a/CAP-2;
+ *   --verify-certificate [--kc-mutate] = H6 + non-vacuity mutation battery)
+ *
  *   Common: [--kc-ooc] force the out-of-core reader at any n (v2 dirs and
  *   n > 22 select it automatically); [--kc-cache-mb MB] block-cache size.
  *   Record-facing outputs (--kc-repr; --kc-record; --kc-class-uniform)
@@ -20647,6 +20660,3198 @@ static int kc_o3_selftest(void) {
     return fails ? 1 : 0;
 }
 
+/* ===================== KC-H — H-TIER VERIFIER BUNDLE (2026-07-17) =====================
+ *
+ * Branch v4-compiler (write-and-gate-HOLD; operator-authorized 2026-07-16 eve,
+ * charter V4_CANONICAL_CHARTER_2026_07_17 §4 — the H1..H8 hardening stack;
+ * TR12_QUERY_PROGRAM_2026_07_17 §8 worklist items 2/3/8 + Q1/Q6/Q7 + CAP-2).
+ * ALL subcommands here are argv-dispatched, sha-neutral verifier/query tools:
+ * zero interaction with the enumeration/DFS/checkpoint/merge paths, and NEVER
+ * inside --selftest (F-C-5 discipline; each tool carries its OWN selftest).
+ *
+ * Subcommands:
+ *   H1  --kc-oracle FDIR BIN [BIN...] [--kc-c3-max T] [--kc-dump K]
+ *                   [--kc-expect-count DEC] [--kc-oracle-repr]
+ *                   [--kc-cert-out FILE] [--kc-ooc] [--kc-cache-mb MB]
+ *       The merge-correctness oracle (the R-3.5 / V5-100T harness): streams
+ *       solutions.bin files (plain or gzip; format v1 = 32-byte packed
+ *       records, SOLUTIONS_FORMAT.md; or the reduced-n TEST container below),
+ *       and checks EVERY record: (a) well-formed (bit0 clear, each pair once,
+ *       slot-0 anchor for v1), (b) MEMBERSHIP via the f-ladder — member <=>
+ *       forward-valid AND every prefix state has f >= 1 (the H1 semantics;
+ *       an f=0 state on a forward-valid walk is tallied as a LADDER-side
+ *       defect, not aborted), (c) in-stream O3 order + orientation-class
+ *       dedup (adjacent-distinct: masked-bytes strictly ascending), (d)
+ *       count conservation (header count == streamed records, per file and
+ *       total, optional --kc-expect-count), (e) optional --kc-c3-max T:
+ *       per-record walk-cd conformance tally (SUPER members over T are
+ *       counted separately, NOT as non-members — C-8 label discipline),
+ *       (f) optional --kc-oracle-repr: record == repr(k) of its class under
+ *       the scope actually applied (superspace when no --kc-c3-max; the
+ *       freeze §3.2 caveat applies). First-K counterexamples are hex-dumped.
+ *       Emits an h1-oracle JSON certificate (--kc-cert-out) re-verifiable by
+ *       --verify-certificate. Exit 0 = PASS, 1 = FAIL, 2 = usage/IO.
+ *       Reduced-n TEST container (selftest + subset-walker cross-checks):
+ *       same 32-byte header with version 0x7E570001, records still 32 bytes,
+ *       bytes 0..n-1 = (subset_pair_idx << 2) | (orient << 1) in placement
+ *       order (orient=1 <=> exit == pair.a), bytes n..31 zero.
+ *   H2  --kc-ladder-verify FDIR [GDIR] [--kc-ooc] [--kc-cache-mb MB]
+ *       Ladder + sidecar verifier: per layer re-derives the decompressed-
+ *       stream sha256 (same digest as --f1c5-layer-sha, f1c5_layer_sha_hex)
+ *       and the raw mass total, cross-checks BOTH against the layer-stats
+ *       sidecar (own_sha256_decompressed / mass_total / n_masks / n_entries),
+ *       verifies the sidecar HASH-CHAIN (input sha of layer k == own sha of
+ *       its input layer; genesis at the seed), checks the orbit-weighted
+ *       boundary identities (f: layer-n orbit mass == manifest total; g:
+ *       g(0) == total), and, when GDIR is given, runs the f*g cut identity
+ *       at EVERY layer (kc_g_check_main, the V3 gate). Exit 0/1/2.
+ *   H3a --check-arrangement "h0,h1,...,h63" | KW   [--cert-out FILE]
+ *       (main()-dispatched, no ladder needed.) First-principles re-check of
+ *       an explicit 64-hexagram arrangement against C1/C2/C3/C4/C5 — an
+ *       INDEPENDENT re-implementation (self-contained in this module; no
+ *       calls into enumeration predicates), pinned check order C1->C2->C3->
+ *       C4->C5 with first-violation verdict (TR-12 Q7 / CAP-2 / wave-0 W0-G).
+ *       Reports each constraint HOLD/FAIL + detail, the exact C3 value, and
+ *       BOTH space verdicts: SUPER = C1&C2&C4&C5, C15 = SUPER AND C3<=776.
+ *       Exit 0 = IN (C15), 1 = OUT, 2 = parse/usage.
+ *   H3b --kc-o3-cert FDIR GDIR "e,x,..."|KW [--kc-cert-out FILE]
+ *                    [--kc-ooc] [--kc-cache-mb MB]
+ *       The rank(KW) certificate emitter (freeze row E3; SUPERSPACE ruling):
+ *       computes the O3 WALK rank via the KC-O3 ranker, the class block
+ *       (m(k), orient_idx, class_first_rank3), the neighbor bracket
+ *       (unrank3(rank +- 1), re-ranked, strict-order-checked via the
+ *       independent comparator), and emits a JSON certificate with space/
+ *       order/object labels + engine provenance. "KW" resolves the built-in
+ *       King Wen walk (full-31 only). Exit 0/1/2.
+ *   H6  --verify-certificate CERT.json [--kc-mutate] [--kc-fdir F]
+ *                    [--kc-gdir G] [--kc-ooc] [--kc-cache-mb MB]
+ *       (main()-dispatched.) One-command certificate re-verifier: reads an
+ *       h3b-rank / h1-oracle / arrangement certificate and RE-DERIVES every
+ *       claim from the referenced dirs/files (fail-closed per check).
+ *       --kc-mutate = the NON-VACUITY battery ("test the test"): after the
+ *       baseline verification passes, each RECOMPUTED field of the
+ *       certificate (the semantically-verifiable subset: shas, tallies,
+ *       ranks, verdicts, totals — not free-text labels/notes) is mutated
+ *       in memory and the verifier must CATCH every such mutation;
+ *       any uncaught mutation is a FAIL. Exit 0/1/2.
+ *   --kc-scan FDIR GDIR OUT.json [--kc-raw] [--kc-ooc] [--kc-cache-mb MB]
+ *       Catalog/atlas extractor (TR-12 Q6/V1/V2/V5 + the exhaustion-atlas
+ *       branch table): ONE pass over adjacent f/g layers computing, per
+ *       layer k, the exact transition masses f(s)*g(s∘c) — emitted as
+ *       (i) per-layer flow + per-distance-class masses [RAW-frame EXACT:
+ *       distance class is G-invariant, so orbit-weighted quotient sums ARE
+ *       raw-frame totals], (ii) positional pair marginals in the CANONICAL-
+ *       QUOTIENT frame [orbit-weighted; pair labels quotient-frame — NOT raw
+ *       identities], (iii) RAW-frame positional marginals via explicit
+ *       G-expansion over the 24 canonicalization elements (dedup by distinct
+ *       raw transition image) — emitted when --kc-raw or n <= 13 [the
+ *       feasible-at-small-n clause; at full-31 this is the priced scan pass],
+ *       (iv) the top-level BRANCH table: per raw first placement (global
+ *       pair, exit), exact solutions mass; per-branch valid-prefix counts
+ *       (t-units, t(s) = 1 + sum_c t(s∘c)) by direct recursion when the
+ *       space is small enough (total <= 2^27), else marked PENDING the
+ *       t-ladder (--kc-t-build, TR12 §8 item 4 — NOT built here; the
+ *       SOLVE_NODE_LIMIT accounting-convention pin is the separate XA(iii)
+ *       certificate, also not claimed here). Internal fail-loud gates:
+ *       per-layer orbit-weighted flow == N; raw marginal row sums == N;
+ *       branch masses sum == N. Exit 0/1/2.
+ *   AR-2 --kc-ar2 FDIR GDIR ["e,x,..."|KW]
+ *       Emission-witness battery against a LIVE ladder pair: witness walk
+ *       (default KW at full-31) rank3 -> unrank3 must reproduce the walk
+ *       byte-identically, neighbor bracket + trace identities must pass;
+ *       when the space is small (total <= 2^22) additionally EXHAUSTIVE:
+ *       unrank3(i) for ALL i must byte-match the independently sorted brute
+ *       enumeration (the emission leg of the anchor-review AR-2 condition).
+ *       Exit 0/1/2.
+ *   Selftests (one per tool, fail-loud, exit 0/1):
+ *       --kc-oracle-selftest        n=9 exhaustive container/tally battery
+ *       --kc-ladder-selftest        n=9 build + tamper/restore battery
+ *       --check-arrangement-selftest  KW/historical/mutation battery
+ *       --kc-cert-selftest          H3b+H6 emit/verify/mutation battery (n=9)
+ *       --kc-scan-selftest          n=9 exhaustive brute cross-check
+ *       --kc-ar2-selftest           n=9 exhaustive + n=13 spot battery
+ *
+ * Space/order/label discipline: every record-facing output names order (O3
+ * by comparator name), object (WALK vs orientation-masked class), and space
+ * (C1C2C4C5-SUPERSPACE vs C15) — charter §10 language rules; "certificate,
+ * not proof" for all gate outputs.
+ *
+ * Credits (novelty humility): everything here is verification plumbing over
+ * classical machinery (stream validation, hash chaining, mutation testing —
+ * cf. DeMillo/Lipton/Sayward 1978 for mutation analysis; rank/unrank per
+ * Nijenhuis & Wilf). Nothing is claimed novel. Built on the #215/#217/#221 +
+ * KC/KC-G/KC-O3 substrate (operator direction + prior Fable/Opus sessions).
+ * H-tier bundle by Claude (Fable 5), 2026-07-17, developed with AI
+ * assistance (Claude, Anthropic); corrections invited. */
+
+/* ---------- shared helpers ---------- */
+
+/* minimal JSON string escape (backslash + quote + control chars) */
+static void kc_h_json_escape(const char *s, char *out, size_t cap) {
+    size_t o = 0;
+    for (; *s && o + 2 < cap; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"' || c == '\\') { out[o++] = '\\'; out[o++] = (char)c; }
+        else if (c < 0x20) { if (o + 6 < cap) o += (size_t)snprintf(out + o, cap - o, "\\u%04x", c); }
+        else out[o++] = (char)c;
+    }
+    out[o] = '\0';
+}
+
+/* extract "key": <value> from a certificate JSON buffer (our own emitter's
+ * one-field-per-line format; quoted strings or bare tokens). 0 = found. */
+static int kc_h_field(const char *buf, const char *key, char *out, size_t cap) {
+    char pat[128];
+    snprintf(pat, sizeof(pat), "\"%s\":", key);
+    const char *p = strstr(buf, pat);
+    if (!p) return -1;
+    p += strlen(pat);
+    while (*p == ' ' || *p == '\t') p++;
+    size_t o = 0;
+    if (*p == '"') {
+        p++;
+        while (*p && *p != '"' && o + 1 < cap) {
+            if (*p == '\\' && p[1]) p++;
+            out[o++] = *p++;
+        }
+        if (*p != '"') return -1;
+    } else if (*p == '[') {
+        p++;
+        while (*p && *p != ']' && o + 1 < cap)
+            out[o++] = *p++;
+        if (*p != ']') return -1;
+    } else {
+        while (*p && *p != ',' && *p != '}' && *p != '\n' && *p != '\r' && o + 1 < cap)
+            out[o++] = *p++;
+        while (o > 0 && (out[o - 1] == ' ' || out[o - 1] == '\t')) o--;
+    }
+    out[o] = '\0';
+    return 0;
+}
+
+/* walk -> "e,x,e,x,..." string (the kc_print_walk format, into a buffer) */
+static void kc_h_walk_str(const KC *kc, const uint8_t *E, char *out, size_t cap) {
+    size_t o = 0;
+    for (int k = 0; k < kc->n && o + 8 < cap; k++)
+        o += (size_t)snprintf(out + o, cap - o, "%s%d,%d", k ? "," : "",
+                              kc->partner[E[k]], E[k]);
+    out[o < cap ? o : cap - 1] = '\0';
+}
+
+/* built-in King Wen walk (full-31 only): walk slot j = KW pair j+1, exits =
+ * KW[2(j+1)+1]. Verifies the pair table matches (repr(KW)=KW is PROVEN;
+ * the anchor pair (63,0) is slot 0 and not part of the walk). 0 = ok. */
+static int kc_h_kw_walk(const KC *kc, uint8_t *E) {
+    if (kc->n != 31) {
+        fprintf(stderr, "ERROR: [kc-h] built-in KW walk requires a full-31 ladder (n=%d)\n",
+                kc->n);
+        return -1;
+    }
+    for (int j = 0; j < 31; j++) {
+        int entry = KW[2 * (j + 1)], exitx = KW[2 * (j + 1) + 1];
+        if (kc->pair_of_sub[exitx] < 0 || kc->partner[exitx] != entry) {
+            fprintf(stderr, "ERROR: [kc-h] KW pair %d not in this ladder's pair table\n", j + 1);
+            return -1;
+        }
+        E[j] = (uint8_t)exitx;
+    }
+    return 0;
+}
+
+/* resolve a walk argument: "KW" -> built-in; else parse "e,x,..." */
+static int kc_h_resolve_walk(const KC *kc, const char *arg, uint8_t *E) {
+    if (strcmp(arg, "KW") == 0) return kc_h_kw_walk(kc, E);
+    return kc_parse_walk(kc, arg, E);
+}
+
+/* decimal-string +/- 1 via u192 (certificate mutation + neighbor ranks) */
+static int kc_h_dec_add1(const char *in, int delta, char *out /*>=64*/) {
+    F1U192 v, one = {1, 0, 0};
+    if (kc_u192_from_dec(in, &v) != 0) return -1;
+    if (delta >= 0) f1_add(&v, &one);
+    else { if (f1_is_zero(&v)) return -1; kc_u192_sub(&v, &one); }
+    f1_dec(v, out);
+    return 0;
+}
+
+/* scratch dir for the selftests (mkdtemp under SOLVE_KC_SCRATCH or /tmp) */
+static int kc_h_scratch(char *out, size_t cap) {
+    const char *base = getenv("SOLVE_KC_SCRATCH");
+    if (!base || !*base) base = "/tmp";
+    snprintf(out, cap, "%s/kc_h_selftest_XXXXXX", base);
+    return mkdtemp(out) ? 0 : -1;
+}
+
+static void kc_h_rm_rf(const char *dir) {   /* selftest scratch only */
+    if (!dir || !*dir || strchr(dir, '\'') || strstr(dir, "..")) return;
+    char cmd[4400];
+    snprintf(cmd, sizeof(cmd), "rm -rf '%s'", dir);
+    if (system(cmd) != 0) fprintf(stderr, "WARN: [kc-h] scratch cleanup failed: %s\n", dir);
+}
+
+/* ===================== H3a — first-principles arrangement checker =====================
+ * INDEPENDENT re-implementation of C1..C5 over an explicit 64-hexagram
+ * sequence (values 0..63). Deliberately self-contained: derives the pair
+ * partner table and the C5 whole-walk distance multiset from the KW array
+ * alone; uses no enumeration-path predicate. Semantics per SPECIFICATION.md
+ * + verify.py (the two-language references it will be diffed against). */
+typedef struct {
+    int perm_ok;                /* input is a permutation of 0..63 */
+    int c1, c2, c3, c4, c5;     /* HOLD flags (c3 = value <= 776) */
+    int c3_value;               /* exact complement distance */
+    int c1_first;               /* first violating pair slot (2i), -1 */
+    int c2_first;               /* first d=5 boundary index i, -1 */
+    int c2_d5;                  /* number of d=5 transitions */
+    int dist[7];                /* distance histogram over the 63 transitions */
+    int first_viol;             /* 0 none, 1..5 = first failing constraint in
+                                 * the PINNED order C1->C2->C3->C4->C5 */
+    int in_super, in_c15;
+} KcArrRes;
+
+static void kc_h_arr_check(const int *s, KcArrRes *r) {
+    memset(r, 0, sizeof(*r));
+    r->c1_first = r->c2_first = -1;
+    /* permutation */
+    int seen[64] = {0};
+    r->perm_ok = 1;
+    for (int i = 0; i < 64; i++) {
+        if (s[i] < 0 || s[i] > 63 || seen[s[i]]) { r->perm_ok = 0; break; }
+        seen[s[i]] = 1;
+    }
+    if (!r->perm_ok) { r->first_viol = 1; return; }   /* not even C1-checkable */
+    /* partner table from KW (independent derivation) */
+    int partner[64];
+    for (int i = 0; i < 32; i++) {
+        partner[KW[2 * i]] = KW[2 * i + 1];
+        partner[KW[2 * i + 1]] = KW[2 * i];
+    }
+    /* C1: slots (2i, 2i+1) are KW pairs (each pair once follows from perm) */
+    r->c1 = 1;
+    for (int i = 0; i < 32; i++)
+        if (partner[s[2 * i]] != s[2 * i + 1]) {
+            r->c1 = 0;
+            if (r->c1_first < 0) r->c1_first = 2 * i;
+        }
+    /* C2 + C5 histogram over the 63 boundaries */
+    static const int kw_dist_expect[7] = {0, 2, 20, 13, 19, 0, 9};
+    int kwd[7] = {0, 0, 0, 0, 0, 0, 0};
+    for (int i = 0; i < 63; i++)
+        kwd[__builtin_popcount((unsigned)(KW[i] ^ KW[i + 1]))]++;
+    for (int d = 0; d < 7; d++)   /* self-check the derivation, hard */
+        F1_CHECK(kwd[d] == kw_dist_expect[d],
+                 "[check-arrangement] KW distance histogram derivation drift (d=%d)", d);
+    r->c2 = 1;
+    for (int i = 0; i < 63; i++) {
+        int d = __builtin_popcount((unsigned)(s[i] ^ s[i + 1]));
+        r->dist[d]++;
+        if (d == 5) {
+            r->c2 = 0;
+            r->c2_d5++;
+            if (r->c2_first < 0) r->c2_first = i;
+        }
+    }
+    /* C3: sum over all 64 hexagrams of |pos(v) - pos(v^63)| */
+    int pos[64];
+    for (int i = 0; i < 64; i++) pos[s[i]] = i;
+    long cd = 0;
+    for (int v = 0; v < 64; v++) cd += labs((long)pos[v] - (long)pos[v ^ 63]);
+    r->c3_value = (int)cd;
+    r->c3 = (cd <= 776);
+    /* C4: s0 = 63 (Creative), s1 = 0 (Receptive) */
+    r->c4 = (s[0] == 63 && s[1] == 0);
+    /* C5: distance multiset == KW's */
+    r->c5 = (memcmp(r->dist, kwd, sizeof(kwd)) == 0);
+    /* pinned first violation + verdicts */
+    if (!r->c1) r->first_viol = 1;
+    else if (!r->c2) r->first_viol = 2;
+    else if (!r->c3) r->first_viol = 3;
+    else if (!r->c4) r->first_viol = 4;
+    else if (!r->c5) r->first_viol = 5;
+    r->in_super = r->c1 && r->c2 && r->c4 && r->c5;
+    r->in_c15 = r->in_super && r->c3;
+}
+
+static int kc_h_arr_parse(const char *arg, int *s) {
+    if (strcmp(arg, "KW") == 0) {
+        for (int i = 0; i < 64; i++) s[i] = KW[i];
+        return 0;
+    }
+    int n = 0;
+    const char *p = arg;
+    while (*p && n < 65) {
+        if (*p >= '0' && *p <= '9') s[n < 64 ? n : 63] = (int)strtol(p, (char **)&p, 10), n++;
+        else p++;
+    }
+    return n == 64 ? 0 : -1;
+}
+
+static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
+                                const char *label) {
+    char seq[512];
+    size_t o = 0;
+    for (int i = 0; i < 64 && o + 8 < sizeof(seq); i++)
+        o += (size_t)snprintf(seq + o, sizeof(seq) - o, "%s%d", i ? "," : "", s[i]);
+    static const char *vn[6] = {"NONE", "C1", "C2", "C3", "C4", "C5"};
+    fprintf(f, "{\n");
+    fprintf(f, "  \"type\": \"roae-arrangement-certificate\",\n");
+    fprintf(f, "  \"version\": 1,\n");
+    fprintf(f, "  \"label\": \"%s\",\n", label);
+    fprintf(f, "  \"arrangement\": \"%s\",\n", seq);
+    fprintf(f, "  \"check_order\": \"C1,C2,C3,C4,C5 (pinned)\",\n");
+    fprintf(f, "  \"perm_ok\": %d,\n", r->perm_ok);
+    fprintf(f, "  \"c1\": %d,\n  \"c2\": %d,\n  \"c3\": %d,\n  \"c4\": %d,\n  \"c5\": %d,\n",
+            r->c1, r->c2, r->c3, r->c4, r->c5);
+    fprintf(f, "  \"c3_value\": %d,\n", r->c3_value);
+    fprintf(f, "  \"c2_d5_count\": %d,\n", r->c2_d5);
+    fprintf(f, "  \"dist_hist\": [%d,%d,%d,%d,%d,%d,%d],\n",
+            r->dist[0], r->dist[1], r->dist[2], r->dist[3], r->dist[4], r->dist[5], r->dist[6]);
+    fprintf(f, "  \"first_violation\": \"%s\",\n", vn[r->first_viol]);
+    fprintf(f, "  \"verdict_super\": \"%s\",\n", r->in_super ? "IN" : "OUT");
+    fprintf(f, "  \"verdict_c15\": \"%s\",\n", r->in_c15 ? "IN" : "OUT");
+    fprintf(f, "  \"space_labels\": \"SUPER=C1&C2&C4&C5 (walk superspace); C15=C1-C5 (C3<=776)\",\n");
+    fprintf(f, "  \"checker\": \"solve.c/--check-arrangement (independent first-principles reimplementation; certificate, not proof)\",\n");
+    fprintf(f, "  \"engine_git\": \"%s\",\n", GIT_HASH);
+    fprintf(f, "  \"engine_source_sha\": \"%s\"\n", SOURCE_SHA);
+    fprintf(f, "}\n");
+}
+
+static int kc_check_arrangement_main(int argc, char *argv[]) {
+    if (argc < 3) {
+        fprintf(stderr,
+                "Usage: solve --check-arrangement \"h0,h1,...,h63\"|KW [--cert-out FILE]\n"
+                "  First-principles C1..C5 check of an explicit 64-hexagram arrangement\n"
+                "  (values 0..63; independent reimplementation — TR-12 Q7 / CAP-2).\n"
+                "  Pinned check order C1->C2->C3->C4->C5; exit 0 = IN (C15), 1 = OUT.\n");
+        return 2;
+    }
+    const char *cert_out = NULL;
+    for (int ai = 3; ai + 1 < argc; ai++)
+        if (strcmp(argv[ai], "--cert-out") == 0) cert_out = argv[ai + 1];
+    int s[64];
+    if (kc_h_arr_parse(argv[2], s) != 0) {
+        fprintf(stderr, "ERROR: [check-arrangement] need exactly 64 integers (or KW)\n");
+        return 2;
+    }
+    KcArrRes r;
+    kc_h_arr_check(s, &r);
+    static const char *vn[6] = {"NONE", "C1", "C2", "C3", "C4", "C5"};
+    printf("[check-arrangement] permutation of 0..63:            %s\n",
+           r.perm_ok ? "OK" : "FAIL (not a permutation)");
+    if (r.perm_ok) {
+        printf("[check-arrangement] C1 pair-partner adjacency:        %s%s",
+               r.c1 ? "HOLD" : "FAIL", r.c1 ? "\n" : "");
+        if (!r.c1) printf(" (first bad slot pair at position %d)\n", r.c1_first);
+        printf("[check-arrangement] C2 no distance-5 boundary:        %s (d=5 count %d%s%d)\n",
+               r.c2 ? "HOLD" : "FAIL", r.c2_d5, r.c2 ? ", first n/a " : ", first at ",
+               r.c2_first);
+        printf("[check-arrangement] C3 complement distance:           %s (value %d, ceiling 776)\n",
+               r.c3 ? "HOLD" : "FAIL", r.c3_value);
+        printf("[check-arrangement] C4 anchor first (63 then 0):      %s\n",
+               r.c4 ? "HOLD" : "FAIL");
+        printf("[check-arrangement] C5 distance multiset == KW's:     %s "
+               "(hist d1..d6 = %d,%d,%d,%d,%d,%d)\n",
+               r.c5 ? "HOLD" : "FAIL",
+               r.dist[1], r.dist[2], r.dist[3], r.dist[4], r.dist[5], r.dist[6]);
+    }
+    printf("[check-arrangement] first violation (pinned order):  %s\n", vn[r.first_viol]);
+    printf("[check-arrangement] verdict SUPER (C1&C2&C4&C5):     %s\n",
+           r.in_super ? "IN" : "OUT");
+    printf("[check-arrangement] verdict C15  (C1-C5, C3<=776):   %s\n",
+           r.in_c15 ? "IN" : "OUT");
+    printf("#provenance\tengine=solve.c/check-arrangement\tbranch=v4-compiler\tgit=%s\t"
+           "source_sha=%s\tsemantics=independent-first-principles(C1..C5;"
+           "SPECIFICATION.md,verify.py-diffable)\tcertificate-not-proof\n",
+           GIT_HASH, SOURCE_SHA);
+    if (cert_out) {
+        FILE *f = fopen(cert_out, "w");
+        if (!f) { fprintf(stderr, "ERROR: [check-arrangement] cannot write %s\n", cert_out); return 2; }
+        kc_h_arr_cert_write(f, s, &r, argv[2][0] == 'K' && argv[2][1] == 'W' && !argv[2][2]
+                            ? "KW" : "explicit");
+        fclose(f);
+        printf("[check-arrangement] certificate written: %s\n", cert_out);
+    }
+    return r.in_c15 ? 0 : 1;
+}
+
+/* ---------- H6 core: arrangement-certificate re-verification ----------
+ * Parses the recorded fields, recomputes everything from the embedded
+ * arrangement, and compares field-by-field. quiet suppresses prints.
+ * Returns the number of failed checks (0 = certificate verified). */
+typedef struct {
+    int s[64];
+    int perm_ok, c1, c2, c3, c4, c5, c3_value, c2_d5, dist[7];
+    char first_viol[8], verdict_super[8], verdict_c15[8];
+} KcArrCert;
+
+static int kc_h_arr_cert_parse(const char *buf, KcArrCert *c) {
+    char v[512];
+    if (kc_h_field(buf, "arrangement", v, sizeof(v)) != 0) return -1;
+    if (kc_h_arr_parse(v, c->s) != 0) {
+        /* not a permutation is representable (perm_ok=0 certs) — parse raw */
+        int n = 0;
+        const char *p = v;
+        while (*p && n < 64) {
+            if ((*p >= '0' && *p <= '9') || *p == '-') c->s[n++] = (int)strtol(p, (char **)&p, 10);
+            else p++;
+        }
+        if (n != 64) return -1;
+    }
+#define KCH_INT(key, dst) do { char t[64]; \
+        if (kc_h_field(buf, key, t, sizeof(t)) != 0) return -1; \
+        (dst) = atoi(t); } while (0)
+    KCH_INT("perm_ok", c->perm_ok);
+    KCH_INT("c1", c->c1); KCH_INT("c2", c->c2); KCH_INT("c3", c->c3);
+    KCH_INT("c4", c->c4); KCH_INT("c5", c->c5);
+    KCH_INT("c3_value", c->c3_value);
+    KCH_INT("c2_d5_count", c->c2_d5);
+#undef KCH_INT
+    {
+        char t[128];
+        if (kc_h_field(buf, "dist_hist", t, sizeof(t)) != 0) return -1;
+        int n = 0;
+        const char *p = t;
+        while (*p && n < 7) {
+            if (*p >= '0' && *p <= '9') c->dist[n++] = (int)strtol(p, (char **)&p, 10);
+            else p++;
+        }
+        if (n != 7) return -1;
+    }
+    if (kc_h_field(buf, "first_violation", c->first_viol, sizeof(c->first_viol)) != 0) return -1;
+    if (kc_h_field(buf, "verdict_super", c->verdict_super, sizeof(c->verdict_super)) != 0) return -1;
+    if (kc_h_field(buf, "verdict_c15", c->verdict_c15, sizeof(c->verdict_c15)) != 0) return -1;
+    return 0;
+}
+
+static int kc_h_arr_cert_verify(const KcArrCert *c, int quiet) {
+    KcArrRes r;
+    kc_h_arr_check(c->s, &r);
+    static const char *vn[6] = {"NONE", "C1", "C2", "C3", "C4", "C5"};
+    int fails = 0;
+#define KCH_CK(name, cond) do { int ok_ = (cond); \
+        if (!quiet) printf("[verify-certificate]   %-40s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+        if (!ok_) fails++; } while (0)
+    KCH_CK("perm_ok matches recompute", r.perm_ok == c->perm_ok);
+    KCH_CK("C1 flag matches", r.c1 == c->c1);
+    KCH_CK("C2 flag matches", r.c2 == c->c2);
+    KCH_CK("C3 flag matches", r.c3 == c->c3);
+    KCH_CK("C4 flag matches", r.c4 == c->c4);
+    KCH_CK("C5 flag matches", r.c5 == c->c5);
+    KCH_CK("C3 exact value matches", r.c3_value == c->c3_value);
+    KCH_CK("C2 d=5 count matches", r.c2_d5 == c->c2_d5);
+    KCH_CK("distance histogram matches", memcmp(r.dist, c->dist, sizeof(r.dist)) == 0);
+    KCH_CK("first violation matches (pinned order)", strcmp(vn[r.first_viol], c->first_viol) == 0);
+    KCH_CK("SUPER verdict matches", strcmp(r.in_super ? "IN" : "OUT", c->verdict_super) == 0);
+    KCH_CK("C15 verdict matches", strcmp(r.in_c15 ? "IN" : "OUT", c->verdict_c15) == 0);
+#undef KCH_CK
+    return fails;
+}
+
+/* mutation battery for arrangement certificates: every mutation of a
+ * RECOMPUTED field (verdicts/values/violations — not free-text labels)
+ * of a verified certificate must be CAUGHT (verify != 0). Returns #uncaught. */
+static int kc_h_arr_cert_mutate(const KcArrCert *c, int quiet) {
+    static const char *mname[] = {
+        "c3_value+1", "c1 flip", "c2 flip", "c3 flip", "c4 flip", "c5 flip",
+        "perm_ok flip", "c2_d5_count+1", "dist_hist[2]+1",
+        "first_violation cycle", "verdict_super flip", "verdict_c15 flip",
+        "arrangement swap s[2]<->s[4]"
+    };
+    const int nmut = (int)(sizeof(mname) / sizeof(mname[0]));
+    int uncaught = 0;
+    for (int mi = 0; mi < nmut; mi++) {
+        KcArrCert m = *c;
+        switch (mi) {
+        case 0: m.c3_value++; break;
+        case 1: m.c1 ^= 1; break;
+        case 2: m.c2 ^= 1; break;
+        case 3: m.c3 ^= 1; break;
+        case 4: m.c4 ^= 1; break;
+        case 5: m.c5 ^= 1; break;
+        case 6: m.perm_ok ^= 1; break;
+        case 7: m.c2_d5++; break;
+        case 8: m.dist[2]++; break;
+        case 9: snprintf(m.first_viol, sizeof(m.first_viol), "%s",
+                         strcmp(c->first_viol, "C1") == 0 ? "C2" : "C1"); break;
+        case 10: snprintf(m.verdict_super, sizeof(m.verdict_super), "%s",
+                          strcmp(c->verdict_super, "IN") == 0 ? "OUT" : "IN"); break;
+        case 11: snprintf(m.verdict_c15, sizeof(m.verdict_c15), "%s",
+                          strcmp(c->verdict_c15, "IN") == 0 ? "OUT" : "IN"); break;
+        case 12: { int t = m.s[2]; m.s[2] = m.s[4]; m.s[4] = t; } break;
+        default: break;
+        }
+        const int caught = kc_h_arr_cert_verify(&m, 1) != 0;
+        if (!quiet) printf("[verify-certificate] mutation %-32s %s\n", mname[mi],
+                           caught ? "CAUGHT" : "NOT CAUGHT (verifier vacuous!)");
+        if (!caught) uncaught++;
+    }
+    return uncaught;
+}
+
+/* ---------- --check-arrangement-selftest ---------- */
+#define KC_ARR_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[check-arrangement-selftest] %-58s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+static int kc_check_arrangement_selftest(void) {
+    int fails = 0;
+    printf("[check-arrangement-selftest] first-principles C1..C5 checker battery\n");
+    KcArrRes r;
+    int s[64];
+
+    /* KW itself: IN C15, C3 == 776 exactly, no violation */
+    for (int i = 0; i < 64; i++) s[i] = KW[i];
+    kc_h_arr_check(s, &r);
+    KC_ARR_GATE("KW: IN C15, C3=776, all five HOLD",
+                r.in_c15 && r.in_super && r.c3_value == 776 && r.first_viol == 0 &&
+                r.dist[1] == 2 && r.dist[2] == 20 && r.dist[3] == 13 &&
+                r.dist[4] == 19 && r.dist[5] == 0 && r.dist[6] == 9);
+
+    /* orientation flip of pair slot 3 (hexagrams 2,16 at positions 6,7):
+     * a SECOND C15 member distinct from KW (positive control: the checker
+     * does not merely pattern-match KW) — verified independently in Python */
+    for (int i = 0; i < 64; i++) s[i] = KW[i];
+    { int t = s[6]; s[6] = s[7]; s[7] = t; }
+    kc_h_arr_check(s, &r);
+    KC_ARR_GATE("KW pair-3 orientation flip: still IN C15, C3=776",
+                r.in_c15 && r.c3_value == 776 && r.first_viol == 0);
+
+    /* reversed KW: C1/C2/C3/C5 all HOLD, ONLY C4 fails (first violation C4) */
+    for (int i = 0; i < 64; i++) s[i] = KW[63 - i];
+    kc_h_arr_check(s, &r);
+    KC_ARR_GATE("reversed KW: OUT solely on C4 (C3 stays 776)",
+                !r.in_super && r.c1 && r.c2 && r.c3 && !r.c4 && r.c5 &&
+                r.c3_value == 776 && r.first_viol == 4);
+
+    /* swap s[1]<->s[2]: C1 breaks (first violation C1), C3 becomes 780 */
+    for (int i = 0; i < 64; i++) s[i] = KW[i];
+    { int t = s[1]; s[1] = s[2]; s[2] = t; }
+    kc_h_arr_check(s, &r);
+    KC_ARR_GATE("KW swap s1<->s2: first violation C1, C3=780",
+                !r.c1 && r.first_viol == 1 && r.c3_value == 780 && !r.c4 && !r.c5);
+
+    /* swap pair blocks 5 and 20 (slots 10-11 <-> 40-41): C1/C2/C4 hold,
+     * C3=816 (>776) and C5 fail -> first violation C3, OUT of both spaces */
+    for (int i = 0; i < 64; i++) s[i] = KW[i];
+    { int t;
+      t = s[10]; s[10] = s[40]; s[40] = t;
+      t = s[11]; s[11] = s[41]; s[41] = t; }
+    kc_h_arr_check(s, &r);
+    KC_ARR_GATE("KW pair-block swap 5<->20: first violation C3 (816), C5 FAIL",
+                r.c1 && r.c2 && !r.c3 && r.c3_value == 816 && r.c4 && !r.c5 &&
+                r.first_viol == 3 && !r.in_super && !r.in_c15);
+
+    /* historical arrangements (arrays from roae.py/solve.py generators;
+     * expected verdicts cross-computed independently in Python 2026-07-17
+     * and consistent with --null-historical + tests.py documentation). */
+    static const int FUXI[64] = {
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+        32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63};
+    static const int JINGFANG[64] = {
+        63, 62, 60, 56, 48, 32, 40, 47, 9, 8, 10, 14, 6, 22, 30, 25,
+        18, 19, 17, 21, 29, 13, 5, 2, 36, 37, 39, 35, 43, 59, 51, 52,
+        0, 1, 3, 7, 15, 31, 23, 16, 54, 55, 53, 49, 57, 41, 33, 38,
+        45, 44, 46, 42, 34, 50, 58, 61, 27, 26, 24, 28, 20, 4, 12, 11};
+    static const int MAWANGDUI[64] = {
+        63, 56, 60, 59, 58, 61, 57, 62, 36, 39, 32, 35, 34, 37, 33, 38,
+        18, 23, 16, 20, 19, 21, 17, 22, 9, 15, 8, 12, 11, 10, 13, 14,
+        0, 7, 4, 3, 2, 5, 1, 6, 27, 31, 24, 28, 26, 29, 25, 30,
+        45, 47, 40, 44, 43, 42, 41, 46, 54, 55, 48, 52, 51, 50, 53, 49};
+    kc_h_arr_check(FUXI, &r);
+    KC_ARR_GATE("Fu Xi (binary): OUT, first C1, two d=5 seams, C3=2048",
+                !r.c1 && !r.c2 && r.c2_d5 == 2 && r.c3_value == 2048 && !r.c4 &&
+                !r.c5 && r.first_viol == 1);
+    kc_h_arr_check(JINGFANG, &r);
+    KC_ARR_GATE("Jing Fang: OUT, first C1, C2 HOLDS, C3=2048",
+                !r.c1 && r.c2 && r.c2_d5 == 0 && r.c3_value == 2048 && !r.c4 &&
+                !r.c5 && r.first_viol == 1);
+    kc_h_arr_check(MAWANGDUI, &r);
+    KC_ARR_GATE("Mawangdui: OUT, first C1, exactly one d=5 seam, C3=2048",
+                !r.c1 && !r.c2 && r.c2_d5 == 1 && r.c3_value == 2048 && !r.c4 &&
+                !r.c5 && r.first_viol == 1);
+
+    /* input hygiene: duplicate value + short input rejected */
+    for (int i = 0; i < 64; i++) s[i] = KW[i];
+    s[5] = s[9];
+    kc_h_arr_check(s, &r);
+    KC_ARR_GATE("duplicate value rejected (perm_ok=0)", !r.perm_ok && r.first_viol == 1);
+    {
+        int t[64];
+        KC_ARR_GATE("short input rejected by parser",
+                    kc_h_arr_parse("1,2,3", t) != 0);
+        KC_ARR_GATE("KW keyword parses", kc_h_arr_parse("KW", t) == 0 && t[0] == 63 && t[1] == 0);
+    }
+
+    /* certificate roundtrip + the H6 mutation battery (non-vacuity) */
+    {
+        char dir[4096], path[4200];
+        if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+            KC_ARR_GATE("scratch dir available", 0);
+        } else {
+            snprintf(path, sizeof(path), "%s/kw_arr_cert.json", dir);
+            for (int i = 0; i < 64; i++) s[i] = KW[i];
+            kc_h_arr_check(s, &r);
+            FILE *f = fopen(path, "w");
+            int ok = (f != NULL);
+            if (f) { kc_h_arr_cert_write(f, s, &r, "KW"); fclose(f); }
+            KcArrCert c;
+            char *buf = NULL;
+            long sz = 0;
+            if (ok) {
+                f = fopen(path, "r");
+                ok = f && fseek(f, 0, SEEK_END) == 0 && (sz = ftell(f)) > 0 &&
+                     fseek(f, 0, SEEK_SET) == 0;
+                if (ok) {
+                    buf = (char *)malloc((size_t)sz + 1);
+                    ok = buf && fread(buf, 1, (size_t)sz, f) == (size_t)sz;
+                    if (buf) buf[sz] = '\0';
+                }
+                if (f) fclose(f);
+            }
+            KC_ARR_GATE("KW cert emit + parse roundtrip",
+                        ok && kc_h_arr_cert_parse(buf, &c) == 0);
+            if (ok) {
+                KC_ARR_GATE("KW cert re-verifies (0 mismatches)",
+                            kc_h_arr_cert_verify(&c, 1) == 0);
+                KC_ARR_GATE("KW cert mutation battery: ALL mutations caught",
+                            kc_h_arr_cert_mutate(&c, 1) == 0);
+            }
+            free(buf);
+            kc_h_rm_rf(dir);
+        }
+    }
+
+    printf("[check-arrangement-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
+/* ===================== H1 — --kc-oracle (the R-3.5 / V5-100T merge oracle) ===================== */
+
+#define KC_H_TEST_VERSION 0x7E570001u   /* reduced-n TEST container version */
+#define KC_H1_MAX_FILES 256             /* one cap for argv intake, cert emit AND cert parse */
+
+typedef struct {
+    char path[1024];
+    char sha[65];                /* sha256 of the DECOMPRESSED byte stream */
+    uint64_t hdr_count, records, members, invalid, f0, malformed,
+             dupclass, orderviol, c3_over, repr_mismatch;
+    int is_test, is_gz, io_error, header_bad;
+} KcOrFile;
+
+typedef struct {
+    long long c3max;             /* -1 = superspace (no C3 conformance tally) */
+    int check_repr;              /* --kc-oracle-repr */
+    int dump_max;                /* counterexample dump budget (global) */
+} KcOrOpts;
+
+/* decode one 32-byte record into walk exits. Returns 0 ok; -1 malformed.
+ * v1 (is_test=0): full-31 packed global pair indices, slot 0 = anchor pair 0
+ * orient 0 (C4); TEST (is_test=1): bytes 0..n-1 = (subset_idx<<2)|(orient<<1),
+ * bytes n..31 must be zero. */
+static int kc_h_rec_decode(const KC *kc, const int *p2q, const uint8_t *rec,
+                           int is_test, uint8_t *E) {
+    int used[32] = {0};
+    if (!is_test) {
+        if (kc->n != 31) return -1;
+        if (rec[0] != 0) return -1;          /* anchor pair 0, orient 0, bit0 0 */
+        used[0] = 1;
+        for (int i = 1; i < 32; i++) {
+            const uint8_t b = rec[i];
+            if (b & 1u) return -1;
+            const int pidx = b >> 2, orient = (b >> 1) & 1;
+            if (pidx < 1 || pidx > 31 || used[pidx]) return -1;
+            used[pidx] = 1;
+            const int q = p2q[pidx];
+            if (q < 0) return -1;
+            E[i - 1] = (uint8_t)(orient ? kc->c.pa[q] : kc->c.pb[q]);
+        }
+        return 0;
+    }
+    for (int i = 0; i < kc->n; i++) {
+        const uint8_t b = rec[i];
+        if (b & 1u) return -1;
+        const int q = b >> 2, orient = (b >> 1) & 1;
+        if (q >= kc->n || used[q]) return -1;
+        used[q] = 1;
+        E[i] = (uint8_t)(orient ? kc->c.pa[q] : kc->c.pb[q]);
+    }
+    for (int i = kc->n; i < 32; i++)
+        if (rec[i]) return -1;
+    return 0;
+}
+
+/* membership per the H1 semantics — like kc_member but tally-returning
+ * instead of aborting: 1 member; 0 forward-invalid; -1 forward-valid but an
+ * f=0 prefix state (a LADDER-side structure defect, dispositive either way). */
+static int kc_h_member(const KC *kc, const uint8_t *E, int *cd_out) {
+    uint32_t rids[KC_MAX_PAIRS + 1];
+    if (kc_validate(kc, E, rids, cd_out) != 0) return 0;
+    uint32_t m = 0;
+    for (int k = 1; k <= kc->n; k++) {
+        m |= 1u << kc->pair_of_sub[E[k - 1]];
+        F1U192 v = kc_flookup(kc, k, m, E[k - 1], rids[k]);
+        if (f1_is_zero(&v)) return -1;
+    }
+    return 1;
+}
+
+static void kc_h_dump_rec(const char *path, uint64_t idx, const char *reason,
+                          const uint8_t *rec) {
+    fprintf(stderr, "[kc-oracle] COUNTEREXAMPLE %s record %llu: %s; bytes =",
+            path, (unsigned long long)idx, reason);
+    for (int i = 0; i < 32; i++) fprintf(stderr, " %02x", rec[i]);
+    fprintf(stderr, "\n");
+}
+
+/* stream one solutions container through the full check battery.
+ * Returns 0 if the stream was processed (defects TALLIED in st), -1 on
+ * IO/format errors that prevent processing (st->io_error/header_bad). */
+static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
+                            const KcOrOpts *o, KcOrFile *st, int *dump_left) {
+    memset(st, 0, sizeof(*st));
+    snprintf(st->path, sizeof(st->path), "%s", path);
+    snprintf(st->sha, sizeof(st->sha), "unavailable");
+    if (strchr(path, '\'')) { st->io_error = 1; return -1; }
+    /* gz sniff */
+    FILE *raw = fopen(path, "rb");
+    if (!raw) { st->io_error = 1; return -1; }
+    unsigned char mg[2] = {0, 0};
+    size_t got = fread(mg, 1, 2, raw);
+    fclose(raw);
+    st->is_gz = (got == 2 && mg[0] == 0x1f && mg[1] == 0x8b);
+    FILE *in;
+    char cmd[1200];
+    if (st->is_gz) {
+        snprintf(cmd, sizeof(cmd), "gzip -dc '%s'", path);
+        in = popen(cmd, "r");
+    } else {
+        in = fopen(path, "rb");
+    }
+    if (!in) { st->io_error = 1; return -1; }
+    /* sha co-process over the decompressed stream */
+    char shafile[256];
+    snprintf(shafile, sizeof(shafile), "/tmp/kc_oracle_sha_%d.txt", (int)getpid());
+    FILE *shp = NULL;
+    const char *tool = sha256_tool();
+    if (tool) {
+        char scmd[512];
+        snprintf(scmd, sizeof(scmd), "%s | cut -d' ' -f1 > '%s'", tool, shafile);
+        shp = popen(scmd, "w");
+    }
+    int rc = 0;
+    uint8_t hdr[32];
+    if (fread(hdr, 1, 32, in) != 32 || memcmp(hdr, "ROAE", 4) != 0) {
+        st->header_bad = 1;
+        rc = -1;
+    } else {
+        if (shp) fwrite(hdr, 1, 32, shp);
+        uint32_t ver;
+        uint64_t cnt;
+        memcpy(&ver, hdr + 4, 4);
+        memcpy(&cnt, hdr + 8, 8);
+        st->is_test = (ver == KC_H_TEST_VERSION);
+        if (ver != 1u && !st->is_test) { st->header_bad = 1; rc = -1; }
+        else if (ver == 1u && kc->n != 31) {
+            fprintf(stderr, "ERROR: [kc-oracle] %s is a v1 (full-31) solutions.bin but the "
+                    "ladder has n=%d — refusing to misinterpret\n", path, kc->n);
+            st->header_bad = 1;
+            rc = -1;
+        } else {
+            st->hdr_count = cnt;
+            uint8_t rec[32], prev[32];
+            int have_prev = 0;
+            uint8_t E[KC_MAX_PAIRS];
+            for (;;) {
+                size_t r = fread(rec, 1, 32, in);
+                if (r == 0) break;
+                if (r != 32) { st->io_error = 1; rc = -1; break; }
+                if (shp) fwrite(rec, 1, 32, shp);
+                const uint64_t idx = st->records++;
+                /* order + orientation-class dedup (adjacent-distinct) */
+                if (have_prev) {
+                    int cm = 0;
+                    for (int i = 0; i < 32 && cm == 0; i++)
+                        cm = (int)(prev[i] & 0xFC) - (int)(rec[i] & 0xFC);
+                    if (cm == 0) {
+                        st->dupclass++;
+                        if (*dump_left > 0) { kc_h_dump_rec(path, idx, "duplicate orientation-class (masked bytes equal to predecessor)", rec); (*dump_left)--; }
+                    } else if (cm > 0) {
+                        st->orderviol++;
+                        if (*dump_left > 0) { kc_h_dump_rec(path, idx, "O3 order violation (record < predecessor)", rec); (*dump_left)--; }
+                    }
+                }
+                memcpy(prev, rec, 32);
+                have_prev = 1;
+                /* structural decode */
+                if (kc_h_rec_decode(kc, p2q, rec, st->is_test, E) != 0) {
+                    st->malformed++;
+                    if (*dump_left > 0) { kc_h_dump_rec(path, idx, "malformed record (packing/anchor/pair-once violated)", rec); (*dump_left)--; }
+                    continue;
+                }
+                /* H1 membership via the f ladder */
+                int cd = 0;
+                const int mem = kc_h_member(kc, E, &cd);
+                if (mem == 0) {
+                    st->invalid++;
+                    if (*dump_left > 0) { kc_h_dump_rec(path, idx, "NON-MEMBER (forward-invalid walk)", rec); (*dump_left)--; }
+                    continue;
+                }
+                if (mem < 0) {
+                    st->f0++;
+                    if (*dump_left > 0) { kc_h_dump_rec(path, idx, "NON-MEMBER (f=0 prefix state: ladder-side structure defect)", rec); (*dump_left)--; }
+                    continue;
+                }
+                st->members++;
+                if (o->c3max >= 0 && cd > o->c3max) {
+                    st->c3_over++;
+                    if (*dump_left > 0) { kc_h_dump_rec(path, idx, "SUPER member exceeding --kc-c3-max (C15 non-conforming)", rec); (*dump_left)--; }
+                }
+                if (o->check_repr) {
+                    uint8_t repr[KC_MAX_PAIRS];
+                    const uint64_t mk = kc_class_repr(kc, E, repr, o->c3max);
+                    if (mk == 0 || memcmp(repr, E, (size_t)kc->n) != 0) {
+                        st->repr_mismatch++;
+                        if (*dump_left > 0) { kc_h_dump_rec(path, idx, "record != repr(k) of its class (scope as applied)", rec); (*dump_left)--; }
+                    }
+                }
+            }
+        }
+    }
+    if (st->is_gz) pclose(in); else fclose(in);
+    if (shp) {
+        pclose(shp);
+        FILE *sf = fopen(shafile, "r");
+        if (sf) {
+            if (fscanf(sf, "%64s", st->sha) != 1)
+                snprintf(st->sha, sizeof(st->sha), "unavailable");
+            fclose(sf);
+            unlink(shafile);
+        }
+    }
+    return rc;
+}
+
+/* per-file PASS predicate (count conservation + zero defects) */
+static int kc_h_oracle_file_pass(const KcOrFile *st, const KcOrOpts *o) {
+    if (st->io_error || st->header_bad) return 0;
+    if (st->records != st->hdr_count) return 0;
+    if (st->malformed || st->invalid || st->f0 || st->dupclass || st->orderviol) return 0;
+    if (o->c3max >= 0 && st->c3_over) return 0;
+    if (o->check_repr && st->repr_mismatch) return 0;
+    return 1;
+}
+
+static void kc_h_oracle_file_print(const KcOrFile *st, const KcOrOpts *o) {
+    printf("[kc-oracle] file %s%s%s\n", st->path, st->is_gz ? " (gzip)" : "",
+           st->is_test ? " (TEST container)" : "");
+    if (st->io_error || st->header_bad) {
+        printf("[kc-oracle]   %s\n", st->header_bad ? "BAD HEADER (magic/version/ladder-n mismatch)" : "IO ERROR");
+        return;
+    }
+    printf("[kc-oracle]   sha256(decompressed stream) = %s\n", st->sha);
+    printf("[kc-oracle]   header count %llu, streamed %llu (%s)\n",
+           (unsigned long long)st->hdr_count, (unsigned long long)st->records,
+           st->hdr_count == st->records ? "CONSERVED" : "MISMATCH");
+    printf("[kc-oracle]   members %llu | forward-invalid %llu | f0-ladder-gap %llu | "
+           "malformed %llu\n",
+           (unsigned long long)st->members, (unsigned long long)st->invalid,
+           (unsigned long long)st->f0, (unsigned long long)st->malformed);
+    printf("[kc-oracle]   dup-class %llu | order-violations %llu (adjacent-distinct, "
+           "compare_solutions semantics)\n",
+           (unsigned long long)st->dupclass, (unsigned long long)st->orderviol);
+    if (o->c3max >= 0)
+        printf("[kc-oracle]   C15 conformance (walk-cd <= %lld): over-ceiling %llu\n",
+               o->c3max, (unsigned long long)st->c3_over);
+    if (o->check_repr)
+        printf("[kc-oracle]   repr(k) mismatches %llu\n",
+               (unsigned long long)st->repr_mismatch);
+    printf("[kc-oracle]   file verdict: %s\n",
+           kc_h_oracle_file_pass(st, o) ? "PASS" : "FAIL");
+}
+
+static void kc_h_oracle_cert_write(FILE *f, const KC *kc, const char *fdir,
+                                   const KcOrOpts *o, const KcOrFile *st, int nf,
+                                   int pass) {
+    char tdec[64], esc[2048];
+    f1_dec(kc->total, tdec);
+    fprintf(f, "{\n  \"type\": \"roae-h1-oracle-certificate\",\n  \"version\": 1,\n");
+    kc_h_json_escape(fdir, esc, sizeof(esc));
+    fprintf(f, "  \"fdir\": \"%s\",\n  \"n\": %d,\n  \"N_total\": \"%s\",\n",
+            esc, kc->n, tdec);
+    fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&kc->c));
+    fprintf(f, "  \"c3max\": %lld,\n  \"check_repr\": %d,\n  \"n_files\": %d,\n",
+            o->c3max, o->check_repr, nf);
+    for (int i = 0; i < nf; i++) {
+        const KcOrFile *s = &st[i];
+        kc_h_json_escape(s->path, esc, sizeof(esc));
+        fprintf(f, "  \"file_%d_path\": \"%s\",\n", i, esc);
+        fprintf(f, "  \"file_%d_sha256\": \"%s\",\n", i, s->sha);
+        fprintf(f, "  \"file_%d_hdr_count\": %llu,\n", i, (unsigned long long)s->hdr_count);
+        fprintf(f, "  \"file_%d_records\": %llu,\n", i, (unsigned long long)s->records);
+        fprintf(f, "  \"file_%d_members\": %llu,\n", i, (unsigned long long)s->members);
+        fprintf(f, "  \"file_%d_invalid\": %llu,\n", i, (unsigned long long)s->invalid);
+        fprintf(f, "  \"file_%d_f0\": %llu,\n", i, (unsigned long long)s->f0);
+        fprintf(f, "  \"file_%d_malformed\": %llu,\n", i, (unsigned long long)s->malformed);
+        fprintf(f, "  \"file_%d_dupclass\": %llu,\n", i, (unsigned long long)s->dupclass);
+        fprintf(f, "  \"file_%d_orderviol\": %llu,\n", i, (unsigned long long)s->orderviol);
+        fprintf(f, "  \"file_%d_c3_over\": %llu,\n", i, (unsigned long long)s->c3_over);
+        fprintf(f, "  \"file_%d_repr_mismatch\": %llu,\n", i, (unsigned long long)s->repr_mismatch);
+    }
+    fprintf(f, "  \"membership_semantics\": \"member <=> forward-valid AND every prefix state has f>=1 (H1)\",\n");
+    fprintf(f, "  \"space\": \"C1C2C4C5-SUPERSPACE membership; C15 conformance only when c3max>=0 (labeled)\",\n");
+    fprintf(f, "  \"verdict\": \"%s\",\n", pass ? "PASS" : "FAIL");
+    fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\"\n}\n",
+            GIT_HASH, SOURCE_SHA);
+}
+
+static int kc_oracle_main(int argc, char *argv[]) {
+    if (argc < 4) {
+        fprintf(stderr,
+                "Usage: solve --kc-oracle FDIR BIN [BIN...] [--kc-c3-max T] [--kc-dump K]\n"
+                "             [--kc-expect-count DEC] [--kc-oracle-repr]\n"
+                "             [--kc-cert-out FILE] [--kc-ooc] [--kc-cache-mb MB]\n"
+                "  H1 merge oracle: stream solutions.bin files (plain or gzip) against the\n"
+                "  f ladder in FDIR — membership (f-ladder), adjacent dedup + O3 order,\n"
+                "  count conservation; first-K counterexamples dumped; optional JSON\n"
+                "  certificate (re-verifiable via --verify-certificate). Exit 0 PASS / 1 FAIL.\n");
+        return 2;
+    }
+    const char *fdir = argv[2], *cert_out = NULL, *expect = NULL;
+    KcOrOpts o = {-1, 0, 10};
+    int force_ooc = 0, cache_mb = 0;
+    const char *paths[KC_H1_MAX_FILES];
+    int nf = 0;
+    for (int ai = 3; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (strcmp(argv[ai], "--kc-oracle-repr") == 0) o.check_repr = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) o.c3max = atoll(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-dump") == 0) o.dump_max = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-expect-count") == 0) expect = argv[++ai];
+        else if (argv[ai][0] == '-') {
+            fprintf(stderr, "ERROR: [kc-oracle] unknown option %s\n", argv[ai]);
+            return 2;
+        } else {
+            if (nf >= KC_H1_MAX_FILES) {
+                fprintf(stderr, "ERROR: [kc-oracle] too many input files (max %d) — "
+                                "refusing a silently partial verdict\n", KC_H1_MAX_FILES);
+                return 2;
+            }
+            paths[nf++] = argv[ai];
+        }
+    }
+    if (nf == 0) { fprintf(stderr, "ERROR: [kc-oracle] no input files\n"); return 2; }
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[kc-oracle] alloc");
+    if (kc_open(kc, fdir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
+    int p2q[32];
+    for (int p = 0; p < 32; p++) p2q[p] = -1;
+    for (int q = 0; q < kc->n; q++) p2q[kc->c.pl[q]] = q;
+    KcOrFile *st = (KcOrFile *)calloc((size_t)nf, sizeof(KcOrFile));
+    F1_CHECK(st != NULL, "[kc-oracle] stats alloc");
+    int dump_left = o.dump_max, pass = 1;
+    uint64_t tot_records = 0, tot_members = 0;
+    for (int i = 0; i < nf; i++) {
+        kc_h_oracle_file(kc, p2q, paths[i], &o, &st[i], &dump_left);
+        kc_h_oracle_file_print(&st[i], &o);
+        if (!kc_h_oracle_file_pass(&st[i], &o)) pass = 0;
+        tot_records += st[i].records;
+        tot_members += st[i].members;
+    }
+    printf("[kc-oracle] TOTALS: files %d, records %llu, members %llu\n",
+           nf, (unsigned long long)tot_records, (unsigned long long)tot_members);
+    if (nf > 1)
+        printf("[kc-oracle] NOTE: dedup/order checked WITHIN each stream; cross-file "
+               "dedup requires a merged stream (H2(ii) applies to the merged artifact)\n");
+    if (expect) {
+        F1U192 e, g2 = {tot_records, 0, 0};
+        if (kc_u192_from_dec(expect, &e) != 0 || !f1_eq(&e, &g2)) {
+            printf("[kc-oracle] EXPECT-COUNT MISMATCH: expected %s, streamed %llu\n",
+                   expect, (unsigned long long)tot_records);
+            pass = 0;
+        } else {
+            printf("[kc-oracle] expect-count %s: CONSERVED\n", expect);
+        }
+    }
+    printf("[kc-oracle] VERDICT: %s\n", pass ? "PASS" : "FAIL");
+    printf("#provenance\tengine=solve.c/kc-oracle\tbranch=v4-compiler\tgit=%s\tsource_sha=%s\t"
+           "n=%d\tmembership=H1(f-ladder)\tspace=%s\tcertificate-not-proof\n",
+           GIT_HASH, SOURCE_SHA, kc->n,
+           o.c3max >= 0 ? "SUPER+C15-conformance-tally" : "C1C2C4C5-SUPERSPACE");
+    if (cert_out) {
+        FILE *f = fopen(cert_out, "w");
+        if (!f) { fprintf(stderr, "ERROR: [kc-oracle] cannot write %s\n", cert_out); pass = 0; }
+        else {
+            kc_h_oracle_cert_write(f, kc, fdir, &o, st, nf, pass);
+            fclose(f);
+            printf("[kc-oracle] certificate written: %s\n", cert_out);
+        }
+    }
+    free(st);
+    kc_free(kc);
+    free(kc);
+    return pass ? 0 : 1;
+}
+
+/* ---------- --kc-oracle-selftest ---------- */
+#define KC_OR_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-oracle-selftest] %-58s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* write a TEST container (or v1 header for the rejection gate) */
+static int kc_h_test_write(const char *path, uint32_t version,
+                           const uint8_t *recs, uint64_t nrec, uint64_t hdr_count) {
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+    uint8_t hdr[32];
+    memset(hdr, 0, sizeof(hdr));
+    memcpy(hdr, "ROAE", 4);
+    memcpy(hdr + 4, &version, 4);
+    memcpy(hdr + 8, &hdr_count, 8);
+    int ok = fwrite(hdr, 1, 32, f) == 32 &&
+             (nrec == 0 || fwrite(recs, 32, nrec, f) == nrec);
+    fclose(f);
+    return ok ? 0 : -1;
+}
+
+static int kc_oracle_selftest(void) {
+    int fails = 0;
+    printf("[kc-oracle-selftest] H1 oracle battery (n=9 exhaustive, TEST container)\n");
+    char dir[4096];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-oracle-selftest] FAIL (no scratch dir)\n");
+        return 1;
+    }
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[kc-oracle-selftest] alloc");
+    F1_CHECK(kc_init(kc, 9) == 0, "[kc-oracle-selftest] kc_init failed");
+    kc_build(kc, 0);
+    const int n = kc->n;
+    int p2q[32];
+    for (int p = 0; p < 32; p++) p2q[p] = -1;
+    for (int q = 0; q < n; q++) p2q[kc->c.pl[q]] = q;
+
+    /* all valid walks -> packed TEST records -> class dedup (lex-min variant) */
+    KcList BR;
+    kc_brute(kc, &BR);
+    const uint64_t NW = BR.cnt;
+    KC_OR_GATE("n=9 brute walk count == 26,112", NW == 26112);
+    const size_t rl = 64 + (size_t)n;   /* masked 32 + full 32 + walk n */
+    uint8_t *rows = (uint8_t *)malloc(rl * NW);
+    F1_CHECK(rows != NULL, "[kc-oracle-selftest] rows alloc");
+    for (uint64_t i = 0; i < NW; i++) {
+        const uint8_t *E = BR.walks + i * (size_t)n;
+        uint8_t *row = rows + i * rl;
+        memset(row, 0, 64);
+        for (int j = 0; j < n; j++) {
+            const int q = kc->pair_of_sub[E[j]];
+            const int orient = (E[j] == kc->c.pa[q]) ? 1 : 0;
+            row[j] = (uint8_t)(q << 2);                       /* masked */
+            row[32 + j] = (uint8_t)((q << 2) | (orient << 1)); /* full */
+        }
+        memcpy(row + 64, E, (size_t)n);
+    }
+    kc_g_rowlen = rl;
+    qsort(rows, NW, rl, kc_g_row_cmp);
+    /* group heads = one lex-min record per orientation class */
+    uint8_t *recA = (uint8_t *)malloc(32 * NW);
+    int *rec_cd = (int *)malloc(sizeof(int) * NW);
+    uint64_t *rec_row = (uint64_t *)malloc(sizeof(uint64_t) * NW);
+    F1_CHECK(recA && rec_cd && rec_row, "[kc-oracle-selftest] rec alloc");
+    uint64_t nrec = 0;
+    for (uint64_t i = 0; i < NW; i++) {
+        if (i && memcmp(rows + (i - 1) * rl, rows + i * rl, 32) == 0) continue;
+        memcpy(recA + nrec * 32, rows + i * rl + 32, 32);
+        uint32_t rids[KC_MAX_PAIRS + 1];
+        int cd = 0;
+        F1_CHECK(kc_validate(kc, rows + i * rl + 64, rids, &cd) == 0,
+                 "[kc-oracle-selftest] group head invalid (construction defect)");
+        rec_cd[nrec] = cd;
+        rec_row[nrec] = i;
+        nrec++;
+    }
+    KC_OR_GATE("n=9 orientation-class record count == 432 (cross-engine witness)",
+               nrec == 432);
+
+    char pa[4300], pb2[4400];
+    KcOrOpts o = {-1, 0, 4};
+    KcOrFile st;
+    int dump_left;
+
+    /* file A: clean sorted dedup'd records -> PASS with exact tallies */
+    snprintf(pa, sizeof(pa), "%s/oracle_A.bin", dir);
+    KC_OR_GATE("write file A", kc_h_test_write(pa, KC_H_TEST_VERSION, recA, nrec, nrec) == 0);
+    dump_left = 0;
+    kc_h_oracle_file(kc, p2q, pa, &o, &st, &dump_left);
+    KC_OR_GATE("file A: all records MEMBER, zero defects, count conserved",
+               kc_h_oracle_file_pass(&st, &o) && st.members == nrec &&
+               st.records == nrec && st.dupclass == 0 && st.orderviol == 0 &&
+               st.malformed == 0 && st.invalid == 0 && st.f0 == 0);
+    char shaA[65];
+    snprintf(shaA, sizeof(shaA), "%s", st.sha);
+
+    /* gzip leg: same stream sha + identical tallies through gzip -dc */
+    {
+        char cmd[9000];
+        snprintf(cmd, sizeof(cmd), "gzip -9 -c '%s' > '%s.gz'", pa, pa);
+        KC_OR_GATE("gzip file A", system(cmd) == 0);
+        snprintf(pb2, sizeof(pb2), "%s.gz", pa);
+        dump_left = 0;
+        kc_h_oracle_file(kc, p2q, pb2, &o, &st, &dump_left);
+        KC_OR_GATE("file A.gz: identical decompressed sha + tallies",
+                   st.is_gz && kc_h_oracle_file_pass(&st, &o) &&
+                   st.members == nrec && strcmp(st.sha, shaA) == 0);
+    }
+
+    /* file B: seeded defects with EXACT expected tallies:
+     * dup insert after idx 5; adjacent swap at 12/13; malformed at 22;
+     * forward-invalid orientation variant at 30. */
+    {
+        uint8_t *recB = (uint8_t *)malloc(32 * (nrec + 1));
+        F1_CHECK(recB != NULL, "[kc-oracle-selftest] recB alloc");
+        uint64_t nb = 0;
+        for (uint64_t i = 0; i < nrec; i++) {
+            memcpy(recB + nb * 32, recA + i * 32, 32);
+            nb++;
+            if (i == 5) { memcpy(recB + nb * 32, recA + i * 32, 32); nb++; }
+        }
+        uint8_t tmp[32];
+        memcpy(tmp, recB + 12 * 32, 32);
+        memcpy(recB + 12 * 32, recB + 13 * 32, 32);
+        memcpy(recB + 13 * 32, tmp, 32);
+        recB[22 * 32 + 3] |= 1u;   /* malformed: bit0 set */
+        /* find an orient flip of record 30 that fails kc_validate */
+        {
+            int found = 0;
+            uint8_t E[KC_MAX_PAIRS];
+            for (int j = 0; j < n && !found; j++) {
+                uint8_t r2[32];
+                memcpy(r2, recB + 30 * 32, 32);
+                r2[j] ^= 2u;   /* flip orient bit of slot j */
+                if (kc_h_rec_decode(kc, p2q, r2, 1, E) == 0) {
+                    uint32_t rids[KC_MAX_PAIRS + 1];
+                    if (kc_validate(kc, E, rids, NULL) != 0) {
+                        memcpy(recB + 30 * 32, r2, 32);
+                        found = 1;
+                    }
+                }
+            }
+            KC_OR_GATE("constructed a forward-invalid orientation variant", found);
+        }
+        char pbb[4300];
+        snprintf(pbb, sizeof(pbb), "%s/oracle_B.bin", dir);
+        KC_OR_GATE("write file B", kc_h_test_write(pbb, KC_H_TEST_VERSION, recB, nb, nb) == 0);
+        dump_left = 8;   /* exercise the counterexample dump path too */
+        kc_h_oracle_file(kc, p2q, pbb, &o, &st, &dump_left);
+        KC_OR_GATE("file B: exact defect tallies (dup=1 order=1 malformed=1 invalid=1)",
+                   !kc_h_oracle_file_pass(&st, &o) && st.records == nb &&
+                   st.dupclass == 1 && st.orderviol == 1 && st.malformed == 1 &&
+                   st.invalid == 1 && st.f0 == 0 && st.members == nb - 2);
+        free(recB);
+    }
+
+    /* file D: header-count mismatch */
+    {
+        char pd[4300];
+        snprintf(pd, sizeof(pd), "%s/oracle_D.bin", dir);
+        KC_OR_GATE("write file D", kc_h_test_write(pd, KC_H_TEST_VERSION, recA, nrec, nrec - 1) == 0);
+        dump_left = 0;
+        kc_h_oracle_file(kc, p2q, pd, &o, &st, &dump_left);
+        KC_OR_GATE("file D: count-conservation violation detected",
+                   !kc_h_oracle_file_pass(&st, &o) && st.records == nrec &&
+                   st.hdr_count == nrec - 1);
+    }
+
+    /* v1 (full-31) container refused against a reduced-n ladder */
+    {
+        char pv[4300];
+        snprintf(pv, sizeof(pv), "%s/oracle_V1.bin", dir);
+        KC_OR_GATE("write v1-header file", kc_h_test_write(pv, 1u, recA, 4, 4) == 0);
+        dump_left = 0;
+        const int rc = kc_h_oracle_file(kc, p2q, pv, &o, &st, &dump_left);
+        KC_OR_GATE("v1 container refused at n=9 (header_bad)", rc != 0 && st.header_bad);
+    }
+
+    /* v1 (full-31) record DECODER unit gates — no ladder needed (decode is a
+     * pure function of the pair tables): a fabricated full-31 pair context
+     * (KW-derived, matching the production f1_pair tables) + the KW record
+     * (SOLUTIONS_FORMAT: byte i = (pidx<<2)|(orient<<1); KW = pairs 0..31 in
+     * order, orient 0 everywhere) must decode to the KW walk exactly. This is
+     * the decode path the V5-100T oracle run rides. */
+    {
+        KC *k31 = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(k31 != NULL, "[kc-oracle-selftest] k31 alloc");
+        k31->n = 31;
+        for (int h = 0; h < 64; h++) k31->pair_of_sub[h] = k31->partner[h] = -1;
+        int q2p[32];
+        for (int p = 0; p < 32; p++) q2p[p] = -1;
+        for (int q = 0; q < 31; q++) {
+            const int pidx = q + 1;   /* pairs 1..31 (0 = anchor) */
+            k31->c.pl[q] = pidx;
+            k31->c.pa[q] = KW[2 * pidx];
+            k31->c.pb[q] = KW[2 * pidx + 1];
+            k31->pair_of_sub[KW[2 * pidx]] = q;
+            k31->pair_of_sub[KW[2 * pidx + 1]] = q;
+            k31->partner[KW[2 * pidx]] = KW[2 * pidx + 1];
+            k31->partner[KW[2 * pidx + 1]] = KW[2 * pidx];
+            q2p[pidx] = q;
+        }
+        uint8_t rec[32], E31[KC_MAX_PAIRS];
+        for (int i = 0; i < 32; i++) rec[i] = (uint8_t)(i << 2);   /* KW: orient 0 */
+        int ok = kc_h_rec_decode(k31, q2p, rec, 0, E31) == 0;
+        for (int j = 0; j < 31 && ok; j++)
+            ok = (E31[j] == KW[2 * (j + 1) + 1]);
+        KC_OR_GATE("v1 decode: KW record -> KW walk (byte-exact, all 31 slots)", ok);
+        /* orient flip at slot 5: exit becomes pair.a */
+        rec[5] = (uint8_t)((5 << 2) | 2);
+        ok = kc_h_rec_decode(k31, q2p, rec, 0, E31) == 0 &&
+             E31[4] == KW[2 * 5] && E31[3] == KW[2 * 4 + 1];
+        KC_OR_GATE("v1 decode: orientation bit honored (slot-5 flip)", ok);
+        /* malformed variants: bit0 set / duplicate pidx / anchor slot wrong */
+        rec[5] = (uint8_t)(5 << 2);
+        rec[7] |= 1u;
+        ok = kc_h_rec_decode(k31, q2p, rec, 0, E31) != 0;
+        rec[7] = (uint8_t)(7 << 2);
+        rec[9] = rec[8];
+        ok = ok && kc_h_rec_decode(k31, q2p, rec, 0, E31) != 0;
+        rec[9] = (uint8_t)(9 << 2);
+        rec[0] = (uint8_t)(1 << 2);
+        ok = ok && kc_h_rec_decode(k31, q2p, rec, 0, E31) != 0;
+        KC_OR_GATE("v1 decode: malformed records rejected (bit0/dup/anchor)", ok);
+        free(k31);
+    }
+
+    /* --kc-c3-max conformance tally: exact expected over-ceiling count */
+    {
+        /* median-ish threshold from the record walks themselves */
+        int lo = rec_cd[0], hi = rec_cd[0];
+        for (uint64_t i = 1; i < nrec; i++) {
+            if (rec_cd[i] < lo) lo = rec_cd[i];
+            if (rec_cd[i] > hi) hi = rec_cd[i];
+        }
+        const long long T = (lo + hi) / 2;
+        uint64_t expect_over = 0;
+        for (uint64_t i = 0; i < nrec; i++)
+            if (rec_cd[i] > T) expect_over++;
+        KcOrOpts oc = {T, 0, 0};
+        dump_left = 0;
+        kc_h_oracle_file(kc, p2q, pa, &oc, &st, &dump_left);
+        KC_OR_GATE("--kc-c3-max tally: exact over-ceiling count (labeled, not non-member)",
+                   st.c3_over == expect_over && st.members == nrec &&
+                   expect_over > 0 && expect_over < nrec &&
+                   (expect_over ? !kc_h_oracle_file_pass(&st, &oc)
+                                : kc_h_oracle_file_pass(&st, &oc)));
+    }
+
+    /* repr leg: replace one record by a valid NON-lex-min orientation variant */
+    {
+        uint8_t *recR = (uint8_t *)malloc(32 * nrec);
+        F1_CHECK(recR != NULL, "[kc-oracle-selftest] recR alloc");
+        memcpy(recR, recA, 32 * nrec);
+        int found = 0;
+        for (uint64_t i = 40; i < nrec && !found; i++) {
+            /* second row of the class group, if any, is a valid non-repr variant */
+            const uint64_t r0 = rec_row[i];
+            if (r0 + 1 < NW && memcmp(rows + r0 * rl, rows + (r0 + 1) * rl, 32) == 0) {
+                memcpy(recR + i * 32, rows + (r0 + 1) * rl + 32, 32);
+                found = 1;
+            }
+        }
+        KC_OR_GATE("found a class with m(k) >= 2 for the repr leg", found);
+        char pr[4300];
+        snprintf(pr, sizeof(pr), "%s/oracle_R.bin", dir);
+        KC_OR_GATE("write repr-leg file", kc_h_test_write(pr, KC_H_TEST_VERSION, recR, nrec, nrec) == 0);
+        KcOrOpts orp = {-1, 1, 0};
+        dump_left = 0;
+        kc_h_oracle_file(kc, p2q, pr, &orp, &st, &dump_left);
+        KC_OR_GATE("--kc-oracle-repr: exactly one repr(k) mismatch flagged",
+                   st.repr_mismatch == 1 && !kc_h_oracle_file_pass(&st, &orp));
+        dump_left = 0;
+        kc_h_oracle_file(kc, p2q, pa, &orp, &st, &dump_left);
+        KC_OR_GATE("--kc-oracle-repr: clean file has zero repr mismatches",
+                   st.repr_mismatch == 0 && kc_h_oracle_file_pass(&st, &orp));
+        free(recR);
+    }
+
+    free(rows);
+    free(recA);
+    free(rec_cd);
+    free(rec_row);
+    free(BR.walks);
+    free(BR.cds);
+    kc_free(kc);
+    free(kc);
+    kc_h_rm_rf(dir);
+    printf("[kc-oracle-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
+/* ===================== H2 — --kc-ladder-verify (ladder + sidecar verifier) ===================== */
+
+/* overflow-SAFE u192 add/mul for the verifier paths: a corrupted layer can
+ * contain arbitrary bytes, and the verifier must FAIL CLOSED on them, never
+ * abort (f1_add/f1_mul_small abort by design on the trusted paths).
+ * Returns 0 ok, -1 on overflow. */
+static int kc_h_add_safe(F1U192 *a, const F1U192 *b) {
+    unsigned __int128 s = (unsigned __int128)a->l0 + b->l0;
+    const uint64_t r0 = (uint64_t)s;
+    s = (unsigned __int128)a->l1 + b->l1 + (uint64_t)(s >> 64);
+    const uint64_t r1 = (uint64_t)s;
+    s = (unsigned __int128)a->l2 + b->l2 + (uint64_t)(s >> 64);
+    if (s >> 64) return -1;
+    a->l0 = r0;
+    a->l1 = r1;
+    a->l2 = (uint64_t)s;
+    return 0;
+}
+
+static int kc_h_mul_small_safe(const F1U192 *v, uint32_t m, F1U192 *out) {
+    int mb = 0;
+    for (uint32_t t = m; t; t >>= 1) mb++;
+    if (f1c5_u192_bits(v) + mb > 192) return -1;
+    *out = f1_mul_small(*v, m);   /* pre-checked: cannot abort */
+    return 0;
+}
+
+/* stream one layer file: raw mass sum, orbit-weighted mass sum, counts.
+ * Two lockstep streams (masks/off on one, vals on the other) — the same
+ * pattern as the sidecar emitter. Returns 0 ok, -1 on IO, -2 on arithmetic
+ * overflow (corrupted layer bytes — the caller FAILS the layer). */
+static int kc_h_layer_scan(const char *path, const F1Ctx *c,
+                           F1U192 *raw_out, F1U192 *orbit_out,
+                           uint64_t *nm_out, uint64_t *ne_out) {
+    F1c5LayerStream SK, SV;
+    if (f1c5_lstream_open(path, &SK) != 0) return -1;
+    if (f1c5_lstream_open(path, &SV) != 0) { f1c5_lstream_close(&SK); return -1; }
+    const uint64_t nm = SK.nm, ne = SK.ne;
+    uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
+    uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
+    if (!masks || !off) {
+        free(masks); free(off);
+        f1c5_lstream_close(&SK); f1c5_lstream_close(&SV);
+        return -1;
+    }
+    const uint8_t *chunk;
+    uint64_t len, have;
+    for (have = 0; have < 4ull * nm; have += len) {
+        len = f1c5_lstream_next(&SK, &chunk);
+        memcpy((uint8_t *)masks + have, chunk, len);
+    }
+    for (have = 0; have < 8ull * (nm + 1); have += len) {
+        len = f1c5_lstream_next(&SK, &chunk);
+        memcpy((uint8_t *)off + have, chunk, len);
+    }
+    f1c5_lstream_close(&SK);
+    /* SV: skip masks + off + keys, then walk vals joined to mask index */
+    for (have = 0; have < 4ull * nm + 8ull * (nm + 1) + 4ull * ne; have += len)
+        len = f1c5_lstream_next(&SV, &chunk);
+    F1U192 raw = {0, 0, 0}, orb = {0, 0, 0};
+    uint64_t e = 0, mi = 0, vleft = 0;
+    const F1U192 *vbuf = NULL;
+    int ok = 1, ovf = 0;
+    while (e < ne && !ovf) {
+        if (vleft == 0) {
+            len = f1c5_lstream_next(&SV, &chunk);
+            if (len == 0) { ok = 0; break; }
+            vbuf = (const F1U192 *)(const void *)chunk;
+            vleft = len / 24;
+        }
+        uint64_t take = vleft;
+        if (take > ne - e) take = ne - e;
+        for (uint64_t i = 0; i < take && !ovf; i++, e++) {
+            while (mi < nm && off[mi + 1] <= e) mi++;
+            F1U192 w;
+            if (kc_h_add_safe(&raw, &vbuf[i]) != 0 ||
+                kc_h_mul_small_safe(&vbuf[i], (uint32_t)f1_orbit_size(c, masks[mi]), &w) != 0 ||
+                kc_h_add_safe(&orb, &w) != 0)
+                ovf = 1;
+        }
+        vbuf += take;
+        vleft -= take;
+    }
+    f1c5_lstream_close(&SV);
+    free(masks);
+    free(off);
+    if (ovf) return -2;
+    if (!ok) return -1;
+    *raw_out = raw;
+    *orbit_out = orb;
+    *nm_out = nm;
+    *ne_out = ne;
+    return 0;
+}
+
+/* verify one ladder side (f or g). Returns #failed checks. */
+static int kc_h_ladder_side(const char *dir, const char *pfx, int is_g,
+                            const KC *kc, int quiet) {
+    int fails = 0;
+    const int n = kc->n;
+    char (*own)[65] = (char (*)[65])calloc((size_t)n + 1, 65);
+    F1_CHECK(own != NULL, "[kc-ladder] alloc");
+    for (int k = 0; k <= n; k++) {
+        char lpath[4400], jpath[4400];
+        snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
+        snprintf(jpath, sizeof(jpath), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
+        int layer_fail = 0;
+        /* (a) re-derive the decompressed-stream sha (--f1c5-layer-sha digest) */
+        if (f1c5_layer_sha_hex(lpath, own[k], NULL, NULL, NULL) != 0) {
+            if (!quiet) printf("[kc-ladder] %s k=%02d: LAYER UNREADABLE (%s)\n", pfx, k, lpath);
+            fails++;
+            snprintf(own[k], 65, "unreadable");
+            continue;
+        }
+        /* (b) re-derive raw + orbit-weighted mass */
+        F1U192 raw, orb;
+        uint64_t nm = 0, ne = 0;
+        const int scan_ok = kc_h_layer_scan(lpath, &kc->c, &raw, &orb, &nm, &ne) == 0;
+        if (!scan_ok) layer_fail++;
+        /* (c) sidecar cross-checks (fail-closed: a missing/garbled sidecar FAILS) */
+        FILE *jf = fopen(jpath, "r");
+        char jbuf[16384];
+        size_t jgot = 0;
+        if (jf) {
+            jgot = fread(jbuf, 1, sizeof(jbuf) - 1, jf);
+            fclose(jf);
+        }
+        jbuf[jgot] = '\0';
+        char v[256];
+        if (!jf || jgot == 0) {
+            if (!quiet) printf("[kc-ladder] %s k=%02d: SIDECAR MISSING (%s)\n", pfx, k, jpath);
+            layer_fail++;
+        } else {
+            if (kc_h_field(jbuf, "own_sha256_decompressed", v, sizeof(v)) != 0 ||
+                strcmp(v, own[k]) != 0) {
+                if (!quiet) printf("[kc-ladder] %s k=%02d: own_sha MISMATCH (sidecar %s vs recomputed %s)\n",
+                                   pfx, k, v, own[k]);
+                layer_fail++;
+            }
+            char mdec[64];
+            f1_dec(raw, mdec);
+            if (kc_h_field(jbuf, "mass_total", v, sizeof(v)) != 0 ||
+                !scan_ok || strcmp(v, mdec) != 0) {
+                if (!quiet) printf("[kc-ladder] %s k=%02d: mass_total MISMATCH (sidecar %s vs recomputed %s)\n",
+                                   pfx, k, v, scan_ok ? mdec : "unreadable");
+                layer_fail++;
+            }
+            if (kc_h_field(jbuf, "n_entries", v, sizeof(v)) != 0 ||
+                strtoull(v, NULL, 10) != ne) layer_fail++;
+            if (kc_h_field(jbuf, "n_masks", v, sizeof(v)) != 0 ||
+                strtoull(v, NULL, 10) != nm) layer_fail++;
+        }
+        if (!quiet && layer_fail == 0)
+            printf("[kc-ladder] %s k=%02d: sha %.16s... mass+counts+sidecar OK (nm=%llu ne=%llu)\n",
+                   pfx, k, own[k], (unsigned long long)nm, (unsigned long long)ne);
+        /* (d) boundary identities */
+        if (!is_g && k == n) {
+            if (!scan_ok || !f1_eq(&orb, &kc->total)) {
+                if (!quiet) printf("[kc-ladder] f k=n: orbit-weighted layer mass != manifest total\n");
+                layer_fail++;
+            } else if (!quiet) {
+                char t[64];
+                f1_dec(orb, t);
+                printf("[kc-ladder] f k=n orbit-weighted mass == total == %s\n", t);
+            }
+        }
+        if (is_g && k == 0) {
+            if (!scan_ok || !f1_eq(&raw, &kc->total)) {
+                if (!quiet) printf("[kc-ladder] g k=0: g(0) != total (suffix-side count broken)\n");
+                layer_fail++;
+            } else if (!quiet) {
+                char t[64];
+                f1_dec(raw, t);
+                printf("[kc-ladder] g k=0: g(0) == total == %s\n", t);
+            }
+        }
+        fails += layer_fail;
+    }
+    /* (e) hash chain: input sha of layer k == own sha of its input layer */
+    for (int k = 0; k <= n; k++) {
+        char jpath[4400], v[256], ik[64];
+        snprintf(jpath, sizeof(jpath), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
+        FILE *jf = fopen(jpath, "r");
+        if (!jf) continue;   /* already failed above */
+        char jbuf[16384];
+        size_t jgot = fread(jbuf, 1, sizeof(jbuf) - 1, jf);
+        fclose(jf);
+        jbuf[jgot] = '\0';
+        const int genesis = is_g ? (k >= n) : (k <= 0);
+        const int input_k = is_g ? k + 1 : k - 1;
+        if (kc_h_field(jbuf, "input_sha256_decompressed", v, sizeof(v)) != 0) { fails++; continue; }
+        if (kc_h_field(jbuf, "input_layer_k", ik, sizeof(ik)) != 0) { fails++; continue; }
+        if (genesis) {
+            if (strcmp(v, "genesis") != 0 || atoi(ik) != -1) {
+                if (!quiet) printf("[kc-ladder] %s k=%02d: expected genesis chain seed\n", pfx, k);
+                fails++;
+            }
+        } else if (atoi(ik) != input_k || strcmp(v, own[input_k]) != 0) {
+            if (!quiet) printf("[kc-ladder] %s k=%02d: HASH-CHAIN BREAK (input %s vs layer %02d own %s)\n",
+                               pfx, k, v, input_k, own[input_k]);
+            fails++;
+        }
+    }
+    if (!quiet)
+        printf("[kc-ladder] %s-side hash chain: %s\n", pfx, fails ? "SEE FAILURES ABOVE" : "INTACT");
+    free(own);
+    return fails;
+}
+
+static int kc_h_ladder_verify(const char *fdir, const char *gdir,
+                              int force_ooc, int cache_mb, int quiet) {
+    int fails = 0;
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc != NULL, "[kc-ladder] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); return -1; }
+    if (!quiet) {
+        char t[64];
+        f1_dec(fkc->total, t);
+        printf("[kc-ladder] f ladder %s: n=%d total=%s\n", fdir, fkc->n, t);
+    }
+    fails += kc_h_ladder_side(fdir, "f1c5", 0, fkc, quiet);
+    if (gdir) {
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(gkc != NULL, "[kc-ladder] alloc");
+        if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+            kc_free(fkc); free(fkc); free(gkc);
+            return -1;
+        }
+        if (!f1_eq(&gkc->total, &fkc->total)) {
+            if (!quiet) printf("[kc-ladder] f/g TOTALS DISAGREE\n");
+            fails++;
+        }
+        fails += kc_h_ladder_side(gdir, "g", 1, gkc, quiet);
+        kc_free(gkc);
+        free(gkc);
+        /* (f) the f*g cut identity at EVERY layer (the V3 gate) */
+        if (!quiet) printf("[kc-ladder] running the f*g cut identity (kc_g_check)...\n");
+        if (kc_g_check_main(fdir, gdir, force_ooc, cache_mb) != 0) {
+            if (!quiet) printf("[kc-ladder] f*g IDENTITY FAILED\n");
+            fails++;
+        }
+    }
+    kc_free(fkc);
+    free(fkc);
+    if (!quiet)
+        printf("[kc-ladder] VERDICT: %s (%d failure%s)\n",
+               fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails;
+}
+
+static int kc_ladder_verify_main(int argc, char *argv[]) {
+    if (argc < 3) {
+        fprintf(stderr,
+                "Usage: solve --kc-ladder-verify FDIR [GDIR] [--kc-ooc] [--kc-cache-mb MB]\n"
+                "  H2 ladder verifier: per-layer decompressed-stream sha + mass totals\n"
+                "  re-derived and cross-checked against the layer-stats sidecars (own_sha,\n"
+                "  mass_total, counts, HASH-CHAIN), boundary identities (f layer-n orbit\n"
+                "  mass == total; g(0) == total), and — with GDIR — the f*g cut identity\n"
+                "  at every layer. Exit 0 PASS / 1 FAIL / 2 usage-or-open-error.\n");
+        return 2;
+    }
+    const char *fdir = argv[2], *gdir = NULL;
+    int force_ooc = 0, cache_mb = 0;
+    for (int ai = 3; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (argv[ai][0] != '-' && !gdir) gdir = argv[ai];
+    }
+    const int r = kc_h_ladder_verify(fdir, gdir, force_ooc, cache_mb, 0);
+    if (r < 0) return 2;
+    printf("#provenance\tengine=solve.c/kc-ladder-verify\tbranch=v4-compiler\tgit=%s\t"
+           "source_sha=%s\tdigest=f1c5_layer_sha_hex(decompressed-stream)\t"
+           "certificate-not-proof\n", GIT_HASH, SOURCE_SHA);
+    return r ? 1 : 0;
+}
+
+/* ---------- --kc-ladder-selftest ---------- */
+#define KC_LAD_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-ladder-selftest] %-58s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* flip one byte at offset (from end if negative) in a file; returns the
+ * original byte through *orig for restoration */
+static int kc_h_flip_byte(const char *path, long off_from_end, uint8_t *orig, int restore,
+                          uint8_t restore_val) {
+    FILE *f = fopen(path, "r+b");
+    if (!f) return -1;
+    if (fseek(f, -off_from_end, SEEK_END) != 0) { fclose(f); return -1; }
+    long pos = ftell(f);
+    int c = fgetc(f);
+    if (c == EOF) { fclose(f); return -1; }
+    *orig = (uint8_t)c;
+    uint8_t nb = restore ? restore_val : (uint8_t)(c ^ 0xFF);
+    fseek(f, pos, SEEK_SET);
+    fputc(nb, f);
+    fclose(f);
+    return 0;
+}
+
+static int kc_ladder_selftest(void) {
+    int fails = 0;
+    printf("[kc-ladder-selftest] H2 ladder/sidecar verifier battery (n=9)\n");
+    char dir[4096], fdir[4200], gdir[4200];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-ladder-selftest] FAIL (no scratch dir)\n");
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    /* build f (with sidecars, default-on) + g ladders */
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-ladder-selftest] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc-ladder-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_LAD_GATE("g ladder build (--kc-g-build path)", kc_g_build_main(gdir, 9, 0) == 0);
+
+    KC_LAD_GATE("clean ladders verify PASS (f alone)",
+                kc_h_ladder_verify(fdir, NULL, 0, 0, 1) == 0);
+    KC_LAD_GATE("clean ladders verify PASS (f+g incl. f*g identity)",
+                kc_h_ladder_verify(fdir, gdir, 0, 0, 1) == 0);
+
+    /* tamper a layer byte (last byte of layer 4 = high byte of a value):
+     * own-sha + mass + hash-chain must all break -> FAIL; restore -> PASS */
+    {
+        char lpath[4400];
+        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_04.bin", fdir);
+        uint8_t orig = 0;
+        KC_LAD_GATE("tamper: flip last byte of f layer 4",
+                    kc_h_flip_byte(lpath, 1, &orig, 0, 0) == 0);
+        KC_LAD_GATE("tampered layer DETECTED (verify FAIL)",
+                    kc_h_ladder_verify(fdir, NULL, 0, 0, 1) > 0);
+        uint8_t dummy;
+        KC_LAD_GATE("restore layer byte",
+                    kc_h_flip_byte(lpath, 1, &dummy, 1, orig) == 0);
+        KC_LAD_GATE("restored ladder verifies PASS again",
+                    kc_h_ladder_verify(fdir, NULL, 0, 0, 1) == 0);
+    }
+
+    /* tamper a sidecar field (mass_total first digit) -> FAIL; retrofit -> PASS */
+    {
+        char jpath[4400];
+        snprintf(jpath, sizeof(jpath), "%s/f1c5_layer_stats_03.json", fdir);
+        FILE *f = fopen(jpath, "r");
+        char buf[16384];
+        size_t got = f ? fread(buf, 1, sizeof(buf) - 1, f) : 0;
+        if (f) fclose(f);
+        buf[got] = '\0';
+        char *p = strstr(buf, "\"mass_total\": \"");
+        int ok = (p != NULL && got > 0);
+        if (ok) {
+            p += strlen("\"mass_total\": \"");
+            *p = (*p == '9') ? '1' : (char)(*p + 1);
+            f = fopen(jpath, "w");
+            ok = f && fwrite(buf, 1, got, f) == got;
+            if (f) fclose(f);
+        }
+        KC_LAD_GATE("tamper: corrupt sidecar mass_total", ok);
+        KC_LAD_GATE("corrupted sidecar DETECTED (verify FAIL)",
+                    kc_h_ladder_verify(fdir, NULL, 0, 0, 1) > 0);
+        KC_LAD_GATE("sidecar retrofit regenerates the chain",
+                    f1c5_sidecar_retrofit_dir(fdir) == 0);
+        KC_LAD_GATE("retrofitted ladder verifies PASS again",
+                    kc_h_ladder_verify(fdir, NULL, 0, 0, 1) == 0);
+    }
+
+    /* missing sidecar -> FAIL (fail-closed); restore -> PASS */
+    {
+        char jpath[4400], jaway[4400];
+        snprintf(jpath, sizeof(jpath), "%s/g_layer_stats_05.json", gdir);
+        snprintf(jaway, sizeof(jaway), "%s/g_layer_stats_05.json.away", gdir);
+        KC_LAD_GATE("tamper: remove a g sidecar", rename(jpath, jaway) == 0);
+        KC_LAD_GATE("missing sidecar DETECTED (verify FAIL, fail-closed)",
+                    kc_h_ladder_verify(fdir, gdir, 0, 0, 1) > 0);
+        KC_LAD_GATE("restore g sidecar", rename(jaway, jpath) == 0);
+        KC_LAD_GATE("restored f+g ladder verifies PASS again",
+                    kc_h_ladder_verify(fdir, gdir, 0, 0, 1) == 0);
+    }
+
+    kc_h_rm_rf(dir);
+    printf("[kc-ladder-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
+/* ===================== H3b — --kc-o3-cert + H6 — --verify-certificate ===================== */
+
+typedef struct {
+    char walk[600], rank3[80], class_first[80], N[80], plhash[40];
+    char prev_rank[80], prev_walk[600], next_rank[80], next_walk[600];
+    char fdir[1200], gdir[1200];
+    unsigned long long m, oidx;
+    int n;
+} KcH3bCert;
+
+static int kc_h3b_parse(const char *buf, KcH3bCert *c) {
+    char t[80];
+    memset(c, 0, sizeof(*c));
+    if (kc_h_field(buf, "walk", c->walk, sizeof(c->walk)) != 0) return -1;
+    if (kc_h_field(buf, "rank3", c->rank3, sizeof(c->rank3)) != 0) return -1;
+    if (kc_h_field(buf, "class_first_rank3", c->class_first, sizeof(c->class_first)) != 0) return -1;
+    if (kc_h_field(buf, "N_total", c->N, sizeof(c->N)) != 0) return -1;
+    if (kc_h_field(buf, "pl_hash", c->plhash, sizeof(c->plhash)) != 0) return -1;
+    if (kc_h_field(buf, "m", t, sizeof(t)) != 0) return -1;
+    c->m = strtoull(t, NULL, 10);
+    if (kc_h_field(buf, "orient_idx", t, sizeof(t)) != 0) return -1;
+    c->oidx = strtoull(t, NULL, 10);
+    if (kc_h_field(buf, "n", t, sizeof(t)) != 0) return -1;
+    c->n = atoi(t);
+    if (kc_h_field(buf, "neighbor_prev_rank", c->prev_rank, sizeof(c->prev_rank)) != 0) return -1;
+    if (kc_h_field(buf, "neighbor_prev_walk", c->prev_walk, sizeof(c->prev_walk)) != 0) return -1;
+    if (kc_h_field(buf, "neighbor_next_rank", c->next_rank, sizeof(c->next_rank)) != 0) return -1;
+    if (kc_h_field(buf, "neighbor_next_walk", c->next_walk, sizeof(c->next_walk)) != 0) return -1;
+    kc_h_field(buf, "fdir", c->fdir, sizeof(c->fdir));   /* optional (overridable) */
+    kc_h_field(buf, "gdir", c->gdir, sizeof(c->gdir));
+    return 0;
+}
+
+/* re-verify every claim of an h3b certificate against opened ladders.
+ * Returns #failed checks. */
+static int kc_h3b_verify(KcO3 *o3, const KcH3bCert *c, int quiet) {
+    int fails = 0;
+    const KC *kc = o3->f;
+#define KCH_CK(name, cond) do { int ok_ = (cond); \
+        if (!quiet) printf("[verify-certificate]   %-52s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+        if (!ok_) fails++; } while (0)
+    KCH_CK("n matches the ladders", c->n == kc->n);
+    {
+        char t[64];
+        f1_dec(kc->total, t);
+        KCH_CK("N_total matches the compiled count", strcmp(t, c->N) == 0);
+    }
+    {
+        char t[40];
+        snprintf(t, sizeof(t), "%016llx", (unsigned long long)f1_pl_hash(&kc->c));
+        KCH_CK("pl_hash matches the ladder pair table", strcmp(t, c->plhash) == 0);
+    }
+    uint8_t E[KC_MAX_PAIRS];
+    F1U192 r, rc_;
+    uint64_t mk = 0, oidx = 0;
+    int walk_ok = (kc_parse_walk(kc, c->walk, E) == 0);
+    KCH_CK("walk parses over the pair subset", walk_ok);
+    int rank_ok = walk_ok && kc_o3_rank(o3, E, &r, &mk, &oidx, 0, NULL) == 0;
+    KCH_CK("walk is rankable (valid member)", rank_ok);
+    if (!rank_ok)   /* remaining checks would be vacuous */
+        return fails + 8;
+    {
+        char t[64];
+        f1_dec(r, t);
+        KCH_CK("rank3 recomputed == recorded", strcmp(t, c->rank3) == 0);
+    }
+    KCH_CK("class multiplicity m recomputed == recorded", mk == c->m);
+    KCH_CK("orient_idx recomputed == recorded", oidx == c->oidx);
+    {
+        F1U192 cf = r, ob = {oidx, 0, 0};
+        kc_u192_sub(&cf, &ob);
+        char t[64];
+        f1_dec(cf, t);
+        KCH_CK("class_first_rank3 == rank3 - orient_idx", strcmp(t, c->class_first) == 0);
+    }
+    {
+        uint8_t E2[KC_MAX_PAIRS];
+        F1U192 rr;
+        int ok = kc_u192_from_dec(c->rank3, &rr) == 0 &&
+                 kc_o3_unrank(o3, rr, E2, NULL, NULL) == 0 &&
+                 memcmp(E2, E, (size_t)kc->n) == 0;
+        KCH_CK("unrank3(rank3) reproduces the walk byte-identically", ok);
+    }
+    /* neighbor bracket */
+    const int have_prev = !f1_is_zero(&r);
+    {
+        F1U192 rp = r, one = {1, 0, 0};
+        f1_add(&rp, &one);
+        const int have_next = kc_u192_cmp(&rp, &kc->total) < 0;
+        if (have_prev) {
+            char pd[80];
+            int ok = kc_h_dec_add1(c->rank3, -1, pd) == 0 && strcmp(pd, c->prev_rank) == 0;
+            KCH_CK("neighbor_prev_rank == rank3 - 1", ok);
+            uint8_t Ep[KC_MAX_PAIRS];
+            F1U192 rm;
+            ok = kc_u192_from_dec(c->prev_rank, &rm) == 0 &&
+                 kc_o3_unrank(o3, rm, Ep, NULL, NULL) == 0;
+            if (ok) {
+                char w[600];
+                kc_h_walk_str(kc, Ep, w, sizeof(w));
+                ok = strcmp(w, c->prev_walk) == 0;
+                if (ok) {
+                    ok = kc_o3_cmp(kc, Ep, E) < 0;
+                    if (ok && (kc_o3_rank(o3, Ep, &rc_, NULL, NULL, 0, NULL) != 0 ||
+                               !f1_eq(&rc_, &rm))) ok = 0;
+                }
+            }
+            KCH_CK("prev neighbor: unrank + strict O3 order + re-rank", ok);
+        } else {
+            KCH_CK("prev neighbor: NONE at rank 0",
+                   strcmp(c->prev_rank, "NONE") == 0 && strcmp(c->prev_walk, "NONE") == 0);
+        }
+        if (have_next) {
+            char nd[80];
+            int ok = kc_h_dec_add1(c->rank3, +1, nd) == 0 && strcmp(nd, c->next_rank) == 0;
+            KCH_CK("neighbor_next_rank == rank3 + 1", ok);
+            uint8_t En[KC_MAX_PAIRS];
+            F1U192 rn;
+            ok = kc_u192_from_dec(c->next_rank, &rn) == 0 &&
+                 kc_o3_unrank(o3, rn, En, NULL, NULL) == 0;
+            if (ok) {
+                char w[600];
+                kc_h_walk_str(kc, En, w, sizeof(w));
+                ok = strcmp(w, c->next_walk) == 0;
+                if (ok) {
+                    ok = kc_o3_cmp(kc, E, En) < 0;
+                    if (ok && (kc_o3_rank(o3, En, &rc_, NULL, NULL, 0, NULL) != 0 ||
+                               !f1_eq(&rc_, &rn))) ok = 0;
+                }
+            }
+            KCH_CK("next neighbor: unrank + strict O3 order + re-rank", ok);
+        } else {
+            KCH_CK("next neighbor: NONE at rank N-1",
+                   strcmp(c->next_rank, "NONE") == 0 && strcmp(c->next_walk, "NONE") == 0);
+        }
+    }
+#undef KCH_CK
+    return fails;
+}
+
+/* mutation battery for h3b certificates ("test the test"). #uncaught. */
+static int kc_h3b_mutate(KcO3 *o3, const KcH3bCert *c, int quiet) {
+    static const char *mname[] = {
+        "rank3+1", "rank3-1", "m+1", "orient_idx+1", "class_first_rank3+1",
+        "walk slot-0 orientation flip", "N_total+1", "pl_hash nibble flip",
+        "n+1", "neighbor_next_rank+1", "neighbor_prev_walk slot-0 flip"
+    };
+    const int nmut = (int)(sizeof(mname) / sizeof(mname[0]));
+    const KC *kc = o3->f;
+    int uncaught = 0;
+    for (int mi = 0; mi < nmut; mi++) {
+        KcH3bCert m = *c;
+        int applicable = 1;
+        switch (mi) {
+        case 0: applicable = kc_h_dec_add1(c->rank3, +1, m.rank3) == 0; break;
+        case 1: applicable = kc_h_dec_add1(c->rank3, -1, m.rank3) == 0; break;
+        case 2: m.m++; break;
+        case 3: m.oidx++; break;
+        case 4: applicable = kc_h_dec_add1(c->class_first, +1, m.class_first) == 0; break;
+        case 5: {   /* flip walk slot 0 to its partner ("x,e" instead of "e,x") */
+            uint8_t E[KC_MAX_PAIRS];
+            if (kc_parse_walk(kc, c->walk, E) != 0) { applicable = 0; break; }
+            uint8_t E2[KC_MAX_PAIRS];
+            memcpy(E2, E, (size_t)kc->n);
+            E2[0] = (uint8_t)kc->partner[E2[0]];
+            /* may be an invalid walk — that is fine, verification must fail
+             * either way (parse/rank failure or rank mismatch) */
+            char w[600];
+            kc_h_walk_str(kc, E2, w, sizeof(w));
+            snprintf(m.walk, sizeof(m.walk), "%s", w);
+            break;
+        }
+        case 6: applicable = kc_h_dec_add1(c->N, +1, m.N) == 0; break;
+        case 7: m.plhash[0] = (m.plhash[0] == 'f') ? '0' : 'f'; break;
+        case 8: m.n++; break;
+        case 9: applicable = strcmp(c->next_rank, "NONE") != 0 &&
+                             kc_h_dec_add1(c->next_rank, +1, m.next_rank) == 0; break;
+        case 10: {
+            if (strcmp(c->prev_walk, "NONE") == 0) { applicable = 0; break; }
+            uint8_t E[KC_MAX_PAIRS];
+            if (kc_parse_walk(kc, c->prev_walk, E) != 0) { applicable = 0; break; }
+            E[0] = (uint8_t)kc->partner[E[0]];
+            char w[600];
+            kc_h_walk_str(kc, E, w, sizeof(w));
+            snprintf(m.prev_walk, sizeof(m.prev_walk), "%s", w);
+            break;
+        }
+        default: break;
+        }
+        if (!applicable) {
+            if (!quiet) printf("[verify-certificate] mutation %-36s SKIPPED (n/a at this rank)\n",
+                               mname[mi]);
+            continue;
+        }
+        const int caught = kc_h3b_verify(o3, &m, 1) != 0;
+        if (!quiet) printf("[verify-certificate] mutation %-36s %s\n", mname[mi],
+                           caught ? "CAUGHT" : "NOT CAUGHT (verifier vacuous!)");
+        if (!caught) uncaught++;
+    }
+    return uncaught;
+}
+
+/* the H3b certificate emitter */
+static int kc_o3_cert_main(const char *fdir, const char *gdir, const char *arg,
+                           const char *cert_out, int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-o3-cert] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    KcO3 o3;
+    kc_o3_ctx_init(&o3, fkc, gkc);
+    int rc = 0;
+    uint8_t E[KC_MAX_PAIRS];
+    F1U192 r;
+    uint64_t mk = 0, oidx = 0;
+    KcH3bCert c;
+    memset(&c, 0, sizeof(c));
+    if (kc_h_resolve_walk(fkc, arg, E) != 0 ||
+        kc_o3_rank(&o3, E, &r, &mk, &oidx, 0, NULL) != 0) {
+        fprintf(stderr, "ERROR: [kc-o3-cert] not a valid walk over this ladder\n");
+        rc = 1;
+    } else {
+        kc_h_walk_str(fkc, E, c.walk, sizeof(c.walk));
+        f1_dec(r, c.rank3);
+        c.m = mk;
+        c.oidx = oidx;
+        c.n = fkc->n;
+        {
+            F1U192 cf = r, ob = {oidx, 0, 0};
+            kc_u192_sub(&cf, &ob);
+            f1_dec(cf, c.class_first);
+        }
+        f1_dec(fkc->total, c.N);
+        snprintf(c.plhash, sizeof(c.plhash), "%016llx",
+                 (unsigned long long)f1_pl_hash(&fkc->c));
+        snprintf(c.fdir, sizeof(c.fdir), "%s", fdir);
+        snprintf(c.gdir, sizeof(c.gdir), "%s", gdir);
+        /* neighbor bracket (boundary-aware) */
+        snprintf(c.prev_rank, sizeof(c.prev_rank), "NONE");
+        snprintf(c.prev_walk, sizeof(c.prev_walk), "NONE");
+        snprintf(c.next_rank, sizeof(c.next_rank), "NONE");
+        snprintf(c.next_walk, sizeof(c.next_walk), "NONE");
+        if (!f1_is_zero(&r)) {
+            F1U192 rm = r, one = {1, 0, 0};
+            kc_u192_sub(&rm, &one);
+            uint8_t Ep[KC_MAX_PAIRS];
+            F1_CHECK(kc_o3_unrank(&o3, rm, Ep, NULL, NULL) == 0,
+                     "[kc-o3-cert] prev-neighbor unrank failed (defect)");
+            f1_dec(rm, c.prev_rank);
+            kc_h_walk_str(fkc, Ep, c.prev_walk, sizeof(c.prev_walk));
+        }
+        {
+            F1U192 rp = r, one = {1, 0, 0};
+            f1_add(&rp, &one);
+            if (kc_u192_cmp(&rp, &fkc->total) < 0) {
+                uint8_t En[KC_MAX_PAIRS];
+                F1_CHECK(kc_o3_unrank(&o3, rp, En, NULL, NULL) == 0,
+                         "[kc-o3-cert] next-neighbor unrank failed (defect)");
+                f1_dec(rp, c.next_rank);
+                kc_h_walk_str(fkc, En, c.next_walk, sizeof(c.next_walk));
+            }
+        }
+        /* self-verify BEFORE emitting (fail-closed: never emit a bad cert) */
+        const int selfver = kc_h3b_verify(&o3, &c, 1);
+        if (selfver != 0) {
+            fprintf(stderr, "ERROR: [kc-o3-cert] self-verification failed (%d) — "
+                    "certificate NOT emitted\n", selfver);
+            rc = 1;
+        } else {
+            FILE *outs[2] = {stdout, NULL};
+            if (cert_out) outs[1] = fopen(cert_out, "w");
+            for (int oi = 0; oi < 2; oi++) {
+                FILE *f = outs[oi];
+                if (!f) continue;
+                char esc[2048];
+                fprintf(f, "{\n  \"type\": \"roae-h3b-rank-certificate\",\n  \"version\": 1,\n");
+                fprintf(f, "  \"space\": \"C1C2C4C5-SUPERSPACE\",\n");
+                fprintf(f, "  \"order\": \"O3(=compare_solutions:pair-vector-lex,then-orient-lex)\",\n");
+                fprintf(f, "  \"object\": \"WALK-rank\",\n");
+                fprintf(f, "  \"n\": %d,\n", c.n);
+                fprintf(f, "  \"walk\": \"%s\",\n", c.walk);
+                fprintf(f, "  \"rank3\": \"%s\",\n", c.rank3);
+                fprintf(f, "  \"m\": %llu,\n  \"orient_idx\": %llu,\n", c.m, c.oidx);
+                fprintf(f, "  \"class_first_rank3\": \"%s\",\n", c.class_first);
+                fprintf(f, "  \"N_total\": \"%s\",\n", c.N);
+                fprintf(f, "  \"neighbor_prev_rank\": \"%s\",\n", c.prev_rank);
+                fprintf(f, "  \"neighbor_prev_walk\": \"%s\",\n", c.prev_walk);
+                fprintf(f, "  \"neighbor_next_rank\": \"%s\",\n", c.next_rank);
+                fprintf(f, "  \"neighbor_next_walk\": \"%s\",\n", c.next_walk);
+                kc_h_json_escape(fdir, esc, sizeof(esc));
+                fprintf(f, "  \"fdir\": \"%s\",\n", esc);
+                kc_h_json_escape(gdir, esc, sizeof(esc));
+                fprintf(f, "  \"gdir\": \"%s\",\n", esc);
+                fprintf(f, "  \"pl_hash\": \"%s\",\n", c.plhash);
+                fprintf(f, "  \"class_rank_note\": \"WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)\",\n");
+                fprintf(f, "  \"c15_note\": \"C15 rank is NOT exactly computable (C3 obstruction, TR-11 s10(ii)); any C15 figure is a labeled estimate elsewhere\",\n");
+                fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
+                        GIT_HASH, SOURCE_SHA);
+                fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
+            }
+            if (outs[1]) {
+                fclose(outs[1]);
+                printf("[kc-o3-cert] certificate written: %s (self-verified)\n", cert_out);
+            } else if (cert_out) {
+                fprintf(stderr, "ERROR: [kc-o3-cert] cannot write %s\n", cert_out);
+                rc = 2;
+            }
+            kc_o3_trailer(fkc);
+        }
+    }
+    kc_o3_ctx_free(&o3);
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    return rc;
+}
+
+/* h1-oracle certificate re-verification: re-streams every recorded file
+ * against the (possibly overridden) f ladder and compares field-by-field. */
+typedef struct {        /* ~300 KB at the 256-file cap: heap-allocate, never stack */
+    KcOrFile rec[KC_H1_MAX_FILES];   /* RECORDED stats (parsed from the certificate) */
+    int nf;
+    KcOrOpts opts;
+    char N[80], plhash[40], verdict[16];
+} KcH1Cert;
+
+static int kc_h1cert_parse(const char *buf, KcH1Cert *c) {
+    char t[80];
+    memset(c, 0, sizeof(*c));
+    if (kc_h_field(buf, "n_files", t, sizeof(t)) != 0) return -1;
+    c->nf = atoi(t);
+    if (c->nf < 1 || c->nf > KC_H1_MAX_FILES) return -1;
+    if (kc_h_field(buf, "c3max", t, sizeof(t)) != 0) return -1;
+    c->opts.c3max = atoll(t);
+    if (kc_h_field(buf, "check_repr", t, sizeof(t)) != 0) return -1;
+    c->opts.check_repr = atoi(t);
+    if (kc_h_field(buf, "N_total", c->N, sizeof(c->N)) != 0) return -1;
+    if (kc_h_field(buf, "pl_hash", c->plhash, sizeof(c->plhash)) != 0) return -1;
+    if (kc_h_field(buf, "verdict", c->verdict, sizeof(c->verdict)) != 0) return -1;
+    for (int i = 0; i < c->nf; i++) {
+        KcOrFile *s = &c->rec[i];
+        char key[64];
+#define KCH_F(suffix, dst) do { \
+            snprintf(key, sizeof(key), "file_%d_" suffix, i); \
+            if (kc_h_field(buf, key, t, sizeof(t)) != 0) return -1; \
+            (dst) = strtoull(t, NULL, 10); } while (0)
+        snprintf(key, sizeof(key), "file_%d_path", i);
+        if (kc_h_field(buf, key, s->path, sizeof(s->path)) != 0) return -1;
+        snprintf(key, sizeof(key), "file_%d_sha256", i);
+        if (kc_h_field(buf, key, s->sha, sizeof(s->sha)) != 0) return -1;
+        KCH_F("hdr_count", s->hdr_count);
+        KCH_F("records", s->records);
+        KCH_F("members", s->members);
+        KCH_F("invalid", s->invalid);
+        KCH_F("f0", s->f0);
+        KCH_F("malformed", s->malformed);
+        KCH_F("dupclass", s->dupclass);
+        KCH_F("orderviol", s->orderviol);
+        KCH_F("c3_over", s->c3_over);
+        KCH_F("repr_mismatch", s->repr_mismatch);
+#undef KCH_F
+    }
+    return 0;
+}
+
+/* compare RECORDED vs RECOMPUTED; returns #mismatches */
+static int kc_h1cert_cmp(const KcH1Cert *c, const KcOrFile *red, const KC *kc,
+                         int quiet) {
+    int fails = 0;
+#define KCH_CK(name, cond) do { int ok_ = (cond); \
+        if (!quiet) printf("[verify-certificate]   %-52s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+        if (!ok_) fails++; } while (0)
+    {
+        char t[64];
+        f1_dec(kc->total, t);
+        KCH_CK("N_total matches the ladder", strcmp(t, c->N) == 0);
+    }
+    {
+        char t[40];
+        snprintf(t, sizeof(t), "%016llx", (unsigned long long)f1_pl_hash(&kc->c));
+        KCH_CK("pl_hash matches the ladder", strcmp(t, c->plhash) == 0);
+    }
+    int all_pass = 1;
+    for (int i = 0; i < c->nf; i++) {
+        const KcOrFile *a = &c->rec[i], *b = &red[i];
+        char nm[128];
+        snprintf(nm, sizeof(nm), "file %d: stream sha matches", i);
+        KCH_CK(nm, strcmp(a->sha, b->sha) == 0);
+        snprintf(nm, sizeof(nm), "file %d: all tallies match", i);
+        KCH_CK(nm, a->hdr_count == b->hdr_count && a->records == b->records &&
+                   a->members == b->members && a->invalid == b->invalid &&
+                   a->f0 == b->f0 && a->malformed == b->malformed &&
+                   a->dupclass == b->dupclass && a->orderviol == b->orderviol &&
+                   a->c3_over == b->c3_over && a->repr_mismatch == b->repr_mismatch);
+        if (!kc_h_oracle_file_pass(b, &c->opts)) all_pass = 0;
+    }
+    KCH_CK("verdict matches recomputed pass/fail",
+           strcmp(c->verdict, all_pass ? "PASS" : "FAIL") == 0);
+#undef KCH_CK
+    return fails;
+}
+
+static int kc_h1cert_verify(const char *buf, const char *fdir_ov, int force_ooc,
+                            int cache_mb, int mutate, int *uncaught_out, int quiet) {
+    KcH1Cert *c = (KcH1Cert *)calloc(1, sizeof(KcH1Cert));
+    F1_CHECK(c != NULL, "[verify-certificate] cert alloc");
+    if (kc_h1cert_parse(buf, c) != 0) {
+        fprintf(stderr, "ERROR: [verify-certificate] h1-oracle cert parse failed\n");
+        free(c);
+        return -1;
+    }
+    char fdir[1200] = "";
+    if (fdir_ov) snprintf(fdir, sizeof(fdir), "%s", fdir_ov);
+    else if (kc_h_field(buf, "fdir", fdir, sizeof(fdir)) != 0 || !*fdir) {
+        fprintf(stderr, "ERROR: [verify-certificate] no fdir (cert or --kc-fdir)\n");
+        free(c);
+        return -1;
+    }
+    KC *kc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(kc != NULL, "[verify-certificate] alloc");
+    if (kc_open(kc, fdir, force_ooc, cache_mb) != 0) { free(kc); free(c); return -1; }
+    int p2q[32];
+    for (int p = 0; p < 32; p++) p2q[p] = -1;
+    for (int q = 0; q < kc->n; q++) p2q[kc->c.pl[q]] = q;
+    KcOrFile *red = (KcOrFile *)calloc(KC_H1_MAX_FILES, sizeof(KcOrFile));
+    F1_CHECK(red != NULL, "[verify-certificate] red alloc");
+    int dump_left = 0;
+    for (int i = 0; i < c->nf; i++)
+        kc_h_oracle_file(kc, p2q, c->rec[i].path, &c->opts, &red[i], &dump_left);
+    int fails = kc_h1cert_cmp(c, red, kc, quiet);
+    int uncaught = 0;
+    if (mutate && fails == 0) {
+        static const char *mname[] = {
+            "file_0 sha nibble flip", "file_0 members+1", "file_0 records+1",
+            "file_0 dupclass+1", "verdict flip", "N_total+1", "pl_hash nibble flip"
+        };
+        KcH1Cert *m = (KcH1Cert *)calloc(1, sizeof(KcH1Cert));
+        F1_CHECK(m != NULL, "[verify-certificate] mutant alloc");
+        for (int mi = 0; mi < 7; mi++) {
+            memcpy(m, c, sizeof(*m));
+            int applicable = 1;
+            switch (mi) {
+            case 0: m->rec[0].sha[0] = (m->rec[0].sha[0] == 'f') ? '0' : 'f'; break;
+            case 1: m->rec[0].members++; break;
+            case 2: m->rec[0].records++; break;
+            case 3: m->rec[0].dupclass++; break;
+            case 4: snprintf(m->verdict, sizeof(m->verdict), "%s",
+                             strcmp(c->verdict, "PASS") == 0 ? "FAIL" : "PASS"); break;
+            case 5: applicable = kc_h_dec_add1(c->N, +1, m->N) == 0; break;
+            case 6: m->plhash[0] = (m->plhash[0] == 'f') ? '0' : 'f'; break;
+            default: break;
+            }
+            if (!applicable) continue;
+            const int caught = kc_h1cert_cmp(m, red, kc, 1) != 0;
+            if (!quiet) printf("[verify-certificate] mutation %-32s %s\n", mname[mi],
+                               caught ? "CAUGHT" : "NOT CAUGHT (verifier vacuous!)");
+            if (!caught) uncaught++;
+        }
+        free(m);
+    }
+    kc_free(kc);
+    free(kc);
+    free(red);
+    free(c);
+    if (uncaught_out) *uncaught_out = uncaught;
+    return fails;
+}
+
+/* H6 driver: --verify-certificate CERT [--kc-mutate] [--kc-fdir F] [--kc-gdir G] */
+static int kc_verify_certificate_main(int argc, char *argv[]) {
+    if (argc < 3) {
+        fprintf(stderr,
+                "Usage: solve --verify-certificate CERT.json [--kc-mutate]\n"
+                "             [--kc-fdir F] [--kc-gdir G] [--kc-ooc] [--kc-cache-mb MB]\n"
+                "  H6 one-command certificate re-verifier (h3b-rank / h1-oracle /\n"
+                "  arrangement): re-derives every claim from the referenced dirs/files.\n"
+                "  --kc-mutate additionally runs the NON-VACUITY battery: each field is\n"
+                "  mutated and the verifier must catch every such mutation (recomputed\n"
+                "  fields — shas/tallies/ranks/verdicts; not free-text labels). Exit 0/1/2.\n");
+        return 2;
+    }
+    const char *path = argv[2], *fdir_ov = NULL, *gdir_ov = NULL;
+    int mutate = 0, force_ooc = 0, cache_mb = 0;
+    for (int ai = 3; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-mutate") == 0) mutate = 1;
+        else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-fdir") == 0) fdir_ov = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-gdir") == 0) gdir_ov = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+    }
+    FILE *f = fopen(path, "r");
+    if (!f) { fprintf(stderr, "ERROR: [verify-certificate] cannot read %s\n", path); return 2; }
+    static char buf[1 << 20];
+    size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    buf[got] = '\0';
+    char type[80];
+    if (kc_h_field(buf, "type", type, sizeof(type)) != 0) {
+        fprintf(stderr, "ERROR: [verify-certificate] no \"type\" field\n");
+        return 2;
+    }
+    printf("[verify-certificate] %s: type=%s%s\n", path, type,
+           mutate ? " (with mutation battery)" : "");
+    int fails = -1, uncaught = 0;
+    if (strcmp(type, "roae-arrangement-certificate") == 0) {
+        KcArrCert c;
+        if (kc_h_arr_cert_parse(buf, &c) != 0) {
+            fprintf(stderr, "ERROR: [verify-certificate] arrangement cert parse failed\n");
+            return 2;
+        }
+        fails = kc_h_arr_cert_verify(&c, 0);
+        if (mutate && fails == 0) uncaught = kc_h_arr_cert_mutate(&c, 0);
+    } else if (strcmp(type, "roae-h3b-rank-certificate") == 0) {
+        KcH3bCert c;
+        if (kc_h3b_parse(buf, &c) != 0) {
+            fprintf(stderr, "ERROR: [verify-certificate] h3b cert parse failed\n");
+            return 2;
+        }
+        const char *fd = fdir_ov ? fdir_ov : c.fdir;
+        const char *gd = gdir_ov ? gdir_ov : c.gdir;
+        if (!*fd || !*gd) {
+            fprintf(stderr, "ERROR: [verify-certificate] no ladder dirs (cert or --kc-fdir/--kc-gdir)\n");
+            return 2;
+        }
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[verify-certificate] alloc");
+        if (kc_open(fkc, fd, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+        if (kc_open_as(gkc, gd, "g", 1, force_ooc, cache_mb) != 0) {
+            kc_free(fkc); free(fkc); free(gkc);
+            return 2;
+        }
+        KcO3 o3;
+        kc_o3_ctx_init(&o3, fkc, gkc);
+        fails = kc_h3b_verify(&o3, &c, 0);
+        if (mutate && fails == 0) uncaught = kc_h3b_mutate(&o3, &c, 0);
+        kc_o3_ctx_free(&o3);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    } else if (strcmp(type, "roae-h1-oracle-certificate") == 0) {
+        fails = kc_h1cert_verify(buf, fdir_ov, force_ooc, cache_mb, mutate, &uncaught, 0);
+        if (fails < 0) return 2;
+    } else {
+        fprintf(stderr, "ERROR: [verify-certificate] unknown certificate type %s\n", type);
+        return 2;
+    }
+    printf("[verify-certificate] baseline re-verification: %s (%d mismatch%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "es");
+    if (mutate) {
+        if (fails)
+            printf("[verify-certificate] mutation battery SKIPPED (baseline failed)\n");
+        else
+            printf("[verify-certificate] mutation battery: %s (%d uncaught)\n",
+                   uncaught ? "FAIL — VERIFIER VACUOUS" : "ALL CAUGHT", uncaught);
+    }
+    printf("#provenance\tengine=solve.c/verify-certificate\tbranch=v4-compiler\tgit=%s\t"
+           "source_sha=%s\tsemantics=fail-closed-per-check;certificate-not-proof\n",
+           GIT_HASH, SOURCE_SHA);
+    return (fails == 0 && uncaught == 0) ? 0 : 1;
+}
+
+/* ---------- --kc-cert-selftest (H3b + H6, n=9 end-to-end) ---------- */
+#define KC_CERT_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-cert-selftest] %-60s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+static int kc_cert_selftest(void) {
+    int fails = 0;
+    printf("[kc-cert-selftest] H3b certificate emitter + H6 verifier battery (n=9)\n");
+    char dir[4096], fdir[4200], gdir[4200], cpath[4300];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-cert-selftest] FAIL (no scratch dir)\n");
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-cert-selftest] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc-cert-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_CERT_GATE("g ladder build", kc_g_build_main(gdir, 9, 0) == 0);
+
+    /* pick witness walks: rank 0, N-1, mid, and 2 seeded random ranks */
+    char walks[5][600];
+    int nw = 0;
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-cert-selftest] alloc");
+        F1_CHECK(kc_open(fkc, fdir, 0, 0) == 0, "[kc-cert-selftest] f open");
+        F1_CHECK(kc_open_as(gkc, gdir, "g", 1, 0, 0) == 0, "[kc-cert-selftest] g open");
+        KcO3 o3;
+        kc_o3_ctx_init(&o3, fkc, gkc);
+        const uint64_t N = fkc->total.l0;
+        uint64_t seed = 0xcecf17ull;
+        const uint64_t ranks[5] = {0, N - 1, N / 2,
+                                   kc_rand_below(&seed, N), kc_rand_below(&seed, N)};
+        for (int i = 0; i < 5; i++) {
+            uint8_t E[KC_MAX_PAIRS];
+            F1U192 r = {ranks[i], 0, 0};
+            if (kc_o3_unrank(&o3, r, E, NULL, NULL) == 0) {
+                kc_h_walk_str(fkc, E, walks[nw], sizeof(walks[nw]));
+                nw++;
+            }
+        }
+        kc_o3_ctx_free(&o3);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+    KC_CERT_GATE("witness walks resolved (rank 0, N-1, mid, 2 random)", nw == 5);
+
+    /* emit + verify + mutate each certificate through the REAL entry points */
+    for (int i = 0; i < nw; i++) {
+        snprintf(cpath, sizeof(cpath), "%s/cert_%d.json", dir, i);
+        char nm[128];
+        snprintf(nm, sizeof(nm), "cert %d: emit (self-verified)", i);
+        KC_CERT_GATE(nm, kc_o3_cert_main(fdir, gdir, walks[i], cpath, 0, 0) == 0);
+        {
+            char *argvv[8];
+            argvv[0] = (char *)"solve";
+            argvv[1] = (char *)"--verify-certificate";
+            argvv[2] = cpath;
+            snprintf(nm, sizeof(nm), "cert %d: H6 re-verification PASS", i);
+            KC_CERT_GATE(nm, kc_verify_certificate_main(3, argvv) == 0);
+            argvv[3] = (char *)"--kc-mutate";
+            snprintf(nm, sizeof(nm), "cert %d: H6 mutation battery ALL CAUGHT", i);
+            KC_CERT_GATE(nm, kc_verify_certificate_main(4, argvv) == 0);
+        }
+    }
+
+    /* tampered certificate FILE must be caught end-to-end */
+    {
+        snprintf(cpath, sizeof(cpath), "%s/cert_0.json", dir);
+        FILE *f = fopen(cpath, "r");
+        static char buf[1 << 16];
+        size_t got = f ? fread(buf, 1, sizeof(buf) - 1, f) : 0;
+        if (f) fclose(f);
+        buf[got] = '\0';
+        char *p = strstr(buf, "\"rank3\": \"");
+        int ok = (p != NULL);
+        char tpath[4300];
+        snprintf(tpath, sizeof(tpath), "%s/cert_tampered.json", dir);
+        if (ok) {
+            p += strlen("\"rank3\": \"");
+            *p = (*p == '9') ? '1' : (char)(*p == ',' || *p == '"' ? '5' : *p + 1);
+            f = fopen(tpath, "w");
+            ok = f && fwrite(buf, 1, got, f) == got;
+            if (f) fclose(f);
+        }
+        KC_CERT_GATE("tampered cert file written", ok);
+        char *argvv[3];
+        argvv[0] = (char *)"solve";
+        argvv[1] = (char *)"--verify-certificate";
+        argvv[2] = tpath;
+        KC_CERT_GATE("tampered rank3 DETECTED by H6 (verify FAIL)",
+                     kc_verify_certificate_main(3, argvv) != 0);
+    }
+
+    /* h1-oracle certificate end-to-end: run the oracle with --kc-cert-out on a
+     * synthesized clean file, then H6-verify + mutate it */
+    {
+        char binp[4300], ocert[4300];
+        snprintf(binp, sizeof(binp), "%s/oracle_A.bin", dir);
+        snprintf(ocert, sizeof(ocert), "%s/oracle_cert.json", dir);
+        /* synthesize the clean 432-record file (same construction as the
+         * oracle selftest, via enumeration + class dedup) */
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-cert-selftest] alloc");
+        F1_CHECK(kc_open(kc, fdir, 0, 0) == 0, "[kc-cert-selftest] reopen f");
+        const int n = kc->n;
+        KcList BR;
+        kc_brute(kc, &BR);
+        const size_t rl = 64 + (size_t)n;
+        uint8_t *rows = (uint8_t *)malloc(rl * BR.cnt);
+        F1_CHECK(rows != NULL, "[kc-cert-selftest] rows alloc");
+        for (uint64_t i = 0; i < BR.cnt; i++) {
+            const uint8_t *E = BR.walks + i * (size_t)n;
+            uint8_t *row = rows + i * rl;
+            memset(row, 0, 64);
+            for (int j = 0; j < n; j++) {
+                const int q = kc->pair_of_sub[E[j]];
+                const int orient = (E[j] == kc->c.pa[q]) ? 1 : 0;
+                row[j] = (uint8_t)(q << 2);
+                row[32 + j] = (uint8_t)((q << 2) | (orient << 1));
+            }
+            memcpy(row + 64, E, (size_t)n);
+        }
+        kc_g_rowlen = rl;
+        qsort(rows, BR.cnt, rl, kc_g_row_cmp);
+        uint8_t *recs = (uint8_t *)malloc(32 * BR.cnt);
+        F1_CHECK(recs != NULL, "[kc-cert-selftest] recs alloc");
+        uint64_t nrec = 0;
+        for (uint64_t i = 0; i < BR.cnt; i++) {
+            if (i && memcmp(rows + (i - 1) * rl, rows + i * rl, 32) == 0) continue;
+            memcpy(recs + nrec * 32, rows + i * rl + 32, 32);
+            nrec++;
+        }
+        KC_CERT_GATE("oracle input synthesized (432 records)",
+                     nrec == 432 &&
+                     kc_h_test_write(binp, KC_H_TEST_VERSION, recs, nrec, nrec) == 0);
+        free(rows);
+        free(recs);
+        free(BR.walks);
+        free(BR.cds);
+        kc_free(kc);
+        free(kc);
+        {
+            char *argvv[8];
+            argvv[0] = (char *)"solve";
+            argvv[1] = (char *)"--kc-oracle";
+            argvv[2] = fdir;
+            argvv[3] = binp;
+            argvv[4] = (char *)"--kc-cert-out";
+            argvv[5] = ocert;
+            KC_CERT_GATE("oracle run PASS + certificate emitted",
+                         kc_oracle_main(6, argvv) == 0);
+            char *argv2[4];
+            argv2[0] = (char *)"solve";
+            argv2[1] = (char *)"--verify-certificate";
+            argv2[2] = ocert;
+            KC_CERT_GATE("h1-oracle cert: H6 re-verification PASS",
+                         kc_verify_certificate_main(3, argv2) == 0);
+            argv2[3] = (char *)"--kc-mutate";
+            KC_CERT_GATE("h1-oracle cert: H6 mutation battery ALL CAUGHT",
+                         kc_verify_certificate_main(4, argv2) == 0);
+        }
+    }
+
+    kc_h_rm_rf(dir);
+    printf("[kc-cert-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
+/* ===================== --kc-scan — catalog/atlas extractor (TR-12 Q6/V1/V2/V5/XA) ===================== */
+
+typedef struct {
+    int q, o;                    /* subset pair + orientation of the first placement */
+    int entry, exitx, gpair;     /* raw hexagrams + GLOBAL pair index */
+    F1U192 mass;                 /* exact solutions through this branch (from g) */
+    uint64_t prefixes, leaves;   /* t-units subtree size + full walks (small n only) */
+} KcScanBranch;
+
+typedef struct {
+    int n;
+    int raw_enabled, t_done;
+    F1U192 *flow;                /* [n]      orbit-weighted transition mass per layer */
+    F1U192 *cls;                 /* [n*5]    ... split by distance class (RAW-exact) */
+    F1U192 *qmarg;               /* [n*32]   quotient-frame per-subset-pair marginal */
+    F1U192 *rawmarg;             /* [n*32]   RAW-frame per-GLOBAL-pair marginal */
+    F1U192 *fmass;               /* [n+1]    orbit-weighted f layer masses (#prefixes) */
+    KcScanBranch br[64];
+    int nbranch;
+    uint64_t t_root;             /* 1 + sum of branch subtrees (t-units) */
+    int gate_fails;
+} KcScanTab;
+
+static void kc_scan_free(KcScanTab *T) {
+    free(T->flow); free(T->cls); free(T->qmarg); free(T->rawmarg); free(T->fmass);
+}
+
+/* valid-prefix (t-unit) subtree counter: counts every in-path-valid placement
+ * node (dead ends included — the pruned-DFS search-tree size), leaves = full
+ * walks. Same transition rule as kc_brute_rec, no ladder involvement. */
+static void kc_h_prefix_rec(const KC *kc, int depth, uint32_t m, int last,
+                            uint32_t rid, uint64_t *nodes, uint64_t *leaves) {
+    (*nodes)++;
+    if (depth == kc->n) { (*leaves)++; return; }
+    for (int i = 0; i < kc->n; i++) {
+        if ((m >> i) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[i] : kc->c.pb[i];
+            const int exitx = o ? kc->c.pb[i] : kc->c.pa[i];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            kc_h_prefix_rec(kc, depth + 1, m | (1u << i), exitx,
+                            rid + kc->B.rad[cls], nodes, leaves);
+        }
+    }
+}
+
+/* the scan core: one pass over f layers 0..n-1 with g lookups at k+1.
+ * Returns 0 ok (gate results in T->gate_fails), -1 on IO. */
+static int kc_h_scan_core(const KC *fkc, const KC *gkc, const char *fdir,
+                          int want_raw, KcScanTab *T, int verbose) {
+    const int n = fkc->n;
+    memset(T, 0, sizeof(*T));
+    T->n = n;
+    T->raw_enabled = want_raw;
+    T->flow = (F1U192 *)calloc((size_t)n, sizeof(F1U192));
+    T->cls = (F1U192 *)calloc((size_t)n * 5, sizeof(F1U192));
+    T->qmarg = (F1U192 *)calloc((size_t)n * 32, sizeof(F1U192));
+    T->rawmarg = (F1U192 *)calloc((size_t)n * 32, sizeof(F1U192));
+    T->fmass = (F1U192 *)calloc((size_t)n + 1, sizeof(F1U192));
+    F1_CHECK(T->flow && T->cls && T->qmarg && T->rawmarg && T->fmass, "[kc-scan] alloc");
+    const F1Ctx *c = &fkc->c;
+    for (int k = 0; k < n; k++) {
+        char lpath[4400];
+        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
+        F1c5LayerStream SK, SV;
+        if (f1c5_lstream_open(lpath, &SK) != 0) return -1;
+        if (f1c5_lstream_open(lpath, &SV) != 0) { f1c5_lstream_close(&SK); return -1; }
+        const uint64_t nm = SK.nm, ne = SK.ne;
+        uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
+        uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
+        F1_CHECK(masks && off, "[kc-scan] index alloc");
+        const uint8_t *chunk;
+        uint64_t len, have;
+        for (have = 0; have < 4ull * nm; have += len) {
+            len = f1c5_lstream_next(&SK, &chunk);
+            memcpy((uint8_t *)masks + have, chunk, len);
+        }
+        for (have = 0; have < 8ull * (nm + 1); have += len) {
+            len = f1c5_lstream_next(&SK, &chunk);
+            memcpy((uint8_t *)off + have, chunk, len);
+        }
+        /* SK now sits at keys; SV must be advanced to vals */
+        for (have = 0; have < 4ull * nm + 8ull * (nm + 1) + 4ull * ne; have += len)
+            len = f1c5_lstream_next(&SV, &chunk);
+        /* per-mask orbit expansion cache (raw mode) */
+        int64_t cache_mi = -1;
+        int orb_cnt = 0, orb_size = 1;
+        uint8_t orb_qinv[24][32];    /* inverse subset-pair map per distinct image */
+        const uint32_t *kbuf = NULL;
+        const F1U192 *vbuf = NULL;
+        uint64_t kleft = 0, vleft = 0, e = 0, mi = 0;
+        while (e < ne) {
+            if (kleft == 0) {
+                len = f1c5_lstream_next(&SK, &chunk);
+                kbuf = (const uint32_t *)(const void *)chunk;
+                kleft = len / 4;
+            }
+            if (vleft == 0) {
+                len = f1c5_lstream_next(&SV, &chunk);
+                vbuf = (const F1U192 *)(const void *)chunk;
+                vleft = len / 24;
+            }
+            uint64_t take = kleft < vleft ? kleft : vleft;
+            if (take > ne - e) take = ne - e;
+            for (uint64_t i = 0; i < take; i++, e++) {
+                while (mi < nm && off[mi + 1] <= e) mi++;
+                const uint32_t cm = masks[mi];
+                const uint32_t key = kbuf[i];
+                const int lastc = (int)(key >> 16);
+                const uint32_t rid = key & 0xffffu;
+                const F1U192 fv = vbuf[i];
+                {
+                    F1U192 w0 = f1_mul_small(fv, (uint32_t)f1_orbit_size(c, cm));
+                    f1_add(&T->fmass[k], &w0);
+                }
+                if ((int64_t)mi != cache_mi) {
+                    cache_mi = (int64_t)mi;
+                    orb_size = f1_orbit_size(c, cm);
+                    orb_cnt = 0;
+                    if (want_raw) {
+                        uint32_t seen[24];
+                        for (int el2 = 0; el2 < 24; el2++) {
+                            const uint32_t mimg = f1_apply_mask(&c->el[el2], cm);
+                            int dup = 0;
+                            for (int s2 = 0; s2 < orb_cnt && !dup; s2++)
+                                if (seen[s2] == mimg) dup = 1;
+                            if (dup) continue;
+                            seen[orb_cnt] = mimg;
+                            /* the element flookup would use for this image */
+                            int gi = 0;
+                            const uint32_t cchk = f1_canon(c, mimg, &gi);
+                            F1_CHECK(cchk == cm, "[kc-scan] orbit image canon mismatch (defect)");
+                            /* inverse of iperm_{gi}: canonical q -> raw subset idx */
+                            for (int j = 0; j < n; j++)
+                                orb_qinv[orb_cnt][c->el[gi].iperm[j]] = (uint8_t)j;
+                            orb_cnt++;
+                        }
+                        F1_CHECK(orb_cnt == orb_size,
+                                 "[kc-scan] distinct mask images != orbit size (defect)");
+                    }
+                }
+                for (int q = 0; q < n; q++) {
+                    if ((cm >> q) & 1) continue;
+                    for (int o = 0; o < 2; o++) {
+                        const int entry = o ? c->pa[q] : c->pb[q];
+                        const int exitx = o ? c->pb[q] : c->pa[q];
+                        const int cls = F1C5_CLS[__builtin_popcount((unsigned)(lastc ^ entry))];
+                        if (cls < 0 || fkc->B.dig[cls][rid] >= fkc->B.b0[cls]) continue;
+                        const uint32_t rid2 = rid + fkc->B.rad[cls];
+                        const F1U192 gv = kc_flookup(gkc, k + 1, cm | (1u << q), exitx, rid2);
+                        if (f1_is_zero(&gv)) continue;
+                        const F1U192 w = kc_u192_mul(&fv, &gv);
+                        const F1U192 worb = f1_mul_small(w, (uint32_t)orb_size);
+                        f1_add(&T->flow[k], &worb);
+                        f1_add(&T->cls[k * 5 + cls], &worb);
+                        f1_add(&T->qmarg[k * 32 + q], &worb);
+                        if (want_raw)
+                            for (int s2 = 0; s2 < orb_cnt; s2++)
+                                f1_add(&T->rawmarg[k * 32 + c->pl[orb_qinv[s2][q]]], &w);
+                    }
+                }
+            }
+            kbuf += take;
+            vbuf += take;
+            kleft -= take;
+            vleft -= take;
+        }
+        f1c5_lstream_close(&SK);
+        f1c5_lstream_close(&SV);
+        free(masks);
+        free(off);
+        if (verbose) {
+            char t[64];
+            f1_dec(T->flow[k], t);
+            printf("[kc-scan] layer %02d -> %02d: transition mass %s\n", k, k + 1, t);
+        }
+    }
+    /* layer-n f mass (prefix count at full depth == #walks) */
+    {
+        char lpath[4400];
+        F1U192 raw, orb;
+        uint64_t nm2, ne2;
+        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, n);
+        if (kc_h_layer_scan(lpath, c, &raw, &orb, &nm2, &ne2) == 0)
+            T->fmass[n] = orb;
+    }
+    /* branch atlas: raw first transitions from the (G-fixed, orbit-1) root */
+    T->nbranch = 0;
+    for (int q = 0; q < n; q++) {
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? c->pa[q] : c->pb[q];
+            const int exitx = o ? c->pb[q] : c->pa[q];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(fkc->start_exit ^ entry))];
+            if (cls < 0 || fkc->B.dig[cls][0] >= fkc->B.b0[cls]) continue;
+            const F1U192 gv = kc_flookup(gkc, 1, 1u << q, exitx, fkc->B.rad[cls]);
+            if (f1_is_zero(&gv)) continue;
+            KcScanBranch *b = &T->br[T->nbranch++];
+            b->q = q;
+            b->o = o;
+            b->entry = entry;
+            b->exitx = exitx;
+            b->gpair = c->pl[q];
+            b->mass = gv;
+            b->prefixes = b->leaves = 0;
+        }
+    }
+    /* t-units per branch: feasible-at-small-n direct recursion */
+    T->t_done = 0;
+    if (fkc->total.l2 == 0 && fkc->total.l1 == 0 && fkc->total.l0 <= (1ull << 27)) {
+        T->t_root = 1;
+        for (int bi = 0; bi < T->nbranch; bi++) {
+            KcScanBranch *b = &T->br[bi];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(fkc->start_exit ^ b->entry))];
+            kc_h_prefix_rec(fkc, 1, 1u << b->q, b->exitx, fkc->B.rad[cls],
+                            &b->prefixes, &b->leaves);
+            T->t_root += b->prefixes;
+        }
+        T->t_done = 1;
+    }
+    /* fail-loud internal gates */
+    T->gate_fails = 0;
+    for (int k = 0; k < n; k++) {
+        if (!f1_eq(&T->flow[k], &fkc->total)) {
+            printf("[kc-scan] GATE FAIL: layer %02d flow != N\n", k);
+            T->gate_fails++;
+        }
+        if (want_raw) {
+            F1U192 s = {0, 0, 0};
+            for (int p = 0; p < 32; p++) f1_add(&s, &T->rawmarg[k * 32 + p]);
+            if (!f1_eq(&s, &fkc->total)) {
+                printf("[kc-scan] GATE FAIL: layer %02d raw marginal sum != N\n", k);
+                T->gate_fails++;
+            }
+        }
+    }
+    {
+        F1U192 s = {0, 0, 0};
+        for (int bi = 0; bi < T->nbranch; bi++) f1_add(&s, &T->br[bi].mass);
+        if (!f1_eq(&s, &fkc->total)) {
+            printf("[kc-scan] GATE FAIL: branch masses do not sum to N\n");
+            T->gate_fails++;
+        }
+    }
+    if (T->t_done) {
+        /* independent cross-gates: per-branch leaves == g mass; total t-units
+         * == 1 + sum over layers 1..n of the f-ladder orbit masses (both count
+         * valid prefixes — recursion vs ladder) */
+        F1U192 pf = {0, 0, 0};
+        for (int k = 1; k <= n; k++) f1_add(&pf, &T->fmass[k]);
+        F1U192 tr = {T->t_root - 1, 0, 0};
+        if (!f1_eq(&pf, &tr)) {
+            printf("[kc-scan] GATE FAIL: t-recursion prefix total != f-ladder layer masses\n");
+            T->gate_fails++;
+        }
+        for (int bi = 0; bi < T->nbranch; bi++) {
+            F1U192 lv = {T->br[bi].leaves, 0, 0};
+            if (!f1_eq(&lv, &T->br[bi].mass)) {
+                printf("[kc-scan] GATE FAIL: branch %d leaves != g mass\n", bi);
+                T->gate_fails++;
+            }
+        }
+    }
+    return 0;
+}
+
+static int kc_scan_main(int argc, char *argv[]) {
+    if (argc < 5) {
+        fprintf(stderr,
+                "Usage: solve --kc-scan FDIR GDIR OUT.json [--kc-raw] [--kc-ooc] [--kc-cache-mb MB]\n"
+                "  Atlas extractor: per-layer exact transition masses f(s)*g(s.c) —\n"
+                "  flow + distance-class split (RAW-frame exact), positional pair\n"
+                "  marginals (CANONICAL-QUOTIENT frame always; RAW frame via G-expansion\n"
+                "  when --kc-raw or n <= 13), and the top-level branch table (exact\n"
+                "  solutions per branch; valid-prefix t-units at small n, else PENDING\n"
+                "  the t-ladder). Fail-loud internal ==N gates. Exit 0/1/2.\n");
+        return 2;
+    }
+    const char *fdir = argv[2], *gdir = argv[3], *outp = argv[4];
+    int want_raw = 0, force_ooc = 0, cache_mb = 0;
+    for (int ai = 5; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
+        else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+    }
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-scan] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+             "[kc-scan] f/g ladders disagree (n or total)");
+    if (fkc->n <= 13) want_raw = 1;   /* small-n: raw frame always feasible */
+    KcScanTab T;
+    const int rc0 = kc_h_scan_core(fkc, gkc, fdir, want_raw, &T, 1);
+    int rc = 2;
+    if (rc0 == 0) {
+        FILE *f = fopen(outp, "w");
+        if (!f) {
+            fprintf(stderr, "ERROR: [kc-scan] cannot write %s\n", outp);
+        } else {
+            char t[64], esc[2048];
+            const int n = T.n;
+            fprintf(f, "{\n  \"type\": \"roae-kc-scan-atlas\",\n  \"version\": 1,\n");
+            fprintf(f, "  \"n\": %d,\n", n);
+            f1_dec(fkc->total, t);
+            fprintf(f, "  \"N_total\": \"%s\",\n", t);
+            kc_h_json_escape(fdir, esc, sizeof(esc));
+            fprintf(f, "  \"fdir\": \"%s\",\n", esc);
+            kc_h_json_escape(gdir, esc, sizeof(esc));
+            fprintf(f, "  \"gdir\": \"%s\",\n", esc);
+            fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&fkc->c));
+            fprintf(f, "  \"space\": \"C1C2C4C5-SUPERSPACE\",\n");
+            fprintf(f, "  \"frames\": {\"flow\": \"RAW-exact (distance class is G-invariant)\", "
+                    "\"marginals_quotient\": \"CANONICAL-QUOTIENT (orbit-weighted; pair labels "
+                    "are quotient-frame, NOT raw identities)\", \"marginals_raw\": \"RAW (explicit "
+                    "G-expansion)%s\"},\n", want_raw ? "" : " — NOT EMITTED (pass --kc-raw)");
+            fprintf(f, "  \"layers\": [\n");
+            for (int k = 0; k < n; k++) {
+                f1_dec(T.flow[k], t);
+                fprintf(f, "    {\"k\": %d, \"flow\": \"%s\", \"by_class\": {", k, t);
+                static const int dv[5] = {1, 2, 3, 4, 6};
+                for (int d = 0; d < 5; d++) {
+                    f1_dec(T.cls[k * 5 + d], t);
+                    fprintf(f, "%s\"d%d\": \"%s\"", d ? ", " : "", dv[d], t);
+                }
+                fprintf(f, "}, \"marginal_quotient\": {");
+                int first = 1;
+                for (int q = 0; q < n; q++) {
+                    if (f1_is_zero(&T.qmarg[k * 32 + q])) continue;
+                    f1_dec(T.qmarg[k * 32 + q], t);
+                    fprintf(f, "%s\"q%d\": \"%s\"", first ? "" : ", ", q, t);
+                    first = 0;
+                }
+                fprintf(f, "}");
+                if (want_raw) {
+                    fprintf(f, ", \"marginal_raw\": {");
+                    first = 1;
+                    for (int p = 0; p < 32; p++) {
+                        if (f1_is_zero(&T.rawmarg[k * 32 + p])) continue;
+                        f1_dec(T.rawmarg[k * 32 + p], t);
+                        fprintf(f, "%s\"pair%d\": \"%s\"", first ? "" : ", ", p, t);
+                        first = 0;
+                    }
+                    fprintf(f, "}");
+                }
+                fprintf(f, "}%s\n", k + 1 < n ? "," : "");
+            }
+            fprintf(f, "  ],\n");
+            fprintf(f, "  \"branch_atlas\": [\n");
+            for (int bi = 0; bi < T.nbranch; bi++) {
+                const KcScanBranch *b = &T.br[bi];
+                f1_dec(b->mass, t);
+                fprintf(f, "    {\"global_pair\": %d, \"entry\": %d, \"exit\": %d, "
+                        "\"solutions\": \"%s\"", b->gpair, b->entry, b->exitx, t);
+                if (T.t_done)
+                    fprintf(f, ", \"prefixes_t_units\": %llu, \"walks\": %llu",
+                            (unsigned long long)b->prefixes, (unsigned long long)b->leaves);
+                else
+                    fprintf(f, ", \"prefixes_t_units\": \"PENDING_T_LADDER(--kc-t-build; "
+                            "TR12 s8 item 4)\"");
+                fprintf(f, "}%s\n", bi + 1 < T.nbranch ? "," : "");
+            }
+            fprintf(f, "  ],\n");
+            if (T.t_done)
+                fprintf(f, "  \"t_root_t_units\": %llu,\n", (unsigned long long)T.t_root);
+            fprintf(f, "  \"t_units_note\": \"t(s) = 1 + sum_c t(s.c): pruned-DFS search-tree "
+                    "size in VALID-PREFIX units; the mapping to SOLVE_NODE_LIMIT node-counter "
+                    "semantics is the separate XA(iii) convention certificate — NOT claimed "
+                    "here\",\n");
+            fprintf(f, "  \"gates\": {\"per_layer_flow_eq_N\": %s, \"raw_marginal_sums_eq_N\": "
+                    "%s, \"branch_masses_sum_eq_N\": %s, \"fails\": %d},\n",
+                    T.gate_fails ? "\"see fails\"" : "true",
+                    want_raw ? (T.gate_fails ? "\"see fails\"" : "true") : "\"not-emitted\"",
+                    T.gate_fails ? "\"see fails\"" : "true", T.gate_fails);
+            fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
+                    GIT_HASH, SOURCE_SHA);
+            fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
+            fclose(f);
+            printf("[kc-scan] atlas written: %s\n", outp);
+            printf("[kc-scan] VERDICT: %s (%d gate failure%s)\n",
+                   T.gate_fails ? "FAIL" : "PASS", T.gate_fails,
+                   T.gate_fails == 1 ? "" : "s");
+            rc = T.gate_fails ? 1 : 0;
+        }
+    } else {
+        fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
+    }
+    kc_scan_free(&T);
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    return rc;
+}
+
+/* ---------- --kc-scan-selftest (n=9 exhaustive brute cross-check) ---------- */
+#define KC_SCAN_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-scan-selftest] %-60s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+static int kc_scan_selftest(void) {
+    int fails = 0;
+    printf("[kc-scan-selftest] atlas extractor vs exhaustive brute force (n=9)\n");
+    char dir[4096], fdir[4200], gdir[4200], outp[4300];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-scan-selftest] FAIL (no scratch dir)\n");
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    snprintf(outp, sizeof(outp), "%s/atlas.json", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-scan-selftest] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc-scan-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_SCAN_GATE("g ladder build", kc_g_build_main(gdir, 9, 0) == 0);
+
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-scan-selftest] alloc");
+    F1_CHECK(kc_open(fkc, fdir, 0, 0) == 0, "[kc-scan-selftest] f open");
+    F1_CHECK(kc_open_as(gkc, gdir, "g", 1, 0, 0) == 0, "[kc-scan-selftest] g open");
+    const int n = fkc->n;
+
+    KcScanTab T;
+    KC_SCAN_GATE("scan core runs (raw expansion ON)",
+                 kc_h_scan_core(fkc, gkc, fdir, 1, &T, 0) == 0);
+    KC_SCAN_GATE("scan internal ==N gates all PASS", T.gate_fails == 0);
+    KC_SCAN_GATE("t-units computed at n=9", T.t_done == 1);
+
+    /* brute cross-check: every table recomputed from the raw walk list */
+    KcList BR;
+    kc_brute(fkc, &BR);
+    const uint64_t N = BR.cnt;
+    uint64_t bcls[KC_MAX_PAIRS][5];
+    uint64_t braw[KC_MAX_PAIRS][32];
+    memset(bcls, 0, sizeof(bcls));
+    memset(braw, 0, sizeof(braw));
+    uint64_t bbranch[64];
+    memset(bbranch, 0, sizeof(bbranch));
+    for (uint64_t i = 0; i < N; i++) {
+        const uint8_t *E = BR.walks + i * (size_t)n;
+        int last = fkc->start_exit;
+        for (int j = 0; j < n; j++) {
+            const int q = fkc->pair_of_sub[E[j]];
+            const int entry = fkc->partner[E[j]];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            bcls[j][cls]++;
+            braw[j][fkc->c.pl[q]]++;
+            if (j == 0) {
+                /* branch id: match (global pair, exit) in the branch table */
+                for (int bi = 0; bi < T.nbranch; bi++)
+                    if (T.br[bi].gpair == fkc->c.pl[q] && T.br[bi].exitx == (int)E[j])
+                        bbranch[bi]++;
+            }
+            last = E[j];
+        }
+    }
+    {
+        int ok = 1;
+        for (int k = 0; k < n && ok; k++)
+            for (int d = 0; d < 5 && ok; d++) {
+                F1U192 b = {bcls[k][d], 0, 0};
+                ok = f1_eq(&b, &T.cls[k * 5 + d]);
+            }
+        KC_SCAN_GATE("per-layer distance-class masses == brute (all layers)", ok);
+    }
+    {
+        int ok = 1;
+        for (int k = 0; k < n && ok; k++)
+            for (int p = 0; p < 32 && ok; p++) {
+                F1U192 b = {braw[k][p], 0, 0};
+                ok = f1_eq(&b, &T.rawmarg[k * 32 + p]);
+            }
+        KC_SCAN_GATE("RAW positional marginals (G-expansion) == brute (all slots)", ok);
+    }
+    {
+        int ok = (T.nbranch > 0);
+        for (int bi = 0; bi < T.nbranch && ok; bi++) {
+            F1U192 b = {bbranch[bi], 0, 0};
+            ok = f1_eq(&b, &T.br[bi].mass) && T.br[bi].leaves == bbranch[bi];
+        }
+        KC_SCAN_GATE("branch atlas solutions == brute first-placement census", ok);
+    }
+    {
+        /* quotient marginals: column sums must equal N per layer (the label
+         * frame differs from raw, but the mass total is frame-independent) */
+        int ok = 1;
+        for (int k = 0; k < n && ok; k++) {
+            F1U192 s = {0, 0, 0};
+            for (int q = 0; q < 32; q++) f1_add(&s, &T.qmarg[k * 32 + q]);
+            ok = f1_eq(&s, &fkc->total);
+        }
+        KC_SCAN_GATE("quotient marginal column sums == N (all layers)", ok);
+    }
+    /* run the full subcommand end-to-end (JSON emission + gates) */
+    {
+        char *argvv[6];
+        argvv[0] = (char *)"solve";
+        argvv[1] = (char *)"--kc-scan";
+        argvv[2] = fdir;
+        argvv[3] = gdir;
+        argvv[4] = outp;
+        argvv[5] = (char *)"--kc-raw";
+        KC_SCAN_GATE("--kc-scan end-to-end (JSON written, gates PASS)",
+                     kc_scan_main(6, argvv) == 0);
+        FILE *f = fopen(outp, "r");
+        static char buf[1 << 20];
+        size_t got = f ? fread(buf, 1, sizeof(buf) - 1, f) : 0;
+        if (f) fclose(f);
+        buf[got] = '\0';
+        char v[80];
+        KC_SCAN_GATE("atlas JSON spot-check (N_total field)",
+                     kc_h_field(buf, "N_total", v, sizeof(v)) == 0 &&
+                     strcmp(v, "26112") == 0);
+    }
+    free(BR.walks);
+    free(BR.cds);
+    kc_scan_free(&T);
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    kc_h_rm_rf(dir);
+    printf("[kc-scan-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
+/* ===================== AR-2 — --kc-ar2 (emission-witness battery) ===================== */
+
+/* core battery against an OPEN ladder pair; returns #failures.
+ * witness leg: rank3(w) -> unrank3 byte-identical + bracket + trace flow
+ * identities; exhaustive leg (total <= 2^22): unrank3(i) for ALL i equals the
+ * independently sorted brute enumeration (the emission side of AR-2). */
+static int kc_h_ar2_run(KC *fkc, KC *gkc, const uint8_t *W, int have_walk,
+                        int quiet) {
+    int fails = 0;
+    KcO3 o3;
+    kc_o3_ctx_init(&o3, fkc, gkc);
+    const int n = fkc->n;
+#define KC_AR2_CK(name, cond) do { int ok_ = (cond); \
+        if (!quiet) printf("[kc-ar2] %-62s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+        if (!ok_) fails++; } while (0)
+    if (have_walk) {
+        F1U192 r;
+        uint64_t mk = 0, oidx = 0;
+        int tok = 0;
+        const int rank_ok = kc_o3_rank(&o3, (const uint8_t *)W, &r, &mk, &oidx, 0, &tok) == 0;
+        KC_AR2_CK("witness: walk ranks (valid member)", rank_ok);
+        if (rank_ok) {
+            if (!quiet) {
+                char t[64];
+                f1_dec(r, t);
+                printf("[kc-ar2] witness rank3 = %s (m=%llu orient_idx=%llu)\n", t,
+                       (unsigned long long)mk, (unsigned long long)oidx);
+            }
+            KC_AR2_CK("witness: trace flow identities + product(p)==1/N", tok);
+            uint8_t E2[KC_MAX_PAIRS];
+            KC_AR2_CK("witness: unrank3(rank3(w)) EMITS w byte-identically",
+                      kc_o3_unrank(&o3, r, E2, NULL, NULL) == 0 &&
+                      memcmp(E2, W, (size_t)n) == 0);
+            KC_AR2_CK("witness: neighbor-bracket certificate",
+                      kc_o3_bracket(&o3, &r, quiet ? 0 : 1) == 0);
+        }
+    }
+    if (fkc->total.l2 == 0 && fkc->total.l1 == 0 && fkc->total.l0 <= (1ull << 22)) {
+        const uint64_t N = fkc->total.l0;
+        KcList BR;
+        kc_brute(fkc, &BR);
+        int ok = (BR.cnt == N);
+        const size_t rl = 3u * (size_t)n;
+        uint8_t *rows = (uint8_t *)malloc(rl * (BR.cnt ? BR.cnt : 1));
+        F1_CHECK(rows != NULL, "[kc-ar2] sort alloc");
+        for (uint64_t i = 0; i < BR.cnt; i++) {
+            const uint8_t *E = BR.walks + i * (size_t)n;
+            uint8_t *row = rows + i * rl;
+            for (int j = 0; j < n; j++) {
+                const int pj = fkc->pair_of_sub[E[j]];
+                row[j] = (uint8_t)fkc->c.pl[pj];
+                row[n + j] = (uint8_t)(E[j] == fkc->c.pa[pj] ? 1 : 0);
+            }
+            memcpy(row + 2 * n, E, (size_t)n);
+        }
+        kc_g_rowlen = rl;
+        qsort(rows, BR.cnt, rl, kc_g_row_cmp);
+        uint8_t E2[KC_MAX_PAIRS];
+        for (uint64_t i = 0; i < N && ok; i++) {
+            F1U192 r = {i, 0, 0};
+            if (kc_o3_unrank(&o3, r, E2, NULL, NULL) != 0 ||
+                memcmp(E2, rows + i * rl + 2 * n, (size_t)n) != 0) ok = 0;
+        }
+        {
+            F1U192 rN = {N, 0, 0};
+            ok = ok && kc_o3_unrank(&o3, rN, E2, NULL, NULL) != 0;
+        }
+        KC_AR2_CK("EXHAUSTIVE: unrank3 emission == sorted brute list (all walks)", ok);
+        free(rows);
+        free(BR.walks);
+        free(BR.cds);
+    } else if (!quiet) {
+        printf("[kc-ar2] exhaustive leg SKIPPED (space too large; witness leg only)\n");
+    }
+#undef KC_AR2_CK
+    kc_o3_ctx_free(&o3);
+    return fails;
+}
+
+static int kc_ar2_main(const char *fdir, const char *gdir, const char *arg,
+                       int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-ar2] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    uint8_t W[KC_MAX_PAIRS];
+    int have_walk = 0;
+    if (arg) {
+        if (kc_h_resolve_walk(fkc, arg, W) != 0) {
+            fprintf(stderr, "ERROR: [kc-ar2] cannot resolve witness walk\n");
+            kc_free(fkc); kc_free(gkc); free(fkc); free(gkc);
+            return 2;
+        }
+        have_walk = 1;
+    } else if (fkc->n == 31) {
+        F1_CHECK(kc_h_kw_walk(fkc, W) == 0, "[kc-ar2] built-in KW walk failed");
+        have_walk = 1;
+        printf("[kc-ar2] witness = built-in KW walk\n");
+    }
+    const int fails = kc_h_ar2_run(fkc, gkc, W, have_walk, 0);
+    printf("[kc-ar2] VERDICT: %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
+           fails, fails == 1 ? "" : "s");
+    printf("#provenance\tengine=solve.c/kc-ar2\tbranch=v4-compiler\tgit=%s\tsource_sha=%s\t"
+           "n=%d\torder=O3\tobject=WALK\tspace=C1C2C4C5-SUPERSPACE\t"
+           "certificate-not-proof\n", GIT_HASH, SOURCE_SHA, fkc->n);
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    return fails ? 1 : 0;
+}
+
+/* ---------- --kc-ar2-selftest (n=9 exhaustive + n=13 spot) ---------- */
+#define KC_AR2_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-ar2-selftest] %-60s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+static int kc_ar2_selftest(void) {
+    int fails = 0;
+    printf("[kc-ar2-selftest] AR-2 emission-witness battery (n=9 exhaustive; n=13 spot)\n");
+    /* n=9: in-memory f+g; exhaustive emission + witness legs */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-ar2-selftest] alloc");
+        F1_CHECK(kc_init(fkc, 9) == 0 && kc_init(gkc, 9) == 0, "[kc-ar2-selftest] init");
+        kc_build(fkc, 0);
+        kc_g_build_mem(gkc, 0);
+        /* witness = the REL-order rank-0 walk (any member works) */
+        uint8_t W[KC_MAX_PAIRS];
+        F1U192 r0 = {0, 0, 0};
+        F1_CHECK(kc_unrank(fkc, r0, W) == 0, "[kc-ar2-selftest] witness unrank");
+        KC_AR2_GATE("n=9 battery (witness + EXHAUSTIVE emission)",
+                    kc_h_ar2_run(fkc, gkc, W, 1, 1) == 0);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+    /* n=13 spot: witness legs on seeded walks (exhaustive leg auto-skips) */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        KC *gkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc && gkc, "[kc-ar2-selftest] alloc");
+        F1_CHECK(kc_init(fkc, 13) == 0 && kc_init(gkc, 13) == 0, "[kc-ar2-selftest] init");
+        kc_build(fkc, 0);
+        kc_g_build_mem(gkc, 0);
+        KC_AR2_GATE("n=13 count anchor (2,063,395,607,040)",
+                    fkc->total.l2 == 0 && fkc->total.l1 == 0 &&
+                    fkc->total.l0 == 2063395607040ull &&
+                    f1_eq(&fkc->total, &gkc->total));
+        int ok = 1;
+        uint64_t seed = 0xa2b47ull;
+        for (int s = 0; s < 6 && ok; s++) {
+            uint8_t W[KC_MAX_PAIRS];
+            F1U192 r;
+            kc_rand_rank(fkc, &seed, &r);
+            F1_CHECK(kc_unrank(fkc, r, W) == 0, "[kc-ar2-selftest] n=13 unrank");
+            ok = kc_h_ar2_run(fkc, gkc, W, 1, 1) == 0;
+        }
+        KC_AR2_GATE("n=13 witness battery on 6 seeded walks", ok);
+        kc_free(fkc);
+        kc_free(gkc);
+        free(fkc);
+        free(gkc);
+    }
+    printf("[kc-ar2-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
 typedef struct { const KC *kc; uint64_t limit, done; } KcEnumUd;
 static int kc_enum_print_cb(void *ud, const uint8_t *E) {
     KcEnumUd *u = (KcEnumUd *)ud;
@@ -20755,6 +23960,38 @@ static int kc_cli(int argc, char *argv[]) {
                 gcache = atoi(argv[++ai]);
         }
         return kc_g_check_main(argv[2], argv[3], gfooc, gcache);
+    }
+
+    /* H-tier verifier bundle (KC-H module above; charter §4, TR12 §8) */
+    if (strcmp(cmd, "--kc-oracle-selftest") == 0) return kc_oracle_selftest();
+    if (strcmp(cmd, "--kc-oracle") == 0) return kc_oracle_main(argc, argv);
+    if (strcmp(cmd, "--kc-ladder-selftest") == 0) return kc_ladder_selftest();
+    if (strcmp(cmd, "--kc-ladder-verify") == 0) return kc_ladder_verify_main(argc, argv);
+    if (strcmp(cmd, "--kc-cert-selftest") == 0) return kc_cert_selftest();
+    if (strcmp(cmd, "--kc-scan-selftest") == 0) return kc_scan_selftest();
+    if (strcmp(cmd, "--kc-scan") == 0) return kc_scan_main(argc, argv);
+    if (strcmp(cmd, "--kc-ar2-selftest") == 0) return kc_ar2_selftest();
+    if (strcmp(cmd, "--kc-o3-cert") == 0 || strcmp(cmd, "--kc-ar2") == 0) {
+        const int is_cert = strcmp(cmd, "--kc-o3-cert") == 0;
+        if (argc < (is_cert ? 5 : 4)) {
+            fprintf(stderr, "Usage: solve %s FDIR GDIR %s[--kc-cert-out FILE] "
+                    "[--kc-ooc] [--kc-cache-mb MB]\n"
+                    "  %s (KC-H module header above for semantics).\n",
+                    cmd, is_cert ? "\"e,x,...\"|KW " : "[\"e,x,...\"|KW] ",
+                    is_cert ? "H3b rank-certificate emitter (SUPERSPACE walk rank)"
+                            : "AR-2 emission-witness battery");
+            return 2;
+        }
+        int hooc = 0, hcache = 0;
+        const char *cert_out = NULL, *warg = NULL;
+        for (int ai = 4; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-ooc") == 0) hooc = 1;
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) hcache = atoi(argv[++ai]);
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai];
+        }
+        if (argc > 4 && argv[4][0] != '-') warg = argv[4];
+        if (is_cert) return kc_o3_cert_main(argv[2], argv[3], argv[4], cert_out, hooc, hcache);
+        return kc_ar2_main(argv[2], argv[3], warg, hooc, hcache);
     }
 
     /* common option scan. C3 SCOPE (review C-3, freeze §3.2): c3max defaults
@@ -23034,6 +26271,17 @@ int main(int argc, char *argv[]) {
          * and credits. Sha-neutral (argv-dispatched, never on the
          * enumeration path). */
         return kc_cli(argc, argv);
+    } else if (argc > 1 && strcmp(argv[1], "--check-arrangement") == 0) {
+        /* H3a / CAP-2: first-principles C1..C5 verdict for an explicit
+         * 64-hexagram arrangement (KC-H module header; sha-neutral,
+         * argv-dispatched, independent reimplementation of the checks). */
+        return kc_check_arrangement_main(argc, argv);
+    } else if (argc > 1 && strcmp(argv[1], "--check-arrangement-selftest") == 0) {
+        return kc_check_arrangement_selftest();
+    } else if (argc > 1 && strcmp(argv[1], "--verify-certificate") == 0) {
+        /* H6: one-command certificate re-verifier + mutation battery
+         * (KC-H module header; sha-neutral, argv-dispatched). */
+        return kc_verify_certificate_main(argc, argv);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
