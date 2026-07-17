@@ -14448,6 +14448,179 @@ static void f1c5_v2out_resume(F1C5V2Out *o, const char *ofin, int level,
     }
 }
 
+/* ============================================================================
+ * f1c5 progress sidecar (sha-neutral observability)
+ * See roae-private/F1C5_PROGRESS_OBSERVABILITY.md §2.
+ * Emits <run_dir>/f1c5_progress.json, refreshed ~every 5 s, ATOMICALLY (write a
+ * .tmp then rename, so a reader never sees a torn write). PURE observability: it
+ * only reads state the DP already tracks and writes a side file — it NEVER
+ * touches the count, the canonical layer bytes, or control flow, so it is
+ * sha-neutral. Default-ON whenever a run dir exists; disable with
+ * SOLVE_F1_PROGRESS_JSON=0. All I/O is best-effort — a failed emit is silently
+ * skipped and never aborts the run.
+ * ==========================================================================*/
+#define F1C5_PROG_MAXL 33
+typedef struct {
+    int    enabled;
+    char   dir[3900];
+    /* run params */
+    int    n, ooc, v2_gz, keep_layers, total_layers;
+    /* current layer / phase */
+    int    current_layer;
+    const char *phase;
+    char   cumulative_count[96];   /* running partial |C1&C2&C4&C5| (decimal) */
+    /* layer-in-progress */
+    double layer_started_wt;       /* omp_get_wtime() at layer start */
+    char   layer_started_utc[40];
+    uint64_t masks_target, masks_done, entries_done, bin_bytes_written;
+    /* completed[] table */
+    int    ncompleted;
+    struct { int k; unsigned long long masks, entries, bin_bytes;
+             double count_s, write_s; } completed[F1C5_PROG_MAXL];
+    /* resumes */
+    int    resumes_count;
+    char   last_resume_utc[40];
+    unsigned long long last_restart_chunk;
+    /* throttle */
+    double last_emit_wt;
+} F1C5Prog;
+static F1C5Prog g_f1c5_prog;   /* zero-init; .enabled gates everything */
+
+static void f1c5_prog_utc(char *buf, size_t n) {
+    time_t t = time(NULL);
+    struct tm g;
+    gmtime_r(&t, &g);
+    strftime(buf, n, "%Y-%m-%dT%H:%M:%SZ", &g);
+}
+
+/* Initialize the sidecar for a run. dir==NULL (no run dir) => disabled. */
+static void f1c5_prog_init(const char *dir, int n, int ooc, int v2_gz,
+                           int keep_layers, int total_layers) {
+    memset(&g_f1c5_prog, 0, sizeof(g_f1c5_prog));
+    const char *e = getenv("SOLVE_F1_PROGRESS_JSON");
+    if (!dir || (e && atoi(e) == 0)) { g_f1c5_prog.enabled = 0; return; }
+    g_f1c5_prog.enabled = 1;
+    snprintf(g_f1c5_prog.dir, sizeof(g_f1c5_prog.dir), "%s", dir);
+    g_f1c5_prog.n = n;
+    g_f1c5_prog.ooc = ooc;
+    g_f1c5_prog.v2_gz = v2_gz;
+    g_f1c5_prog.keep_layers = keep_layers;
+    g_f1c5_prog.total_layers = total_layers;
+    g_f1c5_prog.phase = "starting";
+    g_f1c5_prog.last_emit_wt = -1e30;   /* force first emit */
+}
+
+/* Atomic best-effort emit, throttled to ~5 s unless force!=0. */
+static void f1c5_prog_emit(int force) {
+    F1C5Prog *p = &g_f1c5_prog;
+    if (!p->enabled) return;
+    double now = omp_get_wtime();
+    if (!force && now - p->last_emit_wt < 5.0) return;
+    p->last_emit_wt = now;
+    char tmp[8192], fin[8192];
+    snprintf(fin, sizeof(fin), "%s/f1c5_progress.json", p->dir);
+    snprintf(tmp, sizeof(tmp), "%s/f1c5_progress.json.tmp", p->dir);
+    FILE *f = fopen(tmp, "w");
+    if (!f) return;   /* best-effort; never abort the run on observability I/O */
+    char utc[40];
+    f1c5_prog_utc(utc, sizeof(utc));
+    double elapsed = now - p->layer_started_wt;
+    if (elapsed < 0) elapsed = 0;
+    double crate = elapsed > 0 ? (double)p->masks_done / elapsed : 0.0;
+    double wrate = elapsed > 0 ? (double)p->bin_bytes_written / elapsed : 0.0;
+    double mfrac = p->masks_target ? (double)p->masks_done / (double)p->masks_target : 0.0;
+    double eta   = crate > 0 && p->masks_target > p->masks_done
+                 ? (double)(p->masks_target - p->masks_done) / crate : 0.0;
+    /* bin_bytes_target: project total entries from the mask fraction, then
+     * ~8.1 bytes/entry (F1C5_PROGRESS_OBSERVABILITY.md k18-k20 calibration).
+     * This is the field that closes the write-target gap (the k19 miss). */
+    double proj_entries = mfrac > 0 ? (double)p->entries_done / mfrac : 0.0;
+    double bin_bytes_target = proj_entries * 8.1;
+    double bfrac = bin_bytes_target > 0 ? (double)p->bin_bytes_written / bin_bytes_target : 0.0;
+    fprintf(f, "{\n");
+    fprintf(f, "  \"schema_version\": 1,\n");
+    fprintf(f, "  \"updated_utc\": \"%s\",\n", utc);
+    fprintf(f, "  \"run_params\": {\"n\": %d, \"ooc\": %s, \"v2_gz\": %d, \"keep_layers\": %s},\n",
+            p->n, p->ooc ? "true" : "false", p->v2_gz, p->keep_layers ? "true" : "false");
+    fprintf(f, "  \"total_layers\": %d,\n", p->total_layers);
+    fprintf(f, "  \"current_layer\": %d,\n", p->current_layer);
+    fprintf(f, "  \"phase\": \"%s\",\n", p->phase ? p->phase : "counting");
+    fprintf(f, "  \"cumulative_count\": \"%s\",\n",
+            p->cumulative_count[0] ? p->cumulative_count : "0");
+    fprintf(f, "  \"layer\": {\n");
+    fprintf(f, "    \"k\": %d,\n", p->current_layer);
+    fprintf(f, "    \"layer_started_utc\": \"%s\",\n", p->layer_started_utc);
+    fprintf(f, "    \"masks_target\": %llu,\n", (unsigned long long)p->masks_target);
+    fprintf(f, "    \"masks_done\": %llu,\n", (unsigned long long)p->masks_done);
+    fprintf(f, "    \"masks_frac\": %.6f,\n", mfrac);
+    fprintf(f, "    \"entries_done\": %llu,\n", (unsigned long long)p->entries_done);
+    fprintf(f, "    \"bin_bytes_target\": %.0f,\n", bin_bytes_target);
+    fprintf(f, "    \"bin_bytes_written\": %llu,\n", (unsigned long long)p->bin_bytes_written);
+    fprintf(f, "    \"bin_frac\": %.6f,\n", bfrac);
+    fprintf(f, "    \"count_rate_masks_per_s\": %.3f,\n", crate);
+    fprintf(f, "    \"write_rate_bytes_per_s\": %.1f,\n", wrate);
+    fprintf(f, "    \"eta_layer_seconds\": %.1f\n", eta);
+    fprintf(f, "  },\n");
+    fprintf(f, "  \"completed\": [");
+    for (int i = 0; i < p->ncompleted; i++)
+        fprintf(f, "%s\n    {\"k\": %d, \"masks\": %llu, \"entries\": %llu, "
+                "\"bin_bytes\": %llu, \"count_seconds\": %.2f, \"write_seconds\": %.2f}",
+                i ? "," : "", p->completed[i].k, p->completed[i].masks,
+                p->completed[i].entries, p->completed[i].bin_bytes,
+                p->completed[i].count_s, p->completed[i].write_s);
+    fprintf(f, "%s],\n", p->ncompleted ? "\n  " : "");
+    fprintf(f, "  \"resumes\": {\"count\": %d, \"last_resume_utc\": \"%s\", "
+            "\"last_restart_chunk\": %llu}\n",
+            p->resumes_count, p->last_resume_utc, p->last_restart_chunk);
+    fprintf(f, "}\n");
+    if (fclose(f) != 0) { unlink(tmp); return; }
+    rename(tmp, fin);   /* atomic swap — reader sees old or new, never torn */
+}
+
+/* Record a resume (DP-driver level: resumed from a complete layer). */
+static void f1c5_prog_note_resume(void) {
+    if (!g_f1c5_prog.enabled) return;
+    g_f1c5_prog.resumes_count++;
+    f1c5_prog_utc(g_f1c5_prog.last_resume_utc, sizeof(g_f1c5_prog.last_resume_utc));
+}
+
+/* Start-of-layer bookkeeping. */
+static void f1c5_prog_layer_begin(int k, uint64_t masks_target) {
+    if (!g_f1c5_prog.enabled) return;
+    g_f1c5_prog.current_layer = k;
+    g_f1c5_prog.masks_target = masks_target;
+    g_f1c5_prog.masks_done = 0;
+    g_f1c5_prog.entries_done = 0;
+    g_f1c5_prog.bin_bytes_written = 0;
+    g_f1c5_prog.phase = "counting";
+    g_f1c5_prog.layer_started_wt = omp_get_wtime();
+    f1c5_prog_utc(g_f1c5_prog.layer_started_utc, sizeof(g_f1c5_prog.layer_started_utc));
+    f1c5_prog_emit(1);
+}
+
+/* End-of-layer: append to completed[] and mark phase. cum = running count. */
+static void f1c5_prog_layer_end(int k, uint64_t masks, uint64_t entries,
+                                uint64_t bin_bytes, double count_s, double write_s,
+                                const char *cum) {
+    if (!g_f1c5_prog.enabled) return;
+    if (g_f1c5_prog.ncompleted < F1C5_PROG_MAXL) {
+        int i = g_f1c5_prog.ncompleted++;
+        g_f1c5_prog.completed[i].k = k;
+        g_f1c5_prog.completed[i].masks = (unsigned long long)masks;
+        g_f1c5_prog.completed[i].entries = (unsigned long long)entries;
+        g_f1c5_prog.completed[i].bin_bytes = (unsigned long long)bin_bytes;
+        g_f1c5_prog.completed[i].count_s = count_s;
+        g_f1c5_prog.completed[i].write_s = write_s;
+    }
+    g_f1c5_prog.masks_done = masks;
+    g_f1c5_prog.entries_done = entries;
+    g_f1c5_prog.bin_bytes_written = bin_bytes;
+    if (cum && *cum)
+        snprintf(g_f1c5_prog.cumulative_count, sizeof(g_f1c5_prog.cumulative_count), "%s", cum);
+    g_f1c5_prog.phase = "layer_complete";
+    f1c5_prog_emit(1);
+}
+
 /* Build layer k+1 (nxt: masks/nm enumerated, off allocated by the caller) by
  * streaming layer k (= cur; index in RAM, entries on disk) — and stream the
  * RESULT to disk as well: on return the layer file is complete and atomically
@@ -14516,6 +14689,11 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         if (have_ckpt) {
             f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
             resume_t0 = ckpt.t0_next;
+            if (g_f1c5_prog.enabled) {   /* observability: intra-layer resume */
+                g_f1c5_prog.last_restart_chunk = resume_t0;
+                g_f1c5_prog.phase = "resuming";
+                f1c5_prog_note_resume();
+            }
             fprintf(stderr, "[f1c5-ooc] RESUME intra-layer checkpoint: layer k=%d "
                     "restart at chunk t0=%llu (%llu/%llu masks done, %llu blocks + "
                     "%llu partial committed)\n",
@@ -14738,7 +14916,16 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                 }
             }
         }
+        /* observability (sha-neutral): publish within-layer progress at the chunk
+         * boundary — masks/entries done + bytes streamed so far. Throttled ~5 s. */
+        if (g_f1c5_prog.enabled) {
+            g_f1c5_prog.masks_done = t0 + tc;
+            g_f1c5_prog.entries_done = nxt->off[t0 + tc];
+            g_f1c5_prog.bin_bytes_written = io->bytes_written;
+            f1c5_prog_emit(0);
+        }
     }
+    if (g_f1c5_prog.enabled) g_f1c5_prog.phase = "finalizing_write";
     nxt->ne = nxt->off[nxt->nm];
     /* finalize: hdr+masks+off up front. v1 relocates vals from the sidecar
      * tail-first (peak ~1x layer); v2 appends the compressed-block sidecars. */
@@ -14813,6 +15000,33 @@ static const struct { int n; const char *spec; } f1c5_unions[] = {
     { 28, "3.0,3.1,4.0,6.0,6.1,6.2@0" },
 };
 
+/* ---------- stream-to-cold hook (sha-neutral operational hook) ----------
+ * If SOLVE_F1_STREAM_COLD_CMD is set, run it on an about-to-be-deleted finalized
+ * layer file BEFORE the rolling-window unlink — so a layer can be streamed to
+ * cold storage as the DP advances without keeping the whole ladder on local disk
+ * (contrast SOLVE_F1_KEEP_LAYERS, which keeps ALL layers). The command is invoked
+ * as `<cmd> <layer_path> <k>`; its exit status is logged but NON-FATAL (the DP
+ * continues and the local delete proceeds either way). Purely off the arithmetic
+ * path — it neither reads nor writes the count or the canonical layer bytes, so
+ * it is sha-neutral. Fires only when the rolling window would delete the layer
+ * (i.e. default behavior, not under KEEP_LAYERS). Note: the final two layers of
+ * a run are never deleted by the window, so an operator wanting a complete cold
+ * copy grabs those two directly at the end. */
+static void f1c5_stream_cold_hook(const char *dir, int k_old) {
+    const char *cmd = getenv("SOLVE_F1_STREAM_COLD_CMD");
+    if (!cmd || !*cmd || !dir || k_old < 0) return;
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, k_old);
+    if (access(path, F_OK) != 0) return;   /* nothing on disk to stream */
+    char buf[4200];
+    snprintf(buf, sizeof(buf), "%s %s %d", cmd, path, k_old);
+    fprintf(stderr, "[f1c5] STREAM-COLD: layer k=%d -> `%s`\n", k_old, buf);
+    int rc = system(buf);
+    if (rc != 0)
+        fprintf(stderr, "[f1c5] STREAM-COLD WARNING: hook exit=%d for layer k=%d "
+                "(operational hook; DP continues, local delete proceeds)\n", rc, k_old);
+}
+
 /* ---------- driver ---------- */
 /* ooc_dir (#221): out-of-core mode — layer files (same format as layers_dir)
  * live in ooc_dir and the gather streams them; at most one layer in RAM.
@@ -14842,10 +15056,11 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
       if (e && (strcmp(e, "v1") == 0 || strcmp(e, "1") == 0)) use_v2 = 0; }
     /* v4-compiler (2026-07-14): SOLVE_F1_KEEP_LAYERS=1 retains EVERY layer file
      * 0..n instead of rolling the two-layer window — the preserve-all-layers
-     * substrate for the --kc-* knowledge-compiler query tool. Count and layer
-     * bytes are unchanged (the flag only suppresses the k-2 unlink); disk peak
-     * becomes the FULL ladder (full-31: ~2.5-2.7 TB v2-gz — plan a 4 TB disk),
-     * not the ~1x-largest-layer transient. Env-gated, sha-neutral. */
+     * substrate for the --kc-* knowledge-compiler query tool (and a
+     * stream-to-cold archival source). Count and layer bytes are unchanged (the
+     * flag only suppresses the k-2 unlink); disk peak becomes the FULL ladder
+     * (full-31: ~2.5-2.7 TB v2-gz — plan a 4 TB disk), not the
+     * ~1x-largest-layer transient. Env-gated, sha-neutral. */
     int keep_layers = 0;
     { const char *e = getenv("SOLVE_F1_KEEP_LAYERS");
       if (e && atoi(e) != 0) keep_layers = 1; }
@@ -14925,6 +15140,9 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     { const char *e = getenv("SOLVE_F1_TEST_LAYER_DELAY_MS");
       if (e && *e) delay_ms = atoi(e); }
 
+    /* sha-neutral progress sidecar (observability only) */
+    f1c5_prog_init(dir, n, ooc, use_v2 ? gzip_level : 0, keep_layers, n);
+
     int T = omp_get_max_threads();
     fprintf(stderr, "[f1c5] run: %s n=%d pairs [", full31 ? "FULL-31" : "SUBSET", n);
     for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
@@ -14962,6 +15180,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         int rk = f1c5_try_resume(dir, c, &B, &cur, ooc, &resumed_is_v2);
         if (rk >= 0) {
             k0 = rk;
+            f1c5_prog_note_resume();   /* observability: record the resume */
             /* ADOPT the on-disk format so a dropped/wrong SOLVE_F1_OOC_FORMAT env on a
              * relaunch can NEVER reinterpret existing bytes as the other format (Fable
              * review Finding 1 — was a silent-wrong-count path). */
@@ -15018,6 +15237,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         memset(&nxt, 0, sizeof(nxt));
         nxt.k = k + 1;
         f1_enum_canonical(c, k + 1, &nxt.masks, &nxt.nm);
+        f1c5_prog_layer_begin(k + 1, nxt.nm);   /* observability: layer target known */
         nxt.off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt.nm + 1));
         F1_CHECK(nxt.off != NULL, "offset alloc failed (layer %d)", k + 1);
         const int vk1 = vcnt[k + 1];
@@ -15030,8 +15250,10 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         F1U192 ooc_mass = {0, 0, 0};
         uint64_t ooc_states = 0;
         if (ooc) {
-            if (k >= 1 && !keep_layers) {   /* resume needs only layer k; drop k-1 BEFORE
-                             * k+1 grows on disk (halves the transient disk peak) */
+            if (k >= 1 && !keep_layers) {   /* resume needs only layer k; drop k-1
+                             * BEFORE k+1 grows on disk (halves the transient disk
+                             * peak). SOLVE_F1_KEEP_LAYERS=1 suppresses the drop. */
+                f1c5_stream_cold_hook(dir, k - 1);   /* archival hook: copy out BEFORE delete */
                 char old[4096];
                 snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
                 unlink(old);
@@ -15093,8 +15315,10 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             if (!ooc)   /* ooc: the builder already wrote + renamed the layer file */
                 f1c5_write_layer(dir, c, &B, &nxt);
             f1c5_write_manifest(dir, c, &B, k + 1);
-            if (!ooc && k >= 1 && !keep_layers) {   /* keep k and k+1; drop k-1
-                                                     * (ooc drops it pre-build) */
+            if (!ooc && k >= 1 && !keep_layers) {   /* keep k and k+1; drop k-1 (ooc
+                                                     * drops it pre-build). KEEP_LAYERS
+                                                     * suppresses the drop. */
+                f1c5_stream_cold_hook(dir, k - 1);   /* archival hook: copy out BEFORE delete */
                 char old[4096];
                 snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
                 unlink(old);
@@ -15130,6 +15354,12 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                     io.sec_write > 0 ? (double)io.bytes_written / 1e6 / io.sec_write : 0.0,
                     (unsigned long long)io.windows, rss_cur, rss_peak);
         }
+        /* observability: record the completed layer (count_s = build wall for ooc /
+         * count+fill for in-RAM; write_s = measured write seconds; mdec = running
+         * partial |C1&C2&C4&C5|). Pure side-channel, sha-neutral. */
+        f1c5_prog_layer_end(k + 1, nxt.nm, nxt.ne, io.bytes_written,
+                            ooc ? (t2 - t1) : (t2 - t1) + (t3 - t2),
+                            io.sec_write, mdec);
         f1c5_layer_free(&cur);
         cur = nxt;   /* ooc: keys/vals are NULL — entries live on disk only */
         if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
@@ -15187,6 +15417,12 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                  "total = 0 but B0 is achievable by construction — DP defect");
         char tdec[64];
         f1_dec(total, tdec);
+        /* observability: final total known -> mark done + publish flagship count */
+        if (g_f1c5_prog.enabled) {
+            snprintf(g_f1c5_prog.cumulative_count, sizeof(g_f1c5_prog.cumulative_count), "%s", tdec);
+            g_f1c5_prog.phase = "done";
+            f1c5_prog_emit(1);
+        }
         if (ooc) {
             double rss_cur, rss_peak;
             f1_rss_mb(&rss_cur, &rss_peak);
