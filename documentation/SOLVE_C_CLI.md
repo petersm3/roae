@@ -956,7 +956,29 @@ canonical-quotient frame, the top-16 heaviest/lightest states with
 identities, numerical-headroom telemetry (peak u192 magnitude vs the 192-bit
 overflow guard), and a **decompressed-stream sha256 hash chain** (own layer +
 input layer, same digest as `--f1c5-layer-sha`) making the ladder
-self-authenticating. Builds emit these sidecars automatically at every layer
+self-authenticating.
+
+**Schema v2 (2026-07-18, future-proofing for the full-31 t-ladder)** adds:
+a `channels` self-description array (channel name + unit string — the format
+hook for future multi-channel co-scheduled runs); a rolling `chain_sha256`
+(`sha256(chain_prev_hex || own_sha_hex)`, genesis = `sha256(own_sha_hex)`) so
+any single sidecar pins its whole lineage; `full_entries` — the complete
+(mask, last, rid, value) dump for layers with ≤ 4096 entries (branch roots and
+genesis layers; lets the Exhaustion Atlas assemble from sidecars alone);
+`orbit_size_census` (mask-count and entry-count per G-orbit size — the
+quotient-frame/raw-frame expansion record); runtime provenance (`threads`,
+`gzip_level`, `rss_peak_mb`, `utc_epoch`, `host_fingerprint`, and on the
+out-of-core build paths `build_wall_s` per layer); for g/t layers built
+out-of-core, `x_input_sha256` — the f-layer own-sha whose mask domain the
+layer rode (cross-ladder provenance); and two sanitized env passthroughs,
+`SOLVE_SIDECAR_CONVENTION_CERT` (e.g. the t-unit node-convention certificate
+sha) and `SOLVE_SIDECAR_PROVENANCE` (free-form launcher note), recorded as
+`convention_cert` / `provenance_note` when set. All scalar/provenance keys
+stay in the JSON head (first 8 KB, the head-key reader contract); the large
+arrays are tail-emitted. v1 keys and their formats are unchanged;
+`--kc-ladder-verify` cross-checks are key-scoped and pass on both versions.
+Known boundary unchanged: cd (C3) is not part of the DP state, so C3-value
+distributions remain non-retrofittable re-runs by design. Builds emit these sidecars automatically at every layer
 commit (the Stage-F f-build, Stage-G g-build and Stage-T t-build, in-memory
 and out-of-core; `SOLVE_F1_LAYER_SIDECARS=0` disables); this subcommand retrofits
 ladders built before the feature or with the gate off. Emission is structurally

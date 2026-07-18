@@ -14320,6 +14320,81 @@ static int f1c5_sidecar_read_own_sha(const char *path, char hex[65]) {
     return 0;
 }
 
+/* Generic head-key reader for sidecar JSON. CONTRACT: the requested key must
+ * live in the first 8 KB of the file (all scalar/provenance keys are emitted
+ * in the head; only the large arrays live in the tail). Returns 0 on hit. */
+static int f1c5_sidecar_read_field(const char *path, const char *key,
+                                   char *out, size_t cap) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char buf[8192];
+    size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    buf[got] = '\0';
+    char pat[128];
+    snprintf(pat, sizeof(pat), "\"%s\": \"", key);
+    const char *p = strstr(buf, pat);
+    if (!p) return -1;
+    p += strlen(pat);
+    size_t i = 0;
+    while (i + 1 < cap && p[i] && p[i] != '"') { out[i] = p[i]; i++; }
+    if (p[i] != '"') return -1;
+    out[i] = '\0';
+    return 0;
+}
+
+/* sha256 of a short string via the external tool (host-fingerprint pattern).
+ * Used for the rolling chain digest: chain_k = sha256(chain_prev || own_sha_k).
+ * Non-fatal: "unavailable" on any failure. */
+static void f1c5_sha_of_string(const char *s, char out_hex[65]) {
+    strcpy(out_hex, "unavailable");
+    const char *tool = sha256_tool();
+    if (!tool) return;
+    char tmp_in[96];
+    snprintf(tmp_in, sizeof(tmp_in), "/tmp/solve_chain_in_%d", (int)getpid());
+    FILE *tf = fopen(tmp_in, "w");
+    if (!tf) return;
+    fputs(s, tf);
+    if (fclose(tf) != 0) { unlink(tmp_in); return; }
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", tool, tmp_in);
+    FILE *p = popen(cmd, "r");
+    if (!p) { unlink(tmp_in); return; }
+    char buf[256] = {0};
+    const char *ok = fgets(buf, sizeof(buf), p);
+    pclose(p);
+    unlink(tmp_in);
+    if (!ok) return;
+    int good = 1;
+    for (int i = 0; i < 64; i++)
+        if (!((buf[i] >= '0' && buf[i] <= '9') || (buf[i] >= 'a' && buf[i] <= 'f')))
+            { good = 0; break; }
+    if (good) { memcpy(out_hex, buf, 64); out_hex[64] = '\0'; }
+}
+
+/* Optional per-layer extras handed to the sidecar writer by the builders
+ * (schema v2 future-proofing, 2026-07-18): build wall seconds and, for the
+ * g/t backward ladders, the sha of the f-layer whose mask domain the layer
+ * rode (x_input_sha256 — cross-ladder provenance). Reset after each emit. */
+static struct {
+    double build_wall_s;      /* < 0 = unset */
+    char xinput_sha[80];      /* "" = unset */
+} f1c5_sidecar_x = { -1.0, "" };
+
+/* Env passthroughs recorded verbatim into the sidecar when set + sanitized
+ * (charset guard doubles as JSON-injection protection):
+ *   SOLVE_SIDECAR_CONVENTION_CERT  e.g. the node-convention cert sha
+ *   SOLVE_SIDECAR_PROVENANCE      free-form launcher note */
+static int f1c5_sidecar_env_ok(const char *s) {
+    for (; *s; s++) {
+        const char c = *s;
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || strchr("-_ .:,/=+()", c)))
+            return 0;
+    }
+    return 1;
+}
+
 #define F1C5_SIDECAR_WARN(...) do { \
     fprintf(stderr, "WARN: [sidecar] " __VA_ARGS__); \
     fprintf(stderr, "\n"); \
@@ -14334,6 +14409,13 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     /* g and t are both backward ladders: hash-chain input = layer k+1 */
     const int is_g = ((pfx[0] == 'g' || pfx[0] == 't') && pfx[1] == '\0');
     const int kind = (pfx[0] == 't' && pfx[1] == '\0') ? 2 : (is_g ? 1 : 0);
+    /* (v2) capture-and-reset builder extras AT ENTRY so an early return can
+     * never leak one layer's wall time / x-input into the next layer's sidecar */
+    const double x_wall = f1c5_sidecar_x.build_wall_s;
+    char x_input[80];
+    snprintf(x_input, sizeof(x_input), "%s", f1c5_sidecar_x.xinput_sha);
+    f1c5_sidecar_x.build_wall_s = -1.0;
+    f1c5_sidecar_x.xinput_sha[0] = '\0';
     char lpath[4300], jfin[4300], jtmp[4310];
     snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
     snprintf(jfin, sizeof(jfin), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
@@ -14368,6 +14450,28 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
             snprintf(input_sha, sizeof(input_sha), "unavailable");
         }
     }
+    /* (v2) rolling chain digest: chain_k = sha256(chain_input || own_sha_k);
+     * genesis chain = sha256(own_sha). A single sidecar thereby pins the whole
+     * lineage (the per-link input_sha chain remains the verifier's primary). */
+    char chain_sha[80];
+    {
+        char concat[160];
+        if (genesis) {
+            snprintf(concat, sizeof(concat), "%s", own_sha);
+            f1c5_sha_of_string(concat, chain_sha);
+        } else {
+            char ijson[4300], prev_chain[80];
+            snprintf(ijson, sizeof(ijson), "%s/%s_layer_stats_%02d.json", dir, pfx, input_k);
+            if (f1c5_sidecar_read_field(ijson, "chain_sha256", prev_chain,
+                                        sizeof(prev_chain)) == 0 &&
+                strlen(prev_chain) == 64) {
+                snprintf(concat, sizeof(concat), "%s%s", prev_chain, own_sha);
+                f1c5_sha_of_string(concat, chain_sha);
+            } else {
+                snprintf(chain_sha, sizeof(chain_sha), "unavailable");
+            }
+        }
+    }
     /* stats pass: two lockstep logical streams over the same file — SK
      * yields masks/off/keys (buffering masks+off), SV is advanced into the
      * vals section, entries joined key[i]<->val[i] in stream order. */
@@ -14389,9 +14493,15 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     F1U192 *marg_rid = (F1U192 *)calloc(R, sizeof(F1U192));
     uint64_t *vh = (uint64_t *)calloc(192, sizeof(uint64_t));
     uint64_t *bh = (uint64_t *)calloc(64, sizeof(uint64_t));
+    /* (v2) full-entry dump for small layers (branch roots / genesis): lets the
+     * Exhaustion Atlas assemble from sidecars alone. Deep layers skip (cap). */
+    enum { F1C5_FULL_ENTRIES_CAP = 4096 };
+    F1c5TopState *fullent = (ne <= F1C5_FULL_ENTRIES_CAP && ne > 0)
+        ? (F1c5TopState *)malloc(sizeof(F1c5TopState) * ne) : NULL;
     if (!masks || !off || !marg_last || !marg_rid || !vh || !bh) {
         F1C5_SIDECAR_WARN("stats alloc failed for %s", lpath);
         free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
+        free(fullent);
         f1c5_lstream_close(&SK); f1c5_lstream_close(&SV);
         return;
     }
@@ -14473,6 +14583,14 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
             /* (3) top-K extremes */
             f1c5_top_insert(heavy, &nheavy, 16, 1, v, (uint32_t)mi, masks[mi], last, rid);
             f1c5_top_insert(light, &nlight, 16, 0, v, (uint32_t)mi, masks[mi], last, rid);
+            /* (v2) full-entry capture for small layers */
+            if (fullent) {
+                fullent[e].v = *v;
+                fullent[e].mask_idx = (uint32_t)mi;
+                fullent[e].mask = masks[mi];
+                fullent[e].last = (uint16_t)last;
+                fullent[e].rid = (uint16_t)rid;
+            }
         }
         kbuf += take;
         vbuf += take;
@@ -14481,11 +14599,21 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     }
     f1c5_lstream_close(&SK);
     f1c5_lstream_close(&SV);
-    /* entries-per-mask from the offset table */
+    /* entries-per-mask from the offset table + (v2) orbit-size census
+     * (mask-count and entry-count per G-orbit size — the quotient-frame /
+     * raw-frame expansion record) */
     uint64_t epm_min = UINT64_MAX, epm_max = 0, n_empty = 0, eph[65];
+    uint64_t osz_masks[49], osz_entries[49];
     memset(eph, 0, sizeof(eph));
+    memset(osz_masks, 0, sizeof(osz_masks));
+    memset(osz_entries, 0, sizeof(osz_entries));
     for (uint64_t i = 0; i < nm; i++) {
         const uint64_t cnt = off[i + 1] - off[i];
+        const int osz = f1_orbit_size(c, masks[i]);
+        if (osz >= 1 && osz <= 48) {
+            osz_masks[osz]++;
+            osz_entries[osz] += cnt;
+        }
         if (cnt == 0) { n_empty++; continue; }
         if (cnt < epm_min) epm_min = cnt;
         if (cnt > epm_max) epm_max = cnt;
@@ -14501,7 +14629,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     }
     {
         char dec[64];
-        fprintf(jf, "{\n  \"sidecar\": \"f1c5_layer_stats_v1\",\n");
+        fprintf(jf, "{\n  \"sidecar\": \"f1c5_layer_stats_v2\",\n");
         fprintf(jf, "  \"kind\": \"%s\",\n  \"layer_file\": \"%s_layer_%02d.bin\",\n",
                 f1c5_kind_name(kind), pfx, k);
         fprintf(jf, "  \"n\": %d,\n  \"k\": %d,\n  \"start_exit\": %d,\n",
@@ -14517,6 +14645,39 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         f1_dec(mass, dec);
         fprintf(jf, "  \"mass_total\": \"%s\",\n", dec);
         fprintf(jf, "  \"frame\": \"canonical-quotient(orbit-unweighted;G-equivariant)\",\n");
+        /* ---- v2 head fields (schema v2, 2026-07-18): all scalar/provenance
+         * keys stay in the head (first 8 KB) per the read_field contract ---- */
+        fprintf(jf, "  \"channels\": [{\"name\": \"%s\", \"unit\": \"%s\"}],\n", pfx,
+                kind == 2 ? "t-units: pruned-subtree size incl. self (valid prefixes; canonical-quotient)"
+              : kind == 1 ? "completion-count (canonical-quotient)"
+                          : "prefix-mass (canonical-quotient)");
+        fprintf(jf, "  \"chain_sha256\": \"%s\",\n", chain_sha);
+        if (x_input[0])
+            fprintf(jf, "  \"x_input_sha256\": \"%s\",\n", x_input);
+        if (x_wall >= 0.0)
+            fprintf(jf, "  \"build_wall_s\": %.3f,\n", x_wall);
+        {
+            double rss_cur = 0.0, rss_peak = 0.0;
+            f1_rss_mb(&rss_cur, &rss_peak);
+            fprintf(jf, "  \"threads\": %d,\n  \"gzip_level\": %d,\n"
+                    "  \"rss_peak_mb\": %.1f,\n  \"utc_epoch\": %lld,\n",
+                    omp_get_max_threads(), f1c5_ooc_gzip_level(),
+                    rss_peak, (long long)time(NULL));
+        }
+        {
+            static char hfp[65] = "";
+            if (!hfp[0]) (void)compute_host_fingerprint(hfp);
+            fprintf(jf, "  \"host_fingerprint\": \"%s\",\n", hfp);
+        }
+        {
+            const char *cc = getenv("SOLVE_SIDECAR_CONVENTION_CERT");
+            if (cc && *cc && strlen(cc) < 160 && f1c5_sidecar_env_ok(cc))
+                fprintf(jf, "  \"convention_cert\": \"%s\",\n", cc);
+            const char *pn = getenv("SOLVE_SIDECAR_PROVENANCE");
+            if (pn && *pn && strlen(pn) < 400 && f1c5_sidecar_env_ok(pn))
+                fprintf(jf, "  \"provenance_note\": \"%s\",\n", pn);
+        }
+        /* ---- end v2 head fields ---- */
         fprintf(jf, "  \"headroom\": {\"peak_value_bits\": %d, \"guard_bits\": 192, "
                 "\"headroom_bits\": %d},\n", peak_bits, 192 - peak_bits);
         fprintf(jf, "  \"value_hist_log2\": [");
@@ -14575,8 +14736,31 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
                 fprintf(jf, "%s{\"mask\": %u, \"last\": %u, \"rid\": %u, \"value\": \"%s\"}",
                         i ? "," : "", arr[i].mask, arr[i].last, arr[i].rid, dec);
             }
-            fprintf(jf, "]%s\n", side ? "" : ",");
+            fprintf(jf, "],\n");
         }
+        /* ---- v2 tail arrays (largest last; head keys stay in the first 8 KB) */
+        if (fullent) {
+            fprintf(jf, "  \"full_entries\": [");
+            for (uint64_t i = 0; i < ne; i++) {
+                f1_dec(fullent[i].v, dec);
+                fprintf(jf, "%s{\"mask\": %u, \"last\": %u, \"rid\": %u, \"value\": \"%s\"}",
+                        i ? "," : "", fullent[i].mask, fullent[i].last,
+                        fullent[i].rid, dec);
+            }
+            fprintf(jf, "],\n");
+        }
+        fprintf(jf, "  \"orbit_size_census\": [");
+        {
+            int first2 = 1;
+            for (int s2 = 1; s2 <= 48; s2++)
+                if (osz_masks[s2]) {
+                    fprintf(jf, "%s[%d,%llu,%llu]", first2 ? "" : ",", s2,
+                            (unsigned long long)osz_masks[s2],
+                            (unsigned long long)osz_entries[s2]);
+                    first2 = 0;
+                }
+        }
+        fprintf(jf, "]\n");
         fprintf(jf, "}\n");
     }
     if (fflush(jf) != 0 || fsync(fileno(jf)) != 0) {
@@ -14600,6 +14784,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
             genesis ? "genesis" : (input_sha[0] == 'u' ? "UNAVAILABLE" : "linked"));
 out:
     free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
+    free(fullent);
 }
 
 static void f1c5_sidecar_emit(const char *dir, const char *pfx,
@@ -15934,8 +16119,12 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             /* #221: single streaming pass over layer k's file; counts, emission,
              * stats AND the (atomic) layer-file write happen chunk-by-chunk
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
-            f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
-                                 &ooc_mass, &ooc_states, use_v2, gzip_level);
+            {
+                const double _sw0 = omp_get_wtime();
+                f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
+                                     &ooc_mass, &ooc_states, use_v2, gzip_level);
+                f1c5_sidecar_x.build_wall_s = omp_get_wtime() - _sw0;
+            }
             f1c5_sidecar_emit(dir, "f1c5", c, &B, nxt.k);   /* catalog sidecar (non-fatal) */
             t2 = omp_get_wtime();
         } else {
@@ -19385,6 +19574,23 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
         kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, pfx, kind, fdom, &cur, &nxt,
                              kc->vloc[k], kc->vcnt[k], kc->vlist[k],
                              cfg, &io, &mass, &states, use_v2, gzip_level);
+        /* (v2 sidecar extras) per-layer build wall + x-input: the f-layer whose
+         * mask domain this t layer rode (from the f catalog's own sidecar) */
+        f1c5_sidecar_x.build_wall_s = omp_get_wtime() - t0;
+        if (fdom && fdom->ooc) {
+            const char *fp = fdom->ooc->L[k].path;
+            const char *slash = strrchr(fp, '/');
+            if (slash) {
+                char fjson[4400], fsha[80];
+                snprintf(fjson, sizeof(fjson), "%.*s/f1c5_layer_stats_%02d.json",
+                         (int)(slash - fp), fp, k);
+                if (f1c5_sidecar_read_field(fjson, "own_sha256_decompressed",
+                                            fsha, sizeof(fsha)) == 0 &&
+                    strlen(fsha) == 64)
+                    snprintf(f1c5_sidecar_x.xinput_sha,
+                             sizeof(f1c5_sidecar_x.xinput_sha), "f:%s", fsha);
+            }
+        }
         f1c5_sidecar_emit(gdir, pfx, &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
         f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, k);
         if (verbose) {
