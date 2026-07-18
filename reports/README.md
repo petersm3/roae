@@ -13,7 +13,7 @@ record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_
 | # | Report | One-line claim | Verification core |
 |---|---|---|---|
 | [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) | Eight Centuries, Measured | The literature's rules at population scale: forced / typical / discriminating; the grand precursor; the conflict | the flagship; all modalities |
-| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules are jointly unsatisfiable; KW's anomalies are a forced trade-off; within the three graded rules, a pre-registered Bayes factor favored corruption over soft tendency — that Bayes verdict is UNDER REVIEW (v1.10): its pre-registered N_gs stop-flag fired | SAT + DRAT certs + pre-registered BF |
+| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules are jointly unsatisfiable; KW's anomalies are a forced trade-off; within the three graded rules, a pre-registered Bayes factor favored corruption over soft tendency — its pre-registered N_gs stop-flag fired (v1.10) and is RESOLVED (v1.12): verdict re-affirmed on a stronger direct measurement | SAT + DRAT certs + pre-registered BF |
 | [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) | Reproducible Enumeration at Scale | 10.5B records, twice byte-identical across two independent runs (5 + 7 = 12 Spot evictions total) at ~15% cost | sha registry + gates |
 | [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | 1.3287×10³⁸ orderings; uniqueness conjecture false; slice-unique boundaries admit ~10²⁶ | validated estimator |
 | [TR-5](TR5_SYMMETRY.md) | Symmetry | Order-48 group; free action (every solution has exactly 23 twins); a published negative corrected | proof + Lean + tree isomorphism |
