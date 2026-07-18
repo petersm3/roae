@@ -13260,6 +13260,25 @@ typedef struct {
     uint32_t pad;
 } F1C5LayerHdr;
 
+/* Ladder-kind -> magic map (Stage T, 2026-07-17): kind 0 = f ("F1C5LAY*"),
+ * 1 = g ("F1C5GLY*"), 2 = t ("F1C5TLY*"). g and t are both BACKWARD ladders
+ * (built n..0, manifest last_complete_k counts DOWN, total at layer 0), so
+ * every direction test below keeps its historical `is_g` truthiness — that
+ * parameter now carries the KIND (the t ladder passes 2, still truthy) and
+ * only the magic selection consults this table. The t ladder gets NEW magic
+ * rather than reusing GLY so t and g layer files can never be confused by
+ * any reader — the same reasoning that separated GLY from LAY. */
+static const char *f1c5_kind_magic(int kind, int v2) {
+    static const char *M[3][2] = {{"F1C5LAY1", "F1C5LAY2"},
+                                  {"F1C5GLY1", "F1C5GLY2"},
+                                  {"F1C5TLY1", "F1C5TLY2"}};
+    F1_CHECK(kind >= 0 && kind <= 2, "bad ladder kind %d", kind);
+    return M[kind][v2 ? 1 : 0];
+}
+static const char *f1c5_kind_name(int kind) {
+    return kind == 2 ? "t" : (kind ? "g" : "f");
+}
+
 /* Prefix/magic-parameterized v1 layer writer (Stage G, 2026-07-16): the g
  * suffix-DP ladder shares this exact serialization with "g_layer_%02d.bin"
  * file names and "F1C5GLY1" magic, so f- and g-layer files can never be
@@ -13380,8 +13399,8 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
     if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
     int hb0_ok = 1;
     for (int d = 0; d < 5; d++) if (h.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
-    int is_v2 = (memcmp(h.magic, is_g ? "F1C5GLY2" : "F1C5LAY2", 8) == 0 && h.version == 2);
-    int is_v1 = (memcmp(h.magic, is_g ? "F1C5GLY1" : "F1C5LAY1", 8) == 0 && h.version == 1);
+    int is_v2 = (memcmp(h.magic, f1c5_kind_magic(is_g, 1), 8) == 0 && h.version == 2);
+    int is_v1 = (memcmp(h.magic, f1c5_kind_magic(is_g, 0), 8) == 0 && h.version == 1);
     F1_CHECK((is_v1 || is_v2) &&
              h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
              h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c) && hb0_ok,
@@ -13855,9 +13874,10 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
  *
  * i.e. byte-identical to the F1C5LAY1 (v1 raw) body and to what
  * f1c5_verify_layer compares. Stage-G g-ladder layers (F1C5GLY1/2 magic,
- * g_layer_NN.bin) share the identical binary format and are accepted by both
- * subcommands (operator g-ladder directive, 2026-07-17); the printed line
- * carries kind=f|g. v2 blocks are inflated IN ORDER through
+ * g_layer_NN.bin) and Stage-T t-ladder layers (F1C5TLY1/2, t_layer_NN.bin)
+ * share the identical binary format and are accepted by both subcommands
+ * (operator g-ladder directive, 2026-07-17; t added with the t-ladder); the
+ * printed line carries kind=f|g|t. v2 blocks are inflated IN ORDER through
  * f1c5_inflate_block — the same core codec helper every engine v2 read path
  * uses (f1c5_v2_read_range, the kc OOC block cache, f1c5_verify_layer) — so
  * the digest covers precisely what the engine reads and is immune to zlib
@@ -13885,7 +13905,7 @@ typedef struct {
     const char *path;
     F1C5LayerHdr h;
     int is_v2;
-    int is_g;                  /* g (suffix-DP) ladder layer: F1C5GLY1/2 magic */
+    int kind;                  /* 0 f (F1C5LAY*), 1 g (F1C5GLY*), 2 t (F1C5TLY*) */
     uint64_t nm, ne, nblk;     /* nblk = v2 entry blocks (0 for v1) */
     uint64_t *kidx, *vidx;     /* v2 only: per-block compressed offsets */
     int section;               /* 0 masks, 1 off, 2 keys, 3 vals, 4 EOF */
@@ -13915,16 +13935,20 @@ static int f1c5_lstream_open(const char *path, F1c5LayerStream *S) {
         fprintf(stderr, "ERROR: %s: short read on layer header\n", path);
         f1c5_lstream_close(S); return -1;
     }
-    /* f (F1C5LAY*) and g (F1C5GLY*, Stage G) layers share one binary format —
-     * only the magic differs — so the logical-stream digest/compare machinery
-     * serves both ladders (operator g-ladder directive, 2026-07-17). */
+    /* f (F1C5LAY*), g (F1C5GLY*, Stage G) and t (F1C5TLY*, Stage T) layers
+     * share one binary format — only the magic differs — so the logical-
+     * stream digest/compare machinery serves all three ladders (operator
+     * g-ladder directive, 2026-07-17; t added with the t-ladder). */
     S->is_v2 = ((memcmp(S->h.magic, "F1C5LAY2", 8) == 0 ||
-                 memcmp(S->h.magic, "F1C5GLY2", 8) == 0) && S->h.version == 2);
+                 memcmp(S->h.magic, "F1C5GLY2", 8) == 0 ||
+                 memcmp(S->h.magic, "F1C5TLY2", 8) == 0) && S->h.version == 2);
     int is_v1 = ((memcmp(S->h.magic, "F1C5LAY1", 8) == 0 ||
-                  memcmp(S->h.magic, "F1C5GLY1", 8) == 0) && S->h.version == 1);
-    S->is_g = (memcmp(S->h.magic, "F1C5GLY", 7) == 0);
+                  memcmp(S->h.magic, "F1C5GLY1", 8) == 0 ||
+                  memcmp(S->h.magic, "F1C5TLY1", 8) == 0) && S->h.version == 1);
+    S->kind = (memcmp(S->h.magic, "F1C5GLY", 7) == 0) ? 1
+            : (memcmp(S->h.magic, "F1C5TLY", 7) == 0) ? 2 : 0;
     if (!S->is_v2 && !is_v1) {
-        fprintf(stderr, "ERROR: %s is not an f1c5/g layer file (magic/version mismatch)\n", path);
+        fprintf(stderr, "ERROR: %s is not an f1c5/g/t layer file (magic/version mismatch)\n", path);
         f1c5_lstream_close(S); return -1;
     }
     S->nm = S->h.n_masks;
@@ -14057,7 +14081,7 @@ static const char *f1c5_lstream_locate(const F1c5LayerStream *S, uint64_t off, u
  * IDENTICAL digest the registry tool prints (2026-07-17). */
 static int f1c5_layer_sha_hex(const char *path, char hex[65],
                               uint64_t *blocks_out, uint64_t *bytes_out,
-                              int *is_g_out) {
+                              int *kind_out) {
     F1c5LayerStream S;
     if (f1c5_lstream_open(path, &S) != 0) return 2;
     const char *tool = sha256_tool();   /* caller checked availability */
@@ -14105,7 +14129,7 @@ static int f1c5_layer_sha_hex(const char *path, char hex[65],
     }
     if (blocks_out) *blocks_out = S.blocks;
     if (bytes_out) *bytes_out = S.logical;
-    if (is_g_out) *is_g_out = S.is_g;
+    if (kind_out) *kind_out = S.kind;
     f1c5_lstream_close(&S);
     return 0;
 }
@@ -14114,10 +14138,10 @@ static int f1c5_layer_sha_hex(const char *path, char hex[65],
 static int f1c5_layer_sha_file(const char *path) {
     char hex[65];
     uint64_t blocks = 0, bytes = 0;
-    int is_g = 0;
-    if (f1c5_layer_sha_hex(path, hex, &blocks, &bytes, &is_g) != 0) return 2;
+    int kind = 0;
+    if (f1c5_layer_sha_hex(path, hex, &blocks, &bytes, &kind) != 0) return 2;
     printf("sha256(decompressed) %s  %s  (kind=%s, blocks=%llu, bytes=%llu)\n",
-           hex, path, is_g ? "g" : "f",
+           hex, path, f1c5_kind_name(kind),
            (unsigned long long)blocks, (unsigned long long)bytes);
     return 0;
 }
@@ -14130,9 +14154,9 @@ static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
     F1c5LayerStream A, B;
     if (f1c5_lstream_open(pa, &A) != 0) return 2;
     if (f1c5_lstream_open(pb, &B) != 0) { f1c5_lstream_close(&A); return 2; }
-    if (A.is_g != B.is_g)
+    if (A.kind != B.kind)
         fprintf(stderr, "WARN: comparing an %s layer against a %s layer (kinds differ) — "
-                "streams are compared anyway\n", A.is_g ? "g" : "f", B.is_g ? "g" : "f");
+                "streams are compared anyway\n", f1c5_kind_name(A.kind), f1c5_kind_name(B.kind));
     if (A.nm != B.nm || A.ne != B.ne)
         fprintf(stderr, "WARN: header geometry differs (nm %llu/%llu, ne %llu/%llu) — "
                 "streams cannot match; locating first byte divergence\n",
@@ -14307,7 +14331,9 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
                                    const F1Ctx *c, const F1C5Budget *B,
                                    int k, int force) {
     if (!force && !f1c5_sidecars_enabled()) return;
-    const int is_g = (pfx[0] == 'g' && pfx[1] == '\0');
+    /* g and t are both backward ladders: hash-chain input = layer k+1 */
+    const int is_g = ((pfx[0] == 'g' || pfx[0] == 't') && pfx[1] == '\0');
+    const int kind = (pfx[0] == 't' && pfx[1] == '\0') ? 2 : (is_g ? 1 : 0);
     char lpath[4300], jfin[4300], jtmp[4310];
     snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
     snprintf(jfin, sizeof(jfin), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
@@ -14477,7 +14503,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         char dec[64];
         fprintf(jf, "{\n  \"sidecar\": \"f1c5_layer_stats_v1\",\n");
         fprintf(jf, "  \"kind\": \"%s\",\n  \"layer_file\": \"%s_layer_%02d.bin\",\n",
-                is_g ? "g" : "f", pfx, k);
+                f1c5_kind_name(kind), pfx, k);
         fprintf(jf, "  \"n\": %d,\n  \"k\": %d,\n  \"start_exit\": %d,\n",
                 c->n, k, c->start_exit);
         fprintf(jf, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(c));
@@ -14585,11 +14611,12 @@ static void f1c5_sidecar_emit(const char *dir, const char *pfx,
  * layer in DIR, in chain order (f ascending, g descending), from the
  * manifest's context. Returns 0 ok, 2 on error. */
 static int f1c5_sidecar_retrofit_dir(const char *dir) {
-    static const struct { const char *pfx; int is_g; } kinds[2] = {{"f1c5", 0}, {"g", 1}};
+    static const struct { const char *pfx; int is_g; } kinds[3] =
+        {{"f1c5", 0}, {"g", 1}, {"t", 1}};   /* is_g = backward chain order (g AND t) */
     int any = 0, rc = 0;
     f1_binom_init();
     f1_build_group();
-    for (int ki = 0; ki < 2; ki++) {
+    for (int ki = 0; ki < 3; ki++) {
         const char *pfx = kinds[ki].pfx;
         const int is_g = kinds[ki].is_g;
         char path[4300], expect1[64], line[2048];
@@ -14637,7 +14664,7 @@ static int f1c5_sidecar_retrofit_dir(const char *dir) {
         any = 1;
     }
     if (!any && rc == 0) {
-        fprintf(stderr, "ERROR: [sidecar] no f1c5/g manifest found in %s\n", dir);
+        fprintf(stderr, "ERROR: [sidecar] no f1c5/g/t manifest found in %s\n", dir);
         rc = 2;
     }
     return rc;
@@ -16178,6 +16205,19 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       inverse; --kc-bracket emits the
  *                                       r-1/r/r+1 neighbor certificate
  *
+ *   Stage-T t-ladder (KC-T module header below; TR12 §8 item 4 / XA;
+ *   sha-neutral, never inside --selftest):
+ *   --kc-t-build FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]
+ *                                       build + retain the t (pruned-DFS
+ *                                       search-tree size) ladder on the f
+ *                                       ladder's exact state space
+ *   --kc-t-check FDIR TDIR [...]        the f*t node identity at every layer
+ *   --kc-t-cert OUT.json                XA(iii)/W0-D node-convention
+ *                                       certificate (n=9 exhaustive vs the
+ *                                       brute DFS; n=13 spot totals)
+ *   --kc-t-selftest                     n=9 exhaustive + n=13 spot t gates
+ *   (--kc-scan consumes the ladder via --kc-tdir TDIR: exact prefixes(b))
+ *
  *   H-tier verifier bundle (KC-H module header below for full semantics;
  *   charter V4_CANONICAL_CHARTER_2026_07_17 §4, TR12 §8; all sha-neutral,
  *   never inside --selftest):
@@ -16790,7 +16830,7 @@ static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
     fclose(f);
     if (!hdr_ok) {
         fprintf(stderr, "ERROR: [kc] %s is not a %s ladder manifest (first line != %s)\n",
-                path, is_g ? "g (suffix-DP)" : "f1c5", expect1);
+                path, f1c5_kind_name(is_g), expect1);
         return -1;
     }
     if (n < 1 || n > KC_MEM_MAX_PAIRS || npl != n || start_exit < 0 ||
@@ -16811,9 +16851,9 @@ static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
         if (!lf) { fprintf(stderr, "ERROR: [kc] missing layer file %s\n", path); return -1; }
         F1C5LayerHdr h;
         if (fread(&h, sizeof(h), 1, lf) != 1) f1_ckpt_io_abort("fread hdr", path);
-        F1_CHECK(memcmp(h.magic, is_g ? "F1C5GLY1" : "F1C5LAY1", 8) == 0 && h.version == 1,
+        F1_CHECK(memcmp(h.magic, f1c5_kind_magic(is_g, 0), 8) == 0 && h.version == 1,
                  "[kc] %s: not a v1 %s layer (kc reads the --kc-build/--layers-dir v1 format)",
-                 path, is_g ? "g" : "f1c5");
+                 path, f1c5_kind_name(is_g));
         F1_CHECK((int)h.n == n && (int)h.k == k && (int)h.start_exit == start_exit &&
                  h.pl_hash == f1_pl_hash(&kc->c), "[kc] %s: header/ctx mismatch", path);
         for (int d = 0; d < 5; d++)
@@ -17027,7 +17067,7 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
     fclose(f);
     if (!hdr_ok) {
         fprintf(stderr, "ERROR: [kc-ooc] %s is not a %s ladder manifest (first line != %s)\n",
-                path, is_g ? "g (suffix-DP)" : "f1c5", expect1);
+                path, f1c5_kind_name(is_g), expect1);
         return -1;
     }
     if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 ||
@@ -17035,7 +17075,8 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
         fprintf(stderr, "ERROR: [kc-ooc] manifest in %s unusable (n=%d npl=%d "
                 "last_complete_k=%d; kc needs ALL layers 0..n retained — "
                 "build with %s)\n", dir, n, npl, last_k,
-                is_g ? "--kc-g-build" : "--kc-build or SOLVE_F1_KEEP_LAYERS=1");
+                is_g == 2 ? "--kc-t-build"
+                          : (is_g ? "--kc-g-build" : "--kc-build or SOLVE_F1_KEEP_LAYERS=1"));
         return -1;
     }
     kc->n = n;
@@ -17059,10 +17100,10 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
         F1C5LayerHdr h;
         ssize_t got = pread(L->fd, &h, sizeof(h), 0);
         F1_CHECK(got == (ssize_t)sizeof(h), "[kc-ooc] %s: short header read", L->path);
-        int is_v1 = (memcmp(h.magic, is_g ? "F1C5GLY1" : "F1C5LAY1", 8) == 0 && h.version == 1);
-        int is_v2 = (memcmp(h.magic, is_g ? "F1C5GLY2" : "F1C5LAY2", 8) == 0 && h.version == 2);
-        F1_CHECK(is_v1 || is_v2, "[kc-ooc] %s: not a%s layer file", L->path,
-                 is_g ? " g (suffix-DP)" : "n f1c5");
+        int is_v1 = (memcmp(h.magic, f1c5_kind_magic(is_g, 0), 8) == 0 && h.version == 1);
+        int is_v2 = (memcmp(h.magic, f1c5_kind_magic(is_g, 1), 8) == 0 && h.version == 2);
+        F1_CHECK(is_v1 || is_v2, "[kc-ooc] %s: not a %s-ladder layer file", L->path,
+                 f1c5_kind_name(is_g));
         F1_CHECK((int)h.n == n && (int)h.k == k && (int)h.start_exit == start_exit &&
                  h.pl_hash == f1_pl_hash(&kc->c), "[kc-ooc] %s: header/ctx mismatch", L->path);
         for (int d = 0; d < 5; d++)
@@ -17171,7 +17212,7 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
     }
     fprintf(stderr, "[kc-ooc] opened %s: n=%d layers=0..%d kind=%s format=%s index=%.1f MB "
             "cache=%d MB (%d blocks of %u entries)\n",
-            dir, n, n, is_g ? "g" : "f", n_v2 == 0 ? "v1" : (n_v2 == n + 1 ? "v2" : "mixed"),
+            dir, n, n, f1c5_kind_name(is_g), n_v2 == 0 ? "v1" : (n_v2 == n + 1 ? "v2" : "mixed"),
             idx_bytes / 1e6, cache_mb, nslot, (unsigned)F1C5_OOC_BLK);
     return 0;
 }
@@ -17203,7 +17244,7 @@ static int kc_open_as(KC *kc, const char *dir, const char *pfx, int is_g,
             if (!lf) break;
             char magic[8];
             if (fread(magic, 1, 8, lf) == 8 &&
-                memcmp(magic, is_g ? "F1C5GLY2" : "F1C5LAY2", 8) == 0) any_v2 = 1;
+                memcmp(magic, f1c5_kind_magic(is_g, 1), 8) == 0) any_v2 = 1;
             fclose(lf);
         }
     }
@@ -18867,27 +18908,83 @@ static int kc_g_identity(KC *fkc, KC *gkc, const F1U192 *expect, int verbose) {
     return fails;
 }
 
+/* ---------- Stage-T f-domain accessors (t-ladder support; KC-T module below) ----------
+ * The t (search-tree-size) ladder is built ON the f ladder's stored state
+ * space: every t layer inherits the f layer's geometry (masks/off/keys)
+ * byte-identically — a dead-end valid prefix (g = 0, never stored by a pure
+ * backward gather) is still a search-tree node and MUST be stored with
+ * t = 1. These accessors serve the f geometry whether the f ladder is open
+ * in-memory or out-of-core (block cache). */
+static uint64_t kc_t_f_nm(KC *f, int k) {
+    return f->ooc ? f->ooc->L[k].nm : f->L[k].nm;
+}
+static const uint32_t *kc_t_f_masks(KC *f, int k) {
+    return f->ooc ? f->ooc->L[k].masks : f->L[k].masks;
+}
+static uint64_t kc_t_f_off(KC *f, int k, uint64_t i) {
+    return f->ooc ? f->ooc->L[k].off[i] : f->L[k].off[i];
+}
+static uint32_t kc_t_f_key(KC *f, int k, uint64_t e) {
+    return f->ooc ? kc_ooc_key_at(f->ooc, k, e) : f->L[k].keys[e];
+}
+
+/* t seed layer n: the f layer-n geometry with every value = 1 (a full walk is
+ * one leaf node; the sum invariant forces rid == rid_full there, checked). */
+static void kc_t_seed_from_f(KC *fdom, F1C5Layer *T) {
+    const int n = fdom->n;
+    memset(T, 0, sizeof(*T));
+    T->k = n;
+    T->nm = kc_t_f_nm(fdom, n);
+    T->ne = kc_t_f_off(fdom, n, T->nm);
+    F1_CHECK(T->nm == 1 && kc_t_f_masks(fdom, n)[0] == ((n == 32) ? 0xffffffffu : ((1u << n) - 1u)),
+             "[kc-t] f final layer must be the full mask");
+    T->masks = (uint32_t *)malloc(sizeof(uint32_t));
+    T->off = (uint64_t *)malloc(2 * sizeof(uint64_t));
+    T->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(T->ne ? T->ne : 1));
+    T->vals = (F1U192 *)calloc((size_t)(T->ne ? T->ne : 1), sizeof(F1U192));
+    F1_CHECK(T->masks && T->off && T->keys && T->vals, "[kc-t] seed layer alloc failed");
+    T->masks[0] = kc_t_f_masks(fdom, n)[0];
+    T->off[0] = 0;
+    T->off[1] = T->ne;
+    for (uint64_t e = 0; e < T->ne; e++) {
+        T->keys[e] = kc_t_f_key(fdom, n, e);
+        F1_CHECK((T->keys[e] & 0xffffu) == fdom->B.rid_full,
+                 "[kc-t] f final-layer residual != B0 (sum invariant violated)");
+        T->vals[e].l0 = 1;
+    }
+}
+
 /* ---------- Stage-G out-of-core backward layer builder ----------
  * Structural clone of f1c5_ooc_build_layer (#221) with the transition
  * reversed: targets are layer k (= src->k - 1), requests point at canonical
  * SUCCESSOR masks in the g layer k+1 (src), and the per-entry kernel is
  * kc_g_gather_pair. All IO/compressor/checkpoint machinery is the production
  * code reused verbatim (f1c5_ooc_pread/pwrite, f1c5_v2_read_range, F1C5V2Out,
- * f1c5_build_ckpt_* with marker g_build.ckpt); emission order, offset
+ * f1c5_build_ckpt_* with marker <pfx>_build.ckpt); emission order, offset
  * arithmetic, atomic finalize, and stats mirror the forward builder line for
- * line, so the partition-invariance and byte-identity arguments carry over. */
+ * line, so the partition-invariance and byte-identity arguments carry over.
+ * Stage T (2026-07-17) parameterization: pfx/kind select the ladder files
+ * ("g"/1 or "t"/2 — magic via f1c5_kind_magic); fdom != NULL switches the
+ * VALUE CHANNEL to the t recurrence t(s) = 1 + sum_c t(s.c): the gather is
+ * unchanged (t layer k+1 as src), but the emit domain is pinned to the f
+ * layer k's stored keys (fdom accessors above) with +1 added per state, and
+ * the per-target scratch is fully re-zeroed (the gather may touch states
+ * outside the f domain; they are discarded, preserving the emitter's
+ * all-zero scratch contract). fdom == NULL is the g build, byte-for-byte the
+ * pre-Stage-T behavior. */
 static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char *dir,
+                                 const char *pfx, int kind, KC *fdom,
                                  const F1C5Layer *src, F1C5Layer *nxt,
                                  const int32_t *loc0, int vk0, const uint16_t *vl0,
                                  const F1C5OocCfg *cfg, F1C5OocIo *io,
                                  F1U192 *mass_out, uint64_t *states_out,
                                  int use_v2, int gzip_level) {
     char path[4096];
-    snprintf(path, sizeof(path), "%s/g_layer_%02d.bin", dir, src->k);
+    snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, src->k);
     int fd = open(path, O_RDONLY);
     if (fd < 0) f1_ckpt_io_abort("open (kc-g ooc gather)", path);
     char ofin[4096], otmp[4104], ovtmp[4112];
-    snprintf(ofin, sizeof(ofin), "%s/g_layer_%02d.bin", dir, nxt->k);
+    snprintf(ofin, sizeof(ofin), "%s/%s_layer_%02d.bin", dir, pfx, nxt->k);
     snprintf(otmp, sizeof(otmp), "%s.tmp", ofin);
     snprintf(ovtmp, sizeof(ovtmp), "%s.vals.tmp", ofin);
     int ofd = -1, vfd = -1;
@@ -18923,15 +19020,15 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     F1C5BuildCkptData ckpt;
     int have_ckpt = 0;
     if (use_v2) {
-        have_ckpt = f1c5_build_ckpt_read(dir, "g", ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+        have_ckpt = f1c5_build_ckpt_read(dir, pfx, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt);
         if (have_ckpt) {
             f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
             resume_t0 = ckpt.t0_next;
-            fprintf(stderr, "[kc-g-ooc] RESUME intra-layer checkpoint: layer k=%d "
+            fprintf(stderr, "[kc-%s-ooc] RESUME intra-layer checkpoint: layer k=%d "
                     "restart at chunk t0=%llu (%llu/%llu masks done, %llu blocks + "
                     "%llu partial committed)\n",
-                    nxt->k, (unsigned long long)resume_t0, (unsigned long long)resume_t0,
+                    pfx, nxt->k, (unsigned long long)resume_t0, (unsigned long long)resume_t0,
                     (unsigned long long)nxt->nm, (unsigned long long)ckpt.nblk,
                     (unsigned long long)ckpt.fill);
         } else {
@@ -18961,7 +19058,14 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     uint64_t *cnts = (uint64_t *)malloc(sizeof(uint64_t) * chunk_cap);
     uint32_t *skeys = (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap * scr_per_tgt);
     F1U192 *svals = (F1U192 *)malloc(sizeof(F1U192) * chunk_cap * scr_per_tgt);
-    F1_CHECK(kbuf && vbuf && scr && reqs && rlen && rcur && needed && cnts && skeys && svals,
+    /* t mode: per-chunk f-key window, prefetched SEQUENTIALLY before the
+     * parallel emit (the OOC block cache is single-stream, not thread-safe).
+     * A mask's key count is <= 64*vk0 = scr_per_tgt, so the skeys sizing
+     * bound covers the f window too. */
+    uint32_t *fkbuf = fdom ? (uint32_t *)malloc(sizeof(uint32_t) * chunk_cap * scr_per_tgt)
+                           : NULL;
+    F1_CHECK(kbuf && vbuf && scr && reqs && rlen && rcur && needed && cnts && skeys && svals &&
+             (!fdom || fkbuf),
              "[kc-g] ooc buffer alloc failed (chunk=%llu window=%llu entries)",
              (unsigned long long)chunk_cap, (unsigned long long)buf_entries);
 
@@ -19068,6 +19172,12 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         for (int64_t t = 0; t < (int64_t)tc; t++) {
             F1_CHECK(rcur[t] == rlen[t], "[kc-g] ooc request sweep incomplete at target %lld",
                      (long long)(t0 + (uint64_t)t));
+            if (fdom) {
+                /* t mode: the emit domain IS the f layer's key span */
+                cnts[t] = kc_t_f_off(fdom, nxt->k, t0 + (uint64_t)t + 1) -
+                          kc_t_f_off(fdom, nxt->k, t0 + (uint64_t)t);
+                continue;
+            }
             const F1U192 *ts = scr + (uint64_t)t * scr_per_tgt;
             uint64_t cnt = 0;
             for (uint64_t s = 0; s < scr_per_tgt; s++)
@@ -19077,6 +19187,13 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         for (uint64_t t = 0; t < tc; t++)
             nxt->off[t0 + t + 1] = nxt->off[t0 + t] + cnts[t];
         const uint64_t cbase = nxt->off[t0];
+        uint64_t fbase = 0;
+        if (fdom) {   /* sequential f-key prefetch for this chunk (t mode) */
+            fbase = kc_t_f_off(fdom, nxt->k, t0);
+            const uint64_t fend = kc_t_f_off(fdom, nxt->k, t0 + tc);
+            for (uint64_t e = fbase; e < fend; e++)
+                fkbuf[e - fbase] = kc_t_f_key(fdom, nxt->k, e);
+        }
         #pragma omp parallel
         {
             F1U192 lm = {0, 0, 0};
@@ -19084,8 +19201,31 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             #pragma omp for schedule(dynamic, 8) nowait
             for (int64_t t = 0; t < (int64_t)tc; t++) {
                 const uint64_t doff = nxt->off[t0 + (uint64_t)t] - cbase;
-                uint64_t got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk0, vl0,
-                                                skeys + doff, svals + doff);
+                uint64_t got;
+                if (fdom) {
+                    /* t value channel: t = gathered-subtree-sum + 1, on the f
+                     * layer's key domain; full scratch re-zero (states the
+                     * gather touched OUTSIDE the f domain are unreachable and
+                     * are discarded). */
+                    F1U192 *ts = scr + (uint64_t)t * scr_per_tgt;
+                    const uint64_t fe0 = kc_t_f_off(fdom, nxt->k, t0 + (uint64_t)t) - fbase;
+                    got = cnts[t];
+                    for (uint64_t x = 0; x < got; x++) {
+                        const uint32_t key = fkbuf[fe0 + x];
+                        const uint32_t rid = key & 0xffffu;
+                        const int32_t lv = loc0[rid];
+                        F1_CHECK(lv >= 0, "[kc-t] f-domain rid outside layer rid set");
+                        F1U192 v = ts[(size_t)(key >> 16) * (size_t)vk0 + (size_t)lv];
+                        const F1U192 one = {1, 0, 0};
+                        f1_add(&v, &one);
+                        skeys[doff + x] = key;
+                        svals[doff + x] = v;
+                    }
+                    memset(ts, 0, sizeof(F1U192) * scr_per_tgt);
+                } else {
+                    got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk0, vl0,
+                                           skeys + doff, svals + doff);
+                }
                 F1_CHECK(got == cnts[t], "[kc-g] ooc count/emit drift at target %lld",
                          (long long)(t0 + (uint64_t)t));
                 if (got) {
@@ -19121,13 +19261,13 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                  (uint64_t)kill_after_chunk == ci);
             const double now = omp_get_wtime();
             if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
-                f1c5_build_ckpt_write(dir, "g", (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                f1c5_build_ckpt_write(dir, pfx, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
                                       t0_next, nxt->off, &v2o, &mass, states, io);
                 last_ckpt_wt = now;
                 if (do_kill) {
                     fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_AFTER_CHUNK=%lld reached "
-                            "(g layer k=%d chunk=%llu t0_next=%llu) — checkpointed, _exit(137)\n",
-                            kill_after_chunk, nxt->k, (unsigned long long)ci,
+                            "(%s layer k=%d chunk=%llu t0_next=%llu) — checkpointed, _exit(137)\n",
+                            kill_after_chunk, pfx, nxt->k, (unsigned long long)ci,
                             (unsigned long long)t0_next);
                     _exit(137);
                 }
@@ -19137,7 +19277,7 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     nxt->ne = nxt->off[nxt->nm];
     F1C5LayerHdr h;
     memset(&h, 0, sizeof(h));
-    memcpy(h.magic, use_v2 ? "F1C5GLY2" : "F1C5GLY1", 8);
+    memcpy(h.magic, f1c5_kind_magic(kind, use_v2), 8);
     h.version = use_v2 ? 2u : 1u;
     h.n = (uint32_t)c->n;
     h.k = (uint32_t)nxt->k;
@@ -19151,7 +19291,7 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
                             dir, &nxt->kidx, &nxt->vidx, io);
         free(v2cbuf); free(v2ktmp); free(v2vtmp);
-        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/g_build.ckpt", dir); unlink(ckp); }
+        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/%s_build.ckpt", dir, pfx); unlink(ckp); }
     } else {
         f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
         f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
@@ -19179,44 +19319,52 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     }
     *mass_out = mass;
     *states_out = states;
+    free(fkbuf);
     free(svals); free(skeys);
     free(cnts); free(needed); free(rcur); free(rlen); free(reqs);
     free(scr); free(vbuf); free(kbuf);
     close(fd);
 }
 
-/* out-of-core g-ladder driver: seed layer n (or eviction-resume from the
- * g manifest), then build k = n-1 .. stop_at_k, committing layer file then
+/* out-of-core g/t-ladder driver: seed layer n (or eviction-resume from the
+ * <pfx> manifest), then build k = n-1 .. stop_at_k, committing layer file then
  * manifest after each layer (write-order invariant: the layer is durable
  * BEFORE the manifest references it). stop_at_k > 0 = probe stop (the
- * SOLVE_KC_G_STOP_AT_K hook + gate GA9); a later call resumes and finishes. */
+ * SOLVE_KC_G_STOP_AT_K / SOLVE_KC_T_STOP_AT_K hooks + gates GA9/TA9); a later
+ * call resumes and finishes. Stage T: pfx="t", kind=2, fdom=the open f ladder
+ * switches the value channel (kc_g_ooc_build_layer header above); pfx="g",
+ * kind=1, fdom=NULL is the pre-Stage-T g build unchanged. */
 static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
-                          int use_v2, int gzip_level, int stop_at_k, int verbose) {
+                          int use_v2, int gzip_level, int stop_at_k, int verbose,
+                          const char *pfx, int kind, KC *fdom) {
     const int n = kc->n;
     if (mkdir(gdir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", gdir);
     F1C5Layer cur;
     memset(&cur, 0, sizeof(cur));
     int resumed_is_v2 = -1;
-    int rk = f1c5_try_resume_as(gdir, "g", 1, &kc->c, &kc->B, &cur, 1, &resumed_is_v2);
+    int rk = f1c5_try_resume_as(gdir, pfx, kind, &kc->c, &kc->B, &cur, 1, &resumed_is_v2);
     double T0 = omp_get_wtime();
     if (rk >= 0) {
         if (resumed_is_v2 >= 0 && resumed_is_v2 != use_v2) {
-            fprintf(stderr, "[kc-g] resume ADOPTS on-disk layer format %s (requested %s)\n",
-                    resumed_is_v2 ? "v2" : "v1", use_v2 ? "v2" : "v1");
+            fprintf(stderr, "[kc-%s] resume ADOPTS on-disk layer format %s (requested %s)\n",
+                    pfx, resumed_is_v2 ? "v2" : "v1", use_v2 ? "v2" : "v1");
             use_v2 = resumed_is_v2;
         }
-        fprintf(stderr, "[kc-g] RESUME from last complete layer k=%d "
+        fprintf(stderr, "[kc-%s] RESUME from last complete layer k=%d "
                 "(%llu canonical masks, %llu entries; building down to k=%d)\n",
-                rk, (unsigned long long)cur.nm, (unsigned long long)cur.ne, stop_at_k);
+                pfx, rk, (unsigned long long)cur.nm, (unsigned long long)cur.ne, stop_at_k);
     } else {
-        kc_g_layer_n(kc, &cur);
-        if (use_v2) f1c5_write_layer_v2_as(gdir, "g", "F1C5GLY2", &kc->c, &kc->B, &cur, gzip_level);
-        else        f1c5_write_layer_as(gdir, "g", "F1C5GLY1", &kc->c, &kc->B, &cur);
-        f1c5_write_manifest_as(gdir, "g", &kc->c, &kc->B, n);
+        if (fdom) kc_t_seed_from_f(fdom, &cur);
+        else      kc_g_layer_n(kc, &cur);
+        if (use_v2) f1c5_write_layer_v2_as(gdir, pfx, f1c5_kind_magic(kind, 1),
+                                           &kc->c, &kc->B, &cur, gzip_level);
+        else        f1c5_write_layer_as(gdir, pfx, f1c5_kind_magic(kind, 0),
+                                        &kc->c, &kc->B, &cur);
+        f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, n);
         rk = n;
         if (verbose)
-            fprintf(stderr, "[kc-g] seed layer k=%d written (%llu entries)\n",
-                    n, (unsigned long long)cur.ne);
+            fprintf(stderr, "[kc-%s] seed layer k=%d written (%llu entries)\n",
+                    pfx, n, (unsigned long long)cur.ne);
     }
     for (int k = rk - 1; k >= stop_at_k; k--) {
         double t0 = omp_get_wtime();
@@ -19225,25 +19373,29 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
         nxt.k = k;
         f1_enum_canonical(&kc->c, k, &nxt.masks, &nxt.nm);
         nxt.off = (uint64_t *)malloc(sizeof(uint64_t) * (nxt.nm + 1));
-        F1_CHECK(nxt.off != NULL, "[kc-g] offset alloc failed (layer %d)", k);
+        F1_CHECK(nxt.off != NULL, "[kc-%s] offset alloc failed (layer %d)", pfx, k);
+        if (fdom)   /* t mode: the emit domain rides the f layer's mask list */
+            F1_CHECK(nxt.nm == kc_t_f_nm(fdom, k) &&
+                     memcmp(nxt.masks, kc_t_f_masks(fdom, k), sizeof(uint32_t) * nxt.nm) == 0,
+                     "[kc-t] f/t canonical mask lists disagree at layer %d", k);
         F1C5OocIo io;
         memset(&io, 0, sizeof(io));
         F1U192 mass;
         uint64_t states = 0;
-        kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, &cur, &nxt,
+        kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, pfx, kind, fdom, &cur, &nxt,
                              kc->vloc[k], kc->vcnt[k], kc->vlist[k],
                              cfg, &io, &mass, &states, use_v2, gzip_level);
-        f1c5_sidecar_emit(gdir, "g", &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
-        f1c5_write_manifest_as(gdir, "g", &kc->c, &kc->B, k);
+        f1c5_sidecar_emit(gdir, pfx, &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
+        f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, k);
         if (verbose) {
             char mdec[64];
             f1_dec(mass, mdec);
             double rss_cur, rss_peak;
             f1_rss_mb(&rss_cur, &rss_peak);
-            fprintf(stderr, "[kc-g] layer k=%2d/%d: canonical_masks=%llu states=%llu "
+            fprintf(stderr, "[kc-%s] layer k=%2d/%d: canonical_masks=%llu states=%llu "
                     "entries=%llu V_k=%d mass=%s elapsed=%.2fs total=%.1fs | "
                     "read=%.6f GB write=%.6f GB windows=%llu rss_peak=%.1f MB\n",
-                    k, n, (unsigned long long)nxt.nm, (unsigned long long)states,
+                    pfx, k, n, (unsigned long long)nxt.nm, (unsigned long long)states,
                     (unsigned long long)nxt.ne, kc->vcnt[k], mdec,
                     omp_get_wtime() - t0, omp_get_wtime() - T0,
                     (double)io.bytes_read / 1e9, (double)io.bytes_written / 1e9,
@@ -19254,8 +19406,9 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
     }
     f1c5_layer_free(&cur);
     if (stop_at_k > 0)
-        fprintf(stderr, "[kc-g] PROBE STOP at layer k=%d (SOLVE_KC_G_STOP_AT_K); "
-                "ladder INCOMPLETE — rerun without the hook to finish\n", stop_at_k);
+        fprintf(stderr, "[kc-%s] PROBE STOP at layer k=%d (SOLVE_KC_%s_STOP_AT_K); "
+                "ladder INCOMPLETE — rerun without the hook to finish\n",
+                pfx, stop_at_k, fdom ? "T" : "G");
     return 0;
 }
 
@@ -19310,7 +19463,7 @@ static int kc_g_build_main(const char *gdir, int npairs, int force_ooc_build) {
                 kc->n, gdir, use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
                 (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
                 (unsigned long long)cfg.gap_kb, omp_get_max_threads());
-        kc_g_build_ooc(kc, gdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1);
+        kc_g_build_ooc(kc, gdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1, "g", 1, NULL);
         if (stop_at_k == 0) {
             /* readback + integrity: reopen the finished ladder OOC and print
              * g(0) — the whole-space count re-derived from the suffix side */
@@ -19547,7 +19700,7 @@ static int kc_g_selftest(void) {
         F1_CHECK(mkdtemp(d2) != NULL, "[kc-g] mkdtemp failed");
         {
             F1C5OocCfg tiny = {1, 1, 1};   /* 1 MB window, 1 MB scratch, 1 KB gap */
-            kc_g_build_ooc(gkc, d2, &tiny, 0, f1c5_ooc_gzip_level(), 0, 0);
+            kc_g_build_ooc(gkc, d2, &tiny, 0, f1c5_ooc_gzip_level(), 0, 0, "g", 1, NULL);
             int ok = 1;
             for (int k = 0; k <= n && ok; k++) {
                 char pa[4300], pb[4300];
@@ -19563,7 +19716,7 @@ static int kc_g_selftest(void) {
         F1_CHECK(mkdtemp(d3) != NULL, "[kc-g] mkdtemp failed");
         {
             F1C5OocCfg tiny = {1, 1, 1};
-            kc_g_build_ooc(gkc, d3, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0);
+            kc_g_build_ooc(gkc, d3, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0, "g", 1, NULL);
             KC *g3 = (KC *)calloc(1, sizeof(KC));
             F1_CHECK(g3 != NULL, "[kc-g] alloc");
             int ok = kc_ooc_open_as(g3, d3, "g", 1, 1) == 0 &&   /* ~4-slot cache */
@@ -19591,8 +19744,8 @@ static int kc_g_selftest(void) {
         F1_CHECK(mkdtemp(d4) != NULL, "[kc-g] mkdtemp failed");
         {
             F1C5OocCfg tiny = {1, 1, 1};
-            kc_g_build_ooc(gkc, d4, &tiny, 1, f1c5_ooc_gzip_level(), 5, 0);   /* stop at k=5 */
-            kc_g_build_ooc(gkc, d4, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0);   /* resume */
+            kc_g_build_ooc(gkc, d4, &tiny, 1, f1c5_ooc_gzip_level(), 5, 0, "g", 1, NULL);   /* stop at k=5 */
+            kc_g_build_ooc(gkc, d4, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0, "g", 1, NULL);   /* resume */
             int ok = 1;
             for (int k = 0; k <= n && ok; k++) {
                 char pa[4300], pb[4300];
@@ -20748,13 +20901,15 @@ static int kc_o3_selftest(void) {
  *       feasible-at-small-n clause; at full-31 this is the priced scan pass],
  *       (iv) the top-level BRANCH table: per raw first placement (global
  *       pair, exit), exact solutions mass; per-branch valid-prefix counts
- *       (t-units, t(s) = 1 + sum_c t(s∘c)) by direct recursion when the
- *       space is small enough (total <= 2^27), else marked PENDING the
- *       t-ladder (--kc-t-build, TR12 §8 item 4 — NOT built here; the
+ *       (t-units, t(s) = 1 + sum_c t(s∘c)) EXACT AT ANY n from a --kc-tdir
+ *       t ladder (--kc-t-build, TR12 §8 item 4 — the KC-T module below;
+ *       cross-gated vs the f layer masses and, at small n, the direct
+ *       recursion), else by direct recursion when the space is small
+ *       enough (total <= 2^27), else marked PENDING the t-ladder. The
  *       SOLVE_NODE_LIMIT accounting-convention pin is the separate XA(iii)
- *       certificate, also not claimed here). Internal fail-loud gates:
- *       per-layer orbit-weighted flow == N; raw marginal row sums == N;
- *       branch masses sum == N. Exit 0/1/2.
+ *       certificate (--kc-t-cert / W0-D), not claimed here. Internal
+ *       fail-loud gates: per-layer orbit-weighted flow == N; raw marginal
+ *       row sums == N; branch masses sum == N. Exit 0/1/2.
  *   AR-2 --kc-ar2 FDIR GDIR ["e,x,..."|KW]
  *       Emission-witness battery against a LIVE ladder pair: witness walk
  *       (default KW at full-31) rank3 -> unrank3 must reproduce the walk
@@ -23142,11 +23297,14 @@ typedef struct {
     int entry, exitx, gpair;     /* raw hexagrams + GLOBAL pair index */
     F1U192 mass;                 /* exact solutions through this branch (from g) */
     uint64_t prefixes, leaves;   /* t-units subtree size + full walks (small n only) */
+    F1U192 t192;                 /* exact t-units from the t ladder (--kc-tdir; any n) */
 } KcScanBranch;
 
 typedef struct {
     int n;
     int raw_enabled, t_done;
+    int t_ladder;                /* exact t-units served from a --kc-tdir t ladder */
+    F1U192 t_root192;            /* t(root) from the ladder (t_ladder only) */
     F1U192 *flow;                /* [n]      orbit-weighted transition mass per layer */
     F1U192 *cls;                 /* [n*5]    ... split by distance class (RAW-exact) */
     F1U192 *qmarg;               /* [n*32]   quotient-frame per-subset-pair marginal */
@@ -23183,8 +23341,12 @@ static void kc_h_prefix_rec(const KC *kc, int depth, uint32_t m, int last,
 }
 
 /* the scan core: one pass over f layers 0..n-1 with g lookups at k+1.
+ * tkc (optional, --kc-tdir): a matching t ladder — the branch table's
+ * prefixes(b) column is then served EXACTLY at any n (t-units per branch +
+ * t(root)), replacing PENDING_T_LADDER; cross-gated against the f-ladder
+ * layer masses and, at small n, the direct recursion.
  * Returns 0 ok (gate results in T->gate_fails), -1 on IO. */
-static int kc_h_scan_core(const KC *fkc, const KC *gkc, const char *fdir,
+static int kc_h_scan_core(const KC *fkc, const KC *gkc, KC *tkc, const char *fdir,
                           int want_raw, KcScanTab *T, int verbose) {
     const int n = fkc->n;
     memset(T, 0, sizeof(*T));
@@ -23330,8 +23492,12 @@ static int kc_h_scan_core(const KC *fkc, const KC *gkc, const char *fdir,
             const int exitx = o ? c->pb[q] : c->pa[q];
             const int cls = F1C5_CLS[__builtin_popcount((unsigned)(fkc->start_exit ^ entry))];
             if (cls < 0 || fkc->B.dig[cls][0] >= fkc->B.b0[cls]) continue;
+            /* every VALID first placement is a branch — a zero-mass (g == 0)
+             * branch has no solutions but its subtree still costs search-tree
+             * nodes, so the t/prefixes accounting must include it (Stage T,
+             * 2026-07-17; at every gated n no such branch exists, so emitted
+             * output is unchanged there). */
             const F1U192 gv = kc_flookup(gkc, 1, 1u << q, exitx, fkc->B.rad[cls]);
-            if (f1_is_zero(&gv)) continue;
             KcScanBranch *b = &T->br[T->nbranch++];
             b->q = q;
             b->o = o;
@@ -23340,6 +23506,7 @@ static int kc_h_scan_core(const KC *fkc, const KC *gkc, const char *fdir,
             b->gpair = c->pl[q];
             b->mass = gv;
             b->prefixes = b->leaves = 0;
+            memset(&b->t192, 0, sizeof(b->t192));
         }
     }
     /* t-units per branch: feasible-at-small-n direct recursion */
@@ -23398,41 +23565,94 @@ static int kc_h_scan_core(const KC *fkc, const KC *gkc, const char *fdir,
             }
         }
     }
+    /* exact t-units from the t ladder (--kc-tdir; Stage T, 2026-07-17) */
+    T->t_ladder = 0;
+    if (tkc) {
+        T->t_ladder = 1;
+        T->t_root192 = tkc->total;
+        F1U192 acc = {1, 0, 0};   /* the root node */
+        for (int bi = 0; bi < T->nbranch; bi++) {
+            KcScanBranch *b = &T->br[bi];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(fkc->start_exit ^ b->entry))];
+            b->t192 = kc_flookup(tkc, 1, 1u << b->q, b->exitx, fkc->B.rad[cls]);
+            if (f1_is_zero(&b->t192)) {
+                printf("[kc-scan] GATE FAIL: branch %d t == 0 (t-ladder domain defect)\n", bi);
+                T->gate_fails++;
+            }
+            f1_add(&acc, &b->t192);
+        }
+        if (!f1_eq(&acc, &T->t_root192)) {
+            printf("[kc-scan] GATE FAIL: 1 + sum of branch t != t(root)\n");
+            T->gate_fails++;
+        }
+        {   /* cross-structure: t(root) == sum of f-ladder layer masses */
+            F1U192 pf = {0, 0, 0};
+            for (int k = 0; k <= n; k++) f1_add(&pf, &T->fmass[k]);
+            if (!f1_eq(&pf, &T->t_root192)) {
+                printf("[kc-scan] GATE FAIL: t(root) != sum of f-ladder layer masses\n");
+                T->gate_fails++;
+            }
+        }
+        if (T->t_done) {   /* small n: ladder must equal the direct recursion */
+            F1U192 tr = {T->t_root, 0, 0};
+            int ok = f1_eq(&tr, &T->t_root192);
+            for (int bi = 0; bi < T->nbranch && ok; bi++) {
+                F1U192 bp = {T->br[bi].prefixes, 0, 0};
+                ok = f1_eq(&bp, &T->br[bi].t192);
+            }
+            if (!ok) {
+                printf("[kc-scan] GATE FAIL: t-ladder != small-n direct recursion\n");
+                T->gate_fails++;
+            }
+        }
+    }
     return 0;
 }
 
 static int kc_scan_main(int argc, char *argv[]) {
     if (argc < 5) {
         fprintf(stderr,
-                "Usage: solve --kc-scan FDIR GDIR OUT.json [--kc-raw] [--kc-ooc] [--kc-cache-mb MB]\n"
+                "Usage: solve --kc-scan FDIR GDIR OUT.json [--kc-tdir TDIR] [--kc-raw]\n"
+                "             [--kc-ooc] [--kc-cache-mb MB]\n"
                 "  Atlas extractor: per-layer exact transition masses f(s)*g(s.c) —\n"
                 "  flow + distance-class split (RAW-frame exact), positional pair\n"
                 "  marginals (CANONICAL-QUOTIENT frame always; RAW frame via G-expansion\n"
                 "  when --kc-raw or n <= 13), and the top-level branch table (exact\n"
-                "  solutions per branch; valid-prefix t-units at small n, else PENDING\n"
-                "  the t-ladder). Fail-loud internal ==N gates. Exit 0/1/2.\n");
+                "  solutions per branch; valid-prefix t-units EXACT at any n from a\n"
+                "  --kc-tdir t ladder (--kc-t-build), else at small n by direct\n"
+                "  recursion, else PENDING). Fail-loud internal ==N gates. Exit 0/1/2.\n");
         return 2;
     }
-    const char *fdir = argv[2], *gdir = argv[3], *outp = argv[4];
+    const char *fdir = argv[2], *gdir = argv[3], *outp = argv[4], *tdir = NULL;
     int want_raw = 0, force_ooc = 0, cache_mb = 0;
     for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) tdir = argv[++ai];
     }
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
-    F1_CHECK(fkc && gkc, "[kc-scan] alloc");
-    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    KC *tkc = tdir ? (KC *)calloc(1, sizeof(KC)) : NULL;
+    F1_CHECK(fkc && gkc && (!tdir || tkc), "[kc-scan] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); free(tkc); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
-        kc_free(fkc); free(fkc); free(gkc);
+        kc_free(fkc); free(fkc); free(gkc); free(tkc);
+        return 2;
+    }
+    if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); kc_free(gkc); free(fkc); free(gkc); free(tkc);
         return 2;
     }
     F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
              "[kc-scan] f/g ladders disagree (n or total)");
+    if (tkc)
+        F1_CHECK(fkc->n == tkc->n && fkc->start_exit == tkc->start_exit &&
+                 f1_pl_hash(&fkc->c) == f1_pl_hash(&tkc->c),
+                 "[kc-scan] f/t ladder context mismatch");
     if (fkc->n <= 13) want_raw = 1;   /* small-n: raw frame always feasible */
     KcScanTab T;
-    const int rc0 = kc_h_scan_core(fkc, gkc, fdir, want_raw, &T, 1);
+    const int rc0 = kc_h_scan_core(fkc, gkc, tkc, fdir, want_raw, &T, 1);
     int rc = 2;
     if (rc0 == 0) {
         FILE *f = fopen(outp, "w");
@@ -23449,6 +23669,10 @@ static int kc_scan_main(int argc, char *argv[]) {
             fprintf(f, "  \"fdir\": \"%s\",\n", esc);
             kc_h_json_escape(gdir, esc, sizeof(esc));
             fprintf(f, "  \"gdir\": \"%s\",\n", esc);
+            if (tdir) {
+                kc_h_json_escape(tdir, esc, sizeof(esc));
+                fprintf(f, "  \"tdir\": \"%s\",\n", esc);
+            }
             fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&fkc->c));
             fprintf(f, "  \"space\": \"C1C2C4C5-SUPERSPACE\",\n");
             fprintf(f, "  \"frames\": {\"flow\": \"RAW-exact (distance class is G-invariant)\", "
@@ -23493,7 +23717,12 @@ static int kc_scan_main(int argc, char *argv[]) {
                 f1_dec(b->mass, t);
                 fprintf(f, "    {\"global_pair\": %d, \"entry\": %d, \"exit\": %d, "
                         "\"solutions\": \"%s\"", b->gpair, b->entry, b->exitx, t);
-                if (T.t_done)
+                if (T.t_ladder) {
+                    f1_dec(b->t192, t);
+                    fprintf(f, ", \"prefixes_t_units\": \"%s\", \"t_source\": \"t-ladder\"", t);
+                    if (T.t_done)
+                        fprintf(f, ", \"walks\": %llu", (unsigned long long)b->leaves);
+                } else if (T.t_done)
                     fprintf(f, ", \"prefixes_t_units\": %llu, \"walks\": %llu",
                             (unsigned long long)b->prefixes, (unsigned long long)b->leaves);
                 else
@@ -23502,12 +23731,15 @@ static int kc_scan_main(int argc, char *argv[]) {
                 fprintf(f, "}%s\n", bi + 1 < T.nbranch ? "," : "");
             }
             fprintf(f, "  ],\n");
-            if (T.t_done)
+            if (T.t_ladder) {
+                f1_dec(T.t_root192, t);
+                fprintf(f, "  \"t_root_t_units\": \"%s\",\n", t);
+            } else if (T.t_done)
                 fprintf(f, "  \"t_root_t_units\": %llu,\n", (unsigned long long)T.t_root);
             fprintf(f, "  \"t_units_note\": \"t(s) = 1 + sum_c t(s.c): pruned-DFS search-tree "
                     "size in VALID-PREFIX units; the mapping to SOLVE_NODE_LIMIT node-counter "
-                    "semantics is the separate XA(iii) convention certificate — NOT claimed "
-                    "here\",\n");
+                    "semantics is the separate XA(iii) convention certificate (--kc-t-cert / "
+                    "W0-D) — NOT claimed here\",\n");
             fprintf(f, "  \"gates\": {\"per_layer_flow_eq_N\": %s, \"raw_marginal_sums_eq_N\": "
                     "%s, \"branch_masses_sum_eq_N\": %s, \"fails\": %d},\n",
                     T.gate_fails ? "\"see fails\"" : "true",
@@ -23529,8 +23761,10 @@ static int kc_scan_main(int argc, char *argv[]) {
     kc_scan_free(&T);
     kc_free(fkc);
     kc_free(gkc);
+    if (tkc) kc_free(tkc);
     free(fkc);
     free(gkc);
+    free(tkc);
     return rc;
 }
 
@@ -23572,7 +23806,7 @@ static int kc_scan_selftest(void) {
 
     KcScanTab T;
     KC_SCAN_GATE("scan core runs (raw expansion ON)",
-                 kc_h_scan_core(fkc, gkc, fdir, 1, &T, 0) == 0);
+                 kc_h_scan_core(fkc, gkc, NULL, fdir, 1, &T, 0) == 0);
     KC_SCAN_GATE("scan internal ==N gates all PASS", T.gate_fails == 0);
     KC_SCAN_GATE("t-units computed at n=9", T.t_done == 1);
 
@@ -23852,6 +24086,1044 @@ static int kc_ar2_selftest(void) {
     return fails ? 1 : 0;
 }
 
+/* ===================== KC-T — the t-ladder (pruned-DFS search-tree size) =====================
+ *
+ * t(k, m, l, rid) = the number of VALID PREFIXES in the search-tree subtree
+ * rooted at a layer-k state s = (m, l, rid) — the pruned DFS's node count
+ * from s, counting s itself:
+ *
+ *     t(s) = 1 + sum over valid oriented placements c of t(s.c),   t = 1 at
+ *     layer n (a full walk is one leaf node).
+ *
+ * TR12 s3 (exhaustion atlas, prefixes(b)) / s8 TO-BUILD item 4; unblocks
+ * W0-D (the XA(iii) node-convention pin) and the atlas' exact full-31
+ * prefixes column (--kc-scan --kc-tdir).
+ *
+ * NODE-ACCOUNTING CONVENTION (pinned here; --kc-t-cert certifies it against
+ * the independent brute DFS and emits the machine-readable JSON):
+ *   - node        = one valid oriented prefix (E1..Ek), k = 0..n — one visit
+ *                   of the reference DFS (kc_brute_rec), which tries, at each
+ *                   node, every (unused pair, orientation) whose boundary
+ *                   class is admissible within the C5 budget;
+ *   - root        : the empty prefix COUNTS as 1 node (t(root) includes it);
+ *   - orientation : explicit and JOINT — one child edge = one (pair,
+ *                   orientation) placement; there is NO separate
+ *                   orientation-only or pair-only branch level;
+ *   - leaves      : full walks (depth n) are nodes with t = 1;
+ *   - dead ends   : every valid prefix is a node even when it has no valid
+ *                   completion (g = 0) — the DFS visits it, then backtracks.
+ * The mapping of these t-units to the production enumerator's
+ * SOLVE_NODE_LIMIT counter semantics (orientation explicitness, d3 cell
+ * splitting, C3-prune visit accounting) is deliberately NOT claimed by this
+ * module — that is the W0-D worker run (roae-private WAVE0_RUNBOOK item
+ * w0d), which consumes this instrument.
+ *
+ * DOMAIN (the load-bearing difference from g). g never stores value-0
+ * states; t must — a dead-end valid prefix is still a node, and a reachable
+ * state with NO valid forward transition would never be produced by a pure
+ * backward gather. The t ladder is therefore built ON THE f LADDER'S STORED
+ * STATE SPACE (exactly the states with f >= 1 = the valid prefixes):
+ * --kc-t-build takes FDIR, and every t layer inherits the f layer's
+ * geometry (masks / offsets / keys) BYTE-IDENTICALLY — only the value
+ * channel differs. Every valid child of an f-stored state is f-stored
+ * (forward closure), so the backward gather over t layer k+1 (the Stage-G
+ * machinery kc_g_gather_target / kc_g_ooc_build_layer, reused with the
+ * fdom value-channel switch) sees every subtree; the +1 node channel is
+ * added per stored state at emit. t is G-equivariant under the same lifts
+ * as f/g (transitions are Hamming-isometric, so subtree node counts are
+ * preserved), and kc_flookup serves it unchanged.
+ *
+ * THE t IDENTITY GATE (--kc-t-check; the t analogue of the f*g cut
+ * identity). Let M_j = sum over canonical masks of orbit * sum f — the f
+ * layer masses = the exact number of valid prefixes at depth j (M_0 = 1).
+ * Unfolding the recurrence against the prefix-count bijection (L5):
+ *
+ *     sum over layer-k states of orbit(cm) * f(s) * t(s)
+ *       ==  sum over j = k..n of M_j            (# nodes at depth >= k)
+ *
+ * for EVERY k: at k = n it degenerates to M_n (t == 1 on the seed); at
+ * k = 0 to t(root) == sum_j M_j = the whole search-tree size. n+1
+ * independent exact identities; the geometry (mask lists, offsets, keys)
+ * is additionally required to mirror f exactly, and the tamper leg of
+ * --kc-t-selftest verifies a single flipped value byte is caught.
+ *
+ * FILES: t_layer_NN.bin with NEW magic F1C5TLY1/F1C5TLY2 (deliberately not
+ * GLY reuse — a t file must never be readable as a g file; the same
+ * reasoning that separated GLY from LAY), t_manifest.txt ("t_manifest_v1",
+ * last_complete_k counting DOWN like g), the standard catalog sidecars
+ * (t_layer_stats_NN.json; hash-chain input = layer k+1) and the CR-3b
+ * decompressed-stream sha tools (--f1c5-layer-sha / --f1c5-layer-cmp)
+ * accept kind=t. The OOC build path is the Stage-G builder reused with
+ * pfx="t" (eviction resume via t_manifest + t_build.ckpt intra-layer
+ * checkpoints; SOLVE_KC_T_STOP_AT_K probe hook mirrors SOLVE_KC_G_STOP_AT_K;
+ * the same SOLVE_F1_OOC_* / SOLVE_F1_CKPT_SEC / SOLVE_F1_KILL_AFTER_CHUNK
+ * envs are honored).
+ *
+ * SUBCOMMANDS (argv-dispatched, sha-neutral, never inside --selftest):
+ *   --kc-t-build FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]
+ *                                 build + retain the FULL t ladder n..0 from
+ *                                 the f ladder in FDIR (in-memory when FDIR
+ *                                 opens in-memory; out-of-core otherwise)
+ *   --kc-t-check FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]
+ *                                 the f*t node identity at EVERY layer +
+ *                                 byte-exact geometry mirror check
+ *   --kc-t-cert OUT.json          the XA(iii)/W0-D node-convention
+ *                                 certificate: n=9 exhaustive vs the brute
+ *                                 DFS, n=13 spot totals (self-contained)
+ *   --kc-t-selftest               n=9 exhaustive + n=13 spot gates, OOC /
+ *                                 resume / tamper / sidecar / sha legs
+ * Atlas consumption: --kc-scan FDIR GDIR OUT.json --kc-tdir TDIR.
+ *
+ * Credits (novelty humility): subtree-size counting on a layered DAG is
+ * textbook dynamic programming (the node-count channel of the classical
+ * forward/backward decomposition; cf. Knuth's search-tree-size estimation
+ * lineage, TAOCP 4A s7.2 context). Nothing here is claimed novel beyond
+ * composition with the existing #215/#217/#221 + Stage-G machinery
+ * (operator direction + prior Fable sessions). Stage T by Claude (Fable 5),
+ * 2026-07-17, developed with AI assistance (Claude, Anthropic); corrections
+ * invited. */
+
+#define KC_T_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-t-selftest] %-56s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* lookup in an in-RAM t layer array (mirror of kc_flookup's in-memory path;
+ * fkc supplies the canonicalization context) */
+static F1U192 kc_t_layers_lookup(const KC *fkc, const F1C5Layer *TL, int k,
+                                 uint32_t m, int last, uint32_t rid) {
+    F1U192 z = {0, 0, 0};
+    const F1C5Layer *L = &TL[k];
+    int g;
+    uint32_t cm = f1_canon(&fkc->c, m, &g);
+    int64_t mi = f1_bsearch_u32(L->masks, L->nm, cm);
+    if (mi < 0) return z;
+    uint32_t key = ((uint32_t)fkc->c.el[g].hmap[last] << 16) | (rid & 0xffffu);
+    uint64_t lo = L->off[mi], hi = L->off[mi + 1];
+    while (lo < hi) {
+        uint64_t mid = (lo + hi) >> 1;
+        if (L->keys[mid] < key) lo = mid + 1; else hi = mid;
+    }
+    if (lo < L->off[mi + 1] && L->keys[lo] == key) return L->vals[lo];
+    return z;
+}
+
+/* build t layer k (in-RAM) from t layer k+1: geometry copied byte-identically
+ * from the f layer k; values = backward gather (kc_g_gather_target) + 1. */
+static void kc_t_build_layer_mem(const KC *fkc, const F1C5Layer *tprev,
+                                 F1C5Layer *tk, int k) {
+    F1_CHECK(fkc->ooc == NULL, "[kc-t] in-memory t build needs an in-memory f ladder");
+    const F1C5Layer *fL = &fkc->L[k];
+    memset(tk, 0, sizeof(*tk));
+    tk->k = k;
+    tk->nm = fL->nm;
+    tk->ne = fL->ne;
+    tk->masks = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(tk->nm ? tk->nm : 1));
+    tk->off = (uint64_t *)malloc(sizeof(uint64_t) * (tk->nm + 1));
+    tk->keys = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)(tk->ne ? tk->ne : 1));
+    tk->vals = (F1U192 *)malloc(sizeof(F1U192) * (size_t)(tk->ne ? tk->ne : 1));
+    F1_CHECK(tk->masks && tk->off && tk->keys && tk->vals, "[kc-t] layer %d alloc failed", k);
+    memcpy(tk->masks, fL->masks, sizeof(uint32_t) * (size_t)tk->nm);
+    memcpy(tk->off, fL->off, sizeof(uint64_t) * (tk->nm + 1));
+    if (tk->ne) memcpy(tk->keys, fL->keys, sizeof(uint32_t) * (size_t)tk->ne);
+    const int vk = fkc->vcnt[k];
+    const int32_t *loc = fkc->vloc[k];
+    int T = omp_get_max_threads();
+    F1U192 *scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)fkc->vmax, sizeof(F1U192));
+    F1_CHECK(scratch != NULL, "[kc-t] scratch alloc failed");
+    #pragma omp parallel num_threads(T)
+    {
+        F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)fkc->vmax;
+        #pragma omp for schedule(dynamic, 16)
+        for (int64_t mi = 0; mi < (int64_t)tk->nm; mi++) {
+            kc_g_gather_target(fkc, tprev, tk->masks[mi], k, loc, vk, scr);
+            for (uint64_t e = tk->off[mi]; e < tk->off[mi + 1]; e++) {
+                const uint32_t key = tk->keys[e];
+                const int32_t lv = loc[key & 0xffffu];
+                F1_CHECK(lv >= 0, "[kc-t] f-domain rid outside layer rid set");
+                F1U192 v = scr[(size_t)(key >> 16) * (size_t)vk + (size_t)lv];
+                const F1U192 one = {1, 0, 0};
+                f1_add(&v, &one);
+                tk->vals[e] = v;
+            }
+            /* full re-zero: the gather may touch states outside the f domain
+             * (unreachable); discarding them preserves the scratch contract */
+            memset(scr, 0, sizeof(F1U192) * 64 * (size_t)vk);
+        }
+    }
+    free(scratch);
+}
+
+/* full in-RAM t ladder into TL[n..0] (TL = caller array of n+1 layers) */
+static void kc_t_build_mem(KC *fkc, F1C5Layer *TL) {
+    kc_t_seed_from_f(fkc, &TL[fkc->n]);
+    for (int k = fkc->n - 1; k >= 0; k--)
+        kc_t_build_layer_mem(fkc, &TL[k + 1], &TL[k], k);
+}
+
+/* t(root) from an in-RAM ladder's layer 0 (anchor singleton, checked) */
+static F1U192 kc_t_root_from_layers(const KC *fkc, const F1C5Layer *TL) {
+    F1_CHECK(TL[0].nm == 1 && TL[0].masks[0] == 0 && TL[0].ne == 1 &&
+             TL[0].keys[0] == ((uint32_t)fkc->start_exit << 16),
+             "[kc-t] layer 0 must be the anchor singleton");
+    return TL[0].vals[0];
+}
+
+/* write the in-RAM t ladder as v1 files + manifest (descending k so each
+ * catalog sidecar finds its input layer's (k+1) sidecar on disk) */
+static void kc_t_write(KC *fkc, F1C5Layer *TL, const char *dir) {
+    if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
+    for (int k = fkc->n; k >= 0; k--)
+        f1c5_write_layer_as(dir, "t", "F1C5TLY1", &fkc->c, &fkc->B, &TL[k]);
+    f1c5_write_manifest_as(dir, "t", &fkc->c, &fkc->B, 0);
+}
+
+/* f layer masses M_k (orbit-weighted = exact #valid prefixes at depth k),
+ * from an OPEN f ladder (in-memory or OOC). M = caller array of n+1. */
+static void kc_t_layer_masses(KC *fkc, F1U192 *M) {
+    const int n = fkc->n;
+    for (int k = 0; k <= n; k++) {
+        memset(&M[k], 0, sizeof(F1U192));
+        const uint32_t *fm;
+        const uint64_t *fo;
+        uint64_t fnm;
+        kc_any_geom(fkc, k, &fm, &fo, &fnm);
+        for (uint64_t mi = 0; mi < fnm; mi++) {
+            F1U192 s = {0, 0, 0};
+            for (uint64_t e = fo[mi]; e < fo[mi + 1]; e++) {
+                F1U192 v = kc_any_val(fkc, k, e);
+                f1_add(&s, &v);
+            }
+            if (!f1_is_zero(&s)) {
+                F1U192 w = f1_mul_small(s, (uint32_t)f1_orbit_size(&fkc->c, fm[mi]));
+                f1_add(&M[k], &w);
+            }
+        }
+    }
+}
+
+/* the f*t node identity at every layer (module header) + byte-exact geometry
+ * mirror requirement. Returns the number of FAILING layers (+1 more for a
+ * t(root) mismatch); prints one line per layer when verbose (always on
+ * mismatch). */
+static int kc_t_identity(KC *fkc, KC *tkc, int verbose) {
+    F1_CHECK(fkc->n == tkc->n && fkc->start_exit == tkc->start_exit &&
+             f1_pl_hash(&fkc->c) == f1_pl_hash(&tkc->c),
+             "[kc-t] f/t ladder context mismatch");
+    for (int d = 0; d < 5; d++)
+        F1_CHECK(fkc->b0v[d] == tkc->b0v[d], "[kc-t] f/t budget mismatch");
+    const int n = fkc->n;
+    int fails = 0;
+    F1U192 *M = (F1U192 *)calloc((size_t)n + 1, sizeof(F1U192));
+    F1U192 *S = (F1U192 *)calloc((size_t)n + 1, sizeof(F1U192));
+    F1_CHECK(M && S, "[kc-t] identity alloc");
+    kc_t_layer_masses(fkc, M);
+    {
+        F1U192 one = {1, 0, 0};
+        if (!f1_eq(&M[0], &one)) {
+            printf("[kc-t] M_0 != 1 (f layer 0 defect)\n");
+            fails++;
+        }
+    }
+    for (int k = n; k >= 0; k--) {
+        S[k] = (k == n) ? M[n] : S[k + 1];
+        if (k < n) f1_add(&S[k], &M[k]);
+    }
+    for (int k = 0; k <= n; k++) {
+        const uint32_t *fm, *tm;
+        const uint64_t *fo, *to;
+        uint64_t fnm, tnm;
+        kc_any_geom(fkc, k, &fm, &fo, &fnm);
+        kc_any_geom(tkc, k, &tm, &to, &tnm);
+        if (fnm != tnm || memcmp(fm, tm, sizeof(uint32_t) * fnm) != 0 ||
+            memcmp(fo, to, sizeof(uint64_t) * (fnm + 1)) != 0) {
+            printf("[kc-t] layer k=%2d: GEOMETRY MISMATCH (f nm=%llu t nm=%llu)\n",
+                   k, (unsigned long long)fnm, (unsigned long long)tnm);
+            fails++;
+            continue;
+        }
+        F1U192 acc = {0, 0, 0};
+        int keys_ok = 1;
+        for (uint64_t mi = 0; mi < fnm && keys_ok; mi++) {
+            F1U192 msum = {0, 0, 0};
+            for (uint64_t e = fo[mi]; e < fo[mi + 1]; e++) {
+                if (kc_any_key(fkc, k, e) != kc_any_key(tkc, k, e)) {
+                    keys_ok = 0;
+                    break;
+                }
+                F1U192 fv = kc_any_val(fkc, k, e), tv = kc_any_val(tkc, k, e);
+                F1U192 p = kc_u192_mul(&fv, &tv);
+                f1_add(&msum, &p);
+            }
+            if (keys_ok && !f1_is_zero(&msum)) {
+                F1U192 w = f1_mul_small(msum, (uint32_t)f1_orbit_size(&fkc->c, fm[mi]));
+                f1_add(&acc, &w);
+            }
+        }
+        int ok = keys_ok && f1_eq(&acc, &S[k]);
+        if (!ok || verbose) {
+            char adec[64], edec[64];
+            f1_dec(acc, adec);
+            f1_dec(S[k], edec);
+            printf("[kc-t] layer k=%2d: sum orbit*f*t = %s (expect nodes-at-depth>=%d = %s) %s%s\n",
+                   k, adec, k, edec, keys_ok ? "" : "KEY-LIST MISMATCH ", ok ? "OK" : "MISMATCH");
+        }
+        if (!ok) fails++;
+    }
+    if (!f1_eq(&tkc->total, &S[0])) {
+        char adec[64], edec[64];
+        f1_dec(tkc->total, adec);
+        f1_dec(S[0], edec);
+        printf("[kc-t] t(root) = %s != total search-tree size %s MISMATCH\n", adec, edec);
+        fails++;
+    }
+    free(M);
+    free(S);
+    return fails;
+}
+
+/* --kc-t-build driver: build the t ladder from the f ladder in FDIR.
+ * In-memory when FDIR opens in-memory (small all-v1 dirs, no --kc-ooc);
+ * out-of-core otherwise (v2 default, SOLVE_F1_OOC_FORMAT=v1 override,
+ * eviction resume + intra-layer checkpoints, SOLVE_KC_T_STOP_AT_K probe). */
+static int kc_t_build_main(const char *fdir, const char *tdir, int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc != NULL, "[kc-t] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); return 2; }
+    int stop_at_k = 0;
+    { const char *e = getenv("SOLVE_KC_T_STOP_AT_K");
+      if (e && *e) {
+          stop_at_k = atoi(e);
+          if (stop_at_k < 0) stop_at_k = 0;
+          if (stop_at_k > fkc->n) stop_at_k = fkc->n;
+          if (stop_at_k > 0)
+              fprintf(stderr, "[kc-t] PROBE MODE: stopping after layer k=%d "
+                      "(SOLVE_KC_T_STOP_AT_K)\n", stop_at_k);
+      } }
+    int rc = 0;
+    if (!fkc->ooc) {
+        if (stop_at_k > 0) {
+            fprintf(stderr, "ERROR: [kc-t] SOLVE_KC_T_STOP_AT_K needs the OOC builder "
+                    "(--kc-ooc); the in-memory build is all-or-nothing\n");
+            kc_free(fkc);
+            free(fkc);
+            return 2;
+        }
+        double t0 = omp_get_wtime();
+        F1C5Layer *TL = (F1C5Layer *)calloc((size_t)fkc->n + 1, sizeof(F1C5Layer));
+        F1_CHECK(TL != NULL, "[kc-t] ladder alloc");
+        kc_t_build_mem(fkc, TL);
+        kc_t_write(fkc, TL, tdir);
+        F1U192 tr = kc_t_root_from_layers(fkc, TL);
+        double bytes = 0;
+        for (int k = 0; k <= fkc->n; k++) bytes += f1c5_layer_bytes(&TL[k]);
+        char tdec[64];
+        f1_dec(tr, tdec);
+        printf("KC-T BUILD n=%d fdir=%s tdir=%s t_root=%s layers=%.6f MB elapsed=%.3fs\n",
+               fkc->n, fdir, tdir, tdec, bytes / 1e6, omp_get_wtime() - t0);
+        for (int k = 0; k <= fkc->n; k++) f1c5_layer_free(&TL[k]);
+        free(TL);
+    } else {
+        F1C5OocCfg cfg = {256, 1024, 1024};
+        const char *e;
+        if ((e = getenv("SOLVE_F1_OOC_READ_MB")) && *e && atoll(e) > 0)
+            cfg.read_mb = (uint64_t)atoll(e);
+        if ((e = getenv("SOLVE_F1_OOC_SCRATCH_MB")) && *e && atoll(e) > 0)
+            cfg.scratch_mb = (uint64_t)atoll(e);
+        if ((e = getenv("SOLVE_F1_OOC_GAP_KB")) && *e && atoll(e) >= 0)
+            cfg.gap_kb = (uint64_t)atoll(e);
+        int use_v2 = 1;
+        { const char *fe = getenv("SOLVE_F1_OOC_FORMAT");
+          if (fe && (strcmp(fe, "v1") == 0 || strcmp(fe, "1") == 0)) use_v2 = 0; }
+        fprintf(stderr, "[kc-t] out-of-core t build: n=%d fdir=%s tdir=%s format=%s "
+                "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d\n",
+                fkc->n, fdir, tdir, use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
+                (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
+                (unsigned long long)cfg.gap_kb, omp_get_max_threads());
+        kc_g_build_ooc(fkc, tdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1,
+                       "t", 2, fkc);
+        if (stop_at_k == 0) {
+            /* readback + integrity: reopen the finished ladder and print
+             * t(root) — the whole search-tree size */
+            KC *t2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(t2 != NULL, "[kc-t] alloc");
+            if (kc_ooc_open_as(t2, tdir, "t", 2, cache_mb) != 0) {
+                rc = 2;
+            } else {
+                char tdec[64];
+                f1_dec(t2->total, tdec);
+                printf("KC-T BUILD n=%d fdir=%s tdir=%s t_root=%s (out-of-core; verify with "
+                       "--kc-t-check)\n", fkc->n, fdir, tdir, tdec);
+                kc_free(t2);
+            }
+            free(t2);
+        }
+    }
+    kc_free(fkc);
+    free(fkc);
+    return rc;
+}
+
+/* --kc-t-check driver: the f*t node identity at every layer */
+static int kc_t_check_main(const char *fdir, const char *tdir, int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *tkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && tkc, "[kc-t] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(tkc); return 2; }
+    if (kc_open_as(tkc, tdir, "t", 2, force_ooc, cache_mb) != 0) {
+        kc_free(fkc);
+        free(fkc);
+        free(tkc);
+        return 2;
+    }
+    char fdec[64], tdec[64];
+    f1_dec(fkc->total, fdec);
+    f1_dec(tkc->total, tdec);
+    printf("[kc-t] f total (walks)   = %s\n[kc-t] t(root) (tree nodes) = %s\n", fdec, tdec);
+    int fails = kc_t_identity(fkc, tkc, 1);
+    printf("KC-T CHECK n=%d %s (%d failing layer%s)\n", fkc->n,
+           fails ? "FAIL" : "PASS (sum orbit*f*t == nodes-at-depth>=k at every layer 0..n)",
+           fails, fails == 1 ? "" : "s");
+    kc_free(fkc);
+    kc_free(tkc);
+    free(fkc);
+    free(tkc);
+    return fails ? 1 : 0;
+}
+
+/* brute subtree node count from an arbitrary state — TRUE REUSE of the
+ * reference DFS: kc_brute_rec increments KcList.nodes once per visit, so the
+ * count is by construction in the same units the n=9 gates certify. pos/cd
+ * only feed the walk list's cd analytics, never the control flow, so a
+ * cleared pos is sound here. */
+static uint64_t kc_t_brute_subtree(const KC *kc, int k, uint32_t m, int last, uint32_t rid) {
+    KcList L;
+    memset(&L, 0, sizeof(L));
+    L.n = kc->n;
+    uint8_t E[KC_MAX_PAIRS];
+    int8_t pos[64];
+    memset(E, 0, sizeof(E));
+    memset(pos, -1, sizeof(pos));
+    kc_brute_rec(kc, k, m, last, rid, E, pos, 0, &L);
+    free(L.walks);
+    free(L.cds);
+    return L.nodes;
+}
+
+/* independent depth-capped per-depth node counter (a deliberate second
+ * implementation of the transition rule, cross-checked at n=9 against BOTH
+ * kc_brute_rec and the f layer masses). Counts depths 0..cap exactly. */
+static void kc_t_nodes_by_depth_rec(const KC *kc, int depth, uint32_t m, int last,
+                                    uint32_t rid, int cap, uint64_t *cnt) {
+    cnt[depth]++;
+    if (depth == kc->n || depth >= cap) return;
+    for (int i = 0; i < kc->n; i++) {
+        if ((m >> i) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[i] : kc->c.pb[i];
+            const int exitx = o ? kc->c.pb[i] : kc->c.pa[i];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            kc_t_nodes_by_depth_rec(kc, depth + 1, m | (1u << i), exitx,
+                                    rid + kc->B.rad[cls], cap, cnt);
+        }
+    }
+}
+
+/* largest cap with cumulative sum_{j<=cap} M_j <= budget visits (all u64) */
+static int kc_t_pick_cap(const F1U192 *M, int n, uint64_t budget) {
+    uint64_t tot = 0;
+    int cap = 0;
+    for (int k = 0; k <= n; k++) {
+        if (M[k].l1 || M[k].l2 || tot + M[k].l0 > budget) break;
+        tot += M[k].l0;
+        cap = k;
+    }
+    return cap;
+}
+
+/* --kc-t-cert: the XA(iii)/W0-D node-convention certificate (module header
+ * for the pinned convention). Self-contained: builds f + t at n=9 (EXHAUSTIVE
+ * cross-check: every stored state's t == the brute DFS subtree node count)
+ * and n=13 (spot totals: t(root) == sum of f layer masses; depth-limited
+ * brute node counts by depth == the f layer masses up to an adaptive cap;
+ * 1 + sum of branch t == t(root)), then emits the JSON certificate. */
+static int kc_t_cert_main(const char *outp) {
+    printf("[kc-t-cert] node-convention certificate (n=9 exhaustive; n=13 spot)\n");
+    int fails = 0;
+    /* ---- n=9 exhaustive ---- */
+    KC *f9 = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(f9 != NULL, "[kc-t-cert] alloc");
+    F1_CHECK(kc_init(f9, 9) == 0, "[kc-t-cert] init n=9");
+    kc_build(f9, 0);
+    F1C5Layer TL9[KC_MAX_PAIRS + 1];
+    memset(TL9, 0, sizeof(TL9));
+    kc_t_build_mem(f9, TL9);
+    const F1U192 troot9 = kc_t_root_from_layers(f9, TL9);
+    KcList BR;
+    kc_brute(f9, &BR);
+    const int g1 = (troot9.l1 == 0 && troot9.l2 == 0 && troot9.l0 == BR.nodes);
+    if (!g1) fails++;
+    printf("[kc-t-cert] n=9: t(root)=%llu brute_dfs_nodes=%llu walks=%llu  %s\n",
+           (unsigned long long)troot9.l0, (unsigned long long)BR.nodes,
+           (unsigned long long)BR.cnt, g1 ? "EQUAL" : "MISMATCH");
+    F1U192 M9[KC_MAX_PAIRS + 1];
+    kc_t_layer_masses(f9, M9);
+    uint64_t cnt9[KC_MAX_PAIRS + 1];
+    memset(cnt9, 0, sizeof(cnt9));
+    kc_t_nodes_by_depth_rec(f9, 0, 0, f9->start_exit, 0, f9->n, cnt9);
+    int g2 = 1;
+    uint64_t sum9 = 0;
+    for (int k = 0; k <= f9->n; k++) {
+        F1U192 c = {cnt9[k], 0, 0};
+        if (!f1_eq(&c, &M9[k])) g2 = 0;
+        sum9 += cnt9[k];
+    }
+    if (sum9 != BR.nodes) g2 = 0;
+    if (!g2) fails++;
+    printf("[kc-t-cert] n=9: per-depth counter == f layer masses (all k), sum == nodes  %s\n",
+           g2 ? "PASS" : "FAIL");
+    int g3 = 1;
+    uint64_t states9 = 0;
+    for (int k = 0; k <= f9->n && g3; k++) {
+        const F1C5Layer *L = &TL9[k];
+        for (uint64_t mi = 0; mi < L->nm && g3; mi++)
+            for (uint64_t e = L->off[mi]; e < L->off[mi + 1] && g3; e++) {
+                const uint32_t key = L->keys[e];
+                const uint64_t sub = kc_t_brute_subtree(f9, k, L->masks[mi],
+                                                        (int)(key >> 16), key & 0xffffu);
+                g3 = (L->vals[e].l1 == 0 && L->vals[e].l2 == 0 && L->vals[e].l0 == sub);
+                states9++;
+            }
+    }
+    if (!g3) fails++;
+    printf("[kc-t-cert] n=9: EXHAUSTIVE per-state t == brute subtree nodes (%llu states)  %s\n",
+           (unsigned long long)states9, g3 ? "PASS" : "FAIL");
+    /* n=9 branch table */
+    struct { int gpair, entry, exitx; uint64_t t, bsub; } br9[64];
+    int nbr9 = 0;
+    int g4 = 1;
+    {
+        F1U192 acc = {1, 0, 0};
+        for (int q = 0; q < f9->n; q++)
+            for (int o = 0; o < 2; o++) {
+                const int entry = o ? f9->c.pa[q] : f9->c.pb[q];
+                const int exitx = o ? f9->c.pb[q] : f9->c.pa[q];
+                const int cls = F1C5_CLS[__builtin_popcount((unsigned)(f9->start_exit ^ entry))];
+                if (cls < 0 || f9->B.dig[cls][0] >= f9->B.b0[cls]) continue;
+                const F1U192 tv = kc_t_layers_lookup(f9, TL9, 1, 1u << q, exitx,
+                                                     f9->B.rad[cls]);
+                const uint64_t bsub = kc_t_brute_subtree(f9, 1, 1u << q, exitx,
+                                                         f9->B.rad[cls]);
+                br9[nbr9].gpair = f9->c.pl[q];
+                br9[nbr9].entry = entry;
+                br9[nbr9].exitx = exitx;
+                br9[nbr9].t = tv.l0;
+                br9[nbr9].bsub = bsub;
+                nbr9++;
+                if (tv.l1 || tv.l2 || tv.l0 != bsub) g4 = 0;
+                f1_add(&acc, &tv);
+            }
+        if (!f1_eq(&acc, &troot9)) g4 = 0;
+    }
+    if (!g4) fails++;
+    printf("[kc-t-cert] n=9: per-branch t == brute subtree; 1 + sum == t(root) (%d branches)  %s\n",
+           nbr9, g4 ? "PASS" : "FAIL");
+    free(BR.walks);
+    free(BR.cds);
+    /* ---- n=13 spot ---- */
+    KC *f13 = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(f13 != NULL, "[kc-t-cert] alloc");
+    F1_CHECK(kc_init(f13, 13) == 0, "[kc-t-cert] init n=13");
+    kc_build(f13, 0);
+    F1C5Layer *TL13 = (F1C5Layer *)calloc(KC_MAX_PAIRS + 1, sizeof(F1C5Layer));
+    F1_CHECK(TL13 != NULL, "[kc-t-cert] alloc");
+    kc_t_build_mem(f13, TL13);
+    const F1U192 troot13 = kc_t_root_from_layers(f13, TL13);
+    F1U192 M13[KC_MAX_PAIRS + 1];
+    kc_t_layer_masses(f13, M13);
+    F1U192 sumM13 = {0, 0, 0};
+    for (int k = 0; k <= f13->n; k++) f1_add(&sumM13, &M13[k]);
+    const int g5 = f1_eq(&troot13, &sumM13);
+    if (!g5) fails++;
+    {
+        char a[64], b[64];
+        f1_dec(troot13, a);
+        f1_dec(sumM13, b);
+        printf("[kc-t-cert] n=13: t(root)=%s sum-of-f-layer-masses=%s  %s\n",
+               a, b, g5 ? "EQUAL" : "MISMATCH");
+    }
+    const int cap13 = kc_t_pick_cap(M13, f13->n, 200000000ull);
+    uint64_t cnt13[KC_MAX_PAIRS + 1];
+    memset(cnt13, 0, sizeof(cnt13));
+    kc_t_nodes_by_depth_rec(f13, 0, 0, f13->start_exit, 0, cap13, cnt13);
+    int g6 = 1;
+    for (int k = 0; k <= cap13; k++) {
+        F1U192 c = {cnt13[k], 0, 0};
+        if (!f1_eq(&c, &M13[k])) g6 = 0;
+    }
+    if (!g6) fails++;
+    printf("[kc-t-cert] n=13: depth-limited brute node counts == f masses (depths 0..%d)  %s\n",
+           cap13, g6 ? "PASS" : "FAIL");
+    struct { int gpair, entry, exitx; F1U192 t; } br13[64];
+    int nbr13 = 0;
+    int g7 = 1;
+    {
+        F1U192 acc = {1, 0, 0};
+        for (int q = 0; q < f13->n; q++)
+            for (int o = 0; o < 2; o++) {
+                const int entry = o ? f13->c.pa[q] : f13->c.pb[q];
+                const int exitx = o ? f13->c.pb[q] : f13->c.pa[q];
+                const int cls = F1C5_CLS[__builtin_popcount((unsigned)(f13->start_exit ^ entry))];
+                if (cls < 0 || f13->B.dig[cls][0] >= f13->B.b0[cls]) continue;
+                const F1U192 tv = kc_t_layers_lookup(f13, TL13, 1, 1u << q, exitx,
+                                                     f13->B.rad[cls]);
+                br13[nbr13].gpair = f13->c.pl[q];
+                br13[nbr13].entry = entry;
+                br13[nbr13].exitx = exitx;
+                br13[nbr13].t = tv;
+                nbr13++;
+                if (f1_is_zero(&tv)) g7 = 0;
+                f1_add(&acc, &tv);
+            }
+        if (!f1_eq(&acc, &troot13)) g7 = 0;
+    }
+    if (!g7) fails++;
+    printf("[kc-t-cert] n=13: 1 + sum of branch t == t(root) (%d branches)  %s\n",
+           nbr13, g7 ? "PASS" : "FAIL");
+    /* ---- JSON ---- */
+    int rc = fails ? 1 : 0;
+    FILE *f = fopen(outp, "w");
+    if (!f) {
+        fprintf(stderr, "ERROR: [kc-t-cert] cannot write %s\n", outp);
+        rc = 2;
+    } else {
+        char t[64];
+        fprintf(f, "{\n  \"type\": \"roae-kc-t-node-convention-certificate\",\n");
+        fprintf(f, "  \"version\": 1,\n");
+        fprintf(f, "  \"purpose\": \"XA(iii)/W0-D t-unit convention pin (TR12 s3/s8 item 4): "
+                "pins what the t-ladder counts and verifies it byte-exactly against the "
+                "independent brute DFS at n=9, with n=13 spot totals\",\n");
+        fprintf(f, "  \"convention\": {\n");
+        fprintf(f, "    \"unit\": \"valid oriented prefix = one search-tree node of the "
+                "pruned DFS over the C1C2C4C5 SUPERSPACE\",\n");
+        fprintf(f, "    \"recurrence\": \"t(s) = 1 + sum over valid oriented placements c of "
+                "t(s.c); t = 1 at depth n\",\n");
+        fprintf(f, "    \"root_counted\": true,\n");
+        fprintf(f, "    \"orientation_branching\": \"joint/explicit: one child edge = one "
+                "(pair, orientation) placement; NO separate orientation-only node level\",\n");
+        fprintf(f, "    \"pair_branching\": \"no pair-only intermediate node\",\n");
+        fprintf(f, "    \"leaf\": \"full walks (depth n) count 1 node each\",\n");
+        fprintf(f, "    \"dead_ends_counted\": true,\n");
+        fprintf(f, "    \"space\": \"C1C2C4C5-SUPERSPACE (no C3 filter)\",\n");
+        fprintf(f, "    \"reference_dfs\": \"kc_brute_rec (solve.c): nodes = one increment "
+                "per recursive visit; per-state subtrees counted by the SAME code path\",\n");
+        fprintf(f, "    \"solve_node_limit_mapping\": \"NOT CLAIMED HERE - the W0-D worker "
+                "run (WAVE0_RUNBOOK item w0d) pins the mapping to the production "
+                "enumerator's SOLVE_NODE_LIMIT counter (orientation explicitness, d3 cell "
+                "splitting, C3-prune visit accounting) using this instrument\"\n");
+        fprintf(f, "  },\n");
+        fprintf(f, "  \"n9\": {\n    \"N_walks\": 26112,\n");
+        fprintf(f, "    \"t_root\": %llu,\n    \"brute_dfs_nodes\": %llu,\n",
+                (unsigned long long)troot9.l0, (unsigned long long)sum9);
+        fprintf(f, "    \"nodes_by_depth\": [");
+        for (int k = 0; k <= f9->n; k++)
+            fprintf(f, "%s%llu", k ? ", " : "", (unsigned long long)cnt9[k]);
+        fprintf(f, "],\n");
+        fprintf(f, "    \"states_cross_checked_exhaustively\": %llu,\n",
+                (unsigned long long)states9);
+        fprintf(f, "    \"branches\": [\n");
+        for (int b = 0; b < nbr9; b++)
+            fprintf(f, "      {\"global_pair\": %d, \"entry\": %d, \"exit\": %d, "
+                    "\"t\": %llu, \"brute_subtree_nodes\": %llu}%s\n",
+                    br9[b].gpair, br9[b].entry, br9[b].exitx,
+                    (unsigned long long)br9[b].t, (unsigned long long)br9[b].bsub,
+                    b + 1 < nbr9 ? "," : "");
+        fprintf(f, "    ]\n  },\n");
+        fprintf(f, "  \"n13\": {\n");
+        f1_dec(f13->total, t);
+        fprintf(f, "    \"N_walks\": \"%s\",\n", t);
+        f1_dec(troot13, t);
+        fprintf(f, "    \"t_root\": \"%s\",\n", t);
+        f1_dec(sumM13, t);
+        fprintf(f, "    \"sum_f_layer_masses\": \"%s\",\n", t);
+        fprintf(f, "    \"brute_depth_cap\": %d,\n", cap13);
+        fprintf(f, "    \"brute_cap_rule\": \"largest cap with cumulative visits <= 2e8\",\n");
+        fprintf(f, "    \"nodes_by_depth_to_cap\": [");
+        for (int k = 0; k <= cap13; k++)
+            fprintf(f, "%s%llu", k ? ", " : "", (unsigned long long)cnt13[k]);
+        fprintf(f, "],\n");
+        fprintf(f, "    \"branches\": [\n");
+        for (int b = 0; b < nbr13; b++) {
+            f1_dec(br13[b].t, t);
+            fprintf(f, "      {\"global_pair\": %d, \"entry\": %d, \"exit\": %d, "
+                    "\"t\": \"%s\"}%s\n",
+                    br13[b].gpair, br13[b].entry, br13[b].exitx, t,
+                    b + 1 < nbr13 ? "," : "");
+        }
+        fprintf(f, "    ]\n  },\n");
+        fprintf(f, "  \"gates\": {\"n9_t_root_eq_brute_nodes\": %s, "
+                "\"n9_depth_counter_eq_f_masses\": %s, "
+                "\"n9_exhaustive_per_state\": %s, \"n9_branches\": %s, "
+                "\"n13_t_root_eq_sum_masses\": %s, \"n13_depth_limited_brute\": %s, "
+                "\"n13_branches\": %s, \"fails\": %d},\n",
+                g1 ? "true" : "false", g2 ? "true" : "false", g3 ? "true" : "false",
+                g4 ? "true" : "false", g5 ? "true" : "false", g6 ? "true" : "false",
+                g7 ? "true" : "false", fails);
+        fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
+                GIT_HASH, SOURCE_SHA);
+        fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
+        fclose(f);
+        printf("[kc-t-cert] certificate written: %s\n", outp);
+    }
+    printf("[kc-t-cert] VERDICT: %s (%d gate failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    for (int k = 0; k <= f9->n; k++) f1c5_layer_free(&TL9[k]);
+    for (int k = 0; k <= f13->n; k++) f1c5_layer_free(&TL13[k]);
+    free(TL13);
+    kc_free(f9);
+    kc_free(f13);
+    free(f9);
+    free(f13);
+    return rc;
+}
+
+/* small file copy (selftest tamper leg staging) */
+static int kc_t_copy_file(const char *src, const char *dst) {
+    FILE *a = fopen(src, "rb"), *b = fopen(dst, "wb");
+    if (!a || !b) { if (a) fclose(a); if (b) fclose(b); return -1; }
+    uint8_t buf[65536];
+    size_t r;
+    int rc = 0;
+    while ((r = fread(buf, 1, sizeof(buf), a)) > 0)
+        if (fwrite(buf, 1, r, b) != r) { rc = -1; break; }
+    if (ferror(a)) rc = -1;
+    fclose(a);
+    if (fclose(b) != 0) rc = -1;
+    return rc;
+}
+
+/* flip one byte of the first stored value of a v1 layer file (tamper leg) */
+static int kc_t_flip_val_byte(const char *path) {
+    FILE *f = fopen(path, "r+b");
+    if (!f) return -1;
+    F1C5LayerHdr h;
+    if (fread(&h, sizeof(h), 1, f) != 1 || h.n_entries == 0) { fclose(f); return -1; }
+    const long off = (long)(sizeof(h) + 4ull * h.n_masks + 8ull * (h.n_masks + 1) +
+                            4ull * h.n_entries);
+    if (fseek(f, off, SEEK_SET) != 0) { fclose(f); return -1; }
+    int c = fgetc(f);
+    if (c == EOF) { fclose(f); return -1; }
+    fseek(f, off, SEEK_SET);
+    fputc(c ^ 0x01, f);
+    fclose(f);
+    return 0;
+}
+
+/* ---------- --kc-t-selftest ---------- */
+static int kc_t_selftest(void) {
+    int fails = 0;
+    printf("[kc-t-selftest] Stage-T search-tree-size ladder verification "
+           "(exhaustive n=9; spot n=13)\n");
+    char dir[4096];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-t-selftest] FAIL (no scratch dir)\n");
+        return 1;
+    }
+    char fdir[4200], gdir[4200], td1[4200], td2[4200], td3[4200], td4[4200], td5[4200];
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    snprintf(td1, sizeof(td1), "%s/t1", dir);
+    snprintf(td2, sizeof(td2), "%s/t2", dir);
+    snprintf(td3, sizeof(td3), "%s/t3", dir);
+    snprintf(td4, sizeof(td4), "%s/t4", dir);
+    snprintf(td5, sizeof(td5), "%s/t5", dir);
+
+    /* ============ Phase TA: n=9, exhaustive ============ */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc != NULL, "[kc-t] alloc");
+        F1_CHECK(kc_init(fkc, 9) == 0, "[kc-t] init n=9");
+        kc_build(fkc, 0);
+        kc_write(fkc, fdir);
+        const int n = fkc->n;
+        F1C5Layer TL[KC_MAX_PAIRS + 1];
+        memset(TL, 0, sizeof(TL));
+        kc_t_build_mem(fkc, TL);
+        const F1U192 troot = kc_t_root_from_layers(fkc, TL);
+
+        /* TA1: every t layer's geometry mirrors the f layer byte-exactly */
+        {
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++)
+                ok = TL[k].nm == fkc->L[k].nm && TL[k].ne == fkc->L[k].ne &&
+                     memcmp(TL[k].masks, fkc->L[k].masks, sizeof(uint32_t) * TL[k].nm) == 0 &&
+                     memcmp(TL[k].off, fkc->L[k].off, sizeof(uint64_t) * (TL[k].nm + 1)) == 0 &&
+                     (TL[k].ne == 0 ||
+                      memcmp(TL[k].keys, fkc->L[k].keys, sizeof(uint32_t) * TL[k].ne) == 0);
+            KC_T_GATE("TA1 n=9 t/f layer geometry byte-identical (all k)", ok);
+        }
+        /* TA2: t(root) == the brute DFS node count */
+        KcList BR;
+        kc_brute(fkc, &BR);
+        KC_T_GATE("TA2 n=9 t(root) == brute DFS node count",
+                  troot.l1 == 0 && troot.l2 == 0 && troot.l0 == BR.nodes);
+        /* TA3: EXHAUSTIVE per-state t == brute subtree node count */
+        {
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++) {
+                const F1C5Layer *L = &TL[k];
+                for (uint64_t mi = 0; mi < L->nm && ok; mi++)
+                    for (uint64_t e = L->off[mi]; e < L->off[mi + 1] && ok; e++) {
+                        const uint32_t key = L->keys[e];
+                        const uint64_t sub =
+                            kc_t_brute_subtree(fkc, k, L->masks[mi],
+                                               (int)(key >> 16), key & 0xffffu);
+                        ok = (L->vals[e].l1 == 0 && L->vals[e].l2 == 0 &&
+                              L->vals[e].l0 == sub);
+                    }
+            }
+            KC_T_GATE("TA3 n=9 exhaustive: t(s) == brute subtree nodes (all states)", ok);
+        }
+        /* TA4: independent depth counter == f layer masses; sum == nodes */
+        {
+            F1U192 M[KC_MAX_PAIRS + 1];
+            kc_t_layer_masses(fkc, M);
+            uint64_t cnt[KC_MAX_PAIRS + 1];
+            memset(cnt, 0, sizeof(cnt));
+            kc_t_nodes_by_depth_rec(fkc, 0, 0, fkc->start_exit, 0, n, cnt);
+            int ok = 1;
+            uint64_t sum = 0;
+            for (int k = 0; k <= n; k++) {
+                F1U192 c = {cnt[k], 0, 0};
+                if (!f1_eq(&c, &M[k])) ok = 0;
+                sum += cnt[k];
+            }
+            KC_T_GATE("TA4 n=9 depth counter == f masses (all k) + sum == nodes",
+                      ok && sum == BR.nodes);
+        }
+        free(BR.walks);
+        free(BR.cds);
+        /* TA5: --kc-t-build end-to-end (in-memory path, v1 files) */
+        KC_T_GATE("TA5 n=9 --kc-t-build (in-memory) exit 0",
+                  kc_t_build_main(fdir, td1, 0, 0) == 0);
+        /* TA6: reload the written ladder; bytes + total + identity */
+        {
+            KC *t2 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(t2 != NULL, "[kc-t] alloc");
+            int ok = kc_open_as(t2, td1, "t", 2, 0, 0) == 0 && t2->ooc == NULL &&
+                     f1_eq(&t2->total, &troot);
+            for (int k = 0; k <= n && ok; k++)
+                ok = kc_layers_equal(fkc, &TL[k], &t2->L[k]);
+            KC_T_GATE("TA6 n=9 v1 write + reload == in-memory bytes + t(root)", ok);
+            KC_T_GATE("TA7 n=9 f*t identity at every layer (t == nodes-below)",
+                      ok && kc_t_identity(fkc, t2, 0) == 0);
+            if (t2->n) kc_free(t2);
+            free(t2);
+        }
+        /* TA8a: OOC t builder (v1, forced multi-chunk) == in-memory files */
+        {
+            F1C5OocCfg tiny = {1, 1, 1};
+            kc_g_build_ooc(fkc, td2, &tiny, 0, f1c5_ooc_gzip_level(), 0, 0, "t", 2, fkc);
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++) {
+                char pa[4300], pb[4300];
+                snprintf(pa, sizeof(pa), "%s/t_layer_%02d.bin", td1, k);
+                snprintf(pb, sizeof(pb), "%s/t_layer_%02d.bin", td2, k);
+                ok = kc_g_files_equal(pa, pb);
+            }
+            KC_T_GATE("TA8a n=9 OOC(v1) t builder == in-memory files (byte)", ok);
+        }
+        /* TA8b: OOC v2 ladder through the OOC reader, tiny cache, all states */
+        {
+            F1C5OocCfg tiny = {1, 1, 1};
+            kc_g_build_ooc(fkc, td3, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0, "t", 2, fkc);
+            KC *t3 = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(t3 != NULL, "[kc-t] alloc");
+            int ok = kc_ooc_open_as(t3, td3, "t", 2, 1) == 0 && f1_eq(&t3->total, &troot);
+            for (int k = 0; k <= n && ok; k++) {
+                const F1C5Layer *L = &TL[k];
+                for (uint64_t mi = 0; mi < L->nm && ok; mi++)
+                    for (uint64_t e = L->off[mi]; e < L->off[mi + 1] && ok; e++) {
+                        F1U192 v = kc_flookup(t3, k, L->masks[mi],
+                                              (int)(L->keys[e] >> 16),
+                                              L->keys[e] & 0xffffu);
+                        ok = f1_eq(&v, &L->vals[e]);
+                    }
+            }
+            KC_T_GATE("TA8b n=9 OOC(v2) reader == in-memory t (all states)", ok);
+            KC_T_GATE("TA8c n=9 identity via OOC t reader",
+                      ok && kc_t_identity(fkc, t3, 0) == 0);
+            if (t3->n) kc_free(t3);
+            free(t3);
+        }
+        /* TA9: layer-granular eviction resume (probe-stop at k=5, resume) */
+        {
+            F1C5OocCfg tiny = {1, 1, 1};
+            kc_g_build_ooc(fkc, td4, &tiny, 1, f1c5_ooc_gzip_level(), 5, 0, "t", 2, fkc);
+            kc_g_build_ooc(fkc, td4, &tiny, 1, f1c5_ooc_gzip_level(), 0, 0, "t", 2, fkc);
+            int ok = 1;
+            for (int k = 0; k <= n && ok; k++) {
+                char pa[4300], pb[4300];
+                snprintf(pa, sizeof(pa), "%s/t_layer_%02d.bin", td3, k);
+                snprintf(pb, sizeof(pb), "%s/t_layer_%02d.bin", td4, k);
+                ok = kc_g_files_equal(pa, pb);
+            }
+            KC_T_GATE("TA9 n=9 probe-stop + resume == straight-through (byte)", ok);
+        }
+        /* TA10: sha + sidecar legs on the committed ladder */
+        {
+            char p1[4300], p3[4300], hex1[65], hex3[65];
+            snprintf(p1, sizeof(p1), "%s/t_layer_04.bin", td1);
+            snprintf(p3, sizeof(p3), "%s/t_layer_04.bin", td3);
+            int kind1 = -1;
+            int ok = sha256_tool() != NULL &&
+                     f1c5_layer_sha_hex(p1, hex1, NULL, NULL, &kind1) == 0 &&
+                     f1c5_layer_sha_hex(p3, hex3, NULL, NULL, NULL) == 0 &&
+                     kind1 == 2 && strcmp(hex1, hex3) == 0;
+            KC_T_GATE("TA10a t layer sha: kind=t; v1 digest == v2 digest", ok);
+            char sc[4300], scsha[65];
+            snprintf(sc, sizeof(sc), "%s/t_layer_stats_04.json", td1);
+            ok = f1c5_sidecar_read_own_sha(sc, scsha) == 0 && strcmp(scsha, hex1) == 0;
+            KC_T_GATE("TA10b catalog sidecar present; own sha == stream sha", ok);
+        }
+        /* TA11: tamper leg — one flipped value byte must be caught */
+        {
+            int ok = mkdir(td5, 0755) == 0;
+            for (int k = 0; k <= n && ok; k++) {
+                char pa[4300], pb[4300];
+                snprintf(pa, sizeof(pa), "%s/t_layer_%02d.bin", td1, k);
+                snprintf(pb, sizeof(pb), "%s/t_layer_%02d.bin", td5, k);
+                ok = kc_t_copy_file(pa, pb) == 0;
+            }
+            if (ok) {
+                char pa[4300], pb[4300];
+                snprintf(pa, sizeof(pa), "%s/t_manifest.txt", td1);
+                snprintf(pb, sizeof(pb), "%s/t_manifest.txt", td5);
+                ok = kc_t_copy_file(pa, pb) == 0;
+            }
+            char tampered[4300];
+            snprintf(tampered, sizeof(tampered), "%s/t_layer_04.bin", td5);
+            ok = ok && kc_t_flip_val_byte(tampered) == 0;
+            int caught = 0;
+            if (ok) {
+                char href[65], htam[65];
+                char orig[4300];
+                snprintf(orig, sizeof(orig), "%s/t_layer_04.bin", td1);
+                caught = f1c5_layer_sha_hex(orig, href, NULL, NULL, NULL) == 0 &&
+                         f1c5_layer_sha_hex(tampered, htam, NULL, NULL, NULL) == 0 &&
+                         strcmp(href, htam) != 0;
+                KC *t5 = (KC *)calloc(1, sizeof(KC));
+                F1_CHECK(t5 != NULL, "[kc-t] alloc");
+                if (kc_open_as(t5, td5, "t", 2, 0, 0) == 0) {
+                    caught = caught && kc_t_identity(fkc, t5, 0) > 0;
+                    kc_free(t5);
+                }   /* refusing to open at all also counts as caught */
+                free(t5);
+            }
+            KC_T_GATE("TA11 tamper: flipped value byte fails sha AND identity",
+                      ok && caught);
+        }
+        /* TA12: atlas wiring — --kc-scan --kc-tdir must cross-gate and PASS */
+        {
+            KC_T_GATE("TA12a g ladder build for the scan leg",
+                      kc_g_build_main(gdir, 9, 0) == 0);
+            char outp[4300];
+            snprintf(outp, sizeof(outp), "%s/atlas_t.json", dir);
+            char *argvv[9];
+            argvv[0] = (char *)"solve";
+            argvv[1] = (char *)"--kc-scan";
+            argvv[2] = fdir;
+            argvv[3] = gdir;
+            argvv[4] = outp;
+            argvv[5] = (char *)"--kc-raw";
+            argvv[6] = (char *)"--kc-tdir";
+            argvv[7] = td1;
+            argvv[8] = NULL;
+            int ok = kc_scan_main(8, argvv) == 0;
+            if (ok) {
+                FILE *jf = fopen(outp, "r");
+                static char buf[1 << 20];
+                size_t got = jf ? fread(buf, 1, sizeof(buf) - 1, jf) : 0;
+                if (jf) fclose(jf);
+                buf[got] = '\0';
+                ok = strstr(buf, "\"t_source\": \"t-ladder\"") != NULL &&
+                     strstr(buf, "PENDING_T_LADDER") == NULL &&
+                     strstr(buf, "\"t_root_t_units\"") != NULL;
+            }
+            KC_T_GATE("TA12b --kc-scan --kc-tdir: exact t-units, gates PASS", ok);
+        }
+        for (int k = 0; k <= n; k++) f1c5_layer_free(&TL[k]);
+        kc_free(fkc);
+        free(fkc);
+    }
+
+    /* ============ Phase TB: n=13 spot ============ */
+    {
+        KC *fkc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fkc != NULL, "[kc-t] alloc");
+        F1_CHECK(kc_init(fkc, 13) == 0, "[kc-t] init n=13");
+        double t0 = omp_get_wtime();
+        kc_build(fkc, 0);
+        F1C5Layer *TL = (F1C5Layer *)calloc(KC_MAX_PAIRS + 1, sizeof(F1C5Layer));
+        F1_CHECK(TL != NULL, "[kc-t] alloc");
+        kc_t_build_mem(fkc, TL);
+        const F1U192 troot = kc_t_root_from_layers(fkc, TL);
+        F1U192 M[KC_MAX_PAIRS + 1];
+        kc_t_layer_masses(fkc, M);
+        F1U192 sumM = {0, 0, 0};
+        for (int k = 0; k <= fkc->n; k++) f1_add(&sumM, &M[k]);
+        char adec[64], bdec[64];
+        f1_dec(troot, adec);
+        f1_dec(sumM, bdec);
+        printf("[kc-t-selftest] n=13: t(root)=%s sum-f-masses=%s build=%.3fs\n",
+               adec, bdec, omp_get_wtime() - t0);
+        KC_T_GATE("TB1 n=13 t(root) == sum of f layer masses", f1_eq(&troot, &sumM));
+        {
+            const int cap = kc_t_pick_cap(M, fkc->n, 200000000ull);
+            uint64_t cnt[KC_MAX_PAIRS + 1];
+            memset(cnt, 0, sizeof(cnt));
+            kc_t_nodes_by_depth_rec(fkc, 0, 0, fkc->start_exit, 0, cap, cnt);
+            int ok = cap >= 2;
+            for (int k = 0; k <= cap && ok; k++) {
+                F1U192 c = {cnt[k], 0, 0};
+                ok = f1_eq(&c, &M[k]);
+            }
+            printf("[kc-t-selftest] n=13: depth-limited brute cap=%d\n", cap);
+            KC_T_GATE("TB2 n=13 depth-limited brute counts == f masses (0..cap)", ok);
+        }
+        {
+            F1U192 acc = {1, 0, 0};
+            int nbr = 0, ok = 1;
+            for (int q = 0; q < fkc->n; q++)
+                for (int o = 0; o < 2; o++) {
+                    const int entry = o ? fkc->c.pa[q] : fkc->c.pb[q];
+                    const int exitx = o ? fkc->c.pb[q] : fkc->c.pa[q];
+                    const int cls =
+                        F1C5_CLS[__builtin_popcount((unsigned)(fkc->start_exit ^ entry))];
+                    if (cls < 0 || fkc->B.dig[cls][0] >= fkc->B.b0[cls]) continue;
+                    const F1U192 tv = kc_t_layers_lookup(fkc, TL, 1, 1u << q, exitx,
+                                                         fkc->B.rad[cls]);
+                    if (f1_is_zero(&tv)) ok = 0;
+                    f1_add(&acc, &tv);
+                    nbr++;
+                }
+            ok = ok && nbr > 0 && f1_eq(&acc, &troot);
+            KC_T_GATE("TB3 n=13 1 + sum of branch t == t(root)", ok);
+        }
+        for (int k = 0; k <= fkc->n; k++) f1c5_layer_free(&TL[k]);
+        free(TL);
+        kc_free(fkc);
+        free(fkc);
+    }
+
+    kc_h_rm_rf(dir);
+    printf("[kc-t-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
+           fails, fails == 1 ? "" : "s");
+    return fails ? 1 : 0;
+}
+
 typedef struct { const KC *kc; uint64_t limit, done; } KcEnumUd;
 static int kc_enum_print_cb(void *ud, const uint8_t *E) {
     KcEnumUd *u = (KcEnumUd *)ud;
@@ -23960,6 +25232,55 @@ static int kc_cli(int argc, char *argv[]) {
                 gcache = atoi(argv[++ai]);
         }
         return kc_g_check_main(argv[2], argv[3], gfooc, gcache);
+    }
+    if (strcmp(cmd, "--kc-t-selftest") == 0) return kc_t_selftest();
+    if (strcmp(cmd, "--kc-t-cert") == 0) {
+        /* Stage T: the XA(iii)/W0-D node-convention certificate (KC-T module
+         * header for the pinned convention + gates). Self-contained. */
+        if (argc < 3) {
+            fprintf(stderr, "Usage: solve --kc-t-cert OUT.json\n"
+                    "  Emits the t-unit node-accounting convention certificate: pins what\n"
+                    "  the t-ladder counts (valid oriented prefixes; root counted; joint\n"
+                    "  pair+orientation branching; dead ends counted) and verifies it\n"
+                    "  byte-exactly against the independent brute DFS at n=9 (EXHAUSTIVE,\n"
+                    "  every stored state) with n=13 spot totals. The SOLVE_NODE_LIMIT\n"
+                    "  mapping is NOT claimed here (W0-D worker run). Exit 0/1/2.\n");
+            return 2;
+        }
+        return kc_t_cert_main(argv[2]);
+    }
+    if (strcmp(cmd, "--kc-t-build") == 0 || strcmp(cmd, "--kc-t-check") == 0) {
+        /* Stage T: the t (search-tree-size) ladder — build + identity gate.
+         * See the KC-T module header for semantics, gates, and env knobs. */
+        const int is_build = strcmp(cmd, "--kc-t-build") == 0;
+        if (argc < 4) {
+            fprintf(stderr, "Usage: solve %s FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]\n"
+                    "  FDIR: an f (forward) retained-layers dir (--kc-build or Stage F);\n"
+                    "  TDIR: the t-ladder directory (t_layer_NN.bin + t_manifest.txt).\n"
+                    "%s",
+                    cmd,
+                    is_build
+                        ? "  Builds t(s) = 1 + sum_c t(s.c) (pruned-DFS search-tree size) on\n"
+                          "  the f ladder's exact state space: t layer geometry mirrors f\n"
+                          "  byte-identically, only the value channel differs. In-memory when\n"
+                          "  FDIR opens in-memory; else out-of-core (v2 default,\n"
+                          "  SOLVE_F1_OOC_FORMAT=v1 override) with eviction resume\n"
+                          "  (t_manifest counts DOWN) + intra-layer checkpoints\n"
+                          "  (t_build.ckpt); SOLVE_KC_T_STOP_AT_K = probe stop.\n"
+                        : "  Verifies, for EVERY layer k, byte-exact f/t geometry mirroring\n"
+                          "  AND sum over states of orbit * f * t == the number of search-\n"
+                          "  tree nodes at depth >= k (from the f layer masses) — n+1\n"
+                          "  independent exact identities, incl. t(root) == total tree size.\n");
+            return 2;
+        }
+        int tooc = 0, tcache = 0;
+        for (int ai = 4; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-ooc") == 0) tooc = 1;
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
+                tcache = atoi(argv[++ai]);
+        }
+        return is_build ? kc_t_build_main(argv[2], argv[3], tooc, tcache)
+                        : kc_t_check_main(argv[2], argv[3], tooc, tcache);
     }
 
     /* H-tier verifier bundle (KC-H module above; charter §4, TR12 §8) */
@@ -26126,13 +27447,14 @@ int main(int argc, char *argv[]) {
         if (argc < 3) {
             fprintf(stderr,
                 "Usage: solve --f1c5-layer-sha FILE|DIR [FILE|DIR ...]\n"
-                "  Streams each layer file (f1c5 F1C5LAY1/2 or Stage-G g-ladder F1C5GLY1/2;\n"
-                "  v1 raw or v2 per-block-zlib) through the engine's block decompressor and\n"
-                "  prints sha256 of the DECOMPRESSED logical stream (masks|off|keys|vals) —\n"
-                "  the exact bytes the v2 reader yields to the DP. Immune to zlib-version/\n"
-                "  level byte differences; a v1 and v2 layer of the same build digest\n"
-                "  identically. DIR expands to its f1c5_layer_NN.bin AND g_layer_NN.bin\n"
-                "  files. Digest via the system sha256 tool (sha256sum / shasum -a 256).\n");
+                "  Streams each layer file (f1c5 F1C5LAY1/2, Stage-G g-ladder F1C5GLY1/2,\n"
+                "  or Stage-T t-ladder F1C5TLY1/2; v1 raw or v2 per-block-zlib) through the\n"
+                "  engine's block decompressor and prints sha256 of the DECOMPRESSED logical\n"
+                "  stream (masks|off|keys|vals) — the exact bytes the v2 reader yields to\n"
+                "  the DP. Immune to zlib-version/level byte differences; a v1 and v2 layer\n"
+                "  of the same build digest identically. DIR expands to its f1c5_layer_NN.bin,\n"
+                "  g_layer_NN.bin AND t_layer_NN.bin files. Digest via the system sha256\n"
+                "  tool (sha256sum / shasum -a 256).\n");
             return 2;
         }
         if (require_sha256_tool()) return 30;
@@ -26141,9 +27463,9 @@ int main(int argc, char *argv[]) {
             struct stat lsha_st;
             if (stat(argv[ai], &lsha_st) == 0 && S_ISDIR(lsha_st.st_mode)) {
                 int found = 0;
-                static const char *lsha_pfx[2] = {"f1c5", "g"};
-                for (int pi = 0; pi < 2; pi++)
-                    for (int k = 0; k <= 99; k++) {   /* f1c5_layer_%02d.bin / g_layer_%02d.bin */
+                static const char *lsha_pfx[3] = {"f1c5", "g", "t"};
+                for (int pi = 0; pi < 3; pi++)
+                    for (int k = 0; k <= 99; k++) {   /* <pfx>_layer_%02d.bin */
                         char lp[4096];
                         snprintf(lp, sizeof(lp), "%s/%s_layer_%02d.bin", argv[ai], lsha_pfx[pi], k);
                         if (access(lp, R_OK) != 0) continue;
@@ -26152,7 +27474,7 @@ int main(int argc, char *argv[]) {
                         if (r > lsha_rc) lsha_rc = r;
                     }
                 if (!found) {
-                    fprintf(stderr, "ERROR: no f1c5_layer_NN.bin or g_layer_NN.bin files in %s\n",
+                    fprintf(stderr, "ERROR: no f1c5/g/t _layer_NN.bin files in %s\n",
                             argv[ai]);
                     lsha_rc = 2;
                 }
@@ -26171,7 +27493,8 @@ int main(int argc, char *argv[]) {
             fprintf(stderr,
                 "Usage: solve --f1c5-layer-cmp FILE_A FILE_B\n"
                 "  Byte-compares the DECOMPRESSED logical streams (masks|off|keys|vals) of\n"
-                "  two layer files (f1c5 F1C5LAY1/2 or Stage-G g-ladder F1C5GLY1/2; v1/v2 in\n"
+                "  two layer files (f1c5 F1C5LAY1/2, g-ladder F1C5GLY1/2, or t-ladder\n"
+                "  F1C5TLY1/2; v1/v2 in\n"
                 "  any combination), streaming with bounded memory. Prints IDENTICAL, or the\n"
                 "  first divergence offset on mismatch. Exit 0 identical, 1 divergent, 2 error.\n");
             return 2;
@@ -26190,7 +27513,7 @@ int main(int argc, char *argv[]) {
                 "  Regenerates the catalog layer-stats sidecars (value/branching/entries\n"
                 "  histograms, canonical-frame mass marginals by last and rid, top-16\n"
                 "  extreme states, decompressed-stream sha hash-chain, u192 headroom) for\n"
-                "  every retained f1c5/g layer in DIR, using DIR's manifest context.\n"
+                "  every retained f1c5/g/t layer in DIR, using DIR's manifest context.\n"
                 "  Builds emit these automatically (SOLVE_F1_LAYER_SIDECARS=0 disables);\n"
                 "  this subcommand retrofits ladders built before the feature or with the\n"
                 "  gate off. Non-destructive: layer bytes are never touched.\n");
