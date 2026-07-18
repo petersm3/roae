@@ -131,6 +131,29 @@ prints the UNSAT line and the tail of the solver output. **Requires
 `kissat` on `PATH`** (see the requirements table above); if it is
 missing, `sat.py` exits with a clear install message.
 
+### --rigidity-cnf OUT.cnf [--run]
+
+```
+python3 sat.py --rigidity-cnf rigidity.cnf
+python3 sat.py --rigidity-cnf rigidity.cnf --run   # requires kissat; drat-trim optional
+```
+
+TR-5 v2.0 symmetry-completeness rigidity kernel **[expect UNSAT]**: a
+bijection on the 64 hexagrams that is edge-preserving on the
+Hamming-distance-5 graph (adjacency derived from `solve.bit_diff` — no
+hand-written semantics), fixes 0 and its six distance-5 neighbors
+pointwise, yet differs from the identity. 4,096 vars, 282,760 clauses.
+The encoding is deliberately RELAXED (bijection + one-directional
+edge-support only) so its UNSAT is a-fortiori sufficient for the
+theorem's kernel. Emission self-validates (the identity assignment must
+satisfy every clause except the final not-identity clause) and refuses
+to write on failure. With `--run`: kissat decides (UNSAT expected,
+DRAT proof written to `OUT.cnf.drat`), then `drat-trim` verifies the
+proof if present on PATH (else the proof is emitted unverified with an
+explicit message). Prose + the exhaustive non-SAT machine check of the
+same kernel: [SYMMETRY_SEARCH.md §Completeness](SYMMETRY_SEARCH.md) and
+`solve.py --symmetry-completeness` (gate SC-4).
+
 ### --certify-count TARGET
 
 ```

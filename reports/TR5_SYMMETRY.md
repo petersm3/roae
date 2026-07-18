@@ -17,7 +17,9 @@ mistake and its fix are part of the record.
 ## Abstract
 The C1–C5 constraint system admits an exact symmetry group: the **48 bit-position permutations commuting
 with bit-reversal** (the centralizer of `rev` in S₆, isomorphic to **B₃ ≅ Z₂ ≀ S₃**, the octahedral group)
-— proven, not sampled, and maximal inside the full hyperoctahedral group Aut(Q₆) (order 46,080). At the
+— proven, not sampled, and (v2.0) **complete over ALL 64! hexagram relabelings**: no permutation of the
+hexagram set outside these 48 preserves the C1–C5 predicate family, with C1+C2+C4 alone forcing
+membership (previously the classification stopped at the hyperoctahedral group Aut(Q₆), order 46,080). At the
 canonical-record level the effective group is **B₃/{±I} ≅ S₄ (order 24)**, the action is **free** (proven
 2026-07-03), so every valid ordering — not just King Wen — has exactly 23 record-level "twins" and the
 orbit count is exactly N/24. The result *overturns a previously published negative*: an earlier version of
@@ -42,6 +44,18 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    (exhaustively verified 2026-07-02). Structure: rev = (0 5)(1 4)(2 3); its centralizer is Z₂ ≀ S₃ ≅ B₃,
    order 48, element orders {1:1, 2:19, 3:8, 4:12, 6:8}; rev is the central −I and fixes every
    pair-sequence, giving the record-level group S₄ (order 24).
+   **Completeness (v2.0, 2026-07-18): the classification extends from Aut(Q₆) to all of Sym(H).**
+   Any σ among the 64! hexagram relabelings preserving C1, C2 and C4 (as predicates over all
+   sequences) lies in G. Funnel: C4 forces σ(63)=63, σ(0)=0; C2 forces σ into the automorphism
+   group of the distance-5 graph G₅ (via a 1,824-sequence witness family), which is isomorphic to
+   Q₆ by the parity-complement map ψ and has order exactly 46,080 (two-common-neighbor rigidity);
+   fixing 0 kills the translation part and ψ-conjugation collapses to the 720 bit-position
+   permutations; commuting with partner (C1) cuts those to exactly the 48 of C_{S₆}(rev). Every
+   finite step is verified exhaustively by `solve.py --symmetry-completeness` (gates SC-1…SC-8);
+   the rigidity kernel is additionally emitted as a self-validated CNF (`sat.py --rigidity-cnf`,
+   expected UNSAT; DRAT artifact pending a solver-equipped worker). Scope: per-predicate
+   preservation; the solution-set automorphism group is bounded below by G and not decided above.
+   Full proof: [SYMMETRY_SEARCH.md §Completeness](../documentation/SYMMETRY_SEARCH.md).
 2. **A published negative, overturned — kept in its honest framing.** The original document concluded "All
    47 falsified… the constraint set is rigid against bit-position permutations. No factor-of-2-to-48
    enumeration cost reduction is available." That conclusion was **wrong**, and the correction (2026-07-02)
@@ -134,3 +148,4 @@ then confirmed the theorem's arithmetic signature.
 | v1.6 | 2026-07-04 | Numerical instantiation added: the free-action prediction checked against the exact count \|C1∩C2∩C4\| = 7.5706×10⁴¹ (symmetry-quotient DP), divisible by 24 exactly |
 | v1.7 | 2026-07-04 | Reproducibility completion: Verification Guide's tree-isomorphism command spelled out in full (ellipsis removed); 720-permutation σ(KW) test published as a runnable snippet in SYMMETRY_SEARCH.md §Reproducibility; orbit-CV test given an explicit public rerun spec |
 | v1.8 | 2026-07-11 | Trust-base wording precision: the Lean finite component is `native_decide`-checked (extended trust base — Lean's compiler), not "kernel-checked"; phrasing corrected per lean/README.md's trust-base note. No result changes |
+| v2.0 | 2026-07-18 | **Symmetry completeness**: the group's maximality extended from the hyperoctahedral group Aut(Q₆) to ALL 64! hexagram relabelings — no permutation of the hexagram set outside the 48 preserves the C1–C5 predicate family, and C1+C2+C4 alone force membership. New exhaustive machine gate `solve.py --symmetry-completeness` (SC-1…SC-8: ψ-isomorphism to Q₆, hypercube two-common-neighbor rigidity, the explicit 46,080-element Aut(G₅), the fix-0 and partner-commuting filters, the 1,824-sequence C2 witness family); rigidity kernel additionally encoded as a self-validated CNF (`sat.py --rigidity-cnf`, expected UNSAT; DRAT artifact pending a solver-equipped worker). Scope stated: per-predicate preservation; solution-set automorphism group bounded below by G, not decided above. Proof: SYMMETRY_SEARCH.md §Completeness |

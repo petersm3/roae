@@ -24,6 +24,10 @@ Subcommands:
   --witness TARGET              emit CNF, run the external solver (REQUIRES kissat on PATH;
                                 exits with a clear install message if missing), decode, verify,
                                 iterate blocking clauses until a C3-passing witness is found
+  --rigidity-cnf OUT.cnf [--run]  TR-5 v2.0 symmetry-completeness rigidity kernel [expect UNSAT]:
+                                G5-automorphism fixing 0 + its six d5-neighbors pointwise, != id.
+                                Emits + self-validates the CNF; with --run, decides via kissat
+                                (DRAT proof to OUT.cnf.drat, drat-trim verified when on PATH).
   --certify-count TARGET        emit CNF, compile it with D4 (d-DNNF), then generate + verify a
                                 CPOG certificate (cpog-gen / cpog-check) and print the CERTIFIED
                                 model count. REQUIRES the OPTIONAL external binaries d4,
@@ -281,6 +285,62 @@ RULESETS = {   # target base -> literature rules enforced strictly (task #217 5-
 }
 for _r in FIVE_RULES:
     RULESETS["five-loo-" + _r] = tuple(x for x in FIVE_RULES if x != _r)
+
+
+def build_rigidity():
+    """TR-5 v-next rigidity kernel as CNF [expect UNSAT] (2026-07-18).
+
+    Instance: a bijection sigma on the 64 hexagrams that is edge-preserving on
+    G5 (the Hamming-distance-5 graph; adjacency derived from solve.bit_diff —
+    no hand-written semantics), fixes 0 and every distance-5 neighbor of 0
+    pointwise, yet differs from the identity somewhere. UNSAT certifies the
+    SC-4 rigidity kernel of the symmetry-completeness theorem
+    (solve.py --symmetry-completeness; prose: SYMMETRY_SEARCH.md).
+
+    Encoding note (deliberate relaxation = STRONGER certificate): only
+    bijection + one-directional edge-support clauses are encoded. Every true
+    G5-automorphism satisfies these, so UNSAT of this relaxed instance implies
+    no qualifying automorphism exists. Returns (cnf, x) with x[v][w] <=>
+    sigma(v) = w."""
+    cnf = CNF()
+    H = range(64)
+    x = [[cnf.var() for _ in H] for _ in H]
+    for v in H:
+        exactly_one(cnf, [x[v][w] for w in H])       # total + injective rows
+    for w in H:
+        exactly_one(cnf, [x[v][w] for v in H])       # bijection (columns)
+    nbr = [[b for b in H if solve.bit_diff(a, b) == 5] for a in H]
+    for v in H:
+        for vp in nbr[v]:
+            for w in H:                              # v~v' => sigma(v')~sigma(v)
+                cnf.add(-x[v][w], *[x[vp][wp] for wp in nbr[w]])
+    anchors = [0] + nbr[0]                           # 0 and N5(0), fixed pointwise
+    for v in anchors:
+        cnf.add(x[v][v])
+    cnf.add(*[-x[v][v] for v in H])                  # sigma != identity
+    return cnf, x
+
+
+def rigidity_validate(cnf, x):
+    """Round-trip discipline: the identity assignment must satisfy every
+    clause EXCEPT the final not-identity clause (encoding sanity), and a
+    non-anchor-fixing known automorphism (bit-reversal, from
+    solve.reverse_6bit) must violate an anchor unit (negative control)."""
+    ident = set()
+    for v in range(64):
+        for w in range(64):
+            if v == w:
+                ident.add(x[v][w])
+    unsat_by_ident = [c for c in cnf.cl
+                      if not any((l > 0 and l in ident) or
+                                 (l < 0 and -l not in ident) for l in c)]
+    ok1 = len(unsat_by_ident) == 1 and unsat_by_ident[0] == \
+        [-x[v][v] for v in range(64)]
+    rev_fix = all(solve.reverse_6bit(v) == v for v in [0] +
+                  [b for b in range(64) if solve.bit_diff(0, b) == 5])
+    ok2 = not rev_fix   # bit-reversal moves at least one anchor => excluded
+    return ok1 and ok2
+
 
 def build(target, with_c3=False, c3_max=None):
     tbase = target.split("-near-")[0]
@@ -1047,5 +1107,36 @@ if __name__ == "__main__":
             if ok and c3 <= 776:
                 print("WITNESS:", seq); break
             cnf.add(*[-Y[(s, j)] for s in SLOTS for j in range(NJ) if Y[(s, j)] in set(l for l in lits if l > 0)])
+    elif args[:1] == ["--rigidity-cnf"] and len(args) in (2, 3):
+        # TR-5 v-next SC-4 kernel [expect UNSAT]; see build_rigidity docstring.
+        out = args[1]
+        cnf, x = build_rigidity()
+        if not rigidity_validate(cnf, x):
+            raise SystemExit("rigidity encoding self-validation FAILED — not writing " + out)
+        cnf.write(out, "rigidity: G5-automorphism fixing 0+N5(0) pointwise, != id [expect UNSAT]")
+        print("wrote %s (%d vars, %d clauses); encoding self-validation PASS" %
+              (out, cnf.n, len(cnf.cl)))
+        if len(args) == 3 and args[2] == "--run":
+            import shutil
+            if shutil.which("kissat") is None:
+                raise SystemExit(
+                    "kissat is required for --rigidity-cnf --run but was not found on PATH.\n"
+                    "Install kissat (https://github.com/arminbiere/kissat); see SAT_CLI.md.")
+            proof = out + ".drat"
+            r = subprocess.run(["kissat", "-q", out, proof], capture_output=True, text=True)
+            verdict = ("UNSAT" if "s UNSATISFIABLE" in r.stdout
+                       else "SAT" if "s SATISFIABLE" in r.stdout else "UNKNOWN(rc=%d)" % r.returncode)
+            print("kissat verdict: %s (proof: %s)" % (verdict, proof))
+            if verdict != "UNSAT":
+                raise SystemExit("EXPECTED UNSAT — got " + verdict)
+            if shutil.which("drat-trim"):
+                r2 = subprocess.run(["drat-trim", out, proof], capture_output=True, text=True)
+                ver = "VERIFIED" if "s VERIFIED" in r2.stdout else "NOT VERIFIED"
+                print("drat-trim: %s" % ver)
+                if ver != "VERIFIED":
+                    raise SystemExit("DRAT proof did not verify")
+            else:
+                print("drat-trim not on PATH — proof emitted but UNVERIFIED "
+                      "(run drat-trim %s %s independently)" % (out, proof))
     else:
         print(__doc__)

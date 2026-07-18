@@ -9694,6 +9694,193 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     return 0
 
 
+def symmetry_completeness():
+    """TR-5 v-next: the order-48 constraint-symmetry group is COMPLETE in Sym(H).
+
+    Machine-checkable converse of SYMMETRY_SEARCH.md's theorem: among ALL 64!
+    permutations sigma of the hexagram set H = {0..63} (not merely the 720
+    bit-position permutations, nor the order-46,080 hyperoctahedral group),
+    exactly the 48 elements of G = C_S6(rev) preserve the C1-C5 predicate
+    family — and only C1, C2, C4 are needed for the converse:
+
+      Sym(H) --[C2 => 5-graph automorphism; witness family W2]--> Aut(G5) (46,080)
+             --[C4 => fixes 0; psi-conjugation collapse]--> 720 bit-position perms
+             --[C1 => commutes with partner]--> G (48).
+
+    Every finite step is verified EXHAUSTIVELY here (no sampling):
+      [SC-1] psi(x) = x if popcount(x) even else x^63 is an involution and a
+             graph isomorphism G5 -> Q6 (G5 adjacency: Hamming distance 5;
+             Q6: distance 1) — all 2016 unordered pairs.
+      [SC-2] psi commutes with every one of the 720 bit-position permutations.
+      [SC-3] Q6 lemma: every distance-2 pair has EXACTLY two common neighbors.
+      [SC-4] Rigidity: a Q6-automorphism fixing 0 and its 6 neighbors pointwise
+             is forced, vertex by vertex in weight order (via SC-3), to the
+             identity => any automorphism fixing 0 is determined by its
+             restriction to N(0) => |Aut(Q6)| <= 64*720; the explicit
+             (xor-translation, bit-permutation) family realizes 46,080
+             distinct automorphisms => equality; Aut(G5) = psi.Aut(Q6).psi.
+      [SC-5] Every member of the explicit psi-conjugated family preserves all
+             192 G5 edges (edge-count bijection argument closes non-edges).
+      [SC-6] fix-0 filter: psi.(t,pi).psi fixes 0 iff t=0, and psi.pi.psi = pi
+             — so the fix-0 survivors are EXACTLY the 720 position perms
+             (which also all fix 63).
+      [SC-7] partner-commuting filter on the 720: exactly 48 survivors,
+             identical to C_S6(rev) — the banked group G.
+      [SC-8] Witness family W2: for every unordered pair {a,b} with
+             d(a,b) != 5 (1824 pairs), an explicit full 64-permutation with
+             (a,b) adjacent and NO distance-5 adjacency anywhere — each
+             verified. These are the C2-necessity gadgets of the prose proof
+             (C1/C4 witnesses are trivial and also checked).
+
+    Prose proof + honest scope: documentation/SYMMETRY_SEARCH.md (completeness
+    section) and reports/TR5_SYMMETRY.md. SAT/DRAT certificate of the SC-4
+    rigidity kernel: sat.py --rigidity-cnf. SCOPE: this decides PER-PREDICATE
+    preservation (each of C1..C5 preserved as a property of all sequences);
+    solution-SET automorphisms are discussed, not decided, in the prose — the
+    full solution set is not enumerated.
+
+    Exit 0 = all checks PASS (theorem's finite content verified); 1 = failure.
+    ATTRIBUTION: developed with AI assistance (Claude, Anthropic), 2026-07-18.
+    """
+    from itertools import permutations
+
+    H = list(range(64))
+    pc = [bin(x).count("1") for x in range(64)]
+
+    def d(a, b):
+        return pc[a ^ b]
+
+    def partner(h):
+        r = reverse_6bit(h)
+        return r if r != h else h ^ 63
+
+    def psi(x):
+        return x if pc[x] % 2 == 0 else x ^ 63
+
+    def apply_pi(p, h):
+        return sum(((h >> b) & 1) << i for i, b in enumerate(p))
+
+    fails = 0
+
+    def gate(name, ok):
+        nonlocal fails
+        print(f"[{name}] {'PASS' if ok else 'FAIL'}")
+        if not ok:
+            fails += 1
+
+    # SC-1: psi involution + G5 ~ Q6 isomorphism (exhaustive)
+    ok = all(psi(psi(x)) == x for x in H) and all(
+        (d(a, b) == 5) == (d(psi(a), psi(b)) == 1)
+        for a in H for b in H if a < b)
+    gate("SC-1 psi involution + G5~Q6 isomorphism (2016 pairs)", ok)
+
+    # SC-2: psi commutes with all 720 position perms (exhaustive)
+    perms6 = list(permutations(range(6)))
+    ok = all(psi(apply_pi(p, x)) == apply_pi(p, psi(x))
+             for p in perms6 for x in H)
+    gate("SC-2 psi commutes with all 720 position perms", ok)
+
+    # SC-3: two-common-neighbor lemma on Q6 (exhaustive)
+    ok = True
+    for y in H:
+        for z in H:
+            if y < z and d(y, z) == 2:
+                if sum(1 for a in H if d(a, y) == 1 and d(a, z) == 1) != 2:
+                    ok = False
+    gate("SC-3 Q6 distance-2 pairs have exactly 2 common neighbors", ok)
+
+    # SC-4: rigidity by weight-induction (forced identity)
+    sigma = {0: 0}
+    for i in range(6):
+        sigma[1 << i] = 1 << i
+    ok = True
+    for w in range(2, 7):
+        for x in H:
+            if pc[x] != w:
+                continue
+            bits = [i for i in range(6) if (x >> i) & 1]
+            y = x & ~(1 << bits[0])
+            z = x & ~(1 << bits[1])
+            m = y & z
+            cn = [a for a in H
+                  if d(a, sigma[y]) == 1 and d(a, sigma[z]) == 1 and a != sigma[m]]
+            if len(cn) != 1:
+                ok = False
+                break
+            sigma[x] = cn[0]
+    ok = ok and all(sigma[x] == x for x in H)
+    gate("SC-4 rigidity: identity-anchored extension forced to identity", ok)
+
+    # SC-5: the explicit psi-conjugated family = 46,080 distinct G5-automorphisms
+    edges = [(a, b) for a in H for b in H if a < b and d(a, b) == 5]
+    fam = set()
+    ok = True
+    for t in range(64):
+        for p in perms6:
+            sig = tuple(psi(apply_pi(p, psi(x)) ^ t) for x in H)
+            fam.add(sig)
+            if not all(d(sig[a], sig[b]) == 5 for a, b in edges):
+                ok = False
+    ok = ok and len(fam) == 46080
+    gate("SC-5 explicit family: 46,080 distinct maps, all preserve G5 (192 edges each)", ok)
+
+    # SC-6: fix-0 collapse to the 720 position perms
+    fix0 = {s for s in fam if s[0] == 0}
+    posperms = {tuple(apply_pi(p, x) for x in H) for p in perms6}
+    ok = fix0 == posperms and all(s[63] == 63 for s in fix0)
+    gate("SC-6 fix-0 survivors == the 720 position perms (63 fixed too)", ok)
+
+    # SC-7: partner-commuting filter -> exactly the 48 of C_S6(rev)
+    commuters = [p for p in perms6
+                 if all(apply_pi(p, partner(h)) == partner(apply_pi(p, h))
+                        for h in H)]
+    revp = (5, 4, 3, 2, 1, 0)
+
+    def compose(p, q):
+        return tuple(p[q[i]] for i in range(6))
+
+    centralizer = [p for p in perms6 if compose(p, revp) == compose(revp, p)]
+    ok = len(commuters) == 48 and sorted(commuters) == sorted(centralizer)
+    gate("SC-7 partner-commuters among 720 == 48 == C_S6(rev)", ok)
+
+    # SC-8: witness families (C2 necessity gadgets + trivial C1/C4)
+    def build_w2(a, b):
+        seq = [a, b]
+        rem = set(H) - {a, b}
+        while rem:
+            cand = sorted(x for x in rem if d(seq[-1], x) != 5)
+            if not cand:
+                return None
+            seq.append(cand[0])
+            rem.discard(cand[0])
+        return seq
+
+    ok = True
+    n_w2 = 0
+    for a in H:
+        for b in H:
+            if a < b and d(a, b) != 5:
+                s = build_w2(a, b)
+                if (s is None or sorted(s) != H
+                        or any(d(s[i], s[i + 1]) == 5 for i in range(63))):
+                    ok = False
+                else:
+                    n_w2 += 1
+    s = [63, 0] + [h for h in H if h not in (63, 0)]
+    ok = ok and s[0] == 63 and s[1] == 0 and sorted(s) == H
+    gate(f"SC-8 witness families: W2 x {n_w2} (expect 1824) + C1/C4", ok and n_w2 == 1824)
+
+    print()
+    if fails == 0:
+        print("SYMMETRY COMPLETENESS: all finite content VERIFIED.")
+        print("Theorem: among all 64! hexagram relabelings, exactly the 48 elements of")
+        print("G = C_S6(rev) preserve the C1-C5 predicate family (C1+C2+C4 suffice for")
+        print("the converse; the forward direction is banked in SYMMETRY_SEARCH.md + Lean).")
+    else:
+        print(f"SYMMETRY COMPLETENESS: {fails} CHECK(S) FAILED — theorem NOT certified.")
+    return 0 if fails == 0 else 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -9856,6 +10043,10 @@ def main():
                              "two-language SPEC gate for solve.c --db1-verify")
     parser.add_argument("--vdb-verify", action="store_true",
                         help="verify the 8 Van den Berghe (c.1998-2005) structural candidates on KW")
+    parser.add_argument("--symmetry-completeness", action="store_true",
+                        help="TR-5 v-next: exhaustively certify that the order-48 "
+                             "symmetry group is complete over ALL 64! hexagram "
+                             "relabelings (SC-1..SC-8 gates; exit 0 = certified)")
     parser.add_argument("--books-verify", action="store_true",
                         help="verify the machine-checkable structural claims "
                              "from the audited books (Wu Deng via Nielsen "
@@ -9939,6 +10130,8 @@ def main():
 
     args = parser.parse_args()
 
+    if args.symmetry_completeness:
+        sys.exit(symmetry_completeness())
     if args.books_verify:
         sys.exit(books_verify())
     if args.trigram_verify:

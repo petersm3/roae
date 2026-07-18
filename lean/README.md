@@ -71,6 +71,7 @@ lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free g
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
 lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below)
+lean SymmetryCompleteness.lean  # TR-5 v2.0 completeness kernel: psi iso, Q6 rigidity, partner-commuters = G48 (2026-07-18)
 ```
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing

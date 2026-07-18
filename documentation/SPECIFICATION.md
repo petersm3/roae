@@ -123,9 +123,12 @@ has **exactly 15 parity-class alternations** across its 31 pair boundaries (= C5
 wrap-parity theorem above is its total-parity corollary). *Proof and consequences (including an exact O(1)
 prefix prune and its sha-lineage caveat): [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md).*
 
-**Theorem (Symmetry group, 2026-07-02):** The C1–C5 constraint system is invariant under exactly the 48 bit
+**Theorem (Symmetry group, 2026-07-02; completeness 2026-07-18):** The C1–C5 constraint system is invariant under exactly the 48 bit
 permutations commuting with bit-reversal (≅ B₃, the octahedral group; effective group S₄ on canonical
-records). King Wen has exactly 23 record-level twin orderings. *Proof: [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md).*
+records), and this group is **complete over all 64! hexagram relabelings** — no permutation of the
+hexagram set outside the 48 preserves the C1–C5 predicate family (C1+C2+C4 alone force membership;
+exhaustive machine gate `solve.py --symmetry-completeness`). King Wen has exactly 23 record-level twin
+orderings. *Proof: [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) (+ §Completeness).*
 
 **Theorem (Trigram-level structure, 2026-07-11):** In every C1-valid ordering the 32 within-pair distances form exactly the multiset {2:12, 4:12, 6:8}; in every C1+C5-valid ordering the 31 between-pair boundary distances form exactly the multiset **{1:2, 2:8, 3:13, 4:7, 6:1}**. Corollaries holding for every valid ordering: exactly one boundary complements both trigrams simultaneously (the "9th six" — *observed* in King Wen by [McKenna & McKenna 1975](CITATIONS.md#mckenna-mckenna1975), here derived from C1+C5 so the 560T-scale measurement becomes a corollary; its *position* remains ordering-dependent); exactly two boundaries change a single line; and at the unique distance-6 boundary the following pair is the complement (pangtong) image of the preceding pair in reversed order. Separately, exactly **12 of the 48** constraint symmetries (Theorem above) respect the trigram bipartition, forming a subgroup ≅ S₃ × C₂ (S₃, order 6, at record level) — a statement about this project's constraint-symmetry group only, distinct from Hershock 1991's trigram-operation group on the hexagram set. *Machine-checked in core Lean 4: [lean/TrigramTheorems.lean](../lean/TrigramTheorems.lean); prose companion, honest scope, and the binding attribution/novelty ledger: [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md).*
 

@@ -3,7 +3,11 @@
 **Result (CORRECTED 2026-07-02; machine-checked in Lean 2026-07-05, supersedes this document's earlier negative claim):** The C1–C5 constraint
 system admits an exact symmetry group: the **48 bit-position permutations that commute with bit-reversal**
 (the centralizer of `rev` in S₆, isomorphic to **B₃ ≅ Z₂ ≀ S₃**, the octahedral group). For every σ in this
-group and every sequence S, **S satisfies C1–C5 if and only if σ(S) does** — proven, not sampled. The full
+group and every sequence S, **S satisfies C1–C5 if and only if σ(S) does** — proven, not sampled.
+**Completeness (2026-07-18): the group is complete over ALL 64! hexagram relabelings** — no
+permutation of the hexagram set outside these 48 preserves the C1–C5 predicate family (C1+C2+C4
+already force membership; §Completeness below, machine-verified by
+`solve.py --symmetry-completeness`). The full
 solution set is therefore a disjoint union of orbits of size dividing 48; per-cell true solution counts and
 entire backtrack subtrees are exactly orbit-invariant. At the canonical-record level (pair-sequences after
 orientation dedup), bit-reversal itself acts trivially, so the effective group is **B₃/{±I} ≅ S₄ (order 24)**
@@ -45,6 +49,89 @@ preserves the solution set. Exactly the 48 elements of G map KW to valid C1–C5
 permutes the three pairs (S₃) and swaps within each independently ((Z₂)³): G ≅ Z₂ ≀ S₃ ≅ B₃, order 48,
 element orders {1:1, 2:19, 3:8, 4:12, 6:8}. rev itself is the central element −I; it maps every hexagram to
 its partner and therefore fixes every pair-sequence — giving the record-level group B₃/{±I} ≅ S₄.
+
+## Completeness over ALL 64! relabelings (2026-07-18)
+
+The maximality result above stops at the hyperoctahedral group Aut(Q₆) (order 46,080). This section
+closes the remaining gap — "how do you know you quotiented by everything?" — by extending the
+classification to **every permutation of the hexagram set**.
+
+**Definitions.** For σ ∈ Sym(H) (H = {0,…,63}) and a sequence S (a permutation of H), σ∘S is the
+sequence with (σ∘S)ᵢ = σ(Sᵢ). σ **preserves** a predicate P if for ALL sequences S: P(S) ⟺ P(σ∘S).
+The preservers of any fixed predicate family form a group (closure and inverses are immediate from
+the two-sided definition).
+
+**Theorem (symmetry completeness).** Among all 64! permutations of H, exactly the 48 elements of
+G = C_{S₆}(rev) (acting by bit-position permutation) preserve each of C1, C2, C3, C4, C5.
+Moreover the converse needs only C1, C2 and C4: any σ preserving those three lies in G.
+
+**Proof.** The forward direction (every σ ∈ G preserves all five) is the theorem above (machine-checked
+in Lean, `validC15_mapP`). For the converse, let σ preserve C1, C2, C4.
+
+*Step 1 (C4 ⟹ σ fixes 63 and 0).* The sequence W₄ = (63, 0, …) satisfies C4; σ∘W₄ must too, so
+σ(63) = 63 and σ(0) = 0.
+
+*Step 2 (C2 ⟹ σ is an automorphism of the distance-5 graph G₅).* Let G₅ be the graph on H with
+a ~ b iff the Hamming distance d(a,b) = 5. The witness family **W2** supplies, for every unordered
+pair {a,b} with d(a,b) ≠ 5, a full 64-sequence with a,b adjacent and NO distance-5 adjacency anywhere
+(1,824 sequences, constructed greedily and verified exhaustively — gate SC-8). If d(a,b) ≠ 5 but
+d(σa,σb) = 5: the witness S = W2(a,b) satisfies C2, yet σ∘S contains the adjacent pair (σa,σb) at
+distance 5 — contradiction. If d(a,b) = 5 but d(σa,σb) ≠ 5: apply the same argument to σ⁻¹ (a
+preserver, since preservers form a group) and the witness W2(σa,σb). So σ preserves distance-5 both
+ways: σ ∈ Aut(G₅).
+
+*Step 3 (Aut(G₅) has order 46,080).* The parity-complement involution ψ(x) = x if popcount(x) is
+even, else x ⊕ 63, is a graph isomorphism G₅ → Q₆ (the hypercube: adjacency = distance 1): if
+d(x,y) = 5 then y differs from comp(x) in one bit, and ψ applies comp to exactly one of x, y per
+parity (gate SC-1, all 2,016 pairs). Aut(Q₆) is the hyperoctahedral group: (i) any two vertices at
+distance 2 have exactly two common neighbors (gate SC-3); (ii) hence an automorphism fixing 0 and its
+six neighbors pointwise is forced to the identity vertex-by-vertex in weight order — a weight-k vertex
+x (k ≥ 2) is the unique common neighbor of two of its weight-(k−1) subwords other than their
+weight-(k−2) meet (gate SC-4; SAT kernel: `sat.py --rigidity-cnf`); (iii) so an automorphism fixing 0
+is determined by its restriction to the six neighbors of 0, giving |Aut(Q₆)| ≤ 64·720; (iv) the
+explicit family x ↦ π(x) ⊕ t realizes this bound. Conjugating by ψ: Aut(G₅) = ψ·Aut(Q₆)·ψ, with all
+46,080 elements listed explicitly and each verified edge-preserving (gate SC-5).
+
+*Step 4 (fixing 0 collapses to bit-position permutations).* Write σ = ψ∘(t,π)∘ψ with (t,π) ∈ Aut(Q₆).
+Then σ(0) = ψ(t), and ψ(t) = 0 iff t = 0 (if popcount(t) is odd, ψ(t) = t ⊕ 63 = 0 forces t = 63,
+which has even popcount — contradiction). With t = 0: ψ∘π∘ψ = π, because ψ commutes with every
+bit-position permutation (π is linear with π(63) = 63, and popcount is π-invariant — gate SC-2,
+all 720). So σ = π, a bit-position permutation; these all fix 63 as well (gate SC-6).
+
+*Step 5 (C1 ⟹ σ ∈ G).* For each h, the pair-block sequence starting (h, partner(h)) satisfies C1,
+so σ(partner(h)) = partner(σ(h)): σ commutes with the partner involution. Among the 720 bit-position
+permutations, exactly 48 commute with partner, and they are precisely C_{S₆}(rev) (gate SC-7 checks
+both equalities exhaustively). ∎
+
+**Machine verification.** Three independent layers. (i) `python3 solve.py --symmetry-completeness`
+runs gates SC-1…SC-8 — every finite claim above verified exhaustively, no sampling (psi isomorphism
+2,016 pairs; 720 commutations; distance-2 lemma; forced rigidity derivation; all 46,080
+automorphisms edge-checked; the fix-0 and partner filters; the 1,824-sequence W2 family).
+(ii) **Lean**: [lean/SymmetryCompleteness.lean](../lean/SymmetryCompleteness.lean) machine-checks
+the finite kernel (`psi_involution`, `psi_g5_iso`, `psi_comm_perms`, `q6_two_common_neighbors`,
+`rigidity_forced_identity`, `partnerCommuters_eq_G48` + card 48) — `native_decide`, the repo's
+extended-trust-base convention for finite facts; the 46,080-element enumeration, fix-0 collapse and
+sequence-level witness lifting are deliberately NOT formalized there (covered by (i) and the prose).
+(iii) `sat.py --rigidity-cnf` emits the Step-3(ii) kernel as a self-validated CNF (4,096 vars,
+282,760 clauses, expected UNSAT; deliberately relaxed encoding, so UNSAT is a fortiori sufficient);
+the kissat+DRAT artifact is **pending** a solver-equipped worker (the orchestrator carries no SAT
+solver) — until it lands, the rigidity kernel's machine checks are (i)'s and (ii)'s forced
+derivations, which are exhaustive and do not rely on search.
+
+**Scope, honestly stated.** (1) The theorem classifies **per-predicate preservers** — σ preserving
+each Cᵢ as a property of arbitrary sequences. (2) For the group of **solution-set automorphisms**
+(σ mapping the C1–C5 solution set onto itself as a whole), this proof gives containment G ⊆ Aut(solset)
+plus the necessary conditions from universally-shared structure (σ(63)=63, σ(0)=0 since every solution
+starts 63,0; σ maps the 32 canonical pairs to canonical pairs since every solution is a pair-block
+sequence); whether Aut(solset) exceeds G is **not decided** — the full solution set (≈10³⁸) is not
+enumerated, and witness-based necessity arguments there would require solutions with prescribed local
+features rather than free sequences. No claim is made beyond containment. (3) The earlier
+"Maximality" paragraph above is subsumed: it bounded the group within Aut(Q₆); this section removes
+that restriction entirely.
+
+*Novelty status: we are not aware of a prior completeness classification of this group over the full
+symmetric group for the King Wen constraint system; corrections welcome via
+[CITATIONS.md](CITATIONS.md). Developed with AI assistance (Claude, Anthropic).*
 
 ## Empirical corroboration (three independent levels)
 
@@ -154,8 +241,11 @@ only in that both mention trigrams; neither result overlaps, duplicates, or exte
 
 ## Limits and scope
 
-- The theorem covers the full hyperoctahedral group: flips are excluded **by C4 specifically** (they move
-  0/63). A constraint system without C4 would admit a larger flip-extended analysis — not pursued.
+- The classification now covers all of Sym(H) (§Completeness above), with flips excluded **by C4
+  specifically** (they move 0/63) and everything outside the hyperoctahedral group excluded by C2's
+  distance-5 graph rigidity. A constraint system without C4 would admit a larger flip-extended
+  analysis — not pursued. The completeness theorem is about per-predicate preservation; the
+  solution-set automorphism group is bounded below by G and not decided above (see the scope note).
 - Whether KW's 23 twins appear in budgeted canonicals is now MEASURED (2026-07-02, direct bisection of the
   560T canonical): **King Wen is present; all 23 twins are absent.** Their membership in the full solution
   set is proven — their absence from the budgeted set is a search-orientation effect: the enumeration's
