@@ -435,5 +435,64 @@ class TestSatC5Subset(unittest.TestCase):
             self.assertEqual(ctx["b0"], exp["b0"])
 
 
+class TestMooreKwGates(unittest.TestCase):
+    """F-1 (TR-2 review) KW-forced regression gates for the Moore parity and
+    rhythm encodings — the two rules carrying the grand-ccn4 UNSAT conflict
+    theorem and its minimal cores ({parity,ccn4}, {rhythm,ccn4}). UNSAT has no
+    witness to round-trip, so these gates pin the encodings to solve.py the
+    other way around: with KW pinned by unit clauses, the strict Moore clauses
+    must conflict at EXACTLY the solve.r11_axes-scored loci (g1 = 2 parity
+    violations, g2 = 2 rhythm breaks, per R11_KW_EXPECTED), and unit
+    propagation alone then decides UNSAT — solver-free, the rc4-kwtest /
+    ccn4-kwtest analogue for the Moore axes (DRAT-certified kissat runs remain
+    the archive-grade check when a solver is present)."""
+
+    @staticmethod
+    def _kw_j(s):
+        return next(j for j in range(sat.NJ)
+                    if sat.ORIENTS[j][0] == s and sat.ORIENTS[j][1] == 0)
+
+    def test_kw_moore_scores_are_2_2(self):
+        # ground truth + the sat.py scorer wrapper agree: KW = 2 parity
+        # violations, 2 rhythm breaks (the values the reports claim)
+        self.assertEqual(solve.r11_axes(KW)[:2], [2, 2])
+        self.assertEqual(sat._moore_scores(KW), (2, 2))
+
+    def test_moore_kwtest_conflicts_at_exactly_2_loci_and_up_unsat(self):
+        g1 = solve.r11_axes(KW)[0]
+        cnf, Y = sat.build("moore-kwtest")
+        cl = set(map(tuple, cnf.cl))
+        loci = [s for s in sat.SLOTS
+                if (Y[(s, self._kw_j(s))],) in cl        # KW pin unit
+                and (-Y[(s, self._kw_j(s))],) in cl]     # parity forbid unit
+        self.assertEqual(len(loci), g1, f"parity conflict loci {loci}")
+        self.assertFalse(TestSatC5Subset._up_ok(cnf.cl, []))   # UNSAT by UP
+
+    def test_rhythm_kwtest_conflicts_at_exactly_2_loci_and_up_unsat(self):
+        g2 = solve.r11_axes(KW)[1]
+        cnf, Y = sat.build("rhythm-kwtest")
+        cl = set(map(tuple, cnf.cl))
+        loci = [s for s in range(1, 31)                  # KW adjacency forbidden
+                if (-Y[(s, self._kw_j(s))], -Y[(s + 1, self._kw_j(s + 1))]) in cl]
+        self.assertEqual(len(loci), g2, f"rhythm conflict loci {loci}")
+        self.assertFalse(TestSatC5Subset._up_ok(cnf.cl, []))   # UNSAT by UP
+
+    def test_derived_tables_match_solve_on_kw(self):
+        # encoder-table replica of the clause semantics reproduces solve.r11_axes
+        # on the KW arrangement (the tables themselves are probed out of
+        # solve.r11_axes at sat import, with 300 randomized endorsements there)
+        kw_arrangement = [(p, 0) for p in range(1, 32)]
+        self.assertEqual(sat._moore_predict(kw_arrangement), (2, 2))
+        self.assertEqual(sum(sat.MOORE_COUNTED.values()), 18)
+
+    def test_verify_seq_rescores_literature_rules(self):
+        # F-1: the decoded-witness round-trip re-scores Moore parity, Moore
+        # rhythm AND Schulz gender via solve.py scorers (not just C1/C2/C3/C5)
+        ok, c3, scores = sat.verify_seq(KW)
+        self.assertTrue(ok)
+        self.assertEqual(c3, 776)
+        self.assertEqual(scores, (2, 2, 2))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

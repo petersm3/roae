@@ -56,6 +56,11 @@ Targets:
   moore-strict   C1+C2+C4+C5 AND Moore-2005 parity (all 18) AND Moore-1989 rhythm (0 breaks)
                  [expect SAT -> explicit witness ordering; C3 enforced by verify-loop]
                  (attribution: Moore 2005 Oracle Papers No.1; Moore 1989 Trigrams of Han App.2)
+  moore-kwtest   encoding validation: KW forced + strict Moore-2005 parity clauses
+                 [expect UNSAT — solve.r11_axes scores KW at EXACTLY 2 parity violations;
+                 tests.py counts the 2 conflict loci + decides UNSAT solver-free by unit prop.]
+  rhythm-kwtest  encoding validation: KW forced + strict Moore-1989 rhythm clauses
+                 [expect UNSAT — KW has EXACTLY 2 rhythm breaks; same solver-free gate]
   plain          C1+C2+C4+C5 only (baseline satisfiability sanity)
   rc4-strict     C1+C2+C4+C5 AND Schulz gender/position-parity with 0 violations
                  (attribution: Schulz 1990 JCP 17:3 motif 2, exception first noticed by Zhu
@@ -219,14 +224,149 @@ KW_RS2_R24 = _rs2_r_after(KW_BAL[:24])   # True on KW: position 24 is zero-balan
 assert all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2)))
            for w in (1, 2, 4, 5) for pos in (24, 25, 26, 27))
 
-def directional(p):
-    a, b = KW_PAIRS[p]
-    return (a ^ b) != 63 and pc(a) != 3
+# ---- Moore parity/rhythm static facts, DERIVED from solve.r11_axes (F-1) ----
+# ATTRIBUTION: g1 = Moore 2005 (Oracle Papers No.1) pair-positioning parity; g2 =
+# Moore 1989 (Trigrams of Han App.2) rising/falling rhythm. Until 2026-07-19 this
+# file carried hand-written directional()/rising() helpers duplicating solve.py's
+# g1/g2 logic — a violation of the header rule (finding F-1, TR-2 review). The
+# encoder tables below are instead extracted from solve.r11_axes — the single
+# authoritative scorer (byte-for-byte twin of solve.c r11_axes; KW = 2 parity
+# violations, 2 rhythm breaks) — so the encoding cannot silently diverge from the
+# engine; verify_seq routes through the same scorer (_moore_scores), closing the
+# round-trip. r11_axes needs a full orientation-resolved pair permutation (its
+# g3/g7/g8 station machinery), so the extraction uses exact DIFFERENCING over
+# valid arrangements: parity compliance via controlled slot swaps (g1 is a sum
+# of per-(pair, position-parity) terms, so one swap isolates D_p - D_q exactly),
+# rhythm breaks via an exempt-buffered adjacency probe (g2 ignores absolute
+# position, so moving one probe pair behind an exempt buffer changes g2 by
+# exactly the probed break). The decomposition hypotheses behind both schemes
+# are themselves validated by the 300-arrangement randomized endorsement below
+# (predicted == r11_axes) — the same discipline as the R-S2 replica above.
 
-def rising(first, p):
-    """Moore 1989: minority lines of the first hexagram sit low -> they rise under reversal."""
-    mb = 0 if pc(KW_PAIRS[p][0]) > 3 else 1
-    return sum((5 - 2*i) for i in range(6) if ((first >> i) & 1) == mb) > 0
+def _moore_scores(seq):
+    """(Moore-2005 parity violations, Moore-1989 rhythm breaks) of a 64-hexagram
+    sequence via solve.r11_axes (g1, g2) — the ONLY Moore parity/rhythm scorer
+    in this file; the encoder tables and verify_seq both route through it."""
+    g = solve.r11_axes(seq)
+    return g[0], g[1]
+
+def _po_hexes(p, o):
+    a, b = KW_PAIRS[p]
+    return (a, b) if o == 0 else (b, a)
+
+def _arr_seq(arrangement):
+    """[(pair, orient)] for slots 1..31 -> full 64-seq (slot 0 = pair 0)."""
+    seq = [63, 0]
+    for p, o in arrangement:
+        seq += list(_po_hexes(p, o))
+    return seq
+
+def _g1(a): return _moore_scores(_arr_seq(a))[0]
+def _g2(a): return _moore_scores(_arr_seq(a))[1]
+
+_A0 = [(p, 0) for p in range(1, 32)]              # the KW arrangement itself
+_g1_0 = _g1(_A0)
+# --- parity: D_p := c(p, odd) - c(p, even), c = g1-compliance indicator.
+# Swapping pair p with a fixed opposite-parity reference slot isolates D_p - D_ref
+# exactly; pair p sits at slot p = 1-based position p+1 (odd iff p even), refs are
+# slot 1 (pair 1, position 2, even) and slot 2 (pair 2, position 3, odd).
+_d_rel = {}                                       # p -> ("D1"|"D2", D_p - D_ref)
+for _p in range(2, 32):
+    _sw = list(_A0)
+    if _p % 2 == 0:                               # p at odd position: swap with slot 1
+        _sw[_p - 1], _sw[0] = _sw[0], _sw[_p - 1]
+        _d_rel[_p] = ("D1", _g1(_sw) - _g1_0)     # g1 delta = D_p - D_1
+    else:                                         # p at even position: swap with slot 2
+        _sw[_p - 1], _sw[1] = _sw[1], _sw[_p - 1]
+        _d_rel[_p] = ("D2", _g1_0 - _g1(_sw))     # g1 delta = D_2 - D_p
+# absolute pin via rotations: S(A) := 18 - g1(A) = sum_p c(p, parity_A(p));
+# rotating flips the position parity of 30 of the 31 pairs, giving
+# sum_p T_p (T_p := c(p,odd)+c(p,even)) up to a known D correction:
+#   S0 + S1  = sum T - D_31   (pair 31 stays even),  S0 + S1b = sum T - D_1.
+# T_p >= |D_p| with equality iff no pair is dual-compliant and every D=0 pair is
+# exempt — so requiring sum|D| == sum T pins the one true D_1 in {-1,0,1}.
+_A1, _A1b = [_A0[-1]] + _A0[:-1], _A0[1:] + [_A0[0]]
+_S0, _S1, _S1b = 18 - _g1_0, 18 - _g1(_A1), 18 - _g1(_A1b)
+_dsol = []
+for _d1 in (-1, 0, 1):
+    _D = {1: _d1, 2: _d1 + _d_rel[2][1]}
+    for _p in range(3, 32):
+        _tag, _v = _d_rel[_p]
+        _D[_p] = (_D[1] if _tag == "D1" else _D[2]) + _v
+    if all(_d in (-1, 0, 1) for _d in _D.values()) and \
+       _S0 + _S1 + _D[31] == _S0 + _S1b + _D[1] == sum(abs(_d) for _d in _D.values()):
+        _dsol.append(dict(_D))
+assert len(_dsol) == 1, "parity differencing under-determined (%d candidates)" % len(_dsol)
+_D = _dsol[0]
+MOORE_COUNTED = {p: _D[p] != 0 for p in range(1, 32)}   # scored by g1/g2 ("directional")
+MOORE_WANT_ODD = {p: _D[p] == 1 for p in range(1, 32) if _D[p] != 0}
+assert sum(MOORE_COUNTED.values()) == 18, "expected 18 counted (directional) pairs"
+for _p in range(1, 32):                           # g1 must be orientation-blind
+    for _base in (_A0, _A1):                      # (checks pair _p at both parities)
+        _fl = list(_base)
+        _fl[_fl.index((_p, 0))] = (_p, 1)
+        assert _g1(_fl) == _g1(_base), "g1 orientation-dependent at pair %d" % _p
+
+# --- rhythm: MOORE_BREAK[(po1, po2)] = 1 iff placing po2 directly after po1
+# (both counted) breaks the rising/falling alternation. Probed EXHAUSTIVELY for
+# all 1224 ordered counted (pair, orient) adjacencies: g2 is position-blind and
+# resets at exempt pairs, so [e1, po1, po2, e2, e3, rest] minus
+# [e1, po1, e2, po2, e3, rest] isolates exactly the (po1, po2) break.
+_EXEMPT = sorted(p for p in range(1, 32) if not MOORE_COUNTED[p])
+_CO = [(p, o) for p in range(1, 32) if MOORE_COUNTED[p] for o in (0, 1)]
+_e1, _e2, _e3 = _EXEMPT[:3]
+MOORE_BREAK = {}
+for _po1 in _CO:
+    for _po2 in _CO:
+        if _po1[0] == _po2[0]:
+            continue                              # a pair never occupies two slots
+        _rest = [(p, 0) for p in range(1, 32)
+                 if p not in (_e1, _e2, _e3, _po1[0], _po2[0])]
+        _adj = [(_e1, 0), _po1, _po2, (_e2, 0), (_e3, 0)] + _rest
+        _sep = [(_e1, 0), _po1, (_e2, 0), _po2, (_e3, 0)] + _rest
+        _br = _g2(_adj) - _g2(_sep)
+        assert _br in (0, 1), "rhythm adjacency probe not isolated"
+        MOORE_BREAK[(_po1, _po2)] = _br
+for (_po1, _po2), _b in MOORE_BREAK.items():      # sanity: relation is symmetric
+    assert MOORE_BREAK[(_po2, _po1)] == _b, "rhythm break relation asymmetric"
+# sanity: the probed relation is a two-class (rising/falling) equality relation
+_ref = _CO[0]
+_cls = {_ref: 0}
+for _po in _CO:                                   # other pairs: classify against ref
+    if _po[0] != _ref[0]:
+        _cls[_po] = _cls[_ref] if MOORE_BREAK[(_ref, _po)] else 1 - _cls[_ref]
+_sib = (_ref[0], 1 - _ref[1])                     # ref's orientation-sibling: via _CO[2]
+_cls[_sib] = _cls[_CO[2]] if MOORE_BREAK[(_CO[2], _sib)] else 1 - _cls[_CO[2]]
+for (_po1, _po2), _b in MOORE_BREAK.items():
+    assert _b == (1 if _cls[_po1] == _cls[_po2] else 0), "break relation not 2-colorable"
+
+def _moore_predict(arrangement):
+    """(g1, g2) predicted by the derived tables for [(pair, orient)] in slots
+    1..31 (slot 0 = pair 0, exempt -> resets the rhythm chain). Validation-only
+    replica of the CNF clause semantics — asserted against solve.r11_axes."""
+    okc = sum(1 for s, (p, o) in enumerate(arrangement, start=1)
+              if MOORE_COUNTED[p] and MOORE_WANT_ODD[p] == ((s + 1) % 2 == 1))
+    g2, prev = 0, None
+    for po in arrangement:
+        if not MOORE_COUNTED[po[0]]:
+            prev = None
+            continue
+        if prev is not None and MOORE_BREAK[(prev, po)]:
+            g2 += 1
+        prev = po
+    return 18 - okc, g2
+
+# whole-sequence endorsement: table-predicted (g1, g2) == solve.r11_axes on KW
+# (== the published 2 parity violations / 2 rhythm breaks) + 300 seeded random
+# arrangements (pair permutation x orientations) — validating the differencing
+# hypotheses above on full sequences, same discipline as the R-S2 replica.
+assert _moore_predict(_A0) == _moore_scores(KW) \
+    == tuple(solve.R11_KW_EXPECTED[:2]) == (2, 2), "KW Moore ground truth broke"
+_rng_m = _random.Random(191)
+for _t in range(300):
+    _pp = list(range(1, 32)); _rng_m.shuffle(_pp)
+    _arr = [(_p, _rng_m.randint(0, 1)) for _p in _pp]
+    assert _moore_predict(_arr) == _moore_scores(_arr_seq(_arr)), "Moore table/scorer drift"
 
 # ---- CNF builder ----
 class CNF:
@@ -274,6 +414,7 @@ FIVE_RULES = ("parity", "rhythm", "gender", "ccn4", "ccn8")
 RULESETS = {   # target base -> literature rules enforced strictly (task #217 5-rule family)
     "plain": (), "kw-pin": (), "wrap-d5": (), "alt-le-14": (), "alt-ge-16": (),
     "moore-strict": ("parity", "rhythm"),
+    "moore-kwtest": ("parity",), "rhythm-kwtest": ("rhythm",),
     "grand-strict": ("parity", "rhythm", "gender"),
     "rc4-strict": ("gender",), "rc4-kwtest": ("gender",), "rc4-kwexempt": ("gender",),
     "ccn4-kwtest": ("ccn4",),
@@ -342,7 +483,9 @@ def rigidity_validate(cnf, x):
     return ok1 and ok2
 
 
-def build(target, with_c3=False, c3_max=None):
+def target_rules(target):
+    """Literature rules enforced strictly by `target` (shared by build() and the
+    witness verify-loop's decoded-witness rule re-scoring)."""
     tbase = target.split("-near-")[0]
     if tbase.startswith("five-sub-"):
         # generic subset of the five-rule family, e.g. five-sub-parity+ccn8
@@ -350,10 +493,14 @@ def build(target, with_c3=False, c3_max=None):
         rules = set(tbase[len("five-sub-"):].split("+"))
         if not rules <= set(FIVE_RULES):
             raise SystemExit("unknown rules in target: " + target)
-    elif tbase in RULESETS:
-        rules = set(RULESETS[tbase])
-    else:
+        return rules
+    if tbase not in RULESETS:
         raise SystemExit("unknown target: " + target)
+    return set(RULESETS[tbase])
+
+def build(target, with_c3=False, c3_max=None):
+    tbase = target.split("-near-")[0]
+    rules = target_rules(target)
     cnf = CNF()
     Y = {}
     for s in SLOTS:
@@ -416,22 +563,22 @@ def build(target, with_c3=False, c3_max=None):
             agree.append(Y[(s, jkw)])
         at_least_k(cnf, agree, 31 - k)
     if "parity" in rules:
-        for s in SLOTS:                   # parity: static unary forbids
+        for s in SLOTS:                   # parity: static unary forbids (tables derived from solve.r11_axes g1)
             for j in range(NJ):
                 p = ORIENTS[j][0]
-                if directional(p):
-                    want_odd = pc(KW_PAIRS[p][0]) > 3
-                    if want_odd != ((s + 1) % 2 == 1):   # pair POSITION = slot index + 1 (slot 0 = position 1)
+                if MOORE_COUNTED[p]:
+                    if MOORE_WANT_ODD[p] != ((s + 1) % 2 == 1):   # pair POSITION = slot index + 1 (slot 0 = position 1)
                         cnf.add(-Y[(s, j)])
     if "rhythm" in rules:
-        for s in range(1, 31):            # rhythm: static binary forbids between adjacent directional
-            for j1 in range(NJ):
-                if not directional(ORIENTS[j1][0]): continue
-                r1 = rising(ORIENTS[j1][2], ORIENTS[j1][0])
+        for s in range(1, 31):            # rhythm: static binary forbids between adjacent counted pairs
+            for j1 in range(NJ):          # (MOORE_BREAK probed exhaustively from solve.r11_axes g2)
+                po1 = (ORIENTS[j1][0], ORIENTS[j1][1])
+                if not MOORE_COUNTED[po1[0]]: continue
                 for j2 in range(NJ):
-                    if not directional(ORIENTS[j2][0]): continue
-                    if ORIENTS[j1][0] == ORIENTS[j2][0]: continue
-                    if rising(ORIENTS[j2][2], ORIENTS[j2][0]) == r1:
+                    po2 = (ORIENTS[j2][0], ORIENTS[j2][1])
+                    if not MOORE_COUNTED[po2[0]]: continue
+                    if po1[0] == po2[0]: continue
+                    if MOORE_BREAK[(po1, po2)]:
                         cnf.add(-Y[(s, j1)], -Y[(s+1, j2)])
     if rules & {"gender", "ccn4", "ccn8"} or tbase.startswith("ccn8-kwchain"):
         # Schulz gender/position-parity over the 36 inversion-class positions (solve.rc4_violations).
@@ -588,8 +735,12 @@ def build(target, with_c3=False, c3_max=None):
         for j in range(NJ):
             if pc(ORIENTS[j][3]) != 1:
                 cnf.add(-Y[(31, j)])
-    if target == "kw-pin":
-        # encoding validation: full KW pin, no extra rule clauses (pair with --with-c3 gates)
+    if target in ("kw-pin", "moore-kwtest", "rhythm-kwtest"):
+        # kw-pin: full KW pin, no extra rule clauses (pair with --with-c3 gates).
+        # moore-kwtest / rhythm-kwtest (F-1 gates): KW pin + the strict parity /
+        # rhythm clauses added above — UNSAT with conflicts at EXACTLY the
+        # solve.r11_axes-scored loci (2 parity violations / 2 rhythm breaks);
+        # tests.py decides both solver-free via unit propagation.
         for st in SLOTS:
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
             cnf.add(Y[(st, jkw)])
@@ -859,13 +1010,24 @@ def decode(model_lits, Y):
     return seq
 
 def verify_seq(seq):
+    """Round-trip re-verification of a decoded 64-hexagram sequence against
+    solve.py: C1 (permutation), C2 (no distance-5 step), C5 (transition
+    multiset), C3 total — AND (F-1) a re-score of the literature axes on the
+    decoded witness: g1 Moore-2005 parity violations + g2 Moore-1989 rhythm
+    breaks (both via _moore_scores -> solve.r11_axes) and g3 Schulz gender
+    violations (solve.rc4_violations). Returns (ok, c3, (g1, g2, g3));
+    scores is None when the base checks fail."""
     ok = len(seq) == 64 and len(set(seq)) == 64
     ok = ok and solve.has_no_five(seq)
     from collections import Counter
     ok = ok and dict(Counter(solve.bit_diff(seq[i], seq[i+1]) for i in range(63))) == _tot
     pos = {h: i for i, h in enumerate(seq)}
     c3 = sum(abs(pos[h] - pos[h ^ 63]) for h in range(64))
-    return ok, c3
+    scores = None
+    if ok:
+        g1, g2 = _moore_scores(seq)
+        scores = (g1, g2, solve.rc4_violations(seq)[0])
+    return ok, c3, scores
 
 def _read_model_lits(path):
     """Parse a solver model: DIMACS 'v '-lines, or a bare whitespace/newline
@@ -1038,9 +1200,12 @@ if __name__ == "__main__":
             target = args[2] if len(args) == 3 else "plain"
             cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)
             seq = decode(lits, Y)
-            ok, c3 = verify_seq(seq)
+            ok, c3, scores = verify_seq(seq)
             print("SEQ:", seq)
             print("verify=%s  c3=%d  %s" % (ok, c3, "c3<=776 PASS" if c3 <= 776 else "fail C3"))
+            if scores is not None:
+                print("rule re-score (solve.py): moore-parity-viol=%d rhythm-breaks=%d "
+                      "gender-viol=%d" % scores)
     elif args[:1] == ["--certify-count"] and len(args) == 2:
         # Certified model count via external D4 + CPOG (cpog-gen/cpog-check) —
         # OPTIONAL binaries, required by THIS subcommand only; certify_count()
@@ -1102,9 +1267,20 @@ if __name__ == "__main__":
                 if ln.startswith("v "):
                     lits += [int(x) for x in ln[2:].split() if x != "0"]
             seq = decode(lits, Y)
-            ok, c3 = verify_seq(seq)
-            print("attempt %d: verify=%s c3=%d %s" % (attempt, ok, c3, "<=776 PASS" if c3 <= 776 else "fail C3, blocking"))
-            if ok and c3 <= 776:
+            ok, c3, scores = verify_seq(seq)
+            # F-1: re-score the target's strict literature rules on the decoded
+            # witness via solve.py scorers — a witness violating an encoded rule
+            # means encoder/engine divergence, never accepted. (Skipped for the
+            # kw* encoding-validation targets, which pin KW deliberately.)
+            rule_ok = True
+            if "kw" not in target:
+                for nm, idx in (("parity", 0), ("rhythm", 1), ("gender", 2)):
+                    if nm in target_rules(target) and (scores is None or scores[idx] != 0):
+                        rule_ok = False
+            print("attempt %d: verify=%s rules(g1,g2,g3)=%s rule_ok=%s c3=%d %s"
+                  % (attempt, ok, scores, rule_ok, c3,
+                     "<=776 PASS" if c3 <= 776 else "fail C3, blocking"))
+            if ok and rule_ok and c3 <= 776:
                 print("WITNESS:", seq); break
             cnf.add(*[-Y[(s, j)] for s in SLOTS for j in range(NJ) if Y[(s, j)] in set(l for l in lits if l > 0)])
     elif args[:1] == ["--rigidity-cnf"] and len(args) in (2, 3):
