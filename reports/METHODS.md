@@ -2,6 +2,56 @@
 *Referenced by every technical report's Verification Guide. Addresses the systemic gaps identified by
 the adversarial replication reviews (archived alongside this suite).*
 
+## Constraint set (C1–C5, and the identifying C6/C7)
+
+Every report measures the same object. The formal predicates (full statements + theorems:
+[SPECIFICATION.md](../documentation/SPECIFICATION.md)):
+
+- **C1 — classical pairing.** The 64 hexagrams form 32 consecutive pairs, each a hexagram and its
+  reverse (or, for the 8 self-reverse hexagrams, its complement) — the Yu Fan / Lai Zhide pang-tong/fan-dui
+  structure. Radisic (2026) proves this is the unique Hamming-cost-minimizing comp/rev matching.
+- **C2 — no distance-5 transition.** No adjacent transition has Hamming distance 5. (Mathematically
+  implied by C5's histogram; retained as an O(1) boundary pre-filter.)
+- **C3 — complement-proximity ceiling.** For the ×64 integer representation, the complement-distance sum
+  `Σ_pairs |Δpos|` **≤ 776** (equivalently mean complement distance cd(S) ≤ 12.125). **The bound is a
+  ceiling, not an equality: King Wen attains it exactly (776), and any ordering with a smaller sum also
+  satisfies C3** (e.g. the wrap-d5 witness at 752). The threshold 776 is King Wen's own value —
+  reverse-engineered, not derived; priced as circular in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
+- **C4 — fixed opening pair, forced orientation.** The first pair is {Qian(0), Kun(63)}; its orientation
+  is a theorem (Theorem 6), not an extracted parameter. Independently attested (Xugua commentary).
+- **C5 — transition-distance multiset.** The multiset of the 31 between-pair boundary Hamming distances
+  equals King Wen's: {1:2, 2:8, 3:13, 4:7, 6:1}. Extracted from KW (confirmatory, not predictive).
+- **C6, C7 — identifying adjacency pins.** Specific slot-24–27 adjacency choices used only to single out
+  King Wen within the C1–C5 family (they cut the space by ×2.55×10⁶ but leave ≈5.21×10³¹ orderings —
+  [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4). Not part of the enumerated canonical constraint set; data-like,
+  priced ≈0 in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
+
+The minimum independent rule set is {C1, C3, C4, C5} (SPECIFICATION.md §Numbering note). "The space" in
+the reports means the **C1–C5** population unless stated otherwise.
+
+## Canonical quantities (single source of truth)
+
+Every load-bearing integer in the suite, with its status, counting convention, and source report. Where
+two numbers differ, they differ by **convention** (orientation-raw vs orientation-deduplicated vs
+orbit-quotient), not by disagreement.
+
+| Quantity | Value | Status | Convention | Source |
+|---|---|---|---|---|
+| C1–C5 space size | 1.3287×10³⁸ (95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | **estimate** (Knuth) | raw (orientation-resolved) | [TR-4] §3 |
+| C1–C5 space size | ≈3.3×10³⁷ | **estimate** | orientation-dedup | [TR-4] §Abstract |
+| \|C1∩C2∩C4\| | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹ | **exact** (single-instrument; mod-24 gated) | raw (orientation-explicit, C4 pinned) | [TR-11] §1–4 |
+| \|C1∩C2∩C4∩C5\| | 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹ | **exact** (single-instrument; mod-24 + ladder-corroborated, not independently recomputed) | raw (orientation-explicit, C4 pinned) | [TR-11] §9 |
+| \|C1–C7\| | 5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, 0.78%) | **estimate** | raw | [TR-4] §4 |
+| \|C1–C7\|, C3 dropped | 5.18×10³² (0.25%) | **estimate** | raw | [TR-4] §4 |
+| Symmetry group (sequence level) | 48 (B₃ ≅ Z₂≀S₃) | **proven** (finite gates + classical closure) | — | [TR-5] |
+| Symmetry group (record level) | 24 (S₄); free action | **proven** | orbit | [TR-5] |
+| Twins per solution | 23 (orbit size 24) | **proven** | orbit | [TR-5] §4 |
+| Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (single-instrument) | orbit | [TR-11] §9 |
+
+*"Single-instrument" exact counts are corroborated by the mod-24 free-action gate and (for the C5 layer)
+the 4/4 out-of-core ladder + byte-identical layer files, but have not been independently recomputed at
+full scale ([TR-11] §10(vi)).*
+
 ## Environment (version pinning)
 | Component | Version | Source |
 |---|---|---|
@@ -35,14 +85,17 @@ the adversarial replication reviews (archived alongside this suite).*
   (`solve.py --registry-verify`) run before any measurement is trusted.
 - **Global observable ledger (enterprise-wide multiple comparisons).** Bonferroni corrections in this
   suite are applied within each pre-registered family (F5 /11, F4′ /13, Davis /9, Davis follow-up /12,
-  permutation /13). Family-wise control does not control the error rate of the whole enterprise: across
-  the project's discovery and testing history, on the order of **~88 distinct observables** have been
-  examined against the same single sequence (running count maintained in
-  [CRITIQUE.md](../documentation/CRITIQUE.md) §"Observable-selection accounting"). A per-family
-  "notable" label is therefore a family-scoped claim; against the global ledger the corresponding bar is
-  ≈ 0.05/88 ≈ 5.7×10⁻⁴, and each "notable" verdict states in place whether it clears that bar. This
-  accounting does not touch the suite's headline findings — the nulls, and the proven/certified
-  impossibilities, which are deductive.
+  permutation /13). Family-wise control does not control the error rate of the whole enterprise. The
+  enterprise-wide observable count is **frozen at exactly 91**: the 28 exploratory discovery-phase
+  observables (roae.py sweep) + the five pre-registered testing families (F5 /11, F4′ /13, Davis /9,
+  Davis follow-up /12, permutation /13 = 58) + the R7 corpus-control battery's five off-home predicates
+  = 28 + 58 + 5 = **91** (itemization maintained in [CRITIQUE.md](../documentation/CRITIQUE.md)
+  §"Observable-selection accounting"). The exploratory suite **is included** — it is the base of the
+  count, not excluded. A per-family "notable" label is therefore a family-scoped claim; against the
+  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**, and each "notable" verdict states in
+  place whether it clears that bar. Model comparisons (the TR-2 Bayes factors) are **not** observables
+  and do not enter this ledger. This accounting does not touch the suite's headline findings — the
+  nulls, and the proven/certified impossibilities, which are deductive.
 
 ## Artifact access
 - **Certificates (DRAT) and raw run outputs** ship publicly with the suite under `reports/certificates/`
