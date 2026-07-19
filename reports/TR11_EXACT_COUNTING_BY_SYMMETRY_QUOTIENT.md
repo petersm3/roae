@@ -316,6 +316,108 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
 - Independence-ladder rung ([METHODS.md](METHODS.md)): rung 3 (instrument stack, two-language
   cross-validated), with the mod-24 gate itself sitting at rung 1 (reader arithmetic, no project code).
 
+### Reproducing the reduced-rung counts (independently recomputable)
+
+The full-scale exact counts are validated against a ladder of **reduced instances**: the same DP
+restricted to a subset of King Wen's 31 free pairs. For each reduced instance to be independently
+recomputable, three things must be public: (1) the pairing itself (which hexagrams form each pair), (2)
+the symmetry group that defines the "group-closed" subsets, and (3) the exact pair membership of each
+rung with its expected count. All three are below; a reader can rebuild each instance and recompute its
+count with any big-integer DP — no project code required. (The subset-spec grammar these tables use is
+the same one `solve.c` accepts via `--f1-subset` / `--f1-pairs`; the C5 ladder specs are its public
+`f1c5_unions[]` table.)
+
+**1. The 32 King Wen pairs (index → hexagram values).**
+Hexagrams are 6-bit integers, bit 0 = bottom line ([OEIS A102241](https://oeis.org/A102241) convention).
+Pair `i` is `(KW[2i], KW[2i+1])`. Pair 0 = {Qian(63), Kun(0)} is fixed by C4 and by the whole group; the
+31 **free** pairs are indices 1–31.
+
+| pair | (a, b) | pair | (a, b) | pair | (a, b) | pair | (a, b) |
+|---|---|---|---|---|---|---|---|
+| 0 | (63, 0) | 8 | (25, 38) | 16 | (60, 15) | 24 | (29, 46) |
+| 1 | (17, 34) | 9 | (3, 48) | 17 | (40, 5) | 25 | (9, 36) |
+| 2 | (23, 58) | 10 | (41, 37) | 18 | (53, 43) | 26 | (52, 11) |
+| 3 | (2, 16) | 11 | (32, 1) | 19 | (20, 10) | 27 | (13, 44) |
+| 4 | (55, 59) | 12 | (57, 39) | 20 | (35, 49) | 28 | (54, 27) |
+| 5 | (7, 56) | 13 | (33, 30) | 21 | (31, 62) | 29 | (50, 19) |
+| 6 | (61, 47) | 14 | (18, 45) | 22 | (24, 6) | 30 | (51, 12) |
+| 7 | (4, 8) | 15 | (28, 14) | 23 | (26, 22) | 31 | (21, 42) |
+
+**2. The symmetry group (defines "group-closed").**
+Let reversal be the bit-position permutation `rev = (0 5)(1 4)(2 3)` (top↔bottom line flip). Acting on a
+6-bit hexagram `h`, a position-permutation `g ∈ S₆` sends bit `i` of `h` to position `g(i)`. The relevant
+group is
+
+- **G = C_{S₆}(rev)**, the centralizer of `rev` in `S₆` — the 48 position-permutations that commute with
+  reversal (isomorphic to the octahedral group B₃ ≅ Z₂ ≀ S₃). Every `g ∈ G` is a Hamming isometry, fixes
+  {0, 63} setwise, and permutes the 32-pair set. This is exactly the C1–C5 automorphism group proved in
+  [TR-5](TR5_SYMMETRY.md).
+- Its action **on pairs** factors through the kernel {id, rev} (both fix every pair setwise), giving a
+  group of **24 distinct pair-permutations ≅ S₄** acting on the 31 free pairs (pair 0 fixed). A subset of
+  pairs is **group-closed** iff it is a union of orbits under these 24 pair-permutations.
+
+A reader reconstructs the 24 pair-permutations directly: enumerate the 48 `g ∈ S₆` commuting with `rev`,
+map each to its induced permutation of the 32 pairs, and dedup (kernel {id, rev}).
+
+**3. The pair-orbit partition of the 31 free pairs.**
+Under the 24 pair-permutations the 31 free pairs split into **7 orbits** (sizes 3, 3, 3, 4, 6, 6, 6). The
+label `L.I` = the `I`-th orbit (0-based) of size `L`, in sorted order — the same grammar `--f1-subset`
+accepts:
+
+| label | size | pair indices |
+|---|---|---|
+| `3.0` | 3 | {3, 7, 11} |
+| `3.1` | 3 | {4, 6, 21} |
+| `3.2` | 3 | {13, 14, 30} |
+| `4.0` | 4 | {5, 8, 26, 31} |
+| `6.0` | 6 | {1, 9, 17, 19, 22, 25} |
+| `6.1` | 6 | {2, 12, 16, 18, 24, 28} |
+| `6.2` | 6 | {10, 15, 20, 23, 27, 29} |
+
+Every reduced rung below is a union of whole rows of this table (hence group-closed). `@START` records
+the DP's fixed exit hexagram (Kun = 0 or Qian = 63); it must be a G-fixed value.
+
+**4a. The C1∩C2∩C4 validation unions (orbit-quotient prototype).**
+Counts are `|C1 ∩ C2 ∩ C4|` restricted to the union (no C5 tracking):
+
+| name | orbit spec | pairs | pair indices | expected exact count |
+|---|---|---|---|---|
+| U1 | `3.0,3.1,3.2@0` | 9 | {3,4,6,7,11,13,14,21,30} | 63,366,144 |
+| U2 | `6.0,6.1@0` | 12 | {1,2,9,12,16,17,18,19,22,24,25,28} | 1,961,990,553,600 (= 12!·2¹²) |
+| U3 | `3.0,4.0,6.2@63` | 13 | {3,5,7,8,10,11,15,20,23,26,27,29,31} | 39,239,811,072,000 |
+
+**4b. The C1∩C2∩C4∩C5 out-of-core ladder (`solve.c` `f1c5_unions`).**
+Counts are `|C1 ∩ C2 ∩ C4 ∩ C5|` restricted to the union, all with `@0` (Kun exit). These are the rungs
+the out-of-core mode reproduced digit-for-digit against the in-RAM DP (§8):
+
+| pairs | orbit spec | pair indices | expected exact count |
+|---|---|---|---|
+| 9  | `3.0,3.1,3.2@0`        | {3,4,6,7,11,13,14,21,30} | (in-RAM reference) |
+| 13 | `3.0,4.0,6.2@0`        | {3,5,7,8,10,11,15,20,23,26,27,29,31} | 2,063,395,607,040 |
+| 16 | `4.0,6.0,6.1@0`        | {1,2,5,8,9,12,16,17,18,19,22,24,25,26,28,31} | 267,765,117,419,520 |
+| 18 | `6.0,6.1,6.2@0`        | {1,2,9,10,12,15,16,17,18,19,20,22,23,24,25,27,28,29} | (in-RAM reference) |
+| 19 | `3.0,4.0,6.0,6.1@0`    | {1,2,3,5,7,8,9,11,12,16,17,18,19,22,24,25,26,28,31} | 63,244,766,587,981,824 |
+| 24 | `3.0,3.1,6.0,6.1,6.2@0`| {1,2,3,4,6,7,9,10,11,12,15,16,17,18,19,20,21,22,23,24,25,27,28,29} | 7,477,248,378,538,061,907,099,648 |
+| 25 | `3.0,4.0,6.0,6.1,6.2@0`| {1,2,3,5,7,8,9,10,11,12,15,16,17,18,19,20,22,23,24,25,26,27,28,29,31} | 83,855,263,774,549,546,015,506,432 |
+| 27 | `3.0,3.1,3.2,6.0,6.1,6.2@0` | {1,2,3,4,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28,29,30} | 61,666,352,085,618,532,666,071,318,528 |
+| 28 | `3.0,3.1,4.0,6.0,6.1,6.2@0` | {1,2,3,4,5,6,7,8,9,10,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,31} | 2,155,118,806,480,613,893,163,229,118,464 |
+
+(Note the n=13 rung differs between 4a and 4b: the C1∩C2∩C4 prototype's U3 uses exit `@63`, while the C5
+ladder's 13-pair rung uses `@0` — they are different reduced instances, listed with their own counts. The
+two "(in-RAM reference)" cells are validated against the in-RAM DP but carry no separately-printed target
+here.)
+
+**5. How to recompute a rung independently.**
+For a chosen rung's pair index set `P` and exit `START ∈ {0, 63}`, run a layered forward DP over the
+pairs in `P`. State = (subset of `P` already placed, `last` = exit hexagram of the most recent pair);
+transition places an unplaced pair `p` in one of its two orientations `(first, second)`, allowed iff the
+boundary Hamming distance `popcount(last ⊕ first) ≠ 5` (C2). Initialize `{(∅, START): 1}`; the answer is
+the total mass over full-subset states. For the C5-tracked rungs (4b) additionally carry the running
+multiset of the placed boundary distances and, at completion, retain only states whose multiset is a
+sub-multiset compatible with C5 (King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`), per the reduced-instance C5
+definition. Any big-integer DP reproduces the counts above; no symmetry quotient is needed to *verify* a
+rung (the quotient only accelerates the full-31 run).
+
 ## Attribution
 
 Direction, the orbit-quotient idea, and the FH-1 residual-dominance conjecture (including the capping
