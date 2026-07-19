@@ -203,7 +203,12 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    | 8 | Greedy smooth entry — McKenna & McKenna 1975 | 23/31 | constant on fiber | **forced** |
    | 9 | Placement of the unique between-pair 6 — McKenna & McKenna 1975 | 18 | constant on fiber | **forced** |
    | 10 | Span of the two between-pair 1s — McKenna & McKenna 1975 | 4 | constant on fiber | **forced** |
-   | 11 | **Nuclear orientation rule — Van den Berghe c. 1999–2002** | **29/30** | **1.3951×10⁻⁵** | **notable — the fiber maximum** |
+   | 11 | **Nuclear orientation rule — Van den Berghe c. 1999–2002** | **29/30** | **1.3951×10⁻⁵**† | **fiber maximum (fitted description)** |
+
+   † The row-11 p-values are **descriptive, not graded** against the family or global observable bars:
+   Van den Berghe's functional was fitted to King Wen, so a p-value on the object it was fitted to carries
+   no design inference — the same discipline applied to the D-B1 fitted template in [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3b.
+   The numbers are recorded for completeness; see the scoping paragraph below.
 
    Rows 8–10 join the forced class of §3: three of McKenna's difference-wave statistics turn out to be
    **constant across all 1,720,320 valid orientations** — given the pair sequence they measure constraint
@@ -232,20 +237,23 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    work overall: our audit of his web-published reconstruction verified 17 of 19 checkable claim-groups
    exactly, with his two self-declared exceptions falling precisely where computation finds the misfits.
 
-   The honest scoping travels with the result. Under the frozen thresholds the result is **notable**
-   (two-sided p = 1.3951×10⁻⁵, ~2.5 orders of magnitude past the 0.05/11 = 4.545×10⁻³ bar) but, on the
-   strictest pre-registered reading, **not** a "candidate rule": the two-sided p exceeds the
-   10⁻⁴/11 = 9.091×10⁻⁶ bar (the one-sided 6.9754×10⁻⁶ would pass, but the frozen convention is
-   two-sided and the strictest reading governs), and the strict gauge-control reading additionally marks
-   the flag convention-tied (it inverts, attenuated ~50× in p, under direction-reversing gauge
-   relabelings — arguably covariant behavior for a rule about which member *leads*, but reported as
-   frozen). Against the global ~88-observable ledger ([METHODS.md](METHODS.md) §"Global observable
-   ledger"; bar ≈ 0.05/88 ≈ 5.7×10⁻⁴) the two-sided p = 1.3951×10⁻⁵ does clear the global bar as well
-   as its family correction. More fundamentally: Van den Berghe derived the rule *from* King Wen, so this is
-   population-atypicality of a **fitted description** — the described configuration carries
-   ≈17.1 bits of atypicality (≥ ~14 after discounting the rule's ~2–3 fitted degrees of freedom) out of
-   the layer's ≈20.7-bit budget — and **not** independent confirmation of a design rule; no out-of-sample
-   test is possible from the same document the rule was read off of. The corpus gate is clean and
+   The honest scoping travels with the result — and it is decisive about how the number may be read.
+   Van den Berghe derived the rule *from* King Wen, so King Wen's placement on the rule's own scale is a
+   **fitted-description property, not an evidential test**: a p-value on the object a statistic was fitted
+   to is descriptive, and per the standing extraction-circularity policy (the same discipline applied to
+   the D-B1 fitted template in [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3b) **no family- or
+   global-ledger p-grading is attached to it.** What the exact fiber establishes descriptively is sharp:
+   King Wen's agreement count of 29 is the **maximum attained anywhere on its 1,720,320-vector orientation
+   fiber** (exactly 12 vectors reach 29, none reaches 30), so the described configuration sits at the fiber
+   ceiling and carries ≈17.1 bits of atypicality (≥ ~14 after discounting the rule's ~2–3 fitted degrees
+   of freedom) out of the layer's ≈20.7-bit budget. That extremal placement is a real, exactly-enumerated
+   fact about where the fitted description puts King Wen; it is **not** independent confirmation of a
+   design rule, and no out-of-sample test is possible from the same document the rule was read off of.
+   (For readers who want the raw statistic: the frozen two-sided fiber value is 1.3951×10⁻⁵ and the
+   one-sided is 6.9754×10⁻⁶; these are recorded for completeness but are **not** graded against the family
+   or global bars, because the functional was fitted to the sequence being scored. The gauge-control
+   flag — the statistic inverts, ~50× attenuated, under direction-reversing relabelings — is likewise
+   reported as frozen, not adjudicated.) The corpus gate is clean and
    KW-specific: Mawangdui scores 1 — below the entire 2×10⁹-probe sampled range [2, 28], i.e. the
    *opposite* tail at population-extreme depth (a by-product of its trigram-block sort) — and [Jing Fang](../documentation/CITATIONS.md#jingfang)
    scores 6, also the opposite tail; both historical controls anti-agree with the rule, so no

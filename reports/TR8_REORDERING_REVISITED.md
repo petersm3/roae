@@ -11,8 +11,18 @@ rearrangement could smooth its irregularities. The proposal drew one published r
 critique ([Hershock 1991](../documentation/CITATIONS.md#hershock1991)) that rejected its method but
 shared its premise and tested neither claim — and sat computationally untested for 47 years. This report
 answers it twice. First, by measurement: the properties their argument assumed to be defects are, when
-checked against the space of valid orderings, among the sequence's rarest and most distinctive features
-— removing them removes what is special. Second, by proof: the specific smooth construction their
+checked against the space of valid orderings, among the sequence's rarest measured configurations. A
+calibration caveat travels with this from the outset: the rules being measured (Moore's parity, Schulz's
+gender rule) are **descriptions read off King Wen**, and a predicate crafted to fit a specific sequence is
+rare almost by construction — so rarity here is a measured property of King Wen's position, not by itself
+evidence of design. A direct sensitivity check makes the point quantitative: when the reference class of
+KW-fitting predicates is matched to the literature rules' actual structural complexity (≈16 clauses), King
+Wen's rules fall in the **bulk** of that rarity distribution — the median dof-matched KW-fitting predicate
+reaches a rarity near ~6×10⁻⁵, and about half are at least as rare as King Wen's ~1×10⁻⁴ — so the rarity
+is largely a matter of specification, not demonstrated design, and King Wen is **not** claimed to be
+tail-extreme among comparably-specified predicates. Against that baseline the honest claim is narrower than
+"removing them removes what is special": removing them removes the measured regularities the received order
+happens to sit at. Second, by proof: the specific smooth construction their
 proposal requires (a Gray-code-style path) is **mathematically impossible** for any ordering that keeps
 the classical pairing — a two-line parity argument anyone can verify by hand. The refutation is offered
 with credit: theirs was a concrete, falsifiable proposal, which is exactly what made it answerable.
