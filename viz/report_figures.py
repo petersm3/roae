@@ -94,8 +94,8 @@ def fig_tr4_boundary_information():
     #   k=1: 7.49e-4 (9.95e34 survivors); k=2: 9.39e-7 (1.25e32);
     #   k=3: 4.27e-10 (5.68e28); k=4: 6.34e-13 (8.42e25).
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
-    # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~13-14
-    # boundaries (wide error; prior structural estimate 15-20).
+    # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~15-20
+    # boundaries (current; supersedes an earlier ~13-14 estimate; hard floor k>=13).
     k = np.array([1, 2, 3, 4])
     S = np.array([7.49e-4, 9.39e-7, 4.27e-10, 6.34e-13])
     survivors = ["9.95×10³⁴", "1.25×10³²", "5.68×10²⁸", "8.42×10²⁵"]
@@ -108,7 +108,7 @@ def fig_tr4_boundary_information():
     # measured greedy points
     ax.plot(k, S, "-", color="#1f77b4", lw=1.5, alpha=0.7, zorder=4)
     ax.scatter(k, S, s=90, color="#d32f2f", zorder=5,
-               label="measured S(k), greedy 560T identifying order {4, 27, 25, 21}")
+               label="measured S(k), greedy 560T identifying order {4, 27, 25, 21, 1}")
     for ki, Si, sv in zip(k, S, survivors):
         ax.annotate(f"S({ki}) = {Si:.2e}\n{sv} survivors", (ki, Si),
                     textcoords="offset points", xytext=(10, 4), fontsize=9)
@@ -128,9 +128,9 @@ def fig_tr4_boundary_information():
     ax.axhline(S_unique, color="#388e3c", lw=1.3, ls="-.")
     ax.text(0.7, S_unique * 3, "uniqueness: S(k) = 1/1.3287×10³⁸ (one surviving ordering)",
             fontsize=9, color="#2e7d32", va="bottom")
-    ax.axvspan(13, 20, color="#388e3c", alpha=0.12)
-    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~13–14 boundaries (wide error;\n"
-                        "prior structural estimate 15–20)",
+    ax.axvspan(15, 20, color="#388e3c", alpha=0.12)
+    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~15–20 boundaries (current;\n"
+                        "supersedes earlier ~13–14 est.;\nhard floor k ≥ 13)",
             fontsize=9, color="#2e7d32", ha="center")
 
     ax.set_xlim(0.5, 20.5)

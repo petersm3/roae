@@ -9,7 +9,7 @@ This is the engineering report: how a computation that visited 560 trillion sear
 10.5 billion results became a **reproducible scientific object** — re-derivable byte-for-byte by anyone,
 on hardware the project doesn't control. The proof is demonstrated, not promised: the entire computation
 was run twice from scratch, weeks apart, on rented cloud machines that were forcibly interrupted twelve
-times in total, and both runs produced the identical result to the last byte — at roughly 15% of normal
+times in total, and both runs produced the identical result to the last byte — at roughly 15–20% of normal
 cloud cost by using interruptible "Spot" capacity. The methods (checksum anchoring, self-testing gates,
 crash-safe checkpoints, re-derive-don't-patch) transfer to any long-running computation, far beyond this
 project. The report also documents the failures honestly, including the one that destroyed a data disk.
@@ -18,7 +18,7 @@ project. The report also documents the failures honestly, including the one that
 We describe the engineering that makes a 560-trillion-node combinatorial enumeration a *reproducible
 scientific object*: a 10.5-billion-record artifact whose byte-exact sha256 has been derived twice from
 scratch, on different preemptible ("Spot") cloud fleets, through a combined twelve evictions — at roughly
-15% of on-demand compute cost. The methods are general: byte-level anchoring via a partition-invariance
+15–20% of on-demand compute cost. The methods are general: byte-level anchoring via a partition-invariance
 theorem; a self-test gate binding every source change to a canonical baseline; per-thread checkpointing
 with deterministic eviction-resume; defect handling by from-scratch re-derivation rather than patching;
 and an empirical finding of independent interest — in our region/SKU, Spot reclamation was scheduled
@@ -42,7 +42,7 @@ consequences for launch-window planning.
    campaign re-run from scratch on the fixed solver, reproducing the original artifact byte-for-byte
    through seven fresh evictions. The defect had not corrupted the artifact; now that is a *demonstrated*
    fact, not a hope.
-4. **Spot economics and the reclamation pattern.** Cost table (D-family Spot at ~15-23% of on-demand);
+4. **Spot economics and the reclamation pattern.** Cost table (D-family Spot at ~15–20% of on-demand);
    checkpoint-overhead accounting; the M-F-morning scheduled-reclamation observation (5/5 weekday
    evictions 07:12-07:49 local; 0/2 weekend days) and the resulting launch-window heuristic; deferral
    policy for restart storms.

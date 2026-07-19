@@ -233,6 +233,10 @@ ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjace
 - **Hierholzer, Carl** (1873). "Ueber die Möglichkeit, einen Linienzug ohne Wiederholung und ohne Unterbrechung zu umfahren." *Mathematische Annalen* 6(1): 30–32. [doi:10.1007/BF01442866](https://doi.org/10.1007/BF01442866) Eulerian-circuit algorithm, used by ROAE's randomized de Bruijn sampler.
 <a id="fisher-yates1938"></a>
 - **Fisher, R. A. and Yates, F.** (1938). *Statistical Tables for Biological, Agricultural and Medical Research* (3rd ed.), Oliver & Boyd, London. Fisher-Yates shuffle algorithm, used in `--null-random` and `--null-pair-constrained`.
+<a id="burnside-cauchy-frobenius"></a>
+- **Burnside / Cauchy–Frobenius orbit-counting lemma** (standard; see Burnside, W., *Theory of Groups of Finite Order*, Cambridge University Press, 1897). The orbit-counting identity (|orbits| = average number of fixed points over the group) underlying ROAE's symmetry-quotient exact count in [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md).
+<a id="mckay1998"></a>
+- **McKay, Brendan D.** (1998). "Isomorph-free exhaustive generation." *Journal of Algorithms* 26(2): 306–324. Canonical-representative / isomorph-free generation tradition; the lineage ROAE's canonical-mask orbit enumeration follows (TR-11).
 
 ### Random number generation
 
@@ -247,11 +251,22 @@ ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjace
 - **Bonferroni, Carlo Emilio** (1936). "Teoria statistica delle classi e calcolo delle probabilità." *Pubblicazioni del R Istituto Superiore di Scienze Economiche e Commerciali di Firenze*. Bonferroni correction for multiple testing.
 <a id="hanley-lippmanhand1983"></a>
 - **Rule of Three** for upper bounds on zero-observed-event rates: see Hanley & Lippman-Hand (1983), "If nothing goes wrong, is everything all right? Interpreting zero numerators." *JAMA* 249(13): 1743–1745. [doi:10.1001/jama.1983.03330370053031](https://doi.org/10.1001/jama.1983.03330370053031)
+<a id="knuth1975"></a>
+- **Knuth, Donald E.** (1975). "Estimating the efficiency of backtrack programs." *Mathematics of Computation* 29(129): 121–136. The tree-size / backtrack-cost estimator — ROAE's load-bearing statistical instrument for the search-space size ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md)) and the exact-count cross-witness (TR-9, TR-11).
+
+### Information theory (description length / MDL)
+
+<a id="rissanen1978"></a>
+- **Rissanen, Jorma** (1978). "Modeling by shortest data description." *Automatica* 14(5): 465–471. Two-part minimum-description-length principle — the methodological foundation of [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)'s "pricing the constraints" bit-ledger. ROAE applies this framework to the King Wen object; the two-part-code framework itself is Rissanen's (not original to ROAE).
+<a id="grunwald2007"></a>
+- **Grünwald, Peter D.** (2007). *The Minimum Description Length Principle.* MIT Press. Comprehensive MDL reference for the two-part code used in TR-9.
 
 ### File formats and cryptographic hashing
 
 <a id="nist2015"></a>
 - **National Institute of Standards and Technology** (2015). "Secure Hash Standard (SHS)." *FIPS PUB 180-4*. [doi:10.6028/NIST.FIPS.180-4](https://doi.org/10.6028/NIST.FIPS.180-4) SHA-256 specification, used for the canonical `solutions.bin` integrity anchor.
+<a id="drat2014"></a>
+- **Wetzler, Nathan; Heule, Marijn J. H.; Hunt, Warren A. Jr.** (2014). "DRAT-trim: Efficient Checking and Trimming Using Expressive Clausal Proofs." *Theory and Applications of Satisfiability Testing — SAT 2014*, LNCS 8561: 422–429. The DRAT proof format + checker underlying ROAE's UNSAT certificates (TR-2, TR-6).
 
 ### Combinatorial identities
 
@@ -746,9 +761,9 @@ Yizhuan*), Lai Zhide (1525–1604, via Schulz, 1982), and Zhu Yuansheng (13th c.
 
 ### Websites
 
-<a id="moore-biroco"></a>
-Moore, S. (n.d.). *Yijing Dao*. biroco.com. https://www.biroco.com/yijing/
-  Steve Moore's archive; source of the Moore papers, Schulz (1990), Waley (1933), and others. [swept 2026-07]
+<a id="moore-biroco"></a><a id="marshall-biroco"></a>
+Marshall, S. J. [pen name Joel Biroco] (n.d.). *Yijing Dao*. biroco.com. https://www.biroco.com/yijing/
+  S. J. Marshall's archive (author of *The Mandate of Heaven*, Columbia University Press, 2001) — host of the Moore papers, Schulz (1990), Waley (1933), and others. **NOTE:** Marshall (Joel Biroco) is a *different person* from Steve Moore (1949–2014), who is cited separately for the Moore 1989/2005 rules; the Cook-derivation review hosted at biroco.com/yijing/cook.htm is by J. Drasny. [swept 2026-07; attribution corrected 2026-07-19 — the entry previously misattributed the site to "Steve Moore." Legacy anchor `moore-biroco` retained for inbound links.]
 
 <a id="meyer1998"></a>
 Meyer, P. (1998). *The King Wen sequence and the first order of differences*. Web document (Serendipity

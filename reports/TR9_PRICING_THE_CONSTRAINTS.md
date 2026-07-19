@@ -60,8 +60,8 @@ explicit.
    **Exact marginals (v1.10, 2026-07-18).** With the analytic cells 64!, 32!·2³², 31!·2³¹ and the
    two DP exacts, every marginal in the C3-free spine is a **ratio of exact integers**: C4 given C1
    = ×64 exactly (6.0000 bits); **C2 given C1∩C4 = ×23.325025987… (4.5437 bits)**; C5 given
-   C1∩C2∩C4 = ×690.0868… (9.4306 bits). The rounded Δ-column values above (4.5, 9.4) are these
-   exact ratios. Corroboration with a scope caveat: 1/23.325 = **4.2874%** — the long-published
+   C1∩C2∩C4 = ×690.0850… (9.4306 bits). The rounded Δ-column values above (4.5, 9.4) are these
+   exact ratios. Corroboration with a scope caveat: 1/23.325 = **4.2872%** — the long-published
    "~4.3% of pair-constrained orderings" estimate for C2 now lands exactly, *at the C1∩C4
    conditioning*; the C1-only (start-free) fraction remains an estimate (its exact DP is a costed
    option, not run). Corollary (C5's multiset contains no distance-5, so C5 ⟹ C2):
@@ -102,8 +102,8 @@ explicit.
    Schulz gender rule, ×11,364 — see [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)) prices at ~13.5 bits gross against ~10–15 bits of rule text:
    ≈ 0 to small positive.
 4. **The residual — the honest thesis.** Knowing everything structural in this table, the sequence retains
-   **log₂|C1–C7| = 105.4 bits** of unexplained information; on the defensible subset (dropping circular
-   C3, data-like C6/C7), the residual against honestly-explanatory structure is **~126.6 bits**. Roughly
+   **log₂|C1–C7| = 105.4 bits** of unexplained information; on the defensible subset (dropping
+   data-like C6/C7, C3 retained), the residual is **~126.6 bits**. Roughly
    half the sequence's information is explained (gross compression; net of explicit statement costs the
    savings are ~100–134 bits, ≈ 35–45%) — nearly all of it by the classical pairing (now known
    optimal), a marginal 4.5 bits (≈ break-even net) by the no-five rule, and essentially nothing by C5,
@@ -197,7 +197,7 @@ value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./s
 | v1.8 | 2026-07-11 | Radisic status labeled at the load-bearing citations ("preprint, machine-verified" — the ledger leans on the checkable Lean artifact, not refereeing); §5(c) gains the criterion-selection acknowledgment (why Hamming-optimality counts as natural is itself a choice; the dual-convention bracket bounds it). No numbers change |
 | v1.7 | 2026-07-10 | Referee-hardening (explicit-coding MDL pass): C2 net restated +1.6 → ≈ 0 (break-even, sign convention-dependent); C5 net widened −13.9 → bracket −6.3 to −13.9 (the marginal-consistent statement cost of the 31 unimplied boundary transitions given C1+C2 is log₂ C(35,4) = 15.7, net −6.3); §5 sensitivity paragraph rewritten with the explicit three-point C5 bracket (15.7/19.5/23.3, literal ~30) + the sign-flip bound and exact C1 family sizes (12.0/19.0 bits); sub-0.1-bit rounding fixes C2 4.6→4.5, C6+C7 21.2→21.3; abstract, executive summary, footnote 4, and sensitivity table made consistent. No conclusion changes (C5 descriptive under every convention; C1 dominant). Mirrors DESCRIPTION_LENGTH.md. |
 | v1.9 | 2026-07-16 | C5-layer count adopted as the exact 1.097051×10³⁹ (out-of-core symmetry-quotient DP, [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); the prior estimator value 1.0971×10³⁹ ±0.01% matches it to 0.0044%, ratio 0.999956); ledger row and Verification Guide flipped estimate → exact. All bits values unchanged (log₂ = 129.7); C5's net and verdict unchanged (descriptive under every convention); the C3 layer and the flagship 1.3287×10³⁸ remain estimates |
-| v1.10 | 2026-07-18 | **Exact-marginals note added to the ledger (§2)**: with the analytic cells (64!, 32!·2³², 31!·2³¹) and the two DP exacts, every C3-free marginal is a ratio of exact integers — C4\|C1 = ×64 (6.0000 bits), C2\|C1∩C4 = ×23.325025987… (4.5437 bits; 1/23.325 = 4.2874%, landing the published ~4.3% estimate exactly AT THIS CONDITIONING — the C1-only fraction stays an estimate), C5\|C1∩C2∩C4 = ×690.0868… (9.4306 bits); plus the C5 ⟹ C2 lattice corollary (\|C1∩C4∩C5\| = \|C1∩C2∩C4∩C5\|). No bits values, nets, or verdicts change (the Δ column already carried these ratios rounded); the C3 layer and the flagship remain estimates. Mirrors DESCRIPTION_LENGTH.md |
+| v1.10 | 2026-07-18 | **Exact-marginals note added to the ledger (§2)**: with the analytic cells (64!, 32!·2³², 31!·2³¹) and the two DP exacts, every C3-free marginal is a ratio of exact integers — C4\|C1 = ×64 (6.0000 bits), C2\|C1∩C4 = ×23.325025987… (4.5437 bits; 1/23.325 = 4.2872%, landing the published ~4.3% estimate exactly AT THIS CONDITIONING — the C1-only fraction stays an estimate), C5\|C1∩C2∩C4 = ×690.0850… (9.4306 bits); plus the C5 ⟹ C2 lattice corollary (\|C1∩C4∩C5\| = \|C1∩C2∩C4∩C5\|). No bits values, nets, or verdicts change (the Δ column already carried these ratios rounded); the C3 layer and the flagship remain estimates. Mirrors DESCRIPTION_LENGTH.md |
 
 *Draft-stage corrections (2026-07-04, adversarial replication review): log₂(31!·2³¹) corrected 144.4 →
 143.7 (C4 6.0, C2 marginal 4.6, C2 net +1.6 — mirrors the public DESCRIPTION_LENGTH.md correction);

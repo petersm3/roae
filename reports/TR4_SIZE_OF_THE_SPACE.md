@@ -51,7 +51,8 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    nodes, 16,504 vs 16,422 canonical). Independent cross-check: 56 per-branch estimates sum to 1.33×10³⁸ vs
    the independently-estimated whole-tree 1.32×10³⁸ (<1%).
 3. **The measurement.** 5×10¹⁰ probes (definitive 100×-probe run, 2026-07-01; the earlier 5×10⁸ run gave 1.32×10³⁸
-   (rel. err 0.18%), ≈2σ below the definitive value — an unremarkable deviation for one early draw from a
+   (rel. err 0.18%), ≈2–3.7σ below the definitive value (the exact figure is rounding-dependent — ~2σ on the
+   less-rounded early value, ~3.7σ if 1.32×10³⁸ is taken as exact) — an unremarkable deviation for one early draw from a
    right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
    canonical C1–C5 raw **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
    orderings 1.0971×10³⁹ (0.01%) — subsequently computed **exactly** at 1.097051×10³⁹
@@ -64,7 +65,7 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    in total size (10³¹·⁸–10³³·⁸) while their *budgeted* yields span ≈5.7 orders (10¹·¹–10⁶·⁸), and the two
    are essentially uncorrelated (Pearson r = 0.17, Spearman ρ = 0.15, full population; confirms the earlier
    605-cell sample, r≈0.15). Budgeted yield is a local-density phenomenon, not a size phenomenon. A prior
-   product-of-averages estimate (10¹⁴–10¹⁵ nodes) was a ≈20-order undercount — biased downward for
+   product-of-averages estimate (10¹⁴–10¹⁵ nodes) was a ≈25-order undercount — biased downward for
    heavy-tailed branching; unbiased probe sampling is the correct tool.
 4. **The Uniqueness Conjecture is refuted (2026-07-02).** Extending the probe walk with the spec's C6/C7
    adjacency constraints (slots 24–27 pinned to King Wen's pairs, orientation free) makes the conjecture
