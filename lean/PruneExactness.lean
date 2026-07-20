@@ -45,6 +45,12 @@
   · `c5_prune_sound` — if some class's unplaced demand exceeds its remaining
     budget, no completion's remaining-transition multiset can contain the
     demanded within-pair transitions (pigeonhole; no completion exists).
+  · `capping_exact` (+ crux `le_eqsum_imp_eq`) — F-53: the C5 dead-state
+    capping of count-DP residual vectors is EXACT ("residual dominance",
+    FH1 §2 Theorem): F(M, r) = F(M, cap r Bmax) for any valid per-class
+    bound Bmax. The DP-reachability facts (sum invariant, Bmax-validity)
+    are HYPOTHESES here, mirroring how c5_prune_sound takes demands/
+    remaining — see the F-53 section header below.
 
   Bridge facts (stated, NOT machine-checked — the PartitionInvariance.lean
   pattern; these connect the model to the C implementation and are covered
@@ -162,5 +168,257 @@ example : (776 : Nat) < ([770, 4] ++ [2, 2]).sum :=
     budget remains — no completion. -/
 example : ¬ Subperm [6, 6] [6, 2, 2, 1] :=
   c5_prune_sound [6, 6] [6, 2, 2, 1] 6 (by decide)
+
+/-! ### F-53: exactness of the C5 dead-state capping ("residual dominance")
+
+    Machine-checks the §2 Theorem "capping is exact" of the residual-dominance
+    analysis (roae-private FH1_RESIDUAL_DOMINANCE.md, 2026-07-04; adversarial-
+    review item F-53): capping the C5 residual vector r pointwise at any valid
+    per-class usage bound Bmax leaves the completion count unchanged,
+    F(M, r) = F(M, cap r Bmax). Model: per-distance-class vectors as Nat
+    lists; `M` is the list of per-completion class-usage vectors from the
+    current DP state (the prose's M(mask, last)); `Fcount M r` counts the
+    completions whose usage vector is exactly r. The prose's Lemma 2 — on
+    sum-matched states "componentwise admissible" collapses to "exactly
+    equal" — is `ptle_iff_eq_of_eqsum`, whose hard direction is the crux
+    lemma `le_eqsum_imp_eq` (pointwise-≤ ∧ equal-sum ⇒ equality).
+
+    The two DP-reachability facts are HYPOTHESES, deliberately NOT derived
+    here (the same discipline as c5_prune_sound above, whose demands/
+    remaining are hypotheses):
+    · hSr / hMsum — the sum invariant (prose Lemma 1: every forward-reachable
+      residual, and every completion's usage vector, sums to the remaining
+      transition count S);
+    · hMbound — Bmax-validity (Bmax_d bounds every completion's class-d
+      usage from this state).
+    Deriving either would require the backward reachability set M(mask, last)
+    — out of scope by design; like the bridge facts in the file header they
+    are carried by the runtime gates (two-language + brute-force validation
+    V1–V3 of the instrument) and code review.
+
+    Attribution: the capping conjecture is the operator's (FOOTHOLDS FH-1);
+    the prose proof and this machine-checked packaging are Claude's. The
+    argument is elementary (as with the sections above, no novelty claimed;
+    corrections welcome). -/
+
+/-- pointwise ≤ on Nat vectors (boolean form; `all` over `zipWith`). -/
+def ptle (a b : List Nat) : Bool :=
+  (List.zipWith (fun p q => decide (p ≤ q)) a b).all (fun x => x)
+
+/-- pointwise cap (per-class min with the residual bound vector). -/
+def capv (r Bmax : List Nat) : List Nat := List.zipWith min r Bmax
+
+/-- the counted quantity: multiplicity of the exact residual r among the
+    per-completion class-usage vectors M. -/
+def Fcount (M : List (List Nat)) (r : List Nat) : Nat :=
+  (M.filter (fun mu => decide (mu = r))).length
+
+/-- sum-monotone: pointwise ≤ on equal-length vectors bounds the sums. -/
+theorem ptle_sum_le : ∀ (a b : List Nat), a.length = b.length →
+    ptle a b = true → a.sum ≤ b.sum := by
+  intro a
+  induction a with
+  | nil => intro b _ _; simp
+  | cons x xs ih =>
+      intro b hlen hle
+      cases b with
+      | nil => simp at hlen
+      | cons y ys =>
+          simp only [List.length_cons, Nat.succ.injEq] at hlen
+          simp only [ptle, List.zipWith_cons_cons, List.all_cons, Bool.and_eq_true,
+            decide_eq_true_eq] at hle
+          have htl := ih ys hlen hle.2
+          simp only [List.sum_cons]
+          omega
+
+/-- the crux: pointwise-≤ ∧ equal sum ⇒ equal vectors. -/
+theorem le_eqsum_imp_eq : ∀ (a b : List Nat), a.length = b.length →
+    ptle a b = true → a.sum = b.sum → a = b := by
+  intro a
+  induction a with
+  | nil =>
+      intro b hlen _ _
+      cases b with
+      | nil => rfl
+      | cons _ _ => simp at hlen
+  | cons x xs ih =>
+      intro b hlen hle hsum
+      cases b with
+      | nil => simp at hlen
+      | cons y ys =>
+          simp only [List.length_cons, Nat.succ.injEq] at hlen
+          simp only [ptle, List.zipWith_cons_cons, List.all_cons, Bool.and_eq_true,
+            decide_eq_true_eq] at hle
+          have htl : xs.sum ≤ ys.sum := ptle_sum_le xs ys hlen hle.2
+          simp only [List.sum_cons] at hsum
+          have hxeq : x = y := by omega
+          have hteq : xs.sum = ys.sum := by omega
+          rw [hxeq, ih ys hlen hle.2 hteq]
+
+/-- pointwise ≤ is reflexive. -/
+theorem ptle_refl : ∀ (a : List Nat), ptle a a = true := by
+  intro a
+  induction a with
+  | nil => rfl
+  | cons x xs ih =>
+      simp only [ptle, List.zipWith_cons_cons, List.all_cons, Bool.and_eq_true,
+        decide_eq_true_eq]
+      exact ⟨Nat.le_refl x, ih⟩
+
+/-- Lemma 2's collapse: on sum-matched equal-length vectors, "componentwise
+    admissible" and "exactly equal" coincide. -/
+theorem ptle_iff_eq_of_eqsum {a b : List Nat} (hlen : a.length = b.length)
+    (hsum : a.sum = b.sum) : ptle a b = true ↔ a = b := by
+  constructor
+  · intro h
+    exact le_eqsum_imp_eq a b hlen h hsum
+  · intro h
+    rw [h]
+    exact ptle_refl b
+
+/-- capping preserves the length (on equal-length inputs). -/
+theorem capv_length {r B : List Nat} (hlen : r.length = B.length) :
+    (capv r B).length = r.length := by
+  simp [capv, List.length_zipWith, hlen]
+
+/-- the cap is pointwise below the residual. -/
+theorem capv_ptle_left : ∀ (r B : List Nat), ptle (capv r B) r = true := by
+  intro r
+  induction r with
+  | nil => intro B; rfl
+  | cons x xs ih =>
+      intro B
+      cases B with
+      | nil => rfl
+      | cons y ys =>
+          simp only [capv, ptle, List.zipWith_cons_cons, List.all_cons,
+            Bool.and_eq_true, decide_eq_true_eq]
+          exact ⟨Nat.min_le_left x y, by simpa [capv, ptle] using ih ys⟩
+
+/-- a residual within bounds is unchanged by capping (equal-length inputs). -/
+theorem capv_eq_self_of_ptle : ∀ (r B : List Nat), r.length = B.length →
+    ptle r B = true → capv r B = r := by
+  intro r
+  induction r with
+  | nil =>
+      intro B hlen _
+      cases B with
+      | nil => rfl
+      | cons _ _ => simp at hlen
+  | cons x xs ih =>
+      intro B hlen hle
+      cases B with
+      | nil => simp at hlen
+      | cons y ys =>
+          simp only [List.length_cons, Nat.succ.injEq] at hlen
+          simp only [ptle, List.zipWith_cons_cons, List.all_cons, Bool.and_eq_true,
+            decide_eq_true_eq] at hle
+          simp only [capv, List.zipWith_cons_cons]
+          rw [Nat.min_eq_left hle.1]
+          have htl := ih ys hlen hle.2
+          simp only [capv] at htl
+          rw [htl]
+
+/-- conversely, a residual unchanged by capping was within bounds
+    (equal-length inputs). -/
+theorem ptle_of_capv_eq : ∀ (r B : List Nat), r.length = B.length →
+    capv r B = r → ptle r B = true := by
+  intro r
+  induction r with
+  | nil =>
+      intro B hlen _
+      cases B with
+      | nil => rfl
+      | cons _ _ => simp at hlen
+  | cons x xs ih =>
+      intro B hlen hcap
+      cases B with
+      | nil => simp at hlen
+      | cons y ys =>
+          simp only [List.length_cons, Nat.succ.injEq] at hlen
+          simp only [capv, List.zipWith_cons_cons, List.cons.injEq] at hcap
+          simp only [ptle, List.zipWith_cons_cons, List.all_cons, Bool.and_eq_true,
+            decide_eq_true_eq]
+          have hxy : x ≤ y := by
+            have hmr := Nat.min_le_right x y
+            omega
+          refine ⟨hxy, ?_⟩
+          simpa [ptle] using ih ys hlen hcap.2
+
+/-- filter of a never-satisfied predicate has no members. -/
+theorem count_none_eq_zero {α : Type} (p : α → Bool) :
+    ∀ (l : List α), (∀ x ∈ l, p x = false) → (l.filter p).length = 0 := by
+  intro l
+  induction l with
+  | nil => intro _; rfl
+  | cons a t ih =>
+      intro h
+      rw [List.filter_cons_of_neg (by simp [h a (List.mem_cons_self ..)])]
+      exact ih (fun x hx => h x (List.mem_cons_of_mem a hx))
+
+/-- over-Bmax ⇒ strict sum drop: if the residual exceeds the bound in some
+    class, the capped residual's sum is strictly below the residual's. -/
+theorem capv_sum_lt {r B : List Nat} (hlen : r.length = B.length)
+    (hover : ptle r B = false) : (capv r B).sum < r.sum := by
+  have hle : (capv r B).sum ≤ r.sum :=
+    ptle_sum_le (capv r B) r (capv_length hlen) (capv_ptle_left r B)
+  rcases Nat.lt_or_ge (capv r B).sum r.sum with h | h
+  · exact h
+  · exfalso
+    have hs : (capv r B).sum = r.sum := Nat.le_antisymm hle h
+    have hceq : capv r B = r :=
+      le_eqsum_imp_eq (capv r B) r (capv_length hlen) (capv_ptle_left r B) hs
+    rw [ptle_of_capv_eq r B hlen hceq] at hover
+    cases hover
+
+/-- CAPPING EXACTNESS (F-53): with the sum invariant and Bmax-validity as
+    hypotheses, F(M, r) = F(M, cap r Bmax). In-budget r: cap is the identity.
+    Over-budget r: no completion equals r (each usage vector is ≤ Bmax
+    pointwise, r is not), and no completion equals cap r Bmax (its sum falls
+    strictly short of S) — both counts are 0. -/
+theorem capping_exact
+    (M : List (List Nat)) (r Bmax : List Nat) (S : Nat)
+    (hlen : r.length = Bmax.length)
+    (hSr : r.sum = S)
+    (hMsum : ∀ mu ∈ M, mu.sum = S)
+    (hMbound : ∀ mu ∈ M, ptle mu Bmax = true) :
+    Fcount M r = Fcount M (capv r Bmax) := by
+  by_cases hcase : ptle r Bmax = true
+  · rw [capv_eq_self_of_ptle r Bmax hlen hcase]
+  · have hover : ptle r Bmax = false := by
+      cases hpb : ptle r Bmax with
+      | false => rfl
+      | true => exact absurd hpb hcase
+    have hlt : (capv r Bmax).sum < r.sum := capv_sum_lt hlen hover
+    have h1 : Fcount M r = 0 := by
+      apply count_none_eq_zero
+      intro mu hmu
+      simp only [decide_eq_false_iff_not]
+      intro heq
+      have hb := hMbound mu hmu
+      rw [heq] at hb
+      rw [hb] at hover
+      cases hover
+    have h2 : Fcount M (capv r Bmax) = 0 := by
+      apply count_none_eq_zero
+      intro mu hmu
+      simp only [decide_eq_false_iff_not]
+      intro heq
+      have hms := hMsum mu hmu
+      rw [heq] at hms
+      omega
+    rw [h1, h2]
+
+/-- F-53 sanity: an over-budget residual ([3, 1] under Bmax [2, 5]) against a
+    bound-respecting completion set — both counts are 0. -/
+example : Fcount [[2, 2], [1, 3]] [3, 1] = Fcount [[2, 2], [1, 3]] (capv [3, 1] [2, 5]) :=
+  capping_exact [[2, 2], [1, 3]] [3, 1] [2, 5] 4 (by decide) (by decide)
+    (by decide) (by decide)
+
+/-- F-53 sanity: an in-budget residual is untouched by the cap — the counts
+    coincide trivially (and are 1 here). -/
+example : Fcount [[2, 2], [1, 3]] [1, 3] = Fcount [[2, 2], [1, 3]] (capv [1, 3] [2, 5]) :=
+  capping_exact [[2, 2], [1, 3]] [1, 3] [2, 5] 4 (by decide) (by decide)
+    (by decide) (by decide)
 
 end PruneExactness

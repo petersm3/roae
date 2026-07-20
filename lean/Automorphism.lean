@@ -22,8 +22,15 @@
   note there on record-level vs orientation-resolved counts.
 
   Structure:
-  (a) finite facts about G48/G24 (checked by native_decide — extended trust base,
-      see lean/README.md's trust-base note; the repo style for finite facts);
+  (a) finite facts about G48/G24. Most are now checked by kernel `decide` (fully
+      trusted; F-52 2026-07-19) — the small/medium enumerations reduce in the
+      kernel in seconds. Seven heavy ones stay on `native_decide` (extended trust
+      base, see lean/README.md's trust-base note) because kernel `decide` on them
+      exceeds a whnf-heartbeat / kernel-memory budget: applyPerm_inj,
+      applyPerm_isometry, applyPerm_range_perm, applyPerm_pcomp, pcomp_closure
+      (each ranges over ≥ 48·64² or 48² permutation pairs), plus pcomp_inv and
+      pcomp_left_cancel (∃-witness / 48³ search). These remain the repo style for
+      the largest finite facts;
   (b) structural invariance proofs: each constraint C1/C2/C3/C4/C5 is preserved by
       every σ ∈ G48 on EVERY permutation of the 64 hexagrams (not just King Wen);
   (c) the record-level action (relabel pair keys) and its compatibility with
@@ -177,19 +184,19 @@ def WFkey (k : Nat) : Prop := k < 4096 ∧ k / 64 ≤ k % 64
 
 /- ------- §2 finite group facts (native_decide; extended trust base) ------- -/
 
-theorem G48_length : G48.length = 48 := by native_decide
+theorem G48_length : G48.length = 48 := by decide
 
-theorem G24_length : G24.length = 24 := by native_decide
+theorem G24_length : G24.length = 24 := by decide
 
-theorem G24_nodup : G24.Nodup := by native_decide
+theorem G24_nodup : G24.Nodup := by decide
 
-theorem idp_mem_G24 : idp ∈ G24 := by native_decide
+theorem idp_mem_G24 : idp ∈ G24 := by decide
 
-theorem rho_mem_G48 : rho ∈ G48 := by native_decide
+theorem rho_mem_G48 : rho ∈ G48 := by decide
 
 theorem G24_sub_G48 : ∀ p ∈ G24, p ∈ G48 := fun _ hp => (List.mem_filter.mp hp).1
 
-theorem applyPerm_lt64 : ∀ p ∈ G48, ∀ h < 64, applyPerm p h < 64 := by native_decide
+theorem applyPerm_lt64 : ∀ p ∈ G48, ∀ h < 64, applyPerm p h < 64 := by decide
 
 theorem applyPerm_inj :
     ∀ p ∈ G48, ∀ a < 64, ∀ b < 64, (applyPerm p a = applyPerm p b ↔ a = b) := by
@@ -200,15 +207,15 @@ theorem applyPerm_isometry :
   native_decide
 
 theorem applyPerm_fix_0_63 : ∀ p ∈ G48, applyPerm p 0 = 0 ∧ applyPerm p 63 = 63 := by
-  native_decide
+  decide
 
 theorem applyPerm_partner :
     ∀ p ∈ G48, ∀ h < 64, applyPerm p (partner h) = partner (applyPerm p h) := by
-  native_decide
+  decide
 
 theorem applyPerm_comp63 :
     ∀ p ∈ G48, ∀ h < 64, applyPerm p h ^^^ 63 = applyPerm p (h ^^^ 63) := by
-  native_decide
+  decide
 
 theorem applyPerm_range_perm :
     ∀ p ∈ G48, ((List.range 64).map (applyPerm p)).isPerm (List.range 64) = true := by
@@ -232,16 +239,16 @@ theorem pcomp_left_cancel :
 
 theorem pcomp_inv_rho :
     ∀ a ∈ G48, ∀ b ∈ G48, pcomp a b = idp → pcomp a (pcomp b rho) = rho := by
-  native_decide
+  decide
 
-theorem G24_cover : ∀ p ∈ G48, p ∈ G24 ∨ pcomp p rho ∈ G24 := by native_decide
+theorem G24_cover : ∀ p ∈ G48, p ∈ G24 ∨ pcomp p rho ∈ G24 := by decide
 
-theorem G24_rho_disjoint : ∀ q ∈ G24, pcomp q rho ∉ G24 := by native_decide
+theorem G24_rho_disjoint : ∀ q ∈ G24, pcomp q rho ∉ G24 := by decide
 
 /-- the freeness engine: an element of G48 stabilizing all 32 partner-pairs setwise
     is the identity or the central bit-reversal — nothing else. -/
 theorem stab_all_id_or_rho :
-    ∀ p ∈ G48, (∀ h < 64, stabPair p h) → p = idp ∨ p = rho := by native_decide
+    ∀ p ∈ G48, (∀ h < 64, stabPair p h) → p = idp ∨ p = rho := by decide
 
 theorem rho_stab : ∀ h < 64, stabPair rho h := by decide
 
@@ -927,6 +934,6 @@ theorem twenty_four_dvd_c1c2c4c5_count (R : List (List Nat)) (hnd : R.Nodup)
 /-- sanity witness: the solution set is nonempty — King Wen's canonical record is
     a solution record (so the count is a positive multiple of 24). -/
 theorem kw_solution_record : SolRec validC15 (pairKey KW) :=
-  ⟨KW, ⟨List.isPerm_iff.mp (by native_decide), by native_decide⟩, rfl⟩
+  ⟨KW, ⟨List.isPerm_iff.mp (by decide), by decide⟩, rfl⟩
 
 end Automorphism
