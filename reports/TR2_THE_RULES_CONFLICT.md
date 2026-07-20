@@ -305,7 +305,7 @@ reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe c
 for re-derivation) — all in the public `solve.c` and documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md) §ENVIRONMENT; the
 edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 
-## Pre-registered extension (v1.9): a four-class model comparison — design frozen, measurement pending
+## Pre-registered extension (v1.9): a four-class model comparison — calibration run, verdict VETOED (v1.13)
 
 The v1.7 Bayesian comparison above is deliberately a **two-model** test (M_corr vs M_tend), and its own
 scope note names the gap: it cannot weigh "the rules are real" against models outside that pair. A wider
@@ -328,6 +328,58 @@ exists). The four classes:
 The axis bundle, numeric priors and grids, the Jeffreys decision bands (as v1.7), a synthetic-draw
 calibration that runs BEFORE the KW verdict and can veto an unreliable one, and an adequacy layer
 auditing every model against the full published functional battery are all fixed in the frozen design.
+
+### Outcome (2026-07-20): the calibration vetoed the verdict — no four-class result will be published
+
+That calibration has now run, and **it failed.** Under the frozen procedure — 100 synthetic draws per
+class, each scored under all four models, the true class required to rank first in at least 70 of its
+100 draws — one class falls below the bar, and it is the decisive one:
+
+| true class | first-rank rate | verdict |
+|---|---|---|
+| M0 — uniform-valid | 99/100 | pass |
+| **M_G — greedy-builder** | **67/100** | **FAIL (confusable)** |
+| M_D — global-design | 81/100 | pass |
+| M_C — corrupted-precursor | 84/100 | pass (7 draw failures counted against it) |
+
+**M_G is exactly the rival this extension existed to test.** Its failure is not marginal and not an
+artifact of one configuration: across the four pre-committed sensitivity variants M_G scores 67, 67, 45
+and 25 — never once clearing 70. Its median log₁₀ Bayes factor against the best rival is 1.12 in the
+primary configuration and turns **negative** in two others (−0.65, −1.54), meaning a sequence genuinely
+produced by a greedy builder typically scores *better* under a rival model than under the truth. The
+misclassifications scatter into M0 (19) and M_D (14): greedy-built orderings simply look like
+uniform-valid or globally-designed ones once the shared C1–C5 substrate is factored out.
+
+**Consequence, per the frozen design's own §6.3 veto: no four-class Bayes factor, posterior, or verdict
+is computed or published — here or elsewhere.** The gate was frozen before any of these numbers existed,
+it fired, and we abide by it. Running the comparison against King Wen would have produced a
+confident-looking number that our own pre-registered criterion says we may not believe.
+
+**What this does and does not license.** It does *not* say the greedy-builder explanation is correct, nor
+that the v1.7 corruption result is wrong; the v1.7 two-model comparison and its v1.12 re-affirmation are
+untouched, and their scope statements above already say they exclude only the soft-preference arranger.
+What it says is narrower and more useful: **at this sample size these four explanations are not reliably
+distinguishable by this method**, so the honest position on the greedy-local and rules-epiphenomenal
+rivals is that they remain open — not defeated, and now demonstrably not defeatable by this instrument as
+specified. That is a limit of the inference, not a property of the sequence.
+
+*Honest residuals.* M_C incurred 7 draw failures out of 100 (the class draws a rule-perfect precursor,
+whose support is ~10¹² times thinner than the other classes', so its sampler dead-ends more often); those
+failures are counted against M_C's own 100 rather than discarded, the conservative convention. They are
+not load-bearing for the verdict: the failing class, M_G, had zero draw failures, so no attrition
+question can rescue it. Sampling is sequential Monte Carlo with an exact monotone C3 lower-bound prune
+(bias-free: a pruned particle would carry weight zero at completion, and at the final slot the bound
+equals the true C3 value, runtime-asserted). The calibration is a statement about discriminability at
+n = 100 per class under the frozen bundle; a larger n or a different functional bundle could in principle
+separate M_G, and the design permits revisiting under a fresh pre-registration.
+
+*Evidence.* Instrument, per-class draws, per-draw scores, the four variant confusion matrices, and the
+veto report are in [evidence/r11/](evidence/r11/) (`r11_calibration.py`, `calibration_report.txt`,
+`draws.json`, `scores.json`, `hits.json`, `pcomplete.json`, `gates.json`; master seed 20260720,
+deterministic). Two pre-gates worth noting as independent cross-checks that the instrument was wired to
+the right object: the exact 3-edit event count reproduces the published 7,975, and the greedy builder's
+measured completion probability is 0.8–1.4% across the β grid (n = 32,000 per point) — an independent
+sighting of how thin the C1–C5 space is.
 The comparison is **report-only, with no promotion path**, and it does not revise the v1.7 two-model
 result, which stands as published (if the wider comparison ever dethrones corruption, this section gains
 a forward-pointer; it is not rewritten).
@@ -366,4 +418,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.10 | 2026-07-11 | Stop-flag annotation: the direct N_gs measurement ([evidence/r11/](evidence/r11/)) yielded 5.00×10²⁵, outside the v1.7 derived bracket [1.03, 3.57]×10²⁵ — the pre-registered stop-and-investigate gate fired. The v1.7 Bayes verdict is marked UNDER REVIEW pending investigation (neither revised nor re-affirmed). "closes that question as far as data can" tightened to the section's own conditional scope. |
 | v1.11 | 2026-07-11 | Process section relocated: the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). No findings changed |
 | v1.12 | 2026-07-13 | Stop-flag resolution: the v1.10 UNDER REVIEW annotation is closed. Investigation ([evidence/r11/](evidence/r11/)) found the derived bracket [1.03, 3.57]×10²⁵ was never a confidence interval (two point estimates, no propagated uncertainty); a 4-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6% conservative), with all three pre-registered convergence gates passing (χ² seed-consistency ~1σ; derived-CI cross-path 2.0σ; repaired stratified cross-check 0.12σ — the stratified instrument's strict-prefix composition defect was repaired by an estimator-only, self-test-neutral fix). Under the measured value BF ≈ 5.2×10³ (U) / 6.3×10³ (A) — direction unchanged in all 24 pre-committed configurations; verdict re-affirmed (headline ×0.79 smaller, footing stronger). Weakest-ingredient paragraph updated; four-class section status corrected (ingredients collected, verdict not computed, N_gs solidity gate passed); no theorem or certificate touched |
-| v1.13 *(current)* | 2026-07-20 | **Corruption-result scope + form labelling (adversarial-review items F-43, F-8).** F-43: the 0.9998 posterior and the BF figures are a *pairwise* verdict — corruption vs soft-preference arranger — but nothing adjacent to them said so. Scope statements added at all three points a reader meets the numbers (executive summary, the findings bullet list, and "What this does NOT say"), stating explicitly that they exclude neither a greedy/local builder (M_G) nor the rules-epiphenomenal uniform null (M0), both of which remain un-run, and that a 0.9998 posterior *within a model pair* is not a 0.9998 posterior that the sequence was corrupted. The four-class comparison's calibration gate is separately in progress; no verdict is claimed. F-8: "Structure (6 sections)" relabelled to note that items 1-6 are section summaries, with the report's fully-written material being the v1.6/v1.7/v1.9/v1.12 sections. No theorem, certificate, or computed value changed |
+| v1.13 | 2026-07-20 | **Corruption-result scope + form labelling (adversarial-review items F-43, F-8).** F-43: the 0.9998 posterior and the BF figures are a *pairwise* verdict — corruption vs soft-preference arranger — but nothing adjacent to them said so. Scope statements added at all three points a reader meets the numbers (executive summary, the findings bullet list, and "What this does NOT say"), stating explicitly that they exclude neither a greedy/local builder (M_G) nor the rules-epiphenomenal uniform null (M0), both of which remain un-run, and that a 0.9998 posterior *within a model pair* is not a 0.9998 posterior that the sequence was corrupted. The four-class comparison's calibration gate is separately in progress; no verdict is claimed. F-8: "Structure (6 sections)" relabelled to note that items 1-6 are section summaries, with the report's fully-written material being the v1.6/v1.7/v1.9/v1.12 sections. No theorem, certificate, or computed value changed |
+| v1.14 *(current)* | 2026-07-20 | **Four-class comparison: calibration run, verdict VETOED — no result will be published.** The frozen design placed a synthetic-draw confusability gate before any KW-facing integration; it has now been executed and failed. The greedy-builder class M_G ranks itself first in 67/100 draws against a pre-registered threshold of 70 (67/67/45/25 across the four sensitivity variants; median log10 BF vs best rival 1.12 primary, negative in two variants), so M_G is not reliably separable from M0 or M_D at n=100 — and M_G is precisely the rival this extension existed to test. Per the design's §6.3 veto, no four-class Bayes factor, posterior, or verdict is computed or published, here or elsewhere; `compute_r11_bf.py` is not written and not planned. Section retitled from "measurement pending" to "calibration run, verdict VETOED" and an Outcome subsection added stating what the result does and does not license: the v1.7/v1.12 two-model corruption result is untouched, the greedy-local and rules-epiphenomenal rivals remain OPEN rather than defeated, and the finding is a limit of the inference at this sample size, not a property of the sequence. Honest residuals recorded (7 M_C draw failures counted conservatively against its own 100, not load-bearing since the failing class M_G had zero; SMC uses an exact bias-free monotone C3 lower-bound prune, runtime-asserted). Full instrument and per-draw evidence published to evidence/r11/. No theorem, certificate, or previously published number changed |

@@ -1,0 +1,83 @@
+R11 SS7.2 SYNTHETIC-DRAW CALIBRATION — confusability gate (NO KW-facing verdict; design R11_BAYES_V2_DESIGN_2026_07_10.md)
+generated 2026-07-20 04:47:45 UTC; master seed 20260720; n=100/class; primary config: MG uniform-w conditioned, MD2 per-axis Z-aug, MC variant-U conditioned direct-pooled N_gs
+
+== variant: primary ==
+confusion matrix (rows=true, cols=argmax):
+           M0     MG     MD     MC
+    M0     99      0      1      0
+    MG     19     67     14      0
+    MD      1     17     81      1
+    MC      0      0      9     84
+first-rank rate: M0=99/100  MG=67/100  MD=81/100  MC=84/100
+  median log10 BF(true/best-rival) M0: 2.16
+  median log10 BF(true/best-rival) MG: 1.12
+  median log10 BF(true/best-rival) MD: 3.09
+  median log10 BF(true/best-rival) MC: 0.90
+pairwise: true-class draws where true beats rival (and: rival was top rival -> wins/top)
+    M0:   -   | 100 (84/84) |  99 (15/16) | 100 (0/0)
+    MG:  81 (12/31) |   -   |  86 (27/41) | 100 (28/28)
+    MD:  99 (7/8) |  81 (70/87) |   -   |  92 (4/5)
+    MC:  93 (0/0) |  93 (0/0) |  84 (84/93) |   -  
+
+SS7.2 / SS6.3 VETO VERDICT (frozen threshold: <70/100 true-first => confusable => no publishable verdict for that pair/class; failed draws count against their class, out of the frozen 100):
+  M0: 99/100 -> PASS
+  MG: 67/100 -> FAIL (confusable)
+  MD: 81/100 -> PASS
+  MC: 84/100 -> PASS [7 draw failures]
+  OVERALL: FAIL — at least one class below 70/100; SS6.3 veto engages for the affected pairs
+
+== variant: corrA ==
+confusion matrix (rows=true, cols=argmax):
+           M0     MG     MD     MC
+    M0     99      0      1      0
+    MG     19     67     14      0
+    MD      1     17     81      1
+    MC      0      0      9     84
+first-rank rate: M0=99/100  MG=67/100  MD=81/100  MC=84/100
+  median log10 BF(true/best-rival) M0: 2.16
+  median log10 BF(true/best-rival) MG: 1.12
+  median log10 BF(true/best-rival) MD: 3.09
+  median log10 BF(true/best-rival) MC: 0.90
+pairwise: true-class draws where true beats rival (and: rival was top rival -> wins/top)
+    M0:   -   | 100 (84/84) |  99 (15/16) | 100 (0/0)
+    MG:  81 (12/31) |   -   |  86 (27/41) | 100 (28/28)
+    MD:  99 (7/8) |  81 (70/87) |   -   |  92 (4/5)
+    MC:  93 (0/0) |  93 (0/0) |  84 (84/93) |   -  
+
+== variant: uncond ==
+confusion matrix (rows=true, cols=argmax):
+           M0     MG     MD     MC
+    M0     99      0      1      0
+    MG     31     45     23      1
+    MD      1     11     86      2
+    MC      0      0     21     72
+first-rank rate: M0=99/100  MG=45/100  MD=86/100  MC=72/100
+  median log10 BF(true/best-rival) M0: 2.85
+  median log10 BF(true/best-rival) MG: -0.65
+  median log10 BF(true/best-rival) MD: 4.42
+  median log10 BF(true/best-rival) MC: 0.57
+pairwise: true-class draws where true beats rival (and: rival was top rival -> wins/top)
+    M0:   -   | 100 (6/6) |  99 (93/94) | 100 (0/0)
+    MG:  59 (0/31) |   -   |  50 (18/41) |  99 (27/28)
+    MD:  99 (18/19) |  88 (64/75) |   -   |  92 (4/6)
+    MC:  93 (0/0) |  93 (0/0) |  72 (72/93) |   -  
+
+== variant: histZ ==
+confusion matrix (rows=true, cols=argmax):
+           M0     MG     MD     MC
+    M0     99      0      1      0
+    MG     19     25     56      0
+    MD      1      0     99      0
+    MC      0      0     92      1
+first-rank rate: M0=99/100  MG=25/100  MD=99/100  MC=1/100
+  median log10 BF(true/best-rival) M0: 2.16
+  median log10 BF(true/best-rival) MG: -1.54
+  median log10 BF(true/best-rival) MD: 10.74
+  median log10 BF(true/best-rival) MC: -15.58
+pairwise: true-class draws where true beats rival (and: rival was top rival -> wins/top)
+    M0:   -   | 100 (84/84) |  99 (15/16) | 100 (0/0)
+    MG:  81 (12/31) |   -   |  44 (13/69) | 100 (0/0)
+    MD:  99 (7/8) |  99 (87/87) |   -   | 100 (5/5)
+    MC:  93 (0/0) |  93 (0/0) |   1 (1/93) |   -  
+
+ingredient meta: {"n_can_fresh": 1.329643e+38, "n_can_anchor": 1.328702e+38, "n_gs_pooled": 4.50314e+25, "n_mj": 1.131036e+29, "z_cells_aug": 30439, "z_cells_hist": 29997, "draw_failures": {"M0": 0, "MG": 0, "MD": 0, "MC": 7}, "pcomplete": {"0.25": {"phat": 0.0139375, "n": 32000, "ci_half": 0.0012844752600010198}, "0.5": {"phat": 0.0140625, "n": 32000, "ci_half": 0.0012901406003047447}, "1.0": {"phat": 0.01421875, "n": 32000, "ci_half": 0.0012971854480643551}, "2.0": {"phat": 0.0135625, "n": 32000, "ci_half": 0.0012673184127044346}, "4.0": {"phat": 0.01184375, "n": 32000, "ci_half": 0.0011853279057255832}, "8.

@@ -1,0 +1,24 @@
+{
+ "kw_axes": [
+  2,
+  2,
+  2,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "event_counts": {
+  "1": 31,
+  "2": 585,
+  "3": 7975,
+  "4": 86681,
+  "5": 783783,
+  "6": 6076161
+ },
+ "decode_children_checked": 3031,
+ "hits_gate_KW_wall_s": 1.2,
+ "hits_gate_GRAND_wall_s": 63.2,
+ "builder_verify_exit": 0
+}

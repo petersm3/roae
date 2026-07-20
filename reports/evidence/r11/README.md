@@ -4,10 +4,33 @@ This directory holds the ingredient runs for the pre-registered four-class model
 comparison (design summarized in [TR-2 §"four-class"](../../TR2_THE_RULES_CONFLICT.md);
 the full design is staged privately as a separate **v2** freeze under the operator's
 resolve-first / publish-only-if-solid decision — no verdict-space element is published
-here). **No Bayes factor has been computed from these files**: per the frozen
-ordering-of-operations, calibration and the KW-facing integration are post-freeze
-deliverables, and the compute half has not been run. This directory currently holds
-instrument outputs and the resolved N_gs stop-flag record only.
+here). **No Bayes factor has been computed from these files, and none now will be** — see the
+calibration outcome below.
+
+**Update 2026-07-20 — the §7.2 calibration has RUN, and it VETOED the verdict.** The frozen
+ordering-of-operations put a synthetic-draw confusability gate before any KW-facing integration; that
+gate has now been executed and **failed**, so the four-class comparison stops here by its own rule. The
+greedy-builder class M_G ranks itself first in only **67 of 100** draws against a frozen threshold of 70
+(and 67 / 45 / 25 in the other three sensitivity variants), so M_G is not reliably separable from M0 or
+M_D at this sample size. Per §6.3 no four-class Bayes factor, posterior, or verdict is computed or
+published. Full reporting, including what this does and does not license, is in
+[TR-2 §"Outcome (2026-07-20)"](../../TR2_THE_RULES_CONFLICT.md).
+
+Calibration artifacts in this directory (master seed 20260720, deterministic):
+
+| file | contents |
+|---|---|
+| `r11_calibration.py` | the instrument (stdlib-only; reuses the M_G builder in `solve.py`) |
+| `calibration_report.txt` | four variant confusion matrices + the §7.2/§6.3 veto verdict |
+| `draws.json` | the 393 synthetic draws (100 per class; M_C 93, with 7 recorded draw failures) |
+| `scores.json` | every draw scored under all four models |
+| `hits.json`, `pcomplete.json`, `gates.json` | rule-hit tables, greedy completion probabilities, pre-gates |
+
+Reproduce with `python3 r11_calibration.py --phase gates|draws|pcomplete|hits|score|report`. Note the
+KW-facing integration script (`compute_r11_bf.py`) **does not exist and is not planned**: the veto means
+there is nothing it would be permitted to report.
+
+The remainder of this directory holds the ingredient outputs and the resolved N_gs stop-flag record.
 
 ## The N_gs stop-flag — RESOLVED 2026-07-13 (verdict re-affirmed)
 
