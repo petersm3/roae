@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.1** (2026-07-17; erratum — see Revision history).*
+*Technical report — **v1.2** (2026-07-20; reduced-rung reproducibility fix — see Revision history).*
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -390,33 +390,69 @@ Counts are `|C1 ∩ C2 ∩ C4|` restricted to the union (no C5 tracking):
 Counts are `|C1 ∩ C2 ∩ C4 ∩ C5|` restricted to the union, all with `@0` (Kun exit). These are the rungs
 the out-of-core mode reproduced digit-for-digit against the in-RAM DP (§8):
 
-| pairs | orbit spec | pair indices | expected exact count |
-|---|---|---|---|
-| 9  | `3.0,3.1,3.2@0`        | {3,4,6,7,11,13,14,21,30} | (in-RAM reference) |
-| 13 | `3.0,4.0,6.2@0`        | {3,5,7,8,10,11,15,20,23,26,27,29,31} | 2,063,395,607,040 |
-| 16 | `4.0,6.0,6.1@0`        | {1,2,5,8,9,12,16,17,18,19,22,24,25,26,28,31} | 267,765,117,419,520 |
-| 18 | `6.0,6.1,6.2@0`        | {1,2,9,10,12,15,16,17,18,19,20,22,23,24,25,27,28,29} | (in-RAM reference) |
-| 19 | `3.0,4.0,6.0,6.1@0`    | {1,2,3,5,7,8,9,11,12,16,17,18,19,22,24,25,26,28,31} | 63,244,766,587,981,824 |
-| 24 | `3.0,3.1,6.0,6.1,6.2@0`| {1,2,3,4,6,7,9,10,11,12,15,16,17,18,19,20,21,22,23,24,25,27,28,29} | 7,477,248,378,538,061,907,099,648 |
-| 25 | `3.0,4.0,6.0,6.1,6.2@0`| {1,2,3,5,7,8,9,10,11,12,15,16,17,18,19,20,22,23,24,25,26,27,28,29,31} | 83,855,263,774,549,546,015,506,432 |
-| 27 | `3.0,3.1,3.2,6.0,6.1,6.2@0` | {1,2,3,4,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28,29,30} | 61,666,352,085,618,532,666,071,318,528 |
-| 28 | `3.0,3.1,4.0,6.0,6.1,6.2@0` | {1,2,3,4,5,6,7,8,9,10,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,31} | 2,155,118,806,480,613,893,163,229,118,464 |
+| pairs | orbit spec | pair list **in spec order** (order is load-bearing — see below) | target `B0` = (d1,d2,d3,d4,d6) | expected exact count |
+|---|---|---|---|---|
+| 9  | `3.0,3.1,3.2@0`        | 3,7,11, 4,6,21, 13,14,30 | (2,5,0,2,0) | 26,112 |
+| 13 | `3.0,4.0,6.2@0`        | 3,7,11, 5,8,26,31, 10,15,20,23,27,29 | (1,6,0,6,0) | 2,063,395,607,040 |
+| 16 | `4.0,6.0,6.1@0`        | 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28 | (1,8,1,6,0) | 267,765,117,419,520 |
+| 18 | `6.0,6.1,6.2@0`        | 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (0,7,1,10,0) | (in-RAM reference) |
+| 19 | `3.0,4.0,6.0,6.1@0`    | 3,7,11, 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28 | (2,11,0,6,0) | 63,244,766,587,981,824 |
+| 24 | `3.0,3.1,6.0,6.1,6.2@0`| 3,7,11, 4,6,21, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (1,10,2,11,0) | 7,477,248,378,538,061,907,099,648 |
+| 25 | `3.0,4.0,6.0,6.1,6.2@0`| 3,7,11, 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (2,11,1,11,0) | 83,855,263,774,549,546,015,506,432 |
+| 27 | `3.0,3.1,3.2,6.0,6.1,6.2@0` | 3,7,11, 4,6,21, 13,14,30, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (2,12,1,12,0) | 61,666,352,085,618,532,666,071,318,528 |
+| 28 | `3.0,3.1,4.0,6.0,6.1,6.2@0` | 3,7,11, 4,6,21, 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (2,12,1,13,0) | 2,155,118,806,480,613,893,163,229,118,464 |
+
+**The pair ORDER is part of the instance definition, and the target `B0` is what C5 means on a reduced
+rung.** Earlier revisions of this table published each rung as an ascending index *set* and told the
+reader to keep final states whose boundary multiset was a *sub-multiset* of King Wen's `{1:2, 2:8, 3:13,
+4:7, 6:1}`. Both were insufficient, and a reader following them would not have reproduced these counts
+(defect found and corrected 2026-07-20, adversarial-review item F-3):
+
+- **Order.** A rung's pair list is the concatenation of its orbit rows **in the order the spec names
+  them**, each row ascending internally — e.g. `3.0,3.1,3.2` is `3,7,11, 4,6,21, 13,14,30`, **not** the
+  sorted set `{3,4,6,7,11,13,14,21,30}`. Order matters because `B0` is defined by a *first-completion*
+  DFS (below) that scans pairs in subset-index order: reorder the list and the witness it finds — hence
+  the budget — changes. Concretely, the sorted order yields `B0 = (2,2,2,3,0)` for the n=9 rung against
+  the correct `(2,5,0,2,0)`.
+- **Target, not ceiling.** On a reduced rung the C5 analogue is not KW's budget nor any sub-multiset of
+  it: it is the rung's own `B0`, and a completed walk must match it **exactly**. (For the full 31 the two
+  coincide, because `B0` there *is* KW's boundary multiset `(2,8,13,7,1)` — which is why the defect was
+  invisible at full scale.)
 
 (Note the n=13 rung differs between 4a and 4b: the C1∩C2∩C4 prototype's U3 uses exit `@63`, while the C5
 ladder's 13-pair rung uses `@0` — they are different reduced instances, listed with their own counts. The
-two "(in-RAM reference)" cells are validated against the in-RAM DP but carry no separately-printed target
-here.)
+n=18 "(in-RAM reference)" cell is validated against the in-RAM DP but carries no separately-printed target
+here; n=9's 26,112 is the in-RAM DP's printed total, published here so the smallest rung is checkable by
+hand.)
 
 **5. How to recompute a rung independently.**
-For a chosen rung's pair index set `P` and exit `START ∈ {0, 63}`, run a layered forward DP over the
-pairs in `P`. State = (subset of `P` already placed, `last` = exit hexagram of the most recent pair);
-transition places an unplaced pair `p` in one of its two orientations `(first, second)`, allowed iff the
-boundary Hamming distance `popcount(last ⊕ first) ≠ 5` (C2). Initialize `{(∅, START): 1}`; the answer is
-the total mass over full-subset states. For the C5-tracked rungs (4b) additionally carry the running
-multiset of the placed boundary distances and, at completion, retain only states whose multiset is a
-sub-multiset compatible with C5 (King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`), per the reduced-instance C5
-definition. Any big-integer DP reproduces the counts above; no symmetry quotient is needed to *verify* a
-rung (the quotient only accelerates the full-31 run).
+For a chosen rung take its **ordered** pair list `P` (spec order, per the table above) and exit
+`START ∈ {0, 63}`. Write `d(x,y) = popcount(x ⊕ y)` and map each boundary distance to its class index in
+`(1,2,3,4,6)`; distance 5 is forbidden by C2 and distance 0 cannot occur between distinct hexagrams.
+
+*Step 1 — derive the rung's budget `B0` (deterministic first-completion DFS).* Search for the FIRST
+complete C2-respecting walk over `P`, trying unplaced pairs in ascending position within `P` and, for
+each, the two orientations in the order `o = 0` then `o = 1`, where `o = 0` **enters `b` and exits `a`**
+and `o = 1` enters `a` and exits `b` for a pair listed `(a, b)` in the 32-pair table. Start from `last =
+START`. `B0` is the class multiset of that first witness. (The witness itself is an arbitrary-but-fixed
+convention; only its multiset is used, and it is achievable by construction. The published `B0` column
+lets you check this step before trusting the rest.)
+
+*Step 2 — the layered DP.* State = (subset of `P` already placed, `last` = exit hexagram of the most
+recent pair, `p` = the running class-usage vector). Initialize `{(∅, START, 0): 1}`. A transition places
+an unplaced pair in one orientation with boundary distance `d`, and is allowed iff `d ≠ 5` **and**
+`p_class(d) < B0_class(d)` — the budget cap. The answer is the total mass on states whose subset is all
+of `P` **and whose `p` equals `B0` exactly**.
+
+Two consequences worth stating, because getting either wrong silently changes the number: the final
+multiset must **equal** `B0`, not merely be dominated by it or by King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`;
+and by the sum invariant (`Σ_d p_d = k` at layer `k`) every full-subset state automatically carries
+`p = B0`, so with the cap in place the equality filter is a no-op — but only with the cap in place.
+
+Any big-integer DP reproduces the counts above; no symmetry quotient is needed to *verify* a rung (the
+quotient only accelerates the full-31 run). This recipe was re-derived from this text alone, in a
+clean-room implementation that shares no code with `solve.c`, and reproduces the engine's `B0` on all
+nine rungs and the published counts at n = 9, n = 13 and n = 16 exactly (2026-07-20).
 
 ## Attribution
 
@@ -436,4 +472,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.0-draft | 2026-07-05 | #221 fold-in: out-of-core mode (§7, commits 01bf3ef + dbdfb0e) + commodity-hardware reproducibility claim; 4/4 Spot validation ladder incl. kill+resume (§8); OOM/amplification engineering history as limitations-and-mitigations (§8); measured per-layer footprint table L9–L15 (§6); full-31 placeholders [COUNT]/[DIV24]/[RATIO] (§9, c228 in flight). Status unchanged: draft, operator review gates publication |
 | v1.0-draft | 2026-07-16 | **Full-31 count LANDED** (2026-07-16, D128als_v7 Spot westus3, ~7 days / 12 auto-recovered evictions): §9 filled with the exact value **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, N mod 24 = 0 exactly (orbit count N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112), ratio 0.999956 vs the 1.0971×10³⁹ Knuth estimate; tail-layer Burnside-palindrome integrity (6/6 recoverable pairs) + k0–k9-logging caveat recorded; in-flight/placeholder language in exec summary, abstract, §5, §10, and Verification Guide replaced with the landed value. **Landing data-fill by Claude (Opus 4.8); report body authored by Claude (Fable 5) per Attribution. Status: draft, HELD for operator review before publication — do not cite.** |
 | v1.0 | 2026-07-16 | **First public release.** Operator review completed and publication approved ("do not cite" lifted); relocated from roae-private staging to public `reports/`; §9/§10 staged-for-review status language replaced with published status. No numbers change |
-| v1.1 *(current)* | 2026-07-17 | **Erratum (operator-approved):** §abstract/§6's "no single purchasable machine" universal narrowed to the honest measured scope (the machine classes this project provisioned — up to 2.75 TB + 3.55 TB swap — failed; 6–24 TiB single nodes exist commercially and were not tested); §9 discloses the run's first ~3 h ran on a D64 before the same-disk migration to the D128 (layer-checkpoint resume is shape-independent). Neither change affects any number or verification gate. |
+| v1.1 | 2026-07-17 | **Erratum (operator-approved):** §abstract/§6's "no single purchasable machine" universal narrowed to the honest measured scope (the machine classes this project provisioned — up to 2.75 TB + 3.55 TB swap — failed; 6–24 TiB single nodes exist commercially and were not tested); §9 discloses the run's first ~3 h ran on a D64 before the same-disk migration to the D128 (layer-checkpoint resume is shape-independent). Neither change affects any number or verification gate. |
+| v1.2 *(current)* | 2026-07-20 | **Reduced-rung reproducibility defect fixed (adversarial-review item F-3).** §4b published each rung as an ascending index *set* and §5 told the reader to retain final states whose boundary multiset was a *sub-multiset* of King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`. Neither is the instance the engine solves: the pair list is ordered (orbit rows in spec order), and the C5 analogue on a reduced rung is that rung's own first-completion budget `B0`, matched **exactly**. A reader following the old text would not have reproduced the published counts (the sorted order alone gives `B0 = (2,2,2,3,0)` instead of `(2,5,0,2,0)` at n=9). §4b now publishes the spec-order pair list and the `B0` target for all nine rungs, §5 states the DFS convention and the exact-match rule, and n=9's total (26,112) is published so the smallest rung is hand-checkable. Verified by a clean-room reimplementation written from this text alone, sharing no code with `solve.c`: it reproduces the engine's `B0` on all nine rungs and the published counts at n=9, 13, 16. No count, theorem, or canonical value changed — the defect was in the published recipe, not in the computation |

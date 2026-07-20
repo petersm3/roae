@@ -21,10 +21,23 @@ machine-checkable mathematical fact, and the receipt is in this directory.
 
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
 must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See [reports/METHODS.md](../METHODS.md).
-`verify_all.sh` (this directory) checks every certificate below. Full inventory: 19 certificates —
-the original 5 (conflict theorem + repair ladder + alternation theorem) plus the 14 of the [TR-2](../TR2_THE_RULES_CONFLICT.md) v1.6
+`verify_all.sh` (this directory) checks every certificate below. Full inventory: 20 certificates —
+the original 5 (conflict theorem + repair ladder + alternation theorem), the 14 of the [TR-2](../TR2_THE_RULES_CONFLICT.md) v1.6
 extension (five-rule union, its near-2/3/4 repair ladder, all five leave-one-out subsets, the three
-two-rule cores, and two encoding-validation gates).
+two-rule cores, and two encoding-validation gates), and the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel.
+
+## TR-5 SC-4 rigidity kernel
+
+| certificate | regeneration command | claim |
+|---|---|---|
+| `rigidity_sc4_unsat.drat.gz` | `python3 sat.py --rigidity-cnf <out.cnf>` | No G₅-automorphism fixing `0` and its 5 neighbours `N₅(0)` pointwise differs from the identity — i.e. the two-common-neighbour rigidity step of the symmetry-completeness theorem. UNSAT. |
+
+Note the distinct emitter flag: this kernel regenerates via `--rigidity-cnf` (which self-validates its
+own encoding before writing), not via the `--emit-cnf <target>` table used by the 19 conflict-theorem
+certificates. `verify_all.sh` special-cases it accordingly. The instance is decided by unit propagation
+alone (drat-trim reports 1 lemma in core over 3,054 core clauses) — it is an easy instance for a modern
+solver, and the certificate's value is that the step is now *machine-checked* rather than asserted in
+prose, not that it was computationally hard.
 
 ## Original set (conflict theorem, minimal repairs, alternation theorem)
 

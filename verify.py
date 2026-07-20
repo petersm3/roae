@@ -1,24 +1,45 @@
 #!/usr/bin/env python3
 # https://github.com/petersm3/roae
 # Developed with AI assistance (Claude, Anthropic)
-"""Independent constraint verifier for solutions.bin.
+"""Independent constraint verifier AND independent re-counter for the ROAE
+King Wen results — a genuine second opinion answering TR-11 §10vi.
 
-Reads every record, reconstructs the 64-hexagram sequence, and checks
-C1 (pair structure), C2 (no hamming-5 transitions), C3 (complement
-distance <= 776), C4 (starts with Creative/Receptive), C5 (exact
-distance distribution). Also checks sorted order and duplicates.
-Different language, different implementation, no shared code with
-solve.c — a genuine second opinion.
+This file now independently verifies BOTH kinds of published result:
+
+  (1) the RECORDS in solutions.bin — reads every record, reconstructs the
+      64-hexagram sequence, and checks C1 (pair structure), C2 (no hamming-5
+      transitions), C3 (complement distance <= 776), C4 (starts with
+      Creative/Receptive), C5 (exact distance distribution), plus sorted
+      order and duplicates.  [default mode / --enumerate-reference]
+
+  (2) the exact COUNTS — `--recount` independently reproduces the small-n
+      structural facts (the 32 pairs, within-pair multiset, XOR-product set,
+      C3 = 776, the 48/24 symmetry group + King Wen's 24-record orbit) and the
+      reduced-rung C1∩C2∩C4 union counts (U1/U2/U3 from TR-11's Verification
+      Guide) by an independent COUNTING RECURRENCE — a plain (mask, last)
+      layered subset DP with NO symmetry quotient, so a conceptual bug in
+      solve.c's symmetry-quotient DP would NOT be shared.
+
+Different language, different implementation, standard-library only, NO import
+of solve.c / solve.py / roae.py / sat.py — every quantity is rebuilt from the
+published mathematical definitions (SPECIFICATION.md constraints C1–C5,
+rev/comp/partner, the symmetry group; TR-11's reduced-rung tables).
 
 Usage:
-    python3 verify.py [solutions.bin]
-    python3 verify.py [solutions.bin] --jobs N
+    python3 verify.py [solutions.bin]              # verify records
+    python3 verify.py [solutions.bin] --jobs N     # parallel record verify
+    python3 verify.py --enumerate-reference N       # small-n brute-force (2<=N<=9)
+    python3 verify.py --recount                     # independent count reproduction
 
 --jobs N parallelizes via multiprocessing for large files. With N = 1
 (default) behavior is identical to the single-threaded original.
 N should typically be set to the number of physical cores. The output
 must match --jobs 1 byte-for-byte (modulo the header line that prints
 the chosen worker count).
+
+Companion write-up (match table, method, corroboration chain, and the
+reduced-C5-ladder definitional gap this instrument surfaced):
+documentation/VERIFY.md.
 """
 import sys, struct, argparse, multiprocessing, gzip, tempfile, atexit, os, shutil
 
@@ -335,6 +356,313 @@ def enumerate_reference(npairs):
     return 1
 
 
+# ============================================================================
+# INDEPENDENT RE-COUNTING  (--recount)  — answers TR-11 §10vi.
+#
+# Everything below is rebuilt clean-room from the published mathematical
+# definitions. It shares NO code with solve.c/solve.py and imports nothing but
+# the standard library. The counting method is deliberately DIFFERENT from
+# solve.c's symmetry-quotient DP: a plain (mask, last) layered subset DP that
+# stores every mask (no canonicalization), cross-checked at small n against the
+# even-more-primitive exhaustive backtracking already in --enumerate-reference.
+# All arithmetic is exact Python big integers. Memory is bounded by the number
+# of live DP states (tens of MB), never by the astronomically large solution
+# set.
+# ============================================================================
+
+def _rev6(n):
+    """Bit reversal of a 6-bit integer (SPECIFICATION.md rev)."""
+    r = 0
+    for i in range(6):
+        if (n >> i) & 1:
+            r |= 1 << (5 - i)
+    return r
+
+def _comp6(n):
+    """Complement: flip all 6 bits (SPECIFICATION.md comp = n ^ 63)."""
+    return n ^ 63
+
+def _partner(h):
+    """partner(h) = rev(h) if rev(h) != h else comp(h) (SPECIFICATION.md C1)."""
+    r = _rev6(h)
+    return r if r != h else _comp6(h)
+
+def _canonical_pairs():
+    """The 32 canonical pairs, derived independently from _partner()."""
+    seen = set(); out = []
+    for h in range(64):
+        if h in seen:
+            continue
+        p = _partner(h)
+        seen.add(h); seen.add(p)
+        out.append(tuple(sorted((h, p))))
+    return out
+
+def _apply_bitperm(g, h):
+    """Apply bit-position permutation g to hexagram h: bit i -> position g[i]."""
+    r = 0
+    for i in range(6):
+        if (h >> i) & 1:
+            r |= 1 << g[i]
+    return r
+
+def _commuting_bitperms():
+    """The 48 position-permutations commuting with reversal (i <-> 5-i)."""
+    import itertools
+    out = []
+    for g in itertools.permutations(range(6)):
+        if all(g[5 - i] == 5 - g[i] for i in range(6)):
+            out.append(g)
+    return out
+
+# Pair-orbit partition of the 31 free pairs (TR-11 §3 / F3 draft), published
+# membership. Every reduced rung is a union of whole orbits (group-closed).
+_ORBITS = {
+    "3.0": [3, 7, 11],           "3.1": [4, 6, 21],
+    "3.2": [13, 14, 30],         "4.0": [5, 8, 26, 31],
+    "6.0": [1, 9, 17, 19, 22, 25], "6.1": [2, 12, 16, 18, 24, 28],
+    "6.2": [10, 15, 20, 23, 27, 29],
+}
+
+def _spec_to_pairs(spec):
+    idxs = []
+    for lab in spec.split(","):
+        idxs.extend(_ORBITS[lab])
+    idxs.sort()
+    return [PAIRS[i] for i in idxs]
+
+def _count_c1c2c4(pairs, start):
+    """Independent COUNTING RECURRENCE for |C1∩C2∩C4| on a pair-union.
+
+    Plain layered subset DP (NO symmetry quotient). State = (placed-mask,
+    last-exit-hexagram) -> exact big-int count. Transition places any unused
+    pair in either orientation iff the boundary distance != 5 (C2). Only two
+    popcount layers are ever live; memory is bounded by the state count.
+    """
+    from collections import defaultdict
+    orients = [((a, b), (b, a)) for (a, b) in pairs]
+    n = len(pairs); full = (1 << n) - 1
+    cur = {(0, start): 1}
+    for _ in range(n):
+        nxt = defaultdict(int)
+        for (mask, last), cnt in cur.items():
+            for i in range(n):
+                bit = 1 << i
+                if mask & bit:
+                    continue
+                for (f, s) in orients[i]:
+                    if hamming(last, f) == 5:
+                        continue
+                    nxt[(mask | bit, s)] += cnt
+        cur = nxt
+    return sum(c for (m, _l), c in cur.items() if m == full)
+
+def _backtrack_c1c2c4(pairs, start):
+    """Even-more-primitive exhaustive backtracking count (no memoization),
+    used only at small n to cross-check the DP recurrence."""
+    orients = [((a, b), (b, a)) for (a, b) in pairs]
+    n = len(pairs)
+    total = 0
+    def rec(depth, last, used):
+        nonlocal total
+        if depth == n:
+            total += 1
+            return
+        for i in range(n):
+            if used & (1 << i):
+                continue
+            for (f, s) in orients[i]:
+                if hamming(last, f) == 5:
+                    continue
+                rec(depth + 1, s, used | (1 << i))
+    rec(0, start, 0)
+    return total
+
+
+def recount():
+    """Independently reproduce the published ROAE exact counts (TR-11 §10vi).
+
+    Prints a match table. Returns 0 iff every quantity with a published target
+    reproduced exactly; a mismatch is a SERIOUS finding and is reported loudly.
+    """
+    import itertools, time
+    from collections import Counter
+    _t0 = time.time()
+    rows = []        # (name, published, independent, matched|None, method)
+    all_match = [True]
+
+    def check(name, pub, ind, method):
+        matched = None if pub is None else (pub == ind)
+        if matched is False:
+            all_match[0] = False
+        rows.append((name, pub, ind, matched, method))
+
+    print("=" * 74)
+    print("verify.py --recount : independent reproduction of the ROAE exact counts")
+    print("clean-room from published definitions; different method than the")
+    print("symmetry-quotient DP; stdlib only; no solve.c/solve.py import.")
+    print("=" * 74)
+
+    # ---------------- TARGET 1 : small-n structural facts ----------------
+    mine = {frozenset(p) for p in _canonical_pairs()}
+    pub_pairs = {frozenset(p) for p in PAIRS}
+    check("Canonical partner-pairing == published 32 KW pairs (as sets)",
+          True, (mine == pub_pairs), "derive partner() orbits, compare")
+
+    check("KW is a permutation of {0..63}", True, sorted(KW) == list(range(64)),
+          "flatten published pair table")
+
+    check("C1: every KW pair is {h, partner(h)}", True,
+          all(_partner(a) == b and _partner(b) == a for (a, b) in PAIRS),
+          "recompute partner() on each pair")
+
+    within = dict(Counter(hamming(a, b) for (a, b) in _canonical_pairs()))
+    check("Within-pair distance multiset (32 pairs)", {2: 12, 4: 12, 6: 8},
+          within, "popcount within each canonical pair")
+
+    xorset = sorted({a ^ b for (a, b) in _canonical_pairs()})
+    check("XOR-product set {h ^ partner(h)}",
+          [12, 18, 30, 33, 45, 51, 63], xorset, "XOR within each pair, dedup")
+
+    fullms = dict(Counter(hamming(KW[i], KW[i + 1]) for i in range(63)))
+    check("KW difference-wave multiset D(S) (all 63 transitions, C5)",
+          {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}, fullms, "popcount along KW")
+
+    between = dict(Counter(hamming(KW[2 * i + 1], KW[2 * i + 2]) for i in range(31)))
+    check("KW between-pair boundary multiset (31 boundaries) [reduced-C5 B0]",
+          {1: 2, 2: 8, 3: 13, 4: 7, 6: 1}, between, "popcount at 31 boundaries")
+
+    pos = {h: i for i, h in enumerate(KW)}
+    cd_sum = sum(abs(pos[h] - pos[h ^ 63]) for h in range(64))
+    check("KW C3 complement-distance sum (x64 integer form)", 776, cd_sum,
+          "sum |pos(h)-pos(comp(h))| over all 64 hexagrams")
+
+    check("C2: no distance-5 adjacency in KW", True,
+          all(hamming(KW[i], KW[i + 1]) != 5 for i in range(63)), "popcount")
+    check("C4: KW starts (63, 0)", True, (KW[0] == 63 and KW[1] == 0), "read s0,s1")
+
+    G = _commuting_bitperms()
+    check("|symmetry group C_S6(rev)| (bit-position perms)", 48, len(G),
+          "enumerate 720 perms, keep those commuting with reversal")
+
+    check("group elements fix {0,63} and preserve Hamming distance",
+          True,
+          all(_apply_bitperm(g, 0) == 0 and _apply_bitperm(g, 63) == 63 for g in G)
+          and all(hamming(_apply_bitperm(g, a), _apply_bitperm(g, b)) == hamming(a, b)
+                  for g in G[:4] for a in range(64) for b in range(a, 64)),
+          "verify fix of all-0/all-1 + isometry (subset)")
+
+    cps = _canonical_pairs()
+    pidx = {frozenset(p): i for i, p in enumerate(cps)}
+    induced = {tuple(pidx[frozenset((_apply_bitperm(g, a), _apply_bitperm(g, b)))]
+                     for (a, b) in cps) for g in G}
+    check("distinct induced pair-permutations (record group, S4)", 24, len(induced),
+          "induce each g on the 32 pairs, dedup")
+
+    def rec_canon(seq):
+        return tuple(frozenset((seq[2 * i], seq[2 * i + 1])) for i in range(32))
+    orbit = {rec_canon([_apply_bitperm(g, h) for h in KW]) for g in G}
+    check("King Wen orbit size at record level (KW + twins)", 24, len(orbit),
+          "apply 48 bit-perms to KW, canonicalize, dedup")
+    check("King Wen record-level twin count (orbit - KW)", 23, len(orbit) - 1,
+          "orbit size - 1")
+
+    # ------- cross-method independence check (DP == raw backtracking) -------
+    print("\nCross-method check  plain DP  ==  raw backtracking  (small prefixes):")
+    base = _spec_to_pairs("3.0,3.1,3.2")
+    cross_ok = True
+    for k in (3, 4, 5, 6, 7):
+        a = _count_c1c2c4(base[:k], 0)
+        b = _backtrack_c1c2c4(base[:k], 0)
+        if a != b:
+            cross_ok = False; all_match[0] = False
+        print(f"   k={k}: DP={a:,}  backtrack={b:,}  "
+              f"{'AGREE' if a == b else '*** DISAGREE ***'}")
+    check("plain-DP recurrence == exhaustive backtracking (k=3..7)",
+          True, cross_ok, "two independent methods agree")
+
+    # ---------------- TARGET 2 : reduced-rung C1∩C2∩C4 unions ----------------
+    check("U1  = |C1∩C2∩C4|, 9 pairs {3.0,3.1,3.2}@0",
+          63366144, _count_c1c2c4(_spec_to_pairs("3.0,3.1,3.2"), 0),
+          "plain (mask,last) counting recurrence")
+    # U1 also reproduced by fully-independent raw backtracking (63M leaves) —
+    # cheap enough to include as a second method.
+    check("U1  (same) via raw exhaustive backtracking (independent of any DP)",
+          63366144, _backtrack_c1c2c4(_spec_to_pairs("3.0,3.1,3.2"), 0),
+          "exhaustive backtracking, no memoization")
+    check("U2  = |C1∩C2∩C4|, 12 pairs {6.0,6.1}@0",
+          1961990553600, _count_c1c2c4(_spec_to_pairs("6.0,6.1"), 0),
+          "plain (mask,last) counting recurrence")
+    import math as _math
+    check("U2  closed form 12! * 2^12 (no d=5 boundary occurs in this union)",
+          1961990553600, _math.factorial(12) * (2 ** 12), "closed form")
+    check("U3  = |C1∩C2∩C4|, 13 pairs {3.0,4.0,6.2}@63",
+          39239811072000, _count_c1c2c4(_spec_to_pairs("3.0,4.0,6.2"), 63),
+          "plain (mask,last) counting recurrence")
+
+    # ---------------- C5 ladder : NOT independently re-counted ----------------
+    # HONEST FINDING (this instrument surfaced it):
+    # The C1∩C2∩C4∩C5 ladder rungs (TR-11 §4b) are NOT reproducible from the
+    # PUBLISHED definitions alone. The Verification Guide says "retain states
+    # whose boundary multiset is a sub-multiset of B0 = {1:2,2:8,3:13,4:7,6:1}".
+    # Taken literally that gives, at the 13-pair rung, 38,492,859,594,240 —
+    # NOT the published 2,063,395,607,040. The published value instead equals
+    # the count for ONE exact target boundary multiset ({d1:1,d2:6,d4:6}); the
+    # per-rung target vector lives in solve.c's private f1c5_unions[] table and
+    # is not given in any public document, so it cannot be derived here without
+    # reading solver code (which would break independence). Additionally, a
+    # pure-Python residual-tracking recurrence for n>=16 exceeds this host's
+    # memory/time budget. These rungs are therefore recorded as NOT
+    # independently re-counted; they remain corroborated by the project's own
+    # two engines (in-RAM DP + out-of-core DP agree digit-for-digit, TR-11 §8)
+    # and the Knuth estimator.
+    c5_ladder = [
+        (13, "3.0,4.0,6.2", 2063395607040),
+        (16, "4.0,6.0,6.1", 267765117419520),
+        (19, "3.0,4.0,6.0,6.1", 63244766587981824),
+        (24, "3.0,3.1,6.0,6.1,6.2", 7477248378538061907099648),
+        (25, "3.0,4.0,6.0,6.1,6.2", 83855263774549546015506432),
+        (27, "3.0,3.1,3.2,6.0,6.1,6.2", 61666352085618532666071318528),
+        (28, "3.0,3.1,4.0,6.0,6.1,6.2", 2155118806480613893163229118464),
+    ]
+    for n, spec, pub in c5_ladder:
+        rows.append((f"C5 ladder n={n} {{{spec}}}@0", pub,
+                     "NOT RE-COUNTED (target budget not public + Python budget)",
+                     None, "see C5 note"))
+
+    # ------------------------------ match table ------------------------------
+    print("\n" + "=" * 74)
+    print("MATCH TABLE  (quantity | published | independent | match)")
+    print("=" * 74)
+    def _fmt(v):
+        if v is None:
+            return "(no public target)"
+        return format(v, ",") if isinstance(v, int) else str(v)
+    for name, pub, ind, matched, method in rows:
+        mark = "  --  " if matched is None and pub is None else \
+               " n/a  " if matched is None else \
+               " MATCH" if matched else "*FAIL*"
+        print(f"[{mark}] {name}")
+        print(f"          published:   {_fmt(pub)}")
+        print(f"          independent: {_fmt(ind)}")
+        print(f"          method:      {method}")
+    print("=" * 74)
+    n_ok = sum(1 for r in rows if r[3] is True)
+    n_fail = sum(1 for r in rows if r[3] is False)
+    n_na = sum(1 for r in rows if r[3] is None)
+    print(f"summary: {n_ok} reproduced, {n_fail} MISMATCH, {n_na} not re-counted "
+          f"(total wall time {time.time() - _t0:.1f}s)")
+    if all_match[0]:
+        print("RESULT: every quantity with a published target reproduced EXACTLY.")
+        print("        (C5-ladder rungs not re-counted — see the C5 note; they are")
+        print("        corroborated by the project's DFS + compiler engines + estimator.)")
+    else:
+        print("RESULT: *** MISMATCH DETECTED *** — a bug in one instrument or the")
+        print("        other. See the *FAIL* row(s) above. Do NOT paper over this.")
+    print("=" * 74)
+    return 0 if all_match[0] else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -345,7 +673,15 @@ def main():
                         help='Independent completeness reference: brute-force the reduced NPAIRS-pair '
                              'problem (C1+C2+C4) two ways (exhaustive vs prune-as-you-go) and assert '
                              'identical sets. Does NOT read solutions.bin. 2<=NPAIRS<=9.')
+    parser.add_argument('--recount', action='store_true',
+                        help='Independently reproduce the published exact COUNTS (small-n structural '
+                             'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
+                             'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
+                             'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
     args = parser.parse_args()
+
+    if args.recount:
+        sys.exit(recount())
 
     if args.enumerate_reference is not None:
         sys.exit(enumerate_reference(args.enumerate_reference))

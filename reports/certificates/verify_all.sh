@@ -15,7 +15,7 @@ echo "== 2. Two-language gates =="
 check "solve.py --registry-verify (31 rules)" "python3 solve.py --registry-verify | grep -q 'ALL 31'"
 check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
 
-echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 19 archived certs) =="
+echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 20 archived certs) =="
 KISSAT=${KISSAT:-kissat}; DRAT=${DRAT:-drat-trim}
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
@@ -27,15 +27,24 @@ declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [five_loo_ccn8_unsat]="five-loo-ccn8" \
   [core_parity_ccn4_unsat]="five-sub-parity+ccn4" [core_rhythm_ccn4_unsat]="five-sub-rhythm+ccn4" \
   [core_gender_ccn8_unsat]="gender-ccn8" \
-  [ccn8_kwfail_unsat]="ccn8-kwfail" [ccn8_kwchain_not_unsat]="ccn8-kwchain-not" )
+  [ccn8_kwfail_unsat]="ccn8-kwfail" [ccn8_kwchain_not_unsat]="ccn8-kwchain-not" \
+  [rigidity_sc4_unsat]="rigidity" )
+# The rigidity kernel (TR-5 SC-4) regenerates via its own flag, not --emit-cnf; see the loop below.
 # Completeness gate: every archived .drat.gz must be in the CERTS map above.
 for f in reports/certificates/*.drat.gz; do b=$(basename "$f" .drat.gz)
   check "cert inventory covers $b" "[ -n \"\${CERTS[$b]+x}\" ]"
 done
 for cert in "${!CERTS[@]}"; do
   t=${CERTS[$cert]}
+  # The TR-5 rigidity kernel has its own emitter flag (--rigidity-cnf, self-validating);
+  # every other certificate regenerates through the --emit-cnf target table.
+  if [ "$cert" = "rigidity_sc4_unsat" ]; then
+    GEN="python3 sat.py --rigidity-cnf /tmp/roae_$t.cnf"
+  else
+    GEN="python3 sat.py --emit-cnf $t /tmp/roae_$t.cnf"
+  fi
   check "cert $cert ($t)" \
-    "python3 sat.py --emit-cnf $t /tmp/roae_$t.cnf && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && $DRAT /tmp/roae_$t.cnf /tmp/roae_$t.drat | grep -q 's VERIFIED'"
+    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && $DRAT /tmp/roae_$t.cnf /tmp/roae_$t.drat | grep -q 's VERIFIED'"
 done
 
 echo "== 4. Lean kernel check (every lean/*.lean file) =="

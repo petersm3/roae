@@ -52,8 +52,11 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    fixing 0 kills the translation part and ψ-conjugation collapses to the 720 bit-position
    permutations; commuting with partner (C1) cuts those to exactly the 48 of C_{S₆}(rev). Every
    finite step is verified exhaustively by `solve.py --symmetry-completeness` (gates SC-1…SC-8);
-   the rigidity kernel is additionally emitted as a self-validated CNF (`sat.py --rigidity-cnf`,
-   expected UNSAT; DRAT artifact pending a solver-equipped worker). Scope: per-predicate
+   the rigidity kernel is additionally emitted as a self-validated CNF (`sat.py --rigidity-cnf`)
+   and **decided UNSAT with an archived, drat-trim-verified certificate**
+   ([certificates/rigidity_sc4_unsat.drat.gz](certificates/rigidity_sc4_unsat.drat.gz), 4,096 vars /
+   282,760 clauses, `s VERIFIED`, covered by `verify_all.sh`) — so no verification leg of this funnel
+   remains unproduced. Scope: per-predicate
    preservation; the solution-set automorphism group is bounded below by G and not decided above.
    Full proof: [SYMMETRY_SEARCH.md §Completeness](../documentation/SYMMETRY_SEARCH.md).
 2. **A published negative, overturned — kept in its honest framing.** The original document concluded "All
@@ -149,3 +152,4 @@ then confirmed the theorem's arithmetic signature.
 | v1.7 | 2026-07-04 | Reproducibility completion: Verification Guide's tree-isomorphism command spelled out in full (ellipsis removed); 720-permutation σ(KW) test published as a runnable snippet in SYMMETRY_SEARCH.md §Reproducibility; orbit-CV test given an explicit public rerun spec |
 | v1.8 | 2026-07-11 | Trust-base wording precision: the Lean finite component is `native_decide`-checked (extended trust base — Lean's compiler), not "kernel-checked"; phrasing corrected per lean/README.md's trust-base note. No result changes |
 | v2.0 | 2026-07-18 | **Symmetry completeness**: the group's maximality extended from the hyperoctahedral group Aut(Q₆) to ALL 64! hexagram relabelings — no permutation of the hexagram set outside the 48 preserves the C1–C5 predicate family, and C1+C2+C4 alone force membership. New exhaustive machine gate `solve.py --symmetry-completeness` (SC-1…SC-8: ψ-isomorphism to Q₆, hypercube two-common-neighbor rigidity, the explicit 46,080-element Aut(G₅), the fix-0 and partner-commuting filters, the 1,824-sequence C2 witness family); rigidity kernel additionally encoded as a self-validated CNF (`sat.py --rigidity-cnf`, expected UNSAT; DRAT artifact pending a solver-equipped worker). Scope stated: per-predicate preservation; solution-set automorphism group bounded below by G, not decided above. Proof: SYMMETRY_SEARCH.md §Completeness |
+| v2.1 | 2026-07-20 | **Rigidity DRAT produced (adversarial-review item F-5).** The v2.0 completeness funnel advertised a rigidity CNF whose DRAT artifact was "pending a solver-equipped worker" — an advertised verification leg that did not exist. It now does: kissat 4.0.4 decides the kernel UNSAT and drat-trim reports `s VERIFIED` against the regenerated encoding; the certificate is archived as `certificates/rigidity_sc4_unsat.drat.gz` and checked by `verify_all.sh` (inventory 19 → 20). Honest note recorded in certificates/README.md: the instance falls to unit propagation alone, so the certificate's value is that the step is machine-checked rather than that it was hard. No theorem, scope statement, or numerical result changed |

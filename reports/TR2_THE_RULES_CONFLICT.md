@@ -19,7 +19,9 @@ than as the work of an arranger holding the rules as soft preferences (Bayes fac
 "strong" on the Jeffreys scale); a two-model comparison conditioned on the literature's rules, not proof
 of corruption in any absolute sense. A wider four-class comparison (adding a greedy-builder and a
 global-design class plus a uniform-valid null) has since been pre-registered under the same discipline;
-its measurement is pending and no result is stated in this report.
+its measurement is pending and no result is stated in this report. Because it is pending, the Bayes
+factor above excludes only the soft-preference arranger: it does not exclude a greedy/local builder, nor
+the possibility that the three rules are post-hoc regularities of an otherwise unremarkable ordering.
 **Update (v1.12, 2026-07-13): the stop-flag is RESOLVED — verdict re-affirmed on a stronger
 footing, with a slightly smaller headline number.** The four-class extension's first ingredient
 run had measured the rule-perfect population size N_gs **directly** for the first time and found
@@ -186,6 +188,12 @@ substrate, which cancels), evaluated at the exact received sequence.
   bamboo-adjacent-biased) at the primary configuration — both exceed the frozen BF > 100 "strong" band
   by well over an order of magnitude.
 - Under the frozen 50:50 model prior, **posterior P(corruption | data) ≈ 0.9998**.
+- **Scope of these figures.** The Bayes factor and posterior are *pairwise*: corruption versus
+  soft-preference arranger, and nothing else. They exclude neither a **greedy/local builder** (M_G) nor a
+  **uniform-valid null** in which the three rules are post-hoc regularities rather than generative ones
+  (M0). Both are pre-registered in the four-class comparison below, whose measurement has not run; until
+  it does, no figure in this section bears on either rival. A posterior of 0.9998 *within a two-model
+  pair* is not a 0.9998 posterior that the sequence was corrupted.
 - **Sensitivity:** across every one of the 24 pre-committed configurations, the BF ranges
   **1.4×10³ – 2.7×10⁴**; the direction never flips anywhere in the sensitivity space. Even a reader free
   to concentrate all prior mass on the single most tendency-favorable gridpoint of both parameter grids
@@ -271,7 +279,12 @@ unquantified-uncertainty ingredient to a directly measured one with stated error
 attribution, no reconstruction of events. It licenses no claim beyond the model pair compared: conditional
 on the literature's three rules being the relevant regularities, the received sequence is far better
 explained as a corrupted rule-perfect ordering than as the output of a soft-preference arranger — whether
-the rules are the right lens remains open.
+the rules are the right lens remains open. In particular it does **not** exclude the two mundane rivals
+that a skeptic should reach for first: a **greedy or otherwise local builder**, which was never in the
+compared pair, and the **rules-epiphenomenal** case in which the three regularities are artefacts read
+off an ordering produced by some unrelated process. Excluding those requires the four-class comparison
+registered below, which has not been run. A reader who wants a single sentence: this result narrows the
+field by one rival, it does not establish corruption.
 
 **Reproduction.** The complete evidence bundle is PUBLIC at [evidence/f11/](evidence/f11/): the frozen
 pre-registration, the full results document (model forms, priors grids, sensitivity table), the
