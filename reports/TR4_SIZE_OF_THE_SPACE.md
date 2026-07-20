@@ -104,6 +104,46 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    distinction is purely structural, which is exactly why the project's claims are about where KW sits in
    the distribution, never about combinatorial uniqueness.
 
+## Estimator calibration against exact ground truth (v1.11, 2026-07-20)
+
+The estimator's error bars were, until 2026, self-reported: an internal variance estimate with no
+external check at full scale. Two constraint layers have since been computed **exactly** by the
+symmetry-quotient DP ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)), which turns those layers
+into ground truth against which the estimator can be scored. Consolidated here, since the comparison was
+previously scattered across two documents:
+
+| Layer | Exact value | Prior Knuth estimate | est/exact | Deviation | Inside stated ±0.01%? |
+|---|---|---|---|---|---|
+| C1∩C2∩C4 | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 (7.570586×10⁴¹) | 7.571×10⁴¹ ±0.01% | 1.0000547 | **+5.47×10⁻⁵** | yes |
+| C1∩C2∩C4∩C5 | 1,097,051,278,789,181,790,036,112,071,176,579,186,688 (1.097051×10³⁹) | 1.0971×10³⁹ ±0.01% | 1.0000444 | **+4.44×10⁻⁵** | yes |
+| C1–C5 (adds C3) | *none — no exact value exists* | 1.3287×10³⁸ | — | — | **uncalibrated** |
+
+**Coverage: 2 of 2.** At both layers where ground truth exists, the exact value falls inside the
+estimator's stated envelope, with roughly half the claimed error budget to spare. This is the first
+external validation of the estimator at full scale, and it is the substantive result of this section.
+
+**What this does NOT establish, stated explicitly because the numbers invite the stronger reading.**
+Both deviations happen to be positive and of similar size, which looks like a small systematic upward
+bias. **That inference is not available from these figures.** The published estimates are quoted to four
+and five significant figures, giving rounding granularities of ≈6.6×10⁻⁵ and ≈4.6×10⁻⁵ — *the same order
+as the deviations being measured*. The apparent common sign is therefore not distinguishable from
+quoting precision, and no bias direction or magnitude is claimed here. Recovering the unrounded estimator
+outputs from the original run records would be required before any bias statement could be made.
+
+**Two points are consistency, not an error model.** With n=2 we can say the estimator's envelope has held
+wherever it has been checkable; we cannot fit an error distribution, and nothing here licenses
+extrapolating a tightened error bar to the uncalibrated C3 layer. The honest summary is that the
+flagship 1.3287×10³⁸ retains its stated CI on the estimator's own terms, now with the reassurance that
+the same machinery was accurate to <10⁻⁴ at two independent layers spanning three orders of magnitude.
+
+**What would upgrade this to a genuine error model.** More calibration points, which means exact counts
+at more layers or at reduced instances. The reduced-rung ladder published in
+[TR-11 §4b](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) supplies nine additional exact values, but they
+are not usable as calibration points today: `--estimate-knuth` scopes to a *prefix* of the full 31-pair
+tree, not to a group-closed pair subset, and it targets C1–C5 (C3 included) whereas the exact rungs are
+C1∩C2∩C4∩C5. Closing that gap needs both a subset-capable estimator path and a resolution of the
+constraint-scope mismatch; it is recorded as a future task rather than attempted here.
+
 ## Status and provenance caveat
 All quantities here are Monte-Carlo estimates on the exploration track. They do not change, and are not
 gated by, any canonical sha256. No "proven" claim is made about exact cardinality — only that it is ≈10³⁸
@@ -181,3 +221,4 @@ the private working log.
 | v1.8 | 2026-07-05 | S(6)-S(8) measured; flat-gains law bends at k=6; projection 13 -> 15-20; floor k>=13 unchanged |
 | v1.9 | 2026-07-11 | Attribution honesty on the "Uniqueness Conjecture": named as ours — the strong determinism reading of the literature's derivation-flavored claims plus this project's own early working hypothesis; "long-standing"/"folk conjecture (multiple authors)" framing retired; anchored attribution note added to CITATIONS.md. The refutation's content (≈5.21×10³¹ C1–C7 survivors) unchanged |
 | v1.10 | 2026-07-16 | The C1/C2/C4/C5 layer figure (1.0971×10³⁹, stated ±0.01%) validated absolutely: [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)'s exact count 1.097051×10³⁹ shows a 0.0044% deviation, well inside the stated envelope (§3 annotated). The headline C1–C5 figure 1.3287×10³⁸ remains a statistical estimate; no other numbers change |
+| v1.11 *(current)* | 2026-07-20 | **Estimator calibrated against exact ground truth (foothold F14).** The two constraint layers now computed exactly by the TR-11 symmetry-quotient DP are consolidated into a per-layer exact-vs-estimate table: |C1∩C2∩C4| (est/exact 1.0000547, +5.47e-5) and |C1∩C2∩C4∩C5| (1.0000444, +4.44e-5). Coverage 2/2 — at both layers where ground truth exists the exact value falls inside the stated ±0.01% envelope with about half the error budget unused, the estimator's first external validation at full scale. Explicitly NOT claimed: the two deviations share a sign, but the published estimates are quoted to 4-5 significant figures whose rounding granularity (~6.6e-5, ~4.6e-5) is the same order as the deviations, so no bias direction or magnitude is inferable without the unrounded run outputs; and n=2 is consistency, not an error model, so no tightened bar is extrapolated to the uncalibrated C3 layer. Records why the nine exact reduced rungs of TR-11 §4b are not yet usable as extra calibration points (--estimate-knuth scopes to a prefix of the full tree, not a group-closed pair subset, and targets C1-C5 rather than C1∩C2∩C4∩C5). No estimate, CI, or published figure changed |
