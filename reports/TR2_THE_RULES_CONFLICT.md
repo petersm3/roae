@@ -60,11 +60,14 @@ trade-off among competing regularities — precisely the reading Schulz proposed
 
 ## Structure — section summaries (6)
 
-**Note on this report's form (adversarial-review item F-8, 2026-07-20):** items 1-6 below are *section
-summaries*, not full section bodies. The report's fully-written material is in the later sections — the
-v1.6 three two-rule cores extension, the v1.7 Bayesian comparison and its v1.12 stop-flag resolution, and
-the v1.9 four-class registration — plus the DRAT certificates and the F11 evidence bundle. Labelled so
-the reader is not led to expect bodies for 1-6 that do not exist.
+**Note on this report's form (F-8; bodies added 2026-07-20):** the numbered list below is the
+overview; **§2, §3 and §4 — the method and the two theorems — are written out in full beneath it.**
+Items 1, 5 and 6 deliberately remain summaries: §1 is the attribution narrative and §5 the interpretive
+reading, both in a humanities register where every added sentence is a further claim about what a named
+scholar said. This suite has already shipped one misattribution, and the constraint results below do not
+depend on that prose. Their sources are given in full in [CITATIONS.md](../documentation/CITATIONS.md).
+The report's other fully-written material is the v1.6 two-rule cores extension, the v1.7 Bayesian
+comparison with its v1.12 stop-flag resolution, and the v1.14 four-class veto.
 1. **The rules and their authors** (fully attributed narrative: Zhu Yuansheng -> Lai Zhide -> Schulz ->
    Moore; the anomaly locus as an eight-century observation). Humanities register. **Precision (per the
    2026-07-08 first-hand "Structural Motifs" audit): make the Schulz year-split explicit — the *gender
@@ -82,6 +85,109 @@ the reader is not led to expect bodies for 1-6 that do not exist.
    rarity sentence per rule (cited to the population-measurement record, not developed).
 6. **Coda**: the sequence emerges more, not less, coherent: it sits where its own tradition's rules
    force a choice, keeping exactly one perfectly.
+
+### 2. Method in one page
+
+The search space is not "all orderings of 64 hexagrams". It is the space of orderings that preserve the
+sequence's **classical pair structure** — the 32 traditional pairs, each placed as a unit in one of two
+orientations. That restriction is not an analytic convenience adopted to make the problem tractable; it
+is the structure every author in this literature already assumes, and abandoning it would test a claim
+none of them made. Within it, an ordering is a placement of 32 pair-units, which is what the encoding
+below quantifies over.
+
+**What a SAT solver decides.** Each rule is expressed as constraints over Boolean variables that encode
+which pair sits at which position in which orientation. The solver answers exactly one question: does
+*any* assignment satisfy all the constraints simultaneously? A "yes" comes with a **witness** — an
+explicit ordering you can print and check by hand. A "no" is the stronger and more interesting answer:
+it asserts that no ordering exists anywhere in the space, which is a claim about roughly 10³⁸ candidate
+objects that no enumeration could establish.
+
+**What a certificate is, and why it matters here.** An unsatisfiability answer is only as trustworthy as
+the solver that produced it, and modern SAT solvers are large, heavily optimised programs. So the solver
+is required to emit a **DRAT proof**: a step-by-step derivation that an independent checker (`drat-trim`)
+replays mechanically, printing `s VERIFIED`. The reader does not have to trust our solver, our encoding
+pipeline, or us — they regenerate the formula with the documented command, run the standard checker on
+the archived proof, and watch it verify. Every impossibility claim in this report ships that way; the
+certificates are in [certificates/](certificates/) and `verify_all.sh` checks all of them in one command.
+
+**Two-way encoding validation, in plain language.** The obvious failure mode is not a solver bug but a
+translation error: encoding a *slightly different* rule than the author stated and then proving something
+true about the wrong rule. Guarding against this requires testing the encoding in both directions against
+the authors' own published numbers for King Wen. Concretely: `rc4-kwtest` → **UNSAT**, confirming the
+encoded gender rule genuinely fails on King Wen at class positions 25/26, exactly where Schulz says it
+does; `rc4-kwexempt` → **SAT**, confirming it succeeds once those two positions are exempted, so the
+encoding is not simply unsatisfiable for some unrelated reason; and `ccn4-kwtest` → **SAT**, confirming
+the encoded trigram configuration is satisfied by King Wen exactly, as reported. The encodings also
+reproduce each author's stated tallies before anything else was trusted — 16 of 18 for Moore's parity
+rule with both exceptions at 22–23, two rhythm breaks at (7,8) and (22,23), two gender violations at
+25/26, and the trigram faces 31/24/26/29. Those are the authors' numbers, not ours, and an encoding that
+failed to reproduce them would have been discarded rather than published.
+
+### 3. Moore's precursor exists — and three edits is minimal
+
+Moore observed that King Wen complies with his rules at sixteen of eighteen testable positions, with both
+exceptions adjacent, and conjectured that an originally compliant ordering had been altered. That
+conjecture is decidable, and it is true.
+
+**The witness.** `python3 sat.py --witness grand-strict` returns an explicit C1–C5-valid ordering that is
+**perfect** on all three graded rules simultaneously: Moore's 2005 parity rule 18/18, Moore's 1989 rhythm
+rule with 0 breaks, Schulz's 1990 gender rule with 0 violations, and complement-distance sum C3 = 776.
+(`--witness moore-strict` gives the Moore-only precursor.) The sequences are published in
+[LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §SAT-decided,
+so a reader can check the rule tallies by hand rather than trusting the solver. This settles the
+existence half of Moore's conjecture affirmatively: the ordering he hypothesised is not merely plausible,
+it is exhibitable.
+
+**The distance is exactly three.** The more informative result is *how far* that precursor sits from the
+received order. Two SAT calls bracket it: `moore-strict-near-2` → **UNSAT**, so no jointly compliant
+ordering exists within two slot-edits of King Wen; `moore-strict-near-3` → **SAT**, so three suffice.
+Three adjacent-position edits, and they run through the very anomaly Moore identified. The UNSAT half is
+the load-bearing one and carries its certificate (`moore-strict-near-2.drat.gz`); the SAT half is
+self-evidencing, since it produces the ordering.
+
+This is what the report means by making a historical conjecture exact. "The received order looks like a
+slightly corrupted version of a rule-perfect original" becomes a measured quantity: minimum edit distance
+three, established in both directions, machine-checkable in seconds.
+
+### 4. The conflict theorem
+
+The decisive result is negative, and it is the reason the rest of this report exists.
+
+**Statement.** No ordering preserving the classical pairing satisfies all four rules simultaneously.
+Moore's parity rule, Moore's rhythm rule, Schulz's gender rule and the Schulz S25–28 trigram
+configuration are **jointly unsatisfiable** over the pair-structure space. Not rare, not
+computationally out of reach — impossible.
+
+**How it was checked, and by whom.** The chain is deliberately three-party.
+`python3 sat.py --emit-cnf grand-ccn4 f.cnf` generates the formula from the same constraint definitions
+the rest of the project uses. **kissat** — an independent, widely used solver we did not write — decides
+it UNSAT and emits a DRAT proof. **drat-trim**, an independent checker we also did not write, replays
+that proof against the regenerated formula and prints `s VERIFIED`. Our contribution is the encoding,
+and that encoding is separately validated against the authors' own King Wen numbers per §2. A reader who
+distrusts every piece of our software can still reproduce the formula and re-verify the certificate.
+
+**The result is robust, not brittle.** The v1.6 extension pushed on it from several directions and it
+held: the five-rule union is UNSAT; *every* leave-one-out subset of that union is still UNSAT
+(`five_loo_parity`, `five_loo_rhythm`, `five_loo_gender`, `five_loo_ccn4`, `five_loo_ccn8`); the
+conflict decomposes into three minimal **two-rule cores**, so it is not an artifact of piling on
+constraints; and the union admits no repair at any tested edit distance (`grander-strict-near-2/3/4` all
+UNSAT). A single fragile encoding choice cannot produce that pattern.
+
+**One honest qualification about the trigram rule.** Of the four, the S25–28 trigram configuration is the
+most **data-like**: it is a description of a specific local feature of the received sequence, and King
+Wen satisfies it exactly, by construction of how it was stated. A rule read off the object it then
+"explains" carries less evidential weight than one stated independently, and this is priced accordingly
+elsewhere in the suite ([CRITIQUE.md](../documentation/CRITIQUE.md) Q1;
+[TR-9](TR9_PRICING_THE_CONSTRAINTS.md)). It matters here because the conflict theorem is a statement
+about the rules *as their authors stated them*, and a reader is entitled to know that one of the four is
+more descriptive than explanatory. The theorem survives its removal — that is exactly what the
+leave-one-out certificates establish — so the conclusion does not rest on it.
+
+**What follows.** The exceptions that Zhu Yuansheng, Moore and Schulz each recorded independently are not
+evidence of damage to a once-perfect original, because no such original could exist. They are the visible
+seam of a forced trade-off among competing regularities. King Wen keeps one rule exactly and misses the
+other three by the smallest possible margin of two each — which is what a good solution to an
+unsatisfiable problem looks like.
 
 ## Verification Guide
 - Every theorem: a command + a certificate. Encodings: validated two ways in-repo; the encodings' rule
@@ -419,4 +525,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.11 | 2026-07-11 | Process section relocated: the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). No findings changed |
 | v1.12 | 2026-07-13 | Stop-flag resolution: the v1.10 UNDER REVIEW annotation is closed. Investigation ([evidence/r11/](evidence/r11/)) found the derived bracket [1.03, 3.57]×10²⁵ was never a confidence interval (two point estimates, no propagated uncertainty); a 4-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6% conservative), with all three pre-registered convergence gates passing (χ² seed-consistency ~1σ; derived-CI cross-path 2.0σ; repaired stratified cross-check 0.12σ — the stratified instrument's strict-prefix composition defect was repaired by an estimator-only, self-test-neutral fix). Under the measured value BF ≈ 5.2×10³ (U) / 6.3×10³ (A) — direction unchanged in all 24 pre-committed configurations; verdict re-affirmed (headline ×0.79 smaller, footing stronger). Weakest-ingredient paragraph updated; four-class section status corrected (ingredients collected, verdict not computed, N_gs solidity gate passed); no theorem or certificate touched |
 | v1.13 | 2026-07-20 | **Corruption-result scope + form labelling (adversarial-review items F-43, F-8).** F-43: the 0.9998 posterior and the BF figures are a *pairwise* verdict — corruption vs soft-preference arranger — but nothing adjacent to them said so. Scope statements added at all three points a reader meets the numbers (executive summary, the findings bullet list, and "What this does NOT say"), stating explicitly that they exclude neither a greedy/local builder (M_G) nor the rules-epiphenomenal uniform null (M0), both of which remain un-run, and that a 0.9998 posterior *within a model pair* is not a 0.9998 posterior that the sequence was corrupted. The four-class comparison's calibration gate is separately in progress; no verdict is claimed. F-8: "Structure (6 sections)" relabelled to note that items 1-6 are section summaries, with the report's fully-written material being the v1.6/v1.7/v1.9/v1.12 sections. No theorem, certificate, or computed value changed |
-| v1.14 *(current)* | 2026-07-20 | **Four-class comparison: calibration run, verdict VETOED — no result will be published.** The frozen design placed a synthetic-draw confusability gate before any KW-facing integration; it has now been executed and failed. The greedy-builder class M_G ranks itself first in 67/100 draws against a pre-registered threshold of 70 (67/67/45/25 across the four sensitivity variants; median log10 BF vs best rival 1.12 primary, negative in two variants), so M_G is not reliably separable from M0 or M_D at n=100 — and M_G is precisely the rival this extension existed to test. Per the design's §6.3 veto, no four-class Bayes factor, posterior, or verdict is computed or published, here or elsewhere; `compute_r11_bf.py` is not written and not planned. Section retitled from "measurement pending" to "calibration run, verdict VETOED" and an Outcome subsection added stating what the result does and does not license: the v1.7/v1.12 two-model corruption result is untouched, the greedy-local and rules-epiphenomenal rivals remain OPEN rather than defeated, and the finding is a limit of the inference at this sample size, not a property of the sequence. Honest residuals recorded (7 M_C draw failures counted conservatively against its own 100, not load-bearing since the failing class M_G had zero; SMC uses an exact bias-free monotone C3 lower-bound prune, runtime-asserted). Full instrument and per-draw evidence published to evidence/r11/. No theorem, certificate, or previously published number changed |
+| v1.14 | 2026-07-20 | **Four-class comparison: calibration run, verdict VETOED — no result will be published.** The frozen design placed a synthetic-draw confusability gate before any KW-facing integration; it has now been executed and failed. The greedy-builder class M_G ranks itself first in 67/100 draws against a pre-registered threshold of 70 (67/67/45/25 across the four sensitivity variants; median log10 BF vs best rival 1.12 primary, negative in two variants), so M_G is not reliably separable from M0 or M_D at n=100 — and M_G is precisely the rival this extension existed to test. Per the design's §6.3 veto, no four-class Bayes factor, posterior, or verdict is computed or published, here or elsewhere; `compute_r11_bf.py` is not written and not planned. Section retitled from "measurement pending" to "calibration run, verdict VETOED" and an Outcome subsection added stating what the result does and does not license: the v1.7/v1.12 two-model corruption result is untouched, the greedy-local and rules-epiphenomenal rivals remain OPEN rather than defeated, and the finding is a limit of the inference at this sample size, not a property of the sequence. Honest residuals recorded (7 M_C draw failures counted conservatively against its own 100, not load-bearing since the failing class M_G had zero; SMC uses an exact bias-free monotone C3 lower-bound prune, runtime-asserted). Full instrument and per-draw evidence published to evidence/r11/. No theorem, certificate, or previously published number changed |
+| v1.15 *(current)* | 2026-07-20 | **Section bodies for §2-4 written (F-8, operator-directed).** §2 Method: the pair-structure space and why it is the literature's own assumption rather than a tractability convenience; what a SAT solver decides and why UNSAT is the stronger answer; what a DRAT certificate is and why it removes us from the trust chain; and the two-way encoding validation stated in plain language (rc4-kwtest UNSAT / rc4-kwexempt SAT / ccn4-kwtest SAT, plus reproduction of each author's own KW tallies before anything was trusted). §3 Moore's precursor: the witness with its rule tallies (parity 18/18, rhythm 0 breaks, gender 0 violations, C3=776) and the two-sided bracket establishing edit distance exactly three (near-2 UNSAT with certificate, near-3 SAT) — a historical conjecture rendered as a measured quantity. §4 The conflict theorem: the statement, the deliberately three-party verification chain (our encoding, kissat's decision, drat-trim's independent replay), the robustness evidence (five-rule union UNSAT, every leave-one-out subset still UNSAT, three minimal two-rule cores, no repair at any tested distance), and an explicit qualification that the S25-28 trigram rule is the most data-like of the four — with the note that the leave-one-out certificates show the theorem survives its removal. §1 and §5 deliberately REMAIN summaries: both are humanities-register prose where each added sentence is a further claim about what a named scholar said, this suite has already shipped one misattribution (F-15), and no constraint result depends on that prose. No theorem, certificate, number, or scope statement changed |
