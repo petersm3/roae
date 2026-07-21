@@ -18,7 +18,13 @@ This file now independently verifies BOTH kinds of published result:
       reduced-rung C1∩C2∩C4 union counts (U1/U2/U3 from TR-11's Verification
       Guide) by an independent COUNTING RECURRENCE — a plain (mask, last)
       layered subset DP with NO symmetry quotient, so a conceptual bug in
-      solve.c's symmetry-quotient DP would NOT be shared.
+      solve.c's symmetry-quotient DP would NOT be shared. Since 2026-07-21 this
+      also covers the **C5 ladder** (C1∩C2∩C4∩C5 — TR-11 §4b rungs n=9/13/16):
+      each rung's target budget B0 is re-derived independently by §5's
+      first-completion DFS (not taken from the published table) and the rung is
+      then counted by a plain budgeted (mask,last,p) DP. The C5 layer — until
+      now the only constraint with no independent re-count at all, and the one
+      the full-31 integer rests on most heavily — therefore has one.
 
 Different language, different implementation, standard-library only, NO import
 of solve.c / solve.py / roae.py / sat.py — every quantity is rebuilt from the
@@ -479,6 +485,97 @@ def _backtrack_c1c2c4(pairs, start):
     return total
 
 
+_CLS = (1, 2, 3, 4, 6)          # C5 boundary-distance classes; 5 is C2-forbidden
+_CLS_IX = {d: i for i, d in enumerate(_CLS)}
+
+def _spec_to_pairs_ordered(spec):
+    """Pair list in SPEC ORDER — orbit rows concatenated in the order the spec
+    names them, each row ascending internally (TR-11 §4b/§5).
+
+    NOT the sorted index set: order is load-bearing for the C5 ladder, because
+    B0 is defined by a first-completion DFS that scans pairs in subset-index
+    order. Sorting the n=9 rung yields B0=(2,2,2,3,0) instead of (2,5,0,2,0).
+    """
+    idxs = []
+    for lab in spec.split(","):
+        idxs.extend(_ORBITS[lab])          # rows are already ascending
+    return [PAIRS[i] for i in idxs]
+
+def _b0_first_completion(pairs, start):
+    """TR-11 §5 Step 1: B0 = boundary-class multiset of the FIRST complete
+    C2-respecting walk, scanning unplaced pairs in ascending position within P
+    and, for each, orientation o=0 (enter b, exit a) then o=1 (enter a, exit b).
+
+    Returns a 5-tuple over classes (1,2,3,4,6), or None if no walk exists.
+    """
+    n = len(pairs)
+    # o=0 first: (b,a) enters b and exits a, for a pair listed (a,b)
+    orients = [((b, a), (a, b)) for (a, b) in pairs]
+
+    def rec(depth, last, used, counts):
+        if depth == n:
+            return counts
+        for i in range(n):
+            if used & (1 << i):
+                continue
+            for (f, s) in orients[i]:
+                d = hamming(last, f)
+                if d == 5 or d == 0:
+                    continue
+                nc = list(counts); nc[_CLS_IX[d]] += 1
+                got = rec(depth + 1, s, used | (1 << i), tuple(nc))
+                if got is not None:
+                    return got
+        return None
+
+    return rec(0, start, 0, (0,) * 5)
+
+def _count_c1c2c4c5(pairs, start, b0):
+    """Independent COUNTING RECURRENCE for |C1∩C2∩C4∩C5| on a reduced rung.
+
+    TR-11 §5 Step 2: plain layered subset DP (NO symmetry quotient), state =
+    (placed-mask, last-exit-hexagram, running class-usage vector p). A
+    transition is allowed iff the boundary distance d != 5 (C2) AND
+    p[class(d)] < B0[class(d)] (the budget cap). The answer is the mass on
+    full-mask states; with the cap in place every full state carries p == B0
+    exactly (sum invariant), so the equality filter is a no-op — but ONLY with
+    the cap in place.
+
+    This is the C5 analogue of _count_c1c2c4 and shares no code with solve.c.
+    """
+    from collections import defaultdict
+    orients = [((a, b), (b, a)) for (a, b) in pairs]
+    n = len(pairs); full = (1 << n) - 1
+    cur = {(0, start, (0,) * 5): 1}
+    for _ in range(n):
+        nxt = defaultdict(int)
+        for (mask, last, p), cnt in cur.items():
+            for i in range(n):
+                bit = 1 << i
+                if mask & bit:
+                    continue
+                for (f, s) in orients[i]:
+                    d = hamming(last, f)
+                    if d == 5 or d == 0:
+                        continue
+                    ci = _CLS_IX[d]
+                    if p[ci] >= b0[ci]:
+                        continue
+                    np_ = list(p); np_[ci] += 1
+                    nxt[(mask | bit, s, tuple(np_))] += cnt
+        cur = nxt
+    return sum(c for (m, _l, p), c in cur.items() if m == full and p == tuple(b0))
+
+# TR-11 §4b C5 ladder — (n, orbit spec, published B0, published exact count).
+# Only the rungs that are cheap enough to recompute in-process are listed; the
+# larger rungs in §4b need a worker, not this verifier.
+_C5_RUNGS = [
+    (9,  "3.0,3.1,3.2", (2, 5, 0, 2, 0), 26112),
+    (13, "3.0,4.0,6.2", (1, 6, 0, 6, 0), 2063395607040),
+    (16, "4.0,6.0,6.1", (1, 8, 1, 6, 0), 267765117419520),
+]
+
+
 def recount():
     """Independently reproduce the published ROAE exact counts (TR-11 §10vi).
 
@@ -600,35 +697,45 @@ def recount():
           39239811072000, _count_c1c2c4(_spec_to_pairs("3.0,4.0,6.2"), 63),
           "plain (mask,last) counting recurrence")
 
-    # ---------------- C5 ladder : NOT independently re-counted ----------------
-    # HONEST FINDING (this instrument surfaced it):
-    # The C1∩C2∩C4∩C5 ladder rungs (TR-11 §4b) are NOT reproducible from the
-    # PUBLISHED definitions alone. The Verification Guide says "retain states
-    # whose boundary multiset is a sub-multiset of B0 = {1:2,2:8,3:13,4:7,6:1}".
-    # Taken literally that gives, at the 13-pair rung, 38,492,859,594,240 —
-    # NOT the published 2,063,395,607,040. The published value instead equals
-    # the count for ONE exact target boundary multiset ({d1:1,d2:6,d4:6}); the
-    # per-rung target vector lives in solve.c's private f1c5_unions[] table and
-    # is not given in any public document, so it cannot be derived here without
-    # reading solver code (which would break independence). Additionally, a
-    # pure-Python residual-tracking recurrence for n>=16 exceeds this host's
-    # memory/time budget. These rungs are therefore recorded as NOT
-    # independently re-counted; they remain corroborated by the project's own
-    # two engines (in-RAM DP + out-of-core DP agree digit-for-digit, TR-11 §8)
-    # and the Knuth estimator.
-    c5_ladder = [
-        (13, "3.0,4.0,6.2", 2063395607040),
-        (16, "4.0,6.0,6.1", 267765117419520),
+    # -------------- TARGET 3 : reduced-rung C1∩C2∩C4∩C5 (C5 ladder) --------------
+    # GAP NOW CLOSED (2026-07-21). Earlier revisions of this file recorded these
+    # rungs as NOT independently re-countable: the published Verification Guide
+    # then said "retain states whose boundary multiset is a SUB-multiset of KW's
+    # {1:2,2:8,3:13,4:7,6:1}", which at the 13-pair rung yields
+    # 38,492,859,594,240 rather than the published 2,063,395,607,040 — because
+    # the true rule is an EXACT match against that rung's own target B0, and the
+    # per-rung B0 was not in any public document. That defect (surfaced by this
+    # instrument) was fixed in TR-11 v1.2 / adversarial-review item F-3, which
+    # published both the spec-ORDER pair lists and the per-rung B0 targets.
+    #
+    # So the ladder is now reproducible from public definitions alone, and this
+    # block does so — deriving B0 INDEPENDENTLY via TR-11 §5's first-completion
+    # DFS rather than trusting the published B0, then counting with a plain
+    # budgeted (mask,last,p) DP that shares no code with solve.c. Two things are
+    # therefore checked per rung: the derived B0 and the resulting count.
+    #
+    # Rungs n>=19 exceed this host's pure-Python memory/time budget and are
+    # honestly recorded as not re-counted here (they need a worker, not a laptop).
+    for n, spec, b0_pub, pub in _C5_RUNGS:
+        pl = _spec_to_pairs_ordered(spec)
+        b0_ind = _b0_first_completion(pl, 0)
+        check(f"C5 ladder n={n} {{{spec}}}@0 — B0 derived independently",
+              tuple(b0_pub), tuple(b0_ind) if b0_ind else None,
+              "TR-11 §5 first-completion DFS (spec order, o=0 then o=1)")
+        check(f"C5 ladder n={n} {{{spec}}}@0 — |C1∩C2∩C4∩C5|",
+              pub, _count_c1c2c4c5(pl, 0, b0_pub),
+              "plain budgeted (mask,last,p) counting recurrence")
+
+    for n, spec, pub in [
         (19, "3.0,4.0,6.0,6.1", 63244766587981824),
         (24, "3.0,3.1,6.0,6.1,6.2", 7477248378538061907099648),
         (25, "3.0,4.0,6.0,6.1,6.2", 83855263774549546015506432),
         (27, "3.0,3.1,3.2,6.0,6.1,6.2", 61666352085618532666071318528),
         (28, "3.0,3.1,4.0,6.0,6.1,6.2", 2155118806480613893163229118464),
-    ]
-    for n, spec, pub in c5_ladder:
+    ]:
         rows.append((f"C5 ladder n={n} {{{spec}}}@0", pub,
-                     "NOT RE-COUNTED (target budget not public + Python budget)",
-                     None, "see C5 note"))
+                     "not re-counted here (exceeds this host; needs a worker)",
+                     None, "recipe now public — TR-11 §4b/§5"))
 
     # ------------------------------ match table ------------------------------
     print("\n" + "=" * 74)
@@ -654,8 +761,10 @@ def recount():
           f"(total wall time {time.time() - _t0:.1f}s)")
     if all_match[0]:
         print("RESULT: every quantity with a published target reproduced EXACTLY.")
-        print("        (C5-ladder rungs not re-counted — see the C5 note; they are")
-        print("        corroborated by the project's DFS + compiler engines + estimator.)")
+        print("        (C5 ladder n=9/13/16 re-counted here, B0 re-derived independently;")
+        print("        the larger C5 rungs exceed this host and are recorded as not")
+        print("        re-counted — they remain corroborated by the project's own two")
+        print("        engines (in-RAM + out-of-core agree digit-for-digit) + estimator.)")
     else:
         print("RESULT: *** MISMATCH DETECTED *** — a bug in one instrument or the")
         print("        other. See the *FAIL* row(s) above. Do NOT paper over this.")
