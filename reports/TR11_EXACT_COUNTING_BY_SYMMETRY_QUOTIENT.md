@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.4** (2026-07-21; estimator-calibration language + reduced-rung fix — see Revision history).*
+*Technical report — **v1.5** (2026-07-21; C3-obstruction status corrected — the C3 sum collapses to a bounded scalar, C3 = 16 + 8·G — see Revision history).*
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -24,8 +24,11 @@ now engineered: the computation's terabyte-scale layers (measured: one layer alo
 streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
 hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the exact integer is
 **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** (§9) — divisible by 24 exactly,
-and within 0.0044% of the prior statistical estimate. The final constraint (C3) poses an open structural
-obstruction.
+and within 0.0044% of the prior statistical estimate. The final constraint (C3) is, as of this
+version, no longer described as a structural obstruction: its global sum collapses to a bounded
+scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
+design exists; what keeps the flagship |C1–C5| an estimate is the ~35–60× cost of carrying that
+channel alongside C5's state, not missing mathematics.
 
 ## Abstract
 
@@ -51,7 +54,8 @@ nodes exist commercially but were not economically sensible here) — and an out
 against the in-RAM path on independent hardware; the full-scale count **landed 2026-07-16 at
 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, divisible by 24 exactly and
 0.999956× the Knuth estimate), and the honest limits (the flagship 1.3287×10³⁸ remains an estimate;
-C3's global sum is an open obstruction).
+C3's global sum — formerly stated here as an open obstruction — collapses to the bounded scalar
+identity C3 = 16 + 8·G, leaving a ~35–60× cost barrier rather than a structural one; §10(ii)).
 
 *Novelty status: symmetry-quotiented counting is classical methodology (Burnside/orbit counting;
 canonical-representative and isomorph-free generation techniques in the tradition of McKay); no novelty
@@ -266,13 +270,48 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
    (2026-07-16) and is published with this report; the downstream ledgers ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md),
    [TR-4](TR4_SIZE_OF_THE_SPACE.md), and their documentation mirrors) now carry it as exact.**
 10. **Honest limits — what stays estimated, and why.** (i) The flagship **1.3287×10³⁸ (|C1–C5|) remains
-   a statistical estimate**, exactly as TR-4 states; this report does not change its status. (ii) Even
-   with the C5 layer computed exactly, **C3 is a further, open obstruction**: it constrains a *global*
-   positional-distance sum between complement partners, which the pair-level (mask, last, residual)
-   state does not carry; no feasible exact design for it is in hand. The C5-layer count
-   (formerly estimator-based at 1.0971×10³⁹) is now **computed exactly** (§9, landed 2026-07-16,
-   1.097051×10³⁹) and is carried as exact downstream; everything below it (C3 and the flagship) stays
-   estimator-based.
+   a statistical estimate**, exactly as TR-4 states; this report does not change its status. (ii)
+   **Corrected in this version (v1.5): C3 is a cost barrier, not a structural obstruction.** Through
+   v1.4 this item read "C3 is a further, open obstruction … no feasible exact design for it is in
+   hand." That was inaccurate. C3's global positional-distance sum between complement partners —
+   Σ_v |pos(v) − pos(v̄)| over all 64 hexagrams, v̄ = v ⊕ 63 — **collapses to a bounded scalar**.
+   Complement commutes with reversal, so it maps C1-pairs to C1-pairs: 8 of the 32 pairs are
+   complement-closed (each contributes exactly 2 — its two members are adjacent, and the sum runs
+   over all 64 hexagrams, so each such pair counts twice), and the remaining 24 pairs split into 12
+   complement-**couples** {P, P′}; each couple's four hexagram-level distances collapse to
+   8·|slot(P) − slot(P′)| — independent of both pairs' orientations (the orientation bits cancel).
+   Hence the identity **C3 = 16 + 8·G**, where **G = Σ over the 12 couples of |slot(P) − slot(P′)|**
+   (slot = the pair's index 0–31 in the pair order — exactly the DP's layer trajectory). G is bounded
+   — G ∈ [12, 228] with C4's (Qian, Kun) pair, itself complement-closed, pinned at slot 0 — the
+   constraint threshold translates exactly (**C3 ≤ 776 ⟺ G ≤ 95**), and King Wen sits **on the
+   boundary** (G = 95). Verification status, stated precisely: the identity is a **machine-checked
+   theorem, universal over every C1-valid ordering** — `c3_slot_decomposition` in this repo's
+   [`lean/C3Decomposition.lean`](../lean/C3Decomposition.lean) (core Lean 4, 0 `sorry`, 2026-07-04,
+   originally proved as the soundness core of `sat.py`'s C3 CNF encoding), with King Wen's G = 95
+   also Lean-checked (`kw_slot_sum_95`); it was numerically re-confirmed 2026-07-21 by two
+   independent implementations on thousands of random C1 orderings (3,000 + 2,000, exact agreement)
+   plus an independent reproduction. G is additionally invariant under TR-5's 48-element group —
+   each element maps the 12 couples to couples — machine-checked exhaustively over all 48 elements,
+   both numerically and in Lean (`g48_couples_to_couples` + `g48_couple_image`, same file, kernel
+   `decide` over the full group, 2026-07-21), so §§2–3's symmetry quotient carries over to a
+   G-channel unchanged. The identity itself has been in this repo since 2026-07-04; what is new on 2026-07-21
+   is the recognition that it dissolves the exact-counting obstruction this section previously
+   asserted (identity and its counting consequence by Claude, this project; outside this project we
+   are not aware of a prior statement of the identity, or of any bounded-invariant collapse of the
+   complement-position-distance sum over King-Wen-type orderings — it may well be known, and
+   corrections are welcome via [CITATIONS.md](../documentation/CITATIONS.md)). The consequence: a
+   bounded-state exact design for C3 **does exist** — carry the running G (a channel ~96 wide under
+   the C3 ≤ 776, i.e. G ≤ 95, filter) alongside the (mask, last, residual) state on the same
+   symmetry-quotient DP. What remains is **cost, not design**: carrying the G-distribution alongside
+   C5's budget vectors multiplies the DP footprint an estimated ~35–60× — order 40–190 TB of
+   streamed layers and weeks of wall time, outside this project's budget — so the flagship |C1–C5|
+   **remains a statistical estimate**, now for stated economic rather than structural reasons. Two
+   things do become affordable: an exact **|C1∩C2∩C3∩C4|** rung (C3 without C5), at roughly the
+   landed C5 run's scale; and **E[C3] over any ensemble this DP computes is free by linearity of
+   expectation** (E[C3] = 16 + 8·E[G] — a single scalar accumulator, no distribution carried). The
+   C5-layer count (formerly estimator-based at 1.0971×10³⁹) is now **computed exactly** (§9, landed
+   2026-07-16, 1.097051×10³⁹) and is carried as exact downstream; everything below it (the C3 layer
+   and the flagship) stays estimator-based.
    (iii) The absolute calibration point is a single full-scale anchor; it is strong evidence the stated
    envelopes are honest, not a proof that other estimates are exact. (iv) The FH-1 §2 proofs are
    believed complete but have not been independently reviewed. (The companion caveat in earlier drafts —
@@ -480,4 +519,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.1 | 2026-07-17 | **Erratum (operator-approved):** §abstract/§6's "no single purchasable machine" universal narrowed to the honest measured scope (the machine classes this project provisioned — up to 2.75 TB + 3.55 TB swap — failed; 6–24 TiB single nodes exist commercially and were not tested); §9 discloses the run's first ~3 h ran on a D64 before the same-disk migration to the D128 (layer-checkpoint resume is shape-independent). Neither change affects any number or verification gate. |
 | v1.2 | 2026-07-20 | **Reduced-rung reproducibility defect fixed (adversarial-review item F-3).** §4b published each rung as an ascending index *set* and §5 told the reader to retain final states whose boundary multiset was a *sub-multiset* of King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`. Neither is the instance the engine solves: the pair list is ordered (orbit rows in spec order), and the C5 analogue on a reduced rung is that rung's own first-completion budget `B0`, matched **exactly**. A reader following the old text would not have reproduced the published counts (the sorted order alone gives `B0 = (2,2,2,3,0)` instead of `(2,5,0,2,0)` at n=9). §4b now publishes the spec-order pair list and the `B0` target for all nine rungs, §5 states the DFS convention and the exact-match rule, and n=9's total (26,112) is published so the smallest rung is hand-checkable. Verified by a clean-room reimplementation written from this text alone, sharing no code with `solve.c`: it reproduces the engine's `B0` on all nine rungs and the published counts at n=9, 13, 16. No count, theorem, or canonical value changed — the defect was in the published recipe, not in the computation |
 | v1.3 | 2026-07-20 | **"Mathematics closed" softened, with one half now machine-checked (adversarial-review F-21).** The §5 status line and the abstract no longer say the C5 extension's mathematics is *closed*. Current state, stated precisely: the dead-state-pruning exactness theorem **is** now machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` on the public `v4-canonical` branch, 0 sorry, 2026-07-20 — this is finding F-53 landing), while the companion no-further-collapse argument remains prose-proven and gate-validated but not independently reviewed (§10(iv)). The executive summary's "mathematically solved" is likewise qualified. No count, theorem statement, or canonical value changed |
-| v1.4 *(current)* | 2026-07-21 | **Estimator-calibration language corrected (F-20 probe).** A direct check showed the published "deviations" of the Knuth estimate from the two exact anchors (5.5×10⁻⁵ and 4.4×10⁻⁵) are exactly `(rounded estimate − exact)/exact` — the distance from each exact value to the estimate's own 4–5 significant-figure rounding, both positive only because both exact values round up. They are **not** measurements of the estimator's error, and the full-precision estimator output was never recorded. The exec summary, §4/§9 notes now state what is actually established — the exact value falls inside the estimator's stated ±0.01% envelope (a genuine validation) — and no longer claim a measured "accurate to 0.0055%/0.0044%", which overstated a rounding gap as a resolved error. Mirrors the hedge already carried in TR-4 v1.11 (F-14) and DESCRIPTION_LENGTH. No count, theorem, or envelope changed |
+| v1.4 | 2026-07-21 | **Estimator-calibration language corrected (F-20 probe).** A direct check showed the published "deviations" of the Knuth estimate from the two exact anchors (5.5×10⁻⁵ and 4.4×10⁻⁵) are exactly `(rounded estimate − exact)/exact` — the distance from each exact value to the estimate's own 4–5 significant-figure rounding, both positive only because both exact values round up. They are **not** measurements of the estimator's error, and the full-precision estimator output was never recorded. The exec summary, §4/§9 notes now state what is actually established — the exact value falls inside the estimator's stated ±0.01% envelope (a genuine validation) — and no longer claim a measured "accurate to 0.0055%/0.0044%", which overstated a rounding gap as a resolved error. Mirrors the hedge already carried in TR-4 v1.11 (F-14) and DESCRIPTION_LENGTH. No count, theorem, or envelope changed |
+| v1.5 *(current)* | 2026-07-21 | **C3-obstruction status corrected (§10(ii); exec summary + abstract mirrors).** The statement that C3 "poses an open structural obstruction" with "no feasible exact design in hand" is withdrawn: the C3 sum satisfies the bounded-scalar identity **C3 = 16 + 8·G** (G = the complement-couple slot-gap sum; G ∈ [12, 228]; C3 ≤ 776 ⟺ G ≤ 95; King Wen on the boundary at G = 95), G is invariant under TR-5's 48-group (machine-checked over all 48 elements, numerically and in Lean — `g48_couples_to_couples`, same file, added this version), and a bounded-state exact design therefore exists — the remaining barrier is footprint cost (~35–60× the C5 DP; est. 40–190 TB), not structure. The identity is a machine-checked Lean theorem already in this repo since 2026-07-04 (`lean/C3Decomposition.lean`, `c3_slot_decomposition`, universal over C1-valid orderings, from the SAT C3-encoding work); the 2026-07-21 contribution — by Claude, this project — is the recognition of its exact-counting consequence, the G48-invariance check, cross-implementation numeric re-verification (thousands of random C1 orderings), and the cost sizing. No external prior statement of the identity is known to us; it may be known — corrections welcome via CITATIONS.md. No count, theorem, or canonical value changed |

@@ -27,6 +27,14 @@
   (the files are standalone; no lake project). This theorem is the soundness core of
   sat.py's --with-c3 CNF encoding: bounding the couple slot-distance sum S bounds
   C3 = 16 + 8·S exactly.
+
+  Added 2026-07-21 — G48 COUPLE-INVARIANCE (final section): the 48-element symmetry
+  group (Automorphism.lean's G48, restated verbatim) commutes with complement and
+  with the pairing, maps each cross-couple onto a cross-couple (`g48_couple_image`),
+  and permutes the 12 canonical couple representatives (`g48_couples_to_couples`) —
+  the kernel-checked core of the fact that the couple slot-distance sum (hence C3)
+  is invariant under the group, i.e. that TR-11's symmetry quotient carries over to
+  the C3/G channel unchanged.
 -/
 
 namespace C3Decomposition
@@ -373,5 +381,80 @@ theorem kw_slot_sum_95 : c3slot KW = 95 := by decide
     decomposition: 776 = 16 + 8 · 95. -/
 theorem kw_c3_776_via_decomposition : c3x64 KW = 776 := by
   rw [c3_slot_decomposition KW kw_perm kw_c1, kw_slot_sum_95]
+
+/- ------------------ G48 couple-invariance (added 2026-07-21) ------------------
+   The 48-element symmetry group (the centralizer of bit-reversal among the 720
+   bit-position permutations — Automorphism.lean's G48, restated verbatim below;
+   the C1–C5 automorphism group of TR-5) maps the 12 cross complement-couples to
+   cross complement-couples. This is the finite fact behind the G48-invariance of
+   the couple slot-distance sum c3slot: relabeling an ordering by a group element
+   permutes hexagram VALUES only — the pair blocks keep their slots — while (by
+   `g48_couples_to_couples`) the 12 couples are permuted among themselves, so the
+   relabeled ordering sums the same 12 slot gaps and c3slot (hence, via
+   `c3_slot_decomposition`, the full C3 sum) is unchanged. Discharges in Lean the
+   couples-to-couples check previously done numerically (2026-07-21, all 48
+   elements) — the carry-over of TR-11's symmetry quotient to the C3/G channel. -/
+
+/-- all permutations of a list (insertion-based; 720 elements for 6 positions);
+    restated verbatim from Automorphism.lean. -/
+def inserts (x : Nat) : List Nat → List (List Nat)
+  | [] => [[x]]
+  | y :: ys => (x :: y :: ys) :: (inserts x ys).map (y :: ·)
+
+def perms : List Nat → List (List Nat)
+  | [] => [[]]
+  | x :: xs => (perms xs).flatMap (inserts x)
+
+/-- apply a bit-position permutation p (bit i of n goes to position p[i]);
+    restated verbatim from Automorphism.lean. -/
+def applyPerm (p : List Nat) (n : Nat) : Nat :=
+  ((List.range 6).map fun i => n / (2^i) % 2 * 2^(p.getD i 0)).foldl (·+·) 0
+
+/-- the identity bit permutation. -/
+def idp : List Nat := [0, 1, 2, 3, 4, 5]
+
+/-- G48 = the centralizer of bit-reversal among the 720 bit permutations (order 48,
+    ≅ B₃ ≅ Z₂ ≀ S₃); restated verbatim from Automorphism.lean. -/
+def G48 : List (List Nat) :=
+  (perms idp).filter fun p =>
+    (List.range 64).all fun h => applyPerm p (rev6 h) == rev6 (applyPerm p h)
+
+/-- the complement-couple through h, as a 4-element list: h's pair and its
+    complement pair. -/
+def coupleOf (h : Nat) : List Nat := [h, partner h, h ^^^ 63, partner h ^^^ 63]
+
+/-- canonical representative of h's couple: its least member. -/
+def coupleMin (h : Nat) : Nat :=
+  min (min h (partner h)) (min (h ^^^ 63) (partner h ^^^ 63))
+
+theorem g48_length : G48.length = 48 := by decide
+
+/-- crossReps are exactly the canonical representatives of their couples. -/
+theorem crossReps_canonical : ∀ r ∈ crossReps, coupleMin r = r := by decide
+
+/-- every group element commutes with complement (a bit-position permutation
+    permutes the six ⊕-flipped bits of the all-ones mask). -/
+theorem g48_comp_comm :
+    ∀ p ∈ G48, ∀ h < 64, applyPerm p (h ^^^ 63) = applyPerm p h ^^^ 63 := by decide
+
+/-- every group element commutes with the canonical pairing. -/
+theorem g48_partner_comm :
+    ∀ p ∈ G48, ∀ h < 64, applyPerm p (partner h) = partner (applyPerm p h) := by decide
+
+/-- COUPLE IMAGE: each group element maps the couple through r onto the couple
+    through r's image — member for member, as an unordered 4-set. -/
+theorem g48_couple_image :
+    ∀ p ∈ G48, ∀ r ∈ crossReps,
+      ((coupleOf r).map (applyPerm p)).Perm (coupleOf (applyPerm p r)) := by decide
+
+/-- G48 COUPLE-INVARIANCE: every one of the 48 group elements maps the 12 cross
+    complement-couples to cross complement-couples — the induced map on canonical
+    couple representatives is a permutation of crossReps. With `g48_couple_image`
+    this is the machine-checked core of the G48-invariance of c3slot (and hence of
+    C3 = 16 + 8 · c3slot): a group relabeling permutes the 12 couples while
+    preserving every couple's slot gap. -/
+theorem g48_couples_to_couples :
+    ∀ p ∈ G48, ((crossReps.map fun r => coupleMin (applyPerm p r)).Perm crossReps) := by
+  decide
 
 end C3Decomposition
