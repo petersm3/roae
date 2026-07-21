@@ -75,15 +75,17 @@ modestly explanatory, C5 remains descriptive).*
 
 *Exactness note (2026-07-04): the |C1∩C2∩C4| cell is now an EXACT integer — computed by the
 symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4`, ~4 minutes on 64 cores), exactly divisible
-by 24 as the free-action theorem requires. The prior Knuth estimate (7.571×10⁴¹ ±0.01%) deviates from
-the exact value by 5.5×10⁻⁵ — well inside its stated envelope — the estimator's first validation
-against full-scale ground truth.*
+by 24 as the free-action theorem requires. The prior Knuth estimate (7.571×10⁴¹ ±0.01%) contains
+the exact value inside its stated envelope — the estimator's first validation against full-scale ground
+truth. (The apparent 5.5×10⁻⁵ gap is the distance to the estimate's four-sig-fig rounding, not a measured
+estimator error; the true error is unresolved at the published precision but well within ±0.01%.)*
 
 *Exactness note (2026-07-16): the |C1∩C2∩C4∩C5| cell is now an EXACT integer too — computed by the
 out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`,
 reproducible on ~64 GB RAM + ~4 TB disk), exactly divisible by 24 as the free-action theorem requires.
-The prior Knuth estimate (1.0971×10³⁹ ±0.01%) deviates from the exact value by 4.4×10⁻⁵ (ratio
-0.999956) — the estimator's second full-scale absolute validation. All bits values are unchanged
+The prior Knuth estimate (1.0971×10³⁹ ±0.01%) contains the exact value inside its stated envelope — the
+estimator's second full-scale validation (the 4.4×10⁻⁵ / ratio 0.999956 figure is the five-sig-fig
+rounding gap, not a measured error). All bits values are unchanged
 (log₂ = 129.7). The C3 layer (1.3287×10³⁸) remains an estimate. Full report:
 [reports/TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md).*
 

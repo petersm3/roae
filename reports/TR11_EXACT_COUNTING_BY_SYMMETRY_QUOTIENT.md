@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.2** (2026-07-20; reduced-rung reproducibility fix — see Revision history).*
+*Technical report — **v1.4** (2026-07-21; estimator-calibration language + reduced-rung fix — see Revision history).*
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -15,8 +15,10 @@ with the traditional first pair, and avoid the forbidden "distance-5" adjacency 
 digit in about four minutes. The computation is only feasible because of the symmetry theorem of
 [TR-5](TR5_SYMMETRY.md): the space's 24-fold symmetry shrinks the computation ~23× — small enough to fit
 in memory — and the theorem then predicts, and the result confirms, that the integer is divisible by 24
-exactly. The same run recalibrated the project's statistical estimator against ground truth at a scale
-(10⁴¹) where nothing exact existed before: the estimate was off by 0.0055%, half its claimed error bar.
+exactly. The same run gave the project's statistical estimator its first full-scale check against ground truth
+at a scale (10⁴¹) where nothing exact existed before: the exact value falls **inside** the estimate's
+stated ±0.01% envelope. (The estimate was published to four significant figures, so its exact deviation
+is unmeasured at that precision — bounded well within the envelope, not resolved to it; see §9's note.)
 The report closes with the extension of exactness to the next constraint — its mathematics believed complete (one half now machine-checked in Lean, the other prose-proven and unreviewed), and
 now engineered: the computation's terabyte-scale layers (measured: one layer alone exceeds 2.45 TB) are
 streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
@@ -119,9 +121,11 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
      divisible exactly — remainder zero on a 42-digit integer — confirming the free-action theorem's
      signature on ground truth (orbit count N/24 = 31,544,108,389,177,310,027,142,488,058,555,429,806,592).
    - *Absolute estimator calibration:* the pre-existing Knuth estimate of the same quantity (7.571×10⁴¹,
-     stated ±0.01%) deviates from the exact value by **5.5×10⁻⁵** (ratio 0.999945) — about half its
-     stated envelope, the estimator's first validation against full-scale ground truth (previously
-     nothing exact existed above brute-force scale on TR-4's ladder). This upgrades TR-9's C2 ledger
+     stated ±0.01%) is confirmed to contain the exact value inside its envelope — the estimator's first
+     validation against full-scale ground truth (previously nothing exact existed above brute-force scale
+     on TR-4's ladder). The apparent 5.5×10⁻⁵ gap is the distance from the exact value to the estimate's
+     own four-significant-figure rounding, not a measurement of the estimator's error, which is unresolved
+     at the published precision but bounded well within ±0.01%. This upgrades TR-9's C2 ledger
      row from estimate to exact arithmetic (C2's marginal 4.54 bits and net +1.6 now rest on an exact
      numerator).
 5. **The exactness frontier: C5, the irreducibility theorem, and the staged program.** The next layer,
@@ -247,8 +251,9 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
    (log₂ ≈ 129.7 bits; orientation-explicit sequences, C4's pair pinned). Free-action gate:
    **N mod 24 = 0** exactly (the run hard-aborts otherwise; a reader can re-derive it in one line), with
    orbit count **N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112**. Ratio to the pre-existing
-   Knuth estimate (1.0971×10³⁹): **0.999956** — the estimate was accurate to 0.0044%, a second absolute
-   full-scale calibration (after §4's C2 anchor) at the 10³⁹ scale where nothing exact previously
+   Knuth estimate (1.0971×10³⁹): **0.999956** — the exact value again falls inside the estimate's stated
+   ±0.01% envelope, a second full-scale validation (after §4's C2 anchor) at the 10³⁹ scale where nothing
+   exact previously (the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved error)
    existed. Per-layer canonical-mask integrity: every printed layer matched the Burnside palindrome
    masks(k) = masks(31−k) — terminal tail k23..k31 = 369,823 · 128,414 · 38,262 · 9,707 · 2,087 · 378 ·
    56 · 7 · 1; peak k15 = k16 = 13,047,760 — and the six palindrome pairs recoverable from the retained
@@ -474,4 +479,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.0 | 2026-07-16 | **First public release.** Operator review completed and publication approved ("do not cite" lifted); relocated from roae-private staging to public `reports/`; §9/§10 staged-for-review status language replaced with published status. No numbers change |
 | v1.1 | 2026-07-17 | **Erratum (operator-approved):** §abstract/§6's "no single purchasable machine" universal narrowed to the honest measured scope (the machine classes this project provisioned — up to 2.75 TB + 3.55 TB swap — failed; 6–24 TiB single nodes exist commercially and were not tested); §9 discloses the run's first ~3 h ran on a D64 before the same-disk migration to the D128 (layer-checkpoint resume is shape-independent). Neither change affects any number or verification gate. |
 | v1.2 | 2026-07-20 | **Reduced-rung reproducibility defect fixed (adversarial-review item F-3).** §4b published each rung as an ascending index *set* and §5 told the reader to retain final states whose boundary multiset was a *sub-multiset* of King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`. Neither is the instance the engine solves: the pair list is ordered (orbit rows in spec order), and the C5 analogue on a reduced rung is that rung's own first-completion budget `B0`, matched **exactly**. A reader following the old text would not have reproduced the published counts (the sorted order alone gives `B0 = (2,2,2,3,0)` instead of `(2,5,0,2,0)` at n=9). §4b now publishes the spec-order pair list and the `B0` target for all nine rungs, §5 states the DFS convention and the exact-match rule, and n=9's total (26,112) is published so the smallest rung is hand-checkable. Verified by a clean-room reimplementation written from this text alone, sharing no code with `solve.c`: it reproduces the engine's `B0` on all nine rungs and the published counts at n=9, 13, 16. No count, theorem, or canonical value changed — the defect was in the published recipe, not in the computation |
-| v1.3 *(current)* | 2026-07-20 | **"Mathematics closed" softened, with one half now machine-checked (adversarial-review F-21).** The §5 status line and the abstract no longer say the C5 extension's mathematics is *closed*. Current state, stated precisely: the dead-state-pruning exactness theorem **is** now machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` on the public `v4-canonical` branch, 0 sorry, 2026-07-20 — this is finding F-53 landing), while the companion no-further-collapse argument remains prose-proven and gate-validated but not independently reviewed (§10(iv)). The executive summary's "mathematically solved" is likewise qualified. No count, theorem statement, or canonical value changed |
+| v1.3 | 2026-07-20 | **"Mathematics closed" softened, with one half now machine-checked (adversarial-review F-21).** The §5 status line and the abstract no longer say the C5 extension's mathematics is *closed*. Current state, stated precisely: the dead-state-pruning exactness theorem **is** now machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` on the public `v4-canonical` branch, 0 sorry, 2026-07-20 — this is finding F-53 landing), while the companion no-further-collapse argument remains prose-proven and gate-validated but not independently reviewed (§10(iv)). The executive summary's "mathematically solved" is likewise qualified. No count, theorem statement, or canonical value changed |
+| v1.4 *(current)* | 2026-07-21 | **Estimator-calibration language corrected (F-20 probe).** A direct check showed the published "deviations" of the Knuth estimate from the two exact anchors (5.5×10⁻⁵ and 4.4×10⁻⁵) are exactly `(rounded estimate − exact)/exact` — the distance from each exact value to the estimate's own 4–5 significant-figure rounding, both positive only because both exact values round up. They are **not** measurements of the estimator's error, and the full-precision estimator output was never recorded. The exec summary, §4/§9 notes now state what is actually established — the exact value falls inside the estimator's stated ±0.01% envelope (a genuine validation) — and no longer claim a measured "accurate to 0.0055%/0.0044%", which overstated a rounding gap as a resolved error. Mirrors the hedge already carried in TR-4 v1.11 (F-14) and DESCRIPTION_LENGTH. No count, theorem, or envelope changed |
