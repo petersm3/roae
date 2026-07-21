@@ -1156,7 +1156,26 @@ static gzFile gzw_open_temp(const char *path) { return gzw_open_lvl(path, gz_mer
 /* Finish the gz stream, close (gzclose flushes + closes the fd), then fsync the file
  * for durability — honoring #108b batching (skip per-file fsync when syncfs batching
  * is active). Reopen by path because gzclose owns/closes the underlying fd.
- * Returns 0 on success, -1 on any error. */
+ * Returns 0 on success, -1 on any error.
+ *
+ * #167 REGRESSION NOTE — durability-order coupling with dfs_state_write/_v2:
+ * a sub-branch's .bin shard is made durable HERE (via flush_sub_solutions[_d3]),
+ * and its .dfs_state sidecar afterward via maybe_fsync_fd. The #167 invariant —
+ * a .dfs_state must never be durable while its .bin shard is not, else an
+ * eviction-resume trusts the checkpoint and silently drops the cell's entire
+ * pre-checkpoint solution set — is enforced by PROGRAM order (the checkpoint
+ * write sits strictly after the shard flush in the worker finalization; see
+ * the "#167 eviction-resume fix" comment there). That program order is only a
+ * DURABLE order because both write paths gate their per-file fsync on the SAME
+ * predicate, fsync_batch_active(): either both fsync per-write (legacy), or
+ * both defer to the same periodic syncfs batch (#108b), which preserves the
+ * write order within a batch window on the journaled fs. Do NOT let a future
+ * edit diverge the two predicates (e.g. shard fsync batched while .dfs_state
+ * fsyncs per-write, or an inverted/asymmetric condition): the sidecar could
+ * then become durable BEFORE its shard, reintroducing the #167 crash window.
+ * The resume-side #167 shard-absent guard would downgrade that to redone work
+ * (discard resume, fresh walk) rather than lost solutions — but that guard is
+ * defense-in-depth, not license to diverge. Keep the predicates identical. */
 static int gzw_close_durable(gzFile gf, const char *path) {
     if (gzclose(gf) != Z_OK) return -1;
     if (fsync_batch_active()) return 0;   /* periodic syncfs handles durability */
@@ -7753,7 +7772,10 @@ static int dfs_state_filename(char *buf, size_t bufsz,
 
 /* Write a DFS-state sidecar atomically (.tmp + rename). Called only when
  * dfs_checkpoint_enabled and dfs_capture_active and there's at least one
- * iter frame to save. Returns 0 on success. */
+ * iter frame to save. Returns 0 on success.
+ * Durability: fsync via maybe_fsync_fd — the SAME fsync_batch_active()
+ * predicate as the .bin shard's gzw_close_durable. Keep them coupled;
+ * see the #167 regression note at gzw_close_durable. */
 static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
                            const ThreadState *ts) {
     char fname[96], tmpname[128];
@@ -7889,7 +7911,10 @@ static void dfs_state_delete(int p1, int o1, int p2, int o2, int p3, int o3) {
 }
 
 /* v2 write: atomic write of full-stack capture. Called only when the
- * iterative path captures via dfs_v2_capture_pending. */
+ * iterative path captures via dfs_v2_capture_pending.
+ * Durability: fsync via maybe_fsync_fd — the SAME fsync_batch_active()
+ * predicate as the .bin shard's gzw_close_durable. Keep them coupled;
+ * see the #167 regression note at gzw_close_durable. */
 static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
                               const ThreadState *ts) {
     char fname[96], tmpname[128];
