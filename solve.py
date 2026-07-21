@@ -142,6 +142,113 @@ def rc4_violations(seq):
     return viol, vpos
 
 
+def pair_null_gender_distribution_exact():
+    """Exact rational distribution of rc4_violations over the pair-only (C1) null.
+
+    The pair-only null (TR-8 §2, null (b)) draws a uniformly random C1-preserving ordering: a uniform
+    permutation of the 32 traditional pairs into the 32 pair-slots, with an independent fair orientation
+    coin per pair. This function returns the EXACT distribution of the Schulz gender/parity violation
+    count (`rc4_violations`) over that null as a dict {violation_count: Fraction probability} — the exact
+    companion to sampling the same quantity, retiring the finite-sample estimate.
+
+    It is exact (not sampled) because C1's pairing aligns with rc4_violations' inversion classes: each of
+    the 28 reversal pairs {h, rev(h)} is ONE inversion class (gender fixed by popcount, which reversal
+    preserves), and each of the 4 palindrome-complement pairs {h, comp(h)} is TWO consecutive classes
+    (both members palindromic), so class-position `ncls` is just the cumulative class count — a
+    deterministic function of the slot arrangement. The violation count therefore depends only on how the
+    gendered single-classes (male/female/exempt) and the two-class palindrome blocks interleave, which a
+    DP over the item multiset (position parity x remaining counts, orientation coin on palindrome blocks)
+    evaluates exactly. Verified two ways: an independent DP reproduces the value 47/445740, and the model
+    agrees with `rc4_violations` on every one of 10^5 random draws (0 mismatches). See TR-8 §2.
+
+    ATTRIBUTION: Schulz gender rule as in `rc4_violations` (Schulz 1990; Zhu Yuansheng 13th c.); the
+    exactness collapse is ours (TR-12 exactness pass, 2026-07-21)."""
+    from fractions import Fraction
+
+    def rev6(h):
+        r = 0
+        for b in range(6):
+            r |= ((h >> b) & 1) << (5 - b)
+        return r
+
+    def gender(w):  # matches rc4_violations: pc<3 male, pc>3 female, {0,3,6} exempt
+        if w in (0, 3, 6):
+            return None
+        return 'M' if w < 3 else 'F'
+
+    # classify the 32 traditional pairs into single-class (reversal) and two-class (palindrome) items
+    singles = []          # gender of each one-class reversal pair
+    blocks = []           # (gender, gender) for each two-class palindrome pair, in (h, comp(h)) order
+    for a, b in king_wen_pairs():
+        if rev6(a) == a:                                  # palindrome-complement pair -> two classes
+            blocks.append((gender(bin(a).count("1")), gender(bin(b).count("1"))))
+        else:                                             # reversal pair -> one class
+            singles.append(gender(bin(a).count("1")))     # rev preserves popcount, so a and b share it
+
+    # DP over remaining (singles-by-gender, blocks) tracking exact probability mass per violation count
+    from collections import defaultdict
+    counts = {'M': singles.count('M'), 'F': singles.count('F'), None: singles.count(None)}
+    n_items = len(singles) + len(blocks)
+    # state = (m_left, f_left, n_left, tuple of remaining block-index sorted signature) -> {viol: Fraction}
+    # blocks are few (4); represent remaining blocks as a sorted tuple of their gender-pairs
+    _bkey = lambda t: tuple('_' if g is None else g for g in t)  # None-safe ordering
+    start = (counts['M'], counts['F'], counts[None], tuple(sorted(blocks, key=_bkey)))
+    cur = {start: {0: Fraction(1)}}
+    tot_singles = counts['M'] + counts['F'] + counts[None]
+    for _ in range(n_items):
+        nxt = defaultdict(lambda: defaultdict(Fraction))
+        for (ml, fl, nl, brem), vd in cur.items():
+            rem = ml + fl + nl + len(brem)
+            placed_classes = (tot_singles - ml - fl - nl) + 2 * (len(blocks) - len(brem))
+            nextpos = placed_classes + 1
+            odd = (nextpos % 2 == 1)
+            opts = []
+            if ml:
+                opts.append(((ml - 1, fl, nl, brem), (0 if odd else 1), Fraction(ml, rem)))
+            if fl:
+                opts.append(((ml, fl - 1, nl, brem), (1 if odd else 0), Fraction(fl, rem)))
+            if nl:
+                opts.append(((ml, fl, nl - 1, brem), 0, Fraction(nl, rem)))
+            seen_block = set()
+            for i, blk in enumerate(brem):
+                if blk in seen_block:
+                    continue
+                seen_block.add(blk)
+                mult = brem.count(blk)
+                nb = list(brem)
+                nb.remove(blk)
+                nb = tuple(nb)
+                for order in (blk, (blk[1], blk[0])):          # orientation coin: 1/2 each
+                    dv = 0
+                    for off, g in enumerate(order):
+                        p = nextpos + off
+                        if g == 'M' and p % 2 == 0:
+                            dv += 1
+                        if g == 'F' and p % 2 == 1:
+                            dv += 1
+                    opts.append(((ml, fl, nl, nb), dv, Fraction(mult, rem) * Fraction(1, 2)))
+            for ns, dv, w in opts:
+                for v, pr in vd.items():
+                    nxt[ns][v + dv] += pr * w
+        cur = {k: dict(v) for k, v in nxt.items()}
+    assert len(cur) == 1
+    final = list(cur.values())[0]
+    assert sum(final.values()) == 1
+    return dict(sorted(final.items()))
+
+
+def pair_null_gender_le2_exact():
+    """Exact P(rc4_violations <= 2) over the pair-only (C1) null: Fraction(47, 445740) = 1.054426e-4.
+
+    King Wen sits at exactly 2 gender/parity violations (`rc4_violations(king_wen_sequence)[0] == 2`), so
+    this is the exact probability that a uniformly random C1-preserving ordering matches KW's Schulz-gender
+    compliance level or better. Exact companion to TR-8 §2's sampler; see
+    `pair_null_gender_distribution_exact`."""
+    from fractions import Fraction
+    dist = pair_null_gender_distribution_exact()
+    return sum((p for v, p in dist.items() if v <= 2), Fraction(0))
+
+
 def has_no_five(seq):
     """Check if a sequence has no 5-line transitions.
 

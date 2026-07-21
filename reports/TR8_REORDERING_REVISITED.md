@@ -70,7 +70,7 @@ analysis. We supply the instruments their question required.
    undisputed structure, checkable by direct seeded sampling on a laptop (Commands below). Table of
    measured rule rarities for THREE rules only (over population (a): [Moore](../documentation/CITATIONS.md#moore2005) parity ×1,362; [Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender
    ×11,364; the 18:18 split ×2.7 as the honest weak case; the gender rule re-measured against null (b)
-   by direct sampling lands at the same order, ~1×10⁻⁴) with sources credited (rules are
+   computes **exactly** to 1.05×10⁻⁴ (47/445740; §Commands) — same order, different null) with sources credited (rules are
    Zhu Yuansheng/Schulz/Moore observations, not ours; measurement is ours). Verifiability box: exact
    commands, open repository.
 3. **The proposal, decided** — Theorem: no Gray-code ordering satisfies the pair structure. Proof:
@@ -87,9 +87,9 @@ analysis. We supply the instruments their question required.
 ## Verification Guide (question → answer)
 - "How do we trust the 10³⁸ number?" -> reproduce-command; validated <1% vs exhaustive slices at
   overlapping scales; but NOTE: section 2 can be written so that NOTHING depends on the estimator's
-  absolute value — rarities can ALSO be stated vs the pair-only (C1) null by direct sampling
-  (laptop-runnable; Commands below). CAUTION: the two nulls are different quantities — the published
-  ×11,364 is a C1–C5 mass fraction; the pair-null sampled figure is ~1×10⁻⁴ (same order, not the same
+  absolute value — rarities can ALSO be stated vs the pair-only (C1) null, which is small enough to
+  compute exactly (laptop-runnable; Commands below). CAUTION: the two nulls are different quantities — the published
+  ×11,364 is a C1–C5 mass fraction; the pair-null exact figure is 47/445740 = 1.05×10⁻⁴ (same order, not the same
   number). PREFER the laptop-runnable framing throughout, with both nulls labeled.
 
 ### Commands
@@ -101,15 +101,24 @@ box.
   ordering can realize the pairing. Machine-checked form: `within_pair_even_nonzero` in
   `lean/KingWen.lean` (`native_decide`; the evenness half is also kernel-`decide`d as `within_even`;
   `lean lean/KingWen.lean`, exit 0). Runs in <1 s.
-- **Pair-rarity direct sampling (§2, null (b) — the pair-only space, seeded per METHODS.md):**
+- **Pair-rarity — exact (§2, null (b) — the pair-only space):** the pair-only null is small enough to
+  solve exactly, so this figure need not be sampled at all. `pair_null_gender_le2_exact` returns the exact
+  rational probability that a uniformly random C1-preserving ordering matches KW's Schulz-gender compliance
+  level (≤2 gender/parity violations — KW sits at exactly 2):
+  ```
+  python3 -c "import solve; p=solve.pair_null_gender_le2_exact(); print(p, '=', float(p))"
+  ```
+  → `47/445740 = 1.054426e-04` — an **exact** value (a DP over the pair-only null that aligns C1's pairs
+  with the Schulz inversion classes; runs in <1 s), not a sampled estimate. It supersedes the earlier
+  finite-sample figure `10/100000` and retires the F-31 precision caveat (that quick draw rested on 10
+  hits, ±32% Poisson; now moot — the quantity is computed, not estimated). Seeded direct sampling
+  reproduces it as an independent cross-check:
   ```
   python3 -c "import random,solve; rng=random.Random(42); P=solve.king_wen_pairs(); N=100000; sh=(lambda: (lambda q: (rng.shuffle(q), q)[1])(list(P))); hit=sum(solve.rc4_violations([x for a,b in sh() for x in ((b,a) if rng.random()<0.5 else (a,b))])[0]<=2 for _ in range(N)); print(f'{hit}/{N} = {hit/N:.5f}')"
   ```
-  → `10/100000 = 0.00010` (fraction of uniformly-sampled pair-preserving orderings matching KW's
-  Schulz-gender compliance level, ≤2 violations; ~5 s at 10⁵ samples on 2 cores, ~8 min at 10⁷).
-  **Precision note (F-31):** that quick figure rests on **10 hits**, so its Poisson error is ~1/√10 ≈
-  **±32%** — quote it as "order 10⁻⁴", not as 1.0×10⁻⁴. Running the same snippet at N = 10⁷ (the ~8-minute
-  setting) tightens it by ~10×, and is what should be cited whenever the number carries weight.
+  → order 10⁻⁴, consistent with the exact value within Poisson error (the sampler's station model is
+  verified to agree with `rc4_violations` on every draw). The exact distribution is available via
+  `solve.pair_null_gender_distribution_exact()`.
   This is the pair-null quantity; the published ×11,364 (C1–C5 mass fraction) reproduces via [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s
   registry pipeline ([`solve.py --registry-verify`](../documentation/SOLVE_C_CLI.md) gates + the population run in [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s Verification
   Guide; per-rule record in [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)).
@@ -125,4 +134,5 @@ box.
 | v1.2 | 2026-07-10 | Reception history added: Hershock (1991), the one published reply to McKenna & Mair, acquired (ILL) and audited — philosophical critique, premise shared, neither claim tested; "sat untested" sharpened to "computationally untested" |
 | v1.3 | 2026-07-11 | Process sections relocated: the venue-targeting line, the venue Q&A bullet, and the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). "this journal" in the abstract made explicit (*Philosophy East and West*). No findings changed |
 | v1.4 | 2026-07-11 | Trust-base wording precision: the within-pair evenness/nonzero lemma is `native_decide`-checked (extended trust base per lean/README.md), not "kernel-verified"; noted that the evenness half — which alone rules out Gray adjacency — is also kernel-`decide`d (`within_even`). No result changes |
-| v1.5 *(current)* | 2026-07-20 | **Statistical precision pass (adversarial-review F-31, F-32).** F-31: the pair-null figure `10/100000` rests on **ten hits**, so its Poisson error is ~±32% — it is now quoted as "order 10⁻⁴" rather than 1.0×10⁻⁴, with the N=10⁷ setting named as what to cite when the number carries weight. F-32: look-elsewhere context added — the extraction battery is frozen at 91 observables, so a Bonferroni-style global bar sits at ≈5.5×10⁻⁴, against which a per-rule rarity of order 10⁻⁴ is only marginally past, and the dof-matched comparison shows much of that margin is specification. No measurement changed |
+| v1.5 | 2026-07-20 | **Statistical precision pass (adversarial-review F-31, F-32).** F-31: the pair-null figure `10/100000` rests on **ten hits**, so its Poisson error is ~±32% — it is now quoted as "order 10⁻⁴" rather than 1.0×10⁻⁴, with the N=10⁷ setting named as what to cite when the number carries weight. F-32: look-elsewhere context added — the extraction battery is frozen at 91 observables, so a Bonferroni-style global bar sits at ≈5.5×10⁻⁴, against which a per-rule rarity of order 10⁻⁴ is only marginally past, and the dof-matched comparison shows much of that margin is specification. No measurement changed |
+| v1.6 *(current)* | 2026-07-21 | **Pair-null figure made exact (retires F-31).** The pair-only (C1) null is small enough to solve in closed form: `solve.pair_null_gender_le2_exact()` returns the exact rational P(rc4_violations ≤ 2) = **47/445740 = 1.054426×10⁻⁴**, replacing the sampled `10/100000` and its ±32% caveat with a computed value (a DP that aligns C1's pairs with the Schulz inversion classes). Independently verified two ways — a from-scratch second DP reproduces 47/445740, and the station model agrees with `rc4_violations` on all 10⁵ random draws — with the seeded sampler retained as a cross-check. §Commands, §2 body, and the null-labeling caution updated; new `solve.py` functions `pair_null_gender_le2_exact` / `pair_null_gender_distribution_exact` + a `tests.py` regression guard. Exactness collapse: Claude (Opus 4.8), from the TR-12 exactness pass; no qualitative conclusion changed |

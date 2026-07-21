@@ -54,6 +54,14 @@ class TestSequenceGround(unittest.TestCase):
         pos = {h: i for i, h in enumerate(KW)}
         self.assertEqual(sum(abs(pos[h] - pos[h ^ 63]) for h in range(64)), 776)
 
+    def test_pair_null_gender_le2_exact(self):
+        # TR-8 §2 null (b): exact P(rc4_violations <= 2) over the pair-only (C1) null.
+        from fractions import Fraction
+        self.assertEqual(solve.pair_null_gender_le2_exact(), Fraction(47, 445740))
+        dist = solve.pair_null_gender_distribution_exact()
+        self.assertEqual(sum(dist.values()), 1)
+        self.assertEqual(solve.rc4_violations(KW)[0], 2)  # KW sits at the <=2 boundary
+
 class TestMawangdui(unittest.TestCase):
     """Primary-source anchors for the Mawangdui corpus-control array.
 
