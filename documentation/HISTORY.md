@@ -5569,3 +5569,60 @@ operator's; the recursion reconstruction, out-of-core streaming design, and impl
 (Fable 5); the count-landing data-fill by Claude (Opus 4.8). The underlying symmetry theorem is TR-5's;
 the technique itself (Burnside/orbit counting, canonical-representative generation, external-memory
 layered DP) is classical — no novelty is claimed for it.
+
+## 2026-07-18/21: An adversarial pass over the whole corpus — a completeness theorem, a vetoed verdict, and fifty-five findings
+
+Two things filled this window: one new result, and a systematic self-audit of everything around it.
+
+**The result (2026-07-18): symmetry completeness.** [TR-5](../reports/TR5_SYMMETRY.md) v2.0 extends the
+order-48 symmetry group's maximality from the hyperoctahedral group Aut(Q₆) all the way to **every one of
+the 64! relabelings of the hexagram set** — no permutation outside the 48 preserves the C1–C5 predicate
+family, and C1+C2+C4 alone force membership. The finite funnel (C4 pins 0 and 63; C2 forces membership in
+the distance-5 graph's automorphism group; fixing 0 and commuting with the pairing collapse it to the 48)
+is verified exhaustively by a new machine gate (`solve.py --symmetry-completeness`, gates SC-1…SC-8), and
+its rigidity kernel is now decided **UNSAT with an archived, drat-trim-verified certificate** — closing a
+leg that v2.0 had advertised as "pending a solver-equipped worker."
+
+**The audit (2026-07-18 → 07-21): an adversarial review of all twelve technical reports.** Independently
+of the mathematics, the entire report suite — language, conclusions, supporting code, and shared
+methodology — was put through a fresh scientific and mathematical adversarial review, producing a catalog
+of **fifty-five findings** across three severity tiers. All but three (which wait on the still-private
+TR-12 draft) are now remediated and public; the substantive findings were each re-checked by an
+independent review before shipping, author never reviewing their own fix.
+
+The most consequential outcome is a **negative** one, and it is published as such. Finding F-43 asked
+whether the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) corruption result — strong under a two-model
+comparison — survives a wider four-class comparison that adds the two rivals a skeptic reaches for first:
+a greedy/local builder and a rules-are-coincidence null. Before computing any King-Wen-facing number, the
+frozen design required a synthetic-draw calibration to confirm the four classes are even distinguishable.
+**That calibration ran, and it failed:** the greedy-builder class ranks itself first in only 67 of 100
+draws against a pre-registered threshold of 70 (and 67/67/45/25 across four sensitivity variants), so the
+classes are not reliably separable at this sample size. Per the design's own veto, **no four-class Bayes
+factor, posterior, or verdict is computed** — the gate was frozen before the data existed, it fired, and
+we abide by it. The two-model result stands with its scope now stated adjacent to every figure; the
+greedy-local and epiphenomenal rivals remain open, not defeated. It is a genuine limit of the inference
+on a 64-element sequence, reproducible from the published instrument.
+
+The rest of the arc hardened what was already there. The Knuth estimator was **calibrated against exact
+ground truth** at the two layers now known exactly (both inside the stated ±0.01% envelope, with half the
+error budget unused — the C3 layer remains the one uncalibrated quantity). The reduced-rung validation
+ladder in [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) was found **not reproducible
+from what had been published** — the pair ordering is load-bearing and the C5 rule is equality with a
+per-rung budget, not a sub-multiset — and was corrected, then proven sufficient by a clean-room
+reimplementation sharing no code with `solve.c`. The [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) and
+[TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) section bodies, previously outlines, were written out.
+An independent second-instrument recount was added to `verify.py`. Dozens of framing corrections tightened
+scope and hedging: the C5 exact count tagged single-instrument, the pairing-optimality dependency on an
+unrefereed preprint disclosed (with the dominance conclusion shown robust to it regardless), rarity
+figures reframed as specification rather than design where the underlying rules are King-Wen-fitted, and a
+factual error corrected — a claim that six rule-violations were co-located proved wrong on direct
+computation and replaced with their exact positions, now emitted by `solve.py --r11-verify` so a reader
+reproduces them from shipped code. A wave-2 pre-registration that had rested on a *private*-repository
+timestamp — unverifiable to any external reviewer — was **re-anchored entirely on the public record**,
+its guarantee re-grounded in a public design commit, denominator-invariant null results, and the
+circularity firewall, with nothing private left load-bearing.
+
+Attribution: the review, the fixes, and the independent verification passes were run by Claude (Opus 4.8
+and Fable 5) under operator direction; the completeness theorem is TR-5's, its machine gates by Claude
+(Fable 5). Every remediation preserves the canonical selftest sha `403f7202…` — nothing in this arc
+touched the enumeration.
