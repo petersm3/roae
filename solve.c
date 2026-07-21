@@ -16450,7 +16450,10 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * hexagram), whereas true C3 counts every couple TWICE over all 64 hexagrams
  * and includes the anchor couple. So at full-31 cd_true = 2*(walk_cd + 1),
  * and C3 <= 776 (KW's ceiling) <=> walk cd <= T = 387 (derivation:
- * V4_COMPILER_CORRECTNESS_PROOFS_2026_07_14 §2.6/KB7; gate CT1.6). The T to
+ * V4_COMPILER_CORRECTNESS_PROOFS_2026_07_14 §2.6/KB7; gate CT1.6). KW itself
+ * sits AT the boundary — walk cd(KW) = 387 exactly (2*(387+1) = 776), an
+ * admitted member under <= T; asserted executably in kc_oracle_selftest, so
+ * a 387-vs-388 off-by-one cannot recur silently. The T to
  * pass for the C1-C5 space at full-31 is 387 — passing 776 in these units
  * is a ~2x-too-loose filter, NOT C1-C5. At reduced n, T is a test parameter
  * in the same walk-functional units.
@@ -22324,6 +22327,66 @@ static int kc_oracle_selftest(void) {
         rec[0] = (uint8_t)(1 << 2);
         ok = ok && kc_h_rec_decode(k31, q2p, rec, 0, E31) != 0;
         KC_OR_GATE("v1 decode: malformed records rejected (bit0/dup/anchor)", ok);
+        free(k31);
+    }
+
+    /* KW boundary + units cross-check (C3 387-gate hardening, 2026-07-21;
+     * the full two-language CT1.6 gate vs solve.py remains a flagged Stage-Q
+     * obligation and is NOT built here):
+     *   (i)  walk-cd(KW) == 387 EXACTLY. KW is a boundary MEMBER of the
+     *        C1-C5 space at full-31 (<= T admits it); any future units or
+     *        position-offset regression in the walk functional moves this
+     *        value and fails loudly. Computed by kc_validate on the built-in
+     *        KW walk over a full-31 forward shell (kc_g_init: production
+     *        pair tables + C5 budget, NO layers — kc_validate is forward
+     *        semantics only, so no full-31 ladder is needed).
+     *   (ii) 2*(walk_cd + 1) == null_c3_total_comp_dist(seq) for KW and
+     *        every kc_validate-accepted single mutation of it (all 465
+     *        order transpositions + 31 orientation flips tried): the kc
+     *        walk functional pushed through the INDEPENDENT whole-sequence
+     *        C3 implementation (sums over all 64 hexagrams, each couple
+     *        twice, anchor included) agrees — the cross-UNITS check that
+     *        the same-units kc_brute comparisons cannot provide. */
+    {
+        KC *k31 = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(k31 != NULL, "[kc-oracle-selftest] k31v alloc");
+        F1_CHECK(kc_g_init(k31, 31) == 0,
+                 "[kc-oracle-selftest] full-31 forward shell init failed");
+        uint8_t W[KC_MAX_PAIRS], E[KC_MAX_PAIRS];
+        uint32_t rids[KC_MAX_PAIRS + 1];
+        int cd = -1;
+        F1_CHECK(kc_h_kw_walk(k31, W) == 0, "[kc-oracle-selftest] built-in KW walk failed");
+        KC_OR_GATE("KW walk kc_validate-valid on the full-31 shell",
+                   kc_validate(k31, W, rids, &cd) == 0);
+        KC_OR_GATE("KW boundary: walk-cd(KW) == 387 exactly (T admits KW)",
+                   cd == 387);
+        int checked = 0, agree = 1, cd_lo = INT_MAX, cd_hi = INT_MIN;
+        for (int t = -1; t < 31 * 31; t++) {
+            memcpy(E, W, 31);
+            if (t >= 0) {
+                const int i = t / 31, j = t % 31;
+                if (i > j) continue;   /* i<j transpose, i==j orientation flip */
+                if (i == j) E[i] = (uint8_t)k31->partner[E[i]];
+                else { const uint8_t x = E[i]; E[i] = E[j]; E[j] = x; }
+            }
+            if (kc_validate(k31, E, rids, &cd) != 0) continue;
+            uint8_t seq[64];
+            seq[0] = 63;   /* anchor pair (63, 0) = KW slots 0/1 (C4); walk */
+            seq[1] = 0;    /* pair k occupies sequence slots 2k, 2k+1 */
+            for (int p = 0; p < 31; p++) {
+                seq[2 * p + 2] = (uint8_t)k31->partner[E[p]];
+                seq[2 * p + 3] = E[p];
+            }
+            if (2 * (cd + 1) != null_c3_total_comp_dist(seq)) agree = 0;
+            if (cd < cd_lo) cd_lo = cd;
+            if (cd > cd_hi) cd_hi = cd;
+            checked++;
+        }
+        printf("[kc-oracle-selftest] units battery: %d valid full-31 walks (cd %d..%d)\n",
+               checked, cd_lo, cd_hi);
+        KC_OR_GATE("units: 2*(walk_cd+1) == whole-seq C3, every sampled walk",
+                   checked >= 1 && agree);
+        kc_free(k31);
         free(k31);
     }
 
