@@ -16656,7 +16656,9 @@ static void kc_free(KC *kc);   /* fwd decl: kc_ooc_free is defined below */
  * applied to suffixes: transitions are Hamming-isometric, P\m maps to
  * P\pi.m, final counts preserved), so g is stored on the SAME canonical-mask
  * quotient with the same (last << 16 | rid) keys and kc_flookup serves it
- * unchanged. STORED DOMAIN (mirrors f exactly): keys with last in the
+ * unchanged — but point queries go through the domain-guarded kc_glookup
+ * wrapper (defined next to kc_flookup), because of the stored-domain
+ * restriction below. STORED DOMAIN (mirrors f exactly): keys with last in the
  * elements of m's pairs (k >= 1; last = start_exit at k = 0) — precisely the
  * states f can reach, which is closed under the recurrence (x belongs to
  * pair i, a pair of the successor mask) and is all the f*g identity and the
@@ -17497,6 +17499,42 @@ static F1U192 kc_flookup(const KC *kc, int k, uint32_t m, int last, uint32_t rid
     }
     if (lo < L->off[mi + 1] && L->keys[lo] == key) return L->vals[lo];
     return z;
+}
+
+/* ---------- the g-side query boundary (domain-guarded) ----------
+ * The g ladder is stored ONLY on the f-reachable domain: keys whose `last` is
+ * an element of one of m's pairs (the anchor at the empty mask) — see the
+ * Stage-G module header, "STORED DOMAIN". g is mathematically well-defined at
+ * other `last` values too, but those states are never stored, so a raw
+ * kc_flookup against a g ladder returns a SILENT 0 there — indistinguishable
+ * from a genuine g == 0 at a stored state. Every current consumer (the f*g
+ * identity, the O3 ranker, kc-scan, the GA/GB gates) stays in-domain by
+ * construction; this wrapper exists so a FUTURE query surface that drifts
+ * out of domain fails loudly instead of reading a wrong 0. ALL g-ladder
+ * point queries go through kc_glookup — never kc_flookup directly.
+ * The membership test is frame-covariant: the L3 lifts map elements of m's
+ * pairs to elements of the image mask's pairs, so checking the RAW (m, last)
+ * inputs is equivalent to membership in the stored canonical frame.
+ * (The f ladder needs no such guard: f is stored on ALL reachable states, so
+ * key-absent == 0 is exact — and f consumers probe out-of-domain `last`
+ * values on purpose, e.g. the 64-way descent scans in kc_unrank/kc_enum;
+ * that is why this check lives in a g-specific wrapper, not in kc_flookup.) */
+static F1U192 kc_glookup(const KC *gkc, int k, uint32_t m, int last, uint32_t rid) {
+    if (m == 0) {
+        F1_CHECK(k == 0 && last == gkc->start_exit,
+                 "[kc-g] g-lookup outside the stored domain (k=%d last=%d at the "
+                 "empty mask; anchor is k=0 last=%d) — the g ladder is stored "
+                 "only on the f-reachable domain, a raw lookup here would "
+                 "silently read 0", k, last, gkc->start_exit);
+    } else {
+        F1_CHECK(last >= 0 && last < 64 && gkc->pair_of_sub[last] >= 0 &&
+                 ((m >> gkc->pair_of_sub[last]) & 1u),
+                 "[kc-g] g-lookup outside the stored domain (k=%d last=%d "
+                 "mask=0x%x: last is not an element of the mask's pairs) — the "
+                 "g ladder is stored only on the f-reachable domain, a raw "
+                 "lookup here would silently read 0", k, last, m);
+    }
+    return kc_flookup(gkc, k, m, last, rid);
 }
 
 /* ---------- walk validation (forward semantics, independent of descent) ----------
@@ -18890,7 +18928,7 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
  *                                   any n up to 31) — the plan's V3 gate.
  *
  * --kc-g-selftest gates: GA1 g/f mask-list mirror per layer; GA2 g(0)==N
- *   (26,112) incl. through kc_flookup; GA3 the identity at EVERY layer;
+ *   (26,112) incl. through kc_glookup; GA3 the identity at EVERY layer;
  *   GA4 EXHAUSTIVE brute-force cross-check at every layer (g(s) == #distinct
  *   suffixes from s, f(s) == #distinct prefixes reaching s, and
  *   #walks-through-s == f(s)*g(s), over all 26,112 walks' states); GA5
@@ -19768,9 +19806,9 @@ static int kc_g_selftest(void) {
                             sizeof(uint32_t) * fkc->L[k].nm) == 0;
             KC_G_GATE("GA1 n=9 g/f canonical mask lists identical", ok);
         }
-        /* GA2: g(0, root) == N, both as the ladder total and via kc_flookup */
+        /* GA2: g(0, root) == N, both as the ladder total and via kc_glookup */
         {
-            F1U192 v = kc_flookup(gkc, 0, 0, gkc->start_exit, 0);
+            F1U192 v = kc_glookup(gkc, 0, 0, gkc->start_exit, 0);
             KC_G_GATE("GA2 n=9 g(0,root) == f total (26,112)",
                       f1_eq(&gkc->total, &fkc->total) && f1_eq(&v, &fkc->total) &&
                       fkc->total.l0 == 26112 && fkc->total.l1 == 0 && fkc->total.l2 == 0);
@@ -19836,7 +19874,7 @@ static int kc_g_selftest(void) {
                     uint32_t m = (uint32_t)(skey >> 22);
                     int l = (int)((skey >> 16) & 0x3f);
                     uint32_t rid = (uint32_t)(skey & 0xffffu);
-                    F1U192 gv = kc_flookup(gkc, k, m, l, rid);
+                    F1U192 gv = kc_glookup(gkc, k, m, l, rid);
                     F1U192 fv = kc_flookup(fkc, k, m, l, rid);
                     if (!(gv.l1 == 0 && gv.l2 == 0 && gv.l0 == S &&
                           fv.l1 == 0 && fv.l2 == 0 && fv.l0 == P &&
@@ -19931,7 +19969,7 @@ static int kc_g_selftest(void) {
                 const F1C5Layer *L = &gkc->L[k];
                 for (uint64_t mi = 0; mi < L->nm && ok; mi++)
                     for (uint64_t e = L->off[mi]; e < L->off[mi + 1] && ok; e++) {
-                        F1U192 v = kc_flookup(g3, k, L->masks[mi],
+                        F1U192 v = kc_glookup(g3, k, L->masks[mi],
                                               (int)(L->keys[e] >> 16),
                                               L->keys[e] & 0xffffu);
                         ok = f1_eq(&v, &L->vals[e]);
@@ -20326,7 +20364,7 @@ static F1U192 kc_o3_mass(const KcO3 *o3, int j, uint32_t m, int q, const KcO3Fro
             F1_CHECK(!f1_is_zero(&fv),
                      "[kc-o3] reachable state missing from the f ladder at k=%d "
                      "(structure defect)", j + 1);
-            F1U192 gv = kc_flookup(o3->g, j + 1, m2, ex, rid2);
+            F1U192 gv = kc_glookup(o3->g, j + 1, m2, ex, rid2);
             if (f1_is_zero(&gv)) continue;
             F1U192 c192 = {fr->cnt[t], 0, 0};
             F1U192 p = kc_u192_mul(&gv, &c192);
@@ -20456,7 +20494,7 @@ static int kc_o3_rank(KcO3 *o3, const uint8_t *E, F1U192 *rank_out,
     double sum_bits = 0.0;
     F1U192 g_child = kc->total;   /* g(s_0) = N when the loop starts */
     if (do_trace) {
-        F1U192 g0 = kc_flookup(o3->g, 0, 0, kc->start_exit, 0);
+        F1U192 g0 = kc_glookup(o3->g, 0, 0, kc->start_exit, 0);
         trace_ok = trace_ok && f1_eq(&g0, &kc->total);   /* g(s_0) == N */
     }
     for (int j = 0; j < n; j++) {
@@ -20475,7 +20513,7 @@ static int kc_o3_rank(KcO3 *o3, const uint8_t *E, F1U192 *rank_out,
                     const int ex = o ? kc->c.pa[q] : kc->c.pb[q];
                     const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last_own ^ entry))];
                     if (cls < 0 || kc->B.dig[cls][rids[j]] >= kc->B.b0[cls]) continue;
-                    F1U192 gv = kc_flookup(o3->g, j + 1, m | (1u << q), ex,
+                    F1U192 gv = kc_glookup(o3->g, j + 1, m | (1u << q), ex,
                                            rids[j] + kc->B.rad[cls]);
                     if (!f1_is_zero(&gv)) { f1_add(&gsum, &gv); alts++; }
                 }
@@ -20497,7 +20535,7 @@ static int kc_o3_rank(KcO3 *o3, const uint8_t *E, F1U192 *rank_out,
         { KcO3Front *sw = cur; cur = nxt; nxt = sw; }
         m |= 1u << qj;
         if (do_trace) {
-            g_child = kc_flookup(o3->g, j + 1, m, E[j], rids[j + 1]);
+            g_child = kc_glookup(o3->g, j + 1, m, E[j], rids[j + 1]);
             F1U192 f_child = kc_flookup(o3->f, j + 1, m, E[j], rids[j + 1]);
             F1_CHECK(!f1_is_zero(&f_child),
                      "[kc-o3] own-path state missing from the f ladder (structure defect)");
@@ -23653,7 +23691,7 @@ static int kc_h_scan_core(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
                         const int cls = F1C5_CLS[__builtin_popcount((unsigned)(lastc ^ entry))];
                         if (cls < 0 || fkc->B.dig[cls][rid] >= fkc->B.b0[cls]) continue;
                         const uint32_t rid2 = rid + fkc->B.rad[cls];
-                        const F1U192 gv = kc_flookup(gkc, k + 1, cm | (1u << q), exitx, rid2);
+                        const F1U192 gv = kc_glookup(gkc, k + 1, cm | (1u << q), exitx, rid2);
                         if (f1_is_zero(&gv)) continue;
                         const F1U192 w = kc_u192_mul(&fv, &gv);
                         const F1U192 worb = f1_mul_small(w, (uint32_t)orb_size);
@@ -23703,7 +23741,7 @@ static int kc_h_scan_core(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
              * nodes, so the t/prefixes accounting must include it (Stage T,
              * 2026-07-17; at every gated n no such branch exists, so emitted
              * output is unchanged there). */
-            const F1U192 gv = kc_flookup(gkc, 1, 1u << q, exitx, fkc->B.rad[cls]);
+            const F1U192 gv = kc_glookup(gkc, 1, 1u << q, exitx, fkc->B.rad[cls]);
             KcScanBranch *b = &T->br[T->nbranch++];
             b->q = q;
             b->o = o;
