@@ -142,26 +142,35 @@ registry classification is data-like rather than principled, and it is reported 
 not promoted. The exception-co-location meta-rule (both Schulz rules' violations confined to S25/26)
 measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare.
 
-**2. Eight literature rules behave as consequences of the constraint system** — they measure at 1.0 of
-canonical mass with no violating ordering found in 2×10¹⁰ weighted probes: asserted in the literature as
-design features, they are *empirically forced* under C1–C5 (McKenna's 3:1 ratio was the first known
-case; this batch found seven more, including three consequences of [Radisic's](CITATIONS.md#radisic2026) optimality structure, whose
-1.0 readings also validate the instrument end-to-end). One — the no-5 rule's implication chain — is
-additionally proven analytically, a theorem; the others are zero-hit sampling results (sampling cannot
-distinguish mass 1 from mass 1−ε), reported as empirically forced to the estimator's precision, not as
-theorems. Several more are near-forced (0.95–0.9998). The literature's design inventory therefore splits
-three ways: empirically forced / typical / genuinely discriminating.
+**2. Eight literature rules are consequences of the constraint system — proven, not sampled (upgraded
+2026-07-21).** All eight rules that measure at 1.0 of canonical mass (mmt4, p1c4, s1, s6, r3, r4, r5,
+c2 — including three consequences of [Radisic's](CITATIONS.md#radisic2026) optimality structure),
+asserted in the literature as design features, are now **theorems**: each depends only on the unordered
+pair-partition, which C1 fixes, so each is constant on the *entire C1 space* — a superset of the C1–C5
+population, hence a fortiori equal to King Wen's value on every C1–C5 ordering. Machine-checked in Lean 4
+([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean); the r4/r5 threshold forms hold because the
+C1-fixed within-pair HD histogram {2:12, 4:12, 6:8} — which is c2 — sums to a total pairing cost of
+exactly 120, meeting r4's ≤120 threshold with equality). Their zero-violation readings in 2×10¹⁰ weighted
+probes — previously reported only as "empirically forced to the estimator's precision", since sampling
+cannot distinguish mass 1 from mass 1−ε — now validate the instrument end-to-end rather than carry the
+claim. A separate, additional analytic theorem — the no-5 rule's implication chain, behind McKenna's 3:1
+even:odd transition ratio, the first literature rule proven forced — is distinct from these eight and
+stands unchanged. Several more rules are near-forced (0.95–0.9998); those remain sampling results. The
+literature's design inventory therefore splits three ways: proven forced / typical / genuinely
+discriminating.
 
 **3. King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7: 8 of 8, and 8 is the observed
 population maximum) — a genuine extremal property, one of very few axes where KW attains the boundary.
 
 Full table (fraction of canonical mass; KW satisfies each at its measured level by construction of the
-threshold forms): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs KW 20) · ccn1 3.4×10⁻⁵ · ccn2 1.5×10⁻³
-· ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** · c2011n1 <10⁻⁹ (0
-hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0 vs KW 4) · mmt4
-**1.0** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0** · p2c3 6.7×10⁻² · p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ ·
-p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8) · s1 **1.0** · s6 **1.0** · m2 8.0×10⁻² ·
-r3 **1.0** · r4 **1.0** · r5 **1.0** · c1 6.6×10⁻² (min deviation seen 4 vs KW 24) · c2 **1.0**.
+threshold forms; the eight **1.0 (theorem)** entries are the proven C1 constants of headline 2 — exact by
+theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs KW 20) · ccn1 3.4×10⁻⁵ ·
+ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** ·
+c2011n1 <10⁻⁹ (0 hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0
+vs KW 4) · mmt4 **1.0 (theorem)** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0 (theorem)** · p2c3 6.7×10⁻² ·
+p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8) ·
+s1 **1.0 (theorem)** · s6 **1.0 (theorem)** · m2 8.0×10⁻² · r3 **1.0 (theorem)** · r4 **1.0 (theorem)** ·
+r5 **1.0 (theorem)** · c1 6.6×10⁻² (min deviation seen 4 vs KW 24) · c2 **1.0 (theorem)**.
 Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, **d5 = 17.4%** of the full space — see
 [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) (the slice contains zero d5 records in 10.5B).
 **Deep-tail caveat (travels with the smallest figures; details in

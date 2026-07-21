@@ -24,6 +24,13 @@ Lean's compiler). What that buys:
   partition choice, invocation grouping, and merge hierarchy. Its connection to the actual C
   enumerator runs through stated bridge facts that are NOT machine-checked — this is a model-level
   result, not a proof of the C code; see the Tier 3 section's scope note.
+- **The eight "forced" literature rules are proven, not just measured** (`C1RuleConstants.lean`): the
+  eight registry rules that measure at rate 1.0 under enumeration (mmt4, p1c4, s1, s6, r3, r4, r5, c2)
+  are **constants of the entire C1 space** — each depends only on the unordered pair-partition, which C1
+  fixes, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
+  to a theorem; the zero-hit enumeration measurement is now a corollary. (Orientation-invariance of each
+  per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by `native_decide`;
+  the sequence-level constancy in the landed `within_double` style.)
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
   each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
   the toolchain is pinned in this directory's `lean-toolchain`).
@@ -72,6 +79,7 @@ lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
 lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below)
 lean SymmetryCompleteness.lean  # TR-5 v2.0 completeness kernel: psi iso, Q6 rigidity, partner-commuters = G48 (2026-07-18)
+lean C1RuleConstants.lean    # the eight "forced-1.0" literature rules (mmt4,p1c4,s1,s6,r3,r4,r5,c2) are constants of the C1 space (2026-07-21)
 ```
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing

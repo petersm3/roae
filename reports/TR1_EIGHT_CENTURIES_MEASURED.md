@@ -9,10 +9,14 @@ For roughly eight centuries, scholars have claimed the King Wen sequence follows
 almost always by pointing at the sequence and asserting the pattern. This report does what none of that
 literature could: it **measures every claimed rule against the entire space of orderings** that satisfy
 the sequence's core constraints. The result sorts the claims into three kinds. Eight celebrated "design
-choices" behave as **forced** — no valid ordering violating them was found in twenty billion weighted
-probes. That is a *sampled* result, not a proof, for seven of the eight; exactly one — the no-5 rule's
-implication chain — is proven outright. Forced-ness, where it holds, means they reveal nothing about the
-arranger. Others are **typical** — common enough to be unremarkable. A few are **genuinely rare** (down
+choices" are **forced** — and as of 2026-07-21 all eight are **theorems**, not sampling results: each is
+proven constant on the entire C1 space (every pair-respecting ordering, a superset of the measured
+population, so every C1–C5 ordering inherits it), equal to King Wen's value — machine-checked in Lean 4
+([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)). The twenty billion weighted probes that found
+no violating ordering now serve as instrument validation, not as the basis of the claim. (A separate,
+additional analytic theorem — the no-5 rule's implication chain, behind McKenna's 3:1 even:odd transition
+ratio — was proven earlier and stands; it is not one of the eight.) Forced-ness means they reveal nothing
+about the arranger. Others are **typical** — common enough to be unremarkable. A few are **genuinely rare** (down
 to roughly one in fifty million — an order-of-magnitude figure at that sampling depth), and King Wen has them. The report culminates in the conflict theorem: the
 literature's four strongest rules **cannot all be satisfied by any ordering that preserves the classical pairing**, and King Wen sits
 exactly where that conflict forces a choice. A follow-up battery (§7) turns the same measurement on the
@@ -31,9 +35,10 @@ measured against the *entire* constraint-satisfying population (≈1.33×10³⁸
 weighted-Knuth estimation (2×10¹⁰ probes; the instrument reproduced the independently-established total
 space size to 0.03%, self-validating the method). This converts decades of by-inspection claims into
 measured population statistics for the first time. The literature's design inventory splits three ways:
-**empirically forced** (eight rules measure at 1.0 of canonical mass to the estimator's precision — no
-violating ordering found in 2×10¹⁰ weighted probes; one is additionally proven analytically — asserted as
-design features), **typical** (e.g., the classical 18:18 split holds in 36.4% of all valid orderings), and
+**proven forced** (eight rules, each now a theorem: constant on the entire C1 space — a superset of the
+measured population — equal to King Wen's value, machine-checked in Lean 4; their measured 1.0 of
+canonical mass in 2×10¹⁰ weighted probes now reads as instrument validation — asserted in the literature
+as design features), **typical** (e.g., the classical 18:18 split holds in 36.4% of all valid orderings), and
 **genuinely discriminating** (down to 2×10⁻⁸ for [Schulz's](../documentation/CITATIONS.md#schulz2011) S25–28 trigram configuration). A SAT layer adds
 exact decisions: Moore's conjectured "uncorrupted precursor" exists, its minimal repair from King Wen is
 exactly 3 slot-edits, and one ordering — the grand unified precursor — perfects Moore's two rules and
@@ -90,25 +95,32 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    Cook's exact level-3 positions, this is a highly *specific* configuration: its registry classification
    is data-like rather than principled, and it is reported as a measured property, not promoted. The
    exception-co-location meta-rule (both Schulz rules' violations confined to S25/26) measures 2.6×10⁻⁷
-   (×3.8M) — the anomaly locus itself is population-rare. **(2) Eight literature rules behave as
-   consequences of the constraint system** — they measure at 1.0 of canonical mass with no violating
-   ordering found in 2×10¹⁰ weighted probes: asserted in the literature as design features, they are
-   *empirically forced* under C1–C5. One — the no-5 rule's implication chain — is additionally proven
-   analytically, a theorem; the others are zero-hit sampling results, and sampling cannot distinguish
-   mass 1 from mass 1−ε, so they are reported as empirically forced to the estimator's precision, not as
-   theorems. [McKenna's](../documentation/CITATIONS.md#mckenna-mckenna1975) 3:1 ratio was the first known case; this
-   batch found seven more (mmt4, p1c4, s1, s6, r3, r4, r5, c2), including three consequences of [Radisic's](../documentation/CITATIONS.md#radisic2026)
-   optimality structure, whose 1.0 readings also validate the instrument end-to-end. Several more are
-   near-forced (0.95–0.9998). **(3) King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7:
+   (×3.8M) — the anomaly locus itself is population-rare. **(2) Eight literature rules are consequences of
+   the constraint system — proven, not sampled (upgraded 2026-07-21)**: all eight rules that measure at
+   1.0 of canonical mass (mmt4, p1c4, s1, s6, r3, r4, r5, c2 — including three consequences of
+   [Radisic's](../documentation/CITATIONS.md#radisic2026) optimality structure) are now **theorems**. Each
+   depends only on the unordered pair-partition, which C1 fixes, so each is constant on the *entire C1
+   space* — a superset of the C1–C5 population, hence a fortiori equal to King Wen's value on every C1–C5
+   ordering. Machine-checked in Lean 4 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)); the
+   r4/r5 threshold forms hold because the C1-fixed within-pair HD histogram {2:12, 4:12, 6:8} (which is
+   c2) sums to a total pairing cost of exactly 120 (= r4's ≤120 threshold, met with equality). Their
+   zero-violation 2×10¹⁰-probe readings — previously reported only as "empirically forced to the
+   estimator's precision", since sampling cannot distinguish mass 1 from mass 1−ε — now validate the
+   instrument end-to-end rather than carry the claim. A separate, additional analytic theorem — the no-5
+   rule's implication chain, behind [McKenna's](../documentation/CITATIONS.md#mckenna-mckenna1975) 3:1
+   even:odd transition ratio, the first literature rule proven forced — is distinct from these eight and
+   stands unchanged. Several more rules are near-forced (0.95–0.9998); those remain sampling results. **(3) King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7:
    8 of 8, and 8 is the observed population maximum) — a genuine extremal property, one of very few axes
    where KW attains the boundary. Full table (fraction of canonical mass; KW satisfies each at its
-   measured level by construction of the threshold forms): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs
+   measured level by construction of the threshold forms; the eight **1.0 (theorem)** entries are the
+   proven C1 constants of (2) — exact by theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs
    KW 20) · ccn1 3.4×10⁻⁵ · ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** · ccn6 0.427 · ccn7 1.1×10⁻³
    · **ccn8 2.6×10⁻⁷** · c2011n1 <10⁻⁹ (0 hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min
-   Gray-transitions seen 0 vs KW 4) · mmt4 **1.0** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0** · p2c3
-   6.7×10⁻² · p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8)
-   · s1 **1.0** · s6 **1.0** · m2 8.0×10⁻² · r3 **1.0** · r4 **1.0** · r5 **1.0** · c1 6.6×10⁻² (min
-   deviation seen 4 vs KW 24) · c2 **1.0**. Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, d5 = 17.4% of
+   Gray-transitions seen 0 vs KW 4) · mmt4 **1.0 (theorem)** · mmt5 0.9998 · mmt6 0.993 ·
+   p1c4 **1.0 (theorem)** · p2c3 6.7×10⁻² · p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴
+   · d7 1.7×10⁻⁴ (KW maximal 8/8) · s1 **1.0 (theorem)** · s6 **1.0 (theorem)** · m2 8.0×10⁻² ·
+   r3 **1.0 (theorem)** · r4 **1.0 (theorem)** · r5 **1.0 (theorem)** · c1 6.6×10⁻² (min deviation seen
+   4 vs KW 24) · c2 **1.0 (theorem)**. Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, d5 = 17.4% of
    the full space (the 560T slice contains zero d5 records in 10.5B — see [TR-7](TR7_CIRCULAR_READING.md) / [CIRCULAR_KING_WEN.md](../documentation/CIRCULAR_KING_WEN.md)).
    **Deep-tail caveat (travels with the smallest figures; details in [METHODS.md](METHODS.md)):** below
    ~10⁻⁷ per-probe hit rates the estimator's CIs degrade (low effective sample size, right-skewed
@@ -323,4 +335,5 @@ All values are the reports' stated numbers; generated by
 | v1.11 | 2026-07-11 | Global-ledger qualifier added to §7's notable verdict (clears the 91-observable global bar as well as the family correction; see METHODS §"Global observable ledger") — part of the suite-wide global multiple-comparisons accounting pass |
 | v1.12 | 2026-07-11 | Deep-tail caveat attached to the smallest quoted masses in §3's table (ccn4, ccn8 order-of-magnitude; c2011n1 starvation-not-bound) and hedged in the executive summary — the METHODS CI-degradation caveat now travels with the figures. No values change |
 | v1.13 | 2026-07-11 | Styling: "THE CONFLICT THEOREM" sentence-cased throughout (here, LITERATURE_RULES_POPULATION_TESTS, certificates/README) — content, statement, and certificates unchanged |
-| v1.14 *(current)* | 2026-07-20 | **Baseline-calibration pass (adversarial-review F-45, F-30).** §5's "trade-off **optimum** … ~1-in-25-million efficient" restated as a trade-off **position**: all four rules are KW-descriptive, so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result, and the 1-in-25-million figure describes how population-atypical the joint profile is under KW-fitted rules rather than measuring design efficiency (no arbitrary-rule-bundle baseline exists to read it against). Executive summary's "forced" finding marked as **sampled** for seven of the eight claims, with the one proven case named — twenty billion weighted probes is evidence, not proof. No measurement changed |
+| v1.14 | 2026-07-20 | **Baseline-calibration pass (adversarial-review F-45, F-30).** §5's "trade-off **optimum** … ~1-in-25-million efficient" restated as a trade-off **position**: all four rules are KW-descriptive, so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result, and the 1-in-25-million figure describes how population-atypical the joint profile is under KW-fitted rules rather than measuring design efficiency (no arbitrary-rule-bundle baseline exists to read it against). Executive summary's "forced" finding marked as **sampled** for seven of the eight claims, with the one proven case named — twenty billion weighted probes is evidence, not proof. No measurement changed |
+| v1.15 *(current)* | 2026-07-21 | **The eight forced rules are now theorems (sampled → proven).** All eight registry rules measuring at 1.0 (mmt4, p1c4, s1, s6, r3, r4, r5, c2) proven constant on the entire C1 space — a superset of the measured population, so every C1–C5 ordering inherits King Wen's value — machine-checked in Lean 4 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean); proof by Claude (Fable 5), independent recompile/re-verification by Claude (Opus 4.8)). Executive summary, abstract, and §3(2) reworded from "empirically forced (sampled)" to "proven forced (theorem)"; the eight 1.0 table entries marked "(theorem)"; the 2×10¹⁰-probe zero-violation readings reclassified as end-to-end instrument validation. Also fixes an accounting tangle: the batch's forced class is all **eight** listed ids (the prior text said "seven more" while listing eight), and the previously-proven case — the no-5 rule's implication chain behind McKenna's 3:1 even:odd ratio — is a **separate, additional** analytic theorem, not one of the eight. No measurement changed |
