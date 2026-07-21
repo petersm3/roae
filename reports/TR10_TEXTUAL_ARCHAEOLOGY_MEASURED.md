@@ -1,6 +1,9 @@
 # TR-10 — A Textual Archaeology, Measured: Scott Davis's Structural Reading Against the Population of Valid Orderings
 
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
+*Scope note (F-34): "archaeology" here is figurative. This report measures **notational and structural**
+properties of the received ordering against the population of valid orderings; it makes no historical,
+philological, or text-critical claim beyond what the combinatorics support.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
@@ -373,3 +376,4 @@ notational scoring — is accepted and stated.
 | v1.3 | 2026-07-11 | **Scope-decision note (§5(c)):** Davis's big/little named-hexagram size pattern (pp. 94–96), conditionally pre-registered as a follow-up candidate, was declined without measurement on 2026-07-11 — hexagram names (tradition/translation-dependent semantic attributes) are not admitted as predicate inputs, consistent with §5(c)'s published scope statement. The follow-up family's Bonferroni denominator stays frozen at /12. No measured number in this report changes |
 | v1.4 | 2026-07-11 | Global-ledger qualifier on the trigarray "notable" (§3 row 3 + narrative): survives its family correction (0.05/9) but not the global 91-observable ledger (≈5.5×10⁻⁴ bar; measured 6.8×10⁻⁴) — see METHODS §"Global observable ledger". No measured number changes |
 | v1.5 | 2026-07-12 | **Wave-2 addendum (§3b):** the §4 compactness thread closed by pre-registered measurement — `tquartet` NULL (a Davis-compact quartet is population-common, P(≥1) = 0.876; KW = 1 below the mean 1.86), `xunslots` NULL (p = 0.148, registered at low prior); Bonferroni 0.05/12 across both waves, frozen in advance; design frozen in a git-timestamped private pre-registration 2026-07-10, code public first (`09e2107`), results batch-landed. C-D5 decline (§5(c)) augmented with an analytic power note: min attainable p = 1/15 under the pair-exchangeable null, 16× the family gate — reproducible with no ROAE code (Verification Guide). Companion D-B1 paragraph (§3b): Drasny's Rule of Ten conformity count verified true (X = 22) and shown tautological — every room is the argmax decade window for its group's KW positions, so the count scores KW against a KW-extracted template; data-like, no p attached, separate Drasny family. Nothing promotes; no §3 number changes |
+| v1.6 *(current)* | 2026-07-20 | **Scope qualifier (adversarial-review F-34).** Added a masthead scope note: "archaeology" is figurative — the report measures notational and structural properties against the population of valid orderings and makes no historical, philological, or text-critical claim beyond what the combinatorics support. Title unchanged (the body is already well-scoped); the qualifier prevents the humanities register of the title from being over-read. No measurement changed |

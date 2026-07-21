@@ -63,6 +63,31 @@ full scale ([TR-11] §10(vi)).*
 | Proof checker | drat-trim (2024+ master) | [github.com/marijnheule/drat-trim](https://github.com/marijnheule/drat-trim) |
 | Lean | 4.31.0 via elan; core only (no mathlib) | `lean lean/KingWen.lean` exits 0 |
 
+## Data-like vs principled constraints (the circularity firewall) — F-23
+
+Several conclusions in this suite turn on whether a constraint is **principled** (stated independently of
+King Wen, so King Wen's compliance is evidence) or **data-like** (a specific configuration read off King
+Wen, so its compliance is near-tautological and carries little evidential weight). The distinction has
+been applied case-by-case; the operational test it encodes is:
+
+> A constraint is **data-like** if its statement fixes a specific configuration extracted from the
+> received order — i.e. it can be written as "positions/values match King Wen's" with **≥1 fitted
+> degree of freedom read from KW** and no independent derivation. It is **principled** if it is stated as
+> a general rule (an author's design principle, a symmetry, an optimality criterion) whose form does not
+> reference King Wen's particular values, so that a different valid ordering could have failed it.
+
+Operationally: count the degrees of freedom the constraint's **stated form** borrows from King Wen —
+*not* the KW-level at which a measurement functional happens to be thresholded. (A principled rule such as
+Schulz gender is measured against KW's own violation count, but its *statement* — a parity condition on
+consolidated units — borrows no KW-specific value; it stays principled. The dof count is on the rule as
+its author stated it.) Zero borrowed dof in the statement → principled; each fitted slot, value, or
+threshold baked into the rule's definition is one borrowed dof, and a constraint with ≥1 is priced as data (its "rarity" is specification, not discovery — see the dof-matched baseline in
+[TR-8](TR8_REORDERING_REVISITED.md) and [CRITIQUE.md](../documentation/CRITIQUE.md) Q1). Borderline cases
+(C3's 776 threshold, the S25–28 trigram configuration) are classified data-like precisely because their
+defining number or face-set is KW's own. This is the firewall that keeps a fitted description from being
+reported as a design finding; where a result depends on the classification, the report states which side
+the constraint falls on and why.
+
 ## Statistics conventions
 - **Knuth estimator CIs**: probes are i.i.d.; for each reported quantity the per-probe weight X and X²
   are accumulated exactly, and the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard

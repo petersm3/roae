@@ -20,7 +20,12 @@ KW-fitting predicates is matched to the literature rules' actual structural comp
 Wen's rules fall in the **bulk** of that rarity distribution — the median dof-matched KW-fitting predicate
 reaches a rarity near ~6×10⁻⁵, and about half are at least as rare as King Wen's ~1×10⁻⁴ — so the rarity
 is largely a matter of specification, not demonstrated design, and King Wen is **not** claimed to be
-tail-extreme among comparably-specified predicates. Against that baseline the honest claim is narrower than
+tail-extreme among comparably-specified predicates. **Look-elsewhere context (F-32):** the suite's
+extraction battery is frozen at **91** observables, so a Bonferroni-style global bar sits at
+0.05/91 ≈ **5.5×10⁻⁴**. Read against that bar rather than against 0.05, a per-rule rarity of order
+10⁻⁴ clears it by only a factor of ~5 (not the ~5,500× that reading against 0.05 would suggest), and the dof-matched comparison above shows much of even that margin is
+attributable to specification. The multiple-comparisons accounting for the battery as a whole is in
+[CRITIQUE.md](../documentation/CRITIQUE.md) and is not re-derived here. Against that baseline the honest claim is narrower than
 "removing them removes what is special": removing them removes the measured regularities the received order
 happens to sit at. Second, by proof: the specific smooth construction their
 proposal requires (a Gray-code-style path) is **mathematically impossible** for any ordering that keeps
@@ -102,6 +107,9 @@ box.
   ```
   → `10/100000 = 0.00010` (fraction of uniformly-sampled pair-preserving orderings matching KW's
   Schulz-gender compliance level, ≤2 violations; ~5 s at 10⁵ samples on 2 cores, ~8 min at 10⁷).
+  **Precision note (F-31):** that quick figure rests on **10 hits**, so its Poisson error is ~1/√10 ≈
+  **±32%** — quote it as "order 10⁻⁴", not as 1.0×10⁻⁴. Running the same snippet at N = 10⁷ (the ~8-minute
+  setting) tightens it by ~10×, and is what should be cited whenever the number carries weight.
   This is the pair-null quantity; the published ×11,364 (C1–C5 mass fraction) reproduces via [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s
   registry pipeline ([`solve.py --registry-verify`](../documentation/SOLVE_C_CLI.md) gates + the population run in [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s Verification
   Guide; per-rule record in [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)).
@@ -117,3 +125,4 @@ box.
 | v1.2 | 2026-07-10 | Reception history added: Hershock (1991), the one published reply to McKenna & Mair, acquired (ILL) and audited — philosophical critique, premise shared, neither claim tested; "sat untested" sharpened to "computationally untested" |
 | v1.3 | 2026-07-11 | Process sections relocated: the venue-targeting line, the venue Q&A bullet, and the dormant journal-submission checklist moved out of the public report (process content, not findings; now maintained privately). "this journal" in the abstract made explicit (*Philosophy East and West*). No findings changed |
 | v1.4 | 2026-07-11 | Trust-base wording precision: the within-pair evenness/nonzero lemma is `native_decide`-checked (extended trust base per lean/README.md), not "kernel-verified"; noted that the evenness half — which alone rules out Gray adjacency — is also kernel-`decide`d (`within_even`). No result changes |
+| v1.5 *(current)* | 2026-07-20 | **Statistical precision pass (adversarial-review F-31, F-32).** F-31: the pair-null figure `10/100000` rests on **ten hits**, so its Poisson error is ~±32% — it is now quoted as "order 10⁻⁴" rather than 1.0×10⁻⁴, with the N=10⁷ setting named as what to cite when the number carries weight. F-32: look-elsewhere context added — the extraction battery is frozen at 91 observables, so a Bonferroni-style global bar sits at ≈5.5×10⁻⁴, against which a per-rule rarity of order 10⁻⁴ is only marginally past, and the dof-matched comparison shows much of that margin is specification. No measurement changed |

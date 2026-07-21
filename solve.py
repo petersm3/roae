@@ -6595,6 +6595,49 @@ def r11_axes(seq):
     return [g1, g2, g3, g4, g5, g6, g7, g8]
 
 
+def r11_violation_positions(seq):
+    """Where `seq` violates the three graded Tier-1 rules — the position-level
+    companion to r11_axes (which returns only counts). Shares r11_axes's g1/g2
+    logic verbatim and reuses rc4_violations for g3, so the counts implied here
+    match r11_axes exactly. Returns a dict:
+      parity -> failing pair-slots (1-based)                     [Moore 2005]
+      rhythm -> (prev_pair, this_pair) adjacent-pair breaks (1-based) [Moore 1989]
+      gender -> inversion-class positions (1-based)              [Schulz 1990]
+    NOTE the coordinate systems differ: parity/rhythm index pair-slots (1..32);
+    gender indexes inversion-class positions (1..36). King Wen ==
+    {parity:[22,23], rhythm:[(7,8),(22,23)], gender:[25,26]}."""
+    parity = []
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            continue
+        pcq = bin(h).count("1")
+        if pcq == 3:
+            continue
+        odd = (q + 1) & 1
+        if (1 if pcq > 3 else 0) != odd:
+            parity.append(q + 1)
+    rhythm = []
+    prev, have, prev_adj, prev_q = 0, False, False, None
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            prev_adj = False
+            continue
+        pcq = bin(h).count("1")
+        if pcq == 3:
+            prev_adj = False
+            continue
+        mb = 0 if pcq > 3 else 1
+        sc = sum(5 - 2 * i for i in range(6) if ((h >> i) & 1) == mb)
+        rf = 1 if sc > 0 else 0
+        if have and prev_adj and rf == prev:
+            rhythm.append((prev_q + 1, q + 1))
+        prev, have, prev_adj, prev_q = rf, True, True, q
+    gender = list(rc4_violations(seq)[1])
+    return {"parity": parity, "rhythm": rhythm, "gender": gender}
+
+
 def r11_verify(seq_arg=None):
     """Two-language ground-truth gate for the R11 8-axis bundle. No argument:
     recompute on King Wen and assert == (2,2,2,0,0,0,0,0). With a 64-int SEQ:
@@ -6618,6 +6661,9 @@ def r11_verify(seq_arg=None):
             print(f"{nm}: {v} FAIL (expected {exp})")
             fails += 1
     print("R11 VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    pos = r11_violation_positions(seq)
+    print("  violation positions — parity(pair-slots)=%s  rhythm(adjacent-pairs)=%s  "
+          "gender(inversion-class-pos)=%s" % (pos["parity"], pos["rhythm"], pos["gender"]))
     return 1 if fails else 0
 
 

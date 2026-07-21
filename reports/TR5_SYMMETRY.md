@@ -84,6 +84,13 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    `valid_iff_centralizes_rev`, `twins_24_records`; lean/KingWen.lean — proved by `native_decide`,
    which extends the trusted base to Lean's compiler and code generator; see lean/README.md's
    trust-base note. The sequence-level symmetry layer, Automorphism.lean, is structural).
+   **Scope of the Lean coverage (F-51):** the machine-checked component is the *finite kernel* — the
+   48-of-720 classification, the record-twin count, and the supporting finite lemmas. The lift from those
+   finite facts to the statement over all 64! relabelings is a **classical prose argument** (the funnel of
+   §1 above), supported by the exhaustive `--symmetry-completeness` gate and the SC-4 rigidity DRAT, not
+   by a Lean proof of the universally-quantified claim. Nothing here is machine-checked end to end from
+   64! to the group; readers should treat the completeness theorem as prose-proven with machine-checked
+   finite parts.
 4. **The free-action corollary (2026-07-03): every solution has exactly 23 twins.** The S₄ record-action
    has no fixed points off the identity: every canonical record uses all 32 pairs of the fixed C1 pairing
    position-wise; a record equals its σ-image only if σ stabilizes each pair as a set at its slot; an
@@ -127,7 +134,7 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
 
 ## Figure: the symmetry collapse
 
-![The symmetry collapse and one 24-element orbit](figures/fig_tr5_orbit_collapse.svg)
+![The symmetry collapse and one 24-element orbit](figures/fig_tr5_orbit_collapse.png)
 
 *Left: the order-48 group B₃ of C1–C5-preserving signed line-permutations collapses to a faithful
 S₄ (order 24) on solution records — {±I} acts trivially. Right: the free-action theorem means every
@@ -153,3 +160,4 @@ then confirmed the theorem's arithmetic signature.
 | v1.8 | 2026-07-11 | Trust-base wording precision: the Lean finite component is `native_decide`-checked (extended trust base — Lean's compiler), not "kernel-checked"; phrasing corrected per lean/README.md's trust-base note. No result changes |
 | v2.0 | 2026-07-18 | **Symmetry completeness**: the group's maximality extended from the hyperoctahedral group Aut(Q₆) to ALL 64! hexagram relabelings — no permutation of the hexagram set outside the 48 preserves the C1–C5 predicate family, and C1+C2+C4 alone force membership. New exhaustive machine gate `solve.py --symmetry-completeness` (SC-1…SC-8: ψ-isomorphism to Q₆, hypercube two-common-neighbor rigidity, the explicit 46,080-element Aut(G₅), the fix-0 and partner-commuting filters, the 1,824-sequence C2 witness family); rigidity kernel additionally encoded as a self-validated CNF (`sat.py --rigidity-cnf`, expected UNSAT; DRAT artifact pending a solver-equipped worker). Scope stated: per-predicate preservation; solution-set automorphism group bounded below by G, not decided above. Proof: SYMMETRY_SEARCH.md §Completeness |
 | v2.1 | 2026-07-20 | **Rigidity DRAT produced (adversarial-review item F-5).** The v2.0 completeness funnel advertised a rigidity CNF whose DRAT artifact was "pending a solver-equipped worker" — an advertised verification leg that did not exist. It now does: kissat 4.0.4 decides the kernel UNSAT and drat-trim reports `s VERIFIED` against the regenerated encoding; the certificate is archived as `certificates/rigidity_sc4_unsat.drat.gz` and checked by `verify_all.sh` (inventory 19 → 20). Honest note recorded in certificates/README.md: the instance falls to unit propagation alone, so the certificate's value is that the step is machine-checked rather than that it was hard. No theorem, scope statement, or numerical result changed |
+| v2.2 *(current)* | 2026-07-20 | **Lean scope stated explicitly (adversarial-review F-51).** §3 now says what the Lean coverage does and does not include: the machine-checked component is the *finite kernel* (the 48-of-720 classification, the record-twin count, the supporting finite lemmas), while the lift from those finite facts to the statement over all 64! relabelings is a classical prose argument supported by the exhaustive `--symmetry-completeness` gate and the SC-4 rigidity DRAT — not a Lean proof of the universally-quantified claim. Nothing is machine-checked end to end from 64! to the group, and readers should treat the completeness theorem as prose-proven with machine-checked finite parts. No theorem or scope claim changed — this makes the existing scope legible |

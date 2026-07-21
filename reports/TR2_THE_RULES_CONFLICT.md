@@ -12,7 +12,12 @@ traceable through Larry Schulz to a 13th-century commentator) are **mutually con
 arrangement preserving the classical pairing can satisfy all of them**, a fact established by an exhaustive logic
 search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the
 others by the smallest margins possible. Its irregularities are the visible seam of a forced trade-off,
-not damage. A corollary: the "uncorrupted original" that some scholars hypothesized never existed.
+not damage. **These two framings — "not damage" here and the corruption Bayes factor below — are not in
+tension: the impossibility theorem rules out an original perfect under all *four* rules, while the
+Bayesian comparison concerns only the *three graded* rules, whose joint perfection is achievable.** A
+corollary: an "uncorrupted original" perfect under the full four-rule inventory never existed — though
+this does not touch Moore's narrower conjecture, whose rule-compliant precursor (§3) does exist and sits
+three edits away.
 New in v1.7: within the three graded rules — where perfection **is** achievable — a pre-registered
 Bayesian comparison finds the received order far better explained as a corrupted rule-perfect ordering
 than as the work of an arranger holding the rules as soft preferences (Bayes factor ≈ 6.6×10³–7.9×10³,
@@ -22,18 +27,13 @@ global-design class plus a uniform-valid null) has since been pre-registered und
 its measurement is pending and no result is stated in this report. Because it is pending, the Bayes
 factor above excludes only the soft-preference arranger: it does not exclude a greedy/local builder, nor
 the possibility that the three rules are post-hoc regularities of an otherwise unremarkable ordering.
-**Update (v1.12, 2026-07-13): the stop-flag is RESOLVED — verdict re-affirmed on a stronger
-footing, with a slightly smaller headline number.** The four-class extension's first ingredient
-run had measured the rule-perfect population size N_gs **directly** for the first time and found
-it outside the derived bracket the v1.7 computation used — a pre-registered stop-and-investigate
-flag (v1.10). The investigation is complete: the discrepancy was a defect in the **bracket**, not
-in the model, the data, or the new measurement — the "bracket" was the span between two point
-estimates that carried no propagated uncertainty, and was never a confidence interval. A four-seed
-re-measurement battery puts N_gs = 4.50×10²⁵ (±6% conservative), and all three pre-registered
-convergence gates pass; under the measured value the Bayes factor becomes ≈ 5.2×10³–6.3×10³ — still
-an order of magnitude above the pre-registered "strong" band in every one of the 24 pre-committed
-sensitivity configurations. Details, evidence, and the honest residuals are in the stop-flag
-resolution within the Bayesian section.
+**Update (v1.12, 2026-07-13): the pre-registered N_gs stop-flag fired, was investigated, and is
+RESOLVED — the verdict is re-affirmed on a stronger, directly-measured footing with a slightly smaller
+headline (BF ≈ 5.2×10³–6.3×10³, still an order of magnitude above the "strong" band in all 24
+pre-committed configurations, and conditional on the three graded rules).** The full derivation — why
+the derived "bracket" was never a confidence interval, the four-seed re-measurement to
+N_gs = 4.50×10²⁵ (±6%), and the three convergence gates — is in the stop-flag resolution within the
+Bayesian section.
 
 Verification model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
 
@@ -121,7 +121,10 @@ the encoded trigram configuration is satisfied by King Wen exactly, as reported.
 reproduce each author's stated tallies before anything else was trusted — 16 of 18 for Moore's parity
 rule with both exceptions at 22–23, two rhythm breaks at (7,8) and (22,23), two gender violations at
 25/26, and the trigram faces 31/24/26/29. Those are the authors' numbers, not ours, and an encoding that
-failed to reproduce them would have been discarded rather than published.
+failed to reproduce them would have been discarded rather than published. **These counts and their exact
+positions are emitted by `python3 solve.py --r11-verify` (the `violation positions` line), so a reader
+reproduces both the (2,2,2) vector and the pair-slot / inversion-class loci from the shipped code — no
+re-instrumentation required.**
 
 ### 3. Moore's precursor exists — and three edits is minimal
 
@@ -259,8 +262,19 @@ the full set re-verified against freshly regenerated encodings on a separate mac
 The conflict theorem settles what cannot exist: no pairing-preserving ordering perfect under all four
 rules. The three **graded** rules — Moore's 2005 parity, Moore's 1989 rhythm, Schulz's 1990 gender rule
 (its exceptions first noted by Zhu Yuansheng in the 13th century) — are jointly satisfiable: the grand
-precursor of §3 achieves all three exactly, and the received order sits exactly three slot-edits from it,
-with all six violations (2+2+2 across the three rules) co-located at the historically flagged locus. §5
+precursor of §3 achieves all three exactly, and the received order sits exactly three slot-edits from it.
+Its six rule-violations are **not** all at one locus (an earlier version of this report said they were;
+corrected 2026-07-20 by direct computation against the scorers; reproduce via `python3 solve.py --r11-verify`). Exactly: the two Moore-parity breaks and
+one of the two Moore-rhythm breaks fall at **pair-slots 22–23** — the anomaly Moore identified — while the
+second rhythm break is at **pair-slots (7,8)** and the two Schulz-gender violations are at
+**inversion-class positions 25–26** (a different coordinate system from the pair-slots). Four of the six
+cluster at the flagged locus; two do not.
+**A definitional caution (F-46):** the *clustering* at 22–23 is less surprising than it first reads. Moore
+and Schulz each described their rules' exceptions *with reference to* that anomaly, so parity and one
+rhythm break landing there is partly a property of how the rules were stated, not solely a discovered
+coincidence — and, as the positions above show, the fit is partial rather than total. The certificate-backed
+content (that three edits suffice, and that all four rules cannot hold at once) does not depend on the
+co-location being surprising. §5
 left the reading of that residual anomaly open: restricted corruption, or tendencies? This section weighs
 that question — within a two-model comparison conditioned on the literature's rules, the strongest reading
 the data support and no more — by a pre-registered Bayesian comparison of the two readings the
@@ -526,4 +540,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.12 | 2026-07-13 | Stop-flag resolution: the v1.10 UNDER REVIEW annotation is closed. Investigation ([evidence/r11/](evidence/r11/)) found the derived bracket [1.03, 3.57]×10²⁵ was never a confidence interval (two point estimates, no propagated uncertainty); a 4-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6% conservative), with all three pre-registered convergence gates passing (χ² seed-consistency ~1σ; derived-CI cross-path 2.0σ; repaired stratified cross-check 0.12σ — the stratified instrument's strict-prefix composition defect was repaired by an estimator-only, self-test-neutral fix). Under the measured value BF ≈ 5.2×10³ (U) / 6.3×10³ (A) — direction unchanged in all 24 pre-committed configurations; verdict re-affirmed (headline ×0.79 smaller, footing stronger). Weakest-ingredient paragraph updated; four-class section status corrected (ingredients collected, verdict not computed, N_gs solidity gate passed); no theorem or certificate touched |
 | v1.13 | 2026-07-20 | **Corruption-result scope + form labelling (adversarial-review items F-43, F-8).** F-43: the 0.9998 posterior and the BF figures are a *pairwise* verdict — corruption vs soft-preference arranger — but nothing adjacent to them said so. Scope statements added at all three points a reader meets the numbers (executive summary, the findings bullet list, and "What this does NOT say"), stating explicitly that they exclude neither a greedy/local builder (M_G) nor the rules-epiphenomenal uniform null (M0), both of which remain un-run, and that a 0.9998 posterior *within a model pair* is not a 0.9998 posterior that the sequence was corrupted. The four-class comparison's calibration gate is separately in progress; no verdict is claimed. F-8: "Structure (6 sections)" relabelled to note that items 1-6 are section summaries, with the report's fully-written material being the v1.6/v1.7/v1.9/v1.12 sections. No theorem, certificate, or computed value changed |
 | v1.14 | 2026-07-20 | **Four-class comparison: calibration run, verdict VETOED — no result will be published.** The frozen design placed a synthetic-draw confusability gate before any KW-facing integration; it has now been executed and failed. The greedy-builder class M_G ranks itself first in 67/100 draws against a pre-registered threshold of 70 (67/67/45/25 across the four sensitivity variants; median log10 BF vs best rival 1.12 primary, negative in two variants), so M_G is not reliably separable from M0 or M_D at n=100 — and M_G is precisely the rival this extension existed to test. Per the design's §6.3 veto, no four-class Bayes factor, posterior, or verdict is computed or published, here or elsewhere; `compute_r11_bf.py` is not written and not planned. Section retitled from "measurement pending" to "calibration run, verdict VETOED" and an Outcome subsection added stating what the result does and does not license: the v1.7/v1.12 two-model corruption result is untouched, the greedy-local and rules-epiphenomenal rivals remain OPEN rather than defeated, and the finding is a limit of the inference at this sample size, not a property of the sequence. Honest residuals recorded (7 M_C draw failures counted conservatively against its own 100, not load-bearing since the failing class M_G had zero; SMC uses an exact bias-free monotone C3 lower-bound prune, runtime-asserted). Full instrument and per-draw evidence published to evidence/r11/. No theorem, certificate, or previously published number changed |
-| v1.15 *(current)* | 2026-07-20 | **Section bodies for §2-4 written (F-8, operator-directed).** §2 Method: the pair-structure space and why it is the literature's own assumption rather than a tractability convenience; what a SAT solver decides and why UNSAT is the stronger answer; what a DRAT certificate is and why it removes us from the trust chain; and the two-way encoding validation stated in plain language (rc4-kwtest UNSAT / rc4-kwexempt SAT / ccn4-kwtest SAT, plus reproduction of each author's own KW tallies before anything was trusted). §3 Moore's precursor: the witness with its rule tallies (parity 18/18, rhythm 0 breaks, gender 0 violations, C3=776) and the two-sided bracket establishing edit distance exactly three (near-2 UNSAT with certificate, near-3 SAT) — a historical conjecture rendered as a measured quantity. §4 The conflict theorem: the statement, the deliberately three-party verification chain (our encoding, kissat's decision, drat-trim's independent replay), the robustness evidence (five-rule union UNSAT, every leave-one-out subset still UNSAT, three minimal two-rule cores, no repair at any tested distance), and an explicit qualification that the S25-28 trigram rule is the most data-like of the four — with the note that the leave-one-out certificates show the theorem survives its removal. §1 and §5 deliberately REMAIN summaries: both are humanities-register prose where each added sentence is a further claim about what a named scholar said, this suite has already shipped one misattribution (F-15), and no constraint result depends on that prose. No theorem, certificate, number, or scope statement changed |
+| v1.15 | 2026-07-20 | **Section bodies for §2-4 written (F-8, operator-directed).** §2 Method: the pair-structure space and why it is the literature's own assumption rather than a tractability convenience; what a SAT solver decides and why UNSAT is the stronger answer; what a DRAT certificate is and why it removes us from the trust chain; and the two-way encoding validation stated in plain language (rc4-kwtest UNSAT / rc4-kwexempt SAT / ccn4-kwtest SAT, plus reproduction of each author's own KW tallies before anything was trusted). §3 Moore's precursor: the witness with its rule tallies (parity 18/18, rhythm 0 breaks, gender 0 violations, C3=776) and the two-sided bracket establishing edit distance exactly three (near-2 UNSAT with certificate, near-3 SAT) — a historical conjecture rendered as a measured quantity. §4 The conflict theorem: the statement, the deliberately three-party verification chain (our encoding, kissat's decision, drat-trim's independent replay), the robustness evidence (five-rule union UNSAT, every leave-one-out subset still UNSAT, three minimal two-rule cores, no repair at any tested distance), and an explicit qualification that the S25-28 trigram rule is the most data-like of the four — with the note that the leave-one-out certificates show the theorem survives its removal. §1 and §5 deliberately REMAIN summaries: both are humanities-register prose where each added sentence is a further claim about what a named scholar said, this suite has already shipped one misattribution (F-15), and no constraint result depends on that prose. No theorem, certificate, number, or scope statement changed |
+| v1.16 *(current)* | 2026-07-20 | **Framing pass (adversarial-review F-42, F-40a, F-46).** F-42: a reconciliation clause added to the executive summary so "not damage" and the corruption Bayes factor are not read as contradictory — the impossibility theorem rules out an original perfect under all *four* rules, while the Bayesian comparison concerns only the *three graded* rules, whose joint perfection is achievable. F-40a: the v1.12 stop-flag block compressed from a mechanics-dense paragraph to one sentence, with the derivation left in the body section that already carries it. F-46 + factual correction: the report had claimed "all six violations co-located at the historically flagged locus" — **this was wrong**, found during the framing review and confirmed by direct computation against the byte-for-byte scorers (Moore parity at pair-slots 22–23, Moore rhythm at (7,8) and (22,23), Schulz gender at inversion-class positions 25–26; four of six cluster at 22–23, two do not, and gender uses a different coordinate system). The passage now states the exact positions; the F-46 definitional caution is retained but scoped to the *partial* clustering. No theorem, certificate, or count changed — g1,g2,g3 remain 2,2,2 — only the false co-location claim is corrected |

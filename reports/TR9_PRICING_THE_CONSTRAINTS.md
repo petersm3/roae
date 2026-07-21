@@ -8,7 +8,14 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 If you had to transmit the King Wen sequence to someone, how many bits would it take — and how many do
 the known "design rules" save you? This report prices every rule in bits, the accounting standard of
 information theory. The verdict: the classical pairing rule does almost all the work (~146 of ~296
-bits) and is provably the *best possible* rule of its kind; the no-distance-5 rule roughly breaks even
+bits) and is provably the *best possible* rule of its kind — though that "essentially free to state"
+upgrade rests on [Radisic (2026)](../documentation/CITATIONS.md#radisic2026), an **external, unrefereed
+preprint whose Lean artifact is not bundled in this repo**. That dependency touches the *optimality*
+claims — "best possible" and the ~0-bit derivation-convention cost both rest on Radisic's uniqueness
+theorem — but **not the dominance conclusion**: **"C1 dominates the explanation" holds under the family
+(selection-cost) convention
+regardless**, since even the maximal family charge (~13–19 bits) is small against 146.3. The
+no-distance-5 rule roughly breaks even
 once its own statement cost is charged; and the celebrated transition-count recipe turns out to cost more to state than it saves — it
 is **description, not explanation**. After all known rules are applied, **between about 105 and 127 bits of the
 sequence remain unexplained (exact figure depends on the stated accounting convention)** — the honest measure of how much structure is still unaccounted for.
@@ -52,10 +59,10 @@ explicit.
    | baseline (any ordering) | 64! | 296.0 | — | — | — |
    | + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
    | + C2 (no-5) | 7.5706×10⁴¹ (**exact**, orbit-quotient DP `solve --f1-exact-c1c2c4`, 2026-07-04; supersedes the 2026-07-03 estimator value 7.571×10⁴¹ ±0.01%, which it confirms) | 139.1 | 4.5 | ~3 (family of per-distance bans) | **≈ 0 (+2.0 selection-only; −0.6 to −4 under explicit-grammar codings)** |
-   | + C5 (transition multiset) | 1.097051×10³⁹ (**exact**, out-of-core orbit-quotient DP `solve --f1-exact-c1c2c4c5`, 2026-07-16 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); supersedes the estimator value 1.0971×10³⁹ ±0.01%, which it confirms to 0.0044%) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
+   | + C5 (transition multiset) | 1.097051×10³⁹ (**exact, single-instrument** — out-of-core orbit-quotient DP `solve --f1-exact-c1c2c4c5`, 2026-07-16 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); mod-24 gate + 4/4 out-of-core ladder corroborate it, but it has not been independently recomputed at full scale ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi)); supersedes the estimator value 1.0971×10³⁹ ±0.01%, which it confirms to 0.0044%) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
    | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
    | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
-   | strongest literature rule ([Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
+   | strongest *principled* literature rule ([Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender — "strongest" among the rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
    **Exact marginals (v1.10, 2026-07-18).** With the analytic cells 64!, 32!·2³², 31!·2³¹ and the
    two DP exacts, every marginal in the C3-free spine is a **ratio of exact integers**: C4 given C1
@@ -75,8 +82,9 @@ explicit.
    — ~2¹² comparable members ≈ 12–13 bits (exact: 12.0 bits for {rev, comp} matchings, 19.0 if comp∘rev
    pairings are also admitted). ⁴ Statement-cost bracket for the multiset: full 6-class multiset log₂
    C(68,5) = 23.3 bits; conditioned on C2 (5 usable classes) log₂ C(67,4) = 19.5; marginal-consistent
-   price of the 31 unimplied boundary transitions given C1+C2 log₂ C(35,4) = 15.7 (the internally
-   consistent choice, since the compression column is marginal). Every choice leaves C5 net-negative.
+   price of the 31 unimplied boundary transitions given C1+C2 log₂ C(35,4) = 15.7. **C5 is net-negative
+   under all three (15.7 / 19.5 / 23.3) — the verdict is coding-independent**; the ledger reports 15.7
+   because the compression column is marginal, a presentational choice rather than a load-bearing one.
    ⁵ C3's threshold (776) is KW's own value — circular by construction,
    priced as data (CRITIQUE.md Q1); its marginal 3.0 bits are NOT claimed as explanation. ⁶ C6/C7 pin four
    slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
@@ -98,7 +106,7 @@ explicit.
    via the orbit-quotient DP `solve --f1-exact-c1c2c4`, pinned the marginal). C5 earns its keep operationally (it is what makes enumeration
    tractable) but explains nothing: it is confirmed description of King Wen, not explanation. **C3** is
    circular: its threshold (776) is KW's own value, so its 3.0 marginal bits are priced as data and not
-   claimed. **C6/C7** pin four slots — definitionally break-even. The strongest literature rule (the
+   claimed. **C6/C7** pin four slots — definitionally break-even. The strongest *principled* literature rule — strongest among those stated independently of King Wen, since the data-like trigram rule scores higher but describes rather than explains — (the
    Schulz gender rule, ×11,364 — see [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)) prices at ~13.5 bits gross against ~10–15 bits of rule text:
    ≈ 0 to small positive.
 4. **The residual — the honest thesis.** Knowing everything structural in this table, the sequence retains
@@ -114,8 +122,9 @@ explicit.
 5. **Conventions and their sensitivity.** This is the most judgment-laden report in the suite; the numbers
    in column 2 are measurements, but several numbers in columns 5–6 are *choices*, and a skeptical reader
    should see how far the conclusions move under different ones. (a) **C1's net spans +133 to +146**
-   depending on convention — the widest swing in the ledger — but the conclusion "C1 dominates the
-   explanation" is convention-robust: even the maximal family charge is small against 146.3. The family
+   under the primary {rev, comp} family (widening to ~+127 if the extended comp∘rev family's 19.0-bit
+   charge is taken) — the widest swing in the ledger — but the conclusion "C1 dominates the
+   explanation" is convention-robust: even that maximal ~19-bit family charge is small against 146.3. The family
    size is now exact: 12.0 bits for the {rev, comp} matchings the published "~12–13" refers to, or 19.0
    bits if comp∘rev pairings are also admitted — widening the honest low end to +125, still overwhelmingly
    positive. (b) **C5's family choice**: the multiset statement cost brackets over three marginal-consistent
@@ -149,7 +158,7 @@ explicit.
   weighted-Knuth instrument — [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) (method + 0.03% self-validation);
   C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per [TR-5](TR5_SYMMETRY.md);
   the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to ±0.01% — both documented in
-  SOLVE_C_CLI.md); C5 layer count **exact**: `solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`
+  SOLVE_C_CLI.md); C5 layer count **exact (single-instrument; not independently recomputed at full scale — the mod-24 gate, the 4/4 out-of-core ladder and byte-identical layer files corroborate it, [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi))**: `solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`
   (1.097051×10³⁹, divisible by 24 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); the prior
   estimator value 1.0971×10³⁹ ±0.01% matches it to 0.0044%)
 - C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib); within-pair
@@ -204,3 +213,4 @@ value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./s
 residual parenthetical reworded to match its arithmetic (the 126.6 figure retains C3's cut; dropping C3
 too gives 129.7). Statement-cost convention families for the three priced rows were tightened per the review before
 v1.0.*
+| v1.11 *(current)* | 2026-07-20 | **Dependency and precision disclosures (adversarial-review F-2a, F-2d, F-17, F-10).** F-2a/F-2d: the C5 exact count is tagged **single-instrument** in both the ledger row and the Verification Guide — mod-24 gate, 4/4 out-of-core ladder and byte-identical layer files corroborate it, but it has not been independently recomputed at full scale (TR-11 §10(vi)). F-17: the executive summary now discloses that C1's "essentially free to state" upgrade rests on Radisic (2026), an external, unrefereed preprint whose Lean artifact is not bundled here, and states that the **"C1 dominates" conclusion holds under the family convention regardless** — even the maximal family charge (~13–19 bits) is small against 146.3. F-10: "strongest literature rule" qualified to strongest *principled* rule, since the data-like trigram rule scores higher but describes rather than explains. No bit value changed |

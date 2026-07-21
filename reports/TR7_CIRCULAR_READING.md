@@ -53,7 +53,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    transitions, 25.00% exact) is the circular reading of the wrap-parity theorem plus C5's 16-odd-of-64
    count. Every C4+C5-valid ordering has it. McKenna discovered the ratio empirically before its proof was
    articulated here — one of his most accurate quantitative claims, and stronger than he may have realized:
-   forced by the constraint system, an artifact of no design choice at all.
+   **forced given C4 + C5**, and hence not an independent design choice *within* that constraint system — though C5 is itself a regularity read off King Wen, so "forced" here is relative to KW-derived constraints, not to an unconstrained arranger.
 4. **What closure changes: circular C5 and the 16-alternation corollary.** Under closure KW's transition
    multiset becomes {1:2, 2:20, **3:14**, 4:19, 6:9} (the d=3 count rises 13→14); orderings with d=1 wraps
    read {1:3, …, 3:13, …} instead. The parity-alternation theorem ([PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md); Lean
@@ -113,7 +113,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 
 ## Figure: the cycle
 
-![The King Wen cycle with the wrap edge](figures/fig_tr7_circular_cycle.svg)
+![The King Wen cycle with the wrap edge](figures/fig_tr7_circular_cycle.png)
 
 *The 64 hexagrams as a cycle in King Wen order (computed from the sequence itself). Red edges are odd
 transitions; the highlighted wrap edge 64→1 jumps d = 3 — odd, as the wrap-parity theorem forces. The
@@ -248,3 +248,4 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v1.8 | 2026-07-04 | 32-circular-switches corollary added (TR-6 30-switches × wrap-parity composition; derived in cross-report synthesis 2026-07-04, re-verified independently) |
 | v1.9 | 2026-07-10 | "The anchors on the circle" section added: anchor-transition rigidity (T1) + seam eligibility (T2i) + pair-determined 10:3:3 wrap classification (T2ii) — elementary, exhaustively finite-verified (Lean formalization planned); Cook's final-pair anchor re-priced against the parity-forced 1/16 eligibility baseline (apparent ×2.4 = ×1.9 forced · ×1.25 contingent). Circular anchor-adjacency population frequency (R-C1c) and circular-space size |C_circ| pre-registered but PENDING measurement (walks not yet run). |
 | v2.0 | 2026-07-10 | R-C1c and \|C_circ\| measured (evidence `reports/evidence/r6/`): circular anchor adjacency = 13.05% of C1–C5 mass (slot 32 = 7.85%, reproducing the R-C1 gate; slot 2 = 5.20%, the largest non-final slot — U-shaped A₂ histogram), vs pre-registered references 6.45% uniform-slots / 7.84% eligibility lower bound; \|C_circ\| = 0.652·N_lin + 0.175·6.507×10³⁷ ≈ 9.80×10³⁷ ≈ 0.74× the linear space. Report-only; no promotion. |
+| v2.1 *(current)* | 2026-07-20 | **Conditional-forcing correction (adversarial-review F-14a).** §3's "forced by the constraint system, an artifact of no design choice at all" restated as **forced given C4 + C5** — and therefore not an independent design choice *within* that system — with the added note that C5 is itself a regularity read off King Wen, so "forced" is relative to KW-derived constraints rather than to an unconstrained arranger. The prior phrasing smuggled the KW-derived constraints in as premise. No measurement changed |
