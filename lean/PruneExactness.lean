@@ -51,6 +51,13 @@
     bound Bmax. The DP-reachability facts (sum invariant, Bmax-validity)
     are HYPOTHESES here, mirroring how c5_prune_sound takes demands/
     remaining — see the F-53 section header below.
+  · `no_live_lumping` + `cap_never_merges_live` — F-21: the companion
+    no-further-collapse Proposition (FH1 §2) after independent review:
+    distinct sum-S residuals are future-equivalent IFF both dead, and a
+    shared cap image forces both residuals dead — no lumping among live
+    states. See the F-21 section header for the reviewed scope (this rules
+    out residual equivalence-classing, not every conceivable encoding) and
+    for why neither direction is load-bearing for the landed count.
 
   Bridge facts (stated, NOT machine-checked — the PartitionInvariance.lean
   pattern; these connect the model to the C implementation and are covered
@@ -420,5 +427,198 @@ example : Fcount [[2, 2], [1, 3]] [3, 1] = Fcount [[2, 2], [1, 3]] (capv [3, 1] 
 example : Fcount [[2, 2], [1, 3]] [1, 3] = Fcount [[2, 2], [1, 3]] (capv [1, 3] [2, 5]) :=
   capping_exact [[2, 2], [1, 3]] [1, 3] [2, 5] 4 (by decide) (by decide)
     (by decide) (by decide)
+
+/-! ### F-21 addendum (2026-07-21): the no-further-collapse companion
+    ("complete characterization of future-equivalence", FH1 §2 Proposition +
+    Correction 2), machine-checked at the model level after independent
+    review.
+
+    Statement reviewed and formalized: for two DISTINCT sum-S residuals
+    r1 ≠ r2 at the same (mask, last), "every completion is feasible
+    identically under both" (pathwise/trace equivalence — the criterion for
+    knowledge-free DP state merging) holds IFF both residuals are dead
+    (Fcount M r1 = Fcount M r2 = 0). Hence no residual lumping exists among
+    live states — `no_live_lumping` below. Correction 2 — capping never
+    merges live states: if the caps of two distinct sum-S residuals
+    coincide, both residuals were over-budget, hence dead —
+    `cap_never_merges_live` below.
+
+    SCOPE (review finding, F-21): what is proven (prose and here) rules out
+    residual equivalence-classing at a fixed (mask, last). It is NOT an
+    information-theoretic storage lower bound over arbitrary forward
+    schemes (value deduplication, cross-state merging, algebraic
+    compression are outside the argument); the prose consequence "the
+    minimal exact storage of ANY forward scheme is the live set" should be
+    read with that scoping. Neither direction of the Proposition is
+    load-bearing for the landed count: the production DP merges no live
+    states, and its arithmetic rests on `capping_exact` +
+    `ptle_iff_eq_of_eqsum` alone.
+
+    As throughout this file, the DP-reachability facts (sum invariant,
+    Bmax-validity) are HYPOTHESES; the bridge to solve.c is carried by the
+    runtime gates. Attribution: FH-1 Proposition and prose proof are from
+    FH1_RESIDUAL_DOMINANCE.md §2 (Claude, 2026-07-04); this independent
+    review and machine-checked packaging, Claude (Fable 5), 2026-07-21. -/
+
+/-- an empty filter result means no member satisfies the predicate
+    (converse of `count_none_eq_zero`). -/
+theorem no_mem_of_filter_len_zero {α : Type} (p : α → Bool) :
+    ∀ (l : List α), (l.filter p).length = 0 → ∀ x ∈ l, p x = false := by
+  intro l
+  induction l with
+  | nil => intro _ x hx; cases hx
+  | cons a t ih =>
+      intro h x hx
+      cases hpa : p a with
+      | true =>
+          rw [List.filter_cons_of_pos (by simp [hpa])] at h
+          simp at h
+      | false =>
+          rw [List.filter_cons_of_neg (by simp [hpa])] at h
+          rcases List.mem_cons.mp hx with rfl | hxt
+          · exact hpa
+          · exact ih h x hxt
+
+/-- deadness from non-membership: if no completion's usage vector equals r,
+    its count is 0. -/
+theorem fcount_zero_of_notmem (M : List (List Nat)) (r : List Nat)
+    (h : ∀ mu ∈ M, mu ≠ r) : Fcount M r = 0 := by
+  apply count_none_eq_zero
+  intro mu hmu
+  simp only [decide_eq_false_iff_not]
+  exact h mu hmu
+
+/-- non-membership from deadness: a zero count means no completion's usage
+    vector equals r. -/
+theorem notmem_of_fcount_zero (M : List (List Nat)) (r : List Nat)
+    (h : Fcount M r = 0) : ∀ mu ∈ M, mu ≠ r := by
+  intro mu hmu
+  have hf := no_mem_of_filter_len_zero (fun mu => decide (mu = r)) M h mu hmu
+  simpa using hf
+
+/-- an over-budget residual is dead (the `h1` step of `capping_exact`,
+    extracted): if r exceeds Bmax somewhere and every completion respects
+    Bmax, no completion's usage vector equals r. -/
+theorem fcount_zero_of_over (M : List (List Nat)) (r Bmax : List Nat)
+    (hover : ptle r Bmax = false)
+    (hMbound : ∀ mu ∈ M, ptle mu Bmax = true) :
+    Fcount M r = 0 := by
+  apply fcount_zero_of_notmem
+  intro mu hmu heq
+  have hb := hMbound mu hmu
+  rw [heq] at hb
+  rw [hb] at hover
+  cases hover
+
+/-- NO-FURTHER-COLLAPSE (FH1 §2 Proposition, F-21): two distinct sum-S
+    residuals at the same DP state are future-equivalent — every
+    completion's admissibility (`ptle mu r`, which on sum-matched vectors
+    is exact-equality by Lemma 2) is identical under both — IFF both are
+    dead. Live states allow no lumping. -/
+theorem no_live_lumping
+    (M : List (List Nat)) (r1 r2 : List Nat) (S : Nat)
+    (hne : r1 ≠ r2)
+    (h1 : r1.sum = S) (h2 : r2.sum = S)
+    (hMsum : ∀ mu ∈ M, mu.sum = S)
+    (hMlen1 : ∀ mu ∈ M, mu.length = r1.length)
+    (hMlen2 : ∀ mu ∈ M, mu.length = r2.length) :
+    (∀ mu ∈ M, ptle mu r1 = ptle mu r2) ↔
+      (Fcount M r1 = 0 ∧ Fcount M r2 = 0) := by
+  constructor
+  · intro heq
+    constructor
+    · apply fcount_zero_of_notmem
+      intro mu hmu hmu1
+      have ht1 : ptle mu r1 = true := by rw [hmu1]; exact ptle_refl r1
+      have ht2 : ptle mu r2 = true := (heq mu hmu).symm.trans ht1
+      have hmu2 : mu = r2 :=
+        le_eqsum_imp_eq mu r2 (hMlen2 mu hmu) ht2 (by rw [hMsum mu hmu, h2])
+      exact hne (hmu1.symm.trans hmu2)
+    · apply fcount_zero_of_notmem
+      intro mu hmu hmu2
+      have ht2 : ptle mu r2 = true := by rw [hmu2]; exact ptle_refl r2
+      have ht1 : ptle mu r1 = true := (heq mu hmu).trans ht2
+      have hmu1 : mu = r1 :=
+        le_eqsum_imp_eq mu r1 (hMlen1 mu hmu) ht1 (by rw [hMsum mu hmu, h1])
+      exact hne (hmu1.symm.trans hmu2)
+  · intro hd
+    rcases hd with ⟨hd1, hd2⟩
+    intro mu hmu
+    have hn1 : mu ≠ r1 := notmem_of_fcount_zero M r1 hd1 mu hmu
+    have hn2 : mu ≠ r2 := notmem_of_fcount_zero M r2 hd2 mu hmu
+    have e1 : ptle mu r1 = false := by
+      cases hp : ptle mu r1 with
+      | false => rfl
+      | true =>
+          exact absurd
+            (le_eqsum_imp_eq mu r1 (hMlen1 mu hmu) hp (by rw [hMsum mu hmu, h1]))
+            hn1
+    have e2 : ptle mu r2 = false := by
+      cases hp : ptle mu r2 with
+      | false => rfl
+      | true =>
+          exact absurd
+            (le_eqsum_imp_eq mu r2 (hMlen2 mu hmu) hp (by rw [hMsum mu hmu, h2]))
+            hn2
+    rw [e1, e2]
+
+/-- CORRECTION 2 (FH1 §2, F-21): capping never merges live states. If two
+    DISTINCT sum-S residuals have the same cap, at least one was strictly
+    capped (deficient-sum image), forcing the other over budget too via the
+    shared image — so BOTH are over-budget, hence dead. Live residuals are
+    fixed points of the cap; capping is dead-state pruning and nothing
+    more. -/
+theorem cap_never_merges_live
+    (M : List (List Nat)) (r1 r2 Bmax : List Nat) (S : Nat)
+    (hne : r1 ≠ r2)
+    (hlen1 : r1.length = Bmax.length) (hlen2 : r2.length = Bmax.length)
+    (h1 : r1.sum = S) (h2 : r2.sum = S)
+    (hMbound : ∀ mu ∈ M, ptle mu Bmax = true)
+    (hmerge : capv r1 Bmax = capv r2 Bmax) :
+    Fcount M r1 = 0 ∧ Fcount M r2 = 0 := by
+  have hboth : ptle r1 Bmax = false ∧ ptle r2 Bmax = false := by
+    cases hp1 : ptle r1 Bmax with
+    | true =>
+        cases hp2 : ptle r2 Bmax with
+        | true =>
+            exfalso
+            have e1 := capv_eq_self_of_ptle r1 Bmax hlen1 hp1
+            have e2 := capv_eq_self_of_ptle r2 Bmax hlen2 hp2
+            exact hne ((e1.symm.trans hmerge).trans e2)
+        | false =>
+            exfalso
+            have hlt := capv_sum_lt hlen2 hp2
+            have e1 := capv_eq_self_of_ptle r1 Bmax hlen1 hp1
+            rw [← hmerge, e1, h1, h2] at hlt
+            exact Nat.lt_irrefl S hlt
+    | false =>
+        cases hp2 : ptle r2 Bmax with
+        | true =>
+            exfalso
+            have hlt := capv_sum_lt hlen1 hp1
+            have e2 := capv_eq_self_of_ptle r2 Bmax hlen2 hp2
+            rw [hmerge, e2, h2, h1] at hlt
+            exact Nat.lt_irrefl S hlt
+        | false => exact ⟨rfl, rfl⟩
+  exact ⟨fcount_zero_of_over M r1 Bmax hboth.1 hMbound,
+         fcount_zero_of_over M r2 Bmax hboth.2 hMbound⟩
+
+/-- F-21 sanity: two distinct dead residuals ([4,0] and [0,4] against
+    completions [[2,2],[1,3]]) are future-equivalent. -/
+example : ∀ mu ∈ [[2, 2], [1, 3]], ptle mu [4, 0] = ptle mu [0, 4] :=
+  (no_live_lumping [[2, 2], [1, 3]] [4, 0] [0, 4] 4 (by decide) (by decide)
+    (by decide) (by decide) (by decide) (by decide)).mpr ⟨by decide, by decide⟩
+
+/-- F-21 sanity (the live side, negatively): two distinct LIVE residuals are
+    NOT future-equivalent — each one's own completion distinguishes them. -/
+example : ¬ (∀ mu ∈ [[2, 2], [1, 3]], ptle mu [2, 2] = ptle mu [1, 3]) := by
+  decide
+
+/-- F-21 sanity for Correction 2: [3,1] and [2,2] share the cap [1,1] under
+    Bmax [1,1] — and indeed both are dead against any Bmax-respecting
+    completion set. -/
+example : Fcount [[1, 1], [1, 0]] [3, 1] = 0 ∧ Fcount [[1, 1], [1, 0]] [2, 2] = 0 :=
+  cap_never_merges_live [[1, 1], [1, 0]] [3, 1] [2, 2] [1, 1] 4 (by decide)
+    (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
 
 end PruneExactness
