@@ -556,10 +556,13 @@ convention nothing reaches the candidate-rule level; nothing promotes. Full trea
 
 **Davis wave 2 (2026-07-11, reported in full as pre-committed):** the structural audit queue's
 unmeasured tail — two functionals: the coordinated rotation-quartet count at Davis's own
-compactness (pp. 113–114), and the Xun-at-x7/x8-slot count (p. 114) — was frozen in a
-git-timestamped **private** pre-registration (2026-07-10; KW values and gates fixed before any
-population number was observed) with the operationalizations landed **publicly first** (`dav2_*`,
-commit `09e2107`, two-language `--dav2-verify` gate), and measured 2026-07-11 at 2×10⁹ probes —
+compactness (pp. 113–114), and the Xun-at-x7/x8-slot count (p. 114) — has its complete design fixed
+in the **public** record: commit `09e2107` (2026-07-11) carries both functional definitions, their
+expected KW values, the two-language `--dav2-verify` gate, the C-D5 decline, and the /12 denominator,
+before the results landed publicly (`5ace541`). A git-timestamped private pre-registration (2026-07-10)
+additionally records the pre-measurement freeze, but is retained as auditor-disclosable provenance only —
+nothing here rests on it, because both results are denominator-invariant nulls (see TR-10 §3b). Measured
+2026-07-11 at 2×10⁹ probes —
 a batch-landing variant of wave 1's public pre-registration, stated plainly as such. Both
 **NULL** at the cross-wave 0.05/12 gate (frozen in advance, stricter than wave 1's /9): a
 Davis-compact quartet is population-common (P(≥1) = 0.876, mean 1.86; KW = 1, *below* the mean;

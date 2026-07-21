@@ -119,16 +119,41 @@ notational scoring — is accepted and stated.
    Li Shangxin) is the trisection sub-predicate of an already-registered functional and is not
    double-measured under a second name — and one declined on scope without measurement
    (§5(c); power note below). The freeze mechanism differed from wave 1's public
-   pre-registration and we state it plainly: the wave-2 design — functional definitions, King Wen
-   values, gates — was frozen in a **git-timestamped private pre-registration (2026-07-10) before
-   any population number was observed**, with the operationalizations landed **publicly first**
-   (`dav2_*` in solve.py/solve.c at commit `09e2107`, two-language [`--dav2-verify`](../documentation/SOLVE_C_CLI.md#--dav2-verify) gate), and
-   the results land here as a batch. The anti-HARKing guarantee is the same in substance — code
-   and design both fixed before measurement, all registered functionals reported regardless of
-   outcome — but the freeze timestamp is a private-repository commit rather than a public one.
-   The Bonferroni denominator was frozen in advance at **0.05/12 across the full cross-wave Davis
-   family** (stricter than wave 1's /9, fixed so that neither wave-splitting nor the later C-D5
-   decline could weaken the correction). Same instrument and self-check as §3: the run's own
+   pre-registration and we state it plainly — together with why nothing below depends on it. The
+   wave-2 design is fixed in the **public** record: commit `09e2107` (2026-07-11) landed the
+   complete bank in solve.py/solve.c — both functional definitions, their expected King Wen
+   values (`tquartet` = 1, `xunslots` = 5), the two-language
+   [`--dav2-verify`](../documentation/SOLVE_C_CLI.md#--dav2-verify) gate, the C-D5 decline, and
+   the /12 cross-wave Bonferroni denominator, all stated in the public source — before the
+   results landed publicly as a batch (this addendum, commit `5ace541`). A git-timestamped
+   private pre-registration (2026-07-10, one day earlier) additionally records that the design
+   was frozen before any population number was observed; it is retained as provenance and can be
+   disclosed to an auditor, but an external reviewer cannot inspect a private repository, so this
+   report rests no claim on it. Nor does it need to: the work a pre-measurement freeze normally
+   does is carried here by public, re-runnable artifacts and by the results themselves.
+   **(i)** Both results are nulls that clear no threshold under any convention — two-sided
+   p = 0.849 and 0.148, and the smallest one-sided tail anywhere in the batch (`xunslots`
+   P(≥5) = 7.4×10⁻²) fails even the plain *uncorrected* 0.05 gate, a fortiori 0.05/9, the frozen
+   0.05/12, and the global ≈0.05/91 ledger — so there is no positive that undisclosed analytic
+   freedom could have manufactured, and the verdicts are invariant to the choice of
+   multiple-comparisons denominator (or to applying none at all). **(ii)** The converse worry —
+   an operationalization tuned after peeking so that Davis's claims would dissolve — is
+   answerable from the public record: the functionals' free parameters are Davis's own (the
+   quartet window is his instance's own compactness, §4; the twelve x7/x8 slots and the Xun
+   trigram class are his stated pattern, p. 114), each functional reproduces its registered King
+   Wen value exactly (`--dav2-verify`, both languages), and the measurement — or any variant a
+   skeptical reviewer prefers — reruns from the public code (Verification Guide). Neither
+   verdict sits near a threshold that tuning could have tipped: at Davis's own compactness the
+   quartet configuration is *common* (~88% of valid orderings) with King Wen below the
+   population mean, and loosening the window can only make it more common. **(iii)** Selective
+   reporting is excluded in public: the source at `09e2107` itself declares the measured bank to
+   be exactly these two functionals with C-D5 declined, this addendum dispositions all four
+   queue items regardless of outcome (two measured — both null and both reported — one subsumed,
+   one declined), and the power note below shows the declined test could never have registered
+   under any outcome. The cross-wave Bonferroni denominator, **0.05/12 across the full Davis
+   family**, is part of the same public `09e2107` declaration (stricter than wave 1's /9, fixed
+   so that neither wave-splitting nor the C-D5 decline could weaken the correction) — and, per
+   (i), no verdict below depends on it. Same instrument and self-check as §3: the run's own
    canonical-leaf estimate, 1.3275×10³⁸, matches the established figure to 0.09%.
 
    | # | Candidate (Davis claim, pages) | KW | Population | Verdict |
@@ -245,9 +270,10 @@ notational scoring — is accepted and stated.
    transport under that transformation is notation-forced — true in every pairing-compliant ordering —
    so only the placement coordination is distinctive; and the uniqueness depends on an unstated
    compactness threshold, which any future population scoring must pre-register.) That scoring
-   has since been done: the coordination window was frozen in advance at his own instance's
-   compactness (both regions within two pair-slots; design git-timestamped 2026-07-10 before
-   measurement, operationalization public at commit `09e2107`), and the population answer is
+   has since been done: the coordination window was fixed at his own instance's
+   compactness (both regions within two pair-slots — a parameter read off Davis's quartet, not
+   tuned against the population; operationalization and expected King Wen value public at
+   commit `09e2107`, freeze provenance in §3b), and the population answer is
    that the configuration is common — about 88% of valid orderings contain such a quartet, with
    a population mean of 1.86 and King Wen's single instance below it (§3b).
 5. **His anti-mathematical argument, measured.** Davis's position implies three predictions:
@@ -376,4 +402,5 @@ notational scoring — is accepted and stated.
 | v1.3 | 2026-07-11 | **Scope-decision note (§5(c)):** Davis's big/little named-hexagram size pattern (pp. 94–96), conditionally pre-registered as a follow-up candidate, was declined without measurement on 2026-07-11 — hexagram names (tradition/translation-dependent semantic attributes) are not admitted as predicate inputs, consistent with §5(c)'s published scope statement. The follow-up family's Bonferroni denominator stays frozen at /12. No measured number in this report changes |
 | v1.4 | 2026-07-11 | Global-ledger qualifier on the trigarray "notable" (§3 row 3 + narrative): survives its family correction (0.05/9) but not the global 91-observable ledger (≈5.5×10⁻⁴ bar; measured 6.8×10⁻⁴) — see METHODS §"Global observable ledger". No measured number changes |
 | v1.5 | 2026-07-12 | **Wave-2 addendum (§3b):** the §4 compactness thread closed by pre-registered measurement — `tquartet` NULL (a Davis-compact quartet is population-common, P(≥1) = 0.876; KW = 1 below the mean 1.86), `xunslots` NULL (p = 0.148, registered at low prior); Bonferroni 0.05/12 across both waves, frozen in advance; design frozen in a git-timestamped private pre-registration 2026-07-10, code public first (`09e2107`), results batch-landed. C-D5 decline (§5(c)) augmented with an analytic power note: min attainable p = 1/15 under the pair-exchangeable null, 16× the family gate — reproducible with no ROAE code (Verification Guide). Companion D-B1 paragraph (§3b): Drasny's Rule of Ten conformity count verified true (X = 22) and shown tautological — every room is the argmax decade window for its group's KW positions, so the count scores KW against a KW-extracted template; data-like, no p attached, separate Drasny family. Nothing promotes; no §3 number changes |
-| v1.6 *(current)* | 2026-07-20 | **Scope qualifier (adversarial-review F-34).** Added a masthead scope note: "archaeology" is figurative — the report measures notational and structural properties against the population of valid orderings and makes no historical, philological, or text-critical claim beyond what the combinatorics support. Title unchanged (the body is already well-scoped); the qualifier prevents the humanities register of the title from being over-read. No measurement changed |
+| v1.6 | 2026-07-20 | **Scope qualifier (adversarial-review F-34).** Added a masthead scope note: "archaeology" is figurative — the report measures notational and structural properties against the population of valid orderings and makes no historical, philological, or text-critical claim beyond what the combinatorics support. Title unchanged (the body is already well-scoped); the qualifier prevents the humanities register of the title from being over-read. No measurement changed |
+| v1.7 *(current)* | 2026-07-21 | **Wave-2 freeze re-anchored to the public record (adversarial-review F-22).** The §3b freeze passage no longer presents the private-repository pre-registration timestamp as the anti-HARKing guarantee — a private commit is unverifiable by external reviewers, and is now cited as provenance only, disclosable to an auditor. The guarantee is re-grounded entirely in publicly checkable facts: the complete wave-2 bank (both functional definitions, expected KW values, the two-language `--dav2-verify` gate, the C-D5 decline, and the /12 denominator) is fixed in public commit `09e2107`, which precedes the public results landing (`5ace541`); both results are nulls invariant under every multiple-comparisons convention (two-sided 0.849 and 0.148; smallest one-sided tail 7.4×10⁻², above even uncorrected 0.05), so no pre-measurement freeze is load-bearing for the verdicts; the operationalizations' free parameters are Davis's own (instance compactness; the p. 114 slot/class pattern), excluding tuning-toward-null; and the §4 window parenthetical is aligned with the same anchoring. Both `--dav2-verify` gates re-confirmed PASS (tquartet = 1, xunslots = 5). No measured number changes |
