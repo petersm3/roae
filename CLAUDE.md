@@ -283,7 +283,23 @@ dependency sprawl. The canonical source files are `solve.c` (enumeration,
 sha-anchored), `solve.py` (analysis + ground truth), and `sat.py` (SAT/
 certificate layer, operator-approved 2026-07-02; imports solve.py and must
 contain NO hand-written constraint semantics — see its header). They stay
-that way; SAT work goes in `sat.py`, not new files. The two directory-scoped
+that way; SAT work goes in `sat.py`, not new files.
+
+**The INDEPENDENCE exception — `verify.py` and `verify.c` (operator-approved
+2026-07-21).** Independent verifiers are the one category that *cannot* live in
+the file they verify: a second opinion compiled into `solve.c`, sharing its
+helpers and constants, is not a second opinion. So there is exactly **one
+independent verifier per language**, and all future verification work goes
+INTO them, never into new files:
+- `verify.py` — independent Python verifier (records, `--recount`,
+  `--check-certificate`). Imports nothing from solve.c/solve.py/roae.py/sat.py.
+- `verify.c` — independent C verifier (plain non-quotient per-layer mass check).
+  Same discipline: no solve.c header, no shared table, no copied constant.
+
+This is a NARROW exception justified by purpose, not a general licence. It was
+established after `verify_layers.c` was created and pushed without approval
+(2026-07-21) — the same failure as `analyze_yields.c` in 2026-04-21. If you need
+more C verification, extend `verify.c`; do not add a third file. The two directory-scoped
 exceptions, each a separate-toolchain component: `viz/` (visualize.py — heavy
 plotting deps) and `lean/` (KingWen.lean — the Lean 4 machine-checked theorem
 file + README; all formal-verification work goes in that one file).

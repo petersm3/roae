@@ -1,7 +1,7 @@
 /* https://github.com/petersm3/roae
  * Developed with AI assistance (Claude, Anthropic)
  *
- * verify_layers.c — independent per-layer mass verifier for the f1c5 run (TR-11 §10vi, gate (c)).
+ * verify.c — independent per-layer mass verifier for the f1c5 run (TR-11 §10vi, gate (c)).
  *
  * WHAT THIS IS. A second opinion on the symmetry-quotient DP, computed a different way and
  * sharing NO code with solve.c. solve.c reports, for each layer k, a per-layer *plain*
@@ -36,8 +36,8 @@
  * pair table and B0 are DERIVED here, then B0 is cross-checked against the value solve.c
  * records in its manifest (a disagreement is itself a finding).
  *
- * BUILD:  cc -O2 -o verify_layers verify_layers.c
- * USAGE:  ./verify_layers <run.out> [max_layer]      (default max_layer = 6)
+ * BUILD:  cc -O2 -o verify verify.c
+ * USAGE:  ./verify <run.out> [max_layer]      (default max_layer = 6)
  *         Increase max_layer while memory allows; the program reports what it reached and
  *         stops cleanly rather than being killed.
  */
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
     NFREE = NPAIR - 1;                      /* pair 0 is the C4-pinned (Qian,Kun) */
 
     printf("======================================================================\n");
-    printf("verify_layers — independent plain-DP check of solve.c's per-layer mass\n");
+    printf("verify.c — independent plain-DP check of solve.c's per-layer mass\n");
     printf("plain (non-quotient) recomputation; shares no code with solve.c\n");
     printf("======================================================================\n");
     printf("derived: %d canonical pairs, %d free (pair 0 C4-pinned)\n", NPAIR, NFREE);
