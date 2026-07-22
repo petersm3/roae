@@ -171,3 +171,11 @@ is resolved — see the defects section above.)
 --recount` to regenerate the match table. `verify.c` builds with `cc -O2 -o
 verify verify.c` and reads a run's `run.out`. Developed with AI assistance
 (Claude, Anthropic).*
+
+**Provenance of the C5-ladder rows (2026-07-21):** the C5 ladder entries below are backed by an actual
+`python3 verify.py --recount` execution on 2026-07-21 (27 quantities reproduced, 0 MISMATCH,
+~134 s), not merely by TR-11's published statement. The landed run's `count_result.json` retains
+its original `"estimate accurate to 0.0044%"` note verbatim: it is a machine-readable record of
+what that run produced, so it is annotated here rather than edited — post-hoc rewriting of a
+landed artifact would damage its provenance value. The hedged reading (that figure is the
+estimate's rounding gap, not a resolved error) is carried in the surrounding prose.
