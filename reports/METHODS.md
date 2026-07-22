@@ -49,8 +49,9 @@ orbit-quotient), not by disagreement.
 | Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (single-instrument) | orbit | [TR-11] §9 |
 
 *"Single-instrument" exact counts are corroborated by the mod-24 free-action gate and (for the C5 layer)
-the 4/4 out-of-core ladder + byte-identical layer files, but have not been independently recomputed at
-full scale ([TR-11] §10(vi)).*
+the 4/4 out-of-core ladder + identical cross-mode layer content (byte-identical in the v1-format
+validation runs; under current defaults the two modes' files are content-identical but byte-different —
+[TR-11] §10(vi) precision note), but have not been independently recomputed at full scale ([TR-11] §10(vi)).*
 
 ## Environment (version pinning)
 | Component | Version | Source |

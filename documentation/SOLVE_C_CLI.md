@@ -839,8 +839,10 @@ Sha-neutral.
 `--f1-out-of-core DIR` (#221) runs the same DP with a different memory
 strategy: NO layer's entries are ever held in RAM in full — only fixed
 streaming buffers plus the two live layers' indexes (12 B/mask). Layers live
-in DIR (same atomic per-layer files + manifest as `--layers-dir`; the two
-modes' layer files are byte-identical); the next layer's gather streams the
+in DIR (same atomic per-layer files + manifest as `--layers-dir`; with
+`SOLVE_F1_OOC_FORMAT=v1` the two modes' layer files are byte-identical — under
+the v2 out-of-core default they are content-identical, byte-different; see
+`--f1c5-verify-layer`); the next layer's gather streams the
 previous layer's file via bucketed, coalesced sequential reads (no per-entry
 random file access), and the layer being BUILT is streamed back to disk
 chunk-by-chunk as it is emitted (2026-07-05 fix — the original #221 build
@@ -858,8 +860,11 @@ from DIR's last complete layer (hard error if there is nothing to resume);
 without it resume is still automatic when a matching manifest exists,
 mirroring `--layers-dir`. Mutually exclusive with `--layers-dir`.
 
-Layer files use the **v2 per-block-gzip format by default** (`SOLVE_F1_OOC_FORMAT`;
-gzip level via `SOLVE_F1_OOC_GZIP_LEVEL`, default 6) — smaller disk/I-O than the raw
+Layer files use the **v2 zlib-blocked format by default** (`SOLVE_F1_OOC_FORMAT`;
+per-block RFC-1950 zlib via `compress2` — **not** gzip-framed `.gz`, despite the
+"gzip" shorthand in the tool/env names; see
+[F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md) — compression level via
+`SOLVE_F1_OOC_GZIP_LEVEL`, default 6) — smaller disk/I-O than the raw
 `v1` reference, with the count format- and level-invariant. For long multi-day runs
 (e.g. the full n=31 count) the DP also writes an **intra-layer checkpoint** every
 `SOLVE_F1_CKPT_SEC` seconds (default 300), so `--resume-from-layers` resumes *mid-layer*
@@ -871,8 +876,9 @@ after a Spot eviction rather than restarting the current layer. (#223)
 solve --f1c5-gzip-selftest
 ```
 
-Self-test of the `--f1-out-of-core` **v2** per-block gzip layer codec (#223
-retool): round-trips the per-block zlib compress/decompress path across gzip
+Self-test of the `--f1-out-of-core` **v2** per-block zlib layer codec (#223
+retool; the codec is RFC-1950 zlib, not gzip — the flag name is historical):
+round-trips the per-block zlib compress/decompress path across compression
 levels and asserts byte-identical recovery of the key/value block payload. Exit
 0 on PASS, non-zero on any round-trip mismatch or allocation failure. Verifies
 the on-disk layer-file format layer in isolation; sha-neutral (argv-dispatched,
@@ -885,8 +891,9 @@ solve --f1c5-verify-layer <v1_raw> <v2_gzip>
 ```
 
 Cross-checks one `--f1-out-of-core` layer file written in the **v1** raw format
-(`F1C5LAY1` magic) against the same layer written in the **v2** per-block gzip
-format (`F1C5LAY2` magic), asserting they decode to byte-identical mask/entry
+(`F1C5LAY1` magic) against the same layer written in the **v2** zlib-blocked
+format (`F1C5LAY2` magic; the `<v2_gzip>` placeholder name is historical — the
+codec is RFC-1950 zlib), asserting they decode to byte-identical mask/entry
 content (#223). Both path arguments are required (exit 2 on usage error or read
 error); exit 1 on a content mismatch, 0 on match. This is the format-invariance
 check that backs the "count is format-invariant" claim for the OOC DP.
@@ -1309,11 +1316,11 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_F1_OOC_READ_MB` | 256 | `--f1-out-of-core` (#221): read-window buffer size in MB for the bucketed streaming gather (auto-raised to fit one full predecessor span, auto-clamped to the previous layer's size). Sha-neutral. |
 | `SOLVE_F1_OOC_SCRATCH_MB` | 1024 | `--f1-out-of-core` (#221): dense per-chunk gather-scratch budget in MB; sets how many targets are gathered per streaming pass (larger = fewer passes = less read amplification; the emit staging buffer scales with it, total RSS ~2.2x this value). For full-31 raise it (e.g. 16384 on a 64 GiB box) to keep per-layer read amplification tractable. Sha-neutral. |
 | `SOLVE_F1_OOC_GAP_KB` | 1024 | `--f1-out-of-core` (#221): gap read-through threshold in KB — adjacent needed file spans closer than this are coalesced into one sequential read instead of a seek. Sha-neutral. |
-| `SOLVE_F1_OOC_FORMAT` | `v2` | `--f1-out-of-core` (#223): per-layer file format. `v2` (default) = per-block gzip with a kidx/vidx seek index (smaller disk + I/O). `v1` = raw uncompressed (pristine reference). The count is **format-invariant** → Sha-neutral. |
-| `SOLVE_F1_OOC_GZIP_LEVEL` | 6 | `--f1-out-of-core` (#223, `v2` only): gzip level 1–9 for the per-block layer compression. Default 6 — measured knee (level 9 is ~2× slower for only ~3% smaller). **Level-invariant** → Sha-neutral. |
+| `SOLVE_F1_OOC_FORMAT` | `v2` | `--f1-out-of-core` (#223): per-layer file format. `v2` (default) = zlib-blocked (per-block RFC-1950 zlib, not gzip-framed `.gz` — [F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md)) with a kidx/vidx seek index (smaller disk + I/O). `v1` = raw uncompressed (pristine reference). The count is **format-invariant** → Sha-neutral. |
+| `SOLVE_F1_OOC_GZIP_LEVEL` | 6 | `--f1-out-of-core` (#223, `v2` only): zlib compression level 1–9 for the per-block layer compression (the env name's "GZIP" is historical — the codec is zlib). Default 6 — measured knee (level 9 is ~2× slower for only ~3% smaller). **Level-invariant** → Sha-neutral. |
 | `SOLVE_F1_CKPT_SEC` | 300 | `--f1-out-of-core` (#223): intra-layer checkpoint cadence in seconds. The DP snapshots a CRC32-guarded chunk-boundary marker (`f1c5_build.ckpt`) every interval; `--resume-from-layers` then resumes **mid-layer** from it after an interruption/eviction (not just at a layer boundary). Sha-neutral. |
 | `SOLVE_F1_MAX_LAYER` | `n` (all layers) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core` "PROBE MODE": stop the layered DP after layer `k=N` (clamped to `[1, n]`) instead of running to completion. Used for validation and partial builds (e.g. checking early-layer counts or exercising resume without a full multi-day run). Emits a `[f1] PROBE MODE` stderr line. A capped build is a partial count, not the published exact integer. Sha-neutral. |
-| `SOLVE_F1_KEEP_LAYERS` | 0 | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: when `=1`, retain **every** layer file `0..n` instead of rolling the two-layer window (the default drops layer `k-2` as the window advances). The preserve-all-layers substrate for the knowledge-compiler query tool and a full on-disk ladder for archival. Peak disk becomes the **full** ladder (full-31: ~2.5–2.7 TB v2-gz — plan a 4 TB disk), not the ~1×-largest-layer transient. The flag only suppresses the `k-2` unlink; the count and the layer bytes are unchanged → **Sha-neutral**. Emits a `[f1c5] KEEP-LAYERS` stderr banner. |
+| `SOLVE_F1_KEEP_LAYERS` | 0 | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: when `=1`, retain **every** layer file `0..n` instead of rolling the two-layer window (the default drops layer `k-2` as the window advances). The preserve-all-layers substrate for the knowledge-compiler query tool and a full on-disk ladder for archival. Peak disk becomes the **full** ladder (full-31: ~2.5–2.7 TB in the v2 zlib-blocked format — plan a 4 TB disk), not the ~1×-largest-layer transient. The flag only suppresses the `k-2` unlink; the count and the layer bytes are unchanged → **Sha-neutral**. Emits a `[f1c5] KEEP-LAYERS` stderr banner. |
 | `SOLVE_F1_STREAM_COLD_CMD` | (unset) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: operational archival hook. When set, the command is run on each about-to-be-deleted finalized layer file **before** the rolling-window `unlink`, invoked as `<cmd> <layer_path> <k>` — so a layer can be streamed to cold storage as the DP advances without keeping the whole ladder on local disk (contrast `SOLVE_F1_KEEP_LAYERS`, which keeps all layers). The hook's exit status is logged (`[f1c5] STREAM-COLD` / `STREAM-COLD WARNING`) but **non-fatal**: the DP continues and the local delete proceeds regardless. Fires only when the window would delete a layer (not under `KEEP_LAYERS`); the final two layers are never window-deleted, so grab those directly at the end. Purely off the arithmetic path → **Sha-neutral**. |
 | `SOLVE_F1_PROGRESS_JSON` | 1 (on when a run dir exists) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: emit `f1c5_progress.json` in the run dir, refreshed ~every 5 s and written **atomically** (temp + `rename`, so a reader never sees a torn write). Pure observability — reports `schema_version`, `phase` (`counting`/`finalizing_write`/`layer_complete`/`resuming`/`done`), `cumulative_count` (running partial count), the in-progress `layer{masks_target, masks_done, entries_done, bin_bytes_target/written, rates, eta}`, a `completed[]` per-layer table, and `resumes{}`. Set `=0` to disable. It only reads state the DP already tracks and writes a side file (best-effort; a failed emit never aborts the run) → **Sha-neutral**. |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |

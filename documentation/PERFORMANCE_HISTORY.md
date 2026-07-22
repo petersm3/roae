@@ -1257,6 +1257,10 @@ eviction-resilient — **without changing the computed count** (the DP is determ
 - Merge with main's `--c3-dist`: **non-overlapping** solve.c regions, auto-merged clean.
 
 ### Notes
+*Naming note (added 2026-07-22): "gzip" throughout this entry — the branch name, the env names, and the
+level A/B — is project shorthand. The v2 layer codec is per-block RFC-1950 **zlib** (`compress2`/
+`uncompress`), not gzip-framed `.gz`; see documentation/F1C5_LAYER_FORMAT.md. Identifiers keep their
+historical names; measurements are unaffected.*
 New env/CLI surface (see SOLVE_C_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OOC_GZIP_LEVEL` (default 6),
 `SOLVE_F1_OOC_SCRATCH_MB`, `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_CKPT_SEC` (default 300 s), `--resume-from-layers`.
 Full validation + measurement detail: `roae-private/RETOOL_DESIGN_2026_07_07.md`,

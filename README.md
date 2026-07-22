@@ -68,10 +68,12 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
   population-typical; one uniqueness claim is corrected; the ~126-bit residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
-- **The first exact count at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
-  (≈1.097×10³⁹) — computed to the last digit via the symmetry theorem's 24-fold quotient, divisible by 24
+- **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
+  (≈1.097×10³⁹; the suite's second exact full-scale count — the first, |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed
+  2026-07-04) — computed to the last digit via the symmetry theorem's 24-fold quotient, divisible by 24
   exactly as that theorem predicts, and reproducible on ~64 GB of RAM plus ~4 TB of disk; the statistical
-  estimator validated absolutely at 10³⁹ (off by 0.0044%). The flagship C1–C5 figure remains an estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+  estimator validated absolutely at 10³⁹ (the exact value lands inside its stated ±0.01% envelope). The
+  flagship C1–C5 figure remains an estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
 - **The record is reproducible**: every published count re-derivable to the byte by one command; the
   deepest run reproduced from scratch through seven fresh Spot evictions (twelve across both runs). [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
 

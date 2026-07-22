@@ -5343,12 +5343,14 @@ self-contained technical reports rather than paper drafts.
 The out-of-core count path (#221, 2026-07-04/05) was retooled into a production engine (#223) for the
 multi-day full-31 run:
 
-- **Per-block gzip layer format (v2).** Layer files are written as independently-gzipped blocks at a
+- **Per-block compressed layer format (v2).** Layer files are written as independently-compressed
+  zlib blocks (RFC-1950 via `compress2` — "gzip" in the associated tool/env names is project
+  shorthand; the codec is zlib, see [F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md)) at a
   selectable level (default 6; a direct measurement retired the tempting level-9 default — L9 ran ~2× slower
   for only ~3% smaller output at this data's entropy). Compression cuts the on-disk layer footprint that
   dominates a disk-streamed count.
 - **Intra-layer checkpointing.** `--resume-from-layers` previously resumed only at layer boundaries; the
-  retool adds a mid-layer checkpoint (CRC32-marked marker record, pinned gzip level, ~300 s cadence via
+  retool adds a mid-layer checkpoint (CRC32-marked marker record, pinned compression level, ~300 s cadence via
   `SOLVE_F1_CKPT_SEC`) so a run interrupted *inside* a multi-hour layer resumes from the last committed chunk
   rather than restarting the layer. Validated across a deliberate machine swap: a layer resumed at its exact
   interrupted chunk and completed identically.
@@ -5537,7 +5539,9 @@ Every pre-committed verification gate passes. **N mod 24 = 0 exactly** — the
 re-derivable by any reader with a big-integer library (the orbit count is N/24 =
 45,710,469,949,549,241,251,504,669,632,357,466,112). The ratio to the Knuth estimate is **0.999956** — the
 estimator's second absolute calibration against ground truth (after the 10⁴¹ validation in TR-11), this
-time at 10³⁹, accurate to 0.0044%. And the full 32-layer Burnside palindrome holds: masks(k) = masks(31−k)
+time at 10³⁹, accurate to 0.0044% *(as recorded at the time; per the later TR-11 v1.4 correction the
+0.0044% is the estimate's five-sig-fig rounding gap, not a resolved estimator error — what is established
+is that the exact value falls inside the stated ±0.01% envelope)*. And the full 32-layer Burnside palindrome holds: masks(k) = masks(31−k)
 across every recoverable pair, 93,939,712 canonical masks in total, peaking at k = 15/16 with 13,047,760
 each. The operational story is as much the record as the number: **twelve Spot evictions over the seven
 days, every one auto-recovered** from the layer/intra-layer checkpoints with no lost work — the #223
@@ -5555,7 +5559,11 @@ the count on ~64 GB RAM + ~4 TB of disk). The estimate→exact flips cascaded su
 [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), and
 [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) now carry the exact value where they previously carried the
 estimate — while **the C1–C5 flagship 1.3287×10³⁸ remains an estimate and C3 remains the open
-obstruction**, stated in every flipped location.
+obstruction**, stated in every flipped location. *(Superseded 2026-07-21: the C3 "structural
+obstruction" status was withdrawn — the C3 sum collapses to the bounded scalar identity
+C3 = 16 + 8·G, a machine-checked repo theorem since 2026-07-04 (`lean/C3Decomposition.lean`,
+`c3_slot_decomposition`), so what remains is a cost barrier, not a structural one; the flagship
+still remains an estimate. See TR-11 §10(ii), v1.5.)*
 
 In the same landing window, `sat.py`'s certified model counting was hardened out of an adversarial
 R2-delta review (`cc3663c`): `--certify-count` now **refuses count-unsafe targets** (`--with-c3`/

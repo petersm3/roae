@@ -16,10 +16,12 @@
  * NOT free, so prefix stabilizers exist and must be weighted correctly), and it does so on
  * the TRUE full-31 instance rather than a reduced rung.
  *
- * WHY THIS FORM. Verifying solve.c's binary layer FILES would require its on-disk format,
- * which is not published in any public document (checked 2026-07-21: not in TR-11, not in
- * documentation/). Writing a reader by consulting solve.c would reintroduce precisely the
- * shared-misreading failure class that verify.py's F-3 finding proved is real. The per-layer
+ * WHY THIS FORM. At the time this verifier was written (2026-07-21), solve.c's on-disk layer
+ * format was not published in any public document, so verifying the binary layer FILES would
+ * have required consulting solve.c — reintroducing precisely the shared-misreading failure
+ * class that verify.py's F-3 finding proved is real. (Since then the formats HAVE been
+ * published — documentation/F1C5_LAYER_FORMAT.md — so a spec-driven independent layer reader
+ * is now possible; per the verifier discipline it belongs in this file.) The per-layer
  * masses in run.out, by contrast, are plain numbers whose MEANING is published (TR-11 §3's
  * gate identity), so they can be checked independently with no format dependency at all.
  *

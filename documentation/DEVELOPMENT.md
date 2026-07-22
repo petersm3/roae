@@ -735,9 +735,12 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
 
 ### Solver
 
-- **Independent verifier**: `roae/verify.py` is a ~160-line pure-Python
+- **Independent verifier**: `roae/verify.py` is a pure-Python (stdlib-only)
   implementation of the verifier recipe in
-  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md). Reads any format-v1
+  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) (originally ~160 lines; it has
+  since grown the independent re-counting and artifact-check surfaces —
+  `--recount`, `--check-certificate` — documented in [VERIFY.md](VERIFY.md),
+  alongside the C-side sibling `verify.c`). Reads any format-v1
   `solutions.bin`, reconstructs each 64-hexagram sequence, and checks
   **C1 (pair structure), C2 (no 5-line transitions), C3 (complement
   distance ≤ 776, added 2026-04-19), C4 (starts with

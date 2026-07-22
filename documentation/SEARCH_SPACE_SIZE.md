@@ -42,7 +42,7 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 |---|---|---|---:|
 | **canonical (C1–C5) orderings (raw)** | **1.3287×10³⁸** | [1.3283, 1.3292]×10³⁸ | 0.02% |
 | — distinct canonical (after ~4× orientation-dedup) | **≈3.3×10³⁷** | — | — |
-| complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ — now known **exactly**: 1.097051×10³⁹ ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16; the estimate deviated 0.0044% — see §"Absolute validation against an exact count") | — | 0.01% |
+| complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ — now known **exactly**: 1.097051×10³⁹ ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16, single-instrument per TR-11 §10(vi); the exact value lands inside the estimate's stated envelope — see §"Absolute validation against an exact count") | — | 0.01% |
 | total backtracking-tree nodes | 2.0875×10⁴⁰ | — | 0.00% |
 
 For scale, this sits inside the standard reduction funnel (see [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) "numbers at a glance"): the unconstrained permutation space is 64! ≈ 1.3×10⁸⁹; the **C1 pair-structure skeleton is 32! × 2³² ≈ 1.1×10⁴⁵**; C2/C3/C4 successively cut that to ~10⁴⁰; and **C5 brings the true (un-budgeted) C1–C5 total to ≈1.3×10³⁸** (this estimate). Consistent with the funnel's earlier steps; it supplies the terminal count the funnel could previously give only as a budgeted lower bound (the 706 M found at the 10T budget). Still an enormous reduction, yet astronomically beyond enumeration.
@@ -163,18 +163,23 @@ masses starve below ~10⁻¹³ hit rates) and is queued as a future measurement.
 The estimator now has a full-scale ground-truth anchor: |C1∩C2∩C4| was computed EXACTLY
 (757,058,601,340,255,440,651,419,713,405,330,315,358,208, via the S4-orbit-quotient dynamic program — see
 [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) and [reports/TR5](../reports/TR5_SYMMETRY.md)). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
-±0.01%) deviates from the exact value by 5.5×10⁻⁵ — about half its stated error bound. Every other
+±0.01%) contains the exact value inside its stated envelope. (The apparent 5.5×10⁻⁵ gap is the distance
+to the estimate's four-sig-fig rounding, not a measured estimator error; the true error is unresolved at
+the published precision but well within ±0.01% — mirrors TR-11 v1.4 / TR-4's hedge.) Every other
 estimate in this document uses the same machinery at comparable or better hit rates; this is direct
 evidence the stated envelopes are honest.
 
 **A second full-scale anchor (2026-07-16), at the 10³⁹ scale:** |C1∩C2∩C4∩C5| was computed EXACTLY
 (1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹, via the out-of-core
 symmetry-quotient DP — see [reports/TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). The
-Knuth estimate of the same quantity (1.0971×10³⁹, stated ±0.01%) deviates from the exact value by
-4.4×10⁻⁵ (ratio 0.999956) — again well inside its stated error bound. (The full C1–C5 count remains an
-estimate: C3 is an open structural obstruction — it constrains a *global* positional-distance sum between
-complement partners, which the pair-level DP state does not carry; no feasible exact design for it is in
-hand — see TR-11 §10.)
+Knuth estimate of the same quantity (1.0971×10³⁹, stated ±0.01%) again contains the exact value inside
+its stated envelope (the 4.4×10⁻⁵ / ratio-0.999956 figure is the estimate's five-sig-fig rounding gap,
+not a resolved estimator error). (The full C1–C5 count remains an estimate — for **cost**, not
+structural, reasons: C3's global complement-position sum collapses to the bounded scalar identity
+**C3 = 16 + 8·G** — a machine-checked repo theorem since 2026-07-04, `lean/C3Decomposition.lean`
+`c3_slot_decomposition` — so a bounded-state exact design exists; carrying the G-channel alongside C5's
+budget state is sized at an estimated ~15–30× the C5 DP's footprint, outside this project's budget —
+see TR-11 §10(ii).)
 
 ## An information floor on the uniqueness-boundary count (2026-07-04)
 

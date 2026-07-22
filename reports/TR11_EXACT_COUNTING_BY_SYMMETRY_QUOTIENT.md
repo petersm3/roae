@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.8** (2026-07-21; §5 full-31 B0-coincidence claim CORRECTED — found by the independent instruments — see Revision history).*
+*Technical report — **v1.9** (2026-07-22; abstract / executive summary / §5 status lines synchronized with the v1.5–v1.8 corrections — see Revision history).*
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -19,7 +19,7 @@ exactly. The same run gave the project's statistical estimator its first full-sc
 at a scale (10⁴¹) where nothing exact existed before: the exact value falls **inside** the estimate's
 stated ±0.01% envelope. (The estimate was published to four significant figures, so its exact deviation
 is unmeasured at that precision — bounded well within the envelope, not resolved to it; see §9's note.)
-The report closes with the extension of exactness to the next constraint — its mathematics believed complete (one half now machine-checked in Lean, the other prose-proven and unreviewed), and
+The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally independently reviewed, 2026-07-21, and found **not load-bearing** for the landed integer — §10(iv)), and
 now engineered: the computation's terabyte-scale layers (measured: one layer alone exceeds 2.45 TB) are
 streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
 hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the exact integer is
@@ -27,8 +27,8 @@ hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the ex
 and within 0.0044% of the prior statistical estimate. The final constraint (C3) is, as of this
 version, no longer described as a structural obstruction: its global sum collapses to a bounded
 scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
-design exists; what keeps the flagship |C1–C5| an estimate is the ~35–60× cost of carrying that
-channel alongside C5's state, not missing mathematics.
+design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×)
+cost of carrying that channel alongside C5's state, not missing mathematics.
 
 ## Abstract
 
@@ -45,9 +45,9 @@ memory drops into the tens of GB. The theorem simultaneously supplies an arithme
 complete sequences is free, so the count must be ≡ 0 (mod 24); it is, exactly, on a 42-digit integer.
 The exact value validates the Knuth estimator absolutely at full scale (stated 7.571×10⁴¹ ±0.01%;
 deviation 5.5×10⁻⁵) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
-exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension is
-mathematically **believed complete** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus a prose proof, not independently reviewed, that no further state collapse
-exists — and now engineered: measured per-layer footprints reach >2.45 TB for a single layer — beyond the in-RAM reach of the
+exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension's mathematics is
+**closed at the model level** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus the no-further-state-collapse Proposition, independently reviewed 2026-07-21 and machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), the review also finding it **not load-bearing** for the landed integer (§10(iv))
+— and now engineered: measured per-layer footprints reach >2.45 TB for a single layer — beyond the in-RAM reach of the
 machine classes this project provisioned (up to 2.75 TB RAM + 3.55 TB striped swap; larger single
 nodes exist commercially but were not economically sensible here) — and an out-of-core mode (`--f1-out-of-core`,
 2026-07-05) replaces the RAM requirement with ~4 TB of streamed layer files, validated 4/4 exactly
@@ -55,7 +55,8 @@ against the in-RAM path on independent hardware; the full-scale count **landed 2
 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, divisible by 24 exactly and
 0.999956× the Knuth estimate), and the honest limits (the flagship 1.3287×10³⁸ remains an estimate;
 C3's global sum — formerly stated here as an open obstruction — collapses to the bounded scalar
-identity C3 = 16 + 8·G, leaving a ~35–60× cost barrier rather than a structural one; §10(ii)).
+identity C3 = 16 + 8·G, leaving an estimated ~15–30× (central ~19×) cost barrier rather than a
+structural one; §10(ii)).
 
 *Novelty status: symmetry-quotiented counting is classical methodology (Burnside/orbit counting;
 canonical-representative and isomorph-free generation techniques in the tradition of McKay); no novelty
@@ -165,7 +166,7 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
    measured profile of §6. (Projection caveat, as originally stated: the stored-fraction band 0.30–0.50
    was extrapolated from n = 16–18 unions and n = 31 could sit outside it. **The caveat fired**:
    entries-per-state growth at full scale exceeded the models — layer 15 alone ran 55%+ over its
-   combinatorial-bound estimate; the realized footprints are §6's table.) **Status: mathematics believed complete — the dead-state-pruning exactness theorem is now machine-checked in Lean at the **model level** (`capping_exact`, `lean/PruneExactness.lean` on the public `v4-canonical` branch, 0 sorry, 2026-07-20 — the DP-reachability premises are hypotheses in the Lean statement and the bridge to the C implementation is carried by prose + the runtime gates, per that file's header), while the companion no-further-collapse argument remains prose-proven and gate-validated but not independently reviewed (§10(iv));
+   combinatorial-bound estimate; the realized footprints are §6's table.) **Status: mathematics closed at the model level — the dead-state-pruning exactness theorem is machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` on the public `v4-canonical` branch, 0 sorry, 2026-07-20 — the DP-reachability premises are hypotheses in the Lean statement and the bridge to the C implementation is carried by prose + the runtime gates, per that file's header), and the companion no-further-collapse Proposition has been independently reviewed (2026-07-21, found sound) and machine-checked (`no_live_lumping`, `cap_never_merges_live`, same file) — the review also finding it not load-bearing for the landed integer (§10(iv));
    the memory barrier is removed by the out-of-core mode (§7); the full-scale run LANDED 2026-07-16 (§9).**
 6. **What the computation actually needs — the measured per-layer footprint profile.** The 2026-07-04/05
    full-scale attempts (an in-RAM run on a 2.75 TB-RAM M-series machine with 3.55 TB of striped swap,
@@ -256,7 +257,9 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
      cannot affect the totals (same kernel, byte-identical layer files), a fact the stressed-buffer
      gate above checks directly.
 9. **The full-scale exact count — LANDED (2026-07-16).** The full-31 run completed on 2026-07-16 on the
-   retooled solver (gzip'd layers + intra-layer checkpointing, merged to `main` 2026-07-09 commit
+   retooled solver (v2 zlib-blocked layers — per-block RFC-1950 zlib, not gzip-framed `.gz`, despite
+   the "gzip" shorthand in some tool names; see
+   [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) — + intra-layer checkpointing, merged to `main` 2026-07-09 commit
    `14db3f5`; D128als_v7 Spot, westus3, 4 TB disk (the run's first ~3 hours were on a D64 before a same-disk
    migration to the D128 — layer-checkpoint resume is shape-independent by design, and the migration
    preceded every layer that reached the final artifact's retained state) — the earlier c228/c231/c235 attempts were retired and
@@ -314,8 +317,10 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
    bounded-state exact design for C3 **does exist** — carry the running G (a channel ~96 wide under
    the C3 ≤ 776, i.e. G ≤ 95, filter) alongside the (mask, last, residual) state on the same
    symmetry-quotient DP. What remains is **cost, not design**: carrying the G-distribution alongside
-   C5's budget vectors multiplies the DP footprint an estimated ~35–60× — order 40–190 TB of
-   streamed layers and weeks of wall time, outside this project's budget — so the flagship |C1–C5|
+   C5's budget vectors multiplies the DP footprint an estimated ~15–30× with the G-channel capped
+   to its achievable range (central ~19×) — order 28–57 TB of streamed layers and weeks of wall
+   time, rough compute cost ~$1.5K–11K (central ~$3–4K; hedged ranges, not points — this sizing
+   has already been revised once), outside this project's budget — so the flagship |C1–C5|
    **remains a statistical estimate**, now for stated economic rather than structural reasons. Two
    things do become affordable: an exact **|C1∩C2∩C3∩C4|** rung (C3 without C5), at roughly the
    landed C5 run's scale; and **E[C3] over any ensemble this DP computes is free by linearity of
@@ -343,8 +348,18 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
    counts must divide conventions carefully. (vi) The identical-integer two-memory-strategy validation
    (§8) currently extends to 28 pairs; at full 31 the in-RAM path is infeasible (§6), so the full-31
    integer will initially rest on a single instrument — the out-of-core mode — supported by the mod-24
-   gate, the 4/4 ladder equivalence, and byte-identical layer files at every validated scale, not on an
-   independent full-scale recomputation. **Update (2026-07-21) — the *mathematical* half of this caveat is
+   gate, the 4/4 ladder equivalence, and identical layer files at every validated scale, not on an
+   independent full-scale recomputation. **Precision note (2026-07-21):** where this report says
+   "byte-identical layer files" across modes (§7, §8, here), that was established when **both** modes
+   wrote the v1 raw format, and it remains true of those validation runs. It is **not** a description of
+   current defaults: since the 2026-07-07 retool the out-of-core path defaults to the **v2** blocked
+   format (`SOLVE_F1_OOC_FORMAT=v1` restores v1) while the in-RAM path writes v1, so the two modes'
+   files today are **content-identical but byte-different** (different magic `F1C5LAY2`/`F1C5LAY1`,
+   version byte, and header block-size field). The evidentiary value is unchanged — the counts are
+   format-invariant, which is the property the ladder actually tests — but a reader reproducing this
+   should set `SOLVE_F1_OOC_FORMAT=v1` to obtain byte-identity, or compare content rather than bytes.
+   The on-disk formats are specified in
+   [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md). **Update (2026-07-21) — the *mathematical* half of this caveat is
    now closed, at zero compute; the *instrument* half is not.** The orbit-transfer argument (the gather
    formulation with its inverse-element `last` mapping, computing exact plain-DP values at canonical
    representatives, together with the stabilizer-weighted mass identity that the runtime gate checks) is
@@ -377,8 +392,10 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
   `[f1c5-ooc]` telemetry prints bytes read/written, MB/s, and RSS. Knobs: `SOLVE_F1_OOC_READ_MB` /
   `SOLVE_F1_OOC_SCRATCH_MB` / `SOLVE_F1_OOC_GAP_KB` (documentation/SOLVE_C_CLI.md).
 - Cross-mode equivalence, reader-side: run any `--f1-pairs N` subset both with and without
-  `--f1-out-of-core` — totals must match exactly and the layer files must be byte-identical
-  (`sha256sum` them); §8's ladder integers (24/25/27/28 pairs) are the recorded reference values.
+  `--f1-out-of-core` — totals must match exactly, and with `SOLVE_F1_OOC_FORMAT=v1` the layer files
+  must be byte-identical (`sha256sum` them; under the current v2 out-of-core default the files are
+  content-identical but byte-different — compare content with `--f1c5-verify-layer`, per §10(vi)'s
+  precision note); §8's ladder integers (24/25/27/28 pairs) are the recorded reference values.
 - Divisibility gate on the full-31 count, reader-side: reduce
   1,097,051,278,789,181,790,036,112,071,176,579,186,688 mod 24 (one line in any big-integer language;
   = 0; orbit count = that ÷ 24 = 45,710,469,949,549,241,251,504,669,632,357,466,112).
@@ -566,4 +583,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.5 | 2026-07-21 | **C3-obstruction status corrected (§10(ii); exec summary + abstract mirrors).** The statement that C3 "poses an open structural obstruction" with "no feasible exact design in hand" is withdrawn: the C3 sum satisfies the bounded-scalar identity **C3 = 16 + 8·G** (G = the complement-couple slot-gap sum; G ∈ [12, 228]; C3 ≤ 776 ⟺ G ≤ 95; King Wen on the boundary at G = 95), G is invariant under TR-5's 48-group (machine-checked over all 48 elements, numerically and in Lean — `g48_couples_to_couples`, same file, added this version), and a bounded-state exact design therefore exists — the remaining barrier is footprint cost (~35–60× the C5 DP; est. 40–190 TB), not structure. The identity is a machine-checked Lean theorem already in this repo since 2026-07-04 (`lean/C3Decomposition.lean`, `c3_slot_decomposition`, universal over C1-valid orderings, from the SAT C3-encoding work); the 2026-07-21 contribution — by Claude, this project — is the recognition of its exact-counting consequence, the G48-invariance check, cross-implementation numeric re-verification (thousands of random C1 orderings), and the cost sizing. No external prior statement of the identity is known to us; it may be known — corrections welcome via CITATIONS.md. No count, theorem, or canonical value changed |
 | v1.6 | 2026-07-21 | **§10(iv) closed: the FH-1 §2 / no-further-collapse proofs independently reviewed and machine-checked.** An independent review (2026-07-21) found the Proposition sound, and it plus its capping corollary are now Lean-checked (`no_live_lumping`, `cap_never_merges_live`, `lean/PruneExactness.lean` on the public `v4-canonical` branch, 0 `sorry`, reachability facts as hypotheses; C-bridge still prose+runtime-gates as for `capping_exact`). Two review results are recorded rather than buried: (a) **§5 narrowed** — "no further collapse" rules out residual equivalence-classing among live states, NOT an information-theoretic bound over every conceivable forward encoding, so "minimal storage of any forward scheme" now reads "any **residual-lumping** forward scheme"; and (b) the Proposition is **not load-bearing for the landed integer** — the production DP merges no live states, so correctness rests on the already-checked capping-exactness alone and a hole could only have cost a memory optimization, never a digit. Review + formalization by Claude (Fable 5); independent recompile/verification by Claude (Opus 4.8). No count, theorem statement, or canonical value changed |
 | v1.7 | 2026-07-21 | **§10(vi)'s mathematical half closed (instrument half unchanged); §2 orbit-DP bookkeeping now machine-checked.** The orbit-transfer argument — the gather formulation with its inverse-element `last` mapping computing exact plain-DP values at canonical representatives, plus the stabilizer-weighted mass identity behind the runtime gate — is machine-checked in Lean at the **model level**: `orbit_transfer_exact`, `orbit_stabilizer_mult`, `stabilizer_weighted_mass` (`lean/PruneExactness.lean` §OrbitTransfer, **public `v4-canonical` branch**, core Lean 4, 0 `sorry`, kernel-`decide` throughout). Two points recorded explicitly rather than implied: the transfer theorem **never assumes freeness**, which is exactly why §2's non-free *mask* action is harmless (no orbit weight enters a value); and orbit–stabilizer is proved **division-free** (`multiplicity × |stab| = |G|`), so the implementation's `n_eff/|stab|` weight is correct *precisely when stabilizers are non-trivial*. **Scope guarded:** this does NOT verify `solve.c` — reachability facts stay hypotheses and the C bridge stays prose + runtime gates + the n ≤ 28 agreement (four named residuals listed in §10(vi)) — and it does not touch the instrument question: the full-31 integer still rests on a single instrument with no independent full-scale recomputation. Formalization by Claude (Fable 5); independent recompile/verification (exit 0, 0 sorry/axiom/admit, no `native_decide`) by Claude (Opus 4.8). No count, theorem statement, or canonical value changed |
-| v1.8 *(current)* | 2026-07-21 | **§5 correction: the full-31 `B0`-coincidence claim was FALSE.** §5 asserted that at full 31 the Step-1 first-completion DFS and King Wen's boundary multiset *coincide*. They do not: two independent implementations of the Step-1 recipe — `verify.py`'s (Python) and the new `verify.c`'s (C) — both return `(2,7,13,8,1)` on the full-31 instance, against KW's `(2,8,13,7,1)` (which is also what the engine's manifest carries). Step 1 *does* reproduce `B0` correctly on the reduced rungs (`--recount` checks n=9/13/16 exactly), so the error was confined to the full-31 coincidence sentence; the honest statement is that at full 31 the budget is **defined** as KW's boundary multiset rather than derived via Step 1. **No count, theorem, or canonical value is affected** — the engine uses KW's multiset, which is what every published number rests on; the defect was in the documented derivation only. Found the same way F-3 was: by an independent instrument failing to reproduce a published recipe. Also lands `verify.c` (independent plain, non-quotient per-layer mass check against the engine's reported masses at full 31 — agrees k=1..N within memory reach) and `verify.py --check-certificate` (artifact/manifest/digest check for a completed run). Both by Claude (Opus 4.8) |
+| v1.8 | 2026-07-21 | **§5 correction: the full-31 `B0`-coincidence claim was FALSE.** §5 asserted that at full 31 the Step-1 first-completion DFS and King Wen's boundary multiset *coincide*. They do not: two independent implementations of the Step-1 recipe — `verify.py`'s (Python) and the new `verify.c`'s (C) — both return `(2,7,13,8,1)` on the full-31 instance, against KW's `(2,8,13,7,1)` (which is also what the engine's manifest carries). Step 1 *does* reproduce `B0` correctly on the reduced rungs (`--recount` checks n=9/13/16 exactly), so the error was confined to the full-31 coincidence sentence; the honest statement is that at full 31 the budget is **defined** as KW's boundary multiset rather than derived via Step 1. **No count, theorem, or canonical value is affected** — the engine uses KW's multiset, which is what every published number rests on; the defect was in the documented derivation only. Found the same way F-3 was: by an independent instrument failing to reproduce a published recipe. Also lands `verify.c` (independent plain, non-quotient per-layer mass check against the engine's reported masses at full 31 — agrees k=1..N within memory reach) and `verify.py --check-certificate` (artifact/manifest/digest check for a completed run). Both by Claude (Opus 4.8) |
+| v1.9 *(current)* | 2026-07-22 | **Consistency sweep — stale self-references synchronized with v1.5–v1.8 (no new results).** The abstract and executive summary still described superseded states: (a) the C5 extension's mathematics as "believed complete … not independently reviewed" — stale since v1.6/v1.7; both now state that the no-further-collapse Proposition is independently reviewed, machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), and not load-bearing for the landed integer, matching §10(iv); §5's status line likewise updated. (b) The C3 carry-cost sizing (~35–60×; 40–190 TB) in the abstract, executive summary, and §10(ii) replaced by the corrected capped-channel sizing from the 2026-07-21 design pass: ~15–30× (central ~19×), ≈28–57 TB, rough cost ~$1.5K–11K (central ~$3–4K) — stated as hedged ranges, not points, since this sizing has already been revised once. (c) The Verification Guide's cross-mode byte-identity instruction now carries §10(vi)'s v1/v2 format caveat (`SOLVE_F1_OOC_FORMAT=v1` for byte-identity; the v2 default is content-identical, byte-different — compare via `--f1c5-verify-layer`), which the guide had contradicted since the 2026-07-07 retool. (d) §9's "gzip'd layers" corrected to the accurate "v2 zlib-blocked layers" — the f1c5 layer codec is RFC-1950 zlib (`compress2`), not gzip-framed `.gz`, per [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md); tool/env identifiers (`--f1c5-gzip-selftest`, `SOLVE_F1_OOC_GZIP_LEVEL`) keep their historical names. No count, theorem, or canonical value changed |

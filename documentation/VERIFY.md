@@ -1,8 +1,10 @@
-# VERIFY.md — the independent second instrument (`verify.py`)
+# VERIFY.md — the independent second instruments (`verify.py`, `verify.c`)
 
-*Companion to `verify.py`. Answers the single-instrument caveat raised in
+*Companion to `verify.py` (and its C-side sibling `verify.c`). Addresses the
+single-instrument caveat raised in
 [TR-11 §10(vi)](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md): "at full
-31 … the full-31 integer will initially rest on a single instrument."*
+31 … the full-31 integer will initially rest on a single instrument." (The
+instrument half of that caveat still stands — see the closing section.)*
 
 `verify.py` is a genuinely **independent** second opinion on the ROAE results.
 It is standard-library-only Python, imports **none** of `solve.c` / `solve.py` /
@@ -12,13 +14,23 @@ mathematical definitions** (SPECIFICATION.md constraints C1–C5, `rev`/`comp`/
 counting method is deliberately **different** from `solve.c`'s symmetry-quotient
 DP, so a conceptual bug in the quotient method would not be shared.
 
-It verifies **both** kinds of published result:
+It verifies published results on **three** surfaces — records, exact counts,
+and (artifact-consistency only) completed-run certificates:
 
 | mode | what it checks |
 |---|---|
 | `python3 verify.py [solutions.bin]` | the RECORDS: re-decodes every record and re-checks C1–C5 + order/dups |
 | `python3 verify.py --enumerate-reference N` (2≤N≤9) | small-n completeness: brute-forces the reduced N-pair problem two independent ways (exhaustive vs prune-as-you-go) and asserts identical solution sets |
-| `python3 verify.py --recount` | the exact COUNTS: independently reproduces the small-n structural facts and the reduced-rung C1∩C2∩C4 union counts by a counting recurrence, and prints a match table |
+| `python3 verify.py --recount` | the exact COUNTS: independently reproduces the small-n structural facts, the reduced-rung C1∩C2∩C4 union counts, **and (since 2026-07-21) the C5 ladder rungs n = 9/13/16** (TR-11 §4b) — each rung's budget `B0` re-derived independently by TR-11 §5's first-completion DFS, then counted by a plain budgeted (mask, last, p) DP — and prints a match table |
+| `python3 verify.py --check-certificate DIR` | a completed f1c5 run's ARTIFACTS (run.out per-layer certificate rows, manifest, preserved digests) against structural identities and independently derived quantities. Recomputes **nothing** — internal-consistency and digest-integrity only, per its docstring |
+
+The C-side sibling, **`verify.c`** (same independence discipline: no `solve.c`
+header, no shared table, no copied constant), recomputes the engine's per-layer
+*plain* masses with a plain, non-quotient layered DP **on the true full-31
+instance** and compares against the run.out rows — agreeing at every layer
+within its memory reach (the plain state space grows ~16× per layer, so it
+exhausts long before k = 31; it is corroboration, **not** the independent
+full-scale recomputation §10(vi) asks for).
 
 ## The independent method (`--recount`)
 
@@ -75,34 +87,42 @@ computed by the method named; ✓ = exact match.
 | U2 closed form 12!·2¹² | 1,961,990,553,600 | 1,961,990,553,600 | ✓ | closed form |
 | U3 = 13 pairs {3.0,4.0,6.2}@63 | 39,239,811,072,000 | 39,239,811,072,000 | ✓ | counting recurrence |
 
-**Result: 21 quantities with published targets, all reproduced EXACTLY, 0 mismatch.**
-Peak RSS ~24 MB, wall time ~40 s (dominated by the 63 M-leaf U1 backtracking).
+**Result: every quantity with a published target reproduced EXACTLY, 0 mismatch**
+(rerun `python3 verify.py --recount` to regenerate the full table; exit 0 requires
+every published target to match). Peak RSS ~24 MB for the tables above; wall time
+dominated by the 63 M-leaf U1 backtracking and the n = 16 budgeted DP.
 
-## Not independently re-counted — the C1∩C2∩C4∩**C5** ladder (TR-11 §4b)
+### Target 3 — reduced-rung C1∩C2∩C4∩**C5** ladder (TR-11 §4b; added 2026-07-21)
 
-The seven C5-tracked ladder rungs (n = 13, 16, 19, 24, 25, 27, 28) are recorded
-as **NOT independently re-counted**, for two reasons — the first of which is a
-substantive finding this instrument surfaced:
+| rung | published | independent | match | method |
+|---|---|---|---|---|
+| n=9 `{3.0,3.1,3.2}@0`, B0 = (2,5,0,2,0) | 26,112 | 26,112 | ✓ | B0 re-derived by §5 Step-1 DFS, then plain budgeted (mask, last, p) DP |
+| n=13 `{3.0,4.0,6.2}@0`, B0 = (1,6,0,6,0) | 2,063,395,607,040 | 2,063,395,607,040 | ✓ | same |
+| n=16 `{4.0,6.0,6.1}@0`, B0 = (1,8,1,6,0) | 267,765,117,419,520 | 267,765,117,419,520 | ✓ | same |
 
-1. **The reduced-C5 definition as published is under-specified / imprecise.**
-   The Verification Guide (TR-11 "How to recompute a rung independently") says to
-   "retain only states whose [boundary-distance] multiset is a **sub-multiset**
-   compatible with C5 (King Wen's {1:2, 2:8, 3:13, 4:7, 6:1})." Taken literally,
-   the 13-pair rung `{3.0,4.0,6.2}@0` then counts **38,492,859,594,240** — **not**
-   the published **2,063,395,607,040**. The published value instead equals the
-   count for **one exact target boundary multiset**, `{d1:1, d2:6, d4:6}` (i.e.
-   the residual budget must land on a specific vector, not merely stay within
-   B0). That per-rung target vector lives in `solve.c`'s private `f1c5_unions[]`
-   table and is **not given in any public document**, so it cannot be reproduced
-   here without reading solver code — which would defeat independence. This
-   discrepancy is worth fixing in the public docs: either publish the per-rung
-   target budget vectors, or restate the reduced-C5 rung definition so the
-   published counts follow from it.
-2. **Pure-Python budget.** A residual-tracking recurrence (adding the C5 budget
-   dimension to the DP state) blows past this host's memory/time budget by
-   n ≥ 16 (the residual dimension multiplies the state count by thousands). Even
-   with the exact target vector known, only n = 13 is comfortably in reach on a
-   light host.
+The larger rungs (n = 18–28) remain out of pure-Python reach on a light host
+(the budget dimension multiplies the state count by thousands); they are covered
+by the engine's own 4/4 cross-mode ladder (TR-11 §8), not by this instrument.
+
+## Two published-recipe defects this instrument surfaced (both fixed)
+
+1. **The reduced-C5 rung definition was under-specified (F-3, fixed in TR-11
+   v1.2, 2026-07-20).** As originally published, the recipe said to retain
+   states whose boundary multiset was a *sub-multiset* of King Wen's — under
+   which the 13-pair rung counts 38,492,859,594,240, **not** the published
+   2,063,395,607,040 — and the per-rung target budget vector lived only in
+   `solve.c`'s private `f1c5_unions[]` table. TR-11 §4b/§5 now publish the
+   ordered pair lists, the per-rung `B0` targets, and the exact-match rule; the
+   Target-3 checks above run against the corrected public recipe, with `B0`
+   re-derived rather than copied.
+2. **The full-31 `B0`-coincidence claim was false (fixed in TR-11 v1.8,
+   2026-07-21).** TR-11 §5 claimed the Step-1 first-completion DFS reproduces
+   King Wen's boundary multiset at full 31. Both this file's Python and
+   `verify.c`'s C implementation of the published recipe return (2,7,13,8,1)
+   against KW's (2,8,13,7,1): at full 31 the budget is **defined** as KW's
+   multiset, not derived via Step 1. No published number was affected — the
+   engine uses KW's multiset — but the documented derivation was wrong, and an
+   independent instrument is what caught it.
 
 ## Corroboration chain for the full-scale count (which this instrument did NOT run)
 
@@ -113,26 +133,41 @@ does **not** rest on this instrument. Its corroboration chain is:
 
 - **Method-agreement at the reduced rungs (here).** An independent instrument,
   a different counting method (plain no-quotient recurrence + raw backtracking),
-  and stdlib-only code reproduce the C1∩C2∩C4 unions and every small-n
-  structural fact exactly — validating the recursion and the pairing/symmetry
-  machinery the full-scale run depends on.
-- **The project's own two engines agree at full scale.** The in-RAM
-  symmetry-quotient DP and the out-of-core streaming DP produce **byte-identical
-  layer files** and digit-identical totals at every validated subset size
-  (24/25/27/28 pairs reproduced digit-for-digit, TR-11 §8), and the compiler /
-  DFS lineages cross-check the enumeration side.
+  and stdlib-only code reproduce the C1∩C2∩C4 unions, the C5 ladder rungs
+  n = 9/13/16 (budgets re-derived), and every small-n structural fact exactly —
+  validating the recursion and the pairing/symmetry machinery the full-scale
+  run depends on.
+- **The project's own two engines agree at every validated subset size (≤28
+  pairs).** The in-RAM symmetry-quotient DP and the out-of-core streaming DP
+  produce identical layer content and digit-identical totals at every validated
+  subset size (24/25/27/28 pairs reproduced digit-for-digit, TR-11 §8;
+  byte-identical files in those v1-format validation runs — under current
+  defaults the two modes' files are content-identical but byte-different, per
+  TR-11 §10(vi)'s precision note). At full 31 the in-RAM path is infeasible
+  (TR-11 §6), so this agreement does **not** extend to full scale. The
+  compiler / DFS lineages cross-check the enumeration side.
+- **Per-layer mass agreement at full 31, within memory reach (`verify.c`).** A
+  plain non-quotient DP reproduces the engine's per-layer plain masses on the
+  true full-31 instance for every layer it can hold — exercising exactly the
+  stabilizer bookkeeping TR-11 §2 flags as delicate.
 - **The mod-24 free-action gate.** The free action of the order-24 record group
   forces N ≡ 0 (mod 24); the full-scale integer satisfies it exactly — a
   zero-code reader-side arithmetic check.
-- **The Knuth estimator.** The independent unbiased random-probe estimate
-  (≈1.0971×10³⁹) agrees with the exact full-scale integer to 0.0044%.
+- **The Knuth estimator.** The exact full-scale integer falls inside the
+  independent unbiased random-probe estimate's stated ±0.01% envelope (the
+  0.0044% figure sometimes quoted is the estimate's five-sig-fig rounding gap,
+  not a resolved estimator error).
 
-Method-diverse agreement at Tier-2 here, plus the two full-scale engines, the
-mod-24 gate, and the estimator, together address the TR-11 §10(vi) single-
-instrument caveat for the reduced rungs; the honest residual is the C5-ladder
-definitional gap noted above.
+Method-diverse agreement at Tier-2 here, the ≤28-pair two-engine equivalence,
+the full-31 per-layer masses within `verify.c`'s reach, the mod-24 gate, and
+the estimator together corroborate the full-scale count. The honest residual is
+unchanged from TR-11 §10(vi)'s instrument half: the full-31 integer rests on a
+single instrument, and an independent full-scale recomputation has not been
+performed. (The C5-ladder definitional gap this instrument originally surfaced
+is resolved — see the defects section above.)
 
 ---
 *`verify.py` is stdlib-only and imports no project code — run `python3 verify.py
---recount` to regenerate the match table. Developed with AI assistance (Claude,
-Anthropic).*
+--recount` to regenerate the match table. `verify.c` builds with `cc -O2 -o
+verify verify.c` and reads a run's `run.out`. Developed with AI assistance
+(Claude, Anthropic).*
