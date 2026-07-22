@@ -772,6 +772,142 @@ def recount():
     return 0 if all_match[0] else 1
 
 
+_PUBLISHED_F1C5 = 1097051278789181790036112071176579186688   # TR-11 §9, |C1∩C2∩C4∩C5|
+
+def _parse_layer_certificate(run_out):
+    """Extract the per-layer certificate rows a completed f1c5 run leaves in run.out.
+
+    Returns [(k, canonical_masks, C(31,k), states, entries, V_k, mass)]. These are the
+    engine's own published per-layer figures — this function only READS them; every
+    identity checked against them lives in check_certificate() below."""
+    import re
+    pat = (r"\[f1c5\] layer k=\s*(\d+)/31: canonical_masks=(\d+) \(of C\(31,(\d+)\)=(\d+)\) "
+           r"states=(\d+) entries=(\d+) V_k=(\d+).*?mass=(\d+)")
+    out = []
+    with open(run_out, encoding='utf-8', errors='replace') as fh:
+        txt = fh.read()
+    for m in re.finditer(pat, txt):
+        k, cm, _kk, cbin, st, en, vk, mass = (int(x) for x in m.groups())
+        out.append((k, cm, cbin, st, en, vk, mass))
+    return out
+
+def check_certificate(dirpath):
+    """Validate a completed f1c5 run's ARTIFACTS without re-running the DP (TR-11 §10iii).
+
+    This is the "check the artifact, don't trust the code" half of the verification
+    story: the engine's per-layer figures + manifest + preserved digests are checked
+    against structural identities and against quantities this file derives on its own
+    (King Wen's boundary multiset; the mod-24 gate; the published integer).
+
+    IMPORTANT — what this does and does NOT establish. It does NOT recompute the DP, so
+    it cannot certify that the per-layer masses are *correct*; it certifies that the
+    published artifact is internally consistent, structurally admissible, digest-intact,
+    and terminates at the published integer. Row-level recomputation is the companion
+    step and is deliberately not done here.
+
+    Identities were validated against the landed 2026-07-16 run (31/31 layers) before
+    being encoded; two plausible-looking candidates were REJECTED as false and are
+    recorded here so they are not re-added: `states == masks*2k` (fails at small k —
+    C2 forbids some exits, so only <= holds) and `mass strictly increasing across
+    layers` (simply untrue of the DP masses).
+    """
+    import os
+    rows = []
+    run_out = os.path.join(dirpath, 'run.out')
+    man = os.path.join(dirpath, 'f1c5_manifest.txt')
+    shas = os.path.join(dirpath, 'PRESERVE_SHA256.txt')
+    ok = [True]
+
+    def chk(name, cond, detail=""):
+        rows.append((name, bool(cond), detail))
+        if not cond:
+            ok[0] = False
+
+    print("=" * 74)
+    print("verify.py --check-certificate : artifact check for a completed f1c5 run")
+    print("reads the run's own artifacts; recomputes nothing. See docstring for scope.")
+    print("=" * 74)
+
+    if not os.path.isfile(run_out):
+        print(f"FATAL: no run.out under {dirpath}")
+        return 1
+    lay = _parse_layer_certificate(run_out)
+    chk("run.out carries all 31 layer certificate rows", len(lay) == 31, f"got {len(lay)}")
+
+    if lay:
+        chk("every layer: canonical_masks <= C(31,k)",
+            all(cm <= cb for _k, cm, cb, _s, _e, _v, _m in lay), "combinatorial bound")
+        chk("every layer: states <= canonical_masks * 2k",
+            all(st <= cm * 2 * k for k, cm, _cb, st, _e, _v, _m in lay),
+            "each placed pair offers <=2 exits; C2 removes some (equality FAILS at small k)")
+        chk("every layer: states <= entries <= states * V_k",
+            all(st <= en <= st * vk for _k, _cm, _cb, st, en, vk, _m in lay),
+            "budget-vector fan-out bound")
+        chk("every layer: mass > 0", all(m > 0 for *_r, m in lay))
+        term = lay[-1]
+        chk("terminal layer k=31 is a single canonical mask",
+            term[0] == 31 and term[1] == 1, f"k={term[0]} masks={term[1]}")
+        chk("terminal mass == published |C1∩C2∩C4∩C5| (TR-11 §9)",
+            term[6] == _PUBLISHED_F1C5, f"{term[6]}")
+        chk("terminal mass ≡ 0 (mod 24)  [free-action theorem gate]",
+            term[6] % 24 == 0, f"mod24={term[6] % 24}")
+
+    # manifest b0 vs King Wen's boundary multiset, derived HERE (not read from solve.c)
+    if os.path.isfile(man):
+        mtxt = open(man, encoding='utf-8').read()
+        got = None
+        for line in mtxt.splitlines():
+            if line.startswith('b0='):
+                got = tuple(int(x) for x in line[3:].split(','))
+        from collections import Counter
+        between = Counter(hamming(KW[2 * i + 1], KW[2 * i + 2]) for i in range(31))
+        mine = tuple(between.get(d, 0) for d in (1, 2, 3, 4, 6))
+        chk("manifest b0 == KW between-pair boundary multiset (derived independently)",
+            got == mine, f"manifest={got} derived={mine}")
+        chk("manifest reports last_complete_k=31", 'last_complete_k=31' in mtxt)
+    else:
+        rows.append(("manifest present", None, "no f1c5_manifest.txt"))
+
+    # preserved digests
+    if os.path.isfile(shas):
+        import hashlib
+        bad = []
+        for line in open(shas, encoding='utf-8'):
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            want, fn = parts
+            p = os.path.join(dirpath, fn)
+            if not os.path.isfile(p):
+                bad.append(f"{fn}:missing"); continue
+            h = hashlib.sha256()
+            with open(p, 'rb') as fh:
+                for blk in iter(lambda: fh.read(1 << 20), b''):
+                    h.update(blk)
+            if h.hexdigest() != want:
+                bad.append(f"{fn}:MISMATCH")
+        chk("preserved artifact digests match PRESERVE_SHA256.txt", not bad, ",".join(bad) or "all match")
+    else:
+        rows.append(("PRESERVE_SHA256.txt present", None, "absent"))
+
+    print()
+    for name, res, detail in rows:
+        tag = "[ MATCH]" if res is True else ("[ n/a  ]" if res is None else "[*FAIL*]")
+        print(f"{tag} {name}")
+        if detail:
+            print(f"          {detail}")
+    print("=" * 74)
+    if ok[0]:
+        print("RESULT: artifact is internally consistent, digest-intact, and terminates")
+        print("        at the published integer. This is NOT a recomputation — the")
+        print("        per-layer masses are taken as given; row-level recomputation is")
+        print("        the companion check and was not performed here.")
+    else:
+        print("RESULT: *** ARTIFACT CHECK FAILED *** — see FAIL row(s). Do not explain away.")
+    print("=" * 74)
+    return 0 if ok[0] else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -787,7 +923,15 @@ def main():
                              'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
                              'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
                              'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
+    parser.add_argument('--check-certificate', metavar='DIR', default=None,
+                        help='Artifact check for a completed f1c5 run directory (TR-11 §10iii): '
+                             'validates the per-layer certificate rows, manifest, and preserved '
+                             'digests against structural identities and independently-derived '
+                             'quantities. Recomputes NOTHING — see check_certificate() for scope.')
     args = parser.parse_args()
+
+    if args.check_certificate is not None:
+        sys.exit(check_certificate(args.check_certificate))
 
     if args.recount:
         sys.exit(recount())
