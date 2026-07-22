@@ -71,6 +71,12 @@ lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free g
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
 lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below)
+lean PruneExactness.lean     # f1c5 model-level exactness: capping_exact (dead-state pruning), no_live_lumping
+                             # + cap_never_merges_live (FH-1 §2 no-further-collapse), and §OrbitTransfer —
+                             # orbit_transfer_exact / orbit_stabilizer_mult / stabilizer_weighted_mass
+                             # (the orbit-DP transfer + stabilizer bookkeeping; TR-11 §2/§10(vi))
+lean PruneGInvariance.lean   # G-invariance of the prune predicate (record-level symmetry layer)
+lean RecordConvention.lean   # record/orientation convention lemmas
 ```
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
