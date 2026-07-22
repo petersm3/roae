@@ -82,6 +82,19 @@ lean SymmetryCompleteness.lean  # TR-5 v2.0 completeness kernel: psi iso, Q6 rig
 lean C1RuleConstants.lean    # the eight "forced-1.0" literature rules (mmt4,p1c4,s1,s6,r3,r4,r5,c2) are constants of the C1 space (2026-07-21)
 ```
 
+**Files on the `v4-canonical` branch, not here.** Three Lean files live on the public
+`v4-canonical` branch rather than `main`, because they concern the v4 compiler/f1c5 layer.
+Reports link to them with that qualifier; if a link looks broken from `main`, check that branch:
+
+- `PruneExactness.lean` — f1c5 model-level exactness. `capping_exact` (dead-state pruning is
+  exact), `no_live_lumping` + `cap_never_merges_live` (the FH-1 §2 no-further-collapse
+  companion), the `OrbitTransfer` section (`orbit_transfer_exact`, `orbit_stabilizer_mult`,
+  `stabilizer_weighted_mass` — the orbit-DP transfer and prefix-stabilizer bookkeeping behind
+  TR-11 §2/§10(vi)), and the C3 G-channel capping-soundness theorems (`g_prune_sound`,
+  `g_prune_exact`).
+- `PruneGInvariance.lean` — G-invariance of the prune predicate.
+- `RecordConvention.lean` — record/orientation convention lemmas.
+
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
 optimality in Lean 4 + Mathlib (K₄-equivariant matching; different object from the constraint-system
 symmetry group verified here). See CITATIONS.md.
