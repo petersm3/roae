@@ -908,6 +908,119 @@ def check_certificate(dirpath):
     return 0 if ok[0] else 1
 
 
+# ---------------------------------------------------------------------------
+# LAYER-SIDECAR IDENTITIES  (--check-layer-sidecars)
+#
+# The f1c5 per-layer sidecars (f1c5_layer_stats_KK.json, written for resume) are
+# already most of a checkable certificate. This validates the identities they must
+# satisfy, reading ONLY the small JSON files — no layer-file I/O, so it costs
+# nothing and runs anywhere, including long after the campaign VM is gone.
+#
+# The two load-bearing checks:
+#   * marginal_last_mass and marginal_rid_mass are two INDEPENDENT decompositions
+#     of the same mass_total (by terminal pair, and by boundary-residue id). Both
+#     must sum to mass_total. A transfer/stabilizer bug generically breaks one.
+#   * input_sha256_decompressed[k] == own_sha256_decompressed[k-1] chains the
+#     layers into a single lineage — proving the retained set is one uninterrupted
+#     run, not a mix of runs stitched across Spot evictions.
+#
+# NOTE (identity that looks right and is WRONG): entries_per_mask's min/max/mean
+# and histogram are over NON-EMPTY masks, so they total n_masks - n_empty_masks,
+# NOT n_masks. Layers with n_empty_masks == 0 pass the naive form by luck; k=1,2,3
+# of the 2026-07-22 full-31 run have n_empty_masks == 1 and do not. Do not "fix" a
+# failure here by relaxing to n_masks.
+# ---------------------------------------------------------------------------
+
+def check_layer_sidecars(dirpath):
+    import json, glob, re
+    files = sorted(glob.glob(os.path.join(dirpath, "f1c5_layer_stats_*.json")),
+                   key=lambda p: int(re.search(r"_(\d+)\.json$", p).group(1)))
+    if not files:
+        print(f"no f1c5_layer_stats_*.json in {dirpath}")
+        return 1
+
+    man = {}
+    mpath = os.path.join(dirpath, "f1c5_manifest.txt")
+    if os.path.exists(mpath):
+        for line in open(mpath):
+            if "=" in line:
+                k_, v_ = line.strip().split("=", 1)
+                man[k_] = v_
+
+    layers = {}
+    for f in files:
+        d = json.load(open(f))
+        layers[d["k"]] = d
+
+    fails, n = [], [0]
+    def ck(cond, label):
+        n[0] += 1
+        if not cond:
+            fails.append(label)
+
+    print("=" * 74)
+    print("verify.py --check-layer-sidecars : f1c5 per-layer sidecar identities")
+    print(f"  dir      : {dirpath}")
+    print(f"  layers   : k={min(layers)}..{max(layers)} ({len(layers)} sidecars)")
+    if man:
+        print(f"  manifest : n={man.get('n')} b0={man.get('b0')} pl_hash={man.get('pl_hash')}")
+    print("=" * 74)
+
+    for k in sorted(layers):
+        d = layers[k]
+        mt = int(d["mass_total"])
+        nonempty = d["n_masks"] - d["n_empty_masks"]
+
+        s_last = sum(int(v) for _, v in d["marginal_last_mass"])
+        s_rid = sum(int(v) for _, v in d["marginal_rid_mass"])
+        ck(s_last == mt, f"k={k}: sum(marginal_last_mass) != mass_total")
+        ck(s_rid == mt, f"k={k}: sum(marginal_rid_mass) != mass_total")
+
+        ck(sum(c for _, c in d["value_hist_log2"]) == d["n_entries"],
+           f"k={k}: value_hist_log2 counts != n_entries")
+        ck(sum(c for _, c in d["entries_per_mask"]["hist_log2"]) == nonempty,
+           f"k={k}: entries_per_mask hist != n_masks - n_empty_masks")
+        ck(sum(c for _, c in d["branching"]["hist"]) == d["n_entries"],
+           f"k={k}: branching hist != n_entries")
+
+        lo = sum(c * 2 ** b for b, c in d["value_hist_log2"])
+        hi = sum(c * 2 ** (b + 1) for b, c in d["value_hist_log2"])
+        ck(lo <= mt <= hi, f"k={k}: mass_total outside its own value_hist bounds")
+
+        epm = d["entries_per_mask"]
+        ck(epm["min"] * nonempty <= d["n_entries"] <= epm["max"] * nonempty,
+           f"k={k}: n_entries outside entries_per_mask min/max envelope")
+        ck(abs(epm["mean"] * nonempty - d["n_entries"]) / d["n_entries"] < 1e-6,
+           f"k={k}: entries_per_mask mean inconsistent with n_entries/nonempty")
+
+        if man:
+            ck(d["n"] == int(man["n"]), f"k={k}: n != manifest n")
+            ck(d["pl_hash"] == man["pl_hash"], f"k={k}: pl_hash != manifest pl_hash")
+            ck(",".join(str(x) for x in d["b0"]) == man["b0"], f"k={k}: b0 != manifest b0")
+
+        if k - 1 in layers:
+            ck(d.get("input_layer_k") == k - 1, f"k={k}: input_layer_k != k-1")
+            ck(d.get("input_sha256_decompressed") == layers[k - 1]["own_sha256_decompressed"],
+               f"k={k}: BROKEN HASH CHAIN — input sha != k-1's own sha")
+
+        print(f"  k={k:2d}  masks={d['n_masks']:>11,}  entries={d['n_entries']:>15,}  "
+              f"mass={mt:>27,}  {'OK' if s_last == mt and s_rid == mt else 'FAIL'}")
+
+    print("=" * 74)
+    print(f"{n[0] - len(fails)}/{n[0]} checks passed")
+    if fails:
+        print("FAILURES:")
+        for f in fails:
+            print("  " + f)
+        print("RESULT: *** SIDECAR IDENTITY CHECK FAILED *** — do not explain away.")
+        return 1
+    print("RESULT: all sidecar identities hold, and the layer hash chain is unbroken")
+    print("        across the retained set. This is NOT a recomputation of the masses —")
+    print("        it checks self-consistency and lineage, not the DP's arithmetic.")
+    print("=" * 74)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -928,7 +1041,16 @@ def main():
                              'validates the per-layer certificate rows, manifest, and preserved '
                              'digests against structural identities and independently-derived '
                              'quantities. Recomputes NOTHING — see check_certificate() for scope.')
+    parser.add_argument('--check-layer-sidecars', metavar='DIR', default=None,
+                        help='Check the f1c5 per-layer sidecar identities in DIR (two independent '
+                             'marginal decompositions each summing to mass_total, histogram totals, '
+                             'manifest agreement, and the layer-to-layer sha256 lineage chain). '
+                             'Reads ONLY the small JSON sidecars — no layer-file I/O, so it is free '
+                             'and works long after the campaign VM is gone. Recomputes no masses.')
     args = parser.parse_args()
+
+    if args.check_layer_sidecars is not None:
+        sys.exit(check_layer_sidecars(args.check_layer_sidecars))
 
     if args.check_certificate is not None:
         sys.exit(check_certificate(args.check_certificate))
