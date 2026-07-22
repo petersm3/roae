@@ -12,7 +12,7 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 **Key discoveries during this phase:**
 - **Trigram name swap bug:** Gen/Xun/Dui were cyclically swapped in the original code. Fixed by correcting the trigram_names dict.
-- **Complement distance direction:** Originally claimed King Wen "maximizes" complement distance. Discovered this was a circular filtering artifact — KW actually *minimizes* (3.9th percentile). Corrected across all documentation.
+- **Complement distance direction:** Originally claimed King Wen "maximizes" complement distance. Discovered this was a circular filtering artifact — KW is actually low, at the 3.9th percentile. Corrected across all documentation. *(Scope note added 2026-07-22: the 3.9% is measured over orderings satisfying every other constraint — C1+C2+C4+C5 — and is a lowest-4% placement, not a minimization; see SOLVE.md §Rule 3.)*
 - **XOR regularity is a theorem, not a finding:** The 7 unique XOR products in KW's pairs are a mathematical consequence of ANY reverse/inverse pairing of 6-bit values, not a property of King Wen specifically. Proved and documented.
 - **Null model test:** Applying the same constraint-extraction methodology to random pair-constrained sequences produces apparent uniqueness in 9 out of 10 cases. This means the constraint framework makes almost any sequence appear uniquely determined — a critical methodological caveat.
 - **"97%/3%" framing was misleading.** Replaced with more honest descriptions of what the data actually showed.
@@ -235,7 +235,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 - **[19] Identity-level equivalence of 4 working 4-sets.** All four leave exactly the same 4 records (KW orient variants, zero non-KW). Rigorous confirmation of what was previously only probabilistically inferred.
 - **[20] Complement-orbit analysis.** Bitwise complement (h → h^0x3F) maps pairs to pairs, preserving C1/C2/C5. Tested whether complement is an automorphism of the C1-C5 solution set. Result: **0 of 742M records have their complement in the dataset.** Complement is NOT closed — C3 (complement distance) breaks under the map. KW's complement has pair-sequence `[0 24 17 6 7 5 3 4 8 16 23 21 22 13 14 20 9 2 19 18 15 11 12 10 1 28 26 29 25 27 30 31]`, not in the dataset. The solution space is fundamentally asymmetric under bitwise complement.
 - **[21] Full per-position pair frequency table.** 32×32 baseline for 100T comparison. Confirms cascade structure: positions 4-20 have exactly 3 distinct pairs each; positions 22-31 have 14 each.
-- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE_SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
+- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE_SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). *(Correction 2026-07-22: the parenthetical scope in the preceding sentence is wrong — the 3.9% figure's measured population is C1+C2+C4+C5, the solve.py differential sample; the exact C1&C4-null tail is 8.106% (`verify.py --check-null-g`), so no C1-only scope supports 3.9%. The tautology point stands.)* Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
 - **[23] {25, 27}-only survivor characterization.** 37,356 total survivors (37,352 non-KW), replacing the old buggy "1,055." Positions 1, 25-28 are locked (5 of 32). Positions 4-20 still have exactly 3 distinct pairs each in this subspace.
 - **[24] KW nearest-neighbor catalog.** 44 solutions at edit distance 2 (the minimum); 6 at distance 3. All dist-2 neighbors are single pair-swaps in the free region (positions 21-32), except 2 records that swap pairs 1↔2 at positions 2-3. Consistent with the earlier pair-swap analysis.
 
@@ -1426,6 +1426,8 @@ single-branch deeper-budget exhaustion runs.
   the defensible scientific claim is the percentile statement
   (3.9th percentile of C1+C2-satisfying orderings), not the
   numerical threshold (added to `SOLVE.md` Rule 3 note).
+  *(Scope corrected 2026-07-22: the 3.9% is measured at the
+  C1+C2+C4+C5 scope, not C1+C2 — see SOLVE.md §Rule 3.)*
 
 **Live operational state during the campaign** is in
 `petersm3/roae-private:CURRENT_PLAN.md` (private operator log). Key
@@ -1775,7 +1777,11 @@ KW. Edits across SOLVE.md Rule 3, CRITIQUE.md complement-distance
 bullet, SPECIFICATION.md C3 definition + methodological-
 limitations section, and DEVELOPMENT.md (added a stack-`ulimit`
 subsection covering the production-vs-ASan threshold). Public
-commit `463c4b4`.
+commit `463c4b4`. *(Scope corrected 2026-07-22: the 3.9%'s
+measured population is C1+C2+C4+C5 — every constraint except C3
+itself — not "Rules 1-2"/C1+C2, where the project's own figures
+are ~7-8%; the 2026-05-05 two-scopes point otherwise stands. See
+SOLVE.md §Rule 3.)*
 
 **SOLVE_SUMMARY trimmed to introductory-article tone.** Three
 blockquote front-matter blocks at the top of SOLVE_SUMMARY.md

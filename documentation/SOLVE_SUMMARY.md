@@ -103,6 +103,16 @@ own value. (An earlier version of this page framed Rule 3 as active minimization
 corrected that. Scope note added 2026-07-04: the minimum was previously quoted unscoped as 424 — that
 is the 100T value; the 560T §[22] range is [392, 776].)
 
+*A reference baseline for the "one in ten" figure (exact, added 2026-07-22):* under the bare pair-slot
+null — all pair orderings with the Creative/Receptive start, with no other constraint applied and no
+enumeration budget — the exact distribution (`verify.py --check-null-g`) gives P(total ≤ 776) = 8.106231%
+and a ceiling-tie share P(total = 776 | total ≤ 776) = 7.86%. That null population is not like-for-like
+with the enumerated canonical sets (which also enforce the no-5 and difference-wave rules and are
+budget-truncated), so the baseline neither confirms nor refutes the ~10% figure. What it shows is that a
+null with no transition structure at all already produces a ceiling-tie share close to the observed ~10% —
+so the tie fraction should be read as largely generic to the pair-slot geometry, not as King-Wen-specific
+structure.
+
 **What this does:** Eliminates orderings whose complements drift farther apart than King Wen's — but leaves
 an enormous family, King Wen among them.
 
@@ -159,7 +169,7 @@ The millions of alternative arrangements satisfying Rules 1-5 are not random —
 - **Position 1 is mathematically forced.** Creative/Receptive always comes first.
 - **Position 2 partially constrains positions 3-19, but not deterministically.** Earlier docs claimed "for 16 of 31 branches, positions 3-19 are fully locked" (based on `--prove-cascade`). That result is correct *only within the shift-pattern subspace* (where every position is restricted to KW's pair or the previous pair) — and the canonical analyses show this subspace is a shrinking minority of valid orderings: **2.69% at d2, 0.062% at d3**. In the full canonical datasets, every reachable first-level branch admits multiple distinct pair sequences at positions 3-19; none are uniquely determined. The cascade region is heavily constrained (per-position entropy 0.3-1.9 bits at d3, well below the 5-bit maximum) but not deterministic.
 - **Freedom is concentrated in the back half but spread across the cascade too.** The canonical analyses show position 3 has the highest freedom (d3: 4.52 bits, d2: 4.05 bits, 28-31 distinct pairs observed), positions 24-31 carry 3.41-3.54 bits each at d3 (14 distinct pairs; positions 22-23 sit lower, at 1.74 and 3.15 bits — range corrected 2026-07-04 from "22-31 / 3.40-3.54"), and the "cascade region" (5-20) carries 0.48-1.85 bits each at d3 — heavily constrained but not zero. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in the back half is describing the arranger's selections among genuinely available alternatives, not mathematical necessity.
-- **King Wen's complement distance is 776 (mean 12.1)** — small vs random permutations (~22), small vs C1-only orderings (3.9th percentile). But within the full C1+C2+C3 canonical set, **KW is at the ceiling, not the minimum** — at the 560T canonical (10.5B orderings, re-measured 2026-07-08) **1,063,580,364 (10.11%)** tie with KW at 776 and all are ≤776 (the ceiling); was 340M/9.91% at 100T. Rule 3 is a ceiling constraint, not a minimization. See §Rule 3 for the updated framing.
+- **King Wen's complement distance is 776 (mean 12.1)** — small vs random permutations (~22), and at the 3.9th percentile (sampled) of orderings satisfying every other constraint (C1+C2+C4+C5; scope label corrected 2026-07-22 — under the bare C1&C4 null the exact tail is 8.1%, `verify.py --check-null-g`). But within the full C1+C2+C3 canonical set, **KW is at the ceiling, not the minimum** — at the 560T canonical (10.5B orderings, re-measured 2026-07-08) **1,063,580,364 (10.11%)** tie with KW at 776 and all are ≤776 (the ceiling); was 340M/9.91% at 100T. Rule 3 is a ceiling constraint, not a minimization. See §Rule 3 for the updated framing.
 - **The starting orientation is forced.** ䷀ The Creative must come before ䷁ The Receptive in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It appears to be a free choice at each pair.
 
@@ -410,3 +420,7 @@ The difference wave as a sparkline (each character = one transition, height = li
 | 61 | ䷼ #61 Inner Truth | ䷽ #62 Small Preponderance | 6 |
 | 62 | ䷽ #62 Small Preponderance | ䷾ #63 After Completion | 3 |
 | 63 | ䷾ #63 After Completion | ䷿ #64 Before Completion | 6 |
+
+---
+
+*Revision 2026-07-22 (C3 scope-consistency sweep): the 3.9th-percentile figure is now labeled at its measured scope — orderings satisfying every constraint except C3 itself (C1+C2+C4+C5; earlier text said "C1-only") — and §Rule 3 gained an exact reference baseline for the ~10% ceiling-tie figure (`verify.py --check-null-g`: tie share 7.86% under the bare pair-slot null; a baseline, not a refutation — the populations are not like-for-like). No counts or shas changed.*

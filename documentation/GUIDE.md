@@ -177,7 +177,7 @@ Entropy measures disorder. High entropy means the difference values are spread e
 
 ### --complements (Complement distance)
 
-Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile vs all orderings, 3.9th percentile vs pair-constrained orderings).
+Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile vs all orderings — the figure this section itself computes). Under the exact pair-constrained (C1&C4) null the tail is 8.1% (`verify.py --check-null-g`); the separately measured 3.9th-percentile figure is at the stricter all-other-constraints scope (C1+C2+C4+C5, from the solve.py differential sample — scope label corrected 2026-07-22).
 
 **What it means:** The sequence keeps opposites unusually close. However, the [constraint solver's null model test](SOLVE_SUMMARY.md#an-important-caveat) shows that complement distance, starting pair, and diff distribution narrow *any* sequence to near-uniqueness — so this property, while real, is less distinctive than the pair structure and no-5 property.
 
@@ -186,7 +186,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | Finding | Strength | Survives correction? |
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
-| Complement distance (0th / 3.9th percentile) | Moderate (see [caveat](SOLVE_SUMMARY.md#an-important-caveat)) | Yes |
+| Complement distance (0th %-ile unconstrained; 8.1% exact C1&C4 null; 3.9th %-ile at C1+C2+C4+C5) | Moderate (see [caveat](SOLVE_SUMMARY.md#an-important-caveat)) | Yes |
 | XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (≈12th percentile) | Weak | No |
@@ -198,7 +198,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | Recurrence rate (72nd percentile) | Not significant | No |
 | Neighborhood clustering (12th percentile) | Not significant | No |
 
-The pair structure is genuinely extraordinary — zero of 1.86 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also genuinely unusual — even random 6-bit Gray codes (explicitly optimized for adjacency) cannot beat KW's 776 total complement distance (minimum observed across 10⁵ random Gray codes: 832). The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (2 of 4 tested ancient orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). The genuinely King-Wen-specific properties are the combination (C1 + C2 + C3 together) and the specific C3 threshold of 776.
+The pair structure is genuinely extraordinary — zero of 1.86 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also uncommon, though far less extreme (roughly the lowest 4-8% depending on the reference population — 3.9% sampled at the all-other-constraints C1+C2+C4+C5 scope, 8.1% exact under the bare pair-constrained null — not in the same class as C1's 0-in-1.86B); notably, even random 6-bit Gray codes (explicitly optimized for adjacency) cannot beat KW's 776 total complement distance (minimum observed across 10⁵ random Gray codes: 832). The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (2 of 4 tested ancient orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). The genuinely King-Wen-specific property is the combination (C1 + C2 + C3 together); C3's threshold of 776 is KW's own extracted value, so its "specificity" is definitional rather than a finding (wording corrected 2026-07-22).
 
 The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
 - **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30, **current deepest**)
@@ -228,7 +228,7 @@ The perfect pair structure. Every one of the 32 consecutive pairs is either a re
 
 **Is the complement distance finding new?**
 
-The program finds that King Wen places complementary hexagrams closer together than random (0th percentile against unconstrained random orderings; 3.9th against the pair-constrained null). It appears to be a genuine structural regularity not widely discussed in prior analyses — with one important scope note: within the fully constrained C1+C2+C3 population, KW sits at the complement-distance *maximum* (most valid orderings place complements closer; see [SOLVE.md](SOLVE.md)).
+The program finds that King Wen places complementary hexagrams closer together than random (0th percentile against unconstrained random orderings; 8.1% under the exact pair-constrained C1&C4 null, `verify.py --check-null-g`; 3.9th percentile — sampled — at the stricter C1+C2+C4+C5 scope). It appears to be a genuine structural regularity not widely discussed in prior analyses — with one important scope note: within the fully constrained C1+C2+C3 population, KW sits at the complement-distance *maximum* (most valid orderings place complements closer; see [SOLVE.md](SOLVE.md)).
 
 **Can I trust the percentiles?**
 
@@ -246,3 +246,5 @@ The percentiles are Monte Carlo estimates based on 10,000-100,000 random permuta
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
+
+*Revision 2026-07-22 (C3 scope-consistency sweep): the 3.9th-percentile complement-distance figure was previously labeled "vs pair-constrained orderings"; its measured scope is C1+C2+C4+C5 (every constraint except C3 itself), and the exact pair-constrained (C1&C4) null tail is 8.1% (`verify.py --check-null-g`). "Genuinely unusual" was softened to "uncommon" for C3 (lowest 4-8% is moderate rarity, not C1-class), and "the specific C3 threshold of 776" was removed from the King-Wen-specific list (definitional — the threshold is KW's own extracted value). No counts or shas changed.*

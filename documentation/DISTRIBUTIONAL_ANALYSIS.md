@@ -73,10 +73,16 @@ records. (Subcommand: `solve.py --marginals`; full table in
   These dimensions carry zero information for distinguishing KW from
   other valid orderings — a structural finding in its own right.
 
-- **KW sits at the high extreme in four dimensions:** `c3_total` (95%-ile —
-  9.9% of records tie at the ceiling 776 with KW), `c6_c7_count` (99.997%
-  — only 198,676 tie at 2), `shift_conformant_count` (99.96% — 2.6M tie at
-  17), and `first_position_deviation` (100% — literally unique).
+- **KW sits at the high extreme in three dimensions, plus one that is
+  extreme by construction:** `c6_c7_count` (99.997% — only 198,676 tie at
+  2), `shift_conformant_count` (99.96% — 2.6M tie at 17), and
+  `first_position_deviation` (100% — literally unique). `c3_total` (95.04%-ile)
+  is at the high extreme **by construction, not as a finding**: the canonical
+  population is filtered at C3 ≤ 776 = KW's own value, so KW's top-cohort
+  placement on this dimension is guaranteed by the truncation (cf. the
+  analogous tautology note in [HISTORY.md](HISTORY.md) §[22]); the only
+  informative content of this marginal is the tie share (9.9% of records tie
+  at the ceiling 776 with KW). *(Caveat added 2026-07-22.)*
 
 - **KW sits at the low end in `fft_dominant_freq` (28.94%-ile).** The
   dominant frequency of KW's hexagram-value sequence is 16 (a period-4
@@ -128,18 +134,26 @@ categorical stratifier). See `solve.py --joint-density` and
   ordering in the 100,000-record uniform sample matches KW's joint feature
   profile; a sample of this size cannot resolve percentiles below ~10⁻⁵, so
   the rank is reported as a resolution bound, not a percentile. KW is
-  simultaneously ≥95th-percentile extreme on 4 of the 8 discriminating
-  dimensions.
+  simultaneously ≥95th-percentile extreme on 3 of the 8 discriminating
+  dimensions, plus a fourth (`c3_total`) whose ≥95th-percentile placement
+  is guaranteed by the C3 ≤ 776 population filter (by construction, not a
+  finding — see the marginals caveat above; count restated 2026-07-22,
+  previously "4 of 8"). The joint-KDE has not been re-run with `c3_total`
+  excluded; the outlier conclusion is expected to survive on the remaining
+  drivers (`c6_c7_count`, `first_position_deviation`,
+  `shift_conformant_count`) but that re-run has not been performed.
 
 **What this means.** KW's log-density under the sample-fit KDE is approximately
 **−128,260**, while the entire sample's log-density range is
 [−10.11, −2.98]. KW's log-density is **~12,800× lower** than any sampled
 canonical ordering's log-density. This is because KW's specific combination
-of feature-values — especially its high values in 4+ marginal dimensions
-simultaneously — places it in a region of the 7-dimensional feature space
+of feature-values — especially its high values in three marginal dimensions
+simultaneously (plus `c3_total`, high by construction under the C3 ≤ 776
+filter) — places it in a region of the 7-dimensional feature space
 that is not represented by any of our 100K standardized anchor points.
 
-Individually, KW's marginal percentiles are merely high (95%, 99.97%, 99.96%,
+Individually, KW's marginal percentiles are merely high (95% — though that
+one is guaranteed by the C3 ≤ 776 filter, see above — 99.97%, 99.96%,
 100%, 28.94%, 95.48%). The JOINT configuration — *simultaneously* at extremes
 in multiple dimensions — is what makes KW a density-space outlier. A typical
 C1-C5-valid ordering has its high values scattered or moderated across
@@ -171,12 +185,15 @@ be over-interpreted.
    Quantified claim: no ordering in a 100,000-record uniform sample matches
    KW's joint feature profile — KW's joint-density rank is **below the
    sample's resolution (<10⁻⁵)**, and KW is simultaneously ≥95th-percentile
-   extreme on 4 of the 8 discriminating dimensions.
+   extreme on 3 of the 8 discriminating dimensions — plus `c3_total`, whose
+   ≥95th-percentile placement is guaranteed by the C3 ≤ 776 population
+   filter (by construction, not a finding; count restated 2026-07-22).
 
 2. **Individual marginal percentiles are not the full story.** KW is near
    the median in `fft_dominant_freq` (29%-ile) and constant-valued in two
    dimensions. The joint-distribution atypicality arises from *simultaneous*
-   extreme values across 4+ independent structural dimensions, which is
+   extreme values across three independent structural dimensions (plus the
+   by-construction `c3_total` extreme), which is
    rare in the population.
 
 3. **Two of the proposed observable dimensions are structurally invariant**
@@ -366,3 +383,5 @@ noted without a significance claim (it is a property of the hexagram set, not of
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
+
+*Revision 2026-07-22 (C3 scope-consistency sweep): `c3_total`'s 95.04th-percentile marginal is guaranteed by the C3 ≤ 776 population filter (the canonical is truncated at KW's own value), so it is no longer counted as one of the joint-KDE outlier drivers — "4 of 8 extreme dimensions" is restated throughout as "3 of 8, plus one by construction". The only informative content of the `c3_total` marginal is its ceiling-tie share (9.9% at 100T). The KDE itself was not re-run; whether the joint-outlier magnitude changes with `c3_total` excluded is explicitly left open. No numbers in the tables changed.*
