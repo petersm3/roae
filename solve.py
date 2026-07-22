@@ -1699,11 +1699,34 @@ def compute_features(seq):
         "total_path": total_path,
     }
 
-def print_differential_analysis(max_nodes=10_000_000, time_limit=300):
-    """Generate solutions, compute features, find what makes King Wen unique."""
+def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=False):
+    """Generate solutions, compute features, find what makes King Wen unique.
+
+    SCOPE SWITCH (added 2026-07-22 — reproducibility fix, see below).
+
+    ``apply_c3=False`` (DEFAULT): the collected population satisfies **C1+C2+C4+C5
+    only — C3 is NOT applied**. This is the scope the published "King Wen's
+    complement distance is at the 3.9th percentile" figure was measured on, and it
+    is the scope every doc now labels (documentation/SPECIFICATION.md and
+    siblings, corrected 2026-07-22).
+
+    ``apply_c3=True``: additionally filters the leaf to ``cd(seq) <= cd(KW)`` — i.e.
+    C3 as well. **Within that population King Wen is at the ceiling BY
+    CONSTRUCTION**, so any "King Wen is extremal / maximal in complement distance"
+    result from this mode is a tautology, not a finding. Kept because it is what
+    the code did between an undated change and 2026-07-22.
+
+    WHY THIS EXISTS: the leaf filter had been applying C3 unconditionally, so
+    re-running ``--differential`` reproduced the ceiling artifact rather than the
+    published 3.9th-percentile figure — a published number its own generating tool
+    could no longer reproduce. Found 2026-07-22 during the C3 scope-consistency
+    sweep. The default restores the documented scope.
+    """
     print("=" * 70)
     print("DIFFERENTIAL ANALYSIS")
     print("=" * 70)
+    print()
+    print(f"SCOPE: population = {'C1+C2+C3+C4+C5 (C3 APPLIED — KW is at the ceiling BY CONSTRUCTION; extremality in complement distance is a tautology here)' if apply_c3 else 'C1+C2+C4+C5 (C3 NOT applied — the published 3.9th-percentile scope)'}")
     print()
     print("Step 1: Generate solutions satisfying all 6 rules.")
     print("Step 2: De-duplicate by pair ordering.")
@@ -1750,7 +1773,9 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300):
         step = len(seq) // 2
 
         if step == n:
-            if mean_complement_distance(seq) <= kw_comp_dist:
+            # C3 is applied ONLY when explicitly requested. Default is the
+            # documented C1+C2+C4+C5 scope; see this function's docstring.
+            if (not apply_c3) or mean_complement_distance(seq) <= kw_comp_dist:
                 solutions.append(list(seq))
             return
 
@@ -10069,7 +10094,13 @@ def main():
     parser.add_argument("--deep", action="store_true",
                         help="Run all deep analyses (enumerate + trigram + lines + neighborhoods + residuals + info)")
     parser.add_argument("--differential", action="store_true",
-                        help="Differential analysis: find features where King Wen is extremal among solutions")
+                        help="Differential analysis: find features where King Wen is extremal among solutions. "
+                             "Population is C1+C2+C4+C5 (C3 NOT applied) — the scope of the published "
+                             "3.9th-percentile figure. Add --differential-apply-c3 for the C3-filtered variant.")
+    parser.add_argument("--differential-apply-c3", action="store_true",
+                        help="Apply C3 to the --differential population as well. NOTE: King Wen is at the C3 "
+                             "ceiling by construction in that population, so complement-distance extremality "
+                             "there is a tautology, not a finding.")
     parser.add_argument("--rule7", action="store_true",
                         help="Test Rule 7 candidates: filter by extremal complement distance and line autocorrelation")
     parser.add_argument("--fingerprint", action="store_true",
@@ -10480,7 +10511,8 @@ def main():
 
     if args.differential:
         print_differential_analysis(max_nodes=args.max_nodes,
-                                    time_limit=args.time_limit)
+                                    time_limit=args.time_limit,
+                                    apply_c3=args.differential_apply_c3)
         print()
 
     if args.rule7:
