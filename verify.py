@@ -1021,6 +1021,125 @@ def check_layer_sidecars(dirpath):
     return 0
 
 
+# ---------------------------------------------------------------------------
+# NULL G-DISTRIBUTION  (--check-null-g)
+#
+# G is the C3 slot-gap statistic: C3 = 16 + 8*G (Lean `c3_slot_decomposition`), so
+# C3 <= 776 <=> G <= 95, and King Wen sits exactly at G = 95.
+#
+# This computes the EXACT distribution of G under the C1-and-C4 null -- 12 cross-couples
+# and 7 self-pairs placed into slots 1..31, uniformly. It is a reference distribution:
+# it tells you what G looks like with no C2 and no C5 conditioning at all, which is the
+# baseline any "KW's G is unusual" claim has to beat.
+#
+# INDEPENDENCE (the reason this lives in verify.py and not solve.c): solve.c's G channel
+# accumulates g -= s when a couple opens at slot s and g += s when it closes. This does
+# not touch slot indices in the accumulator AT ALL. It uses
+#
+#     G = sum_i (close_i - open_i) = sum_{s=1..30} o_s
+#
+# where o_s is the number of couples still open after slot s -- because a couple opened
+# at a and closed at b is open across exactly the b-a boundaries s in [a, b-1]. Same
+# model, different arithmetic. Agreement is therefore evidence, not tautology.
+#
+# Two checks need no DP at all and are applied as gates below:
+#   * total must be 31! exactly
+#   * E[G] must be 128 exactly, by linearity: each couple's slot-pair is marginally a
+#     uniform 2-subset of {1..31}, and E|i-j| = (n+1)/3 for a uniform 2-subset of
+#     {1..n}, so E[G] = 12*(32/3) = 128.
+# ---------------------------------------------------------------------------
+
+_NULL_G_EXPECT = {
+    'total_is_31_factorial': True,
+    'support': (12, 228),
+    'mean': 128,
+    'p_le_95_num': 641983711307479,
+    'p_le_95_den': 7919632354008375,
+}
+
+
+def check_null_g(verbose=True):
+    import math
+    from fractions import Fraction
+    from collections import defaultdict
+
+    NC, NS, NSLOT = 12, 7, 31
+    cur = {(0, 0, 0): 1}
+    for s in range(1, NSLOT + 1):
+        nxt = defaultdict(int)
+        for (o, c, g), w in cur.items():
+            rem_self = NS - ((s - 1) - o - 2 * c)
+            if rem_self > 0:
+                nxt[(o, c, g + o)] += w * rem_self
+            un = NC - o - c
+            if un > 0:
+                nxt[(o + 1, c, g + o + 1)] += w * 2 * un
+            if o > 0:
+                nxt[(o - 1, c + 1, g + o - 1)] += w * o
+        cur = dict(nxt)
+
+    hist = defaultdict(int)
+    for (o, c, g), w in cur.items():
+        if o != 0 or c != NC:
+            print(f"FAIL: terminal state (o={o}, c={c}) has unclosed couples")
+            return 1
+        hist[g] += w
+
+    total = sum(hist.values())
+    gs = sorted(hist)
+    mean = Fraction(sum(g * w for g, w in hist.items()), total)
+    ex2 = Fraction(sum(g * g * w for g, w in hist.items()), total)
+    var = ex2 - mean * mean
+    le95 = sum(w for g, w in hist.items() if g <= 95)
+    frac = Fraction(le95, total)
+
+    ok = [True]
+    def gate(cond, label, got, want):
+        status = "PASS" if cond else "*** FAIL ***"
+        if not cond:
+            ok[0] = False
+        if verbose:
+            print(f"  [{status}] {label}")
+            if not cond:
+                print(f"            got  {got}\n            want {want}")
+
+    if verbose:
+        print("=" * 74)
+        print("verify.py --check-null-g : exact G-distribution under the C1&C4 null")
+        print("  method: G = sum_s (couples open after slot s)  -- deliberately NOT")
+        print("          solve.c's -/+ slot-index accumulator, so agreement is evidence")
+        print("=" * 74)
+
+    gate(total == math.factorial(NSLOT), "total == 31!", total, math.factorial(NSLOT))
+    gate((gs[0], gs[-1]) == _NULL_G_EXPECT['support'], "support == [12, 228]",
+         (gs[0], gs[-1]), _NULL_G_EXPECT['support'])
+    gate(mean == _NULL_G_EXPECT['mean'], "E[G] == 128 exactly (DP-free: 12*(32/3))",
+         mean, _NULL_G_EXPECT['mean'])
+    gate(frac == Fraction(_NULL_G_EXPECT['p_le_95_num'], _NULL_G_EXPECT['p_le_95_den']),
+         "P(G <= 95) == 641983711307479/7919632354008375", frac,
+         Fraction(_NULL_G_EXPECT['p_le_95_num'], _NULL_G_EXPECT['p_le_95_den']))
+
+    if verbose:
+        print("-" * 74)
+        print(f"  support        [{gs[0]}, {gs[-1]}]   bins {len(gs)}")
+        print(f"  E[G]           {mean}")
+        print(f"  sd             {math.sqrt(float(var)):.6f}")
+        print(f"  P(G <= 95)     {frac}  = {100*float(frac):.6f}%")
+        print(f"  P(G == 95)     {100*float(Fraction(hist.get(95,0), total)):.6f}%")
+        print(f"  P(G == 95 | G <= 95) = {100*float(Fraction(hist.get(95,0), le95)):.4f}%")
+        print("=" * 74)
+        if ok[0]:
+            print("RESULT: null G-distribution reproduced exactly.")
+            print("        SCOPE: this is the C1&C4 null ONLY — no C2, no C5, no budget")
+            print("        truncation. It is NOT comparable like-for-like to ceiling-tie")
+            print("        shares measured over C2/C5-conditioned enumerated populations,")
+            print("        and it does not on its own refute or confirm any such figure.")
+        else:
+            print("RESULT: *** NULL G-DISTRIBUTION CHECK FAILED *** — do not explain away.")
+        print("=" * 74)
+    return 0 if ok[0] else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -1047,7 +1166,16 @@ def main():
                              'manifest agreement, and the layer-to-layer sha256 lineage chain). '
                              'Reads ONLY the small JSON sidecars — no layer-file I/O, so it is free '
                              'and works long after the campaign VM is gone. Recomputes no masses.')
+    parser.add_argument('--check-null-g', action='store_true',
+                        help='Compute the exact G-distribution under the C1&C4 null (12 couples + 7 '
+                             'self-pairs into 31 slots) and gate it against total == 31!, support '
+                             '[12,228], E[G] == 128, and P(G<=95) == 641983711307479/7919632354008375. '
+                             'Uses a different accumulator than solve.c (open-couple counts, not '
+                             '+/- slot indices), so agreement is evidence. Reads no files.')
     args = parser.parse_args()
+
+    if args.check_null_g:
+        sys.exit(check_null_g())
 
     if args.check_layer_sidecars is not None:
         sys.exit(check_layer_sidecars(args.check_layer_sidecars))
