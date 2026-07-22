@@ -63,6 +63,8 @@ solve --c3-dist [solutions.bin]                         # C3 complement-distance
 solve --f1-exact-c1c2c4 [--layers-dir DIR]              # exact |C1∩C2∩C4| orbit DP
 solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--f1-out-of-core DIR]
                                                         # exact |C1∩C2∩C4∩C5| orbit DP
+solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2] # exact C3 G-histogram (uncapped)
+                                                        # G≤95 cumulative = exact |C1∩C2∩C3∩C4|
 solve --f1c5-gzip-selftest | --f1c5-verify-layer <v1> <v2>
                                                         # f1c5 layer-codec self-test / cross-check
 solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
@@ -869,6 +871,57 @@ per-block RFC-1950 zlib via `compress2` — **not** gzip-framed `.gz`, despite t
 (e.g. the full n=31 count) the DP also writes an **intra-layer checkpoint** every
 `SOLVE_F1_CKPT_SEC` seconds (default 300), so `--resume-from-layers` resumes *mid-layer*
 after a Spot eviction rather than restarting the current layer. (#223)
+
+### --f1-c3-hist
+
+```
+solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2] [--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]
+```
+
+The **C3 "G-channel"** (BACKLOG-2a): augments the orbit-DP state with the
+running C3 slot-gap sum G — `C3 = 16 + 8·G` universally over C1-valid
+orderings (`c3_slot_decomposition`, machine-checked in
+`lean/C3Decomposition.lean`; KW has G = 95, so `C3 ≤ 776 ⟺ G ≤ 95`,
+inclusive) — and emits the **exact final-layer G-histogram**. The mode is
+**uncapped** (no G-prune): the histogram answers *every* threshold at once,
+and its `G ≤ 95` cumulative (`G_HIST_CUM_LE_95`) is the derived exact
+**|C1 ∩ C2 ∩ C3 ∩ C4|** under the default base. Bases:
+
+- default (no flags): **C1 ∩ C2 ∩ C4** (the C5 residual is disabled, rid ≡ 0)
+  — the BACKLOG-2a production base. Gate: the histogram total must equal the
+  `--f1-exact-c1c2c4` count (full-31: 7.5706…×10⁴¹).
+- `--with-c5`: keeps the exact C5 boundary-budget residual (#217 semantics) —
+  the rung-validation base; totals must reproduce the published rung counts
+  (n=9 → 26,112; n=13 → 2,063,395,607,040; n=16 → 267,765,117,419,520 —
+  verified 2026-07-22).
+- `--no-c2`: drops the C2 adjacency test — the **C1 ∩ C4 null** gate base. At
+  full-31 the histogram must equal 2³¹ × the exact null G-distribution:
+  support exactly [12, 228], `E[G] = 128` (asserted in-binary as the integer
+  identity `WSUM == 128 × TOTAL`), and
+  `P(G ≤ 95) = 641983711307479 / 7919632354008375` exactly. Mutually
+  exclusive with `--with-c5`.
+
+Key packing keeps **28 B/entry**: `key32 = (gofs << 22) | (last << 16) | rid`
+with `gofs = g + 496` (10 bits; running |g| ≤ 496 for every rung). The cost
+of the channel is an *entry-count* multiplier only — measured uncapped
+multipliers vs the rid-free base at the validation rungs: ~5–6× (n=9), ~10×
+(n=13), ~17–19× (n=16), rising with the achievable G-width (a full-31 run
+should expect substantially more; measure, don't extrapolate). Storage,
+checkpointing, `--f1-out-of-core`, the v2 zlib-blocked layer format, and the
+intra-layer checkpoint are all inherited from #217/#221/#223 unchanged, under
+distinct layer magics (`F1C3LAY1`/`F1C3LAY2`/`F1C3BLD1`) and a manifest
+`gmode=` line, so a G-run and an f1c5 run can never resume from each other's
+directories (hard abort in both directions). All `SOLVE_F1_*` env knobs apply.
+
+Built-in gates (hard aborts): KW witness at init (static couple slot-gap sum
+= 95 AND the incremental open/close accumulator over KW's walk = 95); every
+gathered g inside the per-layer worst-case band (printed at startup); at
+full-31, support within the proven [12, 228], per-bin **mod-24 divisibility**
+(the free 24-action preserves G, so it acts on every G-fiber; skipped under
+`--no-c2`), and the G=95 bin populated. Output: one `G_HIST g=<g>
+count=<exact>` line per nonzero bin plus `G_HIST_TOTAL`, `G_HIST_WSUM`
+(Σ g·count) and `G_HIST_CUM_LE_95`. Sha-neutral (argv-dispatched, never on
+the enumeration path; the #215/#217 kernels are untouched).
 
 ### --f1c5-gzip-selftest
 

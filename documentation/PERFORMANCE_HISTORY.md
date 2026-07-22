@@ -1265,3 +1265,54 @@ New env/CLI surface (see SOLVE_C_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OO
 `SOLVE_F1_OOC_SCRATCH_MB`, `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_CKPT_SEC` (default 300 s), `--resume-from-layers`.
 Full validation + measurement detail: `roae-private/RETOOL_DESIGN_2026_07_07.md`,
 `OVERNIGHT_SUMMARY_2026_07_08.md`.
+
+## 2026-07-22 — BACKLOG-2a: C3 "G-channel" on the f1 orbit DP (`--f1-c3-hist`) (branch f1c3-gchannel, unpushed)
+
+**Category**: mechanism
+**Sha impact**: preserving
+**Decision**: shipped to feature branch (operator review pending; no push)
+
+### Hypothesis
+Adding the running-G channel (`C3 = 16 + 8·G`) to the #217 DP state as a new argv mode should
+leave every existing mode's performance untouched: the #215/#217 inner kernels
+(`f1c5_gather_entries`, `f1c5_emit_target`) are NOT modified — the shared drivers gained a
+mode-pointer (`gm`) branch **outside** the per-entry loops, dispatching to separate G-aware
+kernels (`f1c3_gather_entries`, `f1c3_emit_target`) only in the new mode. Enumeration hot paths
+(DFS, prunes, hash tables, merge loops) are untouched entirely.
+
+### Methodology
+- Workload: `--f1-exact-c1c2c4c5 --f1-pairs 19` (largest rung affordable on the 2-core orchestrator
+  under the standing wrap `ulimit -v 3000000; timeout ...`), paired old-binary vs new-binary,
+  3 reps each, same box, OMP_NUM_THREADS=2.
+- Hardware: 2-core D2as_v6 orchestrator (NOT a bench box — see deviation note).
+- Build: `gcc -O3 -pthread -fopenmp -march=native ... -lm -lz`, source = this branch vs parent `ebf533f`.
+- Deviation from `scripts/perf_bench.sh`: not run — it benches the enumeration path, which this
+  change does not touch; the touched subsystem (f1 counting DP) is benched directly instead.
+  The affordable rung is small (0.4 s); the no-regression claim at canonical f1c5 scale rests on
+  the structural argument (kernels untouched, dispatch outside inner loops) plus this measurement.
+
+### Result
+- `--f1-exact-c1c2c4c5 --f1-pairs 19`: old 0.4 s / 0.4 s / 0.4 s, new 0.4 s / 0.4 s / 0.4 s — no
+  measurable delta; count identical (63,244,766,587,981,824 = published).
+- Published rung counts reproduced on the new binary: n=9 26,112; n=13 2,063,395,607,040;
+  n=16 267,765,117,419,520 (both as `--f1-exact-c1c2c4c5` totals and as `--f1-c3-hist --with-c5`
+  histogram sums — gate G2 at rung scope).
+- New-mode cost (measured, uncapped G-channel, entry-count multiplier vs the rid-free base):
+  ~5.2–5.9× (n=9), ~9.6–10.3× (n=13), ~17.0–18.6× (n=16); mult/peak-achievable-width ratio
+  0.234/0.277/0.262 → projected full-31 uncapped multiplier ~62–79 (vs the design's central ~35).
+
+### Delta vs baseline (commit ebf533f)
+- enum_wall: unchanged (enumeration path not touched, not re-benched)
+- f1c5-mode wall: ±0% at the affordable rung
+- sha changed: no
+
+### Sha gate
+- result: PASS — `--selftest` sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`
+  unchanged (verified on the new binary, twice: after the main implementation and after the final edit).
+
+### Notes
+Full gate results (per-bin cross-checks vs two independent Python DPs, OOC byte-identity,
+intra-layer kill/resume byte-identity with the new `F1C3BLD1` magic, cross-mode dir protection)
+and the revised full-31 cost estimate: `roae-private/F1C3_GCHANNEL_IMPL_2026_07_22.md`.
+The standing checkpoint-format merge gate (`--selftest-resume` + 100B sha on a Spot D32) is
+REQUIRED BEFORE MERGE and is currently quota-blocked by Stage F — deliberately not attempted here.

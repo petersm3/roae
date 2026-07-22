@@ -13044,6 +13044,250 @@ static void f1c5_budget_free(F1C5Budget *B) {
     free(B->rsum);
 }
 
+/* ===================== BACKLOG-2a C3 "G-channel" — exact G-histogram on the orbit DP =====================
+ *
+ * `./solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2]
+ *          [--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]`
+ *
+ * Augments the #217 layered orbit-quotient DP state with the running C3
+ * slot-gap sum G: state = (canonical-mask, last, rid, g). Background (all
+ * machine-checked, lean/C3Decomposition.lean): C3 = 16 + 8*G universally over
+ * C1-valid orderings (`c3_slot_decomposition`), where G = sum over the 12
+ * cross complement-couples of |slot(P) - slot(P')| (slot = pair position
+ * 0..31; the fixed slot-0 pair {63,0} is self-complement and contributes 0);
+ * KW has G = 95 (`kw_slot_sum_95`), so C3 <= 776 <=> G <= 95 (inclusive;
+ * 16 + 8*95 = 776). Running-G accumulates per placement at slot s: self-
+ * complement or couple-truncated pair -> unchanged; couple OPEN (partner
+ * pair not yet placed) -> g -= s; couple CLOSE -> g += s. At the full mask,
+ * running-G = final G. The 48-group maps couples to couples
+ * (`g48_couples_to_couples`), so running-G is orbit-invariant and rides the
+ * canonical-mask quotient exactly like rid; only `last` maps under
+ * canonicalization, and the partner table is the same static table in
+ * canonical coordinates. (The prefix-G g48-invariance lemma is promised in
+ * the design's Sec 2.5 and is bridge/runtime-gate-carried until it lands in
+ * PruneExactness.lean — same discipline as the F-53 bridge facts.)
+ *
+ * THIS MODE IS UNCAPPED: no G-prune (`g_prune_sound`/`g_prune_exact` cover a
+ * capped variant that is NOT implemented here). The deliverable is the full
+ * exact final-layer G-HISTOGRAM — every threshold at once; the capped count
+ * |C1 & C2 & C3 & C4| (G <= 95) is a derived cumulative-sum footnote.
+ *
+ * Key packing (bytes/entry unchanged at 28 B): key32 = (gofs << 22) |
+ * (last << 16) | rid, gofs = g + F1C3_GBIAS. |running g| <= 1+2+...+31 = 496
+ * for every layer of every rung, so the global bias 496 keeps gofs in
+ * [0, 992], inside 10 bits, with the full 16-bit rid field intact. Entries
+ * are emitted in ascending (gofs, last, rid) key order per mask. Layer files
+ * reuse the #217/#221/#223 storage, checkpoint, OOC, and v2-zlib machinery
+ * verbatim, under new magics ("F1C3LAY1"/"F1C3LAY2"/"F1C3BLD1") so a C3 run
+ * and an f1c5 run can never resume from each other's layers.
+ *
+ * Base selection: default = C1 & C2 & C4 (rid disabled, R = 1 — the
+ * BACKLOG-2a target); --with-c5 adds the exact C5 boundary-budget residual
+ * (the rung-validation base: totals must reproduce the published #217 rung
+ * counts); --no-c2 drops the C2 adjacency test (C1 & C4 gate base: at
+ * full-31 the histogram must be 2^31 x the exact null G-distribution, incl.
+ * P(G<=95) = 641983711307479/7919632354008375 and E[G] = 128 exactly).
+ *
+ * Per-layer worst-case running-G bands are computed at init by the design's
+ * Sec 1.3 class-union algebra (o open / c closed couples, contiguous used
+ * slots 1..m): class-min = c - (o*m - o(o-1)/2), class-max = c(m-c) -
+ * o(o+1)/2. The full-31 table (min -164 at m=20, terminal [12, 228]) was
+ * independently re-derived twice (review 2026-07-22 + exact achievable-
+ * support DP). Every gathered g is hard-asserted inside the band (runtime
+ * bound-assert; design Sec 5 risk 4). Encoding choice: the design's
+ * open/close accumulator ("A") was kept over the monotone open-count
+ * alternative ("B" — g += open-couples per boundary): for a fixed mask
+ * B = A + o(mask)*m, a bijection per (mask,last,rid), so entry counts are
+ * encoding-invariant; A fits the 10-bit budget and carries the landed Lean
+ * proofs and the instrument parity, so proof-continuity wins.
+ *
+ * Gates (see documentation/SOLVE_C_CLI.md and the roae-private impl note):
+ * G-total identity (sum over bins = base total) vs --f1-exact-c1c2c4c5 rung
+ * counts and --f1-exact-c1c2c4 subset totals; per-bin mod-24 (full-31,
+ * C2 on — the free 24-action preserves G, so it acts on every G-fiber);
+ * KW witness (static + incremental accumulator = 95 asserted at init; G=95
+ * bin nonzero at full-31); E[G] = 128 identity asserted in --no-c2 full-31.
+ *
+ * Sha-neutral: argv-dispatched, zero interaction with enumeration paths;
+ * the #215/#217 modes are dispatched around, not modified (their kernels are
+ * untouched; shared drivers branch on the mode pointer).
+ *
+ * Attribution: direction and the C3 = 16 + 8*G decomposition route are the
+ * operator's; design DESIGN_C3_GCHANNEL_2026_07_21.md + adversarial review
+ * REVIEW_C3_FABLE_2026_07_22.md (both Claude, Fable 5, roae-private); Lean
+ * theorems in lean/C3Decomposition.lean + PruneExactness.lean (Fable);
+ * exact null-distribution cross-targets re-derived independently (Claude,
+ * Opus 4.8, 2026-07-22). Implementation: Claude (Fable 5), 2026-07-22.
+ * Novelty: the augmented-state histogram DP is standard dynamic-programming
+ * technique; nothing here is claimed novel — corrections welcome.
+ */
+
+#define F1C3_GBIAS 496   /* gofs = g + 496 in [0, 992] for any n <= 31 (|g| <= sum of slots <= 496) */
+
+static int f1c3_comp_pair[32];   /* pair p -> its complement-couple partner pair (p itself if self-complement) */
+static int f1c3_comp_built = 0;
+
+/* Build + verify the complement-couple pairing, and run the KW witness (gate
+ * G4) two ways: the static slot-gap sum and the DP's own incremental
+ * open/close accumulator, both must give exactly 95 (kw_slot_sum_95). */
+static void f1c3_build_comp_pairs(void) {
+    if (f1c3_comp_built) return;
+    int nself = 0, ncross = 0;
+    for (int p = 0; p < 32; p++) {
+        int qa = f1_pair_of[f1_pair_a[p] ^ 63];
+        int qb = f1_pair_of[f1_pair_b[p] ^ 63];
+        F1_CHECK(qa == qb, "[f1c3] complement image of pair %d is not a single pair", p);
+        f1c3_comp_pair[p] = qa;
+    }
+    for (int p = 0; p < 32; p++) {
+        F1_CHECK(f1c3_comp_pair[f1c3_comp_pair[p]] == p,
+                 "[f1c3] couple map is not an involution at pair %d", p);
+        if (f1c3_comp_pair[p] == p) nself++; else ncross++;
+    }
+    F1_CHECK(nself == 8 && ncross == 24,
+             "[f1c3] couple census %d self / %d cross (want 8 / 24, c3_slot_decomposition)", nself, ncross);
+    F1_CHECK(f1c3_comp_pair[0] == 0, "[f1c3] anchor pair {63,0} must be self-complement");
+    int gkw = 0;
+    for (int p = 1; p < 32; p++)
+        if (f1c3_comp_pair[p] > p) gkw += f1c3_comp_pair[p] - p;
+    F1_CHECK(gkw == 95, "[f1c3] KW witness (static): slot-gap sum %d != 95", gkw);
+    int g = 0;
+    uint32_t placed = 0;
+    for (int s = 1; s < 32; s++) {   /* KW places pair s at slot s */
+        int q = f1c3_comp_pair[s];
+        if (q != s) g += ((placed >> q) & 1) ? s : -s;
+        placed |= 1u << s;
+    }
+    F1_CHECK(g == 95, "[f1c3] KW witness (incremental accumulator): running-G %d != 95", g);
+    fprintf(stderr, "[f1c3] couple self-checks PASS: 8 self / 12 couples (involution, anchor self); "
+            "KW witness G=95 (static slot-gap sum AND incremental open/close accumulator)\n");
+    f1c3_comp_built = 1;
+}
+
+typedef struct {
+    int use_c5;              /* 1: C5 boundary-budget residual active (rid live) */
+    int no_c2;               /* 1: drop the C2 adjacency test (C1&C4 gate base) */
+    int8_t cpartner[32];     /* subset index of the in-run couple partner; -1 = self-complement or truncated */
+    int ncpl, nselfp, ninert;/* in-run couples / self-complement pairs / couple-truncated pairs */
+    int glo[33], ghi[33];    /* per-layer worst-case running-G band (class-union algebra) */
+    int gw[33];              /* band widths ghi-glo+1 */
+    int gwmax;
+} F1C3Mode;
+
+static void f1c3_mode_init(F1C3Mode *gm, const F1Ctx *c, int use_c5, int no_c2) {
+    memset(gm, 0, sizeof(*gm));
+    gm->use_c5 = use_c5;
+    gm->no_c2 = no_c2;
+    f1c3_build_comp_pairs();
+    int pos[32];
+    for (int p = 0; p < 32; p++) pos[p] = -1;
+    for (int i = 0; i < c->n; i++) pos[c->pl[i]] = i;
+    for (int i = 0; i < c->n; i++) {
+        int q = f1c3_comp_pair[c->pl[i]];
+        if (q == c->pl[i]) { gm->cpartner[i] = -1; gm->nselfp++; }
+        else if (pos[q] >= 0) gm->cpartner[i] = (int8_t)pos[q];
+        else { gm->cpartner[i] = -1; gm->ninert++; }   /* partner outside the rung: inert (contributes 0) */
+    }
+    int twoc = c->n - gm->nselfp - gm->ninert;
+    F1_CHECK(twoc >= 0 && twoc % 2 == 0, "[f1c3] in-run couple members %d not even", twoc);
+    gm->ncpl = twoc / 2;
+    /* per-layer worst-case running-G band: union over classes (o open, c
+     * closed couples; s' = m - o - 2c placed self-like pairs), used slots
+     * contiguous 1..m because the DP fills slots in order. */
+    const int S = gm->nselfp + gm->ninert;
+    for (int m = 0; m <= c->n; m++) {
+        int lo = INT_MAX, hi = INT_MIN;
+        for (int o = 0; o <= gm->ncpl; o++)
+            for (int cc = 0; o + cc <= gm->ncpl; cc++) {
+                int sp = m - o - 2 * cc;
+                if (sp < 0 || sp > S) continue;
+                int cmin = cc - (o * m - o * (o - 1) / 2);   /* min closed gaps - max open-slot sum */
+                int cmax = cc * (m - cc) - o * (o + 1) / 2;  /* max closed gaps - min open-slot sum */
+                if (cmin < lo) lo = cmin;
+                if (cmax > hi) hi = cmax;
+            }
+        F1_CHECK(lo <= hi, "[f1c3] no feasible (o,c) class at layer m=%d", m);
+        F1_CHECK(lo + F1C3_GBIAS >= 0 && hi + F1C3_GBIAS <= 1023,
+                 "[f1c3] band [%d,%d] at layer %d exceeds the 10-bit gofs packing", lo, hi, m);
+        gm->glo[m] = lo;
+        gm->ghi[m] = hi;
+        gm->gw[m] = hi - lo + 1;
+        if (gm->gw[m] > gm->gwmax) gm->gwmax = gm->gw[m];
+    }
+    F1_CHECK(gm->glo[0] == 0 && gm->ghi[0] == 0, "[f1c3] layer-0 band must be {0}");
+}
+
+/* g-delta of placing pair i (subset index) at slot `slot` when the target
+ * mask is tm: 0 (self/inert), -slot (opens its couple), +slot (closes it).
+ * The partner bit of tm equals the predecessor's (partner != i). */
+static inline int f1c3_gdelta(const F1C3Mode *gm, uint32_t tm, int i, int slot) {
+    int pj = gm->cpartner[i];
+    if (pj < 0) return 0;
+    return ((tm >> pj) & 1) ? slot : -slot;
+}
+
+/* G-mode per-entry gather kernel — the #217 f1c5_gather_entries arithmetic
+ * (which is left untouched) plus the G channel. gshift = gdelta - glo_next -
+ * F1C3_GBIAS maps a stored key's gofs straight to the target layer's local
+ * g index gl; every gl is hard-asserted inside [0, gw) (band assert).
+ * Scratch layout: scr[last * (vk1*gw) + gl * vk1 + rid_local]. */
+static inline void f1c3_gather_entries(const F1C5Budget *B, const F1C3Mode *gm,
+                                       const uint32_t *keys, const F1U192 *vals, uint64_t ne,
+                                       const uint8_t *ginv, int fa, int fb,
+                                       int gshift, int gw,
+                                       const int32_t *loc1, int vk1, F1U192 *scr) {
+    const size_t lstride = (size_t)vk1 * (size_t)gw;
+    for (uint64_t e = 0; e < ne; e++) {
+        uint32_t key = keys[e];
+        int lp = ginv[(key >> 16) & 0x3fu];
+        uint32_t rid = key & 0xffffu;
+        int gl = (int)(key >> 22) + gshift;
+        F1_CHECK(gl >= 0 && gl < gw,
+                 "[f1c3] running-G outside the layer band (gl=%d gw=%d) — band algebra defect", gl, gw);
+        const F1U192 *pv = &vals[e];
+        /* two orientations of pair i: enter fa exit fb / enter fb exit fa */
+        for (int ori = 0; ori < 2; ori++) {
+            const int f = ori ? fb : fa, x = ori ? fa : fb;
+            const int cls = F1C5_CLS[__builtin_popcount(lp ^ f)];
+            if (!gm->no_c2 && cls < 0) continue;         /* C2: d=5 killed (d=0 impossible) */
+            int32_t lo = 0;
+            if (gm->use_c5) {                            /* exact C5 residual, as in #217 */
+                if (cls < 0 || B->dig[cls][rid] >= B->b0[cls]) continue;
+                lo = loc1[rid + B->rad[cls]];
+                F1_CHECK(lo >= 0, "sum-invariant violation in gather (g-mode)");
+            }
+            f1_add(&scr[(size_t)x * lstride + (size_t)gl * (size_t)vk1 + (size_t)lo], pv);
+        }
+    }
+}
+
+/* G-mode emit: scan the dense scratch in ascending KEY order — (gofs, last,
+ * rid) with gofs in the top bits — emit nonzero slots (or count when
+ * keys == NULL) and zero them, restoring the all-zero scratch invariant. */
+static uint64_t f1c3_emit_target(F1U192 *scr, int vk1, int gw, int glo_next,
+                                 const uint16_t *vlist1, uint32_t *keys, F1U192 *vals) {
+    uint64_t cnt = 0;
+    F1U192 z;
+    z.l0 = z.l1 = z.l2 = 0;
+    const size_t lstride = (size_t)vk1 * (size_t)gw;
+    for (int gl = 0; gl < gw; gl++) {
+        const uint32_t gofs = (uint32_t)(gl + glo_next + F1C3_GBIAS);
+        for (int l = 0; l < 64; l++) {
+            F1U192 *row = scr + (size_t)l * lstride + (size_t)gl * (size_t)vk1;
+            for (int v = 0; v < vk1; v++) {
+                if (f1_is_zero(&row[v])) continue;
+                if (keys) {
+                    keys[cnt] = (gofs << 22) | ((uint32_t)l << 16) | vlist1[v];
+                    vals[cnt] = row[v];
+                }
+                row[v] = z;
+                cnt++;
+            }
+        }
+    }
+    return cnt;
+}
+
 /* Deterministic first-completion DFS — EXACT port of the instrument's
  * find_b0(seed=None): pairs tried in ascending subset-index order,
  * orientations in (0,1) order where trans[i][o] = (PAIRS[p][o^1], PAIRS[p][o])
@@ -13144,7 +13388,7 @@ typedef struct {
 } F1C5LayerHdr;
 
 static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                             const F1C5Layer *L) {
+                             const F1C3Mode *gm, const F1C5Layer *L) {
     char fin[4096], tmp[4104];
     snprintf(fin, sizeof(fin), "%s/f1c5_layer_%02d.bin", dir, L->k);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
@@ -13152,7 +13396,7 @@ static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *
     if (!f) f1_ckpt_io_abort("fopen", tmp);
     F1C5LayerHdr h;
     memset(&h, 0, sizeof(h));
-    memcpy(h.magic, "F1C5LAY1", 8);
+    memcpy(h.magic, gm ? "F1C3LAY1" : "F1C5LAY1", 8);   /* G-mode: own magic — cross-mode resume impossible */
     h.version = 1;
     h.n = (uint32_t)c->n;
     h.k = (uint32_t)L->k;
@@ -13174,7 +13418,7 @@ static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *
 }
 
 static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                                int last_complete_k) {
+                                const F1C3Mode *gm, int last_complete_k) {
     char fin[4096], tmp[4104];
     snprintf(fin, sizeof(fin), "%s/f1c5_manifest.txt", dir);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
@@ -13185,6 +13429,8 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
     fprintf(f, "\npl_hash=%016llx\nb0=%d,%d,%d,%d,%d\nlast_complete_k=%d\n",
             (unsigned long long)f1_pl_hash(c),
             B->b0[0], B->b0[1], B->b0[2], B->b0[3], B->b0[4], last_complete_k);
+    if (gm)   /* G-mode marker: checked (both directions) on resume */
+        fprintf(f, "gmode=c3hist use_c5=%d no_c2=%d\n", gm->use_c5, gm->no_c2);
     if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
     fclose(f);
     if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
@@ -13198,7 +13444,8 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
  * always loaded in full — the total needs its entries, and it is tiny (one
  * canonical mask). */
 static uint64_t f1c5_v2_kblk_base(uint64_t nm, uint64_t ne);   /* fwd decl (defined w/ the v2 codec) */
-static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
+static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                           const F1C3Mode *gm, F1C5Layer *L,
                            int index_only, int *out_is_v2) {
     char path[4096];
     snprintf(path, sizeof(path), "%s/f1c5_manifest.txt", dir);
@@ -13206,6 +13453,7 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
     if (!f) return -1;
     char line[2048];
     int n = -1, se = -1, lk = -1, mb0[5] = {-1, -1, -1, -1, -1};
+    int mg = 0, mg_c5 = -1, mg_nc2 = -1;
     unsigned long long ph = 0;
     while (fgets(line, sizeof(line), f)) {
         sscanf(line, "n=%d", &n);
@@ -13213,6 +13461,7 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
         sscanf(line, "pl_hash=%llx", &ph);
         sscanf(line, "b0=%d,%d,%d,%d,%d", &mb0[0], &mb0[1], &mb0[2], &mb0[3], &mb0[4]);
         sscanf(line, "last_complete_k=%d", &lk);
+        if (sscanf(line, "gmode=c3hist use_c5=%d no_c2=%d", &mg_c5, &mg_nc2) == 2) mg = 1;
     }
     fclose(f);
     int b0_ok = 1;
@@ -13220,6 +13469,15 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
     F1_CHECK(n == c->n && se == c->start_exit && ph == (unsigned long long)f1_pl_hash(c) && b0_ok,
              "manifest in %s does not match this run (n=%d/%d start=%d/%d) — wrong --layers-dir?",
              dir, n, c->n, se, c->start_exit);
+    /* G-mode marker must match in BOTH directions (a plain f1c5 run must never
+     * resume a c3hist dir and vice versa; layer magics enforce this again). */
+    F1_CHECK((gm != NULL) == mg &&
+             (!gm || (gm->use_c5 == mg_c5 && gm->no_c2 == mg_nc2)),
+             "manifest in %s is for %s (use_c5=%d no_c2=%d); this run is %s "
+             "(use_c5=%d no_c2=%d) — wrong dir",
+             dir, mg ? "--f1-c3-hist" : "--f1-exact-c1c2c4c5", mg_c5, mg_nc2,
+             gm ? "--f1-c3-hist" : "--f1-exact-c1c2c4c5",
+             gm ? gm->use_c5 : -1, gm ? gm->no_c2 : -1);
     F1_CHECK(lk >= 0 && lk <= c->n, "manifest last_complete_k=%d out of range", lk);
     snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, lk);
     f = fopen(path, "rb");
@@ -13228,8 +13486,8 @@ static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
     if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
     int hb0_ok = 1;
     for (int d = 0; d < 5; d++) if (h.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
-    int is_v2 = (memcmp(h.magic, "F1C5LAY2", 8) == 0 && h.version == 2);
-    int is_v1 = (memcmp(h.magic, "F1C5LAY1", 8) == 0 && h.version == 1);
+    int is_v2 = (memcmp(h.magic, gm ? "F1C3LAY2" : "F1C5LAY2", 8) == 0 && h.version == 2);
+    int is_v1 = (memcmp(h.magic, gm ? "F1C3LAY1" : "F1C5LAY1", 8) == 0 && h.version == 1);
     F1_CHECK((is_v1 || is_v2) &&
              h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
              h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c) && hb0_ok,
@@ -13332,8 +13590,12 @@ static inline void f1c5_gather_entries(const F1C5Budget *B, const uint32_t *keys
 /* Pull all predecessor contributions for canonical target tm into the dense
  * per-thread scratch scr[last * vk1 + loc1[rid]], where loc1 maps a global
  * rid of prefix-sum k+1 to its layer-local index. Mirrors f1_gather_layer's
- * pull formulation plus the budget-kill (p_d < B0_d) — see module header. */
-static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C5Layer *prev,
+ * pull formulation plus the budget-kill (p_d < B0_d) — see module header.
+ * G-mode (gm != NULL): dispatch to the f1c3 kernel with the per-(tm, i)
+ * g-delta of the new pair landing at slot `slot` (= target popcount). */
+static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C3Mode *gm,
+                               int slot, int glo_next, int gw,
+                               const F1C5Layer *prev,
                                uint32_t tm, const int32_t *loc1, int vk1, F1U192 *scr) {
     uint32_t rem = tm;
     while (rem) {
@@ -13344,9 +13606,16 @@ static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C5La
         uint32_t cpred = f1_canon(c, pred, &g);
         int64_t pi = f1_bsearch_u32(prev->masks, prev->nm, cpred);
         if (pi < 0) continue;
-        f1c5_gather_entries(B, prev->keys + prev->off[pi], prev->vals + prev->off[pi],
-                            prev->off[pi + 1] - prev->off[pi],
-                            c->el[g].hinv, c->pa[i], c->pb[i], loc1, vk1, scr);
+        if (gm) {
+            int gshift = f1c3_gdelta(gm, tm, i, slot) - glo_next - F1C3_GBIAS;
+            f1c3_gather_entries(B, gm, prev->keys + prev->off[pi], prev->vals + prev->off[pi],
+                                prev->off[pi + 1] - prev->off[pi],
+                                c->el[g].hinv, c->pa[i], c->pb[i], gshift, gw, loc1, vk1, scr);
+        } else {
+            f1c5_gather_entries(B, prev->keys + prev->off[pi], prev->vals + prev->off[pi],
+                                prev->off[pi + 1] - prev->off[pi],
+                                c->el[g].hinv, c->pa[i], c->pb[i], loc1, vk1, scr);
+        }
     }
 }
 
@@ -13721,7 +13990,7 @@ static void f1c5_v2_read_range(int fd, const uint64_t *kidx, const uint64_t *vid
  * without reloading the index. Used for the tiny layer 0 and the non-OOC path.
  * Compressed blocks are staged in RAM (< the raw layer already resident). */
 static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                                F1C5Layer *L, int level) {
+                                const F1C3Mode *gm, F1C5Layer *L, int level) {
     char fin[4096], tmp[4104];
     snprintf(fin, sizeof(fin), "%s/f1c5_layer_%02d.bin", dir, L->k);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
@@ -13749,7 +14018,7 @@ static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budge
     FILE *f = fopen(tmp, "wb");
     if (!f) f1_ckpt_io_abort("fopen", tmp);
     F1C5LayerHdr h; memset(&h, 0, sizeof(h));
-    memcpy(h.magic, "F1C5LAY2", 8);
+    memcpy(h.magic, gm ? "F1C3LAY2" : "F1C5LAY2", 8);
     h.version = 2; h.n = (uint32_t)c->n; h.k = (uint32_t)L->k;
     h.start_exit = (uint32_t)c->start_exit; h.pl_hash = f1_pl_hash(c);
     h.n_masks = L->nm; h.n_entries = ne;
@@ -13921,12 +14190,14 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
  * unchanged. Attribution: design + implementation by Claude (Opus), operator-
  * directed N-version checkpoint effort 2026-07-08. */
 #define F1C5_BUILD_CKPT_MAGIC "F1C5BLD1"
+#define F1C3_BUILD_CKPT_MAGIC "F1C3BLD1"   /* G-mode variant — a stale f1c5 marker can never resume a c3 layer */
 
 /* Serialize a chunk-boundary snapshot to <dir>/f1c5_build.ckpt. Order (all little-
  * endian native, matching f1c5_build_ckpt_read): magic[8], nxt_k, pl_hash,
  * chunk_cap, BLK, t0_next, off[0..t0_next], nblk, kidx[0..nblk], vidx[0..nblk],
  * fill, bk[0..fill], bv[0..fill], mass{l0,l1,l2}, states, io{read,written,windows}. */
-static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_hash,
+static void f1c5_build_ckpt_write(const char *dir, const char *ck_magic,
+                                  uint64_t nxt_k, uint64_t pl_hash,
                                   uint64_t chunk_cap, uint64_t t0_next,
                                   const uint64_t *off, const F1C5V2Out *o,
                                   const F1U192 *mass, uint64_t states,
@@ -13950,7 +14221,7 @@ static void f1c5_build_ckpt_write(const char *dir, uint64_t nxt_k, uint64_t pl_h
     uLong crc = crc32(0L, Z_NULL, 0);
     #define CKW(ptr, n) do { f1c5_v2out_write_all(fd, (ptr), (uint64_t)(n), tmp); \
                              crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
-    CKW(F1C5_BUILD_CKPT_MAGIC, 8);
+    CKW(ck_magic, 8);
     CKW(&nxt_k, 8); CKW(&pl_hash, 8); CKW(&chunk_cap, 8); CKW(&blk, 8); CKW(&lvl, 8);
     CKW(&t0_next, 8);
     CKW(off, 8ull * (t0_next + 1));
@@ -13993,7 +14264,8 @@ static void f1c5_build_ckpt_free(F1C5BuildCkptData *d) {
  * fills *d on a valid, usable resume point; returns 0 (fresh build) otherwise,
  * unlinking a present-but-unusable marker so it can never mislead a later run.
  * ofin is the final layer path (its .kblk.tmp/.vblk.tmp sidecars are checked). */
-static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_k,
+static int f1c5_build_ckpt_read(const char *dir, const char *ck_magic,
+                                const char *ofin, uint64_t nxt_k,
                                 uint64_t pl_hash, uint64_t chunk_cap,
                                 F1C5BuildCkptData *d) {
     char path[4200];
@@ -14006,7 +14278,7 @@ static int f1c5_build_ckpt_read(const char *dir, const char *ofin, uint64_t nxt_
     #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; \
                                else if (ok) crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
     char magic[8]; CK_RD(magic, 8);
-    if (ok && memcmp(magic, F1C5_BUILD_CKPT_MAGIC, 8) != 0) ok = 0;
+    if (ok && memcmp(magic, ck_magic, 8) != 0) ok = 0;
     uint64_t k = 0, ph = 0, cc = 0, blk = 0, lvl = 0;
     CK_RD(&k, 8); CK_RD(&ph, 8); CK_RD(&cc, 8); CK_RD(&blk, 8); CK_RD(&lvl, 8);
     if (ok && (k != nxt_k || ph != pl_hash || cc != chunk_cap ||
@@ -14298,12 +14570,18 @@ static void f1c5_prog_layer_end(int k, uint64_t masks, uint64_t entries,
  * renamed, nxt->keys/vals stay NULL (2026-07-05 full-scale fix; see module
  * header). Layer mass/states (== f1c5_layer_stats of the in-RAM path) are
  * accumulated at emit time into mass_out/states_out. */
-static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char *dir,
+static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const F1C3Mode *gm,
+                                 const char *dir,
                                  const F1C5Layer *cur, F1C5Layer *nxt,
                                  const int32_t *loc1, int vk1, const uint16_t *vl1,
                                  const F1C5OocCfg *cfg, F1C5OocIo *io,
                                  F1U192 *mass_out, uint64_t *states_out,
                                  int use_v2, int gzip_level) {
+    /* G-mode per-layer band parameters (1-wide no-op when gm == NULL) */
+    const int gw_next = gm ? gm->gw[nxt->k] : 1;
+    const int glo_next = gm ? gm->glo[nxt->k] : 0;
+    const int gw_cur = gm ? gm->gw[cur->k] : 1;
+    const char *ck_magic = gm ? F1C3_BUILD_CKPT_MAGIC : F1C5_BUILD_CKPT_MAGIC;
     char path[4096];
     snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, cur->k);
     int fd = open(path, O_RDONLY);
@@ -14342,8 +14620,8 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         F1_CHECK(v2cbuf && v2ktmp && v2vtmp, "v2 read scratch alloc failed");
     }
 
-    /* chunk sizing: dense per-target scratch is 64 * vk1 F1U192 slots */
-    const uint64_t scr_per_tgt = 64ull * (uint64_t)vk1;
+    /* chunk sizing: dense per-target scratch is 64 * vk1 (* gw in G-mode) F1U192 slots */
+    const uint64_t scr_per_tgt = 64ull * (uint64_t)vk1 * (uint64_t)gw_next;
     uint64_t chunk_cap = (cfg->scratch_mb << 20) / (scr_per_tgt * sizeof(F1U192));
     if (chunk_cap < 1) chunk_cap = 1;
     if (nxt->nm && chunk_cap > nxt->nm) chunk_cap = nxt->nm;
@@ -14355,7 +14633,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     F1C5BuildCkptData ckpt;
     int have_ckpt = 0;
     if (use_v2) {
-        have_ckpt = f1c5_build_ckpt_read(dir, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+        have_ckpt = f1c5_build_ckpt_read(dir, ck_magic, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt);
         if (have_ckpt) {
             f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
@@ -14384,10 +14662,11 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     { const char *e = getenv("SOLVE_F1_KILL_AFTER_CHUNK");
       if (e && *e) kill_after_chunk = atoll(e); }
 
-    /* read window: at least one full predecessor span (<= 64 * R entries),
-     * at most the whole previous layer */
+    /* read window: at least one full predecessor span (<= 64 * R * gw_cur
+     * entries), at most the whole previous layer */
     uint64_t buf_entries = (cfg->read_mb << 20) / entry_b;
-    if (buf_entries < 64ull * (uint64_t)B->R) buf_entries = 64ull * (uint64_t)B->R;
+    if (buf_entries < 64ull * (uint64_t)B->R * (uint64_t)gw_cur)
+        buf_entries = 64ull * (uint64_t)B->R * (uint64_t)gw_cur;
     if (buf_entries > cur->ne) buf_entries = cur->ne ? cur->ne : 1;
     const uint64_t gap_entries = (cfg->gap_kb << 10) / entry_b;
 
@@ -14497,12 +14776,21 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             for (int64_t t = 0; t < (int64_t)tc; t++) {
                 const F1C5Req *tr = reqs + (uint64_t)t * (uint64_t)c->n;
                 F1U192 *ts = scr + (uint64_t)t * scr_per_tgt;
+                const uint32_t tm = nxt->masks[t0 + (uint64_t)t];
                 uint32_t r = rcur[t];
                 while (r < rlen[t] && tr[r].pi <= phi) {
                     uint64_t a = cur->off[tr[r].pi], b = cur->off[tr[r].pi + 1];
-                    f1c5_gather_entries(B, kbuf + (a - e0), vbuf + (a - e0), b - a,
-                                        c->el[tr[r].g].hinv, c->pa[tr[r].i], c->pb[tr[r].i],
-                                        loc1, vk1, ts);
+                    if (gm) {
+                        int gshift = f1c3_gdelta(gm, tm, tr[r].i, nxt->k)
+                                     - glo_next - F1C3_GBIAS;
+                        f1c3_gather_entries(B, gm, kbuf + (a - e0), vbuf + (a - e0), b - a,
+                                            c->el[tr[r].g].hinv, c->pa[tr[r].i], c->pb[tr[r].i],
+                                            gshift, gw_next, loc1, vk1, ts);
+                    } else {
+                        f1c5_gather_entries(B, kbuf + (a - e0), vbuf + (a - e0), b - a,
+                                            c->el[tr[r].g].hinv, c->pa[tr[r].i], c->pb[tr[r].i],
+                                            loc1, vk1, ts);
+                    }
                     r++;
                 }
                 rcur[t] = r;
@@ -14532,8 +14820,11 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             #pragma omp for schedule(dynamic, 8) nowait
             for (int64_t t = 0; t < (int64_t)tc; t++) {
                 const uint64_t doff = nxt->off[t0 + (uint64_t)t] - cbase;
-                uint64_t got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, vl1,
-                                                skeys + doff, svals + doff);
+                uint64_t got = gm
+                    ? f1c3_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, gw_next, glo_next,
+                                       vl1, skeys + doff, svals + doff)
+                    : f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, vl1,
+                                       skeys + doff, svals + doff);
                 F1_CHECK(got == cnts[t], "ooc count/emit drift at target %lld",
                          (long long)(t0 + (uint64_t)t));
                 if (got) {   /* per-target stats == f1c5_layer_stats' inner loop */
@@ -14575,7 +14866,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                  (uint64_t)kill_after_chunk == ci);
             const double now = omp_get_wtime();
             if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
-                f1c5_build_ckpt_write(dir, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                f1c5_build_ckpt_write(dir, ck_magic, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
                                       t0_next, nxt->off, &v2o, &mass, states, io);
                 last_ckpt_wt = now;
                 if (do_kill) {
@@ -14602,7 +14893,8 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
      * tail-first (peak ~1x layer); v2 appends the compressed-block sidecars. */
     F1C5LayerHdr h;
     memset(&h, 0, sizeof(h));
-    memcpy(h.magic, use_v2 ? "F1C5LAY2" : "F1C5LAY1", 8);
+    memcpy(h.magic, use_v2 ? (gm ? "F1C3LAY2" : "F1C5LAY2")
+                           : (gm ? "F1C3LAY1" : "F1C5LAY1"), 8);
     h.version = use_v2 ? 2u : 1u;
     h.n = (uint32_t)c->n;
     h.k = (uint32_t)nxt->k;
@@ -14699,9 +14991,13 @@ static void f1c5_stream_cold_hook(const char *dir, int k_old) {
 /* ooc_dir (#221): out-of-core mode — layer files (same format as layers_dir)
  * live in ooc_dir and the gather streams them; at most one layer in RAM.
  * resume_required: --resume-from-layers was given — hard error if there is
- * no manifest to resume from (resume is otherwise automatic, both modes). */
+ * no manifest to resume from (resume is otherwise automatic, both modes).
+ * g_hist (BACKLOG-2a): --f1-c3-hist — augment the state with the running C3
+ * slot-gap sum G and emit the exact final-layer G-histogram (uncapped; see
+ * the G-channel module header). g_use_c5 keeps the C5 residual (rung gates);
+ * g_no_c2 drops the C2 adjacency test (C1&C4 null-distribution gate base). */
 static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_dir,
-                           int resume_required) {
+                           int resume_required, int g_hist, int g_use_c5, int g_no_c2) {
     f1_binom_init();
     f1_build_group();
 
@@ -14763,13 +15059,29 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     }
     f1_ctx_init(c, n, pl, start_exit);
 
+    /* BACKLOG-2a G-channel mode context (NULL = plain #217 f1c5 behavior) */
+    F1C3Mode gmode_storage;
+    const F1C3Mode *gm = NULL;
+    if (g_hist) {
+        f1c3_mode_init(&gmode_storage, c, g_use_c5, g_no_c2);
+        gm = &gmode_storage;
+    }
+
     int b0v[5];
-    f1c5_derive_b0(c, full31, b0v);
+    if (gm && !gm->use_c5) {
+        /* rid disabled: R = 1, rid = 0 everywhere, no budget-kill — the DP
+         * counts the C1 & C2 & C4 base (or C1 & C4 with --no-c2). */
+        for (int d = 0; d < 5; d++) b0v[d] = 0;
+    } else {
+        f1c5_derive_b0(c, full31, b0v);
+    }
     F1C5Budget B;
     f1c5_budget_init(&B, b0v);
-    { int tot = 0;
-      for (int d = 0; d < 5; d++) tot += b0v[d];
-      F1_CHECK(tot == n, "budget sum %d != n=%d (one boundary transition per pair)", tot, n); }
+    if (!(gm && !gm->use_c5)) {
+        int tot = 0;
+        for (int d = 0; d < 5; d++) tot += b0v[d];
+        F1_CHECK(tot == n, "budget sum %d != n=%d (one boundary transition per pair)", tot, n);
+    }
 
     /* per-prefix-sum rid tables: vlist[s] = ascending global rids with
      * rsum == s; vloc[s] = global rid -> layer-local index (-1 invalid) */
@@ -14779,6 +15091,18 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     F1_CHECK(vlist && vloc && vcnt, "rid table alloc failed");
     int vmax = 0;
     for (int s = 0; s <= n; s++) {
+        if (gm && !gm->use_c5) {
+            /* rid-free G-mode: the single rid 0 is live at every layer (the
+             * rsum stratification is a C5-budget concept and does not apply) */
+            vcnt[s] = 1;
+            if (vmax < 1) vmax = 1;
+            vlist[s] = (uint16_t *)malloc(sizeof(uint16_t));
+            vloc[s] = (int32_t *)malloc(sizeof(int32_t) * (size_t)B.R);   /* B.R == 1 */
+            F1_CHECK(vlist[s] && vloc[s], "rid table alloc failed (s=%d)", s);
+            vlist[s][0] = 0;
+            vloc[s][0] = 0;
+            continue;
+        }
         int cnt = 0;
         for (uint32_t r = 0; r < B.R; r++) if (B.rsum[r] == s) cnt++;
         vcnt[s] = cnt;
@@ -14825,13 +15149,27 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     fprintf(stderr, "[f1c5] B0 boundary budget (d=1,2,3,4,6) = (%d,%d,%d,%d,%d) sum=%d [%s] "
             "rid_space=%u V_max=%d/layer scratch=%.2f MB/thread x %d threads\n",
             b0v[0], b0v[1], b0v[2], b0v[3], b0v[4], n,
-            full31 ? "KW-derived" : "deterministic-DFS witness",
-            B.R, vmax, 64.0 * (double)vmax * (double)sizeof(F1U192) / 1e6, T);
+            (gm && !gm->use_c5) ? "rid disabled (G-mode base)"
+                                : (full31 ? "KW-derived" : "deterministic-DFS witness"),
+            B.R, vmax, 64.0 * (double)vmax * (double)(gm ? gm->gwmax : 1)
+                       * (double)sizeof(F1U192) / 1e6, T);
+    if (gm) {
+        fprintf(stderr, "[f1c3] G-channel: base=C1&%sC4%s couples=%d self=%d truncated=%d "
+                "gofs_bias=%d gw_max=%d\n",
+                gm->no_c2 ? "" : "C2&", gm->use_c5 ? "&C5" : "",
+                gm->ncpl, gm->nselfp, gm->ninert, F1C3_GBIAS, gm->gwmax);
+        fprintf(stderr, "[f1c3] per-layer worst-case running-G bands (class-union):");
+        for (int m = 0; m <= n; m++)
+            fprintf(stderr, " %d:[%d,%d]", m, gm->glo[m], gm->ghi[m]);
+        fprintf(stderr, "\n");
+    }
 
     F1U192 *scratch = NULL;   /* in-RAM gather scratch; ooc sizes its own per chunk */
     if (!ooc) {
-        scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)vmax, sizeof(F1U192));
-        F1_CHECK(scratch != NULL, "scratch alloc failed (%d threads x 64 x %d)", T, vmax);
+        scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)vmax * (size_t)(gm ? gm->gwmax : 1),
+                                   sizeof(F1U192));
+        F1_CHECK(scratch != NULL, "scratch alloc failed (%d threads x 64 x %d x %d)",
+                 T, vmax, gm ? gm->gwmax : 1);
     }
 
     double T0 = omp_get_wtime();
@@ -14845,7 +15183,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         if (mkdir(dir, 0755) != 0 && errno != EEXIST)
             f1_ckpt_io_abort("mkdir", dir);
         int resumed_is_v2 = -1;
-        int rk = f1c5_try_resume(dir, c, &B, &cur, ooc, &resumed_is_v2);
+        int rk = f1c5_try_resume(dir, c, &B, gm, &cur, ooc, &resumed_is_v2);
         if (rk >= 0) {
             k0 = rk;
             f1c5_prog_note_resume();   /* observability: record the resume */
@@ -14883,15 +15221,16 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         F1_CHECK(cur.masks && cur.off && cur.keys && cur.vals, "layer-0 alloc failed");
         cur.off[0] = 0;
         cur.off[1] = 1;
-        cur.keys[0] = ((uint32_t)start_exit << 16);
+        /* G-mode: layer-0 state carries g = 0 -> gofs = F1C3_GBIAS in the key's top bits */
+        cur.keys[0] = (gm ? ((uint32_t)F1C3_GBIAS << 22) : 0u) | ((uint32_t)start_exit << 16);
         cur.vals[0].l0 = 1;
         if (dir) {
             /* v2 layer files only in OOC mode; the in-RAM --layers-dir path writes v1
              * for ALL layers (0..n), so layer 0 must be v1 too or the dir is mixed-
              * format and can't resume (Fable review Finding 3). */
-            if (ooc && use_v2) f1c5_write_layer_v2(dir, c, &B, &cur, gzip_level);  /* sets cur.kidx/vidx */
-            else               f1c5_write_layer(dir, c, &B, &cur);
-            f1c5_write_manifest(dir, c, &B, 0);
+            if (ooc && use_v2) f1c5_write_layer_v2(dir, c, &B, gm, &cur, gzip_level);  /* sets cur.kidx/vidx */
+            else               f1c5_write_layer(dir, c, &B, gm, &cur);
+            f1c5_write_manifest(dir, c, &B, gm, 0);
         }
         if (ooc && max_layer > 0) {   /* entries live on disk from here on (index stays in RAM) */
             free(cur.keys); free(cur.vals);
@@ -14929,20 +15268,24 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             /* #221: single streaming pass over layer k's file; counts, emission,
              * stats AND the (atomic) layer-file write happen chunk-by-chunk
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
-            f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
+            f1c5_ooc_build_layer(c, &B, gm, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
                                  &ooc_mass, &ooc_states, use_v2, gzip_level);
             t2 = omp_get_wtime();
         } else {
+        const int gw1 = gm ? gm->gw[k + 1] : 1;      /* target-layer G band (1 = no channel) */
+        const int glo1 = gm ? gm->glo[k + 1] : 0;
+        const size_t sstride = (size_t)64 * (size_t)vmax * (size_t)(gm ? gm->gwmax : 1);
         /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
          * the second gather pass writes straight into the final arrays, so
          * the measured peak has no transient duplication) */
         #pragma omp parallel
         {
-            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)vmax;
+            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * sstride;
             #pragma omp for schedule(dynamic, 16)
             for (int64_t ti = 0; ti < (int64_t)nxt.nm; ti++) {
-                f1c5_gather_target(c, &B, &cur, nxt.masks[ti], loc1, vk1, scr);
-                nxt.off[ti + 1] = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
+                f1c5_gather_target(c, &B, gm, k + 1, glo1, gw1, &cur, nxt.masks[ti], loc1, vk1, scr);
+                nxt.off[ti + 1] = gm ? f1c3_emit_target(scr, vk1, gw1, glo1, vl1, NULL, NULL)
+                                     : f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
             }
         }
         nxt.off[0] = 0;
@@ -14956,12 +15299,15 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         /* pass 2: re-gather, emit into the final ragged arrays */
         #pragma omp parallel
         {
-            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)vmax;
+            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * sstride;
             #pragma omp for schedule(dynamic, 16)
             for (int64_t ti = 0; ti < (int64_t)nxt.nm; ti++) {
-                f1c5_gather_target(c, &B, &cur, nxt.masks[ti], loc1, vk1, scr);
-                uint64_t got = f1c5_emit_target(scr, vk1, vl1,
-                                                nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti]);
+                f1c5_gather_target(c, &B, gm, k + 1, glo1, gw1, &cur, nxt.masks[ti], loc1, vk1, scr);
+                uint64_t got = gm
+                    ? f1c3_emit_target(scr, vk1, gw1, glo1, vl1,
+                                       nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti])
+                    : f1c5_emit_target(scr, vk1, vl1,
+                                       nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti]);
                 F1_CHECK(got == nxt.off[ti + 1] - nxt.off[ti],
                          "pass-1/pass-2 count drift at target %lld", (long long)ti);
             }
@@ -14981,8 +15327,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         double t_ck = 0.0;
         if (dir) {
             if (!ooc)   /* ooc: the builder already wrote + renamed the layer file */
-                f1c5_write_layer(dir, c, &B, &nxt);
-            f1c5_write_manifest(dir, c, &B, k + 1);
+                f1c5_write_layer(dir, c, &B, gm, &nxt);
+            f1c5_write_manifest(dir, c, &B, gm, k + 1);
             if (!ooc && k >= 1 && !keep_layers) {   /* keep k and k+1; drop k-1 (ooc
                                                      * drops it pre-build). KEEP_LAYERS
                                                      * suppresses the drop. */
@@ -15101,7 +15447,86 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                     "scratch %.3f GB total\n", peak2 / 1e9, peak2_k,
                     (double)T * 64.0 * (double)vmax * (double)sizeof(F1U192) / 1e9);
         }
-        if (full31) {
+        if (gm) {
+            /* ---- BACKLOG-2a: the exact final-layer G-HISTOGRAM (the deliverable;
+             * the capped count is a derived cumulative footnote). ---- */
+            const char *base = gm->no_c2 ? "C1&C4"
+                             : (gm->use_c5 ? "C1&C2&C4&C5" : "C1&C2&C4");
+            F1U192 *hist = (F1U192 *)calloc(1024, sizeof(F1U192));
+            F1_CHECK(hist != NULL, "[f1c3] histogram alloc failed");
+            int gmin = INT_MAX, gmax = INT_MIN, nbins = 0;
+            for (uint64_t e = 0; e < cur.ne; e++) {
+                int gg = (int)(cur.keys[e] >> 22) - F1C3_GBIAS;
+                F1_CHECK(gg >= gm->glo[n] && gg <= gm->ghi[n],
+                         "[f1c3] final-layer G=%d outside band [%d,%d]", gg, gm->glo[n], gm->ghi[n]);
+                f1_add(&hist[cur.keys[e] >> 22], &cur.vals[e]);
+                if (gg < gmin) gmin = gg;
+                if (gg > gmax) gmax = gg;
+            }
+            if (full31)   /* C1&C2&C4(&C5) and C1&C4 are all subsets of C1&C4: support in [12, 228] */
+                F1_CHECK(gmin >= 12 && gmax <= 228,
+                         "[f1c3] full-31 G support [%d,%d] outside the proven [12,228]", gmin, gmax);
+            if (full31 && gm->no_c2)
+                /* C1&C4 support is EXACTLY [12,228] — both endpoints achievable
+                 * (exact null transfer DP, independently re-derived 2026-07-22) */
+                F1_CHECK(gmin == 12 && gmax == 228,
+                         "[f1c3] C1&C4 null support [%d,%d] != the exact [12,228]", gmin, gmax);
+            printf("F1C3 G-HISTOGRAM base=%s n=%d pairs [", base, n);
+            for (int i = 0; i < n; i++) printf("%s%d", i ? "," : "", pl[i]);
+            printf("] start_exit=%d%s\n", start_exit, gm->use_c5 ? " (C5 budget = B0)" : "");
+            printf("  (uncapped; C3 = 16 + 8*G over C1-valid orderings; C3 <= 776 <=> G <= 95)\n");
+            F1U192 wsum = {0, 0, 0}, cum95 = {0, 0, 0};
+            for (int gofs = 0; gofs < 1024; gofs++) {
+                if (f1_is_zero(&hist[gofs])) continue;
+                int gg = gofs - F1C3_GBIAS;
+                char bdec[64];
+                f1_dec(hist[gofs], bdec);
+                printf("G_HIST g=%d count=%s\n", gg, bdec);
+                nbins++;
+                if (gg >= 0) {   /* final-layer g is >= 1 per couple; negative only possible at rungs */
+                    F1U192 w = f1_mul_small(hist[gofs], (uint32_t)gg);
+                    f1_add(&wsum, &w);
+                } else {
+                    F1_CHECK(!full31, "[f1c3] negative final G at full-31 — impossible");
+                }
+                if (gg <= 95) f1_add(&cum95, &hist[gofs]);
+                if (full31 && !gm->no_c2) {   /* gate G3: the free 24-action preserves G,
+                                               * so it acts on every G-fiber -> each bin % 24 == 0 */
+                    F1U192 q = hist[gofs];
+                    uint32_t r24 = f1_divmod_small(&q, 24);
+                    F1_CHECK(r24 == 0, "[f1c3] G-bin g=%d %% 24 = %u != 0 — per-fiber "
+                             "free-action divisibility violated", gg, r24);
+                }
+            }
+            char wdec[64], cdec[64];
+            f1_dec(wsum, wdec);
+            f1_dec(cum95, cdec);
+            printf("G_HIST_END bins=%d gmin=%d gmax=%d\n", nbins, gmin, gmax);
+            printf("G_HIST_TOTAL = %s\n", tdec);
+            printf("G_HIST_WSUM = %s   (sum of g*count; E[G] = WSUM/TOTAL)\n", wdec);
+            if (!gm->no_c2 && !gm->use_c5)
+                printf("G_HIST_CUM_LE_95 = %s   (= EXACT |C1 & C2 & C3 & C4|)\n", cdec);
+            else
+                printf("G_HIST_CUM_LE_95 = %s   (count at G <= 95 over base %s)\n", cdec, base);
+            if (full31) {
+                /* gate G4: KW itself has G = 95 and lies in every one of these bases,
+                 * so the G=95 bin must be populated (>= its 24-orbit when C2 is on) */
+                F1_CHECK(!f1_is_zero(&hist[95 + F1C3_GBIAS]),
+                         "[f1c3] KW-witness bin G=95 empty at full-31");
+                printf("  KW witness: G=95 bin populated%s\n",
+                       gm->no_c2 ? "" : "; every bin divisible by 24 (asserted)");
+            }
+            if (full31 && gm->no_c2) {
+                /* C1&C4 null: E[G] = 128 exactly (linearity; independently re-derived
+                 * 2026-07-22) -> integer identity WSUM == 128 * TOTAL, hard-asserted */
+                F1U192 t128 = f1_mul_small(total, 128);
+                F1_CHECK(f1_eq(&wsum, &t128),
+                         "[f1c3] E[G] identity FAILED: WSUM != 128 * TOTAL on the C1&C4 null");
+                printf("  E[G] identity: WSUM == 128 * TOTAL (asserted; C1&C4 null, E[G]=128 exact)\n");
+            }
+            printf("F1C3 HIST: DONE (%.1fs)\n", omp_get_wtime() - T0);
+            free(hist);
+        } else if (full31) {
             /* S4 acts freely on C1-C5 solutions (fixed-pairing argument, TR-5)
              * and C5 is G-invariant (Hamming isometry) -> N divisible by 24 */
             F1U192 q = total;
@@ -16885,7 +17310,62 @@ int main(int argc, char *argv[]) {
                     "(resume is automatic when a matching manifest exists)\n");
             return 2;
         }
-        return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume);
+        return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume, 0, 0, 0);
+    } else if (argc > 1 && strcmp(argv[1], "--f1-c3-hist") == 0) {
+        /* BACKLOG-2a: exact G-histogram (C3 = 16 + 8*G channel) on the orbit DP.
+         * Default base = C1 & C2 & C4 (rid disabled) -> the histogram's G<=95
+         * cumulative IS the exact |C1 & C2 & C3 & C4|. --with-c5 keeps the C5
+         * residual (rung-gate base, totals must match the published #217 rung
+         * counts); --no-c2 drops the C2 test (C1 & C4 null-distribution gate).
+         * UNCAPPED — no G-prune. See the G-channel module header above
+         * f1c3_build_comp_pairs() for method, gates, and attribution.
+         * Sha-neutral (argv-dispatched, never on the enum path). */
+        const char *c3_layers_dir = NULL, *c3_ooc_dir = NULL;
+        int c3_npairs = 31, c3_resume = 0, c3_with_c5 = 0, c3_no_c2 = 0, c3_argerr = 0;
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
+                c3_layers_dir = argv[++ai];
+            else if (strcmp(argv[ai], "--f1-out-of-core") == 0 && ai + 1 < argc)
+                c3_ooc_dir = argv[++ai];
+            else if (strcmp(argv[ai], "--resume-from-layers") == 0)
+                c3_resume = 1;
+            else if (strcmp(argv[ai], "--f1-pairs") == 0 && ai + 1 < argc)
+                c3_npairs = atoi(argv[++ai]);
+            else if (strcmp(argv[ai], "--with-c5") == 0)
+                c3_with_c5 = 1;
+            else if (strcmp(argv[ai], "--no-c2") == 0)
+                c3_no_c2 = 1;
+            else
+                c3_argerr = 1;
+        }
+        if (c3_layers_dir && c3_ooc_dir) {
+            fprintf(stderr, "ERROR: --layers-dir and --f1-out-of-core are mutually exclusive "
+                    "(the out-of-core dir IS the layers dir)\n");
+            return 2;
+        }
+        if (c3_resume && !c3_layers_dir && !c3_ooc_dir) {
+            fprintf(stderr, "ERROR: --resume-from-layers requires --layers-dir DIR or "
+                    "--f1-out-of-core DIR\n");
+            return 2;
+        }
+        if (c3_with_c5 && c3_no_c2) {
+            fprintf(stderr, "ERROR: --with-c5 and --no-c2 are mutually exclusive "
+                    "(the C5 boundary budget presupposes the C2 transition classes)\n");
+            return 2;
+        }
+        if (c3_argerr) {
+            fprintf(stderr, "Usage: solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2] "
+                    "[--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]\n"
+                    "  Emits the exact final-layer G-histogram (C3 = 16 + 8*G; uncapped).\n"
+                    "  Default base C1&C2&C4: the G<=95 cumulative = exact |C1&C2&C3&C4|.\n"
+                    "  --with-c5: keep the C5 residual (rung-gate base; totals = #217 rung counts)\n"
+                    "  --no-c2:   drop the C2 adjacency test (C1&C4 null-distribution gate base)\n"
+                    "  N in {9,13,16,18,19,24,25,27,28,31} — group-closed pair-orbit unions "
+                    "(default 31 = full run)\n");
+            return 2;
+        }
+        return f1c5_exact_main(c3_layers_dir, c3_npairs, c3_ooc_dir, c3_resume,
+                               1, c3_with_c5, c3_no_c2);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
