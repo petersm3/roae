@@ -75,7 +75,9 @@ lean PruneExactness.lean     # f1c5 model-level exactness: capping_exact (dead-s
                              # + cap_never_merges_live (FH-1 §2 no-further-collapse), and §OrbitTransfer —
                              # orbit_transfer_exact / orbit_stabilizer_mult / stabilizer_weighted_mass
                              # (the orbit-DP transfer + stabilizer bookkeeping; TR-11 §2/§10(vi))
-lean PruneGInvariance.lean   # G-invariance of the prune predicate (record-level symmetry layer)
+lean PruneGInvariance.lean   # G-invariance of the prune predicates + §9 prefix-G (running-G)
+                             # invariance for the C3 G-channel DP (quotient-compatibility,
+                             # kernel-only chain; ~2 min — several group facts are kernel decide)
 lean RecordConvention.lean   # record/orientation convention lemmas
 ```
 
