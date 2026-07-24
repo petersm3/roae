@@ -21,10 +21,11 @@ machine-checkable mathematical fact, and the receipt is in this directory.
 
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
 must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See [reports/METHODS.md](../METHODS.md).
-`verify_all.sh` (this directory) checks every certificate below. Full inventory: 20 certificates —
+`verify_all.sh` (this directory) checks every certificate below. Full inventory: 21 certificates —
 the original 5 (conflict theorem + repair ladder + alternation theorem), the 14 of the [TR-2](../TR2_THE_RULES_CONFLICT.md) v1.6
 extension (five-rule union, its near-2/3/4 repair ladder, all five leave-one-out subsets, the three
-two-rule cores, and two encoding-validation gates), and the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel.
+two-rule cores, and two encoding-validation gates), the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel, and the
+C3 positional KW-exactness gate — plus one SAT-witness artifact (`c3_positional_witnesses.txt`).
 
 ## TR-5 SC-4 rigidity kernel
 
@@ -38,6 +39,27 @@ certificates. `verify_all.sh` special-cases it accordingly. The instance is deci
 alone (drat-trim reports 1 lemma in core over 3,054 core clauses) — it is an easy instance for a modern
 solver, and the certificate's value is that the step is now *machine-checked* rather than asserted in
 prose, not that it was computationally hard.
+
+## C3 positional certificates (TR-12 Q4(b); G = couple-slot-distance sum, C3 = 16 + 8·G, KW at G = 95)
+
+These certify **decision facts about the position of King Wen's C3 value** at the C1∩C2∩C4∩C5 base
+(no C3 ceiling in the base). They corroborate "KW's G = 95 is not extremal, not unique, and the C3 ≤ 776
+cap truncates a populated region" — they are feasibility facts only and bound **no measure** (they can
+never certify a percentile; that is the enumeration/counting layer's job).
+
+| certificate | regeneration command | claim |
+|---|---|---|
+| `c3_kwpin_ge777_unsat.drat.gz` | `python3 sat.py --emit-cnf kw-pin f.cnf --c3-min 777` | KW forced + C3 ≥ 777 is UNSAT — with the SAT of `kw-pin --c3-min 776` and the ≤-side gate, a machine-check that KW's C3 is **exactly** 776 (G = 95). |
+
+SAT-witness artifact (checkable without any solver — each line is an explicit ordering):
+
+| artifact | contents |
+|---|---|
+| `c3_positional_witnesses.txt` | 42 verified C1∩C2∩C4∩C5 orderings: one at **every** integer rung G = 12..51 (G = 12 is the structural floor — 12 complement couples in pairwise-distinct slots give G ≥ 12 by counting, and it is **achieved**, so the constraints impose no floor above the trivial minimum; KW sits 83 above it); one at G = 95 whose pair-slot layout differs from KW's (`--not-kw` — the G = 95 tie class is not KW-unique, engine-independently); and one at G = 97 > 95 (the region above the C3 ≤ 776 cap is populated). The 560T-population minimum G = 51 is truncation-biased: SAT reaches G = 12. Regeneration commands are in the file header; `verify_all.sh` §3b rechecks every line through `verify.py`'s independent functions. |
+
+There is deliberately no UNSAT/DRAT below the floor: G < 12 is impossible for *any* pair arrangement by
+the two-line counting argument above — it lies below the encoding's expressible range, and a DRAT of an
+encoder-arithmetic empty clause would certify nothing a reader could not check faster by hand.
 
 ## Original set (conflict theorem, minimal repairs, alternation theorem)
 

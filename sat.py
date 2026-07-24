@@ -103,6 +103,18 @@ Flags (append after the target):
                  couples of |slot(u) - slot(v)|, independent of orientations. The CNF bounds the
                  couple slot-distance sum with a Sinz sequential counter.
   --c3-max N     override the C3 ceiling (default 776); e.g. 775 for the KW-exactness UNSAT gate
+  --c3-min N     encode C3 >= N (the >= side of the unary couple-distance ladder; does NOT
+                 imply the <= 776 ceiling — combine with --c3-max to window C3 exactly).
+                 Unlike the relaxed one-directional <= encoding, the >= side is made EXACT
+                 (two-sided X<->Y binding + spurious-true distance-lit kill clauses), so a
+                 model's ladder value equals the decoded ordering's true couple-distance sum.
+                 Used by the C3 positional certificates (above-ceiling witness G >= 96, i.e.
+                 --c3-min 784, and the G = 95 tie witness via --c3-min 776 --c3-max 776).
+  --not-kw       exclude every ordering whose pair-slot LAYOUT matches King Wen's (slot s =
+                 pair s for all s) — i.e. KW itself AND all its within-pair orientation
+                 variants. Since that excluded set contains KW, any witness is != KW, and
+                 stronger: it places at least one pair in a non-KW slot (tie certificate;
+                 an orientation-only variant would tie G trivially, as G is orientation-blind)
 """
 
 import sys, subprocess, os
@@ -498,7 +510,7 @@ def target_rules(target):
         raise SystemExit("unknown target: " + target)
     return set(RULESETS[tbase])
 
-def build(target, with_c3=False, c3_max=None):
+def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
     tbase = target.split("-near-")[0]
     rules = target_rules(target)
     cnf = CNF()
@@ -744,11 +756,28 @@ def build(target, with_c3=False, c3_max=None):
         for st in SLOTS:
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
             cnf.add(Y[(st, jkw)])
-    if with_c3:
+    if not_kw:
+        # exclude KW's pair-slot LAYOUT (slot s = pair s, either orientation): a[s] <->
+        # "slot s holds pair s", then require some a[s] false. The excluded set is exactly
+        # {KW and its 2^31 within-pair orientation variants} — a subset of "!= KW", so any
+        # model decodes to an ordering != KW, and stronger: some pair sits in a non-KW slot
+        # (G is orientation-blind, so an orientation-only variant would tie G trivially)
+        akw = []
+        for s in SLOTS:
+            a = cnf.var()
+            own = [Y[(s, j)] for j in range(NJ) if ORIENTS[j][0] == s]
+            cnf.add(-a, *own)
+            for y in own:
+                cnf.add(-y, a)
+            akw.append(a)
+        cnf.add(*[-a for a in akw])
+    if with_c3 or c3_min is not None:
         # ---- native C3 (complement-distance ceiling; see C3 static facts above) ----
-        # gated on with_c3 ONLY: no clause here may reach any other target's build path.
+        # gated on with_c3/--c3-min ONLY: no clause here may reach any other target's build path.
         # C3(seq) = 2*|C3_SELFC| + 8*S where S = sum over C3_COUPLES of |slot(u)-slot(v)|,
         # so C3 <= M  <=>  S <= (M - 2*|C3_SELFC|) // 8.  M=776 -> S<=95; M=775 -> S<=94.
+        # When c3_min is None the emitted CNF is BYTE-IDENTICAL to the pre---c3-min encoding
+        # (the 2026-07-22-verified floor-safe map) — every new clause below is c3_min-gated.
         bound = KW_C3 if c3_max is None else c3_max
         sbudget = (bound - 2 * len(C3_SELFC)) // 8
         # X[p][s] = "pair p occupies slot s" (one-directional Y -> X suffices: spurious-true X
@@ -762,6 +791,14 @@ def build(target, with_c3=False, c3_max=None):
                 if ORIENTS[j][0] == p:
                     for s in SLOTS:
                         cnf.add(-Y[(s, j)], X[(p, s)])
+        if c3_min is not None:
+            # >= side needs EXACT X: a spurious-true X could inflate S and fake the lower
+            # bound. X -> Y support (with the exactly-one-per-pair Y structure this makes
+            # X[(p, s)] <-> "pair p occupies slot s")
+            for p in cmembers:
+                for s in SLOTS:
+                    cnf.add(-X[(p, s)],
+                            *[Y[(s, j)] for j in range(NJ) if ORIENTS[j][0] == p])
         # per-couple unary distance lits G[c][k] = "|slot(u)-slot(v)| >= k", k = 2..30
         # (k=1 always holds: two pairs never share a slot), forced by slot-pair clauses + chain
         dlits = []
@@ -773,9 +810,25 @@ def build(target, with_c3=False, c3_max=None):
                         cnf.add(-X[(u, s)], -X[(v, t)], G[abs(s - t)])
             for k in range(3, 31):
                 cnf.add(-G[k], G[k - 1])
+            if c3_min is not None:
+                # >= side: kill spurious-true distance lits — if the couple's true slot
+                # distance is d, G[d+1] must be false (the k-chain above then pulls every
+                # higher G[k] false too), so #true dlits per couple == d - 1 exactly
+                for s in SLOTS:
+                    for t in SLOTS:
+                        if s != t and abs(s - t) + 1 <= 30:
+                            cnf.add(-G[abs(s - t) + 1], -X[(u, s)], -X[(v, t)])
             dlits += [G[k] for k in range(2, 31)]
         # S = |C3_COUPLES| + (# true dlits)  =>  bound the unary sum
-        at_most_k(cnf, dlits, sbudget - len(C3_COUPLES))
+        if with_c3:
+            at_most_k(cnf, dlits, sbudget - len(C3_COUPLES))
+        if c3_min is not None:
+            # C3 >= m  <=>  S >= ceil((m - 2*|C3_SELFC|) / 8); S = |couples| + #true dlits
+            s_lower = -((c3_min - 2 * len(C3_SELFC)) // -8)
+            if s_lower - len(C3_COUPLES) > len(dlits):
+                raise SystemExit("--c3-min %d exceeds the encodable maximum" % c3_min)
+            if s_lower > len(C3_COUPLES):
+                at_least_k(cnf, dlits, s_lower - len(C3_COUPLES))
     return cnf, Y
 
 # ============================================================================
@@ -1149,12 +1202,17 @@ def certify_count(cnf_obj, label, keep_dir=None):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    with_c3, c3_max, npairs = False, None, None
+    with_c3, c3_max, c3_min, not_kw, npairs = False, None, None, False, None
     if "--with-c3" in args:
         with_c3 = True; args.remove("--with-c3")
     if "--c3-max" in args:
         i = args.index("--c3-max")
         with_c3, c3_max = True, int(args[i + 1]); del args[i:i + 2]
+    if "--c3-min" in args:                           # C3 >= N (does NOT imply the <= ceiling)
+        i = args.index("--c3-min")
+        c3_min = int(args[i + 1]); del args[i:i + 2]
+    if "--not-kw" in args:
+        not_kw = True; args.remove("--not-kw")
     if "--f1-pairs" in args:                         # reduced subset instance (TASK #225 probe)
         i = args.index("--f1-pairs")
         npairs = int(args[i + 1]); del args[i:i + 2]
@@ -1169,7 +1227,9 @@ if __name__ == "__main__":
     def _emit_label(target):
         if npairs is not None:
             return "f1c5 --f1-pairs %d (C1&C2&C4&C5)" % npairs
-        return target + (" c3<=%d" % (c3_max or KW_C3) if with_c3 else "")
+        return target + (" c3<=%d" % (c3_max or KW_C3) if with_c3 else "") \
+                      + (" c3>=%d" % c3_min if c3_min is not None else "") \
+                      + (" not-kw" if not_kw else "")
 
     if args[:1] == ["--emit-cnf"] and len(args) == 3:
         if npairs is not None:
@@ -1179,7 +1239,7 @@ if __name__ == "__main__":
             print("f1-pairs=%d pl=%s start_exit=%d B0(d1,2,3,4,6)=%s"
                   % (npairs, ctx["pl"], ctx["start_exit"], [ctx["b0"][dv] for dv in _DVAL]))
         else:
-            cnf, Y = build(args[1], with_c3=with_c3, c3_max=c3_max)
+            cnf, Y = build(args[1], with_c3=with_c3, c3_max=c3_max, c3_min=c3_min, not_kw=not_kw)
             cnf.write(args[2], "target=" + _emit_label(args[1]))
             print("vars=%d clauses=%d -> %s" % (cnf.n, len(cnf.cl), args[2]))
     elif args[:1] == ["--decode"] and len(args) in (2, 3):
@@ -1198,11 +1258,18 @@ if __name__ == "__main__":
                   % (ok, [cls[dv] for dv in _DVAL], [ctx["b0"][dv] for dv in _DVAL]))
         else:
             target = args[2] if len(args) == 3 else "plain"
-            cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)
+            cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min, not_kw=not_kw)
             seq = decode(lits, Y)
             ok, c3, scores = verify_seq(seq)
             print("SEQ:", seq)
-            print("verify=%s  c3=%d  %s" % (ok, c3, "c3<=776 PASS" if c3 <= 776 else "fail C3"))
+            if c3_min is None:
+                print("verify=%s  c3=%d  %s" % (ok, c3, "c3<=776 PASS" if c3 <= 776 else "fail C3"))
+            else:
+                lo_ok = c3 >= c3_min
+                hi_ok = (not with_c3) or c3 <= (c3_max or KW_C3)
+                print("verify=%s  c3=%d  %s" % (ok, c3,
+                      "c3 window PASS" if lo_ok and hi_ok else
+                      ("fail c3-min" if not lo_ok else "fail c3-max")))
             if scores is not None:
                 print("rule re-score (solve.py): moore-parity-viol=%d rhythm-breaks=%d "
                       "gender-viol=%d" % scores)
@@ -1216,11 +1283,11 @@ if __name__ == "__main__":
         # at_most/at_least Sinz registers undetermined — validly certified
         # for the CNF, but NOT the count of orderings. Refuse rather than
         # print a certified-but-unsupportable number.
-        if with_c3 or c3_max is not None:
-            raise SystemExit("--certify-count refuses --with-c3/--c3-max: the C3 "
-                             "encoding is one-directional and not total-model-count-"
-                             "safe (the certified CNF count would not equal the "
-                             "orderings count)")
+        if with_c3 or c3_max is not None or c3_min is not None or not_kw:
+            raise SystemExit("--certify-count refuses --with-c3/--c3-max/--c3-min/--not-kw: "
+                             "the C3 encoding is not total-model-count-safe (one-directional "
+                             "on the <= side; auxiliary X/ladder vars on the >= side), so the "
+                             "certified CNF count would not equal the orderings count")
         if "-near-" in target:
             raise SystemExit("--certify-count refuses near-k targets: bare "
                              "at_most/at_least cardinality registers are not "
@@ -1244,7 +1311,7 @@ if __name__ == "__main__":
                 sys.exit(1)
     elif args[:1] == ["--witness"] and len(args) == 2:
         target = args[1]
-        cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max)
+        cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min, not_kw=not_kw)
         import tempfile
         for attempt in range(200):
             f = tempfile.NamedTemporaryFile("w", suffix=".cnf", delete=False)
@@ -1277,10 +1344,12 @@ if __name__ == "__main__":
                 for nm, idx in (("parity", 0), ("rhythm", 1), ("gender", 2)):
                     if nm in target_rules(target) and (scores is None or scores[idx] != 0):
                         rule_ok = False
+            c3_ok = (c3 <= 776) if c3_min is None else \
+                    (c3 >= c3_min and ((not with_c3) or c3 <= (c3_max or KW_C3)))
             print("attempt %d: verify=%s rules(g1,g2,g3)=%s rule_ok=%s c3=%d %s"
                   % (attempt, ok, scores, rule_ok, c3,
-                     "<=776 PASS" if c3 <= 776 else "fail C3, blocking"))
-            if ok and rule_ok and c3 <= 776:
+                     "c3 PASS" if c3_ok else "fail C3, blocking"))
+            if ok and rule_ok and c3_ok:
                 print("WITNESS:", seq); break
             cnf.add(*[-Y[(s, j)] for s in SLOTS for j in range(NJ) if Y[(s, j)] in set(l for l in lits if l > 0)])
     elif args[:1] == ["--rigidity-cnf"] and len(args) in (2, 3):

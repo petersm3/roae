@@ -18,9 +18,9 @@ ground truth.
 ## SYNOPSIS
 
 ```
-python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--f1-pairs N]
-python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--f1-pairs N]
-python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N]
+python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--c3-min N] [--not-kw] [--f1-pairs N]
+python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--c3-min N] [--not-kw] [--f1-pairs N]
+python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N] [--c3-min N] [--not-kw]
 python3 sat.py --certify-count TARGET               [--f1-pairs N]
                                                     [--expect N] [--keep DIR]
 ```
@@ -166,7 +166,7 @@ CNF (or, with `--f1-pairs N`, of the reduced small-n probe instance —
 the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
 
 > **Model-count-safe targets only:** `--certify-count` refuses
-> `--with-c3` / `--c3-max` and `*-near-k` targets. The C3 encoding's
+> `--with-c3` / `--c3-max` / `--c3-min` / `--not-kw` and `*-near-k` targets. The C3 encoding's
 > auxiliary `X` variables are deliberately one-directional (an unforced
 > `X` may float true, multiplying the model count), and near-k targets
 > leave bare at-most/at-least cardinality registers undetermined — the
@@ -208,6 +208,8 @@ temp directory.
 |---|---|
 | `--with-c3` | Include the C3 complement-distance constraint in the encoding (bounded at KW's C3, 776, unless `--c3-max` overrides). |
 | `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Consumes the following token as the integer bound. |
+| `--c3-min N` | Encode C3 ≥ `N` (the ≥ side of the unary couple-distance ladder). Does **not** imply the ≤ 776 ceiling — combine with `--c3-max` to window C3 exactly. Unlike the relaxed one-directional ≤ encoding, the ≥ side is exact (two-sided X↔Y binding plus spurious-true-distance-lit kill clauses), so a model's ladder value equals the decoded ordering's true couple-distance sum. Used by the C3 positional certificates (above-ceiling witness `--c3-min 784`, i.e. G ≥ 96; the G = 95 tie witness via `--c3-min 776 --c3-max 776`; and the `kw-pin --c3-min 777` KW-exactness UNSAT gate). Consumes the following token as the integer bound. |
+| `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
 | `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count`. The C5 budget `B0` is derived per subset. Consumes the following token as the integer `N`. |
 | `--expect N` | (`--certify-count` only) Assert the certified count equals `N` (the caller-supplied native reference count); prints `PASS`/`FAIL` and exits non-zero on `FAIL`. Consumes the following token as the integer `N`. |
 | `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory. Consumes the following token as the directory path. |
