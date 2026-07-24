@@ -45,6 +45,10 @@
  *         ./verify --check-layers DIR [max_k] [run.out]   spec-driven layer-file reader
  *         (all layers, entry-streaming; with run.out also compares the independently
  *          re-derived orbit-weighted mass per layer); --check-layers-selftest.
+ *         ./verify --check-g-ladder FDIR GDIR [max_k]   g-ladder verifier (structural +
+ *          the f·g cut identity at every layer), against GT_LADDER_FORMAT.md.
+ *         ./verify --check-t-ladder FDIR TDIR [max_k]   t-ladder verifier (f-geometry
+ *          mirror + the f·t node identity at every layer); --check-gt-selftest.
  */
 
 #include <stdio.h>
@@ -296,6 +300,26 @@ static int u192_mul_small(u192 *a, uint32_t s) {        /* a*=s; 1 on 192-bit ov
         a->l[i] = (uint64_t)t; c = t >> 64;
     }
     return c != 0;
+}
+/* full 192x192 product; *ovf set to 1 if the true product exceeds 192 bits.
+ * Valid-ladder products f(s)*g(s) / f(s)*t(s) never do (each is <= the total
+ * node count < 2^192); the guard exists for the corrupt-file case. */
+static u192 u192_mul(u192 a, u192 b, int *ovf) {
+    uint64_t r[6] = {0, 0, 0, 0, 0, 0};
+    for (int i = 0; i < 3; i++) {
+        unsigned __int128 carry = 0;
+        for (int j = 0; j < 3; j++) {
+            unsigned __int128 t = (unsigned __int128)a.l[i] * b.l[j] + r[i + j] + carry;
+            r[i + j] = (uint64_t)t; carry = t >> 64;
+        }
+        for (int q = i + 3; carry && q < 6; q++) {
+            unsigned __int128 t = (unsigned __int128)r[q] + carry;
+            r[q] = (uint64_t)t; carry = t >> 64;
+        }
+    }
+    if (r[3] | r[4] | r[5]) *ovf = 1;
+    u192 out; out.l[0] = r[0]; out.l[1] = r[1]; out.l[2] = r[2];
+    return out;
 }
 
 /* pl_hash: FNV-1a-64 absorbing 64-bit WORDS (n, start_exit, pl[0..n-1]) — the
@@ -632,15 +656,18 @@ cleanup:
     return fail;
 }
 
-/* parse f1c5_manifest.txt (spec §Manifest). returns 0 ok. */
-static int lc_manifest(const char *dir, uint32_t *n, uint32_t *se, uint64_t *plhash_hex,
-                       uint32_t pl[64], int *npl, int b0[5], int *last_k) {
-    char path[1024]; snprintf(path, sizeof path, "%s/f1c5_manifest.txt", dir);
+/* parse <pfx>_manifest.txt (spec §Manifest; first line must be
+ * "<pfx>_manifest_v1" — GT_LADDER_FORMAT.md's per-kind tag). returns 0 ok. */
+static int lc_manifest_pfx(const char *dir, const char *pfx,
+                           uint32_t *n, uint32_t *se, uint64_t *plhash_hex,
+                           uint32_t pl[64], int *npl, int b0[5], int *last_k) {
+    char path[1024]; snprintf(path, sizeof path, "%s/%s_manifest.txt", dir, pfx);
+    char tag[64];   snprintf(tag,  sizeof tag,  "%s_manifest_v1", pfx);
     FILE *f = fopen(path, "r"); if (!f) return 1;
     char line[8192]; int have_tag=0; *n=0; *se=0; *last_k=-1; *plhash_hex=0; *npl=0;
     for (int c=0;c<5;c++) b0[c]=0;
     while (fgets(line, sizeof line, f)) {
-        if (!strncmp(line,"f1c5_manifest_v1",16)) have_tag=1;
+        if (!strncmp(line,tag,strlen(tag))) have_tag=1;
         else if (!strncmp(line,"n=",2)) *n=(uint32_t)atoi(line+2);
         else if (!strncmp(line,"start_exit=",11)) *se=(uint32_t)atoi(line+11);
         else if (!strncmp(line,"pl=",3)) { int i=0; char *t=strtok(line+3,",\n");
@@ -652,6 +679,10 @@ static int lc_manifest(const char *dir, uint32_t *n, uint32_t *se, uint64_t *plh
     }
     fclose(f);
     return have_tag ? 0 : 1;
+}
+static int lc_manifest(const char *dir, uint32_t *n, uint32_t *se, uint64_t *plhash_hex,
+                       uint32_t pl[64], int *npl, int b0[5], int *last_k) {
+    return lc_manifest_pfx(dir, "f1c5", n, se, plhash_hex, pl, npl, b0, last_k);
 }
 
 /* parse the run log's "[f1c5] layer k=%2d/%d: ... mass=<dec> ..." lines for a
@@ -974,17 +1005,1025 @@ static int lc_selftest(void) {
     return ok ? 0 : 1;
 }
 
+/* ==========================================================================
+ * G-LADDER / T-LADDER CHECKERS
+ *   --check-g-ladder FDIR GDIR [max_k]
+ *   --check-t-ladder FDIR TDIR [max_k]
+ *   --check-gt-selftest
+ *
+ * Written AGAINST documentation/GT_LADDER_FORMAT.md (published first, this
+ * reader second — the same two-step discipline as --check-layers and the
+ * one that surfaced F-3) and NOTHING from solve.c: the group, the pair
+ * table, the budget radices, and both identities are re-derived here from
+ * the published definitions, sharing only this file's already-independent
+ * machinery (derive_pair_perms / lc_restrict_perms / lc_orbit_of / u192).
+ *
+ * What is verified, per the spec's §Invariants:
+ *   g  structural: F1C5GLY1/2 magic+version, g_manifest_v1, header fields vs
+ *      the manifest, v1/v2 file-size formulas, masks/off layout, canonicity,
+ *      per-entry key packing / ascending order / rid < R / SUM INVARIANT /
+ *      nonzero values, the stored-domain rule (last in the mask's
+ *      pair-element set; start_exit at k=0), the exact seed layer n (2n
+ *      sorted pair elements, rid = R-1, all values 1) and layer 0 (anchor
+ *      singleton).
+ *   g  identity: the f*g CUT IDENTITY at EVERY layer — sum over the layer of
+ *      orbit(mask) * f(s)*g(s) (two-pointer key merge per mask; entries
+ *      present in only one ladder pair with 0) == N, where N is re-derived
+ *      from the f ladder's final-layer value bytes and, at full-31, must
+ *      also equal the published count.
+ *   t  structural: F1C5TLY1/2 magic+version, t_manifest_v1, GEOMETRY
+ *      BYTE-IDENTICAL to the f layer (masks, off, keys) at every layer,
+ *      every value >= 1, layer-n values exactly 1, layer-0 anchor singleton.
+ *   t  identity: M_j (orbit-weighted f masses = # valid depth-j prefixes)
+ *      re-derived from the f ladder's bytes, M_0 == 1, and at EVERY layer
+ *      sum orbit(mask) * f(s)*t(s) == S_k = sum_{j>=k} M_j — the unfolded
+ *      backward recurrence t(s) = 1 + sum_c t(s.c) checked layer-to-layer
+ *      (S_k = S_{k+1} + M_k) — plus t(root) == S_0 printed and checked.
+ *
+ * Any mismatch is a FINDING (GT_LADDER_FORMAT.md: report it, do not patch
+ * around it). Entry-streaming; per-mask spans are buffered (a span is at
+ * most 64*R entries by the key packing, ~11 MB worst-case at full-31), so
+ * memory is O(nm + 64*R) per open layer. Like --check-layers this is a
+ * campaign-VM tool for real ladders; the selftest runs anywhere at ~zero
+ * cost on synthetic fixtures.
+ * ========================================================================== */
+
+/* ---- sequential layer-entry cursor (v1 + v2), spec-driven ---- */
+typedef struct {
+    FILE *f; char lab; int k;
+    int is_v2; uint32_t BLK;
+    uint64_t nm, ne, nblk;
+    uint32_t *masks; uint64_t *off, *kidx, *vidx;
+    long keys_base, vals_base, kblk_base, vblk_base;
+    uint32_t *kbuf; unsigned char *vbuf, *zbuf;
+    uint64_t e, bstart, bn;
+} GtCur;
+
+static void gt_close(GtCur *c) {
+    if (c->f) fclose(c->f);
+    free(c->masks); free(c->off); free(c->kidx); free(c->vidx);
+    free(c->kbuf); free(c->vbuf); free(c->zbuf);
+    memset(c, 0, sizeof *c);
+}
+
+/* open + validate header/masks/off/index against the spec; 0 ok, 1 fail. */
+static int gt_open(const char *dir, const char *pfx, const char *magic7, char lab,
+                   int k, uint32_t exp_n, uint32_t exp_se, uint64_t exp_plhash,
+                   const int exp_b0[5], GtCur *c) {
+    memset(c, 0, sizeof *c);
+    c->lab = lab; c->k = k;
+    char path[1024]; snprintf(path, sizeof path, "%s/%s_layer_%02d.bin", dir, pfx, k);
+    c->f = fopen(path, "rb");
+    if (!c->f) { printf("  [%c] k=%2d  *** FAIL: cannot open %s\n", lab, k, path); return 1; }
+    int fail = 0;
+    #define GTF(cond,msg,...) do{ if(!(cond)){ printf("  [%c] k=%2d  *** FAIL: " msg "\n", lab, k, ##__VA_ARGS__); fail=1; } }while(0)
+    unsigned char hd[72];
+    if (!lc_pread(c->f, 0, hd, 72)) { GTF(0, "short header"); gt_close(c); return 1; }
+    uint32_t version, hn, hk, hse, pad; uint64_t plhash, nm64, ne64;
+    memcpy(&version,hd+8,4); memcpy(&hn,hd+12,4); memcpy(&hk,hd+16,4); memcpy(&hse,hd+20,4);
+    memcpy(&plhash,hd+24,8); memcpy(&nm64,hd+32,8); memcpy(&ne64,hd+40,8);
+    memcpy(&pad,hd+68,4);
+    int is_v1 = memcmp(hd, magic7, 7)==0 && hd[7]=='1';
+    int is_v2 = memcmp(hd, magic7, 7)==0 && hd[7]=='2';
+    GTF(is_v1||is_v2, "bad magic (want %.7s1/2)", magic7);
+    GTF((is_v1&&version==1)||(is_v2&&version==2), "version %u disagrees with magic", version);
+    GTF(hn==exp_n, "header n=%u != expected %u", hn, exp_n);
+    GTF(hk==(uint32_t)k, "header k=%u != filename %d", hk, k);
+    GTF(hse==exp_se, "header start_exit=%u != expected %u", hse, exp_se);
+    GTF(plhash==exp_plhash, "header pl_hash=%016llx != recomputed %016llx",
+        (unsigned long long)plhash, (unsigned long long)exp_plhash);
+    for (int d=0; d<5; d++) { uint32_t t; memcpy(&t,hd+48+4*d,4);
+        GTF((int)t==exp_b0[d], "header b0[%d]=%u != expected %d", d, t, exp_b0[d]); }
+    if (is_v1) GTF(pad==0, "v1 pad=%u != 0", pad);
+    if (is_v2) GTF(pad>0, "v2 block size (pad field) is zero");
+    if (fail) { gt_close(c); return 1; }
+    c->is_v2 = is_v2; c->BLK = is_v2 ? pad : 65536;
+    c->nm = nm64; c->ne = ne64;
+    c->masks = malloc(c->nm*4 + 4);
+    c->off   = malloc((c->nm+1)*8);
+    if (!c->masks || !c->off) { GTF(0, "OOM masks/off (nm=%llu)", (unsigned long long)c->nm);
+                                gt_close(c); return 1; }
+    long off_off = 72 + 4*(long)c->nm;
+    if (!lc_pread(c->f, 72, c->masks, c->nm*4) ||
+        !lc_pread(c->f, off_off, c->off, (c->nm+1)*8)) {
+        GTF(0, "short masks/off table"); gt_close(c); return 1; }
+    GTF(c->off[0]==0, "off[0]=%llu != 0", (unsigned long long)c->off[0]);
+    GTF(c->off[c->nm]==c->ne, "off[nm]=%llu != ne=%llu",
+        (unsigned long long)c->off[c->nm], (unsigned long long)c->ne);
+    for (uint64_t i=0; i<c->nm && !fail; i++) {
+        if (c->off[i] > c->off[i+1]) GTF(0, "off not monotone at %llu", (unsigned long long)i);
+        if (i && c->masks[i] <= c->masks[i-1]) GTF(0, "masks not strictly ascending at %llu", (unsigned long long)i);
+    }
+    if (fail) { gt_close(c); return 1; }
+    fseek(c->f, 0, SEEK_END);
+    long fsz = ftell(c->f);
+    if (is_v1) {
+        c->keys_base = off_off + (long)(c->nm+1)*8;
+        c->vals_base = c->keys_base + (long)c->ne*4;
+        GTF(fsz == (long)(80 + 12*c->nm + 28*c->ne), "v1 file size %ld != spec %llu",
+            fsz, (unsigned long long)(80 + 12*c->nm + 28*c->ne));
+    } else {
+        c->nblk = c->ne ? (c->ne + c->BLK - 1)/c->BLK : 0;
+        c->kidx = malloc((c->nblk+1)*8);
+        c->vidx = malloc((c->nblk+1)*8);
+        long kidx_off = off_off + (long)(c->nm+1)*8, vidx_off = kidx_off + (long)(c->nblk+1)*8;
+        if (!c->kidx || !c->vidx ||
+            !lc_pread(c->f, kidx_off, c->kidx, (c->nblk+1)*8) ||
+            !lc_pread(c->f, vidx_off, c->vidx, (c->nblk+1)*8)) {
+            GTF(0, "short kidx/vidx"); gt_close(c); return 1; }
+        GTF(c->kidx[0]==0 && c->vidx[0]==0, "kidx/vidx[0] != 0");
+        for (uint64_t b=0; b<c->nblk && !fail; b++)
+            if (c->kidx[b+1]<c->kidx[b] || c->vidx[b+1]<c->vidx[b])
+                GTF(0, "kidx/vidx not monotone at block %llu", (unsigned long long)b);
+        c->kblk_base = 96 + 12*(long)c->nm + 16*(long)c->nblk;
+        c->vblk_base = c->kblk_base + (long)c->kidx[c->nblk];
+        GTF(fsz == c->vblk_base + (long)c->vidx[c->nblk], "v2 file size %ld != spec %ld",
+            fsz, c->vblk_base + (long)c->vidx[c->nblk]);
+    }
+    if (fail) { gt_close(c); return 1; }
+    c->kbuf = malloc((size_t)c->BLK*4);
+    c->vbuf = malloc((size_t)c->BLK*24);
+    c->zbuf = is_v2 ? malloc(compressBound(24u*c->BLK)+64) : NULL;
+    if (!c->kbuf || !c->vbuf || (is_v2 && !c->zbuf)) {
+        GTF(0, "OOM stream buffers"); gt_close(c); return 1; }
+    #undef GTF
+    return 0;
+}
+
+/* next entry in file order; 1 = produced, 0 = end, -1 = error (printed). */
+static int gt_next(GtCur *c, uint32_t *key, u192 *val) {
+    if (c->e >= c->ne) return 0;
+    if (c->e >= c->bstart + c->bn) {
+        uint64_t b = c->e / c->BLK;
+        c->bstart = b * c->BLK;
+        c->bn = c->BLK; if (c->bstart + c->bn > c->ne) c->bn = c->ne - c->bstart;
+        if (!c->is_v2) {
+            if (!lc_pread(c->f, c->keys_base + (long)c->bstart*4, c->kbuf, c->bn*4) ||
+                !lc_pread(c->f, c->vals_base + (long)c->bstart*24, c->vbuf, c->bn*24)) {
+                printf("  [%c] k=%2d  *** FAIL: short v1 entry read\n", c->lab, c->k); return -1; }
+        } else {
+            uLongf kd = (uLongf)(c->bn*4), vd = (uLongf)(c->bn*24);
+            uint64_t kcz = c->kidx[b+1]-c->kidx[b], vcz = c->vidx[b+1]-c->vidx[b];
+            if (!lc_pread(c->f, c->kblk_base + (long)c->kidx[b], c->zbuf, kcz) ||
+                uncompress((Bytef*)c->kbuf, &kd, c->zbuf, (uLong)kcz) != Z_OK || kd != c->bn*4) {
+                printf("  [%c] k=%2d  *** FAIL: key block %llu inflate/size\n",
+                       c->lab, c->k, (unsigned long long)b); return -1; }
+            if (!lc_pread(c->f, c->vblk_base + (long)c->vidx[b], c->zbuf, vcz) ||
+                uncompress((Bytef*)c->vbuf, &vd, c->zbuf, (uLong)vcz) != Z_OK || vd != c->bn*24) {
+                printf("  [%c] k=%2d  *** FAIL: val block %llu inflate/size\n",
+                       c->lab, c->k, (unsigned long long)b); return -1; }
+        }
+    }
+    uint64_t j = c->e - c->bstart;
+    *key = c->kbuf[j];
+    memcpy(val, c->vbuf + j*24, 24);
+    c->e++;
+    return 1;
+}
+
+/* buffer span i's entries (cursor must be positioned at off[i]); count, or
+ * UINT64_MAX on error / span exceeding the 64*R key-space cap. */
+static uint64_t gt_read_span(GtCur *c, uint64_t i, uint32_t *keys, u192 *vals, uint64_t cap) {
+    uint64_t cnt = c->off[i+1] - c->off[i];
+    if (cnt > cap) {
+        printf("  [%c] k=%2d  *** FAIL: mask span %llu has %llu entries > 64*R = %llu\n",
+               c->lab, c->k, (unsigned long long)i, (unsigned long long)cnt, (unsigned long long)cap);
+        return UINT64_MAX;
+    }
+    for (uint64_t j = 0; j < cnt; j++)
+        if (gt_next(c, &keys[j], &vals[j]) != 1) return UINT64_MAX;
+    return cnt;
+}
+
+/* per-span structural checks (spec §Invariants). allow = bitmap of permitted
+ * last values (0 = skip the domain check). Returns #problems (prints once per
+ * kind). */
+static uint64_t gt_span_checks(char lab, int k, uint64_t cnt, const uint32_t *keys,
+                               const u192 *vals, const int b0v[5], const uint32_t rad[5],
+                               uint32_t R, uint64_t allow) {
+    uint64_t bad = 0;
+    for (uint64_t j = 0; j < cnt; j++) {
+        uint32_t key = keys[j], rid = key & 0xffff, last = key >> 16;
+        if (j && key <= keys[j-1]) { printf("  [%c] k=%2d  *** FAIL: keys not strictly ascending in span\n", lab, k); bad++; }
+        if (key >> 22)             { printf("  [%c] k=%2d  *** FAIL: key bits 22-31 nonzero\n", lab, k); bad++; }
+        if (rid >= R)              { printf("  [%c] k=%2d  *** FAIL: rid %u >= R=%u\n", lab, k, rid, R); bad++; }
+        else if (lc_rid_digits(rid, b0v, rad) != k)
+                                   { printf("  [%c] k=%2d  *** FAIL: rid digit-sum != k (SUM INVARIANT)\n", lab, k); bad++; }
+        if (u192_zero(vals[j]))    { printf("  [%c] k=%2d  *** FAIL: zero value stored\n", lab, k); bad++; }
+        if (allow && last < 64 && !((allow >> last) & 1))
+                                   { printf("  [%c] k=%2d  *** FAIL: last=%u outside the stored-domain pair-element set\n", lab, k, last); bad++; }
+        if (bad > 8) return bad;                    /* stop flooding */
+    }
+    return bad;
+}
+
+/* mask sanity + canonicity for one open cursor; orbits[] receives per-mask
+ * orbit sizes. Returns #problems. */
+static uint64_t gt_mask_checks(GtCur *c, uint32_t n, uint8_t rp[24][32], int geff,
+                               uint8_t *orbits) {
+    uint64_t bad = 0;
+    for (uint64_t i = 0; i < c->nm; i++) {
+        int canon; int ob = lc_orbit_of(c->masks[i], rp, geff, &canon);
+        orbits[i] = (uint8_t)ob;
+        if (__builtin_popcount(c->masks[i]) != c->k) bad++;
+        if (n < 32 && (c->masks[i] >> n) != 0) bad++;
+        if (!canon || ob == 0) bad++;
+    }
+    if (bad) printf("  [%c] k=%2d  *** FAIL: %llu masks fail popcount/range/canonicity\n",
+                    c->lab, c->k, (unsigned long long)bad);
+    return bad;
+}
+
+/* Sum all values of one layer (used for N = f final-layer sum). 0 ok. */
+static int lc_sum_layer(const char *dir, const char *pfx, const char *magic7, char lab,
+                        int k, uint32_t n, uint32_t se, uint64_t plh, const int b0v[5],
+                        u192 *out) {
+    GtCur c;
+    if (gt_open(dir, pfx, magic7, lab, k, n, se, plh, b0v, &c)) return 1;
+    u192 s = {{0,0,0}}; int fail = 0, r;
+    uint32_t key; u192 v;
+    while ((r = gt_next(&c, &key, &v)) == 1)
+        if (u192_add(&s, v)) { printf("  [%c] k=%2d  *** FAIL: overflow summing layer\n", lab, k); fail = 1; }
+    if (r < 0) fail = 1;
+    gt_close(&c);
+    *out = s;
+    return fail;
+}
+
+/* Orbit-weighted mass of f layer k (the M_j of the t identity), re-derived
+ * from the layer bytes. 0 ok. */
+static int lc_f_mass_layer(const char *fdir, int k, uint32_t n, uint32_t se, uint64_t plh,
+                           const int b0v[5], uint8_t rp[24][32], int geff, u192 *mass_out) {
+    GtCur c;
+    if (gt_open(fdir, "f1c5", "F1C5LAY", 'f', k, n, se, plh, b0v, &c)) return 1;
+    u192 mass = {{0,0,0}};
+    int fail = 0, movf = 0;
+    uint8_t *orbits = malloc(c.nm ? c.nm : 1);
+    if (!orbits) { gt_close(&c); return 1; }
+    if (gt_mask_checks(&c, n, rp, geff, orbits)) fail = 1;
+    for (uint64_t i = 0; i < c.nm && !fail; i++) {
+        u192 s = {{0,0,0}};
+        uint64_t cnt = c.off[i+1] - c.off[i];
+        for (uint64_t j = 0; j < cnt; j++) {
+            uint32_t key; u192 v;
+            if (gt_next(&c, &key, &v) != 1) { fail = 1; break; }
+            if (u192_add(&s, v)) movf = 1;
+        }
+        if (u192_mul_small(&s, orbits[i])) movf = 1;
+        if (u192_add(&mass, s)) movf = 1;
+    }
+    if (movf) { printf("  [f] k=%2d  *** FAIL: overflow in orbit-weighted mass\n", k); fail = 1; }
+    free(orbits);
+    gt_close(&c);
+    *mass_out = mass;
+    return fail;
+}
+
+/* read + cross-check the f manifest and a g/t manifest. 0 ok. */
+static int lc_gt_manifests(const char *fdir, const char *ldir, const char *pfx,
+                           uint32_t *n, uint32_t *se, uint64_t *plh, uint32_t pl[64],
+                           int *npl, int b0v[5], int *l_lastk) {
+    uint32_t fn, fse, fpl[64], ln, lse, lpl[64];
+    uint64_t fph, lph; int fnpl, lnpl, fb0[5], lb0[5], flk;
+    if (lc_manifest_pfx(fdir, "f1c5", &fn, &fse, &fph, fpl, &fnpl, fb0, &flk)) {
+        printf("*** FAIL: cannot read %s/f1c5_manifest.txt\n", fdir); return 1; }
+    if (lc_manifest_pfx(ldir, pfx, &ln, &lse, &lph, lpl, &lnpl, lb0, l_lastk)) {
+        printf("*** FAIL: cannot read %s/%s_manifest.txt (or first line is not %s_manifest_v1)\n",
+               ldir, pfx, pfx); return 1; }
+    int ok = (fn==ln && fse==lse && fph==lph && fnpl==lnpl);
+    for (int i=0;i<5;i++) if (fb0[i]!=lb0[i]) ok=0;
+    for (int i=0;i<fnpl && i<64;i++) if (fpl[i]!=lpl[i]) ok=0;
+    if (!ok) { printf("*** FAIL: %s manifest disagrees with the f manifest (n/start_exit/pl/pl_hash/b0)\n", pfx); return 1; }
+    if (fn < 1 || fn > 31 || fnpl != (int)fn) {
+        printf("*** FAIL: manifest n=%u with %d pl entries\n", fn, fnpl); return 1; }
+    uint64_t rec = lc_pl_hash(fn, fse, fpl);
+    if (rec != fph) { printf("*** FAIL: pl_hash %016llx != recomputed %016llx\n",
+                             (unsigned long long)fph, (unsigned long long)rec); return 1; }
+    if (*l_lastk < 0 || *l_lastk > (int)fn) {
+        printf("*** FAIL: %s last_complete_k=%d out of range (backward ladder: 0=complete)\n",
+               pfx, *l_lastk); return 1; }
+    *n=fn; *se=fse; *plh=fph; *npl=fnpl;
+    for (int i=0;i<fnpl;i++) pl[i]=fpl[i];
+    for (int i=0;i<5;i++) b0v[i]=fb0[i];
+    return 0;
+}
+
+/* ---- g mode: one layer (structural + the f*g cut identity) ---- */
+static int lc_g_layer(const char *fdir, const char *gdir, int k, uint32_t n, uint32_t se,
+                      uint64_t plh, const int b0v[5], const uint32_t rad[5], uint32_t R,
+                      const uint32_t *pl, uint8_t rp[24][32], int geff,
+                      const u192 *expect, int have_expect,
+                      u192 *g0_out, int *g0_got) {
+    GtCur gc, fc;
+    int have_f = 0, fail = 0;
+    if (gt_open(gdir, "g", "F1C5GLY", 'g', k, n, se, plh, b0v, &gc)) return 1;
+    { char p[1024]; snprintf(p, sizeof p, "%s/f1c5_layer_%02d.bin", fdir, k);
+      FILE *t = fopen(p, "rb");
+      if (t) { fclose(t);
+        if (gt_open(fdir, "f1c5", "F1C5LAY", 'f', k, n, se, plh, b0v, &fc) == 0) have_f = 1;
+        else fail = 1; } }
+
+    uint8_t *orbits = malloc(gc.nm ? gc.nm : 1);
+    uint64_t cap = 64ull * R;
+    uint32_t *gkeys = malloc(cap*4), *fkeys = malloc(cap*4);
+    u192 *gvals = malloc(cap*sizeof(u192)), *fvals = malloc(cap*sizeof(u192));
+    if (!orbits || !gkeys || !fkeys || !gvals || !fvals) {
+        printf("  [g] k=%2d  *** FAIL: OOM span buffers\n", k);
+        free(orbits); free(gkeys); free(fkeys); free(gvals); free(fvals);
+        gt_close(&gc); if (have_f) gt_close(&fc); return 1; }
+
+    if (gt_mask_checks(&gc, n, rp, geff, orbits)) fail = 1;
+    /* spec: the f and g mask lists at a layer are identical (both = all
+     * canonical popcount-k masks) */
+    if (have_f && (gc.nm != fc.nm || memcmp(gc.masks, fc.masks, 4*gc.nm) != 0)) {
+        printf("  [g] k=%2d  *** FAIL: g mask list differs from f mask list\n", k); fail = 1; }
+
+    u192 acc = {{0,0,0}};
+    int ovf = 0;
+    uint64_t fi = 0, gi = 0, bad = 0, seed_bad = 0;
+    while (!fail && (gi < gc.nm || (have_f && fi < fc.nm))) {
+        int take_g = (gi < gc.nm) &&
+                     (!have_f || fi >= fc.nm || gc.masks[gi] <= fc.masks[fi]);
+        int take_f = have_f && (fi < fc.nm) &&
+                     (gi >= gc.nm || fc.masks[fi] <= gc.masks[gi]);
+        uint64_t gcnt = 0, fcnt = 0;
+        uint32_t m = take_g ? gc.masks[gi] : fc.masks[fi];
+        if (take_g) {
+            gcnt = gt_read_span(&gc, gi, gkeys, gvals, cap);
+            if (gcnt == UINT64_MAX) { fail = 1; break; }
+            uint64_t allow = 0;                       /* stored-domain bitmap */
+            if (k == 0) allow = 1ull << se;
+            else for (uint32_t b = 0; b < n; b++)
+                if ((m >> b) & 1) allow |= (1ull << PA[pl[b]]) | (1ull << PB[pl[b]]);
+            bad += gt_span_checks('g', k, gcnt, gkeys, gvals, b0v, rad, R, allow);
+            if (k == (int)n) {                        /* exact seed content */
+                int elems[64]; uint32_t nel = 0;
+                for (uint32_t b = 0; b < n; b++) { elems[nel++] = PA[pl[b]]; elems[nel++] = PB[pl[b]]; }
+                for (uint32_t a2 = 1; a2 < nel; a2++) { int x = elems[a2]; uint32_t b2 = a2;
+                    while (b2 > 0 && elems[b2-1] > x) { elems[b2] = elems[b2-1]; b2--; } elems[b2] = x; }
+                if (gcnt != nel) seed_bad++;
+                else for (uint32_t j = 0; j < nel; j++) {
+                    u192 one = {{1,0,0}};
+                    if (gkeys[j] != (((uint32_t)elems[j] << 16) | (R-1)) || !u192_eq(gvals[j], one))
+                        seed_bad++;
+                }
+            }
+            if (k == 0) {                             /* anchor singleton -> g(0) */
+                if (gc.nm != 1 || gc.masks[0] != 0 || gcnt != 1 || gkeys[0] != (se << 16)) {
+                    printf("  [g] k= 0  *** FAIL: layer 0 is not the anchor singleton\n"); fail = 1; }
+                else { *g0_out = gvals[0]; *g0_got = 1; }
+            }
+        }
+        if (take_f) {
+            fcnt = gt_read_span(&fc, fi, fkeys, fvals, cap);
+            if (fcnt == UINT64_MAX) { fail = 1; break; }
+        }
+        if (take_g && take_f) {                       /* matched mask: key merge */
+            u192 msum = {{0,0,0}};
+            uint64_t a2 = 0, b2 = 0;
+            while (a2 < fcnt && b2 < gcnt) {
+                if (fkeys[a2] < gkeys[b2]) a2++;
+                else if (gkeys[b2] < fkeys[a2]) b2++;
+                else {
+                    u192 p = u192_mul(fvals[a2], gvals[b2], &ovf);
+                    if (u192_add(&msum, p)) ovf = 1;
+                    a2++; b2++;
+                }
+            }
+            if (u192_mul_small(&msum, orbits[gi])) ovf = 1;
+            if (u192_add(&acc, msum)) ovf = 1;
+        }
+        if (take_g) gi++;
+        if (take_f) fi++;
+    }
+    if (bad) fail = 1;
+    if (seed_bad) { printf("  [g] k=%2d  *** FAIL: seed layer content wrong (%llu deviations from "
+                           "2n sorted pair elements, rid=R-1, value 1)\n",
+                           k, (unsigned long long)seed_bad); fail = 1; }
+    if (ovf)  { printf("  [g] k=%2d  *** FAIL: 192-bit overflow in f*g identity\n", k); fail = 1; }
+
+    if (!fail && have_f && have_expect) {
+        int ok = u192_eq(acc, *expect);
+        char a[64], e[64]; u192_print(acc, a); u192_print(*expect, e);
+        printf("  k=%2d  g nm=%-7llu ne=%-10llu %s  Σ orbit·f·g = %s (expect N = %s)  %s\n",
+               k, (unsigned long long)gc.nm, (unsigned long long)gc.ne, gc.is_v2?"v2":"v1",
+               a, e, ok ? "OK" : "*** MISMATCH ***");
+        if (!ok) fail = 1;
+    } else if (!fail) {
+        printf("  k=%2d  g nm=%-7llu ne=%-10llu %s  structural OK (identity skipped: %s)\n",
+               k, (unsigned long long)gc.nm, (unsigned long long)gc.ne, gc.is_v2?"v2":"v1",
+               have_f ? "no expected N" : "f layer absent");
+    }
+    free(orbits); free(gkeys); free(fkeys); free(gvals); free(fvals);
+    gt_close(&gc); if (have_f) gt_close(&fc);
+    return fail;
+}
+
+static int lc_check_g(const char *fdir, const char *gdir, int maxk) {
+    printf("======================================================================\n");
+    printf("verify.c --check-g-ladder : spec-driven independent g-ladder verifier\n");
+    printf("written against documentation/GT_LADDER_FORMAT.md; shares no code with solve.c\n");
+    printf("======================================================================\n");
+    uint32_t n, se, pl[64]; uint64_t plh; int npl, b0v[5], glk;
+    if (lc_gt_manifests(fdir, gdir, "g", &n, &se, &plh, pl, &npl, b0v, &glk)) return 1;
+    printf("manifests: n=%u start_exit=%u b0=(%d,%d,%d,%d,%d)  g last_complete_k=%d (0=complete; layers %d..%u present)\n",
+           n, se, b0v[0], b0v[1], b0v[2], b0v[3], b0v[4], glk, glk, n);
+    if (!derive_pair_perms()) return 1;
+    static uint8_t rp[24][32];
+    int geff = lc_restrict_perms(pl, n, rp);
+    if (geff < 0) { printf("*** FAIL: restricted pair-perms are not a group\n"); return 1; }
+    printf("group    : 48 -> 24 induced pair-perms -> %d distinct on this run's %u pairs\n", geff, n);
+    uint32_t rad[5], R; lc_radix(b0v, rad, &R);
+
+    /* N re-derived from the f ladder's final-layer bytes */
+    u192 expect = {{0,0,0}}; int have_expect = 0, fails = 0;
+    { char p[1024]; snprintf(p, sizeof p, "%s/f1c5_layer_%02u.bin", fdir, n);
+      FILE *t = fopen(p, "rb");
+      if (t) { fclose(t);
+        if (lc_sum_layer(fdir, "f1c5", "F1C5LAY", 'f', (int)n, n, se, plh, b0v, &expect) == 0) {
+            have_expect = 1;
+            char d[64]; u192_print(expect, d);
+            printf("expect N : Σ f(layer %u) = %s  (from the f ladder's value bytes)\n", n, d);
+            if (n == 31) {
+                u192 pub = u192_dec(LC_PUBLISHED_COUNT);
+                int ok = u192_eq(expect, pub);
+                printf("           vs published |C1∩C2∩C4∩C5| %s\n", ok ? "MATCH" : "*** MISMATCH ***");
+                if (!ok) fails++;
+            }
+        } else fails++;
+      } else printf("expect N : f layer %u absent — per-layer identity will be skipped\n", n);
+    }
+    printf("----------------------------------------------------------------------\n");
+    u192 g0 = {{0,0,0}}; int g0_got = 0, checked = 0;
+    int hi = (maxk < (int)n) ? maxk : (int)n;
+    for (int k = 0; k <= hi; k++) {
+        char p[1024]; snprintf(p, sizeof p, "%s/g_layer_%02d.bin", gdir, k);
+        FILE *t = fopen(p, "rb");
+        if (!t) {
+            if (k >= glk) { printf("  k=%2d  *** FAIL: g layer missing but manifest promises layers %d..%u\n", k, glk, n); fails++; }
+            continue;
+        }
+        fclose(t);
+        fails += lc_g_layer(fdir, gdir, k, n, se, plh, b0v, rad, R, pl, rp, geff,
+                            &expect, have_expect, &g0, &g0_got);
+        checked++;
+    }
+    printf("----------------------------------------------------------------------\n");
+    if (g0_got && have_expect) {
+        int ok = u192_eq(g0, expect);
+        char a[64]; u192_print(g0, a);
+        printf("g(0) = %s  %s the f-ladder total (whole-space count from the suffix side)\n",
+               a, ok ? "MATCHES" : "*** DOES NOT MATCH ***");
+        if (!ok) fails++;
+    }
+    if (fails == 0)
+        printf("RESULT: %d g layer(s) verified — headers, layout, canonicity, stored domain,\n"
+               "        sum invariant, seed/anchor content, and the f·g cut identity at every\n"
+               "        checked layer.\n", checked);
+    else
+        printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
+    printf("======================================================================\n");
+    return fails ? 1 : 0;
+}
+
+/* ---- t mode: one layer (geometry mirror + the f*t node identity) ---- */
+static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uint32_t se,
+                      uint64_t plh, const int b0v[5], const uint32_t rad[5], uint32_t R,
+                      uint8_t rp[24][32], int geff,
+                      const u192 *Sk, int have_S, u192 *troot_out, int *troot_got) {
+    GtCur tc, fc;
+    if (gt_open(tdir, "t", "F1C5TLY", 't', k, n, se, plh, b0v, &tc)) return 1;
+    if (gt_open(fdir, "f1c5", "F1C5LAY", 'f', k, n, se, plh, b0v, &fc)) {
+        printf("  [t] k=%2d  *** FAIL: the f layer is required (t inherits f geometry)\n", k);
+        gt_close(&tc); return 1; }
+    int fail = 0;
+    if (tc.nm != fc.nm || memcmp(tc.masks, fc.masks, 4*tc.nm) != 0 ||
+        memcmp(tc.off, fc.off, 8*(tc.nm+1)) != 0) {
+        printf("  [t] k=%2d  *** FAIL: GEOMETRY (masks/off) differs from the f layer\n", k);
+        gt_close(&tc); gt_close(&fc); return 1; }
+    uint8_t *orbits = malloc(tc.nm ? tc.nm : 1);
+    if (!orbits) { gt_close(&tc); gt_close(&fc); return 1; }
+    if (gt_mask_checks(&tc, n, rp, geff, orbits)) fail = 1;
+
+    u192 acc = {{0,0,0}};
+    int ovf = 0;
+    uint64_t bad_key = 0, bad_rid = 0, bad_zero = 0, bad_seed = 0;
+    for (uint64_t i = 0; i < tc.nm && !fail; i++) {
+        u192 msum = {{0,0,0}};
+        uint64_t cnt = tc.off[i+1] - tc.off[i];
+        for (uint64_t j = 0; j < cnt; j++) {
+            uint32_t fk, tk; u192 fv, tv;
+            if (gt_next(&fc, &fk, &fv) != 1 || gt_next(&tc, &tk, &tv) != 1) { fail = 1; break; }
+            if (fk != tk || (tk >> 22)) bad_key++;
+            uint32_t rid = tk & 0xffff;
+            if (rid >= R || lc_rid_digits(rid, b0v, rad) != k) bad_rid++;
+            if (u192_zero(tv)) bad_zero++;
+            if (k == (int)n) { u192 one = {{1,0,0}}; if (!u192_eq(tv, one)) bad_seed++; }
+            if (k == 0 && i == 0 && j == 0) { *troot_out = tv; *troot_got = 1; }
+            u192 p = u192_mul(fv, tv, &ovf);
+            if (u192_add(&msum, p)) ovf = 1;
+        }
+        if (u192_mul_small(&msum, orbits[i])) ovf = 1;
+        if (u192_add(&acc, msum)) ovf = 1;
+    }
+    #define TCF(cnt,msg) do{ if (cnt) { printf("  [t] k=%2d  *** FAIL: %llu %s\n", k, (unsigned long long)(cnt), msg); fail=1; } }while(0)
+    TCF(bad_key,  "entries whose key differs from the f layer (geometry mirror broken)");
+    TCF(bad_rid,  "entries with rid >= R or digit-sum != k (SUM INVARIANT)");
+    TCF(bad_zero, "zero t values (every node count is >= 1)");
+    TCF(bad_seed, "seed-layer values != 1");
+    #undef TCF
+    if (ovf) { printf("  [t] k=%2d  *** FAIL: 192-bit overflow in f*t identity\n", k); fail = 1; }
+    if (k == 0 && !fail && (tc.nm != 1 || tc.masks[0] != 0 || tc.ne != 1)) {
+        printf("  [t] k= 0  *** FAIL: layer 0 is not the anchor singleton\n"); fail = 1; }
+
+    if (!fail && have_S) {
+        int ok = u192_eq(acc, *Sk);
+        char a[64], e[64]; u192_print(acc, a); u192_print(*Sk, e);
+        printf("  k=%2d  t nm=%-7llu ne=%-10llu %s  Σ orbit·f·t = %s (expect nodes at depth ≥%d = %s)  %s\n",
+               k, (unsigned long long)tc.nm, (unsigned long long)tc.ne, tc.is_v2?"v2":"v1",
+               a, k, e, ok ? "OK" : "*** MISMATCH ***");
+        if (!ok) fail = 1;
+    } else if (!fail) {
+        printf("  k=%2d  t nm=%-7llu ne=%-10llu %s  structural+geometry OK (identity skipped: M_j incomplete)\n",
+               k, (unsigned long long)tc.nm, (unsigned long long)tc.ne, tc.is_v2?"v2":"v1");
+    }
+    free(orbits);
+    gt_close(&tc); gt_close(&fc);
+    return fail;
+}
+
+static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
+    printf("======================================================================\n");
+    printf("verify.c --check-t-ladder : spec-driven independent t-ladder verifier\n");
+    printf("written against documentation/GT_LADDER_FORMAT.md; shares no code with solve.c\n");
+    printf("======================================================================\n");
+    uint32_t n, se, pl[64]; uint64_t plh; int npl, b0v[5], tlk;
+    if (lc_gt_manifests(fdir, tdir, "t", &n, &se, &plh, pl, &npl, b0v, &tlk)) return 1;
+    printf("manifests: n=%u start_exit=%u b0=(%d,%d,%d,%d,%d)  t last_complete_k=%d (0=complete; layers %d..%u present)\n",
+           n, se, b0v[0], b0v[1], b0v[2], b0v[3], b0v[4], tlk, tlk, n);
+    if (!derive_pair_perms()) return 1;
+    static uint8_t rp[24][32];
+    int geff = lc_restrict_perms(pl, n, rp);
+    if (geff < 0) { printf("*** FAIL: restricted pair-perms are not a group\n"); return 1; }
+    printf("group    : 48 -> 24 induced pair-perms -> %d distinct on this run's %u pairs\n", geff, n);
+    uint32_t rad[5], R; lc_radix(b0v, rad, &R);
+
+    /* M_j = orbit-weighted f masses (exact # valid prefixes at depth j),
+     * re-derived from the f ladder's bytes; S_k = Σ_{j>=k} M_j. */
+    int fails = 0, have_S = 1;
+    u192 M[32], S[33];
+    for (uint32_t j = 0; j <= n; j++) {
+        char p[1024]; snprintf(p, sizeof p, "%s/f1c5_layer_%02u.bin", fdir, j);
+        FILE *t = fopen(p, "rb");
+        if (!t) { printf("M pass   : f layer %u absent — identities will be skipped\n", j); have_S = 0; break; }
+        fclose(t);
+        if (lc_f_mass_layer(fdir, (int)j, n, se, plh, b0v, rp, geff, &M[j])) { fails++; have_S = 0; break; }
+    }
+    if (have_S) {
+        u192 one = {{1,0,0}};
+        if (!u192_eq(M[0], one)) { printf("*** FAIL: M_0 != 1 (f layer 0 defect)\n"); fails++; }
+        if (n == 31) {
+            u192 pub = u192_dec(LC_PUBLISHED_COUNT);
+            int ok = u192_eq(M[n], pub);
+            printf("M pass   : M_31 vs published count %s\n", ok ? "MATCH" : "*** MISMATCH ***");
+            if (!ok) fails++;
+        }
+        int sovf = 0;
+        S[n+1] = (u192){{0,0,0}};
+        for (int k = (int)n; k >= 0; k--) { S[k] = S[k+1]; if (u192_add(&S[k], M[k])) sovf = 1; }
+        if (sovf) { printf("*** FAIL: overflow accumulating S_k\n"); fails++; have_S = 0; }
+        else { char d[64]; u192_print(S[0], d);
+               printf("M pass   : all %u f masses re-derived; total search-tree size S_0 = %s\n", n+1, d); }
+    }
+    printf("----------------------------------------------------------------------\n");
+    u192 troot = {{0,0,0}}; int troot_got = 0, checked = 0;
+    int hi = (maxk < (int)n) ? maxk : (int)n;
+    for (int k = 0; k <= hi; k++) {
+        char p[1024]; snprintf(p, sizeof p, "%s/t_layer_%02d.bin", tdir, k);
+        FILE *t = fopen(p, "rb");
+        if (!t) {
+            if (k >= tlk) { printf("  k=%2d  *** FAIL: t layer missing but manifest promises layers %d..%u\n", k, tlk, n); fails++; }
+            continue;
+        }
+        fclose(t);
+        fails += lc_t_layer(fdir, tdir, k, n, se, plh, b0v, rad, R, rp, geff,
+                            have_S ? &S[k] : NULL, have_S, &troot, &troot_got);
+        checked++;
+    }
+    printf("----------------------------------------------------------------------\n");
+    if (troot_got) {
+        char a[64]; u192_print(troot, a);
+        if (have_S) {
+            int ok = u192_eq(troot, S[0]);
+            printf("t(root) = %s  %s Σ M_j (the whole search-tree size, re-derived from f)\n",
+                   a, ok ? "MATCHES" : "*** DOES NOT MATCH ***");
+            if (!ok) fails++;
+        } else printf("t(root) = %s  (no independent Σ M_j available)\n", a);
+    }
+    if (fails == 0)
+        printf("RESULT: %d t layer(s) verified — headers, byte-exact f-geometry mirror,\n"
+               "        values >= 1, seed/anchor content, and the f·t node identity\n"
+               "        (recurrence unfolded, S_k = S_{k+1} + M_k) at every checked layer.\n", checked);
+    else
+        printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
+    printf("======================================================================\n");
+    return fails ? 1 : 0;
+}
+
+/* ==========================================================================
+ * G/T SELF-TEST (--check-gt-selftest): builds a COMPLETE, CONSISTENT f+g+t
+ * fixture by brute force from the published definitions, then round-trips it
+ * through the spec-driven checkers, plus corruption legs that must FAIL.
+ *
+ * The fixture instance is deliberately NON-TRIVIAL: pl = {10,15,20,23,27,29}
+ * is a single 6-pair orbit of the TR-11 §2 action (so the restricted group
+ * is transitive: geff = 6, single-bit masks have orbit 6, two-bit masks
+ * split into orbits with |stab| in {1,2}), the budget b0 = (0,0,1,2,3)
+ * spans three boundary classes including d=6, and under it the instance has
+ * 252 DEAD-END states (valid prefixes with g = 0) — exactly the f/t vs g
+ * domain difference the t-ladder exists for. Anchors (cross-derived by an
+ * independent Python implementation of the same definitions, 2026-07-24):
+ * N = 96, t(root) = 1285, M = (1,12,72,288,528,288,96). The generator here
+ * is a plain RAW-STATE DP (no quotient); the checkers then re-aggregate
+ * through the canonical-mask + orbit-weight machinery — so a pass exercises
+ * canonicalization, stabilizer weighting, domain rules, both identities,
+ * and the v1/v2 codecs against known values.
+ * ========================================================================== */
+#define GTS_NP 6
+static const uint32_t gts_pl[GTS_NP] = {10, 15, 20, 23, 27, 29};
+static const int gts_b0[5] = {0, 0, 1, 2, 3};     /* Σ = 6 = n; R = 24 */
+#define GTS_SE 0
+#define GTS_N_EXPECT 96u
+#define GTS_TROOT_EXPECT 1285u
+#define GTS_DEAD_EXPECT 252u
+static const uint64_t gts_M_expect[GTS_NP+1] = {1, 12, 72, 288, 528, 288, 96};
+
+/* raw-state DP tables, index (mask, last, rid) */
+#define GTS_IX(m,l,r,R) ((((uint64_t)(m)*64u + (uint32_t)(l)) * (R)) + (r))
+
+static void gts_write_v1(const char *dir, const char *pfx, const char *magic8,
+                         int k, uint64_t plh, const uint32_t *masks, uint64_t nm,
+                         const uint64_t *off, const uint32_t *keys, const u192 *vals,
+                         uint64_t ne) {
+    unsigned char hd[72]; memset(hd, 0, 72);
+    memcpy(hd, magic8, 8);
+    uint32_t v = (uint32_t)(magic8[7] - '0'); memcpy(hd+8, &v, 4);
+    uint32_t n = GTS_NP, se = GTS_SE, kk = (uint32_t)k;
+    memcpy(hd+12, &n, 4); memcpy(hd+16, &kk, 4); memcpy(hd+20, &se, 4);
+    memcpy(hd+24, &plh, 8); memcpy(hd+32, &nm, 8); memcpy(hd+40, &ne, 8);
+    for (int c = 0; c < 5; c++) { uint32_t t = (uint32_t)gts_b0[c]; memcpy(hd+48+4*c, &t, 4); }
+    char path[1024]; snprintf(path, sizeof path, "%s/%s_layer_%02d.bin", dir, pfx, k);
+    FILE *f = fopen(path, "wb");
+    lc_wr(f, hd, 72); lc_wr(f, masks, nm*4); lc_wr(f, off, (nm+1)*8);
+    lc_wr(f, keys, ne*4);
+    for (uint64_t i = 0; i < ne; i++) lc_wr(f, &vals[i], 24);
+    fclose(f);
+}
+
+static void gts_write_v2(const char *dir, const char *pfx, const char *magic8,
+                         int k, uint64_t plh, const uint32_t *masks, uint64_t nm,
+                         const uint64_t *off, const uint32_t *keys, const u192 *vals,
+                         uint64_t ne, uint32_t BLK) {
+    unsigned char hd[72]; memset(hd, 0, 72);
+    memcpy(hd, magic8, 8);
+    uint32_t v = (uint32_t)(magic8[7] - '0'); memcpy(hd+8, &v, 4);
+    uint32_t n = GTS_NP, se = GTS_SE, kk = (uint32_t)k;
+    memcpy(hd+12, &n, 4); memcpy(hd+16, &kk, 4); memcpy(hd+20, &se, 4);
+    memcpy(hd+24, &plh, 8); memcpy(hd+32, &nm, 8); memcpy(hd+40, &ne, 8);
+    for (int c = 0; c < 5; c++) { uint32_t t = (uint32_t)gts_b0[c]; memcpy(hd+48+4*c, &t, 4); }
+    memcpy(hd+68, &BLK, 4);
+    uint64_t nblk = ne ? (ne + BLK - 1)/BLK : 0;
+    uint64_t *kidx = calloc(nblk+1, 8), *vidx = calloc(nblk+1, 8);
+    unsigned char *zk = malloc((nblk?nblk:1) * compressBound(4u*BLK));
+    unsigned char *zv = malloc((nblk?nblk:1) * compressBound(24u*BLK));
+    unsigned char *tmp = malloc(24u*BLK);
+    uint64_t zkn = 0, zvn = 0;
+    for (uint64_t b = 0; b < nblk; b++) {
+        uint64_t bs = b*BLK, bn = (bs + BLK <= ne) ? BLK : ne - bs;
+        uLongf zl = compressBound(4u*BLK);
+        compress2(zk + zkn, &zl, (const Bytef*)(keys + bs), bn*4, 6);
+        zkn += zl; kidx[b+1] = zkn;
+        for (uint64_t j = 0; j < bn; j++) memcpy(tmp + j*24, &vals[bs+j], 24);
+        zl = compressBound(24u*BLK);
+        compress2(zv + zvn, &zl, tmp, bn*24, 6);
+        zvn += zl; vidx[b+1] = zvn;
+    }
+    char path[1024]; snprintf(path, sizeof path, "%s/%s_layer_%02d.bin", dir, pfx, k);
+    FILE *f = fopen(path, "wb");
+    lc_wr(f, hd, 72); lc_wr(f, masks, nm*4); lc_wr(f, off, (nm+1)*8);
+    lc_wr(f, kidx, (nblk+1)*8); lc_wr(f, vidx, (nblk+1)*8);
+    lc_wr(f, zk, zkn); lc_wr(f, zv, zvn);
+    fclose(f);
+    free(kidx); free(vidx); free(zk); free(zv); free(tmp);
+}
+
+static void gts_write_manifest(const char *dir, const char *pfx, uint64_t plh, int lastk) {
+    char path[1024]; snprintf(path, sizeof path, "%s/%s_manifest.txt", dir, pfx);
+    FILE *f = fopen(path, "w");
+    fprintf(f, "%s_manifest_v1\nn=%d\nstart_exit=%d\npl=", pfx, GTS_NP, GTS_SE);
+    for (int i = 0; i < GTS_NP; i++) fprintf(f, "%s%u", i ? "," : "", gts_pl[i]);
+    fprintf(f, "\npl_hash=%016llx\nb0=%d,%d,%d,%d,%d\nlast_complete_k=%d\n",
+            (unsigned long long)plh, gts_b0[0], gts_b0[1], gts_b0[2], gts_b0[3], gts_b0[4], lastk);
+    fclose(f);
+}
+
+/* assemble layer k of one ladder from a raw-value table and write it (v1).
+ * kind: 0 = f (all last with tab>0), 1 = g (pair-element domain), 2 = t
+ * (f geometry via tabf, values from tab). */
+static void gts_emit_layer(const char *dir, const char *pfx, const char *magic8, int kind,
+                           int k, uint64_t plh, uint32_t R, const uint64_t *tab,
+                           const uint64_t *tabf, uint8_t rp[24][32], int geff,
+                           uint32_t *masks_out, uint64_t *nm_out, uint64_t *off_out,
+                           uint32_t *keys_out, u192 *vals_out, uint64_t *ne_out) {
+    const int pa[GTS_NP] = {PA[gts_pl[0]], PA[gts_pl[1]], PA[gts_pl[2]],
+                            PA[gts_pl[3]], PA[gts_pl[4]], PA[gts_pl[5]]};
+    const int pb[GTS_NP] = {PB[gts_pl[0]], PB[gts_pl[1]], PB[gts_pl[2]],
+                            PB[gts_pl[3]], PB[gts_pl[4]], PB[gts_pl[5]]};
+    uint64_t nm = 0, ne = 0;
+    for (uint32_t m = 0; m < (1u << GTS_NP); m++) {
+        if (__builtin_popcount(m) != k) continue;
+        int canon; lc_orbit_of(m, rp, geff, &canon);
+        if (!canon) continue;
+        masks_out[nm] = m;
+        off_out[nm] = ne;
+        if (kind == 1) {                       /* g: domain-restricted last */
+            int dom[64]; uint32_t nd = 0;
+            if (k == 0) dom[nd++] = GTS_SE;
+            else for (int b = 0; b < GTS_NP; b++)
+                if ((m >> b) & 1) { dom[nd++] = pa[b]; dom[nd++] = pb[b]; }
+            for (uint32_t a = 1; a < nd; a++) { int x = dom[a]; uint32_t b2 = a;
+                while (b2 > 0 && dom[b2-1] > x) { dom[b2] = dom[b2-1]; b2--; } dom[b2] = x; }
+            for (uint32_t d = 0; d < nd; d++)
+                for (uint32_t r = 0; r < R; r++) {
+                    uint64_t v = tab[GTS_IX(m, dom[d], r, R)];
+                    if (!v) continue;
+                    keys_out[ne] = ((uint32_t)dom[d] << 16) | r;
+                    vals_out[ne] = (u192){{v, 0, 0}};
+                    ne++;
+                }
+        } else {                               /* f or t: f-domain geometry */
+            for (int l = 0; l < 64; l++)
+                for (uint32_t r = 0; r < R; r++) {
+                    if (!tabf[GTS_IX(m, l, r, R)]) continue;
+                    uint64_t v = tab[GTS_IX(m, l, r, R)];
+                    keys_out[ne] = ((uint32_t)l << 16) | r;
+                    vals_out[ne] = (u192){{v, 0, 0}};
+                    ne++;
+                }
+        }
+        nm++;
+    }
+    off_out[nm] = ne;
+    *nm_out = nm; *ne_out = ne;
+    gts_write_v1(dir, pfx, magic8, k, plh, masks_out, nm, off_out, keys_out, vals_out, ne);
+}
+
+static int lc_gt_selftest(void) {
+    printf("verify.c --check-gt-selftest : brute-force f+g+t fixture, spec round-trip, corruption legs\n");
+    if (!build_pairs() || !derive_pair_perms()) return 1;
+    static uint8_t rp[24][32];
+    uint32_t pl32[GTS_NP]; for (int i = 0; i < GTS_NP; i++) pl32[i] = gts_pl[i];
+    int geff = lc_restrict_perms(pl32, GTS_NP, rp);
+    uint32_t rad[5], R; lc_radix(gts_b0, rad, &R);
+    uint64_t plh = lc_pl_hash(GTS_NP, GTS_SE, pl32);
+    const int pa[GTS_NP] = {PA[gts_pl[0]], PA[gts_pl[1]], PA[gts_pl[2]],
+                            PA[gts_pl[3]], PA[gts_pl[4]], PA[gts_pl[5]]};
+    const int pb[GTS_NP] = {PB[gts_pl[0]], PB[gts_pl[1]], PB[gts_pl[2]],
+                            PB[gts_pl[3]], PB[gts_pl[4]], PB[gts_pl[5]]};
+
+    /* ---- brute-force raw-state DPs from the published definitions ---- */
+    const uint64_t TSZ = GTS_IX((1u<<GTS_NP)-1, 63, R-1, R) + 1;
+    uint64_t *tf = calloc(TSZ, 8), *tg = calloc(TSZ, 8), *tt = calloc(TSZ, 8);
+    if (!tf || !tg || !tt) { printf("*** FAIL: OOM DP tables\n"); return 1; }
+    tf[GTS_IX(0, GTS_SE, 0, R)] = 1;                      /* forward f */
+    for (int k = 0; k < GTS_NP; k++)
+        for (uint32_t m = 0; m < (1u << GTS_NP); m++) {
+            if (__builtin_popcount(m) != k) continue;
+            for (int l = 0; l < 64; l++)
+                for (uint32_t r = 0; r < R; r++) {
+                    uint64_t v = tf[GTS_IX(m, l, r, R)];
+                    if (!v) continue;
+                    for (int i = 0; i < GTS_NP; i++) {
+                        if ((m >> i) & 1) continue;
+                        for (int o = 0; o < 2; o++) {
+                            int e = o ? pb[i] : pa[i], x = o ? pa[i] : pb[i];
+                            int d = hamming(l, e), ci = cls_ix(d);
+                            if (d == 5 || d == 0 || ci < 0) continue;
+                            if ((r / rad[ci]) % (uint32_t)(gts_b0[ci]+1) >= (uint32_t)gts_b0[ci]) continue;
+                            tf[GTS_IX(m | (1u<<i), x, r + rad[ci], R)] += v;
+                        }
+                    }
+                }
+        }
+    for (int i = 0; i < GTS_NP; i++) {                    /* backward g: seed all 2n elements */
+        tg[GTS_IX((1u<<GTS_NP)-1, pa[i], R-1, R)] = 1;
+        tg[GTS_IX((1u<<GTS_NP)-1, pb[i], R-1, R)] = 1;
+    }
+    for (int k = GTS_NP - 1; k >= 0; k--)
+        for (uint32_t m = 0; m < (1u << GTS_NP); m++) {
+            if (__builtin_popcount(m) != k) continue;
+            for (int l = 0; l < 64; l++)
+                for (uint32_t r = 0; r < R; r++) {
+                    if (lc_rid_digits(r, gts_b0, rad) != k) continue;
+                    uint64_t acc = 0;
+                    for (int i = 0; i < GTS_NP; i++) {
+                        if ((m >> i) & 1) continue;
+                        for (int o = 0; o < 2; o++) {
+                            int e = o ? pb[i] : pa[i], x = o ? pa[i] : pb[i];
+                            int d = hamming(l, e), ci = cls_ix(d);
+                            if (d == 5 || d == 0 || ci < 0) continue;
+                            if ((r / rad[ci]) % (uint32_t)(gts_b0[ci]+1) >= (uint32_t)gts_b0[ci]) continue;
+                            acc += tg[GTS_IX(m | (1u<<i), x, r + rad[ci], R)];
+                        }
+                    }
+                    tg[GTS_IX(m, l, r, R)] = acc;
+                }
+        }
+    for (uint32_t m = 0; m < (1u << GTS_NP); m++)         /* t seed on f layer n */
+        if (__builtin_popcount(m) == GTS_NP)
+            for (int l = 0; l < 64; l++)
+                for (uint32_t r = 0; r < R; r++)
+                    if (tf[GTS_IX(m, l, r, R)]) tt[GTS_IX(m, l, r, R)] = 1;
+    for (int k = GTS_NP - 1; k >= 0; k--)                 /* t backward on the f domain */
+        for (uint32_t m = 0; m < (1u << GTS_NP); m++) {
+            if (__builtin_popcount(m) != k) continue;
+            for (int l = 0; l < 64; l++)
+                for (uint32_t r = 0; r < R; r++) {
+                    if (!tf[GTS_IX(m, l, r, R)]) continue;
+                    uint64_t acc = 1;
+                    for (int i = 0; i < GTS_NP; i++) {
+                        if ((m >> i) & 1) continue;
+                        for (int o = 0; o < 2; o++) {
+                            int e = o ? pb[i] : pa[i], x = o ? pa[i] : pb[i];
+                            int d = hamming(l, e), ci = cls_ix(d);
+                            if (d == 5 || d == 0 || ci < 0) continue;
+                            if ((r / rad[ci]) % (uint32_t)(gts_b0[ci]+1) >= (uint32_t)gts_b0[ci]) continue;
+                            acc += tt[GTS_IX(m | (1u<<i), x, r + rad[ci], R)];
+                        }
+                    }
+                    tt[GTS_IX(m, l, r, R)] = acc;
+                }
+        }
+
+    /* ---- known-structure gates (anchors from the independent prototype) ---- */
+    uint64_t N = tg[GTS_IX(0, GTS_SE, 0, R)];
+    uint64_t troot = tt[GTS_IX(0, GTS_SE, 0, R)];
+    uint64_t dead = 0, Mj[GTS_NP+1] = {0,0,0,0,0,0,0};
+    for (uint32_t m = 0; m < (1u << GTS_NP); m++)
+        for (int l = 0; l < 64; l++)
+            for (uint32_t r = 0; r < R; r++) {
+                uint64_t fv = tf[GTS_IX(m, l, r, R)];
+                if (!fv) continue;
+                Mj[__builtin_popcount(m)] += fv;
+                if (!tg[GTS_IX(m, l, r, R)]) dead++;
+            }
+    int m_ok = 1;
+    for (int j = 0; j <= GTS_NP; j++) if (Mj[j] != gts_M_expect[j]) m_ok = 0;
+    int gen_ok = (geff == 6 && N == GTS_N_EXPECT && troot == GTS_TROOT_EXPECT &&
+                  dead == GTS_DEAD_EXPECT && m_ok);
+    printf("\n[1] generator vs independent anchors: geff=%d (want 6)  N=%llu (want %u)\n"
+           "    t_root=%llu (want %u)  dead_states=%llu (want %u)  M match=%s  =>  %s\n",
+           geff, (unsigned long long)N, GTS_N_EXPECT,
+           (unsigned long long)troot, GTS_TROOT_EXPECT,
+           (unsigned long long)dead, GTS_DEAD_EXPECT, m_ok ? "Y" : "N",
+           gen_ok ? "ok" : "*** FAIL ***");
+
+    /* ---- write the three ladders (v1) ---- */
+    const char *fd = "/tmp/gt_selftest_f", *gd = "/tmp/gt_selftest_g", *td = "/tmp/gt_selftest_t";
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "rm -rf %s %s %s && mkdir -p %s %s %s", fd, gd, td, fd, gd, td);
+    if (system(cmd)) {}
+    uint32_t masks[64]; uint64_t off[65]; uint32_t keys[8192]; u192 vals[8192];
+    uint64_t nm, ne;
+    /* keep layer arrays for the corruption legs */
+    static uint32_t Lmasks[3][GTS_NP+1][64]; static uint64_t Loff[3][GTS_NP+1][65];
+    static uint32_t Lkeys[3][GTS_NP+1][8192]; static u192 Lvals[3][GTS_NP+1][8192];
+    static uint64_t Lnm[3][GTS_NP+1], Lne[3][GTS_NP+1];
+    for (int k = 0; k <= GTS_NP; k++) {
+        gts_emit_layer(fd, "f1c5", "F1C5LAY1", 0, k, plh, R, tf, tf, rp, geff,
+                       masks, &nm, off, keys, vals, &ne);
+        memcpy(Lmasks[0][k], masks, sizeof masks); memcpy(Loff[0][k], off, sizeof off);
+        memcpy(Lkeys[0][k], keys, sizeof keys);    memcpy(Lvals[0][k], vals, sizeof vals);
+        Lnm[0][k] = nm; Lne[0][k] = ne;
+        gts_emit_layer(gd, "g", "F1C5GLY1", 1, k, plh, R, tg, tf, rp, geff,
+                       masks, &nm, off, keys, vals, &ne);
+        memcpy(Lmasks[1][k], masks, sizeof masks); memcpy(Loff[1][k], off, sizeof off);
+        memcpy(Lkeys[1][k], keys, sizeof keys);    memcpy(Lvals[1][k], vals, sizeof vals);
+        Lnm[1][k] = nm; Lne[1][k] = ne;
+        gts_emit_layer(td, "t", "F1C5TLY1", 2, k, plh, R, tt, tf, rp, geff,
+                       masks, &nm, off, keys, vals, &ne);
+        memcpy(Lmasks[2][k], masks, sizeof masks); memcpy(Loff[2][k], off, sizeof off);
+        memcpy(Lkeys[2][k], keys, sizeof keys);    memcpy(Lvals[2][k], vals, sizeof vals);
+        Lnm[2][k] = nm; Lne[2][k] = ne;
+    }
+    gts_write_manifest(fd, "f1c5", plh, GTS_NP);
+    gts_write_manifest(gd, "g", plh, 0);
+    gts_write_manifest(td, "t", plh, 0);
+    free(tf); free(tg); free(tt);
+
+    printf("\n[2] valid v1 g ladder vs f ladder (f*g identity at every layer) — must PASS:\n");
+    int r2 = lc_check_g(fd, gd, 31);
+    printf("\n[3] valid v1 t ladder vs f ladder (f*t node identity at every layer) — must PASS:\n");
+    int r3 = lc_check_t(fd, td, 31);
+
+    /* v2 leg: rewrite the whole g ladder per-block-zlib (BLK=8) */
+    for (int k = 0; k <= GTS_NP; k++)
+        gts_write_v2(gd, "g", "F1C5GLY2", k, plh, Lmasks[1][k], Lnm[1][k], Loff[1][k],
+                     Lkeys[1][k], Lvals[1][k], Lne[1][k], 8);
+    printf("\n[4] the same g ladder rewritten v2 (per-block zlib, BLK=8) — must PASS:\n");
+    int r4 = lc_check_g(fd, gd, 31);
+
+    /* corruption: one g value bumped at layer 2 — the f*g identity must catch
+     * it. The bumped entry must be one that PAIRS with an f entry (the g
+     * ladder legitimately stores suffix-only states with no f partner, whose
+     * values never enter the identity), so search for a common (mask, key). */
+    uint64_t gidx = UINT64_MAX;
+    for (uint64_t mi = 0; mi < Lnm[1][2] && gidx == UINT64_MAX; mi++)
+        for (uint64_t e = Loff[1][2][mi]; e < Loff[1][2][mi+1] && gidx == UINT64_MAX; e++)
+            for (uint64_t a = Loff[0][2][mi]; a < Loff[0][2][mi+1]; a++)
+                if (Lkeys[0][2][a] == Lkeys[1][2][e]) { gidx = e; break; }
+    if (gidx == UINT64_MAX) { printf("*** FAIL: no f-paired g entry at layer 2 (fixture defect)\n"); return 1; }
+    { u192 sv = Lvals[1][2][gidx];
+      Lvals[1][2][gidx].l[0] += 1;
+      gts_write_v1(gd, "g", "F1C5GLY1", 2, plh, Lmasks[1][2], Lnm[1][2], Loff[1][2],
+                   Lkeys[1][2], Lvals[1][2], Lne[1][2]);
+      printf("\n[5] g layer 2 with ONE f-paired value bumped by 1 — must FAIL (f*g identity):\n");
+      int r5 = lc_check_g(fd, gd, 31);
+      Lvals[1][2][gidx] = sv;
+      gts_write_v1(gd, "g", "F1C5GLY1", 2, plh, Lmasks[1][2], Lnm[1][2], Loff[1][2],
+                   Lkeys[1][2], Lvals[1][2], Lne[1][2]);
+      /* corruption: one t value bumped at layer 3 */
+      sv = Lvals[2][3][0];
+      Lvals[2][3][0].l[0] += 1;
+      gts_write_v1(td, "t", "F1C5TLY1", 3, plh, Lmasks[2][3], Lnm[2][3], Loff[2][3],
+                   Lkeys[2][3], Lvals[2][3], Lne[2][3]);
+      printf("\n[6] t layer 3 with ONE value bumped by 1 — must FAIL (f*t identity):\n");
+      int r6 = lc_check_t(fd, td, 31);
+      Lvals[2][3][0] = sv;
+      gts_write_v1(td, "t", "F1C5TLY1", 3, plh, Lmasks[2][3], Lnm[2][3], Loff[2][3],
+                   Lkeys[2][3], Lvals[2][3], Lne[2][3]);
+      /* geometry tamper: a t key changed — mirror check must catch */
+      uint32_t sk = Lkeys[2][1][0];
+      Lkeys[2][1][0] ^= 1u;                                   /* different rid */
+      gts_write_v1(td, "t", "F1C5TLY1", 1, plh, Lmasks[2][1], Lnm[2][1], Loff[2][1],
+                   Lkeys[2][1], Lvals[2][1], Lne[2][1]);
+      printf("\n[7] t layer 1 with ONE key changed — must FAIL (f-geometry mirror):\n");
+      int r7 = lc_check_t(fd, td, 31);
+      Lkeys[2][1][0] = sk;
+      /* magic confusion: t layer written with the g magic — must be rejected */
+      gts_write_v1(td, "t", "F1C5GLY1", 1, plh, Lmasks[2][1], Lnm[2][1], Loff[2][1],
+                   Lkeys[2][1], Lvals[2][1], Lne[2][1]);
+      printf("\n[8] t layer 1 carrying the g magic F1C5GLY1 — must FAIL (kind confusion):\n");
+      int r8 = lc_check_t(fd, td, 31);
+      gts_write_v1(td, "t", "F1C5TLY1", 1, plh, Lmasks[2][1], Lnm[2][1], Loff[2][1],
+                   Lkeys[2][1], Lvals[2][1], Lne[2][1]);
+      /* seed tamper: g layer n with a value 2 — exact-seed check must catch */
+      sv = Lvals[1][GTS_NP][0];
+      Lvals[1][GTS_NP][0] = (u192){{2, 0, 0}};
+      gts_write_v1(gd, "g", "F1C5GLY1", GTS_NP, plh, Lmasks[1][GTS_NP], Lnm[1][GTS_NP],
+                   Loff[1][GTS_NP], Lkeys[1][GTS_NP], Lvals[1][GTS_NP], Lne[1][GTS_NP]);
+      printf("\n[9] g seed layer with a value != 1 — must FAIL (exact seed content):\n");
+      int r9 = lc_check_g(fd, gd, 31);
+      Lvals[1][GTS_NP][0] = sv;
+
+      printf("\n======================================================================\n");
+      int ok = gen_ok && r2 == 0 && r3 == 0 && r4 == 0 &&
+               r5 != 0 && r6 != 0 && r7 != 0 && r8 != 0 && r9 != 0;
+      printf("GT SELFTEST: anchors=%s  g-v1=%s  t-v1=%s  g-v2=%s  g-tamper=%s  t-tamper=%s\n"
+             "             t-geom-tamper=%s  magic-confusion=%s  seed-tamper=%s  =>  %s\n",
+             gen_ok?"Y":"N", r2==0?"Y":"N", r3==0?"Y":"N", r4==0?"Y":"N",
+             r5!=0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N", r8!=0?"Y":"N", r9!=0?"Y":"N",
+             ok ? "PASS" : "*** FAIL ***");
+      printf("======================================================================\n");
+      return ok ? 0 : 1;
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
+    if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
         if (argc < 3) { fprintf(stderr, "usage: %s --check-layers DIR [max_k] [run.out]\n", argv[0]); return 2; }
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
                                argc > 4 ? argv[4] : NULL);
     }
+    if (argc >= 2 && strcmp(argv[1], "--check-g-ladder") == 0) {
+        if (argc < 4) { fprintf(stderr, "usage: %s --check-g-ladder FDIR GDIR [max_k]\n", argv[0]); return 2; }
+        if (!build_pairs()) return 1;
+        return lc_check_g(argv[2], argv[3], argc > 4 ? atoi(argv[4]) : 31);
+    }
+    if (argc >= 2 && strcmp(argv[1], "--check-t-ladder") == 0) {
+        if (argc < 4) { fprintf(stderr, "usage: %s --check-t-ladder FDIR TDIR [max_k]\n", argv[0]); return 2; }
+        if (!build_pairs()) return 1;
+        return lc_check_t(argv[2], argv[3], argc > 4 ? atoi(argv[4]) : 31);
+    }
     if (argc < 2) { fprintf(stderr, "usage: %s <run.out> [max_layer]\n"
                                     "       %s --check-layers DIR [max_k] [run.out]\n"
-                                    "       %s --check-layers-selftest\n",
-                                    argv[0], argv[0], argv[0]); return 2; }
+                                    "       %s --check-layers-selftest\n"
+                                    "       %s --check-g-ladder FDIR GDIR [max_k]\n"
+                                    "       %s --check-t-ladder FDIR TDIR [max_k]\n"
+                                    "       %s --check-gt-selftest\n",
+                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;
