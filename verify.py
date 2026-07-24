@@ -1140,6 +1140,141 @@ def check_null_g(verbose=True):
     return 0 if ok[0] else 1
 
 
+# Exact C2-acceptance target: |C1&C2&C4| / |C1&C4| = |C1&C2&C4| / (31! * 2^31).
+# |C1&C2&C4| is an EXACT integer (S4-orbit DP, 2026-07-04; DESCRIPTION_LENGTH.md).
+_C1C2C4_EXACT = 757058601340255440651419713405330315358208
+
+
+def check_c2_shift(n_samples=200_000, seed=20260724, verbose=True):
+    """DECISION-SUPPORT (Monte-Carlo — NOT a canonical count): measure how conditioning
+    on C2 shifts the G-distribution at the C1&C2&C4 scope, i.e. P(G<=95 | C1&C2&C4), by
+    importance-weighting the exact C1&C4 null with w(sigma) = the exact number of C2-valid
+    orientation assignments of pair-order sigma (a 2x2 transfer product over exit faces).
+    Ratio estimator R = E[w 1_{G<=95}] / E[w] with a delta-method CI.
+
+    HARD-GATED on the exact acceptance identity E[w]/2^31 == |C1&C2&C4|/|C1&C4| (within
+    Monte-Carlo error): a broken sampler cannot pass it. Reads no files; uses only PAIRS +
+    hamming, nothing from solve.c (independence).
+
+    SCOPE / GRADE: this is a MEASURED estimate with a CI, at MC grade. It is decision
+    support, NOT a canonical published number. The load-bearing EXACT legs of the C3
+    rule-out are --check-null-g (the C1&C4 null) and the exact rung histograms; this
+    instrument only pins the small C2 shift between the two, with an error bar."""
+    import math, random
+
+    fs = [frozenset(p) for p in PAIRS]
+    idx = {f: i for i, f in enumerate(fs)}
+    ctab = []  # per pair: complement-couple partner index, or None for a self-complement pair
+    for i, (a, b) in enumerate(PAIRS):
+        comp = frozenset((a ^ 63, b ^ 63))
+        ctab.append(None if comp == fs[i] else idx[comp])
+    if sum(1 for c in ctab if c is None) != 8:
+        print("FAIL: expected exactly 8 self-complement pairs")
+        return 1
+
+    free = list(range(1, 32))          # pinned pair 0 = {63,0} fixed (C4); free pairs 1..31
+    rng = random.Random(seed)
+    N = int(n_samples)
+
+    sum_w = 0        # Sum w
+    sum_wA = 0       # Sum w * 1_{G<=95}
+    sum_w_tie = 0    # Sum w * 1_{G==95}
+    sum_w2 = 0.0     # Sum w^2      (for w-fluctuation + acceptance SE)
+    sum_w2A = 0.0    # Sum w^2 * 1_{G<=95}   (for the ratio delta-method SE)
+    gsum_w = 0       # Sum w * G    (for E[G | C2])
+    n_wzero = 0
+    for _ in range(N):
+        rng.shuffle(free)
+        # exact G = sum over cross-couples of |slot difference| (self-couples excluded: they are the +16)
+        slot = {}
+        g = 0
+        for s, pi in enumerate(free, start=1):
+            pj = ctab[pi]
+            if pj is not None:
+                if pj in slot:
+                    g += s - slot[pj]
+                else:
+                    slot[pi] = s
+        # exact w = number of C2-valid orientation assignments (transfer product over exit faces)
+        prev = {0: 1}                  # start exit face = 0 (Kun exit, C4)
+        for pi in free:
+            a, b = PAIRS[pi]
+            nxt = {}
+            for exitf, c in prev.items():
+                if hamming(exitf, a) != 5:   # enter a, exit b (no 5-line boundary transition)
+                    nxt[b] = nxt.get(b, 0) + c
+                if hamming(exitf, b) != 5:   # enter b, exit a
+                    nxt[a] = nxt.get(a, 0) + c
+            prev = nxt
+            if not prev:
+                break
+        w = sum(prev.values())
+        wf = float(w)
+        if w == 0:
+            n_wzero += 1
+        sum_w += w
+        sum_w2 += wf * wf
+        gsum_w += g * w
+        if g <= 95:
+            sum_wA += w
+            sum_w2A += wf * wf
+            if g == 95:
+                sum_w_tie += w
+
+    if sum_w == 0:
+        print("FAIL: all sampled pair-orders had w==0 (impossible unless the sampler is broken)")
+        return 2
+
+    Ew = sum_w / N
+    E_w2 = sum_w2 / N
+    E_w2A = sum_w2A / N
+    R = sum_wA / sum_w                                   # P(G<=95 | C1&C2&C4)
+    tie = sum_w_tie / sum_w
+    relsd = math.sqrt(max(0.0, E_w2 - Ew * Ew)) / Ew     # sd(w)/E[w]
+    # delta-method SE of the ratio R: Var(R) ~ E[w^2 (1_A - R)^2] / (N * E[w]^2)
+    resid2 = (1.0 - 2.0 * R) * E_w2A + R * R * E_w2
+    se_R = math.sqrt(max(0.0, resid2) / (N * Ew * Ew))
+    # acceptance estimate + its SE
+    acc_hat = Ew / (2 ** 31)
+    exact_acc = _C1C2C4_EXACT / (math.factorial(31) * (2 ** 31))
+    se_acc = (math.sqrt(max(0.0, E_w2 - Ew * Ew)) / (2 ** 31)) / math.sqrt(N)
+
+    # HARD GATE: the estimated acceptance must agree with the exact identity within 5 sigma.
+    gate_ok = abs(acc_hat - exact_acc) <= 5.0 * se_acc
+
+    if verbose:
+        print("=" * 74)
+        print("verify.py --check-c2-shift : P(G<=95 | C1&C2&C4) by importance-weighted MC")
+        print("  DECISION-SUPPORT (Monte-Carlo, CI-labeled) -- NOT a canonical count.")
+        print(f"  N = {N:,}   seed = {seed}")
+        print("=" * 74)
+        status = "PASS" if gate_ok else "*** FAIL ***"
+        print(f"  [{status}] acceptance identity  E[w]/2^31 == |C1&C2&C4|/|C1&C4|")
+        print(f"            estimate {acc_hat:.6f}  +/- {se_acc:.6f} (1 sigma)")
+        print(f"            exact    {exact_acc:.6f}  (= 4.2872%; |C1&C2&C4| S4-orbit DP)")
+        print(f"            |diff|   {abs(acc_hat-exact_acc):.6f}  ({abs(acc_hat-exact_acc)/se_acc:.2f} sigma; gate = 5 sigma)")
+        print("-" * 74)
+        print(f"  P(G<=95 | C1&C2&C4)  = {100*R:.4f}%   95% CI [{100*(R-1.96*se_R):.3f}%, {100*(R+1.96*se_R):.3f}%]")
+        print(f"  P(G==95 | C1&C2&C4)  = {100*tie:.4f}%")
+        print(f"  E[G   | C1&C2&C4]    = {gsum_w/sum_w:.4f}")
+        print(f"  w==0 fraction        = {n_wzero/N:.6f}   sd(w)/E[w] = {relsd:.3f}")
+        print("-" * 74)
+        print(f"  compare EXACT C1&C4 null P(G<=95)   = 8.106231%   (--check-null-g)")
+        print(f"  compare prior MC estimates          ~ 8.9% (c2quant 8.98%; 2026-07-24 review 8.89%)")
+        print("  READING: the C2 shift is small and *upward* (tail slightly inflated),")
+        print("           so KW's G=95 stays null-generic at the C1&C2&C4 scope. This")
+        print("           MEASURES that shift with a CI; it does not (and cannot cheaply)")
+        print("           make it exact -- the exact legs are --check-null-g + the rungs.")
+        print("=" * 74)
+        if gate_ok:
+            print("RESULT: acceptance identity reproduced; C2-shift measured (MC grade).")
+        else:
+            print("RESULT: *** ACCEPTANCE GATE FAILED *** — sampler is broken; estimate not trustworthy.")
+        print("=" * 74)
+
+    return 0 if gate_ok else 2
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -1172,10 +1307,21 @@ def main():
                              '[12,228], E[G] == 128, and P(G<=95) == 641983711307479/7919632354008375. '
                              'Uses a different accumulator than solve.c (open-couple counts, not '
                              '+/- slot indices), so agreement is evidence. Reads no files.')
+    parser.add_argument('--check-c2-shift', type=int, nargs='?', const=200_000, default=None,
+                        metavar='N',
+                        help='DECISION-SUPPORT (Monte-Carlo, NOT canonical): estimate '
+                             'P(G<=95 | C1&C2&C4) via importance-weighted MC (default N=200000), '
+                             'hard-gated on the exact acceptance identity E[w]/2^31 == '
+                             '|C1&C2&C4|/|C1&C4|. Reports the small upward C2 shift off the exact '
+                             'C1&C4 null with a delta-method CI. Reads no files; imports nothing '
+                             'from solve.c. This MEASURES the shift; it is not an exact count.')
     args = parser.parse_args()
 
     if args.check_null_g:
         sys.exit(check_null_g())
+
+    if args.check_c2_shift is not None:
+        sys.exit(check_c2_shift(args.check_c2_shift))
 
     if args.check_layer_sidecars is not None:
         sys.exit(check_layer_sidecars(args.check_layer_sidecars))
