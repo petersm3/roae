@@ -5158,8 +5158,8 @@ statements for this and the symmetry group added to SPECIFICATION.md. Prune adop
 canonical shas (lineage decision, gated); the published canonicals are unaffected.
 
 **Same day, machine-checked formalization lands (`lean/KingWen.lean`).** The finite core of the
-project's theorem base is now kernel-verified in Lean 4 (core only, no mathlib, all claims via
-native_decide): Theorem 1, XOR universality (both directions), the parity-alternation lemmas, King
+project's theorem base is now machine-checked in Lean 4 (core only, no mathlib; all claims via
+`native_decide` — extended trust base, Lean's compiler in addition to its kernel): Theorem 1, XOR universality (both directions), the parity-alternation lemmas, King
 Wen's own constraint facts (C1/C4/C5, C3 = 776 exactly, no five-line transition, 15 alternations),
 and the finite component of the symmetry theorem — including the biconditional that a bit permutation
 maps KW to a valid sequence **iff** it commutes with reversal (all 720 checked), and the collapse to

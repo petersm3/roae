@@ -293,8 +293,9 @@ corrections invited on every "we have not located..." hedge):
   Whole-sequence trigram balance is a property of the SET of 64 hexagrams
   (invariant under EVERY permutation), so any "the King Wen sequence
   balances the eight trigrams" claim is vacuous; and pure-hexagram
-  adjacency is forced by C1, not a design choice. These are kernel-checked
-  precisely because they remove numerology attack surface.
+  adjacency is forced by C1, not a design choice. These are machine-checked
+  (per the §Trust base note — some, e.g. `pure_pairslot_count` via `pure_count_range`, go through
+  `native_decide`, not kernel-`decide`) precisely because they remove numerology attack surface.
 ```
 
 ## 5. Verify yourself
