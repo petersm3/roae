@@ -107,6 +107,7 @@ constraint structure.
 | Flag | Description |
 |---|---|
 | `--differential` | Differential analysis: find the features on which King Wen is extremal among the solutions (bounded by `--max-nodes` / `--time-limit`). |
+| `--differential-apply-c3` | Modifier for `--differential`: also apply C3 to the differential population. **Circularity note (self-documented in the flag):** King Wen is at the C3 ceiling by construction in that population, so complement-distance extremality there is a *tautology, not a finding*. |
 | `--rule7` | Test the "Rule 7" candidates: filter by extremal complement distance and line autocorrelation (bounded by `--max-nodes` / `--time-limit`). |
 | `--fingerprint` | Fingerprint analysis: free positions, edit distances, minimum-constraint set (bounded by `--max-nodes` / `--time-limit`). |
 | `--reconstruct` | Reconstruct King Wen step by step, verifying uniqueness at each step. |
