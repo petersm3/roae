@@ -35,6 +35,17 @@
   the kernel-checked core of the fact that the couple slot-distance sum (hence C3)
   is invariant under the group, i.e. that TR-11's symmetry quotient carries over to
   the C3/G channel unchanged.
+
+  Added 2026-07-24 — THE C1∩C4 NULL G-LAW (final section): the exact distribution
+  of G = c3slot over the 31! equally-weighted C1∩C4 pair-orders, machine-checked by
+  the KERNEL end to end (`decide +kernel`; no native_decide): the full 217-bin
+  histogram as a literal (`null_law`), total mass = 31! (`null_total`), support
+  exactly [12, 228] with closed-form endpoint counts, E[G] = 128 exactly hence
+  E[C3] = 1040 (`null_mean_128`, `null_c3_mean_1040`), and P(G ≤ 95) =
+  641983711307479/7919632354008375 exactly (`null_p_le_95`) — the exact-null leg
+  of the C3 analysis, previously computed (not machine-checked) by
+  verify.py --check-null-g. The DP recurrence itself is validated in-kernel
+  against brute-force enumeration over all orderings at small sizes.
 -/
 
 namespace C3Decomposition
@@ -456,5 +467,325 @@ theorem g48_couple_image :
 theorem g48_couples_to_couples :
     ∀ p ∈ G48, ((crossReps.map fun r => coupleMin (applyPerm p r)).Perm crossReps) := by
   decide
+
+
+/- ------------------ the C1∩C4 null G-law (added 2026-07-24) ------------------
+   The EXACT distribution of the couple slot-distance sum G = c3slot under the
+   C1∩C4 null: all 31! orderings of the 31 free pair-slots (slot 0 pinned by C4
+   with the self-complement pair {63, 0}), counted equally. Within-slot
+   orientations never matter: `slot_orientation_free` above proves a hexagram and
+   its pair-partner share a slot, so G is a pair-order quantity and the 31!
+   pair-order model carries the full C1∩C4 null.
+
+   The law is computed by a 31-layer DP over states (o, c, g) = (couples with one
+   pair placed, couples with both pairs placed, running G) — the recurrence
+   verify.py --check-null-g runs in Python — restated here over Nat-histograms
+   (list index = G value). EVERY fact in this section is checked by the Lean
+   kernel (`decide +kernel`); no native_decide, no extended trust base:
+
+   · `nullHist_matches_brute_*` — semantic validation: the same generic
+     recurrence, at small parameters, equals brute-force enumeration over ALL
+     orderings of distinct pair tokens (120 / 5040 / 5040 orderings enumerated
+     inside the kernel), pinning the recurrence to the counting model;
+   · `null_law` — the 12-couple/7-self/31-slot histogram equals an explicit
+     217-bin literal: the entire law, pinned bin by bin;
+   · `null_terminal_closed` — the DP ends with every couple closed;
+   · `null_total` — the mass is exactly 31!;
+   · support — exactly [12, 228] and contiguous, with closed-form endpoint
+     counts 19!·2¹² (all 12 couples slot-adjacent) and (12!)²·2¹²·7! (opens
+     occupy slots 1–12, closes 20–31);
+   · `null_mean_128` — E[G] = 128 exactly, hence via `c3_slot_decomposition`
+     E[C3] = 16 + 8·128 = 1040 (`null_c3_mean_1040`); the DP-free linearity
+     closed form 12·E|i−j| = 12·(9920/930) = 128 is pinned in
+     `sum_absdiff_31` / `null_mean_linearity` as an independent cross-check;
+   · `null_p_le_95` — P(G ≤ 95) · 7919632354008375 = 641983711307479 · (total),
+     i.e. P(G ≤ 95) = 641983711307479/7919632354008375 (≈ 8.106231%) exactly, in
+     lowest terms (`null_p_le_95_lowest_terms`), with the ≤95 mass as an exact
+     integer (`null_mass_le_95`). KW's own slot-distance sum is 95
+     (`kw_slot_sum_95` above), so this is the null mass at-or-below King Wen.
+
+   Modeling note (the one non-kernel step): reading the C1∩C4 null as "uniform
+   over the 31! free pair-orders" is a modeling choice, made independently by
+   verify.py (whose DP also uses a differently-phrased G accumulator, so
+   agreement is evidence); the brute-force theorems remove the recurrence
+   itself from the trust base at small size, and the 12/7/31 instance runs the
+   identical generic definition.
+
+   Nat-subtraction note: stepCell's multipliers use truncated Nat subtraction;
+   the only states a truncation could misprice are unreachable ones, whose
+   histograms are empty by the scale/shiftG guards — and `null_terminal_closed`
+   plus `null_total` (mass exactly 31!) check the instance end-to-end. -/
+
+/-- pointwise sum of two G-histograms (Nat-lists indexed by G value; the longer
+    tail carries through). -/
+def padd : List Nat → List Nat → List Nat
+  | xs, [] => xs
+  | [], ys => ys
+  | x :: xs, y :: ys => (x + y) :: padd xs ys
+
+/-- scale every weight by k; a zero multiplier contributes nothing (empty), so
+    cell histograms never grow trailing zeros. -/
+def scale (k : Nat) (xs : List Nat) : List Nat :=
+  if k == 0 then [] else xs.map (k * ·)
+
+/-- shift a histogram up by o G-units (running G grows by the number of open
+    couples spanning the slot). -/
+def shiftG (o : Nat) (xs : List Nat) : List Nat :=
+  if xs.isEmpty then [] else List.replicate o 0 ++ xs
+
+/-- cell (o, c) of a DP layer: the histogram of running G over assignments
+    reaching o open and c closed couples. -/
+def cellOf (grid : List (List (List Nat))) (o c : Nat) : List Nat :=
+  (grid.getD o []).getD c []
+
+/-- one DP slot step, pull-style: the new (o, c) histogram sums the three
+    in-transitions — place a self pair (× remaining selves), open a couple
+    (× 2 · unopened couples: which couple, which of its two pairs first), close
+    an open couple (× open couples at the source) — then shifts by the o couples
+    open AFTER this slot, so G accumulates Σ_s open(s) = Σ_couples |slot(u) −
+    slot(v)|. -/
+def stepCell (nc ns s : Nat) (prev : List (List (List Nat))) (o c : Nat) : List Nat :=
+  let selfIn := scale (ns - ((s - 1) - o - 2*c)) (cellOf prev o c)
+  let openIn := if o = 0 then [] else scale (2 * (nc + 1 - o - c)) (cellOf prev (o-1) c)
+  let closeIn := if c = 0 then [] else scale (o + 1) (cellOf prev (o+1) (c-1))
+  shiftG o (padd (padd selfIn openIn) closeIn)
+
+def stepGrid (nc ns s : Nat) (prev : List (List (List Nat))) : List (List (List Nat)) :=
+  (List.range (nc+1)).map fun o => (List.range (nc+1)).map fun c => stepCell nc ns s prev o c
+
+/-- layer 0: one empty assignment, no couples touched, G = 0. -/
+def initGrid (nc : Nat) : List (List (List Nat)) :=
+  (List.range (nc+1)).map fun o => (List.range (nc+1)).map fun c =>
+    if o == 0 && c == 0 then [1] else ([] : List Nat)
+
+def runDP (nc ns : Nat) : Nat → List (List (List Nat))
+  | 0 => initGrid nc
+  | s + 1 => stepGrid nc ns (s + 1) (runDP nc ns s)
+
+/-- the null G-histogram over nslot slots with nc couples and ns self pairs:
+    index g holds the number of pair-orderings with G = g (terminal cell: all
+    couples closed). -/
+def nullHist (nc ns nslot : Nat) : List Nat := cellOf (runDP nc ns nslot) 0 nc
+
+/-- G of one explicit token ordering: tokens 2i and 2i+1 (i < nc) are the two
+    pairs of couple i, all other tokens are self pairs; G sums the couples'
+    slot distances. -/
+def gOf (nc : Nat) (l : List Nat) : Nat :=
+  ((List.range nc).map fun i => ndist (l.findIdx (· == 2*i)) (l.findIdx (· == 2*i+1))).sum
+
+/-- brute-force histogram over ALL nslot! orderings of nslot distinct pair
+    tokens (via `perms` above) — the ground truth the DP recurrence must match. -/
+def bruteHist (nc nslot : Nat) : List Nat :=
+  (perms (List.range nslot)).foldl (fun h l => padd h (shiftG (gOf nc l) [1])) []
+
+/-- Σ (g0 + index) · weight — the histogram's weighted sum with base offset g0. -/
+def wsum (g0 : Nat) : List Nat → Nat
+  | [] => 0
+  | w :: t => g0 * w + wsum (g0 + 1) t
+
+def fact : Nat → Nat
+  | 0 => 1
+  | n + 1 => (n + 1) * fact n
+
+/-- THE INSTANCE: 12 cross-couples, 7 free self pairs, 31 free slots (slot 0
+    pinned by C4 with the eighth self pair {63, 0}). -/
+def NullHist : List Nat := nullHist 12 7 31
+
+/-- the full exact law, bin by bin: entry g (for g = 12..228) is the number of
+    the 31! pair-orderings with couple slot-distance sum exactly g. Cross-checked
+    bin-for-bin against verify.py --check-null-g (an independent Python
+    implementation of the DP with a different G-accumulator phrasing). -/
+def NullLawLiteral : List Nat :=
+  List.replicate 12 0 ++
+    [
+      498258331274575872000, 2202826306687598592000, 11695958723603202048000,
+      38859007854574043136000, 125260679016748154880000, 332475597955446865920000,
+      839062402080027181056000, 1892477697908010909696000, 4090022929062734856192000,
+      8205029219881545891840000, 15893354780460155142144000, 29175928460768704462848000,
+      52055636857623328849920000, 89121663471709480550400000, 149058113422627694444544000,
+      241265899072847741976576000, 383013491482689124958208000, 591927441191092214562816000,
+      900033304457970582552576000, 1338130860819128984272896000, 1962018239226099718422528000,
+      2822451781295263054823424000, 4011862643089182812012544000, 5609508126032441099943936000,
+      7762041233811821901643776000, 10587360374467431399161856000, 14310030589711509211840512000,
+      19097401233983125900492800000, 25282780392030037560262656000, 33093669965653223191609344000,
+      43011604119200068282613760000, 55332600846223945217605632000, 70736047409449798327074816000,
+      89590203357150784039944192000, 112834643147158027694505984000,
+      140904563127043219846594560000, 175075684500042684076916736000,
+      215833692016046777825230848000, 264883135303906158163525632000,
+      322723693616549769718530048000, 391601891762675786704748544000,
+      471971307024748742531088384000, 566754562636420039883882496000,
+      676269242009461125109776384000, 804270669278699643551612928000,
+      950814337227352723930742784000, 1120673902330844010938105856000,
+      1313468811120640705834254336000, 1535200847142646371204464640000,
+      1784840399482932838986153984000, 2069846750592409263679733760000,
+      2388273783154247313899126784000, 2749300084403204169595355136000,
+      3149734027752527524351967232000, 3600760451301827456494731264000,
+      4097551499556174687218171904000, 4653616126061863444697579520000,
+      5262027746362166010301120512000, 5938977150047112705651769344000,
+      6674901172299358477731495936000, 7489043600925123024481419264000,
+      8368624380362651609937739776000, 9336339673952650484558856192000,
+      10375519658632243259860058112000, 11512756826994529080044421120000,
+      12726779754374656158974607360000, 14048513900386636467756072960000,
+      15451340946207768161820868608000, 16970970800906425121378402304000,
+      18574630634515928797201563648000, 20303361645748813007016689664000,
+      22117379607894642397601071104000, 24063490561797245776057860096000,
+      26094160976012309063018741760000, 28262480720288466305361641472000,
+      30512293093192025140031913984000, 32903460826062520652188876800000,
+      35370472107774090732795592704000, 37980496599974320950755721216000,
+      40657870932291408455106822144000, 43477527857861209051128397824000,
+      46353116758950159786134470656000, 49367718321043597003516280832000,
+      52423839954964277026942353408000, 55612919982389134483418775552000,
+      58826053068687760289332985856000, 62163424773993026502852083712000,
+      65504508469557066855937474560000, 68958263552286837461483520000000,
+      72392617158652452902944112640000, 75925520176224439082082631680000,
+      79413701446844809473026949120000, 82983630213592268980145356800000,
+      86481323209807842283565875200000, 90042168272125933632639467520000,
+      93501887136245860490784276480000, 97003935137626864653969653760000,
+      100375130597234995033496616960000, 103766675688566145711907799040000,
+      106997419281166483572475822080000, 110225811157999324704748339200000,
+      113263348420886592154396262400000, 116275686485134948158186455040000,
+      119069121503627629529357352960000, 121814269033871409890281390080000,
+      124313560102326839517433036800000, 126743746151210871333637324800000,
+      128903479876958579865189089280000, 130973889376573495746704179200000,
+      132753420499993386648569118720000, 134425720864864700356519526400000,
+      135789763346827822227762708480000, 137032187710018260208912957440000,
+      137952730764315992377377423360000, 138740109008199680384701562880000,
+      139198281397532087440732323840000, 139514174566674018904760647680000,
+      139497244074990506642327470080000, 139334965360651269044258734080000,
+      138841396026706013992129658880000, 138201419926977478257121689600000,
+      137237927810309291958180249600000, 136131342505592675612649062400000,
+      134712986279152322730283499520000, 133160085231535939742985093120000,
+      131311265580984943858050662400000, 129338627123584105277470801920000,
+      127092765417846018959160115200000, 124736219925898040280895979520000,
+      122130701942394912999022264320000, 119433660502840358481879367680000,
+      116514754285216121044944814080000, 113522867706172353615243509760000,
+      110341095775990560507832565760000, 107106602374072703871552061440000,
+      103714061810827879954010603520000, 100292994924706787233722531840000,
+      96745295395279122293304852480000, 93191110117249558558927749120000,
+      89545364353316607947345756160000, 85914982687526730741558804480000,
+      82224021437961307107643883520000, 78572475066505610806186475520000,
+      74890348699634885514661724160000, 71266839091597933914536017920000,
+      67643475509215878830798929920000, 64096726549227086534745784320000,
+      60575023904558452709397626880000, 57148525272435349663996968960000,
+      53768693600941564504477532160000, 50497379354022075280958423040000,
+      47294389651547639953238261760000, 44209619242477288542877777920000,
+      41208134779560635340297338880000, 38334912497421638358647439360000,
+      35557079884222158554592706560000, 32911235631974144740153098240000,
+      30370939916638424681813114880000, 27964297171311617441267712000000,
+      25667732725734859888090152960000, 23505632493882089460486635520000,
+      21455320202985749746475335680000, 19535693415109775386120028160000,
+      17728178571445765576505425920000, 16045578689864953746539151360000,
+      14471289644730443396598988800000, 13015603845924298807931043840000,
+      11663351531879673005699235840000, 10420362753334947822604124160000,
+      9274232018640561410471362560000, 8227833309228814975578931200000,
+      7269984624247145140982906880000, 6401919891702877340439674880000,
+      5613217153997227987493191680000, 4903920640692822617358336000000,
+      4265065529703765205560852480000, 3694804955107763516646359040000,
+      3185418145461016279614750720000, 2734816098977495376262594560000,
+      2336042710412161415255162880000, 1986257965316309922128855040000,
+      1679684433587931304773550080000, 1413594906616407974215680000000,
+      1182714508488793625985024000000, 984305699837469298733875200000,
+      814110873924932960727859200000, 669470551573842779701248000000,
+      546842312978945257399910400000, 443935162963062135403315200000,
+      357660208771097419579392000000, 286247837300308213078425600000,
+      227308159430147788347801600000, 179214556384550806408396800000,
+      139986673359249327154790400000, 108514752376537746505728000000,
+      83294320880679560360755200000, 63324956832083723943936000000, 47668100730479671718707200000,
+      35530232741451465228288000000, 26113527053368283470233600000, 19009848792546175824691200000,
+      13672123553834314865049600000, 9658665724416123469824000000, 6748829855172328528281600000,
+      4621318279585777424793600000, 3114298020663801151488000000, 2056857666119020000051200000,
+      1332556415432318464819200000, 833637188801260840550400000, 521023243000788025344000000,
+      307877370864102014976000000, 170516697709348808294400000, 94731498727416004608000000,
+      47365749363708002304000000, 23682874681854001152000000, 9473149872741600460800000,
+      4736574936370800230400000
+    ]
+
+/-- SEMANTIC VALIDATION of the recurrence, kernel-enumerated: 2 couples, 1 self,
+    5 slots — the DP equals brute force over all 5! = 120 token orderings. -/
+theorem nullHist_matches_brute_2_1_5 : nullHist 2 1 5 = bruteHist 2 5 := by decide +kernel
+
+/-- 2 couples, 3 selves, 7 slots: DP = brute force over all 7! = 5040 orderings. -/
+theorem nullHist_matches_brute_2_3_7 : nullHist 2 3 7 = bruteHist 2 7 := by decide +kernel
+
+/-- 3 couples, 1 self, 7 slots: DP = brute force over all 7! = 5040 orderings. -/
+theorem nullHist_matches_brute_3_1_7 : nullHist 3 1 7 = bruteHist 3 7 := by decide +kernel
+
+/-- THE NULL LAW, kernel-evaluated: the 31-layer DP yields exactly the literal
+    histogram. Every subsequent theorem reads off this literal. -/
+theorem null_law : NullHist = NullLawLiteral := by decide +kernel
+
+/-- the DP terminates with all 12 couples closed: every terminal cell other than
+    (o, c) = (0, 12) is empty. -/
+theorem null_terminal_closed :
+    ((List.range 13).all fun o => (List.range 13).all fun c =>
+      (o == 0 && c == 12) || (cellOf (runDP 12 7 31) o c).isEmpty) = true := by
+  decide +kernel
+
+theorem fact_31 : fact 31 = 8222838654177922817725562880000000 := by decide +kernel
+
+/-- TOTAL MASS = 31!: the DP counts every pair-ordering exactly once. -/
+theorem null_total : NullHist.sum = fact 31 := by rw [null_law]; decide +kernel
+
+/-- SUPPORT, lower end: no mass below G = 12 (each of the 12 couples has slot
+    distance ≥ 1). -/
+theorem null_support_below_12 : (NullHist.take 12).sum = 0 := by
+  rw [null_law]; decide +kernel
+
+/-- G = 12 is attained, with closed-form count 19! · 2¹²: all 12 couples
+    slot-adjacent — 19 objects (12 adjacent-couple blocks + 7 selves) in order,
+    × 2 orientations per couple. -/
+theorem null_support_min : NullHist.getD 12 0 = fact 19 * 2^12 := by
+  rw [null_law]; decide +kernel
+
+/-- G = 228 is attained, with closed-form count (12!)² · 2¹² · 7!: the maximum
+    forces opens = slots 1..12 and closes = slots 20..31 (Σcloses − Σopens =
+    306 − 78 = 228), any open/close slot assignments, selves in 13..19. -/
+theorem null_support_max : NullHist.getD 228 0 = fact 12 * fact 12 * 2^12 * fact 7 := by
+  rw [null_law]; decide +kernel
+
+/-- no mass above G = 228: the histogram has exactly 229 bins (indices 0..228). -/
+theorem null_support_bins : NullHist.length = 229 := by rw [null_law]; decide +kernel
+
+/-- the support is CONTIGUOUS: every G in [12, 228] has nonzero mass. -/
+theorem null_support_contiguous : ((NullHist.drop 12).all (· != 0)) = true := by
+  rw [null_law]; decide +kernel
+
+/-- E[G] = 128 EXACTLY: the weighted sum equals 128 · 31!. -/
+theorem null_mean_128 : wsum 0 NullHist = 128 * fact 31 := by
+  rw [null_law]; decide +kernel
+
+/-- hence E[C3] = 16 + 8·128 = 1040 under the null, via `c3_slot_decomposition`
+    (C3 = 16 + 8·G pointwise, so the identity holds in histogram arithmetic). -/
+theorem null_c3_mean_1040 :
+    16 * NullHist.sum + 8 * wsum 0 NullHist = 1040 * NullHist.sum := by
+  rw [null_law]; decide +kernel
+
+/-- DP-free linearity cross-check, part 1: Σ_{i,j ∈ 31 slots} |i − j| = 9920,
+    so a uniformly random ordered pair of distinct slots has E|i − j| =
+    9920/(31·30) = 32/3. -/
+theorem sum_absdiff_31 :
+    ((List.range 31).map fun i => ((List.range 31).map (ndist i)).sum).sum = 9920 := by
+  decide +kernel
+
+/-- part 2: 12 couples × E|i−j| = 12 · 9920/930 = 128 — the closed form
+    E[G] = 12·(32/3) = 128, in cleared-denominator form. Matches
+    `null_mean_128`, derived independently of the DP. -/
+theorem null_mean_linearity : 12 * 9920 = 128 * (31 * 30) := by decide
+
+/-- the exact mass at G ≤ 95 (KW's value: `kw_slot_sum_95`). -/
+theorem null_mass_le_95 :
+    (NullHist.take 96).sum = 666562315107961675963674132480000 := by
+  rw [null_law]; decide +kernel
+
+/-- P(G ≤ 95) = 641983711307479/7919632354008375 EXACTLY (≈ 8.106231%), in
+    cleared-denominator form over the histogram: (mass at G ≤ 95) · denominator
+    = numerator · (total mass). -/
+theorem null_p_le_95 :
+    (NullHist.take 96).sum * 7919632354008375 = 641983711307479 * NullHist.sum := by
+  rw [null_law]; decide +kernel
+
+/-- and that fraction is in lowest terms. -/
+theorem null_p_le_95_lowest_terms : Nat.gcd 641983711307479 7919632354008375 = 1 := by
+  decide +kernel
 
 end C3Decomposition

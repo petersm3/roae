@@ -31,9 +31,18 @@ Lean's compiler). What that buys:
   to a theorem; the zero-hit enumeration measurement is now a corollary. (Orientation-invariance of each
   per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by `native_decide`;
   the sequence-level constancy in the landed `within_double` style.)
+- **The exact C1∩C4 null law of the C3/G channel is kernel-checked end to end** (2026-07-24,
+  `C3Decomposition.lean` final section): the full exact distribution of the couple slot-distance
+  sum G over the 31! equally-weighted C1∩C4 pair-orders — total mass 31!, support exactly
+  [12, 228], E[G] = 128 exactly (hence E[C3] = 1040), and P(G ≤ 95) =
+  641983711307479/7919632354008375 exactly (≈ 8.106%; 95 is King Wen's own value) — every fact by
+  kernel `decide`, no `native_decide`, with the DP recurrence itself validated in-kernel against
+  brute-force enumeration over all orderings at small sizes. This upgrades the exact-null leg
+  previously carried by `verify.py --check-null-g` from exact-by-computation to machine-checked.
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
   each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
-  the toolchain is pinned in this directory's `lean-toolchain`).
+  the toolchain is pinned in this directory's `lean-toolchain`; the one exception to "seconds" is
+  `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP).
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
@@ -73,7 +82,7 @@ finite computation those arguments rest on.
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
 # (leanprover/lean4:v4.31.0). Each file is standalone; no lake project:
 lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0)
-lean C3Decomposition.lean    # C3 slot-decomposition theorem (sat.py's C3-encoding soundness core)
+lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4 null G-law (see below; ~2 min — kernel-evaluates a 31-layer DP)
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
@@ -189,3 +198,30 @@ Verified statements, by family:
 | **TG-3** trigram-compatible symmetry subgroup | `G12_length`, `G6_length`, `G12_decomposition_covers`/`_nodup`, `mirrorDouble_hom`/`_inj`, `blockPreserving_iff_blockwise`, `uChange_mapP`, `lChange_mapP`, `trigram_functional_not_orbit_invariant` | About the TR-5 **line-position** constraint-symmetry group G₄₈ ONLY (exactly 12 of 48 respect the trigram bipartition, ≅ S₃ × C₂; order 6 at record level) — a different group and object from Hershock 1991's complement/reverse/trigram-swap group on the hexagram set; see TRIGRAM_STRUCTURE.md §"What TG-3 is not" |
 | **TG-4** nuclear naturality | `nuc_comm_rev`, `nuc_comm_comp`, `nuc_partner_descent`, `nuc_image_16`, `nuc_nuc_image_terminal`, `nuc_terminal_closed` | Presumably classical/implicit facts (the 64→16→4 chain is commentary-tradition), formalized to certify the nuclear-battery substrate; no discovery claimed, corrections invited |
 | **TG-5** vacuity guards | `trigram_balance_invariant`, `pure_pairslot_couple`, `pure_pairslot_count` | Guards, not results: trigram balance holds in ANY permutation (so it says nothing about King Wen), and pure-hexagram adjacency is forced by C1, not a design choice |
+
+## The C1∩C4 null G-law (2026-07-24): C3Decomposition.lean final section
+
+The exact finite probability law of the couple slot-distance sum G = `c3slot` under the C1∩C4
+null (all 31! orderings of the 31 free pair-slots, slot 0 pinned by C4; orientations are
+irrelevant by `slot_orientation_free`), machine-checked by the Lean **kernel** end to end —
+`decide +kernel` only, **no `native_decide` anywhere in the section**, so nothing here trusts
+the compiler. The 31-layer DP (the same recurrence as `verify.py --check-null-g`) is restated
+over Nat-histograms and evaluated inside the kernel. Verified statements:
+
+| Theorem | Statement |
+|---|---|
+| `nullHist_matches_brute_2_1_5` / `_2_3_7` / `_3_1_7` | The generic DP recurrence equals brute-force enumeration over ALL orderings of distinct pair tokens at small sizes (120 / 5040 / 5040 orderings enumerated in-kernel) — the recurrence itself is validated, not assumed |
+| `null_law` | The 12-couple/7-self/31-slot histogram equals an explicit 217-bin literal: the entire law, bin by bin |
+| `null_terminal_closed`, `null_total` | The DP terminates with every couple closed and total mass exactly 31! |
+| `null_support_below_12`, `null_support_min`, `null_support_max`, `null_support_bins`, `null_support_contiguous` | Support exactly [12, 228], contiguous, with closed-form endpoint counts 19!·2¹² and (12!)²·2¹²·7! |
+| `null_mean_128`, `null_c3_mean_1040` | E[G] = 128 exactly, hence E[C3] = 16 + 8·128 = 1040 via `c3_slot_decomposition` |
+| `sum_absdiff_31`, `null_mean_linearity` | DP-free cross-check: the linearity closed form 12·E\|i−j\| = 12·(9920/930) = 128 |
+| `null_mass_le_95`, `null_p_le_95`, `null_p_le_95_lowest_terms` | P(G ≤ 95) = 641983711307479/7919632354008375 exactly (≈ 8.106231%), in lowest terms, with the ≤95 mass as an exact integer — 95 is King Wen's own slot-distance sum (`kw_slot_sum_95`) |
+
+**Scope / trust note.** What is kernel-checked is the law of the DP-defined distribution and its
+agreement with brute-force enumeration at small parameters; the single modeling step — reading
+the C1∩C4 null as "uniform over the 31! free pair-orders" — is stated in the file header and is
+the same reading `verify.py --check-null-g` implements independently (with a differently-phrased
+G accumulator). This is the C1∩C4 null ONLY — no C2, no C5, no budget truncation; it is not
+comparable like-for-like to ceiling-tie shares measured over C2/C5-conditioned enumerated
+populations (same scope warning `verify.py` prints).
