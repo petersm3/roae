@@ -1047,6 +1047,16 @@ def check_layer_sidecars(dirpath):
 #   * E[G] must be 128 exactly, by linearity: each couple's slot-pair is marginally a
 #     uniform 2-subset of {1..31}, and E|i-j| = (n+1)/3 for a uniform 2-subset of
 #     {1..n}, so E[G] = 12*(32/3) = 128.
+#
+# --unpinned VARIANT (C3|C1, start unpinned): the SAME DP with the C4 slot-0 pin
+# removed -- 12 cross-couples and all 8 self-pairs placed into slots 1..32,
+# uniformly. This is the exact analogue of solve.c --null-pair-constrained's
+# sampled C3|C1 figure (6.42% at 10^9 trials): that sampler Fisher-Yates-permutes
+# all 32 pairs with random orientations, and orientation bits cancel in G (Lean
+# `c3_slot_decomposition`: C3 = 16 + 8*G over all C1-valid orderings), so
+# P(C3 <= 776 | C1) = P(G <= 95) over uniform orderings of the 32 pair-slots.
+# The same two DP-free gates apply with one more slot: total must be 32! exactly,
+# and E[G] = 12*(33/3) = 132 exactly.
 # ---------------------------------------------------------------------------
 
 _NULL_G_EXPECT = {
@@ -1057,13 +1067,30 @@ _NULL_G_EXPECT = {
     'p_le_95_den': 7919632354008375,
 }
 
+# Exact C3|C1 (start unpinned): first computed 2026-07-25 by this DP; cross-checked
+# against brute-force enumeration at reduced scopes (NC,NS) in {(1,1),(2,1),(2,2),
+# (3,1),(2,3)} and against the 10^9-sample MC (solve.c --null-pair-constrained,
+# 6.42%; exact = 6.421137%, inside the MC's ~0.0008pp 1-sigma band).
+_NULL_G_UNPINNED_EXPECT = {
+    'total_is_32_factorial': True,
+    'support': (12, 240),
+    'mean': 132,
+    'p_le_95_num': 1977618313669549,
+    'p_le_95_den': 30798570265588125,
+}
 
-def check_null_g(verbose=True):
+
+def check_null_g(verbose=True, unpinned=False):
     import math
     from fractions import Fraction
     from collections import defaultdict
 
-    NC, NS, NSLOT = 12, 7, 31
+    if unpinned:
+        NC, NS, NSLOT = 12, 8, 32   # no C4 pin: all 8 self-pairs free, 32 slots
+        expect = _NULL_G_UNPINNED_EXPECT
+    else:
+        NC, NS, NSLOT = 12, 7, 31   # C4 pin: pair 0 fixed at slot 0; 31 free slots
+        expect = _NULL_G_EXPECT
     cur = {(0, 0, 0): 1}
     for s in range(1, NSLOT + 1):
         nxt = defaultdict(int)
@@ -1105,19 +1132,24 @@ def check_null_g(verbose=True):
 
     if verbose:
         print("=" * 74)
-        print("verify.py --check-null-g : exact G-distribution under the C1&C4 null")
+        if unpinned:
+            print("verify.py --check-null-g --unpinned : exact G-distribution, bare C1 null")
+        else:
+            print("verify.py --check-null-g : exact G-distribution under the C1&C4 null")
         print("  method: G = sum_s (couples open after slot s)  -- deliberately NOT")
         print("          solve.c's -/+ slot-index accumulator, so agreement is evidence")
         print("=" * 74)
 
-    gate(total == math.factorial(NSLOT), "total == 31!", total, math.factorial(NSLOT))
-    gate((gs[0], gs[-1]) == _NULL_G_EXPECT['support'], "support == [12, 228]",
-         (gs[0], gs[-1]), _NULL_G_EXPECT['support'])
-    gate(mean == _NULL_G_EXPECT['mean'], "E[G] == 128 exactly (DP-free: 12*(32/3))",
-         mean, _NULL_G_EXPECT['mean'])
-    gate(frac == Fraction(_NULL_G_EXPECT['p_le_95_num'], _NULL_G_EXPECT['p_le_95_den']),
-         "P(G <= 95) == 641983711307479/7919632354008375", frac,
-         Fraction(_NULL_G_EXPECT['p_le_95_num'], _NULL_G_EXPECT['p_le_95_den']))
+    gate(total == math.factorial(NSLOT), f"total == {NSLOT}!", total, math.factorial(NSLOT))
+    gate((gs[0], gs[-1]) == expect['support'],
+         f"support == [{expect['support'][0]}, {expect['support'][1]}]",
+         (gs[0], gs[-1]), expect['support'])
+    gate(mean == expect['mean'],
+         f"E[G] == {expect['mean']} exactly (DP-free: 12*({NSLOT + 1}/3))",
+         mean, expect['mean'])
+    gate(frac == Fraction(expect['p_le_95_num'], expect['p_le_95_den']),
+         f"P(G <= 95) == {expect['p_le_95_num']}/{expect['p_le_95_den']}", frac,
+         Fraction(expect['p_le_95_num'], expect['p_le_95_den']))
 
     if verbose:
         print("-" * 74)
@@ -1128,14 +1160,22 @@ def check_null_g(verbose=True):
         print(f"  P(G == 95)     {100*float(Fraction(hist.get(95,0), total)):.6f}%")
         print(f"  P(G == 95 | G <= 95) = {100*float(Fraction(hist.get(95,0), le95)):.4f}%")
         print("=" * 74)
-        if ok[0]:
+        if not ok[0]:
+            print("RESULT: *** NULL G-DISTRIBUTION CHECK FAILED *** — do not explain away.")
+        elif unpinned:
+            print("RESULT: unpinned null G-distribution reproduced exactly.")
+            print("        SCOPE: this is the bare C1 null with the start UNPINNED — no C4,")
+            print("        no C2, no C5, no budget truncation: uniform orderings of all 32")
+            print("        pair-slots (orientations cancel in G). P(G <= 95) here is the")
+            print("        EXACT value of the C3|C1 rate that solve.c --null-pair-constrained")
+            print("        samples (6.42% at 10^9 trials). Same non-comparability caveats as")
+            print("        the pinned null apply to C2/C5-conditioned populations.")
+        else:
             print("RESULT: null G-distribution reproduced exactly.")
             print("        SCOPE: this is the C1&C4 null ONLY — no C2, no C5, no budget")
             print("        truncation. It is NOT comparable like-for-like to ceiling-tie")
             print("        shares measured over C2/C5-conditioned enumerated populations,")
             print("        and it does not on its own refute or confirm any such figure.")
-        else:
-            print("RESULT: *** NULL G-DISTRIBUTION CHECK FAILED *** — do not explain away.")
         print("=" * 74)
     return 0 if ok[0] else 1
 
@@ -1307,6 +1347,12 @@ def main():
                              '[12,228], E[G] == 128, and P(G<=95) == 641983711307479/7919632354008375. '
                              'Uses a different accumulator than solve.c (open-couple counts, not '
                              '+/- slot indices), so agreement is evidence. Reads no files.')
+    parser.add_argument('--unpinned', action='store_true',
+                        help='With --check-null-g: drop the C4 slot-0 pin — 12 couples + all 8 '
+                             'self-pairs into 32 slots (the bare C1 null). Computes the EXACT '
+                             'C3|C1 rate P(G<=95) = 1977618313669549/30798570265588125 = 6.421137%%, '
+                             'the exact analogue of solve.c --null-pair-constrained\'s sampled '
+                             '6.42%%. Gates: total == 32!, support [12,240], E[G] == 132.')
     parser.add_argument('--check-c2-shift', type=int, nargs='?', const=200_000, default=None,
                         metavar='N',
                         help='DECISION-SUPPORT (Monte-Carlo, NOT canonical): estimate '
@@ -1318,7 +1364,9 @@ def main():
     args = parser.parse_args()
 
     if args.check_null_g:
-        sys.exit(check_null_g())
+        sys.exit(check_null_g(unpinned=args.unpinned))
+    if args.unpinned:
+        parser.error("--unpinned only makes sense with --check-null-g")
 
     if args.check_c2_shift is not None:
         sys.exit(check_c2_shift(args.check_c2_shift))
