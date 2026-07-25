@@ -52,8 +52,8 @@ the C1-only fraction remains an estimate); C5|C1∩C2∩C4 = ×690.0850… (9.43
 ## The residual — the honest thesis
 
 Knowing everything structural in this table, the sequence retains **log₂|C1–C7| = 105.4 bits** of
-unexplained information; on the defensible subset (dropping circular C3, data-like C6/C7), the residual
-against honestly-explanatory structure is **~126.6 bits**. The literature's strongest independent rule
+unexplained information; on the defensible subset (dropping data-like C6/C7, C3 retained), the residual
+against honestly-explanatory structure is **~126.6 bits** (dropping circular C3 too gives 129.7). The literature's strongest independent rule
 prices at ~13.5 bits gross. **Roughly half the sequence's information is explained (gross compression; net
 of explicit statement costs the savings are ~100–134 bits, ≈ 35–45%) — nearly all of it by the classical
 pairing (now known optimal), a marginal 4.5 bits (≈ break-even once its statement cost is charged) by the
