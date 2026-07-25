@@ -53,6 +53,8 @@
  *         ./verify --ie-count [opts]   Route B: the INDEPENDENT inclusion–exclusion
  *          transfer-walk recount of |C1∩C2∩C4∩C5| (TR-11 §10vi) — see the ROUTE B
  *          section header below for the algorithm, options and validation ladder.
+ *          --ie-no-budget = the C1∩C2∩C4 (F4) variant; --ie-pin/--ie-pin-c6c7 =
+ *          the pinned-step (T3) variant for |C1∩C2∩C4∩C5∩C6∩C7|.
  *         ./verify --ie-probe NSAMP [--ie-threads N]   full-31 throughput probe.
  */
 
@@ -2079,7 +2081,8 @@ static int lc_gt_selftest(void) {
  *            [--ie-mod all|wrap|p0|p1|p2] [--ie-no-quotient] [--ie-no-budget]
  *            [--ie-threads N] [--ie-chunk-bits B] [--ie-checkpoint FILE]
  *            [--ie-range LO HI] [--ie-b0 a,b,c,d,e] [--ie-negctl]
- *            [--ie-expect DECIMAL]
+ *            [--ie-expect DECIMAL] [--ie-pin SLOT:PAIR ...] [--ie-pin-c6c7]
+ *            [--ie-brute]
  *   ./verify --ie-probe NSAMP [--ie-threads N]
  * Defaults: spec full31@0; mod all (= wrap+p0+p1+p2 when n≤19, else p0+p1+p2);
  * threads = online CPUs. Reduced-rung budgets are derived by TR-11 §5's
@@ -2097,6 +2100,48 @@ static int lc_gt_selftest(void) {
  * survive the signed sum. Full-31 target = LC_PUBLISHED_COUNT_C1C2C4.
  * With --ie-negctl, admissibility is perturbed to forbid d=4 instead of
  * d=5 (budgets don't exist here) — the count MUST differ.
+ *
+ * --ie-pin SLOT:PAIR (repeatable) / --ie-pin-c6c7 (the T3 variant): FORCE
+ * walk step SLOT (1-based; step k fills pair-slot k of the final ordering,
+ * slot 0 being the C4-pinned pair 0) to place pair index PAIR (KW pair
+ * order, 0..31; must be in the instance's pair list). Orientations stay
+ * free. The IE identity extends untouched: define W(S) = capped walks
+ * whose UNPINNED steps draw from S x {0,1} and whose pinned steps are
+ * forced to their pinned pair (so W(S) = 0 unless S contains every pinned
+ * pair — the outer sum collapses onto S = pins ∪ T, T ⊆ the unpinned
+ * pairs). Then sum_{T} (-1)^{|F|-|pins|-|T|} W(pins ∪ T) counts exactly
+ * the walks whose total pair support is all of F: with |F| steps that
+ * forces each pair to be used exactly once (a permutation walk) with the
+ * pinned slots holding their pinned pairs — i.e. the slot-pinned count.
+ * Pinning the SAME pair at two slots is allowed and must yield 0 (no
+ * permutation walk repeats a pair) — a built-in self-test.
+ *
+ * --ie-pin-c6c7 (requires full31@0) pins slots 24..27 to KW pairs
+ * #24..27 — the SPECIFICATION.md C6+C7 adjacency constraints: C7 pins
+ * {s48,s49}={29,46} & {s50,s51}={9,36} (slots 24,25); C6 pins
+ * {s52,s53}={11,52} & {s54,s55}={13,44} (slots 26,27). The pinned pairs
+ * are derived from the KW[] table and CROSS-CHECKED elementwise against
+ * those SPEC hexagram constants at startup. Together with the full-31
+ * budget this counts |C1∩C2∩C4∩C5∩C6∩C7| — the "C1–C7, C3 dropped" row,
+ * published only as a Knuth ESTIMATE 5.18e32 (0.25%); there is no exact
+ * target, so no default --ie-expect in pinned mode.
+ *
+ * HONEST GATE LOSS (pins): the pinned subset space is NOT closed under
+ * the 24-group (the pointwise stabilizer of pairs {24,25,26,27} is
+ * trivial), so (a) the quotient lemma is unavailable — pinned runs
+ * REQUIRE --ie-no-quotient (enforced), and (b) the mod-24 free-action
+ * divisibility gate does NOT apply (correct divisor = 1); N mod 24 is
+ * printed as information only. Compensating validation: small-n pinned
+ * counts vs the --ie-brute independent permutation DFS, the pin-sum
+ * identity (sum over all pins of one slot == the unpinned count, whose
+ * engine is externally validated), duplicate-pin == 0, CRT==wrap at
+ * small n, and the estimator-envelope cross-check at full 31.
+ *
+ * --ie-brute (small n only, n <= 12): count by an explicit permutation
+ * DFS over (pair, orientation) placements — a different algorithm class
+ * from the signed IE sum (no subsets, no signs; direct enumeration with
+ * used-pair bookkeeping). Reference instrument for the pinned small-n
+ * ladder; honors pins, budget/no-budget, and negctl identically.
  * ========================================================================== */
 
 /* ---- deterministic Miller–Rabin + the three 63-bit primes ---- */
@@ -2262,6 +2307,12 @@ typedef struct {
                                 * dropped; DP state collapses to (last) alone) */
     int nb_negctl;             /* no-budget negative control: forbid d=4 instead of
                                 * d=5 (perturbed C2 predicate) — count MUST differ */
+    int npin;                  /* --ie-pin: number of pinned steps (0 = none) */
+    int pin_at[32];            /* [step k]: pinned pl-position, or -1 (T3 variant) */
+    uint32_t pinmask;          /* OR of 1<<position over pinned positions */
+    int freepos[32], nfree;    /* unpinned pl-positions; outer sum = 2^nfree subsets
+                                * (t-space); mask = pinmask | expand(t)  */
+    char pinstr[160];          /* "24:24,25:25,..." — checkpoint-header pinning */
     int pl[32];
     int b0v[5];
     uint32_t rad[5], R;
@@ -2406,6 +2457,8 @@ static uint64_t ie_walk(const IeCtx *C, uint32_t S, uint64_t mod,
     cur[C->start] = 1;                               /* layer 0: zero vector, slot 0 */
     for (int k = 0; k < n; k++) {
         memset(nxt, 0, (size_t)C->nv[k + 1] * 64 * 8);
+        /* pinned step: alphabet is the single pinned pair (x2 orientations) */
+        uint32_t Sk = (C->npin && C->pin_at[k] >= 0) ? (1u << C->pin_at[k]) : S;
         const uint16_t *vl = C->vid[k];
         for (int vi = 0; vi < C->nv[k]; vi++) {
             const int16_t *sc = C->succ[vl[vi]];
@@ -2413,7 +2466,7 @@ static uint64_t ie_walk(const IeCtx *C, uint32_t S, uint64_t mod,
             for (int last = 0; last < 64; last++) {
                 uint64_t val = row[last];
                 if (!val) continue;
-                uint32_t tmp = S;
+                uint32_t tmp = Sk;
                 while (tmp) {
                     int q = __builtin_ctz(tmp); tmp &= tmp - 1;
                     for (int o = 0; o < 2; o++) {
@@ -2453,10 +2506,11 @@ static uint64_t ie_walk_nb(const IeCtx *C, uint32_t S, uint64_t mod,
     cur[C->start] = 1;
     for (int k = 0; k < n; k++) {
         memset(nxt, 0, 64 * 8);
+        uint32_t Sk = (C->npin && C->pin_at[k] >= 0) ? (1u << C->pin_at[k]) : S;
         for (int last = 0; last < 64; last++) {
             uint64_t val = cur[last];
             if (!val) continue;
-            uint32_t tmp = S;
+            uint32_t tmp = Sk;
             while (tmp) {
                 int q = __builtin_ctz(tmp); tmp &= tmp - 1;
                 for (int o = 0; o < 2; o++) {
@@ -2479,6 +2533,37 @@ static uint64_t ie_walk_nb(const IeCtx *C, uint32_t S, uint64_t mod,
     }
     *tcnt += t;
     return acc;
+}
+
+/* ---- --ie-brute: independent small-n reference — explicit permutation DFS.
+ * A different algorithm class from the signed IE sum: enumerates actual
+ * (pair, orientation) placements one by one with used-pair bookkeeping; no
+ * subsets, no signs, no transfer matrix. Honors pins (a pinned step tries
+ * only its pinned pair; if that pair is already used, the branch dies — so
+ * duplicate pins correctly yield 0), the budget cap (capped walks end at B0
+ * exactly since sum(B0) = n), no-budget mode, and negctl via the shared
+ * cmap admissibility table. Counts fit u64 by the n <= 12 guard. ---- */
+static void ie_brute_dfs(const IeCtx *C, int k, int last, uint32_t used,
+                         int cnt[5], uint64_t *out) {
+    if (k == C->n) { (*out)++; return; }
+    int qlo = 0, qhi = C->n;
+    if (C->npin && C->pin_at[k] >= 0) { qlo = C->pin_at[k]; qhi = qlo + 1; }
+    for (int q = qlo; q < qhi; q++) {
+        if (used & (1u << q)) continue;
+        for (int o = 0; o < 2; o++) {
+            int qo = 2 * q + o;
+            int cl = C->cmap[qo][last];
+            if (cl < 0) continue;
+            if (C->no_budget) {
+                ie_brute_dfs(C, k + 1, C->exq[qo], used | (1u << q), cnt, out);
+            } else {
+                if (cnt[cl] >= C->b0v[cl]) continue;
+                cnt[cl]++;
+                ie_brute_dfs(C, k + 1, C->exq[qo], used | (1u << q), cnt, out);
+                cnt[cl]--;
+            }
+        }
+    }
 }
 
 /* ---- threaded pass over a subset-mask range, chunked + checkpointed ---- */
@@ -2516,15 +2601,30 @@ static void *ie_worker(void *arg) {
         int bad = 0;
         for (uint64_t m = lo; m < hi; m++) {
             int orbit = 1;
-            if (C->quotient) {
-                int r = ie_canon_orbit(C, (uint32_t)m, &orbit);
-                if (r == 0) continue;
-                if (r < 0) { bad = 1; break; }
+            uint32_t act;                 /* actual pair-subset mask */
+            if (C->npin) {
+                /* pinned mode: m ranges over the 2^nfree t-space; the
+                 * subset is pins ∪ expand(t). Quotient is forbidden here
+                 * (enforced in the driver): the pinned space is not
+                 * group-closed. */
+                act = C->pinmask;
+                uint32_t t2 = (uint32_t)m;
+                while (t2) {
+                    int b = __builtin_ctz(t2); t2 &= t2 - 1;
+                    act |= 1u << C->freepos[b];
+                }
+            } else {
+                act = (uint32_t)m;
+                if (C->quotient) {
+                    int r = ie_canon_orbit(C, act, &orbit);
+                    if (r == 0) continue;
+                    if (r < 0) { bad = 1; break; }
+                }
             }
             uint64_t W = C->no_budget
-                       ? ie_walk_nb(C, (uint32_t)m, R->mod, cur, nxt, &tcnt)
-                       : ie_walk(C, (uint32_t)m, R->mod, cur, nxt, &tcnt);
-            int neg = ((C->n - __builtin_popcountll(m)) & 1);
+                       ? ie_walk_nb(C, act, R->mod, cur, nxt, &tcnt)
+                       : ie_walk(C, act, R->mod, cur, nxt, &tcnt);
+            int neg = ((C->n - __builtin_popcount(act)) & 1);
             if (R->mod) {
                 uint64_t term = (uint64_t)((unsigned __int128)W * (unsigned)orbit % R->mod);
                 acc = neg ? (acc >= term ? acc - term : acc + R->mod - term)
@@ -2587,6 +2687,11 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
     if (C->no_budget)              /* budget-mode headers stay byte-identical */
         strncat(hdr, C->nb_negctl ? " nb=negctl" : " nb=1",
                 sizeof hdr - strlen(hdr) - 1);
+    if (C->npin) {                 /* pinned headers carry the pin list (unpinned
+                                    * headers stay byte-identical) */
+        strncat(hdr, " pins=", sizeof hdr - strlen(hdr) - 1);
+        strncat(hdr, C->pinstr, sizeof hdr - strlen(hdr) - 1);
+    }
     if (ckpt_path) {
         FILE *f = fopen(ckpt_path, "r");
         if (f) {
@@ -2628,18 +2733,22 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
     if (R.ckpt) fclose(R.ckpt);
     free(R.done);
     if (R.fatal) { printf("*** FAIL: orbit-stabilizer defect during pass (group bug?)\n"); return 1; }
-    /* full-space integrity: quotiented orbit weights must tile 2^n exactly */
-    if (lo == 0 && hi == (1ull << C->n)) {
-        uint64_t want = 1ull << C->n;
-        if (C->quotient && R.wsum != want) {
-            printf("*** FAIL: orbit-weight sum %llu != 2^n=%llu\n",
-                   (unsigned long long)R.wsum, (unsigned long long)want);
-            return 1;
-        }
-        if (!C->quotient && (R.wsum != want || R.subs != want)) {
-            printf("*** FAIL: unquotiented pass visited %llu subsets, want %llu\n",
-                   (unsigned long long)R.subs, (unsigned long long)want);
-            return 1;
+    /* full-space integrity: quotiented orbit weights must tile 2^n exactly;
+     * pinned mode enumerates the 2^nfree t-space instead (quotient off). */
+    {
+        int bits = C->npin ? C->nfree : C->n;
+        if (lo == 0 && hi == (1ull << bits)) {
+            uint64_t want = 1ull << bits;
+            if (C->quotient && R.wsum != want) {
+                printf("*** FAIL: orbit-weight sum %llu != 2^n=%llu\n",
+                       (unsigned long long)R.wsum, (unsigned long long)want);
+                return 1;
+            }
+            if (!C->quotient && (R.wsum != want || R.subs != want)) {
+                printf("*** FAIL: unquotiented pass visited %llu subsets, want %llu\n",
+                       (unsigned long long)R.subs, (unsigned long long)want);
+                return 1;
+            }
         }
     }
     printf("[ie] pass mod=%-4s  subsets=%llu  weightsum=%llu  transitions=%llu\n"
@@ -2660,6 +2769,7 @@ static int ie_count_main(int argc, char **argv) {
     int b0_cli[5] = {0,0,0,0,0};
     uint64_t rlo = 0, rhi = 0;
     int have_range = 0;
+    int pin_slot[32], pin_pair[32], npin_cli = 0, pin_c6c7 = 0, brute = 0;
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "--ie-spec") && i + 1 < argc) spec = argv[++i];
         else if (!strcmp(argv[i], "--ie-mod") && i + 1 < argc) modsel = argv[++i];
@@ -2670,6 +2780,15 @@ static int ie_count_main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--ie-no-quotient")) no_quot = 1;
         else if (!strcmp(argv[i], "--ie-no-budget")) no_budget = 1;
         else if (!strcmp(argv[i], "--ie-negctl")) negctl = 1;
+        else if (!strcmp(argv[i], "--ie-pin") && i + 1 < argc) {
+            int s, p;
+            if (sscanf(argv[++i], "%d:%d", &s, &p) != 2 || npin_cli >= 32) {
+                fprintf(stderr, "bad --ie-pin (want SLOT:PAIR)\n"); return 2;
+            }
+            pin_slot[npin_cli] = s; pin_pair[npin_cli] = p; npin_cli++;
+        }
+        else if (!strcmp(argv[i], "--ie-pin-c6c7")) pin_c6c7 = 1;
+        else if (!strcmp(argv[i], "--ie-brute")) brute = 1;
         else if (!strcmp(argv[i], "--ie-b0") && i + 1 < argc) {
             if (sscanf(argv[++i], "%d,%d,%d,%d,%d",
                        &b0_cli[0], &b0_cli[1], &b0_cli[2], &b0_cli[3], &b0_cli[4]) != 5) {
@@ -2714,6 +2833,71 @@ static int ie_count_main(int argc, char **argv) {
     C.quotient = !no_quot;
     C.no_budget = no_budget;
     C.nb_negctl = (no_budget && negctl);
+
+    /* ---- pins (the T3 slot-pinned variant) ---- */
+    for (int k = 0; k < 32; k++) C.pin_at[k] = -1;
+    if (pin_c6c7) {
+        if (C.n != 31 || C.start != 0) {
+            printf("*** FAIL: --ie-pin-c6c7 requires --ie-spec full31@0\n");
+            return 1;
+        }
+        /* SPECIFICATION.md C6/C7 hexagram constants — an independent cross-
+         * check of the KW[]-derived pair table: C7 pins slots 24,25 to
+         * {29,46},{9,36}; C6 pins slots 26,27 to {11,52},{13,44}. */
+        static const int spec67[4][2] = {{29,46},{9,36},{11,52},{13,44}};
+        for (int s = 24; s <= 27; s++) {
+            int a = PA[s], b = PB[s];
+            int sa = spec67[s - 24][0], sb = spec67[s - 24][1];
+            if (!((a == sa && b == sb) || (a == sb && b == sa))) {
+                printf("*** FAIL: KW pair #%d {%d,%d} != SPEC C6/C7 {%d,%d}\n",
+                       s, a, b, sa, sb);
+                return 1;
+            }
+            if (npin_cli >= 32) { printf("*** FAIL: too many pins\n"); return 1; }
+            pin_slot[npin_cli] = s; pin_pair[npin_cli] = s; npin_cli++;
+        }
+    }
+    if (npin_cli) {
+        C.pinstr[0] = 0;
+        for (int i = 0; i < npin_cli; i++) {
+            int s = pin_slot[i], p = pin_pair[i];
+            if (s < 1 || s > C.n) {
+                printf("*** FAIL: pin slot %d outside 1..%d\n", s, C.n); return 1;
+            }
+            int q = -1;
+            for (int j = 0; j < C.n; j++) if (C.pl[j] == p) { q = j; break; }
+            if (q < 0) {
+                printf("*** FAIL: pinned pair %d not in the instance pair list\n", p);
+                return 1;
+            }
+            if (C.pin_at[s - 1] >= 0) {
+                printf("*** FAIL: slot %d pinned twice\n", s); return 1;
+            }
+            C.pin_at[s - 1] = q;
+            C.pinmask |= 1u << q;
+            char t[16]; snprintf(t, sizeof t, "%s%d:%d", i ? "," : "", s, p);
+            strncat(C.pinstr, t, sizeof C.pinstr - strlen(C.pinstr) - 1);
+        }
+        C.npin = npin_cli;
+        C.nfree = 0;
+        for (int j = 0; j < C.n; j++)
+            if (!(C.pinmask & (1u << j))) C.freepos[C.nfree++] = j;
+        if (C.quotient && !brute) {
+            printf("*** FAIL: pins break the 24-group closure (the pinned pairs'\n"
+                   "          stabilizer is trivial) — rerun with --ie-no-quotient\n");
+            return 1;
+        }
+        printf("pins    : %d pinned step(s) [slot:pair] %s\n"
+               "          outer sum = pins + 2^%d free-pair subsets, UNQUOTIENTED;\n"
+               "          the mod-24 free-action gate does NOT apply under pins\n"
+               "          (trivial stabilizer — divisor 1; N mod 24 informational)\n",
+               C.npin, C.pinstr, C.nfree);
+        for (int i = 0; i < npin_cli; i++) {
+            int p = pin_pair[i];
+            printf("          slot %2d := pair #%d {%d,%d} (orientation free)\n",
+                   pin_slot[i], p, PA[p], PB[p]);
+        }
+    }
 
     /* startup re-verification of every premise of the subset-enumeration lemma */
     if (!ie_verify_group(C.start)) {
@@ -2760,6 +2944,28 @@ static int ie_count_main(int argc, char **argv) {
     }
 
     if (!ie_build(&C)) return 1;
+
+    if (brute) {                        /* small-n reference instrument */
+        if (C.n > 12) {
+            printf("*** FAIL: --ie-brute is a small-n reference (n <= 12)\n");
+            return 1;
+        }
+        uint64_t bc = 0; int bcnt[5] = {0,0,0,0,0};
+        ie_brute_dfs(&C, 0, C.start, 0, bcnt, &bc);
+        printf("BRUTE   : N = %llu (explicit permutation DFS%s%s)\n",
+               (unsigned long long)bc,
+               C.no_budget ? ", no budget" : "",
+               C.npin ? ", pins honored" : "");
+        if (expect) {
+            u192 E = u192_dec(expect), B = {{bc, 0, 0}};
+            int eq = u192_eq(E, B);
+            printf("          vs expected %s : %s\n", expect,
+                   eq ? "MATCH" : "*** MISMATCH ***");
+            return eq ? 0 : 1;
+        }
+        return 0;
+    }
+
     if (!ie_build_quot(&C)) return 1;   /* geff needed for reporting even unquotiented */
     printf("instance: n=%d start=%d spec=%s  pairs=", C.n, C.start, spec);
     for (int i = 0; i < C.n; i++) printf("%s%d", i ? "," : "", C.pl[i]);
@@ -2777,12 +2983,15 @@ static int ie_count_main(int argc, char **argv) {
            (unsigned long long)primes[0], (unsigned long long)primes[1],
            (unsigned long long)primes[2]);
 
-    if (!have_range) { rlo = 0; rhi = 1ull << C.n; }
-    if (rhi > (1ull << C.n) || rlo >= rhi) { printf("*** FAIL: bad range\n"); return 1; }
-    if (chunk_bits < 0) {
-        chunk_bits = C.n - 11;
-        if (chunk_bits < 8) chunk_bits = 8;
-        if (chunk_bits > 20) chunk_bits = 20;
+    {   /* pinned mode enumerates the 2^nfree t-space, not 2^n */
+        int ebits = C.npin ? C.nfree : C.n;
+        if (!have_range) { rlo = 0; rhi = 1ull << ebits; }
+        if (rhi > (1ull << ebits) || rlo >= rhi) { printf("*** FAIL: bad range\n"); return 1; }
+        if (chunk_bits < 0) {
+            chunk_bits = ebits - 11;
+            if (chunk_bits < 8) chunk_bits = 8;
+            if (chunk_bits > 20) chunk_bits = 20;
+        }
     }
 
     /* which moduli to run */
@@ -2828,9 +3037,11 @@ static int ie_count_main(int argc, char **argv) {
         u192_print(N, dec);
         printf("CRT     : N = %s\n", dec);
         printf("          N mod 24 = %u%s\n", u192_mod(N, 24),
-               (C.n == 31 && !negctl) ? (u192_mod(N, 24) == 0 ? "  (free-action gate: ok)"
-                                                              : "  *** FAIL: expected 0 ***") : "");
-        if (C.n == 31 && !negctl && u192_mod(N, 24) != 0) fails++;
+               C.npin ? "  (informational — free-action gate N/A under pins)"
+                      : (C.n == 31 && !negctl)
+                        ? (u192_mod(N, 24) == 0 ? "  (free-action gate: ok)"
+                                                : "  *** FAIL: expected 0 ***") : "");
+        if (C.n == 31 && !negctl && !C.npin && u192_mod(N, 24) != 0) fails++;
         if (ran[0]) {
             u192 W = {{ acc[0], 0, 0 }};
             int eq = u192_eq(N, W);
@@ -2839,7 +3050,9 @@ static int ie_count_main(int argc, char **argv) {
             if (!eq) fails++;
         }
         const char *target = expect;
-        if (!target && C.n == 31 && !have_range)
+        if (!target && C.n == 31 && !have_range && !C.npin)
+            /* pinned full-31 (|C1..C7|, C3 dropped) has NO published exact —
+             * only the Knuth estimate 5.18e32 (0.25%) — so no default target */
             target = no_budget ? LC_PUBLISHED_COUNT_C1C2C4 : LC_PUBLISHED_COUNT;
         if (target) {
             u192 E = u192_dec(target);
