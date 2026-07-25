@@ -60,9 +60,15 @@ pairing (now known optimal), a marginal 4.5 bits (≈ break-even once its statem
 no-five rule, and essentially nothing by C5, whose statement costs 1.7–2.5× what it explains (net −6 to −14
 bits depending on the stated coding convention; measured 2026-07-03, bracket derived 2026-07-10): the
 transition histogram is confirmed description, not explanation. The other half of the sequence is explained
-by nothing known today.** Design
-hypotheses and emergence hypotheses alike must ultimately be judged in this currency: bits predicted per
-bit of statement.
+by nothing known today.**
+
+**This residual is an exactly-quantified quantity, not a gap in the analysis.** Whether it can be
+compressed by any principled, KW-independent structural rule is a precisely-posed question of
+*irreducibility* — one that can only be settled by exhausting a declared class of candidate rules, never
+by recovering the sequence's "true" generator: against ~126 free bits a rule can always be *fitted* to
+single out King Wen, so only a pre-declared, KW-independent class of rules carries evidential weight.
+Design hypotheses and emergence hypotheses alike must ultimately be judged in this currency: bits
+predicted per bit of statement.
 
 *Conventions and framework: ROAE (to our knowledge first applied to this object here; corrections welcome
 via [CITATIONS.md](CITATIONS.md)). Constraint provenance per row: see [SPECIFICATION.md](SPECIFICATION.md)
