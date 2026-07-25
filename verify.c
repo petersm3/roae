@@ -38,7 +38,8 @@
  * pair table and B0 are DERIVED here, then B0 is cross-checked against the value solve.c
  * records in its manifest (a disagreement is itself a finding).
  *
- * BUILD:  cc -O2 -o verify verify.c -lz   (zlib: the v2 layer codec is per-block zlib)
+ * BUILD:  cc -O2 -o verify verify.c -lz -lpthread
+ *         (zlib: the v2 layer codec is per-block zlib; pthreads: the --ie-* modes)
  * USAGE:  ./verify <run.out> [max_layer]      (default max_layer = 6)
  *         Increase max_layer while memory allows; the program reports what it reached and
  *         stops cleanly rather than being killed.
@@ -49,6 +50,10 @@
  *          the f·g cut identity at every layer), against GT_LADDER_FORMAT.md.
  *         ./verify --check-t-ladder FDIR TDIR [max_k]   t-ladder verifier (f-geometry
  *          mirror + the f·t node identity at every layer); --check-gt-selftest.
+ *         ./verify --ie-count [opts]   Route B: the INDEPENDENT inclusion–exclusion
+ *          transfer-walk recount of |C1∩C2∩C4∩C5| (TR-11 §10vi) — see the ROUTE B
+ *          section header below for the algorithm, options and validation ladder.
+ *         ./verify --ie-probe NSAMP [--ie-threads N]   full-31 throughput probe.
  */
 
 #include <stdio.h>
@@ -56,6 +61,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <zlib.h>
+#include <pthread.h>   /* --ie-count / --ie-probe worker threads (Route B) */
+#include <time.h>
+#include <unistd.h>
 
 /* ---------- published constraint definitions, rebuilt from scratch ---------- */
 
@@ -365,6 +373,9 @@ static int lc_rid_digits(uint32_t rid, const int b0v[5], const uint32_t rad[5]) 
  * before and after restriction, so orbit-stabilizer genuinely applies.
  * ------------------------------------------------------------------------- */
 static uint8_t PP[24][32]; static int NPP = 0;   /* the 24 induced pair-perms */
+static uint8_t PPG[24][6];                        /* one witness bit-perm per pair-perm
+                                                   * (recorded for --ie-count's elementwise
+                                                   * startup re-verification; no other use) */
 static int pp_n48;                                /* how many g commute with rev */
 static int pp_fail;
 static void pp_rec(int depth, int *g, int used) {
@@ -387,6 +398,7 @@ static void pp_rec(int depth, int *g, int used) {
         }
         for (int q = 0; q < NPP; q++) if (!memcmp(PP[q], m, 32)) return;
         if (NPP >= 24) { pp_fail = 2; return; }       /* >24 distinct — a finding */
+        for (int t = 0; t < 6; t++) PPG[NPP][t] = (uint8_t)g[t];   /* witness bit-perm */
         memcpy(PP[NPP++], m, 32);
         return;
     }
@@ -1999,9 +2011,951 @@ static int lc_gt_selftest(void) {
     }
 }
 
+/* ==========================================================================
+ * ROUTE B — THE INDEPENDENT INCLUSION–EXCLUSION TRANSFER-WALK RECOUNT
+ *   --ie-count [opts]          (the engine; full-31 or any reduced rung)
+ *   --ie-probe NSAMP [opts]    (full-31 throughput probe for cost sizing)
+ *
+ * PURPOSE. TR-11 §10(vi): the landed |C1∩C2∩C4∩C5| =
+ * 1,097,051,278,789,181,790,036,112,071,176,579,186,688 rests on a single
+ * instrument (the out-of-core symmetry-quotient layered DP in solve.c).
+ * This mode is the genuinely-independent second engine: a different
+ * algorithm class that recomputes the same integer at full scale while
+ * sharing NONE of the primary's machinery — no canonical-mask bookkeeping,
+ * no gather/canonicalization/inverse-element mapping, no stabilizer
+ * weighting, no layer files, no out-of-core streaming, no 192-bit hot-path
+ * arithmetic. Shares only this file's already-independent helpers
+ * (build_pairs / derive_pair_perms / lc_restrict_perms / lc_radix / u192).
+ *
+ * ALGORITHM (classical signed inclusion–exclusion — Karp-1982-style
+ * Hamiltonian-walk counting; cf. Ryser, Björklund–Husfeldt; used, not
+ * invented, here): with F = the instance's free pairs (31 at full scale),
+ *
+ *     N = Σ_{S ⊆ F} (−1)^{|F|−|S|} · W(S)
+ *
+ * where W(S) = the number of |F|-step walks with REPETITION ALLOWED whose
+ * steps are (pair ∈ S, orientation), starting from the C4-pinned exit
+ * hexagram, each step's boundary class d = popcount(last ⊕ enter) required
+ * ∈ {1,2,3,4,6} (d = 0 and the C2-forbidden d = 5 excluded), with the
+ * running class-usage vector capped componentwise at the instance budget
+ * B0. Walk admissibility does not depend on S, so IE is sound; since
+ * Σ_c B0_c = |F|, every capped |F|-step walk ends at exactly B0, and a walk
+ * whose pair-set is all of F uses each pair exactly once — i.e. is exactly
+ * a C1∩C2∩C4∩C5 sequence. DP state = (last hexagram, budget vector): at
+ * full 31 that is 64 × ≤413 slots per layer (<1 MB per thread, no disk).
+ *
+ * THE 24-GROUP IS USED ONLY AS A SUBSET-ENUMERATION LEMMA. Each of TR-5's
+ * 24 pair-permutations is induced by a bit-position permutation commuting
+ * with reversal; such a g is a Hamming isometry fixing Kun(0) and Qian(63)
+ * pointwise, so it maps admissible walks over S bijectively onto admissible
+ * walks over gS: W(gS) = W(S), |gS| = |S|. The outer sum may therefore run
+ * over canonical subsets (numeric min of orbit) weighted by orbit size.
+ * Every premise is re-verified ELEMENTWISE at startup (ie_verify_group):
+ * witness bit-perms are bijections on positions, fix 0 and 63 (hence the
+ * start), are Hamming isometries on all 64×64 hexagram pairs, and map pair
+ * j onto pair σ(j) as an unordered set. --ie-no-quotient disables the
+ * lemma entirely (full 2^n outer loop); quotiented == unquotiented is part
+ * of the validation ladder, and Σ orbit-weights == 2^n is checked on every
+ * full-space quotiented pass.
+ *
+ * ARITHMETIC. Hot path is add-only uint64: values mod one 63-bit prime per
+ * pass (three passes, CRT-combined offline — N < p0·p1·p2 ≈ 9.8e56), or
+ * natural mod-2^64 wraparound ("wrap": exact whenever N < 2^64, i.e. on
+ * the small-n rungs — an internal cross-check of the mod-p path). The
+ * three primes are the largest primes below 2^63, found by downward scan
+ * and proven prime at startup by deterministic Miller–Rabin (bases
+ * 2..37 — deterministic far beyond 2^64); nothing is trusted from a doc.
+ *
+ * CHECKPOINTING (Spot-safe). The subset space is cut into fixed chunks;
+ * each completed chunk's partial sums are appended to --ie-checkpoint and
+ * fsync'd. Chunk results are deterministic (scheduling-independent), so a
+ * resumed pass reproduces the uninterrupted pass exactly.
+ *
+ * USAGE:
+ *   ./verify --ie-count [--ie-spec "3.0,3.1,3.2@0" | --ie-spec full31@0]
+ *            [--ie-mod all|wrap|p0|p1|p2] [--ie-no-quotient]
+ *            [--ie-threads N] [--ie-chunk-bits B] [--ie-checkpoint FILE]
+ *            [--ie-range LO HI] [--ie-b0 a,b,c,d,e] [--ie-negctl]
+ *            [--ie-expect DECIMAL]
+ *   ./verify --ie-probe NSAMP [--ie-threads N]
+ * Defaults: spec full31@0; mod all (= wrap+p0+p1+p2 when n≤19, else p0+p1+p2);
+ * threads = online CPUs. Reduced-rung budgets are derived by TR-11 §5's
+ * Step-1 first-completion DFS; the full-31 budget is DEFINED as KW's
+ * boundary multiset (TR-11 v1.8). --ie-negctl swaps B0's d2/d4 budgets —
+ * a negative control whose count MUST differ from the published value.
+ * ========================================================================== */
+
+/* ---- deterministic Miller–Rabin + the three 63-bit primes ---- */
+static uint64_t ie_mulmod(uint64_t a, uint64_t b, uint64_t m) {
+    return (uint64_t)((unsigned __int128)a * b % m);
+}
+static uint64_t ie_powmod(uint64_t a, uint64_t e, uint64_t m) {
+    uint64_t r = 1 % m; a %= m;
+    while (e) { if (e & 1) r = ie_mulmod(r, a, m); a = ie_mulmod(a, a, m); e >>= 1; }
+    return r;
+}
+static int ie_is_prime_u64(uint64_t n) {
+    static const uint64_t B[12] = {2,3,5,7,11,13,17,19,23,29,31,37};
+    if (n < 2) return 0;
+    for (int i = 0; i < 12; i++) { if (n == B[i]) return 1; if (n % B[i] == 0) return 0; }
+    uint64_t d = n - 1; int s = 0;
+    while (!(d & 1)) { d >>= 1; s++; }
+    for (int i = 0; i < 12; i++) {   /* deterministic for all n < 3.317e24 > 2^64 */
+        uint64_t x = ie_powmod(B[i], d, n);
+        if (x == 1 || x == n - 1) continue;
+        int ok = 0;
+        for (int r = 1; r < s; r++) { x = ie_mulmod(x, x, n); if (x == n - 1) { ok = 1; break; } }
+        if (!ok) return 0;
+    }
+    return 1;
+}
+static void ie_pick_primes(uint64_t p[3]) {      /* the 3 largest primes < 2^63 */
+    int k = 0;
+    for (uint64_t c = 0x7fffffffffffffffULL; k < 3; c -= 2)
+        if (ie_is_prime_u64(c)) p[k++] = c;
+}
+static uint64_t ie_invmod(uint64_t a, uint64_t m) {   /* modular inverse, gcd(a,m)=1 */
+    long long t = 0, nt = 1, r = (long long)m, nr = (long long)(a % m);
+    while (nr) {
+        long long q = r / nr, tmp;
+        tmp = t - q * nt; t = nt; nt = tmp;
+        tmp = r - q * nr; r = nr; nr = tmp;
+    }
+    if (t < 0) t += (long long)m;
+    return (uint64_t)t;
+}
+/* CRT (Garner) for 3 pairwise-coprime 63-bit moduli; N < p0*p1*p2 assumed. */
+static void ie_crt3(const uint64_t p[3], const uint64_t a[3], u192 *out) {
+    uint64_t x1 = ie_mulmod((a[1] + p[1] - a[0] % p[1]) % p[1],
+                            ie_invmod(p[0] % p[1], p[1]), p[1]);
+    unsigned __int128 v01 = (unsigned __int128)p[0] * x1 + a[0];
+    uint64_t v01m = (uint64_t)(v01 % p[2]);
+    uint64_t p01m = ie_mulmod(p[0] % p[2], p[1] % p[2], p[2]);
+    uint64_t x2 = ie_mulmod((a[2] + p[2] - v01m) % p[2], ie_invmod(p01m, p[2]), p[2]);
+    unsigned __int128 p01 = (unsigned __int128)p[0] * p[1];
+    u192 N   = {{ (uint64_t)v01, (uint64_t)(v01 >> 64), 0 }};
+    u192 P01 = {{ (uint64_t)p01, (uint64_t)(p01 >> 64), 0 }};
+    u192 X2  = {{ x2, 0, 0 }};
+    int ovf = 0;
+    u192 T = u192_mul(P01, X2, &ovf);
+    (void)ovf;                        /* < 2^126 * 2^63 = 2^189: fits u192 */
+    u192_add(&N, T);
+    *out = N;
+}
+
+/* ---- elementwise startup re-verification of the subset-enumeration lemma ---- */
+static int ie_verify_group(int start) {
+    if (NPP != 24) return 0;
+    for (int q = 0; q < NPP; q++) {
+        const uint8_t *g = PPG[q];
+        int seen = 0;
+        for (int i = 0; i < 6; i++) { if (g[i] > 5) return 0; seen |= 1 << g[i]; }
+        if (seen != 63) return 0;                       /* bijection on positions */
+        int img[64];
+        for (int x = 0; x < 64; x++) {
+            int r = 0;
+            for (int i = 0; i < 6; i++) if ((x >> i) & 1) r |= 1 << g[i];
+            img[x] = r;
+        }
+        if (img[0] != 0 || img[63] != 63) return 0;     /* fixes Kun and Qian */
+        if (img[start] != start) return 0;              /* fixes the walk start */
+        for (int x = 0; x < 64; x++)                    /* Hamming isometry, all 64x64 */
+            for (int y = 0; y < 64; y++)
+                if (popcount6(img[x] ^ img[y]) != popcount6(x ^ y)) return 0;
+        for (int j = 0; j < 32; j++) {                  /* maps pair j to pair PP[q][j] */
+            int ja = img[PA[j]], jb = img[PB[j]], tj = PP[q][j];
+            if (!((PA[tj] == ja && PB[tj] == jb) || (PA[tj] == jb && PB[tj] == ja)))
+                return 0;
+        }
+    }
+    return 1;
+}
+
+/* ---- pair-orbit table (derived, TR-11 §"pair-orbit partition" labeling) ---- */
+static int ie_orb_row[8][6], ie_orb_sz[8], ie_orb_n;
+static int ie_build_orbits(void) {
+    int seen[32] = {0};
+    ie_orb_n = 0;
+    for (int i = 1; i < 32; i++) {            /* ascending min element by construction */
+        if (seen[i]) continue;
+        int mem[32], nm = 0;
+        for (int q = 0; q < NPP; q++) {
+            int im = PP[q][i], dup = 0;
+            for (int t = 0; t < nm; t++) if (mem[t] == im) dup = 1;
+            if (!dup) mem[nm++] = im;
+        }
+        for (int a = 0; a < nm; a++)
+            for (int b = a + 1; b < nm; b++)
+                if (mem[b] < mem[a]) { int t = mem[a]; mem[a] = mem[b]; mem[b] = t; }
+        if (nm > 6 || ie_orb_n >= 8) return 0;
+        for (int t = 0; t < nm; t++) { ie_orb_row[ie_orb_n][t] = mem[t]; seen[mem[t]] = 1; }
+        ie_orb_sz[ie_orb_n++] = nm;
+    }
+    return 1;
+}
+/* "L.I,L.I,...@START" or "full31[@START]" -> ordered pair list (spec order). */
+static int ie_parse_spec(const char *spec, int *pl, int *np, int *start) {
+    char buf[256];
+    strncpy(buf, spec, 255); buf[255] = 0;
+    char *at = strchr(buf, '@');
+    *start = 0;
+    if (at) { *start = atoi(at + 1); *at = 0; }
+    if (*start != 0 && *start != 63) return 0;
+    int n = 0;
+    if (!strcmp(buf, "full31")) { for (int i = 1; i < 32; i++) pl[n++] = i; *np = n; return 1; }
+    for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
+        int L, I;
+        if (sscanf(tok, "%d.%d", &L, &I) != 2) return 0;
+        int idx = -1, cnt = 0;
+        for (int r = 0; r < ie_orb_n; r++) {
+            if (ie_orb_sz[r] != L) continue;
+            if (cnt == I) { idx = r; break; }
+            cnt++;
+        }
+        if (idx < 0) return 0;
+        for (int t = 0; t < L; t++) { if (n >= 31) return 0; pl[n++] = ie_orb_row[idx][t]; }
+    }
+    *np = n;
+    return n > 0;
+}
+
+/* ---- TR-11 §5 Step 1: first-completion DFS budget for a reduced rung ---- */
+static int ie_b0g_found;
+static void ie_b0g_dfs(const int *pl, int n, int depth, int last, uint32_t used,
+                       int cnt[5], int out[5]) {
+    if (ie_b0g_found) return;
+    if (depth == n) { memcpy(out, cnt, 5 * sizeof(int)); ie_b0g_found = 1; return; }
+    for (int i = 0; i < n && !ie_b0g_found; i++) {
+        if (used & (1u << i)) continue;
+        int a = PA[pl[i]], b = PB[pl[i]];
+        for (int o = 0; o < 2 && !ie_b0g_found; o++) {
+            int f = o == 0 ? b : a;                 /* §5: o=0 enters b, exits a */
+            int s = o == 0 ? a : b;
+            int d = hamming(last, f);
+            if (d == 5 || d == 0) continue;
+            int ci = cls_ix(d);
+            cnt[ci]++;
+            ie_b0g_dfs(pl, n, depth + 1, s, used | (1u << i), cnt, out);
+            if (!ie_b0g_found) cnt[ci]--;
+        }
+    }
+}
+
+/* ---- instance context ---- */
+typedef struct {
+    int n, start, quotient;
+    int pl[32];
+    int b0v[5];
+    uint32_t rad[5], R;
+    int16_t (*succ)[5];        /* [R][5]: slot in next layer, or -1 at cap */
+    uint8_t  *layv;            /* [R]: layer = digit sum */
+    uint16_t *slotv;           /* [R]: slot within its layer */
+    int nv[33];                /* vectors per layer */
+    uint16_t *vid[33];         /* per-layer rid lists */
+    int maxnv;
+    int8_t  cmap[64][64];      /* [2q+o][last]: class index or -1 */
+    uint8_t exq[64];           /* [2q+o]: exit hexagram */
+    int geff;
+    uint8_t rp[24][32];        /* restricted pair-perms on subset indices */
+    uint32_t (*tlo)[65536];    /* [geff]: mask-image tables, bits 0..15 */
+    uint32_t (*thi)[32768];    /* [geff]: bits 16..30 */
+} IeCtx;
+
+static int ie_build(IeCtx *C) {
+    int sum = 0;
+    for (int c = 0; c < 5; c++) { if (C->b0v[c] < 0) return 0; sum += C->b0v[c]; }
+    if (C->n < 1 || C->n > 31 || sum != C->n) {
+        printf("*** FAIL: budget sum %d != n=%d (every %d-step capped walk must end at B0)\n",
+               sum, C->n, C->n);
+        return 0;
+    }
+    lc_radix(C->b0v, C->rad, &C->R);
+    if (C->R < 1 || C->R > 20000) { printf("*** FAIL: lattice size R=%u out of range\n", C->R); return 0; }
+    C->succ  = malloc(sizeof(int16_t[5]) * C->R);
+    C->layv  = malloc(C->R);
+    C->slotv = malloc(2 * (size_t)C->R);
+    if (!C->succ || !C->layv || !C->slotv) return 0;
+    memset(C->nv, 0, sizeof C->nv);
+    for (uint32_t rid = 0; rid < C->R; rid++) {
+        int s = lc_rid_digits(rid, C->b0v, C->rad);      /* digit sum (never -1 here) */
+        C->layv[rid]  = (uint8_t)s;
+        C->slotv[rid] = (uint16_t)C->nv[s]++;
+    }
+    C->maxnv = 0;
+    for (int k = 0; k <= C->n; k++) {
+        C->vid[k] = malloc(2 * (size_t)(C->nv[k] ? C->nv[k] : 1));
+        if (!C->vid[k]) return 0;
+        if (C->nv[k] > C->maxnv) C->maxnv = C->nv[k];
+    }
+    {   int fill[33] = {0};
+        for (uint32_t rid = 0; rid < C->R; rid++)
+            C->vid[C->layv[rid]][fill[C->layv[rid]]++] = (uint16_t)rid;
+    }
+    for (uint32_t rid = 0; rid < C->R; rid++)
+        for (int c = 0; c < 5; c++) {
+            uint32_t digit = (rid / C->rad[c]) % (uint32_t)(C->b0v[c] + 1);
+            C->succ[rid][c] = (digit < (uint32_t)C->b0v[c])
+                              ? (int16_t)C->slotv[rid + C->rad[c]] : (int16_t)-1;
+        }
+    if (C->nv[C->n] != 1 || C->vid[C->n][0] != C->R - 1) {
+        printf("*** FAIL: layer n must hold exactly the all-cap vector\n");
+        return 0;
+    }
+    memset(C->cmap, -1, sizeof C->cmap);
+    for (int q = 0; q < C->n; q++) {
+        int a = PA[C->pl[q]], b = PB[C->pl[q]];
+        for (int o = 0; o < 2; o++) {
+            int enter = o ? b : a, exith = o ? a : b, qo = 2 * q + o;
+            C->exq[qo] = (uint8_t)exith;
+            for (int last = 0; last < 64; last++) {
+                int d = hamming(last, enter);
+                C->cmap[qo][last] = (int8_t)((d == 5 || d == 0) ? -1 : cls_ix(d));
+            }
+        }
+    }
+    return 1;
+}
+
+static int ie_build_quot(IeCtx *C) {
+    uint32_t pl32[32];
+    for (int i = 0; i < C->n; i++) pl32[i] = (uint32_t)C->pl[i];
+    C->geff = lc_restrict_perms(pl32, (uint32_t)C->n, C->rp);
+    if (C->geff < 1) { printf("*** FAIL: restricted pair-perms are not a group\n"); return 0; }
+    C->tlo = malloc(sizeof(uint32_t[65536]) * C->geff);
+    C->thi = malloc(sizeof(uint32_t[32768]) * C->geff);
+    if (!C->tlo || !C->thi) return 0;
+    int lo_bits = C->n < 16 ? C->n : 16;
+    int nhi = C->n > 16 ? C->n - 16 : 0;
+    for (int q = 0; q < C->geff; q++) {
+        for (uint32_t v = 0; v < 65536u; v++) {
+            uint32_t im = 0, t = v & ((1u << lo_bits) - 1);
+            while (t) { int b = __builtin_ctz(t); t &= t - 1; im |= 1u << C->rp[q][b]; }
+            C->tlo[q][v] = im;
+        }
+        for (uint32_t v = 0; v < 32768u; v++) {
+            uint32_t im = 0, t = nhi ? (v & ((1u << nhi) - 1)) : 0;
+            while (t) { int b = __builtin_ctz(t); t &= t - 1; im |= 1u << C->rp[q][b + 16]; }
+            C->thi[q][v] = im;
+        }
+    }
+    return 1;
+}
+/* 1 = canonical (orbit size in *orbit), 0 = not canonical, -1 = group defect. */
+static inline int ie_canon_orbit(const IeCtx *C, uint32_t m, int *orbit) {
+    int stab = 0;
+    for (int q = 0; q < C->geff; q++) {
+        uint32_t im = C->tlo[q][m & 0xFFFFu] | C->thi[q][m >> 16];
+        if (im < m) return 0;
+        if (im == m) stab++;
+    }
+    if (stab == 0 || C->geff % stab) return -1;
+    *orbit = C->geff / stab;
+    return 1;
+}
+
+/* ---- the transfer-walk kernel: W(S) mod (mod ? mod : 2^64) ---- */
+static uint64_t ie_walk(const IeCtx *C, uint32_t S, uint64_t mod,
+                        uint64_t *cur, uint64_t *nxt, uint64_t *tcnt) {
+    int n = C->n;
+    uint64_t t = 0;
+    memset(cur, 0, (size_t)C->nv[0] * 64 * 8);
+    cur[C->start] = 1;                               /* layer 0: zero vector, slot 0 */
+    for (int k = 0; k < n; k++) {
+        memset(nxt, 0, (size_t)C->nv[k + 1] * 64 * 8);
+        const uint16_t *vl = C->vid[k];
+        for (int vi = 0; vi < C->nv[k]; vi++) {
+            const int16_t *sc = C->succ[vl[vi]];
+            const uint64_t *row = cur + (size_t)vi * 64;
+            for (int last = 0; last < 64; last++) {
+                uint64_t val = row[last];
+                if (!val) continue;
+                uint32_t tmp = S;
+                while (tmp) {
+                    int q = __builtin_ctz(tmp); tmp &= tmp - 1;
+                    for (int o = 0; o < 2; o++) {
+                        int qo = 2 * q + o;
+                        int cl = C->cmap[qo][last];
+                        if (cl < 0) continue;
+                        int sl = sc[cl];
+                        if (sl < 0) continue;
+                        uint64_t *tp = nxt + (size_t)sl * 64 + C->exq[qo];
+                        uint64_t nv2 = *tp + val;
+                        if (mod && nv2 >= mod) nv2 -= mod;
+                        *tp = nv2;
+                        t++;
+                    }
+                }
+            }
+        }
+        uint64_t *sw = cur; cur = nxt; nxt = sw;
+    }
+    uint64_t acc = 0;                                /* layer n: single vector (=B0) */
+    for (int last = 0; last < 64; last++) {
+        acc += cur[last];
+        if (mod && acc >= mod) acc -= mod;
+    }
+    *tcnt += t;
+    return acc;
+}
+
+/* ---- threaded pass over a subset-mask range, chunked + checkpointed ---- */
+typedef struct {
+    IeCtx *C;
+    uint64_t mod;
+    uint64_t range_lo, range_hi;
+    int chunk_bits;
+    uint64_t nchunks;
+    uint8_t *done;
+    uint64_t next;                                   /* atomic chunk cursor */
+    uint64_t acc, wsum, subs, trans;
+    double cpu_ns;
+    int fatal;
+    pthread_mutex_t mu;
+    FILE *ckpt;
+} IeRun;
+
+static void *ie_worker(void *arg) {
+    IeRun *R = arg;
+    IeCtx *C = R->C;
+    uint64_t *cur = malloc((size_t)C->maxnv * 64 * 8);
+    uint64_t *nxt = malloc((size_t)C->maxnv * 64 * 8);
+    if (!cur || !nxt) { free(cur); free(nxt); return (void *)1; }
+    uint64_t csz = 1ull << R->chunk_bits;
+    for (;;) {
+        uint64_t ci = __atomic_fetch_add(&R->next, 1, __ATOMIC_RELAXED);
+        if (ci >= R->nchunks) break;
+        if (R->done[ci]) continue;
+        uint64_t lo = R->range_lo + ci * csz, hi = lo + csz;
+        if (hi > R->range_hi) hi = R->range_hi;
+        struct timespec t0, t1;
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t0);
+        uint64_t acc = 0, wsum = 0, subs = 0, tcnt = 0;
+        int bad = 0;
+        for (uint64_t m = lo; m < hi; m++) {
+            int orbit = 1;
+            if (C->quotient) {
+                int r = ie_canon_orbit(C, (uint32_t)m, &orbit);
+                if (r == 0) continue;
+                if (r < 0) { bad = 1; break; }
+            }
+            uint64_t W = ie_walk(C, (uint32_t)m, R->mod, cur, nxt, &tcnt);
+            int neg = ((C->n - __builtin_popcountll(m)) & 1);
+            if (R->mod) {
+                uint64_t term = (uint64_t)((unsigned __int128)W * (unsigned)orbit % R->mod);
+                acc = neg ? (acc >= term ? acc - term : acc + R->mod - term)
+                          : (acc + term >= R->mod ? acc + term - R->mod : acc + term);
+            } else {
+                uint64_t term = W * (uint64_t)orbit;   /* mod 2^64 by wraparound */
+                acc = neg ? acc - term : acc + term;
+            }
+            wsum += (uint64_t)orbit;
+            subs++;
+        }
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t1);
+        pthread_mutex_lock(&R->mu);
+        if (bad) R->fatal = 1;
+        else {
+            if (R->mod) { R->acc += acc; if (R->acc >= R->mod) R->acc -= R->mod; }
+            else R->acc += acc;
+            R->wsum += wsum; R->subs += subs; R->trans += tcnt;
+            R->cpu_ns += (t1.tv_sec - t0.tv_sec) * 1e9 + (t1.tv_nsec - t0.tv_nsec);
+            if (R->ckpt) {
+                fprintf(R->ckpt, "C %llu %llu %llu %llu %llu\n",
+                        (unsigned long long)ci, (unsigned long long)acc,
+                        (unsigned long long)wsum, (unsigned long long)subs,
+                        (unsigned long long)tcnt);
+                fflush(R->ckpt);
+            }
+            R->done[ci] = 1;
+        }
+        pthread_mutex_unlock(&R->mu);
+    }
+    free(cur); free(nxt);
+    return NULL;
+}
+
+/* run one pass; returns 0 ok. Header line pins the instance so a stale or
+ * mismatched checkpoint can never be silently mixed in. */
+static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
+                       int chunk_bits, const char *ckpt_path,
+                       uint64_t lo, uint64_t hi, uint64_t *out_acc,
+                       uint64_t *out_subs, uint64_t *out_trans, double *out_cpu_ns,
+                       double *out_wall) {
+    IeRun R;
+    memset(&R, 0, sizeof R);
+    R.C = C; R.mod = mod; R.range_lo = lo; R.range_hi = hi; R.chunk_bits = chunk_bits;
+    uint64_t csz = 1ull << chunk_bits;
+    R.nchunks = (hi - lo + csz - 1) / csz;
+    R.done = calloc(R.nchunks ? R.nchunks : 1, 1);
+    if (!R.done) return 1;
+    pthread_mutex_init(&R.mu, NULL);
+    char hdr[512];
+    snprintf(hdr, sizeof hdr,
+             "IEv1 n=%d start=%d b0=%d,%d,%d,%d,%d mod=%s quot=%d chunkbits=%d lo=%llu hi=%llu pl=",
+             C->n, C->start, C->b0v[0], C->b0v[1], C->b0v[2], C->b0v[3], C->b0v[4],
+             modname, C->quotient, chunk_bits,
+             (unsigned long long)lo, (unsigned long long)hi);
+    for (int i = 0; i < C->n; i++) {
+        char t[8]; snprintf(t, sizeof t, "%s%d", i ? "," : "", C->pl[i]);
+        strncat(hdr, t, sizeof hdr - strlen(hdr) - 1);
+    }
+    if (ckpt_path) {
+        FILE *f = fopen(ckpt_path, "r");
+        if (f) {
+            char line[600];
+            if (!fgets(line, sizeof line, f)) { printf("*** FAIL: empty checkpoint %s\n", ckpt_path); fclose(f); free(R.done); return 1; }
+            line[strcspn(line, "\n")] = 0;
+            if (strcmp(line, hdr)) {
+                printf("*** FAIL: checkpoint header mismatch in %s\n  have: %s\n  want: %s\n",
+                       ckpt_path, line, hdr);
+                fclose(f); free(R.done); return 1;
+            }
+            unsigned long long ci, a, w, s, t;
+            int resumed = 0;
+            while (fscanf(f, "C %llu %llu %llu %llu %llu\n", &ci, &a, &w, &s, &t) == 5) {
+                if (ci >= R.nchunks || R.done[ci]) continue;
+                R.done[ci] = 1;
+                if (mod) { R.acc += a; if (R.acc >= mod) R.acc -= mod; }
+                else R.acc += a;
+                R.wsum += w; R.subs += s; R.trans += t;
+                resumed++;
+            }
+            fclose(f);
+            printf("[ie] resumed %d completed chunk(s) from %s\n", resumed, ckpt_path);
+            R.ckpt = fopen(ckpt_path, "a");
+        } else {
+            R.ckpt = fopen(ckpt_path, "w");
+            if (R.ckpt) { fprintf(R.ckpt, "%s\n", hdr); fflush(R.ckpt); }
+        }
+        if (!R.ckpt) { printf("*** FAIL: cannot open checkpoint %s\n", ckpt_path); free(R.done); return 1; }
+    }
+    struct timespec w0, w1;
+    clock_gettime(CLOCK_MONOTONIC, &w0);
+    pthread_t th[256];
+    if (threads > 256) threads = 256;
+    for (int i = 0; i < threads; i++) pthread_create(&th[i], NULL, ie_worker, &R);
+    for (int i = 0; i < threads; i++) pthread_join(th[i], NULL);
+    clock_gettime(CLOCK_MONOTONIC, &w1);
+    double wall = (w1.tv_sec - w0.tv_sec) + (w1.tv_nsec - w0.tv_nsec) * 1e-9;
+    if (R.ckpt) fclose(R.ckpt);
+    free(R.done);
+    if (R.fatal) { printf("*** FAIL: orbit-stabilizer defect during pass (group bug?)\n"); return 1; }
+    /* full-space integrity: quotiented orbit weights must tile 2^n exactly */
+    if (lo == 0 && hi == (1ull << C->n)) {
+        uint64_t want = 1ull << C->n;
+        if (C->quotient && R.wsum != want) {
+            printf("*** FAIL: orbit-weight sum %llu != 2^n=%llu\n",
+                   (unsigned long long)R.wsum, (unsigned long long)want);
+            return 1;
+        }
+        if (!C->quotient && (R.wsum != want || R.subs != want)) {
+            printf("*** FAIL: unquotiented pass visited %llu subsets, want %llu\n",
+                   (unsigned long long)R.subs, (unsigned long long)want);
+            return 1;
+        }
+    }
+    printf("[ie] pass mod=%-4s  subsets=%llu  weightsum=%llu  transitions=%llu\n"
+           "     acc=%llu  wall=%.2fs  cpu=%.1f core-s  (%.1f ns/transition/core)\n",
+           modname, (unsigned long long)R.subs, (unsigned long long)R.wsum,
+           (unsigned long long)R.trans, (unsigned long long)R.acc, wall,
+           R.cpu_ns / 1e9, R.trans ? R.cpu_ns / (double)R.trans : 0.0);
+    *out_acc = R.acc; *out_subs = R.subs; *out_trans = R.trans;
+    *out_cpu_ns = R.cpu_ns; *out_wall = wall;
+    return 0;
+}
+
+/* ---- driver: --ie-count ---- */
+static int ie_count_main(int argc, char **argv) {
+    const char *spec = "full31@0", *ckpt = NULL, *expect = NULL, *modsel = "all";
+    int threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    int chunk_bits = -1, no_quot = 0, negctl = 0, have_b0 = 0;
+    int b0_cli[5] = {0,0,0,0,0};
+    uint64_t rlo = 0, rhi = 0;
+    int have_range = 0;
+    for (int i = 2; i < argc; i++) {
+        if (!strcmp(argv[i], "--ie-spec") && i + 1 < argc) spec = argv[++i];
+        else if (!strcmp(argv[i], "--ie-mod") && i + 1 < argc) modsel = argv[++i];
+        else if (!strcmp(argv[i], "--ie-threads") && i + 1 < argc) threads = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--ie-chunk-bits") && i + 1 < argc) chunk_bits = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--ie-checkpoint") && i + 1 < argc) ckpt = argv[++i];
+        else if (!strcmp(argv[i], "--ie-expect") && i + 1 < argc) expect = argv[++i];
+        else if (!strcmp(argv[i], "--ie-no-quotient")) no_quot = 1;
+        else if (!strcmp(argv[i], "--ie-negctl")) negctl = 1;
+        else if (!strcmp(argv[i], "--ie-b0") && i + 1 < argc) {
+            if (sscanf(argv[++i], "%d,%d,%d,%d,%d",
+                       &b0_cli[0], &b0_cli[1], &b0_cli[2], &b0_cli[3], &b0_cli[4]) != 5) {
+                fprintf(stderr, "bad --ie-b0\n"); return 2;
+            }
+            have_b0 = 1;
+        }
+        else if (!strcmp(argv[i], "--ie-range") && i + 2 < argc) {
+            rlo = strtoull(argv[++i], NULL, 0);
+            rhi = strtoull(argv[++i], NULL, 0);
+            have_range = 1;
+        }
+        else { fprintf(stderr, "unknown --ie-count option %s\n", argv[i]); return 2; }
+    }
+    if (threads < 1) threads = 1;
+
+    printf("======================================================================\n");
+    printf("verify.c --ie-count : Route B — independent IE transfer-walk recount\n");
+    printf("(signed inclusion-exclusion over free-pair subsets; DP state = (last,\n");
+    printf(" budget) with NO mask; shares no code or machinery with solve.c)\n");
+    printf("======================================================================\n");
+    if (!build_pairs()) return 1;
+    if (!derive_pair_perms()) return 1;
+    if (!ie_build_orbits()) { printf("*** FAIL: pair-orbit derivation\n"); return 1; }
+
+    IeCtx C;
+    memset(&C, 0, sizeof C);
+    if (!ie_parse_spec(spec, C.pl, &C.n, &C.start)) {
+        printf("*** FAIL: bad --ie-spec '%s'\n", spec);
+        return 1;
+    }
+    C.quotient = !no_quot;
+
+    /* startup re-verification of every premise of the subset-enumeration lemma */
+    if (!ie_verify_group(C.start)) {
+        printf("*** FAIL: elementwise group re-verification (bijection/fix-0-63/\n"
+               "          Hamming-isometry/pair-mapping) — refusing to run\n");
+        return 1;
+    }
+    printf("group   : 24 induced pair-perms; every witness bit-perm re-verified\n"
+           "          elementwise (bijection, fixes 0/63/start, Hamming isometry on\n"
+           "          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds\n");
+
+    /* budget: full-31 is DEFINED as KW's boundary multiset (TR-11 v1.8);
+     * reduced rungs use the Step-1 first-completion DFS. */
+    if (have_b0) memcpy(C.b0v, b0_cli, sizeof C.b0v);
+    else if (C.n == 31) {
+        for (int i = 0; i < 31; i++) {
+            int d = hamming(KW[2 * i + 1], KW[2 * i + 2]);
+            int ci = cls_ix(d);
+            if (ci < 0) { printf("*** FAIL: KW boundary outside classes\n"); return 1; }
+            C.b0v[ci]++;
+        }
+        printf("budget  : full-31 B0 from KW boundary multiset = (%d,%d,%d,%d,%d)\n",
+               C.b0v[0], C.b0v[1], C.b0v[2], C.b0v[3], C.b0v[4]);
+    } else {
+        int cnt[5] = {0,0,0,0,0};
+        ie_b0g_found = 0;
+        ie_b0g_dfs(C.pl, C.n, 0, C.start, 0, cnt, C.b0v);
+        if (!ie_b0g_found) { printf("*** FAIL: no completing walk (B0 DFS)\n"); return 1; }
+        printf("budget  : rung B0 via TR-11 SS5 Step-1 DFS = (%d,%d,%d,%d,%d)\n",
+               C.b0v[0], C.b0v[1], C.b0v[2], C.b0v[3], C.b0v[4]);
+    }
+    if (negctl) {
+        int t = C.b0v[1]; C.b0v[1] = C.b0v[3]; C.b0v[3] = t;
+        printf("budget  : *** NEGATIVE CONTROL: d2/d4 budgets swapped -> (%d,%d,%d,%d,%d);\n"
+               "          the count MUST differ from the published value ***\n",
+               C.b0v[0], C.b0v[1], C.b0v[2], C.b0v[3], C.b0v[4]);
+    }
+
+    if (!ie_build(&C)) return 1;
+    if (!ie_build_quot(&C)) return 1;   /* geff needed for reporting even unquotiented */
+    printf("instance: n=%d start=%d spec=%s  pairs=", C.n, C.start, spec);
+    for (int i = 0; i < C.n; i++) printf("%s%d", i ? "," : "", C.pl[i]);
+    printf("\nlattice : R=%u vectors, max coexisting per layer = %d\n", C.R, C.maxnv);
+    printf("quotient: %s (geff=%d restricted pair-perms)\n",
+           C.quotient ? "ON (canonical subsets x orbit size)" : "OFF (full 2^n)",
+           C.geff);
+
+    uint64_t primes[3];
+    ie_pick_primes(primes);
+    for (int i = 0; i < 3; i++)
+        if (!ie_is_prime_u64(primes[i])) { printf("*** FAIL: prime selection\n"); return 1; }
+    printf("primes  : p0=%llu p1=%llu p2=%llu (Miller-Rabin-proven at startup)\n",
+           (unsigned long long)primes[0], (unsigned long long)primes[1],
+           (unsigned long long)primes[2]);
+
+    if (!have_range) { rlo = 0; rhi = 1ull << C.n; }
+    if (rhi > (1ull << C.n) || rlo >= rhi) { printf("*** FAIL: bad range\n"); return 1; }
+    if (chunk_bits < 0) {
+        chunk_bits = C.n - 11;
+        if (chunk_bits < 8) chunk_bits = 8;
+        if (chunk_bits > 20) chunk_bits = 20;
+    }
+
+    /* which moduli to run */
+    struct { const char *name; uint64_t mod; int run; } passes[4] = {
+        { "wrap", 0, 0 }, { "p0", primes[0], 0 }, { "p1", primes[1], 0 }, { "p2", primes[2], 0 }
+    };
+    if (!strcmp(modsel, "all")) {
+        passes[0].run = (C.n <= 19);   /* wrap is exact only while N < 2^64 */
+        passes[1].run = passes[2].run = passes[3].run = 1;
+    }
+    else if (!strcmp(modsel, "wrap")) passes[0].run = 1;
+    else if (!strcmp(modsel, "p0")) passes[1].run = 1;
+    else if (!strcmp(modsel, "p1")) passes[2].run = 1;
+    else if (!strcmp(modsel, "p2")) passes[3].run = 1;
+    else { printf("*** FAIL: bad --ie-mod '%s'\n", modsel); return 1; }
+
+    uint64_t acc[4] = {0,0,0,0};
+    int ran[4] = {0,0,0,0};
+    for (int p = 0; p < 4; p++) {
+        if (!passes[p].run) continue;
+        char ckbuf[1024];
+        const char *ck = NULL;
+        if (ckpt) { snprintf(ckbuf, sizeof ckbuf, "%s.%s", ckpt, passes[p].name); ck = ckbuf; }
+        uint64_t subs, trans;
+        double cpu_ns, wall;
+        printf("----------------------------------------------------------------------\n");
+        if (ie_run_pass(&C, passes[p].mod, passes[p].name, threads, chunk_bits, ck,
+                        rlo, rhi, &acc[p], &subs, &trans, &cpu_ns, &wall))
+            return 1;
+        ran[p] = 1;
+    }
+    printf("----------------------------------------------------------------------\n");
+
+    int fails = 0;
+    if (ran[1] && ran[2] && ran[3]) {
+        uint64_t a3[3] = { acc[1], acc[2], acc[3] };
+        u192 N;
+        ie_crt3(primes, a3, &N);
+        char dec[64];
+        u192_print(N, dec);
+        printf("CRT     : N = %s\n", dec);
+        printf("          N mod 24 = %u%s\n", u192_mod(N, 24),
+               (C.n == 31 && !negctl) ? (u192_mod(N, 24) == 0 ? "  (free-action gate: ok)"
+                                                              : "  *** FAIL: expected 0 ***") : "");
+        if (C.n == 31 && !negctl && u192_mod(N, 24) != 0) fails++;
+        if (ran[0]) {
+            u192 W = {{ acc[0], 0, 0 }};
+            int eq = u192_eq(N, W);
+            printf("          wrap cross-check (N < 2^64): %llu  %s\n",
+                   (unsigned long long)acc[0], eq ? "MATCH" : "*** MISMATCH ***");
+            if (!eq) fails++;
+        }
+        const char *target = expect;
+        if (!target && C.n == 31 && !have_range) target = LC_PUBLISHED_COUNT;
+        if (target) {
+            u192 E = u192_dec(target);
+            int eq = u192_eq(N, E);
+            if (negctl) {
+                printf("          vs published %s : %s (negative control %s)\n", target,
+                       eq ? "EQUAL" : "DIFFERS", eq ? "*** FAILED ***" : "passed");
+                if (eq) fails++;
+            } else {
+                printf("          vs expected %s : %s\n", target,
+                       eq ? "MATCH" : "*** MISMATCH ***");
+                if (!eq) fails++;
+            }
+        }
+    } else if (ran[0]) {
+        printf("wrap    : N mod 2^64 = %llu (exact iff N < 2^64)\n",
+               (unsigned long long)acc[0]);
+        if (expect && !negctl) {
+            u192 E = u192_dec(expect);
+            int eq = (E.l[1] == 0 && E.l[2] == 0 && E.l[0] == acc[0]);
+            printf("          vs expected %s : %s\n", expect, eq ? "MATCH" : "*** MISMATCH ***");
+            if (!eq) fails++;
+        }
+    } else {
+        for (int p = 1; p < 4; p++)
+            if (ran[p]) printf("residue : N mod %s(%llu) = %llu\n", passes[p].name,
+                               (unsigned long long)passes[p].mod, (unsigned long long)acc[p]);
+    }
+    printf("======================================================================\n");
+    printf("RESULT: %s\n", fails ? "*** FAILURE(S) — a finding; report, do not patch around ***"
+                                 : "pass complete; all in-run gates hold");
+    printf("======================================================================\n");
+    return fails ? 1 : 0;
+}
+
+/* ---- driver: --ie-probe (full-31 throughput probe + cost extrapolation) ---- */
+typedef struct {
+    IeCtx *C;
+    uint64_t next, chunk;               /* scan cursor over mask space */
+    uint64_t cnt[32];                   /* canonical subsets per popcount */
+    uint64_t hashmod[32];               /* sampling modulus per popcount */
+    uint32_t *samp[32];
+    int nsamp[32], maxsamp;
+    pthread_mutex_t mu;
+} IeScan;
+
+static uint64_t ie_mix64(uint64_t x) {
+    x ^= x >> 33; x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33; x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33; return x;
+}
+static void *ie_scan_worker(void *arg) {
+    IeScan *S = arg;
+    IeCtx *C = S->C;
+    uint64_t total = 1ull << C->n;
+    uint64_t lcnt[32] = {0};
+    uint32_t *lsamp[32];
+    int lns[32] = {0};
+    for (int k = 0; k <= C->n; k++) lsamp[k] = malloc(4 * (size_t)S->maxsamp);
+    for (;;) {
+        uint64_t lo = __atomic_fetch_add(&S->next, S->chunk, __ATOMIC_RELAXED);
+        if (lo >= total) break;
+        uint64_t hi = lo + S->chunk;
+        if (hi > total) hi = total;
+        for (uint64_t m = lo; m < hi; m++) {
+            int orbit;
+            if (ie_canon_orbit(C, (uint32_t)m, &orbit) != 1) continue;
+            int k = __builtin_popcountll(m);
+            lcnt[k]++;
+            if (S->hashmod[k] && lns[k] < S->maxsamp &&
+                ie_mix64(m) % S->hashmod[k] == 0)
+                lsamp[k][lns[k]++] = (uint32_t)m;
+        }
+    }
+    pthread_mutex_lock(&S->mu);
+    for (int k = 0; k <= C->n; k++) {
+        S->cnt[k] += lcnt[k];
+        int room = S->maxsamp - S->nsamp[k];
+        int take = lns[k] < room ? lns[k] : room;
+        if (take > 0) {
+            memcpy(S->samp[k] + S->nsamp[k], lsamp[k], 4 * (size_t)take);
+            S->nsamp[k] += take;
+        }
+    }
+    pthread_mutex_unlock(&S->mu);
+    for (int k = 0; k <= C->n; k++) free(lsamp[k]);
+    return NULL;
+}
+
+typedef struct {
+    IeCtx *C;
+    uint64_t mod;
+    const uint32_t *samp;
+    int nsamp;
+    uint64_t next;
+    uint64_t trans;
+    double cpu_ns;
+    uint64_t sink;
+    pthread_mutex_t mu;
+} IeTime;
+
+static void *ie_time_worker(void *arg) {
+    IeTime *T = arg;
+    IeCtx *C = T->C;
+    uint64_t *cur = malloc((size_t)C->maxnv * 64 * 8);
+    uint64_t *nxt = malloc((size_t)C->maxnv * 64 * 8);
+    if (!cur || !nxt) { free(cur); free(nxt); return (void *)1; }
+    uint64_t tcnt = 0, sink = 0;
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t0);
+    for (;;) {
+        uint64_t i = __atomic_fetch_add(&T->next, 1, __ATOMIC_RELAXED);
+        if (i >= (uint64_t)T->nsamp) break;
+        sink ^= ie_walk(C, T->samp[i], T->mod, cur, nxt, &tcnt);
+    }
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t1);
+    pthread_mutex_lock(&T->mu);
+    T->trans += tcnt;
+    T->cpu_ns += (t1.tv_sec - t0.tv_sec) * 1e9 + (t1.tv_nsec - t0.tv_nsec);
+    T->sink ^= sink;
+    pthread_mutex_unlock(&T->mu);
+    free(cur); free(nxt);
+    return NULL;
+}
+
+static int ie_probe_main(int argc, char **argv) {
+    int nsamp = 1000, threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (argc >= 3 && argv[2][0] != '-') nsamp = atoi(argv[2]);
+    for (int i = 2; i < argc; i++)
+        if (!strcmp(argv[i], "--ie-threads") && i + 1 < argc) threads = atoi(argv[++i]);
+    if (nsamp < 10) nsamp = 10;
+    if (threads < 1) threads = 1;
+    if (threads > 256) threads = 256;
+
+    printf("======================================================================\n");
+    printf("verify.c --ie-probe : full-31 Route B throughput probe (%d samples/class)\n", nsamp);
+    printf("======================================================================\n");
+    if (!build_pairs() || !derive_pair_perms() || !ie_build_orbits()) return 1;
+    IeCtx C;
+    memset(&C, 0, sizeof C);
+    if (!ie_parse_spec("full31@0", C.pl, &C.n, &C.start)) return 1;
+    C.quotient = 1;
+    if (!ie_verify_group(C.start)) { printf("*** FAIL: group re-verification\n"); return 1; }
+    for (int i = 0; i < 31; i++) {
+        int ci = cls_ix(hamming(KW[2 * i + 1], KW[2 * i + 2]));
+        if (ci < 0) return 1;
+        C.b0v[ci]++;
+    }
+    if (!ie_build(&C) || !ie_build_quot(&C)) return 1;
+    printf("lattice R=%u maxnv=%d geff=%d\n", C.R, C.maxnv, C.geff);
+    uint64_t primes[3];
+    ie_pick_primes(primes);
+
+    /* pass A: exact canonical-count per popcount + hash-sampled timing masks.
+     * Known expected density ~93.94M/2^31: seed per-class hashmod from the
+     * binomial C(31,k)/24 heuristic, clamped >=1. */
+    IeScan S;
+    memset(&S, 0, sizeof S);
+    S.C = &C; S.chunk = 1u << 20; S.maxsamp = nsamp;
+    pthread_mutex_init(&S.mu, NULL);
+    for (int k = 0; k <= 31; k++) {
+        double est = 1.0;
+        for (int i = 0; i < k; i++) est = est * (31 - i) / (i + 1);
+        est /= 24.0;
+        uint64_t hm = (uint64_t)(est / nsamp);
+        S.hashmod[k] = hm < 1 ? 1 : hm;
+        S.samp[k] = malloc(4 * (size_t)nsamp);
+    }
+    struct timespec a0, a1;
+    clock_gettime(CLOCK_MONOTONIC, &a0);
+    pthread_t th[256];
+    for (int i = 0; i < threads; i++) pthread_create(&th[i], NULL, ie_scan_worker, &S);
+    for (int i = 0; i < threads; i++) pthread_join(th[i], NULL);
+    clock_gettime(CLOCK_MONOTONIC, &a1);
+    double scan_wall = (a1.tv_sec - a0.tv_sec) + (a1.tv_nsec - a0.tv_nsec) * 1e-9;
+    uint64_t total_canon = 0;
+    for (int k = 0; k <= 31; k++) total_canon += S.cnt[k];
+    printf("scan    : %.1fs wall on %d threads; canonical subsets = %llu (expect 93,939,712)\n",
+           scan_wall, threads, (unsigned long long)total_canon);
+    printf("          tail k23..k31 = ");
+    for (int k = 23; k <= 31; k++) printf("%llu%s", (unsigned long long)S.cnt[k], k < 31 ? "," : "\n");
+    printf("          peak k15=%llu k16=%llu\n",
+           (unsigned long long)S.cnt[15], (unsigned long long)S.cnt[16]);
+    if (total_canon != 93939712ull)
+        printf("          *** WARNING: canonical total != 93,939,712 — investigate ***\n");
+
+    /* pass B: per-popcount timing on the sampled canonical subsets (mod p0) */
+    printf("----------------------------------------------------------------------\n");
+    printf("  k |   canonical | samples |  mean us/subset | mean trans/subset | ns/trans\n");
+    printf("----+-------------+---------+-----------------+-------------------+---------\n");
+    double total_core_s = 0.0, total_trans = 0.0;
+    for (int k = 0; k <= 31; k++) {
+        if (S.cnt[k] == 0) continue;
+        if (S.nsamp[k] == 0) { printf(" %2d | %11llu | 0 samples — skipped\n", k, (unsigned long long)S.cnt[k]); continue; }
+        IeTime T;
+        memset(&T, 0, sizeof T);
+        T.C = &C; T.mod = primes[0]; T.samp = S.samp[k]; T.nsamp = S.nsamp[k];
+        pthread_mutex_init(&T.mu, NULL);
+        int nth = threads < T.nsamp ? threads : T.nsamp;
+        for (int i = 0; i < nth; i++) pthread_create(&th[i], NULL, ie_time_worker, &T);
+        for (int i = 0; i < nth; i++) pthread_join(th[i], NULL);
+        double us = T.cpu_ns / 1e3 / T.nsamp;
+        double tr = (double)T.trans / T.nsamp;
+        printf(" %2d | %11llu | %7d | %15.1f | %17.0f | %7.2f\n",
+               k, (unsigned long long)S.cnt[k], T.nsamp, us, tr,
+               T.trans ? T.cpu_ns / (double)T.trans : 0.0);
+        total_core_s += (double)S.cnt[k] * us / 1e6;
+        total_trans += (double)S.cnt[k] * tr;
+    }
+    double scan_core_s = scan_wall * threads;
+    printf("----------------------------------------------------------------------\n");
+    printf("extrapolation, ONE prime pass (full 93.94M canonical subsets):\n");
+    printf("  walk-DP core-seconds  = %.3e  (%.1f core-hours)\n", total_core_s, total_core_s / 3600);
+    printf("  + canonicity scan     = %.3e core-seconds\n", scan_core_s);
+    printf("  total transitions     = %.3e (eval sized 1.13e15)\n", total_trans);
+    double pass_core_h = (total_core_s + scan_core_s) / 3600;
+    printf("  per-pass:  %.1f core-h  =  %.2f h wall on 32 cores  =  %.2f h wall on 128 cores\n",
+           pass_core_h, pass_core_h / 32, pass_core_h / 128);
+    printf("  THREE passes on D128:  %.2f h wall\n", 3 * pass_core_h / 128);
+    printf("  (dollar sizing left to the operator report: multiply by the Spot rate)\n");
+    printf("======================================================================\n");
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
+    if (argc >= 2 && strcmp(argv[1], "--ie-count") == 0) return ie_count_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--ie-probe") == 0) return ie_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
         if (argc < 3) { fprintf(stderr, "usage: %s --check-layers DIR [max_k] [run.out]\n", argv[0]); return 2; }
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
@@ -2022,8 +2976,11 @@ int main(int argc, char **argv) {
                                     "       %s --check-layers-selftest\n"
                                     "       %s --check-g-ladder FDIR GDIR [max_k]\n"
                                     "       %s --check-t-ladder FDIR TDIR [max_k]\n"
-                                    "       %s --check-gt-selftest\n",
-                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
+                                    "       %s --check-gt-selftest\n"
+                                    "       %s --ie-count [opts]      (Route B IE recount; see source header)\n"
+                                    "       %s --ie-probe NSAMP [--ie-threads N]\n",
+                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
+                                    argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;

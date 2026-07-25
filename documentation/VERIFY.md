@@ -3,8 +3,10 @@
 *Companion to `verify.py` (and its C-side sibling `verify.c`). Addresses the
 single-instrument caveat raised in
 [TR-11 §10(vi)](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md): "at full
-31 … the full-31 integer will initially rest on a single instrument." (The
-instrument half of that caveat still stands — see the closing section.)*
+31 … the full-31 integer will initially rest on a single instrument." (That
+caveat's instrument half is now closed: on 2026-07-25 `verify.c --ie-count`
+performed the independent full-scale recomputation — exact match. See the
+closing section.)*
 
 `verify.py` is a genuinely **independent** second opinion on the ROAE results.
 It is standard-library-only Python, imports **none** of `solve.c` / `solve.py` /
@@ -129,7 +131,28 @@ by the engine's own 4/4 cross-mode ladder (TR-11 §8), not by this instrument.
    engine uses KW's multiset — but the documented derivation was wrong, and an
    independent instrument is what caught it.
 
-## Corroboration chain for the full-scale count (which this instrument did NOT run)
+## The Route B engine: `verify.c --ie-count`
+
+`./verify --ie-count` recomputes \|C1∩C2∩C4∩C5\| by classical signed inclusion–exclusion over
+subsets of the 31 free pairs: N = Σ_S (−1)^(31−|S|) W(S), where W(S) counts repetition-allowed
+31-step walks over S with the d ∈ {1,2,3,4,6} boundary predicate and class budgets capped at
+KW's boundary multiset (2,8,13,7,1). DP state is `(last hexagram, budget vector)` — no mask,
+<1 MB per thread. The 24-element record group enters only as a startup-re-verified
+subset-enumeration lemma (W(gS) = W(S)); `--ie-no-quotient` disables it. Arithmetic: three
+passes modulo the largest primes below 2⁶³ (Miller–Rabin-proven at startup), CRT-combined; on
+small instances the mod-2⁶⁴ wrap pass cross-checks the mod-p path exactly. Spot-safe chunk
+checkpointing (`--ie-checkpoint`); `--ie-negctl` is a must-differ negative control;
+`--ie-probe NSAMP` sizes a full run. Validation ladder and the 2026-07-25 full-scale MATCH:
+TR-11 §10(vi).
+
+## Corroboration chain for the full-scale count
+
+- **Independent full-scale recomputation (`verify.c --ie-count`, 2026-07-25).** A signed
+  inclusion–exclusion transfer-walk over free-pair subsets (DP state `(last, budget)`, no mask
+  — a different algorithm class sharing no code or machinery with `solve.c`) recomputed the
+  full-31 integer via three Miller–Rabin-proven 63-bit prime passes, CRT-combined: **exact
+  match**, with the mod-24 gate holding. This is the direct discharge of TR-11 §10(vi)'s
+  instrument half; the items below are the (retained) corroboration that pre-dated it.
 
 Tier-2 scope was intentional (per TR-11, the full 31-pair count is out of scope
 here). The full-scale exact count
@@ -165,16 +188,18 @@ does **not** rest on this instrument. Its corroboration chain is:
 
 Method-diverse agreement at Tier-2 here, the ≤28-pair two-engine equivalence,
 the full-31 per-layer masses within `verify.c`'s reach, the mod-24 gate, and
-the estimator together corroborate the full-scale count. The honest residual is
-unchanged from TR-11 §10(vi)'s instrument half: the full-31 integer rests on a
-single instrument, and an independent full-scale recomputation has not been
-performed. (The C5-ladder definitional gap this instrument originally surfaced
+the estimator together corroborate the full-scale count. TR-11 §10(vi)'s
+instrument half is now discharged: the full-31 integer was independently
+recomputed at full scale (2026-07-25) by `verify.c --ie-count` and matches
+exactly. The remaining honest residual is that both instruments are
+project-authored — no third-party recomputation exists. (The C5-ladder
+definitional gap this instrument originally surfaced
 is resolved — see the defects section above.)
 
 ---
 *`verify.py` is stdlib-only and imports no project code — run `python3 verify.py
 --recount` to regenerate the match table. `verify.c` builds with `cc -O2 -o
-verify verify.c` and reads a run's `run.out`. Developed with AI assistance
+verify verify.c -lz -lpthread` and reads a run's `run.out`. Developed with AI assistance
 (Claude, Anthropic).*
 
 **Provenance of the C5-ladder rows (2026-07-21):** the C5 ladder entries below are backed by an actual

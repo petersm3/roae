@@ -42,7 +42,7 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 |---|---|---|---:|
 | **canonical (C1–C5) orderings (raw)** | **1.3287×10³⁸** | [1.3283, 1.3292]×10³⁸ | 0.02% |
 | — distinct canonical (after ~4× orientation-dedup) | **≈3.3×10³⁷** | — | — |
-| complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ — now known **exactly**: 1.097051×10³⁹ ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16, single-instrument per TR-11 §10(vi); the exact value lands inside the estimate's stated envelope — see §"Absolute validation against an exact count") | — | 0.01% |
+| complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ — now known **exactly**: 1.097051×10³⁹ ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — exact match, TR-11 §10(vi); the exact value lands inside the estimate's stated envelope — see §"Absolute validation against an exact count") | — | 0.01% |
 | total backtracking-tree nodes | 2.0875×10⁴⁰ | — | 0.00% |
 
 For scale, this sits inside the standard reduction funnel (see [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) "numbers at a glance"): the unconstrained permutation space is 64! ≈ 1.3×10⁸⁹; the **C1 pair-structure skeleton is 32! × 2³² ≈ 1.1×10⁴⁵**; C2/C3/C4 successively cut that to ~10⁴⁰; and **C5 brings the true (un-budgeted) C1–C5 total to ≈1.3×10³⁸** (this estimate). Consistent with the funnel's earlier steps; it supplies the terminal count the funnel could previously give only as a budgeted lower bound (the 706 M found at the 10T budget). Still an enormous reduction, yet astronomically beyond enumeration.

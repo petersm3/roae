@@ -55,7 +55,7 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    less-rounded early value, ~3.7σ if 1.32×10³⁸ is taken as exact) — an unremarkable deviation for one early draw from a
    right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
    canonical C1–C5 raw **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
-   orderings 1.0971×10³⁹ (0.01%) — subsequently computed **exactly (single-instrument)** at 1.097051×10³⁹
+   orderings 1.0971×10³⁹ (0.01%) — subsequently computed **exactly** at 1.097051×10³⁹ (two-instrument since 2026-07-25: independently recomputed at full scale by verify.c's IE transfer-walk engine, exact match — TR-11 §10(vi))
    ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16): the estimate deviated by
    0.0044%, well inside its stated envelope — the estimator's second absolute full-scale validation
    (the C1–C5 raw figure itself remains an estimate); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of

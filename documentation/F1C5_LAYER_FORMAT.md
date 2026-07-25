@@ -17,8 +17,10 @@ bytes.
 
 ## Why this document exists
 
-[TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi) is
-explicit that the full-31 exact count currently rests on a single instrument.
+[TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi) was
+explicit that the full-31 exact count then rested on a single instrument (its
+instrument half was closed 2026-07-25 by the independent verify.c --ie-count
+recomputation; the transparency rationale below stands regardless).
 The layer files that instrument streams to disk are its only inspectable
 intermediate state, and until now their on-disk format was not published —
 an independent checker could not read them without reading `solve.c`, which
