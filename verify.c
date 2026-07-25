@@ -270,6 +270,9 @@ static int parse_masses(const char *path, char masses[32][48]) {
  * ========================================================================== */
 
 #define LC_PUBLISHED_COUNT "1097051278789181790036112071176579186688"  /* |C1∩C2∩C4∩C5| */
+/* |C1∩C2∩C4| — published exact (TR-4 §"exact vs estimator" table / TR-11;
+ * same integer as verify.py's _C1C2C4_EXACT and the solve.c §f1-exact comment). */
+#define LC_PUBLISHED_COUNT_C1C2C4 "757058601340255440651419713405330315358208"
 
 typedef struct { uint64_t l[3]; } u192;                 /* value = l0 + 2^64 l1 + 2^128 l2 */
 static int  u192_add(u192 *a, u192 b) {                 /* a+=b; returns 1 on 192-bit overflow */
@@ -2073,7 +2076,7 @@ static int lc_gt_selftest(void) {
  *
  * USAGE:
  *   ./verify --ie-count [--ie-spec "3.0,3.1,3.2@0" | --ie-spec full31@0]
- *            [--ie-mod all|wrap|p0|p1|p2] [--ie-no-quotient]
+ *            [--ie-mod all|wrap|p0|p1|p2] [--ie-no-quotient] [--ie-no-budget]
  *            [--ie-threads N] [--ie-chunk-bits B] [--ie-checkpoint FILE]
  *            [--ie-range LO HI] [--ie-b0 a,b,c,d,e] [--ie-negctl]
  *            [--ie-expect DECIMAL]
@@ -2083,6 +2086,17 @@ static int lc_gt_selftest(void) {
  * Step-1 first-completion DFS; the full-31 budget is DEFINED as KW's
  * boundary multiset (TR-11 v1.8). --ie-negctl swaps B0's d2/d4 budgets —
  * a negative control whose count MUST differ from the published value.
+ *
+ * --ie-no-budget (the F4 variant): drop the C5 budget lattice entirely and
+ * count |C1 cap C2 cap C4| instead. Same signed IE over pair subsets, same
+ * quotient lemma (its proof never used the budget); W(S) collapses to a
+ * plain 64-state transfer walk (state = last hexagram). Soundness of the
+ * shared d∉{0,5} step predicate: a support-full walk uses each pair once,
+ * so consecutive hexagrams come from distinct pairs and d=0 cannot occur —
+ * the predicate equals published C2 (d≠5) on exactly the walks that
+ * survive the signed sum. Full-31 target = LC_PUBLISHED_COUNT_C1C2C4.
+ * With --ie-negctl, admissibility is perturbed to forbid d=4 instead of
+ * d=5 (budgets don't exist here) — the count MUST differ.
  * ========================================================================== */
 
 /* ---- deterministic Miller–Rabin + the three 63-bit primes ---- */
@@ -2244,6 +2258,10 @@ static void ie_b0g_dfs(const int *pl, int n, int depth, int last, uint32_t used,
 /* ---- instance context ---- */
 typedef struct {
     int n, start, quotient;
+    int no_budget;             /* --ie-no-budget: count C1∩C2∩C4 (C5/budget layer
+                                * dropped; DP state collapses to (last) alone) */
+    int nb_negctl;             /* no-budget negative control: forbid d=4 instead of
+                                * d=5 (perturbed C2 predicate) — count MUST differ */
     int pl[32];
     int b0v[5];
     uint32_t rad[5], R;
@@ -2262,9 +2280,35 @@ typedef struct {
 } IeCtx;
 
 static int ie_build(IeCtx *C) {
+    if (C->n < 1 || C->n > 31) { printf("*** FAIL: n=%d out of range\n", C->n); return 0; }
+    if (C->no_budget) {
+        /* C1∩C2∩C4 mode: no budget lattice at all. Walk state = (last) alone,
+         * one 64-slot row per layer (maxnv=1 sizes the worker buffers). The
+         * IE identity is unchanged: a 31-step walk whose pair support is all
+         * of F uses each pair exactly once regardless of any budget, and d=0
+         * cannot occur on such walks (distinct pairs => distinct hexagrams),
+         * so the per-step d∉{0,5} predicate equals the published C2 predicate
+         * d≠5 on exactly the walks the signed sum keeps. */
+        C->R = 0; C->maxnv = 1;
+        memset(C->cmap, -1, sizeof C->cmap);
+        int bad = C->nb_negctl ? 4 : 5;
+        for (int q = 0; q < C->n; q++) {
+            int a = PA[C->pl[q]], b = PB[C->pl[q]];
+            for (int o = 0; o < 2; o++) {
+                int enter = o ? b : a, exith = o ? a : b, qo = 2 * q + o;
+                C->exq[qo] = (uint8_t)exith;
+                for (int last = 0; last < 64; last++) {
+                    int d = hamming(last, enter);
+                    /* class index is unused without a budget: 0 = admissible */
+                    C->cmap[qo][last] = (int8_t)((d == bad || d == 0) ? -1 : 0);
+                }
+            }
+        }
+        return 1;
+    }
     int sum = 0;
     for (int c = 0; c < 5; c++) { if (C->b0v[c] < 0) return 0; sum += C->b0v[c]; }
-    if (C->n < 1 || C->n > 31 || sum != C->n) {
+    if (sum != C->n) {
         printf("*** FAIL: budget sum %d != n=%d (every %d-step capped walk must end at B0)\n",
                sum, C->n, C->n);
         return 0;
@@ -2398,6 +2442,45 @@ static uint64_t ie_walk(const IeCtx *C, uint32_t S, uint64_t mod,
     return acc;
 }
 
+/* ---- the no-budget kernel (--ie-no-budget): W(S) with state = (last) alone.
+ * Same signed-IE outer sum, same d-admissibility via cmap, no lattice: the
+ * C1∩C2∩C4 count needs no class-usage tracking. cur/nxt are 64 u64s each. */
+static uint64_t ie_walk_nb(const IeCtx *C, uint32_t S, uint64_t mod,
+                           uint64_t *cur, uint64_t *nxt, uint64_t *tcnt) {
+    int n = C->n;
+    uint64_t t = 0;
+    memset(cur, 0, 64 * 8);
+    cur[C->start] = 1;
+    for (int k = 0; k < n; k++) {
+        memset(nxt, 0, 64 * 8);
+        for (int last = 0; last < 64; last++) {
+            uint64_t val = cur[last];
+            if (!val) continue;
+            uint32_t tmp = S;
+            while (tmp) {
+                int q = __builtin_ctz(tmp); tmp &= tmp - 1;
+                for (int o = 0; o < 2; o++) {
+                    int qo = 2 * q + o;
+                    if (C->cmap[qo][last] < 0) continue;
+                    uint64_t *tp = nxt + C->exq[qo];
+                    uint64_t nv2 = *tp + val;
+                    if (mod && nv2 >= mod) nv2 -= mod;
+                    *tp = nv2;
+                    t++;
+                }
+            }
+        }
+        uint64_t *sw = cur; cur = nxt; nxt = sw;
+    }
+    uint64_t acc = 0;
+    for (int last = 0; last < 64; last++) {
+        acc += cur[last];
+        if (mod && acc >= mod) acc -= mod;
+    }
+    *tcnt += t;
+    return acc;
+}
+
 /* ---- threaded pass over a subset-mask range, chunked + checkpointed ---- */
 typedef struct {
     IeCtx *C;
@@ -2438,7 +2521,9 @@ static void *ie_worker(void *arg) {
                 if (r == 0) continue;
                 if (r < 0) { bad = 1; break; }
             }
-            uint64_t W = ie_walk(C, (uint32_t)m, R->mod, cur, nxt, &tcnt);
+            uint64_t W = C->no_budget
+                       ? ie_walk_nb(C, (uint32_t)m, R->mod, cur, nxt, &tcnt)
+                       : ie_walk(C, (uint32_t)m, R->mod, cur, nxt, &tcnt);
             int neg = ((C->n - __builtin_popcountll(m)) & 1);
             if (R->mod) {
                 uint64_t term = (uint64_t)((unsigned __int128)W * (unsigned)orbit % R->mod);
@@ -2499,6 +2584,9 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
         char t[8]; snprintf(t, sizeof t, "%s%d", i ? "," : "", C->pl[i]);
         strncat(hdr, t, sizeof hdr - strlen(hdr) - 1);
     }
+    if (C->no_budget)              /* budget-mode headers stay byte-identical */
+        strncat(hdr, C->nb_negctl ? " nb=negctl" : " nb=1",
+                sizeof hdr - strlen(hdr) - 1);
     if (ckpt_path) {
         FILE *f = fopen(ckpt_path, "r");
         if (f) {
@@ -2568,7 +2656,7 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
 static int ie_count_main(int argc, char **argv) {
     const char *spec = "full31@0", *ckpt = NULL, *expect = NULL, *modsel = "all";
     int threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
-    int chunk_bits = -1, no_quot = 0, negctl = 0, have_b0 = 0;
+    int chunk_bits = -1, no_quot = 0, negctl = 0, have_b0 = 0, no_budget = 0;
     int b0_cli[5] = {0,0,0,0,0};
     uint64_t rlo = 0, rhi = 0;
     int have_range = 0;
@@ -2580,6 +2668,7 @@ static int ie_count_main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--ie-checkpoint") && i + 1 < argc) ckpt = argv[++i];
         else if (!strcmp(argv[i], "--ie-expect") && i + 1 < argc) expect = argv[++i];
         else if (!strcmp(argv[i], "--ie-no-quotient")) no_quot = 1;
+        else if (!strcmp(argv[i], "--ie-no-budget")) no_budget = 1;
         else if (!strcmp(argv[i], "--ie-negctl")) negctl = 1;
         else if (!strcmp(argv[i], "--ie-b0") && i + 1 < argc) {
             if (sscanf(argv[++i], "%d,%d,%d,%d,%d",
@@ -2598,10 +2687,20 @@ static int ie_count_main(int argc, char **argv) {
     if (threads < 1) threads = 1;
 
     printf("======================================================================\n");
-    printf("verify.c --ie-count : Route B — independent IE transfer-walk recount\n");
-    printf("(signed inclusion-exclusion over free-pair subsets; DP state = (last,\n");
-    printf(" budget) with NO mask; shares no code or machinery with solve.c)\n");
+    if (no_budget) {
+        printf("verify.c --ie-count --ie-no-budget : independent IE recount of\n");
+        printf("|C1 cap C2 cap C4| (C5/budget layer dropped; DP state = (last)\n");
+        printf(" alone, no mask, no lattice; shares no machinery with solve.c)\n");
+    } else {
+        printf("verify.c --ie-count : Route B — independent IE transfer-walk recount\n");
+        printf("(signed inclusion-exclusion over free-pair subsets; DP state = (last,\n");
+        printf(" budget) with NO mask; shares no code or machinery with solve.c)\n");
+    }
     printf("======================================================================\n");
+    if (no_budget && have_b0) {
+        printf("*** FAIL: --ie-b0 contradicts --ie-no-budget\n");
+        return 2;
+    }
     if (!build_pairs()) return 1;
     if (!derive_pair_perms()) return 1;
     if (!ie_build_orbits()) { printf("*** FAIL: pair-orbit derivation\n"); return 1; }
@@ -2613,6 +2712,8 @@ static int ie_count_main(int argc, char **argv) {
         return 1;
     }
     C.quotient = !no_quot;
+    C.no_budget = no_budget;
+    C.nb_negctl = (no_budget && negctl);
 
     /* startup re-verification of every premise of the subset-enumeration lemma */
     if (!ie_verify_group(C.start)) {
@@ -2626,7 +2727,14 @@ static int ie_count_main(int argc, char **argv) {
 
     /* budget: full-31 is DEFINED as KW's boundary multiset (TR-11 v1.8);
      * reduced rungs use the Step-1 first-completion DFS. */
-    if (have_b0) memcpy(C.b0v, b0_cli, sizeof C.b0v);
+    if (no_budget) {
+        printf("budget  : NONE (--ie-no-budget: counting |C1 cap C2 cap C4| — the\n"
+               "          C5 boundary-multiset constraint is dropped entirely)\n");
+        if (negctl)
+            printf("budget  : *** NEGATIVE CONTROL: admissibility swapped to forbid d=4\n"
+                   "          instead of d=5; the count MUST differ from published ***\n");
+    }
+    else if (have_b0) memcpy(C.b0v, b0_cli, sizeof C.b0v);
     else if (C.n == 31) {
         for (int i = 0; i < 31; i++) {
             int d = hamming(KW[2 * i + 1], KW[2 * i + 2]);
@@ -2644,7 +2752,7 @@ static int ie_count_main(int argc, char **argv) {
         printf("budget  : rung B0 via TR-11 SS5 Step-1 DFS = (%d,%d,%d,%d,%d)\n",
                C.b0v[0], C.b0v[1], C.b0v[2], C.b0v[3], C.b0v[4]);
     }
-    if (negctl) {
+    if (negctl && !no_budget) {
         int t = C.b0v[1]; C.b0v[1] = C.b0v[3]; C.b0v[3] = t;
         printf("budget  : *** NEGATIVE CONTROL: d2/d4 budgets swapped -> (%d,%d,%d,%d,%d);\n"
                "          the count MUST differ from the published value ***\n",
@@ -2655,7 +2763,8 @@ static int ie_count_main(int argc, char **argv) {
     if (!ie_build_quot(&C)) return 1;   /* geff needed for reporting even unquotiented */
     printf("instance: n=%d start=%d spec=%s  pairs=", C.n, C.start, spec);
     for (int i = 0; i < C.n; i++) printf("%s%d", i ? "," : "", C.pl[i]);
-    printf("\nlattice : R=%u vectors, max coexisting per layer = %d\n", C.R, C.maxnv);
+    if (no_budget) printf("\nlattice : none (no budget; walk state = last hexagram, 64 slots)\n");
+    else printf("\nlattice : R=%u vectors, max coexisting per layer = %d\n", C.R, C.maxnv);
     printf("quotient: %s (geff=%d restricted pair-perms)\n",
            C.quotient ? "ON (canonical subsets x orbit size)" : "OFF (full 2^n)",
            C.geff);
@@ -2681,7 +2790,10 @@ static int ie_count_main(int argc, char **argv) {
         { "wrap", 0, 0 }, { "p0", primes[0], 0 }, { "p1", primes[1], 0 }, { "p2", primes[2], 0 }
     };
     if (!strcmp(modsel, "all")) {
-        passes[0].run = (C.n <= 19);   /* wrap is exact only while N < 2^64 */
+        /* wrap is exact only while N < 2^64. Budget mode: n<=19 (validated
+         * band). No-budget counts are larger (no C5 filter): bound by
+         * n!*2^n < 2^64 iff n<=16, so auto-wrap only there. */
+        passes[0].run = (C.n <= (no_budget ? 16 : 19));
         passes[1].run = passes[2].run = passes[3].run = 1;
     }
     else if (!strcmp(modsel, "wrap")) passes[0].run = 1;
@@ -2727,7 +2839,8 @@ static int ie_count_main(int argc, char **argv) {
             if (!eq) fails++;
         }
         const char *target = expect;
-        if (!target && C.n == 31 && !have_range) target = LC_PUBLISHED_COUNT;
+        if (!target && C.n == 31 && !have_range)
+            target = no_budget ? LC_PUBLISHED_COUNT_C1C2C4 : LC_PUBLISHED_COUNT;
         if (target) {
             u192 E = u192_dec(target);
             int eq = u192_eq(N, E);
@@ -2977,7 +3090,8 @@ int main(int argc, char **argv) {
                                     "       %s --check-g-ladder FDIR GDIR [max_k]\n"
                                     "       %s --check-t-ladder FDIR TDIR [max_k]\n"
                                     "       %s --check-gt-selftest\n"
-                                    "       %s --ie-count [opts]      (Route B IE recount; see source header)\n"
+                                    "       %s --ie-count [opts]      (Route B IE recount; see source header;\n"
+                                    "                                  --ie-no-budget = the C1^C2^C4 F4 variant)\n"
                                     "       %s --ie-probe NSAMP [--ie-threads N]\n",
                                     argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
                                     argv[0], argv[0]); return 2; }

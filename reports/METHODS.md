@@ -39,7 +39,7 @@ orbit-quotient), not by disagreement.
 |---|---|---|---|---|
 | C1–C5 space size | 1.3287×10³⁸ (95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | **estimate** (Knuth) | raw (orientation-resolved) | [TR-4] §3 |
 | C1–C5 space size | ≈3.3×10³⁷ | **estimate** | orientation-dedup | [TR-4] §Abstract |
-| \|C1∩C2∩C4\| | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹ | **exact** (single-instrument; mod-24 gated) | raw (orientation-explicit, C4 pinned) | [TR-11] §1–4 |
+| \|C1∩C2∩C4\| | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹ | **exact** (two-instrument — independently recomputed at full scale 2026-07-25 by `verify.c --ie-count --ie-no-budget`, exact MATCH; mod-24 gated) | raw (orientation-explicit, C4 pinned) | [TR-11] §1–4 |
 | \|C1∩C2∩C4∩C5\| | 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹ | **exact** (two-instrument: independently recomputed at full scale 2026-07-25 by the verify.c IE transfer-walk engine — exact MATCH; mod-24 + ladder-corroborated) | raw (orientation-explicit, C4 pinned) | [TR-11] §9 |
 | \|C1–C7\| | 5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, 0.78%) | **estimate** | raw | [TR-4] §4 |
 | \|C1–C7\|, C3 dropped | 5.18×10³² (0.25%) | **estimate** | raw | [TR-4] §4 |
@@ -48,9 +48,8 @@ orbit-quotient), not by disagreement.
 | Twins per solution | 23 (orbit size 24) | **proven** | orbit | [TR-5] §4 |
 | Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (= N/24 of the two-instrument count above; the recomputed N is ≡ 0 mod 24, so the division is exact) | orbit | [TR-11] §9 |
 
-*The remaining "single-instrument" exact count (\|C1∩C2∩C4\|) is corroborated by the mod-24
-free-action gate but has not been independently recomputed at full scale ([TR-11] §10(vi)). The
-C5-layer count and its orbit count are **two-instrument** as of 2026-07-25: independently
+*All three exact full-scale quantities — \|C1∩C2∩C4\| (via `--ie-no-budget`), the C5-layer count
+\|C1∩C2∩C4∩C5\|, and its orbit count — are **two-instrument** as of 2026-07-25: independently
 recomputed at full scale by `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`
 — a different algorithm class sharing no code or machinery with `solve.c`; exact MATCH, mod-24
 verified), additionally corroborated by the mod-24 gate and the 4/4 out-of-core ladder +
