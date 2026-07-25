@@ -61,7 +61,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) — preprint, machine-verified). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
   more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
-  enumerated records: the sharpest demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
+  enumerated records: a stark demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal); the transition histogram is confirmed
   description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)

@@ -12,7 +12,7 @@ which makes McKenna's observed 3-to-1 ratio of even-to-odd transitions a necessi
 Second, a surprise: the sequence's missing distance-5 transition is a **genuine extra rule** in the
 circular reading — orderings that wrap at distance 5 make up 17.4% of the valid space, yet **not one**
 appears among 10.5 billion enumerated records. That gap between the full space and the enumerated
-slice is the sharpest demonstration in the project of why bounded search results need independent
+slice is a stark demonstration of why bounded search results need independent
 measurement — and why we decided this rule, though real, stays documented rather than adopted.
 
 ## Abstract
