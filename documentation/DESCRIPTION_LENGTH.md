@@ -41,7 +41,7 @@ choices) — ~2¹² comparable members ≈ 12–13 bits.
 **Exact marginals (2026-07-18, mirrors TR-9 v1.10):** every C3-free marginal is now a ratio of
 exact integers — C4|C1 = ×64 exactly (6.0000 bits); C2|C1∩C4 = ×23.325025987… (4.5437 bits;
 1/23.325 = 4.2872%, the published ~4.3% C2-rarity estimate landing exactly at this conditioning —
-the C1-only fraction remains an estimate); C5|C1∩C2∩C4 = ×690.0850… (9.4306 bits). Corollary
+the C1-only (start-unpinned) fraction is now also exact — 4.29341%, `solve --f1-exact-c1c2`, 2026-07-25); C5|C1∩C2∩C4 = ×690.0850… (9.4306 bits). Corollary
 (C5 ⟹ C2): |C1∩C4∩C5| = |C1∩C2∩C4∩C5| exactly. The C3 conditional remains sampled by design.
 
 ⁴ Statement-cost bracket for the multiset. Full 63-transition multiset over all 6 distance classes: log₂ C(68,5) = 23.3 bits; conditioning on C2 (5 usable classes): log₂ C(67,4) = 19.5; marginal-consistent price given C1+C2 (only the 31 boundary transitions are unimplied): log₂ C(35,4) = 15.7. The ledger's compression column is marginal, so the marginal price 15.7 is the internally consistent choice; every choice leaves C5 net-negative.
