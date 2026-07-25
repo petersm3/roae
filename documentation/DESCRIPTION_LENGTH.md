@@ -17,7 +17,7 @@ compression − statement cost. Conventions, declared up front:
   enumerable family of comparable rules (cost = log₂ of the family size; families stated per row);
   (ii) **derivation convention** — a constraint that is *derivable* from a stated principle costs the
   principle, not the parameters (post-[Radisic](CITATIONS.md#radisic2026) — preprint, machine-verified — this matters for C1).
-- The look-elsewhere accounting for the ~30-observable extraction battery lives in
+- The look-elsewhere accounting for the 28-observable extraction battery (frozen global ledger: [METHODS](../reports/METHODS.md) §"Global observable ledger") lives in
   [CRITIQUE.md](CRITIQUE.md) and is not double-counted here.
 
 ## The ledger
@@ -30,7 +30,7 @@ compression − statement cost. Conventions, declared up front:
 | + C5 (transition multiset) | **1.097051×10³⁹ — EXACT, two-instrument** (1,097,051,278,789,181,790,036,112,071,176,579,186,688; out-of-core S4-orbit dynamic program, 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — exact match, mod-24 verified, [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi)) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
 | + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
 | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
-| strongest literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
+| strongest *principled* literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender — "strongest" among rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
 ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits; forced-orientation theorem returns 1.
 ² Radisic 2026 (arXiv preprint; the Lean 4 + Mathlib artifact is machine-checkable regardless of

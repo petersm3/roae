@@ -30,15 +30,16 @@ A review of the program's methodology, assumptions, and interpretive claims from
 
 ### Observable-selection accounting (the look-elsewhere effect) — added 2026-07-02
 
-The constraint set C1–C5 was *selected* after an exploratory sweep of many observables (roae.py's 28
-analysis sections plus solve.c's null-model and verification batteries — on the order of **~30 distinct
-observables** examined across the project's discovery phase). Adding the five later pre-registered testing
-families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13) on top of that discovery-phase
-battery brought the running total to ~83; the R7 corpus-control battery's five off-home family predicates
+The constraint set C1–C5 was *selected* after an exploratory sweep of many observables (the **28
+exploratory discovery-phase observables** of the frozen global ledger — the roae.py sweep). Adding the
+five later pre-registered testing
+families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13 — 58 observables) on top of
+that discovery-phase
+battery brought the running total to 86 (28 + 58); the R7 corpus-control battery's five off-home family predicates
 applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all failed; see §"Corpus control II" below)
-bring the enterprise-wide running total to **~88 distinct observables** — the global ledger that
-[reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar ≈ 0.05/88 ≈
-5.7×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
+bring the enterprise-wide total to **exactly 91 observables** (28 + 58 + 5, frozen) — the global ledger that
+[reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar 0.05/91 ≈
+5.5×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
 battery and then testing them on the same sequence inflates apparent significance; a referee is entitled to
 demand multiple-comparisons accounting across the *whole battery*, not just per-test corrections. Applying
 the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everything examined:
@@ -464,7 +465,7 @@ distribution-floor atoms of near-threshold mass. Neither correction touches the 
 controls: FC-1 (positive controls) and FC-3 (manufacture alarm) reference no matched-null quantity.
 
 Look-elsewhere ledger: the five off-home family predicates applied to King Wen (J1, M1, M3, M4,
-B1 — all expected-fail, all failed) are logged conservatively: global observable count ~83 → ~88.
+B1 — all expected-fail, all failed) are logged conservatively: global observable count 86 → 91 (frozen).
 
 *Attribution.* The Jing Fang and Mawangdui orderings are classical Chinese artifacts, not project
 inventions (traditional attribution to Jing Fang, 77–37 BCE; the Mawangdui manuscript's tomb was
@@ -551,7 +552,7 @@ page in the eventual report).
 **Davis results (2026-07-04, reported in full as pre-committed):** of the nine registered candidates,
 Davis's flagship compositional claims (terminal contiguity, the 7–16 mirror, palindrome adjacency, the
 asymmetric half-split) are NULL after Bonferroni; the #43–50 trigram array is notable (6.8×10⁻⁴ — at its
-family correction; it does not survive the global ~88-observable ledger's ≈5.7×10⁻⁴ bar); the
+family correction; it does not survive the global 91-observable ledger's ≈5.5×10⁻⁴ bar); the
 exact-placement templates are rare-by-construction (data-like class — including two with zero sampled
 mass at 2×10⁹ probes) and, per the standing circularity policy, carry no design inference; corpus
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided

@@ -73,7 +73,7 @@ explicit.
    conditioning*; the C1-only (start-free) fraction is now also exact — **4.29341%**
    (1 in 23.29, start-unpinned; `solve --f1-exact-c1c2`, 3-prime CRT, orbit-0 anchored to 2·|C1∩C2∩C4|; 2026-07-25). Corollary (C5's multiset contains no distance-5, so C5 ⟹ C2):
    |C1∩C4∩C5| = |C1∩C2∩C4∩C5| exactly — every C5-containing lattice cell equals its C2-added twin.
-   Only the C3 conditional remains sampled (by design; C3 is positional, outside the DP state).
+   Only the C3 conditional remains sampled (by design; a bounded-state design exists — C3 = 16 + 8·G — but the exact G-channel run is ruled out on cost: TR-11 §10(ii)).
 
    ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits; forced-orientation theorem
    returns 1. ² Radisic 2026: the pairing is the unique Hamming-optimal comp/rev matching — under the

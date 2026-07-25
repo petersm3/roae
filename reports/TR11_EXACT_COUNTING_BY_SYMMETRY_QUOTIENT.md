@@ -27,8 +27,9 @@ hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the ex
 and within 0.0044% of the prior statistical estimate. The final constraint (C3) is, as of this
 version, no longer described as a structural obstruction: its global sum collapses to a bounded
 scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
-design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×)
-cost of carrying that channel alongside C5's state, not missing mathematics.
+design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×;
+provisional and, on current evidence, more likely low than high — §10(ii)) cost of carrying that
+channel alongside C5's state, not missing mathematics.
 
 ## Abstract
 
@@ -55,7 +56,8 @@ against the in-RAM path on independent hardware; the full-scale count **landed 2
 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, divisible by 24 exactly and
 0.999956× the Knuth estimate), and the honest limits (the flagship 1.3287×10³⁸ remains an estimate;
 C3's global sum — formerly stated here as an open obstruction — collapses to the bounded scalar
-identity C3 = 16 + 8·G, leaving an estimated ~15–30× (central ~19×) cost barrier rather than a
+identity C3 = 16 + 8·G, leaving an estimated ~15–30× (central ~19×; provisional and, on current
+evidence, more likely low than high) cost barrier rather than a
 structural one; §10(ii)).
 
 *Novelty status: symmetry-quotiented counting is classical methodology (Burnside/orbit counting;

@@ -151,11 +151,12 @@ leave only KW plus a single impostor (the full identifying set has 5 boundaries;
 see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 ≈**10²⁶ orderings in the full space** — the sharpest quantification yet of the slice-uniqueness vs
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
-~10³ per-boundary cut puts full-space uniqueness at roughly 13–14 well-chosen boundaries (wide error; the
-prior structural estimate was 15–20). A bracketing run choosing among the *weakest* remaining boundaries
+~10³ per-boundary cut put full-space uniqueness at roughly 13–14 boundaries; the 2026-07-05 S(6)–S(8)
+measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, revising the
+projection to ~15–20 (hard floor k ≥ 13). A bracketing run choosing among the *weakest* remaining boundaries
 (k = 5–8) still cut ×15–17 per boundary, so the decay is robust to boundary choice within an order of
 magnitude per step. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
-masses starve below ~10⁻¹³ hit rates) and is queued as a future measurement. Reproduce:
+masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S(8), TR-4). Reproduce:
 `SOLVE_KNUTH_PIN_SLOTS="3,4,26,27,24,25,20,21" SOLVE_KNUTH_BOUNDARY_COND=1 ./solve --estimate-knuth 2000000000`.
 
 ## Absolute validation against an exact count (2026-07-04)
@@ -178,7 +179,8 @@ not a resolved estimator error). (The full C1–C5 count remains an estimate —
 structural, reasons: C3's global complement-position sum collapses to the bounded scalar identity
 **C3 = 16 + 8·G** — a machine-checked repo theorem since 2026-07-04, `lean/C3Decomposition.lean`
 `c3_slot_decomposition` — so a bounded-state exact design exists; carrying the G-channel alongside C5's
-budget state is sized at an estimated ~15–30× the C5 DP's footprint, outside this project's budget —
+budget state is sized at an estimated ~15–30× the C5 DP's footprint (TR-11 §10(ii); figures
+provisional, more likely low than high), outside this project's budget —
 see TR-11 §10(ii).)
 
 ## An information floor on the uniqueness-boundary count (2026-07-04)
