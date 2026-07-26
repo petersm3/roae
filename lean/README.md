@@ -41,8 +41,9 @@ Lean's compiler). What that buys:
   previously carried by `verify.py --check-null-g` from exact-by-computation to machine-checked.
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
   each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
-  the toolchain is pinned in this directory's `lean-toolchain`; the one exception to "seconds" is
-  `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP).
+  the toolchain is pinned in this directory's `lean-toolchain`; the two exceptions to "seconds"
+  are `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP, and
+  `KingWen.lean`, ~30 s, which kernel-evaluates the equivariance-ceiling witness).
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
@@ -81,7 +82,7 @@ finite computation those arguments rest on.
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
 # (leanprover/lean4:v4.31.0). Each file is standalone; no lake project:
-lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0)
+lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0; ~30 s — kernel-evaluates the equivariance-ceiling witness)
 lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4 null G-law (see below; ~2 min — kernel-evaluates a 31-layer DP)
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
@@ -89,6 +90,7 @@ lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance t
 lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below)
 lean SymmetryCompleteness.lean  # TR-5 v2.0 completeness kernel: psi iso, Q6 rigidity, partner-commuters = G48 (2026-07-18)
 lean C1RuleConstants.lean    # the eight "forced-1.0" literature rules (mmt4,p1c4,s1,s6,r3,r4,r5,c2) are constants of the C1 space (2026-07-21)
+lean HammingOptimalMatching.lean  # C1 is THE unique Hamming-cost-minimizing comp/rev matching (Radisic 2026, re-derived in-repo; kernel-only decide) (2026-07-26)
 ```
 
 **Files on the `v4-canonical` branch, not here.** Three Lean files live on the public
@@ -106,7 +108,9 @@ Reports link to them with that qualifier; if a link looks broken from `main`, ch
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
 optimality in Lean 4 + Mathlib (K₄-equivariant matching; different object from the constraint-system
-symmetry group verified here). See CITATIONS.md.
+symmetry group verified here). His artifact was independently rebuilt and audited by this project, and
+the optimality theorem is now also machine-checked in-repo — see
+§"HammingOptimalMatching.lean" below and CITATIONS.md.
 
 ## Tier 2 (2026-07-03): structured sequence-level proofs
 `wrap_parity_general` — the wrap-parity theorem verified for EVERY C4+C5 sequence of 6-bit values by
@@ -225,3 +229,78 @@ the same reading `verify.py --check-null-g` implements independently (with a dif
 G accumulator). This is the C1∩C4 null ONLY — no C2, no C5, no budget truncation; it is not
 comparable like-for-like to ceiling-tie shares measured over C2/C5-conditioned enumerated
 populations (same scope warning `verify.py` prints).
+
+## HammingOptimalMatching.lean (2026-07-26): C1 is THE unique optimal comp/rev matching
+
+The first-principles optimality of the C1 pairing — previously resting on an external unrefereed
+preprint ([Radisic 2026](../documentation/CITATIONS.md#radisic2026), arXiv:2601.07175) — is now
+machine-checked **in-repo**. The mathematical result is Radisic's; this file is an independent
+re-derivation in this repo's own encoding (core Lean 4, no mathlib, standalone file, the same
+`partner` definition as `KingWen.lean` / solve.c's `partner()`), written after his proof was read
+and his artifact independently rebuilt. Verified statements:
+
+| Theorem | Statement |
+|---|---|
+| `partner_is_unique_minimum` (MAIN) | Every pairing of the 64 hexagrams in which each hexagram goes to its complement or reversal (never itself) has total endpoint Hamming cost ≥ 240 (= 2 × 120 per-pair), and any pairing attaining 240 equals `partner` at every hexagram — the C1 rule is THE unique Hamming-cost-minimizing comp/rev matching |
+| `partner_involution`, `partner_cost_240`, `comp_only_cost_384` | The optimum is a genuine fixed-point-free involution attaining 240; the complement-only matching costs 384 (= 2 × 192) |
+| `kw_realizes_partner` | King Wen realizes exactly this matching: all 32 pairs satisfy KW[2k+1] = partner(KW[2k]), within-pair distances summing to the optimal 120 |
+| `full_k4_can_do_192` | SCOPE GUARD: over the full Klein group the bound fails — an explicit involution using comp∘rev achieves 192 endpoint (= 2 × 96 < 2 × 120). The optimality claim is comp/rev-scoped, exactly as SPECIFICATION.md states it |
+
+**Trust base: kernel-only.** Every finite fact in this file is proved by plain `decide` — **no
+`native_decide` anywhere**; `#print axioms` on all five headline theorems reports `[propext]` only.
+This is a strictly smaller trusted base than Radisic's own artifact (whose weight-conservation /
+robustness layers use `native_decide`) and than most files in this directory.
+
+**Independent verification record for Radisic's original artifact (2026-07-26).** Before this
+adaptation was written, Radisic's Lean 4 + Mathlib source (the arXiv ancillary files of
+2601.07175v3) was rebuilt from source on a clean Ubuntu 24.04 VM: pinned toolchain
+`leanprover/lean4:v4.30.0-rc2`, mathlib pinned by `lake-manifest.json` (rev `5450b53e…`);
+`lake build` exits 0 with zero warnings on all 13 `IChing/*` modules; zero `sorry`/`admit` and zero
+axiom declarations in the source; `#print axioms` on his 13 main theorems reports the standard
+`[propext, Classical.choice, Quot.sound]` plus, for the weight-conservation/robustness layers only,
+the expected `native_decide` axioms (compiler-trusting). Two findings from the audit, for the
+record: (i) the ancillary is missing `IChing/MultiOrthantManifold.lean`, which the root
+`IChing.lean` imports — the lakefile's `.submodules` glob excludes the root module so `lake build`
+is unaffected, but the root file itself does not elaborate; (ii) his repo-facing uniqueness theorem
+(`reversePriority_unique`) is rule-level, with the matching-level cost-uniqueness assembled in the
+paper's prose from his per-element lemmas (`priorityPartner_minimizes_distance`,
+`weight_three_rev_beats_cr`, …) — `HammingOptimalMatching.lean` closes that assembly formally
+(`partner_is_unique_minimum` quantifies over ALL comp/rev pairings). Neither finding affects the
+correctness of his result; both are documented so the claim's provenance is exact.
+
+## The equivariance ceiling (2026-07-26): KingWen.lean final section
+
+The "agnostic generator" corollary of the symmetry theorem, machine-checked: any generator whose
+scoring/decision function is built purely from G-invariant bit-structural primitives (Hamming
+distance, popcount, complement, reversal, the distinguished values 0/63, slot indices, and
+aggregates thereof) induces an output distribution taking equal values on King Wen's record and
+each of its 23 record-level twins — so the best such a generator can do is spread mass uniformly
+over KW's 24-element record orbit, never concentrate it on KW alone. Masses are unnormalized Nat
+weights (clear denominators of any rational-probability — in particular any computable —
+generator); `total` is the scaled total mass. Verified statements:
+
+| Theorem | Statement |
+|---|---|
+| `mass_of_invariant_score` | Fully general (any action, any score, any mass): a mass assignment factoring through a G-invariant score is itself G-invariant — the "invariant vocabulary ⇒ equivariant generator" step; **axiom-free** |
+| `mass_const_on_kwOrbit` | Under an orbit-invariant score, every record in KW's orbit receives the same mass as KW's record — equal probability on KW and each of its 23 twins |
+| `kwOrbit_mass_eq` | Orbit-mass identity: the orbit's total mass is EXACTLY 24 × the mass on KW's record |
+| `equivariance_ceiling` | THE CEILING: `24 * mass(KW-record) ≤ total`, i.e. P(KW-record) ≤ 1/24 — concentration on KW's singleton is impossible |
+| `no_unique_kw_concentration` | Corollary: a G-invariantly-scored generator putting ALL its mass on KW's record has total mass zero |
+| `kwOrbit_length`, `kwOrbit_nodup`, `kw_record_mem_kwOrbit` | The orbit has exactly 24 pairwise-distinct records (length REUSES `twins_24_records` verbatim — the ceiling is a genuine corollary of the existing free-action finite component, not a re-proof) and contains KW's own record |
+| `popcount_profile_const_on_kw_images` | Inhabitation witness: a real record-level invariant-primitive score (per-slot pair-popcount profile) satisfies the invariance hypothesis exactly — kernel-checked (`decide +kernel`, no compiler trust) |
+
+**Trust base (`#print axioms`, recorded 2026-07-26).** `mass_of_invariant_score`: no axioms.
+Structural lemmas (`nodup_eraseDups`, `sum_map_const`, `mass_const_on_kwOrbit`): `[propext,
+Quot.sound]` — kernel-only. `popcount_profile_const_on_kw_images`: `[propext]` — kernel-only.
+The ceiling chain (`kwOrbit_length`, `kwOrbit_mass_eq`, `equivariance_ceiling`,
+`no_unique_kw_concentration`) additionally carries `twins_24_records`'s `native_decide` axiom
+(and `kw_record_mem_kwOrbit` carries `kw_valid`'s) — i.e. exactly the compiler-trusting finite
+component this file has always rested on, inherited by reuse, with nothing new added to the
+trusted base by the ceiling itself.
+
+**Scope.** This is a statement about generators whose decision functions factor through
+G-invariant scores at the record level — the hypothesis `hconst` is G-invariance instantiated at
+KW's orbit. It does not (and cannot) rule out generators using non-G-invariant vocabulary:
+lexicographic/numeric label conventions or KW-derived constants break the ceiling by
+construction, which is precisely the point — unique-KW output requires smuggled labels or
+KW-specific data.

@@ -39,7 +39,7 @@ where |H| = 64. Under `comp(h) = h ⊕ 63`, no hexagram is self-complementary (t
 ### C1: Pair structure
 For all i ∈ {0, 2, 4, ..., 62}: s_{i+1} = partner(sᵢ).
 
-*The 64 hexagrams form 32 consecutive pairs, each a hexagram and its reverse (or complement for the 8 self-reverse hexagrams — 4 complement-partnered pairs). [Radisic](CITATIONS.md#radisic2026) (2026, arXiv:2601.07175, Lean-verified) proved this pairing is the unique Hamming-cost-minimizing comp/rev matching on {0,1}⁶ — a first-principles optimality characterization; see [CITATIONS.md](CITATIONS.md).*
+*The 64 hexagrams form 32 consecutive pairs, each a hexagram and its reverse (or complement for the 8 self-reverse hexagrams — 4 complement-partnered pairs). [Radisic](CITATIONS.md#radisic2026) (2026, arXiv:2601.07175, Lean-verified; independently re-verified and machine-checked in-repo, [lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean)) proved this pairing is the unique Hamming-cost-minimizing comp/rev matching on {0,1}⁶ — a first-principles optimality characterization; see [CITATIONS.md](CITATIONS.md).*
 
 ### C2: No 5-line transitions
 For all i ∈ {0, 1, ..., 62}: d(sᵢ, s_{i+1}) ≠ 5.

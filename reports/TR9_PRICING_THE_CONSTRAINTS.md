@@ -8,11 +8,14 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 If you had to transmit the King Wen sequence to someone, how many bits would it take — and how many do
 the known "design rules" save you? This report prices every rule in bits, the accounting standard of
 information theory. The verdict: the classical pairing rule does almost all the work (~146 of ~296
-bits) and is provably the *best possible* rule of its kind — though that "essentially free to state"
-upgrade rests on [Radisic (2026)](../documentation/CITATIONS.md#radisic2026), an **external, unrefereed
-preprint whose Lean artifact is not bundled in this repo**. That dependency touches the *optimality*
-claims — "best possible" and the ~0-bit derivation-convention cost both rest on Radisic's uniqueness
-theorem — but **not the dominance conclusion**: **"C1 dominates the explanation" holds under the family
+bits) and is provably the *best possible* rule of its kind. That optimality theorem is
+[Radisic (2026)](../documentation/CITATIONS.md#radisic2026)'s — still an unrefereed preprint, but no
+longer an unverified external dependency: his Lean artifact was **independently rebuilt and
+re-verified by this project (2026-07-26), and the theorem is now machine-checked in-repo**
+([lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean), kernel-only `decide`,
+axiom base `[propext]` — see [lean/README.md](../lean/README.md)). The optimality
+claims — "best possible" and the ~0-bit derivation-convention cost — rest on that machine-checked
+uniqueness theorem; **the dominance conclusion does not need even that**: **"C1 dominates the explanation" holds under the family
 (selection-cost) convention
 regardless**, since even the maximal family charge (~13–19 bits) is small against 146.3. The
 no-distance-5 rule roughly breaks even
@@ -90,8 +93,10 @@ explicit.
    slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
 3. **Reading the ledger, row by row.** **C1** is where nearly all the explanation lives: 146.3 bits of
    compression, and its statement cost collapsed in 2026 — Radisic (arXiv:2601.07175 — an unrefereed
-   preprint whose Lean 4 + Mathlib proof artifact is independently checkable; the ledger leans on the
-   machine verification, not on refereeing) proved the pairing is the *unique* Hamming-cost minimizer
+   preprint; the ledger leans on the machine verification, not on refereeing — his Lean 4 + Mathlib
+   artifact was independently rebuilt and re-verified by this project 2026-07-26, and the theorem is
+   machine-checked in-repo: [lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean))
+   proved the pairing is the *unique* Hamming-cost minimizer
    among comp/rev matchings on {0,1}⁶,
    so under the derivation convention it costs only the optimality principle. That upgrade is Radisic's,
    not ours; it is the first genuine first-principles derivation of any layer of the constraint system.
@@ -161,7 +166,9 @@ explicit.
   SOLVE_C_CLI.md); C5 layer count **exact (two-instrument: independently recomputed at full scale 2026-07-25 by `verify.c --ie-count`, exact MATCH; the mod-24 gate, the 4/4 out-of-core ladder and identical cross-mode layer content (byte-identical in the v1-format validation runs) further corroborate it — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi))**: `solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`
   (1.097051×10³⁹, divisible by 24 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); the prior
   estimator value 1.0971×10³⁹ ±0.01% matches it to 0.0044%)
-- C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib); within-pair
+- C1 optimality (statement-cost collapse): Radisic, arXiv:2601.07175 (Lean 4 + Mathlib; independently
+  rebuilt + re-verified 2026-07-26) — and machine-checked in-repo: `lean HammingOptimalMatching.lean`
+  (kernel-only; `partner_is_unique_minimum`, `kw_realizes_partner`); within-pair
   distance cross-check 2×12 + 4×12 + 6×8 = 120 per documentation/CITATIONS.md §Radisic 2026
 - Circularity pricing of C3: documentation/CRITIQUE.md Q1
 - Schulz gender rule gross bits: ×11,364 ≈ 13.5 bits — companion registry, [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) /
@@ -214,5 +221,6 @@ residual parenthetical reworded to match its arithmetic (the 126.6 figure retain
 too gives 129.7). Statement-cost convention families for the three priced rows were tightened per the review before
 v1.0.*
 | v1.11 | 2026-07-20 | **Dependency and precision disclosures (adversarial-review F-2a, F-2d, F-17, F-10).** F-2a/F-2d: the C5 exact count is tagged **single-instrument** in both the ledger row and the Verification Guide — mod-24 gate, 4/4 out-of-core ladder and byte-identical layer files corroborate it, but it has not been independently recomputed at full scale (TR-11 §10(vi)). F-17: the executive summary now discloses that C1's "essentially free to state" upgrade rests on Radisic (2026), an external, unrefereed preprint whose Lean artifact is not bundled here, and states that the **"C1 dominates" conclusion holds under the family convention regardless** — even the maximal family charge (~13–19 bits) is small against 146.3. F-10: "strongest literature rule" qualified to strongest *principled* rule, since the data-like trigram rule scores higher but describes rather than explains. No bit value changed |
-| v1.13 *(current)* | 2026-07-25 | **C2 C1-only (start-unpinned) rarity now exact.** §2's "the C1-only fraction remains an estimate" is superseded: the start-unpinned \|C1∩C2\| was computed exactly (3-prime CRT, `solve --f1-exact-c1c2`, orbit-0 anchored to 2·\|C1∩C2∩C4\|), giving **4.29341%** (1 in 23.29) — consistent with the retired ~4.3% MC estimate and 1.0014× above the pinned 4.2872%. Mirrors SPECIFICATION.md + DESCRIPTION_LENGTH.md. No other bit value changed |
+| v1.13 | 2026-07-25 | **C2 C1-only (start-unpinned) rarity now exact.** §2's "the C1-only fraction remains an estimate" is superseded: the start-unpinned \|C1∩C2\| was computed exactly (3-prime CRT, `solve --f1-exact-c1c2`, orbit-0 anchored to 2·\|C1∩C2∩C4\|), giving **4.29341%** (1 in 23.29) — consistent with the retired ~4.3% MC estimate and 1.0014× above the pinned 4.2872%. Mirrors SPECIFICATION.md + DESCRIPTION_LENGTH.md. No other bit value changed |
 | v1.12 | 2026-07-22 | **Consistency sweep (mirrors TR-11 v1.4/v1.9; no value changed).** The C5 ledger row's "confirms to 0.0044%" replaced with the suite's standard hedge: the exact value lands inside the estimate's stated ±0.01% envelope, and the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved estimator error (TR-11 v1.4 / TR-4 v1.11). The Verification Guide's "byte-identical layer files" corroboration now states the format caveat: byte-identical in the v1-format validation runs; under current defaults the two modes' layer files are content-identical but byte-different (TR-11 §10(vi) precision note). No bit value, count, or conclusion changed |
+| v1.14 *(current)* | 2026-07-26 | **Radisic dependency downgraded from "external, unbundled" to "independently re-verified + machine-checked in-repo" (hardening item 1).** Radisic's arXiv:2601.07175 Lean 4 + Mathlib artifact (arXiv ancillary source) was rebuilt from scratch on a clean VM: `lake build` exit 0, zero `sorry`/`admit`/axiom declarations, `#print axioms` audited on the 13 main theorems (standard axioms; `native_decide` compiler-trust confined to his weight-conservation/robustness layers). The comp/rev optimality theorem itself is now proved in-repo in lean/HammingOptimalMatching.lean — kernel-only `decide`, axiom base `[propext]`, including the matching-level global uniqueness statement (`partner_is_unique_minimum`), the KW realization (`kw_realizes_partner`), and the full-K₄ scope guard (`full_k4_can_do_192`). The F-17 disclosure language in the executive summary, §3, and the Verification Guide updated accordingly. Result credit remains Radisic's. No bit value changed |

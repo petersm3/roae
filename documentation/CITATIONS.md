@@ -408,7 +408,13 @@ this document:
 ## First-principles optimality of the pairing (C1) — Radisic 2026
 
 **Radisic, Alejandro.** "Optimal Equivariant Matchings on the 6-Cube, With an Application to the King Wen
-Sequence." arXiv:2601.07175 (v3, May 2026). Proves (Lean 4 + Mathlib verified) that among comp/rev
+Sequence." arXiv:2601.07175 (v3, May 2026). *Verification status (2026-07-26): his Lean 4 + Mathlib
+artifact (the arXiv ancillary source) was independently rebuilt and re-verified by this project —
+`lake build` clean on the pinned toolchain, zero `sorry`/`admit`/axiom declarations, axiom audit on the
+main theorems — and the comp/rev optimality theorem is additionally machine-checked in-repo with a
+kernel-only proof ([lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean); see
+[lean/README.md](../lean/README.md) for the full verification record, including two documented
+artifact-level findings that do not affect the result).* Proves (Lean 4 + Mathlib verified) that among comp/rev
 matchings on {0,1}⁶ there is a **unique Hamming-cost minimizer** — the reverse-priority rule, which is
 exactly this project's `partner()` function / the C1 pairing — with cost 120 (vs 192 complement-only;
 independently confirmed by our within-pair distance table 2×12+4×12+6×8 = 120); that the King Wen sequence
@@ -665,7 +671,8 @@ Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah
 Radisic, A. (2026). *Optimal equivariant matchings on the 6-cube, with an application to the King Wen
 sequence*. arXiv. https://arxiv.org/abs/2601.07175 [doi:10.48550/arXiv.2601.07175](https://doi.org/10.48550/arXiv.2601.07175)
   Lean-verified proof that the C1 pairing is the unique Hamming-cost optimum — the first first-principles
-  derivation of any constraint layer. [read]
+  derivation of any constraint layer. Artifact independently rebuilt + re-verified 2026-07-26; theorem
+  also machine-checked in-repo ([lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean)). [read]
 
 <a id="rutt1996"></a>
 Rutt, R. (1996). *Zhouyi: The Book of Changes*. Curzon Press. [Open Library](https://openlibrary.org/works/OL4988348W)

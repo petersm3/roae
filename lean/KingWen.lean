@@ -14,7 +14,9 @@
   identity on 6-bit values), and King Wen facts (C1, C4, C5 multiset, C3 = 776 exactly,
   no distance-5 transition, exactly 15 parity-class alternations), plus the finite
   component of Theorem A (exactly 48 of the 720 bit permutations map KW to a valid
-  C1–C5 sequence — the centralizer of reversal).
+  C1–C5 sequence — the centralizer of reversal), and the EQUIVARIANCE CEILING
+  (2026-07-26, final section): any generator scored purely in G-invariant primitives
+  gives KW's record exactly 1/24 of its orbit's mass — it can never single out KW.
 -/
 
 /-- popcount for 6-bit values (total, no recursion needed). -/
@@ -457,3 +459,146 @@ theorem switches_30_general (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen : l.
     rw [hw, hbet]
     omega
   rw [hsplit, heven, hodd, h15]
+
+
+/- ------------------ THE EQUIVARIANCE CEILING (2026-07-26) ------------------
+   The "agnostic generator" corollary of the symmetry theorem. Setting: the finite
+   component of Theorem A above (sigma_kw_valid_48, valid_iff_centralizes_rev,
+   twins_24_records; sequence-level layer in Automorphism.lean) shows the 48
+   constraint symmetries collapse KW's images to exactly 24 distinct record-level
+   pair-sequences — the record-level group acts freely, so every valid ordering
+   has exactly 23 twins.
+
+   CLAIM (the ceiling): any generator whose scoring/decision function is built
+   purely from G-invariant bit-structural primitives (Hamming distance, popcount,
+   complement, reversal, the distinguished values 0/63, slot indices, and
+   aggregates thereof) induces an output distribution taking EQUAL values on KW's
+   record and each of its 23 record-level twins. Such a generator can at best
+   concentrate mass uniformly on KW's 24-element orbit — never on KW alone: KW's
+   record receives exactly 1/24 of whatever mass the orbit receives.
+
+   Formalization notes.
+   * Masses are unnormalized Nat weights: a distribution with rational output
+     probabilities (any computable generator) becomes a Nat weight function after
+     clearing denominators, with `total` the scaled total mass; the conclusion
+     `24 * mass(KW-record) ≤ total` then reads P(KW-record) ≤ 1/24.
+   * The hypothesis `hconst` (the score takes one value across all valid symmetry
+     images of KW) is precisely G-invariance instantiated at KW; the fully
+     general lemma `mass_of_invariant_score` shows any mass factoring through a
+     G-invariant score satisfies it, and `popcount_profile_const_on_kw_images`
+     witnesses that real record-level invariant-primitive scores inhabit the
+     hypothesis class.
+   * The hypothesis `htotal` (the orbit's mass-sum is at most the total mass) is
+     finite subadditivity of any (sub)probability over pairwise-distinct outcomes
+     — the 24 orbit records are pairwise distinct (`kwOrbit_nodup`).
+   * REUSE: the orbit size comes verbatim from twins_24_records (`kwOrbit_length`
+     IS that theorem, not a re-proof) — the ceiling is a genuine corollary of the
+     already-verified free-action finite component. -/
+
+/-- the 48 valid symmetry permutations (Theorem A's finite component: exactly the
+    centralizer of reversal). -/
+def validPerms : List (List Nat) :=
+  (perms [0,1,2,3,4,5]).filter fun p => validC15 (KW.map (applyPerm p))
+
+/-- KW's record-level orbit: the distinct pair-sequences among the 48 valid images. -/
+def kwOrbit : List (List Nat) :=
+  (validPerms.map fun p => pairKey (KW.map (applyPerm p))).eraseDups
+
+/-- the orbit has exactly 24 members — definitionally twins_24_records (REUSED,
+    not re-proven). -/
+theorem kwOrbit_length : kwOrbit.length = 24 := twins_24_records
+
+/-- eraseDups always yields a duplicate-free list. -/
+theorem nodup_eraseDups {α : Type} [BEq α] [LawfulBEq α] : ∀ (l : List α), l.eraseDups.Nodup
+  | [] => by simp
+  | a :: as => by
+    rw [List.eraseDups_cons]
+    have hlen : (as.filter fun b => !b == a).length < as.length + 1 := by
+      have := List.length_filter_le (fun b => !b == a) as; omega
+    refine List.nodup_cons.mpr ⟨?_, nodup_eraseDups _⟩
+    intro hmem
+    have h := (List.mem_filter.mp (List.mem_eraseDups.mp hmem)).2
+    simp at h
+termination_by l => l.length
+
+/-- the 24 orbit records are pairwise distinct. -/
+theorem kwOrbit_nodup : kwOrbit.Nodup := nodup_eraseDups _
+
+/-- sanity: KW's own record is in the orbit (witness: the identity permutation). -/
+theorem kw_record_mem_kwOrbit : pairKey KW ∈ kwOrbit := by
+  have hid : KW.map (applyPerm [0,1,2,3,4,5]) = KW := by decide
+  refine List.mem_eraseDups.mpr (List.mem_map.mpr ⟨[0,1,2,3,4,5], ?_, by rw [hid]⟩)
+  refine List.mem_filter.mpr ⟨by decide, ?_⟩
+  rw [hid]; exact kw_valid
+
+/-- EQUIVARIANCE, fully general: a mass assignment that factors through a
+    G-invariant score is itself G-invariant — for ANY action, ANY score, ANY
+    mass. This one-rewrite lemma is the entire content of the step "a generator
+    whose decision function uses only G-invariant primitives is G-equivariant". -/
+theorem mass_of_invariant_score {α β γ δ : Type} (act : α → β → β)
+    (score : β → γ) (mass : γ → δ)
+    (hinv : ∀ σ x, score (act σ x) = score x) (σ : α) (x : β) :
+    mass (score (act σ x)) = mass (score x) := by rw [hinv]
+
+/-- summing a function that is constant on a list gives length × the constant. -/
+theorem sum_map_const {α : Type} {P : α → Nat} {c : Nat} :
+    ∀ (l : List α), (∀ x ∈ l, P x = c) → (l.map P).sum = l.length * c
+  | [] => fun _ => by simp
+  | x :: xs => fun h => by
+    have hx : P x = c := h x (by simp)
+    have ht := sum_map_const xs (fun y hy => h y (List.mem_cons_of_mem x hy))
+    simp only [List.map_cons, List.sum_cons, List.length_cons, hx, ht,
+               Nat.add_mul, Nat.one_mul]
+    omega
+
+/-- under an orbit-invariant score, every record in KW's orbit receives the same
+    mass as KW's own record — equal probability on KW and each of its 23 twins. -/
+theorem mass_const_on_kwOrbit {γ δ : Type} (score : List Nat → γ) (mass : γ → δ)
+    (hconst : ∀ p ∈ validPerms, score (pairKey (KW.map (applyPerm p))) = score (pairKey KW)) :
+    ∀ r ∈ kwOrbit, mass (score r) = mass (score (pairKey KW)) := by
+  intro r hr
+  obtain ⟨p, hp, he⟩ := List.mem_map.mp (List.mem_eraseDups.mp hr)
+  rw [← he, hconst p hp]
+
+/-- ORBIT-MASS IDENTITY: under an orbit-invariant score the total mass on KW's
+    24-record orbit is EXACTLY 24 × the mass on KW's record — concentration
+    anywhere inside the orbit is impossible; uniform-on-orbit is forced. -/
+theorem kwOrbit_mass_eq {γ : Type} (score : List Nat → γ) (mass : γ → Nat)
+    (hconst : ∀ p ∈ validPerms, score (pairKey (KW.map (applyPerm p))) = score (pairKey KW)) :
+    (kwOrbit.map fun r => mass (score r)).sum = 24 * mass (score (pairKey KW)) := by
+  rw [sum_map_const kwOrbit (mass_const_on_kwOrbit score mass hconst), kwOrbit_length]
+
+/-- THE EQUIVARIANCE CEILING: a generator whose score is G-invariant gives KW's
+    record at most 1/24 of the total mass (`24 * mass(KW) ≤ total`, in scaled
+    Nat weights). Corollary of twins_24_records: the best any agnostic
+    bit-structural generator can achieve is the uniform distribution on KW's
+    24-element record orbit — never concentration on KW itself. -/
+theorem equivariance_ceiling {γ : Type} (score : List Nat → γ) (mass : γ → Nat)
+    (total : Nat)
+    (hconst : ∀ p ∈ validPerms, score (pairKey (KW.map (applyPerm p))) = score (pairKey KW))
+    (htotal : (kwOrbit.map fun r => mass (score r)).sum ≤ total) :
+    24 * mass (score (pairKey KW)) ≤ total := by
+  rw [← kwOrbit_mass_eq score mass hconst]; exact htotal
+
+/-- COROLLARY (no agnostic unique-KW generator): if a G-invariantly-scored
+    generator puts ALL of its mass on KW's record, its total mass is zero — no
+    normalized distribution in this class can single out KW. -/
+theorem no_unique_kw_concentration {γ : Type} (score : List Nat → γ) (mass : γ → Nat)
+    (total : Nat)
+    (hconst : ∀ p ∈ validPerms, score (pairKey (KW.map (applyPerm p))) = score (pairKey KW))
+    (htotal : (kwOrbit.map fun r => mass (score r)).sum ≤ total)
+    (hall : mass (score (pairKey KW)) = total) :
+    total = 0 := by
+  have h := equivariance_ceiling score mass total hconst htotal
+  omega
+
+/-- inhabitation sanity witness: a genuine record-level score built from invariant
+    primitives — the per-slot pair-popcount profile — satisfies `hconst` exactly
+    (one value across all 48 valid images, hence across the 24-record orbit).
+    Kernel-checked (`decide +kernel`, ~25 s of in-kernel evaluation of the 720
+    permutations; the C3Decomposition.lean pattern) — no compiler trust. -/
+theorem popcount_profile_const_on_kw_images :
+    (validPerms.all fun p =>
+      ((pairKey (KW.map (applyPerm p))).map fun k => pc6 (k / 64) + pc6 (k % 64))
+        == ((pairKey KW).map fun k => pc6 (k / 64) + pc6 (k % 64))) = true := by
+  decide +kernel
