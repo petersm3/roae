@@ -17,8 +17,13 @@ Every report measures the same object. The formal predicates (full statements + 
   ceiling, not an equality: King Wen attains it exactly (776), and any ordering with a smaller sum also
   satisfies C3** (e.g. the wrap-d5 witness at 752). The threshold 776 is King Wen's own value —
   reverse-engineered, not derived; priced as circular in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
-- **C4 — fixed opening pair, forced orientation.** The first pair is {Qian(0), Kun(63)}; its orientation
-  is a theorem (Theorem 6), not an extracted parameter. Independently attested (Xugua commentary).
+- **C4 — fixed opening pair, defined orientation.** The first pair is {Qian(0), Kun(63)}; its orientation
+  (Heaven 63 before Earth 0) is **definitional and classically attested** (the Xugua opens
+  Heaven-then-Earth). It is NOT forced by the other constraints — complementation (x ↦ x ⊕ 63) is an
+  exact symmetry of C1∩C2∩C3∩C5 broken only by oriented C4, machine-checked in
+  [lean/KingWen.lean](../lean/KingWen.lean) *(the former "Theorem 6" forced-orientation claim is
+  retracted, 2026-07-26 — see CLAIMS_DECIDED's corrections ledger)*. [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)
+  already prices C4 at its full 6 bits (pair + orientation), so no ledger value moves.
 - **C5 — transition-distance multiset.** The multiset of the 31 between-pair boundary Hamming distances
   equals King Wen's: {1:2, 2:8, 3:13, 4:7, 6:1}. Extracted from KW (confirmatory, not predictive).
 - **C6, C7 — identifying adjacency pins.** Specific slot-24–27 adjacency choices used only to single out

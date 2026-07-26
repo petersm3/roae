@@ -1409,9 +1409,13 @@ up-to-date status.
 Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
 `~/github/roae-private/`, not committed to this repo). Highlights:
 
-3. **Formal proof of forced-orientation (Theorem 6).** `SPECIFICATION.md`
-   cites the theorem with a prose proof reference. Level 1: tighten the
-   prose to publication-grade. Level 2: machine-check in Lean or Rocq.
+3. **~~Formal proof of forced-orientation (Theorem 6)~~ — CLOSED BY
+   RETRACTION (2026-07-26).** The claim was false (complementation is an
+   exact symmetry of C1∩C2∩C3∩C5; only oriented C4 breaks it). The true
+   replacement statement — the Complement Z₂ symmetry theorem — is
+   machine-checked in `lean/KingWen.lean`; C4's orientation is
+   definitional (Xugua-attested), needing no theorem. See
+   SPECIFICATION.md §Theorems and CLAIMS_DECIDED's corrections ledger.
 4. **Bootstrap confidence intervals** on percentile claims (complement
    distance at 3.9th percentile, shift pattern percentages on the current
    canonical datasets, per-position entropies). Report `X% [Y%, Z%]`

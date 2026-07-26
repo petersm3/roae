@@ -70,7 +70,9 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
 
 1. **The counting problem, and why the naive DP is infeasible.** The target is |C1∩C2∩C4|: complete
    64-hexagram sequences built from the 32 classical pairs (C1), with no Hamming-distance-5 adjacent
-   transition (C2), opening with the fixed pair (Qian, Kun) in forced orientation (C4). C1 makes a
+   transition (C2), opening with the fixed pair (Qian, Kun) in C4's defined orientation (definitional,
+   classically attested — not forced by the other constraints; the former "Theorem 6" is retracted,
+   2026-07-26, see CLAIMS_DECIDED). C1 makes a
    pair-level formulation exact: place whole pairs with an orientation bit; C1 fixes the 32 within-pair
    distances (12×d2, 12×d4, 8×d6 — never 5), so checking C2 only at the 31 pair boundaries enforces full
    C2; C4 costs nothing in state — it pins the DP's initial condition (virtual predecessor exiting at

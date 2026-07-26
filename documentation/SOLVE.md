@@ -512,7 +512,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 ### Additional findings
 
-- **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾After Completion #63 / ䷿Before Completion #64) is the most common (35% of solutions) but not forced. The starting orientation, however, is forced: ䷀The Creative must come before ䷁The Receptive in all valid arrangements.
+- **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾After Completion #63 / ䷿Before Completion #64) is the most common (35% of solutions) but not forced. The starting orientation (䷀The Creative before ䷁The Receptive) is part of C4's **definition** — enforced by the enumerator, classically attested (Xugua), and NOT forced by the other constraints (see §Theorem 6 — RETRACTED below).
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It is a free choice at each pair.
 - **Complement proximity detail.** 9 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
 
@@ -520,7 +520,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canonical: 706M, d2 canonical: 286M) share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. The closest alternatives differ by only 2 pair positions.
 
-- **Position 1 is mathematically forced.** Creative/Receptive always comes first.
+- **Position 1 is fixed by C4's definition.** The Creative/Receptive pair always comes first (a definitional constraint, classically attested; the within-pair orientation is likewise definitional — see §Theorem 6 — RETRACTED).
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
 - **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing selections among genuinely available alternatives, not mathematical necessity.
 - **King Wen keeps complements unusually close relative to the other rules** — at the 3.9th percentile (sampled) of orderings satisfying C1+C2+C4+C5, i.e., every constraint except C3 itself. It does **not** minimize complement distance: within the C1+C2+C3 canonical, KW sits at the C3 **ceiling** (776; ~10% of enumerated orderings tie there), and the population minimum is far lower (424 at 100T, 392 at 560T). See §Rule 3's defensibility note. *(Reworded 2026-07-22: this line previously said "minimizes … as close as possible", an unscoped-minimization framing that §Rule 3 itself rules not defensible.)*
@@ -573,30 +573,54 @@ The difference is a partition-dependent sampling effect at the same 10T total bu
 - **Reproducibility**: **partition-invariant** under the formal theorem (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)): same partition + same solver + same node budget → byte-identical solutions.bin regardless of hardware, region, or number of shard-merge passes. Confirmed empirically across Phase B external merge, Phase C fresh re-enumeration, and today's in-memory heap-sort merge.
 - **Invalidated earlier figures**: the 31.6M (filename collision bug) and 742M (hash-probe-cap bug) counts do NOT appear in any current canonical artifact. They are historical only.
 
-### Theorem 6 (empirical): Starting orientation is forced
+### Theorem 6 — RETRACTED (2026-07-26): the "forced starting orientation" claim was false
 
-**Claim.** In every ordering satisfying C1-C5, the sequence begins with ䷀ The Creative (s₀=63) followed by ䷁ The Receptive (s₁=0) — the reversed orientation (s₀=0, s₁=63) yields zero valid orderings.
+**Retraction.** This section formerly claimed (as "Theorem 6, empirical") that in every ordering
+satisfying C1–C5 the sequence must begin s₀ = 63, s₁ = 0, and that "the reversed orientation
+(s₀=0, s₁=63) yields zero valid orderings." **The claim is false.** Two counterexample families,
+machine-verified 2026-07-26:
 
-**Status.** Empirically supported, not yet analytically proven. See LONG_TERM_PLAN.md #13 for the proof agenda (Level 1: tighten prose; Level 2: machine-check in Lean 4 or Rocq).
+1. **Global:** complement every hexagram of King Wen (x ↦ x ⊕ 63). The result opens (0, 63) and
+   satisfies C1 (the partner map commutes with complementation), C2 and C5 (complementation is a
+   Hamming isometry — the transition multiset is identical to KW's), and C3 (the complement-distance
+   sum is invariant: exactly 776). Only the *oriented* form of C4 excludes it. This is now a
+   machine-checked theorem — see below.
+2. **Conditioned on KW's own pair layout:** exact DP over orientation vectors of KW's pair sequence
+   under the exact C5 boundary budget shows the slot-0-reversed side of the fiber holds **983,040**
+   valid orientation vectors (vs 1,720,320 for the forward side) — nonzero, with C3 = 776 for every
+   one of them (C3 depends only on the slot layout — the machine-checked
+   `c3_slot_decomposition`, [lean/C3Decomposition.lean](../lean/C3Decomposition.lean)). An explicit
+   fully-verified witness is King Wen with slot 0 and slots 25–29 orientation-flipped.
 
-**Setup and notation.** Pair 0 of the canonical pair table is (63, 0) — Creative/Receptive. C4 fixes this pair at position 1 (the first pair slot in the sequence, indices s₀, s₁). C1 allows both orientations of any pair, so before applying any further constraint there are two candidates for the first pair:
+**Why the empirical support was vacuous (circularity disclosure).** The solver hardcodes
+`seq[0] = 63; seq[1] = 0` (its comments cited this very "theorem"). "Zero reversed-orientation
+orderings in the d3 10T enumeration" was therefore enforced by the instrument, not observed by it:
+the enumerator excludes reversed-orientation orderings by construction, so the enumeration could
+never have produced the counterexamples above. The earlier text's alternatives "(a) no such ordering
+exists, or (b) budget too small" omitted "(c) the enumerator excludes them by construction" — which
+was the case.
 
-- **Forward orientation**: s₀ = 63, s₁ = 0. Within-pair distance d(63, 0) = 6.
-- **Reversed orientation**: s₀ = 0, s₁ = 63. Within-pair distance d(0, 63) = 6.
+**The corrected statement (Complement Z₂ symmetry) — machine-checked.** Global complementation
+comp : x ↦ x ⊕ 63 is an **exact symmetry of C1 ∩ C2 ∩ C3 ∩ C5**, and an involution; it is broken
+only by the oriented form of C4 (it maps an opening 63 to an opening 0). Both orientations of the
+opening {0, 63} pair are therefore valid for C1∩C2∩C3∩C5: the orientation is a **free Z₂**, not a
+theorem. Machine-checked in Lean 4 (`comp_symmetry_c1_c2_c3_c5`, `c4ok_breaks_under_comp`,
+`orientation_not_forced` in [lean/KingWen.lean](../lean/KingWen.lean); kernel-only trust base
+`[propext, Quot.sound]`, no native_decide).
 
-Both consume one distance-6 slot from the C5 budget {1:2, 2:20, 3:13, 4:19, 6:9}, leaving {1:2, 2:20, 3:13, 4:19, 6:8} for the remaining 62 transitions.
+**What C4's orientation actually rests on.** Definition plus classical attestation — the *Xugua*
+commentary opens Heaven-then-Earth (Qian before Kun), centuries before any enumeration. That is an
+honest, sufficient basis for a definitional convention, and it needs no theorem. The solver's
+`seq[0] = 63; seq[1] = 0` is a **definitional commitment** implementing oriented C4, not an
+optimization licensed by a proof. All published counts and shas are unaffected: they count the
+system with C4 as defined (oriented), and do so correctly. [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)'s
+ledger already charged C4 its full 6 bits (pair + orientation), so no bit value moves there either.
 
-**Structural difference.** The first boundary transition is d(s₁, s₂). Under forward, s₁ = 0, so d(0, s₂) = popcount(s₂). Under reversed, s₁ = 63, so d(63, s₂) = 6 − popcount(s₂). These are complementary: if forward gives boundary distance k, reversed gives 6−k for the same s₂.
-
-This is a weaker constraint than a direct contradiction — one could hope that a different s₂' in the reversed case achieves a valid boundary distance that still permits C5 to close. The theorem's force comes from showing that no such s₂' (and subsequent extension) exists.
-
-**Empirical evidence.** The 2026-04-18 d3 10T enumeration (706,422,987 orderings, sha `f7b8c4fb…` — since deprecated in favor of `b85c8871…`/706,427,594, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated; this orientation scan was computed on the earlier file) contains **zero orderings** with the reversed starting orientation — KW-like and non-KW-like alike. Since the enumeration exhaustively explores the search tree up to a per-sub-branch node budget of 63M, and no reversed-orientation extension surfaced in any of 158,364 sub-branches, either (a) no such ordering exists, or (b) every such ordering requires more than 63M nodes per sub-branch to find.
-
-The 100T d3 enumeration currently running (631M nodes per sub-branch, 10× deeper) will tighten this bound. At full exhaustion (SOLVE_NODE_LIMIT=0), any remaining reversed-orientation ordering must surface.
-
-**What a rigorous analytic proof would require.** Case analysis over all (pair2, orient2) choices at position 2, showing that for each, no extension satisfies C5 — independent of budget. With 31 remaining pairs × 2 orientations = 62 cases at position 2, this is a mechanical but nontrivial induction. A Lean 4 / Rocq formalization would encode C1-C5 as typed predicates and discharge the cases via constraint propagation over finite sets.
-
-Until that lands, the theorem is best stated as: **empirically forced to 706M-ordering depth**. The solver's inlined assumption `seq[0] = 63; seq[1] = 0` is a correctness commitment that will be invalidated if and only if a counter-example ever surfaces at deeper partition.
+**Downstream re-scoping.** The orientation-fiber population in [TR-1 §7](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)
+(1,720,320 vectors) is the **C4-oriented fiber**; the pair-only-C4 fiber is 2,703,360 vectors
+(= 1,720,320 forward + 983,040 reversed), and the F5 battery was re-run on it 2026-07-26 — see
+TR-1 §7 for which verdicts moved (notably: 30/30 on the Van den Berghe rule is attainable on the
+pair-only fiber, by exactly 2 vectors, both opening (0, 63)).
 
 ### Theorem 7: Complement distance bounds
 

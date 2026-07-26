@@ -388,7 +388,8 @@ this document:
   ("pure") hexagrams in adjacent pairs is classical: [Lai Zhide](#laizhide) (16th c., via
   [Schulz 1982](#schulz1982)) and [Wu Deng](#wudeng)'s warp/weft skeleton (13th c., via
   [Nielsen 2003](#nielsen2003)). Nothing in TG-1 is claimed as a discovery; the contribution is the
-  kernel-checked lemma layer only.
+  machine-checked lemma layer only (three TG-1 counts are `native_decide`, the extended trust base;
+  label corrected 2026-07-26 from "kernel-checked").
 - **TG-3** (exactly 12 of the 48 constraint symmetries respect the trigram bipartition; ≅ S₃ × C₂):
   project-specific — the constraint-symmetry group itself is project-specific — with
   [Goldenberg (1975)](#goldenberg1975) credited for the ambient S₆-on-the-set framing. **Not** to be
@@ -797,12 +798,18 @@ document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.ar
   **Source and sole author of the nuclear orientation rule** (kingwen.pdf p. 11, Appendix 2): a
   nuclear-hexagram decision procedure predicting which member of each pair comes first, which he
   reported King Wen follows in 29 of the 30 pairs it addresses, with one declared exception (hexagram
-  pair 3/4). Our measurement (TR-1 §7, 2026-07-05) confirms his 29/30 exactly and sharpens it: 29 is
-  the maximum of the entire 1,720,320-vector orientation fiber of King Wen's pair sequence (12 vectors
-  attain it; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided, 1.3951×10⁻⁵ two-sided), and 30/30 is
-  unattainable — **his declared exception is forced**, making the rule perfect up to impossibility
-  rather than "almost perfect". The rule was derived from King Wen, so this is exact population
-  atypicality of his description, not independent confirmation; see TR-1 §7 for the full scoping.
+  pair 3/4). Our measurement (TR-1 §7, 2026-07-05; scope corrected 2026-07-26) confirms his 29/30
+  exactly and sharpens it: 29 is
+  the maximum of the 1,720,320-vector **C4-oriented** orientation fiber of King Wen's pair sequence —
+  the vectors keeping the classically attested (63, 0) opening — (12 vectors
+  attain it; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided, 1.3951×10⁻⁵ two-sided), where 30/30 is
+  unattainable — **his declared exception is forced given the received opening orientation**, making
+  the rule perfect up to impossibility rather than "almost perfect". On the pair-only-C4 fiber
+  (2,703,360 vectors, both openings; re-checked 2026-07-26) exactly 2 vectors attain 30/30, both
+  opening (0, 63) — the minimal one reverses precisely the opening pair and his own exception pair
+  3/4 — so the exception traces to the classical opening, not to pair geometry alone
+  (fiber-wide P(X ≥ 29) = 1.1097×10⁻⁵ one-sided). The rule was derived from King Wen, so this is exact
+  population atypicality of his description, not independent confirmation; see TR-1 §7 for the full scoping.
   His broader reconstruction also audits cleanly: 17 of 19 checkable claim-groups verify exactly,
   and his two self-declared exceptions sit precisely where computation finds the misfits. The finding
   is his; the operationalization, exact enumeration, and population placement are ROAE's.

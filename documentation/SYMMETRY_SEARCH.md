@@ -45,6 +45,21 @@ consecutive pairs map to consecutive pairs ✓. Since σ⁻¹ ∈ G, the equival
 produces a sequence that **violates C1** in all 672 cases (exhaustively verified 2026-07-02) — so none
 preserves the solution set. Exactly the 48 elements of G map KW to valid C1–C5 sequences. ∎
 
+**The complement Z₂ — the one flip C4 alone excludes (2026-07-26).** The all-flip element
+comp : x ↦ x ⊕ 63 deserves its own note, because only C4's *orientation* stops it: **comp is an
+exact symmetry of C1∩C2∩C3∩C5**, machine-checked in [lean/KingWen.lean](../lean/KingWen.lean)
+(`comp_symmetry_c1_c2_c3_c5`; kernel-only trust base, no native_decide) — it preserves C1 (partner
+commutes with comp), C2/C5 (Hamming isometry), and C3 exactly, and it is an involution. It moves
+63 → 0, so it breaks the *oriented* C4 (comp∘KW opens (0, 63)) — which is why it is rightly outside
+the C1–C5 group above. Under the **pair-only reading of C4** ({s₀, s₁} = {0, 63}, orientation free)
+the preserver group inside Aut(Q₆) doubles to **⟨comp⟩ × G (order 96)**: the flip component must fix
+the set {0, 63} (only flips 0 and 63 do), comp commutes with every σ ∈ G (σ is linear with
+σ(63) = 63), and the 672 non-centralizer permutations stay excluded by the C1 witness check above
+(comp preserves C1, so composing with comp cannot rescue them). This is also the corrected home of
+the retracted "Theorem 6": the opening orientation is a free Z₂ of the pair-only system — fixed in
+C4 by definition (classically attested, Xugua Heaven-then-Earth), not forced by the mathematics
+(see CLAIMS_DECIDED's corrections ledger, 2026-07-26).
+
 **Group structure.** rev = (0 5)(1 4)(2 3) splits the six bit positions into three pairs; its centralizer
 permutes the three pairs (S₃) and swaps within each independently ((Z₂)³): G ≅ Z₂ ≀ S₃ ≅ B₃, order 48,
 element orders {1:1, 2:19, 3:8, 4:12, 6:8}. rev itself is the central element −I; it maps every hexagram to
@@ -113,10 +128,12 @@ the finite kernel (`psi_involution`, `psi_g5_iso`, `psi_comm_perms`, `q6_two_com
 extended-trust-base convention for finite facts; the 46,080-element enumeration, fix-0 collapse and
 sequence-level witness lifting are deliberately NOT formalized there (covered by (i) and the prose).
 (iii) `sat.py --rigidity-cnf` emits the Step-3(ii) kernel as a self-validated CNF (4,096 vars,
-282,760 clauses, expected UNSAT; deliberately relaxed encoding, so UNSAT is a fortiori sufficient);
-the kissat+DRAT artifact is **pending** a solver-equipped worker (the orchestrator carries no SAT
-solver) — until it lands, the rigidity kernel's machine checks are (i)'s and (ii)'s forced
-derivations, which are exhaustive and do not rely on search.
+282,760 clauses, UNSAT; deliberately relaxed encoding, so UNSAT is a fortiori sufficient);
+the kissat+DRAT certificate **shipped 2026-07-20** —
+[reports/certificates/rigidity_sc4_unsat.drat.gz](../reports/certificates/rigidity_sc4_unsat.drat.gz),
+drat-trim-checked and re-verified by [reports/certificates/verify_all.sh](../reports/certificates/verify_all.sh)
+(see TR-5 v2.1's changelog) — so all three layers are landed artifacts. *(This paragraph previously
+said the DRAT leg was "pending a solver-equipped worker" — stale since 2026-07-20; updated 2026-07-26.)*
 
 **Scope, honestly stated.** (1) The theorem classifies **per-predicate preservers** — σ preserving
 each Cᵢ as a property of arbitrary sequences. (2) For the group of **solution-set automorphisms**

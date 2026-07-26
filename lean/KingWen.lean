@@ -14,9 +14,13 @@
   identity on 6-bit values), and King Wen facts (C1, C4, C5 multiset, C3 = 776 exactly,
   no distance-5 transition, exactly 15 parity-class alternations), plus the finite
   component of Theorem A (exactly 48 of the 720 bit permutations map KW to a valid
-  C1–C5 sequence — the centralizer of reversal), and the EQUIVARIANCE CEILING
-  (2026-07-26, final section): any generator scored purely in G-invariant primitives
-  gives KW's record exactly 1/24 of its orbit's mass — it can never single out KW.
+  C1–C5 sequence — the centralizer of reversal), the EQUIVARIANCE CEILING
+  (2026-07-26): any generator scored purely in G-invariant primitives
+  gives KW's record exactly 1/24 of its orbit's mass — it can never single out KW,
+  and the COMPLEMENT Z₂ SYMMETRY (2026-07-26, final section): global
+  complementation x ↦ x ⊕ 63 is an exact symmetry of C1∩C2∩C3∩C5, broken only
+  by the oriented form of C4 — so the opening orientation is a free Z₂, NOT
+  forced (this replaces the retracted "Theorem 6"; kernel-only trust base).
 -/
 
 /-- popcount for 6-bit values (total, no recursion needed). -/
@@ -200,7 +204,7 @@ theorem transitions_sum_parity :
         simp [transitions]
       rw [hexp, List.sum_cons]
       have hlast : (a :: b :: t2).getLastD 0 = (b :: t2).getLastD 0 := by
-        simp [List.getLastD_cons]
+        simp
       rw [hlast]
       simp only [List.headD] at ih2 ⊢
       omega
@@ -617,3 +621,242 @@ theorem popcount_profile_const_on_kw_images :
       ((pairKey (KW.map (applyPerm p))).map fun k => pc6 (k / 64) + pc6 (k % 64))
         == ((pairKey KW).map fun k => pc6 (k / 64) + pc6 (k % 64))) = true := by
   decide +kernel
+
+
+/- ------------------ THE COMPLEMENT Z₂ SYMMETRY (2026-07-26) ------------------
+   Replacement for the RETRACTED "Theorem 6 (forced orientation)". The retracted
+   claim asserted that C1+C4(pair)+C5 force the opening orientation s₀ = 63,
+   s₁ = 0. That claim is FALSE: global complementation comp : x ↦ x ⊕ 63,
+   applied to every hexagram of a sequence, is an EXACT symmetry of
+   C1 ∩ C2 ∩ C3 ∩ C5 — it is broken only by the ORIENTED form of C4.
+   In particular comp∘KW is a valid C1∩C2∩C3∩C5 sequence that opens (0, 63),
+   the reversed orientation, with C3 = 776 exactly. So under the pair-only
+   reading of C4 (the first pair is {0, 63}, orientation unspecified) the
+   opening orientation is a FREE Z₂, not a theorem; the published oriented C4
+   (Heaven 63 before Earth 0) is definitional — classically attested (the
+   Xugua's Heaven-then-Earth opening) — and needs no theorem.
+
+   Proof architecture (all structural + kernel `decide`; no native_decide):
+   * C1: partner commutes with complement (partner_comp_comm63, finite decide),
+     so complementing both members of a pair preserves the pairing predicate.
+   * C2/C5: comp is a Hamming isometry (ham_comp_invariant), so the transition
+     multiset — and with it c5ok, whose clauses include the C2 conditions
+     (no distance-5, no distance-0) — is unchanged (transitions_compSeq).
+   * C3: the c3x64 term of h in comp∘l equals the term of h in l with the two
+     findIdx arguments swapped, and each term is symmetric (max/min), so the
+     sum is unchanged (c3x64_compSeq). This is the same orientation-freeness
+     that C3Decomposition.lean's c3_slot_decomposition establishes at the
+     slot level.
+   * C4: broken — the head becomes 63 ⊕ 63 = 0 (c4ok_breaks_under_comp).
+   * comp is an involution on 6-bit sequences (compSeq_involution), so it is a
+     genuine Z₂ action exchanging the two orientations of the opening pair
+     bijectively on the C1∩C2∩C3∩C5 solution set. -/
+
+/-- global complementation: complement every hexagram (x ↦ x ⊕ 63). -/
+def compSeq (l : List Nat) : List Nat := l.map (· ^^^ 63)
+
+/-- complement stays in range. -/
+theorem comp_lt64 : ∀ h < 64, h ^^^ 63 < 64 := by decide
+
+/-- complement is an involution on 6-bit values. -/
+theorem comp_invol : ∀ h < 64, (h ^^^ 63) ^^^ 63 = h := by decide
+
+/-- the partner map commutes with complement (cf. C3Decomposition.lean's
+    partner_comp_comm; re-proved here because the Lean files are standalone). -/
+theorem partner_comp_comm63 : ∀ h < 64, partner (h ^^^ 63) = partner h ^^^ 63 := by
+  decide
+
+/-- the partner map stays in range. -/
+theorem partner_lt64 : ∀ h < 64, partner h < 64 := by decide
+
+/-- comp is a Hamming isometry on 6-bit values. -/
+theorem ham_comp_invariant : ∀ a < 64, ∀ b < 64, ham (a ^^^ 63) (b ^^^ 63) = ham a b := by
+  decide
+
+/-- Bool-equality transport across comp (used to move a findIdx predicate). -/
+theorem beq_comp_swap : ∀ a < 64, ∀ h < 64, ((a ^^^ 63) == h) = (a == (h ^^^ 63)) := by
+  decide
+
+/-- comp is injective at the Bool-equality level. -/
+theorem comp_beq_congr : ∀ a < 64, ∀ b < 64, ((a ^^^ 63) == (b ^^^ 63)) = (a == b) := by
+  decide
+
+/-- congruence for List.all under a pointwise-equal predicate (self-contained). -/
+theorem all_congr' {α : Type} (l : List α) (p q : α → Bool)
+    (h : ∀ x ∈ l, p x = q x) : l.all p = l.all q := by
+  induction l with
+  | nil => rfl
+  | cons a t ih =>
+    simp only [List.all_cons, h a (by simp),
+               ih (fun x hx => h x (List.mem_cons_of_mem a hx))]
+
+/-- congruence for List.map under a pointwise-equal function (self-contained). -/
+theorem map_congr' {α β : Type} (l : List α) (f g : α → β)
+    (h : ∀ x ∈ l, f x = g x) : l.map f = l.map g := by
+  induction l with
+  | nil => rfl
+  | cons a t ih =>
+    simp only [List.map_cons, h a (by simp),
+               ih (fun x hx => h x (List.mem_cons_of_mem a hx))]
+
+/-- compSeq is an involution on bounded sequences: comp generates a Z₂ action. -/
+theorem compSeq_involution (l : List Nat) (hb : ∀ x ∈ l, x < 64) :
+    compSeq (compSeq l) = l := by
+  induction l with
+  | nil => rfl
+  | cons a t ih =>
+    have ha := hb a (by simp)
+    have ih2 := ih (fun x hx => hb x (List.mem_cons_of_mem a hx))
+    show ((a ^^^ 63) ^^^ 63) :: compSeq (compSeq t) = a :: t
+    rw [comp_invol a ha, ih2]
+
+/-- in-range getD of a complemented sequence. -/
+theorem getD_compSeq (l : List Nat) (j : Nat) (hj : j < l.length) :
+    (compSeq l).getD j 99 = l.getD j 99 ^^^ 63 := by
+  have hj' : j < (compSeq l).length := by simpa [compSeq] using hj
+  have h1 : (compSeq l).getD j 99 = (compSeq l)[j] := by
+    simp [List.getD, List.getElem?_eq_getElem hj']
+  have h2 : l.getD j 99 = l[j] := by
+    simp [List.getD, List.getElem?_eq_getElem hj]
+  rw [h1, h2]
+  simp [compSeq]
+
+/-- comp preserves the transition-distance list exactly (Hamming isometry). -/
+theorem transitions_compSeq (l : List Nat) (hb : ∀ x ∈ l, x < 64) :
+    transitions (compSeq l) = transitions l := by
+  induction l with
+  | nil => rfl
+  | cons a t ih =>
+    cases t with
+    | nil => rfl
+    | cons b t2 =>
+      have ha := hb a (by simp)
+      have hbb := hb b (by simp)
+      have ih2 := ih (fun x hx => hb x (List.mem_cons_of_mem a hx))
+      have hexp : transitions ((a ^^^ 63) :: (b ^^^ 63) :: compSeq t2) =
+          ham (a ^^^ 63) (b ^^^ 63) :: transitions ((b ^^^ 63) :: compSeq t2) := by
+        simp [transitions]
+      have hexp2 : transitions (a :: b :: t2) = ham a b :: transitions (b :: t2) := by
+        simp [transitions]
+      show transitions ((a ^^^ 63) :: (b ^^^ 63) :: compSeq t2) = transitions (a :: b :: t2)
+      rw [hexp, hexp2, ham_comp_invariant a ha b hbb]
+      exact congrArg _ ih2
+
+/-- COMP PRESERVES C5 (hence C2, whose conditions are c5ok clauses): the
+    difference-wave multiset of comp∘l equals l's. -/
+theorem c5ok_compSeq (l : List Nat) (hb : ∀ x ∈ l, x < 64) :
+    c5ok (compSeq l) = c5ok l := by
+  unfold c5ok
+  rw [transitions_compSeq l hb]
+
+/-- COMP PRESERVES C1: complementing both members of every pair preserves the
+    partner pairing (partner commutes with comp). -/
+theorem c1ok_compSeq (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen : l.length = 64) :
+    c1ok (compSeq l) = c1ok l := by
+  have hget : ∀ j, j < 64 → l.getD j 99 < 64 := by
+    intro j hj
+    have hjl : j < l.length := by omega
+    have : l.getD j 99 = l[j] := by simp [List.getD, List.getElem?_eq_getElem hjl]
+    rw [this]; exact hb _ (List.getElem_mem hjl)
+  unfold c1ok
+  apply all_congr'
+  intro i hi
+  have hi32 := List.mem_range.mp hi
+  have e1 : (compSeq l).getD (2*i+1) 99 = l.getD (2*i+1) 99 ^^^ 63 :=
+    getD_compSeq l _ (by omega)
+  have e0 : (compSeq l).getD (2*i) 99 = l.getD (2*i) 99 ^^^ 63 :=
+    getD_compSeq l _ (by omega)
+  have hx := hget (2*i+1) (by omega)
+  have hy := hget (2*i) (by omega)
+  simp only [e1, e0, partner_comp_comm63 _ hy,
+             comp_beq_congr _ hx _ (partner_lt64 _ hy)]
+
+/-- findIdx across comp: looking for h in comp∘l is looking for comp h in l. -/
+theorem findIdx_compSeq (l : List Nat) (hb : ∀ x ∈ l, x < 64) (h : Nat) (hh : h < 64) :
+    (compSeq l).findIdx (· == h) = l.findIdx (· == (h ^^^ 63)) := by
+  induction l with
+  | nil => rfl
+  | cons a t ih =>
+    have ha := hb a (by simp)
+    have ih2 := ih (fun x hx => hb x (List.mem_cons_of_mem a hx))
+    have hcons : compSeq (a :: t) = (a ^^^ 63) :: compSeq t := rfl
+    rw [hcons, List.findIdx_cons, List.findIdx_cons, beq_comp_swap a ha h hh, ih2]
+
+/-- COMP PRESERVES C3 EXACTLY: the x64 complement-distance sum is invariant —
+    each h-term of comp∘l is the h-term of l with its two position lookups
+    swapped, and every term is max/min-symmetric. (The slot-level counterpart
+    is C3Decomposition.lean's orientation-free c3_slot_decomposition.) -/
+theorem c3x64_compSeq (l : List Nat) (hb : ∀ x ∈ l, x < 64) :
+    c3x64 (compSeq l) = c3x64 l := by
+  unfold c3x64
+  apply congrArg
+  apply map_congr'
+  intro h hmem
+  have h64 := List.mem_range.mp hmem
+  have hc64 : h ^^^ 63 < 64 := comp_lt64 h h64
+  have e1 : (compSeq l).findIdx (· == h) = l.findIdx (· == (h ^^^ 63)) :=
+    findIdx_compSeq l hb h h64
+  have e2 : (compSeq l).findIdx (· == (h ^^^ 63)) = l.findIdx (· == ((h ^^^ 63) ^^^ 63)) :=
+    findIdx_compSeq l hb _ hc64
+  rw [comp_invol h h64] at e2
+  simp only [e1, e2]
+  rw [Nat.max_comm, Nat.min_comm]
+
+theorem c3ok_compSeq (l : List Nat) (hb : ∀ x ∈ l, x < 64) :
+    c3ok (compSeq l) = c3ok l := by
+  unfold c3ok
+  rw [c3x64_compSeq l hb]
+
+/-- THE COMPLEMENT SYMMETRY THEOREM: global complementation is an exact
+    symmetry of C1 ∩ C2 ∩ C3 ∩ C5 — for every 64-element 6-bit sequence,
+    comp∘l satisfies each of C1, C5 (whose clauses include C2), and C3
+    exactly iff l does. Only the oriented form of C4 is not preserved. -/
+theorem comp_symmetry_c1_c2_c3_c5 (l : List Nat) (hb : ∀ x ∈ l, x < 64)
+    (hlen : l.length = 64) :
+    c1ok (compSeq l) = c1ok l ∧ c5ok (compSeq l) = c5ok l ∧
+    c3ok (compSeq l) = c3ok l :=
+  ⟨c1ok_compSeq l hb hlen, c5ok_compSeq l hb, c3ok_compSeq l hb⟩
+
+/-- what breaks — and the ONLY thing that breaks: the oriented C4. Any
+    sequence opening at 63 opens at 0 after complementation. -/
+theorem c4ok_breaks_under_comp (l : List Nat) (hlen : l.length = 64)
+    (h4 : c4ok l = true) : c4ok (compSeq l) = false := by
+  simp only [c4ok, Bool.and_eq_true, beq_iff_eq] at h4
+  have e0 : (compSeq l).getD 0 99 = l.getD 0 99 ^^^ 63 :=
+    getD_compSeq l 0 (by omega)
+  have hfalse : ((63 ^^^ 63 : Nat) == 63) = false := by decide
+  simp only [c4ok, e0, h4.1, hfalse, Bool.false_and]
+
+theorem kw_all_lt64 : ∀ x ∈ KW, x < 64 := by decide
+
+theorem kw_length_64 : KW.length = 64 := by decide
+
+/-- kernel-decide re-statements of kw_valid / kw_c3_exactly_776 (proved by
+    native_decide above, kept for continuity): re-proved here with kernel
+    `decide` so the orientation corollary below carries a kernel-only trust
+    base end to end (measured: [propext, Quot.sound], no native_decide). -/
+theorem kw_valid_kernel : validC15 KW = true := by decide +kernel
+
+theorem kw_c3_776_kernel : c3x64 KW = 776 := by decide +kernel
+
+/-- ORIENTATION IS NOT FORCED (the corrected statement): comp∘KW opens
+    (0, 63) — the REVERSED orientation of the {0, 63} pair — and satisfies
+    C1, C5 (hence C2), and C3 with the sum at exactly 776. Direct corollary
+    of the symmetry theorem instantiated at King Wen; the finite facts are
+    kernel `decide`, no native_decide. Both orientations of the opening pair
+    are therefore valid for C1∩C2∩C3∩C5, and the orientation in C4 is a free
+    Z₂ fixed by definition (classical Xugua attestation), not by mathematics. -/
+theorem orientation_not_forced :
+    c1ok (compSeq KW) = true ∧ c5ok (compSeq KW) = true ∧
+    c3ok (compSeq KW) = true ∧ c3x64 (compSeq KW) = 776 ∧
+    c4ok (compSeq KW) = false ∧
+    (compSeq KW).getD 0 99 = 0 ∧ (compSeq KW).getD 1 99 = 63 := by
+  obtain ⟨h1, h5, h3⟩ := comp_symmetry_c1_c2_c3_c5 KW kw_all_lt64 kw_length_64
+  have hv := kw_valid_kernel
+  simp only [validC15, Bool.and_eq_true] at hv
+  refine ⟨?_, ?_, ?_, ?_, ?_, by decide, by decide⟩
+  · rw [h1]; exact hv.1.1.1
+  · rw [h5]; exact hv.1.2
+  · rw [h3]; exact hv.2
+  · rw [c3x64_compSeq KW kw_all_lt64]; exact kw_c3_776_kernel
+  · exact c4ok_breaks_under_comp KW kw_length_64 hv.1.1.2

@@ -5248,7 +5248,7 @@ carries a dated correction note; solve.c §[7]'s over-claiming print was reworde
 survives unchanged: {25, 27} mandatoriness, boundary 4's 99.999% single-step elimination, §[7]'s
 minimum ≥ 4 everywhere, §[8] = 0 at 100T/560T, all canonical shas and record counts.
 
-## 2026-07-04/05: The exact-count program — from "needs a 5 TB machine" to a kernel-checked count on 128 GB
+## 2026-07-04/05: The exact-count program — from "needs a 5 TB machine" to a machine-gated exact count on 128 GB
 
 The full-31 exact count |C1∩C2∩C4∩C5| ran as a two-path race. PATH A (in-RAM, symmetry-quotient
 layered DP with C5-residual tracking, `--f1-exact-c1c2c4c5`): validated on a subset ladder
@@ -5275,7 +5275,9 @@ section's next revision; gates: ÷24 exactness + Knuth-estimator cross-check].
 
 The ÷24 gate itself was upgraded mid-campaign: the symmetry theorem's sequence-level layer
 (invariance, record-level freeness, orbit counting) was formalized in `lean/Automorphism.lean`
-(#222) — `twenty_four_dvd_solution_count` is kernel-checked for both constraint systems, so the
+(#222) — `twenty_four_dvd_solution_count` is machine-checked for both constraint systems
+(`native_decide`, the extended trust base — Lean's compiler in addition to the kernel; label
+corrected 2026-07-26, this entry previously said "kernel-checked"), so the
 count's primary sanity gate rests on machine-verified mathematics.
 
 ## 2026-07-05: The literature program's measurement day — two notables from eight centuries, and a corpus-gate erratum
@@ -5283,7 +5285,11 @@ count's primary sanity gate rests on machine-verified mathematics.
 The orientation layer got its pre-registered battery (F5, frozen→measured→published in ~5 hours):
 7 literature functionals null, 3 forced, and one notable — **[Van den Berghe](CITATIONS.md#vandenberghe1999)'s nuclear-rule
 agreement (29/30) is the exact maximum of King Wen's 1,720,320-vector orientation fiber**
-(12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). A second
+(12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). *(Scope
+corrected 2026-07-26: that fiber is the **C4-oriented** fiber — the vectors keeping the defined
+(63, 0) opening. On the pair-only-C4 fiber, 2,703,360 vectors, 30/30 IS attained by exactly 2
+reversed-opening vectors, so the exception is forced by the classical opening orientation, not by
+pair geometry; see TR-1 §7 v1.16 and the "Theorem 6" retraction in CLAIMS_DECIDED.)* A second
 battery (F6) measured the two candidates surfaced by the [Nielsen](CITATIONS.md#nielsen2003) audit: bagong palace-alignment
 null across the board, but **[Wu Deng's](CITATIONS.md#wudeng) (1249–1333) weft-block profile is population-atypical**
 (p = 1.1×10⁻³, gauge-robust) — the second notable, and the older by six centuries. Both are framed
@@ -5368,8 +5374,9 @@ self-test canonical sha (`403f7202…`) is unchanged, so the retool is behavior-
 
 With the engine in place, the production count launched and is **in flight** — a symmetry-quotient
 out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer
-|C1∩C2∩C4∩C5| lands in this record when the run completes (PENDING — do not cite until then; gates: divisibility-by-24, which is kernel-checked
-mathematics per #222, plus a Knuth-estimator cross-check).
+|C1∩C2∩C4∩C5| lands in this record when the run completes (PENDING — do not cite until then; gates: divisibility-by-24, which is machine-checked
+mathematics per #222 (`native_decide`, extended trust base; label corrected 2026-07-26 from
+"kernel-checked"), plus a Knuth-estimator cross-check).
 
 ## 2026-07-09: Documentation consolidation and a prior-art round-out
 

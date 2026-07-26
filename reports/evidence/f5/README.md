@@ -7,7 +7,7 @@ Raw outputs and the exact-fiber instrument behind [TR-1](../../TR1_EIGHT_CENTURI
 
 | File | What it is |
 |---|---|
-| `f5_modec_fiber.py` | Mode C (dispositive): exact enumeration of the full 1,720,320-vector orientation fiber of King Wen's pair sequence + exact scoring of all 11 frozen functionals |
+| `f5_modec_fiber.py` | Mode C (dispositive): exact enumeration of the full 1,720,320-vector **C4-oriented** orientation fiber of King Wen's pair sequence (slot-0 orientation fixed per the frozen spec §3) + exact scoring of all 11 frozen functionals. *Scope note 2026-07-26: the pair-only-C4 fiber (both slot-0 orientations) is 2,703,360 vectors; see TR-1 §7 v1.16 for the re-check* |
 | `f5_modec_fiber.out` | Archived Mode C output: exact histograms, two-sided p-values, structure gates, convention control |
 | `f5_ground_truth.py` | Independent pure-Python implementation of the 11 functionals (two-language gate vs the `solve.c` scorer; #11 delegates to `solve.py vdb_nucorient`, the single implementation) |
 | `f5_tier1.out` | Mode U (unconditional population): 2×10⁹ weighted Knuth probes, per-functional below/at/above masses + full `f5_hist` histograms (Spot D64, 2026-07-05) |

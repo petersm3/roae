@@ -33,7 +33,10 @@ compression − statement cost. Conventions, declared up front:
 | + C6 + C7 | 5.21×10³¹ | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
 | strongest *principled* literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender — "strongest" among rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
-¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits; forced-orientation theorem returns 1.
+¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits, charged in full — pair AND
+orientation (the orientation bit is definitional, classically attested; the former
+"forced-orientation theorem" that would have returned that 1 bit is retracted as false, 2026-07-26 —
+see [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md) — so nothing is returned and no ledger value changes).
 ² Radisic 2026 (arXiv preprint; his Lean 4 + Mathlib artifact was independently rebuilt and
 re-verified 2026-07-26, and the theorem is machine-checked in-repo —
 [lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean), kernel-only): the pairing is

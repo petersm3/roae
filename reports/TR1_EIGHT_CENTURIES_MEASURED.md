@@ -195,13 +195,22 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    C1–C7 space holds ≈5.2×10³¹ orderings). Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
    description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
-7. **The orientation layer, measured (2026-07-05).** Everything above concerns which pair goes where. A
+7. **The orientation layer, measured (2026-07-05; re-scoped + pair-only re-check 2026-07-26).**
+   Everything above concerns which pair goes where. A
    final pre-registered battery measures the layer the literature has almost entirely ignored — **which
-   member of each pair comes first**. Of the 32 within-pair orientation choices, slot 0 is forced
-   (Theorem 6), leaving 31 binary choices; but conditioning on King Wen's pair sequence, exact
-   enumeration shows the constraints leave a valid orientation **fiber of exactly 1,720,320 vectors**
+   member of each pair comes first**. Of the 32 within-pair orientation choices, slot 0 is fixed by
+   **C4's definition** *(re-scoped 2026-07-26: the earlier text said "forced (Theorem 6)" — that
+   theorem is retracted as false; C4's orientation is definitional and classically attested, and
+   complementation is an exact symmetry of C1∩C2∩C3∩C5 — see [lean/KingWen.lean](../lean/KingWen.lean)
+   and CLAIMS_DECIDED's corrections ledger)*, leaving 31 binary choices; conditioning on King Wen's
+   pair sequence, exact enumeration shows the constraints leave a valid orientation **fiber of exactly
+   1,720,320 vectors** — the **C4-oriented fiber**, the battery's frozen dispositive null
    (= 3·5·7·2¹⁴ ≈ 2^20.7 — far below the naive 2³¹; 30 of the 31 bits vary somewhere in the fiber, and
-   slot 30, hexagrams 61/62, is the only additionally forced bit). This already corrects our own earlier
+   slot 30, hexagrams 61/62, is the only additionally forced bit). Under the **pair-only reading of
+   C4** (opening pair {0, 63}, orientation free) the fiber is exactly **2,703,360 vectors**
+   (1,720,320 opening (63, 0) + 983,040 opening (0, 63)); the full battery was re-run on that larger
+   fiber on 2026-07-26 — the seven null verdicts and two of the three forced rows survive unchanged,
+   and the changes are confined to rows 8 and 11 (detailed below). This already corrects our own earlier
    gloss that orientation "appears to be a free choice at each pair": the freedom is real but coupled and
    ~20.7 bits, not 31. Eleven functionals were frozen before measurement ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936) N = 11; two-sided
    atom-inclusive p; the exact fiber is the dispositive null; all results published regardless of
@@ -226,9 +235,23 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    no design inference — the same discipline applied to the D-B1 fitted template in [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3b.
    The numbers are recorded for completeness; see the scoping paragraph below.
 
-   Rows 8–10 join the forced class of §3: three of McKenna's difference-wave statistics turn out to be
-   **constant across all 1,720,320 valid orientations** — given the pair sequence they measure constraint
-   geometry, not an arranger's orientation choice. Rows 1–7: seven literature-anchored orientation ideas,
+   *Scope of the table (re-scoped 2026-07-26):* all tabulated p-values are exact over the
+   **C4-oriented fiber** (N = 1,720,320) — the battery's frozen null. On the pair-only-C4 fiber
+   (N = 2,703,360) the 2026-07-26 re-run leaves every null verdict null (largest shift:
+   row 1, two-sided p 9.499×10⁻² → 9.171×10⁻²; row 4 moves to 0.982, row 7 to 0.347 — all far from
+   any gate), rows 9–10 stay forced, row 8 becomes slot-0-determined (below), and row 11's
+   descriptive values become P(X ≥ 29) = 30/2,703,360 = 1.1097×10⁻⁵ one-sided / 2.2195×10⁻⁵
+   two-sided, with the fiber maximum rising to 30 (below).
+
+   Rows 9–10 join the forced class of §3: two of McKenna's difference-wave statistics turn out to be
+   **constant across the entire pair-only fiber** (all 2,703,360 valid orientation vectors, both
+   opening orientations — re-checked 2026-07-26) — given the pair sequence they measure constraint
+   geometry, not an arranger's orientation choice. Row 8 (greedy smooth entry) is constant at 23 on
+   the C4-oriented fiber but takes exactly the value 24 on every reversed-opening vector: it is a
+   deterministic function of the single C4-orientation bit — still no orientation freedom expressed
+   anywhere in the fiber, but "forced" only relative to the defined opening *(re-scoped 2026-07-26;
+   the earlier text grouped it with rows 9–10 as fiber-constant, which was true only of the
+   C4-oriented fiber)*. Rows 1–7: seven literature-anchored orientation ideas,
    from Cook's correct-line stage (the one explicit within-pair orientation rule in the modern academic
    literature) through Moore's rising/falling system (our count reproduces his published 10R/8F exactly)
    to the classical yang-precedence reading, are all **null** — dead-typical of the choices actually
@@ -240,12 +263,23 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    publishing on the open web (c. 1999–2002) — proposed a nuclear-hexagram decision procedure predicting
    which member of each pair comes first, and reported that King Wen follows it in 29 of the 30 pairs it
    addresses, with one declared exception (hexagram pair 3/4). Both halves of his claim verify exactly —
-   and exact enumeration sharpens both in his favor. King Wen's agreement count of 29 is the **maximum
-   attained anywhere on its orientation fiber**: exactly **12 of 1,720,320** vectors reach 29 (King Wen
-   among them; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided), and **none reaches 30** — perfect agreement is
+   and exact enumeration sharpens both in his favor, **on the C4-oriented fiber** *(scope made explicit
+   2026-07-26)*. King Wen's agreement count of 29 is the **maximum
+   attained anywhere on the C4-oriented fiber**: exactly **12 of 1,720,320** vectors reach 29 (King Wen
+   among them; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided), and **none reaches 30** — given the received,
+   classically attested opening orientation, perfect agreement is
    unattainable, so his declared exception is not a blemish his rule tolerates but a **forced** feature:
-   no valid orientation of King Wen's pair sequence satisfies all 30 predictions. That clarifies the
-   rule's standing — it is not "almost perfect"; it is **perfect up to impossibility**. The unconditional
+   no valid orientation of King Wen's pair sequence *keeping the (63, 0) opening* satisfies all 30
+   predictions. The 2026-07-26 pair-only re-check locates where the impossibility lives: on the
+   **pair-only-C4 fiber** (2,703,360 vectors, both opening orientations) exactly **2 vectors attain
+   30/30** — both open (0, 63), and the minimal one is King Wen with precisely the opening pair and
+   pair 3/4 (**his own declared exception**) orientation-reversed (the second additionally reverses the
+   final pair); fiber-wide P(X ≥ 29) = 30/2,703,360 = 1.1097×10⁻⁵ one-sided. The exception is therefore
+   forced **by the classical Heaven-first opening**, not by the pair geometry alone — the received
+   text's one deviation from his rule is exactly what C4's attested orientation makes unavoidable.
+   That clarifies the
+   rule's standing — under the received opening it is not "almost perfect"; it is **perfect up to
+   impossibility**. The unconditional
    population concurs: zero mass at ≥ 29 in ≈2.9×10⁷ weighted valid-sequence leaves (2×10⁹-probe run).
    Credit where it is due: Van den Berghe **found** this regularity, a quarter-century ago and without
    any of this machinery; ROAE's contribution is to operationalize it, enumerate its null exactly, and
@@ -259,14 +293,21 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    to is descriptive, and per the standing extraction-circularity policy (the same discipline applied to
    the D-B1 fitted template in [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3b) **no family- or
    global-ledger p-grading is attached to it.** What the exact fiber establishes descriptively is sharp:
-   King Wen's agreement count of 29 is the **maximum attained anywhere on its 1,720,320-vector orientation
-   fiber** (exactly 12 vectors reach 29, none reaches 30), so the described configuration sits at the fiber
+   King Wen's agreement count of 29 is the **maximum attained anywhere on its 1,720,320-vector
+   C4-oriented orientation
+   fiber** (exactly 12 vectors reach 29, none reaches 30), so the described configuration sits at that
+   fiber's
    ceiling and carries ≈17.1 bits of atypicality (≥ ~14 after discounting the rule's ~2–3 fitted degrees
-   of freedom) out of the layer's ≈20.7-bit budget. That extremal placement is a real, exactly-enumerated
+   of freedom) out of the layer's ≈20.7-bit budget. On the pair-only-C4 fiber (2,703,360 vectors,
+   re-checked 2026-07-26) King Wen sits one below the ceiling of 30 (attained only by the 2
+   reversed-opening vectors described above; 30 of 2,703,360 vectors reach ≥ 29, ≈16.5 bits).
+   That extremal placement is a real, exactly-enumerated
    fact about where the fitted description puts King Wen; it is **not** independent confirmation of a
    design rule, and no out-of-sample test is possible from the same document the rule was read off of.
-   (For readers who want the raw statistic: the frozen two-sided fiber value is 1.3951×10⁻⁵ and the
-   one-sided is 6.9754×10⁻⁶; these are recorded for completeness but are **not** graded against the family
+   (For readers who want the raw statistic: the frozen two-sided C4-oriented-fiber value is 1.3951×10⁻⁵
+   and the
+   one-sided is 6.9754×10⁻⁶; on the pair-only fiber, 2.2195×10⁻⁵ and 1.1097×10⁻⁵ respectively; these
+   are recorded for completeness but are **not** graded against the family
    or global bars, because the functional was fitted to the sequence being scored. The gauge-control
    flag — the statistic inverts, ~50× attenuated, under direction-reversing relabelings — is likewise
    reported as frozen, not adjudicated.) The corpus gate is clean and
@@ -280,7 +321,12 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    order, two-language verified.)* Per the frozen
    pre-commitment, nothing here promotes into the constraint system; it is a measured property of King
    Wen. Raw outputs, the exact-fiber script, and exercised reproduction commands (the fiber analysis
-   reruns byte-identically in ~11 s): [evidence/f5/](evidence/f5/README.md).
+   reruns byte-identically in ~11 s): [evidence/f5/](evidence/f5/README.md). The 2026-07-26 pair-only
+   re-check reuses that bundle's exact enumeration + scoring machinery seeded at **both** slot-0
+   orientations (validity + scoring gated on 400 samples against the bundle's independent
+   ground-truth scorer, including 200 reversed-opening samples; the two 30/30 vectors additionally
+   verified by direct `vdb_nucorient` scoring); its instrument and raw output join evidence/f5 in a
+   follow-up commit after operator review of this retraction.
 
 ## Figure
 
@@ -336,4 +382,5 @@ All values are the reports' stated numbers; generated by
 | v1.12 | 2026-07-11 | Deep-tail caveat attached to the smallest quoted masses in §3's table (ccn4, ccn8 order-of-magnitude; c2011n1 starvation-not-bound) and hedged in the executive summary — the METHODS CI-degradation caveat now travels with the figures. No values change |
 | v1.13 | 2026-07-11 | Styling: "THE CONFLICT THEOREM" sentence-cased throughout (here, LITERATURE_RULES_POPULATION_TESTS, certificates/README) — content, statement, and certificates unchanged |
 | v1.14 | 2026-07-20 | **Baseline-calibration pass (adversarial-review F-45, F-30).** §5's "trade-off **optimum** … ~1-in-25-million efficient" restated as a trade-off **position**: all four rules are KW-descriptive, so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result, and the 1-in-25-million figure describes how population-atypical the joint profile is under KW-fitted rules rather than measuring design efficiency (no arbitrary-rule-bundle baseline exists to read it against). Executive summary's "forced" finding marked as **sampled** for seven of the eight claims, with the one proven case named — twenty billion weighted probes is evidence, not proof. No measurement changed |
-| v1.15 *(current)* | 2026-07-21 | **The eight forced rules are now theorems (sampled → proven).** All eight registry rules measuring at 1.0 (mmt4, p1c4, s1, s6, r3, r4, r5, c2) proven constant on the entire C1 space — a superset of the measured population, so every C1–C5 ordering inherits King Wen's value — machine-checked in Lean 4 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean); proof by Claude (Fable 5), independent recompile/re-verification by Claude (Opus 4.8)). Executive summary, abstract, and §3(2) reworded from "empirically forced (sampled)" to "proven forced (theorem)"; the eight 1.0 table entries marked "(theorem)"; the 2×10¹⁰-probe zero-violation readings reclassified as end-to-end instrument validation. Also fixes an accounting tangle: the batch's forced class is all **eight** listed ids (the prior text said "seven more" while listing eight), and the previously-proven case — the no-5 rule's implication chain behind McKenna's 3:1 even:odd ratio — is a **separate, additional** analytic theorem, not one of the eight. No measurement changed |
+| v1.15 | 2026-07-21 | **The eight forced rules are now theorems (sampled → proven).** All eight registry rules measuring at 1.0 (mmt4, p1c4, s1, s6, r3, r4, r5, c2) proven constant on the entire C1 space — a superset of the measured population, so every C1–C5 ordering inherits King Wen's value — machine-checked in Lean 4 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean); proof by Claude (Fable 5), independent recompile/re-verification by Claude (Opus 4.8)). Executive summary, abstract, and §3(2) reworded from "empirically forced (sampled)" to "proven forced (theorem)"; the eight 1.0 table entries marked "(theorem)"; the 2×10¹⁰-probe zero-violation readings reclassified as end-to-end instrument validation. Also fixes an accounting tangle: the batch's forced class is all **eight** listed ids (the prior text said "seven more" while listing eight), and the previously-proven case — the no-5 rule's implication chain behind McKenna's 3:1 even:odd ratio — is a **separate, additional** analytic theorem, not one of the eight. No measurement changed |
+| v1.16 *(current)* | 2026-07-26 | **§7 re-scope + pair-only fiber re-check (the "Theorem 6" retraction).** The forced-orientation "Theorem 6" is retracted repo-wide as FALSE (complementation is an exact symmetry of C1∩C2∩C3∩C5, machine-checked in [lean/KingWen.lean](../lean/KingWen.lean); C4's orientation is definitional, classically attested — see SPECIFICATION.md and CLAIMS_DECIDED's corrections ledger). §7 accordingly re-scoped: the 1,720,320-vector population is named the **C4-oriented fiber**; the pair-only-C4 fiber is 2,703,360 vectors (+983,040 reversed-opening), and the full 11-functional battery was re-run on it. Verdict deltas: rows 1–7 stay null; rows 9–10 stay fiber-constant on the larger fiber; row 8 (greedy_entry, 23) is constant per opening orientation (24 on every reversed-opening vector); row 11 (vdb_nuc): 29 remains the C4-oriented-fiber maximum, but **30/30 is attainable on the pair-only fiber — exactly 2 of 2,703,360 vectors, both opening (0, 63)**, the minimal one being KW with the opening pair and pair 3/4 (Van den Berghe's own declared exception) reversed; his exception is forced by the classical opening orientation, not by pair geometry alone. Descriptive p re-computed: P(X ≥ 29) = 1.1097×10⁻⁵ one-sided / 2.2195×10⁻⁵ two-sided on the pair-only fiber (C4-oriented frozen values unchanged). All frozen 2026-07-05 numbers stand within their (now explicit) C4-oriented scope |

@@ -14,11 +14,22 @@ Lean's compiler). What that buys:
   could have bugs. (See the trust-base note below: `decide` proofs are checked by Lean's small
   kernel alone; the finite lemmas proved by `native_decide` additionally trust Lean's compiler and
   native code generator.)
-- **The symmetry theorem is fully machine-checked** (finite component + the sequence-level layer in
-  `Automorphism.lean`): the constraint system has exactly 48 relabeling symmetries, they act freely
+- **The symmetry theorem's bit-permutation layer is fully machine-checked** (finite component + the
+  sequence-level layer in
+  `Automorphism.lean`): the constraint system has exactly 48 **bit-permutation** symmetries, they act
+  freely
   at the record level in 24-element orbits, and therefore **24 divides every exact solution count**.
   This is the theorem behind the "divisible by 24" sanity gate applied to the project's exact counts;
   if a count ever failed that gate, the computation — not the mathematics — would be at fault.
+  (Completeness over all 64! hexagram relabelings — that NO permutation of the hexagram set outside
+  these 48 preserves the predicate family — is prose-proven with machine-checked finite parts,
+  not machine-checked end to end: see TR-5 §3 and `SymmetryCompleteness.lean`'s header. Wording
+  qualified 2026-07-26; an earlier version of this bullet said "exactly 48 relabeling symmetries …
+  fully machine-checked" without the scope qualifier.)
+- **The complement Z₂ symmetry is machine-checked, kernel-only** (2026-07-26, `KingWen.lean` final
+  section): global complementation (x ↦ x ⊕ 63) is an exact symmetry of C1∩C2∩C3∩C5, broken only by
+  the oriented form of C4 — so the opening orientation is definitional, not forced (this is the
+  corrected replacement for the retracted "Theorem 6"; see CLAIMS_DECIDED's corrections ledger).
 - **The merge's reproducibility mathematics is machine-checked at the model level**
   (`PartitionInvariance.lean`): the abstract merge model is proven invariant to input order,
   partition choice, invocation grouping, and merge hierarchy. Its connection to the actual C
@@ -43,14 +54,16 @@ Lean's compiler). What that buys:
   each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
   the toolchain is pinned in this directory's `lean-toolchain`; the two exceptions to "seconds"
   are `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP, and
-  `KingWen.lean`, ~30 s, which kernel-evaluates the equivariance-ceiling witness).
+  `KingWen.lean`, ~50 s, which kernel-evaluates the equivariance-ceiling witness and the
+  complement-symmetry section's kernel-decide facts).
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
 
 `KingWen.lean` contains machine-checked proofs of the ROAE constraint system's finite core lemmas —
-**core Lean 4 only, no mathlib**; every hexagram-level claim is proved by `native_decide`
-(exhaustive computation over the finite domain).
+**core Lean 4 only, no mathlib**; the original hexagram-level claims are proved by `native_decide`
+(exhaustive computation over the finite domain); the 2026-07-26 complement-symmetry section is
+kernel-only (structural proofs + plain/kernel `decide`).
 
 **Trust-base note (what "machine-checked" means here, precisely).** Lean proofs by `decide` are
 verified by Lean's small trusted kernel. Proofs by `native_decide` are NOT kernel-only: they
@@ -71,6 +84,7 @@ Verified statements:
 | `partner_preserves_parity`, `parity_split_32_32`, `xor_parity_identity` | The lemmas of the parity-alternation theorem ([PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md)) |
 | `kw_valid`, `kw_c3_exactly_776`, `kw_no_five`, `kw_alternations_15` | King Wen satisfies C1/C4/C5 (hence C2), has complement-distance sum exactly 776, and exactly 15 parity-class alternations |
 | `sigma_kw_valid_48`, `valid_iff_centralizes_rev`, `twins_24_records` | The finite component of the symmetry theorem ([SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md)): exactly 48 of the 720 bit permutations map KW to a valid sequence — **exactly** the centralizer of reversal — collapsing to 24 record-level twins |
+| `comp_symmetry_c1_c2_c3_c5`, `c4ok_breaks_under_comp`, `orientation_not_forced` (+ `compSeq_involution`, `c1ok_compSeq`, `c5ok_compSeq`, `c3x64_compSeq`, `kw_valid_kernel`, `kw_c3_776_kernel`) | The complement Z₂ symmetry (2026-07-26, kernel-only — see the section below): comp is an exact symmetry of C1∩C2∩C3∩C5; only oriented C4 breaks it; comp∘KW opens (0, 63) with C3 = 776 — the corrected replacement for the retracted "Theorem 6" |
 
 The sequence-level theorems (wrap parity, the full 15-alternation theorem over all valid orderings,
 the symmetry theorem over the full solution set) follow from these lemmas by the short telescoping /
@@ -82,7 +96,7 @@ finite computation those arguments rest on.
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
 # (leanprover/lean4:v4.31.0). Each file is standalone; no lake project:
-lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0; ~30 s — kernel-evaluates the equivariance-ceiling witness)
+lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0; ~50 s — kernel-evaluates the equivariance-ceiling witness + the complement-symmetry facts)
 lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4 null G-law (see below; ~2 min — kernel-evaluates a 31-layer DP)
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
@@ -193,11 +207,18 @@ standalone file, zero `sorry`; every statement was verified numerically in Pytho
 (`python3 solve.py --trigram-verify` re-runs the two-language check). Finite facts use
 `decide`/`native_decide` (the trust-base note above applies — this file's group facts lean on
 `native_decide`); the TG-2 sequence-level theorems are structural proofs over EVERY valid ordering.
+**TG-2 trust-base disclosure (2026-07-26):** unlike the suite's other three sequence-level theorems
+(which are kernel-only), the TG-2 leads `boundary_budget_general` / `ninth_six_trigram` /
+`single_line_carry` carry `native_decide` axioms via the finite `pairdist_count_0..6` lemmas
+(measured by `#print axioms`) — machine-checked on the extended trust base, not kernel-only.
+Migrating `pairdist_count_*` (and the three TG-1 counts) to kernel `decide` is a small, standing
+cleanup that would make the whole TG-2 family kernel-only (the 64-element counts are well within
+what the kernel handles elsewhere in this suite).
 Verified statements, by family:
 
 | Family | Theorems | One-line honest scope |
 |---|---|---|
-| **TG-1** trigram factorization | `rev6_trigram_factor`, `comp6_trigram_componentwise`, `ham_trigram_split`, `symmetric_iff_trigram`, `pure_hexagrams_explicit`, `pure_pairs_explicit`, … | Classical facts, formalized ([Goldenberg 1975](../documentation/CITATIONS.md#goldenberg1975) ambient; pure-pair placement Lai Zhide / Wu Deng) — nothing claimed as a discovery; the contribution is the kernel-checked lemma layer |
+| **TG-1** trigram factorization | `rev6_trigram_factor`, `comp6_trigram_componentwise`, `ham_trigram_split`, `symmetric_iff_trigram`, `pure_hexagrams_explicit`, `pure_pairs_explicit`, … | Classical facts, formalized ([Goldenberg 1975](../documentation/CITATIONS.md#goldenberg1975) ambient; pure-pair placement Lai Zhide / Wu Deng) — nothing claimed as a discovery; the contribution is the machine-checked lemma layer (three TG-1 counts — `symmetric_count_8`, `antisymmetric_count_8`, `pure_hexagrams_explicit` — are `native_decide`, the extended trust base; label corrected 2026-07-26 from "kernel-checked") |
 | **TG-2** forced boundary budget | `within_multiset_general`, **`boundary_budget_general`** (lead), `ninth_six_trigram`, `single_line_carry`, `c2_trigram_reading`, `pangtong_successor`, `flanking_exclusion` | The project's fourth sequence-level theorem: in EVERY C1+C5-valid ordering the 31 between-pair distances form exactly {1:2, 2:8, 3:13, 4:7, 6:1} — so the "9th six" ([McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975)'s observation, credited) is forced, exactly once, in every valid ordering |
 | **TG-3** trigram-compatible symmetry subgroup | `G12_length`, `G6_length`, `G12_decomposition_covers`/`_nodup`, `mirrorDouble_hom`/`_inj`, `blockPreserving_iff_blockwise`, `uChange_mapP`, `lChange_mapP`, `trigram_functional_not_orbit_invariant` | About the TR-5 **line-position** constraint-symmetry group G₄₈ ONLY (exactly 12 of 48 respect the trigram bipartition, ≅ S₃ × C₂; order 6 at record level) — a different group and object from Hershock 1991's complement/reverse/trigram-swap group on the hexagram set; see TRIGRAM_STRUCTURE.md §"What TG-3 is not" |
 | **TG-4** nuclear naturality | `nuc_comm_rev`, `nuc_comm_comp`, `nuc_partner_descent`, `nuc_image_16`, `nuc_nuc_image_terminal`, `nuc_terminal_closed` | Presumably classical/implicit facts (the 64→16→4 chain is commentary-tradition), formalized to certify the nuclear-battery substrate; no discovery claimed, corrections invited |
@@ -316,3 +337,33 @@ is claimed for the argument. What is possibly new, to our knowledge, is only its
 for the King Wen constraint-symmetry group at the record level (the 1/24 constant riding on
 `twins_24_records`) and the machine-checked formalization. Corrections welcome — see
 CITATIONS.md.
+
+## The complement Z₂ symmetry (2026-07-26): KingWen.lean final section
+
+The corrected replacement for the retracted "Theorem 6 (forced orientation)" (see
+[CLAIMS_DECIDED.md](../documentation/CLAIMS_DECIDED.md)'s corrections ledger and
+[SPECIFICATION.md](../documentation/SPECIFICATION.md) §Theorems): global complementation
+comp : x ↦ x ⊕ 63, applied to every hexagram of a sequence, is an **exact symmetry of
+C1 ∩ C2 ∩ C3 ∩ C5**, and an involution; only the **oriented** form of C4 breaks it. In particular
+comp∘KW opens (0, 63) — the reversed orientation — and satisfies C1, C5 (hence C2), and C3 with
+the sum at exactly 776: the opening orientation is a free Z₂ of the pair-only system, fixed in C4
+by definition (classically attested, Xugua Heaven-then-Earth), not by mathematics. Verified
+statements:
+
+| Theorem | Statement |
+|---|---|
+| `c1ok_compSeq` | comp preserves C1 exactly (partner commutes with complement — `partner_comp_comm63`) |
+| `c5ok_compSeq` (via `transitions_compSeq`) | comp preserves the transition-distance list, hence C5 and its C2 clauses exactly (Hamming isometry) |
+| `c3x64_compSeq`, `c3ok_compSeq` | comp preserves the x64 complement-distance sum exactly (each term is max/min-symmetric in its two position lookups) |
+| `comp_symmetry_c1_c2_c3_c5` | THE SYMMETRY: for every 64-element 6-bit sequence, comp∘l satisfies each of C1/C5/C3 iff l does |
+| `c4ok_breaks_under_comp` | The one break: any sequence opening at 63 opens at 0 after comp — oriented C4 is what excludes comp, and nothing else is |
+| `compSeq_involution` | comp∘comp = id on bounded sequences: a genuine Z₂ action, exchanging the two opening orientations bijectively on the C1∩C2∩C3∩C5 solution set |
+| `orientation_not_forced` | The corollary at King Wen: comp∘KW opens (0, 63), satisfies C1/C5/C3 with C3 = 776 exactly, fails oriented C4 — the retracted claim's counterexample, machine-checked |
+| `kw_valid_kernel`, `kw_c3_776_kernel` | Kernel-decide re-statements of `kw_valid` / `kw_c3_exactly_776`, so the corollary is kernel-only end to end |
+
+**Trust base (`#print axioms`, recorded 2026-07-26): kernel-only throughout — no
+`native_decide`.** `comp_symmetry_c1_c2_c3_c5`, `orientation_not_forced`, `c1ok_compSeq`,
+`c3x64_compSeq`, `c4ok_breaks_under_comp`: `[propext, Quot.sound]`. `c5ok_compSeq`,
+`compSeq_involution`, `kw_valid_kernel`, `kw_c3_776_kernel`: `[propext]`. The finite lemmas are
+plain `decide` (64- and 4096-case) and the KW instances `decide +kernel`; the sequence-level
+lemmas are structural inductions. This section adds nothing to the file's trusted base.

@@ -330,7 +330,7 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
 
 ### About methodology
 
-9. **Formal machine-checked proof of Theorem 6.** The forced-orientation theorem (see SPECIFICATION.md) has a prose proof. A Lean or Rocq machine-checked proof would remove any residual ambiguity. Listed in LONG_TERM_PLAN.md. Level 1 (prose tightening) and Level 2 (Lean / Rocq) both deferred.
+9. **~~Formal machine-checked proof of Theorem 6~~ — RESOLVED BY RETRACTION (2026-07-26).** This item formerly said the forced-orientation theorem "has a prose proof" awaiting formalization. Both halves were wrong: no prose proof ever existed (SOLVE.md itself said "not yet analytically proven" while SPECIFICATION.md called it a theorem — a status contradiction), and **the claim is false** — complementation is an exact symmetry of C1∩C2∩C3∩C5, so the reversed opening (0, 63) is fully valid there; only C4's oriented definition excludes it. The machine-checking happened in the opposite direction: the TRUE statement (the Complement Z₂ symmetry theorem) is now kernel-checked in [lean/KingWen.lean](../lean/KingWen.lean), and the false one is retracted (see CLAIMS_DECIDED's corrections ledger). The empirical support had been circular: the solver hardcodes the orientation it was cited as evidence for.
 
 10. **Bootstrap confidence intervals for all percentiles in CRITIQUE.md.** The current framing uses point estimates from finite samples. Bootstrap (or Wilson score intervals for proportions) would put explicit error bars on every rate claim. Partially done in the null-model table (Wilson / 3/N rule mentioned); not yet exhaustively applied.
 
