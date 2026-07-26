@@ -56,6 +56,10 @@
  *          --ie-no-budget = the C1∩C2∩C4 (F4) variant; --ie-pin/--ie-pin-c6c7 =
  *          the pinned-step (T3) variant for |C1∩C2∩C4∩C5∩C6∩C7|.
  *         ./verify --ie-probe NSAMP [--ie-threads N]   full-31 throughput probe.
+ *         ./verify --dp-count [opts]   Route D: the SECOND instrument for the
+ *          pinned (C6/C7) exact count — a direct layered exact-cover mask DP
+ *          (NO inclusion–exclusion; different algorithm class from --ie-count).
+ *          See the ROUTE D section header below.
  */
 
 #include <stdio.h>
@@ -275,6 +279,10 @@ static int parse_masses(const char *path, char masses[32][48]) {
 /* |C1∩C2∩C4| — published exact (TR-4 §"exact vs estimator" table / TR-11;
  * same integer as verify.py's _C1C2C4_EXACT and the solve.c §f1-exact comment). */
 #define LC_PUBLISHED_COUNT_C1C2C4 "757058601340255440651419713405330315358208"
+/* |C1∩C2∩C4∩C5∩C6∩C7| (= |C1–C7| with C3 dropped) — published exact
+ * (METHODS.md estimate-vs-exact table; first computed 2026-07-25 by the T3
+ * pinned-step IE recount). --dp-count's full-31 pinned default target. */
+#define LC_PUBLISHED_COUNT_C1C7NOC3 "516880238445773965371923491676160"
 
 typedef struct { uint64_t l[3]; } u192;                 /* value = l0 + 2^64 l1 + 2^128 l2 */
 static int  u192_add(u192 *a, u192 b) {                 /* a+=b; returns 1 on 192-bit overflow */
@@ -3277,11 +3285,757 @@ static int ie_probe_main(int argc, char **argv) {
     return 0;
 }
 
+/* ==========================================================================
+ * ROUTE D — THE SECOND INSTRUMENT FOR THE PINNED (C6/C7) EXACT COUNT
+ *   --dp-count [opts]
+ *
+ * PURPOSE. The published exact |C1∩C2∩C4∩C5∩C6∩C7| (= |C1–C7|, C3 dropped) =
+ * 516,880,238,445,773,965,371,923,491,676,160 was first computed (2026-07-25)
+ * by ONE instrument: the pinned-step signed inclusion–exclusion transfer walk
+ * (--ie-count --ie-pin-c6c7 --ie-no-quotient above). This mode is a genuinely
+ * different SECOND instrument that recomputes the same integer at full scale,
+ * mirroring the two-instrument pattern used for |C1∩C2∩C4∩C5| (solve.c mask
+ * DP + Route B IE) — except here the direct mask DP is (re)built in this
+ * file, adapted to the slot-pinned instance.
+ *
+ * ALGORITHM CLASS (classical Held–Karp-style exact-cover subset DP; used, not
+ * invented, here — the same class as solve.c's f1c5 primary, independently
+ * reimplemented). State = (M, last, tracked-budget) where M = the explicit
+ * bitmask of used FREE pairs, layered by popcount; pinned slots are FORCED
+ * steps (pair fixed, orientation free) that advance (last, budget) with M
+ * unchanged. There is NO inclusion–exclusion anywhere: no subsets-of-pairs
+ * outer sum, no signs, no W(S), no capped-walk identity, no group quotient.
+ * C1-distinctness is enforced by the mask itself (each free pair placed at
+ * most once; each walk of the final full-mask layer used every pair exactly
+ * once), where the IE engine enforces it by signed cancellation.
+ *
+ * BUDGET (C5) — tracked caps + algebraic coefficient extraction. Tracking the
+ * full 5-class budget vector alongside a 2^27 mask space needs ~1.6 TB; so
+ * the three SMALL classes (d1,d4,d6: caps B0=(2,·,·,7,1) at full 31) are
+ * tracked exactly (48 combos, cap-overflow states killed), and the (d2,d3)
+ * split is recovered algebraically: each d2-step multiplies the walk weight
+ * by a formal y, the derived total s = #d2+#d3 = t − (tracked sum) is killed
+ * when it exceeds B0_d2+B0_d3 = D, and the final answer is the y^{B0_d2}
+ * coefficient of the degree-≤D polynomial V(y), obtained by running the DP at
+ * D+1 nodes y = 1..D+1 and Lagrange-interpolating mod p. One EXTRA node
+ * (y = D+2) is always run and checked against the fitted polynomial — an
+ * end-to-end overdetermination gate on the whole kernel. The interpolation
+ * needs division, so this mode runs mod the three Miller–Rabin-proven 63-bit
+ * primes only (no 2^64 wrap pass); CRT reconstructs every coefficient K_b
+ * exactly (each K_b ≤ |C1∩C2∩C4| < p0·p1·p2 — a rigorous envelope). The K_b
+ * for b ≠ B0_d2 are exact counts of perturbed-budget variants — free
+ * diagnostics printed alongside.
+ *
+ * INDEPENDENCE from --ie-count (what IS shared, and why that is sound):
+ *   shared: the PROBLEM SPEC ONLY — the KW[]/build_pairs pair table, the
+ *     class map d = hamming ∈ {1,2,3,4,6} with d=5 (C2) excluded, the
+ *     TR-11 §5 B0 derivation (ie_b0g_dfs) and rung-spec labels
+ *     (ie_parse_spec; orbit labels NAME rungs, no group math is used here),
+ *     the SPEC C6/C7 pin constants cross-check, and scalar arithmetic
+ *     utilities (ie_mulmod/ie_powmod/ie_invmod, prime selection, ie_crt3,
+ *     u192 printing) whose correctness is checked end-to-end by the small-n
+ *     brute-force equalities.
+ *   NOT shared: everything that computes — the walk kernel, the state
+ *     space, the budget mechanism, the distinctness mechanism, and the
+ *     outer structure are all different in kind from the IE engine's.
+ *
+ * MEMORY. Layers hold [rank(M)][last][comb] u64 residues; `last` is stored
+ * SPARSELY: after a free step, last = the exit hexagram of the placed pair,
+ * so a free layer of popcount k needs only 2k slots (the 32 pairs partition
+ * the 64 hexagrams — slot = 2*(position of the pair in M) + side); after a
+ * forced step only that pin's 2 exits are possible (2 slots). Full-31 pinned
+ * peak = layers 13+14 ≈ 200+216 GB resident — a 512 GB VM fits. Per-unit
+ * (prime × node) runs are independent, so checkpointing is at unit
+ * granularity: an eviction loses at most one unit.
+ *
+ * USAGE:
+ *   ./verify --dp-count [--dp-spec "3.0,3.1,3.2@0" | --dp-spec full31@0]
+ *            [--dp-pin SLOT:PAIR ...] [--dp-pin-c6c7] [--dp-b0 a,b,c,d,e]
+ *            [--dp-mod all|p0|p1|p2] [--dp-threads N] [--dp-checkpoint FILE]
+ *            [--dp-expect DECIMAL] [--dp-negctl] [--dp-no-budget]
+ *            [--dp-size-only]
+ * Defaults: spec full31@0; mod all; threads = online CPUs. --dp-negctl swaps
+ * B0's d2/d4 budgets (count MUST differ). --dp-no-budget drops C5 entirely
+ * (plain (M,last) DP, one node — the F4-variant cross-check). --dp-size-only
+ * prints the layer plan (masks, bytes, peak resident) and exits.
+ * ========================================================================== */
+
+static uint64_t dp_C[33][33];                     /* binomials (colex ranking) */
+static void dp_binom_init(void) {
+    for (int i = 0; i <= 32; i++) {
+        for (int j = 0; j <= 32; j++) dp_C[i][j] = 0;
+        dp_C[i][0] = 1;
+        for (int j = 1; j <= i; j++)
+            dp_C[i][j] = dp_C[i-1][j-1] + dp_C[i-1][j];
+    }
+}
+/* rank r (numeric order) -> the r-th k-subset mask of [0,nf) */
+static uint32_t dp_unrank(uint64_t r, int k, int nf) {
+    uint32_t m = 0;
+    for (int i = k; i >= 1; i--) {
+        int p = i - 1;
+        while (p + 1 < nf && dp_C[p+1][i] <= r) p++;
+        m |= 1u << p;
+        r -= dp_C[p][i];
+    }
+    return m;
+}
+static inline uint32_t dp_next_mask(uint32_t v) { /* Gosper: next same-popcount */
+    uint32_t c = v & (0u - v);
+    if (!c) return 0;
+    uint32_t rr = v + c;
+    return rr | (((v ^ rr) >> 2) / c);
+}
+
+#define DP_MAXCOMB 4096
+typedef struct {
+    int n, start;
+    int pl[32];                /* instance pair list (KW pair indices) */
+    int b0v[5];
+    int no_budget, negctl;
+    int npin;
+    int pin_at[32];            /* [step t-1] = pl-position forced, or -1 */
+    int pin_ord[32];           /* [step t-1] = pin order index, or -1 */
+    int pqa[8], pqb[8];        /* pin order i -> its two hexagrams */
+    char pinstr[160];
+    int nfree;
+    int fpa[32], fpb[32];      /* free index -> hexagrams (PA/PB of the pair) */
+    int fpl[32];               /* free index -> KW pair index (reporting) */
+    /* budget split */
+    int tcap[3];               /* tracked caps: d1,d4,d6 = b0v[0],b0v[3],b0v[4] */
+    int cstr[3];               /* comb-index stride of a +1 in each tracked class */
+    int ncomb;
+    int D;                     /* b0v[1]+b0v[2] — interpolation degree bound */
+    int nnodes;                /* D+2 (fit D+1, check 1); 1 in no_budget mode */
+    int comb_final;
+    uint8_t tsum[DP_MAXCOMB];  /* comb -> tracked sum */
+    uint8_t trk_ok[3][DP_MAXCOMB];
+    int8_t cmap[64][64];       /* [enter][last] -> class index, or -1 */
+} DpCtx;
+
+typedef struct {
+    int t;                     /* layer holds state after step t */
+    int pc;                    /* mask popcount (free steps done) */
+    int kindsrc;               /* -1 = free step (or t=0 base), else pin order */
+    int nls;                   /* last slots: 1 (t=0), 2 (forced), 2*pc (free) */
+    uint64_t nm;               /* number of masks = C(nfree, pc) */
+    uint64_t *v;               /* [nm][nls][ncomb] residues */
+} DpLayer;
+
+/* comb-vector transfer for one (source-last, orientation) arc; returns #adds */
+static inline uint64_t dp_apply(const DpCtx *X, int ci, const uint64_t *sv,
+                                uint64_t *tv, uint64_t mod, uint64_t y,
+                                const uint8_t *aliveU) {
+    const int nc = X->ncomb;
+    uint64_t tr = 0;
+    if (ci == 1) {                       /* d2 (untracked, weight y) */
+        for (int c = 0; c < nc; c++) {
+            uint64_t v = sv[c];
+            if (!v || !aliveU[c]) continue;
+            v = (uint64_t)((unsigned __int128)v * y % mod);
+            uint64_t s = tv[c] + v; if (s >= mod) s -= mod;
+            tv[c] = s; tr++;
+        }
+    } else if (ci == 2) {                /* d3 (untracked, weight 1) */
+        for (int c = 0; c < nc; c++) {
+            uint64_t v = sv[c];
+            if (!v || !aliveU[c]) continue;
+            uint64_t s = tv[c] + v; if (s >= mod) s -= mod;
+            tv[c] = s; tr++;
+        }
+    } else {                             /* tracked: d1/d4/d6 -> comb shift */
+        int ti = (ci == 0) ? 0 : (ci == 3) ? 1 : 2;
+        int str = X->cstr[ti];
+        const uint8_t *ok = X->trk_ok[ti];
+        for (int c = 0; c < nc; c++) {
+            uint64_t v = sv[c];
+            if (!v || !ok[c]) continue;
+            uint64_t s = tv[c + str] + v; if (s >= mod) s -= mod;
+            tv[c + str] = s; tr++;
+        }
+    }
+    return tr;
+}
+
+typedef struct {
+    const DpCtx *X;
+    const DpLayer *S;
+    DpLayer *T;
+    uint64_t mod, y;
+    int pin;                   /* pin order index for forced step, else -1 */
+    uint64_t next;             /* atomic chunk cursor */
+    uint64_t chunk;
+    const uint8_t *aliveU;
+    uint64_t trans;
+    pthread_mutex_t mu;
+} DpStep;
+
+static void *dp_step_worker(void *arg) {
+    DpStep *W = arg;
+    const DpCtx *X = W->X;
+    const DpLayer *S = W->S;
+    DpLayer *T = W->T;
+    const int nc = X->ncomb;
+    const uint64_t mod = W->mod, y = W->y;
+    const uint8_t *aliveU = W->aliveU;
+    uint64_t tr = 0;
+    int bl[32];
+    uint64_t pre[33], suf[33];
+    const size_t tstride = (size_t)T->nls * nc, sstride = (size_t)S->nls * nc;
+    for (;;) {
+        uint64_t c0 = __atomic_fetch_add(&W->next, 1, __ATOMIC_RELAXED);
+        uint64_t lo = c0 * W->chunk;
+        if (lo >= T->nm) break;
+        uint64_t hi = lo + W->chunk; if (hi > T->nm) hi = T->nm;
+        const int k1 = T->pc;
+        uint32_t m = dp_unrank(lo, k1, X->nfree);
+        for (uint64_t r = lo; r < hi; r++) {
+            {   uint32_t mm = m;
+                for (int i = 0; i < k1; i++) { bl[i] = __builtin_ctz(mm); mm &= mm - 1; }
+            }
+            uint64_t *trow = T->v + (size_t)r * tstride;
+            memset(trow, 0, tstride * 8);
+            if (W->pin >= 0) {
+                /* FORCED step: same mask; pair = the pin; 2 target slots */
+                const uint64_t *srow = S->v + (size_t)r * sstride;
+                int pa = X->pqa[W->pin], pb = X->pqb[W->pin];
+                for (int ls = 0; ls < S->nls; ls++) {
+                    int h;
+                    if (S->kindsrc >= 0)      h = (ls & 1) ? X->pqb[S->kindsrc] : X->pqa[S->kindsrc];
+                    else if (S->t == 0)       h = X->start;
+                    else { int p = ls >> 1;   h = (ls & 1) ? X->fpb[bl[p]] : X->fpa[bl[p]]; }
+                    const uint64_t *sv = srow + (size_t)ls * nc;
+                    for (int o = 0; o < 2; o++) {          /* o=0: enter b, exit a */
+                        int enter = o ? pa : pb;
+                        int ci = X->cmap[enter][h];
+                        if (ci < 0) continue;
+                        tr += dp_apply(X, ci, sv, trow + (size_t)o * nc, mod, y, aliveU);
+                    }
+                }
+            } else {
+                /* FREE step: gather from the k1 sub-masks M' \ {j} */
+                pre[0] = 0;
+                for (int i = 0; i < k1; i++) pre[i+1] = pre[i] + dp_C[bl[i]][i+1];
+                suf[k1] = 0;
+                for (int i = k1 - 1; i >= 0; i--) suf[i] = suf[i+1] + dp_C[bl[i]][i];
+                for (int jj = 0; jj < k1; jj++) {
+                    int j = bl[jj];
+                    int pa = X->fpa[j], pb = X->fpb[j];
+                    const uint64_t *srow = S->v + (size_t)(pre[jj] + suf[jj+1]) * sstride;
+                    uint64_t *tv0 = trow + (size_t)(2*jj) * nc;
+                    for (int ls = 0; ls < S->nls; ls++) {
+                        int h;
+                        if (S->kindsrc >= 0)      h = (ls & 1) ? X->pqb[S->kindsrc] : X->pqa[S->kindsrc];
+                        else if (S->t == 0)       h = X->start;
+                        else { int p = ls >> 1;   int js = bl[p < jj ? p : p + 1];
+                               h = (ls & 1) ? X->fpb[js] : X->fpa[js]; }
+                        const uint64_t *sv = srow + (size_t)ls * nc;
+                        for (int o = 0; o < 2; o++) {      /* o=0: enter b, exit a */
+                            int enter = o ? pa : pb;
+                            int ci = X->cmap[enter][h];
+                            if (ci < 0) continue;
+                            tr += dp_apply(X, ci, sv, tv0 + (size_t)o * nc, mod, y, aliveU);
+                        }
+                    }
+                }
+            }
+            if (r + 1 < hi) m = dp_next_mask(m);
+        }
+    }
+    pthread_mutex_lock(&W->mu);
+    W->trans += tr;
+    pthread_mutex_unlock(&W->mu);
+    return NULL;
+}
+
+/* one DP unit: full n-step pass at (mod, node y); returns 0 ok */
+static int dp_run_unit(const DpCtx *X, uint64_t mod, uint64_t y, int threads,
+                       uint64_t *out_val, uint64_t *out_trans, double *out_wall) {
+    struct timespec w0, w1;
+    clock_gettime(CLOCK_MONOTONIC, &w0);
+    DpLayer S, T;
+    memset(&S, 0, sizeof S);
+    S.t = 0; S.pc = 0; S.kindsrc = -1; S.nls = 1; S.nm = 1;
+    S.v = calloc((size_t)X->ncomb, 8);
+    if (!S.v) return 1;
+    S.v[0] = 1 % mod;
+    uint64_t trans = 0;
+    for (int t = 1; t <= X->n; t++) {
+        int pin = X->pin_ord[t-1];
+        memset(&T, 0, sizeof T);
+        T.t = t;
+        T.pc = S.pc + (pin < 0 ? 1 : 0);
+        T.kindsrc = pin;
+        T.nls = (pin >= 0) ? 2 : 2 * T.pc;
+        T.nm = dp_C[X->nfree][T.pc];
+        size_t bytes = (size_t)T.nm * T.nls * X->ncomb * 8;
+        T.v = malloc(bytes);
+        if (!T.v) {
+            printf("*** FAIL: layer t=%d alloc of %.1f GB failed\n", t, bytes / 1e9);
+            free(S.v); return 1;
+        }
+        uint8_t aliveU[DP_MAXCOMB];
+        for (int c = 0; c < X->ncomb; c++)
+            aliveU[c] = X->no_budget ? 1 : ((t - (int)X->tsum[c]) <= X->D);
+        DpStep W;
+        memset(&W, 0, sizeof W);
+        W.X = X; W.S = &S; W.T = &T; W.mod = mod; W.y = y; W.pin = pin;
+        W.aliveU = aliveU;
+        W.chunk = T.nm / ((uint64_t)threads * 8) + 1;
+        if (W.chunk > 32768) W.chunk = 32768;
+        pthread_mutex_init(&W.mu, NULL);
+        int nth = threads;
+        if ((uint64_t)nth > T.nm) nth = (int)T.nm;
+        if (nth > 256) nth = 256;
+        pthread_t th[256];
+        for (int i = 0; i < nth; i++) pthread_create(&th[i], NULL, dp_step_worker, &W);
+        for (int i = 0; i < nth; i++) pthread_join(th[i], NULL);
+        trans += W.trans;
+        free(S.v);
+        S = T;
+    }
+    /* final layer: nm=1 (full mask); sum the target-budget comb over all lasts */
+    uint64_t acc = 0;
+    for (int ls = 0; ls < S.nls; ls++) {
+        uint64_t v = S.v[(size_t)ls * X->ncomb + X->comb_final];
+        acc += v; if (acc >= mod) acc -= mod;
+    }
+    free(S.v);
+    clock_gettime(CLOCK_MONOTONIC, &w1);
+    *out_val = acc;
+    *out_trans = trans;
+    *out_wall = (w1.tv_sec - w0.tv_sec) + (w1.tv_nsec - w0.tv_nsec) * 1e-9;
+    return 0;
+}
+
+/* Lagrange fit of the D+1 coefficients from nodes y=1..D+1 (mod p), then the
+ * overdetermination check at y=D+2. Returns 1 ok, 0 on check failure. */
+static int dp_fit_check(const DpCtx *X, uint64_t p, const uint64_t *V, uint64_t *K) {
+    int D = X->D, nf = D + 1;
+    uint64_t num[64], tmp[64];
+    for (int b = 0; b <= D; b++) K[b] = 0;
+    for (int j = 0; j < nf; j++) {
+        num[0] = 1;
+        int deg = 0;
+        uint64_t den = 1;
+        for (int m = 0; m < nf; m++) {
+            if (m == j) continue;
+            uint64_t ym = (uint64_t)(m + 1) % p;
+            tmp[0] = 0;
+            for (int i = 0; i <= deg; i++) tmp[i+1] = num[i];
+            for (int i = 0; i <= deg; i++) {
+                uint64_t sb = ie_mulmod(num[i], ym, p);
+                tmp[i] = (tmp[i] >= sb) ? tmp[i] - sb : tmp[i] + p - sb;
+            }
+            deg++;
+            for (int i = 0; i <= deg; i++) num[i] = tmp[i];
+            uint64_t d = ((uint64_t)(j + 1) + p - ym) % p;
+            den = ie_mulmod(den, d, p);
+        }
+        uint64_t w = ie_mulmod(V[j] % p, ie_invmod(den, p), p);
+        for (int b = 0; b <= D; b++)
+            K[b] = (K[b] + ie_mulmod(num[b], w, p)) % p;
+    }
+    uint64_t yc = (uint64_t)(D + 2) % p, pw = 1, pred = 0;
+    for (int b = 0; b <= D; b++) {
+        pred = (pred + ie_mulmod(K[b], pw, p)) % p;
+        pw = ie_mulmod(pw, yc, p);
+    }
+    return pred == V[nf];
+}
+
+/* ---- driver: --dp-count ---- */
+static int dp_count_main(int argc, char **argv) {
+    const char *spec = "full31@0", *ckpt = NULL, *expect = NULL, *modsel = "all";
+    int threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    int negctl = 0, no_budget = 0, have_b0 = 0, size_only = 0;
+    int b0_cli[5] = {0,0,0,0,0};
+    int pin_slot[32], pin_pair[32], npin_cli = 0, pin_c6c7 = 0;
+    for (int i = 2; i < argc; i++) {
+        if (!strcmp(argv[i], "--dp-spec") && i + 1 < argc) spec = argv[++i];
+        else if (!strcmp(argv[i], "--dp-mod") && i + 1 < argc) modsel = argv[++i];
+        else if (!strcmp(argv[i], "--dp-threads") && i + 1 < argc) threads = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--dp-checkpoint") && i + 1 < argc) ckpt = argv[++i];
+        else if (!strcmp(argv[i], "--dp-expect") && i + 1 < argc) expect = argv[++i];
+        else if (!strcmp(argv[i], "--dp-negctl")) negctl = 1;
+        else if (!strcmp(argv[i], "--dp-no-budget")) no_budget = 1;
+        else if (!strcmp(argv[i], "--dp-size-only")) size_only = 1;
+        else if (!strcmp(argv[i], "--dp-pin") && i + 1 < argc) {
+            int s, p;
+            if (sscanf(argv[++i], "%d:%d", &s, &p) != 2 || npin_cli >= 8) {
+                fprintf(stderr, "bad --dp-pin (want SLOT:PAIR, max 8 pins)\n"); return 2;
+            }
+            pin_slot[npin_cli] = s; pin_pair[npin_cli] = p; npin_cli++;
+        }
+        else if (!strcmp(argv[i], "--dp-pin-c6c7")) pin_c6c7 = 1;
+        else if (!strcmp(argv[i], "--dp-b0") && i + 1 < argc) {
+            if (sscanf(argv[++i], "%d,%d,%d,%d,%d",
+                       &b0_cli[0], &b0_cli[1], &b0_cli[2], &b0_cli[3], &b0_cli[4]) != 5) {
+                fprintf(stderr, "bad --dp-b0\n"); return 2;
+            }
+            have_b0 = 1;
+        }
+        else { fprintf(stderr, "unknown --dp-count option %s\n", argv[i]); return 2; }
+    }
+    if (threads < 1) threads = 1;
+
+    printf("======================================================================\n");
+    printf("verify.c --dp-count : Route D — direct layered exact-cover mask DP\n");
+    printf("(explicit used-pair bitmask, pins as forced steps; NO inclusion-\n");
+    printf(" exclusion: no subset sum, no signs, no W(S), no quotient. Budget by\n");
+    printf(" tracked (d1,d4,d6) caps + y^k coefficient extraction over (d2,d3),\n");
+    printf(" Lagrange-interpolated mod 3 proven primes + CRT)\n");
+    printf("======================================================================\n");
+    if (!build_pairs()) return 1;
+    if (!derive_pair_perms()) return 1;          /* only to LABEL rung specs */
+    if (!ie_build_orbits()) { printf("*** FAIL: pair-orbit derivation\n"); return 1; }
+    dp_binom_init();
+
+    DpCtx X;
+    memset(&X, 0, sizeof X);
+    if (!ie_parse_spec(spec, X.pl, &X.n, &X.start)) {
+        printf("*** FAIL: bad --dp-spec '%s'\n", spec);
+        return 1;
+    }
+    X.no_budget = no_budget;
+    X.negctl = negctl;
+
+    /* ---- pins ---- */
+    for (int k = 0; k < 32; k++) { X.pin_at[k] = -1; X.pin_ord[k] = -1; }
+    if (pin_c6c7) {
+        if (X.n != 31 || X.start != 0) {
+            printf("*** FAIL: --dp-pin-c6c7 requires --dp-spec full31@0\n");
+            return 1;
+        }
+        /* SPECIFICATION.md C6/C7 hexagram constants — independent cross-check
+         * of the KW[]-derived pair table (same check as the IE variant). */
+        static const int spec67[4][2] = {{29,46},{9,36},{11,52},{13,44}};
+        for (int s = 24; s <= 27; s++) {
+            int a = PA[s], b = PB[s];
+            int sa = spec67[s - 24][0], sb = spec67[s - 24][1];
+            if (!((a == sa && b == sb) || (a == sb && b == sa))) {
+                printf("*** FAIL: KW pair #%d {%d,%d} != SPEC C6/C7 {%d,%d}\n",
+                       s, a, b, sa, sb);
+                return 1;
+            }
+            pin_slot[npin_cli] = s; pin_pair[npin_cli] = s; npin_cli++;
+        }
+    }
+    int dup_pin = 0;
+    if (npin_cli) {
+        X.pinstr[0] = 0;
+        for (int i = 0; i < npin_cli; i++) {
+            int s = pin_slot[i], p = pin_pair[i];
+            if (s < 1 || s > X.n) {
+                printf("*** FAIL: pin slot %d outside 1..%d\n", s, X.n); return 1;
+            }
+            int q = -1;
+            for (int j = 0; j < X.n; j++) if (X.pl[j] == p) { q = j; break; }
+            if (q < 0) {
+                printf("*** FAIL: pinned pair %d not in the instance pair list\n", p);
+                return 1;
+            }
+            if (X.pin_at[s - 1] >= 0) {
+                printf("*** FAIL: slot %d pinned twice\n", s); return 1;
+            }
+            for (int j = 0; j < i; j++) if (pin_pair[j] == p) dup_pin = 1;
+            if (i >= 8) { printf("*** FAIL: more than 8 pins\n"); return 1; }
+            X.pin_at[s - 1] = q;
+            char tb[16]; snprintf(tb, sizeof tb, "%s%d:%d", i ? "," : "", s, p);
+            strncat(X.pinstr, tb, sizeof X.pinstr - strlen(X.pinstr) - 1);
+        }
+        X.npin = npin_cli;
+    }
+    if (dup_pin) {
+        /* one pair at two slots cannot be a C1 permutation: N = 0 by definition
+         * (matches the IE engine's duplicate-pin self-test). */
+        printf("pins    : DUPLICATE pinned pair -> N = 0 identically\n");
+        printf("RESULT  : N = 0\n");
+        if (expect) {
+            int eq = !strcmp(expect, "0");
+            printf("          vs expected %s : %s\n", expect, eq ? "MATCH" : "*** MISMATCH ***");
+            return eq ? 0 : 1;
+        }
+        return 0;
+    }
+    /* pin order = slot order; free-pair list = instance minus pinned */
+    {   int no = 0;
+        for (int t = 0; t < X.n; t++)
+            if (X.pin_at[t] >= 0) {
+                X.pin_ord[t] = no;
+                X.pqa[no] = PA[X.pl[X.pin_at[t]]];
+                X.pqb[no] = PB[X.pl[X.pin_at[t]]];
+                no++;
+            }
+        X.nfree = 0;
+        for (int j = 0; j < X.n; j++) {
+            int pinned = 0;
+            for (int t = 0; t < X.n; t++) if (X.pin_at[t] == j) pinned = 1;
+            if (!pinned) {
+                X.fpl[X.nfree] = X.pl[j];
+                X.fpa[X.nfree] = PA[X.pl[j]];
+                X.fpb[X.nfree] = PB[X.pl[j]];
+                X.nfree++;
+            }
+        }
+        if (X.nfree + X.npin != X.n) { printf("*** FAIL: pin bookkeeping\n"); return 1; }
+    }
+    if (X.npin)
+        printf("pins    : %d forced step(s) [slot:pair] %s (orientation free);\n"
+               "          mask covers the %d free pairs; the mod-24 free-action\n"
+               "          gate does NOT apply under pins (informational only)\n",
+               X.npin, X.pinstr, X.nfree);
+
+    /* ---- budget ---- */
+    if (no_budget) {
+        if (have_b0) { printf("*** FAIL: --dp-b0 contradicts --dp-no-budget\n"); return 1; }
+        printf("budget  : NONE (--dp-no-budget: C5 dropped; plain (M,last) DP)\n");
+        X.ncomb = 1; X.D = 0; X.nnodes = 1; X.comb_final = 0;
+        X.tsum[0] = 0;
+    } else {
+        if (have_b0) memcpy(X.b0v, b0_cli, sizeof X.b0v);
+        else if (X.n == 31) {
+            for (int i = 0; i < 31; i++) {
+                int d = hamming(KW[2 * i + 1], KW[2 * i + 2]);
+                int ci = cls_ix(d);
+                if (ci < 0) { printf("*** FAIL: KW boundary outside classes\n"); return 1; }
+                X.b0v[ci]++;
+            }
+            printf("budget  : full-31 B0 from KW boundary multiset = (%d,%d,%d,%d,%d)\n",
+                   X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4]);
+        } else {
+            int cnt[5] = {0,0,0,0,0};
+            ie_b0g_found = 0;
+            ie_b0g_dfs(X.pl, X.n, 0, X.start, 0, cnt, X.b0v);
+            if (!ie_b0g_found) { printf("*** FAIL: no completing walk (B0 DFS)\n"); return 1; }
+            printf("budget  : rung B0 via TR-11 SS5 Step-1 DFS = (%d,%d,%d,%d,%d)\n",
+                   X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4]);
+        }
+        if (negctl) {
+            int tt = X.b0v[1]; X.b0v[1] = X.b0v[3]; X.b0v[3] = tt;
+            printf("budget  : *** NEGATIVE CONTROL: d2/d4 budgets swapped -> (%d,%d,%d,%d,%d);\n"
+                   "          the count MUST differ from the published value ***\n",
+                   X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4]);
+        }
+        int sum = 0;
+        for (int c = 0; c < 5; c++) { if (X.b0v[c] < 0) { printf("*** FAIL: bad B0\n"); return 1; } sum += X.b0v[c]; }
+        if (sum != X.n) {
+            printf("*** FAIL: budget sum %d != n=%d\n", sum, X.n);
+            return 1;
+        }
+        X.tcap[0] = X.b0v[0]; X.tcap[1] = X.b0v[3]; X.tcap[2] = X.b0v[4];
+        X.cstr[2] = 1;
+        X.cstr[1] = X.tcap[2] + 1;
+        X.cstr[0] = (X.tcap[1] + 1) * (X.tcap[2] + 1);
+        X.ncomb = (X.tcap[0] + 1) * X.cstr[0];
+        if (X.ncomb > DP_MAXCOMB) { printf("*** FAIL: tracked-comb space too large\n"); return 1; }
+        X.D = X.b0v[1] + X.b0v[2];
+        X.nnodes = X.D + 2;
+        X.comb_final = X.tcap[0] * X.cstr[0] + X.tcap[1] * X.cstr[1] + X.tcap[2];
+        for (int c = 0; c < X.ncomb; c++) {
+            int a = c / X.cstr[0], d4 = (c / X.cstr[1]) % (X.tcap[1] + 1), e = c % (X.tcap[2] + 1);
+            X.tsum[c] = (uint8_t)(a + d4 + e);
+            X.trk_ok[0][c] = a  < X.tcap[0];
+            X.trk_ok[1][c] = d4 < X.tcap[1];
+            X.trk_ok[2][c] = e  < X.tcap[2];
+        }
+        printf("split   : tracked (d1,d4,d6) caps (%d,%d,%d) -> %d combs; derived\n"
+               "          s = #d2+#d3 killed above D=%d; y on d2-steps; N = the\n"
+               "          y^%d coefficient, fit at y=1..%d, checked at y=%d\n",
+               X.tcap[0], X.tcap[1], X.tcap[2], X.ncomb, X.D,
+               X.b0v[1], X.D + 1, X.D + 2);
+    }
+    /* class map: d = hamming(last, enter); 0 and the C2-forbidden 5 excluded
+     * (no-budget negative control would swap the forbidden class — the IE
+     * engine covers that control; here negctl is the budget swap above). */
+    for (int enter = 0; enter < 64; enter++)
+        for (int h = 0; h < 64; h++) {
+            int d = hamming(h, enter);
+            int ci = (d == 0 || d == 5) ? -1 : cls_ix(d);
+            X.cmap[enter][h] = (int8_t)(no_budget ? (ci < 0 ? -1 : 2) : ci);
+        }
+
+    printf("instance: n=%d start=%d spec=%s nfree=%d  pairs=", X.n, X.start, spec, X.nfree);
+    for (int i = 0; i < X.n; i++) printf("%s%d", i ? "," : "", X.pl[i]);
+    printf("\n");
+
+    /* ---- layer plan (also the --dp-size-only output) ---- */
+    {   double peak = 0, prev = 0;
+        int pc = 0;
+        for (int t = 1; t <= X.n; t++) {
+            int pin = X.pin_ord[t-1];
+            pc += (pin < 0) ? 1 : 0;
+            int nls = (pin >= 0) ? 2 : 2 * pc;
+            double gb = (double)dp_C[X.nfree][pc] * nls * X.ncomb * 8 / 1e9;
+            if (gb + prev > peak) peak = gb + prev;
+            if (size_only)
+                printf("  layer t=%2d %s pc=%2d masks=%llu nls=%2d  %.2f GB\n",
+                       t, pin >= 0 ? "PIN " : "free", pc,
+                       (unsigned long long)dp_C[X.nfree][pc], nls, gb);
+            prev = gb;
+        }
+        printf("memory  : peak resident (two adjacent layers) = %.1f GB; units = %d\n",
+               peak, X.nnodes * 3);
+        if (size_only) return 0;
+    }
+
+    uint64_t primes[3];
+    ie_pick_primes(primes);
+    for (int i = 0; i < 3; i++)
+        if (!ie_is_prime_u64(primes[i])) { printf("*** FAIL: prime selection\n"); return 1; }
+    printf("primes  : p0=%llu p1=%llu p2=%llu (Miller-Rabin-proven at startup)\n",
+           (unsigned long long)primes[0], (unsigned long long)primes[1],
+           (unsigned long long)primes[2]);
+
+    int runp[3] = {0,0,0};
+    if (!strcmp(modsel, "all")) runp[0] = runp[1] = runp[2] = 1;
+    else if (!strcmp(modsel, "p0")) runp[0] = 1;
+    else if (!strcmp(modsel, "p1")) runp[1] = 1;
+    else if (!strcmp(modsel, "p2")) runp[2] = 1;
+    else { printf("*** FAIL: bad --dp-mod '%s' (all|p0|p1|p2)\n", modsel); return 1; }
+
+    /* ---- unit checkpoint (prime x node granularity) ---- */
+    char hdr[512];
+    snprintf(hdr, sizeof hdr,
+             "DPv1 n=%d start=%d b0=%d,%d,%d,%d,%d nb=%d negctl=%d D=%d nodes=%d pins=%s pl=",
+             X.n, X.start, X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4],
+             X.no_budget, X.negctl, X.D, X.nnodes, X.npin ? X.pinstr : "-");
+    for (int i = 0; i < X.n; i++) {
+        char tb[8]; snprintf(tb, sizeof tb, "%s%d", i ? "," : "", X.pl[i]);
+        strncat(hdr, tb, sizeof hdr - strlen(hdr) - 1);
+    }
+    uint64_t V[3][64];
+    int have[3][64];
+    memset(have, 0, sizeof have);
+    FILE *ck = NULL;
+    if (ckpt) {
+        FILE *f = fopen(ckpt, "r");
+        if (f) {
+            char line[600];
+            if (!fgets(line, sizeof line, f)) {
+                printf("*** FAIL: empty checkpoint %s\n", ckpt); fclose(f); return 1;
+            }
+            line[strcspn(line, "\n")] = 0;
+            if (strcmp(line, hdr)) {
+                printf("*** FAIL: checkpoint header mismatch in %s\n  have: %s\n  want: %s\n",
+                       ckpt, line, hdr);
+                fclose(f); return 1;
+            }
+            int pi, nj; unsigned long long vv;
+            int resumed = 0;
+            while (fscanf(f, "U %d %d %llu\n", &pi, &nj, &vv) == 3) {
+                if (pi < 0 || pi > 2 || nj < 0 || nj >= X.nnodes || have[pi][nj]) continue;
+                V[pi][nj] = vv; have[pi][nj] = 1; resumed++;
+            }
+            fclose(f);
+            printf("[dp] resumed %d completed unit(s) from %s\n", resumed, ckpt);
+            ck = fopen(ckpt, "a");
+        } else {
+            ck = fopen(ckpt, "w");
+            if (ck) { fprintf(ck, "%s\n", hdr); fflush(ck); }
+        }
+        if (!ck) { printf("*** FAIL: cannot open checkpoint %s\n", ckpt); return 1; }
+    }
+
+    /* ---- the units ---- */
+    double tot_wall = 0;
+    for (int pi = 0; pi < 3; pi++) {
+        if (!runp[pi]) continue;
+        for (int nj = 0; nj < X.nnodes; nj++) {
+            if (have[pi][nj]) continue;
+            uint64_t val, tr;
+            double wall;
+            if (dp_run_unit(&X, primes[pi], (uint64_t)(nj + 1), threads, &val, &tr, &wall))
+                return 1;
+            V[pi][nj] = val; have[pi][nj] = 1;
+            tot_wall += wall;
+            printf("[dp] unit p%d y=%-2d  V=%llu  trans=%llu  wall=%.1fs\n",
+                   pi, nj + 1, (unsigned long long)val, (unsigned long long)tr, wall);
+            fflush(stdout);
+            if (ck) { fprintf(ck, "U %d %d %llu\n", pi, nj, (unsigned long long)val);
+                      fflush(ck); fsync(fileno(ck)); }
+        }
+    }
+    if (ck) fclose(ck);
+    if (!(runp[0] && runp[1] && runp[2])) {
+        printf("RESULT: partial (single-modulus) run complete — no CRT\n");
+        return 0;
+    }
+
+    /* ---- fit + overdetermination check + CRT ---- */
+    uint64_t K[3][64];
+    int fails = 0;
+    for (int pi = 0; pi < 3; pi++) {
+        if (X.no_budget) { K[pi][0] = V[pi][0]; continue; }
+        if (!dp_fit_check(&X, primes[pi], V[pi], K[pi])) {
+            printf("*** FAIL: overdetermination check at p%d (node y=%d does not\n"
+                   "          lie on the degree-%d fit) — kernel integrity gate\n",
+                   pi, X.D + 2, X.D);
+            fails++;
+        } else
+            printf("fit     : p%d degree-%d fit OK; check node y=%d MATCHES\n",
+                   pi, X.D, X.D + 2);
+    }
+    if (fails) return 1;
+    int nb_out = X.no_budget ? 1 : X.D + 1;
+    u192 N = {{0, 0, 0}};
+    char dec[64];
+    printf("----------------------------------------------------------------------\n");
+    for (int b = 0; b < nb_out; b++) {
+        uint64_t a3[3] = { K[0][b], K[1][b], K[2][b] };
+        u192 Kb;
+        ie_crt3(primes, a3, &Kb);
+        u192_print(Kb, dec);
+        if (X.no_budget) {
+            printf("CRT     : N = %s   (no-budget count)\n", dec);
+            N = Kb;
+        } else if (b == X.b0v[1]) {
+            printf("CRT     : K[%2d] = %-45s  <== N (budget (%d,%d,%d,%d,%d))\n",
+                   b, dec, X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4]);
+            N = Kb;
+        } else
+            printf("          K[%2d] = %-45s  (perturbed budget (%d,%d,%d,%d,%d))\n",
+                   b, dec, X.b0v[0], b, X.D - b, X.b0v[3], X.b0v[4]);
+    }
+    printf("----------------------------------------------------------------------\n");
+    u192_print(N, dec);
+    printf("RESULT  : N = %s\n", dec);
+    printf("          N mod 24 = %u%s\n", u192_mod(N, 24),
+           X.npin ? "  (informational — free-action gate N/A under pins)"
+                  : (X.n == 31 && !negctl)
+                    ? (u192_mod(N, 24) == 0 ? "  (free-action gate: ok)"
+                                            : "  *** FAIL: expected 0 ***") : "");
+    if (X.n == 31 && !negctl && !X.npin && u192_mod(N, 24) != 0) fails++;
+    const char *target = expect;
+    if (!target && X.n == 31 && !have_b0)
+        target = X.no_budget
+                 ? (X.npin ? NULL : LC_PUBLISHED_COUNT_C1C2C4)
+                 : (pin_c6c7 ? LC_PUBLISHED_COUNT_C1C7NOC3
+                             : (X.npin ? NULL : LC_PUBLISHED_COUNT));
+    if (target) {
+        u192 E = u192_dec(target);
+        int eq = u192_eq(N, E);
+        if (negctl) {
+            printf("          vs published %s : %s (negative control %s)\n", target,
+                   eq ? "EQUAL" : "DIFFERS", eq ? "*** FAILED ***" : "passed");
+            if (eq) fails++;
+        } else {
+            printf("          vs expected %s : %s\n", target,
+                   eq ? "MATCH" : "*** MISMATCH ***");
+            if (!eq) fails++;
+        }
+    }
+    printf("RESULT: pass complete (%d units, %.1fs total unit wall)%s\n",
+           3 * X.nnodes, tot_wall, fails ? "  *** WITH FAILURES ***" : "");
+    return fails ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
     if (argc >= 2 && strcmp(argv[1], "--ie-count") == 0) return ie_count_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-probe") == 0) return ie_probe_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--dp-count") == 0) return dp_count_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
         if (argc < 3) { fprintf(stderr, "usage: %s --check-layers DIR [max_k] [run.out]\n", argv[0]); return 2; }
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
@@ -3305,9 +4059,11 @@ int main(int argc, char **argv) {
                                     "       %s --check-gt-selftest\n"
                                     "       %s --ie-count [opts]      (Route B IE recount; see source header;\n"
                                     "                                  --ie-no-budget = the C1^C2^C4 F4 variant)\n"
-                                    "       %s --ie-probe NSAMP [--ie-threads N]\n",
+                                    "       %s --ie-probe NSAMP [--ie-threads N]\n"
+                                    "       %s --dp-count [opts]      (Route D direct mask-DP recount — the\n"
+                                    "                                  non-IE second instrument; see source header)\n",
                                     argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-                                    argv[0], argv[0]); return 2; }
+                                    argv[0], argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;
