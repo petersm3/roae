@@ -90,7 +90,8 @@ is [Goldenberg (1975)](CITATIONS.md#goldenberg1975) (Theorem 4 and the
 (654321) line-permutation framing), with
 [Schöter (1998)](CITATIONS.md#schoter1998) for the Boolean-algebra
 vocabulary; the pure-pair placement observation is classical (Lai Zhide,
-16th c., via [Schulz 1982](CITATIONS.md#schulz1982); Wu Deng's warp/weft
+16th c., via [Schulz 1982](CITATIONS.md#schulz1982); [Wu Deng](CITATIONS.md#wudeng)'s (= Wu Cheng
+吳澄, standard romanization; "Wu Deng" is Nielsen's — see CITATIONS.md) warp/weft
 skeleton, 13th c., via [Nielsen 2003](CITATIONS.md#nielsen2003) — already
 verified programmatically by `solve.py --books-verify`).
 

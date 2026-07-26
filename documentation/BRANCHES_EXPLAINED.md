@@ -345,7 +345,7 @@ counts come out as:
 
 | Budget | Sub-branch budget | Unique orderings (canonical form) | sha256 prefix |
 |---|---|---|---|
-| 10T (10^13 nodes) | ~63 M / d3 sub-branch | 706,422,987 | `f7b8c4fb…` |
+| 10T (10^13 nodes) | ~63 M / d3 sub-branch | 706,427,594 | `b85c8871…` ² |
 | 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,297 | `915abf30…` |
 | **560T (5.6 × 10^14 nodes)** | **~3.5 B / d3 sub-branch** | **10,525,271,997** | `9a968fa2…` |
 | (unbounded — exhaustion) | (exhausted to true completion) | ≈3×10³⁷ distinct-canonical (est.)¹ | — |
@@ -359,6 +359,10 @@ Monte-Carlo estimate (Knuth random-probe) puts the full C1–C5 space at
 roughly **1.3×10³⁸ raw** (≈**3×10³⁷ distinct-canonical**). This is an
 exploration estimate, not a proven count — see
 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) for method and validation.
+
+² Current canonical, re-established 2026-05-13; the original 2026-04-18 10T
+figure (706,422,987, `f7b8c4fb…`) is deprecated — pre-resume-fix undercount,
+see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated.
 
 What this tells us about King Wen:
 

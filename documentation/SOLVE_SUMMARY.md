@@ -140,11 +140,11 @@ Pair: 1↔2
 
 The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
 
-**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes partitioned across parallel threads) finds hundreds of millions of valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling. Canonical counts as of 2026-04-18: **706,422,987** at the depth-3 partition, **286,357,503** at depth-2. The count depends on which partition strategy samples the search space; under true exhaustive enumeration both would converge.
+**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes partitioned across parallel threads) finds hundreds of millions of valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling. Canonical counts (d3 re-established 2026-05-13 on post-resume-fix code; see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)): **706,427,594** at the depth-3 partition, **286,357,503** at depth-2. The count depends on which partition strategy samples the search space; under true exhaustive enumeration both would converge.
 
 ### What the rules determine — and what remains open
 
-Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,422,987**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,427,594**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
 | Positions | Pairs observed | KW match rate | Character |
 |-----------|---------------|-------------------|-----------|
@@ -195,7 +195,7 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 2 | No 5-line jumps | ~4% of step 1 |
 | 3 | Complements ceiling (total distance ≤776) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
-| 5 | Specific transition counts | **706,422,987** (d3 10T canonical); **286,357,503** (d2 10T canonical) |
+| 5 | Specific transition counts | **706,427,594** (d3 10T canonical); **286,357,503** (d2 10T canonical) |
 | 6 | 4 boundary constraints (5 at canonical depth) | **1 (King Wen)** — within the enumerated slice; see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
 
 ## The story continued: what deeper tools found (2026)
@@ -220,7 +220,8 @@ second wave of results, each with a full [technical report](../reports/README.md
   puzzled over for centuries, are the visible seam of a forced trade-off — not damage, and not sloppiness.
   [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
 - **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
-  turns out to be mathematically *optimal* ([Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
+  turns out to be mathematically *optimal* among pairing rules of its kind (complement/reversal
+  matchings; [Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
   has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
 
 Each of these is machine-verifiable — the reports include the exact commands and certificates.
@@ -247,7 +248,7 @@ ROAE's contribution to the study of the King Wen sequence — distinct from what
 
 **What ROAE adds:**
 
-1. **Exhaustive enumeration at scale.** Under the conjoined C1 + C2 + C3 constraint system, ROAE counts **706,422,987** distinct orderings at a 10 trillion-node partial enumeration (10T d3; sha `f7b8c4fb…`). The count is exact, reproducible byte-identically across hardware and region, and was previously only estimated or approximated.
+1. **Exhaustive enumeration at scale.** Under the conjoined C1 + C2 + C3 constraint system, ROAE counts **706,427,594** distinct orderings at a 10 trillion-node partial enumeration (10T d3; sha `b85c8871…` — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)). The count is exact, reproducible byte-identically across hardware and region, and was previously only estimated or approximated.
 
 2. **Seven-family null-model framework.** Measures how other structured permutation families compare to KW's structural properties. Main finding: zero of 1.86 billion permutations across six unconditional families satisfy C1 (consistent with the theoretical rate of ~10⁻⁴⁴ for random permutations). For the de Bruijn and Gray code families, 0% is also proved analytically, not just observed. This is the first systematic null-model test of this scope for the KW structural constraints.
 

@@ -421,8 +421,10 @@ independently confirmed by our within-pair distance table 2×12+4×12+6×8 = 120
 realizes precisely this matching; and that under the full Klein four-group the King Wen rule is recovered
 as the unique Hamming-weight-preserving optimum (stable for the energy α|Δw|+βd_H whenever α > β).
 **Effect on this project's claims:** C1's provenance upgrades from "classical + measured-rare" to
-"classical + measured-rare + *derived as the unique optimum of a natural variational principle*" — the
-first genuine first-principles derivation of any layer of the constraint system, and it is Radisic's, not
+"classical + measured-rare + *derived as the unique optimum of a natural variational principle*" — to our
+knowledge, the first *variational* (optimality-principle) first-principles derivation of any layer of the
+constraint system (derivation programs in the Cook tradition derive the sequence within richer frameworks —
+see the [uniqueness-conjecture note](#uniqueness-conjecture); corrections welcome), and it is Radisic's, not
 ours. His weight-conservation principle is the exact-preservation strengthening of the parity-preservation
 lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md); his K₄ matching analysis and our B₃
 constraint-system symmetry group are complementary results about different objects.
@@ -670,8 +672,9 @@ Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah
 <a id="radisic2026"></a>
 Radisic, A. (2026). *Optimal equivariant matchings on the 6-cube, with an application to the King Wen
 sequence*. arXiv. https://arxiv.org/abs/2601.07175 [doi:10.48550/arXiv.2601.07175](https://doi.org/10.48550/arXiv.2601.07175)
-  Lean-verified proof that the C1 pairing is the unique Hamming-cost optimum — the first first-principles
-  derivation of any constraint layer. Artifact independently rebuilt + re-verified 2026-07-26; theorem
+  Lean-verified proof that the C1 pairing is the unique Hamming-cost optimum among comp/rev matchings —
+  to our knowledge, the first *variational* (optimality-principle) derivation of any constraint layer
+  (see the [uniqueness-conjecture note](#uniqueness-conjecture)). Artifact independently rebuilt + re-verified 2026-07-26; theorem
   also machine-checked in-repo ([lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean)). [read]
 
 <a id="rutt1996"></a>
@@ -863,7 +866,11 @@ the "60" on p. 166 is a misprint for 63.
 Han-through-Song numerological systems; used here as the authoritative source for classical-sequence
 definitions. Three specific debts: (1) his Jing Fang eight-palace table (after Hui Dong) verified our
 corpus-gate generator cell-for-cell (all 64), grounding TR-1 §7's Jing Fang control; (2) his <a id="wudeng"></a>Wu Deng
-(1249–1333) entry records a "warp/weft" structural skeleton of the received order — 16 hexagrams with
+(1249–1333) entry — "Wu Deng" is Nielsen's own romanization (verified against his p. 132 JING GUA
+entry and his biographical entry, 2026-07-26), retained repo-wide for fidelity to the cited source;
+the scholar is 吳澄, author of the *Yi zuan yan* 易纂言, universally romanized **Wu Cheng** in other
+scholarship (澄 has a rare secondary reading *dèng*) — records a "warp/weft" structural skeleton of
+the received order — 16 hexagrams with
 upper trigram equal to the lower or its complement, at pair-slots {1,6,15,16,21,26,29,32} — a
 13th-century strict extension of what we credited to Van den Berghe as V-1; (3) his Lai Zhide (~1600)
 entry shows the arrangement idea we credited as VdB-4 has a Ming-dynasty precedent. Where our reports

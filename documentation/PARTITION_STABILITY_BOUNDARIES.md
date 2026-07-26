@@ -17,11 +17,13 @@ Four sha-anchored canonical enumerations:
 | Partition | sha256 | Records | Source archive |
 |---|---|---|---|
 | d2 10T | `a09280fbf…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` |
-| d3 10T | `f7b8c4fbf…` | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
+| d3 10T | `f7b8c4fbf…` ¹ | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
 | d3 100T | `915abf30c…` | 3,432,399,297 | `canonical-archive/t9c1/` (T9+c.1 recovery; cf. CANONICAL_HASHES.md) |
 | **d3 560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/`** |
 
 Each was independently enumerated and merged on Azure compute; canonical SHAs reproducible across hardware/region/merge-algorithm via the partition-invariance theorem (see [`PARTITION_INVARIANCE.md`](../documentation/PARTITION_INVARIANCE.md)).
+
+¹ The stability analyses in this document were computed on the 2026-04-18 d3 10T file (`f7b8c4fbf…`). That sha was later deprecated (pre-resume-fix undercount) in favor of `b85c8871…`/706,427,594 — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated.
 
 ## Method
 

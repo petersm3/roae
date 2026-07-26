@@ -203,7 +203,7 @@ The pair structure is genuinely extraordinary — zero of 1.86 billion permutati
 The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
 - **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30, **current deepest**)
 - **d3 100T partition: 3,432,399,297** (sha `915abf30…`, 2026-04-20)
-- **d3 10T partition: 706,422,987** (sha `f7b8c4fb…`)
+- **d3 10T partition: 706,427,594** (sha `b85c8871…`, re-established 2026-05-13; the earlier `f7b8c4fb…`/706,422,987 is deprecated — pre-resume-fix undercount, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated)
 - **d2 10T partition: 286,357,503** (sha `a09280fb…`)
 
 Only Position 1 is universally locked. The number of boundary constraints needed to uniquely identify KW is **4 at d2/d3 10T and 5 at both d3 100T and d3 560T** — monotone non-decreasing with scale, with the identical greedy set `{1, 4, 21, 25, 27}` at both canonical scales *(corrected 2026-07-04: an earlier version said "4 again at 560T, non-monotone" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. The working-4-set count is scale-bounded (8 at 11.2T, 4 at 742M, 0 at 100T/560T) — at canonical depth no 4-tuple of boundaries jointly identifies KW. Boundaries **{25, 27} remain in every greedy minimum at all four partitions tested** — the single most stable structural finding. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) and [SOLVE.md](SOLVE.md) §Boundary analysis for the full story.

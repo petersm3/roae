@@ -618,7 +618,7 @@ Three distinct threads of work landed across ~6 hours.
 - 10T P1-parallel: 16,431,733 sols (Pass 1)
 - Yield ratio 3.35× for 10× budget → **α ≈ 0.52 (sub-linear)**
 
-Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in [`roae-private/PASS1_FINDINGS.md`](../../../roae-private/PASS1_FINDINGS.md) Addendum B and [`roae-private/DEPTH_PROFILE_CALIBRATION.md`](../../../roae-private/DEPTH_PROFILE_CALIBRATION.md).
+Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in `roae-private/PASS1_FINDINGS.md` (private staging repo) Addendum B and `roae-private/DEPTH_PROFILE_CALIBRATION.md` (private staging repo).
 
 **2. solve.c observability + durability additions** (commits `b9ff72d`, `e591e1c`, `e9c151d`, `f73c3ed`; selftest sha unchanged; zero impact on scientific output):
 
@@ -687,7 +687,7 @@ Linear-probe degradation after ~9.3M records: probe distance exploded from O(60)
 
 **Post-mortem preserved** in forensic checkpoint dir `roae-private/ckpt_pre_repro_20260424_142240/` (3.8 GB retained for any future regression investigation) plus `ckpt_hang_repro.sh` harness.
 
-**Trajectory-match finding** ([`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`](../../../roae-private/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
+**Trajectory-match finding** (`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` (private staging repo)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
 
 **Sunk cost.** ~$6 of avoidable spend across the zombie-runtime window (~$0.24/hr × 20 idle hours) plus ~$0.20 for the debugging VM work. Forensic preserves + fix validated; fresh run on track to finish within budget.
 
@@ -710,7 +710,7 @@ Pipeline for the experiment: feed to `ganak`, `d4`, or `sharpSAT-TD` for exact m
 - `--stratified-by-position-2-pair CHUNKS_DIR OUT_MD` (`--stratified-exhaustive`): per-stratum KDE reanalysis conditioning on which pair occupies positions 2-3. Tests whether `position_2_pair` is part of the discriminative signal.
 - `--joint-permutation-test CHUNKS_DIR OUT_MD`: always-exhaustive. Per-dim |z|-extremity ≥ |z_KW| counts + [Bonferroni](CITATIONS.md#bonferroni1936)-adjusted p-values, plus a joint extremity distribution (for each record, count how many dims it ties or beats KW on; cumulative over the full 3.43B canonical population).
 
-Full spec: [`roae-private/DISTRIBUTIONAL_V2_SPEC.md`](../../../roae-private/DISTRIBUTIONAL_V2_SPEC.md). Launcher: [`roae-private/launch_b2_exhaustive_d64.sh`](../../../roae-private/launch_b2_exhaustive_d64.sh) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
+Full spec: `roae-private/DISTRIBUTIONAL_V2_SPEC.md` (private staging repo). Launcher: `roae-private/launch_b2_exhaustive_d64.sh` (private staging repo) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
 
 ## April 25, 2026 early morning — B2 exhaustive analysis launched, α trajectory logging resumed
 
@@ -2595,13 +2595,13 @@ All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modele
 
 **Next steps (as of 2026-04-22):**
 
-✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: [`roae-private/P1_SCALING_MEASUREMENTS.md`](../../../roae-private/P1_SCALING_MEASUREMENTS.md). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
+✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: `roae-private/P1_SCALING_MEASUREMENTS.md` (private staging repo). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
 
 ✅ **Campaign A Pass 1 CLOSED** (this dated section above) — yield-16 laggards at 10T both BUDGETED with 16.4M canonical solutions each. Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class. **Not pursuing Pass 2/3/4 on A.**
 
 1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,543 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
-2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See [`roae-private/PASSB_FINDINGS.md`](../../../roae-private/PASSB_FINDINGS.md).
-3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See [`roae-private/PASSD_FINDINGS.md`](../../../roae-private/PASSD_FINDINGS.md).
+2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See `roae-private/PASSB_FINDINGS.md` (private staging repo).
+3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See `roae-private/PASSD_FINDINGS.md` (private staging repo).
 4. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome.
 5. **Distributional-analysis v2 follow-ups**: schema drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on `position_2_pair`; formal joint-hypothesis testing with Bonferroni / permutation.
 6. **Technical paper / preprint drafting** — `roae-private/PAPER_OUTLINE.md` is the skeleton; P2 completion satisfied the key data-dependency. Ready to draft sections 1–5 now.

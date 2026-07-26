@@ -410,6 +410,9 @@ of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATI
   per-layer masses must print PASS.
 - C5-tracked extension + staged memory measurement: `./solve --f1-exact-c1c2c4c5 --f1-pairs N`
   (N ∈ {9,13,16,18,19,24,25,27,28,31}; per-layer stderr reports states/entries/bytes/peak).
+- Independent second instrument (§10(vi)): build with `cc -O2 -o verify verify.c -lz -lpthread`
+  (the `-lz` is required — a bare `-lm`-only link fails on zlib's `uncompress`), then
+  `./verify --ie-count` for the full-31 IE transfer-walk recomputation (see [VERIFY.md](../documentation/VERIFY.md)).
 - Full exact count on commodity hardware: `./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR` — ~64 GB
   RAM + ~4 TB disk at DIR; raise `SOLVE_F1_OOC_SCRATCH_MB` (e.g. 61440 on a 64 GiB box) to hold read
   amplification near 1× (§8). Every completed layer file in DIR is a checkpoint; after any interruption,

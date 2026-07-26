@@ -37,8 +37,8 @@ byte-identical reference sha256s across multiple independent axes:
 
 | Axis | Validations |
 |---|---|
-| **Hardware: Zen 4 vs Zen 5** | F64als_v6 westus2 ↔ D128als_v7 westus3, d3 10T sha `f7b8c4fb…` matches (2026-04-19) |
-| **Architecture: x86 vs ARM** | Zen 5 ↔ Cobalt 100 ARM (D96ps_v6 westus3), d3 10T sha `f7b8c4fb…` matches (2026-04-28) |
+| **Hardware: Zen 4 vs Zen 5** | F64als_v6 westus2 ↔ D128als_v7 westus3, d3 10T sha `f7b8c4fb…` matches (2026-04-19; sha since deprecated as a canonical — the cross-hardware match evidence stands, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated) |
+| **Architecture: x86 vs ARM** | Zen 5 ↔ Cobalt 100 ARM (D96ps_v6 westus3), d3 10T sha `f7b8c4fb…` matches (2026-04-28; same deprecation note) |
 | **Region: westus2 vs westus3** | F64 westus2 ↔ D128 westus3, same sha (2026-04-19) |
 | **Merge mode: external vs in-memory** | Both produce the canonical sha at d3 10T (2026-04-19) |
 | **Partition strategy: full-enum vs --branch reconstruction (depth 3, same per-sub-branch budget)** | sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` matches across both paths at 5.6T budget (35.4M nodes/sub-branch). Verified via `--double-regression-test` (2026-04-30). |

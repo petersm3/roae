@@ -99,7 +99,10 @@ explicit.
    proved the pairing is the *unique* Hamming-cost minimizer
    among comp/rev matchings on {0,1}⁶,
    so under the derivation convention it costs only the optimality principle. That upgrade is Radisic's,
-   not ours; it is the first genuine first-principles derivation of any layer of the constraint system.
+   not ours; to our knowledge it is the first *variational* (optimality-principle) first-principles
+   derivation of any layer of the constraint system (derivation programs in the Cook tradition derive the
+   sequence within richer frameworks — see the
+   [uniqueness-conjecture note](../documentation/CITATIONS.md#uniqueness-conjecture); corrections welcome).
    **C2** (no 5-line transitions; [McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975)) compresses 4.5 bits
    against a statement cost of the same order (~2.6 bits of selection within the per-distance-ban family,
    before any grammar overhead): net ≈ 0, sign dependent on the coding convention. It is the only narrow

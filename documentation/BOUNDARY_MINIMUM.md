@@ -27,9 +27,11 @@ Four sha-anchored canonical enumerations:
 | Partition | sha256 | Records | Source archive |
 |---|---|---|---|
 | d2 10T | `a09280fbf…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` |
-| d3 10T | `f7b8c4fbf…` | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
+| d3 10T | `f7b8c4fbf…` ¹ | 706,422,987 | `runs/20260418_10T_d3_fresh/` |
 | d3 100T | `915abf30c…` | 3,432,399,297 | `canonical-archive/t9c1/` (T9+c.1 recovery) |
 | **d3 560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/`** |
+
+¹ The boundary analyses in this document were computed on the 2026-04-18 d3 10T file (`f7b8c4fbf…`). That sha was later deprecated (pre-resume-fix undercount) in favor of `b85c8871…`/706,427,594 — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated; the delta is 4,607 records and does not affect the boundary findings' scope labels.
 
 The 742M figure cited below is the pre-format-v1 (pre-2026-04-19) hash-table-bug dataset; it is historical-only and is not sha-anchored as a valid canonical. It is included in the unordered-count trajectory for completeness because it was the dataset under which the original "exactly 4 specific boundaries" finding was first reported.
 

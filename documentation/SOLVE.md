@@ -174,7 +174,7 @@ Six additional analyses probe the structure more deeply (`--deep`):
 
 ### Constrained enumeration (`--enumerate`)
 
-Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; large-scale enumerations under the current canonical solver find hundreds of millions of unique pair orderings (d3 10T: 706,422,987; d2 10T: 286,357,503). **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
+Backtracking search with the constraint rules finds **King Wen among the solutions**, but also finds millions of other valid sequences. An early 30-second search (7.2M nodes) found 16,248 solutions before budget exhaustion; large-scale enumerations under the current canonical solver find hundreds of millions of unique pair orderings (d3 10T: 706,427,594; d2 10T: 286,357,503). **The five constraints (C1-C5) are NOT sufficient to uniquely determine King Wen.**
 
 The closest non-King-Wen solution matches 62/64 positions (just one pair orientation flipped). Many solutions share 25-30 of 32 pair positions with King Wen. The rules constrain the space heavily but leave substantial local freedom.
 
@@ -268,7 +268,7 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 
 Rules C1-C5 narrow 10^89 possibilities to a dataset-dependent count under partial enumeration. Canonical reference counts established 2026-04-18:
 
-- **d3 10T partition** (158,364 sub-branches × 63M-node budget each): **706,422,987** canonical pair orderings.
+- **d3 10T partition** (158,364 sub-branches × 63M-node budget each): **706,427,594** canonical pair orderings (current canonical `b85c8871…`; see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
 - **d2 10T partition** (3,030 sub-branches × 3.3B-node budget each): **286,357,503** canonical pair orderings.
 
 The difference is a property of partition strategy, not constraints — d3's finer partitioning spreads coverage more broadly at the same total 10T budget. Under true exhaustive enumeration both partitions would converge. XOR regularity and line autocorrelation are redundant (implied by other rules).
@@ -562,7 +562,7 @@ The 7 unique XOR products are **not** a property of King Wen — they are a math
 
 Current canonical reference counts under the v1 format with the corrected solver:
 
-- **d3 10T partition**: **706,422,987** unique canonical pair orderings (sha256 in [CANONICAL_HASHES.md](CANONICAL_HASHES.md))
+- **d3 10T partition**: **706,427,594** unique canonical pair orderings (sha256 in [CANONICAL_HASHES.md](CANONICAL_HASHES.md))
   - Partition: SOLVE_DEPTH=3 (158,364 sub-branches, 63M-node each)
 - **d2 10T partition**: **286,357,503** unique canonical pair orderings (sha256 in [CANONICAL_HASHES.md](CANONICAL_HASHES.md))
   - Partition: SOLVE_DEPTH=2 (3,030 sub-branches, 3.3B-node each)
@@ -590,7 +590,7 @@ Both consume one distance-6 slot from the C5 budget {1:2, 2:20, 3:13, 4:19, 6:9}
 
 This is a weaker constraint than a direct contradiction — one could hope that a different s₂' in the reversed case achieves a valid boundary distance that still permits C5 to close. The theorem's force comes from showing that no such s₂' (and subsequent extension) exists.
 
-**Empirical evidence.** The canonical d3 10T enumeration (706,422,987 orderings, sha `f7b8c4fb…`) contains **zero orderings** with the reversed starting orientation — KW-like and non-KW-like alike. Since the enumeration exhaustively explores the search tree up to a per-sub-branch node budget of 63M, and no reversed-orientation extension surfaced in any of 158,364 sub-branches, either (a) no such ordering exists, or (b) every such ordering requires more than 63M nodes per sub-branch to find.
+**Empirical evidence.** The 2026-04-18 d3 10T enumeration (706,422,987 orderings, sha `f7b8c4fb…` — since deprecated in favor of `b85c8871…`/706,427,594, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated; this orientation scan was computed on the earlier file) contains **zero orderings** with the reversed starting orientation — KW-like and non-KW-like alike. Since the enumeration exhaustively explores the search tree up to a per-sub-branch node budget of 63M, and no reversed-orientation extension surfaced in any of 158,364 sub-branches, either (a) no such ordering exists, or (b) every such ordering requires more than 63M nodes per sub-branch to find.
 
 The 100T d3 enumeration currently running (631M nodes per sub-branch, 10× deeper) will tighten this bound. At full exhaustion (SOLVE_NODE_LIMIT=0), any remaining reversed-orientation ordering must surface.
 
@@ -632,7 +632,7 @@ The critical difference is at C1+C2: King Wen's no-5-line-transition property el
 
 Across **~1.86 billion permutations** from the six unconditional families, **zero satisfy C1** — consistent with the theoretical rate of ~10^-44 for a uniform random permutation. The C1 result is additionally **proven analytically** for de Bruijn B(2, 6) and for all 6-bit Gray codes (see CRITIQUE.md §C1 impossibility).
 
-**C1 does most of the structural work.** The pair-constrained null measures what happens *given* C1: a 10^9-sample Monte Carlo shows C2 | C1 = 4.29% (vs. 0.18% unconditional — a **23.5× multiplier**) and C3 | C1 = 6.42% (vs. 0.003% unconditional — a **2,264× multiplier**; the C3|C1 rate is now exact — 6.4211367496%, `verify.py --check-null-g --unpinned`). The pair structure alone enormously constrains adjacency and complement geometry toward KW-like; C2 and C3 then act as relatively modest additional filters. This aligns with ROAE's canonical enumeration: solve.c finds 706,422,987 orderings satisfying C1+C2+C3 at d3 10T, rough order-of-magnitude consistent with ~0.28% (≈ 4.29% × 6.42%) of the ~10^14 C1-only orderings.
+**C1 does most of the structural work.** The pair-constrained null measures what happens *given* C1: a 10^9-sample Monte Carlo shows C2 | C1 = 4.29% (vs. 0.18% unconditional — a **23.5× multiplier**) and C3 | C1 = 6.42% (vs. 0.003% unconditional — a **2,264× multiplier**; the C3|C1 rate is now exact — 6.4211367496%, `verify.py --check-null-g --unpinned`). The pair structure alone enormously constrains adjacency and complement geometry toward KW-like; C2 and C3 then act as relatively modest additional filters. This aligns with ROAE's canonical enumeration: solve.c finds 706,427,594 orderings satisfying C1+C2+C3 at d3 10T, rough order-of-magnitude consistent with ~0.28% (≈ 4.29% × 6.42%) of the ~10^14 C1-only orderings.
 
 **What varies across families.** C2 (no 5-line transitions) is **rare in random (0.18%), impossible in de Bruijn, trivially automatic in Gray codes, and majority-satisfied in Latin-square row×col (57.96%)**. Among the four tested ancient orderings, King Wen and Jing Fang 8 Palaces satisfy C2 exactly; the authentic Mawangdui silk-text order has exactly one 5-line transition (at its Kan→Zhen octet seam) and Fu Xi (natural binary, a mathematical construction not traditionally divinatory) has two. *(Corrected 2026-07-05: this passage previously claimed 3 of 4 including Mawangdui and inferred a shared classical design principle — withdrawn; the Mawangdui array in use until then was erroneous. See CITATIONS.md errata.)* The **conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen** across every tested family — Mawangdui and Jing Fang fail both C1 and C3 (they have their own pair structures and complement-distance profiles, but not KW's specific ones).
 

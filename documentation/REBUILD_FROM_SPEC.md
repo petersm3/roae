@@ -4,7 +4,7 @@ A step-by-step recipe for building an independent `solutions.bin` verifier using
 
 ## What this document is
 
-A forcing function for spec completeness and a 20-year resilience artifact. Every question you have to answer from `solve.c` rather than from the authoritative specs is a gap in the specs and should be fixed. The companion implementation that proves this recipe works is `verify.py` in this repository — written in Python, ~130 lines, shares zero code with `solve.c`. (For the canonical reference C-side verifier, see `solve --verify` documented in [SOLVE_C_CLI.md](SOLVE_C_CLI.md).)
+A forcing function for spec completeness and a 20-year resilience artifact. Every question you have to answer from `solve.c` rather than from the authoritative specs is a gap in the specs and should be fixed. The companion implementation that proves this recipe works is `verify.py` in this repository — written in Python, a ~130-line record-verification core (the file has since grown to ~1,500 lines with independent recount/certificate/null-law instruments — see [VERIFY.md](VERIFY.md)), sharing zero code with `solve.c`. (For the canonical reference C-side verifier, see `solve --verify` documented in [SOLVE_C_CLI.md](SOLVE_C_CLI.md).)
 
 ## What this document is NOT
 
@@ -281,7 +281,7 @@ Exit 0 on pass, nonzero on any failure.
 
 ## A complete reference implementation exists
 
-[`verify.py`](../verify.py) in this repository implements the above in ~130 lines of Python. You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
+[`verify.py`](../verify.py) in this repository implements the above in a ~130-line record-verification core (the file as a whole is now ~1,500 lines — it has since grown independent recount/certificate/null-law instruments, see [VERIFY.md](VERIFY.md)). You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
 
 ## A note on partition invariance
 

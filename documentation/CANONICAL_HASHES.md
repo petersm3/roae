@@ -372,7 +372,7 @@ sha256sum solutions.bin
 
 For independent constraint-spec verification (slower than sha but cross-checks the binary's enumeration logic):
 
-- C-side: `solve --verify solutions.bin` — checks every record satisfies C1+C2+C3 per [SPECIFICATION.md](SPECIFICATION.md).
+- C-side: `solve --verify solutions.bin` — checks every record satisfies C1–C5 (plus sorted-order, dedup, and KW-present checks) per [SPECIFICATION.md](SPECIFICATION.md).
 - Python-side: `python3 verify.py --jobs N solutions.bin` — independent re-implementation. The `--jobs` flag parallelizes; `--jobs 128` matches the canonical's enumeration parallelism but any value works for verification.
 
 Both verifiers operate without reference to the canonical sha; they validate the file against the constraint specification directly.

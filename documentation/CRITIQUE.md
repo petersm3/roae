@@ -1,6 +1,6 @@
 # Known Limitations
 
-> **Note (2026-04-19):** Canonical reference counts re-established: d3 10T = **706,422,987** (sha `f7b8c4fb…`), d2 10T = **286,357,503** (sha `a09280fb…`). Older 742M figure (hash-table bug) superseded. **New partition-stability finding** from the 2026-04-19 analyze runs: boundaries {25, 27} are mandatory at BOTH d2 and d3 scales (stable), but the broader 4-boundary structure (`one-of-{2,3} ∪ one-of-{21,22}`) is **d2-specific**; at d3 the interchangeable boundaries are in the {1..6} range. Any claim involving specific boundaries beyond {25, 27} must be scoped to the partition depth. See updated sections below.
+> **Note (2026-04-19; d3 sha updated 2026-05-13):** Canonical reference counts: d3 10T = **706,427,594** (sha `b85c8871…`, re-established 2026-05-13 on post-resume-fix code; the original 2026-04-19 figure 706,422,987/`f7b8c4fb…` is deprecated — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated), d2 10T = **286,357,503** (sha `a09280fb…`, still valid). Older 742M figure (hash-table bug) superseded. **New partition-stability finding** from the 2026-04-19 analyze runs: boundaries {25, 27} are mandatory at BOTH d2 and d3 scales (stable), but the broader 4-boundary structure (`one-of-{2,3} ∪ one-of-{21,22}`) is **d2-specific**; at d3 the interchangeable boundaries are in the {1..6} range. Any claim involving specific boundaries beyond {25, 27} must be scoped to the partition depth. See updated sections below.
 >
 > **Note (2026-06-08): 560T canonical landed.** A new d3 560T canonical (sha `9a968fa2…`, 10,525,271,997 orderings) became the deepest published enumeration on 2026-06-08, 3.07× the 100T scale. The findings below were originally computed on the 100T canonical (`915abf30…`); the 560T `--analyze` pass (3 h 47 m on D128 with the rewrite commits 8ac5e8f/fe58e71/bf8d8a5/c0ec4c3) completed 2026-06-11. **Findings whose validity is robust under the 100T → 560T extension** (because the 100T solution set is a strict subset of the 560T set): KW's membership in the canonical, KW vs C3-ceiling, mandatory boundaries {25, 27}, partition-stability claims — all reaffirmed at 560T. **Findings that shifted at 560T**: top pairwise-MI ranks, working-4-subset count. The boundary-minimum did NOT shift: it is 5 at both 100T and 560T with the identical set *(corrected 2026-07-04 — an earlier version of this note listed boundary-minimum among the shifted findings based on a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. Each is flagged inline where mentioned.
 >
@@ -44,15 +44,22 @@ battery and then testing them on the same sequence inflates apparent significanc
 demand multiple-comparisons accounting across the *whole battery*, not just per-test corrections. Applying
 the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everything examined:
 
-- **Survives by many orders of magnitude:** C1 (pair structure, ~10⁻⁴⁴ under the random null; 0 of 1.86 B
-  across six structured families; analytically impossible in two of them) and C2's conditional rarity given
-  C1 (4.29% measured on a 10⁹ sample — standard error negligible relative to the effect). The wrap-parity
-  and parity-alternation results are theorems (deductive), outside statistical accounting entirely.
-- **Survives comfortably:** C3's low complement distance — 8.1% exact under the bare C1&C4 null
-  (`verify.py --check-null-g`), 3.9th percentile (sampled) at the C1+C2+C4+C5 scope (scope label
-  corrected 2026-07-22; the effect is moderate but far from marginal; the *threshold's* circularity is a
-  separate, already-documented limitation),
-  and the Gray-code result (minimum C3 across 10⁵ samples = 832 > 776, CI ≤ 3×10⁻⁵).
+- **Survives (both the 0.0018 battery bar and the 5.5×10⁻⁴ global bar), by wide margins:** C1 (pair
+  structure, ~10⁻⁴⁴ under the random null; 0 of 1.86 B across six structured families; analytically
+  impossible in two of them — clears both bars by ~40 orders of magnitude); C3's **unconditional** rarity
+  (0.002836% ≈ 2.8×10⁻⁵ under the unconstrained random null, 28,356 of 10⁹ — see the family table under
+  §Missing analyses below); and the Gray-code minimum-C3 bound (minimum across 10⁵ samples = 832 > 776, CI ≤ 3×10⁻⁵). The
+  wrap-parity and parity-alternation results are theorems (deductive), outside statistical accounting
+  entirely.
+- **Precisely measured, but does NOT clear the corrected bar as KW-evidence** (re-graded 2026-07-26 for
+  self-consistency under the stated bars; an earlier version of this section graded these as "survives"):
+  C2's conditional rarity given C1 (4.29% on a 10⁹ sample — the standard error is negligible, so the
+  *measurement* is precise, but 0.043 ≫ 0.0018) and C3's conditional placements (8.1% exact under the bare
+  C1&C4 null, `verify.py --check-null-g`; 3.9th percentile, sampled, at the C1+C2+C4+C5 scope — scope
+  label corrected 2026-07-22; the *threshold's* circularity is a separate, already-documented limitation).
+  These are the same order of magnitude as the runs-test p = 0.033 graded non-surviving below, and fail
+  the p < 0.0018 bar alike; measurement precision is not battery-wide significance. This matches TR-9's
+  bits accounting exactly (C2 ≈ break-even; C3's marginal bits priced as data, not claimed).
 - **Does NOT survive, and was already reported as such:** the runs-test alternation (p = 0.033), entropy
   percentiles (12th/6th), palindrome statistics, the canon-split gap, Markov structure, recurrence and
   clustering measures — all flagged non-significant or within-chance in this document's sections above.
@@ -60,10 +67,14 @@ the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everythin
   battery) and C5 (descriptive by construction: it is the sequence's own histogram, priced honestly by the
   null-model caveat below rather than by a significance test).
 
-The accounting therefore *changes no conclusion*: the claims the project leans on were always the ones that
-survive battery-wide correction by wide margins, and every marginal observation was already labeled as
-non-surviving where it appears. The point of stating this explicitly is procedural honesty: the survivors
-were selected from a large explored battery, and their significance claims are made net of that selection.
+The accounting therefore *changes no conclusion*, but it sharpens the headline: as KW-evidence, the
+statistical case rests on C1 — which clears the battery-wide bar by ~40 orders of magnitude — together
+with the unconditional C3 rarity and the deductive layer. After conditioning on C1, no additional
+constraint's KW-compliance rate clears the corrected bar; those rates are precisely-measured effect
+sizes, priced as such (exactly as TR-9's bits accounting concludes). Every marginal observation was
+already labeled as non-surviving where it appears. The point of stating this explicitly is procedural
+honesty: the survivors were selected from a large explored battery, and their significance claims are
+made net of that selection.
 
 ## Analytical claims
 
@@ -337,7 +348,7 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
 
 ## Summary
 
-The constraint solver (`solve.c`) finds that 5 rules extracted from King Wen narrow 10^89 possible orderings to hundreds of millions — 706,422,987 at d3 10T partition (canonical, sha `f7b8c4fb…`), 286,357,503 at d2 10T. Both are partial enumerations (each sub-branch hits its per-sub-branch node budget rather than completing naturally); the true count under exhaustive enumeration is higher. Only Position 1 is universally locked (forced by Rule 4). The current state is: **greedy minimum 4 at d2/d3 10T, 5 at d3 100T and d3 560T** (identical set `{1, 4, 21, 25, 27}` at both canonical scales; monotone trajectory) *(corrected 2026-07-04: previously claimed "4-boundary minimum reaffirmed at 560T"; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. Boundaries **{25, 27} appear in the greedy minimum at every partition tested** (the stable mandatory-boundary finding). The other boundaries in the minimum are partition + scale-dependent — d2 uses {2,3} and {21,22}; d3 10T uses combinations from {1..6}; d3 100T/560T use {1, 4, 21}. The rules are confirmatory (extracted from King Wen, then shown to be highly constraining) rather than predictive (derived independently). See [SOLVE.md](SOLVE.md), [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md), [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) (formal theorem guaranteeing the canonical shas are partition-invariant), and [HISTORY.md](HISTORY.md) for details.
+The constraint solver (`solve.c`) finds that 5 rules extracted from King Wen narrow 10^89 possible orderings to hundreds of millions — 706,427,594 at d3 10T partition (canonical, sha `b85c8871…`), 286,357,503 at d2 10T. Both are partial enumerations (each sub-branch hits its per-sub-branch node budget rather than completing naturally); the true count under exhaustive enumeration is higher. Only Position 1 is universally locked (forced by Rule 4). The current state is: **greedy minimum 4 at d2/d3 10T, 5 at d3 100T and d3 560T** (identical set `{1, 4, 21, 25, 27}` at both canonical scales; monotone trajectory) *(corrected 2026-07-04: previously claimed "4-boundary minimum reaffirmed at 560T"; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. Boundaries **{25, 27} appear in the greedy minimum at every partition tested** (the stable mandatory-boundary finding). The other boundaries in the minimum are partition + scale-dependent — d2 uses {2,3} and {21,22}; d3 10T uses combinations from {1..6}; d3 100T/560T use {1, 4, 21}. The rules are confirmatory (extracted from King Wen, then shown to be highly constraining) rather than predictive (derived independently). See [SOLVE.md](SOLVE.md), [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md), [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) (formal theorem guaranteeing the canonical shas are partition-invariant), and [HISTORY.md](HISTORY.md) for details.
 
 The program is honest about what it computes and includes explicit statistical caveats where the evidence is thin. Sensitivity analysis confirms all key mathematical results are invariant under bit-ordering convention (Hamming distance is invariant under bit permutation). The pair structure is the one genuinely extraordinary property — it is vanishingly unlikely by chance (analytic probability ≈10⁻⁴⁴). The complement distance is also genuinely unusual against unconstrained permutations (0th percentile; 8.1% under the exact pair-constrained C1&C4 null, `verify.py --check-null-g`; 3.9th percentile — sampled — at the stricter C1+C2+C4+C5 scope; and within the fully constrained C1+C2+C3 population KW sits at the C3 *maximum*, per the C3-ceiling correction). Other findings are either explained by the pair structure (no-5 property, ~4% among pair-constrained orderings), not significant after Bonferroni correction (entropy), indistinguishable from pair-constrained random orderings (Markov, path length, palindromes), or purely descriptive without significance tests (windowed entropy, trigram transitions, Gray code ratio). The Wald-Wolfowitz runs test detects alternation in the difference wave (Z = +2.13, p = 0.033), but this does not survive Bonferroni correction (threshold p < 0.0018). **Note: this alternation phenomenon was independently reported by [Chan (2026, arXiv:2604.09234)](CITATIONS.md#chan2026) as "negative lag-1 autocorrelation" of Hamming distances (KW value −0.251, 3.7th percentile, p=0.037). Chan's research predates ROAE; the alternation observation is Chan's prior art under the lag-1 autocorrelation framing. See [CITATIONS.md](CITATIONS.md).** Palindromic subsequences in the wave are unremarkable under pair-constrained null model (49th percentile for count, 14th for longest). The canon split, recurrence rate, and neighborhood clustering are all within chance expectations. Effect sizes (Cohen's d) are reported alongside percentiles for key analyses.
 

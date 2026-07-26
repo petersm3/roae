@@ -79,8 +79,8 @@ analysis. We supply the instruments their question required.
    Gray adjacency, is also kernel-`decide`d as `within_even`; a two-line parity argument is in-text);
    Gray adjacency requires distance 1. Their specific construction
    also evaluated directly. (Also cite the modern complement: [Radisic 2026](../documentation/CITATIONS.md#radisic2026) proves the pairing is the
-   unique Hamming-optimal matching — the structure they discarded is, by a natural criterion, the optimal
-   part.)
+   unique Hamming-optimal comp/rev matching — the structure they discarded is, by a natural criterion, the
+   optimal part of its class.)
 4. **What their question opened** — the constructed-alternative methodology at scale; one forward pointer
    to the conflict result ([TR-2](TR2_THE_RULES_CONFLICT.md)) without developing it.
 

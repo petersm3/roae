@@ -304,3 +304,15 @@ KW's orbit. It does not (and cannot) rule out generators using non-G-invariant v
 lexicographic/numeric label conventions or KW-derived constants break the ceiling by
 construction, which is precisely the point — unique-KW output requires smuggled labels or
 KW-specific data.
+
+**Novelty status.** The mathematical content is the standard invariance/orbit argument — an
+invariant score induces an output distribution constant on each orbit, so no such generator can
+concentrate on a single orbit element (P ≤ 1/|orbit|). This is Curie's principle (1894), worked
+out explicitly in the equivariant-model symmetry-breaking literature — e.g. Smidt et al.,
+*Phys. Rev. Research* 3, L012002 (2021); "Symmetry Breaking and Equivariant Neural Networks"
+(arXiv:2312.09016); "Improving Equivariant Networks with Probabilistic Symmetry Breaking"
+(arXiv:2503.21985) — with the Burnside/orbit machinery already cited in CITATIONS.md. No novelty
+is claimed for the argument. What is possibly new, to our knowledge, is only its instantiation
+for the King Wen constraint-symmetry group at the record level (the 1/24 constant riding on
+`twins_24_records`) and the machine-checked formalization. Corrections welcome — see
+CITATIONS.md.

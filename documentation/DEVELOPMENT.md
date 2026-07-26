@@ -1166,7 +1166,7 @@ typical inputs (validated bit-identical on a 500-point synthetic test).
 Makes exhaustive distributional analysis on the 100T canonical (3.43B
 records) tractable in ~2 hours on D64 (vs ~9 days pure-Python).
 
-See [`roae-private/DISTRIBUTIONAL_V2_SPEC.md`](../../../roae-private/DISTRIBUTIONAL_V2_SPEC.md)
+See `roae-private/DISTRIBUTIONAL_V2_SPEC.md` (private staging repo)
 for the analysis pipeline + Python integration.
 
 ### `solve.py --sat-encode` (DIMACS / OPB encoder for #SAT model counting)
@@ -1186,7 +1186,7 @@ Produces:
 - `kw.cnf.meta.json` — variable/clause counts, sha256 of clauses for
   reproducibility
 
-See [`roae-private/SAT_EXPERIMENT_SPEC.md`](../../../roae-private/SAT_EXPERIMENT_SPEC.md)
+See `roae-private/SAT_EXPERIMENT_SPEC.md` (private staging repo)
 for the experimental protocol and validation strategy.
 
 ### Infrastructure
@@ -1275,10 +1275,19 @@ then.
    ```
 
 2. **Run a canonical enumeration.** On a machine with ≥64 cores and ≥64 GB
-   free disk (128 cores and 1.5 TB for 100T):
+   free disk (128 cores and 1.5 TB for 100T). Use the exact parameter row from
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Reproducibility parameters:
    ```
-   SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 ./solve 0    # 10T d3 canonical
+   SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 \
+   SOLVE_PER_SUB_BRANCH_LIMIT=63146557 \
+   SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
+   SOLVE_THREADS=128 ./solve 0    # 10T d3 canonical (SOLVE_THREADS=64 gives the same sha)
    ```
+   `SOLVE_PER_SUB_BRANCH_LIMIT=63146557` is required: it is the empirical
+   per-cell budget the canonical was generated under. If left unset, solve
+   auto-divides `node_limit/158364` = 63,146,544 (−13 per cell), which
+   produces a valid but different, non-canonical sha — see the recipe-table
+   comment in solve.c and CANONICAL_HASHES.md §Reproducibility parameters.
    Pass `0` as the wall-clock argument for the reproducibility rule — each
    sub-branch runs to its full per-branch node budget, producing byte-identical
    output regardless of thread count or hardware. Empirical timing: 10T d3
@@ -1290,8 +1299,10 @@ then.
    any legacy file in `enumeration/`:
    ```
    sha256sum solutions.bin
-   # must equal f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e  (10T d3)
+   # must equal b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc  (10T d3, 706,427,594 records)
    # or        a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2  (10T d2)
+   # (the older f7b8c4fb… 10T d3 sha is DEPRECATED — pre-resume-fix undercount;
+   #  see CANONICAL_HASHES.md §Deprecated)
    ./solve --validate solutions.bin            # ALL CONSTRAINTS VERIFIED
    ```
 
@@ -1301,6 +1312,10 @@ then.
    zcat runs/20260418_10T_d3_fresh/analyze_output.log.gz > expected.txt
    diff analyze_output.txt expected.txt        # headers/timings differ, numbers don't
    ```
+   Note: the archived `20260418_10T_d3_fresh` run predates the resume fixes
+   (it is the deprecated `f7b8c4fb…` file, 4,607 records fewer), so
+   count-dependent lines may differ slightly from a fresh `b85c8871…` run;
+   structural findings are unchanged.
 
 5. **Cross-check downstream doc claims** against `analyze_output.txt`. Every
    numerical claim in HISTORY.md / SOLVE_SUMMARY.md / CRITIQUE.md / LEADERBOARD.md

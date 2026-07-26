@@ -58,12 +58,13 @@ Headlines only — each links to its full treatment (technical reports in [repor
   a theorem of the constraints, turning the 10.5-billion-record measurement into a corollary (the
   *position* of that transition remains ordering-dependent). [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
 - **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
-  matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) — preprint, machine-verified). [CITATIONS](documentation/CITATIONS.md)
+  complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) — preprint, machine-verified; scope
+  guard: comp∘rev matchings can do better, see [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean)). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
   more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
   enumerated records: a stark demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
-  nearly all the explanatory weight (and is provably optimal); the transition histogram is confirmed
+  nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
   description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
   population-typical; one uniqueness claim is corrected; the ~126-bit residual survives its second
@@ -128,7 +129,7 @@ The links below are reader orientation only:
 * [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
 * [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (hexagram names)
 * Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (translation of the Mawangdui manuscript); the project's Mawangdui ordering array follows Shaughnessy, *The Origin and Early Development of the Zhou Changes*, Brill, 2022, Table 11.2 (corrected 2026-07-05 — see CITATIONS.md errata)
-* [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — Steve Moore's archive of Yijing structural-analysis literature (source of several documents examined in CITATIONS.md)
+* [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — S. J. Marshall's (Joel Biroco) archive of Yijing structural-analysis literature, host of the Moore and Schulz papers (a different person from Steve Moore — see CITATIONS.md; source of several documents examined there)
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
 
 ## Built with

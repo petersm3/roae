@@ -493,7 +493,22 @@ theorem switches_30_general (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen : l.
      — the 24 orbit records are pairwise distinct (`kwOrbit_nodup`).
    * REUSE: the orbit size comes verbatim from twins_24_records (`kwOrbit_length`
      IS that theorem, not a re-proof) — the ceiling is a genuine corollary of the
-     already-verified free-action finite component. -/
+     already-verified free-action finite component.
+
+   Novelty status (per the project's attribution rules): the mathematical
+   content is the standard invariance/orbit argument — an invariant score
+   induces an output distribution constant on each orbit, so no such generator
+   can concentrate on a single orbit element (P ≤ 1/|orbit|). This is Curie's
+   principle (1894), worked out explicitly in the equivariant-model
+   symmetry-breaking literature: Smidt et al., Phys. Rev. Research 3, L012002
+   (2021); "Symmetry Breaking and Equivariant Neural Networks"
+   (arXiv:2312.09016); "Improving Equivariant Networks with Probabilistic
+   Symmetry Breaking" (arXiv:2503.21985); Burnside/orbit machinery per
+   CITATIONS.md. NO novelty is claimed for the argument. What is possibly new,
+   to our knowledge, is only its instantiation for the King Wen
+   constraint-symmetry group at the record level (the 1/24 constant riding on
+   twins_24_records) and the machine-checked formalization. Corrections
+   welcome — see CITATIONS.md. -/
 
 /-- the 48 valid symmetry permutations (Theorem A's finite component: exactly the
     centralizer of reversal). -/

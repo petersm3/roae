@@ -194,8 +194,12 @@ C3; certificate independently verified). The pieces fit together sharply:
 Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under the literature's full
 rule inventory **never existed** — the corruption reading survives only in the restricted sense (perfect
 under Moore's two rules alone, breaking the trigram structure KW keeps). King Wen's profile now reads
-naturally as a **trade-off optimum**: exact on one strong rule, minimally imperfect on the others, at a
-Pareto position the population measurements already showed to be ~1-in-25-million efficient. The usual
+naturally as a **trade-off position**: exact on one strong rule, minimally imperfect on the others. All
+four rules are KW-derived — selected because King Wen exhibits them, even where their form is general —
+so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result; the
+~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
+rules, and is not a measure of design efficiency (no arbitrary-rule-bundle baseline exists to read it
+against; restated per TR-1 v1.14, adversarial-review F-45). The usual
 caveat travels with this: the trigram configuration is a data-like rule (highly specific); the theorem is
 about the literature's rules exactly as its authors stated them. Reproduce:
 `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf` (encoding two-way validated: ccn4-kwtest SAT,
