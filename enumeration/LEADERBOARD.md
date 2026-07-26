@@ -13,7 +13,9 @@
 
 ## What this is
 
-About 3,000 years ago, someone in ancient China arranged 64 symbols called
+Long ago — traditionally about 3,000 years, though the dating of the ordering's
+fixation is debated — someone in ancient China, or successive generations of
+practitioners, arranged 64 symbols called
 [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) in a specific order —
 the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence).
 There are more possible arrangements than atoms in the universe (about 10^89).

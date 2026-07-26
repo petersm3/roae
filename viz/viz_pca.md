@@ -97,32 +97,31 @@ position differs).
   distribution, not the tail). Being typical in PCA space and
   typical at the C3 ceiling are two views of the same story in the
   *pair-placement* geometry: KW is not a geometric extremum there.
-- **Important distinction: PCA centrality and the 2026-04-21 joint-density
-  extremity (KW's joint-density rank below the 100K sample's resolution, <10⁻⁵ — see
-  [`../documentation/DISTRIBUTIONAL_ANALYSIS.md`](../documentation/DISTRIBUTIONAL_ANALYSIS.md)) are NOT
-  contradictory.** They are measurements in *different projection spaces*:
-  - PCA here projects raw 32-byte ordering space (what pair is at each
-    position) onto 2 or 3 dims — KW is central in that pair-placement space.
-  - The distributional analysis projects orderings onto 7 informative
-    *observable statistics* (c3_total, c6_c7_count, shift_conformant_count,
-    first_position_deviation, fft_dominant_freq, fft_peak_amplitude,
-    edit_dist_kw) and fits a KDE in that space — KW is extremal there
-    because it simultaneously hits the 95th+ percentile on four
-    independent structural observables.
-  Being typical on raw position-of-each-pair does not imply being typical
-  on derived structural statistics. Both views are correct.
+- **Relation to the distributional analysis (updated 2026-07-26):** the
+  2026-04-21 joint-density "extremity" (rank < 10⁻⁵) formerly contrasted
+  here was **withdrawn** by the 2026-07-26 circularity audit — five of its
+  seven KDE dimensions were KW-referencing, and the de-circularized re-run
+  on the two KW-independent FFT dimensions places KW at ≈ the 30th
+  percentile of joint density (see
+  [`../documentation/DISTRIBUTIONAL_ANALYSIS.md`](../documentation/DISTRIBUTIONAL_ANALYSIS.md)).
+  The PCA centrality shown here and the corrected distributional result now
+  agree: KW is typical both in raw pair-placement space and in the
+  KW-independent observable space.
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
-![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by total complement distance (the C3 value, summed |pos[v]−pos[v^63]|, ranging 424–776 where C3 caps at King Wen's 776); the color distribution shows how selectively C3 filters the pair-constrained space.](../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by total complement distance (the C3 value, summed |pos[v]−pos[v^63]|, ranging 392–776 where C3 caps at King Wen's 776); the color distribution shows how selectively C3 filters the pair-constrained space.](../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
 
 **What's colored:** each solution's total complement distance
 (the sum of `|pos[v] - pos[v^63]|` across all 64 hexagrams).
-Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
+Range: 392-776 on the 560T dataset shown (424-776 at d3 10T/100T;
+776 is KW's value — C3 enforces ≤ 776. *Caption corrected 2026-07-26:
+previously carried the 10T/100T minimum 424 under the 560T figure; the
+560T minimum is 392 — see CLAIMS_DECIDED/SPECIFICATION.*)
 
 **How to read it:**
 
-- Lower values (toward 424) = solutions where complementary
+- Lower values (toward the 392 minimum) = solutions where complementary
   hexagrams are placed closer together.
 - Higher values (toward 776) = solutions where complements are
   placed farther apart.
@@ -142,7 +141,7 @@ Range: 424-776 on d3 10T (776 is KW's value — C3 enforces ≤ 776).
   KW is tautologically at 100th percentile.
 - The distribution shape in this plot tells you HOW selective C3 is
   as a filter. A heavily skewed distribution (most points near 776,
-  few near 424) means C3 is a strong filter that eliminates most
+  few near the minimum) means C3 is a strong filter that eliminates most
   pair-constrained sequences.
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2

@@ -241,7 +241,7 @@ transitions concentrate modestly on Hamming-3 and drop the Hamming-5 count to ze
 Prior framings in this project have struggled with the honesty question: any
 set of KW-specific properties can be extracted and make KW appear uniquely
 determined; the search for "non-trivial" distinguishing properties has been
-circular. A quantified distributional approach sidesteps this:
+circular. A quantified distributional approach was intended to sidestep this:
 
 - Define a **fixed-in-advance 10-dimensional observable-statistics vector**
   (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition
@@ -252,43 +252,44 @@ circular. A quantified distributional approach sidesteps this:
 - Fit a kernel density estimator on a uniform sample; locate KW; compute
   KW's density-percentile with bootstrap confidence intervals.
 
-**Finding (documented in DISTRIBUTIONAL_ANALYSIS.md):** No ordering in a
-100,000-record uniform sample matches KW's joint feature profile — KW's
-joint-density rank is **below the sample's resolution (<10⁻⁵)**; a 100K
-sample cannot resolve percentiles below ~10⁻⁵, so no tighter figure is
-quoted. KW is simultaneously ≥95th-percentile extreme on 4 of the 8
-discriminating dimensions. Its log-density under the sample-fit KDE is
-~12,800× smaller than any ordering in the subsample (a methodology-dependent
-figure; see the KDE caveats there).
+**Finding (corrected 2026-07-26):** this section previously presented the joint-KDE
+result (rank < 10⁻⁵, ~12,800× density deficit) as a distributional analysis that
+"avoids the extraction problem" using dimensions "chosen for general information
+content, not custom-fit to KW". That characterization was wrong: five of the seven
+KDE dimensions were KW-referencing (two tautological, two KW-extracted, one extreme
+by population construction), so the analysis was itself an instance of the extraction
+effect this document warns about — the same failure mode diagnosed for D-B1. The
+de-circularized re-run (two KW-independent FFT dimensions, same population and
+pipeline) places KW at the **~30th percentile of joint density** — unremarkable.
+The single surviving marginal deviation, `fft_peak_amplitude` at the exact 95.476th
+percentile (p ≈ 0.045 one-sided), fails the battery-wide bars (0.05/28, 0.05/91)
+by well over an order of magnitude. **The distributional analysis therefore
+contributes no KW-evidence**; its durable content is descriptive (the marginals
+table, the invariant transition-Hamming theorem, and the finding that KW's dominant
+FFT frequency is bulk-typical). The original numbers are retained in HISTORY as a
+worked example of how KW-referencing observables manufacture apparent uniqueness.
 
-**What this is.** A quantified statement of KW's position in a distribution
-chosen for general information content, not custom-fit to KW. The vector
-schema was frozen before the analysis; two of the ten chosen dimensions
-turned out to be structurally invariant (new finding — see appendix in
-DISTRIBUTIONAL_ANALYSIS.md) and contribute zero discrimination; the remaining
-eight drive the below-resolution joint-density result.
-
-**What this is not.** A uniqueness proof. The distributional result says KW's
-specific configuration of feature values is atypical — not that KW is the
-unique extremum of any principle. A hypothetical ordering with the same
-exact c3_total, c6_c7_count, and shift-pattern conformance as KW would
-score similarly, which there are likely millions of such orderings.
+**What this is not.** Evidence about KW in either direction beyond a null:
+the de-circularized result is that KW is distributionally typical on the
+non-circular dimensions. (Even the withdrawn atypicality claim would not
+have been a uniqueness proof; population typicality is likewise not a
+disproof of intent — cf. TR-10's scope discipline.)
 
 **Caveats properly attached.**
 
-1. KDE bandwidth and anchor-sample size affect the absolute log-density
-   number. The below-sample-resolution ranking is robust across 1000
-   bootstrap samples (though a 100K sample cannot resolve ranks below
-   ~10⁻⁵), but the specific −128,260 log-density number is
-   methodology-dependent — high-dimensional KDE is bandwidth-sensitive
-   (curse of dimensionality).
+1. The bandwidth-sensitivity caveat previously attached to the withdrawn
+   −128,260 figure is moot for a withdrawn result; the de-circularized
+   re-run's own robustness checks (5 seeds × 2 bandwidth methods, exact
+   full-population histogram cross-checks) are stated in
+   DISTRIBUTIONAL_ANALYSIS.md §"Joint density — de-circularized
+   re-analysis".
 2. One dimension's marginal report (`fft_dominant_freq` at 29%-ile)
    initially suggested KW was on the low tail of that dimension. Closer
-   inspection showed KW's value (k=16) is actually the **mode** of the
-   distribution (12.6% of records share it) — the 29% comes from standard
+   inspection showed KW's value (k=16) is a bulk-typical value — the
+   **second-largest bin** (12.62% of records share it; the mode is k=30
+   at 14.39% — exact-count correction 2026-07-26, previously "the mode") —
+   the 29% comes from standard
    half-bin percentile convention applied to a population with large ties.
-   The joint-density claim does not depend on any single dimension being
-   tail-rare.
 
 **How this compares to the prior "3.9th percentile" C3 claim.** That
 claim was specifically: KW's complement distance is in the 3.9th percentile
@@ -589,7 +590,7 @@ Davis p. 119 n19), and one was declined on scope without measurement (the named-
 see the 2026-07-11 [HISTORY](HISTORY.md) entry; a landing-time power note shows its minimum
 attainable p is 1/15 under the pair-exchangeable null, so it could never have registered).
 Neither measured functional triggered the candidate gate; no corpus-control step fired; nothing
-promotes. These two functionals were already counted in the ~83-observable global ledger when
+promotes. These two functionals were already counted in the (frozen 91-observable) global ledger when
 the /12 family was registered — the ledger does not grow. Evidence:
 `reports/evidence/dav2_tier1.out`; regeneration: `SOLVE_KNUTH_SCORE_DAV2=1
 SOLVE_KNUTH_DAV2_HIST=1 ./solve --estimate-knuth 2000000000`. Full treatment:
@@ -622,7 +623,7 @@ population-quantified as a fitted description. His paper's revised variant (ten 
 "alien" pairs) inherits the same classification a fortiori: the revision that shrank the deviants
 from ten to four is additional fitting. D-B1 belongs to a separate Drasny family (N = 4 if any
 member is ever scored inferentially, at which point the family enters the global observable ledger
-first); nothing here is scored inferentially, so the ~83-observable ledger is unchanged — the
+first); nothing here is scored inferentially, so the (frozen 91-observable) ledger is unchanged — the
 descriptive-by-construction handling already applied to C5 above. Nothing promotes. Evidence:
 `reports/evidence/db1_tier1.out`; regeneration: `SOLVE_KNUTH_SCORE_DB1=1 SOLVE_KNUTH_DB1_HIST=1
 ./solve --estimate-knuth 2000000000`; gates: `--db1-verify` (both languages). Full treatment:

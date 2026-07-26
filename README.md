@@ -2,12 +2,17 @@
 
 <mark>**[䷀䷁](documentation/SOLVE_SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-**The question:** the King Wen sequence — the ~3,000-year-old received ordering of the 64 I Ching
-hexagrams — has attracted structural claims for centuries, almost all asserted by inspection. Can those
+**The question:** the King Wen sequence — the received ordering of the 64 I Ching hexagrams, in
+continuous use for some two millennia and traditionally attributed to King Wen of Zhou (~1000 BCE; the
+dating of the ordering's fixation is debated in modern scholarship) — has attracted structural claims
+for centuries, almost all asserted by inspection. Can those
 claims be tested? Can the sequence be reconstructed from its mathematical constraints? This project
 treats the sequence as a combinatorial object: it **enumerates** the space of orderings satisfying the
 sequence's constraints, **measures** claimed regularities against that space, and **proves** (with
 machine-checked proofs and SAT certificates) what is forced, what is rare, and what is impossible.
+
+Scope: this is a combinatorial study of the *ordering* alone; it makes no claims — supportive or
+dismissive — about the I Ching's text, its divination practice, or its philosophical tradition.
 
 New to the I Ching or combinatorics? Start with [GUIDE.md](documentation/GUIDE.md).
 
@@ -18,7 +23,7 @@ are treated as axioms defining a space of orderings ([formal definitions](docume
 
 - **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
   when reversal is trivial): the classical pairing, described by [Yu Fan](documentation/CITATIONS.md#yufan) in the 3rd century.
-- **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975)).
+- **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975); independently in [Cook 2006](documentation/CITATIONS.md#cook2006)).
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
 - **C4** — the sequence starts with the pair ䷀ Qian (The Creative) #1 and ䷁ Kun (The Receptive) #2, i.e., Heaven followed by Earth.
 - **C5** — the multiset of adjacent-transition sizes matches King Wen's exactly.
@@ -48,9 +53,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)) — is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
   jointly unsatisfiable for any ordering preserving the classical pairing — none can be perfect under all of them. King Wen keeps one exactly and
-  misses the others minimally: its famous anomalies are a **forced trade-off, not damage** — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
+  misses the others minimally: its famous anomalies are a **forced trade-off, not damage to a once-perfect-under-all-four original** (none could exist; whether they are an arranger's trade-off or damage to the three-rule-perfect precursor that *does* exist is weighed, not settled, in TR-2's model comparison) — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are proven forced** — each a theorem, constant on the entire C1 space (a superset of the measured population, so every valid ordering inherits King Wen's value), machine-checked in Lean 4 ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)); the zero-violation 2×10¹⁰-probe measurements now serve as instrument validation. A separate analytic theorem — the no-5 rule's implication chain, behind McKenna's 3:1 ratio — stands in addition. They are consequences of the constraint system, not choices. Others
-  are genuinely discriminating (to ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth; see METHODS). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
+  are extremely rare as stated (to ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like caveat). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
 - **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
   exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
 - **McKenna's "ninth six" is forced.** The 1975 observation that exactly one adjacent transition flips
@@ -61,7 +66,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
   complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) — preprint, machine-verified; scope
   guard: comp∘rev matchings can do better, see [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean)). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
-  more rule — and orderings violating it are 17.4% of the full space yet absent from all 10.5 billion
+  more rule — and orderings violating it are 17.4% of the full space (a 2×10¹⁰-probe sampled estimate,
+  independently reproduced by a second archived run to within 0.05 percentage points — TR-7 §5) yet absent from all 10.5 billion
   enumerated records: a stark demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
@@ -97,7 +103,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest   # mus
 python3 roae.py            # the 28 analyses
 python3 solve.py --registry-verify   # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                       # SAT layer usage + targets
-python3 tests.py                     # regression harness (28 tests)
+python3 tests.py                     # regression harness (35 tests)
 bash reports/certificates/verify_all.sh   # everything above + all DRAT certs + Lean, one command
 ```
 Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).

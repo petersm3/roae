@@ -15,7 +15,8 @@ There are exactly **64 hexagrams** — patterns of 6 stacked lines, each
 line either solid or broken. ([SOLVE_SUMMARY.md §What a hexagram is](SOLVE_SUMMARY.md)
 shows the picture.)
 
-About 3,000 years ago, somebody in ancient China arranged all 64 in a
+Long ago — traditionally about 3,000 years, though the dating is debated —
+somebody in ancient China, or generations of practitioners, arranged all 64 in a
 specific order, called the **King Wen sequence**. The order isn't
 obviously random — consecutive hexagrams differ in special ways. So we
 ask: were there RULES? And if so, what?
@@ -370,13 +371,15 @@ What this tells us about King Wen:
   solution, so it shows up in the enumeration.
 - **King Wen is NOT mathematically forced.** With BILLIONS of other
   valid orderings, the constraints alone don't pick out King Wen.
-- **King Wen MAY be statistically special.** Other measures
-  (distributional position, observable extremity) are how we test that.
-  See [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md): KW's
-  joint-density rank falls below the sample's resolution (<10⁻⁵) across the
-  3.43-billion-record d3 100T enumeration — reported as a resolution bound,
-  not a percentile. That's "rare in a precise measurable sense" — different
-  from "uniquely forced," but still remarkable.
+- **King Wen MAY be statistically special — but the tested measures say
+  it isn't.** Other measures (distributional position, observable
+  statistics) are how we test that.
+  See [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md): an earlier
+  joint-density result (rank < 10⁻⁵) was withdrawn 2026-07-26 as circular
+  (its driver dimensions were KW-referencing); the de-circularized re-run
+  on the KW-independent dimensions places KW at ≈ the 30th percentile of
+  joint density across the 3.43-billion-record d3 100T enumeration —
+  distributionally unremarkable.
 
 ---
 
@@ -446,10 +449,11 @@ This is an active research project. The current open questions:
    raw** (≈**3×10³⁷ distinct-canonical**) — an exploration estimate, not a
    proven count. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md).
 
-2. **Is KW statistically special, and HOW?** We have one strong result
-   (the below-resolution-bound joint-density rank, <10⁻⁵, from
-   [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)). We want
-   more independent measurements.
+2. **Is KW statistically special, and HOW?** The former headline result
+   here (the joint-density rank < 10⁻⁵) was withdrawn 2026-07-26 as
+   circular; the de-circularized result is a null (KW ≈ 30th percentile —
+   [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)). Independent,
+   KW-independent measurements remain the open route.
 
 3. **What is the structure of the yield distribution across branches?**
    We see spikes, but is there a deeper symmetry? An algebraic
@@ -545,7 +549,7 @@ alone explain.
 | Term | One-line definition |
 |---|---|
 | **Hexagram** | One of 64 patterns of 6 stacked solid/broken lines. Has two numberings: **binary value 0-63** (used by the solver) and **King Wen number #1-#64** (the traditional ordering position). Example: ䷀ The Creative #1 has binary value 63 (= 111111). |
-| **King Wen sequence (KW)** | The specific 64-hexagram ordering attributed to ancient China, ~3000 years old. |
+| **King Wen sequence (KW)** | The specific 64-hexagram received ordering from ancient China — traditionally attributed to King Wen of Zhou (~1000 BCE); the dating of its fixation is debated. |
 | **Pair** | Two consecutive hexagrams at positions 2k and 2k+1 in the sequence. The 64-hexagram order has 32 pairs. |
 | **C1 through C5** | The five constraints the King Wen sequence satisfies. C1 = pair structure, C2 = no 5-line transitions, C3 = complement distance ≤ 776 (×64 form), C4 = starts with (63, 0), C5 = transition-distance count. |
 | **Branch (first-level)** | A specific (pair, orientation) choice for pair 1 of the sequence. There are 56 valid first-level branches. |

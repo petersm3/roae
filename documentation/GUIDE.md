@@ -14,7 +14,7 @@ The ordering is not alphabetical, not sorted by number of solid lines, and not r
 
 ## Why should I care?
 
-The King Wen sequence is one of the oldest known objects exhibiting strong combinatorial structure. However it came to be, the result obeys mathematical regularities — pairing, complementation, transition constraints — that were fixed roughly 2,500 years before the formal study of combinatorics began in Europe. The sequence predates Euler, Pascal, and even Euclid.
+The King Wen sequence is one of the oldest known objects exhibiting strong combinatorial structure. However it came to be, the result obeys mathematical regularities — pairing, complementation, transition constraints — that were fixed, under any dating, many centuries before the European combinatorial tradition of Pascal and Euler.
 
 This doesn't mean the creators thought of it as "mathematics." They may have understood the structure through divination practice, cosmological principles, or aesthetic intuition. But the result is a permutation of 64 objects that satisfies constraints which are vanishingly unlikely by chance. Understanding what those constraints are — and which apparent patterns are real versus illusory — is the point of this program.
 

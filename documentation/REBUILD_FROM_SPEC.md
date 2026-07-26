@@ -289,11 +289,26 @@ A verifier built from this recipe does not need to know how the `solutions.bin` 
 
 ## Expected output on the canonical selftest file
 
-A `solutions.bin` produced by `./solve --selftest` (or by running `SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 ./solve 0` in a clean directory) has:
+A `solutions.bin` produced by `./solve --selftest` (or, equivalently, by running
+`SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_COMPRESS=0 ./solve 0`
+in a clean, empty directory) has:
 
 - Header: `ROAE v1`, 135,780 records declared
 - File size: 32 (header) + 135,780 × 32 = 4,344,992 bytes
 - sha256: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`
+
+Two settings are required for the standalone command that the internal `--selftest` fork applies
+for you *(command corrected 2026-07-26; the previous version omitted both and did not produce the
+anchor as written — verified on a clean build)*:
+
+- `SOLVE_ALLOW_SUB_CANONICAL=1` — the 100M-node budget is below the 1 T sub-canonical hard-gate
+  (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"100B and sub-canonical reference shas", the
+  "Sub-canonical hard-gate" paragraph); without this override the run exits 25 and writes nothing.
+- `SOLVE_COMPRESS=0` — since #169, `solutions.bin` is written gzip-compressed by default (magic
+  `1f 8b`). This flag writes the raw bytes (magic `ROAE`) so the file matches the header layout in
+  Step 1 and `sha256sum solutions.bin` equals the `403f7202…` anchor directly. (With compression
+  left on, the anchor is still recoverable as `gzip -dc solutions.bin | sha256sum`, but the on-disk
+  file would fail this recipe's own Step-1 magic check.)
 
 Every constraint should pass with 0 failures, and King Wen should appear among the records. If your verifier reports anything else on this file, either your implementation has a bug or the file is corrupted.
 

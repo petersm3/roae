@@ -408,7 +408,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **New analytical results consolidated in CRITIQUE.md.** (a) C1 impossibility proofs for de Bruijn B(2, 6) (period-4 contradiction) and all 6-bit Gray codes (Hamming-disjoint). (b) Latin-square C2-rate decomposition with exact reproduction of the empirical 57.96%. (c) King Wen's own adjacency decomposition: 32 within-pair transitions (Hamming 2/4/6 by C1 construction) + 31 between-pair transitions, with the 14:2 odd-transition concentration and zero Hamming-5 matching the prior-documented 3:1 even:odd ratio (McKenna 1975 / Cook 2006). (d) Open Questions section with 11 falsifiable follow-ups.
 
-**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
+**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any *(scope note 2026-07-26: zero-of-1.86B is across the **six unconditional** families; the seventh, pair-constrained family satisfies C1 by construction — see [CRITIQUE.md](CRITIQUE.md)'s family table)*. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
 
 ## April 20, 2026 early morning — 100T d3 canonical lands
 
@@ -462,6 +462,8 @@ Key findings:
 **Computational pipeline executed on 3,432,399,297-record 100T d3 canonical** using Python scripts in `scripts/` (compute_stats, p2_marginals, p2_bivariate, p2_joint_density): per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation); per-chunk parquet directory output (3,433 files); streaming-histogram marginals + hexbin bivariate heatmaps + sklearn KDE on 7 informative dimensions with bootstrap 1000× CI. Ran in 66 min on D16als_v7.
 
 **Headline result: KW sits at 0.000% in the joint observable-density distribution, bootstrap 95% CI [0.000%, 0.000%].** KW's log-density under the sample-fit KDE is −128,260 while the entire 100K sample spans log-density [−10.11, −2.98]. The extremity is driven by simultaneous 95th+ percentile values across four independent structural dimensions (c3_total, c6_c7_count, shift_conformant_count, first_position_deviation), not any single dimension — a typical canonical ordering does not concentrate extremes that way.
+
+*(Withdrawal note, 2026-07-26: this joint-KDE result was **withdrawn as evidence** — a circularity audit found five of the seven KDE dimensions KW-referencing (the four "driver" dimensions named above are tautological, KW-extracted, or extreme by population construction), so the extremity was the predicted signature of scoring KW against its own template. The de-circularized re-run on the two KW-independent FFT dimensions places KW at ≈ the 30th percentile of joint density — distributionally unremarkable. This entry is retained as the record of the error; see [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) §"Joint density — de-circularized re-analysis".)*
 
 **Theorem of invariant transition-Hamming distribution (new):** every C1-C5 valid ordering has the identical multiset of 63 consecutive-hexagram Hamming distances `{1:2, 2:20, 3:13, 4:19, 6:9}`, proven directly from C5's budget-constraint formulation. Corollary: any real-valued statistic of that multiset (mean, median, max, variance, etc.) is constant across all 3.43B valid orderings. This retroactively identifies two of the originally-proposed observable dimensions (`mean_transition_hamming` = 3.3492 always, `max_transition_hamming` = 6 always) as structurally invariant — zero discriminative information.
 
@@ -4945,10 +4947,18 @@ position 1 forced to Creative/Receptive; canonical = pair-identity-deduped (orie
   representative per scale, not real non-monotonicity. Masking orientation removes all of them.)
 - **Sublinear growth.** ×50 per-cell budget (11.2T→560T) yields ×13.86 records (×4.52 then ×3.07).
   The valid-ordering space is sparse: only ~6–7% of the 158,364 depth-3 prefixes yield any
-  solutions, and that productive set is small and stable.
+  solutions, and that productive set is small and stable. *(Correction 2026-07-26: the "~6–7% of
+  158,364" figure mixed two cell notions — 10,618 is the yielding **pair-identity**-cell count (the
+  coarser keying of this entry's own table), while the 158,364 denominator counts **enumeration
+  prefixes**, of which 65,281 = **41.2%** yield — see the campaign closeout figures above. Neither 6%
+  nor 7% is a correct yield at either granularity.)*
 - **Deepening, not broadening.** Cells newly appearing at the larger scale contribute only ~0.2%
   (→100T) and ~0.5% (→560T) of that scale's records; growth is existing productive cells yielding
-  deeper, not new regions opening.
+  deeper, not new regions opening. *(Reconciling note 2026-07-26: this holds under **pair-identity**
+  keying — the granularity at which the canonical dedups, hence the headline. Under
+  enumeration-cell/orientation keying the picture inverts: 60.4% of 560T's records come from cells
+  that yielded nothing at 11.2T — see the June-11 #126 entry above. Both are true; they measure
+  different cell notions.)*
 - **Not yet saturated.** Every sampled sub-branch is `BUDGETED`, none `EXHAUSTED`, at 560T ⇒ **the
   total number of C1–C5-satisfying orderings is not yet known**; each canonical scale is a
   reproducible *slice* at a fixed budget, and 560T deepens 100T rather than completing it. This
@@ -5483,7 +5493,7 @@ language ("incoherence = design error, not a finding"). Neither correction touch
 controls: FC-1 and FC-3 reference no matched-null quantity.
 
 The five off-home family predicates applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all
-failed) are logged conservatively on the global observable ledger (~83 → ~88). The Jing Fang and
+failed) are logged conservatively on the global observable ledger (~83 → ~88; *annotation 2026-07-26: the ledger was subsequently recounted and frozen at exactly **91** = 28 + 58 + 5 — see [reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger"; the running "~83/~88" figures in this dated entry are superseded*). The Jing Fang and
 Mawangdui orderings are classical Chinese artifacts, not project inventions; sources are credited in
 [CRITIQUE.md](CRITIQUE.md) §"Corpus control II" ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022);
 [Schulz & Cunningham 1990](CITATIONS.md#schulz-cunningham1990); the standard palace construction; with

@@ -21,7 +21,7 @@ For deeper material referenced throughout this article:
 
 ## The puzzle
 
-About 3,000 years ago, someone in ancient China arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, whoever arranged them picked one specific arrangement:
+Long ago — traditionally about 3,000 years, though modern scholarship debates when the ordering was fixed — someone in ancient China, or successive generations of practitioners, arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, whoever arranged them picked one specific arrangement:
 
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
@@ -177,7 +177,7 @@ The millions of alternative arrangements satisfying Rules 1-5 are not random —
 
 Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to hundreds of millions (d3 canonical: 706M; d2 canonical: 286M). Position 1 is fully determined. The cascade region (positions 3-20) is heavily constrained (per-position entropy 0.3-1.9 bits at d3 — far below the 5-bit maximum) but not deterministic: every first-level branch admits multiple distinct pair sequences across positions 3-19. Positions 24-31 have substantially more freedom (entropy 3.4-3.5 bits at d3; positions 22-23 are transitional at 1.7 and 3.1 bits). The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
 
-Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou), arranged 64 symbols into an ordering that satisfies a set of interlocking mathematical constraints admitting an estimated **≈3×10³⁷ valid arrangements** of the 10^89 possible ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) — a reduction of more than 50 orders of magnitude. Within every enumerated dataset, **a handful of boundary constraints** (specifying which pairs must be adjacent at specific positions) then single out King Wen exactly: 4 boundaries at the 10T datasets, **5 boundaries at canonical depth** (100T and 560T — the identical set `{1, 4, 21, 25, 27}` at both, isolating KW among 10.5 billion orderings) *(corrected 2026-07-04: an earlier version said "4 at 560T" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*; whether that holds over the full space is open (extrapolation suggests ~13–20 boundaries would be required). **The minimums are proven within the enumerated datasets** — exhaustive 3-subset testing confirms no triple suffices anywhere, and exhaustive 4-subset testing confirms no 4-set suffices at 100T/560T.
+Someone — or successive generations of practitioners — in ancient China (traditionally [~3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou); the dating of the ordering's fixation is debated) arranged 64 symbols into an ordering that satisfies a set of interlocking mathematical constraints admitting an estimated **≈3×10³⁷ valid arrangements** of the 10^89 possible ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) — a reduction of more than 50 orders of magnitude. Within every enumerated dataset, **a handful of boundary constraints** (specifying which pairs must be adjacent at specific positions) then single out King Wen exactly: 4 boundaries at the 10T datasets, **5 boundaries at canonical depth** (100T and 560T — the identical set `{1, 4, 21, 25, 27}` at both, isolating KW among 10.5 billion orderings) *(corrected 2026-07-04: an earlier version said "4 at 560T" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*; whether that holds over the full space is open (extrapolation suggests ~13–20 boundaries would be required). **The minimums are proven within the enumerated datasets** — exhaustive 3-subset testing confirms no triple suffices anywhere, and exhaustive 4-subset testing confirms no 4-set suffices at 100T/560T.
 
 **A key partition-scope finding** (2026-04-19): the *specific* boundaries that work are **partition-dependent**. What IS stable across d2 and d3: boundaries **{25, 27}** are mandatory in every working 4-set. What is NOT stable: the other 2 boundaries.
 
@@ -195,7 +195,7 @@ Someone, roughly [3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zho
 | 2 | No 5-line jumps | ~4% of step 1 |
 | 3 | Complements ceiling (total distance ≤776) | ~0.3% of step 1 |
 | 4 | Start with Heaven/Earth | ~0.005% of step 1 |
-| 5 | Specific transition counts | **706,427,594** (d3 10T canonical); **286,357,503** (d2 10T canonical) |
+| 5 | Specific transition counts | **706,427,594** (d3 10T canonical); **286,357,503** (d2 10T canonical) — budgeted 10T slices, not the layer size; the true C1–C5 layer is estimated ≈1.3×10³⁸, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
 | 6 | 4 boundary constraints (5 at canonical depth) | **1 (King Wen)** — within the enumerated slice; see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
 
 ## The story continued: what deeper tools found (2026)
@@ -215,9 +215,14 @@ second wave of results, each with a full [technical report](../reports/README.md
   [[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-6](../reports/TR6_PARITY_SKELETON.md)]
 - **The classical rules contradict each other.** A central result: the four strongest design
   rules proposed in the literature — two by [Steve Moore](CITATIONS.md#moore1989), two traceable through [Larry Schulz](CITATIONS.md#schulz1990-motifs) back to a
-  13th-century commentator — **cannot all be satisfied by any ordering at all**. King Wen keeps one of
-  them perfectly and misses the other three by the smallest possible margins. Its famous "irregularities,"
-  puzzled over for centuries, are the visible seam of a forced trade-off — not damage, and not sloppiness.
+  13th-century commentator — **cannot all be satisfied by any ordering that preserves the classical
+  pairing**. King Wen keeps one of
+  them perfectly and misses the other three by the smallest measured margins (2 each). Its famous "irregularities,"
+  puzzled over for centuries, are the visible seam of a forced trade-off — not damage to a
+  once-perfect-under-all-four original (none could exist), and not sloppiness. (Whether they instead
+  reflect damage to the *three*-rule-perfect precursor that does exist is a separate, open question —
+  TR-2's pre-registered two-model comparison in fact favors that corruption reading over a
+  soft-preference arranger.)
   [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
 - **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
   turns out to be mathematically *optimal* among pairing rules of its kind (complement/reversal

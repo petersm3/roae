@@ -14,9 +14,11 @@ that are defensible without requiring full (infeasible) enumeration.
 **Scope of the analysis below:** this analysis was computed on the
 **100 T d3 canonical** (3,432,399,297 orderings, sha256 `915abf30…`). The
 **560 T canonical** (10,525,271,997 orderings, sha `9a968fa2…`, established
-2026-06-08) is the new deepest published enumeration; a re-run of this
-distributional analysis at 560 T is queued and will appear as a new section
-when complete. The 100 T results below remain valid as a strict-subset
+2026-06-08) is the new deepest published enumeration. A re-run of this
+distributional analysis at 560 T was previously queued; it is **descoped**
+as of 2026-07-26 — the joint-KDE headline it would have re-run is withdrawn
+below, and re-running a withdrawn analysis at larger scale has no object.
+The 100 T results below remain valid as a strict-subset
 analysis (the 100 T solution set is a subset of the 560 T set under the same
 partition strategy). Bootstrap percentile shifts at the 560 T scale are
 expected to be small (≤ low single-digit percentile shifts) because the 100 T
@@ -36,13 +38,13 @@ frozen schema.
 |---|---|---|---|
 | 1 | `edit_dist_kw` | Positions where this ordering's pair differs from KW's pair (0-32) | KW-relative |
 | 2 | `c3_total` | Sum of complement-distances (424-776) | Structural |
-| 3 | `c6_c7_count` | Satisfies C6 (pos 27-28) + C7 (pos 25-26) adjacency constraints (0-2) | Structural |
+| 3 | `c6_c7_count` | Satisfies C6 (pos 27-28) + C7 (pos 25-26) adjacency constraints (0-2) | KW-extracted *(reclassified 2026-07-26; was "Structural" — C6/C7 are KW's own adjacency pins)* |
 | 4 | `position_2_pair` | Pair at byte 1 (categorical stratifier, 0-31) | Structural |
 | 5 | `mean_transition_hamming` | Mean 6-bit Hamming distance across 63 transitions | Spectral |
 | 6 | `max_transition_hamming` | Max of those 63 distances | Spectral |
 | 7 | `fft_dominant_freq` | Argmax k of |FFT(hexagram-sequence)[k]| for k ∈ 1..31 | Spectral |
 | 8 | `fft_peak_amplitude` | Amplitude at the dominant frequency | Spectral |
-| 9 | `shift_conformant_count` | Positions 3-19 where pair_idx[p] ∈ {p, p-1} (0-17) | Structural |
+| 9 | `shift_conformant_count` | Positions 3-19 where pair_idx[p] ∈ {p, p-1} (0-17) | KW-extracted *(reclassified 2026-07-26; was "Structural" — scores agreement with KW's own pair numbering)* |
 | 10 | `first_position_deviation` | 1-indexed position where first differs from KW (33 = identical) | KW-relative |
 
 ## Univariate marginal percentiles
@@ -87,9 +89,10 @@ records. (Subcommand: `solve.py --marginals`; full table in
 - **KW sits at the low end in `fft_dominant_freq` (28.94%-ile).** The
   dominant frequency of KW's hexagram-value sequence is 16 (a period-4
   oscillation) — lower than the typical canonical ordering's dominant
-  frequency (mean ~20). This is mildly surprising given KW's regular
-  appearance; it suggests KW has structure at a frequency that is
-  *uncommon* among valid orderings.
+  frequency (mean ~20). The percentile placement reflects the half-bin
+  convention over a heavily tied distribution, not rarity: k = 16 is the
+  second-largest bin (12.62% of records share it; the mode is k = 30) —
+  see Appendix B.
 
 Each marginal-percentile gives a per-dimension view of KW's position.
 None is itself dispositive.
@@ -118,83 +121,51 @@ Visual observations:
   modestly-populated region. The density is higher near
   (21, ~300) — "typical" orderings have higher frequency with lower amplitude.
 
-## Joint density — the headline finding
+## Joint density — de-circularized re-analysis (2026-07-26)
 
-A Gaussian-kernel density estimate was fit over the 7 informative
-dimensions (excluding the two invariant transition-Hamming dims and the
-categorical stratifier). See `solve.py --joint-density` and
-`roae-private/P2_JOINT_DENSITY.md` for methodology details.
+An adversarial circularity audit (2026-07-26) found that five of the seven KDE
+dimensions are KW-referencing: `edit_dist_kw` and `first_position_deviation` are
+tautological (only KW itself can score 0 / 33 — any reference ordering is the unique
+minimizer of distance-to-itself), `shift_conformant_count` and `c6_c7_count` score
+agreement with KW's own pair placement and adjacency pins (KW-extracted, priced
+data-like in METHODS), and `c3_total`'s ceiling placement is guaranteed by the
+C3 ≤ 776 population filter. The joint-KDE figures previously headlined here
+("joint-density rank < 10⁻⁵", "log-density −128,260, ~12,800× lower than any sampled
+ordering") are therefore the predicted signature of scoring a sequence against
+templates extracted from that sequence — the same diagnosis this project renders for
+D-B1 in TR-10 — and are **withdrawn as evidence**. They are retained in
+[HISTORY.md](HISTORY.md) only as a record of the error.
 
-- **Sample:** 102,990 standardized records (30 per chunk × 3,433 chunks,
-  uniform across the canonical)
-- **KDE bandwidth:** 0.3253 (Silverman rule)
-- **KW's log-density:** −128,260
-- **Sample log-density range:** [−10.11, −2.98], mean −5.67
-- **KW's joint-density rank: below the sample's resolution (<10⁻⁵).** No
-  ordering in the 100,000-record uniform sample matches KW's joint feature
-  profile; a sample of this size cannot resolve percentiles below ~10⁻⁵, so
-  the rank is reported as a resolution bound, not a percentile. KW is
-  simultaneously ≥95th-percentile extreme on 3 of the 8 discriminating
-  dimensions, plus a fourth (`c3_total`) whose ≥95th-percentile placement
-  is guaranteed by the C3 ≤ 776 population filter (by construction, not a
-  finding — see the marginals caveat above; count restated 2026-07-22,
-  previously "4 of 8"). The joint-KDE has not been re-run with `c3_total`
-  excluded; the outlier conclusion is expected to survive on the remaining
-  drivers (`c6_c7_count`, `first_position_deviation`,
-  `shift_conformant_count`) but that re-run has not been performed.
-
-**What this means.** KW's log-density under the sample-fit KDE is approximately
-**−128,260**, while the entire sample's log-density range is
-[−10.11, −2.98]. KW's log-density is **~12,800× lower** than any sampled
-canonical ordering's log-density. This is because KW's specific combination
-of feature-values — especially its high values in three marginal dimensions
-simultaneously (plus `c3_total`, high by construction under the C3 ≤ 776
-filter) — places it in a region of the 7-dimensional feature space
-that is not represented by any of our 100K standardized anchor points.
-
-Individually, KW's marginal percentiles are merely high (95% — though that
-one is guaranteed by the C3 ≤ 776 filter, see above — 99.97%, 99.96%,
-100%, 28.94%, 95.48%). The JOINT configuration — *simultaneously* at extremes
-in multiple dimensions — is what makes KW a density-space outlier. A typical
-C1-C5-valid ordering has its high values scattered or moderated across
-dimensions; KW concentrates them.
-
-**Bootstrap robustness.** 1000 bootstrap resamples each place KW below every
-sampled point's density — the finding is not an artifact of a particular
-sample. Note that bootstrap resampling of a 100K sample cannot resolve
-percentiles below ~10⁻⁵, so no confidence interval tighter than that
-resolution is quoted.
-
-**Caveat on methodology.** A KDE assigns extrapolated density at points far
-from all anchors. KW's extreme log-density reflects that KW's joint feature
-configuration is unrepresented in 100K sampled points. A denser KDE fit (1M+
-anchors, longer compute) would likely produce a less extreme but still very
-low log-density. The qualitative conclusion — "KW is in an atypical joint
-region" — is robust; the quantitative "−128,260 log-density" is methodology-
-dependent. High-dimensional KDE is additionally bandwidth-sensitive (the
-curse of dimensionality): with 100K anchors in 7 dimensions, density
-estimates far from the anchor cloud depend strongly on the bandwidth choice
-(here Silverman's rule), so the magnitude of KW's density deficit should not
-be over-interpreted.
+Re-run on the two dimensions with KW-independent definitions (`fft_dominant_freq`,
+`fft_peak_amplitude`), same population (100T d3 canonical, 3,432,399,297 records),
+same pipeline (validated by exact reproduction of both the published marginals table
+and the original −128,260.1287 figure before de-circularization): **KW's joint-density
+percentile is ≈ 30%** (5 seeds × 2 bandwidth methods: 28.6–32.1%, per-run bootstrap
+95% CIs ≤ ±1 pp; exact full-population 2-D histogram cross-check: 31–33% across bin
+widths). KW's log-density lies within the sampled range, slightly below the mean.
+KW is **distributionally unremarkable on the non-circular dimensions**. Its only mild
+deviation is `fft_peak_amplitude` at the exact 95.476th percentile (one-sided
+p ≈ 0.045), which does not survive the project's look-elsewhere correction
+(battery bars 1.8×10⁻³ / 5.5×10⁻⁴). Exact joint tail:
+P(freq = 16 ∧ amp ≥ KW's) = 0.757% — ~26 million valid orderings sit at or beyond KW.
 
 ## What this establishes
 
-1. **KW is statistically atypical in the joint observable distribution** of
-   the 100T canonical. Its combination of feature values is not
-   representative of the bulk of the 3.43 billion C1-C5 valid orderings.
-   Quantified claim: no ordering in a 100,000-record uniform sample matches
-   KW's joint feature profile — KW's joint-density rank is **below the
-   sample's resolution (<10⁻⁵)**, and KW is simultaneously ≥95th-percentile
-   extreme on 3 of the 8 discriminating dimensions — plus `c3_total`, whose
-   ≥95th-percentile placement is guaranteed by the C3 ≤ 776 population
-   filter (by construction, not a finding; count restated 2026-07-22).
+1. **KW is distributionally unremarkable on the KW-independent dimensions**
+   (corrected 2026-07-26). On the two dimensions with KW-independent
+   definitions (`fft_dominant_freq`, `fft_peak_amplitude`), KW's
+   joint-density percentile is ≈ 30% — inside the population bulk of the
+   3.43 billion C1-C5 valid orderings. The previously claimed joint
+   atypicality ("rank < 10⁻⁵") was driven entirely by KW-referencing
+   dimensions and is withdrawn (see the re-analysis section above).
 
-2. **Individual marginal percentiles are not the full story.** KW is near
-   the median in `fft_dominant_freq` (29%-ile) and constant-valued in two
-   dimensions. The joint-distribution atypicality arises from *simultaneous*
-   extreme values across three independent structural dimensions (plus the
-   by-construction `c3_total` extreme), which is
-   rare in the population.
+2. **The marginals table remains a valid descriptive record.** KW's extreme
+   marginal placements are confined to the KW-relative and KW-extracted
+   dimensions (where they are guaranteed or near-guaranteed by
+   construction); on the KW-independent dimensions KW is near the median
+   in `fft_dominant_freq` (29%-ile, a bulk-typical value) and at the
+   95.5th percentile in `fft_peak_amplitude` — a mild deviation that fails
+   the project's look-elsewhere bars.
 
 3. **Two of the proposed observable dimensions are structurally invariant**
    across all C1-C5 valid orderings: `mean_transition_hamming` and
@@ -204,12 +175,15 @@ be over-interpreted.
 
 ## What this does not establish
 
-- **Not a uniqueness proof.** The analysis demonstrates KW is
-  distributionally atypical, not that KW is the unique optimum of any
-  principle. Recall from [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md): specific "KW-property
-  extraction" can make almost any C1+C2 ordering appear uniquely determined;
-  this analysis avoids that extraction problem by using dimensions chosen
-  for general information content.
+- **Not a uniqueness proof — and the original version of this analysis was
+  itself an instance of the extraction problem.** Recall from
+  [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md): specific "KW-property extraction"
+  can make almost any C1+C2 ordering appear uniquely determined. An earlier
+  version of this document claimed the analysis "avoids that extraction
+  problem by using dimensions chosen for general information content";
+  the 2026-07-26 circularity audit found the opposite — five of the seven
+  KDE dimensions were KW-referencing, and the withdrawn joint-density
+  headline was the predicted signature of that extraction.
 - **Not a claim about the designers' intent.** Statistical atypicality
   in observable features does not reveal whether this was deliberate
   mathematical design or the accumulation of practice-based aesthetic
@@ -316,11 +290,16 @@ approximately repeats every 2 pairs (each pair occupies 2 positions).
 From the 3.43B-record marginal analysis:
 
 - Records with `fft_dominant_freq < 16`: 776,656,635 (22.6%)
-- Records with `fft_dominant_freq = 16`: **433,156,350** (**12.6%** — largest single bin)
+- Records with `fft_dominant_freq = 16`: **433,156,350** (**12.62%** — the
+  **second-largest** bin; the mode is **k = 30** with 493,989,408 records,
+  14.39% — *corrected 2026-07-26; this line previously called k = 16 the
+  "largest single bin"*)
 - Records with `fft_dominant_freq > 16`: 2,222,586,312 (64.8%)
 
-So KW's k=16 is actually **the mode** (most common value) of the
-fft_dominant_freq distribution, not a rare value. The "29th percentile"
+So KW's k=16 is a **bulk-typical value** — the second-largest bin of the
+fft_dominant_freq distribution, not a rare value (*corrected 2026-07-26
+from an earlier claim that k = 16 was itself the mode; the exact full
+histogram puts the mode at k = 30*). The "29th percentile"
 report for KW reflects the standard convention (half-bin rank among tied
 records), not rarity — KW shares its dominant frequency with 433 million
 other C1-C5 valid orderings.
@@ -329,17 +308,18 @@ other C1-C5 valid orderings.
 because the pair structure (C1) creates a natural length-2 alternation
 (the a-then-b within each pair), and the aggregation of 32 such
 alternations produces frequency content concentrated at or near
-half-Nyquist (k=32 in length-64 FFT) and its nearby bins. Why k=16
-specifically is the mode rather than k=32 requires deeper analysis —
+half-Nyquist (k=32 in length-64 FFT) and its nearby bins. Why the mass
+concentrates at bins like k = 30 and k = 16 rather than exactly at k=32
+requires deeper analysis —
 likely because the pair structure is not strictly periodic (different
 pairs have different Hamming distances between their a and b), so the
 pure-period-2 content gets split across nearby bins.
 
 **The scientific refinement:** the earlier marginal writeup overstated
 KW's fft_dominant_freq "distinctiveness." KW is in the distribution
-mode for this dimension, not the tail. A population-mode value is
-typical, not distinguishing. This is an important correction for the
-joint-density narrative.
+bulk for this dimension (second-largest bin), not the tail. A
+bulk-typical value is not distinguishing. This is an important
+correction for the joint-density narrative.
 
 ## Relationship to other claims
 
@@ -361,9 +341,12 @@ solution space (~759M orderings at 11.2T, ~3.4B at 100T). The two
 analyses use different baselines and address different questions:
 Chan asks "is KW distinctive vs arbitrary permutations?", ROAE asks
 "is KW distinctive vs other constraint-satisfying orderings?".
-Both find KW at extreme tails of their respective distributions
-(Chan's mean Hamming, lag-1 autocorrelation, asymmetry findings;
-ROAE's below-sample-resolution joint-density rank). Where these analyses
+Chan finds KW at extreme tails of his unconstrained-permutation
+baselines (mean Hamming, lag-1 autocorrelation, asymmetry findings);
+ROAE's de-circularized re-analysis (2026-07-26, above) finds KW
+distributionally unremarkable *within* the constraint-satisfying
+population on the KW-independent dimensions — not a contradiction,
+since the baselines and questions differ. Where these analyses
 overlap on common observables (mean Hamming, alternation), Chan's
 prior art is acknowledged — see [CITATIONS.md](CITATIONS.md) and
 [SOLVE.md](SOLVE.md) / [CRITIQUE.md](CRITIQUE.md) for inline citations.
@@ -385,3 +368,5 @@ noted without a significance claim (it is a property of the hexagram set, not of
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
 
 *Revision 2026-07-22 (C3 scope-consistency sweep): `c3_total`'s 95.04th-percentile marginal is guaranteed by the C3 ≤ 776 population filter (the canonical is truncated at KW's own value), so it is no longer counted as one of the joint-KDE outlier drivers — "4 of 8 extreme dimensions" is restated throughout as "3 of 8, plus one by construction". The only informative content of the `c3_total` marginal is its ceiling-tie share (9.9% at 100T). The KDE itself was not re-run; whether the joint-outlier magnitude changes with `c3_total` excluded is explicitly left open. No numbers in the tables changed.*
+
+*Revision 2026-07-26 (de-circularization): the joint-KDE headline ("rank < 10⁻⁵", "log-density −128,260, ~12,800× lower") is **withdrawn as evidence** — an adversarial circularity audit found five of the seven KDE dimensions KW-referencing (two tautological, two KW-extracted, one extreme by population construction). The section is replaced by the honest re-analysis on the two KW-independent FFT dimensions (KW joint-density percentile ≈ 30%, distributionally unremarkable); the schema table's Family column is reclassified accordingly; Appendix B's "k = 16 is the mode" is corrected (the mode is k = 30 at 14.39%; k = 16 is the second-largest bin at 12.62%); and the queued 560 T re-run is descoped. Marginal counts, the invariance theorem, and all shas are unchanged.*

@@ -29,7 +29,10 @@ popcount-parity classes. Finally, the circular form of C2 ("no 5-line transition
 is a *genuine* extra constraint: valid linear orderings with a 5-line wrap exist (SAT-decided, explicit
 witness) even though exactly zero appear among the 10,525,271,997 records of the deepest canonical slice;
 the full-space wrap-distance masses are measured at d=1: 17.5%, d=3: 65.2%, d=5: 17.4% (2×10¹⁰
-weighted-Knuth probes; CIs per METHODS.md's estimator convention). The operator's
+weighted-Knuth probes; independently reproduced by the archived v2.0 r6 run —
+[`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out): 17.45 / 65.18 / 17.37% — agreeing
+within 0.05 percentage points per class; per-class ± figures were not emitted by the instrument, so
+the two-run agreement is the published uncertainty statement). The operator's
 documented decision: circular C2 is *not* promoted into the constraint system — the circular reading is
 McKenna's interpretive frame, not an attested property of the received artifact.
 
@@ -68,9 +71,14 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    d(1, 63) = 5; complement-distance sum 752). So the circular reading is *not* free: it excludes real
    members of the linear solution set. Per the twins lesson ([SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md)), budgeted-slice absence
    does not measure full-space rarity — and the full-space wrap-distance masses are now MEASURED (2×10¹⁰
-   weighted-Knuth probes, 2026-07-03; CIs per METHODS.md's estimator convention; mass ratios are
+   weighted-Knuth probes, 2026-07-03; estimator per METHODS.md; mass ratios are
    heavy-tail dominated — small probe budgets will not resolve them):
-   **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%**. The 5-wrap orderings that
+   **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%**. Uncertainty, stated from archived artifacts (2026-07-26):
+   the instrument prints point masses without per-class CIs, so no ± figure is quoted; instead the
+   independent 2×10¹⁰-probe v2.0 r6 run ([`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out),
+   2026-07-10) re-measured the same three masses at **17.45 / 65.18 / 17.37%** — two independent draws
+   agreeing within **0.05 percentage points per class**, which bounds the run-to-run scatter at the
+   precision every figure here is quoted to. The 5-wrap orderings that
    no budgeted slice has ever contained are between a fifth and a sixth of the full space; circular C2
    would cut the space by ×1.21.
 6. **The non-promotion decision, on the record.** Operator decision 2026-07-03: circular C2 is documented,
@@ -99,8 +107,9 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 - Wrap-d5 witness: `python3 sat.py --witness wrap-d5` → the explicit 64-hexagram sequence in
   [documentation/CIRCULAR_KING_WEN.md](../documentation/CIRCULAR_KING_WEN.md), C1–C5-valid, wrap d = 5
 - Full-space wrap masses: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (2×10¹⁰ probes,
-  the budget behind the published 17.5/65.2/17.4% figures; 95% CIs per METHODS.md's Knuth-estimator
-  convention — mass *ratios* are heavy-tail dominated, so small budgets (~10⁵ probes) will NOT
+  the budget behind the published 17.5/65.2/17.4% figures; the scorer prints point masses without
+  per-class CIs — the published uncertainty statement is the two-run agreement in §5
+  — and mass *ratios* are heavy-tail dominated, so small budgets (~10⁵ probes) will NOT
   reproduce them; this is an hours-scale run on many-core hardware. Method self-validation in
   [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md))
 - 16-alternation corollary ingredients: documentation/PARITY_ALTERNATION.md + Lean
@@ -248,4 +257,5 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v1.8 | 2026-07-04 | 32-circular-switches corollary added (TR-6 30-switches × wrap-parity composition; derived in cross-report synthesis 2026-07-04, re-verified independently) |
 | v1.9 | 2026-07-10 | "The anchors on the circle" section added: anchor-transition rigidity (T1) + seam eligibility (T2i) + pair-determined 10:3:3 wrap classification (T2ii) — elementary, exhaustively finite-verified (Lean formalization planned); Cook's final-pair anchor re-priced against the parity-forced 1/16 eligibility baseline (apparent ×2.4 = ×1.9 forced · ×1.25 contingent). Circular anchor-adjacency population frequency (R-C1c) and circular-space size |C_circ| pre-registered but PENDING measurement (walks not yet run). |
 | v2.0 | 2026-07-10 | R-C1c and \|C_circ\| measured (evidence `reports/evidence/r6/`): circular anchor adjacency = 13.05% of C1–C5 mass (slot 32 = 7.85%, reproducing the R-C1 gate; slot 2 = 5.20%, the largest non-final slot — U-shaped A₂ histogram), vs pre-registered references 6.45% uniform-slots / 7.84% eligibility lower bound; \|C_circ\| = 0.652·N_lin + 0.175·6.507×10³⁷ ≈ 9.80×10³⁷ ≈ 0.74× the linear space. Report-only; no promotion. |
-| v2.1 *(current)* | 2026-07-20 | **Conditional-forcing correction (adversarial-review F-14a).** §3's "forced by the constraint system, an artifact of no design choice at all" restated as **forced given C4 + C5** — and therefore not an independent design choice *within* that system — with the added note that C5 is itself a regularity read off King Wen, so "forced" is relative to KW-derived constraints rather than to an unconstrained arranger. The prior phrasing smuggled the KW-derived constraints in as premise. No measurement changed |
+| v2.2 *(current)* | 2026-07-26 | **Wrap-mass uncertainty stated from archived artifacts (round-2 audit, completeness loop 4e G2).** The published 17.5/65.2/17.4% masses always cited "CIs per METHODS" without printing them; the instrument in fact emits point masses without per-class CIs, so no ± existed to print. The abstract and §5 now state the published uncertainty as the two-run agreement: the independent v2.0 r6 rerun (`evidence/r6/rc1c_primary.out`, 2×10¹⁰ probes) re-measured 17.45/65.18/17.37% — within 0.05 pp per class of the published figures. Per-class bootstrap CIs would need a recompute and are left as an open improvement. No mass value changed |
+| v2.1 | 2026-07-20 | **Conditional-forcing correction (adversarial-review F-14a).** §3's "forced by the constraint system, an artifact of no design choice at all" restated as **forced given C4 + C5** — and therefore not an independent design choice *within* that system — with the added note that C5 is itself a regularity read off King Wen, so "forced" is relative to KW-derived constraints rather than to an unconstrained arranger. The prior phrasing smuggled the KW-derived constraints in as premise. No measurement changed |
