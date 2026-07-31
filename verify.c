@@ -2072,7 +2072,7 @@ static int lc_gt_selftest(void) {
  * full-space quotiented pass.
  *
  * ARITHMETIC. Hot path is add-only uint64: values mod one 63-bit prime per
- * pass (three passes, CRT-combined offline — N < p0·p1·p2 ≈ 9.8e56), or
+ * pass (three passes, CRT-combined offline — N < p0·p1·p2 ≈ 7.8e56), or
  * natural mod-2^64 wraparound ("wrap": exact whenever N < 2^64, i.e. on
  * the small-n rungs — an internal cross-check of the mod-p path). The
  * three primes are the largest primes below 2^63, found by downward scan

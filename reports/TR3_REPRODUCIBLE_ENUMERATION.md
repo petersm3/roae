@@ -22,9 +22,10 @@ scratch, on different preemptible ("Spot") cloud fleets, through a combined twel
 15–20% of on-demand compute cost. The methods are general: byte-level anchoring via a partition-invariance
 theorem; a self-test gate binding every source change to a canonical baseline; per-thread checkpointing
 with deterministic eviction-resume; defect handling by from-scratch re-derivation rather than patching;
-and an empirical finding of independent interest — in our region/SKU, Spot reclamation was scheduled
-(weekday mornings, five-for-five in a 37-minute window, zero on weekends), not stochastic, with direct
-consequences for launch-window planning.
+and an empirical observation of independent interest — in our region/SKU, over the first campaign's
+week, Spot reclamation behaved as scheduled (weekday mornings, five-for-five in a 37-minute window,
+zero on weekends) rather than stochastic — a five-event single-campaign pattern, not a demonstrated
+service property — with direct consequences for launch-window planning.
 
 ## Scope of the reproducibility claim (what "byte-for-byte" does and does not promise)
 
@@ -134,7 +135,7 @@ than observed in production, reproduced deterministically with a kill-mid-walk r
 fixed. That is ordinary engineering. What followed is the part we consider the heart of the discipline:
 because the defect *could* have corrupted the published 560T artifact, and because "could have" is not a
 state a scientific record may rest in, the entire campaign was **re-run from scratch on the fixed
-solver** — 171.5 hours of compute — through seven fresh evictions. It reproduced `9a968fa2…`
+solver** — a full repetition of the ~171.5-enumeration-hour workload — through seven fresh evictions. It reproduced `9a968fa2…`
 byte-for-byte, with the identical 10,525,271,997 records. The defect had not corrupted the artifact.
 That is now a demonstrated fact rather than an argument, and the cost of demonstrating it was accepted
 rather than debated.
@@ -146,9 +147,13 @@ on-demand** — a D128als_v7 at ~$0.95/hr against ~$5.15/hr — so a 171-hour ca
 dollars instead of a few thousand. Checkpoint overhead is the price paid for that discount, and after
 fsync batching it is small enough that the trade is not close.
 
-The empirical finding of independent interest is that **reclamation was scheduled, not stochastic**. In
+The empirical observation of independent interest is that **reclamation behaved as scheduled, not
+stochastic, over the observed window**. In
 our region and SKU, all five evictions of the first 560T campaign fell on weekday mornings inside a
-37-minute window (07:12, 07:39, 07:33, 07:42, 07:49 PT), and the weekend produced none in two days. That
+37-minute window (07:12, 07:39, 07:33, 07:42, 07:49 PT), and the weekend produced none in two days.
+Five events in one campaign week is a pattern, not proof of a provider scheduling policy (the
+2026-06-30 re-run's seven evictions arrived in a different pattern —
+[CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md) §d3 560T), but it
 is not the memoryless process the mental model assumes, and it has a direct operational consequence: a
 long run launched Friday evening buys an uninterrupted weekend, while one launched Sunday night walks
 into five consecutive morning reclamations.
@@ -272,4 +277,5 @@ parameters](../documentation/CANONICAL_HASHES.md#reproducibility-parameters).
 | v1.2 | 2026-07-04 | Figures added |
 | v1.5 | 2026-07-04 | Adversarial round 2 correction: enumeration timeline stated as weeks, not months |
 | v1.6 | 2026-07-20 | **Reproducibility claim scoped + repro recipe published (adversarial-review items F-9, F-8).** F-9: the executive summary's "re-derivable byte-for-byte by anyone" was unqualified while the body already documented a host-level drift event — an internal inconsistency in the report's strongest sentence. Added §Scope of the reproducibility claim, separating what is *demonstrated* (twice-derived byte-identical across fleets, regions, thread counts, merge paths, twelve evictions) from the **toolchain-class qualifier**, and stating that partition invariance is proved about the MODEL with the bridge to the shipped binary carried by the runtime gates, not by the theorem. F-9 also: the Verification Guide now carries an end-to-end 560T reproduction recipe with the sha-determining parameters verbatim (per the standing rule against re-deriving the per-cell budget from a formula), the expected sha/record-count/byte-count, and the honest effort figure (~171.5 h enum + ~18 h 42 m merge + ~4 TB scratch) so nobody starts it unaware. F-8: "Sections" relabelled "Section summaries" with a note that this report is a structured abstract over documented engineering, not full section bodies. No canonical, sha, or measured value changed |
-| v1.7 *(current)* | 2026-07-20 | **Section bodies written (adversarial-review item F-8, operator-directed).** v1.6 honestly relabelled the numbered list as "section summaries" because no bodies existed; the bodies now exist. All six sections expanded from one-paragraph abstracts into prose: the reproducibility contract (output as a function of one integer; why the per-cell budget is published verbatim rather than derived; the sha registry as the anchor rather than the storage), the four gates and their costs (including the honest note that the selftest gate is itself heavy enough to misbehave on an undersized host), preemption survival (per-thread intra-layer checkpoints, the durability write-order invariant, fsync batching 35%->95%, and the eviction-resume defect answered by a full from-scratch re-derivation rather than an argument), Spot economics and the scheduled-reclamation finding with its backoff/deferral policy, the operational failure catalogue with the structural fix each incident produced, and what transfers to any long computation on preemptible capacity. No claim, number, sha or scope statement changed — this is the prose that the summaries stood in for |
+| v1.7 | 2026-07-20 | **Section bodies written (adversarial-review item F-8, operator-directed).** v1.6 honestly relabelled the numbered list as "section summaries" because no bodies existed; the bodies now exist. All six sections expanded from one-paragraph abstracts into prose: the reproducibility contract (output as a function of one integer; why the per-cell budget is published verbatim rather than derived; the sha registry as the anchor rather than the storage), the four gates and their costs (including the honest note that the selftest gate is itself heavy enough to misbehave on an undersized host), preemption survival (per-thread intra-layer checkpoints, the durability write-order invariant, fsync batching 35%->95%, and the eviction-resume defect answered by a full from-scratch re-derivation rather than an argument), Spot economics and the scheduled-reclamation finding with its backoff/deferral policy, the operational failure catalogue with the structural fix each incident produced, and what transfers to any long computation on preemptible capacity. No claim, number, sha or scope statement changed — this is the prose that the summaries stood in for |
+| v1.8 *(current)* | 2026-07-31 | **Reclamation-pattern claim hedged + re-run effort figure re-attributed (novelty-gate audit #20, batch 2).** (1) "Reclamation was scheduled, not stochastic" (exec summary + §4) restated as an observed single-campaign pattern — five events in one week, weekday-morning 37-minute window — not a demonstrated provider scheduling policy; the 2026-06-30 re-run's seven evictions arrived in a different pattern (CANONICAL_HASHES §d3 560T). The launch-window policy is unchanged (it needs only the pattern). (2) §3 attributed "171.5 hours of compute" to the re-run; 171.5 h is the FIRST campaign's enumeration wall time (CANONICAL_HASHES §d3 560T) — the sentence now says the re-run repeated that workload rather than claiming its wall time. No sha, count, or verdict changed |

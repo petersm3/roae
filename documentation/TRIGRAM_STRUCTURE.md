@@ -27,9 +27,10 @@ The five theorem families make **different kinds** of claims. Precisely:
   contain.
 - **TG-1 and TG-4 are classical facts, formalized.** Nothing in them is
   claimed as a discovery; the contribution is the machine-checked lemma layer
-  that the other families build on *(trust-base label corrected 2026-07-26:
-  three TG-1 counts are `native_decide` — Lean's extended, compiler-trusting
-  base — not kernel-only; see lean/README's TG-2 disclosure note)*.
+  that the other families build on *(trust-base history: the 2026-07-26
+  label correction flagged three TG-1 counts as `native_decide`; they were
+  migrated to kernel `decide` on 2026-07-27 and are now kernel-only — see
+  lean/README's trust-base note)*.
 - **TG-5 statements are guards, not results** — they exist to *defuse*
   claims, not to make them.
 - Two TG-2 corollaries (pangtong successor, flanking exclusion) appear to be
@@ -248,8 +249,9 @@ corrections invited on every "we have not located..." hedge):
   observation (Lai Zhide, 16th c., via Schulz 1982; Wu Deng's warp/weft
   skeleton, 13th c., via Nielsen 2003). NOTHING here is claimed as a
   discovery; the contribution is the machine-checked lemma layer only
-  (three TG-1 counts are `native_decide`, the extended trust base; label
-  corrected 2026-07-26 from "kernel-checked").
+  (the three TG-1 counts are kernel `decide` since 2026-07-27, migrated
+  from `native_decide`; the 2026-07-26 label correction is thereby
+  resolved in the strong direction).
 
 · §TG-2 (forced transition-budget at the trigram level) — PROJECT
   DERIVATION; OBSERVATION CREDITED. The "9th six" observation — every

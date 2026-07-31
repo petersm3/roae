@@ -99,7 +99,7 @@ is therefore scoped to the enumerated datasets, where 4 greedy-ordered boundary 
   **Partition-stable finding**: boundaries **{25, 27}** appear in every greedy minimum at all four partition depths tested (d2 10T, d3 10T, d3 100T, d3 560T). **Not scale-stable**: the working-4-set count (8 → 4 → 0 across 11.2T → 742M → 560T) and the greedy-minimum count (monotone non-decreasing: 4 → 5 → 5 across 10T → 100T → 560T; corrected 2026-07-04). See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) + [SOLVE.md](SOLVE.md) for the full per-dataset analysis.
 - Earlier claims that C5 locked 23 of 32 positions and C6+C7 alone gave uniqueness were based on a 438-solution partial sample from a single branch of the search tree.
 
-**Theorem (Within-pair distance):** For all h ∈ H, d(h, partner(h)) ∈ {0, 2, 4, 6}. *Proof: see SOLVE.md, Theorem 1.*
+**Theorem (Within-pair distance):** For all h ∈ H, d(h, partner(h)) ∈ {2, 4, 6} — even and nonzero (partner(h) ≠ h always; machine-checked as `within_pair_even_nonzero` in [lean/KingWen.lean](../lean/KingWen.lean)). *Proof: see SOLVE.md, Theorem 1 (stated there as the evenness bound d ∈ {0, 2, 4, 6}; the 0 case never occurs for partner pairs).*
 
 **Theorem (XOR universality):** For any partition of H into 32 reverse/complement pairs, the set of XOR products {h ⊕ partner(h)} has exactly 7 elements: {12, 18, 30, 33, 45, 51, 63}. *Proof: see SOLVE.md, Theorem 2.* (cf. [Goldenberg 1975](CITATIONS.md#goldenberg1975), Lemma 3 / Table VI — a set-level precursor.)
 

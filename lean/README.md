@@ -69,14 +69,18 @@ finite claim (including the Theorem A trio over all 720 bit permutations) is pro
 **Trust-base note (what "machine-checked" means here, precisely).** Lean proofs by `decide` are
 verified by Lean's small trusted kernel. Proofs by `native_decide` are NOT kernel-only: they
 additionally trust Lean's compiler and native code generator (a strictly larger trusted base, which
-has had real soundness bugs historically). **2026-07-27 migration:** the finite facts under the
-suite's headline results were migrated to kernel `decide` — `KingWen.lean`, `Automorphism.lean`,
-and `C1RuleConstants.lean` now carry **zero** `native_decide`, so the DIV-24 gate, the equivariance
+has had real soundness bugs historically). **2026-07-27 migration (completed 2026-07-31):** the
+finite facts under the suite's headline results were migrated to kernel `decide` — `KingWen.lean`
+and `C1RuleConstants.lean` carry **zero** `native_decide` since 2026-07-27, and `Automorphism.lean`
+since 2026-07-31 (its last obligation, the composition law `applyPerm_pcomp`, whose direct
+48·48·64 kernel `decide` exceeds kernel memory, is now proved structurally in its §3a — see the
+file header). So the DIV-24 gate, the equivariance
 ceiling, the Theorem A trio, the TG-2 boundary-budget family, and the eight literature-rule
 constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]`
 — Lean's standard axioms; the compiler-trust axiom `Lean.ofReduceBool` no longer appears in any of
 these chains, and the finite facts report `[propext]` alone). `native_decide`
-remains only in: `TrigramTheorems.lean` §4a (TG-3/4/5 finite subgroup facts),
+remains only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite subgroup facts and the
+§6 sanity instances at King Wen — the TG-2 lead theorems themselves are kernel-only),
 `PartitionInvariance.lean` §12 (sanity witnesses, disclosed there), and `SymmetryCompleteness.lean`
 (SC1–SC4/SC7 — the T7 completeness kernels). The structural sequence-level theorems
 (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems in
@@ -158,8 +162,10 @@ v1.3-v1.4).
 ## Automorphism.lean (2026-07-05): the sequence-level symmetry layer
 Formalizes the [SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md) theorem and its 2026-07-03
 free-action corollary end-to-end — from the finite centralizer facts to the divisibility of the
-solution count. Core Lean 4 only, standalone file, structural proofs over ALL orderings (native_decide
-carries only the finite group facts). Verified statements:
+solution count. Core Lean 4 only, standalone file, structural proofs over ALL orderings; since
+2026-07-31 the file carries **zero** `native_decide` — the finite group facts are kernel `decide`
+and the composition law is proved structurally (§3a; see the trust-base note above). Verified
+statements:
 
 | Theorem | Statement |
 |---|---|
@@ -212,7 +218,8 @@ scope notes before citing anything below**, in particular the distinction from
 [Hershock 1991](../documentation/CITATIONS.md#hershock1991)'s hexagram-set group). Core Lean 4 only,
 standalone file, zero `sorry`; every statement was verified numerically in Python before drafting
 (`python3 solve.py --trigram-verify` re-runs the two-language check). Finite facts use
-`decide`/`native_decide` (the trust-base note above applies — the §4a subgroup facts lean on
+`decide`/`native_decide` (the trust-base note above applies — the §4a–§6 finite facts, i.e. the
+TG-3/TG-4/TG-5 subgroup facts and the §6 sanity instances, lean on
 `native_decide`); the TG-2 sequence-level theorems are structural proofs over EVERY valid ordering.
 **TG-2 trust-base note (updated 2026-07-27; original disclosure 2026-07-26):** the finite
 `pairdist_count_0..6` lemmas, the three TG-1 counts, and `selfcomp_pair_count` are now kernel
@@ -220,7 +227,8 @@ standalone file, zero `sorry`; every statement was verified numerically in Pytho
 `ninth_six_trigram` / `single_line_carry` — and `within_multiset_general` — are **kernel-only**
 (`#print axioms` = `[propext, Classical.choice, Quot.sound]`, Lean's standard axioms — the
 `native_decide` compiler-trust axiom is gone): all four of the suite's sequence-level theorem
-families now share the kernel-only trust base. The TG-3/TG-4/TG-5 finite subgroup facts (§4a)
+families now share the kernel-only trust base. The TG-3/TG-4/TG-5 finite subgroup facts and the
+§6 sanity instances (§4a–§6)
 remain `native_decide`.
 Verified statements, by family:
 

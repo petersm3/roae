@@ -4930,7 +4930,9 @@ def main():
     if run_all:
         print("\n---")
         print("Note on multiple comparisons")
-        print("This report runs 28 analyses. When testing many properties, some will")
+        print("This report runs 29 sections, 28 of them statistical analyses (the")
+        print("29th, --parity, is theorem-backed — deductive, so it carries no p-value")
+        print("and sits outside this accounting). When testing many properties, some will")
         print("appear 'unusual' by chance alone. A result at the 5% level (p<0.05)")
         print("is expected ~1.4 times out of 28 tests even for a purely random sequence.")
         print("A Bonferroni-corrected significance threshold for 28 tests is")

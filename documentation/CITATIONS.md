@@ -626,8 +626,9 @@ this document:
   ("pure") hexagrams in adjacent pairs is classical: [Lai Zhide](#laizhide) (16th c., via
   [Schulz 1982](#schulz1982)) and [Wu Deng](#wudeng)'s warp/weft skeleton (13th c., via
   [Nielsen 2003](#nielsen2003)). Nothing in TG-1 is claimed as a discovery; the contribution is the
-  machine-checked lemma layer only (three TG-1 counts are `native_decide`, the extended trust base;
-  label corrected 2026-07-26 from "kernel-checked").
+  machine-checked lemma layer only (the three TG-1 counts are kernel `decide` since 2026-07-27,
+  migrated from `native_decide` — the 2026-07-26 label correction is thereby resolved in the strong
+  direction).
 - **TG-3** (exactly 12 of the 48 constraint symmetries respect the trigram bipartition; ≅ S₃ × C₂):
   project-specific — the constraint-symmetry group itself is project-specific — with
   [Goldenberg (1975)](#goldenberg1975) credited for the ambient S₆-on-the-set framing. **Not** to be

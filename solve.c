@@ -12363,8 +12363,8 @@ static void run_c3_min(const char *filename) {
  *
  * Computes the EXACT integer |C1 ∩ C2 ∩ C4| (no C3/C5): the number of complete
  * 64-hexagram sequences built from the 32 KW pairs (C1), with no Hamming-5
- * adjacent transition (C2), starting with the fixed pair s0=63, s1=0 (C4;
- * orientation forced by Theorem 6). Method: layered forward DP over
+ * adjacent transition (C2), starting with the fixed pair s0=63, s1=0 (C4's
+ * definitional orientation; "Theorem 6" RETRACTED). Method: layered forward DP over
  * (used-pair-mask, last-exit-hexagram) states, quotiented by the record-level
  * symmetry group S4 (order 24) from SYMMETRY_SEARCH.md / TR-5 — the 48
  * bit-position permutations commuting with rev = (0 5)(1 4)(2 3), modulo the
@@ -13165,7 +13165,7 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
     } else {
         n = 31;
         for (int i = 0; i < 31; i++) pl[i] = i + 1;
-        start_exit = 0;   /* C4: s0=63, s1=0 (orientation forced, Theorem 6) -> exit 0 */
+        start_exit = 0;   /* C4: s0=63, s1=0 (definitional orientation; Thm 6 RETRACTED) -> exit 0 */
     }
     f1_ctx_init(c, n, pl, start_exit);
 
@@ -15128,7 +15128,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     if (full31) {
         n = 31;
         for (int i = 0; i < 31; i++) pl[i] = i + 1;
-        start_exit = 0;   /* C4: s0=63, s1=0 (orientation forced, Theorem 6) -> exit 0 */
+        start_exit = 0;   /* C4: s0=63, s1=0 (definitional orientation; Thm 6 RETRACTED) -> exit 0 */
     } else {
         const char *spec = NULL;
         for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)

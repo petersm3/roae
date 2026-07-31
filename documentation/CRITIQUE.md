@@ -31,7 +31,10 @@ A review of the program's methodology, assumptions, and interpretive claims from
 ### Observable-selection accounting (the look-elsewhere effect) — added 2026-07-02
 
 The constraint set C1–C5 was *selected* after an exploratory sweep of many observables (the **28
-exploratory discovery-phase observables** of the frozen global ledger — the roae.py sweep). Adding the
+exploratory discovery-phase observables** of the frozen global ledger — the roae.py sweep; roae.py
+today exposes 29 CLI sections, but the 29th, `--parity` (added 2026-05-19), is theorem-backed —
+deductive, no p-value — and so sits outside this statistical accounting, exactly as the wrap-parity
+and parity-alternation theorems do below). Adding the
 five later pre-registered testing
 families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13 — 58 observables) on top of
 that discovery-phase

@@ -22,7 +22,8 @@
   one-file-per-theorem-suite pattern. Finite facts use kernel decide where
   they land (2026-07-27: the pairdist_count_* / TG-1 count / selfcomp_pair
   lemmas migrated native_decide → decide, so the TG-2 lead theorems and the
-  TG-1 counts are now kernel-only); the §4a subgroup facts still use
+  TG-1 counts are now kernel-only); the §4a–§6 finite facts (the TG-3/TG-4/
+  TG-5 subgroup facts and the §6 sanity instances) still use
   native_decide (extended trust base — see lean/README.md's trust-base note);
   sequence-level theorems are structural proofs over EVERY valid ordering, in
   the style of alternations_15_general / switches_30_general.

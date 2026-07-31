@@ -241,8 +241,10 @@ welcome via [CITATIONS.md](CITATIONS.md).)
 orderings, freeness of the record-level S₄ action, and the corollary 24 ∣ |canonical solution records| —
 is machine-checked in core Lean 4 (no Mathlib): [lean/Automorphism.lean](../lean/Automorphism.lean),
 theorems `validC15_mapP`, `act_fix_id_or_rho`, `twenty_four_dvd_solution_count` (finite lemmas:
-[lean/KingWen.lean](../lean/KingWen.lean)). Their finite facts go via `native_decide` (extended trust
-base — Lean's compiler in addition to its kernel; see [lean/README.md](../lean/README.md)), not kernel-`decide`.
+[lean/KingWen.lean](../lean/KingWen.lean)). Since the 2026-07-27 kernel migration (completed
+2026-07-31 for `Automorphism.lean`'s composition law, now proved structurally), both files carry
+**zero** `native_decide` — the whole chain is kernel-only (`#print axioms` ⊆
+`[propext, Classical.choice, Quot.sound]`; see [lean/README.md](../lean/README.md)).
 
 **Trigram-compatible subgroup (2026-07-11):** exactly **12 of the 48** elements of G respect the trigram
 bipartition {lines 1–3}, {lines 4–6} as an unordered block pair; they form a subgroup ≅ **S₃ × C₂** (with

@@ -92,7 +92,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
 
 **Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
-look-elsewhere accounting, and one corrected published result. It also reports the corpus-control test:
+look-elsewhere accounting, and the corrected published results (the full never-silent corrections
+ledger — including a retracted theorem — is in [CLAIMS_DECIDED.md](documentation/CLAIMS_DECIDED.md)). It also reports the corpus-control test:
 the same methodology flags a provably algorithmic ordering ([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes, and King Wen on
 exactly its three documented constraints — the method does not find design wherever it looks (a control
 corpus of the two documented historical alternatives available; the small n is stated in CRITIQUE).
@@ -100,7 +101,7 @@ corpus of the two documented historical alternatives available; the small n is s
 ## Quick start
 ```
 gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest   # must print PASS
-python3 roae.py            # the 28 analyses
+python3 roae.py            # the analysis battery (29 sections; 28 statistical + the theorem-backed --parity)
 python3 solve.py --registry-verify   # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                       # SAT layer usage + targets
 python3 tests.py                     # regression harness (35 tests)
@@ -116,8 +117,10 @@ Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI
 ## References
 
 > **All scholarly attribution lives in [CITATIONS.md](documentation/CITATIONS.md)** and is deliberately
-> not duplicated here — classical sources (Yu Fan, Zhu Yuansheng, Lai Zhide), the modern structural
-> literature (Schulz, Moore, Cook, Hacker, McKenna & Mair, Davis, Drasny), the 2026 arXiv treatments
+> not duplicated here — classical sources (Yu Fan, Kong Yingda, Zhu Yuansheng, Lai Zhide), the modern
+> structural literature (Schulz, Moore, Cook, Hacker, McKenna & Mair, Davis, Drasny), the
+> Chinese/Japanese hexagram-algebra prior-art cluster (Ouyang Weicheng, Zhang Qingyu, Suenaga, Luo
+> Jianjin), the 2026 arXiv treatments
 > (Chan; Radisic), methodological citations, and per-finding scoping of what is classical / prior work /
 > independently verified / believed novel. CITATIONS.md includes a standing invitation to report prior
 > work not yet cited.
