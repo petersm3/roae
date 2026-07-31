@@ -413,6 +413,37 @@ equivariance-ceiling hedges said "see CITATIONS.md" for Curie/Smidt, but no entr
   Equivariant Networks with Probabilistic Symmetry Breaking"
   ([arXiv:2503.21985](https://arxiv.org/abs/2503.21985)).
 
+### SAT solving, proof checking, and certified model counting
+
+*(Added 2026-07-31 — the SAT/certificate layer (`sat.py`) used these tools but had not
+formally cited them. The TR-2 conflict theorem, the rigidity/C3 CNF gates, and the
+certified-counting checks rest on this stack.)*
+
+<a id="sinz2005"></a>
+- **Sinz, Carsten** (2005). "Towards an Optimal CNF Encoding of Boolean Cardinality
+  Constraints." In *Principles and Practice of Constraint Programming (CP 2005)*, LNCS 3709.
+  The sequential-counter cardinality encoding used in `sat.py`.
+<a id="kissat2022"></a>
+- **Biere, Armin; Fleury, Mathias** (2022). "Gimsatul, IsaSAT and Kissat Entering the SAT
+  Competition 2022." In *Proc. of SAT Competition 2022 — Solver and Benchmark Descriptions*,
+  University of Helsinki. [hdl:10138/359079](http://hdl.handle.net/10138/359079). The Kissat
+  SAT solver used to decide the conflict-theorem and rigidity instances.
+<a id="drattrim2014"></a>
+- **Wetzler, Nathan; Heule, Marijn J. H.; Hunt, Warren A.** (2014). "DRAT-trim: Efficient
+  Checking and Trimming Using Expressive Clausal Proofs." In *Theory and Applications of
+  Satisfiability Testing (SAT 2014)*, LNCS 8561. The DRAT proof checker that independently
+  replays every UNSAT certificate (removing us from the trust chain).
+<a id="d4-2017"></a>
+- **Lagniez, Jean-Marie; Marquis, Pierre** (2017). "An Improved Decision-DNNF Compiler."
+  In *Proc. IJCAI 2017*. The D4 knowledge compiler underlying the certified model-counting checks.
+<a id="cpog2023"></a>
+- **Bryant, Randal E.; Nawrocki, Wojciech; Avigad, Jeremy; Heule, Marijn J. H.** (2023).
+  "Certified Knowledge Compilation with Application to Verified Model Counting." In *Theory and
+  Applications of Satisfiability Testing (SAT 2023)*, LIPIcs vol. 271.
+  [doi:10.4230/LIPIcs.SAT.2023.6](https://doi.org/10.4230/LIPIcs.SAT.2023.6). The CPOG
+  certified-proof framework (built on D4, with a Lean 4 verified checker) behind the
+  model-counting certificates.
+
 ### Information theory (description length / MDL)
 
 <a id="rissanen1978"></a>
