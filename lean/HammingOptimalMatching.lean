@@ -35,8 +35,9 @@
     also machine-checks the honest boundary of the claim.
 
   The structural glue (arbitrary-m reasoning, sum comparison) is ordinary Lean;
-  the finite hexagram-level facts use `decide` where the kernel handles them and
-  `native_decide` otherwise (see lean/README.md's trust-base note).
+  the finite hexagram-level facts are all proved by kernel `decide` — this file
+  contains no `native_decide` (trust base: kernel-only; see lean/README.md's
+  trust-base note).
 -/
 
 /-- popcount for 6-bit values (same definition as lean/KingWen.lean). -/
