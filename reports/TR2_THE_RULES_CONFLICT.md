@@ -9,7 +9,8 @@ The King Wen sequence has famous "irregularities" — places where its otherwise
 For centuries these were read as mistakes, corruption, or lost meaning. This report proves a different
 explanation: the four strongest design rules proposed for the sequence (two by Steve Moore, two
 traceable through Larry Schulz to a 13th-century commentator) are **mutually contradictory — no
-arrangement preserving the classical pairing can satisfy all of them**, a fact established by an exhaustive logic
+C1∩C2∩C4∩C5-valid arrangement (the pairing-preserving space with the base constraints the encoding
+fixes; §2) can satisfy all of them**, a fact established by an exhaustive logic
 search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the
 others by the smallest measured margins (2 each). Its irregularities are the visible seam of a forced trade-off,
 not damage to a once-perfect-under-all-four original — none could exist. **These two framings — "not damage" here and the corruption Bayes factor below — are not in
@@ -51,7 +52,7 @@ encoding of these rules over the space of orderings preserving the sequence's cl
 resolve the conjectures these authors raised. (1) Moore's conjectured compliant order exists: we exhibit
 an ordering perfect under both of his rules, differing from the received order by exactly three
 adjacent-position edits — through the very anomaly he identified — and prove three edits is minimal.
-(2) The same holds with Schulz's third rule added. (3) Decisively: **no ordering preserving the classical pairing satisfies all
+(2) The same holds with Schulz's third rule added. (3) Decisively: **no C1∩C2∩C4∩C5-valid ordering satisfies all
 four rules simultaneously** — the rules are jointly unsatisfiable, a fact certified by machine-checkable
 proof. The exceptions that Zhu Yuansheng, Moore, and Schulz each recorded are therefore not evidence of
 damage to an original perfect under the full four-rule inventory, for no such original could exist —
@@ -95,7 +96,11 @@ sequence's **classical pair structure** — the 32 traditional pairs, each place
 orientations. That restriction is not an analytic convenience adopted to make the problem tractable; it
 is the structure every author in this literature already assumes, and abandoning it would test a claim
 none of them made. Within it, an ordering is a placement of 32 pair-units, which is what the encoding
-below quantifies over.
+below quantifies over. One further scope fact the reader needs (made explicit 2026-07-30): the CNF
+base shared by every target in this report additionally fixes **C2** (no distance-5 boundary), **C4**
+(the fixed opening pair), and King Wen's **C5** transition multiset — so every UNSAT verdict below is
+a statement over the **C1∩C2∩C4∩C5-valid space**, not over all pairing-preserving (C1-only)
+orderings.
 
 **What a SAT solver decides.** Each rule is expressed as constraints over Boolean variables that encode
 which pair sits at which position in which orientation. The solver answers exactly one question: does
@@ -158,10 +163,14 @@ three, established in both directions, machine-checkable in seconds.
 
 The decisive result is negative, and it is the reason the rest of this report exists.
 
-**Statement.** No ordering preserving the classical pairing satisfies all four rules simultaneously.
+**Statement.** No C1∩C2∩C4∩C5-valid ordering satisfies all four rules simultaneously.
 Moore's parity rule, Moore's rhythm rule, Schulz's gender rule and the Schulz S25–28 trigram
-configuration are **jointly unsatisfiable** over the pair-structure space. Not rare, not
-computationally out of reach — impossible.
+configuration are **jointly unsatisfiable** over the C1∩C2∩C4∩C5 space — the pair-structure space
+with the base constraints every encoding in this report fixes (§2). Not rare, not
+computationally out of reach — impossible. *(Scope corrected 2026-07-30: earlier versions stated
+this at pairing-preserving — C1-only — scope, which the certificate does not establish; the base
+CNF fixes C2, C4, and King Wen's C5 multiset for every target. TR-1's statement of the same theorem
+was already correctly scoped.)*
 
 **How it was checked, and by whom.** The chain is deliberately three-party.
 `python3 sat.py --emit-cnf grand-ccn4 f.cnf` generates the formula from the same constraint definitions
@@ -227,13 +236,13 @@ Every verdict below was re-verified 2026-07-03 on a 2-core box; each command com
 
 ## Figure
 
-![Grouped bar chart of the four conflicting rules: King Wen misses Moore's 2005 parity rule by 2 (16/18), Moore's 1989 rhythm rule by 2 breaks, and Schulz's 1990 gender rule by 2 violations while satisfying the Schulz S25–28 trigram configuration exactly; the grand unified precursor is perfect (0) on the first three and violates the trigram configuration — no pairing-preserving ordering achieves zero on all four.](figures/fig_tr1_rules_tradeoff.png)
+![Grouped bar chart of the four conflicting rules: King Wen misses Moore's 2005 parity rule by 2 (16/18), Moore's 1989 rhythm rule by 2 breaks, and Schulz's 1990 gender rule by 2 violations while satisfying the Schulz S25–28 trigram configuration exactly; the grand unified precursor is perfect (0) on the first three and violates the trigram configuration — no C1∩C2∩C4∩C5-valid ordering achieves zero on all four.](figures/fig_tr1_rules_tradeoff.png)
 
 *The forced trade-off (§4–5, shared with [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §5). King Wen (red)
 misses the three graded rules by the minimal margins (2 each) and keeps the S25–28 trigram configuration
 exactly; the grand unified precursor (green, 3 slot-edits from KW) perfects those three and breaks the
 trigram configuration — a binary configuration rule with no graded miss count. The joint-UNSAT
-certificate says no pairing-preserving ordering reaches zero on all four axes: the received order's irregularities are the
+certificate says no C1∩C2∩C4∩C5-valid ordering reaches zero on all four axes: the received order's irregularities are the
 visible seam of this forced choice, not damage to a once-perfect-under-all-four original (none could exist). Generated by
 [`viz/report_figures.py`](../viz/report_figures.py); [SVG](figures/fig_tr1_rules_tradeoff.svg).*
 
@@ -244,7 +253,7 @@ co-location rule, CC-N8) sharpens the theorem in two ways, both certificate-back
 independent hardware:
 
 1. **The five-rule union is unconditionally unsatisfiable** — not merely "no perfect ordering": no
-   pairing-preserving ordering satisfies the five rules at ANY repair distance (the near-2/near-3/near-4
+   C1∩C2∩C4∩C5-valid ordering satisfies the five rules at ANY repair distance (the near-2/near-3/near-4
    relaxations are all UNSAT as well).
 2. **The conflict decomposes into three minimal two-rule cores**: {Moore parity, Schulz S25–28},
    {Moore rhythm, Schulz S25–28}, and {Schulz gender, CC-N8}. Every leave-one-out four-subset of the
@@ -252,7 +261,13 @@ independent hardware:
    particular, the four-rule system of the main theorem was not a MINIMAL unsatisfiable set — the
    gender rule is not needed for that instance of the conflict. The main theorem's statement is
    unaffected; its anatomy is now finer: the literature's rules do not fail jointly in one tangle,
-   they fail in specific pairs.
+   they fail in specific pairs. One disclosure the uniform presentation of the three cores previously
+   omitted (added 2026-07-30): the third core, **{Schulz gender, CC-N8}, is incompatible by
+   construction** — CC-N8 requires the gender rule's violations to sit exactly at class positions
+   25/26 while the strict gender rule demands zero violations, so that core is a definitional
+   triviality rather than a discovered combinatorial fact (the encoding keeps CC-N8 as stated so the
+   semantic conflict is itself certificate-backed). The other two cores are genuine discoveries, and
+   the four-rule conflict theorem of §4 does not involve CC-N8 at all.
 
 Certificates: fourteen DRAT proofs — the union (1), its near-2/3/4 repair ladder (3), all five
 leave-one-out subsets (5), the three two-rule cores (3), and two encoding-validation gates
@@ -263,7 +278,7 @@ the full set re-verified against freshly regenerated encodings on a separate mac
 
 ## A Bayesian comparison: corruption vs. tendency (v1.7)
 
-The conflict theorem settles what cannot exist: no pairing-preserving ordering perfect under all four
+The conflict theorem settles what cannot exist: no C1∩C2∩C4∩C5-valid ordering perfect under all four
 rules. The three **graded** rules — Moore's 2005 parity, Moore's 1989 rhythm, Schulz's 1990 gender rule
 (its exceptions first noted by Zhu Yuansheng in the 13th century) — are jointly satisfiable: the grand
 precursor of §3 achieves all three exactly, and the received order sits exactly three slot-edits from it.
@@ -562,5 +577,6 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.13 | 2026-07-20 | **Corruption-result scope + form labelling (adversarial-review items F-43, F-8).** F-43: the 0.9998 posterior and the BF figures are a *pairwise* verdict — corruption vs soft-preference arranger — but nothing adjacent to them said so. Scope statements added at all three points a reader meets the numbers (executive summary, the findings bullet list, and "What this does NOT say"), stating explicitly that they exclude neither a greedy/local builder (M_G) nor the rules-epiphenomenal uniform null (M0), both of which remain un-run, and that a 0.9998 posterior *within a model pair* is not a 0.9998 posterior that the sequence was corrupted. The four-class comparison's calibration gate is separately in progress; no verdict is claimed. F-8: "Structure (6 sections)" relabelled to note that items 1-6 are section summaries, with the report's fully-written material being the v1.6/v1.7/v1.9/v1.12 sections. No theorem, certificate, or computed value changed |
 | v1.14 | 2026-07-20 | **Four-class comparison: calibration run, verdict VETOED — no result will be published.** The frozen design placed a synthetic-draw confusability gate before any KW-facing integration; it has now been executed and failed. The greedy-builder class M_G ranks itself first in 67/100 draws against a pre-registered threshold of 70 (67/67/45/25 across the four sensitivity variants; median log10 BF vs best rival 1.12 primary, negative in two variants), so M_G is not reliably separable from M0 or M_D at n=100 — and M_G is precisely the rival this extension existed to test. Per the design's §6.3 veto, no four-class Bayes factor, posterior, or verdict is computed or published, here or elsewhere; `compute_r11_bf.py` is not written and not planned. Section retitled from "measurement pending" to "calibration run, verdict VETOED" and an Outcome subsection added stating what the result does and does not license: the v1.7/v1.12 two-model corruption result is untouched, the greedy-local and rules-epiphenomenal rivals remain OPEN rather than defeated, and the finding is a limit of the inference at this sample size, not a property of the sequence. Honest residuals recorded (7 M_C draw failures counted conservatively against its own 100, not load-bearing since the failing class M_G had zero; SMC uses an exact bias-free monotone C3 lower-bound prune, runtime-asserted). Full instrument and per-draw evidence published to evidence/r11/. No theorem, certificate, or previously published number changed |
 | v1.15 | 2026-07-20 | **Section bodies for §2-4 written (F-8, operator-directed).** §2 Method: the pair-structure space and why it is the literature's own assumption rather than a tractability convenience; what a SAT solver decides and why UNSAT is the stronger answer; what a DRAT certificate is and why it removes us from the trust chain; and the two-way encoding validation stated in plain language (rc4-kwtest UNSAT / rc4-kwexempt SAT / ccn4-kwtest SAT, plus reproduction of each author's own KW tallies before anything was trusted). §3 Moore's precursor: the witness with its rule tallies (parity 18/18, rhythm 0 breaks, gender 0 violations, C3=776) and the two-sided bracket establishing edit distance exactly three (near-2 UNSAT with certificate, near-3 SAT) — a historical conjecture rendered as a measured quantity. §4 The conflict theorem: the statement, the deliberately three-party verification chain (our encoding, kissat's decision, drat-trim's independent replay), the robustness evidence (five-rule union UNSAT, every leave-one-out subset still UNSAT, three minimal two-rule cores, no repair at any tested distance), and an explicit qualification that the S25-28 trigram rule is the most data-like of the four — with the note that the leave-one-out certificates show the theorem survives its removal. §1 and §5 deliberately REMAIN summaries: both are humanities-register prose where each added sentence is a further claim about what a named scholar said, this suite has already shipped one misattribution (F-15), and no constraint result depends on that prose. No theorem, certificate, number, or scope statement changed |
-| v1.17 *(current)* | 2026-07-26 | **Headline scoping + freeze-anchoring disclosure (round-2 audit, inference loop 4b F-1/F-3/F-4 + completeness loop 4e G3).** The executive summary, abstract, §5 "What follows" and the figure caption now scope "not damage" to *a once-perfect-under-all-four original* (the only damage hypothesis the conflict theorem addresses — damage relative to the three-graded-rule precursor remains the open question the Bayesian section weighs); "smallest margins possible" corrected to "smallest measured margins (2 each)" (zero-miss is certificate-excluded, but no certificate excludes a miss of 1, so the modal claim was unearned); and a public-anchoring disclosure paragraph added to the Bayesian section stating plainly that the F11 freeze-before-measurement is operator-attested, not publicly verifiable (prereg + results landed in the same public commit `c0b0ef6`), with the freeze-independent features enumerated. No number, certificate, or verdict changed |
+| v1.18 *(current)* | 2026-07-30 | **Conflict-theorem scope correction (novelty-gate SAT self-audit #10 — SUBSTANTIVE).** The four-rule conflict theorem (and the v1.6 five-rule union) had been stated at pairing-preserving (C1-only) scope — "no ordering preserving the classical pairing…" — but the certificate establishes it at **C1∩C2∩C4∩C5** scope: the CNF base shared by every target fixes C2, C4, and King Wen's C5 transition multiset (sat.py's base clauses), and the literature's rules do not imply C5, so the C1-only reading was unearned. All statements of the theorem (executive summary, abstract, §4 Statement, v1.6 union, figure caption/alt text) now read "no C1∩C2∩C4∩C5-valid ordering…", and §2 states explicitly what the base space fixes. TR-1 and LITERATURE_RULES already carried the correct "C1–C5-valid" wording — this closes an internal inconsistency. Also added: the disclosure that the {Schulz gender, CC-N8} two-rule core is incompatible **by construction** (CC-N8 pins the gender violations to positions 25/26; strict gender demands zero) — a definitional triviality previously presented uniformly with the two genuine cores. No certificate, count, or verdict changed |
+| v1.17 | 2026-07-26 | **Headline scoping + freeze-anchoring disclosure (round-2 audit, inference loop 4b F-1/F-3/F-4 + completeness loop 4e G3).** The executive summary, abstract, §5 "What follows" and the figure caption now scope "not damage" to *a once-perfect-under-all-four original* (the only damage hypothesis the conflict theorem addresses — damage relative to the three-graded-rule precursor remains the open question the Bayesian section weighs); "smallest margins possible" corrected to "smallest measured margins (2 each)" (zero-miss is certificate-excluded, but no certificate excludes a miss of 1, so the modal claim was unearned); and a public-anchoring disclosure paragraph added to the Bayesian section stating plainly that the F11 freeze-before-measurement is operator-attested, not publicly verifiable (prereg + results landed in the same public commit `c0b0ef6`), with the freeze-independent features enumerated. No number, certificate, or verdict changed |
 | v1.16 | 2026-07-20 | **Framing pass (adversarial-review F-42, F-40a, F-46).** F-42: a reconciliation clause added to the executive summary so "not damage" and the corruption Bayes factor are not read as contradictory — the impossibility theorem rules out an original perfect under all *four* rules, while the Bayesian comparison concerns only the *three graded* rules, whose joint perfection is achievable. F-40a: the v1.12 stop-flag block compressed from a mechanics-dense paragraph to one sentence, with the derivation left in the body section that already carries it. F-46 + factual correction: the report had claimed "all six violations co-located at the historically flagged locus" — **this was wrong**, found during the framing review and confirmed by direct computation against the byte-for-byte scorers (Moore parity at pair-slots 22–23, Moore rhythm at (7,8) and (22,23), Schulz gender at inversion-class positions 25–26; four of six cluster at 22–23, two do not, and gender uses a different coordinate system). The passage now states the exact positions; the F-46 definitional caution is retained but scoped to the *partial* clustering. No theorem, certificate, or count changed — g1,g2,g3 remain 2,2,2 — only the false co-location claim is corrected |

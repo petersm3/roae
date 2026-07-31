@@ -31,7 +31,14 @@ the search's frame of reference. The methodological lesson is the report's spine
 statistics cannot decide set-level properties.
 
 *Novelty status: we are not aware of a prior statement of this symmetry group for the King Wen constraint
-system; prior-art corrections are welcomed via CITATIONS.md. (Related but distinct formal work: [Radisic
+system; prior-art corrections are welcomed via CITATIONS.md. This scoping is informed, not ignorant, of
+the hexagram-level algebraic prior art, which is **distinct**: [Ouyang Weicheng
+1992](../documentation/CITATIONS.md#ouyang1992) proved the (Z/2)⁶ group structure on the 64 hexagrams
+(with subgroup/coset machinery), and [Zhang Qingyu 1998](../documentation/CITATIONS.md#zhang1994)
+published the complement/reversal (Klein-4) orbit on the hexagram set — both are groups acting on
+**hexagrams**; this report's group is the automorphism group of the C1–C5 **constraint-predicate
+family** acting on bit positions, inducing an action on whole orderings — a different group on a
+different object (see CITATIONS.md §"(Z/2)⁶ framing — priority ceded"). (Related but distinct formal work: [Radisic
 2026](../documentation/CITATIONS.md#radisic2026), arXiv:2601.07175, formalizes King Wen pairing optimality in Lean 4 + Mathlib — a different object.)*
 
 ## Sections
@@ -112,7 +119,10 @@ system; prior-art corrections are welcomed via CITATIONS.md. (Related but distin
    principle — the design (enumerate representatives, relabel + re-canonicalize) is specified but not
    implemented, and adopting it would change the canonical convention, an explicitly gated decision; (b)
    KW-structural claims should be checked for relabeling invariance — any statistic not invariant under S₄
-   record-relabeling is measuring the labeling; (c) the orbit structure is a new object of study. Scope
+   record-relabeling is measuring the labeling; (c) the orbit structure **at the ordering level** is a
+   new object of study (hexagram-level orbit structure is prior art — [Zhang Qingyu
+   1998](../documentation/CITATIONS.md#zhang1994) published the complement/reversal Klein-4 orbit on
+   the hexagram set; the ordering-level S₄ orbits of whole valid sequences are the new object). Scope
    limit: flips are excluded by C4 specifically (they move 0/63); a C4-free system would admit a larger
    flip-extended analysis — not pursued.
 
@@ -160,4 +170,5 @@ then confirmed the theorem's arithmetic signature.
 | v1.8 | 2026-07-11 | Trust-base wording precision: the Lean finite component is `native_decide`-checked (extended trust base — Lean's compiler), not "kernel-checked"; phrasing corrected per lean/README.md's trust-base note. No result changes |
 | v2.0 | 2026-07-18 | **Symmetry completeness**: the group's maximality extended from the hyperoctahedral group Aut(Q₆) to ALL 64! hexagram relabelings — no permutation of the hexagram set outside the 48 preserves the C1–C5 predicate family, and C1+C2+C4 alone force membership. New exhaustive machine gate `solve.py --symmetry-completeness` (SC-1…SC-8: ψ-isomorphism to Q₆, hypercube two-common-neighbor rigidity, the explicit 46,080-element Aut(G₅), the fix-0 and partner-commuting filters, the 1,824-sequence C2 witness family); rigidity kernel additionally encoded as a self-validated CNF (`sat.py --rigidity-cnf`, expected UNSAT; DRAT artifact pending a solver-equipped worker). Scope stated: per-predicate preservation; solution-set automorphism group bounded below by G, not decided above. Proof: SYMMETRY_SEARCH.md §Completeness |
 | v2.1 | 2026-07-20 | **Rigidity DRAT produced (adversarial-review item F-5).** The v2.0 completeness funnel advertised a rigidity CNF whose DRAT artifact was "pending a solver-equipped worker" — an advertised verification leg that did not exist. It now does: kissat 4.0.4 decides the kernel UNSAT and drat-trim reports `s VERIFIED` against the regenerated encoding; the certificate is archived as `certificates/rigidity_sc4_unsat.drat.gz` and checked by `verify_all.sh` (inventory 19 → 20). Honest note recorded in certificates/README.md: the instance falls to unit propagation alone, so the certificate's value is that the step is machine-checked rather than that it was hard. No theorem, scope statement, or numerical result changed |
-| v2.2 *(current)* | 2026-07-20 | **Lean scope stated explicitly (adversarial-review F-51).** §3 now says what the Lean coverage does and does not include: the machine-checked component is the *finite kernel* (the 48-of-720 classification, the record-twin count, the supporting finite lemmas), while the lift from those finite facts to the statement over all 64! relabelings is a classical prose argument supported by the exhaustive `--symmetry-completeness` gate and the SC-4 rigidity DRAT — not a Lean proof of the universally-quantified claim. Nothing is machine-checked end to end from 64! to the group, and readers should treat the completeness theorem as prose-proven with machine-checked finite parts. No theorem or scope claim changed — this makes the existing scope legible |
+| v2.2 | 2026-07-20 | **Lean scope stated explicitly (adversarial-review F-51).** §3 now says what the Lean coverage does and does not include: the machine-checked component is the *finite kernel* (the 48-of-720 classification, the record-twin count, the supporting finite lemmas), while the lift from those finite facts to the statement over all 64! relabelings is a classical prose argument supported by the exhaustive `--symmetry-completeness` gate and the SC-4 rigidity DRAT — not a Lean proof of the universally-quantified claim. Nothing is machine-checked end to end from 64! to the group, and readers should treat the completeness theorem as prose-proven with machine-checked finite parts. No theorem or scope claim changed — this makes the existing scope legible |
+| v2.3 *(current)* | 2026-07-30 | **Novelty-scoping precision (novelty-gate audits #5/#19).** (1) The novelty-status note now names the distinct hexagram-level prior art explicitly (Ouyang 1992's (Z/2)⁶ group on hexagrams; Zhang 1998's Klein-4 complement/reversal orbit) so the "not aware of a prior statement" hedge is visibly informed — this report's group acts on the constraint-predicate family/orderings, a different object. (2) §6(c) scoped: the orbit structure is a new object of study **at the ordering level**. No theorem, count, or scope of any result changed. *(A proposed trust-base "kernel-only" update to §3 was withheld 2026-07-31: the cited finite lemmas — `sigma_kw_valid_48`, `twins_24_records`, etc. — are `native_decide` in the committed tree; the kernel migration is uncommitted and will be reflected only after an authoritative `#print axioms` pass.)* |
