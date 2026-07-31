@@ -1191,10 +1191,10 @@ supposedly been fixed by deallocating it. Yet here it was again, running.
 `az vm deallocate -g RG-CLAUDE -n deep-calib-westus3` succeeded at
 14:17:00 UTC ("VM deallocated" verified). At 14:21:51 UTC — five
 minutes later — the Azure Activity Log showed the VM being started
-again, by `mrpeterson2@gmail.com` from IP `20.59.33.134`. The user
+again, by `mrpeterson2@gmail.com` from IP `<orchestrator-public-IP>`. The user
 confirmed they had not done this manually.
 
-Cross-checking, IP `20.59.33.134` is the public IP of the `claude`
+Cross-checking, IP `<orchestrator-public-IP>` is the public IP of the `claude`
 orchestrator VM itself. So whatever started deep-calib was a script or
 process running on `claude`, authenticating as the same user identity.
 The Azure CLI app-id (`04b07795-…`) on the activity-log entry confirmed
@@ -1872,7 +1872,7 @@ LUN order. **It did not.** On this VM, LUN 0 mapped to nvme0n3
 `mkfs.ext4 -F /dev/nvme0n3` against what was actually the
 canonical disk. The `-F` flag bypassed mkfs's "refuse to format
 existing filesystem" safety check. Original UUID
-`3620ba16-3c88-414e-b3ff-1b33deaef2ac` (label "solver-data") was
+`<disk-UUID-redacted>` (label "solver-data") was
 overwritten with fresh UUID `d63bb25c…` and an empty ext4. No
 snapshots existed.
 
@@ -2095,7 +2095,7 @@ The T9+d run surfaced five MORE issues beyond the three already documented (`sol
 
 4. **Deallocated VMs still consume vCPU quota in Azure.** Provisioning the D128 for phase 9 hit `QuotaExceeded`: Current Limit 130, Current Usage 16, Required 144. The 16 came from `v1-recovery-d16-westus3` (T9+c.1's D16) that was deallocated days earlier — Azure deallocation stops compute billing but **does not release the vCPU quota allocation**. **Lesson:** when freeing quota for new provisioning, deallocated VMs must be DELETED (with disk preservation by detach-before-delete) to release their core count. Memory and operator-discipline rules updated to require an explicit "free quota" pre-flight before any large VM provisioning.
 
-5. **NSG allow-rule had a stale Google IP** (66.249.184.35) instead of the orchestrator's actual outbound public IP (20.59.33.134). Probably a copy-paste mistake when the rule was originally configured. SSH had been working all session via the cross-region Azure-internal `AllowVnetInBound` path, masking the issue. Discovered + fixed 2026-05-09. **Lesson:** NSG rules with explicit IPs are prone to silent staleness if the orchestrator's outbound IP changes; either use service tags (`AzureCloud`, `VirtualNetwork`) where appropriate, or audit explicit-IP allow-rules quarterly against `curl ipv4.icanhazip.com` from the actual orchestrator.
+5. **NSG allow-rule had a stale Google IP** (<stale-IP>) instead of the orchestrator's actual outbound public IP (<orchestrator-public-IP>). Probably a copy-paste mistake when the rule was originally configured. SSH had been working all session via the cross-region Azure-internal `AllowVnetInBound` path, masking the issue. Discovered + fixed 2026-05-09. **Lesson:** NSG rules with explicit IPs are prone to silent staleness if the orchestrator's outbound IP changes; either use service tags (`AzureCloud`, `VirtualNetwork`) where appropriate, or audit explicit-IP allow-rules quarterly against `curl ipv4.icanhazip.com` from the actual orchestrator.
 
 Combined with the earlier three (#84, verify.py memory model, pruned-branch handling), this campaign produced **eight discrete bug fixes / hardening updates** to the v1 lineage and operational tooling. v2 design notes for each are tracked in their respective tasks.
 
@@ -3159,7 +3159,7 @@ inner `"` chars as quote terminators and the awk script came out as
 `print /dev/ $1` (unquoted), producing `DEV=0nvme0n2` instead of
 `/dev/nvme0n2`. Trap fired correctly — **and this time the trap
 preserved the enum VM** (the fix from earlier in the saga). The enum
-VM at 20.106.96.126 stayed alive with all 57,521 shards intact.
+VM at <vm-public-IP> stayed alive with all 57,521 shards intact.
 
 Per the runbook, this was the recovery path:
 1. SSH to alive enum VM, verify shards
@@ -4107,7 +4107,7 @@ The load-bearing safety is `-Werror=missing-profile`: any future change that bre
 
 ### Other observations / housekeeping
 
-- **`solver-data-westus3` UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `roae-private/safe_disk_setup.sh`'s example comment) is stale; current is `c9a9eba9-45eb-4600-b582-2344583f79cc`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
+- **`solver-data-westus3` UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `roae-private/safe_disk_setup.sh`'s example comment) is stale; current is `<disk-UUID-redacted>`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
 - **Two VMs deallocated** at end of session: `v1-v3-bench` (Standard, bench done) and `fast-skip-95` (Spot, task #95 done). OS disks preserved per operator's "deallocate not delete" directive; managed disks untouched.
 - **No Phase 12 yet** — v3 100T full bench against `915abf30…` is queued but not pre-authorized for autonomous launch.
 
