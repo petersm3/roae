@@ -27,8 +27,9 @@
     g(h) := f(h, partner h). Orientation invariance g(partner h) = g(h) is
     decided over all 64 hexagrams (NOT sampled) — this is the "factors
     through the pair-multiset" step.
-  · §3 the fixed range-64 counts, by native_decide (finite evaluation on the
-    canonical partition — the single finite evaluation the theorem needs).
+  · §3 the fixed range-64 counts, by kernel `decide` (finite evaluation on the
+    canonical partition — the single finite evaluation the theorem needs;
+    migrated from native_decide 2026-07-27).
   · §4 the sequence-level constancy theorems, each: within_double + omega.
 
   The ONLY non-Lean steps, stated for the record:
@@ -53,8 +54,12 @@
   *** 5,449-sequence drive of the repo's own reg_* functions with zero
   *** deviations) BEFORE being drafted in Lean — repeatable via the scratchpad
   *** cross-check c1_constants_check.py (TR-12 exactness pass, 2026-07-21).
-  *** Trust base: `decide` proofs are kernel-checked; the `native_decide`
-  *** finite counts additionally trust Lean's compiler (see lean/README.md).
+  *** Trust base: KERNEL-ONLY since 2026-07-27 — every proof in this file is
+  *** `decide`/structural (the §3 finite counts were migrated from
+  *** native_decide; `#print axioms`: the finite counts report [propext] or no
+  *** axioms, the sequence-level constancy theorems [propext, Classical.choice,
+  *** Quot.sound] — Lean's standard axioms only; nothing here trusts Lean's
+  *** compiler).
 -/
 
 namespace C1RuleConstants
@@ -249,26 +254,26 @@ theorem hdIs5_inv        : ∀ h, h < 64 → hdIs 5 (partner h) = hdIs 5 h := by
 
 /- ────────── §3 the fixed range-64 counts (the finite evaluation) ────────── -/
 
-theorem count_palFirst     : ((List.range 64).countP palFirst) = 8      := by native_decide
-theorem count_mmt4CompViol : ((List.range 64).countP mmt4CompViol) = 0  := by native_decide
-theorem count_mmt4InvNon6  : ((List.range 64).countP mmt4InvNon6) = 48  := by native_decide
-theorem count_dualPair     : ((List.range 64).countP dualPair) = 8      := by native_decide
-theorem count_p1c4Viol     : ((List.range 64).countP p1c4Viol) = 0      := by native_decide
-theorem count_s1CompViol   : ((List.range 64).countP s1CompViol) = 0    := by native_decide
-theorem count_s1InvViol    : ((List.range 64).countP s1InvViol) = 0     := by native_decide
-theorem count_s6WithinViol : ((List.range 64).countP s6WithinViol) = 0  := by native_decide
-theorem count_s6RevViol    : ((List.range 64).countP s6RevViol) = 0     := by native_decide
-theorem count_orbRep4      : ((List.range 64).countP orbRep4) = 12      := by native_decide
-theorem count_r3Viol       : ((List.range 64).countP r3Viol) = 0        := by native_decide
-theorem count_hwFail       : ((List.range 64).countP hwFail) = 8        := by native_decide
-theorem count_r5Viol       : ((List.range 64).countP r5Viol) = 0        := by native_decide
-theorem count_hd0          : ((List.range 64).countP (hdIs 0)) = 0      := by native_decide
-theorem count_hd1          : ((List.range 64).countP (hdIs 1)) = 0      := by native_decide
-theorem count_hd2          : ((List.range 64).countP (hdIs 2)) = 24     := by native_decide
-theorem count_hd3          : ((List.range 64).countP (hdIs 3)) = 0      := by native_decide
-theorem count_hd4          : ((List.range 64).countP (hdIs 4)) = 24     := by native_decide
-theorem count_hd5          : ((List.range 64).countP (hdIs 5)) = 0      := by native_decide
-theorem count_hd6          : ((List.range 64).countP (hdIs 6)) = 16     := by native_decide
+theorem count_palFirst     : ((List.range 64).countP palFirst) = 8      := by decide
+theorem count_mmt4CompViol : ((List.range 64).countP mmt4CompViol) = 0  := by decide
+theorem count_mmt4InvNon6  : ((List.range 64).countP mmt4InvNon6) = 48  := by decide
+theorem count_dualPair     : ((List.range 64).countP dualPair) = 8      := by decide
+theorem count_p1c4Viol     : ((List.range 64).countP p1c4Viol) = 0      := by decide
+theorem count_s1CompViol   : ((List.range 64).countP s1CompViol) = 0    := by decide
+theorem count_s1InvViol    : ((List.range 64).countP s1InvViol) = 0     := by decide
+theorem count_s6WithinViol : ((List.range 64).countP s6WithinViol) = 0  := by decide
+theorem count_s6RevViol    : ((List.range 64).countP s6RevViol) = 0     := by decide
+theorem count_orbRep4      : ((List.range 64).countP orbRep4) = 12      := by decide
+theorem count_r3Viol       : ((List.range 64).countP r3Viol) = 0        := by decide
+theorem count_hwFail       : ((List.range 64).countP hwFail) = 8        := by decide
+theorem count_r5Viol       : ((List.range 64).countP r5Viol) = 0        := by decide
+theorem count_hd0          : ((List.range 64).countP (hdIs 0)) = 0      := by decide
+theorem count_hd1          : ((List.range 64).countP (hdIs 1)) = 0      := by decide
+theorem count_hd2          : ((List.range 64).countP (hdIs 2)) = 24     := by decide
+theorem count_hd3          : ((List.range 64).countP (hdIs 3)) = 0      := by decide
+theorem count_hd4          : ((List.range 64).countP (hdIs 4)) = 24     := by decide
+theorem count_hd5          : ((List.range 64).countP (hdIs 5)) = 0      := by decide
+theorem count_hd6          : ((List.range 64).countP (hdIs 6)) = 16     := by decide
 
 /- ────────── §4 the constancy theorems (EVERY C1-valid ordering) ────────── -/
 
@@ -373,7 +378,7 @@ theorem r5_const (l : List Nat) (hperm : l.Perm (List.range 64))
 /- ────────── §5 sanity anchors ────────── -/
 
 /-- KW itself is C1-valid (guards against a vacuous hypothesis). -/
-theorem kw_c1ok : c1ok KW = true := by native_decide
+theorem kw_c1ok : c1ok KW = true := by decide
 
 theorem kw_perm : KW.Perm (List.range 64) := by decide
 

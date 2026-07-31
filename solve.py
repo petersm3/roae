@@ -7093,6 +7093,386 @@ def r11_builder_verify():
 
 
 # ---------------------------------------------------------------------------
+# H2 near-precursor edit-ball mass (roae-private HYPOTHESIS_C6 §3 H2 / §5.2)
+#
+# Companion/ground-truth layer for solve.c's SOLVE_KNUTH_H2 instrument, which
+# measures m = |{S in POP : d_edit(S, GS) <= 3}| / |POP| — the fraction of the
+# flagship C1∩C2∩C4∩C5 population within slot-edit distance 3 of the
+# grand-strict subspace GS (Moore 2005 parity strict ∧ Moore 1989 rhythm
+# strict ∧ Schulz 1990 gender strict, within canonical C1–C5; TR-2,
+# N_gs = 4.50e25 ±6% direct). Metric = sat.py's near-k slot-edit distance
+# (# pair-slots whose (pair, orientation) differs; slot 0 fixed): the closed
+# radius-3 ball has exactly 1 + 31 + C(31,2)·5 + C(31,3)·29 = 132,712 members.
+# Identity used by both languages (exact, no double counting):
+#   |{S in V : d(S,GS)<=3}| = Σ_{G in GS} f(G),
+#   f(G) = Σ_{S in B3(G) ∩ V} 1/c(S),  c(S) = |B3(S) ∩ GS| >= 1,
+# because each qualifying S distributes its unit mass across the GS members
+# covering it (the move metric is symmetric). The triple-strict Knuth walk
+# supplies (W, G) samples; E_{G~unif(GS)}[f] is estimated self-normalized as
+# Σ W·f / Σ W, then m = N_gs · E[f] / N_pop with the independently measured
+# N_gs. Two population variants: _p = C1∩C2∩C4∩C5 (flagship, EXACT
+# denominator, TR-11); _c = + C3<=776 (canonical C1–C5, estimate denominator).
+#
+# --h2-verify: independent Python recomputation of dumped leaves (scorers =
+#   this file's r11_axes g1/g2/g3 machinery; enumeration structurally distinct
+#   from solve.c's). --h2-mass: pooled estimate + stratified bootstrap CI +
+#   seed spread + N_gs uncertainty; prints m and bits = -log2(m).
+#
+# CIRCULARITY STATUS (do not launder): H2 is a PRIVATE hypothesis classified
+# SEMI-FITTED (C3/C5-class, MDL-net-negative) — its rule bundle is
+# literature-extracted-from-KW and its tolerance 3 is KW's own repair
+# distance. This instrument produces a MAGNITUDE ONLY; nothing here promotes
+# H2, changes any spec/constraint, or touches any canonical sha.
+# ATTRIBUTION: rules Moore 2005 / Moore 1989 / Schulz 1990 (exceptions noted
+# by Zhu Yuansheng, 13th c.); estimator Knuth 1975; ball metric = TR-2's
+# near-k. Developed with AI assistance (Claude — Fable 5, Anthropic).
+# ---------------------------------------------------------------------------
+
+# Flagship |C1∩C2∩C4∩C5| — EXACT, two-instrument (TR-11 §9; verify.c --ie-count match).
+H2_N_POP = 1097051278789181790036112071176579186688
+# Canonical |C1–C5| (with C3<=776) — estimate ±0.02% (95%), SEARCH_SPACE_SIZE.md.
+H2_N_CAN = 1.3287e38
+# |GS| — direct 4-seed pooled measurement, ±6.1% conservative 95% CI (TR-2 v1.12).
+H2_N_GS, H2_N_GS_LO, H2_N_GS_HI = 4.50e25, 3.96e25, 5.05e25
+H2_BALL = 132712  # 1 + 31 + C(31,2)*5 + C(31,3)*29
+
+H2_GRAND_WITNESS = [63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,
+                    57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,
+                    26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42]
+
+
+def h2_comp_dist_x64(seq):
+    """C3 total (x64 convention: sum over all 64 hexagrams of |pos(h)-pos(h^63)|).
+    KW = 776 = the C3 ceiling."""
+    pos = {v: i for i, v in enumerate(seq)}
+    return sum(abs(pos[v] - pos[v ^ 63]) for v in range(64))
+
+
+def h2_pop_valid(seq, tot=None):
+    """V-membership beyond the structural C1/C4: the C5 transition multiset must
+    equal KW's (which also enforces C2 — the multiset contains no 5s)."""
+    if tot is None:
+        tot = h2_kw_multiset()
+    from collections import Counter
+    return Counter(bit_diff(seq[i], seq[i + 1]) for i in range(63)) == tot
+
+
+_H2_TOT = None
+def h2_kw_multiset():
+    global _H2_TOT
+    if _H2_TOT is None:
+        from collections import Counter
+        _H2_TOT = Counter(bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1])
+                          for i in range(63))
+    return _H2_TOT
+
+
+def h2_strict_ok(seq):
+    """Grand-strict rule bundle == r11 axes g1,g2,g3 all zero."""
+    g = r11_axes(seq)
+    return g[0] == 0 and g[1] == 0 and g[2] == 0
+
+
+def _h2_pairs():
+    ps = [(binary_hexagrams[2 * i], binary_hexagrams[2 * i + 1]) for i in range(32)]
+    idx = {}
+    for i, (a, b) in enumerate(ps):
+        idx[(a, b)] = (i, 0)
+        idx[(b, a)] = (i, 1)
+    return ps, idx
+
+
+def h2_to_slots(seq):
+    """seq -> (pr, orr): pair index and orientation per pair-slot."""
+    ps, idx = _h2_pairs()
+    pr, orr = [0] * 32, [0] * 32
+    for s in range(32):
+        i, o = idx[(seq[2 * s], seq[2 * s + 1])]
+        pr[s], orr[s] = i, o
+    return pr, orr
+
+
+def h2_build(pr, orr, ts=(), assign=()):
+    """Build a sequence from (pr, orr) with slots ts reassigned per assign
+    [(pair, orient), ...]."""
+    ps, _ = _h2_pairs()
+    pr2, orr2 = list(pr), list(orr)
+    for s, (p, o) in zip(ts, assign):
+        pr2[s], orr2[s] = p, o
+    seq = []
+    for s in range(32):
+        a, b = ps[pr2[s]]
+        seq += [b, a] if orr2[s] else [a, b]
+    return seq
+
+
+def h2_ball_assignments(pr, orr, ts):
+    """All assignments of the sorted slot tuple ts in which EVERY listed slot
+    differs from (pr, orr). Yields lists of (pair, orient) parallel to ts.
+    Counts: |ts|=1 -> 1, 2 -> 5, 3 -> 29."""
+    from itertools import permutations, product
+    n = len(ts)
+    cur = [(pr[s], orr[s]) for s in ts]
+    pset = [pr[s] for s in ts]
+    for perm in permutations(range(n)):
+        newp = [pset[perm[i]] for i in range(n)]
+        for ors in product((0, 1), repeat=n):
+            asg = list(zip(newp, ors))
+            if all(asg[i] != cur[i] for i in range(n)):
+                yield asg
+
+
+def h2_parity_slots(seq):
+    """0-indexed pair-slots violating the Moore 2005 parity rule (comp-pairs and
+    popcount-3 pairs exempt). KW -> [21, 22]."""
+    out = []
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            continue
+        pc = bin(h).count("1")
+        if pc == 3:
+            continue
+        if (1 if pc > 3 else 0) != ((q + 1) & 1):
+            out.append(q)
+    return out
+
+
+_H2_COMPL = None
+def h2_parity_table():
+    """compliant[p][q]: pair p at 0-indexed slot q satisfies/exempts the parity
+    rule. Orientation-free (line reversal preserves popcount) and slot-local —
+    the basis of the exact c(S) enumeration restriction."""
+    global _H2_COMPL
+    if _H2_COMPL is None:
+        ps, _ = _h2_pairs()
+        _H2_COMPL = [[False] * 32 for _ in range(32)]
+        for p, (a, b) in enumerate(ps):
+            pc = bin(a).count("1")
+            exempt = ((a ^ b) == 63) or pc == 3
+            for q in range(32):
+                _H2_COMPL[p][q] = exempt or ((1 if pc > 3 else 0) == ((q + 1) & 1))
+    return _H2_COMPL
+
+
+def h2_cscan(seq):
+    """c(S) = |B3(S) ∩ GS|. Exact: enumerates only slot sets covering S's
+    parity-violating slots (a strict ball member must repair every one; unchanged
+    slots keep their compliance), with candidate parity decided by table lookup
+    on the <=3 reassigned slots before any full check."""
+    from itertools import combinations
+    pr, orr = h2_to_slots(seq)
+    pv = h2_parity_slots(seq)
+    if len(pv) > 3:
+        return 0
+    compl = h2_parity_table()
+    tot = h2_kw_multiset()
+    cnt = 0
+    if not pv and h2_pop_valid(seq, tot) and h2_strict_ok(seq) \
+            and h2_comp_dist_x64(seq) <= 776:
+        cnt += 1                                    # d=0: S itself
+    free = [s for s in range(1, 32) if s not in pv]
+    for extra in range(0, 3 - len(pv) + 1):
+        n = len(pv) + extra
+        if n == 0:
+            continue
+        for add in combinations(free, extra):
+            ts = tuple(sorted(pv + list(add)))
+            for asg in h2_ball_assignments(pr, orr, ts):
+                if not all(compl[p][s] for (p, _o), s in zip(asg, ts)):
+                    continue                        # parity (exact, O(3))
+                cand = h2_build(pr, orr, ts, asg)
+                if not h2_pop_valid(cand, tot):
+                    continue
+                if not h2_strict_ok(cand):
+                    continue
+                if h2_comp_dist_x64(cand) > 776:
+                    continue
+                cnt += 1
+    return cnt
+
+
+def h2_eval_leaf(seq):
+    """Python twin of solve.c h2_eval_leaf: exact radius-3 ball scan around a GS
+    member. Returns dict(nvp, nvc, fp, fc, ncand)."""
+    from itertools import combinations
+    pr, orr = h2_to_slots(seq)
+    tot = h2_kw_multiset()
+    nvp = nvc = 0
+    fp = fc = 0.0
+    ncand = 0
+
+    def consider(cand):
+        nonlocal nvp, nvc, fp, fc, ncand
+        ncand += 1
+        if not h2_pop_valid(cand, tot):
+            return
+        c = h2_cscan(cand)
+        if c < 1:
+            raise AssertionError("h2: c(S)=0 for an in-ball member (impossible)")
+        nvp += 1
+        fp += 1.0 / c
+        if h2_comp_dist_x64(cand) <= 776:
+            nvc += 1
+            fc += 1.0 / c
+    consider(h2_build(pr, orr))
+    for n in (1, 2, 3):
+        for ts in combinations(range(1, 32), n):
+            for asg in h2_ball_assignments(pr, orr, ts):
+                consider(h2_build(pr, orr, ts, asg))
+    assert ncand == H2_BALL, f"ball size {ncand} != {H2_BALL}"
+    return {"nvp": nvp, "nvc": nvc, "fp": fp, "fc": fc, "ncand": ncand}
+
+
+def h2_parse_dump(path):
+    """Parse a SOLVE_KNUTH_H2_DUMP file -> list of leaf dicts."""
+    out = []
+    with open(path) as fh:
+        for ln in fh:
+            if not ln.startswith("H2LEAF "):
+                continue
+            d = {}
+            for tok in ln.split():
+                if tok == "H2LEAF":
+                    continue
+                k, v = tok.split("=", 1)
+                if k == "seq":
+                    d[k] = [int(x) for x in v.split(",")]
+                elif k in ("w", "fp", "fc"):
+                    d[k] = float(v)
+                else:
+                    d[k] = int(v)
+            out.append(d)
+    return out
+
+
+def h2_verify(dump_path, n_check=2, seed=20260726):
+    """Independent Python recomputation of n_check leaves from a dump (plus KW /
+    witness ground-truth gates). Exit-code style return: 0 pass, 1 fail."""
+    import random
+    fails = 0
+    # ground-truth gates (authors' own KW tallies; TR-2 witness facts)
+    kw = list(binary_hexagrams)
+    if r11_axes(kw)[:3] != [2, 2, 2] or h2_comp_dist_x64(kw) != 776 \
+            or not h2_pop_valid(kw):
+        print("h2-verify: KW ground truth FAIL")
+        return 1
+    G = H2_GRAND_WITNESS
+    if not (h2_pop_valid(G) and h2_strict_ok(G) and h2_comp_dist_x64(G) == 776):
+        print("h2-verify: grand witness ground truth FAIL")
+        return 1
+    d = sum(1 for q in range(32) if G[2*q:2*q+2] != kw[2*q:2*q+2])
+    if d != 3:
+        print(f"h2-verify: witness slot-distance {d} != 3 FAIL")
+        return 1
+    leaves = h2_parse_dump(dump_path)
+    print(f"h2-verify: {dump_path}: {len(leaves)} leaves; checking {n_check} "
+          f"(seed {seed}) + ground-truth gates OK")
+    rng = random.Random(seed)
+    for lf in rng.sample(leaves, min(n_check, len(leaves))):
+        seq = lf["seq"]
+        if not (h2_pop_valid(seq) and h2_strict_ok(seq)
+                and h2_comp_dist_x64(seq) == lf["c3"] and lf["c3"] <= 776):
+            print("h2-verify: leaf membership FAIL")
+            fails += 1
+            continue
+        r = h2_eval_leaf(seq)
+        ok = (r["nvp"] == lf["nvp"] and r["nvc"] == lf["nvc"]
+              and abs(r["fp"] - lf["fp"]) <= 1e-9 * max(1.0, lf["fp"])
+              and abs(r["fc"] - lf["fc"]) <= 1e-9 * max(1.0, lf["fc"]))
+        print(f"  leaf c3={lf['c3']}: C(nvp={lf['nvp']},nvc={lf['nvc']},"
+              f"fp={lf['fp']:.6f},fc={lf['fc']:.6f}) vs "
+              f"Py(nvp={r['nvp']},nvc={r['nvc']},fp={r['fp']:.6f},"
+              f"fc={r['fc']:.6f}) -> {'MATCH' if ok else 'MISMATCH'}")
+        if not ok:
+            fails += 1
+    print("H2 VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    return 1 if fails else 0
+
+
+def h2_mass(dump_paths, boot=20000, seed=20260726):
+    """Final H2 mass estimate from one dump per independent-seed run.
+    Self-normalized ratio E[f] = Σ W·f / Σ W pooled across runs; stratified
+    bootstrap (leaves resampled within runs) + per-run seed spread; N_gs
+    uncertainty folded in quadrature (lognormal). Prints m and bits."""
+    import math, random
+    runs = [h2_parse_dump(p) for p in dump_paths]
+    for p, r in zip(dump_paths, runs):
+        if not r:
+            print(f"h2-mass: {p}: no leaves — aborting")
+            return 1
+        bad = sum(1 for lf in r if lf.get("ck", 0) < 0)
+        if bad:
+            print(f"h2-mass: {p}: {bad} FAILED brute cross-checks — aborting")
+            return 1
+    allv = [lf for r in runs for lf in r]
+    sw = sum(lf["w"] for lf in allv)
+    sw2 = sum(lf["w"] ** 2 for lf in allv)
+    ess = sw * sw / sw2 if sw2 > 0 else 0.0
+    n = len(allv)
+
+    def ratios(rows):
+        w = sum(lf["w"] for lf in rows)
+        if w <= 0:
+            return None
+        return (sum(lf["w"] * lf["fp"] for lf in rows) / w,
+                sum(lf["w"] * lf["fc"] for lf in rows) / w,
+                sum(lf["w"] * lf["nvp"] for lf in rows) / w,
+                sum(lf["w"] * lf["nvc"] for lf in rows) / w)
+
+    rp, rc, rnp, rnc = ratios(allv)
+    print(f"h2-mass: {len(runs)} runs, {n} GS leaves, sum_w={sw:.4e}, ESS={ess:.1f}")
+    print(f"  per-run E[f_pop]: " + " ".join(f"{ratios(r)[0]:.4f}" for r in runs))
+    print(f"  pooled E[f_pop]={rp:.4f} E[f_can]={rc:.4f} "
+          f"E[nv_pop]={rnp:.1f} E[nv_can]={rnc:.1f}")
+    print(f"  corrections vs naive |B3|={H2_BALL}: validity x{H2_BALL/rnp:.2f} "
+          f"(pop), overlap x{rnp/rp:.2f} (pop); combined x{H2_BALL/rp:.2f}")
+    # stratified bootstrap over leaves within runs
+    rng = random.Random(seed)
+    bs_p, bs_c = [], []
+    for _ in range(boot):
+        rows = []
+        for r in runs:
+            rows += [r[rng.randrange(len(r))] for _ in range(len(r))]
+        rr = ratios(rows)
+        if rr:
+            bs_p.append(rr[0])
+            bs_c.append(rr[1])
+    bs_p.sort()
+    bs_c.sort()
+
+    def pct(a, q):
+        return a[min(len(a) - 1, max(0, int(q * len(a))))]
+
+    lo_p, hi_p = pct(bs_p, 0.025), pct(bs_p, 0.975)
+    lo_c, hi_c = pct(bs_c, 0.025), pct(bs_c, 0.975)
+    print(f"  bootstrap 95% CI E[f_pop]=[{lo_p:.4f},{hi_p:.4f}] "
+          f"E[f_can]=[{lo_c:.4f},{hi_c:.4f}] (B={boot}, stratified)")
+    # fold N_gs uncertainty (relative, approx lognormal) into the ratio CI
+    for name, ratio, lo, hi, npop, exact in (
+            ("POP=C1∩C2∩C4∩C5 (flagship, exact denominator)", rp, lo_p, hi_p,
+             float(H2_N_POP), True),
+            ("POP=C1–C5 canonical (C3<=776; denominator ±0.02%)", rc, lo_c, hi_c,
+             H2_N_CAN, False)):
+        m = H2_N_GS * ratio / npop
+        # combine (in log space, quadrature): bootstrap CI half-widths + N_gs CI
+        s_boot = (math.log(hi / lo) / 2 / 1.96) if lo > 0 else float("inf")
+        s_ngs = math.log(H2_N_GS_HI / H2_N_GS_LO) / 2 / 1.96
+        s_tot = math.sqrt(s_boot ** 2 + s_ngs ** 2)
+        m_lo, m_hi = m * math.exp(-1.96 * s_tot), m * math.exp(1.96 * s_tot)
+        naive = H2_N_GS * H2_BALL / npop
+        print(f"  [{name}]")
+        print(f"    m = {m:.4e}   95% CI [{m_lo:.4e}, {m_hi:.4e}]")
+        print(f"    bits = -log2(m) = {-math.log2(m):.2f}   "
+              f"CI [{-math.log2(m_hi):.2f}, {-math.log2(m_lo):.2f}]")
+        print(f"    (naive uncorrected N_gs·|B3|/N = {naive:.4e} = "
+              f"{-math.log2(naive):.2f} bits)")
+    print("  NOTE: magnitude only — H2 remains a private SEMI-FITTED hypothesis "
+          "(C3/C5-class, MDL-net-negative); no promotion, no spec change.")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Davis (2012) composite candidates (pre-registered 2026-07-04 in
 # documentation/CRITIQUE.md, "Davis (2012) structural claims"; operational
 # spec frozen in roae-private/books/davis/DAVIS_2012_STRUCTURAL_AUDIT.md §5:
@@ -10175,6 +10555,17 @@ def main():
                              "(g1..g6 T1 + g7,g8 T2) on KW (expected "
                              "2,2,2,0,0,0,0,0); with a 64-int SEQ print the 8 "
                              "values (ordering matches solve.c --r11-verify SEQ)")
+    parser.add_argument("--h2-verify", nargs="+", metavar="ARG",
+                        help="H2 (private hypothesis instrument): independently "
+                             "recompute N dumped GS leaves' exact radius-3 "
+                             "edit-ball tallies (nvp/nvc/fp/fc) against solve.c's "
+                             "SOLVE_KNUTH_H2 dump. Args: DUMPFILE [N=2]")
+    parser.add_argument("--h2-mass", nargs="+", metavar="DUMP",
+                        help="H2 (private hypothesis instrument): pooled "
+                             "near-precursor edit-ball mass m + bits from one "
+                             "SOLVE_KNUTH_H2 dump per independent-seed run "
+                             "(self-normalized ratio, stratified bootstrap, "
+                             "N_gs uncertainty folded; magnitude only)")
     parser.add_argument("--rc4b-verify", nargs="?", const="", default=None,
                         metavar="SEQ",
                         help="R13: verify the HEC two-convention parity "
@@ -10338,6 +10729,11 @@ def main():
 
     if args.r11_verify is not None:
         sys.exit(r11_verify(args.r11_verify if args.r11_verify else None))
+    if args.h2_verify:
+        n_chk = int(args.h2_verify[1]) if len(args.h2_verify) > 1 else 2
+        sys.exit(h2_verify(args.h2_verify[0], n_chk))
+    if args.h2_mass:
+        sys.exit(h2_mass(args.h2_mass))
 
     if args.rc4b_verify is not None:
         sys.exit(rc4b_verify(args.rc4b_verify if args.rc4b_verify else None))

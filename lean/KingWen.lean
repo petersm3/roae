@@ -2,12 +2,16 @@
 -- Developed with AI assistance (Claude, Anthropic)
 /-
   KingWen.lean — machine-checked core lemmas of the ROAE constraint system (2026-07-02).
-  Core Lean 4 only (no mathlib). All hexagram-level claims are finite and proved by
-  native_decide (exhaustive computation; trusts Lean's compiler + native code
-  generator in addition to the kernel — see lean/README.md's trust-base note);
-  the sequence-level theorems
+  Core Lean 4 only (no mathlib). KERNEL-ONLY since 2026-07-27: every finite claim in
+  this file — including the heavy Theorem A trio sigma_kw_valid_48 /
+  valid_iff_centralizes_rev / twins_24_records over all 720 bit permutations — is
+  proved by kernel `decide`/`decide +kernel` (zero native_decide; `#print axioms`
+  reports only standard axioms — ⊆ [propext, Classical.choice, Quot.sound] — on
+  every theorem, with the finite facts at [propext] alone: nothing in this file
+  trusts Lean's compiler or native code generator); the sequence-level theorems
   (wrap parity, alternation theorem) follow from these lemmas by the short pen-and-paper
-  telescoping arguments in SPECIFICATION.md / PARITY_ALTERNATION.md.
+  telescoping arguments in SPECIFICATION.md / PARITY_ALTERNATION.md — and the general
+  forms are proved structurally below (Tier 2).
 
   Verifies: Theorem 1 (within-pair distance even, nonzero), Theorem 2 (XOR universality),
   Theorem D lemmas (partner preserves popcount parity; 32/32 parity split; XOR parity
@@ -77,44 +81,44 @@ def validC15 (l : List Nat) : Bool := c1ok l && c4ok l && c5ok l && c3ok l
 /-- Theorem 1: within-pair Hamming distance is even and nonzero for all 64 hexagrams. -/
 theorem within_pair_even_nonzero :
     ((List.range 64).all fun h => ham h (partner h) % 2 == 0 && ham h (partner h) != 0) = true := by
-  native_decide
+  decide
 
 /-- Theorem 2 (XOR universality): every XOR product h ⊕ partner(h) lies in the 7-element
     set {12, 18, 30, 33, 45, 51, 63}, and each value is attained. -/
 theorem xor_universality :
     ((List.range 64).all fun h => [12,18,30,33,45,51,63].contains (h ^^^ partner h)) = true := by
-  native_decide
+  decide
 
 theorem xor_all_seven_attained :
     ([12,18,30,33,45,51,63].all fun v => (List.range 64).any fun h => h ^^^ partner h == v) = true := by
-  native_decide
+  decide
 
 /-- Theorem D, Lemma 1: the partner map preserves popcount parity. -/
 theorem partner_preserves_parity :
     ((List.range 64).all fun h => pc6 (partner h) % 2 == pc6 h % 2) = true := by
-  native_decide
+  decide
 
 /-- Theorem D, Lemma 2 (class split): exactly 32 hexagrams of each popcount parity,
     hence (with Lemma 1) 16 even-class and 16 odd-class pairs. -/
 theorem parity_split_32_32 :
     ((List.range 64).filter fun h => pc6 h % 2 == 0).length = 32 := by
-  native_decide
+  decide
 
 /-- XOR parity identity on 6-bit values (the engine of the wrap-parity theorem and of
     Theorem D, Lemma 3): popcount(a ⊕ b) ≡ popcount(a) + popcount(b) (mod 2). -/
 theorem xor_parity_identity :
     ((List.range 64).all fun a => (List.range 64).all fun b =>
       pc6 (a ^^^ b) % 2 == (pc6 a + pc6 b) % 2) = true := by
-  native_decide
+  decide
 
 /- ------------------ King Wen facts ------------------ -/
 
-theorem kw_valid : validC15 KW = true := by native_decide
+theorem kw_valid : validC15 KW = true := by decide +kernel
 
-theorem kw_c3_exactly_776 : c3x64 KW = 776 := by native_decide
+theorem kw_c3_exactly_776 : c3x64 KW = 776 := by decide +kernel
 
 /-- KW has no distance-5 transition (C2), restated separately for emphasis. -/
-theorem kw_no_five : ((transitions KW).filter (· == 5)).length = 0 := by native_decide
+theorem kw_no_five : ((transitions KW).filter (· == 5)).length = 0 := by decide
 
 /-- Theorem D at KW: exactly 15 parity-class alternations across the 32-pair sequence. -/
 def pairClasses (l : List Nat) : List Nat :=
@@ -122,7 +126,7 @@ def pairClasses (l : List Nat) : List Nat :=
 
 theorem kw_alternations_15 :
     (((pairClasses KW).zip (pairClasses KW).tail).filter fun p => p.1 != p.2).length = 15 := by
-  native_decide
+  decide
 
 /- ------------------ Theorem A, finite component ------------------ -/
 
@@ -144,13 +148,13 @@ def applyPerm (p : List Nat) (n : Nat) : Nat :=
     reversal (the centralizer of rev, ≅ B₃). -/
 theorem sigma_kw_valid_48 :
     ((perms [0,1,2,3,4,5]).filter fun p => validC15 (KW.map (applyPerm p))).length = 48 := by
-  native_decide
+  decide +kernel
 
 theorem valid_iff_centralizes_rev :
     ((perms [0,1,2,3,4,5]).all fun p =>
       (validC15 (KW.map (applyPerm p)) ==
        ((List.range 64).all fun h => applyPerm p (rev6 h) == rev6 (applyPerm p h)))) = true := by
-  native_decide
+  decide +kernel
 
 /-- The 48 valid images collapse to exactly 24 distinct pair-sequences (record-level
     group S₄): counted via canonical pair keys (unordered consecutive pairs). -/
@@ -161,11 +165,11 @@ def pairKey (l : List Nat) : List Nat :=
 theorem twins_24_records :
     (((perms [0,1,2,3,4,5]).filter fun p => validC15 (KW.map (applyPerm p))).map
       (fun p => pairKey (KW.map (applyPerm p)))).eraseDups.length = 24 := by
-  native_decide
+  decide +kernel
 
 
 /- ------------------ TIER 2 (2026-07-03): structured sequence-level theorems ------------------
-   Unlike the native_decide facts above (finite computations), these are structural proofs by
+   Unlike the finite decide facts above (exhaustive computations), these are structural proofs by
    induction over arbitrary bounded lists — the wrap-parity theorem is verified for EVERY C4+C5
    sequence, not just King Wen. -/
 
@@ -463,6 +467,233 @@ theorem switches_30_general (l : List Nat) (hb : ∀ x ∈ l, x < 64) (hlen : l.
     rw [hw, hbet]
     omega
   rw [hsplit, heven, hodd, h15]
+
+
+/- ------------------ MICRO-LEMMA BASKET (2026-07-27) ------------------
+   Four short corollaries previously carried as prose in the documentation
+   (CLAIMS_DECIDED / TR-8 prong 2, CIRCULAR_KING_WEN.md, the minimum-rule-set
+   note), now machine-checked on top of the Tier-2 machinery above. All
+   structural + kernel `decide`; no native_decide. -/
+
+/-- C2 as a standalone predicate: no distance-5 transition (matches
+    Automorphism.lean's c2ok; KingWen.lean did not previously define it
+    separately because C5 implies it — which is exactly the lemma below). -/
+def c2ok (l : List Nat) : Bool := ((transitions l).filter (· == 5)).length == 0
+
+/-- C5 ⇒ C2 (the definitional glue step of the minimum rule set
+    {C1, C3, C4, C5}): C5's difference-wave multiset {1:2, 2:20, 3:13, 4:19,
+    6:9} has no 5-class, so every C5 sequence satisfies C2. -/
+theorem c5_implies_c2 (l : List Nat) (h5 : c5ok l = true) : c2ok l = true := by
+  simp only [c5ok, Bool.and_eq_true, beq_iff_eq] at h5
+  simp [c2ok, h5.1.1.2]
+
+/-- GRAY-CODE IMPOSSIBILITY (TR-8 prong 2 / CLAIMS_DECIDED "REFUTED" row,
+    previously a 2-line prose parity argument): NO C1-paired ordering of the
+    64 hexagrams is a Gray code — some transition changes more than one line,
+    because every within-pair distance is even and nonzero (hence ≥ 2). A
+    circular Gray reading fails a fortiori: its linear part is already not
+    all-distance-1. (The refutation of the McKenna–Mair Gray-code replacement
+    program rests here; the very first pair already breaks it.) -/
+theorem gray_code_impossible (l : List Nat) (hb : ∀ x ∈ l, x < 64)
+    (hlen : l.length = 64) (h1 : c1ok l = true) :
+    ¬ ((transitions l).all (· == 1) = true) := by
+  intro hall
+  have hget : l.getD 0 0 < 64 := by
+    have h0 : (0 : Nat) < l.length := by omega
+    have : l.getD 0 0 = l[0] := by simp [List.getD, List.getElem?_eq_getElem h0]
+    rw [this]; exact hb _ (List.getElem_mem h0)
+  -- C1 at slot 0: position 1 holds the partner of position 0
+  simp only [c1ok, List.all_eq_true, beq_iff_eq] at h1
+  have hc1 : l.getD 1 0 = partner (l.getD 0 0) := by
+    have h0 : (0 : Nat) < l.length := by omega
+    have h1l : (1 : Nat) < l.length := by omega
+    have e1 : l.getD 1 99 = l.getD 1 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h1l]
+    have e2 : l.getD 0 99 = l.getD 0 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h0]
+    have h10 := h1 0 (List.mem_range.mpr (by omega))
+    have h10' : l.getD 1 99 = partner (l.getD 0 99) := h10
+    rw [e1, e2] at h10'; exact h10'
+  -- the flat-0 transition is a member of the transition list
+  have hmem : ftr l 0 ∈ transitions l := by
+    rw [transitions_eq_rangeMap, hlen]
+    exact List.mem_map.mpr ⟨0, List.mem_range.mpr (by omega), rfl⟩
+  have hone := List.all_eq_true.mp hall _ hmem
+  simp only [beq_iff_eq] at hone
+  -- but the flat-0 transition is within pair 0, hence even
+  have heven := within_even _ hget
+  simp only [ftr] at hone
+  rw [show (0 : Nat) + 1 = 1 from rfl, hc1] at hone
+  omega
+
+/- --- the circular-reading corollaries (CIRCULAR_KING_WEN.md, previously
+   prose corollary chains from the wrap-parity + 15-alternation theorems) --- -/
+
+/-- the wrap transition of the circular reading: d(s63, s0). -/
+def wrapDist (l : List Nat) : Nat := ham (l.getLastD 0) (l.headD 0)
+
+/-- the last element of a nonempty list is a member (getLastD form). -/
+theorem getLastD_mem (l : List Nat) (h : l ≠ []) : l.getLastD 0 ∈ l := by
+  induction l with
+  | nil => exact absurd rfl h
+  | cons a t ih =>
+    cases t with
+    | nil => simp
+    | cons b t2 =>
+      have hm := ih (by simp)
+      have he : (a :: b :: t2).getLastD 0 = (b :: t2).getLastD 0 := by simp
+      rw [he]
+      exact List.mem_cons_of_mem a hm
+
+/-- THE WRAP-CLASS COROLLARY: in every C4+C5 sequence the wrap distance is
+    odd — d(s63, s0) ∈ {1, 3, 5}. (Circular C2 — excluding the 5-wrap — is
+    therefore a genuine extra constraint; SAT witness wrap-d5 shows valid
+    orderings with a 5-line wrap exist.) -/
+theorem wrap_odd_135 (l : List Nat) (hb : ∀ x ∈ l, x < 64)
+    (h4 : c4ok l = true) (h5 : c5ok l = true) (hne : l ≠ []) :
+    wrapDist l = 1 ∨ wrapDist l = 3 ∨ wrapDist l = 5 := by
+  have hlastp := wrap_parity_general l hb h4 h5 hne
+  have hhead : l.headD 0 = 63 := by
+    simp only [c4ok, Bool.and_eq_true, beq_iff_eq] at h4
+    cases l with
+    | nil => exact absurd rfl hne
+    | cons a t => simpa using h4.1
+  have hlast64 : l.getLastD 0 < 64 := hb _ (getLastD_mem l hne)
+  have hpar := ham_parity_lt64 _ hlast64 63 (by omega)
+  have hle := ham_le6 _ hlast64 63 (by omega)
+  have h63 : pc6 63 = 6 := by decide
+  simp only [wrapDist, hhead]
+  omega
+
+/-- getLastD is the position-63 entry of a 64-element list. -/
+theorem getLastD_eq_getD63 (l : List Nat) (hlen : l.length = 64) :
+    l.getLastD 0 = l.getD 63 0 := by
+  have h63 : (63 : Nat) < l.length := by omega
+  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hlen]
+  simp [List.getD, List.getElem?_eq_getElem h63]
+
+/-- THE CIRCULAR 16-ALTERNATION COROLLARY: reading the 32 pair classes as a
+    CYCLE, every C1+C4+C5 sequence has exactly 16 parity-class alternations —
+    the 15 linear alternations (alternations_15_general) plus a FORCED wrap
+    alternation: slot 31's class is odd (wrap-parity theorem + partner
+    parity-preservation) while slot 0's class is even (pc6 63 = 6). -/
+theorem circular_alternations_16 (l : List Nat) (hb : ∀ x ∈ l, x < 64)
+    (hlen : l.length = 64) (h1 : c1ok l = true) (h4 : c4ok l = true)
+    (h5 : c5ok l = true) :
+    ((List.range 32).countP fun i =>
+      decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD ((2*i+2) % 64) 0) % 2)) = 16 := by
+  have hne : l ≠ [] := by
+    intro h; rw [h] at hlen; simp at hlen
+  have hget : ∀ j, j < 64 → l.getD j 0 < 64 := by
+    intro j hj
+    have hjl : j < l.length := by omega
+    have : l.getD j 0 = l[j] := by simp [List.getD, List.getElem?_eq_getElem hjl]
+    rw [this]; exact hb _ (List.getElem_mem hjl)
+  -- C1 at slot 31: position 63 holds the partner of position 62
+  simp only [c1ok, List.all_eq_true, beq_iff_eq] at h1
+  have hc1' : l.getD 63 0 = partner (l.getD 62 0) := by
+    have h62 : (62 : Nat) < l.length := by omega
+    have h63 : (63 : Nat) < l.length := by omega
+    have e1 : l.getD 63 99 = l.getD 63 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h63]
+    have e2 : l.getD 62 99 = l.getD 62 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h62]
+    have h31 := h1 31 (List.mem_range.mpr (by omega))
+    have h31' : l.getD 63 99 = partner (l.getD 62 99) := h31
+    rw [e1, e2] at h31'; exact h31'
+  -- re-pack c1ok for the linear theorem
+  have h1' : c1ok l = true := by
+    simp only [c1ok, List.all_eq_true, beq_iff_eq]
+    exact h1
+  -- slot 31's class is odd (wrap parity + partner parity)
+  have hlastp := wrap_parity_general l hb h4 h5 hne
+  rw [getLastD_eq_getD63 l hlen, hc1'] at hlastp
+  have hp62 : pc6 (l.getD 62 0) % 2 = 1 := by
+    have := partner_parity _ (hget 62 (by omega))
+    omega
+  -- slot 0's class is even (C4: the head is 63)
+  have hhead : l.getD 0 0 = 63 := by
+    simp only [c4ok, Bool.and_eq_true, beq_iff_eq] at h4
+    have h0 : (0 : Nat) < l.length := by omega
+    have e2 : l.getD 0 99 = l.getD 0 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h0]
+    rw [← e2]; exact h4.1
+  -- split the cyclic count: 31 linear terms + the wrap term
+  have hsplit : List.range 32 = List.range 31 ++ [31] := by decide
+  rw [hsplit, List.countP_append]
+  -- linear part: the mod-64 is inert for i < 31, then apply the linear theorem
+  have hlin : ((List.range 31).countP fun i =>
+      decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD ((2*i+2) % 64) 0) % 2)) =
+      ((List.range 31).countP fun i =>
+        decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD (2*i+2) 0) % 2)) := by
+    apply List.countP_congr
+    intro i hi
+    have hi31 := List.mem_range.mp hi
+    have hmod : (2*i+2) % 64 = 2*i+2 := Nat.mod_eq_of_lt (by omega)
+    rw [hmod]
+  rw [hlin, alternations_15_general l hb hlen h1' h5]
+  -- wrap term: (2·31+2) % 64 = 0, and classes 1 ≠ 0 force the alternation
+  have hwrap : ([31].countP fun i =>
+      decide (pc6 (l.getD (2*i) 0) % 2 ≠ pc6 (l.getD ((2*i+2) % 64) 0) % 2)) = 1 := by
+    have hp62' : pc6 (l[62]?.getD 0) % 2 = 1 := hp62
+    have hhead' : l[0]?.getD 0 = (63 : Nat) := hhead
+    have h63 : pc6 63 % 2 = 0 := by decide
+    simp [List.countP_nil, hp62', hhead', h63]
+  rw [hwrap]
+
+/-- parity partition: even-count + odd-count = length (Nat lists). -/
+theorem parity_filter_split (l : List Nat) :
+    (l.filter (· % 2 == 1)).length + (l.filter (· % 2 == 0)).length = l.length := by
+  induction l with
+  | nil => rfl
+  | cons h t ih =>
+    simp only [List.filter_cons]
+    by_cases hh : h % 2 = 1
+    · simp only [hh]; simp; omega
+    · have h0 : h % 2 = 0 := by omega
+      simp only [h0]; simp; omega
+
+/-- McKENNA'S 3:1 RATIO, FORCED: the 64 circular transition distances (the
+    63 linear transitions plus the wrap) of every C4+C5 sequence of the 64
+    hexagrams split exactly 16 odd : 48 even — the observed 3:1 even:odd
+    ratio of the circular reading is a theorem of C4+C5, not a free design
+    feature. (15 odd linear transitions forced by C5's multiset, plus the
+    forced odd wrap.) -/
+theorem circular_ratio_3_to_1 (l : List Nat) (hb : ∀ x ∈ l, x < 64)
+    (hlen : l.length = 64) (h4 : c4ok l = true) (h5 : c5ok l = true) :
+    ((wrapDist l :: transitions l).filter (· % 2 == 1)).length = 16 ∧
+    ((wrapDist l :: transitions l).filter (· % 2 == 0)).length = 48 := by
+  have hne : l ≠ [] := by
+    intro h; rw [h] at hlen; simp at hlen
+  -- odd linear transitions: 2 + 13 + 0 = 15, from C5's multiset
+  have hbnd : ∀ x ∈ transitions l, x ≤ 6 := by
+    intro x hx
+    simp only [transitions, List.mem_map] at hx
+    obtain ⟨⟨a, b⟩, hmem, hxab⟩ := hx
+    have hab := List.of_mem_zip hmem
+    exact hxab ▸ ham_le6 a (hb a hab.1) b (hb b (List.mem_of_mem_tail hab.2))
+  simp only [c5ok, Bool.and_eq_true, beq_iff_eq] at h5
+  have hodd15 : ((transitions l).filter (· % 2 == 1)).length = 15 := by
+    rw [odd_count_partition _ hbnd, h5.1.1.1.1.1.1, h5.1.1.1.1.2, h5.1.1.2]
+  -- re-pack c5ok for the wrap lemma
+  have h5' : c5ok l = true := by
+    simp only [c5ok, Bool.and_eq_true, beq_iff_eq]
+    exact h5
+  have hwrapodd : wrapDist l % 2 = 1 := by
+    rcases wrap_odd_135 l hb h4 h5' hne with h | h | h <;> rw [h]
+  -- transition-list length: 63
+  have htlen : (transitions l).length = 63 := by
+    simp [transitions, hlen]
+  constructor
+  · simp only [List.filter_cons, hwrapodd]
+    simp [hodd15]
+  · have hsplit := parity_filter_split (wrapDist l :: transitions l)
+    have hclen : (wrapDist l :: transitions l).length = 64 := by
+      simp [htlen]
+    have hcodd : ((wrapDist l :: transitions l).filter (· % 2 == 1)).length = 16 := by
+      simp only [List.filter_cons, hwrapodd]
+      simp [hodd15]
+    omega
 
 
 /- ------------------ THE EQUIVARIANCE CEILING (2026-07-26) ------------------
@@ -831,13 +1062,13 @@ theorem kw_all_lt64 : ∀ x ∈ KW, x < 64 := by decide
 
 theorem kw_length_64 : KW.length = 64 := by decide
 
-/-- kernel-decide re-statements of kw_valid / kw_c3_exactly_776 (proved by
-    native_decide above, kept for continuity): re-proved here with kernel
-    `decide` so the orientation corollary below carries a kernel-only trust
-    base end to end (measured: [propext, Quot.sound], no native_decide). -/
-theorem kw_valid_kernel : validC15 KW = true := by decide +kernel
+/-- kernel-decide re-statements of kw_valid / kw_c3_exactly_776, kept for name
+    continuity (they predate the 2026-07-27 migration; the originals above are
+    themselves kernel `decide` now, so these are plain aliases of the same
+    kernel-only facts — [propext, Quot.sound], no native_decide). -/
+theorem kw_valid_kernel : validC15 KW = true := kw_valid
 
-theorem kw_c3_776_kernel : c3x64 KW = 776 := by decide +kernel
+theorem kw_c3_776_kernel : c3x64 KW = 776 := kw_c3_exactly_776
 
 /-- ORIENTATION IS NOT FORCED (the corrected statement): comp∘KW opens
     (0, 63) — the REVERSED orientation of the {0, 63} pair — and satisfies

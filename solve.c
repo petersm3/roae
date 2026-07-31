@@ -4917,6 +4917,19 @@ typedef struct {
                                            * histogram, index depth*65 + live_children (0..64). Heap-
                                            * allocated only when active. R5 §8 Stage B1. */
     double *depth_visit;                  /* [33] unweighted probe-visit count per depth (diagnostic). */
+    double h2_sum_w;                      /* SOLVE_KNUTH_H2=1 (H2 near-precursor edit-ball mass; requires
+                                           * the triple-strict walk): Σ W over grand-strict (GS) leaves —
+                                           * the same mass as sum_c3 under the strict prunes. */
+    double h2_sum_wf_p, h2_sum_wf_c;      /* Σ W·f(G) where f(G) = Σ_{S∈B3(G)∩V} 1/c(S) with the
+                                           * overlap-dedup weight c(S) = |B3(S)∩GS|; _p uses
+                                           * V = C1∩C2∩C4∩C5 (flagship population), _c additionally
+                                           * requires C3 ≤ 776 (canonical C1–C5 population). */
+    double h2_sum_wnv_p, h2_sum_wnv_c;    /* Σ W·|B3(G)∩V| WITHOUT the 1/c dedup (naive union-bound
+                                           * numerator) — the overlap-correction diagnostic. */
+    uint64_t h2_leaves;                   /* GS leaves evaluated. */
+    uint64_t h2_ck_ok, h2_ck_bad;         /* pruned-vs-brute c(S) cross-check tallies (deterministic
+                                           * 1/64 leaf subsample; bad MUST be 0) + per-leaf strictness/
+                                           * validity two-implementation asserts folded into bad. */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
@@ -6707,6 +6720,351 @@ static void r11_hash_add(KnuthArg *a, uint32_t key, double W){
     }
 }
 
+/* ===================== H2 near-precursor edit-ball mass (SOLVE_KNUTH_H2) =====================
+ * Measures the H2 ("near-precursor law") edit-ball mass: the fraction of the flagship
+ * population within slot-edit distance 3 of the grand-strict subspace GS (Moore 2005 parity
+ * strict ∧ Moore 1989 rhythm strict ∧ Schulz 1990 graded/gender strict, within canonical
+ * C1–C5; TR-2, N_gs = 4.50e25). Runs only under the composed triple-strict Knuth walk
+ * (SOLVE_KNUTH_MOORE_STRICT=1 + SOLVE_KNUTH_GENDER_STRICT=1): at every canonical strict
+ * leaf G ∈ GS, exactly enumerates the closed radius-3 slot-edit ball B3(G) (the sat.py
+ * near-k metric: # pair-slots whose (pair, orientation) differs; slot 0 fixed; |B3| =
+ * 1 + 31 + C(31,2)·5 + C(31,3)·29 = 132,712) and accumulates
+ *     f(G) = Σ_{S ∈ B3(G) ∩ V} 1 / c(S),   c(S) = |B3(S) ∩ GS| ≥ 1,
+ * so that Σ_{G∈GS} f(G) = |{S ∈ V : d_edit(S, GS) ≤ 3}| EXACTLY (each qualifying S is
+ * counted once: the 1/c(S) weights partition it across the GS members that cover it).
+ * Two population variants per leaf: V_p = C1∩C2∩C4∩C5 (flagship) and V_c = + C3 ≤ 776
+ * (canonical). The Knuth weight W makes Σ W·f / n_probes unbiased for Σ_G f(G); the
+ * self-normalized ratio (Σ W·f)/(Σ W) estimates E_{G~unif(GS)}[f], to be multiplied by the
+ * independently measured N_gs downstream (solve.py --h2-mass).
+ * c(S) prune (exact, not heuristic): Moore-parity compliance of a pair-slot depends only on
+ * (pair, slot) — orientation-free (line-reversal preserves popcount) and slot-local — so a
+ * strict member of B3(S) must change EVERY parity-violating slot of S; slot sets are
+ * restricted to supersets of that violation set (≤ 3, else c(S)=0 — impossible for
+ * S ∈ B3(G)). A deterministic 1/64 leaf subsample re-runs every c(S) un-pruned and any
+ * disagreement is counted in h2_ck_bad (must end 0).
+ * Estimator-only, sha-neutral (argv/env-gated; never on the enumeration path).
+ * ATTRIBUTION: rules Moore 2005 (Oracle Papers No.1), Moore 1989 (Trigrams of Han App.2),
+ * Schulz 1990 (JCP 17:3; exceptions noted by Zhu Yuansheng, 13th c.); estimator Knuth 1975;
+ * ball metric = sat.py near-k (TR-2). Measurement design + implementation developed with AI
+ * assistance (Claude — Fable 5, Anthropic). Private-hypothesis instrument: MAGNITUDE ONLY,
+ * no spec/constraint implication (see roae-private H2 doc). */
+static int knuth_h2 = 0;                 /* SOLVE_KNUTH_H2=1 */
+static FILE *knuth_h2_fp = NULL;         /* SOLVE_KNUTH_H2_DUMP=<path>: per-GS-leaf audit dump */
+static pthread_mutex_t knuth_h2_mu = PTHREAD_MUTEX_INITIALIZER;
+
+/* Grand-strict witness (SAT, 2026-07-03; TR-2 §3 / LITERATURE_RULES_POPULATION_TESTS.md
+ * §SAT-decided; same constant as reports/evidence/f11/f11_events.py) — selftest anchor. */
+static const int h2_grand_witness[64] = {
+    63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,
+    18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,
+    13,44,54,27,50,19,51,12,21,42};
+
+static inline int h2_rev6(int h){
+    int r = 0;
+    for (int b = 0; b < 6; b++) r |= ((h >> b) & 1) << (5 - b);
+    return r;
+}
+
+/* C1/C4 are structural under slot edits; V-membership needs the C5 transition multiset
+ * (== kw_dist, which also enforces C2 since kw_dist[5] == 0). */
+static int h2_pop_valid(const int s[64]){
+    int cnt[7] = {0};
+    for (int i = 0; i < 63; i++){
+        int d = hamming(s[i], s[i+1]);
+        if (d == 5) return 0;
+        cnt[d]++;
+    }
+    for (int d = 0; d < 7; d++) if (cnt[d] != kw_dist[d]) return 0;
+    return 1;
+}
+
+/* Moore 2005 parity violations (semantics identical to the R-M1 leaf scorer / strict-walk
+ * prune: comp-pairs and popcount-3 pairs exempt); optionally records up to 4 violating
+ * pair-slots. KW = 2 (pair-slots 21,22 0-indexed = 22,23 1-indexed). */
+static int h2_parity_viol(const int s[64], int *slots){
+    int v = 0;
+    for (int q = 0; q < 32; q++){
+        int h = s[2*q], h2 = s[2*q+1];
+        if ((h ^ h2) == 63) continue;
+        int pc = __builtin_popcount((unsigned)h);
+        if (pc == 3) continue;
+        if ((pc > 3) != ((q + 1) & 1)){ if (slots && v < 4) slots[v] = q; v++; }
+    }
+    return v;
+}
+
+/* Moore 1989 rhythm breaks (identical to the R-M2 leaf scorer). KW = 2. */
+static int h2_rhythm_breaks(const int s[64]){
+    int prev = 0, have = 0, prev_adj = 0, br = 0;
+    for (int q = 0; q < 32; q++){
+        int h = s[2*q], h2 = s[2*q+1];
+        if ((h ^ h2) == 63){ prev_adj = 0; continue; }
+        int pc = __builtin_popcount((unsigned)h);
+        if (pc == 3){ prev_adj = 0; continue; }
+        int mb = (pc > 3) ? 0 : 1, sc = 0;
+        for (int i = 0; i < 6; i++) if (((h >> i) & 1) == mb) sc += 5 - 2*i;
+        int rf = sc > 0;
+        if (have && prev_adj && rf == prev) br++;
+        prev = rf; have = 1; prev_adj = 1;
+    }
+    return br;
+}
+
+/* Schulz 1990 gender/position-parity violations over first-occurrence inversion classes
+ * (identical to the rc4 leaf scorer; popcount {0,3,6} exempt). KW = 2 (class pos 25,26). */
+static int h2_gender_viol(const int s[64]){
+    int cls_of[64], ncls = 0, viol = 0;
+    for (int z = 0; z < 64; z++) cls_of[z] = -1;
+    for (int z = 0; z < 64; z++){
+        int h = s[z], r = h2_rev6(h);
+        int key = h < r ? h : r;
+        if (cls_of[key] < 0){
+            cls_of[key] = ++ncls;
+            int pc = __builtin_popcount((unsigned)h);
+            if (pc != 0 && pc != 3 && pc != 6 && ((pc < 3) != ((ncls & 1) == 1))) viol++;
+        }
+    }
+    return viol;
+}
+
+static int h2_strict_ok(const int s[64]){
+    return h2_parity_viol(s, NULL) == 0 && h2_rhythm_breaks(s) == 0 && h2_gender_viol(s) == 0;
+}
+
+static inline void h2_set_slot(int s[64], int slot, int p, int o){
+    s[2*slot]   = o ? pairs[p].b : pairs[p].a;
+    s[2*slot+1] = o ? pairs[p].a : pairs[p].b;
+}
+
+typedef void (*h2_cand_fn)(const int cand[64], void *ud);
+
+/* Emit every arrangement of the sorted slot set ts[0..n-1] (n in 1..3) in which ALL listed
+ * slots differ from the base: n=1 → 1 (orientation flip); n=2 → 5 (both-flip + pair-swap ×4
+ * orientations); n=3 → 29 (all-flip 1, transposition+fixed-flip 3×4, two 3-cycles ×8). */
+static void h2_emit_patterns(const int base[64], const int pr[32], const int orr[32],
+                             const int *ts, int n, h2_cand_fn fn, void *ud){
+    int cand[64];
+    if (n == 1){
+        memcpy(cand, base, sizeof(cand));
+        h2_set_slot(cand, ts[0], pr[ts[0]], !orr[ts[0]]);
+        fn(cand, ud);
+    } else if (n == 2){
+        int a = ts[0], b = ts[1];
+        memcpy(cand, base, sizeof(cand));
+        h2_set_slot(cand, a, pr[a], !orr[a]);
+        h2_set_slot(cand, b, pr[b], !orr[b]);
+        fn(cand, ud);
+        for (int o0 = 0; o0 < 2; o0++) for (int o1 = 0; o1 < 2; o1++){
+            memcpy(cand, base, sizeof(cand));
+            h2_set_slot(cand, a, pr[b], o0);
+            h2_set_slot(cand, b, pr[a], o1);
+            fn(cand, ud);
+        }
+    } else {
+        int a = ts[0], b = ts[1], c = ts[2];
+        memcpy(cand, base, sizeof(cand));
+        h2_set_slot(cand, a, pr[a], !orr[a]);
+        h2_set_slot(cand, b, pr[b], !orr[b]);
+        h2_set_slot(cand, c, pr[c], !orr[c]);
+        fn(cand, ud);
+        static const int T[3][3] = {{0,1,2},{0,2,1},{1,2,0}};   /* (swap i,j; fix k) */
+        for (int t = 0; t < 3; t++){
+            int i = ts[T[t][0]], j = ts[T[t][1]], k = ts[T[t][2]];
+            for (int o0 = 0; o0 < 2; o0++) for (int o1 = 0; o1 < 2; o1++){
+                memcpy(cand, base, sizeof(cand));
+                h2_set_slot(cand, i, pr[j], o0);
+                h2_set_slot(cand, j, pr[i], o1);
+                h2_set_slot(cand, k, pr[k], !orr[k]);
+                fn(cand, ud);
+            }
+        }
+        for (int dir = 0; dir < 2; dir++) for (int om = 0; om < 8; om++){
+            memcpy(cand, base, sizeof(cand));
+            if (dir == 0){          /* a←b, b←c, c←a */
+                h2_set_slot(cand, a, pr[b], om & 1);
+                h2_set_slot(cand, b, pr[c], (om >> 1) & 1);
+                h2_set_slot(cand, c, pr[a], (om >> 2) & 1);
+            } else {                /* a←c, b←a, c←b */
+                h2_set_slot(cand, a, pr[c], om & 1);
+                h2_set_slot(cand, b, pr[a], (om >> 1) & 1);
+                h2_set_slot(cand, c, pr[b], (om >> 2) & 1);
+            }
+            fn(cand, ud);
+        }
+    }
+}
+
+static void h2_sort_slots(int *ts, int n){
+    for (int i = 1; i < n; i++){
+        int v = ts[i], j = i;
+        while (j > 0 && ts[j-1] > v){ ts[j] = ts[j-1]; j--; }
+        ts[j] = v;
+    }
+}
+
+/* Enumerate the closed radius-3 slot-edit ball around base, restricted to slot-change sets
+ * T ⊇ req (free slots 1..31; slot 0 is fixed by canonical form). The d=0 base itself is
+ * emitted iff nreq == 0. Total candidates at nreq=0: 1 + 31 + 2,325 + 130,355 = 132,712. */
+static void h2_ball_enum(const int base[64], const int pr[32], const int orr[32],
+                         const int *req, int nreq, h2_cand_fn fn, void *ud){
+    int fr[31], nf = 0, ts[3];
+    for (int s = 1; s < 32; s++){
+        int inr = 0;
+        for (int i = 0; i < nreq; i++) if (req[i] == s) inr = 1;
+        if (!inr) fr[nf++] = s;
+    }
+    if (nreq == 0) fn(base, ud);
+    for (int n = (nreq > 1 ? nreq : 1); n <= 3; n++){
+        int extra = n - nreq;
+        if (extra < 0) continue;
+        if (extra == 0){
+            memcpy(ts, req, (size_t)n * sizeof(int));
+            h2_sort_slots(ts, n);
+            h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
+        } else if (extra == 1){
+            for (int i = 0; i < nf; i++){
+                memcpy(ts, req, (size_t)nreq * sizeof(int));
+                ts[nreq] = fr[i];
+                h2_sort_slots(ts, n);
+                h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
+            }
+        } else if (extra == 2){
+            for (int i = 0; i < nf; i++) for (int j = i+1; j < nf; j++){
+                memcpy(ts, req, (size_t)nreq * sizeof(int));
+                ts[nreq] = fr[i]; ts[nreq+1] = fr[j];
+                h2_sort_slots(ts, n);
+                h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
+            }
+        } else {  /* extra == 3 (nreq == 0) */
+            for (int i = 0; i < nf; i++) for (int j = i+1; j < nf; j++) for (int k = j+1; k < nf; k++){
+                ts[0] = fr[i]; ts[1] = fr[j]; ts[2] = fr[k];
+                h2_emit_patterns(base, pr, orr, ts, 3, fn, ud);
+            }
+        }
+    }
+}
+
+static void h2_pr_orr_of(const int s[64], int pr[32], int orr[32]){
+    for (int q = 0; q < 32; q++){
+        int p = pair_index_of(s[2*q], s[2*q+1]);
+        pr[q] = p;
+        orr[q] = (pairs[p].a == s[2*q]) ? 0 : 1;
+    }
+}
+
+typedef struct { int cnt; } H2C;
+static void h2_cscan_cb(const int cand[64], void *ud){
+    H2C *c = (H2C*)ud;
+    if (h2_parity_viol(cand, NULL)) return;      /* cheapest + most selective first */
+    if (!h2_pop_valid(cand)) return;
+    if (h2_rhythm_breaks(cand)) return;
+    if (h2_gender_viol(cand)) return;
+    if (compute_comp_dist_x64(cand) > kw_comp_dist_x64) return;
+    c->cnt++;
+}
+
+/* c(S) = |B3(S) ∩ GS|. use_prune=1 applies the exact parity-slot superset restriction;
+ * use_prune=0 scans the whole ball (cross-check path). */
+static int h2_cscan(const int s[64], int use_prune){
+    int pr[32], orr[32], pv[4];
+    h2_pr_orr_of(s, pr, orr);
+    int npv = h2_parity_viol(s, pv);
+    if (npv > 3) return 0;
+    H2C c = {0};
+    if (use_prune) h2_ball_enum(s, pr, orr, pv, npv, h2_cscan_cb, &c);
+    else           h2_ball_enum(s, pr, orr, NULL, 0, h2_cscan_cb, &c);
+    return c.cnt;
+}
+
+typedef struct {
+    int do_brute;
+    int nv_p, nv_c;
+    double f_p, f_c;
+    uint64_t err, brute_bad;
+    uint64_t n_cand;                     /* geometry check: must equal 132,712 per full scan */
+} H2F;
+
+static void h2_fscan_cb(const int cand[64], void *ud){
+    H2F *f = (H2F*)ud;
+    f->n_cand++;
+    if (!h2_pop_valid(cand)) return;
+    int cc = h2_cscan(cand, 1);
+    if (f->do_brute && h2_cscan(cand, 0) != cc) f->brute_bad++;
+    if (cc < 1){ f->err++; return; }     /* impossible: the seeding GS member covers cand */
+    f->nv_p++; f->f_p += 1.0 / (double)cc;
+    if (compute_comp_dist_x64(cand) <= kw_comp_dist_x64){ f->nv_c++; f->f_c += 1.0 / (double)cc; }
+}
+
+static void h2_eval_leaf(const int seq[64], double W, KnuthArg *a){
+    a->h2_leaves++;
+    /* two-implementation cross-check of the strict prunes + walk validity (cf. f11_gs_mismatch) */
+    if (!h2_strict_ok(seq) || !h2_pop_valid(seq) ||
+        compute_comp_dist_x64(seq) > kw_comp_dist_x64){ a->h2_ck_bad++; return; }
+    int pr[32], orr[32];
+    h2_pr_orr_of(seq, pr, orr);
+    H2F f; memset(&f, 0, sizeof(f));
+    f.do_brute = ((a->h2_leaves - 1) % 64 == 0);
+    h2_ball_enum(seq, pr, orr, NULL, 0, h2_fscan_cb, &f);
+    if (f.err || f.brute_bad || f.n_cand != 132712) a->h2_ck_bad++;
+    else if (f.do_brute) a->h2_ck_ok++;
+    a->h2_sum_w    += W;
+    a->h2_sum_wf_p += W * f.f_p;           a->h2_sum_wf_c += W * f.f_c;
+    a->h2_sum_wnv_p += W * (double)f.nv_p; a->h2_sum_wnv_c += W * (double)f.nv_c;
+    if (knuth_h2_fp){
+        pthread_mutex_lock(&knuth_h2_mu);
+        fprintf(knuth_h2_fp, "H2LEAF w=%.17e c3=%d nvp=%d nvc=%d fp=%.17e fc=%.17e ck=%d seq=",
+                W, compute_comp_dist_x64(seq), f.nv_p, f.nv_c, f.f_p, f.f_c,
+                f.do_brute ? (f.brute_bad ? -1 : 1) : 0);
+        for (int i = 0; i < 64; i++) fprintf(knuth_h2_fp, "%d%c", seq[i], i < 63 ? ',' : '\n');
+        fflush(knuth_h2_fp);
+        pthread_mutex_unlock(&knuth_h2_mu);
+    }
+}
+
+static void h2_count_cb(const int cand[64], void *ud){ (void)cand; (*(uint64_t*)ud)++; }
+
+/* Fail-loud selftest, run before any probe when SOLVE_KNUTH_H2=1: KW (2,2,2) ground truths
+ * (the authors' own published tallies — same gates as --r11-verify / f11_events.py), the
+ * grand-strict witness's strictness + C3 = 776 + slot-distance-3 from KW (TR-2 SAT results),
+ * ball cardinality 132,712, pruned == brute c(S) on the witness, and the f11_events.py
+ * exact-enumeration lower bounds (its footprint-≤3 bamboo events are a subset of the metric
+ * ball: ≥ 530 valid-canonical members, c(witness) ≥ 37 GS members, both incl. the base). */
+static void h2_selftest(void){
+    int pv[4];
+    if (h2_parity_viol(KW, pv) != 2 || pv[0] != 21 || pv[1] != 22 ||
+        h2_rhythm_breaks(KW) != 2 || h2_gender_viol(KW) != 2 ||
+        !h2_pop_valid(KW) || compute_comp_dist_x64(KW) != 776){
+        fprintf(stderr, "[h2] SELFTEST FAIL: KW ground truths\n"); exit(1);
+    }
+    const int *G = h2_grand_witness;
+    if (!h2_pop_valid(G) || !h2_strict_ok(G) || compute_comp_dist_x64(G) != 776){
+        fprintf(stderr, "[h2] SELFTEST FAIL: grand-strict witness ground truths\n"); exit(1);
+    }
+    int d = 0;
+    for (int q = 0; q < 32; q++)
+        if (G[2*q] != KW[2*q] || G[2*q+1] != KW[2*q+1]) d++;
+    if (d != 3){ fprintf(stderr, "[h2] SELFTEST FAIL: witness slot-distance %d != 3\n", d); exit(1); }
+    int pr[32], orr[32];
+    h2_pr_orr_of(G, pr, orr);
+    uint64_t nc = 0;
+    h2_ball_enum(G, pr, orr, NULL, 0, h2_count_cb, &nc);
+    if (nc != 132712){ fprintf(stderr, "[h2] SELFTEST FAIL: |B3| = %llu != 132712\n",
+                               (unsigned long long)nc); exit(1); }
+    int cw = h2_cscan(G, 1), cwb = h2_cscan(G, 0);
+    if (cw != cwb || cw < 37){
+        fprintf(stderr, "[h2] SELFTEST FAIL: c(witness) pruned=%d brute=%d (expect equal, >=37)\n",
+                cw, cwb); exit(1);
+    }
+    H2F f; memset(&f, 0, sizeof(f));
+    h2_ball_enum(G, pr, orr, NULL, 0, h2_fscan_cb, &f);
+    if (f.err || f.n_cand != 132712 || f.nv_c < 530 || f.nv_p < f.nv_c){
+        fprintf(stderr, "[h2] SELFTEST FAIL: witness ball scan (err=%llu nvp=%d nvc=%d)\n",
+                (unsigned long long)f.err, f.nv_p, f.nv_c); exit(1);
+    }
+    fprintf(stderr, "[h2] selftest OK: |B3|=132712; witness c=%d nvp=%d nvc=%d fp=%.6f fc=%.6f\n",
+            cw, f.nv_p, f.nv_c, f.f_p, f.f_c);
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -6741,6 +7099,9 @@ static void *knuth_worker(void *vp){
                 leaf = W;
                 if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {
                     c3 = W;
+                    if (knuth_h2) h2_eval_leaf(seq, W, a);   /* H2 edit-ball mass: GS leaf under
+                                                              * the triple-strict walk (gated at
+                                                              * argv parse; estimator-only) */
                     if (knuth_score) {
                         int m1pass = 0, m1ok = -1, m2breaks = -1, f1 = 0, f2 = 0, f5 = 0;
                         long c3val = compute_comp_dist_x64(seq);
@@ -7660,6 +8021,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         for (int i = 0; i < nthreads; i++) mm += arg[i].f11_gs_mismatch;
         printf("  [f11] gender-strict leaf cross-check mismatches (must be 0): %llu\n",
                (unsigned long long)mm);
+    }
+    if (knuth_h2) {
+        double h2w = 0, h2fp = 0, h2fc = 0, h2np = 0, h2nc = 0;
+        uint64_t h2n = 0, h2ok = 0, h2bad = 0;
+        for (int i = 0; i < nthreads; i++){
+            h2w += arg[i].h2_sum_w;
+            h2fp += arg[i].h2_sum_wf_p;  h2fc += arg[i].h2_sum_wf_c;
+            h2np += arg[i].h2_sum_wnv_p; h2nc += arg[i].h2_sum_wnv_c;
+            h2n += arg[i].h2_leaves; h2ok += arg[i].h2_ck_ok; h2bad += arg[i].h2_ck_bad;
+        }
+        printf("  [h2] GS leaves evaluated=%llu  brute-ck ok=%llu BAD=%llu (must be 0)\n",
+               (unsigned long long)h2n, (unsigned long long)h2ok, (unsigned long long)h2bad);
+        printf("  [h2] sum_w=%.10e sum_wf_pop=%.10e sum_wf_can=%.10e sum_wnv_pop=%.10e sum_wnv_can=%.10e\n",
+               h2w, h2fp, h2fc, h2np, h2nc);
+        if (h2w > 0)
+            printf("  [h2] Ehat[f_pop]=%.10e Ehat[f_can]=%.10e Ehat[nv_pop]=%.10e Ehat[nv_can]=%.10e "
+                   "(self-normalized over GS mass; downstream: solve.py --h2-mass)\n",
+                   h2fp/h2w, h2fc/h2w, h2np/h2w, h2nc/h2w);
+        if (knuth_h2_fp){ fclose(knuth_h2_fp); knuth_h2_fp = NULL; }
     }
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
@@ -17233,6 +17613,23 @@ int main(int argc, char *argv[]) {
         if (getenv("SOLVE_KNUTH_SCORE") && atoi(getenv("SOLVE_KNUTH_SCORE")) == 1) {
             knuth_score = 1;
             fprintf(stderr, "[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)\n");
+        }
+        if (getenv("SOLVE_KNUTH_H2") && atoi(getenv("SOLVE_KNUTH_H2")) == 1) {
+            if (!knuth_moore_strict || !knuth_gender_strict) {
+                fprintf(stderr, "[knuth] SOLVE_KNUTH_H2=1 requires SOLVE_KNUTH_MOORE_STRICT=1 and "
+                                "SOLVE_KNUTH_GENDER_STRICT=1 (the triple-strict walk IS the GS sampler)\n");
+                return 1;
+            }
+            knuth_h2 = 1;
+            const char *dp = getenv("SOLVE_KNUTH_H2_DUMP");
+            if (dp) {
+                knuth_h2_fp = fopen(dp, "w");
+                if (!knuth_h2_fp) { perror("SOLVE_KNUTH_H2_DUMP fopen"); return 1; }
+            }
+            h2_selftest();
+            fprintf(stderr, "[knuth] H2 edit-ball scoring ACTIVE (near-precursor mass: exact radius-3 "
+                            "slot-edit ball + 1/c(S) overlap dedup + in-ball validity, per GS leaf; "
+                            "dump=%s; estimator-only, sha-neutral)\n", dp ? dp : "(none)");
         }
         if (getenv("SOLVE_RC4B_ASSERT_T1") && atoi(getenv("SOLVE_RC4B_ASSERT_T1")) == 1) {
             knuth_rc4b_t1 = 1;
