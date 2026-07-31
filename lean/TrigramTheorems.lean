@@ -19,10 +19,13 @@
 
   Core Lean 4 only (no mathlib, no lake). Standalone: definitions restated
   verbatim from KingWen.lean / Automorphism.lean, per the repo's established
-  one-file-per-theorem-suite pattern. Finite facts use decide/native_decide
-  (extended trust base — see lean/README.md's trust-base note); sequence-level
-  theorems are structural proofs over EVERY valid ordering, in the style of
-  alternations_15_general / switches_30_general.
+  one-file-per-theorem-suite pattern. Finite facts use kernel decide where
+  they land (2026-07-27: the pairdist_count_* / TG-1 count / selfcomp_pair
+  lemmas migrated native_decide → decide, so the TG-2 lead theorems and the
+  TG-1 counts are now kernel-only); the §4a subgroup facts still use
+  native_decide (extended trust base — see lean/README.md's trust-base note);
+  sequence-level theorems are structural proofs over EVERY valid ordering, in
+  the style of alternations_15_general / switches_30_general.
 
   ────────────────────────────────────────────────────────────────────────────
   THEOREM STATUS + NOVELTY LEDGER (per the project's attribution rules;
@@ -272,12 +275,12 @@ theorem symmetric_iff_trigram :
 /-- TG-1.4: exactly 8 symmetric hexagrams. -/
 theorem symmetric_count_8 :
     ((List.range 64).filter fun h => rev6 h == h).length = 8 := by
-  native_decide
+  decide
 
 /-- TG-1.4: exactly 8 anti-symmetric hexagrams (rev6 h = comp6 h; registry R3). -/
 theorem antisymmetric_count_8 :
     ((List.range 64).filter fun h => rev6 h == h ^^^ 63).length = 8 := by
-  native_decide
+  decide
 
 /-- TG-1.4: the symmetric and anti-symmetric classes are disjoint. -/
 theorem sym_antisym_disjoint :
@@ -287,7 +290,7 @@ theorem sym_antisym_disjoint :
 /-- TG-1.5: the doubled-trigram ("pure") hexagrams are exactly {9t : t < 8}. -/
 theorem pure_hexagrams_explicit :
     (List.range 64).filter pureHex = [0, 9, 18, 27, 36, 45, 54, 63] := by
-  native_decide
+  decide
 
 /-- TG-1.5: the pure class is closed under the canonical partner map. -/
 theorem pure_closed_partner :
@@ -478,19 +481,19 @@ theorem within_double (l : List Nat) (hperm : l.Perm (List.range 64))
     48 = 24+24 over hexagrams, i.e. multiset {2:12, 4:12, 6:8} over the 32
     pairs (each pair counted twice below, once per member). -/
 theorem pairdist_count_0 : ((List.range 64).countP fun h => ham h (partner h) == 0) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_1 : ((List.range 64).countP fun h => ham h (partner h) == 1) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_2 : ((List.range 64).countP fun h => ham h (partner h) == 2) = 24 := by
-  native_decide
+  decide
 theorem pairdist_count_3 : ((List.range 64).countP fun h => ham h (partner h) == 3) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_4 : ((List.range 64).countP fun h => ham h (partner h) == 4) = 24 := by
-  native_decide
+  decide
 theorem pairdist_count_5 : ((List.range 64).countP fun h => ham h (partner h) == 5) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_6 : ((List.range 64).countP fun h => ham h (partner h) == 6) = 16 := by
-  native_decide
+  decide
 
 /-- the within-pair distance is invariant under swapping the pair's orientation
     (ham is symmetric; partner is an involution). -/
@@ -547,7 +550,7 @@ theorem selfcomp_pair_iff :
 
 theorem selfcomp_pair_count :
     ((List.range 64).countP fun h => partner h == h ^^^ 63) = 16 := by
-  native_decide
+  decide
 
 /- --- §3b the within-pair multiset (TG-2 prop 1, previously prose-only) --- -/
 

@@ -22,15 +22,20 @@
   note there on record-level vs orientation-resolved counts.
 
   Structure:
-  (a) finite facts about G48/G24. Most are now checked by kernel `decide` (fully
-      trusted; F-52 2026-07-19) — the small/medium enumerations reduce in the
-      kernel in seconds. Seven heavy ones stay on `native_decide` (extended trust
-      base, see lean/README.md's trust-base note) because kernel `decide` on them
-      exceeds a whnf-heartbeat / kernel-memory budget: applyPerm_inj,
-      applyPerm_isometry, applyPerm_range_perm, applyPerm_pcomp, pcomp_closure
-      (each ranges over ≥ 48·64² or 48² permutation pairs), plus pcomp_inv and
-      pcomp_left_cancel (∃-witness / 48³ search). These remain the repo style for
-      the largest finite facts;
+  (a) finite facts about G48/G24 — ALL kernel-checked since 2026-07-27 (zero
+      native_decide in this file; `#print axioms` reports only standard axioms,
+      ⊆ [propext, Classical.choice, Quot.sound] — no compiler trust).
+      History: most were kernel `decide` from F-52 (2026-07-19); the seven heavy
+      ones (applyPerm_inj, applyPerm_isometry, applyPerm_range_perm,
+      applyPerm_pcomp, pcomp_closure, pcomp_inv, pcomp_left_cancel) stayed on
+      `native_decide` until the 2026-07-27 K-migration. Five of the seven now go
+      through by direct `decide +kernel` (measured 41–72 s each on D16). The two
+      whose ∀-bounded forms are kernel-MEMORY-infeasible directly
+      (applyPerm_isometry, applyPerm_pcomp: the nested bounded-quantifier
+      Decidable instances exceed 24–29 GB) are each proved from a Bool
+      `List.all` companion (`*_bool`, kernel `decide` in bounded memory — the
+      same computation shape as KingWen.lean's sigma_kw_valid_48) plus a short
+      structural bridge, so the stated ∀-forms are unchanged and kernel-only;
   (b) structural invariance proofs: each constraint C1/C2/C3/C4/C5 is preserved by
       every σ ∈ G48 on EVERY permutation of the 64 hexagrams (not just King Wen);
   (c) the record-level action (relabel pair keys) and its compatibility with
@@ -182,7 +187,9 @@ def SolRec (Q : List Nat → Bool) (r : List Nat) : Prop :=
 /-- well-formed pair key: two 6-bit digits in canonical (sorted) order. -/
 def WFkey (k : Nat) : Prop := k < 4096 ∧ k / 64 ≤ k % 64
 
-/- ------- §2 finite group facts (native_decide; extended trust base) ------- -/
+/- ------- §2 finite group facts (kernel `decide` since 2026-07-27; the two
+   memory-infeasible ∀-forms go through Bool `List.all` companions — see the
+   header note (a). Nothing in this section trusts the compiler.) ------- -/
 
 theorem G48_length : G48.length = 48 := by decide
 
@@ -200,11 +207,22 @@ theorem applyPerm_lt64 : ∀ p ∈ G48, ∀ h < 64, applyPerm p h < 64 := by dec
 
 theorem applyPerm_inj :
     ∀ p ∈ G48, ∀ a < 64, ∀ b < 64, (applyPerm p a = applyPerm p b ↔ a = b) := by
-  native_decide
+  decide +kernel
+
+/-- Bool companion of `applyPerm_isometry`: the same fact as a `List.all` fold,
+    the one shape whose kernel evaluation stays in bounded memory (direct kernel
+    `decide` on the ∀-bounded form needs > 29 GB — see the §2 header note). -/
+theorem applyPerm_isometry_bool :
+    (G48.all fun p => (List.range 64).all fun a => (List.range 64).all fun b =>
+      ham (applyPerm p a) (applyPerm p b) == ham a b) = true := by
+  decide +kernel
 
 theorem applyPerm_isometry :
     ∀ p ∈ G48, ∀ a < 64, ∀ b < 64, ham (applyPerm p a) (applyPerm p b) = ham a b := by
-  native_decide
+  have hb := applyPerm_isometry_bool
+  simp only [List.all_eq_true, beq_iff_eq] at hb
+  intro p hp a ha b hbb
+  exact hb p hp a (List.mem_range.mpr ha) b (List.mem_range.mpr hbb)
 
 theorem applyPerm_fix_0_63 : ∀ p ∈ G48, applyPerm p 0 = 0 ∧ applyPerm p 63 = 63 := by
   decide
@@ -219,23 +237,33 @@ theorem applyPerm_comp63 :
 
 theorem applyPerm_range_perm :
     ∀ p ∈ G48, ((List.range 64).map (applyPerm p)).isPerm (List.range 64) = true := by
-  native_decide
+  decide +kernel
 
-theorem pcomp_closure : ∀ p ∈ G48, ∀ q ∈ G48, pcomp p q ∈ G48 := by native_decide
+theorem pcomp_closure : ∀ p ∈ G48, ∀ q ∈ G48, pcomp p q ∈ G48 := by decide +kernel
+
+/-- Bool companion of `applyPerm_pcomp` (same kernel-memory rationale as
+    `applyPerm_isometry_bool`). -/
+theorem applyPerm_pcomp_bool :
+    (G48.all fun p => G48.all fun q => (List.range 64).all fun h =>
+      applyPerm (pcomp p q) h == applyPerm p (applyPerm q h)) = true := by
+  decide +kernel
 
 theorem applyPerm_pcomp :
     ∀ p ∈ G48, ∀ q ∈ G48, ∀ h < 64,
       applyPerm (pcomp p q) h = applyPerm p (applyPerm q h) := by
-  native_decide
+  have hb := applyPerm_pcomp_bool
+  simp only [List.all_eq_true, beq_iff_eq] at hb
+  intro p hp q hq h hh
+  exact hb p hp q hq h (List.mem_range.mpr hh)
 
 theorem applyPerm_idp : ∀ h < 64, applyPerm idp h = h := by decide
 
 theorem pcomp_inv : ∀ p ∈ G48, ∃ q ∈ G48, pcomp q p = idp ∧ pcomp p q = idp := by
-  native_decide
+  decide +kernel
 
 theorem pcomp_left_cancel :
     ∀ a ∈ G48, ∀ p ∈ G48, ∀ q ∈ G48, pcomp a p = pcomp a q → p = q := by
-  native_decide
+  decide +kernel
 
 theorem pcomp_inv_rho :
     ∀ a ∈ G48, ∀ b ∈ G48, pcomp a b = idp → pcomp a (pcomp b rho) = rho := by

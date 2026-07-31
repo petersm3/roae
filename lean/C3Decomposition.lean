@@ -36,6 +36,13 @@
   is invariant under the group, i.e. that TR-11's symmetry quotient carries over to
   the C3/G channel unchanged.
 
+  Added 2026-07-27 — THE C3 ≥ 112 FLOOR (`c3slot_ge_12`, `c3_ge_112`): every
+  C1-valid ordering has couple slot-distance sum ≥ 12 (each of the 12 cross
+  couples occupies two distinct slots, so each contributes ≥ 1), hence via the
+  decomposition C3 ≥ 16 + 8·12 = 112 — the lower-bound half of "min C3 = 112",
+  previously an asserted step alongside the SAT certificate; the verified
+  witness at C3 = 112 (G = 12) makes the floor exact.
+
   Added 2026-07-24 — THE C1∩C4 NULL G-LAW (final section): the exact distribution
   of G = c3slot over the 31! equally-weighted C1∩C4 pair-orders, machine-checked by
   the KERNEL end to end (`decide +kernel`; no native_decide): the full 217-bin
@@ -392,6 +399,55 @@ theorem kw_slot_sum_95 : c3slot KW = 95 := by decide
     decomposition: 776 = 16 + 8 · 95. -/
 theorem kw_c3_776_via_decomposition : c3x64 KW = 776 := by
   rw [c3_slot_decomposition KW kw_perm kw_c1, kw_slot_sum_95]
+
+/- ------------------ the C3 ≥ 112 floor (added 2026-07-27) ------------------
+   The lower-bound half of "min C3 over the C1 space = 112". The SAT layer
+   produced a C1-valid witness attaining C3 = 112 (c3_112_witness.bin, couple
+   slot-distance sum G = 12, independently verified); minimality previously
+   rested on the asserted step "12 cross couples, each slot distance ≥ 1, so
+   G ≥ 12". That step is discharged here from the structural lemmas above:
+   `slot_ne` proves each cross couple's two pairs occupy DISTINCT slots (its
+   members are distinct elements of a permutation), so each of the 12 terms of
+   c3slot is ≥ 1 and c3slot ≥ 12 (`c3slot_ge_12`); via `c3_slot_decomposition`,
+   C3 = 16 + 8·c3slot ≥ 16 + 8·12 = 112 (`c3_ge_112`) for EVERY C1-valid
+   ordering. Together with the witness, the floor is exact — no SAT UNSAT
+   result is needed for the lower bound. -/
+
+/-- a mapped sum with every term ≥ 1 is at least the list's length. -/
+theorem length_le_sum_map (f : Nat → Nat) (rs : List Nat)
+    (h : ∀ r ∈ rs, 1 ≤ f r) : rs.length ≤ (rs.map f).sum := by
+  induction rs with
+  | nil => simp
+  | cons a t ih =>
+    have ha := h a (List.mem_cons.mpr (Or.inl rfl))
+    have ht := ih fun r hr => h r (List.mem_cons.mpr (Or.inr hr))
+    simp only [List.map_cons, List.sum_cons, List.length_cons]
+    omega
+
+/-- THE SLOT-SUM LOWER BOUND: every C1-valid ordering of the 64 hexagrams has
+    couple slot-distance sum ≥ 12 — each of the 12 cross complement-couples
+    occupies two distinct slots (`slot_ne`), so each term of c3slot is ≥ 1. -/
+theorem c3slot_ge_12 (l : List Nat) (hp : l.Perm (List.range 64))
+    (h1 : c1ok l = true) : 12 ≤ c3slot l := by
+  have hterm : ∀ r ∈ crossReps, 1 ≤ sdist l r (r ^^^ 63) := by
+    intro r hr
+    obtain ⟨hr64, hrc⟩ := crossReps_spec r hr
+    have hne := slot_ne hp h1 hr64 hrc
+    simp only [sdist, slot, ndist]
+    omega
+  have h := length_le_sum_map (fun r => sdist l r (r ^^^ 63)) crossReps hterm
+  rw [crossReps_count] at h
+  simp only [c3slot]
+  exact h
+
+/-- THE C3 FLOOR: C3 ≥ 112 for EVERY C1-valid ordering, via the decomposition
+    C3 = 16 + 8·c3slot and c3slot ≥ 12. With the verified C3 = 112 witness,
+    min C3 over the C1 space is exactly 112. -/
+theorem c3_ge_112 (l : List Nat) (hp : l.Perm (List.range 64))
+    (h1 : c1ok l = true) : 112 ≤ c3x64 l := by
+  rw [c3_slot_decomposition l hp h1]
+  have h := c3slot_ge_12 l hp h1
+  omega
 
 /- ------------------ G48 couple-invariance (added 2026-07-21) ------------------
    The 48-element symmetry group (the centralizer of bit-reversal among the 720
@@ -787,5 +843,129 @@ theorem null_p_le_95 :
 /-- and that fraction is in lowest terms. -/
 theorem null_p_le_95_lowest_terms : Nat.gcd 641983711307479 7919632354008375 = 1 := by
   decide +kernel
+
+/- ------------------ THE WALK-UNITS IDENTITY, T = 387 (added 2026-07-27) ------------------
+   The v4 compiler's walk complement-distance functional cd* counts each of
+   the 32 complement-couples ONCE and excludes the C4-anchored couple {0, 63};
+   SPECIFICATION's C3 = c3x64 counts every couple TWICE (once per member).
+   This section machine-checks the units conversion — previously a prose
+   derivation (the arithmetic content of compiler bridge fact KB7):
+
+       c3x64 l = 2 · (walkCd l + 1)      for every C4-anchored permutation l,
+
+   hence  c3x64 l ≤ 776  ⟺  walkCd l ≤ 387  — the full-31 in-path threshold
+   T = 776/2 − 1 = 387 — and at King Wen walkCd KW = 387 exactly, with the
+   slot form T = 7 + 4·G (G = c3slot, KW: G = 95). Kernel-only: decide +
+   structural, no native_decide.
+
+   SCOPE (stated bluntly, per the project's bridge-fact discipline): this
+   proves the MATHEMATICAL identity between the two functionals as defined
+   here. That solve.c's cd* accumulator implements this walk functional
+   remains bridge fact KB7, runtime-carried (the two-language gate vs
+   solve.py), exactly as documented — nothing here machine-checks C code. -/
+
+/-- C4 (restated verbatim from KingWen.lean): the ordering opens 63, 0. -/
+def c4ok (l : List Nat) : Bool := l.getD 0 99 == 63 && l.getD 1 99 == 0
+
+/-- couples-once complement-distance sum: each of the 32 complement-couples
+    {h, h ⊕ 63} (representatives h < 32) counted once. -/
+def cdOnce (l : List Nat) : Nat := ((List.range 32).map (cdist l)).sum
+
+/-- the walk functional: couples-once, EXCLUDING the anchor couple {0, 63}
+    (representatives 1..31) — the v4 compiler's cd* in model form. -/
+def walkCd (l : List Nat) : Nat := ((List.range 31).map fun i => cdist l (i+1)).sum
+
+/-- the 64 hexagrams split into the 32 couple representatives and their
+    complements. -/
+theorem couples_partition :
+    (List.range 64).Perm ((List.range 32) ++ (List.range 32).map (· ^^^ 63)) := by
+  decide
+
+/-- each couple's two members carry the same C3 term. -/
+theorem cdist_comp (l : List Nat) (h : Nat) (hh : h < 64) :
+    cdist l (h ^^^ 63) = cdist l h := by
+  simp only [cdist]
+  rw [comp_comp h hh]
+  exact ndist_comm _ _
+
+/-- DOUBLING (fully general — no constraint hypotheses needed): c3x64 counts
+    every couple twice, so it is exactly twice the couples-once sum. -/
+theorem c3x64_eq_double (l : List Nat) : c3x64 l = 2 * cdOnce l := by
+  have hsum := List.Perm.sum_nat (couples_partition.map (cdist l))
+  rw [c3x64_eq_sum, hsum, List.map_append, List.sum_append, List.map_map]
+  have hcomp : ((List.range 32).map (cdist l ∘ (· ^^^ 63))) =
+      (List.range 32).map (cdist l) := by
+    apply List.map_eq_map_iff.mpr
+    intro h hmem
+    have hh : h < 64 := by
+      have := List.mem_range.mp hmem
+      omega
+    exact cdist_comp l h hh
+  rw [hcomp]
+  simp only [cdOnce]
+  omega
+
+/-- peeling the anchor representative 0: couples-once = anchor term + walk sum. -/
+theorem cdOnce_split (l : List Nat) : cdOnce l = cdist l 0 + walkCd l := by
+  have hr : List.range 32 = 0 :: (List.range 31).map (· + 1) := by decide
+  simp only [cdOnce, walkCd, hr, List.map_cons, List.sum_cons, List.map_map]
+  rfl
+
+/-- under C4, the anchor couple contributes exactly 1: 63 and 0 sit in
+    positions 0 and 1. -/
+theorem anchor_cdist_one (l : List Nat) (hp : l.Perm (List.range 64))
+    (h4 : c4ok l = true) : cdist l 0 = 1 := by
+  have hlen : l.length = 64 := by simpa using hp.length_eq
+  simp only [c4ok, Bool.and_eq_true, beq_iff_eq] at h4
+  have h0l : (0 : Nat) < l.length := by omega
+  have h1l : (1 : Nat) < l.length := by omega
+  have e0 : l.getD 0 0 = 63 := by
+    have he : l.getD 0 99 = l.getD 0 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h0l]
+    rw [← he]; exact h4.1
+  have e1 : l.getD 1 0 = 0 := by
+    have he : l.getD 1 99 = l.getD 1 0 := by
+      simp [List.getD, List.getElem?_eq_getElem h1l]
+    rw [← he]; exact h4.2
+  have p63 : pos l 63 = 0 := pos_unique hp (by omega) e0
+  have p0 : pos l 0 = 1 := pos_unique hp (by omega) e1
+  simp only [cdist, show (0 : Nat) ^^^ 63 = 63 from by decide, p0, p63]
+  decide
+
+/-- THE WALK-UNITS IDENTITY (KB7's arithmetic content, machine-checked): for
+    every C4-anchored permutation of the 64 hexagrams,
+    c3x64 = 2 · (walkCd + 1) — the affine identity cd_true = 2 · (cd* + 1).
+    Note C1 is NOT needed: doubling is general, the anchor term needs C4 only. -/
+theorem walk_units_identity (l : List Nat) (hp : l.Perm (List.range 64))
+    (h4 : c4ok l = true) : c3x64 l = 2 * (walkCd l + 1) := by
+  have hd := c3x64_eq_double l
+  have hs := cdOnce_split l
+  have ha := anchor_cdist_one l hp h4
+  omega
+
+/-- THE FULL-31 THRESHOLD CONSTANT T = 387: the C3 bound in x64 units (≤ 776)
+    is EXACTLY the walk bound ≤ 387, i.e. T = 776/2 − 1 = 387. -/
+theorem walk_threshold_387 (l : List Nat) (hp : l.Perm (List.range 64))
+    (h4 : c4ok l = true) : (c3x64 l ≤ 776) ↔ (walkCd l ≤ 387) := by
+  rw [walk_units_identity l hp h4]
+  omega
+
+/-- with C1 as well, the walk functional in slot units: walkCd = 7 + 4·G
+    (via the slot decomposition; at KW: 387 = 7 + 4·95). -/
+theorem walkCd_eq_slot (l : List Nat) (hp : l.Perm (List.range 64))
+    (h1 : c1ok l = true) (h4 : c4ok l = true) :
+    walkCd l = 7 + 4 * c3slot l := by
+  have hid := walk_units_identity l hp h4
+  have hdec := c3_slot_decomposition l hp h1
+  omega
+
+theorem kw_c4 : c4ok KW = true := by decide
+
+/-- King Wen's walk value is exactly the threshold: cd*(KW) = 387. -/
+theorem kw_walkCd_387 : walkCd KW = 387 := by decide
+
+/-- cross-check: the identity instantiated at KW reproduces 776 = 2·(387+1). -/
+theorem kw_units_check : c3x64 KW = 2 * (walkCd KW + 1) :=
+  walk_units_identity KW kw_perm kw_c4
 
 end C3Decomposition

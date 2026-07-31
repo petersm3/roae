@@ -40,7 +40,8 @@ Lean's compiler). What that buys:
   are **constants of the entire C1 space** — each depends only on the unordered pair-partition, which C1
   fixes, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
   to a theorem; the zero-hit enumeration measurement is now a corollary. (Orientation-invariance of each
-  per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by `native_decide`;
+  per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by kernel `decide`
+  since 2026-07-27 — the whole file is now kernel-only, nothing in it trusts the compiler;
   the sequence-level constancy in the landed `within_double` style.)
 - **The exact C1∩C4 null law of the C3/G channel is kernel-checked end to end** (2026-07-24,
   `C3Decomposition.lean` final section): the full exact distribution of the couple slot-distance
@@ -61,19 +62,25 @@ In short: the deepest structural claims this project relies on do not depend on 
 
 
 `KingWen.lean` contains machine-checked proofs of the ROAE constraint system's finite core lemmas —
-**core Lean 4 only, no mathlib**; the original hexagram-level claims are proved by `native_decide`
-(exhaustive computation over the finite domain); the 2026-07-26 complement-symmetry section is
-kernel-only (structural proofs + plain/kernel `decide`).
+**core Lean 4 only, no mathlib**; since 2026-07-27 the file is **kernel-only end to end**: every
+finite claim (including the Theorem A trio over all 720 bit permutations) is proved by kernel
+`decide`/`decide +kernel`, zero `native_decide` — nothing in the file trusts Lean's compiler.
 
 **Trust-base note (what "machine-checked" means here, precisely).** Lean proofs by `decide` are
 verified by Lean's small trusted kernel. Proofs by `native_decide` are NOT kernel-only: they
 additionally trust Lean's compiler and native code generator (a strictly larger trusted base, which
-has had real soundness bugs historically). In this suite, `native_decide` carries only finite
-exhaustive computations (hexagram-level lemmas, group facts, sanity witnesses); the structural
-sequence-level theorems (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems
-in `PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel. Where a
-finite lemma is small enough, migrating `native_decide` → `decide` is a standing opportunistic
-cleanup.
+has had real soundness bugs historically). **2026-07-27 migration:** the finite facts under the
+suite's headline results were migrated to kernel `decide` — `KingWen.lean`, `Automorphism.lean`,
+and `C1RuleConstants.lean` now carry **zero** `native_decide`, so the DIV-24 gate, the equivariance
+ceiling, the Theorem A trio, the TG-2 boundary-budget family, and the eight literature-rule
+constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]`
+— Lean's standard axioms; the compiler-trust axiom `Lean.ofReduceBool` no longer appears in any of
+these chains, and the finite facts report `[propext]` alone). `native_decide`
+remains only in: `TrigramTheorems.lean` §4a (TG-3/4/5 finite subgroup facts),
+`PartitionInvariance.lean` §12 (sanity witnesses, disclosed there), and `SymmetryCompleteness.lean`
+(SC1–SC4/SC7 — the T7 completeness kernels). The structural sequence-level theorems
+(`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems in
+`PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel.
 
 Verified statements:
 
@@ -205,20 +212,21 @@ scope notes before citing anything below**, in particular the distinction from
 [Hershock 1991](../documentation/CITATIONS.md#hershock1991)'s hexagram-set group). Core Lean 4 only,
 standalone file, zero `sorry`; every statement was verified numerically in Python before drafting
 (`python3 solve.py --trigram-verify` re-runs the two-language check). Finite facts use
-`decide`/`native_decide` (the trust-base note above applies — this file's group facts lean on
+`decide`/`native_decide` (the trust-base note above applies — the §4a subgroup facts lean on
 `native_decide`); the TG-2 sequence-level theorems are structural proofs over EVERY valid ordering.
-**TG-2 trust-base disclosure (2026-07-26):** unlike the suite's other three sequence-level theorems
-(which are kernel-only), the TG-2 leads `boundary_budget_general` / `ninth_six_trigram` /
-`single_line_carry` carry `native_decide` axioms via the finite `pairdist_count_0..6` lemmas
-(measured by `#print axioms`) — machine-checked on the extended trust base, not kernel-only.
-Migrating `pairdist_count_*` (and the three TG-1 counts) to kernel `decide` is a small, standing
-cleanup that would make the whole TG-2 family kernel-only (the 64-element counts are well within
-what the kernel handles elsewhere in this suite).
+**TG-2 trust-base note (updated 2026-07-27; original disclosure 2026-07-26):** the finite
+`pairdist_count_0..6` lemmas, the three TG-1 counts, and `selfcomp_pair_count` are now kernel
+`decide` (migrated from `native_decide`), so the TG-2 leads `boundary_budget_general` /
+`ninth_six_trigram` / `single_line_carry` — and `within_multiset_general` — are **kernel-only**
+(`#print axioms` = `[propext, Classical.choice, Quot.sound]`, Lean's standard axioms — the
+`native_decide` compiler-trust axiom is gone): all four of the suite's sequence-level theorem
+families now share the kernel-only trust base. The TG-3/TG-4/TG-5 finite subgroup facts (§4a)
+remain `native_decide`.
 Verified statements, by family:
 
 | Family | Theorems | One-line honest scope |
 |---|---|---|
-| **TG-1** trigram factorization | `rev6_trigram_factor`, `comp6_trigram_componentwise`, `ham_trigram_split`, `symmetric_iff_trigram`, `pure_hexagrams_explicit`, `pure_pairs_explicit`, … | Classical facts, formalized ([Goldenberg 1975](../documentation/CITATIONS.md#goldenberg1975) ambient; pure-pair placement Lai Zhide / Wu Deng) — nothing claimed as a discovery; the contribution is the machine-checked lemma layer (three TG-1 counts — `symmetric_count_8`, `antisymmetric_count_8`, `pure_hexagrams_explicit` — are `native_decide`, the extended trust base; label corrected 2026-07-26 from "kernel-checked") |
+| **TG-1** trigram factorization | `rev6_trigram_factor`, `comp6_trigram_componentwise`, `ham_trigram_split`, `symmetric_iff_trigram`, `pure_hexagrams_explicit`, `pure_pairs_explicit`, … | Classical facts, formalized ([Goldenberg 1975](../documentation/CITATIONS.md#goldenberg1975) ambient; pure-pair placement Lai Zhide / Wu Deng) — nothing claimed as a discovery; the contribution is the machine-checked lemma layer (the three TG-1 counts — `symmetric_count_8`, `antisymmetric_count_8`, `pure_hexagrams_explicit` — are kernel `decide` since 2026-07-27, migrated from `native_decide`; the 2026-07-26 label correction is thereby resolved in the strong direction) |
 | **TG-2** forced boundary budget | `within_multiset_general`, **`boundary_budget_general`** (lead), `ninth_six_trigram`, `single_line_carry`, `c2_trigram_reading`, `pangtong_successor`, `flanking_exclusion` | The project's fourth sequence-level theorem: in EVERY C1+C5-valid ordering the 31 between-pair distances form exactly {1:2, 2:8, 3:13, 4:7, 6:1} — so the "9th six" ([McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975)'s observation, credited) is forced, exactly once, in every valid ordering |
 | **TG-3** trigram-compatible symmetry subgroup | `G12_length`, `G6_length`, `G12_decomposition_covers`/`_nodup`, `mirrorDouble_hom`/`_inj`, `blockPreserving_iff_blockwise`, `uChange_mapP`, `lChange_mapP`, `trigram_functional_not_orbit_invariant` | About the TR-5 **line-position** constraint-symmetry group G₄₈ ONLY (exactly 12 of 48 respect the trigram bipartition, ≅ S₃ × C₂; order 6 at record level) — a different group and object from Hershock 1991's complement/reverse/trigram-swap group on the hexagram set; see TRIGRAM_STRUCTURE.md §"What TG-3 is not" |
 | **TG-4** nuclear naturality | `nuc_comm_rev`, `nuc_comm_comp`, `nuc_partner_descent`, `nuc_image_16`, `nuc_nuc_image_terminal`, `nuc_terminal_closed` | Presumably classical/implicit facts (the 64→16→4 chain is commentary-tradition), formalized to certify the nuclear-battery substrate; no discovery claimed, corrections invited |
@@ -310,14 +318,14 @@ generator); `total` is the scaled total mass. Verified statements:
 | `kwOrbit_length`, `kwOrbit_nodup`, `kw_record_mem_kwOrbit` | The orbit has exactly 24 pairwise-distinct records (length REUSES `twins_24_records` verbatim — the ceiling is a genuine corollary of the existing free-action finite component, not a re-proof) and contains KW's own record |
 | `popcount_profile_const_on_kw_images` | Inhabitation witness: a real record-level invariant-primitive score (per-slot pair-popcount profile) satisfies the invariance hypothesis exactly — kernel-checked (`decide +kernel`, no compiler trust) |
 
-**Trust base (`#print axioms`, recorded 2026-07-26).** `mass_of_invariant_score`: no axioms.
-Structural lemmas (`nodup_eraseDups`, `sum_map_const`, `mass_const_on_kwOrbit`): `[propext,
-Quot.sound]` — kernel-only. `popcount_profile_const_on_kw_images`: `[propext]` — kernel-only.
-The ceiling chain (`kwOrbit_length`, `kwOrbit_mass_eq`, `equivariance_ceiling`,
-`no_unique_kw_concentration`) additionally carries `twins_24_records`'s `native_decide` axiom
-(and `kw_record_mem_kwOrbit` carries `kw_valid`'s) — i.e. exactly the compiler-trusting finite
-component this file has always rested on, inherited by reuse, with nothing new added to the
-trusted base by the ceiling itself.
+**Trust base (`#print axioms`; updated 2026-07-27, previously recorded 2026-07-26).**
+`mass_of_invariant_score`: no axioms. Structural lemmas (`nodup_eraseDups`, `sum_map_const`,
+`mass_const_on_kwOrbit`): `[propext, Quot.sound]` — kernel-only.
+`popcount_profile_const_on_kw_images`: `[propext]` — kernel-only. Since the 2026-07-27
+K-migration, `twins_24_records` and `kw_valid` are themselves kernel `decide`, so the ENTIRE
+ceiling chain (`kwOrbit_length`, `kwOrbit_mass_eq`, `equivariance_ceiling`,
+`no_unique_kw_concentration`, `kw_record_mem_kwOrbit`) is **kernel-only** — the compiler-trusting
+finite component this chain previously inherited no longer exists.
 
 **Scope.** This is a statement about generators whose decision functions factor through
 G-invariant scores at the record level — the hypothesis `hconst` is G-invariance instantiated at

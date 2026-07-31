@@ -9,8 +9,10 @@ import argparse
 import cmath
 import json
 import math
+import os
 import random
 import sys
+import time
 import unicodedata
 
 # Global seed for reproducible results. When set via --seed, each analysis
@@ -2197,6 +2199,7 @@ def print_help_sections():
         ("--cast", "Simulate an I Ching reading (three-coin method)"),
         ("--explain N", "Walk through transition N step by step (1-63)"),
         ("--self-test", "Run mathematical invariant checks"),
+        ("--grammar-search", "U2: MDL-charged search for constraints beyond C1-C5"),
         ("", ""),
         ("--json", "Export hexagram data (writes hexagrams.json)"),
         ("--csv", "Export hexagram data (writes hexagrams.csv)"),
@@ -2319,6 +2322,44 @@ def print_self_test():
     # XOR complement is self-inverse
     comp_ok = all((b ^ 0b111111) ^ 0b111111 == b for b in range(64))
     check("XOR complement is self-inverse", comp_ok)
+
+    # --- Pre-registered H1/H3 evaluator pins (--prereg-h1h3; frozen spec
+    # 2026-07-26). These pin the evaluators to independently-verified
+    # values — they are correctness constants, NEVER thresholds. ---
+    pc = _GS_PC
+    s = binary_hexagrams
+    kw_a, kw_p, kw_q, kw_par = _ph_stats(list(s))
+    check("prereg: A(KW) = 648 (= f4p dist_autocorr kw)", kw_a == 648)
+    check("prereg: P(KW) = 5", kw_p == 5)
+    check("prereg: Q(KW) = 2", kw_q == 2)
+    check("prereg: parity shadow holds on KW", kw_par)
+    d6 = set(j for j in range(1, 33) if pc[s[2*j-2] ^ s[2*j-1]] == 6)
+    check("prereg: D6(KW) = {1,6,9,14,15,27,31,32}",
+          d6 == {1, 6, 9, 14, 15, 27, 31, 32})
+    m1 = set(j for j in range(1, 32) if pc[s[2*j-1] ^ s[2*j]] == 1)
+    check("prereg: M1(KW) = {26,30}", m1 == {26, 30})
+    check("prereg: T2 closed-form cut floor((211^2-827)/63) = 693",
+          (211 * 211 - 827) // 63 == 693)
+    wp, bd = {}, {}
+    for i in range(63):
+        d = pc[s[i] ^ s[i+1]]
+        h = wp if i % 2 == 0 else bd
+        h[d] = h.get(d, 0) + 1
+    check("prereg: within-pair distance multiset {2:12,4:12,6:8}",
+          wp == {2: 12, 4: 12, 6: 8})
+    check("prereg: boundary distance multiset {1:2,2:8,3:13,4:7,6:1}",
+          bd == {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+    # _ph_median frozen rules on toy histograms (both parities, ties).
+    check("prereg: median 'le' odd n", _ph_median({1: 1, 2: 1, 3: 1}, "le") == 2)
+    check("prereg: median 'le' even n (lower median)",
+          _ph_median({1: 1, 2: 1, 3: 1, 4: 1}, "le") == 2)
+    check("prereg: median 'le' ties", _ph_median({5: 9, 7: 1}, "le") == 5)
+    check("prereg: median 'ge' odd n", _ph_median({1: 1, 2: 1, 3: 1}, "ge") == 2)
+    check("prereg: median 'ge' even n (upper median)",
+          _ph_median({1: 1, 2: 1, 3: 1, 4: 1}, "ge") == 3)
+    check("prereg: median 'ge' ties", _ph_median({5: 9, 7: 1}, "ge") == 5)
+    check("prereg: median 'le' vs 'ge' single bin",
+          _ph_median({4: 10}, "le") == 4 and _ph_median({4: 10}, "ge") == 4)
 
     print(f"\n  {passed} passed, {failed} failed, {passed + failed} total")
     if failed == 0:
@@ -3602,6 +3643,1027 @@ def export_csv(filename="hexagrams.csv"):
             f.write(f"{i+1},{unicode_hexagrams[i]},{bits},{b},{name},{up},{um},{lp},{lm},{nuc_pos}\n")
     print(f"CSV written to {filename}")
 
+# ============================================================================
+# U2 grammar search (--grammar-search)
+# Developed with AI assistance (Claude/Fable, Anthropic).
+#
+# A circularity-safe, MDL-charged search for candidate structural constraints
+# that the King Wen sequence satisfies but that are NOT implied by the
+# published constraint set (C1-C5). The search enumerates every predicate of a
+# fixed, PRE-REGISTERED grammar of KW-independent structural terminals (depth
+# <= 2), then tests each against the uniform C1^C2^C4^C5 reference population:
+#
+#   1. KW satisfies the predicate?          (necessary; else discard)
+#   2. Rarity f in the reference population (bits-explained = -log2 f)
+#   3. Not implied by / common under C1-C5? (probe-trivial classes absorb these)
+#   4. MDL-net-positive?                    bits-explained > L(C) (statement cost)
+#   5. Selection charge log2(#distinct predicates tested) reported separately
+#      and added to the bar for any would-be survivor.
+#
+# CIRCULARITY FIREWALL: every grammar terminal is structural and KW-independent.
+# Constants appear only as COMPLETE structural families (full codomains, full
+# residue classes): 0, 63, popcount range 0..6 and its derived sum/delta ranges
+# 0..12 / -6..6, mod-k residues for k in {2,3,4,6,8}. No value is ever read off
+# the King Wen sequence into the grammar: no fitted thresholds, no position
+# pins, no KW-specific constants. KW itself is read at exactly two points:
+# (a) the necessary "KW satisfies C" bit, and (b) the C5 transition-multiset
+# that DEFINES the reference population (the declared conditioning, not a
+# grammar terminal). Numeric count thresholds are excluded because for every
+# (gate, atom) cell the member "count == KW's observed count" is KW-satisfied
+# by construction — the family would add one guaranteed-satisfied candidate
+# per cell (pure selection noise) with no realistic chance of clearing its MDL
+# + selection bar; count comparisons remain, as they are relational only.
+#
+# MDL statement cost L(C) = sum over grammar production choice points of
+# log2(#alternatives). Unordered atom pairs are charged as ordered (a
+# deliberate ~1-bit overprice, erring against candidates). The result of a run
+# is scoped to this grammar and depth: "no survivor within this declared
+# grammar at depth <= 2" — never a universal completeness claim.
+#
+# The probe set (signature dedup) and the rarity sample are drawn from
+# DISJOINT seed streams; the selection charge is computed from the number of
+# distinct predicate classes measured in the same run at the frozen probe
+# size. Sampling is exact rejection: uniform over C1^C4 orderings (31
+# free pair slots x 2^31 orientations, first pair pinned 63,0), accepted iff
+# the transition multiset equals C5's (which implies C2).
+# ============================================================================
+
+_GS_PC = [bin(x).count("1") for x in range(64)]
+
+def _gs_rev3(t):
+    """Reverse the bit order of a 3-bit value (trigram flip)."""
+    return ((t & 1) << 2) | (t & 2) | ((t >> 2) & 1)
+
+def _gs_t_atoms():
+    """T-domain atoms: predicates on a transition (a,b) = (s_t, s_{t+1})."""
+    atoms = []  # (label, spec)
+    for op in ("==", "<=", ">="):
+        for c in range(7):
+            atoms.append((f"d{op}{c}", ("d", op, c)))
+    # d mod k restricted to k in {2,3}: for d in 0..6, d mod 8 = d (identity,
+    # duplicates the equality family) and d mod 4 / d mod 6 classes are unions
+    # of at most two equality atoms (d2-expressible); pre-registered restriction.
+    for k in (2, 3):
+        for r in range(k):
+            atoms.append((f"d%{k}=={r}", ("dmod", k, r)))
+    atoms.append(("b==comp(a)", ("comp",)))
+    atoms.append(("b==rev(a)", ("rev",)))
+    for op in ("==", "<=", ">="):
+        for c in range(13):
+            atoms.append((f"pcsum{op}{c}", ("pcsum", op, c)))
+    for op in ("==", "<=", ">="):
+        for c in range(-6, 7):
+            atoms.append((f"dpc{op}{c}", ("dpc", op, c)))
+    # Trigram-link family: the COMPLETE 2 (channel of b) x 2 (channel of a)
+    # x 3 (relation: equality, 3-bit complement, 3-bit reversal) = 12 members.
+    for lbl, kind in (
+            ("lt(b)==ut(a)", "lu"), ("lt(b)==lt(a)", "ll"),
+            ("ut(b)==ut(a)", "uu"), ("ut(b)==lt(a)", "ul"),
+            ("ut(b)==c3(ut(a))", "ucu"), ("lt(b)==c3(lt(a))", "lcl"),
+            ("ut(b)==c3(lt(a))", "ucl"), ("lt(b)==c3(ut(a))", "lcu"),
+            ("ut(b)==r3(ut(a))", "uru"), ("lt(b)==r3(lt(a))", "lrl"),
+            ("ut(b)==r3(lt(a))", "url"), ("lt(b)==r3(ut(a))", "lru")):
+        atoms.append((lbl, ("tri", kind)))
+    return atoms
+
+def _gs_p_atoms():
+    """P-domain atoms: predicates on a single position (s_i, i)."""
+    atoms = []
+    for op in ("==", "<=", ">="):
+        for c in range(7):
+            atoms.append((f"pc{op}{c}", ("pc", op, c)))
+    for r in range(2):
+        atoms.append((f"pc%2=={r}", ("pcmod", 2, r)))
+    atoms.append(("ut==lt", ("plu", "eq")))
+    atoms.append(("ut==c3(lt)", ("plu", "c")))
+    atoms.append(("ut==r3(lt)", ("plu", "r")))
+    atoms.append(("s==0", ("sval", 0)))
+    atoms.append(("s==63", ("sval", 63)))
+    atoms.append(("s==rev(s)", ("spal",)))
+    # Position-coupled popcount: full mod-k family, k in {2,3,4,6,8} (the same
+    # k-set as the gates).
+    for k in (2, 3, 4, 6, 8):
+        for r in range(k):
+            atoms.append((f"(pc+i)%{k}=={r}", ("pci", k, r)))
+    return atoms
+
+def _gs_cmpv(x, op, c):
+    return x == c if op == "==" else (x <= c if op == "<=" else x >= c)
+
+def _gs_eval_t_atom(spec, a, b):
+    k = spec[0]
+    if k == "d":    return _gs_cmpv(_GS_PC[a ^ b], spec[1], spec[2])
+    if k == "dmod": return _GS_PC[a ^ b] % spec[1] == spec[2]
+    if k == "comp": return b == (a ^ 63)
+    if k == "rev":  return b == reverse_6bit(a)
+    if k == "pcsum": return _gs_cmpv(_GS_PC[a] + _GS_PC[b], spec[1], spec[2])
+    if k == "dpc":  return _gs_cmpv(_GS_PC[b] - _GS_PC[a], spec[1], spec[2])
+    if k == "tri":
+        la, ua, lb, ub = a & 7, a >> 3, b & 7, b >> 3
+        return {"lu": lb == ua, "ll": lb == la, "uu": ub == ua, "ul": ub == la,
+                "ucu": ub == (ua ^ 7), "lcl": lb == (la ^ 7),
+                "ucl": ub == (la ^ 7), "lcu": lb == (ua ^ 7),
+                "uru": ub == _gs_rev3(ua), "lrl": lb == _gs_rev3(la),
+                "url": ub == _gs_rev3(la), "lru": lb == _gs_rev3(ua)}[spec[1]]
+
+def _gs_eval_p_atom(spec, s, i):
+    k = spec[0]
+    if k == "pc":    return _gs_cmpv(_GS_PC[s], spec[1], spec[2])
+    if k == "pcmod": return _GS_PC[s] % spec[1] == spec[2]
+    if k == "plu":
+        l, u = s & 7, s >> 3
+        return u == l if spec[1] == "eq" else (u == (l ^ 7) if spec[1] == "c"
+                                               else u == _gs_rev3(l))
+    if k == "sval":  return s == spec[1]
+    if k == "spal":  return s == reverse_6bit(s)
+    if k == "pci":   return (_GS_PC[s] + i) % spec[1] == spec[2]
+
+def _gs_build_gates(nidx, is_t):
+    """Structural index-subset gates (bitmask per gate)."""
+    gates = [("ALL", (1 << nidx) - 1)]
+    if is_t:
+        gates.append(("WITHIN", sum(1 << t for t in range(nidx) if t % 2 == 0)))
+        gates.append(("BOUNDARY", sum(1 << t for t in range(nidx) if t % 2 == 1)))
+        ks = (3, 4, 6, 8)
+    else:
+        ks = (2, 3, 4, 6, 8)
+    for k in ks:
+        for r in range(k):
+            gates.append((f"i%{k}=={r}",
+                          sum(1 << i for i in range(nidx) if i % k == r)))
+    return gates
+
+_GS_QUANTS = ("ALL", "EXISTS", "NONE", "CNT_EVEN", "CNT_ODD")
+_GS_D2_QUANTS = ("ALL", "EXISTS", "NONE")
+
+# Shared state for forked worker processes (populated by run_grammar_search
+# before any Pool is created; workers inherit it via fork).
+_GS = {}
+
+def _gs_one_sample(rng):
+    """Draw one uniform C1^C4 ordering accepted on the exact C5 multiset
+    (which implies C2). Returns (sequence, #trials)."""
+    # Local copy: keeps every batch a pure function of its own seed (the
+    # shared list must never be mutated across checkpointable batches).
+    others, target, pc = list(_GS["others"]), _GS["target"], _GS_PC
+    trials = 0
+    while True:
+        trials += 1
+        rng.shuffle(others)
+        seq = [63, 0]
+        counts = [0] * 7
+        counts[6] = 1            # within-pair 63->0 transition
+        ok = True
+        last = 0
+        for a, b in others:
+            if rng.random() < 0.5:
+                a, b = b, a
+            d = pc[last ^ a]
+            counts[d] += 1
+            if counts[d] > target[d]:
+                ok = False
+                break
+            w = pc[a ^ b]
+            counts[w] += 1
+            if counts[w] > target[w]:
+                ok = False
+                break
+            seq.append(a)
+            seq.append(b)
+            last = b
+        if ok and counts == target:
+            return seq, trials
+
+def _gs_seq_masks(seq):
+    """Per-sequence atom bitmasks: one 63-bit mask per T-atom (transitions),
+    one 64-bit mask per P-atom (positions)."""
+    tm = []
+    pairs = [(seq[t], seq[t + 1]) for t in range(63)]
+    for _, spec in _GS["t_atoms"]:
+        m = 0
+        for t, (a, b) in enumerate(pairs):
+            if _gs_eval_t_atom(spec, a, b):
+                m |= 1 << t
+        tm.append(m)
+    pm = []
+    for _, spec in _GS["p_atoms"]:
+        m = 0
+        for i in range(64):
+            if _gs_eval_p_atom(spec, seq[i], i):
+                m |= 1 << i
+        pm.append(m)
+    return tm, pm
+
+def _gs_gen_candidates():
+    """Enumerate every candidate of the declared grammar at depth <= 2.
+    Tuple forms:
+      ("d1",  dom, qi, gi, ai)             single atom under quantifier+gate
+      ("cmp", dom, gi, a1, a2)             count comparison, a1 < a2
+      ("bool",dom, qi, gi, conn, a1, a2)   two-atom &,|,-> (a1<a2 for &,|)
+    """
+    cands = []
+    T_ATOMS, P_ATOMS = _GS["t_atoms"], _GS["p_atoms"]
+    T_GATES, P_GATES = _GS["t_gates"], _GS["p_gates"]
+    d2_tgates = _GS["d2_tgates"]
+    d2_pgates = _GS["d2_pgates"]
+    for dom, atoms, gates in (("T", T_ATOMS, T_GATES), ("P", P_ATOMS, P_GATES)):
+        for qi in range(len(_GS_QUANTS)):
+            for gi in range(len(gates)):
+                for ai in range(len(atoms)):
+                    cands.append(("d1", dom, qi, gi, ai))
+    for dom, atoms in (("T", T_ATOMS), ("P", P_ATOMS)):
+        gset = d2_tgates if dom == "T" else d2_pgates
+        n = len(atoms)
+        for gi in gset:
+            for a1 in range(n):
+                for a2 in range(a1 + 1, n):
+                    cands.append(("cmp", dom, gi, a1, a2))
+    for dom, atoms in (("T", T_ATOMS), ("P", P_ATOMS)):
+        gset = d2_tgates if dom == "T" else d2_pgates
+        n = len(atoms)
+        for qname in _GS_D2_QUANTS:
+            qi = _GS_QUANTS.index(qname)
+            for gi in gset:
+                for a1 in range(n):
+                    for a2 in range(a1 + 1, n):
+                        cands.append(("bool", dom, qi, gi, "&", a1, a2))
+                        cands.append(("bool", dom, qi, gi, "|", a1, a2))
+                for a1 in range(n):
+                    for a2 in range(n):
+                        if a1 != a2:
+                            cands.append(("bool", dom, qi, gi, "->", a1, a2))
+    return cands
+
+def _gs_cand_L(c):
+    """MDL statement cost L(C) in bits: sum of log2(#alternatives) over the
+    grammar's production choice points. Unordered pairs charged as ordered
+    (deliberate overprice, errs against candidates)."""
+    base = math.log2(3) + math.log2(2)  # form choice + domain choice
+    na = len(_GS["t_atoms"]) if c[1] == "T" else len(_GS["p_atoms"])
+    if c[0] == "d1":
+        return base + math.log2(len(_GS_QUANTS)) + math.log2(24) + math.log2(na)
+    if c[0] == "cmp":
+        return base + math.log2(3) + 2 * math.log2(na)
+    return (base + math.log2(len(_GS_D2_QUANTS)) + math.log2(3) + math.log2(3)
+            + 2 * math.log2(na))
+
+def _gs_eval_cand(c, tm, pm):
+    masks = tm if c[1] == "T" else pm
+    gates = _GS["t_gates"] if c[1] == "T" else _GS["p_gates"]
+    if c[0] == "d1":
+        _, _, qi, gi, ai = c
+        g = gates[gi][1]
+        m = masks[ai] & g
+    elif c[0] == "cmp":
+        _, _, gi, a1, a2 = c
+        g = gates[gi][1]
+        return (masks[a1] & g).bit_count() == (masks[a2] & g).bit_count()
+    else:
+        _, _, qi, gi, conn, a1, a2 = c
+        g = gates[gi][1]
+        m1, m2 = masks[a1], masks[a2]
+        m = (m1 & m2 if conn == "&" else (m1 | m2 if conn == "|"
+                                          else (~m1 | m2))) & g
+    q = _GS_QUANTS[qi]
+    if q == "ALL":    return m == gates[gi][1]
+    if q == "EXISTS": return m != 0
+    if q == "NONE":   return m == 0
+    if q == "CNT_EVEN": return m.bit_count() % 2 == 0
+    return m.bit_count() % 2 == 1
+
+def _gs_pretty(c):
+    atoms = _GS["t_atoms"] if c[1] == "T" else _GS["p_atoms"]
+    gates = _GS["t_gates"] if c[1] == "T" else _GS["p_gates"]
+    if c[0] == "d1":
+        return f"{_GS_QUANTS[c[2]]}[{c[1]}:{gates[c[3]][0]}] {atoms[c[4]][0]}"
+    if c[0] == "cmp":
+        return (f"#[{c[1]}:{gates[c[2]][0]}]({atoms[c[3]][0]}) == "
+                f"#({atoms[c[4]][0]})")
+    return (f"{_GS_QUANTS[c[2]]}[{c[1]}:{gates[c[3]][0]}] "
+            f"({atoms[c[5]][0]} {c[4]} {atoms[c[6]][0]})")
+
+def _gs_probe_worker(args):
+    seed, want = args
+    rng = random.Random(seed)
+    out, trials = [], 0
+    t0 = time.time()
+    for _ in range(want):
+        seq, tr = _gs_one_sample(rng)
+        out.append(seq)
+        trials += tr
+    return out, trials, time.time() - t0
+
+def _gs_sig_worker(rng_):
+    """Signature dedup over a candidate index range, using the probe masks."""
+    lo, hi = rng_
+    tm0, pm0 = _GS["probe_tm"][0], _GS["probe_pm"][0]  # KW
+    nprobe = len(_GS["probe_tm"]) - 1
+    out = []
+    for idx in range(lo, hi):
+        c = _GS["cands"][idx]
+        kw = _gs_eval_cand(c, tm0, pm0)
+        sig = 0
+        for s in range(1, nprobe + 1):
+            if _gs_eval_cand(c, _GS["probe_tm"][s], _GS["probe_pm"][s]):
+                sig |= 1 << s
+        out.append((idx, kw, sig))
+    return out
+
+def _gs_rarity_batch(args):
+    """Generate `want` fresh samples (disjoint seed stream) and count hits for
+    every rarity-tested candidate. One checkpointable unit of work."""
+    batch_idx, seed, want = args
+    rng = random.Random(seed)
+    cands = _GS["rcands"]
+    hits = [0] * len(cands)
+    trials = 0
+    t0 = time.time()
+    for j in range(want):
+        seq, tr = _gs_one_sample(rng)
+        trials += tr
+        if j == 0:  # per-batch sanity: C4 pin + C2 (no distance-5 transition)
+            assert seq[0] == 63 and seq[1] == 0
+            assert all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))
+        tm, pm = _gs_seq_masks(seq)
+        for ci, c in enumerate(cands):
+            if _gs_eval_cand(c, tm, pm):
+                hits[ci] += 1
+    return batch_idx, want, trials, hits, time.time() - t0
+
+def _gs_wilson_lower(hits, n, z=1.645):
+    """One-sided 95% Wilson score lower bound for a binomial proportion."""
+    if n == 0:
+        return 0.0
+    p = hits / n
+    z2 = z * z
+    denom = 1 + z2 / n
+    center = p + z2 / (2 * n)
+    rad = z * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n))
+    return max(0.0, (center - rad) / denom)
+
+def _gs_setup_population():
+    """Populate _GS["others"] / _GS["target"] — the uniform C1^C2^C4^C5
+    reference-population definition (the declared conditioning, not a grammar
+    terminal). Shared verbatim by run_grammar_search (U2) and run_prereg_h1h3
+    (pure code motion from run_grammar_search, 2026-07-26; U2 output verified
+    byte-identical across the move)."""
+    pairs = [(binary_hexagrams[2 * i], binary_hexagrams[2 * i + 1])
+             for i in range(32)]
+    others = []
+    for p in pairs:
+        if set(p) != {0, 63}:
+            others.append(p)
+    assert len(others) == 31
+    _GS["others"] = others
+    kw_diffs = [_GS_PC[binary_hexagrams[i] ^ binary_hexagrams[i + 1]]
+                for i in range(63)]
+    target = [0] * 7
+    for d in kw_diffs:
+        target[d] += 1
+    # C5's transition multiset (matches the published constraint definition).
+    assert target == [0, 2, 20, 13, 19, 0, 9], target
+    _GS["target"] = target
+
+
+def run_grammar_search(nsamp, nprobe, workers, batches, seed,
+                       json_path, ckpt_path):
+    """U2 grammar search over the declared depth<=2 grammar (see the section
+    banner above for the design and the circularity firewall)."""
+    from multiprocessing import Pool
+    report = {}
+    print("U2 grammar search (--grammar-search)")
+    print(f"  pre-registered: nsamp={nsamp} nprobe={nprobe} seed={seed} "
+          f"workers={workers} batches={batches}")
+
+    # ---- frozen grammar ----
+    _GS["t_atoms"] = _gs_t_atoms()
+    _GS["p_atoms"] = _gs_p_atoms()
+    _GS["t_gates"] = _gs_build_gates(63, True)
+    _GS["p_gates"] = _gs_build_gates(64, False)
+    _GS["d2_tgates"] = (0, 1, 2)  # ALL, WITHIN, BOUNDARY
+    p_glbl = [g[0] for g in _GS["p_gates"]]
+    _GS["d2_pgates"] = tuple(p_glbl.index(x)
+                             for x in ("ALL", "i%2==0", "i%2==1"))
+    nt, np_ = len(_GS["t_atoms"]), len(_GS["p_atoms"])
+    assert nt == 118 and np_ == 52, (nt, np_)  # frozen sizes
+    assert len(_GS["t_gates"]) == 24 and len(_GS["p_gates"]) == 24
+
+    # ---- population definition (the declared conditioning, not a terminal) ----
+    _gs_setup_population()
+
+    # ---- Phase A: probe samples (seed stream: seed+100+w) ----
+    t0 = time.time()
+    per = (nprobe + workers - 1) // workers
+    jobs = []
+    left = nprobe
+    for w in range(workers):
+        want = min(per, left)
+        if want <= 0:
+            break
+        jobs.append((seed + 100 + w, want))
+        left -= want
+    with Pool(workers) as pool:
+        res = pool.map(_gs_probe_worker, jobs)
+    probe = [s for r in res for s in r[0]][:nprobe]
+    trials = sum(r[1] for r in res)
+    cpu_a = sum(r[2] for r in res)
+    wall_a = time.time() - t0
+    print(f"[A] {len(probe)} probe samples, accept=1/{trials / len(probe):.0f}, "
+          f"wall={wall_a:.1f}s, {cpu_a / len(probe) * 1000:.1f} cpu-ms/sample")
+    report["probe_sample"] = dict(
+        n=len(probe), trials=trials, wall_s=round(wall_a, 1),
+        cpu_ms_per_sample=round(cpu_a / len(probe) * 1000, 2))
+
+    # ---- Phase B: masks for KW + probe; candidate enumeration ----
+    t0 = time.time()
+    probe_tm, probe_pm = [], []
+    for s in [list(binary_hexagrams)] + probe:
+        tm, pm = _gs_seq_masks(s)
+        probe_tm.append(tm)
+        probe_pm.append(pm)
+    _GS["probe_tm"], _GS["probe_pm"] = probe_tm, probe_pm
+    _GS["cands"] = _gs_gen_candidates()
+    n_syn = len(_GS["cands"])
+    by_form = {}
+    for c in _GS["cands"]:
+        by_form[c[0]] = by_form.get(c[0], 0) + 1
+    print(f"[B] masks in {time.time() - t0:.1f}s; syntactic candidates d<=2: "
+          f"{n_syn} by form: {by_form} (NT={nt}, NP={np_})")
+    report["grammar"] = dict(t_atoms=nt, p_atoms=np_, t_gates=24, p_gates=24,
+                             quantifiers=list(_GS_QUANTS))
+    report["syntactic"] = dict(total=n_syn, **by_form)
+
+    # ---- Phase C: signature dedup on the probe set ----
+    t0 = time.time()
+    chunk = 4000
+    ranges = [(i, min(i + chunk, n_syn)) for i in range(0, n_syn, chunk)]
+    best = {}          # (kw, sig) -> candidate idx of min-L representative
+    kw_true_syn = 0
+    with Pool(workers) as pool:
+        for out in pool.imap_unordered(_gs_sig_worker, ranges):
+            for idx, kw, sig in out:
+                if kw:
+                    kw_true_syn += 1
+                key = (kw, sig)
+                if (key not in best
+                        or _gs_cand_L(_GS["cands"][idx])
+                        < _gs_cand_L(_GS["cands"][best[key]])):
+                    best[key] = idx
+    wall_c = time.time() - t0
+    n_dist = len(best)
+    sel = math.log2(n_dist)  # selection charge, pinned to THIS run's measure
+    full = (1 << (nprobe + 1)) - 2  # bits 1..nprobe set
+    kwsat = [(k, i) for k, i in best.items() if k[0]]
+    trivial = [(k, i) for k, i in kwsat if k[1] == full]
+    nontriv = [(k, i) for k, i in kwsat if k[1] != full]
+    print(f"[C] dedup {wall_c:.1f}s: distinct={n_dist} "
+          f"({n_dist / n_syn * 100:.1f}%), KW-sat syntactic={kw_true_syn}, "
+          f"KW-sat distinct={len(kwsat)}, probe-trivial={len(trivial)}, "
+          f"to-rarity={len(nontriv)}")
+    print(f"[C] selection charge log2(distinct) = {sel:.2f} bits "
+          f"(pinned to this run, probe={nprobe})")
+    report["dedup"] = dict(distinct=n_dist, kw_sat_syntactic=kw_true_syn,
+                           kw_sat_distinct=len(kwsat),
+                           probe_trivial=len(trivial),
+                           to_rarity=len(nontriv), wall_s=round(wall_c, 1),
+                           selection_bits=round(sel, 2))
+
+    # ---- Phase D: rarity on a DISJOINT sample stream (seed+10000+batch) ----
+    ridx = [i for _, i in nontriv]
+    _GS["rcands"] = [_GS["cands"][i] for i in ridx]
+    per_batch = (nsamp + batches - 1) // batches
+    jobs = []
+    left = nsamp
+    for b in range(batches):
+        want = min(per_batch, left)
+        if want <= 0:
+            break
+        jobs.append((b, seed + 10000 + b, want))
+        left -= want
+    done = {}          # batch_idx -> (n, hits)
+    if ckpt_path and os.path.exists(ckpt_path):
+        with open(ckpt_path) as f:
+            for line in f:
+                rec = json.loads(line)
+                if rec["ncand"] == len(ridx):
+                    done[rec["batch"]] = (rec["n"], rec["hits"])
+        if done:
+            print(f"[D] checkpoint: {len(done)} batches already complete")
+    todo = [j for j in jobs if j[0] not in done]
+    t0 = time.time()
+    ck = open(ckpt_path, "a") if ckpt_path else None
+    nb_done = len(done)
+    with Pool(workers) as pool:
+        for batch_idx, n_b, trials_b, hits_b, cpu_b in \
+                pool.imap_unordered(_gs_rarity_batch, todo):
+            done[batch_idx] = (n_b, hits_b)
+            nb_done += 1
+            if ck:
+                ck.write(json.dumps(dict(batch=batch_idx, n=n_b,
+                                         trials=trials_b, ncand=len(ridx),
+                                         hits=hits_b)) + "\n")
+                ck.flush()
+            if nb_done % 10 == 0 or nb_done == len(jobs):
+                el = time.time() - t0
+                print(f"[D] {nb_done}/{len(jobs)} batches, "
+                      f"{el / 60:.1f} min elapsed", flush=True)
+    if ck:
+        ck.close()
+    n_eff = sum(n for n, _ in done.values())
+    hits = [0] * len(ridx)
+    for n_b, h_b in done.values():
+        for j, h in enumerate(h_b):
+            hits[j] += h
+    wall_d = time.time() - t0
+    print(f"[D] rarity: {len(ridx)} candidates x {n_eff} samples, "
+          f"wall={wall_d / 60:.1f} min")
+    report["rarity"] = dict(cands=len(ridx), nsamp=n_eff,
+                            wall_s=round(wall_d, 1))
+
+    # ---- Phase E: MDL ledger, survivors, detection floor ----
+    res_bits = math.log2(n_eff)
+    floors = {}
+    for c in _GS["cands"]:
+        key = f"{c[0]}-{c[1]}"
+        L = _gs_cand_L(c)
+        if key not in floors or L < floors[key]:
+            floors[key] = L
+    min_L = min(floors.values())
+    print(f"[E] resolution at n={n_eff}: {res_bits:.1f} bits; "
+          f"L(C) floor by form: "
+          + ", ".join(f"{k}={v:.1f}" for k, v in sorted(floors.items())))
+    print(f"[E] DETECTION FLOOR: a survivor needs bits-explained > L(C) + "
+          f"selection >= {min_L + sel:.1f} bits (cheapest form) — i.e. "
+          f"population frequency below ~2^-{min_L + sel:.0f}. Direct "
+          f"sampling resolves {res_bits:.1f} bits; anything between is "
+          f"reportable only via the zero-hit escalation path.")
+    survivors, zero_hit, killed = [], [], 0
+    scored = []
+    for j, idx in enumerate(ridx):
+        c = _GS["cands"][idx]
+        L = _gs_cand_L(c)
+        h = hits[j]
+        if h == 0:
+            zero_hit.append((idx, L))
+            continue
+        be = -math.log2(h / n_eff)
+        scored.append((be - L, be, L, h, idx))
+        if be > L:
+            survivors.append((idx, L, be, h))
+        else:
+            killed += 1
+    zero_hit.sort(key=lambda x: x[1])
+    scored.sort(reverse=True)
+    print(f"[E] killed by observed hits: {killed}; "
+          f"MDL-net-positive (pre-selection): {len(survivors)}; "
+          f"zero-hit shortlist: {len(zero_hit)}")
+    for idx, L, be, h in survivors[:20]:
+        print(f"    SURVIVOR? L={L:.1f} be={be:.1f} hits={h}/{n_eff}: "
+              f"{_gs_pretty(_GS['cands'][idx])}")
+    for idx, L in zero_hit[:25]:
+        print(f"    ZERO-HIT L={L:.1f}: {_gs_pretty(_GS['cands'][idx])}")
+    print("[R] closest approaches (bits-explained - L(C), pre-selection):")
+    for mg, be, L, h, idx in scored[:15]:
+        print(f"    margin={mg:+.1f} be={be:.1f} L={L:.1f} hits={h}/{n_eff}: "
+              f"{_gs_pretty(_GS['cands'][idx])}")
+    rarest = min((s for s in scored), key=lambda s: s[3], default=None)
+    wilson = None
+    if rarest is not None:
+        wilson = _gs_wilson_lower(rarest[3], n_eff)
+        print(f"[R] rarest resolved candidate: {rarest[3]}/{n_eff} hits; "
+              f"one-sided 95% Wilson lower bound f >= {wilson:.3g} "
+              f"(<= {-math.log2(wilson):.1f} bits)")
+    report["mdl"] = dict(
+        resolution_bits=round(res_bits, 1),
+        L_floor_by_form={k: round(v, 2) for k, v in sorted(floors.items())},
+        detection_floor_bits=round(min_L + sel, 1),
+        killed_by_hits=killed, survivors=len(survivors),
+        zero_hit=len(zero_hit),
+        survivor_list=[(round(L, 1), round(be, 1), h,
+                        _gs_pretty(_GS["cands"][i]))
+                       for i, L, be, h in survivors[:50]],
+        zero_hit_list=[(round(L, 1), _gs_pretty(_GS["cands"][i]))
+                       for i, L in zero_hit[:50]])
+    report["closest"] = [(round(mg, 2), round(be, 2), round(L, 2), h,
+                          _gs_pretty(_GS["cands"][i]))
+                         for mg, be, L, h, i in scored[:15]]
+    if wilson is not None:
+        report["rarest"] = dict(hits=rarest[3], n=n_eff,
+                                wilson_lower_f=wilson,
+                                wilson_bits=round(-math.log2(wilson), 2))
+
+    # rarity histogram (floor of -log2 f) for the record
+    hist = {}
+    for j in range(len(ridx)):
+        h = hits[j]
+        band = "zero-hit" if h == 0 else str(int(-math.log2(h / n_eff)))
+        hist[band] = hist.get(band, 0) + 1
+    report["rarity_hist_negl2f_floor"] = dict(
+        sorted(hist.items(),
+               key=lambda kv: 999 if kv[0] == "zero-hit" else int(kv[0])))
+    print(f"[H] -log2(f) floor histogram: {report['rarity_hist_negl2f_floor']}")
+
+    # sanity: C2 as a grammar sentence must hold on KW and all probe samples
+    t_lbls = [a[0] for a in _GS["t_atoms"]]
+    c2c = ("d1", "T", _GS_QUANTS.index("NONE"), 0, t_lbls.index("d==5"))
+    assert _gs_eval_cand(c2c, probe_tm[0], probe_pm[0])
+    assert all(_gs_eval_cand(c2c, probe_tm[s], probe_pm[s])
+               for s in range(1, min(51, nprobe + 1)))
+    print("[S] sanity: NONE[T:ALL] d==5 (C2) true on KW + probe: OK")
+
+    verdict = ("NULL — no survivor within the declared grammar at depth <= 2"
+               if not survivors and not zero_hit else
+               "ATTENTION — survivor or zero-hit shortlist present; "
+               "run the circularity audit before any claim")
+    print(f"[V] {verdict}")
+    report["verdict"] = verdict
+    report["preregistration"] = dict(
+        nsamp=nsamp, nprobe=nprobe, seed=seed,
+        probe_seed_stream=f"seed+100+w (w=0..{workers - 1})",
+        rarity_seed_stream=f"seed+10000+b (b=0..{len(jobs) - 1})",
+        selection_charge="log2(distinct classes at frozen probe size)",
+        depth="d<=2; d=3 only if a d<=2 candidate survives the MDL prefilter")
+    if json_path:
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=1)
+        print(f"[W] report written to {json_path}")
+
+
+# ============================================================================
+# Pre-registered H1/H3 test (--prereg-h1h3)
+# Developed with AI assistance (Claude/Fable, Anthropic).
+#
+# K = 4 pre-declared predicates over the same uniform C1^C2^C4^C5 reference
+# population as the U2 grammar search (same sampler, _gs_one_sample; same
+# population definition, _gs_setup_population). Frozen spec (authoritative;
+# this code implements it verbatim): the pre-registration document of
+# 2026-07-26. Everything below — functionals, threshold rules, seed streams,
+# L(C) menus, the log2(K)=2.00 selection charge, the cross-check gate, and the
+# pre-registered prediction that ALL FOUR tests FAIL their bars — was frozen
+# before this code was written.
+#
+# Notation (1-indexed pair slots j; transitions i = 0..62; d_i = popcount of
+# the i-th transition):
+#   A(S)  = sum_{i=0..61} d_i * d_{i+1}        (lag-1 product sum, = F4'
+#           dist_autocorr; H1's functional)
+#   D6(S) = { j in 1..32 : within-pair distance of slot j == 6 }   (|D6| = 8,
+#           forced — a constant of the population)
+#   M1(S) = { j in 1..31 : boundary after slot j has d == 1 }      (|M1| = 2,
+#           forced)
+#   P(S)  = #{ j in D6 : j in {1,32} or (j-1) in D6 or (j+1) in D6 }
+#   Q(S)  = #{ j in M1 : j in D6 or (j+1) in D6 }
+#
+# The four tests and their frozen threshold rules:
+#   T1 H1-median:    A(S) <= med*(A), med*(A) = lower sample median from the
+#                    threshold stream ONLY (KW held out).
+#   T2 H1-perm-sign: A(S) <= 693 = floor((S1^2 - S2)/63), S1 = 211, S2 = 827
+#                    — a closed-form constant of C5's declared multiset.
+#   T3 H3-P:         P(S) >= med*(P), med*(P) = upper sample median ("ge"
+#                    rule) from the threshold stream ONLY.
+#   T4 H3-Q:         Q(S) = 2 (universal cushion form; no numeric threshold).
+#
+# CIRCULARITY FIREWALL (KW hold-out, structural): the threshold stream
+# (seed+20000+b) is sampled and med*(A)/med*(P) are computed, printed, and
+# persisted BEFORE any code path below evaluates a functional on the KW
+# array. KW enters exactly twice, both after that freeze point: (i) the
+# KW-satisfaction bits, (ii) the at-KW masses — which are reported as
+# C3-class DATA (descriptive, priced-as-data), never as a test. The
+# evaluation stream (seed+30000+b) is disjoint from the threshold stream and
+# from U2's streams (+100+w probe, +10000+b rarity) at the same base seed.
+#
+# Accounting (frozen): L(C) per test from the declared coarse menus
+# (T1 7.58, T2 7.58, T3 9.17, T4 8.06 bits — breakdown in the spec §4.1),
+# selection charge log2(K) = log2(4) = 2.00 bits. A test passes iff KW
+# satisfies its predicate AND bits-explained = -log2 f_eval > L(C) + 2.00.
+# Pre-registered prediction: 4/4 FAIL (an expected, legitimate null).
+#
+# Validity gate (spec §3.5): the evaluation stream's mass(A <= 648) must
+# reproduce the independently-measured F4' dist_autocorr figure 0.04789
+# within +-0.005 (Knuth importance-weighted estimator, f4p_tier1.out row 10).
+# On failure: hard stop, no verdicts.
+# ============================================================================
+
+# The parity shadow ("no two odd-d transitions adjacent") is a theorem of the
+# system (TR-6/TR-7) with provable population mass 1 — asserted per batch as a
+# sampler-correctness detector only; deliberately NOT charged in K.
+
+def _ph_stats(seq):
+    """One pass over a population member: returns (A, P, Q, parity_ok) per
+    the frozen definitions above. Integer arithmetic only."""
+    pc = _GS_PC
+    d = [pc[seq[i] ^ seq[i + 1]] for i in range(63)]
+    A = 0
+    for i in range(62):
+        A += d[i] * d[i + 1]
+    # D6: within-pair transition of slot j is transition index 2j-2 (even i).
+    d6 = [False] * 34            # 1..32 used; sentinels at 0 and 33
+    for j in range(1, 33):
+        if d[2 * j - 2] == 6:
+            d6[j] = True
+    P = 0
+    for j in range(1, 33):
+        if d6[j] and (j == 1 or j == 32 or d6[j - 1] or d6[j + 1]):
+            P += 1
+    # M1: boundary after slot j is transition index 2j-1 (odd i), j in 1..31.
+    Q = 0
+    for j in range(1, 32):
+        if d[2 * j - 1] == 1 and (d6[j] or d6[j + 1]):
+            Q += 1
+    parity_ok = not any(d[i] % 2 == 1 and d[i + 1] % 2 == 1
+                        for i in range(62))
+    return A, P, Q, parity_ok
+
+def _ph_batch(args):
+    """Sample `want` fresh population members from one seed stream and return
+    per-batch histograms of A, P, Q. One checkpointable unit of work, shared
+    by the threshold and evaluation streams (they differ only in seed_off).
+    Returns (batch_idx, want, trials, histA, histP, histQ, parity_viol, wall).
+    """
+    batch_idx, seed_base, seed_off, want = args
+    rng = random.Random(seed_base + seed_off + batch_idx)
+    hist_a, hist_p, hist_q = {}, {}, {}
+    parity_viol = 0
+    trials = 0
+    t0 = time.time()
+    for j in range(want):
+        seq, tr = _gs_one_sample(rng)
+        trials += tr
+        if j == 0:  # per-batch sanity: C4 pin + C2 (no distance-5 transition)
+            assert seq[0] == 63 and seq[1] == 0
+            assert all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))
+        a, p, q, ok = _ph_stats(seq)
+        if not ok:
+            parity_viol += 1
+        hist_a[a] = hist_a.get(a, 0) + 1
+        hist_p[p] = hist_p.get(p, 0) + 1
+        hist_q[q] = hist_q.get(q, 0) + 1
+    return (batch_idx, want, trials, hist_a, hist_p, hist_q, parity_viol,
+            time.time() - t0)
+
+def _ph_median(hist, mode):
+    """Frozen median rules of the spec (§3.2) on an integer histogram.
+    mode "le": smallest integer tau with F(X <= tau) >= 1/2   (for T1's A).
+    mode "ge": largest integer tau with F(X >= tau) >= 1/2    (for T3's P).
+    """
+    n = sum(hist.values())
+    assert n > 0 and mode in ("le", "ge")
+    if mode == "le":
+        cum = 0
+        for v in sorted(hist):
+            cum += hist[v]
+            if 2 * cum >= n:
+                return v
+    else:
+        cum = 0
+        for v in sorted(hist, reverse=True):
+            cum += hist[v]
+            if 2 * cum >= n:
+                return v
+    raise AssertionError("unreachable: histogram exhausted")
+
+def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
+                   ckpt_path, phase_tag):
+    """Run one seed stream (threshold or evaluation) through _ph_batch with
+    the Phase-D JSONL checkpoint pattern. Returns (histA, histP, histQ,
+    n_eff, trials, parity_viol)."""
+    from multiprocessing import Pool
+    per_batch = (ntotal + batches - 1) // batches
+    jobs = []
+    left = ntotal
+    for b in range(batches):
+        want = min(per_batch, left)
+        if want <= 0:
+            break
+        jobs.append((b, seed, seed_off, want))
+        left -= want
+    done = {}  # batch_idx -> record dict
+    if ckpt_path and os.path.exists(ckpt_path):
+        with open(ckpt_path) as f:
+            for line in f:
+                rec = json.loads(line)
+                if rec.get("phase") == phase_tag and rec.get("seed") == seed:
+                    done[rec["batch"]] = rec
+        if done:
+            print(f"[{label}] checkpoint: {len(done)} batches already "
+                  f"complete")
+    todo = [j for j in jobs if j[0] not in done]
+    t0 = time.time()
+    ck = open(ckpt_path, "a") if ckpt_path else None
+    nb_done = len(done)
+    with Pool(workers) as pool:
+        for (batch_idx, n_b, trials_b, ha, hp, hq, pv, cpu_b) in \
+                pool.imap_unordered(_ph_batch, todo):
+            rec = dict(phase=phase_tag, seed=seed, batch=batch_idx, n=n_b,
+                       trials=trials_b, parity_viol=pv, hist_a=ha,
+                       hist_p=hp, hist_q=hq)
+            done[batch_idx] = rec
+            nb_done += 1
+            if ck:
+                ck.write(json.dumps(rec) + "\n")
+                ck.flush()
+            if nb_done % 10 == 0 or nb_done == len(jobs):
+                el = time.time() - t0
+                print(f"[{label}] {nb_done}/{len(jobs)} batches, "
+                      f"{el / 60:.1f} min elapsed", flush=True)
+    if ck:
+        ck.close()
+    hist_a, hist_p, hist_q = {}, {}, {}
+    n_eff = trials = parity_viol = 0
+    for rec in done.values():
+        n_eff += rec["n"]
+        trials += rec["trials"]
+        parity_viol += rec["parity_viol"]
+        for hist, key in ((hist_a, "hist_a"), (hist_p, "hist_p"),
+                          (hist_q, "hist_q")):
+            for k, v in rec[key].items():
+                k = int(k)  # JSON round-trip stringifies integer keys
+                hist[k] = hist.get(k, 0) + v
+    assert n_eff == ntotal, (n_eff, ntotal)
+    # Parity shadow is a theorem (mass 1): any violation = sampler bug.
+    assert parity_viol == 0, f"parity-shadow violation: sampler defect"
+    return hist_a, hist_p, hist_q, n_eff, trials, parity_viol
+
+def _ph_mass(hist, pred):
+    """Fraction of histogram mass on values satisfying pred."""
+    n = sum(hist.values())
+    return sum(c for v, c in hist.items() if pred(v)) / n
+
+def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
+                    json_path, ckpt_path):
+    """Pre-registered H1/H3 K=4 test (see the section banner above; the
+    frozen 2026-07-26 pre-registration document is authoritative)."""
+    report = {}
+    print("Pre-registered H1/H3 test (--prereg-h1h3), K=4")
+    print(f"  frozen params: n_eval={n_eval} n_thr={n_thr} seed={seed} "
+          f"workers={workers} batches={batches}")
+    print("  seed streams: threshold=seed+20000+b, evaluation=seed+30000+b "
+          "(disjoint from each other and from U2's +100/+10000)")
+    _gs_setup_population()
+
+    # Frozen accounting (spec §4.1/§4.2; menu breakdowns live in the spec —
+    # T1 = 2.58+2.00+1.00+2.00, T2 same, T3 = 2.58+1.58+2.00+1.00+2.00,
+    # T4 = 2.58+2.32+1.58+1.58; charge = log2(K=4) = 2.00).
+    L = {"T1": 7.58, "T2": 7.58, "T3": 9.17, "T4": 8.06}
+    SEL = 2.00
+    T2_CUT = 693  # floor((211^2 - 827)/63), closed form from C5's multiset
+    assert (211 * 211 - 827) // 63 == T2_CUT
+
+    # ---- Phase T: threshold stream — completes BEFORE any KW evaluation ----
+    t0 = time.time()
+    tha, thp, thq, n_t, trials_t, _ = _ph_run_stream(
+        "T", seed, 20000, n_thr, workers, batches, ckpt_path, "thr")
+    med_a = _ph_median(tha, "le")
+    med_p = _ph_median(thp, "ge")
+    wall_t = time.time() - t0
+    print(f"[T] threshold stream: n={n_t}, accept=1/{trials_t / n_t:.0f}, "
+          f"wall={wall_t / 60:.1f} min")
+    print(f"[T] FROZEN THRESHOLDS (KW held out): med*(A)={med_a} (T1: "
+          f"A<=med*), med*(P)={med_p} (T3: P>=med*); T2 cut {T2_CUT} "
+          f"(closed form); T4 universal (Q=2)")
+    report["thresholds"] = dict(med_a=med_a, med_p=med_p, t2_cut=T2_CUT,
+                                n_thr=n_t, derived_from="threshold stream "
+                                "seed+20000+b only; KW held out")
+    report["threshold_stream"] = dict(
+        n=n_t, trials=trials_t, wall_s=round(wall_t, 1),
+        hist_a={str(k): v for k, v in sorted(tha.items())},
+        hist_p={str(k): v for k, v in sorted(thp.items())},
+        hist_q={str(k): v for k, v in sorted(thq.items())})
+    if json_path:  # persist the freeze point before KW is touched
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=1)
+
+    # ---- Phase V: FIRST KW read (structurally after the threshold freeze) --
+    kw_a, kw_p, kw_q, kw_par = _ph_stats(list(binary_hexagrams))
+    # Evaluator-correctness pins (frozen constants, NOT thresholds).
+    assert (kw_a, kw_p, kw_q, kw_par) == (648, 5, 2, True), \
+        (kw_a, kw_p, kw_q, kw_par)
+    kw_sat = {"T1": kw_a <= med_a, "T2": kw_a <= T2_CUT,
+              "T3": kw_p >= med_p, "T4": kw_q == 2}
+    print(f"[V] KW values: A=648 P=5 Q=2 (pinned); satisfaction: "
+          + ", ".join(f"{t}={'YES' if s else 'NO'}"
+                      for t, s in kw_sat.items()))
+    report["kw"] = dict(A=kw_a, P=kw_p, Q=kw_q,
+                        satisfies={t: bool(s) for t, s in kw_sat.items()})
+
+    # ---- Phase E: evaluation stream ----
+    t0 = time.time()
+    eha, ehp, ehq, n_e, trials_e, _ = _ph_run_stream(
+        "E", seed, 30000, n_eval, workers, batches, ckpt_path, "eval")
+    wall_e = time.time() - t0
+    print(f"[E] evaluation stream: n={n_e}, accept=1/{trials_e / n_e:.0f}, "
+          f"wall={wall_e / 60:.1f} min")
+    report["eval_stream"] = dict(
+        n=n_e, trials=trials_e, wall_s=round(wall_e, 1),
+        hist_a={str(k): v for k, v in sorted(eha.items())},
+        hist_p={str(k): v for k, v in sorted(ehp.items())},
+        hist_q={str(k): v for k, v in sorted(ehq.items())})
+
+    # ---- Cross-check gate (spec §3.5) — validity precondition, not a test --
+    p_le_648 = _ph_mass(eha, lambda v: v <= 648)
+    gate_ok = abs(p_le_648 - 0.04789) <= 0.005
+    print(f"[G] cross-check gate vs F4' dist_autocorr: sampled "
+          f"mass(A<=648)={p_le_648:.5f} vs 0.04789 +- 0.005 -> "
+          f"{'PASS' if gate_ok else 'FAIL'}")
+    report["crosscheck_gate"] = dict(mass_a_le_648=p_le_648,
+                                     expected=0.04789, tol=0.005,
+                                     ok=bool(gate_ok))
+    if not gate_ok:
+        report["verdict"] = ("GATE FAIL — population/sampler mismatch vs "
+                             "the F4' instrument; NO verdicts issued")
+        if json_path:
+            with open(json_path, "w") as f:
+                json.dump(report, f, indent=1)
+        print("[G] HARD STOP: no verdicts; investigate the population/"
+              "sampler discrepancy (spec §3.5 / §8).")
+        sys.exit(3)
+
+    # ---- Phase L: per-test frequencies, ledger, verdicts ----
+    freq = {"T1": _ph_mass(eha, lambda v: v <= med_a),
+            "T2": _ph_mass(eha, lambda v: v <= T2_CUT),
+            "T3": _ph_mass(ehp, lambda v: v >= med_p),
+            "T4": _ph_mass(ehq, lambda v: v == 2)}
+    names = {"T1": f"H1-median  A<={med_a}",
+             "T2": f"H1-perm-sign  A<={T2_CUT}",
+             "T3": f"H3-P  P>={med_p}",
+             "T4": "H3-Q  Q=2 (universal)"}
+    print(f"[L] per-test ledger (bar = L(C) + selection log2(4) = "
+          f"L(C) + {SEL:.2f}; n_eval = {n_e}):")
+    report["tests"] = {}
+    all_fail = True
+    for t in ("T1", "T2", "T3", "T4"):
+        hits = round(freq[t] * n_e)
+        if hits == 0:
+            # Zero-hit path (spec §4.3): report Wilson bound and stop there.
+            be = float("inf")
+            be_str = f">= {math.log2(n_e):.1f} (0 hits; Wilson)"
+        else:
+            be = -math.log2(freq[t])
+            be_str = f"{be:.3f}"
+        # One-sided 95% Wilson interval for f -> interval for bits-explained.
+        f_lo = _gs_wilson_lower(hits, n_e)
+        f_hi = 1.0 - _gs_wilson_lower(n_e - hits, n_e)
+        be_lo = -math.log2(f_hi) if f_hi > 0 else float("inf")
+        be_hi = -math.log2(f_lo) if f_lo > 0 else float("inf")
+        bar = L[t] + SEL
+        passed = bool(kw_sat[t]) and hits > 0 and be > bar
+        if passed:
+            all_fail = False
+        verdict = ("PASS — NO CLAIM: adversarial re-audit required (spec §8)"
+                   if passed else
+                   ("FAIL (KW-unsatisfied, 0 bits)" if not kw_sat[t]
+                    else "FAIL"))
+        print(f"    {t} {names[t]:28s} KW-sat={'Y' if kw_sat[t] else 'N'} "
+              f"f={freq[t]:.5f} ({hits}/{n_e}) be={be_str} bits "
+              f"[Wilson 95pct: {be_lo:.2f}..{be_hi:.2f}] "
+              f"L={L[t]:.2f} bar={bar:.2f} -> {verdict}")
+        report["tests"][t] = dict(
+            name=names[t], kw_satisfies=bool(kw_sat[t]), f_eval=freq[t],
+            hits=hits, n=n_e,
+            bits_explained=(None if hits == 0 else round(be, 3)),
+            wilson_bits_lo=round(be_lo, 3),
+            wilson_bits_hi=(None if f_lo == 0 else round(be_hi, 3)),
+            L_bits=L[t], selection_bits=SEL, bar_bits=round(bar, 2),
+            verdict=verdict)
+
+    # ---- at-KW masses: C3-class, priced as DATA — explicitly NOT tests ----
+    at_kw = dict(
+        mass_a_le_648=_ph_mass(eha, lambda v: v <= 648),
+        mass_a_lt_648=_ph_mass(eha, lambda v: v < 648),
+        mass_p_ge_5=_ph_mass(ehp, lambda v: v >= 5),
+        mass_q_eq_2=_ph_mass(ehq, lambda v: v == 2))
+    print("[K] at-KW one-sided masses (C3-class, priced as data, NOT tests; "
+          "thresholds here are KW's own values):")
+    for k, v in at_kw.items():
+        bits = -math.log2(v) if v > 0 else float("inf")
+        print(f"    {k} = {v:.5f} ({bits:.2f} bits as data)")
+    report["at_kw_c3_class_data"] = dict(
+        note="descriptive DESCRIPTION_LENGTH-ledger quantities at KW's own "
+             "values; C3-class (priced as data), never a test",
+        **{k: round(v, 6) for k, v in at_kw.items()})
+
+    # ---- final verdict vs the pre-registered prediction ----
+    verdict = ("NULL — all 4 pre-registered tests FAIL their bars (the "
+               "pre-registered predicted outcome)" if all_fail else
+               "ATTENTION — at least one test passed its bar; NO CLAIM: "
+               "adversarial circularity re-audit required before anything "
+               "else (spec §8)")
+    print(f"[V] {verdict}")
+    print(f"[V] pre-registered prediction was 4/4 FAIL -> "
+          f"{'HELD' if all_fail else 'NOT HELD'}")
+    report["verdict"] = verdict
+    report["prediction_4of4_fail_held"] = bool(all_fail)
+    report["preregistration"] = dict(
+        n_eval=n_eval, n_thr=n_thr, seed=seed, K=4,
+        selection_bits=SEL,
+        thr_seed_stream="seed+20000+b",
+        eval_seed_stream="seed+30000+b",
+        spec="PREREG_H1_H3_TEST_2026_07_26 (frozen before implementation)")
+    if json_path:
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=1)
+        print(f"[W] report written to {json_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Received Order Analysis Engine (ROAE) of the King Wen sequence")
@@ -3672,6 +4734,35 @@ def main():
                              "trigrams, canons, graycode, stats)")
 
     # Interactive / special modes
+    parser.add_argument("--grammar-search", action="store_true",
+                        help="U2: circularity-safe, MDL-charged search over a "
+                             "pre-registered grammar of KW-independent "
+                             "structural predicates (depth <= 2) for candidate "
+                             "constraints beyond C1-C5 (see the section banner "
+                             "in the source for the full design)")
+    parser.add_argument("--gs-samples", type=int, default=1000000,
+                        help="grammar search: rarity sample size (default 1000000)")
+    parser.add_argument("--gs-probe", type=int, default=256,
+                        help="grammar search: probe-set size for signature dedup "
+                             "(default 256; disjoint from the rarity sample)")
+    parser.add_argument("--gs-workers", type=int, default=0,
+                        help="grammar search: worker processes (default: all cores)")
+    parser.add_argument("--gs-batches", type=int, default=100,
+                        help="grammar search: checkpointable rarity batches (default 100)")
+    parser.add_argument("--gs-json", type=str, default="u2_report.json",
+                        help="grammar search: JSON report path")
+    parser.add_argument("--gs-checkpoint", type=str, default="u2_checkpoint.jsonl",
+                        help="grammar search: rarity checkpoint path (JSONL; "
+                             "resume-safe across restarts)")
+    parser.add_argument("--prereg-h1h3", action="store_true",
+                        help="pre-registered H1/H3 K=4 test against the "
+                             "C1^C2^C4^C5 reference population (frozen "
+                             "2026-07-26 spec; reuses --gs-samples as N_eval, "
+                             "--gs-workers, --gs-batches, --gs-json, "
+                             "--gs-checkpoint, --seed)")
+    parser.add_argument("--ph-thr-samples", type=int, default=100000,
+                        help="prereg-h1h3: threshold-derivation stream sample "
+                             "size (default 100000; KW held out)")
     parser.add_argument("--self-test", action="store_true",
                         help="Run mathematical invariant checks")
     parser.add_argument("--lookup", type=str, default=None,
@@ -3725,6 +4816,29 @@ def main():
         return
     if args.self_test:
         print_self_test()
+        return
+    if args.grammar_search:
+        run_grammar_search(
+            nsamp=args.gs_samples, nprobe=args.gs_probe,
+            workers=args.gs_workers or (os.cpu_count() or 1),
+            batches=args.gs_batches,
+            seed=args.seed if args.seed is not None else 20260726,
+            json_path=args.gs_json, ckpt_path=args.gs_checkpoint)
+        return
+    if args.prereg_h1h3:
+        # Never clobber U2 artifacts: substitute prereg-specific paths when
+        # the shared flags still hold their U2 defaults.
+        ph_json = ("prereg_h1h3_report.json"
+                   if args.gs_json == "u2_report.json" else args.gs_json)
+        ph_ckpt = ("prereg_h1h3_ckpt.jsonl"
+                   if args.gs_checkpoint == "u2_checkpoint.jsonl"
+                   else args.gs_checkpoint)
+        run_prereg_h1h3(
+            n_eval=args.gs_samples, n_thr=args.ph_thr_samples,
+            workers=args.gs_workers or (os.cpu_count() or 1),
+            batches=args.gs_batches,
+            seed=args.seed if args.seed is not None else 20260726,
+            json_path=ph_json, ckpt_path=ph_ckpt)
         return
     if args.lookup:
         print_header()
