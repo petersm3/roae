@@ -246,7 +246,11 @@ theorem pcomp_closure : ∀ p ∈ G48, ∀ q ∈ G48, pcomp p q ∈ G48 := by de
 theorem applyPerm_pcomp_bool :
     (G48.all fun p => G48.all fun q => (List.range 64).all fun h =>
       applyPerm (pcomp p q) h == applyPerm p (applyPerm q h)) = true := by
-  decide +kernel
+  -- kernel `decide +kernel` OOMs (>29 GB solo) on this 48·48·64 obligation; native_decide
+  -- checks it in seconds. Its bridge `applyPerm_pcomp` and the four `twenty_four_dvd_*`
+  -- DIV-24 counting theorems therefore inherit compiler-trust (native_decide) — disclosed
+  -- in lean/README.md. The DIV-24 fact is independently checkable by the zero-compute mod-24 gate.
+  native_decide
 
 theorem applyPerm_pcomp :
     ∀ p ∈ G48, ∀ q ∈ G48, ∀ h < 64,
