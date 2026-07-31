@@ -36,6 +36,9 @@ Usage:
     python3 verify.py [solutions.bin] --jobs N     # parallel record verify
     python3 verify.py --enumerate-reference N       # small-n brute-force (2<=N<=9)
     python3 verify.py --recount                     # independent count reproduction
+    python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
+    python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
+    python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
 
 --jobs N parallelizes via multiprocessing for large files. With N = 1
 (default) behavior is identical to the single-threaded original.
@@ -576,6 +579,335 @@ _C5_RUNGS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Verifier-gap closure (2026-07-31): worker-sized C5 rungs (A4), exact
+# deterministic subtree anchors (A5), finite record-mode + wrap/parity
+# tallies (A6).  Same discipline as the rest of this file: clean-room from
+# the published definitions, stdlib only, no solve.c/solve.py import.
+# ---------------------------------------------------------------------------
+
+# TR-11 §4b worker-sized rungs.  n=18's integer is deliberately unpublished
+# (TR-11 prints "(in-RAM reference)"), so its count is report-only here; its
+# published B0 column IS gated.  n=24/25/27/28 are NOT reachable by this plain
+# DP on any single-node RAM budget (peak live states ~4e9 at n=24, ~100 GB per
+# layer) — they remain covered by the engine's in-RAM/out-of-core concordance
+# and verify.c's IE engine.
+_C5_RUNGS_LARGE = {
+    18: ("6.0,6.1,6.2",     (0, 7, 1, 10, 0), None),
+    19: ("3.0,4.0,6.0,6.1", (2, 11, 0, 6, 0), 63244766587981824),
+}
+
+def _count_c1c2c4c5_packed(pairs, start, b0):
+    """Memory-lean variant of _count_c1c2c4c5 for the worker-sized rungs.
+
+    Identical recurrence (TR-11 §5 Step 2); states are packed into a single
+    int key (mask | last << n | pidx << (n + 6), pidx mixed-radix over B0+1)
+    so each live state costs one small-int key + one int value.  Peak live
+    states at n=19 are ~4e7 per layer (~8 GB, ~1e9 transitions in CPython —
+    a worker, not a laptop).  Cross-checked against _count_c1c2c4c5 at
+    n=9/13/16 (identical integers) before first use.
+    """
+    n = len(pairs); full = (1 << n) - 1
+    radix = [c + 1 for c in b0]
+    stride = [0] * 5
+    acc = 1
+    for c in range(5):
+        stride[c] = acc; acc *= radix[c]
+    shift_last = n; shift_p = n + 6
+    orients = [((a, b), (b, a)) for (a, b) in pairs]
+    cur = {start << shift_last: 1}
+    for _layer in range(n):
+        nxt = {}
+        get = nxt.get
+        for key, cnt in cur.items():
+            mask = key & full
+            last = (key >> shift_last) & 63
+            pidx = key >> shift_p
+            for i in range(n):
+                bit = 1 << i
+                if mask & bit:
+                    continue
+                for (f, s) in orients[i]:
+                    d = hamming(last, f)
+                    if d == 5 or d == 0:
+                        continue
+                    ci = _CLS_IX[d]
+                    if (pidx // stride[ci]) % radix[ci] >= b0[ci]:
+                        continue
+                    nkey = ((mask | bit) | (s << shift_last)
+                            | ((pidx + stride[ci]) << shift_p))
+                    nxt[nkey] = get(nkey, 0) + cnt
+        cur = nxt
+    b0idx = sum(b0[c] * stride[c] for c in range(5))
+    total = 0
+    for key, cnt in cur.items():
+        assert key & full == full and key >> shift_p == b0idx, \
+            "sum invariant violated — cap logic bug"
+        total += cnt
+    return total
+
+def recount_rung(n):
+    """--recount-rung N: independently recompute a worker-sized TR-11 §4b C5
+    rung (N in {18, 19}).  B0 is re-derived by §5's first-completion DFS and
+    gated against the published B0 column; the count is gated against the
+    published integer where one exists.  Returns 0 iff everything gated
+    matched."""
+    import time
+    if n not in _C5_RUNGS_LARGE:
+        if n in (9, 13, 16):
+            print(f"n={n} is covered in-process by --recount; use that.")
+        else:
+            print(f"--recount-rung: n={n} not supported. Supported: 18, 19.")
+            print("n=24/25/27/28 exceed any single-node RAM budget for the plain")
+            print("DP (peak live states ~4e9 at n=24, ~100 GB/layer); they remain")
+            print("covered by the engine's in-RAM/out-of-core concordance and")
+            print("verify.c's IE engine (--ie-spec/--ie-expect).")
+        return 2
+    spec, b0_pub, pub = _C5_RUNGS_LARGE[n]
+    pl = _spec_to_pairs_ordered(spec)
+    assert len(pl) == n
+    t0 = time.time()
+    # gate the packed DP against the plain DP on the largest cheap rung first
+    xchk_pl = _spec_to_pairs_ordered("4.0,6.0,6.1")
+    xchk_b0 = _b0_first_completion(xchk_pl, 0)
+    a = _count_c1c2c4c5(xchk_pl, 0, xchk_b0)
+    b = _count_c1c2c4c5_packed(xchk_pl, 0, xchk_b0)
+    if a != b:
+        print(f"*FAIL* packed-DP self-gate at n=16: plain={a:,} packed={b:,}")
+        return 1
+    print(f"packed-DP self-gate at n=16: {a:,} == {b:,}  [ok]")
+    b0 = _b0_first_completion(pl, 0)
+    ok_b0 = tuple(b0) == tuple(b0_pub)
+    print(f"n={n} {{{spec}}}@0  B0 derived = {tuple(b0)}  published = {tuple(b0_pub)}"
+          f"  [{'MATCH' if ok_b0 else '*** MISMATCH ***'}]")
+    cnt = _count_c1c2c4c5_packed(pl, 0, tuple(b0))
+    dt = time.time() - t0
+    if pub is None:
+        print(f"count = {cnt:,}   (TR-11 lists this rung as '(in-RAM reference)';")
+        print(f"        no published integer — reference value, report-only)  [{dt:.0f}s]")
+        return 0 if ok_b0 else 1
+    ok = (cnt == pub)
+    print(f"count = {cnt:,}  published = {pub:,}  "
+          f"[{'MATCH' if ok else '*** MISMATCH ***'}]  [{dt:.0f}s]")
+    return 0 if (ok and ok_b0) else 1
+
+# TR-5 Verification Guide's sigma-related 23-pair prefix (pair, orient).
+_SIGMA_PREFIX = [(22, 1), (28, 0), (3, 1), (21, 1), (26, 0), (6, 1), (11, 0),
+                 (5, 0), (19, 0), (27, 0), (7, 1), (16, 1), (30, 1), (14, 0),
+                 (20, 0), (18, 1), (25, 0), (24, 1), (1, 1), (15, 0), (4, 0),
+                 (9, 0)]
+
+def _exact_subtree(prefix):
+    """Exact deterministic count of the C1-C5 backtracking tree below a fixed
+    (pair, orient) prefix — returns (tree_nodes, leaves, canonical_leaves,
+    canonical_and_C6C7).
+
+    The tree object is the enumerator's: states are pair-sequences from the
+    forced (63, 0) start; a placement must pass boundary distance != 5 (C2)
+    and keep the running COMBINED 63-transition multiset (within + boundary,
+    including pair 0's within d=6) dominated by C5's {1:2,2:20,3:13,4:19,6:9};
+    tree_nodes counts every reached state including the prefix root; canonical
+    leaves additionally pass C3 (sum |pos(v)-pos(v^63)| <= 776).  The
+    internal-node convention is the published instrument's (SEARCH_SPACE_SIZE
+    §Method: live-child states of the pruned walk); the implementation here is
+    clean-room."""
+    budget = [0] * 7
+    for i in range(63):
+        budget[hamming(KW[i], KW[i + 1])] += 1
+    assert budget == [0, 2, 20, 13, 19, 0, 9]
+    budget[6] -= 1                              # pair 0's within transition
+    seq = [63, 0] + [0] * 62
+    slotp = [0] * 32                            # pair index placed at each slot
+    used = 1
+    last = 0
+    step = 1
+    for (p, o) in prefix:
+        slotp[step] = p
+        a, b = PAIRS[p]
+        f, s = (b, a) if o else (a, b)
+        bd = hamming(last, f)
+        assert bd != 5 and budget[bd] > 0, "prefix infeasible (boundary)"
+        budget[bd] -= 1
+        wd = hamming(f, s)
+        assert budget[wd] > 0, "prefix infeasible (within)"
+        budget[wd] -= 1
+        seq[2 * step], seq[2 * step + 1] = f, s
+        used |= 1 << p
+        last = s
+        step += 1
+    stats = [0, 0, 0, 0]                # nodes, leaves, canonical, canon+C6/C7
+
+    def rec(st, lst, usedm):
+        stats[0] += 1
+        if st == 32:
+            stats[1] += 1
+            pos = [0] * 64
+            for i, v in enumerate(seq):
+                pos[v] = i
+            if sum(abs(pos[v] - pos[v ^ 63]) for v in range(64)) <= 776:
+                stats[2] += 1
+                # C6/C7 (SPECIFICATION.md): pairs 24,25 at slots 24,25 (C7)
+                # and pairs 26,27 at slots 26,27 (C6), orientation free
+                if slotp[24:28] == [24, 25, 26, 27]:
+                    stats[3] += 1
+            return
+        for p in range(1, 32):
+            if (usedm >> p) & 1:
+                continue
+            a, b = PAIRS[p]
+            for (f, s) in ((a, b), (b, a)):
+                bd = hamming(lst, f)
+                if bd == 5 or budget[bd] == 0:
+                    continue
+                budget[bd] -= 1
+                wd = hamming(f, s)
+                if budget[wd] == 0:
+                    budget[bd] += 1
+                    continue
+                budget[wd] -= 1
+                seq[2 * st], seq[2 * st + 1] = f, s
+                slotp[st] = p
+                rec(st + 1, s, usedm | (1 << p))
+                budget[wd] += 1
+                budget[bd] += 1
+
+    rec(step, last, used)
+    return tuple(stats)
+
+def recount_subtree():
+    """--recount-subtree: independently recompute the exact deterministic
+    subtree anchors of TR-5 §3 / TR-4 §"validated" / SEARCH_SPACE_SIZE.md
+    (KW-following prefixes at 5/7/9 free positions) and the sigma-related
+    prefix tree-isomorphism check, plus TR-4 §4's uniqueness-refutation
+    anchor (exactly 8 of the 16,504 canonical completions satisfy C6/C7).
+    ~1-2 min in CPython (the two 9-free runs visit ~9.4M nodes each).
+    Returns 0 iff every published anchor matched."""
+    import time
+    t0 = time.time()
+    rc = [0]
+
+    def gate(name, got, want):
+        ok = (want is None) or (got == want)
+        if not ok:
+            rc[0] = 1
+        tag = "  --  " if want is None else (" MATCH" if ok else "*FAIL*")
+        pub = "(no public target)" if want is None else f"{want:,}"
+        print(f"[{tag}] {name}: recomputed {got:,}  published {pub}")
+
+    for free, want_nodes, want_canon in ((5, 443, 4), (7, 62256, 2232),
+                                         (9, 9422793, 16504)):
+        d = 31 - free                    # KW-following prefix pairs 1..d
+        nodes, leaves, canon, c67 = _exact_subtree(
+            [(i, 0) for i in range(1, d + 1)])
+        gate(f"KW prefix {free}-free tree_nodes", nodes, want_nodes)
+        gate(f"KW prefix {free}-free leaves_C1C2C4C5", leaves, None)
+        gate(f"KW prefix {free}-free canonical leaves", canon, want_canon)
+        if free == 9:
+            gate("KW prefix 9-free canonical AND C6/C7 (TR-4 'exactly 8')",
+                 c67, 8)
+    nodes, leaves, canon, _c67 = _exact_subtree(_SIGMA_PREFIX)
+    gate("sigma-related prefix tree_nodes (isomorphism)", nodes, 9422793)
+    gate("sigma-related prefix canonical leaves (isomorphism)", canon, 16504)
+    print(f"recount-subtree: {'ALL MATCH' if rc[0] == 0 else '*** MISMATCH ***'}"
+          f"  ({time.time() - t0:.0f}s)")
+    return rc[0]
+
+def recount_finite():
+    """--recount-finite: independently recompute the finite record-mode and
+    wrap/parity tallies (TR-5 §3; TR-6; SPECIFICATION wrap-parity theorem;
+    CIRCULAR_KING_WEN).  Validity of each sigma(KW) is checked from the
+    constraint definitions directly — NOT via group membership — so this is a
+    second instrument for the 48-of-720 classification itself, not only for
+    the group order.  Seconds.  Returns 0 iff everything matched."""
+    import itertools
+    from collections import Counter
+    from math import comb
+    from functools import lru_cache
+    rc = [0]
+
+    def gate(name, got, want):
+        ok = (got == want)
+        if not ok:
+            rc[0] = 1
+        print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}"
+              f"  published {want!r}")
+
+    kw_ms = sorted(hamming(KW[i], KW[i + 1]) for i in range(63))
+
+    def classify(s):
+        if any(s[2*i+1] != _partner(s[2*i]) for i in range(32)):
+            return "C1"
+        if any(hamming(s[i], s[i+1]) == 5 for i in range(63)):
+            return "C2"
+        if compute_comp_dist(s) > 776:
+            return "C3"
+        if not (s[0] == 63 and s[1] == 0):
+            return "C4"
+        if sorted(hamming(s[i], s[i+1]) for i in range(63)) != kw_ms:
+            return "C5"
+        return None
+
+    valid, first_fail, recs, c3s = [], Counter(), set(), []
+    for g in itertools.permutations(range(6)):
+        s = [_apply_bitperm(g, h) for h in KW]
+        why = classify(s)
+        if why is None:
+            valid.append(g)
+            recs.add(tuple(frozenset((s[2*i], s[2*i+1])) for i in range(32)))
+            c3s.append(compute_comp_dist(s))
+        else:
+            first_fail[why] += 1
+    gate("48-of-720 sigma(KW) C1-C5-valid", len(valid), 48)
+    gate("all 672 invalid images fail C1 first", first_fail.get("C1", 0), 672)
+    gate("distinct canonical records (KW + twins)", len(recs), 24)
+    kw_rec = tuple(frozenset((KW[2*i], KW[2*i+1])) for i in range(32))
+    gate("KW's own record in the orbit", kw_rec in recs, True)
+    gate("record-twin count", len(recs) - 1, 23)
+    gate("every valid image's C3 sum", set(c3s), {776})
+    cent = {g for g in itertools.permutations(range(6))
+            if all(g[5 - i] == 5 - g[i] for i in range(6))}
+    gate("valid set == centralizer of rev in S6", set(valid) == cent, True)
+
+    cls = [bin(KW[2*i]).count('1') & 1 for i in range(32)]
+    gate("pairs parity-homogeneous", all(
+        (bin(KW[2*i]).count('1') & 1) == (bin(KW[2*i+1]).count('1') & 1)
+        for i in range(32)), True)
+    gate("pair-class split (E, O)", (cls.count(0), cls.count(1)), (16, 16))
+    gate("first pair even class (C4 pin)", cls[0], 0)
+    gate("linear parity-class alternations",
+         sum(cls[i] != cls[i+1] for i in range(31)), 15)
+    gate("circular parity-class alternations",
+         sum(cls[i] != cls[(i+1) % 32] for i in range(32)), 16)
+    lin = [hamming(KW[i], KW[i+1]) for i in range(63)]
+    wrap = hamming(KW[63], KW[0])
+    gate("linear C5 multiset", dict(Counter(lin)),
+         {1: 2, 2: 20, 3: 13, 4: 19, 6: 9})
+    gate("linear odd-distance count", sum(d & 1 for d in lin), 15)
+    gate("wrap distance d(s63, s0)", wrap, 3)
+    gate("wrap parity odd", wrap & 1, 1)
+    gate("circular multiset (wrap added)", dict(Counter(lin + [wrap])),
+         {1: 2, 2: 20, 3: 14, 4: 19, 6: 9})
+    gate("circular odd-of-64 (McKenna 3:1)",
+         sum(d & 1 for d in lin + [wrap]), 16)
+    tp = [d & 1 for d in lin]
+    gate("transition-parity switches", sum(tp[i] != tp[i+1] for i in range(62)), 30)
+
+    @lru_cache(maxsize=None)
+    def arr(pos, ones, last, alt):
+        if alt > 15 or ones > 16 or pos - ones > 16:
+            return 0
+        if pos == 32:
+            return 1 if (ones == 16 and alt == 15) else 0
+        return sum(arr(pos + 1, ones + b, b,
+                       alt + (0 if pos == 0 else int(b != last)))
+                   for b in (0, 1))
+    gate("15-alternation 16/16 arrangement count (DP)", arr(0, 0, 0, 0), 82818450)
+    gate("same, closed form 2*C(15,7)^2", 2 * comb(15, 7) ** 2, 82818450)
+    print("recount-finite:",
+          "ALL MATCH" if rc[0] == 0 else "*** MISMATCH — investigate ***")
+    return rc[0]
+
+
 def recount():
     """Independently reproduce the published ROAE exact counts (TR-11 §10vi).
 
@@ -726,8 +1058,13 @@ def recount():
               pub, _count_c1c2c4c5(pl, 0, b0_pub),
               "plain budgeted (mask,last,p) counting recurrence")
 
+    rows.append(("C5 ladder n=18 {6.0,6.1,6.2}@0", None,
+                 "re-countable via --recount-rung 18 (report-only: integer unpublished)",
+                 None, "plain budgeted packed-state DP — recount_rung()"))
+    rows.append(("C5 ladder n=19 {3.0,4.0,6.0,6.1}@0", 63244766587981824,
+                 "re-countable via --recount-rung 19 (worker-sized: ~8 GB)",
+                 None, "plain budgeted packed-state DP — recount_rung()"))
     for n, spec, pub in [
-        (19, "3.0,4.0,6.0,6.1", 63244766587981824),
         (24, "3.0,3.1,6.0,6.1,6.2", 7477248378538061907099648),
         (25, "3.0,4.0,6.0,6.1,6.2", 83855263774549546015506432),
         (27, "3.0,3.1,3.2,6.0,6.1,6.2", 61666352085618532666071318528),
@@ -1330,6 +1667,26 @@ def main():
                              'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
                              'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
                              'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
+    parser.add_argument('--recount-rung', type=int, metavar='N', default=None,
+                        help='Independently recompute a worker-sized TR-11 §4b C5 rung (N in {18, 19}) '
+                             'by the plain budgeted packed-state DP, with B0 re-derived by §5 Step 1 '
+                             'and the packed DP self-gated against the plain DP at n=16 first. n=19 '
+                             'gates against the published integer; n=18 is report-only (TR-11 lists '
+                             'its integer as "(in-RAM reference)"). Worker-sized: n=19 needs ~8 GB '
+                             'and tens of minutes in CPython. Does NOT read solutions.bin.')
+    parser.add_argument('--recount-subtree', action='store_true',
+                        help='Independently recompute the exact deterministic subtree anchors of '
+                             'TR-5 §3 / SEARCH_SPACE_SIZE.md (KW-following prefixes at 5/7/9 free '
+                             'positions: tree_nodes 443 / 62,256 / 9,422,793 and canonical leaves '
+                             '4 / 2,232 / 16,504) plus the sigma-related-prefix tree-isomorphism '
+                             'check. ~1-2 min. Does NOT read solutions.bin.')
+    parser.add_argument('--recount-finite', action='store_true',
+                        help='Independently recompute the finite record-mode + wrap/parity tallies: '
+                             'TR-5\'s 48-of-720 validity classification / 24 records / 23 twins '
+                             '(validity checked from the constraint definitions, not group '
+                             'membership), TR-6\'s 15 alternations / 30 switches / wrap-parity / '
+                             'circular 16-of-64, and the 82,818,450 arrangement count. Seconds. '
+                             'Does NOT read solutions.bin.')
     parser.add_argument('--check-certificate', metavar='DIR', default=None,
                         help='Artifact check for a completed f1c5 run directory (TR-11 §10iii): '
                              'validates the per-layer certificate rows, manifest, and preserved '
@@ -1379,6 +1736,16 @@ def main():
 
     if args.recount:
         sys.exit(recount())
+
+    if args.recount_rung is not None:
+        sys.exit(recount_rung(args.recount_rung))
+
+    if args.recount_subtree:
+        sys.exit(recount_subtree())
+
+    if args.recount_finite:
+        sys.exit(recount_finite())
+
 
     if args.enumerate_reference is not None:
         sys.exit(enumerate_reference(args.enumerate_reference))
