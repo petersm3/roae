@@ -361,6 +361,37 @@ enumerates that space, or proves a ceiling on it.
   the literature; ROAE's exact counts and estimates (TR-4, TR-11) are, we believe, the first
   quantitative answers to Luo's 2015 question. [analyzed 2026-07-30]
 
+### Additional works reviewed for priority
+
+*(Added 2026-07-31.) The priority survey covered the broader Chinese-language mathematical literature
+on the hexagram sequence. The works below were reviewed and are listed for completeness: **none states
+the constraint-satisfaction enumeration problem, computes a constraint-satisfying ordering count,
+proves a limitative/ceiling result, or gives a machine-checked formalization** — each is descriptive,
+constructive, or confirmatory in aim, and so is not prior art for this project's specific
+contributions (the exact C1–C7 enumeration, the equivariance ceiling, and the Lean formalization).
+Recorded here to document the survey's breadth.*
+
+- **Gu Chengcheng 谷成城** (2021/2022). *Xitong kexue xuebao* 系统科学学报 30(3). An intension-lattice /
+  systems-theory reading; the author notes that lattice methods yield a *sufficient-not-necessary*
+  condition and cannot derive the King Wen order de novo (confirmatory, not enumerative).
+- **Liu Gang 刘钢** (2017). "Lun xiantian yitu yu buer daishu de dengjiaxing" 论先天易图与布尔代数的等价性.
+  *Zhexue dongtai* 哲学动态 2017(11): 88–92. Proves the Fuxi (先天) eight-trigram diagram is isomorphic
+  to the Boolean algebra 2³ — a structure characterization of the *trigram* diagram, not the sequence.
+- **Hou Weimin 侯维民** (1997). "Fuxi guatu zhong de buer daishu" 伏羲卦图中的布尔代数. *Zhouyi yanjiu*
+  周易研究 1997(3): 81–85. A Boolean-algebra reading of the Fuxi diagram (八卦 as B₂³, 64 as B₂⁶); descriptive.
+- **Ke Zineng 柯资能** (2001). *Zhouyi yanjiu* 周易研究 2001(3): 79–91. The Fuxi (先天) order as a binary
+  ordinal (Peano-style) system; concerns 先天, not King Wen.
+- **Wang Junlong 王俊龙** (2002–2005 trilogy; 2010; 2014). Numerological constructions that presuppose
+  the received King Wen order (back-fitting rather than deriving it).
+- **Wu Guokai 吴国凯** (2012). *Yangming xuekan* 阳明学刊 6: 193–226. A formula fitting the Jing Fang
+  eight-palace (京房八宫) order, within Ouyang (1992)'s coset framing.
+- **Zhang Kebin 张克宾** (2020). "Guaxu er ti" 卦序二题. *Zhongguo zhexue shi* 中国哲学史 2020(2): 49–55.
+  An exegetical treatment that itself notes the ordering's non-uniqueness.
+- **Zhao Zhongguo 赵中国** (2008). *Zhouyi yanjiu* 周易研究 2008(1): 75–82. A historiographical survey of
+  the 先天-diagram / binary-encoding debate.
+- **Su Zhi 苏智** (2017). *Weinan shifan xueyuan xuebao* 渭南师范学院学报 32(15): 45–50. A
+  Saussurean-semiotics reading (non-mathematical).
+
 ---
 
 ## Methodological and algorithmic citations
