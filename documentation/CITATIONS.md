@@ -343,10 +343,13 @@ enumerates that space, or proves a ceiling on it.
   oeuvre (he is a *Liji* specialist), best read as the terminus of the Ouyang (1992) → Suenaga
   (2012) lineage rather than an isolated spike. [analyzed 2026-07; obtained via Hiroshima OA]
 <a id="luojianjin2015"></a>
-- **Luo Jianjin 罗见今** (2015). *Gaodeng shuxue yanjiu* 高等数学研究 [Studies in College
-  Mathematics] 18(4): 33–39. *(Exact article title held for PDF confirmation — the acquisition
-  tracker and the 2026-07-30 read notes give two variants; cited here by journal / volume / pages,
-  which are not in dispute.)* A mathematics-
+- **Luo Jianjin 罗见今** (2015). "Zhouyi guaxu de duicheng jiegou tanze" 周易卦序的对称结构探赜——
+  邵雍先天图的数学解析和应用 [Exploring the symmetric structure of the Zhouyi hexagram sequence: a
+  mathematical analysis and application of Shao Yong's Xiantian diagram]. *Gaodeng shuxue yanjiu*
+  高等数学研究 [Studies in College Mathematics] 18(4): 33–39.
+  [doi:10.3969/j.issn.1008-1399.2015.04.013](https://doi.org/10.3969/j.issn.1008-1399.2015.04.013).
+  *(Title confirmed 2026-07-31 from the article PDF; an earlier acquisition-tracker variant was a
+  back-translation of the English title.)* A mathematics-
   journal symmetry analysis of the King Wen (plus Guicang and silk-text) orderings — binary hexagram
   values, the Shao Yong rhombus, three involutions (his coinage 交射), and a five-class pair-symmetry
   classification of the received sequence. **Poses the enumeration question this suite answers** —
