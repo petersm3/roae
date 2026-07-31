@@ -38,7 +38,8 @@ Structural rules asserted for the King Wen sequence across eight centuries of li
 [Drasny](../documentation/CITATIONS.md#drasny2007), and [Schöter](../documentation/CITATIONS.md#schoter1998) — none of them ROAE discoveries — were formalized in the C1–C5 pair representation and
 measured against the *entire* constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased
 weighted-Knuth estimation (2×10¹⁰ probes; the instrument reproduced the independently-established total
-space size to 0.03%, self-validating the method). This converts decades of by-inspection claims into
+space size to 0.03% — a consistency check within the same estimator family; the absolute validation of
+the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into
 measured population statistics for the first time. The literature's design inventory splits three ways:
 **proven forced** (eight rules, each now a theorem: constant on the entire C1 space — a superset of the
 measured population — equal to King Wen's value, machine-checked in Lean 4; their measured 1.0 of
@@ -58,8 +59,9 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)) shares each property. Method: weighted Knuth random probes
    (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes) — each probe walks a uniformly-random constraint-satisfying
    completion, weighting by the product of branching factors; per-leaf rule predicates accumulate weighted
-   mass; fractions are ratios of canonical-leaf masses. Self-validation: the instrument reproduced the
-   independently-established total space size to 0.03%. Every formalization was verified to reproduce its
+   mass; fractions are ratios of canonical-leaf masses. Consistency check: the instrument reproduced the
+   independently-established total space size to 0.03% (agreement within the same estimator family — the
+   absolute validation of the estimator is TR-11's exact anchors). Every formalization was verified to reproduce its
    source's stated King Wen values exactly before measurement (Moore's 16/18 with violations at pair
    positions 22–23; rhythm breaks at (7,8) and (22,23)); rule predicates are two-language verified
    (independent C and Python implementations). Caveats stated up front: fractions are over raw
