@@ -28,7 +28,7 @@ single-instrument honesty limit was addressed for the f-ladder by publishing
 [F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md) first and writing the
 independent reader (`verify.c --check-layers`) against the spec second — the
 two-step discipline that surfaced defect F-3. The g-ladder (exact
-count-from-any-prefix, the basis of TR-12's rank instrument) and the t-ladder
+count-from-any-prefix, the basis of the rank instrument) and the t-ladder
 (exact search-tree node counts) had, until this document, **no published
 format and no independent verifier**: the only reader was `solve.c` itself
 (`--kc-g-check`, `--kc-t-check`), silently extending the single-instrument

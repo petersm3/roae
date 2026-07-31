@@ -40,7 +40,7 @@ alone (drat-trim reports 1 lemma in core over 3,054 core clauses) — it is an e
 solver, and the certificate's value is that the step is now *machine-checked* rather than asserted in
 prose, not that it was computationally hard.
 
-## C3 positional certificates (TR-12 Q4(b); G = couple-slot-distance sum, C3 = 16 + 8·G, KW at G = 95)
+## C3 positional certificates (the exactness pass, Q4(b); G = couple-slot-distance sum, C3 = 16 + 8·G, KW at G = 95)
 
 These certify **decision facts about the position of King Wen's C3 value** at the C1∩C2∩C4∩C5 base
 (no C3 ceiling in the base). They corroborate "KW's G = 95 is not extremal, not unique, and the C3 ≤ 776

@@ -31,8 +31,7 @@ symmetric blocks, coordinated placements of notation-defined hexagram classes, a
 transformation structure — while arguing explicitly against global algorithmic explanation. His claims
 were formalized in the pair representation (operationalizations ours; each verified to reproduce his
 stated King Wen facts before measurement), and nine composites were pre-registered in the public record
-([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen: two-sided p < 0.05/9 "notable"; < 10⁻⁴ plus a
-corpus-control specificity gate "candidate rule") before any population number was observed.
+([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen "as F4'": two-sided p < 0.05/9 "notable"; "candidate rule" additionally requires the corpus-control specificity gate — the < 10⁻⁴ candidate-level bar is inherited from the F4' family's own registration (worded "< 10⁻⁴ after Bonferroni"; sidedness unstated there), not restated verbatim in 2d19a3f) before any population number was observed.
 Measurement by weighted-Knuth estimation (2×10⁹ probes; the instrument reproduced the
 independently-established C1–C5 space size to 0.09% in the same run) yields: **four of nine NULL** —
 including both flagship compositional claims (the hexagram-7–16 complement-mirror block, present in
@@ -314,9 +313,10 @@ notational scoring — is accepted and stated.
    with page citation; no extended quotation is used (single short phrases at most), per the project's
    derived-insights-only handling of copyrighted sources. The operationalizations are ours and public
    (solve.py); errors of formalization are ours, not Davis's; corrections are welcome via
-   CITATIONS.md. Davis's own formal debts are credited as he states them: Dai Sike (1978) for the 7–16
-   symmetry, Li Shangxin for the pair-unit trisection, Gardner (1974) for the no-global-pattern
-   verdict; overlaps between his observations and [Schulz's](../documentation/CITATIONS.md#schulz1990-motifs) and [Cook's](../documentation/CITATIONS.md#cook2006) are recorded in the attribution
+   CITATIONS.md. Davis's own formal debts are credited as he states them: the 7–16 symmetry he had
+   himself first published in 1978/79 under his Chinese name, **Dai Sike 戴思客** (a self-citation, not
+   a distinct prior author — see [CITATIONS #davis1987](../documentation/CITATIONS.md#davis1987));
+   Li Shangxin for the pair-unit trisection; Gardner (1974) for the no-global-pattern verdict; overlaps between his observations and [Schulz's](../documentation/CITATIONS.md#schulz1990-motifs) and [Cook's](../documentation/CITATIONS.md#cook2006) are recorded in the attribution
    registry. What is claimed here: nine pre-registered population measurements (four null, one
    notable, one borderline, three data-like), one exact refutation of a uniqueness claim, one
    withdrawn refutation, and no promotion of anything into the constraint system. What is *not*

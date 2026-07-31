@@ -542,7 +542,7 @@ multiset match is rare for any specific permutation. So [Ge 2026](CITATIONS.md#g
 observation stands as a descriptive fact about the sequence, not a King-Wen-distinguishing signal; the
 residual survives this attack too. Evidence: `reports/evidence/perm_tier1.out`; regeneration:
 `SOLVE_KNUTH_SCORE_PERM=1 SOLVE_KNUTH_PERM_HIST=1 ./solve --estimate-knuth 2000000000`. Look-elsewhere
-ledger: global observable count → ~83.
+ledger: global observable count → ~83 [STALE running count — superseded by the frozen 91-observable ledger; see METHODS §Global observable ledger].
 
 ## Pre-registered tests: Davis (2012) structural claims (wave 1 registered 2026-07-04; wave 2 frozen 2026-07-10, measured 2026-07-11)
 
