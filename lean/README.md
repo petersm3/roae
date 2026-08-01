@@ -38,7 +38,13 @@ Lean's compiler). What that buys:
 - **The eight "forced" literature rules are proven, not just measured** (`C1RuleConstants.lean`): the
   eight registry rules that measure at rate 1.0 under enumeration (mmt4, p1c4, s1, s6, r3, r4, r5, c2)
   are **constants of the entire C1 space** — each depends only on the unordered pair-partition, which C1
-  fixes, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
+  fixes, *(scope, 2026-08-01: Lean proves constancy of the **countP forms** defined in that file. Identifying
+  those forms with the actual registry rules — `reg_*` in solve.py / `score_registry` in solve.c — is a
+  NON-Lean step, numerically validated by driving the repo's own `reg_*` over 5,449 structured C1 sequences
+  and disclosed in `C1RuleConstants.lean`'s header. So "proven, not just measured" holds of the Lean
+  predicates; for the registry rules themselves it is Lean-proven **modulo a validated transcription** — the
+  same runtime-carried bridge disclosed at the claim site for PartitionInvariance and PruneExactness, and it
+  belongs here too)*, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
   to a theorem; the zero-hit enumeration measurement is now a corollary. (Orientation-invariance of each
   per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by kernel `decide`
   since 2026-07-27 — the whole file is now kernel-only, nothing in it trusts the compiler;

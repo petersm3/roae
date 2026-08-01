@@ -214,7 +214,11 @@ under the shipped nuclear batteries (`solve.py` V-8 `vdb_nuc`,
 
 ### TG-5 — vacuity guards (guards, not results)
 
-Kernel-checked precisely because each defuses a numerology claim:
+Machine-checked precisely because each defuses a numerology claim — **with mixed trust bases, stated here
+rather than only in the ledger below**: `pure_pairslot_couple` is kernel-only (via `pure_partner_bool`,
+`decide`), while `trigram_balance_invariant` and `pure_pairslot_count` go through `native_decide`
+(compiler trust) via `trigram_balance_range` / `pure_count_range`. *(Corrected 2026-08-01: this sentence
+read "Kernel-checked" for all three, contradicting this document's own §Trust base ledger.)*
 
 - **Trigram balance is ordering-invariant** (`trigram_balance_invariant`):
   in *any* permutation of the 64 hexagrams, each of the 8 trigrams appears

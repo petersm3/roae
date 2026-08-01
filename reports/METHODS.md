@@ -24,8 +24,15 @@ Every report measures the same object. The formal predicates (full statements + 
   [lean/KingWen.lean](../lean/KingWen.lean) *(the former "Theorem 6" forced-orientation claim is
   retracted, 2026-07-26 — see CLAIMS_DECIDED's corrections ledger)*. [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)
   already prices C4 at its full 6 bits (pair + orientation), so no ledger value moves.
-- **C5 — transition-distance multiset.** The multiset of the 31 between-pair boundary Hamming distances
-  equals King Wen's: {1:2, 2:8, 3:13, 4:7, 6:1}. Extracted from KW (confirmatory, not predictive).
+- **C5 — transition-distance multiset.** The multiset of all **63** consecutive-hexagram Hamming distances
+  equals King Wen's: **{1:2, 2:20, 3:13, 4:19, 6:9}** ([SPECIFICATION.md](../documentation/SPECIFICATION.md) §C5).
+  Extracted from KW (confirmatory, not predictive). *(Corrected 2026-08-01: this read "the 31 between-pair
+  boundary Hamming distances … {1:2, 2:8, 3:13, 4:7, 6:1}". That multiset is **not the definition of C5** —
+  it is the machine-checked theorem `boundary_budget_general` (lean/TrigramTheorems.lean), which DERIVES the
+  boundary budget from C1 + full C5. Stating the theorem's conclusion as the constraint's definition made the
+  theorem vacuous, and broke the very next bullet: C2 is implied by the 63-transition histogram directly, but
+  from a boundary-only multiset only via C1's within-pair-evenness theorem. The two are equivalent **given
+  C1**; as free-standing predicates they are different constraints.)*
 - **C6, C7 — identifying adjacency pins.** Specific slot-24–27 adjacency choices used only to single out
   King Wen within the C1–C5 family (they cut the space by ×2.55×10⁶ but leave ≈5.21×10³¹ orderings —
   [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4). Not part of the enumerated canonical constraint set; data-like,
@@ -165,7 +172,13 @@ the constraint falls on and why.
   ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) per-anchor commands) and their shas are the scientific anchor.
 
 ## Independence ladder (what requires trusting project code)
-1. **Nothing**: DRAT certificates (drat-trim), Lean theorems (kernel), the two-line parity proofs.
+1. **Nothing**: DRAT certificates (drat-trim), **kernel-checked** Lean theorems, the two-line parity proofs.
+   *(Qualified 2026-08-01: this read "Lean theorems (kernel)" without restriction. A disclosed subset of the
+   suite's Lean theorems is proved by `native_decide`, which trusts Lean's **compiler** rather than its kernel —
+   TrigramTheorems §4a–§6, PartitionInvariance §12, PruneGInvariance §1+§8, and all of SymmetryCompleteness.
+   Those belong one rung lower in spirit: they require trusting no project code, but they are not kernel-checked.
+   The per-file inventory is in [lean/README.md](../lean/README.md) §Trust base; this was the one place in the
+   suite where a distinction maintained everywhere else was flattened.)*
 2. **Only the encoder** (validated by KW-value gates + two-way SAT tests): the conflict theorem's rule
    faithfulness.
 3. **The instrument stack** (cross-validated two-language + self-check): population fractions, estimator
