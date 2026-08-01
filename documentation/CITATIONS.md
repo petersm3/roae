@@ -26,7 +26,7 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 
 The observation that consecutive hexagrams in the King Wen sequence **never differ by exactly five lines** is attributed to Terence McKenna.
 
-- **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (reprinted HarperCollins 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 (= our **C2**); (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
+- **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (**2nd, revised and updated edition: HarperSanFrancisco/HarperCollins, 1993, 229 pp. — this is the edition carrying Peter Meyer's appendix *The Mathematics of Timewave Zero*, pp. 211–220**; subsequent printing 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 (= our **C2**); (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
 - *Status of earlier references:* The 1975 first edition (Seabury Press) contains the same I Ching analysis as the 1994 HarperCollins reprint; the work was reprinted, not revised. The underlying intuitions date to the McKennas' 1971 Amazonian expedition (see *True Hallucinations*, 1993, and Timewave-Zero biographical sources). No pre-1975 peer-reviewed paper or published lecture transcript on the I Ching analysis has been located via open web sources.
 - Cook (2006) also presents the 5-line absence as part of the broader combinatorial analysis; independently derived within his framework.
 
@@ -705,9 +705,14 @@ Chan, A. (2026). *Statistical properties of the King Wen sequence: An anti-habit
 not improve neural network training*. arXiv:2604.09234 (v2, revised 2026-06-25). https://arxiv.org/abs/2604.09234
 [doi:10.48550/arXiv.2604.09234](https://doi.org/10.48550/arXiv.2604.09234)
   Monte Carlo statistical analysis of the sequence against 100,000 random permutations; predates ROAE;
-  per-finding overlap scoped above. *Version check (2026-08-01): our reading was taken against v1; the
-  paper has since been revised to v2. The abstracts of v1 and v2 are byte-identical, so no headline claim,
-  percentile, or p-value that we scope against has changed, and the overlap analysis stands as written.*
+  per-finding overlap scoped above. *Version check (2026-08-01, strengthened 2026-08-02): our reading was taken against v1; the
+  paper has since been revised to v2 (2026-06-25). **The author's own arXiv version comment states the
+  revision "added two figures; corrected author names/titles for two cited references" and
+  "code-availability attribution; no changes to results or conclusions."** The v1 and v2 abstracts are
+  additionally byte-identical. The overlap analysis therefore stands as written. (An earlier form of this
+  note inferred "no result changed" from the identical abstracts alone — a stronger conclusion than that
+  evidence supports, since abstracts do not carry body percentiles; the author's statement is the actual
+  warrant and is now cited in its place.)*
   [read]
 
 <a id="clarke1987"></a>
@@ -1035,20 +1040,25 @@ Internet Archive holds **no snapshot of it at all** — zero captures from both 
 a CDX query. An earlier "[Archived]" hyperlink here pointed at a Wayback URL that does not resolve; it has
 been removed rather than left to imply a retrievable copy exists.
 
-**The substance, however, IS retrievable — via Meyer's print publication and the Timewave literature.** Meyer's
-canonical treatment of this material is *The Mathematics of Timewave Zero*, published as an appendix
+**Meyer's identifiable print contribution** is *The Mathematics of Timewave Zero*, published as an appendix
 (pp. 211–220) in Terence McKenna & Dennis McKenna, *[The Invisible Landscape](#mckenna-mckenna1975)*,
-**2nd edition, HarperCollins, 1993** — print-published and permanently citable, unlike the web document.
-The two specific properties this project cites as prior art are stated explicitly in the associated
-first-order-of-difference literature and are live today at
-[fractal-timewave.com](https://www.fractal-timewave.com/articles/derivation_10.htm): that the first order of
-difference "within pairs … is always found to be an even number" (this project's Theorem 1, within-pair
-distance is always even), and that there are "sixteen instances of an odd integer occurring out of a possible
-sixty-four" — the **cyclic** 64-transition reading, which is the same reading behind the 25/75 observation
-credited to McKenna & McKenna above and covered by the wrap-around parity theorem in
-[SPECIFICATION.md](SPECIFICATION.md). *Attribution status: the prior-art claim stands on retrievable sources;
-only the particular 1998 web presentation of it is unrecoverable. Recorded explicitly because an earlier
-version of this note over-stated the loss as unverifiability of the attribution itself.*
+**2nd (revised) edition, HarperSanFrancisco/HarperCollins, 1993** — print-published and permanently citable,
+unlike the lost web document. That appendix is the timewave *construction*, not the first-order-of-difference
+observations themselves.
+
+**Attribution correction (2026-08-02).** An earlier version of this note (added 2026-08-01) cited two
+properties — that the first order of difference "within pairs … is always found to be an even number", and
+that there are "sixteen instances of an odd integer occurring out of a possible sixty-four" — as retrievable
+evidence for *Meyer's* prior art. **That was wrong on attribution.** Both sentences occur on a page authored
+by **Terence McKenna** (fractal-timewave.com, "Derivation of the Timewave from the King Wen Sequence"), and
+this repository already credits the second one to **McKenna & McKenna (1975)** in three other places
+(the entry above, [MCKENNA.md](MCKENNA.md), [SPECIFICATION.md](SPECIFICATION.md) §"wrap-around parity").
+Using a McKenna sentence to establish Meyer's priority was circular, and it is withdrawn. The two properties
+are credited to McKenna & McKenna, as they already were.
+
+*What remains attributable to Meyer, honestly stated:* the lost 1998 web document, whose specific content
+this project can no longer verify; and the 1993 timewave-mathematics appendix. **No ROAE novelty claim rests
+on the Meyer entry** — the corresponding priority belongs to McKenna & McKenna 1975 and is credited there.
   Publishes the complete cyclic line-change sequence of the King Wen order (Hamming distances including
   the wraparound term) with an explicit XOR-and-popcount formalization — prior art for the transition
   multiset AS DATA (C5's axis) and for the cyclic reading's difference data. The absence of distance-5
