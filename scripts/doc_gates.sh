@@ -436,10 +436,13 @@ if [ "${1:-}" = "--selftest" ]; then
 a='1,097,051,278,789,181,790,036,112,071,176,579,186,688'
 assert a in s, 'anchor moved'
 open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
-    && { if bash "$0" numbers 2>/dev/null | grep -q 'WARN'; then
+    && { G1OUT=$(bash "$0" numbers 2>&1)
+         if printf '%s' "$G1OUT" | grep -q 'WARN'; then
            echo "  [ok]   GATE 1 cross-file numbers — emits a WARN (report-only gate)"
          else
-           echo "  [FAIL] GATE 1 cross-file numbers — no WARN on an injected near-twin"; PASS=1
+           echo "  [FAIL] GATE 1 cross-file numbers — no WARN on an injected near-twin"
+           printf '%s\n' "$G1OUT" | sed 's/^/           > /' | head -4
+           PASS=1
          fi
          git checkout -- README.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 1 — anchor moved"
