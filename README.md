@@ -2,6 +2,26 @@
 
 <mark>**[䷀䷁](documentation/SOLVE_SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
+**The finding.** This project began from the hypothesis that the King Wen sequence is *determined* by
+its published constraints — that the received order could be **derived** from them. We enumerated, we
+measured, and **the hypothesis is false.** About **5.21×10³¹** orderings satisfy the full C1–C7
+inventory. That figure is a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]×10³¹ — a statistical
+estimate, not a proven cardinality — but the verdict needs only that the count is not 1, and the CI's
+*lower* bound is 5.13×10³¹, so no plausible estimator error touches it. The conclusion is also
+corroborated **exactly, with no estimator involved**: inside King Wen's own 22-pair prefix, exact
+counting finds **16,504** C1–C5 completions of which exactly **8** satisfy C6–C7 — King Wen and seven
+others in its immediate neighbourhood ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). King Wen is
+unique only within **budgeted enumerated slices**, never in the full space.
+
+**Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
+our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence, and
+programs such as [Cook (2006)](documentation/CITATIONS.md#cook2006) invoke principles well beyond the
+tested inventory — so **the refutation touches none of those works as stated**
+([full attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). What it refutes is the
+strong reading of the derivation-flavoured literature, and — squarely — **this project's own early
+working assumption**. We are reporting a negative result about our own starting position, which is why
+it leads.
+
 **The question.** The King Wen sequence is the received ordering of the 64 I Ching hexagrams — in
 continuous use for some two millennia, traditionally attributed to King Wen of Zhou (~1000 BCE; the
 dating of the ordering's fixation is debated in modern scholarship). For centuries it has attracted
