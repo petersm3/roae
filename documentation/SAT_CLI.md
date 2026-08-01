@@ -233,6 +233,7 @@ catalogue and the expected SAT/UNSAT verdict of each):
 | `grand-strict` | Moore parity + Moore rhythm + Schulz gender simultaneously ("grand unified precursor" question). |
 | `grand-ccn4` / `grander-strict` | The four- / five-rule conflict decisions (#217); UNSAT proves no **C1∩C2∩C4∩C5-valid** ordering is perfect under the combined rule set (the base is stated in the table preamble; repeated here because this row is often quoted alone). |
 | `wrap-d5` | Base AND wrap distance d(s63, s0) = 5 — the [McKenna](CITATIONS.md#mckenna-mckenna1975) circular-reading decision (see [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md)). |
+| `ccn4-kwtest` / `ccn4-kwfail` | CC-N4 encoding validation, both KW-forced: `ccn4-kwtest` adds the ccn4 clauses as-is (expect **SAT** — KW satisfies CC-N4); `ccn4-kwfail` permutes the required S25–S28 face hexagrams (S25↔S26 and S27↔S28 values swapped) so KW mismatches all four stations (expect **UNSAT**). The required faces are derived at import from `solve.reg_ccn4`/`solve._reg_stations` (not hand-written), and the negative gate catches an over-constrained ccn4 encoding that a SAT-expected gate alone cannot. |
 | `*-kwtest` / `*-kwexempt` / `*-kwfail` / `*-kwchain` | Encoding-validation targets that force KW and assert the expected verdict — the two-language gate that the clauses match `solve.py` semantics. |
 
 ## EXAMPLES

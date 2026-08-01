@@ -73,6 +73,10 @@ Targets:
                  conflict decision, increment 1: UNSAT proves no ordering is perfect under Moore
                  parity + Moore rhythm + Schulz gender + the trigram champion simultaneously.
   ccn4-kwtest    encoding validation: KW forced + ccn4 clauses  [expect SAT — KW satisfies ccn4]
+  ccn4-kwfail    encoding validation: KW forced + ccn4 clauses with the required S25-28
+                 faces PERMUTED (S25<->S26 and S27<->S28 values swapped)  [expect UNSAT —
+                 KW's faces are the import-derived CCN4_REQ, mismatching all 4 stations;
+                 the over-constraint counter-gate that ccn4-kwtest alone cannot provide]
   grander-strict grand-ccn4 AND CC-N8 (Schulz exception co-location) — the FIVE-rule union
                  (task #217): Moore parity + Moore rhythm + Schulz gender + CC-N4 + CC-N8.
                  NOTE: gender-strict (0 violations) and CC-N8 (violations exactly at class
@@ -235,6 +239,67 @@ KW_RS2_R24 = _rs2_r_after(KW_BAL[:24])   # True on KW: position 24 is zero-balan
 # {0,3,6} exempt; violation iff (pc < 3) != (position odd)) — used by the CC-N8 clauses:
 assert all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2)))
            for w in (1, 2, 4, 5) for pos in (24, 25, 26, 27))
+
+# ---- CC-N4 static facts (Schulz S25-28 dui configuration), derived from solve imports ----
+# ATTRIBUTION: CC-N4 = Schulz 2016 (Hexagrammatics) pp. 23-24; Schulz 2011 (JCP 38:4).
+# Semantics = solve.reg_ccn4: the face (canonical, first-appearing) hexagrams of stations
+# 25-28 carry upper trigram Dui with lower trigrams Qian/Kun/Kan/Li. Until 2026-08-01 the
+# encoder hard-coded the four required face values (finding A6, SAT review) — a violation
+# of the header rule. They are DERIVED here instead: (upper, lower) trigrams determine a
+# hexagram uniquely (asserted below), so reg_ccn4's per-station condition pins exactly ONE
+# face value each, and since KW satisfies CC-N4 (asserted), KW's own station faces — read
+# off solve._reg_stations, the same first-appearance machinery reg_ccn4 itself uses — ARE
+# those required values. No literal survives.
+assert solve.reg_ccn4(KW) is True, "CC-N4 KW ground truth broke"
+assert all((solve.upper_trigram(h) << 3) | solve.lower_trigram(h) == h for h in range(64)), \
+    "trigram-pair bijection broke"
+CCN4_STATIONS = (25, 26, 27, 28)
+_st_kw = solve._reg_stations(KW)
+CCN4_REQ = {s: _st_kw[s - 1][0] for s in CCN4_STATIONS}
+# the required faces are inversion-asymmetric — the encoder's palindrome-pair in-window
+# forbid ("a palindrome face can never match") is sound only because of this:
+assert all(solve.reverse_6bit(v) != v for v in CCN4_REQ.values()), "CC-N4 face palindromicity broke"
+
+def _ccn4_predict(seq):
+    """Validation-only replica of the CNF's CC-N4 clause semantics: the station-25..28
+    faces (solve._reg_stations canonicalisation) equal the derived CCN4_REQ. Asserted
+    == solve.reg_ccn4 on KW, 300 seeded random permutations and targeted mutants below
+    — same discipline as the R-S2 balance replica and the Moore endorsement."""
+    st = solve._reg_stations(seq)
+    return all(st[s - 1][0] == CCN4_REQ[s] for s in CCN4_STATIONS)
+
+_rng_c4 = _random.Random(2016)
+for _t in range(300):
+    _perm = list(range(64)); _rng_c4.shuffle(_perm)
+    assert _ccn4_predict(_perm) == solve.reg_ccn4(_perm), "CC-N4 replica/scorer drift"
+# targeted mutants (random permutations are near-always False on both sides, so also
+# probe the boundary): (i) orientation flip of the pair holding station 25's class —
+# stations unchanged, the face becomes its reversal (non-palindromic, so != REQ) ->
+# False; (ii) the pairs holding stations 25/26 swapped -> faces permuted -> False;
+# (iii) two non-palindrome pairs BEFORE the window swapped — class positions >= the
+# window are unchanged, so CC-N4 stays True on a non-KW sequence (positive control).
+_c4slot = {s: PAIR_IDX[frozenset(_st_kw[s - 1][1])] for s in CCN4_STATIONS}
+def _kw_mut(swaps=(), flips=()):
+    m = list(KW)
+    for p in flips:
+        m[2*p], m[2*p+1] = m[2*p+1], m[2*p]
+    for p, q in swaps:
+        m[2*p:2*p+2], m[2*q:2*q+2] = m[2*q:2*q+2], m[2*p:2*p+2]
+    return m
+_c4early = [p for p in range(1, min(_c4slot.values()))
+            if solve.reverse_6bit(KW_PAIRS[p][0]) != KW_PAIRS[p][0]][:2]
+assert len(_c4early) == 2, "CC-N4 positive-control mutant needs 2 early non-palindrome pairs"
+for _mut, _want in ((_kw_mut(flips=(_c4slot[25],)), False),
+                    (_kw_mut(swaps=((_c4slot[25], _c4slot[26]),)), False),
+                    (_kw_mut(swaps=(tuple(_c4early),)), True)):
+    assert _mut != KW and _ccn4_predict(_mut) == solve.reg_ccn4(_mut) == _want, \
+        "CC-N4 mutant endorsement broke"
+# ccn4-kwfail table: the required faces PERMUTED (S25<->S26 and S27<->S28 values
+# swapped) — derived from CCN4_REQ, not hand-written. A derangement on distinct
+# values, so KW pinned against it must mismatch at ALL FOUR stations [expect UNSAT]:
+CCN4_REQ_FAIL = {25: CCN4_REQ[26], 26: CCN4_REQ[25], 27: CCN4_REQ[28], 28: CCN4_REQ[27]}
+assert all(_st_kw[_s - 1][0] != CCN4_REQ_FAIL[_s] for _s in CCN4_STATIONS), \
+    "ccn4-kwfail derangement broke (KW matches a permuted face)"
 
 # ---- Moore parity/rhythm static facts, DERIVED from solve.r11_axes (F-1) ----
 # ATTRIBUTION: g1 = Moore 2005 (Oracle Papers No.1) pair-positioning parity; g2 =
@@ -429,7 +494,7 @@ RULESETS = {   # target base -> literature rules enforced strictly (task #217 5-
     "moore-kwtest": ("parity",), "rhythm-kwtest": ("rhythm",),
     "grand-strict": ("parity", "rhythm", "gender"),
     "rc4-strict": ("gender",), "rc4-kwtest": ("gender",), "rc4-kwexempt": ("gender",),
-    "ccn4-kwtest": ("ccn4",),
+    "ccn4-kwtest": ("ccn4",), "ccn4-kwfail": ("ccn4",),
     "grand-ccn4": ("parity", "rhythm", "gender", "ccn4"),
     "grander-strict": FIVE_RULES,                       # the five-rule union
     "gender-ccn8": ("gender", "ccn8"),                  # the 2-rule core
@@ -643,10 +708,15 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
                             cnf.add(-Y[(st, j)], -E[st - 1][c])
         if "ccn4" in rules:
             # CC-N4 (Schulz 2016 pp.23-24 / 2011; convention per registry): stations 25-28 face
-            # hexagrams must be 31, 24, 26, 29 (upper trigram dui; lowers qian/kun/kan/li).
-            # Same E-counter: station of slot s (inverse pair) = s+2+c; palindrome pairs occupy
-            # (s+2+c, s+3+c) and can never match (faces are palindromes) -> forbidden in-window.
-            REQ = {25: 31, 26: 24, 27: 26, 28: 29}
+            # hexagrams must equal CCN4_REQ — DERIVED at import from solve.reg_ccn4 via KW's own
+            # station faces (= 31, 24, 26, 29: upper trigram dui, lowers qian/kun/kan/li; the
+            # literal was hand-written until finding A6, 2026-08-01 SAT review). ccn4-kwfail
+            # swaps the required values (CCN4_REQ_FAIL) under the KW pin [expect UNSAT — KW
+            # mismatches all four stations, asserted at import]. Same E-counter: station of
+            # slot s (inverse pair) = s+2+c; palindrome pairs occupy (s+2+c, s+3+c) and can
+            # never match (faces are palindromes; the REQ values are asserted non-palindromic
+            # at import) -> forbidden in-window.
+            REQ = CCN4_REQ_FAIL if target == "ccn4-kwfail" else CCN4_REQ
             for st2 in SLOTS:
                 for j in range(NJ):
                     p2, o2, first2, second2 = ORIENTS[j]
@@ -737,7 +807,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
                 for w1 in range(7):     # then A+1 opens: orphan (zero at A+2) or mismatch
                     if 6 - w1 != 3:
                         cnf.add(ropen, -P[A + 1][w1], -P[A + 2][6 - w1])
-        if target in ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest",
+        if target in ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest", "ccn4-kwfail",
                       "ccn8-kwtest", "ccn8-kwfail", "ccn8-kwchain", "ccn8-kwchain-not"):
             for st in SLOTS:
                 jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
