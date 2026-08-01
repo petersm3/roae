@@ -5347,7 +5347,11 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
         }
         ind[23] = (nc == 4 && okc && oki);
     }
-    /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev */
+    /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev.
+     * ATTRIBUTION: the Klein four-group orbit decomposition of the 64 hexagrams under
+     * {id, rev, comp, rev∘comp} is PRIOR ART — Zhang 1994 in the Chinese group-theoretic
+     * literature, within the (Z/2)^6 framing of Ouyang 1992. See documentation/CITATIONS.md.
+     * This rule MEASURES that structure against King Wen; it does not originate it. */
     {
         int within = 1, s4rev = 1;
         for (int k = 0; k < 32; k++){

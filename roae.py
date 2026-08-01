@@ -1606,7 +1606,17 @@ def print_graycode():
     print("path length against appropriate null models, see --path.")
 
 def print_symmetry():
-    """Analyze the XOR group structure of the King Wen sequence."""
+    """Analyze the XOR group structure of the King Wen sequence.
+
+    ATTRIBUTION: reading the 64 hexagrams as the elementary abelian group (Z/2)^6
+    under XOR, and analysing the King Wen divisions as its subgroups and cosets,
+    is PRIOR ART, not this project's contribution. The earliest and fullest
+    development located is Ouyang Weicheng (欧阳维诚) 1992, which sets out the
+    (Z/2)^6 structure together with the subgroup/coset analysis; Suenaga 2012
+    carries the associated counting. See documentation/CITATIONS.md. What is new
+    here is the completed C1-C7 enumeration, the ceiling result, and the Lean
+    formalization — not the group-theoretic framing this function prints.
+    """
     print("---")
     print("Symmetry group analysis (XOR algebra)")
     print("The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams")

@@ -78,7 +78,10 @@ def build_pairs():
     """Build the 32 canonical reverse/inverse pairs from the 64 hexagrams.
 
     ATTRIBUTION: the pair structure is classical — described by Yu Fan (164-233 AD; fandui/pangtong,
-    preserved via Li Dingzuo's Zhouyi jijie), formalized combinatorially by Cook 2006. See CITATIONS.md."""
+    preserved via Li Dingzuo's Zhouyi jijie), given its explicit 非覆即变 formulation by Kong Yingda
+    (Tang, 574-648), and formalized combinatorially by Cook 2006. Radisic 2026 (arXiv:2601.07175,
+    Lean-verified) proved it is the unique Hamming-cost-minimizing comp/rev matching on {0,1}^6.
+    See CITATIONS.md."""
     used = set()
     pairs = []
     for v in range(64):
