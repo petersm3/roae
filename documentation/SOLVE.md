@@ -112,10 +112,10 @@ No. The survivors share only 1-2 of 32 pair positions with King Wen, and their d
 
 ## Interpretation
 
-The six rules narrow the space from ~10^45 sequences to something extremely small — possibly unique. The strongest individual constraints are:
+The six rules narrow the space from ~10^45 sequences — but **not to something unique**. *(Corrected 2026-08-02: this paragraph said "possibly unique". The C1–C5 space is measured at ≈1.33×10³⁸ orderings, and even adding the identifying C6/C7 adjacency pins leaves ≈5.21×10³¹ — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4. The uniqueness reading was refuted 2026-07-02 and is one of this project's principal results; it should not be described here as an open possibility.)* The strongest individual constraints are:
 
 1. **Pair structure** — reduces the problem from 64! to 32! x 2^32 (from ~10^89 to ~10^45)
-2. **Complement proximity** — eliminates ~99.7% of pair-constrained orderings (with no-5)
+2. **Complement proximity** — eliminates roughly **92–94%** of pair-constrained orderings (C3 passes at ~6–8% given C1: exactly 6.4211367496% under the C1 null and 8.106% under C1&C4, `verify.py --check-null-g`; Level-2 Monte-Carlo gives 7.35% at C1+C2). *(Corrected 2026-08-02 from "~99.7%", an early sampling-era figure contradicted by every exact measurement since.)*
 3. **Starting pair** — eliminates ~98.4% of remaining orderings
 4. **Difference distribution** — eliminates all remaining samples
 
@@ -123,13 +123,13 @@ The XOR constraint is redundant. It's a real algebraic property but it's implied
 
 ## Open questions
 
-1. **Is King Wen the unique solution?** The sampling shows 0 survivors at Level 5 from 100,000 trials, but this doesn't prove uniqueness. A targeted search (backtracking with pruning) could answer this definitively for the first few constraint levels.
+1. ~~**Is King Wen the unique solution?**~~ **ANSWERED — NO (2026-07-02).** The early sampling (0 survivors at Level 5 from 100,000 trials) reflected the limits of sampling, not uniqueness. Unbiased Knuth estimation over the exact production search tree measures **≈1.33×10³⁸** C1–C5 orderings, and **≈5.21×10³¹** still satisfy C1–C7 — so the published constraint system does not determine the sequence, and King Wen is unique only within budgeted enumerated slices. See [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4 and [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md). *(This question was left listed as open here for a month after it was settled — the refutation is a headline result of the project, not an outstanding item.)*
 
 2. **What is the missing local rule?** The global constraints (complement distance, difference distribution) eliminate most sequences, but the 5 Level 4 survivors show that local ordering information is needed to pin down King Wen. What rule governs *which* pairs are adjacent to *which*?
 
-3. **Can the difference distribution be derived?** Rule 6 specifies the exact counts of each transition type. Is this distribution a consequence of the other rules, or is it an independent constraint? If derivable, the recipe becomes simpler.
+3. **Can the difference distribution be derived?** *(Partially answered.)* Rule 6 (C5) specifies the exact counts of each transition type. It is **not** derivable from the others — but the implication runs the other way: **C2 is implied by C5's histogram**, so the formal minimum independent rule set is **{C1, C3, C4, C5}** (C2 is retained in the solver only as an O(1) boundary pre-filter). See [SPECIFICATION.md](SPECIFICATION.md) §Numbering note. What remains open is whether C5 itself has a first-principles derivation rather than being extracted from King Wen.
 
-4. **Is there a constructive algorithm?** Rather than sampling and filtering, could the sequence be built pair by pair using a greedy or dynamic programming approach?
+4. **Is there a constructive algorithm?** *(Partially answered.)* Yes for reconstruction-with-backtracking — [SPECIFICATION.md](SPECIFICATION.md) §"Constructive algorithm" gives the recipe and `python3 solve.py --reconstruct` runs it. What remains open is whether a **greedy** construction suffices: it does not, because individual steps admit multiple locally valid choices and uniqueness is a global property requiring lookahead or backtracking.
 
 ## Local ordering analysis
 
