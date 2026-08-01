@@ -11,16 +11,22 @@ Two runs on `22_0_30_1_20_0` (yield-16 laggard), both parallel mode, both `SOLVE
 | Source | Date | Solver commit | Budget | Samples |
 |---|---|---|---|---|
 | Pass 1 | 2026-04-22 | `cca1a40` | 10T (BUDGETED) | 1,094 progress lines |
-| Fresh 1000T (post-fix) | 2026-04-24 | `3eb00c2` (post-bug-fix) | 1000T requested; **stopped at 154T**, 2026-04-27 | 3,666 lines at the comparison point |
+| Fresh run (post-fix) | 2026-04-24 | `3eb00c2` (post-bug-fix) | 1000T budget **requested**; run stopped at ~154T, 2026-04-27 | 3,666 lines at the comparison point |
 
-**Status note (added 2026-08-01, stale-status sweep).** The second run's budget row above read
-"1000T (in flight)" and "3,666 lines and growing" from 2026-04-24 until today — a snapshot frozen
-mid-run and then left in the present tense in a doc that is cited as a stable finding. The run was
-in fact **stopped at 154T on 2026-04-27** after a structural finding ([HISTORY.md](HISTORY.md),
-§"April 27, 2026 evening"). **The determinism result is unaffected**: every comparison below is at a
-matched node budget of 10¹⁰–10¹³, all of which the 154T run reached with room to spare, so no row in
-the comparison table depended on the run continuing. What was wrong was the description of the run's
-state, not any measurement taken from it.
+**Status note (added 2026-08-01, stale-status sweep; sharpened after operator correction).**
+**No 1000T single-branch run was ever completed.** The second row above was labelled "Fresh 1000T"
+with budget "1000T (in flight)" and "3,666 lines and growing" from 2026-04-24 until today — a
+snapshot frozen mid-run, left in the present tense, in a doc cited under "Stable paper-citable
+findings". 1000T was the *requested budget*; the run was **stopped at ~154T on 2026-04-27** after a
+structural finding — the budget was enforced globally rather than per task, so all 64 workers stayed
+on their initially-claimed sub-subtasks and none was ever exhausted
+([HISTORY.md](HISTORY.md), §"April 27, 2026 evening"). Naming a run after a budget it never reached
+is the same defect as leaving it "in flight": both describe an intention as an accomplishment.
+
+**The determinism result is unaffected**: every comparison below is at a matched node budget of
+10¹⁰–10¹³, all of which the ~154T run passed with room to spare, so no row in the comparison table
+depended on the run continuing. What was wrong was the description of the run, not any measurement
+taken from it.
 
 The sol counter on each progress line is a pre-dedup explored-candidate count (not the post-merge canonical solution count). Pass 1's final post-merge canonical was 16,431,733; the `sol` counter at end of Pass 1 was 2.99 × 10¹¹.
 
@@ -70,7 +76,7 @@ The selftest baseline confirms this: sha `403f7202a33a9337b781f4ee17e497d5c0773c
 
 Pass 1 archive: `runs/20260422_passA_10T_d64_laggard/22_0_30_1_20_0/run.log.gz`, with sha and metadata in the same directory. Verified end-of-run sha `e801bc7e…` for `sub_22_0_30_1_20_0.bin`.
 
-Fresh run archive: none (not archived; the planned 1000T single-branch run was superseded by later canonicals — 100T and 560T).
+Fresh run archive: none (not archived). The planned 1000T single-branch run was never carried out: this attempt stopped at ~154T and the goal was superseded by the later full-space canonicals, 100T and 560T.
 
 To verify the trajectory match yourself (against any future run on this branch):
 
@@ -81,4 +87,4 @@ To verify the trajectory match yourself (against any future run on this branch):
 
 ## Working / process documentation
 
-For the original analysis context (when this finding emerged during the 1000T run's first hour), see `TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` in the private staging repo (not publicly accessible).
+For the original analysis context (when this finding emerged during the first hour of the 1000T-*budgeted* run — see the status note above; it never reached that budget), see `TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` in the private staging repo (not publicly accessible).
