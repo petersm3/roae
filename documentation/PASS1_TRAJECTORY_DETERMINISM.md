@@ -11,7 +11,16 @@ Two runs on `22_0_30_1_20_0` (yield-16 laggard), both parallel mode, both `SOLVE
 | Source | Date | Solver commit | Budget | Samples |
 |---|---|---|---|---|
 | Pass 1 | 2026-04-22 | `cca1a40` | 10T (BUDGETED) | 1,094 progress lines |
-| Fresh 1000T (post-fix) | 2026-04-24 onward | `3eb00c2` (post-bug-fix) | 1000T (in flight) | 3,666 lines and growing |
+| Fresh 1000T (post-fix) | 2026-04-24 | `3eb00c2` (post-bug-fix) | 1000T requested; **stopped at 154T**, 2026-04-27 | 3,666 lines at the comparison point |
+
+**Status note (added 2026-08-01, stale-status sweep).** The second run's budget row above read
+"1000T (in flight)" and "3,666 lines and growing" from 2026-04-24 until today — a snapshot frozen
+mid-run and then left in the present tense in a doc that is cited as a stable finding. The run was
+in fact **stopped at 154T on 2026-04-27** after a structural finding ([HISTORY.md](HISTORY.md),
+§"April 27, 2026 evening"). **The determinism result is unaffected**: every comparison below is at a
+matched node budget of 10¹⁰–10¹³, all of which the 154T run reached with room to spare, so no row in
+the comparison table depended on the run continuing. What was wrong was the description of the run's
+state, not any measurement taken from it.
 
 The sol counter on each progress line is a pre-dedup explored-candidate count (not the post-merge canonical solution count). Pass 1's final post-merge canonical was 16,431,733; the `sol` counter at end of Pass 1 was 2.99 × 10¹¹.
 
