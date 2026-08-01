@@ -1,0 +1,22 @@
+# Registry of RETRACTED phrasings — consumed by scripts/doc_gates.sh (gate 3).
+#
+# WHY: a correction ledger that says "this was propagated" is a CLAIM, not evidence.
+# On 2026-08-01 the four-rule conflict theorem's retracted scope was still stated on the
+# README front page, in TR-1's executive summary, in a figure alt-text, and in the
+# CLAIMS_DECIDED row grading it REFUTED — invisible to three review passes precisely
+# because TR-2's revision entry asserted the propagation was already done. This file
+# makes the ledger self-enforcing: add a row when you retract something, and the gate
+# fails if the retracted wording ever reappears.
+#
+# FORMAT (tab-separated, 3 columns):
+#   <retracted fixed string>	<file allowed to narrate the retraction>	<note>
+# The allow column is matched as a substring of the "file:line:" prefix, so it exempts
+# the document that legitimately quotes the old wording while explaining the retraction.
+#
+# ADD A ROW EVERY TIME YOU RETRACT OR RESCOPE A PUBLISHED CLAIM.
+
+preserving the classical pairing	TR2_THE_RULES_CONFLICT	Conflict theorem rescoped 2026-07-30: the DRAT certificate establishes it at C1nC2nC4nC5 scope, not C1-only. Propagated 2026-08-01.
+pairing-preserving ordering	TR2_THE_RULES_CONFLICT	Same 2026-07-30 rescope, alternate phrasing. TR-5 uses 'pairing-preserving' legitimately to describe |C1nC2nC4|, so keep this string exact.
+orientation is forced by C5	SPECIFICATION	"Theorem 6" retracted 2026-07-26: C4's opening orientation is definitional, not forced; global complementation is an exact symmetry of C1nC2nC3nC5 (machine-checked, KingWen.lean).
+the exact C1–C7 enumeration	CITATIONS	Retracted 2026-08-01: |C1-C7| is a validated ESTIMATE (5.21e31). The exact full-scale counts are |C1nC2nC4| and |C1nC2nC4nC5|.
+14:2 odd-concentration	CRITIQUE	Corrected 2026-07-02: 14:2 is the CIRCULAR reading; the linear between-pair figure is 13:2 (TR-6 section 2). Propagated 2026-08-01.
