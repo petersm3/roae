@@ -1,22 +1,76 @@
 #!/usr/bin/env bash
 # One-command verification of the ROAE technical-report suite's machine-checkable claims.
-# Requirements: gcc, python3, kissat, drat-trim, lean (elan). See reports/METHODS.md for versions.
+# Requirements: gcc, python3, drat-trim, lean (elan). See reports/METHODS.md for versions.
+#   NOT required: a SAT solver. This script REPLAYS the archived DRAT proofs against freshly
+#   regenerated CNF, which is the sufficient check and needs only drat-trim. kissat was listed
+#   here until 2026-08-01 and never invoked by any code path — building it from source was
+#   wasted work for a replicator (lens-sweep item T4-9). It is still what PRODUCED the archived
+#   proofs (METHODS.md pins the version); reproducing the proofs themselves, rather than
+#   verifying them, is the only step that needs it.
 # https://github.com/petersm3/roae — Developed with AI assistance (Claude, Anthropic)
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 PASS=0; FAIL=0
-check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; PASS=$((PASS+1)); else echo "FAIL  $1"; FAIL=$((FAIL+1)); fi; }
+SKIP=0
+LOG=${ROAE_VERIFY_LOG:-/tmp/roae_verify_all.log}
+: > "$LOG"
+
+# A MISSING TOOL AND A FAILED PROOF ARE DIFFERENT OUTCOMES (lens-sweep item T3-15).
+# Until 2026-08-01 check() discarded stdout+stderr and printed a bare "FAIL", so a replicator
+# without drat-trim saw 22 indistinguishable "FAIL cert …" lines and one without lean saw 13
+# more — the worst case being a skeptic running the advertised one command and concluding the
+# certificates are bad. Output is now captured to $LOG and a failure says where to look; tools
+# are probed up front and their dependent checks are reported SKIP (not FAIL), which cannot be
+# mistaken for a certificate that failed to verify. SKIPs do not pass the run: the exit status
+# below is 0 only when every check ran AND every check passed.
+check() {
+  { echo "### $1"; eval "$2"; } >>"$LOG" 2>&1
+  if [ $? -eq 0 ]; then echo "PASS  $1"; PASS=$((PASS+1))
+  else echo "FAIL  $1   (output: $LOG)"; FAIL=$((FAIL+1)); fi
+}
+skip() { echo "SKIP  $1   ($2)"; SKIP=$((SKIP+1)); }
+
+echo "== 0. Prerequisites =="
+DRAT=${DRAT:-drat-trim}
+LEAN=${LEAN:-lean}
+command -v "$LEAN" >/dev/null 2>&1 || LEAN="$HOME/.elan/bin/lean"
+HAVE_GCC=1; HAVE_PY=1; HAVE_DRAT=1; HAVE_LEAN=1
+command -v gcc      >/dev/null 2>&1 || HAVE_GCC=0
+command -v python3  >/dev/null 2>&1 || HAVE_PY=0
+command -v "$DRAT"  >/dev/null 2>&1 || HAVE_DRAT=0
+command -v "$LEAN"  >/dev/null 2>&1 || HAVE_LEAN=0
+for t in "gcc:$HAVE_GCC" "python3:$HAVE_PY" "drat-trim ($DRAT):$HAVE_DRAT" "lean ($LEAN):$HAVE_LEAN"; do
+  if [ "${t##*:}" = "1" ]; then echo "  found    ${t%:*}"; else echo "  MISSING  ${t%:*}"; fi
+done
+if [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_LEAN" = "0" ] || [ "$HAVE_GCC" = "0" ] || [ "$HAVE_PY" = "0" ]; then
+  echo "  -> checks needing a missing tool are reported SKIP, not FAIL. A SKIP says nothing about"
+  echo "     whether the claim verifies; install the tool (reports/METHODS.md pins versions) and re-run."
+fi
+echo "  full command output: $LOG"
 
 echo "== 1. Enumerator selftest (canonical baseline sha) =="
-check "solve.c build" "gcc -O2 -pthread -fopenmp -o /tmp/roae_verify_solve solve.c -lm -lz"
-check "--selftest" "/tmp/roae_verify_solve --selftest | grep -q PASS"
+if [ "$HAVE_GCC" = "0" ]; then
+  skip "solve.c build" "needs gcc"
+  skip "--selftest" "needs gcc"
+else
+  check "solve.c build" "gcc -O2 -pthread -fopenmp -o /tmp/roae_verify_solve solve.c -lm -lz"
+  check "--selftest" "/tmp/roae_verify_solve --selftest | grep -q PASS"
+fi
 
 echo "== 2. Two-language gates =="
-check "solve.py --registry-verify (31 rules)" "python3 solve.py --registry-verify | grep -q 'ALL 31'"
-check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
+if [ "$HAVE_PY" = "0" ]; then
+  skip "solve.py --registry-verify (31 rules)" "needs python3"
+else
+  check "solve.py --registry-verify (31 rules)" "python3 solve.py --registry-verify | grep -q 'ALL 31'"
+fi
+if [ "$HAVE_PY" = "0" ] || [ "$HAVE_GCC" = "0" ]; then
+  skip "f4p two-language match" "needs gcc + python3"
+else
+  check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
+fi
 
 echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 21 archived certs) =="
-KISSAT=${KISSAT:-kissat}; DRAT=${DRAT:-drat-trim}
+# No SAT solver is invoked here — see the header note. $DRAT is probed in section 0.
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
   [grand_ccn4_unsat]="grand-ccn4" \
@@ -46,11 +100,16 @@ for cert in "${!CERTS[@]}"; do
   else
     GEN="python3 sat.py --emit-cnf $t /tmp/roae_$t.cnf"
   fi
+  if [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_PY" = "0" ]; then
+    skip "cert $cert ($t)" "needs python3 + drat-trim"
+    continue
+  fi
   check "cert $cert ($t)" \
     "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && $DRAT /tmp/roae_$t.cnf /tmp/roae_$t.drat | grep -q 's VERIFIED'"
 done
 
 echo "== 3b. C3 positional witnesses (independent verify.py-path recheck) =="
+if [ "$HAVE_PY" = "0" ]; then skip "c3_positional_witnesses.txt (42 witnesses)" "needs python3"; else
 check "c3_positional_witnesses.txt (42 witnesses)" "python3 - <<'PYEOF'
 import sys
 sys.argv = ['verify.py']
@@ -81,12 +140,18 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     n += 1
 assert n == 42, n
 PYEOF"
+fi
 
 echo "== 4. Lean kernel check (every lean/*.lean file) =="
-LEAN=${LEAN:-lean}; command -v "$LEAN" >/dev/null || LEAN="$HOME/.elan/bin/lean"
+# $LEAN resolved and probed in section 0 (plain `lean`, else the elan fallback).
 for f in lean/*.lean; do
+  if [ "$HAVE_LEAN" = "0" ]; then skip "$f" "needs lean (elan)"; continue; fi
   check "$f" "\"$LEAN\" \"$f\""
 done
 
-echo; echo "RESULT: $PASS passed, $FAIL failed"
-[ "$FAIL" -eq 0 ]
+echo; echo "RESULT: $PASS passed, $FAIL failed, $SKIP skipped"
+if [ "$SKIP" -gt 0 ]; then
+  echo "NOTE: $SKIP check(s) did not run because a required tool is absent — a SKIP is NOT a"
+  echo "      verification failure and NOT a pass. Exit status is nonzero until every check runs."
+fi
+[ "$FAIL" -eq 0 ] && [ "$SKIP" -eq 0 ]

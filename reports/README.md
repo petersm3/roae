@@ -3,8 +3,17 @@
 *Context in one line: ROAE analyzes the King Wen sequence (the received ordering of the 64 I Ching
 hexagrams) as a combinatorial object — enumerating, measuring, and proving; the repository README is the
 front door, these reports are the findings in depth.*
-*Technical reports — not peer-reviewed. Every claim in every report is machine-verifiable; each report
-ends with a Verification Guide mapping claims to commands and certificates.*
+*Technical reports — not peer-reviewed. Each report ends with a Verification Guide mapping claims to
+commands and certificates, and every enumerative, certificate-backed and Lean-checked claim is
+machine-verifiable by a reader. **Not every claim in the suite is** — and the exceptions are disclosed
+where they occur, not here: cost figures are rounded from an exact ledger withheld under the project's
+no-cloud-identifiers policy ([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §Verification Guide); the
+scheduled-reclamation observation is a single-campaign pattern whose second run's per-eviction timestamps
+are not public ([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §4 and its figure caption); the bit ledger's accounting conventions are
+judgment-dependent by construction ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md) executive summary); and one
+load-bearing baseline currently has no artifact in the repo, flagged as such at its own claim site
+([TR-8](TR8_REORDERING_REVISITED.md) executive summary). Where a claim is not machine-verifiable, the
+report carrying it says so at the claim.*
 
 Every report opens with a plain-language executive summary — start there. For a one-page scorecard of what the suite has settled (refuted / corrected / forced / confirmed), see [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md). Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
 law — impact is audience-relative; see the reading paths). Each stands alone; together they cover the
@@ -13,7 +22,7 @@ record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_
 | # | Report | One-line claim | Verification core |
 |---|---|---|---|
 | [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) | Eight Centuries, Measured | The literature's rules at population scale: forced / typical / discriminating; the grand precursor; the conflict | the flagship; all modalities |
-| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules cannot all hold at once (no C1∩C2∩C4∩C5-valid ordering can be perfect under all four); KW's anomalies are a forced trade-off, not damage to such an original; a pre-registered Bayes factor favors corruption of the three-graded-rule precursor over soft tendency (two-model) | SAT + DRAT certs + pre-registered BF |
+| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules cannot all hold at once (no C1∩C2∩C4∩C5-valid ordering can be perfect under all four); KW's anomalies are a forced trade-off, not damage to such an original; a pre-registered Bayes factor favors corruption of the three-graded-rule precursor over soft tendency — **two-model only**: it does not exclude a greedy/local builder, nor that the three rules are post-hoc regularities, and the wider four-class comparison that would have tested those rivals was pre-registered, ran, **failed its own synthetic-draw confusability gate, and is permanently withheld** (TR-2 §6.3) | SAT + DRAT certs + pre-registered BF |
 | [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) | Reproducible Enumeration at Scale | 10.5B records, twice byte-identical across two independent runs (5 + 7 = 12 Spot evictions total) at 15–20% of on-demand cost | sha registry + gates |
 | [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | 1.3287×10³⁸ orderings; uniqueness conjecture false; slice-unique boundaries admit ~10²⁶ | validated estimator |
 | [TR-5](TR5_SYMMETRY.md) | Symmetry | Order-48 group, complete over all 64! relabelings (v2.0; prose-proven with machine-checked finite parts — see §3 scope); free action (every solution has exactly 23 record-level twins); a published negative corrected | proof + Lean + tree isomorphism |

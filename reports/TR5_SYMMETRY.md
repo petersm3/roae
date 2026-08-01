@@ -22,7 +22,8 @@ hexagram set outside these 48 preserves the C1–C5 predicate family, with C1+C2
 membership (previously the classification stopped at the hyperoctahedral group Aut(Q₆), order 46,080). At the
 canonical-record level the effective group is **B₃/{±I} ≅ S₄ (order 24)**, the action is **free** (proven
 2026-07-03), so every valid ordering — not just King Wen — has exactly 23 record-level "twins" and the
-orbit count is exactly N/24. The result *overturns a previously published negative*: an earlier version of
+**record-level** orbit count is exactly N/24 (at the orientation-explicit *sequence* level the divisor is
+48 — level precision stated in §4). The result *overturns a previously published negative*: an earlier version of
 the project's own symmetry document (2026-04-25, "reaffirmed" 2026-06-11) concluded the constraint set was
 rigid; its data was correct but measured budget/dedup artifacts, not solution-set asymmetry. Direct
 bisection of the 560T canonical then delivered the concrete demonstration: King Wen is present, **all 23
@@ -109,8 +110,18 @@ different object (see CITATIONS.md §"(Z/2)⁶ framing — priority ceded"). (Re
 4. **The free-action corollary (2026-07-03): every solution has exactly 23 twins.** The S₄ record-action
    has no fixed points off the identity: every canonical record uses all 32 pairs of the fixed C1 pairing
    position-wise; a record equals its σ-image only if σ stabilizes each pair as a set at its slot; an
-   effective σ ≠ id moves at least one pair. Consequences: every orbit has size exactly 24; the orbit count
-   is exactly N/24; King Wen's 23 twins are not a special property. The Burnside census the project had
+   effective σ ≠ id moves at least one pair. Consequences: every **record-level** orbit has size exactly
+   24; for a symmetry-closed count N of canonical **records** the orbit count is exactly N/24; King Wen's
+   23 twins are not a special property.
+   **Level precision (added 2026-08-01, from [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2's
+   2026-07-30 note).** The S₄ action and its freeness live at the *record* (canonical pair-ordering)
+   level. Where N counts **orientation-explicit sequences** — which is the convention of every exact count
+   this suite publishes ([METHODS](METHODS.md) §Canonical quantities) — the acting group is the order-48
+   lift, whose central element `rev` flips within-pair orientation and so fixes no orientation-explicit
+   sequence; sequence-level orbits therefore have size **48**, `48 | N`, and N/24 is **2× the number of
+   sequence-level orbits**, not the sequence-orbit count itself. Nothing numerical changes — only the
+   level the divisor is attributed to — but it means the mod-24 gate below is a strictly weaker check
+   than the space affords. The Burnside census the project had
    queued as a measurement is settled analytically at zero compute: all non-identity fixed-point counts are
    zero. (To our knowledge first stated here; corrections welcome via CITATIONS.md.)
 5. **The twins-absent-from-560T demonstration.** Measured 2026-07-02 by direct bisection of the 560T
@@ -164,9 +175,17 @@ the solution count is divisible by 24, exactly.*
 The free-action prediction is now verified against exact arithmetic at full scale: the exact count of
 pairing-preserving, no-5, Qian-Kun-anchored orderings (|C1∩C2∩C4| = 7.5706×10⁴¹, computed 2026-07-04 by
 a symmetry-quotient dynamic program that itself uses this report's group) is **exactly divisible by
-24**, as the theorem requires — remainder zero on a 42-digit integer. A pleasing closure: the theorem
+24** — remainder zero on a 42-digit integer. A pleasing closure: the theorem
 made the computation feasible (the quotient is the reason the DP fits in memory), and the computation
 then confirmed the theorem's arithmetic signature.
+
+*Level note (2026-08-01): |C1∩C2∩C4| is an **orientation-explicit sequence** count, so the divisor the
+free-action theorem actually affords here is **48**, not 24 (see the level precision under §4 above and
+[TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2). The count does satisfy the stronger check —
+757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≡ 0 (mod 48), as does
+|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 — so the arithmetic signature
+holds a fortiori and no published figure moves; the mod-24 statement was simply attributed to the
+sequence level when the theorem proves freeness at the record level.*
 
 ## Revision history
 | Version | Date | Changes |
@@ -183,4 +202,5 @@ then confirmed the theorem's arithmetic signature.
 | v2.4 | 2026-07-31 | **Kernel-only trust base restored (post-merge, authoritative `#print axioms`).** The `wip-h2c3` kernel migration landed on main; a clean 2026-07-31 build confirms lean/KingWen.lean's finite lemmas (`sigma_kw_valid_48`, `twins_24_records`, `valid_iff_centralizes_rev`, etc.) are **kernel-only** (`[propext]`/`[propext, Quot.sound]`, no `native_decide`), and Automorphism.lean is kernel-only except `applyPerm_pcomp_bool` (kernel `decide` OOMs >29 GB → kept at `native_decide`; its bridge + the four `twenty_four_dvd_*` divisibility theorems inherit compiler-trust, disclosed). §3 updated from the v2.2 `native_decide` wording. No theorem, count, or scope changed |
 | v2.5 | 2026-07-31 | **Last `native_decide` eliminated — Automorphism.lean now fully kernel-only.** The one obligation v2.4 kept at `native_decide` (`applyPerm_pcomp_bool`, whose *direct* 48·48·64 kernel `decide` OOMs >29 GB) is replaced by a **structural** proof (§3a of Automorphism.lean): `applyPerm` is shown to be a group action along `pcomp` with no enumeration over permutation pairs — the only finite check is the 48·64·6 bit-relocation fact `applyPerm_bit` (kernel `decide`, ~2.8 GB), the rest list/permutation reasoning (`map_getD_range`, `sum_perm`). A clean 2026-07-31 build (D4, ~26 s / 2.8 GB) confirms `applyPerm_pcomp`, `applyPerm_pcomp_bool`, and all four `twenty_four_dvd_*` divisibility theorems now report `#print axioms ⊆ [propext, Classical.choice, Quot.sound]` — **zero `native_decide` anywhere in the file**. The DIV-24 gate and equivariance ceiling are thus kernel-only end to end. §3's "except" clause removed. No theorem, count, or scope changed — this strengthens the trust base only |
 | v2.6 | 2026-08-01 | **Build-time figure in v2.5 corrected (cross-model calibration review).** v2.5 reported "a clean 2026-07-31 build (D4, ~26 s / 2.8 GB)" as confirming `applyPerm_pcomp`, `applyPerm_pcomp_bool` and the four `twenty_four_dvd_*`. That 25.8 s / 2.7 GB measurement was of the **standalone §3a fragment** (the structural-proof file compiled on its own), not of `Automorphism.lean` as a whole: the file's own header records its five heavy `decide +kernel` obligations at **41–72 s each** plus ~24 s for `applyPerm_bit`, so a full-file build is **several minutes**. The axiom result v2.5 reports is unaffected — `#print axioms` was taken from a full-file build (RC=0) and the kernel-only conclusion stands; only the timing figure was mis-attributed. lean/README's "two exceptions to seconds" list is corrected to three in the same pass. No theorem, count, trust base, or scope changed |
-| v2.7 *(current)* | 2026-08-01 | **Prefix convention stated (2026-08-01 calibration review).** §3(ii) calls the exact-tree-isomorphism object a "23-pair prefix" while TR-4 §4 and SEARCH_SPACE_SIZE call the identical object (tree_nodes 9,422,793 / 16,504 canonical leaves) a "22-pair prefix". Both are correct under different conventions — with or without C4's pinned opening pair — but the convention was nowhere stated, so the two reports read as disagreeing. §3(ii) now says which convention it uses and names the other. No count or claim changed |
+| v2.7 | 2026-08-01 | **Prefix convention stated (2026-08-01 calibration review).** §3(ii) calls the exact-tree-isomorphism object a "23-pair prefix" while TR-4 §4 and SEARCH_SPACE_SIZE call the identical object (tree_nodes 9,422,793 / 16,504 canonical leaves) a "22-pair prefix". Both are correct under different conventions — with or without C4's pinned opening pair — but the convention was nowhere stated, so the two reports read as disagreeing. §3(ii) now says which convention it uses and names the other. No count or claim changed |
+| v2.8 *(current)* | 2026-08-01 | **Orbit-count level attribution corrected (lens-sweep item T3-3).** §4's free-action corollary said "the orbit count is exactly N/24" without naming the level, and §"Numerical instantiation" then applied it to \|C1∩C2∩C4\| = 7.5706×10⁴¹ — an **orientation-explicit sequence** count — saying the divisibility held "as the theorem requires". The theorem proves freeness at the **record** (pair-ordering) level; at the sequence level the acting group is the order-48 lift, orbits have size 48, 48 divides N, and N/24 is 2× the sequence-orbit count. This is [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2's 2026-07-30 precision note, which had not propagated here. Both §4 and the numerical instantiation now state the level; the stronger mod-48 check is recorded as satisfied by both landed exact counts (independently recomputed for this entry). **Nothing numerical changed** — only the level the divisor is attributed to, and the note that the mod-24 runtime gate is weaker than the space affords |
