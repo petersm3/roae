@@ -82,7 +82,7 @@ current defaults the two modes' files are content-identical but byte-different �
 | Component | Version | Source |
 |---|---|---|
 | Repository | pin to the release tag stamped at publication (git tag per suite version) | [github.com/petersm3/roae](https://github.com/petersm3/roae) |
-| C toolchain | gcc (Ubuntu 22.04 class), flags: `-O2 -pthread -fopenmp` (canonical); `-march=native` allowed for estimator-only runs | — |
+| C toolchain | gcc (Ubuntu 22.04 class), flags: `-O2 -pthread -fopenmp` (portable default). **The output sha is flag- and architecture-invariant on every recipe tested**, so the differing build lines a replicator meets across this repo are interchangeable: `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3` and `-O3 -flto` all produce the same selftest sha `403f7202…`, and the 11.2T canonical is byte-identical between an x86 `-march=native` build and an ARM Neoverse-N2 `-mcpu=native` build. The published canonical recipe ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Solver version") is therefore `-O3 … -march=native`; the reason to prefer a fixed `-march` baseline for a redistributed binary is SIGILL on older CPUs, **not** sha movement ([DEVELOPMENT.md](../documentation/DEVELOPMENT.md) §"Use `-march=x86-64-v3` for canonical builds"). Two witnesses, not an exhaustive guarantee over every compiler version and host. | — |
 | solve.c selftest anchor | sha256 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | every commit gate |
 | Python | 3.10+ stdlib-only (solve.py, sat.py, roae.py, verify.py) | — |
 | SAT solver | kissat 4.0.4 (build from source) | [github.com/arminbiere/kissat](https://github.com/arminbiere/kissat) |
@@ -108,7 +108,10 @@ Schulz gender is measured against KW's own violation count, but its *statement* 
 consolidated units — borrows no KW-specific value; it stays principled. The dof count is on the rule as
 its author stated it.) Zero borrowed dof in the statement → principled; each fitted slot, value, or
 threshold baked into the rule's definition is one borrowed dof, and a constraint with ≥1 is priced as data (its "rarity" is specification, not discovery — see the dof-matched baseline in
-[TR-8](TR8_REORDERING_REVISITED.md) and [CRITIQUE.md](../documentation/CRITIQUE.md) Q1). Borderline cases
+[TR-8](TR8_REORDERING_REVISITED.md) §Executive summary). *(Corrected 2026-08-01: this pointer also named
+"CRITIQUE.md Q1". CRITIQUE.md has no Q1 and no dof-matched material; the baseline is stated only in TR-8,
+which quantifies it but does not publish a regeneration command for it — treat the ~6×10⁻⁵ median as an
+unreproduced figure until one is published.)* Borderline cases
 (C3's 776 threshold, the S25–28 trigram configuration) are classified data-like precisely because their
 defining number or face-set is KW's own. This is the firewall that keeps a fitted description from being
 reported as a design finding; where a result depends on the classification, the report states which side
@@ -119,7 +122,11 @@ the constraint falls on and why.
   are accumulated exactly, and the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard
   Wald CI on Knuth's (1975) unbiased estimator. Weighted fractions (masses of canonical weight) are
   same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces exactly to the numerator's
-  own relative variance, so a fraction's honest relerr equals the relerr of its numerator. S(k)-style
+  own relative variance, so a fraction's honest relerr equals the relerr of its numerator. *That is a
+  statement about **variance only**.* ΣWX/ΣW is a ratio of correlated random sums, so it also carries a
+  **bias** of order 1/n_eff that this suite does not quantify; at the deep-tail rows (n_eff of order 10²,
+  see just below) that is percent-scale. No published verdict turns on a few percent, but the population
+  fractions should not be read as bias-corrected. S(k)-style
   ratios of separate runs add relative variances (the whole-space denominator's 0.02% is negligible).
   Caveats: weights are right-skewed, so CIs at low effective sample size (n_eff = 1/relerr²; e.g. relerr
   10% → n_eff ≈ 100) are approximate and skew toward underestimation — figures at ≥10% relerr should be
@@ -161,15 +168,26 @@ the constraint falls on and why.
   not neutral. The suite applies **Bonferroni (family-wise error rate)** throughout, and the global-ledger
   layer was added on 2026-07-11 — **after** the measurements it adjudicates. Under **Benjamini–Hochberg
   FDR** at q = 0.05 the same 91-observable ledger would reach a different verdict on exactly one value:
-  `dav_trigarray` (6.8×10⁻⁴) would be **declared significant**, and the margin is not delicate. At least
-  **twelve** ledger values are strictly smaller — nine from the exploratory suite (`ccn4` 2×10⁻⁸,
-  `ccn8` 2.6×10⁻⁷, `ccn3` 6.6×10⁻⁶, `ccn1` 3.4×10⁻⁵, `c2011n2` 5.9×10⁻⁵, `d7` 1.7×10⁻⁴, `p2c6`
-  4.1×10⁻⁴, `d4` 5.7×10⁻⁴, `rs1` 6.6×10⁻⁴; `c2011n1` at <10⁻⁹ makes ten) plus three from the Davis
-  family itself (`dav_rotinv` 6.5×10⁻⁵ and two predicates at zero sampled mass) — so its BH rank is
-  *i* ≥ 13, where the step-up threshold *i*·0.05/91 ≥ **7.1×10⁻³, about 10× the measured p**. The
-  conclusion does not depend on the exact rank: BH rejects at **every** rank ≥ 2, since even *i* = 2
-  gives 1.1×10⁻³ > 6.8×10⁻⁴. Only *i* = 1 would fail, and *i* = 1 is excluded by the smaller values
-  listed above. That
+  `dav_trigarray` (6.8×10⁻⁴) would be **declared significant**. BH rejects at **every** rank *i* ≥ 2,
+  since even *i* = 2 gives 2·0.05/91 = 1.1×10⁻³ > 6.8×10⁻⁴; only *i* = 1 would fail. And *i* = 1 is
+  excluded by `dav_rotinv` (6.5×10⁻⁵) — a smaller p-value inside the same registered Davis family — so
+  *i* ≥ 2 and the rejection stands.
+  *(Ranking support narrowed 2026-08-01, second pass. This paragraph previously supported the rank with
+  "at least twelve ledger values are strictly smaller … so its BH rank is i ≥ 13 … about 10× the measured
+  p", listing nine `ccn*`/`rs1`/`d4`/`d7`/`p2c6`/`c2011n*` values plus three Davis entries. **Both extra
+  categories were wrong to rank.** (a) The nine are literature-rule **registry masses** from
+  `solve.py --registry-verify` (published in [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7); they are not in
+  the 91-observable roster — the itemization of record, `CRITIQUE.md` §"Observable-selection accounting",
+  contains none of them — and they are not test p-values: TR-1 states each is read at King Wen's own value
+  "by construction of the threshold forms". Calling them "ledger values" is exactly the error the counting
+  rule below exists to prevent: a value counts as being in the ledger only by appearing in the itemised roster. (b) Two of the three Davis entries have **zero
+  sampled mass**, which §"Knuth estimator CIs" above reports as starvation, not as a bound — a
+  non-number cannot hold a BH rank. What survives is `dav_rotinv` alone — [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
+  §3 row 6 classifies it *data-like* and does not promote it, but it is a registered member of the Davis
+  family carrying a measured p-value, which is what a BH ranking needs — enough for the
+  conclusion, not enough for the withdrawn "≈10×" margin. Net effect on the disclosure: none — it is
+  self-penalizing, and the narrower base still reaches the same verdict.)*
+  That
   is the *only* verdict in the suite the family choice moves, and it moves the one result most favourable
   to the hypothesis this suite argues against. Two facts keep the published reading defensible, and both
   are stated rather than assumed: (i) FWER is the strictly more conservative family, so **every claim
@@ -194,6 +212,7 @@ the constraint falls on and why.
 
 ## Independence ladder (what requires trusting project code)
 1. **Nothing**: DRAT certificates (drat-trim), **kernel-checked** Lean theorems, the two-line parity proofs.
+   *(Scope, added 2026-08-01: a DRAT certificate places its **verdict** here — what the CNF **means** is rung 2. See the note under rung 2; do not read "DRAT-certified" as assumption-free end to end.)*
    *(Qualified 2026-08-01: this read "Lean theorems (kernel)" without restriction. A disclosed subset of the
    suite's Lean theorems is proved by `native_decide`, which trusts Lean's **compiler** rather than its kernel —
    TrigramTheorems §4a–§6, PartitionInvariance §12, PruneGInvariance §1+§8, and all of SymmetryCompleteness.
@@ -202,6 +221,11 @@ the constraint falls on and why.
    suite where a distinction maintained everywhere else was flattened.)*
 2. **Only the encoder** (validated by KW-value gates + two-way SAT tests): the conflict theorem's rule
    faithfulness.
+   *(Added 2026-08-01: the conflict theorem is the **same object** as one of rung 1's DRAT certificates, and
+   it belongs on both rungs by design — drat-trim's UNSAT verdict on the CNF requires trusting no project
+   code (rung 1), while the claim that those clauses **are** Moore's/Schulz's/CC-N4's/CC-N8's rules requires
+   trusting `sat.py` (rung 2). Every certificate-backed impossibility in this suite splits the same way, so
+   "DRAT-certified" should never be read as "assumption-free end to end".)*
 3. **The instrument stack** (cross-validated two-language + self-check): population fractions, estimator
    counts.
 Every report's Verification Guide tags its claims with the rung they sit on.

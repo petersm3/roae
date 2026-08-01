@@ -1,4 +1,4 @@
-# How the King Wen Sequence Was Built
+# How the King Wen Sequence Is Structured
 
 > **Authority note (legacy narrative).** This page predates the 2026-07 technical-report suite and is
 > retained as the project's plain-language narrative. Where this page and the
@@ -6,7 +6,7 @@
 > win** — the discrepancy is a bug in this page; please report it (the same convention as
 > [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md)).
 
-A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is threefold: **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts (the same byte-identical results on any hardware), and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
+A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is threefold: **budget-exact enumeration** of solutions under the conjoined constraint system (each canonical count is exact at its node budget; the space itself is far too large to exhaust at any budget — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), **partition-invariant reproducibility** of the canonical counts (the same byte-identical results on any hardware), and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
 For deeper material referenced throughout this article:
 
@@ -232,7 +232,7 @@ Each of these is machine-verifiable — the reports include the exact commands a
 
 ## An important caveat
 
-Applying the same methodology to random pair-constrained sequences — extract their diff distribution, complement distance, and starting pair, then test for uniqueness — also produces apparent uniqueness in 9 out of 10 cases. **The constraint extraction approach makes almost any sequence appear uniquely determined.** This means Rules 3-7 are not individually remarkable — any sequence's specific properties would similarly narrow the search space.
+Applying the same methodology to random pair-constrained sequences — extract their diff distribution, complement distance, and starting pair, then test for uniqueness — also produces apparent uniqueness in 9 out of 10 cases. **The constraint extraction approach makes almost any sequence appear uniquely determined.** This means the three properties that test extracts — complement distance, starting pair and transition counts (Rules 3, 4 and 5 above) — are not individually remarkable: any sequence's specific properties would similarly narrow the search space.
 
 What IS genuinely special about King Wen is **Rules 1 and 2**: the perfect pair structure and the no-5-line-transition property. Only ~4% of pair-constrained orderings avoid 5-line transitions (ROAE's 10^9-sample pair-constrained null gives 4.29% precisely). The pair structure itself is vanishingly unlikely by chance — a random 64-permutation has probability ~10^-44 of satisfying it. Both observations are **prior knowledge** — Rule 1 is classical (*Yi Zhuan* commentary, Cook 2006) and Rule 2 is from McKenna & McKenna 1975 (*The Invisible Landscape*). ROAE's contribution is **independent computational verification** at scale, plus **null-model testing** across seven structured permutation families showing no family other than KW simultaneously satisfies C1+C2+C3. See [CITATIONS.md](CITATIONS.md) and [CRITIQUE.md](CRITIQUE.md) §Missing analyses.
 
@@ -252,7 +252,7 @@ ROAE's contribution to the study of the King Wen sequence — distinct from what
 
 **What ROAE adds:**
 
-1. **Exhaustive enumeration at scale.** Under the conjoined **C1–C5** constraint system, ROAE's deepest published canonical counts **10,525,271,997** distinct orderings at a 560 trillion-node partial enumeration (d3 560T; sha `9a968fa2…` — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the 10T d3 canonical (**706,427,594**, `b85c8871…`) remains a smaller-scale reference anchor. Each count is exact at its budget and reproducible byte-identically across hardware and region — and, to our knowledge, enumeration at this scale had not previously been carried out, only estimated or approximated; corrections welcome. *(Corrected 2026-08-01: this bullet stated the flagship contribution at the 10T figure — understating the project's own deepest result ~15× — labelled the population "C1 + C2 + C3" (legacy shorthand for C1–C5; see [METHODS.md](../reports/METHODS.md)), and asserted the prior-art claim with no hedge while the three bullets around it were hedged.)*
+1. **Enumeration at scale, exact at its budget.** Under the conjoined **C1–C5** constraint system, ROAE's deepest published canonical counts **10,525,271,997** distinct orderings at a 560 trillion-node partial enumeration (d3 560T; sha `9a968fa2…` — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the 10T d3 canonical (**706,427,594**, `b85c8871…`) remains a smaller-scale reference anchor. Each count is exact at its budget and reproducible byte-identically across hardware and region — and, to our knowledge, enumeration at this scale had not previously been carried out, only estimated or approximated; corrections welcome. *(Corrected 2026-08-01: this bullet stated the flagship contribution at the 10T figure — understating the project's own deepest result ~15× — labelled the population "C1 + C2 + C3" (legacy shorthand for C1–C5; see [METHODS.md](../reports/METHODS.md)), and asserted the prior-art claim with no hedge while the three bullets around it were hedged.)*
 
 2. **Seven-family null-model framework.** Measures how other structured permutation families compare to KW's structural properties. Main finding: zero of 1.86 billion permutations across six unconditional families satisfy C1 (consistent with the theoretical rate of ~10⁻⁴⁴ for random permutations). For the de Bruijn and Gray code families, 0% is also proved analytically, not just observed. To our knowledge this is the first systematic null-model test of this scope for the KW structural constraints; corrections welcome.
 
@@ -427,5 +427,7 @@ The difference wave as a sparkline (each character = one transition, height = li
 | 63 | ䷾ #63 After Completion | ䷿ #64 Before Completion | 6 |
 
 ---
+
+*Revision 2026-08-01 (lens-sweep adjudication, area q-methods-tr4): three wording corrections, no number or sha changed. (i) The page title read "How the King Wen Sequence Was **Built**" — a historical-process claim this page's own §"What we can and cannot say" explicitly disowns, and the most-liftable string on the page; it now reads "**Is Structured**". (ii) The opening contribution sentence claimed "**exhaustive** enumeration", refuted 138 lines below by "both enumerations are partial … the true count under exhaustive enumeration is unknown"; it now reads "budget-exact enumeration", and the §"What ROAE adds" bullet heading is retitled to match. (iii) §"An important caveat" concluded that "Rules **3-7** are not individually remarkable" while this page defines only Rules 1-5 (C6/C7 are named once, never numbered or defined here); it now names the three properties that test actually extracts — complement distance, starting pair, transition counts (Rules 3, 4, 5).*
 
 *Revision 2026-07-22 (C3 scope-consistency sweep): the 3.9th-percentile figure is now labeled at its measured scope — orderings satisfying every constraint except C3 itself (C1+C2+C4+C5; earlier text said "C1-only") — and §Rule 3 gained an exact reference baseline for the ~10% ceiling-tie figure (`verify.py --check-null-g`: tie share 7.86% under the bare pair-slot null; a baseline, not a refutation — the populations are not like-for-like). No counts or shas changed.*

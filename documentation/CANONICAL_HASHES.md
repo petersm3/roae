@@ -15,10 +15,17 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 | d3 5.6T | `f66920c1…` | 467,484,167 | Active drift anchor | v1 (modern) |
 | d2 10T | `a09280fb…` | 286,357,503 | Active d2-partition reference | v1 |
 | d3 1T (main) | `74d39760…` | 134,027,160 | Active build-state anchor | c72eada+#108 lineage |
-| d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | Historical | v1 / v3 BRANCH `8b1658b` |
+| d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | **Historical — DOES NOT reproduce on current `main`; not a replication target** | v1 / v3 BRANCH `8b1658b` |
 | Selftest | `403f7202…` | 135,780 | Active build gate | v1 |
 
 For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's deepest enumeration; it was **SUSPECT** from 2026-06-21 (a proven eviction-resume defect on the pre-fix solver), and resolved to **CANONICAL-verified** on 2026-06-30 when a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (see §d3 560T).
+
+**If you are replicating and want one anchor, start with d3 11.2T (`0c0fe37c…`).** It is the
+most-witnessed canonical in the project — eight independent build/host paths, including a cross-architecture
+ARM Neoverse-N2 rebuild and both solver lineages (§d3 11.2T). Do **not** start at the smallest published
+number: the 1T scale is more sensitive to compiler-layout drift than the 11.2T+ scales (§d3 1T), and one of
+the two 1T rows (`5a0f0bc2…`, the v3 BRANCH anchor) is **known not to reproduce on current `main`** — a
+replicator who picks it first will get a genuine mismatch that means nothing about the current code.
 
 The full reproducibility-parameters table (env vars per canonical) is at [§Reproducibility parameters](#reproducibility-parameters) below.
 
@@ -223,7 +230,7 @@ Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer
 - **Records:** 134,039,081 (= 1.34039 × 10⁸)
 - **Solver:** v1 (modern) and v3 BRANCH `8b1658b` (both produce this sha byte-identically)
 - **Established:** 2026-05-24 as a byproduct of the v1-vs-v3 paired speedup bench on Standard D128als_v7 westus3
-- **Status:** Historical anchor for v3 BRANCH state (May 2026)
+- **Status:** Historical anchor for v3 BRANCH state (May 2026). **Not a replication target — this sha does not reproduce on current `main` HEAD; see the note directly below.**
 
 **NO LONGER REPRODUCIBLE on current main HEAD `c72eada` or later** due to LTO compiler-layout drift from the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (same mechanism as #99 100B-bisect's `d683794` sha-flip; see `petersm3/roae-private:V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md`).
 
