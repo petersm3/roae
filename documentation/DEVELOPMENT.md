@@ -142,17 +142,24 @@ echo "=== os image ==="
 
 The manifest is captured once at build time and embedded in the same `metadata.txt` shipped with `solutions.bin.gz` to cold storage.
 
-#### Drop `-march=native` for canonical builds
+#### Use `-march=x86-64-v3` for canonical builds — for PORTABILITY, not because the sha changes
 
-`-march=native` emits CPU-specific instructions tuned to the build host. A binary built on Zen 4 may differ from one built on Zen 5 even
-with identical source. Replace with a fixed baseline:
+**The output sha is architecture- and flag-invariant.** The enumeration is deterministic integer
+arithmetic; instruction selection does not change the records or their byte layout. This is
+established empirically, not assumed: the 11.2T canonical is byte-identical between the x86
+`-march=native` build and an **ARM Neoverse-N2 `-mcpu=native`** build (CANONICAL_HASHES §"cross-architecture
+witness"), and the selftest sha `403f7202…` is identical across `-O2`, `-O3 -march=native`,
+`-O3 -march=x86-64-v3`, and `-O3 -flto` (verified 2026-08-01 on AMD EPYC). So **any** of the documented
+recipes reproduces the canonical sha.
 
-- `-march=x86-64-v3` — AVX2 baseline. Works on every Intel Haswell+ / AMD Excavator+. Ubiquitous since 2013. **Default for canonical builds.**
-- `-march=x86-64-v4` — AVX-512 baseline. Use if AVX-512 is empirically a measurable speedup AND you're willing to lock yourself to
-  Skylake-X / Zen 4+ silicon.
+The reason to prefer a fixed baseline for the *canonical* build is **portability of the binary**, not
+reproducibility of the output: a `-march=native` binary emits host-specific instructions and may fail to
+*run* (SIGILL) on an older CPU — which matters when someone else rebuilds/re-runs to reproduce. Pick:
 
-Performance impact of dropping `-march=native` to `-march=x86-64-v3`: typically 5–15% slower for HPC-ish workloads. Acceptable for the
-reproducibility guarantee. (Internal performance tuning runs can still use `-march=native`; the rule is only for canonical builds.)
+- `-march=x86-64-v3` — AVX2 baseline. Runs on every Intel Haswell+ / AMD Excavator+ (ubiquitous since 2013). **Recommended canonical default.**
+- `-march=x86-64-v4` — AVX-512 baseline. Use only if AVX-512 is a measured speedup AND you accept locking to Skylake-X / Zen 4+ silicon.
+
+Performance impact of `-march=x86-64-v3` vs `-march=native`: typically 5–15% slower for HPC-ish workloads — acceptable for a portable canonical build. `-march=native` remains fine for internal tuning runs and reproduces the same sha; it just may not run everywhere.
 
 #### Cross-build regression gate
 
