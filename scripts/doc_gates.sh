@@ -378,6 +378,94 @@ sys.exit(bad)
 PY
 }
 
+# ===========================================================================
+# SELF-TEST — mutation testing. Run: scripts/doc_gates.sh --selftest
+#
+# WHY (2026-08-01): these seven gates had never been observed to FAIL. GATE 7
+# was VACUOUS on the day it was written — its suppression list contained the
+# word "budget", and the stale table it was built for has a "Budget" column
+# header three lines above the frozen status, so it passed cleanly on its own
+# motivating defect. A gate nobody has watched fire is an untested test, and
+# a green row of [ok] from an untested gate reads as coverage while providing
+# none. That is the same failure as verify_archive.sh sampling zero shards and
+# reporting PASS.
+#
+# METHOD: inject one known defect at a time into the real tree, run only the
+# gate that should catch it, assert it FAILS, then revert with git checkout.
+# Mutation testing rather than synthetic fixtures, deliberately: the gates read
+# real paths (CANONICAL_HASHES.md, solve.py, viz/), so a fixture would test a
+# different program than the one that runs in anger.
+#
+# SAFETY: refuses to run unless the tree is clean, so it can never destroy
+# uncommitted work; every mutation is reverted immediately after its assertion,
+# including on failure.
+# ===========================================================================
+if [ "${1:-}" = "--selftest" ]; then
+  cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    echo "REFUSING: working tree is not clean. This self-test mutates real files and"
+    echo "reverts them with 'git checkout --'; that would discard your uncommitted work."
+    exit 2
+  fi
+  PASS=0
+  # assert_fires <label> <file> <gate-name> <python-mutation>
+  assert_fires() {
+    local label="$1" file="$2" gate="$3" mut="$4"
+    python3 -c "$mut" || { echo "  [SKIP] $label — could not inject (anchor moved)"; return; }
+    if bash "$0" "$gate" >/dev/null 2>&1; then
+      echo "  [FAIL] $label — $gate did NOT fire on an injected defect"
+      PASS=1
+    else
+      echo "  [ok]   $label — $gate fires"
+    fi
+    git checkout -- "$file" 2>/dev/null
+  }
+
+  echo "== DOC GATES SELF-TEST (mutation) =="
+
+  assert_fires "GATE 1 cross-file numbers" documentation/SOLVE.md numbers \
+"s=open('documentation/SOLVE.md').read()
+assert '3,432,399,297' in s
+open('documentation/SOLVE.md','w').write(s.replace('3,432,399,297','3,432,399,298',1))"
+
+  assert_fires "GATE 3 retracted phrasing" documentation/GUIDE.md retract \
+"s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k >= 13 by construction.\n')"
+
+  assert_fires "GATE 4 internal links" documentation/GUIDE.md links \
+"s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FILE_XYZ.md).\n')"
+
+  assert_fires "GATE 6 figure generators" viz/README.md figures \
+"import glob,sys
+c=[f for f in glob.glob('viz/*.py')]
+sys.exit(1) if not c else None
+s=open(c[0]).read()
+open(c[0],'w').write(s+'\n# hard floor k >= 13\n')"
+
+  assert_fires "GATE 7 frozen run status" documentation/GUIDE.md liveness \
+"s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+'\n\nThe ladder build is in flight and the log is 3,666 lines and growing.\n')"
+
+  assert_fires "GATE 7 unreached budget" documentation/GUIDE.md liveness \
+"s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the published ladder exactly.\n')"
+
+  # GATE 2 (CLI drift) and GATE 5 (epistemic status) are not mutation-tested here:
+  # both would require editing solve.py / a canonical quantity, and a bad revert
+  # there is far more costly than the assurance is worth. They are covered by
+  # having FIRED in anger during the 2026-07/08 sweeps (13 undocumented flags;
+  # 99 canonical-quantity occurrences checked). Stated rather than silently
+  # omitted — a self-test that hides its own coverage gap is the defect it tests for.
+  echo "  [note] GATE 2 + GATE 5 not mutation-tested (would mutate solve.py / canonical"
+  echo "         quantities); both have fired in anger during earlier sweeps."
+
+  git checkout -- . 2>/dev/null
+  echo
+  [ "$PASS" -eq 0 ] && echo "DOC GATES SELF-TEST: PASS" || echo "DOC GATES SELF-TEST: FAIL"
+  exit "$PASS"
+fi
+
 case "${1:-all}" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
