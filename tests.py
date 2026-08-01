@@ -599,6 +599,25 @@ class TestVerifyRecordsPath(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("VERIFY FAIL: 2 issues", r.stdout)   # C4 + missing KW
 
+    def test_pair_orbits_are_derived_not_trusted(self):
+        # A9: _ORBITS was transcribed from TR-11 §3. It is now cross-checked against
+        # the orbit partition derived from verify.py's own 48 commuting bit-perms.
+        V = self.V
+        derived = {tuple(o) for o in V._derive_pair_orbits()}
+        self.assertEqual(derived, {tuple(sorted(v)) for v in V._ORBITS.values()})
+        self.assertEqual(sorted(i for o in derived for i in o), list(range(1, 32)))
+        # and the gate must actually reject a corrupted table
+        saved = V._ORBITS
+        try:
+            bad = {k: list(v) for k, v in saved.items()}
+            bad["3.0"] = [3, 7, 12]           # 11 -> 12: breaks the orbit, keeps the size
+            V._ORBITS = bad
+            with self.assertRaises(RuntimeError):
+                V._verify_orbits_against_group()
+        finally:
+            V._ORBITS = saved
+        V._verify_orbits_against_group()      # real table still passes
+
     def test_table_gate_catches_a_corrupted_kw_table(self):
         # Fixture chosen so that ONLY the C5-multiset gate can catch it:
         # swapping pair-blocks 1 and 2 leaves cd exactly 776 (so the pre-existing

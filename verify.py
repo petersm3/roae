@@ -488,6 +488,56 @@ _ORBITS = {
     "6.2": [10, 15, 20, 23, 27, 29],
 }
 
+def _derive_pair_orbits():
+    """Derive the orbit partition of the 31 free pairs from THIS FILE's own group,
+    rather than trusting the table above.
+
+    Each of the 48 bit-position permutations commuting with reversal acts on
+    hexagrams; because it commutes with rev and fixes 0 and 63, it maps canonical
+    pairs to canonical pairs and so induces a permutation of the 32 pair indices.
+    Orbits of the 31 free pairs (pair 0 is C4-pinned and fixed by every element)
+    under that induced action are what `_ORBITS` records.
+
+    A9 (2026-08-01): `_ORBITS` was transcribed from TR-11 §3, which made the
+    reduced-rung machinery depend on a published table copied by hand — the same
+    self-verifying-table weakness the record path had (see
+    `_verify_tables_against_rules`). Deriving it closes the last such nick.
+    """
+    index_of = {frozenset(p): i for i, p in enumerate(PAIRS)}
+    orbits, seen = [], set()
+    for i in range(1, 32):
+        if i in seen:
+            continue
+        orb, frontier = {i}, [i]
+        while frontier:
+            j = frontier.pop()
+            a, b = PAIRS[j]
+            for g in _commuting_bitperms():
+                k = index_of.get(frozenset((_apply_bitperm(g, a), _apply_bitperm(g, b))))
+                if k is None:
+                    raise RuntimeError(
+                        "orbit derivation: a group element moved a canonical pair off the pairing")
+                if k not in orb:
+                    orb.add(k); frontier.append(k)
+        seen |= orb
+        orbits.append(sorted(orb))
+    return orbits
+
+def _verify_orbits_against_group():
+    """Gate: the published `_ORBITS` table must equal the derived orbit partition."""
+    derived = {tuple(o) for o in _derive_pair_orbits()}
+    published = {tuple(sorted(v)) for v in _ORBITS.values()}
+    if derived != published:
+        raise RuntimeError(
+            f"orbit check: published _ORBITS != orbits derived from the 48 commuting "
+            f"bit-perms.\n  derived  : {sorted(derived)}\n  published: {sorted(published)}")
+    covered = sorted(i for o in derived for i in o)
+    if covered != list(range(1, 32)):
+        raise RuntimeError(
+            f"orbit check: orbits do not partition the 31 free pairs (got {len(covered)} indices)")
+
+_verify_orbits_against_group()
+
 def _spec_to_pairs(spec):
     idxs = []
     for lab in spec.split(","):
