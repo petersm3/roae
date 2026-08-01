@@ -153,7 +153,7 @@ see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
 ~10³ per-boundary cut put full-space uniqueness at roughly 13–14 boundaries; the 2026-07-05 S(6)–S(8)
 measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, revising the
-projection to ~15–20 (observed-rate extrapolation ~12; see the floor note below — not a lower bound). A bracketing run choosing among the *weakest* remaining boundaries
+projection to ~15–20 (observed-rate extrapolation ~12; see the note below — it is not a lower bound). A bracketing run choosing among the *weakest* remaining boundaries
 (k = 5–8) still cut ×15–17 per boundary, so the decay is robust to boundary choice within an order of
 magnitude per step. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
 masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S(8), TR-4). Reproduce:
@@ -183,7 +183,10 @@ budget state is sized at an estimated ~15–30× the C5 DP's footprint (TR-11 §
 provisional, more likely low than high), outside this project's budget —
 see TR-11 §10(ii).)
 
-## An information floor on the uniqueness-boundary count (2026-07-04)
+## An information-rate extrapolation for the uniqueness-boundary count (2026-07-04)
+
+> **Label corrected 2026-08-02:** previously headed "An information floor". No floor is established — see
+> the extrapolation bullet below and TR-4 v1.15/v1.16 for why the argument bounds nothing.
 
 Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. The measured
 greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits
