@@ -13,7 +13,8 @@
 #   scripts/doc_gates.sh numbers    # cross-file numeric consistency (long integers)
 #   scripts/doc_gates.sh cli        # CLI flags live in code but absent from the CLI docs
 #   scripts/doc_gates.sh retract    # retracted phrasings that still survive in the corpus
-#   scripts/doc_gates.sh all        # run all three
+#   scripts/doc_gates.sh links      # internal markdown links + #anchors that do not resolve
+#   scripts/doc_gates.sh all        # run all four
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
 #
@@ -142,12 +143,69 @@ gate_retract() {
   return $bad
 }
 
+# ----------------------------------------------------------------------------------
+gate_links() {
+  echo "== GATE 4: internal markdown links + anchors resolve =="
+  # Every [text](target) pointing INSIDE the repo must resolve: the file must exist,
+  # and a #fragment must match a heading slug (GitHub rules, including the -1/-2
+  # suffixing of duplicate headings) or an explicit <a name=>/<a id=> anchor.
+  # External http(s)/mailto targets are NOT fetched — this gate is offline and
+  # deterministic by design; link-rot is a separate, network-dependent concern.
+  # A dangling CITATIONS.md#anchor is the specific failure this protects against:
+  # attribution that silently stops resolving when a citation entry is renamed.
+  python3 - <<'PY'
+import os, re, sys, subprocess, collections
+LINK = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
+HEAD = re.compile(r'^(#{1,6})\s+(.*?)\s*$', re.M)
+def slug(t):
+    t = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', t)
+    t = re.sub(r'[`*_~]', '', t).strip().lower()
+    t = re.sub(r'[^\w\s-]', '', t)
+    return re.sub(r'\s+', '-', t)
+mds = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
+       .stdout.split() if not p.startswith('example/')]
+anchors = {}
+for m in mds:
+    txt = open(m, encoding='utf-8', errors='replace').read()
+    seen, a = collections.Counter(), set()
+    for _, h in HEAD.findall(txt):
+        s = slug(h); seen[s] += 1
+        a.add(s if seen[s] == 1 else f"{s}-{seen[s]-1}")
+    a.update(re.findall(r'<a\s+(?:name|id)="([^"]+)"', txt))
+    anchors[os.path.realpath(m)] = a
+bad = []
+for m in mds:
+    txt = open(m, encoding='utf-8', errors='replace').read()
+    base = os.path.dirname(m) or '.'
+    for tgt in LINK.findall(txt):
+        if tgt.startswith(('http://','https://','mailto:')):
+            continue
+        path, _, frag = tgt.partition('#')
+        if path == '':
+            dest = os.path.realpath(m)
+        else:
+            dest = os.path.realpath(os.path.join(base, path))
+            if not os.path.exists(dest):
+                bad.append((m, tgt, 'no such file')); continue
+        if frag and dest in anchors and frag not in anchors[dest] \
+           and frag.lower() not in anchors[dest]:
+            bad.append((m, tgt, 'no such anchor'))
+for m, t, why in bad:
+    print(f"  [FAIL] {m} -> {t}  ({why})")
+if not bad:
+    print(f"  [ok] all internal links + anchors resolve across {len(mds)} markdown files")
+sys.exit(1 if bad else 0)
+PY
+}
+
 case "${1:-all}" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
-  all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|all}"; exit 2 ;;
+  links)   gate_links   || RC=1 ;;
+  all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
+           echo; gate_links || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|all}"; exit 2 ;;
 esac
 
 echo
