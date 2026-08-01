@@ -969,3 +969,32 @@ theorem kw_units_check : c3x64 KW = 2 * (walkCd KW + 1) :=
   walk_units_identity KW kw_perm kw_c4
 
 end C3Decomposition
+
+/-! ### Axiom audit (added 2026-08-01)
+Emits the trust base for every theorem in this file that is CITED BY NAME in the
+public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
+statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
+`[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
+`native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+#print axioms partner_comp_comm
+#print axioms slot_orientation_free
+#print axioms c3_slot_decomposition
+#print axioms kw_slot_sum_95
+#print axioms g48_couple_image
+#print axioms g48_couples_to_couples
+#print axioms nullHist_matches_brute_2_1_5
+#print axioms null_law
+#print axioms null_terminal_closed
+#print axioms null_total
+#print axioms null_support_below_12
+#print axioms null_support_min
+#print axioms null_support_max
+#print axioms null_support_bins
+#print axioms null_support_contiguous
+#print axioms null_mean_128
+#print axioms null_c3_mean_1040
+#print axioms sum_absdiff_31
+#print axioms null_mean_linearity
+#print axioms null_mass_le_95
+#print axioms null_p_le_95
+#print axioms null_p_le_95_lowest_terms

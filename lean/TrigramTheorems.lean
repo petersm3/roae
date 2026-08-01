@@ -1221,3 +1221,50 @@ example : uChange (KW.map (applyPerm (mirrorDouble [1, 0, 2]))) = 59 ∧
 example : mirrorDouble [1, 0, 2] = [1, 0, 2, 3, 5, 4] := by decide
 
 end Trigram
+
+/-! ### Axiom audit (added 2026-08-01)
+Emits the trust base for every theorem in this file that is CITED BY NAME in the
+public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
+statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
+`[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
+`native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+#print axioms rev6_trigram_factor
+#print axioms comp6_trigram_componentwise
+#print axioms ham_trigram_split
+#print axioms symmetric_iff_trigram
+#print axioms symmetric_count_8
+#print axioms antisymmetric_count_8
+#print axioms pure_hexagrams_explicit
+#print axioms pure_pairs_explicit
+#print axioms within_double
+#print axioms pairdist_count_0
+#print axioms selfcomp_pair_count
+#print axioms within_multiset_general
+#print axioms boundary_budget_general
+#print axioms ninth_six_trigram
+#print axioms single_line_carry
+#print axioms c2_trigram_reading
+#print axioms pangtong_successor
+#print axioms flanking_exclusion
+#print axioms G12_length
+#print axioms G6_length
+#print axioms rho_central_G48
+#print axioms G12_decomposition_covers
+#print axioms mirrorDouble_hom
+#print axioms G6_eq_mirrorDouble_image
+#print axioms blockPreserving_iff_blockwise
+#print axioms uChange_mapP
+#print axioms lChange_mapP
+#print axioms trigram_functional_not_orbit_invariant
+#print axioms nuc_comm_rev
+#print axioms nuc_comm_comp
+#print axioms nuc_partner_descent
+#print axioms nuc_image_16
+#print axioms nuc_nuc_image_terminal
+#print axioms nuc_terminal_closed
+#print axioms pure_partner_bool
+#print axioms pure_count_range
+#print axioms trigram_balance_range
+#print axioms trigram_balance_invariant
+#print axioms pure_pairslot_couple
+#print axioms pure_pairslot_count

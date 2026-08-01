@@ -243,3 +243,16 @@ theorem full_k4_can_do_192 :
      preservation is prioritized (his §weight-conservation); that stronger
      characterization is NOT re-proved here and, where cited, rests on his artifact.
 -/
+
+/-! ### Axiom audit (added 2026-08-01)
+Emits the trust base for every theorem in this file that is CITED BY NAME in the
+public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
+statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
+`[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
+`native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+#print axioms partner_involution
+#print axioms partner_cost_240
+#print axioms comp_only_cost_384
+#print axioms partner_is_unique_minimum
+#print axioms kw_realizes_partner
+#print axioms full_k4_can_do_192

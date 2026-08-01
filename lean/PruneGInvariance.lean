@@ -761,3 +761,14 @@ example : ∀ p ∈ G48, runningG 0 (kwPairReps.map (applyPerm p)) = 95 := by de
 example : ∃ p ∈ G48, kwPairReps.map (applyPerm p) ≠ kwPairReps := by decide
 
 end PruneGInvariance
+
+/-! ### Axiom audit (added 2026-08-01)
+Emits the trust base for every theorem in this file that is CITED BY NAME in the
+public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
+statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
+`[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
+`native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+#print axioms applyPerm_isometry
+#print axioms partner_involution
+#print axioms sum_perm
+#print axioms transitions_mapP

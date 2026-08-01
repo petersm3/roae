@@ -162,3 +162,16 @@ theorem partnerCommuters_eq_G48 : partnerCommuters = G48 := by native_decide
 theorem partnerCommuters_card : partnerCommuters.length = 48 := by native_decide
 
 end SymmetryCompleteness
+
+/-! ### Axiom audit (added 2026-08-01)
+Emits the trust base for every theorem in this file that is CITED BY NAME in the
+public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
+statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
+`[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
+`native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+#print axioms psi_involution
+#print axioms psi_g5_iso
+#print axioms psi_comm_perms
+#print axioms q6_two_common_neighbors
+#print axioms rigidity_forced_identity
+#print axioms partnerCommuters_eq_G48
