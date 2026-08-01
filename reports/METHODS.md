@@ -34,6 +34,14 @@ Every report measures the same object. The formal predicates (full statements + 
 The minimum independent rule set is {C1, C3, C4, C5} (SPECIFICATION.md §Numbering note). "The space" in
 the reports means the **C1–C5** population unless stated otherwise.
 
+**Legacy shorthand — "C1+C2+C3" means the same thing (note added 2026-08-01).** Several older passages
+(and `solve.c`'s own console strings) describe the canonical enumerated population as "C1+C2+C3". That
+is **historical naming, not a narrower constraint set**: the enumerator's counter is called `solutions_c3`
+but, as its own source comment states, *"C3-valid" = passed ALL constraints (C1-C5), not just C3*
+(`solve.c:865`) — and `solve --verify` confirms every canonical record satisfies C1–C5
+(CANONICAL_HASHES §"d3 560T", CAMPAIGN_METHODOLOGY §7). Read "the C1+C2+C3 canonical" as
+**the C1–C5 canonical** wherever it appears. New text should say C1–C5.
+
 ## Canonical quantities (single source of truth)
 
 Every load-bearing integer in the suite, with its status, counting convention, and source report. Where
