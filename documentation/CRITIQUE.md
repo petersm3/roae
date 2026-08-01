@@ -40,7 +40,7 @@ families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13 — 
 that discovery-phase
 battery brought the running total to 86 (28 + 58); the R7 corpus-control battery's five off-home family predicates
 applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all failed; see §"Corpus control II" below)
-bring the enterprise-wide total to **exactly 91 observables** (28 + 58 + 5, frozen) — the global ledger that
+bring the enterprise-wide total to **exactly 91 observables** (28 + 58 + 5, frozen) *(scope disclosure, 2026-08-01: 91 counts tests registered under corrections, and contains two offsetting errors — the Davis "/12" family subsumes the "/9", so the distinct-id count is **82**; and an omitted books family of 7 would make "everything examined" **89**. The bars span 5.49–6.10×10⁻⁴, an 11% spread, and **no published verdict differs between them**, so 0.05/91 is retained as the strictest defensible value. Full statement and the counting rule: [METHODS.md](../reports/METHODS.md) §Multiplicity)* — the global ledger that
 [reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar 0.05/91 ≈
 5.5×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
 battery and then testing them on the same sequence inflates apparent significance; a referee is entitled to
@@ -632,7 +632,15 @@ descriptive-by-construction handling already applied to C5 above. Nothing promot
 ./solve --estimate-knuth 2000000000`; gates: `--db1-verify` (both languages). Full treatment:
 [TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md).
 
-## Pre-registered model comparison in flight: four-class generative comparison (registered 2026-07-10, results pending)
+## Pre-registered model comparison: four-class generative comparison — calibration RUN, verdict VETOED (registered 2026-07-10; vetoed 2026-07-20)
+
+> **Outcome (corrected here 2026-08-01).** This section previously read "in flight … results pending" and
+> stated the calibration "ha[d] not been run". That was stale by twelve days: the synthetic-draw
+> calibration **ran on 2026-07-20 and FAILED its confusability gate**, and the frozen design's §6.3
+> accordingly forbids computing or publishing any four-class Bayes factor, posterior or verdict — here or
+> anywhere. No such result exists and none will be produced. The design description below is retained as
+> the pre-registration record; see [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) §Outcome (v1.14). The
+> veto is the honest outcome of a gate we froze in advance precisely so it could stop us.
 
 Following the F4′/permutation pre-registration discipline, a four-class Bayesian model comparison over
 the C1–C5 canonical-mass population has been frozen BEFORE any measurement. The classes: **M0**

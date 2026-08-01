@@ -95,7 +95,12 @@ def fig_tr4_boundary_information():
     #   k=3: 4.27e-10 (5.68e28); k=4: 6.34e-13 (8.42e25).
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
     # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~15-20
-    # boundaries (current; supersedes an earlier ~13-14 estimate; hard floor k>=13).
+    # boundaries (current; supersedes an earlier ~13-14 estimate; heuristic floor k>=12).
+    # NOTE 2026-08-01: 'hard floor k>=13' was WITHDRAWN — the divisor 10.38 is only the
+    # unconditional maximum gain, and the same data shows 11.10 at step 3, giving 12; and no
+    # necessity bound follows from the argument at all (TR-4 v1.15). The old wording was still
+    # RENDERED in the committed SVG, where matplotlib had turned it into glyph paths — invisible
+    # to the markdown retraction gate. Regenerate the figure after changing this text.
     k = np.array([1, 2, 3, 4])
     S = np.array([7.49e-4, 9.39e-7, 4.27e-10, 6.34e-13])
     survivors = ["9.95×10³⁴", "1.25×10³²", "5.68×10²⁸", "8.42×10²⁵"]
@@ -130,7 +135,7 @@ def fig_tr4_boundary_information():
             fontsize=9, color="#2e7d32", va="bottom")
     ax.axvspan(15, 20, color="#388e3c", alpha=0.12)
     ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~15–20 boundaries (current;\n"
-                        "supersedes earlier ~13–14 est.;\nhard floor k ≥ 13)",
+                        "supersedes earlier ~13–14 est.;\nheuristic floor k ≥ 12)",
             fontsize=9, color="#2e7d32", ha="center")
 
     ax.set_xlim(0.5, 20.5)

@@ -190,8 +190,12 @@ greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 
 — strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum **unconditional** single-boundary gain by construction (greedy picks it first) — **but NOT the maximum over all conditioning contexts: step 3 gains 11.10 bits, exceeding it. Corrected 2026-08-01; the earlier text used 10.38 as a universal per-boundary cap, which its own data falsifies**
 (greedy picks the minimum-survivor boundary). Two consequences, honestly labeled:
 
-- **Heuristic floor: k ≥ 13.** If no boundary's marginal contribution exceeds the best observed single
-  gain (10.38 bits), at least ⌈126.6/10.38⌉ = 13 boundaries are needed. This is heuristic, not a
+- **Heuristic floor: k ≥ 12.** If no boundary's marginal contribution exceeds the largest gain observed
+  in *any* conditioning context (11.10 bits, at step 3), at least ⌈126.6/11.10⌉ = 12 boundaries are
+  needed. *(Corrected 2026-08-01, second pass: the 2026-08-01 correction above replaced the falsified
+  premise — that 10.38 is a universal per-boundary cap — but this bullet was left deriving 13 from it,
+  so the paragraph contradicted itself. The divisor must be the maximum over all contexts, not the
+  unconditional maximum.)* This is heuristic, not a
   theorem — boundary synergies could in principle exceed the single-boundary maximum — but the observed
   flatness across five steps shows no synergy at all so far: gains behave as near-independent, close to
   the naive slot-information value.

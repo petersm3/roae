@@ -47,7 +47,7 @@ The 742M figure cited below is the pre-format-v1 (pre-2026-04-19) hash-table-bug
 
 §[7] at d3 560T proves no 3-tuple of boundaries works (best `{4, 25, 27}` leaves 15 survivors, KW-inclusive), and §[8] = 0 proves no 4-set works, so **5 is the exact minimum at both canonical scales (100T, 560T)**.
 
-The cumulative-survivor curve for d3 560T's greedy set is striking: boundary 4 ALONE eliminates 99.999% of non-KW records (51,404 survive out of 10,525,271,996). Boundaries 27, 25, 21 then sequentially narrow the survivors by ~30-100× per step, and boundary 1 eliminates the single remaining impostor (rec#330177707).
+The cumulative-survivor curve for d3 560T's greedy set is striking: boundary 4 ALONE eliminates 99.999% of non-KW records (51,404 survive out of 10,525,271,996). Boundaries 27, 25, 21 then sequentially narrow the survivors by ~107×, ~34× and ~14× (51,404 → 481 → 14 → 1), and boundary 1 eliminates the single remaining impostor (rec#330177707).
 
 ## What this implies
 

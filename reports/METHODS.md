@@ -17,7 +17,7 @@ Every report measures the same object. The formal predicates (full statements + 
   ceiling, not an equality: King Wen attains it exactly (776), and any ordering with a smaller sum also
   satisfies C3** (e.g. the wrap-d5 witness at 752). The threshold 776 is King Wen's own value —
   reverse-engineered, not derived; priced as circular in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
-- **C4 — fixed opening pair, defined orientation.** The first pair is {Qian(0), Kun(63)}; its orientation
+- **C4 — fixed opening pair, defined orientation.** The first pair is {Qian(63), Kun(0)}; its orientation
   (Heaven 63 before Earth 0) is **definitional and classically attested** (the Xugua opens
   Heaven-then-Earth). It is NOT forced by the other constraints — complementation (x ↦ x ⊕ 63) is an
   exact symmetry of C1∩C2∩C3∩C5 broken only by oriented C4, machine-checked in
@@ -151,8 +151,8 @@ the constraint falls on and why.
   defensible choice, and no conclusion in the suite depends on the count.
   **Counting rule going forward:** an observable enters the ledger exactly once, at first registration,
   under a stable id; a family's Bonferroni denominator may span waves and exceed its new-id count; and
-  this total must be **derived from the itemised roster**, never stated independently of it., and each "notable" verdict states in
-  place whether it clears that bar. Model comparisons (the TR-2 Bayes factors) are **not** observables
+  this total must be **derived from the itemised roster**, never stated independently of it; and each
+  "notable" verdict states in place whether it clears that bar. Model comparisons (the TR-2 Bayes factors) are **not** observables
   and do not enter this ledger. This accounting does not touch the suite's headline findings — the
   nulls, and the proven/certified impossibilities, which are deductive.
 

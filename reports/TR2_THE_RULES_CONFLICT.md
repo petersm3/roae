@@ -25,9 +25,14 @@ than as the work of an arranger holding the rules as soft preferences (Bayes fac
 "strong" on the Jeffreys scale); a two-model comparison conditioned on the literature's rules, not proof
 of corruption in any absolute sense. A wider four-class comparison (adding a greedy-builder and a
 global-design class plus a uniform-valid null) has since been pre-registered under the same discipline;
-its measurement is pending and no result is stated in this report. Because it is pending, the Bayes
-factor above excludes only the soft-preference arranger: it does not exclude a greedy/local builder, nor
-the possibility that the three rules are post-hoc regularities of an otherwise unremarkable ordering.
+its calibration **has since run and the verdict was VETOED** (v1.14, 2026-07-20): the frozen design placed a
+synthetic-draw confusability gate before any verdict, that gate failed, and §6.3 accordingly forbids
+publishing any four-class Bayes factor, posterior or verdict — here or elsewhere. No result is stated in
+this report and none will be. Because that comparison is permanently withheld rather than merely
+outstanding, the Bayes factor above excludes only the soft-preference arranger: it does not exclude a
+greedy/local builder, nor the possibility that the three rules are post-hoc regularities of an otherwise
+unremarkable ordering. *(Corrected 2026-08-01: this paragraph still said "measurement is pending" twelve
+days after the veto landed in the same report.)*
 **Update (v1.12, 2026-07-13): the pre-registered N_gs stop-flag fired, was investigated, and is
 RESOLVED — the verdict is re-affirmed on a stronger, directly-measured footing with a slightly smaller
 headline (BF ≈ 5.2×10³–6.3×10³, still an order of magnitude above the "strong" band in all 24
@@ -169,8 +174,11 @@ configuration are **jointly unsatisfiable** over the C1∩C2∩C4∩C5 space —
 with the base constraints every encoding in this report fixes (§2). Not rare, not
 computationally out of reach — impossible. *(Scope corrected 2026-07-30: earlier versions stated
 this at pairing-preserving — C1-only — scope, which the certificate does not establish; the base
-CNF fixes C2, C4, and King Wen's C5 multiset for every target. TR-1's statement of the same theorem
-was already correctly scoped.)*
+CNF fixes C2, C4, and King Wen's C5 multiset for every target. **Correction 2026-08-01:** an earlier
+version of this parenthetical asserted that "TR-1's statement of the same theorem was already correctly
+scoped." That was false — TR-1 v1.19 (2026-08-01) records that TR-1 carried the mis-scoped statement and
+that "v1.18 recorded a propagation that had not happened." TR-1 has since been corrected; this sentence
+had not been, so the retraction's own account of its reach was wrong in two reports at once.)*
 
 **How it was checked, and by whom.** The chain is deliberately three-party.
 `python3 sat.py --emit-cnf grand-ccn4 f.cnf` generates the formula from the same constraint definitions
@@ -461,7 +469,7 @@ reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe c
 for re-derivation) — all in the public `solve.c` and documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md) §ENVIRONMENT; the
 edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
 
-## Pre-registered extension (v1.9): a four-class model comparison — calibration run, verdict VETOED (v1.13)
+## Pre-registered extension (v1.9): a four-class model comparison — calibration run, verdict VETOED (v1.14)
 
 The v1.7 Bayesian comparison above is deliberately a **two-model** test (M_corr vs M_tend), and its own
 scope note names the gap: it cannot weigh "the rules are real" against models outside that pair. A wider
@@ -540,15 +548,17 @@ The comparison is **report-only, with no promotion path**, and it does not revis
 result, which stands as published (if the wider comparison ever dethrones corruption, this section gains
 a forward-pointer; it is not rewritten).
 
-**STATUS (v1.12): ingredients collected; verdict not computed.** The instrument wiring and the
-ingredient runs — including the direct N_gs measurement, whose stop-gate firing and resolution are
-documented in the v1.7 section above — have been executed; the synthetic-draw calibration and the
-KW-facing integration have **not** run, and **no Bayes factor, posterior, or verdict exists or is
-reported here**. Per the frozen design's own ordering, calibration (with its confusability veto) runs
-before any KW-facing verdict, and a set of pre-verdict ingredient gates — hardened after the
-stop-flag episode — must pass first; the N_gs solidity gate, including the now-repaired stratified
-cross-check, has passed, and the remaining gates and their outcomes will be published with the
-results. One ordering-of-operations deviation is disclosed now, in the F11 "honest note" style: the
+**STATUS (v1.14, 2026-07-20): calibration RUN; verdict VETOED; nothing further will be published.**
+*(This block previously read "STATUS (v1.12): ingredients collected; verdict not computed" and stated
+that the synthetic-draw calibration "has **not** run". That was superseded by the veto recorded in the
+Outcome subsection of this same section, and left standing for twelve days — corrected 2026-08-01.)*
+The instrument wiring and the ingredient runs — including the direct N_gs measurement, whose stop-gate
+firing and resolution are documented in the v1.7 section above — were executed. The synthetic-draw
+calibration then **ran and FAILED its confusability gate**, which the frozen design placed before any
+KW-facing verdict; §6.3 therefore forbids computing or publishing a four-class Bayes factor, posterior
+or verdict, here or elsewhere. **No such result exists, and none will.** The N_gs solidity gate,
+including the now-repaired stratified cross-check, had passed; the veto is a failure of the calibration
+gate specifically, not of the ingredients. One ordering-of-operations deviation is disclosed now, in the F11 "honest note" style: the
 ingredient runs (population measurements, blind to any KW-facing verdict) were executed before the
 design's formal operator freeze stamp; the design summarized here was committed publicly (v1.9,
 2026-07-10) before any of those measurements, which is the tamper-evident witness that no

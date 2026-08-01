@@ -40,7 +40,7 @@ measured against the *entire* constraint-satisfying population (≈1.33×10³⁸
 weighted-Knuth estimation (2×10¹⁰ probes; the instrument reproduced the independently-established total
 space size to 0.03% — a consistency check within the same estimator family; the absolute validation of
 the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into
-measured population statistics for the first time. The literature's design inventory splits three ways:
+measured population statistics — to our knowledge for the first time; corrections welcome. The literature's design inventory splits three ways:
 **proven forced** (eight rules, each now a theorem: constant on the entire C1 space — a superset of the
 measured population — equal to King Wen's value, machine-checked in Lean 4; their measured 1.0 of
 canonical mass in 2×10¹⁰ weighted probes now reads as instrument validation — asserted in the literature
