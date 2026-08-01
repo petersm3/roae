@@ -4123,7 +4123,8 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
                 "adder" (DIMACS adder network — deferred/superseded: emits a
                 status sidecar entry only; C3 is native in sat.py's pair-slot
                 model, the certification path).
-    include_c4: force x[0][0] and x[1][partner(0)] = 1.
+    include_c4: force x[0][63] and x[1][partner(63)] = 1 — i.e. SPECIFICATION.md
+                C4's ORIENTED form, Qian(63) first then Kun(0).
     include_c5: KW's Hamming-distribution cardinality constraints —
                 deferred/superseded likewise (status sidecar entry only;
                 native in sat.py's pair-slot model). Both deferred encoders
@@ -4171,9 +4172,17 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
 
     # --- C4: start with hexagram 0 at position 0 (Qian/Kun convention via partner) ---
     if include_c4:
-        clauses.append([_sat_var(0, 0)])  # unit clause: position 0 = hexagram 0
-        # x[1][partner[0]] follows from C1 implications + one-hot, but assert directly:
-        clauses.append([_sat_var(1, partner[0])])
+        # SPECIFICATION.md C4 is ORIENTED: s0 = 63 (Qian, all-yang, The Creative) and
+        # s1 = 0 (Kun). Until 2026-08-02 this pinned hexagram 0 at position 0 — i.e.
+        # Kun first, the COMPLEMENT of the spec — while the help text called it "the
+        # Qian/Kun convention". Harmless in this encoder's own scope (it emits C1 n C2,
+        # under which complementation x -> x^63 is an exact symmetry, so the two
+        # orientations are isomorphic and satisfiability is unchanged), and no published
+        # result depends on it: the certification path is sat.py's pair-slot model, which
+        # has no --sat-c4. Corrected anyway, because a flag that names C4 should encode C4.
+        clauses.append([_sat_var(0, 63)])          # unit clause: position 0 = Qian (63)
+        # x[1][partner[63]] follows from C1 implications + one-hot, but assert directly:
+        clauses.append([_sat_var(1, partner[63])])  # partner(63) = 0 = Kun
 
     # --- C3: pseudo-boolean linear constraint  ∑ |pos(v) - pos(c̄(v))| <= 776 ---
     #
@@ -10521,7 +10530,7 @@ def main():
                              "'adder' is deferred/superseded by sat.py's pair-slot model "
                              "(emits a status sidecar entry only; see SOLVE_PY_CLI.md)")
     parser.add_argument("--sat-c4", action="store_true",
-                        help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
+                        help="P3 sat-encode: force C4 in its oriented form — position 0 = Qian (hexagram 63), position 1 = Kun (0)")
     parser.add_argument("--sat-c5", action="store_true",
                         help="P3 sat-encode: C5 cardinality constraints — deferred/superseded "
                              "by sat.py's pair-slot model (emits a status sidecar entry only; "
