@@ -161,9 +161,15 @@ the constraint falls on and why.
   not neutral. The suite applies **Bonferroni (family-wise error rate)** throughout, and the global-ledger
   layer was added on 2026-07-11 — **after** the measurements it adjudicates. Under **Benjamini–Hochberg
   FDR** at q = 0.05 the same 91-observable ledger would reach a different verdict on exactly one value:
-  `dav_trigarray` (6.8×10⁻⁴) would be **declared significant**, and not marginally — the ledger contains
-  at least a dozen smaller p-values (`ccn4` 2×10⁻⁸, `ccn8` 2.6×10⁻⁷, `ccn3` 6.6×10⁻⁶, `dav_rotinv`
-  6.5×10⁻⁵, …), so its BH rank *i* puts the threshold *i*·0.05/91 an order of magnitude above it. That
+  `dav_trigarray` (6.8×10⁻⁴) would be **declared significant**, and the margin is not delicate. At least
+  **twelve** ledger values are strictly smaller — nine from the exploratory suite (`ccn4` 2×10⁻⁸,
+  `ccn8` 2.6×10⁻⁷, `ccn3` 6.6×10⁻⁶, `ccn1` 3.4×10⁻⁵, `c2011n2` 5.9×10⁻⁵, `d7` 1.7×10⁻⁴, `p2c6`
+  4.1×10⁻⁴, `d4` 5.7×10⁻⁴, `rs1` 6.6×10⁻⁴; `c2011n1` at <10⁻⁹ makes ten) plus three from the Davis
+  family itself (`dav_rotinv` 6.5×10⁻⁵ and two predicates at zero sampled mass) — so its BH rank is
+  *i* ≥ 13, where the step-up threshold *i*·0.05/91 ≥ **7.1×10⁻³, about 10× the measured p**. The
+  conclusion does not depend on the exact rank: BH rejects at **every** rank ≥ 2, since even *i* = 2
+  gives 1.1×10⁻³ > 6.8×10⁻⁴. Only *i* = 1 would fail, and *i* = 1 is excluded by the smaller values
+  listed above. That
   is the *only* verdict in the suite the family choice moves, and it moves the one result most favourable
   to the hypothesis this suite argues against. Two facts keep the published reading defensible, and both
   are stated rather than assumed: (i) FWER is the strictly more conservative family, so **every claim
