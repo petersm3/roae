@@ -331,8 +331,19 @@ bad = 0
 # is NOT in the registry is asserting an accomplishment that may never have happened.
 # Pattern-matching alone cannot tell those apart, and a gate that flags the correct
 # ones too is a gate that gets ignored — the mistake GATE 4 of ops_gates.sh made.
+# OPERATOR RULE (2026-08-01): "if you ever need to know if a large enumeration
+# completed, it should be cataloged with a sha256 as a canonical hash." So the
+# authority is not the mere APPEARANCE of a budget in the registry — it is a
+# budget that carries a sha256. The first version of this gate took any <N>T
+# token from the file, which silently admitted 1120T (mentioned only in a
+# power-law extrapolation sentence, and CANCELLED on 2026-08-01) and 900T. A doc
+# could then have said "the 1120T run" and passed. Require a sha in the vicinity.
 reg = open('documentation/CANONICAL_HASHES.md', errors='replace').read()
-REACHED = set(re.findall(r'\b([0-9.]+T)\b', reg))
+REACHED = set()
+for m in re.finditer(r'\b([0-9.]+T)\b', reg):
+    window = reg[max(0, m.start() - 600): m.end() + 600]
+    if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
+        REACHED.add(m.group(1))
 files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
          if 'HISTORY.md' not in f]      # dated narrative is exempt by design
 for f in files:
