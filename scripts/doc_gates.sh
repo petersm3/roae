@@ -293,6 +293,80 @@ gate_figures() {
   return $bad
 }
 
+# ---------------------------------------------------------------------------
+# GATE 7 — a run's status must not be frozen in the present tense, and a run
+# must not be NAMED after a budget it never reached.
+#
+# Why: PASS1_TRAJECTORY_DETERMINISM.md — a doc CLAUDE.md lists under "Stable
+# paper-citable findings" — described a run as "1000T (in flight)" and "3,666
+# lines and growing" from 2026-04-24 until 2026-08-01. The run had stopped at
+# ~154T on 2026-04-27. Worse, correcting the TENSE alone left the row labelled
+# "Fresh 1000T": naming a run after a budget it never reached asserts the
+# accomplishment just as strongly as the present tense did.
+#
+# HISTORY.md is exempt BY DESIGN. It is a dated narrative log; "the run is in
+# flight as of this entry" is correct there and must not be rewritten. The
+# whole point of that file is to preserve what was believed at the time.
+gate_liveness() {
+  echo "== GATE 7: no frozen present-tense run status; no run named after an unreached budget =="
+  python3 - <<'PY'
+import re, glob, sys
+LIVE = ['in flight', 'currently running', 'results pending', 'and growing',
+        'is underway', 'awaiting results', 'run is ongoing']
+# Words that mean the status IS qualified rather than frozen, or that the text is
+# quoting/correcting an old claim rather than making one.
+# Each entry must describe an OUTCOME or mark the text as quoted/hypothetical.
+# The first draft included 'budget', 'if ', 'would' and 'example' — far too generic.
+# 'budget' alone made the gate VACUOUS on its own motivating example, because the
+# stale table had a "Budget" column header three lines above the frozen status. A
+# suppression list that matches ordinary prose suppresses everything; this is the
+# same defect as a scrub that samples zero items and reports PASS.
+DISPO = ['stopped at', 'was stopped', 'completed', 'requested', 'never reached',
+         'never carried out', 'superseded', 'aborted', 'cancelled', 'partial',
+         'previously read', 'corrected', 'no longer', 'observed scenario',
+         'hypothetical', 'as of this', 'at the time']
+bad = 0
+# The registry is the authority on which budgets were actually REACHED. A run named
+# after a budget in the registry is named correctly; one named after a budget that
+# is NOT in the registry is asserting an accomplishment that may never have happened.
+# Pattern-matching alone cannot tell those apart, and a gate that flags the correct
+# ones too is a gate that gets ignored — the mistake GATE 4 of ops_gates.sh made.
+reg = open('documentation/CANONICAL_HASHES.md', errors='replace').read()
+REACHED = set(re.findall(r'\b([0-9.]+T)\b', reg))
+files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
+         if 'HISTORY.md' not in f]      # dated narrative is exempt by design
+for f in files:
+    text = open(f, errors='replace').read()
+    lines = text.split('\n')
+    for i, l in enumerate(lines, 1):
+        low = l.lower()
+        for k in LIVE:
+            if k not in low:
+                continue
+            ctx = ' '.join(lines[max(0, i-4):i+3]).lower()
+            if any(d in ctx for d in DISPO):
+                continue
+            print(f"  [FINDING] {f}:{i} — status frozen in the present tense: \"{k}\"")
+            print(f"            {l.strip()[:110]}")
+            bad = 1
+            break
+    for m in re.finditer(r'\b(\d+(?:\.\d+)?T) (run|campaign|enumeration)\b', text):
+        if m.group(1) in REACHED:
+            continue                      # budget was actually reached — correct name
+        st = max(0, m.start() - 400)
+        para = text[st:m.end() + 400].lower()
+        if any(d in para for d in DISPO):
+            continue                      # disposition is stated nearby
+        ln = text[:m.start()].count('\n') + 1
+        print(f"  [FINDING] {f}:{ln} — \"{m.group(0)}\" names a run after {m.group(1)}, which is")
+        print(f"            not a budget any canonical reached, with no disposition nearby")
+        bad = 1
+if not bad:
+    print("  [ok] no frozen run status; every budget-named run carries a disposition")
+sys.exit(bad)
+PY
+}
+
 case "${1:-all}" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
@@ -300,10 +374,12 @@ case "${1:-all}" in
   links)   gate_links   || RC=1 ;;
   status)  gate_status  || RC=1 ;;
   figures) gate_figures || RC=1 ;;
+  liveness) gate_liveness || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_links || RC=1; echo; gate_status || RC=1
-           echo; gate_figures || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|all}"; exit 2 ;;
+           echo; gate_figures || RC=1
+           echo; gate_liveness || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|all}"; exit 2 ;;
 esac
 
 echo
