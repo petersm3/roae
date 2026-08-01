@@ -21,7 +21,7 @@ and (artifact-consistency only) completed-run certificates:
 
 | mode | what it checks |
 |---|---|
-| `python3 verify.py [solutions.bin]` | the RECORDS: re-decodes every record and re-checks C1–C5 + order/dups |
+| `python3 verify.py [solutions.bin]` | the RECORDS: re-decodes every record and re-checks C1–C5 (C4 in its **oriented** spec form) + record-format conformance + order/dups. See §"What the records path actually enforces" below |
 | `python3 verify.py --enumerate-reference N` (2≤N≤9) | small-n completeness: brute-forces the reduced N-pair problem two independent ways (exhaustive vs prune-as-you-go) and asserts identical solution sets |
 | `python3 verify.py --recount` | the exact COUNTS: independently reproduces the small-n structural facts, the reduced-rung C1∩C2∩C4 union counts, **and (since 2026-07-21) the C5 ladder rungs n = 9/13/16** (TR-11 §4b) — each rung's budget `B0` re-derived independently by TR-11 §5's first-completion DFS, then counted by a plain budgeted (mask, last, p) DP — and prints a match table |
 | `python3 verify.py --check-certificate DIR` | a completed f1c5 run's ARTIFACTS (run.out per-layer certificate rows, manifest, preserved digests) against structural identities and independently derived quantities. Recomputes **nothing** — internal-consistency and digest-integrity only, per its docstring |
@@ -130,6 +130,61 @@ by the engine's own 4/4 cross-mode ladder (TR-11 §8), not by this instrument.
    multiset, not derived via Step 1. No published number was affected — the
    engine uses KW's multiset — but the documented derivation was wrong, and an
    independent instrument is what caught it.
+
+## What the records path actually enforces (A3 audit, 2026-08-01)
+
+An adversarial audit asked a narrow question of `verify.py [solutions.bin]`: for
+each of C1–C5, is the predicate the code tests **logically equivalent** to the
+formal statement in SPECIFICATION.md, or has it drifted? Three defects in the
+instrument itself, all now fixed:
+
+1. **C4 was only half-checked (the serious one).** SPECIFICATION.md C4 is two
+   conjuncts — `s₀ = 63` **and** `s₁ = 0` — but the code tested only the *pair
+   index* (`first_pair != START_PAIR`), never the orientation bit. Because the
+   2026-07-26 retraction established that complementation `x ↦ x ⊕ 63` is an
+   exact symmetry of C1∩C2∩C3∩C5 (machine-checked, `lean/KingWen.lean`), **no
+   other check in the file could compensate**: a record encoding `comp(KW)` —
+   which opens (0, 63) — passed C1, C2, C3 and C5, passed the index-only C4, and
+   printed `VERIFY PASS`. The check had been silently leaning on the
+   enumerator's hardcoded `seq[0]=63; seq[1]=0`, which is precisely the
+   invariant an *independent* verifier is not entitled to assume — its job is to
+   catch enumerator bugs, not inherit them. A correct oriented predicate already
+   existed in `--recount-finite`'s `classify()`, but not on the records path.
+   Now tested in spec form. *(No canonical artifact was ever affected: `solve.c`
+   pins the orientation, and the format's dedup rule keeps the lexicographically
+   smallest orient variant. The defect was a latent false-PASS, not a false
+   result.)*
+2. **The reference tables were self-verifying.** `PAIRS`, `KW_DIST` and
+   `KW_COMP_DIST` are all derived from the `KW` literal at the top of the file,
+   so a corrupted `KW` table would silently redefine C1 and C5 and then check
+   every record against the corruption — accepting violating records and
+   rejecting compliant ones, consistently. The rule-derived cross-checks existed
+   but were reachable only via `--recount`. They are now an **import-time gate**
+   (`_verify_tables_against_rules()`): KW is a permutation of {0..63}; `PAIRS`
+   equals the `partner()`-derived canonical pairing; every pair is
+   partner-exact; the difference-wave multiset equals SPECIFICATION.md C5's
+   literal `{1:2, 2:20, 3:13, 4:19, 6:9}`; `cd(KW) = 776`. Explicit raises, not
+   `assert`, so they survive `python3 -O`.
+3. **Reserved bit 0 was unchecked.** SOLUTIONS_FORMAT.md specifies `bit 0:
+   unused, always 0`. It is masked out of the canonical sort key (`& 0xFC`) but
+   *does* participate in the full-byte dedup tie-break, so a set bit 0 breaks
+   byte-exact reproducibility between two otherwise-conformant implementations.
+   Now counted as a format error.
+
+Found sound and unchanged: **C2** (all 63 linear transitions, correct range, no
+spurious wrap-around); **C3** (`Σ|pos(v) − pos(v⊕63)| ≤ 776`, the ceiling
+anchored to the spec literal); **C5** (exact multiset equality, which also
+forces the d=5 count to zero); **C1**'s permutation property (`pidx < 32` +
+each pair used exactly once + disjoint partner-pairs); header/framing; the
+chunk-boundary stitching (adjacent-pair sortedness ⇒ global sortedness, no
+off-by-one at the seams); the gzip path; and the `& 0xFC` dedup key, which is
+correct rather than over-strict because the format collapses orientation
+variants by design. `verify.c` is unaffected — it has no records path.
+
+All three fixes are covered by a negative test: `comp(KW)` must FAIL on C4
+alone (it passes C1/C2/C3/C5 — a live executable demonstration of the
+Complement Z₂ symmetry theorem), a bit-0-tampered record must FAIL on format,
+and King Wen itself must still PASS.
 
 ## The Route B engine: `verify.c --ie-count`
 

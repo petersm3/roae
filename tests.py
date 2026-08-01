@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # https://github.com/petersm3/roae
 # Developed with AI assistance (Claude, Anthropic)
-"""Regression harness for the Python instrument layer (solve.py, roae.py, sat.py).
+"""Regression harness for the Python instrument layer (solve.py, roae.py, sat.py,
+and the records path of the independent verifier verify.py).
 
 One command: python3 tests.py
 Covers the invariants that protect the two-language ground truth against future
@@ -500,6 +501,95 @@ class TestMooreKwGates(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(c3, 776)
         self.assertEqual(scores, (2, 2, 2))
+
+
+class TestVerifyRecordsPath(unittest.TestCase):
+    """A3 (2026-08-01): guard the independent records verifier against the three
+    drift defects an adversarial audit found in it. verify.py is deliberately
+    independent of solve.py/roae.py/sat.py, so it is loaded here on its own.
+
+    The load itself exercises the new import-time table gate: verify.py refuses
+    to import unless PAIRS equals the partner()-derived canonical pairing, KW is
+    a permutation, the difference-wave multiset equals SPECIFICATION.md C5's
+    literal, and cd(KW) = 776. Without that gate the reference tables would be
+    self-verifying (all derived from the same KW literal they check against)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.V = _load("verify")
+        cls.PIDX = {frozenset(p): i for i, p in enumerate(cls.V.PAIRS)}
+
+    def _encode(self, seq):
+        out = bytearray()
+        for i in range(32):
+            a, b = seq[2 * i], seq[2 * i + 1]
+            p = self.PIDX[frozenset((a, b))]
+            out.append((p << 2) | ((0 if self.V.PAIRS[p] == (a, b) else 1) << 1))
+        return bytes(out)
+
+    def _counts(self, rec):
+        import struct, tempfile, os
+        blob = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16 + rec
+        fd, path = tempfile.mkstemp(suffix=".bin")
+        try:
+            os.write(fd, blob); os.close(fd)
+            return self.V.verify_chunk((path, 0, 1))
+        finally:
+            os.unlink(path)
+
+    def test_king_wen_passes_every_check(self):
+        r = self._counts(self._encode(self.V.KW))
+        for k, v in r.items():
+            if k.startswith("fail_"):
+                self.assertEqual(v, 0, f"KW itself failed {k}")
+        self.assertTrue(r["kw_found"])
+
+    def test_complement_of_kw_fails_c4_and_only_c4(self):
+        # The 2026-07-26 retraction case. comp(KW) satisfies C1, C2, C3 and C5
+        # exactly (complementation x -> x^63 is an exact symmetry of that
+        # system, machine-checked in lean/KingWen.lean), so ONLY the oriented
+        # form of C4 can reject it. A verifier testing just the pair index would
+        # print VERIFY PASS on a spec-violating record.
+        r = self._counts(self._encode([h ^ 63 for h in self.V.KW]))
+        self.assertEqual(r["fail_c4"], 1, "oriented C4 did not reject comp(KW)")
+        for k in ("fail_c1", "fail_c2", "fail_c3", "fail_c5", "fail_decode", "fail_fmt"):
+            self.assertEqual(r[k], 0, f"comp(KW) unexpectedly failed {k}")
+
+    def test_reserved_bit0_is_rejected(self):
+        # SOLUTIONS_FORMAT.md: "bit 0: unused, always 0". Masked out of the
+        # canonical sort key (& 0xFC) but live in the full-byte dedup tie-break,
+        # so a set bit 0 breaks byte-exact reproducibility.
+        rec = bytearray(self._encode(self.V.KW))
+        rec[7] |= 1
+        r = self._counts(bytes(rec))
+        self.assertEqual(r["fail_fmt"], 1)
+        for k in ("fail_c1", "fail_c2", "fail_c3", "fail_c4", "fail_c5"):
+            self.assertEqual(r[k], 0)
+
+    def test_table_gate_catches_a_corrupted_kw_table(self):
+        # Fixture chosen so that ONLY the C5-multiset gate can catch it:
+        # swapping pair-blocks 1 and 2 leaves cd exactly 776 (so the pre-existing
+        # C3 assert is blind), leaves the pairing SET unchanged (so the C1
+        # partner gate is blind), and introduces no d=5 transition (so a C2-style
+        # check is blind). The difference-wave multiset becomes
+        # {1:3, 2:19, 3:12, 4:20, 6:9} != SPECIFICATION.md C5's literal.
+        V = self.V
+        bad = list(V.KW)
+        bad[2:4], bad[4:6] = bad[4:6], bad[2:4]
+        saved_kw, saved_pairs, saved_dist = V.KW, V.PAIRS, V.KW_DIST
+        try:
+            V.KW = bad
+            V.PAIRS = [(bad[2 * i], bad[2 * i + 1]) for i in range(32)]
+            V.KW_DIST = [0] * 7
+            for i in range(63):
+                V.KW_DIST[bin(bad[i] ^ bad[i + 1]).count("1")] += 1
+            self.assertEqual(V.compute_comp_dist(bad), 776,
+                             "fixture invalid: this corruption should preserve cd")
+            with self.assertRaises(RuntimeError):
+                V._verify_tables_against_rules()
+        finally:
+            V.KW, V.PAIRS, V.KW_DIST = saved_kw, saved_pairs, saved_dist
+        V._verify_tables_against_rules()   # the real tables still pass
 
 
 if __name__ == "__main__":

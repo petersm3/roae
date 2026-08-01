@@ -133,7 +133,7 @@ def verify_chunk(args):
     if n_chunk <= 0:
         return {
             'fail_c1': 0, 'fail_c2': 0, 'fail_c3': 0, 'fail_c4': 0, 'fail_c5': 0,
-            'fail_decode': 0, 'fail_sort': 0, 'fail_dup': 0,
+            'fail_decode': 0, 'fail_sort': 0, 'fail_dup': 0, 'fail_fmt': 0,
             'kw_found': False,
             'first_canonical': None, 'first_rec': None,
             'last_canonical': None, 'last_rec': None,
@@ -146,7 +146,7 @@ def verify_chunk(args):
     # RAM < file_size. Streamed batches: total memory ≈ N × 32 MB.
     BATCH_RECORDS = 1024 * 1024  # 1M records = 32 MB per batch
     fail_c1 = fail_c2 = fail_c3 = fail_c4 = fail_c5 = 0
-    fail_decode = fail_sort = fail_dup = 0
+    fail_decode = fail_sort = fail_dup = fail_fmt = 0
     kw_found = False
     prev_canonical = None
     prev_rec = None
@@ -181,6 +181,15 @@ def verify_chunk(args):
                 raise IOError(f"verify_chunk: short or unaligned read mid-stream at offset {records_read}")
             r_in_batch = 0
         rec = chunk[r_in_batch*32:(r_in_batch+1)*32]
+
+        # Format conformance: bit 0 of every record byte is reserved and MUST
+        # be zero (SOLUTIONS_FORMAT.md: "bit 0: unused, always 0"). It is masked
+        # out of the canonical sort key (& 0xFC) but DOES participate in the
+        # full-byte dedup tie-break, so a set bit 0 silently breaks byte-exact
+        # reproducibility between two otherwise-conformant implementations.
+        if any(b & 1 for b in rec):
+            fail_fmt += 1
+
         seq, pairs_used, first_pair = decode(rec)
 
         if seq is None:
@@ -191,8 +200,19 @@ def verify_chunk(args):
         if any(c != 1 for c in pairs_used):
             fail_c1 += 1
 
-        # C4: first pair is Creative/Receptive
-        if first_pair != START_PAIR:
+        # C4: s0 = 63 (The Creative) AND s1 = 0 (The Receptive) — both conjuncts.
+        # This is the spec form (SPECIFICATION.md C4), not the pair-index proxy.
+        # C4 is ORIENTED, and the 2026-07-26 retraction established that the
+        # orientation is NOT forced by the other constraints: complementation
+        # x -> x^63 is an exact symmetry of C1 n C2 n C3 n C5 (machine-checked,
+        # lean/KingWen.lean). So a verifier testing only `first_pair == 0` would
+        # accept comp(KW) — which opens (0, 63) — as fully C1-C5 valid. Testing
+        # the pair index alone silently relies on the ENUMERATOR's hardcoded
+        # seq[0]=63; seq[1]=0, which is exactly the invariant an independent
+        # verifier is not entitled to assume. seq[0] == 63 subsumes the index
+        # test (63 occurs only in pair 0, and the pairs are disjoint); both are
+        # kept so the failure mode stays legible.
+        if first_pair != START_PAIR or seq[0] != 63 or seq[1] != 0:
             fail_c4 += 1
 
         # C2: no hamming-5 transitions
@@ -234,6 +254,7 @@ def verify_chunk(args):
         'fail_c1': fail_c1, 'fail_c2': fail_c2, 'fail_c3': fail_c3,
         'fail_c4': fail_c4, 'fail_c5': fail_c5,
         'fail_decode': fail_decode, 'fail_sort': fail_sort, 'fail_dup': fail_dup,
+        'fail_fmt': fail_fmt,
         'kw_found': kw_found,
         'first_canonical': first_canonical, 'first_rec': first_rec,
         'last_canonical': prev_canonical, 'last_rec': prev_rec,
@@ -406,6 +427,40 @@ def _canonical_pairs():
         seen.add(h); seen.add(p)
         out.append(tuple(sorted((h, p))))
     return out
+
+def _verify_tables_against_rules():
+    """Import-time gate: the KW table, and everything derived from it, must
+    agree with the RULE-derived objects of SPECIFICATION.md — not merely with
+    itself.
+
+    Without this the record path is self-verifying: PAIRS, KW_DIST and
+    KW_COMP_DIST are all computed from the KW literal at the top of this file,
+    so a corrupted KW table would silently redefine C1 and C5 and then check
+    every record against the corruption. (Concretely: swapping the last two
+    pair-blocks moves both complement partners together, leaving cd = 776
+    intact, while changing the C5 multiset — the file would then reject
+    spec-compliant records and accept violating ones, against itself.)
+
+    These are explicit raises rather than `assert` so they survive `python3 -O`.
+    --recount reports the same facts as table rows; this gate makes them
+    unconditional on the default `verify.py solutions.bin` path.
+    """
+    if sorted(KW) != list(range(64)):
+        raise RuntimeError("table check: KW is not a permutation of {0..63}")
+    if {frozenset(p) for p in PAIRS} != {frozenset(p) for p in _canonical_pairs()}:
+        raise RuntimeError(
+            "table check: published PAIRS != partner()-derived canonical pairing (C1)")
+    for (a, b) in PAIRS:
+        if _partner(a) != b or _partner(b) != a:
+            raise RuntimeError(f"table check: pair ({a},{b}) is not a partner() pair (C1)")
+    observed = {d: KW_DIST[d] for d in range(7) if KW_DIST[d]}
+    if observed != {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}:
+        raise RuntimeError(
+            f"table check: KW difference-wave multiset {observed} != SPECIFICATION.md C5 literal")
+    if KW_COMP_DIST != 776:
+        raise RuntimeError(f"table check: KW complement distance {KW_COMP_DIST} != 776 (C3)")
+
+_verify_tables_against_rules()
 
 def _apply_bitperm(g, h):
     """Apply bit-position permutation g to hexagram h: bit i -> position g[i]."""
@@ -1822,6 +1877,7 @@ def main():
     fail_decode = sum(r['fail_decode'] for r in results)
     fail_sort = sum(r['fail_sort'] for r in results)
     fail_dup = sum(r['fail_dup'] for r in results)
+    fail_fmt = sum(r['fail_fmt'] for r in results)
     kw_found = any(r['kw_found'] for r in results)
     total_count = sum(r['count'] for r in results)
 
@@ -1841,14 +1897,16 @@ def main():
     print(f"C1 failures:    {fail_c1}")
     print(f"C2 failures:    {fail_c2}")
     print(f"C3 failures:    {fail_c3}  (ceiling: {KW_COMP_DIST} = KW's complement distance)")
-    print(f"C4 failures:    {fail_c4}")
+    print(f"C4 failures:    {fail_c4}  (oriented: s0 = 63 AND s1 = 0)")
     print(f"C5 failures:    {fail_c5}")
     print(f"Decode errors:  {fail_decode}")
     print(f"Sort errors:    {fail_sort}")
     print(f"Duplicates:     {fail_dup}")
+    print(f"Format errors:  {fail_fmt}  (reserved bit 0 set)")
     print(f"King Wen:       {'YES' if kw_found else 'No'}")
 
-    total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup
+    total_fail = (fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5
+                  + fail_decode + fail_sort + fail_dup + fail_fmt)
     if total_fail == 0:
         print(f"\nVERIFY PASS: all {n:,} records satisfy C1-C5, sorted, no duplicates")
         sys.exit(0)
