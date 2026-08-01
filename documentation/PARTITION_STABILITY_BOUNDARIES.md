@@ -49,7 +49,7 @@ The **greedy-ordered minimum is monotone non-decreasing with scale** (4 → 5 �
 
 **{25, 27} as a stable structural anchor.** No matter the partition depth (10T to 560T tested) and no matter the scale (286M to 10.5B records), boundaries 25 and 27 appear in every greedy-ordered minimum-boundary set. They are the **single most stable structural finding** the project has measured.
 
-**The boundary-minimum size is monotone non-decreasing with scale, and stable at canonical depth.** One increment (4 → 5 across 10T → 100T), then stability: the 560T greedy minimum is 5 with the *identical set in the identical greedy order* as 100T. The 100T-era prediction that the minimum would "continue to grow toward 6 at 1000T+" is so far neither confirmed nor refuted; the 1120T extension provides the next datapoint. *(Corrected 2026-07-04: this paragraph previously reported a "drop back to 4" at 560T and hypothesized a mechanism for it; both rested on a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
+**The boundary-minimum size is monotone non-decreasing with scale, and stable at canonical depth.** One increment (4 → 5 across 10T → 100T), then stability: the 560T greedy minimum is 5 with the *identical set in the identical greedy order* as 100T. The 100T-era prediction that the minimum would "continue to grow toward 6 at 1000T+" is neither confirmed nor refuted, and **now cannot be**: the 1120T extension that would have supplied the next datapoint is **not planned** (2026-08-01). This is a permanent limitation, not a pending measurement. *(Corrected 2026-07-04: this paragraph previously reported a "drop back to 4" at 560T and hypothesized a mechanism for it; both rested on a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 
 **4-set identification is scale-bounded.** The popular phrasing "exactly 4 specific boundaries uniquely identify KW" was true at 10T scales (when 4 or 8 working 4-tuples existed) but fails at 100T and 560T (where 0 4-tuples reduce survivors to ≤ 1). At canonical depth the minimum identifying set has 5 boundaries.
 
@@ -74,7 +74,7 @@ Pre-computed analyze logs:
 
 ## Limits and scope
 
-- Four datapoints (d2 10T, d3 10T, d3 100T, d3 560T). The 4 → 5 → 5 trajectory observed across d3 {10T, 100T, 560T} cannot be extrapolated to 1120T+ depths without measurement; the 1120T extension campaign (queued) will provide a fifth datapoint.
+- Four datapoints (d2 10T, d3 10T, d3 100T, d3 560T). The 4 → 5 → 5 trajectory observed across d3 {10T, 100T, 560T} cannot be extrapolated to 1120T+ depths without measurement, and **no such measurement is planned** — the 1120T extension campaign was considered and declined (2026-08-01). There will be no fifth datapoint.
 - The §[7] / §[8] passes are exhaustive at the relevant subset sizes (all C(31, 3) and C(31, 4)). The greedy §[6] is heuristic-ordered; however where §[8] = 0 (100T, 560T) the greedy 5-set is exactly minimal (no 4-set can work), and at 10T where §[7] = 0 the greedy 4-set is exactly minimal (no 3-set can work).
 - d4+ partitions have not been tested; partition-strategy is held constant at d3 for the 100T/560T datapoints.
 

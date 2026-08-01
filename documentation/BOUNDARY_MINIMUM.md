@@ -8,7 +8,7 @@
 
 **The single hardest-to-kill King Wen impostor is the same nameable record at every tested depth:** rec#330177707, King Wen with the pair blocks at positions 2 and 3 interchanged (hexagrams 3/4 ↔ 5/6, Zhun/Meng ↔ Xu/Song). It survives {4, 21, 25, 27} because it matches KW at every pinned position; only a front-zone boundary (1, 2, or 3) eliminates it. The 5th boundary in the identifying set exists solely for this one twin (§[6] count = 1 + §[24] membership check).
 
-The 100T-era prediction that the minimum would "continue to grow toward 6 at 1000T+" is neither confirmed nor refuted by 560T: the trajectory shows one increment (10T → 100T) then stability (100T → 560T). The 1120T extension provides the next datapoint. Boundaries **{25, 27} are in every greedy minimum at all four partitions tested** (most stable structural finding — see [`PARTITION_STABILITY_BOUNDARIES.md`](PARTITION_STABILITY_BOUNDARIES.md)).
+The 100T-era prediction that the minimum would "continue to grow toward 6 at 1000T+" is neither confirmed nor refuted by 560T: the trajectory shows one increment (10T → 100T) then stability (100T → 560T). **This question is now permanently open** — a 1120T extension would have supplied the next datapoint, but it is **not planned** (operator decision, 2026-08-01), and no deeper canonical is scheduled. The reader should treat the 4 → 5 → 5 trajectory as the final measured evidence, not as a partial series awaiting completion. Boundaries **{25, 27} are in every greedy minimum at all four partitions tested** (most stable structural finding — see [`PARTITION_STABILITY_BOUNDARIES.md`](PARTITION_STABILITY_BOUNDARIES.md)).
 
 ## What is being measured
 
@@ -63,7 +63,7 @@ The cumulative-survivor curve for d3 560T's greedy set is striking: boundary 4 A
 
 - §3 (Constraint system and canonical dataset) lists the four canonical SHAs as the empirical anchor.
 - §5 (Analytic results): the boundary-minimum trajectory (one increment 10T→100T, then stability at 5 with an identical identifying set at 100T/560T) is a publishable empirical claim with clean cross-scale data; the single-impostor structure of the 5th boundary (rec#330177707) is worth reporting in its own right.
-- §7 (Discussion): stability of both the count and the set membership across a 3.07× depth increase is evidence (not proof) that 5 is the asymptotic minimum for this constraint system; the 1120T extension is the discriminating test.
+- §7 (Discussion): stability of both the count and the set membership across a 3.07× depth increase is evidence (not proof) that 5 is the asymptotic minimum for this constraint system. The discriminating test would have been a deeper canonical; **none is planned** (2026-08-01), so this remains **evidence without proof, permanently** — not a claim awaiting a scheduled test.
 
 ## Reproducibility
 
@@ -81,7 +81,7 @@ Pre-computed analyze logs:
 
 ## Limits and scope
 
-- Four datapoints (d2 10T, d3 10T, d3 100T, d3 560T). The 4 → 5 → 5 trajectory observed across d3 {10T, 100T, 560T} cannot be extrapolated to 1120T+ depths without measurement; the 1120T extension campaign (queued) will provide a fifth datapoint.
+- Four datapoints (d2 10T, d3 10T, d3 100T, d3 560T), and there will be no fifth. The 4 → 5 → 5 trajectory observed across d3 {10T, 100T, 560T} cannot be extrapolated to 1120T+ depths without measurement, and **no such measurement is planned** — the 1120T extension campaign was considered and declined (2026-08-01). This is a standing limitation of the result, not a pending item.
 - §[7] / §[8] are exhaustive at their respective subset sizes (all C(31, 3) = 4,495 and C(31, 4) = 31,465). Greedy §[6] is heuristic-ordered; at 100T/560T the greedy 5-set is exactly minimal because §[8] = 0 excludes any 4-set. At 10T the greedy 4-set is exactly minimal because §[7] = 0 excludes any 3-set.
 - d4+ partitions have not been tested; partition strategy is held constant at d3 across {10T, 100T, 560T}.
 

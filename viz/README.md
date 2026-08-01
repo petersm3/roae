@@ -13,7 +13,7 @@ records). The visuals come in two families:
 
 | Page | What it covers |
 |---|---|
-| **[viz_graphs.md](viz_graphs.md)** | **How the space behaves / how the run executed** — the solution-count-vs-budget growth curve (sublinear, α ≈ 0.67) and (from the 1120T extension onward) campaign telemetry plots. |
+| **[viz_graphs.md](viz_graphs.md)** | **How the space behaves / how the run executed** — the solution-count-vs-budget growth curve (sublinear, α ≈ 0.67) and campaign telemetry plots (planned for the 1120T extension, which is not going ahead — 2026-08-01). |
 | **[viz_pca.md](viz_pca.md)** | **Where each solution sits** — four 2-D PCA scatter projections of the solution set, colored by edit-distance-to-KW, complement-distance (C3), position-2 branch, and C6/C7 adjacency. |
 
 The two pages cross-link each other; start with whichever question you have. This README is the index
