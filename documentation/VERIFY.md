@@ -165,11 +165,19 @@ instrument itself, all now fixed:
    partner-exact; the difference-wave multiset equals SPECIFICATION.md C5's
    literal `{1:2, 2:20, 3:13, 4:19, 6:9}`; `cd(KW) = 776`. Explicit raises, not
    `assert`, so they survive `python3 -O`.
-3. **Reserved bit 0 was unchecked.** SOLUTIONS_FORMAT.md specifies `bit 0:
-   unused, always 0`. It is masked out of the canonical sort key (`& 0xFC`) but
-   *does* participate in the full-byte dedup tie-break, so a set bit 0 breaks
+3. **Reserved fields were unchecked.** SOLUTIONS_FORMAT.md specifies `bit 0:
+   unused, always 0` per record byte, and header bytes 16–31 `MUST be zero`.
+   Record bit 0 is masked out of the canonical sort key (`& 0xFC`) but *does*
+   participate in the full-byte dedup tie-break, so a set bit 0 breaks
    byte-exact reproducibility between two otherwise-conformant implementations.
-   Now counted as a format error.
+   Both are now counted as format errors — counted rather than raised, so the
+   record-level verdicts are still reported alongside them.
+4. **King Wen's presence was print-only.** `King Wen: YES/No` was never folded
+   into the exit status, so on a complete canonical its absence — a real defect
+   — was visible only to an operator reading the line. The default is correct
+   and unchanged (an individual shard legitimately need not contain KW); the
+   new **`--expect-kw`** promotes presence to a hard requirement for runs over a
+   complete canonical.
 
 Found sound and unchanged: **C2** (all 63 linear transitions, correct range, no
 spurious wrap-around); **C3** (`Σ|pos(v) − pos(v⊕63)| ≤ 776`, the ceiling
@@ -181,10 +189,21 @@ off-by-one at the seams); the gzip path; and the `& 0xFC` dedup key, which is
 correct rather than over-strict because the format collapses orientation
 variants by design. `verify.c` is unaffected — it has no records path.
 
-All three fixes are covered by a negative test: `comp(KW)` must FAIL on C4
-alone (it passes C1/C2/C3/C5 — a live executable demonstration of the
-Complement Z₂ symmetry theorem), a bit-0-tampered record must FAIL on format,
-and King Wen itself must still PASS.
+All four fixes are covered by regression tests in `tests.py`: `comp(KW)` must
+FAIL on C4 **alone** (it passes C1/C2/C3/C5 — a live executable demonstration
+of the Complement Z₂ symmetry theorem), a bit-0-tampered record and a nonzero
+header reserved field must FAIL on format, `--expect-kw` must fail when King
+Wen is absent, King Wen itself must still PASS, and the table gate must reject
+a corrupted `KW`. That last fixture is chosen so **only** the C5 gate can catch
+it: swapping pair-blocks 1 and 2 leaves cd exactly 776 (the C3 anchor is
+blind), leaves the pairing set unchanged (the C1 gate is blind), and introduces
+no d=5 transition (a C2-style check is blind).
+
+*Audit provenance: the same drift was found independently twice — by Fable on
+2026-07-30 (fixes held for the commit window) and again by a fresh probe on
+2026-08-01 that was given no knowledge of the first. Two independent
+rediscoveries of the same defect set, with the second adding the header
+reserved-field item, is the cross-model control the review protocol asks for.*
 
 ## The Route B engine: `verify.c --ie-count`
 

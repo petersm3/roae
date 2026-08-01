@@ -566,6 +566,39 @@ class TestVerifyRecordsPath(unittest.TestCase):
         for k in ("fail_c1", "fail_c2", "fail_c3", "fail_c4", "fail_c5"):
             self.assertEqual(r[k], 0)
 
+    def _run_main(self, blob, flags=()):
+        import tempfile, os
+        fd, path = tempfile.mkstemp(suffix=".bin")
+        try:
+            os.write(fd, blob); os.close(fd)
+            return subprocess.run([sys.executable, "verify.py", path, *flags],
+                                  capture_output=True, text=True)
+        finally:
+            os.unlink(path)
+
+    def _wrap(self, rec, reserved=b"\0" * 16):
+        import struct
+        return b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + reserved + rec
+
+    def test_header_reserved_bytes_must_be_zero(self):
+        # SOLUTIONS_FORMAT.md: header bytes 16-31 "MUST be zero". Counted as a
+        # format failure rather than a hard exit, so the record-level verdicts
+        # are still reported alongside it.
+        kw = self._encode(self.V.KW)
+        self.assertEqual(self._run_main(self._wrap(kw)).returncode, 0)
+        r = self._run_main(self._wrap(kw, b"\0" * 15 + b"\x01"))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("header reserved bytes NONZERO", r.stdout)
+
+    def test_expect_kw_promotes_kw_presence_to_a_failure(self):
+        # Default stays informational: an individual shard need not contain KW.
+        comp = self._encode([h ^ 63 for h in self.V.KW])
+        kw = self._encode(self.V.KW)
+        self.assertEqual(self._run_main(self._wrap(kw), ["--expect-kw"]).returncode, 0)
+        r = self._run_main(self._wrap(comp), ["--expect-kw"])
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("VERIFY FAIL: 2 issues", r.stdout)   # C4 + missing KW
+
     def test_table_gate_catches_a_corrupted_kw_table(self):
         # Fixture chosen so that ONLY the C5-multiset gate can catch it:
         # swapping pair-blocks 1 and 2 leaves cd exactly 776 (so the pre-existing

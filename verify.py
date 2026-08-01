@@ -1710,6 +1710,11 @@ def check_c2_shift(n_samples=200_000, seed=20260724, verbose=True):
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
+    parser.add_argument('--expect-kw', action='store_true',
+                        help='require the King Wen sequence to be present in the '
+                             'records (default: presence is reported but not '
+                             'required, since an individual shard need not '
+                             'contain it). Use on a complete canonical.')
     parser.add_argument('--jobs', type=int, default=1,
                         help='Parallel workers (default 1 = single-thread, identical to legacy behavior). '
                              'Recommended: number of physical cores.')
@@ -1842,6 +1847,12 @@ def main():
     if n != declared_records:
         print(f"ERROR: header declares {declared_records} records but file has {n}")
         sys.exit(2)
+    # The 16 reserved header bytes MUST be zero (SOLUTIONS_FORMAT.md). Counted
+    # as a format error rather than a hard exit: the file is still readable and
+    # every record-level verdict below stays meaningful, so a nonzero reserved
+    # field belongs alongside those results, not instead of them.
+    header_reserved_bad = 1 if head[16:32] != b"\0" * 16 else 0
+
     print(f"Header: ROAE v{SOL_FORMAT_VERSION}, {n:,} records")
     print(f"Verifying {n:,} records from {path} ({file_size:,} bytes total, "
           f"{SOL_HEADER_SIZE} header + {record_bytes:,} records)")
@@ -1902,11 +1913,20 @@ def main():
     print(f"Decode errors:  {fail_decode}")
     print(f"Sort errors:    {fail_sort}")
     print(f"Duplicates:     {fail_dup}")
-    print(f"Format errors:  {fail_fmt}  (reserved bit 0 set)")
-    print(f"King Wen:       {'YES' if kw_found else 'No'}")
+    print(f"Format errors:  {fail_fmt}  (records with reserved bit 0 set)"
+          + ("  + header reserved bytes NONZERO" if header_reserved_bad else ""))
+    print(f"King Wen:       {'YES' if kw_found else 'No'}"
+          + ("  [--expect-kw: REQUIRED]" if args.expect_kw else ""))
+
+    # KW presence is informational by default — a shard legitimately need not
+    # contain King Wen. --expect-kw promotes it to a hard requirement for runs
+    # over a complete canonical, where its absence would be a real defect that
+    # was previously visible only to an operator reading the line above.
+    fail_kw = 1 if (args.expect_kw and not kw_found) else 0
 
     total_fail = (fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5
-                  + fail_decode + fail_sort + fail_dup + fail_fmt)
+                  + fail_decode + fail_sort + fail_dup + fail_fmt
+                  + header_reserved_bad + fail_kw)
     if total_fail == 0:
         print(f"\nVERIFY PASS: all {n:,} records satisfy C1-C5, sorted, no duplicates")
         sys.exit(0)
