@@ -110,6 +110,17 @@ The 29 analysis sections, each invoked by a single flag:
 ## META FLAGS
 
 ```
+--verify           Ground-truth self-check: 11 checks, no sampling, no file I/O.
+                   Verifies roae.py's King Wen table is IDENTICAL to solve.py's (this
+                   file carries its own copy and nothing enforced that agreement before
+                   2026-08-01), that the table is a permutation of 0..63, that
+                   binary_to_kw_position inverts it, that reverse_6bit is an involution,
+                   that (upper<<3)|lower reconstructs every hexagram, that bit_diff is
+                   symmetric and zero iff equal, that KW's 63-transition difference wave
+                   equals SPECIFICATION §C5's multiset, that C4 holds in its ORIENTED
+                   form (s0=63, s1=0), that the name/unicode tables have 64 entries, and
+                   that the Mawangdui control array is a permutation. Exit 0 = all pass.
+                   Wired into tests.py.
 --all              Run all 29 analyses (default if no flags given)
 --quick            Run core subset only (table, pairs, wave, barchart, ...)
 --self-test        Run mathematical-invariant data-integrity checks (~21 checks)

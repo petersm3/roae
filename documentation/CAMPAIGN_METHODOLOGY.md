@@ -270,13 +270,42 @@ To prove that the extended canonical is correctly an extension of the source
 source `solutions.bin` records must appear as an ordered subset of the new
 `solutions.bin` records:
 
+> **CORRECTED 2026-08-01 — the recipe previously published here was NOT EXECUTABLE.**
+> It ran `sort -u` / `comm` / `diff` directly on `solutions.bin`. That file has **no line
+> structure**: it is a 32-byte header followed by fixed 32-byte records whose bytes are
+> `(pair_index<<2)|(orient<<1)`, and **`0x0A` — newline — is a legal record byte** (pair 2,
+> orient 1), as is `0x00`. The text tools therefore split records at arbitrary interior
+> offsets and treat the header as data, so the check could produce a spurious verdict in
+> either direction. It was also stated as an *unordered subset* test while the invariant
+> claimed above it is a *per-cell prefix* property — weaker than advertised even had it run.
+> Since this was the only published proof that an extended canonical extends its parent,
+> and the catalog's lineage citation inherits it, the record-aware method is given instead.
+
 ```bash
-# Diff: every record in the source must appear in the new canonical.
-sort -u source_solutions.bin > /tmp/src.sorted
-sort -u new_solutions.bin > /tmp/new.sorted
-diff <(sort /tmp/src.sorted) <(comm -12 /tmp/src.sorted /tmp/new.sorted)
-# (empty diff = every source record is also in the new canonical)
+# Record-aware subset check. Reads 32-byte records, never text lines.
+python3 - "$SRC/solutions.bin" "$NEW/solutions.bin" <<'PYEOF'
+import sys
+H, R = 32, 32                      # header bytes, record bytes (SOLUTIONS_FORMAT.md)
+def records(path):
+    with open(path, 'rb') as f:
+        blob = f.read()
+    assert blob[:4] == b'ROAE', f"{path}: bad magic"
+    body = blob[H:]
+    assert len(body) % R == 0, f"{path}: record stream not a multiple of {R}"
+    return {body[i:i+R] for i in range(0, len(body), R)}
+src, new = records(sys.argv[1]), records(sys.argv[2])
+missing = src - new
+print(f"source records : {len(src):,}")
+print(f"new records    : {len(new):,}")
+print(f"source \\ new   : {len(missing):,}")
+print("SUBSET OK" if not missing else "*** NOT A SUPERSET — extension is not byte-faithful ***")
+sys.exit(0 if not missing else 1)
+PYEOF
 ```
+
+*(For canonicals too large to hold both record sets in RAM, stream instead: both files are
+sorted by the canonical key, so a merge-walk over the two record streams decides the same
+question in O(1) memory. `verify.py`'s chunked reader is the model.)*
 
 This is a **partition-invariance witness** at a different scale — see
 [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).

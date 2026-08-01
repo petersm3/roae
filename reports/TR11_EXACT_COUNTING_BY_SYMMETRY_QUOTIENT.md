@@ -126,7 +126,7 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    instead of hundreds. Exactness is carried by a **gather formulation**: the stored value at a canonical
    mask is the *exact plain-DP forward value* at that representative — each new-layer canonical mask
    pulls from its canonicalized predecessors, mapping the stored `last` hexagram through the inverse
-   group element; no weights ever enter the values. Stabilizer weights (orbit size = n/|stab|) appear
+   group element; no weights ever enter the values. Stabilizer weights (orbit size = **|G|/|stab|**, implemented as `n_eff/|stab|` where `n_eff` is the run's effective group order — *symbol corrected 2026-08-01 from* `n/|stab|`: throughout this report `n` is the PAIR COUNT (31), so as written it read as division by 31. The correct weight is group-order over stabilizer, matching `f1_orbit_size` in solve.c, `geff/|stab|` in verify.c, `24/|stab|` in F1C5_LAYER_FORMAT.md and `|G_run|/|stab(cm)|` in GT_LADDER_FORMAT.md; this §3 sentence was the one place the report body DEFINES the weight, and v1.7's own revision entry already states it correctly) appear
    only in a per-layer total-mass identity checked against the plain DP in subset mode; the full mask is
    G-fixed (orbit size 1), so the final total needs no correction. Counts are hand-rolled add-only
    **192-bit unsigned integers** (the magnitude exceeds 2¹²⁷; the no-third-party-dependencies rule

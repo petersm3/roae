@@ -139,6 +139,16 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(roae.nuclear_hexagram(h) & 7, (h >> 1) & 7)
 
 class TestGates(unittest.TestCase):
+    def test_roae_verify(self):
+        # roae.py had 37 analysis sections and NO self-verify gate, while solve.py has five.
+        # The load-bearing check inside is that roae.py's own King Wen table is identical to
+        # solve.py's — they agree, but nothing enforced it, so a drift would have silently
+        # diverged every roae analysis from every solve.py analysis.
+        r = subprocess.run([sys.executable, "roae.py", "--verify"],
+                           capture_output=True, text=True)
+        self.assertIn("ROAE VERIFY: ALL", r.stdout)
+        self.assertEqual(r.returncode, 0)
+
     def test_registry_verify(self):
         r = subprocess.run([sys.executable, "solve.py", "--registry-verify"],
                            capture_output=True, text=True)

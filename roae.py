@@ -4674,6 +4674,104 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
         print(f"[W] report written to {json_path}")
 
 
+
+def run_verify():
+    """--verify: roae.py's self-check gate.
+
+    WHY THIS EXISTS (added 2026-08-01). solve.py ships five self-verify gates
+    (--registry-verify with 31 checks, --f4p-verify, --books-verify,
+    --trigram-verify, --perm-verify), every one of them wired into tests.py.
+    roae.py shipped 37 analysis sections and NONE — its only regression cover was
+    three trivial helper tests. Every published figure this file computes rested
+    on code with no gate under it.
+
+    The first check is the one that matters most: roae.py carries its OWN copy of
+    the King Wen table. It agrees with solve.py's today — verified 2026-08-01 —
+    but nothing enforced that. Had either drifted, every roae analysis would have
+    silently diverged from every solve.py analysis and no test would have noticed.
+    That is the unguarded-invariant class this project keeps finding; this closes
+    it for this file.
+
+    Ground truths only — no sampling, no RNG, no file I/O. Exit 0 = all pass.
+    """
+    import importlib.util as _ilu, sys as _sys
+    checks, failures = [], []
+
+    def ck(name, ok, detail=""):
+        checks.append((name, ok, detail))
+        if not ok:
+            failures.append(f"{name}: {detail}")
+
+    # 1. CROSS-FILE TABLE IDENTITY — the load-bearing one.
+    try:
+        _spec = _ilu.spec_from_file_location("_solve_for_verify", "solve.py")
+        _sv = _ilu.module_from_spec(_spec)
+        _argv, _sys.argv = _sys.argv, ["solve.py"]
+        try:
+            _spec.loader.exec_module(_sv)
+        finally:
+            _sys.argv = _argv
+        ck("KW table identical to solve.py's",
+           list(binary_hexagrams) == list(_sv.binary_hexagrams),
+           "roae.py and solve.py disagree on the King Wen sequence")
+    except Exception as e:                                    # pragma: no cover
+        ck("KW table identical to solve.py's", False, f"could not load solve.py: {e}")
+
+    # 2. the table is a permutation of the 64 hexagrams
+    ck("binary_hexagrams is a permutation of 0..63",
+       sorted(binary_hexagrams) == list(range(64)), "not a permutation")
+
+    # 3. position index agrees with the table it indexes
+    ck("binary_to_kw_position inverts binary_hexagrams",
+       all(binary_to_kw_position(h) == i + 1 for i, h in enumerate(binary_hexagrams)),
+       "position lookup and table disagree")
+
+    # 4. rev6 is an involution
+    ck("reverse_6bit is an involution on 0..63",
+       all(reverse_6bit(reverse_6bit(h)) == h for h in range(64)), "not involutive")
+
+    # 5. trigram split reconstructs the hexagram
+    ck("(upper<<3)|lower reconstructs every hexagram",
+       all((upper_trigram(h) << 3) | lower_trigram(h) == h for h in range(64)),
+       "trigram split is not a bijection onto the hexagram")
+
+    # 6. bit_diff is a metric-ish: symmetric, zero iff equal
+    ck("bit_diff symmetric and zero iff equal",
+       all(bit_diff(a, b) == bit_diff(b, a) and (bit_diff(a, b) == 0) == (a == b)
+           for a in range(0, 64, 7) for b in range(64)), "bit_diff misbehaves")
+
+    # 7. KW's transition multiset is SPECIFICATION.md C5 (63 transitions)
+    from collections import Counter as _C
+    _d = _C(bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63))
+    ck("KW difference wave == SPECIFICATION C5 {1:2,2:20,3:13,4:19,6:9}",
+       dict(_d) == {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}, f"got {dict(_d)}")
+
+    # 8. C4 in its ORIENTED form (the conjunct dropped elsewhere in this repo, twice)
+    ck("C4 oriented: s0 = 63 (Qian) and s1 = 0 (Kun)",
+       binary_hexagrams[0] == 63 and binary_hexagrams[1] == 0,
+       f"opens {binary_hexagrams[:2]}")
+
+    # 9. display tables are complete
+    ck("hexagram_names has 64 entries", len(hexagram_names) == 64, str(len(hexagram_names)))
+    ck("unicode_hexagrams has 64 entries", len(unicode_hexagrams) == 64, str(len(unicode_hexagrams)))
+
+    # 10. Mawangdui control array is a permutation
+    ck("mawangdui_kw_indices is a permutation of 0..63",
+       sorted(mawangdui_kw_indices) == list(range(64)), "not a permutation")
+
+    print("=" * 66)
+    print("roae.py --verify : ground-truth self-check")
+    print("=" * 66)
+    for name, ok, detail in checks:
+        print(f"  [{'ok ' if ok else 'FAIL'}] {name}" + ("" if ok else f"  <- {detail}"))
+    print("=" * 66)
+    if failures:
+        print(f"ROAE VERIFY: {len(failures)} FAILURE(S)")
+        return 1
+    print(f"ROAE VERIFY: ALL {len(checks)} CHECKS PASS")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Received Order Analysis Engine (ROAE) of the King Wen sequence")
@@ -4737,6 +4835,8 @@ def main():
                         help="Recurrence plot of the difference wave")
     parser.add_argument("--codons", action="store_true",
                         help="DNA codon mapping comparison")
+    parser.add_argument("--verify", action="store_true",
+                        help="Ground-truth self-check (table identity vs solve.py, permutation/involution/trigram invariants, KW C5 multiset, oriented C4). No sampling. Exit 0 = all pass.")
     parser.add_argument("--all", action="store_true",
                         help="Run all analysis sections (default if no flags given)")
     parser.add_argument("--quick", action="store_true",
@@ -4821,6 +4921,9 @@ def main():
     args = parser.parse_args()
 
     # Special modes that bypass normal output
+    if args.verify:
+        import sys as _s
+        _s.exit(run_verify())
     if args.help_sections:
         print_help_sections()
         return
