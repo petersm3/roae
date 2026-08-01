@@ -428,15 +428,20 @@ if [ "${1:-}" = "--selftest" ]; then
   # mutated has 10 digits so the gate would not look at it either way. Assert on its OUTPUT.
   # This also means "DOC GATES: PASS" has never included gate 1's findings — a real limit on
   # what that banner attests, now stated in the banner itself.
-  python3 -c "s=open('documentation/SOLVE.md').read()
-assert '336,808,703,936' in s, 'anchor moved'
-open('documentation/SOLVE.md','w').write(s.replace('336,808,703,936','336,808,703,937',1))" 2>/dev/null \
+  # Anchor: the |C1nC2nC4nC5| exact count in README.md — 40 digits, non-round, and present
+  # in more than one doc, which is exactly the shape gate 1 looks for. Flipping its last
+  # digit creates a same-length near-twin sharing the first 10 digits: the corrupted-digit
+  # case the gate exists to catch.
+  python3 -c "s=open('README.md').read()
+a='1,097,051,278,789,181,790,036,112,071,176,579,186,688'
+assert a in s, 'anchor moved'
+open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
     && { if bash "$0" numbers 2>/dev/null | grep -q 'WARN'; then
            echo "  [ok]   GATE 1 cross-file numbers — emits a WARN (report-only gate)"
          else
            echo "  [FAIL] GATE 1 cross-file numbers — no WARN on an injected near-twin"; PASS=1
          fi
-         git checkout -- documentation/SOLVE.md 2>/dev/null; } \
+         git checkout -- README.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 1 — anchor moved"
 
   assert_fires "GATE 3 retracted phrasing" documentation/GUIDE.md retract \
