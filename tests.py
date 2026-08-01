@@ -256,7 +256,9 @@ class TestHelpers(unittest.TestCase):
 
 class TestGates(unittest.TestCase):
     def test_roae_verify(self):
-        # roae.py had 37 analysis sections and NO self-verify gate, while solve.py has five.
+        # roae.py had 29 analysis sections and NO self-verify gate, while solve.py has five.
+        # (29 per main()'s all_sections list / its "29 sections" banner / ROAE_PY_CLI.md;
+        # this comment said 37 when written 2026-08-01 — corrected on same-day re-review.)
         # The load-bearing check inside is that roae.py's own King Wen table is identical to
         # solve.py's — they agree, but nothing enforced it, so a drift would have silently
         # diverged every roae analysis from every solve.py analysis.

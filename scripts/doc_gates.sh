@@ -16,9 +16,14 @@
 #   scripts/doc_gates.sh links      # internal markdown links + #anchors that do not resolve
 #   scripts/doc_gates.sh status     # canonical quantities whose exact/estimate status drifted
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
-#   scripts/doc_gates.sh all        # run all six
+#   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
+#   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~90s; NOT in `all`)
+#   scripts/doc_gates.sh all        # run all seven cheap gates (1-7); `generated` is separate by cost
+#   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
+# GATES 1 and 5 are REPORT-ONLY by construction — they always `return 0` / `sys.exit(0)`, so their
+# findings never reach RC and are NOT covered by the "DOC GATES: PASS" banner. The banner says so.
 #
 # SAFETY: index-based (`git ls-files`/`git grep`) and fixed-string matching only.
 #   No `find` over trees, no bounded-repetition regex (`.{0,N}`) — a pathological
@@ -455,17 +460,27 @@ if [ "${1:-}" = "--selftest" ]; then
     exit 2
   fi
   PASS=0
-  # assert_fires <label> <file> <gate-name> <python-mutation>
+  # assert_fires <label> <primary-file> <gate-name> <python-mutation>
+  #
+  # The revert is `git checkout -- .`, NOT `-- "$file"` (corrected 2026-08-01, same-day
+  # re-review). The GATE 6 case mutates whatever `glob('viz/*.py')` returns first — a path
+  # the caller cannot name, and glob order is not guaranteed — while its <file> column said
+  # viz/README.md. So that mutation was never reverted by its own assertion; only the
+  # blanket `git checkout -- .` after the last case cleaned it up, leaving every later
+  # assertion running against a mutated tree. Reverting everything is correct here and
+  # costs nothing: the self-test refuses to start unless the tree is already clean, so
+  # there is never uncommitted work for `-- .` to discard. <file> is kept as documentation
+  # of the mutation's primary target.
   assert_fires() {
     local label="$1" file="$2" gate="$3" mut="$4"
-    python3 -c "$mut" || { echo "  [SKIP] $label — could not inject (anchor moved)"; return; }
+    python3 -c "$mut" || { echo "  [SKIP] $label ($file) — could not inject (anchor moved)"; return; }
     if bash "$0" "$gate" >/dev/null 2>&1; then
       echo "  [FAIL] $label — $gate did NOT fire on an injected defect"
       PASS=1
     else
       echo "  [ok]   $label — $gate fires"
     fi
-    git checkout -- "$file" 2>/dev/null
+    git checkout -- . 2>/dev/null
   }
 
   echo "== DOC GATES SELF-TEST (mutation) =="
@@ -570,11 +585,17 @@ gate_generated() {
   tmp=$(mktemp -d) || return 1
   command -v python3 >/dev/null 2>&1 || { echo "  [skip] no python3"; rm -rf "$tmp"; return 0; }
 
-  echo "  regenerating (~90s, unseeded): --all, then --all --markdown"
+  # `--markdown` is run WITHOUT `--all` and from inside $tmp, because that is what the
+  # generator actually does: roae.py's main() short-circuits on args.markdown (returns
+  # before the --all dispatch), and export_markdown() opens report.md in the CWD.
+  # Spelling it "--all --markdown > file" is the recipe that corrupted example/ once
+  # already; the gate should not model it. (Function names, not line numbers, on
+  # purpose — a recorded line number is the thing that drifts, cf. the GATE 5 allowlist.)
+  echo "  regenerating (~90s, unseeded): --all to stdout, then --markdown into a temp dir"
   if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
     echo "  [FAIL] the generator itself did not run cleanly"; rm -rf "$tmp"; return 1
   fi
-  ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --all --markdown >/dev/null 2>&1 )
+  ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 )
   [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; rm -rf "$tmp"; return 0; }
 
   _norm() { sed 's/[0-9]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
@@ -587,21 +608,29 @@ gate_generated() {
     else
       echo "  [FAIL] $1 has $extra normalised lines $3 does not produce -- hand-edited?"
       comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           > /'
-      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact:"
-      echo "           python3 roae.py --all            > example/report.txt"
-      echo "           python3 roae.py --all --markdown > example/report.md   (then cp to README.md)"
-      echo "           python3 roae.py --all --html     > example/report.html"
+      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact."
+      echo "         CAUTION (recipe corrected 2026-08-01): only --all writes to stdout."
+      echo "         --markdown and --html OPEN THEIR OWN FILES in the cwd (roae.py's"
+      echo "         export_markdown / export_html) and print only a status line, so"
+      echo "         'roae.py --markdown > f' writes 'Markdown report written to"
+      echo "         report.md' INTO f and leaves the real report at the repo root."
+      echo "         Run them from example/ instead:"
+      echo "           python3 roae.py --all > example/report.txt"
+      echo "           ( cd example && python3 ../roae.py --markdown )   # writes example/report.md"
+      echo "           cp example/report.md example/README.md"
+      echo "           ( cd example && python3 ../roae.py --html )       # writes report.html + report.pdf"
       return 1
     fi
   }
-  _cmp example/report.txt "$tmp/fresh.txt"  "roae.py --all"            || rc=1
-  _cmp example/report.md  "$tmp/report.md"  "roae.py --all --markdown" || rc=1
-  _cmp example/README.md  "$tmp/report.md"  "roae.py --all --markdown" || rc=1
+  _cmp example/report.txt "$tmp/fresh.txt"  "roae.py --all"      || rc=1
+  _cmp example/report.md  "$tmp/report.md"  "roae.py --markdown" || rc=1
+  _cmp example/README.md  "$tmp/report.md"  "roae.py --markdown" || rc=1
   rm -rf "$tmp"
   return "$rc"
 }
 
-case "${1:-all}" in
+MODE="${1:-all}"
+case "$MODE" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
@@ -618,5 +647,22 @@ case "${1:-all}" in
 esac
 
 echo
-[ "$RC" -eq 0 ] && echo "DOC GATES: PASS" || echo "DOC GATES: FINDINGS (see above)"
+# State what the banner does NOT attest. GATES 1 and 5 are report-only (`return 0` /
+# `sys.exit(0)`), so their [WARN]/[note] output never reaches RC; and GATE 8 is excluded
+# from `all` by cost. A green banner that silently covers only 5 of 8 gates reads as more
+# coverage than it has — the same over-attestation this suite exists to catch. (The
+# self-test's own comment asserted this was "stated in the banner itself" before it was;
+# written into the banner 2026-08-01 on same-day re-review.)
+if [ "$RC" -ne 0 ]; then
+  echo "DOC GATES: FINDINGS (see above)"
+elif [ "$MODE" = all ]; then
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4, 6, 7. Gates 1 and 5 are REPORT-ONLY,"
+  echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
+  echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
+elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then
+  echo "DOC GATES: PASS  — NOTE: '$MODE' is a REPORT-ONLY gate and always exits 0."
+  echo "                   Read its [WARN]/[note] lines above; this verdict does not."
+else
+  echo "DOC GATES: PASS  ($MODE)"
+fi
 exit $RC

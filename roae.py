@@ -2782,7 +2782,8 @@ def print_parity():
     print(f"The spec's C1-C7 do not constrain the wrap-around s_63 -> s_0. So if")
     print(f"McKenna's exact 25/75 reflects a real constraint on the sequence rather")
     print(f"than a numerical coincidence, it would imply a new constraint:")
-    print(f"  C8 (weak):   hamming(s_63, s_0) is odd  (admits {{1, 3}}; C2 forbids 5)")
+    print(f"  C8 (weak):   hamming(s_63, s_0) is odd  (admits {{1, 3, 5}}; it narrows to")
+    print(f"               {{1, 3}} only if C2 is ALSO extended to the wrap, which C1-C7 do not)")
     print(f"  C8 (strict): hamming(s_63, s_0) = {wrap_d}  (King Wen's exact value)")
     print()
     print(f"CORRECTED 2026-08-01. This block previously called the weak form restrictive,")
@@ -4698,9 +4699,13 @@ def run_verify():
     WHY THIS EXISTS (added 2026-08-01). solve.py ships five self-verify gates
     (--registry-verify with 31 checks, --f4p-verify, --books-verify,
     --trigram-verify, --perm-verify), every one of them wired into tests.py.
-    roae.py shipped 37 analysis sections and NONE — its only regression cover was
+    roae.py shipped 29 analysis sections and NONE — its only regression cover was
     three trivial helper tests. Every published figure this file computes rested
-    on code with no gate under it.
+    on code with no gate under it. (29 is the repo's published count, agreed by
+    four independent sites: main()'s `all_sections` dispatch list, main()'s own
+    "This report runs 29 sections" banner, ROAE_PY_CLI.md §ANALYSIS SECTIONS, and
+    README.md's Quick start. The first draft of this docstring said 37, matching
+    none of them — corrected 2026-08-01 on same-day re-review.)
 
     The first check is the one that matters most: roae.py carries its OWN copy of
     the King Wen table. It agrees with solve.py's today — verified 2026-08-01 —

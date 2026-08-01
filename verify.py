@@ -34,12 +34,15 @@ rev/comp/partner, the symmetry group; TR-11's reduced-rung tables).
 Usage:
     python3 verify.py [solutions.bin]              # verify records
     python3 verify.py [solutions.bin] --jobs N     # parallel record verify
+    python3 verify.py [solutions.bin] --expect-kw   # ... and REQUIRE King Wen to be present
     python3 verify.py --enumerate-reference N       # small-n brute-force (2<=N<=9)
     python3 verify.py --recount                     # independent count reproduction
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
+    python3 verify.py --recount-fiber               # TR-1 §7 orientation fiber (1,720,320 / 983,040)
     python3 verify.py --recount-gender-null         # TR-8 exact pair-null gender figure (47/445740)
+    python3 verify.py [solutions.bin] --fiber-sweep # orientation-fiber factor: records -> sequences
 
 --jobs N parallelizes via multiprocessing for large files. With N = 1
 (default) behavior is identical to the single-threaded original.
