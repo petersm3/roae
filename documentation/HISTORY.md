@@ -729,7 +729,7 @@ B2 exhaustive analysis running on `b2-exhaustive-westus3` (D64als_v7 Spot, 256 G
 - Phase 4 (bijection sampling) not needed — no σ survived Phase 3.
 - Negative result is paper-citable. Constraint set is rigid against bit-position permutations.
 
-Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + iterative spec: [`roae-private/SYMMETRY_SEARCH_SPEC.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_SPEC.md) and [`SYMMETRY_SEARCH_FINDINGS.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_FINDINGS.md).
+Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + iterative spec: `SYMMETRY_SEARCH_SPEC.md` and `SYMMETRY_SEARCH_FINDINGS.md` in the private staging repo (not publicly accessible).
 
 **Findings directory promoted** (`roae/findings/`): three previously-staging findings curated into the public repo as paper-citable scientific anchors:
 
@@ -816,7 +816,7 @@ dropped the originating tool calls from working memory. Cost of incident #4:
 are loaded-in-context, not machine-enforced; documented policies compete with
 contextual precedent in Claude's decision process; deterministic blocks do
 not"). What had been deferred was the *enforcement* — the Azure Policy DENY
-recommendation in [`roae-private/SOLVER_D3_POSTMORTEM.md`](https://github.com/petersm3/roae-private/blob/main/roae/SOLVER_D3_POSTMORTEM.md)
+recommendation in `SOLVER_D3_POSTMORTEM.md` (private staging repo, not publicly accessible)
 was the right answer but required operator admin action. Three more months
 (reading: three more incidents) of "we'll get to it" elapsed.
 
@@ -911,7 +911,7 @@ deep partial walks, not the wide sweep the framing implied.
 **Operator decision.** Given the projection (~$290 remaining spend on
 a known-misshapen run vs ~$11 spent on a corrected mechanism), the
 operator chose path #4 from the reassessment doc
-([`roae-private/1000T_RUN_REASSESSMENT_2026_04_28.md`](https://github.com/petersm3/roae-private/blob/main/roae/1000T_RUN_REASSESSMENT_2026_04_28.md)):
+(`1000T_RUN_REASSESSMENT_2026_04_28.md`, private staging repo, not publicly accessible):
 stop the current run, add per-task budget enforcement to `solve.c`,
 run a 100T pilot with the new cap to get full task-space coverage,
 then decide on a deeper 1000T run informed by real per-task data.
@@ -2362,7 +2362,7 @@ Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, me
 
 The original `v1v2-compare-scratch` 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to cold storage — candidates for follow-up archival before disk decommission).
 
-Operator-facing detail and recommended cascade actions: [`petersm3/roae-private:CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md`](https://github.com/petersm3/roae-private/blob/main/roae/CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md) (private staging repo).
+Operator-facing detail and recommended cascade actions: `CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md` (private staging repo, not publicly accessible).
 
 ### What's next
 

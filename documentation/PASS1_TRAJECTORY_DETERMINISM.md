@@ -72,4 +72,4 @@ To verify the trajectory match yourself (against any future run on this branch):
 
 ## Working / process documentation
 
-For the original analysis context (when this finding emerged during the 1000T run's first hour), see [`x/roae/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`](https://github.com/petersm3/x/blob/main/roae/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md) (private staging repo).
+For the original analysis context (when this finding emerged during the 1000T run's first hour), see `TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` in the private staging repo (not publicly accessible).
