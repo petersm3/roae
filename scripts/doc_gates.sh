@@ -510,32 +510,47 @@ fi
 # Cost ~45s, so this is NOT part of `all`. Run it before publishing.
 gate_generated() {
   echo "== GATE 8: generated artifacts match their generator =="
+  # Compare LIKE FOR LIKE. The first draft diffed every artifact against `--all`
+  # stdout, so the markdown files failed on their own headers -- a gate that
+  # flags correct files gets switched off, which is the mistake ops_gates GATE 4
+  # made the same day. Each artifact is now compared against the invocation that
+  # actually produces it.
+  #
+  # Digit-stripped: roae.py seeds nothing by default, so Monte Carlo figures
+  # legitimately change every run. Stripping digits compares PROSE and structure,
+  # which is where hand-edits live. Numeric drift is gate 1's business.
   local tmp rc=0
-  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
-  if ! command -v python3 >/dev/null 2>&1; then echo "  [skip] no python3"; return 0; fi
-  echo "  regenerating with: python3 roae.py --all   (~45s, unseeded)"
+  tmp=$(mktemp -d) || return 1
+  command -v python3 >/dev/null 2>&1 || { echo "  [skip] no python3"; rm -rf "$tmp"; return 0; }
+
+  echo "  regenerating (~90s, unseeded): --all, then --all --markdown"
   if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
-    echo "  [FAIL] the generator itself did not run cleanly"; return 1
+    echo "  [FAIL] the generator itself did not run cleanly"; rm -rf "$tmp"; return 1
   fi
-  for f in example/report.txt example/report.md example/README.md; do
-    [ -f "$f" ] || { echo "  [skip] $f absent"; continue; }
-    # markdown wrappers differ from the raw stdout, so compare the shared prose:
-    # strip digits, markdown emphasis, and blank lines from both sides.
-    norm() { sed 's/[0-9]//g; s/[*_`|-]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
-    local d
-    d=$(comm -13 <(norm "$tmp/fresh.txt") <(norm "$f") | wc -l)
-    if [ "$d" -le 40 ]; then
-      echo "  [ok]   $f tracks the generator ($d unmatched normalised lines)"
+  ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --all --markdown >/dev/null 2>&1 )
+  [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; rm -rf "$tmp"; return 0; }
+
+  _norm() { sed 's/[0-9]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
+  _cmp() {   # <artifact> <reference> <label>
+    [ -f "$1" ] || { echo "  [skip] $1 absent"; return 0; }
+    local extra
+    extra=$(comm -13 <(_norm "$2") <(_norm "$1") | wc -l)
+    if [ "$extra" -eq 0 ]; then
+      echo "  [ok]   $1 matches $3 exactly (digit-stripped)"
     else
-      echo "  [FAIL] $f has $d normalised lines the generator does not produce"
-      echo "         -> it was hand-edited. Fix the SOURCE and regenerate:"
-      echo "            python3 roae.py --all            > example/report.txt"
-      echo "            python3 roae.py --all --markdown > example/report.md"
-      echo "            python3 roae.py --all --html     > example/report.html"
-      comm -13 <(norm "$tmp/fresh.txt") <(norm "$f") | head -3 | sed 's/^/            > /'
-      rc=1
+      echo "  [FAIL] $1 has $extra normalised lines $3 does not produce -- hand-edited?"
+      comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           > /'
+      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact:"
+      echo "           python3 roae.py --all            > example/report.txt"
+      echo "           python3 roae.py --all --markdown > example/report.md   (then cp to README.md)"
+      echo "           python3 roae.py --all --html     > example/report.html"
+      return 1
     fi
-  done
+  }
+  _cmp example/report.txt "$tmp/fresh.txt"  "roae.py --all"            || rc=1
+  _cmp example/report.md  "$tmp/report.md"  "roae.py --all --markdown" || rc=1
+  _cmp example/README.md  "$tmp/report.md"  "roae.py --all --markdown" || rc=1
+  rm -rf "$tmp"
   return "$rc"
 }
 
