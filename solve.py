@@ -8598,6 +8598,9 @@ def books_g_t7():
 # table as KW numbers, palace head -> (origin, generations 1-5, roaming
 # soul, returning soul). Transcribed in roae-private/books/
 # nielsen_companion/VISION_TRANSCRIPTIONS_2026_07_05.md page_0591.
+# Key order = the printed column order (Yang Palaces Qian|Zhen|Kan|Gen, then
+# Yin Palaces Kun|Xun|Li|Dui); read by nothing here, pinned by
+# tests.py::TestJingFang.
 _BOOKS_NIELSEN_T2 = {
     0b111: (1, 44, 33, 12, 20, 23, 35, 14),    # Qian palace
     0b001: (51, 16, 40, 32, 46, 48, 28, 17),   # Zhen palace
@@ -8616,8 +8619,15 @@ def books_jf1():
     1-5 = cumulatively flip lines 1..5; roaming soul = flip line 4 of the
     5th generation; returning soul = restore the lower trigram) reproduces
     Nielsen's authoritative Table 2 in ALL 64 cells, and agrees with ROAE's
-    existing generator (_f4p_jf_palace / roae.py --trigrams / solve.c
-    --null-historical). Re-exposes the 2026-07-05 corpus-gate check.
+    existing _f4p_jf_palace generator (the roae.py --trigrams and solve.c
+    --null-historical copies are compared in tests.py::TestJingFang, not
+    here). Re-exposes the 2026-07-05 corpus-gate check.
+    SCOPE (2026-08-01): the 64-cell check subscripts _BOOKS_NIELSEN_T2 by
+    trigram KEY, so it attests palace MEMBERSHIP and within-palace stage order
+    and is silent on the ORDER of the eight palaces. `heads` below is the same
+    literal the generators use, so this check cannot corroborate it; the palace
+    order is anchored separately, against Nielsen's printed column order and
+    the Shuogua family scheme, in tests.py::TestJingFang.
     ATTRIBUTION: Jing Fang (77-37 BCE), *Ba gong gua* arrangement; table via
     Nielsen 2003 pp. 1-4 (Table 2, p. 3, after Hui Dong 1697-1758). Surfaced
     by roae-private/books/nielsen_companion/AUDIT.md par.3 +
@@ -8632,6 +8642,7 @@ def books_jf1():
         out.append((out[6] & 0b111000) | t)       # returning soul: lower = t
         return out
 
+    # Palace order; anchored in tests.py::TestJingFang, not here (see SCOPE).
     heads = (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011)
     match = sum(1 for t in heads
                 if tuple(kwn[h] for h in palace(t)) == _BOOKS_NIELSEN_T2[t])
@@ -9266,9 +9277,13 @@ def _r7_fuxi():
 def _r7_jingfang():
     """Jing Fang Eight Palaces (c. 77-37 BCE) generator -- palace-orbit
     representation. Verbatim copy of roae.py print_trigrams / solve.c
-    --null-historical construction (three-language cross-check). Palace order
-    Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui; within each palace the eight world
-    stages W_0..W_7 (see _r7_W)."""
+    --null-historical construction: three copies of one palace-order literal,
+    NOT three independent derivations, so their agreement is evidence of
+    copying and not of correctness. tests.py::TestJingFang anchors that order
+    against Nielsen 2003 Table 2 and compares the three literals mechanically
+    (it does not compare the three surrounding constructions).
+    Palace order Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui; within each
+    palace the eight world stages W_0..W_7 (see _r7_W)."""
     jf = []
     for t in (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011):
         jf += _r7_W(t)

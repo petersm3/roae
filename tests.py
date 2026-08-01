@@ -10,7 +10,7 @@ edits — complementing solve.c's --selftest (which anchors the enumerator) and 
 per-tool gates (--registry-verify, --f4p-verify) by running them all plus
 helper-level checks in a single pass. Stdlib only."""
 
-import subprocess, sys, unittest, importlib.util
+import subprocess, sys, unittest, importlib.util, itertools
 
 def _load(name):
     spec = importlib.util.spec_from_file_location(name, name + ".py")
@@ -112,6 +112,116 @@ class TestMawangdui(unittest.TestCase):
         d = [bin(seq[i] ^ seq[i + 1]).count("1") for i in range(63)]
         self.assertEqual({k: d.count(k) for k in sorted(set(d))},
                          {1: 21, 2: 10, 3: 29, 4: 2, 5: 1})
+
+class TestJingFang(unittest.TestCase):
+    """Primary-source anchors for the Jing Fang eight-palace ORDER.
+
+    Added 2026-08-01. The palace order Qian, Zhen, Kan, Gen, Kun, Xun, Li, Dui
+    is hardcoded as the trigram literal at five sites — solve.py
+    `_f4p_jf_palace`, `books_jf1` (`heads`), `_r7_jingfang`; roae.py
+    `--trigrams`; solve.c `--null-historical` — and restated in decimal at two
+    more (`_r7_J3`, and the `--r7-verify` anchor). Nothing compared any of them
+    to a statement of the order outside the generators. In particular
+    `books_jf1`'s "64/64 cells match Nielsen Table 2" subscripts
+    `_BOOKS_NIELSEN_T2` **by key**, so it attests palace MEMBERSHIP and
+    within-palace world-stage order and is silent on the order of the palaces
+    themselves.
+
+    The order is load-bearing for what crosses the seven inter-palace seams:
+    only 1,152 of the 8! = 40,320 palace orders reproduce Jing Fang's diff-wave
+    multiset {1: 48, 3: 15} (`_r7_J5`), asserted below. It is NOT load-bearing
+    everywhere — `f4p_housedisp` is 56 for all 40,320, since the palaces are
+    contiguous blocks of 8 in any order. How far the Jing Fang leg of the FC-1
+    broken-instrument gate (`solve.py --r7-verify`) would move under a
+    different order is UNMEASURED: CRITIQUE §Corpus Control II prices the order
+    exactly at P(J2 ∧ J3 | J1) = 1/40,320 and reports Jing Fang EXTREME on 0 of
+    11 under the J1-conditioned null, which bounds that exposure without
+    settling it.
+
+    Two anchors, both external to the generators:
+      (1) Nielsen 2003 Table 2 (p. 3, after Hui Dong 1697-1758) prints the
+          palaces as four "Yang Palaces" columns Qian | Zhen | Kan | Gen then
+          four "Yin Palaces" columns Kun | Xun | Li | Dui. Transcribed from the
+          page image on 2026-07-05 in roae-private/books/nielsen_companion/
+          VISION_TRANSCRIPTIONS_2026_07_05.md (page_0591) — the same
+          primary-data record `_BOOKS_NIELSEN_T2`'s cell values come from.
+      (2) Within each half the order is exactly the Shuogua trigram-family
+          scheme: father, then three sons ranked by the position of their
+          single yang line; mother, then three daughters ranked by the
+          position of their single yin line.
+          `test_jf_order_from_trigram_family` derives both halves from the bit
+          patterns alone. The yang-half-before-yin-half grouping is NOT from
+          Shuogua — whose own enumeration alternates son/daughter — it is the
+          table's own "Yang Palaces" / "Yin Palaces" column split, i.e. anchor
+          (1), and is what solve.py `_r7_J2` states as a predicate.
+    SCOPE: this pins ROAE's order to the order Nielsen prints. It does not
+    settle the historical question CITATIONS.md#jingfang leaves open
+    ("alternative orderings within the same palaces exist ... historical
+    certainty of the full ordering is debated").
+    RULE (see TestMawangdui): any hardcoded sequence imported from a source
+    gets anchor tests asserting positions stated by a PRIMARY source."""
+    # bit0 = bottom line, 1 = yang (solid); see solve.py `_r7_W` header.
+    TRIGRAM = {"Qian": 0b111, "Zhen": 0b001, "Kan": 0b010, "Gen": 0b100,
+               "Kun": 0b000, "Xun": 0b110, "Li": 0b101, "Dui": 0b011}
+    NIELSEN_T2_COLUMNS = ["Qian", "Zhen", "Kan", "Gen",   # "Yang Palaces"
+                          "Kun", "Xun", "Li", "Dui"]      # "Yin Palaces"
+
+    @property
+    def order(self):
+        return [self.TRIGRAM[n] for n in self.NIELSEN_T2_COLUMNS]
+
+    def test_jf_order_from_trigram_family(self):
+        # Shuogua family scheme, derived from the bit patterns alone.
+        sons = sorted((t for t in range(8) if bin(t).count("1") == 1),
+                      key=lambda t: t.bit_length())
+        daughters = sorted((t for t in range(8) if bin(t ^ 7).count("1") == 1),
+                           key=lambda t: (t ^ 7).bit_length())
+        self.assertEqual([0b111] + sons + [0b000] + daughters, self.order)
+
+    def test_jf_generators_use_the_printed_palace_order(self):
+        jf = solve._r7_jingfang()
+        self.assertEqual(sorted(jf), list(range(64)))
+        # Block b of the linear sequence is palace order[b]'s world-stage orbit.
+        self.assertEqual(solve._r7_J1(jf), self.order)
+        # The F4' palace index and the R7 seniority predicate agree with it.
+        self.assertEqual([solve._F4P_PAL[(t << 3) | t] for t in self.order],
+                         list(range(8)))
+        self.assertTrue(solve._r7_J3(jf))
+
+    def test_palace_order_is_load_bearing_for_the_diff_wave(self):
+        # Exhaustive over all 8! palace orders (0.5 s): the order is not free
+        # decoration. If this ever prints a different count, the world-stage
+        # orbit _r7_W changed, not the order.
+        W = {t: solve._r7_W(t) for t in range(8)}
+        n = 0
+        for p in itertools.permutations(self.order):
+            s = []
+            for t in p:
+                s += W[t]
+            if solve._r7_J5(s):
+                n += 1
+        self.assertEqual(n, 1152)
+        self.assertTrue(solve._r7_J5(solve._r7_jingfang()))
+
+    def test_nielsen_table2_key_order_is_the_printed_column_order(self):
+        # _BOOKS_NIELSEN_T2 is insertion-ordered (py>=3.7) and its key order
+        # already recorded the printed column order — but books_jf1 subscripts
+        # the dict and never reads that order, so nothing checked it.
+        self.assertEqual(list(solve._BOOKS_NIELSEN_T2), self.order)
+
+    def test_other_language_generators_carry_the_same_literal(self):
+        # solve.c --null-historical and roae.py --trigrams each hardcode the
+        # order as their own literal; their headers called this a "cross-check"
+        # while nothing compared them. Whitespace-insensitive fixed-string
+        # match, no regex. If a count below changes, a copy of the palace order
+        # was added or removed — anchor it here rather than relaxing the test.
+        lit = ",".join("0b{:03b}".format(t) for t in self.order)
+        for path, wrapped, n in (("solve.py", "(" + lit + ")", 3),
+                                 ("roae.py", "(" + lit + ")", 1),
+                                 ("solve.c", "{" + lit + "}", 1)):
+            with open(path) as f:
+                src = "".join(f.read().split())
+            self.assertEqual(src.count(wrapped), n, path)
 
 class TestKnownValues(unittest.TestCase):
     def test_rc4_violations(self):

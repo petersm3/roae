@@ -550,7 +550,9 @@ def print_trigrams():
     print("Spearman rank correlation between KW positions and Jing Fang's palace ordering")
     print("(the trigram-generated classical alternative; ordering as in solve.c --null-historical).")
     # Jing Fang 8 Palaces generator (c. 77-37 BCE); port of solve.c --null-historical's
-    # construction (two-language cross-check). Palace order Qian->Zhen->Kan->Gen->Kun->Xun->Li->Dui;
+    # construction -- a copy of the same palace-order literal, not an independent
+    # derivation; tests.py::TestJingFang compares the two literals and anchors the order
+    # against Nielsen 2003 Table 2. Palace order Qian->Zhen->Kan->Gen->Kun->Xun->Li->Dui;
     # per palace: origin, worlds 1-5, wandering soul, returning soul.
     jf = []
     for t in (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011):
