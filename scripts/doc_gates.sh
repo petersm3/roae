@@ -89,6 +89,9 @@ gate_cli() {
   check_pair roae.py  documentation/ROAE_PY_CLI.md  py
   check_pair solve.py documentation/SOLVE_PY_CLI.md py
   check_pair solve.c  documentation/SOLVE_C_CLI.md  c
+  # sat.py hand-rolls sys.argv parsing with literal quoted flag strings, so the
+  # C-mode extractor applies verbatim (verified 2026-08-01: passes).
+  check_pair sat.py   documentation/SAT_CLI.md      c
   return $bad
 }
 

@@ -63,6 +63,8 @@ solve --c3-dist [solutions.bin]                         # C3 complement-distance
 solve --f1-exact-c1c2c4 [--layers-dir DIR]              # exact |C1∩C2∩C4| orbit DP
 solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--f1-out-of-core DIR]
                                                         # exact |C1∩C2∩C4∩C5| orbit DP
+solve --f1-exact-c1c2 --f1-mod P [--f1-start-orbit 0..5|all]
+                                                        # exact-mod-P |C1∩C2| (start unpinned)
 solve --f1c5-gzip-selftest | --f1c5-verify-layer <v1> <v2>
                                                         # f1c5 layer-codec self-test / cross-check
 solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
@@ -870,6 +872,53 @@ per-block RFC-1950 zlib via `compress2` — **not** gzip-framed `.gz`, despite t
 `SOLVE_F1_CKPT_SEC` seconds (default 300), so `--resume-from-layers` resumes *mid-layer*
 after a Spot eviction rather than restarting the current layer. (#223)
 
+### --f1-exact-c1c2
+
+```
+solve --f1-exact-c1c2 --f1-mod P [--f1-start-orbit 0..5|all] [--f1-subset "L.I,L.I,..."]
+```
+
+**Exact-mod-P** count of |C1 ∩ C2| with the **start unpinned** (E1, 2026-07-25):
+complete 64-hexagram sequences built from the 32 KW pairs (C1), no Hamming-5
+adjacent transition (C2), and **no C4 start pin**. This is a *distinct quantity*
+from `--f1-exact-c1c2c4` above: that DP seeds only the C4-pinned start (first
+pair Qian/Kun = (63, 0)) and delivers |C1 ∩ C2 ∩ C4| as a full-precision
+192-bit integer; `--f1-exact-c1c2` seeds layer 1 with *every* (pair,
+orientation) start and delivers the larger start-free count |C1 ∩ C2| — but as
+a residue mod a chosen prime. Three runs at distinct 63-bit primes plus offline
+CRT reconstruct the exact integer (rigorous, since |C1 ∩ C2| ≤ |C1| =
+32!·2³² ≈ 1.13×10⁴⁵ < p₁p₂p₃). Purpose: remove the last sampled figure in the
+C2-rarity chain (the "~4.3% of pair-constrained orderings" estimate in
+[SPECIFICATION.md](SPECIFICATION.md)).
+
+Method: the #215 orbit-quotient layered DP with a complement-extended
+48-element mask-quotient group (lifted by XOR-63, a Hamming isometry that maps
+the KW pairing to itself) and mod-P `uint64` values, which shrink the peak
+footprint to ~13.1 GB (fits an 8-core/15 GB box, vs ~39 GB for 192-bit
+counters at this quotient).
+
+- `--f1-mod P` — **required**. The modulus: a decimal odd prime with
+  2 < P < 2⁶², primality checked at startup (deterministic Miller–Rabin);
+  anything else is rejected (exit 2).
+- `--f1-start-orbit 0..5|all` (default `all`) — restrict the layer-1 seed to
+  one of the six ⟨G48, XOR-63⟩-orbits of the 64 possible first-pair exit
+  hexagrams (census asserted at startup: sizes {2,12,24,8,6,12}, representatives
+  {0,1,3,7,12,13}). Per-orbit totals sum to the start-unpinned count. The
+  start-orbit-0 run doubles as the full-scale validation gate: it must
+  reproduce 2 × the `--f1-exact-c1c2c4` exact integer, reduced mod P.
+- `--f1-subset "L.I,L.I,..."` — restrict to a union of extended-group
+  pair-orbits (`1.0,3.0,4.0,6.0,6.1,12.0`; validation rungs). In subset mode an
+  internal plain-DP cross-check runs when n ≤ 16 and the exit code reflects its
+  PASS/FAIL.
+
+Prints per-layer `[f1u]` telemetry to stderr and final
+`F1U RESULT ... residue=<r>` / `F1U DONE` lines to stdout. Exit 0 on success
+(including a passing subset gate), 1 on a subset-gate mismatch, 2 on usage
+errors. Test/probe-only env knob (never on enum paths):
+`SOLVE_F1U_MAX_LAYER=K` stops after layer K completes (memory/timing probe;
+partial result, exit 0). Sha-neutral (argv-dispatched, never on the
+enumeration path).
+
 ### --f1c5-gzip-selftest
 
 ```
@@ -1353,6 +1402,9 @@ completeness and honesty, not as knobs to set.
 | `SOLVE_REG_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_REG=2`: evaluate `score_registry` on an explicit 64-int sequence with W=1, print the 31 candidate-rule indicators (0/1, comma-separated, `REGISTRY_KW_EXPECTED` order), exit. Gates the C registry port against `solve.py` reg_* ground truth. |
 | `SOLVE_PERM_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_PERM=2`: evaluate the 13 R3 perm functionals + 2 template-match indicators on an explicit 64-int sequence (`"h0,...,h63"`), print them, exit. Two-language test vector gating the C `perm_*` port against `solve.py` `perm_*` / `--perm-verify` ground truth. |
 | `SOLVE_GZ_TEST_SHARDS` | 0 | `=1`: run a paranoid per-shard `gzip -t` CRC integrity test after each shard write (#169). Default OFF — a full decompress per shard roughly doubles compression CPU across ~65K shards, and the gzfwrite return-count + durable-close checks already cover write completeness. |
+| `SOLVE_KNUTH_H2` | `0` | `1` enables the H2 near-precursor edit-ball mass accumulator during a Knuth-estimator run (solve.c:6724+). Private semi-fitted hypothesis — magnitude only, not promoted to a published claim. Sha-neutral. |
+| `SOLVE_KNUTH_H2_DUMP` | unset | Path for the per-leaf H2 dump consumed by `solve.py --h2-verify` / `--h2-mass`. Sha-neutral. |
+| `SOLVE_F1U_MAX_LAYER` | unset | Stop the start-unpinned `--f1-exact-c1c2` walk after layer K completes — a memory/timing probe (solve.c:15562, :16194). Produces a PARTIAL count; never use for a published figure. Sha-neutral. |
 
 ## EXIT STATUS
 

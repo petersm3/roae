@@ -25,6 +25,10 @@ python3 roae.py --lookup HEX         # interactive: hexagram by number/name
 python3 roae.py --compare A B        # interactive: two-hexagram comparison
 python3 roae.py --cast               # interactive: simulate I Ching reading
 python3 roae.py --explain N          # interactive: walk one transition (1-63)
+python3 roae.py --grammar-search [--gs-* ...] [--seed N]
+                                     # U2: MDL-charged constraint search beyond C1-C5
+python3 roae.py --prereg-h1h3 [--gs-* ...] [--ph-thr-samples N] [--seed N]
+                                     # pre-registered H1/H3 K=4 test (frozen 2026-07-26)
 python3 roae.py --json|--csv|--svg|--html|--markdown|--midi|--dot
                                      # export various output formats
 ```
@@ -134,6 +138,100 @@ python3 roae.py --compare 1 2             # Heaven vs Earth
 python3 roae.py --explain 6               # show how hexagram 6 → 7 transition works
 ```
 
+## GRAMMAR SEARCH & PRE-REGISTERED TESTS
+
+Two terminal modes that go beyond describing the King Wen sequence: they
+measure candidate structural claims against the uniform C1∧C2∧C4∧C5
+reference population (exact rejection sampling: uniform over C1∧C4
+orderings — 31 free pair slots × 2³¹ orientations, first pair pinned
+(63, 0) — accepted iff the transition multiset equals C5's, which implies
+C2). Both run and exit (they do not combine with the analysis sections),
+fan out across worker processes, and are **much heavier** than the
+descriptive analyses at their default sample sizes — size the machine
+accordingly. Both are report-only: they produce no sha-anchored
+artifacts and change no constraint definitions.
+
+### --grammar-search (U2)
+
+A circularity-safe, MDL-charged search for candidate structural
+constraints that KW satisfies but that are *not* implied by the
+published constraint set C1–C5. The search enumerates **every** predicate
+of a fixed, pre-registered grammar of KW-independent structural
+terminals at depth ≤ 2 (frozen sizes, asserted at startup: 118
+transition atoms, 52 position atoms, 24 gates per domain), then runs
+each KW-satisfied candidate through a five-phase pipeline:
+
+1. **Probe sampling (A)** — a small probe set (`--gs-probe`) drawn from
+   a seed stream *disjoint* from the rarity sample;
+2. **Candidate enumeration + masks (B)**;
+3. **Signature dedup (C)** — probe-trivial classes (true on the whole
+   probe set, i.e. common under C1–C5) are absorbed; the **selection
+   charge** log₂(#distinct predicate classes) is pinned to this run's
+   measure;
+4. **Rarity (D)** — population frequency of each surviving candidate on
+   `--gs-samples` fresh samples, split into `--gs-batches`
+   checkpointable batches (JSONL checkpoint, resume-safe);
+5. **MDL ledger (E)** — bits-explained = −log₂ f vs the MDL statement
+   cost L(C) plus the selection charge; prints survivors, the zero-hit
+   shortlist, closest approaches, a Wilson lower bound for the rarest
+   resolved candidate, and the detection floor.
+
+The verdict line is either `NULL — no survivor within the declared
+grammar at depth <= 2` or `ATTENTION — ... run the circularity audit
+before any claim`. The result is scoped to this grammar and depth —
+never a universal completeness claim. The full design and the
+circularity firewall (every terminal structural and KW-independent; no
+fitted thresholds, no KW-read constants) are documented in the section
+banner in `roae.py` above `run_grammar_search`.
+
+Parameters (all shared machinery flags are prefixed `--gs-`):
+
+| Flag | Description |
+|---|---|
+| `--gs-samples N` | Rarity sample size (default 1,000,000). Reused as N_eval by `--prereg-h1h3`. |
+| `--gs-probe N` | Probe-set size for signature dedup (default 256; seed stream disjoint from the rarity sample). |
+| `--gs-workers N` | Worker processes (default 0 = all cores). |
+| `--gs-batches N` | Number of checkpointable rarity batches (default 100). |
+| `--gs-json PATH` | JSON report path (default `u2_report.json`): pre-registration record, per-phase tallies, MDL ledger, verdict. |
+| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run; a checkpoint written against a different candidate count is ignored. |
+
+`--seed` sets the base seed; when omitted, this mode (unlike the
+Monte-Carlo analysis sections) defaults to the fixed pre-registered seed
+20260726. Probe and rarity streams derive from it disjointly
+(seed+100+w and seed+10000+b).
+
+### --prereg-h1h3
+
+The pre-registered H1/H3 test: K = 4 pre-declared predicates (T1
+H1-median, T2 H1-perm-sign with a closed-form cut, T3 H3-P, T4 H3-Q)
+over the same reference population, implementing the frozen 2026-07-26
+pre-registration spec verbatim — functionals, threshold rules, seed
+streams, L(C) menus, the log₂(4) = 2.00-bit selection charge, and the
+pre-registered prediction that all four tests FAIL their bars (an
+expected, legitimate null).
+
+Circularity firewall (KW hold-out): the threshold stream (seed+20000+b,
+`--ph-thr-samples` samples) is sampled and the medians med\*(A) /
+med\*(P) are computed **and persisted to the JSON report before any code
+path reads the KW array**; the evaluation stream (seed+30000+b,
+`--gs-samples` samples) is disjoint from it and from U2's streams. A
+validity gate cross-checks the evaluation stream's mass(A ≤ 648)
+against the independently measured F4′ `dist_autocorr` figure
+0.04789 ± 0.005 — on failure the run hard-stops with **exit code 3**
+and issues no verdicts.
+
+Flags: reuses `--gs-samples` (as N_eval), `--gs-workers`,
+`--gs-batches`, `--gs-json`, `--gs-checkpoint`, and `--seed` (same
+20260726 default), plus one of its own:
+
+| Flag | Description |
+|---|---|
+| `--ph-thr-samples N` | Threshold-derivation stream sample size (default 100,000; KW held out). |
+
+When `--gs-json` / `--gs-checkpoint` still hold their U2 defaults, this
+mode substitutes `prereg_h1h3_report.json` / `prereg_h1h3_ckpt.jsonl`
+so U2 artifacts are never clobbered.
+
 ## ANALYSIS MODIFIERS
 
 ```
@@ -184,7 +282,7 @@ Optional packages enable richer output:
 | 0 | Success |
 | 1 | Invalid argument or section selection |
 | 2 | Self-test failure (data-integrity invariant violated) |
-| 3 | Output-format dependency missing (e.g., `--html` requires weasyprint) |
+| 3 | Output-format dependency missing (e.g., `--html` requires weasyprint); also the `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) |
 
 ## EXAMPLES
 
@@ -257,6 +355,10 @@ python3 roae.py --self-test
 - `report.md` (`--markdown`)
 - `wave.mid` (`--midi`)
 - `wave.dot`, `wave.png`, `wave.svg` (`--dot`)
+- `u2_report.json`, `u2_checkpoint.jsonl` (`--grammar-search`; paths
+  overridable via `--gs-json` / `--gs-checkpoint`)
+- `prereg_h1h3_report.json`, `prereg_h1h3_ckpt.jsonl` (`--prereg-h1h3`
+  defaults; same overrides)
 
 All output files are written to CWD.
 
