@@ -277,8 +277,9 @@ Jing Fang, Mawangdui, and Fuxi sequences as subgroup-coset arrangements, and Sue
 末永高康 ([2012](#suenaga2012)) independently developed the same machinery and initiated counting
 the arrangement space, computing the number of order-8 subgroups exactly (1395 = [6 choose 3]₂) and
 posing, though not completing, a full product count. We claim no originality for this framing or for
-the idea of counting hexagram-arrangement spaces; the contributions here are the completed exact
-enumeration under C1–C7 — a different counting object — the equivariance-ceiling theorem, and the
+the idea of counting hexagram-arrangement spaces; the contributions here are the exact
+full-scale counts at the C1∩C2∩C4 and C1∩C2∩C4∩C5 layers (with validated estimates for C1–C5 and
+C1–C7, which remain estimates — TR-11 §10) — a different counting object — the equivariance-ceiling theorem, and the
 machine-checked formalization.
 
 By our current accounting ROAE is the **fifth independent arrival** at this algebra:
@@ -368,7 +369,7 @@ on the hexagram sequence. The works below were reviewed and are listed for compl
 the constraint-satisfaction enumeration problem, computes a constraint-satisfying ordering count,
 proves a limitative/ceiling result, or gives a machine-checked formalization** — each is descriptive,
 constructive, or confirmatory in aim, and so is not prior art for this project's specific
-contributions (the exact C1–C7 enumeration, the equivariance ceiling, and the Lean formalization).
+contributions (the exact C1∩C2∩C4 and C1∩C2∩C4∩C5 full-scale counts — C1–C5/C1–C7 remain validated estimates — the equivariance ceiling, and the Lean formalization).
 Recorded here to document the survey's breadth.*
 
 - **Gu Chengcheng 谷成城** (2021/2022). *Xitong kexue xuebao* 系统科学学报 30(3). An intension-lattice /

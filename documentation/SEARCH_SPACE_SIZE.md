@@ -198,5 +198,5 @@ greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 
 - **Rate projection: ≈ 13.** At the observed average marginal rate, the chain reaches 126.6 bits at
   k ≈ 13, tightening the earlier 13–20 extrapolation toward its lower end.
 
-Both figures sharpen when S(6..8) land (measurement in flight). Derivation: this section's arithmetic
+Both figures sharpen when S(6..8) land — **they landed 2026-07-05 and revised the projection up to ~15–20** (see the S(k) section above and TR-4 v1.8); the ≈13 figure below predates that measurement. Derivation: this section's arithmetic
 is fully reproducible from the S(k) masses above and the space size; no new measurement was used.

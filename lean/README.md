@@ -81,7 +81,7 @@ constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.c
 these chains, and the finite facts report `[propext]` alone). `native_decide`
 remains only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite subgroup facts and the
 §6 sanity instances at King Wen — the TG-2 lead theorems themselves are kernel-only),
-`PartitionInvariance.lean` §12 (sanity witnesses, disclosed there), and `SymmetryCompleteness.lean`
+`PartitionInvariance.lean` §12 (sanity witnesses, disclosed there), `PruneGInvariance.lean` §1 (`applyPerm_isometry`) and its §8 sanity examples, and `SymmetryCompleteness.lean`
 (SC1–SC4/SC7 — the T7 completeness kernels). The structural sequence-level theorems
 (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems in
 `PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel.
