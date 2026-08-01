@@ -293,7 +293,10 @@ definition, so interpret against the constrained baseline)
 --- Nuclear trigram structure ---
 Nuclear hexagram = lines 2-4 (lower nuclear) + 3-5 (upper nuclear). Classical fact
 (commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then to
-the 4 fixed points 63, 0, and the two alternators 21(010101b rendering varies), 42.
+a 4-element terminal attractor {0, 21, 42, 63}. CORRECTED 2026-08-01: an earlier version
+called these '4 fixed points', which is false and self-contradicting -- it then called two
+of them 'alternators'. There are exactly TWO fixed points, 0 and 63; 21 and 42 form a
+2-cycle (nuclear(21) = 42, nuclear(42) = 21). The 16/4/4 counts below are unaffected.
 Distinct after 1 application: 16; after 2: 4; after 3: 4 -> [0, 21, 42, 63]
 KW nuclear-hexagram changes along the sequence: 58/63
 
@@ -1188,9 +1191,21 @@ than a numerical coincidence, it would imply a new constraint:
   C8 (weak):   hamming(s_63, s_0) is odd  (admits {1, 3, 5}; C2 may extend to 64th)
   C8 (strict): hamming(s_63, s_0) = 3  (King Wen's exact value)
 
-Restrictiveness: the prior for wrap-around distance among {1,2,3,4,6} (5 forbidden
-by C2 if extended, 0 impossible for a permutation) is uniform → P(odd) ≈ 40%, so
-the weak form eliminates ~60% of completions; the strict form eliminates ~80%.
+CORRECTED 2026-08-01. This block previously called the weak form restrictive,
+estimating P(odd) from a uniform prior and concluding it eliminated ~60% of
+completions. That was wrong, and it contradicted this repository's own proven
+theorem (SPECIFICATION.md, 'Wrap-around parity is odd').
+
+The weak form eliminates NOTHING: odd wrap-around parity is FORCED by C5, not
+probable under it. Proof: popcount(x^y) = popcount(x) + popcount(y) (mod 2), so
+summing over the 63 transitions telescopes -- every interior hexagram appears in
+exactly two transitions and cancels -- leaving
+  sum of the 63 transition distances = popcount(s_0) + popcount(s_63)   (mod 2).
+C5 fixes that multiset as {1:2, 2:20, 3:13, 4:19, 6:9}, whose sum is 211, odd.
+Hence hamming(s_63, s_0) is odd for EVERY C5-satisfying sequence. P(odd) = 1.
+
+Only the STRICT form carries information: constraining the wrap to d = 3 filters
+~8.2% of canonical orderings (measured at the 560T canonical), not ~80%.
 
 Whether C8 is a real constraint or a numerical coincidence is empirical: a Monte
 Carlo sample of sequences satisfying C1-C7 would tell us how non-uniform the
