@@ -31,7 +31,7 @@ estimates. Both are next-step questions, not invalidations of the analysis below
 
 Each canonical ordering is characterized by the following statistics,
 computed over 3.43 billion records using streaming parquet output
-([`solve.py --compute-stats`](SOLVE_C_CLI.md#--compute-stats-solvepy-only)). See `roae-private/P2_OBSERVABLES_SCHEMA.md` for the
+([`solve.py --compute-stats`](SOLVE_C_CLI.md#--compute-stats-solvepy-only)). See `roae-private/P2_OBSERVABLES_SCHEMA.md` for the *(private staging repo — not publicly accessible)*
 frozen schema.
 
 | # | Dim | Meaning | Family |
@@ -52,7 +52,7 @@ frozen schema.
 For each of the 9 non-stratifier dimensions, KW's exact percentile in the
 marginal was computed by streaming histogram aggregation across all 3.43B
 records. (Subcommand: `solve.py --marginals`; full table in
-`roae-private/P2_MARGINALS.md`.)
+`roae-private/P2_MARGINALS.md`.) *(private staging repo — not publicly accessible)*
 
 | Dim | KW value | Records < KW | Records == KW | **KW percentile** |
 |---|---|---|---|---|
@@ -101,7 +101,7 @@ None is itself dispositive.
 
 Five hexbin heatmaps of the 100T canonical joint distribution (1.7M
 uniformly-sampled points, KW marked with gold star) are archived at
-`roae-private/viz/`:
+`roae-private/viz/`: *(private staging repo — not publicly accessible)*
 
 - `viz_edit_dist_kw__c3_total.png`
 - `viz_c3_total__shift_conformant_count.png`
@@ -206,8 +206,8 @@ All scripts and intermediate data are preserved:
   single-Python-file rule; previously lived as `scripts/compute_stats.py`,
   `scripts/p2_marginals.py`, `scripts/p2_bivariate.py`,
   `scripts/p2_joint_density.py` in the staging repo.
-- **Archived outputs:** `roae-private/P2_MARGINALS.md`, `roae-private/viz/`,
-  `roae-private/P2_JOINT_DENSITY.md`
+- **Archived outputs:** `P2_MARGINALS.md` and `viz/` in the **private staging repo (not publicly accessible)**,
+  `roae-private/P2_JOINT_DENSITY.md` *(private staging repo — not publicly accessible)*
 
 ## Appendix A: Theorem of invariant transition-Hamming distribution
 

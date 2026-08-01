@@ -47,7 +47,7 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-- **The constraints do not determine the sequence.** The C1–C5 space holds 1.33×10³⁸ orderings; adding
+- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
   C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
