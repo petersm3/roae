@@ -33,7 +33,9 @@ were formalized in the pair representation (operationalizations ours; each verif
 stated King Wen facts before measurement), and nine composites were pre-registered in the public record
 ([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen "as F4'": two-sided p < 0.05/9 "notable"; "candidate rule" additionally requires the corpus-control specificity gate — the < 10⁻⁴ candidate-level bar is inherited from the F4' family's own registration (worded "< 10⁻⁴ after Bonferroni"; sidedness unstated there), not restated verbatim in 2d19a3f) before any population number was observed.
 Measurement by weighted-Knuth estimation (2×10⁹ probes; the instrument reproduced the
-independently-established C1–C5 space size to 0.09% in the same run) yields: **four of nine NULL** —
+previously-published C1–C5 space size *estimate* to 0.09% in the same run — a consistency check within
+the same estimator family, since that figure is itself a Knuth estimate; corrected 2026-08-01 from
+"independently-established", the adjective TR-1 v1.18's correction was about) yields: **four of nine NULL** —
 including both flagship compositional claims (the hexagram-7–16 complement-mirror block, present in
 ~1.1% of valid orderings; terminal-pair neighborhood contiguity, two-sided ~5.4×10⁻²); one notable
 (the #43–50 regular trigram array, 6.8×10⁻⁴ — survives its family correction but not the global

@@ -11,7 +11,8 @@ which begins with Zheng Qiao (~1150); structural observation of the sequence its
 Wen sequence follows hidden design rules —
 almost always by pointing at the sequence and asserting the pattern. This report does what none of that
 literature could: it **measures every claimed rule against the entire space of orderings** that satisfy
-the sequence's core constraints. The result sorts the claims into three kinds. Eight celebrated "design
+the sequence's core constraints — by unbiased weighted sampling of that space (2×10¹⁰ probes), not by
+enumerating it. The result sorts the claims into three kinds. Eight celebrated "design
 choices" are **forced** — and as of 2026-07-21 all eight are **theorems**, not sampling results: each is
 proven constant on the entire C1 space (every pair-respecting ordering, a superset of the measured
 population, so every C1–C5 ordering inherits it), equal to King Wen's value — machine-checked in Lean 4
@@ -37,8 +38,9 @@ Structural rules asserted for the King Wen sequence across eight centuries of li
 (~1150) and Zhu Yuansheng (13th c.) through [Lai Zhide](../documentation/CITATIONS.md#laizhide) (1525–1604) to Moore, Schulz, [Cook](../documentation/CITATIONS.md#cook2006), [McKenna & Mair](../documentation/CITATIONS.md#mckenna-mair1979),
 [Drasny](../documentation/CITATIONS.md#drasny2007), and [Schöter](../documentation/CITATIONS.md#schoter1998) — none of them ROAE discoveries — were formalized in the C1–C5 pair representation and
 measured against the *entire* constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased
-weighted-Knuth estimation (2×10¹⁰ probes; the instrument reproduced the independently-established total
-space size to 0.03% — a consistency check within the same estimator family; the absolute validation of
+weighted-Knuth estimation (2×10¹⁰ probes; the instrument reproduced the previously-published total
+space size estimate to 0.03% — a consistency check within the same estimator family, since that figure
+is itself a Knuth estimate (METHODS §"Canonical quantities", status **estimate**); the absolute validation of
 the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into
 measured population statistics — to our knowledge for the first time; corrections welcome. The literature's design inventory splits three ways:
 **proven forced** (eight rules, each now a theorem: constant on the entire C1 space — a superset of the
@@ -51,7 +53,9 @@ exactly 3 slot-edits, and one ordering — the grand unified precursor — perfe
 Schulz's gender rule simultaneously via a single compatible 3-edit event centered on the literature's own
 anomaly loci. And then the ceiling: **the four strongest rules are jointly unsatisfiable** (the conflict
 theorem, drat-trim-verified). Perfection was never available; King Wen's profile reads as a trade-off
-optimum — exact on one strong rule, minimally imperfect on the others.
+position — exact on one strong rule, minimally imperfect on the others. (All four rules are
+KW-descriptive, so sitting near their joint Pareto frontier is expected rather than an efficiency
+result — see §5.)
 
 ## Sections
 1. **The question and the instrument.** The literature's rules were established by inspection of one
@@ -60,13 +64,36 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes) — each probe walks a uniformly-random constraint-satisfying
    completion, weighting by the product of branching factors; per-leaf rule predicates accumulate weighted
    mass; fractions are ratios of canonical-leaf masses. Consistency check: the instrument reproduced the
-   independently-established total space size to 0.03% (agreement within the same estimator family — the
+   previously-published total space size estimate to 0.03% (agreement within the same estimator family,
+   since that figure is itself a Knuth estimate — the
    absolute validation of the estimator is TR-11's exact anchors). Every formalization was verified to reproduce its
    source's stated King Wen values exactly before measurement (Moore's 16/18 with violations at pair
    positions 22–23; rhythm breaks at (7,8) and (22,23)); rule predicates are two-language verified
-   (independent C and Python implementations). Caveats stated up front: fractions are over raw
-   orientation-resolved sequences (orientation-invariant rules unaffected; [Moore's 1989](../documentation/CITATIONS.md#moore1989) rising/falling
-   rule is orientation-sensitive by design); strict-form masses near 10⁻⁶ carry ~±10-15% relative sampling
+   (independent C and Python implementations). Caveats stated up front:
+   **(a) the KW-value gate constrains each formalization at one point.** Reproducing a source's stated
+   King Wen value is the credential every rule here carries, but the measurements live at the other
+   ≈10³⁸ orderings, where an off-by-one window, a tie convention or a wrap-vs-linear reading would pass
+   every published gate and still produce wrong masses. Two-language agreement does not close this — both
+   implementations derive from the same reading of the source — so rule faithfulness sits on rung 2 of
+   METHODS' independence ladder ("only the encoder"), and the class has fired once already
+   ([CRITIQUE.md](../documentation/CRITIQUE.md) records the widely-quoted 14:2 odd-transition figure as
+   the *circular* reading presented as linear, caught by recomputation, not by a KW gate).
+   **(b) the reported fractions are fiber-weighted, not uniform over pair orderings.** Fractions are over
+   raw orientation-resolved sequences. A rule's *value* is orientation-invariant when it depends only on
+   the pair ordering, but its reported *fraction* is not: it is Σ_{P: R(P)} fiber(P) / Σ_P fiber(P), a
+   fiber-size-weighted fraction, and fiber size is a function of the pair ordering's transition geometry —
+   the same geometry most literature rules score. Fiber size is far from constant: it is 0 for every pair
+   ordering admitting no valid orientation and at least 1,720,320 for King Wen's, against a mean of
+   ≈1.3×10⁵ over all 31! pair orderings (|C1∩C2∩C4∩C5| / 31!). These figures should therefore be read as
+   weighted-population fractions, and the weighting is not known to be independent of the rules. *(Corrected 2026-08-01: this caveat previously said
+   "orientation-invariant rules unaffected", which is true of the predicate's value and false of the
+   fraction.)* [Moore's 1989](../documentation/CITATIONS.md#moore1989) rising/falling
+   rule is orientation-sensitive by design. **(c) the C1–C5 denominator is itself partly KW-fitted.**
+   C2 and C5 are regularities read off the received order and C3's ceiling is King Wen's own value 776
+   ([METHODS.md](METHODS.md)), so the reference population against which King Wen is scored is not an
+   undisputed null — it is conservative in the sense [TR-8](TR8_REORDERING_REVISITED.md) §2 states
+   plainly, and the same firewall METHODS builds for constraints-as-evidence is not applied to
+   constraints-as-denominator. **(d)** strict-form masses near 10⁻⁶ carry ~±10-15% relative sampling
    error at this probe count.
 2. **The first-wave scoreboard (2026-07-02).**
 
@@ -84,12 +111,25 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    What this wave establishes: (a) Moore's pair-positioning rule was the strongest first-wave
    discriminator — KW's 16-of-18 compliance is shared by ~1 in 1,362 valid orderings, its joint Moore
    profile by ~1 in 54,000; (b) the two Moore rules are **negatively correlated** (joint mass = 0.66× the
-   independence prediction) — parity and rhythm compete, a structural fact not previously observed;
+   independence prediction) — parity and rhythm compete, a structure not previously observed. *(Interval
+   caveat, added 2026-08-01: 0.66 is a ratio of three separately-estimated weighted masses and no
+   uncertainty is published for it. Per the §1 caveat, masses near 10⁻⁶ carry ~±10-15% relative sampling
+   error at this probe count, so read the direction — joint mass below the independence product — rather
+   than the two-figure value, until a per-quantity relerr is published for the ratio.)*
    (c) KW is near-optimal but strictly suboptimal on both Moore rules, and fully-compliant orderings exist
    on each (Moore's "uncorrupted" conjecture confirmed per rule) — so both readings of the pairs-22/23
    anomaly remain live: deliberate/corrupted deviation from a compliant precursor (Moore), or strong
-   tendencies rather than exact laws; (d) Cook's final-pair anchor is real but partially explained — 7.8%
-   vs the naive 1/31 ≈ 3.2%, because C5's transition budget favors closing on a distance-6 pair;
+   tendencies rather than exact laws; (d) Cook's final-pair anchor is real but **mostly forced** — the
+   measured 7.84% looks like a ×2.4 enrichment against the naive 1/31 ≈ 3.2%, but 1/31 is the wrong null:
+   the wrap-parity theorem makes 16 of the 31 non-initial pairs ineligible to close
+   ([TR-7](TR7_CIRCULAR_READING.md) §"The anchors on the circle"), so the eligibility-adjusted baseline is
+   1/16 = 6.25%, ×1.9 of the apparent enrichment is parity-forced (it holds for *every* C4+C5 ordering)
+   and only **×1.25 is the contingent residual**. *(Corrected 2026-08-01: this entry priced the anchor
+   against the 1/31 uniform-slot null and attributed it to "C5's transition budget favouring a distance-6
+   closer" — both superseded. Per
+   [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md), only 4
+   of the 16 eligible closers are distance-6-within pairs, so that mechanism cannot carry the main effect;
+   it is demoted to at most a candidate mechanism for the ×1.25 residual.)*
    (e) the classical 18:18 split is weak as a discriminator (36%) — its significance is historical
    attestation, not statistical rarity.
 3. **The extended scoreboard: 31 further rules (2026-07-03 batch, 2×10¹⁰ probes).** The full candidate
@@ -143,7 +183,12 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    broken; the two orientation flips complete the repair. (b) **The minimal repair is exactly 3
    slot-edits** — SAT-decided: no ordering within 2 slot-edits of KW achieves joint compliance (UNSAT, a
    fortiori under C3), and 3 suffices. (c) **Schulz's gender rule** ([Schulz 1990](../documentation/CITATIONS.md#schulz1990-motifs); exception first noticed
-   by Zhu Yuansheng, 13th c.; strict form had 0 hits in 36M samples) is perfectly satisfiable, and its
+   by Zhu Yuansheng, 13th c.; strict form had 0 hits in 36M samples — *flagged 2026-08-01 as unsourced:
+   no null, sampler or source run was ever recorded with that figure, and it is not consistent with the
+   suite's later measurement of the strict gender rule at ≈10⁻⁶ of canonical mass
+   (`reports/evidence/f11/RESULTS.md`, RUN C2) — if those 36M draws were canonical, that mass predicts
+   ≈36 hits, not 0; treat the strict form as population-rare at order 10⁻⁶ and the 36M figure as
+   withdrawn pending a stated null*) is perfectly satisfiable, and its
    minimal repair is ALSO exactly 3 edits — a swap of the adjacent pairs at slots 21/22 (= class positions
    25/26, precisely the Zhu Yuansheng/Schulz exception locus) plus one orientation flip. (d) **The grand
    unified precursor exists:** one ordering satisfies ALL THREE literature rules perfectly — Moore's 2005
@@ -177,7 +222,13 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    sitting near their joint Pareto frontier is expected rather than an efficiency result; the
    ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
    rules, and is not a measure of design efficiency (no arbitrary-rule-bundle baseline exists to read it
-   against). The usual caveat travels with this: the trigram configuration is a
+   against). *(Sourcing flag, added 2026-08-01: the ~1-in-25-million figure (≈4×10⁻⁸) is carried from the
+   v1.14 pass with **no derivation, probe count, CI or verification command anywhere in the repo**, and it
+   is not reconstructible from the published masses; it also sits below the ~10⁻⁷ per-probe hit rate at
+   which §3's deep-tail caveat says to read figures as order-of-magnitude only, so the two significant
+   figures are unearned. Treat it as an unreproduced figure until a regeneration command is published;
+   what would settle it is a stated joint-profile predicate plus a run of
+   `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth <probes>` reporting its mass with a CI.)* The usual caveat travels with this: the trigram configuration is a
    data-like rule (highly specific); the theorem is about the literature's rules exactly as its authors
    stated them. Certificate chain: all four UNSAT proofs (alt-le-14, alt-ge-16, moore-strict-near-2,
    rc4-strict-near-2) plus the conflict-theorem CNF check `s VERIFIED` under drat-trim against regenerated
@@ -287,7 +338,13 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    That clarifies the
    rule's standing — under the received opening it is not "almost perfect"; it is **perfect up to
    impossibility**. The unconditional
-   population concurs: zero mass at ≥ 29 in ≈2.9×10⁷ weighted valid-sequence leaves (2×10⁹-probe run).
+   population concurs: zero mass at ≥ 29 in ≈3.6×10⁶ weighted **canonical** (C1–C5) leaves
+   (2×10⁹-probe run, `leaves_canonical_C1C5` hit rate 0.0018 in `reports/evidence/f5/f5_tier1.out`).
+   *(Corrected 2026-08-01: this read "≈2.9×10⁷ weighted valid-sequence leaves", which is the C3-free
+   `leaves_C1C2C4C5` count — an 8× overstatement of the sample the F5 scorer actually saw. `score_f5`
+   runs inside the C3 gate and its masses are normalised by canonical mass, so the canonical count is the
+   right depth. Note also that a raw leaf count is not the effective sample size for a weighted estimator:
+   METHODS defines n_eff = 1/relerr², which is far smaller.)*
    Credit where it is due: Van den Berghe **found** this regularity, a quarter-century ago and without
    any of this machinery; ROAE's contribution is to operationalize it, enumerate its null exactly, and
    locate it in the population — the finding is his, the measurement is ours. It is of a piece with his
@@ -305,7 +362,16 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    fiber** (exactly 12 vectors reach 29, none reaches 30), so the described configuration sits at that
    fiber's
    ceiling and carries ≈17.1 bits of atypicality (≥ ~14 after discounting the rule's ~2–3 fitted degrees
-   of freedom) out of the layer's ≈20.7-bit budget. On the pair-only-C4 fiber (2,703,360 vectors,
+   of freedom) out of the layer's ≈20.7-bit budget. *(Discount caveat, added 2026-08-01: that residual
+   discounts a fitted dof at exactly **1 bit each**, which is asserted, not derived, and holds only when
+   the fitted choice is binary. The dof in question is a window over pair slots (`solve.py`: the
+   64-generator leads iff the pair lies within positions 17..54), and naming its two endpoints under a
+   uniform code costs ≈9.0 bits if they are chosen among the 32 pair slots (log₂ C(32,2) = 8.95) or
+   ≈11.0 bits among the 64 hexagram positions (log₂ C(64,2) = 10.98) — so an MDL-consistent discount
+   would leave materially less than ~14 bits. The counter-argument, that the window edges coincide with the two
+   anti-symmetric special pairs and so cost less to name, is available but is nowhere made here. The
+   ≈17.1-bit **undiscounted** figure is the exactly-enumerated one; the discounted residual should be read
+   as a rough upper bound, not a measurement.)* On the pair-only-C4 fiber (2,703,360 vectors,
    re-checked 2026-07-26) King Wen sits one below the ceiling of 30 (attained only by the 2
    reversed-opening vectors described above; 30 of 2,703,360 vectors reach ≥ 29, ≈16.5 bits).
    That extremal placement is a real, exactly-enumerated
@@ -317,11 +383,23 @@ optimum — exact on one strong rule, minimally imperfect on the others.
    are recorded for completeness but are **not** graded against the family
    or global bars, because the functional was fitted to the sequence being scored. The gauge-control
    flag — the statistic inverts, ~50× attenuated, under direction-reversing relabelings — is likewise
-   reported as frozen, not adjudicated.) The corpus gate is clean and
-   KW-specific: Mawangdui scores 1 — below the entire 2×10⁹-probe sampled range [2, 28], i.e. the
-   *opposite* tail at population-extreme depth (a by-product of its trigram-block sort) — and [Jing Fang](../documentation/CITATIONS.md#jingfang)
-   scores 6, also the opposite tail; both historical controls anti-agree with the rule, so no
-   classical-norm explanation is available. *(Corrected 2026-07-05: the Mawangdui control was
+   reported as frozen, not adjudicated.) The corpus gate runs clean but carries little weight:
+   Mawangdui scores 1 — below the whole 2×10⁹-probe sampled range [2, 28] of `vdb_nuc` over C1–C5-valid
+   leaves — and [Jing Fang](../documentation/CITATIONS.md#jingfang) scores 6, near that range's bottom;
+   both are far below King Wen's 29.
+   *(Scope corrections, 2026-08-01. **(i)** Neither control is a member of that population — SOLVE.md
+   records that Mawangdui and Jing Fang **fail both C1 and C3**, and v1.8 below notes Mawangdui also
+   fails C2 — so "below the entire sampled range" and "population-extreme depth" are not probability
+   statements about them; their low scores are largely guaranteed, since any non-C1 ordering scores low on
+   a pair-defined rule (Mawangdui, for instance, scores 0 on `bpd_six_pos`, a functional that is constant
+   at 18 across every vector of King Wen's fiber — row 9 above). **(ii)** The earlier wording read the gate as ruling out a "classical-norm explanation".
+   For a functional derived from King Wen that inference is weak: a decision procedure read off one
+   sequence is expected to score low on any other, under a design hypothesis and an accident hypothesis
+   alike, so the gate has little discriminating power — the same reason
+   [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3b attaches neither a p-value nor a design inference to
+   the KW-fitted D-B1 template, reading its population extremity as "diagnostic of the same thing:
+   extraction, not design". The gate is retained as a sanity check that the statistic is not trivially satisfied by any
+   received ordering; it is not independent support.)* *(Corrected 2026-07-05: the Mawangdui control was
    originally reported as 14, "dead central, p ≈ 0.97" — computed on an erroneous Mawangdui array;
    the corrected array ([Shaughnessy 2022](../documentation/CITATIONS.md#shaughnessy2022), Table 11.2) makes the gate verdict stronger, not weaker.
    All 11 F5 functionals on the corrected Mawangdui: 15, 19, 11, 0, 4, 7, 8, 12, 0, 1, 1 in f5_names
@@ -349,7 +427,8 @@ All values are the reports' stated numbers; generated by
 
 ## Verification Guide
 - Population fractions, both waves: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
-  (self-validation vs the total-space size in documentation/SEARCH_SPACE_SIZE.md, agreement 0.03%)
+  (consistency check vs the total-space size *estimate* in documentation/SEARCH_SPACE_SIZE.md, agreement
+  0.03% — same estimator family, so this is consistency, not independent validation; cf. v1.18)
 - Per-rule registry, formalizations, attributions, KW-value reproduction: `solve.py --registry-verify`;
   [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md); documentation/CITATIONS.md §Attributed candidate
   rules
@@ -385,7 +464,7 @@ All values are the reports' stated numbers; generated by
 | v1.8 | 2026-07-05 | **Erratum (Mawangdui corpus control):** the Mawangdui array used project-wide since 2026-04-06 was wrong (right octet membership; wrong octet order and within-octet order). §7's corpus-gate row recomputed on the corrected array (authority: Shaughnessy 2022, Brill, p. 50 + Table 11.2; discovered by the literature-audit cross-check): vdb_nuc 14 → 1, moving Mawangdui from "dead central" to the opposite-tail extreme — the KW-specificity verdict stands, strengthened. Note the authentic Mawangdui order *fails C2* (one 5-line transition at its Kan→Zhen octet seam). No §7 verdict flips |
 | v1.9 | 2026-07-11 | Wording precision (no numeric change): the eight sampled-1.0 rules are now stated as "empirically forced" — 1.0 to the estimator's precision, no violating ordering in 2×10¹⁰ weighted probes — with only the analytically proven case called a theorem; "are THEOREMS"/"exactly 1.0" phrasing retired (sampling cannot distinguish mass 1 from mass 1−ε). Certified/proven results (conflict theorem, parity alternation, fiber-exact rows) unchanged |
 | v1.10 | 2026-07-11 | §7 framing scope-down (no numeric change): the Van den Berghe result retitled from "The headline" to "The one non-null axis", led with its own fitted-description-at-the-fiber-ceiling scoping (imported from CLAIMS_DECIDED); the frozen-threshold miss, gauge-tie flag, and every number unchanged |
-| v1.11 | 2026-07-11 | Global-ledger qualifier added to §7's notable verdict (clears the 91-observable global bar as well as the family correction; see METHODS §"Global observable ledger") — part of the suite-wide global multiple-comparisons accounting pass |
+| v1.11 | 2026-07-11 | Global-ledger qualifier added to §7's notable verdict (clears the 91-observable global bar as well as the family correction; see METHODS §"Global observable ledger") — part of the suite-wide global multiple-comparisons accounting pass. **Superseded — annotated 2026-08-01:** §7 no longer contains a "notable verdict" and now states the opposite in three places, attaching *no* family- or global-ledger p-grading to row 11 because the Van den Berghe functional was fitted to King Wen. The ungrading happened between v1.11 and v1.20 (the v1.10 fitted-description scoping is its likely origin) but **no revision entry recorded it**, so this row misdescribed the report's own grading posture for three weeks. Recorded here rather than silently deleted |
 | v1.12 | 2026-07-11 | Deep-tail caveat attached to the smallest quoted masses in §3's table (ccn4, ccn8 order-of-magnitude; c2011n1 starvation-not-bound) and hedged in the executive summary — the METHODS CI-degradation caveat now travels with the figures. No values change |
 | v1.13 | 2026-07-11 | Styling: "THE CONFLICT THEOREM" sentence-cased throughout (here, LITERATURE_RULES_POPULATION_TESTS, certificates/README) — content, statement, and certificates unchanged |
 | v1.14 | 2026-07-20 | **Baseline-calibration pass (adversarial-review F-45, F-30).** §5's "trade-off **optimum** … ~1-in-25-million efficient" restated as a trade-off **position**: all four rules are KW-descriptive, so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result, and the 1-in-25-million figure describes how population-atypical the joint profile is under KW-fitted rules rather than measuring design efficiency (no arbitrary-rule-bundle baseline exists to read it against). Executive summary's "forced" finding marked as **sampled** for seven of the eight claims, with the one proven case named — twenty billion weighted probes is evidence, not proof. No measurement changed |
@@ -394,4 +473,5 @@ All values are the reports' stated numbers; generated by
 | v1.17 | 2026-07-26 | **Headline-adjective + lineage-framing precision (round-2 audit, loops 4b F-5 and 4d F-C3).** Executive summary: "genuinely rare" → "extremely rare as stated", and abstract: "genuinely discriminating" → "discriminating as stated", with the data-like caveat (§3: the champion ccn4 figure is "partly specification, not principle") now carried in the headline sentences rather than only in the body; "eight centuries" scoped in the opening to the *testable design-rule* literature (Zheng Qiao ~1150) with the far older structural tradition (*Yi Zhuan*; Yu Fan, 3rd c. CE) acknowledged — TR-1 itself already attested both, the opening now says so. No number, verdict, or certificate changed |
 | v1.18 | 2026-08-01 | **Estimator-language precision (Pass-2 fresh-eyes review, finding F10).** The executive summary / §1 phrase "self-validating the method" is corrected to "a consistency check within the same estimator family" — cross-run agreement of the Knuth estimator with itself is consistency, not independent validation; the *absolute* validation of the estimator is TR-11's exact full-scale anchors. No number, verdict, or certificate changed |
 | v1.19 | 2026-08-01 | **Conflict-theorem scope retraction propagated (2026-08-01 cross-model calibration review).** TR-2 v1.18 (2026-07-30) retracted the theorem's pairing-preserving (C1-only) scope as **unearned** — the DRAT certificate establishes it at **C1∩C2∩C4∩C5** scope, because the shared CNF base fixes C2, C4 and King Wen's C5 transition multiset. TR-1's executive summary and the §5 figure alt-text still carried the retracted broader wording; both now read "C1∩C2∩C4∩C5-valid", matching TR-2 §4 and the identical figure's alt-text in TR-2 §5. **Correction to the record:** TR-2 v1.18's entry stated that "TR-1 and LITERATURE_RULES already carried the correct 'C1–C5-valid' wording" — for TR-1 that was not the case, so v1.18 recorded a propagation that had not happened. No certificate, measurement, or verdict changed; the theorem is stated at the scope its certificate proves |
-| v1.20 *(current)* | 2026-08-01 | **Order-of-magnitude correction (2026-08-01 cross-model calibration review).** §3 said ccn4's rarity is "three orders beyond the previous champion"; ×5×10⁷ against the previous strongest discriminator's ×2×10⁵ is a factor of **250 ≈ 2.4 orders**, not three. Corrected in place. No measurement or verdict changed |
+| v1.20 | 2026-08-01 | **Order-of-magnitude correction (2026-08-01 cross-model calibration review).** §3 said ccn4's rarity is "three orders beyond the previous champion"; ×5×10⁷ against the previous strongest discriminator's ×2×10⁵ is a factor of **250 ≈ 2.4 orders**, not three. Corrected in place. No measurement or verdict changed |
+| v1.21 *(current)* | 2026-08-01 | **Statistical + ACH lens adjudication (lens sweep unit q-tr1-tr2-tr8-tr10).** Eleven verified defects corrected or flagged in place. **Numbers/inferences:** §2(d) Cook's final-pair anchor was priced against the 1/31 uniform-slot null and a mechanism the suite had already demoted — restated at the parity-forced 1/16 = 6.25% baseline with the contingent residual **×1.25** (TR-7 §"The anchors on the circle"; LITERATURE_RULES). §7's population concurrence quoted **≈2.9×10⁷** leaves — the C3-free `leaves_C1C2C4C5` count — where the F5 scorer runs inside the C3 gate and normalises by canonical mass; corrected to **≈3.6×10⁶** canonical leaves (8× overstatement), with a note that a raw leaf count is not n_eff. **Retracted wording still live:** the Abstract still read "trade-off **optimum**" twelve days after v1.14 restated it to "position" — it had survived every grep because the phrase spanned a line break; fixed, and the string is now registered in `documentation/RETRACTED_PHRASES.tsv` so gate 3 catches any recurrence. "Independently-established total space size" (abstract and §1) is the adjective v1.18's correction was about — the quantity is itself a Knuth estimate (METHODS status **estimate**, source TR-4 §3, the same estimator); now "previously-published … estimate". The Verification Guide still called the same comparison "self-validation", the exact word v1.18 replaced; now "consistency check". The identical construction in [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §1 was corrected in the same pass; the one in LITERATURE_RULES_POPULATION_TESTS.md was left for a serialized cross-file pass and is **still outstanding**. **Caveats that were missing or false:** §1's "orientation-invariant rules unaffected" is true of a predicate's value and **false of the reported fraction**, which is fiber-size-weighted; corrected. §1 now also states that the KW-value gate constrains a formalization at one point only (rung 2, and the class has fired once — CRITIQUE's 14:2 correction), and that C2/C5/C3's ceiling make the C1–C5 **denominator** itself partly KW-fitted (stated in TR-8 §2, previously silent here). §7's corpus gate is rescoped: neither historical control is in the population (both fail C1 and C3), so "below the entire sampled range" is not a probability statement, and for a KW-fitted functional the gate has little discriminating power — no "classical-norm explanation" inference is drawn from it now (matching TR-10 §3b's treatment of D-B1). **Flagged, not guessed:** §5's ~1-in-25-million figure has no derivation, probe count or CI anywhere in the repo and sits below the deep-tail threshold it is quoted past — flagged unreproduced with the measurement that would settle it. §4's "0 hits in 36M samples" names no null or sampler and conflicts with the later ≈10⁻⁶-of-canonical measurement (evidence/f11 RUN C2) — flagged withdrawn. §7's 1-bit-per-fitted-dof discount is an assertion, not a derivation (the window's two endpoints among 32 pair slots cost ≈8.6 bits) — the undiscounted ≈17.1 bits is the enumerated figure. §2(b)'s 0.66× correlation ratio is published without an interval — direction retained, two-figure value hedged. **Revision-history integrity:** the v1.11 row claimed a global-ledger grading for §7 row 11 that the current text refuses in three places, with no entry recording the withdrawal; annotated rather than deleted. No measurement, certificate or theorem changed; two published numbers changed (the §7 leaf depth, the Cook baseline) and both are recomputations from archived evidence already in the repo |
