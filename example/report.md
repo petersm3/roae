@@ -325,11 +325,12 @@ definition, so interpret against the constrained baseline)
 
 ```
 Nuclear hexagram = lines 2-4 (lower nuclear) + 3-5 (upper nuclear). Classical fact
-(commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then to
-a 4-element terminal attractor {0, 21, 42, 63}. CORRECTED 2026-08-01: an earlier version
-called these '4 fixed points', which is false and self-contradicting -- it then called two
-of them 'alternators'. There are exactly TWO fixed points, 0 and 63; 21 and 42 form a
-2-cycle (nuclear(21) = 42, nuclear(42) = 21). The 16/4/4 counts below are unaffected.
+(commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then
+to a 4-element terminal attractor {0, 21, 42, 63}. CORRECTED 2026-08-01: an earlier
+version called these '4 fixed points', which is false and self-contradicting -- it
+then called two of them 'alternators'. There are exactly TWO fixed points, 0 and 63;
+21 and 42 form a 2-cycle (nuclear(21) = 42, nuclear(42) = 21). The 16/4/4 counts below
+are unaffected.
 Distinct after 1 application: 16; after 2: 4; after 3: 4 -> [0, 21, 42, 63]
 KW nuclear-hexagram changes along the sequence: 58/63
 ```
@@ -641,9 +642,9 @@ Length  3: 18 found
 ```
 How many palindromes of length >= 3 do random permutations produce?
 King Wen palindromes: 27, longest: 7
-Random mean palindromes: 22.3, mean longest: 6.9
-King Wen palindrome count percentile: 79.1%
-King Wen longest palindrome percentile: 42.7%
+Random mean palindromes: 22.2, mean longest: 6.8
+King Wen palindrome count percentile: 78.5%
+King Wen longest palindrome percentile: 42.3%
 ```
 
 ### Pair-constrained palindrome null model
@@ -653,9 +654,9 @@ The unconstrained comparison shuffles all 64 hexagrams freely. A fairer
 comparison preserves the pair structure: each pair of hexagrams stays
 adjacent, only the pair order and within-pair orientation are randomized.
 King Wen palindromes: 27, longest: 7
-Pair-constrained mean palindromes: 27.6, mean longest: 8.4
-King Wen palindrome count percentile (pair-constrained): 49.4%
-King Wen longest palindrome percentile (pair-constrained): 13.7%
+Pair-constrained mean palindromes: 27.3, mean longest: 8.5
+King Wen palindrome count percentile (pair-constrained): 50.5%
+King Wen longest palindrome percentile (pair-constrained): 13.2%
 ```
 
 ## Upper Canon (1-30) vs. Lower Canon (31-64) comparison
@@ -699,8 +700,8 @@ Permutation test: is the King Wen split at position 30 special, or would
 any random split of the 64-hexagram sequence show a similar gap in mean
 line-change differences between the two halves?
 King Wen |upper_mean - lower_mean|: 0.0460
-Random permutations with gap >= King Wen: 8764/10000
-King Wen gap percentile: 12.4%
+Random permutations with gap >= King Wen: 8797/10000
+King Wen gap percentile: 12.0%
 The King Wen canon split does not produce a statistically significant
 mean-difference gap. The observed difference between upper and lower
 halves is consistent with what random shuffles produce.
@@ -850,7 +851,7 @@ are anecdotes, not statistically meaningful.)
 ```
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2087/5000 (41.7%)
+Random orderings equally or more concentrated: 2070/5000 (41.4%)
 ```
 
 ## Gray code comparison
@@ -1063,8 +1064,8 @@ Joint distribution of trigram changes:
 Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
-Mean MI of random permutations: 0.0202 bits
-King Wen percentile: 7.3%
+Mean MI of random permutations: 0.0199 bits
+King Wen percentile: 7.9%
 ```
 
 ### Full 8-state trigram mutual information
@@ -1212,7 +1213,7 @@ between-pair transitions:
 The spec's C1-C7 do not constrain the wrap-around s_63 -> s_0. So if
 McKenna's exact 25/75 reflects a real constraint on the sequence rather
 than a numerical coincidence, it would imply a new constraint:
-  C8 (weak):   hamming(s_63, s_0) is odd  (admits {1, 3, 5}; C2 may extend to 64th)
+  C8 (weak):   hamming(s_63, s_0) is odd  (admits {1, 3}; C2 forbids 5)
   C8 (strict): hamming(s_63, s_0) = 3  (King Wen's exact value)
 
 CORRECTED 2026-08-01. This block previously called the weak form restrictive,
@@ -1226,15 +1227,14 @@ summing over the 63 transitions telescopes -- every interior hexagram appears in
 exactly two transitions and cancels -- leaving
   sum of the 63 transition distances = popcount(s_0) + popcount(s_63)   (mod 2).
 C5 fixes that multiset as {1:2, 2:20, 3:13, 4:19, 6:9}, whose sum is 211, odd.
-Hence hamming(s_63, s_0) is odd for EVERY C5-satisfying sequence. P(odd) = 1.
+Hence hamming(s_63, s_0) = popcount(s_63 ^ s_0) is odd for EVERY C5-satisfying
+sequence. P(odd) = 1, not the 0.40 previously printed here.
 
-Only the STRICT form carries information: constraining the wrap to d = 3 filters
+So the question is deductive, not empirical, and no Monte Carlo is needed. Only
+the STRICT form carries information: constraining the wrap to d = 3 filters
 ~8.2% of canonical orderings (measured at the 560T canonical), not ~80%.
-
-Whether C8 is a real constraint or a numerical coincidence is empirical: a Monte
-Carlo sample of sequences satisfying C1-C7 would tell us how non-uniform the
-wrap-around distribution actually is among King Wen-eligible orderings. Today
-this is NOT in the formal spec — it remains an observation, not a constraint.
+Neither form is in the formal spec: the weak one is a theorem and adds nothing,
+and the strict one is King Wen's own value, hence data-like by construction.
 ```
 
 ## Hexagram neighborhoods
@@ -1324,9 +1324,9 @@ Hamming-1 neighbors are closer than average in the sequence (clustered).
 ```
 Shuffling binary hexagrams 10,000 times to build a null distribution
 of mean sequence distance between Hamming-1 neighbors.
-Null distribution: min=18.3, mean=21.7, max=25.2
+Null distribution: min=17.6, mean=21.7, max=25.1
 King Wen observed mean: 20.6
-Percentile: 12.3% (proportion of shuffles with mean <= King Wen's)
+Percentile: 11.7% (proportion of shuffles with mean <= King Wen's)
 King Wen's neighborhood clustering is within the range expected by chance.
 ```
 
@@ -1413,7 +1413,7 @@ Recurrence rate: 952/3906 (24.4%)
 Theoretical expected recurrence rate (sum of p_i^2): 25.6%
 
 King Wen recurrence rate:       24.4%
-Mean random recurrence rate:    23.3%
+Mean random recurrence rate:    23.2%
 King Wen percentile vs random:  72.3%
 ```
 
@@ -1522,11 +1522,11 @@ unusually low, the sequence is more structured than random chance would produce.
 King Wen difference wave entropy: 2.0759 bits
 Maximum entropy (all 7 values): 2.8074 bits
 Maximum entropy (5 observed values): 2.3219 bits
-Mean entropy of random permutations: 2.1934 bits
-Min random entropy observed: 1.7320 bits
-Max random entropy observed: 2.4964 bits
-King Wen percentile: 12.8% (lower = more structured)
-Effect size (Cohen's d): -1.14 (negative = more structured than random)
+Mean entropy of random permutations: 2.1924 bits
+Min random entropy observed: 1.7179 bits
+Max random entropy observed: 2.4935 bits
+King Wen percentile: 12.9% (lower = more structured)
+Effect size (Cohen's d): -1.13 (negative = more structured than random)
 ```
 
 ### Entropy conditioned on pair constraint
@@ -1535,9 +1535,9 @@ Effect size (Cohen's d): -1.14 (negative = more structured than random)
 The unconstrained comparison above may be misleading: the pair structure
 itself constrains the entropy. How does King Wen compare against random
 orderings that also satisfy the pair constraint?
-Mean pair-constrained entropy: 2.2341 bits
-King Wen percentile (pair-constrained): 5.9%
-(Similar to unconstrained percentile of 12.8%.)
+Mean pair-constrained entropy: 2.2332 bits
+King Wen percentile (pair-constrained): 6.0%
+(Similar to unconstrained percentile of 12.9%.)
 ```
 
 ### Distribution comparison
@@ -1545,9 +1545,9 @@ King Wen percentile (pair-constrained): 5.9%
 ```
 Value    King Wen Expected (random avg)
   0             0                  0.0
-  1             2                  5.8
-  2            20                 15.0
-  3            13                 20.2
+  1             2                  6.1
+  2            20                 14.9
+  3            13                 20.0
   4            19                 15.0
   5             0                  6.0
   6             9                  1.0
@@ -1566,11 +1566,11 @@ transitions or had other priorities.
 ```
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     192.1
-Min random observed:         155
-Max random observed:         228
-King Wen percentile:         97.2% (lower = shorter path)
-Effect size (Cohen's d):     +2.00
+Mean random path length:     192.2
+Min random observed:         161
+Max random observed:         233
+King Wen percentile:         97.5% (lower = shorter path)
+Effect size (Cohen's d):     +2.02
 ```
 
 ### Theoretical bounds
@@ -1588,11 +1588,11 @@ The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.2
-Min pair-constrained observed:     193
+Mean pair-constrained path length: 214.1
+Min pair-constrained observed:     192
 Max pair-constrained observed:     239
-King Wen percentile (pair-constrained): 28.3%
-Effect size (Cohen's d, pair-constrained): -0.49
+King Wen percentile (pair-constrained): 29.1%
+Effect size (Cohen's d, pair-constrained): -0.47
 ```
 
 ## Constraint satisfaction analysis
@@ -1607,7 +1607,7 @@ random permutations against each constraint individually and combined.
 ```
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          22 (0.22%)
+  No 5-line transitions:          20 (0.20%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both constraints.
   Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
@@ -1622,7 +1622,7 @@ The pair structure constrains transitions within pairs (always even or 6),
 so 5-line transitions can only occur at the 31 between-pair boundaries.
 How often do pair-constrained orderings also avoid 5-line transitions?
   Pair-constrained trials: 100,000
-  Also satisfy no-5:       4,274 (4.27%)
+  Also satisfy no-5:       4,312 (4.31%)
   Approximately 1 in 23 pair-constrained orderings avoid 5-line transitions.
   The no-5 property is uncommon but not extraordinary among pair-constrained orderings.
 ```
@@ -1651,12 +1651,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 10,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.170%
-95% confidence interval: [0.100%, 0.260%]
-Interval width: 0.160 percentage points
+No-5-line-transition rate: 0.140%
+95% confidence interval: [0.080%, 0.220%]
+Interval width: 0.140 percentage points
 
-Approximately 1 in 588 random orderings
-95% CI: 1 in 385 to 1 in 1000
+Approximately 1 in 714 random orderings
+95% CI: 1 in 455 to 1 in 1250
 
 Note: These CIs measure the precision of the Monte Carlo estimate, not
 fundamental uncertainty about the true proportion. They reflect how much
@@ -1674,8 +1674,8 @@ random ordering also avoids 5-line transitions. The rarer it is, the less
 plausible chance becomes as an explanation for the avoidance.
 
 ```
-Permutations with no 5-line transitions: 21/10,000 (0.21%)
-Approximately 1 in 476 random orderings share this property.
-Odds ratio against random: 475:1
+Permutations with no 5-line transitions: 20/10,000 (0.20%)
+Approximately 1 in 500 random orderings share this property.
+Odds ratio against random: 499:1
 ```
 
