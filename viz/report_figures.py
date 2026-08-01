@@ -96,7 +96,10 @@ def fig_tr4_boundary_information():
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
     # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~15-20
     # boundaries (current; supersedes an earlier ~13-14 estimate; heuristic floor k>=12).
-    # NOTE 2026-08-01: 'hard floor k>=13' was WITHDRAWN — the divisor 10.38 is only the
+    # NOTE 2026-08-01: the former "hard"-floor-of-13 wording was WITHDRAWN (the exact
+    # retracted string is deliberately not repeated here — doc_gates.sh GATE 6 scans this
+    # file for registered retracted phrasings and cannot distinguish narration from
+    # assertion). The divisor 10.38 is only the
     # unconditional maximum gain, and the same data shows 11.10 at step 3, giving 12; and no
     # necessity bound follows from the argument at all (TR-4 v1.15). The old wording was still
     # RENDERED in the committed SVG, where matplotlib had turned it into glyph paths — invisible

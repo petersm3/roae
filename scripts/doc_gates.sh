@@ -15,7 +15,8 @@
 #   scripts/doc_gates.sh retract    # retracted phrasings that still survive in the corpus
 #   scripts/doc_gates.sh links      # internal markdown links + #anchors that do not resolve
 #   scripts/doc_gates.sh status     # canonical quantities whose exact/estimate status drifted
-#   scripts/doc_gates.sh all        # run all five
+#   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
+#   scripts/doc_gates.sh all        # run all six
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
 #
@@ -253,15 +254,53 @@ sys.exit(0)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+gate_figures() {
+  echo "== GATE 6: figure GENERATORS carry no retracted phrasing =="
+  # WHY: on 2026-08-01 a withdrawn claim ("hard floor k >= 13") was found RENDERED in a
+  # published figure, having survived every gate. matplotlib converts text to glyph
+  # paths, so fig_tr4_boundary_information.svg holds 0 <text> elements and 920 <use>
+  # refs — the sentence is visible to a reader and invisible to grep. 38 of the repo's
+  # 40 image assets are in that state (15 matplotlib SVGs incl. the PCA plots, plus
+  # every PNG). We cannot grep the output, so we grep what PRODUCES it: the annotation
+  # strings in the figure generators. Keeping generator text and figure in sync is the
+  # generators' documented obligation.
+  local reg="documentation/RETRACTED_PHRASES.tsv"
+  [ -f "$reg" ] || { echo "  [skip] no $reg"; return 0; }
+  local gens bad=0
+  gens=$(git ls-files 'viz/*.py')
+  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked"; return 0; }
+  while IFS=$'\t' read -r phrase allow note; do
+    case "$phrase" in ''|'#'*) continue;; esac
+    local np hits=""
+    np=$(printf '%s' "$phrase" | tr '\n' ' ' | tr -s ' ')
+    for f in $gens; do
+      if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then hits="$hits $f"; fi
+    done
+    if [ -n "$hits" ]; then
+      echo "  [FAIL] retracted phrasing in a figure generator: \"$phrase\""
+      echo "         ($note)"
+      for h in $hits; do echo "      $h  — regenerate the figure after fixing"; done
+      bad=1
+    fi
+  done < "$reg"
+  if [ "$bad" -eq 0 ]; then
+    echo "  [ok] $(echo $gens | wc -w) figure generator(s) carry no registered retracted phrasing"
+  fi
+  return $bad
+}
+
 case "${1:-all}" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
   links)   gate_links   || RC=1 ;;
   status)  gate_status  || RC=1 ;;
+  figures) gate_figures || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
-           echo; gate_links || RC=1; echo; gate_status || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|status|all}"; exit 2 ;;
+           echo; gate_links || RC=1; echo; gate_status || RC=1
+           echo; gate_figures || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|all}"; exit 2 ;;
 esac
 
 echo
