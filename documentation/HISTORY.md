@@ -5657,3 +5657,89 @@ Attribution: the review, the fixes, and the independent verification passes were
 and Fable 5) under operator direction; the completeness theorem is TR-5's, its machine gates by Claude
 (Fable 5). Every remediation preserves the canonical selftest sha `403f7202…` — nothing in this arc
 touched the enumeration.
+
+## 2026-07-22/08-01: Second instruments, two retractions, and the audit that audited the auditor
+
+Eleven days that produced almost no new results and a great deal of new confidence. The through-line:
+every load-bearing claim acquired a second, independent way of being checked — and where that second
+instrument disagreed with the record, the record was corrected, not the instrument.
+
+**The two-instrument program (07-23 → 07-26).** `verify.c` grew from a per-layer mass checker into a
+full second engine. `--check-layers` re-derives the orbit-weighted mass from the on-disk layer bytes at
+every layer; `--check-g-ladder` and `--check-t-ladder` verify the g and t ladders against the published
+`GT_LADDER_FORMAT.md` — written spec-first, before the reader — enforcing the f·g cut identity and the
+f·t node identity independently of the engine that produced them. Then `--ie-count` recomputed
+|C1∩C2∩C4∩C5| by classical signed inclusion–exclusion over subsets of the 31 free pairs: a completely
+different method, exact match. That closed the instrument half of the caveat TR-11 §10(vi) had carried
+since the count landed — the 39-digit integer no longer rests on one engine. Several figures were
+upgraded from sampled to exact in the same window: C2's unpinned rarity to **4.29341%**, and C3 given C1
+to **6.4211367496%**.
+
+**A theorem was false (2026-07-26).** SPECIFICATION.md had carried, as "Theorem 6", the claim that C1,
+C4 and C5 force the orientation of the opening pair — that s₀ = 63 is derived rather than chosen. It is
+not true. Complementing every hexagram of King Wen (x ↦ x ⊕ 63) yields a sequence that opens (0, 63) and
+satisfies C1, C2, C5, and C3 at exactly 776; only the *oriented* form of C4 excludes it. Worse, the
+claim's empirical support had been circular all along: the enumerator hardcodes `seq[0] = 63`, so no
+reversed-orientation ordering could ever have surfaced in any enumeration, at any depth. The retraction
+landed together with the true statement it replaces — the **Complement Z₂ symmetry theorem**, machine-checked
+in Lean with a kernel-only trust base — and the orientation is now documented for what it is: definitional,
+classically attested in the *Xugua*, and mathematically free. The same batch withdrew a circular joint-KDE
+headline. Neither correction moved a count, a sha, or the enumeration.
+
+**The last `native_decide` (2026-07-31).** `lean/Automorphism.lean`'s `applyPerm_pcomp_bool` had resisted
+a kernel proof — the 48·48·64 decision procedure exhausted memory — so it had shipped with a documented
+compiler-trust disclosure. It was replaced by a structural group-action argument that the kernel checks
+directly. The DIV-24 and ceiling results now stand on `[propext, Classical.choice, Quot.sound]` alone.
+
+**The prior-art sweep closed (2026-07-30).** Every channel — CNKI, reference-mining, a Japanese-author
+sweep, Western and OEIS — returned no missed enumeration, ceiling, or formalization prior art. The
+sharpest framework located is Ouyang (1992) on the (Z/2)⁶ structure and its subgroups; the sharpest
+counting is Suenaga (2012). Ouyang's earlier (≤1986) work explicitly *denies* that the King Wen sequence
+has mathematical structure — which is novelty support of an unusually direct kind, and is now cited as
+such rather than buried.
+
+**The review that found what two reviews had missed (2026-07-31 → 08-01).** Two full adversarial passes
+— one informed, one fresh-eyes — cleared the corpus. A third pass, same models, **different charge**,
+found roughly twenty real defects, including a retracted scope still live on the front page. The
+difference was not capability; it was the instruction. "Review these claims and give a verdict" produces
+satisficing: a reviewer that has a verdict and two findings stops. "Find errors, recompute every number
+that appears more than once, quote the offending text" produced about five times the findings from the
+same models. Two structural lessons were paid for here and are now standing rules. First: **a correction
+ledger's claim that something was propagated is a hypothesis, not evidence** — the worst defect of the
+cycle hid behind a revision entry asserting the propagation was already done, which reviewers read and
+believed, so the honesty apparatus became a source of false assurance. Revision entries must now record
+what was *verified*, not what was intended. Second: **fixes introduce defects** — a re-verification pass
+over the fix diff itself found nine more, two of them fresh instances of the very "asserted propagation
+that didn't happen" pattern that had just been diagnosed. Three of the gates in `scripts/doc_gates.sh`
+exist because process discipline had already proven insufficient: cross-file numeric consistency,
+CLI-flag drift, and a registry of retracted phrasings that fails the build if one is still live anywhere.
+
+**Two of the project's own claims retracted (2026-08-01).** The "hard information-theoretic floor
+k ≥ 13" was withdrawn and relabelled an observed-rate extrapolation. Its divisor was the maximum
+*unconditional* single-boundary information gain, but the same section reports a conditional gain of
+11.10 bits at step 3 — the premise was falsified by the data printed beside it, and the corrected
+arithmetic gives 12, not 13. More fundamentally, no necessity bound follows from the argument at all: it
+would require a supremum over all conditioning contexts, and no pigeonhole rescue is available because
+only King Wen's own cell need be a singleton. Separately, the 91-observable Bonferroni ledger was found
+to contain two offsetting errors — a Davis family double-count (⇒ 82 distinct) and an omitted books
+family (⇒ 89). The bar stays at the strictest of the three, now with its scope disclosed and a published
+counting rule; the three candidates span under 11% and **no published verdict differs between them**.
+
+**The verifier itself had drifted (2026-08-01).** The last item is the one that best characterizes the
+window. `verify.py` — the independent second opinion, the instrument the whole reproducibility story
+leans on — was audited against SPECIFICATION.md line by line, and its C4 check was found to test only
+half the constraint: the pair index, never the orientation. Which means that from 2026-07-26 onward,
+when the retraction established that complementation is an exact symmetry of C1∩C2∩C3∩C5, the verifier
+would have printed `VERIFY PASS` on a record encoding comp(King Wen). No other check in the file could
+have caught it. The predicate had been silently relying on the enumerator's hardcoded orientation — the
+one assumption an independent verifier is not entitled to make, since catching enumerator bugs is its
+entire purpose. Three further gaps came with it: the reference tables were self-verifying (all derived
+from the same King Wen literal they were checking against), and two reserved fields were unenforced. No
+canonical artifact was ever affected — `solve.c` pins the orientation and the dedup rule keeps the
+lexicographically smallest orient variant — so this was a latent false-PASS, not a false result. It was
+found independently twice, by two probes given no knowledge of each other, which is the cross-model
+control the review protocol asks for and the reason it is now written down.
+
+Attribution: reviews, fixes, and independent verification by Claude (Opus 4.8, Opus 5, and Fable 5) under
+operator direction. Every change in this window preserves the canonical selftest sha `403f7202…` —
+nothing here touched the enumeration.
