@@ -69,6 +69,12 @@ Headlines only — each links to its full treatment (technical reports in [repor
   caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
 - **Every valid ordering has exactly 23 record-level indistinguishable twins** (the symmetry group acts
   freely), and exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
+- **No symmetry-respecting generator can single out King Wen.** Any generator that scores orderings
+  using only G-invariant structural primitives (Hamming distance, complement, reversal, the values 0/63,
+  …) gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
+  24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
+  [lean/KingWen.lean](lean/KingWen.lean)). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
+  effects), not new — the contribution is the King-Wen instantiation and its machine-check. [TR-5](reports/TR5_SYMMETRY.md)
 - **McKenna's "ninth six" is forced.** The 1975 observation that exactly one adjacent transition flips
   all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
   is a theorem of the constraints, so the 10.5-billion-record measurement becomes a corollary. (The

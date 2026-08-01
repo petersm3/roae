@@ -118,9 +118,10 @@ lean C1RuleConstants.lean    # the eight "forced-1.0" literature rules (mmt4,p1c
 lean HammingOptimalMatching.lean  # C1 is THE unique Hamming-cost-minimizing comp/rev matching (Radisic 2026, re-derived in-repo; kernel-only decide) (2026-07-26)
 ```
 
-**Files on the `v4-canonical` branch, not here.** Three Lean files live on the public
-`v4-canonical` branch rather than `main`, because they concern the v4 compiler/f1c5 layer.
-Reports link to them with that qualifier; if a link looks broken from `main`, check that branch:
+**The prune-exactness proof layer (vendored into this tree 2026-08-01).** Three Lean files
+originating on the `v4-canonical` branch (they concern the v4 compiler / f1c5 layer) are now
+**included here** so the artifact is self-auditable — each is standalone core Lean 4 (zero imports,
+zero `sorry`/`axiom`/`admit`) and checks with `lean <file>` like the others:
 
 - `PruneExactness.lean` — f1c5 model-level exactness. `capping_exact` (dead-state pruning is
   exact), `no_live_lumping` + `cap_never_merges_live` (the FH-1 §2 no-further-collapse

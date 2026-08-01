@@ -52,7 +52,11 @@ is different:
   complement ䷁ The Receptive #2 (binary 000000, all-broken). The
   *choice* of this pair first is classically attested (the *Xugua*
   commentary's ordering rationale); the *orientation* (Creative before
-  Receptive) is forced by C5 (a theorem — see SPECIFICATION.md).
+  Receptive) is C4's own definitional choice, classically attested (the *Xugua* opens
+  Heaven-then-Earth) — **not** forced by the other rules. Complementing every hexagram maps any
+  valid arrangement to an equally-valid one opening (0, 63) that still satisfies C1, C2, C3, and C5
+  (machine-checked in [lean/KingWen.lean](../lean/KingWen.lean)). *(An earlier version claimed the
+  orientation was forced by C5 — retracted 2026-07-26; see SOLVE_SUMMARY.md / CLAIMS_DECIDED.md.)*
 - **C5 — Distance count.** Across the 63 consecutive transitions, the
   number of distances of each value (1, 2, 3, 4, 6) has to match a
   fixed distribution: 1×two, 2×twenty, 3×thirteen, 4×nineteen,
