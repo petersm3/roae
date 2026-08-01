@@ -599,15 +599,23 @@ gate_generated() {
   [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; rm -rf "$tmp"; return 0; }
 
   _norm() { sed 's/[0-9]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
+  # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
+  # ARTIFACT has that the generator does not), so a pure DELETION from a shipped
+  # artifact passed -- and passed while printing "matches ... exactly", which is the
+  # same over-attestation this suite exists to catch. Demonstrated 2026-08-01 by
+  # deleting the nuclear-attractor line from example/report.txt: the gate said [ok].
+  # Substitutions were caught only because they leave an added line behind as well.
   _cmp() {   # <artifact> <reference> <label>
     [ -f "$1" ] || { echo "  [skip] $1 absent"; return 0; }
-    local extra
+    local extra missing
     extra=$(comm -13 <(_norm "$2") <(_norm "$1") | wc -l)
-    if [ "$extra" -eq 0 ]; then
-      echo "  [ok]   $1 matches $3 exactly (digit-stripped)"
+    missing=$(comm -23 <(_norm "$2") <(_norm "$1") | wc -l)
+    if [ "$extra" -eq 0 ] && [ "$missing" -eq 0 ]; then
+      echo "  [ok]   $1 matches $3 exactly (digit-stripped, both directions)"
     else
-      echo "  [FAIL] $1 has $extra normalised lines $3 does not produce -- hand-edited?"
-      comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           > /'
+      echo "  [FAIL] $1 vs $3: $extra added, $missing missing (normalised lines) -- hand-edited?"
+      comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           +added   > /'
+      comm -23 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           -missing > /'
       echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact."
       echo "         CAUTION (recipe corrected 2026-08-01): only --all writes to stdout."
       echo "         --markdown and --html OPEN THEIR OWN FILES in the cwd (roae.py's"
