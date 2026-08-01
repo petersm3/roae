@@ -29,7 +29,10 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 RC=0
 
-DOCS=$(git ls-files '*.md' | grep -v '^example/' || true)
+# example/ was excluded here until 2026-08-01. That is a CONTAINER-level exemption — the same
+# construction that let the retracted "hard floor k >= 13" survive in TR-4's body while its
+# changelog narrated the retraction. Exempt a construction, never a directory.
+DOCS=$(git ls-files '*.md' || true)
 
 # ----------------------------------------------------------------------------------
 gate_numbers() {
@@ -165,7 +168,7 @@ def slug(t):
     t = re.sub(r'[^\w\s-]', '', t)
     return re.sub(r'\s+', '-', t)
 mds = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
-       .stdout.split() if not p.startswith('example/')]
+       .stdout.split()]
 anchors = {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
@@ -228,7 +231,7 @@ if os.path.exists(allow):
 EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
 EX  = r'\bexact|\bproven|\bproved'
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
-         .stdout.split() if not p.startswith('example/')]
+         .stdout.split()]
 seen = 0; bad = 0
 for f in files:
     for ln, line in enumerate(open(f, encoding='utf-8', errors='replace').read().splitlines(), 1):
