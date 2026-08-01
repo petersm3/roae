@@ -428,10 +428,25 @@ checks are pure-arithmetic per record.
 solve --validate [solutions.bin]
 ```
 
-Stricter version of `--verify`: in addition to per-record
-constraint checks, verifies sort order, dedup integrity, and
-King Wen presence in the file. Used in regression validation when
-both record-level correctness and file-level structure must pass.
+Parallel (OpenMP + mmap) whole-file checker: per-record C1-C5,
+strict-ascending sort order, and King Wen presence. Unlike
+`--verify` it has no headerless-shard fallback — it requires a
+valid `ROAE` header and aborts on bad magic or unknown version.
+
+**Not a superset of `--verify`.** `--verify` already checks sort
+order, duplicates and King Wen presence, and it is *stronger on
+duplicates*: `--verify` compares adjacent records with
+`compare_canonical` (orient bits masked), so it detects
+orientation-variant duplicates — the class this format is
+deduplicated by. `--validate` only flags records that compare
+equal under `compare_solutions`, i.e. byte-identical ones, so a
+file carrying two orient variants of the same canonical ordering
+passes `--validate` and fails `--verify`. `--validate` also stops
+at the first ordering violation, while `--verify` counts them all.
+Run both: treat `--verify` as the dedup authority and `--validate`
+as the fast parallel constraint sweep over large files.
+*(Corrected 2026-08-01, solve.c sweep: this section previously
+called `--validate` a "stricter version of `--verify`".)*
 
 ### --verify-rule2
 
@@ -1308,8 +1323,8 @@ writes a stream of (record_index, density_score) pairs. Used by
 | `SOLVE_SKIP_TEMP_SPACE_CHECK` | 0 | `=1`: skip the pre-merge free-space pre-flight (sum of input shard bytes ×1.5 vs `statvfs(SOLVE_TEMP_DIR)`) |
 | `SOLVE_MEMORY_FLUSH_COUNT` | 200000000 | Records-per-thread before flushing hash table to shard (memory-relief flush threshold) |
 | `SOLVE_DEPTH_PROFILE` | 0 (off) | `=1`: emit per-depth node-count histogram to log |
-| `SOLVE_CONCENTRATE_BUDGET` | 0 | Concentrate budget on richest sub-branches (deep-walk pilot mode) |
-| `SOLVE_DEAD_LIMIT` | 0 (no limit) | Cap on per-sub-branch dead-branch attempts (calibration use only) |
+| `SOLVE_CONCENTRATE_BUDGET` | unset (off) | **`=set` (any value, including `0`) — the code tests presence, not value.** On a checkpoint resume, divides `SOLVE_NODE_LIMIT` by the count of *remaining* sub-branches instead of the full partition. Sha-affecting: the output then depends on how many branches were pre-completed, so it is **not** reproducible. Do not write `SOLVE_CONCENTRATE_BUDGET=0` expecting "off" — leave it unset. *(Row corrected 2026-08-01, solve.c sweep: it previously read default `0` and described "concentrate budget on richest sub-branches", neither of which matches `solve.c`.)* |
+| `SOLVE_DEAD_LIMIT` | 0 (no limit) | Parsed into `dead_node_limit` and **never read** — the dead-sub-branch skip it names is not implemented in the current source. Setting it has no effect. *(Row corrected 2026-08-01, solve.c sweep.)* |
 | `SOLVE_SUB_BRANCH_PARALLELISM` | 0 (off) | `=N`: parallelize `--sub-branch` mode across N CPU cores per task |
 | `SOLVE_REGRESS_DIR` | `./` | Directory for `--regression-test` artifacts |
 | `SOLVE_HASH_LOG2` | 24 | Hash table slots = 2^N; default 16M slots × 32 bytes = 512 MB per thread |

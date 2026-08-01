@@ -13,6 +13,23 @@ that satisfies constraints C1-C5. The file layout is:
 Records are sorted (by `compare_solutions` — see §Sort order) and
 deduplicated (one record per canonical pair-sequence — see §Deduplication).
 
+**On-disk framing — read this before writing a reader.** Since #169, `solve`
+writes `solutions.bin` **gzip-framed by default** (`SOLVE_COMPRESS=1`; the
+filename does not change). Everything in this document — the 32-byte header,
+the `32 + i*32` record offsets, the file-size arithmetic — describes the
+**logical (decompressed)** byte stream. Every canonical sha256, including the
+one in `solutions.sha256`, is computed over that logical stream:
+
+    gzip -dc solutions.bin | sha256sum        # gz-framed (default)
+    sha256sum solutions.bin                   # only under SOLVE_COMPRESS=0
+
+A reader should sniff the gzip magic `1f 8b` at offset 0 and decompress
+first; `solve --verify`, `solve --validate` and `verify.py` all do this
+automatically. Set `SOLVE_COMPRESS=0` at enumeration time to get the raw
+stream on disk — the logical content, and therefore the sha, is identical
+either way. *(Documented 2026-08-01: this file previously described only the
+raw layout, the same omission corrected in TR-3 v1.9.)*
+
 ## File header (32 bytes)
 
 | Offset | Size | Field           | Encoding         | Notes |
@@ -182,7 +199,18 @@ Each record in solutions.bin satisfies:
 
 - **C1 (pair structure):** all 32 pairs used exactly once
 - **C2 (no hamming-5):** no consecutive hexagrams have Hamming distance 5
-- **C3 (complement distance):** implied by C1+C2+C5 for these specific pairs
+- **C3 (complement distance):** total complement distance ≤ **776**
+  (= 64 × 12.125, King Wen's own value). C3 is an **independently enforced
+  filter, not a consequence of C1+C2+C5**: the enumerator tests it at every
+  complete leaf and `--verify` reports C3 failures on their own line. On this
+  repository's own 100M-node run (`solve_results.json`) 30,906,944
+  C1+C2+C4+C5 leaves reduce to 273,808 C3-passing leaves, so a
+  re-implementation that omits C3 produces a strict **superset** of
+  `solutions.bin` and will not reproduce any canonical sha.
+  *(Corrected 2026-08-01, solve.c sweep: this line read "implied by C1+C2+C5
+  for these specific pairs", contradicting [SPECIFICATION.md](SPECIFICATION.md)
+  §C3 and [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) Step 6, both of which
+  require the check.)*
 - **C4 (first pair):** position 0 is always pair 0 (Creative/Receptive, 63→0)
 - **C5 (distance distribution):** the multiset of Hamming distances across
   all 63 consecutive transitions exactly matches King Wen's distribution:
@@ -190,27 +218,43 @@ Each record in solutions.bin satisfies:
 
 ## File integrity
 
-- `solutions.sha256` contains the SHA-256 hash of the entire `solutions.bin`
-  (header included, since the header is part of the canonical artifact).
+- `solutions.sha256` contains the SHA-256 hash of the entire **logical**
+  `solutions.bin` byte stream (header included, since the header is part of
+  the canonical artifact). Under the default gzip framing that is
+  `gzip -dc solutions.bin | sha256sum`, **not** `sha256sum solutions.bin` —
+  see §Overview "On-disk framing".
 - `solutions.meta.json` is the human-readable sidecar (format version,
   record count, embedded sha, generation timestamp, git hash).
 - `solve_results.json` contains run parameters, git hash, and analytics.
-- [`./solve --verify solutions.bin`](SOLVE_C_CLI.md#--verify) parses the header (fails loudly on bad
-  magic or unknown version), then independently checks every record against
-  C1-C5, verifies sort order, and checks for duplicates.
+- [`./solve --verify solutions.bin`](SOLVE_C_CLI.md#--verify) independently
+  checks every record against C1-C5, verifies sort order, and checks for
+  canonical duplicates. **Header handling is auto-detecting, not strict:** if
+  the first four logical bytes are not `ROAE` the command does *not* abort —
+  it reports `Shard mode (no header)` and treats the input as a headerless
+  `sub_*.bin` shard, which **skips the sort-order and duplicate checks** and
+  consumes the first 32 bytes as a record. An unknown *version* (with valid
+  magic) does abort. When you mean to check a canonical artifact, confirm the
+  output says `Header: magic ROAE` before trusting a PASS.
+  *(Clarified 2026-08-01, solve.c sweep: this bullet previously claimed
+  `--verify` "fails loudly on bad magic".)*
 
 ## Reading the file from another language
 
 Minimum sketch for any language:
 
-    1. Open solutions.bin
+    0. Open solutions.bin. If bytes 0..1 are 1f 8b it is gzip-framed
+       (the default) — decompress first and apply every step below to
+       the decompressed stream. See §Overview "On-disk framing".
+    1. Position at offset 0 of the logical stream.
     2. Read 32 bytes — the header.
     3. Check bytes 0..3 are 'R','O','A','E'. Reject if not.
     4. Read uint32 LE at offset 4 — must equal 1 (current format version).
        A reader that does not understand a newer version MUST refuse
        to interpret the file rather than guess.
     5. Read uint64 LE at offset 8 — the record count.
-    6. Validate: (file_size - 32) must equal record_count * 32.
+    6. Validate: (logical_size - 32) must equal record_count * 32.
+       (`verify.py` performs this cross-check; neither `solve --verify`
+       nor `solve --validate` does, so do not rely on them for it.)
     7. Seek to offset 32 and read records sequentially.
 
 For a full walkthrough — header parse, record decode, per-constraint
