@@ -98,7 +98,7 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 
 2. **The canonicals are reproducible slices, and deeper canonicals stay slices.** Each canonical scale is an exactly-reproducible slice at a fixed budget (see [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md)). Because the space is ≈10³⁸, a deeper canonical (e.g. a 1120T extension) is "more of the same slice," never "closer to complete" — its value is as a **discriminating test of the growth asymptote** (α ≈ 0.67), not as progress toward a total.
 
-3. **Earlier crude size estimates were vast undercounts.** A prior product-of-averages estimate put the tree at 10¹⁴–10¹⁵ nodes; the unbiased estimator gives 2.09×10⁴⁰ — a ≈20-order-of-magnitude correction. Product-of-per-level-averages is severely biased downward for the heavy-tailed branching this tree exhibits; unbiased random-probe sampling (this method) is the correct tool.
+3. **Earlier crude size estimates were vast undercounts.** A prior product-of-averages estimate put the tree at 10¹⁴–10¹⁵ nodes; the unbiased estimator gives 2.09×10⁴⁰ — a ≈25-order-of-magnitude correction (log₁₀(2.09×10⁴⁰) = 40.3 against 10¹⁴–10¹⁵ is 25.3–26.3 orders; corrected 2026-08-01 from "≈20", which disagreed with TR-4 §3's ≈25). Product-of-per-level-averages is severely biased downward for the heavy-tailed branching this tree exhibits; unbiased random-probe sampling (this method) is the correct tool.
 
 ## Provenance and status
 
@@ -187,7 +187,7 @@ see TR-11 §10(ii).)
 
 Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. The measured
 greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits
-— strikingly flat (mean 10.07), and the first step is the maximum single-boundary gain by construction
+— strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum single-boundary gain by construction
 (greedy picks the minimum-survivor boundary). Two consequences, honestly labeled:
 
 - **Heuristic floor: k ≥ 13.** If no boundary's marginal contribution exceeds the best observed single
