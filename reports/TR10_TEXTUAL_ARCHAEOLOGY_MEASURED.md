@@ -80,7 +80,7 @@ notational scoring — is accepted and stated.
    Formalization choices are ours, not Davis's; errors of operationalization are ours.
 3. **The scoreboard (2026-07-04, 2×10⁹ probes).** Population = the C1–C5 constraint-satisfying space
    (≈1.33×10³⁸ orderings; the run's own canonical-leaf estimate, 1.3275×10³⁸, matches the established
-   figure to 0.09% — self-validating). Fractions are of canonical mass.
+   figure to 0.09% — a consistency check within the same estimator family (the absolute validation is TR-11's exact anchors)). Fractions are of canonical mass.
 
    | # | Candidate (Davis claim, pages) | KW | Population | Pre-registered verdict |
    |---|---|---|---|---|

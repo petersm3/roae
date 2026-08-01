@@ -73,7 +73,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   …) gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
   24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
   [lean/KingWen.lean](lean/KingWen.lean)). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
-  effects), not new — the contribution is the King-Wen instantiation and its machine-check. [TR-5](reports/TR5_SYMMETRY.md)
+  effects), not new — the contribution is the King-Wen instantiation and its machine-check. [lean/README §The equivariance ceiling](lean/README.md), [lean/KingWen.lean](lean/KingWen.lean)
 - **McKenna's "ninth six" is forced.** The 1975 observation that exactly one adjacent transition flips
   all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
   is a theorem of the constraints, so the 10.5-billion-record measurement becomes a corollary. (The

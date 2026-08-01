@@ -149,8 +149,9 @@ arithmetic; instruction selection does not change the records or their byte layo
 established empirically, not assumed: the 11.2T canonical is byte-identical between the x86
 `-march=native` build and an **ARM Neoverse-N2 `-mcpu=native`** build (CANONICAL_HASHES §"cross-architecture
 witness"), and the selftest sha `403f7202…` is identical across `-O2`, `-O3 -march=native`,
-`-O3 -march=x86-64-v3`, and `-O3 -flto` (verified 2026-08-01 on AMD EPYC). So **any** of the documented
-recipes reproduces the canonical sha.
+`-O3 -march=x86-64-v3`, and `-O3 -flto` (verified 2026-08-01 on AMD EPYC). So the documented recipes **tested to date** all reproduce the canonical sha. Evidence: one same-host
+flag matrix plus one cross-architecture rebuild — two independent witnesses, not an exhaustive
+guarantee over every compiler version and host.
 
 The reason to prefer a fixed baseline for the *canonical* build is **portability of the binary**, not
 reproducibility of the output: a `-march=native` binary emits host-specific instructions and may fail to

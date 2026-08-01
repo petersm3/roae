@@ -898,8 +898,9 @@ footprint to ~13.1 GB (fits an 8-core/15 GB box, vs ~39 GB for 192-bit
 counters at this quotient).
 
 - `--f1-mod P` — **required**. The modulus: a decimal odd prime with
-  2 < P < 2⁶², primality checked at startup (deterministic Miller–Rabin);
-  anything else is rejected (exit 2).
+  2 < P < 2⁶², primality checked at startup (deterministic Miller–Rabin). A **missing** `--f1-mod` is a usage error
+  (exit 2); a *malformed, even, out-of-range or composite* P fails the startup `F1_CHECK` assertion and
+  exits **71** (`solve.c:12478`), as does an invalid `--f1-start-orbit` value.
 - `--f1-start-orbit 0..5|all` (default `all`) — restrict the layer-1 seed to
   one of the six ⟨G48, XOR-63⟩-orbits of the 64 possible first-pair exit
   hexagrams (census asserted at startup: sizes {2,12,24,8,6,12}, representatives

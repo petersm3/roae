@@ -100,23 +100,40 @@ gate_retract() {
   echo "== GATE 3: retracted phrasings still surviving =="
   # Registry-driven and deliberately so: auto-parsing retraction prose is unreliable,
   # and a wrong gate is worse than none. Each entry is a FIXED string that was retracted;
-  # the gate fails if it appears anywhere outside the files allowed to narrate the retraction.
+  # the gate fails if it appears anywhere outside the file allowed to narrate the retraction.
+  #
+  # HARDENED 2026-08-01 after this gate missed a LIVE survivor two ways at once
+  # (SOLVE_SUMMARY.md still carried the retracted conflict-theorem scope):
+  #   (a) line-break evasion — the phrase spanned a hard wrap, so line-based `git grep -F`
+  #       could not see it. FIX: whitespace-normalise each file to a single line first.
+  #   (b) morphology evasion — the registry held "preserving…" while the survivor said
+  #       "preserves…". FIX: register the morphology-independent STEM (and add variants).
+  #   (c) allow-column over-reach — matching the allow string anywhere on the line exempted
+  #       too much. FIX: the allow column now matches the FILENAME only.
   local reg="documentation/RETRACTED_PHRASES.tsv"
   [ -f "$reg" ] || { echo "  [skip] no $reg"; return 0; }
   local bad=0
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
-    local hits
-    # Exempt (a) the doc allowed to narrate the retraction, and (b) Revision-History
-    # rows — a changelog entry quoting the superseded wording is describing history,
-    # which is exactly what the no-silent-edit policy requires it to do.
-    hits=$(git grep -F -n -- "$phrase" -- '*.md' 2>/dev/null \
-           | grep -v -F "$allow" \
-           | grep -vE '^[^:]+:[0-9]+:\| v[0-9]' || true)
+    local np hits=""
+    np=$(printf '%s' "$phrase" | tr '\n' ' ' | tr -s ' ')
+    for f in $DOCS; do
+      case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
+      # normalise the whole file to one whitespace-collapsed line, then fixed-string match
+      if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then
+        # changelog rows legitimately quote superseded wording; only exempt if EVERY
+        # line-level hit is a revision row.
+        if git grep -F -n -- "$np" -- "$f" 2>/dev/null | grep -qvE ':[0-9]+:\| v[0-9]'; then
+          hits="$hits $f"
+        elif ! git grep -qF -- "$np" -- "$f" 2>/dev/null; then
+          hits="$hits $f(spans-lines)"                  # only visible after normalisation
+        fi
+      fi
+    done
     if [ -n "$hits" ]; then
       echo "  [FAIL] retracted phrasing still present: \"$phrase\""
       echo "         ($note)"
-      echo "$hits" | cut -c1-150 | sed 's/^/      /'
+      for h in $hits; do echo "      $h"; done
       bad=1
     else
       echo "  [ok] retracted: \"$phrase\""

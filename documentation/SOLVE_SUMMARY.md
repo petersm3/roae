@@ -215,8 +215,7 @@ second wave of results, each with a full [technical report](../reports/README.md
   [[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-6](../reports/TR6_PARITY_SKELETON.md)]
 - **The classical rules contradict each other.** A central result: the four strongest design
   rules proposed in the literature — two by [Steve Moore](CITATIONS.md#moore1989), two traceable through [Larry Schulz](CITATIONS.md#schulz1990-motifs) back to a
-  13th-century commentator — **cannot all be satisfied by any ordering that preserves the classical
-  pairing**. King Wen keeps one of
+  13th-century commentator — **cannot all be satisfied by any C1∩C2∩C4∩C5-valid ordering**. King Wen keeps one of
   them perfectly and misses the other three by the smallest measured margins (2 each). Its famous "irregularities,"
   puzzled over for centuries, are the visible seam of a forced trade-off — not damage to a
   once-perfect-under-all-four original (none could exist), and not sloppiness. (Whether they instead

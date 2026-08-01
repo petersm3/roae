@@ -4,7 +4,7 @@
 them ROAE discoveries — were formalized in the C1–C5 pair representation and measured against the *entire*
 constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased weighted-Knuth estimation
 (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes; the instrument reproduced the independently-established total space
-size to 0.03%, self-validating the method). This converts decades of by-inspection claims into measured
+size to 0.03%, a consistency check within the same estimator family; the absolute validation of the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
 structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604; the
 gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
@@ -136,7 +136,7 @@ attribution: solve.py `--registry-verify` section. Three headline findings:
 
 **1. A new strongest discriminator — with the data-likeness caveat stated plainly.** Schulz's S25–28
 trigram configuration (2011/2016: four consecutive stations sharing the dui top trigram, bottoms = the
-four "right" trigrams in order) holds in 2×10⁻⁸ of the population (×5×10⁷) — three orders beyond the
+four "right" trigrams in order) holds in 2×10⁻⁸ of the population (×5×10⁷) — 2.4 orders beyond the
 previous champion. Like Cook's exact level-3 positions, this is a highly *specific* configuration: its
 registry classification is data-like rather than principled, and it is reported as a measured property,
 not promoted. The exception-co-location meta-rule (both Schulz rules' violations confined to S25/26)
