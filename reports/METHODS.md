@@ -13,7 +13,7 @@ Every report measures the same object. The formal predicates (full statements + 
 - **C2 — no distance-5 transition.** No adjacent transition has Hamming distance 5. (Mathematically
   implied by C5's histogram; retained as an O(1) boundary pre-filter.)
 - **C3 — complement-proximity ceiling.** For the ×64 integer representation, the complement-distance sum
-  `Σ_pairs |Δpos|` **≤ 776** (equivalently mean complement distance cd(S) ≤ 12.125). **The bound is a
+  `Σ_{v∈H} |pos(v) − pos(v̄)|` **≤ 776** (the sum runs over all **64** hexagrams — hence mean cd = 776/64 = 12.125; notation corrected 2026-08-01 from `Σ_pairs`, which would halve it) (equivalently mean complement distance cd(S) ≤ 12.125). **The bound is a
   ceiling, not an equality: King Wen attains it exactly (776), and any ordering with a smaller sum also
   satisfies C3** (e.g. the wrap-d5 witness at 752). The threshold 776 is King Wen's own value —
   reverse-engineered, not derived; priced as circular in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
