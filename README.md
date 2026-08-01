@@ -164,6 +164,11 @@ python3 sat.py                           # SAT layer usage + targets
 python3 tests.py                         # regression harness (59 tests)
 bash reports/certificates/verify_all.sh  # everything above + all DRAT certs + Lean, one command
 ```
+`verify_all.sh` needs four external tools — **gcc**, **python3**, **drat-trim** and **lean** (elan).
+It probes for each up front and reports any dependent check as **SKIP**, not FAIL: a SKIP means the
+tool is absent, never that a certificate failed to verify. SKIPs do not pass the run — the exit
+status distinguishes them — so a machine without drat-trim and Lean gives a partial, honestly-labelled
+result rather than a wall of failures.
 Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
 
 ## Going deeper

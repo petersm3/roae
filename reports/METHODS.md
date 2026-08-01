@@ -66,7 +66,7 @@ orbit-quotient), not by disagreement.
 | Symmetry group (sequence level) | 48 (B₃ ≅ Z₂≀S₃) | **proven** (finite gates + classical closure) | — | [TR-5] |
 | Symmetry group (record level) | 24 (S₄); free action | **proven** | orbit | [TR-5] |
 | Twins per solution | 23 (orbit size 24) | **proven** | orbit | [TR-5] §4 |
-| Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (= N/24 of the two-instrument count above; the recomputed N is ≡ 0 mod 24, so the division is exact) | orbit | [TR-11] §9 |
+| Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (= N/24 of the two-instrument count above; the recomputed N is ≡ 0 mod 24, so the division is exact) | **record-level** orbit (S₄, order 24, free action at the canonical *pair-ordering* level; at the orientation-explicit **sequence** level the group is the order-48 lift and the divisor is 48 — [TR-5] §3(i)) | [TR-11] §9 |
 
 *All three exact full-scale quantities — \|C1∩C2∩C4\| (via `--ie-no-budget`), the C5-layer count
 \|C1∩C2∩C4∩C5\|, and its orbit count — are **two-instrument** as of 2026-07-25: independently
