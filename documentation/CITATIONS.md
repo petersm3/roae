@@ -116,7 +116,7 @@ applicable.
 
 - **Chan, Augustin** (2026-04-10). *Statistical Properties of the
   King Wen Sequence: An Anti-Habituation Structure That Does Not
-  Improve Neural Network Training*. arXiv:2604.09234.
+  Improve Neural Network Training*. arXiv:2604.09234 (v2, revised 2026-06-25).
   ([arxiv.org/abs/2604.09234](https://arxiv.org/abs/2604.09234)).
   Code and data:
   [github.com/augchan42/king-wen-agi-framework](https://github.com/augchan42/king-wen-agi-framework);
@@ -702,10 +702,13 @@ above carry the per-finding attribution; this list is the raw inventory.
 
 <a id="chan2026"></a>
 Chan, A. (2026). *Statistical properties of the King Wen sequence: An anti-habituation structure that does
-not improve neural network training*. arXiv. https://arxiv.org/abs/2604.09234
+not improve neural network training*. arXiv:2604.09234 (v2, revised 2026-06-25). https://arxiv.org/abs/2604.09234
 [doi:10.48550/arXiv.2604.09234](https://doi.org/10.48550/arXiv.2604.09234)
   Monte Carlo statistical analysis of the sequence against 100,000 random permutations; predates ROAE;
-  per-finding overlap scoped above. [read]
+  per-finding overlap scoped above. *Version check (2026-08-01): our reading was taken against v1; the
+  paper has since been revised to v2. The abstracts of v1 and v2 are byte-identical, so no headline claim,
+  percentile, or p-value that we scope against has changed, and the overlap analysis stands as written.*
+  [read]
 
 <a id="clarke1987"></a>
 Clarke, A. G. (1987). Probability theory applied to the I Ching. *Journal of Chinese Philosophy, 14*(1),
