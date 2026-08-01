@@ -132,7 +132,13 @@ class TestKnownValues(unittest.TestCase):
 class TestHelpers(unittest.TestCase):
     def test_trigram_split(self):
         self.assertEqual(roae.lower_trigram(0b111000), 0b000)
-        self.assertEqual(roae.upper_trigram(0b111000), 0b111) if hasattr(roae, "upper_trigram") else None
+        # Unconditional by design: the previous form was guarded by
+        # `if hasattr(roae, "upper_trigram") else None`, so renaming or deleting
+        # the function would have turned a real check into a silent no-op rather
+        # than a failure. A test that cannot fail when its subject disappears is
+        # not a test. If this line ever errors on AttributeError, that is the
+        # correct signal.
+        self.assertEqual(roae.upper_trigram(0b111000), 0b111)
 
     def test_nuclear(self):
         h = 0b010111
