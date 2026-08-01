@@ -1,0 +1,13 @@
+# GATE 5 allowlist — lines where a canonical quantity legitimately appears alongside the
+# OPPOSITE status word, because the sentence is COMPARING exact against estimate rather
+# than mislabelling anything. Format: one "path:line" per line, with the reason above it.
+#
+# Reviewed 2026-08-01. Both entries verified by reading the sentence, not by pattern.
+
+# States the ratio of the EXACT orbit count to the Knuth ESTIMATE (0.999956) — the
+# comparison is the point of the sentence.
+documentation/HISTORY.md:5563
+
+# The estimator-calibration table row for C1-C5, whose "exact" cell literally reads
+# "none — no exact value exists". The word "exact" is there to deny an exact value.
+reports/TR4_SIZE_OF_THE_SPACE.md:119

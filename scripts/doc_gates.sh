@@ -6,15 +6,16 @@
 #   The DOC layer had none, so doc-level defects depended on review luck. On 2026-08-01
 #   two full adversarial AI review passes cleared the repo and a third found ~20 real
 #   defects — including a retracted claim still stated on the README front page, hidden
-#   because a revision entry *asserted* the correction had propagated. These three gates
-#   turn that class of failure from "hope a reviewer notices" into "the script fails".
+#   because a revision entry *asserted* the correction had propagated. These gates turn
+#   that class of failure from "hope a reviewer notices" into "the script fails".
 #
 # USAGE
 #   scripts/doc_gates.sh numbers    # cross-file numeric consistency (long integers)
 #   scripts/doc_gates.sh cli        # CLI flags live in code but absent from the CLI docs
 #   scripts/doc_gates.sh retract    # retracted phrasings that still survive in the corpus
 #   scripts/doc_gates.sh links      # internal markdown links + #anchors that do not resolve
-#   scripts/doc_gates.sh all        # run all four
+#   scripts/doc_gates.sh status     # canonical quantities whose exact/estimate status drifted
+#   scripts/doc_gates.sh all        # run all five
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
 #
@@ -198,14 +199,69 @@ sys.exit(1 if bad else 0)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+gate_status() {
+  echo "== GATE 5: canonical quantities keep their epistemic status =="
+  # GATE 1 catches a number whose DIGITS changed. This catches the other half: a number
+  # that keeps its digits while silently changing epistemic status — an estimate promoted
+  # to "exact", or an exact count demoted to an estimate. reports/METHODS.md is the single
+  # source of truth; documentation/CANONICAL_VALUE_STATUS.tsv is its machine-readable
+  # projection. Report-only, because legitimate sentences DO compare the two (e.g. "the
+  # ratio of the exact count to the Knuth estimate"), so an allowlist carries those.
+  python3 - <<'PY'
+import re, subprocess, sys, os
+reg = 'documentation/CANONICAL_VALUE_STATUS.tsv'
+allow = 'documentation/DOC_GATE_STATUS_ALLOWLIST.txt'
+if not os.path.exists(reg):
+    print(f"  [FAIL] missing registry {reg}"); sys.exit(1)
+rows = []
+for line in open(reg, encoding='utf-8'):
+    line = line.rstrip('\n')
+    if not line.strip() or line.lstrip().startswith('#'): continue
+    p = line.split('\t')
+    if len(p) >= 2: rows.append((p[0].strip(), p[1].strip()))
+allowed = set()
+if os.path.exists(allow):
+    allowed = {l.strip() for l in open(allow, encoding='utf-8')
+               if l.strip() and not l.lstrip().startswith('#')}
+EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
+EX  = r'\bexact|\bproven|\bproved'
+files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
+         .stdout.split() if not p.startswith('example/')]
+seen = 0; bad = 0
+for f in files:
+    for ln, line in enumerate(open(f, encoding='utf-8', errors='replace').read().splitlines(), 1):
+        for val, want in rows:
+            if re.fullmatch(r'[\d.]+', val) and ',' not in val:
+                if not re.search(re.escape(val) + r'\s*[×x]\s*10', line): continue
+            elif val not in line:
+                continue
+            seen += 1
+            he, hx = bool(re.search(EST, line, re.I)), bool(re.search(EX, line, re.I))
+            conflict = (want == 'exact' and he and not hx) or (want == 'estimate' and hx and not he)
+            if conflict:
+                key = f"{f}:{ln}"
+                if key in allowed: continue
+                print(f"  [WARN] {f}:{ln} — {val[:28]} is '{want}' in METHODS but this line reads otherwise")
+                print(f"         {line.strip()[:170]}")
+                bad += 1
+if bad == 0:
+    print(f"  [ok] {seen} occurrences of {len(rows)} canonical quantities all carry a consistent status")
+else:
+    print(f"  (report-only: if a hit is a legitimate exact-vs-estimate COMPARISON, add its 'file:line' to {allow})")
+sys.exit(0)
+PY
+}
+
 case "${1:-all}" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
   links)   gate_links   || RC=1 ;;
+  status)  gate_status  || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
-           echo; gate_links || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|all}"; exit 2 ;;
+           echo; gate_links || RC=1; echo; gate_status || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|status|all}"; exit 2 ;;
 esac
 
 echo
