@@ -750,6 +750,177 @@ class TestVerifyRecordsPath(unittest.TestCase):
         self.assertEqual(sum(tot.values()), 2_703_360)
         self.assertEqual(3 * 5 * 7 * 2 ** 14, 1_720_320)
 
+    # ---- A1 (2026-08-01): the orientation-fiber factor -------------------
+    # fiber_count() generalises the fiber from King Wen's own ordering to an
+    # ARBITRARY C1 ordering, which is what converts deduped RECORDS into
+    # orientation-explicit SEQUENCES. It is the instrument behind
+    # A1_ORIENTATION_FIBER_MEASUREMENT.md, so it is gated four ways: against
+    # TR-1 §7's published values, against the pre-existing _fiber_dp
+    # instrument, against explicit brute force, and on its own algebra.
+
+    def _brute_subfiber(self, perm, fixed, free_slots, with_c3):
+        """Explicit enumeration over `free_slots`, checking C2/C5 (and optionally
+        C3) on the assembled 64-hexagram sequence. Shares no machinery with the
+        DP: no budget codes, no transfer states, no B0 — it just builds each
+        sequence and tests the published constraints on it."""
+        V = self.V
+        target = tuple(V.KW_DIST)
+        good = 0
+        for m in range(1 << len(free_slots)):
+            o = dict(fixed)
+            o[0] = 0                             # C4 as defined: slot 0 opens (63, 0)
+            for t, s in enumerate(free_slots):
+                o[s] = (m >> t) & 1
+            seq = []
+            for i in range(32):
+                a, b = V.PAIRS[perm[i]]
+                seq += [a, b] if o[i] == 0 else [b, a]
+            d, bad = [0] * 7, False
+            for i in range(63):
+                h = bin(seq[i] ^ seq[i + 1]).count("1")
+                if h == 5:                       # C2
+                    bad = True
+                    break
+                d[h] += 1
+            if bad or tuple(d) != target:        # C5
+                continue
+            if with_c3 and V.compute_comp_dist(seq) > 776:
+                continue
+            good += 1
+        return good
+
+    def test_fiber_count_reproduces_the_tr1_published_values(self):
+        # THE mandated gate: the generalised routine must return exactly
+        # 1,720,320 on King Wen's own pair ordering. TR-1 §7 states that value,
+        # its 3*5*7*2^14 factorization, and the two companion fiber sizes.
+        V = self.V
+        ident = list(range(32))
+        self.assertEqual(V.fiber_count(ident, 63), 1_720_320)
+        self.assertEqual(V.fiber_count(ident, 0), 983_040)
+        self.assertEqual(V.fiber_count(ident, 63) + V.fiber_count(ident, 0), 2_703_360)
+        self.assertEqual(V.fiber_count(ident, 63), 3 * 5 * 7 * 2 ** 14)
+
+    def test_fiber_count_agrees_with_the_independent_fiber_dp(self):
+        # Two implementations, written in different passes: _fiber_dp is a
+        # forward+backward transfer DP keyed on (last, budget-tuple) over KW's
+        # own order; fiber_count is a forward-only DP on packed mixed-radix
+        # budget codes over an arbitrary order. They must land on the same
+        # integers for the one ordering both can do.
+        V = self.V
+        _B0, F, Bk = V._fiber_dp()
+        tot = {}
+        for (last, bud, opening), cnt in F[1].items():
+            tot[opening] = tot.get(opening, 0) + cnt * Bk[1].get((last, bud), 0)
+        ident = list(range(32))
+        self.assertEqual(V.fiber_count(ident, 63), tot.get(63, 0))
+        self.assertEqual(V.fiber_count(ident, 0), tot.get(0, 0))
+
+    def test_fiber_count_matches_explicit_brute_force(self):
+        # The DP never assembles a sequence; the brute force never uses a
+        # budget. Freeze all but a 10-slot window at King Wen's own orientation
+        # and enumerate that window explicitly (1,024 sequences), checking C2 and
+        # C5 directly on each assembled 64-hexagram sequence. Three windows —
+        # head, middle, tail — so every stretch of the transfer path is covered.
+        # Each window admits far fewer than 1,024, so acceptance AND rejection
+        # are both exercised rather than a vacuous all-pass.
+        V = self.V
+        ident = list(range(32))
+        for free in (list(range(1, 11)), list(range(11, 21)), list(range(22, 32))):
+            fixed = {i: 0 for i in range(1, 32) if i not in free}
+            brute = self._brute_subfiber(ident, fixed, free, with_c3=False)
+            self.assertGreater(brute, 0,
+                               f"window {free[0]}-{free[-1]}: KW's own vector must be in it")
+            self.assertLess(brute, 1 << len(free),
+                            f"window {free[0]}-{free[-1]}: nothing was rejected, "
+                            f"so the test cannot discriminate")
+            self.assertEqual(V.fiber_count(ident, 63, fixed=fixed), brute,
+                             f"DP and brute force disagree on window {free[0]}-{free[-1]}")
+
+    def test_c3_is_constant_on_a_fiber(self):
+        # The load-bearing claim behind "the fiber is a C2+C5 object": C3 is
+        # orientation-BLIND (C3 = 16 + 8*G, G a function of slot placement only),
+        # so adding the C3 <= 776 filter to the brute force must not remove a
+        # single member. If it did, fiber_count would be counting the wrong set.
+        V = self.V
+        ident = list(range(32))
+        fixed = {i: 0 for i in range(1, 22)}
+        free = list(range(22, 32))
+        self.assertEqual(self._brute_subfiber(ident, fixed, free, with_c3=True),
+                         self._brute_subfiber(ident, fixed, free, with_c3=False))
+        # ... and directly: C3 is literally constant across orientation vectors
+        vals = set()
+        for m in range(32):
+            seq = []
+            for i in range(32):
+                a, b = V.PAIRS[i]
+                seq += [a, b] if (i == 0 or not (m >> (i % 5)) & 1) else [b, a]
+            vals.add(V.compute_comp_dist(seq))
+        self.assertEqual(vals, {776}, "C3 moved under an orientation flip")
+
+    def test_fiber_count_partitions_over_a_free_bit(self):
+        # Algebraic self-consistency the published values cannot supply: the
+        # fiber splits exactly over any one slot's orientation, and slot 30 is
+        # the one additionally forced bit TR-1 §7 names (one side must be empty).
+        V = self.V
+        ident = list(range(32))
+        whole = V.fiber_count(ident, 63)
+        for slot in (1, 7, 17, 30):
+            halves = [V.fiber_count(ident, 63, fixed={slot: o}) for o in (0, 1)]
+            self.assertEqual(sum(halves), whole, f"slot {slot} does not partition")
+        self.assertEqual(V.fiber_count(ident, 63, fixed={30: 1}), 0,
+                         "TR-1 §7 says slot 30 is forced on the C4-oriented fiber")
+
+    def test_the_two_redundancies_in_the_fiber_dp_are_real(self):
+        # Mutation testing (2026-08-01) showed two edits to fiber_count that do
+        # NOT change any answer. Both are genuine redundancies, not test gaps,
+        # and they are pinned here so nobody later "fixes" a passing mutant:
+        #
+        #  (i) C2 is IMPLIED by C5 at the sequence level. C5 pins the whole
+        #      63-distance multiset to King Wen's, which contains no 5, so a
+        #      C5-satisfying sequence cannot contain a 5-transition. C2 is a
+        #      pruning device for the search, not an extra filter on the fiber.
+        #  (ii) the exact-budget landing test at the end of the DP is free: 31
+        #      boundaries get placed, each class is capped at B0, and the caps
+        #      sum to 31, so any survivor already sits exactly on B0.
+        V = self.V
+        B0, _ham, clsidx, _add, _fc = V._fiber_tables()
+        self.assertEqual(V.KW_DIST[5], 0, "C5 admits a 5-transition; (i) no longer holds")
+        self.assertEqual(sum(B0), 31, "caps no longer sum to the boundary count; (ii) fails")
+        self.assertEqual(clsidx[5], -1)
+        self.assertEqual(clsidx[0], -1)
+
+    def test_fiber_count_rejects_malformed_orderings(self):
+        V = self.V
+        with self.assertRaises(ValueError):
+            V.fiber_count(list(range(31)), 63)            # not 32 slots
+        with self.assertRaises(ValueError):
+            V.fiber_count([0] * 32, 63)                   # not a permutation
+        bad = list(range(32)); bad[0], bad[5] = bad[5], bad[0]
+        with self.assertRaises(ValueError):
+            V.fiber_count(bad, 63)                        # C4 pair not at slot 0
+        with self.assertRaises(ValueError):
+            V.fiber_count(list(range(32)), 17)            # opening not in the pair
+
+    def test_every_real_record_has_a_nonempty_fiber(self):
+        # A record exists because some orientation vector satisfied C1-C5, so
+        # its own stored orientation is a member of its fiber and no record may
+        # count 0. This checks fiber_count's SEMANTICS on real orderings, which
+        # the King Wen gate alone cannot: KW's ordering is a single point.
+        import os
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "solutions.bin")
+        if not os.path.exists(path):
+            self.skipTest("no solutions.bin sample in the repo")
+        V = self.V
+        seen = 0
+        for i, perm, orient in V._fiber_records(path, limit=400):
+            self.assertGreater(V.fiber_count(perm, 63), 0,
+                               f"record {i} has an empty fiber but exists")
+            # the stored orientation is not merely countable, it is IN the fiber
+            self.assertEqual(V.fiber_count(perm, 63,
+                                           fixed={s: orient[s] for s in range(1, 32)}), 1)
+            seen += 1
+        self.assertGreater(seen, 0)
+
     def test_gender_null_exact_reproduces_tr8(self):
         # A8: TR-8 §Commands' exact pair-null gender figure. Until now both
         # implementations of P(rc4_violations <= 2) = 47/445740 lived in

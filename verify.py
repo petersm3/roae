@@ -1006,6 +1006,270 @@ def _fiber_succ(i, last, bud, B0):
             continue
         yield o, s, tuple(nb)
 
+# ---------------------------------------------------------------------------
+# A1 (2026-08-01): the orientation fiber of an ARBITRARY C1 pair ordering.
+#
+# `_fiber_dp` / `recount_fiber` above answer TR-1 §7's question — the fiber of
+# King Wen's OWN ordering, with the forced/free bit structure. The block below
+# answers the *counting-convention* question instead. A record in solutions.bin
+# is a PAIR ORDERING with orientation collapsed (SOLUTIONS_FORMAT.md §"The
+# output counts unique pair orderings, not unique oriented sequences"), while
+# the C1–C5 space estimate counts orientation-explicit SEQUENCES. The exact
+# conversion between the two levels is the fiber size, ordering by ordering:
+#
+#     N = Σ over valid pair orderings P of |fiber(P)|      (sequences)
+#     R = # of P with |fiber(P)| ≥ 1                       (records)
+#     mean fiber = N / R = the orientation-dedup factor
+#
+# Which constraints see orientation at all:
+#   C1 (pair structure)  orientation-BLIND — C1 fixes the SET of 32 pairs, and
+#                        a pair is the same pair either way round.
+#   C4 (opening)         pins pair {63,0} at slot 0 and, as defined, its
+#                        orientation (63 then 0), so exactly 31 bits are free.
+#   C2 (no distance 5)   orientation-SENSITIVE, but only across pair boundaries:
+#                        d(a,b) = d(b,a), so the 32 within-pair distances are
+#                        orientation-invariant — and none of them is 5.
+#   C5 (distance multiset) orientation-SENSITIVE in the same place and for the
+#                        same reason. The within-pair multiset is {2:12, 4:12,
+#                        6:8} for EVERY C1 ordering under EVERY orientation
+#                        vector, so C5 reduces to a fixed budget B0 on the 31
+#                        BETWEEN-pair distances, identical for every ordering.
+#   C3 (complement dist) orientation-BLIND: C3 = 16 + 8·G, G = Σ over the 12
+#                        complement-couples of |slot(P) − slot(P′)|
+#                        (lean/C3Decomposition.lean; TR-11 §10(ii)). The 8
+#                        self-complementary pairs sit at adjacent positions and
+#                        contribute 1 each way whichever member leads (the 16);
+#                        inside a couple at slots i<j the two members' distances
+#                        sum to 4(j−i) with both orientations cancelling. So C3
+#                        is CONSTANT on a fiber — it decides WHICH orderings
+#                        have a fiber, never which orientations are in it.
+#
+# The fiber is therefore exactly the set of orientation vectors whose 31
+# between-pair distances avoid 5 and realise B0 — a transfer DP over
+# (exit hexagram, budget consumed) in 31 steps. Exact, not a sample.
+# ---------------------------------------------------------------------------
+
+_FIBER_CODE_BITS = 13     # budget codes occupy 6,048 < 2^13 values
+_FIBER_TABLES = None
+
+def _fiber_tables():
+    """Build (once) the residual between-pair budget B0 and the mixed-radix
+    budget-increment tables the arbitrary-ordering DP runs on.
+
+    B0 is DERIVED, not copied: C5's full 63-value multiset minus the
+    orientation- and ordering-invariant within-pair multiset. It is then
+    cross-checked against King Wen's own 31 between-pair distances, which must
+    agree — two derivations of the same universal budget."""
+    global _FIBER_TABLES
+    if _FIBER_TABLES is not None:
+        return _FIBER_TABLES
+    from collections import Counter
+    full = Counter(hamming(KW[i], KW[i + 1]) for i in range(63))
+    within = Counter(hamming(a, b) for a, b in PAIRS)
+    if 5 in within:
+        raise RuntimeError("fiber: a within-pair distance is 5 — C1 and C2 would be "
+                           "unsatisfiable together; tables are wrong")
+    resid = full - within
+    if sum(resid.values()) != 31 or (set(resid) - set(_FIBER_CLS)):
+        raise RuntimeError(f"fiber: residual between-pair budget is malformed: {dict(resid)}")
+    betw = Counter(hamming(KW[2 * i + 1], KW[2 * i + 2]) for i in range(31))
+    if resid != betw:
+        raise RuntimeError(f"fiber: C5-minus-within budget {dict(resid)} disagrees with "
+                           f"KW's own between-pair multiset {dict(betw)}")
+    B0 = tuple(resid.get(c, 0) for c in _FIBER_CLS)
+
+    ham = [[bin(x ^ y).count('1') for y in range(64)] for x in range(64)]
+    clsidx = [-1] * 7
+    for j, c in enumerate(_FIBER_CLS):
+        clsidx[c] = j
+    pv, r = [], 1
+    for c in B0:
+        pv.append(r)
+        r *= (c + 1)
+    ncode = r
+    if ncode > (1 << _FIBER_CODE_BITS):
+        raise RuntimeError(f"fiber: budget code space {ncode} exceeds the packing width")
+    full_code = sum(B0[j] * pv[j] for j in range(len(B0)))
+    add = []
+    for j in range(len(B0)):
+        col = [-1] * ncode
+        for code in range(ncode):
+            if (code // pv[j]) % (B0[j] + 1) < B0[j]:
+                col[code] = code + pv[j]
+        add.append(col)
+    _FIBER_TABLES = (B0, ham, clsidx, add, full_code)
+    return _FIBER_TABLES
+
+def fiber_count(perm, opening=63, fixed=None):
+    """EXACT size of the orientation fiber over the pair ordering `perm`.
+
+    `perm` is a list of 32 pair indices (the record's pair identities, slot by
+    slot); `opening` is the hexagram leading slot 0 — 63 for C4 as defined
+    (the C4-oriented fiber), 0 for the flipped opening of the pair-only reading.
+    `fixed`, if given, maps slot -> orientation bit (0 = PAIRS[p] as stored,
+    1 = reversed, matching the record encoding) and counts only the sub-fiber
+    agreeing with it — the hook the brute-force cross-check in tests.py drives.
+
+    Returns the number of orientation vectors for the remaining 31 slots that
+    satisfy C2 and C5 — which, C3 being constant on the fiber and C1 being
+    orientation-blind, is the number of C1–C5 sequences collapsing to this one
+    record, provided the record satisfies C3 at all (every record in a
+    solutions.bin does, by construction).
+
+    This is a DP over 31 steps, not a search over 2^31 vectors, and not a
+    sample. Cost is ~0.2 ms per ordering in CPython."""
+    B0, ham, clsidx, add, full_code = _fiber_tables()
+    if sorted(perm) != list(range(32)):
+        raise ValueError("fiber_count: perm is not a permutation of the 32 pairs")
+    a0, b0 = PAIRS[perm[0]]
+    if {a0, b0} != {63, 0}:
+        raise ValueError("fiber_count: C4 requires pair {63, 0} at slot 0")
+    if opening == a0:
+        exit0 = b0
+    elif opening == b0:
+        exit0 = a0
+    else:
+        raise ValueError("fiber_count: opening must be 63 or 0")
+    cur = {(exit0 << _FIBER_CODE_BITS): 1}
+    mask = (1 << _FIBER_CODE_BITS) - 1
+    for i in range(1, 32):
+        a, b = PAIRS[perm[i]]
+        opts = ((a, b), (b, a))
+        if fixed is not None and i in fixed:
+            opts = (opts[fixed[i]],)
+        nxt = {}
+        get = nxt.get
+        for key, cnt in cur.items():
+            row = ham[key >> _FIBER_CODE_BITS]
+            code = key & mask
+            for f, s in opts:
+                # C2 (no 5) and "must be a class C5 budgets" are the same test
+                # here: B0 has no 5, so C5 already implies C2 — see
+                # test_the_two_redundancies_in_the_fiber_dp_are_real.
+                j = clsidx[row[f]]              # distance 5 (and 0) -> -1
+                if j < 0:
+                    continue
+                nc = add[j][code]               # C5: class j budget exhausted -> -1
+                if nc < 0:
+                    continue
+                k = (s << _FIBER_CODE_BITS) | nc
+                nxt[k] = get(k, 0) + cnt
+        cur = nxt
+        if not cur:
+            return 0
+    # 31 boundaries placed and every class capped at B0 => any survivor is exactly on
+    # budget; the filter is kept so the exactness is asserted rather than argued.
+    return sum(c for k, c in cur.items() if (k & mask) == full_code)
+
+def _fiber_records(path, limit=None):
+    """Yield (index, perm, orient) for each record of a solutions.bin, gzipped or
+    raw. Small-file path: the whole file is read into memory, so this is for the
+    repo's sample artifact, not for a multi-hundred-GB canonical."""
+    with open(path, 'rb') as fh:
+        head = fh.read(2)
+    blob = gzip.open(path, 'rb').read() if head == b'\x1f\x8b' else open(path, 'rb').read()
+    if blob[:4] != b'ROAE':
+        raise RuntimeError(f"{path}: not a ROAE solutions.bin (magic {blob[:4]!r})")
+    n = struct.unpack('<Q', blob[8:16])[0]
+    if 32 + 32 * n != len(blob):
+        raise RuntimeError(f"{path}: header says {n} records but the body is "
+                           f"{len(blob) - 32} bytes")
+    if limit is not None:
+        n = min(n, limit)
+    for i in range(n):
+        rec = blob[32 + 32 * i: 64 + 32 * i]
+        yield i, [(x >> 2) & 0x3F for x in rec], [(x >> 1) & 1 for x in rec]
+
+def fiber_sweep(path=None):
+    """A1: measure the ORIENTATION-FIBER FACTOR — the exact conversion between
+    the two counting levels the suite publishes side by side.
+
+    Gates first (KW's own fiber, three published values, plus agreement with the
+    independent `_fiber_dp` instrument), then, if a solutions.bin is present,
+    reports the exact fiber-size distribution over its records."""
+    import math
+    B0, _ham, _ci, _add, _fc = _fiber_tables()
+    ident = list(range(32))
+    print("=" * 78)
+    print("verify.py --fiber-sweep : the orientation-fiber factor, measured")
+    print("=" * 78)
+    print(f"  residual between-pair budget B0 (d=1,2,3,4,6) : {B0}  (sum {sum(B0)})")
+    print("  derived as C5's 63-value multiset minus the within-pair multiset,")
+    print("  cross-checked against KW's own 31 between-pair distances.")
+    print()
+    print("  GATE — King Wen's own pair ordering (TR-1 §7):")
+    ok = True
+    oriented = fiber_count(ident, 63)
+    flipped = fiber_count(ident, 0)
+    for name, pub, mine in (("C4-oriented fiber  (opening 63,0)", 1_720_320, oriented),
+                            ("pair-only C4 fiber (both openings)", 2_703_360, oriented + flipped),
+                            ("  of which opening (0,63)", 983_040, flipped),
+                            ("factorization 3·5·7·2¹⁴", 3 * 5 * 7 * 2 ** 14, oriented)):
+        good = (pub == mine)
+        ok &= good
+        print(f"    {name:<38} published {pub:>10,}  ours {mine:>10,}  "
+              f"{'MATCH' if good else '*** MISMATCH ***'}")
+    # cross-instrument: the KW-only transfer DP above must agree slot for slot
+    _B0x, Fx, Bkx = _fiber_dp()
+    tot = {63: 0, 0: 0}
+    for (last, bud, op), cnt in Fx[1].items():
+        tot[op] = tot.get(op, 0) + cnt * Bkx[1].get((last, bud), 0)
+    agree = (tot.get(63, 0) == oriented and tot.get(0, 0) == flipped)
+    ok &= agree
+    print(f"    {'vs the independent _fiber_dp instrument':<38} "
+          f"{'MATCH' if agree else '*** MISMATCH ***'}")
+    if not ok:
+        print("\n*** GATE FAILED — the fiber routine is wrong; every number below is void.")
+        return 1
+
+    print()
+    print("  PROVEN floor on the dedup factor (no compute, no sampling):")
+    print("    a record is a permutation of the 31 non-opening pairs, so the number")
+    print("    of records R is at most 31! = 8.222839e33. With the EXACT")
+    print("    |C1∩C2∩C4∩C5| = 1.097051e39 (TR-11 §9), mean fiber = N/R ≥ N/31! =")
+    print("    1.3342e5. The published '~4×' orientation-dedup factor is therefore")
+    print("    low by at least four and a half orders of magnitude.")
+
+    if path is None:
+        path = 'solutions.bin'
+    if not os.path.exists(path):
+        print(f"\n  (no {path} present — sample sweep skipped; the gate above is the result)")
+        return 0
+
+    print()
+    print(f"  SAMPLE SWEEP — exact fiber of every record in {path}:")
+    sizes, zero, kw_seen = [], 0, False
+    for i, perm, orient in _fiber_records(path):
+        if perm == ident:
+            kw_seen = True
+        f = fiber_count(perm, 63)
+        if f == 0:
+            zero += 1
+        sizes.append(f)
+    if zero:
+        print(f"    *** {zero} record(s) have an EMPTY fiber — impossible, since the "
+              f"record's own stored orientation is in it. The routine is wrong.")
+        return 1
+    sizes.sort()
+    n = len(sizes)
+    am = sum(sizes) / n
+    gm = math.exp(sum(math.log(s) for s in sizes) / n)
+    print(f"    records swept                : {n:,}"
+          f"{'  (King Wen included)' if kw_seen else ''}")
+    print(f"    empty fibers                 : 0  (every record admits its own orientation)")
+    print(f"    min / median / max           : {sizes[0]:,} / {sizes[n // 2]:,} / {sizes[-1]:,}")
+    print(f"    ARITHMETIC MEAN (dedup factor over this population) : {am:,.1f}")
+    print(f"    geometric mean               : {gm:,.1f}")
+    print(f"    King Wen's own fiber         : {oriented:,}"
+          f"   (percentile {100.0 * sum(1 for s in sizes if s < oriented) / n:.2f})")
+    print()
+    print("    SCOPE — this is the mean over ONE budget-truncated sample, not over the")
+    print("    C1–C5 space. It is an unbiased estimate of N/R only for the population")
+    print("    this file enumerates. See A1_ORIENTATION_FIBER_MEASUREMENT.md for the")
+    print("    run that would settle the whole-space value.")
+    print("=" * 78)
+    return 0
+
 def _gender6(h):
     """Schulz 1990 / Cook 2006 minority-line gender of a 6-bit hexagram
     (published definition: SOLVE_C_CLI.md §--rc4b-verify): popcount < 3 male
@@ -2104,6 +2368,15 @@ def main():
                              'its 3·5·7·2¹⁴ factorization, and which orientation bits are forced. '
                              'Transfer DP over KW\'s own pair order with B0 recomputed from KW. '
                              'Instant. Does NOT read solutions.bin.')
+    parser.add_argument('--fiber-sweep', action='store_true',
+                        help='Measure the ORIENTATION-FIBER FACTOR: the exact conversion '
+                             'between the two counting levels the suite publishes side by '
+                             'side — deduped RECORDS (pair orderings) vs orientation-explicit '
+                             'SEQUENCES. Gates on King Wen\'s own fiber (1,720,320 / 983,040 / '
+                             '2,703,360, TR-1 §7) and on agreement with --recount-fiber\'s '
+                             'independent DP, then reports the exact fiber-size distribution '
+                             'over the records of the solutions.bin at `path` (gzip ok) if one '
+                             'is present. ~0.2 ms per record; seconds on the repo sample.')
     parser.add_argument('--recount-subtree', action='store_true',
                         help='Independently recompute the exact deterministic subtree anchors of '
                              'TR-5 §3 / SEARCH_SPACE_SIZE.md (KW-following prefixes at 5/7/9 free '
@@ -2186,6 +2459,9 @@ def main():
 
     if args.recount_fiber:
         sys.exit(recount_fiber())
+
+    if args.fiber_sweep:
+        sys.exit(fiber_sweep(args.path))
 
     if args.recount_gender_null:
         sys.exit(recount_gender_null())
