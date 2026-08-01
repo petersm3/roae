@@ -122,7 +122,7 @@ CRITIQUE.)
 
 ## Quick start
 ```
-gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest   # must print PASS
+gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must print PASS
 python3 roae.py                          # the analysis battery (29 sections; 28 statistical + the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
