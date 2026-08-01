@@ -153,7 +153,7 @@ see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
 ~10³ per-boundary cut put full-space uniqueness at roughly 13–14 boundaries; the 2026-07-05 S(6)–S(8)
 measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, revising the
-projection to ~15–20 (hard floor k ≥ 13). A bracketing run choosing among the *weakest* remaining boundaries
+projection to ~15–20 (heuristic floor k ≥ 12–13; see the floor note below). A bracketing run choosing among the *weakest* remaining boundaries
 (k = 5–8) still cut ×15–17 per boundary, so the decay is robust to boundary choice within an order of
 magnitude per step. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
 masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S(8), TR-4). Reproduce:
@@ -187,7 +187,7 @@ see TR-11 §10(ii).)
 
 Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. The measured
 greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits
-— strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum single-boundary gain by construction
+— strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum **unconditional** single-boundary gain by construction (greedy picks it first) — **but NOT the maximum over all conditioning contexts: step 3 gains 11.10 bits, exceeding it. Corrected 2026-08-01; the earlier text used 10.38 as a universal per-boundary cap, which its own data falsifies**
 (greedy picks the minimum-survivor boundary). Two consequences, honestly labeled:
 
 - **Heuristic floor: k ≥ 13.** If no boundary's marginal contribution exceeds the best observed single

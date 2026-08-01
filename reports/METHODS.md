@@ -136,7 +136,22 @@ the constraint falls on and why.
   = 28 + 58 + 5 = **91** (itemization maintained in [CRITIQUE.md](../documentation/CRITIQUE.md)
   §"Observable-selection accounting"). The exploratory suite **is included** — it is the base of the
   count, not excluded. A per-family "notable" label is therefore a family-scoped claim; against the
-  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**, and each "notable" verdict states in
+  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**
+  **Scope disclosure (added 2026-08-01, after an itemised roster was built from the frozen
+  pre-registrations).** The 91 counts *tests performed under registered corrections*, not distinct
+  observables, and it is **deliberately retained as the conservative choice**. Two offsetting facts:
+  (i) the "Davis /9" and "Davis follow-up /12" components are **not disjoint** — the R8 pre-registration
+  freezes the /12 as "the full cross-wave Davis family (9 wave-1 + 3 wave-2 maximum)", so the nine are
+  re-counted inside the twelve, and the distinct Davis contribution is 12, giving **82 distinct
+  observables**; (ii) the ledger omits the **F6 books family** (7 functionals, frozen and measured
+  2026-07-05), so a strict "everything examined" reading gives **89**. The two errors nearly cancel.
+  **All three candidate bars — 0.05/91 = 5.49×10⁻⁴, 0.05/89 = 5.62×10⁻⁴, 0.05/82 = 6.10×10⁻⁴ — span
+  under 11%, and NO published verdict differs between them** (the only value in the gap zone,
+  `dav_trigarray` at 6.8×10⁻⁴, fails at all three). The published bar is therefore the strictest
+  defensible choice, and no conclusion in the suite depends on the count.
+  **Counting rule going forward:** an observable enters the ledger exactly once, at first registration,
+  under a stable id; a family's Bonferroni denominator may span waves and exceed its new-id count; and
+  this total must be **derived from the itemised roster**, never stated independently of it., and each "notable" verdict states in
   place whether it clears that bar. Model comparisons (the TR-2 Bayes factors) are **not** observables
   and do not enter this ledger. This accounting does not touch the suite's headline findings — the
   nulls, and the proven/certified impossibilities, which are deductive.
