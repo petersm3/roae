@@ -6,7 +6,7 @@
 > win** — the discrepancy is a bug in this page; please report it (the same convention as
 > [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md)).
 
-A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts, and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
+A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is threefold: **exhaustive enumeration** of solutions under the conjoined constraint system, **partition-invariant reproducibility** of the canonical counts (the same byte-identical results on any hardware), and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
 
 For deeper material referenced throughout this article:
 
@@ -21,7 +21,7 @@ For deeper material referenced throughout this article:
 
 ## The puzzle
 
-Long ago — traditionally about 3,000 years, though modern scholarship debates when the ordering was fixed — someone in ancient China, or successive generations of practitioners, arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 (a 1 followed by 89 zeros). But somehow, whoever arranged them picked one specific arrangement:
+Long ago — traditionally about 3,000 years, though modern scholarship debates when the ordering was fixed — someone in ancient China, or successive generations of practitioners, arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 of them (a 1 followed by 89 zeros; the observable universe holds about 10^80 atoms). But somehow, whoever arranged them picked one specific arrangement:
 
 ䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
@@ -45,7 +45,7 @@ To get the binary code, read the 1s and 0s from the top of the table downward. F
 
 ## The rules we found
 
-Five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four formally independent — C2 is implied by C5), each eliminating more and more possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / [Cook 2006](CITATIONS.md#cook2006); Rule 2 from [Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975)'s *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
+We found five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four are formally independent — C2 is implied by C5), each one eliminating more of the possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / [Cook 2006](CITATIONS.md#cook2006); Rule 2 from [Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975)'s *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
 
 (A sixth "XOR rule" was identified during discovery but later proven mathematically redundant — it follows automatically from Rule 1; see [SOLVE.md](SOLVE.md) Theorem 2. It is therefore not listed below.)
 
@@ -205,7 +205,7 @@ logic solver that can settle "does any ordering with property X exist?" question
 measurement technique that samples the full space of valid orderings without enumerating it — produced a
 second wave of results, each with a full [technical report](../reports/README.md):
 
-- **Every valid ordering has 23 mathematical "twins"** — relabelings that the rules cannot tell apart.
+- **Every valid ordering has 23 mathematical "twins"** (counted at the record level) — relabelings that the rules cannot tell apart.
   King Wen is not special in this respect: the twins are a property of the rules themselves.
   [[TR-5](../reports/TR5_SYMMETRY.md)]
 - **Some "design choices" turn out to be forced.** Eight regularities that scholars across eight

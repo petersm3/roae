@@ -2,14 +2,14 @@
 
 <mark>**[䷀䷁](documentation/SOLVE_SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-**The question:** the King Wen sequence — the received ordering of the 64 I Ching hexagrams, in
-continuous use for some two millennia and traditionally attributed to King Wen of Zhou (~1000 BCE; the
-dating of the ordering's fixation is debated in modern scholarship) — has attracted structural claims
-for centuries, almost all asserted by inspection. Can those
-claims be tested? Can the sequence be reconstructed from its mathematical constraints? This project
-treats the sequence as a combinatorial object: it **enumerates** the space of orderings satisfying the
-sequence's constraints, **measures** claimed regularities against that space, and **proves** (with
-machine-checked proofs and SAT certificates) what is forced, what is rare, and what is impossible.
+**The question.** The King Wen sequence is the received ordering of the 64 I Ching hexagrams — in
+continuous use for some two millennia, traditionally attributed to King Wen of Zhou (~1000 BCE; the
+dating of the ordering's fixation is debated in modern scholarship). For centuries it has attracted
+structural claims, almost all asserted by inspection. Can those claims be tested? Can the sequence be
+reconstructed from its mathematical constraints? This project treats the sequence as a combinatorial
+object: it **enumerates** the space of orderings satisfying the sequence's constraints, **measures**
+claimed regularities against that space, and **proves** — with machine-checked proofs and SAT
+certificates — what is forced, what is rare, and what is impossible.
 
 Scope: this is a combinatorial study of the *ordering* alone; it makes no claims — supportive or
 dismissive — about the I Ching's text, its divination practice, or its philosophical tradition.
@@ -48,27 +48,46 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
 - **The constraints do not determine the sequence.** The C1–C5 space holds 1.33×10³⁸ orderings; adding
-  C6–C7 still leaves ~5×10³¹. The hypothesis that the constraints pin down King Wen — the strong reading
-  of the literature's derivation claims, and this project's own early working assumption
-  ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)) — is false. [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
+  C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
+  was the strong reading of the literature's derivation claims, and this project's own early working
+  assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
-  jointly unsatisfiable for any ordering preserving the classical pairing — none can be perfect under all of them. King Wen keeps one exactly and
-  misses the others minimally: its famous anomalies are a **forced trade-off, not damage to a once-perfect-under-all-four original** (none could exist; whether they are an arranger's trade-off or damage to the three-rule-perfect precursor that *does* exist is weighed, not settled, in TR-2's model comparison) — and a 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
-- **Eight rules asserted as design are proven forced** — each a theorem, constant on the entire C1 space (a superset of the measured population, so every valid ordering inherits King Wen's value), machine-checked in Lean 4 ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)); the zero-violation 2×10¹⁰-probe measurements now serve as instrument validation. A separate analytic theorem — the no-5 rule's implication chain, behind McKenna's 3:1 ratio — stands in addition. They are consequences of the constraint system, not choices. Others
-  are extremely rare as stated (to ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like caveat). [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
-- **Every valid ordering has exactly 23 indistinguishable twins** (the symmetry group acts freely), and
-  exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
+  jointly unsatisfiable for any ordering preserving the classical pairing — no ordering can be perfect
+  under all four. King Wen keeps one exactly and misses the others minimally, so its famous anomalies
+  are a **forced trade-off, not damage to an original that was perfect under all four** — no such
+  original could exist. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
+  arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
+  comparison.) A 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
+- **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4
+  ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space — a superset
+  of the measured population, so every valid ordering inherits King Wen's value. They are consequences
+  of the constraint system, not choices; the zero-violation 2×10¹⁰-probe measurements now serve as
+  instrument validation. (A separate analytic theorem — the no-5 rule's implication chain, behind
+  McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
+  ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
+  configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
+  caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
+- **Every valid ordering has exactly 23 record-level indistinguishable twins** (the symmetry group acts
+  freely), and exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
+- **No symmetry-respecting generator can single out King Wen.** Any generator that scores orderings
+  using only G-invariant structural primitives (Hamming distance, complement, reversal, the values 0/63,
+  …) gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
+  24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
+  [lean/KingWen.lean](lean/KingWen.lean)). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
+  effects), not new — the contribution is the King-Wen instantiation and its machine-check. [TR-5](reports/TR5_SYMMETRY.md)
 - **McKenna's "ninth six" is forced.** The 1975 observation that exactly one adjacent transition flips
-  all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget is
-  a theorem of the constraints, turning the 10.5-billion-record measurement into a corollary (the
-  *position* of that transition remains ordering-dependent). [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
-- **The pairing is optimal** — the classical pair structure is the unique Hamming-cost-minimizing
-  complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) — preprint, machine-verified; scope
-  guard: comp∘rev matchings can do better, see [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean)). [CITATIONS](documentation/CITATIONS.md)
-- **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs one
-  more rule — and orderings violating it are 17.4% of the full space (a 2×10¹⁰-probe sampled estimate,
-  independently reproduced by a second archived run to within 0.05 percentage points — TR-7 §5) yet absent from all 10.5 billion
-  enumerated records: a stark demonstration that bounded search sees a biased sample. [TR-7](reports/TR7_CIRCULAR_READING.md)
+  all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
+  is a theorem of the constraints, so the 10.5-billion-record measurement becomes a corollary. (The
+  *position* of that transition remains ordering-dependent.) [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
+- **The pairing is optimal.** The classical pair structure is the unique Hamming-cost-minimizing
+  complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) —
+  preprint, machine-verified). Scope guard: comp∘rev matchings can do better — see
+  [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean). [CITATIONS](documentation/CITATIONS.md)
+- **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs
+  one more rule. Orderings violating that rule are 17.4% of the full space yet absent from all 10.5
+  billion enumerated records — a stark demonstration that bounded search sees a biased sample. (The
+  17.4% is a 2×10¹⁰-probe sampled estimate, independently reproduced by a second archived run to within 0.05
+  percentage points — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
   description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
@@ -76,17 +95,19 @@ Headlines only — each links to its full treatment (technical reports in [repor
   population-typical; one uniqueness claim is corrected; the ~126-bit residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
-  (≈1.097×10³⁹; the suite's second exact full-scale count — the first, |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed
-  2026-07-04) — computed to the last digit via the symmetry theorem's 24-fold quotient, divisible by 24
-  exactly as that theorem predicts. This exact count was **independently recomputed at full scale** (2026-07-25) by a second
-  instrument — `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`), a different
-  algorithm class sharing no code or machinery with `solve.c` — and the two integers **match
+  (≈1.097×10³⁹) — computed to the last digit via the symmetry theorem's 24-fold quotient, and divisible
+  by 24 exactly as that theorem predicts. (It is the suite's second exact full-scale count; the first,
+  |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed 2026-07-04.) The count was **recomputed at full scale** (2026-07-25)
+  by a second instrument — `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`), a
+  different algorithm class sharing no code or machinery with `solve.c` — and the two integers **match
   exactly**, with the mod-24 free-action gate holding
-  ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); the independent
-  verifiers are [verify.py/verify.c](documentation/VERIFY.md)). It is reproducible on
-  ~64 GB of RAM plus ~4 TB of disk; the statistical
-  estimator validated absolutely at 10³⁹ (the exact value lands inside its stated ±0.01% envelope). The
-  flagship C1–C5 figure remains an estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+  ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); the verifiers are
+  [verify.py/verify.c](documentation/VERIFY.md)). The honest residual: both instruments are
+  project-authored and share the group-theory/constraint specification, so the independence is
+  algorithmic, not specificational — no third party has recomputed the count. It is reproducible on
+  ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is validated absolutely at 10³⁹ (the
+  exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure remains an
+  estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
 - **The record is reproducible**: every published count re-derivable to the byte by one command; the
   deepest run reproduced from scratch through seven fresh Spot evictions (twelve across both runs). [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
 
@@ -95,8 +116,9 @@ quoting anything above. It covers the constraint-extraction circularity, the nul
 look-elsewhere accounting, and the corrected published results (the full never-silent corrections
 ledger — including a retracted theorem — is in [CLAIMS_DECIDED.md](documentation/CLAIMS_DECIDED.md)). It also reports the corpus-control test:
 the same methodology flags a provably algorithmic ordering ([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes, and King Wen on
-exactly its three documented constraints — the method does not find design wherever it looks (a control
-corpus of the two documented historical alternatives available; the small n is stated in CRITIQUE).
+exactly its three documented constraints — the method does not find design wherever it looks. (The
+control corpus is the two documented historical alternatives available; its small n is stated in
+CRITIQUE.)
 
 ## Quick start
 ```
