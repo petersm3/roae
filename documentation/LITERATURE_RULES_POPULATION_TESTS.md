@@ -132,7 +132,24 @@ with `python3 sat.py --witness moore-strict` and
 The full candidate inventory from the Schulz corpus (1990/2011/2016/2018 + the 1982 dissertation's
 Lai Zhide rules), [McKenna & Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), and [Schöter](CITATIONS.md#schoter1998) — 31 rules formalized (two-language verified,
 each reproducing its source's stated King Wen values), measured in one run. Full per-rule registry and
-attribution: solve.py `--registry-verify` section. Three headline findings:
+attribution: solve.py `--registry-verify` section.
+
+> **The rule predicates are code-resident, and that is a replication limit** (stated 2026-08-01, lens
+> sweep). There is no document — not this one, not [SPECIFICATION.md](SPECIFICATION.md), not
+> [SAT_CLI.md](SAT_CLI.md) — that states Moore parity, Moore rhythm, Schulz gender, CC-N4 or CC-N8
+> formally enough for an independent team to re-encode them. The definitions live in `solve.py`'s
+> `reg_*` predicates; `sat.py`'s targets import those semantics rather than restating them
+> ([SAT_CLI.md](SAT_CLI.md) §TARGETS), so the SAT layer inherits the same single reading. The
+> KW-value gate each rule passes is a **one-point** check: it establishes that our encoding agrees
+> with the source's published King Wen tally, and cannot distinguish a faithful rendering of what
+> Moore or Schulz wrote from a differently-scoped predicate that happens to agree on that one
+> sequence — which is where every population figure on this page actually lives. This is
+> [METHODS.md](../reports/METHODS.md)'s independence rung 2 ("only the encoder") made concrete: a
+> replicator can *re-run* our encoding and reproduce the numbers, but cannot *independently re-derive*
+> the encoding from the published record. Formal prose statements of the 31 rules would close the
+> gap; they have not been written.
+
+Three headline findings:
 
 **1. A new strongest discriminator — with the data-likeness caveat stated plainly.** Schulz's S25–28
 trigram configuration (2011/2016: four consecutive stations sharing the dui top trigram, bottoms = the

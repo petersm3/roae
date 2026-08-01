@@ -8,7 +8,7 @@
 
 > Canonical sha256 hashes, record counts, and reproducibility parameters are listed in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The deepest published partial enumeration is the **d3 560T canonical (10,525,271,997 orderings, sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30)**; the d3 100T canonical (3,432,399,297 orderings, `915abf30…`) is the next-deepest and remains the dataset under which many of the findings in this document were originally computed. Both are validated via the Partition Invariance theorem in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md). See [HISTORY.md](HISTORY.md) for narrative provenance. Full `solve.c` command-line reference (subcommands, env vars, exit codes): [SOLVE_C_CLI.md](SOLVE_C_CLI.md). The 560T `--analyze` pass completed 2026-06-11; findings that re-evaluated at 560T (boundary-minimum analysis, KW vs C3-minimum, top pairwise MI, conditional entropy) are summarized in [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) §"560T canonical results" and in [CRITIQUE.md](CRITIQUE.md) §"Update (2026-06-11)". Structural findings depending on KW's membership in the canonical set transfer directly to 560T because the 100T set is a strict subset of the 560T set.
 >
-> **Novel 2026-04-20 finding (from d3 100T [--c3-min](SOLVE_C_CLI.md#--c3-min) analysis):** King Wen's C3 of 776 is the **maximum** observed among the 3.43B canonical records, not the minimum. Minimum C3 = 424 (221 records). KW sits at the ceiling of the constraint C3 ≤ 776, NOT the floor. The common framing "KW places complements unusually close" is now refined: relative to orderings satisfying every *other* constraint (C1+C2+C4+C5 — the differential population, C3 itself not applied), yes (KW is at the 3.9th percentile of that sampled population; scope label corrected 2026-07-22 — earlier text said "C1-only", but the project's own C1-scope figures are 6.4-8.1% — C3|C1 = 6.42% via `--null-pair-constrained` (exact: 6.4211367496%, `verify.py --check-null-g --unpinned`), exact 8.106% at C1&C4 via `verify.py --check-null-g` — so no C1-only scope supports 3.9%); relative to the intersection C1+C2+C3 that solve.c enumerates, KW is actually at the C3-maximum, with 99.999999%+ of canonical orderings beating it on complement proximity. **This breaks the derivability axiom "minimize C3"** (negative result for Open Question #7 Phase A Day 1 MVP). The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW.
+> **Novel 2026-04-20 finding (from d3 100T [--c3-min](SOLVE_C_CLI.md#--c3-min) analysis):** King Wen's C3 of 776 is the **maximum** observed among the 3.43B canonical records, not the minimum. Minimum C3 = 424 (221 records). KW sits at the ceiling of the constraint C3 ≤ 776, NOT the floor. The common framing "KW places complements unusually close" is now refined: relative to orderings satisfying every *other* constraint (C1+C2+C4+C5 — the differential population, C3 itself not applied), yes (KW is at the 3.9th percentile of that sampled population; scope label corrected 2026-07-22 — earlier text said "C1-only", but the project's own C1-scope figures are 6.4-8.1% — C3|C1 = 6.42% via `--null-pair-constrained` (exact: 6.4211367496%, `verify.py --check-null-g --unpinned`), exact 8.106% at C1&C4 via `verify.py --check-null-g` — so no C1-only scope supports 3.9% — and the 3.9% is itself **flagged 2026-08-01**, see §Rule 3); relative to the intersection C1+C2+C3 that solve.c enumerates, KW is actually at the C3-maximum, with 99.999999%+ of canonical orderings beating it on complement proximity. **This breaks the derivability axiom "minimize C3"** (negative result for Open Question #7 Phase A Day 1 MVP). The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW.
 >
 > Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `roae/runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
 
@@ -51,10 +51,53 @@ The constraint applies a ceiling on the mean positional distance between each he
 
 **Note on the threshold (and what's defensible).** The formal constraint in [SPECIFICATION.md](SPECIFICATION.md) is `cd(S) ≤ 12.125`, where 12.125 is King Wen's *exact* complement distance — extracted from the sequence rather than derived independently. The constraint is therefore **reverse-engineered**: King Wen satisfies it by construction.
 
+> ### ⚠ FLAGGED 2026-08-01 — the "3.9th percentile" figure is withdrawn from citation
+>
+> **This is the authoritative statement of the flag. Every other occurrence of the 3.9th-percentile
+> figure in this repository points here.** The number is not retracted-as-known-wrong-and-replaced;
+> it is flagged as **not supported by the population it is labelled with**, on two independent grounds,
+> and it should not be cited pending the measurement named at the end.
+>
+> **(1) It contradicts the suite's own ledger, at the same scope and the same counting convention.**
+> At the C1+C2+C4+C5 scope the percentile just *is* the C3 acceptance rate, because C3 is the predicate
+> `cd ≤ 776` and 776 is King Wen's own value. [METHODS.md](../reports/METHODS.md) §"Canonical
+> quantities" publishes both endpoints in the **raw orientation-explicit** convention:
+> |C1∩C2∩C4∩C5| = 1.097051×10³⁹ (**exact**, two-instrument) and |C1–C5| = 1.3287×10³⁸ (Knuth estimate,
+> ±0.02%). Their ratio is **12.1%**, not 3.9% — a factor of ~3.1, and no convention gap can absorb it
+> because both rows carry the same convention label.
+> [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)'s bit ledger agrees independently: the C3 layer
+> costs ≈3 marginal bits (129.7 → 126.6), i.e. a factor of ≈8–9, i.e. ≈12%. Removing the ceiling-tie
+> mass (~10% of the canonical, so ~1.2% of the pre-C3 population) still leaves ≈11% strictly below KW.
+> The direction is wrong too: the exact bare C1&C4 tail is 8.106% and the exact C3|C1 rate is
+> 6.4211367496%, so conditioning further should not drop the rate to 3.9%.
+>
+> **(2) The measured population is provably not the labelled population.** The 3.9% is a statistic of
+> the **13,296-ordering `solve.py` differential sample**, whose stated complement-distance range is
+> **[11.75, 14.5]** (see [Differential analysis](#differential-analysis) below). But the *stricter*
+> C1–C5 canonical — a **subset** of C1+C2+C4+C5 — contains orderings at cd = 6.625 (100T) and 6.125
+> (560T). A subset cannot contain values below its superset's minimum, so the 13,296-ordering sample
+> is not a sample of C1+C2+C4+C5 at all; it is a narrow budgeted slice, and this suite's own repeated
+> lesson (TR-5, TR-7, and the "yield-16 laggard" episode in [CRITIQUE.md](CRITIQUE.md)) is that
+> budgeted slices are biased windows, not miniature populations.
+>
+> **What survives untouched.** KW's complement distance is genuinely low against unconstrained random
+> permutations (0th percentile), and **8.106% exact** under the bare pair-constrained C1&C4 null
+> (`verify.py --check-null-g`). Both are separately sourced and unaffected. The C3-ceiling finding
+> (KW sits at the C3 *maximum* within the C1–C5 canonical) is unaffected. What does **not** survive is
+> the specific "3.9th percentile / lowest 4%" claim at the C1+C2+C4+C5 scope, and any novelty or
+> "genuinely unusual" framing resting on it.
+>
+> **What would settle it.** A weighted-Knuth estimate of the indicator `cd ≤ 776` over
+> C1∩C2∩C4∩C5 — the same instrument already used for every other population fraction in the suite —
+> reported with its probe count, `SOLVE_THREADS`, and CI per [METHODS.md](../reports/METHODS.md)
+> §"Estimator". The ledger ratio already predicts ≈12.1%; that run would confirm it directly and
+> supply the interval the current figure has never had. Until then the honest statement at this scope
+> is **"≈12% by the ledger, unconfirmed by direct measurement."**
+
 What is **scientifically defensible** for publication:
-- KW's complement distance is at the **3.9th percentile of orderings satisfying every other rule — Rules 1, 2, 5, 6, i.e., C1+C2+C4+C5, with Rule 3 (C3) itself not applied**. This is a sampled figure from the 13,296-ordering differential population ([Differential Analysis](#differential-analysis) below); ~96% of comparable orderings have higher cd. An exact confirmation at this scope would require the full-scale exact-C3 computation, which is ruled out on cost (TR-11 §10(ii)). Under the bare pair-slot null (C1&C4 only — no C2/C5 conditioning), the exact tail is **P(C3 ≤ 776) = 8.106%** (`verify.py --check-null-g`), so the low percentile is scope-sensitive: ~8% before C2/C5 conditioning, 3.9% (sampled) after. *(Scope label corrected 2026-07-22: earlier versions of the docs variously attributed the 3.9% to C1-only, C1+C2 / Rules-1-2, and Rules-1-6 populations; the measured population is C1+C2+C4+C5.)*
+- KW's complement distance is low relative to orderings satisfying every other rule — Rules 1, 2, 5, 6, i.e., C1+C2+C4+C5, with Rule 3 (C3) itself not applied — but **the size of that effect is currently unresolved**: the ledger gives ≈12% and the long-published 3.9th-percentile figure is flagged above and should not be cited. Under the bare pair-slot null (C1&C4 only — no C2/C5 conditioning), the exact tail is **P(C3 ≤ 776) = 8.106%** (`verify.py --check-null-g`). *(Scope label corrected 2026-07-22: earlier versions of the docs variously attributed the 3.9% to C1-only, C1+C2 / Rules-1-2, and Rules-1-6 populations; the measured population was labelled C1+C2+C4+C5 — which the 2026-08-01 flag above shows it is not.)*
 - Within the **C1+C2+C3 canonical** (3.43B orderings at 100T d3), KW sits at the **C3 ceiling (= 776)**, not the floor; ~340M orderings tie with KW at 776, minimum is 424. ([SOLVE_SUMMARY.md §Rule 3](SOLVE_SUMMARY.md).)
-- These two statements are about different reference populations and are both true. The "low percentile" framing is appropriate at the C1+C2 scope; the "ceiling cohort" framing is the correct C1+C2+C3 framing.
+- These two statements are about different reference populations and are both true. The "low percentile" framing is appropriate at the C1+C2+C4+C5 scope — though its *magnitude* is flagged above (the ledger gives ≈12%, not 3.9%); the "ceiling cohort" framing is the correct C1+C2+C3 framing.
 
 What is **NOT defensible** in publication:
 - Claiming `cd ≤ 12.125` is a derived / structurally significant threshold. It isn't. It's KW's value, used as a filter.
@@ -215,7 +258,7 @@ A 1-billion-node search (63 minutes) found 560,472 raw solutions, which de-dupli
 
 **Two genuinely non-trivial extremal features, confirmed at scale:**
 
-1. **Complement distance: 12.125 (3.9th percentile among the differential sample — orderings satisfying Rules 1, 2, 5, 6 = C1+C2+C4+C5, with Rule 3 not applied).** King Wen keeps complements unusually close *relative to that all-other-rules reference population*. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter (KW's own value defines the ceiling). The meaningful finding at this scope: KW's cd of 12.125 is in the lowest 4% of orderings satisfying the other rules (C1+C2+C4+C5) — an unusually tight complement placement relative to that reference population (sampled; exact confirmation pending). **Within the full C1+C2+C3 canonical (3.43B records at 100T d3), KW sits at the C3 CEILING, not the floor** — 340M orderings tie with KW at exactly 776; minimum is 424. See [SOLVE_SUMMARY.md §Rule 3](SOLVE_SUMMARY.md) for the C1+C2+C3-scoped framing.
+1. **Complement distance: 12.125 (3.9th percentile among the differential sample — orderings satisfying Rules 1, 2, 5, 6 = C1+C2+C4+C5, with Rule 3 not applied).** King Wen keeps complements unusually close *relative to that all-other-rules reference population*. Among the Rule 7a subset (solutions with comp dist ≤ 12.125), King Wen is the maximum — but this is by definition of the filter (KW's own value defines the ceiling). The meaningful finding at this scope: KW's cd of 12.125 is in the lowest 4% of orderings satisfying the other rules (C1+C2+C4+C5) — an unusually tight complement placement relative to that reference population (sampled; exact confirmation pending). *(**Flagged 2026-08-01, lens sweep** — see the flag block in §Rule 3: this figure is not supported by the population it is labelled with, the ledger gives ≈12%, and it should not be cited.)* **Within the full C1+C2+C3 canonical (3.43B records at 100T d3), KW sits at the C3 CEILING, not the floor** — 340M orderings tie with KW at exactly 776; minimum is 424. See [SOLVE_SUMMARY.md §Rule 3](SOLVE_SUMMARY.md) for the C1+C2+C3-scoped framing.
 
 2. **Mean line autocorrelation: MAXIMUM (-0.115).** King Wen has the least negative (closest to zero) mean autocorrelation across the 6 line positions. This means its individual line sequences are the smoothest/most correlated among all solutions. Confirmed across all 13,296 orderings.
 
@@ -223,7 +266,7 @@ No individual line autocorrelation is extremal — the effect is distributed acr
 
 ### Interpretation
 
-The complement distance finding is striking *at this scope*: among orderings satisfying the other rules (Rules 1, 2, 5, 6 — without C3 yet applied), King Wen's complement distance of 12.125 is at the **3.9th percentile** — only 3.9% of valid orderings place complements closer (sampled figure; exact confirmation pending). Most valid orderings have complement distances of 12-14.5. The "actively minimizes" framing — in the loose sense of sitting in the lowest 4%, not of attaining the minimum — is appropriate against this reference population (Rules 1, 2, 5, 6 / **C1+C2+C4+C5** in the formal naming; the mapping is Rule 5↔C4, Rule 6↔C5 — an earlier version of this sentence mislabeled it "C1+C2+C5"). **It is not appropriate against the C1+C2+C3 canonical**: once C3 ≤ 776 is applied (using KW's exact value as the ceiling), KW sits at the maximum allowed cd, not the minimum. ~10% of the 3.43B C1+C2+C3 canonical orderings tie with KW at 776; the minimum is 424. The 3.9th-percentile claim and the "ceiling cohort" claim are both true, at different scopes — see [SOLVE_SUMMARY.md §Rule 3](SOLVE_SUMMARY.md). Either framing represents a research design choice on what reference population to compare against; the threshold value 12.125 itself is reverse-engineered from KW (no first-principles derivation).
+The complement distance finding is striking *at this scope*: among orderings satisfying the other rules (Rules 1, 2, 5, 6 — without C3 yet applied), King Wen's complement distance of 12.125 is at the **3.9th percentile** — only 3.9% of valid orderings place complements closer (sampled figure; exact confirmation pending). *(**Flagged 2026-08-01, lens sweep** — see the flag block in §Rule 3: this figure is not supported by the population it is labelled with, the ledger gives ≈12%, and it should not be cited.)* Most valid orderings have complement distances of 12-14.5. The "actively minimizes" framing — in the loose sense of sitting in the lowest 4%, not of attaining the minimum — is appropriate against this reference population (Rules 1, 2, 5, 6 / **C1+C2+C4+C5** in the formal naming; the mapping is Rule 5↔C4, Rule 6↔C5 — an earlier version of this sentence mislabeled it "C1+C2+C5"). **It is not appropriate against the C1+C2+C3 canonical**: once C3 ≤ 776 is applied (using KW's exact value as the ceiling), KW sits at the maximum allowed cd, not the minimum. ~10% of the 3.43B C1+C2+C3 canonical orderings tie with KW at 776; the minimum is 424. The 3.9th-percentile claim and the "ceiling cohort" claim are both true, at different scopes — see [SOLVE_SUMMARY.md §Rule 3](SOLVE_SUMMARY.md). Either framing represents a research design choice on what reference population to compare against; the threshold value 12.125 itself is reverse-engineered from KW (no first-principles derivation).
 
 The line autocorrelation finding shows the sequence favors smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
 
@@ -260,7 +303,7 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 
 1. Pair structure (reverse/inverse) — C1
 2. No 5-line transitions — C2
-3. Complement distance ≤ 12.125 (3.9th percentile at the C1+C2+C4+C5 scope, sampled) — C3
+3. Complement distance ≤ 12.125 (3.9th percentile at the C1+C2+C4+C5 scope, sampled — **flagged 2026-08-01, see §Rule 3**) — C3
 4. ~~XOR products within 7 values~~ (redundant — Theorem 2)
 5. Starts with ䷀ The Creative / ䷁ The Receptive — C4
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9} — C5
@@ -523,7 +566,7 @@ The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canon
 - **Position 1 is fixed by C4's definition.** The Creative/Receptive pair always comes first (a definitional constraint, classically attested; the within-pair orientation is likewise definitional — see §Theorem 6 — RETRACTED).
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
 - **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing selections among genuinely available alternatives, not mathematical necessity.
-- **King Wen keeps complements unusually close relative to the other rules** — at the 3.9th percentile (sampled) of orderings satisfying C1+C2+C4+C5, i.e., every constraint except C3 itself. It does **not** minimize complement distance: within the C1+C2+C3 canonical, KW sits at the C3 **ceiling** (776; ~10% of enumerated orderings tie there), and the population minimum is far lower (424 at 100T, 392 at 560T). See §Rule 3's defensibility note. *(Reworded 2026-07-22: this line previously said "minimizes … as close as possible", an unscoped-minimization framing that §Rule 3 itself rules not defensible.)*
+- **King Wen keeps complements unusually close relative to the other rules** — at the 3.9th percentile (sampled) of orderings satisfying C1+C2+C4+C5, i.e., every constraint except C3 itself *(**Flagged 2026-08-01, lens sweep** — see the flag block in §Rule 3: this figure is not supported by the population it is labelled with, the ledger gives ≈12%, and it should not be cited.)*. It does **not** minimize complement distance: within the C1+C2+C3 canonical, KW sits at the C3 **ceiling** (776; ~10% of enumerated orderings tie there), and the population minimum is far lower (424 at 100T, 392 at 560T). See §Rule 3's defensibility note. *(Reworded 2026-07-22: this line previously said "minimizes … as close as possible", an unscoped-minimization framing that §Rule 3 itself rules not defensible.)*
 
 ### Summary
 
@@ -624,7 +667,7 @@ pair-only fiber, by exactly 2 vectors, both opening (0, 63)).
 
 ### Theorem 7: Complement distance bounds
 
-King Wen's complement distance (12.125) is NOT the maximum among the differential population (orderings satisfying Rules 1, 2, 5, 6 = C1+C2+C4+C5, with Rule 3 not applied). Valid orderings range from 11.75 to 14.5. King Wen is at the **3.9th percentile** of that sampled population — in the lowest 4%, though not at the minimum. The earlier differential analysis finding ("King Wen maximizes complement distance") was an artifact of circular filtering: defining Rule 7a as comp_dist ≤ 12.125 and then observing King Wen was the maximum within that filtered set.
+King Wen's complement distance (12.125) is NOT the maximum among the differential population (orderings satisfying Rules 1, 2, 5, 6 = C1+C2+C4+C5, with Rule 3 not applied). Valid orderings range from 11.75 to 14.5. King Wen is at the **3.9th percentile** of that sampled population — in the lowest 4%, though not at the minimum. *(**Flagged 2026-08-01, lens sweep** — this sentence carries the decisive evidence against that figure: the stated range [11.75, 14.5] cannot be the range of C1+C2+C4+C5, because the strictly smaller C1–C5 canonical contains orderings at cd = 6.625 (100T) and 6.125 (560T). The 13,296-ordering differential population is a budgeted slice, not a sample of the labelled population. See §Rule 3.)* The earlier differential analysis finding ("King Wen maximizes complement distance") was an artifact of circular filtering: defining Rule 7a as comp_dist ≤ 12.125 and then observing King Wen was the maximum within that filtered set.
 
 ### Theorem 8: Free-region budget is determined
 
@@ -732,3 +775,5 @@ Use `solve.py` for analysis (fingerprint, differential, reconstruction, etc.) an
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
 
 *Revision 2026-07-22 (C3 scope-consistency sweep): (1) the 3.9th-percentile complement-distance figure carried mutually inconsistent scope labels across the docs (C1-only, Rules 1-2/C1+C2, Rules 1-5, Rules 1-6); the measured population is **C1+C2+C4+C5** (the solve.py differential sample — every constraint except C3 itself), and all labels now state that scope. The project's own figures at the mislabeled scopes — C3|C1 = 6.42% (`--null-pair-constrained`, 10⁹ samples), 7.35% at C1+C2 (Level-2 Monte Carlo), and the exact P(C3 ≤ 776) = 8.106% at C1&C4 (`verify.py --check-null-g`) — are all roughly twice 3.9%, ruling out the C1-only and C1+C2 labels. (2) The "~21.7 pair-constrained average" in §Rule 3 was misattributed — ~21.7 is the unconstrained-random figure; the exact C1&C4-null mean cd is 16.25. (3) The summary line "King Wen minimizes complement distance … as close as possible" was reworded to comply with this page's own §Rule 3 defensibility ruling. No canonical count, sha, or theorem changed.*
+
+*Revision 2026-08-01 (lens sweep — C3 percentile flag): the 3.9th-percentile complement-distance figure is **flagged and withdrawn from citation**. It is a statistic of the 13,296-ordering `solve.py` differential slice, whose stated range [11.75, 14.5] cannot be the range of C1+C2+C4+C5 — the strictly smaller C1–C5 canonical contains orderings at cd = 6.125 — and the suite's own ledger gives 1.3287×10³⁸ / 1.097051×10³⁹ ≈ **12%** at that scope. The 2026-07-22 scope correction above fixed the figure's *label*, not the figure. Authoritative statement of the flag, and the measurement that would settle it: §Rule 3 above. No canonical count, sha, or theorem changed.*

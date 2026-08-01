@@ -258,10 +258,52 @@ A node is the unit of WORK. The solver counts nodes to measure how much
 of the search tree it has explored. In one run on a 128-core VM at full
 speed, the solver visits about **1.6 billion nodes per second**.
 
-Some node visits succeed (the rules still hold, keep going down). Others
-fail (a rule is broken, back up and try the next sibling). Most paths
-fail somewhere in the middle of the 64 positions, so most nodes are
-"failed attempts that got pruned." That's normal.
+Some nodes lead somewhere (a child placement survives, keep going down).
+Most do not: no remaining pair fits, so the node is a dead end and the
+walk backs up to try the next sibling. Most paths die somewhere in the
+middle of the 32 pair slots. That's normal.
+
+### Exactly what counts as a node (the replicator's definition)
+
+The prose above is enough to read the rest of this page, but it is *not*
+enough to re-derive a canonical sha. A different team writing its own
+C1–C5 enumerator has to increment its counter on exactly the same events,
+because the per-sub-branch node budget is the enumeration's only free
+parameter and a **13-node** difference in 63 million (2×10⁻⁷) already
+produces a valid but non-canonical sha — see
+[DEVELOPMENT.md](DEVELOPMENT.md) §"10T d3 canonical" on
+`SOLVE_PER_SUB_BRANCH_LIMIT=63146557` vs the auto-divided 63,146,544.
+
+The counter (`ts->nodes`, and the budget-bearing `ts->branch_nodes`) is
+incremented in exactly one place per engine — on **frame entry**
+(`solve.c` `backtrack_iterative`, the `ENTER` phase; and the recursive
+`backtrack`, at function entry). Both engines count identically. What
+that means concretely:
+
+- **A candidate rejected by a rule is NOT a node.** While scanning for
+  the next placement, the solver skips a (pair, orientation) candidate
+  outright — no frame, no count — when the pair is already used, when the
+  boundary transition would have Hamming distance 5 (C2), or when either
+  the boundary-distance or the within-pair-distance budget is exhausted
+  (C5). Only a candidate that survives all of those gets a frame pushed,
+  and it is the *frame* that costs a node.
+- **A node is therefore a legal placement, not a failed attempt.** A node
+  "fails" only in the sense that its own subtree yields nothing.
+- **The frame the walk starts from is counted** — the root of the walk
+  (in partitioned mode, the first free position after the fixed prefix)
+  costs one node before any child is tried.
+- **Each orientation is its own node.** The two orientations of the same
+  pair are distinct candidates; each one that survives the checks above
+  gets its own frame and its own node.
+- **A completed ordering is counted.** A leaf at pair slot 32 enters a
+  frame like any other, so every solution costs one node too.
+
+Ground truth is `solve.c` (the `ts->nodes++` / `ts->branch_nodes++` pair
+at the top of each engine's frame-entry path); this section is a
+statement of it, not a second definition. *(Added 2026-08-01, lens sweep:
+no document previously stated the node-accounting semantics, so an
+independent re-implementation had no way to hit the canonical record
+count even given the published budget.)*
 
 A "node budget" or "node limit" is a stopping rule. When a sub-branch
 has consumed N nodes of work without finishing, we stop walking it and

@@ -1425,7 +1425,8 @@ Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
    definitional (Xugua-attested), needing no theorem. See
    SPECIFICATION.md §Theorems and CLAIMS_DECIDED's corrections ledger.
 4. **Bootstrap confidence intervals** on percentile claims (complement
-   distance at 3.9th percentile, shift pattern percentages on the current
+   distance at 3.9th percentile — a figure flagged 2026-08-01, see
+   SOLVE.md §Rule 3 — shift pattern percentages on the current
    canonical datasets, per-position entropies). Report `X% [Y%, Z%]`
    instead of point estimates.
 5. **Null-model comparison against structured permutations** (de Bruijn

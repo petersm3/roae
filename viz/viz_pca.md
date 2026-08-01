@@ -136,9 +136,12 @@ previously carried the 10T/100T minimum 424 under the 560T figure; the
 - **KW sits at the upper end of the range (776) because C3 enforces
   the ceiling**. The meaningful signal is that 100% of this dataset
   has C3 ≤ 776 — it's the filter, not an observation.
-- The "3.9th percentile" claim for KW is against **all C1-C2-C4-C5
+- The "3.9th percentile" claim for KW was against **all C1-C2-C4-C5
   orderings** (not within this C1-C5 dataset). Within this dataset
-  KW is tautologically at 100th percentile.
+  KW is tautologically at 100th percentile. **That figure was flagged
+  2026-08-01** as unsupported by the population it is labelled with
+  (the ledger gives ≈12% at that scope) — see
+  [SOLVE.md](../documentation/SOLVE.md) §Rule 3.
 - The distribution shape in this plot tells you HOW selective C3 is
   as a filter. A heavily skewed distribution (most points near 776,
   few near the minimum) means C3 is a strong filter that eliminates most
