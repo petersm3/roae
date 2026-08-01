@@ -224,10 +224,19 @@ for line in open(reg, encoding='utf-8'):
     if not line.strip() or line.lstrip().startswith('#'): continue
     p = line.split('\t')
     if len(p) >= 2: rows.append((p[0].strip(), p[1].strip()))
-allowed = set()
+# Allowlist entries are "path:line" with an OPTIONAL tab-separated content anchor: a literal
+# substring that must still be present on that line for the suppression to apply. WHY (2026-08-01):
+# the file:line form drifts. The entry for the TR-4 calibration-table row was written at :119, two
+# lines were inserted above it, and the entry then (a) failed to suppress the real row at :121 and
+# (b) silently covered whatever moved into :119. Direction (b) is the dangerous one — an unreviewed
+# line inheriting a suppression. With an anchor, drift makes the WARN come back instead.
+allowed = {}
 if os.path.exists(allow):
-    allowed = {l.strip() for l in open(allow, encoding='utf-8')
-               if l.strip() and not l.lstrip().startswith('#')}
+    for l in open(allow, encoding='utf-8'):
+        l = l.rstrip('\n')
+        if not l.strip() or l.lstrip().startswith('#'): continue
+        parts = l.split('\t')
+        allowed[parts[0].strip()] = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
 EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
 EX  = r'\bexact|\bproven|\bproved'
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
@@ -245,7 +254,7 @@ for f in files:
             conflict = (want == 'exact' and he and not hx) or (want == 'estimate' and hx and not he)
             if conflict:
                 key = f"{f}:{ln}"
-                if key in allowed: continue
+                if key in allowed and (allowed[key] is None or allowed[key] in line): continue
                 print(f"  [WARN] {f}:{ln} — {val[:28]} is '{want}' in METHODS but this line reads otherwise")
                 print(f"         {line.strip()[:170]}")
                 bad += 1

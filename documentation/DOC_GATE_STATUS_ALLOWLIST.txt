@@ -1,13 +1,22 @@
 # GATE 5 allowlist — lines where a canonical quantity legitimately appears alongside the
 # OPPOSITE status word, because the sentence is COMPARING exact against estimate rather
-# than mislabelling anything. Format: one "path:line" per line, with the reason above it.
+# than mislabelling anything. Format: one "path:line" per line, with the reason above it,
+# OPTIONALLY followed by a TAB and a literal substring that must still appear on that line.
+#
+# Supply the anchor. Without one, a "path:line" entry drifts silently: on 2026-08-01 the
+# TR-4 entry below was written at :119, two rows were later inserted above it, and the
+# entry both failed to suppress the row it was written for AND silently covered whatever
+# had moved into :119. The anchor turns that into a re-raised WARN.
 #
 # Reviewed 2026-08-01. Both entries verified by reading the sentence, not by pattern.
 
 # States the ratio of the EXACT orbit count to the Knuth ESTIMATE (0.999956) — the
 # comparison is the point of the sentence.
-documentation/HISTORY.md:5563
+documentation/HISTORY.md:5563	ratio to the Knuth estimate is **0.999956**
 
 # The estimator-calibration table row for C1-C5, whose "exact" cell literally reads
-# "none — no exact value exists". The word "exact" is there to deny an exact value.
-reports/TR4_SIZE_OF_THE_SPACE.md:119
+# "none — no exact value exists". The word "exact" is there to deny an exact value, and
+# the 1.3287e38 in the row sits under a column headed "Prior Knuth estimate" — the status
+# is correct, the gate is reading a negation. (Re-anchored from :119 to :121 on 2026-08-01
+# after two lines were inserted above it; anchor added so it cannot drift silently again.)
+reports/TR4_SIZE_OF_THE_SPACE.md:121	*none — no exact value exists*
