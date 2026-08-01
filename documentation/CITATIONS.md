@@ -1029,14 +1029,26 @@ Marshall, S. J. [pen name Joel Biroco] (n.d.). *Yijing Dao*. biroco.com. https:/
 
 <a id="meyer1998"></a>
 Meyer, P. (1998). *The King Wen sequence and the first order of differences*. Web document (Serendipity
-site; rev. 1998-01-04). **Source currently unverifiable online (checked 2026-08-01):** the original URL
-`www.serendipity.li/dna/kws.html` returns 404 (the site root is still live, so the page was removed rather
-than the host disappearing), and the Internet Archive holds **no snapshot of it at all** — confirmed
-against both the Wayback availability API and a CDX query, which return zero captures. An earlier
-"[Archived]" hyperlink here pointed at a Wayback URL that does not resolve; it has been removed rather
-than left to imply a retrievable copy exists. The characterization below is retained as the record of what
-the document contained when it was consulted, and should be read as **an attribution we can no longer
-independently re-verify** — flagged deliberately, because this entry is load-bearing for a prior-art claim.
+site; rev. 1998-01-04). **The web document itself is gone (checked 2026-08-01):** `www.serendipity.li/dna/kws.html`
+returns 404 (the site root is still live, so the page was removed rather than the host disappearing), and the
+Internet Archive holds **no snapshot of it at all** — zero captures from both the Wayback availability API and
+a CDX query. An earlier "[Archived]" hyperlink here pointed at a Wayback URL that does not resolve; it has
+been removed rather than left to imply a retrievable copy exists.
+
+**The substance, however, IS retrievable — via Meyer's print publication and the Timewave literature.** Meyer's
+canonical treatment of this material is *The Mathematics of Timewave Zero*, published as an appendix
+(pp. 211–220) in Terence McKenna & Dennis McKenna, *[The Invisible Landscape](#mckenna-mckenna1975)*,
+**2nd edition, HarperCollins, 1993** — print-published and permanently citable, unlike the web document.
+The two specific properties this project cites as prior art are stated explicitly in the associated
+first-order-of-difference literature and are live today at
+[fractal-timewave.com](https://www.fractal-timewave.com/articles/derivation_10.htm): that the first order of
+difference "within pairs … is always found to be an even number" (this project's Theorem 1, within-pair
+distance is always even), and that there are "sixteen instances of an odd integer occurring out of a possible
+sixty-four" — the **cyclic** 64-transition reading, which is the same reading behind the 25/75 observation
+credited to McKenna & McKenna above and covered by the wrap-around parity theorem in
+[SPECIFICATION.md](SPECIFICATION.md). *Attribution status: the prior-art claim stands on retrievable sources;
+only the particular 1998 web presentation of it is unrecoverable. Recorded explicitly because an earlier
+version of this note over-stated the loss as unverifiability of the attribution itself.*
   Publishes the complete cyclic line-change sequence of the King Wen order (Hamming distances including
   the wraparound term) with an explicit XOR-and-popcount formalization — prior art for the transition
   multiset AS DATA (C5's axis) and for the cyclic reading's difference data. The absence of distance-5
