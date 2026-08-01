@@ -705,7 +705,7 @@ Chan, A. (2026). *Statistical properties of the King Wen sequence: An anti-habit
 not improve neural network training*. arXiv:2604.09234 (v2, revised 2026-06-25). https://arxiv.org/abs/2604.09234
 [doi:10.48550/arXiv.2604.09234](https://doi.org/10.48550/arXiv.2604.09234)
   Monte Carlo statistical analysis of the sequence against 100,000 random permutations; predates ROAE;
-  per-finding overlap scoped above. *Version check (2026-08-01, strengthened 2026-08-02): our reading was taken against v1; the
+  per-finding overlap scoped above. *Version check (2026-08-01, strengthened 2026-08-01): our reading was taken against v1; the
   paper has since been revised to v2 (2026-06-25). **The author's own arXiv version comment states the
   revision "added two figures; corrected author names/titles for two cited references" and
   "code-availability attribution; no changes to results or conclusions."** The v1 and v2 abstracts are
@@ -1046,7 +1046,7 @@ been removed rather than left to imply a retrievable copy exists.
 unlike the lost web document. That appendix is the timewave *construction*, not the first-order-of-difference
 observations themselves.
 
-**Attribution correction (2026-08-02).** An earlier version of this note (added 2026-08-01) cited two
+**Attribution correction (2026-08-01).** An earlier version of this note (added 2026-08-01) cited two
 properties — that the first order of difference "within pairs … is always found to be an even number", and
 that there are "sixteen instances of an odd integer occurring out of a possible sixty-four" — as retrievable
 evidence for *Meyer's* prior art. **That was wrong on attribution.** Both sentences occur on a page authored

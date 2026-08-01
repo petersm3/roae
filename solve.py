@@ -4173,7 +4173,7 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     # --- C4: start with hexagram 0 at position 0 (Qian/Kun convention via partner) ---
     if include_c4:
         # SPECIFICATION.md C4 is ORIENTED: s0 = 63 (Qian, all-yang, The Creative) and
-        # s1 = 0 (Kun). Until 2026-08-02 this pinned hexagram 0 at position 0 — i.e.
+        # s1 = 0 (Kun). Until 2026-08-01 this pinned hexagram 0 at position 0 — i.e.
         # Kun first, the COMPLEMENT of the spec — while the help text called it "the
         # Qian/Kun convention". Harmless in this encoder's own scope (it emits C1 n C2,
         # under which complementation x -> x^63 is an exact symmetry, so the two

@@ -112,10 +112,10 @@ No. The survivors share only 1-2 of 32 pair positions with King Wen, and their d
 
 ## Interpretation
 
-The six rules narrow the space from ~10^45 sequences — but **not to something unique**. *(Corrected 2026-08-02: this paragraph said "possibly unique". The C1–C5 space is measured at ≈1.33×10³⁸ orderings, and even adding the identifying C6/C7 adjacency pins leaves ≈5.21×10³¹ — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4. The uniqueness reading was refuted 2026-07-02 and is one of this project's principal results; it should not be described here as an open possibility.)* The strongest individual constraints are:
+The six rules narrow the space from ~10^45 sequences — but **not to something unique**. *(Corrected 2026-08-01: this paragraph said "possibly unique". The C1–C5 space is measured at ≈1.33×10³⁸ orderings, and even adding the identifying C6/C7 adjacency pins leaves ≈5.21×10³¹ — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4. The uniqueness reading was refuted 2026-07-02 and is one of this project's principal results; it should not be described here as an open possibility.)* The strongest individual constraints are:
 
 1. **Pair structure** — reduces the problem from 64! to 32! x 2^32 (from ~10^89 to ~10^45)
-2. **Complement proximity** — eliminates roughly **92–94%** of pair-constrained orderings (C3 passes at ~6–8% given C1: exactly 6.4211367496% under the C1 null and 8.106% under C1&C4, `verify.py --check-null-g`; Level-2 Monte-Carlo gives 7.35% at C1+C2). *(Corrected 2026-08-02 from "~99.7%", an early sampling-era figure contradicted by every exact measurement since.)*
+2. **Complement proximity** — eliminates roughly **92–94%** of pair-constrained orderings (C3 passes at ~6–8% given C1: exactly 6.4211367496% under the C1 null and 8.106% under C1&C4, `verify.py --check-null-g`; Level-2 Monte-Carlo gives 7.35% at C1+C2). *(Corrected 2026-08-01 from "~99.7%", an early sampling-era figure contradicted by every exact measurement since.)*
 3. **Starting pair** — eliminates ~98.4% of remaining orderings
 4. **Difference distribution** — eliminates all remaining samples
 
@@ -227,7 +227,7 @@ The complement distance finding is striking *at this scope*: among orderings sat
 
 The line autocorrelation finding shows the sequence favors smooth individual line sequences. Each of the 6 lines traces a binary pattern through the 64 positions; King Wen's lines have the weakest tendency to alternate (least negative autocorrelation).
 
-These two features are candidates for a 7th rule that could further narrow the solution space toward King Wen. *(Qualified 2026-08-02: "uniquely" removed. No rule of this kind reaches uniqueness in the full space — the spec's own C6/C7 adjacency pins cut the C1–C5 space by ×2.55×10⁶ and still leave ≈5.21×10³¹ orderings, [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4.)*
+These two features are candidates for a 7th rule that could further narrow the solution space toward King Wen. *(Qualified 2026-08-01: "uniquely" removed. No rule of this kind reaches uniqueness in the full space — the spec's own C6/C7 adjacency pins cut the C1–C5 space by ×2.55×10⁶ and still leave ≈5.21×10³¹ orderings, [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4.)*
 
 ### Rule 7 test (`--rule7`)
 
@@ -309,11 +309,11 @@ Several simpler alternatives were tested and ruled out:
 
 - **No single position-pair constraint is unique to KW.** Every pair that KW places at a given position is also placed there by other valid orderings.
 - **No pair of position constraints is unique.** The most selective pair (positions 2 and 26) still allows 25,857 solutions.
-- **KW's complement distance (776) is shared by ~197,000 other solutions.** It's at the 100th percentile (maximum among all solutions found) but not unique. *(Notation corrected 2026-08-02: this line read **388**, the halved `Σ_pairs` convention. Everywhere else in this document — and in [METHODS.md](../reports/METHODS.md) §C3, corrected 2026-08-01 — the sum runs over all **64** hexagrams, giving **776** (mean 12.125). The set of solutions is unchanged; only the number's convention was inconsistent, in the one place a reader would compare it against the other fifteen.)*
+- **KW's complement distance (776) is shared by ~197,000 other solutions.** It's at the 100th percentile (maximum among all solutions found) but not unique. *(Notation corrected 2026-08-01: this line read **388**, the halved `Σ_pairs` convention. Everywhere else in this document — and in [METHODS.md](../reports/METHODS.md) §C3, corrected 2026-08-01 — the sum runs over all **64** hexagrams, giving **776** (mean 12.125). The set of solutions is unchanged; only the number's convention was inconsistent, in the one place a reader would compare it against the other fifteen.)*
 - **No valid ordering differs from KW by exactly 1 position.** The nearest neighbors are all at edit distance 2 — there is a "gap" around King Wen in solution space.
 - **The maximum boundaries matched by any non-KW solution is 28 out of 31.** Close, but not enough for uniqueness.
 
-King Wen's uniqueness is irreducibly combinatorial: **within this section's 10T dataset** it requires specifying 4 specific adjacency relationships. No scalar property or simpler structural criterion suffices. *(Scope added 2026-08-02: 4 is the 10T figure. At canonical depth the greedy-ordered minimum is **5** — set {4, 27, 25, 21, 1}, identical in membership and order at both 100T and 560T — see the corrected status below and [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md). And note this is uniqueness **within an enumerated budgeted slice**, not in the full C1–C5 space, where ≈5.21×10³¹ orderings satisfy even C1–C7.)*
+King Wen's uniqueness is irreducibly combinatorial: **within this section's 10T dataset** it requires specifying 4 specific adjacency relationships. No scalar property or simpler structural criterion suffices. *(Scope added 2026-08-01: 4 is the 10T figure. At canonical depth the greedy-ordered minimum is **5** — set {4, 27, 25, 21, 1}, identical in membership and order at both 100T and 560T — see the corrected status below and [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md). And note this is uniqueness **within an enumerated budgeted slice**, not in the full C1–C5 space, where ≈5.21×10³¹ orderings satisfy even C1–C7.)*
 
 Exhaustive testing of all 31,465 boundary quadruples produces **dataset-dependent working 4-sets**. The count and composition differ between d2 and d3:
 

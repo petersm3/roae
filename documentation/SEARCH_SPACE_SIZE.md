@@ -185,7 +185,7 @@ see TR-11 §10(ii).)
 
 ## An information-rate extrapolation for the uniqueness-boundary count (2026-07-04)
 
-> **Label corrected 2026-08-02:** previously headed "An information floor". No floor is established — see
+> **Label corrected 2026-08-01:** previously headed "An information floor". No floor is established — see
 > the extrapolation bullet below and TR-4 v1.15/v1.16 for why the argument bounds nothing.
 
 Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. The measured

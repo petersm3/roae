@@ -164,7 +164,7 @@ workflow lives in the sibling `sat.py`; see [SAT_CLI.md](SAT_CLI.md).)
 |---|---|
 | `--sat-encode OUT_CNF` | Emit DIMACS CNF for C1+C2 over the King Wen sequence to `OUT_CNF`. |
 | `--sat-c3 none\|pb\|adder` | Include C3 in the encoding as a pseudo-Boolean (`pb`) constraint (default `none`). `adder` is **deferred/superseded** — see the note below. |
-| `--sat-c4` | Force C4 in its **oriented** form: position 0 = Qian (hexagram **63**), position 1 = Kun (0), per [SPECIFICATION.md](SPECIFICATION.md) §C4. *(Corrected 2026-08-02: previously pinned hexagram 0 first — Kun — the complement of the spec. Isomorphic under this encoder's C1∩C2 scope, and the certification path is `sat.py`, which has no `--sat-c4`, so no published result moved.)* |
+| `--sat-c4` | Force C4 in its **oriented** form: position 0 = Qian (hexagram **63**), position 1 = Kun (0), per [SPECIFICATION.md](SPECIFICATION.md) §C4. *(Corrected 2026-08-01: previously pinned hexagram 0 first — Kun — the complement of the spec. Isomorphic under this encoder's C1∩C2 scope, and the certification path is `sat.py`, which has no `--sat-c4`, so no published result moved.)* |
 | `--sat-c5` | C5 cardinality constraints — **deferred/superseded**; see the note below. |
 
 **Deferred/superseded flags — `--sat-c3 adder` and `--sat-c5` (honest

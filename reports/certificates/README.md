@@ -5,8 +5,14 @@
 This directory contains **impossibility proofs with independently checkable receipts**. Several
 historical claims about the King Wen sequence amount to rules it "should" satisfy. We encoded those
 rules as logical formulas and used an industry-standard SAT solver to prove that certain
-combinations admit **no possible sequence at all** — most notably the conflict theorem: the five
-classical rules cannot all hold together, and specific two-rule pairs are already incompatible.
+combinations admit **no sequence in the base space these proofs range over** — most notably the
+conflict theorem: the five classical rules cannot all hold together. **Read the scope carefully:**
+every UNSAT result in this directory is a statement over the **C1∩C2∩C4∩C5**-valid space — the CNF
+fixes the pair structure, the no-5 rule, the oriented opening pair, and King Wen's own transition
+multiset. It is *not* a statement about all 64! orderings, and an arrangement with a different
+transition multiset is excluded by no byte of these proofs. *(Scope added 2026-08-01: this summary
+read "no possible sequence at all", inviting exactly the universal reading TR-2 v1.18/v1.20
+corrected in the reports — and this front page is where a sceptical reader starts.)*, and specific two-rule pairs are already incompatible.
 
 The point of this directory is that **you do not have to trust our solver, our code, or us**:
 each result ships as a DRAT certificate — a step-by-step logical derivation that any third-party
@@ -15,8 +21,9 @@ documented command, run the checker on the archived certificate, and it prints `
 `verify_all.sh` does this for every certificate in one command. The certificates were additionally
 re-verified end-to-end on separate hardware before publication.
 
-In short: "these rules cannot coexist" is not our opinion or our program's output — it is a
-machine-checkable mathematical fact, and the receipt is in this directory.
+In short: "these rules cannot coexist **over the C1∩C2∩C4∩C5-valid space**" is not our opinion or
+our program's output — it is a machine-checkable mathematical fact. The base scope is part of the
+fact, not a footnote to it, and the receipt is in this directory.
 
 
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
@@ -31,7 +38,7 @@ C3 positional KW-exactness gate — plus one SAT-witness artifact (`c3_positiona
 
 | certificate | regeneration command | claim |
 |---|---|---|
-| `rigidity_sc4_unsat.drat.gz` | `python3 sat.py --rigidity-cnf <out.cnf>` | No G₅-automorphism fixing `0` and its 5 neighbours `N₅(0)` pointwise differs from the identity — i.e. the two-common-neighbour rigidity step of the symmetry-completeness theorem. UNSAT. |
+| `rigidity_sc4_unsat.drat.gz` | `python3 sat.py --rigidity-cnf <out.cnf>` | No G₅-automorphism fixing `0` and its **six** distance-5 neighbours `N₅(0)` (\|N₅(0)\| = C(6,5) = 6) pointwise differs from the identity — i.e. the two-common-neighbour rigidity step of the symmetry-completeness theorem. UNSAT. |
 
 Note the distinct emitter flag: this kernel regenerates via `--rigidity-cnf` (which self-validates its
 own encoding before writing), not via the `--emit-cnf <target>` table used by the 19 conflict-theorem

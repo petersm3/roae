@@ -495,7 +495,7 @@ class TestMooreKwGates(unittest.TestCase):
         self.assertEqual(sum(sat.MOORE_COUNTED.values()), 18)
 
     def test_sat_c4_pins_the_oriented_form(self):
-        # 2026-08-02: --sat-c4 pinned hexagram 0 (Kun) at position 0 — the COMPLEMENT of
+        # 2026-08-01: --sat-c4 pinned hexagram 0 (Kun) at position 0 — the COMPLEMENT of
         # SPECIFICATION.md C4 (s0 = 63 Qian, s1 = 0 Kun). The decisive test is that the
         # pinned orientation must be one KING WEN ITSELF satisfies; the old pin excluded it.
         partner = solve._sat_partner_map()

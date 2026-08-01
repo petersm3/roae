@@ -15,7 +15,7 @@ echo "== 2. Two-language gates =="
 check "solve.py --registry-verify (31 rules)" "python3 solve.py --registry-verify | grep -q 'ALL 31'"
 check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
 
-echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 20 archived certs) =="
+echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 21 archived certs) =="
 KISSAT=${KISSAT:-kissat}; DRAT=${DRAT:-drat-trim}
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
@@ -63,7 +63,16 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if not ln.startswith('SEQ='):
         continue
     seq = [int(x) for x in ln[4:].split()]
-    assert sorted(seq) == list(range(64)) and seq[:2] == [63, 0]          # C1, C4
+    assert sorted(seq) == list(range(64))                                 # permutation of H
+    # C1 is the PAIRING predicate (SPECIFICATION.md: s_{i+1} = partner(s_i) for even i),
+    # not permutation-ness. Until 2026-08-01 this line asserted only the permutation and
+    # labelled it "C1, C4" — so a witness with broken pair structure would have passed the
+    # 'independent recheck' these artifacts are advertised under. verify.PAIRS was already
+    # imported for exactly this. (All 42 archived witnesses re-verified WITH pairing when the
+    # gap was found: all pass. The data was sound; the checker was not.)
+    _pairs = {frozenset(pr) for pr in verify.PAIRS}
+    assert all(frozenset((seq[2*k], seq[2*k+1])) in _pairs for k in range(32))  # C1
+    assert seq[:2] == [63, 0]                                             # C4 (oriented)
     assert all(verify.hamming(seq[i], seq[i+1]) != 5 for i in range(63))  # C2
     dist = [0]*7
     for i in range(63): dist[verify.hamming(seq[i], seq[i+1])] += 1

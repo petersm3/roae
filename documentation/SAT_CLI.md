@@ -231,7 +231,7 @@ catalogue and the expected SAT/UNSAT verdict of each):
 | `moore-strict` | Base AND [Moore 2005](CITATIONS.md#moore2005) parity (all 18) AND [Moore 1989](CITATIONS.md#moore1989) rhythm (0 breaks) — expect SAT → explicit witness. |
 | `rc4-strict` | Base AND [Schulz 1990](CITATIONS.md#schulz1990-motifs) gender/position-parity, 0 violations (semantics = `solve.rc4_violations`). |
 | `grand-strict` | Moore parity + Moore rhythm + Schulz gender simultaneously ("grand unified precursor" question). |
-| `grand-ccn4` / `grander-strict` | The four- / five-rule conflict decisions (#217); UNSAT proves no ordering is perfect under the combined rule set. |
+| `grand-ccn4` / `grander-strict` | The four- / five-rule conflict decisions (#217); UNSAT proves no **C1∩C2∩C4∩C5-valid** ordering is perfect under the combined rule set (the base is stated in the table preamble; repeated here because this row is often quoted alone). |
 | `wrap-d5` | Base AND wrap distance d(s63, s0) = 5 — the [McKenna](CITATIONS.md#mckenna-mckenna1975) circular-reading decision (see [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md)). |
 | `*-kwtest` / `*-kwexempt` / `*-kwfail` / `*-kwchain` | Encoding-validation targets that force KW and assert the expected verdict — the two-language gate that the clauses match `solve.py` semantics. |
 
