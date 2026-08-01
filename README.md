@@ -125,7 +125,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must
 python3 roae.py                          # the analysis battery (29 sections; 28 statistical + the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
-python3 tests.py                         # regression harness (35 tests)
+python3 tests.py                         # regression harness (44 tests)
 bash reports/certificates/verify_all.sh  # everything above + all DRAT certs + Lean, one command
 ```
 Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).

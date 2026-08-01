@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.15** (2026-08-01; §10(vi) and §Reproduction Lean pointers refreshed after the vendoring; previously v1.12, 2026-07-26, §10(vi) label alignment — both companion counts two-instrument — see Revision history).*
+*Technical report — **v1.15** (2026-08-01; §10(vi) and §Reproduction Lean pointers refreshed after the vendoring; previously v1.14, 2026-08-01, Lean-pointer refresh after the vendoring — both companion counts two-instrument — see Revision history).*
 *Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
@@ -398,9 +398,7 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    formulation with its inverse-element `last` mapping, computing exact plain-DP values at canonical
    representatives, together with the stabilizer-weighted mass identity that the runtime gate checks) is
    machine-checked in Lean at the **model level** — `orbit_transfer_exact`, `orbit_stabilizer_mult`,
-   `stabilizer_weighted_mass`, `lean/PruneExactness.lean` §OrbitTransfer, **in `lean/`** (vendored into the tree 2026-08-01; originated on the `v4-canonical`
-   branch)
-   branch**, 0 `sorry`. **This does not verify the implementation.** Reachability facts remain hypotheses;
+   `stabilizer_weighted_mass`, `lean/PruneExactness.lean` §OrbitTransfer, **in `lean/`** (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 `sorry`. **This does not verify the implementation.** Reachability facts remain hypotheses;
    the bridge to `solve.c` is still carried by prose, the runtime gates, and the n ≤ 28 plain-vs-quotient
    agreement — specifically it is not machine-checked that `f1_gather_layer`/`f1c5_gather_entries`
    implement that recursion, that the concrete 24 pair-permutations satisfy the hypothesis set, that

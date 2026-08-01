@@ -181,7 +181,7 @@ not a bound.
 
 ## The conflict theorem (2026-07-04, SAT-decided, drat-trim verified): perfection was never available
 
-The literature's four strongest rules are **jointly unsatisfiable**: no C1–C5-valid ordering achieves
+The literature's four strongest rules are **jointly unsatisfiable**: no C1∩C2∩C4∩C5-valid ordering achieves
 Moore's 2005 parity (18/18), Moore's 1989 rhythm (0 breaks), the Schulz gender rule (0 violations), and
 the Schulz S25–28 trigram configuration simultaneously (UNSAT under C1+C2+C4+C5, hence a fortiori with
 C3; certificate independently verified). The pieces fit together sharply:

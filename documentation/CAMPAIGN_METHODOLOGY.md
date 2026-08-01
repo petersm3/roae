@@ -611,8 +611,8 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 
 The 560T close-out cascade (warm copy → cold archive → analyze → blob upload)
 took ~2 days of operator-attended babysitting because of a chain of small
-failures that each required hand-correction. Any future extension (the 1120T step is not planned as of 2026-08-01; this recipe is retained so a later operator can extend at any scale) (1120T or
-deeper) must not repeat these patterns. Each rule below ships with the
+failures that each required hand-correction. Any future extension (the 1120T step is not planned as of 2026-08-01; this recipe is retained so a
+later operator can extend at any scale) must not repeat these patterns. Each rule below ships with the
 specific symptom that motivated it.
 
 1. **Separate VMs per disk source for post-merge workloads.**

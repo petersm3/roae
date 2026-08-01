@@ -180,9 +180,9 @@ The intra-day 4-equivalence test (full-enum L1, deterministic re-run L2, `--merg
 reconstruction) remains useful but is **insufficient on its own** — it proves intra-day binary determinism, not cross-build reproducibility.
 Use 4-equivalence inside a single VM, then cross-build verify across VMs.
 
-#### Container-pinned toolchain (target state for 1120T+ canonicals; not used by 560T)
+#### Container-pinned toolchain (target state for any future deeper canonical; not used by 560T)
 
-The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. For the 1120T extension and any post-2026-Q3 canonical, container pinning remains the **target state** but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
+The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
 
 - An explicit gcc version (e.g., `gcc-13.2.0-23ubuntu4` — pinned by apt version pin or by base-image digest)
 - An explicit glibc version (frozen with the base image)
@@ -191,7 +191,7 @@ The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 U
 
 Build `solve.c` inside the container; the same container + same source → bit-identical binary on any host. Publish the container image digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific reproducibility (used by Nature/Cell/CodeOcean submissions, Bitcoin Core, Debian package builds).
 
-Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Status: deferred pending operator authorization; if shipped, the 1120T pre-launch checklist gains a "build container image digest" gate.
+Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Status: deferred pending operator authorization; if shipped, a future deeper canonical's pre-launch checklist gains a "build container image digest" gate.
 
 #### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
 

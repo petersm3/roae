@@ -5686,7 +5686,7 @@ in Lean with a kernel-only trust base — and the orientation is now documented 
 classically attested in the *Xugua*, and mathematically free. The same batch withdrew a circular joint-KDE
 headline. Neither correction moved a count, a sha, or the enumeration.
 
-**The last `native_decide` (2026-07-31).** `lean/Automorphism.lean`'s `applyPerm_pcomp_bool` had resisted
+**Automorphism.lean's last `native_decide` (2026-07-31).** `lean/Automorphism.lean`'s `applyPerm_pcomp_bool` had resisted
 a kernel proof — the 48·48·64 decision procedure exhausted memory — so it had shipped with a documented
 compiler-trust disclosure. It was replaced by a structural group-action argument that the kernel checks
 directly. The DIV-24 and ceiling results now stand on `[propext, Classical.choice, Quot.sound]` alone.

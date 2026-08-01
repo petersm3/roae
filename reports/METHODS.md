@@ -136,7 +136,7 @@ the constraint falls on and why.
   = 28 + 58 + 5 = **91** (itemization maintained in [CRITIQUE.md](../documentation/CRITIQUE.md)
   §"Observable-selection accounting"). The exploratory suite **is included** — it is the base of the
   count, not excluded. A per-family "notable" label is therefore a family-scoped claim; against the
-  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**
+  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**.
   **Scope disclosure (added 2026-08-01, after an itemised roster was built from the frozen
   pre-registrations).** The 91 counts *tests performed under registered corrections*, not distinct
   observables, and it is **deliberately retained as the conservative choice**. Two offsetting facts:
