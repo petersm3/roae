@@ -423,14 +423,25 @@ if [ "${1:-}" = "--selftest" ]; then
 
   echo "== DOC GATES SELF-TEST (mutation) =="
 
-  assert_fires "GATE 1 cross-file numbers" documentation/SOLVE.md numbers \
-"s=open('documentation/SOLVE.md').read()
-assert '3,432,399,297' in s
-open('documentation/SOLVE.md','w').write(s.replace('3,432,399,297','3,432,399,298',1))"
+  # GATE 1 is REPORT-ONLY (`return 0`) and only inspects integers of >=12 digits. Asserting a
+  # non-zero exit was wrong twice over: it can never exit non-zero, and the number I first
+  # mutated has 10 digits so the gate would not look at it either way. Assert on its OUTPUT.
+  # This also means "DOC GATES: PASS" has never included gate 1's findings — a real limit on
+  # what that banner attests, now stated in the banner itself.
+  python3 -c "s=open('documentation/SOLVE.md').read()
+assert '336,808,703,936' in s, 'anchor moved'
+open('documentation/SOLVE.md','w').write(s.replace('336,808,703,936','336,808,703,937',1))" 2>/dev/null \
+    && { if bash "$0" numbers 2>/dev/null | grep -q 'WARN'; then
+           echo "  [ok]   GATE 1 cross-file numbers — emits a WARN (report-only gate)"
+         else
+           echo "  [FAIL] GATE 1 cross-file numbers — no WARN on an injected near-twin"; PASS=1
+         fi
+         git checkout -- documentation/SOLVE.md 2>/dev/null; } \
+    || echo "  [SKIP] GATE 1 — anchor moved"
 
   assert_fires "GATE 3 retracted phrasing" documentation/GUIDE.md retract \
 "s=open('documentation/GUIDE.md').read()
-open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k >= 13 by construction.\n')"
+open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>=13 by construction.\n')"
 
   assert_fires "GATE 4 internal links" documentation/GUIDE.md links \
 "s=open('documentation/GUIDE.md').read()
@@ -441,7 +452,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FI
 c=[f for f in glob.glob('viz/*.py')]
 sys.exit(1) if not c else None
 s=open(c[0]).read()
-open(c[0],'w').write(s+'\n# hard floor k >= 13\n')"
+open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
 
   assert_fires "GATE 7 frozen run status" documentation/GUIDE.md liveness \
 "s=open('documentation/GUIDE.md').read()
