@@ -53,10 +53,13 @@ Lean's compiler). What that buys:
   previously carried by `verify.py --check-null-g` from exact-by-computation to machine-checked.
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
   each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
-  the toolchain is pinned in this directory's `lean-toolchain`; the two exceptions to "seconds"
-  are `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP, and
+  the toolchain is pinned in this directory's `lean-toolchain`; the three exceptions to "seconds"
+  are `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP;
   `KingWen.lean`, ~50 s, which kernel-evaluates the equivariance-ceiling witness and the
-  complement-symmetry section's kernel-decide facts).
+  complement-symmetry section's kernel-decide facts; and `Automorphism.lean`, several minutes,
+  whose five heavy `decide +kernel` obligations were measured at 41–72 s **each** on D16 plus
+  ~24 s for §3a's `applyPerm_bit` (see that file's header — list corrected 2026-08-01, which
+  previously named only two exceptions)).
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
