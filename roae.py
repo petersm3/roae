@@ -771,10 +771,10 @@ def print_complements():
     print(f"King Wen percentile vs random: {percentile:.1f}%")
     if percentile <= 5:
         print("Complements are significantly closer together than chance would predict:")
-        print("the ordering keeps opposites unusually near one another.")
+        print("the ordering keeps complements unusually near one another.")
     elif percentile >= 95:
         print("Complements are significantly farther apart than chance would predict:")
-        print("the ordering separates opposites into distant structural sections.")
+        print("the ordering separates complements into distant structural sections.")
     else:
         print("Complement distances are within the range expected by chance;")
         print("no strong evidence that opposition alone shapes placement.")
@@ -2184,7 +2184,7 @@ def print_help_sections():
         ("--trigrams", "Trigram frequency, transitions, and 8x8 transition matrices"),
         ("--nuclear", "Nuclear hexagram chains — hidden inner hexagram derivations"),
         ("--lines", "Line change positional analysis — which lines change most often"),
-        ("--complements", "Complement distance — where each hexagram's opposite sits"),
+        ("--complements", "Complement distance — where each hexagram's complement sits"),
         ("--palindromes", "Palindrome search in the difference wave"),
         ("--canons", "Upper Canon (1-30) vs. Lower Canon (31-64) statistical comparison"),
         ("--hamming", "Full 64x64 Hamming distance matrix"),

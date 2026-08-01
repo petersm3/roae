@@ -485,6 +485,60 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the pub
   exit "$PASS"
 fi
 
+# ---------------------------------------------------------------------------
+# GATE 8 — generated artifacts must match their generator.
+#
+# WHY (2026-08-01, two independent instances in one day):
+#  (a) example/README.md was a hand-edited copy of example/report.md. They
+#      differed by exactly one line — "keeps COMPLEMENTS unusually near one
+#      another" where roae.py:774 emits "OPPOSITES". Someone edited the artifact
+#      instead of the source, and it survived indefinitely.
+#  (b) I did the same thing while fixing the C8 defect: patched roae.py AND
+#      string-patched the four shipped artifacts, two independent routes to the
+#      same text. Committed in dbba77d, caught by the operator, reverted.
+#
+# No other gate covers this. Retraction, link, status, number and liveness gates
+# all pass on a hand-edited artifact, because the text is not retracted, the
+# links resolve and the numbers are self-consistent. The defect is only visible
+# by RE-RUNNING THE GENERATOR.
+#
+# Comparison is DIGIT-STRIPPED. roae.py seeds nothing by default, so Monte Carlo
+# figures legitimately change every run; a byte-diff would fail always and the
+# gate would be turned off within a day. Stripping digits compares the PROSE and
+# the structure, which is where hand-edits live. Numeric drift is gate 1's job.
+#
+# Cost ~45s, so this is NOT part of `all`. Run it before publishing.
+gate_generated() {
+  echo "== GATE 8: generated artifacts match their generator =="
+  local tmp rc=0
+  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
+  if ! command -v python3 >/dev/null 2>&1; then echo "  [skip] no python3"; return 0; fi
+  echo "  regenerating with: python3 roae.py --all   (~45s, unseeded)"
+  if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
+    echo "  [FAIL] the generator itself did not run cleanly"; return 1
+  fi
+  for f in example/report.txt example/report.md example/README.md; do
+    [ -f "$f" ] || { echo "  [skip] $f absent"; continue; }
+    # markdown wrappers differ from the raw stdout, so compare the shared prose:
+    # strip digits, markdown emphasis, and blank lines from both sides.
+    norm() { sed 's/[0-9]//g; s/[*_`|-]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
+    local d
+    d=$(comm -13 <(norm "$tmp/fresh.txt") <(norm "$f") | wc -l)
+    if [ "$d" -le 40 ]; then
+      echo "  [ok]   $f tracks the generator ($d unmatched normalised lines)"
+    else
+      echo "  [FAIL] $f has $d normalised lines the generator does not produce"
+      echo "         -> it was hand-edited. Fix the SOURCE and regenerate:"
+      echo "            python3 roae.py --all            > example/report.txt"
+      echo "            python3 roae.py --all --markdown > example/report.md"
+      echo "            python3 roae.py --all --html     > example/report.html"
+      comm -13 <(norm "$tmp/fresh.txt") <(norm "$f") | head -3 | sed 's/^/            > /'
+      rc=1
+    fi
+  done
+  return "$rc"
+}
+
 case "${1:-all}" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
@@ -493,11 +547,12 @@ case "${1:-all}" in
   status)  gate_status  || RC=1 ;;
   figures) gate_figures || RC=1 ;;
   liveness) gate_liveness || RC=1 ;;
+  generated) gate_generated || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_links || RC=1; echo; gate_status || RC=1
            echo; gate_figures || RC=1
            echo; gate_liveness || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|generated|all}"; exit 2 ;;
 esac
 
 echo
