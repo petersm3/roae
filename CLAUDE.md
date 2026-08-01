@@ -55,8 +55,12 @@ hashes — with reproducibility parameters, record counts, and validation
 status per canonical — lives in [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md).
 
 Partition invariance (see [PARTITION_INVARIANCE.md](documentation/PARTITION_INVARIANCE.md))
-guarantees these are reproducible across hardware, region, merge
-algorithm, and enumeration vs. independent-shard-merge paths. If you
+proves these are reproducible across hardware, region, merge
+algorithm, and enumeration vs. independent-shard-merge paths — but the
+proof is about the **model** of the computation; the bridge from that
+model to the shipped binary is carried by the runtime gates
+(`--selftest`, the canonical-scale sha gates, two-language cross-checks),
+not by the proof itself (TR-3 §Scope). If you
 produce a mismatching sha, stop and investigate — don't silently
 "update" the canonical.
 

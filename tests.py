@@ -269,16 +269,21 @@ class TestGates(unittest.TestCase):
         r = subprocess.run([sys.executable, "solve.py", "--registry-verify"],
                            capture_output=True, text=True)
         self.assertIn("ALL 31 REGISTRY CHECKS PASS", r.stdout)
+        # The banner and the exit contract are two conjuncts; assert both
+        # (solve.py documents "Returns 0 on full PASS, 1 on any mismatch").
+        self.assertEqual(r.returncode, 0)
 
     def test_f4p_verify(self):
         r = subprocess.run([sys.executable, "solve.py", "--f4p-verify"],
                            capture_output=True, text=True)
         self.assertIn("F4P VERIFY: PASS", r.stdout)
+        self.assertEqual(r.returncode, 0)
 
     def test_books_verify(self):
         r = subprocess.run([sys.executable, "solve.py", "--books-verify"],
                            capture_output=True, text=True)
         self.assertIn("BOOKS VERIFY: ALL 14 CLAIMS PASS", r.stdout)
+        self.assertEqual(r.returncode, 0)
 
     def test_trigram_verify(self):
         # Two-language check of lean/TrigramTheorems.lean (finite facts +
@@ -286,6 +291,7 @@ class TestGates(unittest.TestCase):
         r = subprocess.run([sys.executable, "solve.py", "--trigram-verify"],
                            capture_output=True, text=True)
         self.assertIn("TRIGRAM VERIFY: ALL 18 CLAIMS PASS", r.stdout)
+        self.assertEqual(r.returncode, 0)
 
     def test_perm_verify(self):
         # R3 permutation-cycle family: KW gate (13 frozen functionals) +

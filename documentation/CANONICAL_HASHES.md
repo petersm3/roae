@@ -373,8 +373,12 @@ Both commands produce the canonical selftest sha `403f7202…` and reproduce eve
 ## How to verify a `solutions.bin`
 
 ```
-sha256sum solutions.bin
+gzip -dc solutions.bin | sha256sum
 # Compare to the row above.
+# Since #169 solutions.bin is gzip-framed by default and every canonical sha is computed on the
+# DECOMPRESSED stream, so plain `sha256sum solutions.bin` hashes the container and false-mismatches.
+# Under SOLVE_COMPRESS=0 the file is raw and plain `sha256sum solutions.bin` is the right command.
+# Either way the solutions.sha256 sidecar already holds the logical sha.
 ```
 
 For independent constraint-spec verification (slower than sha but cross-checks the binary's enumeration logic):
@@ -393,7 +397,8 @@ gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 ./solve --selftest                    # must print sha 403f7202
 ulimit -s unlimited                   # required at large scales
 <env vars from the table above> ./solve 0 128
-sha256sum solutions.bin               # must match the canonical row
+gzip -dc solutions.bin | sha256sum    # must match the canonical row (gz-framed by default since #169;
+                                      # plain sha256sum hashes the container, not the canonical stream)
 ```
 
 The smallest validation reproduces in seconds (selftest). The d3 10T canonical reproduces in approximately 60-90 minutes on a 128-vCPU machine. The d3 100T reproduces in approximately 11-19 hours. Lower thread counts work; the wall time scales roughly linearly with `1/threads` for d3 enumeration.

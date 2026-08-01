@@ -95,9 +95,13 @@ unpropagated error to a directly measured one with stated error.
 
 The four-class v2 comparison is staged as a **separate private freeze** under the
 operator's resolve-first decision: the N_gs ingredient is now solid (all three gates
-passed), and the remaining ingredients (a greedy-builder numerator, a completion
-simulation, and a synthetic-draw calibration with a pre-registered confusability veto)
-and the KW-facing integration have **not** been run. No verdict, Bayes factor, or
+passed). **Superseded 2026-07-20 (recorded here 2026-08-01):** the synthetic-draw
+calibration with its pre-registered confusability veto HAS since been run — see the
+update at the top of this file and the artifacts in this directory
+(`calibration_report.txt`, `draws.json`, `scores.json`, `hits.json`, `pcomplete.json`,
+`gates.json`) — and it **failed its own gate**, so the comparison stops there by rule.
+The greedy-builder numerator, the completion simulation, and the KW-facing integration
+were and remain **not** run. No verdict, Bayes factor, or
 posterior for the four-class comparison exists or is published anywhere. When (and if)
 a verdict is computed, the full frozen design, every gate outcome, and every marginal
 likelihood land in this directory whatever their direction, per the standing

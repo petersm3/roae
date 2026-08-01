@@ -35,7 +35,7 @@ Target: 10 branches that all reported yield = 1,116 at the 100T aggregate run. A
 | 9 | `13_0_19_0_8_1` | 19,504,081 | 624,130,592 | `c60c0d64...` | ~1,500 |
 | 10 | `14_0_18_0_8_0` | 11,402,977 | 364,895,264 | `973fc2bc...` | ~1,040 |
 
-All 10 BUDGETED. Yield range 7.05M – 19.50M sols. Growth factor from 100T yield (1,116) to 1T yield is **6,319× – 17,476×** — confirms these "low-yield" branches are very far from exhaustion at the budgets tried so far.
+All 10 BUDGETED. Yield range 7.05M – 19.50M sols. Growth factor from 100T yield (1,116) to 1T yield is **6,320× – 17,476×** — confirms these "low-yield" branches are very far from exhaustion at the budgets tried so far.
 
 ## Layout per branch
 

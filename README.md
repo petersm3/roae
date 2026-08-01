@@ -28,8 +28,10 @@ dating of the ordering's fixation is debated in modern scholarship). For centuri
 structural claims, almost all asserted by inspection. Can those claims be tested? Can the sequence be
 reconstructed from its mathematical constraints? This project treats the sequence as a combinatorial
 object: it **enumerates** the space of orderings satisfying the sequence's constraints, **measures**
-claimed regularities against that space, and **proves** — with machine-checked proofs and SAT
-certificates — what is forced, what is rare, and what is impossible.
+claimed regularities against that space — including how rare each one is — and **proves**, with
+machine-checked proofs and SAT certificates, what is forced and what is impossible. (Rarity figures
+are estimates from weighted-Knuth sampling with stated probe counts, not proofs; the distinction is
+kept throughout.)
 
 Scope: this is a combinatorial study of the *ordering* alone; it makes no claims — supportive or
 dismissive — about the I Ching's text, its divination practice, or its philosophical tradition.
@@ -81,7 +83,14 @@ Headlines only — each links to its full treatment (technical reports in [repor
   ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space — a superset
   of the measured population, so every valid ordering inherits King Wen's value. They are consequences
   of the constraint system, not choices; the zero-violation 2×10¹⁰-probe measurements now serve as
-  instrument validation. (A separate analytic theorem — the no-5 rule's implication chain, behind
+  instrument validation. *(Scope: Lean proves constancy of the `countP` forms defined in that file.
+  Identifying those forms with the registry rules as implemented — `reg_*` in solve.py,
+  `score_registry` in solve.c — is a **non-Lean transcription step**, numerically validated by driving
+  the repo's own `reg_*` over 5,449 structured C1 sequences with zero deviations, and disclosed in the
+  Lean file's header and in [lean/README.md](lean/README.md). So the eight are Lean-proven **modulo a
+  validated transcription** — the same runtime-carried bridge disclosed for PartitionInvariance and
+  PruneExactness. The 5,449-sequence check was run from a scratchpad script that is not in the repo;
+  re-deriving it as a tracked artifact is an open item.)* (A separate analytic theorem — the no-5 rule's implication chain, behind
   McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
@@ -109,9 +118,12 @@ Headlines only — each links to its full treatment (technical reports in [repor
   percentage points — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
-  description, not explanation; ~126 bits remain open. [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
+  description, not explanation; **between about 105 and 127 bits** remain open — the exact figure
+  depends on the accounting convention (105.4 bits = log₂|C1–C7|, the primary ledger; ~126.6 bits on
+  the defensible subset that drops the data-like C6/C7 and retains C3, and which is a logarithm of the
+  *estimated* C1–C5 space, not a measured quantity). [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
-  population-typical; one uniqueness claim is corrected; the ~126-bit residual survives its second
+  population-typical; one uniqueness claim is corrected; the ~126-bit (defensible-subset) residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
   (≈1.097×10³⁹) — computed to the last digit via the symmetry theorem's 24-fold quotient, and divisible
@@ -134,10 +146,14 @@ Headlines only — each links to its full treatment (technical reports in [repor
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
 look-elsewhere accounting, and the corrected published results (the full never-silent corrections
 ledger — including a retracted theorem — is in [CLAIMS_DECIDED.md](documentation/CLAIMS_DECIDED.md)). It also reports the corpus-control test:
-the same methodology flags a provably algorithmic ordering ([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes, and King Wen on
-exactly its three documented constraints — the method does not find design wherever it looks. (The
-control corpus is the two documented historical alternatives available; its small n is stated in
-CRITIQUE.)
+the same methodology flags **both** non-KW controls — a provably algorithmic ordering
+([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes **and the trigram-block-sorted
+Mawangdui order on 9 of 11** — while King Wen comes out on exactly its three documented constraints
+(3 of 11; 0 of 11 against the pair-preserving null). Read honestly, that is a **positive** control:
+the battery does detect algorithmic construction where it exists. It is *not* a specificity test —
+both available controls lit up, so the only quiet case in the corpus is the object of study itself.
+CRITIQUE states the limit in the same terms (n = 2 non-KW historical controls; no negative control
+exists in the corpus).
 
 ## Quick start
 ```
@@ -145,7 +161,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must
 python3 roae.py                          # the analysis battery (29 sections; 28 statistical + the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
-python3 tests.py                         # regression harness (51 tests)
+python3 tests.py                         # regression harness (59 tests)
 bash reports/certificates/verify_all.sh  # everything above + all DRAT certs + Lean, one command
 ```
 Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).

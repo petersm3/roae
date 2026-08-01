@@ -916,10 +916,17 @@ a third party can reproduce any canonical as follows:
    [DEVELOPMENT.md](DEVELOPMENT.md)).
 4. Run the canonical at the scale's published per-cell budget:
    ```bash
+   SOLVE_DEPTH=<published_DEPTH> \
    SOLVE_NODE_LIMIT=<published_NL> SOLVE_PER_SUB_BRANCH_LIMIT=<published_PSB> \
    SOLVE_THREADS=<your_thread_count> SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
      ./solve 0 <your_thread_count>
    ```
+   `SOLVE_DEPTH` is **sha-determining and must be copied from the canonical's row**
+   ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters"): every d3
+   canonical (1T / 5.6T / 10T / 11.2T / 100T / 560T) needs `SOLVE_DEPTH=3`. Omitting it does
+   **not** error — the code default is `2` (solve.c, "Default 2 for byte-identical behavior with
+   the canonical 10T baseline"), so the run silently enumerates the d2 partition and can never
+   reproduce a d3 sha. Nothing flags the mismatch until the sha compare in step 6.
 5. Merge the resulting shards: `SOLVE_MERGE_MODE=external ./solve --merge`.
    The merge is **sha-invariant to `SOLVE_MERGE_THREADS`**: serial (default `=1`) and parallel
    (`>1`) both produce the byte-identical canonical — validated at 1T and, on 2026-07-01, at **560T**
@@ -927,7 +934,11 @@ a third party can reproduce any canonical as follows:
    all sorted chunks at once (a 1 GB-chunk 560T merge makes ~1,308); `solve` auto-raises `RLIMIT_NOFILE`
    at merge start so this can't hit "Too many open files" (override via `SOLVE_MERGE_NOFILE` /
    `SOLVE_SKIP_NOFILE_RAISE`; see SOLVE_C_CLI.md).
-6. Compute `sha256sum solutions.bin` and compare to the published sha.
+6. Compute `gzip -dc solutions.bin | sha256sum` and compare to the published sha. (Since #169
+   `solutions.bin` is written **gzip-framed by default**; every canonical sha is computed on the
+   DECOMPRESSED stream, so a plain `sha256sum solutions.bin` hashes the container and yields a
+   false mismatch. Under `SOLVE_COMPRESS=0` the file is raw and plain `sha256sum` is correct. The
+   `solutions.sha256` sidecar already carries the logical sha either way.)
 
 On a host in the same SKU class as the original campaign (D128als_v7 Spot
 westus3 for our 11.2T+ canonicals), the sha should match byte-identically.

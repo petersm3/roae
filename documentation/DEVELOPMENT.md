@@ -1306,7 +1306,9 @@ then.
 3. **Verify the output.** The expected sha is the current canonical, not
    any legacy file in `enumeration/`:
    ```
-   sha256sum solutions.bin
+   gzip -dc solutions.bin | sha256sum
+   # (gz-framed by default since #169; every canonical sha is on the DECOMPRESSED stream, so plain
+   #  `sha256sum solutions.bin` hashes the container. Under SOLVE_COMPRESS=0 plain sha256sum is correct.)
    # must equal b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc  (10T d3, 706,427,594 records)
    # or        a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2  (10T d2)
    # (the older f7b8c4fb… 10T d3 sha is DEPRECATED — pre-resume-fix undercount;

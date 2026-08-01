@@ -11,7 +11,7 @@
 # within the Moore-joint walk), available from two independent runs (C primary, B cross),
 # which disagree by ~3.5x (rare-cell weighted-estimator noise); BOTH are carried through
 # the sensitivity table. Ingredient 9 ((v1,v2,0) plane from C2) is absent; the 'aug' Z
-# uses the RUN B plane + the N_gs cell only. All disclosed in F11_BAYES_RESULTS.md.
+# uses the RUN B plane + the N_gs cell only. All disclosed in RESULTS.md.
 #
 # Strictest-reading choices (frozen-doc ambiguity -> conservative for the favored model):
 #  - conditioning denominator D extends the geometric tail k>6 with validity fraction
@@ -25,7 +25,7 @@ import json, math, os, re
 
 D = os.path.dirname(os.path.abspath(__file__))
 
-# ---------- declared prior grids (see F11_BAYES_RESULTS.md section 0) ----------
+# ---------- declared prior grids (see RESULTS.md section 0) ----------
 PC_GRID = [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]          # geometric(p_c), k >= 0, uniform prior
 LAM_GRID = [0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]         # Gibbs strength, uniform prior
 V_KW = 6                                                  # 2+2+2, asserted in f11_events.py

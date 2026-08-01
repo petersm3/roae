@@ -1,8 +1,13 @@
 **FROZEN 2026-07-04 by operator approval ('approve F11 defaults') — no further changes to model forms, priors, or bands; see PROOF_PROGRAM UPDATE 32.**
 
-# F11 — Corruption vs. tendency: pre-registered Bayes-factor framework (NOT RUN)
+# F11 — Corruption vs. tendency: pre-registered Bayes-factor framework
 
-**Status:** framework only, deliberately not executed. Running it post hoc, after seeing every measured
+**Status (updated 2026-08-01): EXECUTED 2026-07-04 under this frozen pre-registration — see
+[RESULTS.md](RESULTS.md).** The freeze covers model forms, priors, and bands, none of which changed;
+this status line is not one of them, and the original "(NOT RUN)" title was a live reader hazard once
+the run landed. The pre-registration text below is unaltered and remains the frozen design.
+
+**Status at freeze time (2026-07-04, preserved verbatim):** framework only, deliberately not executed. Running it post hoc, after seeing every measured
 number, would manufacture confirmation — the priors and model forms below must be frozen (operator
 sign-off) BEFORE computation, and the sensitivity grid reported in full.
 
