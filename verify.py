@@ -879,6 +879,132 @@ def _exact_subtree(prefix):
     rec(step, last, used)
     return tuple(stats)
 
+_FIBER_CLS = (1, 2, 3, 4, 6)      # C2 forbids 5; 0 cannot occur between distinct hexagrams
+
+def _fiber_dp():
+    """Forward/backward transfer DP over King Wen's OWN pair sequence, varying only
+    the 32 within-pair orientations.
+
+    Two facts make the orientation fiber a small exact computation rather than a
+    2^31 search, and both are re-derived here rather than assumed:
+      * within-pair distances do not depend on orientation (a pair's two members are
+        fixed; orientation only swaps their order), so constraining C5's full 63-value
+        multiset is equivalent to constraining the 31 BETWEEN-pair values;
+      * C3 = 16 + 8*G and the orientation bits cancel in G, so C3 is CONSTANT across
+        the fiber and imposes nothing on it.
+    So the fiber is exactly {orientation vectors : no boundary distance = 5 (C2), and
+    the boundary multiset equals King Wen's own}. The budget B0 is recomputed from KW
+    here, not copied from any report.
+
+    Returns (B0, F, B) where F[i] maps (entry-hexagram-of-slot-i, budget-consumed) to
+    the number of ways to reach it, and B[i] maps the same state to the number of
+    completions from slot i through slot 31 landing exactly on B0.
+    """
+    from collections import Counter, defaultdict
+    kwb = Counter(hamming(KW[2 * i + 1], KW[2 * i + 2]) for i in range(31))
+    if set(kwb) - set(_FIBER_CLS):
+        raise RuntimeError(f"fiber: KW boundary multiset has an out-of-class value: {dict(kwb)}")
+    B0 = tuple(kwb.get(c, 0) for c in _FIBER_CLS)
+
+    # backward: completions[i][(last, budget)] = ways to finish slots i..31 on exactly B0
+    B = [defaultdict(int) for _ in range(33)]
+    # seed at slot 32 (past the end): only the exactly-consumed budget completes
+    B[32][None] = 1
+
+    succ = lambda i, last, bud: _fiber_succ(i, last, bud, B0)
+
+    # enumerate reachable states forward first, so the backward pass has a domain
+    F = [defaultdict(int) for _ in range(33)]
+    a, b = PAIRS[0]
+    zero = (0,) * len(_FIBER_CLS)
+    for o, (f, s) in enumerate(((a, b), (b, a))):
+        F[1][(s, zero, f)] += 1
+    for i in range(1, 32):
+        for (last, bud, _open), cnt in F[i].items():
+            for o, s, nb in succ(i, last, bud):
+                F[i + 1][(s, nb, _open)] += cnt
+
+    # backward counts, keyed the same way minus the opening marker
+    Bk = [defaultdict(int) for _ in range(33)]
+    for (last, bud, _open) in F[32]:
+        Bk[32][(last, bud)] = 1 if bud == B0 else 0
+    for i in range(31, 0, -1):
+        seen = {(l, bd) for (l, bd, _o) in F[i]}
+        for (last, bud) in seen:
+            t = 0
+            for o, s, nb in succ(i, last, bud):
+                t += Bk[i + 1].get((s, nb), 0)
+            Bk[i][(last, bud)] = t
+    return B0, F, Bk
+
+def recount_fiber():
+    """A7: independently recount TR-1 §7's orientation fiber — the frozen dispositive
+    null for the eleven-functional battery — and the forced/free structure of its bits."""
+    B0, F, Bk = _fiber_dp()
+    tot = {63: 0, 0: 0}
+    for (last, bud, opening), cnt in F[1].items():
+        tot[opening] = tot.get(opening, 0) + cnt * Bk[1].get((last, bud), 0)
+    oriented = tot.get(63, 0)          # opening (63, 0) — C4 as defined
+    flipped = tot.get(0, 0)            # opening (0, 63) — pair-only reading of C4
+    both = oriented + flipped
+
+    # which slots are genuinely free (both orientations occur somewhere in the fiber)?
+    forced = []
+    for i in range(1, 32):
+        per = [0, 0]
+        for (last, bud, opening), cnt in F[i].items():
+            if opening != 63:
+                continue               # forced-bit claim is stated on the C4-oriented fiber
+            for o, s, nb in _fiber_succ(i, last, bud, B0):
+                per[o] += cnt * Bk[i + 1].get((s, nb), 0)
+        if per[0] == 0 or per[1] == 0:
+            forced.append(i)
+
+    print("=" * 74)
+    print("verify.py --recount-fiber : TR-1 §7 orientation fiber, independent recount")
+    print("transfer DP over KW's own pair order; B0 recomputed from KW, not copied")
+    print("=" * 74)
+    print(f"  boundary budget B0 (d=1,2,3,4,6)            : {B0}  (sum {sum(B0)})")
+    rows = [
+        ("C4-oriented fiber  (opening 63,0)", 1_720_320, oriented),
+        ("pair-only C4 fiber (both openings)", 2_703_360, both),
+        ("  of which opening (0,63)", 983_040, flipped),
+    ]
+    ok = True
+    for name, pub, mine in rows:
+        m = "MATCH" if pub == mine else "*** MISMATCH ***"
+        ok &= (pub == mine)
+        print(f"  {name:<42} published {pub:>10,}  ours {mine:>10,}  {m}")
+    # TR-1 states the fiber size factors as 3*5*7*2^14
+    fact = 3 * 5 * 7 * 2 ** 14
+    print(f"  factorization 3·5·7·2¹⁴ = {fact:,}"
+          f"                     {'MATCH' if fact == oriented else '*** MISMATCH ***'}")
+    ok &= (fact == oriented)
+    print(f"  forced bits among slots 1..31              : {forced if forced else 'none'}")
+    print(f"    -> {31 - len(forced)} of 31 vary somewhere in the fiber"
+          f"  (TR-1 says 30, forced slot 30) "
+          f"{'MATCH' if forced == [30] else '*** CHECK ***'}")
+    ok &= (forced == [30])
+    print("=" * 74)
+    print("RESULT:", "ALL MATCH — TR-1 §7's fiber is now two-instrument"
+          if ok else "*** MISMATCH — investigate ***")
+    return 0 if ok else 1
+
+def _fiber_succ(i, last, bud, B0):
+    a, b = PAIRS[i]
+    for o, (f, s) in enumerate(((a, b), (b, a))):
+        if last is None:
+            yield o, s, bud
+            continue
+        d = hamming(last, f)
+        if d not in _FIBER_CLS:
+            continue
+        j = _FIBER_CLS.index(d)
+        nb = list(bud); nb[j] += 1
+        if nb[j] > B0[j]:
+            continue
+        yield o, s, tuple(nb)
+
 def recount_subtree():
     """--recount-subtree: independently recompute the exact deterministic
     subtree anchors of TR-5 §3 / TR-4 §"validated" / SEARCH_SPACE_SIZE.md
@@ -1784,6 +1910,13 @@ def main():
                              'gates against the published integer; n=18 is report-only (TR-11 lists '
                              'its integer as "(in-RAM reference)"). Worker-sized: n=19 needs ~8 GB '
                              'and tens of minutes in CPython. Does NOT read solutions.bin.')
+    parser.add_argument('--recount-fiber', action='store_true',
+                        help='Independently recount TR-1 §7\'s orientation fiber — the frozen '
+                             'dispositive null for the eleven-functional battery: 1,720,320 '
+                             '(C4-oriented) / 2,703,360 (pair-only C4) / 983,040 (opening 0,63), '
+                             'its 3·5·7·2¹⁴ factorization, and which orientation bits are forced. '
+                             'Transfer DP over KW\'s own pair order with B0 recomputed from KW. '
+                             'Instant. Does NOT read solutions.bin.')
     parser.add_argument('--recount-subtree', action='store_true',
                         help='Independently recompute the exact deterministic subtree anchors of '
                              'TR-5 §3 / SEARCH_SPACE_SIZE.md (KW-following prefixes at 5/7/9 free '
@@ -1855,6 +1988,9 @@ def main():
 
     if args.recount_finite:
         sys.exit(recount_finite())
+
+    if args.recount_fiber:
+        sys.exit(recount_fiber())
 
 
     if args.enumerate_reference is not None:

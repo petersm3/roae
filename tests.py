@@ -599,6 +599,20 @@ class TestVerifyRecordsPath(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("VERIFY FAIL: 2 issues", r.stdout)   # C4 + missing KW
 
+    def test_orientation_fiber_matches_tr1(self):
+        # A7: TR-1 §7's dispositive null. Recomputed by transfer DP over KW's own pair
+        # order, with the boundary budget re-derived from KW rather than copied.
+        V = self.V
+        B0, F, Bk = V._fiber_dp()
+        self.assertEqual(B0, (2, 8, 13, 7, 1))
+        tot = {}
+        for (last, bud, opening), cnt in F[1].items():
+            tot[opening] = tot.get(opening, 0) + cnt * Bk[1].get((last, bud), 0)
+        self.assertEqual(tot.get(63, 0), 1_720_320)   # C4 as defined
+        self.assertEqual(tot.get(0, 0), 983_040)      # pair-only C4, flipped opening
+        self.assertEqual(sum(tot.values()), 2_703_360)
+        self.assertEqual(3 * 5 * 7 * 2 ** 14, 1_720_320)
+
     def test_pair_orbits_are_derived_not_trusted(self):
         # A9: _ORBITS was transcribed from TR-11 §3. It is now cross-checked against
         # the orbit partition derived from verify.py's own 48 commuting bit-perms.
