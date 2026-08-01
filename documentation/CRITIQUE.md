@@ -567,7 +567,9 @@ page in the eventual report).
 **Davis results (2026-07-04, reported in full as pre-committed):** of the nine registered candidates,
 Davis's flagship compositional claims (terminal contiguity, the 7–16 mirror, palindrome adjacency, the
 asymmetric half-split) are NULL after Bonferroni; the #43–50 trigram array is notable (6.8×10⁻⁴ — at its
-family correction; it does not survive the global 91-observable ledger's ≈5.5×10⁻⁴ bar); the
+family correction; it does not survive the global 91-observable ledger's ≈5.5×10⁻⁴ **Bonferroni** bar,
+though it *would* survive that same ledger under BH-FDR at q = 0.05 — the one verdict in the suite the
+correction family moves, disclosed at METHODS §"Correction-family disclosure"); the
 exact-placement templates are rare-by-construction (data-like class — including two with zero sampled
 mass at 2×10⁹ probes) and, per the standing circularity policy, carry no design inference; corpus
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided

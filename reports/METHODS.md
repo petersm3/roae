@@ -156,6 +156,21 @@ the constraint falls on and why.
   under 11%, and NO published verdict differs between them** (the only value in the gap zone,
   `dav_trigarray` at 6.8×10⁻⁴, fails at all three). The published bar is therefore the strictest
   defensible choice, and no conclusion in the suite depends on the count.
+  **Correction-family disclosure (added 2026-08-01, self-reported).** The sentence above is scoped to
+  the three *denominators*; it says nothing about the choice of *correction family*, and that choice is
+  not neutral. The suite applies **Bonferroni (family-wise error rate)** throughout, and the global-ledger
+  layer was added on 2026-07-11 — **after** the measurements it adjudicates. Under **Benjamini–Hochberg
+  FDR** at q = 0.05 the same 91-observable ledger would reach a different verdict on exactly one value:
+  `dav_trigarray` (6.8×10⁻⁴) would be **declared significant**, and not marginally — the ledger contains
+  at least a dozen smaller p-values (`ccn4` 2×10⁻⁸, `ccn8` 2.6×10⁻⁷, `ccn3` 6.6×10⁻⁶, `dav_rotinv`
+  6.5×10⁻⁵, …), so its BH rank *i* puts the threshold *i*·0.05/91 an order of magnitude above it. That
+  is the *only* verdict in the suite the family choice moves, and it moves the one result most favourable
+  to the hypothesis this suite argues against. Two facts keep the published reading defensible, and both
+  are stated rather than assumed: (i) FWER is the strictly more conservative family, so **every claim
+  that the suite reports as *clearing* the bar clears it under BH as well** — nothing in the positive
+  direction depends on this; (ii) the exposure is entirely in the negative direction, on one Davis
+  observable, and it is disclosed here rather than left for a reader to discover. A reader who prefers
+  FDR control should read `dav_trigarray` as surviving global correction and everything else unchanged.
   **Counting rule going forward:** an observable enters the ledger exactly once, at first registration,
   under a stable id; a family's Bonferroni denominator may span waves and exceed its new-id count; and
   this total must be **derived from the itemised roster**, never stated independently of it; and each
