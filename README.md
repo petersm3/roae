@@ -52,8 +52,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
-  jointly unsatisfiable for any ordering preserving the classical pairing — no ordering can be perfect
-  under all four. King Wen keeps one exactly and misses the others minimally, so its famous anomalies
+  jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others minimally, so its famous anomalies
   are a **forced trade-off, not damage to an original that was perfect under all four** — no such
   original could exist. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
   arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
