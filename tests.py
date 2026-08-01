@@ -613,6 +613,35 @@ class TestVerifyRecordsPath(unittest.TestCase):
         self.assertEqual(sum(tot.values()), 2_703_360)
         self.assertEqual(3 * 5 * 7 * 2 ** 14, 1_720_320)
 
+    def test_gender_null_exact_reproduces_tr8(self):
+        # A8: TR-8 §Commands' exact pair-null gender figure. Until now both
+        # implementations of P(rc4_violations <= 2) = 47/445740 lived in
+        # solve.py; verify.py rebuilds the functional from the published
+        # definition (SOLVE_C_CLI.md §--rc4b-verify) and solves the 32!·2^32
+        # pair-only null exactly (closed form + slot DP, cross-asserted).
+        from fractions import Fraction
+        import io, contextlib
+        V = self.V
+        # published KW anchors gate the reading of the definition
+        self.assertEqual(V._rc4_violations_indep(V.KW), (2, [25, 26]))
+        # ... and the definition must actually discriminate: swapping the
+        # adjacent pair-blocks whose classes sit at positions 25/26 (the
+        # Zhu Yuansheng/Schulz exception locus; the adjacent-pair swap of the
+        # published 3-edit repair) removes BOTH violations — the third edit of
+        # that repair (an orientation flip) repairs C-validity, not gender
+        repaired = list(V.KW)
+        repaired[42:44], repaired[44:46] = V.KW[44:46], V.KW[42:44]
+        self.assertEqual(V._rc4_violations_indep(repaired), (0, []))
+        dist = V._gender_null_distribution()
+        self.assertEqual(sum(dist.values()), 1)
+        self.assertEqual(sum(p for v, p in dist.items() if v <= 2),
+                         Fraction(47, 445740))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(V.recount_gender_null(), 0)
+        self.assertIn("47/445740", buf.getvalue())
+        self.assertIn("ALL MATCH", buf.getvalue())
+
     def test_pair_orbits_are_derived_not_trusted(self):
         # A9: _ORBITS was transcribed from TR-11 §3. It is now cross-checked against
         # the orbit partition derived from verify.py's own 48 commuting bit-perms.

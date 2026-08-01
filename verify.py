@@ -39,6 +39,7 @@ Usage:
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
+    python3 verify.py --recount-gender-null         # TR-8 exact pair-null gender figure (47/445740)
 
 --jobs N parallelizes via multiprocessing for large files. With N = 1
 (default) behavior is identical to the single-threaded original.
@@ -1005,6 +1006,192 @@ def _fiber_succ(i, last, bud, B0):
             continue
         yield o, s, tuple(nb)
 
+def _gender6(h):
+    """Schulz 1990 / Cook 2006 minority-line gender of a 6-bit hexagram
+    (published definition: SOLVE_C_CLI.md §--rc4b-verify): popcount < 3 male
+    ('M'), popcount > 3 female ('F'); popcounts {0, 3, 6} exempt ('N').
+    Inversion (rev) preserves popcount, so gender is inversion-class-invariant."""
+    pc = bin(h).count('1')
+    return 'N' if pc in (0, 3, 6) else ('M' if pc < 3 else 'F')
+
+def _rc4_violations_indep(seq):
+    """Independent implementation of the Schulz-1990 gender/position-parity
+    violation count, rebuilt from the PUBLISHED definition (SOLVE_C_CLI.md
+    §--rc4b-verify; LITERATURE_RULES_POPULATION_TESTS.md §Schulz gender rule):
+    over the 36 inversion-class positions in FIRST-OCCURRENCE order, a male
+    class (popcount < 3) belongs at an odd class position and a female class
+    (popcount > 3) at an even one; exempt classes ({0,3,6}) never violate.
+    Returns (violation_count, sorted list of violating class positions,
+    1-based).  KW's published anchors: exactly 2, at class positions 25/26."""
+    order, seen = [], set()
+    for h in seq:
+        cls = min(h, _rev6(h))            # inversion-class representative
+        if cls not in seen:
+            seen.add(cls)
+            order.append(cls)
+    viol = []
+    for i, cls in enumerate(order):
+        p = i + 1                          # 1-based class position
+        g = _gender6(cls)
+        if (g == 'M' and p % 2 == 0) or (g == 'F' and p % 2 == 1):
+            viol.append(p)
+    return len(viol), viol
+
+def _gender_null_distribution():
+    """Exact distribution of rc4 violations under TR-8's pair-only (C1) null —
+    KW's 32 canonical pairs in uniformly random order, each independently in
+    either orientation (32!·2^32 members) — computed two structurally different
+    exact ways and cross-asserted, returned as {violations: Fraction}.
+
+    Structure (derived here from the C1 primitives, not copied): 28 of the
+    pairs are inversion pairs (both members one class); 4 are
+    palindrome-complement pairs (two singleton classes each), 28 + 8 = 36
+    classes.  A palindrome pair consumes TWO class positions, so it never
+    changes the running parity of the class counter; hence the class-position
+    parity of the i-th inversion pair (by rank among inversion pairs alone) is
+    just the parity of i, and the inversion-pair violations are a
+    multivariate-hypergeometric functional of a uniform arrangement of the
+    male/female/exempt inversion classes over 14 odd + 14 even alternating
+    slots.  Each male+female palindrome pair spans one odd and one even class
+    position, so by its own independent orientation bit it contributes 0 or 2
+    violations with probability 1/2 each, independently of everything else
+    (the exempt+exempt palindrome pair contributes 0).  Method 1 evaluates
+    that closed form; method 2 is a slot-by-slot DP over pair types that never
+    uses the decomposition.  Both are exact (Fractions throughout; no
+    sampling); they must agree term-by-term."""
+    from fractions import Fraction
+    from math import comb, factorial
+    from collections import defaultdict
+
+    # --- classify the 32 canonical pairs from the C1 primitives ---
+    inv_genders, pal_pairs = [], []
+    for a, b in PAIRS:
+        if _rev6(a) == b:                  # inversion pair: one class
+            if _gender6(a) != _gender6(b):
+                raise RuntimeError("gender not inversion-class-invariant")
+            inv_genders.append(_gender6(a))
+        else:                              # palindrome-complement pair: two classes
+            if not (_rev6(a) == a and _rev6(b) == b and b == _comp6(a)):
+                raise RuntimeError(f"pair ({a},{b}) is neither inversion nor "
+                                   "palindrome-complement")
+            pal_pairs.append(frozenset((_gender6(a), _gender6(b))))
+    if len(inv_genders) != 28 or len(pal_pairs) != 4:
+        raise RuntimeError("expected 28 inversion + 4 palindrome-complement pairs")
+    m = inv_genders.count('M')
+    f = inv_genders.count('F')
+    e = inv_genders.count('N')
+    n_mf = pal_pairs.count(frozenset(('M', 'F')))
+    n_ee = pal_pairs.count(frozenset(('N',)))
+    if n_mf + n_ee != 4:
+        raise RuntimeError("unexpected palindrome-pair gender composition")
+
+    # --- method 1: closed form (hypergeometric arrangement x binomial) ---
+    n_odd = (28 + 1) // 2                  # inversion-class slots at odd positions
+    n_even = 28 - n_odd
+    total = factorial(28) // (factorial(m) * factorial(f) * factorial(e))
+    inv_counts = defaultdict(int)          # violations from inversion classes
+    for j in range(m + 1):                 # males at even class positions
+        for k in range(f + 1):             # females at odd class positions
+            if f - k > n_even - j or k > n_odd - (m - j):
+                continue
+            n = (comb(n_even, j) * comb(n_even - j, f - k)
+                 * comb(n_odd, m - j) * comb(n_odd - (m - j), k))
+            if n:
+                inv_counts[j + k] += n
+    if sum(inv_counts.values()) != total:
+        raise RuntimeError("hypergeometric arrangement count does not close")
+    dist_cf = defaultdict(Fraction)
+    for b in range(n_mf + 1):              # MF palindrome pairs each add 0 or 2, p=1/2
+        pb = Fraction(comb(n_mf, b), 2 ** n_mf)
+        for v, n in inv_counts.items():
+            dist_cf[v + 2 * b] += pb * Fraction(n, total)
+
+    # --- method 2: slot-by-slot DP over pair types (no decomposition) ---
+    # state: (males, females, exempt-inv, MF-palindrome, EE-palindrome used;
+    # violations so far) -> probability.  The next class position is forced by
+    # the counts (palindrome pairs consume two class positions).
+    states = {(0, 0, 0, 0, 0, 0): Fraction(1)}
+    for step in range(32):
+        nxt = defaultdict(Fraction)
+        rem_total = 32 - step
+        for (mu, fu, eu, mfu, eeu, v), p in states.items():
+            cpos = mu + fu + eu + 2 * (mfu + eeu) + 1
+            odd = (cpos % 2 == 1)
+            for t, r in (('M', m - mu), ('F', f - fu), ('N', e - eu),
+                         ('MF', n_mf - mfu), ('EE', n_ee - eeu)):
+                if not r:
+                    continue
+                w = p * Fraction(r, rem_total)
+                if t == 'M':
+                    nxt[(mu + 1, fu, eu, mfu, eeu, v + (0 if odd else 1))] += w
+                elif t == 'F':
+                    nxt[(mu, fu + 1, eu, mfu, eeu, v + (1 if odd else 0))] += w
+                elif t == 'N':
+                    nxt[(mu, fu, eu + 1, mfu, eeu, v)] += w
+                elif t == 'EE':
+                    nxt[(mu, fu, eu, mfu, eeu + 1, v)] += w
+                else:                      # MF: one odd + one even class position;
+                    half = w / 2           # orientation picks 0 or 2 violations
+                    nxt[(mu, fu, eu, mfu + 1, eeu, v)] += half
+                    nxt[(mu, fu, eu, mfu + 1, eeu, v + 2)] += half
+        states = nxt
+    dist_dp = defaultdict(Fraction)
+    for (mu, fu, eu, mfu, eeu, v), p in states.items():
+        dist_dp[v] += p
+
+    strip = lambda d: {v: p for v, p in d.items() if p}
+    if strip(dist_cf) != strip(dist_dp):
+        raise RuntimeError("closed form and slot DP disagree — investigate")
+    if sum(dist_cf.values()) != 1:
+        raise RuntimeError("distribution does not sum to 1")
+    return strip(dist_cf)
+
+def recount_gender_null():
+    """--recount-gender-null: independently recompute TR-8 §Commands' exact
+    pair-null Schulz-gender figure P(rc4_violations <= 2) = 47/445740
+    (~1.054426e-04) — the probability that a uniformly random C1-preserving
+    ordering (32 canonical pairs permuted uniformly, each pair independently in
+    either orientation) matches King Wen's gender-rule compliance level (KW
+    sits at exactly 2 violations, class positions 25/26).  The functional is
+    rebuilt from the published definition (SOLVE_C_CLI.md §--rc4b-verify;
+    Schulz 1990 motif 2, elaborated by Cook 2006), the null distribution is
+    computed exactly two ways (closed form + slot DP, cross-asserted — see
+    _gender_null_distribution), and KW's published anchors gate the reading of
+    the definition.  Instant.  Does NOT read solutions.bin."""
+    from fractions import Fraction
+    ok = True
+
+    nv, locus = _rc4_violations_indep(KW)
+    dist = _gender_null_distribution()
+    le2 = sum(p for v, p in dist.items() if v <= 2)
+
+    print("=" * 74)
+    print("verify.py --recount-gender-null : TR-8 exact pair-null gender figure")
+    print("functional rebuilt from the published definition; 32!*2^32 null solved")
+    print("exactly two ways (closed form + slot DP, cross-asserted); no sampling")
+    print("=" * 74)
+    rows = [
+        ("KW rc4 violations (SOLVE_C_CLI anchor)", "2", str(nv)),
+        ("KW violation locus (class positions)", "[25, 26]", str(locus)),
+        ("P(rc4_violations <= 2), pair-only null", "47/445740", str(le2)),
+        ("  same, decimal (TR-8 quotes 1.054426e-04)", "1.054426e-04",
+         f"{float(le2):.6e}"),
+    ]
+    for name, pub, mine in rows:
+        match = (pub == mine)
+        ok &= match
+        print(f"  {name:<44} published {pub:>13}  ours {mine:>13}  "
+              f"{'MATCH' if match else '*** MISMATCH ***'}")
+    print(f"  full distribution support                    : "
+          f"{min(dist)}..{max(dist)} (mass sums to 1 exactly)")
+    print(f"  P(= 0) {sum(p for v, p in dist.items() if v == 0)}   "
+          f"P(= 1) {sum(p for v, p in dist.items() if v == 1)}   "
+          f"P(= 2) {sum(p for v, p in dist.items() if v == 2)}")
+    print("=" * 74)
+    print("RESULT:", "ALL MATCH — TR-8's pair-null gender figure is now two-instrument"
+          if ok else "*** MISMATCH — investigate ***")
+    return 0 if ok else 1
+
 def recount_subtree():
     """--recount-subtree: independently recompute the exact deterministic
     subtree anchors of TR-5 §3 / TR-4 §"validated" / SEARCH_SPACE_SIZE.md
@@ -1930,6 +2117,14 @@ def main():
                              'membership), TR-6\'s 15 alternations / 30 switches / wrap-parity / '
                              'circular 16-of-64, and the 82,818,450 arrangement count. Seconds. '
                              'Does NOT read solutions.bin.')
+    parser.add_argument('--recount-gender-null', action='store_true',
+                        help='Independently recompute TR-8 §Commands\' exact pair-null gender figure '
+                             'P(rc4_violations <= 2) = 47/445740 (~1.054426e-04) — the functional '
+                             'rebuilt from the published Schulz-1990 definition and the 32!·2^32 '
+                             'pair-only null solved exactly two ways (closed form + slot DP, '
+                             'cross-asserted; Fractions, no sampling), gated on KW\'s published '
+                             'anchors (2 violations at class positions 25/26). Instant. Does NOT '
+                             'read solutions.bin.')
     parser.add_argument('--check-certificate', metavar='DIR', default=None,
                         help='Artifact check for a completed f1c5 run directory (TR-11 §10iii): '
                              'validates the per-layer certificate rows, manifest, and preserved '
@@ -1991,6 +2186,9 @@ def main():
 
     if args.recount_fiber:
         sys.exit(recount_fiber())
+
+    if args.recount_gender_null:
+        sys.exit(recount_gender_null())
 
 
     if args.enumerate_reference is not None:
