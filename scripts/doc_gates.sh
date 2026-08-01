@@ -224,19 +224,36 @@ for line in open(reg, encoding='utf-8'):
     if not line.strip() or line.lstrip().startswith('#'): continue
     p = line.split('\t')
     if len(p) >= 2: rows.append((p[0].strip(), p[1].strip()))
-# Allowlist entries are "path:line" with an OPTIONAL tab-separated content anchor: a literal
-# substring that must still be present on that line for the suppression to apply. WHY (2026-08-01):
-# the file:line form drifts. The entry for the TR-4 calibration-table row was written at :119, two
-# lines were inserted above it, and the entry then (a) failed to suppress the real row at :121 and
-# (b) silently covered whatever moved into :119. Direction (b) is the dangerous one — an unreviewed
-# line inheriting a suppression. With an anchor, drift makes the WARN come back instead.
-allowed = {}
+# Allowlist entries are "path:line" with an optional TAB-separated content anchor: a literal
+# substring identifying the reviewed sentence.
+#
+# WHY the anchor is now the PRIMARY key (2026-08-01, second revision). The file:line form drifts,
+# and drifts constantly: both entries in the allowlist drifted within a single day. The TR-4
+# calibration row was written at :119, two lines were inserted above it, and the entry then
+# (a) failed to suppress the real row at :121 and (b) silently covered whatever had moved into
+# :119. Direction (b) is the dangerous one — an unreviewed line inheriting somebody else's
+# suppression. The HISTORY.md entry then repeated the pattern: correct at :5563 when written,
+# pushed to :5566 hours later by an unrelated insertion three lines above it.
+#
+# Matching an anchored entry by (file, anchor) instead of (file, line) fixes both directions at
+# once. Direction (b) becomes impossible — suppression now REQUIRES the reviewed text, so no
+# unreviewed line can inherit it no matter how the file is edited. And benign renumbering stops
+# raising a WARN that carries no information. The recorded line number is kept as documentation
+# and audited below, so a stale or dead entry is still reported rather than silently accumulating.
+allowed = {}       # legacy anchorless entries: exact "file:line", drift-prone by construction
+anchored = {}      # file -> [(recorded_line, anchor)] — matched by content, immune to renumbering
 if os.path.exists(allow):
     for l in open(allow, encoding='utf-8'):
         l = l.rstrip('\n')
         if not l.strip() or l.lstrip().startswith('#'): continue
         parts = l.split('\t')
-        allowed[parts[0].strip()] = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+        key = parts[0].strip()
+        anc = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+        if anc is None:
+            allowed[key] = None
+        else:
+            fpath, _, lno = key.rpartition(':')
+            anchored.setdefault(fpath, []).append((lno, anc))
 EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
 EX  = r'\bexact|\bproven|\bproved'
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
@@ -253,8 +270,8 @@ for f in files:
             he, hx = bool(re.search(EST, line, re.I)), bool(re.search(EX, line, re.I))
             conflict = (want == 'exact' and he and not hx) or (want == 'estimate' and hx and not he)
             if conflict:
-                key = f"{f}:{ln}"
-                if key in allowed and (allowed[key] is None or allowed[key] in line): continue
+                if f"{f}:{ln}" in allowed: continue
+                if any(a in line for _, a in anchored.get(f, ())): continue
                 print(f"  [WARN] {f}:{ln} — {val[:28]} is '{want}' in METHODS but this line reads otherwise")
                 print(f"         {line.strip()[:170]}")
                 bad += 1
@@ -262,6 +279,27 @@ if bad == 0:
     print(f"  [ok] {seen} occurrences of {len(rows)} canonical quantities all carry a consistent status")
 else:
     print(f"  (report-only: if a hit is a legitimate exact-vs-estimate COMPARISON, add its 'file:line' to {allow})")
+# Audit the allowlist itself. A suppression that no longer corresponds to real text is a
+# permission nobody reviewed and nobody can see; it must be reported, not accumulate silently.
+for fpath, entries in sorted(anchored.items()):
+    if not os.path.exists(fpath):
+        print(f"  [note] allowlist: {fpath} no longer exists — prune its {len(entries)} entry/entries")
+        continue
+    text = open(fpath, encoding='utf-8', errors='replace').read().splitlines()
+    for lno, anc in entries:
+        hits = [i for i, l in enumerate(text, 1) if anc in l]
+        if not hits:
+            print(f"  [note] allowlist: {fpath}:{lno} anchor no longer appears in the file — prune it")
+            print(f"         anchor: {anc[:120]}")
+        elif len(hits) > 1:
+            print(f"  [note] allowlist: {fpath}:{lno} anchor matches {len(hits)} lines {hits[:6]} — "
+                  "suppression is broader than one reviewed sentence; make it more specific")
+        elif str(hits[0]) != str(lno):
+            print(f"  [note] allowlist: {fpath}:{lno} anchor now sits at :{hits[0]} — "
+                  "suppression still correct (matched by content); update the recorded line")
+for key in sorted(allowed):
+    print(f"  [note] allowlist: {key} has no content anchor — it is matched by line number alone "
+          "and will drift silently; add a TAB-separated anchor")
 sys.exit(0)
 PY
 }
