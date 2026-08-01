@@ -9,7 +9,9 @@ How special is the King Wen sequence, really? That question needs a denominator:
 arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸, a hundred
 trillion trillion trillion — settles a determinism hypothesis this suite calls the Uniqueness Conjecture
 (the name is ours; who held it, and in what form, is scoped honestly in
-[CITATIONS.md](../documentation/CITATIONS.md#uniqueness-conjecture)): the known rules do **not** pin down King Wen;
+[CITATIONS.md](../documentation/CITATIONS.md#uniqueness-conjecture)) — and which was **this project's own
+early working hypothesis**, so what follows is a negative result about our own starting position, not a
+refutation aimed at someone else's stated claim: the known rules do **not** pin down King Wen;
 they leave an astronomical family of valid alternatives, and King Wen is one member. The report also
 measures how much *additional* information is needed to single King Wen out (roughly 13–20 carefully
 chosen adjacency facts) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
