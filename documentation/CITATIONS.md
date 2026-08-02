@@ -1052,7 +1052,7 @@ that there are "sixteen instances of an odd integer occurring out of a possible 
 evidence for *Meyer's* prior art. **That was wrong on attribution.** Both sentences occur on a page authored
 by **Terence McKenna** (fractal-timewave.com, "Derivation of the Timewave from the King Wen Sequence"), and
 this repository already credits the second one to **McKenna & McKenna (1975)** in three other places
-(the entry above, [MCKENNA.md](MCKENNA.md), [SPECIFICATION.md](SPECIFICATION.md) §"wrap-around parity").
+(the entry above, [MCKENNA.md](MCKENNA.md), [SPECIFICATION.md](SPECIFICATION.md) §"Theorem (Wrap-around parity is odd)").
 Using a McKenna sentence to establish Meyer's priority was circular, and it is withdrawn. The two properties
 are credited to McKenna & McKenna, as they already were.
 
