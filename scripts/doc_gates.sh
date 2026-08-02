@@ -1806,7 +1806,7 @@ open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.21 *(current)* |',1))"
   # (2) DATES BACKWARDS — TR-8's shape. Back-date the last row only; its version stays the
   #     highest and the marker stays last, so no other leg can account for the firing.
   assert_fires_why "GATE 12 a row dated before the row above it" revhist \
-    'dates run BACKWARDS: 2026-08-01 \(row above\) then 2020-01-01' \
+    'dates run BACKWARDS: 2026-07-31 \(row above\) then 2020-01-01' \
 "f='reports/TR3_REPRODUCIBLE_ENUMERATION.md'
 s=open(f,encoding='utf-8').read()
 a='| v1.9 *(current)* | 2026-08-01 |'
