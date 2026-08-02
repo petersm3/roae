@@ -30,15 +30,23 @@
 #               comment or by another assertion's mutation string cannot take this form.
 #   BLOCK       the label occurs within 8 lines BELOW a call site of the function. The three
 #               one-line wrappers genuinely have this shape. LEG 3 prints the MEASURED
-#               distance for each on every run (today: _g13 +2, _gsrc +2, _selftest_revert
-#               +3), so a window that starts creeping is visible rather than absorbed.
-#               THE DISTANCE IS TO THE FIRST QUALIFYING OCCURRENCE, WHICH NEED NOT BE THE
-#               ASSERTION'S REPORT LINE, and that was measured rather than assumed: for
-#               _selftest_revert it binds on the `grep -q 'A1 snapshot probe'` guard (+3),
-#               not on the `[ok]   A1 snapshot` echo one line further down (+4). Both are
-#               inside the same assertion, so the row is right either way — but the number
-#               LEG 3 prints is the nearer one, and reading it as "distance to the report
-#               line" would be wrong by one here.
+#               distance for each on every run, so a window that starts creeping is visible
+#               rather than absorbed. NO PER-ROW DISTANCE IS QUOTED HERE, AND THAT IS A
+#               CORRECTION (round 12 drain-3, item `R11`): this paragraph used to freeze
+#               all three as "today: ...", and `f5fac73` then moved one of them without
+#               touching this file, so the header disagreed with the run it claims to
+#               summarise. Read them off LEG 3's [ok] line; that line is the authority and
+#               this one cannot be.
+#               THE DISTANCE IS TO THE ASSERTION'S REPORT LINE, and that is what `f5fac73`
+#               changed. It used to be the FIRST QUALIFYING OCCURRENCE, which for
+#               _selftest_revert was the `grep -q 'A1 snapshot probe'` guard — the marker
+#               text the assertion searches for, sitting one line ABOVE the
+#               `[ok]   A1 snapshot` echo. A row proven by a string the harness never
+#               prints is not proven, so LEG 3 now binds on the echo and the printed
+#               distance for that row grew by one. The superseded reading — "the number
+#               LEG 3 prints is the nearer one, and reading it as distance to the report
+#               line would be wrong by one" — is recorded because it was on file and a
+#               reader may have carried it away, not because it still holds.
 #   EXTERNAL    paired with NOT-PROVEN-IN-HARNESS. Both directions are enforced: an EXTERNAL
 #               row may not name an in-harness label, and a NOT-PROVEN-IN-HARNESS label may
 #               not be declared any other kind.

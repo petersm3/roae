@@ -24,9 +24,18 @@
 #   <retracted figure, as a FIXED string>	<what superseded it, and where that is recorded>
 #
 # CHOOSING THE STRING. Make it as narrow as the corpus allows and no narrower. "+1.6" alone
-# matches twelve places including live ledger cells; "net +1.6" matches six, all narrations;
-# "C2 net +1.6" matches only three and MISSES TR-11 v1.14's `C2 "net +1.6"`, where a quote mark
-# falls inside the span. The registry holds the middle form. Emphasis markers are not
+# matches the most places, including live ledger cells; "net +1.6" matches strictly fewer, all
+# of them narrations; "C2 net +1.6" matches fewest and MISSES TR-11 v1.14's `C2 "net +1.6"`,
+# where a quote mark falls inside the span. The registry holds the middle form.
+# NO LIVE MATCH COUNT IS STATED, AND THAT IS A CORRECTION (round 12 drain-3, item `R11`). The
+# two superseded ones are quoted in this sentence in order to name what drifted, so the
+# paragraph does contain digits and is not claiming otherwise: it shipped "matches twelve
+# places" and "matches six", and both had risen with the corpus while the narrowest form stayed
+# put — the numbers were wrong and the conclusion they support was not. What is load-bearing is
+# the strict ORDERING, which is a property of the substrings themselves and cannot drift.
+# Re-derive any of them with
+#   git grep -oF -- '<form>' -- '*.md' | wc -l
+# Emphasis markers are not
 # normalised away, so a figure that is sometimes bolded mid-span ("1.4σ **above**") must be
 # registered on the part that is never marked up ("1.4σ").
 #

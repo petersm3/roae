@@ -181,24 +181,54 @@ require_final_newline() {
 # A9 asked for an instrument against PROSE COUNTS in support-file headers going stale, after
 # DOC_GATE_FIGURE_LEDGER_OPEN.txt shipped saying "the ELEVEN missing ledger entries" over a
 # file holding SEVEN rows while its sibling RETRACTED_FIGURES.tsv already said seven
-# (corrected at `c737858`). All six DOC_GATE_*.txt files and all four .tsv registries were
-# swept for header numbers that are snapshots of a live measurement. FOUR exist:
-#   documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt:20-24  "4 recorded, 7 open ... holds SEVEN
-#       rows"  — three coupled counts; correct today (7 rows, 11 registry rows verified)
-#   documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt:21     "64 of 127 ... and 0 of those"
-#   documentation/DOC_GATE_FIGURE_ALLOWLIST.txt:27       "There are none today."
-#   documentation/RETRACTED_FIGURES.tsv:26-27            '"+1.6" matches twelve places'
-# Of the four, exactly ONE restates a number a gate recomputes on every run. The other three
-# are one-off corpus measurements that nothing recalculates, so a "does the stated count
-# match the computed one" gate has a live corpus of one — and would have to find its number
+# (corrected at `c737858`). Every DOC_GATE_*.txt file and every .tsv registry then tracked
+# was swept for header numbers that are snapshots of a live measurement. FOUR existed at
+# `834448a`, cited by the sentence they sit in rather than by line, because a header is
+# edited more often than it is renamed:
+#   DOC_GATE_FIGURE_LEDGER_OPEN.txt  "the gate prints '4 recorded, 7 open', and this file
+#       holds SEVEN rows"  — three coupled counts
+#   DOC_GATE_UNMARKED_ALLOWLIST.txt  "64 of 127 ... and 0 of those"
+#   DOC_GATE_FIGURE_ALLOWLIST.txt    "There are none today."
+#   RETRACTED_FIGURES.tsv            the "CHOOSING THE STRING" paragraph's match counts
+# Of the four, exactly ONE restated a number a gate recomputes on every run. The other three
+# were one-off corpus measurements that nothing recalculates, so a "does the stated count
+# match the computed one" gate had a live corpus of one — and would have to find its number
 # by regex over free prose that also contains dates, gate numbers, version strings, line
 # numbers and ratios. That is the shape drain-1 measured and rejected for GATE 4b's coverage
 # floor on the same day: an instrument whose false-positive rate exceeds its yield.
 # NOT SHIPPED, therefore, and the choice among (i) a computed-vs-stated [note], (ii) a
 # convention that support-file counts are written "as of <date>", and (iii) nothing, on the
 # grounds that headers are commentary, is left open with this measurement attached to it.
-# The four sites above are the whole surface; anyone taking the decision does not have to
-# re-derive it.
+#
+# RE-SWEPT 2026-08-02 (round 12 drain-3, item `R11`). THE POPULATION HAD GROWN AND TWO OF
+# THE FOUR SITES HAD ROTTED — which is evidence bearing on (i)/(ii)/(iii), and is why the
+# paragraph above is now in the past tense and its closing "the four sites above are the
+# whole surface" is gone. That sentence was true of a corpus that no longer exists: the
+# sweep ran over the six DOC_GATE_*.txt files tracked at `834448a`, and
+#   git ls-files 'documentation/DOC_GATE_*.txt' 'documentation/*.tsv'
+# now lists more. DOC_GATE_REGISTRY_DUPLICATES.txt and DOC_GATE_SELFTEST_INSTRUMENTS.txt
+# were added afterwards and were never in the swept population. Re-running the sweep over
+# the current one moves the decision's inputs in BOTH directions:
+#   - DOC_GATE_REGISTRY_DUPLICATES.txt states the SAMPLE SIZE its caveats reason about,
+#     and GATE 14 prints that same number every run. It is correct today — verified
+#     against the live [ok] line, not against the generator, after a partial read of the
+#     generator produced a false positive. Counted as BORDERLINE rather than as a fifth
+#     site: a configured parameter is not a snapshot of a corpus measurement, and it moves
+#     only when someone edits the sampler. Anyone taking decision (i) should decide
+#     whether that class is in or out; this unit did not.
+#   - DOC_GATE_SELFTEST_INSTRUMENTS.txt IS a fifth site AND IT WAS STALE. Its BLOCK
+#     paragraph froze the per-row distances GATE 15 LEG 3 prints on every run, and
+#     `f5fac73` moved one of them — rebinding the distance from the first qualifying
+#     occurrence to the assertion's report line — without touching the header. So the
+#     class "restates a number a gate recomputes on every run" is TWO sites, not one, and
+#     its observed defect rate is 1 in 2 rather than 0 in 1. That is the class a
+#     computed-vs-stated [note] could actually reach, and the yield argument above was
+#     built on a population of one.
+#   - RETRACTED_FIGURES.tsv's own paragraph had drifted on two of its three counts, in the
+#     one-off class the argument above says nothing recalculates. It does not — which is
+#     exactly why it rotted.
+# BOTH STALE SITES ARE FIXED IN THIS COMMIT, THE DECISION IS NOT TAKEN. (i)/(ii)/(iii)
+# remain open and remain the operator's; no instrument shipped.
 #
 # ITEM N1 — CITATION-BY-LINE: ALL THREE FORMS NOW COUNTED, AND ONLY TWO ARE GATEABLE
 # (2026-08-02, unit drain-1). Round 9 adjudicated `name.ext:N` — 72 citations, 4 stale. It
@@ -1310,11 +1340,28 @@ gate_figures() {
   # "~5,500×", "1.4σ", "+125" — was invisible everywhere: to GATE 3b (markdown only, and it
   # says so at RETRACTED_FIGURES.tsv's item 5), to GATE 6 (phrase registry only), and to any
   # grep of the asset itself (matplotlib renders text to glyph paths). The figure registry is
-  # now a SECOND pass over the same generators. MEASURED before shipping: all nine registered
-  # figures against the three tracked generators gives ZERO hits, so this ships with no
-  # allowlist and a clean baseline — and, unlike the markdown corpus GATE 3b policed, the
+  # now a SECOND pass over the same generators. MEASURED before shipping: every registered
+  # figure against every tracked generator gives ZERO hits, so this ships with no allowlist
+  # and a clean baseline — and, unlike the markdown corpus GATE 3b policed, the
   # legitimate-restatement problem does not arise here, because a figure generator has no
   # changelog rows and no retraction narrations to quote.
+  #
+  # NEITHER POPULATION IS ASSERTED HERE AS A LIVE FACT, AND THAT IS A CORRECTION rather
+  # than a house style. (The two superseded figures ARE quoted just below, deliberately, in
+  # order to name what drifted — so this paragraph does contain digits and is not claiming
+  # otherwise. That distinction is caveat (l)'s lesson: a caveat that says a form does not
+  # occur in the file, in the line that makes it occur, falsifies itself.)
+  # This sentence shipped at `29d83a1` reading "all nine registered figures against the
+  # three tracked generators". Nine was EXACT at that commit — the registry held nine rows.
+  # `2ac589e` took it to eleven the same day ("the figure registry was seeded from revision
+  # rows, so it missed the bodies") and did not touch this comment, so it went stale within
+  # hours — while GATE 11's own header, which nobody had to update because it was written
+  # after the widening, says "of the eleven registered figures". ONE SITE SAID NINE AND
+  # ANOTHER SAID ELEVEN, in the same file, about the same registry, and nothing could see
+  # the disagreement. Both populations are printed on this gate's own [ok]
+  # lines at the bottom of this function — the registry count from `$nfig`, the generator
+  # count from `$gens` — so a comment restating them can only ever be right by accident.
+  # Found by round 12 drain-3's `R11` sweep of this file's date-stamped MEASURED numbers.
   local reg="documentation/RETRACTED_PHRASES.tsv"
   local figreg="documentation/RETRACTED_FIGURES.tsv"
   # ITEM A1, and this gate had the shape TWICE. (i) the registry skip, same as GATE 3.
@@ -1807,14 +1854,32 @@ PY
 # shipped with no row. This gate looks for that shape directly: a commit (or a working tree)
 # that changes a TR's body and adds no `| vN.N |` row to the same file.
 #
-# MEASURED BEFORE WRITING A SINGLE VERDICT, over all 131 commits that touch reports/TR*.md:
-# **102 of them would be flagged.** Not a long tail either — 13 are dated 2026-08-02 and 10
-# are 2026-08-01. A BLOCKING gate here would not be enforcing this suite's rule; it would be
-# announcing that the suite has never followed it. So this gate returns 0 unconditionally and
-# prints `[note]`, in the same class as GATES 1, 5 and 5b. **Escalating it to [FAIL] is an
-# operator decision and needs the 102/131 number in front of it**, together with a decision
-# about the three false-positive classes below — it is not a drain unit's call and was not
-# taken as one.
+# MEASURED BEFORE WRITING A SINGLE VERDICT, over every commit that touched reports/TR*.md
+# as of `2231e5e`: **102 of 131 would be flagged.** Not a long tail either — they clustered
+# in the suite's most recent working days. A BLOCKING gate here would not be enforcing this
+# suite's rule; it would be announcing that the suite has never followed it. So this gate
+# returns 0 unconditionally and prints `[note]`, in the same class as GATES 1, 5 and 5b.
+# **Escalating it to [FAIL] is an operator decision and needs that ratio RE-DERIVED, not
+# this one**, together with a decision about the three false-positive classes below — it is
+# not a drain unit's call and was not taken as one.
+#
+# THE RATIO IS PINNED TO A SHA BECAUSE THE DENOMINATOR ONLY GROWS, and this comment is its
+# own evidence. It shipped at `2231e5e` as "all 131 commits", with the tail spelled out as
+# "13 are dated 2026-08-02 and 10 are 2026-08-01". 131 was exact at that commit. By round
+# 12 the denominator had moved and the 2026-08-01 bucket had MORE THAN DOUBLED — a bucket
+# for a date already in the PAST, which is the counter-intuitive part and the reason no
+# LIVE bucket is stated any more (the two superseded ones are quoted above only to name
+# what drifted): commits carrying that author date kept landing after the measurement was
+# taken, so the tail is not stable even for a day that has closed.
+# Re-derive the denominator and the tail with
+#   git log --format=%H -- 'reports/TR*.md' | wc -l
+#   git log --format='%ad' --date=short -- 'reports/TR*.md' | sort | uniq -c
+# The NUMERATOR is deliberately not given a one-liner: it needs THIS gate's per-commit rule
+# replayed over that list, and an escalation decision should pay for that rather than read a
+# frozen number off a comment. SAID PLAINLY: round 12 drain-3 re-derived the DENOMINATOR and
+# the buckets and did NOT re-derive the 102 — so 102 is carried forward on `2231e5e`'s
+# authority, which is the whole reason it is now pinned to that sha instead of floating.
+# Found by round 12 drain-3's `R11` sweep.
 #
 # THE THREE THINGS A `[note]` DOES NOT MEAN, all measured on real commits, not imagined:
 #   (i)  A CROSS-CUTTING EDIT RECORDED IN THE LEDGER INSTEAD. `14d8751` rewrote the
