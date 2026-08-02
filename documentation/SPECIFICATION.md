@@ -1,6 +1,6 @@
 # Formal Specification of the King Wen Sequence
 
-The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is a permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints. Within every enumerated dataset to date, constraints C1–C7 plus four greedy-ordered boundary constraints single out King Wen exactly; that uniqueness does NOT extend to the full constraint-satisfying space: the full C1–C7 space is measured at ≈5.2×10³¹ orderings (see the refuted [Conjecture (Uniqueness)](#theorems) below). The space satisfying C1–C5 alone is estimated at ≈10³⁸ orderings ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
+The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is a permutation **S** = (s₀, s₁, ..., s₆₃) of the set **H** = {0, 1, ..., 63} satisfying the following constraints. Within the shallowest enumerated datasets (d2 10T, d3 10T), constraints C1–C7 plus **four** greedy-ordered boundary constraints single out King Wen exactly; at the two deepest canonicals (d3 100T, d3 560T) **five** are required — exhaustive test finds 0 working unordered 4-subsets, so no 4-tuple suffices at canonical depth. That uniqueness does NOT extend to the full constraint-satisfying space in any case: the full C1–C7 space is measured at ≈5.2×10³¹ orderings (see the refuted [Conjecture (Uniqueness)](#theorems) below). The space satisfying C1–C5 alone is estimated at ≈10³⁸ orderings ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
 
 > Looking for a plain-language version of these constraints and how the solver searches for orderings that satisfy them? See [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md).
 
@@ -82,7 +82,7 @@ orderings at **5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, relative error 0.78%)*
 space by ×2.55×10⁶ and leave ≈10³¹·⁷ solutions — about 105 further bits of constraint would be required for
 full-space uniqueness (≈15–20 boundary constraints, consistent with the extrapolation in
 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Every "uniquely determines King Wen" statement in the project
-is therefore scoped to the enumerated datasets, where 4 greedy-ordered boundary constraints do suffice.
+is therefore scoped to the enumerated datasets, where 4 greedy-ordered boundary constraints suffice at 10T depth and **5 are required at canonical depth** (d3 100T, d3 560T; see the per-dataset table below).
 
 **Evidence (from large-scale enumeration, 10 trillion nodes on 64 cores):**
 - C1 reduces the search space from 64! (~10⁸⁹) to 32! × 2³² (~10⁴⁵).
