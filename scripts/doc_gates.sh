@@ -105,16 +105,79 @@ require_tracked() {
 #   count. MEASURED 2026-08-02: all three registries currently end in \n, so this guard is a
 #   tripwire on a hazard that has not fired yet, not a fix for a live defect.
 #   rc 0 = terminated; rc 1 = not (printed as a FAIL by the caller's rc mapping).
+#
+#   SECOND ARGUMENT `quiet` (item A6, 2026-08-02) suppresses the message so a caller can
+#   print its own. It exists for exactly one reason and the reason is load-bearing: the
+#   A6 preflight below checks every support file, INCLUDING the two registries GATE 11
+#   checks itself, and GATE 11's fire-proof asserts on the literal string
+#   "RETRACTED_FIGURES.tsv does not end with a newline". If the preflight printed that same
+#   sentence, the assertion would be satisfied by the preflight and would no longer prove
+#   GATE 11's leg fired at all — the shared-dispatch defect that item A3 fixed for GATE 4b
+#   and item A7 for GATE 10a, reintroduced through a shared MESSAGE instead of a shared exit
+#   code. The preflight's wording ("gate-support file has no final newline: <f>") therefore
+#   shares no substring with this one.
 require_final_newline() {
   [ -f "$1" ] || return 0                     # absence is require_tracked's business
   [ -s "$1" ] || return 0
   if [ "$(tail -c1 "$1" | od -An -c | tr -d ' \n')" = '\n' ]; then
     return 0
   fi
+  [ "${2:-}" = quiet ] && return 1
   echo "  [FAIL] $1 does not end with a newline"
   echo "         Its last row is dropped by every \`while read\` that consumes it, so that"
   echo "         row is registered and unchecked. Append a newline."
   return 1
+}
+
+# ITEM A6 (2026-08-02) — THE SILENT-DROP GUARD, APPLIED TO EVERY SUPPORT FILE AT ONCE.
+#
+# require_final_newline was added for three registries one at a time. The item that raised it
+# asked for one mechanical pass instead, and named six more files said to share "the same
+# reader shape". THE PREMISE IS WRONG FOR ALL SIX, and that is worth recording rather than
+# quietly acting on, because acting on it would have shipped six guards against a hazard
+# those files do not have — and a guard whose motivating example is imaginary is the shape
+# this suite keeps catching elsewhere. MEASURED, each at its consumption site:
+#   DOC_GATE_FIGURE_ALLOWLIST.txt   doc_gates.sh:333 ff — python `for ln in open(...)`
+#   DOC_GATE_SECREF_ALLOWLIST.txt   doc_gates.sh:573 ff — python `for ln in open(...)`
+#   DOC_GATE_STATUS_ALLOWLIST.txt   doc_gates.sh:678 ff — python `for l in open(...)`
+#   DOC_GATE_UNMARKED_ALLOWLIST.txt doc_gates.sh:845 ff — python `for l in open(...)`
+#   DOC_GATE_NUMBER_ALLOWLIST.txt   doc_gates.sh:165    — `grep -qxF -- "$key" "$allow"`
+#   CORRECTIONS_INVENTORY.tsv       no consumer in this suite at all; it is WRITTEN by
+#                                   scripts/corrections_inventory.sh, and the only documented
+#                                   reader is the `awk` recipe at CORRECTIONS.md:52
+# Python file iteration, grep and awk all yield an unterminated final line. `while read` is
+# the one reader that drops it, and today it is used on exactly the three files already
+# guarded. So SIX guards would have been six no-ops.
+#
+# WHAT IS SHIPPED INSTEAD, and why it is not the same no-op: the guard is applied to every
+# support file by CONSTRUCTION rather than to a hand-listed six, because the hazard is not a
+# property of the file — it is a property of whichever reader a future gate happens to use.
+# The next gate to consume an allowlist with `while read` inherits the protection instead of
+# rediscovering the defect. The list is a `git ls-files` glob, so a support file added
+# tomorrow is covered without anyone remembering this note.
+#
+# WHAT IT CANNOT SEE, stated because a clear from a guard I wrote is worth less than a
+# failure: it covers documentation/DOC_GATE_*.txt and documentation/*.tsv only — a support
+# file placed anywhere else, or given another extension, is outside it. And it addresses ONE
+# way a reader silently drops a row; a `while read` without `-r`, or with unset IFS, mangles
+# rows it does not drop, and nothing here looks for that.
+preflight_support_newlines() {
+  local f bad=0
+  for f in $(git ls-files 'documentation/DOC_GATE_*.txt' 'documentation/*.tsv' 2>/dev/null); do
+    require_final_newline "$f" quiet && continue
+    if [ "$bad" -eq 0 ]; then
+      echo "== PREFLIGHT: every gate-support file must end with a newline =="
+    fi
+    echo "  [FAIL] gate-support file has no final newline: $f"
+    bad=1
+  done
+  if [ "$bad" -ne 0 ]; then
+    echo "         A gate-support file's last row is invisible to any \`while read\` consumer,"
+    echo "         and the gate would still print [ok] with a count nobody reads."
+    echo
+    return 1
+  fi
+  return 0
 }
 
 # Corpus preflight — hole (b). Runs before every mode (see the dispatch at the foot of the
@@ -598,7 +661,7 @@ if os.path.exists(ALLOW):
             allow.add((f[0], f[1], norm(f[2])))
             allow_why[(f[0], f[1], norm(f[2]))] = f[3]
 
-bad, opened = [], []
+bad, opened, ambiguous = [], [], []
 for m in mds:
     base = os.path.dirname(m) or '.'
     for lineno, line in enumerate(open(m, encoding='utf-8', errors='replace'), 1):
@@ -622,7 +685,7 @@ for m in mds:
             if not want:
                 continue
             parts = [p.strip() for p in re.split('…|\\.\\.\\.', want) if p.strip()]
-            found = False
+            matches = []
             for h in heads[dest]:
                 pos, ok = 0, True
                 for p in parts:
@@ -631,8 +694,14 @@ for m in mds:
                         ok = False; break
                     pos = i + len(p)
                 if ok:
-                    found = True; break
-            if found:
+                    matches.append(h)
+            if matches:
+                # ITEM A7 (2026-08-02). This gate reports RESOLUTION, never IDENTITY: a
+                # reference resolves if its text appears anywhere inside ANY heading of the
+                # target, so §"Rule 2" also resolves against a heading "Rule 25", and the gap
+                # form §"A … B" resolves against any heading with A before B.
+                if len(matches) > 1:
+                    ambiguous.append((m, lineno, os.path.relpath(dest), sec, matches))
                 continue
             rel = os.path.relpath(dest)
             key = (m, rel, want)
@@ -643,6 +712,37 @@ for m, ln, d, s, key in bad:
     print(f'         WHY: no heading in {d} contains the normalised text "{norm(s)}"')
 for m, ln, d, s, key in opened:
     print(f'  [OPEN] {m}:{ln} -> {d} §"{s}"  ({allow_why.get(key, "allowlisted")})')
+# ITEM A7 (2026-08-02) — REPORT-ONLY AMBIGUITY NOTE, and why it is this and not a strength
+# floor on the match.
+#
+# The hazard A7 names is that "the next dangling reference that happens to be a substring of
+# an unrelated heading passes silently". The obvious instrument is a COVERAGE RATIO — flag a
+# resolution when the matched heading is much longer than the reference — and it was measured
+# before being written. Over the 55 references that resolve today the ratio runs:
+#     1.0 : 12    0.8 : 2    0.7 : 3    0.6 : 3    0.5 : 3
+#     0.4 : 12    0.3 : 13   0.2 : 3    0.1 : 4
+# so any threshold loose enough to be a tripwire fires on ~15-20 references that were each
+# read individually in round 5 and are each a legitimate short prefix (§"d3 560T" ->
+# "d3 560t - current deepest", ratio 0.28; §"Data-like vs principled" -> the F-23 heading,
+# 0.33). A report-only note firing twenty times on correct references is how a report-only
+# gate stops being read, which is the open question C3 already carries.
+#
+# AMBIGUITY is the same hazard with none of that cost. A reference is dangerous precisely
+# when it does NOT single out one heading; §"Rule 2" is harmless until MCKENNA.md gains a
+# "Rule 25". MEASURED on the corpus of 2026-08-02: 55 references resolve and ZERO resolve
+# against more than one heading, so this note is silent today and speaks only when a heading
+# is added that makes an existing reference stop identifying its target.
+#
+# IT IS DELIBERATELY NOT A FAILURE. Whether an ambiguous-but-resolving reference should go
+# red is a judgment about the corpus, not a mechanical fact, and A7 lists "accept as
+# documented" as a live option; escalating this to rc 1 is the operator's call, not a drain
+# unit's. WHAT IT CANNOT SEE: a reference that resolves against exactly one WRONG heading —
+# no amount of counting finds that, only reading does.
+for m, ln, d, s, hs in ambiguous:
+    print(f'  [note] {m}:{ln} -> {d} §"{s}" resolves against {len(hs)} headings, so it does')
+    print(f'         not identify one section. Lengthen the reference until it does:')
+    for h in hs[:4]:
+        print(f'           also matches: {h}')
 if opened:
     print(f"  [note] {len(opened)} allowlisted dangling reference(s) above are OPEN DEFECTS, "
           f"not exemptions — see {ALLOW}")
@@ -1488,6 +1588,14 @@ PY
 # (commit first, then self-test) remains the operating procedure, and this note is here so
 # that procedure is not mistaken for a guarantee the code provides.
 #
+# ITEM A1 + A2 (2026-08-02) — PREVENTION IS STILL ABSENT; RECOVERY IS NOT. The paragraph
+# above stood for a round while the same idiom destroyed work twice more, so the answer is
+# no longer only procedural: every revert in this harness now snapshots the whole dirty tree
+# into refs/doc-gates/selftest-revert first (see `_selftest_revert` below). A discarded save
+# is still discarded — but it is reachable through that ref's reflog instead of gone. Read
+# the helper's header for the recovery commands; do NOT read this as making the tree safe to
+# edit mid-run.
+#
 # A THIRD WAY, met 2026-08-02 while building legs 5 and 6 below, and the cheapest to warn
 # about: the revert idiom itself gets COPIED. Taking a fire-proof by hand means running the
 # mutation and then the harness's own `git checkout -- .` — which reverts the WHOLE tree,
@@ -1548,10 +1656,61 @@ if [ "${1:-}" = "--selftest" ]; then
   fi
   export DOC_GATES_SELFTEST_DEPTH=1
 
+  # --- ITEM A1 + A2 (2026-08-02): every revert below is now RECOVERABLE.
+  #
+  # A1 records that `git checkout -- .` has destroyed uncommitted work THREE times by three
+  # independent routes: a concurrent self-test (fixed by the lock), a SIGTERM between mutate
+  # and revert (fixed by the traps), and — the one no code change reaches — the idiom being
+  # COPIED into a by-hand fire-proof, which reverted the whole tree including the edits the
+  # proof was testing. A2 is the residual the lock cannot close: an editor saving a file
+  # while assertions are in flight is indistinguishable from the harness's own mutation, so
+  # that save is discarded. Both were answered with PROCEDURE ("commit first"), and procedure
+  # is exactly what failed, twice in one round.
+  #
+  # WHAT THIS CHANGES AND WHAT IT DOES NOT — stated rather than implied, because the previous
+  # note's "can never destroy uncommitted work" is the claim that turned out to be false.
+  # It does NOT prevent the discard. Nothing here can: `-- .` is load-bearing (see
+  # assert_fires' note on the GATE 6 glob), and the harness genuinely cannot tell whose edit
+  # it is. What it does is make the discard RECOVERABLE. `git stash create` writes the entire
+  # dirty tree to a commit object and returns its sha WITHOUT touching the working tree or
+  # the index; `git update-ref` then anchors that object so gc cannot collect it. The ref's
+  # REFLOG is the real record — one entry per revert, so the third-from-last revert is still
+  # reachable, not merely the most recent.
+  #
+  # Recovery, worth reading before you need it:
+  #     git reflog refs/doc-gates/selftest-revert       # every revert, newest first
+  #     git show   refs/doc-gates/selftest-revert@{3}   # what that one threw away
+  #     git checkout refs/doc-gates/selftest-revert@{3} -- <path>
+  #
+  # LOCAL AND EXPIRING BY CONSTRUCTION. refs/doc-gates/ is neither refs/heads nor refs/tags,
+  # so no default push refspec carries it, it is empty in a fresh clone, and its reflog
+  # expires on git's normal schedule. That is deliberately the same shape the GATE 10b
+  # boundary note proposes for its own tripwire.
+  #
+  # WHY NOT `git stash push`: push MODIFIES the working tree (reverting is its side effect)
+  # and rewrites the index. `create` is pure — it records and returns a sha and changes
+  # nothing — so the revert that follows is still the plain, auditable `git checkout`, and
+  # this wrapper cannot alter WHICH files come back. Scope matches too: `stash create`
+  # captures tracked modifications, including a tracked file deleted by `os.remove`, and
+  # tracked files are exactly what `checkout -- .` restores.
+  #
+  # WHAT IT STILL CANNOT SEE: an UNTRACKED file. `stash create` does not capture one and
+  # `checkout -- .` does not delete one, so the two agree — but a human's brand-new,
+  # never-added file is outside this safety net in both directions.
+  _selftest_revert() {
+    local snap
+    snap=$(git stash create 2>/dev/null)
+    if [ -n "$snap" ]; then
+      git update-ref -m "doc_gates --selftest revert $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        refs/doc-gates/selftest-revert "$snap" 2>/dev/null
+    fi
+    git checkout -- "${1:-.}" 2>/dev/null
+  }
+
   # --- A3 (2): restore on every exit path, including signals. Installed only now, with the
   # tree already proven clean and the lock already held, so it can never discard real work.
   _selftest_release() {
-    git checkout -- . 2>/dev/null
+    _selftest_revert
     rm -rf "$SELFTEST_LOCK" 2>/dev/null
   }
   trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: INTERRUPTED (tree restored, lock released)"; exit 130' INT
@@ -1570,16 +1729,33 @@ if [ "${1:-}" = "--selftest" ]; then
   # costs nothing: the self-test refuses to start unless the tree is already clean, so
   # there is never uncommitted work for `-- .` to discard. <file> is kept as documentation
   # of the mutation's primary target.
+  # ITEM A5 (2026-08-02) — A MOVED ANCHOR IS A FAILURE, NOT A SKIP.
+  #
+  # This helper used to `return` after printing [SKIP], leaving PASS untouched, so the suite
+  # still reported "DOC GATES SELF-TEST: PASS" with the assertion never having run. Its four
+  # callers all pin HARDCODED CORPUS TEXT — GATE 9's two banner sentences, GATE 10a's
+  # `len(L) > 60`, GATE 10b's "a line of the oldest version survives" — every one of which a
+  # normal edit can move. That is the same shape as GATE 5b's first run, which printed
+  # "[SKIP] anchor moved" because of a `%%` typo and was recorded as a pass; the rule was
+  # written down there and then not applied here.
+  #
+  # MEASURED before the change: `assert_fires` and `assert_gen_fires` printed [SKIP] and left
+  # PASS alone, while `assert_fires_why`, `assert_stays_clean`, `assert_gen_fires_only` and
+  # `assert_gen_clean` all set PASS=1 on the identical condition. Four helpers said failure
+  # and two said nothing, which is drift, not design. All six now say failure.
   assert_fires() {
     local label="$1" file="$2" gate="$3" mut="$4"
-    python3 -c "$mut" || { echo "  [SKIP] $label ($file) — could not inject (anchor moved)"; return; }
+    python3 -c "$mut" || { echo "  [FAIL] $label ($file) — could not inject (anchor moved), so"
+                           echo "         the assertion did NOT run. A skipped fire-proof is not a proof;"
+                           echo "         re-anchor it against the text it is meant to pin."
+                           PASS=1; _selftest_revert; return; }
     if bash "$0" "$gate" >/dev/null 2>&1; then
       echo "  [FAIL] $label — $gate did NOT fire on an injected defect"
       PASS=1
     else
       echo "  [ok]   $label — $gate fires"
     fi
-    git checkout -- . 2>/dev/null
+    _selftest_revert
   }
 
   # assert_fires_why <label> <gate-name> <evidence-ERE> <python-mutation>
@@ -1595,9 +1771,9 @@ if [ "${1:-}" = "--selftest" ]; then
     local label="$1" gate="$2" want="$3" mut="$4" out rc
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
                            echo "         assertion did NOT run. A skipped assertion is not a pass."
-                           PASS=1; git checkout -- . 2>/dev/null; return; }
+                           PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
-    git checkout -- . 2>/dev/null
+    _selftest_revert
     if [ "$rc" -eq 0 ]; then
       echo "  [FAIL] $label — $gate did NOT fire on an injected defect"; PASS=1; return
     fi
@@ -1618,14 +1794,14 @@ if [ "${1:-}" = "--selftest" ]; then
   assert_stays_clean() {
     local label="$1" gate="$2" mut="$3"
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
-                           PASS=1; git checkout -- . 2>/dev/null; return; }
+                           PASS=1; _selftest_revert; return; }
     if bash "$0" "$gate" >/dev/null 2>&1; then
       echo "  [ok]   $label — exempted, as the allowlist says it should be"
     else
       echo "  [FAIL] $label — $gate fired on text its allowlist covers"
       PASS=1
     fi
-    git checkout -- . 2>/dev/null
+    _selftest_revert
   }
 
   echo "== DOC GATES SELF-TEST (mutation) =="
@@ -1679,8 +1855,11 @@ open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
            printf '%s\n' "$G1OUT" | sed 's/^/           > /' | head -4
            PASS=1
          fi
-         git checkout -- README.md 2>/dev/null; } \
-    || echo "  [SKIP] GATE 1 — anchor moved"
+         _selftest_revert README.md; } \
+    || { echo "  [FAIL] GATE 1 — the 40-digit |C1nC2nC4nC5| anchor is no longer in README.md,"
+         echo "         so the assertion did NOT run (item A5). Re-anchor it on a non-round"
+         echo "         integer of >=12 digits that appears in more than one doc."
+         PASS=1; }
 
   # A5/#65: assert the MATCHED STRING, not just the exit code. GATE 3's registry holds
   # morphology-independent stems, so several rows can be live at once and an exit code alone
@@ -1745,6 +1924,53 @@ open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FI
     'WHY: no heading in .* contains the normalised text "q7"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CRITIQUE.md) Q7).\n')"
+
+  # ITEM A7 — GATE 4b's AMBIGUITY note, proven on the corpus's own weakest reference.
+  #
+  # documentation/HISTORY.md:4987 carries `MCKENNA.md §"Rule 2"`, which today resolves against
+  # exactly one heading ("mckenna's rule 2 - declined for promotion to formal c-rule",
+  # coverage ratio 0.10 — the weakest in the corpus). A7's hazard is stated in exactly these
+  # terms: `§"Rule 2"` would ALSO resolve against a heading `"Rule 25"`. So the mutation adds
+  # that heading and nothing else, and the note must appear.
+  #
+  # WHY THIS IS AN OUTPUT ASSERTION, not assert_fires_why: the note is REPORT-ONLY by design
+  # (see the gate's A7 block), so `secrefs` still exits 0 and an rc-based assertion would fail
+  # on a working gate. The injected heading creates no dangling reference, so rc 0 is also the
+  # correct verdict — asserting on rc would prove the opposite of what is wanted.
+  python3 -c "p='documentation/MCKENNA.md'
+s=open(p,encoding='utf-8').read()
+import re
+h=[x for x in re.findall(r'^#+\s+(.*?)\s*\$', s, re.M) if 'Rule 2' in x]
+assert len(h)==1, 'anchor moved: %d headings contain \"Rule 2\", expected exactly 1' % len(h)
+open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-test heading)'+chr(10))" 2>/dev/null \
+    && { A7OUT=$(bash "$0" secrefs 2>&1); A7RC=$?
+         if [ "$A7RC" -eq 0 ] \
+            && printf '%s' "$A7OUT" | grep -q 'resolves against 2 headings, so it does' \
+            && printf '%s' "$A7OUT" | grep -q 'mckenna rule 25 (self-test heading)'; then
+           echo "  [ok]   GATE 4b ambiguity note — a second matching heading is reported, and named"
+         else
+           echo "  [FAIL] GATE 4b did not note an ambiguous resolution (rc=$A7RC). A reference that"
+           echo "         matches two headings identifies neither, which is the A7 hazard."
+           printf '%s\n' "$A7OUT" | grep -E 'note|FAIL' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         _selftest_revert documentation/MCKENNA.md; } \
+    || { echo "  [FAIL] GATE 4b ambiguity case — could not inject; assertion did NOT run."; PASS=1; }
+
+  # ITEM A6 — the corpus-wide final-newline PREFLIGHT, proven on a file whose own gate does
+  # NOT check it. RETRACTED_FIGURES.tsv would be the obvious target and is the wrong one:
+  # GATE 11 already guards it, so the case would pass with the preflight deleted.
+  # DOC_GATE_SECREF_ALLOWLIST.txt has no such guard, and — measured — is read by python file
+  # iteration, which does not drop an unterminated line, so NOTHING but the preflight can be
+  # what answers here. The ERE is the preflight's own wording, which deliberately shares no
+  # substring with require_final_newline's ("does not end with a newline"), so GATE 11's
+  # fire-proof and this one cannot be satisfied by each other's output.
+  assert_fires_why "A6 preflight: a gate-support file loses its final newline" secrefs \
+    'gate-support file has no final newline: documentation/DOC_GATE_SECREF_ALLOWLIST\.txt' \
+"p='documentation/DOC_GATE_SECREF_ALLOWLIST.txt'
+s=open(p,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'anchor moved: the file does not currently end with a newline'
+open(p,'w',encoding='utf-8').write(s[:-1])"
 
   # A5/#65: assert the matched string AND that a file:line is cited (the location GATE 6
   # did not print until 2026-08-02). `\.py:[0-9]` is what proves the location half.
@@ -1847,8 +2073,9 @@ open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
            bash "$0" appendonly 2>&1 | sed 's/^/           > /' | head -5
            PASS=1
          fi
-         git checkout -- . 2>/dev/null; } \
-    || echo "  [SKIP] GATE 10 negative control — could not append"
+         _selftest_revert; } \
+    || { echo "  [FAIL] GATE 10 negative control — could not append to the ledger, so the"
+         echo "         assertion did NOT run (item A5)."; PASS=1; }
 
   # =========================================================================
   # GATE 10b — THREE assertions (added 2026-08-02, item A7), because they prove three
@@ -1883,7 +2110,7 @@ open(f,'w',encoding='utf-8').write(chr(10).join(cur))"
   #   and 10b must be RED (that is the fix). Asserting only 10b would still pass in a
   #   world where 10a had caught it — and "10a does not catch it" is the whole claim.
   scratch_appendonly() {
-    local label="$1" setup="$2" d rcA rcB
+    local label="$1" setup="$2" d rcA rcB rcS
     d=$(mktemp -d) || { echo "  [SKIP] $label — no tmpdir"; return; }
     ( set -e
       mkdir -p "$d/scripts" "$d/documentation"
@@ -1896,9 +2123,21 @@ open(f,'w',encoding='utf-8').write(chr(10).join(cur))"
       printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\n' \
         > documentation/CORRECTIONS.md
       git add -A && git commit -qm 'ledger: three entries'
-      eval "$setup" ) >/dev/null 2>&1 \
-      || { echo "  [SKIP] $label — scratch setup failed (its own premise did not hold)"
-           rm -rf "$d"; return; }
+      eval "$setup" ) >/dev/null 2>&1; rcS=$?
+    # ITEM A5: rc 3 is the ONE designed skip in this suite — case (iii) exits 3 when its
+    # premise (the pre-rewrite commit is no longer an ancestor of HEAD) does not hold, and
+    # skipping is then correct because the scenario would be testing nothing. Every OTHER
+    # non-zero rc means `git init`, the seed commit or the setup itself broke, which is a
+    # fire-proof that did not run. Those two were conflated behind one [SKIP] and one
+    # message that ASSERTED the premise reading for both.
+    if [ "$rcS" -eq 3 ]; then
+      echo "  [SKIP] $label — premise does not hold here (setup exited 3 by design), so the"
+      echo "         scenario would test nothing"
+      rm -rf "$d"; return
+    elif [ "$rcS" -ne 0 ]; then
+      echo "  [FAIL] $label — scratch setup broke (rc=$rcS), so the assertion did NOT run"
+      PASS=1; rm -rf "$d"; return
+    fi
     ( cd "$d" && bash scripts/doc_gates.sh appendonly-head    >/dev/null 2>&1 ); rcA=$?
     ( cd "$d" && bash scripts/doc_gates.sh appendonly-history >/dev/null 2>&1 ); rcB=$?
     rm -rf "$d"
@@ -2099,8 +2338,9 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
            printf '%s\n' "$G5OUT" | sed 's/^/           > /' | head -4
            PASS=1
          fi
-         git checkout -- documentation/GUIDE.md 2>/dev/null; } \
-    || echo "  [SKIP] GATE 5 — could not append"
+         _selftest_revert documentation/GUIDE.md; } \
+    || { echo "  [FAIL] GATE 5 — could not append to GUIDE.md, so the assertion did NOT run"
+         echo "         (item A5)."; PASS=1; }
 
   # -----------------------------------------------------------------------
   # GATE 5's ALLOWLIST — three assertions (2026-08-02, item A8). Re-keying the allowlist on
@@ -2126,7 +2366,7 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
            printf '%s\n' "$A8OUT" | grep -E 'allowlist' | sed 's/^/           > /' | head -4
            PASS=1
          fi
-         git checkout -- . 2>/dev/null; } \
+         _selftest_revert; } \
     || { echo "  [FAIL] GATE 5 allowlist drift case — could not inject; assertion did NOT run."; PASS=1; }
 
   # (2) DEAD ANCHOR still audited. This is the branch A8's option (ii) was said to cost,
@@ -2140,7 +2380,7 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
            echo "  [FAIL] GATE 5 allowlist accepted an anchor matching nothing, silently"
            PASS=1
          fi
-         git checkout -- . 2>/dev/null; } \
+         _selftest_revert; } \
     || { echo "  [FAIL] GATE 5 dead-anchor case — could not inject; assertion did NOT run."; PASS=1; }
 
   # (3) AN UNANCHORED ENTRY SUPPRESSES NOTHING. Under the old scheme it suppressed by line
@@ -2160,7 +2400,7 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
            printf '%s\n' "$A8OUT" | grep -E 'allowlist|WARN' | sed 's/^/           > /' | head -4
            PASS=1
          fi
-         git checkout -- . 2>/dev/null; } \
+         _selftest_revert; } \
     || { echo "  [FAIL] GATE 5 unanchored case — could not inject; assertion did NOT run."; PASS=1; }
 
   # GATE 5b (item A4), asserted against ITS OWN MOTIVATING EXAMPLE rather than a synthetic
@@ -2207,7 +2447,7 @@ G5BPY
     PASS=1
   fi
   rm -f "$G5BMUT"
-  git checkout -- reports/TR9_PRICING_THE_CONSTRAINTS.md 2>/dev/null
+  _selftest_revert reports/TR9_PRICING_THE_CONSTRAINTS.md
 
   # =========================================================================
   # GATE 8 — THREE mutation cases, ONE regeneration (added 2026-08-02, item A1).
@@ -2233,11 +2473,18 @@ G5BPY
 
   # assert_gen_fires <label> <evidence-ERE> <python-mutation>
   #   <evidence-ERE> must match a line of GATE 8's output.
+  # ITEM A5: [FAIL], not [SKIP] — see assert_fires' note. This one matters most of the six:
+  # all four of its cases anchor on shipped prose in example/ ('terminal attractor', the
+  # "organizing feature" sentence, report.pdf's existence), and example/ is REGENERATED
+  # output, so a legitimate roae.py change moves those anchors without anyone editing a
+  # fire-proof. GATE 8 is also the gate whose hand-taken proof already went stale once.
   assert_gen_fires() {
     local label="$1" want="$2" mut="$3" out rc
-    python3 -c "$mut" || { echo "  [SKIP] $label — could not inject (anchor moved)"; return; }
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
+                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                           PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
-    git checkout -- . 2>/dev/null
+    _selftest_revert
     if [ "$rc" -eq 0 ]; then
       echo "  [FAIL] $label — GATE 8 did NOT fire on an injected defect"
       PASS=1; return
@@ -2365,9 +2612,9 @@ open(p, "w", encoding="utf-8").write(
     local label="$1" want="$2" alsowant="$3" mut="$4" out rc
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
                            echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                           PASS=1; git checkout -- . 2>/dev/null; return; }
+                           PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
-    git checkout -- . 2>/dev/null
+    _selftest_revert
     if [ "$rc" -eq 0 ]; then
       echo "  [FAIL] $label — GATE 8 did NOT fire on a hand-edited digit"; PASS=1; return
     fi
@@ -2545,7 +2792,7 @@ os.remove('documentation/GUIDE.md')"
   echo "         and the two tool-absence legs (python3, sha256sum), which cannot be isolated"
   echo "         from \$PATH without breaking the gate for an unrelated reason."
 
-  git checkout -- . 2>/dev/null
+  _selftest_revert
   echo
   [ "$PASS" -eq 0 ] && echo "DOC GATES SELF-TEST: PASS" || echo "DOC GATES SELF-TEST: FAIL"
   exit "$PASS"
@@ -3210,6 +3457,11 @@ MODE="${1:-all}"
 # but missing from the working tree") from this one ("tracked markdown missing from the
 # working tree: <f>"). Placed after the --selftest block above, which exits before reaching it.
 preflight_tracked_docs || RC=1
+# ITEM A6: same placement and the same non-short-circuiting contract, for the same reason —
+# GATE 11's own final-newline leg must still be able to fire and be told apart from this one.
+# The two messages differ: this one names the file and says "does not end with a newline"
+# via require_final_newline; GATE 11's names the registry AND the figure it dropped.
+preflight_support_newlines || RC=1
 
 case "$MODE" in
   numbers) gate_numbers || RC=1 ;;
