@@ -876,14 +876,35 @@ open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
 "open('documentation/RETRACTED_PHRASES.tsv','a').write(
  'a synthetic phrasing that was never published'+chr(9)+'__none__'+chr(9)+'Self-test row: no ledger entry exists for it, so GATE 11 must fail.'+chr(10))"
 
-  # GATE 2 (CLI drift) and GATE 5 (epistemic status) are not mutation-tested here:
-  # both would require editing solve.py / a canonical quantity, and a bad revert
-  # there is far more costly than the assurance is worth. They are covered by
-  # having FIRED in anger during the 2026-07/08 sweeps (13 undocumented flags;
-  # 99 canonical-quantity occurrences checked). Stated rather than silently
-  # omitted — a self-test that hides its own coverage gap is the defect it tests for.
-  echo "  [note] GATE 2 + GATE 5 not mutation-tested (would mutate solve.py / canonical"
-  echo "         quantities); both have fired in anger during earlier sweeps."
+  # GATE 5, added 2026-08-02 with the #65 work. The old note said this gate could not be
+  # mutation-tested because doing so "would require editing a canonical quantity" — which
+  # was true only of the mutation shape assumed. APPENDING a new sentence that quotes 5.21
+  # with the wrong status edits no existing value at all, and reverts like every other
+  # GUIDE.md mutation here. The stated reason for a coverage gap is worth re-testing, not
+  # just inheriting: that is the same "recorded state that was not true" class this suite
+  # exists for. Assert on OUTPUT, like GATE 1: gate 5 is report-only and always exits 0.
+  # The assertion is on the WHY text, not merely on the presence of a WARN — a gate that
+  # fires without saying what it matched is the defect #65 was raised to fix.
+  python3 -c "s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^31 is a proven count.'+chr(10))" 2>/dev/null \
+    && { G5OUT=$(bash "$0" status 2>&1)
+         if printf '%s' "$G5OUT" | grep -q "carries exact/proven token(s)"; then
+           echo "  [ok]   GATE 5 epistemic status — WARNs and names the tokens it matched"
+         else
+           echo "  [FAIL] GATE 5 did not fire, or fired without naming what it matched"
+           printf '%s\n' "$G5OUT" | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         git checkout -- documentation/GUIDE.md 2>/dev/null; } \
+    || echo "  [SKIP] GATE 5 — could not append"
+
+  # GATE 2 (CLI drift) is not mutation-tested here: it would require editing solve.py,
+  # and a bad revert there is far more costly than the assurance is worth. It is covered
+  # by having FIRED in anger during the 2026-07/08 sweeps (13 undocumented flags). Stated
+  # rather than silently omitted — a self-test that hides its own coverage gap is the
+  # defect it tests for.
+  echo "  [note] GATE 2 not mutation-tested (would mutate solve.py); it has fired in"
+  echo "         anger during earlier sweeps."
 
   git checkout -- . 2>/dev/null
   echo
