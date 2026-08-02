@@ -1933,17 +1933,24 @@ if [ "${1:-}" = "--selftest" ]; then
 
   # assert_stays_clean <label> <gate-name> <python-mutation>
   #
-  # The other half of any allowlist-bearing gate: proof that the EXEMPTION is driven by what
-  # it claims to be driven by. Without it, a green gate is equally consistent with "the
-  # allowlist is correct" and "the allowlist swallows the whole file".
+  # The other half of any gate that EXEMPTS or COMPARES: proof that the silence is driven by
+  # what it claims to be driven by. Without it, a green gate is equally consistent with "the
+  # exemption is correct" and "the exemption swallows the whole file".
+  #
+  # ITS [ok] MESSAGE NAMED THE WRONG MECHANISM until 2026-08-02 (item A3's review). It read
+  # "exempted, as the ALLOWLIST says it should be" for all callers, and only two of the four
+  # involve an allowlist: GATE 12's draft-label exemption is SUFFIX-keyed, and GATE 2's
+  # negative control is a comm(1) comparison with no allowlist anywhere in it. A message that
+  # attributes a verdict to a mechanism that was not consulted is a small false attestation of
+  # exactly the kind this file exists to refuse, so it now says only what it knows.
   assert_stays_clean() {
     local label="$1" gate="$2" mut="$3"
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
                            PASS=1; _selftest_revert; return; }
     if bash "$0" "$gate" >/dev/null 2>&1; then
-      echo "  [ok]   $label — exempted, as the allowlist says it should be"
+      echo "  [ok]   $label — stays green, which is what this case asserts"
     else
-      echo "  [FAIL] $label — $gate fired on text its allowlist covers"
+      echo "  [FAIL] $label — $gate fired on a case it is supposed to leave alone"
       PASS=1
     fi
     _selftest_revert
@@ -2601,7 +2608,15 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no re
 s=open(f,encoding='utf-8').read()
 open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded below.'+chr(10)+'| v9.99 | 2026-08-02 | Self-test revision row. |'+chr(10))" 2>/dev/null; then
     G13OUT=$(_g13 'HEAD..HEAD')
-    if printf '%s' "$G13OUT" | grep -qE 'WORKTREE'; then
+    # THE VACUITY GUARD, and it is not decoration. "No WORKTREE note" is also what a run
+    # prints when the injection never reached the tree — the gate would then say
+    # "working tree: no uncommitted TR edit" and this assertion would pass having tested
+    # nothing. Requiring that line to be ABSENT is what makes the silence mean something.
+    if printf '%s' "$G13OUT" | grep -qE 'no uncommitted TR edit'; then
+      echo "  [FAIL] GATE 13 worktree negative control — the gate saw a CLEAN tree, so the"
+      echo "         injection never landed and the silence proves nothing (vacuous pass)."
+      PASS=1
+    elif printf '%s' "$G13OUT" | grep -qE 'WORKTREE'; then
       echo "  [FAIL] GATE 13 worktree negative control — a body edit that DID get a row was noted."
       printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -5
       PASS=1
@@ -2625,7 +2640,17 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
   fi
 
   G13OUT=$(_g13 '00c0db0^..00c0db0')
-  if printf '%s' "$G13OUT" | grep -qE '\[note\] 00c0db0'; then
+  # THE SAME VACUITY GUARD. If that sha is ever rewritten or unreachable, `git rev-list`
+  # returns nothing, the gate reports zero commits examined, and "no note was printed"
+  # becomes true for a reason that has nothing to do with the gate working. Assert the
+  # commit was actually READ before reading anything into its silence.
+  if ! printf '%s' "$G13OUT" | grep -qE '1 non-merge commit\(s\) examined'; then
+    echo "  [FAIL] GATE 13 batch negative control — the range 00c0db0^..00c0db0 resolved to no"
+    echo "         commit, so the absence of a note proves nothing (vacuous pass). Re-anchor"
+    echo "         on a reachable commit that gives every TR it touches a revision row."
+    printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -4
+    PASS=1
+  elif printf '%s' "$G13OUT" | grep -qE '\[note\] 00c0db0'; then
     echo "  [FAIL] GATE 13 batch negative control — 00c0db0 gave BOTH TRs it touched a revision"
     echo "         row and must be silent. A gate that notes a compliant commit is noise."
     printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -6
