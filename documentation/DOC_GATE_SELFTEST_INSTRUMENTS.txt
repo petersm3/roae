@@ -64,6 +64,40 @@
 #       caveat has three instances, two of them the identical off-by-two in adjacent rows,
 #       which is the strongest available argument that the prose column is decoration until
 #       something reads it. Treat every note here as a claim to re-verify, not a measurement.
+#   (4a) THE OBVIOUS MECHANICAL FORM IS WRONG, AND THE ROW THAT MOTIVATED IT IS THE PROOF
+#       (measured 2026-08-02, round 9, drain-1). Round 8 filed caveat (4) with the reasoning
+#       that "a caller count is a grep", so unlike the prose-vs-diff class it needs no design
+#       pass. MEASURED, that is false in both directions:
+#
+#       (i) A GREP IS NOT ONE NUMBER. Three defensible counting rules disagree on 4 of the 10
+#           rows. Counting the name in COMMAND POSITION at line start gives assert_fires_why
+#           57, assert_stays_clean_why 6, _gsrc 0 and _g13 0 — the last two are wrong, because
+#           both are only ever called inside `$(...)`. Counting the name as a WORD followed by
+#           space/tab/`;` on non-comment lines gives 61, 9, 5 and 4 — the first two are now
+#           wrong, because heredocs, `echo` strings and python mutation blobs mention these
+#           names constantly and none of those is a call. Hand-adjudicated call sites:
+#             _selftest_revert 20   _selftest_release 3 (traps)   assert_fires_why 57
+#             assert_stays_clean_why 7   scratch_appendonly 2   _g13 4
+#             assert_gen_fires 4   assert_gen_clean 1   assert_gen_fires_only 2   _gsrc 5
+#           Distinguishing the three requires a shell parse, not a grep. (The inbox's own
+#           "56 assert_fires_why invocations" is a fourth number; it is rule-dependent too.)
+#
+#       (ii) THE NUMBER THE PROSE STATES IS NOT THE CALLER COUNT. `assert_stays_clean_why`
+#           says "SIX negative controls depend on it". It has SEVEN call sites — 2326, 2361,
+#           2412, 3019, 3630, 3803 are the six negative controls, and 2444 is the `_asc_probe`
+#           PROBE, deliberately expected to FAIL, which the same note names two sentences
+#           later. So the prose is CORRECT and a caller-count gate would have gone red on the
+#           one row it was designed around. `assert_gen_fires` ("Four legs") and
+#           scratch_appendonly ("two scratch legs") are the same shape: a semantic subset of
+#           the call sites, which no count computes.
+#
+#       WHAT THIS LEAVES BUILDABLE, and it is smaller than caveat (4) implies: a row could
+#       carry an explicit machine-readable `callers=N` claim, checked against ONE rule stated
+#       in this file, with the prose left to say what the N of them ARE. That is a format
+#       change to the table and it is the same decision as caveat (1)'s option (b), the
+#       declared proof-KIND column — so it should be taken ONCE for both, not twice. NOT
+#       shipped here: an instrument measured to contradict its own motivating row is the
+#       false clear this file exists to refuse.
 _selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise.
 _selftest_release	NOT-PROVEN-IN-HARNESS	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label.
 assert_fires_why	GATE 3 retracted phrasing	The only fire helper since round 8 (2026-08-02): the exit-code-only `assert_fires` was deleted and its six callers converted here, so every fire-proof in this harness now fails unless the WHY line names the injected thing, and every one is visible to GATE 16's preflight-collision scan. NOT exercised: its own anchor-moved branch.
