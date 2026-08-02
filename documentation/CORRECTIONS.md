@@ -715,3 +715,30 @@ the correction. The gate is a completeness instrument, not a content one.
   registry and this ledger are required to move together, and on the first attempt they did not.
 
 ---
+
+### CX-24 · 2026-08-02 · C3 · CX-23's registry note names the wrong gate, and no gate refused anything
+
+- **Documents:** this file, `CX-23`'s final bullet.
+- **What is wrong.** That bullet says this entry exists because GATE 3 *"correctly refused the commit
+  that registered them without it"*. Two errors, both mechanical and both checkable in one run:
+  **(1) It was GATE 11, not GATE 3.** The five findings printed under
+  `== GATE 11: registered retractions are recorded in CORRECTIONS.md ==`, one
+  `[FAIL] RP-<key> has NO entry in documentation/CORRECTIONS.md` per key. GATE 3 is the
+  *recurrence* gate; the `RP-` keying is GATE 11's construct and GATE 3 does not use it.
+  **(2) No gate refused any commit.** The repository's only pre-commit hook runs
+  `scripts/pre_commit_generated_gate.sh`, whose watched set is `roae.py` plus the five `example/`
+  artifacts and nothing else — a commit touching this file or
+  [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) is not gated at all. The registering commit landed,
+  and the five failures were reported afterwards by a later manual run of the gate.
+- **Why this is corrected by appending rather than in place.** `CX-23` is committed, and GATE 10b
+  requires every line of every committed version to survive in the working copy, so that sentence
+  can never be withdrawn. The rule this file states about itself is the remedy: a later entry says
+  so, and both stay.
+- **Why it is worth an entry at all.** The wrong half is not the gate's name. It is that a reader of
+  this ledger is told a gate *refuses* such commits, and none does — which is exactly the gap that
+  let the same defect ship twice in one day, from two different units, three hours apart.
+- **What did not move:** no measurement, verdict, count, certificate, sha or classification.
+  `CX-23`'s five corrections are unaffected; only its account of which instrument found them, and of
+  what that instrument can do.
+
+---
