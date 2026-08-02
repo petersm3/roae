@@ -2434,6 +2434,41 @@ s=open(p,encoding='utf-8').read()
 t=chr(9)
 open(p,'w',encoding='utf-8').write(s+'documentation/GUIDE.md'+t+'documentation/CRITIQUE.md'+t+'a section nobody cites'+t+'self-test: exempts nothing'+chr(10))"
 
+  # ITEM B1, PHASE-4 ON THIS UNIT'S OWN BATCH. Legs 1-5 all assert that the gate goes RED when
+  # something is broken. NONE of them asserts the promise the bold leg was allowed to ship on:
+  # that a bold-anchor resolution is PRINTED rather than cleared. Delete the [bold-anchor] loop
+  # and every leg above still passes, while eighteen weak resolutions become invisible — the
+  # exact "clears are weaker than failures" outcome the leg's own comment argues against.
+  #
+  # So this asserts the REPORT, on a reference the corpus has never contained: the gate must
+  # stay GREEN (it resolves) and must NAME it. Both halves are load-bearing — rc alone would be
+  # satisfied by a gate that skipped the reference entirely, and the grep is anchored to
+  # GUIDE.md because the same bold label is already reported for two other files, so an
+  # unanchored match would be satisfied by output that has nothing to do with the injection.
+  #
+  # PROVEN DISCRIMINATING, not assumed (2026-08-02): the same injection was run against a COPY
+  # of this script with the [bold-anchor] print loop deleted and nothing else changed. The
+  # anchored grep counted 1 against the live script and 0 against the copy, while the copy
+  # still exited 0 — i.e. the deletion produces exactly the silent green this asserts against.
+  # An assertion that has never been shown to fail is not a proof, which is the whole reason
+  # GATE 8 shipped a one-directional comparison.
+  python3 -c "p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+chr(167)+'\"Per-branch yield labels in the canonical\" for that.'+chr(10))" 2>/dev/null \
+    && { B1OUT=$(bash "$0" secrefs 2>&1); B1RC=$?
+         if [ "$B1RC" -eq 0 ] \
+            && printf '%s' "$B1OUT" | grep -qE '\[bold-anchor\] documentation/GUIDE\.md:[0-9]+ -> documentation/CRITIQUE\.md'; then
+           echo "  [ok]   GATE 4b LEG 6: a bold-anchor resolution is REPORTED, not cleared"
+         else
+           echo "  [FAIL] GATE 4b LEG 6 — a reference resolving only via the weaker anchor form was"
+           echo "         not named in the output (rc=$B1RC). Resolving it silently is the clear"
+           echo "         this leg was allowed to ship on the promise of never producing."
+           printf '%s\n' "$B1OUT" | grep -E 'bold-anchor|FAIL' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         _selftest_revert documentation/GUIDE.md; } \
+    || { echo "  [FAIL] GATE 4b LEG 6 — could not inject; assertion did NOT run."; PASS=1; }
+
   # ITEM A6 — the corpus-wide final-newline PREFLIGHT, proven on a file whose own gate does
   # NOT check it. RETRACTED_FIGURES.tsv would be the obvious target and is the wrong one:
   # GATE 11 already guards it, so the case would pass with the preflight deleted.
