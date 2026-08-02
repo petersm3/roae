@@ -3920,10 +3920,13 @@ os.remove(p)"
 
   # EVIDENCE (round 8 drain-3): same shape as GATE 14's — the instrument count is what a
   # comment mis-parsed as a row would move. RE-TAKEN 10 -> 11 (round 9, item B2) when _g16b
-  # was declared: the number came from running `instruments` under this exact mutation, not
-  # from adding one to the old ERE, which is the difference this control exists to enforce.
+  # was declared, and 11 -> 12 (round 10, item N4) when _g15d was: each number came from
+  # running `instruments` under this exact mutation, not from adding one to the old ERE,
+  # which is the difference this control exists to enforce. TWICE IN TWO ROUNDS IS THE
+  # EVIDENCE THAT THE CONTROL IS LOAD-BEARING: a batch that declares an instrument SHOULD
+  # trip it, and a batch that trips nothing has probably pinned nothing.
   assert_stays_clean_why "GATE 15 a comment appended to the table changes nothing" instruments \
-    '11 instrument\(s\) in the --selftest region, all declared' \
+    '12 instrument\(s\) in the --selftest region, all declared' \
 "open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
     '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
 
@@ -3991,17 +3994,100 @@ open(p,'w',encoding='utf-8').write(s.replace(a, chr(9)+'kind=INVOCATION callers=
   # classification — not merely that the mode exited 0. What it deliberately does NOT prove
   # is that the mutated NOTE was read, because it was not read: that is caveat (4), and this
   # control is the standing demonstration of it rather than a sentence asserting it.
-  # RE-TAKEN 6 -> 7 kind=INVOCATION (round 9, item B2) when _g16b's row landed; taken from a
-  # run under this mutation, and it is the census MOVING that made the re-take necessary,
-  # which is the property being asserted.
+  # RE-TAKEN 6 -> 7 kind=INVOCATION (round 9, item B2) when _g16b's row landed, and 7 -> 8
+  # (round 10, item N4) when _g15d's did; each taken from a run under this mutation, and it
+  # is the census MOVING that made the re-take necessary, which is the property being
+  # asserted.
   assert_stays_clean_why "GATE 15 LEG 3 a rewritten note changes no claim" instruments \
-    'claims column: 7 kind=INVOCATION' \
+    'claims column: 8 kind=INVOCATION' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
 a=chr(9)+\"GATE 8's negative control: proves\"
 assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(
     a, chr(9)+'This sentence is false and no machine reads it: proves', 1))"
+
+  # GATE 15 LEG 4 FIRE-PROOFS (item N4, round 10 drain-2, 2026-08-02) — THREE LEGS, ALL RUN.
+  #
+  # LEG 4 is a COVERAGE rule, and the instruction it was left under says why it needs three
+  # rather than one: shipping a coverage rule in the same pass that grew the population it
+  # counts is how a gate ends up proven against its own arithmetic instead of against a
+  # defect. So none of these asserts on a COUNT. Each removes one confirmation and requires
+  # the leg to name the builder that lost it:
+  #   (a) the SHELL form  — the anchored guard after a `> "$_X_COPY"` redirect is stripped;
+  #   (b) the PYTHON form — the `assert` before an `open(…,'w')` is stripped;
+  #   (c) the CROSS-CHECK — the guard is left in place but rewritten to a shape LEG 2's
+  #       extractor cannot read (an UNQUOTED pattern). LEG 2 then silently checks one guard
+  #       instead of two and still prints [ok] with a smaller number, which is precisely the
+  #       count-nobody-reads failure caveat (vi) has recorded since round 8. Without (c) this
+  #       vacuity guard would be the untested half of the pair, and the untested half is what
+  #       rots — GATE 8 shipped a one-directional comparison for exactly that reason.
+  #
+  # EACH LEG ASSERTS ON A SUBSTRING ONLY LEG 4 PRINTS, and the three are mutually distinct:
+  # (a) names the shell wording, (b) the python wording, (c) the cross-check wording. If any
+  # of those three FAIL messages is reworded, ITS PROOF MUST BE RE-TAKEN FROM A RUN — the
+  # standing hazard item N2 names for GATE 4b LEG 7, and it applies here identically because
+  # the same thing makes the proof meaningful: the string is what a build without the rule
+  # cannot print.
+  #
+  # THE MUTATIONS CARRY NO SHELL METACHARACTERS. Every `$` and `"` they must write is built
+  # with chr(36)/chr(34), and every anchor is assembled from fragments, so (i) this
+  # fire-proof's own source cannot satisfy the anchor it searches for (item A2) and (ii)
+  # nothing here is expanded by the shell before python sees it.
+  _G15D_COPY=$(git rev-parse --git-dir)/doc_gates_g15d_copy.sh
+
+  _g15d() {  # <label> <expected-substring> <python-mutation>
+    if _G15D_COPY="$_G15D_COPY" python3 -c "$3" 2>/dev/null; then
+      _G15DOUT=$(_gsrc "$_G15D_COPY" instruments)
+      if printf '%s' "$_G15DOUT" | grep -qF "$2"; then
+        echo "  [ok]   GATE 15 LEG 4 $1 — fires"
+      else
+        echo "  [FAIL] GATE 15 LEG 4 $1 — NOT reported, so an unconfirmed copy would ship"
+        printf '%s\n' "$_G15DOUT" | sed 's/^/           > /' | head -6
+        PASS=1
+      fi
+    else
+      echo "  [FAIL] GATE 15 LEG 4 $1 — could not build the mutated copy (anchor moved), so"
+      echo "         the assertion did NOT run. A skipped assertion is not a pass."
+      PASS=1
+    fi
+  }
+
+  _g15d "a shell-redirect copy whose anchored guard was stripped" \
+        'and no anchored guard within' "
+import os
+G='&& '+'grep '+'-qE '+chr(39)+'^  _fireproof_undeclared_instrument'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip().startswith(G)]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]='     && '+'true; then'+chr(10)
+assert 'grep' not in L[t[0]], 'the guard survived the substitution'
+open(os.environ['_G15D_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g15d "a python builder whose assert was stripped" \
+        'with no assert earlier in the same' "
+import os
+W='.write'+'lines(out)'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if W in l]
+assert len(t)==1, 'builder anchor moved: %d' % len(t)
+a=[i for i in range(t[0]-1,0,-1) if L[i].startswith('assert'+' ')]
+assert a and t[0]-a[0] < 12, 'no assert in the builder-s own program: %s' % a[:1]
+L[a[0]]='pass'+chr(10)
+open(os.environ['_G15D_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g15d "a guard LEG 2's extractor can no longer read" \
+        'and LEG 2 did not extract' "
+import os
+G='&& '+'grep '+'-qE '+chr(39)+'^  _fireproof_undeclared_instrument'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip().startswith(G)]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=('     && '+'grep '+'-qE X '+chr(34)+chr(36)+'_G15_COPY'+chr(34)+'; then'+chr(10))
+assert chr(39) not in L[t[0]], 'the pattern is still quoted, so LEG 2 would still read it'
+open(os.environ['_G15D_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  rm -f "$_G15D_COPY"
 
   # GATE 16 FIRE-PROOFS (item A2, 2026-08-02) — REPRODUCE THE A6 NEAR-MISS, do not describe it.
   #
@@ -5502,37 +5588,24 @@ for name in sorted(rows):
 #         as unanchored, because `$PAT` does not start with `^`. That is a false FAIL in the
 #         conservative direction: this gate cannot follow an indirection, and refusing one
 #         is better than clearing it. There are none today.
-#   (vi)  The count it prints is a FLOOR, not a pinned population. Deleting one of the two
-#         guards leaves the other and still prints [ok] with a smaller number — the "count
-#         nobody reads" shape this file flags elsewhere. Pinning it to 2 would fail on a
-#         legitimate third guard, and no derived invariant was found (the `_COPY` VARIABLES
-#         are not in bijection with the guards, since other legs confirm in python instead).
-#         Stated, not fixed — but the search is no longer empty (item B10, 2026-08-02).
-#         MEASURED over the --selftest region after item B2: TEN lines build a copy, and TEN
-#         carry a confirmation of what went into it — 2 confirm with an anchored `grep -qE`
-#         (this leg's population) and 8 confirm in python inside the builder, immediately
-#         before the write. Copy BUILDERS, unlike `_COPY` variables, ARE in bijection with
-#         confirmations, 10 of 10. "A copy may not be written without a confirmation of what
-#         went into it" is therefore a checkable rule and is the derived invariant round 8
-#         could not find — the python population was too small then for the shape to show.
-#         It is DECLARED, NOT BUILT, and deliberately so: it needs its own fire-proof in
-#         BOTH forms, and shipping a coverage rule in the same pass that grew the population
-#         it counts is how a gate ends up proven against its own arithmetic rather than
-#         against a defect. Whoever takes it should not re-derive the 10/10 by hand.
-#         THE DEFINITION OF "BUILDER" IS RECORDED HERE BECAUSE THAT INSTRUCTION WAS NOT
-#         FOLLOWABLE WITHOUT IT (2026-08-02, unit drain-1). "Do not re-derive by hand"
-#         needs the mechanical form, and only the COUNT was written down. Reconstructing
-#         it, the obvious definition — a shell redirect `> "$_*COPY"` plus an
-#         `open('$_*COPY','w')` — returns SIX, not ten, and returns it silently: a
-#         plausible number, no error, and a coverage rule built on it would have been
-#         proven against a population missing four of its members. The four it misses
-#         write through the environment, `open(os.environ['_*COPY'],'w')`, which is the
-#         form GATE 16 LEG 2's fire-proofs use. All THREE syntaxes are the definition, and
-#         under it the split reproduces exactly: 10 builders = 2 confirmed by an anchored
-#         `grep -q…$_*COPY` within two lines (GATE 15's and GATE 17 LEG 6's — this leg's
-#         population) + 8 confirmed by an `assert` earlier in the same python program.
-#         Re-measure with those three patterns before touching the rule; if a fourth
-#         syntax lands, it will be invisible in exactly the way the third one was.
+#   (vi)  CLOSED BY LEG 4 (item N4, round 10, 2026-08-02) — READ THIS ENTRY FOR THE HISTORY,
+#         NOT FOR A NUMBER. The count THIS leg prints is still a FLOOR: deleting one of the
+#         two anchored guards leaves the other and still prints [ok] with a smaller number.
+#         Round 8 looked for a derived invariant to pin it against and found none, because the
+#         `_COPY` VARIABLES are not in bijection with the guards — other legs confirm in
+#         python instead. Round 9 found the thing that IS in bijection: copy BUILDERS. LEG 4
+#         below now enforces "a copy may not be written without a confirmation of what went
+#         into it" as coverage, so a deleted guard is a FAIL naming the builder that lost it
+#         rather than a quieter count here.
+#         NO POPULATION FIGURE IS STATED IN THIS COMMENT, DELIBERATELY. Round 9 recorded the
+#         split as a number and the instruction "do not re-derive the 10/10 by hand", and
+#         that instruction was not followable: only the COUNT was written down, and the
+#         obvious definition of a builder — a shell redirect `> "$_*COPY"` plus an
+#         `open('$_*COPY','w')` — returns SIX of the ten, silently. The four it misses write
+#         through the environment, `open(os.environ['_*COPY'],'w')`. LEG 4 carries all three
+#         syntaxes and PRINTS the per-syntax census every run, which is the durable form of
+#         what this paragraph used to assert; a fourth syntax would still be invisible, and
+#         a syntax falling to zero is now visible where the third one's absence was not.
 #   (vii) It sees `grep -q` only. A confirmation written as `grep -c`, `[ -n "$(grep …)" ]`
 #         or a `case` on file contents is outside the scan. Measured 2026-08-02 (item B10):
 #         no confirmation in this region takes any of those three forms today, so (vii) is a
@@ -5735,6 +5808,154 @@ for name in sorted(defined):
                 blockdist.append((name, hit[0] - hit[1]))
     kindcount[kind] += 1
 
+# --- LEG 4 (ITEM N4, round 10 drain-2, 2026-08-02): A COPY MAY NOT BE WRITTEN WITHOUT A
+# CONFIRMATION OF WHAT WENT INTO IT.
+#
+# WHAT IT CLOSES. LEG 2 above checks that every copy-confirmation GUARD is anchored, and its
+# caveat (vi) says outright that the number it prints is a FLOOR: delete one of the two
+# guards and LEG 2 still prints [ok] with a smaller number. Round 8 looked for a derived
+# invariant to pin it against and did not find one, because the `$..._COPY` VARIABLES are not
+# in bijection with the guards — several legs confirm in python instead. Round 9 measured the
+# thing that IS in bijection: copy BUILDERS. Every line that writes a copy has a confirmation
+# of what went into it, in one of two forms, and that is a coverage rule rather than a count.
+#
+# THE TWO CONFIRMATION FORMS ARE THE TWO THE CORPUS ACTUALLY USES:
+#   shell-redirect  `sed|grep … > "$_X_COPY"` followed within CONFIRM_WINDOW lines by an
+#                   anchored `grep -q…"$_X_COPY"`. LEG 2 then checks that guard is anchored;
+#                   this leg checks it EXISTS. The two halves are what make the pair sound.
+#   python          `open(…'_X_COPY'…,'w')` with an `assert` earlier in the SAME python
+#                   program. This is item A2's first form, applied inside the builder.
+#
+# THE BUILDER DEFINITION IS THREE SYNTAXES AND THAT IS NOT COSMETIC. Reconstructing it from
+# caveat (vi)'s recorded COUNT, the obvious two — a shell redirect plus `open('$_X_COPY','w')`
+# — return SIX of the ten, silently: a plausible number, no error, and a coverage rule proven
+# against a population missing four members. The four write through the environment,
+# `open(os.environ['_X_COPY'],'w')`. The per-syntax census is PRINTED on every run for exactly
+# that reason: a syntax dropping to zero is now visible, where the third one's absence was not.
+#
+# WHY IT IS NOT SATISFIED BY ITS OWN SOURCE (item A2, the standing hazard in this file). Two
+# independent mechanisms, and BOTH are real here rather than one being decorative:
+#   * the three builder patterns escape the metacharacter they search for — the source of
+#     BUILD_PY_LIT contains `open\(`, and the pattern demands `open` followed by a literal
+#     `(`, so no builder regex matches its own definition line (checked);
+#   * the scan is bounded to the --selftest region, which excludes this gate body entirely.
+# Unlike LEG 2, whose first mechanism alone would not save it (caveat (v) there contains a
+# line the compiled pattern DOES match), neither mechanism here is currently load-bearing on
+# its own. That is a weaker claim than LEG 2's standing proof, and it is stated as weaker:
+# nothing would go RED if the escaping stopped working, because the region bound would still
+# hold. The fire-proofs below are what hold this leg non-vacuous, not this paragraph.
+#
+# WHAT LEG 4 CANNOT SEE, stated because a clear is weaker than a failure:
+#   (xii)  It resolves the extent of a python program by QUOTE PARITY, walking up from the
+#          builder to the nearest line with an odd number of unescaped `"`. If that line ends
+#          with `"` it opens a shell string and the program starts below it; if it does not,
+#          the builder is not inside a string at all and this leg refuses rather than
+#          guessing. That is sound for every builder in the corpus today (measured: all eight
+#          python builders resolve to their own `python3 -c "` or `_g16b … "` opener with no
+#          intervening parity break). It is NOT a shell parser: a `'` -quoted blob, a heredoc,
+#          or a `$'…'` string would break the parity walk, and a builder inside one would be
+#          refused with a FAIL naming the line — conservative, but a FAIL nonetheless.
+#   (xiii) It checks that an `assert` EXISTS earlier in the program, not that the assert is
+#          ABOUT the thing being written. `assert 1==1` would satisfy it. This is the same
+#          class as caveat (viii)'s proximity-not-reachability, one level down, and it is why
+#          the shell half cross-checks against LEG 2's extractor and the python half does not:
+#          no second extractor exists for the python form.
+#   (xiv)  It sees the WRITE, not the CONTENT. A builder that asserts correctly and then
+#          writes different bytes is outside it.
+BUILD_SH = re.compile(r">[ \t]*\"\$(_[A-Za-z0-9_]*COPY)\"")
+BUILD_PY_LIT = re.compile(r"open\([ \t]*'\$(_[A-Za-z0-9_]*COPY)'[ \t]*,[ \t]*'w'")
+BUILD_PY_ENV = re.compile(
+    r"open\([ \t]*os\.environ\[[ \t]*'(_[A-Za-z0-9_]*COPY)'[ \t]*\][ \t]*,[ \t]*'w'")
+UNESCAPED_DQ = re.compile(r'(?<!\\)"')
+PY_ASSERT = re.compile(r"^[ \t]*assert[ \t]")
+CONFIRM_WINDOW = 2
+
+def uncommented(ln):
+    # A COMMENT CANNOT WRITE A FILE, and leaving this out was not a hypothetical. This leg's
+    # own header comment contains the prose `> "$_X_COPY"` describing what a builder looks
+    # like, and the first run read it AS one and demanded a guard for it. Same shape as GATE
+    # 16 LEG 2's `uncomment`, found the same way — by running, not by reading. The header
+    # sentence is deliberately left as it stands: it is a live occurrence of the pattern, in
+    # a comment, inside the scanned region, so if this skip is ever removed the leg goes RED
+    # on its own documentation rather than quietly mis-reading someone else's.
+    return "" if ln.lstrip().startswith("#") else ln
+
+
+builders = []
+for i in range(start + 1, end):
+    for rx, style in ((BUILD_SH, "shell-redirect"), (BUILD_PY_LIT, "python-literal"),
+                      (BUILD_PY_ENV, "python-environ")):
+        m = rx.search(uncommented(lines[i]))
+        if m:
+            builders.append((i + 1, style, m.group(1)))
+
+if not builders:
+    print("  [FAIL] LEG 4: zero copy BUILDERS found in the --selftest region (lines %d-%d)."
+          % (start + 1, end + 1))
+    print("         Ten are known to exist, in THREE syntaxes, and the third was invisible")
+    print("         to the obvious definition of a builder. Finding none means this")
+    print("         extractor stopped reading them, not that the harness stopped building")
+    print("         copies — a checker that finds nothing must never report [ok].")
+    bad = 1
+
+guard_lines = {g[0] for g in guards}
+shdist, pyconf = [], 0
+for lineno, style, var in builders:
+    if style == "shell-redirect":
+        hit = None
+        for j in range(lineno, min(lineno + CONFIRM_WINDOW, end) + 1):
+            cand = uncommented(lines[j - 1])
+            if ("$" + var) in cand and re.search(r"grep[ \t]+-q", cand):
+                hit = j
+                break
+        if hit is None:
+            print("  [FAIL] LEG 4: %s:%d writes $%s and no anchored guard within %d line(s)"
+                  " confirms what went into it." % (src, lineno, var, CONFIRM_WINDOW))
+            print("           %s" % lines[lineno - 1].strip())
+            print("         `sed`/`grep` build the copy FROM this file, so a moved anchor")
+            print("         yields a byte-identical copy and every assertion downstream")
+            print("         passes with the injection switched off. Confirm the injection")
+            print("         with an anchored `grep -qE` before using the copy.")
+            bad = 1
+            continue
+        if hit not in guard_lines:
+            print("  [FAIL] LEG 4: %s:%d confirms $%s at %s:%d, and LEG 2 did not extract"
+                  " that line as a guard." % (src, lineno, var, src, hit))
+            print("           %s" % lines[hit - 1].strip())
+            print("         Two extractors written for different purposes disagree, so one")
+            print("         of them is wrong. If LEG 2's is, it is silently checking fewer")
+            print("         guards than the harness has and still printing [ok] — which is")
+            print("         the count-nobody-reads failure this leg exists to end.")
+            bad = 1
+            continue
+        shdist.append((var, hit - lineno))
+    else:
+        opener = None
+        for k in range(lineno - 1, start + 1, -1):
+            if len(UNESCAPED_DQ.findall(lines[k - 1])) % 2 == 1:
+                opener = k if lines[k - 1].rstrip().endswith('"') else None
+                break
+        if opener is None:
+            print("  [FAIL] LEG 4: %s:%d writes $%s and this leg could not establish which"
+                  " python program it belongs to." % (src, lineno, var))
+            print("         The parity walk found no line opening a shell string above it")
+            print("         (caveat xii). A builder whose program cannot be delimited is")
+            print("         refused, not cleared: the alternative is reading an unrelated")
+            print("         `assert` from the program above as this one's confirmation.")
+            bad = 1
+            continue
+        if not any(PY_ASSERT.match(lines[k - 1]) for k in range(opener + 1, lineno)):
+            print("  [FAIL] LEG 4: %s:%d writes $%s with no assert earlier in the same"
+                  " python program (opens at %s:%d)." % (src, lineno, var, src, opener))
+            print("           %s" % lines[lineno - 1].strip())
+            print("         The builder reads THIS file and writes a mutated copy of it. An")
+            print("         anchor that has moved then produces a copy with nothing injected,")
+            print("         and every assertion using it passes for the wrong reason. Assert")
+            print("         the anchor count before the write, as the other builders do.")
+            bad = 1
+            continue
+        pyconf += 1
+
 if not bad:
     unprov = sum(1 for n in defined if rows[n][0] == "NOT-PROVEN-IN-HARNESS")
     # WORDED DOWN 2026-08-02 (round 8, item A3). This read "%d proven by a named assertion",
@@ -5755,6 +5976,16 @@ if not bad:
     print("  [ok] BLOCK proximity measured, not assumed (window %d): %s — caveat (viii): this"
           " is proximity, not reachability"
           % (BLOCK_WINDOW, ", ".join("%s +%d" % b for b in sorted(blockdist))))
+    syn = {}
+    for _b in builders:
+        syn[_b[1]] = syn.get(_b[1], 0) + 1
+    print("  [ok] LEG 4: %d copy builder(s), every one confirmed — %d by an anchored guard"
+          " LEG 2 also extracted (distance %s), %d by an assert earlier in the same python"
+          " program" % (len(builders), len(shdist),
+                        ", ".join("%s +%d" % d for d in sorted(shdist)), pyconf))
+    print("       builder syntaxes seen: %s — a syntax falling to zero is a rewrite this"
+          " leg can no longer see, not a corpus that stopped building copies"
+          % ", ".join("%s %d" % (k, syn[k]) for k in sorted(syn)))
 sys.exit(bad)
 PY
 }
