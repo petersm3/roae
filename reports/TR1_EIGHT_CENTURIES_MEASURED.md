@@ -15,7 +15,7 @@ almost always by pointing at the sequence and asserting the pattern. This report
 literature could: it **measures every claimed rule against the entire space of orderings** that satisfy
 the sequence's core constraints — by unbiased weighted sampling of that space (2×10¹⁰ probes), not by
 enumerating it. The result sorts the claims into three kinds. Eight celebrated "design
-choices" are **forced** — and as of 2026-07-21 all eight are **theorems**, not sampling results: each is
+choices" are **forced** — and as of 2026-07-21 all eight are **theorems**, not sampling results (two of the eight, r3 (Radisic 2026) and p1c4 (Schulz 1982, citing Lai Zhide 1599), formalize to extensionally the **same** function of the ordering, so the eight literature rules state **seven distinct** ordering facts — one fact under two separately-published citations; both attributions stand. See TR-1 §3(2)): each is
 proven constant on the entire C1 space (every pair-respecting ordering, a superset of the measured
 population, so every C1–C5 ordering inherits it), equal to King Wen's value — machine-checked in Lean 4
 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)). The twenty billion weighted probes that found
@@ -45,7 +45,7 @@ space size estimate to 0.03% — a consistency check within the same estimator f
 is itself a Knuth estimate (METHODS §"Canonical quantities", status **estimate**); the absolute validation of
 the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into
 measured population statistics — to our knowledge for the first time; corrections welcome. The literature's design inventory splits three ways:
-**proven forced** (eight rules, each now a theorem: constant on the entire C1 space — a superset of the
+**proven forced** (eight literature rules stating seven distinct ordering facts — r3 and p1c4 are one predicate under two citations, §3(2) — each now a theorem: constant on the entire C1 space — a superset of the
 measured population — equal to King Wen's value, machine-checked in Lean 4; their measured 1.0 of
 canonical mass in 2×10¹⁰ weighted probes now reads as instrument validation — asserted in the literature
 as design features), **typical** (e.g., the classical 18:18 split holds in 36.4% of all valid orderings), and

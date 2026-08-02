@@ -35,7 +35,7 @@ Lean's compiler). What that buys:
   partition choice, invocation grouping, and merge hierarchy. Its connection to the actual C
   enumerator runs through stated bridge facts that are NOT machine-checked — this is a model-level
   result, not a proof of the C code; see the Tier 3 section's scope note.
-- **The eight "forced" literature rules are proven, not just measured** (`C1RuleConstants.lean`): the
+- **The eight "forced" literature rules are proven, not just measured** (they state seven distinct facts: `r3_const` and `p1c4_const` prove the same C1 content — both violation predicates are kernel-decidably false on all 64 hexagrams, `p1c4Viol_r3Viol_false`, so each reduces to `pcount l dualPair = 4`) (`C1RuleConstants.lean`): the
   eight registry rules that measure at rate 1.0 under enumeration (mmt4, p1c4, s1, s6, r3, r4, r5, c2)
   are **constants of the entire C1 space** — each depends only on the unordered pair-partition, which C1
   fixes, *(scope, 2026-08-01: Lean proves constancy of the **countP forms** defined in that file. Identifying

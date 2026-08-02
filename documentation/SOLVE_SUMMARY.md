@@ -208,7 +208,7 @@ second wave of results, each with a full [technical report](../reports/README.md
 - **Every valid ordering has 23 mathematical "twins"** (counted at the record level) — relabelings that the rules cannot tell apart.
   King Wen is not special in this respect: the twins are a property of the rules themselves.
   [[TR-5](../reports/TR5_SYMMETRY.md)]
-- **Some "design choices" turn out to be forced.** Eight regularities that scholars across eight
+- **Some "design choices" turn out to be forced.** Eight rules — stating **seven** distinct regularities, since r3 and p1c4 turn out to be the same fact under two scholars' names (TR-1 §3(2)) — that scholars across eight
   centuries attributed to the arranger's intent are mathematical *consequences* of the rules — any
   valid ordering has them, chosen or not. And every valid ordering has exactly 15 alternations between
   even-balanced and odd-balanced pairs — provably, always.
