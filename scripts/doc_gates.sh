@@ -28,8 +28,10 @@
 #   scripts/doc_gates.sh appendonly-history # GATE 10b ALONE — vs every historical/published
 #                                   # version, not just HEAD (self-test target)
 #   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row is recorded in CORRECTIONS.md
+#   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
+#                                   # released version, dates and versions ascending
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all eleven cheap gates (1-7 incl. 3b, 9, 10, 11); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all twelve cheap gates (1-7 incl. 3b, 9, 10, 11, 12); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -1169,6 +1171,150 @@ sys.exit(bad)
 PY
 }
 
+# ---------------------------------------------------------------------------
+# GATE 12 — a TR's revision history must be well-formed.
+#
+# WHY (item A4, filed round 1, written round 5 against MEASURED data): TR-1 shipped two
+# rows both numbered v1.21 for a day and nothing in the repo could see it. The revision
+# table is how every correction in this suite is attested, so a malformed one breaks the
+# audit trail the corrections ledger and GATES 3/3b/10/11 all lean on.
+#
+# THE GATE FOUND TWO LIVE INSTANCES THE MOMENT IT WAS WRITTEN, both the same mistake and
+# both PRE-EXISTING (neither introduced by this unit):
+#   reports/TR8_REORDERING_REVISITED.md — `85d3b2c` added v1.11 by REPLACING the v1.10
+#     line and re-adding v1.10 underneath, so the newest row was PREPENDED: dates ran
+#     2026-08-02 then 2026-08-01, and `*(current)*` was not the last row.
+#   reports/TR4_SIZE_OF_THE_SPACE.md — same shape, v1.16 above v1.15. Its two dates are
+#     BOTH 2026-08-01, so the date leg alone does NOT see it; that is why the version-order
+#     and current-is-last legs exist rather than the single "dates ascending" the item asked
+#     for. A gate written to the item's letter would have cleared TR-4.
+#
+# SCOPE, and why it is exactly this: `git ls-files 'reports/TR*.md'`. Measured 2026-08-02 —
+# all 11 TRs carry exactly one `## Revision history` heading; no file under documentation/
+# carries one at all; reports/METHODS.md and reports/README.md have no revision rows and are
+# not TRs. Rows are read only AFTER that heading, so a table elsewhere in the file whose
+# first cell happens to start with `v` cannot be mistaken for a revision row.
+#
+# THE ONE TOLERATED DUPLICATE, measured not assumed: TR-11 carries three `v1.0-draft` rows
+# (its lines 630-632), which are legitimate — a draft label is not a released version
+# number. The exemption is therefore keyed on the SUFFIX (`v1.0-draft` vs `v1.0`), not on a
+# filename or a line number, so it cannot silently widen. A repeat of a RELEASED number is a
+# FAIL and is mutation-tested below.
+#
+# WHAT THIS GATE CANNOT SEE, stated rather than implied. (i) A revision row whose PROSE
+# misdescribes what changed — it checks the table's shape, never its truthfulness; the
+# defect TR-11 v1.15 records (a row asserting a propagation that had not happened) is
+# invisible here. (ii) A missing row: a body edit that never got a revision entry at all
+# leaves a perfectly well-formed table. (iii) TR-9's revision block is interrupted by a
+# stray `*Draft-stage corrections (2026-07-04)*` paragraph between v1.10 and v1.11 (an
+# already-filed operator item); this gate reads rows, not contiguity, so it does not fire on
+# that and must not be read as clearing it.
+gate_revhist() {
+  echo "== GATE 12: TR revision histories (versions, dates, one current) =="
+  python3 - <<'PY'
+import re, subprocess, sys
+
+HEAD = '## Revision history'
+ROW  = re.compile(r'^\|\s*(v[0-9][^|]*?)\s*\|\s*([^|]*?)\s*\|')
+VER  = re.compile(r'^v(\d+)\.(\d+)(.*)$')
+DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+out = subprocess.run(['git', 'ls-files', 'reports/TR*.md'],
+                     capture_output=True, text=True)
+trs = sorted(p for p in out.stdout.split('\n') if p)
+bad = 0
+if not trs:
+    print('  [FAIL] git tracks no reports/TR*.md — wrong working directory, or the suite is gone')
+    sys.exit(1)
+
+for f in trs:
+    # Enumerated from the INDEX, opened from the WORKTREE (item A1, hole (b)). A tracked TR
+    # deleted from the tree would otherwise vanish from a glob and be reported as nothing at
+    # all. The corpus preflight also catches this; the message is worded differently on
+    # purpose so a fire-proof can tell the two apart.
+    try:
+        lines = open(f, encoding='utf-8', errors='replace').read().split('\n')
+    except OSError as e:
+        print(f'  [FAIL] {f} is tracked but could not be read ({e.__class__.__name__}) —')
+        print('         a revision history that cannot be opened has not been checked')
+        bad = 1
+        continue
+
+    start = next((i for i, l in enumerate(lines) if l.strip() == HEAD), None)
+    if start is None:
+        print(f'  [FAIL] {f} — no "{HEAD}" heading; every TR must carry one')
+        bad = 1
+        continue
+
+    rows = []                       # (1-based line, version cell, date cell)
+    for i in range(start, len(lines)):
+        m = ROW.match(lines[i])
+        if m:
+            rows.append((i + 1, m.group(1).strip(), m.group(2).strip()))
+    if not rows:
+        print(f'  [FAIL] {f}:{start + 1} — "{HEAD}" heading with no version rows under it')
+        bad = 1
+        continue
+
+    keys, released, prev_date, prev_key = [], [], None, None
+    for ln, ver, date in rows:
+        plain = ver.replace('*(current)*', '').strip()
+        m = VER.match(plain)
+        if not m:
+            print(f'  [FAIL] {f}:{ln} — version cell "{plain}" is not vN.N')
+            bad = 1
+            keys.append(None)
+            continue
+        key, suffix = (int(m.group(1)), int(m.group(2))), m.group(3).strip()
+        keys.append(key)
+        # SUFFIX-KEYED exemption: `v1.0-draft` is a draft label, not a released number, so
+        # repeats of it are legitimate (TR-11 x3). `v1.0` repeated is not.
+        if not suffix:
+            released.append((plain, ln))
+        if not DATE.match(date):
+            print(f'  [FAIL] {f}:{ln} — date cell "{date}" is not YYYY-MM-DD, so this row\'s')
+            print('         position in the history cannot be checked')
+            bad = 1
+        else:
+            if prev_date and date < prev_date:
+                print(f'  [FAIL] {f}:{ln} — dates run BACKWARDS: {prev_date} (row above) then {date}')
+                print('         A revision table is chronological; a newer row was prepended, not appended.')
+                bad = 1
+            prev_date = date
+        if prev_key and key < prev_key:
+            print(f'  [FAIL] {f}:{ln} — versions run BACKWARDS: v{prev_key[0]}.{prev_key[1]}'
+                  f' (row above) then {plain}')
+            bad = 1
+        prev_key = key
+
+    seen = {}
+    for plain, ln in released:
+        if plain in seen:
+            print(f'  [FAIL] {f}:{ln} — released version {plain} is already used at line {seen[plain]}')
+            print('         (draft-suffixed labels like v1.0-draft may legitimately repeat; this one has no suffix)')
+            bad = 1
+        else:
+            seen[plain] = ln
+
+    cur = [(ln, ver) for ln, ver, _ in rows if '(current)' in ver]
+    if len(cur) != 1:
+        where = ', '.join(f'{f}:{ln}' for ln, _ in cur) or 'nowhere'
+        print(f'  [FAIL] {f} — expected exactly one *(current)* row, found {len(cur)} ({where})')
+        bad = 1
+    elif cur[0][0] != rows[-1][0]:
+        print(f'  [FAIL] {f}:{cur[0][0]} — *(current)* is not the LAST revision row '
+              f'(last is line {rows[-1][0]}, {rows[-1][1]})')
+        print('         The current version is by definition the newest; a table whose newest')
+        print('         row is not at the bottom was appended to in the wrong place.')
+        bad = 1
+
+if not bad:
+    print(f'  [ok] {len(trs)} TR revision histories: one *(current)* each and last, '
+          'no repeated released version, dates and versions ascending')
+sys.exit(bad)
+PY
+}
+
 # ===========================================================================
 # SELF-TEST — mutation testing. Run: scripts/doc_gates.sh --selftest
 #
@@ -1629,6 +1775,90 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
 "open('documentation/RETRACTED_PHRASES.tsv','a').write(
  'a synthetic phrasing that was never published'+chr(9)+'__none__'+chr(9)+'Self-test row: no ledger entry exists for it, so GATE 11 must fail.'+chr(10))"
 
+  # -----------------------------------------------------------------------
+  # GATE 12 — FIVE fire-proofs and ONE negative control (2026-08-02, item A4).
+  #
+  # The gate has five independent legs and they do NOT subsume one another; the tree it was
+  # written against proves it. TR-8's misordering broke the DATE order, TR-4's broke only
+  # the VERSION order (both of its rows read 2026-08-01, because `a15c6dd` had already
+  # corrected v1.16's future-dated stamp). A gate built to item A4's literal wording — "no
+  # duplicate version number, exactly one *(current)*, dates ascending" — would have cleared
+  # TR-4. So each leg gets its own assertion, and each mutation is chosen to fire ONE leg:
+  # a duplicate that is also a version regression would pass an assertion that never
+  # exercised the duplicate check.
+  #
+  # Every case asserts WHY (item A5 / #65). The negative control is not optional here — the
+  # duplicate leg carries a suffix-keyed exemption, and without a control a green gate is
+  # equally consistent with "the exemption is precise" and "the exemption swallows the
+  # table".
+  #
+  # (1) DUPLICATE RELEASED VERSION — the motivating example: TR-1 shipped two v1.21 rows for
+  #     a day. Renaming the last row to v1.21 leaves the order non-descending (v1.21 then
+  #     v1.21) and the marker in place, so ONLY the duplicate leg can fire.
+  assert_fires_why "GATE 12 duplicate released version (TR-1's real v1.21 defect)" revhist \
+    'released version v1\.21 is already used at line' \
+"f='reports/TR1_EIGHT_CENTURIES_MEASURED.md'
+s=open(f,encoding='utf-8').read()
+a='| v1.22 *(current)* |'
+assert a in s, 'anchor moved'
+open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.21 *(current)* |',1))"
+
+  # (2) DATES BACKWARDS — TR-8's shape. Back-date the last row only; its version stays the
+  #     highest and the marker stays last, so no other leg can account for the firing.
+  assert_fires_why "GATE 12 a row dated before the row above it" revhist \
+    'dates run BACKWARDS: 2026-08-01 \(row above\) then 2020-01-01' \
+"f='reports/TR3_REPRODUCIBLE_ENUMERATION.md'
+s=open(f,encoding='utf-8').read()
+a='| v1.9 *(current)* | 2026-08-01 |'
+assert a in s, 'anchor moved'
+open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.9 *(current)* | 2020-01-01 |',1))"
+
+  # (3) VERSIONS BACKWARDS — TR-4's shape, the one the date leg is blind to. Raising an
+  #     EARLY row above its successor (v1.2 -> v1.9 in a file that stops at v1.7) keeps every
+  #     date untouched and introduces no duplicate, so this fires the version leg alone.
+  assert_fires_why "GATE 12 versions out of order with every date legitimate" revhist \
+    'versions run BACKWARDS: v1\.9 \(row above\) then v1\.3' \
+"f='reports/TR6_PARITY_SKELETON.md'
+s=open(f,encoding='utf-8').read()
+a='| v1.2 | 2026-07-04 | Figures added |'
+assert a in s, 'anchor moved'
+open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.9 | 2026-07-04 | Figures added |',1))"
+
+  # (4) *(current)* NOT LAST — the leg that caught TR-4. Moving the marker up one row keeps
+  #     the count at exactly one, so the count leg cannot be what fires.
+  assert_fires_why "GATE 12 the *(current)* marker is not on the last row" revhist \
+    'is not the LAST revision row' \
+"f='reports/TR7_CIRCULAR_READING.md'
+s=open(f,encoding='utf-8').read()
+a='| v2.2 *(current)* |'
+b='| v2.1 |'
+assert a in s and b in s, 'anchor moved'
+open(f,'w',encoding='utf-8').write(s.replace(a,'| v2.2 |',1).replace(b,'| v2.1 *(current)* |',1))"
+
+  # (5) MISSING INPUT (item A1's class, applied to the new gate before it can grow the
+  #     hole). The gate enumerates from `git ls-files` and opens from the worktree, so a
+  #     deleted tracked TR is a FAIL naming the file — NOT a silently shorter list. The
+  #     corpus preflight also fires here; the assertion targets GATE 12's own wording so it
+  #     cannot be satisfied by the preflight's.
+  assert_fires_why "GATE 12 (A1) a tracked TR deleted from the worktree" revhist \
+    'TR6_PARITY_SKELETON\.md is tracked but could not be read' \
+"import os
+f='reports/TR6_PARITY_SKELETON.md'
+assert os.path.exists(f), 'anchor moved'
+os.remove(f)"
+
+  # (6) NEGATIVE CONTROL for the duplicate leg's exemption. TR-11 legitimately carries three
+  #     `v1.0-draft` rows; a FOURTH must still be clean, and the exemption must be doing that
+  #     because of the SUFFIX. Case (1) above is the other half: strip the suffix and the
+  #     same duplicate is a FAIL.
+  assert_stays_clean "GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)" revhist \
+"f='reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md'
+lines=open(f,encoding='utf-8').read().split(chr(10))
+i=[n for n,l in enumerate(lines) if l.startswith('| v1.0-draft | 2026-07-05 |')]
+assert len(i)==1, 'anchor moved'
+lines.insert(i[0]+1,'| v1.0-draft | 2026-07-05 | Self-test row: a repeated DRAFT label is legitimate. |')
+open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
+
   # GATE 5, added 2026-08-02 with the #65 work. The old note said this gate could not be
   # mutation-tested because doing so "would require editing a canonical quantity" — which
   # was true only of the mutation shape assumed. APPENDING a new sentence that quotes 5.21
@@ -1999,11 +2229,11 @@ os.remove('documentation/GUIDE.md')"
   #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x2, 7 x2, 8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
-  #            10a (+negative control), 10b x3, 11
+  #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control)
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
-  #            11 x2, and the corpus preflight x1 -- 11 assertions, all asserting WHY.
+  #            11 x2, 12, and the corpus preflight x1 -- 12 assertions, all asserting WHY.
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
-  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x5, 11, and the whole A1 class. GATES 1, 5 and
+  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
   #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
   #   NOT covered, and the distinction matters: GATE 2's FLAG-DRIFT CLASSIFIER. The A1 cases
@@ -2509,6 +2739,7 @@ case "$MODE" in
   appendonly-head)    gate_appendonly_head    || RC=1 ;;
   appendonly-history) gate_appendonly_history || RC=1 ;;
   ledger)  gate_ledger  || RC=1 ;;
+  revhist) gate_revhist || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -2516,8 +2747,9 @@ case "$MODE" in
            echo; gate_liveness || RC=1
            echo; gate_banner || RC=1
            echo; gate_appendonly || RC=1
-           echo; gate_ledger || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|generated|all}"; exit 2 ;;
+           echo; gate_ledger || RC=1
+           echo; gate_revhist || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|revhist|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -2530,7 +2762,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11. Gates 1 and 5 (incl. 5b) are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12. Gates 1 and 5 (incl. 5b) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then
