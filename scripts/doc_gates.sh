@@ -281,6 +281,23 @@ gate_retract() {
 # WHY-IT-FIRED (#65): every finding prints the matched fixed string, the registry note
 # saying what superseded it, and the line text. Every exemption prints its class and reason.
 # Allowlist rows that no longer match anything are re-printed as [note] — the drift audit.
+# ITEM A2 (2026-08-02) — THE TWO QUESTIONS, for GATE 3b's whitespace normalisation.
+#
+# The normalisation is `flat = ' '.join(text.split())`, used only for the hard-wrap check.
+#
+# Q1. WHAT LEGITIMATE VARIATION DOES IT ERASE? The difference between one space and many,
+#     and the difference between a space and a newline. That is the point: a figure split
+#     across a hard wrap is the same figure. It also erases the difference between a figure
+#     written with one internal space and the same figure written with two — which is the
+#     residual already recorded below the wrap check, and it over-reports rather than
+#     misses.
+# Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? Everything that is not whitespace.
+#     The matching itself is FIXED-STRING, so `2σ` and `2.00σ` do not match the registered
+#     `2.0σ`; that is round-5 item A6, still open, and it is a property of the match rule
+#     rather than of this normalisation. Note also that the ALLOWLIST anchor is matched
+#     against the raw line and the wrap check against `flat`, so a legitimate occurrence
+#     that is itself hard-wrapped cannot be anchored at all — it is reported, which is the
+#     safe direction, but it cannot be exempted without rewrapping the source.
 gate_retract_figures() {
   echo "== GATE 3b: retracted FIGURES restated without a supersession marker =="
   # ITEM A1, at the bash level so the check uses the git index (python's os.path.exists
@@ -504,6 +521,28 @@ gate_secrefs() {
   # (and the shape GATE 8's manual fire-proof shipped in). `links` still runs both, so
   # `all` and every existing caller are unchanged; the SELF-TEST now targets `secrefs`,
   # whose exit code no other gate can supply.
+  # ITEM A2 (2026-08-02) — THE TWO QUESTIONS, for `norm()` and for the SUBSTRING match rule.
+  #
+  # Q1. WHAT LEGITIMATE VARIATION DOES IT ERASE? Case, smart quotes vs ASCII quotes, en/em
+  #     dashes vs hyphens, emphasis markers, link syntax around the heading text, runs of
+  #     whitespace, and trailing `.,;:`. Every one of those is a difference between how a
+  #     heading is WRITTEN and how it is CITED, and none changes which section is meant.
+  #
+  # Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? The substring rule, not the
+  #     normalisation, is where the give is. A reference resolves if its text appears
+  #     ANYWHERE inside ANY heading of the target file, so `§"Rule 2"` would also resolve
+  #     against a heading named "Rule 25", and `§"A … B"` resolves against any heading with
+  #     A somewhere before B. The gate reports RESOLUTION, never IDENTITY: it cannot tell
+  #     "this points at the right section" from "some heading contains these characters".
+  #
+  #     MEASURED, because a claim about how weak a rule is should not be a guess. Across the
+  #     corpus there are 55 resolving delimited references, 2 of them using the `…` gap form.
+  #     Ranked by (reference length / matched heading length) the weakest is 0.10 —
+  #     `HISTORY.md:4987 -> MCKENNA.md §"Rule 2"` against the heading "mckenna's rule 2 —
+  #     declined for promotion to formal c-rule". Every one of the 15 weakest was read: all
+  #     are a short PREFIX of a long heading, which is how this repo cites, and NONE resolves
+  #     against an unrelated heading. So the rule is loose but is not currently producing a
+  #     false clear — a statement about today's corpus, not about the rule.
   echo "== GATE 4b: plain-text section references resolve to a real heading =="
   python3 - <<'PY'
 import os, re, sys, subprocess
@@ -1120,6 +1159,22 @@ PY
 # index cannot drift back to a blanket promise.
 #
 # SAFETY: fixed-string containment and endswith() only — no regex at all.
+# ITEM A2 (2026-08-02) — THE TWO QUESTIONS. GATE 9 does not normalise at all: the blocks
+# are compared byte-for-byte. Its normalisation-equivalent is the SEGMENTATION rule — which
+# lines count as "the banner" — and that carries exactly the same kind of claim.
+#
+# Q1. WHAT LEGITIMATE VARIATION DOES IT ERASE? Nothing inside the block; the comparison is
+#     byte-wise. What it erases is everything OUTSIDE it. The block starts at the single
+#     line containing "not peer-reviewed" and ends at the first line whose text ends in `*`.
+#
+# Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? Any divergent sentence placed AFTER
+#     that closing italic. MEASURED across the suite: every one of the 11 TR banner blocks
+#     is exactly 3 lines (cap 8) and the index's is 12 (cap 24) — so no block is being
+#     truncated by an early `*` today. But TR-10 carries its own italic *Scope note (F-34)*
+#     paragraph on the very next line, and that paragraph is invisible to this gate. That is
+#     correct behaviour (a per-report scope note is not banner drift) and it is also the
+#     demonstration: "byte-identical across every report" is a claim about the 3 lines this
+#     rule selects, not about what a reader sees under the heading.
 gate_banner() {
   echo "== GATE 9: report banner byte-identical across all TRs =="
   python3 - <<'PY'
@@ -2831,6 +2886,29 @@ PY
 # NEGATIVE CONTROL: the self-test asserts BOTH halves — that a deleted line fires it and
 # that a pure append does NOT. A gate with no negative control might simply always fail,
 # and "it went red" would then be evidence of nothing.
+#
+# ITEM A2 (2026-08-02) — THE TWO QUESTIONS, for `diff`'s LCS.
+#
+# Q1. WHAT LEGITIMATE VARIATION DOES IT ERASE? Position. A line that survives anywhere in
+#     the working copy, in the same relative order as its neighbours, is not a deletion —
+#     which is what lets a new entry be inserted BETWEEN two existing ones without firing.
+#     Nothing else: the comparison is line-exact, so whitespace, case and punctuation all
+#     count, and a reworded entry is a deletion plus an addition.
+#
+# Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? Two things, and both are real.
+#     (i) INSERTION INSIDE AN ENTRY. "Append anywhere passes" is documented above as a
+#     feature — it is how a new entry goes between two existing ones — but the same rule
+#     lets a line be inserted in the MIDDLE of a committed entry, which can change what that
+#     entry says while every one of its lines is still present and still in order. The gate
+#     preserves lines; it does not preserve meanings.
+#     (ii) DUPLICATION. Every committed line must still be PRESENT; nothing says it must be
+#     present once. Appending a second copy of an existing entry passes, as it should, since
+#     the file is append-only and a later entry may legitimately quote an earlier one.
+#     GATE 10 is a preservation gate, not a uniqueness gate, and the [ok] wording says
+#     "no committed line removed or reworded" rather than anything stronger.
+#     BOTH WERE RUN, not reasoned (2026-08-02). Duplicating CX-07's heading line at EOF:
+#     "[ok] no committed line removed or reworded (2 line(s) appended since HEAD)", rc 0.
+#     Inserting a fresh bullet three lines INTO CX-07: same [ok], rc 0.
 gate_appendonly_head() {
   echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
   local f="documentation/CORRECTIONS.md"
