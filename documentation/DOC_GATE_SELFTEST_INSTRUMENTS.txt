@@ -35,12 +35,16 @@
 #       into doc_gates.sh, and the fire-proof satisfied the condition it was testing for.
 #       It now assembles its substitute label from fragments and asserts the assembled form
 #       is absent before injecting.
-#   (3) It cannot tell a good proof from a weak one. `assert_fires`'s anchor-moved branch is
-#       exercised by nothing; the row says so in prose that no machine reads.
+#   (3) It cannot tell a good proof from a weak one. `assert_fires_why`'s anchor-moved
+#       branch is exercised by nothing; the row says so in prose that no machine reads.
+#   (4) A row's PROSE is not read by anything, only its key and its label. The `_gsrc` row
+#       named a function deleted by a rename for a whole round and this gate was silent;
+#       the `assert_fires` row (deleted 2026-08-02, round 8, with the helper) said
+#       "Exercised by four callers" while six called it. Treat every note here as a claim
+#       to re-verify, not as a measurement.
 _selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise.
 _selftest_release	NOT-PROVEN-IN-HARNESS	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label.
-assert_fires	GATE 9 banner drift (1 byte, 1 file)	Exercised by four callers. NOT exercised: its anchor-moved branch (item A5's [SKIP]->FAIL conversion) — no assertion injects a moved anchor, so that branch is warranted by reading.
-assert_fires_why	GATE 3 retracted phrasing	The workhorse: ~40 callers, every one of which fails if the WHY line does not name the injected thing. NOT exercised: its own anchor-moved branch.
+assert_fires_why	GATE 3 retracted phrasing	The only fire helper since round 8 (2026-08-02): the exit-code-only `assert_fires` was deleted and its six callers converted here, so every fire-proof in this harness now fails unless the WHY line names the injected thing, and every one is visible to GATE 16's preflight-collision scan. NOT exercised: its own anchor-moved branch.
 assert_stays_clean	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	Four negative controls depend on it. NOT exercised: its anchor-moved branch.
 scratch_appendonly	GATE 10b vs history (a line of the OLDEST committed version deleted)	Builds the scratch worktree GATE 10b's history legs mutate.
 _g13	GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records	One-line wrapper that pins DOC_GATE_REVROW_RANGE for GATE 13's batch legs; both the fire leg and its negative control go through it.

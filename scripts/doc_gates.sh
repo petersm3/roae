@@ -1840,7 +1840,7 @@ PY
 #      (not the working tree, so the lock can never dirty the tree it is protecting, and
 #      not /tmp).
 #
-#  (2) NO SIGNAL HANDLER. `assert_fires` reverts after each assertion, but a SIGTERM or
+#  (2) NO SIGNAL HANDLER. Every assertion helper reverts after each case, but a SIGTERM or
 #      Ctrl-C between the mutation and the revert left the mutated file in place. That is
 #      how example/report.html came to be mutated on disk with no run in progress. Fixed
 #      below: INT and TERM restore and release before exiting, and an EXIT trap catches
@@ -1868,7 +1868,7 @@ PY
 # including the uncommitted edit to this script that the fire-proof was testing. That is
 # what happened: two new legs and their self-test cases were written, proven to fire by
 # hand, and then destroyed by the copied revert, with no --selftest involved at all. The
-# harness is not what has to change (its `-- .` is load-bearing; see assert_fires). What
+# harness is not what has to change (its `-- .` is load-bearing; see `_selftest_revert`). What
 # changes is the procedure, and it is the same one as above, for a second reason: COMMIT
 # FIRST, then mutate — by hand or by harness. `git checkout -- <path>` naming only the
 # mutated file is the safe hand form.
@@ -1936,7 +1936,7 @@ if [ "${1:-}" = "--selftest" ]; then
   # WHAT THIS CHANGES AND WHAT IT DOES NOT — stated rather than implied, because the previous
   # note's "can never destroy uncommitted work" is the claim that turned out to be false.
   # It does NOT prevent the discard. Nothing here can: `-- .` is load-bearing (see
-  # assert_fires' note on the GATE 6 glob), and the harness genuinely cannot tell whose edit
+  # the GATE 6 glob note further down this header), and the harness genuinely cannot tell whose edit
   # it is. What it does is make the discard RECOVERABLE. `git stash create` writes the entire
   # dirty tree to a commit object and returns its sha WITHOUT touching the working tree or
   # the index; `git update-ref` then anchors that object so gc cannot collect it. The ref's
@@ -1963,6 +1963,17 @@ if [ "${1:-}" = "--selftest" ]; then
   # WHAT IT STILL CANNOT SEE: an UNTRACKED file. `stash create` does not capture one and
   # `checkout -- .` does not delete one, so the two agree — but a human's brand-new,
   # never-added file is outside this safety net in both directions.
+  #
+  # WHY THE DEFAULT IS `-- .` AND NOT `-- "$file"` (corrected 2026-08-01, same-day
+  # re-review; the note used to live on the deleted `assert_fires` helper and is kept here
+  # because two comments above still point at it). The GATE 6 case mutates whatever
+  # `glob('viz/*.py')` returns first — a path the caller cannot name, and glob order is not
+  # guaranteed — while its documented <file> column said viz/README.md. So that mutation was
+  # never reverted by its own assertion; only the blanket `git checkout -- .` after the last
+  # case cleaned it up, leaving every later assertion running against a mutated tree.
+  # Reverting everything is correct here and costs nothing: the self-test refuses to start
+  # unless the tree is already clean, so there is never uncommitted work for `-- .` to
+  # discard. The optional argument narrows it where a caller genuinely can name its target.
   _selftest_revert() {
     local snap
     snap=$(git stash create 2>/dev/null)
@@ -1995,55 +2006,62 @@ if [ "${1:-}" = "--selftest" ]; then
   trap '_selftest_release' EXIT
 
   PASS=0
-  # assert_fires <label> <primary-file> <gate-name> <python-mutation>
+
+  # THERE IS NO EXIT-CODE-ONLY FIRE-PROOF HELPER IN THIS HARNESS (item A1, round 8,
+  # 2026-08-02). `assert_fires <label> <file> <gate> <mutation>` used to live here and
+  # asserted on the gate's EXIT CODE and nothing else. It is DELETED, and its six callers
+  # were converted to `assert_fires_why` below. Read this before writing another one.
   #
-  # The revert is `git checkout -- .`, NOT `-- "$file"` (corrected 2026-08-01, same-day
-  # re-review). The GATE 6 case mutates whatever `glob('viz/*.py')` returns first — a path
-  # the caller cannot name, and glob order is not guaranteed — while its <file> column said
-  # viz/README.md. So that mutation was never reverted by its own assertion; only the
-  # blanket `git checkout -- .` after the last case cleaned it up, leaving every later
-  # assertion running against a mutated tree. Reverting everything is correct here and
-  # costs nothing: the self-test refuses to start unless the tree is already clean, so
-  # there is never uncommitted work for `-- .` to discard. <file> is kept as documentation
-  # of the mutation's primary target.
-  # ITEM A5 (2026-08-02) — A MOVED ANCHOR IS A FAILURE, NOT A SKIP.
+  # WHY DELETED RATHER THAN DOCUMENTED. Both corpus preflights run before EVERY mode and
+  # both return non-zero, so an exit-code assertion is satisfied by a preflight firing on a
+  # defect that has nothing to do with the injected one. That is precisely the class GATE 16
+  # was built for — arriving through the helper GATE 16 structurally could not examine,
+  # since GATE 16 scans `assert_fires_why` invocations for their evidence-ERE and an
+  # exit-code helper has none to scan. The weakness was written into GATE 16's own
+  # "what it cannot see" note rather than fixed, for a round. Leaving the helper defined but
+  # uncalled would have kept a working example of "an exit code is enough" in the file.
   #
-  # This helper used to `return` after printing [SKIP], leaving PASS untouched, so the suite
-  # still reported "DOC GATES SELF-TEST: PASS" with the assertion never having run. Its four
-  # callers all pin HARDCODED CORPUS TEXT — GATE 9's two banner sentences, GATE 10a's
-  # `len(L) > 60`, GATE 10b's "a line of the oldest version survives" — every one of which a
-  # normal edit can move. That is the same shape as GATE 5b's first run, which printed
-  # "[SKIP] anchor moved" because of a `%%` typo and was recorded as a pass; the rule was
-  # written down there and then not applied here.
+  # THE CONVERSION FOUND TWO LIVE DEFECTS, not only the theoretical one. Two of the six
+  # were dispatched to a COMBINED gate name, so each was satisfiable by the half that was
+  # never in question:
+  #   * "GATE 4 internal links" ran `links`, which is gate_links_and_secrefs — GATE 4 AND
+  #     GATE 4b. A GATE 4b failure satisfied an assertion written about GATE 4.
+  #   * "GATE 11 ledger completeness" ran `ledger`, which is gate_ledger_phrases AND
+  #     gate_ledger_figures, and the figures pass already carries [OPEN] rows.
+  # This is the same shared-dispatch class that got GATES 10a, 10b and 11-figures their own
+  # dispatch names; these two were missed at the time. Asserting on each leg's own MESSAGE
+  # pins the leg without needing a third and fourth dispatch name.
   #
-  # MEASURED before the change: `assert_fires` and `assert_gen_fires` printed [SKIP] and left
-  # PASS alone, while `assert_fires_why`, `assert_stays_clean`, `assert_gen_fires_only` and
-  # `assert_gen_clean` all set PASS=1 on the identical condition. Four helpers said failure
-  # and two said nothing, which is drift, not design. All six now say failure.
-  assert_fires() {
-    local label="$1" file="$2" gate="$3" mut="$4"
-    python3 -c "$mut" || { echo "  [FAIL] $label ($file) — could not inject (anchor moved), so"
-                           echo "         the assertion did NOT run. A skipped fire-proof is not a proof;"
-                           echo "         re-anchor it against the text it is meant to pin."
-                           PASS=1; _selftest_revert; return; }
-    if bash "$0" "$gate" >/dev/null 2>&1; then
-      echo "  [FAIL] $label — $gate did NOT fire on an injected defect"
-      PASS=1
-    else
-      echo "  [ok]   $label — $gate fires"
-    fi
-    _selftest_revert
-  }
+  # EVERY EVIDENCE-ERE BELOW WAS TAKEN FROM A REAL RUN of its own mutation — inject, run the
+  # gate, read the [FAIL] line, revert — never written from reading the gate's source. GATE
+  # 8's hand-taken proof is why that is written down instead of assumed.
+  #
+  # ITEM A5 (2026-08-02) — A MOVED ANCHOR IS A FAILURE, NOT A SKIP, and that rule outlived
+  # the helper it was written on. The deleted helper used to `return` after printing [SKIP],
+  # leaving PASS untouched, so the suite reported "DOC GATES SELF-TEST: PASS" with the
+  # assertion never having run. Its callers all pin HARDCODED CORPUS TEXT — GATE 9's two
+  # banner sentences, GATE 10a's `len(L) > 60`, GATE 10b's "a line of the oldest version
+  # survives" — every one of which a normal edit can move. Same shape as GATE 5b's first
+  # run, which printed "[SKIP] anchor moved" because of a `%%` typo and was recorded as a
+  # pass. MEASURED before that change: two helpers printed [SKIP] and left PASS alone while
+  # four set PASS=1 on the identical condition — drift, not design. All surviving helpers
+  # say failure.
 
   # assert_fires_why <label> <gate-name> <evidence-ERE> <python-mutation>
   #
-  # ITEM A5 (task #65, the assertion half). `assert_fires` checks an EXIT CODE and nothing
-  # else, so it cannot tell "the gate fired for the reason I injected" from "the gate fired
-  # for some unrelated reason and my mutation was never seen". Every classifier gate now
-  # prints the token/anchor/registry note that drove its verdict; this harness is what makes
-  # that printing load-bearing instead of decorative — the assertion FAILS if the WHY line
-  # does not name the injected thing. Modelled on assert_gen_fires, which already did this
-  # for GATE 8; generalised here so every classifier class can carry one.
+  # ITEM A5 (task #65, the assertion half). An exit code cannot tell "the gate fired for the
+  # reason I injected" from "the gate fired for some unrelated reason and my mutation was
+  # never seen". Every classifier gate now prints the token/anchor/registry note that drove
+  # its verdict; this harness is what makes that printing load-bearing instead of
+  # decorative — the assertion FAILS if the WHY line does not name the injected thing.
+  # Modelled on assert_gen_fires, which already did this for GATE 8; generalised here so
+  # every classifier class can carry one, and since round 8 it is the ONLY fire helper.
+  #
+  # ITS INVOCATIONS ARE PARSED BY GATE 16, which extracts the evidence-ERE from each one and
+  # refuses any ERE a preflight could emit. That parser requires the shape used below: the
+  # call line starts with exactly two spaces, the label is the first double-quoted token on
+  # it, the ERE is the first single-quoted token in the argument list, and the mutation body
+  # opens at column 0. Keep the shape or GATE 16's per-invocation vacuity guard fails.
   assert_fires_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
@@ -2313,7 +2331,13 @@ open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at marginal\n4.6 
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')"
 
-  assert_fires "GATE 4 internal links" documentation/GUIDE.md links \
+  # DISPATCH NOTE (item A1, round 8): `links` is gate_links_and_secrefs, i.e. GATE 4 AND
+  # GATE 4b behind one exit code. This used to be an exit-code assertion and was therefore
+  # satisfied by a GATE 4b failure — the shared-dispatch class GATES 10a/10b and 11-figures
+  # each got their own dispatch name for. The ERE is GATE 4's OWN line for the injected
+  # target, so no third dispatch name is needed and GATE 4b cannot answer for it.
+  assert_fires_why "GATE 4 internal links (documentation/GUIDE.md)" links \
+    'documentation/GUIDE\.md -> NO_SUCH_FILE_XYZ\.md +\(no such file\)' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FILE_XYZ.md).\n')"
 
@@ -2545,7 +2569,11 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the pub
   # closing its italic, and semantically identical. A gate that normalised whitespace
   # (the obvious "robustness" tweak) would pass this and would not be a byte-identity
   # gate at all. If this assertion ever stops firing, the gate has stopped being one.
-  assert_fires "GATE 9 banner drift (1 byte, 1 file)" reports/TR5_SYMMETRY.md banner \
+  # The ERE names the byte-identity verdict AND its variant COUNT: one mutated cover means
+  # exactly 2 variants, so a gate that had stopped comparing and failed for some other
+  # reason (a missing marker, an unclosed italic) cannot satisfy this.
+  assert_fires_why "GATE 9 banner drift (1 byte, 1 file)" banner \
+    'the banner is NOT byte-identical: 2 variants in use' \
 "s=open('reports/TR5_SYMMETRY.md').read()
 a='interpretation are argued, not verified.*'
 assert a in s, 'anchor moved'
@@ -2554,7 +2582,11 @@ open('reports/TR5_SYMMETRY.md','w').write(s.replace(a,'interpretation are argued
   # GATE 9's second branch: the 11 covers can be perfectly uniform while the INDEX
   # drifts back to a blanket promise. Byte-identity across the reports cannot see
   # that, so the branch is exercised separately — an unexercised branch is untested.
-  assert_fires "GATE 9 index drops the scope clause" reports/README.md banner \
+  # The ERE names the INDEX leg specifically. Both GATE 9 branches live behind one dispatch
+  # name and one exit code, so an exit-code assertion here was satisfiable by the cover
+  # byte-identity branch above — the two assertions could not be told apart.
+  assert_fires_why "GATE 9 index drops the scope clause" banner \
+    'reports/README\.md:[0-9]+ — index banner lacks "argued, not verified"' \
 "s=open('reports/README.md').read()
 a='interpretation are argued, not verified.'
 assert a in s, 'anchor moved'
@@ -2567,7 +2599,8 @@ open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
   # DISPATCH (2026-08-02, item A7): `appendonly-head`, not `appendonly`. Since 10b landed,
   # `appendonly` is two gates behind one exit code and this assertion would be satisfiable
   # by either — the same untested-test shape A3 fixed for GATE 4b.
-  assert_fires "GATE 10a append-only vs HEAD (committed line deleted)" documentation/CORRECTIONS.md appendonly-head \
+  assert_fires_why "GATE 10a append-only vs HEAD (committed line deleted)" appendonly-head \
+    '1 committed line\(s\) no longer present' \
 "L=open('documentation/CORRECTIONS.md').read().split(chr(10))
 assert len(L) > 60, 'ledger too short to mutate meaningfully'
 del L[len(L)//2]
@@ -2604,8 +2637,8 @@ open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
   #     are staged in throwaway repos built by `cp "$0"` — so they exercise THIS script,
   #     not a re-implementation of it, which is the difference between a fire-proof and a
   #     clever proxy.
-  assert_fires "GATE 10b vs history (a line of the OLDEST committed version deleted)" \
-    documentation/CORRECTIONS.md appendonly-history \
+  assert_fires_why "GATE 10b vs history (a line of the OLDEST committed version deleted)" \
+    appendonly-history '1 line\(s\) present in .* are absent from the working copy' \
 "import subprocess
 f='documentation/CORRECTIONS.md'
 revs=subprocess.run(['git','rev-list','HEAD','--',f],capture_output=True,text=True).stdout.split()
@@ -2684,7 +2717,15 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
   # row rather than by deleting a ledger entry, because deletion would fire GATE 10 and
   # the assertion would pass for the wrong reason — the two gates must be shown to be
   # independent, not merely both red.
-  assert_fires "GATE 11 ledger completeness (unrecorded retraction)" documentation/RETRACTED_PHRASES.tsv ledger \
+  # DISPATCH NOTE (item A1, round 8): `ledger` is phrases AND figures behind one exit code,
+  # and the figures pass already carries [OPEN] rows — so an exit-code assertion here was
+  # satisfiable by the figures half and would have stayed green with the phrases pass
+  # deleted. The ERE names the PHRASES leg's own line. The RP key is matched as a pattern,
+  # never hardcoded: a sha copied out of a run into a fire-proof is the shape this project
+  # bans everywhere else, and the registry note is deliberately NOT in the ERE, since that
+  # string is the mutation's own source text.
+  assert_fires_why "GATE 11 ledger completeness (unrecorded retraction)" ledger \
+    'RP-[0-9a-f]+ has NO entry in documentation/CORRECTIONS\.md' \
 "open('documentation/RETRACTED_PHRASES.tsv','a').write(
  'a synthetic phrasing that was never published'+chr(9)+'__none__'+chr(9)+'Self-test row: no ledger entry exists for it, so GATE 11 must fail.'+chr(10))"
 
@@ -3075,7 +3116,8 @@ G5BPY
 
   # assert_gen_fires <label> <evidence-ERE> <python-mutation>
   #   <evidence-ERE> must match a line of GATE 8's output.
-  # ITEM A5: [FAIL], not [SKIP] — see assert_fires' note. This one matters most of the six:
+  # ITEM A5: [FAIL], not [SKIP] — see the moved-anchor note at the head of the harness. This
+  # one matters most of the helpers:
   # all four of its cases anchor on shipped prose in example/ ('terminal attractor', the
   # "organizing feature" sentence, report.pdf's existence), and example/ is REGENERATED
   # output, so a legitimate roae.py change moves those anchors without anyone editing a
@@ -3444,7 +3486,11 @@ os.remove(p)"
   _gsrc() { DOC_GATES_SRC_OVERRIDE="$1" bash "$0" "$2" 2>&1; }
 
   _G15_COPY=$(git rev-parse --git-dir)/doc_gates_g15_copy.sh
-  if sed 's|^  assert_fires() {$|  _fireproof_undeclared_instrument() { :; }\n  assert_fires() {|' \
+  # ANCHOR RE-POINTED 2026-08-02 (item A1, round 8): this used to inject above
+  # `  assert_fires() {`, and that helper was deleted with the item. The sed would then have
+  # matched nothing and the `grep -qF` guard below would have taken the else branch — a
+  # LOUD failure, not a silent pass, which is the direction this guard exists to force.
+  if sed 's|^  assert_fires_why() {$|  _fireproof_undeclared_instrument() { :; }\n  assert_fires_why() {|' \
        scripts/doc_gates.sh > "$_G15_COPY" \
      && grep -qF '_fireproof_undeclared_instrument() { :; }' "$_G15_COPY"; then
     G15OUT=$(_gsrc "$_G15_COPY" instruments)
@@ -3457,7 +3503,7 @@ os.remove(p)"
       PASS=1
     fi
   else
-    echo "  [FAIL] GATE 15 — could not build the mutated copy (the \`  assert_fires() {\`"
+    echo "  [FAIL] GATE 15 — could not build the mutated copy (the \`  assert_fires_why() {\`"
     echo "         anchor moved), so the assertion did NOT run."
     PASS=1
   fi
@@ -3466,6 +3512,20 @@ os.remove(p)"
   # THE LABEL CHECK IS THE HALF THAT MAKES THIS MORE THAN A CHECKLIST. Without it a row could
   # name any string at all and the table would degrade into a list of names — which is how
   # "documented" becomes indistinguishable from "proven".
+  #
+  # ROW RE-POINTED 2026-08-02 (item A1, round 8): this leg used to mutate the `assert_fires`
+  # row, and that helper — and therefore its row — was deleted with the item. It now mutates
+  # the `assert_stays_clean` row. The `s.count(a)==1` guard is what makes the re-point safe:
+  # had it been left pointing at a row that no longer exists, the leg would have reported
+  # "anchor moved" and PASS=1, never a quiet skip.
+  #
+  # THE ANCHORED LABEL IS ALSO SPLIT, and that is the item-A2 form applied one level deeper
+  # than the substitute label below. The old version carried its anchor label as ONE literal,
+  # so the label the gate searches doc_gates.sh for occurred TWICE in doc_gates.sh — once in
+  # the real assertion and once inside this mutation string. Delete the real assertion and
+  # GATE 15 would still have found the label, in this fire-proof's own source. Splitting the
+  # literal makes the two disjoint, and `src.count(lbl)==1` asserts the split actually held
+  # rather than trusting that it did — the count is the fire-proof of the fire-proof.
   #
   # THE SUBSTITUTE LABEL IS ASSEMBLED FROM FRAGMENTS, and that is not stylistic. The first
   # version of this leg injected the literal 'GATE 9 banner drift that nobody ever wrote' —
@@ -3478,12 +3538,17 @@ os.remove(p)"
     'that label does not occur' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
-a='assert_fires'+chr(9)+'GATE 9 banner drift (1 byte, 1 file)'+chr(9)
+row='assert_stays_clean'+chr(9)
+lbl='GATE 12 a repeated DRAFT label is'+' exempt (suffix-keyed, not file-keyed)'
+a=row+lbl+chr(9)
 assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+src=open('scripts/doc_gates.sh',encoding='utf-8').read()
+assert src.count(lbl)==1, \\
+    'the anchored label occurs %d times in the source; splitting it failed' % src.count(lbl)
 lab='ZZ'+chr(45)+'no-such-assertion-label'
-assert lab not in open('scripts/doc_gates.sh',encoding='utf-8').read(), \\
+assert lab not in src, \\
     'the substitute label leaked into the source; the leg would test nothing'
-open(p,'w',encoding='utf-8').write(s.replace(a, 'assert_fires'+chr(9)+lab+chr(9), 1))"
+open(p,'w',encoding='utf-8').write(s.replace(a, row+lab+chr(9), 1))"
 
   assert_fires_why "GATE 15 a row for a function that no longer exists" instruments \
     'which is no longer defined in the --selftest' \
@@ -3746,7 +3811,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
-  # tests for, so the list is enumerated against the assert_fires calls above:
+  # tests for, so the list is enumerated against the assertion calls above:
   #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
@@ -4725,8 +4790,8 @@ PY
 #       its first run and had to assemble its substitute label from fragments.
 #   (b) --selftest region only. Helpers inside gate bodies are gate implementation and are
 #       covered by the gates' own fire-proofs.
-#   (c) It cannot rank proofs. `assert_fires`'s anchor-moved branch is exercised by nothing;
-#       its row says so in prose that no machine reads.
+#   (c) It cannot rank proofs. `assert_fires_why`'s anchor-moved branch is exercised by
+#       nothing; its row says so in prose that no machine reads.
 gate_selftest_instruments() {
   echo "== GATE 15: every --selftest instrument declares the assertion that proves it =="
   local tbl=documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt rct=0
@@ -4867,10 +4932,17 @@ PY
 #   (3) the expanded candidate-line set must be non-empty.
 #
 # WHAT IT CANNOT SEE, stated rather than implied:
-#   (a) assert_fires / assert_stays_clean / assert_gen_* assert on EXIT CODE or on a
-#       hardcoded string inside the harness, not on an ERE argument. They are outside this
-#       scan. An exit-code assertion is satisfiable by ANY failure, preflight included —
-#       that is a known and separate weakness of assert_fires, not something this gate fixes.
+#   (a) `assert_stays_clean` asserts on an EXIT CODE (rc 0) and carries no ERE, so it is
+#       outside this scan. NARROWED 2026-08-02 (item A1, round 8): this note used to name
+#       assert_fires as well, and that helper's six callers have since been converted to
+#       assert_fires_why — each with an evidence-ERE taken from a real run — and the helper
+#       deleted, so those six are now INSIDE this scan. assert_gen_* were always outside it
+#       for a different and weaker reason: they do assert on an evidence-ERE, but against
+#       GATE 8's `generated` output rather than through this extractor.
+#       The residual is assert_stays_clean's direction of failure: a preflight firing turns
+#       its expected-green run RED, which surfaces as a loud [FAIL] on the negative control
+#       rather than as a false [ok]. It is still a wrong verdict for the wrong reason, and
+#       it is still not something this gate fixes.
 #   (b) It over-approximates the candidate files (both preflights' file lists are unioned),
 #       which is the conservative direction: it can report a collision that a real run would
 #       not produce, never miss one that it would.
