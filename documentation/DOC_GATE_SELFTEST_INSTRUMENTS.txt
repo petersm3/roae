@@ -9,40 +9,69 @@
 # the harness must now be DECLARED here, naming the assertion that proves it, or GATE 15
 # fails.
 #
-# FORMAT: `function<TAB>proof-label<TAB>note`, one per line. `#` comments and blank lines
-# ignored. Must end with a newline (the support-file preflight enforces that).
+# FORMAT: `function<TAB>proof-label<TAB>claims<TAB>note`, one per line. `#` comments and
+# blank lines ignored. Must end with a newline (the support-file preflight enforces that).
 #   proof-label = a literal string that must occur in scripts/doc_gates.sh — normally the
 #                 label of the assertion that exercises the function.
 #   proof-label = NOT-PROVEN-IN-HARNESS for a function that genuinely cannot be asserted
 #                 from inside a live self-test. The note must then say why and where the
 #                 external proof is recorded. GATE 15 prints these every run; they are
 #                 declared gaps, never silence.
+#   claims      = exactly `kind=<K> callers=<N>`, the two MACHINE-READ facts (LEG 3, round 9
+#                 items B8 + B3). The note is prose and is still read by nothing.
+#   note        = what the row means, including what the callers=N number is made OF, which
+#                 no count computes.
+#
+# THE CLAIMS COLUMN — kind=<K>. GATE 15 LEG 3 checks each kind, and requires the STRONGEST
+# satisfied kind to be declared (a row cannot downgrade itself to escape the strict check):
+#   INVOCATION  the proof-label is the FIRST QUOTED ARGUMENT of a call to the declared
+#               function: some line of doc_gates.sh matches `^[ \t]*<fn>[ \t]+"<label>"`.
+#               This is the claim caveat (1a) wants, because a label satisfied only by a
+#               comment or by another assertion's mutation string cannot take this form.
+#   BLOCK       the label occurs within 8 lines BELOW a call site of the function. The three
+#               one-line wrappers genuinely have this shape. LEG 3 prints the MEASURED
+#               distance for each on every run (today: _g13 +2, _gsrc +2, _selftest_revert
+#               +3), so a window that starts creeping is visible rather than absorbed.
+#               THE DISTANCE IS TO THE FIRST QUALIFYING OCCURRENCE, WHICH NEED NOT BE THE
+#               ASSERTION'S REPORT LINE, and that was measured rather than assumed: for
+#               _selftest_revert it binds on the `grep -q 'A1 snapshot probe'` at :2221 (+3),
+#               not on the `[ok] A1 snapshot` echo at :2222 (+4). Both are inside the same
+#               assertion, so the row is right either way — but the number LEG 3 prints is
+#               the nearer one, and reading it as "distance to the report line" would be
+#               wrong by one here.
+#   EXTERNAL    paired with NOT-PROVEN-IN-HARNESS. Both directions are enforced: an EXTERNAL
+#               row may not name an in-harness label, and a NOT-PROVEN-IN-HARNESS label may
+#               not be declared any other kind.
+#
+# THE CLAIMS COLUMN — callers=<N>, counted by ONE rule, stated here so a row author can
+# compute it by hand: occurrences of the function name in COMMAND POSITION — at line start,
+# after `$(`, after `&&` / `||` / `;` / `|` / `then` / `else` / `do`, or opening a `trap`
+# handler string — on lines that are not comments, excluding the function's own definition
+# line. Nothing else counts as a call.
 #
 # WHAT GATE 15 CANNOT SEE, stated rather than implied — this is the load-bearing caveat and
 # it should be read before trusting a green run:
-#   (1) It checks that the function EXISTS and that the named label EXISTS. It CANNOT check
-#       that the named assertion actually exercises the function. A row pointing at a real
-#       but unrelated label passes. This is bookkeeping with a spell-check, not a coverage
-#       prover, and calling it more than that would be the false clear it was written to
-#       prevent.
-#       THE BLIND SPOT IS NOT EMPTY — MEASURED 2026-08-02 (round 8, item A3), row by row,
+#   (1) It checks that the function EXISTS, that the named label EXISTS, and — since round 9
+#       — that the label stands in the declared RELATION to the function (caveat 1's original
+#       text said it could not check this at all; that is now true only of kind=BLOCK, see
+#       caveat viii). A kind=INVOCATION row pointing at a real but unrelated label now FAILS.
+#       THE BLIND SPOT WAS NOT EMPTY — MEASURED 2026-08-02 (round 8, item A3), row by row,
 #       because "d7 was unclassified for weeks and was found only because it was named".
 #       Of the 10 rows: 1 declared unprovable; 5 proven BY INVOCATION (the label is the
 #       first quoted argument of a call to the declared function itself — assert_fires_why,
 #       assert_stays_clean_why, assert_gen_fires, assert_gen_clean, assert_gen_fires_only);
 #       3 proven BY A BLOCK that calls the function and echoes the label a line or two later
-#       (_selftest_revert, _g13, _gsrc); and 1 MISDECLARED — scratch_appendonly, fixed in
-#       the row below. So the surface is 10 rows and the defect rate on it was 1 in 9.
-#       WHAT THAT MEASUREMENT SAYS TO ANYONE BUILDING THE STRONGER FORM: the cheap
-#       mechanical rule ("the label must be the declared function's own call-site label")
-#       would have caught this instance, but it would ALSO flag those 3 block-proven rows,
-#       which are legitimate. So the rule cannot ship as a blanket FAIL on the current
-#       corpus, and the honest options are a call-graph/`bash -x` reachability check (item
-#       A3's own suggestion) or a declared proof-KIND per row. Measured, not guessed —
-#       the same discipline that rejected a coverage-ratio floor for GATE 4b.
-#       WHAT THIS AUDIT CANNOT SEE: it was taken by hand, by reading each label's context.
-#       It would not catch a row whose label sits in a block that LOOKS like it calls the
-#       function but reaches it only on a branch that never runs. Nothing here re-runs.
+#       (_selftest_revert, _g13, _gsrc); and 1 MISDECLARED — scratch_appendonly, fixed at
+#       b4442cf, which made it a sixth INVOCATION row. So the surface is 10 rows and the
+#       defect rate on it was 1 in 9.
+#       ROUND 9 (item B8) TOOK OPTION (b), the declared proof-KIND column, and it is now
+#       LEG 3 above. Option (a) — a call-graph or `bash -x` reachability check — is NOT
+#       built; it is what caveat (viii) still wants and it is the only thing that would make
+#       a BLOCK row as strong as an INVOCATION one.
+#       WHAT THE ROUND-8 AUDIT CANNOT SEE: it was taken by hand, by reading each label's
+#       context. It would not catch a row whose label sits in a block that LOOKS like it
+#       calls the function but reaches it only on a branch that never runs. LEG 3 re-runs the
+#       classification every run, but it inherits exactly that blind spot for kind=BLOCK.
 #   (2) It covers the --selftest region only. Helper functions in gate bodies (check_pair
 #       inside gate_cli, the _norm/_cmp family inside assert_gen_fires) are out of scope:
 #       they are gate implementation, and the gates have their own fire-proofs.
@@ -53,58 +82,68 @@
 #       into doc_gates.sh, and the fire-proof satisfied the condition it was testing for.
 #       It now assembles its substitute label from fragments and asserts the assembled form
 #       is absent before injecting.
+#       NARROWED BY LEG 3, not closed: for the 6 kind=INVOCATION rows the label must now
+#       ALSO stand at a call site, a form no comment and no mutation string takes. The
+#       whole-file search remains the only check for the 3 kind=BLOCK rows.
 #   (3) It cannot tell a good proof from a weak one. `assert_fires_why`'s anchor-moved
 #       branch is exercised by nothing; the row says so in prose that no machine reads.
-#   (4) A row's PROSE is not read by anything, only its key and its label. The `_gsrc` row
-#       named a function deleted by a rename for a whole round and this gate was silent;
-#       the `assert_fires` row (deleted 2026-08-02, round 8, with the helper) said
+#   (4) A row's PROSE is not read by anything, only its key, its label and its claims. The
+#       `_gsrc` row named a function deleted by a rename for a whole round and this gate was
+#       silent; the `assert_fires` row (deleted 2026-08-02, round 8, with the helper) said
 #       "Exercised by four callers" while six called it. THE SAME ERROR WAS LIVE IN THE ROW
 #       BELOW IT on the same day — `assert_stays_clean` said "Four negative controls depend
-#       on it" with six callers at `scripts/doc_gates.sh` (counted, not remembered). So this
-#       caveat has three instances, two of them the identical off-by-two in adjacent rows,
-#       which is the strongest available argument that the prose column is decoration until
-#       something reads it. Treat every note here as a claim to re-verify, not a measurement.
-#   (4a) THE OBVIOUS MECHANICAL FORM IS WRONG, AND THE ROW THAT MOTIVATED IT IS THE PROOF
-#       (measured 2026-08-02, round 9, drain-1). Round 8 filed caveat (4) with the reasoning
-#       that "a caller count is a grep", so unlike the prose-vs-diff class it needs no design
-#       pass. MEASURED, that is false in both directions:
+#       on it" with six callers. So this caveat has three instances, two of them the
+#       identical off-by-two in adjacent rows, which is the strongest available argument that
+#       the prose column is decoration until something reads it. Treat every note here as a
+#       claim to re-verify, not a measurement. The COUNT half of that complaint is now held
+#       true by callers=N; the composition half is not and cannot be — see (4a)(ii).
+#   (4a) CAVEAT (4)'s PREMISE WAS TESTED IN BOTH DIRECTIONS AND BOTH RESULTS ARE HERE.
+#       Round 8 filed caveat (4) reasoning that "a caller count is a grep", so unlike the
+#       prose-vs-diff class it needs no design pass.
 #
-#       (i) A GREP IS NOT ONE NUMBER. Three defensible counting rules disagree on 4 of the 10
-#           rows. Counting the name in COMMAND POSITION at line start gives assert_fires_why
-#           57, assert_stays_clean_why 6, _gsrc 0 and _g13 0 — the last two are wrong, because
-#           both are only ever called inside `$(...)`. Counting the name as a WORD followed by
-#           space/tab/`;` on non-comment lines gives 61, 9, 5 and 4 — the first two are now
-#           wrong, because heredocs, `echo` strings and python mutation blobs mention these
-#           names constantly and none of those is a call. Hand-adjudicated call sites:
-#             _selftest_revert 20   _selftest_release 3 (traps)   assert_fires_why 57
-#             assert_stays_clean_why 7   scratch_appendonly 2   _g13 4
-#             assert_gen_fires 4   assert_gen_clean 1   assert_gen_fires_only 2   _gsrc 5
-#           Distinguishing the three requires a shell parse, not a grep. (The inbox's own
-#           "56 assert_fires_why invocations" is a fourth number; it is rule-dependent too.)
+#       (i) MEASURED 2026-08-02 (round 9, drain-1): three defensible counting rules disagree
+#           on 4 of the 10 rows. Counting the name in COMMAND POSITION at line start gives
+#           assert_fires_why 57, assert_stays_clean_why 6, _gsrc 0 and _g13 0 — the last two
+#           are wrong, because both are only ever called inside `$(...)`. Counting the name
+#           as a WORD followed by space/tab/`;` on non-comment lines gives 61, 9, 5 and 4 —
+#           the first two are now wrong, because heredocs, `echo` strings and python mutation
+#           blobs mention these names constantly and none of those is a call. That measurement
+#           stands, and it is why the rule stated above is STATED rather than assumed.
 #
 #       (ii) THE NUMBER THE PROSE STATES IS NOT THE CALLER COUNT. `assert_stays_clean_why`
-#           says "SIX negative controls depend on it". It has SEVEN call sites — 2326, 2361,
-#           2412, 3019, 3630, 3803 are the six negative controls, and 2444 is the `_asc_probe`
-#           PROBE, deliberately expected to FAIL, which the same note names two sentences
-#           later. So the prose is CORRECT and a caller-count gate would have gone red on the
-#           one row it was designed around. `assert_gen_fires` ("Four legs") and
+#           says "SIX negative controls depend on it". It has SEVEN call sites — six negative
+#           controls plus the `_asc_probe` PROBE, deliberately expected to FAIL, which the
+#           same note names two sentences later. So the prose is CORRECT and a gate that
+#           equated the prose's number with the caller count would have gone red on the one
+#           row it was designed around. `assert_gen_fires` ("Four legs") and
 #           scratch_appendonly ("two scratch legs") are the same shape: a semantic subset of
-#           the call sites, which no count computes.
+#           the call sites, which no count computes. THIS IS WHY callers=N IS A SEPARATE
+#           MACHINE-READ FIELD AND THE PROSE WAS NOT TOUCHED — the column carries the total,
+#           the note says what the total is made of, and only the total is checked.
 #
-#       WHAT THIS LEAVES BUILDABLE, and it is smaller than caveat (4) implies: a row could
-#       carry an explicit machine-readable `callers=N` claim, checked against ONE rule stated
-#       in this file, with the prose left to say what the N of them ARE. That is a format
-#       change to the table and it is the same decision as caveat (1)'s option (b), the
-#       declared proof-KIND column — so it should be taken ONCE for both, not twice. NOT
-#       shipped here: an instrument measured to contradict its own motivating row is the
-#       false clear this file exists to refuse.
-_selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise.
-_selftest_release	NOT-PROVEN-IN-HARNESS	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label.
-assert_fires_why	GATE 3 retracted phrasing	The only fire helper since round 8 (2026-08-02): the exit-code-only `assert_fires` was deleted and its six callers converted here, so every fire-proof in this harness now fails unless the WHY line names the injected thing, and every one is visible to GATE 16's preflight-collision scan. NOT exercised: its own anchor-moved branch.
-assert_stays_clean_why	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	SIX negative controls depend on it, not four — the count in this note was wrong from the day it was written and no machine reads a note (caveat 4). Renamed from assert_stays_clean 2026-08-02 (round 8, item A1's residue) when it gained an evidence-ERE: it had asserted on rc 0 alone, which cannot tell an exemption that ran from a leg that never looked. Its failing direction is proven in-harness by the PROBE beside the GATE 3b control. NOT exercised: its anchor-moved branch.
-scratch_appendonly	GATE 10b vs a COMMITTED removal (working copy == HEAD)	Builds the throwaway repo GATE 10b's two scratch legs need; the other caller is "GATE 10b vs an AMEND that drops a PUBLISHED line". RE-POINTED 2026-08-02 (round 8, item A3) — this row named "GATE 10b vs history (a line of the OLDEST committed version deleted)" from the day GATE 15 shipped (6d93ed5). That is a REAL assertion and GATE 15 passed on it, but it is an assert_fires_why that mutates the live repo and never calls this function, whose callers were labelled a commit earlier (b8959db). Delete both real callers and the old row still passed: caveat (1) below, with a measured instance in GATE 15's own first row set.
-_g13	GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records	One-line wrapper that pins DOC_GATE_REVROW_RANGE for GATE 13's batch legs; both the fire leg and its negative control go through it.
-assert_gen_fires	GATE 8 deletion from a shipped artifact	GATE 8's shared-regeneration mutation harness. Four legs (deletion, substitution, PDF, outright delete) share one roae.py regeneration, which is why GATE 8 is affordable to mutation-test at all.
-assert_gen_clean	GATE 8 comma-grouped Monte Carlo figure is not a difference	GATE 8's negative control: proves the digit-stripping normaliser is not swallowing the whole comparison.
-assert_gen_fires_only	GATE 8 hand-edited DIGIT in report.html (leg 5 only)	The one-directional-comparison fix: asserts a named leg fires AND that a named sibling leg stays green, so a leg cannot be satisfied by its neighbour.
-_gsrc	GATE 15 an undeclared instrument in the --selftest region	One-line wrapper that points the shared read-only source seam (DOC_GATES_SRC_OVERRIDE, used by GATE 15 and GATE 16) at a mutated COPY of doc_gates.sh; the live script cannot be mutated safely because bash is executing it (task #77). This row exists because GATE 15 flagged this wrapper itself on its first run, which is the gate working. It was named _g15 at that point and was renamed _gsrc at 47fc740, when GATE 16 began sharing the seam; the rename moved this row's KEY but not this sentence, so until 2026-08-02 the row named a function that no longer existed. Found by the ledger unit re-verifying round 7's applied items, not by any gate — GATE 15 checks the key, never the rationale.
+#       (iii) MEASURED 2026-08-02 (round 9, drain-2), and it CORRECTS (i)'s conclusion. (i)
+#           closed with "distinguishing the three requires a shell parse, not a grep", and
+#           that is too strong: the ONE rule stated above — command position, extended to
+#           `$(`, to `&&`/`||`/`;`/`|`/`then`/`else`/`do`, and to a `trap` handler string —
+#           reproduces NINE of the ten hand-adjudicated numbers exactly. On the tenth it
+#           disagrees with the hand audit, and THE HAND AUDIT IS THE ONE THAT IS WRONG: it
+#           recorded `_selftest_revert 20`, the rule counts 24, and all 24 were read one by
+#           one. The eight the earlier tries missed are `:2104`, `:2159`, `:3282`, `:3412`
+#           (`PASS=1; _selftest_revert; return; }`) and `:2264`, `:2770`, `:3165`, `:3179`,
+#           `:3199` less four already counted — every one a real call. A hand-adjudicated
+#           number published as the reason a mechanical form was impossible was itself the
+#           defect, and the mechanical form is what found it. That is the third time in this
+#           file's history that RUNNING beat READING.
+#
+#       WHAT REMAINS UNBUILT after B8/B3: reachability for kind=BLOCK (caveat viii), and any
+#       machine reading of the note column at all (caveat 4's composition half).
+_selftest_revert	A1 snapshot	kind=BLOCK callers=24	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise. The 24 call sites are every mutation-revert in the harness; the label occurs 3 lines below the one call that is the ASSERTION (the rest merely use it), which is why this row is BLOCK and not INVOCATION.
+_selftest_release	NOT-PROVEN-IN-HARNESS	kind=EXTERNAL callers=3	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label. Its 3 call sites are the INT, TERM and EXIT traps and nothing else — the only rows in this table whose calls are all inside quoted handler strings.
+assert_fires_why	GATE 3 retracted phrasing	kind=INVOCATION callers=60	The only fire helper since round 8 (2026-08-02): the exit-code-only `assert_fires` was deleted and its six callers converted here, so every fire-proof in this harness now fails unless the WHY line names the injected thing, and every one is visible to GATE 16's preflight-collision scan. NOT exercised: its own anchor-moved branch.
+assert_stays_clean_why	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	kind=INVOCATION callers=8	SEVEN negative controls depend on it as of round 9, and it was SIX — not the four this note claimed — from the day it was written; no machine read a note (caveat 4) until callers=N landed. The callers=N total is one LARGER than the number of controls and always was, because it counts the `_asc_probe` PROBE beside the GATE 3b control, which is deliberately expected to FAIL and is not a control at all: 7 controls + 1 probe = 8. Renamed from assert_stays_clean 2026-08-02 (round 8, item A1's residue) when it gained an evidence-ERE: it had asserted on rc 0 alone, which cannot tell an exemption that ran from a leg that never looked. NOT exercised: its anchor-moved branch.
+scratch_appendonly	GATE 10b vs a COMMITTED removal (working copy == HEAD)	kind=INVOCATION callers=2	Builds the throwaway repo GATE 10b's two scratch legs need; the other caller is "GATE 10b vs an AMEND that drops a PUBLISHED line". RE-POINTED 2026-08-02 (round 8, item A3) — this row named "GATE 10b vs history (a line of the OLDEST committed version deleted)" from the day GATE 15 shipped (6d93ed5). That is a REAL assertion and GATE 15 passed on it, but it is an assert_fires_why that mutates the live repo and never calls this function, whose callers were labelled a commit earlier (b8959db). Delete both real callers and the old row still passed. Since round 9 that exact shape FAILS: it is the motivating example of LEG 3's kind=INVOCATION check.
+_g13	GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records	kind=BLOCK callers=4	One-line wrapper that pins DOC_GATE_REVROW_RANGE for GATE 13's batch legs; both the fire leg and its negative control go through it. Called only inside `$(...)`, which is why a line-start-only counting rule scored it 0 (caveat 4a i).
+assert_gen_fires	GATE 8 deletion from a shipped artifact	kind=INVOCATION callers=4	GATE 8's shared-regeneration mutation harness. Four legs (deletion, substitution, PDF, outright delete) share one roae.py regeneration, which is why GATE 8 is affordable to mutation-test at all.
+assert_gen_clean	GATE 8 comma-grouped Monte Carlo figure is not a difference	kind=INVOCATION callers=1	GATE 8's negative control: proves the digit-stripping normaliser is not swallowing the whole comparison.
+assert_gen_fires_only	GATE 8 hand-edited DIGIT in report.html (leg 5 only)	kind=INVOCATION callers=2	The one-directional-comparison fix: asserts a named leg fires AND that a named sibling leg stays green, so a leg cannot be satisfied by its neighbour.
+_gsrc	GATE 15 an undeclared instrument in the --selftest region	kind=BLOCK callers=5	One-line wrapper that points the shared read-only source seam (DOC_GATES_SRC_OVERRIDE, used by GATE 15 and GATE 16) at a mutated COPY of doc_gates.sh; the live script cannot be mutated safely because bash is executing it (task #77). This row exists because GATE 15 flagged this wrapper itself on its first run, which is the gate working. It was named _g15 at that point and was renamed _gsrc at 47fc740, when GATE 16 began sharing the seam; the rename moved this row's KEY but not this sentence, so until 2026-08-02 the row named a function that no longer existed. Found by the ledger unit re-verifying round 7's applied items, not by any gate — GATE 15 checks the key, never the rationale.

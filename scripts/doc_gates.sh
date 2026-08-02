@@ -3805,6 +3805,69 @@ os.remove(p)"
 "open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
     '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
 
+  # GATE 15 LEG 3 FIRE-PROOFS (items B8 + B3, round 9 drain-2, 2026-08-02) — the claims
+  # column. THE FIRST LEG IS THE MOTIVATING EXAMPLE ITSELF, NOT A SYNTHETIC ONE: it puts the
+  # `scratch_appendonly` row back to the exact label it carried from 6d93ed5 to b4442cf —
+  # "GATE 10b vs history (…)" — which is a REAL assertion in this file that never calls
+  # scratch_appendonly. That row was green under LEG 1 for the whole of its life, because
+  # LEG 1 asks only whether the label exists somewhere in doc_gates.sh, and it does (`:2789`).
+  # So this leg proves the new check catches the defect the old check shipped.
+  #
+  # THE HISTORICAL LABEL IS ASSEMBLED FROM TWO FRAGMENTS, and the leg asserts the assembled
+  # form occurs exactly ONCE in the source before mutating. That is the item-A2 discipline:
+  # written as one literal, this mutation string would itself become a second occurrence, and
+  # a future reader could not tell whether LEG 1 was satisfied by the real assertion or by
+  # this fire-proof's own source text (caveat 1a of the table).
+  assert_fires_why "GATE 15 LEG 3 the historical scratch_appendonly misdeclaration" instruments \
+    'declares kind=INVOCATION for scratch_appendonly\(\), but no line of' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+row='scratch_appendonly'+chr(9)
+cur='GATE 10b vs a COMMITTED removal (working copy == HEAD)'
+a=row+cur+chr(9)
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+old='GATE 10b vs history (a line of the '+'OLDEST committed version deleted)'
+src=open('scripts/doc_gates.sh',encoding='utf-8').read()
+assert src.count(old)==1, \\
+    'the historical label occurs %d times in the source; splitting it failed' % src.count(old)
+open(p,'w',encoding='utf-8').write(s.replace(a, row+old+chr(9), 1))"
+
+  # A ROW MAY NOT DOWNGRADE ITS OWN KIND. Without this direction the claims column is an
+  # opt-out: any row failing the INVOCATION check could relabel itself BLOCK and go green,
+  # which is the ratchet every report-only gate in this file has had to argue about.
+  assert_fires_why "GATE 15 LEG 3 a row downgrading INVOCATION to BLOCK" instruments \
+    'declares kind=BLOCK for scratch_appendonly\(\), but the INVOCATION form holds' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+a=chr(9)+'kind='+'INVOCATION callers=2'+chr(9)
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a, chr(9)+'kind=BLOCK callers=2'+chr(9), 1))"
+
+  # THE CALLERS COUNT IS CHECKED, WHICH IS THE HALF OF CAVEAT (4) A MACHINE CAN HOLD TRUE.
+  # The row that motivated caveat (4) said "four callers" against six and no gate noticed for
+  # a round; this leg is that failure made loud.
+  assert_fires_why "GATE 15 LEG 3 a callers count that drifted" instruments \
+    'has callers=9; the rule in this table.s header counts 1' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+a=chr(9)+'kind='+'INVOCATION callers=1'+chr(9)
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a, chr(9)+'kind=INVOCATION callers=9'+chr(9), 1))"
+
+  # EVIDENCE (B9's lesson applied at birth): the pinned census MOVES if any row's kind
+  # changes or a row is dropped, so it proves the claims leg ran and produced its
+  # classification — not merely that the mode exited 0. What it deliberately does NOT prove
+  # is that the mutated NOTE was read, because it was not read: that is caveat (4), and this
+  # control is the standing demonstration of it rather than a sentence asserting it.
+  assert_stays_clean_why "GATE 15 LEG 3 a rewritten note changes no claim" instruments \
+    'claims column: 6 kind=INVOCATION' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+a=chr(9)+\"GATE 8's negative control: proves\"
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(
+    a, chr(9)+'This sentence is false and no machine reads it: proves', 1))"
+
   # GATE 16 FIRE-PROOFS (item A2, 2026-08-02) — REPRODUCE THE A6 NEAR-MISS, do not describe it.
   #
   # The motivating leg rewrites GATE 3's evidence-ERE to the corpus preflight's wording. That
@@ -5111,12 +5174,15 @@ for lineno, line in enumerate(open(path, encoding="utf-8"), 1):
     if not line.strip() or line.lstrip().startswith("#"):
         continue
     parts = line.rstrip("\n").split("\t")
-    if len(parts) < 3 or not parts[1].strip() or not parts[2].strip():
-        print("  [FAIL] %s:%d is not `function<TAB>proof-label<TAB>note`, so it declares"
-              " nothing" % (path, lineno))
+    if len(parts) < 4 or not all(p.strip() for p in parts[1:4]):
+        print("  [FAIL] %s:%d is not `function<TAB>proof-label<TAB>claims<TAB>note`, so it"
+              " declares nothing" % (path, lineno))
+        print("         The claims column landed 2026-08-02 (round 9, items B8 + B3). A row")
+        print("         in the old three-column shape carries no kind= and no callers=, and")
+        print("         would be waved through by a parser that tolerated it.")
         bad = 1
         continue
-    rows[parts[0]] = (parts[1], parts[2], lineno)
+    rows[parts[0]] = (parts[1], parts[2], parts[3], lineno)
 
 whole = "\n".join(lines)
 for name in sorted(defined):
@@ -5129,7 +5195,7 @@ for name in sorted(defined):
         print("         and its commit message asserted a property it did not have.")
         bad = 1
         continue
-    label, note, lineno = rows[name]
+    label, claims, note, lineno = rows[name]
     if label == "NOT-PROVEN-IN-HARNESS":
         print("  [note] %s() is declared UNPROVABLE in-harness (%s:%d) — %s"
               % (name, path, lineno, note.split(".")[0]))
@@ -5142,7 +5208,7 @@ for name in sorted(defined):
 for name in sorted(rows):
     if name not in defined:
         print("  [FAIL] %s:%d declares %s(), which is no longer defined in the --selftest"
-              " region" % (path, rows[name][2], name))
+              " region" % (path, rows[name][3], name))
         print("         A row for a function nobody calls exempts nothing and hides that it")
         print("         exempts nothing. Delete the row.")
         bad = 1
@@ -5243,6 +5309,168 @@ for lineno, flags, pat in guards:
         print("         the copy contains verbatim. Anchor it with `^`.")
         bad = 1
 
+# --- LEG 3 (ITEMS B8 + B3, round 9 drain-2, 2026-08-02): the claims column.
+#
+# WHAT IT REPLACES. Until today the only machine-read facts in a row were "this function
+# exists" and "this label exists SOMEWHERE in doc_gates.sh". The table's caveat (1) recorded
+# the consequence in its own first row set: `scratch_appendonly` named a real assertion that
+# never called it, and the gate was green from 6d93ed5 until 2026-08-02. Round 8 offered two
+# survivable designs — a reachability check, or a declared proof-KIND per row — and item B8
+# names the second. Item B3's residue (an explicit `callers=N`) is the same format change, so
+# it is taken here in one pass rather than twice.
+#
+# THE KINDS ARE THE THREE THE ROW-BY-ROW AUDIT MEASURED, not invented categories:
+#   kind=INVOCATION  the label is the FIRST QUOTED ARGUMENT of a call to the declared
+#                    function. Fully mechanical, and the strongest claim available: the label
+#                    cannot then be satisfied by a comment or by another assertion's mutation
+#                    string, which is what caveat (1a) is about.
+#   kind=BLOCK       the label is echoed within BLOCK_WINDOW lines BELOW a call site of the
+#                    declared function. Weaker, and it is the shape the three wrapper rows
+#                    genuinely have (`_selftest_revert`, `_g13`, `_gsrc`).
+#   kind=EXTERNAL    paired with NOT-PROVEN-IN-HARNESS, both directions enforced.
+#
+# THE STRONGEST SATISFIED KIND MUST BE DECLARED. A row saying BLOCK when the INVOCATION form
+# holds is a FAIL — otherwise the column is an opt-out and a row could downgrade itself to
+# escape the strict check, which is the ratchet every report-only gate in this file has had
+# to argue about.
+#
+# THE CALL-SITE RULE IS ONE RULE, STATED ONCE, and it is stated in the table's header too so
+# a row author can compute it. It counts the name in COMMAND POSITION — at line start, after
+# `$(`, after `&&`/`||`/`;`/`|`/`then`/`else`/`do`, or opening a `trap` handler string —
+# skipping comment lines and the function's own definition line.
+#
+# THAT RULE WAS MEASURED AGAINST THE HAND AUDIT, and it CORRECTED it. The table's caveat (4a)
+# concluded "distinguishing the three requires a shell parse, not a grep" and published ten
+# hand-adjudicated counts. This rule reproduces NINE of the ten exactly; on the tenth it says
+# `_selftest_revert` has 24 call sites where the hand audit said 20, and the four it adds
+# (`:2104`, `:2159`, `:3282`, `:3412`, all `PASS=1; _selftest_revert; return; }`) were read
+# one by one and are real calls — as are `:2770`, `:3165`, `:3179`, `:3199`, which the first
+# two rules tried also missed. So the number that shipped as the reason a mechanical form was
+# impossible was itself wrong, and the mechanical form is what found it.
+#
+# WHAT LEG 3 CANNOT SEE, stated because a clear is weaker than a failure:
+#   (viii) BLOCK is PROXIMITY, not reachability. A call followed within the window by an echo
+#          of the label does not prove the echo is on a path the call reaches — it could sit
+#          in the `else`. Item B8's option (a), a `bash -x` or call-graph check, is the form
+#          that would close this; it is not built. The measured distance is printed every run
+#          so a window that starts creeping is visible.
+#   (ix)   `callers=N` is a SYNTACTIC call-site count. It does not know which sites execute,
+#          and it does not know what the note's prose means by its own number: caveat (4a)(ii)
+#          measured that `assert_stays_clean_why`'s "SIX negative controls" is a semantic
+#          SUBSET of seven call sites. The column proves the total is current; the prose still
+#          says what the total is made of, and nothing reads that.
+#   (x)    The call rule does not parse heredocs or quoted blobs. A name in command position
+#          inside a python `<<'PY'` body would be counted. There are none today (the rule
+#          reproduces the hand audit), but it is a grep-shaped rule and it is not a shell.
+#   (xi)   Because the FAIL prints the measured count, `callers=N` is cheap to satisfy by
+#          copying the number the gate just printed. That makes it bookkeeping that cannot go
+#          stale — which is exactly caveat (4)'s complaint — and nothing more.
+BLOCK_WINDOW = 8
+CALL_PRE = (r"(?:^[ \t]*|\$\([ \t]*|(?:&&|\|\||;|\||\bthen\b|\belse\b|\bdo\b)[ \t]*"
+            r"|^[ \t]*trap[ \t]+['\"][ \t]*)")
+CALL_POST = r"(?=[ \t;&|\"')]|$)"
+
+
+def call_sites(fn):
+    pat = re.compile(CALL_PRE + re.escape(fn) + CALL_POST)
+    dfn = re.compile(r"^[ \t]*" + re.escape(fn) + r"\(\)")
+    out = []
+    for i, ln in enumerate(lines):
+        if ln.lstrip().startswith("#") or dfn.match(ln):
+            continue
+        out.extend(i + 1 for _ in pat.finditer(ln))
+    return out
+
+
+KINDS = ("INVOCATION", "BLOCK", "EXTERNAL")
+kindcount = {k: 0 for k in KINDS}
+blockdist = []
+for name in sorted(defined):
+    if name not in rows:
+        continue
+    label, claims, note, lineno = rows[name]
+    kv = {}
+    malformed = []
+    for tok in claims.split():
+        if tok.count("=") != 1 or not tok.split("=")[1]:
+            malformed.append(tok)
+        else:
+            k, v = tok.split("=")
+            kv[k] = v
+    if malformed or set(kv) != {"kind", "callers"}:
+        print("  [FAIL] %s:%d claims column is %r; it must be exactly `kind=<K> callers=<N>`"
+              % (path, lineno, claims))
+        bad = 1
+        continue
+    kind = kv["kind"]
+    if kind not in KINDS:
+        print("  [FAIL] %s:%d declares kind=%s for %s(); the kinds are %s"
+              % (path, lineno, kind, name, "/".join(KINDS)))
+        bad = 1
+        continue
+
+    sites = call_sites(name)
+    if not kv["callers"].isdigit():
+        print("  [FAIL] %s:%d callers=%s is not a number" % (path, lineno, kv["callers"]))
+        bad = 1
+    elif int(kv["callers"]) != len(sites):
+        print("  [FAIL] %s:%d says %s() has callers=%s; the rule in this table's header"
+              " counts %d" % (path, lineno, name, kv["callers"], len(sites)))
+        print("         Call sites: %s" % ", ".join("%s:%d" % (src, s) for s in sites[:8])
+              + (" ..." if len(sites) > 8 else ""))
+        print("         A note claiming a count nobody reads is caveat (4); this column is")
+        print("         the part of it that a machine can hold true.")
+        bad = 1
+
+    inv = re.compile(r"^[ \t]*" + re.escape(name) + r"[ \t]+\"" + re.escape(label) + r"\"")
+    inv_at = [i + 1 for i, ln in enumerate(lines) if inv.match(ln)]
+
+    if kind == "EXTERNAL":
+        if label != "NOT-PROVEN-IN-HARNESS":
+            print("  [FAIL] %s:%d declares kind=EXTERNAL for %s() but names an in-harness"
+                  " label %r" % (path, lineno, name, label))
+            bad = 1
+    elif label == "NOT-PROVEN-IN-HARNESS":
+        print("  [FAIL] %s:%d says %s() is NOT-PROVEN-IN-HARNESS but declares kind=%s"
+              % (path, lineno, name, kind))
+        print("         An unprovable instrument is kind=EXTERNAL; anything else claims a")
+        print("         proof this harness does not contain.")
+        bad = 1
+    elif kind == "INVOCATION":
+        if not inv_at:
+            print("  [FAIL] %s:%d declares kind=INVOCATION for %s(), but no line of %s calls"
+                  " it with that label as its first quoted argument"
+                  % (path, lineno, name, src))
+            print("         Label: %s" % label)
+            print("         This is the scratch_appendonly defect (b4442cf): a row naming a")
+            print("         real assertion that never calls the function it declares.")
+            bad = 1
+    else:  # BLOCK
+        if inv_at:
+            print("  [FAIL] %s:%d declares kind=BLOCK for %s(), but the INVOCATION form holds"
+                  " at %s:%d" % (path, lineno, name, src, inv_at[0]))
+            print("         The strongest satisfied kind must be declared, or the column is")
+            print("         an opt-out from the check it exists to impose.")
+            bad = 1
+        else:
+            hit = None
+            for i, ln in enumerate(lines):
+                if label not in ln:
+                    continue
+                near = [s for s in sites if 0 < (i + 1) - s <= BLOCK_WINDOW]
+                if near:
+                    hit = (i + 1, max(near))
+                    break
+            if hit is None:
+                print("  [FAIL] %s:%d declares kind=BLOCK for %s(), but no occurrence of its"
+                      " label sits within %d lines below a call site"
+                      % (path, lineno, name, BLOCK_WINDOW))
+                print("         Label: %s" % label)
+                bad = 1
+            else:
+                blockdist.append((name, hit[0] - hit[1]))
+    kindcount[kind] += 1
+
 if not bad:
     unprov = sum(1 for n in defined if rows[n][0] == "NOT-PROVEN-IN-HARNESS")
     # WORDED DOWN 2026-08-02 (round 8, item A3). This read "%d proven by a named assertion",
@@ -5257,6 +5485,12 @@ if not bad:
           % (len(defined), len(defined) - unprov, unprov))
     print("  [ok] %d copy-confirmation guard(s) all anchored at line start, so none can be"
           " satisfied by the fire-proof's own source text (item A2)" % len(guards))
+    print("  [ok] claims column: %d kind=INVOCATION (label IS the call's first argument),"
+          " %d kind=BLOCK, %d kind=EXTERNAL; every callers=N matches the header's rule"
+          % (kindcount["INVOCATION"], kindcount["BLOCK"], kindcount["EXTERNAL"]))
+    print("  [ok] BLOCK proximity measured, not assumed (window %d): %s — caveat (viii): this"
+          " is proximity, not reachability"
+          % (BLOCK_WINDOW, ", ".join("%s +%d" % b for b in sorted(blockdist))))
 sys.exit(bad)
 PY
 }
