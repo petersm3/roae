@@ -282,10 +282,34 @@ gate_cli() {
     if [ "$rcc" -eq 2 ] || [ "$rcd" -eq 2 ]; then bad=1; return 0; fi
     if [ "$rcc" -ne 0 ] || [ "$rcd" -ne 0 ]; then return 0; fi
     cf=$(mktemp); df=$(mktemp)
+    # ITEM A4 (2026-08-02) — DECIDED: NARROW, and here is the decision rather than a
+    # rediscovery of the question. The extractor is a line-based grep, so a COMMENTED-OUT
+    # declaration was emitted as an undocumented flag. MEASURED while writing item A3's
+    # fire-proof: run against a comment line it returned `--commented-out-flag`. Nothing had
+    # triggered it, so it was a latent false positive, and the round-6 note recorded it as
+    # "decide, do not rediscover".
+    #
+    # WHY NARROW AND NOT ACCEPT. The first person to comment out a flag would have been
+    # handed a RED gate with a correct-looking finding and no way to satisfy it except by
+    # documenting a flag that does not exist. A gate whose remedy is to write a false
+    # sentence into a CLI doc is worse than no gate.
+    #
+    # THE DIRECTION OF FAILURE IS THE REASON THIS IS SAFE. The comparison is `comm -23`
+    # (code minus doc) and nothing else, so dropping lines from the CODE side can only
+    # SUPPRESS a finding, never manufacture one. The cost is stated rather than waved away:
+    # if a flag is declared on a commented line but still parsed somewhere else, GATE 2 now
+    # stops reporting it. That is a real, remote loss, accepted deliberately.
+    #
+    # WHAT THIS FILTER CANNOT SEE: a flag inside a C block comment (`/* ... */`) spanning
+    # lines, a flag in a docstring or other string literal, and a declaration sharing a line
+    # with a trailing comment that itself names a second flag. Whole-line `#` and `//`
+    # comments are all it removes.
     if [ "$mode" = py ]; then
-      grep -oE 'add_argument\("--[a-z0-9][a-z0-9_-]*' "$code" | sed 's/.*"//' | sort -u > "$cf"
+      grep -vE '^[[:space:]]*(#|//)' "$code" \
+        | grep -oE 'add_argument\("--[a-z0-9][a-z0-9_-]*' | sed 's/.*"//' | sort -u > "$cf"
     else
-      grep -oE '"--[a-z0-9][a-z0-9-]*"' "$code" | tr -d '"' | sort -u > "$cf"
+      grep -vE '^[[:space:]]*(#|//)' "$code" \
+        | grep -oE '"--[a-z0-9][a-z0-9-]*"' | tr -d '"' | sort -u > "$cf"
     fi
     grep -oE -- '--[a-z0-9][a-z0-9_-]*' "$doc" | sort -u > "$df"
     miss=$(comm -23 "$cf" "$df")
@@ -2136,6 +2160,37 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))
 d='documentation/SOLVE_PY_CLI.md'
 t=open(d,encoding='utf-8').read()
 open(d,'w',encoding='utf-8').write(t+'\ndoc_gates selftest injection: --doc-gates-fireproof-neg (reverted by the harness)\n')"
+
+  # ITEM A4 (2026-08-02) — THE COMMENTED-OUT DECLARATION, PROVEN AS A MATCHED PAIR.
+  #
+  # The round-6 note recorded that a commented-out `# parser.add_argument("--x"` was emitted
+  # as an undocumented flag (measured: it returned --commented-out-flag), and asked for a
+  # decision rather than a rediscovery. Decided: NARROW — the reasoning is at the extractor.
+  #
+  # TWO LEGS WITH ONE FLAG NAME, and the pairing is the point. "Stays green" is also what a
+  # gate prints when the injection never landed, when the extractor stopped working, and
+  # when the whole comparison was silently disabled — so a lone negative control here would
+  # be indistinguishable from the filter swallowing every flag in solve.py. The fire leg
+  # injects `--doc-gates-fireproof-cmt` UNCOMMENTED and requires GATE 2 to name it; the
+  # clean leg injects the SAME text COMMENTED OUT, one `# ` apart, and requires silence. The
+  # only difference between the two runs is the comment marker, so the silence is
+  # attributable to the marker and to nothing else.
+  assert_fires_why "GATE 2 (A4) a LIVE declaration of the paired flag is still reported" cli \
+    '--doc-gates-fireproof-cmt' \
+"p='solve.py'
+a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+n='    parser.add_argument(\"--doc-gates-fireproof-cmt\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
+open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
+
+  assert_stays_clean "GATE 2 (A4) the SAME declaration commented out is not a flag" cli \
+"p='solve.py'
+a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+n='    # parser.add_argument(\"--doc-gates-fireproof-cmt\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
+open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
 
   # A5/#65: assert the MATCHED STRING, not just the exit code. GATE 3's registry holds
   # morphology-independent stems, so several rows can be live at once and an exit code alone
