@@ -124,12 +124,24 @@
 #           blobs mention these names constantly and none of those is a call. That measurement
 #           stands, and it is why the rule stated above is STATED rather than assumed.
 #
-#       (ii) THE NUMBER THE PROSE STATES IS NOT THE CALLER COUNT. `assert_stays_clean_why`
-#           says "SIX negative controls depend on it". It has SEVEN call sites — six negative
-#           controls plus the `_asc_probe` PROBE, deliberately expected to FAIL, which the
-#           same note names two sentences later. So the prose is CORRECT and a gate that
+#       (ii) THE NUMBER THE PROSE STATES IS NOT THE CALLER COUNT. `assert_stays_clean_why`'s
+#           note states a count of NEGATIVE CONTROLS; its `callers=N` counts CALL SITES; the
+#           two differ by the `_asc_probe` PROBE, deliberately expected to FAIL and not a
+#           control at all, which the same note names. So the prose is CORRECT and a gate that
 #           equated the prose's number with the caller count would have gone red on the one
-#           row it was designed around. `assert_gen_fires` ("Four legs") and
+#           row it was designed around.
+#           NEITHER NUMBER IS RESTATED HERE (round 14, item R14), because this paragraph
+#           already carried both and both went stale where they sat: it was written in round 9
+#           quoting "SIX negative controls" and "SEVEN call sites"; a seventh control landed
+#           — `doc_gates.sh`'s STRENGTH VARIES BY CALLER block records it arriving in the SAME
+#           BATCH that wrote the sentence it invalidated — the ROW's own note was rewritten to
+#           match, and this paragraph was not,
+#           nor was the second-hand copy of its two numbers in `doc_gates.sh`'s GATE 15
+#           caveat (ix), which cites this caveat BY NAME as its authority. A caveat about
+#           prose counts rotting, stating prose counts that rotted, is the class describing
+#           itself. THE AUTHORITY IS THE ROW: `callers=N` for the total, which GATE 15 LEG 3
+#           re-derives every run, and the row's note for what the total is made of.
+#           `assert_gen_fires` ("Four legs") and
 #           scratch_appendonly ("two scratch legs") are the same shape: a semantic subset of
 #           the call sites, which no count computes. THIS IS WHY callers=N IS A SEPARATE
 #           MACHINE-READ FIELD AND THE PROSE WAS NOT TOUCHED — the column carries the total,

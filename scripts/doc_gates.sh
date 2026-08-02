@@ -4780,7 +4780,20 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
-#            8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
+  #            8 x7 — the four assert_gen_fires legs, the assert_gen_clean NEGATIVE
+  #            control, and the TWO assert_gen_fires_only legs the one-directional-comparison
+  #            fix added. This entry read "8 x5 (4 fire + 1 NEGATIVE control)" until round 14
+  #            (item R14): the two gen_fires_only legs use a THIRD helper in the same GATE 8
+  #            bucket, and a census bucketed by gate could not see them. x7 is the one
+  #            multiplicity in this list that is not a hand count — it is the sum of three
+  #            callers=N fields (assert_gen_fires, assert_gen_clean, assert_gen_fires_only)
+  #            in documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt, which GATE 15 LEG 3
+  #            re-derives every run, so it cannot rot the way the rest of this list can.
+  #            THE LIMIT OF THAT, stated rather than left to be discovered: the sum equals
+  #            GATE 8's count only because every caller of all three helpers is a GATE 8 leg
+  #            today. A call to any of them from another gate would break the identity
+  #            silently, and nothing checks the identity — only the three fields.
+  #            9 x2,
   #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control),
   #            13 x2 (worktree + batch) each with its own NEGATIVE control, and the batch
   #            one anchored on a REAL commit (b5bcff7c) rather than on an injection,
@@ -4797,10 +4810,29 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            verdict word OUTSIDE the close anchor and requires the counts not to move
   #            + 1 PHASE-4 leg (one of the two published boards dropped from the list must be
   #            a FAIL, not a smaller count)
-  #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
-  #            11 x2, 12, and the corpus preflight x1 -- 13 assertions, all asserting WHY.
-#            (GATE 6 now has THREE A1 legs: its registry, a deleted generator, and the
-#            FIGURE registry added with item A8.)
+  #   plus the MISSING-INPUT class (item A1, 2026-08-02): every assertion whose LABEL
+  #            carries the `A1)` marker, each asserting WHY. NO PER-GATE TALLY AND NO
+  #            TOTAL ARE WRITTEN HERE, on purpose. The population is derivable from the
+  #            labels; a hand tally over it was not, and it rotted TWICE the same way.
+  #            It read "2 x2, 3, 3b, 6 x2, 10a, 10b, 11 x2, 12, and the corpus preflight
+  #            x1 -- 13 assertions", and its own enumerated items summed to TWELVE against
+  #            that stated total of THIRTEEN. GATE 6 had gained a third A1 leg (its FIGURE
+  #            registry, item A8) and the total alone was bumped, by an appended
+  #            parenthetical that never touched the `6 x2` it was correcting. GATE 11 had
+  #            gained a third too — `GATE 11 (figures, A1) figure registry deleted`, mode
+  #            ledger-figures, cited by CONTENT because it does not sit in the A1 block —
+  #            and nothing counted it at all, so the real population matched neither number.
+  #            BOTH ARE ONE ERROR: a census bucketed by GATE cannot see a second or third
+  #            leg sharing a bucket. Round 13's pins bullet failed identically one function
+  #            away, where two pins shared invocation mode `cli` and the write-up counted
+  #            MODES rather than PINS. That is why this bullet now states the RULE and not a
+  #            number (round 14, item R14).
+  #            SCOPE, and it is why no total here could be a total of the class anyway:
+  #            GATE 14's and GATE 15's A1 legs carry the same marker and are counted in
+  #            their own rows ABOVE, and GATE 8's deleted-artifact leg — the first of the
+  #            class, and the reason it exists — is in the `covered` list above under `8 x5`
+  #            with no marker on its label at all. THE MARKER RULE CANNOT SEE THAT LAST ONE,
+  #            which is the limit a reader has to be told rather than left to discover.
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
   #            3, 3b x2, 4b, 6 x3, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
   #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
@@ -4832,8 +4864,17 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            legs already use to restore an `os.remove`d sat.py, so the cost was identical
   #            to every other case in this file and the only real leg of a gate that has
   #            FIRED IN ANGER (13 undocumented flags, 2026-07/08) went unproven for a round
-  #            behind an inherited cost claim. Three assertions now: py extractor, c
-  #            extractor, and a negative control proving the comparison is a comparison.
+  #            behind an inherited cost claim. The assertions now, NAMED rather than
+  #            tallied: the py extractor, the c extractor, a negative control proving the
+  #            comparison is a comparison, and item A4's pair — a LIVE declaration of the
+  #            paired flag still reported, and the SAME declaration commented out staying
+  #            silent. This sentence said "Three assertions now" until round 14 (item R14)
+  #            and named the first three; A4 then landed TWO more in the same GATE 2 bucket
+  #            and nothing moved the count. That is the same error as the `8 x5` entry and
+  #            the two in the MISSING-INPUT bullet, both ABOVE — four instances, one shape, in
+  #            this block: a census bucketed by GATE is blind to a sibling leg joining a
+  #            bucket, exactly as round 13's pins bullet was blind to a second pin sharing
+  #            invocation mode `cli`.
   #   NOT covered, no fire-proof possible here: the TOOL-absence legs (GATE 8's python3,
   #            GATE 11's sha256sum), both converted from [skip] to [FAIL] under A1. Hiding
   #            one tool from $PATH cannot be done without also hiding git, grep and cut, so
@@ -4846,7 +4887,9 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   echo "  [note] not mutation-tested: the two tool-absence legs (GATE 8's python3, GATE 11's"
   echo "         sha256sum), which cannot be isolated from \$PATH without breaking the gate"
   echo "         for an unrelated reason. GATE 2's flag-drift classifier LEFT this list on"
-  echo "         2026-08-02 (item A3) — three assertions, both extractors + a negative control."
+  echo "         2026-08-02 (item A3) — both extractors, a negative control, and item A4's"
+  echo "         live/commented declaration pair. Named, not counted: this line carried a"
+  echo "         count that item A4 falsified without moving it (round 14, item R14)."
 
   _selftest_revert
   echo
@@ -6167,8 +6210,14 @@ for lineno, flags, pat in guards:
 #          dead `else` still satisfies it.
 #   (ix)   `callers=N` is a SYNTACTIC call-site count. It does not know which sites execute,
 #          and it does not know what the note's prose means by its own number: caveat (4a)(ii)
-#          measured that `assert_stays_clean_why`'s "SIX negative controls" is a semantic
-#          SUBSET of seven call sites. The column proves the total is current; the prose still
+#          measured that `assert_stays_clean_why`'s stated count of NEGATIVE CONTROLS is a
+#          semantic SUBSET of its call sites, the difference being the `_asc_probe` PROBE.
+#          THE TWO NUMBERS ARE NOT COPIED HERE (round 14, item R14). This sentence carried
+#          them as "SIX" and "seven", and both were stale where they sat — a second-hand copy
+#          of a caveat whose own copy had gone stale first, in a caveat about counts in prose
+#          going stale. Cited by NAME: the authority is the ROW in
+#          documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt, whose `callers=N` LEG 3 re-derives
+#          every run. The column proves the total is current; the prose still
 #          says what the total is made of, and nothing reads that.
 #   (x)    The call rule does not parse heredocs or quoted blobs. A name in command position
 #          inside a python `<<'PY'` body would be counted. There are none today (the rule
