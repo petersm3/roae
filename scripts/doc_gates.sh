@@ -5187,8 +5187,19 @@ gate_appendonly_head() {
 #     are complementary and both run.
 #
 # COST (stated as a formula first, per the box-safety rule): B distinct blob versions
-# x L lines, where B = commits-touching-the-file + remote-tracking-refs. Measured
-# 2026-08-02: B = 5, L = 525.
+# x L lines, where B = commits-touching-the-file + remote-tracking-refs, deduplicated by
+# blob id.
+# NEITHER NUMBER IS QUOTED HERE, and that is a correction rather than a house style. This
+# comment shipped `B = 5, L = 525` under a "Measured 2026-08-02" stamp, and BOTH had moved
+# before that same day was out — L with every append to the ledger, B with every commit that
+# touches it and every remote-tracking ref that appears. A reader who re-derived either got a
+# number that disagreed — B by a multiple, L by a smaller margin — with nothing beside it to
+# say which side was broken. That is the same failure the stale self-pointer count shipped in
+# this file earlier the same day, and the same remedy: put the measurement next to the count,
+# or do not write the count. B is printed by this gate on its green [ok] line, as the count of
+# distinct historical/published versions compared — so quoting it here could only ever go
+# stale against a number the run itself states. L is one command:
+#   wc -l < documentation/CORRECTIONS.md
 gate_appendonly_history() {
   echo "== GATE 10b: CORRECTIONS.md has lost no line from ANY committed or published version =="
   local f="documentation/CORRECTIONS.md"
@@ -6223,6 +6234,16 @@ for name in sorted(defined):
 #          frequency: the shell half is cross-checked and the python half is not, and it is the
 #          LARGER half. That is the argument for a real second extractor, and it is not an
 #          argument for a cheap one.
+#          DECIDED 2026-08-02 (item R5', round 12 drain-2) — DECLINED, and written down so the
+#          next unit inherits a decision instead of the question. What is left to build is
+#          `;`-statement splitting plus subscript-target recognition, and the ONLY thing those
+#          two epicycles do is re-admit two builders already known to be correct. A rule
+#          extended until it clears the corpus it was extended against carries no evidence
+#          about the next shape it meets, and the construct with this project's highest
+#          measured defect density is the CHECKER, not the fix. THE ASYMMETRY ARGUMENT ABOVE IS
+#          NOT WITHDRAWN: the larger half is still the uncross-checked one, and it stays that
+#          way until a second extractor derived from something other than this corpus exists.
+#          What is declined is the cheap one, on the reasoning above rather than on cost.
 #   (xiv)  It sees the WRITE, not the CONTENT. A builder that asserts correctly and then
 #          writes different bytes is outside it.
 BUILD_SH = re.compile(r">[ \t]*\"\$(_[A-Za-z0-9_]*COPY)\"")
