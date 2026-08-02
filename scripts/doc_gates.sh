@@ -1635,6 +1635,52 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organisin
 assert os.path.exists('example/report.pdf'), 'anchor moved'
 os.remove('example/report.pdf')"
 
+  # CASE 5 — the NEGATIVE control the other four do not provide, and the one that pins
+  # the 2026-08-02 false FAIL. Cases 1-4 all prove GATE 8 goes RED; none proves it stays
+  # GREEN when the generator legitimately prints a different Monte Carlo figure, which is
+  # the single thing the digit-stripping exists to tolerate. It did not tolerate a figure
+  # that crosses 1000: roae.py:1400 formats with `{ratio:,}`, the normaliser stripped
+  # digits but not the separator, and `doc_gates.sh generated` reported
+  #   +added   > Approximately in random orderings share this property.
+  #   -missing > Approximately in , random orderings share this property.
+  # on artifacts that were correct. This case mutates the REGENERATED REFERENCE (not the
+  # shipped artifact) to carry a grouped figure and asserts the gate stays green AND still
+  # prints the html leg's own [ok] line — an rc-only assertion would be satisfied by the
+  # leg skipping. FIRE-PROOF: run against the pre-fix normaliser this case FAILS; see the
+  # round-4 handover for the transcript.
+  assert_gen_clean() {
+    local label="$1" want="$2" mut="$3" out rc
+    if [ ! -s "$GEN_CACHE/report.html" ]; then
+      echo "  [FAIL] $label — no regenerated reference to mutate"; PASS=1; return
+    fi
+    cp "$GEN_CACHE/report.html" "$GEN_CACHE/report.html.orig"
+    if ! GEN_CACHE="$GEN_CACHE" python3 -c "$mut"; then
+      echo "  [FAIL] $label — could not inject (anchor moved)"; PASS=1
+      mv "$GEN_CACHE/report.html.orig" "$GEN_CACHE/report.html"; return
+    fi
+    out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
+    mv "$GEN_CACHE/report.html.orig" "$GEN_CACHE/report.html"
+    if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
+      echo "  [FAIL] $label — GATE 8 did not stay green on a legitimate figure change (rc=$rc)"
+      echo "         expected rc 0 and a line matching: $want"
+      printf '%s\n' "$out" | grep -E '\[FAIL\]|\+added|-missing' | head -4 | sed 's/^/           got > /'
+      PASS=1; return
+    fi
+    echo "  [ok]   $label — GATE 8 stays green, and says so: $want"
+  }
+
+  assert_gen_clean "GATE 8 comma-grouped Monte Carlo figure is not a difference" \
+'example/report\.html matches roae\.py --html exactly' \
+'import os, re
+p = os.path.join(os.environ["GEN_CACHE"], "report.html")
+s = open(p, encoding="utf-8").read()
+pat = re.compile(r"Approximately 1 in (\d[\d,]*) random orderings share this property\.")
+m = pat.search(s)
+assert m, "anchor moved"
+assert m.group(1) != "1,046", "reference already carries the injected value"
+open(p, "w", encoding="utf-8").write(
+    pat.sub("Approximately 1 in 1,046 random orderings share this property.", s, count=1))'
+
   rm -rf "$GEN_CACHE"
 
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
@@ -1643,9 +1689,10 @@ os.remove('example/report.pdf')"
   # tests for, so the list is enumerated against the assert_fires calls above:
   #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
-  #            5b (output), 6 x2, 7 x2, 8 x4, 9 x2, 10a (+negative control), 10b x3, 11
+  #            5b (output), 6 x2, 7 x2, 8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
+  #            10a (+negative control), 10b x3, 11
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
-  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x4, 11. GATES 1, 5 and 5b are report-only and
+  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x5, 11. GATES 1, 5 and 5b are report-only and
   #            already assert on output. GATES 4, 9, 10a/10b are structural, not
   #            classifier-driven: there is no matched token for them to name.
   #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
@@ -1763,7 +1810,23 @@ gate_generated() {
   fi
   [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 0; }
 
-  _norm() { sed 's/[0-9]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
+  # THE GROUP SEPARATOR IS PART OF THE NUMBER (fixed 2026-08-02, round 4).
+  # The first version stripped [0-9] and nothing else, so roae.py's `f"{ratio:,}"`
+  # (roae.py:1400) left a bare comma behind whenever a Monte Carlo figure landed at
+  # >= 1000 on one side of the comparison and < 1000 on the other:
+  #     artifact  "Approximately 1 in 476 random orderings share this property."
+  #               -> "Approximately in random orderings share this property."
+  #     generator "Approximately 1 in 1,046 random orderings share this property."
+  #               -> "Approximately in , random orderings share this property."
+  # That is a FALSE FAIL — it fired in anger on `doc_gates.sh generated` this round and
+  # is the exact pair of lines the gate printed as +added/-missing. A gate that goes red
+  # at random on correct artifacts is a gate that gets switched off, which is the same
+  # failure mode the digit-stripping was introduced to avoid; it was simply not carried
+  # through to the separator. Digit-adjacent commas are collapsed FIRST (the /g scan
+  # handles multi-group values: 1,234,567 -> 1234567), then digits are stripped. Commas
+  # that are not between two digits — ordinary prose punctuation — are untouched, so no
+  # sensitivity to hand-edited prose is given up.
+  _norm() { sed -E 's/([0-9]),([0-9])/\1\2/g; s/[0-9]//g; s/[[:space:]]+/ /g' "$1" | grep -v '^ *$' | sort; }
   # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
   # ARTIFACT has that the generator does not), so a pure DELETION from a shipped
   # artifact passed -- and passed while printing "matches ... exactly", which is the
@@ -1846,7 +1909,11 @@ h = html.unescape(re.sub(r'</?[A-Za-z!][^>]*>', '', h))
 def bag(t):
     c = collections.Counter()
     for ln in t.splitlines():
-        ln = re.sub(r'\s+', ' ', re.sub(r'[0-9]', '', ln)).strip()
+        # Same normalisation contract as _norm above: collapse digit-group separators
+        # before stripping digits, so the two legs agree on what "the same line" means.
+        # Leg 5 has not been observed to flake (both sides are shipped artifacts, so a
+        # comma appears on both or neither) — this keeps the contract single, not double.
+        ln = re.sub(r'\s+', ' ', re.sub(r'[0-9]', '', re.sub(r'(?<=[0-9]),(?=[0-9])', '', ln))).strip()
         if ln: c[ln] += 1
     return c
 P, H = bag(pdftext), bag(h)
