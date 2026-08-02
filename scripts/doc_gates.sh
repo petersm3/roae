@@ -531,8 +531,32 @@ for line in open(reg, encoding='utf-8'):
 # unreviewed line can inherit it no matter how the file is edited. And benign renumbering stops
 # raising a WARN that carries no information. The recorded line number is kept as documentation
 # and audited below, so a stale or dead entry is still reported rather than silently accumulating.
-allowed = {}       # legacy anchorless entries: exact "file:line", drift-prone by construction
-anchored = {}      # file -> [(recorded_line, anchor)] — matched by content, immune to renumbering
+# ITEM A8, DECIDED 2026-08-02: the recorded line number is GONE from the format. The key is
+# (file, anchor) and nothing else.
+#
+# The item offered three options — (i) keep and refresh by hand, (ii) drop it and lose the
+# dead-entry audit, (iii) have the gate REWRITE the recorded line, self-healing. (iii) was
+# the favourite. All three are declined, because (ii)'s stated cost is not real and (iii)
+# has a cost that was not stated:
+#
+#   * "(ii) loses the dead-entry audit" is FALSE. Read the audit below: of its four
+#     branches, three — file gone, anchor gone, anchor matches several lines — are driven
+#     entirely by the ANCHOR. Only the fourth, "anchor now sits at :N, update the recorded
+#     line", uses the number, and that branch is precisely the recurring [note] the item
+#     complains about. Dropping the number costs the noise and keeps the whole audit.
+#   * (iii) would make a gate a writer. The self-test REFUSES TO RUN unless the tree is
+#     clean, so a self-healing gate run first would break the next run's precondition, and
+#     a writer needs its own mutation case proving it wrote the RIGHT line — a new
+#     instrument to trust, added to solve a documentation problem.
+#
+# The locator readers actually want is still printed: the gate resolves the anchor and
+# reports the line it found, every run. A computed location cannot go stale.
+#
+# An entry with no anchor now SUPPRESSES NOTHING. It used to suppress by line number, which
+# is the dangerous direction this whole design exists to close: an unreviewed line inheriting
+# somebody else's exemption after an edit above it.
+anchorless = []    # entries with no anchor: reported, and deliberately inert
+anchored = {}      # file -> [anchor] — matched by content, immune to renumbering
 if os.path.exists(allow):
     for l in open(allow, encoding='utf-8'):
         l = l.rstrip('\n')
@@ -541,10 +565,9 @@ if os.path.exists(allow):
         key = parts[0].strip()
         anc = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
         if anc is None:
-            allowed[key] = None
+            anchorless.append(key)
         else:
-            fpath, _, lno = key.rpartition(':')
-            anchored.setdefault(fpath, []).append((lno, anc))
+            anchored.setdefault(key, []).append(anc)
 EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
 EX  = r'\bexact|\bproven|\bproved'
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
@@ -577,8 +600,7 @@ for f in files:
                 marked.setdefault(f, set()).add(ln)
             conflict = (want == 'exact' and he and not hx) or (want == 'estimate' and hx and not he)
             if conflict:
-                if f"{f}:{ln}" in allowed: continue
-                if any(a in line for _, a in anchored.get(f, ())): continue
+                if any(a in line for a in anchored.get(f, ())): continue
                 # RECORD WHICH QUANTITY AND WHICH TOKEN (2026-08-02, #65). "this line reads
                 # otherwise" made the reader re-run the classifier by eye to find the word that
                 # tripped it — and on a report-only gate, an unexplained WARN is one nobody
@@ -602,20 +624,22 @@ for fpath, entries in sorted(anchored.items()):
         print(f"  [note] allowlist: {fpath} no longer exists — prune its {len(entries)} entry/entries")
         continue
     text = open(fpath, encoding='utf-8', errors='replace').read().splitlines()
-    for lno, anc in entries:
+    for anc in entries:
         hits = [i for i, l in enumerate(text, 1) if anc in l]
         if not hits:
-            print(f"  [note] allowlist: {fpath}:{lno} anchor no longer appears in the file — prune it")
+            print(f"  [note] allowlist: {fpath} anchor no longer appears in the file — prune it")
             print(f"         anchor: {anc[:120]}")
         elif len(hits) > 1:
-            print(f"  [note] allowlist: {fpath}:{lno} anchor matches {len(hits)} lines {hits[:6]} — "
+            print(f"  [note] allowlist: {fpath} anchor matches {len(hits)} lines {hits[:6]} — "
                   "suppression is broader than one reviewed sentence; make it more specific")
-        elif str(hits[0]) != str(lno):
-            print(f"  [note] allowlist: {fpath}:{lno} anchor now sits at :{hits[0]} — "
-                  "suppression still correct (matched by content); update the recorded line")
-for key in sorted(allowed):
-    print(f"  [note] allowlist: {key} has no content anchor — it is matched by line number alone "
-          "and will drift silently; add a TAB-separated anchor")
+        else:
+            # The locator, COMPUTED not recorded (item A8). Printed as [ok] rather than
+            # [note] because a live, single-match exemption is not a defect and must not
+            # compete for attention with the two branches above, which are.
+            print(f"  [ok]   allowlist: {fpath}:{hits[0]} exemption live (matched by content)")
+for key in sorted(anchorless):
+    print(f"  [note] allowlist: \"{key}\" has no TAB-separated anchor, so it SUPPRESSES NOTHING "
+          "and is ignored. Add an anchor: the format is file<TAB>anchor, no line number.")
 
 # ---------------------------------------------------------------------------------
 # GATE 5b — a canonical quantity restated with NO epistemic marker among siblings that
@@ -1390,6 +1414,67 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
          fi
          git checkout -- documentation/GUIDE.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 5 — could not append"
+
+  # -----------------------------------------------------------------------
+  # GATE 5's ALLOWLIST — three assertions (2026-08-02, item A8). Re-keying the allowlist on
+  # (file, anchor) alone deleted the drift branch that had a live negative control (an
+  # entry recorded at :9999 fired it). Deleting a branch deletes its proof, so the
+  # replacement proofs are written here rather than assumed. All three are OUTPUT
+  # assertions: GATE 5 is report-only and always exits 0.
+  #
+  # (1) DRIFT IMMUNITY — the whole point of A8. Insert a line ABOVE the anchored TR-4
+  #     sentence. The exemption must still resolve (to a line one greater) and the run must
+  #     produce NO [note] at all: under the old scheme this exact edit produced one.
+  python3 -c "s=open('reports/TR4_SIZE_OF_THE_SPACE.md').read()
+a='*none — no exact value exists*'
+assert a in s, 'anchor moved'
+i=s.index(a); j=s.rindex(chr(10), 0, i)
+open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest: a line inserted above the anchored row -->'+s[j:])" 2>/dev/null \
+    && { A8OUT=$(bash "$0" status 2>&1)
+         if printf '%s' "$A8OUT" | grep -q 'TR4_SIZE_OF_THE_SPACE.md:124 exemption live' \
+            && ! printf '%s' "$A8OUT" | grep -q '\[note\] allowlist'; then
+           echo "  [ok]   GATE 5 allowlist drift immunity — anchor moved :123 -> :124, still live, no [note]"
+         else
+           echo "  [FAIL] GATE 5 allowlist did not survive an insertion above its anchor"
+           printf '%s\n' "$A8OUT" | grep -E 'allowlist' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         git checkout -- . 2>/dev/null; } \
+    || { echo "  [FAIL] GATE 5 allowlist drift case — could not inject; assertion did NOT run."; PASS=1; }
+
+  # (2) DEAD ANCHOR still audited. This is the branch A8's option (ii) was said to cost,
+  #     and it does not: it never read the line number.
+  python3 -c "open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write(
+'documentation/HISTORY.md'+chr(9)+'a sentence that appears nowhere in the corpus'+chr(10))" 2>/dev/null \
+    && { A8OUT=$(bash "$0" status 2>&1)
+         if printf '%s' "$A8OUT" | grep -q 'anchor no longer appears in the file'; then
+           echo "  [ok]   GATE 5 allowlist dead-anchor audit — fires, and says prune it"
+         else
+           echo "  [FAIL] GATE 5 allowlist accepted an anchor matching nothing, silently"
+           PASS=1
+         fi
+         git checkout -- . 2>/dev/null; } \
+    || { echo "  [FAIL] GATE 5 dead-anchor case — could not inject; assertion did NOT run."; PASS=1; }
+
+  # (3) AN UNANCHORED ENTRY SUPPRESSES NOTHING. Under the old scheme it suppressed by line
+  #     number, which is the direction that let an unreviewed line inherit somebody else's
+  #     exemption. The entry injected here names the exact file:line GATE 5 warns about in
+  #     assertion (1) above, so if it still suppressed, the WARN would vanish.
+  python3 -c "s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^31 is a proven count.'+chr(10))
+n=len(open('documentation/GUIDE.md').read().split(chr(10)))-1
+open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUIDE.md:%d'%n+chr(10))" 2>/dev/null \
+    && { A8OUT=$(bash "$0" status 2>&1)
+         if printf '%s' "$A8OUT" | grep -q 'SUPPRESSES NOTHING' \
+            && printf '%s' "$A8OUT" | grep -q "carries exact/proven token(s)"; then
+           echo "  [ok]   GATE 5 unanchored allowlist entry — reported AND inert"
+         else
+           echo "  [FAIL] GATE 5 unanchored entry suppressed a WARN, or was not reported"
+           printf '%s\n' "$A8OUT" | grep -E 'allowlist|WARN' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         git checkout -- . 2>/dev/null; } \
+    || { echo "  [FAIL] GATE 5 unanchored case — could not inject; assertion did NOT run."; PASS=1; }
 
   # GATE 5b (item A4), asserted against ITS OWN MOTIVATING EXAMPLE rather than a synthetic
   # table: the mutation reverts TR-9's C3 ledger cell to the bare-number form it carried

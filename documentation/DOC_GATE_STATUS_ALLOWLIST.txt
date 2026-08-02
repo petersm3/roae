@@ -1,32 +1,41 @@
 # GATE 5 allowlist — lines where a canonical quantity legitimately appears alongside the
 # OPPOSITE status word, because the sentence is COMPARING exact against estimate rather
-# than mislabelling anything. Format: one "path:line" per line, with the reason above it,
-# followed by a TAB and a literal substring identifying the reviewed sentence.
+# than mislabelling anything.
 #
-# THE ANCHOR IS THE KEY, NOT THE LINE NUMBER. Supply one always. The gate matches an entry
-# by (file, anchor); the line number is documentation, and the gate reports when it goes
-# stale. An entry with no anchor falls back to line-number matching and is reported as
-# drift-prone every run.
+# FORMAT (changed 2026-08-02, item A8):
+#     path/to/FILE.md<TAB>a literal substring of the reviewed sentence
 #
-# Why (2026-08-01, learned twice in one day): line numbers do not survive editing, and the
-# failure is not symmetric. The TR-4 entry was written at :119, two rows were inserted above
-# it, and it then both failed to suppress the row it was written for AND silently covered
-# whatever had moved into :119 — an unreviewed line inheriting someone else's suppression.
-# The HISTORY.md entry below repeated it: correct at :5563 when written, pushed to :5566
-# hours later by an insertion three lines above. Matching on content makes the dangerous
-# direction impossible (suppression requires the reviewed text) and stops the harmless
-# direction from raising a WARN that carries no information.
+# THERE IS NO LINE NUMBER, by decision. The anchor was already the key; the recorded line
+# was documentation, and documentation that drifts on every insertion above it is a
+# standing source of [note] lines carrying no information. Both entries below drifted
+# within a single day of being written (:119 -> :121, :5563 -> :5566), and a [note] class
+# readers learn to skip is worse than no [note] at all.
 #
-# Reviewed 2026-08-01. Both entries verified by reading the sentence, not by pattern.
+# Round 3 named three options — (i) keep and refresh by hand, (ii) drop it and lose the
+# dead-entry audit, (iii) have the gate rewrite it in place, self-healing. All three declined:
+#   * (ii)'s stated cost is not real. The dead-entry audit is ANCHOR-driven — dead file,
+#     dead anchor, anchor matching several lines. None of those branches ever read the
+#     number. Only "the anchor moved, update the record" did, and that branch WAS the noise.
+#   * (iii) would make a gate into a writer, and the self-test refuses to run on a dirty
+#     tree — so a self-healing gate would break the precondition of the thing that tests it.
+# The gate now RESOLVES each anchor and prints the line it found, every run. A computed
+# locator cannot go stale.
+#
+# WHY THE ANCHOR IS MANDATORY, and why an unanchored entry now suppresses NOTHING: matching
+# by line number failed asymmetrically. The TR-4 entry, written at :119 with two lines later
+# inserted above it, both (a) stopped suppressing the row it was written for and (b) silently
+# covered whatever had moved into :119 — an unreviewed line inheriting somebody else's
+# exemption. Direction (b) is the dangerous one, and content matching makes it impossible:
+# suppression now REQUIRES the reviewed text to be present.
+#
+# Reviewed 2026-08-01; re-keyed 2026-08-02. Both entries verified by reading the sentence.
 
 # States the ratio of the EXACT orbit count to the Knuth ESTIMATE (0.999956) — the
-# comparison is the point of the sentence. (Recorded line refreshed :5563 -> :5566 on
-# 2026-08-01; the sentence is unchanged, an unrelated edit inserted 3 lines above it.)
-documentation/HISTORY.md:5568	ratio to the Knuth estimate is **0.999956**
+# comparison is the point of the sentence.
+documentation/HISTORY.md	ratio to the Knuth estimate is **0.999956**
 
 # The estimator-calibration table row for C1-C5, whose "exact" cell literally reads
 # "none — no exact value exists". The word "exact" is there to deny an exact value, and
 # the 1.3287e38 in the row sits under a column headed "Prior Knuth estimate" — the status
-# is correct, the gate is reading a negation. (Re-anchored from :119 to :121 on 2026-08-01
-# after two lines were inserted above it; anchor added so it cannot drift silently again.)
-reports/TR4_SIZE_OF_THE_SPACE.md:123	*none — no exact value exists*
+# is correct, the gate is reading a negation.
+reports/TR4_SIZE_OF_THE_SPACE.md	*none — no exact value exists*
