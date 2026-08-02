@@ -16,6 +16,7 @@
 #   scripts/doc_gates.sh retract-figures  # GATE 3b: retracted FIGURES (statistics) restated with no
 #                                   # supersession marker; content-anchored allowlist, no auto-exemption
 #   scripts/doc_gates.sh links      # GATE 4 + 4b: internal markdown links/#anchors, then section refs
+#   scripts/doc_gates.sh links-internal   # GATE 4 ALONE — internal links/#anchors (self-test target)
 #   scripts/doc_gates.sh secrefs    # GATE 4b ALONE — plain-text `FILE.md §"..."` references (self-test target)
 #   scripts/doc_gates.sh status     # GATE 5: canonical quantities whose exact/estimate status
 #                                   # drifted, + GATE 5b: a canonical quantity restated with NO
@@ -37,7 +38,9 @@
 #   scripts/doc_gates.sh regdupes   # GATE 14: two literature-registry rules that are the same predicate
 #   scripts/doc_gates.sh instruments # GATE 15: a --selftest instrument with no declared fire-proof,
 #                                   # and (LEG 2) a fire-proof its own source text could satisfy
-#   scripts/doc_gates.sh collisions # GATE 16: a per-gate assertion a PREFLIGHT could satisfy
+#   scripts/doc_gates.sh collisions # GATE 16: a per-gate assertion a PREFLIGHT could satisfy,
+#                                   # and (LEG 2) a fire-proof naming a dispatch that runs
+#                                   # more than one gate
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
 #   scripts/doc_gates.sh all        # run all fifteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15, 16); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
@@ -2180,9 +2183,13 @@ if [ "${1:-}" = "--selftest" ]; then
   # STRENGTH VARIES BY CALLER AND IS RECORDED AT EACH CALL, because a uniform claim here would
   # be the over-attestation this file exists to refuse. RE-TAKEN 2026-08-02 (round 9, item
   # B9), which is what moved the numbers below — round 8 shipped this helper with ONE measured
-  # discriminator out of six, and said so. There are now SEVEN callers and FOUR are measured
-  # DISCRIMINATORS, meaning the pinned number differs between the mutated run and a run that
-  # never read the injection, each verified by running the mode BOTH ways:
+  # discriminator out of six, and said so. FOUR are now measured DISCRIMINATORS, meaning the
+  # pinned number differs between the mutated run and a run that never read the injection,
+  # each verified by running the mode BOTH ways. THE TOTAL IS DELIBERATELY NOT RESTATED HERE:
+  # this sentence said "SEVEN callers" and was stale within the hour, because the same batch
+  # that wrote it added an eighth call site — the caveat-4 shape, in the comment that names
+  # caveat 4. The authority is the machine-read `callers=N` on this helper's row in
+  # documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt, which GATE 15 LEG 3 re-derives every run:
   #   GATE 3b  meta-mention count 44 -> 45
   #   GATE 2   flags/documented 78/95 -> 79/96 (a flag added to both sides)
   #   GATE 2   commented-out declarations dropped 0 -> 1 (item A4's leg — the one a FLAG
@@ -2505,7 +2512,10 @@ s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')")
   if printf '%s' "$_asc_probe" | grep -q 'stayed green, but its output never names'; then
     echo "  [ok]   assert_stays_clean_why — a gate that stays green WITHOUT printing the"
-    echo "         evidence line is a FAIL, so all six negative controls assert more than rc 0"
+    echo "         evidence line is a FAIL, so every negative control on it asserts more than"
+    echo "         rc 0 (the COUNT is not restated here — it said six against a live seven,"
+    echo "         and a stale number in PRINTED output is worse than one in a comment; the"
+    echo "         authority is callers=N in DOC_GATE_SELFTEST_INSTRUMENTS.txt)"
   else
     echo "  [FAIL] assert_stays_clean_why — the evidence half is INERT. A green run that never"
     echo "         read the injected case was accepted, so every negative control in this"
@@ -2514,12 +2524,18 @@ open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure re
     PASS=1
   fi
 
-  # DISPATCH NOTE (item A1, round 8): `links` is gate_links_and_secrefs, i.e. GATE 4 AND
-  # GATE 4b behind one exit code. This used to be an exit-code assertion and was therefore
-  # satisfied by a GATE 4b failure — the shared-dispatch class GATES 10a/10b and 11-figures
-  # each got their own dispatch name for. The ERE is GATE 4's OWN line for the injected
-  # target, so no third dispatch name is needed and GATE 4b cannot answer for it.
-  assert_fires_why "GATE 4 internal links (documentation/GUIDE.md)" links \
+  # DISPATCH NOTE (item A1, round 8; CORRECTED item B2, round 9, 2026-08-02). `links` is
+  # gate_links_and_secrefs, i.e. GATE 4 AND GATE 4b behind one exit code. This used to be an
+  # exit-code assertion and was therefore satisfied by a GATE 4b failure — the shared-dispatch
+  # class GATES 10a/10b and 11-figures each got their own dispatch name for. Round 8 answered
+  # that with an ERE instead of a dispatch name — "GATE 4's OWN line for the injected target,
+  # so no third dispatch name is needed" — and the argument was TRUE and MEASURED (drain-2
+  # confirmed the string is emitted nowhere in gate_secrefs, which is why this was latent and
+  # not a live defect). It is retired anyway, because it was an argument about wording holding
+  # a structural property: reword GATE 4b's finding line into the same shape and the assertion
+  # silently stops distinguishing the two, with nothing looking. It now runs `links-internal`,
+  # GATE 4 alone, and GATE 16 LEG 2 refuses a fire-proof on a combined name mechanically.
+  assert_fires_why "GATE 4 internal links (documentation/GUIDE.md)" links-internal \
     'documentation/GUIDE\.md -> NO_SUCH_FILE_XYZ\.md +\(no such file\)' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FILE_XYZ.md).\n')"
@@ -4052,6 +4068,90 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
   fi
   rm -f "$_G16_COPY"
 
+  # GATE 16 LEG 2 FIRE-PROOFS (item B2, round 9, 2026-08-02) — FOUR LEGS, ALL RUN.
+  #
+  # THE FIRST TWO ARE THE REAL HISTORICAL TEXT, not a synthesis. B2 expected to need a
+  # synthesised motivating example because the two live instances round 8 found were fixed by
+  # hand the same day; drain-2 then found a fifth, and this batch a sixth, so the leg is
+  # proven against the exact lines that shipped:
+  #   (1) `ledger` on "GATE 11 (A1) ledger deleted" — live from 3ab5161 to 8f2aed2. Both
+  #       halves of GATE 11 require_tracked the same file, so the ERE was emitted by the
+  #       FIGURES half and the leg stayed green with the PHRASES guard deleted.
+  #   (2) `links` on "GATE 4 internal links" — live until this batch. That one was LATENT, not
+  #       broken: its ERE really is emitted only by GATE 4. It is here because a fire-proof
+  #       held to its gate by a wording argument is held by nothing a machine reads.
+  # The other two are the vacuity guards, and they are the reason this leg's [ok] means
+  # anything: (3) an invocation the extractor cannot see must be a FAIL rather than a smaller
+  # total, and (4) a call-graph reader that has gone blind must be a FAIL rather than a
+  # corpus in which nothing fans out.
+  #
+  # ALL FOUR MUTATE A COPY through the read-only source seam (task #77 — the file to mutate
+  # is the one bash is executing), and each asserts the EXACT number of whole-stripped-line
+  # anchors it found before writing. The anchors below occur in this comment's own vicinity
+  # as python string literals; whole-line matching is what keeps a fire-proof from being
+  # satisfied by its own source text, which this file has now recorded three times.
+  _G16B_COPY=$(git rev-parse --git-dir)/doc_gates_g16b_copy.sh
+
+  _g16b() {  # <label> <expected-substring> <python-mutation>
+    if _G16B_COPY="$_G16B_COPY" python3 -c "$3" 2>/dev/null; then
+      _G16BOUT=$(_gsrc "$_G16B_COPY" collisions)
+      if printf '%s' "$_G16BOUT" | grep -qF "$2"; then
+        echo "  [ok]   GATE 16 LEG 2 $1 — fires"
+      else
+        echo "  [FAIL] GATE 16 LEG 2 $1 — NOT reported, so the leg would stay green on it"
+        printf '%s\n' "$_G16BOUT" | sed 's/^/           > /' | head -6
+        PASS=1
+      fi
+    else
+      echo "  [FAIL] GATE 16 LEG 2 $1 — could not build the mutated copy (anchor moved), so"
+      echo "         the assertion did NOT run. A skipped assertion is not a pass."
+      PASS=1
+    fi
+  }
+
+  _g16b "the historical ledger dispatch on GATE 11's (A1) fire-proof" \
+        'is 2 gates behind one exit code' "
+import os
+A='assert_fires_why \"GATE 11 (A1) ledger deleted\" ledger-phrases \\\\'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip()==A]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace(' ledger-phrases ',' ledger ')
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g16b "the historical links dispatch on GATE 4's fire-proof" \
+        'is 2 gates behind one exit code' "
+import os
+A='assert_fires_why \"GATE 4 internal links (documentation/GUIDE.md)\" links-internal \\\\'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip()==A]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace(' links-internal ',' links ')
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g16b "an invocation the extractor can no longer see" \
+        'One of the two extractors is wrong' "
+import os
+A='assert_stays_clean_why \"GATE 15 LEG 3 a rewritten note changes no claim\" instruments \\\\'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip()==A]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+del L[t[0]]
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g16b "a call graph that can no longer see one gate calling another" \
+        'the call graph is' "
+import os,re
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+n=0
+for i,l in enumerate(L):
+    if re.match(r'^\s+gate_[a-z0-9_]+\s*\|\|', l):
+        L[i]=l.replace('gate_','command gate_',1); n+=1
+assert n>0, 'no in-function gate call lines found'
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  rm -f "$_G16B_COPY"
+
   # ------------------------------------------------------------------------------
   # GATE 17 FIRE-PROOFS (round-7 brief item 6, 2026-08-02) — FIVE LEGS.
   #
@@ -4226,7 +4326,9 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            structural, not classifier-driven: there is no matched token for them to name.
   #            AS OF 2026-08-02 (item A1's residue, round 8) THIS LIST IS EVERY ASSERTION IN
   #            THE HARNESS: the last exit-code-only helper, assert_stays_clean, became
-  #            assert_stays_clean_why and its six negative controls each carry an evidence-ERE
+  #            assert_stays_clean_why and its negative controls each carry an evidence-ERE
+  #            (the count was written as "six" and is now stale; see that helper's header —
+  #            callers=N in DOC_GATE_SELFTEST_INSTRUMENTS.txt is the only number a machine reads)
   #            measured under their own mutation. Only ONE of the six (GATE 3b's, whose census
   #            moves 44 -> 45) proves the injection was READ; two pin a count the control's own
   #            defect would move; three pin only that the leg ran. Recorded at each call site,
@@ -5634,11 +5736,49 @@ PY
 #   (b) It over-approximates the candidate files (both preflights' file lists are unioned),
 #       which is the conservative direction: it can report a collision that a real run would
 #       not produce, never miss one that it would.
-#   (c) It reasons about the preflights only. A collision between two PER-GATE messages is a
-#       different question and is not asked here.
+#   (c) LEG 1 reasons about the preflights only. A collision between two PER-GATE messages is
+#       a different question — and LEG 2 below now asks half of it.
+#
+# LEG 2 — NO FIRE-PROOF MAY NAME A DISPATCH THAT RUNS MORE THAN ONE GATE (item B2, round 9,
+# 2026-08-02).
+#
+# WHY IT IS A MECHANISM AND NOT MORE CARE. This is the same defect as LEG 1 reached from the
+# other side: an assertion satisfiable by something other than the gate it names. LEG 1's
+# "something" is a preflight; LEG 2's is the OTHER gate behind a shared dispatch name. It has
+# now been found and fixed BY HAND six times — GATE 10a, GATE 10b, GATE 4b, GATE 11-figures
+# (round 8), GATE 11-phrases (round 9, and that one was LIVE: both halves of GATE 11
+# require_tracked the same ledger, so the assertion stayed green with the guard it tested
+# deleted), and GATE 4 (this batch). Four sightings is this project's stated threshold for
+# converting care into a mechanism; this is the sixth.
+#
+# WHAT IT DOES. Resolves each `assert_fires_why` / `assert_stays_clean_why` invocation's
+# dispatch name through the `case` block and the gate-to-gate call graph, and FAILS if it
+# reaches more than one gate function, or a name the dispatch block does not define.
+#
+# IT SHIPS WITH NO EXEMPTION MECHANISM, AND THAT IS A MEASUREMENT, NOT AN OMISSION. B2
+# specified an escape hatch — allow a combined name when the ERE is proven to come from
+# exactly one of the gates behind it — because one assertion needed it. That assertion was
+# GATE 4's, its wording argument was true, and it was retired anyway (see its DISPATCH NOTE),
+# leaving a population of ZERO. A blanket refusal with nothing to allowlist is strictly
+# stronger than a rule with one hand-argued row in it, so the escape hatch was not built. If
+# a future assertion genuinely must run a combined name, this leg has to grow one — and the
+# right form is then a declared reason in the source, not a silent pass.
+#
+# WHAT LEG 2 CANNOT SEE:
+#   (d) `assert_gen_*` take no dispatch name at all (they drive the `generated` gate through
+#       their own harness), so they are outside this scan entirely.
+#   (e) It is a STATIC resolution of `case` arms and `gate_x || rc=1` call lines. A gate
+#       reached by `eval`, by a variable, or from outside a gate function is invisible; so is
+#       a leg SKIPPED at runtime inside a single gate function, which is a different failure
+#       (LEG 2 says "one gate answered", never "the leg inside it ran").
+#   (f) Its own two vacuity guards are what make a green here mean anything, and they are
+#       cross-checks rather than proofs: the invocation count must equal the `callers=N` that
+#       GATE 15 LEG 3 derives by a different rule, and at least one gate function must still
+#       be seen calling two others. Both are fire-proven in the self-test.
 gate_preflight_collisions() {
+  local rc=0
   echo "== GATE 16: no per-gate assertion is satisfiable by a preflight =="
-  python3 - <<'PY'
+  python3 - <<'PY' || rc=1
 import os, re, subprocess, sys
 
 # The same read-only source seam GATE 15 uses, and for the same reason: the mutation this
@@ -5790,6 +5930,189 @@ if not bad:
           " template(s); %d exempt" % (checked, len(candidates), len(templates), len(exempt)))
 sys.exit(bad)
 PY
+  echo "-- GATE 16 LEG 2: no fire-proof names a dispatch that runs more than one gate --"
+  python3 - <<'PY' || rc=1
+import os, re, sys
+
+# LEG 2 (item B2, round 9, 2026-08-02). See the gate header for why this is mechanical
+# rather than another hand application.
+src = os.environ.get("DOC_GATES_SRC_OVERRIDE") or "scripts/doc_gates.sh"
+TABLE = "documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt"
+if src != "scripts/doc_gates.sh":
+    print("  [note] LEG 2 scanning OVERRIDE source %s, not the live script" % src)
+if not os.path.isfile(src):
+    print("  [FAIL] LEG 2: %s is not a readable file, so zero assertions were resolved" % src)
+    sys.exit(1)
+lines = open(src, encoding="utf-8").read().splitlines()
+bad = 0
+
+def uncomment(ln):
+    # A shell comment cannot call anything. Reading them as calls is how this unit's FIRST
+    # resolver decided `secrefs` reached gate_links: gate_secrefs' body carries a comment
+    # naming gate_links, and the collapsed graph then hid the very fan-out being measured.
+    return "" if ln.lstrip().startswith("#") else ln
+
+GATEDEF = re.compile(r"^(gate_[a-z0-9_]+)\(\) \{")
+GATECALL = re.compile(r"(?:^|;|&&|\|\||\bthen\b|\belse\b|\bdo\b|\{|\()\s*(gate_[a-z0-9_]+)\b")
+defined = {m.group(1) for l in lines for m in [GATEDEF.match(l)] if m}
+
+def fnbody(name):
+    out, on = [], False
+    for ln in lines:
+        if ln.startswith(name + "() {"):
+            on = True
+            continue
+        if on and ln == "}":
+            break
+        if on:
+            out.append(uncomment(ln))
+    return out
+
+direct = {f: sorted({g for ln in fnbody(f) for g in GATECALL.findall(ln)
+                     if g != f and g in defined}) for f in sorted(defined)}
+
+def leaves(f, seen=frozenset()):
+    if f in seen:
+        return set()
+    kids = direct.get(f, [])
+    if not kids:
+        return {f}
+    out = set()
+    for k in kids:
+        out |= leaves(k, seen | {f})
+    return out
+
+CASE_OPEN = 'case "$MODE" in'
+CASE_CLOSE = "esac"
+LABEL_ROW = re.compile(r"^\s{2}([a-z0-9|*-]+)\)\s*(.*)$")
+try:
+    a = next(i for i, l in enumerate(lines) if l.startswith(CASE_OPEN))
+    b = next(i for i in range(a, len(lines)) if lines[i] == CASE_CLOSE)
+except StopIteration:
+    print("  [FAIL] LEG 2: the dispatch block was not found in %s, so every mode would"
+          " resolve to nothing and this leg would be inert" % src)
+    sys.exit(1)
+disp, cur = {}, None
+for i in range(a + 1, b):
+    ln = lines[i]
+    m = LABEL_ROW.match(ln)
+    if m:
+        cur = m.group(1)
+        disp.setdefault(cur, [])
+        rest = uncomment("  " + m.group(2))
+    else:
+        rest = uncomment(ln)
+    if cur:
+        disp[cur] += GATECALL.findall(rest)
+    if cur and ";;" in ln:
+        cur = None
+disp.pop("*", None)
+reach = {k: (set().union(*[leaves(f) for f in v]) if v else set()) for k, v in disp.items()}
+
+# --- the fire-proofs and negative controls, and the dispatch name each one names.
+HELPERS = ("assert_fires_why", "assert_stays_clean_why")
+CALLPOS = re.compile(r"(?:^|\$\()\s*(?:[A-Za-z_][A-Za-z0-9_]*=\$\(\s*)?(%s)\s+(?!\()"
+                     % "|".join(HELPERS))
+LABEL_ARG = re.compile(r'^"((?:[^"\\]|\\.)*)"\s*(.*)$')
+found = []
+for i, ln in enumerate(lines):
+    if not uncomment(ln):
+        continue
+    m = CALLPOS.search(ln)
+    if not m:
+        continue
+    helper = m.group(1)
+    toks, j = [], i
+    while j < len(lines):
+        l = lines[j]
+        if j > i and l.startswith('"'):
+            break               # the python mutation body opens at column 0
+        toks.append(l)
+        if not l.rstrip().endswith("\\"):
+            break
+        j += 1
+    blob = " ".join(t.rstrip("\\").strip() for t in toks)
+    tail = blob[blob.index(helper) + len(helper):].strip()
+    la = LABEL_ARG.match(tail)
+    if not la:
+        found.append((helper, "<unparsed label>", None, i + 1))
+        continue
+    gm = re.match(r"^([A-Za-z0-9_-]+)(?:\s|$)", la.group(2))
+    found.append((helper, la.group(1), gm.group(1) if gm else None, i + 1))
+
+# --- VACUITY GUARD 1: an INDEPENDENTLY-DERIVED count of the same call sites.
+# The failure mode of this leg is an extractor that silently skips an invocation and still
+# prints [ok] with a number nobody reads. GATE 15 LEG 3 already machine-checks a `callers=N`
+# for each helper, derived by a DIFFERENT rule (command position over the whole file, round 9
+# item B3's residue). Two extractors written for different purposes must agree, or one of
+# them is wrong and this leg says so instead of reporting a smaller total.
+declared = {}
+if os.path.isfile(TABLE):
+    for ln in open(TABLE, encoding="utf-8").read().splitlines():
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        f = ln.split("\t")
+        if len(f) >= 3:
+            mm = re.search(r"callers=(\d+)", f[2])
+            if mm:
+                declared[f[0]] = int(mm.group(1))
+else:
+    print("  [FAIL] LEG 2: %s is missing, so this leg's extractor has nothing to be"
+          " cross-checked against" % TABLE)
+    bad = 1
+for h in HELPERS:
+    mine = sum(1 for x in found if x[0] == h)
+    if h not in declared:
+        print("  [FAIL] LEG 2: %s declares no callers=N in %s, so a skipped invocation would"
+              " be invisible here" % (h, TABLE))
+        bad = 1
+    elif declared[h] != mine:
+        print("  [FAIL] LEG 2: %s — this leg resolved %d invocation(s); %s declares"
+              " callers=%d. One of the two extractors is wrong; a silent under-count here"
+              " would leave that assertion's dispatch unchecked forever."
+              % (h, mine, TABLE, declared[h]))
+        bad = 1
+
+# --- VACUITY GUARD 2: the call graph must still SEE fan-out.
+# If the resolver stops reading `gate_x || rc=1` bodies, every dispatch name collapses to one
+# leaf and this leg goes green on a corpus it can no longer measure. At least one gate
+# function must be seen calling two or more others.
+fanout = sorted(f for f, kids in direct.items() if len(kids) > 1)
+if not fanout:
+    print("  [FAIL] LEG 2: no gate function was seen calling two others, so the call graph is"
+          " inert and every dispatch name would resolve to a single gate by construction")
+    bad = 1
+
+for helper, label, mode, n in found:
+    if mode is None:
+        print("  [FAIL] %s:%d — no dispatch name could be read from the %s for \"%s\","
+              % (src, n, helper, label))
+        print("         so this leg cannot tell which gate that assertion exercises.")
+        bad = 1
+    elif mode not in reach:
+        print("  [FAIL] %s:%d — \"%s\" names the dispatch `%s`, which the dispatch block does"
+              " not define." % (src, n, label, mode))
+        print("         An unknown mode prints usage and exits 2, which is a non-zero status")
+        print("         a fire-proof can mistake for the gate firing.")
+        bad = 1
+    elif len(reach[mode]) > 1:
+        print("  [FAIL] %s:%d — \"%s\" runs the dispatch `%s`, which is %d gates behind one"
+              " exit code:" % (src, n, label, mode, len(reach[mode])))
+        print("           %s" % ", ".join(sorted(reach[mode])))
+        print("         Any of them can supply the failure, so the assertion cannot say which")
+        print("         gate it exercised. Give the gate under test its own leaf dispatch")
+        print("         name — GATES 10a/10b, 4b, 11-figures, 11-phrases and 4 all have one.")
+        bad = 1
+
+if not bad:
+    combined = sorted(k for k, v in reach.items() if len(v) > 1)
+    print("  [ok] LEG 2: %d fire-proof(s) and negative control(s) resolved through %d dispatch"
+          " name(s); every one runs exactly ONE gate" % (len(found), len(disp)))
+    print("       (%d combined name(s) exist and are unused by any assertion: %s; %d gate"
+          " function(s) fan out)" % (len(combined), ", ".join(combined), len(fanout)))
+sys.exit(bad)
+PY
+  return $rc
 }
 
 # ----------------------------------------------------------------------------------
@@ -6018,6 +6341,14 @@ case "$MODE" in
   retract) gate_retract || RC=1 ;;
   retract-figures) gate_retract_figures || RC=1 ;;
   links)   gate_links_and_secrefs || RC=1 ;;
+  # LEAF DISPATCH NAME (item B2, round 9, 2026-08-02) — the FIFTH hand application of this
+  # one fix, and the last one that was live. `links` is gate_links_and_secrefs, i.e. GATE 4
+  # AND GATE 4b behind a single exit code; the "GATE 4 internal links" fire-proof ran on it
+  # and was argued safe because its evidence-ERE is GATE 4's own line. That argument was
+  # correct and it was also the only thing holding the assertion to GATE 4 — reword either
+  # gate and it stops holding, silently. GATE 16 LEG 2 below now REFUSES a fire-proof on a
+  # combined dispatch name outright, which is only possible because this name exists.
+  links-internal) gate_links || RC=1 ;;
   secrefs) gate_secrefs || RC=1 ;;
   status)  gate_status  || RC=1 ;;
   figures) gate_figures || RC=1 ;;
@@ -6056,7 +6387,7 @@ case "$MODE" in
            echo; gate_selftest_instruments || RC=1
            echo; gate_preflight_collisions || RC=1
            echo; gate_scoreboard_verdicts || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|generated|all}"; exit 2 ;;
 esac
 
 echo
