@@ -625,3 +625,51 @@ the correction. The gate is a completeness instrument, not a content one.
   existing entry.
 
 ---
+
+### CX-22 · 2026-08-02 · C2 · SPECIFICATION.md contradicted its own per-dataset table on the boundary minimum (`RP-711be628`, `RP-43ecf0b4`)
+
+- **Documents:** `documentation/SPECIFICATION.md` — the opening paragraph, and the paragraph ending
+  "Every 'uniquely determines King Wen' statement in the project is therefore scoped to the
+  enumerated datasets". Both cited by key, not quoted, per the registry convention above.
+- **BEFORE:** both sites said four greedy-ordered boundary constraints are enough to isolate King Wen
+  across the enumerated datasets, with no depth qualifier — the opening paragraph universally
+  ("every enumerated dataset to date").
+- **NOW:** four is stated for the shallow datasets (d2 10T, d3 10T) and **five** for the two deepest
+  canonicals (d3 100T, d3 560T), where exhaustive test finds **0** working unordered 4-subsets.
+- **Why this is C2 and not C1:** the claim was already corrected on **2026-07-04**, and correctly, in
+  the same document's per-dataset table and result paragraph and in `SEARCH_SPACE_SIZE.md`. What
+  failed was propagation to these two sites. The 2026-07-04 entry is the correction; this entry
+  records that it did not reach the document's own summary prose, which therefore **contradicted the
+  per-dataset table later in the same file** from 2026-07-04 until 2026-08-02. A reader who stopped
+  at the opening paragraph — the most-read paragraph in the file — got the retracted answer.
+- **Why the registry rows are keyed on the SCOPE-BEARING wording:** the bare four-constraint fragment
+  is *true* when scoped to d2 10T / d3 10T, so registering the fragment alone would make GATE 3 fire
+  on the corrected sentence. As shipped, the corrected sentence avoids the fragment only because the
+  numeral carries markdown bold — an accident of formatting, not a property of the text. Keying each
+  row on wording that is false under every scoping removes that dependence. Verified by running
+  GATE 3's own normalisation (`tr '\n' ' ' | tr -s ' '` then fixed-string match) over every tracked
+  `.md`: zero hits for either key's phrase.
+- **What did not move:** no count, sha, certificate, theorem or canonical. `{25, 27}` remains
+  partition-stable at all four depths; the greedy-minimum sequence 4 → 4 → 5 → 5 and the
+  working-4-set counts are as the table already stated. Only the summary prose changed.
+- **Provenance note:** the SPECIFICATION.md edits and the two registry rows were found
+  **uncommitted** in the working tree at the start of round 14, carrying two defects of their own.
+  **(1)** Both registry rows had **two**
+  tab-separated fields where the schema and every other data row have three, so the note text landed
+  in the `allow` column — which GATE 3 matches against filenames, and GATE 11 prints as the row's
+  note on failure. The direction of that error happens to be fail-*safe* for GATE 3 (no filename
+  contains a sentence, so nothing would have been wrongly exempted); what it would actually have
+  cost is GATE 11's diagnostic, which would have reported the failure with an empty note. **(2)**
+  Neither row was recorded in this file at all, which GATE 11 fails on outright — reproduced before
+  the fix, and green after it. Both were fixed before this entry was written.
+- **Concurrency note, recorded because it is the interesting part:** the schema fix and the
+  rekeying above were made in the shared working tree, and **a second unit active at the same time
+  committed them inside its own commit** before this entry was written — a commit whose message warns
+  that
+  "an uncommitted fix in a shared tree is one `git add -A` away from landing inside another unit's
+  commit". The consequence is measured, not inferred: that commit ships both registry rows with
+  **neither key recorded here**, so it is **GATE 11 RED as committed**, and this entry is what turns
+  it green. Two units editing one tree with no lock produced a red commit that neither intended and
+  that a per-unit gate run cannot catch, because each unit's run was green at the moment it ran.
+
+---
