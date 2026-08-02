@@ -22,11 +22,11 @@
 # States the ratio of the EXACT orbit count to the Knuth ESTIMATE (0.999956) — the
 # comparison is the point of the sentence. (Recorded line refreshed :5563 -> :5566 on
 # 2026-08-01; the sentence is unchanged, an unrelated edit inserted 3 lines above it.)
-documentation/HISTORY.md:5566	ratio to the Knuth estimate is **0.999956**
+documentation/HISTORY.md:5568	ratio to the Knuth estimate is **0.999956**
 
 # The estimator-calibration table row for C1-C5, whose "exact" cell literally reads
 # "none — no exact value exists". The word "exact" is there to deny an exact value, and
 # the 1.3287e38 in the row sits under a column headed "Prior Knuth estimate" — the status
 # is correct, the gate is reading a negation. (Re-anchored from :119 to :121 on 2026-08-01
 # after two lines were inserted above it; anchor added so it cannot drift silently again.)
-reports/TR4_SIZE_OF_THE_SPACE.md:121	*none — no exact value exists*
+reports/TR4_SIZE_OF_THE_SPACE.md:123	*none — no exact value exists*
