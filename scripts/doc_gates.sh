@@ -4899,11 +4899,40 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            SCOPE, and it is why no total here could be a total of the class anyway:
   #            GATE 14's and GATE 15's A1 legs carry the same marker and are counted in
   #            their own rows ABOVE, and GATE 8's deleted-artifact leg — the first of the
-  #            class, and the reason it exists — is in the `covered` list above under `8 x5`
-  #            with no marker on its label at all. THE MARKER RULE CANNOT SEE THAT LAST ONE,
+  #            class, and the reason it exists — is in the `covered` list above, in the GATE
+  #            8 entry, with no marker on its label at all. (That entry was cited here as
+  #            "`8 x5`" by the same commit that renamed it to `8 x7`: a pointer written to a
+  #            token its own commit had just deleted. Cited by CONTENT now, because a
+  #            same-file citation to a same-file token drifts on the very edit that moves
+  #            it — round 14 drain-3.) THE MARKER RULE CANNOT SEE THAT LAST ONE,
   #            which is the limit a reader has to be told rather than left to discover.
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
-  #            3, 3b x2, 4b, 6 x3, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
+  #            ALL OF THEM — DERIVED, NOT TALLIED (round 14 drain-3, item R14 continued).
+  #            Every assertion helper in this harness takes an evidence argument and greps
+  #            for it: assert_fires_why, assert_stays_clean_why, assert_gen_fires,
+  #            assert_gen_clean and assert_gen_fires_only are the five, and the inline legs
+  #            (the A3 lock, the A1 snapshot, R15's advisory) assert on message content
+  #            rather than on rc. So this bullet's population IS the `covered` list above
+  #            minus the exclusions named next. It is not a second census and must not be
+  #            rewritten as one.
+  #            IT WAS A SECOND CENSUS UNTIL NOW, AND IT HAD ROTTED THE WAY A SECOND CENSUS
+  #            DOES. It read "3, 3b x2, 4b, 6 x3, 7 x2, 8 x5, 11, 12 x5, and the whole A1
+  #            class". `8 x5` contradicted the GATE 8 entry in the covered list above, and
+  #            `3b x2` contradicted the GATE 3b entry there — both cited by CONTENT, not by
+  #            their current values, because freezing a value here is the defect being fixed
+  #            and this paragraph's own bookkeeping is not exempt from it. `8 x5` was right when
+  #            GATE 8 had four fire legs and one negative control; the two
+  #            assert_gen_fires_only legs then joined the bucket and ONLY the covered list
+  #            was corrected — corrected by round 14's own R14 fix, which reported four
+  #            members of exactly this shape in exactly this block and did not count this
+  #            one. THIS IS A FIFTH MEMBER — fifth FOUND, which is not a claim about how
+  #            many exist. It hid because that sweep swept the censuses it had already
+  #            listed rather than the BUCKETS those censuses count, so a second census over
+  #            the same buckets was never in its population. THAT is the residual R14 leaves:
+  #            the shape is "one bucket, two censuses", and only a census that knows about
+  #            its sibling can close it. Removing the numbers here closes it for this bullet
+  #            by making it derived; it does not close it anywhere else in the corpus.
+  #            GATES 1, 5 and
   #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
   #            AS OF 2026-08-02 (item A1's residue, round 8) THIS LIST IS EVERY ASSERTION IN
@@ -4939,11 +4968,14 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            paired flag still reported, and the SAME declaration commented out staying
   #            silent. This sentence said "Three assertions now" until round 14 (item R14)
   #            and named the first three; A4 then landed TWO more in the same GATE 2 bucket
-  #            and nothing moved the count. That is the same error as the `8 x5` entry and
-  #            the two in the MISSING-INPUT bullet, both ABOVE — four instances, one shape, in
-  #            this block: a census bucketed by GATE is blind to a sibling leg joining a
-  #            bucket, exactly as round 13's pins bullet was blind to a second pin sharing
-  #            invocation mode `cli`.
+  #            and nothing moved the count. That is the same error as the covered list's
+  #            GATE 8 entry and the two in the MISSING-INPUT bullet, both ABOVE — and as the
+  #            "asserting WHY" bullet, which round 14's R14 fix did not reach and round 14
+  #            drain-3 did. FIVE instances found, one shape, all in this block: a census
+  #            bucketed by GATE is blind to a sibling leg joining a bucket, exactly as round
+  #            13's pins bullet was blind to a second pin sharing invocation mode `cli`.
+  #            (The GATE 8 entry is named by CONTENT here. It was named "`8 x5`" — the value
+  #            the same commit replaced — which is the citation half of the identical defect.)
   #   NOT covered, no fire-proof possible here: the TOOL-absence legs (GATE 8's python3,
   #            GATE 11's sha256sum), both converted from [skip] to [FAIL] under A1. Hiding
   #            one tool from $PATH cannot be done without also hiding git, grep and cut, so
