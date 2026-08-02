@@ -3713,10 +3713,18 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   # the gate printed "present on 1 board(s)" and exited 0 with the report-vs-documentation
   # comparison switched off entirely. A count nobody is required to read is not a check. The
   # mutation removes the documentation copy from the list and the gate must REFUSE.
+  #
+  # THIS LEG'S OWN FIRST RUN FAILED, and for the reason GATE 15's header already records:
+  # the confirmation searched for the bare literal, which THESE VERY LINES write into
+  # doc_gates.sh, so the copy always "still contained" the path and the leg reported it could
+  # not build. The check is therefore anchored at line start (`^    "docum...`), which the
+  # BOARDS entry matches and no line of this fire-proof does. Second instance of the class in
+  # two days; the general lesson is that a fire-proof searching its own source file must
+  # match on a form its own text cannot take.
   _G17_COPY=$(git rev-parse --git-dir)/doc_gates_g17_copy.sh
   if grep -v '^    "documentation/LITERATURE_RULES_POPULATION_TESTS.md",$' \
        scripts/doc_gates.sh > "$_G17_COPY" \
-     && ! grep -qF '"documentation/LITERATURE_RULES_POPULATION_TESTS.md",' "$_G17_COPY"; then
+     && ! grep -qE '^    "documentation/LITERATURE_RULES_POPULATION_TESTS\.md",$' "$_G17_COPY"; then
     G17OUT=$(bash "$_G17_COPY" scoreboard 2>&1); G17RC=$?
     if [ "$G17RC" -ne 0 ] \
        && printf '%s' "$G17OUT" | grep -qF 'the board list holds 1 file(s)'; then
