@@ -791,13 +791,17 @@ for m in mds:
                 continue
             parts = [p.strip() for p in re.split('…|\\.\\.\\.', want) if p.strip()]
 
-            def _match(anchors, parts=parts):
+            # ITEM B4 (2026-08-02, drain-1) — `anchored` is the bold leg's PREFIX rule. The
+            # reference's first part must sit at offset 0 of the label, not anywhere inside
+            # it. Heading resolution is unchanged (anchored=False); see the B4 note below the
+            # ratio block for why the two legs get different rules.
+            def _match(anchors, parts=parts, anchored=False):
                 out = []
                 for h in anchors:
                     pos, ok = 0, True
-                    for p in parts:
+                    for k, p in enumerate(parts):
                         i = h.find(p, pos)
-                        if i < 0:
+                        if i < 0 or (anchored and k == 0 and i != 0):
                             ok = False; break
                         pos = i + len(p)
                     if ok:
@@ -807,7 +811,7 @@ for m in mds:
             matches = _match(heads[dest])
             if not matches:
                 # ITEM B1 — the second anchor form. Reported, never silent: see the BOLD note.
-                bm = _match(bolds[dest])
+                bm = _match(bolds[dest], anchored=True)
                 if bm:
                     viabold.append((m, lineno, os.path.relpath(dest), sec, bm[0]))
                     continue
@@ -829,8 +833,9 @@ for m in mds:
 
 for m, ln, d, s, key in bad:
     print(f'  [FAIL] {m}:{ln} -> {d} §"{s}"')
-    print(f'         WHY: nothing in {d} is named "{norm(s)}" — no heading and no'
-          f' line-leading bold label contains that normalised text')
+    print(f'         WHY: nothing in {d} is named "{norm(s)}" — no heading contains that'
+          f' normalised text, and no line-leading bold label BEGINS with it (ITEM B4: a bold'
+          f' label matched mid-text is not an anchor)')
 for m, ln, d, s, key in opened:
     print(f'  [OPEN] {m}:{ln} -> {d} §"{s}"  ({allow_why.get(key, "allowlisted")})')
 # ITEM B1 (2026-08-02, drain-2) — STALE ALLOWLIST ROWS ARE A FAILURE, not a tidiness issue.
@@ -872,6 +877,29 @@ for src, tgt, want in stale:
 # documented" as a live option; escalating this to rc 1 is the operator's call, not a drain
 # unit's. WHAT IT CANNOT SEE: a reference that resolves against exactly one WRONG heading —
 # no amount of counting finds that, only reading does.
+#
+# ITEM B4 (2026-08-02, drain-1) — THE PREFIX RULE, SHIPPED. `f3179f8` measured the two candidate
+# strength floors for the bold leg and rejected one of them; this ships the other. The decision
+# is NOT re-derived here, because re-deriving it with a length ratio is the specific error the
+# measurement warns against — the seven lowest-ratio references (0.159-0.193) are the CORRECT
+# ones, citing the stable opening of a long annotated label, so the ratio is backwards for this
+# corpus and a floor loose enough to spare them (<=0.15) sits far below the ~0.47 the motivating
+# defect scored. No threshold separates them. Recorded at f3179f8; do not re-measure it.
+#
+# WHAT SHIPPED INSTEAD: `_match(..., anchored=True)` on the bold leg only. A reference must match
+# at the LABEL'S START. Population at ship time: 0 of 18 — the rule is green with NO allowlist,
+# because the one reference that violated it was fixed at f3179f8
+# (documentation/CITATIONS.md:1055 -> SPECIFICATION.md §"wrap-around parity", which resolved at
+# offset 9 inside "theorem (wrap-around parity is odd)" and was widened to the label's own
+# opening form). That fix is what the LEG 7 fire-proof re-injects, so this rule is proven against
+# its real motivating example rather than a synthesised one.
+#
+# WHY THE HEADING LEG IS LEFT ALONE. Its anchors are far less numerous, its §"A … B" gap form is
+# in live use, and A7's ambiguity note already covers its weak case. Tightening both legs in one
+# commit would make a green run unattributable to either. WHAT THE PREFIX RULE CANNOT SEE: a
+# reference that IS a correct prefix of the WRONG label — prefix anchoring constrains WHERE a
+# match may start, never WHICH label is meant, so it is a strictly weaker claim than identity and
+# the [bold-anchor] print stays.
 for m, ln, d, s, hs in ambiguous:
     print(f'  [note] {m}:{ln} -> {d} §"{s}" resolves against {len(hs)} headings, so it does')
     print(f'         not identify one section. Lengthen the reference until it does:')
@@ -2591,6 +2619,28 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+c
          fi
          _selftest_revert documentation/GUIDE.md; } \
     || { echo "  [FAIL] GATE 4b LEG 6 — could not inject; assertion did NOT run."; PASS=1; }
+
+  # ITEM B4 (2026-08-02, drain-1) — LEG 7, the PREFIX RULE, proven on the REAL defect that
+  # motivated it rather than on a synthesised one. `f3179f8` measured prefix anchoring at 1 of
+  # 18 and then FIXED that one, so by the time the rule shipped its population was 0 — which is
+  # exactly the situation in which a new gate can ship decorative and nobody notices. The
+  # mutation therefore re-injects the historical defect verbatim: CITATIONS.md's reference to
+  # SPECIFICATION.md's wrap-around-parity theorem, narrowed back to the form that resolved at
+  # OFFSET 9 inside "theorem (wrap-around parity is odd)".
+  #
+  # BOTH HALVES ARE LOAD-BEARING. rc alone would be satisfied by any unrelated failure the
+  # mutation happened to cause, so the ERE pins the gate's own WHY on this exact target — and
+  # that WHY is the sentence the prefix rule rewrote, so a run of this file WITHOUT the rule
+  # cannot print it. WHAT IT DOES NOT PROVE: that no OTHER weak resolution exists; the leg
+  # covers the one form the corpus is known to have produced.
+  assert_fires_why "GATE 4b LEG 7: a bold label matched mid-text is not an anchor" secrefs \
+    'nothing in documentation/SPECIFICATION\.md is named "wrap-around parity"' \
+"p='documentation/CITATIONS.md'
+s=open(p,encoding='utf-8').read()
+a='[SPECIFICATION.md](SPECIFICATION.md) '+chr(167)+'\"Theorem (Wrap-around parity is odd)\"'
+assert s.count(a)==1, 'anchor moved: found %d occurrences' % s.count(a)
+b='[SPECIFICATION.md](SPECIFICATION.md) '+chr(167)+'\"wrap-around parity\"'
+open(p,'w',encoding='utf-8').write(s.replace(a,b,1))"
 
   # ITEM A6 — the corpus-wide final-newline PREFLIGHT, proven on a file whose own gate does
   # NOT check it. RETRACTED_FIGURES.tsv would be the obvious target and is the wrong one:
