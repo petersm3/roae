@@ -132,7 +132,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ framing — priority ceded"). (Re
    variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each
    relabeled twin is a late leaf of its own cell. Presence in a budgeted canonical therefore reflects the
    search's frame of reference, not a mathematical property of the ordering — the strongest concrete
-   illustration yet of [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) §"Is finding King Wen early an artifact?".
+   illustration yet of [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) §"Is finding King Wen early … an artifact of our setup?".
 6. **Methodological lesson and consequences.** Budgeted-slice statistics cannot decide set-level
    properties: the 2026-04-25 negative was a category error (budget/dedup artifacts read as solution-set
    asymmetry), and the twins demonstration is the same error's mirror image made vivid. Corrected

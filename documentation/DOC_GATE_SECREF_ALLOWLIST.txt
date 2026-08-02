@@ -21,7 +21,6 @@ documentation/BRANCHES_EXPLAINED.md	documentation/DEVELOPMENT.md	10T d3 canonica
 documentation/CITATIONS.md	documentation/SPECIFICATION.md	wrap-around parity	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 documentation/CRITIQUE.md	documentation/SOLVE_SUMMARY.md	560T canonical results	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 documentation/CRITIQUE.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
-documentation/CRITIQUE.md	documentation/SEARCH_SPACE_SIZE.md	Is finding King Wen early an artifact of our setup?	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 documentation/CRITIQUE.md	documentation/HISTORY.md	April 29-30	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 documentation/DESCRIPTION_LENGTH.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 documentation/DEVELOPMENT.md	documentation/HISTORY.md	Methodology lesson learned (and contamination correction)	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
@@ -35,7 +34,6 @@ reports/METHODS.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 reports/TR4_SIZE_OF_THE_SPACE.md	documentation/CRITIQUE.md	per-branch yield labels	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 reports/TR5_SYMMETRY.md	documentation/CITATIONS.md	(Z/2)⁶ framing — priority ceded	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
-reports/TR5_SYMMETRY.md	documentation/SEARCH_SPACE_SIZE.md	Is finding King Wen early an artifact?	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
 reports/TR8_REORDERING_REVISITED.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
 reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
 reports/evidence/f11/README.md	reports/TR2_THE_RULES_CONFLICT.md	Stop-flag resolution	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN

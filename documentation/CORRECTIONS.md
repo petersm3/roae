@@ -386,6 +386,30 @@ The most serious retraction in this record.
 
 ---
 
+### CX-18 · 2026-08-02 · C3 · TR-1 published two revision rows numbered v1.21
+
+- **Documents:** `reports/TR1_EIGHT_CENTURIES_MEASURED.md` (Revision History).
+- **BEFORE:** the `d7` classification row (2026-08-02, commit `1134f26`) was inserted **above** the
+  existing v1.21 row and numbered v1.21 as well. Two rows carried the same version, the history no
+  longer ascended by date, and `*(current)*` sat on the **older** of the two.
+- **NOW:** the d7 row is v1.22 `*(current)*` and sits below v1.21; the 2026-08-01 row keeps v1.21.
+  The renumber went to the NEW row deliberately, so the external citations of "TR-1 v1.21" in
+  `documentation/LITERATURE_RULES_POPULATION_TESTS.md:9,11` still resolve to the row they were
+  written about.
+- **How it was found:** a sweep of every report for duplicate version numbers, prompted by the
+  round-3 harvest's TR-1 scoreboard item. TR-11's three `v1.0-draft` rows and TR-4's `v1.7`/`v1.7.1`
+  were checked in the same sweep and are both legitimate under the versioning policy; TR-1 was the
+  only true collision. `reports/METHODS.md` has no `*(current)*` row at all — noted, not changed,
+  because METHODS is not a numbered report.
+- **Self-inflicted, and recorded as such:** this was introduced by the round-3 unit that classified
+  `d7`, one day before it was found. The versioning policy in [reports/README.md](../reports/README.md)
+  §"Living documents" anticipates *skipped* numbers and says nothing about *duplicated* ones; nothing
+  mechanical checks for them.
+- **What did not move:** no number, count, sha, certificate, theorem or verdict. Both rows' text is
+  unchanged apart from the integrity note appended to v1.22.
+
+---
+
 <a id="gates"></a>
 
 ## Gates
