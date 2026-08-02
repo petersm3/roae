@@ -3267,11 +3267,26 @@ os.remove(p)"
   # assert_fires_why invocation would leave that assertion unchecked forever and still print
   # [ok] with a smaller count than the file has calls — nobody reads counts. Deleting an
   # ERE argument must therefore be a FAIL, not a quieter [ok].
+  #
+  # BOTH COPIES ARE BUILT LINE-ANCHORED, IN PYTHON, AND THAT IS A CORRECTION. The first
+  # version used `sed` plus a `grep -F` build check, and the vacuity leg FAILED in the
+  # harness: its check asked whether the string `'spans a hard wrap'` had disappeared from
+  # the copy, and that string still occurred — inside this fire-proof's own sed expression
+  # and inside its own failure message. The build check could never succeed. Same shape as
+  # GATE 15's first fire-proof (an assertion satisfied by its own source text), reached from
+  # the opposite direction: there the injected string was found where it should not have
+  # been, here it was found where its absence was the test. Both legs now match a WHOLE
+  # STRIPPED LINE and assert the exact number of anchors found, so no other occurrence of
+  # the text — comment, message, or the mutation itself — can participate.
   _G16_COPY=$(git rev-parse --git-dir)/doc_gates_g16_copy.sh
 
-  if sed "s|^    'matched as the fixed string: \"hard floor k>=13\"' \\\\\$|    'tracked markdown missing from the working tree' \\\\|" \
-       scripts/doc_gates.sh > "$_G16_COPY" \
-     && grep -qF "'tracked markdown missing from the working tree' \\" "$_G16_COPY"; then
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L)
+   if l.strip()==chr(39)+'matched as the fixed string: \"hard floor k>=13\"'+chr(39)+' '+chr(92)]
+assert len(t)==2, 'anchor moved: %d (GATE 3 and GATE 6 share this ERE)' % len(t)
+L[t[0]]='    '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
     if printf '%s' "$G16OUT" | grep -qF 'is satisfied by a PREFLIGHT line'; then
       echo "  [ok]   GATE 16 an assertion reworded onto the preflight's wording — fires (the A6 near-miss)"
@@ -3287,8 +3302,13 @@ os.remove(p)"
     PASS=1
   fi
 
-  if sed "s|^    'spans a hard wrap' \\\\\$||" scripts/doc_gates.sh > "$_G16_COPY" \
-     && ! grep -qF "'spans a hard wrap'" "$_G16_COPY"; then
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L)
+   if l.strip()=='retract-figures '+chr(39)+'spans a hard wrap'+chr(39)+' '+chr(92)]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+del L[t[0]]
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
     if printf '%s' "$G16OUT" | grep -qF 'no evidence-ERE could be extracted'; then
       echo "  [ok]   GATE 16 an assert_fires_why whose ERE cannot be extracted — fires, not skipped"
@@ -4440,9 +4460,20 @@ if not os.path.isfile(src):
     sys.exit(1)
 lines = open(src, encoding="utf-8").read().splitlines()
 
-# --- the assertions. The ERE is the first single-quoted token on the invocation line or on
-# one of the two lines after it (the file's only two layouts: gate-then-ERE on the call line,
-# or the call line ending in a backslash with `gate 'ERE'` or `'ERE'` beneath).
+# --- the assertions. The ERE is the first single-quoted token in the invocation's ARGUMENT
+# LIST: the call line after the double-quoted label, then continuation lines, stopping at the
+# line that opens the python mutation (column 0, `"`).
+#
+# THE STOP CONDITION IS NOT TIDINESS. Without it the scan walks into the mutation body and
+# takes a quoted PYTHON literal as the ERE. Measured, not reasoned: with the 'spans a hard
+# wrap' ERE deleted, the earlier 3-line-lookahead version reported the mutation's
+# 'documentation/GUIDE.md' as that assertion's evidence-ERE — an assertion with NO evidence
+# argument was scored as having one, and it then collided with a preflight line, so the gate
+# fired for a reason that had nothing to do with the deletion. Found by running the vacuity
+# fire-proof, which is exactly what that fire-proof is for.
+#
+# The label is skipped by starting the search after its closing quote, so a label containing
+# an apostrophe cannot be mistaken for the ERE.
 calls = [i for i, ln in enumerate(lines) if ln.startswith("  assert_fires_why ")]
 QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'")
 LABEL = re.compile(r'^  assert_fires_why "((?:[^"\\]|\\.)*)"')
@@ -4451,14 +4482,18 @@ for i in calls:
     m = LABEL.match(lines[i])
     label = m.group(1) if m else "<unparsed label at %s:%d>" % (src, i + 1)
     ere = None
-    for j in (i, i + 1, i + 2):
-        if j >= len(lines):
-            break
-        # skip the label itself: it is double-quoted, so QUOTED cannot see it
-        q = QUOTED.search(lines[j])
+    j, start = i, (m.end() if m else 0)
+    while j < len(lines) and j <= i + 4:
+        ln = lines[j]
+        if j > i and ln.startswith('"'):
+            break                       # the mutation body begins; the argument list is over
+        q = QUOTED.search(ln, start if j == i else 0)
         if q:
             ere = q.group(1)
             break
+        if not ln.rstrip().endswith("\\"):
+            break                       # the invocation ended with no quoted ERE at all
+        j += 1
     found.append((label, ere, i + 1))
 
 bad = 0
