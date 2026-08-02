@@ -3603,6 +3603,111 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
   fi
   rm -f "$_G16_COPY"
 
+  # ------------------------------------------------------------------------------
+  # GATE 17 FIRE-PROOFS (round-7 brief item 6, 2026-08-02) — FIVE LEGS.
+  #
+  # The first two REPRODUCE the two historical defects rather than describing them: ccn4's
+  # verdict written by description and not at the id, and a load-bearing row nobody was
+  # looking at. The remaining three exist because this gate's own first live run was WRONG
+  # in both directions at once — it reported rs1 missing from both published boards and
+  # invented an orphan row "Full" — and the fault was entirely in the parser. A gate whose
+  # first run mis-parsed the corpus does not get to be trusted on a green run.
+  _G17_TR=reports/TR1_EIGHT_CENTURIES_MEASURED.md
+
+  # LEG 1 — THE MOTIVATING EXAMPLE, and it is a LEG-B (report-only) case, so it asserts on
+  # OUTPUT and requires rc 0. Stripping ccn4's inline verdict recreates the corpus exactly as
+  # it stood before TR-1 v1.23: the row IS classified, in prose, next to its description --
+  # and this gate must nonetheless move it into the "no verdict at the id" bucket, because
+  # that bucket is about FINDABILITY BY ID and nothing else. If this leg ever stops firing,
+  # the gate has started crediting a verdict to a row that does not carry one, which is the
+  # false clear that let the 2026-08-01 sweep call d7 "the last unclassified row".
+  if python3 -c "
+p='$_G17_TR'
+s=open(p,encoding='utf-8').read()
+a=' (*data-like* — see headline 1)'
+assert s.count(a)==1, 'ccn4 inline-verdict anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'',1))" 2>/dev/null; then
+    G17OUT=$(bash "$0" scoreboard 2>&1); G17RC=$?
+    if [ "$G17RC" -eq 0 ] \
+       && printf '%s' "$G17OUT" | grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 1/31 rule(s) carry a verdict at the id (d7)' \
+       && printf '%s' "$G17OUT" | grep -qE 'TR1_EIGHT_CENTURIES_MEASURED\.md: 22 row\(s\) carry NO verdict at the id \(rs1, rs2, ccn1, ccn2, ccn3, ccn4,'; then
+      echo "  [ok]   GATE 17 LEG 1: ccn4's verdict stripped from the id — 2/31 becomes 1/31 and ccn4 joins the silent bucket (the pre-v1.23 corpus)"
+    else
+      echo "  [FAIL] GATE 17 LEG 1 — the ccn4 row kept its verdict after the verdict was deleted"
+      echo "         (rc=$G17RC). That is the ccn4 defect, inverted: the ledger would report a"
+      echo "         classification nobody wrote."
+      printf '%s\n' "$G17OUT" | grep -E 'TR1_EIGHT' | sed 's/^/           > /' | head -3
+      PASS=1
+    fi
+    _selftest_revert "$_G17_TR"
+  else
+    echo "  [FAIL] GATE 17 LEG 1 — could not inject; the assertion did NOT run."; PASS=1
+  fi
+
+  # LEG 2 — LEG A, hard, on the other historical row. d7 was unclassified for weeks and was
+  # found because a human named it; deleting its board entry outright is the coarsest version
+  # of the same invisibility, and must be a FAIL naming d7 rather than a note.
+  assert_fires_why "GATE 17 LEG 2: a registry rule deleted from the published board (d7)" \
+    scoreboard 'registry rule\(s\) never reach the published board: d7' \
+"p='$_G17_TR'
+s=open(p,encoding='utf-8').read()
+a=' · d7 1.7×10⁻⁴'
+assert s.count(a)==1, 'd7 board-entry anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'',1))"
+
+  # LEG 3 — THE VACUITY GUARD, and the one this gate most needs. If an anchor moves, the
+  # naive outcome is an empty region: every id reads as missing, or (had the scan been written
+  # the other way) nothing reads as missing and the run is GREEN with the instrument switched
+  # off. That second outcome is the 2026-08-01 false clear exactly. The mutation breaks the
+  # TABLE anchor specifically — the one added AFTER the first live run mis-parsed rs1 — so
+  # this leg also pins the fix that run forced.
+  assert_fires_why "GATE 17 LEG 3: the table anchor moved — an unlocatable board is a FAIL, not an empty scan" \
+    scoreboard 'table anchor MISSING' \
+"p='$_G17_TR'
+s=open(p,encoding='utf-8').read()
+a='estimates): rs1'
+assert s.count(a)==1, 'table anchor already absent or duplicated: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'estimates) : rs1',1))"
+
+  # LEG 4 — PROVES THE GATE READS THE REGISTRY, not a list transcribed into this script. A
+  # gate that hard-coded the 31 ids would pass legs 1-3 unchanged and would be silent on the
+  # only event it exists to catch: a rule added to solve.py that never reaches the board.
+  # This is the same distinction GATE 14's "a NEW pair the allowlist has never seen" leg
+  # draws, and it is the leg a refactor is most likely to quietly invalidate.
+  assert_fires_why "GATE 17 LEG 4: a NEW registry rule that never reaches the board (proves the id list is derived, not transcribed)" \
+    scoreboard 'never reach the published board: zzselftest' \
+"p='solve.py'
+s=open(p,encoding='utf-8').read()
+a='REGISTRY_KW_EXPECTED = ['
+assert s.count(a)==1, 'registry anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,a+chr(10)+'    (\"zzselftest\", 0),',1))"
+
+  # LEG 5 — NEGATIVE CONTROL, and it targets the boundary rather than the happy path. The
+  # word "principled" is inserted AFTER the close anchor, i.e. outside the table. A gate that
+  # grepped the file instead of the bounded region would credit some row with a verdict it
+  # does not have; the counts must not move. Without this leg, legs 1-4 are equally consistent
+  # with a scan that reads the whole document.
+  if python3 -c "
+p='$_G17_TR'
+s=open(p,encoding='utf-8').read()
+a='Wrap-distance finals:'
+assert s.count(a)==1, 'close anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like rows. '+a,1))" 2>/dev/null; then
+    G17OUT=$(bash "$0" scoreboard 2>&1); G17RC=$?
+    if [ "$G17RC" -eq 0 ] \
+       && printf '%s' "$G17OUT" | grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 2/31 rule(s) carry a verdict at the id (ccn4, d7)'; then
+      echo "  [ok]   GATE 17 LEG 5: a verdict word OUTSIDE the close anchor changes no count — the region bounds the scan"
+    else
+      echo "  [FAIL] GATE 17 LEG 5 — text outside the board moved the verdict ledger (rc=$G17RC),"
+      echo "         so the gate is grepping the document, not reading the table."
+      printf '%s\n' "$G17OUT" | grep -E 'TR1_EIGHT' | sed 's/^/           > /' | head -3
+      PASS=1
+    fi
+    _selftest_revert "$_G17_TR"
+  else
+    echo "  [FAIL] GATE 17 LEG 5 — could not inject; the assertion did NOT run."; PASS=1
+  fi
+
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
@@ -3618,7 +3723,11 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
   #            the uncomparable-rule refusal, and the A1 missing-input leg) + 1 negative
   #            control, 15 x3 (undeclared instrument, a row naming an assertion nobody
   #            wrote, a row for a function that no longer exists) + its A1 leg + 1 negative
-  #            control
+  #            control,
+  #            17 x4 (LEG B's motivating ccn4 case, a registry rule deleted from the board,
+  #            the moved-anchor vacuity guard, and a NEW registry rule proving the id list is
+  #            derived from solve.py rather than transcribed) + 1 NEGATIVE control that puts a
+  #            verdict word OUTSIDE the close anchor and requires the counts not to move
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
   #            11 x2, 12, and the corpus preflight x1 -- 13 assertions, all asserting WHY.
 #            (GATE 6 now has THREE A1 legs: its registry, a deleted generator, and the
@@ -4886,6 +4995,183 @@ sys.exit(bad)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 17 — every registry rule reaches the published scoreboard, and its data-like /
+# principled verdict is findable AT ITS ROW ID (round-7 brief item 6, 2026-08-02).
+#
+# WHY THIS EXISTS. Twice now a load-bearing scoreboard row has been carried unclassified
+# for weeks and been found only because a human named it:
+#   * `d7` — unclassified until 2026-08-01, found because the operator asked about it.
+#   * `ccn4` — classified data-like since 2026-07-03, but the verdict was written next to
+#     the DESCRIPTION ("Schulz's S25-28 trigram configuration") and never next to the id.
+#     TR-1 v1.23 records what that cost: the 2026-08-01 sweep that concluded d7 was "the
+#     last unclassified load-bearing row" matched id tokens, could not see the ccn4 verdict,
+#     and so carried THE MOST-CITED ROW ON THE BOARD (2x10^-8, the strongest discriminator)
+#     as unclassified. The sweep's conclusion was wrong in both directions at once.
+# Two instances, one shape: a verdict is findable by description but not by id, and the only
+# instrument that has ever looked was a human reading prose. TR-1 v1.23 states the residue in
+# prose — "`ccn8` and the remaining SAMPLED rows carry no verdict" — which is honest but is a
+# sentence about a sample, written on 2026-08-02, that ages the moment a rule is added.
+#
+# WHAT IT DOES, and the split between the two halves is the whole design:
+#   LEG A (HARD).   Every id in solve.py's REGISTRY_KW_EXPECTED must appear as a row on the
+#                   published board in BOTH files that carry it, and no board row may name a
+#                   rule the registry does not have. This is mechanical and has one right
+#                   answer, so it FAILS.
+#   LEG B (REPORT-ONLY). For each id, is a data-like / principled verdict findable within
+#                   that id's own board entry? Printed as a per-row ledger with counts. This
+#                   does NOT fail: 21 rows carry no verdict today, and whether they need one
+#                   is a METHODS judgment routed to the operator (inbox O2), not a gate's
+#                   call. A gate that declared two thirds of a published table in violation
+#                   would be turned off within the day — the same reasoning that ships
+#                   GATE 13 report-only.
+#
+# WHAT IT CANNOT SEE, said plainly, because a clear from this gate is weaker than a failure:
+#   (a) It cannot see a verdict written ANYWHERE BUT the id's own board entry. That is not a
+#       limitation to apologise for, it is the measurement: the ccn4 defect WAS a verdict
+#       that existed elsewhere. A row this gate calls "silent" may well be classified in
+#       prose two paragraphs up. The ledger says "no verdict at the id", never "unclassified".
+#   (b) It cannot judge whether a verdict is CORRECT, or whether the dof count behind it is
+#       right. reg_d7's verdict was wrong for weeks while being present.
+#   (c) "(theorem)" rows are counted in their own bucket, not as classified. Whether a rule
+#       that measures at 1.0 of canonical mass — a forced consequence, which discriminates
+#       nothing — even admits a data-like/principled verdict is exactly the sort of judgment
+#       (c) says this gate does not make.
+#
+# COST: two file reads and 31 substring searches. Milliseconds; it is in `all`.
+gate_scoreboard_verdicts() {
+  echo "== GATE 17: every registry rule is on the scoreboard, verdict findable at its id =="
+  python3 - <<'PY'
+import re, sys
+sys.path.insert(0, '.')
+try:
+    import solve
+except Exception as exc:                       # noqa: BLE001 — any import failure is a FAIL
+    print("  [FAIL] cannot import solve.py, so ZERO rules were checked: %s" % exc)
+    print("         A gate that cannot load its subject has checked nothing.")
+    sys.exit(1)
+
+ids = [r for r, _ in solve.REGISTRY_KW_EXPECTED]
+# Same vacuity guard as GATE 14, and for the same measured reason: an emptied or renamed
+# REGISTRY_KW_EXPECTED otherwise yields "[ok] 0 rules checked" and exit 0.
+if not ids:
+    print("  [FAIL] REGISTRY_KW_EXPECTED holds no rules, so this gate checked NOTHING")
+    sys.exit(1)
+
+# The two files that publish the board. Both must carry every rule: they are hand-maintained
+# copies of one table, so a rule added to one and not the other is precisely the drift a
+# reader comparing the report against the documentation would hit.
+BOARDS = [
+    "reports/TR1_EIGHT_CENTURIES_MEASURED.md",
+    "documentation/LITERATURE_RULES_POPULATION_TESTS.md",
+]
+OPEN_ANCHOR = "Full table (fraction of canonical mass"
+# The board's FIRST entry (rs1) does not begin a "·"-separated chunk — it follows the
+# table's introductory clause on the same run of prose. MEASURED, not anticipated: the
+# first live run of this gate reported rs1 missing from BOTH files and reported a phantom
+# orphan row "Full", because the opening chunk began "Full table (fraction ...". Both
+# findings were defects in this parser, not in the corpus. So the region starts AFTER the
+# clause's closing "estimates):", and failing to find it is a FAIL like any moved anchor.
+TABLE_ANCHOR = "estimates):"
+CLOSE_ANCHOR = "Wrap-distance finals"
+
+bad = 0
+regions = {}
+for path in BOARDS:
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError as exc:
+        print("  [FAIL] %s cannot be read, so its board was not checked: %s" % (path, exc))
+        bad = 1
+        continue
+    i = text.find(OPEN_ANCHOR)
+    k = text.find(TABLE_ANCHOR, i) if i >= 0 else -1
+    j = text.find(CLOSE_ANCHOR, k + 1) if k >= 0 else -1
+    # THE ANCHOR-MOVED BRANCH IS THE GATE'S OWN FAILURE MODE, not a corner case. If the
+    # prose is rewritten and either anchor moves, a naive scan returns an empty region, every
+    # id reads as missing OR (worse, if the scan is written the other way) nothing reads as
+    # missing at all, and the run is green with the instrument switched off. Finding no
+    # region is therefore a FAIL that names the anchor, exactly as GATE 15's header requires.
+    if i < 0 or k < 0 or j < 0:
+        print("  [FAIL] %s — the board region could not be located (open anchor %s, table"
+              " anchor %s, close anchor %s)"
+              % (path, "FOUND" if i >= 0 else "MISSING", "FOUND" if k >= 0 else "MISSING",
+                 "FOUND" if j >= 0 else "MISSING"))
+        print("         The anchors are prose and prose gets rewritten. Re-point them at the")
+        print("         table; do NOT let this gate scan an empty region and report [ok].")
+        bad = 1
+        continue
+    regions[path] = text[k + len(TABLE_ANCHOR):j]
+
+if len(regions) != len(BOARDS):
+    sys.exit(1)
+
+# A board entry is "<id> <mass>[ (annotation)]", entries separated by " \xb7 ". Split on the
+# separator so an annotation is attributed to the id it follows and to no other -- the whole
+# point is that ccn4's verdict must not be credited to ccn3 because they share a line.
+ID_AT_START = re.compile(r"^\**([A-Za-z][A-Za-z0-9]*)\b")
+for path, region in sorted(regions.items()):
+    entries = {}
+    for chunk in region.split("·"):
+        m = ID_AT_START.match(chunk.strip())
+        if m:
+            entries.setdefault(m.group(1), []).append(chunk)
+    missing = [r for r in ids if r not in entries]
+    if missing:
+        print("  [FAIL] %s — %d registry rule(s) never reach the published board: %s"
+              % (path, len(missing), ", ".join(missing)))
+        print("         A rule that is measured but not published is invisible to every")
+        print("         reader who audits the table instead of the code.")
+        bad = 1
+    known = set(ids)
+    # Wrap-distance finals (d1/d3/d5) are NOT registry rules and are published in the
+    # following sentence, outside the close anchor; anything else with a mass on the board
+    # and no rule behind it is a row nobody can reproduce.
+    orphans = [r for r in sorted(entries) if r not in known]
+    if orphans:
+        print("  [FAIL] %s — board row(s) with no registry rule behind them: %s"
+              % (path, ", ".join(orphans)))
+        bad = 1
+
+if bad:
+    sys.exit(1)
+
+# LEG B — report-only ledger, printed PER BOARD rather than once. The two files are
+# hand-maintained copies, so a verdict added to the report and not to the documentation is a
+# real divergence; collapsing them into one ledger would hide exactly that.
+VERDICT = re.compile(r"data-like|principled", re.I)
+THEOREM = re.compile(r"\(theorem\)")
+for path, region in sorted(regions.items()):
+    entries = {}
+    for chunk in region.split("·"):
+        m = ID_AT_START.match(chunk.strip())
+        if m:
+            entries.setdefault(m.group(1), []).append(chunk)
+    at_id, theorem, silent = [], [], []
+    for r in ids:
+        blob = " ".join(entries[r])
+        if VERDICT.search(blob):
+            at_id.append(r)
+        elif THEOREM.search(blob):
+            theorem.append(r)
+        else:
+            silent.append(r)
+    print("  [note] %s: %d/%d rule(s) carry a verdict at the id (%s)"
+          % (path, len(at_id), len(ids), ", ".join(at_id) or "none"))
+    print("  [note] %s: %d forced-constant row(s) marked (theorem) — bucket, not a verdict (%s)"
+          % (path, len(theorem), ", ".join(theorem) or "none"))
+    print("  [note] %s: %d row(s) carry NO verdict at the id (%s)"
+          % (path, len(silent), ", ".join(silent) or "none"))
+print("  [note] REPORT-ONLY: 'no verdict at the id' is NOT 'unclassified' — this gate cannot")
+print("         see a verdict written next to the row's DESCRIPTION, which is exactly how the")
+print("         ccn4 verdict hid from the 2026-08-01 sweep. Classifying these rows is a")
+print("         METHODS judgment (inbox O2), not a gate change.")
+print("  [ok] %d registry rule(s) present on %d board(s); verdict ledger above is report-only"
+      % (len(ids), len(regions)))
+sys.exit(0)
+PY
+}
+
 MODE="${1:-all}"
 
 # ITEM A1, hole (b) — runs for EVERY mode, including the single-gate invocations the
@@ -4922,6 +5208,7 @@ case "$MODE" in
   regdupes) gate_registry_dupes || RC=1 ;;
   instruments) gate_selftest_instruments || RC=1 ;;
   collisions) gate_preflight_collisions || RC=1 ;;
+  scoreboard) gate_scoreboard_verdicts || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -4934,8 +5221,9 @@ case "$MODE" in
            echo; gate_revrows || RC=1
            echo; gate_registry_dupes || RC=1
            echo; gate_selftest_instruments || RC=1
-           echo; gate_preflight_collisions || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|instruments|collisions|generated|all}"; exit 2 ;;
+           echo; gate_preflight_collisions || RC=1
+           echo; gate_scoreboard_verdicts || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|instruments|collisions|scoreboard|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -4948,7 +5236,8 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only). Gates 1, 5 (incl. 5b), 13"
+  echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then
