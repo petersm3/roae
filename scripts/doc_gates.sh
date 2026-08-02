@@ -3890,9 +3890,11 @@ assert os.path.exists(p), 'anchor moved'
 os.remove(p)"
 
   # EVIDENCE (round 8 drain-3): same shape as GATE 14's — the instrument count is what a
-  # comment mis-parsed as a row would move.
+  # comment mis-parsed as a row would move. RE-TAKEN 10 -> 11 (round 9, item B2) when _g16b
+  # was declared: the number came from running `instruments` under this exact mutation, not
+  # from adding one to the old ERE, which is the difference this control exists to enforce.
   assert_stays_clean_why "GATE 15 a comment appended to the table changes nothing" instruments \
-    '10 instrument\(s\) in the --selftest region, all declared' \
+    '11 instrument\(s\) in the --selftest region, all declared' \
 "open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
     '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
 
@@ -3960,8 +3962,11 @@ open(p,'w',encoding='utf-8').write(s.replace(a, chr(9)+'kind=INVOCATION callers=
   # classification — not merely that the mode exited 0. What it deliberately does NOT prove
   # is that the mutated NOTE was read, because it was not read: that is caveat (4), and this
   # control is the standing demonstration of it rather than a sentence asserting it.
+  # RE-TAKEN 6 -> 7 kind=INVOCATION (round 9, item B2) when _g16b's row landed; taken from a
+  # run under this mutation, and it is the census MOVING that made the re-take necessary,
+  # which is the property being asserted.
   assert_stays_clean_why "GATE 15 LEG 3 a rewritten note changes no claim" instruments \
-    'claims column: 6 kind=INVOCATION' \
+    'claims column: 7 kind=INVOCATION' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
 a=chr(9)+\"GATE 8's negative control: proves\"
