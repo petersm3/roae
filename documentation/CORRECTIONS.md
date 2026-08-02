@@ -397,6 +397,10 @@ commits:
 | — by source: git | 283 |
 | — by source: changelog | 68 |
 
+> **This table is superseded — see [Re-measurements](#re-measurements) at the foot of the file.** It
+> is left standing rather than updated, because this file is append-only and that rule applies to its
+> own numbers first.
+
 These numbers are a **moving target** and are recorded for provenance, not as a result. Re-run the
 script rather than trusting the table. They are also not directly comparable to the previous
 inventory's 651 candidates: that build used a narrower keyword table (essentially
@@ -422,3 +426,39 @@ scripts/corrections_inventory.sh --summary     # the table above
   close it. The honest statement is that this file records the corrections we *know about*, and the
   gates above make it hard for a *registered* one to go missing — not for an unregistered one to be
   found.
+
+---
+
+<a id="re-measurements"></a>
+
+## Re-measurements
+
+Later runs of `scripts/corrections_inventory.sh`, appended. The
+[Sweep provenance](#sweep-provenance) table above is never edited; it is corrected here, which is the
+same rule every entry in this file is held to.
+
+| run | total | C1 | C2 | C3 | C4 | inline | git | changelog | note |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-02 (first) | 1,250 | 159 | 107 | 786 | 198 | 899 | 283 | 68 | the table above |
+| 2026-08-02 (second) | 1,256 | 162 | 108 | 788 | 198 | 904 | 284 | 68 | after this file was linked from six documents, and after its own commit landed |
+
+**The +6 is this file's own footprint**, and it reconciles exactly. Two inline rows were *replaced*
+(README.md:177 and reports/README.md:19, both edited in place, so their content-addressed ids changed);
+five inline rows are *new* (documentation/README.md, CRITIQUE.md, HISTORY.md and two in
+CLAIMS_DECIDED.md); one git row is new (commit `2b3a3ac`, whose own message is full of correction
+vocabulary). 2 out, 8 in, net +6. A record of corrections is not outside the system it describes:
+CORRECTIONS.md and the inventory are excluded from the sweep (otherwise each regeneration re-ingests
+its own output), but the documents that *link* to them are not, and should not be.
+
+**The ids behaved as designed — which is not the same as "did not move".** The re-run rewrote the
+`line` column of 256 rows, because the six edits shifted line numbers throughout, and **not one id
+changed on account of a line move**. The only ids that changed were the two whose *text* changed,
+which is correct: an id addresses content, so re-wording a line is a new row and re-numbering a line
+is not. A sequence-numbered inventory would have renumbered a fifth of the file over a change that
+corrected nothing.
+
+**A first draft of this subsection asserted "every id stayed identical" and was wrong** — it was
+written from the design intent rather than from the diff, and the diff says 2 ids left and 8 arrived.
+The by-source figures in the row above were also wrong on first writing (904/284 stated as 905/283).
+Recorded here rather than quietly fixed, since the file's entire subject is the difference between
+those two responses.
