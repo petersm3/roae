@@ -95,6 +95,22 @@ remains only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite su
 (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems in
 `PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel.
 
+**PROVENANCE OF THE AXIOM SETS ABOVE — added 2026-08-02 (hardening item B1), because the
+obvious inference from reading this file is wrong.** The `#print axioms` results quoted in
+this section were read from **dated full-file builds** (2026-07-26, 07-27 and 07-31; each
+dated at its own claim site below). They were **not** produced by the in-file `#print axioms`
+directives you will find in the `.lean` sources: those were added on 2026-08-01 (`d3d6772`)
+with bare names for constants declared inside `namespace` blocks, so six of twelve files —
+`TrigramTheorems`, `C3Decomposition`, `PruneExactness`, `PartitionInvariance`,
+`SymmetryCompleteness`, `PruneGInvariance` — failed with "Unknown constant" and the ~89
+directives **never executed**. `03c2a05` (2026-08-02) qualified every name; the re-run that
+would make those directives a live witness has not been performed yet.
+So: nothing in this section rests on the broken directives — a sweep of the markdown corpus
+on 2026-08-02 found no published sentence that cites them as its warrant — but nothing in it
+is re-confirmed by the directives either. The exposed claim, named rather than left for a
+reader to locate, is the exhaustive negative one two paragraphs up: "`native_decide` remains
+**only** in" those same six files. An executed audit is what would establish an *only*.
+
 Verified statements:
 
 | Theorem | Statement |
