@@ -82,9 +82,15 @@
 #       into doc_gates.sh, and the fire-proof satisfied the condition it was testing for.
 #       It now assembles its substitute label from fragments and asserts the assembled form
 #       is absent before injecting.
-#       NARROWED BY LEG 3, not closed: for the 6 kind=INVOCATION rows the label must now
-#       ALSO stand at a call site, a form no comment and no mutation string takes. The
-#       whole-file search remains the only check for the 3 kind=BLOCK rows.
+#       NARROWED BY LEG 3, not closed: a kind=INVOCATION row's label must now ALSO stand
+#       at a call site, a form no comment and no mutation string takes. A kind=BLOCK
+#       row's label must stand in an [ok]/[FAIL] REPORT line below a call site — until
+#       2026-08-02 ANY occurrence would do, and the strongest such row was in fact being
+#       satisfied by a grep PATTERN rather than by the assertion reporting (item N3).
+#       NO PER-KIND COUNT IS WRITTEN HERE, ON PURPOSE. This sentence used to say "the 6
+#       kind=INVOCATION rows" and "the 3 kind=BLOCK rows"; measured 2026-08-02 the
+#       first was EIGHT and had been wrong for at least a round. The live per-kind
+#       census is on the gate's own claims-column [ok] line, which cannot go stale.
 #   (3) It cannot tell a good proof from a weak one. `assert_fires_why`'s anchor-moved
 #       branch is exercised by nothing; the row says so in prose that no machine reads.
 #   (4) A row's PROSE is not read by anything, only its key, its label and its claims. The
