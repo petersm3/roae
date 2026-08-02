@@ -5827,9 +5827,11 @@ for name in sorted(defined):
 #                   program. This is item A2's first form, applied inside the builder.
 #
 # THE BUILDER DEFINITION IS THREE SYNTAXES AND THAT IS NOT COSMETIC. Reconstructing it from
-# caveat (vi)'s recorded COUNT, the obvious two — a shell redirect plus `open('$_X_COPY','w')`
-# — return SIX of the ten, silently: a plausible number, no error, and a coverage rule proven
-# against a population missing four members. The four write through the environment,
+# caveat (vi)'s recorded COUNT — a HISTORICAL measurement over the round-9 corpus, quoted here
+# as history and not as this file's population — the obvious two, a shell redirect plus
+# `open('$_X_COPY','w')`, returned SIX of the ten then known, silently: a plausible number, no
+# error, and a coverage rule proven against a population missing four members. The four
+# invisible ones write through the environment,
 # `open(os.environ['_X_COPY'],'w')`. The per-syntax census is PRINTED on every run for exactly
 # that reason: a syntax dropping to zero is now visible, where the third one's absence was not.
 #
@@ -5850,11 +5852,21 @@ for name in sorted(defined):
 #          builder to the nearest line with an odd number of unescaped `"`. If that line ends
 #          with `"` it opens a shell string and the program starts below it; if it does not,
 #          the builder is not inside a string at all and this leg refuses rather than
-#          guessing. That is sound for every builder in the corpus today (measured: all eight
-#          python builders resolve to their own `python3 -c "` or `_g16b … "` opener with no
-#          intervening parity break). It is NOT a shell parser: a `'` -quoted blob, a heredoc,
-#          or a `$'…'` string would break the parity walk, and a builder inside one would be
-#          refused with a FAIL naming the line — conservative, but a FAIL nonetheless.
+#          guessing. NO POPULATION IS QUOTED HERE ON PURPOSE — the first draft of this
+#          sentence said "all eight python builders", and the same commit that wrote it
+#          added three more. Every python builder resolving is what a green run of this leg
+#          MEANS, so the run is the statement and this comment is not. It is NOT a shell
+#          parser: a `'` -quoted blob, a heredoc, or a `$'…'` string would break the parity
+#          walk, and a builder inside one would be refused with a FAIL naming the line —
+#          conservative, but a FAIL nonetheless.
+#          THE PARITY WALK DELIBERATELY DOES NOT SKIP COMMENT LINES, and that is the
+#          opposite of what `uncommented` does two paragraphs up, so the reason is worth
+#          having in writing before someone "fixes" it: inside the blob these lines are
+#          PYTHON comments, the shell sees the whole blob as one quoted string, and their
+#          quotes therefore do count toward its parity. Skipping them would desynchronise
+#          the walk from what the shell actually did. Above the blob a shell comment's
+#          quotes do NOT count — but the walk stops at the blob opener before it can reach
+#          one, so the distinction never arises in the direction that would be wrong.
 #   (xiii) It checks that an `assert` EXISTS earlier in the program, not that the assert is
 #          ABOUT the thing being written. `assert 1==1` would satisfy it. This is the same
 #          class as caveat (viii)'s proximity-not-reachability, one level down, and it is why
@@ -5892,10 +5904,12 @@ for i in range(start + 1, end):
 if not builders:
     print("  [FAIL] LEG 4: zero copy BUILDERS found in the --selftest region (lines %d-%d)."
           % (start + 1, end + 1))
-    print("         Ten are known to exist, in THREE syntaxes, and the third was invisible")
-    print("         to the obvious definition of a builder. Finding none means this")
-    print("         extractor stopped reading them, not that the harness stopped building")
-    print("         copies — a checker that finds nothing must never report [ok].")
+    print("         They exist, in THREE syntaxes, and the third was invisible to the")
+    print("         obvious definition of a builder — which is why this message states no")
+    print("         expected number: the per-syntax census on the [ok] line is the live")
+    print("         count and this text would only go stale beside it. Finding none means")
+    print("         this extractor stopped reading them, not that the harness stopped")
+    print("         building copies — a checker that finds nothing must never report [ok].")
     bad = 1
 
 guard_lines = {g[0] for g in guards}
