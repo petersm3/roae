@@ -1250,6 +1250,20 @@ if [ "${1:-}" = "--selftest" ]; then
   fi
   echo $$ > "$SELFTEST_LOCK/pid" 2>/dev/null
 
+  # RECURSION STOP, reached only if the lock above is broken. The A3 fire-proof below calls
+  # `bash "$0" --selftest` from inside a live run and expects the LOCK to refuse it; if the
+  # lock ever stops working, that call would otherwise run the whole suite recursively. This
+  # guard is deliberately placed AFTER the lock so that on a healthy system the lock message
+  # is the one that prints (and the fire-proof asserts on that message, so a depth-guard
+  # refusal correctly reads as a FAILURE of the lock rather than a pass).
+  if [ "${DOC_GATES_SELFTEST_DEPTH:-0}" -ge 1 ]; then
+    echo "REFUSING: nested --selftest reached the depth guard, which means the lock did NOT"
+    echo "hold. Fix the lock; this guard exists only to stop unbounded recursion."
+    rm -rf "$SELFTEST_LOCK" 2>/dev/null
+    exit 2
+  fi
+  export DOC_GATES_SELFTEST_DEPTH=1
+
   # --- A3 (2): restore on every exit path, including signals. Installed only now, with the
   # tree already proven clean and the lock already held, so it can never discard real work.
   _selftest_release() {
@@ -1331,6 +1345,34 @@ if [ "${1:-}" = "--selftest" ]; then
   }
 
   echo "== DOC GATES SELF-TEST (mutation) =="
+
+  # ITEM A3 FIRE-PROOF (the mutual-exclusion half), IN-HARNESS and re-proven every run.
+  #
+  # This is here rather than in a note because of what happened to GATE 8's: its fire-proof
+  # was taken by hand, never re-run after its invocation was rewritten, and a one-directional
+  # comparison shipped behind it. A lock asserted only in a commit message decays the same
+  # way. So the assertion runs from INSIDE a live self-test, where the lock is held: the
+  # nested call must be refused, and refused FOR THE LOCK REASON. Asserting only on rc 2
+  # would be satisfied by the dirty-tree refusal, the depth guard, or a missing file — three
+  # different ways to pass without the lock working at all. The tree is clean at this point
+  # (it is the harness's own precondition and no mutation has run yet), so the dirty-tree
+  # branch cannot be what answers.
+  _a3_out=$(bash "$0" --selftest 2>&1); _a3_rc=$?
+  if [ "$_a3_rc" -eq 2 ] && printf '%s' "$_a3_out" | grep -q 'another --selftest is running'; then
+    echo "  [ok]   A3 lock — a concurrent --selftest is refused, and the refusal names the lock"
+  else
+    echo "  [FAIL] A3 lock — a concurrent --selftest was not refused for the LOCK reason (rc=$_a3_rc)"
+    printf '%s\n' "$_a3_out" | head -3 | sed 's/^/           > /'
+    PASS=1
+  fi
+  # THE SIGNAL HALF CANNOT BE ASSERTED HERE — a case that TERMs the self-test kills the
+  # harness that would report on it. It was proven externally and deterministically on
+  # 2026-08-02: with a run live and holding the lock, a marker line was appended to
+  # example/report.html FROM OUTSIDE, then SIGTERM sent. Result: rc 143, final line
+  # "DOC GATES SELF-TEST: TERMINATED (tree restored, lock released)", marker gone, lock
+  # gone, `git status --porcelain` empty. An earlier version of that proof TERM'd before any
+  # mutation existed and was therefore VACUOUS — "tree restored" was true of a tree that had
+  # never been dirtied. The recorded proof is the second, non-vacuous one.
 
   # GATE 1 is REPORT-ONLY (`return 0`) and only inspects integers of >=12 digits. Asserting a
   # non-zero exit was wrong twice over: it can never exit non-zero, and the number I first
