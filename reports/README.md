@@ -16,7 +16,7 @@ summary); and one load-bearing baseline currently has no artifact in the repo, f
 claim site ([TR-8](TR8_REORDERING_REVISITED.md) executive summary). Where a measured claim has no
 reproduction command, the report carrying it says so at the claim.*
 
-Every report opens with a plain-language executive summary — start there. For a one-page scorecard of what the suite has settled (refuted / corrected / forced / confirmed), see [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md). Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
+Every report opens with a plain-language executive summary — start there. For a one-page scorecard of what the suite has settled (refuted / corrected / forced / confirmed), see [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md). For the append-only record of every claim this suite published and later withdrew, rescoped or corrected — with what was claimed before, what is claimed now, and how it was found — see [CORRECTIONS](../documentation/CORRECTIONS.md). Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
 law — impact is audience-relative; see the reading paths). Each stands alone; together they cover the
 record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md); attribution registry: [CITATIONS](../documentation/CITATIONS.md).
 

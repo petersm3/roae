@@ -15,6 +15,7 @@ Three files stay at the repo root for tooling reasons: `README.md` (GitHub landi
 | Formal constraint definitions and theorems | [SPECIFICATION.md](SPECIFICATION.md) |
 | Known limitations, methodological caveats, null-model results | [CRITIQUE.md](CRITIQUE.md) |
 | Project history — missteps, corrections, the forensic trail | [HISTORY.md](HISTORY.md) |
+| Every claim we published and later changed (append-only record) | [CORRECTIONS.md](CORRECTIONS.md) |
 | How to reproduce results from scratch | [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) |
 | Canonical sha256 registry + reproducibility parameters | [CANONICAL_HASHES.md](CANONICAL_HASHES.md) |
 

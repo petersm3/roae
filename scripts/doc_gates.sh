@@ -18,8 +18,10 @@
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
 #   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
 #   scripts/doc_gates.sh banner     # the TR banner is byte-identical across every report + index-aligned
+#   scripts/doc_gates.sh appendonly # documentation/CORRECTIONS.md has lost no committed line
+#   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row is recorded in CORRECTIONS.md
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~90s; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all eight cheap gates (1-7, 9); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all ten cheap gates (1-7, 9, 10, 11); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -808,6 +810,39 @@ a='interpretation are argued, not verified.'
 assert a in s, 'anchor moved'
 open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
 
+  # GATE 10 POSITIVE: deleting a committed line from the corrections ledger must fire it.
+  # The deleted line is chosen from the middle of the file rather than the end, so the
+  # assertion cannot be satisfied by a "file got shorter" check that would miss a
+  # reword-in-place — the defect this gate actually exists for.
+  assert_fires "GATE 10 append-only (committed line deleted)" documentation/CORRECTIONS.md appendonly \
+"L=open('documentation/CORRECTIONS.md').read().split(chr(10))
+assert len(L) > 60, 'ledger too short to mutate meaningfully'
+del L[len(L)//2]
+open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
+
+  # GATE 10 NEGATIVE CONTROL. An APPEND must NOT fire it. Without this the [ok] above
+  # proves only that the gate is capable of failing, not that it is capable of passing
+  # — and a gate that always fails is turned off within a day, which is how the
+  # container-level exemptions in this file got there in the first place.
+  python3 -c "open('documentation/CORRECTIONS.md','a').write(chr(10)+'### CX-selftest — an appended line.'+chr(10))" 2>/dev/null \
+    && { if bash "$0" appendonly >/dev/null 2>&1; then
+           echo "  [ok]   GATE 10 negative control — a pure APPEND does not fire it"
+         else
+           echo "  [FAIL] GATE 10 fired on a pure append; it is not an append-only gate"
+           bash "$0" appendonly 2>&1 | sed 's/^/           > /' | head -5
+           PASS=1
+         fi
+         git checkout -- . 2>/dev/null; } \
+    || echo "  [SKIP] GATE 10 negative control — could not append"
+
+  # GATE 11: a registry row with no ledger entry must fire it. Injected as a NEW registry
+  # row rather than by deleting a ledger entry, because deletion would fire GATE 10 and
+  # the assertion would pass for the wrong reason — the two gates must be shown to be
+  # independent, not merely both red.
+  assert_fires "GATE 11 ledger completeness (unrecorded retraction)" documentation/RETRACTED_PHRASES.tsv ledger \
+"open('documentation/RETRACTED_PHRASES.tsv','a').write(
+ 'a synthetic phrasing that was never published'+chr(9)+'__none__'+chr(9)+'Self-test row: no ledger entry exists for it, so GATE 11 must fail.'+chr(10))"
+
   # GATE 2 (CLI drift) and GATE 5 (epistemic status) are not mutation-tested here:
   # both would require editing solve.py / a canonical quantity, and a bad revert
   # there is far more costly than the assurance is worth. They are covered by
@@ -913,6 +948,89 @@ gate_generated() {
   return "$rc"
 }
 
+# ---------------------------------------------------------------------------
+# GATE 10 — documentation/CORRECTIONS.md is APPEND-ONLY.
+#
+# WHY: a corrections ledger that can be edited is not a record, it is a draft. The
+# failure mode is not malice — it is tidying: rewording an entry to read better,
+# merging two entries, or dropping one that "was already fixed". Each of those makes
+# the ledger agree with the present, which is exactly the property it must not have.
+#
+# WHAT IT CHECKS: every line of the LAST COMMITTED version must still be present, in
+# order, in the working copy. `diff` is an LCS, so a moved or reworded line shows up as
+# a deletion and fires — moving is not appending. Appending anywhere (including in the
+# middle of the file, e.g. inserting a new entry between two existing ones) passes.
+#
+# NEGATIVE CONTROL: the self-test asserts BOTH halves — that a deleted line fires it and
+# that a pure append does NOT. A gate with no negative control might simply always fail,
+# and "it went red" would then be evidence of nothing.
+gate_appendonly() {
+  echo "== GATE 10: CORRECTIONS.md is append-only =="
+  local f="documentation/CORRECTIONS.md"
+  if [ ! -f "$f" ]; then echo "  [skip] no $f"; return 0; fi
+  if ! git cat-file -e "HEAD:$f" 2>/dev/null; then
+    echo "  [ok] $f is not yet in HEAD — nothing committed to be append-only against"
+    return 0
+  fi
+  local tmp gone
+  tmp=$(mktemp) || return 1
+  git show "HEAD:$f" > "$tmp" 2>/dev/null
+  gone=$(diff "$tmp" "$f" | grep -c '^< ' || true)
+  if [ "${gone:-0}" -eq 0 ]; then
+    local added
+    added=$(diff "$tmp" "$f" | grep -c '^> ' || true)
+    echo "  [ok] no committed line removed or reworded ($added line(s) appended since HEAD)"
+    rm -f "$tmp"; return 0
+  fi
+  echo "  [FAIL] $gone committed line(s) no longer present — CORRECTIONS.md is append-only."
+  echo "         Removed or reworded (first 5):"
+  diff "$tmp" "$f" | grep '^< ' | head -5 | cut -c1-140 | sed 's/^/           /'
+  echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
+  rm -f "$tmp"
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# GATE 11 — every REGISTERED retraction has an entry in the corrections ledger.
+#
+# WHY: RETRACTED_PHRASES.tsv (gate 3) stops a retracted wording from REAPPEARING. It
+# says nothing about whether the retraction was ever RECORDED. Those are different
+# failures, and the second is the quieter one: the corpus goes clean, the gate goes
+# green, and no reader ever learns the claim was published in the first place.
+#
+# INDEPENDENCE (the reason this gate is worth having): it is registry-driven and does
+# NOT consult scripts/corrections_inventory.sh's classifier. That classifier's C1 rule
+# deliberately requires a hard retraction token and therefore deliberately under-fires;
+# this gate is the instrument that catches what it misses. Two instruments that share a
+# failure mode are one instrument.
+#
+# KEYING: each row is keyed by RP-<first 8 hex of sha256 of the retracted string>. The
+# ledger cites the KEY, never the string — quoting the string in CORRECTIONS.md would
+# reintroduce into the corpus the exact wording gate 3 exists to keep out. A key also
+# cannot be faked by paraphrase, and a truncated quote cannot satisfy it.
+gate_ledger() {
+  echo "== GATE 11: registered retractions are recorded in CORRECTIONS.md =="
+  local reg="documentation/RETRACTED_PHRASES.tsv" f="documentation/CORRECTIONS.md"
+  if [ ! -f "$reg" ] || [ ! -f "$f" ]; then echo "  [skip] $reg or $f absent"; return 0; fi
+  command -v sha256sum >/dev/null 2>&1 || { echo "  [skip] no sha256sum"; return 0; }
+  local bad=0 n=0 key
+  while IFS=$'\t' read -r phrase allow note; do
+    case "$phrase" in ''|'#'*) continue;; esac
+    n=$((n+1))
+    key="RP-$(printf '%s' "$phrase" | sha256sum | cut -c1-8)"
+    if grep -qF -- "$key" "$f"; then
+      echo "  [ok] $key recorded"
+    else
+      echo "  [FAIL] $key has NO entry in $f"
+      echo "         registry note: $note"
+      echo "         Add an entry to CORRECTIONS.md citing $key (append only)."
+      bad=1
+    fi
+  done < "$reg"
+  [ "$bad" -eq 0 ] && echo "  [ok] all $n registered retraction(s) accounted for"
+  return $bad
+}
+
 MODE="${1:-all}"
 case "$MODE" in
   numbers) gate_numbers || RC=1 ;;
@@ -924,12 +1042,16 @@ case "$MODE" in
   liveness) gate_liveness || RC=1 ;;
   banner)  gate_banner   || RC=1 ;;
   generated) gate_generated || RC=1 ;;
+  appendonly) gate_appendonly || RC=1 ;;
+  ledger)  gate_ledger  || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_links || RC=1; echo; gate_status || RC=1
            echo; gate_figures || RC=1
            echo; gate_liveness || RC=1
-           echo; gate_banner || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|banner|generated|all}"; exit 2 ;;
+           echo; gate_banner || RC=1
+           echo; gate_appendonly || RC=1
+           echo; gate_ledger || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|banner|appendonly|ledger|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -942,7 +1064,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9. Gates 1 and 5 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9, 10, 11. Gates 1 and 5 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then

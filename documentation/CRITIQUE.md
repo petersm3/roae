@@ -8,6 +8,8 @@
 
 A review of the program's methodology, assumptions, and interpretive claims from a mathematical perspective.
 
+This document records limitations that are **live** — things the current results do not settle. Claims that were published and have since been withdrawn, rescoped or corrected are a different category and live in [CORRECTIONS.md](CORRECTIONS.md), the append-only corrections record.
+
 ## Data correctness
 
 - The binary hexagram encodings follow [OEIS A102241](https://oeis.org/A102241) with bit 0 = bottom line. Sensitivity analysis confirms the difference wave, pair structure, and no-5 property are all invariant under bit reversal (since Hamming distance is invariant under bit permutation). Trigram assignments do change under reversal, affecting display labels but not mathematical results.

@@ -4,6 +4,8 @@ An honest narrative of how the enumeration analysis evolved — including misste
 
 For the mathematical rules, see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md).
 
+This file is the *narrative*: what happened, in order, and why. Its companion [CORRECTIONS.md](CORRECTIONS.md) is the *record*: every claim this project published and later changed, one entry each, with what was claimed before, what is claimed now, how it was found, and the commit. Corrections appear in both — here in the flow of the day they happened, there in a single append-only list that is machine-checked for completeness against [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv).
+
 ## Prelude — Before April 10, 2026
 
 The project began as a mathematical analysis of the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence), built iteratively with [Claude Code](https://claude.ai/code) (Anthropic). What started as exploring a known structural property grew into a comprehensive computational investigation.
