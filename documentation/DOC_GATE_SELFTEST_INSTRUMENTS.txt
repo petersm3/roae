@@ -28,6 +28,13 @@
 #   (2) It covers the --selftest region only. Helper functions in gate bodies (check_pair
 #       inside gate_cli, the _norm/_cmp family inside assert_gen_fires) are out of scope:
 #       they are gate implementation, and the gates have their own fire-proofs.
+#   (1a) The label search is over the WHOLE of doc_gates.sh, so a label that occurs only in
+#       a comment, or only inside another assertion's mutation string, satisfies it. Not
+#       hypothetical: GATE 15's own "a row naming an assertion nobody wrote" fire-proof
+#       FAILED on its first harness run because the literal it injected was thereby written
+#       into doc_gates.sh, and the fire-proof satisfied the condition it was testing for.
+#       It now assembles its substitute label from fragments and asserts the assembled form
+#       is absent before injecting.
 #   (3) It cannot tell a good proof from a weak one. `assert_fires`'s anchor-moved branch is
 #       exercised by nothing; the row says so in prose that no machine reads.
 _selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise.

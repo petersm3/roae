@@ -3215,14 +3215,24 @@ os.remove(p)"
   # THE LABEL CHECK IS THE HALF THAT MAKES THIS MORE THAN A CHECKLIST. Without it a row could
   # name any string at all and the table would degrade into a list of names — which is how
   # "documented" becomes indistinguishable from "proven".
+  #
+  # THE SUBSTITUTE LABEL IS ASSEMBLED FROM FRAGMENTS, and that is not stylistic. The first
+  # version of this leg injected the literal 'GATE 9 banner drift that nobody ever wrote' —
+  # and FAILED in the harness, because writing that literal into the mutation string put it
+  # into doc_gates.sh, which is the very file the gate searches. The fire-proof satisfied the
+  # condition it was testing for. That is the A2 shared-message class arriving through an
+  # assertion's own source text, it was caught by running the suite rather than by reading
+  # it, and it is the reason this comment exists instead of a tidier one-liner.
   assert_fires_why "GATE 15 a row naming an assertion nobody wrote" instruments \
     'that label does not occur' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
 a='assert_fires'+chr(9)+'GATE 9 banner drift (1 byte, 1 file)'+chr(9)
 assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
-open(p,'w',encoding='utf-8').write(s.replace(
-    a, 'assert_fires'+chr(9)+'GATE 9 banner drift that nobody ever wrote'+chr(9), 1))"
+lab='ZZ'+chr(45)+'no-such-assertion-label'
+assert lab not in open('scripts/doc_gates.sh',encoding='utf-8').read(), \\
+    'the substitute label leaked into the source; the leg would test nothing'
+open(p,'w',encoding='utf-8').write(s.replace(a, 'assert_fires'+chr(9)+lab+chr(9), 1))"
 
   assert_fires_why "GATE 15 a row for a function that no longer exists" instruments \
     'which is no longer defined in the --selftest' \
@@ -4204,6 +4214,10 @@ PY
 #   (a) It verifies that the function exists and that the named label exists. It CANNOT
 #       verify the named assertion exercises the function. A row pointing at a real but
 #       unrelated label passes. This is bookkeeping with a spell-check, not coverage proof.
+#       The label search is over the WHOLE file, so a label that appears only in a comment,
+#       or only inside another assertion's mutation string, satisfies it. That is not
+#       hypothetical: this gate's own second fire-proof failed for exactly that reason on
+#       its first run and had to assemble its substitute label from fragments.
 #   (b) --selftest region only. Helpers inside gate bodies are gate implementation and are
 #       covered by the gates' own fire-proofs.
 #   (c) It cannot rank proofs. `assert_fires`'s anchor-moved branch is exercised by nothing;
