@@ -5,13 +5,16 @@
 # is the other half: an OMITTED marker. The two unlabelled TR-9 ledger cells fixed under #23
 # were invisible to GATE 5 by construction, and TR-9 v1.19 says so in as many words.
 #
-# FORMAT (one entry per line):
-#     path/to/FILE.md:LINE<TAB>a literal substring of the reviewed line
+# FORMAT (one entry per line, changed 2026-08-02 with item A8):
+#     path/to/FILE.md<TAB>a literal substring of the reviewed line
 #
-# The ANCHOR IS MANDATORY and is the primary key. An entry without one is IGNORED and
+# THERE IS NO LINE NUMBER. The anchor is the whole key. An entry without one is IGNORED and
 # reported, deliberately: GATE 5's line-number-only entries drifted twice within a single
 # day, and the dangerous direction is an unreviewed line inheriting somebody else's
-# suppression. The recorded line number is documentation only and is audited each run.
+# suppression. The gate RESOLVES each anchor and prints the line it found, so the locator a
+# reader wants is still there and cannot go stale. Same convention as
+# DOC_GATE_STATUS_ALLOWLIST.txt, aligned deliberately: two allowlists disagreeing about
+# their own format is how the next entry gets written in the wrong one.
 #
 # THIS FILE IS INTENTIONALLY EMPTY OF ENTRIES. At the time 5b landed (2026-08-02) it
 # reported ZERO findings against the live corpus, with the noise floor MEASURED and printed

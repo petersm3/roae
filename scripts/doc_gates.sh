@@ -694,8 +694,14 @@ if os.path.exists(alw5b):
         if len(parts) < 2 or not parts[1].strip():
             print(f"  [note] {alw5b}: entry without a TAB-separated anchor is ignored — {parts[0][:80]}")
             continue
-        fpath, _, lno = parts[0].strip().rpartition(':')
-        anc5b.setdefault(fpath, []).append((lno, parts[1].strip()))
+        # (file, anchor), no line number — the same convention GATE 5's allowlist adopted
+        # under item A8 on 2026-08-02. Aligned in the same batch, because two allowlists
+        # disagreeing about their own format is how the NEXT entry gets written in the old
+        # one. This file is empty today, so aligning it costs nothing and leaving it costs a
+        # silent parse failure later: rpartition(':') on a path with no colon yields
+        # fpath == '', which would have keyed every entry under the empty string and
+        # suppressed nothing, quietly.
+        anc5b.setdefault(parts[0].strip(), []).append(parts[1].strip())
 
 def table_blocks(lines):
     """Maximal runs of consecutive markdown table lines, as (start, end) 1-based inclusive."""
@@ -750,7 +756,7 @@ for f in sorted(unmarked):
                 continue
             if header_labels(header, line, val, want):
                 continue
-            if any(a in line for _, a in anc5b.get(f, ())):
+            if any(a in line for a in anc5b.get(f, ())):
                 continue
             sibs = sorted(m for m in mk if lo <= m <= hi)
             # RECORD WHY IT FIRED (#65): the quantity, its METHODS status, the table it sits
@@ -763,7 +769,7 @@ for f in sorted(unmarked):
 if found5b == 0:
     print(f"  [ok] no unmarked canonical quantity sits in a table whose siblings are marked")
 else:
-    print(f"  (report-only: label the cell, or add 'file:line<TAB>anchor' to {alw5b})")
+    print(f"  (report-only: label the cell, or add 'file<TAB>anchor' to {alw5b})")
 print(f"  [measured] noise floor: {n_unmarked} of {seen} registry-value occurrences carry no "
       f"status token at all; {found5b} of those are in a MIXED table, which is the reported class")
 for fpath, entries in sorted(anc5b.items()):
@@ -771,15 +777,15 @@ for fpath, entries in sorted(anc5b.items()):
         print(f"  [note] {alw5b}: {fpath} no longer exists — prune its {len(entries)} entry/entries")
         continue
     txt = open(fpath, encoding='utf-8', errors='replace').read().splitlines()
-    for lno, anc in entries:
+    for anc in entries:
         hh = [i for i, l in enumerate(txt, 1) if anc in l]
         if not hh:
-            print(f"  [note] {alw5b}: {fpath}:{lno} anchor no longer appears — prune it")
+            print(f"  [note] {alw5b}: {fpath} anchor no longer appears — prune it")
         elif len(hh) > 1:
-            print(f"  [note] {alw5b}: {fpath}:{lno} anchor matches {len(hh)} lines {hh[:6]} — "
+            print(f"  [note] {alw5b}: {fpath} anchor matches {len(hh)} lines {hh[:6]} — "
                   "make it more specific")
-        elif str(hh[0]) != str(lno):
-            print(f"  [note] {alw5b}: {fpath}:{lno} anchor now sits at :{hh[0]} — update the recorded line")
+        else:
+            print(f"  [ok]   {alw5b}: {fpath}:{hh[0]} exemption live (matched by content)")
 sys.exit(0)
 PY
 }
