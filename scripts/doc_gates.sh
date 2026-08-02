@@ -269,8 +269,18 @@ require_final_newline() {
 # The rule was written for the SWEPT values and silently exempted for the sweep's OWN
 # meta-counts, and that exemption is exactly where it rotted: inside a single commit, before
 # any other reader saw it. O6/R3 does not stop at the corpus. It reaches the paragraph that
-# announces the rule, and it reached this one. Those restatements are gone now; the one
-# surviving total is the closed historical fact of what drain-1's sweep sampled.
+# announces the rule, and it reached this one.
+# WHAT SURVIVES IS NAMED, NOT TALLIED (round 13 drain-3, 2026-08-02). The pin count and the
+# site total are still written above and cannot be removed: the correction cannot be stated
+# without naming what was wrong with them. Each is a closed fact about what drain-1's sweep
+# sampled rather than a live value, and the pins bullet tells you to count the pins in that
+# block instead of trusting either. What WAS removed is every restatement of the site total as
+# a LIVE figure. The first version of this sentence went further and said that exactly ONE
+# total survived; the paragraph it describes falsifies that, since the pin count is sitting in
+# it. NO REPLACEMENT TALLY IS WRITTEN HERE, on purpose — a tally of a paragraph's own
+# meta-counts is the next rung of the same ladder and would rot the same way. This is
+# O-metacount's own shape, reintroduced by the pass that filed O-metacount, which is the
+# strongest thing anyone has said about how far up that class reaches.
 # WHY THE CLASS IS CLEAN, which matters more than the count: those pins are NOT
 # unguarded prose. Each writes a clean value whose POST-injection partner is the literal an
 # assert_stays_clean_why ERE matches on, so a corpus change that moved the clean value moves
@@ -6062,6 +6072,15 @@ for lineno, flags, pat in guards:
 # METHOD was never written down, so "it counted the 20 at line start" is the reading that
 # reconciles 20 -> 24, not a proven account of what the auditor did. The delta is measured;
 # the explanation for it is inferred.
+#
+# HOW STRONG THAT INFERENCE IS — MEASURED, NOT ARGUED (round 13 drain-3, 2026-08-02). Applying
+# "command position AND at line start, minus `_selftest_revert`'s own definition line" to the
+# file selects exactly the hand audit's figure, and its complement WITHIN the command-position
+# set is exactly the `PASS=1; …; return; }` calls and nothing else. It fits on MEMBERSHIP and
+# not merely on the count, which is more than "inferred" concedes. WHAT IT STILL CANNOT DO:
+# any rule with the same extension fits identically, and no rule was ever recorded, so this
+# raises the inference's confidence without closing it. Re-derive with
+# `grep -nE '^[[:space:]]*_selftest_revert' "$0"` and subtract the `() {` line.
 #
 # (Cited by FORM, not by line — the first draft of this comment named eight line numbers and
 # its own commit invalidated them, which is item B1 happening inside the fix for item B8.)
