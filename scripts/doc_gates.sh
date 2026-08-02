@@ -1867,15 +1867,30 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
   # table".
   #
   # (1) DUPLICATE RELEASED VERSION — the motivating example: TR-1 shipped two v1.21 rows for
-  #     a day. Renaming the last row to v1.21 leaves the order non-descending (v1.21 then
-  #     v1.21) and the marker in place, so ONLY the duplicate leg can fire.
-  assert_fires_why "GATE 12 duplicate released version (TR-1's real v1.21 defect)" revhist \
-    'released version v1\.21 is already used at line' \
+  #     a day. The mutation copies the PENULTIMATE row's version onto the last row, which
+  #     leaves the order non-descending (equal, not backwards), the date untouched and the
+  #     marker in place, so ONLY the duplicate leg can fire.
+  #
+  #     ANCHOR-FREE ON PURPOSE, and this is not a stylistic preference. The first version
+  #     hardcoded `| v1.22 *(current)* |`, and four commits later the same unit appended TR-1
+  #     v1.23 — the anchor was gone and the assertion could no longer inject. It reported
+  #     [FAIL] rather than a silent pass, which is the harness working, but the fix is to stop
+  #     writing a version number into a fire-proof for a table whose whole purpose is to grow.
+  #     The evidence ERE is generic for the same reason; no other leg prints this sentence.
+  assert_fires_why "GATE 12 duplicate released version (TR-1's real two-v1.21 defect)" revhist \
+    'released version v[0-9.]+ is already used at line' \
 "f='reports/TR1_EIGHT_CENTURIES_MEASURED.md'
-s=open(f,encoding='utf-8').read()
-a='| v1.22 *(current)* |'
-assert a in s, 'anchor moved'
-open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.21 *(current)* |',1))"
+lines=open(f,encoding='utf-8').read().split(chr(10))
+h=[n for n,l in enumerate(lines) if l.strip()=='## Revision history']
+assert len(h)==1, 'no single revision-history heading'
+rows=[n for n in range(h[0],len(lines)) if lines[n].startswith('| v')]
+assert len(rows)>=2, 'need two rows to duplicate one onto the other'
+prev=lines[rows[-2]].split('|')[1].strip()
+last=lines[rows[-1]].split('|')
+assert '(current)' in last[1], 'the last row is not the current one'
+last[1]=' '+prev+' *(current)* '
+lines[rows[-1]]='|'.join(last)
+open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 
   # (2) DATES BACKWARDS — TR-8's shape. Back-date the last row only; its version stays the
   #     highest and the marker stays last, so no other leg can account for the firing.
