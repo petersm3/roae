@@ -34,7 +34,8 @@
 #   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
 #                                   # released version, dates and versions ascending
 #   scripts/doc_gates.sh regdupes   # GATE 14: two literature-registry rules that are the same predicate
-#   scripts/doc_gates.sh instruments # GATE 15: a --selftest instrument with no declared fire-proof
+#   scripts/doc_gates.sh instruments # GATE 15: a --selftest instrument with no declared fire-proof,
+#                                   # and (LEG 2) a fire-proof its own source text could satisfy
 #   scripts/doc_gates.sh collisions # GATE 16: a per-gate assertion a PREFLIGHT could satisfy
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
 #   scripts/doc_gates.sh all        # run all fifteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15, 16); `generated` is separate by cost
@@ -3487,12 +3488,33 @@ os.remove(p)"
 
   _G15_COPY=$(git rev-parse --git-dir)/doc_gates_g15_copy.sh
   # ANCHOR RE-POINTED 2026-08-02 (item A1, round 8): this used to inject above
-  # `  assert_fires() {`, and that helper was deleted with the item. The sed would then have
-  # matched nothing and the `grep -qF` guard below would have taken the else branch — a
-  # LOUD failure, not a silent pass, which is the direction this guard exists to force.
+  # `  assert_fires() {`, and that helper was deleted with the item.
+  #
+  # THE GUARD BELOW WAS `grep -qF`, AND IT WAS DEFEATED BY ITS OWN SOURCE TEXT (item A2,
+  # round 8 drain-2, 2026-08-02). The comment here used to claim that a moved anchor "would
+  # have taken the else branch — a LOUD failure, not a silent pass". MEASURED, and the claim
+  # was false in the direction that matters. `sed` reads THIS FILE and writes the copy, so
+  # the sed EXPRESSION on the line below — which contains the literal
+  # `_fireproof_undeclared_instrument() { :; }` mid-line — is itself copied verbatim into
+  # `$_G15_COPY`. An unanchored `grep -qF` for that literal therefore succeeds on a copy in
+  # which NOTHING was injected: re-pointing the sed at a non-existent anchor produced a copy
+  # byte-identical to the source (`diff -q` reported identical) and the guard still took the
+  # THEN branch. The leg would then have run GATE 15 against an unmutated file and reported
+  # its real, correct output as if it were the mutation's — a fire-proof passing with the
+  # injection switched off, which is the exact class this file's LEG-6 header states as
+  # "a fire-proof searching its own source file must match on a form its own text cannot
+  # take". Third instance of that class in two days, and the first one that was LIVE.
+  #
+  # THE FIX IS THAT FORM. `^  ` + the literal + `$` matches the injected line, which `sed`
+  # writes at column 0 with exactly two leading spaces, and matches NO line of this
+  # fire-proof: the sed line starts `  if sed 's|...` and this grep line starts `     && `.
+  # Proven in both directions before it was written: with the real anchor the copy has
+  # exactly ONE matching line; with the anchor deliberately moved it has zero. The
+  # generic check that no OTHER copy-guard can regress this way is the second half of
+  # gate_selftest_instruments (GATE 15 LEG 2).
   if sed 's|^  assert_fires_why() {$|  _fireproof_undeclared_instrument() { :; }\n  assert_fires_why() {|' \
        scripts/doc_gates.sh > "$_G15_COPY" \
-     && grep -qF '_fireproof_undeclared_instrument() { :; }' "$_G15_COPY"; then
+     && grep -qE '^  _fireproof_undeclared_instrument\(\) \{ :; \}$' "$_G15_COPY"; then
     G15OUT=$(_gsrc "$_G15_COPY" instruments)
     if printf '%s' "$G15OUT" | grep -qF '_fireproof_undeclared_instrument() is defined at'; then
       echo "  [ok]   GATE 15 an undeclared instrument in the --selftest region — fires, and names it"
@@ -3508,6 +3530,54 @@ os.remove(p)"
     PASS=1
   fi
   rm -f "$_G15_COPY"
+
+  # GATE 15 LEG 2 FIRE-PROOFS (item A2, round 8 drain-2, 2026-08-02) — the check that no
+  # copy-confirmation guard can be satisfied by the fire-proof's own source text. TWO legs,
+  # one per clause, because a single leg would prove one direction and the shipped comment
+  # would claim both — which is the GATE 8 defect this whole file exists to stop repeating.
+  #
+  # CLAUSE (1)'s MUTATION IS THE PRE-FIX LINE VERBATIM. It reconstructs the `grep -qF` guard
+  # that was LIVE in this file until this commit, so the leg is proven against the real
+  # defect rather than a stylised one.
+  #
+  # THE MUTATION STRINGS ARE SPLIT (`'grep '+'-qF '`), and that is item A2 applied to this
+  # fire-proof itself: written whole, the line below would be a copy-guard in the --selftest
+  # region and the gate would flag ITS OWN mutation string on the live tree. The split is not
+  # trusted, it is PROVEN CONTINUOUSLY — `instruments` runs in `all` and would be RED right
+  # now if any line here matched, so a green `all` is the standing proof that it held.
+  _G15B_COPY=$(git rev-parse --git-dir)/doc_gates_g15b_copy.sh
+  for _g15b in unanchored fixedstring; do
+    if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+g='grep '+'-qE '
+t=[i for i,l in enumerate(L) if l.strip().startswith('&& '+g) and '_G15_COPY' in l]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+if '$_g15b'=='unanchored':
+    L[t[0]]=L[t[0]].replace(chr(39)+'^  _fireproof', chr(39)+'  _fireproof', 1)
+    assert chr(39)+'^  _fireproof' not in L[t[0]], 'the anchor was not stripped'
+else:
+    L[t[0]]='     && '+'grep '+'-qF '+chr(39)+'_fireproof_undeclared_instrument() { :; }'+chr(39)+' \"\$_G15_COPY\"; then'+chr(10)
+open('$_G15B_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+      G15BOUT=$(_gsrc "$_G15B_COPY" instruments)
+      case "$_g15b" in
+        unanchored)  _g15bwhy='this guard'"'"'s ERE is not anchored at line start' ;;
+        fixedstring) _g15bwhy='with a FIXED string' ;;
+      esac
+      if printf '%s' "$G15BOUT" | grep -qF "$_g15bwhy"; then
+        echo "  [ok]   GATE 15 LEG 2 a copy-confirmation guard satisfiable by its own source ($_g15b) — fires, and says why"
+      else
+        echo "  [FAIL] GATE 15 LEG 2 — a $_g15b copy guard was NOT reported. That guard passes"
+        echo "         with the injection switched off (item A2, five instances in two days)."
+        printf '%s\n' "$G15BOUT" | sed 's/^/           > /' | head -5
+        PASS=1
+      fi
+    else
+      echo "  [FAIL] GATE 15 LEG 2 ($_g15b) — could not build the mutated copy (the anchored"
+      echo "         \`&& grep -qE ... \$_G15_COPY\` line moved), so the assertion did NOT run."
+      PASS=1
+    fi
+  done
+  rm -f "$_G15B_COPY"
 
   # THE LABEL CHECK IS THE HALF THAT MAKES THIS MORE THAN A CHECKLIST. Without it a row could
   # name any string at all and the table would degrade into a list of names — which is how
@@ -3821,8 +3891,10 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            one anchored on a REAL commit (b5bcff7c) rather than on an injection,
   #            14 x4 (the motivating r3/p1c4 pair, a NEW pair the allowlist has never seen,
   #            the uncomparable-rule refusal, and the A1 missing-input leg) + 1 negative
-  #            control, 15 x3 (undeclared instrument, a row naming an assertion nobody
-  #            wrote, a row for a function that no longer exists) + its A1 leg + 1 negative
+  #            control, 15 x5 (undeclared instrument, a row naming an assertion nobody
+  #            wrote, a row for a function that no longer exists, and LEG 2's two clauses —
+  #            a copy-confirmation guard written as an unanchored ERE and as the fixed
+  #            string that was LIVE here until item A2) + its A1 leg + 1 negative
   #            control,
   #            17 x4 (LEG B's motivating ccn4 case, a registry rule deleted from the board,
   #            the moved-anchor vacuity guard, and a NEW registry rule proving the id list is
@@ -4892,11 +4964,109 @@ for name in sorted(rows):
         print("         exempts nothing. Delete the row.")
         bad = 1
 
+# --- LEG 2 (ITEM A2, round 8 drain-2, 2026-08-02): a fire-proof that searches a COPY of
+# this script must match on a form its own source lines cannot take.
+#
+# THE MOTIVATING EXAMPLE WAS LIVE WHEN THIS WAS WRITTEN, not historical. GATE 15's own
+# first fire-proof built its copy with `sed` and confirmed the injection with an
+# unanchored `grep -qF` for the injected literal — and `sed` reads THIS file, so the sed
+# EXPRESSION carrying that literal was copied verbatim into the copy. The guard therefore
+# succeeded on a copy in which nothing had been injected (measured: a deliberately moved
+# anchor produced a byte-identical copy and the guard still passed). Item A2 lists five
+# instances of this class across two days — GATE 15's label leg, GATE 16's vacuity leg,
+# GATE 16's extractor, GATE 17 LEG 6's confirmation, and a stale-identifier sweep that
+# matched itself and reported clean. Four of the five were caught by RUNNING, none by
+# reading, and every fix was hand-applied at one site. This is the check on the class.
+#
+# THE RULE IS ITEM A2's SECOND FORM, the one that is mechanical: the confirmation must
+# anchor on a form its own source cannot take. Concretely, a `grep -q` guard whose target
+# is a `$..._COPY` of this script must (1) use an ERE (`-qE`) — a `-qF` fixed string
+# cannot express an anchor at all — and (2) begin that ERE with `^`. Both live guards
+# satisfy it; the pre-fix GATE 15 guard fails clause (1) and, with the `^` stripped,
+# clause (2). Both directions are fire-proven in --selftest.
+#
+# IT CANNOT BE SATISFIED BY ITS OWN SOURCE, and that is DEMONSTRATED, not asserted —
+# which is the whole point of the item. Two independent mechanisms:
+#   * the pattern is written `grep\s+-q`, a form no line it searches for can take, so the
+#     regex does not match its own definition (checked);
+#   * the scan is bounded to the --selftest region, which excludes this gate body.
+# The second is load-bearing TODAY and can be seen to be: caveat (v) below contains a
+# literal `grep -qE "$PAT" "$_G15_COPY"` and the compiled pattern DOES match that line.
+# It is excluded solely by the region bound. So if the region bound ever breaks, this gate
+# flags its own documentation and goes RED — a loud failure, not the silent self-satisfying
+# clear that item A2 catalogues five instances of. That is a standing proof rather than a
+# claim, and it re-runs on every `all`.
+#
+# WHAT IT CANNOT SEE, stated because a clear is weaker than a failure:
+#   (i)   `^` is NECESSARY, not sufficient. A source line that itself begins with the
+#         guarded text at column 0 would still defeat an anchored guard. Neither live
+#         guard has that shape (one starts `  if sed`, the other `     && !`), but this
+#         gate does not check it.
+#   (ii)  It sees `grep` guards only. A confirmation written in python — GATE 16's two
+#         legs are — is outside the scan; those carry their own `assert len(t)==N` exact
+#         anchor counts instead, which is item A2's FIRST form applied by hand.
+#   (iii) It says nothing about the MUTATION half: a mutation whose injected literal
+#         collides with the corpus is item A2's other direction and is still hand-guarded
+#         (`src.count(lbl)==1` in GATE 15's label leg).
+#   (iv)  The scan is PER LINE, so a guard wrapped across a `\` continuation — `grep -q` on
+#         one line, `"$_G15_COPY"` on the next — is invisible. MEASURED rather than left as
+#         a worry, the way item A7's three-line window was: re-running this scan over
+#         continuation-JOINED lines finds the same two guards and no third, so the blind
+#         spot is real and currently empty. Two lines DO contain both tokens after joining
+#         and are correctly not flagged — a comment and a [FAIL] message, both this leg's
+#         own — which is also the evidence that the pattern discriminates.
+#   (v)   A guard whose pattern is a VARIABLE (`grep -qE "$PAT" "$_G15_COPY"`) is reported
+#         as unanchored, because `$PAT` does not start with `^`. That is a false FAIL in the
+#         conservative direction: this gate cannot follow an indirection, and refusing one
+#         is better than clearing it. There are none today.
+#   (vi)  The count it prints is a FLOOR, not a pinned population. Deleting one of the two
+#         guards leaves the other and still prints [ok] with a smaller number — the "count
+#         nobody reads" shape this file flags elsewhere. Pinning it to 2 would fail on a
+#         legitimate third guard, and no derived invariant was found (the three `_COPY`
+#         variables are not in bijection with the guards, since GATE 16's two legs confirm
+#         in python instead). Stated, not fixed.
+#   (vii) It sees `grep -q` only. A confirmation written as `grep -c`, `[ -n "$(grep …)" ]`
+#         or a `case` on file contents is outside the scan.
+COPY_GUARD = re.compile(
+    r"grep\s+-q([A-Za-z]*)\s+(?P<q>['\"])(?P<pat>.*?)(?P=q)[^&|;]*\$_[A-Za-z0-9_]*COPY")
+guards = []
+for i in range(start + 1, end):
+    m = COPY_GUARD.search(lines[i])
+    if m:
+        guards.append((i + 1, m.group(1), m.group("pat")))
+
+if not guards:
+    print("  [FAIL] zero copy-confirmation guards found in the --selftest region (lines"
+          " %d-%d)." % (start + 1, end + 1))
+    print("         Two are known to exist (GATE 15's and GATE 17 LEG 6's). Finding none")
+    print("         means the extractor stopped reading them, not that the harness stopped")
+    print("         using them — a checker that finds nothing must never report [ok].")
+    bad = 1
+
+for lineno, flags, pat in guards:
+    if "F" in flags:
+        print("  [FAIL] %s:%d — this guard confirms an injection into a COPY of this script"
+              " with a FIXED string:" % (src, lineno))
+        print("           grep -q%s %s" % (flags, pat))
+        print("         A fixed string cannot be anchored, and `sed`/`grep` build the copy")
+        print("         FROM this file, so the guard's own source line is inside the copy it")
+        print("         searches. It then passes with the injection switched off. Use -qE")
+        print("         with a `^` anchor no line of the fire-proof itself can match.")
+        bad = 1
+    elif not pat.startswith("^"):
+        print("  [FAIL] %s:%d — this guard's ERE is not anchored at line start:" % (src, lineno))
+        print("           grep -q%s %s" % (flags, pat))
+        print("         Unanchored, it also matches the fire-proof's own source line, which")
+        print("         the copy contains verbatim. Anchor it with `^`.")
+        bad = 1
+
 if not bad:
     unprov = sum(1 for n in defined if rows[n][0] == "NOT-PROVEN-IN-HARNESS")
     print("  [ok] %d instrument(s) in the --selftest region, all declared; %d proven by a"
           " named assertion, %d declared unprovable in-harness"
           % (len(defined), len(defined) - unprov, unprov))
+    print("  [ok] %d copy-confirmation guard(s) all anchored at line start, so none can be"
+          " satisfied by the fire-proof's own source text (item A2)" % len(guards))
 sys.exit(bad)
 PY
 }
