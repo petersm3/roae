@@ -300,6 +300,26 @@ require_final_newline() {
 # than a comment, and one whose number and noun straddle a line break — GATE 6's own site was
 # caught only because the noun half landed on the second line. It is a sample of a population
 # that was never enumerated; it is not a clearance of the class.
+# ITEM R13 — THOSE THREE BLIND CLASSES ARE NOW PROBED, AND ALL THREE ARE NON-EMPTY (round 14,
+# drain-2). The sentence above named what the sweep could not see; until now nothing had
+# checked whether those classes contained anything, so "not a clearance" was an argument
+# rather than a measurement. A read-only probe over this file was fire-proved against a REAL
+# missed site BEFORE its output was trusted: run against the parent of the commit that fixed
+# it, it catches the coverage-gap `[note]` echo near the end of the --selftest, which PRINTED
+# a census count that item A4 had falsified. That is class (b), a count inside a printed
+# message string, and it was a genuine stale census — so class (b) is not merely non-empty,
+# it held a live defect of exactly the kind R12 refused on, in the one place no
+# comment-line query can reach.
+#   (a) count spelled in WORDS, not digits — non-empty, and much the largest of the three.
+#   (b) count inside a printed message or a heredoc — non-empty; held the R14 defect above.
+#   (c) number and noun straddling a line break — non-empty. Genuine straddles include
+#       "Item A2 lists five / instances", "TR-1 shipped two / rows" and "TR-9's ... carried
+#       two / figures". A2's enumeration was checked and CLOSES: five named, five listed.
+# WHAT THE PROBE CANNOT SEE, which is the same shape as the query it was written to test:
+# its noun list is hand-written too, so its yield is a LOWER BOUND, and most of its hits are
+# ordinary prose ("one of the two published boards") rather than censuses. It is a one-off
+# fire-proof that these classes are non-empty. IT IS NOT AN INSTRUMENT, it ships nothing, and
+# NO ROUND MAY CITE IT AS A CLEARANCE OF ANY CLASS.
 # TWO STRUCTURAL FINDINGS, neither of which is a defect to fix:
 #   (1) THE STAMPED/UNSTAMPED SPLIT IS PER-LINE AND THE STAMPS ARE NOT. GATE 12's census is
 #       stamped `Measured <date>` on the line ABOVE its numbers, so it is invisible to a
