@@ -2465,6 +2465,55 @@ if [ "${1:-}" = "--selftest" ]; then
     PASS=1
   fi
 
+  # ITEM R15 FIRE-PROOF (round 14) — the advisory that covers the case the A3 lock does NOT.
+  # Placed here, immediately after A3 and BEFORE any mutation, for the same reason A3 is here:
+  # the lock is genuinely held by this process right now, so the motivating example can be RUN
+  # rather than described, and the tree is still clean so nothing else can be what answers.
+  #
+  # THE MOTIVATING EXAMPLE IS "a gate run started by somebody else while a self-test holds the
+  # lock". `env -u DOC_GATES_SELFTEST_DEPTH` is what that looks like from this side: an
+  # invocation that did not inherit the descendant marker. Asserting on rc would prove
+  # nothing — the advisory deliberately leaves RC alone — so the assertion is on the message
+  # AND on the holder pid it names, which is $$ and no other number.
+  #
+  # THE NEGATIVE CONTROL IS THE HALF THAT COSTS SOMETHING, and it is why this shipped at all.
+  # The identical command WITH the marker inherited (i.e. exactly how this harness invokes
+  # every gate) must stay SILENT. Without that suppression the advisory prints into every
+  # nested run whose stdout another assertion greps, and this suite fails for reasons having
+  # nothing to do with the gate under test — which is precisely why a first attempt at R15 was
+  # worked and withheld. A one-directional fire-proof is GATE 8's shipped defect; both
+  # directions run here, every run, from the same lock.
+  #
+  # WHAT THIS CANNOT SEE: it proves the advisory fires and suppresses correctly for THIS
+  # probe's single-gate dispatch. It does not prove the message is readable in the `generated`
+  # dispatch that motivated R15 (too costly to run twice inside the self-test), and it says
+  # nothing about whether a hard refusal would be better than a note — that is the operator
+  # call recorded at the advisory's definition.
+  _r15_gate=regdupes
+  _r15_indep=$(env -u DOC_GATES_SELFTEST_DEPTH bash "$0" "$_r15_gate" 2>&1)
+  _r15_desc=$(bash "$0" "$_r15_gate" 2>&1)
+  if printf '%s' "$_r15_indep" | grep -q 'DO NOT TRUST THIS VERDICT' \
+     && printf '%s' "$_r15_indep" | grep -q "pid $$" \
+     && ! printf '%s' "$_r15_desc" | grep -q 'DO NOT TRUST THIS VERDICT'; then
+    echo "  [ok]   R15 concurrency advisory — an independent '$_r15_gate' run started against"
+    echo "         this live lock is warned and names the holder (pid $$); the same run as a"
+    echo "         descendant of the lock holder stays silent, so the harness's own captured"
+    echo "         gate output is unaffected"
+  else
+    echo "  [FAIL] R15 concurrency advisory — the advisory did not behave in BOTH directions."
+    printf '%s' "$_r15_indep" | grep -q 'DO NOT TRUST THIS VERDICT' \
+      || echo "         independent run: NOT warned — the concurrency hole is open again"
+    printf '%s' "$_r15_indep" | grep -q "pid $$" \
+      || echo "         independent run: warned, but never named the holder pid $$ — so this"
+    printf '%s' "$_r15_indep" | grep -q "pid $$" \
+      || echo "         assertion could not tell the advisory from any other note"
+    printf '%s' "$_r15_desc" | grep -q 'DO NOT TRUST THIS VERDICT' \
+      && echo "         descendant run: WARNED — suppression is OFF. DOC_GATES_SELFTEST_DEPTH"
+    printf '%s' "$_r15_desc" | grep -q 'DO NOT TRUST THIS VERDICT' \
+      && echo "         is the key; it stopped being exported by --selftest or inherited here."
+    PASS=1
+  fi
+
   # ITEM A1 FIRE-PROOF — the snapshot must be WRITTEN and READABLE BACK, asserted in-harness
   # and re-proven every run.
   #
@@ -7639,6 +7688,62 @@ PY
 }
 
 MODE="${1:-all}"
+
+# ITEM R15 (round 14) — A CONCURRENT --selftest MAKES THIS RUN'S VERDICT MEANINGLESS, AND
+# UNTIL NOW NOTHING SAID SO.
+#
+# The mutual-exclusion lock taken in the --selftest branch above refuses A SECOND --selftest
+# and nothing else. Both the clean-tree check and the `mkdir` lock sit INSIDE that branch, so
+# a plain `all` / `generated` / single-gate run started while a self-test holds the lock was
+# not refused, not warned, and read a tree the self-test was actively mutating. REPRODUCED,
+# NOT THEORISED: `generated` run against a live --selftest returned "DOC GATES: FINDINGS (see
+# above)"; run serially the same command returns rc=0 and "DOC GATES: PASS (generated)".
+# The lock's own refusal text already names the worse direction — "any uncommitted edit made
+# meanwhile is discarded" — because `git checkout -- .` does not care who wrote the edit. The
+# guard did not reach the case that produces its own stated harm.
+#
+# ADVISORY, NOT REFUSAL, DELIBERATELY. It prints and returns; it does not touch RC and does
+# not stop the run. Whether this should instead be a hard refusal is an OPERATOR call (it
+# would make one unit's self-test able to block another unit's gate run outright), and this
+# change does not pre-empt it. It prints to stdout, not stderr, so the note travels with the
+# verdict line it discredits rather than being lost by a `>log` that keeps only stdout.
+#
+# WHY DESCENDANTS ARE SUPPRESSED — the part R15's own write-up did not specify, and the
+# reason the first attempt at this was worked and deliberately NOT shipped. The --selftest
+# runs the gates by re-invoking this script (`bash "$0" <gate>`), and most of those nested
+# runs have their output CAPTURED and grepped by an assertion. The parent holds the lock for
+# its whole run, so an unconditional advisory would print into every one of those captures
+# and fail assertions that have nothing to do with concurrency. The suppression key is
+# DOC_GATES_SELFTEST_DEPTH, exported by the --selftest branch above and inherited by every
+# descendant process: SET means "I am part of the run that holds the lock"; UNSET means "I am
+# independent", which is exactly the case this note exists for. (The three nested runs that
+# `cd` into a COPIED repo are safe twice over — they inherit the marker AND their git-dir
+# resolves elsewhere, so the lock path does not exist for them.)
+#
+# COUPLING, STATED RATHER THAN LEFT TO CARE: reusing the depth guard's variable means that
+# deleting or renaming DOC_GATES_SELFTEST_DEPTH silently switches this suppression off. That
+# is not defended by a comment — the fire-proof labelled "R15 concurrency advisory" in the
+# --selftest region has a NEGATIVE control that fails the moment a descendant starts printing
+# the note, and it runs on every self-test rather than once by hand. A guard whose fire-proof
+# is taken by hand and never re-run after a refactor is GATE 8's defect; this one cannot decay
+# that way because it is re-proven in-harness, in both directions, every run.
+doc_gates_concurrency_advisory() {
+  if [ -n "${DOC_GATES_SELFTEST_DEPTH:-}" ]; then return 0; fi
+  local lock holder
+  lock="$(git rev-parse --git-dir 2>/dev/null || echo .git)/doc_gates_selftest.lock"
+  if [ ! -d "$lock" ]; then return 0; fi
+  holder="$(cat "$lock/pid" 2>/dev/null || true)"
+  case "$holder" in ''|*[!0-9]*) return 0 ;; esac
+  if ! kill -0 "$holder" 2>/dev/null; then return 0; fi
+  echo "  [note] DO NOT TRUST THIS VERDICT — a doc_gates --selftest (pid $holder) is running."
+  echo "         WHY THIS FIRED: $lock exists, its pid file"
+  echo "         names a LIVE process, and this run is not a descendant of it"
+  echo "         (DOC_GATES_SELFTEST_DEPTH is unset). That self-test mutates tracked files and"
+  echo "         reverts them with 'git checkout -- .', so whatever is reported below is about"
+  echo "         a tree in mid-mutation, and any uncommitted edit of yours may be discarded."
+  echo "         Advisory only: the gates still run and RC is unchanged. Re-run serially."
+}
+doc_gates_concurrency_advisory
 
 # ITEM A1, hole (b) — runs for EVERY mode, including the single-gate invocations the
 # self-test uses. Deliberately does NOT short-circuit: RC is set and the requested gate still
