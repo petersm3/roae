@@ -550,3 +550,30 @@ those two responses.
 - **What did not move:** no ledger row, bit value, marginal, count, certificate or conclusion.
 
 ---
+
+### CX-20 · 2026-08-02 · C3 · TR-2's v1.12 row kept the superseded convergence-gate figure
+
+- **Documents:** `reports/TR2_THE_RULES_CONFLICT.md` (Revision History, the **v1.12** row of
+  2026-07-13).
+- **BEFORE:** the row summarised the three pre-registered convergence gates as
+  "~1σ / 2.0σ / 0.12σ", with no marker. **v1.19** (2026-08-01) recorded that the middle gate reads
+  **1.9σ** in the body, and **v1.23** (2026-08-02) reproduces it as 1.92σ under the convention it
+  states. Both corrections sit *below* the row carrying the superseded figure, so a reader going
+  top-to-bottom met the retracted value first. The distance is not cosmetic: the pre-committed gate
+  is 2σ, so 2.0σ reads as sitting *at* the gate and 1.9σ as inside it.
+- **NOW:** a supersession clause in place, naming v1.19 and v1.23. Nothing is deleted — a dated row
+  is a record. Recorded as TR-2 **v1.24**.
+- **How it was found:** by **GATE 3b**, the retracted-FIGURE gate built in this same batch to make
+  the round-4 C7 sweep permanent (`scripts/doc_gates.sh retract-figures`). This is the one
+  occurrence in the suite that C7's method could NOT have seen: that sweep read *quoted spans*
+  inside correction rows, and here the figure is not in quotes.
+- **Why the gate has no changelog exemption:** GATE 3 exempts a revision row so a changelog can
+  narrate old wording. Had GATE 3b inherited that rule it would have been structurally blind to
+  this defect, which lives inside a revision row. Exempting a *construction* is the same mistake as
+  exempting a *directory* — so GATE 3b exempts nothing automatically and every legitimate
+  quotation is one content-anchored row in `documentation/DOC_GATE_FIGURE_ALLOWLIST.txt`
+  (36 rows today: 35 meta-mentions, 1 historical — two of them covering this ledger entry
+  itself, which quotes the retracted figure twice).
+- **What did not move:** no measurement, gate verdict, Bayes factor, count, certificate or sha.
+
+---

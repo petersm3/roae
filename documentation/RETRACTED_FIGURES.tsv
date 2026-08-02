@@ -1,0 +1,43 @@
+# Registry of RETRACTED FIGURES — consumed by scripts/doc_gates.sh (GATE 3b).
+#
+# WHY THIS IS A SEPARATE REGISTRY FROM RETRACTED_PHRASES.tsv
+#   GATE 3 catches a retracted PHRASE. GATE 1 compares integers of >=12 digits. Neither can
+#   see a retracted STATISTIC — "1.4σ", "~5,500×", "≈10×" — which is why the surviving
+#   "1.4σ above" in reports/evidence/r11/PHASE2_README.md needed a human reading (TR-2 v1.23)
+#   and why TR-9's draft-stage note kept "C2 net +1.6" through five revisions (TR-9 v1.20).
+#   Both were found by a one-off manual sweep. This file makes that sweep permanent.
+#
+# THE EXEMPTION PROBLEM, STATED IN ADVANCE (it is the whole design constraint)
+#   A retracted figure is quoted MORE often after its retraction than before: every revision
+#   row, every corrections-ledger entry and every "this sentence read X until <date>" note
+#   must repeat it in order to record what changed. A naive registry fires on the fix itself.
+#   GATE 3 exempts by FILENAME and additionally lets a changelog row narrate the old wording;
+#   neither is enough here — the legitimate quotations are in BODY PARAGRAPHS of the same
+#   files that also carry live prose, and (measured 2026-08-02) a blanket changelog exemption
+#   would have hidden the live defect this gate found on its first run, TR-2 v1.12's "2.0σ",
+#   which sat inside a revision row.
+#   So GATE 3b has NO automatic exemption of any kind. Every legitimate occurrence is an
+#   explicit, content-anchored row in documentation/DOC_GATE_FIGURE_ALLOWLIST.txt, in the
+#   shape GATE 4b uses. Anything not allowlisted is a [FAIL].
+#
+# FORMAT (tab-separated, 2 columns):
+#   <retracted figure, as a FIXED string>	<what superseded it, and where that is recorded>
+#
+# CHOOSING THE STRING. Make it as narrow as the corpus allows and no narrower. "+1.6" alone
+# matches twelve places including live ledger cells; "net +1.6" matches six, all narrations;
+# "C2 net +1.6" matches only three and MISSES TR-11 v1.14's `C2 "net +1.6"`, where a quote mark
+# falls inside the span. The registry holds the middle form. Emphasis markers are not
+# normalised away, so a figure that is sometimes bolded mid-span ("1.4σ **above**") must be
+# registered on the part that is never marked up ("1.4σ").
+#
+# ADD A ROW EVERY TIME A PUBLISHED NUMBER IS RESTATED, not only when a claim is withdrawn.
+
+1.4σ	TR-2 v1.19 (2026-08-01) withdrew it as unreconstructible; v1.23 (2026-08-02) restored the comparison as 0.57σ BELOW under the file's stated convention |Δ|/sqrt(SE1²+SE2²). 1.4 came from dividing by the raw between-seed SD and omitting the Phase-1 run's own ±16.7%.
+2.0σ	TR-2 v1.19: the convergence-gate summary quoted the derived-CI cross-path gate as 2.0σ while the body reported 1.9σ; v1.23's convention reproduces it as 1.92. Against a pre-committed 2σ gate the retracted value read as sitting AT the gate rather than inside it.
+19 total	TR-2 v1.19: §Extension said the certificate directory holds "19 total"; it holds 21 (certificates/README; TR-5 v2.1 records the intermediate 19→20 step).
+~5,500×	TR-8 v1.9 (2026-08-01): the look-elsewhere aside overstated the factor by 10×. Correct is ~500× (0.05 / 1.054e-4 = 474).
+≈10×	TR-10 v1.8 (2026-08-01, second pass): the BH margin for trigarray is WITHDRAWN — the extra ledger values were registry masses outside the 91-observable roster plus two zero-sampled-mass entries. The verdict is unchanged; only the margin is gone.
+~52×	TR-8 v1.11 / METHODS §"Statistics conventions" (2026-08-02): recorded and DECLINED. It is BH at rank i = 10, and rank 10 requires the nine registry masses METHODS withdrew from ranking on 2026-08-01. The supported statement is a floor, ≥~10×.
+marginal 4.6	TR-9 v1.7 (2026-07-10) restated the C2 marginal as 4.5 from unrounded operands; DESCRIPTION_LENGTH.md carries the same correction.
+net +1.6	TR-9 v1.7 (2026-07-10) restated the C2 net as ≈ 0 (break-even, sign-convention-dependent). It survived in TR-11 §4 until v1.14 and in TR-9's own draft-stage note until v1.20.
++125	TR-9 v1.16 (2026-08-01): §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125"; 146.3 − 19.0 = 127.3, so +127 is correct.

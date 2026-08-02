@@ -12,7 +12,9 @@
 # USAGE
 #   scripts/doc_gates.sh numbers    # cross-file numeric consistency (long integers)
 #   scripts/doc_gates.sh cli        # CLI flags live in code but absent from the CLI docs
-#   scripts/doc_gates.sh retract    # retracted phrasings that still survive in the corpus
+#   scripts/doc_gates.sh retract    # GATE 3: retracted phrasings that still survive in the corpus
+#   scripts/doc_gates.sh retract-figures  # GATE 3b: retracted FIGURES (statistics) restated with no
+#                                   # supersession marker; content-anchored allowlist, no auto-exemption
 #   scripts/doc_gates.sh links      # GATE 4 + 4b: internal markdown links/#anchors, then section refs
 #   scripts/doc_gates.sh secrefs    # GATE 4b ALONE — plain-text `FILE.md §"..."` references (self-test target)
 #   scripts/doc_gates.sh status     # GATE 5: canonical quantities whose exact/estimate status
@@ -27,7 +29,7 @@
 #                                   # version, not just HEAD (self-test target)
 #   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row is recorded in CORRECTIONS.md
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all ten cheap gates (1-7, 9, 10, 11); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all eleven cheap gates (1-7 incl. 3b, 9, 10, 11); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -168,6 +170,132 @@ gate_retract() {
     fi
   done < "$reg"
   return $bad
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 3b — retracted FIGURES (2026-08-02, item A6). The half of the retraction surface
+# GATE 3 and GATE 1 both miss.
+#
+# WHY. GATE 3 matches retracted PHRASES; GATE 1 only compares integers of >=12 digits.
+# A retracted STATISTIC — "1.4σ", "~5,500×", "≈10×", "net +1.6" — is invisible to both.
+# That is not hypothetical: the surviving "1.4σ above" in evidence/r11/PHASE2_README.md
+# was found by a human reading (TR-2 v1.23), and TR-9's draft-stage note carried two
+# figures its own v1.7 had superseded through five subsequent revisions (TR-9 v1.20).
+# Both were one-off manual sweeps. This gate is that sweep, permanent.
+#
+# THE EXEMPTION PROBLEM, and why this gate has NO automatic exemption.
+# A retracted figure is quoted MORE after its retraction than before — every revision row,
+# every ledger entry, every "this sentence read X until <date>" note must repeat it to
+# record what changed. GATE 3 handles that with a filename allow-column plus a changelog-row
+# exemption. Neither works here, and the failure is measured, not assumed:
+#   * filename is too coarse — the legitimate quotations sit in BODY paragraphs of files
+#     (METHODS.md, CORRECTIONS.md, TR-9) that also carry live prose;
+#   * a changelog exemption would have HIDDEN this gate's first live finding, TR-2 v1.12's
+#     "2.0σ", which sits inside a revision row and had been superseded for a day.
+# So every legitimate occurrence is an explicit, CONTENT-ANCHORED allowlist row, in the
+# shape GATE 4b uses (A8's lesson: no line numbers — they drift). Anything not allowlisted
+# is a [FAIL]. The cost is ~25 curated rows; the benefit is that the exemption mechanism
+# cannot silently widen.
+#
+# WHY-IT-FIRED (#65): every finding prints the matched fixed string, the registry note
+# saying what superseded it, and the line text. Every exemption prints its class and reason.
+# Allowlist rows that no longer match anything are re-printed as [note] — the drift audit.
+gate_retract_figures() {
+  echo "== GATE 3b: retracted FIGURES restated without a supersession marker =="
+  python3 - <<'PY'
+import os, re, subprocess, sys
+REG   = 'documentation/RETRACTED_FIGURES.tsv'
+ALLOW = 'documentation/DOC_GATE_FIGURE_ALLOWLIST.txt'
+if not os.path.exists(REG):
+    print(f'  [skip] no {REG}'); sys.exit(0)
+
+figs = []
+for ln in open(REG, encoding='utf-8'):
+    if not ln.strip() or ln.startswith('#'):
+        continue
+    f = ln.rstrip('\n').split('\t')
+    if len(f) >= 2 and f[0].strip():
+        figs.append((f[0], f[1]))
+
+# (file, figure, anchor) -> (class, why).  Anchor is a fixed substring that must appear on
+# the SAME LINE as the figure for the exemption to apply.
+allow, used = {}, set()
+if os.path.exists(ALLOW):
+    for ln in open(ALLOW, encoding='utf-8'):
+        if not ln.strip() or ln.startswith('#'):
+            continue
+        f = ln.rstrip('\n').split('\t')
+        if len(f) >= 5:
+            allow[(f[0], f[1], f[2])] = (f[3], f[4])
+
+mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
+# COST, evaluated before writing it (box-safety rule): |mds| ~ 130 files x ~500 lines x
+# |figs| = 9 fixed-string `in` tests ~ 6e5 substring checks over data already in memory.
+# No regex, no bounded repetition, no accumulation across the loop.
+bad, exempt, spans = [], [], []
+# The registry (.tsv) and the allowlist (.txt) are not in `git ls-files '*.md'`, so the
+# gate cannot match its own rows. Verified rather than assumed: both extensions are
+# outside the glob.
+for m in mds:
+    text = open(m, encoding='utf-8', errors='replace').read()
+    lines = text.split('\n')
+    flat = ' '.join(text.split())          # line-break evasion check, GATE 3's lesson (a)
+    for fig, note in figs:
+        seen_on_a_line = False
+        for i, line in enumerate(lines, 1):
+            if fig not in line:
+                continue
+            seen_on_a_line = True
+            # MARK EVERY MATCHING ROW USED, not just the first (fixed on this gate's
+            # first run, before it shipped). Two anchors can legitimately land on one
+            # line: TR-2 v1.23 quotes v1.19's "not reconstructible from the stated
+            # errors" AND says where 1.4 came from, so both rows match line 654. A
+            # break-on-first left the second looking dead and printed a [note] that was
+            # a pure false alarm — the drift audit crying wolf on its own first run is
+            # exactly how a real dead row later gets ignored.
+            hits = [(anchor, cls, why)
+                    for (af, afig, anchor), (cls, why) in allow.items()
+                    if af == m and afig == fig and anchor in line]
+            if hits:
+                for anchor, _, _ in hits:
+                    used.add((m, fig, anchor))
+                exempt.append((m, i, fig, hits[0][1], hits[0][2]))
+            else:
+                bad.append((m, i, fig, note, line.strip()))
+        # A figure visible only after whitespace normalisation spans a hard wrap, so no
+        # single line carries it and the anchor rule cannot be applied. Report it as a
+        # finding rather than passing it: this is exactly the evasion that hid the
+        # conflict-theorem scope from GATE 3 until 2026-08-01.
+        if not seen_on_a_line and fig in flat:
+            spans.append((m, fig, note))
+
+for m, i, fig, note, line in bad:
+    print(f'  [FAIL] {m}:{i} — retracted figure "{fig}" restated with no supersession marker')
+    print(f'         WHY: {note}')
+    print(f'         LINE: {line[:150]}')
+for m, fig, note in spans:
+    print(f'  [FAIL] {m} — retracted figure "{fig}" present only after whitespace')
+    print(f'         normalisation, so it spans a hard wrap and cannot be anchored.')
+    print(f'         WHY: {note}')
+
+opens = [e for e in exempt if e[3] != 'meta-mention' and e[3] != 'historical']
+for m, i, fig, cls, why in opens:
+    print(f'  [OPEN] {m}:{i} "{fig}" — {why}')
+dead = [k for k in allow if (k[0], k[1], k[2]) not in used]
+for k in dead:
+    print(f'  [note] allowlist row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
+    print(f'         Either the text was fixed (delete the row) or the anchor drifted.')
+
+nbad = len(bad) + len(spans)
+if not nbad:
+    byclass = {}
+    for _, _, _, cls, _ in exempt:
+        byclass[cls] = byclass.get(cls, 0) + 1
+    tally = ', '.join(f'{v} {k}' for k, v in sorted(byclass.items())) or 'none'
+    print(f'  [ok] {len(figs)} registered retracted figure(s); every occurrence in '
+          f'{len(mds)} markdown files is an allowlisted narration ({tally})')
+sys.exit(1 if nbad else 0)
+PY
 }
 
 # ----------------------------------------------------------------------------------
@@ -635,11 +763,20 @@ gate_figures() {
     local np hits=""
     np=$(printf '%s' "$phrase" | tr '\n' ' ' | tr -s ' ')
     for f in $gens; do
-      if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then hits="$hits $f"; fi
+      if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then
+        # RECORD WHERE (2026-08-02, item A5 / #65). This printed a bare filename, so a
+        # maintainer given a 900-line generator had to re-run the search by hand to find
+        # the annotation string — the same debugging cost #65 removed from GATE 3 and
+        # GATE 5. Cite the line; fall back to the filename when the hit is only visible
+        # after normalisation, which is the case a hard-wrapped Python string produces.
+        local gln
+        gln=$(grep -nF -- "$np" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+        if [ -n "$gln" ]; then hits="$hits $f:$gln"; else hits="$hits $f(spans-lines)"; fi
+      fi
     done
     if [ -n "$hits" ]; then
       echo "  [FAIL] retracted phrasing in a figure generator: \"$phrase\""
-      echo "         ($note)"
+      echo "         matched as the fixed string: \"$np\"   ($note)"
       for h in $hits; do echo "      $h  — regenerate the figure after fixing"; done
       bad=1
     fi
@@ -929,6 +1066,52 @@ if [ "${1:-}" = "--selftest" ]; then
     git checkout -- . 2>/dev/null
   }
 
+  # assert_fires_why <label> <gate-name> <evidence-ERE> <python-mutation>
+  #
+  # ITEM A5 (task #65, the assertion half). `assert_fires` checks an EXIT CODE and nothing
+  # else, so it cannot tell "the gate fired for the reason I injected" from "the gate fired
+  # for some unrelated reason and my mutation was never seen". Every classifier gate now
+  # prints the token/anchor/registry note that drove its verdict; this harness is what makes
+  # that printing load-bearing instead of decorative — the assertion FAILS if the WHY line
+  # does not name the injected thing. Modelled on assert_gen_fires, which already did this
+  # for GATE 8; generalised here so every classifier class can carry one.
+  assert_fires_why() {
+    local label="$1" gate="$2" want="$3" mut="$4" out rc
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
+                           echo "         assertion did NOT run. A skipped assertion is not a pass."
+                           PASS=1; git checkout -- . 2>/dev/null; return; }
+    out=$(bash "$0" "$gate" 2>&1); rc=$?
+    git checkout -- . 2>/dev/null
+    if [ "$rc" -eq 0 ]; then
+      echo "  [FAIL] $label — $gate did NOT fire on an injected defect"; PASS=1; return
+    fi
+    if printf '%s' "$out" | grep -qE -- "$want"; then
+      echo "  [ok]   $label — $gate fires, and WHY names: $want"
+    else
+      echo "  [FAIL] $label — $gate fired, but its output never names \"$want\","
+      echo "         so the assertion cannot tell this firing from an unrelated one."
+      PASS=1
+    fi
+  }
+
+  # assert_stays_clean <label> <gate-name> <python-mutation>
+  #
+  # The other half of any allowlist-bearing gate: proof that the EXEMPTION is driven by what
+  # it claims to be driven by. Without it, a green gate is equally consistent with "the
+  # allowlist is correct" and "the allowlist swallows the whole file".
+  assert_stays_clean() {
+    local label="$1" gate="$2" mut="$3"
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
+                           PASS=1; git checkout -- . 2>/dev/null; return; }
+    if bash "$0" "$gate" >/dev/null 2>&1; then
+      echo "  [ok]   $label — exempted, as the allowlist says it should be"
+    else
+      echo "  [FAIL] $label — $gate fired on text its allowlist covers"
+      PASS=1
+    fi
+    git checkout -- . 2>/dev/null
+  }
+
   echo "== DOC GATES SELF-TEST (mutation) =="
 
   # GATE 1 is REPORT-ONLY (`return 0`) and only inspects integers of >=12 digits. Asserting a
@@ -955,9 +1138,44 @@ open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
          git checkout -- README.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 1 — anchor moved"
 
-  assert_fires "GATE 3 retracted phrasing" documentation/GUIDE.md retract \
+  # A5/#65: assert the MATCHED STRING, not just the exit code. GATE 3's registry holds
+  # morphology-independent stems, so several rows can be live at once and an exit code alone
+  # cannot say which one saw the injection.
+  assert_fires_why "GATE 3 retracted phrasing" retract \
+    'matched as the fixed string: "hard floor k>=13"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>=13 by construction.\n')"
+
+  # GATE 3b — THREE cases, and the positive one is its OWN MOTIVATING EXAMPLE rather than a
+  # synthetic string. reports/evidence/r11/PHASE2_README.md is the artifact that actually
+  # carried an uncorrected "1.4σ above" after TR-2 v1.19 retracted it, surviving until a
+  # human read it on 2026-08-02 (TR-2 v1.23). The mutation puts that sentence back, as a bare
+  # assertion with none of the narration the allowlist anchors on.
+  assert_fires_why "GATE 3b retracted figure restated (its own motivating example)" \
+    retract-figures 'retracted figure "1\.4σ" restated' \
+"p='reports/evidence/r11/PHASE2_README.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nThe pooled value sits 1.4σ above the Phase-1 single run.\n')"
+
+  # GATE 3b, LINE-BREAK EVASION. GATE 3's hardening note (a) records that a retracted phrase
+  # once hid inside a hard wrap where line-based grep could not see it. GATE 3b matches
+  # per-line so it can anchor exemptions, which reintroduces that exposure — the normalised
+  # whole-file pass is the compensating branch, and this is the only thing that exercises it.
+  assert_fires_why "GATE 3b retracted figure split across a hard wrap" \
+    retract-figures 'spans a hard wrap' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at\nmarginal 4.6 bits under that convention.\n')"
+
+  # GATE 3b NEGATIVE CONTROL — the exemption must be driven by the ANCHOR, not by the file.
+  # Same file as an existing allowlist row, same figure, and the row's anchor text present:
+  # this must NOT fire. Without it, the [ok] above is equally consistent with the allowlist
+  # having quietly exempted reports/evidence/ wholesale.
+  assert_stays_clean "GATE 3b negative control — an anchored narration is exempt" \
+    retract-figures \
+"p='reports/evidence/r11/README.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')"
 
   assert_fires "GATE 4 internal links" documentation/GUIDE.md links \
 "s=open('documentation/GUIDE.md').read()
@@ -976,22 +1194,43 @@ open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FI
   # exit code. (Compensated manually once, with phase 1 verified green by hand — a
   # by-hand guarantee the permanent assertion did not carry, which is the same shape as
   # GATE 8's hand-taken fire-proof going stale across a refactor.)
-  assert_fires "GATE 4b dangling section ref" documentation/GUIDE.md secrefs \
+  # A5/#65: also assert the WHY line, which names the target file and the normalised text
+  # that failed to resolve. 4b has an allowlist, so an exit code alone cannot distinguish
+  # "fired on my injection" from "fired on a pre-existing entry that fell out of the list".
+  assert_fires_why "GATE 4b dangling section ref" secrefs \
+    'WHY: no heading in .* contains the normalised text "q7"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CRITIQUE.md) Q7).\n')"
 
-  assert_fires "GATE 6 figure generators" viz/README.md figures \
+  # A5/#65: assert the matched string AND that a file:line is cited (the location GATE 6
+  # did not print until 2026-08-02). `\.py:[0-9]` is what proves the location half.
+  assert_fires_why "GATE 6 figure generators" figures \
+    'matched as the fixed string: "hard floor k>=13"' \
 "import glob,sys
 c=[f for f in glob.glob('viz/*.py')]
 sys.exit(1) if not c else None
 s=open(c[0]).read()
 open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
 
-  assert_fires "GATE 7 frozen run status" documentation/GUIDE.md liveness \
+  assert_fires_why "GATE 6 figure generators name the LINE, not just the file" figures \
+    '\\.py:[0-9]+  — regenerate' \
+"import glob,sys
+c=[f for f in glob.glob('viz/*.py')]
+sys.exit(1) if not c else None
+s=open(c[0]).read()
+open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
+
+  # A5/#65: GATE 7's LIVE list has seven keywords and its DISPO suppression list has
+  # sixteen; the finding line names the keyword that matched, and that is what this asserts.
+  assert_fires_why "GATE 7 frozen run status" liveness \
+    'status frozen in the present tense: "in flight"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe ladder build is in flight and the log is 3,666 lines and growing.\n')"
 
-  assert_fires "GATE 7 unreached budget" documentation/GUIDE.md liveness \
+  # A5/#65: 1120T is the MENTIONED-but-sha-less shape, not the absent-from-registry shape,
+  # and the two need different fixes — so assert the branch, not just the failure.
+  assert_fires_why "GATE 7 unreached budget" liveness \
+    'with no sha256 within' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the published ladder exactly.\n')"
 
@@ -1293,8 +1532,12 @@ os.remove('example/report.pdf')"
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assert_fires calls above:
-  #   covered: 1 (output), 3, 4, 4b, 5 (output), 5b (output), 6, 7 x2, 8 x4, 9 x2,
-  #            10a (+negative control), 10b x3, 11
+  #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output), 5b (output),
+  #            6 x2, 7 x2, 8 x4, 9 x2, 10a (+negative control), 10b x3, 11
+  #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
+  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x4, 11. GATES 1, 5 and 5b are report-only and
+  #            already assert on output. GATES 4, 9, 10a/10b are structural, not
+  #            classifier-driven: there is no matched token for them to name.
   #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
   #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
@@ -1690,6 +1933,7 @@ case "$MODE" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
+  retract-figures) gate_retract_figures || RC=1 ;;
   links)   gate_links_and_secrefs || RC=1 ;;
   secrefs) gate_secrefs || RC=1 ;;
   status)  gate_status  || RC=1 ;;
@@ -1702,13 +1946,14 @@ case "$MODE" in
   appendonly-history) gate_appendonly_history || RC=1 ;;
   ledger)  gate_ledger  || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
+           echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
            echo; gate_figures || RC=1
            echo; gate_liveness || RC=1
            echo; gate_banner || RC=1
            echo; gate_appendonly || RC=1
            echo; gate_ledger || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-history|ledger|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -1721,7 +1966,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11. Gates 1 and 5 (incl. 5b) are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11. Gates 1 and 5 (incl. 5b) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then
