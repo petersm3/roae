@@ -30,6 +30,7 @@
 #   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row, and every
 #                                   # RETRACTED_FIGURES.tsv row, is recorded in CORRECTIONS.md
 #   scripts/doc_gates.sh ledger-figures  # GATE 11's FIGURES pass ALONE (self-test target)
+#   scripts/doc_gates.sh ledger-phrases  # GATE 11's PHRASES pass ALONE (self-test target)
 #   scripts/doc_gates.sh revrows    # GATE 13: a TR body edit carries a revision row (REPORT-ONLY)
 #   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
 #                                   # released version, dates and versions ascending
@@ -2921,14 +2922,17 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
   # row rather than by deleting a ledger entry, because deletion would fire GATE 10 and
   # the assertion would pass for the wrong reason — the two gates must be shown to be
   # independent, not merely both red.
-  # DISPATCH NOTE (item A1, round 8): `ledger` is phrases AND figures behind one exit code,
-  # and the figures pass already carries [OPEN] rows — so an exit-code assertion here was
-  # satisfiable by the figures half and would have stayed green with the phrases pass
-  # deleted. The ERE names the PHRASES leg's own line. The RP key is matched as a pattern,
-  # never hardcoded: a sha copied out of a run into a fire-proof is the shape this project
-  # bans everywhere else, and the registry note is deliberately NOT in the ERE, since that
-  # string is the mutation's own source text.
-  assert_fires_why "GATE 11 ledger completeness (unrecorded retraction)" ledger \
+  # DISPATCH NOTE (item A1, round 8; RE-POINTED item B2, round 9): `ledger` is phrases AND
+  # figures behind one exit code, and the figures pass already carries [OPEN] rows — so an
+  # exit-code assertion here was satisfiable by the figures half and would have stayed green
+  # with the phrases pass deleted. Round 8 defended that with the ERE alone (it names the
+  # PHRASES leg's own line, which the figures leg cannot print). Round 9 added the LEAF
+  # dispatch name `ledger-phrases`, so the defence is now structural as well: this assertion
+  # runs one gate function, and a reader does not have to verify an ERE's provenance to see
+  # it. The RP key is matched as a pattern, never hardcoded: a sha copied out of a run into a
+  # fire-proof is the shape this project bans everywhere else, and the registry note is
+  # deliberately NOT in the ERE, since that string is the mutation's own source text.
+  assert_fires_why "GATE 11 ledger completeness (unrecorded retraction)" ledger-phrases \
     'RP-[0-9a-f]+ has NO entry in documentation/CORRECTIONS\.md' \
 "open('documentation/RETRACTED_PHRASES.tsv','a').write(
  'a synthetic phrasing that was never published'+chr(9)+'__none__'+chr(9)+'Self-test row: no ledger entry exists for it, so GATE 11 must fail.'+chr(10))"
@@ -3589,13 +3593,24 @@ os.remove('documentation/CORRECTIONS.md')"
 
   # GATE 11 named both files in ONE skip line, so it needs BOTH cases: an assertion on the
   # registry alone would pass against a gate that still skipped silently on a missing ledger.
-  assert_fires_why "GATE 11 (A1) registry deleted" ledger \
+  #
+  # RE-POINTED FROM `ledger` TO `ledger-phrases` (item B2, round 9, 2026-08-02), and the
+  # SECOND of these two was a LIVE instance of the class, not a tidy-up. Its ERE,
+  # `CORRECTIONS.md is tracked in git but missing`, is emitted by `require_tracked "$f"` in
+  # gate_ledger_phrases AND by the identical call in gate_ledger_figures — both halves guard
+  # the same ledger. Under the combined `ledger` dispatch either one satisfied it, so the
+  # assertion labelled "GATE 11 (A1) ledger deleted" could not say which half answered, and
+  # deleting the phrases guard would have left it green. That is the fifth sighting of the
+  # class GATE 4/4b, GATE 10a/10b and GATE 11-figures were each hand-fixed for. The first of
+  # the two was never ambiguous (only the phrases half reads RETRACTED_PHRASES.tsv) and is
+  # re-pointed for uniformity, so a future reader does not have to re-derive which is which.
+  assert_fires_why "GATE 11 (A1) registry deleted" ledger-phrases \
     'RETRACTED_PHRASES\.tsv is tracked in git but missing' \
 "import os
 assert os.path.exists('documentation/RETRACTED_PHRASES.tsv'), 'anchor moved'
 os.remove('documentation/RETRACTED_PHRASES.tsv')"
 
-  assert_fires_why "GATE 11 (A1) ledger deleted" ledger \
+  assert_fires_why "GATE 11 (A1) ledger deleted" ledger-phrases \
     'CORRECTIONS\.md is tracked in git but missing' \
 "import os
 assert os.path.exists('documentation/CORRECTIONS.md'), 'anchor moved'
@@ -6010,6 +6025,13 @@ case "$MODE" in
   appendonly-history) gate_appendonly_history || RC=1 ;;
   ledger)  gate_ledger  || RC=1 ;;
   ledger-figures) gate_ledger_figures || RC=1 ;;
+  # LEAF DISPATCH NAME (item B2, round 9, 2026-08-02). `ledger` runs BOTH halves, so an
+  # assertion written against it cannot say which half answered — measured live at
+  # "GATE 11 (A1) ledger deleted", whose ERE `CORRECTIONS.md is tracked in git but
+  # missing` is emitted by gate_ledger_phrases AND by gate_ledger_figures, both of which
+  # require_tracked the same ledger. This is the fourth hand application of one fix:
+  # GATE 10a/10b, GATE 4/4b and GATE 11-figures each got a leaf name for the same reason.
+  ledger-phrases) gate_ledger_phrases || RC=1 ;;
   revhist) gate_revhist || RC=1 ;;
   revrows) gate_revrows || RC=1 ;;
   regdupes) gate_registry_dupes || RC=1 ;;
@@ -6030,7 +6052,7 @@ case "$MODE" in
            echo; gate_selftest_instruments || RC=1
            echo; gate_preflight_collisions || RC=1
            echo; gate_scoreboard_verdicts || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|instruments|collisions|scoreboard|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|generated|all}"; exit 2 ;;
 esac
 
 echo
