@@ -230,6 +230,57 @@ require_final_newline() {
 # BOTH STALE SITES ARE FIXED IN THIS COMMIT, THE DECISION IS NOT TAKEN. (i)/(ii)/(iii)
 # remain open and remain the operator's; no instrument shipped.
 #
+# ITEM R12 — THE UNSTAMPED COMPLEMENT WAS SWEPT AND CAME BACK CLEAN (2026-08-02, round 13
+# drain-1). MEASURED REFUSAL: 0 stale of 7 sampled sites. NO INSTRUMENT SHIPPED, and no
+# number is copied out of any of them into this paragraph — that is the point of item R3,
+# and copying them here is the one way this block goes stale in silence. Each site is named
+# by the sentence it lives in; run the command beside it if you want the value.
+#   GATE 6's WHY header, "N of the repo's M image assets"  — git ls-files | grep -iE
+#       '\.(svg|png|pdf)$', then grep -c '<text' over the SVGs. Every figure in the
+#       sentence re-derives, INCLUDING the two the round-12 sample did not check: the
+#       <text> and <use> counts it quotes for fig_tr4_boundary_information.svg.
+#   GATE 12's SCOPE paragraph, the per-TR `## Revision history` census  — grep -c over
+#       git ls-files 'reports/TR*.md' plus the documentation/ negative.
+#   GATE 9's Q2 answer, the banner-block line counts against MAXBLK/MAXIDX  — re-derive
+#       with the gate's own rule (open at "not peer-reviewed", close at the first line
+#       ending in `*`); the caps are the constants a few lines below it.
+#   the three `X -> X+1` pins listed in `assert_stays_clean_why`'s STRENGTH VARIES BY CALLER
+#       block  — run modes `cli`, `retract-figures` and `revhist` and read the [ok] lines.
+#   the `_selftest_revert` call-site count in GATE 15's THE CALL-SITE RULE paragraph, the one
+#       that says the rule CORRECTED the hand audit  — apply the command-position rule stated
+#       in the paragraph directly above it.
+# FIVE BULLETS, SEVEN SITES: the pins bullet covers three separate counts, the other four
+# cover one each. Stated because the arithmetic is otherwise invisible.
+# WHY THE CLASS IS CLEAN, which matters more than the count: those three pins are NOT
+# unguarded prose. Each writes a clean value whose POST-injection partner is the literal an
+# assert_stays_clean_why ERE matches on, so a corpus change that moved the clean value moves
+# the asserted one too and turns `--selftest` RED. They were never in the invisible class;
+# they only look unstamped. That mechanism, not luck, is most of the 0-of-7.
+# PHASE-4 NOTE, KEPT BECAUSE IT IS THE FINDING: the first draft of THIS BLOCK attributed both
+# of those sites to the wrong leg — "GATE 15 LEG 3's caveat-4 census" (it belongs to
+# `assert_stays_clean_why`, which only CITES LEG 3 as the authority) and "GATE 15 LEG 2's
+# evidence block" (it sits above LEG 3's own marker). Round 12 shipped the same class of error
+# one function boundary wide. Citing by CONTENT is what fixed it, and it is why nothing above
+# names a leg it did not verify.
+# WHAT THE SWEEP CANNOT SEE, and it is a lot: the population was reached by a hand-written
+# list of corpus nouns over `#` comment lines, so it misses a load-bearing count whose noun
+# is not on the list, one spelled in words, one inside a heredoc or a printed message rather
+# than a comment, and one whose number and noun straddle a line break — GATE 6's own site was
+# caught only because the noun half landed on the second line. 7 is a sample of a population
+# that was never enumerated; it is not a clearance of the class.
+# TWO STRUCTURAL FINDINGS, neither of which is a defect to fix:
+#   (1) THE STAMPED/UNSTAMPED SPLIT IS PER-LINE AND THE STAMPS ARE NOT. GATE 12's census is
+#       stamped `Measured <date>` on the line ABOVE its numbers, so it is invisible to a
+#       stamp query keyed line-wise and appears in BOTH populations. R11's swept population
+#       and this one therefore overlap at the boundary, and neither is exactly the class it
+#       named. Anyone taking decision (i) should key on the paragraph, not the line.
+#   (2) A NAIVE RE-RUN CHECK WOULD FALSE-POSITIVE HERE FOR THE REASON IT DID FOR R9. The
+#       ITEM N1 citation-form census below carries its own historicity in prose — it says in
+#       terms that its populations will NOT re-measure and must not be reconciled against.
+#       And the evidence block for `_selftest_revert`'s two call forms QUOTES both forms, so
+#       a `grep -c` verifier of that sentence counts the sentence itself and reports the
+#       prose stale when it is correct. Same shape as O6/R3, aimed at the checker this time.
+#
 # ITEM N1 — CITATION-BY-LINE: ALL THREE FORMS NOW COUNTED, AND ONLY TWO ARE GATEABLE
 # (2026-08-02, unit drain-1). Round 9 adjudicated `name.ext:N` — 72 citations, 4 stale. It
 # recorded that two other forms had been SAMPLED, not counted. Both are counted now, over
