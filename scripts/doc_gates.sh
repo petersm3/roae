@@ -33,8 +33,9 @@
 #   scripts/doc_gates.sh revrows    # GATE 13: a TR body edit carries a revision row (REPORT-ONLY)
 #   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
 #                                   # released version, dates and versions ascending
+#   scripts/doc_gates.sh regdupes   # GATE 14: two literature-registry rules that are the same predicate
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all twelve cheap gates (1-7 incl. 3b, 9, 10, 11, 12); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all thirteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -3118,6 +3119,67 @@ os.remove('documentation/CORRECTIONS.md')"
 assert os.path.exists('documentation/GUIDE.md'), 'anchor moved'
 os.remove('documentation/GUIDE.md')"
 
+  # GATE 14 FIRE-PROOFS (item A6, 2026-08-02) — FOUR legs, and the count is deliberate.
+  #
+  # The suite's own header records GATE 8 shipping a ONE-DIRECTIONAL comparison behind a
+  # fire-proof that was taken by hand and never re-run. A duplicate-detector has exactly the
+  # same shape of hole: an assertion that only removes the allowlist row proves the ALLOWLIST
+  # is load-bearing and says nothing about whether the gate can find a duplicate it has never
+  # been told about. So the legs are split by what each one can fail on its own:
+  #   (1) the MOTIVATING EXAMPLE — drop the r3/p1c4 row and the real pair must be reported;
+  #   (2) a NEW pair the allowlist has never seen — reg_c1's body replaced by reg_r4's, so
+  #       two rules that were plainly different become identical. Leg 1 passes even if the
+  #       allowlist is the only thing the gate consults; leg 2 does not;
+  #   (3) the BLIND-SPOT detector — reg_r4 pinned to its KW constant, which is precisely the
+  #       state MM-T5 was in before the witnesses were added. A gate that reported [ok] on an
+  #       uncomparable rule would be a false clear of the exact kind that hid a Lean defect
+  #       for twelve hours on 2026-08-01; this leg makes the refusal load-bearing;
+  #   (4) the MISSING-INPUT leg (item A1's class) — allowlist deleted.
+  # Plus a negative control: a comment appended to the allowlist must change nothing, or the
+  # parser is failing closed on its own file format and legs 1-4 prove less than they look.
+  #
+  # ITEM A2 CHECKED BEFORE THESE WERE WRITTEN, not after: neither preflight can emit any of
+  # the four EREs below. preflight_tracked_docs prints only "tracked markdown missing from
+  # the working tree", preflight_support_newlines only "gate-support file has no final
+  # newline" — and DOC_GATE_REGISTRY_DUPLICATES.txt matches preflight_support_newlines'
+  # `documentation/DOC_GATE_*.txt` glob, so that check was necessary rather than pro forma.
+  # Every ERE here contains a `reg_` rule id, which no preflight ever prints.
+  assert_fires_why "GATE 14 duplicate predicates — the r3/p1c4 pair the gate was built for" \
+    regdupes 'reg_p1c4 and reg_r3 return the SAME value' \
+"p='documentation/DOC_GATE_REGISTRY_DUPLICATES.txt'
+s=open(p,encoding='utf-8').read()
+assert s.count(chr(10)+'r3'+chr(9)+'p1c4'+chr(9))==1, 'anchor moved'
+open(p,'w',encoding='utf-8').write(
+    ''.join(l for l in s.splitlines(True) if not l.startswith('r3'+chr(9))))"
+
+  assert_fires_why "GATE 14 a NEW duplicate the allowlist has never seen (reg_c1 := reg_r4)" \
+    regdupes 'reg_c1 and reg_r4 return the SAME value' \
+"p='solve.py'
+a='    return sum(abs(sum(_reg_hw(h) for h in seq[i:i + 4]) - 12)'+chr(10)+'               for i in range(0, 64, 4))'+chr(10)
+b='    return sum(bit_diff(seq[2 * k], seq[2 * k + 1]) for k in range(32))'+chr(10)
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'reg_c1 body anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,b,1))"
+
+  assert_fires_why "GATE 14 a rule that cannot be compared is a FAIL, not a silent pass" \
+    regdupes 'reg_r4 takes ONE value across all' \
+"p='solve.py'
+a='    return sum(bit_diff(seq[2 * k], seq[2 * k + 1]) for k in range(32))'+chr(10)
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'reg_r4 body anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'    return 120'+chr(10),1))"
+
+  assert_fires_why "GATE 14 (A1) duplicate allowlist deleted" \
+    regdupes 'DOC_GATE_REGISTRY_DUPLICATES\.txt is tracked in git but missing' \
+"import os
+p='documentation/DOC_GATE_REGISTRY_DUPLICATES.txt'
+assert os.path.exists(p), 'anchor moved'
+os.remove(p)"
+
+  assert_stays_clean "GATE 14 a comment appended to the allowlist changes nothing" regdupes \
+"open('documentation/DOC_GATE_REGISTRY_DUPLICATES.txt','a',encoding='utf-8').write(
+    '# GATE 14 negative control: a comment line must not be parsed as a pair.'+chr(10))"
+
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
@@ -3847,6 +3909,202 @@ gate_ledger_phrases() {
   return $bad
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 14 — no two registry rules may be the same predicate (ITEM A6, 2026-08-02).
+#
+# WHY THIS EXISTS. `reg_r3` and `reg_p1c4` in solve.py are byte-distinct, separately
+# attributed to two different authors, separately counted in a published total (EIGHT proven
+# C1 constants — documentation/CLAIMS_DECIDED.md, TR-1 section 3) and separately proven in
+# Lean 4 — and are the same function over orderings. That was found by hand on 2026-08-02.
+# No gate looked for it, and nothing in the suite would have looked for the next one.
+#
+# WHAT IT DOES. Evaluates every rule in solve.py's REGISTRY_KW_EXPECTED over one SHARED,
+# fully deterministic sample of orderings and compares the resulting value VECTORS. Two rules
+# whose vectors are equal everywhere are reported; the adjudicated pairs live in
+# documentation/DOC_GATE_REGISTRY_DUPLICATES.txt, and anything not there is a FAIL.
+#
+# COST, MEASURED NOT ESTIMATED (this is the reason it is in `all` and GATE 8 is not):
+# 4,000 orderings x 31 rules = 124,000 rule evaluations, 4.4 s wall, a few MB resident —
+# the sample is generated lazily and only 31 value-vectors are held. Sized as a formula
+# before it was written, per the box-safety rule that a python DP's state key rebooted this
+# orchestrator on 2026-08-01.
+#
+# THE SAMPLE IS THE INSTRUMENT, and a naive one would be worse than none. On UNIFORMLY
+# RANDOM orderings nearly every boolean rule is False, so nearly every boolean PAIR would
+# match and the gate would report ~200 duplicates, all spurious. The sample is therefore
+# built where the rules are near their trip points:
+#   * King Wen itself (every rule at its registry-expected value);
+#   * ALL 2,016 single transpositions of KW — exhaustive, no sampling, no seed;
+#   * 1,400 k-transposition perturbations, k = 2..8, seeded;
+#   * 400 full shuffles, seeded, so a rule that only moves far from KW still moves;
+#   * targeted MM-T5 witnesses (an ordering carrying the Qian-Kun-Zhen-Xun-Kan-Li-Gen-Dui
+#     lower-trigram run in a window, at three offsets, plus 60 one-swap neighbours each).
+# The witnesses are not decoration: WITHOUT them reg_mmt5 took ONE value across the whole
+# sample, and a rule with one value is vacuously equal to every other constant rule and
+# vacuously unequal to every varying one. Measured before and after.
+#
+# WHAT THIS GATE CANNOT SEE, said plainly rather than left to be inferred:
+#   (a) It can prove two rules DIFFER. It cannot prove they are IDENTICAL — a finite sample
+#       is a refutation instrument only. Every hit is a claim for a human to check, which is
+#       exactly what the r3/p1c4 NOTEs in solve.py record having done.
+#   (b) It compares VALUES, not attributions, not Lean theorems, not prose. Two rows can be
+#       one ordering fact under two honest citations; that is O6/O2's question, not this
+#       gate's.
+#   (c) A rule that is constant on the sample is UNCOMPARABLE, and the gate FAILS on that
+#       rather than passing quietly. A checker that reports [ok] on a rule it could not
+#       examine is the false-clear class this suite exists to refuse.
+gate_registry_dupes() {
+  echo "== GATE 14: no two literature-registry rules are the same predicate =="
+  local allow=documentation/DOC_GATE_REGISTRY_DUPLICATES.txt rca=0
+  require_tracked "$allow" \
+    "The allowlist IS half this gate: without it every adjudicated pair reads as new." || rca=$?
+  [ "$rca" -eq 1 ] && return 0      # untracked and absent — nothing shipped is being checked
+  [ "$rca" -eq 2 ] && return 1
+  DOC_GATES_DUPE_ALLOW="$allow" python3 - <<'PY'
+import itertools, os, random, sys
+sys.path.insert(0, '.')
+try:
+    import solve
+except Exception as exc:                       # noqa: BLE001 — any import failure is a FAIL
+    print("  [FAIL] cannot import solve.py, so ZERO rules were compared: %s" % exc)
+    print("         A gate that cannot load its subject has checked nothing.")
+    sys.exit(1)
+
+ids = [r for r, _ in solve.REGISTRY_KW_EXPECTED]
+kw = list(solve.binary_hexagrams)
+# MM-T5's family order, quoted from reg_mmt5's own docstring so the witness cannot drift
+# away from the rule silently.
+FAMILY = [7, 0, 1, 6, 2, 5, 4, 3]
+
+
+def witnesses():
+    block = []
+    for t in FAMILY:
+        for h in range(64):
+            if solve.lower_trigram(h) == t and h not in block:
+                block.append(h)
+                break
+    rest = [h for h in kw if h not in block]
+    for off in (0, 20, 49):
+        yield rest[:off] + block + rest[off:]
+
+
+def sample():
+    yield list(kw)
+    for i, j in itertools.combinations(range(64), 2):
+        s = list(kw)
+        s[i], s[j] = s[j], s[i]
+        yield s
+    rng = random.Random(20260802)
+    for k in range(2, 9):
+        for _ in range(200):
+            s = list(kw)
+            for _ in range(k):
+                a, b = rng.randrange(64), rng.randrange(64)
+                s[a], s[b] = s[b], s[a]
+            yield s
+    for _ in range(400):
+        s = list(kw)
+        rng.shuffle(s)
+        yield s
+    for w in witnesses():
+        yield w
+        for _ in range(60):
+            s = list(w)
+            a, b = rng.randrange(64), rng.randrange(64)
+            s[a], s[b] = s[b], s[a]
+            yield s
+
+
+fns = [getattr(solve, "reg_" + r) for r in ids]
+vecs = [[] for _ in ids]
+n = 0
+for seq in sample():
+    if sorted(seq) != list(range(64)):
+        print("  [FAIL] sample generator emitted a non-permutation at index %d" % n)
+        sys.exit(1)
+    n += 1
+    # repr(), not the raw value, and the reason is a live hazard rather than tidiness:
+    # `True == 1` in Python, so a boolean rule and a count rule that happened to return 1
+    # would compare EQUAL under `==` and the gate would report a duplicate that is only a
+    # type pun. registry_verify() guards the same confusion with `type(value) is
+    # type(expected)`; this is the vector-comparison form of that check.
+    for idx, fn in enumerate(fns):
+        vecs[idx].append(repr(fn(seq)))
+
+allow = {}
+path = os.environ["DOC_GATES_DUPE_ALLOW"]
+with open(path, encoding="utf-8") as fh:
+    for lineno, line in enumerate(fh, 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) < 3 or not parts[2].strip():
+            print("  [FAIL] %s:%d is not `a<TAB>b<TAB>note`, so the row exempts nothing"
+                  " and names no reason" % (path, lineno))
+            sys.exit(1)
+        allow[tuple(sorted(parts[:2]))] = lineno
+
+bad = 0
+known = set(ids)
+for pair, lineno in sorted(allow.items()):
+    unknown = [r for r in pair if r not in known]
+    if unknown:
+        print("  [FAIL] %s:%d allowlists %s, which is not in REGISTRY_KW_EXPECTED"
+              % (path, lineno, "/".join(unknown)))
+        print("         A row keyed to a rule that no longer exists exempts nothing and"
+              " hides that it exempts nothing.")
+        bad = 1
+
+flat = [ids[i] for i in range(len(ids)) if len(set(vecs[i])) < 2]
+if flat:
+    for r in flat:
+        print("  [FAIL] reg_%s takes ONE value across all %d sampled orderings, so it cannot"
+              " be compared" % (r, n))
+    print("         An unvarying rule is vacuously equal to every other unvarying rule and"
+          " vacuously")
+    print("         unequal to every varying one, so its column of this gate is a false"
+          " clear, not a pass.")
+    print("         Add a targeted witness to the sample (see the MM-T5 witnesses) that"
+          " makes it vary.")
+    bad = 1
+
+hits = []
+for a, b in itertools.combinations(range(len(ids)), 2):
+    if vecs[a] == vecs[b]:
+        hits.append(tuple(sorted((ids[a], ids[b]))))
+
+for pair in hits:
+    if pair in allow:
+        print("  [note] reg_%s and reg_%s agree on all %d sampled orderings — adjudicated at"
+              " %s:%d" % (pair[0], pair[1], n, path, allow[pair]))
+    else:
+        print("  [FAIL] reg_%s and reg_%s return the SAME value on all %d sampled orderings"
+              % (pair[0], pair[1], n))
+        print("         Two registry rows that are one function are one ordering fact under"
+              " two citations —")
+        print("         separately attributed, separately counted in any published total,"
+              " and separately")
+        print("         proven. Check by hand, then record the verdict in %s." % path)
+        bad = 1
+
+stale = [(p, ln) for p, ln in sorted(allow.items())
+         if p not in set(hits) and all(r in known for r in p)]
+for pair, lineno in stale:
+    print("  [FAIL] %s:%d allowlists reg_%s/reg_%s, but they now DIFFER on the sample"
+          % (path, lineno, pair[0], pair[1]))
+    print("         The exemption is stale: it would silently absolve a future duplication"
+          " of the same")
+    print("         pair that nobody adjudicated. Delete the row.")
+    bad = 1
+
+if not bad:
+    print("  [ok] %d rules, %d pairs compared on %d orderings; %d adjudicated pair(s), 0 new"
+          % (len(ids), len(ids) * (len(ids) - 1) // 2, n, len(hits)))
+sys.exit(bad)
+PY
+}
+
 MODE="${1:-all}"
 
 # ITEM A1, hole (b) — runs for EVERY mode, including the single-gate invocations the
@@ -3880,6 +4138,7 @@ case "$MODE" in
   ledger-figures) gate_ledger_figures || RC=1 ;;
   revhist) gate_revhist || RC=1 ;;
   revrows) gate_revrows || RC=1 ;;
+  regdupes) gate_registry_dupes || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -3889,8 +4148,9 @@ case "$MODE" in
            echo; gate_appendonly || RC=1
            echo; gate_ledger || RC=1
            echo; gate_revhist || RC=1
-           echo; gate_revrows || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|generated|all}"; exit 2 ;;
+           echo; gate_revrows || RC=1
+           echo; gate_registry_dupes || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -3903,7 +4163,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then
