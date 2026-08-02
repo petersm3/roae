@@ -199,6 +199,35 @@ require_final_newline() {
 # grounds that headers are commentary, is left open with this measurement attached to it.
 # The four sites above are the whole surface; anyone taking the decision does not have to
 # re-derive it.
+#
+# ITEM N1 — CITATION-BY-LINE: ALL THREE FORMS NOW COUNTED, AND ONLY TWO ARE GATEABLE
+# (2026-08-02, unit drain-1). Round 9 adjudicated `name.ext:N` — 72 citations, 4 stale. It
+# recorded that two other forms had been SAMPLED, not counted. Both are counted now, over
+# `git ls-files`. THE POPULATIONS BELOW ARE AS OF THAT CENSUS AND WILL NOT RE-MEASURE TO
+# THE SAME NUMBERS: this batch's four fixes removed four form-3 occurrences after it was
+# taken, and prose ABOUT a citation form is itself an instance of it — the two "lines 2-4"
+# examples further down are two more. Re-run the census; do not reconcile against these.
+#   FORM 2, bare `:NNN` — 15 lines. 7 in this file (GATE 5's "WHY the anchor is now the
+#     PRIMARY key" block, its item-A8 fire-proof header, and its drift-immunity [ok]
+#     message), 3 in DOC_GATE_STATUS_ALLOWLIST.txt, 2 in CORRECTIONS_INVENTORY.tsv: every
+#     one NARRATES a past anchor drift or a synthetic move, so round 9's "all narrative"
+#     verdict holds on the population and not only on its sample. 2 are numpy slices in
+#     solve.py and viz/visualize.py. The ONE live pointer — the "Checked and needing
+#     nothing" bullet in CORRECTIONS.md, chaining three notes in DESCRIPTION_LENGTH.md,
+#     resolves — as does the alias sub-form `TR-n:NNN` (4 sites).
+#   FORM 3, `line NNN` — 122 lines / 138 occurrences, and 92 of those lines are the DOMAIN
+#     sense: "Line 3" of a hexagram, "lines 2-4" of a nuclear trigram. 2 more describe a
+#     file FORMAT or a manifest's data line. Only 28 lines cite anything, 15 of them dated
+#     changelog rows. Of the 13 live pointers, FOUR were stale and are fixed at `2f976d3`.
+# NOT SHIPPED, and this one is not a close call: no mechanical test separates "lines 2-4 of
+# a hexagram" from "lines 2-4 of a file", so a form-3 gate is ~75% false positives — which
+# is how a real hit later gets ignored. The gateable forms are `name.ext:N` and `TR-n:NNN`,
+# both already resolvable. THE CONVENTION IS THE FIX: cite the SYMBOL and it cannot drift.
+# solve.c is excluded by the sha anchor, not by policy — it carries 5 live self-pointers
+# and all 5 are stale; they belong to the solve.c correction batch, not to a gate.
+# The first draft of THIS BLOCK cited three of its own form-2 sites by line, and inserting
+# the block moved all three by 22 — the census demonstrated on the census, caught by the
+# Phase-4 pass and not by any gate. That is the argument for the convention, in one line.
 preflight_support_newlines() {
   local f bad=0
   for f in $(git ls-files 'documentation/DOC_GATE_*.txt' 'documentation/*.tsv' 2>/dev/null); do
