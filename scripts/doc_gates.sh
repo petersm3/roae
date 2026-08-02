@@ -5443,9 +5443,12 @@ for name in sorted(rows):
 #         guarded text at column 0 would still defeat an anchored guard. Neither live
 #         guard has that shape (one starts `  if sed`, the other `     && !`), but this
 #         gate does not check it.
-#   (ii)  It sees `grep` guards only. A confirmation written in python — GATE 16's two
-#         legs are — is outside the scan; those carry their own `assert len(t)==N` exact
-#         anchor counts instead, which is item A2's FIRST form applied by hand.
+#   (ii)  It sees `grep` guards only. A confirmation written in PYTHON — inside the builder
+#         itself, as `assert len(t)==N` / `assert n>0` before the copy is written — is
+#         outside the scan; those are item A2's FIRST form applied by hand. THE COUNT OF
+#         SUCH LEGS IS DELIBERATELY NOT STATED: this caveat said "GATE 16's two legs" and
+#         was stale twice over inside one day, which is the caveat-4 shape appearing in a
+#         caveat. The SHAPE is what this points at; the population is re-measured below.
 #   (iii) It says nothing about the MUTATION half: a mutation whose injected literal
 #         collides with the corpus is item A2's other direction and is still hand-guarded
 #         (`src.count(lbl)==1` in GATE 15's label leg).
@@ -5455,7 +5458,10 @@ for name in sorted(rows):
 #         continuation-JOINED lines finds the same two guards and no third, so the blind
 #         spot is real and currently empty. Two lines DO contain both tokens after joining
 #         and are correctly not flagged — a comment and a [FAIL] message, both this leg's
-#         own — which is also the evidence that the pattern discriminates.
+#         own — which is also the evidence that the pattern discriminates. RE-MEASURED
+#         2026-08-02 (item B10) after item B2 added four more fire-proofs: the joined scan
+#         still finds the SAME TWO guards and no third. Re-taken from a run, not re-asserted
+#         from the round-8 sentence — the blind spot is real and is still empty.
 #   (v)   A guard whose pattern is a VARIABLE (`grep -qE "$PAT" "$_G15_COPY"`) is reported
 #         as unanchored, because `$PAT` does not start with `^`. That is a false FAIL in the
 #         conservative direction: this gate cannot follow an indirection, and refusing one
@@ -5463,11 +5469,25 @@ for name in sorted(rows):
 #   (vi)  The count it prints is a FLOOR, not a pinned population. Deleting one of the two
 #         guards leaves the other and still prints [ok] with a smaller number — the "count
 #         nobody reads" shape this file flags elsewhere. Pinning it to 2 would fail on a
-#         legitimate third guard, and no derived invariant was found (the three `_COPY`
-#         variables are not in bijection with the guards, since GATE 16's two legs confirm
-#         in python instead). Stated, not fixed.
+#         legitimate third guard, and no derived invariant was found (the `_COPY` VARIABLES
+#         are not in bijection with the guards, since other legs confirm in python instead).
+#         Stated, not fixed — but the search is no longer empty (item B10, 2026-08-02).
+#         MEASURED over the --selftest region after item B2: TEN lines build a copy, and TEN
+#         carry a confirmation of what went into it — 2 confirm with an anchored `grep -qE`
+#         (this leg's population) and 8 confirm in python inside the builder, immediately
+#         before the write. Copy BUILDERS, unlike `_COPY` variables, ARE in bijection with
+#         confirmations, 10 of 10. "A copy may not be written without a confirmation of what
+#         went into it" is therefore a checkable rule and is the derived invariant round 8
+#         could not find — the python population was too small then for the shape to show.
+#         It is DECLARED, NOT BUILT, and deliberately so: it needs its own fire-proof in
+#         BOTH forms, and shipping a coverage rule in the same pass that grew the population
+#         it counts is how a gate ends up proven against its own arithmetic rather than
+#         against a defect. Whoever takes it should not re-derive the 10/10 by hand.
 #   (vii) It sees `grep -q` only. A confirmation written as `grep -c`, `[ -n "$(grep …)" ]`
-#         or a `case` on file contents is outside the scan.
+#         or a `case` on file contents is outside the scan. Measured 2026-08-02 (item B10):
+#         no confirmation in this region takes any of those three forms today, so (vii) is a
+#         second real-and-currently-empty blind spot rather than an unmeasured one. It is
+#         NOT the same hole as (ii) — (ii) is the python form, which is populated at 8.
 COPY_GUARD = re.compile(
     r"grep\s+-q([A-Za-z]*)\s+(?P<q>['\"])(?P<pat>.*?)(?P=q)[^&|;]*\$_[A-Za-z0-9_]*COPY")
 guards = []
