@@ -5703,8 +5703,10 @@ directly. The DIV-24 and ceiling results now stand on `[propext, Classical.choic
 sweep, Western and OEIS — returned no missed enumeration, ceiling, or formalization prior art. The
 sharpest framework located is Ouyang (1992) on the (Z/2)⁶ structure and its subgroups; the sharpest
 counting is Suenaga (2012). Ouyang's earlier (≤1986) work explicitly *denies* that the King Wen sequence
-has mathematical structure — which is novelty support of an unusually direct kind, and is now cited as
-such rather than buried.
+has mathematical structure — a position he himself reversed by 1990 (see CITATIONS.md#ouyang1992, where his
+group-theoretic treatment is the earliest and fullest we have found). It is cited as intellectual
+history, not as his standing view: that even a sophisticated algebraist first judged the ordering
+problem empty is evidence about the field's expectations, not about Ouyang's conclusions.
 
 **The review that found what two reviews had missed (2026-07-31 → 08-01).** Two full adversarial passes
 — one informed, one fresh-eyes — cleared the corpus. A third pass, same models, **different charge**,

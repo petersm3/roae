@@ -275,6 +275,19 @@ theorem count_hd4          : ((List.range 64).countP (hdIs 4)) = 24     := by de
 theorem count_hd5          : ((List.range 64).countP (hdIs 5)) = 0      := by decide
 theorem count_hd6          : ((List.range 64).countP (hdIs 6)) = 16     := by decide
 
+/-- P1-C4 ≡ R3 collapse, pointwise (backs the counting note in TR-1 §3(2)):
+    BOTH violation predicates are false on EVERY hexagram — not merely
+    zero-count in aggregate (count_p1c4Viol / count_r3Viol above), but false
+    at each h < 64 individually. This is the machine-checked form of the
+    prose argument that reg_p1c4 and reg_r3 are extensionally the SAME
+    predicate on the C1 space: with both violation conjuncts identically
+    false, p1c4_const and r3_const each reduce to the same surviving
+    content, `pcount l dualPair = 4`. Kernel `decide` (finite evaluation
+    over all 64 hexagrams), NOT native_decide — same trust base as the
+    rest of §3. -/
+theorem p1c4Viol_r3Viol_false :
+    ∀ h, h < 64 → p1c4Viol h = false ∧ r3Viol h = false := by decide
+
 /- ────────── §4 the constancy theorems (EVERY C1-valid ordering) ────────── -/
 
 /-- notation shortcut: the even-slot count of a slot predicate. -/
