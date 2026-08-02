@@ -5670,7 +5670,16 @@ for name in sorted(rows):
 #         or a `case` on file contents is outside the scan. Measured 2026-08-02 (item B10):
 #         no confirmation in this region takes any of those three forms today, so (vii) is a
 #         second real-and-currently-empty blind spot rather than an unmeasured one. It is
-#         NOT the same hole as (ii) — (ii) is the python form, which is populated at 8.
+#         NOT the same hole as (ii) — (ii) is the PYTHON confirmation form. NO POPULATION
+#         IS STATED HERE, and the reason is that one was: this sentence read `which is
+#         populated at 8` from the day it was written (round 9), and LEG 4's own
+#         fire-proofs then took that population to eleven without touching this line —
+#         so the number was falsified by the same round's commits, in the same file,
+#         ten lines from caveat (vi) which had just been rewritten to stop stating
+#         populations. Caveat (ii) says outright that this count is deliberately not
+#         stated; this line stated it anyway. THE LIVE FIGURE IS THE `N by an assert
+#         earlier in the same python program` TERM OF LEG 4's [ok] LINE, which is
+#         re-measured on every run and cannot go stale.
 COPY_GUARD = re.compile(
     r"grep\s+-q([A-Za-z]*)\s+(?P<q>['\"])(?P<pat>.*?)(?P=q)[^&|;]*\$_[A-Za-z0-9_]*COPY")
 guards = []
