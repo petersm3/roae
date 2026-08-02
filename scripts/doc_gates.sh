@@ -6480,7 +6480,14 @@ PY
 #       fixed-string assertion written `grep -F -q` or `-Fq` would carry a fire-proof
 #       substring past the sort AND past the FAIL that exists to catch a form it cannot
 #       classify. MEASURED 2026-08-02 rather than assumed: no such spelling occurs in this
-#       file, and the only non-`-F` `grep -q… "$…"` lines are comments. Widening the detector
+#       file as a live assertion, and the only non-`-F` `grep -q… "$…"` lines are comments.
+#       THE MEASUREMENT COMMAND DOES NOT COME BACK EMPTY, THOUGH, AND THIS CAVEAT IS WHY: the
+#       line above that quotes the two forms in order to name them is itself a hit, and the
+#       commit that recorded the empty measurement is the commit that created it. Read that
+#       hit as prose and not as an assertion — and note what it is an instance of (item R3):
+#       a sentence stating a property of the corpus joining the corpus it describes, which is
+#       exactly the class this round kept re-filing, arriving here inside the record of a
+#       measurement. Widening the detector
 #       is the safe direction — it is a trigger, not a matcher — but it would have to widen
 #       the two classifiers with it, and this is being recorded on ZERO sightings, which is
 #       under the threshold this file applied to item R5 the same day.
