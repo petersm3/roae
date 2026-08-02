@@ -5868,7 +5868,26 @@ def reg_p1c4(seq):
     (see reg_r3). The 8 hexagrams with bitrev6(h) == complement6(h) form exactly
     4 adjacent KW pairs, each satisfying the inversion criterion (partner ==
     bitrev6(h)) with no palindromic member — i.e. they land among the 28
-    inversion pairs, not the 4 complement pairs. Returns bool."""
+    inversion pairs, not the 4 complement pairs.
+
+    NOTE (measured 2026-08-02, not reasoned): as a PREDICATE OVER ORDERINGS this
+    is not merely the same hexagram class as reg_r3 — it is the same function.
+    Both were evaluated on 60,320 orderings (all 8! = 40,320 placements of the 8
+    anti-symmetric hexagrams into adjacent pair slots, which is exhaustive over
+    the region where either can be True, plus 20,000 random full orderings whose
+    |anti| ranged 0..4): they agree on every one, True on the same 384. Dropping
+    the third conjunct above ("no palindromic member") changes nothing on that
+    space, as does dropping reg_r3's HD-6 conjunct; only `len(...) == 4` and
+    `bitrev6(a) == b` are load-bearing, and those two are common to both. So the
+    ATTRIBUTION line's "same hexagram class" understates it and reg_r3's
+    "Radisic adds the HD 6 characterization" is not true of the implemented
+    predicate — the HD-6 clause is implied by the shared filter and discriminates
+    no ordering. This does NOT retract either attribution (both authors stated
+    what they stated), and it does not make either row non-constant on C1; it
+    means the two rows are one ordering fact under two citations. Bears on the
+    published count of EIGHT proven C1 constants
+    (documentation/CLAIMS_DECIDED.md, TR-1 §3) — an operator call, not changed
+    here. Returns bool."""
     kw_pairs = [(seq[2 * k], seq[2 * k + 1]) for k in range(32)]
     dual = [(a, b) for a, b in kw_pairs
             if reverse_6bit(a) == _reg_comp6(a) and reverse_6bit(b) == _reg_comp6(b)]
@@ -6049,8 +6068,15 @@ def reg_r3(seq):
     each paired by reversal-equals-complement with intra-pair HD 6.
 
     ATTRIBUTION: Radisic 2026 arXiv:2601.07175 (Theorem 3.3, Lean 4 verified);
-    same class as Schulz 1982's dual pairs (reg_p1c4) — Radisic adds the HD 6
-    characterization. Returns bool."""
+    same class as Schulz 1982's dual pairs (reg_p1c4).
+
+    NOTE (measured 2026-08-02): this docstring previously said "Radisic adds the
+    HD 6 characterization", which is true of the THEOREM but not of this
+    predicate — the HD-6 conjunct below is implied by the filter above
+    (bitrev6(a) == comp6(a) and b == bitrev6(a) forces bit_diff(a, b) == 6), so
+    dropping it flips no ordering. reg_r3 and reg_p1c4 were measured identical on
+    all 60,320 orderings tested; see the NOTE on reg_p1c4 for the space and the
+    conjunct-by-conjunct result. Returns bool."""
     kw_pairs = [(seq[2 * k], seq[2 * k + 1]) for k in range(32)]
     anti = [(a, b) for a, b in kw_pairs
             if reverse_6bit(a) == _reg_comp6(a) and reverse_6bit(b) == _reg_comp6(b)]
