@@ -976,25 +976,25 @@ public documentation, so the suite's `#print axioms` claims are OBSERVED rather 
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
 `native_decide` (compiler trust) is load-bearing and the docs must say so. -/
-#print axioms partner_comp_comm
-#print axioms slot_orientation_free
-#print axioms c3_slot_decomposition
-#print axioms kw_slot_sum_95
-#print axioms g48_couple_image
-#print axioms g48_couples_to_couples
-#print axioms nullHist_matches_brute_2_1_5
-#print axioms null_law
-#print axioms null_terminal_closed
-#print axioms null_total
-#print axioms null_support_below_12
-#print axioms null_support_min
-#print axioms null_support_max
-#print axioms null_support_bins
-#print axioms null_support_contiguous
-#print axioms null_mean_128
-#print axioms null_c3_mean_1040
-#print axioms sum_absdiff_31
-#print axioms null_mean_linearity
-#print axioms null_mass_le_95
-#print axioms null_p_le_95
-#print axioms null_p_le_95_lowest_terms
+#print axioms C3Decomposition.partner_comp_comm
+#print axioms C3Decomposition.slot_orientation_free
+#print axioms C3Decomposition.c3_slot_decomposition
+#print axioms C3Decomposition.kw_slot_sum_95
+#print axioms C3Decomposition.g48_couple_image
+#print axioms C3Decomposition.g48_couples_to_couples
+#print axioms C3Decomposition.nullHist_matches_brute_2_1_5
+#print axioms C3Decomposition.null_law
+#print axioms C3Decomposition.null_terminal_closed
+#print axioms C3Decomposition.null_total
+#print axioms C3Decomposition.null_support_below_12
+#print axioms C3Decomposition.null_support_min
+#print axioms C3Decomposition.null_support_max
+#print axioms C3Decomposition.null_support_bins
+#print axioms C3Decomposition.null_support_contiguous
+#print axioms C3Decomposition.null_mean_128
+#print axioms C3Decomposition.null_c3_mean_1040
+#print axioms C3Decomposition.sum_absdiff_31
+#print axioms C3Decomposition.null_mean_linearity
+#print axioms C3Decomposition.null_mass_le_95
+#print axioms C3Decomposition.null_p_le_95
+#print axioms C3Decomposition.null_p_le_95_lowest_terms

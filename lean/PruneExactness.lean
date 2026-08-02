@@ -1431,12 +1431,12 @@ public documentation, so the suite's `#print axioms` claims are OBSERVED rather 
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
 `native_decide` (compiler trust) is load-bearing and the docs must say so. -/
-#print axioms capping_exact
-#print axioms no_live_lumping
-#print axioms cap_never_merges_live
-#print axioms sum_perm
-#print axioms orbit_transfer_exact
-#print axioms orbit_stabilizer_mult
-#print axioms stabilizer_weighted_mass
-#print axioms g_prune_sound
-#print axioms g_prune_exact
+#print axioms PruneExactness.capping_exact
+#print axioms PruneExactness.no_live_lumping
+#print axioms PruneExactness.cap_never_merges_live
+#print axioms PruneExactness.OrbitTransfer.sum_perm
+#print axioms PruneExactness.OrbitTransfer.orbit_transfer_exact
+#print axioms PruneExactness.OrbitTransfer.orbit_stabilizer_mult
+#print axioms PruneExactness.OrbitTransfer.stabilizer_weighted_mass
+#print axioms PruneExactness.GPrune.g_prune_sound
+#print axioms PruneExactness.GPrune.g_prune_exact

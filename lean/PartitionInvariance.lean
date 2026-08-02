@@ -1129,11 +1129,11 @@ public documentation, so the suite's `#print axioms` claims are OBSERVED rather 
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
 `native_decide` (compiler trust) is load-bearing and the docs must say so. -/
-#print axioms merge_perm
-#print axioms merge_spec
-#print axioms merge_map_merge_flatten
-#print axioms dedupAdjacent_eq
-#print axioms partition_invariance
-#print axioms grouping_invariance
-#print axioms recMergeOrder
-#print axioms cross_depth_invariance
+#print axioms PartitionInvariance.merge_perm
+#print axioms PartitionInvariance.merge_spec
+#print axioms PartitionInvariance.merge_map_merge_flatten
+#print axioms PartitionInvariance.dedupAdjacent_eq
+#print axioms PartitionInvariance.partition_invariance
+#print axioms PartitionInvariance.grouping_invariance
+#print axioms PartitionInvariance.recMergeOrder
+#print axioms PartitionInvariance.cross_depth_invariance

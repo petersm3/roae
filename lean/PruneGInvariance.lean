@@ -768,7 +768,7 @@ public documentation, so the suite's `#print axioms` claims are OBSERVED rather 
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
 `native_decide` (compiler trust) is load-bearing and the docs must say so. -/
-#print axioms applyPerm_isometry
-#print axioms partner_involution
-#print axioms sum_perm
-#print axioms transitions_mapP
+#print axioms PruneGInvariance.applyPerm_isometry
+#print axioms PruneGInvariance.partner_involution
+#print axioms PruneGInvariance.sum_perm
+#print axioms PruneGInvariance.transitions_mapP

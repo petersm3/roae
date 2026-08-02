@@ -169,9 +169,9 @@ public documentation, so the suite's `#print axioms` claims are OBSERVED rather 
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
 `native_decide` (compiler trust) is load-bearing and the docs must say so. -/
-#print axioms psi_involution
-#print axioms psi_g5_iso
-#print axioms psi_comm_perms
-#print axioms q6_two_common_neighbors
-#print axioms rigidity_forced_identity
-#print axioms partnerCommuters_eq_G48
+#print axioms SymmetryCompleteness.psi_involution
+#print axioms SymmetryCompleteness.psi_g5_iso
+#print axioms SymmetryCompleteness.psi_comm_perms
+#print axioms SymmetryCompleteness.q6_two_common_neighbors
+#print axioms SymmetryCompleteness.rigidity_forced_identity
+#print axioms SymmetryCompleteness.partnerCommuters_eq_G48
