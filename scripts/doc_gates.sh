@@ -4978,6 +4978,12 @@ PY
 #       or only inside another assertion's mutation string, satisfies it. That is not
 #       hypothetical: this gate's own second fire-proof failed for exactly that reason on
 #       its first run and had to assemble its substitute label from fragments.
+#       AND THE BLIND SPOT HAD AN INSTANCE IN THIS GATE'S OWN FIRST ROW SET, found by the
+#       row-by-row audit in round 8 (item A3): `scratch_appendonly` declared the label of a
+#       real assert_fires_why that mutates the live repo and never calls it. Shipped with
+#       the gate at 6d93ed5, green the whole time, re-pointed 2026-08-02. The audit's full
+#       classification of all 10 rows — and why the cheap mechanical rule cannot ship as a
+#       blanket FAIL — is in the table's caveat (1).
 #   (b) --selftest region only. Helpers inside gate bodies are gate implementation and are
 #       covered by the gates' own fire-proofs.
 #   (c) It cannot rank proofs. `assert_fires_why`'s anchor-moved branch is exercised by
@@ -5180,8 +5186,15 @@ for lineno, flags, pat in guards:
 
 if not bad:
     unprov = sum(1 for n in defined if rows[n][0] == "NOT-PROVEN-IN-HARNESS")
-    print("  [ok] %d instrument(s) in the --selftest region, all declared; %d proven by a"
-          " named assertion, %d declared unprovable in-harness"
+    # WORDED DOWN 2026-08-02 (round 8, item A3). This read "%d proven by a named assertion",
+    # which is the over-claim caveat (1) of the table exists to deny — and the audit that
+    # round found one of these rows naming a real assertion that never calls its function
+    # (scratch_appendonly, misdeclared since GATE 15 shipped at 6d93ed5). A gate whose own
+    # pass line claims more than its check performs is the false attestation this suite is
+    # for, so it now says what it did: the label was found.
+    print("  [ok] %d instrument(s) in the --selftest region, all declared; %d name an"
+          " assertion whose label EXISTS (caveat 1: existing is not exercising),"
+          " %d declared unprovable in-harness"
           % (len(defined), len(defined) - unprov, unprov))
     print("  [ok] %d copy-confirmation guard(s) all anchored at line start, so none can be"
           " satisfied by the fire-proof's own source text (item A2)" % len(guards))

@@ -25,6 +25,24 @@
 #       but unrelated label passes. This is bookkeeping with a spell-check, not a coverage
 #       prover, and calling it more than that would be the false clear it was written to
 #       prevent.
+#       THE BLIND SPOT IS NOT EMPTY — MEASURED 2026-08-02 (round 8, item A3), row by row,
+#       because "d7 was unclassified for weeks and was found only because it was named".
+#       Of the 10 rows: 1 declared unprovable; 5 proven BY INVOCATION (the label is the
+#       first quoted argument of a call to the declared function itself — assert_fires_why,
+#       assert_stays_clean_why, assert_gen_fires, assert_gen_clean, assert_gen_fires_only);
+#       3 proven BY A BLOCK that calls the function and echoes the label a line or two later
+#       (_selftest_revert, _g13, _gsrc); and 1 MISDECLARED — scratch_appendonly, fixed in
+#       the row below. So the surface is 10 rows and the defect rate on it was 1 in 9.
+#       WHAT THAT MEASUREMENT SAYS TO ANYONE BUILDING THE STRONGER FORM: the cheap
+#       mechanical rule ("the label must be the declared function's own call-site label")
+#       would have caught this instance, but it would ALSO flag those 3 block-proven rows,
+#       which are legitimate. So the rule cannot ship as a blanket FAIL on the current
+#       corpus, and the honest options are a call-graph/`bash -x` reachability check (item
+#       A3's own suggestion) or a declared proof-KIND per row. Measured, not guessed —
+#       the same discipline that rejected a coverage-ratio floor for GATE 4b.
+#       WHAT THIS AUDIT CANNOT SEE: it was taken by hand, by reading each label's context.
+#       It would not catch a row whose label sits in a block that LOOKS like it calls the
+#       function but reaches it only on a branch that never runs. Nothing here re-runs.
 #   (2) It covers the --selftest region only. Helper functions in gate bodies (check_pair
 #       inside gate_cli, the _norm/_cmp family inside assert_gen_fires) are out of scope:
 #       they are gate implementation, and the gates have their own fire-proofs.
@@ -50,7 +68,7 @@ _selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable
 _selftest_release	NOT-PROVEN-IN-HARNESS	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label.
 assert_fires_why	GATE 3 retracted phrasing	The only fire helper since round 8 (2026-08-02): the exit-code-only `assert_fires` was deleted and its six callers converted here, so every fire-proof in this harness now fails unless the WHY line names the injected thing, and every one is visible to GATE 16's preflight-collision scan. NOT exercised: its own anchor-moved branch.
 assert_stays_clean_why	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	SIX negative controls depend on it, not four — the count in this note was wrong from the day it was written and no machine reads a note (caveat 4). Renamed from assert_stays_clean 2026-08-02 (round 8, item A1's residue) when it gained an evidence-ERE: it had asserted on rc 0 alone, which cannot tell an exemption that ran from a leg that never looked. Its failing direction is proven in-harness by the PROBE beside the GATE 3b control. NOT exercised: its anchor-moved branch.
-scratch_appendonly	GATE 10b vs history (a line of the OLDEST committed version deleted)	Builds the scratch worktree GATE 10b's history legs mutate.
+scratch_appendonly	GATE 10b vs a COMMITTED removal (working copy == HEAD)	Builds the throwaway repo GATE 10b's two scratch legs need; the other caller is "GATE 10b vs an AMEND that drops a PUBLISHED line". RE-POINTED 2026-08-02 (round 8, item A3) — this row named "GATE 10b vs history (a line of the OLDEST committed version deleted)" from the day GATE 15 shipped (6d93ed5). That is a REAL assertion and GATE 15 passed on it, but it is an assert_fires_why that mutates the live repo and never calls this function, whose callers were labelled a commit earlier (b8959db). Delete both real callers and the old row still passed: caveat (1) below, with a measured instance in GATE 15's own first row set.
 _g13	GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records	One-line wrapper that pins DOC_GATE_REVROW_RANGE for GATE 13's batch legs; both the fire leg and its negative control go through it.
 assert_gen_fires	GATE 8 deletion from a shipped artifact	GATE 8's shared-regeneration mutation harness. Four legs (deletion, substitution, PDF, outright delete) share one roae.py regeneration, which is why GATE 8 is affordable to mutation-test at all.
 assert_gen_clean	GATE 8 comma-grouped Monte Carlo figure is not a difference	GATE 8's negative control: proves the digit-stripping normaliser is not swallowing the whole comparison.
