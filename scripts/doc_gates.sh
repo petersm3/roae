@@ -235,8 +235,15 @@ require_final_newline() {
 # census dropped it as NARRATIVE, the same class as this file's own `:119`/`:5563` drift
 # notes. That call is defensible and this re-census does NOT overturn it — but the narrative
 # cases elsewhere say IN THE SENTENCE that the number is historical, and this one does not,
-# while its cited line today lands in symmetry_phase3()'s stdin parser. Cited by CONTENT,
-# because a solve.c line number written here would drift the moment #67's cycle runs.
+# while the line it cites has drifted clean out of every function: today that line is the
+# BLANK one between the `SymEntry` typedef and symmetry_phase3()'s leading doc comment, inside
+# no function body at all. (This sentence first read "lands in symmetry_phase3()'s stdin
+# parser" — off by a function boundary, written the same hour, in the block about stale
+# pointers, and caught only because round 12 drain-2 sampled the claim rather than reading it.
+# The true fact is the STRONGER one for the argument here, which is why the correction earns
+# its lines.) Cited by CONTENT throughout — a solve.c line number written into this file would
+# itself drift the moment #67's cycle runs, and the number quoted above is a QUOTE of the stale
+# comment's own text, not a pointer this file is making.
 # The first draft of THIS BLOCK cited three of its own form-2 sites by line, and inserting
 # the block moved all three by 22 — the census demonstrated on the census, caught by the
 # Phase-4 pass and not by any gate. That is the argument for the convention, in one line.
