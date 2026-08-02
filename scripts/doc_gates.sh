@@ -3835,13 +3835,21 @@ open(p,'w',encoding='utf-8').write(s.replace(a, row+old+chr(9), 1))"
   # A ROW MAY NOT DOWNGRADE ITS OWN KIND. Without this direction the claims column is an
   # opt-out: any row failing the INVOCATION check could relabel itself BLOCK and go green,
   # which is the ratchet every report-only gate in this file has had to argue about.
+  #
+  # THE ANCHOR CARRIES THE ROW KEY, and it did not on this leg's first run. Anchored on the
+  # claims field alone (`kind=INVOCATION callers=2`) it matched TWO rows — scratch_appendonly
+  # and assert_gen_fires_only both have two callers — and the `count(a)==1` guard refused to
+  # inject and reported PASS=1. That is the guard working: a fire-proof that had silently
+  # mutated whichever row came first would have been asserting about a row nobody chose.
   assert_fires_why "GATE 15 LEG 3 a row downgrading INVOCATION to BLOCK" instruments \
     'declares kind=BLOCK for scratch_appendonly\(\), but the INVOCATION form holds' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
-a=chr(9)+'kind='+'INVOCATION callers=2'+chr(9)
+a=('scratch_appendonly'+chr(9)+'GATE 10b vs a COMMITTED removal (working copy == HEAD)'
+   +chr(9)+'kind='+'INVOCATION callers=2'+chr(9))
 assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
-open(p,'w',encoding='utf-8').write(s.replace(a, chr(9)+'kind=BLOCK callers=2'+chr(9), 1))"
+open(p,'w',encoding='utf-8').write(s.replace(a, a.replace(
+    'kind=INVOCATION callers=2', 'kind=BLOCK callers=2'), 1))"
 
   # THE CALLERS COUNT IS CHECKED, WHICH IS THE HALF OF CAVEAT (4) A MACHINE CAN HOLD TRUE.
   # The row that motivated caveat (4) said "four callers" against six and no gate noticed for
