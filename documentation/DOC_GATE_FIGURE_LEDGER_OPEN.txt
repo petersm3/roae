@@ -10,11 +10,18 @@
 # WHY THE FILE EXISTS AT ALL. GATE 11 has proven since it was written that every row of
 # RETRACTED_PHRASES.tsv reaches CORRECTIONS.md. RETRACTED_FIGURES.tsv had no such partner,
 # so a figure could be registered, gated by GATE 3b, and never recorded — the quieter half
-# of the failure GATE 11 exists for (round-5 item A5). Writing the eleven missing ledger
+# of the failure GATE 11 exists for (round-5 item A5). Writing the SEVEN missing ledger
 # entries is an adjudication, not a gate change: each one is a published correction that has
 # to be classified C1/C2/C3 and written by hand. Shipping the gate WITHOUT that adjudication
 # and with the backlog listed here is strictly better than shipping neither: a figure
 # registered from today on FAILS unless it is either recorded or deliberately listed below.
+#   COUNT CORRECTED 2026-08-02 (ledger unit, round-5 close). This paragraph shipped saying
+#   "the ELEVEN missing ledger entries". Eleven is the size of RETRACTED_FIGURES.tsv, not the
+#   size of the backlog: four of those rows ARE recorded (CX-20, CX-19 twice, CX-07), the gate
+#   prints "4 recorded, 7 open", and this file holds SEVEN rows. The number was carried over
+#   from the deferral note that framed the work as "adjudicating every registry row", and it
+#   overstated the remaining work by 57%. RETRACTED_FIGURES.tsv item 4 already said SEVEN, so
+#   the two files disagreed with each other from the day both were written.
 #
 # WHAT THE GATE KEYS ON, and why it is not the figure string. `1.4σ` and `≈10×` both OCCUR
 # in CORRECTIONS.md — inside CX-19's "How it was found" paragraph, as examples of
