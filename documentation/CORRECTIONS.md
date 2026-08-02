@@ -567,6 +567,10 @@ those two responses.
   the round-4 C7 sweep permanent (`scripts/doc_gates.sh retract-figures`). This is the one
   occurrence in the suite that C7's method could NOT have seen: that sweep read *quoted spans*
   inside correction rows, and here the figure is not in quotes.
+- **Scope of that "one occurrence" claim** (tightened in the same batch's Phase-4 pass, before
+  push): GATE 3b's registry is **hand-seeded and currently holds nine figures**, so the claim is
+  "the only such occurrence among those nine", not "the only one in the suite". A retracted figure
+  nobody registers is invisible to the gate, which discovers nothing on its own.
 - **Why the gate has no changelog exemption:** GATE 3 exempts a revision row so a changelog can
   narrate old wording. Had GATE 3b inherited that rule it would have been structurally blind to
   this defect, which lives inside a revision row. Exempting a *construction* is the same mistake as

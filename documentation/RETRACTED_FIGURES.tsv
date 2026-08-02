@@ -31,6 +31,25 @@
 # registered on the part that is never marked up ("1.4σ").
 #
 # ADD A ROW EVERY TIME A PUBLISHED NUMBER IS RESTATED, not only when a claim is withdrawn.
+#
+# WHAT GATE 3b CANNOT SEE — stated here rather than left to be rediscovered, because a gate's
+# green banner is read as coverage and these are the places it is not:
+#   1. IT DISCOVERS NOTHING. The registry is hand-seeded. A figure retracted and never
+#      registered is invisible, and the gate cannot tell an empty registry from a clean corpus.
+#      The nine rows below were seeded by walking every `| vN.N |` revision row in reports/ for
+#      a quoted numeral and reading each one; that pass is repeatable but it is not automatic.
+#   2. FIXED STRINGS ONLY. A re-rounded or re-notated restatement does not match: "2.0σ" is
+#      registered, "2σ" and "2.00σ" are not, and "2σ" occurs legitimately in TR-2 as the name of
+#      the pre-committed gate — so tightening this one would need the meta-mention machinery
+#      before it could be safe.
+#   3. THE ANCHOR IS SAME-LINE. Where a supersession clause is in the same paragraph but on the
+#      next line (TR-9's draft-stage note), the allowlist row has to say so in prose.
+#   4. NO LEDGER-COMPLETENESS CHECK. GATE 11 requires every RETRACTED_PHRASES.tsv row to be
+#      recorded in CORRECTIONS.md. There is no equivalent for this registry; a figure can be
+#      registered here and never recorded in the ledger. That is a real gap, and it is filed
+#      rather than fixed because closing it means adjudicating nine ledger entries.
+#   5. MARKDOWN ONLY. `git ls-files '*.md'`. Figures rendered into images are GATE 6's problem
+#      for phrases and are ungated entirely for statistics.
 
 1.4σ	TR-2 v1.19 (2026-08-01) withdrew it as unreconstructible; v1.23 (2026-08-02) restored the comparison as 0.57σ BELOW under the file's stated convention |Δ|/sqrt(SE1²+SE2²). 1.4 came from dividing by the raw between-seed SD and omitting the Phase-1 run's own ±16.7%.
 2.0σ	TR-2 v1.19: the convergence-gate summary quoted the derived-CI cross-path gate as 2.0σ while the body reported 1.9σ; v1.23's convention reproduces it as 1.92. Against a pre-committed 2σ gate the retracted value read as sitting AT the gate rather than inside it.

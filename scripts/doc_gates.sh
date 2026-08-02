@@ -241,11 +241,12 @@ for m in mds:
     lines = text.split('\n')
     flat = ' '.join(text.split())          # line-break evasion check, GATE 3's lesson (a)
     for fig, note in figs:
-        seen_on_a_line = False
+        n_online = 0
         for i, line in enumerate(lines, 1):
             if fig not in line:
                 continue
-            seen_on_a_line = True
+            n_online += line.count(fig)     # OCCURRENCES, not lines: TR-2:650 carries
+                                            # "1.4σ" twice and would otherwise look short
             # MARK EVERY MATCHING ROW USED, not just the first (fixed on this gate's
             # first run, before it shipped). Two anchors can legitimately land on one
             # line: TR-2 v1.23 quotes v1.19's "not reconstructible from the stated
@@ -266,7 +267,24 @@ for m in mds:
         # single line carries it and the anchor rule cannot be applied. Report it as a
         # finding rather than passing it: this is exactly the evasion that hid the
         # conflict-theorem scope from GATE 3 until 2026-08-01.
-        if not seen_on_a_line and fig in flat:
+        #
+        # COUNT-based, not "did any line carry it" (tightened in this batch's own Phase-4
+        # pass). The first cut asked `if not seen_on_a_line`, which meant a file with one
+        # ordinary occurrence AND one wrapped occurrence reported only the ordinary one —
+        # the wrapped copy, i.e. the harder-to-see one, was masked by the easy one. flat
+        # collapses runs of whitespace to a single space, so a figure whose own internal
+        # spacing is already single is counted identically on both sides.
+        #
+        # And the count is of OCCURRENCES, not of matching lines. The first version of this
+        # comparison counted lines, so a line carrying the figure twice (TR-2:650 does) read
+        # as one and the file reported a phantom hard wrap. Caught by this batch's own
+        # Phase-4 pass, three false [FAIL]s, before it shipped.
+        #
+        # Residual, stated: a figure containing a space ("marginal 4.6") that is written with
+        # a DOUBLE space on some line is collapsed by flat and not by line.count, so it would
+        # be reported as wrapped. That direction over-reports rather than misses, which is the
+        # direction a retraction gate should err in.
+        if flat.count(fig) > n_online:
             spans.append((m, fig, note))
 
 for m, i, fig, note, line in bad:
