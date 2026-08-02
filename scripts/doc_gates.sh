@@ -13,14 +13,15 @@
 #   scripts/doc_gates.sh numbers    # cross-file numeric consistency (long integers)
 #   scripts/doc_gates.sh cli        # CLI flags live in code but absent from the CLI docs
 #   scripts/doc_gates.sh retract    # retracted phrasings that still survive in the corpus
-#   scripts/doc_gates.sh links      # internal markdown links + #anchors that do not resolve
+#   scripts/doc_gates.sh links      # GATE 4 + 4b: internal markdown links/#anchors, then section refs
+#   scripts/doc_gates.sh secrefs    # GATE 4b ALONE — plain-text `FILE.md §"..."` references (self-test target)
 #   scripts/doc_gates.sh status     # canonical quantities whose exact/estimate status drifted
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
 #   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
 #   scripts/doc_gates.sh banner     # the TR banner is byte-identical across every report + index-aligned
 #   scripts/doc_gates.sh appendonly # documentation/CORRECTIONS.md has lost no committed line
 #   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row is recorded in CORRECTIONS.md
-#   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~90s; NOT in `all`)
+#   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
 #   scripts/doc_gates.sh all        # run all ten cheap gates (1-7, 9, 10, 11); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
@@ -220,6 +221,12 @@ sys.exit(1 if bad else 0)
 PY
   rc=$?
 
+  return $rc
+}
+
+# ----------------------------------------------------------------------------------
+gate_secrefs() {
+  local rc=0
   # -- GATE 4b (added 2026-08-01, unit r70-serialize) --------------------------------
   # The half of a cross-reference that phase 1 CANNOT see. A pointer like
   #     [CRITIQUE.md](../documentation/CRITIQUE.md) Q1
@@ -245,6 +252,15 @@ PY
   # WHY-IT-FIRED: every finding prints the target file it resolved to and the reason,
   # not just a verdict — and allowlisted entries are re-printed every run as [OPEN]
   # with a count, so the known-dangling set can never quietly become invisible.
+  #
+  # OWN DISPATCH NAME (`secrefs`, added 2026-08-02, item A3). 4b used to live inside
+  # gate_links, and the self-test asserted on `doc_gates.sh links` — one exit code
+  # covering BOTH phases. A phase-1 failure for any unrelated reason would have satisfied
+  # that assertion with 4b never having fired: [ok] printed for a gate that was not
+  # exercised, which is precisely the untested-test shape this file's header warns about
+  # (and the shape GATE 8's manual fire-proof shipped in). `links` still runs both, so
+  # `all` and every existing caller are unchanged; the SELF-TEST now targets `secrefs`,
+  # whose exit code no other gate can supply.
   echo "== GATE 4b: plain-text section references resolve to a real heading =="
   python3 - <<'PY'
 import os, re, sys, subprocess
@@ -334,6 +350,14 @@ if not bad:
 sys.exit(1 if bad else 0)
 PY
   [ $? -ne 0 ] && rc=1
+  return $rc
+}
+
+# `links` keeps running BOTH phases, so `all` and every existing caller are unchanged.
+gate_links_and_secrefs() {
+  local rc=0
+  gate_links   || rc=1
+  gate_secrefs || rc=1
   return $rc
 }
 
@@ -804,7 +828,15 @@ open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FI
   # If this assertion ever passes-through, the extension has stopped seeing the one
   # class it was written for. The quoted form §\"...\" was verified by the same
   # method when the gate was written.
-  assert_fires "GATE 4b dangling section ref" documentation/GUIDE.md links \
+  #
+  # DISPATCH (corrected 2026-08-02, item A3): this used to run `links`, which is GATE 4
+  # AND 4b behind one exit code — so a phase-1 failure for any unrelated reason would
+  # have satisfied the assertion with 4b never fired, printing [ok] for an unexercised
+  # gate. It now runs `secrefs`, which is 4b alone; no other gate can supply that
+  # exit code. (Compensated manually once, with phase 1 verified green by hand — a
+  # by-hand guarantee the permanent assertion did not carry, which is the same shape as
+  # GATE 8's hand-taken fire-proof going stale across a refactor.)
+  assert_fires "GATE 4b dangling section ref" documentation/GUIDE.md secrefs \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CRITIQUE.md) Q7).\n')"
 
@@ -898,18 +930,101 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
          git checkout -- documentation/GUIDE.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 5 — could not append"
 
-  # THE COVERAGE GAP, STATED IN FULL. Two gates are not mutation-tested here, and until
-  # 2026-08-02 this note named only one of them at a time -- it said "GATE 2 + GATE 5" and
+  # =========================================================================
+  # GATE 8 — THREE mutation cases, ONE regeneration (added 2026-08-02, item A1).
+  #
+  # WHY THIS IS HERE AT ALL. GATE 8's fire-proof was taken BY HAND at df4ddc9. Its
+  # invocation was rewritten hours later at 91129a4 and the proof was never re-run —
+  # which is exactly how a ONE-DIRECTIONAL comparison shipped and attested "matches
+  # exactly" over a DELETED line (b0ee2f8). A hand-taken proof is not a proof of the
+  # code that ships; only an assertion that re-runs is.
+  #
+  # WHY IT ASSERTS ON THE EVIDENCE, NOT THE EXIT CODE. The bug it exists to catch —
+  # comparing in one direction only — still exits non-zero on a SUBSTITUTION, because a
+  # substitution leaves an added line behind as well. An exit-code assertion would have
+  # passed on the broken gate. Each case therefore names the exact counted verdict
+  # GATE 8 must print, so "0 added, 1 missing" (deletion, the direction that was
+  # missing) is asserted as a number and cannot be satisfied by any other finding.
+  #
+  # THE COST, AND WHAT PAYS IT. Each GATE 8 invocation regenerates example/ from
+  # roae.py — three runs, ~45 s each, so three naive cases would cost ~7 minutes. They
+  # share ONE regeneration through DOC_GATES_GEN_CACHE, keyed on roae.py's sha256:
+  # measured 135 s for the first case and 0.08 s for each of the others.
+  GEN_CACHE=$(mktemp -d)
+
+  # assert_gen_fires <label> <evidence-ERE> <python-mutation>
+  #   <evidence-ERE> must match a line of GATE 8's output.
+  assert_gen_fires() {
+    local label="$1" want="$2" mut="$3" out rc
+    python3 -c "$mut" || { echo "  [SKIP] $label — could not inject (anchor moved)"; return; }
+    out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
+    git checkout -- . 2>/dev/null
+    if [ "$rc" -eq 0 ]; then
+      echo "  [FAIL] $label — GATE 8 did NOT fire on an injected defect"
+      PASS=1; return
+    fi
+    if printf '%s\n' "$out" | grep -Eq -- "$want"; then
+      echo "  [ok]   $label — GATE 8 fires, and WHY matches: $want"
+    else
+      echo "  [FAIL] $label — GATE 8 fired, but not for the asserted reason"
+      echo "         expected a line matching: $want"
+      printf '%s\n' "$out" | grep -E '\[FAIL\]' | head -3 | sed 's/^/           got > /'
+      PASS=1
+    fi
+  }
+
+  # CASE 1 — DELETION, the direction the shipped comparison could not see, in the exact
+  # shape of the 2026-08-01 demonstration: remove the nuclear-attractor line from
+  # example/report.txt. 0 added / 1 missing is the whole point — a `comm -13`-only gate
+  # scores 0 added and reports [ok].
+  assert_gen_fires "GATE 8 deletion from a shipped artifact" \
+'example/report\.txt vs roae\.py --all: 0 added, 1 missing' \
+"p='example/report.txt'
+L=open(p,encoding='utf-8').read().split(chr(10))
+h=[i for i,x in enumerate(L) if 'terminal attractor' in x]
+assert len(h)==1, 'anchor moved'
+del L[h[0]]
+open(p,'w',encoding='utf-8').write(chr(10).join(L))"
+
+  # CASE 2 — SUBSTITUTION, the shape of defect (a): example/README.md was a hand-edited
+  # copy of report.md differing by one word. One letter, in a line roae.py prints
+  # UNCONDITIONALLY (print_complements' static preamble), so the case cannot be flaked by
+  # a Monte Carlo verdict landing in a different branch.
+  assert_gen_fires "GATE 8 one-word substitution in a shipped artifact" \
+'example/README\.md vs roae\.py --markdown: 1 added, 1 missing' \
+"p='example/README.md'
+a=\"is an organizing feature of the sequence's structure\"
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved'
+open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
+
+  # CASE 3 — the PDF leg (item A2), which has no other proof. Mutating report.html trips
+  # leg 4 as well, so the assertion targets leg 5's OWN verdict line: proof that the
+  # pdftotext/tag-strip comparison ran and disagreed, not merely that the gate went red
+  # for some earlier reason.
+  assert_gen_fires "GATE 8 PDF no longer renders the shipped HTML" \
+'example/report\.pdf vs example/report\.html: 1 line\(s\) only in the PDF, 1 only in the HTML' \
+"p='example/report.html'
+a=\"is an organizing feature of the sequence's structure\"
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved'
+open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
+
+  rm -rf "$GEN_CACHE"
+
+  # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
+  # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
-  # tests for, so the list is now enumerated against the assert_fires calls above:
-  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 9 x2, 10 (+negative control), 11
+  # tests for, so the list is enumerated against the assert_fires calls above:
+  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 8 x3, 9 x2, 10 (+negative
+  #            control), 11
   #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
   #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
-  #                8 -- excluded by COST, not by risk: it regenerates example/ (~90s) and
-  #                     is not in `all` either. It was hand-proven to fire on a one-word
-  #                     hand-edit when written (df4ddc9); that proof is not re-run here.
-  echo "  [note] not mutation-tested: GATE 2 (would mutate solve.py) and GATE 8 (~90s"
-  echo "         regeneration, excluded by cost). Both have been observed to fire."
+  # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
+  # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
+  # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
+  # shared cache makes the marginal case free regardless.
+  echo "  [note] not mutation-tested: GATE 2 (would mutate solve.py). It has FIRED in anger."
 
   git checkout -- . 2>/dev/null
   echo
@@ -939,7 +1054,38 @@ fi
 # gate would be turned off within a day. Stripping digits compares the PROSE and
 # the structure, which is where hand-edits live. Numeric drift is gate 1's job.
 #
-# Cost ~45s, so this is NOT part of `all`. Run it before publishing.
+# COVERAGE, stated exactly (extended 2026-08-02, item A2). Until then the gate covered
+# report.txt, report.md and README.md only — example/report.html and example/report.pdf
+# were shipped generator-derived artifacts with NO generator-match check of any kind,
+# and report.html is the file that was hand-patched in dbba77d. Both are now covered,
+# by two DIFFERENT strategies, because a PDF cannot be line-diffed:
+#
+#   report.html  -> compared against a fresh `roae.py --html` (like-for-like, same as
+#                   the other three: digit-stripped line diff, both directions).
+#   report.pdf   -> compared against the SHIPPED example/report.html, by extracting the
+#                   PDF's text with pdftotext and the HTML's text by tag-stripping, then
+#                   comparing the two as MULTISETS of digit-stripped lines.
+#
+# The PDF leg deliberately does NOT regenerate. wkhtmltopdf(report.html) is the ONLY
+# route by which report.pdf is produced (roae.py's export_html shells out to it), so
+# "the PDF's text equals the shipped HTML's text" is exactly the derivation invariant,
+# and checking it against the shipped HTML costs nothing and is deterministic. The
+# chain closes: generator -> html (leg 4) -> pdf (leg 5). Regenerating a PDF and
+# diffing it would instead compare two renderings whose page breaks move whenever a
+# Monte Carlo figure changes width — a gate that fails for reasons nobody can act on.
+# MEASURED before shipping: on the artifacts as committed the two bags differ by
+# exactly ZERO lines once <title>/<style>/<script> are stripped.
+#
+# Cost: three roae.py runs (~45 s each, measured 2026-08-02 at 31 MB peak RSS), so this
+# is NOT part of `all`. Run it before publishing. See DOC_GATES_GEN_CACHE below for how
+# the self-test pays that cost ONCE across multiple invocations.
+#
+# DOC_GATES_GEN_CACHE (added 2026-08-02, item A1): a caller may name a directory to hold
+# the regenerated reference artifacts. If it already holds a complete set generated from
+# the CURRENT roae.py, it is reused instead of regenerating. This exists so the self-test
+# can run several mutation cases for one regeneration; it is opt-in precisely because a
+# silently-reused stale cache would be a false clear, and it self-invalidates on the only
+# input that can change the answer — roae.py's own sha256.
 gate_generated() {
   echo "== GATE 8: generated artifacts match their generator =="
   # Compare LIKE FOR LIKE. The first draft diffed every artifact against `--all`
@@ -951,22 +1097,41 @@ gate_generated() {
   # Digit-stripped: roae.py seeds nothing by default, so Monte Carlo figures
   # legitimately change every run. Stripping digits compares PROSE and structure,
   # which is where hand-edits live. Numeric drift is gate 1's business.
-  local tmp rc=0
-  tmp=$(mktemp -d) || return 1
-  command -v python3 >/dev/null 2>&1 || { echo "  [skip] no python3"; rm -rf "$tmp"; return 0; }
+  local tmp rc=0 owned=0 cur_sha
+  command -v python3 >/dev/null 2>&1 || { echo "  [skip] no python3"; return 0; }
+  cur_sha=$(sha256sum roae.py 2>/dev/null | cut -d' ' -f1)
 
-  # `--markdown` is run WITHOUT `--all` and from inside $tmp, because that is what the
-  # generator actually does: roae.py's main() short-circuits on args.markdown (returns
-  # before the --all dispatch), and export_markdown() opens report.md in the CWD.
-  # Spelling it "--all --markdown > file" is the recipe that corrupted example/ once
-  # already; the gate should not model it. (Function names, not line numbers, on
-  # purpose — a recorded line number is the thing that drifts, cf. the GATE 5 allowlist.)
-  echo "  regenerating (~90s, unseeded): --all to stdout, then --markdown into a temp dir"
-  if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
-    echo "  [FAIL] the generator itself did not run cleanly"; rm -rf "$tmp"; return 1
+  if [ -n "${DOC_GATES_GEN_CACHE:-}" ]; then
+    tmp="$DOC_GATES_GEN_CACHE"; mkdir -p "$tmp" || return 1
+  else
+    tmp=$(mktemp -d) || return 1; owned=1
   fi
-  ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 )
-  [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; rm -rf "$tmp"; return 0; }
+
+  # Reuse only if the cache is COMPLETE and was built from THIS roae.py. A cache keyed on
+  # nothing would turn a stale directory into a false clear — the failure mode this whole
+  # suite exists to stop — so the key is the generator's own sha256, the only input that
+  # can change what the reference should be.
+  if [ -s "$tmp/fresh.txt" ] && [ -s "$tmp/report.md" ] && [ -s "$tmp/report.html" ] \
+     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$cur_sha" ]; then
+    echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… unchanged)"
+  else
+    # `--markdown` and `--html` are run WITHOUT `--all` and from inside $tmp, because that
+    # is what the generator actually does: roae.py's main() short-circuits on args.markdown
+    # (returns before the --all dispatch), and export_markdown()/export_html() open their
+    # files in the CWD. Spelling it "--all --markdown > file" is the recipe that corrupted
+    # example/ once already; the gate should not model it. (Function names, not line
+    # numbers, on purpose — a recorded line number is the thing that drifts, cf. the
+    # GATE 5 allowlist.)
+    echo "  regenerating (3 runs, ~45s each, unseeded): --all to stdout, then --markdown and --html into a temp dir"
+    rm -f "$tmp/.roae_sha"
+    if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
+      echo "  [FAIL] the generator itself did not run cleanly"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
+    fi
+    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 )
+    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html     >/dev/null 2>&1 )
+    [ -n "$cur_sha" ] && printf '%s\n' "$cur_sha" > "$tmp/.roae_sha"
+  fi
+  [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 0; }
 
   _norm() { sed 's/[0-9]//g; s/[[:space:]]\+/ /g' "$1" | grep -v '^ *$' | sort; }
   # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
@@ -1000,10 +1165,64 @@ gate_generated() {
       return 1
     fi
   }
-  _cmp example/report.txt "$tmp/fresh.txt"  "roae.py --all"      || rc=1
-  _cmp example/report.md  "$tmp/report.md"  "roae.py --markdown" || rc=1
-  _cmp example/README.md  "$tmp/report.md"  "roae.py --markdown" || rc=1
-  rm -rf "$tmp"
+  _cmp example/report.txt  "$tmp/fresh.txt"   "roae.py --all"      || rc=1
+  _cmp example/report.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
+  _cmp example/README.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
+  if [ -f "$tmp/report.html" ]; then
+    _cmp example/report.html "$tmp/report.html" "roae.py --html"    || rc=1
+  else
+    echo "  [skip] --html produced no report.html"
+  fi
+
+  # LEG 5 — example/report.pdf is the wkhtmltopdf rendering of example/report.html.
+  # No regeneration: see the header. Multiset (not sorted-diff) comparison, because
+  # pdftotext reflows page-by-page and the ORDER of identical lines carries no
+  # information here; what a hand-edit changes is WHICH lines exist.
+  _cmp_pdf() {   # <pdf> <html>
+    [ -f "$1" ] || { echo "  [skip] $1 absent"; return 0; }
+    [ -f "$2" ] || { echo "  [skip] $2 absent"; return 0; }
+    command -v pdftotext >/dev/null 2>&1 || { echo "  [skip] no pdftotext — $1 not checked"; return 0; }
+    python3 - "$1" "$2" <<'PY'
+import collections, html, re, subprocess, sys, tempfile, os
+pdf, htm = sys.argv[1], sys.argv[2]
+with tempfile.TemporaryDirectory() as d:
+    txt = os.path.join(d, 'p.txt')
+    if subprocess.run(['pdftotext', '-layout', pdf, txt],
+                      capture_output=True).returncode != 0:
+        print(f"  [skip] pdftotext could not read {pdf}"); sys.exit(0)
+    pdftext = open(txt, encoding='utf-8', errors='replace').read()
+h = open(htm, encoding='utf-8', errors='replace').read()
+for tag in ('style', 'script', 'title'):     # <title> duplicates the <h1>; not body text
+    h = re.sub(r'(?s)<%s\b.*?</%s>' % (tag, tag), '', h)
+# `</?[A-Za-z!]` and NOT `<[^>]+>`: roae.py emits unescaped "<->" inside <pre>, and the
+# permissive pattern eats it — which silently made 69 lines look mismatched while the
+# artifacts were in fact identical (measured 2026-08-02 while designing this leg).
+h = html.unescape(re.sub(r'</?[A-Za-z!][^>]*>', '', h))
+def bag(t):
+    c = collections.Counter()
+    for ln in t.splitlines():
+        ln = re.sub(r'\s+', ' ', re.sub(r'[0-9]', '', ln)).strip()
+        if ln: c[ln] += 1
+    return c
+P, H = bag(pdftext), bag(h)
+only_p, only_h = P - H, H - P
+if not only_p and not only_h:
+    print(f"  [ok]   {pdf} is the rendering of {htm} "
+          f"({sum(H.values())} normalised lines, both directions)")
+    sys.exit(0)
+print(f"  [FAIL] {pdf} vs {htm}: {sum(only_p.values())} line(s) only in the PDF, "
+      f"{sum(only_h.values())} only in the HTML")
+for x, n in list(only_p.items())[:3]: print(f"           +pdf-only  ({n}) > {x[:100]}")
+for x, n in list(only_h.items())[:3]: print(f"           -html-only ({n}) > {x[:100]}")
+print("         The PDF's ONLY production route is wkhtmltopdf(report.html) via roae.py's")
+print("         export_html, so a difference means one of the two was edited by hand.")
+print("         Fix roae.py, then: ( cd example && python3 ../roae.py --html )")
+sys.exit(1)
+PY
+  }
+  _cmp_pdf example/report.pdf example/report.html || rc=1
+
+  [ "$owned" = 1 ] && rm -rf "$tmp"
   return "$rc"
 }
 
@@ -1095,7 +1314,8 @@ case "$MODE" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
-  links)   gate_links   || RC=1 ;;
+  links)   gate_links_and_secrefs || RC=1 ;;
+  secrefs) gate_secrefs || RC=1 ;;
   status)  gate_status  || RC=1 ;;
   figures) gate_figures || RC=1 ;;
   liveness) gate_liveness || RC=1 ;;
@@ -1104,13 +1324,13 @@ case "$MODE" in
   appendonly) gate_appendonly || RC=1 ;;
   ledger)  gate_ledger  || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
-           echo; gate_links || RC=1; echo; gate_status || RC=1
+           echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
            echo; gate_figures || RC=1
            echo; gate_liveness || RC=1
            echo; gate_banner || RC=1
            echo; gate_appendonly || RC=1
            echo; gate_ledger || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|banner|appendonly|ledger|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|secrefs|status|figures|liveness|banner|appendonly|ledger|generated|all}"; exit 2 ;;
 esac
 
 echo
