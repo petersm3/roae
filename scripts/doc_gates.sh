@@ -1617,8 +1617,9 @@ os.remove('example/report.pdf')"
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assert_fires calls above:
-  #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output), 5b (output),
-  #            6 x2, 7 x2, 8 x4, 9 x2, 10a (+negative control), 10b x3, 11
+  #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
+  #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
+  #            5b (output), 6 x2, 7 x2, 8 x4, 9 x2, 10a (+negative control), 10b x3, 11
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
   #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x4, 11. GATES 1, 5 and 5b are report-only and
   #            already assert on output. GATES 4, 9, 10a/10b are structural, not
