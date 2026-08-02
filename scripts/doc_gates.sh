@@ -137,8 +137,16 @@ gate_retract() {
       if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
-        if git grep -F -n -- "$np" -- "$f" 2>/dev/null | grep -qvE ':[0-9]+:\| v[0-9]'; then
-          hits="$hits $f"
+        # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
+        # reader re-run the search by hand to find out what the gate saw; with the registry
+        # holding morphology-independent STEMS, the surviving sentence often does not read
+        # like the registry row, so "which phrase matched" is a real question. Cite the first
+        # line that is NOT a changelog row — the same line the condition below turns on.
+        local hitln
+        hitln=$(git grep -F -n -- "$np" -- "$f" 2>/dev/null | grep -vE ':[0-9]+:\| v[0-9]' \
+                | head -1 | cut -d: -f2)
+        if [ -n "$hitln" ]; then
+          hits="$hits $f:$hitln"
         elif ! git grep -qF -- "$np" -- "$f" 2>/dev/null; then
           hits="$hits $f(spans-lines)"                  # only visible after normalisation
         fi
@@ -146,7 +154,7 @@ gate_retract() {
     done
     if [ -n "$hits" ]; then
       echo "  [FAIL] retracted phrasing still present: \"$phrase\""
-      echo "         ($note)"
+      echo "         matched as the fixed string: \"$np\"   ($note)"
       for h in $hits; do echo "      $h"; done
       bad=1
     else
@@ -384,7 +392,7 @@ EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
 EX  = r'\bexact|\bproven|\bproved'
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
          .stdout.split()]
-seen = 0; bad = 0
+seen = 0; bad = 0; hits = set()   # hits: which registry rows actually occur in the corpus
 for f in files:
     for ln, line in enumerate(open(f, encoding='utf-8', errors='replace').read().splitlines(), 1):
         for val, want in rows:
@@ -393,16 +401,28 @@ for f in files:
             elif val not in line:
                 continue
             seen += 1
-            he, hx = bool(re.search(EST, line, re.I)), bool(re.search(EX, line, re.I))
+            hits.add(val)
+            etoks = sorted(set(t.lower() for t in re.findall(EST, line, re.I)))
+            xtoks = sorted(set(t.lower() for t in re.findall(EX, line, re.I)))
+            he, hx = bool(etoks), bool(xtoks)
             conflict = (want == 'exact' and he and not hx) or (want == 'estimate' and hx and not he)
             if conflict:
                 if f"{f}:{ln}" in allowed: continue
                 if any(a in line for _, a in anchored.get(f, ())): continue
-                print(f"  [WARN] {f}:{ln} — {val[:28]} is '{want}' in METHODS but this line reads otherwise")
+                # RECORD WHICH QUANTITY AND WHICH TOKEN (2026-08-02, #65). "this line reads
+                # otherwise" made the reader re-run the classifier by eye to find the word that
+                # tripped it — and on a report-only gate, an unexplained WARN is one nobody
+                # actions. Name the registry value, its METHODS status, and the exact status
+                # token(s) matched on the wrong side.
+                got = ", ".join(f'"{t}"' for t in (xtoks if want == 'estimate' else etoks))
+                side = 'exact/proven' if want == 'estimate' else 'estimate'
+                print(f"  [WARN] {f}:{ln} — quantity {val[:28]} is '{want}' in METHODS, but this line "
+                      f"carries {side} token(s) {got} and no '{want}' marker")
                 print(f"         {line.strip()[:170]}")
                 bad += 1
 if bad == 0:
-    print(f"  [ok] {seen} occurrences of {len(rows)} canonical quantities all carry a consistent status")
+    print(f"  [ok] {seen} occurrences of {len(hits)}/{len(rows)} canonical quantities "
+          f"all carry a consistent status")
 else:
     print(f"  (report-only: if a hit is a legitimate exact-vs-estimate COMPARISON, add its 'file:line' to {allow})")
 # Audit the allowlist itself. A suppression that no longer corresponds to real text is a
@@ -513,7 +533,9 @@ bad = 0
 # could then have said "the 1120T run" and passed. Require a sha in the vicinity.
 reg = open('documentation/CANONICAL_HASHES.md', errors='replace').read()
 REACHED = set()
+MENTIONED = set()          # appears in the registry at all — but appearing is not attesting
 for m in re.finditer(r'\b([0-9.]+T)\b', reg):
+    MENTIONED.add(m.group(1))
     window = reg[max(0, m.start() - 600): m.end() + 600]
     if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
         REACHED.add(m.group(1))
@@ -542,8 +564,19 @@ for f in files:
         if any(d in para for d in DISPO):
             continue                      # disposition is stated nearby
         ln = text[:m.start()].count('\n') + 1
-        print(f"  [FINDING] {f}:{ln} — \"{m.group(0)}\" names a run after {m.group(1)}, which is")
-        print(f"            not a budget any canonical reached, with no disposition nearby")
+        # SAY WHY IT IS NOT ATTESTED (2026-08-02, #65). "not a budget any canonical reached"
+        # states the verdict but hides the test, and the two ways of failing that test need
+        # different fixes: a budget absent from the registry may be a typo or an invented run,
+        # while one PRESENT but sha-less is the 1120T shape — a real number quoted from a
+        # projection sentence and then written up as though it had been run. Operator rule:
+        # completion is attested by a sha256 in CANONICAL_HASHES.md, nothing weaker.
+        why = ("appears in documentation/CANONICAL_HASHES.md but with no sha256 within +/-600 "
+               "chars of any mention — mentioned is not attested"
+               if m.group(1) in MENTIONED else
+               "does not appear in documentation/CANONICAL_HASHES.md at all")
+        print(f"  [FINDING] {f}:{ln} — \"{m.group(0)}\" names a run after budget {m.group(1)}, which")
+        print(f"            {why}, and no disposition is stated nearby.")
+        print(f"            sha-attested budgets: {', '.join(sorted(REACHED)) or '(none)'}")
         bad = 1
 if not bad:
     print("  [ok] no frozen run status; every budget-named run carries a disposition")
