@@ -102,6 +102,39 @@ The log captures regressions too: see the `#71 C2 lookahead` entry for the
 canonical "instructive loss" example. Failed experiments are first-class
 records, not omissions.
 
+### Git hooks — opt-in, and they must be installed by hand
+
+Hooks live in `.git/hooks`, which git does not track, so **cloning this repo
+does not install them.** Each one ships as a script under `scripts/` and is
+linked into place:
+
+```sh
+ln -s ../../scripts/pre_push_compile_gate.sh      .git/hooks/pre-push
+ln -s ../../scripts/pre_commit_generated_gate.sh  .git/hooks/pre-commit
+chmod +x .git/hooks/pre-push .git/hooks/pre-commit
+```
+
+| hook | script | blocks on |
+|---|---|---|
+| `pre-push` | `pre_push_compile_gate.sh` | `solve.c` missing/empty, gcc non-zero, or `--selftest` not producing sha `403f7202…` |
+| `pre-commit` | `pre_commit_generated_gate.sh` | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
+
+Both fail **closed**: a false stop costs one retry, a false pass ships a
+compile error or a hand-edited artifact into the published record. Neither has
+a private `SKIP=1` escape hatch, because an env-var bypass is how a gate
+quietly stops running — `git push --no-verify` / `git commit --no-verify`
+already exist and leave the decision visible in shell history.
+
+The pre-commit gate exists because hand-editing generated output has happened
+**three times** (`example/report.html` at `dbba77d` was caught by the operator,
+not by a gate). `doc_gates.sh` could always detect it; nothing forced it to
+run. **Read its header before trusting it** — for `report.txt`, `report.md` and
+`README.md` the underlying gate compares non-numeric lines only, because
+`roae.py` seeds nothing by default, so a hand-edited *digit* in
+`example/report.txt` is still caught by nothing. Closing that hole means
+shipping `example/` generated with `--seed`; that changes published artifacts
+and is an operator decision.
+
 ### Build reproducibility — toolchain manifest and cross-build verification
 
 A reproducible-from-the-same-binary sha is not the same as a reproducible-from-the-same-commit sha. The 2026-05-12 investigation
