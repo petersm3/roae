@@ -162,6 +162,29 @@ require_final_newline() {
 # file placed anywhere else, or given another extension, is outside it. And it addresses ONE
 # way a reader silently drops a row; a `while read` without `-r`, or with unset IFS, mangles
 # rows it does not drop, and nothing here looks for that.
+#
+# ITEM A9 — THE OTHER SUPPORT-FILE HAZARD, MEASURED AND DELIBERATELY NOT GATED (2026-08-02).
+# A9 asked for an instrument against PROSE COUNTS in support-file headers going stale, after
+# DOC_GATE_FIGURE_LEDGER_OPEN.txt shipped saying "the ELEVEN missing ledger entries" over a
+# file holding SEVEN rows while its sibling RETRACTED_FIGURES.tsv already said seven
+# (corrected at `c737858`). All six DOC_GATE_*.txt files and all four .tsv registries were
+# swept for header numbers that are snapshots of a live measurement. FOUR exist:
+#   documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt:20-24  "4 recorded, 7 open ... holds SEVEN
+#       rows"  — three coupled counts; correct today (7 rows, 11 registry rows verified)
+#   documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt:21     "64 of 127 ... and 0 of those"
+#   documentation/DOC_GATE_FIGURE_ALLOWLIST.txt:27       "There are none today."
+#   documentation/RETRACTED_FIGURES.tsv:26-27            '"+1.6" matches twelve places'
+# Of the four, exactly ONE restates a number a gate recomputes on every run. The other three
+# are one-off corpus measurements that nothing recalculates, so a "does the stated count
+# match the computed one" gate has a live corpus of one — and would have to find its number
+# by regex over free prose that also contains dates, gate numbers, version strings, line
+# numbers and ratios. That is the shape drain-1 measured and rejected for GATE 4b's coverage
+# floor on the same day: an instrument whose false-positive rate exceeds its yield.
+# NOT SHIPPED, therefore, and the choice among (i) a computed-vs-stated [note], (ii) a
+# convention that support-file counts are written "as of <date>", and (iii) nothing, on the
+# grounds that headers are commentary, is left open with this measurement attached to it.
+# The four sites above are the whole surface; anyone taking the decision does not have to
+# re-derive it.
 preflight_support_newlines() {
   local f bad=0
   for f in $(git ls-files 'documentation/DOC_GATE_*.txt' 'documentation/*.tsv' 2>/dev/null); do
@@ -3534,6 +3557,36 @@ PY
 #     BOTH WERE RUN, not reasoned (2026-08-02). Duplicating CX-07's heading line at EOF:
 #     "[ok] no committed line removed or reworded (2 line(s) appended since HEAD)", rc 0.
 #     Inserting a fresh bullet three lines INTO CX-07: same [ok], rc 0.
+#
+# ITEM A8 — THE MEASUREMENT A PER-ENTRY BOUNDARY RULE TURNS ON (2026-08-02). The proposal
+# was "no insertion between an entry's own heading and the next heading". Before deciding,
+# the question was measured over ALL 8 commits that have ever touched this file, comparing
+# each CX entry's line block in parent and child:
+#     121 entry-blocks unchanged
+#       0 rewordings or removals inside a committed entry   <- GATE 10 is holding
+#       1 mid-entry insertion: `2533bc89` added a bullet at offset 16 of CX-20's 30 lines
+# SO THE RULE IS NOT FREE. That single insertion is legitimate and is the kind of edit this
+# suite should want: a Phase-4 pass tightening its own "only such occurrence" claim to "the
+# only one among the nine registered figures", added to the entry it qualifies, before push.
+# A blanket boundary rule forbids it and pushes the qualification into a NEW entry that
+# readers of CX-20 would never see.
+#
+# THREE OPTIONS, and the third did not exist when the item was filed: (a) forbid mid-entry
+# insertion outright — costs the case above; (b) report-only [note] — cheap, no policy
+# change; (c) forbid it only for entries that are ALREADY ON origin/main, which permits
+# same-session tightening and still refuses to rewrite a published entry. (c) is the same
+# published-vs-local distinction GATE 10b already draws against history, so the machinery
+# exists. Which one applies is a closure call on a published append-only ledger and is
+# deliberately NOT taken here.
+#
+# HOW THE MEASUREMENT WAS ARRIVED AT, because the number is only trustworthy with this
+# attached: the first two versions of that checker were WRONG in the same direction. Both
+# ended an entry at "the next `### CX-` heading or EOF", so the file's LAST entry absorbed
+# everything after it — the trailing `<a id="gates"></a>` anchor and a whole following
+# section — and every ordinary append to the file read as "an existing entry grew" or "an
+# existing entry was reworded". v1 reported 4 mid-entry changes and v2 reported 2
+# rewordings; both were artifacts, and GATE 10 would have had to be failing for either to
+# be real. Only ending a block at the next heading OF ANY LEVEL gives the numbers above.
 gate_appendonly_head() {
   echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
   local f="documentation/CORRECTIONS.md"
