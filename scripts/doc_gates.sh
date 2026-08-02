@@ -4332,12 +4332,19 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            AS OF 2026-08-02 (item A1's residue, round 8) THIS LIST IS EVERY ASSERTION IN
   #            THE HARNESS: the last exit-code-only helper, assert_stays_clean, became
   #            assert_stays_clean_why and its negative controls each carry an evidence-ERE
-  #            (the count was written as "six" and is now stale; see that helper's header —
-  #            callers=N in DOC_GATE_SELFTEST_INSTRUMENTS.txt is the only number a machine reads)
-  #            measured under their own mutation. Only ONE of the six (GATE 3b's, whose census
-  #            moves 44 -> 45) proves the injection was READ; two pin a count the control's own
-  #            defect would move; three pin only that the leg ran. Recorded at each call site,
-  #            because "all six assert WHY" would otherwise read as six equal proofs.
+  #            measured under their own mutation. THE STRENGTH TALLY IS NOT RESTATED HERE and
+  #            the count of callers is not either — see assert_stays_clean_why's own header for
+  #            the tally, and the machine-read `callers=N` on its row in
+  #            DOC_GATE_SELFTEST_INSTRUMENTS.txt for the count. This sentence used to carry both
+  #            ("only ONE of the six ... two ... three pin only that the leg ran") and round 9
+  #            item B9 falsified every number in it in one commit (4e7fb94): four are now
+  #            measured discriminators, three pin a count the control's own defect would move,
+  #            and NONE pins only that the leg ran. Round 9 item B2 then marked the TOTAL stale
+  #            here but left the 1/2/3 breakdown standing, so this file stated two contradictory
+  #            tallies until the ledger unit read both. Strength is recorded AT EACH CALL SITE,
+  #            because "they all assert WHY" would otherwise read as equal proofs; a second copy
+  #            of the distribution in this inventory is a copy that nothing reads and nothing
+  #            updates. That is caveat (4)'s class applied to this comment itself.
   #   plus 1 PROBE beside the GATE 3b control (round 8 drain-3) that exercises the FAILING
   #            direction of assert_stays_clean_why — the only leg here expected to fail, run in
   #            a command substitution so its PASS=1 cannot escape, and asserted on the evidence
