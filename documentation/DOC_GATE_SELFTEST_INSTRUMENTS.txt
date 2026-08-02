@@ -40,12 +40,16 @@
 #   (4) A row's PROSE is not read by anything, only its key and its label. The `_gsrc` row
 #       named a function deleted by a rename for a whole round and this gate was silent;
 #       the `assert_fires` row (deleted 2026-08-02, round 8, with the helper) said
-#       "Exercised by four callers" while six called it. Treat every note here as a claim
-#       to re-verify, not as a measurement.
+#       "Exercised by four callers" while six called it. THE SAME ERROR WAS LIVE IN THE ROW
+#       BELOW IT on the same day — `assert_stays_clean` said "Four negative controls depend
+#       on it" with six callers at `scripts/doc_gates.sh` (counted, not remembered). So this
+#       caveat has three instances, two of them the identical off-by-two in adjacent rows,
+#       which is the strongest available argument that the prose column is decoration until
+#       something reads it. Treat every note here as a claim to re-verify, not a measurement.
 _selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise.
 _selftest_release	NOT-PROVEN-IN-HARNESS	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label.
 assert_fires_why	GATE 3 retracted phrasing	The only fire helper since round 8 (2026-08-02): the exit-code-only `assert_fires` was deleted and its six callers converted here, so every fire-proof in this harness now fails unless the WHY line names the injected thing, and every one is visible to GATE 16's preflight-collision scan. NOT exercised: its own anchor-moved branch.
-assert_stays_clean	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	Four negative controls depend on it. NOT exercised: its anchor-moved branch.
+assert_stays_clean_why	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	SIX negative controls depend on it, not four — the count in this note was wrong from the day it was written and no machine reads a note (caveat 4). Renamed from assert_stays_clean 2026-08-02 (round 8, item A1's residue) when it gained an evidence-ERE: it had asserted on rc 0 alone, which cannot tell an exemption that ran from a leg that never looked. Its failing direction is proven in-harness by the PROBE beside the GATE 3b control. NOT exercised: its anchor-moved branch.
 scratch_appendonly	GATE 10b vs history (a line of the OLDEST committed version deleted)	Builds the scratch worktree GATE 10b's history legs mutate.
 _g13	GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records	One-line wrapper that pins DOC_GATE_REVROW_RANGE for GATE 13's batch legs; both the fire leg and its negative control go through it.
 assert_gen_fires	GATE 8 deletion from a shipped artifact	GATE 8's shared-regeneration mutation harness. Four legs (deletion, substitution, PDF, outright delete) share one roae.py regeneration, which is why GATE 8 is affordable to mutation-test at all.

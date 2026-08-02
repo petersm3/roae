@@ -2082,29 +2082,59 @@ if [ "${1:-}" = "--selftest" ]; then
     fi
   }
 
-  # assert_stays_clean <label> <gate-name> <python-mutation>
+  # assert_stays_clean_why <label> <gate-name> <evidence-ERE> <python-mutation>
   #
   # The other half of any gate that EXEMPTS or COMPARES: proof that the silence is driven by
   # what it claims to be driven by. Without it, a green gate is equally consistent with "the
   # exemption is correct" and "the exemption swallows the whole file".
   #
   # ITS [ok] MESSAGE NAMED THE WRONG MECHANISM until 2026-08-02 (item A3's review). It read
-  # "exempted, as the ALLOWLIST says it should be" for all callers, and only two of the four
+  # "exempted, as the ALLOWLIST says it should be" for all callers, and only two of the six
   # involve an allowlist: GATE 12's draft-label exemption is SUFFIX-keyed, and GATE 2's
   # negative control is a comm(1) comparison with no allowlist anywhere in it. A message that
   # attributes a verdict to a mechanism that was not consulted is a small false attestation of
   # exactly the kind this file exists to refuse, so it now says only what it knows.
-  assert_stays_clean() {
-    local label="$1" gate="$2" mut="$3"
+  #
+  # THE EVIDENCE ARGUMENT (item A1's residue, round 8 drain-3, 2026-08-02). This helper
+  # asserted on rc 0 ALONE until now, which is the negative-control mirror of the defect that
+  # deleted `assert_fires`: an exit code cannot tell "the gate looked at the injected case and
+  # correctly stayed silent" from "the gate never looked at it", and it cannot tell either
+  # from "the leg that would have looked was skipped". All three exit 0. The mutation is
+  # reverted immediately afterwards, so nothing downstream ever notices which of the three
+  # happened. It must now also match an ERE on the gate's OWN OUTPUT — a line that a run which
+  # never reached the mutated file could not print.
+  #
+  # STRENGTH VARIES BY CALLER AND IS RECORDED AT EACH CALL, because a uniform claim here would
+  # be the over-attestation this file exists to refuse. Only ONE of the six EREs is a
+  # measured DISCRIMINATOR — GATE 3b's meta-mention count moves 44 -> 45 under its own
+  # mutation, so matching 45 proves the injected line was read AND exempted. Two more pin a
+  # COUNT that the defect the control is about would move (GATE 14's adjudicated-pair count,
+  # GATE 15's instrument count). The remaining three pin only that the relevant LEG RAN. Every
+  # one is strictly stronger than rc 0; none of the last three proves the injection was seen.
+  #
+  # NOT SCANNED BY GATE 16, and that is a reasoned exemption rather than an oversight: a
+  # preflight-emittable ERE cannot produce a false [ok] here, because both preflights set
+  # RC=1 (`scripts/doc_gates.sh:5490,5495`), so a firing preflight fails this assertion at the
+  # rc test before the ERE is consulted at all. See GATE 16's caveat (a).
+  assert_stays_clean_why() {
+    local label="$1" gate="$2" want="$3" mut="$4" out rc
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
                            PASS=1; _selftest_revert; return; }
-    if bash "$0" "$gate" >/dev/null 2>&1; then
-      echo "  [ok]   $label — stays green, which is what this case asserts"
-    else
+    out=$(bash "$0" "$gate" 2>&1); rc=$?
+    _selftest_revert
+    if [ "$rc" -ne 0 ]; then
       echo "  [FAIL] $label — $gate fired on a case it is supposed to leave alone"
+      PASS=1; return
+    fi
+    if printf '%s' "$out" | grep -qE -- "$want"; then
+      echo "  [ok]   $label — stays green, and its output names: $want"
+    else
+      echo "  [FAIL] $label — $gate stayed green, but its output never names \"$want\","
+      echo "         so this assertion cannot tell an exemption that ran from a leg that"
+      echo "         never looked. If the corpus moved a pinned COUNT, re-take the number"
+      echo "         from a real run under this mutation; do not weaken the ERE."
       PASS=1
     fi
-    _selftest_revert
   }
 
   echo "== DOC GATES SELF-TEST (mutation) =="
@@ -2251,7 +2281,13 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
   # consistent with "the gate compares code against doc" and with "the gate fails on any
   # flag name it has not seen before". Adding the SAME flag to both sides must leave it
   # silent; if this one ever fires, the comparison has stopped being a comparison.
-  assert_stays_clean "GATE 2 — a flag added to BOTH solve.py and its CLI doc stays silent" cli \
+  # EVIDENCE (round 8 drain-3): `solve.py fully documented` is GATE 2's per-file pass line, so
+  # a green run that never reached the solve.py<->SOLVE_PY_CLI.md comparison cannot print it.
+  # STRENGTH, stated: this pins that the LEG RAN. It does NOT prove the injected flag was
+  # compared — GATE 2's clean output carries no count, so nothing in it moves when the
+  # injection is seen. Measured under this very mutation, not read off the clean run.
+  assert_stays_clean_why "GATE 2 — a flag added to BOTH solve.py and its CLI doc stays silent" cli \
+    'solve\.py fully documented' \
 "p='solve.py'
 a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
 s=open(p,encoding='utf-8').read()
@@ -2285,7 +2321,8 @@ assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
 n='    parser.add_argument(\"--doc-gates-fireproof-cmt\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
 open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
 
-  assert_stays_clean "GATE 2 (A4) the SAME declaration commented out is not a flag" cli \
+  assert_stays_clean_why "GATE 2 (A4) the SAME declaration commented out is not a flag" cli \
+    'solve\.py fully documented' \
 "p='solve.py'
 a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
 s=open(p,encoding='utf-8').read()
@@ -2326,11 +2363,63 @@ open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at marginal\n4.6 
   # Same file as an existing allowlist row, same figure, and the row's anchor text present:
   # this must NOT fire. Without it, the [ok] above is equally consistent with the allowlist
   # having quietly exempted reports/evidence/ wholesale.
-  assert_stays_clean "GATE 3b negative control — an anchored narration is exempt" \
-    retract-figures \
+  # EVIDENCE (round 8 drain-3) — THE ONE MEASURED DISCRIMINATOR IN THE SIX. GATE 3b prints its
+  # allowlisted-narration census, and that census MOVES when this injection is read: clean it
+  # says `(1 historical, 44 meta-mention)`, under this mutation `45`. Both numbers were taken
+  # from real runs in a scratch clone. So matching 45 proves the injected line was SEEN and
+  # then EXEMPTED, which is the whole content of the claim; rc 0 alone is equally consistent
+  # with the file having dropped out of the 79-file scan entirely.
+  # DELIBERATELY COUNT-PINNED: if the corpus gains an allowlisted narration this FAILS loudly
+  # and the number must be re-measured under the mutation. A range ERE would restore exactly
+  # the blindness this argument is about.
+  assert_stays_clean_why "GATE 3b negative control — an anchored narration is exempt" \
+    retract-figures '45 meta-mention' \
 "p='reports/evidence/r11/README.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')"
+
+  # FIRE-PROOF OF THE EVIDENCE HALF ITSELF (round 8 drain-3, item A1's residue). The six
+  # negative controls above now claim to assert more than an exit code. Nothing above proves
+  # that claim: all six are expected to pass, so all six would look identical if the ERE test
+  # were inert — an `if` that never fails is exactly the shape GATE 8's one-directional
+  # comparison had, and it survived because its fire-proof was taken by hand and never re-run.
+  # So the failing direction runs here, every run.
+  #
+  # IT IS THE MOTIVATING DEFECT, NOT A STYLISED ONE. Same gate, same mutation, same green
+  # run — scored against `44`, the census a run that NEVER READ the injected line prints.
+  # That is precisely the state the corpus would be in if reports/evidence/r11/README.md were
+  # renamed out of the 79-file scan: rc 0, [ok] under the old helper, and a negative control
+  # that had silently stopped controlling anything.
+  #
+  # THE ASSERTION IS ON THE MESSAGE, NOT ON [FAIL]. A [FAIL] alone would also be produced by
+  # the rc branch ("fired on a case it is supposed to leave alone"), so grepping for [FAIL]
+  # would let a gate that broke for an unrelated reason stand in for the proof. It matches the
+  # evidence branch's own sentence instead.
+  #
+  # PASS IS NOT CLOBBERED because the call runs inside a command substitution: the helper's
+  # `PASS=1` dies with the subshell, while its `_selftest_revert` acts on the real tree and
+  # persists. The expected [FAIL] text is captured, never printed.
+  #
+  # 44 AND 45 MOVE TOGETHER. Both come from the same pair of runs; if the corpus gains an
+  # allowlisted narration, the live assertion above FAILS loudly and BOTH numbers must be
+  # re-taken from real runs — the probe's number is the clean census, the assertion's is the
+  # census under the mutation.
+  _asc_probe=$(assert_stays_clean_why \
+    "PROBE (expected to FAIL) — a green run scored against the census of a run that never read the injection" \
+    retract-figures '44 meta-mention' \
+"p='reports/evidence/r11/README.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')")
+  if printf '%s' "$_asc_probe" | grep -q 'stayed green, but its output never names'; then
+    echo "  [ok]   assert_stays_clean_why — a gate that stays green WITHOUT printing the"
+    echo "         evidence line is a FAIL, so all six negative controls assert more than rc 0"
+  else
+    echo "  [FAIL] assert_stays_clean_why — the evidence half is INERT. A green run that never"
+    echo "         read the injected case was accepted, so every negative control in this"
+    echo "         harness is back to asserting an exit code. Probe output:"
+    printf '%s\n' "$_asc_probe" | head -3 | sed 's/^/           > /'
+    PASS=1
+  fi
 
   # DISPATCH NOTE (item A1, round 8): `links` is gate_links_and_secrefs, i.e. GATE 4 AND
   # GATE 4b behind one exit code. This used to be an exit-code assertion and was therefore
@@ -2865,7 +2954,11 @@ os.remove(f)"
   #     `v1.0-draft` rows; a FOURTH must still be clean, and the exemption must be doing that
   #     because of the SUFFIX. Case (1) above is the other half: strip the suffix and the
   #     same duplicate is a FAIL.
-  assert_stays_clean "GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)" revhist \
+  # EVIDENCE (round 8 drain-3): the duplicate-version clause of GATE 12's own pass line. It
+  # pins that the leg which WOULD have flagged this row ran; it does not prove the injected
+  # row was parsed, since GATE 12's clean output carries no per-row count.
+  assert_stays_clean_why "GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)" revhist \
+    'no repeated released version' \
 "f='reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md'
 lines=open(f,encoding='utf-8').read().split(chr(10))
 i=[n for n,l in enumerate(lines) if l.startswith('| v1.0-draft | 2026-07-05 |')]
@@ -3471,7 +3564,12 @@ p='documentation/DOC_GATE_REGISTRY_DUPLICATES.txt'
 assert os.path.exists(p), 'anchor moved'
 os.remove(p)"
 
-  assert_stays_clean "GATE 14 a comment appended to the allowlist changes nothing" regdupes \
+  # EVIDENCE (round 8 drain-3): the adjudicated-pair count is exactly the number the defect
+  # this control is about would move — a comment line parsed as a pair makes it 2, or breaks
+  # the parse outright. Pinning `1 adjudicated pair(s), 0 new` therefore covers the failure
+  # the control names, without proving the appended line was read.
+  assert_stays_clean_why "GATE 14 a comment appended to the allowlist changes nothing" regdupes \
+    '1 adjudicated pair\(s\), 0 new' \
 "open('documentation/DOC_GATE_REGISTRY_DUPLICATES.txt','a',encoding='utf-8').write(
     '# GATE 14 negative control: a comment line must not be parsed as a pair.'+chr(10))"
 
@@ -3585,9 +3683,15 @@ open('$_G15B_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   #
   # ROW RE-POINTED 2026-08-02 (item A1, round 8): this leg used to mutate the `assert_fires`
   # row, and that helper — and therefore its row — was deleted with the item. It now mutates
-  # the `assert_stays_clean` row. The `s.count(a)==1` guard is what makes the re-point safe:
-  # had it been left pointing at a row that no longer exists, the leg would have reported
-  # "anchor moved" and PASS=1, never a quiet skip.
+  # the `assert_stays_clean_why` row. The `s.count(a)==1` guard is what makes the re-point
+  # safe: had it been left pointing at a row that no longer exists, the leg would have
+  # reported "anchor moved" and PASS=1, never a quiet skip. RE-POINTED AGAIN the same day
+  # (A1's residue, drain-3) when that helper gained its evidence argument and was renamed.
+  # AND THE RENAME COULD NOT HAVE LANDED SILENTLY EITHER WAY, which was measured rather than
+  # assumed: with the script renamed and the table row left at the old key, `doc_gates.sh
+  # instruments` FAILS first, naming assert_stays_clean_why as declared in no row. So a
+  # forgotten row key is caught by the gate before this leg's guard is even reached, and the
+  # guard is the second line, not the only one.
   #
   # THE ANCHORED LABEL IS ALSO SPLIT, and that is the item-A2 form applied one level deeper
   # than the substitute label below. The old version carried its anchor label as ONE literal,
@@ -3608,7 +3712,7 @@ open('$_G15B_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     'that label does not occur' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
-row='assert_stays_clean'+chr(9)
+row='assert_stays_clean_why'+chr(9)
 lbl='GATE 12 a repeated DRAFT label is'+' exempt (suffix-keyed, not file-keyed)'
 a=row+lbl+chr(9)
 assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
@@ -3635,7 +3739,10 @@ p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 assert os.path.exists(p), 'anchor moved'
 os.remove(p)"
 
-  assert_stays_clean "GATE 15 a comment appended to the table changes nothing" instruments \
+  # EVIDENCE (round 8 drain-3): same shape as GATE 14's — the instrument count is what a
+  # comment mis-parsed as a row would move.
+  assert_stays_clean_why "GATE 15 a comment appended to the table changes nothing" instruments \
+    '10 instrument\(s\) in the --selftest region, all declared' \
 "open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
     '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
 
@@ -3910,6 +4017,17 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            3, 3b x2, 4b, 6 x3, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
   #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
+  #            AS OF 2026-08-02 (item A1's residue, round 8) THIS LIST IS EVERY ASSERTION IN
+  #            THE HARNESS: the last exit-code-only helper, assert_stays_clean, became
+  #            assert_stays_clean_why and its six negative controls each carry an evidence-ERE
+  #            measured under their own mutation. Only ONE of the six (GATE 3b's, whose census
+  #            moves 44 -> 45) proves the injection was READ; two pin a count the control's own
+  #            defect would move; three pin only that the leg ran. Recorded at each call site,
+  #            because "all six assert WHY" would otherwise read as six equal proofs.
+  #   plus 1 PROBE beside the GATE 3b control (round 8 drain-3) that exercises the FAILING
+  #            direction of assert_stays_clean_why — the only leg here expected to fail, run in
+  #            a command substitution so its PASS=1 cannot escape, and asserted on the evidence
+  #            branch's own sentence rather than on [FAIL], which the rc branch also prints.
   #   NOW COVERED (item A3, 2026-08-02), and this entry is left in place rather than deleted
   #            because the reason it was uncovered is the useful part. It read: "Injecting a
   #            flag would mutate solve.py, a costlier revert than the assurance is worth."
@@ -5102,17 +5220,24 @@ PY
 #   (3) the expanded candidate-line set must be non-empty.
 #
 # WHAT IT CANNOT SEE, stated rather than implied:
-#   (a) `assert_stays_clean` asserts on an EXIT CODE (rc 0) and carries no ERE, so it is
-#       outside this scan. NARROWED 2026-08-02 (item A1, round 8): this note used to name
-#       assert_fires as well, and that helper's six callers have since been converted to
-#       assert_fires_why — each with an evidence-ERE taken from a real run — and the helper
-#       deleted, so those six are now INSIDE this scan. assert_gen_* were always outside it
-#       for a different and weaker reason: they do assert on an evidence-ERE, but against
-#       GATE 8's `generated` output rather than through this extractor.
-#       The residual is assert_stays_clean's direction of failure: a preflight firing turns
-#       its expected-green run RED, which surfaces as a loud [FAIL] on the negative control
-#       rather than as a false [ok]. It is still a wrong verdict for the wrong reason, and
-#       it is still not something this gate fixes.
+#   (a) `assert_stays_clean_why` and `assert_gen_*` are outside this scan. NARROWED TWICE on
+#       2026-08-02. First (item A1, round 8): this note used to name assert_fires, and that
+#       helper's six callers have since been converted to assert_fires_why — each with an
+#       evidence-ERE taken from a real run — and the helper deleted, so those six are now
+#       INSIDE this scan. Second (item A1's residue, drain-3): the note also said
+#       assert_stays_clean "asserts on an EXIT CODE (rc 0) and carries no ERE", and that is
+#       now FALSE — its six callers each carry an evidence-ERE too, and it was renamed
+#       assert_stays_clean_why to say so at the call site.
+#       IT IS STILL EXCLUDED, and now for a reasoned rather than a structural cause: a
+#       preflight-emittable ERE cannot produce a false [ok] on a negative control, because
+#       both preflights set RC=1 (lines 5490 and 5495 of this file), so a firing preflight
+#       fails that assertion at its rc test before the ERE is consulted. The collision this
+#       gate exists to refuse is a FALSE PASS; on the stays-clean side the same collision can
+#       only produce a loud [FAIL]. Extending the extractor to a second call shape would also
+#       have to keep guard (1) exact, and guard (1) is what makes this gate non-vacuous.
+#       assert_gen_* remain outside for the older and weaker reason: they do assert on an
+#       evidence-ERE, but against GATE 8's `generated` output rather than through this
+#       extractor.
 #   (b) It over-approximates the candidate files (both preflights' file lists are unioned),
 #       which is the conservative direction: it can report a collision that a real run would
 #       not produce, never miss one that it would.
