@@ -142,11 +142,17 @@ require_final_newline() {
 # quietly acting on, because acting on it would have shipped six guards against a hazard
 # those files do not have — and a guard whose motivating example is imaginary is the shape
 # this suite keeps catching elsewhere. MEASURED, each at its consumption site:
-#   DOC_GATE_FIGURE_ALLOWLIST.txt   doc_gates.sh:333 ff — python `for ln in open(...)`
-#   DOC_GATE_SECREF_ALLOWLIST.txt   doc_gates.sh:573 ff — python `for ln in open(...)`
-#   DOC_GATE_STATUS_ALLOWLIST.txt   doc_gates.sh:678 ff — python `for l in open(...)`
-#   DOC_GATE_UNMARKED_ALLOWLIST.txt doc_gates.sh:845 ff — python `for l in open(...)`
-#   DOC_GATE_NUMBER_ALLOWLIST.txt   doc_gates.sh:165    — `grep -qxF -- "$key" "$allow"`
+#   (Each row names its READER, not a line number. All five carried line numbers until
+#   2026-08-02 and ALL FIVE had drifted — by 82, 115, 140, 234 and 234 lines — in a block
+#   whose own first sentence says "MEASURED, each at its consumption site". Nothing reads a
+#   comment, so the pointers rotted silently while the measurement they cite stayed true.
+#   Round 8, drain-3, found while re-checking two line citations of its own that were stale
+#   within the hour. Names do not drift; that is the whole reason for the change.)
+#   DOC_GATE_FIGURE_ALLOWLIST.txt   gate_retract_figures, `ALLOW =` — python `for ln in open(...)`
+#   DOC_GATE_SECREF_ALLOWLIST.txt   gate_secrefs, `ALLOW  =`        — python `for ln in open(...)`
+#   DOC_GATE_STATUS_ALLOWLIST.txt   gate_status, `allow =`          — python `for l in open(...)`
+#   DOC_GATE_UNMARKED_ALLOWLIST.txt gate_status, `alw5b =` (5b)     — python `for l in open(...)`
+#   DOC_GATE_NUMBER_ALLOWLIST.txt   gate_numbers, `allow=`          — `grep -qxF -- "$key" "$allow"`
 #   CORRECTIONS_INVENTORY.tsv       no consumer in this suite at all; it is WRITTEN by
 #                                   scripts/corrections_inventory.sh, and the only documented
 #                                   reader is the `awk` recipe at CORRECTIONS.md:52
@@ -2114,8 +2120,11 @@ if [ "${1:-}" = "--selftest" ]; then
   #
   # NOT SCANNED BY GATE 16, and that is a reasoned exemption rather than an oversight: a
   # preflight-emittable ERE cannot produce a false [ok] here, because both preflights set
-  # RC=1 (`scripts/doc_gates.sh:5490,5495`), so a firing preflight fails this assertion at the
-  # rc test before the ERE is consulted at all. See GATE 16's caveat (a).
+  # RC=1 at their `preflight_tracked_docs || RC=1` / `preflight_support_newlines || RC=1` call
+  # sites, so a firing preflight fails this assertion at the rc test before the ERE is
+  # consulted at all. See GATE 16's caveat (a). (Cited by NAME, not line number: a same-file
+  # line citation drifts on every insertion above it, and both of these were stale within
+  # the hour they were written — caught by this batch's own Phase-4 pass.)
   assert_stays_clean_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
@@ -5243,7 +5252,7 @@ PY
 #       assert_stays_clean_why to say so at the call site.
 #       IT IS STILL EXCLUDED, and now for a reasoned rather than a structural cause: a
 #       preflight-emittable ERE cannot produce a false [ok] on a negative control, because
-#       both preflights set RC=1 (lines 5490 and 5495 of this file), so a firing preflight
+#       both preflights set RC=1 at their `|| RC=1` call sites below, so a firing preflight
 #       fails that assertion at its rc test before the ERE is consulted. The collision this
 #       gate exists to refuse is a FALSE PASS; on the stays-clean side the same collision can
 #       only produce a loud [FAIL]. Extending the extractor to a second call shape would also
