@@ -48,8 +48,14 @@
 #      recorded in CORRECTIONS.md. There is no equivalent for this registry; a figure can be
 #      registered here and never recorded in the ledger. That is a real gap, and it is filed
 #      rather than fixed because closing it means adjudicating nine ledger entries.
-#   5. MARKDOWN ONLY. `git ls-files '*.md'`. Figures rendered into images are GATE 6's problem
-#      for phrases and are ungated entirely for statistics.
+#   5. MARKDOWN ONLY. `git ls-files '*.md'`. Figures rendered into images are GATE 6's problem.
+#      CORRECTED 2026-08-02 (item A8): this line used to end "…and are ungated entirely for
+#      statistics". That is no longer true — GATE 6 now runs a SECOND pass over the tracked
+#      figure generators using THIS registry, so a retracted statistic annotated onto a plot
+#      fails the gate. What remains true, and is the real residual: GATE 6 greps what
+#      PRODUCES the image, never the image, so a figure hand-edited in an SVG editor or
+#      committed without its generator is still invisible. Baseline when the pass shipped:
+#      9 registered figures x 3 tracked generators = 0 hits.
 
 1.4σ	TR-2 v1.19 (2026-08-01) withdrew it as unreconstructible; v1.23 (2026-08-02) restored the comparison as 0.57σ BELOW under the file's stated convention |Δ|/sqrt(SE1²+SE2²). 1.4 came from dividing by the raw between-seed SD and omitting the Phase-1 run's own ±16.7%.
 2.0σ	TR-2 v1.19: the convergence-gate summary quoted the derived-CI cross-path gate as 2.0σ while the body reported 1.9σ; v1.23's convention reproduces it as 1.92. Against a pre-committed 2σ gate the retracted value read as sitting AT the gate rather than inside it.

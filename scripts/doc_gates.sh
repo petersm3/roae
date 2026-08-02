@@ -898,7 +898,19 @@ gate_figures() {
   # every PNG). We cannot grep the output, so we grep what PRODUCES it: the annotation
   # strings in the figure generators. Keeping generator text and figure in sync is the
   # generators' documented obligation.
+  #
+  # ITEM A8 (2026-08-02) — THE SAME BLINDNESS, FOR STATISTICS. Until now this gate read
+  # RETRACTED_PHRASES.tsv only, so a withdrawn NUMBER annotated onto a published plot —
+  # "~5,500×", "1.4σ", "+125" — was invisible everywhere: to GATE 3b (markdown only, and it
+  # says so at RETRACTED_FIGURES.tsv's item 5), to GATE 6 (phrase registry only), and to any
+  # grep of the asset itself (matplotlib renders text to glyph paths). The figure registry is
+  # now a SECOND pass over the same generators. MEASURED before shipping: all nine registered
+  # figures against the three tracked generators gives ZERO hits, so this ships with no
+  # allowlist and a clean baseline — and, unlike the markdown corpus GATE 3b policed, the
+  # legitimate-restatement problem does not arise here, because a figure generator has no
+  # changelog rows and no retraction narrations to quote.
   local reg="documentation/RETRACTED_PHRASES.tsv"
+  local figreg="documentation/RETRACTED_FIGURES.tsv"
   # ITEM A1, and this gate had the shape TWICE. (i) the registry skip, same as GATE 3.
   # (ii) the worse one: `gens` comes from `git ls-files`, an INDEX listing, so deleting
   # viz/report_figures.py from the working tree left it in `gens`, made `tr < "$f"` emit a
@@ -939,8 +951,46 @@ gate_figures() {
       bad=1
     fi
   done < "$reg"
+
+  # ---- ITEM A8: the FIGURE registry, second pass over the same generators. -------------
+  # Deliberately NOT merged into the loop above. The two registries have different column
+  # counts (3 vs 2) and their verdicts must read differently — a maintainer needs to know
+  # which registry to go and edit. Merging them would have rewritten the phrase leg's output
+  # lines, and two existing fire-proofs assert on exactly those lines: that is the GATE 8
+  # shape (an invocation rewritten under a fire-proof that was not re-run) and it is not
+  # worth fifteen lines. What IS shared is the scan itself, below.
+  local figbad=0 nfig=0
+  require_tracked "$figreg" "The figure registry is the second half of this gate; absent, no retracted STATISTIC is checked."
+  case $? in
+    2) return 1 ;;
+    1) echo "  [note] no figure registry, so retracted STATISTICS in generators are unchecked" ;;
+    0)
+      while IFS=$'\t' read -r figure fignote; do
+        case "$figure" in ''|'#'*) continue;; esac
+        nfig=$((nfig+1))
+        local nf fighits=""
+        nf=$(printf '%s' "$figure" | tr '\n' ' ' | tr -s ' ')
+        for f in $gens; do
+          if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$nf"; then
+            local fgln
+            fgln=$(grep -nF -- "$nf" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+            if [ -n "$fgln" ]; then fighits="$fighits $f:$fgln"; else fighits="$fighits $f(spans-lines)"; fi
+          fi
+        done
+        if [ -n "$fighits" ]; then
+          echo "  [FAIL] retracted FIGURE in a figure generator: \"$figure\""
+          echo "         matched as the fixed string: \"$nf\"   ($fignote)"
+          for h in $fighits; do echo "      $h  — regenerate the figure after fixing"; done
+          figbad=1
+        fi
+      done < "$figreg"
+      ;;
+  esac
+  [ "$figbad" -eq 0 ] || bad=1
+
   if [ "$bad" -eq 0 ]; then
     echo "  [ok] $(echo $gens | wc -w) figure generator(s) carry no registered retracted phrasing"
+    echo "  [ok] ...and none of the $nfig registered retracted FIGURE(s) either (item A8)"
   fi
   return $bad
 }
@@ -1618,6 +1668,30 @@ sys.exit(1) if not c else None
 s=open(c[0]).read()
 open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
 
+  # ITEM A8: the FIGURE half of GATE 6. The phrase assertions above cannot cover it — they
+  # inject a registered PHRASE, which the phrase loop would catch whether or not the figure
+  # loop exists. This injects a registered STATISTIC, which nothing in this repo could see
+  # before today: GATE 3b is markdown-only, and matplotlib renders the annotation to glyph
+  # paths. The assertion names the registry's own string so it cannot be satisfied by the
+  # phrase leg firing.
+  assert_fires_why "GATE 6 a retracted FIGURE annotated into a generator (item A8)" figures \
+    'retracted FIGURE in a figure generator: "~5,500×"' \
+"import glob,sys
+c=sorted(glob.glob('viz/*.py'))
+sys.exit(1) if not c else None
+s=open(c[0],encoding='utf-8').read()
+open(c[0],'w',encoding='utf-8').write(s+chr(10)+'# annotate(\"rarer by ~5,500× than chance\")'+chr(10))"
+
+  # ITEM A8 + A1: the figure registry's own missing-input leg. Absent registry, absent check
+  # — and the message must name THIS registry, not the phrase one, or a maintainer restores
+  # the wrong file.
+  assert_fires_why "GATE 6 (A1) figure registry deleted" figures \
+    'RETRACTED_FIGURES\.tsv is tracked in git but missing from the working tree' \
+"import os
+f='documentation/RETRACTED_FIGURES.tsv'
+assert os.path.exists(f), 'anchor moved'
+os.remove(f)"
+
   assert_fires_why "GATE 6 figure generators name the LINE, not just the file" figures \
     'viz/.*\.py:[0-9]+  — regenerate' \
 "import glob,sys
@@ -2228,12 +2302,15 @@ os.remove('documentation/GUIDE.md')"
   # tests for, so the list is enumerated against the assert_fires calls above:
   #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
-  #            5b (output), 6 x2, 7 x2, 8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
+  #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
+#            8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
   #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control)
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
-  #            11 x2, 12, and the corpus preflight x1 -- 12 assertions, all asserting WHY.
+  #            11 x2, 12, and the corpus preflight x1 -- 13 assertions, all asserting WHY.
+#            (GATE 6 now has THREE A1 legs: its registry, a deleted generator, and the
+#            FIGURE registry added with item A8.)
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
-  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
+  #            3, 3b x2, 4b, 6 x3, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
   #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
   #   NOT covered, and the distinction matters: GATE 2's FLAG-DRIFT CLASSIFIER. The A1 cases
