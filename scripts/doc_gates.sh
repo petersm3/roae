@@ -225,6 +225,18 @@ require_final_newline() {
 # both already resolvable. THE CONVENTION IS THE FIX: cite the SYMBOL and it cannot drift.
 # solve.c is excluded by the sha anchor, not by policy — it carries 5 live self-pointers
 # and all 5 are stale; they belong to the solve.c correction batch, not to a gate.
+# RE-CENSUSED 2026-08-02 (round 12, item R8) — THE FIVE-COUNT IS EXACT ONLY UNDER THE
+# PRESENT-TENSE FILTER, AND THAT FILTER WAS NEVER STATED BESIDE IT, WHICH IS THE SAME DEFECT
+# THIS BLOCK IS ABOUT. The detector is
+#   grep -nEi '\blines? +[0-9][0-9][0-9]+' solve.c
+# and it returns SIX lines, not five. The five above are the present-tense pointers. The
+# sixth is the `all_top` stack-sizing comment in the full-enum merge of main(), which reads
+# "Earlier 64*TOP_N produced a stack-buffer-overflow at line 12058": past tense, so the
+# census dropped it as NARRATIVE, the same class as this file's own `:119`/`:5563` drift
+# notes. That call is defensible and this re-census does NOT overturn it — but the narrative
+# cases elsewhere say IN THE SENTENCE that the number is historical, and this one does not,
+# while its cited line today lands in symmetry_phase3()'s stdin parser. Cited by CONTENT,
+# because a solve.c line number written here would drift the moment #67's cycle runs.
 # The first draft of THIS BLOCK cited three of its own form-2 sites by line, and inserting
 # the block moved all three by 22 — the census demonstrated on the census, caught by the
 # Phase-4 pass and not by any gate. That is the argument for the convention, in one line.
@@ -5916,6 +5928,34 @@ for lineno, flags, pat in guards:
 #          at subshell depth
 #          (`++`, not `+`), and a wrapper is called more often than it reports (one is called
 #          four times and echoes twice), so calls do NOT pair one-to-one with echoes.
+#          THE BLOCKER MOVED TO THE FIRE-PROOF, AND THAT ONE IS STRUCTURAL — MEASURED
+#          2026-08-02 (round 12 drain-1). The item's own fire-proof requirement is a report
+#          line placed in an `else` the traced run never enters. THAT MUTATION CANNOT BE MADE
+#          IN THIS WORKING TREE, and the thing that stops it is this script. Run with the
+#          tree dirty:
+#            PS4='+${LINENO}:' bash -x scripts/doc_gates.sh --selftest   ->  rc=2
+#          and the trace ends at the cleanliness test that OPENS the --selftest block — the
+#          FIRST test it makes — before a single gate runs. So the mutation dirties the tree,
+#          the trace needs --selftest, and --selftest needs a clean tree. Round 11's
+#          measurement was taken on a CLEAN tree, which is why six unit-attempts and that
+#          measurement all missed this: it proved the traced run is affordable and that it
+#          PRODUCES the observation — not that the leg can be FIRED.
+#          TWO MORE WALLS BEHIND IT, both read off this file rather than guessed: the
+#          --selftest block takes an exclusive mkdir lock and refuses a second holder, and a
+#          depth guard sits behind the lock. A leg that spawns a traced --selftest from
+#          INSIDE a running one is therefore refused, not recursed — which is a safety
+#          property, and also means the trace-PRODUCING step can never live inside --selftest.
+#          THE ROUTE THAT SURVIVES, AND IT IS NOT FREE: take the mutated traced run in a
+#          linked `git worktree`. Tracked payload ~60 MB, measured — and the measuring
+#          command is written out because a piped shorthand for it does NOT run (`du` takes
+#          arguments, not stdin), which is the defect class this suite keeps finding:
+#            git ls-files -z | xargs -0 du -cb | tail -1
+#          DELIBERATELY NOT TESTED HERE. The revert path calls `git update-ref` on
+#          refs/doc-gates/selftest-revert, which is NOT a per-worktree ref, so a worktree run
+#          would repoint the MAIN tree's recovery anchor. That is survivable — the update
+#          carries --create-reflog, so the prior snapshot still resolves through the reflog —
+#          but it is a side effect on the main tree's recovery procedure, and it should be
+#          DECIDED before it is done rather than discovered afterwards.
 #          STILL NOT BUILT, and this does not weaken the sentence below it. A dynamic
 #          call-then-echo adjacency proves both ran on ONE path, which static proximity cannot
 #          — but it still does not prove the echo's verdict is ABOUT that call, and a trace
