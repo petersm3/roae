@@ -5971,8 +5971,8 @@ def reg_d7(seq):
     The *positional* predicate below — a count over eight fixed slots — is this
     suite's own formalization and is credited as such; Drasny's group B is
     defined by hexagram structure, not by King Wen slot indices. Schulz's
-    principled xiaoxi placement rule is the separate 1/13/25 trisection
-    (reg_rs1), not this one.
+    separate xiaoxi *placement* rule is the 1/13/25 trisection (reg_rs1) — a
+    distinct row, NOT classified by this docstring; it needs its own dof count.
 
     CLASSIFICATION: DATA-LIKE — 8 borrowed degrees of freedom. b_slots below is
     verifiably a subset of King Wen's own twelve xiaoxi slots

@@ -173,7 +173,8 @@ result — see §5.)
    bit-patterns, true of every ordering, so it is not an ordering constraint and has no rarity. The
    positional predicate measured here is **this suite's own formalization**, and is classified as ours;
    Drasny's group B is defined by hexagram structure, not by King Wen slot indices. (Schulz's separate
-   xiaoxi *placement* rule — the 1/13/25 trisection — is a distinct, principled row, `rs1`.) `d7` is
+   xiaoxi *placement* rule — the 1/13/25 trisection — is a distinct row, `rs1`, and is **not** classified
+   by this entry; it needs its own dof count.) `d7` is
    retained as a measured row, not promoted, and no design inference rests on it. Full table (fraction of canonical mass; KW satisfies each at its
    measured level by construction of the threshold forms; the eight **1.0 (theorem)** entries are the
    proven C1 constants of (2) — exact by theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs
