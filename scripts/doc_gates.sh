@@ -5519,6 +5519,20 @@ for name in sorted(rows):
 #         BOTH forms, and shipping a coverage rule in the same pass that grew the population
 #         it counts is how a gate ends up proven against its own arithmetic rather than
 #         against a defect. Whoever takes it should not re-derive the 10/10 by hand.
+#         THE DEFINITION OF "BUILDER" IS RECORDED HERE BECAUSE THAT INSTRUCTION WAS NOT
+#         FOLLOWABLE WITHOUT IT (2026-08-02, unit drain-1). "Do not re-derive by hand"
+#         needs the mechanical form, and only the COUNT was written down. Reconstructing
+#         it, the obvious definition — a shell redirect `> "$_*COPY"` plus an
+#         `open('$_*COPY','w')` — returns SIX, not ten, and returns it silently: a
+#         plausible number, no error, and a coverage rule built on it would have been
+#         proven against a population missing four of its members. The four it misses
+#         write through the environment, `open(os.environ['_*COPY'],'w')`, which is the
+#         form GATE 16 LEG 2's fire-proofs use. All THREE syntaxes are the definition, and
+#         under it the split reproduces exactly: 10 builders = 2 confirmed by an anchored
+#         `grep -q…$_*COPY` within two lines (GATE 15's and GATE 17 LEG 6's — this leg's
+#         population) + 8 confirmed by an `assert` earlier in the same python program.
+#         Re-measure with those three patterns before touching the rule; if a fourth
+#         syntax lands, it will be invisible in exactly the way the third one was.
 #   (vii) It sees `grep -q` only. A confirmation written as `grep -c`, `[ -n "$(grep …)" ]`
 #         or a `case` on file contents is outside the scan. Measured 2026-08-02 (item B10):
 #         no confirmation in this region takes any of those three forms today, so (vii) is a
