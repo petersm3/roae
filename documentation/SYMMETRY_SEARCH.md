@@ -273,7 +273,7 @@ only in that both mention trigrams; neither result overlaps, duplicates, or exte
   relabeled twin is a late leaf of its own cell. Presence in a budgeted canonical therefore reflects the
   search's frame of reference, not a mathematical property of the ordering — the strongest concrete
   illustration yet of the caveat in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) §"Is finding King Wen
-  early an artifact?".
+  early then an artifact".
 - The orbit-reduction design (enumerate representatives, relabel + re-canonicalize) is specified but not
   implemented; canonical-sha implications make production adoption an explicitly gated decision.
 

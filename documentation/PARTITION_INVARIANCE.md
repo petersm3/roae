@@ -48,7 +48,7 @@ The 5.6T regression test is the strongest validation of the theorem to
 date — it explicitly verifies the `solve 0 64 == solve --branch p1 o1 × 56`
 equivalence at depth-3 partitioning with controlled per-sub-branch
 budgets via `SOLVE_PER_SUB_BRANCH_LIMIT`. See
-[`HISTORY.md`](HISTORY.md) §"April 30, 2026" for the full retrospective
+[`HISTORY.md`](HISTORY.md) §"April 29, 2026" for the full retrospective
 including the depth-2 bug that surfaced and was fixed during the test.
 
 ## 2. Proof

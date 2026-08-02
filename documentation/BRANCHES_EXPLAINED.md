@@ -271,7 +271,7 @@ C1–C5 enumerator has to increment its counter on exactly the same events,
 because the per-sub-branch node budget is the enumeration's only free
 parameter and a **13-node** difference in 63 million (2×10⁻⁷) already
 produces a valid but non-canonical sha — see
-[DEVELOPMENT.md](DEVELOPMENT.md) §"10T d3 canonical" on
+[DEVELOPMENT.md](DEVELOPMENT.md) §"Reproduce from scratch" on
 `SOLVE_PER_SUB_BRANCH_LIMIT=63146557` vs the auto-divided 63,146,544.
 
 The counter (`ts->nodes`, and the budget-bearing `ts->branch_nodes`) is

@@ -682,8 +682,33 @@ gate_secrefs() {
 import os, re, sys, subprocess
 MDLINK = re.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 HEAD   = re.compile(r'^#+\s+(.*?)\s*$', re.M)
-SEC_Q  = re.compile(r'([\w./+-]+\.md)\s*§\s*"([^"]+)"')
-SEC_N  = re.compile(r'([\w./+-]+\.md)\s+(Q\d+)\b')
+# ITEM B1 (2026-08-02, drain-2) — THE SECOND ANCHOR FORM. This repo names a block in two
+# ways, and until now the gate modelled only one. `**Global observable ledger (enterprise-wide
+# multiple comparisons).**` at reports/METHODS.md:165 is cited as METHODS.md §"Global observable
+# ledger" from five files; `**Stop-flag resolution (v1.12, 2026-07-13): …**` at
+# TR2_THE_RULES_CONFLICT.md:412 is cited from three. MEASURED, not assumed: of the 19 non-meta
+# rows on the allowlist, 10 resolve against a line-leading bold label and 2 more resolve after a
+# stale word is fixed in the citation — a majority. Rewriting twelve citations to name the
+# enclosing `##` heading instead would have made each of them point at a whole section rather
+# than the paragraph meant, so the corpus was right and the gate's model of an anchor was wrong.
+#
+# DELIBERATELY NARROW. Only a bold span that OPENS a line (after an optional blockquote marker
+# and an optional list bullet) counts. Arbitrary mid-sentence emphasis does not — the corpus is
+# full of it, and treating it as an anchor would make almost any short reference resolve. A table
+# cell (`| **x** |`) is not an anchor either: the line opens with `|`.
+#
+# WHAT THIS CANNOT SEE, stated because a widened rule is a weakened rule: heading resolution
+# already reports RESOLUTION, never IDENTITY (see the A7 block below), and bold labels are far
+# more numerous than headings, so the substring rule has more room to find a wrong match here
+# than it did before. That is why bold resolution is NOT silent — every one is printed as
+# [bold-anchor] with the label it matched, on every run, so the weaker leg is auditable instead
+# of being a clear.
+BOLD   = re.compile(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([^*][^*]*?)\*\*', re.M)
+# The trailing `` ` `` is ITEM B1's backtick leg: a path written as `` `documentation/X.md` §"…" ``
+# was invisible to this gate because \s* cannot match the closing backtick. Two references in the
+# corpus are written that way and one of them — PARTITION_STABILITY_BOUNDARIES.md:83 — is dead.
+SEC_Q  = re.compile(r'([\w./+-]+\.md)`?\s*§\s*"([^"]+)"')
+SEC_N  = re.compile(r'([\w./+-]+\.md)`?\s+(Q\d+)\b')
 ALLOW  = 'documentation/DOC_GATE_SECREF_ALLOWLIST.txt'
 
 def norm(s):
@@ -696,10 +721,11 @@ def norm(s):
     return s.strip().strip('.,;:').lower()
 
 mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True).stdout.split()
-heads, bybase = {}, {}
+heads, bolds, bybase = {}, {}, {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
     heads[os.path.realpath(m)] = [norm(h) for h in HEAD.findall(txt)]
+    bolds[os.path.realpath(m)] = [norm(b) for b in BOLD.findall(txt)]
     bybase.setdefault(os.path.basename(m), []).append(os.path.realpath(m))
 
 allow, allow_why = set(), {}
@@ -712,13 +738,34 @@ if os.path.exists(ALLOW):
             allow.add((f[0], f[1], norm(f[2])))
             allow_why[(f[0], f[1], norm(f[2]))] = f[3]
 
-bad, opened, ambiguous = [], [], []
+bad, opened, ambiguous, viabold = [], [], [], []
+hit_allow = set()
+# ITEM B1 (2026-08-02, drain-2) — TWO-LINE WINDOW. The scan was per line, so a reference a hard
+# wrap splits between `FILE.md` and its §"…" was invisible. GATE 3's hardening note (a) already
+# records that exact evasion for a different gate; this is the same hole, and MEASURED it hides
+# 15 of the corpus's 85 delimited references — 18%, none of which any run had adjudicated. Each
+# line is flattened SEPARATELY and then joined, so the boundary offset stays exact and a markdown
+# link is never mangled across the join; a match is attributed to the line it STARTS on
+# (mo.start() < boundary), which is also what stops a reference lying wholly on line i+1 from
+# being counted twice. SEC_Q is blanked with same-length spaces before the SEC_N pass for the
+# same reason — a shortening substitution would move every offset after it.
 for m in mds:
     base = os.path.dirname(m) or '.'
-    for lineno, line in enumerate(open(m, encoding='utf-8', errors='replace'), 1):
-        flat = MDLINK.sub(lambda mo: mo.group(2), line)   # [text](path) -> path
-        hits  = [(p, s) for p, s in SEC_Q.findall(flat)]
-        hits += [(p, s) for p, s in SEC_N.findall(SEC_Q.sub(' ', flat))]
+    flats = [MDLINK.sub(lambda mo: mo.group(2), ln)      # [text](path) -> path
+             for ln in open(m, encoding='utf-8', errors='replace').read().split('\n')]
+    for lineno in range(1, len(flats) + 1):
+        head = flats[lineno - 1]
+        boundary = len(head)
+        cont = ''
+        if lineno < len(flats):
+            # drop the wrap's own blockquote/bullet decoration; it is not part of the sentence
+            cont = ' ' + re.sub(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+)?', '', flats[lineno])
+        window = head + cont
+        hits  = [(mo.group(1), mo.group(2)) for mo in SEC_Q.finditer(window)
+                 if mo.start() < boundary]
+        blanked = SEC_Q.sub(lambda mo: ' ' * len(mo.group(0)), window)
+        hits += [(mo.group(1), mo.group(2)) for mo in SEC_N.finditer(blanked)
+                 if mo.start() < boundary]
         for path, sec in hits:
             if path.startswith(('http://', 'https://')):
                 continue
@@ -736,16 +783,27 @@ for m in mds:
             if not want:
                 continue
             parts = [p.strip() for p in re.split('…|\\.\\.\\.', want) if p.strip()]
-            matches = []
-            for h in heads[dest]:
-                pos, ok = 0, True
-                for p in parts:
-                    i = h.find(p, pos)
-                    if i < 0:
-                        ok = False; break
-                    pos = i + len(p)
-                if ok:
-                    matches.append(h)
+
+            def _match(anchors, parts=parts):
+                out = []
+                for h in anchors:
+                    pos, ok = 0, True
+                    for p in parts:
+                        i = h.find(p, pos)
+                        if i < 0:
+                            ok = False; break
+                        pos = i + len(p)
+                    if ok:
+                        out.append(h)
+                return out
+
+            matches = _match(heads[dest])
+            if not matches:
+                # ITEM B1 — the second anchor form. Reported, never silent: see the BOLD note.
+                bm = _match(bolds[dest])
+                if bm:
+                    viabold.append((m, lineno, os.path.relpath(dest), sec, bm[0]))
+                    continue
             if matches:
                 # ITEM A7 (2026-08-02). This gate reports RESOLUTION, never IDENTITY: a
                 # reference resolves if its text appears anywhere inside ANY heading of the
@@ -756,13 +814,31 @@ for m in mds:
                 continue
             rel = os.path.relpath(dest)
             key = (m, rel, want)
-            (opened if key in allow else bad).append((m, lineno, rel, sec, key))
+            if key in allow:
+                hit_allow.add(key)
+                opened.append((m, lineno, rel, sec, key))
+            else:
+                bad.append((m, lineno, rel, sec, key))
 
 for m, ln, d, s, key in bad:
     print(f'  [FAIL] {m}:{ln} -> {d} §"{s}"')
-    print(f'         WHY: no heading in {d} contains the normalised text "{norm(s)}"')
+    print(f'         WHY: nothing in {d} is named "{norm(s)}" — no heading and no'
+          f' line-leading bold label contains that normalised text')
 for m, ln, d, s, key in opened:
     print(f'  [OPEN] {m}:{ln} -> {d} §"{s}"  ({allow_why.get(key, "allowlisted")})')
+# ITEM B1 (2026-08-02, drain-2) — STALE ALLOWLIST ROWS ARE A FAILURE, not a tidiness issue.
+# This gate's allowlist is the record of what is KNOWN broken. A row that no longer corresponds
+# to any live finding is an exemption with nothing under it: it can be silently satisfying a
+# future reference that happens to reuse the same (source, target, section) triple, and it makes
+# the [note] count below overstate the open-defect load. Widening the anchor model in this very
+# commit retired ten rows at a stroke, which is exactly the moment such rot gets created — so
+# the check ships with the change that would otherwise have caused it.
+stale = sorted(allow - hit_allow)
+for src, tgt, want in stale:
+    print(f'  [FAIL] stale allowlist row: {src} -> {tgt} §"{want}"')
+    print(f'         WHY: that reference no longer fails, so the row exempts nothing.'
+          f' Delete it from {ALLOW} — an exemption with no finding under it is a silent'
+          f' licence for the next reference that reuses the same triple')
 # ITEM A7 (2026-08-02) — REPORT-ONLY AMBIGUITY NOTE, and why it is this and not a strength
 # floor on the match.
 #
@@ -794,13 +870,19 @@ for m, ln, d, s, hs in ambiguous:
     print(f'         not identify one section. Lengthen the reference until it does:')
     for h in hs[:4]:
         print(f'           also matches: {h}')
+for m, ln, d, s, b in viabold:
+    print(f'  [bold-anchor] {m}:{ln} -> {d} §"{s}" resolves against a line-leading bold label,')
+    print(f'         not a heading: "{b[:96]}"')
+if viabold:
+    print(f"  [note] {len(viabold)} reference(s) above resolve via the WEAKER of the two anchor "
+          f"forms; bold labels outnumber headings, so this leg is printed rather than cleared")
 if opened:
     print(f"  [note] {len(opened)} allowlisted dangling reference(s) above are OPEN DEFECTS, "
           f"not exemptions — see {ALLOW}")
-if not bad:
-    print(f"  [ok] every delimited section reference resolves to a real heading "
-          f"({len(mds)} markdown files scanned)")
-sys.exit(1 if bad else 0)
+if not bad and not stale:
+    print(f"  [ok] every delimited section reference resolves to a heading or a line-leading "
+          f"bold label ({len(mds)} markdown files scanned)")
+sys.exit(1 if (bad or stale) else 0)
 PY
   [ $? -ne 0 ] && rc=1
   return $rc
@@ -2251,8 +2333,12 @@ open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FI
   # A5/#65: also assert the WHY line, which names the target file and the normalised text
   # that failed to resolve. 4b has an allowlist, so an exit code alone cannot distinguish
   # "fired on my injection" from "fired on a pre-existing entry that fell out of the list".
+  # ERE re-anchored 2026-08-02 (item B1) because the WHY line changed when the gate learned a
+  # second anchor form: it no longer says "no heading", it says nothing is NAMED that, and the
+  # distinction is the whole point of the change. Re-proven by running --selftest after the
+  # rewrite — the exact failure mode GATE 8's stale hand-taken proof is on record for.
   assert_fires_why "GATE 4b dangling section ref" secrefs \
-    'WHY: no heading in .* contains the normalised text "q7"' \
+    'WHY: nothing in documentation/CRITIQUE\.md is named "q7"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CRITIQUE.md) Q7).\n')"
 
@@ -2287,6 +2373,66 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-t
          fi
          _selftest_revert documentation/MCKENNA.md; } \
     || { echo "  [FAIL] GATE 4b ambiguity case — could not inject; assertion did NOT run."; PASS=1; }
+
+  # ITEM B1 (2026-08-02, drain-2) — FOUR LEGS, EACH PROVEN LOAD-BEARING BY DELETING WHAT IT
+  # DEPENDS ON. Three of them widen the gate, and a widened gate is how a false clear gets
+  # built, so none of them is asserted by "the corpus is green now" — each is asserted by a
+  # mutation that must turn it red.
+
+  # LEG 1, the bold-anchor form, proven on its own motivating example and in the DIRECTION
+  # that matters. Asserting that METHODS.md §"Global observable ledger" resolves would be
+  # satisfied by a gate that resolves everything; instead the anchor's `**` markers are
+  # STRIPPED, which must break the five references that depend on them. If this ever stops
+  # firing, the bold leg has become decorative and those five are resolving some other way.
+  assert_fires_why "GATE 4b LEG 1: bold anchors are load-bearing (strip METHODS' label)" secrefs \
+    'nothing in reports/METHODS\.md is named "global observable ledger"' \
+"p='reports/METHODS.md'
+s=open(p,encoding='utf-8').read()
+a='- **Global observable ledger (enterprise-wide multiple comparisons).**'
+assert s.count(a)==1, 'anchor moved: found %d occurrences' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'- Global observable ledger (enterprise-wide multiple comparisons).',1))"
+
+  # LEG 2, the SCOPE of leg 1 — the negative control without which leg 1's [ok] is equally
+  # consistent with "any bold text anywhere is an anchor". A line-leading label is an anchor;
+  # emphasis in the middle of a sentence is not, and the corpus is full of the latter. Same
+  # bold text, same file, mid-line: this must still be reported dangling.
+  assert_fires_why "GATE 4b LEG 2: mid-line bold is NOT an anchor" secrefs \
+    'nothing in documentation/GUIDE\.md is named "frobnicate the widget xyz"' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'Prose that mentions **Frobnicate the widget xyz** part-way through a sentence.'+chr(10)+chr(10)+'See [GUIDE.md](GUIDE.md) '+chr(167)+'\"Frobnicate the widget xyz\" for that.'+chr(10))"
+
+  # LEG 3, the backtick path. Before this commit `\s*` could not cross the closing backtick,
+  # so a reference written `` `documentation/X.md` §\"...\" `` was not extracted AT ALL — not
+  # passed, not failed, invisible. One of the corpus's two was dead
+  # (PARTITION_STABILITY_BOUNDARIES.md:83, pointing at a section de3422b had relocated).
+  assert_fires_why "GATE 4b LEG 3: a backticked path no longer hides a dead reference" secrefs \
+    'nothing in documentation/CRITIQUE\.md is named "no such section zzz"' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'See \`documentation/CRITIQUE.md\` '+chr(167)+'\"no such section zzz\" for that.'+chr(10))"
+
+  # LEG 4, the two-line window. Same invisibility, different mechanism: the scan was
+  # line-at-a-time, so a hard wrap between the file name and its §\"…\" hid the reference
+  # completely. GATE 3's hardening note (a) records the identical evasion for a different
+  # gate; MEASURED here, it was hiding 15 of 85 references, one of them dead
+  # (SYMMETRY_SEARCH.md:275).
+  assert_fires_why "GATE 4b LEG 4: a hard wrap no longer hides a dead reference" secrefs \
+    'nothing in documentation/CRITIQUE\.md is named "no such wrapped section qqq"' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md)'+chr(10)+chr(167)+'\"no such wrapped section qqq\" for that.'+chr(10))"
+
+  # LEG 5, STALE ALLOWLIST ROWS. This commit retired 19 of 22 rows at once, which is exactly
+  # the moment a dead exemption gets left behind — so the check against that ships with it.
+  # The injected row exempts a reference that does not exist, which is what a row left over
+  # from a fixed defect looks like, and it must be refused rather than quietly carried.
+  assert_fires_why "GATE 4b LEG 5: an allowlist row that exempts nothing is refused" secrefs \
+    'stale allowlist row: documentation/GUIDE\.md -> documentation/CRITIQUE\.md' \
+"p='documentation/DOC_GATE_SECREF_ALLOWLIST.txt'
+s=open(p,encoding='utf-8').read()
+t=chr(9)
+open(p,'w',encoding='utf-8').write(s+'documentation/GUIDE.md'+t+'documentation/CRITIQUE.md'+t+'a section nobody cites'+t+'self-test: exempts nothing'+chr(10))"
 
   # ITEM A6 — the corpus-wide final-newline PREFLIGHT, proven on a file whose own gate does
   # NOT check it. RETRACTED_FIGURES.tsv would be the obvious target and is the wrong one:
